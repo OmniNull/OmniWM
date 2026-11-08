@@ -30,6 +30,8 @@ enum InsertPosition: Equatable {
 struct MoveConfiguration {
     var dragThreshold: CGFloat = 10.0
     var liveHoverDelay: TimeInterval = 0.2
+    var liveSlowDownWindow: TimeInterval = 0.06
+    var liveSlowDownDistance: CGFloat = 6.0
     var liveSideBySideDepth: CGFloat = 20.0
     var liveWayBackShare: CGFloat = 1.0 / 3.0
     var liveWayBackMinimum: CGFloat = 60.0
@@ -39,11 +41,16 @@ struct MoveConfiguration {
     var liveEdgeZoneMinimumWidth: CGFloat = 40.0
     var liveEdgeScrollDelay: TimeInterval = 0.3
     var liveEdgeScrollSpeed: CGFloat = 1000.0
+    var liveEdgeHops = true
+    var liveEdgeHopPause: TimeInterval = 0.1
     var liveStackSuppressDistance: CGFloat = 30.0
     var liveCentreMinimumWidth: CGFloat = 300.0
+    var liveStackLeaveOutsideShare: CGFloat = 0.4
     var liveCentreStackDelay: TimeInterval = 0.2
     var liveCentreExitMargin: CGFloat = 20.0
     var liveLandingHintShare: CGFloat = 0.05
+    var liveLandingHintSingleWindowShare: CGFloat = 0.15
+    var liveStackMinimumWindowHeight: CGFloat = 100.0
     var liveLandingHintMinimumHeight: CGFloat = 40.0
 
     static let `default` = MoveConfiguration()

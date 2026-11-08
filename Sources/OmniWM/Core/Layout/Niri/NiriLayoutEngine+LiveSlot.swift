@@ -4,12 +4,6 @@
 import CoreGraphics
 import Foundation
 
-private struct LiveSlotBounds {
-    let minX: CGFloat
-    let maxX: CGFloat
-    let next: LiveColumnMove.SlotClosing
-}
-
 private struct LiveHomePlacement {
     let move: LiveColumnMove
     let home: NiriContainer
@@ -32,122 +26,62 @@ extension NiriLayoutEngine {
     }
 
     func closeLiveSlotAroundPointer(
-        cursor: CGPoint,
         windowMidX: CGFloat,
         strip: [LiveColumnMove.StripColumn],
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> [LiveColumnMove.StripColumn]? {
-        guard let placement = liveHomePlacement(in: strip, context: context) else { return nil }
+        guard let placement = liveHomePlacement(in: strip, context: context),
+              isClosingOrigin(placement.move)
+        else { return nil }
         var move = placement.move
         let placed = placement.placed
-        if isClosingOrigin(move) {
-            move.slotClosing = .trailing
-            liveColumnMove = move
-            let span = originLiveSlotSpan(placed, slot: move.narrowedSlot, windowMidX: windowMidX, context: context)
-            return placeLiveSlot(placement, in: strip, to: span, allowsGrowth: true, context: context, state: &state)
-        }
-        guard let closing = move.slotClosing else {
-            let picksHome = placed.minX <= cursor.x && cursor.x <= placed.maxX
-            move.slotClosing = picksHome ? .pickup(x: cursor.x) : .trailing
-            move.slotLeads = picksHome ? .init(left: cursor.x - placed.minX, right: placed.maxX - cursor.x) : nil
-            liveColumnMove = move
-            return nil
-        }
-        let bounds: LiveSlotBounds
-        switch closing {
-        case let .pickup(x):
-            guard abs(cursor.x - x) > 0.5 else { return nil }
-            bounds = firstLiveSlotClosing(placed, pickupX: x, leads: move.slotLeads, cursor: cursor, context: context)
-        case let .following(edge) where move.swapCount == 0:
-            bounds = followingLiveSlotClosing(placed, edge: edge, cursor: cursor, context: context)
-        case .following,
-             .trailing:
-            bounds = trailingLiveSlotClosing(placed, leads: move.slotLeads, cursor: cursor, context: context)
-        }
-        let minX = max(placed.minX, bounds.minX)
-        let maxX = min(placed.maxX, bounds.maxX)
-        move.slotClosing = maxX - minX > liveDropSpaceWidth(context: context) + 0.5 ? bounds.next : .trailing
+        let span = originLiveSlotSpan(
+            placed,
+            slot: move.narrowedSlot,
+            windowMidX: windowMidX,
+            closedToward: move.originClosedToward,
+            strip: strip,
+            context: context
+        )
+        move.originClosedToward = span.closedToward
         liveColumnMove = move
-        return placeLiveSlot(placement, in: strip, to: (minX, maxX - minX), context: context, state: &state)
+        return placeLiveSlot(
+            placement,
+            in: strip,
+            to: (span.minX, span.width),
+            allowsGrowth: true,
+            context: context,
+            state: &state
+        )
     }
 
     func isClosingOrigin(_ move: LiveColumnMove) -> Bool {
-        closesOriginGap && move.carry == nil && !move.inStack && move.homeColumnId == move.originalSlot.columnId
+        move.carry == nil && !move.inStack && move.homeColumnId == move.originalSlot.columnId
     }
 
     private func originLiveSlotSpan(
         _ placed: LiveColumnMove.StripColumn,
         slot: LiveColumnMove.NarrowedSlot?,
         windowMidX: CGFloat,
+        closedToward: LiveColumnMove.Side?,
+        strip: [LiveColumnMove.StripColumn],
         context: NiriInteractionContext
-    ) -> (minX: CGFloat, width: CGFloat) {
+    ) -> (minX: CGFloat, width: CGFloat, closedToward: LiveColumnMove.Side?) {
         let fullWidth = slot?.fullWidth ?? placed.width
         let originMinX = placed.minX - (slot?.leftCut ?? 0)
+        let closedCut = max(0, fullWidth + context.gaps)
+        if let closedToward {
+            return (closedToward == .after ? originMinX + closedCut : originMinX, fullWidth - closedCut, closedToward)
+        }
         let shift = windowMidX - (originMinX + fullWidth / 2)
-        let cut = min(abs(shift), max(0, fullWidth + context.gaps))
-        return (shift > 0 ? originMinX + cut : originMinX, fullWidth - cut)
-    }
-
-    private func firstLiveSlotClosing(
-        _ placed: LiveColumnMove.StripColumn,
-        pickupX: CGFloat,
-        leads: LiveColumnMove.SlotLeads?,
-        cursor: CGPoint,
-        context: NiriInteractionContext
-    ) -> LiveSlotBounds {
-        let frame = context.workingFrame
-        let headingRight = cursor.x > pickupX
-        let crossesRight = placed.maxX > frame.maxX + 0.5
-        let crossesLeft = placed.minX < frame.minX - 0.5
-        let edge: LiveColumnMove.Side
-        if crossesRight, headingRight || !crossesLeft {
-            edge = .after
-        } else if crossesLeft {
-            edge = .before
-        } else {
-            return trailingLiveSlotClosing(placed, leads: leads, cursor: cursor, context: context)
+        if let index = strip.firstIndex(where: { $0.column === placed.column }) {
+            let ahead = shift < 0 ? strip[..<index] : strip[(index + 1)...]
+            guard ahead.contains(where: { !$0.column.isLiveDropSpace }) else { return (originMinX, fullWidth, nil) }
         }
-        let width = liveDropSpaceWidth(context: context)
-        let following = followingLiveSlotClosing(placed, edge: edge, cursor: cursor, context: context)
-        guard (edge == .after) == headingRight else { return following }
-        return edge == .after
-            ? LiveSlotBounds(minX: max(placed.minX, following.maxX - width), maxX: following.maxX, next: .trailing)
-            : LiveSlotBounds(minX: following.minX, maxX: min(placed.maxX, following.minX + width), next: .trailing)
-    }
-
-    private func followingLiveSlotClosing(
-        _ placed: LiveColumnMove.StripColumn,
-        edge: LiveColumnMove.Side,
-        cursor: CGPoint,
-        context: NiriInteractionContext
-    ) -> LiveSlotBounds {
-        let width = liveDropSpaceWidth(context: context)
-        let lead = -context.gaps
-        let next = LiveColumnMove.SlotClosing.following(edge: edge)
-        return edge == .after
-            ? LiveSlotBounds(minX: placed.minX, maxX: max(cursor.x + lead, placed.minX + width), next: next)
-            : LiveSlotBounds(minX: min(cursor.x - lead, placed.maxX - width), maxX: placed.maxX, next: next)
-    }
-
-    private func trailingLiveSlotClosing(
-        _ placed: LiveColumnMove.StripColumn,
-        leads: LiveColumnMove.SlotLeads?,
-        cursor: CGPoint,
-        context: NiriInteractionContext
-    ) -> LiveSlotBounds {
-        guard let leads else { return LiveSlotBounds(minX: placed.minX, maxX: placed.maxX, next: .trailing) }
-        let spare = max(0, placed.width - liveDropSpaceWidth(context: context))
-        var leftCut = min(max(0, cursor.x - leads.left - placed.minX), spare)
-        var rightCut = min(max(0, placed.maxX - cursor.x - leads.right), spare)
-        if leftCut + rightCut > spare {
-            if leftCut >= rightCut {
-                leftCut = spare - rightCut
-            } else {
-                rightCut = spare - leftCut
-            }
-        }
-        return LiveSlotBounds(minX: placed.minX + leftCut, maxX: placed.maxX - rightCut, next: .trailing)
+        let cut = min(abs(shift), closedCut)
+        let closed: LiveColumnMove.Side? = cut >= closedCut - 0.5 ? (shift > 0 ? .after : .before) : nil
+        return (shift > 0 ? originMinX + cut : originMinX, fullWidth - cut, closed)
     }
 
     func livePassed(
@@ -196,36 +130,6 @@ extension NiriLayoutEngine {
         } else {
             return false
         }
-        return placeLiveSlot(
-            placement,
-            in: strip,
-            to: (bounds.lowerBound, bounds.upperBound - bounds.lowerBound),
-            context: context,
-            state: &state
-        ) != nil
-    }
-
-    func collapseLiveHomeSlotBesideLanding(
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) -> Bool {
-        guard let move = liveColumnMove,
-              let landing = move.landing,
-              let target = liveColumn(withId: landing.columnId, in: context.workspaceId),
-              let homeIndex = columnIndex(of: liveDraggedColumn(for: move) ?? target, in: context.workspaceId),
-              let targetIndex = columnIndex(of: target, in: context.workspaceId),
-              homeIndex != targetIndex
-        else { return false }
-        let strip = liveColumnStrip(context: context, state: state)
-        guard let placement = liveHomePlacement(in: strip, context: context),
-              placement.home.windowNodes.isEmpty
-        else { return false }
-        let placed = placement.placed
-        let width = liveDropSpaceWidth(context: context)
-        guard placed.width > width + 0.5 else { return false }
-        let bounds = targetIndex < homeIndex
-            ? placed.minX ... placed.minX + width
-            : placed.maxX - width ... placed.maxX
         return placeLiveSlot(
             placement,
             in: strip,

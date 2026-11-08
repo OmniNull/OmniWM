@@ -295,9 +295,10 @@ extension NiriLayoutEngine {
         if let memo = container.axisSolveMemo, memo.key == cacheKey {
             outputs = memo.outputs
         } else {
-            let inputs = windows.map { window in
-                axisSolverInput(for: window, axis: axis)
-            }
+            let inputs = withoutImpossibleMinimums(
+                windows.map { window in axisSolverInput(for: window, axis: axis) },
+                axis: axis
+            )
             let hardOutputs = NiriAxisSolver.solve(
                 windows: inputs,
                 availableSpace: axis.availableSpace,
@@ -397,6 +398,28 @@ extension NiriLayoutEngine {
             gapSize: axis.gap,
             isTabbed: false
         )
+    }
+
+    private func withoutImpossibleMinimums(
+        _ inputs: [NiriAxisSolver.Input],
+        axis: NiriAxisLayout
+    ) -> [NiriAxisSolver.Input] {
+        guard windowsFillColumnHeight, axis.orientation == .horizontal, !axis.isTabbed, inputs.count > 1 else {
+            return inputs
+        }
+        let tallest = axis.availableSpace - 2 * axis.gap
+        return inputs.map { input in
+            guard !input.isConstraintFixed, input.minConstraint > tallest + 0.5 else { return input }
+            return NiriAxisSolver.Input(
+                weight: input.weight,
+                minConstraint: 0,
+                maxConstraint: input.maxConstraint,
+                hasMaxConstraint: input.hasMaxConstraint,
+                isConstraintFixed: false,
+                hasFixedValue: input.hasFixedValue,
+                fixedValue: input.fixedValue
+            )
+        }
     }
 
     private func axisSolverInput(

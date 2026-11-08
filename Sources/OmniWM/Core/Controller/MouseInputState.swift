@@ -78,6 +78,9 @@ struct MouseInputState {
         let enteredAt: TimeInterval
         var delayTimer: Timer?
         var isScrolling = false
+        var hopping = false
+        var hopsDone = false
+        var hopSettledSince: TimeInterval?
         var strip: (columns: [LiveColumnMove.StripColumn], viewOffset: CGFloat)?
         var stripContext: NiriInteractionContext?
     }
@@ -89,6 +92,11 @@ struct MouseInputState {
         func isPassed(by location: CGPoint) -> Bool {
             edge == .leading ? location.x < x : location.x > x
         }
+    }
+
+    struct LivePointerSample {
+        let location: CGPoint
+        let time: TimeInterval
     }
 
     struct LiveTabPull {
@@ -142,6 +150,7 @@ struct MouseInputState {
     var isMoving: Bool = false
     var liveDragLocation: CGPoint?
     var liveDragReferenceOffset: CGFloat?
+    var livePointerSamples: [LivePointerSample] = []
     var liveDragModifiers: CGEventFlags?
     var liveDragTracedView: String?
     var liveDragTracedDecline: String?

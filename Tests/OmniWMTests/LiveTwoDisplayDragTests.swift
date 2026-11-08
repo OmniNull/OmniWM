@@ -41,7 +41,7 @@ extension CrossDisplayDragTests {
         XCTAssertEqual(placed.maxX - placed.minX, fixture.niri.liveDropSpaceWidth(context: context), accuracy: 0.5)
     }
 
-    func testOnTheOtherDisplayTheColumnUnderThePointerStaysPutSoTheDropSpaceMovesOnlyOnce() throws {
+    func testOnTheOtherDisplayTheColumnUnderThePointerStaysPutUpToTheEdge() throws {
         let drag = try startLiveTwoDisplayDrag(residents: 7)
         let fixture = drag.fixture
         let widths: [CGFloat] = [0.5, 0.5, 0.5, 0.5, 0.15, 0.15, 0.15]
@@ -68,15 +68,15 @@ extension CrossDisplayDragTests {
         let underPointer = try [placed(drag.residents[1]), placed(drag.moved)]
         XCTAssertTrue(underPointer.contains { $0.contains(x: point.x) })
 
+        let entering = try placed(drag.residents[1])
         let edge = fixture.monitors[1].frame.maxX - 2
         for x in stride(from: point.x, through: edge, by: 20) {
             fixture.handler.dispatchMouseDragged(at: CGPoint(x: x, y: point.y))
         }
         fixture.handler.dispatchMouseDragged(at: CGPoint(x: edge, y: point.y))
 
-        expected = drag.residents.map { [$0] }
-        expected.insert([drag.moved], at: 3)
         XCTAssertEqual(fixture.columns(fixture.target), expected)
+        XCTAssertEqual(try placed(drag.residents[1]).minX, entering.minX, accuracy: 0.5)
     }
 
     func testReleasingOnTheOtherDisplayStartsTheSettleFromWhereTheStripIs() throws {
@@ -164,7 +164,10 @@ extension CrossDisplayDragTests {
             [[drag.residents[0]], [drag.moved], [drag.residents[1]]]
         )
 
-        try dragOnto(drag.residents[1], .right, drag)
+        fixture.layout()
+        let display = try XCTUnwrap(fixture.manager.monitor(for: fixture.target)).frame
+        let visible = try XCTUnwrap(fixture.frame(drag.residents[1])).intersection(display)
+        fixture.handler.dispatchMouseDragged(at: CGPoint(x: visible.maxX - visible.width / 4, y: visible.midY))
 
         XCTAssertEqual(
             fixture.columns(fixture.target),

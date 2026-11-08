@@ -47,6 +47,7 @@ extension MouseEventHandler {
         }
         guard button == .left, state.nativeTitleBarDrag != nil else { return false }
         state.liveDragLocation = location
+        recordLivePointerSample(location)
         state.liveDragModifiers = nil
         resumeHandedOverLiveColumnDrag(at: location)
         guard isLiveColumnDragActive else { return false }
@@ -167,7 +168,8 @@ extension MouseEventHandler {
         }
         let workspaceId = move.workspaceId
         let reference = liveDragReference(location)
-        traceLiveDrag("update", at: location)
+        let slowed = livePointerHasSlowed(at: liveDragClock())
+        traceLiveDrag(slowed ? "update slowed=1" : "update slowed=0", at: location)
         guard let monitor = controller.workspaceManager.monitor(for: workspaceId) else {
             cancelLiveColumnDrag()
             return
@@ -183,6 +185,19 @@ extension MouseEventHandler {
         trackLiveEdgeZone(at: location, monitorFrame: monitor.frame)
         publishLiveDragHold(on: monitor, workspaceId: workspaceId)
         let togglesStackMode = wantsLiveStackMode(move) != move.stackMode
+        if let edgeScroll = state.liveEdgeScroll {
+            let hopsRun = edgeScroll.hopping || edgeScroll.hopsDone
+            if !togglesStackMode,
+               hopsRun || engine.moveConfiguration.liveEdgeHops && !move.stackMode && !move.inStack
+            {
+                return
+            }
+            if togglesStackMode, hopsRun {
+                state.liveEdgeScroll?.delayTimer?.invalidate()
+                state.liveEdgeScroll?.hopping = false
+                state.liveEdgeScroll?.hopsDone = false
+            }
+        }
         var immediate = immediate
         if isLiveEdgeScrolling {
             if togglesStackMode, let context = liveColumnContext(for: workspaceId) {
@@ -228,13 +243,15 @@ extension MouseEventHandler {
                         windowMidX: liveDragWindowMidX(location),
                         at: now,
                         immediate: immediate,
+                        slowed: slowed,
                         context: context,
                         state: &$0
                     )
             }
         )
         if case let .hovering(until) = step {
-            scheduleLiveHoverCheck(after: until - now)
+            let stopCheck = livePointerStopCheckDelay(at: now) ?? .infinity
+            scheduleLiveHoverCheck(after: min(until - now, stopCheck))
             return
         }
         cancelLiveHoverCheck()
@@ -251,7 +268,7 @@ extension MouseEventHandler {
     }
 
     func wantsLiveStackMode(_ move: LiveColumnMove) -> Bool {
-        guard !move.isWholeColumn, let controller else { return false }
+        guard let controller else { return false }
         return Self.mouseMoveModifiersMatch(
             state.liveDragModifiers ?? modifierFlagsProvider(),
             required: controller.settings.niri.macOSFusionModifier.cgEventFlags
@@ -308,6 +325,11 @@ extension MouseEventHandler {
         }
         guard ended else { return false }
         traceLiveStrip("release-ended", in: workspaceId, at: state.liveDragLocation)
+        if let drop = engine.liveStackDrop, drop.workspaceId == workspaceId,
+           let target = engine.liveColumn(withId: drop.targetColumnId, in: workspaceId)
+        {
+            controller.forgetObservedHeights(of: target.windowNodes.map(\.token))
+        }
         controller.workspaceManager.recordLayoutOperation(
             .interactiveMoveEnded(token: token),
             in: workspaceId,
@@ -399,10 +421,12 @@ extension MouseEventHandler {
 
     private func scheduleLiveHoverCheck(after delay: TimeInterval) {
         let fireDate = Date(timeIntervalSinceNow: max(0, delay))
-        if let timer = state.liveHoverTimer, timer.isValid, abs(timer.fireDate.timeIntervalSince(fireDate)) < 0.005 {
+        if let timer = state.liveHoverTimer, timer.isValid {
+            if abs(timer.fireDate.timeIntervalSince(fireDate)) >= 0.005 {
+                timer.fireDate = fireDate
+            }
             return
         }
-        cancelLiveHoverCheck()
         state.liveHoverTimer = scheduleLiveDragTimer(after: delay) { [weak self] in
             guard let self, let location = state.liveDragLocation else { return }
             state.liveHoverTimer = nil
@@ -470,7 +494,7 @@ extension MouseEventHandler {
         )
     }
 
-    private func hasPendingLiveColumnAnimation(
+    func hasPendingLiveColumnAnimation(
         in workspaceId: WorkspaceDescriptor.ID,
         engine: NiriLayoutEngine
     ) -> Bool {

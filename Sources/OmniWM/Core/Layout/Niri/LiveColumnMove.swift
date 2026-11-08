@@ -60,17 +60,6 @@ struct LiveColumnMove {
         var leftCut: CGFloat
     }
 
-    enum SlotClosing: Equatable {
-        case pickup(x: CGFloat)
-        case following(edge: Side)
-        case trailing
-    }
-
-    struct SlotLeads: Equatable {
-        let left: CGFloat
-        let right: CGFloat
-    }
-
     struct Passed: Equatable {
         let columnId: NodeId
         let furthestX: CGFloat
@@ -105,6 +94,7 @@ struct LiveColumnMove {
         let homeColumnId: NodeId
         let dropSpaceId: NodeId?
         let targetColumnId: NodeId
+        var originalViewPosition: CGFloat?
     }
 
     struct WindowSpan {
@@ -130,6 +120,12 @@ struct LiveColumnMove {
         case keep
         case home
         case land(Landing)
+    }
+
+    struct Pointer {
+        let cursor: CGPoint
+        let time: TimeInterval?
+        var slowed = false
     }
 
     struct CentreWait: Equatable {
@@ -199,9 +195,14 @@ struct LiveColumnMove {
     var phase: Phase = .dragging
     var hover: Hover?
     var dropSpaceId: NodeId?
-    var dropSpaceKeepsStripEnd = false
+    var heading: Side?
+    var headingFromX: CGFloat?
     var lockedTarget: TargetLock?
     var edgeScrollSide: Side?
+    var pointerInEdgeZone = false
+    var heldTabs: [NiriWindow] = []
+    var pulledStripEnd: Side?
+    var originClosedToward: Side?
     var stackMode = false
     var landing: Landing?
     var landingIsHint = false
@@ -213,8 +214,6 @@ struct LiveColumnMove {
     var floatingFrame: CGRect?
     var swapCount = 0
     var narrowedSlot: NarrowedSlot?
-    var slotClosing: SlotClosing?
-    var slotLeads: SlotLeads?
     var passed: Passed?
     var sideBySideIds: Set<NodeId> = []
     var carry: Carry?

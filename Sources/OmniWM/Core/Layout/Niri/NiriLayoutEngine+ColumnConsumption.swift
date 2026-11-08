@@ -72,8 +72,11 @@ extension NiriLayoutEngine {
     func columnCanAcceptTransfer(
         _ column: NiriContainer,
         adding window: NiriWindow,
+        alsoAdding followers: [NiriWindow] = [],
         addingConstraints: WindowSizeConstraints? = nil,
         removing removedWindow: NiriWindow? = nil,
+        ignoringImpossibleMinimums: Bool = false,
+        axisMinimumOverride: ((NiriWindow) -> CGFloat)? = nil,
         in workspaceId: WorkspaceDescriptor.ID,
         geometry: NiriSizingGeometry
     ) -> Bool {
@@ -82,13 +85,16 @@ extension NiriLayoutEngine {
         let orientation = geometry.orientation
         guard !column.isTabbed else { return true }
         let axisSpace = orientation == .horizontal ? workingFrame.height : workingFrame.width
-        func axisMinimum(_ constraints: WindowSizeConstraints) -> CGFloat {
+        func axisMinimum(_ candidate: NiriWindow, _ constraints: WindowSizeConstraints) -> CGFloat {
             let minSize = constraints.normalized().minSize
-            return orientation == .horizontal ? minSize.height : minSize.width
+            let minimum = axisMinimumOverride?(candidate) ??
+                (orientation == .horizontal ? minSize.height : minSize.width)
+            return ignoringImpossibleMinimums && minimum > axisSpace - 2 * gaps + 0.5 ? 0 : minimum
         }
         let remaining = projectedWindows(in: column, workspaceId: workspaceId).filter { $0 !== removedWindow }
-        let minSum = remaining.reduce(axisMinimum(addingConstraints ?? window.constraints)) {
-            $0 + axisMinimum($1.constraints)
+            + followers
+        let minSum = remaining.reduce(axisMinimum(window, addingConstraints ?? window.constraints)) {
+            $0 + axisMinimum($1, $1.constraints)
         }
         let gapSum = gaps * CGFloat(remaining.count + 2)
         return minSum + gapSum <= axisSpace + 0.5

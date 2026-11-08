@@ -25,6 +25,37 @@ extension MouseEventHandler {
 
     func clearLiveDragReference() {
         state.liveDragReferenceOffset = nil
+        state.livePointerSamples = []
+    }
+
+    func recordLivePointerSample(_ location: CGPoint) {
+        let now = liveDragClock()
+        let window = liveSlowDownConfiguration.liveSlowDownWindow
+        state.livePointerSamples.append(.init(location: location, time: now))
+        while state.livePointerSamples.count > 1, state.livePointerSamples[1].time <= now - window {
+            state.livePointerSamples.removeFirst()
+        }
+    }
+
+    func livePointerHasSlowed(at now: TimeInterval) -> Bool {
+        let configuration = liveSlowDownConfiguration
+        guard let current = state.livePointerSamples.last,
+              let earlier = state.livePointerSamples.last(where: {
+                  $0.time <= now - configuration.liveSlowDownWindow + 0.005
+              })
+        else { return false }
+        let moved = hypot(current.location.x - earlier.location.x, current.location.y - earlier.location.y)
+        return moved < configuration.liveSlowDownDistance
+    }
+
+    func livePointerStopCheckDelay(at now: TimeInterval) -> TimeInterval? {
+        guard let last = state.livePointerSamples.last else { return nil }
+        let delay = last.time + liveSlowDownConfiguration.liveSlowDownWindow - now
+        return delay > 0.005 ? delay : nil
+    }
+
+    private var liveSlowDownConfiguration: MoveConfiguration {
+        controller?.niriEngine?.moveConfiguration ?? .default
     }
 
     func pointerHasLeft(_ monitor: Monitor, at location: CGPoint) -> Bool {

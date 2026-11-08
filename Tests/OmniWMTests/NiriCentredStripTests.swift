@@ -81,6 +81,30 @@ final class NiriCentredStripTests: XCTestCase {
         }
     }
 
+    func testADropInAStripThatFitsSettlesCentredInOneMove() {
+        var fixture = makeFixture(widths: [0.3, 0.25])
+        fixture.show(0)
+        XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+            windowId: fixture.window(0).id,
+            windowToken: fixture.tokens[0],
+            context: fixture.context,
+            state: &fixture.state
+        ))
+        let target = fixture.strip()[1]
+        let cursor = CGPoint(x: target.maxX - 20, y: fixture.frame.midY)
+        _ = fixture.engine.liveColumnMoveUpdate(cursor: cursor, at: 1, context: fixture.context, state: &fixture.state)
+        _ = fixture.engine.liveColumnMoveUpdate(cursor: cursor, at: 2, context: fixture.context, state: &fixture.state)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+
+        let settled = fixture.state.viewOffset
+        let margins = fixture.margins()
+        XCTAssertGreaterThan(margins.leading, fixture.gap)
+        XCTAssertEqual(margins.leading, margins.trailing, accuracy: 1)
+        fixture.show(0)
+        XCTAssertEqual(fixture.state.viewOffset, settled, accuracy: 0.5)
+    }
+
     func testAStripThatDoesNotFitScrollsAsUsual() {
         var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
         fixture.show(0)

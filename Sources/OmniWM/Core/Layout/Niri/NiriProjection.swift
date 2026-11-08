@@ -65,20 +65,29 @@ extension NiriLayoutEngine {
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
         excludedTokensByWorkspace[workspaceId]?.contains(token) == true
+            || liveHeldTabTokens(in: workspaceId).contains(token)
+    }
+
+    private func layoutExclusions(in workspaceId: WorkspaceDescriptor.ID) -> Set<WindowToken> {
+        let held = liveHeldTabTokens(in: workspaceId)
+        guard let excluded = excludedTokensByWorkspace[workspaceId] else { return held }
+        return held.isEmpty ? excluded : excluded.union(held)
     }
 
     func projectedWindows(
         in column: NiriContainer,
         workspaceId: WorkspaceDescriptor.ID
     ) -> [NiriWindow] {
-        guard let excludedTokens = excludedTokensByWorkspace[workspaceId], !excludedTokens.isEmpty else {
+        let excludedTokens = layoutExclusions(in: workspaceId)
+        guard !excludedTokens.isEmpty else {
             return column.windowNodes
         }
         return column.windowNodes.filter { !excludedTokens.contains($0.token) }
     }
 
     func projectedColumns(in workspaceId: WorkspaceDescriptor.ID) -> [NiriProjectedColumn] {
-        guard let excludedTokens = excludedTokensByWorkspace[workspaceId], !excludedTokens.isEmpty else {
+        let excludedTokens = layoutExclusions(in: workspaceId)
+        guard !excludedTokens.isEmpty else {
             return root(for: workspaceId)?.projectedColumns ?? []
         }
         let columns = columns(in: workspaceId)

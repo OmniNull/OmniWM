@@ -66,6 +66,7 @@ extension MouseEventHandler {
             dy: location.y - pull.anchorLocation.y
         )
         state.liveDragLocation = location
+        recordLivePointerSample(location)
         state.liveDragModifiers = nil
         updateLiveColumnDrag(at: location)
         controller.layoutRefreshController.requestImmediateRelayout(

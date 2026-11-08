@@ -28,11 +28,14 @@ extension NiriLayoutEngine {
         assertSanctionedMutation()
         guard liveColumnMoveCanCarry(from: source.workspaceId, to: target),
               var move = liveColumnMove,
-              let window = findNode(by: move.windowId, in: source.workspaceId) as? NiriWindow,
-              let column = window.parent as? NiriContainer
+              let window = findNode(by: move.windowId, in: source.workspaceId) as? NiriWindow
         else { return [] }
         if move.landing != nil {
             _ = placeLiveLanding(nil, move: &move, context: source, state: &sourceState)
+        }
+        guard let column = window.parent as? NiriContainer else {
+            liveColumnMove = move
+            return []
         }
         let narrowed = move.narrowedSlot.flatMap { slot in
             liveColumn(withId: slot.columnId, in: source.workspaceId).map { (slot: slot, column: $0) }
@@ -355,8 +358,6 @@ extension NiriLayoutEngine {
 extension LiveColumnMove {
     mutating func forgetStrip() {
         narrowedSlot = nil
-        slotClosing = .trailing
-        slotLeads = nil
         passed = nil
         sideBySideIds = []
         dropSpaceId = nil
@@ -369,5 +370,7 @@ extension LiveColumnMove {
         stackSuppressPoint = nil
         awaitsPointerMoveFrom = nil
         edgeScrollSide = nil
+        pulledStripEnd = nil
+        originClosedToward = nil
     }
 }

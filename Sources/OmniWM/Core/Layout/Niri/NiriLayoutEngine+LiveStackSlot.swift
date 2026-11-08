@@ -17,9 +17,10 @@ extension NiriLayoutEngine {
               let placed = strip.first(where: { $0.column === home })
         else { return .unchanged }
 
-        if !placed.contains(x: cursor.x) {
+        if let leaving = liveStackLeaveSide(placed, at: cursor.x, move: move) {
             guard leaveLiveStack(
-                towardTrailingSide: cursor.x >= placed.maxX,
+                towardTrailingSide: leaving == .after,
+                revealsToEdgeOnly: placed.contains(x: cursor.x),
                 cursor: cursor,
                 move: &move,
                 context: context,
@@ -40,6 +41,19 @@ extension NiriLayoutEngine {
         return .changed
     }
 
+    private func liveStackLeaveSide(
+        _ placed: LiveColumnMove.StripColumn,
+        at x: CGFloat,
+        move: LiveColumnMove
+    ) -> LiveColumnMove.Side? {
+        let inset = stacksOnWindowCentres && !move.pullsTab
+            ? placed.width * max(0, 0.5 - moveConfiguration.liveStackLeaveOutsideShare)
+            : 0
+        if x >= placed.maxX - inset { return .after }
+        if x < placed.minX + inset { return .before }
+        return nil
+    }
+
     func liveInStackWouldChange(
         cursor: CGPoint,
         strip: [LiveColumnMove.StripColumn],
@@ -50,7 +64,7 @@ extension NiriLayoutEngine {
               let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
               let placed = strip.first(where: { $0.column === home })
         else { return false }
-        guard placed.contains(x: cursor.x) else { return true }
+        guard liveStackLeaveSide(placed, at: cursor.x, move: move) == nil else { return true }
         if isLiveStackSuppressed(at: cursor, strip: strip, move: move) {
             return false
         }
@@ -110,6 +124,7 @@ extension NiriLayoutEngine {
         defer { liveColumnMove = move }
         return leaveLiveStack(
             towardTrailingSide: towardTrailingSide,
+            revealsToEdgeOnly: false,
             cursor: cursor,
             move: &move,
             context: context,
@@ -152,6 +167,7 @@ extension NiriLayoutEngine {
 
     private func leaveLiveStack(
         towardTrailingSide: Bool,
+        revealsToEdgeOnly: Bool,
         cursor: CGPoint,
         move: inout LiveColumnMove,
         context: NiriInteractionContext,
@@ -182,7 +198,7 @@ extension NiriLayoutEngine {
         rebaseLiveView(from: positionsBefore, anchoredOn: column, context: context, state: &state)
         keepLiveColumnStill(home, screenBefore: screenBefore, context: context, state: &state)
         animateLiveColumns(from: screenBefore, skipping: column, context: context, state: state)
-        revealLiveHomeSpot(column, under: cursor, context: context, state: &state)
+        revealLiveHomeSpot(column, under: cursor, toEdgeOnly: revealsToEdgeOnly, context: context, state: &state)
         move.hover = nil
         let strip = liveColumnStrip(context: context, state: state)
         move.lockedTarget = liveColumn(in: strip, at: cursor, ignoring: nil).flatMap { under in
@@ -225,16 +241,34 @@ extension NiriLayoutEngine {
     private func revealLiveHomeSpot(
         _ column: NiriContainer,
         under cursor: CGPoint,
+        toEdgeOnly: Bool,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) {
-        let shift = keepVisibleLiveShift(
-            showing: column,
-            besideTargetUnder: (column, cursor),
-            strip: liveColumnStrip(context: context, state: state),
-            context: context
-        )
+        let strip = liveColumnStrip(context: context, state: state)
+        let shift = toEdgeOnly
+            ? liveEdgeRevealShift(showing: column, strip: strip, context: context)
+            : keepVisibleLiveShift(showing: column, besideTargetUnder: (column, cursor), strip: strip, context: context)
         animateLiveViewShift(shift, context: context, state: &state)
+    }
+
+    private func liveEdgeRevealShift(
+        showing column: NiriContainer,
+        strip: [LiveColumnMove.StripColumn],
+        context: NiriInteractionContext
+    ) -> CGFloat {
+        guard let placed = strip.first(where: { $0.column === column }) else { return 0 }
+        let leadingEdge = context.workingFrame.minX + context.gaps
+        let trailingEdge = context.workingFrame.maxX - context.gaps
+        let wanted: CGFloat = if placed.maxX > trailingEdge + 0.5 {
+            placed.maxX - trailingEdge
+        } else if placed.minX < leadingEdge - 0.5 {
+            placed.minX - leadingEdge
+        } else {
+            0
+        }
+        guard let range = liveStripScrollRange(strip: strip, context: context) else { return wanted }
+        return wanted.clamped(to: range)
     }
 
     private func animateLiveColumns(

@@ -23,7 +23,7 @@ extension NiriLayoutEngine {
     }
 
     func liveCentreUpdate(
-        pointer: (cursor: CGPoint, time: TimeInterval?),
+        pointer: LiveColumnMove.Pointer,
         strip: [LiveColumnMove.StripColumn],
         move: inout LiveColumnMove,
         context: NiriInteractionContext,
@@ -56,8 +56,12 @@ extension NiriLayoutEngine {
             let since = move.centreWait?.columnId == landing.columnId ? move.centreWait?.since ?? time : time
             move.centreWait = .init(columnId: landing.columnId, since: since)
             let until = since + moveConfiguration.liveCentreStackDelay
-            guard time >= until else { return .hovering(until: until) }
-            return showLiveLandingHint(landing, move: &move, context: context, state: &state) ? .changed : .unchanged
+            guard pointer.slowed || time >= until else { return .hovering(until: until) }
+            guard showLiveLandingHint(landing, move: &move, context: context, state: &state) else {
+                traceLiveStackRefusalDetail("hint-not-placed x=\(Int(pointer.cursor.x.rounded()))")
+                return .unchanged
+            }
+            return .changed
         }
     }
 
@@ -85,8 +89,8 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext
     ) -> LiveColumnMove.StackChoice {
         guard stacksOnWindowCentres,
-              !move.isWholeColumn,
               !move.inStack,
+              !move.pointerInEdgeZone,
               let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
               column.id != move.homeColumnId,
               let placed = strip.first(where: { $0.column === column }),
@@ -114,6 +118,9 @@ extension NiriLayoutEngine {
             move.landingIsHint = wasHint && move.landing != nil
             return false
         }
+        if let hinted = liveColumn(withId: landing.columnId, in: move.workspaceId) {
+            closeOpenLiveDropSpace(move: &move, anchor: hinted, context: context, state: &state)
+        }
         move.hover = nil
         move.lockedTarget = nil
         move.phase = .settling
@@ -133,11 +140,11 @@ extension NiriLayoutEngine {
         move.phase = .settling
     }
 
-    func liveLandingHintHeight(context: NiriInteractionContext) -> CGFloat {
-        max(
-            context.workingFrame.height * moveConfiguration.liveLandingHintShare,
-            moveConfiguration.liveLandingHintMinimumHeight
-        )
+    func liveLandingHintHeight(besideWindowCount count: Int, context: NiriInteractionContext) -> CGFloat {
+        let share = count == 1
+            ? moveConfiguration.liveLandingHintSingleWindowShare
+            : moveConfiguration.liveLandingHintShare
+        return max(context.workingFrame.height * share, moveConfiguration.liveLandingHintMinimumHeight)
     }
 
     func liveHintBaseSpans(
@@ -170,7 +177,7 @@ extension NiriLayoutEngine {
         else { return }
         let neighbours = [index - 1, index + 1].filter { windows.indices.contains($0) }.map { windows[$0] }
         guard !neighbours.isEmpty else { return }
-        let hint = liveLandingHintHeight(context: context)
+        let hint = liveLandingHintHeight(besideWindowCount: windows.count - 1, context: context)
         let taken = (hint + context.gaps) / CGFloat(neighbours.count)
         for other in windows where other !== window {
             let height = base[other.id] ?? 0

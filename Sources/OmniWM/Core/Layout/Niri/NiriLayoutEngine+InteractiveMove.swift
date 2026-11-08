@@ -331,6 +331,7 @@ extension NiriLayoutEngine {
         beside targetWindow: NiriWindow,
         position: InsertPosition,
         removingEmptySource: Bool = true,
+        ignoringImpossibleMinimums: Bool = false,
         in workspaceId: WorkspaceDescriptor.ID,
         geometry: NiriSizingGeometry
     ) -> Bool {
@@ -351,6 +352,7 @@ extension NiriLayoutEngine {
             guard columnCanAcceptTransfer(
                 targetColumn,
                 adding: sourceWindow,
+                ignoringImpossibleMinimums: ignoringImpossibleMinimums,
                 in: workspaceId,
                 geometry: geometry
             ) else {

@@ -17,6 +17,7 @@ extension NiriLayoutHandler {
         engine.renderStyle.tabIndicatorWidth = controller.tabRailStyle.reservedWidth
         engine.animationClock = controller.animationClock
         engine.edgePicturesAvailable = ScreenCapturePermissionMonitor.shared.isGranted
+        engine.reportedMinimumSize = { [weak controller] token in controller?.reportedMinimumSize(for: token) }
         controller.niriEngine = engine
 
         syncMonitorsToNiriEngine()

@@ -97,8 +97,9 @@ extension MouseEventHandler {
             + "stack=\(move?.stackMode ?? false) "
             + "mods=\(InputDiagnostics.modifierLabel(UInt((state.liveDragModifiers ?? modifierFlagsProvider()).rawValue)))"
             + (state.liveDragModifiers == nil ? "/state" : "/key")
-        guard label != "update" || view != state.liveDragTracedView else { return }
-        state.liveDragTracedView = view
+        let entry = "\(label) \(view)"
+        guard !label.hasPrefix("update") || entry != state.liveDragTracedView else { return }
+        state.liveDragTracedView = entry
         MouseTrace.record("live-drag \(label) at=\(TraceFormat.point(location)) \(view)")
     }
 
