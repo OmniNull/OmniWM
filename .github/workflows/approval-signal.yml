@@ -1,0 +1,13 @@
+name: Trusted review signal
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  signal:
+    runs-on: blacksmith-2vcpu-ubuntu-2604
+    timeout-minutes: 2
+    steps:
+      - run: 'true'

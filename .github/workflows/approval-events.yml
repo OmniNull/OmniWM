@@ -1,0 +1,13 @@
+name: PR review signal
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review, converted_to_draft, closed]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+permissions: {}
+
+jobs:
+  notify:
+    uses: OmniNull/OmniWM/.github/workflows/approval-signal.yml@main

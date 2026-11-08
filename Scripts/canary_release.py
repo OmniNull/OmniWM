@@ -129,7 +129,7 @@ def verify_ci(repo, repository):
     commit, runs = head, []
     for commit in ci_candidates(repo, head):
         pages = github_api(
-            f"repos/{repository}/actions/workflows/ci.yml/runs"
+            f"repos/{repository}/actions/workflows/approved-ci.yml/runs"
             f"?branch=main&event=push&head_sha={commit}&per_page=100"
         )
         runs = [run for page in pages for run in page["workflow_runs"]]
@@ -145,7 +145,7 @@ def verify_ci(repo, repository):
         "head_sha": commit,
         "head_branch": "main",
         "event": "push",
-        "path": ".github/workflows/ci.yml",
+        "path": ".github/workflows/approved-ci.yml",
     }
     require(
         all(latest.get(key) == value for key, value in expected.items()),
