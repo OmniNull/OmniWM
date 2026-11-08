@@ -16,7 +16,7 @@ final class ShellRoomLayoutTests: XCTestCase {
                     let monitor = monitor()
                     let room = totalRoom()
                     setRoom(room, on: controller)
-                    let expected = try envelope(of: room, on: monitor)
+                    let expected = try room.envelope(on: monitor)
                     XCTAssertEqual(try niriEnvelope(controller, monitor, orientation: orientation), expected)
                     XCTAssertEqual(
                         try dwindleEnvelope(controller.layoutFrames(for: monitor, scale: monitor.backingScale)),
@@ -32,7 +32,7 @@ final class ShellRoomLayoutTests: XCTestCase {
         let monitor = monitor()
         let room = totalRoom()
         setRoom(room, on: controller)
-        let expected = try envelope(of: room, on: monitor)
+        let expected = try room.envelope(on: monitor)
         XCTAssertEqual(try niriEnvelope(controller, monitor, orientation: .horizontal), expected)
         for edgeGaps in [false, true] {
             controller.settings.niri.edgeGaps = edgeGaps
@@ -129,7 +129,7 @@ final class ShellRoomLayoutTests: XCTestCase {
         controller.updateWorkspaceBarSettings()
         XCTAssertEqual(
             try niriEnvelope(of: engine, workspace, controller, monitor, orientation: .horizontal),
-            try envelope(of: room, on: monitor)
+            try room.envelope(on: monitor)
         )
     }
 
@@ -296,15 +296,6 @@ extension ShellRoomLayoutTests {
         )
     }
 
-    private func envelope(of room: WorkspaceBarRoom, on monitor: Monitor) throws -> CGRect {
-        let left = try XCTUnwrap(room.edges[.left]).value, right = try XCTUnwrap(room.edges[.right]).value
-        let top = try XCTUnwrap(room.edges[.top]).value, bottom = try XCTUnwrap(room.edges[.bottom]).value
-        return CGRect(
-            x: monitor.frame.minX + left, y: monitor.frame.minY + bottom,
-            width: monitor.frame.width - left - right, height: monitor.frame.height - top - bottom
-        )
-    }
-
     private func niriEnvelope(
         _ controller: WMController, _ monitor: Monitor, orientation: Monitor.Orientation
     ) throws -> CGRect {
@@ -344,5 +335,16 @@ extension ShellRoomLayoutTests {
         let frames = engine.calculateLayout(for: workspace, screen: layout.workingFrame)
         XCTAssertEqual(frames.count, 2)
         return try XCTUnwrap(frames.values.reduce(nil as CGRect?) { $0?.union($1) ?? $1 })
+    }
+}
+
+extension WorkspaceBarRoom {
+    func envelope(on monitor: Monitor) throws -> CGRect {
+        let left = try XCTUnwrap(edges[.left]).value, right = try XCTUnwrap(edges[.right]).value
+        let top = try XCTUnwrap(edges[.top]).value, bottom = try XCTUnwrap(edges[.bottom]).value
+        return CGRect(
+            x: monitor.frame.minX + left, y: monitor.frame.minY + bottom,
+            width: monitor.frame.width - left - right, height: monitor.frame.height - top - bottom
+        )
     }
 }

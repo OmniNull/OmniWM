@@ -78,18 +78,18 @@ final class WorkspaceBarBorderClearanceTests: XCTestCase {
         }
     }
 
-    func testExplicitRoomEdgesKeepTheirWindowDistances() {
+    func testExplicitRoomEdgesKeepTheirWindowDistances() throws {
         let controller = makeController()
         controller.settings.island.enabled = true
         controller.settings.workspaceBar.height = 40
+        let room = WorkspaceBarRoom(edges: [
+            .left: .init(value: 16, mode: .total), .right: .init(value: 16, mode: .total),
+            .top: .init(value: 48, mode: .total), .bottom: .init(value: 16, mode: .total)
+        ], displays: .all)
         controller.settings.workspaceBar.profileOverride = WorkspaceBarProfileOverride(
-            profile: "room", settings: MonitorBarSettings(monitorName: ""),
-            room: WorkspaceBarRoom(edges: [
-                .left: .init(value: 16, mode: .total), .right: .init(value: 16, mode: .total),
-                .top: .init(value: 48, mode: .total), .bottom: .init(value: 16, mode: .total)
-            ], displays: .all)
+            profile: "room", settings: MonitorBarSettings(monitorName: ""), room: room
         )
-        let expected = CGRect(x: 16, y: 16, width: 2528, height: 1376)
+        let expected = try room.envelope(on: monitor)
         for bordersEnabled in [false, true] {
             controller.settings.borders.enabled = bordersEnabled
             for position in WorkspaceBarPosition.allCases {

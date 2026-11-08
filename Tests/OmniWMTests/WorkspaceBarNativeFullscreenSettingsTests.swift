@@ -106,8 +106,14 @@ final class WorkspaceBarNativeFullscreenSettingsTests: XCTestCase {
         commitTopology(on: controller, fullscreenDisplayUUID: nil)
         let reservedWorkingBefore = controller.insetWorkingFrame(for: builtIn)
         let reservedFullscreenBefore = controller.fullscreenLayoutFrame(for: builtIn)
-        XCTAssertEqual(reservedWorkingBefore, CGRect(x: 5, y: 5, width: 1_430, height: 826))
-        XCTAssertEqual(reservedFullscreenBefore, CGRect(x: 0, y: 0, width: 1_440, height: 836))
+        var reservedFullscreen = builtIn.visibleFrame
+        reservedFullscreen.size.height -= CGFloat(settings.workspaceBar.height)
+        let clearance = BorderConfig.layoutClearance(
+            enabled: settings.borders.enabled, width: CGFloat(settings.borders.width),
+            scale: controller.backingScaleFactor(for: builtIn)
+        )
+        XCTAssertEqual(reservedWorkingBefore, reservedFullscreen.insetBy(dx: clearance, dy: clearance))
+        XCTAssertEqual(reservedFullscreenBefore, reservedFullscreen)
 
         commitTopology(on: controller, fullscreenDisplayUUID: Self.builtInUUID)
         XCTAssertFalse(controller.isWorkspaceBarVisible(on: builtIn))

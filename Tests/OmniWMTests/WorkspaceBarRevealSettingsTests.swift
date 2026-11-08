@@ -160,27 +160,9 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
 
     @MainActor
     func testAutoHideIsOverlayOnlyAndAlwaysVisibleBarPreservesReservation() {
-        let cases: [(
-            customGaps: Bool,
-            overlayWorking: CGRect,
-            overlayFullscreen: CGRect,
-            reservedWorking: CGRect,
-            reservedFullscreen: CGRect
-        )] = [
-            (
-                false,
-                CGRect(x: 5, y: 5, width: 1430, height: 850),
-                CGRect(x: 0, y: 0, width: 1440, height: 860),
-                CGRect(x: 5, y: 5, width: 1430, height: 826),
-                CGRect(x: 0, y: 0, width: 1440, height: 836)
-            ),
-            (
-                true,
-                CGRect(x: 12, y: 14, width: 1416, height: 840),
-                CGRect(x: 12, y: 14, width: 1416, height: 840),
-                CGRect(x: 12, y: 14, width: 1416, height: 816),
-                CGRect(x: 12, y: 14, width: 1416, height: 816)
-            )
+        let cases: [(customGaps: Bool, overlayFullscreen: CGRect, reservedFullscreen: CGRect)] = [
+            (false, CGRect(x: 0, y: 0, width: 1440, height: 860), CGRect(x: 0, y: 0, width: 1440, height: 836)),
+            (true, CGRect(x: 12, y: 14, width: 1416, height: 840), CGRect(x: 12, y: 14, width: 1416, height: 816))
         ]
         for entry in cases {
             let settings = makeSettingsStore()
@@ -206,19 +188,25 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
                 hasNotch: false,
                 name: "Built-in"
             )
+            let workingInset = entry.customGaps ? 0 : BorderConfig.layoutClearance(
+                enabled: settings.borders.enabled, width: CGFloat(settings.borders.width),
+                scale: controller.backingScaleFactor(for: monitor)
+            )
+            let overlayWorking = entry.overlayFullscreen.insetBy(dx: workingInset, dy: workingInset)
+            let reservedWorking = entry.reservedFullscreen.insetBy(dx: workingInset, dy: workingInset)
             XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
-            XCTAssertEqual(controller.insetWorkingFrame(for: monitor), entry.overlayWorking)
+            XCTAssertEqual(controller.insetWorkingFrame(for: monitor), overlayWorking)
             XCTAssertEqual(controller.fullscreenLayoutFrame(for: monitor), entry.overlayFullscreen)
             controller.setWorkspaceBarRevealHeld(true)
             XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
             XCTAssertEqual(controller.workspaceBarReservedInsets(for: monitor), .zero)
-            XCTAssertEqual(controller.insetWorkingFrame(for: monitor), entry.overlayWorking)
+            XCTAssertEqual(controller.insetWorkingFrame(for: monitor), overlayWorking)
             XCTAssertEqual(controller.fullscreenLayoutFrame(for: monitor), entry.overlayFullscreen)
             settings.workspaceBar.autoHide = false
             controller.setWorkspaceBarRevealHeld(false)
             XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
             XCTAssertEqual(controller.workspaceBarReservedInsets(for: monitor), Struts(top: 24))
-            XCTAssertEqual(controller.insetWorkingFrame(for: monitor), entry.reservedWorking)
+            XCTAssertEqual(controller.insetWorkingFrame(for: monitor), reservedWorking)
             XCTAssertEqual(controller.fullscreenLayoutFrame(for: monitor), entry.reservedFullscreen)
             settings.workspaceBar.revealModifier = .off
             XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
