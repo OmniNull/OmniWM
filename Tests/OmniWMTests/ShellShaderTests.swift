@@ -556,7 +556,7 @@ final class ShellShaderTests: XCTestCase {
     }
 
     func testCompileErrorsSkipWarningsPrintedBeforeTheError() {
-        let error = NSError(domain: "MTLLibraryErrorDomain", code: 3, userInfo: [NSLocalizedDescriptionKey: """
+        let error = MTLLibraryError(.compileFailure, userInfo: [NSLocalizedDescriptionKey: """
         Compilation failed:
 
         program_source:52:8: warning: stack nearly exhausted [-Wstack-exhausted]
