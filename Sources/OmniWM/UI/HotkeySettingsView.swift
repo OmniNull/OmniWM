@@ -24,7 +24,7 @@ struct HotkeySettingsView: View {
         let hotkeyMouseButtons = OverviewInputSettingsValidation.hotkeyMouseButtons(settings.hotkeyBindings)
         let modeKeyFailures = KeyboardModeTable(bindings: settings.hotkeyBindings).failures
         let modeLeaderAssigned = settings.hotkeyBindings.contains(where: Self.isAssignedModeLeader)
-        let paletteShortcuts = PaletteShortcuts.current(modifier: settings.commandPaletteModifier)
+        let paletteShortcuts = PaletteShortcuts.current()
         HotkeySettingsPage(
             subtitle: String(
                 localized: "Search commands, edit shortcuts, and review registration problems without leaving the settings window."
@@ -100,8 +100,6 @@ struct HotkeySettingsView: View {
             .id("Controls")
 
             keyboardModesSection
-
-            commandPaletteSection
 
             Section("Shortcuts") {
                 LabeledContent("Search") {
@@ -386,30 +384,6 @@ extension HotkeySettingsView {
         }
     }
 
-    private var commandPaletteSection: some View {
-        Section("Command Palette") {
-            LabeledContent("Palette Modifier") {
-                HStack(spacing: 12) {
-                    paletteModifierToggle(String(localized: "⌃ Control"), flag: UInt32(controlKey))
-                    paletteModifierToggle(String(localized: "⌥ Option"), flag: UInt32(optionKey))
-                    paletteModifierToggle(String(localized: "⇧ Shift"), flag: UInt32(shiftKey))
-                    paletteModifierToggle(String(localized: "⌘ Command"), flag: UInt32(cmdKey))
-                }
-                .fixedSize()
-            }
-            .id("Palette Modifier")
-            SettingsCaption(localized:
-                "Palette shortcuts, such as \(settings.commandPaletteModifier.symbolsString)1 to switch modes, work only while the command palette is open. There they take precedence over global shortcuts on the same keys."
-            )
-            if settings.commandPaletteModifier.mayBlockTypedCharacters {
-                SettingsCaption(localized:
-                    "With Option alone, some keyboard layouts can't type characters such as @ in the palette search."
-                )
-            }
-        }
-        .id("Command Palette")
-    }
-
     private func hyperModifierToggle(_ title: String, flag: UInt32) -> some View {
         Toggle(title, isOn: Binding(
             get: { settings.hyperKeyModifiers.contains(flag) },
@@ -423,19 +397,6 @@ extension HotkeySettingsView {
                 && settings.hyperKeyModifiers.modifierCount <= HyperKeyModifiers.minimumModifierCount
         )
         .accessibilityLabel("Hyper includes \(title)")
-    }
-
-    private func paletteModifierToggle(_ title: String, flag: UInt32) -> some View {
-        let current = settings.commandPaletteModifier
-        return Toggle(title, isOn: Binding(
-            get: { current.contains(flag) },
-            set: { included in
-                guard let updated = current.setting(flag, included: included) else { return }
-                settings.commandPaletteModifier = updated
-            }
-        ))
-        .disabled(current.setting(flag, included: !current.contains(flag)) == nil)
-        .accessibilityLabel("Palette modifier includes \(title)")
     }
 
     private func handleModeKeyCaptured(actionId: String, trigger: HotkeyTrigger) {

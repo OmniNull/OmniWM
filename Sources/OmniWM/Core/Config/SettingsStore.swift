@@ -142,10 +142,6 @@ final class SettingsStore {
         didSet { runtimeState.commandPaletteLastMode = commandPaletteLastMode }
     }
 
-    var commandPaletteModifier = SettingsStore.defaultExport.commandPalette.modifier {
-        didSet { scheduleSave() }
-    }
-
     var animationsEnabled = SettingsStore.defaultExport.animationsEnabled {
         didSet { scheduleSave() }
     }
@@ -465,7 +461,6 @@ extension SettingsStore {
         language = export.language
         clipboard.apply(export.clipboard)
         launcher = export.launcher
-        commandPaletteModifier = export.commandPalette.modifier
 
         quakeTerminal.apply(export.quakeTerminal, baseline: SettingsStore.defaultExport.quakeTerminal)
 

@@ -89,7 +89,6 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     var launcherRequestGeneration = 0
     var launcherPublishedGeneration = -1
     var pendingLauncherSelection: (generation: Int, trigger: CommandPaletteSelectionTrigger)?
-    private(set) var paletteModifier = PaletteModifier.default
 
     let environment: CommandPaletteEnvironment
     let presentation: CommandPalettePanel
@@ -426,7 +425,6 @@ extension CommandPaletteController {
     }
 
     private func claimPaletteInput(_ wmController: WMController) {
-        paletteModifier = wmController.settings.commandPaletteModifier
         wmController.focusPolicyEngine.beginLease(owner: .commandPalette, reason: "command_palette", duration: nil)
         reservePaletteShortcuts(wmController)
         environment.observeKeyboardLayout { [weak self] in
@@ -436,9 +434,7 @@ extension CommandPaletteController {
     }
 
     private func reservePaletteShortcuts(_ wmController: WMController) {
-        wmController.hotkeys.setPaletteShortcutChords(
-            environment.paletteShortcuts(paletteModifier).chords.map(\.binding)
-        )
+        wmController.hotkeys.setPaletteShortcutChords(environment.paletteShortcuts().chords.map(\.binding))
     }
 
     private func releasePaletteInput(_ wmController: WMController) {

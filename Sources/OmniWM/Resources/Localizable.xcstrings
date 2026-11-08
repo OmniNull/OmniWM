@@ -173419,39 +173419,65 @@
     "Mouse wheel sensitivity" : {
 
     },
-    "Palette Modifier" : {
-
-    },
-    "Palette modifier includes %@" : {
-
-    },
-    "Palette shortcuts, such as %@1 to switch modes, work only while the command palette is open. There they take precedence over global shortcuts on the same keys." : {
-
-    },
-    "While the command palette is open, %@ marks the selected window instead." : {
-
-    },
-    "While the command palette is open, %@ removes a mark from the selected window instead." : {
-
-    },
-    "While the command palette is open, %@ reveals the selected item in Finder instead." : {
-
-    },
-    "While the command palette is open, %@ switches to %@ mode instead." : {
+    "While the command palette is open, %@ is reserved for marking the selected window in %@ mode." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "While the command palette is open, %1$@ switches to %2$@ mode instead."
+            "value" : "While the command palette is open, %1$@ is reserved for marking the selected window in %2$@ mode."
           }
         }
       }
     },
-    "While the command palette is open, %@ toggles the file preview instead." : {
-
+    "While the command palette is open, %@ is reserved for removing a mark from the selected window in %@ mode." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "While the command palette is open, %1$@ is reserved for removing a mark from the selected window in %2$@ mode."
+          }
+        }
+      }
     },
-    "With Option alone, some keyboard layouts can't type characters such as @ in the palette search." : {
-
+    "While the command palette is open, %@ is reserved for revealing the selected item in Finder in %@ and %@ modes; in other modes it acts like Return." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "While the command palette is open, %1$@ is reserved for revealing the selected item in Finder in %2$@ and %3$@ modes; in other modes it acts like Return."
+          }
+        }
+      }
+    },
+    "While the command palette is open, %@ is reserved for switching to %@ mode when it is available." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "While the command palette is open, %1$@ is reserved for switching to %2$@ mode when it is available."
+          }
+        }
+      }
+    },
+    "While the command palette is open, %@ is reserved for switching to %@ mode." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "While the command palette is open, %1$@ is reserved for switching to %2$@ mode."
+          }
+        }
+      }
+    },
+    "While the command palette is open, %@ is reserved for toggling the file preview in %@ mode." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "While the command palette is open, %1$@ is reserved for toggling the file preview in %2$@ mode."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

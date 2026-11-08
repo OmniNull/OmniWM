@@ -170,62 +170,15 @@ final class CommandPaletteControllerTests: XCTestCase {
     }
 
     func testNumberRowWithoutCommandDoesNotSwitchModes() {
-        XCTAssertNil(directModeTarget(keyCode: UInt16(kVK_ANSI_1), characters: "&", modifiers: []))
-    }
-
-    func testConfiguredPaletteModifierSwitchesModesOnlyWhenHeldExactly() throws {
-        let controlOption = try XCTUnwrap(PaletteModifier(carbonMask: UInt32(controlKey | optionKey)))
-
-        XCTAssertEqual(
-            directModeTarget(
-                keyCode: UInt16(kVK_ANSI_3),
-                characters: "3",
-                modifiers: [.control, .option],
-                paletteModifier: controlOption
-            ),
-            .clipboard
+        XCTAssertNil(
+            CommandPalettePresentation.modeNavigationTarget(
+                currentMode: .windows,
+                isMenuModeAvailable: true,
+                keyCode: UInt16(kVK_ANSI_1),
+                relevantModifiers: [],
+                charactersIgnoringModifiers: "&"
+            )
         )
-        XCTAssertNil(directModeTarget(
-            keyCode: UInt16(kVK_ANSI_3),
-            characters: "3",
-            modifiers: .command,
-            paletteModifier: controlOption
-        ))
-        XCTAssertNil(directModeTarget(
-            keyCode: UInt16(kVK_ANSI_3),
-            characters: "3",
-            modifiers: [.control, .option, .shift],
-            paletteModifier: controlOption
-        ))
-        XCTAssertNil(directModeTarget(
-            keyCode: UInt16(kVK_ANSI_3),
-            characters: "3",
-            modifiers: .control,
-            paletteModifier: controlOption
-        ))
-    }
-
-    func testShiftedPaletteModifierMatchesNumberRowByPosition() throws {
-        let shiftCommand = try XCTUnwrap(PaletteModifier(carbonMask: UInt32(shiftKey | cmdKey)))
-        XCTAssertEqual(
-            directModeTarget(
-                keyCode: UInt16(kVK_ANSI_6),
-                characters: "^",
-                modifiers: [.shift, .command],
-                paletteModifier: shiftCommand
-            ),
-            .files
-        )
-    }
-
-    func testLauncherPathsShowOnlyWhileEveryPaletteModifierKeyIsHeld() throws {
-        let controlOption = try XCTUnwrap(PaletteModifier(carbonMask: UInt32(controlKey | optionKey)))
-
-        XCTAssertTrue(controlOption.isHeld(in: [.control, .option]))
-        XCTAssertTrue(controlOption.isHeld(in: [.control, .option, .shift]))
-        XCTAssertFalse(controlOption.isHeld(in: [.control]))
-        XCTAssertFalse(controlOption.isHeld(in: [.command]))
-        XCTAssertTrue(PaletteModifier.default.isHeld(in: [.command]))
     }
 
     func testLetterKeyEquivalentsFollowTypedLetterAndFallBackToPositionOnNonLatinLayouts() {
@@ -272,18 +225,10 @@ final class CommandPaletteControllerTests: XCTestCase {
         ]
         for (mode, title, shortcut) in expected {
             XCTAssertEqual(
-                CommandPalettePresentation.modeHint(for: mode, modifier: .default),
+                CommandPalettePresentation.modeHint(for: mode),
                 .init(title: title, shortcut: shortcut)
             )
         }
-    }
-
-    func testModeHintsShowTheConfiguredPaletteModifier() throws {
-        let controlOption = try XCTUnwrap(PaletteModifier(carbonMask: UInt32(controlKey | optionKey)))
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .clipboard, modifier: controlOption),
-            .init(title: "Clipboard", shortcut: "⌃⌥3")
-        )
     }
 
     func testMarkActionShortcutsStayVisibleAndMapToPaletteActions() {
@@ -358,12 +303,10 @@ final class CommandPaletteControllerTests: XCTestCase {
     }
 
     func testKeyboardLayoutChangeWhilePaletteIsOpenMovesReservedLetterChords() throws {
-        var previewKey = UInt32(kVK_ANSI_Y)
+        var previewKey = UInt16(kVK_ANSI_Y)
         var onLayoutChange: (@MainActor () -> Void)?
         let fixture = CommandPaletteFocusFixture { environment in
-            environment.paletteShortcuts = { modifier in
-                PaletteShortcuts(modifier: modifier) { $0 == "y" ? previewKey : nil }
-            }
+            environment.paletteShortcuts = { PaletteShortcuts(previewKeyCode: previewKey, revealKeyCode: nil) }
             environment.observeKeyboardLayout = { onLayoutChange = $0 }
         }
         defer { fixture.cleanup() }
@@ -374,7 +317,7 @@ final class CommandPaletteControllerTests: XCTestCase {
         XCTAssertTrue(hotkeys.yieldsToPalette(commandY))
         XCTAssertFalse(hotkeys.yieldsToPalette(commandZ))
 
-        previewKey = UInt32(kVK_ANSI_Z)
+        previewKey = UInt16(kVK_ANSI_Z)
         try XCTUnwrap(onLayoutChange)()
 
         XCTAssertFalse(hotkeys.yieldsToPalette(commandY))
@@ -765,27 +708,26 @@ final class CommandPaletteControllerTests: XCTestCase {
         isMenuModeAvailable: Bool = true,
         modifiers: NSEvent.ModifierFlags = []
     ) -> CommandPaletteMode? {
-        CommandPalettePresentation.cycledModeTarget(
+        CommandPalettePresentation.modeNavigationTarget(
             currentMode: currentMode,
             isMenuModeAvailable: isMenuModeAvailable,
             keyCode: UInt16(kVK_Tab),
-            relevantModifiers: modifiers
+            relevantModifiers: modifiers,
+            charactersIgnoringModifiers: "\t"
         )
     }
 
     private func directModeTarget(
         keyCode: UInt16,
         characters: String,
-        isMenuModeAvailable: Bool = true,
-        modifiers: NSEvent.ModifierFlags = .command,
-        paletteModifier: PaletteModifier = .default
+        isMenuModeAvailable: Bool = true
     ) -> CommandPaletteMode? {
-        CommandPalettePresentation.directModeTarget(
+        CommandPalettePresentation.modeNavigationTarget(
+            currentMode: .windows,
             isMenuModeAvailable: isMenuModeAvailable,
             keyCode: keyCode,
-            relevantModifiers: modifiers,
-            charactersIgnoringModifiers: characters,
-            paletteModifier: paletteModifier
+            relevantModifiers: .command,
+            charactersIgnoringModifiers: characters
         )
     }
 

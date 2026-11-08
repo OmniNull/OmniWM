@@ -50,14 +50,14 @@ extension CommandPaletteController {
             isLauncherPreviewVisible = false
             return true
         }
-        let shortcutPreview = modifiers == paletteModifier.eventFlags && KeyEquivalent.matches(
+        let commandPreview = modifiers == .command && KeyEquivalent.matches(
             "y",
             ansiKeyCode: kVK_ANSI_Y,
             keyCode: event.keyCode,
             charactersIgnoringModifiers: event.charactersIgnoringModifiers
         )
         let focusedPreview = modifiers.isEmpty && event.keyCode == UInt16(kVK_Space) && launcherResultsFocused
-        guard shortcutPreview || focusedPreview else { return false }
+        guard commandPreview || focusedPreview else { return false }
         if isLauncherPreviewVisible || selectedLauncherFileResult != nil {
             isLauncherPreviewVisible.toggle()
         }
@@ -65,7 +65,7 @@ extension CommandPaletteController {
     }
 
     private func handleLauncherRevealKey(_ event: NSEvent, modifiers: NSEvent.ModifierFlags) -> Bool {
-        guard modifiers == paletteModifier.eventFlags,
+        guard modifiers == .command,
               [UInt16(kVK_Return), UInt16(kVK_ANSI_KeypadEnter)].contains(event.keyCode)
               || KeyEquivalent.matches(
                   "r",

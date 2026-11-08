@@ -43,7 +43,7 @@ struct CommandPaletteEnvironment {
     var runningApplication: (pid_t) -> NSRunningApplication? = { NSRunningApplication(processIdentifier: $0) }
     var ownBundleIdentifier: () -> String? = { Bundle.main.bundleIdentifier }
     var ownProcessIdentifier: () -> pid_t = { NSRunningApplication.current.processIdentifier }
-    var paletteShortcuts: (PaletteModifier) -> PaletteShortcuts = { PaletteShortcuts.current(modifier: $0) }
+    var paletteShortcuts: () -> PaletteShortcuts = { PaletteShortcuts.current() }
     var observeKeyboardLayout: ((@MainActor () -> Void)?) -> Void = { KeyboardLayoutObserver.shared.observe($0) }
     var fetchMenuItems: (pid_t) -> [MenuItemModel] = { MenuAnywhereFetcher().fetchMenuItemsSync(for: $0) }
     var applicationActivationNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
@@ -276,7 +276,8 @@ struct CommandPaletteEnvironment {
     }
 
     var postPasteShortcut: () -> Bool = {
-        guard let keyCode = KeyboardLayoutKeyCode.current(modifiers: UInt32(cmdKey))("v").map(CGKeyCode.init) else {
+        let pasteLetter: InlineArray = [KeyboardLayoutKeyCode.letter("v")]
+        guard let keyCode = KeyboardLayoutKeyCode.keyCodes(typing: pasteLetter, modifiers: UInt32(cmdKey))[0] else {
             return false
         }
         let source = CGEventSource(stateID: .combinedSessionState)

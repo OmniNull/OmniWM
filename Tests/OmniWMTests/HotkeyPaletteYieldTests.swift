@@ -13,9 +13,7 @@ final class HotkeyPaletteYieldTests: XCTestCase {
         modifiers: UInt32(controlKey | optionKey | cmdKey)
     )
 
-    private func mouseTrigger(_ button: Int64) throws -> HotkeyTrigger {
-        .mouseButton(try XCTUnwrap(MouseButtonBinding(button: button, modifiers: 0)))
-    }
+    private let pauseButton = MouseButtonBinding.supportedButtons.lowerBound
 
     private func makeCenter(extra: [HotkeyBinding] = []) -> HotkeyCenter {
         let center = HotkeyCenter()
@@ -66,20 +64,20 @@ final class HotkeyPaletteYieldTests: XCTestCase {
             HotkeyBinding(
                 id: "toggleShortcutPause",
                 command: .keyboardMode(.togglePause),
-                trigger: try mouseTrigger(3)
+                trigger: .mouseButton(try XCTUnwrap(MouseButtonBinding(button: pauseButton, modifiers: 0)))
             )
         ])
         center.start()
         defer { center.stop() }
 
-        XCTAssertTrue(center.dispatchMouseButton(3, flags: []))
+        XCTAssertTrue(center.dispatchMouseButton(pauseButton, flags: []))
         XCTAssertEqual(registered(center), [])
         center.setPaletteShortcutChords([commandOne])
         center.setPaletteShortcutChords([])
         XCTAssertEqual(registered(center), [])
 
         center.setPaletteShortcutChords([commandOne])
-        XCTAssertTrue(center.dispatchMouseButton(3, flags: []))
+        XCTAssertTrue(center.dispatchMouseButton(pauseButton, flags: []))
         XCTAssertEqual(registered(center), [.focus(.right)])
 
         center.setPaletteShortcutChords([])

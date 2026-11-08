@@ -326,36 +326,4 @@ final class CommandPaletteLauncherTests: XCTestCase {
         ))
         XCTAssertEqual(recorder.revealed, [URL(fileURLWithPath: "/tmp/a.txt")])
     }
-
-    func testRevealAndPreviewUseTheConfiguredPaletteModifier() throws {
-        let recorder = Recorder()
-        let fixture = makeFixture(mode: .files, recorder: recorder)
-        defer { fixture.cleanup() }
-        fixture.controller.settings.commandPaletteModifier = try XCTUnwrap(
-            PaletteModifier(carbonMask: UInt32(controlKey | optionKey))
-        )
-        _ = try fixture.show()
-        recorder.fileSubmissions[0].publish(fixture.palette.launcherRequestGeneration, fileSection(["a.txt"]))
-
-        XCTAssertFalse(fixture.palette.handleLauncherKeyDown(
-            try key(kVK_ANSI_Y, "y", .command),
-            relevantModifiers: .command
-        ))
-        XCTAssertFalse(fixture.palette.handleLauncherKeyDown(
-            try key(kVK_ANSI_R, "r", .command),
-            relevantModifiers: .command
-        ))
-        XCTAssertTrue(recorder.revealed.isEmpty)
-
-        XCTAssertTrue(fixture.palette.handleLauncherKeyDown(
-            try key(kVK_ANSI_Y, "y", [.control, .option]),
-            relevantModifiers: [.control, .option]
-        ))
-        XCTAssertTrue(fixture.palette.isLauncherPreviewVisible)
-        XCTAssertTrue(fixture.palette.handleLauncherKeyDown(
-            try key(kVK_Return, "\r", [.control, .option]),
-            relevantModifiers: [.control, .option]
-        ))
-        XCTAssertEqual(recorder.revealed, [URL(fileURLWithPath: "/tmp/a.txt")])
-    }
 }

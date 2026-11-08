@@ -22,9 +22,7 @@ The palette has six modes:
 
 ## Palette shortcuts
 
-Palette shortcuts act only while the palette is open: the mode keys above, reveal and preview in Launcher and Files, and the window mark chords. While the palette is open, each one takes precedence over a global shortcut on the same chord; once the palette closes, that global shortcut works again. Other global shortcuts, including the one that opens the palette, keep working while it is open.
-
-`Cmd` in palette shortcuts is the **palette modifier**. Change it under **Command Palette** in [Settings > Keyboard Shortcuts](/guides/keyboard-shortcuts/#command-palette) or with [`commandPalette.modifier`](/config/settings-reference/#commandpalette) to any combination of `Control`, `Option`, `Shift`, and `Command` other than `Shift` alone. Palette shortcuts need exactly that combination, and holding it shows file paths in Launcher and Files. The palette's hints show the configured modifier.
+**Unreleased — available when building from `main`.** While the palette is open, it reserves its own shortcuts in every mode: the mode keys above, `Cmd + Enter` and `Cmd + R` (reveal in Finder in Launcher and Files, like `Enter` in other modes), `Cmd + Y` (preview in Files), and the window mark chords. A global shortcut on one of these chords does not run while the palette is open and works again once it closes; Settings shows a note under that shortcut. Other global shortcuts, including the one that opens the palette, keep working while it is open.
 
 ## Navigating results
 

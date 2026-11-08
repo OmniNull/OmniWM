@@ -18,21 +18,29 @@ struct PaletteShortcutChord: Equatable {
     var note: String {
         let chord = binding.displayString
         return switch shortcut {
+        case .mode(.menu):
+            String(
+                localized: "While the command palette is open, \(chord) is reserved for switching to \(CommandPaletteMode.menu.localizedDisplayName) mode when it is available."
+            )
         case let .mode(mode):
             String(
-                localized: "While the command palette is open, \(chord) switches to \(mode.localizedDisplayName) mode instead."
+                localized: "While the command palette is open, \(chord) is reserved for switching to \(mode.localizedDisplayName) mode."
             )
         case .togglePreview:
-            String(localized: "While the command palette is open, \(chord) toggles the file preview instead.")
+            String(
+                localized: "While the command palette is open, \(chord) is reserved for toggling the file preview in \(CommandPaletteMode.files.localizedDisplayName) mode."
+            )
         case .reveal:
             String(
-                localized: "While the command palette is open, \(chord) reveals the selected item in Finder instead."
+                localized: "While the command palette is open, \(chord) is reserved for revealing the selected item in Finder in \(CommandPaletteMode.applications.localizedDisplayName) and \(CommandPaletteMode.files.localizedDisplayName) modes; in other modes it acts like Return."
             )
         case .setMark:
-            String(localized: "While the command palette is open, \(chord) marks the selected window instead.")
+            String(
+                localized: "While the command palette is open, \(chord) is reserved for marking the selected window in \(CommandPaletteMode.windows.localizedDisplayName) mode."
+            )
         case .removeMark:
             String(
-                localized: "While the command palette is open, \(chord) removes a mark from the selected window instead."
+                localized: "While the command palette is open, \(chord) is reserved for removing a mark from the selected window in \(CommandPaletteMode.windows.localizedDisplayName) mode."
             )
         }
     }
@@ -47,35 +55,39 @@ struct PaletteShortcuts {
         (.applications, [kVK_ANSI_5, kVK_ANSI_Keypad5]),
         (.files, [kVK_ANSI_6, kVK_ANSI_Keypad6])
     ]
+    private static let command = UInt32(cmdKey)
     private static let markModifiers = UInt32(controlKey | optionKey | shiftKey)
+    private static let letters: InlineArray<2, UniChar> = [
+        KeyboardLayoutKeyCode.letter("y"),
+        KeyboardLayoutKeyCode.letter("r")
+    ]
 
     let chords: [PaletteShortcutChord]
 
-    init(modifier: PaletteModifier, keyCodeForLetter: (Character) -> UInt32?) {
+    init(previewKeyCode: UInt16?, revealKeyCode: UInt16?) {
         func chord(_ shortcut: PaletteShortcut, _ keyCode: UInt32, _ modifiers: UInt32) -> PaletteShortcutChord {
             PaletteShortcutChord(shortcut: shortcut, binding: KeyBinding(keyCode: keyCode, modifiers: modifiers))
         }
-        func letter(_ character: Character, ansi: Int) -> UInt32 {
-            keyCodeForLetter(character) ?? UInt32(ansi)
-        }
-        let mask = modifier.carbonMask
+        let previewKey = previewKeyCode.map(UInt32.init) ?? UInt32(kVK_ANSI_Y)
+        let revealKey = revealKeyCode.map(UInt32.init) ?? UInt32(kVK_ANSI_R)
         chords = Self.modeKeyCodes.flatMap { mode, keyCodes in
-            keyCodes.map { chord(.mode(mode), UInt32($0), mask) }
+            keyCodes.map { chord(.mode(mode), UInt32($0), Self.command) }
         } + [
-            chord(.togglePreview, letter("y", ansi: kVK_ANSI_Y), mask),
-            chord(.reveal, UInt32(kVK_Return), mask),
-            chord(.reveal, UInt32(kVK_ANSI_KeypadEnter), mask),
-            chord(.reveal, letter("r", ansi: kVK_ANSI_R), mask),
+            chord(.togglePreview, previewKey, Self.command),
+            chord(.reveal, UInt32(kVK_Return), Self.command),
+            chord(.reveal, UInt32(kVK_ANSI_KeypadEnter), Self.command),
+            chord(.reveal, revealKey, Self.command),
             chord(.setMark, UInt32(kVK_ANSI_M), Self.markModifiers),
             chord(.removeMark, UInt32(kVK_ANSI_R), Self.markModifiers)
         ]
     }
 
     static func current(
-        modifier: PaletteModifier,
-        layoutLookup: (UInt32) -> (Character) -> UInt32? = KeyboardLayoutKeyCode.current(modifiers:)
+        layoutLookup: (InlineArray<2, UniChar>, UInt32) -> InlineArray<2, UInt16?> = KeyboardLayoutKeyCode
+            .keyCodes(typing:modifiers:)
     ) -> PaletteShortcuts {
-        PaletteShortcuts(modifier: modifier, keyCodeForLetter: layoutLookup(modifier.carbonMask & UInt32(shiftKey)))
+        let keyCodes = layoutLookup(letters, 0)
+        return PaletteShortcuts(previewKeyCode: keyCodes[0], revealKeyCode: keyCodes[1])
     }
 
     func collisions(with trigger: HotkeyTrigger) -> [PaletteShortcutChord] {

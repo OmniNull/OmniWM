@@ -20,7 +20,13 @@ extension CommandPaletteController {
             return true
         }
 
-        if let targetMode = modeTarget(for: event, relevantModifiers: relevantModifiers) {
+        if let targetMode = CommandPalettePresentation.modeNavigationTarget(
+            currentMode: selectedMode,
+            isMenuModeAvailable: isMenuModeAvailable,
+            keyCode: event.keyCode,
+            relevantModifiers: relevantModifiers,
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers
+        ) {
             selectedMode = targetMode
             return true
         }
@@ -47,21 +53,6 @@ extension CommandPaletteController {
             selectCurrent(trigger: trigger)
             return true
         }
-    }
-
-    private func modeTarget(for event: NSEvent, relevantModifiers: NSEvent.ModifierFlags) -> CommandPaletteMode? {
-        CommandPalettePresentation.directModeTarget(
-            isMenuModeAvailable: isMenuModeAvailable,
-            keyCode: event.keyCode,
-            relevantModifiers: relevantModifiers,
-            charactersIgnoringModifiers: event.charactersIgnoringModifiers,
-            paletteModifier: paletteModifier
-        ) ?? CommandPalettePresentation.cycledModeTarget(
-            currentMode: selectedMode,
-            isMenuModeAvailable: isMenuModeAvailable,
-            keyCode: event.keyCode,
-            relevantModifiers: relevantModifiers
-        )
     }
 
     private func handleMarkKeyDown(_ event: NSEvent, relevantModifiers: NSEvent.ModifierFlags) -> Bool {

@@ -460,14 +460,6 @@ arguments = ["--title", "Weekly report"]
 terminal = "background"
 ```
 
-## commandPalette
-
-The [Command Palette](/features/command-palette/#palette-shortcuts). The table is optional; when absent, every key takes its default.
-
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `modifier` *(optional)* | string | `"Command"` | Palette modifier for the palette's mode, reveal, and preview shortcuts: `+`-joined names from Control/Option/Shift/Command, not `Shift` alone. While the palette is open, its shortcuts take precedence over global shortcuts on the same chord. Settings > Keyboard Shortcuts > Command Palette. |
-
 ## quakeTerminal
 
 The drop-down (Quake) terminal. `enabled` and `provider` apply to every provider; the position, size, animation, auto-hide and appearance keys below configure Ghostty. Kitty and foot use their own configuration and the optional [Kitty](#quaketerminalkitty) or [foot](#quaketerminalfoot) overrides.
