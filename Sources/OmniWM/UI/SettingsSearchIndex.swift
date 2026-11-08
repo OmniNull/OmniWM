@@ -292,7 +292,42 @@ enum SettingsSearchIndex {
         setting("Reveal Log Again", section: .reportIssue, anchor: "Reveal Log Again"),
         setting("Diagnostics recording", section: .reportIssue, anchor: "Diagnostics recording"),
         setting("Stop, Save & Include Recording", section: .reportIssue, anchor: "Stop, Save & Include Recording"),
-        setting("Additional evidence", section: .reportIssue, anchor: "Additional evidence"),
+        setting("Additional evidence", section: .reportIssue, anchor: "Additional evidence")
+    ]
+}
+
+extension SettingsSearchIndex {
+    static func results(for query: String) -> [SettingsSearchEntry] {
+        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return [] }
+        return entries.filter { entry in
+            let text = ([entry.title, entry.context] + entry.keywords).joined(separator: " ")
+            return words.allSatisfy { text.localizedStandardContains($0) }
+        }
+    }
+
+    static let entries: [SettingsSearchEntry] = SettingsSection.allCases.map { section in
+        SettingsSearchEntry(
+            title: section.displayName,
+            route: SettingsRoute(section: section),
+            keywords: aliases(for: section)
+        )
+    } + settings + styleSettings + advancedSettings + networkSettings
+
+    private static func setting(
+        _ title: LocalizedStringResource,
+        section: SettingsSection,
+        tab: String? = nil,
+        anchor: String? = nil,
+        itemID: String? = nil
+    ) -> SettingsSearchEntry {
+        SettingsSearchEntry(
+            title: String(localized: title),
+            route: SettingsRoute(section: section, tab: tab, anchor: anchor, itemID: itemID)
+        )
+    }
+
+    private static let styleSettings: [SettingsSearchEntry] = [
         setting("Custom Bar", section: .styles, tab: "lanes"),
         setting("Bar Widgets", section: .styles, tab: "lanes"),
         setting("Position", section: .styles, tab: "placement"),
@@ -316,44 +351,15 @@ enum SettingsSearchIndex {
         setting("Weather", section: .styles, itemID: "weather"),
         setting("World Clock", section: .styles, itemID: "world-clock"),
         setting("Volume", section: .styles, itemID: "volume"),
-        setting("Drawer", section: .styles, tab: "drawers"),
+        setting("Drawer", section: .styles, tab: "drawers")
+    ]
+
+    private static let advancedSettings: [SettingsSearchEntry] = [
         setting("Settings File", section: .advanced, anchor: "Configuration Files"),
         setting("Shell Folder", section: .advanced, anchor: "Shell Development"),
         setting("IPC", section: .advanced, anchor: "Automation"),
         setting("Command-Line Tools", section: .advanced, anchor: "Command-Line Tools")
     ]
-}
-
-extension SettingsSearchIndex {
-    static func results(for query: String) -> [SettingsSearchEntry] {
-        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
-        guard !words.isEmpty else { return [] }
-        return entries.filter { entry in
-            let text = ([entry.title, entry.context] + entry.keywords).joined(separator: " ")
-            return words.allSatisfy { text.localizedStandardContains($0) }
-        }
-    }
-
-    static let entries: [SettingsSearchEntry] = SettingsSection.allCases.map { section in
-        SettingsSearchEntry(
-            title: section.displayName,
-            route: SettingsRoute(section: section),
-            keywords: aliases(for: section)
-        )
-    } + settings + networkSettings
-
-    private static func setting(
-        _ title: LocalizedStringResource,
-        section: SettingsSection,
-        tab: String? = nil,
-        anchor: String? = nil,
-        itemID: String? = nil
-    ) -> SettingsSearchEntry {
-        SettingsSearchEntry(
-            title: String(localized: title),
-            route: SettingsRoute(section: section, tab: tab, anchor: anchor, itemID: itemID)
-        )
-    }
 
     private static let networkSettings: [SettingsSearchEntry] = [
         setting("Widget Network Access", section: .network, anchor: NetworkPermissionsPage.widgetsAnchor),
