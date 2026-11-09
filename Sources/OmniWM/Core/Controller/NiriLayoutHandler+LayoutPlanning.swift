@@ -184,6 +184,8 @@ extension NiriLayoutHandler {
         let pass = makeLayoutPass(snapshot: snapshot, engine: engine, monitor: monitor, motion: motion)
         let currentSelection = state.selectedNodeId
         pass.engine.setProjectionExclusions(snapshot.excludedTokens, in: pass.wsId)
+        let previousExclusions = laidOutExclusions.updateValue(snapshot.excludedTokens, forKey: pass.wsId)
+        slideAroundExclusionChanges(from: previousExclusions, pass: pass, state: &state, snapshot: snapshot)
 
         let removal = processWindowRemovals(
             pass: pass,
@@ -335,6 +337,229 @@ extension NiriLayoutHandler {
             tabLocalTokens: tabLocalTokens,
             viewOriginBeforeInsertion: viewOriginBeforeInsertion
         )
+    }
+
+    private func slideAroundExclusionChanges(
+        from previousExclusions: Set<WindowToken>?,
+        pass: NiriLayoutPass,
+        state: inout ViewportState,
+        snapshot: NiriWorkspaceSnapshot
+    ) {
+        let exclusions = snapshot.excludedTokens
+        guard controller?.settings.niri.macOSFusion == true,
+              snapshot.hasCompletedInitialRefresh,
+              snapshot.isActiveWorkspace,
+              let previousExclusions,
+              previousExclusions != exclusions
+        else { return }
+        let columns = pass.engine.columns(in: pass.wsId)
+        let columnIds = columns.map(\.id)
+        let widths = columns.map(\.width)
+        let liveColumnIds = Set(columnIds)
+        viewsBeforeExclusion[pass.wsId] = viewsBeforeExclusion[pass.wsId]?.filter { liveColumnIds.contains($0.key) }
+        let showsWindow: (NiriContainer, Set<WindowToken>) -> Bool = { $0.shownWindow(excluding: $1) != nil }
+        let hidden = columns.indices.filter {
+            showsWindow(columns[$0], previousExclusions) && !showsWindow(columns[$0], exclusions)
+        }
+        let shown = columns.indices.filter {
+            !showsWindow(columns[$0], previousExclusions) && showsWindow(columns[$0], exclusions)
+                && !columns[$0].windowNodes.isEmpty
+        }
+        let changedStacks = columns.filter { column in
+            showsWindow(column, previousExclusions) && showsWindow(column, exclusions)
+                && column.windowNodes.contains {
+                    previousExclusions.contains($0.token) != exclusions.contains($0.token)
+                }
+        }
+        if !changedStacks.isEmpty {
+            var frames: [WindowToken: CGRect] = [:]
+            for window in changedStacks.flatMap(\.windowNodes) where !previousExclusions.contains(window.token) {
+                if let frame = window.frame {
+                    frames[window.token] = frame
+                }
+            }
+            stackFramesBeforeExclusion[pass.wsId] = frames
+        }
+        guard !hidden.isEmpty || !shown.isEmpty else { return }
+        NiriLayoutTrace.record(.viewport, workspaceId: pass.wsId, {
+            let ids: ([Int]) -> String = { indices in
+                indices.map { columns[$0].traceWindowIds }.joined(separator: ",")
+            }
+            return "exclusion-slide hidden=[\(ids(hidden))] shown=[\(ids(shown))] "
+                + "active=\(state.activeColumnIndex) scrollPath=\(snapshot.useScrollAnimationPath)"
+        }())
+        for index in hidden {
+            viewsBeforeExclusion[pass.wsId, default: [:]][columns[index].id] = ExcludedColumnView(
+                before: viewPosition(state, columns: columns, exclusions: previousExclusions, pass: pass),
+                columnIds: columnIds,
+                widths: widths
+            )
+            if index == state.activeColumnIndex {
+                reanchorView(
+                    awayFrom: index,
+                    columns: columns,
+                    previousExclusions: previousExclusions,
+                    exclusions: exclusions,
+                    pass: pass,
+                    state: &state
+                )
+            }
+            pass.engine.animateColumnsAroundRemoval(
+                columns: columns,
+                removedIdx: index,
+                activeIdx: state.activeColumnIndex,
+                offset: columns[index][keyPath: pass.primarySpanKeyPath] + pass.gap,
+                context: pass.interactionContext
+            )
+        }
+        var undoing: [(index: Int, before: CGFloat)] = []
+        var opening: [Int] = []
+        for index in shown {
+            let remembered = viewsBeforeExclusion[pass.wsId]?.removeValue(forKey: columns[index].id)
+            let undoes = remembered.map { view in
+                view.columnIds == columnIds && view.widths == widths
+            } == true
+            NiriLayoutTrace.record(.viewport, workspaceId: pass.wsId, {
+                "exclusion-undo column=\(index) undo=\(undoes ? "yes" : remembered == nil ? "no(none)" : "no(changed)")"
+            }())
+            if undoes, let before = remembered?.before {
+                undoing.append((index, before))
+            } else {
+                opening.append(index)
+            }
+        }
+        if let first = undoing.first {
+            restoreView(
+                to: first.before,
+                returning: undoing.map(\.index),
+                columns: columns,
+                previousExclusions: previousExclusions,
+                exclusions: exclusions,
+                pass: pass,
+                state: &state
+            )
+        }
+        for index in opening {
+            if index < state.activeColumnIndex {
+                anchorView(
+                    on: columns[index],
+                    at: index,
+                    columns: columns,
+                    exclusions: exclusions,
+                    pass: pass,
+                    state: &state
+                )
+            }
+            slideAside(
+                columns[(index + 1)...],
+                by: columns[index][keyPath: pass.primarySpanKeyPath] + pass.gap,
+                pass: pass
+            )
+        }
+    }
+
+    private func stripPositions(
+        _ columns: [NiriContainer],
+        exclusions: Set<WindowToken>,
+        pass: NiriLayoutPass
+    ) -> [CGFloat] {
+        var positions: [CGFloat] = []
+        positions.reserveCapacity(columns.count + 1)
+        var total: CGFloat = 0
+        for column in columns {
+            positions.append(total)
+            if column.shownWindow(excluding: exclusions) != nil {
+                total += column[keyPath: pass.primarySpanKeyPath] + pass.gap
+            }
+        }
+        positions.append(total)
+        return positions
+    }
+
+    private func viewPosition(
+        _ state: ViewportState,
+        columns: [NiriContainer],
+        exclusions: Set<WindowToken>,
+        pass: NiriLayoutPass
+    ) -> CGFloat {
+        viewPosition(state, in: stripPositions(columns, exclusions: exclusions, pass: pass))
+    }
+
+    private func viewPosition(_ state: ViewportState, in positions: [CGFloat]) -> CGFloat {
+        positions[min(max(state.activeColumnIndex, 0), positions.count - 1)] + state.viewOffset
+    }
+
+    private func restoreView(
+        to before: CGFloat,
+        returning returningIndices: [Int],
+        columns: [NiriContainer],
+        previousExclusions: Set<WindowToken>,
+        exclusions: Set<WindowToken>,
+        pass: NiriLayoutPass,
+        state: inout ViewportState
+    ) {
+        let positionsNow = stripPositions(columns, exclusions: previousExclusions, pass: pass)
+        let viewNow = viewPosition(state, in: positionsNow)
+        resolvePrimaryContainerSpansIfNeeded(pass: pass)
+        guard let index = returningIndices.first else { return }
+        let positionsThen = stripPositions(columns, exclusions: exclusions, pass: pass)
+        state.rebaseOffset(by: before - positionsThen[index] - state.viewOffset)
+        state.activeColumnIndex = index
+        if let window = columns[index].shownWindow(excluding: exclusions) {
+            state.selectedNodeId = window.id
+        }
+        for (other, column) in columns.enumerated() where !returningIndices.contains(other)
+            && column.shownWindow(excluding: exclusions) != nil
+        {
+            let shift = (positionsNow[other] - viewNow) - (positionsThen[other] - before)
+            slide(column, from: shift, pass: pass)
+        }
+    }
+
+    private func reanchorView(
+        awayFrom index: Int,
+        columns: [NiriContainer],
+        previousExclusions: Set<WindowToken>,
+        exclusions: Set<WindowToken>,
+        pass: NiriLayoutPass,
+        state: inout ViewportState
+    ) {
+        let isShown: (Int) -> Bool = { candidate in
+            columns[candidate].shownWindow(excluding: exclusions) != nil
+        }
+        guard let anchor = (0 ..< index).reversed().first(where: isShown)
+            ?? ((index + 1) ..< columns.count).first(where: isShown)
+        else { return }
+        let positions = stripPositions(columns, exclusions: previousExclusions, pass: pass)
+        state.rebaseOffset(by: viewPosition(state, in: positions) - positions[anchor] - state.viewOffset)
+        state.activeColumnIndex = anchor
+    }
+
+    private func anchorView(
+        on column: NiriContainer,
+        at index: Int,
+        columns: [NiriContainer],
+        exclusions: Set<WindowToken>,
+        pass: NiriLayoutPass,
+        state: inout ViewportState
+    ) {
+        let positions = stripPositions(columns, exclusions: exclusions, pass: pass)
+        state.rebaseOffset(by: positions[state.activeColumnIndex] - positions[index + 1])
+        state.activeColumnIndex = index
+        if let window = column.shownWindow(excluding: exclusions) {
+            state.selectedNodeId = window.id
+        }
+    }
+
+    private func slideAside(_ columns: ArraySlice<NiriContainer>, by offset: CGFloat, pass: NiriLayoutPass) {
+        for column in columns {
+            slide(column, from: -offset, pass: pass)
+        }
+    }
+
+    private func slide(_ column: NiriContainer, from shift: CGFloat, pass: NiriLayoutPass) {
+        guard abs(shift) > 0.5, !column.offsetMoveAnimCurrent(shift, orientation: pass.orientation) else { return }
+        pass.engine.animateReorderedColumn(column, displacement: shift, context: pass.interactionContext)
     }
 
     private func makeLayoutPass(

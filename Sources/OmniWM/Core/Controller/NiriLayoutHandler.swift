@@ -109,6 +109,15 @@ enum StructuralMutationOutcome: Equatable {
     }
 
     var scrollAnimationByDisplay: [CGDirectDisplayID: WorkspaceDescriptor.ID] = [:]
+    var laidOutExclusions: [WorkspaceDescriptor.ID: Set<WindowToken>] = [:]
+    var stackFramesBeforeExclusion: [WorkspaceDescriptor.ID: [WindowToken: CGRect]] = [:]
+    var viewsBeforeExclusion: [WorkspaceDescriptor.ID: [NodeId: ExcludedColumnView]] = [:]
+
+    struct ExcludedColumnView {
+        let before: CGFloat
+        let columnIds: [NodeId]
+        let widths: [ProportionalSize]
+    }
 
     init(controller: WMController?) {
         self.controller = controller
