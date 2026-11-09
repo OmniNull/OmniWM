@@ -147,6 +147,7 @@ final class ShellPalette {
     private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB)
     private var colors: [CGColor] = []
     private(set) var shaderColors = ShellShaderInput.Colors(repeating: .zero)
+    static let darkAppearance = NSAppearance(named: .darkAqua) ?? NSApplication.shared.effectiveAppearance
 
     init(theme: ShellTheme = .native, appearance: NSAppearance = NSApplication.shared.effectiveAppearance) {
         refresh(theme: theme, appearance: appearance)

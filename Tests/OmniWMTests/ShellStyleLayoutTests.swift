@@ -4797,25 +4797,24 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
-    func testSolidBlackWorkspaceLabelsStayReadableInLightAndDarkAppearances() throws {
+    func testSolidBlackWorkspaceLabelsStayReadableOnTheDarkPalette() throws {
         let widget = try ShellRenderedWidget("workspaces")
         let black = ShellRGBA(CGColor(gray: 0, alpha: 1))
-        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
-            widget.resources.palette.refresh(theme: .native, appearance: try XCTUnwrap(NSAppearance(named: appearance)))
-            for accents in [false, true] {
-                var bar = fixture(ShellConfig(), height: 32, vertical: false)
-                bar.style.solidBlack = true
-                bar.style.accents = accents
-                widget.render(bar)
-                for name in accents ? ["2", "3"] : ["1", "2", "3"] {
-                    let label = try XCTUnwrap(widget.tree().first {
-                        widget.text.string($0.content.text) == name
-                            && widget.text.string($0.content.target) == "workspace \(name)"
-                            && $0.kind == .label
-                    })
-                    let color = try ShellRGBA(XCTUnwrap(widget.resources.palette.color(label.content.color)))
-                    XCTAssertGreaterThanOrEqual(color.contrast(black), 4.5, "\(appearance.rawValue) workspace \(name)")
-                }
+        let palette = widget.resources.darkPalette
+        palette.refresh(theme: .native, appearance: ShellPalette.darkAppearance)
+        for accents in [false, true] {
+            var bar = fixture(ShellConfig(), height: 32, vertical: false)
+            bar.style.solidBlack = true
+            bar.style.accents = accents
+            widget.render(bar)
+            for name in accents ? ["2", "3"] : ["1", "2", "3"] {
+                let label = try XCTUnwrap(widget.tree().first {
+                    widget.text.string($0.content.text) == name
+                        && widget.text.string($0.content.target) == "workspace \(name)"
+                        && $0.kind == .label
+                })
+                let color = try ShellRGBA(XCTUnwrap(palette.color(label.content.color)))
+                XCTAssertGreaterThanOrEqual(color.contrast(black), 4.5, "workspace \(name)")
             }
         }
     }

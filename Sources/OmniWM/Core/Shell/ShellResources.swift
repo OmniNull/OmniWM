@@ -7,6 +7,8 @@ import OmniWMShellCore
 @MainActor
 final class ShellResources {
     let palette = ShellPalette()
+    /// Resolved with dark appearance for bars whose background is always black, whatever the app appearance.
+    let darkPalette = ShellPalette(appearance: ShellPalette.darkAppearance)
     let shaders = ShellShaderLibrary()
     let images = ShellImageLibrary()
     let motion: MotionPolicy

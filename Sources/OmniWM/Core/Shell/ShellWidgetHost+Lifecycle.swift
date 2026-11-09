@@ -22,7 +22,7 @@ extension ShellWidgetHost {
         configProblems = []
         config = ShellConfig.resolve(shellDirectory: shellDirectory, problems: &configProblems)
         onConfigChange?(config)
-        resources.palette.refresh(theme: paletteTheme, appearance: NSApplication.shared.effectiveAppearance)
+        refreshPalettes()
         resources.shaders.onChange = { [weak self] in
             self?.shadersChanged(includingAssets: false)
         }
@@ -176,8 +176,14 @@ extension ShellWidgetHost {
         return theme
     }
 
+    private func refreshPalettes() {
+        let theme = paletteTheme
+        resources.palette.refresh(theme: theme, appearance: NSApplication.shared.effectiveAppearance)
+        resources.darkPalette.refresh(theme: theme, appearance: ShellPalette.darkAppearance)
+    }
+
     func appearanceDidChange() {
-        resources.palette.refresh(theme: paletteTheme, appearance: NSApplication.shared.effectiveAppearance)
+        refreshPalettes()
         refreshBarShaders()
         resources.devices.appearance.refresh()
         iconsDidChange()

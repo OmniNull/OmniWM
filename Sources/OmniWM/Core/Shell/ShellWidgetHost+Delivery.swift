@@ -20,6 +20,7 @@ extension ShellWidgetHost {
         if let previous = instance.surface { releaseShellFocus(from: previous, restore: true) }
         let surface = ShellWidgetSurface(scale: scale, resources: resources, directories: folders(of: state))
         surface.assetFolders = state.assetPackages
+        surface.palette = palette(for: key)
         connectResourceDrop(surface, key: ShellTreeKey(bar: key, view: .bar), widget: name)
         connectResourceDrag(surface, key: ShellTreeKey(bar: key, view: .bar), widget: name)
         surface.drawsRootMaterial = key.placement == .island
@@ -102,6 +103,7 @@ extension ShellWidgetHost {
         let next = barData()
         guard next != bars else { return }
         bars = next
+        syncBarPalettes()
         refreshIslandData()
         if let popout, popout.key.placement == .bar, headless == nil, next[popout.key] == nil {
             closePopout()
@@ -114,6 +116,22 @@ extension ShellWidgetHost {
         }
         publishDemand()
         refreshSlots()
+    }
+
+    func palette(for key: ShellBarKey) -> ShellPalette {
+        key.placement == .bar && bars[key]?.style.solidBlack == true ? resources.darkPalette : resources.palette
+    }
+
+    private func syncBarPalettes() {
+        for state in widgets.values {
+            for (key, instance) in state.instances {
+                guard let surface = instance.surface else { continue }
+                let palette = palette(for: key)
+                guard surface.palette !== palette else { continue }
+                surface.palette = palette
+                instance.redraw(text: state.text)
+            }
+        }
     }
 
     @discardableResult

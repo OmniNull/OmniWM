@@ -69,7 +69,7 @@ local function labelColor(style: BarStyle, focused: boolean): Color
     if style.textColor ~= nil then
         return "foreground"
     end
-    return (focused and style.accents) and "accent" or (style.solidBlack and "#B8B8C0" or "secondaryForeground")
+    return (focused and style.accents) and "accent" or "secondaryForeground"
 end
 
 local function iconOpacity(item: BarItem, style: BarStyle, workspaceFocused: boolean): number
