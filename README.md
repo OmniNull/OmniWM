@@ -27,94 +27,6 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 
 [![Watch the demo](https://img.youtube.com/vi/SWzGMEKtdbI/maxresdefault.jpg)](https://www.youtube.com/watch?v=SWzGMEKtdbI)
 
-## Highlights
-
-- Optional [window switcher](website/src/content/docs/features/window-switcher.md) with previews and separate Command-Tab / Option-Tab workspace scopes
-- Ghostty-powered quake/sticky terminal
-- Native macOS window-tab support
-- Local IPC and `omniwmctl` automation
-- Scratchpads and sticky windows for any app
-- Overview
-- Unified command palette for windows, app menus, clipboard history, OmniWM commands, applications, and files
-- Menu Anywhere
-- Niri-style tabbed containers and Dwindle tile groups
-- Niri-style scrolling and Hyprland-style Dwindle BSP layouts
-- Status-bar icon concealment (similar to Ice)
-- Keep Awake (similar to Caffeine)
-- Interactive workspace and app-icon bar
-
-## Requirements
-
-- macOS 26+ (Tahoe) on Apple Silicon, SIP stays on
-- Accessibility and Input Monitoring
-- `Displays have separate Spaces` turned on in System Settings > Desktop & Dock > Mission Control
-- Optional: Screen Recording (Overview thumbnails, drag previews) and Full Disk Access (Hidden Bar, Notifications widget)
-
-Details and known limitations: [Compatibility, Requirements & Limitations](https://omniwm.app/help/known-limitations/).
-
-## Installation
-
-```bash
-brew install --cask omniwm
-```
-
-This installs `OmniWM.app` and puts `omniwmctl` on your `PATH`. OmniWM is also in [nixpkgs](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/om/omniwm/package.nix) with a Home Manager [`programs.omniwm` module](https://github.com/nix-community/home-manager/blob/master/modules/programs/omniwm.nix), and on [GitHub Releases](https://github.com/OmniNull/OmniWM/releases/latest). Nix setup, canary builds, upgrading, and moving off the retired `BarutSRB/tap` are in the [install guide](https://omniwm.app/guides/install/).
-
-OmniWM checks for new releases once a day and never installs anything on its own. Turn it off in `Settings > General > Updates`.
-
-## Quick Start
-
-1. Turn on `Displays have separate Spaces` and log out and back in if it was off
-2. Launch OmniWM, grant Accessibility and Input Monitoring (Screen Recording is optional), then click **Start OmniWM**
-3. Windows tile into Niri scrolling containers; switch a workspace to Dwindle BSP with `Toggle Workspace Layout`
-4. `Option + 1-9` switches workspaces and `Option + Shift + 1-9` moves the focused window; the rest is in [Keyboard Shortcuts](https://omniwm.app/guides/keyboard-shortcuts/)
-
-Settings live in `~/.config/omniwm/settings.toml` and reload when you save it. More in the [full quick start](https://omniwm.app/guides/quick-start/).
-
-## Documentation
-
-<a name="keyboard-shortcuts"></a><a name="configuration"></a>
-Everything lives at [omniwm.app](https://omniwm.app) and follows current `main`.
-
-- [Layout Modes](https://omniwm.app/guides/layouts/) · [Keyboard Shortcuts](https://omniwm.app/guides/keyboard-shortcuts/) · [Multi-Monitor](https://omniwm.app/guides/multi-monitor/) · [Tips](https://omniwm.app/guides/tips/)
-- [Configuration](https://omniwm.app/config/configuration/) · [Settings Reference](https://omniwm.app/config/settings-reference/) · [App Rules](https://omniwm.app/features/app-rules/) · [Scratchpads](https://omniwm.app/features/scratchpads/)
-- [Quake Terminal](https://omniwm.app/features/quake-terminal/) · [Command Palette](https://omniwm.app/features/command-palette/) · [Overview](https://omniwm.app/features/overview/) · [Workspace Bar](https://omniwm.app/features/workspace-bar/) · [Hidden Bar](https://omniwm.app/features/hidden-bar/) · [OmniShell](https://omniwm.app/features/luau-shell/)
-- [IPC & CLI Reference](https://omniwm.app/reference/cli/overview/) (`omniwmctl`, IPC is off until you enable it) · [Architecture Guide](https://omniwm.app/developers/architecture/)
-
-## Community
-
-Questions, setup help and config sharing happen on the [OmniWM Fluxer](https://fluxer.gg/EzdHp3aE) and [OmniWM Discord](https://discord.gg/NFrJKNmmrT). Integrations ([omacosy](https://github.com/paulsp94/omacosy), [OmniWM Computer Use](https://github.com/nick-s5/omniwm-computer-use), [OmniCast](https://github.com/imprisonedmind/omni-cast)) and related forks ([Nehir](https://github.com/apphane-dev/nehir), [choru-k/OmniWM](https://github.com/choru-k/OmniWM)) are listed on [Community & Support](https://omniwm.app/help/community/).
-
-## Reporting Bugs
-
-Use **Report a Bug…** in OmniWM's status-bar menu: it prepares a diagnostic log and opens a pre-filled GitHub issue. The [GitHub issue form](https://github.com/OmniNull/OmniWM/issues/new/choose) works too; include your OmniWM and macOS versions.
-
-## Contributing
-
-Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md); the docs sources live in [`website/src/content/docs`](website/src/content/docs).
-
-### Building from Source
-
-Follow the [contributor quick start](CONTRIBUTING.md#quick-start) for Xcode requirements, automatic dependency setup with [Lix](https://lix.systems/install/) and the repository's `flake.nix`, and a separate **OmniWM Dev** app with independent settings. The guide covers rebuilding, switching back to your normal app, and verifying a pull request.
-
-## Support
-
-If you find OmniWM useful, consider supporting development:
-
-- [GitHub Sponsors](https://github.com/sponsors/BarutSRB)
-- [PayPal](https://paypal.me/beacon2024)
-
-## License
-
-OmniWM is licensed under the [GNU General Public License v2.0-only](LICENSE). Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM.
-
-Every OmniWM source file carries an SPDX license header. App-bundled third-party notices stay in `Resources/Licenses` and ship in `Contents/Resources/Licenses`. They cover the vendored Luau and Lua runtimes (MIT), generic colour palettes adapted through [Noctalia](https://github.com/noctalia-dev/noctalia) and [Wayle](https://github.com/wayle-rs/wayle) (MIT), and Google's Material Color Utilities (Apache 2.0).
-
-Optional styles keep their own notices in their folders. [Vitreus](styles/vitreus/README.md) retains its upstream MIT notice and the Space Grotesk font's OFL notice; [Celestial](styles/celestial/README.md) retains the notices of Rubik, Google Sans Flex and Material Symbols Rounded. Each style README lists its credits and licences. Forks and redistributions must retain the applicable notices and the `LICENSE` file, and remain GPL-2.0-only with source available.
-
-<details>
-<summary><strong>Contributors, sponsors and bug reporters</strong></summary>
-
 <!-- contributors:start -->
 ## Contributors
 
@@ -846,4 +758,87 @@ Optional styles keep their own notices in their folders. [Vitreus](styles/vitreu
 </table>
 <!-- bug-reporters:end -->
 
-</details>
+## Highlights
+
+- Optional [window switcher](website/src/content/docs/features/window-switcher.md) with previews and separate Command-Tab / Option-Tab workspace scopes
+- Ghostty-powered quake/sticky terminal
+- Native macOS window-tab support
+- Local IPC and `omniwmctl` automation
+- Scratchpads and sticky windows for any app
+- Overview
+- Unified command palette for windows, app menus, clipboard history, OmniWM commands, applications, and files
+- Menu Anywhere
+- Niri-style tabbed containers and Dwindle tile groups
+- Niri-style scrolling and Hyprland-style Dwindle BSP layouts
+- Status-bar icon concealment (similar to Ice)
+- Keep Awake (similar to Caffeine)
+- Interactive workspace and app-icon bar
+
+## Requirements
+
+- macOS 26+ (Tahoe) on Apple Silicon, SIP stays on
+- Accessibility and Input Monitoring
+- `Displays have separate Spaces` turned on in System Settings > Desktop & Dock > Mission Control
+- Optional: Screen Recording (Overview thumbnails, drag previews) and Full Disk Access (Hidden Bar, Notifications widget)
+
+Details and known limitations: [Compatibility, Requirements & Limitations](https://omniwm.app/help/known-limitations/).
+
+## Installation
+
+```bash
+brew install --cask omniwm
+```
+
+This installs `OmniWM.app` and puts `omniwmctl` on your `PATH`. OmniWM is also in [nixpkgs](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/om/omniwm/package.nix) with a Home Manager [`programs.omniwm` module](https://github.com/nix-community/home-manager/blob/master/modules/programs/omniwm.nix), and on [GitHub Releases](https://github.com/OmniNull/OmniWM/releases/latest). Nix setup, canary builds, upgrading, and moving off the retired `BarutSRB/tap` are in the [install guide](https://omniwm.app/guides/install/).
+
+OmniWM checks for new releases once a day and never installs anything on its own. Turn it off in `Settings > General > Updates`.
+
+## Quick Start
+
+1. Turn on `Displays have separate Spaces` and log out and back in if it was off
+2. Launch OmniWM, grant Accessibility and Input Monitoring (Screen Recording is optional), then click **Start OmniWM**
+3. Windows tile into Niri scrolling containers; switch a workspace to Dwindle BSP with `Toggle Workspace Layout`
+4. `Option + 1-9` switches workspaces and `Option + Shift + 1-9` moves the focused window; the rest is in [Keyboard Shortcuts](https://omniwm.app/guides/keyboard-shortcuts/)
+
+Settings live in `~/.config/omniwm/settings.toml` and reload when you save it. More in the [full quick start](https://omniwm.app/guides/quick-start/).
+
+## Documentation
+
+<a name="keyboard-shortcuts"></a><a name="configuration"></a>
+Everything lives at [omniwm.app](https://omniwm.app) and follows current `main`.
+
+- [Layout Modes](https://omniwm.app/guides/layouts/) · [Keyboard Shortcuts](https://omniwm.app/guides/keyboard-shortcuts/) · [Multi-Monitor](https://omniwm.app/guides/multi-monitor/) · [Tips](https://omniwm.app/guides/tips/)
+- [Configuration](https://omniwm.app/config/configuration/) · [Settings Reference](https://omniwm.app/config/settings-reference/) · [App Rules](https://omniwm.app/features/app-rules/) · [Scratchpads](https://omniwm.app/features/scratchpads/)
+- [Quake Terminal](https://omniwm.app/features/quake-terminal/) · [Command Palette](https://omniwm.app/features/command-palette/) · [Overview](https://omniwm.app/features/overview/) · [Workspace Bar](https://omniwm.app/features/workspace-bar/) · [Hidden Bar](https://omniwm.app/features/hidden-bar/) · [OmniShell](https://omniwm.app/features/luau-shell/)
+- [IPC & CLI Reference](https://omniwm.app/reference/cli/overview/) (`omniwmctl`, IPC is off until you enable it) · [Architecture Guide](https://omniwm.app/developers/architecture/)
+
+## Community
+
+Questions, setup help and config sharing happen on the [OmniWM Fluxer](https://fluxer.gg/EzdHp3aE) and [OmniWM Discord](https://discord.gg/NFrJKNmmrT). Integrations ([omacosy](https://github.com/paulsp94/omacosy), [OmniWM Computer Use](https://github.com/nick-s5/omniwm-computer-use), [OmniCast](https://github.com/imprisonedmind/omni-cast)) and related forks ([Nehir](https://github.com/apphane-dev/nehir), [choru-k/OmniWM](https://github.com/choru-k/OmniWM)) are listed on [Community & Support](https://omniwm.app/help/community/).
+
+## Reporting Bugs
+
+Use **Report a Bug…** in OmniWM's status-bar menu: it prepares a diagnostic log and opens a pre-filled GitHub issue. The [GitHub issue form](https://github.com/OmniNull/OmniWM/issues/new/choose) works too; include your OmniWM and macOS versions.
+
+## Contributing
+
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md); the docs sources live in [`website/src/content/docs`](website/src/content/docs).
+
+### Building from Source
+
+Follow the [contributor quick start](CONTRIBUTING.md#quick-start) for Xcode requirements, automatic dependency setup with [Lix](https://lix.systems/install/) and the repository's `flake.nix`, and a separate **OmniWM Dev** app with independent settings. The guide covers rebuilding, switching back to your normal app, and verifying a pull request.
+
+## Support
+
+If you find OmniWM useful, consider supporting development:
+
+- [GitHub Sponsors](https://github.com/sponsors/BarutSRB)
+- [PayPal](https://paypal.me/beacon2024)
+
+## License
+
+OmniWM is licensed under the [GNU General Public License v2.0-only](LICENSE). Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM.
+
+Every OmniWM source file carries an SPDX license header. App-bundled third-party notices stay in `Resources/Licenses` and ship in `Contents/Resources/Licenses`. They cover the vendored Luau and Lua runtimes (MIT), generic colour palettes adapted through [Noctalia](https://github.com/noctalia-dev/noctalia) and [Wayle](https://github.com/wayle-rs/wayle) (MIT), and Google's Material Color Utilities (Apache 2.0).
+
+Optional styles keep their own notices in their folders. [Vitreus](styles/vitreus/README.md) retains its upstream MIT notice and the Space Grotesk font's OFL notice; [Celestial](styles/celestial/README.md) retains the notices of Rubik, Google Sans Flex and Material Symbols Rounded. Each style README lists its credits and licences. Forks and redistributions must retain the applicable notices and the `LICENSE` file, and remain GPL-2.0-only with source available.
