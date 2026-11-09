@@ -445,8 +445,9 @@ extension CommandPaletteController {
         }
     }
 
-    private func reservePaletteShortcuts(_ wmController: WMController) {
-        wmController.hotkeys.setPaletteShortcutChords(environment.paletteShortcuts().chords.map(\.binding))
+    func reservePaletteShortcuts(_ wmController: WMController) {
+        let chords = environment.paletteShortcuts().chords.filter { isUnifiedSearch || $0.shortcut != .jumpGroup }
+        wmController.hotkeys.setPaletteShortcutChords(chords.map(\.binding))
     }
 
     private func releasePaletteInput(_ wmController: WMController) {

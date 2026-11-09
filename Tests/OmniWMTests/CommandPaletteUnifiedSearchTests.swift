@@ -27,6 +27,7 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         var openedFiles: [URL] = []
         var openedApplications: [URL] = []
         var copiedClipboardItems: [UUID] = []
+        var onClipboardCopied: (() -> Void)?
     }
 
     func testPlainOpenShowsUnifiedSearchWhilePerModeOpenStaysSingle() throws {
@@ -108,8 +109,9 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
 
         XCTAssertFalse(fixture.palette.isVisible)
         let copied = expectation(description: "Clipboard item copied")
-        Task { @MainActor in
-            while recorder.copiedClipboardItems.isEmpty { await Task.yield() }
+        if recorder.copiedClipboardItems.isEmpty {
+            recorder.onClipboardCopied = { copied.fulfill() }
+        } else {
             copied.fulfill()
         }
         wait(for: [copied], timeout: 2)
@@ -234,7 +236,10 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
             environment.openFile = { url, _ in recorder.openedFiles.append(url) }
             environment.openApplication = { url, _ in recorder.openedApplications.append(url) }
             environment.copyClipboardItem = { _, id in
-                await MainActor.run { recorder.copiedClipboardItems.append(id) }
+                await MainActor.run {
+                    recorder.copiedClipboardItems.append(id)
+                    recorder.onClipboardCopied?()
+                }
                 return true
             }
         }

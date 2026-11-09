@@ -56,6 +56,7 @@ final class CommandPaletteSettingsTests: XCTestCase {
         settings.applyExport(export)
 
         XCTAssertEqual(settings.commandPalette.export(), export.commandPalette)
+        XCTAssertEqual(settings.toExport().commandPalette, export.commandPalette)
     }
 
     private func removingCommandPaletteTable() throws -> String {

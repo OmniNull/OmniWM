@@ -87,6 +87,9 @@ extension CommandPaletteController {
         clearLauncherResults()
         unifiedResults = UnifiedSearchResults()
         isUnifiedSearch = false
+        if let wmController {
+            reservePaletteShortcuts(wmController)
+        }
         let target = isModeAvailable(mode) ? mode : .windows
         if selectedMode == target {
             activateSelectedMode()

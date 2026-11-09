@@ -90,7 +90,8 @@ enum CommandPalettePresentation {
         charactersIgnoringModifiers: String?
     ) -> Int? {
         guard relevantModifiers == .command,
-              let digit = (modeDigitByKeyCode[keyCode] ?? charactersIgnoringModifiers).flatMap({ Int($0) }),
+              let digit = (modeDigitByKeyCode[keyCode] ?? charactersIgnoringModifiers)
+                  .flatMap({ $0.count == 1 ? Int($0) : nil }),
               (1 ... UnifiedSearch.topHitLimit).contains(digit)
         else { return nil }
         return digit - 1

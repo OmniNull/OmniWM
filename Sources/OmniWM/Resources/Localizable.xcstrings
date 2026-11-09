@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "While unified search is open, %@ is reserved for jumping between result groups." : {
+
+    },
     "%@, top hit %@" : {
 
     },

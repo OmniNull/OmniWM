@@ -15,6 +15,7 @@ struct UnifiedSearchPickHistory: Codable, Equatable, Sendable {
     }
 
     static let queryLimit = 500
+    static let picksPerQueryLimit = 32
 
     var queries: [String: QueryPicks] = [:]
 
@@ -27,6 +28,11 @@ struct UnifiedSearchPickHistory: Codable, Equatable, Sendable {
         pick.count += 1
         pick.lastPicked = date
         entry.picks[key] = pick
+        if entry.picks.count > Self.picksPerQueryLimit {
+            let retained = entry.picks.sorted { $0.value.lastPicked > $1.value.lastPicked }
+                .prefix(Self.picksPerQueryLimit)
+            entry.picks = Dictionary(uniqueKeysWithValues: retained.map { ($0.key, $0.value) })
+        }
         queries[foldedQuery] = entry
         if queries.count > Self.queryLimit {
             let retained = queries.sorted { $0.value.lastUsed > $1.value.lastUsed }.prefix(Self.queryLimit)

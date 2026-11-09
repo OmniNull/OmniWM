@@ -90,6 +90,14 @@ struct CommandPaletteUnifiedResultsView: View {
         CommandPaletteMenuRow(item: item, isSelected: controller.selectedItemID == id, shortcutHint: topHitShortcut(id))
             .id(id)
             .onTapGesture { activate(id) }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(item.title)
+            .accessibilityValue(CommandPalettePresentation.accessibilityValue(
+                item.keyboardShortcut ?? "",
+                topHitShortcut: topHitShortcut(id)
+            ))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAddTraits(controller.selectedItemID == id ? .isSelected : [])
     }
 
     private func commandRow(_ id: CommandPaletteSelectionID, _ item: CommandPaletteCommandItem) -> some View {
