@@ -97,6 +97,43 @@ final class InputTapThreadTests: XCTestCase {
     }
 
     @MainActor
+    func testNativeResizeCapturesWindowFramesOnlyForEnabledUnmodifiedClicks() async {
+        let controller = makeController()
+        controller.settings.gestures.mouseMoveModifierKey = .option
+        let handler = controller.mouseEventHandler
+        handler.setup()
+        defer { handler.cleanup() }
+        let tap = handler.inputTapThread
+        let location = CGPoint(x: 100, y: 100)
+        var captures = 0
+
+        func click(modifiers: CGEventFlags = []) {
+            tap.evaluateLeftMouseDown(at: location, modifiers: modifiers, snapshot: tap.filterSnapshot) {
+                captures += 1
+                return [:]
+            }
+        }
+
+        click()
+        XCTAssertEqual(captures, 0)
+
+        controller.settings.gestures.adoptNativeResize = true
+        click(modifiers: .maskCommand)
+        XCTAssertEqual(captures, 0)
+
+        click()
+        XCTAssertEqual(captures, 1)
+
+        controller.settings.gestures.adoptNativeResize = false
+        click()
+        XCTAssertEqual(captures, 1)
+
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+    }
+
+    @MainActor
     func testFastPathPassesUnmodifiedScrollAndTwoFingerTrackpadScroll() throws {
         let controller = makeController()
         let handler = controller.mouseEventHandler

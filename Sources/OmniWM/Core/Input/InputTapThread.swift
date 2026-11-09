@@ -9,6 +9,7 @@ struct TapFilterSnapshot: Sendable {
     var activeCapture: MouseEventHandler.MouseButton?
     var claimedOtherButtonMask: UInt32 = 0
     var moveModifier: CGEventFlags?
+    var adoptNativeResize = false
     var resizeModifier: CGEventFlags = []
     var scrollModifier: CGEventFlags = []
     var minGestureFingers: Int = 3
@@ -159,22 +160,8 @@ final class InputTapThread: @unchecked Sendable {
         let location = ScreenCoordinateSpace.toAppKit(point: event.location)
         switch type {
         case .leftMouseDown:
-            let flags = event.flags
-            let isMoveCandidate = MouseEventHandler.mouseMoveModifiersMatch(flags, required: snap.moveModifier)
-            guard isMoveCandidate else {
-                DispatchQueue.main.async {
-                    MainActor.assumeIsolated {
-                        _ = MouseEventHandler._instance?.receiveTapMouseDown(
-                            at: location,
-                            modifiers: flags,
-                            button: .left
-                        )
-                    }
-                }
-                return event
-            }
-            _ = evaluateAuthoritativeTapOnMain(
-                type: type, location: location, modifiers: flags, buttonNumber: 0, scrollPayload: nil
+            evaluateLeftMouseDown(
+                at: location, modifiers: event.flags, snapshot: snap, captureWindowFrames: Self.captureWindowFrames
             )
             return event
         case .leftMouseDragged:
@@ -341,6 +328,48 @@ final class InputTapThread: @unchecked Sendable {
 }
 
 extension InputTapThread {
+    nonisolated func evaluateLeftMouseDown(
+        at location: CGPoint,
+        modifiers: CGEventFlags,
+        snapshot: TapFilterSnapshot,
+        captureWindowFrames: () -> [WindowToken: CGRect]
+    ) {
+        let isMoveCandidate = MouseEventHandler.mouseMoveModifiersMatch(modifiers, required: snapshot.moveModifier)
+        if isMoveCandidate {
+            _ = evaluateAuthoritativeTapOnMain(
+                type: .leftMouseDown, location: location, modifiers: modifiers, buttonNumber: 0, scrollPayload: nil
+            )
+            return
+        }
+        let needsNativeResizeBaseline = snapshot.adoptNativeResize
+            && modifiers.isDisjoint(with: MouseEventHandler.relevantModifierFlags)
+        let windowServerFrames = needsNativeResizeBaseline ? captureWindowFrames() : [:]
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                _ = MouseEventHandler._instance?.receiveTapMouseDown(
+                    at: location, modifiers: modifiers, windowServerFramesAtMouseDown: windowServerFrames
+                )
+            }
+        }
+    }
+
+    private nonisolated static func captureWindowFrames() -> [WindowToken: CGRect] {
+        guard let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] else { return [:] }
+        var frames: [WindowToken: CGRect] = [:]
+        frames.reserveCapacity(windows.count)
+        for window in windows {
+            guard let windowId = window[kCGWindowNumber as String] as? Int,
+                  let pid = window[kCGWindowOwnerPID as String] as? pid_t,
+                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary)
+            else { continue }
+            frames[WindowToken(pid: pid, windowId: windowId)] = frame
+        }
+        return frames
+    }
+
     private nonisolated func forwardCapturedDrag(
         _ event: CGEvent,
         type: CGEventType,

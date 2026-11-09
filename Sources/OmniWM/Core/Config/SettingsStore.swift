@@ -241,7 +241,7 @@ final class SettingsStore {
         dwindle.onChange = { [weak self] in self?.scheduleSave() }
         gestures.onChange = { [weak self] in
             self?.notifyTrackpadAvailabilityIfChanged()
-            self?.scheduleSave()
+            self?.pointerSettingsDidChange()
         }
         workspaceBar.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         workspaceBar.onNotificationBadgesChange = { [weak self] in self?.scheduleSave() }

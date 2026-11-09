@@ -9,7 +9,8 @@ extension MouseEventHandler {
         at location: CGPoint,
         modifiers: CGEventFlags,
         button: MouseButton,
-        windowIdUnderPointer: Int?
+        windowIdUnderPointer: Int?,
+        windowServerFramesAtMouseDown: [WindowToken: CGRect]?
     ) -> Bool {
         guard let controller else { return false }
         guard canHandleManagedMouseInteraction(controller: controller) else { return false }
@@ -24,7 +25,12 @@ extension MouseEventHandler {
         }
 
         if button == .left, modifiers.isDisjoint(with: Self.relevantModifierFlags) {
-            recordPointerFocusIntent(at: location, workspaceId: wsId, windowIdUnderPointer: windowIdUnderPointer)
+            recordPointerFocusIntent(
+                at: location,
+                workspaceId: wsId,
+                windowIdUnderPointer: windowIdUnderPointer,
+                windowServerFramesAtMouseDown: windowServerFramesAtMouseDown
+            )
         }
 
         let layoutType = controller.workspaceManager.descriptor(for: wsId)
@@ -81,7 +87,10 @@ extension MouseEventHandler {
     }
 
     private func recordPointerFocusIntent(
-        at location: CGPoint, workspaceId wsId: WorkspaceDescriptor.ID, windowIdUnderPointer: Int?
+        at location: CGPoint,
+        workspaceId wsId: WorkspaceDescriptor.ID,
+        windowIdUnderPointer: Int?,
+        windowServerFramesAtMouseDown: [WindowToken: CGRect]?
     ) {
         guard let controller else { return }
         state.awaitsNativeTitleBarDragTarget = windowIdUnderPointer == nil
@@ -91,7 +100,11 @@ extension MouseEventHandler {
             ? geometricFocusIntentCandidate(at: location, workspaceId: wsId)
             : nil)
         captureNativeCrossDisplayMove(for: focusIntentToken)
-        captureNativeResizeStart(for: focusIntentToken, at: location)
+        captureNativeResizeStart(
+            for: focusIntentToken,
+            at: location,
+            windowServerFramesAtMouseDown: windowServerFramesAtMouseDown
+        )
         if let token = focusIntentToken {
             controller.axEventHandler.noteMouseFocusIntent(token: token)
         } else {
