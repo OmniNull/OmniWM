@@ -68,8 +68,18 @@ final class CommandPaletteSettings {
         searchedModes.swapAt(index, index + offset)
     }
 
-    func moveSearchedModes(fromOffsets source: IndexSet, toOffset destination: Int) {
-        guard source.allSatisfy({ $0 < searchedModes.count }) else { return }
-        searchedModes.move(fromOffsets: source, toOffset: min(destination, searchedModes.count))
+    @discardableResult
+    func moveSearchedMode(_ mode: CommandPaletteMode, toPositionOf target: CommandPaletteMode) -> Bool {
+        guard mode != target,
+              let source = searchedModes.firstIndex(of: mode),
+              let destination = searchedModes.firstIndex(of: target)
+        else {
+            return false
+        }
+        var modes = searchedModes
+        modes.remove(at: source)
+        modes.insert(mode, at: destination)
+        searchedModes = modes
+        return true
     }
 }

@@ -19,7 +19,6 @@ struct CommandPaletteSettingsTab: View {
                 ForEach(orderedModes, id: \.self) { mode in
                     modeRow(mode)
                 }
-                .onMove { settings.commandPalette.moveSearchedModes(fromOffsets: $0, toOffset: $1) }
                 SettingsCaption(
                     localized: "Results are grouped in this order. Menu reads the frontmost app’s menus each time the palette opens. Clipboard needs clipboard history."
                 )
@@ -46,6 +45,14 @@ struct CommandPaletteSettingsTab: View {
         let searched = settings.commandPalette.searchedModes
         let index = searched.firstIndex(of: mode)
         return HStack(spacing: 8) {
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+                .contentShape(Rectangle())
+                .opacity(index == nil ? 0 : 1)
+                .draggable(mode.rawValue)
+                .disabled(index == nil)
+                .accessibilityHidden(true)
             Toggle(isOn: Binding(
                 get: { index != nil },
                 set: { settings.commandPalette.setMode(mode, searched: $0) }
@@ -75,5 +82,9 @@ struct CommandPaletteSettingsTab: View {
             .accessibilityLabel(String(localized: "Move \(mode.localizedDisplayName) Down"))
         }
         .buttonStyle(.borderless)
+        .dropDestination(for: String.self) { items, _ in
+            guard let dragged = items.first.flatMap(CommandPaletteMode.init(rawValue:)) else { return false }
+            return settings.commandPalette.moveSearchedMode(dragged, toPositionOf: mode)
+        }
     }
 }
