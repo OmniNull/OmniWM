@@ -59,7 +59,10 @@ struct CommandPaletteUnifiedResultsView: View {
     private var sections: some View {
         let results = controller.unifiedResults
         if !results.topHits.isEmpty {
-            heading(String(localized: "Top Hits"))
+            heading(
+                String(localized: "Top Hits"),
+                hint: CommandPalettePresentation.topHitShortcutRange(count: results.topHits.count)
+            )
             ForEach(results.topHits, id: \.self) { row($0) }
         }
         ForEach(results.groups, id: \.mode) { group in
@@ -71,15 +74,21 @@ struct CommandPaletteUnifiedResultsView: View {
         }
     }
 
-    private func heading(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundColor(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
-            .accessibilityAddTraits(.isHeader)
+    private func heading(_ title: String, hint: String? = nil) -> some View {
+        HStack {
+            Text(title)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 0)
+            if let hint {
+                Text(hint)
+                    .accessibilityLabel(String(localized: "Open with \(hint)"))
+            }
+        }
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundColor(.secondary)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
     }
 
     @ViewBuilder

@@ -64,6 +64,14 @@ extension CommandPaletteController {
             return true
         }
         if handleLauncherRevealKey(event, modifiers: relevantModifiers) { return true }
+        if let index = CommandPalettePresentation.topHitIndex(
+            keyCode: event.keyCode,
+            relevantModifiers: relevantModifiers,
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers
+        ) {
+            openUnifiedTopHit(at: index)
+            return true
+        }
         if CommandPalettePresentation.modeNavigationTarget(
             currentMode: selectedMode,
             isMenuModeAvailable: isMenuModeAvailable,

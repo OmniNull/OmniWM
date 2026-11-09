@@ -58,6 +58,13 @@ extension CommandPaletteController {
         )
     }
 
+    func openUnifiedTopHit(at index: Int) {
+        let topHits = unifiedQuery.isEmpty ? [] : unifiedResults.topHits
+        guard topHits.indices.contains(index) else { return }
+        selectedItemID = topHits[index]
+        selectCurrent()
+    }
+
     func jumpUnifiedSection(by delta: Int) {
         let sections = unifiedQuery.isEmpty ? [] : unifiedResults.sections
         guard !sections.isEmpty else { return }

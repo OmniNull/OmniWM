@@ -84,6 +84,22 @@ enum CommandPalettePresentation {
         UInt16(kVK_ANSI_6): "6", UInt16(kVK_ANSI_Keypad6): "6"
     ]
 
+    static func topHitIndex(
+        keyCode: UInt16,
+        relevantModifiers: NSEvent.ModifierFlags,
+        charactersIgnoringModifiers: String?
+    ) -> Int? {
+        guard relevantModifiers == .command,
+              let digit = (modeDigitByKeyCode[keyCode] ?? charactersIgnoringModifiers).flatMap({ Int($0) }),
+              (1 ... UnifiedSearch.topHitLimit).contains(digit)
+        else { return nil }
+        return digit - 1
+    }
+
+    static func topHitShortcutRange(count: Int) -> String {
+        count <= 1 ? "⌘1" : "⌘1–⌘\(count)"
+    }
+
     static func modeNavigationTarget(
         currentMode: CommandPaletteMode,
         isMenuModeAvailable: Bool,

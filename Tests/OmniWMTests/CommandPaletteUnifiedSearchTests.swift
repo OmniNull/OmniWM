@@ -136,6 +136,22 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         XCTAssertEqual(fixture.controller.settings.unifiedSearchLearnedPicks(for: "rep"), [])
     }
 
+    func testCommandDigitsOpenTheMatchingTopHit() throws {
+        let (fixture, recorder) = makeFixture(searchedModes: [.files])
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+
+        fixture.palette.searchText = "rep"
+        publishFiles(recorder, ["Report 1.pdf", "Report 2.pdf", "Report 3.pdf", "Report 4.pdf"])
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_ANSI_4, modifiers: .command)))
+        XCTAssertTrue(recorder.openedFiles.isEmpty)
+        XCTAssertTrue(fixture.palette.isUnifiedSearch)
+
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_ANSI_2, modifiers: .command)))
+        XCTAssertEqual(recorder.openedFiles, [URL(fileURLWithPath: "/tmp/Report 2.pdf")])
+        XCTAssertFalse(fixture.palette.isVisible)
+    }
+
     func testOptionArrowsJumpBetweenTopHitsAndGroups() throws {
         let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
         defer { fixture.cleanup() }
