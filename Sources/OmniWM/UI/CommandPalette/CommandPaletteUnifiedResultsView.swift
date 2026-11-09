@@ -91,7 +91,11 @@ struct CommandPaletteUnifiedResultsView: View {
             .id(id)
             .onTapGesture { activate(id) }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(item.title)
+            .accessibilityLabel(
+                item.parentTitles.isEmpty
+                    ? item.title
+                    : "\(item.title), \(item.parentTitles.joined(separator: " > "))"
+            )
             .accessibilityValue(CommandPalettePresentation.accessibilityValue(
                 item.keyboardShortcut ?? "",
                 topHitShortcut: topHitShortcut(id)
