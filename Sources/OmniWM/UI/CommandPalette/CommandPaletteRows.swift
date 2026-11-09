@@ -109,10 +109,10 @@ struct CommandPaletteWindowRow: View {
     }
 
     private var accessibilityValue: String {
-        if item.isAppHidden {
-            return String(localized: "App hidden, Workspace \(item.workspaceName)")
-        }
-        return String(localized: "Workspace \(item.workspaceName)")
+        let value = item.isAppHidden
+            ? String(localized: "App hidden, Workspace \(item.workspaceName)")
+            : String(localized: "Workspace \(item.workspaceName)")
+        return CommandPalettePresentation.accessibilityValue(value, topHitShortcut: shortcutHint)
     }
 }
 
@@ -214,8 +214,11 @@ struct CommandPaletteCommandRow: View {
     }
 
     private var accessibilityValue: String {
-        String(
-            localized: "\(item.spec.category.localizedDisplayName), \(item.spec.layoutCompatibility.localizedDisplayName), \(item.shortcut)"
+        CommandPalettePresentation.accessibilityValue(
+            String(
+                localized: "\(item.spec.category.localizedDisplayName), \(item.spec.layoutCompatibility.localizedDisplayName), \(item.shortcut)"
+            ),
+            topHitShortcut: shortcutHint
         )
     }
 }

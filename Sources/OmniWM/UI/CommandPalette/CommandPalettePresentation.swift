@@ -100,6 +100,11 @@ enum CommandPalettePresentation {
         "⌘\(index + 1)"
     }
 
+    static func accessibilityValue(_ value: String, topHitShortcut: String?) -> String {
+        guard let topHitShortcut else { return value }
+        return String(localized: "\(value), top hit \(topHitShortcut)")
+    }
+
     static func modeNavigationTarget(
         currentMode: CommandPaletteMode,
         isMenuModeAvailable: Bool,

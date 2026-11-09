@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@, top hit %@" : {
+
+    },
     "Choose how the palette searches windows, apps, commands, and files." : {
 
     },

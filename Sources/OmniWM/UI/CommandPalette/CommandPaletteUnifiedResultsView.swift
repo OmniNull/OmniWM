@@ -248,6 +248,10 @@ struct CommandPaletteUnifiedResultsView: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(name)
+        .accessibilityValue(CommandPalettePresentation.accessibilityValue(
+            subtitle ?? "",
+            topHitShortcut: topHitShortcut(id)
+        ))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .id(id)
     }
