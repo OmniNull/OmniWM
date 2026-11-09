@@ -98,6 +98,7 @@ security import "$CERT_PATH" \
   -t cert \
   -f pkcs12 \
   -k "$KEYCHAIN_PATH"
+security add-certificates -k "$KEYCHAIN_PATH" "$(dirname "$0")/DeveloperIDG2CA.cer"
 
 security list-keychains -d user -s "$KEYCHAIN_PATH"
 security default-keychain -s "$KEYCHAIN_PATH"
@@ -111,6 +112,7 @@ security set-key-partition-list \
 IDENTITIES="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
 if ! grep -qF -- "$IDENTITY" <<<"$IDENTITIES"; then
   echo "$SCRIPT_NAME: signing identity '$IDENTITY' not found in $KEYCHAIN_PATH; check OMNIWM_RELEASE_SIGNING_IDENTITY and the imported certificate" >&2
+  security find-identity -p codesigning "$KEYCHAIN_PATH" >&2
   exit 1
 fi
 

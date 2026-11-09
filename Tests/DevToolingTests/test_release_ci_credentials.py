@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().parents[2] / "Scripts" / "release-ci-credentials.sh"
+INTERMEDIATE = SCRIPT.parent / "DeveloperIDG2CA.cer"
 
 REQUIRED_VARS = [
     "APPLE_DEVELOPER_ID_CERT_P12_BASE64",
@@ -188,6 +189,7 @@ class ReleaseCICredentialsTests(unittest.TestCase):
             [
                 "create-keychain",
                 "import",
+                "add-certificates",
                 "list-keychains",
                 "default-keychain",
                 "set-key-partition-list",
@@ -212,6 +214,12 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         imported = commands[tokens.index("import")]
         self.assertIn(str(self.runner_temp / "developer-id.p12"), imported)
         self.assertIn(keychain, imported)
+
+        self.assertTrue(INTERMEDIATE.is_file())
+        self.assertEqual(
+            commands[tokens.index("add-certificates")],
+            ["add-certificates", "-k", keychain, str(INTERMEDIATE)],
+        )
 
         set_calls = [c for c in commands if c[:4] == ["list-keychains", "-d", "user", "-s"]]
         self.assertEqual(set_calls, [["list-keychains", "-d", "user", "-s", keychain]])
@@ -250,7 +258,7 @@ class ReleaseCICredentialsTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("OMNIWM_RELEASE_SIGNING_IDENTITY", result.stderr)
-        self.assertIn("find-identity", self.first_tokens())
+        self.assertIn(["find-identity", "-p", "codesigning", self.keychain_path()], self.commands())
         self.assert_not_stored()
 
     def test_malformed_p8_fails_before_storing_credentials(self):
