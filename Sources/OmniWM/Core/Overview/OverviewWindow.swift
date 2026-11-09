@@ -73,6 +73,7 @@ final class OverviewWindow: NSPanel {
         titlebarAppearsTransparent = true
         isMovableByWindowBackground = false
         isReleasedWhenClosed = false
+        animationBehavior = .none
         acceptsMouseMovedEvents = true
 
         let bounds = CGRect(origin: .zero, size: monitor.frame.size)
@@ -175,9 +176,9 @@ final class OverviewWindow: NSPanel {
 
     func hide() {
         overlayView.closeTabPicker()
+        orderOut(nil)
         overlayView.cancelAnimation()
         overlayView.clearPreviews()
-        orderOut(nil)
     }
 
     func updateLayout(
