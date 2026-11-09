@@ -65,7 +65,7 @@ final class ShellWidgetSurface {
     let layout = ShellWidgetLayout()
     let scene: ShellLayerScene
     let resources: ShellResources
-    let palette: ShellPalette
+    var palette: ShellPalette
     let motionPolicy: MotionPolicy
     var animates = false
     var drawsRootMaterial = false
