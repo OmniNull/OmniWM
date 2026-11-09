@@ -223,7 +223,7 @@ struct WorldView {
         return IslandNavigationSnapshot(
             workspace: workspace.name,
             name: controller.settings.workspaces.displayName(for: workspace.name),
-            layout: layout == .niri ? "niri" : "dwindle",
+            layout: layout.rawValue,
             focused: focused,
             windows: windows
         )

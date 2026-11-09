@@ -2,6 +2,7 @@
 -- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 local keyboardMode = require("../../keyboard-mode")
+local layoutMark = require("../../layout-mark")
 local palette = require("../palette")
 local pencil = require("../pencil")
 
@@ -9,6 +10,7 @@ local widths = table.freeze({ search = 12, stats = 13, omniwm = 15, controls = 1
 local zones = table.freeze({ search = 24, stats = 24, omniwm = 24, controls = 26 })
 local pivots = table.freeze({ search = 2, stats = 0, omniwm = 0, controls = 0 })
 local touch = table.freeze({ response = 2 * math.pi * 0.14 / 6.64, bounce = 0 })
+local mark = table.freeze({ size = 12, gap = 4 })
 local halo = palette.alpha("deep", 1)
 local still = table.freeze({ x = 0, y = 0 })
 local frame = 0.2
@@ -87,25 +89,29 @@ local function shown(ctx, name: string): boolean
     return style ~= nil and style.statsButton
 end
 
+local function extent(ctx, name: string): number
+    return if name == "omniwm" and layoutMark(ctx.data.bar) then mark.size + mark.gap else 0
+end
+
 local function width(ctx, k, name: string): (number, number)
     if not shown(ctx, name) then return 0, 0 end
     if name == "stats" then return widths.stats * k.bu, 0 end
     local mode = if name == "omniwm" then badge(ctx, false) else nil
-    local grow = if mode then 4 * k.bu + keyboardMode.width(ctx, mode, 20 * k.bu) else 0
+    local grow = extent(ctx, name) * k.bu + (if mode then 4 * k.bu + keyboardMode.width(ctx, mode, 20 * k.bu) else 0)
     return widths[name] * k.bu + grow, grow
 end
 
-local function chip(ctx, g, slot, mode)
+local function chip(ctx, g, slot, mode, shift: number)
     local bu = g.k.bu
     local logo = widths.omniwm * bu
     local size = (if mode.vertical then 12 else 20) * bu
     local result = keyboardMode.chip(mode, size)
     result.key, result.align = "bar-omniwm-mode", "topLeading"
     if mode.vertical then
-        result.dx = slot.cx + logo / 2 - keyboardMode.width(ctx, mode, size) / 2
+        result.dx = slot.cx - shift / 2 + logo / 2 - keyboardMode.width(ctx, mode, size) / 2
         result.dy = slot.cy + logo / 2 - size / 2
     else
-        result.dx = slot.x + logo + 4 * bu
+        result.dx = slot.x + logo + shift + 4 * bu
         result.dy = g.pill.cy - size / 2
     end
     return result
@@ -125,13 +131,14 @@ local function content(ctx, g, slot, name: string)
     local sel = if name == "controls" and ctx.state.drawerPanel == "controls" then 1 else 0
     local vertical = g.frame and g.frame.vertical
     local mode = if logo then badge(ctx, vertical) else nil
-    local cx = if mode and not vertical then slot.x + widths[name] * bu / 2 else slot.cx
+    local shift = extent(ctx, name) * bu
+    local cx = if (mode or shift > 0) and not vertical then slot.x + widths[name] * bu / 2 else slot.cx
     local zone = (if vertical then 36 else zones[name]) * bu
     local height = if vertical then 30 * bu else pill.h
     local pivot = pivots[name] * bu
     local size = 30 * bu
     local icon = glow({
-        key = "bar-" .. name .. "-icon", decorative = true, w = size, h = size, dx = pivot, dy = pivot,
+        key = "bar-" .. name .. "-icon", decorative = true, w = size, h = size, dx = pivot - shift / 2, dy = pivot,
         scale = 1 + 0.14 * a, opacity = if logo then 1 else 0.65 + 0.35 * math.max(a, sel), animate = touch,
     }, bu)
     local help = if name == "stats" then omniwm.l10n("Show system stats") else nil
@@ -148,16 +155,22 @@ local function content(ctx, g, slot, name: string)
         append(icon, pencil.draw(size, size, passes, palette.alpha(if sel == 1 then "mint" else "ink", 1)))
     end
     local click = command(ctx, name)
+    local symbol, layoutName
+    if shift > 0 then symbol, layoutName = layoutMark(ctx.data.bar) end
     return { ui.stack({
         key = "bar-" .. name, align = "topLeading", dx = cx - zone / 2,
-        dy = if vertical then slot.cy - height / 2 else pill.y, w = zone, h = height,
+        dy = if vertical then slot.cy - height / 2 else pill.y, w = zone + (if vertical then 0 else shift), h = height,
         cursor = "pointer", help = help, onClick = click, onRightClick = if logo then click else nil,
         onHover = hover(name, not logo),
         ui.stack(icon),
-    }), if mode then chip(ctx, g, slot, mode) else nil }
+        if shift > 0 then ui.symbol({
+            key = "bar-omniwm-layout", name = symbol, size = mark.size * bu, w = mark.size * bu, h = mark.size * bu,
+            dx = (widths.omniwm + mark.gap) * bu / 2, color = palette.alpha("ink", 1), help = omniwm.l10n(layoutName),
+        }) else nil,
+    }), if mode then chip(ctx, g, slot, mode, shift) else nil }
 end
 
 return table.freeze({
     width = width, shapes = none, content = content, hover = hover, sketch = sketch, append = append, glow = glow,
-    touch = touch,
+    touch = touch, mark = mark,
 })

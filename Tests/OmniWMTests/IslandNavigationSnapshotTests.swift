@@ -248,6 +248,23 @@ final class IslandNavigationSnapshotTests: XCTestCase {
         XCTAssertEqual(placements[ShellBarKey(monitor: fixture.main.id, placement: .island)]?.drag, drag)
     }
 
+    func testIslandBarDataCarriesTheBarsLayout() throws {
+        let fixture = try makeFixture()
+        let key = ShellBarKey(monitor: fixture.main.id, placement: .island)
+        for layout in [nil, ActiveLayoutKind.niri, .dwindle] {
+            fixture.host.bars[ShellBarKey(monitor: fixture.main.id)] = ShellBarData(layout: layout)
+            let placed = fixture.host.islandPlacements([
+                DesiredIslandSurface(monitor: fixture.main, fullscreen: false)
+            ])[key]
+            XCTAssertEqual(placed?.layout, layout)
+            var writer = ShellValueWriter()
+            placed?.write(to: &writer)
+            let fields = try XCTUnwrap(ShellServiceValue.decode(writer.bytes).fields)
+            XCTAssertEqual(fields["layout"]?.string, layout?.rawValue)
+            XCTAssertEqual(fields.keys.contains("layout"), layout != nil)
+        }
+    }
+
     private func addWindow(
         _ index: Int,
         to workspace: WorkspaceDescriptor.ID,

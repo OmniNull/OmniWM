@@ -217,6 +217,8 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 
 IDs are host-issued identities. Use a current snapshot for actions; titles and labels are presentation data. `BarStyle` describes the effective native bar settings, while `bar.island` indicates which split-bar group is rendering. Hidden Bar menu row IDs are valid only for the displayed native-menu page.
 
+**Unreleased — available when building from `main`.** `bar.layout` is the layout of the workspace active on the bar's display, `"niri"` or `"dwindle"`, while **Show Layout** (`statusBar.showLayout`) is on, and `nil` otherwise. The bundled OmniWM button shows it as a glyph beside the logo.
+
 <LuauDeclaration name="Workspace" />
 
 <LuauDeclaration name="Bar" />

@@ -3,7 +3,7 @@
 
 import Foundation
 
-enum ActiveLayoutKind: Equatable {
+enum ActiveLayoutKind: String, Equatable {
     case niri
     case dwindle
 }

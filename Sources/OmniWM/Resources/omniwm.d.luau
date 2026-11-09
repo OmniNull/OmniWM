@@ -181,6 +181,7 @@ export type Bar = {
     island: "all" | "active" | "secondary",
     drag: BarDrag?,
     badges: "off" | "dot" | "text",
+    layout: ("niri" | "dwindle")?,
     style: BarStyle?,
     workspaces: { BarWorkspace },
     scratchpads: { BarScratchpad },

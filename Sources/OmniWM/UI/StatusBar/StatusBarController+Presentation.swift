@@ -8,8 +8,8 @@ extension StatusBarController {
     static let layoutSymbolPointSize: CGFloat = 14
     static let layoutIconSpacing: CGFloat = 5
 
-    private static let niriLayoutGlyph = layoutGlyph(systemSymbolName: "rectangle.split.3x1")
-    private static let dwindleLayoutGlyph = layoutGlyph(systemSymbolName: "rectangle.split.2x2")
+    private static let niriLayoutGlyph = layoutGlyph(systemSymbolName: layoutSymbolName(.niri))
+    private static let dwindleLayoutGlyph = layoutGlyph(systemSymbolName: layoutSymbolName(.dwindle))
     private static let brandedNiriLayoutImage = statusButtonImage(
         icon: OmniWMBrandMark.statusItemImage(pointSize: statusIconPointSize), layout: .niri
     )
@@ -30,6 +30,13 @@ extension StatusBarController {
             title = " \(modeTitle)" + (title.isEmpty ? "" : " \u{00B7}" + title)
         }
         return title
+    }
+
+    nonisolated static func layoutSymbolName(_ layout: ActiveLayoutKind) -> String {
+        switch layout {
+        case .niri: "rectangle.split.3x1"
+        case .dwindle: "rectangle.split.2x2"
+        }
     }
 
     nonisolated static func layoutDisplayName(_ layout: ActiveLayoutKind) -> String {

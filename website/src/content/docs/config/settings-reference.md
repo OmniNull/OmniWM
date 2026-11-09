@@ -356,7 +356,7 @@ Extra readouts beside the menu bar icon.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `showWorkspaceName` | boolean | `false` | Shows the active workspace beside the menu bar icon. |
-| `showLayout` | boolean | `false` | **Unreleased — available when building from `main`.** Shows the active workspace’s resolved Niri or Dwindle layout, independently of `showWorkspaceName`. |
+| `showLayout` | boolean | `false` | **Unreleased — available when building from `main`.** Shows the active workspace’s resolved Niri or Dwindle layout, independently of `showWorkspaceName`. The OmniWM button on OmniShell bars shows the same layout glyph beside its logo, using the layout of the workspace active on that bar’s display. |
 | `showAppNames` | boolean | `false` | Also shows the focused app's name. |
 | `useWorkspaceId` | boolean | `false` | Shows the workspace number instead of its name. |
 | `showIcon` | boolean | `true` | Shows the OmniWM icon beside the workspace or layout. When off, state icons still appear for diagnostics, Secure Input, and keyboard modes. Has no effect while both `showWorkspaceName` and `showLayout` are off. |

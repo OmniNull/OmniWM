@@ -494,6 +494,68 @@ final class WorkspaceBarActionsTests: XCTestCase {
         await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
     }
 
+    func testLayoutMutationsRefreshTheShellBarLayout() async throws {
+        let fixture = try makeFixture(followsFocus: false)
+        let controller = fixture.controller
+        let reconciler = controller.surfaceReconciler
+        let settings = controller.settings
+        XCTAssertEqual(settings.workspaces.defaultLayoutType, .niri)
+        settings.hiddenBar.enabled = false
+        settings.workspaceBar.enabled = true
+        settings.workspaceBar.hoverPreviewsEnabled = false
+        let shell = ShellWidgetHost.shellDirectory(in: settings.settingsFileURL.deletingLastPathComponent())
+        try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
+        try Data("leading = [\"omniwm\"]\ntrailing = []\n".utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        let bars = controller.workspaceBarManager
+        bars.screenProvider = { _ in nil }
+        bars.frameApplier = { _, _ in }
+        bars.setup(controller: controller, settings: settings)
+        controller.hasStartedServices = true
+        defer {
+            controller.hasStartedServices = false
+            bars.cleanup()
+            controller.layoutRefreshController.resetState()
+        }
+        let layouts = {
+            [fixture.mainMonitor, fixture.sideMonitor].map { monitor -> ActiveLayoutKind?? in
+                bars.shellHost?.bars[ShellBarKey(monitor: monitor.id)].map(\.layout)
+            }
+        }
+        let reconcileIfPending = {
+            if reconciler.pendingReconcileScope != nil { reconciler.reconcileNow() }
+        }
+
+        reconciler.reconcileNow()
+        XCTAssertEqual(layouts(), [.some(nil), .some(nil)])
+
+        settings.statusBar.showLayout = true
+        controller.requestWorkspaceBarRefresh()
+        XCTAssertNotNil(reconciler.pendingReconcileScope)
+        reconciler.reconcileNow()
+        XCTAssertEqual(layouts(), [.niri, .niri])
+
+        XCTAssertNil(reconciler.pendingReconcileScope)
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+        reconcileIfPending()
+        XCTAssertEqual(layouts(), [.dwindle, .niri])
+
+        XCTAssertTrue(controller.workspaceManager.setActiveWorkspace(fixture.ws2, on: fixture.mainMonitor.id))
+        reconciler.reconcileNow()
+        XCTAssertEqual(layouts(), [.niri, .niri])
+
+        settings.workspaces.defaultLayoutType = .dwindle
+        controller.updateWorkspaceConfig()
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+        reconcileIfPending()
+        XCTAssertEqual(layouts(), [.dwindle, .dwindle])
+
+        settings.statusBar.showLayout = false
+        controller.requestWorkspaceBarRefresh()
+        reconciler.reconcileNow()
+        XCTAssertEqual(layouts(), [.some(nil), .some(nil)])
+    }
+
     private func makeFixture(followsFocus: Bool) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("WorkspaceBarActionsTests-\(UUID().uuidString)", isDirectory: true)

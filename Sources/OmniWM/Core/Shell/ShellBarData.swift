@@ -142,6 +142,7 @@ struct ShellBarData: Equatable, Sendable {
     var monitorId = ""
     var island = WorkspaceBarIslandSlice.all
     var badges = "off"
+    var layout: ActiveLayoutKind?
     var style = ShellBarStyle()
     var barEnabled = true
     var workspaces: [ShellBarWorkspace] = []
@@ -150,7 +151,7 @@ struct ShellBarData: Equatable, Sendable {
     var surface: ShellIslandData?
 
     func write(to writer: inout ShellValueWriter) {
-        writer.map(8)
+        writer.map(layout == nil ? 8 : 9)
         writer.key("drag")
         if let drag {
             drag.write(to: &writer)
@@ -165,21 +166,14 @@ struct ShellBarData: Equatable, Sendable {
         writer.string(island.rawValue)
         writer.key("badges")
         writer.string(badges)
+        if let layout {
+            writer.key("layout")
+            writer.string(layout.rawValue)
+        }
         writer.key("style")
         (barEnabled ? style : nil).map { $0.write(to: &writer) } ?? writer.null()
         writer.key("workspaces")
-        writer.array(workspaces.count)
-        for workspace in workspaces {
-            writer.map(4)
-            writer.key("id")
-            writer.string(workspace.id)
-            writer.key("name")
-            writer.string(workspace.name)
-            writer.key("focused")
-            writer.bool(workspace.focused)
-            writer.key("windows")
-            Self.write(workspace.windows, to: &writer)
-        }
+        Self.write(workspaces, to: &writer)
         writer.key("scratchpads")
         writer.array(scratchpads.count)
         for scratchpad in scratchpads {
@@ -198,6 +192,21 @@ struct ShellBarData: Equatable, Sendable {
             writer.bool(scratchpad.visible)
             writer.key("windows")
             Self.write(scratchpad.windows, to: &writer)
+        }
+    }
+
+    private static func write(_ workspaces: [ShellBarWorkspace], to writer: inout ShellValueWriter) {
+        writer.array(workspaces.count)
+        for workspace in workspaces {
+            writer.map(4)
+            writer.key("id")
+            writer.string(workspace.id)
+            writer.key("name")
+            writer.string(workspace.name)
+            writer.key("focused")
+            writer.bool(workspace.focused)
+            writer.key("windows")
+            write(workspace.windows, to: &writer)
         }
     }
 

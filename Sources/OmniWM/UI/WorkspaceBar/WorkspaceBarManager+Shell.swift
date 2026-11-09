@@ -268,7 +268,9 @@ extension WorkspaceBarManager {
         var result: [ShellBarKey: ShellBarData] = [:]
         var icons: [String: NSImage] = [:]
         shellCompactedScratchpads = [:]
-        guard let settings = controller?.settings.workspaceBar else { return result }
+        guard let controller else { return result }
+        let settings = controller.settings.workspaceBar
+        let showsLayout = controller.settings.statusBar.showLayout
         for bar in lastBars where keepsShellInstance(bar) {
             let resolved = settings.resolved(for: bar.monitor)
             var data = ShellBarData(
@@ -280,6 +282,9 @@ extension WorkspaceBarManager {
                 icons: &icons
             )
             data.drag = ShellBarDrag(shellDrag, snapshot: bar.snapshot, sessionToken: shellSessionToken)
+            if showsLayout, let workspaceId = controller.workspaceManager.visibleWorkspaceId(on: bar.monitor.id) {
+                data.layout = controller.workspaceManager.activeLayoutKind(for: workspaceId)
+            }
             let geometry = WorkspaceBarGeometry.resolve(monitor: bar.monitor, resolved: resolved, isVisible: true)
             let islands: [WorkspaceBarIslandSlice] = WorkspaceBarInstance.splits(
                 bar.snapshot,

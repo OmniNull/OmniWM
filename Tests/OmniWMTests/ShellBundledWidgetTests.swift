@@ -405,6 +405,55 @@ final class ShellBundledWidgetTests: XCTestCase {
         }
     }
 
+    func testOmniWMButtonsShowTheBarLayoutInsideTheButton() throws {
+        var problems: [String] = []
+        let styles = try ["default"] + ShellStyleFixture.names().filter { style in
+            let config = try XCTUnwrap(ShellConfig.load(
+                profile: style, shellDirectory: Self.styleShell, problems: &problems
+            ))
+            return (config.leading + config.center + config.trailing).contains("omniwm")
+        }
+        XCTAssertEqual(problems, [])
+        let layouts: [ActiveLayoutKind] = [.niri, .dwindle]
+        let states: [(secure: Bool, mode: KeyboardModeKind)] = [(false, .normal), (true, .normal), (false, .paused)]
+        for style in styles {
+            for vertical in [false, true] {
+                for state in states {
+                    for layout in [nil] + layouts {
+                        let label = "\(style) vertical=\(vertical) secure=\(state.secure) \(state.mode.rawValue) "
+                            + (layout?.rawValue ?? "none")
+                        let data = try fullData(vertical: vertical) { bar in
+                            bar.layout = layout
+                            bar.style.secureInput = state.secure
+                            bar.style.keyboardMode = state.mode.rawValue
+                        }
+                        try renderStyle(style, widget: "omniwm", data: data, inspect: { view, nodes, text in
+                            guard view == OMNI_VIEW_BAR else { return }
+                            let strings = nodes.map { text.string($0.text) }
+                            XCTAssertTrue(strings.contains(state.secure ? "omniwm.lock" : "omniwm"), label)
+                            XCTAssertEqual(strings.contains("pause.fill"), state.mode == .paused, label)
+                            for other in layouts where other != layout {
+                                XCTAssertFalse(strings.contains(StatusBarController.layoutSymbolName(other)), label)
+                            }
+                            guard let layout else { return }
+                            let mark = try XCTUnwrap(
+                                strings.firstIndex(of: StatusBarController.layoutSymbolName(layout)), label
+                            )
+                            XCTAssertEqual(
+                                text.string(nodes[mark].help), StatusBarController.layoutDisplayName(layout), label
+                            )
+                            let button = try XCTUnwrap(
+                                nodes.firstIndex { text.string($0.action) == "shell menu" },
+                                label
+                            )
+                            XCTAssertTrue(button < mark && mark < Int(nodes[button].subtree_end), label)
+                        })
+                    }
+                }
+            }
+        }
+    }
+
     func testStyleHeightScalesClockAndWorkspaceIconsTogether() throws {
         for style in ["wayline", "nocturne", "celestial", "default"] {
             let base = style == "celestial" ? 60.0 : style == "default" ? 32.0 : 40.0

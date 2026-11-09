@@ -1919,6 +1919,30 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(harness.host.popout?.surface.size, CGSize(width: 70, height: 5))
     }
 
+    func testBarLayoutChangesResizeTheWidgetsThatReadIt() async throws {
+        executionTimeAllowance = failureBound
+        let widths: [ActiveLayoutKind?: CGFloat] = [nil: 10, .niri: 20, .dwindle: 30]
+        let declared = widths.compactMap { layout, width in layout.map { "\($0.rawValue) = \(Int(width))" } }
+        let fallback = try Int(XCTUnwrap(widths[nil]))
+        let harness = try harness("""
+        local widths = { \(declared.joined(separator: ", ")) }
+        function render(ctx)
+            return ui.box{ w = widths[ctx.data.bar.layout] or \(fallback), h = 10 }
+        end
+        """)
+        defer { harness.close() }
+        var layoutChanges = harness.layoutChanges.makeAsyncIterator()
+        for layout in [ActiveLayoutKind.niri, .dwindle, nil] {
+            let width = try XCTUnwrap(widths[layout])
+            harness.sink.bars = [Harness.bar: ShellBarData(monitor: "Main", layout: layout)]
+            harness.host.updateBars()
+            while harness.slot?.size.width != width {
+                try await layoutChanges.change()
+            }
+            XCTAssertEqual(harness.host.bars[Harness.bar]?.layout, layout)
+        }
+    }
+
     func testBarDataIsBuiltOnlyWhileWidgetsExist() async throws {
         executionTimeAllowance = failureBound
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
