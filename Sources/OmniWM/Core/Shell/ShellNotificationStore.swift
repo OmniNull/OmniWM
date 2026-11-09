@@ -21,6 +21,7 @@ enum ShellNotificationStore {
         let bundle: String
         let retained: Set<String>
         let categories: ShellServiceValue
+        let listed: Bool
     }
 
     private struct Tables {
@@ -38,8 +39,7 @@ enum ShellNotificationStore {
     }
 
     static func read(
-        at url: URL = defaultURL,
-        preferencesURL: URL = ShellNotificationPreferences.defaultURL
+        at url: URL, preferencesURL: URL, isInstalled: (String) -> Bool
     ) -> ShellNotificationsData {
         var database: OpaquePointer?
         let opened = sqlite3_open_v2(url.path, &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil)
@@ -56,11 +56,9 @@ enum ShellNotificationStore {
         do {
             guard sqlite3_db_readonly(database, "main") == 1 else { throw Failure.query }
             try execute("PRAGMA query_only=ON", database)
+            let preferences = ShellNotificationPreferences(contentsOf: preferencesURL)
             try execute("BEGIN", database)
-            let result = try snapshot(
-                database,
-                excludedBundles: ShellNotificationPreferences.excludedBundles(at: preferencesURL)
-            )
+            let result = try snapshot(database) { preferences?.lists($0, isInstalled: isInstalled) ?? true }
             try execute("COMMIT", database)
             return result
         } catch Failure.malformed(let reason) {
@@ -80,15 +78,13 @@ enum ShellNotificationStore {
     }
 
     private static func snapshot(
-        _ database: OpaquePointer, excludedBundles: Set<String>?
+        _ database: OpaquePointer, lists: (String) -> Bool
     ) throws -> ShellNotificationsData {
         var budget = Budget()
-        if excludedBundles == nil { budget.mark(.unavailablePreferences, scope: .metadata) }
         let source = try tables(database, budget: &budget)
         var result = Collected()
-        for app in source.apps { try collectApp(app, from: source, budget: &budget, result: &result) }
-        result.items.removeAll { item in
-            item.fields?["bundle"]?.string.map { excludedBundles?.contains($0.lowercased()) ?? false } ?? false
+        for app in source.apps {
+            try collectApp(app, from: source, lists: lists, budget: &budget, result: &result)
         }
         return finish(result, memberships: source.memberships, budget: &budget)
     }
@@ -134,6 +130,7 @@ enum ShellNotificationStore {
     private static func collectApp(
         _ app: [String: Column],
         from tables: Tables,
+        lists: (String) -> Bool,
         budget: inout Budget,
         result: inout Collected
     ) throws {
@@ -145,7 +142,9 @@ enum ShellNotificationStore {
         let decoded = category(tables.categories.first { $0["app_id"]?.integer == appID }, budget: &budget)
         result.apps.append(appMetadata(app, bundle: bundle, categories: decoded, lists: tables.lists, budget: &budget))
         guard let retained = tables.memberships[appID], !retained.isEmpty else { return }
-        let context = RecordContext(appID: appID, bundle: bundle, retained: retained, categories: decoded.categories)
+        let context = RecordContext(
+            appID: appID, bundle: bundle, retained: retained, categories: decoded.categories, listed: lists(bundle)
+        )
         collect(
             tables.records.filter { $0["app_id"]?.integer == appID },
             context: context,
@@ -214,8 +213,11 @@ enum ShellNotificationStore {
                     categories: context.categories,
                     budget: &budget
                 ), let id = item.fields?["id"]?.string else { continue }
-                if result.found[context.appID, default: []].insert(id).inserted { result.items.append(item) }
-                else { budget.mark(.duplicateIdentifier) }
+                if !result.found[context.appID, default: []].insert(id).inserted {
+                    budget.mark(.duplicateIdentifier)
+                } else if context.listed {
+                    result.items.append(item)
+                }
             } catch {
                 guard let bytes = row["uuid"]?.blob, let id = ShellNotificationMetadata.guid(bytes),
                       context.retained.contains(id) else { continue }

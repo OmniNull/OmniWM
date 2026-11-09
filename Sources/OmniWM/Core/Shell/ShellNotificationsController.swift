@@ -59,7 +59,7 @@ final class ShellNotificationsController {
 
     init(
         url: URL = ShellNotificationStore.defaultURL,
-        preferencesURL: URL = ShellNotificationPreferences.defaultURL,
+        preferencesURL: URL? = nil,
         load: Loader? = nil,
         perform: ActionPerformer? = nil,
         dismissAll: DismissAllPerformer? = nil,
@@ -67,8 +67,9 @@ final class ShellNotificationsController {
         revision: (@MainActor @Sendable () -> StorageRevision)? = nil
     ) {
         self.url = url
+        let preferencesURL = preferencesURL ?? ShellNotificationPreferences.url(forDatabase: url)
         self.preferencesURL = preferencesURL
-        self.revision = revision ?? { StorageRevision.read(at: url, preferencesURL: preferencesURL) }
+        self.revision = revision ?? { StorageRevision.read(at: url) }
         let worker = ShellNotificationsWorker()
         self.load = load ?? { await worker.read(at: $0, preferencesURL: preferencesURL) }
         self.resolveName = resolveName ?? { bundle in
@@ -148,10 +149,9 @@ extension ShellNotificationsController {
             "read.request", fields: "source=\(reason.rawValue) listening=\(isListening) inFlight=\(task != nil)"
         )
         guard isListening else { return }
-        let directory = url.deletingLastPathComponent()
         observation?.sync(
             paths: Self.observedPaths(at: url, preferencesURL: preferencesURL),
-            recursivePaths: [directory, preferencesURL.deletingLastPathComponent()]
+            recursivePaths: [url.deletingLastPathComponent(), preferencesURL.deletingLastPathComponent()]
         )
         guard task == nil else {
             pending = true

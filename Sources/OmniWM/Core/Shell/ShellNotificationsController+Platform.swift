@@ -12,7 +12,9 @@ actor ShellNotificationsWorker {
     }
 
     func read(at url: URL, preferencesURL: URL) -> ShellNotificationsData {
-        ShellNotificationStore.read(at: url, preferencesURL: preferencesURL)
+        ShellNotificationStore.read(at: url, preferencesURL: preferencesURL) {
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) != nil
+        }
     }
 }
 
@@ -20,25 +22,16 @@ extension ShellNotificationsController {
     struct StorageRevision: Equatable {
         let database: SettingsFileAccess.Fingerprint?
         let wal: SettingsFileAccess.Fingerprint?
-        let preferences: SettingsFileAccess.Fingerprint?
 
-        init(
-            database: SettingsFileAccess.Fingerprint? = nil,
-            wal: SettingsFileAccess.Fingerprint? = nil,
-            preferences: SettingsFileAccess.Fingerprint? = nil
-        ) {
+        init(database: SettingsFileAccess.Fingerprint? = nil, wal: SettingsFileAccess.Fingerprint? = nil) {
             self.database = database
             self.wal = wal
-            self.preferences = preferences
         }
 
-        static func read(
-            at url: URL, preferencesURL: URL = ShellNotificationPreferences.defaultURL
-        ) -> Self {
+        static func read(at url: URL) -> Self {
             Self(
                 database: SettingsFileAccess.currentFingerprint(at: url),
-                wal: SettingsFileAccess.currentFingerprint(at: URL(fileURLWithPath: url.path + "-wal")),
-                preferences: SettingsFileAccess.currentFingerprint(at: preferencesURL)
+                wal: SettingsFileAccess.currentFingerprint(at: URL(fileURLWithPath: url.path + "-wal"))
             )
         }
     }

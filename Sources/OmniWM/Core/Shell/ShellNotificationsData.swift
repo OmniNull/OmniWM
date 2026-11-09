@@ -20,7 +20,6 @@ struct ShellNotificationReadIssue: Hashable, Sendable {
         case invalidApp
         case decodeLimit
         case invalidMetadata
-        case unavailablePreferences
         case unsupportedText
     }
 

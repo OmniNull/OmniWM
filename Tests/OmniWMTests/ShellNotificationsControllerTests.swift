@@ -7,6 +7,8 @@ import XCTest
 
 @MainActor
 final class ShellNotificationsControllerTests: XCTestCase {
+    private let fixtureBundle = "fixture.notifications"
+
     func testPreferenceReplacementRefreshesWithoutDatabaseChanges() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let preferencesDirectory = directory.appendingPathComponent("preferences")
@@ -15,34 +17,73 @@ final class ShellNotificationsControllerTests: XCTestCase {
         let preferencesURL = preferencesDirectory.appendingPathComponent("settings.plist")
         let databaseURL = directory.appendingPathComponent("db")
         try Data().write(to: databaseURL)
-        let initial: [String: Any] = ["version": 1, "apps": []]
-        try PropertyListSerialization.data(fromPropertyList: initial, format: .binary, options: 0)
-            .write(to: preferencesURL)
+        let allowed = ShellNotificationPreferences.notificationsAllowed
+        let hidden = ShellNotificationPreferences.hiddenFromNotificationCenter
+        try notificationPreferences([["bundle-id": fixtureBundle, "flags": allowed]]).write(to: preferencesURL)
         let controller = ShellNotificationsController(
             url: databaseURL,
             preferencesURL: preferencesURL,
-            load: { _ in
-                let excluded = ShellNotificationPreferences.excludedBundles(at: preferencesURL) ?? []
-                return ShellNotificationsData(state: excluded.contains("fixture") ? "empty" : "ready")
+            load: { [fixtureBundle] _ in
+                let listed = ShellNotificationPreferences(contentsOf: preferencesURL)?
+                    .lists(fixtureBundle, isInstalled: { _ in true }) ?? true
+                return ShellNotificationsData(state: listed ? "ready" : "empty")
             }
         )
         controller.setListening(true)
         defer { controller.setListening(false) }
         await controller.task?.value
         XCTAssertEqual(controller.current.state, "ready")
-        let before = ShellNotificationsController.StorageRevision.read(at: databaseURL, preferencesURL: preferencesURL)
+        let before = ShellNotificationsController.StorageRevision.read(at: databaseURL)
         let refreshed = expectation(description: "preference-only change published")
         controller.onChange = { value in
             if value.state == "empty" { refreshed.fulfill() }
         }
-        let root: [String: Any] = ["version": 1, "apps": [["bundle-id": "fixture", "flags": 0]]]
-        try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
+        try notificationPreferences([["bundle-id": fixtureBundle, "flags": allowed | hidden]])
             .write(to: preferencesURL, options: .atomic)
         await fulfillment(of: [refreshed], timeout: failureBound)
-        let after = ShellNotificationsController.StorageRevision.read(at: databaseURL, preferencesURL: preferencesURL)
-        XCTAssertEqual(before.database, after.database)
-        XCTAssertEqual(before.wal, after.wal)
-        XCTAssertNotEqual(before, after)
+        XCTAssertEqual(ShellNotificationsController.StorageRevision.read(at: databaseURL), before)
+    }
+
+    func testPreferenceOnlyChangeCannotRestoreADispatchedNotification() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let preferencesDirectory = directory.appendingPathComponent("preferences")
+        try FileManager.default.createDirectory(at: preferencesDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let preferencesURL = preferencesDirectory.appendingPathComponent("settings.plist")
+        let databaseURL = directory.appendingPathComponent("db")
+        try Data().write(to: databaseURL)
+        try Data(UUID().uuidString.utf8).write(to: preferencesURL)
+        let original = SettingsFileAccess.currentFingerprint(at: preferencesURL)
+        let id = UUID()
+        let snapshot = ShellNotificationsData(state: "ready", items: [.object([
+            "id": .text(id.uuidString.lowercased()), "bundle": .text(fixtureBundle), "actions": .array([])
+        ])])
+        let readAfterRewrite = expectation(description: "read started after the preference rewrite")
+        readAfterRewrite.assertForOverFulfill = false
+        let controller = ShellNotificationsController(
+            url: databaseURL,
+            preferencesURL: preferencesURL,
+            load: { _ in
+                if SettingsFileAccess.currentFingerprint(at: preferencesURL) != original {
+                    readAfterRewrite.fulfill()
+                }
+                return snapshot
+            },
+            perform: { _ in .dispatched }
+        )
+        controller.setListening(true)
+        defer { controller.setListening(false) }
+        await controller.task?.value
+        XCTAssertTrue(controller.perform(.dismiss(bundle: fixtureBundle, id: id)))
+        let action = try XCTUnwrap(controller.actionTask)
+        await action.value
+        await controller.task?.value
+        XCTAssertEqual(controller.current.dispatched, [id.uuidString.lowercased()])
+        try Data(UUID().uuidString.utf8).write(to: preferencesURL, options: .atomic)
+        await fulfillment(of: [readAfterRewrite], timeout: failureBound)
+        await controller.task?.value
+        XCTAssertEqual(controller.current.dispatched, [id.uuidString.lowercased()])
+        XCTAssertEqual(controller.current.kept, 0)
     }
 
     private actor LoadGate {
@@ -96,7 +137,7 @@ final class ShellNotificationsControllerTests: XCTestCase {
         ShellNotificationsData(
             state: "ready",
             items: [.object(["id": .text(id), "body": .text("Synthetic private body \(id)")])],
-            apps: [.object(["bundle": .text("fixture.notifications")])]
+            apps: [.object(["bundle": .text(fixtureBundle)])]
         )
     }
 

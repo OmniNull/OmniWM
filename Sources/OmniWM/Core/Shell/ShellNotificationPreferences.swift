@@ -4,36 +4,48 @@
 import CoreFoundation
 import Foundation
 
-enum ShellNotificationPreferences {
-    static let defaultURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(
-            "Library/Group Containers/group.com.apple.usernoted/Library/Preferences/group.com.apple.usernoted.plist"
-        )
+struct ShellNotificationPreferences {
+    static let supportedVersion: UInt64 = 1
+    static let hiddenFromNotificationCenter: UInt64 = 1
+    static let notificationsAllowed: UInt64 = 1 << 25
+    static let systemCenterPrefix = "_system_center_:"
+    static let permissionPromptSource = "com.apple.notificationcenter.askpermissions"
 
-    static func excludedBundles(at url: URL = defaultURL) -> Set<String>? {
+    private var entries: Set<String> = []
+    private var hidden: Set<String> = []
+
+    static func url(forDatabase database: URL) -> URL {
+        let container = database.deletingLastPathComponent().deletingLastPathComponent()
+        return container.appendingPathComponent("Library/Preferences/\(container.lastPathComponent).plist")
+    }
+
+    init?(contentsOf url: URL) {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
-        let limit = 4 << 20
+        let limit = ShellNotificationReadBudget.readByteLimit
         guard let data = try? handle.read(upToCount: limit + 1), data.count <= limit,
               let root = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-              integer(root["version"]) == 1,
+              Self.integer(root["version"]) == Self.supportedVersion,
               let apps = root["apps"] as? [[String: Any]]
         else { return nil }
-        var seen: Set<String> = []
-        var excluded: Set<String> = []
         for app in apps {
             guard let identifier = app["bundle-id"] as? String, !identifier.isEmpty else { continue }
             let bundle = identifier.lowercased()
-            guard seen.insert(bundle).inserted else {
-                excluded.remove(bundle)
+            guard entries.insert(bundle).inserted else {
+                hidden.remove(bundle)
                 continue
             }
-            guard let flags = integer(app["flags"]) else { continue }
-            let notificationCenterDisabled = flags & 1 != 0
-            let notificationsAllowed = flags & (1 << 25) != 0
-            if notificationCenterDisabled || !notificationsAllowed { excluded.insert(bundle) }
+            guard let flags = Self.integer(app["flags"]) else { continue }
+            if flags & Self.hiddenFromNotificationCenter != 0 || flags & Self.notificationsAllowed == 0 {
+                hidden.insert(bundle)
+            }
         }
-        return excluded
+    }
+
+    func lists(_ bundle: String, isInstalled: (String) -> Bool) -> Bool {
+        let identifier = bundle.lowercased()
+        if identifier.hasPrefix(Self.systemCenterPrefix) || hidden.contains(identifier) { return false }
+        return entries.contains(identifier) || identifier == Self.permissionPromptSource || isInstalled(bundle)
     }
 
     private static func integer(_ value: Any?) -> UInt64? {
