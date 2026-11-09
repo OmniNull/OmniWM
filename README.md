@@ -719,44 +719,6 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 </table>
 <!-- contributors:end -->
 
-<!-- bug-reporters:start -->
-### 🐞 Bug Reporters
-
-<p align="center">
-  Thank you to everyone whose bug reports led to fixes.
-</p>
-
-<table align="center">
-  <tr>
-    <td nowrap>
-      <a href="https://github.com/9j7axvsLuF" title="9j7axvsLuF">
-        <img src="https://github.com/9j7axvsLuF.png?size=96" width="72" alt="9j7axvsLuF">
-      </a>
-      <a href="https://github.com/monkeyjunglejuice" title="Dan Dee">
-        <img src="https://github.com/monkeyjunglejuice.png?size=96" width="72" alt="Dan Dee">
-      </a>
-      <a href="https://github.com/datarip" title="Datarip">
-        <img src="https://github.com/datarip.png?size=96" width="72" alt="Datarip">
-      </a>
-      <a href="https://github.com/0xGodspeed" title="Dhruv Jain">
-        <img src="https://github.com/0xGodspeed.png?size=96" width="72" alt="Dhruv Jain">
-      </a>
-      <a href="https://github.com/dna07rak" title="dna07rak">
-        <img src="https://github.com/dna07rak.png?size=96" width="72" alt="dna07rak">
-      </a>
-      <a href="https://github.com/macsmister" title="macsmister">
-        <img src="https://github.com/macsmister.png?size=96" width="72" alt="macsmister">
-      </a>
-      <a href="https://github.com/kashyapmanu" title="Manukashyap.U.V">
-        <img src="https://github.com/kashyapmanu.png?size=96" width="72" alt="Manukashyap.U.V">
-      </a>
-      <a href="https://github.com/maxandersen" title="Max Rydahl Andersen">
-        <img src="https://github.com/maxandersen.png?size=96" width="72" alt="Max Rydahl Andersen">
-      </a>
-    </td>
-  </tr>
-</table>
-<!-- bug-reporters:end -->
 
 ## Highlights
 
