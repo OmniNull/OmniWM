@@ -602,7 +602,11 @@ final class ShellNotificationCompletenessTests: XCTestCase {
             try sql("UPDATE \(table) SET extra=CAST(X'FF' AS TEXT)", db)
         }
         if let table = missingTable { try sql("DROP TABLE \(table)", db) }
-        return ShellNotificationStore.read(at: url)
+        let preferencesURL = url.deletingLastPathComponent().appendingPathComponent("preferences.plist")
+        let preferences: [String: Any] = ["version": 1, "apps": []]
+        try PropertyListSerialization.data(fromPropertyList: preferences, format: .binary, options: 0)
+            .write(to: preferencesURL)
+        return ShellNotificationStore.read(at: url, preferencesURL: preferencesURL)
     }
 
     private func blob(_ data: Data) -> String {

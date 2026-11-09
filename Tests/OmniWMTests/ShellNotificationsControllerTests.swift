@@ -15,12 +15,15 @@ final class ShellNotificationsControllerTests: XCTestCase {
         let preferencesURL = preferencesDirectory.appendingPathComponent("settings.plist")
         let databaseURL = directory.appendingPathComponent("db")
         try Data().write(to: databaseURL)
+        let initial: [String: Any] = ["version": 1, "apps": []]
+        try PropertyListSerialization.data(fromPropertyList: initial, format: .binary, options: 0)
+            .write(to: preferencesURL)
         let controller = ShellNotificationsController(
             url: databaseURL,
             preferencesURL: preferencesURL,
             load: { _ in
-                ShellNotificationsData(state: ShellNotificationPreferences.excludedBundles(at: preferencesURL)
-                    .contains("fixture") ? "empty" : "ready")
+                let excluded = ShellNotificationPreferences.excludedBundles(at: preferencesURL) ?? []
+                return ShellNotificationsData(state: excluded.contains("fixture") ? "empty" : "ready")
             }
         )
         controller.setListening(true)

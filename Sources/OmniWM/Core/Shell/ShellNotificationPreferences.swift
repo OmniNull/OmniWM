@@ -10,15 +10,15 @@ enum ShellNotificationPreferences {
             "Library/Group Containers/group.com.apple.usernoted/Library/Preferences/group.com.apple.usernoted.plist"
         )
 
-    static func excludedBundles(at url: URL = defaultURL) -> Set<String> {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return [] }
+    static func excludedBundles(at url: URL = defaultURL) -> Set<String>? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         let limit = 4 << 20
         guard let data = try? handle.read(upToCount: limit + 1), data.count <= limit,
               let root = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
               integer(root["version"]) == 1,
               let apps = root["apps"] as? [[String: Any]]
-        else { return [] }
+        else { return nil }
         var seen: Set<String> = []
         var excluded: Set<String> = []
         for app in apps {

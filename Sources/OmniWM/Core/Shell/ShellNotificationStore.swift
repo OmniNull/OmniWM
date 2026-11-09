@@ -80,14 +80,15 @@ enum ShellNotificationStore {
     }
 
     private static func snapshot(
-        _ database: OpaquePointer, excludedBundles: Set<String>
+        _ database: OpaquePointer, excludedBundles: Set<String>?
     ) throws -> ShellNotificationsData {
         var budget = Budget()
+        if excludedBundles == nil { budget.mark(.unavailablePreferences) }
         let source = try tables(database, budget: &budget)
         var result = Collected()
         for app in source.apps { try collectApp(app, from: source, budget: &budget, result: &result) }
         result.items.removeAll { item in
-            item.fields?["bundle"]?.string.map { excludedBundles.contains($0) } ?? false
+            item.fields?["bundle"]?.string.map { excludedBundles?.contains($0) ?? false } ?? false
         }
         return finish(result, memberships: source.memberships, budget: &budget)
     }
@@ -160,6 +161,12 @@ enum ShellNotificationStore {
     ) -> ShellNotificationsData {
         for (app, retained) in memberships
             where !(collected.found[app] ?? []).isSuperset(of: retained) { budget.mark(.missingRecord) }
+        var retainedIdentifiers = Set<String>()
+        for identifiers in collected.found.values {
+            for id in identifiers where !retainedIdentifiers.insert(id).inserted {
+                budget.mark(.duplicateIdentifier)
+            }
+        }
         var items = collected.items.sorted {
             let lhs = $0.fields?["date"]?.number ?? 0
             let rhs = $1.fields?["date"]?.number ?? 0

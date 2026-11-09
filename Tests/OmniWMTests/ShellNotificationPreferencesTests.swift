@@ -6,12 +6,15 @@ import Foundation
 import XCTest
 
 final class ShellNotificationPreferencesTests: XCTestCase {
-    func testMissingMalformedAndUnknownPreferencesPreserveNotifications() throws {
+    func testMissingMalformedAndUnknownPreferencesAreDistinctFromNoExclusions() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: url) }
-        XCTAssertTrue(ShellNotificationPreferences.excludedBundles(at: url).isEmpty)
+        XCTAssertNil(ShellNotificationPreferences.excludedBundles(at: url))
+        let empty: [String: Any] = ["version": 1, "apps": []]
+        try PropertyListSerialization.data(fromPropertyList: empty, format: .binary, options: 0).write(to: url)
+        XCTAssertEqual(ShellNotificationPreferences.excludedBundles(at: url), [])
         try Data([1, 2, 3]).write(to: url)
-        XCTAssertTrue(ShellNotificationPreferences.excludedBundles(at: url).isEmpty)
+        XCTAssertNil(ShellNotificationPreferences.excludedBundles(at: url))
         let roots: [[String: Any]] = [
             ["version": 2, "apps": [["bundle-id": "fixture", "flags": 0]]],
             ["version": true, "apps": [["bundle-id": "fixture", "flags": 0]]],
@@ -20,7 +23,7 @@ final class ShellNotificationPreferencesTests: XCTestCase {
         ]
         for root in roots {
             try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0).write(to: url)
-            XCTAssertTrue(ShellNotificationPreferences.excludedBundles(at: url).isEmpty)
+            XCTAssertNil(ShellNotificationPreferences.excludedBundles(at: url))
         }
     }
 
