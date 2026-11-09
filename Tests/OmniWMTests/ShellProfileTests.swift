@@ -831,9 +831,17 @@ final class ShellProfileTests: XCTestCase {
                 }
                 let label = "\(name) \(appearance)"
                 for ground in [ShellRole.background, .surface] {
-                    XCTAssertGreaterThanOrEqual(Self.contrast(color(.foreground), color(ground)), 4.5, label)
+                    XCTAssertGreaterThanOrEqual(
+                        Self.contrast(color(.foreground), color(ground)),
+                        ShellRGBA.readableTextContrast,
+                        label
+                    )
                 }
-                XCTAssertGreaterThanOrEqual(Self.contrast(color(.accentForeground), color(.accent)), 4.5, label)
+                XCTAssertGreaterThanOrEqual(
+                    Self.contrast(color(.accentForeground), color(.accent)),
+                    ShellRGBA.readableTextContrast,
+                    label
+                )
                 XCTAssertGreaterThanOrEqual(Self.contrast(.white, color(.badge)), 3, label)
                 let tinted = ShellRole.allCases
                     .filter { (ShellRole.red.rawValue ... ShellRole.gray.rawValue).contains($0.rawValue) }

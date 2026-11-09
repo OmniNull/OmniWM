@@ -4814,7 +4814,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                         && $0.kind == .label
                 })
                 let color = try ShellRGBA(XCTUnwrap(palette.color(label.content.color)))
-                XCTAssertGreaterThanOrEqual(color.contrast(black), 4.5, "workspace \(name)")
+                XCTAssertGreaterThanOrEqual(color.contrast(black), ShellRGBA.readableTextContrast, "workspace \(name)")
             }
         }
     }

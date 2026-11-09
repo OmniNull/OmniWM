@@ -172,11 +172,15 @@ final class ShellThemeTests: XCTestCase {
                 }
                 let label = "\(name) \(appearanceName.rawValue)"
                 let grounds = try [ShellRole.background, .surface, .elevatedSurface, .highestSurface].map(role)
-                XCTAssertGreaterThanOrEqual(try role(.foreground).contrast(role(.highestSurface)), 4.5, label)
+                XCTAssertGreaterThanOrEqual(
+                    try role(.foreground).contrast(role(.highestSurface)),
+                    ShellRGBA.readableTextContrast,
+                    label
+                )
                 for family in families {
                     XCTAssertGreaterThanOrEqual(
                         try role(family.text).contrast(role(family.container)),
-                        4.5,
+                        ShellRGBA.readableTextContrast,
                         "\(label) \(family.text)"
                     )
                     if family.accent != .accent {

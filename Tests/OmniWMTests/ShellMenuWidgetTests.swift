@@ -139,7 +139,10 @@ final class ShellMenuWidgetTests: XCTestCase {
                 XCTAssertEqual(widget.text.string(image.content.text), "applelogo")
                 if bar.style.solidBlack {
                     let color = try ShellRGBA(XCTUnwrap(palette.color(image.content.color)))
-                    XCTAssertGreaterThanOrEqual(color.contrast(ShellRGBA(CGColor(gray: 0, alpha: 1))), 4.5)
+                    XCTAssertGreaterThanOrEqual(
+                        color.contrast(ShellRGBA(CGColor(gray: 0, alpha: 1))),
+                        ShellRGBA.readableTextContrast
+                    )
                 }
             } else {
                 XCTAssertEqual(image.content.iconSource, .bundle)

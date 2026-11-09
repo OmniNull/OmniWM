@@ -61,7 +61,7 @@ final class ShellSolidBlackPaletteTests: XCTestCase {
         let black = ShellRGBA(CGColor(gray: 0, alpha: 1))
         for role in [ShellRole.foreground, .secondaryForeground] {
             let color = ShellRGBA(resources.darkPalette.color(Color(packed: 0), default: role))
-            XCTAssertGreaterThanOrEqual(color.contrast(black), 4.5, "\(role)")
+            XCTAssertGreaterThanOrEqual(color.contrast(black), ShellRGBA.readableTextContrast, "\(role)")
         }
     }
 
