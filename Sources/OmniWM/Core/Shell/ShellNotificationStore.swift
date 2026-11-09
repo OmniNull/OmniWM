@@ -83,12 +83,12 @@ enum ShellNotificationStore {
         _ database: OpaquePointer, excludedBundles: Set<String>?
     ) throws -> ShellNotificationsData {
         var budget = Budget()
-        if excludedBundles == nil { budget.mark(.unavailablePreferences) }
+        if excludedBundles == nil { budget.mark(.unavailablePreferences, scope: .metadata) }
         let source = try tables(database, budget: &budget)
         var result = Collected()
         for app in source.apps { try collectApp(app, from: source, budget: &budget, result: &result) }
         result.items.removeAll { item in
-            item.fields?["bundle"]?.string.map { excludedBundles?.contains($0) ?? false } ?? false
+            item.fields?["bundle"]?.string.map { excludedBundles?.contains($0.lowercased()) ?? false } ?? false
         }
         return finish(result, memberships: source.memberships, budget: &budget)
     }

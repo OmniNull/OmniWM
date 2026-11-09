@@ -22,7 +22,8 @@ enum ShellNotificationPreferences {
         var seen: Set<String> = []
         var excluded: Set<String> = []
         for app in apps {
-            guard let bundle = app["bundle-id"] as? String, !bundle.isEmpty else { continue }
+            guard let identifier = app["bundle-id"] as? String, !identifier.isEmpty else { continue }
+            let bundle = identifier.lowercased()
             guard seen.insert(bundle).inserted else {
                 excluded.remove(bundle)
                 continue

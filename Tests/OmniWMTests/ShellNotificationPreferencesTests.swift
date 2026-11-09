@@ -27,6 +27,22 @@ final class ShellNotificationPreferencesTests: XCTestCase {
         }
     }
 
+    func testCaseVariantsShareOneDuplicatePreferenceIdentity() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let entries: [[String: Any]] = [
+            ["bundle-id": "com.example.MixedCase", "flags": 0],
+            ["bundle-id": "com.example.mixedcase", "flags": 1 << 25],
+            ["bundle-id": "COM.EXAMPLE.MIXEDCASE", "flags": 0],
+            ["bundle-id": "com.example.Hidden", "flags": 0]
+        ]
+        for apps in [entries, Array(entries.reversed())] {
+            let root: [String: Any] = ["version": 1, "apps": apps]
+            try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0).write(to: url)
+            XCTAssertEqual(ShellNotificationPreferences.excludedBundles(at: url), ["com.example.hidden"])
+        }
+    }
+
     func testOnlyUnambiguousIntegerFlagsExcludeApps() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: url) }

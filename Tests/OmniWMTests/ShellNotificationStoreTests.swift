@@ -70,6 +70,37 @@ final class ShellNotificationStoreTests: XCTestCase {
         }
     }
 
+    func testPreferenceMatchingIgnoresBundleCaseWithoutChangingPublishedIdentifiers() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        for bundle in ["com.apple.ScriptEditor2", "net.whatsapp.WhatsApp", "_SYSTEM_CENTER_:com.apple.TMHelperAgent"] {
+            for (stored, preference) in [(bundle.lowercased(), bundle), (bundle, bundle.lowercased())] {
+                try database { url, db in
+                    try sql("UPDATE app SET identifier='\(stored)' WHERE app_id=1", db)
+                    try insert(payload, uuid: guid, into: db)
+                    try sql("INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
+                    for flags in [(1 << 25) | 1, 1 << 25] {
+                        let preferences: [String: Any] = [
+                            "version": 1, "apps": [["bundle-id": preference, "flags": flags]]
+                        ]
+                        try PropertyListSerialization.data(fromPropertyList: preferences, format: .binary, options: 0)
+                            .write(to: url.deletingLastPathComponent().appendingPathComponent("preferences.plist"))
+                        let result = read(url)
+                        XCTAssertTrue(result.complete)
+                        if flags & 1 != 0 {
+                            XCTAssertTrue(result.items.isEmpty)
+                        } else {
+                            XCTAssertEqual(result.items.count, 1)
+                            XCTAssertEqual(result.items.first?.fields?["bundle"]?.string, stored)
+                        }
+                        XCTAssertEqual(result.apps.first?.fields?["bundle"]?.string, stored)
+                    }
+                }
+            }
+        }
+    }
+
     func testExcludedAppStillParticipatesInCrossAppDuplicateValidation() throws {
         let payload = try fixture("rich-base")
         let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
@@ -96,7 +127,7 @@ final class ShellNotificationStoreTests: XCTestCase {
         }
     }
 
-    func testUnavailablePreferencesKeepPartialItemsAndDisableDismissal() throws {
+    func testUnavailablePreferencesKeepItemsAndAllowDismissal() throws {
         let payload = try fixture("rich-base")
         let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
         let guid = try XCTUnwrap(root["uuid"] as? Data)
@@ -108,14 +139,44 @@ final class ShellNotificationStoreTests: XCTestCase {
             let missing = read(url)
             try Data([1, 2, 3]).write(to: preferencesURL)
             let malformed = read(url)
+            let unsupportedPreferences: [String: Any] = ["version": 2, "apps": []]
+            try PropertyListSerialization.data(fromPropertyList: unsupportedPreferences, format: .binary, options: 0)
+                .write(to: preferencesURL)
+            let unsupported = read(url)
             let readFailure = ShellNotificationStore.read(at: url, preferencesURL: url.deletingLastPathComponent())
-            for result in [missing, malformed, readFailure] {
+            for result in [missing, malformed, unsupported, readFailure] {
                 XCTAssertEqual(result.state, "incomplete")
                 XCTAssertEqual(result.items.count, 1)
                 XCTAssertFalse(result.complete)
-                XCTAssertFalse(result.canDismiss)
+                XCTAssertTrue(result.membershipComplete)
+                XCTAssertFalse(result.metadataComplete)
+                XCTAssertTrue(result.canDismiss)
                 XCTAssertTrue(result.issues
-                    .contains { $0.scope == .membership && $0.reason == .unavailablePreferences })
+                    .contains { $0.scope == .metadata && $0.reason == .unavailablePreferences })
+            }
+        }
+    }
+
+    func testUnavailablePreferencesDoNotWeakenMembershipValidation() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        for duplicate in [false, true] {
+            try database { url, db in
+                try insert(payload, uuid: guid, into: db)
+                var members = guid
+                if duplicate { try insert(payload, uuid: guid, into: db) }
+                else { members.append(Data(repeating: 9, count: 16)) }
+                try sql("INSERT INTO delivered VALUES(1,\(blob(members)))", db)
+                let result = ShellNotificationStore.read(at: url, preferencesURL: url.deletingLastPathComponent())
+                XCTAssertFalse(result.membershipComplete)
+                XCTAssertFalse(result.canDismiss)
+                XCTAssertTrue(result.issues.contains {
+                    $0.scope == .membership && $0.reason == (duplicate ? .duplicateIdentifier : .missingRecord)
+                })
+                XCTAssertTrue(result.issues.contains {
+                    $0.scope == .metadata && $0.reason == .unavailablePreferences
+                })
             }
         }
     }
