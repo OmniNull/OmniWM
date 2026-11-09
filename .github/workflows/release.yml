@@ -197,6 +197,7 @@ jobs:
             echo '::error::main moved since dispatch; re-run prepare.'
             exit 1
           fi
+      - uses: ./.github/actions/setup-audio
       - uses: ./.github/actions/setup-swift
       - uses: ./.github/actions/setup-lix
         with:
