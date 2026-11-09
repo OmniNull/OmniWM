@@ -88,6 +88,59 @@ final class WindowMinimizationTests: XCTestCase {
         }, original)
     }
 
+    func testWithMacOSFusionMinimizingTheSelectedWindowSelectsTheWindowTakingItsPlace() throws {
+        let cases: [(fusion: Bool, minimized: Int, stacked: Bool, expected: Int)] = [
+            (true, 2, false, 3),
+            (true, 4, false, 3),
+            (true, 1, true, 2),
+            (false, 2, false, 0),
+            (false, 4, false, 0)
+        ]
+        for (index, testCase) in cases.enumerated() {
+            let label = "case \(index)"
+            let controller = WindowAdmissionTestSupport.controller()
+            controller.settings.niri.macOSFusion = testCase.fusion
+            let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+            _ = controller.workspaceManager.focusWorkspace(named: "1")
+            controller.niriLayoutHandler.enableNiriLayout()
+            let tokens = (0 ..< 5).map { WindowToken(pid: 688_010 + pid_t(index), windowId: 688_400 + index * 10 + $0) }
+            for token in tokens {
+                _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
+            }
+            let engine = try XCTUnwrap(controller.niriEngine)
+            layout(controller, workspaceId)
+            if testCase.stacked {
+                let columns = engine.columns(in: workspaceId)
+                let window = try XCTUnwrap(columns[2].windowNodes.first)
+                _ = controller.workspaceManager.withEngineMutationScope(in: workspaceId, label: "test_stack") {
+                    engine.moveWindowToColumn(window, from: columns[2], to: columns[1], in: workspaceId)
+                }
+                layout(controller, workspaceId)
+            }
+            let strip = engine.columns(in: workspaceId).flatMap { $0.windowNodes.map(\.token) }
+            XCTAssertEqual(strip.count, 5, label)
+            _ = controller.workspaceManager.rememberFocus(strip[0], in: workspaceId)
+            let selected = try XCTUnwrap(engine.findNode(for: strip[testCase.minimized], in: workspaceId))
+            controller.workspaceManager.withNiriViewportState(for: workspaceId) { $0.selectedNodeId = selected.id }
+
+            controller.workspaceManager.setWindowMinimized(true, token: strip[testCase.minimized])
+            let plan = try XCTUnwrap(controller.workspaceManager.withEngineMutationScope {
+                controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [workspaceId]).first
+            }, label)
+
+            let selectedId = try XCTUnwrap(plan.sessionPatch.viewportState?.selectedNodeId, label)
+            XCTAssertEqual(plan.sessionPatch.rememberedFocusToken, strip[testCase.expected], label)
+            let selectedToken = (engine.findNode(by: selectedId, in: workspaceId) as? NiriWindow)?.token
+            XCTAssertEqual(selectedToken, strip[testCase.expected], label)
+        }
+    }
+
+    private func layout(_ controller: WMController, _ workspaceId: WorkspaceDescriptor.ID) {
+        _ = controller.workspaceManager.withEngineMutationScope {
+            controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [workspaceId])
+        }
+    }
+
     func testMinimizationCancelsMatchingFocusAndRejectsStalePlan() throws {
         let controller = WindowAdmissionTestSupport.controller()
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))

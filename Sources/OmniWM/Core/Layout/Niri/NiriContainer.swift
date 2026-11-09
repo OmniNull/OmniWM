@@ -294,10 +294,19 @@ class NiriContainer: NiriNode {
 }
 
 extension NiriContainer {
+    func shownWindow(excluding excludedTokens: Set<WindowToken>) -> NiriWindow? {
+        if let active = activeWindow, !excludedTokens.contains(active.token) {
+            return active
+        }
+        return windowNodes.first { !excludedTokens.contains($0.token) }
+    }
+
     var traceWindowIds: String {
         windowNodes.map { String($0.token.windowId) }.joined(separator: "+")
     }
+}
 
+extension NiriContainer {
     func animateMoveFrom(
         displacement: CGPoint,
         clock: AnimationClock?,

@@ -306,7 +306,17 @@ extension NiriLayoutHandler {
            let selectedWindow = pass.engine.findNode(by: selectedNodeId, in: pass.wsId) as? NiriWindow,
            snapshot.excludedTokens.contains(selectedWindow.token)
         {
-            state.selectedNodeId = nil
+            let neighbour = neighbourAfterExclusion(
+                of: selectedWindow,
+                pass: pass,
+                excludedTokens: snapshot.excludedTokens
+            )
+            state.selectedNodeId = neighbour?.id
+            if let neighbour {
+                NiriLayoutTrace.record(.viewport, workspaceId: pass.wsId, {
+                    "neighbour-after-exclusion from=\(selectedWindow.token.windowId) to=\(neighbour.token.windowId)"
+                }())
+            }
         }
 
         if state.selectedNodeId == nil {
@@ -319,6 +329,28 @@ extension NiriLayoutHandler {
                 state.selectedNodeId = firstNode.id
             }
         }
+    }
+
+    private func neighbourAfterExclusion(
+        of window: NiriWindow,
+        pass: NiriLayoutPass,
+        excludedTokens: Set<WindowToken>
+    ) -> NiriWindow? {
+        guard controller?.settings.niri.macOSFusion == true,
+              let column = pass.engine.column(of: window)
+        else { return nil }
+        let isShown: (NiriWindow) -> Bool = { !excludedTokens.contains($0.token) }
+        let stack = column.windowNodes
+        if let index = stack.firstIndex(where: { $0 === window }),
+           let mate = stack[(index + 1)...].first(where: isShown) ?? stack[..<index].reversed().first(where: isShown)
+        {
+            return mate
+        }
+        let columns = pass.engine.columns(in: pass.wsId)
+        guard let columnIndex = columns.firstIndex(where: { $0 === column }) else { return nil }
+        let shownWindow: (NiriContainer) -> NiriWindow? = { $0.shownWindow(excluding: excludedTokens) }
+        return columns[(columnIndex + 1)...].lazy.compactMap(shownWindow).first
+            ?? columns[..<columnIndex].reversed().lazy.compactMap(shownWindow).first
     }
 
     private func activateFirstArrival(
