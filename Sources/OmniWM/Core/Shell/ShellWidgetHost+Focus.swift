@@ -74,8 +74,7 @@ extension ShellWidgetHost {
             self?.shellWindowResigned(from: surface)
         }
         setShellKeyboardActive(true, surface: surface, window: window)
-        window.makeKey()
-        guard window.isKeyWindow else {
+        guard grantKeyWindow(window) else {
             releaseShellFocus(from: surface, restore: true)
             return
         }

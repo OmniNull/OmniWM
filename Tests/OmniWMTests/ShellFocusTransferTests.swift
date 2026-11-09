@@ -56,14 +56,16 @@ final class ShellFocusTransferTests: XCTestCase {
         }
     }
 
-    private func host(_ policy: FocusPolicyEngine) -> ShellWidgetHost {
-        ShellWidgetHost(
+    private func host(_ policy: FocusPolicyEngine, grantsKey: Bool = true) -> ShellWidgetHost {
+        let host = ShellWidgetHost(
             configDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),
             resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)), focusPolicyEngine: policy,
             world: { ShellWorldData() }, vars: { [:] }, bars: { [:] }, onLayoutChange: {},
             onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
             onPopoutChange: {}, onTitleDemandChange: { _ in }
         )
+        host.grantKeyWindow = { _ in grantsKey }
+        return host
     }
 
     func testIslandPopoutBarAndDrawerTransferKeepsOneLeaseAndOriginalReturnTarget() throws {
@@ -181,6 +183,19 @@ final class ShellFocusTransferTests: XCTestCase {
         XCTAssertNil(policy.activeLease)
         XCTAssertFalse(second.panel.canBecomeKey)
         XCTAssertNil(host.islandInputMonitors)
+    }
+
+    func testRefusedKeyWindowReleasesFocusAndLease() throws {
+        let policy = FocusPolicyEngine()
+        let host = host(policy, grantsKey: false)
+        let fixture = try Fixture()
+        fixture.connect(host)
+        defer { fixture.close() }
+        fixture.focus()
+        XCTAssertNil(host.focusedSurface)
+        XCTAssertNil(policy.activeLease)
+        XCTAssertFalse(fixture.widget.surface.declaredFocus)
+        XCTAssertFalse(fixture.panel.canBecomeKey)
     }
 
     func testRegistryFocusOverridePreservesSurfaceIdentityCaptureAndRegions() throws {

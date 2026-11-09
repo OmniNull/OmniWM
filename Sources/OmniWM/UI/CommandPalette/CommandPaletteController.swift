@@ -192,7 +192,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         updateSelectionAfterFilterChange()
         loadSelectedClipboardPreview()
         panel.orderFrontRegardless()
-        panel.makeKey()
+        environment.makeKey(panel)
         presentation.reveal(panel)
 
         if selectedMode == .menu {
@@ -471,8 +471,8 @@ extension CommandPaletteController {
     }
 
     func restoreKeyWindowAfterModalPrompt() {
-        if isVisible {
-            presentation.panel?.makeKey()
+        if isVisible, let panel = presentation.panel {
+            environment.makeKey(panel)
         }
     }
 }

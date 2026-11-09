@@ -216,12 +216,14 @@ final class ShellIslandInputTests: XCTestCase {
     }
 
     private func host(_ policy: FocusPolicyEngine) -> ShellWidgetHost {
-        ShellWidgetHost(
+        let host = ShellWidgetHost(
             configDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),
             resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)), focusPolicyEngine: policy,
             world: { ShellWorldData() }, vars: { [:] }, bars: { [:] }, onLayoutChange: {},
             onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
             onPopoutChange: {}, onTitleDemandChange: { _ in }
         )
+        host.grantKeyWindow = { _ in true }
+        return host
     }
 }

@@ -105,6 +105,46 @@ final class OverridableControlsAccessibilityTests: XCTestCase {
         }
     }
 
+    func testZZLockedProbe() throws {
+        _ = Self.application
+        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        typealias Getter = @convention(c) () -> Bool
+        let received = unsafeBitCast(dlsym(dlopen(nil, RTLD_NOW), "NSAccessibilityReceivedRequests"), to: Getter.self)
+        print("PROBE locked=\(session?["CGSSessionScreenIsLocked"] ?? "nil") trusted=\(AXIsProcessTrusted()) received=\(received())")
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 600, height: 160),
+            styleMask: [.titled], backing: .buffered, defer: false
+        )
+        window.title = "OverridableControlsAccessibilityTests.slider"
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: ResettableRow(control: .slider))
+        defer { window.contentView = nil
+            window.close()
+        }
+        window.orderFrontRegardless()
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.display()
+        print("PROBE window visible=\(window.isVisible) onActiveSpace=\(window.isOnActiveSpace) occlusion=\(window.occlusionState.rawValue)")
+
+        let app = AXUIElementCreateApplication(getpid())
+        var value: CFTypeRef?
+        let ping = AXUIElementCopyAttributeValue(app, kAXRoleAttribute as CFString, &value)
+        print("PROBE ping=\(ping.rawValue) received=\(received())")
+        let windows = attribute(kAXWindowsAttribute, of: app) as? [AXUIElement] ?? []
+        print("PROBE axWindows=\(windows.count) titles=\(windows.map { attribute(kAXTitleAttribute, of: $0) as? String ?? "-" })")
+        let children = attribute(kAXChildrenAttribute, of: app) as? [AXUIElement] ?? []
+        print("PROBE axAppChildren=\(children.count)")
+        for attempt in 0 ..< 3 {
+            let found = elements(in: window)
+            print("PROBE attempt=\(attempt) remoteElements=\(found.count) reset=\(found.contains { $0.description == Self.resetHelp })")
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
+        }
+        let center = window.convertPoint(toScreen: CGPoint(x: 300, y: 80))
+        var hit: AXUIElement?
+        let hitError = AXUIElementCopyElementAtPosition(app, Float(center.x), Float(NSScreen.screens[0].frame.maxY - center.y), &hit)
+        print("PROBE remoteHit=\(hitError.rawValue) role=\(hit.flatMap { attribute(kAXRoleAttribute, of: $0) as? String } ?? "-")")
+    }
+
     private func elements(in window: NSWindow) -> [Element] {
         let application = AXUIElementCreateApplication(getpid())
         var pending = (attribute(kAXWindowsAttribute, of: application) as? [AXUIElement] ?? []).filter {

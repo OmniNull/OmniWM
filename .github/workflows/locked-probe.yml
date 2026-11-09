@@ -1,0 +1,32 @@
+name: Locked console probe
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: blacksmith-6vcpu-macos-27
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-swift
+      - uses: ./.github/actions/setup-lix
+        with:
+          make-target: setup
+      - name: Build the test bundle
+        run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64
+      - name: Console state
+        run: ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers.0 json -o - - | tr ',' '\n' | grep -iE 'ScreenIsLocked|OnConsole'
+      - name: Run the reworked suites on the locked console
+        run: |
+          LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift test --skip-build --build-system swiftbuild --arch arm64 --filter 'OmniWMTests\.(CommandPaletteFocusTests|ShellFocusTransferTests|ShellIslandInputTests|OverridableControlsAccessibilityTests)' 2>&1 | tee /tmp/suites.log || true
+          ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers.0 json -o - - | tr ',' '\n' | grep -iE 'ScreenIsLocked' || echo "lock key absent"
+          grep -E 'PROBE|error:|Executed [0-9]+ tests' /tmp/suites.log | tail -30
+          ! grep -q ' failed (' /tmp/suites.log

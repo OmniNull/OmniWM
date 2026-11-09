@@ -350,6 +350,11 @@ final class ShellWidgetHost {
     var focusedWindowSuppression: Bool?
     weak var shellPreviousKeyWindow: NSWindow?
     weak var shellPreviousFirstResponder: NSResponder?
+    var grantKeyWindow: @MainActor (NSWindow) -> Bool = { window in
+        window.makeKey()
+        return window.isKeyWindow
+    }
+
     var islandInputMonitors: [Any]?
     var islandInputGeneration = 0
     var islandDragMonitor: ShellIslandDragMonitor?
