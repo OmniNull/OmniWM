@@ -62,7 +62,7 @@ extension WMController {
             axRef: axRef,
             pid: token.pid
         )
-        guard let trackedMode = trackedModeForLifecycle(
+        guard let requestedMode = trackedModeForLifecycle(
             decision: evaluation.decision,
             existingEntry: entry
         ) else {
@@ -71,31 +71,29 @@ extension WMController {
             axEventHandler.retireManagedWindowAfterDecisionRejection(entry)
             return
         }
+        let admission = resolveWindowAdmission(
+            evaluation: evaluation,
+            axRef: axRef,
+            requestedMode: requestedMode,
+            existingMode: entry.mode
+        )
         let isNiriWorkspace = workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri
-        if trackedMode == .tiling, arrivesQuietly, entry.mode != .tiling, isNiriWorkspace {
+        if (admission?.mode ?? requestedMode) == .tiling, arrivesQuietly, entry.mode != .tiling, isNiriWorkspace {
             workspaceManager.quietArrivalTokens.insert(token)
         } else {
             workspaceManager.quietArrivalTokens.remove(token)
         }
-        if trackedMode != .tiling {
-            axEventHandler.cancelTrackedTilingPromotionRetry(windowId: token.windowId)
-        }
-
-        if axEventHandler.deferAdmissionIfNeeded(
-            evaluation: evaluation,
-            axRef: axRef,
-            token: token,
-            mode: trackedMode,
-            existingEntry: entry
-        ) {
+        guard let admission else {
+            axEventHandler.scheduleTrackedTilingPromotionRetry(token: token, axRef: axRef, reason: .degenerateGeometry)
             return
         }
 
         _ = transitionWindowMode(
             for: token,
-            to: trackedMode,
+            to: admission.mode,
             preferredMonitor: preferredMonitor ?? monitorForInteraction(),
-            applyFloatingFrame: true
+            applyFloatingFrame: true,
+            observedFrame: admission.geometry?.frame
         )
         finishWindowOverrideTracking(token)
         layoutRefreshController.requestRelayout(

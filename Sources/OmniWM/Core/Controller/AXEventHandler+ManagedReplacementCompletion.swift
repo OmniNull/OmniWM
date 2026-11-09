@@ -11,6 +11,7 @@ extension AXEventHandler {
         identity: AXManagedWindowIdentity,
         windowId: UInt32,
         candidate: ManagedReplacementCandidateFacts,
+        readOnlyAdmissionFrame: CGRect? = nil,
         admissionHints: ManagedWindowAdmissionHints? = nil,
         sizeConstraints: WindowSizeConstraints? = nil
     ) -> Bool {
@@ -23,7 +24,8 @@ extension AXEventHandler {
             bundleId: bundleId,
             workspaceId: match.workspaceId,
             mode: mode,
-            facts: facts
+            facts: facts,
+            readOnlyAdmissionFrame: readOnlyAdmissionFrame
         )
         let rebindResult = rekeyManagedWindowIdentity(
             from: match.token,

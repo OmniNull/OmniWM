@@ -12,36 +12,20 @@ extension AXEventHandler {
         pid == getpid()
     }
 
-    func deferAdmissionIfNeeded(
-        evaluation: WMController.WindowDecisionEvaluation,
-        axRef: AXWindowRef,
+    func scheduleGeometryAdmissionRetry(
         token: WindowToken,
-        mode: TrackedWindowMode,
+        axRef: AXWindowRef,
         existingEntry: WindowState?,
-        placementOrigin: WorkspacePlacementOrigin = .liveCreate
-    ) -> Bool {
-        let requiresValidation = existingEntry == nil
-            || existingEntry?.mode == .floating && mode == .tiling
-        guard requiresValidation else { return false }
-        guard let controller,
-              controller.shouldDeferAdmission(
-                  evaluation: evaluation,
-                  axRef: axRef,
-                  mode: mode,
-                  windowInfo: evaluation.facts.windowServer
-              ),
-              let windowId = UInt32(exactly: token.windowId)
-        else {
-            return false
-        }
+        placementOrigin: WorkspacePlacementOrigin
+    ) {
         if let existingEntry {
-            _ = scheduleTrackedTilingPromotionRetry(
+            scheduleTrackedTilingPromotionRetry(
                 token: existingEntry.token,
                 axRef: axRef,
                 reason: .degenerateGeometry
             )
-        } else {
-            _ = scheduleCandidateAdmissionRetry(
+        } else if let windowId = UInt32(exactly: token.windowId) {
+            scheduleCandidateAdmissionRetry(
                 windowId: windowId,
                 pid: token.pid,
                 axRef: axRef,
@@ -49,7 +33,6 @@ extension AXEventHandler {
                 placementOrigin: placementOrigin
             )
         }
-        return true
     }
 
     @discardableResult

@@ -9,7 +9,8 @@ extension AXEventHandler {
         bundleId: String?,
         workspaceId: WorkspaceDescriptor.ID,
         mode: TrackedWindowMode,
-        facts: WindowRuleFacts
+        facts: WindowRuleFacts,
+        readOnlyAdmissionFrame: CGRect? = nil
     ) -> ManagedReplacementMetadata {
         ManagedReplacementMetadata(
             bundleId: bundleId,
@@ -22,7 +23,8 @@ extension AXEventHandler {
             parentWindowId: normalizedParentWindowId(facts.windowServer?.parentId),
             frame: facts.windowServer?.frame,
             transientWindowServerEvidence: facts.windowServer?.hasTransientSurfaceEvidence ?? false,
-            degradedWindowServerChildEvidence: facts.degradedWindowServerChildEvidence
+            degradedWindowServerChildEvidence: facts.degradedWindowServerChildEvidence,
+            readOnlyAdmissionFrame: readOnlyAdmissionFrame
         )
     }
 

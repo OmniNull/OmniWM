@@ -90,12 +90,7 @@ extension AXEventHandler {
         )
         traceCreateClassification(facts, controller: controller)
 
-        let trackedMode = controller.trackedModeForLifecycle(
-            decision: evaluation.decision,
-            existingEntry: nil
-        )
-
-        guard let trackedMode else {
+        guard let requestedMode = evaluation.decision.trackedMode else {
             if evaluation.decision.disposition == .undecided {
                 return .pending(
                     token: token,
@@ -105,15 +100,14 @@ extension AXEventHandler {
             }
             return .ignored(token: token, reason: evaluation.decision.admissionRejectionReason)
         }
-        if controller.shouldDeferAdmission(
+        guard let admission = controller.resolveWindowAdmission(
             evaluation: evaluation,
             axRef: axRef,
-            mode: trackedMode,
-            windowInfo: matchingWindowInfo
-        ) {
+            requestedMode: requestedMode
+        ) else {
             return .pending(token: token, axRef: axRef, reason: .degenerateGeometry)
         }
-        return prepareClassifiedCreate(facts, mode: trackedMode, placement: placement, controller: controller)
+        return prepareClassifiedCreate(facts, admission: admission, placement: placement, controller: controller)
     }
 
     func preparedCreateCandidate(
@@ -233,7 +227,7 @@ extension AXEventHandler {
     }
 
     private func prepareClassifiedCreate(
-        _ facts: ClassifiedCreateFacts, mode trackedMode: TrackedWindowMode,
+        _ facts: ClassifiedCreateFacts, admission: WindowAdmission,
         placement: LiveCreatePlacement, controller: WMController
     ) -> CreatePreparationOutcome {
         let token = facts.identity.token
@@ -242,13 +236,15 @@ extension AXEventHandler {
         let axPid = facts.axPid
         let bundleId = facts.bundleId
         let evaluation = facts.evaluation
+        let trackedMode = admission.mode
         let resolvedBundleId = bundleId ?? evaluation.facts.ax.bundleId
         let replacementMatch = structuralReplacementMatch(
             token: token,
             candidate: .init(bundleId: resolvedBundleId, mode: trackedMode, facts: evaluation.facts)
         )
         let workspaceId = resolveClassifiedCreatePlacement(
-            facts, mode: trackedMode, placement: placement, replacementMatch: replacementMatch, controller: controller
+            facts, admission: admission, placement: placement, replacementMatch: replacementMatch,
+            controller: controller
         )
 
         let prepared = PreparedCreate(
@@ -263,9 +259,11 @@ extension AXEventHandler {
                 bundleId: resolvedBundleId,
                 workspaceId: workspaceId,
                 mode: trackedMode,
-                facts: evaluation.facts
+                facts: evaluation.facts,
+                readOnlyAdmissionFrame: admission.readOnlyFrame
             ),
-            structuralReplacementMatch: replacementMatch
+            structuralReplacementMatch: replacementMatch,
+            observedFrame: admission.geometry?.frame
         )
         WindowAdmissionTrace.record(
             .init(
@@ -283,15 +281,17 @@ extension AXEventHandler {
     }
 
     private func resolveClassifiedCreatePlacement(
-        _ facts: ClassifiedCreateFacts, mode trackedMode: TrackedWindowMode,
+        _ facts: ClassifiedCreateFacts, admission: WindowAdmission,
         placement: LiveCreatePlacement, replacementMatch: StructuralReplacementMatch?, controller: WMController
     ) -> WorkspaceDescriptor.ID {
         let token = facts.identity.token
         let axRef = facts.identity.axRef
         let evaluation = facts.evaluation
-        let matchingWindowInfo = facts.windowInfo
+        let trackedMode = admission.mode
         let inheritTrackedParentWorkspace = controller.shouldInheritTrackedParentWorkspace(for: evaluation)
-        let placementFrame = evaluation.facts.windowServer?.frame ?? matchingWindowInfo?.frame
+        let placementFrame = admission.geometry?.frame
+            ?? evaluation.facts.windowServer?.frame
+            ?? facts.windowInfo?.frame
         let resolvedPlacement = controller.resolveWorkspaceForNewWindow(
             workspaceName: evaluation.decision.workspaceName,
             axRef: axRef,

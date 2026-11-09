@@ -197,7 +197,8 @@ extension AXEventHandler {
     ) -> CGRect? {
         var floatingTargetFrame: CGRect?
         if entry.mode == .floating, !entry.observedState.isNativeSuppressed {
-            let observedFrame = AXWindowService.framePreferFast(candidate.axRef)
+            let observedFrame = candidate.observedFrame
+                ?? AXWindowService.framePreferFast(candidate.axRef)
                 ?? (try? AXWindowService.frame(candidate.axRef))
             let preferredMonitor = controller.workspaceManager.monitor(for: entry.workspaceId)
 

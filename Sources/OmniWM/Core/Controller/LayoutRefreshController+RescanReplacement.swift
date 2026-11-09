@@ -39,7 +39,7 @@ extension LayoutRefreshController {
 
     func rekeyFullRescanReplacement(
         _ window: FullRescanEvaluatedWindow,
-        trackedMode: TrackedWindowMode,
+        admitted: WindowAdmission,
         match structuralMatch: AXEventHandler.StructuralReplacementMatch?,
         context: FullRescanMutationContext,
         progress: inout FullRescanProgress
@@ -63,9 +63,10 @@ extension LayoutRefreshController {
                candidate: .init(
                    bundleId: bundleId ?? evaluation.facts.ax
                        .bundleId,
-                   mode: trackedMode,
+                   mode: admitted.mode,
                    facts: evaluation.facts
                ),
+               readOnlyAdmissionFrame: admitted.readOnlyFrame,
                admissionHints: evaluation.decision
                    .admissionHints,
                sizeConstraints: candidate.enumeratedWindow
