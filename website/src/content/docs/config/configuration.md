@@ -87,6 +87,7 @@ The full schema is documented key by key in the [Settings Reference](/config/set
 | [`[hiddenBar]`](/config/settings-reference/#hiddenbar) | Menu bar icon concealment |
 | [`[clipboard]`](/config/settings-reference/#clipboard) | Clipboard history limits |
 | [`[launcher]`](/config/settings-reference/#launcher) | Saved applications, commands, scripts and CLI launches; execution defaults and discovery folders |
+| [`[commandPalette]`](/config/settings-reference/#commandpalette) | Unified search and the palette modes it covers |
 | [`[quakeTerminal]`](/config/settings-reference/#quaketerminal) | Drop-down terminal |
 | [`[scratchpads]`](/config/settings-reference/#scratchpads) | Scratchpad slot labels |
 | [`[appearance]`](/config/settings-reference/#appearance) | Light/dark appearance of OmniWM's own UI |

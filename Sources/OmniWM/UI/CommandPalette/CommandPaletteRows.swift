@@ -303,7 +303,23 @@ struct CommandPaletteClipboardRow: View {
     }
 }
 
-private struct CommandPaletteResultRowStyle: ViewModifier {
+struct CommandPaletteActionFeedback: View {
+    let text: String?
+
+    var body: some View {
+        if let text {
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 6)
+                .accessibilityIdentifier("command-palette-mark-feedback")
+        }
+    }
+}
+
+struct CommandPaletteResultRowStyle: ViewModifier {
     let isSelected: Bool
 
     func body(content: Content) -> some View {

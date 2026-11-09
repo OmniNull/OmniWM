@@ -16,6 +16,7 @@ struct CommandPaletteWindowItem: Identifiable {
     let workspaceName: String
     let isAppHidden: Bool
     let markNames: [String]
+    var bundleIdentifier: String?
 }
 
 struct CommandPaletteCommandItem: Identifiable {
@@ -76,6 +77,23 @@ enum CommandPaletteSelectionID: Hashable {
     case launcherEntry(UUID)
     case executable(String)
     case file(LauncherSectionID, String)
+    case showAll(CommandPaletteMode)
+}
+
+extension CommandPaletteSelectionID {
+    var mode: CommandPaletteMode? {
+        switch self {
+        case .window: .windows
+        case .menu: .menu
+        case .clipboard: .clipboard
+        case .command: .commands
+        case .launcherEntry,
+             .application,
+             .executable: .applications
+        case .file: .files
+        case .showAll: nil
+        }
+    }
 }
 
 enum CommandPaletteSelectionTrigger: Equatable {

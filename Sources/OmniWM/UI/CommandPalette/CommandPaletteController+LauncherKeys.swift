@@ -64,7 +64,7 @@ extension CommandPaletteController {
         return true
     }
 
-    private func handleLauncherRevealKey(_ event: NSEvent, modifiers: NSEvent.ModifierFlags) -> Bool {
+    func handleLauncherRevealKey(_ event: NSEvent, modifiers: NSEvent.ModifierFlags) -> Bool {
         guard modifiers == .command,
               [UInt16(kVK_Return), UInt16(kVK_ANSI_KeypadEnter)].contains(event.keyCode)
               || KeyEquivalent.matches(

@@ -16,7 +16,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     var searchText = "" {
         didSet {
             if searchText != oldValue { actionFeedbackText = nil }
-            if isVisible, isLauncherMode {
+            if isVisible, isUnifiedSearch {
+                unifiedSearchTextDidChange(from: oldValue)
+            } else if isVisible, isLauncherMode {
                 launcherSearchTextDidChange(from: oldValue)
             } else {
                 if selectedMode == .windows, searchText != oldValue {
@@ -30,8 +32,13 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         }
     }
 
+    var isUnifiedSearch = false
+    var unifiedSearchedModes: [CommandPaletteMode] = []
+    var unifiedResults = UnifiedSearchResults()
+    var unifiedLearnedPicks: [UnifiedSearchPickKey] = []
+
     var selectedMode: CommandPaletteMode = .windows {
-        didSet { handleModeChange(from: oldValue) }
+        didSet { if selectedMode != oldValue { activateSelectedMode() } }
     }
 
     var selectedItemID: CommandPaletteSelectionID? {
@@ -134,7 +141,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             show(wmController: wmController, mode: mode)
             return
         }
-        if let mode, mode != selectedMode {
+        if let mode, isUnifiedSearch {
+            leaveUnifiedSearch(to: mode)
+        } else if let mode, mode != selectedMode {
             selectedMode = mode
         } else {
             dismiss(reason: .cancel)
@@ -161,6 +170,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         menuSession.resetCache()
         isMenuLoading = false
         resetLauncherState(settings: wmController.settings)
+        beginUnifiedSearchSession(requestedMode: mode, settings: wmController.settings)
         searchText = ""
         selectedItemID = nil
         menuSession.invalidate()
@@ -174,10 +184,8 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         presentation.position(panel)
         isExpanded = false
 
-        let preferredMode = mode ?? wmController.settings.commandPaletteLastMode
-        selectedMode = resolvedInitialMode(preferredMode)
-        if mode != nil {
-            wmController.settings.commandPaletteLastMode = selectedMode
+        if !isUnifiedSearch {
+            selectInitialMode(mode, settings: wmController.settings)
         }
 
         installEventMonitor()
@@ -195,7 +203,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         panel.makeKey()
         presentation.reveal(panel)
 
-        if selectedMode == .menu {
+        if isUnifiedSearch || selectedMode == .menu {
             loadMenuItemsIfNeeded()
         } else if isLauncherMode {
             expandResults()
@@ -210,8 +218,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         dismiss(reason: .deactivation)
     }
 
-    private func handleModeChange(from oldValue: CommandPaletteMode) {
-        guard selectedMode != oldValue else { return }
+    func activateSelectedMode() {
         guard isModeAvailable(selectedMode) else {
             selectedMode = .windows
             return
@@ -232,8 +239,12 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         updateSelectionAfterFilterChange()
     }
 
-    private func filterInputDidChange() {
-        refreshFilteredItems()
+    func filterInputDidChange() {
+        if isUnifiedSearch {
+            refreshUnifiedResults()
+        } else {
+            refreshFilteredItems()
+        }
         updateSelectionAfterFilterChange()
     }
 
@@ -254,14 +265,14 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     }
 
     private func loadMenuItemsIfNeeded() {
-        guard isVisible, selectedMode == .menu else { return }
+        guard isVisible, isMenuSearched else { return }
         guard isMenuModeAvailable else {
             menuItems = []
             isMenuLoading = false
             return
         }
         menuSession.load(target: focusSession.menuFocusTarget, canStart: { [weak self] in
-            self?.isVisible == true && self?.selectedMode == .menu
+            self?.isVisible == true && self?.isMenuSearched == true
         }, canPublish: { [weak self] in
             self?.isVisible == true
         }, publish: { [weak self] publication in
@@ -351,6 +362,7 @@ extension CommandPaletteController {
         clipboardPreviewImage = nil
         isClipboardPreviewLoading = false
         guard isVisible,
+              !isUnifiedSearch,
               selectedMode == .clipboard,
               let wmController,
               case let .clipboard(id)? = selectedItemID

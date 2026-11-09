@@ -6,7 +6,7 @@ import SwiftUI
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general, appearance, styles, menuBar, network
     case workspaces, layouts, monitors, appRules, overview, windowSwitcher
-    case hotkeys, mouseTrackpad, launcher, quakeTerminal, diagnostics, reportIssue, advanced
+    case hotkeys, mouseTrackpad, commandPalette, launcher, quakeTerminal, diagnostics, reportIssue, advanced
 
     var id: String {
         rawValue
@@ -116,6 +116,12 @@ enum SettingsSection: String, CaseIterable, Identifiable {
                 "computermouse",
                 String(localized: "Configure gestures, window manipulation, and pointer focus.")
             )
+        case .commandPalette:
+            Presentation(
+                String(localized: "Command Palette"),
+                "magnifyingglass",
+                String(localized: "Choose how the palette searches windows, apps, commands, and files.")
+            )
         case .launcher:
             Presentation(
                 String(localized: "Launcher"), "square.grid.2x2",
@@ -172,7 +178,7 @@ enum SettingsSectionGroup: String, CaseIterable, Identifiable {
         case .desktop: [.styles, .menuBar, .network]
         case .windows: [.workspaces, .layouts, .monitors, .appRules, .overview, .windowSwitcher]
         case .input: [.hotkeys, .mouseTrackpad]
-        case .tools: [.launcher, .quakeTerminal]
+        case .tools: [.commandPalette, .launcher, .quakeTerminal]
         case .support: [.diagnostics, .reportIssue, .advanced]
         }
     }

@@ -54,6 +54,7 @@ struct SettingsExport: Equatable {
     var language: String?
 
     var launcher = LauncherConfiguration()
+    var commandPalette = CommandPalette()
 
     var clipboard: Clipboard
 

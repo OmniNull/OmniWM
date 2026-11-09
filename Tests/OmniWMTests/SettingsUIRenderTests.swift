@@ -697,6 +697,7 @@ import XCTest
             case .windowSwitcher: String(localized: "Enable Window Switcher")
             case .hotkeys: String(localized: "System Hyper Trigger")
             case .mouseTrackpad: String(localized: "Trackpad")
+            case .commandPalette: String(localized: "Enable Unified Search")
             case .launcher: String(localized: "Saved Entries")
             case .quakeTerminal: String(localized: "Enable Quake Terminal")
             case .diagnostics: String(localized: "Health")

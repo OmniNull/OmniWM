@@ -20,6 +20,17 @@ The palette has six modes:
 
 `Tab` / `Shift + Tab` cycle forward or backward through the available modes.
 
+## Unified search
+
+Unified search runs one query across several modes at once, the way Alfred and Spotlight do. Turn on **Enable Unified Search** in **Settings > Command Palette**, or set `commandPalette.unifiedSearch = true` in `settings.toml`. Open Command Palette (`Control + Option + Space`) then shows unified search, with no mode tabs. The per-mode actions, **Command Palette: Windows** through **Command Palette: Files**, still open one mode with its previews, chips and pin and delete actions. That is true whether they come from a shortcut, IPC, an OmniShell launcher widget, or Commands mode.
+
+- **Searched modes** decide which modes unified search covers and the order of their groups. The defaults are Windows, Launcher, Commands, and Files. Menu reads the frontmost app's menus each time the palette opens. Clipboard needs clipboard history turned on.
+- Before you type, unified search lists windows in focus-history order, as Windows mode does. When Windows is not a searched mode, the palette stays collapsed until you type.
+- Results appear as up to three **Top Hits**, followed by one group per searched mode. Each group shows at most five rows. A **Show all in …** row opens that mode with the same query when it has more results. A top hit does not appear again in its group.
+- Top hits learn from what you pick. Picking a result after typing a query remembers it for that query, and it then ranks first whenever you type the start of that query again. Results you picked more often come first, then the most recent pick. A learned result only appears while its mode still returns it. Any remaining slots go to the closest title matches, with ties broken by your mode order. A remembered window stands for its app and brings back that app's most recently focused window. Clipboard picks are never remembered. **Clear Pick History** in Settings forgets everything learned.
+- `Enter`, `Shift + Enter`, and `Cmd + Enter` do what they do in the selected row's own mode. The window mark chords work only while a window row is selected. `Up` / `Down` move through every row and wrap around, and `Option + Up` / `Option + Down` jump to the previous or next group.
+- Apps and Files results arrive after the other groups. `Enter` acts on the selected row right away, and late results never move the selection.
+
 ## Palette shortcuts
 
 **Unreleased — available when building from `main`.** While the palette is open, it reserves its own shortcuts in every mode: the mode keys above, `Cmd + Enter` and `Cmd + R` (reveal in Finder in Launcher and Files, like `Enter` in other modes), `Cmd + Y` (preview in Files), and the window mark chords. A global shortcut on one of these chords does not run while the palette is open and works again once it closes; Settings shows a note under that shortcut. Other global shortcuts, including the one that opens the palette, keep working while it is open.

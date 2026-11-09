@@ -6,8 +6,13 @@ import AppKit
 @MainActor
 extension CommandPaletteController {
     func selectCurrent(trigger: CommandPaletteSelectionTrigger = .primary) {
+        if isUnifiedSearch, unifiedSelectionList.isEmpty { return }
         guard isExpanded else {
             expandResults()
+            return
+        }
+        if isUnifiedSearch {
+            selectUnifiedCurrent(trigger: trigger)
             return
         }
         if isLauncherMode, launcherPublishedGeneration != launcherRequestGeneration {
@@ -40,6 +45,27 @@ extension CommandPaletteController {
         performSelected(action)
     }
 
+    private func selectUnifiedCurrent(trigger: CommandPaletteSelectionTrigger) {
+        if case let .showAll(mode)? = selectedItemID {
+            leaveUnifiedSearch(to: mode)
+            return
+        }
+        let previousSelectionID = selectedItemID
+        if case .window? = previousSelectionID {
+            refreshWindowItems()
+        }
+        guard selectedItemID == previousSelectionID,
+              let action = resolvedSelectionAction(for: trigger)
+        else {
+            if case .window? = previousSelectionID {
+                actionFeedbackText = windowSelectionFeedback(for: trigger, selectedItemID: previousSelectionID)
+            }
+            return
+        }
+        recordUnifiedSearchPick(for: previousSelectionID)
+        performSelected(action)
+    }
+
     private func performSelected(_ action: CommandPaletteActionExecutor.Action) {
         if case .moveWindowToWorkspace = action {
             let outcome = actionExecutor.perform(action) ?? .moveFailed
@@ -66,6 +92,10 @@ extension CommandPaletteController {
         }
         if case let .command(_, .openCommandPaletteMode(mode), _) = action {
             let mode = CommandPaletteMode(ipc: mode)
+            if isUnifiedSearch {
+                leaveUnifiedSearch(to: mode, keepingQuery: false)
+                return
+            }
             guard mode != selectedMode else { return }
             searchText = ""
             selectedMode = mode
@@ -123,7 +153,8 @@ extension CommandPaletteController {
     }
 
     func moveSelection(by delta: Int) {
-        if selectedMode == .windows, !isExpanded {
+        if isUnifiedSearch, unifiedSelectionList.isEmpty { return }
+        if isUnifiedSearch || selectedMode == .windows, !isExpanded {
             expandResults()
             return
         }
