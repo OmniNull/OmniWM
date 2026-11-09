@@ -37,7 +37,10 @@ enum ShellNotificationStore {
         var found: [Int64: Set<String>] = [:]
     }
 
-    static func read(at url: URL = defaultURL) -> ShellNotificationsData {
+    static func read(
+        at url: URL = defaultURL,
+        preferencesURL: URL = ShellNotificationPreferences.defaultURL
+    ) -> ShellNotificationsData {
         var database: OpaquePointer?
         let opened = sqlite3_open_v2(url.path, &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil)
         defer { if let database { sqlite3_close(database) } }
@@ -54,7 +57,10 @@ enum ShellNotificationStore {
             guard sqlite3_db_readonly(database, "main") == 1 else { throw Failure.query }
             try execute("PRAGMA query_only=ON", database)
             try execute("BEGIN", database)
-            let result = try snapshot(database)
+            let result = try snapshot(
+                database,
+                excludedBundles: ShellNotificationPreferences.excludedBundles(at: preferencesURL)
+            )
             try execute("COMMIT", database)
             return result
         } catch Failure.malformed(let reason) {
@@ -73,11 +79,16 @@ enum ShellNotificationStore {
         }
     }
 
-    private static func snapshot(_ database: OpaquePointer) throws -> ShellNotificationsData {
+    private static func snapshot(
+        _ database: OpaquePointer, excludedBundles: Set<String>
+    ) throws -> ShellNotificationsData {
         var budget = Budget()
         let source = try tables(database, budget: &budget)
         var result = Collected()
         for app in source.apps { try collectApp(app, from: source, budget: &budget, result: &result) }
+        result.items.removeAll { item in
+            item.fields?["bundle"]?.string.map { excludedBundles.contains($0) } ?? false
+        }
         return finish(result, memberships: source.memberships, budget: &budget)
     }
 
@@ -189,14 +200,6 @@ enum ShellNotificationStore {
     ) {
         for row in records {
             do {
-                if row["style"]?.integer == 0,
-                   case let .record(identity, _)? = row["data"], context.retained.contains(identity.id)
-                {
-                    if !result.found[context.appID, default: []].insert(identity.id).inserted {
-                        budget.mark(.duplicateIdentifier)
-                    }
-                    continue
-                }
                 guard let item = try record(
                     row,
                     bundle: context.bundle,
