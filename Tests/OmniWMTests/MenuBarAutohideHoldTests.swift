@@ -386,37 +386,7 @@ final class MenuBarAutohideHoldTests: XCTestCase {
         )
     }
 
-    func testFullWidthBelowMenuBarPreservesTheUsersAutohidePreference() {
-        let monitor = Monitor(
-            id: .init(displayId: 7),
-            displayId: 7,
-            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
-            visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 950),
-            hasNotch: false,
-            name: "Plain"
-        )
-        let settings = WorkspaceBarSettings()
-        settings.fullWidth = true
-        settings.position = .belowMenuBar
-
-        for preference in [nil, false, true] {
-            let menuBar = FakeMenuBarAutohide()
-            menuBar.preference = preference
-            menuBar.nativeAutohide = preference == true
-            let state = store()
-            state.menuBarHideHold = nil
-            let hold = MenuBarAutohideHold(system: menuBar.system, runtimeState: state)
-
-            hold.update(hiding: WorkspaceBarManager.hidesMenuBar(settings.resolved(for: monitor)))
-
-            XCTAssertEqual(menuBar.preference, preference)
-            XCTAssertEqual(menuBar.nativeAutohide, preference == true)
-            XCTAssertTrue(menuBar.calls.isEmpty)
-            XCTAssertNil(state.menuBarHideHold)
-        }
-    }
-
-    func testMovingFullWidthBarBelowMenuBarRestoresTheUsersAutohidePreference() {
+    func testFullWidthNonOverlappingPositionsPreserveTheUsersAutohidePreference() {
         let monitor = Monitor(
             id: .init(displayId: 7),
             displayId: 7,
@@ -428,29 +398,63 @@ final class MenuBarAutohideHoldTests: XCTestCase {
         let settings = WorkspaceBarSettings()
         settings.fullWidth = true
 
-        for preference in [nil, false, true] {
-            let menuBar = FakeMenuBarAutohide()
-            menuBar.preference = preference
-            menuBar.nativeAutohide = preference == true
-            let state = store()
-            state.menuBarHideHold = nil
-            let hold = MenuBarAutohideHold(system: menuBar.system, runtimeState: state)
+        for position in [WorkspaceBarPosition.belowMenuBar, .bottom, .left, .right] {
+            settings.position = position
+            for preference in [nil, false, true] {
+                let menuBar = FakeMenuBarAutohide()
+                menuBar.preference = preference
+                menuBar.nativeAutohide = preference == true
+                let state = store()
+                state.menuBarHideHold = nil
+                let hold = MenuBarAutohideHold(system: menuBar.system, runtimeState: state)
 
-            settings.position = .overlappingMenuBar
-            hold.update(hiding: WorkspaceBarManager.hidesMenuBar(settings.resolved(for: monitor)))
-            XCTAssertTrue(menuBar.nativeAutohide)
+                hold.update(hiding: WorkspaceBarManager.hidesMenuBar(settings.resolved(for: monitor)))
 
-            settings.position = .belowMenuBar
-            hold.update(hiding: WorkspaceBarManager.hidesMenuBar(settings.resolved(for: monitor)))
-
-            XCTAssertEqual(menuBar.preference, preference)
-            XCTAssertEqual(menuBar.nativeAutohide, preference == true)
-            XCTAssertEqual(menuBar.calls, preference == true ? [] : [true, preference])
-            XCTAssertNil(state.menuBarHideHold)
+                XCTAssertEqual(menuBar.preference, preference, "\(position)")
+                XCTAssertEqual(menuBar.nativeAutohide, preference == true, "\(position)")
+                XCTAssertTrue(menuBar.calls.isEmpty, "\(position)")
+                XCTAssertNil(state.menuBarHideHold, "\(position)")
+            }
         }
     }
 
-    func testFullWidthBarsHideTheMenuBarExceptBelowMenuBar() {
+    func testMovingFullWidthBarAwayFromMenuBarRestoresTheUsersAutohidePreference() {
+        let monitor = Monitor(
+            id: .init(displayId: 7),
+            displayId: 7,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 950),
+            hasNotch: false,
+            name: "Plain"
+        )
+        let settings = WorkspaceBarSettings()
+        settings.fullWidth = true
+
+        for position in [WorkspaceBarPosition.belowMenuBar, .bottom, .left, .right] {
+            for preference in [nil, false, true] {
+                let menuBar = FakeMenuBarAutohide()
+                menuBar.preference = preference
+                menuBar.nativeAutohide = preference == true
+                let state = store()
+                state.menuBarHideHold = nil
+                let hold = MenuBarAutohideHold(system: menuBar.system, runtimeState: state)
+
+                settings.position = .overlappingMenuBar
+                hold.update(hiding: WorkspaceBarManager.hidesMenuBar(settings.resolved(for: monitor)))
+                XCTAssertTrue(menuBar.nativeAutohide)
+
+                settings.position = position
+                hold.update(hiding: WorkspaceBarManager.hidesMenuBar(settings.resolved(for: monitor)))
+
+                XCTAssertEqual(menuBar.preference, preference, "\(position)")
+                XCTAssertEqual(menuBar.nativeAutohide, preference == true, "\(position)")
+                XCTAssertEqual(menuBar.calls, preference == true ? [] : [true, preference], "\(position)")
+                XCTAssertNil(state.menuBarHideHold, "\(position)")
+            }
+        }
+    }
+
+    func testFullWidthBarsHideTheMenuBarOnlyWhenOverlappingMenuBar() {
         let plain = Monitor(
             id: .init(displayId: 7),
             displayId: 7,
@@ -481,8 +485,8 @@ final class MenuBarAutohideHoldTests: XCTestCase {
         XCTAssertTrue(hides(on: plain))
         for position in [WorkspaceBarPosition.belowMenuBar, .bottom, .left, .right] {
             settings.position = position
-            XCTAssertEqual(hides(on: plain), position != .belowMenuBar, "\(position)")
-            XCTAssertEqual(hides(on: notched), position != .belowMenuBar, "\(position)")
+            XCTAssertFalse(hides(on: plain), "\(position)")
+            XCTAssertFalse(hides(on: notched), "\(position)")
             settings.fullWidth = false
             XCTAssertFalse(hides(on: plain), "\(position)")
             XCTAssertFalse(hides(on: notched), "\(position)")

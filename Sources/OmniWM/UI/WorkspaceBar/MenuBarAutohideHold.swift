@@ -178,7 +178,7 @@ final class MenuBarAutohideHold {
 
 extension WorkspaceBarManager {
     static func hidesMenuBar(_ resolved: ResolvedBarSettings) -> Bool {
-        resolved.fullWidth && resolved.position != .belowMenuBar
+        resolved.fullWidth && resolved.position == .overlappingMenuBar
     }
 
     static func coversAppMenus(_ resolved: ResolvedBarSettings) -> Bool {
