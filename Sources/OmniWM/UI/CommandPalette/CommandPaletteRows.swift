@@ -12,6 +12,7 @@ struct CommandPaletteWindowRow: View {
     let isSelected: Bool
     let isSummonRightAvailable: Bool
     let onSelect: () -> Void
+    var shortcutHint: String?
 
     private var summonHint: CommandPalettePresentation.InlineHint? {
         guard isSelected else { return nil }
@@ -47,6 +48,9 @@ struct CommandPaletteWindowRow: View {
 
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack(spacing: 8) {
+                        if let shortcutHint {
+                            CommandPaletteShortcutBadge(text: shortcutHint)
+                        }
                         if let summonHint {
                             Text(summonHint.title)
                                 .font(.system(size: 11, weight: .medium))
@@ -115,6 +119,7 @@ struct CommandPaletteWindowRow: View {
 struct CommandPaletteMenuRow: View {
     let item: MenuItemModel
     let isSelected: Bool
+    var shortcutHint: String?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -132,6 +137,10 @@ struct CommandPaletteMenuRow: View {
 
             Spacer()
 
+            if let shortcutHint {
+                CommandPaletteShortcutBadge(text: shortcutHint)
+            }
+
             if let shortcut = item.keyboardShortcut {
                 CommandPaletteShortcutBadge(text: shortcut)
             }
@@ -145,6 +154,7 @@ struct CommandPaletteCommandRow: View {
     let isSelected: Bool
     let showsCategory: Bool
     let onSelect: () -> Void
+    var shortcutHint: String?
 
     var body: some View {
         Button(action: onSelect) {
@@ -178,6 +188,10 @@ struct CommandPaletteCommandRow: View {
                         item.isLayoutCompatible ? Color.secondary.opacity(0.14) : Color.orange.opacity(0.16)
                     )
                     .clipShape(Capsule())
+
+                if let shortcutHint {
+                    CommandPaletteShortcutBadge(text: shortcutHint)
+                }
 
                 CommandPaletteShortcutBadge(
                     text: item.shortcut,
@@ -215,6 +229,7 @@ struct CommandPaletteClipboardRow: View {
     let onPin: () -> Void
     let onDelete: () -> Void
     let onHighlight: () -> Void
+    var shortcutHint: String?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -252,6 +267,10 @@ struct CommandPaletteClipboardRow: View {
             .buttonStyle(.plain)
             .help("Copy")
             .accessibilityLabel(String(localized: "Copy \(item.title)"))
+
+            if let shortcutHint {
+                CommandPaletteShortcutBadge(text: shortcutHint)
+            }
 
             Button(action: onPaste) {
                 Image(systemName: "arrow.turn.down.left")

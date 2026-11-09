@@ -96,8 +96,8 @@ enum CommandPalettePresentation {
         return digit - 1
     }
 
-    static func topHitShortcutRange(count: Int) -> String {
-        count <= 1 ? "⌘1" : "⌘1–⌘\(count)"
+    static func topHitShortcut(at index: Int) -> String {
+        "⌘\(index + 1)"
     }
 
     static func modeNavigationTarget(

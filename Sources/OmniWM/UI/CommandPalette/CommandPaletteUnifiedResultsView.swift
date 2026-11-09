@@ -59,10 +59,7 @@ struct CommandPaletteUnifiedResultsView: View {
     private var sections: some View {
         let results = controller.unifiedResults
         if !results.topHits.isEmpty {
-            heading(
-                String(localized: "Top Hits"),
-                hint: CommandPalettePresentation.topHitShortcutRange(count: results.topHits.count)
-            )
+            heading(String(localized: "Top Hits"))
             ForEach(results.topHits, id: \.self) { row($0) }
         }
         ForEach(results.groups, id: \.mode) { group in
@@ -74,21 +71,36 @@ struct CommandPaletteUnifiedResultsView: View {
         }
     }
 
-    private func heading(_ title: String, hint: String? = nil) -> some View {
-        HStack {
-            Text(title)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 0)
-            if let hint {
-                Text(hint)
-                    .accessibilityLabel(String(localized: "Open with \(hint)"))
-            }
-        }
-        .font(.system(size: 11, weight: .semibold))
-        .foregroundColor(.secondary)
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 4)
+    private func heading(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func topHitShortcut(_ id: CommandPaletteSelectionID) -> String? {
+        controller.unifiedResults.topHits.firstIndex(of: id).map(CommandPalettePresentation.topHitShortcut(at:))
+    }
+
+    private func menuRow(_ id: CommandPaletteSelectionID, _ item: MenuItemModel) -> some View {
+        CommandPaletteMenuRow(item: item, isSelected: controller.selectedItemID == id, shortcutHint: topHitShortcut(id))
+            .id(id)
+            .onTapGesture { activate(id) }
+    }
+
+    private func commandRow(_ id: CommandPaletteSelectionID, _ item: CommandPaletteCommandItem) -> some View {
+        CommandPaletteCommandRow(
+            item: item,
+            isSelected: controller.selectedItemID == id,
+            showsCategory: true,
+            onSelect: { activate(id) },
+            shortcutHint: topHitShortcut(id)
+        )
+        .id(id)
     }
 
     @ViewBuilder
@@ -100,9 +112,7 @@ struct CommandPaletteUnifiedResultsView: View {
             }
         case let .menu(itemID):
             if let item = controller.menuItems.first(where: { $0.id == itemID }) {
-                CommandPaletteMenuRow(item: item, isSelected: controller.selectedItemID == id)
-                    .id(id)
-                    .onTapGesture { activate(id) }
+                menuRow(id, item)
             }
         case let .clipboard(itemID):
             if let item = controller.clipboardItems.first(where: { $0.id == itemID }) {
@@ -110,13 +120,7 @@ struct CommandPaletteUnifiedResultsView: View {
             }
         case let .command(commandID):
             if let item = controller.commandItems.first(where: { $0.id == commandID }) {
-                CommandPaletteCommandRow(
-                    item: item,
-                    isSelected: controller.selectedItemID == id,
-                    showsCategory: true,
-                    onSelect: { activate(id) }
-                )
-                .id(id)
+                commandRow(id, item)
             }
         case let .launcherEntry(entryID):
             if let entry = controller.launcherSavedEntries.first(where: { $0.id == entryID }) {
@@ -147,7 +151,8 @@ struct CommandPaletteUnifiedResultsView: View {
             item: item,
             isSelected: controller.selectedItemID == .window(item.id),
             isSummonRightAvailable: controller.isSummonRightAvailable && controller.allowsWindowAlternateAction(item),
-            onSelect: { activate(.window(item.id)) }
+            onSelect: { activate(.window(item.id)) },
+            shortcutHint: topHitShortcut(.window(item.id))
         )
         .id(CommandPaletteSelectionID.window(item.id))
     }
@@ -162,7 +167,8 @@ struct CommandPaletteUnifiedResultsView: View {
             onPasteWithoutFormatting: { controller.pasteClipboardItem(item.id, withoutFormatting: true) },
             onPin: { controller.setClipboardItemPinned(!item.isPinned, id: item.id) },
             onDelete: { controller.deleteClipboardItem(item.id) },
-            onHighlight: { controller.selectedItemID = id }
+            onHighlight: { controller.selectedItemID = id },
+            shortcutHint: topHitShortcut(id)
         )
         .id(id)
     }
@@ -233,6 +239,9 @@ struct CommandPaletteUnifiedResultsView: View {
                     }
                 }
                 Spacer(minLength: 0)
+                if let shortcut = topHitShortcut(id) {
+                    CommandPaletteShortcutBadge(text: shortcut)
+                }
             }
             .modifier(CommandPaletteResultRowStyle(isSelected: isSelected))
         }
