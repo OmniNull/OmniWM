@@ -55,4 +55,29 @@ extension ShellNotificationsController {
         else { return nil }
         return (notificationPID, menuPID)
     }
+
+    static func nativeDismissAll(_ accessibility: ShellNotificationAccessibility) -> DismissAllPerformer {
+        { requests, progress in
+            guard let (notificationPID, menuPID) = nativeProcesses() else { return .unavailable }
+            let updates = AsyncStream<ShellNotificationActionOutcome>.makeStream()
+            let consumer = Task {
+                for await outcome in updates.stream { progress(outcome) }
+            }
+            let native = Task {
+                let outcome = await accessibility.dismissAll(
+                    requests, notificationPID: notificationPID, menuPID: menuPID,
+                    progress: { updates.continuation.yield($0) }
+                )
+                updates.continuation.finish()
+                return outcome
+            }
+            return await withTaskCancellationHandler {
+                let outcome = await native.value
+                await consumer.value
+                return outcome
+            } onCancel: {
+                native.cancel()
+            }
+        }
+    }
 }

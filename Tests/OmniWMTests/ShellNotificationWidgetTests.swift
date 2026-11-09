@@ -105,6 +105,72 @@ final class ShellNotificationWidgetTests: XCTestCase {
         XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(ShellLocalizer.string("No retained notifications", [])))
     }
 
+    private func setNativeClick(_ widget: ShellRenderedWidget) {
+        widget.set("settings") {
+            $0.map(1)
+            $0.key("native")
+            $0.bool(true)
+        }
+    }
+
+    private func bell(_ widget: ShellRenderedWidget, opensCenter: Bool) throws -> CGPoint {
+        let element = try XCTUnwrap(widget.surface.layout.core.elements {
+            opensCenter
+                ? ShellAction(widget.text.string($0.action)) == .notifications(.center)
+                : $0.action == OMNI_ACTION_POPOUT
+        }.first)
+        let frame = CGRect(widget.surface.layout.core.absoluteFrame(of: element))
+        return CGPoint(x: frame.midX, y: frame.midY)
+    }
+
+    func testEveryProfileBellOpensTheListUnlessTheNativeOptionIsOn() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ShellProfiles.names(in: shell) {
+            var problems: [String] = []
+            let config = try XCTUnwrap(ShellConfig.load(profile: profile, shellDirectory: shell, problems: &problems))
+            XCTAssertEqual(problems, [], profile)
+            let widget = try styledWidget(config, shell: shell)
+            var bar = ShellBarData()
+            bar.style.height = config.barOverride?.settings.height ?? bar.style.height
+            set(widget, state: "ready", items: [item()])
+            widget.render(bar)
+            var point = try bell(widget, opensCenter: false)
+            widget.surface.press(at: point)
+            widget.surface.release(at: point)
+            XCTAssertEqual(widget.actions.last, OMNI_ACTION_POPOUT, profile)
+            setNativeClick(widget)
+            widget.render(bar)
+            point = try bell(widget, opensCenter: true)
+            widget.surface.press(at: point)
+            widget.surface.release(at: point)
+            XCTAssertEqual(widget.clicks.last.flatMap { ShellAction($0.action) }, .notifications(.center), profile)
+            let beforeRight = widget.actions.count
+            widget.surface.press(at: point, button: .right)
+            widget.surface.release(at: point, event: ShellEvent(button: .right))
+            XCTAssertEqual(widget.actions.count, beforeRight + 1, profile)
+            XCTAssertEqual(widget.actions.last, OMNI_ACTION_POPOUT, profile)
+        }
+    }
+
+    func testNativeBellHidesOnlyTheFullDiskAccessIssue() throws {
+        let widget = try ShellRenderedWidget("notifications")
+        let denied = ShellLocalizer.string(
+            "Notification database access is denied. Check Full Disk Access in System Settings.", []
+        )
+        set(widget, state: "accessDenied")
+        widget.render(ShellBarData())
+        XCTAssertTrue(widget.strings().contains(denied))
+        setNativeClick(widget)
+        widget.render(ShellBarData())
+        XCTAssertFalse(widget.strings().contains(denied))
+        XCTAssertTrue(widget.strings().contains(ShellLocalizer.string("Notifications", [])))
+        set(widget, state: "unavailable")
+        widget.render(ShellBarData())
+        XCTAssertTrue(widget.strings().contains(ShellLocalizer.string("The notification database is unavailable.", [])))
+    }
+
     func testCardsKeepReadableCommunicationAndHideRawMetadata() throws {
         let widget = try ShellRenderedWidget("notifications")
         set(widget, state: "ready", items: [item()])
@@ -475,7 +541,7 @@ final class ShellNotificationWidgetTests: XCTestCase {
             XCTAssertEqual(problems, [], profile)
             let widget = try styledWidget(config, shell: shell)
             var bar = ShellBarData()
-            bar.style.height = config.barOverride?.settings.height ?? 24
+            bar.style.height = config.barOverride?.settings.height ?? bar.style.height
             widget.render(bar)
             set(widget, state: "ready", items: [item(id)])
             widget.layoutPopout()
@@ -787,7 +853,7 @@ final class ShellNotificationWidgetTests: XCTestCase {
             for dark in [false, true] {
                 let widget = try styledWidget(config, shell: shell, dark: dark)
                 var bar = ShellBarData()
-                bar.style.height = config.barOverride?.settings.height ?? 24
+                bar.style.height = config.barOverride?.settings.height ?? bar.style.height
                 widget.render(bar)
                 set(widget, state: "ready", items: [item(id)])
                 widget.layoutPopout()
@@ -831,7 +897,7 @@ final class ShellNotificationWidgetTests: XCTestCase {
                 XCTAssertEqual(profile, "vitreus")
                 continue
             }
-            let base = config.barOverride?.settings.height ?? 24
+            let base = config.barOverride?.settings.height ?? ShellBarData().style.height
             for dark in [false, true] {
                 for scale in [CGFloat(1), 2] {
                     let widget = try styledWidget(config, shell: shell, scale: scale, dark: dark)
@@ -878,7 +944,7 @@ final class ShellNotificationWidgetTests: XCTestCase {
             XCTAssertEqual(problems, [], profile)
             let widget = try styledWidget(config, shell: shell)
             var bar = ShellBarData()
-            bar.style.height = config.barOverride?.settings.height ?? 24
+            bar.style.height = config.barOverride?.settings.height ?? bar.style.height
             widget.render(bar)
             for state in ["accessDenied", "empty"] {
                 set(widget, state: state)

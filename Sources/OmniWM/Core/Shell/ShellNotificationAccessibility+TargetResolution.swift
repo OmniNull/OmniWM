@@ -5,12 +5,17 @@ import ApplicationServices
 import Foundation
 
 extension ShellNotificationAccessibility.Session {
+    func notificationRequest() throws -> ShellNotificationActionRequest {
+        guard let request else { throw ShellNotificationAccessibility.ActionFailure(outcome: .unsupported) }
+        return request
+    }
+
     func individual() throws -> AXUIElement {
         var current = try snapshot()
         var expanded = Set<UUID>()
         while true {
             guard current.history else { throw ShellNotificationAccessibility.ActionFailure(outcome: .historyClosed) }
-            if let matches = current.items[request.id] {
+            if let matches = try current.items[notificationRequest().id] {
                 guard matches.count == 1
                 else { throw ShellNotificationAccessibility.ActionFailure(outcome: .ambiguous) }
                 let target = matches[0]

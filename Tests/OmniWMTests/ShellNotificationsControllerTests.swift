@@ -86,6 +86,57 @@ final class ShellNotificationsControllerTests: XCTestCase {
         XCTAssertEqual(controller.current.kept, 0)
     }
 
+    func testCenterCommandIsTheBareWord() {
+        XCTAssertEqual(ShellAction("notifications center"), .notifications(.center))
+        XCTAssertNil(ShellAction("notifications center now"))
+    }
+
+    func testCenterRunsItsPerformerOnceAndLeavesTheSnapshotAlone() async {
+        let ran = expectation(description: "center performer ran")
+        let controller = ShellNotificationsController(url: url(), showCenter: {
+            ran.fulfill()
+            return .dispatched
+        })
+        let before = controller.current
+        XCTAssertTrue(controller.perform(.center))
+        await fulfillment(of: [ran], timeout: failureBound)
+        XCTAssertEqual(controller.current, before)
+    }
+
+    func testCenterIsRefusedWhileANativeActionIsInFlight() async throws {
+        let id = UUID()
+        let snapshot = ShellNotificationsData(state: "ready", items: [.object([
+            "id": .text(id.uuidString.lowercased()), "bundle": .text(fixtureBundle), "actions": .array([])
+        ])])
+        let entered = expectation(description: "dismiss entered")
+        let ran = expectation(description: "center performer ran")
+        let release = AsyncStream<Void>.makeStream()
+        let controller = ShellNotificationsController(
+            url: url(),
+            load: { _ in snapshot },
+            perform: { _ in
+                entered.fulfill()
+                for await _ in release.stream { break }
+                return .dispatched
+            },
+            showCenter: {
+                ran.fulfill()
+                return .dispatched
+            }
+        )
+        controller.setListening(true)
+        defer { controller.setListening(false) }
+        await controller.task?.value
+        XCTAssertTrue(controller.perform(.dismiss(bundle: fixtureBundle, id: id)))
+        let action = try XCTUnwrap(controller.actionTask)
+        await fulfillment(of: [entered], timeout: failureBound)
+        XCTAssertFalse(controller.perform(.center))
+        release.continuation.yield()
+        await action.value
+        XCTAssertTrue(controller.perform(.center))
+        await fulfillment(of: [ran], timeout: failureBound)
+    }
+
     private actor LoadGate {
         let entered: @Sendable (Int) -> Void
         let returned: @Sendable (Int) -> Void

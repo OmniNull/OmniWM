@@ -8,6 +8,7 @@ extension ShellNotificationsController {
     func perform(_ command: ShellNotificationsCommand) -> Bool {
         if command == .dismissAll { return dismissAll() }
         if command == .cancelDismissAll { return cancelDismissAll() }
+        if command == .center { return showCenter() }
         let bundle: String
         let id: UUID
         let kind: String
@@ -23,7 +24,8 @@ extension ShellNotificationsController {
         case .refresh,
              .open,
              .dismissAll,
-             .cancelDismissAll:
+             .cancelDismissAll,
+             .center:
             return false
         }
         ShellNotificationTrace.record(
@@ -53,6 +55,16 @@ extension ShellNotificationsController {
             fields: "kind=\(kind) peers=\(request.peers.count)"
         )
         start(request, kind: kind)
+        return true
+    }
+
+    private func showCenter() -> Bool {
+        ShellNotificationTrace.record("center.request", fields: "busy=\(actionTask != nil)")
+        guard actionTask == nil else { return false }
+        Task { [performShowCenter] in
+            let outcome = await performShowCenter()
+            ShellNotificationTrace.record("center.end", fields: "outcome=\(outcome.rawValue)")
+        }
         return true
     }
 

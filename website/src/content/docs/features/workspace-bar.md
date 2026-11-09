@@ -29,7 +29,7 @@ Optionally show a System Stats button that opens a CPU, memory, GPU, disk, and u
 
 ## Notifications
 
-The `notifications` widget shows retained macOS notifications. If your style does not already show it, use **Settings > Styles & Widgets > Bar > Add Widget…** to add **Notifications**. This is separate from the Dock badges described below.
+The `notifications` widget shows retained macOS notifications. If your style does not already show it, use **Settings > Styles & Widgets > Bar > Add Widget…** to add **Notifications**. To have a click open macOS's own Notification Center instead, turn on **Click opens Notification Center** in the widget's **Options**; a right-click then opens the retained list. That click is currently unavailable on macOS 26. This is separate from the Dock badges described below.
 
 Grant OmniWM **Full Disk Access** in **System Settings > Privacy & Security**, then quit and reopen it. The widget's **Settings** button opens that pane. The feed reads Notification Center's database when it changes; native persistence can delay updates by several seconds. With readable notification settings, the widget leaves out apps with notifications or **Notification Center** turned off, macOS's internal system-center sources, and apps that are in neither those settings nor macOS's list of installed apps. Storage errors and incomplete snapshots appear in the widget. **Details** shows participants, attachments, action definitions and native metadata.
 

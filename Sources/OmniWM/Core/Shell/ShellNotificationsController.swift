@@ -34,12 +34,14 @@ final class ShellNotificationsController {
         [ShellNotificationActionRequest],
         @escaping @MainActor @Sendable (ShellNotificationActionOutcome) -> Void
     ) async -> ShellNotificationActionOutcome
+    typealias CenterPerformer = @MainActor @Sendable () async -> ShellNotificationActionOutcome
 
     private let url: URL
     private let preferencesURL: URL
     private let load: Loader
     private let performAction: ActionPerformer
     private let performDismissAll: DismissAllPerformer
+    let performShowCenter: CenterPerformer
     private let resolveName: AppNameResolver
     private let revision: @MainActor @Sendable () -> StorageRevision
     private var appNames: [String: String] = [:]
@@ -63,6 +65,7 @@ final class ShellNotificationsController {
         load: Loader? = nil,
         perform: ActionPerformer? = nil,
         dismissAll: DismissAllPerformer? = nil,
+        showCenter: CenterPerformer? = nil,
         resolveName: AppNameResolver? = nil,
         revision: (@MainActor @Sendable () -> StorageRevision)? = nil
     ) {
@@ -85,27 +88,10 @@ final class ShellNotificationsController {
             }
             return await accessibility.perform(request, notificationPID: notificationPID, menuPID: menuPID)
         }
-        performDismissAll = dismissAll ?? { requests, progress in
+        performDismissAll = dismissAll ?? Self.nativeDismissAll(accessibility)
+        performShowCenter = showCenter ?? {
             guard let (notificationPID, menuPID) = Self.nativeProcesses() else { return .unavailable }
-            let updates = AsyncStream<ShellNotificationActionOutcome>.makeStream()
-            let consumer = Task {
-                for await outcome in updates.stream { progress(outcome) }
-            }
-            let native = Task {
-                let outcome = await accessibility.dismissAll(
-                    requests, notificationPID: notificationPID, menuPID: menuPID,
-                    progress: { updates.continuation.yield($0) }
-                )
-                updates.continuation.finish()
-                return outcome
-            }
-            return await withTaskCancellationHandler {
-                let outcome = await native.value
-                await consumer.value
-                return outcome
-            } onCancel: {
-                native.cancel()
-            }
+            return await accessibility.showCenter(notificationPID: notificationPID, menuPID: menuPID)
         }
     }
 

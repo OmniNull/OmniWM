@@ -141,7 +141,8 @@ extension ShellWidgetHost {
             case .dismiss,
                  .reply,
                  .dismissAll,
-                 .cancelDismissAll:
+                 .cancelDismissAll,
+                 .center:
                 ShellNotificationTrace.record(
                     "host.command",
                     fields: "kind=action focusedSurface=\(focusedSurface != nil)"

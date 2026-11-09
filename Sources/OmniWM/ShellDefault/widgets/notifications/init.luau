@@ -376,9 +376,11 @@ end
 function render(ctx)
     local value = ctx.data.notifications
     local count = #visibleItems(value)
+    local native = ctx.select("settings", "native") == true
     local issue = status(value)
+    if native and value and value.state == "accessDenied" then issue = nil end
     local scale = presentation.scale(ctx)
-    local rows = { gap = 4 * scale, onClick = ui.popout,
+    local rows = { gap = 4 * scale, onClick = if native then "notifications center" else ui.popout,
         help = issue or omniwm.l10n("Notifications"),
         presentation.icon(issue, 14 * scale) }
     if count > 0 then
@@ -386,7 +388,9 @@ function render(ctx)
             else 12 * scale
         rows[#rows + 1] = presentation.text{ text = tostring(count), style = "small", size = size }
     end
-    return presentation.bar(ctx, rows)
+    local bar = presentation.bar(ctx, rows)
+    if native then bar.onRightClick = ui.popout end
+    return bar
 end
 
 function popout(ctx)

@@ -18599,6 +18599,17 @@
           }
         }
       }
+    },
+    "Click opens Notification Center" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click opens Notification Center"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

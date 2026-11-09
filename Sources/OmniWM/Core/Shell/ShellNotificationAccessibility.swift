@@ -47,6 +47,11 @@ actor ShellNotificationAccessibility {
             progress: progress
         )
     }
+
+    func showCenter(notificationPID: pid_t, menuPID: pid_t) -> ShellNotificationActionOutcome {
+        guard AXIsProcessTrusted() else { return .denied }
+        return Session(notificationPID: notificationPID, menuPID: menuPID).showCenter()
+    }
 }
 
 extension ShellNotificationAccessibility {
@@ -66,7 +71,7 @@ extension ShellNotificationAccessibility {
     }
 
     final class Session {
-        var request: ShellNotificationActionRequest
+        var request: ShellNotificationActionRequest?
         let app: AXUIElement
         let menu: AXUIElement
         let notificationPID: pid_t
@@ -76,7 +81,7 @@ extension ShellNotificationAccessibility {
         var deadline = ProcessInfo.processInfo.systemUptime + 6
         var stage = "initial"
 
-        init(request: ShellNotificationActionRequest, notificationPID: pid_t, menuPID: pid_t) {
+        init(request: ShellNotificationActionRequest? = nil, notificationPID: pid_t, menuPID: pid_t) {
             self.request = request
             self.notificationPID = notificationPID
             app = AXUIElementCreateApplication(notificationPID)
@@ -86,7 +91,7 @@ extension ShellNotificationAccessibility {
         }
 
         func trace(_ event: StaticString, fields: @autoclosure () -> String = "") {
-            ShellNotificationTrace.record(event, target: request.id, fields: "stage=\(stage) \(fields())")
+            ShellNotificationTrace.record(event, target: request?.id, fields: "stage=\(stage) \(fields())")
         }
 
         func enter(_ stage: String) {
@@ -129,7 +134,7 @@ extension ShellNotificationAccessibility {
             do {
                 try check()
                 enter("individual")
-                switch request.operation {
+                switch try notificationRequest().operation {
                 case .dismiss:
                     return try dismiss()
                 case let .reply(text, title, sendTitle):
@@ -265,7 +270,7 @@ extension ShellNotificationAccessibility {
                     if identifier == "widget-editor-button" { result.historyWindow = window }
                     if identifier == "AXNotificationListItems", !includeItems { return }
                     if inList {
-                        if let identifier, let id = UUID(uuidString: identifier), request.peers.contains(id) {
+                        if let identifier, let id = UUID(uuidString: identifier), request?.peers.contains(id) == true {
                             result.items[id, default: []].append(element)
                         }
                         return
@@ -284,7 +289,9 @@ extension ShellNotificationAccessibility {
             trace(
                 "native.snapshot",
                 fields: "history=\(result.history) windows=\(windows.count) visited=\(2048 - remaining)"
-                    + " peerCapsules=\(result.items.count) targetMatches=\(result.items[request.id]?.count ?? 0) includeItems=\(includeItems)"
+                    + " peerCapsules=\(result.items.count)"
+                    + " targetMatches=\(request.flatMap { result.items[$0.id]?.count } ?? 0)"
+                    + " includeItems=\(includeItems)"
             )
             return result
         }
@@ -354,9 +361,26 @@ extension ShellNotificationAccessibility.Session {
         }
     }
 
+    func showCenter() -> ShellNotificationActionOutcome {
+        do {
+            try check()
+            enter("center")
+            guard try !snapshot(includeItems: false).history else { return .dispatched }
+            let clock = try clock()
+            try check()
+            let result = AXUIElementPerformAction(clock, kAXPressAction as CFString)
+            trace("native.clock.open", fields: "ax=\(result.rawValue)")
+            return result == .success ? .dispatched : .failed
+        } catch let error as ShellNotificationAccessibility.ActionFailure {
+            return error.outcome
+        } catch {
+            return .failed
+        }
+    }
+
     func exactTarget() throws -> AXUIElement {
         let current = try snapshot()
-        guard let matches = current.items[request.id]
+        guard let matches = try current.items[notificationRequest().id]
         else { throw ShellNotificationAccessibility.ActionFailure(outcome: .notFound) }
         guard matches.count == 1 else { throw ShellNotificationAccessibility.ActionFailure(outcome: .ambiguous) }
         guard try string(matches[0], kAXSubroleAttribute) == "AXNotificationCenterBanner" else {
@@ -426,7 +450,7 @@ extension ShellNotificationAccessibility.Session {
         var send: AXUIElement?
         enter("composer")
         _ = try wait { value in
-            guard let matches = value.items[self.request.id], matches.count == 1 else { return false }
+            guard let matches = try value.items[self.notificationRequest().id], matches.count == 1 else { return false }
             let fields = try self.controls(matches[0], role: kAXTextAreaRole)
             let sends = try self.controls(matches[0], role: kAXButtonRole, title: sendTitle)
             self.trace("native.composer.controls", fields: "fields=\(fields.count) sends=\(sends.count)")
