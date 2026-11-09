@@ -5,6 +5,10 @@ inputs:
     description: Make target to run after installing Lix (setup or setup-tools); empty installs Lix only.
     required: false
     default: ""
+  save-release-downloads:
+    description: Save the pinned GitHub release downloads to the Actions cache when it has no copy yet; needs make-target setup.
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -28,6 +32,17 @@ runs:
           --nix-package-url "file://$work/lix.tar.xz" \
           --extra-conf "experimental-features = nix-command flakes"
         echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+    - name: Restore pinned release downloads
+      id: release-downloads
+      if: inputs.make-target != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: ${{ runner.temp }}/release-downloads
+        key: release-downloads-v1-${{ hashFiles('Scripts/dev-tools.env') }}
+    - name: Add restored release downloads to the Nix store
+      if: inputs.make-target != ''
+      shell: bash
+      run: ./Scripts/ci-release-downloads.sh restore "$RUNNER_TEMP/release-downloads"
     - name: Build flake tools
       if: inputs.make-target != ''
       shell: bash
@@ -35,3 +50,13 @@ runs:
         MAKE_TARGET: ${{ inputs.make-target }}
         NIX_CONFIG: access-tokens = github.com=${{ github.token }}
       run: make "$MAKE_TARGET"
+    - name: Keep pinned release downloads
+      if: inputs.save-release-downloads == 'true' && steps.release-downloads.outputs.cache-hit != 'true'
+      shell: bash
+      run: ./Scripts/ci-release-downloads.sh save "$RUNNER_TEMP/release-downloads"
+    - name: Save pinned release downloads
+      if: inputs.save-release-downloads == 'true' && steps.release-downloads.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: ${{ runner.temp }}/release-downloads
+        key: release-downloads-v1-${{ hashFiles('Scripts/dev-tools.env') }}

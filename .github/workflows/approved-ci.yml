@@ -73,6 +73,7 @@ jobs:
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup
+          save-release-downloads: true
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         id: build-cache
         with:
