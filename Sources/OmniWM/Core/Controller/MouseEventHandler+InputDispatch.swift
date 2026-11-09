@@ -71,7 +71,8 @@ extension MouseEventHandler {
         at location: CGPoint,
         modifiers: CGEventFlags,
         button: MouseButton = .left,
-        windowIdUnderPointer: Int? = nil
+        windowIdUnderPointer: Int? = nil,
+        windowServerFramesAtMouseDown: [WindowToken: CGRect]? = nil
     ) -> Bool {
         guard !isInputSuppressed else {
             handleInputSuppressionBegan()
@@ -100,7 +101,8 @@ extension MouseEventHandler {
             at: location,
             modifiers: modifiers,
             button: button,
-            windowIdUnderPointer: windowIdUnderPointer
+            windowIdUnderPointer: windowIdUnderPointer,
+            windowServerFramesAtMouseDown: windowServerFramesAtMouseDown
         )
     }
 
@@ -203,7 +205,8 @@ extension MouseEventHandler {
     func receiveTapMouseDown(
         at location: CGPoint,
         modifiers: CGEventFlags,
-        button: MouseButton = .left
+        button: MouseButton = .left,
+        windowServerFramesAtMouseDown: [WindowToken: CGRect]? = nil
     ) -> Bool {
         if let latched = state.parkingEdgePressButton,
            latched == button || pressedMouseButtonsProvider() & latched.pressedMask == 0
@@ -228,7 +231,8 @@ extension MouseEventHandler {
         return dispatchMouseDown(
             at: location,
             modifiers: modifiers,
-            button: button
+            button: button,
+            windowServerFramesAtMouseDown: windowServerFramesAtMouseDown
         )
     }
 
