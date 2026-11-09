@@ -441,7 +441,7 @@ final class MenuBarAutohideHoldTests: XCTestCase {
 
                 settings.position = .overlappingMenuBar
                 hold.update(hiding: WorkspaceBarManager.hidesMenuBar(settings.resolved(for: monitor)))
-                XCTAssertTrue(menuBar.nativeAutohide)
+                XCTAssertTrue(menuBar.nativeAutohide, "\(position)")
 
                 settings.position = position
                 hold.update(hiding: WorkspaceBarManager.hidesMenuBar(settings.resolved(for: monitor)))
