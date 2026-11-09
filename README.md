@@ -134,6 +134,8 @@ Optional styles keep their own notices in their folders. [Vitreus](styles/vitreu
         <br>
         <strong>Blacksmith.sh</strong>
       </a>
+      <br>
+      <sub>All of OmniWM's CI runs on Blacksmith. On their smallest runners (6 vCPU Mac, 2 vCPU Linux), a full CI run finishes 44% faster than on GitHub-hosted macOS runners, and signed, notarized builds take half the time. Their larger runners, up to 12 vCPU on Mac and 32 on Linux, can go faster still.</sub>
     </td>
   </tr>
 </table>
