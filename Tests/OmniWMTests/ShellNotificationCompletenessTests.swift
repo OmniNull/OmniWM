@@ -77,6 +77,14 @@ final class ShellNotificationCompletenessTests: XCTestCase {
         }
     }
 
+    func testUnavailablePreferencesKeepIndividualAndClearAllDismissalAvailable() async throws {
+        let value = try snapshot(preferencesAvailable: false)
+        XCTAssertTrue(value.membershipComplete)
+        XCTAssertFalse(value.metadataComplete)
+        XCTAssertTrue(value.issues.contains(.init(scope: .metadata, reason: .unavailablePreferences)))
+        try await assertDismissals(value)
+    }
+
     func testOptionalTableFailuresDoNotDisableDismissal() async throws {
         for table in ["categories", "displayed", "requests"] {
             let value = try snapshot(missingTable: table)
@@ -498,7 +506,8 @@ final class ShellNotificationCompletenessTests: XCTestCase {
         systemMember: Bool = false,
         malformedList: String? = nil,
         malformedColumn: String? = nil,
-        missingTable: String? = nil
+        missingTable: String? = nil,
+        preferencesAvailable: Bool = true
     ) throws -> ShellNotificationsData {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -602,7 +611,13 @@ final class ShellNotificationCompletenessTests: XCTestCase {
             try sql("UPDATE \(table) SET extra=CAST(X'FF' AS TEXT)", db)
         }
         if let table = missingTable { try sql("DROP TABLE \(table)", db) }
-        return ShellNotificationStore.read(at: url)
+        let preferencesURL = url.deletingLastPathComponent().appendingPathComponent("preferences.plist")
+        if preferencesAvailable {
+            let preferences: [String: Any] = ["version": 1, "apps": []]
+            try PropertyListSerialization.data(fromPropertyList: preferences, format: .binary, options: 0)
+                .write(to: preferencesURL)
+        }
+        return ShellNotificationStore.read(at: url, preferencesURL: preferencesURL)
     }
 
     private func blob(_ data: Data) -> String {

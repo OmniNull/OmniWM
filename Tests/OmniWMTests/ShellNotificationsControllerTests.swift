@@ -7,6 +7,44 @@ import XCTest
 
 @MainActor
 final class ShellNotificationsControllerTests: XCTestCase {
+    func testPreferenceReplacementRefreshesWithoutDatabaseChanges() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let preferencesDirectory = directory.appendingPathComponent("preferences")
+        try FileManager.default.createDirectory(at: preferencesDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let preferencesURL = preferencesDirectory.appendingPathComponent("settings.plist")
+        let databaseURL = directory.appendingPathComponent("db")
+        try Data().write(to: databaseURL)
+        let initial: [String: Any] = ["version": 1, "apps": []]
+        try PropertyListSerialization.data(fromPropertyList: initial, format: .binary, options: 0)
+            .write(to: preferencesURL)
+        let controller = ShellNotificationsController(
+            url: databaseURL,
+            preferencesURL: preferencesURL,
+            load: { _ in
+                let excluded = ShellNotificationPreferences.excludedBundles(at: preferencesURL) ?? []
+                return ShellNotificationsData(state: excluded.contains("fixture") ? "empty" : "ready")
+            }
+        )
+        controller.setListening(true)
+        defer { controller.setListening(false) }
+        await controller.task?.value
+        XCTAssertEqual(controller.current.state, "ready")
+        let before = ShellNotificationsController.StorageRevision.read(at: databaseURL, preferencesURL: preferencesURL)
+        let refreshed = expectation(description: "preference-only change published")
+        controller.onChange = { value in
+            if value.state == "empty" { refreshed.fulfill() }
+        }
+        let root: [String: Any] = ["version": 1, "apps": [["bundle-id": "fixture", "flags": 0]]]
+        try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
+            .write(to: preferencesURL, options: .atomic)
+        await fulfillment(of: [refreshed], timeout: failureBound)
+        let after = ShellNotificationsController.StorageRevision.read(at: databaseURL, preferencesURL: preferencesURL)
+        XCTAssertEqual(before.database, after.database)
+        XCTAssertEqual(before.wal, after.wal)
+        XCTAssertNotEqual(before, after)
+    }
+
     private actor LoadGate {
         let entered: @Sendable (Int) -> Void
         let returned: @Sendable (Int) -> Void

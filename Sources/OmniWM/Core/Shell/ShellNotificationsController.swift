@@ -36,6 +36,7 @@ final class ShellNotificationsController {
     ) async -> ShellNotificationActionOutcome
 
     private let url: URL
+    private let preferencesURL: URL
     private let load: Loader
     private let performAction: ActionPerformer
     private let performDismissAll: DismissAllPerformer
@@ -58,6 +59,7 @@ final class ShellNotificationsController {
 
     init(
         url: URL = ShellNotificationStore.defaultURL,
+        preferencesURL: URL = ShellNotificationPreferences.defaultURL,
         load: Loader? = nil,
         perform: ActionPerformer? = nil,
         dismissAll: DismissAllPerformer? = nil,
@@ -65,9 +67,10 @@ final class ShellNotificationsController {
         revision: (@MainActor @Sendable () -> StorageRevision)? = nil
     ) {
         self.url = url
-        self.revision = revision ?? { StorageRevision.read(at: url) }
+        self.preferencesURL = preferencesURL
+        self.revision = revision ?? { StorageRevision.read(at: url, preferencesURL: preferencesURL) }
         let worker = ShellNotificationsWorker()
-        self.load = load ?? { await worker.read(at: $0) }
+        self.load = load ?? { await worker.read(at: $0, preferencesURL: preferencesURL) }
         self.resolveName = resolveName ?? { bundle in
             guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) else { return nil }
             let name = FileManager.default.displayName(atPath: url.path)
@@ -146,12 +149,10 @@ extension ShellNotificationsController {
         )
         guard isListening else { return }
         let directory = url.deletingLastPathComponent()
-        observation?.sync(paths: [
-            directory.deletingLastPathComponent(),
-            directory,
-            url,
-            URL(fileURLWithPath: url.path + "-wal")
-        ], recursivePaths: [directory])
+        observation?.sync(
+            paths: Self.observedPaths(at: url, preferencesURL: preferencesURL),
+            recursivePaths: [directory, preferencesURL.deletingLastPathComponent()]
+        )
         guard task == nil else {
             pending = true
             if let filesystemEvent { pendingFilesystemEvent = filesystemEvent }
