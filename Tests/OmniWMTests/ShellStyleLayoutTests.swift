@@ -1662,7 +1662,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                                 context
                             )
                             XCTAssertNotEqual(stats.deps & ShellDataKey.battery.bit, 0, context)
-                            XCTAssertEqual(stats.deps & ShellDataKey.power.bit, 0, context)
+                            XCTAssertNotEqual(stats.deps & ShellDataKey.power.bit, 0, context)
                             XCTAssertEqual(stats.deps & ShellDataKey.seconds.bit, 0, context)
                             if hooked.contains(profile), !vertical {
                                 let design: Double = profile == "celestial" ? 60 : 40
