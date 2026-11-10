@@ -103,7 +103,7 @@ final class ShellBatteryBoltTests: XCTestCase {
 
     func testBatteryDetailsDrawsBoltInBackgroundWhereFillReachesUnderIt() throws {
         let widget = try ShellRenderedWidget("battery-details")
-        for level in [100.0, 80, 55] {
+        for level in try [100, Self.boltContrastLevel()] {
             for (charging, power) in [(false, Self.pluggedIn), (true, Self.charging)] {
                 let label = "\(level)% charging=\(charging)"
                 let tree = render(widget, level: level, charging: charging, power: power, layout: .beside)
@@ -115,7 +115,7 @@ final class ShellBatteryBoltTests: XCTestCase {
 
     func testBatteryDetailsDrawsBoltInForegroundBelowTheFillThreshold() throws {
         let widget = try ShellRenderedWidget("battery-details")
-        for level in [54.0, 40, 15] {
+        for level in try [Self.boltContrastLevel().nextDown, 0] {
             for (charging, power) in [(false, Self.pluggedIn), (true, Self.charging)] {
                 let label = "\(level)% charging=\(charging)"
                 let tree = render(widget, level: level, charging: charging, power: power, layout: .beside)
@@ -171,6 +171,12 @@ final class ShellBatteryBoltTests: XCTestCase {
         bar.style.position = layout.vertical ? "left" : "top"
         widget.render(bar)
         return widget.tree()
+    }
+
+    private static func boltContrastLevel() throws -> Double {
+        try ShellRenderedWidget.bundledNumber(
+            "module.boltContrastLevel", requiring: "battery", from: "battery-details"
+        )
     }
 
     private func bolt(in tree: [TreeNode], _ widget: ShellRenderedWidget) -> TreeNode? {

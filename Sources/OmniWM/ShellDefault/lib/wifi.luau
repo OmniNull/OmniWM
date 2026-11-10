@@ -7,6 +7,7 @@ local actions = require("./actions")
 local wifi = { settings = "wifi settings" }
 local SPREAD = math.rad(45)
 local BANDS = { { 0, 2.8 }, { 5.2, 7.8 }, { 10, 12.6 }, { 14.8, 17.4 } }
+wifi.bandCount = #BANDS
 
 local function bars(rssi: number?): number
     if not rssi then

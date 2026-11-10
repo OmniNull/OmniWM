@@ -26,13 +26,36 @@ final class ShellRenderedWidget {
     var invocation: UInt64?
 
     convenience init(_ name: String) throws {
+        let source = try Self.bundledSource(name)
+        try self.init(name: name, source: source.main, modules: source.modules, chunk: source.chunk)
+    }
+
+    static func bundledSource(_ name: String) throws -> ShellWidgetSource {
         let url = try XCTUnwrap(ShellConfig.bundledWidget(name))
         let defaults = try XCTUnwrap(ShellDefaults.bundled)
-        let source = try ShellWidgetSourceLoader.build(.init(
+        return try ShellWidgetSourceLoader.build(.init(
             name: name, shellDirectory: defaults.deletingLastPathComponent(),
             sourceURL: url, directories: [defaults], profile: "default"
         ))
-        try self.init(name: name, source: source.main, modules: source.modules, chunk: source.chunk)
+    }
+
+    static func probe(_ source: String, modulesOf widget: String) throws -> ShellRenderedWidget {
+        let bundled = try bundledSource(widget)
+        let probe = try ShellRenderedWidget(
+            name: widget, source: source, modules: bundled.modules, chunk: bundled.chunk
+        )
+        probe.render(ShellBarData())
+        return probe
+    }
+
+    static func bundledNumber(_ expression: String, requiring module: String, from widget: String) throws -> Double {
+        let probe = try probe("""
+        local module = require("../lib/\(module)")
+        function render(ctx)
+            return ui.text{ text = tostring(\(expression)) }
+        end
+        """, modulesOf: widget)
+        return try XCTUnwrap(probe.strings().first.flatMap(Double.init), expression)
     }
 
     convenience init(

@@ -10,7 +10,7 @@ import XCTest
 @MainActor
 final class ShellBarIconSizeTests: XCTestCase {
     private static let scales: [Double] = [1, 1.5]
-    private static let barSymbol = 16.0
+    private static let overriddenBarSymbol = 20.0
     private static let bundledLookModule = "lib/look.luau"
 
     private static let symbolWidgets: [(name: String, symbols: [String])] = [
@@ -32,6 +32,7 @@ final class ShellBarIconSizeTests: XCTestCase {
     ]
 
     func testDefaultBarSymbolsRenderAtBarSymbolSizeTimesScale() throws {
+        let barSymbol = try Self.look("module.size.barSymbol")
         for (name, expected) in Self.symbolWidgets {
             let widget = try ShellRenderedWidget(name)
             for scale in Self.scales {
@@ -39,7 +40,7 @@ final class ShellBarIconSizeTests: XCTestCase {
                 for (symbol, node) in symbols {
                     XCTAssertEqual(
                         ShellTextStyle.symbolSize(for: node.content.style),
-                        Float(Self.barSymbol * scale),
+                        Float(barSymbol * scale),
                         "\(name) \(symbol) scale=\(scale)"
                     )
                 }
@@ -47,7 +48,8 @@ final class ShellBarIconSizeTests: XCTestCase {
         }
     }
 
-    func testDefaultBarSymbolsUseSharedSemiboldWeight() throws {
+    func testDefaultBarSymbolsUseTheSharedBarWeight() throws {
+        let barWeight = try Self.barWeight()
         for (name, expected) in Self.symbolWidgets {
             let widget = try ShellRenderedWidget(name)
             for scale in Self.scales {
@@ -55,7 +57,7 @@ final class ShellBarIconSizeTests: XCTestCase {
                 for (symbol, node) in symbols {
                     XCTAssertEqual(
                         ShellTextStyle.symbolWeight(for: node.content.style),
-                        .semibold,
+                        barWeight,
                         "\(name) \(symbol) scale=\(scale)"
                     )
                 }
@@ -64,7 +66,9 @@ final class ShellBarIconSizeTests: XCTestCase {
     }
 
     func testDefaultBarSymbolsFollowTheSharedBarSymbolToken() throws {
-        let override = "return require(\"./skin\")({ capsules = true, size = { barSymbol = 20 } })"
+        let override = """
+        return require("./skin")({ capsules = true, size = { barSymbol = \(Self.overriddenBarSymbol) } })
+        """
         for (name, expected) in Self.symbolWidgets {
             let widget = try restyledWidget(name, look: override)
             for scale in Self.scales {
@@ -72,7 +76,7 @@ final class ShellBarIconSizeTests: XCTestCase {
                 for (symbol, node) in symbols {
                     XCTAssertEqual(
                         ShellTextStyle.symbolSize(for: node.content.style),
-                        Float(20 * scale),
+                        Float(Self.overriddenBarSymbol * scale),
                         "\(name) \(symbol) scale=\(scale)"
                     )
                 }
@@ -81,41 +85,45 @@ final class ShellBarIconSizeTests: XCTestCase {
     }
 
     func testWiFiFanFillsTheBarSymbolBox() throws {
+        let barSymbol = try Self.look("module.size.barSymbol")
+        let bands = try ShellRenderedWidget.bundledNumber("module.bandCount", requiring: "wifi", from: "wifi")
         let widget = try ShellRenderedWidget("wifi")
         for scale in Self.scales {
             feed(widget, name: "wifi-on")
-            widget.render(bar(scale: scale))
+            try widget.render(bar(scale: scale))
             let paths = widget.tree().filter { $0.kind == .path }
-            XCTAssertEqual(paths.count, 4, "scale=\(scale)")
+            XCTAssertEqual(paths.count, Int(bands), "scale=\(scale)")
             for path in paths {
-                XCTAssertEqual(path.layout.width, Float(Self.barSymbol * scale), accuracy: 0.001, "scale=\(scale)")
-                XCTAssertEqual(path.layout.height, Float(Self.barSymbol * scale), accuracy: 0.001, "scale=\(scale)")
+                XCTAssertEqual(path.layout.width, Float(barSymbol * scale), "scale=\(scale)")
+                XCTAssertEqual(path.layout.height, Float(barSymbol * scale), "scale=\(scale)")
             }
         }
     }
 
-    func testBluetoothRuneHeightIsEightyFivePercentOfBarSymbol() throws {
+    func testBluetoothRuneIsTheRuneScaleOfTheBarSymbol() throws {
+        let barSymbol = try Self.look("module.size.barSymbol")
+        let runeScale = try ShellRenderedWidget.bundledNumber(
+            "module.runeScale", requiring: "bluetooth", from: "bluetooth"
+        )
         let widget = try ShellRenderedWidget("bluetooth")
         for scale in Self.scales {
             feed(widget, name: "bluetooth")
-            widget.render(bar(scale: scale))
+            try widget.render(bar(scale: scale))
             let rune = try XCTUnwrap(widget.tree().first { $0.kind == .path }, "scale=\(scale)")
-            XCTAssertEqual(
-                rune.layout.height,
-                Float(0.85 * Self.barSymbol * scale),
-                accuracy: 0.001,
-                "scale=\(scale)"
-            )
+            XCTAssertEqual(rune.layout.height, Float(barSymbol * scale * runeScale), "scale=\(scale)")
         }
     }
 
     func testBluetoothRuneUsesSharedDrawnIconStroke() throws {
+        let runeStroke = try ShellRenderedWidget.bundledNumber(
+            "module.runeStroke", requiring: "bluetooth", from: "bluetooth"
+        )
         let widget = try ShellRenderedWidget("bluetooth")
         for scale in Self.scales {
             feed(widget, name: "bluetooth")
-            widget.render(bar(scale: scale))
+            try widget.render(bar(scale: scale))
             let rune = try XCTUnwrap(widget.tree().first { $0.kind == .path }, "scale=\(scale)")
-            XCTAssertEqual(rune.paint.strokeWidth, 1.7, accuracy: 0.0001, "scale=\(scale)")
+            XCTAssertEqual(rune.paint.strokeWidth, Float(runeStroke), "scale=\(scale)")
         }
     }
 
@@ -126,7 +134,7 @@ final class ShellBarIconSizeTests: XCTestCase {
         expected: [String]
     ) throws -> [(String, TreeNode)] {
         feed(widget, name: name)
-        var data = bar(scale: scale)
+        var data = try bar(scale: scale)
         if name == "omniwm" {
             data.layout = .niri
         }
@@ -136,9 +144,24 @@ final class ShellBarIconSizeTests: XCTestCase {
         return symbols
     }
 
-    private func bar(scale: Double) -> ShellBarData {
+    private static func look(_ expression: String) throws -> Double {
+        try ShellRenderedWidget.bundledNumber(expression, requiring: "look", from: "battery")
+    }
+
+    private static func barWeight() throws -> NSFont.Weight {
+        let probe = try ShellRenderedWidget.probe("""
+        local look = require("../lib/look")
+        function render(ctx)
+            return ui.symbol{ name = "bell", weight = look.barWeight }
+        end
+        """, modulesOf: "battery")
+        let symbol = try XCTUnwrap(probe.tree().first { $0.kind == .symbol })
+        return ShellTextStyle.symbolWeight(for: symbol.content.style)
+    }
+
+    private func bar(scale: Double) throws -> ShellBarData {
         var bar = ShellBarData(badges: "text")
-        bar.style.height = 32 * scale
+        bar.style.height = try Self.look("module.base") * scale
         bar.style.vertical = false
         bar.style.position = "top"
         bar.style.statsButton = true
@@ -146,12 +169,7 @@ final class ShellBarIconSizeTests: XCTestCase {
     }
 
     private func restyledWidget(_ name: String, look: String) throws -> ShellRenderedWidget {
-        let url = try XCTUnwrap(ShellConfig.bundledWidget(name))
-        let defaults = try XCTUnwrap(ShellDefaults.bundled)
-        let source = try ShellWidgetSourceLoader.build(.init(
-            name: name, shellDirectory: defaults.deletingLastPathComponent(),
-            sourceURL: url, directories: [defaults], profile: "default"
-        ))
+        let source = try ShellRenderedWidget.bundledSource(name)
         var replaced = false
         let modules = source.modules.map { module in
             guard module.path == Self.bundledLookModule else { return module }

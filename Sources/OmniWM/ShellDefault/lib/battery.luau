@@ -4,8 +4,7 @@
 local look = require("./look")
 local actions = require("./actions")
 
-local battery = {}
-local BOLT_CONTRAST_LEVEL = 55
+local battery = { boltContrastLevel = 55 }
 
 local function tint(level: number, charging: boolean): string
     if charging then
@@ -71,7 +70,7 @@ function battery.cell(state, w: number, h: number, inside: string?)
         body[#body + 1] = look.text{ text = inside, size = h * 0.72, weight = "semibold" }
     elseif state.charging or state.plugged then
         body[#body + 1] = look.glyph{ name = "bolt.fill", size = h * 0.78,
-            color = if state.level >= BOLT_CONTRAST_LEVEL then "background" else "foreground" }
+            color = if state.level >= battery.boltContrastLevel then "background" else "foreground" }
     end
     return ui.row{ gap = 1,
         ui.stack(body),
