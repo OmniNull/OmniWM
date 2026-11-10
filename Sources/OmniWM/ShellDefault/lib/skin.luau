@@ -1,7 +1,7 @@
 -- SPDX-License-Identifier: GPL-2.0-only
 -- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
-local SIZES = { text = 13, small = 11, symbol = 14, icon = 18, slot = 22, time = 13, glyph = 18 }
+local SIZES = { text = 13, small = 11, symbol = 14, icon = 18, slot = 22, time = 13, glyph = 18, barSymbol = 16 }
 
 local function skin(look)
     look.base = look.base or 32
@@ -12,6 +12,7 @@ local function skin(look)
     look.verticalText = look.verticalText or "hide"
     look.symbols = look.symbols or {}
     look.notification = look.notification or {}
+    look.barWeight = look.barWeight or "semibold"
     local sizes = table.clone(SIZES)
     for role, value in look.size or {} do
         sizes[role] = value
@@ -40,6 +41,13 @@ local function skin(look)
     look.glyph = look.glyph or function(props)
         props.name = look.symbols[props.name] or props.name
         return ui.symbol(props)
+    end
+    look.barGlyph = look.barGlyph or function(ctx, props)
+        if not ctx.data.bar.style.vertical then
+            props.size = look.px(ctx, "barSymbol")
+            props.weight = look.barWeight
+        end
+        return look.glyph(props)
     end
     look.hue = look.hue or function()
         return nil

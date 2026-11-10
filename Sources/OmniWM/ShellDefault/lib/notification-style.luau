@@ -6,6 +6,9 @@ local look = require("./look")
 return require("./notification-presentation")({
     scale = look.scale,
     bar = look.bar,
+    icon = function(issue, size, ctx)
+        return look.barGlyph(ctx, { name = if issue then "bell.badge" else "bell", size = size })
+    end,
     hover = look.hover,
     buttonRadius = 7,
     group = look.group,

@@ -146,7 +146,7 @@ function render(ctx: Context)
     local button = look.controlCenterBar and look.controlCenterBar(ctx, state)
     if not button then
         local props = table.clone(behaviour)
-        props[1] = look.glyph{ name = state.symbol, size = 14 * look.scale(ctx) }
+        props[1] = look.barGlyph(ctx, { name = state.symbol, size = 14 * look.scale(ctx) })
         button = look.bar(ctx, props)
     end
     for key, value in behaviour do

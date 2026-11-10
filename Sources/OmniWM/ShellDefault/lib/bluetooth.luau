@@ -6,6 +6,7 @@ local actions = require("./actions")
 
 local bluetooth = {}
 local RUNE = "M7 7.5 L17 16.5 L12 21 L12 3 L17 7.5 L7 16.5"
+local RUNE_SCALE = 0.85
 local KINDS = {
     headphones = "headphones",
     keyboard = "keyboard",
@@ -20,7 +21,7 @@ local function lowBattery(level: number): boolean
 end
 
 function bluetooth.rune(size: number, color: string)
-    return ui.path{ w = size, h = size, viewBox = { 0, 0, 24, 24 }, d = RUNE, border = color, borderWidth = 2.2 }
+    return ui.path{ w = size, h = size, viewBox = { 0, 0, 24, 24 }, d = RUNE, border = color, borderWidth = 1.7 }
 end
 
 function bluetooth.cell(level: number)
@@ -50,7 +51,7 @@ end
 
 function bluetooth.glyph(state, size: number)
     local glyph = { w = size, h = size,
-        bluetooth.rune(size, if state.power then "foreground" else "secondaryForeground") }
+        bluetooth.rune(size * RUNE_SCALE, if state.power then "foreground" else "secondaryForeground") }
     if state.power and state.connected > 0 then
         glyph[#glyph + 1] = ui.box{ align = "bottomTrailing", w = size / 4, h = size / 4, radius = size / 8,
             fill = "accent" }

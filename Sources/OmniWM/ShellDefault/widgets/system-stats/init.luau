@@ -36,7 +36,7 @@ function render(ctx: Context)
         button = ui.stack(frame)
     else
         local props = table.clone(behaviour)
-        props[1] = look.glyph(glyph)
+        props[1] = look.barGlyph(ctx, glyph)
         button = look.bar(ctx, props)
     end
     for key, value in behaviour do
