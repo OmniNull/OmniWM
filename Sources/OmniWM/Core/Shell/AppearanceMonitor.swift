@@ -3,6 +3,34 @@
 
 import AppKit
 
+enum ShellAppearanceCommand: Equatable, Sendable {
+    case toggle
+
+    init?(words: [String]) {
+        guard words == ["toggle"] else { return nil }
+        self = .toggle
+    }
+
+    func perform() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = [
+            "-e",
+            "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"
+        ]
+        process.terminationHandler = { process in
+            if process.terminationStatus != 0 {
+                Log.shell.error("Switching the appearance failed: osascript exited with \(process.terminationStatus)")
+            }
+        }
+        do {
+            try process.run()
+        } catch {
+            Log.shell.error("Switching the appearance failed: \(error.localizedDescription)")
+        }
+    }
+}
+
 struct ShellAppearance: Equatable, Sendable, ShellValueWritable {
     var dark: Bool
 

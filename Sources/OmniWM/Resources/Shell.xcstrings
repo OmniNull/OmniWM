@@ -441,6 +441,17 @@
         }
       }
     },
+    "Dark Mode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dark Mode"
+          }
+        }
+      }
+    },
     "Make it yours" : {
       "extractionState" : "manual",
       "localizations" : {
