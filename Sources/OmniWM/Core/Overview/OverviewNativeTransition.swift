@@ -7,6 +7,7 @@ struct OverviewNativeTransition {
     static let response = 0.25
     static let closeHandoffProgress = 0.01
     static let closeRevealProgress = 0.08
+    static let settleTimeResolution: CFTimeInterval = 0.001
     private static let rubberBandCoefficient = 0.55
     private static let rubberBandDimension = 0.30
     private static let flickVelocity = 0.5
@@ -126,8 +127,6 @@ struct OverviewNativeTransition {
     }
 
     private struct CriticalSpring {
-        static let settleTimeResolution: CFTimeInterval = 0.001
-
         let displacement: Double
         let initialVelocity: Double
         let frequency: Double
@@ -147,9 +146,9 @@ struct OverviewNativeTransition {
         func settleTime(within offsetLimit: Double, latest: CFTimeInterval) -> CFTimeInterval {
             var time = latest
             while time > 0, abs(offset(at: time)) <= offsetLimit {
-                time -= Self.settleTimeResolution
+                time -= OverviewNativeTransition.settleTimeResolution
             }
-            return time <= 0 ? 0 : min(latest, time + Self.settleTimeResolution)
+            return time <= 0 ? 0 : min(latest, time + OverviewNativeTransition.settleTimeResolution)
         }
     }
 

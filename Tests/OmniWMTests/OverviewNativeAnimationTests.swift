@@ -55,32 +55,38 @@ final class OverviewNativeAnimationTests: XCTestCase {
     }
 
     func testCloseHandsOffOnceOnePercentProgressRemainsWhileOpenSettlesFully() {
+        let open = OverviewNativeTransition(generation: 1, startTime: 100, from: 0, to: 1)
         let close = OverviewNativeTransition(generation: 1, startTime: 100, from: 1, to: 0)
         let handoff = OverviewNativeTransition.closeHandoffProgress
-        XCTAssertEqual(OverviewNativeTransition(generation: 1, startTime: 100, from: 0, to: 1).duration, 0.4)
-        XCTAssertLessThan(close.duration, 0.3)
-        XCTAssertGreaterThan(close.value(at: 100 + close.duration - 0.002), handoff)
-        XCTAssertLessThanOrEqual(close.value(at: 100 + close.duration - 0.0001), handoff)
-        XCTAssertEqual(close.makeAnimation(keyPath: "position").duration, close.duration)
+        let step = OverviewNativeTransition.settleTimeResolution
+        let closeSpring = close.makeAnimation(keyPath: "position")
+        let lastInstantBeforeHandoff = (100 + close.duration).nextDown
+        XCTAssertEqual(open.duration, open.makeAnimation(keyPath: "position").settlingDuration)
+        XCTAssertLessThan(close.duration, closeSpring.settlingDuration)
+        XCTAssertGreaterThan(close.value(at: 100 + close.duration - step), handoff)
+        XCTAssertLessThanOrEqual(close.value(at: lastInstantBeforeHandoff), handoff)
+        XCTAssertEqual(closeSpring.duration, close.duration)
     }
 
     func testCloseHandoffWaitsOutOvershootAndSkipsAlreadySettledCloses() {
         let handoff = OverviewNativeTransition.closeHandoffProgress
+        let step = OverviewNativeTransition.settleTimeResolution
         let reversing = OverviewNativeTransition(generation: 1, startTime: 100, from: 0.3, to: 0, initialVelocity: 4)
-        XCTAssertGreaterThan(reversing.value(at: 100 + reversing.duration - 0.002), handoff)
+        XCTAssertGreaterThan(reversing.value(at: 100 + reversing.duration - step), handoff)
         XCTAssertEqual(OverviewNativeTransition(generation: 1, startTime: 100, from: handoff / 2, to: 0).duration, 0)
     }
 
     func testCloseRevealFadesOverlayFromRevealProgressUntilHandoff() throws {
         let close = OverviewNativeTransition(generation: 1, startTime: 100, from: 1, to: 0)
         let revealProgress = OverviewNativeTransition.closeRevealProgress
+        let step = OverviewNativeTransition.settleTimeResolution
         XCTAssertNil(OverviewNativeTransition(generation: 1, startTime: 100, from: 0, to: 1).makeCloseReveal())
         let reveal = try XCTUnwrap(close.makeCloseReveal())
         XCTAssertEqual((reveal.values as? [NSNumber])?.map(\.floatValue), [1, 1, 0])
         XCTAssertEqual(reveal.duration, close.duration)
         XCTAssertFalse(reveal.isRemovedOnCompletion)
         let revealStart = try XCTUnwrap(reveal.keyTimes?[1].doubleValue) * close.duration
-        XCTAssertGreaterThan(close.value(at: 100 + revealStart - 0.002), revealProgress)
+        XCTAssertGreaterThan(close.value(at: 100 + revealStart - step), revealProgress)
         XCTAssertLessThanOrEqual(close.value(at: 100 + revealStart), revealProgress)
     }
 

@@ -9,7 +9,7 @@ final class OverviewLayerRenderer {
     typealias Colors = OverviewRenderStyle.Colors
     typealias Metrics = OverviewRenderStyle.Metrics
     static let searchPlaceholder = String(localized: "Type to search...")
-    private static let closeRevealKey = "overview.closeReveal"
+    static let closeRevealKey = "overview.closeReveal"
 
     let root = CALayer()
     private let backdropGroup = CALayer()
