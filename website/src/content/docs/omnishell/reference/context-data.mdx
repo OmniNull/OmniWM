@@ -89,8 +89,9 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `inputSource` | The keyboard input source and the enabled ones, each with a short label |
 | `privacy` | Whether any app is using a microphone or a camera |
 | `wifi` | Wi-Fi power, signal, band, channel and security, and the network name once Location access is allowed |
+| `connection` | How the Mac reaches the network (`wifi`, `ethernet`, `cellular`, `other` or `none`) and the interface name; a VPN reports the Wi-Fi or Ethernet link beneath it |
 | `bluetooth` | Bluetooth power and paired devices with their battery levels, once Bluetooth access is allowed |
-| `volume`, `muted`, `outputs` | Output volume and the audio outputs |
+| `volume`, `muted`, `outputs` | Output volume and the audio outputs, each with a device `kind` such as `airpodspro`, `headphones` or `display` |
 | `brightness` | Main display brightness (0–100) and whether the control is available |
 | `microphone` | Default input device volume (0–100) and mute state; either control is absent when unsupported |
 | `awake` | OmniWM's Prevent Sleep state and its optional Unix expiry time |
@@ -319,6 +320,8 @@ Weather supplies current conditions, 24 hourly entries, and seven daily entries;
 <LuauDeclaration name="InputSourceEntry" />
 
 <LuauDeclaration name="WiFi" />
+
+<LuauDeclaration name="Connection" />
 
 <LuauDeclaration name="Bluetooth" />
 

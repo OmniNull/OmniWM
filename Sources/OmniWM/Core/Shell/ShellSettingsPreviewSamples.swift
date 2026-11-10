@@ -32,6 +32,7 @@ enum ShellSettingsPreviewSamples {
                 "rate": .number(866),
                 "location": .text("authorized")
             ]),
+            "connection": .object(["kind": .text("wifi"), "interface": .text("en0")]),
             "privacy": .object(["microphone": .bool(false), "camera": .bool(false)]),
             "bluetooth": .object(["power": .bool(true), "access": .text("allowed"), "devices": .array([])]),
             "user": .object(["name": .text("Alex"), "account": .text("alex"), "avatar": .null]),

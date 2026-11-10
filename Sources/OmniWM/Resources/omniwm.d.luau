@@ -201,6 +201,8 @@ export type AudioOutput = {
     transport: "builtin" | "usb" | "bluetooth" | "hdmi" | "displayport" | "airplay" | "thunderbolt" | "virtual"
         | "aggregate" | "other",
     default: boolean,
+    kind: "airpods" | "airpodspro" | "airpodsmax" | "beats" | "headphones" | "speaker" | "display" | "airplay"
+        | "builtin" | "other",
 }
 
 export type AudioApp = {
@@ -471,6 +473,11 @@ export type WiFi = {
     location: "authorized" | "denied" | "restricted" | "notDetermined",
 }
 
+export type Connection = {
+    kind: "wifi" | "ethernet" | "cellular" | "other" | "none",
+    interface: string?,
+}
+
 export type BluetoothDevice = {
     id: string,
     name: string,
@@ -571,6 +578,7 @@ export type Data = {
     awake: Awake?,
     microphone: Microphone?,
     brightness: Brightness?,
+    connection: Connection?,
 }
 
 export type Format = {

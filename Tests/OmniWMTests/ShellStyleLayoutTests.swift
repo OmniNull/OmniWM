@@ -2940,9 +2940,11 @@ final class ShellStyleLayoutTests: XCTestCase {
                         var expected: Set<ShellDataKey> = [
                             .settings,
                             .wifi,
+                            .connection,
                             .bluetooth,
                             .volume,
                             .muted,
+                            .outputs,
                             .media,
                             .battery
                         ]
@@ -3399,7 +3401,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         )
     }
 
-    func testSharedVolumeBarsKeepInputAndAvoidOutputAndAppDemand() throws {
+    func testSharedVolumeBarsKeepInputAndReadOutputsButAvoidAppDemand() throws {
         let shell = try sharedAudioShell()
         defer { try? FileManager.default.removeItem(at: shell) }
         for profile in try barHostingProfiles(in: shell) {
@@ -3423,7 +3425,8 @@ final class ShellStyleLayoutTests: XCTestCase {
                         omni_instance_render(widget.instance, OMNI_VIEW_BAR, 100_000_000, &stats, &error, error.count),
                         OMNI_OK, context
                     )
-                    XCTAssertEqual(stats.deps & (ShellDataKey.outputs.bit | ShellDataKey.audioApps.bit), 0, context)
+                    XCTAssertEqual(stats.deps & ShellDataKey.outputs.bit, ShellDataKey.outputs.bit, context)
+                    XCTAssertEqual(stats.deps & ShellDataKey.audioApps.bit, 0, context)
                     XCTAssertEqual(
                         stats.deps & (ShellDataKey.volume.bit | ShellDataKey.muted.bit),
                         ShellDataKey.volume.bit | ShellDataKey.muted.bit, context
@@ -5145,7 +5148,7 @@ final class ShellStyleLayoutTests: XCTestCase {
             )
         case (_, "network"):
             return (
-                [.wifi, .network],
+                [.wifi, .connection, .network],
                 missing ? ["Unavailable", "Wi-Fi Settings…"] : ["Harbour Home", "Download", "Upload"]
             )
         case (_, "bluetooth"):

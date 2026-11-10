@@ -88,7 +88,9 @@ end
 local function overview(ctx)
     local network = wifi.model(ctx)
     local radio = bluetooth.state(ctx)
+    local wired = network ~= nil and network.wired
     local wireless = if not network then omniwm.l10n("Unavailable")
+        elseif wired then omniwm.l10n("Connected")
         else network.power and network.ssid or network.connectionStatus
     local devices = if not radio then omniwm.l10n("Unavailable")
         elseif not radio.granted then omniwm.l10n("Allow Access")
@@ -97,9 +99,11 @@ local function overview(ctx)
         else omniwm.l10n("On")
     local rows = { w = CONTENT, gap = 12, center = false,
         ui.row{ gap = 12,
-            connection(omniwm.l10n("Wi-Fi"), wireless,
-                look.glyph{ name = if network and network.power then "wifi" else "wifi.slash", w = 16, h = 16,
-                    color = if network and network.connected then "accent" else "secondaryForeground" }, wifi.settings),
+            connection(if wired then omniwm.l10n("Ethernet") else omniwm.l10n("Wi-Fi"), wireless,
+                look.glyph{ name = if wired then "network" elseif network and network.power then "wifi" else "wifi.slash",
+                    w = 16, h = 16,
+                    color = if wired or network and network.connected then "accent" else "secondaryForeground" },
+                wifi.settings),
             connection(omniwm.l10n("Bluetooth"), devices,
                 bluetooth.rune(16, if radio and radio.power then "accent" else "secondaryForeground"),
                 if radio and not radio.granted then "bluetooth authorize" else "bluetooth settings") },

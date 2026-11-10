@@ -20,6 +20,7 @@ final class ShellDevices {
     let inputSource = InputSourceController()
     let privacy = PrivacyMonitor()
     let wifi: WiFiMonitor
+    let connection = ConnectionMonitor()
     let bluetooth = BluetoothMonitor()
     let user = UserMonitor()
     let thermal = ThermalMonitor()
@@ -43,6 +44,7 @@ extension ShellDataFeed {
         listen(devices.inputSource, !paused && demands(.inputSource), into: \.inputSource)
         listen(devices.privacy, !paused && demands(.privacy), into: \.privacy)
         listen(devices.wifi, !paused && demands(.wifi), into: \.wifi)
+        listen(devices.connection, !paused && demands(.connection), into: \.connection)
         listen(devices.bluetooth, !paused && demands(.bluetooth), into: \.bluetooth)
         listen(devices.user, !paused && demands(.user), into: \.user)
         listen(devices.thermal, !paused && demands(.thermal), into: \.thermal)
@@ -55,6 +57,7 @@ extension ShellDataFeed {
         listen(devices.inputSource, false, into: \.inputSource)
         listen(devices.privacy, false, into: \.privacy)
         listen(devices.wifi, false, into: \.wifi)
+        listen(devices.connection, false, into: \.connection)
         listen(devices.bluetooth, false, into: \.bluetooth)
         listen(devices.user, false, into: \.user)
         listen(devices.thermal, false, into: \.thermal)

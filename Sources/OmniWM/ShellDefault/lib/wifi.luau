@@ -49,18 +49,25 @@ end
 
 function wifi.state(ctx)
     local data = ctx.data.wifi
+    local connection = ctx.data.connection
+    local wired = connection ~= nil and connection.kind == "ethernet"
     if not data then
-        return nil
+        return if wired then { wired = true, available = false, power = false, connected = false, level = -1,
+            help = omniwm.l10n("Ethernet") } else nil
     end
-    return { power = data.power, connected = data.connected, ssid = data.ssid, rssi = data.rssi,
-        level = if data.connected then bars(data.rssi) else -1,
-        help = if not data.power then omniwm.l10n("Wi-Fi: Off")
+    return { wired = wired, available = true, power = data.power, connected = data.connected, ssid = data.ssid,
+        rssi = data.rssi, level = if data.connected then bars(data.rssi) else -1,
+        help = if wired then omniwm.l10n("Ethernet")
+            elseif not data.power then omniwm.l10n("Wi-Fi: Off")
             elseif data.ssid then data.ssid
             elseif data.connected then omniwm.l10n("Wi-Fi: Connected")
             else omniwm.l10n("Wi-Fi: Not Connected") }
 end
 
 function wifi.glyph(state, size: number)
+    if state.wired then
+        return look.glyph{ name = "network", size = size, weight = look.barWeight }
+    end
     if not state.power then
         return look.glyph{ name = "wifi.slash", size = size, weight = look.barWeight, color = "secondaryForeground" }
     end
@@ -73,29 +80,35 @@ function wifi.model(ctx)
         return nil
     end
     local data = ctx.data.wifi
-    m.status = if data.power then omniwm.l10n("On") else omniwm.l10n("Off")
-    m.connectionStatus = if not data.power then omniwm.l10n("Off")
-        elseif data.connected then omniwm.l10n("Connected") else omniwm.l10n("Not Connected")
-    m.name = data.ssid or omniwm.l10n("Network name hidden")
     m.details = {}
-    if data.power and data.connected then
-        if data.rssi then
-            m.details[#m.details + 1] = { symbol = "cellularbars", label = omniwm.l10n("Signal"),
-                value = string.format("%d dBm · %s", data.rssi, quality(data.rssi)) }
-        end
-        if data.band then
-            m.details[#m.details + 1] = { symbol = "antenna.radiowaves.left.and.right", label = omniwm.l10n("Band"),
-                value = if data.channel then string.format("%s · %d", data.band, data.channel) else data.band }
-        end
-        if data.security then
-            m.details[#m.details + 1] = { symbol = "lock", label = omniwm.l10n("Security"), value = data.security }
-        end
-    end
     m.actions = {}
-    if data.power and data.location ~= "authorized" then
-        m.actions[#m.actions + 1] = { symbol = "location.fill",
-            text = omniwm.l10n("Allow Location Access to show the network name"), command = "wifi authorize",
-            wrap = true, prompt = true }
+    if not data then
+        local unavailable = omniwm.l10n("Unavailable")
+        m.status, m.connectionStatus, m.name = unavailable, unavailable, unavailable
+    else
+        m.status = if data.power then omniwm.l10n("On") else omniwm.l10n("Off")
+        m.connectionStatus = if not data.power then omniwm.l10n("Off")
+            elseif data.connected then omniwm.l10n("Connected") else omniwm.l10n("Not Connected")
+        m.name = data.ssid or omniwm.l10n("Network name hidden")
+        if data.power and data.connected then
+            if data.rssi then
+                m.details[#m.details + 1] = { symbol = "cellularbars", label = omniwm.l10n("Signal"),
+                    value = string.format("%d dBm · %s", data.rssi, quality(data.rssi)) }
+            end
+            if data.band then
+                m.details[#m.details + 1] = { symbol = "antenna.radiowaves.left.and.right",
+                    label = omniwm.l10n("Band"),
+                    value = if data.channel then string.format("%s · %d", data.band, data.channel) else data.band }
+            end
+            if data.security then
+                m.details[#m.details + 1] = { symbol = "lock", label = omniwm.l10n("Security"), value = data.security }
+            end
+        end
+        if data.power and data.location ~= "authorized" then
+            m.actions[#m.actions + 1] = { symbol = "location.fill",
+                text = omniwm.l10n("Allow Location Access to show the network name"), command = "wifi authorize",
+                wrap = true, prompt = true }
+        end
     end
     m.actions[#m.actions + 1] = { symbol = "gearshape", text = omniwm.l10n("Wi-Fi Settings…"), command = wifi.settings,
         wrap = true }
@@ -115,10 +128,21 @@ function wifi.content(ctx, width: number?, m)
     if not m then
         return actions.notice(omniwm.l10n("Unavailable"), width)
     end
-    local rows = { w = width, gap = 12, center = false,
-        ui.row{ w = width,
+    local rows = { w = width, gap = 12, center = false }
+    if m.wired then
+        rows[#rows + 1] = look.group{ w = width,
+            ui.row{ w = width - 24, gap = 12,
+                ui.stack{ w = 36, h = 36, radius = look.radius(18), fill = "accent",
+                    look.glyph{ name = "network", size = 18, color = "accentForeground" } },
+                ui.column{ gap = 3, center = false,
+                    look.text{ text = omniwm.l10n("Ethernet"), size = 13, weight = "medium", maxWidth = width - 72 },
+                    look.text{ text = omniwm.l10n("Connected"), size = 11, color = "secondaryForeground" } } } }
+    end
+    if m.available then
+        rows[#rows + 1] = ui.row{ w = width,
             look.text{ text = omniwm.l10n("Wi-Fi"), size = 14, weight = "semibold", grow = 1 },
-            look.text{ text = m.status, size = 13, color = "secondaryForeground" } } }
+            look.text{ text = m.status, size = 13, color = "secondaryForeground" } }
+    end
     if m.power and m.connected then
         local card = { w = width,
             ui.row{ w = width - 24, gap = 12,

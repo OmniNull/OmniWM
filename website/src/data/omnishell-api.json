@@ -595,12 +595,13 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-audiooutput",
-      "declaration": "export type AudioOutput = {\n    id: string,\n    name: string,\n    transport: \"builtin\" | \"usb\" | \"bluetooth\" | \"hdmi\" | \"displayport\" | \"airplay\" | \"thunderbolt\" | \"virtual\"\n        | \"aggregate\" | \"other\",\n    default: boolean,\n}",
+      "declaration": "export type AudioOutput = {\n    id: string,\n    name: string,\n    transport: \"builtin\" | \"usb\" | \"bluetooth\" | \"hdmi\" | \"displayport\" | \"airplay\" | \"thunderbolt\" | \"virtual\"\n        | \"aggregate\" | \"other\",\n    default: boolean,\n    kind: \"airpods\" | \"airpodspro\" | \"airpodsmax\" | \"beats\" | \"headphones\" | \"speaker\" | \"display\" | \"airplay\"\n        | \"builtin\" | \"other\",\n}",
       "fields": [
         "id",
         "name",
         "transport",
-        "default"
+        "default",
+        "kind"
       ],
       "related": []
     },
@@ -1059,6 +1060,18 @@
       "related": []
     },
     {
+      "name": "Connection",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-connection",
+      "declaration": "export type Connection = {\n    kind: \"wifi\" | \"ethernet\" | \"cellular\" | \"other\" | \"none\",\n    interface: string?,\n}",
+      "fields": [
+        "kind",
+        "interface"
+      ],
+      "related": []
+    },
+    {
       "name": "BluetoothDevice",
       "kind": "type",
       "topic": "context-data",
@@ -1136,7 +1149,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-data",
-      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n}",
+      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    connection: Connection?,\n}",
       "fields": [
         "clock",
         "date",
@@ -1187,7 +1200,8 @@
         "notifications",
         "awake",
         "microphone",
-        "brightness"
+        "brightness",
+        "connection"
       ],
       "related": [
         "Weather",
@@ -1212,7 +1226,8 @@
         "Notifications",
         "Awake",
         "Microphone",
-        "Brightness"
+        "Brightness",
+        "Connection"
       ]
     },
     {
