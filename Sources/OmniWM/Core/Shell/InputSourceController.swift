@@ -82,11 +82,7 @@ final class InputSourceController: ShellDeviceSource {
         observers = [kTISNotifySelectedKeyboardInputSourceChanged, kTISNotifyEnabledKeyboardInputSourcesChanged]
             .map { name in
                 center
-                    .addObserver(
-                        forName: Notification.Name(name as String),
-                        object: nil,
-                        queue: .main
-                    ) { [weak self] _ in
+                    .addUnsuspendedObserver(forName: Notification.Name(name as String)) { [weak self] _ in
                         // Inside the handler the current source can still be the previous one (#961).
                         Task { @MainActor in
                             self?.refresh()
