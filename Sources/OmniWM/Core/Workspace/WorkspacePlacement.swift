@@ -43,7 +43,7 @@ struct WorkspacePlacementWindow {
     let pid: pid_t?
     let parentWindowId: UInt32?
     let placementMode: TrackedWindowMode
-    let windowFrame: CGRect?
+    let appKitFrame: CGRect?
     let existingEntry: WindowState?
 }
 

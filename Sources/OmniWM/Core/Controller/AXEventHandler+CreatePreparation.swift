@@ -289,7 +289,9 @@ extension AXEventHandler {
         let evaluation = facts.evaluation
         let trackedMode = admission.mode
         let inheritTrackedParentWorkspace = controller.shouldInheritTrackedParentWorkspace(for: evaluation)
-        let placementFrame = evaluation.facts.windowServer?.frame ?? facts.windowInfo?.frame
+        let placementFrame = WMController.appKitPlacementFrame(
+            fromWindowServer: evaluation.facts.windowServer?.frame ?? facts.windowInfo?.frame
+        )
         let resolvedPlacement = controller.resolveWorkspaceForNewWindow(
             workspaceName: evaluation.decision.workspaceName,
             axRef: axRef,
@@ -304,7 +306,7 @@ extension AXEventHandler {
             ),
             placementOrigin: placement.origin,
             createPlacementContext: placement.capturedContext,
-            windowFrame: placementFrame,
+            appKitFrame: placementFrame,
             fallbackWorkspaceId: controller.activeWorkspace()?.id
         )
         let workspaceId = resolvedPlacement.workspaceId
@@ -312,7 +314,7 @@ extension AXEventHandler {
             token: token,
             placement: resolvedPlacement,
             createPlacementContext: placement.capturedContext,
-            windowFrame: placementFrame,
+            appKitFrame: placementFrame,
             controller: controller
         )
 

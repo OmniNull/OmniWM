@@ -283,6 +283,83 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         XCTAssertEqual(placementOrigin, .discovery)
     }
 
+    func testDiscoveryWindowPlacementUsesUpperDisplayForWindowServerFrame() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        defer { controller.layoutRefreshController.resetState() }
+        let manager = controller.workspaceManager
+        let main = try XCTUnwrap(manager.monitors.first(where: \.isMain))
+        let upperFrame = CGRect(x: main.frame.minX, y: main.frame.maxY, width: main.frame.width, height: 800)
+        let upper = Monitor(
+            id: .init(displayId: main.displayId &+ 1),
+            displayId: main.displayId &+ 1,
+            frame: upperFrame,
+            visibleFrame: upperFrame,
+            hasNotch: false,
+            name: "Upper",
+            isMain: false
+        )
+        manager.applyMonitorConfigurationChange([main, upper])
+        let primaryWorkspace = try XCTUnwrap(manager.activeWorkspaceOrFirst(on: main.id)?.id)
+        let upperWorkspace = try XCTUnwrap(manager.activeWorkspaceOrFirst(on: upper.id)?.id)
+        let appKitFrame = CGRect(x: upperFrame.midX - 180, y: upperFrame.minY + 120, width: 360, height: 240)
+        let quartzFrame = ScreenCoordinateSpace.toWindowServer(rect: appKitFrame)
+        XCTAssertEqual(quartzFrame.center.monitorApproximation(in: manager.monitors)?.id, main.id)
+
+        let token = WindowToken(pid: 467_361, windowId: 467_362)
+        let bundleId = replacementBundleId(token.pid)
+        let facts = replacementFacts(token: token, bundleId: bundleId, frame: quartzFrame)
+        let windowInfo = try XCTUnwrap(facts.windowServer)
+        let evidence = AXWindowDecisionEvidence(facts: facts.ax, sizeConstraints: .unconstrained)
+        let geometry = WindowAdmissionGeometryEvidence(isSizeSettable: true, frame: appKitFrame)
+        controller.windowRuleEngine.rebuild(rules: [AppRule(bundleId: bundleId, layout: .float)])
+        let evaluation = controller.evaluateWindowDisposition(
+            token: token, evidence: evidence, appFullscreen: false, windowInfo: windowInfo, admissionGeometry: geometry
+        )
+        controller.windowDispositionEvaluationForTests = { _ in evaluation }
+
+        let axRef = WindowAdmissionTestSupport.axRef(for: token)
+        guard case let .prepared(prepared) = controller.axEventHandler.prepareCreateCandidate(
+            windowId: windowInfo.id,
+            windowInfo: windowInfo,
+            fallbackAXRef: axRef,
+            placementOrigin: .discovery
+        ) else {
+            return XCTFail("Expected a prepared create")
+        }
+        XCTAssertEqual(prepared.workspaceId, upperWorkspace, "Discovered create")
+        controller.axEventHandler.releasePreparedWindowSubscription(prepared.windowId)
+
+        let reevaluated = controller.resolvedWorkspaceId(
+            for: evaluation,
+            axRef: axRef,
+            existingEntry: nil,
+            placementMode: .floating,
+            placementContext: .init(
+                origin: .discovery, createPlacementContext: nil, fallbackWorkspaceId: primaryWorkspace,
+                reevaluation: .explicitRuleApply
+            )
+        )
+        XCTAssertEqual(reevaluated, upperWorkspace, "Rule reevaluation")
+
+        for (offset, frame) in [quartzFrame, .zero].enumerated() {
+            let capturedToken = WindowToken(pid: token.pid, windowId: token.windowId + 1 + offset)
+            let captured = candidate(
+                pid: capturedToken.pid,
+                windowId: capturedToken.windowId,
+                decisionEvidence: evidence,
+                admissionGeometry: geometry,
+                fullscreenAttribute: false,
+                windowServerInfo: replacementWindowInfo(token: capturedToken, frame: frame)
+            )
+            _ = reconcileCapturedWindow(captured, focusedWorkspace: primaryWorkspace, controller: controller)
+            XCTAssertEqual(
+                manager.entry(for: capturedToken)?.workspaceId,
+                upperWorkspace,
+                "Full rescan with WindowServer frame \(frame)"
+            )
+        }
+    }
+
     func testFullRescanAdmissionRechecksUnresolvedNativeFocusWithoutFronting() async throws {
         var focusOperations: [String] = []
         let controller = WindowAdmissionTestSupport.controller(
