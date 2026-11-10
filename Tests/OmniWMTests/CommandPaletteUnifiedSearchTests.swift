@@ -114,7 +114,7 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         } else {
             copied.fulfill()
         }
-        wait(for: [copied], timeout: 2)
+        wait(for: [copied], timeout: failureBound)
         XCTAssertEqual(fixture.controller.settings.unifiedSearchLearnedPicks(for: "a"), [])
     }
 
@@ -124,7 +124,8 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         _ = try fixture.show()
 
         fixture.palette.searchText = "rep"
-        publishFiles(recorder, (1 ... 9).map { "Report \($0).pdf" })
+        let shownFiles = UnifiedSearch.topHitLimit + UnifiedSearch.groupRowLimit
+        publishFiles(recorder, (1 ... shownFiles + 1).map { "Report \($0).pdf" })
         XCTAssertEqual(fixture.palette.currentSelectionList().last, .showAll(.files))
 
         fixture.palette.highlightUnifiedRow(.showAll(.files))
@@ -160,7 +161,8 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         _ = try fixture.show()
 
         fixture.palette.searchText = "rep"
-        publishApplications(recorder, (1 ... 4).map { ("Reporter \($0)", "com.example.r\($0)") })
+        let topHitLimit = UnifiedSearch.topHitLimit
+        publishApplications(recorder, (1 ... topHitLimit + 1).map { ("Reporter \($0)", "com.example.r\($0)") })
         publishFiles(recorder, ["Report.pdf", "Reply.txt"])
         let sections = fixture.palette.unifiedResults.sections
         XCTAssertEqual(sections.count, 3)
@@ -201,11 +203,13 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         _ = try fixture.show()
 
         fixture.palette.searchText = "rep"
-        publishFiles(recorder, (1 ... 8).map { "Report \($0).pdf" })
-        let selected = CommandPaletteSelectionID.file(.results, "/tmp/Report 8.pdf")
+        let topHitLimit = UnifiedSearch.topHitLimit
+        let shownFiles = topHitLimit + UnifiedSearch.groupRowLimit
+        publishFiles(recorder, (1 ... shownFiles).map { "Report \($0).pdf" })
+        let selected = CommandPaletteSelectionID.file(.results, "/tmp/Report \(shownFiles).pdf")
         fixture.palette.highlightUnifiedRow(selected)
 
-        publishApplications(recorder, (1 ... 3).map { ("Reporter \($0)", "com.example.r\($0)") })
+        publishApplications(recorder, (1 ... topHitLimit).map { ("Reporter \($0)", "com.example.r\($0)") })
         XCTAssertEqual(fixture.palette.selectedItemID, selected)
         XCTAssertTrue(fixture.palette.currentSelectionList().contains(selected))
     }
