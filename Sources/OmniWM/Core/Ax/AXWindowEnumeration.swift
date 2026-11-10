@@ -6,15 +6,20 @@ import ApplicationServices
 import Foundation
 
 struct WindowAdmissionGeometryEvidence: Equatable, Sendable {
-    let isSizeSettable: Bool
+    let isSizeSettable: Bool?
     let frame: CGRect?
 
     var isManageable: Bool {
-        guard isSizeSettable, let frame else { return false }
-        return !frame.isNull
-            && !frame.isInfinite
-            && frame.width > 1
-            && frame.height > 1
+        isSizeSettable == true && Self.usableFrame(frame) != nil
+    }
+
+    func usableFrame(preferring serverFrame: CGRect?) -> CGRect? {
+        Self.usableFrame(serverFrame) ?? Self.usableFrame(frame)
+    }
+
+    static func usableFrame(_ frame: CGRect?) -> CGRect? {
+        guard let frame, !frame.isNull, !frame.isInfinite, frame.width > 1, frame.height > 1 else { return nil }
+        return frame
     }
 }
 
@@ -99,7 +104,7 @@ struct FullRescanWindowCandidate: Sendable {
     }
 
     var capturedFrame: CGRect? {
-        windowServerInfo?.frame ?? enumeratedWindow.admissionGeometry.frame
+        enumeratedWindow.admissionGeometry.usableFrame(preferring: windowServerInfo?.frame)
     }
 
     func isFullscreen(screenFrames: [CGRect]) -> Bool {
@@ -424,15 +429,10 @@ enum AXWindowEnumerationInspector {
         checkCancellation: () throws -> Void
     ) throws -> WindowAdmissionGeometryEvidence {
         try setRemainingTimeout(on: element, until: deadline)
-        var isSizeSettable = DarwinBoolean(false)
-        let result = AXUIElementIsAttributeSettable(
-            element,
-            kAXSizeAttribute as CFString,
-            &isSizeSettable
-        )
+        let isSizeSettable = AXWindowService.sizeSettable(element)
         try checkCancellation()
         return WindowAdmissionGeometryEvidence(
-            isSizeSettable: result == .success && isSizeSettable.boolValue,
+            isSizeSettable: isSizeSettable,
             frame: AXAttributeValue.frame(positionValue: value(at: 2, in: values), sizeValue: value(at: 3, in: values))
         )
     }

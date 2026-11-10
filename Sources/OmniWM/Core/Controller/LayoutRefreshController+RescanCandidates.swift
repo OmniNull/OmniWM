@@ -14,28 +14,45 @@ extension LayoutRefreshController {
         else { return }
         let decision = prepareFullRescanWindowDecision(candidate, identity: identity, context: context)
         let window = FullRescanEvaluatedWindow(candidate: candidate, identity: identity, decision: decision)
-        if shouldYieldFullRescanWindow(window, context: context, progress: &progress) { return }
-        guard let trackedMode = decision.effectiveTrackedMode else {
+        let requestedMode = decision.effectiveTrackedMode
+        let admitted = requestedMode.flatMap { mode in
+            if decision.shouldPreservePreFullscreenState { return WindowAdmission(mode: mode) }
+            return context.controller.resolveWindowAdmission(
+                evaluation: decision.evaluation,
+                axRef: candidate.axRef,
+                requestedMode: mode,
+                existingMode: identity.existingEntry?.mode
+            )
+        }
+        if shouldYieldFullRescanWindow(
+            window, trackedMode: admitted?.mode ?? requestedMode, context: context, progress: &progress
+        ) { return }
+        if let admitted {
+            reconcileTrackedFullRescanWindow(window, admitted: admitted, context: context, progress: &progress)
+        } else if requestedMode == nil {
             rejectFullRescanWindow(window, context: context, progress: &progress)
-            return
+        } else {
+            context.controller.axEventHandler.scheduleGeometryAdmissionRetry(
+                token: identity.token, axRef: candidate.axRef,
+                existingEntry: identity.existingEntry, placementOrigin: decision.placementOrigin
+            )
+            if let existingEntry = identity.existingEntry {
+                progress.seenKeys.insert(existingEntry.token)
+            }
         }
-        if trackedMode != .tiling {
-            context.controller.axEventHandler.cancelTrackedTilingPromotionRetry(windowId: candidate.windowId)
-        }
-        if deferFullRescanWindow(window, trackedMode: trackedMode, context: context, progress: &progress) { return }
-        reconcileTrackedFullRescanWindow(window, trackedMode: trackedMode, context: context, progress: &progress)
     }
 
     private func reconcileTrackedFullRescanWindow(
         _ window: FullRescanEvaluatedWindow,
-        trackedMode: TrackedWindowMode,
+        admitted: WindowAdmission,
         context: FullRescanMutationContext,
         progress: inout FullRescanProgress
     ) {
+        let trackedMode = admitted.mode
         let structuralMatch = fullRescanStructuralMatch(window, trackedMode: trackedMode, context: context)
         if rekeyFullRescanReplacement(
             window,
-            trackedMode: trackedMode,
+            admitted: admitted,
             match: structuralMatch,
             context: context,
             progress: &progress
@@ -74,6 +91,7 @@ extension LayoutRefreshController {
 
     private func shouldYieldFullRescanWindow(
         _ window: FullRescanEvaluatedWindow,
+        trackedMode: TrackedWindowMode?,
         context: FullRescanMutationContext,
         progress: inout FullRescanProgress
     ) -> Bool {
@@ -83,13 +101,12 @@ extension LayoutRefreshController {
         let existingEntry = window.identity.existingEntry
         let bundleId = window.identity.bundleId
         let evaluation = window.decision.evaluation
-        let decision = window.decision.evaluation.decision
-        let effectiveTrackedMode = window.decision.effectiveTrackedMode
+        let decision = evaluation.decision
         return yieldToDeferredCreate(
             .init(
                 token: token,
                 bundleId: bundleId ?? evaluation.facts.ax.bundleId,
-                mode: effectiveTrackedMode,
+                mode: trackedMode,
                 factsAreDeferred: decision.disposition == .undecided,
                 facts: evaluation.facts,
                 entry: existingEntry
@@ -137,34 +154,5 @@ extension LayoutRefreshController {
                 controller.axEventHandler.discardCreatePlacementContext(for: winId)
             }
         }
-    }
-
-    private func deferFullRescanWindow(
-        _ window: FullRescanEvaluatedWindow,
-        trackedMode: TrackedWindowMode,
-        context: FullRescanMutationContext,
-        progress: inout FullRescanProgress
-    ) -> Bool {
-        let controller = context.controller
-        let ax = window.candidate.axRef
-        let token = window.identity.token
-        let existingEntry = window.identity.existingEntry
-        let evaluation = window.decision.evaluation
-        let placementOrigin = window.decision.placementOrigin
-        if controller.axEventHandler.deferAdmissionIfNeeded(
-            evaluation: evaluation,
-            axRef: ax,
-            token: token,
-            mode: trackedMode,
-            existingEntry: existingEntry,
-            placementOrigin: placementOrigin
-        ) {
-            if let existingEntry {
-                progress.seenKeys.insert(existingEntry.token)
-            }
-            return true
-        }
-
-        return false
     }
 }

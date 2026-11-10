@@ -89,7 +89,7 @@ struct WindowRuleReevaluation {
             ? existingEntry?.admissionHints ?? evaluation.decision.admissionHints
             : evaluation.decision.admissionHints
 
-        guard let effectiveTrackedMode = controller.trackedModePreservingAutomaticFallbackState(
+        guard let requestedMode = controller.trackedModePreservingAutomaticFallbackState(
             decision: evaluation.decision,
             existingEntry: existingEntry,
             context: context
@@ -97,25 +97,22 @@ struct WindowRuleReevaluation {
             reject(token, existingEntry: existingEntry, evaluation: evaluation)
             return nil
         }
-        if effectiveTrackedMode != .tiling {
-            controller.axEventHandler.cancelTrackedTilingPromotionRetry(windowId: token.windowId)
-        }
-
-        if controller.axEventHandler.deferAdmissionIfNeeded(
+        guard let admission = controller.resolveWindowAdmission(
             evaluation: evaluation,
             axRef: axRef,
-            token: token,
-            mode: effectiveTrackedMode,
-            existingEntry: existingEntry,
-            placementOrigin: placementOrigin
-        ) {
+            requestedMode: requestedMode,
+            existingMode: existingEntry?.mode
+        ) else {
+            controller.axEventHandler.scheduleGeometryAdmissionRetry(
+                token: token, axRef: axRef, existingEntry: existingEntry, placementOrigin: placementOrigin
+            )
             return nil
         }
 
         return RuleReevaluationWindow(
             token: token, axRef: axRef, existingEntry: existingEntry,
             evaluation: evaluation, ruleEffects: ruleEffects, admissionHints: admissionHints,
-            mode: effectiveTrackedMode, placementOrigin: placementOrigin,
+            admission: admission, placementOrigin: placementOrigin,
             createPlacementContext: createPlacementContext
         )
     }
@@ -136,14 +133,15 @@ struct WindowRuleReevaluation {
     }
 
     private mutating func apply(_ window: RuleReevaluationWindow) {
+        let candidate = ManagedReplacementCandidateFacts(
+            bundleId: window.evaluation.facts.ax.bundleId,
+            mode: window.mode,
+            facts: window.evaluation.facts
+        )
         let structuralMatch = window.existingEntry == nil
             ? controller.axEventHandler.structuralReplacementMatch(
                 token: window.token,
-                candidate: .init(
-                    bundleId: window.evaluation.facts.ax.bundleId,
-                    mode: window.mode,
-                    facts: window.evaluation.facts
-                )
+                candidate: candidate
             )
             : nil
         let workspaceId = workspaceForReevaluatedWindow(window, structuralMatch: structuralMatch)
@@ -158,12 +156,8 @@ struct WindowRuleReevaluation {
                    axRef: window.axRef
                ),
                windowId: windowId,
-               candidate: .init(
-                   bundleId: window.evaluation.facts.ax
-                       .bundleId,
-                   mode: window.mode,
-                   facts: window.evaluation.facts
-               ),
+               candidate: candidate,
+               readOnlyAdmissionFrame: window.admission.readOnlyFrame,
                admissionHints: window.admissionHints
            )
         {
@@ -248,12 +242,14 @@ struct WindowRuleReevaluation {
             _ = controller.transitionWindowMode(
                 for: window.token,
                 to: window.mode,
-                preferredMonitor: controller.workspaceManager.monitor(for: workspaceId)
+                preferredMonitor: controller.workspaceManager.monitor(for: workspaceId),
+                observedFrame: window.admission.geometry?.frame
             )
         } else if window.mode == .floating {
             controller.seedFloatingGeometryIfNeeded(
                 for: window.token,
-                preferredMonitor: controller.workspaceManager.monitor(for: workspaceId)
+                preferredMonitor: controller.workspaceManager.monitor(for: workspaceId),
+                observedFrame: window.admission.geometry?.frame
             )
         }
     }

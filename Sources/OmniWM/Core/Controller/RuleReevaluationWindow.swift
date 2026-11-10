@@ -12,9 +12,13 @@ struct RuleReevaluationWindow {
     let evaluation: WMController.WindowDecisionEvaluation
     let ruleEffects: ManagedWindowRuleEffects
     let admissionHints: ManagedWindowAdmissionHints
-    let mode: TrackedWindowMode
+    let admission: WindowAdmission
     let placementOrigin: WorkspacePlacementOrigin
     let createPlacementContext: WindowCreatePlacementContext?
+
+    var mode: TrackedWindowMode {
+        admission.mode
+    }
 
     func admissionMetadata(workspaceId: WorkspaceDescriptor.ID) -> ManagedReplacementMetadata {
         let parentWindowId = self.evaluation.facts.windowServer.flatMap { $0.parentId == 0 ? nil : $0.parentId }

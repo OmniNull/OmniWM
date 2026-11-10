@@ -252,14 +252,19 @@ enum AXWindowService {
         } succeeded: { $0 != nil }
     }
 
-    static func isSizeSettable(_ window: AXWindowRef) -> Bool {
-        return MainThreadAXSpanTrace.measure(.readSizeSettable, windowId: window.windowId) {
-            var settable = DarwinBoolean(false)
-            return AXUIElementIsAttributeSettable(
-                window.element,
-                kAXSizeAttribute as CFString,
-                &settable
-            ) == .success && settable.boolValue
+    static func sizeSettable(_ window: AXWindowRef) -> Bool? {
+        MainThreadAXSpanTrace.measure(.readSizeSettable, windowId: window.windowId) {
+            sizeSettable(window.element)
+        }
+    }
+
+    static func sizeSettable(_ element: AXUIElement) -> Bool? {
+        var settable = DarwinBoolean(false)
+        let status = AXUIElementIsAttributeSettable(element, kAXSizeAttribute as CFString, &settable)
+        switch status {
+        case .success: return settable.boolValue
+        case .attributeUnsupported: return false
+        default: return nil
         }
     }
 
