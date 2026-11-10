@@ -6,16 +6,16 @@ import Foundation
 
 @MainActor
 final class ShellNotificationsController {
-    private struct Dispatched {
-        let revision: StorageRevision
-        let filesystemEvent: UInt64
-    }
+    private static let dismissalPersistenceGrace: Duration = .seconds(6)
+    private static let initialDismissalRetryDelay: Duration = .seconds(1)
+    private static let maximumDismissalRetryDelay: Duration = .seconds(30)
 
     enum RefreshReason: String {
         case manual
         case initial
         case filesystem
         case action
+        case dismissalConfirmation
         case coalesced
     }
 
@@ -44,16 +44,19 @@ final class ShellNotificationsController {
     let performShowCenter: CenterPerformer
     private let resolveName: AppNameResolver
     private let revision: @MainActor @Sendable () -> StorageRevision
+    private let now: @MainActor @Sendable () -> SuspendingClock.Instant
+    private let sleepUntil: @MainActor @Sendable (SuspendingClock.Instant) async throws -> Void
     private var appNames: [String: String] = [:]
     private var observation: ShellDirectoryObservation?
     private(set) var task: Task<Void, Never>?
     private(set) var actionTask: Task<Void, Never>?
+    private var dismissalConfirmationTask: Task<Void, Never>?
+    private var dismissalRetryDelay = ShellNotificationsController.initialDismissalRetryDelay
     private(set) var generation: UInt64 = 0
     private var pending = false
-    private var pendingFilesystemEvent: UInt64?
     private var readSequence: UInt64 = 0
-    private var filesystemEvent: UInt64 = 0
-    private var dispatched: [UUID: Dispatched] = [:]
+    private var dispatched: [UUID: SuspendingClock.Instant] = [:]
+    private var keptIDs: Set<UUID> = []
     private var lastRead: ReadDiagnostics?
     private(set) var isListening = false
     private(set) var current = ShellNotificationsData(state: "loading")
@@ -67,12 +70,18 @@ final class ShellNotificationsController {
         dismissAll: DismissAllPerformer? = nil,
         showCenter: CenterPerformer? = nil,
         resolveName: AppNameResolver? = nil,
-        revision: (@MainActor @Sendable () -> StorageRevision)? = nil
+        revision: (@MainActor @Sendable () -> StorageRevision)? = nil,
+        now: @escaping @MainActor @Sendable () -> SuspendingClock.Instant = { SuspendingClock.now },
+        sleepUntil: @escaping @MainActor @Sendable (SuspendingClock.Instant) async throws -> Void = {
+            try await Task.sleep(until: $0, clock: .suspending)
+        }
     ) {
         self.url = url
         let preferencesURL = preferencesURL ?? ShellNotificationPreferences.url(forDatabase: url)
         self.preferencesURL = preferencesURL
         self.revision = revision ?? { StorageRevision.read(at: url) }
+        self.now = now
+        self.sleepUntil = sleepUntil
         let worker = ShellNotificationsWorker()
         self.load = load ?? { await worker.read(at: $0, preferencesURL: preferencesURL) }
         self.resolveName = resolveName ?? { bundle in
@@ -98,6 +107,7 @@ final class ShellNotificationsController {
     isolated deinit {
         task?.cancel()
         actionTask?.cancel()
+        dismissalConfirmationTask?.cancel()
         observation?.cancel()
     }
 }
@@ -109,11 +119,12 @@ extension ShellNotificationsController {
         generation &+= 1
         ShellNotificationTrace.record("provider.listening", fields: "listening=\(listening) generation=\(generation)")
         pending = false
-        pendingFilesystemEvent = nil
         task?.cancel()
         task = nil
         actionTask?.cancel()
         actionTask = nil
+        dismissalConfirmationTask?.cancel()
+        dismissalConfirmationTask = nil
         if listening {
             observation = ShellDirectoryObservation { [weak self] in self?.refresh(.filesystem) }
             refresh(.initial)
@@ -122,15 +133,11 @@ extension ShellNotificationsController {
             observation = nil
             current = ShellNotificationsData(state: "loading")
             dispatched.removeAll(keepingCapacity: true)
+            keptIDs.removeAll(keepingCapacity: true)
         }
     }
 
     func refresh(_ reason: RefreshReason = .manual) {
-        if isListening, reason == .filesystem { filesystemEvent &+= 1 }
-        refresh(reason, filesystemEvent: reason == .filesystem ? filesystemEvent : nil)
-    }
-
-    private func refresh(_ reason: RefreshReason, filesystemEvent: UInt64?) {
         ShellNotificationTrace.record(
             "read.request", fields: "source=\(reason.rawValue) listening=\(isListening) inFlight=\(task != nil)"
         )
@@ -141,7 +148,6 @@ extension ShellNotificationsController {
         )
         guard task == nil else {
             pending = true
-            if let filesystemEvent { pendingFilesystemEvent = filesystemEvent }
             ShellNotificationTrace.record(
                 "read.coalesced",
                 fields: "source=\(reason.rawValue) generation=\(generation)"
@@ -151,8 +157,8 @@ extension ShellNotificationsController {
         let generation = self.generation
         readSequence &+= 1
         let sequence = readSequence
+        let startedAt = now()
         let revision = self.revision()
-        let filesystemEvent = filesystemEvent ?? 0
         let start = ProcessInfo.processInfo.systemUptime
         ShellNotificationTrace.record(
             "read.start", fields: "read=\(sequence) source=\(reason.rawValue) generation=\(generation)"
@@ -164,13 +170,13 @@ extension ShellNotificationsController {
                 return
             }
             task = nil
-            completeRead(next, reason: reason, start: start, revision: revision, filesystemEvent: filesystemEvent)
+            completeRead(next, reason: reason, start: start, revision: revision, startedAt: startedAt)
         }
     }
 
     private func completeRead(
         _ value: ShellNotificationsData, reason: RefreshReason, start: TimeInterval,
-        revision: StorageRevision, filesystemEvent: UInt64
+        revision: StorageRevision, startedAt: SuspendingClock.Instant
     ) {
         var next = value
         let retainedBundles = Set(value.items.compactMap { $0.fields?["bundle"]?.string })
@@ -192,13 +198,13 @@ extension ShellNotificationsController {
         }
         next.action = current.action
         next.dismissAll = current.dismissAll
-        reconcileDispatched(into: &next, revision: revision, filesystemEvent: filesystemEvent)
+        reconcileDispatched(into: &next, revision: revision, startedAt: startedAt)
         let changed = current != next
         let duration = ProcessInfo.processInfo.systemUptime - start
         lastRead = ReadDiagnostics(reason: reason, completed: Date(), duration: duration, changed: changed)
         ShellNotificationTrace.record(
             "read.complete", fields: "read=\(readSequence) generation=\(generation) source=\(reason.rawValue)"
-                + " durationMs=\(Int(duration * 1000)) changed=\(changed) \(Self.snapshotSummary(next))"
+                + " durationMs=\(Int(duration * 1000)) changed=\(changed) \(ShellNotificationTrace.snapshotSummary(next))"
         )
         if changed {
             current = next
@@ -206,40 +212,47 @@ extension ShellNotificationsController {
         }
         if pending {
             pending = false
-            let event = pendingFilesystemEvent
-            pendingFilesystemEvent = nil
-            refresh(.coalesced, filesystemEvent: event)
+            refresh(.coalesced)
+        } else if task == nil, dismissalConfirmationTask == nil, !dispatched.isEmpty {
+            scheduleDismissalConfirmation(at: now().advanced(by: dismissalRetryDelay))
+            dismissalRetryDelay = min(dismissalRetryDelay * 2, Self.maximumDismissalRetryDelay)
         }
     }
 
     private func reconcileDispatched(
-        into next: inout ShellNotificationsData, revision: StorageRevision, filesystemEvent: UInt64
+        into next: inout ShellNotificationsData, revision: StorageRevision, startedAt: SuspendingClock.Instant
     ) {
         let hadDispatched = !dispatched.isEmpty
         var restored = Set<UUID>()
-        if next.membershipComplete {
+        if next.membershipComplete, hadDispatched || !keptIDs.isEmpty {
             let retained = Set(next.items.compactMap { $0.fields?["id"]?.string.flatMap(UUID.init(uuidString:)) })
-            let stable = revision == self.revision()
-            for (id, marker) in dispatched {
+            let stable = hadDispatched && revision == self.revision()
+            for (id, deadline) in dispatched {
                 if !retained.contains(id) {
                     dispatched.removeValue(forKey: id)
-                } else if stable, filesystemEvent > marker.filesystemEvent, revision != marker.revision {
+                } else if stable, startedAt >= deadline {
                     dispatched.removeValue(forKey: id)
                     restored.insert(id)
                 }
             }
+            keptIDs.formIntersection(retained)
+            keptIDs.formUnion(restored)
         }
         next.dispatched = dispatched.keys.map { $0.uuidString.lowercased() }.sorted()
-        next.kept = restored.isEmpty ? current.kept : restored.count
+        next.kept = keptIDs.count
         if let action = next.action?.fields, action["kind"]?.string == "dismiss",
            let id = action["id"]?.string.flatMap(UUID.init(uuidString:)), restored.contains(id)
         {
             next.action = nil
         }
+        let resolvedDispatches = hadDispatched && dispatched.isEmpty
+        if resolvedDispatches {
+            dismissalConfirmationTask?.cancel()
+            dismissalConfirmationTask = nil
+        }
         let empty = next.membershipComplete && next.items.isEmpty
-        if empty || (hadDispatched && dispatched.isEmpty), next.dismissAll?.fields?["active"] != .bool(true) {
+        if empty || resolvedDispatches, next.dismissAll?.fields?["active"] != .bool(true) {
             next.dismissAll = nil
-            if empty { next.kept = 0 }
         }
     }
 
@@ -248,8 +261,26 @@ extension ShellNotificationsController {
     }
 
     private func recordDispatched(_ id: UUID) {
-        dispatched[id] = Dispatched(revision: revision(), filesystemEvent: filesystemEvent)
+        let deadline = now().advanced(by: Self.dismissalPersistenceGrace)
+        dispatched[id] = deadline
         current.dispatched = dispatched.keys.map { $0.uuidString.lowercased() }.sorted()
+        dismissalRetryDelay = Self.initialDismissalRetryDelay
+        scheduleDismissalConfirmation(at: deadline)
+    }
+
+    private func scheduleDismissalConfirmation(at deadline: SuspendingClock.Instant) {
+        dismissalConfirmationTask?.cancel()
+        dismissalConfirmationTask = Task { [weak self, sleepUntil] in
+            try? await sleepUntil(deadline)
+            guard !Task.isCancelled, let self else { return }
+            dismissalConfirmationTask = nil
+            refresh(.dismissalConfirmation)
+        }
+    }
+
+    private func clearKept() {
+        keptIDs.removeAll(keepingCapacity: true)
+        current.kept = 0
     }
 
     func retainedTarget(
@@ -309,7 +340,7 @@ extension ShellNotificationsController {
             publishAction(id: request.id, bundle: request.bundle, kind: kind, state: outcome.rawValue)
             refresh(.action)
         }
-        current.kept = 0
+        clearKept()
         publishAction(id: request.id, bundle: request.bundle, kind: kind, state: "pending")
     }
 
@@ -328,7 +359,7 @@ extension ShellNotificationsController {
         var lines = [
             "listening=\(isListening) generation=\(generation) read=\(readSequence)"
                 + " readInFlight=\(task != nil) queued=\(pending) actionInFlight=\(actionTask != nil)",
-            Self.snapshotSummary(current),
+            ShellNotificationTrace.snapshotSummary(current),
             "detailedCaptureActive=\(ShellNotificationTrace.shared.isActive)"
         ]
         if let lastRead {
@@ -338,25 +369,6 @@ extension ShellNotificationsController {
             )
         }
         return lines.joined(separator: "\n")
-    }
-
-    private static func snapshotSummary(_ value: ShellNotificationsData) -> String {
-        var summary = "state=\(value.state) complete=\(value.complete) items=\(value.items.count) apps=\(value.apps.count)"
-        summary += " membershipComplete=\(value.membershipComplete) metadataComplete=\(value.metadataComplete)"
-        if !value.issues.isEmpty {
-            summary += " issues=" + value.issues.map { "\($0.scope.rawValue):\($0.reason.rawValue)" }
-                .joined(separator: ",")
-        }
-        if let action = value.action?.fields, let id = action["id"]?.string {
-            let target = UUID(uuidString: id)
-            let retained = target != nil && value.items.contains {
-                $0.fields?["id"]?.string.flatMap(UUID.init(uuidString:)) == target
-                    && $0.fields?["bundle"]?.string == action["bundle"]?.string
-            }
-            summary += " action=\(action["kind"]?.string ?? "none") outcome=\(action["state"]?.string ?? "none")"
-                + " target=\(id) targetRetained=\(value.membershipComplete ? String(retained) : "unknown")"
-        }
-        return summary
     }
 }
 
@@ -370,7 +382,7 @@ extension ShellNotificationsController {
         guard let requests = dismissAllRequests() else { return false }
         guard !requests.isEmpty else {
             guard current.items.isEmpty else { return false }
-            current.kept = 0
+            clearKept()
             publishDismissAll(total: 0, state: "completed", outcome: .dispatched)
             return true
         }
@@ -392,7 +404,7 @@ extension ShellNotificationsController {
             finishDismissAll(outcome)
             refresh(.action)
         }
-        current.kept = 0
+        clearKept()
         publishDismissAll(total: requests.count, active: true, state: "pending")
         return true
     }
