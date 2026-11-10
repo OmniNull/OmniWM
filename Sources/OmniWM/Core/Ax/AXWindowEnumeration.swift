@@ -13,10 +13,6 @@ struct WindowAdmissionGeometryEvidence: Equatable, Sendable {
         isSizeSettable == true && Self.usableFrame(frame) != nil
     }
 
-    func usableFrame(preferring serverFrame: CGRect?) -> CGRect? {
-        Self.usableFrame(serverFrame) ?? Self.usableFrame(frame)
-    }
-
     static func usableFrame(_ frame: CGRect?) -> CGRect? {
         guard let frame, !frame.isNull, !frame.isInfinite, frame.width > 1, frame.height > 1 else { return nil }
         return frame
@@ -107,10 +103,6 @@ struct FullRescanWindowCandidate: Sendable {
         enumeratedWindow.minimizedAttribute
     }
 
-    var capturedFrame: CGRect? {
-        enumeratedWindow.admissionGeometry.usableFrame(preferring: windowServerInfo?.frame)
-    }
-
     var capturedAppKitFrame: CGRect? {
         WindowAdmissionGeometryEvidence.usableAppKitFrame(fromWindowServer: windowServerInfo?.frame)
             ?? WindowAdmissionGeometryEvidence.usableFrame(enumeratedWindow.admissionGeometry.frame)
@@ -123,7 +115,7 @@ struct FullRescanWindowCandidate: Sendable {
         if let fullscreenAttribute = enumeratedWindow.fullscreenAttribute {
             return fullscreenAttribute
         }
-        guard let frame = capturedFrame,
+        guard let frame = capturedAppKitFrame,
               let screenFrame = screenFrames.first(where: { $0.contains(frame.center) })
         else {
             return false

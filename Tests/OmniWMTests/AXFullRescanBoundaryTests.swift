@@ -1116,7 +1116,30 @@ final class AXFullRescanBoundaryTests: XCTestCase {
         XCTAssertTrue(frameFallback.isFullscreen(screenFrames: [screenFrame]))
     }
 
-    func testCandidateCapturedFramePrefersWindowServerEvidence() {
+    func testCandidateFullscreenMatchesWindowServerFrameOnDisplayAboveMain() throws {
+        let main = try XCTUnwrap(NSScreen.screens.first).frame
+        let upper = CGRect(x: main.minX, y: main.maxY, width: main.width, height: main.height)
+        let pid: pid_t = 72_031
+        let candidate = FullRescanWindowCandidate(
+            enumeratedWindow: AXEnumeratedWindow(
+                axRef: AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: 72_032),
+                axPid: pid,
+                role: kAXWindowRole as String,
+                subrole: kAXStandardWindowSubrole as String,
+                admissionGeometry: WindowAdmissionGeometryEvidence(isSizeSettable: true, frame: upper)
+            ),
+            logicalPID: pid,
+            windowServerInfo: WindowServerInfo(
+                id: 72_032, pid: pid, level: 0, frame: ScreenCoordinateSpace.toWindowServer(rect: upper)
+            ),
+            windowServerOwnerPID: pid,
+            enumerationRoute: .persistent
+        )
+
+        XCTAssertTrue(candidate.isFullscreen(screenFrames: [main, upper]))
+    }
+
+    func testCandidateCapturedAppKitFramePrefersWindowServerEvidence() {
         let pid: pid_t = 72_019
         let axFrame = CGRect(x: 10, y: 20, width: 800, height: 600)
         let windowServerFrame = CGRect(x: 30, y: 40, width: 900, height: 700)
@@ -1145,7 +1168,7 @@ final class AXFullRescanBoundaryTests: XCTestCase {
             enumerationRoute: .persistent
         )
 
-        XCTAssertEqual(candidate.capturedFrame, windowServerFrame)
+        XCTAssertEqual(candidate.capturedAppKitFrame, ScreenCoordinateSpace.toAppKit(rect: windowServerFrame))
     }
 
     func testCapturedDecisionEvidenceEvaluatesWithoutAXReference() {
