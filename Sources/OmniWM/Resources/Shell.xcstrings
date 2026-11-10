@@ -452,6 +452,17 @@
         }
       }
     },
+    "Appearance Settings…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance Settings…"
+          }
+        }
+      }
+    },
     "Make it yours" : {
       "extractionState" : "manual",
       "localizations" : {

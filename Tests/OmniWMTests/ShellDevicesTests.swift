@@ -55,6 +55,7 @@ final class ShellDevicesTests: XCTestCase {
 
     func testAppearanceCommandsParse() {
         XCTAssertEqual(ShellAction("appearance toggle"), .appearance(.toggle))
+        XCTAssertEqual(ShellAction("appearance settings"), .settings(.appearance))
         XCTAssertNil(ShellAction("appearance"))
         XCTAssertNil(ShellAction("appearance dark"))
     }

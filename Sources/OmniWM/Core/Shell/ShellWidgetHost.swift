@@ -70,6 +70,7 @@ enum ShellSettingsPane: String, Sendable {
     case notifications
     case focus
     case screenshot
+    case appearance
 
     var url: URL? {
         if self == .screenshot {
@@ -84,6 +85,7 @@ enum ShellSettingsPane: String, Sendable {
         case .notifications: "com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles"
         case .focus: "com.apple.Focus-Settings.extension"
         case .screenshot: ""
+        case .appearance: "com.apple.Appearance-Settings.extension"
         }
         return URL(string: "x-apple.systempreferences:\(pane)")
     }
