@@ -24,10 +24,8 @@ final class KeyboardLayoutObserver {
             self.observer = nil
             return
         }
-        observer = center.addObserver(
-            forName: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
-            object: nil,
-            queue: .main
+        observer = center.addUnsuspendedObserver(
+            forName: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String)
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.onChange?()
