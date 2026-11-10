@@ -105,23 +105,25 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         let oldToken = WindowToken(pid: 467_352, windowId: 467_353)
         let newToken = WindowToken(pid: oldToken.pid, windowId: 467_354)
         let bundleId = replacementBundleId(oldToken.pid)
-        let frame = CGRect(x: 120, y: 80, width: 720, height: 520)
+        let appKitFrame = try replacementAppKitFrame()
+        let windowServerFrame = ScreenCoordinateSpace.toWindowServer(rect: appKitFrame)
         _ = manager.addWindow(
             WindowAdmissionTestSupport.axRef(for: oldToken),
             pid: oldToken.pid,
             windowId: oldToken.windowId,
             to: originalWorkspace,
             managedReplacementMetadata: replacementMetadata(
-                bundleId: bundleId, workspaceId: originalWorkspace, frame: frame
+                bundleId: bundleId, workspaceId: originalWorkspace, frame: windowServerFrame.offsetBy(dx: 128, dy: 0)
             )
         )
+        controller.axManager.confirmFrameWrite(for: oldToken.windowId, frame: appKitFrame)
         let handle = try XCTUnwrap(manager.handle(for: oldToken))
-        let facts = replacementFacts(token: newToken, bundleId: bundleId, frame: frame)
+        let facts = replacementFacts(token: newToken, bundleId: bundleId, frame: windowServerFrame)
         let captured = candidate(
             pid: newToken.pid,
             windowId: newToken.windowId,
             decisionEvidence: AXWindowDecisionEvidence(facts: facts.ax, sizeConstraints: .unconstrained),
-            admissionGeometry: WindowAdmissionGeometryEvidence(isSizeSettable: false, frame: frame),
+            admissionGeometry: WindowAdmissionGeometryEvidence(isSizeSettable: false, frame: appKitFrame),
             fullscreenAttribute: false,
             windowServerInfo: facts.windowServer
         )
@@ -134,7 +136,78 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         XCTAssertTrue(manager.handle(for: newToken) === handle)
         XCTAssertEqual(entry.workspaceId, originalWorkspace)
         XCTAssertEqual(entry.mode, .floating)
-        XCTAssertEqual(manager.floatingState(for: newToken)?.lastFrame, ScreenCoordinateSpace.toAppKit(rect: frame))
+        XCTAssertEqual(
+            manager.floatingState(for: newToken)?.lastFrame,
+            ScreenCoordinateSpace.toAppKit(rect: windowServerFrame)
+        )
+    }
+
+    func testFullRescanRebindsPendingFloatingReplacementUsingCachedFrame() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        defer { controller.layoutRefreshController.resetState() }
+        let manager = controller.workspaceManager
+        let handler = controller.axEventHandler
+        let focusedWorkspace = try XCTUnwrap(manager.workspaceId(for: "1", createIfMissing: true))
+        let workspaceName = "42"
+        let originalWorkspace = try XCTUnwrap(
+            WindowAdmissionTestSupport.workspace(named: workspaceName, layoutType: .niri, controller: controller)
+        )
+        let oldToken = WindowToken(pid: 467_357, windowId: 467_358)
+        let newToken = WindowToken(pid: oldToken.pid, windowId: 467_359)
+        let bundleId = replacementBundleId(oldToken.pid)
+        let windowServerFrame = try ScreenCoordinateSpace.toWindowServer(rect: replacementAppKitFrame())
+        let appKitFrame = ScreenCoordinateSpace.toAppKit(rect: windowServerFrame)
+        let facts = replacementFacts(token: oldToken, bundleId: bundleId, frame: windowServerFrame)
+        let decisionEvidence = AXWindowDecisionEvidence(facts: facts.ax, sizeConstraints: .unconstrained)
+        let admissionGeometry = WindowAdmissionGeometryEvidence(
+            isSizeSettable: true, frame: appKitFrame.offsetBy(dx: 20, dy: 40)
+        )
+        let original = candidate(
+            pid: oldToken.pid,
+            windowId: oldToken.windowId,
+            decisionEvidence: decisionEvidence,
+            admissionGeometry: admissionGeometry,
+            fullscreenAttribute: false,
+            windowServerInfo: facts.windowServer
+        )
+        controller.windowRuleEngine.rebuild(rules: [
+            AppRule(bundleId: bundleId, layout: .float, assignToWorkspace: workspaceName)
+        ])
+        _ = reconcileCapturedWindow(original, focusedWorkspace: focusedWorkspace, controller: controller)
+
+        let handle = try XCTUnwrap(manager.handle(for: oldToken))
+        XCTAssertEqual(manager.workspace(for: oldToken), originalWorkspace)
+        XCTAssertEqual(manager.floatingState(for: oldToken)?.lastFrame, appKitFrame)
+        var metadata = try XCTUnwrap(manager.managedReplacementMetadata(for: oldToken))
+        metadata.frame = windowServerFrame.offsetBy(dx: 128, dy: 0)
+        _ = manager.setManagedReplacementMetadata(metadata, for: oldToken)
+        let key = AXEventHandler.ManagedReplacementKey(pid: oldToken.pid, workspaceId: originalWorkspace)
+        defer { _ = handler.takeManagedReplacementBurst(for: key) }
+        handler.handleWindowDestroyed(
+            windowId: UInt32(oldToken.windowId), pidHint: oldToken.pid, evidence: .windowClosed, windowInfo: nil
+        )
+        XCTAssertTrue(handler.hasPendingManagedReplacementDestroy(oldToken, workspaceId: originalWorkspace))
+
+        let captured = candidate(
+            pid: newToken.pid,
+            windowId: newToken.windowId,
+            decisionEvidence: decisionEvidence,
+            admissionGeometry: admissionGeometry,
+            fullscreenAttribute: false,
+            windowServerInfo: replacementWindowInfo(token: newToken, frame: windowServerFrame)
+        )
+        controller.windowRuleEngine.rebuild(rules: [AppRule(bundleId: bundleId, layout: .float)])
+
+        _ = reconcileCapturedWindow(
+            captured, focusedWorkspace: focusedWorkspace, controller: controller, exactWindowIds: [newToken.windowId]
+        )
+
+        let entry = try XCTUnwrap(manager.entry(for: newToken))
+        XCTAssertNil(manager.entry(for: oldToken))
+        XCTAssertTrue(manager.handle(for: newToken) === handle)
+        XCTAssertEqual(entry.workspaceId, originalWorkspace)
+        XCTAssertEqual(entry.mode, .floating)
+        XCTAssertEqual(manager.floatingState(for: newToken)?.lastFrame, appKitFrame)
     }
 
     func testFullRescanRetriesFloatingWindowWithoutUsableGeometry() throws {
@@ -2149,14 +2222,15 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
     private func reconcileCapturedWindow(
         _ candidate: FullRescanWindowCandidate,
         focusedWorkspace: WorkspaceDescriptor.ID,
-        controller: WMController
+        controller: WMController,
+        exactWindowIds: Set<Int>? = nil
     ) -> FullRescanProgress {
         var progress = FullRescanProgress(affectedWorkspaceIds: [])
         controller.layoutRefreshController.reconcileFullRescanCandidate(
             candidate,
             context: FullRescanMutationContext(
                 controller: controller,
-                enumerationSnapshot: enumerationSnapshot(for: candidate),
+                enumerationSnapshot: enumerationSnapshot(for: candidate, exactWindowIds: exactWindowIds),
                 scope: .all,
                 focusedWorkspaceId: focusedWorkspace,
                 screenFrames: []
@@ -2205,7 +2279,8 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
     }
 
     private func enumerationSnapshot(
-        for candidate: FullRescanWindowCandidate
+        for candidate: FullRescanWindowCandidate,
+        exactWindowIds: Set<Int>? = nil
     ) -> AXManager.FullRescanEnumerationSnapshot {
         let windowServerInfoByWindowId = candidate.windowServerInfo.map {
             [candidate.windowId: $0]
@@ -2215,7 +2290,7 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
             successfullyEnumeratedPIDs: [candidate.pid],
             failedPIDs: [],
             authoritativeTargetPIDs: [candidate.pid],
-            exactWindowIds: nil,
+            exactWindowIds: exactWindowIds,
             identityAliasesByWindowId: [
                 candidate.windowId: .init(
                     pids: [candidate.pid],
@@ -2237,6 +2312,16 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
 
     private func replacementBundleId(_ pid: pid_t) -> String {
         "com.omniwm.tests.deferred-replacement.\(pid)"
+    }
+
+    private func replacementAppKitFrame() throws -> CGRect {
+        let display = try XCTUnwrap(NSScreen.screens.first).frame
+        return CGRect(
+            x: display.minX + display.width / 8,
+            y: display.minY + display.height / 16,
+            width: display.width / 2,
+            height: display.height / 3
+        )
     }
 
     private func replacementMetadata(

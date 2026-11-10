@@ -86,9 +86,6 @@ extension LayoutRefreshController {
     }
 
     private func scratchpadVisibleWindowServerFrame(_ frame: CGRect, for entry: WindowState) -> CGRect? {
-        if scratchpadFrameIsVisible(frame, for: entry) {
-            return frame
-        }
         let appKitFrame = ScreenCoordinateSpace.toAppKit(rect: frame)
         return scratchpadFrameIsVisible(appKitFrame, for: entry) ? appKitFrame : nil
     }

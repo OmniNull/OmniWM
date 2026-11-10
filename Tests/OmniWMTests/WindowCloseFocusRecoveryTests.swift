@@ -77,6 +77,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         let leftNode: NiriWindow
         let closingNode: NiriWindow
         let rightNode: NiriWindow
+        let closingAppKitFrame: CGRect
         let closingMetadata: ManagedReplacementMetadata
     }
 
@@ -90,7 +91,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
                 Self.stop(fixture)
             }
             controller.settings.borders.enabled = true
-            let frame = try XCTUnwrap(fixture.closingMetadata.frame)
+            let frame = fixture.closingAppKitFrame
             controller.axManager.confirmFrameWrite(for: fixture.closingToken.windowId, frame: frame)
             controller.surfaceReconciler.cleanup()
             let world = WorldView(controller: controller, liveBoundsProvider: { _ in nil })
@@ -188,7 +189,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
             Self.stop(fixture)
         }
         controller.settings.borders.enabled = true
-        let frame = try XCTUnwrap(fixture.closingMetadata.frame)
+        let frame = fixture.closingAppKitFrame
         controller.axManager.confirmFrameWrite(for: fixture.closingToken.windowId, frame: frame)
         let world = WorldView(controller: controller, liveBoundsProvider: { _ in frame })
         let previous = try XCTUnwrap(SurfaceDerivation.deriveBorder(world: world))
@@ -371,7 +372,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
 
             gate.resume(WindowServerInfo(
                 id: windowId, pid: fixture.pid, level: 0,
-                frame: CGRect(x: 700, y: 0, width: 700, height: 800)
+                frame: ScreenCoordinateSpace.toWindowServer(rect: fixture.closingAppKitFrame)
             ))
             await queryTask.value
             controller.eventIntake.drainNow()
@@ -691,6 +692,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
         let closingToken = WindowToken(pid: pid, windowId: 951_102)
         let rightToken = WindowToken(pid: pid, windowId: 951_103)
         let remoteToken = WindowToken(pid: pid, windowId: 951_104)
+        let closingAppKitFrame = CGRect(x: 700, y: 0, width: 700, height: 800)
         let closingMetadata = ManagedReplacementMetadata(
             bundleId: "com.omniwm.tests.close-focus",
             workspaceId: localWorkspaceId,
@@ -700,7 +702,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
             title: "closing",
             windowLevel: 0,
             parentWindowId: nil,
-            frame: CGRect(x: 700, y: 0, width: 700, height: 800)
+            frame: ScreenCoordinateSpace.toWindowServer(rect: closingAppKitFrame)
         )
         addWindow(leftToken, workspaceId: localWorkspaceId, controller: controller)
         addWindow(
@@ -781,6 +783,7 @@ final class WindowCloseFocusRecoveryTests: XCTestCase {
             leftNode: leftNode,
             closingNode: closingNode,
             rightNode: rightNode,
+            closingAppKitFrame: closingAppKitFrame,
             closingMetadata: closingMetadata
         )
     }
