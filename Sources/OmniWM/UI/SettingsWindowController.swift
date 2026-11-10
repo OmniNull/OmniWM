@@ -8,9 +8,17 @@ import SwiftUI
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
 
-    private let presenter = HostedWindowPresenter()
+    private let presenter: HostedWindowPresenter
     private let navigation = SettingsNavigationModel()
     private let windowCornerPreferences = GlobalWindowCornerPreferences()
+
+    init(presenter: HostedWindowPresenter = HostedWindowPresenter()) {
+        self.presenter = presenter
+    }
+
+    var window: NSWindow? {
+        presenter.window
+    }
 
     func show(
         settings: SettingsStore,
@@ -36,11 +44,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             navigation.presentRuleDraft(appRuleDraft)
         }
 
-        if let window = presenter.window, let token = admit(window, controller: controller),
-           let handle = controller.workspaceManager.handle(for: token)
+        if let window = presenter.window,
+           controller.shellAppWindowManager.showSettingsWindow(window, shouldClose: closeGuard(for: window))
         {
-            if window.isMiniaturized { window.deminiaturize(nil) }
-            if controller.windowActionHandler.navigateToWindow(handle: handle) { return }
+            return
         }
 
         presenter.present(
@@ -54,12 +61,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             },
             onWillClose: { [weak self] in self?.navigation.ruleEditorState.isDirty = false },
             onPresented: { [weak self] window in
-                guard let self, let token = admit(window, controller: controller),
-                      let workspaceId = controller.workspaceManager.workspace(for: token) else { return }
-                controller.layoutRefreshController.requestRelayout(
-                    reason: .axWindowChanged, affectedWorkspaceIds: [workspaceId]
-                )
-                _ = controller.focusWindow(token)
+                guard let self else { return }
+                controller.shellAppWindowManager.showSettingsWindow(window, shouldClose: closeGuard(for: window))
             },
             content: {
                 SettingsView(
@@ -73,18 +76,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         )
     }
 
-    private func admit(_ window: NSWindow, controller: WMController) -> WindowToken? {
-        let manager = controller.shellAppWindowManager
-        let token = WindowToken(pid: getpid(), windowId: window.windowNumber)
-        if manager.windows[token] === window { return token }
-        guard controller.hasStartedServices else { return nil }
-        return manager.admitNativeFloating(
-            window, title: window.title, minimumSize: window.minSize,
-            shouldClose: { [weak self, weak window] in
-                guard let self, let window else { return true }
-                return windowShouldClose(window)
-            }
-        )
+    private func closeGuard(for window: NSWindow) -> () -> Bool {
+        { [weak self, weak window] in
+            guard let self, let window else { return true }
+            return windowShouldClose(window)
+        }
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {

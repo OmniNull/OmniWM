@@ -3,13 +3,12 @@
 
 import AppKit
 @testable import OmniWM
-import OmniWMIPC
 import XCTest
 
 @MainActor
 final class HostedSettingsWindowTests: XCTestCase {
     func testAdmittedSettingsWindowFloatsOnTheActiveWorkspace() throws {
-        let fixture = try SettingsWindowFixture()
+        let fixture = try HostedSettingsWindowFixture()
         defer { fixture.close() }
         XCTAssertNotNil(fixture.controller.workspaceManager.focusWorkspace(named: "2"))
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.second)
@@ -17,7 +16,7 @@ final class HostedSettingsWindowTests: XCTestCase {
 
         let token = try XCTUnwrap(fixture.admit(window))
 
-        XCTAssertEqual(token, WindowToken(pid: getpid(), windowId: window.windowNumber))
+        XCTAssertEqual(token, WindowToken(ownWindow: window))
         XCTAssertTrue(fixture.manager.windows[token] === window)
         XCTAssertTrue(window.delegate === fixture.manager)
         XCTAssertNil(fixture.manager.runtime(for: token))
@@ -30,11 +29,12 @@ final class HostedSettingsWindowTests: XCTestCase {
         XCTAssertEqual(metadata.role, .main)
         XCTAssertEqual(metadata.title, fixture.title)
         XCTAssertEqual(metadata.minimumSize, fixture.minimumSize)
-        XCTAssertFalse(metadata.appId.isEmpty)
+        XCTAssertEqual(metadata.appId, HostedWindowMetadata.settingsAppID)
+        XCTAssertEqual(metadata.icon, "gearshape")
     }
 
     func testClosingTheSettingsWindowRemovesItsEntry() throws {
-        let fixture = try SettingsWindowFixture()
+        let fixture = try HostedSettingsWindowFixture()
         defer { fixture.close() }
         let commanded = fixture.makeWindow()
         let commandedToken = try XCTUnwrap(fixture.admit(commanded))
@@ -54,7 +54,7 @@ final class HostedSettingsWindowTests: XCTestCase {
     }
 
     func testCloseGuardDecidesWhetherTheSettingsWindowCloses() throws {
-        let fixture = try SettingsWindowFixture()
+        let fixture = try HostedSettingsWindowFixture()
         defer { fixture.close() }
         let window = fixture.makeWindow()
         let guardState = CloseGuard()
@@ -78,7 +78,7 @@ final class HostedSettingsWindowTests: XCTestCase {
     }
 
     func testSwitcherListsTheAdmittedSettingsWindowWithItsTitle() throws {
-        let fixture = try SettingsWindowFixture()
+        let fixture = try HostedSettingsWindowFixture()
         defer { fixture.close() }
         let controller = fixture.controller
         let token = try XCTUnwrap(fixture.admit(fixture.makeWindow()))
@@ -111,7 +111,7 @@ final class HostedSettingsWindowTests: XCTestCase {
     }
 
     func testOwnedSettingsWindowStaysRefusedByTheAXPathAndIsAdmittedOnce() throws {
-        let fixture = try SettingsWindowFixture()
+        let fixture = try HostedSettingsWindowFixture()
         defer { fixture.close() }
         let window = fixture.makeWindow()
         let token = try XCTUnwrap(fixture.admit(window))
@@ -140,7 +140,7 @@ final class HostedSettingsWindowTests: XCTestCase {
     }
 
     func testSettingsWindowIsQueriedVisibleAgainAfterAWorkspaceRoundTrip() async throws {
-        let fixture = try SettingsWindowFixture()
+        let fixture = try HostedSettingsWindowFixture()
         defer { fixture.close() }
         let window = fixture.makeWindow()
         let token = try XCTUnwrap(fixture.admit(window))
@@ -163,7 +163,7 @@ final class HostedSettingsWindowTests: XCTestCase {
     }
 
     func testManagedSettingsWindowNoLongerSuppressesManagedFocusRecovery() throws {
-        let fixture = try SettingsWindowFixture()
+        let fixture = try HostedSettingsWindowFixture()
         defer { fixture.close() }
         let settings = fixture.makeWindow()
         settings.orderFront(nil)
@@ -179,7 +179,7 @@ final class HostedSettingsWindowTests: XCTestCase {
     }
 
     func testOwnActivationLeavesTheFocusedSettingsWindowToKeyConfirmation() throws {
-        let fixture = try SettingsWindowFixture()
+        let fixture = try HostedSettingsWindowFixture()
         defer { fixture.close() }
         let controller = fixture.controller
         let token = try XCTUnwrap(fixture.admit(fixture.makeWindow()))
@@ -205,86 +205,4 @@ final class HostedSettingsWindowTests: XCTestCase {
 private final class CloseGuard {
     var allowsClose = false
     var consulted = 0
-}
-
-@MainActor
-private final class SettingsWindowFixture {
-    let title = "OmniWM Settings"
-    let minimumSize = CGSize(width: 760, height: 588)
-    let registry = OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
-    let controller: WMController
-    let first: WorkspaceDescriptor.ID
-    let second: WorkspaceDescriptor.ID
-    let monitor: Monitor
-    private var windows: [NSWindow] = []
-    var manager: ShellAppWindowManager {
-        controller.shellAppWindowManager
-    }
-
-    init() throws {
-        controller = WindowAdmissionTestSupport.controller(
-            prefix: "HostedSettingsWindow", ownedWindowRegistry: registry
-        )
-        controller.hasStartedServices = true
-        controller.shellAppWindowManager.activateApplication = {}
-        controller.shellAppWindowManager.focusWithoutRaising = { _ in }
-        let frame = CGRect(x: 0, y: 0, width: 1600, height: 1000)
-        let display: CGDirectDisplayID = 114_000
-        let monitor = Monitor(
-            id: .init(displayId: display), displayId: display, frame: frame, visibleFrame: frame,
-            hasNotch: false, name: "Hosted Settings"
-        )
-        self.monitor = monitor
-        controller.settings.workspaces.configurations = ["1", "2"].map { name in
-            WorkspaceConfiguration(
-                name: name, monitorAssignment: .specificDisplay(OutputId(from: monitor)), layoutType: .dwindle
-            )
-        }
-        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
-        controller.workspaceManager.applySettings()
-        first = try XCTUnwrap(controller.workspaceManager.workspaceId(named: "1"))
-        second = try XCTUnwrap(controller.workspaceManager.workspaceId(named: "2"))
-        _ = controller.workspaceManager.focusWorkspace(named: "1")
-    }
-
-    func makeWindow() -> NSWindow {
-        let window = NSWindow(
-            contentRect: CGRect(x: 200, y: 100, width: 1040, height: 760),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false
-        )
-        window.isReleasedWhenClosed = false
-        window.title = title
-        registry.register(window)
-        windows.append(window)
-        return window
-    }
-
-    func admit(_ window: NSWindow, shouldClose: (() -> Bool)? = nil) -> WindowToken? {
-        manager.admitNativeFloating(window, title: title, minimumSize: minimumSize, shouldClose: shouldClose)
-    }
-
-    func activate(_ workspace: WorkspaceDescriptor.ID) async {
-        XCTAssertTrue(controller.workspaceManager.setActiveWorkspace(workspace, on: monitor.id))
-        controller.layoutRefreshController.commitWorkspaceTransition(
-            affectedWorkspaces: [first, second], reason: .workspaceTransition
-        )
-        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
-    }
-
-    func queriedVisibility(of token: WindowToken) -> Bool? {
-        IPCWindowQueryProjection(
-            controller: controller, sessionToken: "", request: IPCQueryRequest(name: .windows),
-            windowOrderedInProvider: { _ in true }
-        ).result().windows.first { $0.windowId == token.windowId }?.isVisible
-    }
-
-    func close() {
-        for window in windows {
-            window.close()
-            registry.unregister(window)
-        }
-        controller.layoutRefreshController.resetState()
-        controller.surfaceReconciler.cleanup()
-        controller.axManager.cleanup()
-    }
 }

@@ -3,10 +3,16 @@
 
 import AppKit
 
+extension WindowToken {
+    @MainActor
+    init(ownWindow window: NSWindow) {
+        self.init(pid: getpid(), windowId: window.windowNumber)
+    }
+}
+
 @MainActor
 final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     nonisolated static let exampleID = "example"
-    nonisolated static let settingsAppID = "omniwm.settings"
 
     unowned let controller: WMController
     var windows: [WindowToken: NSWindow] = [:]
@@ -14,6 +20,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     var liveResizeStarts: [WindowToken: CGRect] = [:]
     var applyingFrames: Set<WindowToken> = []
     var closeGuards: [WindowToken: () -> Bool] = [:]
+    var pendingSettingsWindow: PendingSettingsWindow?
     private(set) var isShuttingDown = false
     var makeWindow: @MainActor (ShellAppDefinition) -> NSWindow = ShellAppWindowManager.makeWindow
     var activateApplication: () -> Void = { NSApp.activate() }
@@ -129,7 +136,10 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
             focusWithoutRaising(token)
         }
         setContentVisible(true, token: token)
-        if raisesWindow { activateApplication() }
+        if raisesWindow {
+            activateApplication()
+            focusWithoutRaising(token)
+        }
         return true
     }
 

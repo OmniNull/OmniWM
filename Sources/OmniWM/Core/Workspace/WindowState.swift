@@ -172,6 +172,10 @@ struct HostedWindowMetadata: Equatable, Sendable {
     var admitsFloating = false
 }
 
+extension HostedWindowMetadata {
+    static let settingsAppID = Bundle.main.bundleIdentifier ?? "com.barut.OmniWM"
+}
+
 enum WindowTarget: Equatable, Sendable {
     case external(AXWindowRef)
     case hosted(HostedWindowMetadata)
