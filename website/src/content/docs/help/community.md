@@ -24,10 +24,7 @@ For OmniWM's automation interfaces, see the [CLI & IPC overview](/reference/cli/
 
 ## Support development
 
-If you find OmniWM useful, consider supporting development:
-
-- [GitHub Sponsors](https://github.com/sponsors/BarutSRB)
-- [PayPal](https://paypal.me/beacon2024)
+If you find OmniWM useful, consider supporting development through [GitHub Sponsors](https://github.com/sponsors/BarutSRB).
 
 ## Reporting bugs
 

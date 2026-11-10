@@ -1,3 +1,13 @@
+> [!WARNING]
+> **Fake accounts are impersonating OmniWM and its author on other platforms.** OmniWM communicates only through its official GitHub repository, [github.com/OmniNull/OmniWM](https://github.com/OmniNull/OmniWM). Fake accounts found so far:
+>
+> - `x.com/BarutSRB`
+> - `x.com/OmniWM`
+>
+> OmniWM is free and has no hidden paywalls, as I promised from the start. The only official way to sponsor the project is [GitHub Sponsors](https://github.com/sponsors/BarutSRB), because paying contributors back honestly needs a ledger.
+>
+> — [BarutSRB](https://github.com/BarutSRB)
+
 # OmniWM
 
 OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling window manager for Apple Silicon Macs running macOS 26 or later. It combines Niri-style orientation-aware scrolling containers and Hyprland-style Dwindle BSP layouts, selectable per workspace, with multi-monitor routing and optional local CLI/IPC automation.
@@ -792,10 +802,7 @@ Follow the [contributor quick start](CONTRIBUTING.md#quick-start) for Xcode requ
 
 ## Support
 
-If you find OmniWM useful, consider supporting development:
-
-- [GitHub Sponsors](https://github.com/sponsors/BarutSRB)
-- [PayPal](https://paypal.me/beacon2024)
+If you find OmniWM useful, consider supporting development through [GitHub Sponsors](https://github.com/sponsors/BarutSRB).
 
 ## License
 
