@@ -54,9 +54,9 @@ extension AXEventHandler {
         if entry.mode == .floating,
            let floatingFrame = controller?.workspaceManager.floatingState(for: entry.token)?.lastFrame
         {
-            metadata.frame = floatingFrame
+            metadata.frame = ScreenCoordinateSpace.toWindowServer(rect: floatingFrame)
         } else if let appliedFrame = controller?.axManager.lastAppliedFrame(for: entry.windowId) {
-            metadata.frame = appliedFrame
+            metadata.frame = ScreenCoordinateSpace.toWindowServer(rect: appliedFrame)
         }
         return metadata
     }

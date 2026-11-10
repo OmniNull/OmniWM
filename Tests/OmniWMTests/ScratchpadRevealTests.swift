@@ -68,6 +68,44 @@ final class ScratchpadRevealTests: XCTestCase {
         XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: token), fixture.workspaceId)
     }
 
+    func testFullRescanConfirmsScratchpadUnassignInAppKitCoordinates() throws {
+        let monitor = try XCTUnwrap(Monitor.current().first(where: \.isMain))
+        let fixture = try makeFixture(monitor: monitor)
+        let controller = fixture.controller
+        let manager = controller.workspaceManager
+        let refresh = controller.layoutRefreshController
+        defer { refresh.resetState() }
+        let token = addFloatingWindow(pid: 971_023, windowId: 971_123, to: fixture)
+        XCTAssertEqual(assign(token, to: 2, in: fixture), .executed)
+        XCTAssertEqual(controller.unassignScratchpadWindows([token], on: monitor.id), .executed)
+        XCTAssertNotNil(refresh.pendingRevealTransactionId(forWindowId: token.windowId))
+
+        let display = monitor.frame
+        let frame = CGRect(
+            x: display.minX + display.width / 4, y: display.minY + display.height / 8,
+            width: display.width / 4, height: display.height / 4
+        )
+        let windowServerFrame = ScreenCoordinateSpace.toWindowServer(rect: frame)
+        let appKitFrame = ScreenCoordinateSpace.toAppKit(rect: windowServerFrame)
+        XCTAssertNotEqual(windowServerFrame, appKitFrame)
+        let entry = try XCTUnwrap(manager.entry(for: token))
+        var seenKeys: Set<WindowToken> = []
+        refresh.preserveScratchpadHiddenWindowsDuringFullRescan(
+            [entry],
+            windowServerInfoByWindowId: [
+                token.windowId: WindowServerInfo(
+                    id: UInt32(token.windowId), pid: token.pid, level: 0, frame: windowServerFrame
+                )
+            ],
+            seenKeys: &seenKeys
+        )
+
+        XCTAssertEqual(seenKeys, [token])
+        XCTAssertNil(manager.scratchpadIndex(for: token))
+        XCTAssertNil(manager.hiddenState(for: token))
+        XCTAssertEqual(controller.axManager.lastAppliedFrame(for: token.windowId), appKitFrame)
+    }
+
     func testUnassignAllReleasesEveryHiddenMember() throws {
         let fixture = try makeFixture()
         let first = addFloatingWindow(pid: 971_017, windowId: 971_117, to: fixture)
@@ -1498,7 +1536,7 @@ final class ScratchpadRevealTests: XCTestCase {
         }
     }
 
-    private func makeFixture() throws -> Fixture {
+    private func makeFixture(monitor testMonitor: Monitor? = nil) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("OmniWMScratchpadRevealTests-\(UUID().uuidString)", isDirectory: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
@@ -1531,7 +1569,7 @@ final class ScratchpadRevealTests: XCTestCase {
         )
         controller.scheduleScratchpadStackingContinuation = { $0() }
         controller.axEventHandler.frontmostApplicationPIDProvider = { focusRecorder.frontmostPID }
-        let monitor = Monitor(
+        let monitor = testMonitor ?? Monitor(
             id: .init(displayId: 971_901),
             displayId: 971_901,
             frame: CGRect(x: 0, y: 0, width: 2560, height: 1440),
