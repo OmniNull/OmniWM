@@ -67,6 +67,47 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         XCTAssertNil(controller.axEventHandler.admissionRetryStateByWindowId[UInt32(token.windowId)])
     }
 
+    func testFullRescanStoresFloatingGeometryInAppKitCoordinates() throws {
+        let cases: [(layout: WindowRuleLayoutAction, expectedMode: TrackedWindowMode)] = [
+            (.float, .floating),
+            (.tile, .tiling)
+        ]
+        let windowServerFrame = CGRect(x: 120, y: 80, width: 420, height: 260)
+        let appKitFrame = ScreenCoordinateSpace.toAppKit(rect: windowServerFrame)
+        XCTAssertNotEqual(windowServerFrame, appKitFrame)
+
+        for (layout, expectedMode) in cases {
+            let controller = WindowAdmissionTestSupport.controller()
+            let manager = controller.workspaceManager
+            let workspaceId = try XCTUnwrap(manager.workspaceId(for: "1", createIfMissing: true))
+            let token = WindowToken(pid: 467_357, windowId: 467_358)
+            let axRef = WindowAdmissionTestSupport.axRef(for: token)
+            let bundleId = replacementBundleId(token.pid)
+            let facts = replacementFacts(token: token, bundleId: bundleId, frame: windowServerFrame)
+            let captured = candidate(
+                pid: token.pid,
+                windowId: token.windowId,
+                axRef: axRef,
+                decisionEvidence: AXWindowDecisionEvidence(facts: facts.ax, sizeConstraints: .unconstrained),
+                admissionGeometry: WindowAdmissionGeometryEvidence(
+                    isSizeSettable: true,
+                    frame: appKitFrame.offsetBy(dx: 20, dy: 40)
+                ),
+                fullscreenAttribute: false,
+                windowServerInfo: facts.windowServer
+            )
+            if layout == .tile {
+                manager.addWindow(axRef, pid: token.pid, windowId: token.windowId, to: workspaceId, mode: .floating)
+            }
+            controller.windowRuleEngine.rebuild(rules: [AppRule(bundleId: bundleId, layout: layout)])
+
+            _ = reconcileCapturedWindow(captured, focusedWorkspace: workspaceId, controller: controller)
+
+            XCTAssertEqual(manager.entry(for: token)?.mode, expectedMode, layout.rawValue)
+            XCTAssertEqual(manager.floatingState(for: token)?.lastFrame, appKitFrame, layout.rawValue)
+        }
+    }
+
     func testFullRescanKeepsTrackedWindowTiledWithReadOnlyAXSize() throws {
         let controller = WindowAdmissionTestSupport.controller()
         let manager = controller.workspaceManager
