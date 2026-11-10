@@ -254,14 +254,7 @@ final class SettingsStore {
             self?.notifyTrackpadAvailabilityIfChanged()
             self?.scheduleSave()
         }
-        statusBar.onChange = { [weak self] in self?.scheduleSave() }
-        statusMenu.onChange = { [weak self] in self?.scheduleSave() }
-        windowSwitcher.onChange = { [weak self] in self?.scheduleSave() }
-        keyboardModes.onChange = { [weak self] in self?.scheduleSave() }
-        commandPalette.onChange = { [weak self] in self?.scheduleSave() }
-        hiddenBar.onChange = { [weak self] in self?.scheduleSave() }
-        clipboard.onChange = { [weak self] in self?.scheduleSave() }
-        quakeTerminal.onChange = { [weak self] in self?.scheduleSave() }
+        scheduleSaveOnPlainTableChanges()
         lastEffectiveTrackpadAvailability = effectiveTrackpadGesturesEnabled
 
         let outcome = persistence.loadOutcome()

@@ -6,8 +6,8 @@ import XCTest
 
 @MainActor
 final class UnifiedSearchPickHistoryTests: XCTestCase {
-    private let safari = UnifiedSearchPickKey.application(bundleID: "com.apple.Safari")
-    private let sample = UnifiedSearchPickKey.file(path: "/Users/me/safety-sample.pdf")
+    private let safari = UnifiedSearchPickKey.window(bundleID: "com.apple.Safari")
+    private let sample = UnifiedSearchPickKey.command(actionID: "safety-sample")
     private let directory = FileManager.default.temporaryDirectory
         .appendingPathComponent("OmniWMPickHistoryTests-\(UUID().uuidString)", isDirectory: true)
 
@@ -34,18 +34,66 @@ final class UnifiedSearchPickHistoryTests: XCTestCase {
         XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "s"), [sample, safari])
     }
 
-    func testHistoryKeepsTheFiveHundredMostRecentlyUsedQueries() {
+    func testLauncherLaunchesRankAlongsideUnifiedPicks() {
         let store = makeStore()
-        for index in 0 ..< 500 {
+        store.recordUnifiedSearchPick(query: "saf", key: safari, date: date(1))
+        store.recordLauncherLaunch(
+            targetID: "/Applications/Safari.app",
+            displayName: "Safari",
+            query: "Saf",
+            date: date(2)
+        )
+        store.recordLauncherLaunch(
+            targetID: "/Applications/Safari.app",
+            displayName: "Safari",
+            query: "sa",
+            date: date(3)
+        )
+        store.recordLauncherLaunch(
+            targetID: "/Users/me/notes.txt",
+            displayName: "notes.txt",
+            query: "notes",
+            date: date(4)
+        )
+
+        let safariApp = UnifiedSearchPickKey.launcherTarget("/Applications/Safari.app")
+        XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "s"), [safariApp, safari])
+        XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "saf"), [safariApp, safari])
+        XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "NO"), [.launcherTarget("/Users/me/notes.txt")])
+
+        store.clearUnifiedSearchPickHistory()
+        XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "s"), [safariApp])
+    }
+
+    func testHistoryKeepsTheMostRecentlyUsedQueriesUpToItsLimit() {
+        let store = makeStore()
+        let limit = UnifiedSearchPickHistory.queryLimit
+        for index in 0 ..< limit {
             store.recordUnifiedSearchPick(query: query(index), key: safari, date: date(index))
         }
-        store.recordUnifiedSearchPick(query: query(0), key: safari, date: date(1_000))
-        store.recordUnifiedSearchPick(query: "newest", key: sample, date: date(1_001))
+        store.recordUnifiedSearchPick(query: query(0), key: safari, date: date(limit * 2))
+        store.recordUnifiedSearchPick(query: "newest", key: sample, date: date(limit * 2 + 1))
 
         XCTAssertEqual(store.unifiedSearchLearnedPicks(for: query(0)), [safari])
         XCTAssertEqual(store.unifiedSearchLearnedPicks(for: query(1)), [])
         XCTAssertEqual(store.unifiedSearchLearnedPicks(for: query(2)), [safari])
         XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "newest"), [sample])
+    }
+
+    func testEachQueryKeepsItsMostRecentlyPickedResultsUpToItsLimit() {
+        let store = makeStore()
+        let limit = UnifiedSearchPickHistory.picksPerQueryLimit
+        let keys = (0 ... limit).map { UnifiedSearchPickKey.command(actionID: "action-\($0)") }
+        for (index, key) in keys.enumerated() {
+            store.recordUnifiedSearchPick(query: "act", key: key, date: date(index))
+        }
+        store.recordUnifiedSearchPick(query: "act", key: keys[0], date: date(limit + 1))
+        store.recordUnifiedSearchPick(query: "act", key: keys[2], date: date(limit + 2))
+
+        let learned = store.unifiedSearchLearnedPicks(for: "act")
+        XCTAssertEqual(learned.count, limit)
+        XCTAssertFalse(learned.contains(keys[1]))
+        XCTAssertEqual(learned.first, keys[2])
     }
 
     func testHistorySurvivesRelaunchAndClearingForgetsEverything() {

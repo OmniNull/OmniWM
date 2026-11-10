@@ -36,6 +36,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     var unifiedSearchedModes: [CommandPaletteMode] = []
     var unifiedResults = UnifiedSearchResults()
     var unifiedLearnedPicks: [UnifiedSearchPickKey] = []
+    var unifiedSelectionFollowsFirstRow = true
+    var unifiedPendingSearches: Set<CommandPaletteMode> = []
+    var pendingUnifiedSelection: PendingUnifiedSelection?
 
     var selectedMode: CommandPaletteMode = .windows {
         didSet { if selectedMode != oldValue { activateSelectedMode() } }
@@ -59,7 +62,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     }
 
     private(set) var isMenuLoading = false
-    private(set) var clipboardItems: [ClipboardPaletteItem] = [] {
+    var clipboardItems: [ClipboardPaletteItem] = [] {
         didSet { filterInputDidChange() }
     }
 
@@ -69,11 +72,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
 
     private(set) var filteredItems = CommandPaletteFilteredItems.windows([])
 
-    private(set) var isClipboardHistoryEnabled = false
-    private(set) var clipboardPreview: ClipboardPalettePreview?
-    private(set) var clipboardPreviewImage: NSImage?
-    private(set) var isClipboardPreviewLoading = false
-    private(set) var clipboardErrorText: String?
+    var isClipboardHistoryEnabled = false
+    var clipboardPreview: ClipboardPalettePreview?
+    var clipboardPreviewImage: NSImage?
+    var isClipboardPreviewLoading = false
+    var clipboardErrorText: String?
     var selectionScrollRequest = 0
 
     var applicationSections: [LauncherSection<LauncherApplicationResult>] = []
@@ -106,9 +109,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     let actionExecutor: CommandPaletteActionExecutor
     private let menuSession: CommandPaletteMenuSession
     private var isProgrammaticDismiss = false
-    private var isConfirmingClipboardClear = false
+    var isConfirmingClipboardClear = false
     var isPresentingModalPrompt = false
-    private var clipboardPreviewGeneration = 0
+    var clipboardPreviewGeneration = 0
 
     enum DismissReason {
         case cancel
@@ -311,84 +314,6 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
 }
 
 extension CommandPaletteController {
-    func setClipboardItemPinned(_ pinned: Bool, id: UUID) {
-        guard let wmController, isClipboardHistoryEnabled,
-              environment.isClipboardHistoryEnabled(wmController)
-        else { return }
-        Task { @MainActor [weak self, environment, wmController] in
-            let items = await environment.setClipboardItemPinned(wmController, id, pinned)
-            guard let self, self.isVisible, environment.isClipboardHistoryEnabled(wmController) else { return }
-            self.clipboardErrorText = nil
-            self.clipboardItems = items
-        }
-    }
-
-    func deleteClipboardItem(_ id: UUID) {
-        guard let wmController, isClipboardHistoryEnabled,
-              environment.isClipboardHistoryEnabled(wmController)
-        else { return }
-        Task { @MainActor [weak self, environment, wmController] in
-            let items = await environment.deleteClipboardItem(wmController, id)
-            guard let self, self.isVisible, environment.isClipboardHistoryEnabled(wmController) else { return }
-            self.clipboardItems = items
-            self.clipboardErrorText = nil
-        }
-    }
-
-    func clearClipboardHistory() {
-        guard let wmController, isClipboardHistoryEnabled,
-              environment.isClipboardHistoryEnabled(wmController)
-        else { return }
-        isConfirmingClipboardClear = true
-        defer { isConfirmingClipboardClear = false }
-        guard environment.confirmClearClipboardHistory() else { return }
-        Task { @MainActor [weak self, environment, wmController] in
-            do {
-                let items = try await environment.clearClipboardHistory(wmController)
-                guard let self, self.isVisible, environment.isClipboardHistoryEnabled(wmController) else { return }
-                self.clipboardItems = items
-                self.clipboardErrorText = nil
-            } catch {
-                guard let self, self.isVisible, environment.isClipboardHistoryEnabled(wmController) else { return }
-                self.clipboardErrorText = String(localized: "Could not clear clipboard history.")
-            }
-        }
-    }
-
-    private func loadSelectedClipboardPreview() {
-        clipboardPreviewGeneration &+= 1
-        let generation = clipboardPreviewGeneration
-        clipboardPreview = nil
-        clipboardPreviewImage = nil
-        isClipboardPreviewLoading = false
-        guard isVisible,
-              !isUnifiedSearch,
-              selectedMode == .clipboard,
-              let wmController,
-              case let .clipboard(id)? = selectedItemID
-        else {
-            return
-        }
-        isClipboardPreviewLoading = true
-        Task { @MainActor [weak self, environment, wmController] in
-            let preview = await environment.clipboardItemPreview(wmController, id)
-            guard let self,
-                  self.isVisible,
-                  self.clipboardPreviewGeneration == generation,
-                  self.selectedItemID == .clipboard(id)
-            else {
-                return
-            }
-            self.clipboardPreview = preview
-            if case let .image(data)? = preview {
-                self.clipboardPreviewImage = NSImage(data: data)
-            }
-            self.isClipboardPreviewLoading = false
-        }
-    }
-}
-
-extension CommandPaletteController {
     func dismiss(reason: DismissReason) {
         removeEventMonitor()
         invalidateLauncherSearch()
@@ -445,9 +370,8 @@ extension CommandPaletteController {
         }
     }
 
-    func reservePaletteShortcuts(_ wmController: WMController) {
-        let chords = environment.paletteShortcuts().chords.filter { isUnifiedSearch || $0.shortcut != .jumpGroup }
-        wmController.hotkeys.setPaletteShortcutChords(chords.map(\.binding))
+    private func reservePaletteShortcuts(_ wmController: WMController) {
+        wmController.hotkeys.setPaletteShortcutChords(environment.paletteShortcuts().chords.map(\.binding))
     }
 
     private func releasePaletteInput(_ wmController: WMController) {
@@ -487,23 +411,5 @@ extension CommandPaletteController {
         if isVisible {
             presentation.panel?.makeKey()
         }
-    }
-}
-
-extension CommandPaletteController {
-    func enableClipboardHistory() {
-        guard let wmController else { return }
-        environment.setClipboardHistoryEnabled(wmController, true)
-        isClipboardHistoryEnabled = true
-        refreshClipboardItems()
-    }
-
-    func refreshClipboardItems() {
-        guard let wmController else {
-            clipboardItems = []
-            return
-        }
-        isClipboardHistoryEnabled = environment.isClipboardHistoryEnabled(wmController)
-        clipboardItems = isClipboardHistoryEnabled ? environment.clipboardItems(wmController) : []
     }
 }

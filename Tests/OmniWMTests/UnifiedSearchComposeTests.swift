@@ -7,13 +7,13 @@ import XCTest
 @MainActor
 final class UnifiedSearchComposeTests: XCTestCase {
     func testLearnedPickLeadsTopHitsAndLeavesItsGroup() {
-        let safariApp = app("Safari", bundleID: "com.apple.Safari")
+        let safariApp = app("Safari")
         let safariWindow = window(1, "Safari tips", bundleID: "com.example.Notes")
         let results = UnifiedSearch.compose(
             query: "saf",
             searchedModes: [.windows, .applications],
             results: [.windows: [safariWindow], .applications: [safariApp]],
-            learnedPicks: [.application(bundleID: "com.apple.Safari")]
+            learnedPicks: [.launcherTarget("/Applications/Safari.app")]
         )
 
         XCTAssertEqual(results.topHits, [safariApp.id, safariWindow.id])
@@ -23,9 +23,9 @@ final class UnifiedSearchComposeTests: XCTestCase {
     func testWithoutLearnedPicksTopHitsFollowSharedTiersThenModeOrder() {
         let otherField = window(1, "Inbox", bundleID: "com.example.Mail", appName: "Safari")
         let contains = command("toggle-unsafe", "Toggle Unsafe Mode")
-        let wordStart = app("Apple Safari", bundleID: "com.example.AppleSafari")
+        let wordStart = app("Apple Safari")
         let prefixFile = file("Safari notes.txt")
-        let prefixApp = app("Safari", bundleID: "com.apple.Safari")
+        let prefixApp = app("Safari")
 
         let results = UnifiedSearch.compose(
             query: "saf",
@@ -64,15 +64,17 @@ final class UnifiedSearchComposeTests: XCTestCase {
             query: "no",
             searchedModes: [.files],
             results: [.files: [notes]],
-            learnedPicks: [.file(path: "/deleted.txt")]
+            learnedPicks: [.launcherTarget("/deleted.txt")]
         )
 
         XCTAssertEqual(results.topHits, [notes.id])
     }
 
     func testGroupsShowFiveRowsAndAShowAllRowOnlyWhenMoreAreHidden() {
-        let files = (1 ... 9).map { file("Report \($0).pdf") }
-        let apps = (1 ... 5).map { app("Reporter \($0)", bundleID: "com.example.r\($0)") }
+        let topHitLimit = UnifiedSearch.topHitLimit
+        let shownFiles = topHitLimit + UnifiedSearch.groupRowLimit
+        let files = (1 ... shownFiles + 1).map { file("Report \($0).pdf") }
+        let apps = (1 ... UnifiedSearch.groupRowLimit).map { app("Reporter \($0)") }
 
         let results = UnifiedSearch.compose(
             query: "rep",
@@ -81,16 +83,16 @@ final class UnifiedSearchComposeTests: XCTestCase {
             learnedPicks: []
         )
 
-        XCTAssertEqual(results.topHits, files[0 ..< 3].map(\.id))
+        XCTAssertEqual(results.topHits, files[0 ..< topHitLimit].map(\.id))
         XCTAssertEqual(results.groups, [
-            .init(mode: .files, rows: files[3 ..< 8].map(\.id), hasMore: true),
+            .init(mode: .files, rows: files[topHitLimit ..< shownFiles].map(\.id), hasMore: true),
             .init(mode: .applications, rows: apps.map(\.id), hasMore: false)
         ])
         XCTAssertEqual(
             results.selectionOrder,
-            files[0 ..< 8].map(\.id) + [.showAll(.files)] + apps.map(\.id)
+            files[0 ..< shownFiles].map(\.id) + [.showAll(.files)] + apps.map(\.id)
         )
-        XCTAssertEqual(results.sections.map(\.first), [files[0].id, files[3].id, apps[0].id])
+        XCTAssertEqual(results.sections.map(\.first), [files[0].id, files[topHitLimit].id, apps[0].id])
     }
 
     func testEmptyQueryComposesNothing() {
@@ -120,12 +122,9 @@ final class UnifiedSearchComposeTests: XCTestCase {
         )
     }
 
-    private func app(_ name: String, bundleID: String) -> UnifiedSearchCandidate {
-        UnifiedSearchCandidate(
-            id: .application(.results, "/Applications/\(name).app"),
-            title: name,
-            pickKey: .application(bundleID: bundleID)
-        )
+    private func app(_ name: String) -> UnifiedSearchCandidate {
+        let path = "/Applications/\(name).app"
+        return UnifiedSearchCandidate(id: .application(.results, path), title: name, pickKey: .launcherTarget(path))
     }
 
     private func command(_ id: String, _ title: String) -> UnifiedSearchCandidate {
@@ -136,7 +135,7 @@ final class UnifiedSearchComposeTests: XCTestCase {
         UnifiedSearchCandidate(
             id: .file(.results, "/Users/me/\(name)"),
             title: name,
-            pickKey: .file(path: "/Users/me/\(name)")
+            pickKey: .launcherTarget("/Users/me/\(name)")
         )
     }
 }

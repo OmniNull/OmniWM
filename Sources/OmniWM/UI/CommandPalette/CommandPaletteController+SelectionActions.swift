@@ -6,6 +6,7 @@ import AppKit
 @MainActor
 extension CommandPaletteController {
     func selectCurrent(trigger: CommandPaletteSelectionTrigger = .primary) {
+        if isUnifiedSearch, deferUntilUnifiedResultsArrive(.current(trigger)) { return }
         if isUnifiedSearch, unifiedSelectionList.isEmpty { return }
         guard isExpanded else {
             expandResults()
@@ -171,6 +172,7 @@ extension CommandPaletteController {
         }
 
         let newIndex = (currentIndex + delta + selectionList.count) % selectionList.count
+        if isUnifiedSearch { unifiedSelectionFollowsFirstRow = false }
         selectedItemID = selectionList[newIndex]
         selectionScrollRequest &+= 1
     }

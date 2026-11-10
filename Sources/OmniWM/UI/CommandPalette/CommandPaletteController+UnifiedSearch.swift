@@ -10,6 +10,9 @@ extension CommandPaletteController {
         unifiedSearchedModes = settings.commandPalette.searchedModes
         unifiedResults = UnifiedSearchResults()
         unifiedLearnedPicks = []
+        unifiedSelectionFollowsFirstRow = true
+        unifiedPendingSearches = []
+        pendingUnifiedSelection = nil
     }
 
     var isMenuSearched: Bool {
@@ -38,6 +41,8 @@ extension CommandPaletteController {
     func unifiedSearchTextDidChange(from oldValue: String) {
         guard searchText != oldValue else { return }
         selectedItemID = nil
+        unifiedSelectionFollowsFirstRow = true
+        pendingUnifiedSelection = nil
         unifiedLearnedPicks = wmController?.settings.unifiedSearchLearnedPicks(for: searchText) ?? []
         startUnifiedLauncherSearches()
         filterInputDidChange()
@@ -54,15 +59,31 @@ extension CommandPaletteController {
             searchedModes: unifiedSearchedModes,
             results: Dictionary(uniqueKeysWithValues: unifiedSearchedModes.map { ($0, unifiedCandidates(for: $0)) }),
             learnedPicks: unifiedLearnedPicks,
-            keepingVisible: selectedItemID
+            keepingVisible: unifiedSelectionFollowsFirstRow ? nil : selectedItemID
         )
     }
 
     func openUnifiedTopHit(at index: Int) {
+        if deferUntilUnifiedResultsArrive(.topHit(index)) { return }
         let topHits = unifiedQuery.isEmpty ? [] : unifiedResults.topHits
         guard topHits.indices.contains(index) else { return }
-        selectedItemID = topHits[index]
-        selectCurrent()
+        activateUnifiedRow(topHits[index], trigger: .primary)
+    }
+
+    func deferUntilUnifiedResultsArrive(_ selection: PendingUnifiedSelection) -> Bool {
+        guard unifiedSelectionFollowsFirstRow, !unifiedPendingSearches.isEmpty else { return false }
+        pendingUnifiedSelection = selection
+        return true
+    }
+
+    func highlightUnifiedRow(_ id: CommandPaletteSelectionID) {
+        unifiedSelectionFollowsFirstRow = false
+        selectedItemID = id
+    }
+
+    func activateUnifiedRow(_ id: CommandPaletteSelectionID, trigger: CommandPaletteSelectionTrigger) {
+        highlightUnifiedRow(id)
+        selectCurrent(trigger: trigger)
     }
 
     func jumpUnifiedSection(by delta: Int) {
@@ -75,6 +96,7 @@ extension CommandPaletteController {
         } else {
             delta > 0 ? 0 : sections.count - 1
         }
+        unifiedSelectionFollowsFirstRow = false
         selectedItemID = sections[target].first
         selectionScrollRequest &+= 1
     }
@@ -87,9 +109,6 @@ extension CommandPaletteController {
         clearLauncherResults()
         unifiedResults = UnifiedSearchResults()
         isUnifiedSearch = false
-        if let wmController {
-            reservePaletteShortcuts(wmController)
-        }
         let target = isModeAvailable(mode) ? mode : .windows
         if selectedMode == target {
             activateSelectedMode()
@@ -103,6 +122,8 @@ extension CommandPaletteController {
               let wmController,
               !unifiedQuery.isEmpty,
               let mode = id.mode,
+              mode != .applications,
+              mode != .files,
               let key = unifiedCandidates(for: mode).first(where: { $0.id == id })?.pickKey
         else {
             return
@@ -113,14 +134,15 @@ extension CommandPaletteController {
     private func startUnifiedLauncherSearches() {
         launcherRequestGeneration &+= 1
         let generation = launcherRequestGeneration
-        clearLauncherResults()
         guard let wmController, !unifiedQuery.isEmpty else {
             environment.stopApplicationSearch()
             environment.stopFileSearch()
+            clearLauncherResults()
             return
         }
         if unifiedSearchedModes.contains(.applications) {
-            isApplicationLoading = true
+            unifiedPendingSearches.insert(.applications)
+            isApplicationLoading = applicationSections.isEmpty
             environment
                 .submitApplicationSearch(
                     wmController,
@@ -131,18 +153,32 @@ extension CommandPaletteController {
                     guard let self, self.isUnifiedPublicationCurrent(published) else { return }
                     self.applicationSections = sections
                     self.isApplicationLoading = false
-                    self.filterInputDidChange()
+                    self.unifiedSearchDidPublish(.applications)
                 }
         }
         if unifiedSearchedModes.contains(.files) {
             LauncherIconStore.shared.cancelAllFileThumbnails()
-            isFileLoading = true
+            unifiedPendingSearches.insert(.files)
+            isFileLoading = fileSections.isEmpty
             environment.submitFileSearch(wmController, searchText, nil, generation) { [weak self] published, sections in
                 guard let self, self.isUnifiedPublicationCurrent(published) else { return }
                 self.fileSections = sections
                 self.isFileLoading = false
-                self.filterInputDidChange()
+                self.unifiedSearchDidPublish(.files)
             }
+        }
+    }
+
+    private func unifiedSearchDidPublish(_ mode: CommandPaletteMode) {
+        unifiedPendingSearches.remove(mode)
+        filterInputDidChange()
+        guard unifiedPendingSearches.isEmpty, let pending = pendingUnifiedSelection else { return }
+        pendingUnifiedSelection = nil
+        switch pending {
+        case let .current(trigger):
+            selectCurrent(trigger: trigger)
+        case let .topHit(index):
+            openUnifiedTopHit(at: index)
         }
     }
 
@@ -151,6 +187,8 @@ extension CommandPaletteController {
         fileSections = []
         isApplicationLoading = false
         isFileLoading = false
+        unifiedPendingSearches = []
+        pendingUnifiedSelection = nil
     }
 
     private func isUnifiedPublicationCurrent(_ generation: Int) -> Bool {
@@ -185,7 +223,7 @@ extension CommandPaletteController {
                         id: .file(section.id, item.id),
                         title: item.displayName,
                         otherFields: [item.fileURL.path],
-                        pickKey: .file(path: item.fileURL.path)
+                        pickKey: .launcherTarget(item.id)
                     )
                 }
             }
@@ -234,11 +272,12 @@ extension CommandPaletteController {
 
     private func launcherCandidates() -> [UnifiedSearchCandidate] {
         let saved = launcherSavedEntries.map { entry in
-            UnifiedSearchCandidate(
+            let launchTarget = entry.kind == .application ? LauncherPaths.expanded(entry.path) : entry.id.uuidString
+            return UnifiedSearchCandidate(
                 id: .launcherEntry(entry.id),
                 title: entry.name,
                 otherFields: [entry.keywords, entry.path, entry.command],
-                pickKey: .launcherEntry(entry.id)
+                pickKey: .launcherTarget(launchTarget)
             )
         }
         let applications = displayedApplicationSections.flatMap { section in
@@ -247,7 +286,7 @@ extension CommandPaletteController {
                     id: .application(section.id, item.id),
                     title: item.displayName,
                     otherFields: [item.categoryName].compactMap(\.self),
-                    pickKey: .application(bundleID: item.bundleIdentifier ?? item.id)
+                    pickKey: .launcherTarget(item.id)
                 )
             }
         }

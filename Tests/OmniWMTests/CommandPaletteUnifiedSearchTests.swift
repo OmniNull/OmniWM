@@ -82,7 +82,7 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
             .application(.results, "/Applications/Reporter.app")
         )
 
-        fixture.palette.selectedItemID = .file(.results, "/tmp/Report.pdf")
+        fixture.palette.highlightUnifiedRow(.file(.results, "/tmp/Report.pdf"))
         XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_Return)))
 
         XCTAssertEqual(recorder.openedFiles, [URL(fileURLWithPath: "/tmp/Report.pdf")])
@@ -127,7 +127,7 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         publishFiles(recorder, (1 ... 9).map { "Report \($0).pdf" })
         XCTAssertEqual(fixture.palette.currentSelectionList().last, .showAll(.files))
 
-        fixture.palette.selectedItemID = .showAll(.files)
+        fixture.palette.highlightUnifiedRow(.showAll(.files))
         XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_Return)))
 
         XCTAssertTrue(fixture.palette.isVisible)
@@ -154,7 +154,7 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         XCTAssertFalse(fixture.palette.isVisible)
     }
 
-    func testOptionArrowsJumpBetweenTopHitsAndGroups() throws {
+    func testTabJumpsBetweenTopHitsAndGroups() throws {
         let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
         defer { fixture.cleanup() }
         _ = try fixture.show()
@@ -166,11 +166,11 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         XCTAssertEqual(sections.count, 3)
         XCTAssertEqual(fixture.palette.selectedItemID, sections[0].first)
 
-        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_DownArrow, modifiers: .option)))
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_Tab)))
         XCTAssertEqual(fixture.palette.selectedItemID, sections[1].first)
-        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_DownArrow, modifiers: .option)))
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_Tab)))
         XCTAssertEqual(fixture.palette.selectedItemID, sections[2].first)
-        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_UpArrow, modifiers: .option)))
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_Tab, modifiers: .shift)))
         XCTAssertEqual(fixture.palette.selectedItemID, sections[1].first)
         XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_DownArrow)))
         XCTAssertEqual(fixture.palette.selectedItemID, sections[2].first)
@@ -203,11 +203,71 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         fixture.palette.searchText = "rep"
         publishFiles(recorder, (1 ... 8).map { "Report \($0).pdf" })
         let selected = CommandPaletteSelectionID.file(.results, "/tmp/Report 8.pdf")
-        fixture.palette.selectedItemID = selected
+        fixture.palette.highlightUnifiedRow(selected)
 
         publishApplications(recorder, (1 ... 3).map { ("Reporter \($0)", "com.example.r\($0)") })
         XCTAssertEqual(fixture.palette.selectedItemID, selected)
         XCTAssertTrue(fixture.palette.currentSelectionList().contains(selected))
+    }
+
+    func testLateResultsMoveTheHighlightUntilTheUserMovesIt() throws {
+        let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+
+        fixture.palette.searchText = "rep"
+        publishFiles(recorder, ["Report.pdf", "Reply.txt"])
+        XCTAssertEqual(fixture.palette.selectedItemID, .file(.results, "/tmp/Report.pdf"))
+
+        publishApplications(recorder, [("Reporter", "com.example.Reporter")])
+        XCTAssertEqual(fixture.palette.selectedItemID, .application(.results, "/Applications/Reporter.app"))
+    }
+
+    func testEnterBeforeLateResultsActsOnTheFirstRowOnceTheyArrive() throws {
+        let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+
+        fixture.palette.searchText = "rep"
+        publishFiles(recorder, ["Report.pdf"])
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_Return)))
+        XCTAssertTrue(recorder.openedFiles.isEmpty)
+        XCTAssertTrue(fixture.palette.isVisible)
+
+        publishApplications(recorder, [("Reporter", "com.example.Reporter")])
+        XCTAssertEqual(recorder.openedApplications, [URL(fileURLWithPath: "/Applications/Reporter.app")])
+        XCTAssertTrue(recorder.openedFiles.isEmpty)
+        XCTAssertFalse(fixture.palette.isVisible)
+    }
+
+    func testEnterAfterMovingTheHighlightDoesNotWaitForLateResults() throws {
+        let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+
+        fixture.palette.searchText = "rep"
+        publishFiles(recorder, ["Report.pdf", "Reply.txt"])
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_DownArrow)))
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_Return)))
+
+        XCTAssertEqual(recorder.openedFiles, [URL(fileURLWithPath: "/tmp/Reply.txt")])
+        XCTAssertFalse(fixture.palette.isVisible)
+    }
+
+    func testAppRowsStayUntilTheNextAppSearchAnswers() throws {
+        let (fixture, recorder) = makeFixture(searchedModes: [.applications])
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+        let reporter = CommandPaletteSelectionID.application(.results, "/Applications/Reporter.app")
+
+        fixture.palette.searchText = "rep"
+        publishApplications(recorder, [("Reporter", "com.example.Reporter")])
+        fixture.palette.searchText = "repl"
+        XCTAssertEqual(fixture.palette.unifiedSelectionList, [reporter])
+        XCTAssertFalse(fixture.palette.isUnifiedSearchLoading)
+
+        publishApplications(recorder, [("Replay", "com.example.Replay")])
+        XCTAssertEqual(fixture.palette.unifiedSelectionList, [.application(.results, "/Applications/Replay.app")])
     }
 
     func testEnterBeforeTypingStaysCollapsedWhenWindowsIsNotSearched() throws {
@@ -233,8 +293,14 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
             environment.stopFileSearch = {}
             environment.stopApplicationSearch = {}
             environment.runningApplicationForResult = { _ in nil }
-            environment.openFile = { url, _ in recorder.openedFiles.append(url) }
-            environment.openApplication = { url, _ in recorder.openedApplications.append(url) }
+            environment.openFile = { url, completion in
+                recorder.openedFiles.append(url)
+                MainActor.assumeIsolated { completion(nil) }
+            }
+            environment.openApplication = { url, completion in
+                recorder.openedApplications.append(url)
+                MainActor.assumeIsolated { completion(nil) }
+            }
             environment.copyClipboardItem = { _, id in
                 await MainActor.run {
                     recorder.copiedClipboardItems.append(id)

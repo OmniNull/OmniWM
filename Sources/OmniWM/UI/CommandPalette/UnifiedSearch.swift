@@ -14,16 +14,8 @@ struct UnifiedSearchPickKey: RawRepresentable, Hashable, Codable, CodingKeyRepre
         Self(rawValue: "command:\(actionID)")
     }
 
-    static func application(bundleID: String) -> Self {
-        Self(rawValue: "application:\(bundleID)")
-    }
-
-    static func launcherEntry(_ id: UUID) -> Self {
-        Self(rawValue: "launcherEntry:\(id.uuidString)")
-    }
-
-    static func file(path: String) -> Self {
-        Self(rawValue: "file:\(path)")
+    static func launcherTarget(_ targetID: String) -> Self {
+        Self(rawValue: "launcher:\(targetID)")
     }
 
     static func menuItem(bundleID: String, path: String) -> Self {
@@ -66,6 +58,11 @@ struct UnifiedSearchResults: Equatable {
     }
 }
 
+enum PendingUnifiedSelection: Equatable {
+    case current(CommandPaletteSelectionTrigger)
+    case topHit(Int)
+}
+
 enum UnifiedSearch {
     static let topHitLimit = 3
     static let groupRowLimit = 5
@@ -90,10 +87,6 @@ enum UnifiedSearch {
         var learnedPickTieBreak: (Int, Int) {
             (candidate.focusRecency ?? rankIndex, modeIndex)
         }
-
-        var modeOrder: (Int, Int) {
-            (modeIndex, rankIndex)
-        }
     }
 
     static func compose(
@@ -112,31 +105,20 @@ enum UnifiedSearch {
             }
         }
 
-        var topHits: [CommandPaletteSelectionID] = []
-        var chosen = Set<CommandPaletteSelectionID>()
-
-        for key in learnedPicks where topHits.count < topHitLimit {
-            let match = ranked
-                .filter { $0.candidate.pickKey == key && !chosen.contains($0.candidate.id) }
-                .min { $0.learnedPickTieBreak < $1.learnedPickTieBreak }
-            guard let match else { continue }
-            topHits.append(match.candidate.id)
-            chosen.insert(match.candidate.id)
-        }
-
-        if topHits.count < topHitLimit {
-            let unchosen: [(entry: RankedCandidate, tier: MatchTier)] = ranked
-                .filter { !chosen.contains($0.candidate.id) }
-                .map { (entry: $0, tier: matchTier($0.candidate, foldedQuery: foldedQuery)) }
-            let fallback = unchosen.sorted { lhs, rhs in
-                if lhs.tier != rhs.tier { return lhs.tier < rhs.tier }
-                return lhs.entry.modeOrder < rhs.entry.modeOrder
+        var topHits = learnedTopHits(ranked, learnedPicks: learnedPicks)
+        var chosen = Set(topHits)
+        let openSlots = topHitLimit - topHits.count
+        if openSlots > 0 {
+            var closest: [(tier: MatchTier, id: CommandPaletteSelectionID)] = []
+            for entry in ranked where !chosen.contains(entry.candidate.id) {
+                if closest.count == openSlots, closest.last?.tier == .titlePrefix { break }
+                let tier = matchTier(entry.candidate, foldedQuery: foldedQuery)
+                guard closest.count < openSlots || tier < closest[closest.count - 1].tier else { continue }
+                closest.insert((tier, entry.candidate.id), at: closest.firstIndex { tier < $0.tier } ?? closest.count)
+                if closest.count > openSlots { closest.removeLast() }
             }
-            .prefix(topHitLimit - topHits.count)
-            for item in fallback {
-                topHits.append(item.entry.candidate.id)
-                chosen.insert(item.entry.candidate.id)
-            }
+            topHits += closest.map(\.id)
+            chosen.formUnion(closest.map(\.id))
         }
 
         let groups = searchedModes.compactMap { mode -> UnifiedSearchResults.Group? in
@@ -150,6 +132,21 @@ enum UnifiedSearch {
         }
 
         return UnifiedSearchResults(topHits: topHits, groups: groups)
+    }
+
+    private static func learnedTopHits(
+        _ ranked: [RankedCandidate],
+        learnedPicks: [UnifiedSearchPickKey]
+    ) -> [CommandPaletteSelectionID] {
+        guard !learnedPicks.isEmpty else { return [] }
+        let wanted = Set(learnedPicks)
+        var strongestMatch: [UnifiedSearchPickKey: RankedCandidate] = [:]
+        for entry in ranked {
+            guard let key = entry.candidate.pickKey, wanted.contains(key) else { continue }
+            if let current = strongestMatch[key], current.learnedPickTieBreak <= entry.learnedPickTieBreak { continue }
+            strongestMatch[key] = entry
+        }
+        return learnedPicks.lazy.compactMap { strongestMatch[$0]?.candidate.id }.prefix(topHitLimit).map(\.self)
     }
 
     private static func matchTier(_ candidate: UnifiedSearchCandidate, foldedQuery: String) -> MatchTier {

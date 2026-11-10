@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import Carbon
 
 @MainActor
 extension CommandPaletteController {
@@ -72,6 +73,10 @@ extension CommandPaletteController {
             openUnifiedTopHit(at: index)
             return true
         }
+        if event.keyCode == UInt16(kVK_Tab), relevantModifiers.isEmpty || relevantModifiers == .shift {
+            jumpUnifiedSection(by: relevantModifiers == .shift ? -1 : 1)
+            return true
+        }
         if CommandPalettePresentation.modeNavigationTarget(
             currentMode: selectedMode,
             isMenuModeAvailable: isMenuModeAvailable,
@@ -85,12 +90,6 @@ extension CommandPaletteController {
         switch event.keyCode {
         case 53:
             dismiss(reason: .cancel)
-            return true
-        case 126 where relevantModifiers == .option:
-            jumpUnifiedSection(by: -1)
-            return true
-        case 125 where relevantModifiers == .option:
-            jumpUnifiedSection(by: 1)
             return true
         case 126:
             moveSelection(by: -1)

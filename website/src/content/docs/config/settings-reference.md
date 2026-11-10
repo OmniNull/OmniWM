@@ -462,7 +462,7 @@ terminal = "background"
 
 ## commandPalette
 
-The [command palette](/features/command-palette/#unified-search). The table and both keys are optional; when absent, every key takes its default. Configure these values in **Settings > Command Palette**.
+**Unreleased — available when building from `main`.** The [command palette](/features/command-palette/#unified-search). The table and both keys are optional; when absent, every key takes its default. Configure these values in **Settings > Command Palette**.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |

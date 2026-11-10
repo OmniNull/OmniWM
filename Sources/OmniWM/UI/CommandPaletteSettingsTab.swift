@@ -29,7 +29,7 @@ struct CommandPaletteSettingsTab: View {
                     settings.clearUnifiedSearchPickHistory()
                 }
                 SettingsCaption(
-                    localized: "Top hits learn from the results you pick in unified search. Clipboard picks are never remembered."
+                    localized: "Top hits learn from the results you pick in unified search, and from apps and files you open with the Launcher. Clear Pick History forgets windows, commands, and menu items; the Launcher keeps its launch history. Clipboard picks are never remembered."
                 )
             }
         }

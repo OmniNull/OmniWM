@@ -40,21 +40,28 @@ struct UnifiedSearchPickHistory: Codable, Equatable, Sendable {
         }
     }
 
-    func learnedPicksStrongestFirst(for query: String) -> [UnifiedSearchPickKey] {
+    func learnedPicksStrongestFirst(
+        for query: String,
+        launcherLaunches: [String: [LauncherLaunch]]
+    ) -> [UnifiedSearchPickKey] {
         let foldedQuery = Self.fold(query)
         guard !foldedQuery.isEmpty else { return [] }
         var merged: [UnifiedSearchPickKey: Pick] = [:]
+        func merge(_ key: UnifiedSearchPickKey, _ pick: Pick) {
+            merged[key] = merged[key].map {
+                Pick(count: $0.count + pick.count, lastPicked: max($0.lastPicked, pick.lastPicked))
+            } ?? pick
+        }
         for (storedQuery, entry) in queries where storedQuery.hasPrefix(foldedQuery) {
             for (key, pick) in entry.picks {
-                if let existing = merged[key] {
-                    merged[key] = Pick(
-                        count: existing.count + pick.count,
-                        lastPicked: max(existing.lastPicked, pick.lastPicked)
-                    )
-                } else {
-                    merged[key] = pick
-                }
+                merge(key, pick)
             }
+        }
+        let launcherQuery = query.localizedLowercase.trimmingCharacters(in: .whitespacesAndNewlines)
+        for (targetID, launches) in launcherLaunches {
+            let matching = launches.filter { $0.foldedQuery.hasPrefix(launcherQuery) }
+            guard let lastLaunch = matching.map(\.date).max() else { continue }
+            merge(.launcherTarget(targetID), Pick(count: matching.count, lastPicked: lastLaunch))
         }
         return merged.sorted { lhs, rhs in
             if lhs.value.count != rhs.value.count { return lhs.value.count > rhs.value.count }

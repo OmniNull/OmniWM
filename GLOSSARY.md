@@ -28,10 +28,6 @@ _Avoid_: global hotkey, binding (in user-facing text)
 A key chord that only acts while the command palette is open, such as switching palette modes or revealing a file. While the palette is open it takes precedence over a global shortcut on the same chord.
 _Avoid_: palette action, local shortcut, palette hotkey
 
-**Palette modifier**:
-The configurable modifier or modifier combination shared by the palette shortcuts that use Command by default.
-_Avoid_: command modifier, palette command key
-
 ### Command palette
 
 **Palette mode**:
@@ -51,5 +47,5 @@ Up to three results shown above the groups in unified search, chosen from all se
 _Avoid_: best match, top results
 
 **Pick history**:
-What unified search remembers about the results the user picked for each query; top hits are chosen from it. Clipboard picks are never part of it.
+What unified search remembers about the windows, commands and menu items the user picked for each query. Top hits are chosen from it together with the Launcher's launch history, which covers apps and files. Clipboard picks are never part of it.
 _Avoid_: learned picks, search history

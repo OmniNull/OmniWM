@@ -440,7 +440,8 @@ extension RuntimeStateStore {
     }
 
     func unifiedSearchLearnedPicks(for query: String) -> [UnifiedSearchPickKey] {
-        state.unifiedSearchPickHistory?.learnedPicksStrongestFirst(for: query) ?? []
+        (state.unifiedSearchPickHistory ?? UnifiedSearchPickHistory())
+            .learnedPicksStrongestFirst(for: query, launcherLaunches: state.launcherLaunches ?? [:])
     }
 
     func clearUnifiedSearchPickHistory() {

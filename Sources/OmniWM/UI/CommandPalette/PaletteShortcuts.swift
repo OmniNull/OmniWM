@@ -9,7 +9,6 @@ enum PaletteShortcut: Equatable {
     case reveal
     case setMark
     case removeMark
-    case jumpGroup
 }
 
 struct PaletteShortcutChord: Equatable {
@@ -42,10 +41,6 @@ struct PaletteShortcutChord: Equatable {
         case .removeMark:
             String(
                 localized: "While the command palette is open, \(chord) is reserved for removing a mark from the selected window in \(CommandPaletteMode.windows.localizedDisplayName) mode."
-            )
-        case .jumpGroup:
-            String(
-                localized: "While unified search is open, \(chord) is reserved for jumping between result groups."
             )
         }
     }
@@ -83,9 +78,7 @@ struct PaletteShortcuts {
             chord(.reveal, UInt32(kVK_ANSI_KeypadEnter), Self.command),
             chord(.reveal, revealKey, Self.command),
             chord(.setMark, UInt32(kVK_ANSI_M), Self.markModifiers),
-            chord(.removeMark, UInt32(kVK_ANSI_R), Self.markModifiers),
-            chord(.jumpGroup, UInt32(kVK_UpArrow), UInt32(optionKey)),
-            chord(.jumpGroup, UInt32(kVK_DownArrow), UInt32(optionKey))
+            chord(.removeMark, UInt32(kVK_ANSI_R), Self.markModifiers)
         ]
     }
 

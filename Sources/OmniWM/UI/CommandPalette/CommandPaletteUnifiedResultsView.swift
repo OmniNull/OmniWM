@@ -175,7 +175,7 @@ struct CommandPaletteUnifiedResultsView: View {
             onPasteWithoutFormatting: { controller.pasteClipboardItem(item.id, withoutFormatting: true) },
             onPin: { controller.setClipboardItemPinned(!item.isPinned, id: item.id) },
             onDelete: { controller.deleteClipboardItem(item.id) },
-            onHighlight: { controller.selectedItemID = id },
+            onHighlight: { controller.highlightUnifiedRow(id) },
             shortcutHint: topHitShortcut(id)
         )
         .id(id)
@@ -291,7 +291,6 @@ struct CommandPaletteUnifiedResultsView: View {
         _ id: CommandPaletteSelectionID,
         trigger: CommandPaletteSelectionTrigger = .primary
     ) {
-        controller.selectedItemID = id
-        controller.selectCurrent(trigger: trigger)
+        controller.activateUnifiedRow(id, trigger: trigger)
     }
 }
