@@ -220,9 +220,9 @@ extension AXEventHandler {
     private func framesAreCloseForManagedReplacement(_ lhs: CGRect?, _ rhs: CGRect?) -> Bool {
         guard let lhs, let rhs else { return false }
 
-        return abs(lhs.midX - rhs.midX) <= 96
-            && abs(lhs.midY - rhs.midY) <= 96
-            && abs(lhs.width - rhs.width) <= 64
-            && abs(lhs.height - rhs.height) <= 64
+        return abs(lhs.midX - rhs.midX) <= FrameTolerance.managedReplacementCenter
+            && abs(lhs.midY - rhs.midY) <= FrameTolerance.managedReplacementCenter
+            && abs(lhs.width - rhs.width) <= FrameTolerance.managedReplacementSize
+            && abs(lhs.height - rhs.height) <= FrameTolerance.managedReplacementSize
     }
 }

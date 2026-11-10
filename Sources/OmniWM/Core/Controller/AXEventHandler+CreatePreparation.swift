@@ -289,7 +289,7 @@ extension AXEventHandler {
         let evaluation = facts.evaluation
         let trackedMode = admission.mode
         let inheritTrackedParentWorkspace = controller.shouldInheritTrackedParentWorkspace(for: evaluation)
-        let placementFrame = WMController.appKitPlacementFrame(
+        let placementFrame = WindowAdmissionGeometryEvidence.usableAppKitFrame(
             fromWindowServer: evaluation.facts.windowServer?.frame ?? facts.windowInfo?.frame
         )
         let resolvedPlacement = controller.resolveWorkspaceForNewWindow(

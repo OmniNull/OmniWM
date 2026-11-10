@@ -154,7 +154,9 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
             windowId: oldToken.windowId,
             to: originalWorkspace,
             managedReplacementMetadata: replacementMetadata(
-                bundleId: bundleId, workspaceId: originalWorkspace, frame: windowServerFrame.offsetBy(dx: 128, dy: 0)
+                bundleId: bundleId,
+                workspaceId: originalWorkspace,
+                frame: windowServerFrame.offsetBy(dx: 2 * FrameTolerance.managedReplacementCenter, dy: 0)
             )
         )
         controller.axManager.confirmFrameWrite(for: oldToken.windowId, frame: appKitFrame)
@@ -220,7 +222,7 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         XCTAssertEqual(manager.workspace(for: oldToken), originalWorkspace)
         XCTAssertEqual(manager.floatingState(for: oldToken)?.lastFrame, appKitFrame)
         var metadata = try XCTUnwrap(manager.managedReplacementMetadata(for: oldToken))
-        metadata.frame = windowServerFrame.offsetBy(dx: 128, dy: 0)
+        metadata.frame = windowServerFrame.offsetBy(dx: 2 * FrameTolerance.managedReplacementCenter, dy: 0)
         _ = manager.setManagedReplacementMetadata(metadata, for: oldToken)
         let key = AXEventHandler.ManagedReplacementKey(pid: oldToken.pid, workspaceId: originalWorkspace)
         defer { _ = handler.takeManagedReplacementBurst(for: key) }

@@ -21,6 +21,10 @@ struct WindowAdmissionGeometryEvidence: Equatable, Sendable {
         guard let frame, !frame.isNull, !frame.isInfinite, frame.width > 1, frame.height > 1 else { return nil }
         return frame
     }
+
+    static func usableAppKitFrame(fromWindowServer frame: CGRect?) -> CGRect? {
+        usableFrame(frame).map(ScreenCoordinateSpace.toAppKit(rect:))
+    }
 }
 
 struct AXWindowInspectionContext: Sendable {
@@ -105,6 +109,11 @@ struct FullRescanWindowCandidate: Sendable {
 
     var capturedFrame: CGRect? {
         enumeratedWindow.admissionGeometry.usableFrame(preferring: windowServerInfo?.frame)
+    }
+
+    var capturedAppKitFrame: CGRect? {
+        WindowAdmissionGeometryEvidence.usableAppKitFrame(fromWindowServer: windowServerInfo?.frame)
+            ?? WindowAdmissionGeometryEvidence.usableFrame(enumeratedWindow.admissionGeometry.frame)
     }
 
     func isFullscreen(screenFrames: [CGRect]) -> Bool {

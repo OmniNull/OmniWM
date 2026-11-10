@@ -6,10 +6,6 @@ import Foundation
 import OmniWMIPC
 
 extension WMController {
-    static func appKitPlacementFrame(fromWindowServer frame: CGRect?) -> CGRect? {
-        WindowAdmissionGeometryEvidence.usableFrame(frame).map(ScreenCoordinateSpace.toAppKit(rect:))
-    }
-
     func resolveWorkspaceForNewWindow(
         workspaceName: String? = nil,
         axRef: AXWindowRef,
@@ -58,7 +54,7 @@ extension WMController {
         appKitFrame: CGRect? = nil
     ) -> WorkspaceDescriptor.ID {
         let inheritTrackedParentWorkspace = shouldInheritTrackedParentWorkspace(for: evaluation)
-        let placementFrame = appKitFrame ?? Self.appKitPlacementFrame(
+        let placementFrame = appKitFrame ?? WindowAdmissionGeometryEvidence.usableAppKitFrame(
             fromWindowServer: evaluation.facts.windowServer?.frame
         )
         return placementResolver.resolveWorkspacePlacement(

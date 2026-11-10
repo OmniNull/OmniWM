@@ -84,22 +84,16 @@ extension LayoutRefreshController {
                 to: trackedMode,
                 preferredMonitor: controller.workspaceManager.monitor(for: wsForWindow),
                 applyFloatingFrame: false,
-                observedFrame: capturedAppKitFrame(for: candidate),
+                observedFrame: candidate.capturedAppKitFrame,
                 allowLiveFrameFallback: false
             )
         } else if trackedMode == .floating {
             controller.seedFloatingGeometryIfNeeded(
                 for: admittedToken,
                 preferredMonitor: controller.workspaceManager.monitor(for: wsForWindow),
-                observedFrame: capturedAppKitFrame(for: candidate),
+                observedFrame: candidate.capturedAppKitFrame,
                 allowLiveFrameFallback: false
             )
         }
-    }
-
-    private func capturedAppKitFrame(for candidate: FullRescanWindowCandidate) -> CGRect? {
-        let windowServerFrame = WindowAdmissionGeometryEvidence.usableFrame(candidate.windowServerInfo?.frame)
-        return windowServerFrame.map { ScreenCoordinateSpace.toAppKit(rect: $0) }
-            ?? WindowAdmissionGeometryEvidence.usableFrame(candidate.enumeratedWindow.admissionGeometry.frame)
     }
 }
