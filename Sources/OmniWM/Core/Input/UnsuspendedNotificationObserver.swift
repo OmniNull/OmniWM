@@ -4,8 +4,6 @@
 import Foundation
 
 extension NotificationCenter {
-    // AppKit suspends the distributed center once the app resigns active, and block observers then coalesce:
-    // a layout switch reached them only with the next distributed notification, seconds later.
     func addUnsuspendedObserver(
         forName name: Notification.Name,
         using block: @escaping @Sendable (Notification) -> Void

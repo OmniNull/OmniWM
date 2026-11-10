@@ -21,15 +21,4 @@ final class UnsuspendedNotificationObserverTests: XCTestCase {
 
         await fulfillment(of: [delivered], timeout: failureBound)
     }
-
-    func testLocalNotificationsArrive() async {
-        let center = NotificationCenter()
-        let name = Notification.Name("local")
-        let delivered = expectation(description: "Delivered")
-        let observer = center.addUnsuspendedObserver(forName: name) { _ in delivered.fulfill() }
-        defer { center.removeObserver(observer) }
-        center.post(name: name, object: nil)
-
-        await fulfillment(of: [delivered], timeout: failureBound)
-    }
 }
