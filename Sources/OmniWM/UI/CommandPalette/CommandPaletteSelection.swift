@@ -74,6 +74,13 @@ extension CommandPaletteController {
         isModeAvailable(preferredMode) ? preferredMode : .windows
     }
 
+    func selectInitialMode(_ requestedMode: CommandPaletteMode?, settings: SettingsStore) {
+        selectedMode = resolvedInitialMode(requestedMode ?? settings.commandPaletteLastMode)
+        if requestedMode != nil {
+            settings.commandPaletteLastMode = selectedMode
+        }
+    }
+
     func isModeAvailable(_ mode: CommandPaletteMode) -> Bool {
         switch mode {
         case .windows,
@@ -87,49 +94,72 @@ extension CommandPaletteController {
         }
     }
 
+    var selectableWindowItems: [CommandPaletteWindowItem] {
+        isUnifiedSearch ? windows : filteredWindowItems
+    }
+
     func resolvedSelectionAction(
         for trigger: CommandPaletteSelectionTrigger
     ) -> CommandPaletteActionExecutor.Action? {
+        if isUnifiedSearch {
+            return resolvedUnifiedSelectionAction(for: trigger)
+        }
         switch selectedMode {
         case .windows:
             return resolvedWindowSelectionAction(for: trigger)
         case .menu:
-            let filtered = filteredMenuItems
             guard case let .menu(id)? = selectedItemID,
-                  let item = filtered.first(where: { $0.id == id }),
-                  let menuFocusTarget = focusSession.menuFocusTarget
+                  filteredMenuItems.contains(where: { $0.id == id })
             else {
                 return nil
             }
-            return .pressMenu(menuFocusTarget, item.axElement)
+            return menuSelectionAction(id)
         case .clipboard:
-            guard let wmController,
-                  isClipboardHistoryEnabled,
-                  case let .clipboard(id)? = selectedItemID,
+            guard case let .clipboard(id)? = selectedItemID,
                   filteredClipboardItems.contains(where: { $0.id == id })
             else {
                 return nil
             }
-            switch trigger {
-            case .primary,
-                 .reveal:
-                return .copyClipboard(wmController, id)
-            case .alternate:
-                return .pasteClipboard(wmController, id, focusSession.clipboardPasteTarget(), false)
-            }
+            return clipboardSelectionAction(id, trigger: trigger)
         case .commands:
-            guard let wmController,
-                  case let .command(id)? = selectedItemID,
-                  let item = filteredCommandItems.first(where: { $0.id == id }),
-                  item.isLayoutCompatible
+            guard case let .command(id)? = selectedItemID,
+                  filteredCommandItems.contains(where: { $0.id == id })
             else {
                 return nil
             }
-            return .command(wmController, item.spec.command, focusSession.restoreFocusTarget)
+            return commandSelectionAction(id)
         case .applications:
             return resolvedLauncherSelectionAction(for: trigger)
         case .files:
             return resolvedLauncherSelectionAction(for: trigger)
+        }
+    }
+
+    private func resolvedUnifiedSelectionAction(
+        for trigger: CommandPaletteSelectionTrigger
+    ) -> CommandPaletteActionExecutor.Action? {
+        switch selectedItemID {
+        case .window?:
+            return resolvedWindowSelectionAction(for: trigger)
+        case let .menu(id)?:
+            return menuSelectionAction(id)
+        case let .clipboard(id)?:
+            return clipboardSelectionAction(id, trigger: trigger)
+        case let .command(id)?:
+            return commandSelectionAction(id)
+        case let .launcherEntry(id)?:
+            guard let entry = wmController?.settings.launcher.entries.first(where: { $0.id == id }) else {
+                return nil
+            }
+            return launcherEntryAction(entry, trigger: trigger)
+        case let .application(sectionID, id)?:
+            return applicationResult(sectionID, id).flatMap { applicationAction($0, trigger: trigger) }
+        case let .file(sectionID, id)?:
+            return fileResult(sectionID, id).flatMap { fileAction($0, trigger: trigger) }
+        case .executable?,
+             .showAll?,
+             nil:
+            return nil
         }
     }
 
@@ -138,7 +168,7 @@ extension CommandPaletteController {
     ) -> CommandPaletteActionExecutor.Action? {
         guard let wmController,
               case let .window(token)? = selectedItemID,
-              let item = filteredWindowItems.first(where: { $0.id == token }),
+              let item = selectableWindowItems.first(where: { $0.id == token }),
               let entry = wmController.workspaceManager.entry(for: token),
               entry.layoutReason == .standard,
               let liveHandle = wmController.workspaceManager.handle(for: token),
@@ -166,36 +196,103 @@ extension CommandPaletteController {
         }
     }
 
+    private func menuSelectionAction(_ id: UUID) -> CommandPaletteActionExecutor.Action? {
+        guard let item = menuItems.first(where: { $0.id == id }),
+              let menuFocusTarget = focusSession.menuFocusTarget
+        else {
+            return nil
+        }
+        return .pressMenu(menuFocusTarget, item.axElement)
+    }
+
+    private func clipboardSelectionAction(
+        _ id: UUID,
+        trigger: CommandPaletteSelectionTrigger
+    ) -> CommandPaletteActionExecutor.Action? {
+        guard let wmController,
+              isClipboardHistoryEnabled,
+              clipboardItems.contains(where: { $0.id == id })
+        else {
+            return nil
+        }
+        switch trigger {
+        case .primary,
+             .reveal:
+            return .copyClipboard(wmController, id)
+        case .alternate:
+            return .pasteClipboard(wmController, id, focusSession.clipboardPasteTarget(), false)
+        }
+    }
+
+    private func commandSelectionAction(_ id: String) -> CommandPaletteActionExecutor.Action? {
+        guard let wmController,
+              let item = commandItems.first(where: { $0.id == id }),
+              item.isLayoutCompatible
+        else {
+            return nil
+        }
+        return .command(wmController, item.spec.command, focusSession.restoreFocusTarget)
+    }
+
     private func resolvedLauncherSelectionAction(
         for trigger: CommandPaletteSelectionTrigger
     ) -> CommandPaletteActionExecutor.Action? {
-        guard launcherPublishedGeneration == launcherRequestGeneration, let wmController else { return nil }
+        guard launcherPublishedGeneration == launcherRequestGeneration else { return nil }
         switch selectedItemID {
         case let .launcherEntry(id)? where selectedMode == .applications:
             guard let entry = launcherSavedEntries.first(where: { $0.id == id }) else { return nil }
-            if trigger == .reveal {
-                guard !entry.path.isEmpty else { return nil }
-                return .revealFile(URL(fileURLWithPath: LauncherPaths.expanded(entry.path)))
-            }
-            return .launchEntry(wmController, entry, searchText)
+            return launcherEntryAction(entry, trigger: trigger)
         case let .application(sectionID, id)? where selectedMode == .applications:
-            guard let item = applicationSections.first(where: { $0.id == sectionID })?
-                .items.first(where: { $0.id == id }) else { return nil }
-            return trigger == .reveal
-                ? .revealApplication(item.bundleURL)
-                : .openApplication(wmController, item, searchText)
+            return applicationResult(sectionID, id).flatMap { applicationAction($0, trigger: trigger) }
         case let .file(sectionID, id)? where selectedMode == .files:
-            guard let item = fileSections.first(where: { $0.id == sectionID })?
-                .items.first(where: { $0.id == id }) else { return nil }
-            return trigger == .reveal
-                ? .revealFile(item.fileURL)
-                : .openFile(wmController, item, searchText)
+            return fileResult(sectionID, id).flatMap { fileAction($0, trigger: trigger) }
         default:
             return nil
         }
     }
 
+    private func launcherEntryAction(
+        _ entry: LauncherEntry,
+        trigger: CommandPaletteSelectionTrigger
+    ) -> CommandPaletteActionExecutor.Action? {
+        guard let wmController else { return nil }
+        if trigger == .reveal {
+            guard !entry.path.isEmpty else { return nil }
+            return .revealFile(URL(fileURLWithPath: LauncherPaths.expanded(entry.path)))
+        }
+        return .launchEntry(wmController, entry, searchText)
+    }
+
+    private func applicationAction(
+        _ item: LauncherApplicationResult,
+        trigger: CommandPaletteSelectionTrigger
+    ) -> CommandPaletteActionExecutor.Action? {
+        guard let wmController else { return nil }
+        return trigger == .reveal
+            ? .revealApplication(item.bundleURL)
+            : .openApplication(wmController, item, searchText)
+    }
+
+    private func fileAction(
+        _ item: LauncherFileResult,
+        trigger: CommandPaletteSelectionTrigger
+    ) -> CommandPaletteActionExecutor.Action? {
+        guard let wmController else { return nil }
+        return trigger == .reveal ? .revealFile(item.fileURL) : .openFile(wmController, item, searchText)
+    }
+
+    func applicationResult(_ sectionID: LauncherSectionID, _ id: String) -> LauncherApplicationResult? {
+        applicationSections.first(where: { $0.id == sectionID })?.items.first(where: { $0.id == id })
+    }
+
+    func fileResult(_ sectionID: LauncherSectionID, _ id: String) -> LauncherFileResult? {
+        fileSections.first(where: { $0.id == sectionID })?.items.first(where: { $0.id == id })
+    }
+
     func currentSelectionList() -> [CommandPaletteSelectionID] {
+        if isUnifiedSearch {
+            return unifiedSelectionList
+        }
         switch selectedMode {
         case .windows:
             return filteredWindowItems.map { CommandPaletteSelectionID.window($0.id) }
@@ -221,12 +318,17 @@ extension CommandPaletteController {
 
     func updateSelectionAfterFilterChange() {
         let selectionList = currentSelectionList()
+        if isUnifiedSearch, let selectedItemID, !selectionList.contains(selectedItemID) {
+            unifiedSelectionFollowsFirstRow = true
+        }
         if selectionList.isEmpty {
             selectedItemID = nil
             return
         }
 
-        if let selectedItemID, !selectionList.contains(selectedItemID) {
+        if isUnifiedSearch, unifiedSelectionFollowsFirstRow {
+            selectedItemID = selectionList.first
+        } else if let selectedItemID, !selectionList.contains(selectedItemID) {
             self.selectedItemID = selectionList.first
         } else if selectedItemID == nil {
             selectedItemID = selectionList.first

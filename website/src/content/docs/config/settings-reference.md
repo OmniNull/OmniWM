@@ -460,6 +460,17 @@ arguments = ["--title", "Weekly report"]
 terminal = "background"
 ```
 
+## commandPalette
+
+**Unreleased — available when building from `main`.** The [command palette](/features/command-palette/#unified-search). The table and both keys are optional; when absent, every key takes its default. Configure these values in **Settings > Command Palette**.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `unifiedSearch` | boolean | `false` | Open Command Palette shows unified search instead of the last-used mode. Each mode's own Command Palette shortcut still opens just that mode. |
+| `searchedModes` | string array | `["windows", "applications", "commands", "files"]` | Palette modes unified search covers, in the order their groups appear: `windows`, `menu`, `clipboard`, `commands`, `applications` (Launcher), `files`. Unknown and repeated names are ignored. |
+
+What unified search learns from your picks is stored in the state directory, not in the config file.
+
 ## quakeTerminal
 
 The drop-down (Quake) terminal. `enabled` and `provider` apply to every provider; the position, size, animation, auto-hide and appearance keys below configure Ghostty. Kitty and foot use their own configuration and the optional [Kitty](#quaketerminalkitty) or [foot](#quaketerminalfoot) overrides.

@@ -47,7 +47,7 @@ extension CommandPaletteController {
             selectedItemID = nil
             return nil
         }
-        return filteredWindowItems.first { $0.id == token }
+        return selectableWindowItems.first { $0.id == token }
     }
 
     private func makeMarkInteraction(

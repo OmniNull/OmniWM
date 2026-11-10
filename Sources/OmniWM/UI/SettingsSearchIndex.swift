@@ -26,6 +26,9 @@ enum SettingsSearchIndex {
         setting("Execution Defaults", section: .launcher, anchor: "launcher-execution"),
         setting("Shell", section: .launcher, anchor: "launcher-execution"),
         setting("Terminal", section: .launcher, anchor: "launcher-execution"),
+        setting("Enable Unified Search", section: .commandPalette),
+        setting("Searched Modes", section: .commandPalette),
+        setting("Clear Pick History", section: .commandPalette),
         setting("Language", section: .general, anchor: "Language"),
         setting("App Language", section: .general, anchor: "App Language"),
         setting("Startup", section: .general, anchor: "Startup"),
@@ -430,6 +433,7 @@ extension SettingsSearchIndex {
         case .monitors: ["monitors", "displays", "screens", "routing"]
         case .appRules: ["app rules", "float", "tile", "bundle", "match"]
         case .windowSwitcher: ["alt-tab", "command-tab", "option-tab", "app switcher", "previews"]
+        case .commandPalette: ["palette", "unified search", "top hits", "spotlight", "alfred"]
         case .hotkeys: ["hotkeys", "keyboard", "shortcuts", "hyper", "commands", "pause", "prefix", "mode key"]
         case .advanced: ["config", "toml", "luau", "ipc", "cli", "terminal"]
         default: [section.rawValue]

@@ -1,6 +1,51 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@, top hit %@" : {
+
+    },
+    "Choose how the palette searches windows, apps, commands, and files." : {
+
+    },
+    "Clear Pick History" : {
+
+    },
+    "Enable Unified Search" : {
+
+    },
+    "Enter opens the selected result." : {
+
+    },
+    "No results" : {
+
+    },
+    "Open Command Palette searches several palette modes at once and shows up to three top hits above the results. Each mode’s own Command Palette shortcut still opens just that mode." : {
+
+    },
+    "Results are grouped in this order. Menu reads the frontmost app’s menus each time the palette opens. Clipboard needs clipboard history." : {
+
+    },
+    "Searched Modes" : {
+
+    },
+    "Searching…" : {
+
+    },
+    "Search…" : {
+
+    },
+    "Show all in %@" : {
+
+    },
+    "Top Hits" : {
+
+    },
+    "Top hits learn from the results you pick in unified search, and from apps and files you open with the Launcher. Clear Pick History forgets windows, commands, and menu items; the Launcher keeps its launch history. Clipboard picks are never remembered." : {
+
+    },
+    "Unified Search" : {
+
+    },
     "Dialog open" : {
 
     },

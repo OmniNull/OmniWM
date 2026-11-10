@@ -297,7 +297,10 @@ enum CommandPaletteSearch {
                 appIcon: presentation.icon,
                 workspaceName: workspaceName,
                 isAppHidden: wmController.workspaceManager.isAppHidden(pid: entry.pid),
-                markNames: wmController.windowMarkRegistry.names(for: entry.token)
+                markNames: wmController.windowMarkRegistry.names(for: entry.token),
+                bundleIdentifier: entry.target.hostedMetadata == nil
+                    ? wmController.appInfoCache.bundleId(for: entry.pid)
+                    : nil
             ))
         }
 

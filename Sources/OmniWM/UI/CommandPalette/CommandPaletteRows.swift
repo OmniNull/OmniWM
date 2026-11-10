@@ -12,6 +12,7 @@ struct CommandPaletteWindowRow: View {
     let isSelected: Bool
     let isSummonRightAvailable: Bool
     let onSelect: () -> Void
+    var shortcutHint: String?
 
     private var summonHint: CommandPalettePresentation.InlineHint? {
         guard isSelected else { return nil }
@@ -47,6 +48,9 @@ struct CommandPaletteWindowRow: View {
 
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack(spacing: 8) {
+                        if let shortcutHint {
+                            CommandPaletteShortcutBadge(text: shortcutHint)
+                        }
                         if let summonHint {
                             Text(summonHint.title)
                                 .font(.system(size: 11, weight: .medium))
@@ -105,16 +109,17 @@ struct CommandPaletteWindowRow: View {
     }
 
     private var accessibilityValue: String {
-        if item.isAppHidden {
-            return String(localized: "App hidden, Workspace \(item.workspaceName)")
-        }
-        return String(localized: "Workspace \(item.workspaceName)")
+        let value = item.isAppHidden
+            ? String(localized: "App hidden, Workspace \(item.workspaceName)")
+            : String(localized: "Workspace \(item.workspaceName)")
+        return CommandPalettePresentation.accessibilityValue(value, topHitShortcut: shortcutHint)
     }
 }
 
 struct CommandPaletteMenuRow: View {
     let item: MenuItemModel
     let isSelected: Bool
+    var shortcutHint: String?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -132,6 +137,10 @@ struct CommandPaletteMenuRow: View {
 
             Spacer()
 
+            if let shortcutHint {
+                CommandPaletteShortcutBadge(text: shortcutHint)
+            }
+
             if let shortcut = item.keyboardShortcut {
                 CommandPaletteShortcutBadge(text: shortcut)
             }
@@ -145,6 +154,7 @@ struct CommandPaletteCommandRow: View {
     let isSelected: Bool
     let showsCategory: Bool
     let onSelect: () -> Void
+    var shortcutHint: String?
 
     var body: some View {
         Button(action: onSelect) {
@@ -179,6 +189,10 @@ struct CommandPaletteCommandRow: View {
                     )
                     .clipShape(Capsule())
 
+                if let shortcutHint {
+                    CommandPaletteShortcutBadge(text: shortcutHint)
+                }
+
                 CommandPaletteShortcutBadge(
                     text: item.shortcut,
                     enabled: item.hasShortcut
@@ -200,8 +214,11 @@ struct CommandPaletteCommandRow: View {
     }
 
     private var accessibilityValue: String {
-        String(
-            localized: "\(item.spec.category.localizedDisplayName), \(item.spec.layoutCompatibility.localizedDisplayName), \(item.shortcut)"
+        CommandPalettePresentation.accessibilityValue(
+            String(
+                localized: "\(item.spec.category.localizedDisplayName), \(item.spec.layoutCompatibility.localizedDisplayName), \(item.shortcut)"
+            ),
+            topHitShortcut: shortcutHint
         )
     }
 }
@@ -215,6 +232,7 @@ struct CommandPaletteClipboardRow: View {
     let onPin: () -> Void
     let onDelete: () -> Void
     let onHighlight: () -> Void
+    var shortcutHint: String?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -252,6 +270,10 @@ struct CommandPaletteClipboardRow: View {
             .buttonStyle(.plain)
             .help("Copy")
             .accessibilityLabel(String(localized: "Copy \(item.title)"))
+
+            if let shortcutHint {
+                CommandPaletteShortcutBadge(text: shortcutHint)
+            }
 
             Button(action: onPaste) {
                 Image(systemName: "arrow.turn.down.left")
@@ -303,7 +325,23 @@ struct CommandPaletteClipboardRow: View {
     }
 }
 
-private struct CommandPaletteResultRowStyle: ViewModifier {
+struct CommandPaletteActionFeedback: View {
+    let text: String?
+
+    var body: some View {
+        if let text {
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 6)
+                .accessibilityIdentifier("command-palette-mark-feedback")
+        }
+    }
+}
+
+struct CommandPaletteResultRowStyle: ViewModifier {
     let isSelected: Bool
 
     func body(content: Content) -> some View {

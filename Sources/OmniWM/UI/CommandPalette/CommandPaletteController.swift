@@ -16,7 +16,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     var searchText = "" {
         didSet {
             if searchText != oldValue { actionFeedbackText = nil }
-            if isVisible, isLauncherMode {
+            if isVisible, isUnifiedSearch {
+                unifiedSearchTextDidChange(from: oldValue)
+            } else if isVisible, isLauncherMode {
                 launcherSearchTextDidChange(from: oldValue)
             } else {
                 if selectedMode == .windows, searchText != oldValue {
@@ -30,8 +32,16 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         }
     }
 
+    var isUnifiedSearch = false
+    var unifiedSearchedModes: [CommandPaletteMode] = []
+    var unifiedResults = UnifiedSearchResults()
+    var unifiedLearnedPicks: [UnifiedSearchPickKey] = []
+    var unifiedSelectionFollowsFirstRow = true
+    var unifiedPendingSearches: Set<CommandPaletteMode> = []
+    var pendingUnifiedSelection: PendingUnifiedSelection?
+
     var selectedMode: CommandPaletteMode = .windows {
-        didSet { handleModeChange(from: oldValue) }
+        didSet { if selectedMode != oldValue { activateSelectedMode() } }
     }
 
     var selectedItemID: CommandPaletteSelectionID? {
@@ -52,7 +62,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     }
 
     private(set) var isMenuLoading = false
-    private(set) var clipboardItems: [ClipboardPaletteItem] = [] {
+    var clipboardItems: [ClipboardPaletteItem] = [] {
         didSet { filterInputDidChange() }
     }
 
@@ -62,11 +72,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
 
     private(set) var filteredItems = CommandPaletteFilteredItems.windows([])
 
-    private(set) var isClipboardHistoryEnabled = false
-    private(set) var clipboardPreview: ClipboardPalettePreview?
-    private(set) var clipboardPreviewImage: NSImage?
-    private(set) var isClipboardPreviewLoading = false
-    private(set) var clipboardErrorText: String?
+    var isClipboardHistoryEnabled = false
+    var clipboardPreview: ClipboardPalettePreview?
+    var clipboardPreviewImage: NSImage?
+    var isClipboardPreviewLoading = false
+    var clipboardErrorText: String?
     var selectionScrollRequest = 0
 
     var applicationSections: [LauncherSection<LauncherApplicationResult>] = []
@@ -99,9 +109,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     let actionExecutor: CommandPaletteActionExecutor
     private let menuSession: CommandPaletteMenuSession
     private var isProgrammaticDismiss = false
-    private var isConfirmingClipboardClear = false
+    var isConfirmingClipboardClear = false
     var isPresentingModalPrompt = false
-    private var clipboardPreviewGeneration = 0
+    var clipboardPreviewGeneration = 0
 
     enum DismissReason {
         case cancel
@@ -134,7 +144,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             show(wmController: wmController, mode: mode)
             return
         }
-        if let mode, mode != selectedMode {
+        if let mode, isUnifiedSearch {
+            leaveUnifiedSearch(to: mode)
+        } else if let mode, mode != selectedMode {
             selectedMode = mode
         } else {
             dismiss(reason: .cancel)
@@ -161,6 +173,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         menuSession.resetCache()
         isMenuLoading = false
         resetLauncherState(settings: wmController.settings)
+        beginUnifiedSearchSession(requestedMode: mode, settings: wmController.settings)
         searchText = ""
         selectedItemID = nil
         menuSession.invalidate()
@@ -174,10 +187,8 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         presentation.position(panel)
         isExpanded = false
 
-        let preferredMode = mode ?? wmController.settings.commandPaletteLastMode
-        selectedMode = resolvedInitialMode(preferredMode)
-        if mode != nil {
-            wmController.settings.commandPaletteLastMode = selectedMode
+        if !isUnifiedSearch {
+            selectInitialMode(mode, settings: wmController.settings)
         }
 
         installEventMonitor()
@@ -195,7 +206,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         panel.makeKey()
         presentation.reveal(panel)
 
-        if selectedMode == .menu {
+        if isUnifiedSearch || selectedMode == .menu {
             loadMenuItemsIfNeeded()
         } else if isLauncherMode {
             expandResults()
@@ -210,8 +221,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         dismiss(reason: .deactivation)
     }
 
-    private func handleModeChange(from oldValue: CommandPaletteMode) {
-        guard selectedMode != oldValue else { return }
+    func activateSelectedMode() {
         guard isModeAvailable(selectedMode) else {
             selectedMode = .windows
             return
@@ -232,8 +242,12 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         updateSelectionAfterFilterChange()
     }
 
-    private func filterInputDidChange() {
-        refreshFilteredItems()
+    func filterInputDidChange() {
+        if isUnifiedSearch {
+            refreshUnifiedResults()
+        } else {
+            refreshFilteredItems()
+        }
         updateSelectionAfterFilterChange()
     }
 
@@ -254,14 +268,14 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     }
 
     private func loadMenuItemsIfNeeded() {
-        guard isVisible, selectedMode == .menu else { return }
+        guard isVisible, isMenuSearched else { return }
         guard isMenuModeAvailable else {
             menuItems = []
             isMenuLoading = false
             return
         }
         menuSession.load(target: focusSession.menuFocusTarget, canStart: { [weak self] in
-            self?.isVisible == true && self?.selectedMode == .menu
+            self?.isVisible == true && self?.isMenuSearched == true
         }, canPublish: { [weak self] in
             self?.isVisible == true
         }, publish: { [weak self] publication in
@@ -296,83 +310,6 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             isExpanded = true
         }
         presentation.expand(panel)
-    }
-}
-
-extension CommandPaletteController {
-    func setClipboardItemPinned(_ pinned: Bool, id: UUID) {
-        guard let wmController, isClipboardHistoryEnabled,
-              environment.isClipboardHistoryEnabled(wmController)
-        else { return }
-        Task { @MainActor [weak self, environment, wmController] in
-            let items = await environment.setClipboardItemPinned(wmController, id, pinned)
-            guard let self, self.isVisible, environment.isClipboardHistoryEnabled(wmController) else { return }
-            self.clipboardErrorText = nil
-            self.clipboardItems = items
-        }
-    }
-
-    func deleteClipboardItem(_ id: UUID) {
-        guard let wmController, isClipboardHistoryEnabled,
-              environment.isClipboardHistoryEnabled(wmController)
-        else { return }
-        Task { @MainActor [weak self, environment, wmController] in
-            let items = await environment.deleteClipboardItem(wmController, id)
-            guard let self, self.isVisible, environment.isClipboardHistoryEnabled(wmController) else { return }
-            self.clipboardItems = items
-            self.clipboardErrorText = nil
-        }
-    }
-
-    func clearClipboardHistory() {
-        guard let wmController, isClipboardHistoryEnabled,
-              environment.isClipboardHistoryEnabled(wmController)
-        else { return }
-        isConfirmingClipboardClear = true
-        defer { isConfirmingClipboardClear = false }
-        guard environment.confirmClearClipboardHistory() else { return }
-        Task { @MainActor [weak self, environment, wmController] in
-            do {
-                let items = try await environment.clearClipboardHistory(wmController)
-                guard let self, self.isVisible, environment.isClipboardHistoryEnabled(wmController) else { return }
-                self.clipboardItems = items
-                self.clipboardErrorText = nil
-            } catch {
-                guard let self, self.isVisible, environment.isClipboardHistoryEnabled(wmController) else { return }
-                self.clipboardErrorText = String(localized: "Could not clear clipboard history.")
-            }
-        }
-    }
-
-    private func loadSelectedClipboardPreview() {
-        clipboardPreviewGeneration &+= 1
-        let generation = clipboardPreviewGeneration
-        clipboardPreview = nil
-        clipboardPreviewImage = nil
-        isClipboardPreviewLoading = false
-        guard isVisible,
-              selectedMode == .clipboard,
-              let wmController,
-              case let .clipboard(id)? = selectedItemID
-        else {
-            return
-        }
-        isClipboardPreviewLoading = true
-        Task { @MainActor [weak self, environment, wmController] in
-            let preview = await environment.clipboardItemPreview(wmController, id)
-            guard let self,
-                  self.isVisible,
-                  self.clipboardPreviewGeneration == generation,
-                  self.selectedItemID == .clipboard(id)
-            else {
-                return
-            }
-            self.clipboardPreview = preview
-            if case let .image(data)? = preview {
-                self.clipboardPreviewImage = NSImage(data: data)
-            }
-            self.isClipboardPreviewLoading = false
-        }
     }
 }
 
@@ -474,23 +411,5 @@ extension CommandPaletteController {
         if isVisible {
             presentation.panel?.makeKey()
         }
-    }
-}
-
-extension CommandPaletteController {
-    func enableClipboardHistory() {
-        guard let wmController else { return }
-        environment.setClipboardHistoryEnabled(wmController, true)
-        isClipboardHistoryEnabled = true
-        refreshClipboardItems()
-    }
-
-    func refreshClipboardItems() {
-        guard let wmController else {
-            clipboardItems = []
-            return
-        }
-        isClipboardHistoryEnabled = environment.isClipboardHistoryEnabled(wmController)
-        clipboardItems = isClipboardHistoryEnabled ? environment.clipboardItems(wmController) : []
     }
 }

@@ -68,6 +68,7 @@ final class SettingsStore {
     let overview = OverviewSettings()
     let windowSwitcher = WindowSwitcherSettings()
     let keyboardModes = KeyboardModeSettings()
+    let commandPalette = CommandPaletteSettings()
 
     var hotkeyBindings = SettingsStore.defaultExport.hotkeyBindings {
         didSet { scheduleSave() }
@@ -253,13 +254,7 @@ final class SettingsStore {
             self?.notifyTrackpadAvailabilityIfChanged()
             self?.scheduleSave()
         }
-        statusBar.onChange = { [weak self] in self?.scheduleSave() }
-        statusMenu.onChange = { [weak self] in self?.scheduleSave() }
-        windowSwitcher.onChange = { [weak self] in self?.scheduleSave() }
-        keyboardModes.onChange = { [weak self] in self?.scheduleSave() }
-        hiddenBar.onChange = { [weak self] in self?.scheduleSave() }
-        clipboard.onChange = { [weak self] in self?.scheduleSave() }
-        quakeTerminal.onChange = { [weak self] in self?.scheduleSave() }
+        scheduleSaveOnPlainTableChanges()
         lastEffectiveTrackpadAvailability = effectiveTrackpadGesturesEnabled
 
         let outcome = persistence.loadOutcome()
@@ -356,6 +351,18 @@ extension SettingsStore {
 
     var launcherLaunchesSnapshot: [String: [LauncherLaunch]] {
         runtimeState.launcherLaunchesSnapshot
+    }
+
+    func recordUnifiedSearchPick(query: String, key: UnifiedSearchPickKey) {
+        runtimeState.recordUnifiedSearchPick(query: query, key: key)
+    }
+
+    func unifiedSearchLearnedPicks(for query: String) -> [UnifiedSearchPickKey] {
+        runtimeState.unifiedSearchLearnedPicks(for: query)
+    }
+
+    func clearUnifiedSearchPickHistory() {
+        runtimeState.clearUnifiedSearchPickHistory()
     }
 
     var launcherHiddenSuggestions: Set<String> {
@@ -461,6 +468,7 @@ extension SettingsStore {
         language = export.language
         clipboard.apply(export.clipboard)
         launcher = export.launcher
+        commandPalette.apply(export.commandPalette)
 
         quakeTerminal.apply(export.quakeTerminal, baseline: SettingsStore.defaultExport.quakeTerminal)
 

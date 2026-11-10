@@ -69,6 +69,7 @@ struct RuntimeState: Codable, Equatable, Sendable {
     var launcherLaunches: [String: [LauncherLaunch]]?
     var launcherShortcuts: [String: LauncherShortcut]?
     var launcherHiddenSuggestions: [String]?
+    var unifiedSearchPickHistory: UnifiedSearchPickHistory?
     var quakeTerminalUseCustomFrame: Bool?
     var quakeTerminalCustomFrame: RuntimeQuakeTerminalFrame?
     var issueDraft: IssueDraft?
@@ -428,5 +429,24 @@ extension RuntimeStateStore {
             state.screenRecordingPromptDeclined = newValue
             scheduleSave()
         }
+    }
+
+    func recordUnifiedSearchPick(query: String, key: UnifiedSearchPickKey, date: Date = Date()) {
+        var history = state.unifiedSearchPickHistory ?? UnifiedSearchPickHistory()
+        history.record(query: query, key: key, date: date)
+        guard history != state.unifiedSearchPickHistory else { return }
+        state.unifiedSearchPickHistory = history
+        scheduleSave()
+    }
+
+    func unifiedSearchLearnedPicks(for query: String) -> [UnifiedSearchPickKey] {
+        (state.unifiedSearchPickHistory ?? UnifiedSearchPickHistory())
+            .learnedPicksStrongestFirst(for: query, launcherLaunches: state.launcherLaunches ?? [:])
+    }
+
+    func clearUnifiedSearchPickHistory() {
+        guard state.unifiedSearchPickHistory != nil else { return }
+        state.unifiedSearchPickHistory = nil
+        scheduleSave()
     }
 }

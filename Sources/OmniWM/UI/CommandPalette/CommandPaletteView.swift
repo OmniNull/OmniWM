@@ -29,7 +29,7 @@ struct CommandPaletteView: View {
                 isSearchFocused = true
             }
         }
-        .onChange(of: controller.isExpanded) { _, _ in
+        .onChange(of: [controller.isExpanded, controller.isUnifiedSearch]) { _, _ in
             if controller.isVisible {
                 isSearchFocused = true
             }
@@ -40,16 +40,17 @@ struct CommandPaletteView: View {
     }
 
     private func paletteContent(width: CGFloat, height: CGFloat) -> some View {
-        let searchWidth = controller.isExpanded
-            ? width
-            : width - CommandPaletteModePicker.compactWidth - Self.compactModeSpacing
+        let showsModePicker = !controller.isExpanded && !controller.isUnifiedSearch
+        let searchWidth = showsModePicker
+            ? width - CommandPaletteModePicker.compactWidth - Self.compactModeSpacing
+            : width
 
         return VStack(spacing: 0) {
-            HStack(spacing: controller.isExpanded ? 0 : Self.compactModeSpacing) {
+            HStack(spacing: showsModePicker ? Self.compactModeSpacing : 0) {
                 searchField
                     .frame(width: searchWidth, height: 56)
 
-                if !controller.isExpanded {
+                if showsModePicker {
                     CommandPaletteModePicker(
                         selectedMode: controller.selectedMode,
                         isMenuModeAvailable: controller.isMenuModeAvailable,
@@ -81,19 +82,21 @@ struct CommandPaletteView: View {
             .fill(Color.primary.opacity(0.1))
             .frame(height: 1)
 
+        if controller.isUnifiedSearch {
+            CommandPaletteActionFeedback(text: controller.actionFeedbackText)
+            CommandPaletteUnifiedResultsView(controller: controller, motionPolicy: motionPolicy)
+        } else {
+            modeContent
+        }
+    }
+
+    @ViewBuilder
+    private var modeContent: some View {
         if controller.selectedMode == .windows {
             CommandPaletteMarkActionsView(controller: controller)
         }
 
-        if let actionFeedbackText = controller.actionFeedbackText {
-            Text(actionFeedbackText)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 6)
-                .accessibilityIdentifier("command-palette-mark-feedback")
-        }
+        CommandPaletteActionFeedback(text: controller.actionFeedbackText)
 
         if controller.selectedMode == .clipboard,
            let clipboardErrorText = controller.clipboardErrorText
@@ -165,7 +168,7 @@ struct CommandPaletteView: View {
     private var searchField: some View {
         HStack(spacing: 12) {
             Group {
-                if controller.isExpanded {
+                if controller.isExpanded, !controller.isUnifiedSearch {
                     CommandPaletteModeIcon(mode: controller.selectedMode, pointSize: 18)
                 } else {
                     Image(systemName: "magnifyingglass")
@@ -175,7 +178,9 @@ struct CommandPaletteView: View {
             .foregroundColor(.secondary)
 
             TextField(
-                CommandPalettePresentation.searchPlaceholder(for: controller.selectedMode),
+                controller.isUnifiedSearch
+                    ? String(localized: "Search…")
+                    : CommandPalettePresentation.searchPlaceholder(for: controller.selectedMode),
                 text: $controller.searchText
             )
             .textFieldStyle(.plain)
@@ -190,7 +195,7 @@ struct CommandPaletteView: View {
                 .buttonStyle(.plain)
             }
 
-            if controller.isExpanded {
+            if controller.isExpanded, !controller.isUnifiedSearch {
                 Menu {
                     ForEach(CommandPaletteMode.allCases, id: \.self) { mode in
                         Button(
@@ -227,8 +232,9 @@ struct CommandPaletteView: View {
     }
 
     private var statusText: String {
-        switch controller.selectedMode {
-        case .windows:
+        let mode = controller.isUnifiedSearch ? controller.selectedItemID?.mode : controller.selectedMode
+        return switch mode {
+        case .windows?:
             CommandPalettePresentation.windowsStatusText(
                 selectedItem: selectedWindowItem,
                 isSummonRightAvailable: controller.isSummonRightAvailable,
@@ -236,16 +242,18 @@ struct CommandPaletteView: View {
                     .map(controller.allowsWindowAlternateAction) ?? true,
                 isCurrentWorkspaceEmpty: controller.isCurrentWorkspaceEmpty
             )
-        case .menu:
+        case .menu?:
             controller.menuStatusText
-        case .clipboard:
+        case .clipboard?:
             controller.clipboardStatusText
-        case .commands:
+        case .commands?:
             String(localized: "Enter runs the selected command.")
-        case .applications:
+        case .applications?:
             String(localized: "Enter launches an entry or configures a CLI tool.")
-        case .files:
+        case .files?:
             String(localized: "Enter opens the selected file.")
+        case nil:
+            String(localized: "Enter opens the selected result.")
         }
     }
 
