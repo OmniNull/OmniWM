@@ -99,7 +99,7 @@ final class ShellServiceLedgerTests: XCTestCase {
     func testOneShotTimerPostsExactlyOneCompletion() async {
         let ledger = ShellServiceLedger(generation: 1)
         let fired = expectation(description: "timer completion")
-        let queue = DispatchSerialQueue(label: "shell.timer.test")
+        let queue = serialTestQueue("shell.timer.test")
         ledger.attachWake { fired.fulfill() }
         XCTAssertTrue(ledger.startTimer(id(1), seconds: 0.01, queue: queue))
         await fulfillment(of: [fired], timeout: failureBound)
@@ -113,7 +113,7 @@ final class ShellServiceLedgerTests: XCTestCase {
 
     func testCancelledAndInvalidTimersLeaveNoNativeOperation() {
         let ledger = ShellServiceLedger(generation: 1)
-        let queue = DispatchSerialQueue(label: "shell.timer.cancel.test")
+        let queue = serialTestQueue("shell.timer.cancel.test")
         XCTAssertFalse(ledger.startTimer(id(1), seconds: 0.001, queue: queue))
         XCTAssertFalse(ledger.startTimer(id(1), seconds: .infinity, queue: queue))
         XCTAssertTrue(ledger.startTimer(id(1), seconds: 3600, queue: queue))
