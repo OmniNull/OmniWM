@@ -98,7 +98,7 @@ extension WorkspaceManager {
                 token: token,
                 workspaceId: workspace,
                 monitorId: monitorId(for: workspace),
-                mode: metadata.role == .main ? .tiling : .floating,
+                mode: metadata.role == .main && !metadata.admitsFloating ? .tiling : .floating,
                 target: .hosted(metadata),
                 ruleEffects: .none,
                 admissionHints: .none,

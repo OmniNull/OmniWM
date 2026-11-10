@@ -36,6 +36,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             navigation.presentRuleDraft(appRuleDraft)
         }
 
+        if let window = presenter.window, let token = admit(window, controller: controller),
+           let handle = controller.workspaceManager.handle(for: token)
+        {
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            if controller.windowActionHandler.navigateToWindow(handle: handle) { return }
+        }
+
         presenter.present(
             title: String(localized: "OmniWM Settings"),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -46,6 +53,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 self?.navigation.closeWindow = { [weak window] in window?.close() }
             },
             onWillClose: { [weak self] in self?.navigation.ruleEditorState.isDirty = false },
+            onPresented: { [weak self] window in
+                guard let self, let token = admit(window, controller: controller),
+                      let workspaceId = controller.workspaceManager.workspace(for: token) else { return }
+                controller.layoutRefreshController.requestRelayout(
+                    reason: .axWindowChanged, affectedWorkspaceIds: [workspaceId]
+                )
+                _ = controller.focusWindow(token)
+            },
             content: {
                 SettingsView(
                     settings: settings,
@@ -54,6 +69,20 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                     updateCoordinator: updateCoordinator,
                     navigation: navigation
                 )
+            }
+        )
+    }
+
+    private func admit(_ window: NSWindow, controller: WMController) -> WindowToken? {
+        let manager = controller.shellAppWindowManager
+        let token = WindowToken(pid: getpid(), windowId: window.windowNumber)
+        if manager.windows[token] === window { return token }
+        guard controller.hasStartedServices else { return nil }
+        return manager.admitNativeFloating(
+            window, title: window.title, minimumSize: window.minSize,
+            shouldClose: { [weak self, weak window] in
+                guard let self, let window else { return true }
+                return windowShouldClose(window)
             }
         )
     }

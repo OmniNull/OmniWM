@@ -19,6 +19,35 @@ extension ShellAppWindowManager {
     }
 
     @discardableResult
+    func admitNativeFloating(
+        _ window: NSWindow,
+        title: String,
+        minimumSize: CGSize,
+        shouldClose: (() -> Bool)? = nil
+    ) -> WindowToken? {
+        guard let workspace = controller.activeWorkspace(),
+              let token = admit(
+                  window, metadata: HostedWindowMetadata(
+                      appId: Self.settingsAppID, title: title, minimumSize: minimumSize, icon: "gearshape",
+                      admitsFloating: true
+                  ),
+                  to: workspace.id
+              ) else { return nil }
+        controller.workspaceManager.updateFloatingGeometry(frame: window.frame, for: token)
+        controller.ownedWindowRegistry.setManagedFocusRecoverySuppressed(false, for: window)
+        closeGuards[token] = shouldClose
+        return token
+    }
+
+    func isManagedOwnedFocusTarget(activeRequest: ManagedFocusRequest?) -> Bool {
+        let keyToken = NSApp?.keyWindow.map { WindowToken(pid: getpid(), windowId: $0.windowNumber) }
+        guard let token = keyToken ?? activeRequest?.token ?? controller.workspaceManager.nativeManagedFocusToken,
+              token.pid == getpid(), windows[token] != nil
+        else { return false }
+        return controller.isOwnedWindow(windowNumber: token.windowId)
+    }
+
+    @discardableResult
     func open(
         _ definition: ShellAppDefinition,
         in workspace: WorkspaceDescriptor.ID,

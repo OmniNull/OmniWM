@@ -169,6 +169,7 @@ struct HostedWindowMetadata: Equatable, Sendable {
     var instanceID = UUID()
     var rootID = UUID()
     var role = HostedWindowRole.main
+    var admitsFloating = false
 }
 
 enum WindowTarget: Equatable, Sendable {
