@@ -451,32 +451,13 @@ extension ShellWidgetSurface {
         return image
     }
 
-    private func tinted(_ image: CGImage, _ color: CGColor) -> CGImage {
-        let rect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
-        guard let context = CGContext(
-            data: nil,
-            width: image.width,
-            height: image.height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        ) else {
-            return image
-        }
-        context.draw(image, in: rect)
-        context.setBlendMode(.sourceAtop)
-        context.setFillColor(color)
-        context.fill(rect)
-        return context.makeImage() ?? image
-    }
-
     private func symbolImage(_ name: String, color: Color, style: UInt32) -> CGImage? {
         let key = SymbolKey(name: name, color: color, style: style)
         if let cached = symbolImages[key] {
             return cached
         }
-        let tint = NSColor(cgColor: palette.color(color, default: .foreground)) ?? .labelColor
+        let tintColor = palette.color(color, default: .foreground)
+        let tint = NSColor(cgColor: tintColor.copy(alpha: 1) ?? tintColor) ?? .labelColor
         let pointSize = CGFloat(ShellTextStyle.symbolSize(for: style))
         let configuration = NSImage.SymbolConfiguration(
             pointSize: pointSize,
@@ -493,7 +474,7 @@ extension ShellWidgetSurface {
             origin: .zero,
             size: CGSize(width: symbol.size.width * scale, height: symbol.size.height * scale)
         )
-        let image = symbol.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        let image = symbol.cgImage(forProposedRect: &rect, context: nil, hints: nil).map { faded($0, tintColor.alpha) }
         symbolImages[key] = image
         return image
     }
