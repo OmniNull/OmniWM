@@ -4,7 +4,7 @@
 > - `x.com/BarutSRB`
 > - `x.com/OmniWM`
 >
-> OmniWM is free and has no hidden paywalls, as I promised from the start. The only official way to sponsor the project is [GitHub Sponsors](https://github.com/sponsors/BarutSRB), because paying contributors back honestly needs a ledger.
+> OmniWM is free and has no hidden paywalls, as I promised from the start and I would rather eat 💩 than go back on that promise. The only official way to sponsor the project is [GitHub Sponsors](https://github.com/sponsors/BarutSRB), because paying contributors back honestly needs a ledger.
 >
 > — [BarutSRB](https://github.com/BarutSRB)
 
