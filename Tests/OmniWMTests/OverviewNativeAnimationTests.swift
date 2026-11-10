@@ -54,6 +54,36 @@ final class OverviewNativeAnimationTests: XCTestCase {
         XCTAssertEqual(animation.initialVelocity, transition.makeAnimation(keyPath: "opacity").initialVelocity)
     }
 
+    func testCloseHandsOffOnceOnePercentProgressRemainsWhileOpenSettlesFully() {
+        let close = OverviewNativeTransition(generation: 1, startTime: 100, from: 1, to: 0)
+        let handoff = OverviewNativeTransition.closeHandoffProgress
+        XCTAssertEqual(OverviewNativeTransition(generation: 1, startTime: 100, from: 0, to: 1).duration, 0.4)
+        XCTAssertLessThan(close.duration, 0.3)
+        XCTAssertGreaterThan(close.value(at: 100 + close.duration - 0.002), handoff)
+        XCTAssertLessThanOrEqual(close.value(at: 100 + close.duration - 0.0001), handoff)
+        XCTAssertEqual(close.makeAnimation(keyPath: "position").duration, close.duration)
+    }
+
+    func testCloseHandoffWaitsOutOvershootAndSkipsAlreadySettledCloses() {
+        let handoff = OverviewNativeTransition.closeHandoffProgress
+        let reversing = OverviewNativeTransition(generation: 1, startTime: 100, from: 0.3, to: 0, initialVelocity: 4)
+        XCTAssertGreaterThan(reversing.value(at: 100 + reversing.duration - 0.002), handoff)
+        XCTAssertEqual(OverviewNativeTransition(generation: 1, startTime: 100, from: handoff / 2, to: 0).duration, 0)
+    }
+
+    func testCloseRevealFadesOverlayFromRevealProgressUntilHandoff() throws {
+        let close = OverviewNativeTransition(generation: 1, startTime: 100, from: 1, to: 0)
+        let revealProgress = OverviewNativeTransition.closeRevealProgress
+        XCTAssertNil(OverviewNativeTransition(generation: 1, startTime: 100, from: 0, to: 1).makeCloseReveal())
+        let reveal = try XCTUnwrap(close.makeCloseReveal())
+        XCTAssertEqual((reveal.values as? [NSNumber])?.map(\.floatValue), [1, 1, 0])
+        XCTAssertEqual(reveal.duration, close.duration)
+        XCTAssertFalse(reveal.isRemovedOnCompletion)
+        let revealStart = try XCTUnwrap(reveal.keyTimes?[1].doubleValue) * close.duration
+        XCTAssertGreaterThan(close.value(at: 100 + revealStart - 0.002), revealProgress)
+        XCTAssertLessThanOrEqual(close.value(at: 100 + revealStart), revealProgress)
+    }
+
     func testReleaseHandoffHasNoPositionOrVelocityDiscontinuity() {
         for progress in [0.05, 0.2, 0.38, 0.5, 0.65, 0.82, 0.95] {
             for velocity in [-4.0, -2.5, -0.5, 0, 0.2, 1.8, 3.5, 6] {
