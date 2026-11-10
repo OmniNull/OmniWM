@@ -57,9 +57,8 @@ struct UnifiedSearchPickHistory: Codable, Equatable, Sendable {
                 merge(key, pick)
             }
         }
-        let launcherQuery = query.localizedLowercase.trimmingCharacters(in: .whitespacesAndNewlines)
         for (targetID, launches) in launcherLaunches {
-            let matching = launches.filter { $0.foldedQuery.hasPrefix(launcherQuery) }
+            let matching = launches.filter { Self.fold($0.foldedQuery).hasPrefix(foldedQuery) }
             guard let lastLaunch = matching.map(\.date).max() else { continue }
             merge(.launcherTarget(targetID), Pick(count: matching.count, lastPicked: lastLaunch))
         }

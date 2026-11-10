@@ -323,6 +323,9 @@ extension CommandPaletteController {
             return
         }
 
+        if isUnifiedSearch, let selectedItemID, !selectionList.contains(selectedItemID) {
+            unifiedSelectionFollowsFirstRow = true
+        }
         if isUnifiedSearch, unifiedSelectionFollowsFirstRow {
             selectedItemID = selectionList.first
         } else if let selectedItemID, !selectionList.contains(selectedItemID) {

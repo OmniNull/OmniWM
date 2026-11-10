@@ -257,6 +257,30 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         XCTAssertEqual(fixture.palette.selectedItemID, .file(.results, "/tmp/Reply.txt"))
     }
 
+    func testHighlightReturnsToTheFirstRowWhenTheChosenRowDisappears() throws {
+        let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+        let replay = CommandPaletteSelectionID.application(.results, "/Applications/Replay.app")
+
+        fixture.palette.searchText = "rep"
+        publishApplications(recorder, [("Reporter", "com.example.Reporter"), ("Replay", "com.example.Replay")])
+        publishFiles(recorder, ["Report.pdf"])
+        fixture.palette.searchText = "repl"
+        XCTAssertEqual(fixture.palette.selectedItemID, replay)
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_DownArrow)))
+        XCTAssertEqual(fixture.palette.selectedItemID, .application(.results, "/Applications/Reporter.app"))
+
+        publishApplications(recorder, [("Replay", "com.example.Replay")])
+        XCTAssertEqual(fixture.palette.selectedItemID, replay)
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_Return)))
+        XCTAssertTrue(recorder.openedApplications.isEmpty)
+
+        publishFiles(recorder, ["Replica.txt"])
+        XCTAssertEqual(recorder.openedApplications, [URL(fileURLWithPath: "/Applications/Replay.app")])
+        XCTAssertTrue(recorder.openedFiles.isEmpty)
+    }
+
     func testEnterAfterMovingTheHighlightDoesNotWaitForLateResults() throws {
         let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
         defer { fixture.cleanup() }

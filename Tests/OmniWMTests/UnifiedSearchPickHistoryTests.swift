@@ -52,7 +52,7 @@ final class UnifiedSearchPickHistoryTests: XCTestCase {
         store.recordLauncherLaunch(
             targetID: "/Users/me/notes.txt",
             displayName: "notes.txt",
-            query: "notes",
+            query: "Notés",
             date: date(4)
         )
 
@@ -60,6 +60,7 @@ final class UnifiedSearchPickHistoryTests: XCTestCase {
         XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "s"), [safariApp, safari])
         XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "saf"), [safariApp, safari])
         XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "NO"), [.launcherTarget("/Users/me/notes.txt")])
+        XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "notes"), [.launcherTarget("/Users/me/notes.txt")])
 
         store.clearUnifiedSearchPickHistory()
         XCTAssertEqual(store.unifiedSearchLearnedPicks(for: "s"), [safariApp])
