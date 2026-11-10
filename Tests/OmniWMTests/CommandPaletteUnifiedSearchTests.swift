@@ -240,6 +240,23 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         XCTAssertFalse(fixture.palette.isVisible)
     }
 
+    func testMovingTheHighlightCancelsAWaitingTopHit() throws {
+        let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+
+        fixture.palette.searchText = "rep"
+        publishFiles(recorder, ["Report.pdf", "Reply.txt"])
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_ANSI_2, modifiers: .command)))
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_DownArrow)))
+
+        publishApplications(recorder, [("Reporter", "com.example.Reporter")])
+        XCTAssertTrue(recorder.openedFiles.isEmpty)
+        XCTAssertTrue(recorder.openedApplications.isEmpty)
+        XCTAssertTrue(fixture.palette.isVisible)
+        XCTAssertEqual(fixture.palette.selectedItemID, .file(.results, "/tmp/Reply.txt"))
+    }
+
     func testEnterAfterMovingTheHighlightDoesNotWaitForLateResults() throws {
         let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
         defer { fixture.cleanup() }

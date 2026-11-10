@@ -172,8 +172,11 @@ extension CommandPaletteController {
         }
 
         let newIndex = (currentIndex + delta + selectionList.count) % selectionList.count
-        if isUnifiedSearch { unifiedSelectionFollowsFirstRow = false }
-        selectedItemID = selectionList[newIndex]
+        if isUnifiedSearch {
+            highlightUnifiedRow(selectionList[newIndex])
+        } else {
+            selectedItemID = selectionList[newIndex]
+        }
         selectionScrollRequest &+= 1
     }
 }

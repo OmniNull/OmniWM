@@ -76,8 +76,9 @@ extension CommandPaletteController {
         return true
     }
 
-    func highlightUnifiedRow(_ id: CommandPaletteSelectionID) {
+    func highlightUnifiedRow(_ id: CommandPaletteSelectionID?) {
         unifiedSelectionFollowsFirstRow = false
+        pendingUnifiedSelection = nil
         selectedItemID = id
     }
 
@@ -96,8 +97,7 @@ extension CommandPaletteController {
         } else {
             delta > 0 ? 0 : sections.count - 1
         }
-        unifiedSelectionFollowsFirstRow = false
-        selectedItemID = sections[target].first
+        highlightUnifiedRow(sections[target].first)
         selectionScrollRequest &+= 1
     }
 
