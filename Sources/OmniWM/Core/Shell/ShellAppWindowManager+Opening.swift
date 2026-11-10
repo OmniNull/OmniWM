@@ -26,9 +26,7 @@ extension ShellAppWindowManager {
     ) -> Bool {
         guard !isShuttingDown else { return false }
         if !newInstance, let token = existingWindow(for: definition.id) {
-            if windows[token]?.isMiniaturized == true { windows[token]?.deminiaturize(nil) }
-            guard let handle = controller.workspaceManager.handle(for: token) else { return false }
-            return controller.windowActionHandler.navigateToWindow(handle: handle)
+            return navigateToHostedWindow(token)
         }
         let window = makeWindow(definition)
         let session = ShellAppRuntime(
@@ -55,9 +53,20 @@ extension ShellAppWindowManager {
             return handleWindowRequest(request, runtime: session, parent: token)
         }
         session.start()
+        focusAdmittedWindow(token, in: workspace)
+        return true
+    }
+
+    @discardableResult
+    func navigateToHostedWindow(_ token: WindowToken) -> Bool {
+        if windows[token]?.isMiniaturized == true { windows[token]?.deminiaturize(nil) }
+        guard let handle = controller.workspaceManager.handle(for: token) else { return false }
+        return controller.windowActionHandler.navigateToWindow(handle: handle)
+    }
+
+    func focusAdmittedWindow(_ token: WindowToken, in workspace: WorkspaceDescriptor.ID) {
         controller.layoutRefreshController.requestRelayout(reason: .axWindowChanged, affectedWorkspaceIds: [workspace])
         _ = controller.focusWindow(token)
-        return true
     }
 
     private func existingWindow(for appID: String) -> WindowToken? {

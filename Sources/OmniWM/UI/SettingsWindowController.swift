@@ -8,9 +8,17 @@ import SwiftUI
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
 
-    private let presenter = HostedWindowPresenter()
+    private let presenter: HostedWindowPresenter
     private let navigation = SettingsNavigationModel()
     private let windowCornerPreferences = GlobalWindowCornerPreferences()
+
+    init(presenter: HostedWindowPresenter = HostedWindowPresenter()) {
+        self.presenter = presenter
+    }
+
+    var window: NSWindow? {
+        presenter.window
+    }
 
     func show(
         settings: SettingsStore,
@@ -36,6 +44,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             navigation.presentRuleDraft(appRuleDraft)
         }
 
+        if let window = presenter.window,
+           controller.shellAppWindowManager.showSettingsWindow(window, shouldClose: closeGuard(for: window))
+        {
+            return
+        }
+
         presenter.present(
             title: String(localized: "OmniWM Settings"),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -46,6 +60,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 self?.navigation.closeWindow = { [weak window] in window?.close() }
             },
             onWillClose: { [weak self] in self?.navigation.ruleEditorState.isDirty = false },
+            onPresented: { [weak self] window in
+                guard let self else { return }
+                controller.shellAppWindowManager.showSettingsWindow(window, shouldClose: closeGuard(for: window))
+            },
             content: {
                 SettingsView(
                     settings: settings,
@@ -56,6 +74,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 )
             }
         )
+    }
+
+    private func closeGuard(for window: NSWindow) -> () -> Bool {
+        { [weak self, weak window] in
+            guard let self, let window else { return true }
+            return windowShouldClose(window)
+        }
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {

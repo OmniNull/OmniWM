@@ -155,6 +155,7 @@ final class ServiceLifecycleManager {
         controller.spaceTracker.start()
         startLockScreenObserver()
         controller.shellAppWindowManager.reconcileManagementResume()
+        controller.shellAppWindowManager.admitPendingSettingsWindow()
         performStartupRefresh()
         startSecureInputMonitor()
     }

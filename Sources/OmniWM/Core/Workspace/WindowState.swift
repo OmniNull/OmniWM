@@ -169,6 +169,11 @@ struct HostedWindowMetadata: Equatable, Sendable {
     var instanceID = UUID()
     var rootID = UUID()
     var role = HostedWindowRole.main
+    var admitsFloating = false
+}
+
+extension HostedWindowMetadata {
+    static let settingsAppID = Bundle.main.bundleIdentifier ?? "com.barut.OmniWM"
 }
 
 enum WindowTarget: Equatable, Sendable {

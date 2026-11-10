@@ -3,6 +3,13 @@
 
 import AppKit
 
+extension WindowToken {
+    @MainActor
+    init(ownWindow window: NSWindow) {
+        self.init(pid: getpid(), windowId: window.windowNumber)
+    }
+}
+
 @MainActor
 final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     nonisolated static let exampleID = "example"
@@ -12,6 +19,8 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
     var runtimes: [UUID: ShellAppRuntime] = [:]
     var liveResizeStarts: [WindowToken: CGRect] = [:]
     var applyingFrames: Set<WindowToken> = []
+    var closeGuards: [WindowToken: () -> Bool] = [:]
+    var pendingSettingsWindow: PendingSettingsWindow?
     private(set) var isShuttingDown = false
     var makeWindow: @MainActor (ShellAppDefinition) -> NSWindow = ShellAppWindowManager.makeWindow
     var activateApplication: () -> Void = { NSApp.activate() }
@@ -127,7 +136,10 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
             focusWithoutRaising(token)
         }
         setContentVisible(true, token: token)
-        if raisesWindow { activateApplication() }
+        if raisesWindow {
+            activateApplication()
+            focusWithoutRaising(token)
+        }
         return true
     }
 
@@ -163,6 +175,7 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
               let token = windows.first(where: { $0.value === window })?.key
         else { return }
         windows.removeValue(forKey: token)
+        closeGuards.removeValue(forKey: token)
         if let parent = window.sheetParent { parent.endSheet(window, returnCode: .cancel) }
         window.parent?.removeChildWindow(window)
         if let metadata = controller.workspaceManager.entry(for: token)?.target.hostedMetadata {

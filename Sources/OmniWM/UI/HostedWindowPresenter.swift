@@ -30,6 +30,7 @@ final class HostedWindowPresenter {
         center: (NSWindow) -> Void = { $0.center() },
         configure: (NSWindow) -> Void = { _ in },
         onWillClose: @escaping @MainActor () -> Void = {},
+        onPresented: (NSWindow) -> Void = { _ in },
         content: () -> some View
     ) {
         if let window {
@@ -62,6 +63,7 @@ final class HostedWindowPresenter {
                 }
             }
         self.window = window
+        onPresented(window)
     }
 
     func close() {
