@@ -1014,7 +1014,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
             pid: pid,
             placementMode: .tiling,
             createPlacementContext: synthesized,
-            windowFrame: CGRect(x: 200, y: 200, width: 600, height: 400),
+            appKitFrame: CGRect(x: 200, y: 200, width: 600, height: 400),
             fallbackWorkspaceId: nil
         )
 
@@ -1275,7 +1275,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
                 fallbackWorkspaceId: fixture.primaryWorkspace,
                 reevaluation: .automatic
             ),
-            windowFrame: capturedFrame
+            appKitFrame: capturedFrame
         )
 
         XCTAssertEqual(workspaceId, fixture.secondaryWorkspace)
@@ -1355,7 +1355,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
                 pid: pid,
                 parentWindowId: parentWindowId,
                 placementMode: placementMode,
-                windowFrame: windowFrame,
+                appKitFrame: windowFrame,
                 existingEntry: existingEntry
             ),
             rules: WorkspacePlacementRules(

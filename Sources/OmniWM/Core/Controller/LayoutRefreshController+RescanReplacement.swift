@@ -107,6 +107,8 @@ extension LayoutRefreshController {
         let evaluation = window.decision.evaluation
         let createPlacementContext = window.decision.createPlacementContext
         let placementOrigin = window.decision.placementOrigin
+        let appKitFrame = WMController.appKitPlacementFrame(fromWindowServer: candidate.windowServerInfo?.frame)
+            ?? WindowAdmissionGeometryEvidence.usableFrame(candidate.enumeratedWindow.admissionGeometry.frame)
         return controller.resolvedWorkspaceId(
             for: evaluation,
             axRef: nil,
@@ -119,7 +121,7 @@ extension LayoutRefreshController {
                 fallbackWorkspaceId: focusedWorkspaceId,
                 reevaluation: .automatic
             ),
-            windowFrame: candidate.capturedFrame
+            appKitFrame: appKitFrame
         )
     }
 }
