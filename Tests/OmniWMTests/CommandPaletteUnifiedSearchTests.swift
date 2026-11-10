@@ -281,6 +281,26 @@ final class CommandPaletteUnifiedSearchTests: XCTestCase {
         XCTAssertTrue(recorder.openedFiles.isEmpty)
     }
 
+    func testEnterWaitsWhenTheChosenRowDisappearsAndNothingIsLeft() throws {
+        let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+
+        fixture.palette.searchText = "rep"
+        publishApplications(recorder, [])
+        publishFiles(recorder, ["Report.pdf"])
+        fixture.palette.searchText = "repl"
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_DownArrow)))
+        XCTAssertEqual(fixture.palette.selectedItemID, .file(.results, "/tmp/Report.pdf"))
+
+        publishFiles(recorder, [])
+        XCTAssertNil(fixture.palette.selectedItemID)
+        XCTAssertTrue(fixture.palette.handleKeyDown(key(kVK_Return)))
+
+        publishApplications(recorder, [("Replay", "com.example.Replay")])
+        XCTAssertEqual(recorder.openedApplications, [URL(fileURLWithPath: "/Applications/Replay.app")])
+    }
+
     func testEnterAfterMovingTheHighlightDoesNotWaitForLateResults() throws {
         let (fixture, recorder) = makeFixture(searchedModes: [.applications, .files])
         defer { fixture.cleanup() }

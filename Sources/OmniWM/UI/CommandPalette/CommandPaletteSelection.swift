@@ -318,14 +318,14 @@ extension CommandPaletteController {
 
     func updateSelectionAfterFilterChange() {
         let selectionList = currentSelectionList()
+        if isUnifiedSearch, let selectedItemID, !selectionList.contains(selectedItemID) {
+            unifiedSelectionFollowsFirstRow = true
+        }
         if selectionList.isEmpty {
             selectedItemID = nil
             return
         }
 
-        if isUnifiedSearch, let selectedItemID, !selectionList.contains(selectedItemID) {
-            unifiedSelectionFollowsFirstRow = true
-        }
         if isUnifiedSearch, unifiedSelectionFollowsFirstRow {
             selectedItemID = selectionList.first
         } else if let selectedItemID, !selectionList.contains(selectedItemID) {
