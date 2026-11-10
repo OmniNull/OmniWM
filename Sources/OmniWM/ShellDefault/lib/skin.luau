@@ -42,12 +42,15 @@ local function skin(look)
         props.name = look.symbols[props.name] or props.name
         return ui.symbol(props)
     end
-    look.barGlyph = look.barGlyph or function(ctx, props)
+    look.barSymbolProps = look.barSymbolProps or function(ctx, props)
         if not ctx.data.bar.style.vertical then
             props.size = look.px(ctx, "barSymbol")
             props.weight = look.barWeight
         end
-        return look.glyph(props)
+        return props
+    end
+    look.barGlyph = look.barGlyph or function(ctx, props)
+        return look.glyph(look.barSymbolProps(ctx, props))
     end
     look.hue = look.hue or function()
         return nil

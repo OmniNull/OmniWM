@@ -47,8 +47,8 @@ function render(ctx: Context)
         button = ui.stack(frame)
     else
         local props = table.clone(behaviour)
+        look.barSymbolProps(ctx, glyph)
         if not style.vertical then
-            glyph.size, glyph.weight = look.px(ctx, "barSymbol"), look.barWeight
             glyph.w, glyph.h = glyph.size, glyph.size
         end
         props.w, props.h = item, item
