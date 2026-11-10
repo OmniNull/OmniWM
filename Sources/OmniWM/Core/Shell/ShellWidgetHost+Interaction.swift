@@ -138,11 +138,11 @@ extension ShellWidgetHost {
                 if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) {
                     NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
                 }
+            case .center: showNotificationCenter()
             case .dismiss,
                  .reply,
                  .dismissAll,
-                 .cancelDismissAll,
-                 .center:
+                 .cancelDismissAll:
                 ShellNotificationTrace.record(
                     "host.command",
                     fields: "kind=action focusedSurface=\(focusedSurface != nil)"
@@ -168,6 +168,15 @@ extension ShellWidgetHost {
             if !trigger(widget, name: name, value: value) {
                 reportMissing("shell trigger: no widget named \"\(widget)\" with a trigger hook", for: state)
             }
+        }
+    }
+
+    private func showNotificationCenter() {
+        ShellNotificationTrace.record("host.command", fields: "kind=center focusedSurface=\(focusedSurface != nil)")
+        resources.notifications.showCenter { [weak self, weak surface = focusedSurface] in
+            guard let self, let surface, focusedSurface === surface else { return }
+            releaseShellFocus(from: surface, restore: false)
+            ShellNotificationTrace.record("host.focusReleased")
         }
     }
 

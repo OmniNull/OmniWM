@@ -288,6 +288,8 @@ omniwm.run("notifications reply " .. item.bundle .. " " .. item.id .. " 4f4b")
 
 While another notification action is in progress, the host rejects a new reply or dismissal without changing `notifications.action`; its status may still describe the earlier action. Custom widgets should serialize reply and dismissal requests, including while `dismissAll.active` is true, and match the reported `id`, `bundle` and `kind` to their target before displaying an outcome.
 
+`notifications.centerError` holds the outcome of a failed `notifications center` request. A successful request clears it.
+
 `notifications.dismissAll` reports batch progress and its latest outcome. Cancelling stops after the current action and does not undo earlier dispatches. `dispatched` lists notification IDs whose native actions were submitted; the bundled widget hides those rows while waiting for storage to catch up. A later database observation can show notifications that macOS kept, reflected by `kept`.
 
 <LuauDeclaration name="Notifications" />

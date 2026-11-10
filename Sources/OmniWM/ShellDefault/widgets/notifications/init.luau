@@ -98,6 +98,11 @@ local function actionMessage(action)
     return nil
 end
 
+local function centerIssue(value)
+    if value and value.centerError then return actionMessage({ state = value.centerError }) end
+    return nil
+end
+
 local function emptyReply(value)
     for _, scalar in utf8.codes(value) do
         if not ((scalar >= 9 and scalar <= 13) or scalar == 32 or scalar == 133 or scalar == 160
@@ -378,7 +383,10 @@ function render(ctx)
     local count = #visibleItems(value)
     local native = ctx.select("settings", "native") == true
     local issue = status(value)
-    if native and value and value.state == "accessDenied" then issue = nil end
+    if native then
+        if value and value.state == "accessDenied" then issue = nil end
+        issue = centerIssue(value) or issue
+    end
     local scale = presentation.scale(ctx)
     local rows = { gap = 4 * scale, onClick = if native then "notifications center" else ui.popout,
         help = issue or omniwm.l10n("Notifications"),
@@ -411,6 +419,7 @@ function popout(ctx)
     if issue then
         text(rows, issue, WIDTH - 24, "body", "secondaryForeground")
     end
+    text(rows, centerIssue(value), WIDTH - 24, "body", "secondaryForeground")
     if #items == 0 and canDismiss(value) then
         rows[#rows + 1] = presentation.text{ text = omniwm.l10n("No retained notifications"), color = "secondaryForeground" }
     end

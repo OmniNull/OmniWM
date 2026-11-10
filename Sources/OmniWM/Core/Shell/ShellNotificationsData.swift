@@ -36,6 +36,7 @@ struct ShellNotificationsData: Equatable, Sendable, ShellValueWritable {
     let issues: [ShellNotificationReadIssue]
     let error: String?
     var action: ShellServiceValue?
+    var centerError: ShellNotificationActionOutcome?
     var dismissAll: ShellServiceValue?
     var dispatched: [String]
     var kept: Int
@@ -58,6 +59,7 @@ struct ShellNotificationsData: Equatable, Sendable, ShellValueWritable {
         issues: [ShellNotificationReadIssue] = [],
         error: String? = nil,
         action: ShellServiceValue? = nil,
+        centerError: ShellNotificationActionOutcome? = nil,
         dismissAll: ShellServiceValue? = nil,
         dispatched: [String] = [],
         kept: Int = 0
@@ -72,13 +74,14 @@ struct ShellNotificationsData: Equatable, Sendable, ShellValueWritable {
         }
         self.error = error
         self.action = action
+        self.centerError = centerError
         self.dismissAll = dismissAll
         self.dispatched = dispatched
         self.kept = kept
     }
 
     func write(into writer: inout ShellValueWriter) {
-        writer.map(11)
+        writer.map(12)
         writer.key("state")
         writer.string(state)
         writer.key("complete")
@@ -108,6 +111,8 @@ struct ShellNotificationsData: Equatable, Sendable, ShellValueWritable {
         error.map { writer.string($0) } ?? writer.null()
         writer.key("action")
         (action ?? .null).write(to: &writer)
+        writer.key("centerError")
+        centerError.map { writer.string($0.rawValue) } ?? writer.null()
         writer.key("dismissAll")
         (dismissAll ?? .null).write(to: &writer)
         writer.key("dispatched")

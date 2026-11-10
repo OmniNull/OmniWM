@@ -41,13 +41,14 @@ final class ShellNotificationsController {
     private let load: Loader
     private let performAction: ActionPerformer
     private let performDismissAll: DismissAllPerformer
-    let performShowCenter: CenterPerformer
+    private let performShowCenter: CenterPerformer
     private let resolveName: AppNameResolver
     private let revision: @MainActor @Sendable () -> StorageRevision
     private var appNames: [String: String] = [:]
     private var observation: ShellDirectoryObservation?
     private(set) var task: Task<Void, Never>?
     private(set) var actionTask: Task<Void, Never>?
+    private var centerTask: Task<Void, Never>?
     private(set) var generation: UInt64 = 0
     private var pending = false
     private var pendingFilesystemEvent: UInt64?
@@ -98,6 +99,7 @@ final class ShellNotificationsController {
     isolated deinit {
         task?.cancel()
         actionTask?.cancel()
+        centerTask?.cancel()
         observation?.cancel()
     }
 }
@@ -118,6 +120,8 @@ extension ShellNotificationsController {
             observation = ShellDirectoryObservation { [weak self] in self?.refresh(.filesystem) }
             refresh(.initial)
         } else {
+            centerTask?.cancel()
+            centerTask = nil
             observation?.cancel()
             observation = nil
             current = ShellNotificationsData(state: "loading")
@@ -191,6 +195,7 @@ extension ShellNotificationsController {
             return .object(fields)
         }
         next.action = current.action
+        next.centerError = current.centerError
         next.dismissAll = current.dismissAll
         reconcileDispatched(into: &next, revision: revision, filesystemEvent: filesystemEvent)
         let changed = current != next
@@ -252,28 +257,25 @@ extension ShellNotificationsController {
         current.dispatched = dispatched.keys.map { $0.uuidString.lowercased() }.sorted()
     }
 
-    func retainedTarget(
-        bundle: String, id: UUID, kind: String
-    ) -> (item: [String: ShellServiceValue], peers: Set<UUID>)? {
-        let ready = kind == "dismiss" ? current.canDismiss
-            : current.complete && (current.state == "ready" || current.state == "empty")
-        guard ready else {
-            publishAction(
-                id: id,
-                bundle: bundle,
-                kind: kind,
-                state: ShellNotificationActionOutcome.unavailable.rawValue
-            )
-            return nil
+    @discardableResult
+    func showCenter(onDispatched: @escaping @MainActor () -> Void = {}) -> Bool {
+        let busy = actionTask != nil || centerTask != nil
+        ShellNotificationTrace.record("center.request", fields: "busy=\(busy)")
+        guard !busy else { return false }
+        centerTask = Task { [weak self, performShowCenter] in
+            guard !Task.isCancelled else { return }
+            let outcome = await performShowCenter()
+            ShellNotificationTrace.record("center.end", fields: "outcome=\(outcome.rawValue)")
+            guard !Task.isCancelled, let self else { return }
+            centerTask = nil
+            let error = outcome == .dispatched ? nil : outcome
+            if current.centerError != error {
+                current.centerError = error
+                onChange?(current)
+            }
+            if outcome == .dispatched { onDispatched() }
         }
-        let items = current.items.compactMap(\.fields).filter { $0["bundle"]?.string == bundle }
-        let matches = items.filter { $0["id"]?.string.flatMap(UUID.init(uuidString:)) == id }
-        guard matches.count == 1, let item = matches.first else {
-            let outcome: ShellNotificationActionOutcome = matches.isEmpty ? .notFound : .ambiguous
-            publishAction(id: id, bundle: bundle, kind: kind, state: outcome.rawValue)
-            return nil
-        }
-        return (item, Set(items.compactMap { $0["id"]?.string.flatMap(UUID.init(uuidString:)) }))
+        return true
     }
 
     func start(_ request: ShellNotificationActionRequest, kind: String) {

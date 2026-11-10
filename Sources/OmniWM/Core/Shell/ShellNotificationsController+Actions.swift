@@ -58,14 +58,28 @@ extension ShellNotificationsController {
         return true
     }
 
-    private func showCenter() -> Bool {
-        ShellNotificationTrace.record("center.request", fields: "busy=\(actionTask != nil)")
-        guard actionTask == nil else { return false }
-        Task { [performShowCenter] in
-            let outcome = await performShowCenter()
-            ShellNotificationTrace.record("center.end", fields: "outcome=\(outcome.rawValue)")
+    private func retainedTarget(
+        bundle: String, id: UUID, kind: String
+    ) -> (item: [String: ShellServiceValue], peers: Set<UUID>)? {
+        let ready = kind == "dismiss" ? current.canDismiss
+            : current.complete && (current.state == "ready" || current.state == "empty")
+        guard ready else {
+            publishAction(
+                id: id,
+                bundle: bundle,
+                kind: kind,
+                state: ShellNotificationActionOutcome.unavailable.rawValue
+            )
+            return nil
         }
-        return true
+        let items = current.items.compactMap(\.fields).filter { $0["bundle"]?.string == bundle }
+        let matches = items.filter { $0["id"]?.string.flatMap(UUID.init(uuidString:)) == id }
+        guard matches.count == 1, let item = matches.first else {
+            let outcome: ShellNotificationActionOutcome = matches.isEmpty ? .notFound : .ambiguous
+            publishAction(id: id, bundle: bundle, kind: kind, state: outcome.rawValue)
+            return nil
+        }
+        return (item, Set(items.compactMap { $0["id"]?.string.flatMap(UUID.init(uuidString:)) }))
     }
 
     private func nativeOperation(

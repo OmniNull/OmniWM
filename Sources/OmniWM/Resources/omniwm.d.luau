@@ -339,6 +339,7 @@ export type Notifications = {
         kind: "reply" | "dismiss",
         state: string,
     }?,
+    centerError: string?,
     dismissAll: {
         total: number,
         completed: number,
