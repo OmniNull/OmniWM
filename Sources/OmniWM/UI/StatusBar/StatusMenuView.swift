@@ -403,9 +403,6 @@ struct StatusMenuHelpLinksView: View {
             MenuActionRow(icon: "heart", label: String(localized: "Sponsor on GitHub"), isExternal: true) {
                 open("https://github.com/sponsors/BarutSRB")
             }
-            MenuActionRow(icon: "heart", label: String(localized: "Sponsor on PayPal"), isExternal: true) {
-                open("https://paypal.me/beacon2024")
-            }
         }
     }
 
