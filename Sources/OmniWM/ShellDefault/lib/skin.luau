@@ -44,8 +44,8 @@ local function skin(look)
     look.hue = look.hue or function()
         return nil
     end
-    look.batterySymbol = look.batterySymbol or function(level, charging)
-        if charging then
+    look.batterySymbol = look.batterySymbol or function(level, showsBolt)
+        if showsBolt then
             return "battery.100percent.bolt"
         end
         if level > 85 then
