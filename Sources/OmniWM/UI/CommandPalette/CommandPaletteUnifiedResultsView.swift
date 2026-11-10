@@ -55,18 +55,15 @@ struct CommandPaletteUnifiedResultsView: View {
         }
     }
 
-    @ViewBuilder
     private var sections: some View {
-        let results = controller.unifiedResults
-        if !results.topHits.isEmpty {
-            heading(String(localized: "Top Hits"))
-            ForEach(results.topHits, id: \.self) { row($0) }
-        }
-        ForEach(results.groups, id: \.mode) { group in
-            heading(group.mode.localizedDisplayName)
-            ForEach(group.rows, id: \.self) { row($0) }
-            if group.hasMore {
-                showAllRow(group.mode)
+        ForEach(controller.unifiedResults.lines, id: \.self) { line in
+            switch line {
+            case .topHitsHeading:
+                heading(String(localized: "Top Hits"))
+            case let .groupHeading(mode):
+                heading(mode.localizedDisplayName)
+            case let .row(id):
+                row(id)
             }
         }
     }
@@ -148,9 +145,10 @@ struct CommandPaletteUnifiedResultsView: View {
             if let item = controller.fileResult(sectionID, itemID) {
                 fileRow(id, item)
             }
-        case .executable,
-             .showAll:
+        case .executable:
             EmptyView()
+        case let .showAll(mode):
+            showAllRow(mode)
         }
     }
 

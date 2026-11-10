@@ -93,6 +93,13 @@ final class UnifiedSearchComposeTests: XCTestCase {
             files[0 ..< shownFiles].map(\.id) + [.showAll(.files)] + apps.map(\.id)
         )
         XCTAssertEqual(results.sections.map(\.first), [files[0].id, files[topHitLimit].id, apps[0].id])
+        let rows = { (ids: [CommandPaletteSelectionID]) in ids.map(UnifiedSearchResults.Line.row) }
+        XCTAssertEqual(
+            results.lines,
+            [.topHitsHeading] + rows(files[0 ..< topHitLimit].map(\.id))
+                + [.groupHeading(.files)] + rows(files[topHitLimit ..< shownFiles].map(\.id) + [.showAll(.files)])
+                + [.groupHeading(.applications)] + rows(apps.map(\.id))
+        )
     }
 
     func testEmptyQueryComposesNothing() {

@@ -38,6 +38,12 @@ struct UnifiedSearchResults: Equatable {
         let hasMore: Bool
     }
 
+    enum Line: Hashable {
+        case topHitsHeading
+        case groupHeading(CommandPaletteMode)
+        case row(CommandPaletteSelectionID)
+    }
+
     var topHits: [CommandPaletteSelectionID] = []
     var groups: [Group] = []
 
@@ -51,6 +57,15 @@ struct UnifiedSearchResults: Equatable {
             sections.append(group.rows + (group.hasMore ? [.showAll(group.mode)] : []))
         }
         return sections
+    }
+
+    var lines: [Line] {
+        var lines: [Line] = topHits.isEmpty ? [] : [.topHitsHeading] + topHits.map(Line.row)
+        for (group, rows) in zip(groups, sections.suffix(groups.count)) {
+            lines.append(.groupHeading(group.mode))
+            lines += rows.map(Line.row)
+        }
+        return lines
     }
 
     var isEmpty: Bool {
