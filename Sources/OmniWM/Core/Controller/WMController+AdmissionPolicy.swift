@@ -80,12 +80,13 @@ extension WMController {
         }
         if requestedMode == .tiling, sizeSettable == nil { return nil }
 
-        let serverFrame = evaluation.facts.windowServer?.frame
-        let frame = if let geometry = evaluation.admissionGeometry {
-            geometry.usableFrame(preferring: serverFrame)
+        let serverFrame = WindowAdmissionGeometryEvidence.usableFrame(evaluation.facts.windowServer?.frame)
+        let frame: CGRect? = if let serverFrame {
+            ScreenCoordinateSpace.toAppKit(rect: serverFrame)
+        } else if let geometry = evaluation.admissionGeometry {
+            WindowAdmissionGeometryEvidence.usableFrame(geometry.frame)
         } else {
-            WindowAdmissionGeometryEvidence.usableFrame(serverFrame)
-                ?? WindowAdmissionGeometryEvidence.usableFrame(AXWindowService.framePreferFast(axRef))
+            WindowAdmissionGeometryEvidence.usableFrame(AXWindowService.framePreferFast(axRef))
                 ?? WindowAdmissionGeometryEvidence.usableFrame(try? AXWindowService.frame(axRef))
         }
         guard let frame else { return nil }

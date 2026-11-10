@@ -332,6 +332,41 @@ final class WindowAdmissionPolicyTests: XCTestCase {
         XCTAssertNil(controller.axEventHandler.admissionRetryStateByWindowId[UInt32(token.windowId)])
     }
 
+    func testLiveCreateFloatsReadOnlyWindowAtItsAppKitFrame() {
+        let controller = WindowAdmissionTestSupport.controller()
+        let token = WindowToken(pid: 467_115, windowId: 467_116)
+        let windowId = UInt32(token.windowId)
+        let windowInfo = WindowServerInfo(
+            id: windowId,
+            pid: token.pid,
+            level: 0,
+            frame: CGRect(x: 120, y: 80, width: 420, height: 260)
+        )
+        let evaluation = explicitProxyEvaluation(
+            pid: token.pid,
+            windowId: token.windowId,
+            windowInfo: windowInfo,
+            isSizeSettable: false
+        )
+        controller.windowDispositionEvaluationForTests = { _ in evaluation }
+
+        guard case let .prepared(candidate) = controller.axEventHandler.prepareCreateCandidate(
+            windowId: windowId,
+            windowInfo: windowInfo,
+            fallbackToken: token,
+            fallbackAXRef: WindowAdmissionTestSupport.axRef(for: token)
+        ) else {
+            return XCTFail("Expected a prepared create")
+        }
+        controller.axEventHandler.trackPreparedCreate(candidate)
+
+        XCTAssertEqual(controller.workspaceManager.entry(for: token)?.mode, .floating)
+        XCTAssertEqual(
+            controller.workspaceManager.floatingState(for: token)?.lastFrame,
+            ScreenCoordinateSpace.toAppKit(rect: windowInfo.frame)
+        )
+    }
+
     func testTraceSequenceThirteenRejectsStructurallyExternalSurfaceBeforeGeometryRetry() throws {
         let controller = WindowAdmissionTestSupport.controller()
         let token = WindowToken(pid: 86_312, windowId: 7_916)

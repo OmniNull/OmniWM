@@ -289,9 +289,7 @@ extension AXEventHandler {
         let evaluation = facts.evaluation
         let trackedMode = admission.mode
         let inheritTrackedParentWorkspace = controller.shouldInheritTrackedParentWorkspace(for: evaluation)
-        let placementFrame = admission.geometry?.frame
-            ?? evaluation.facts.windowServer?.frame
-            ?? facts.windowInfo?.frame
+        let placementFrame = evaluation.facts.windowServer?.frame ?? facts.windowInfo?.frame
         let resolvedPlacement = controller.resolveWorkspaceForNewWindow(
             workspaceName: evaluation.decision.workspaceName,
             axRef: axRef,

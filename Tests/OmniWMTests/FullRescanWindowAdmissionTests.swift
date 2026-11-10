@@ -134,7 +134,7 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         XCTAssertTrue(manager.handle(for: newToken) === handle)
         XCTAssertEqual(entry.workspaceId, originalWorkspace)
         XCTAssertEqual(entry.mode, .floating)
-        XCTAssertEqual(manager.floatingState(for: newToken)?.lastFrame, frame)
+        XCTAssertEqual(manager.floatingState(for: newToken)?.lastFrame, ScreenCoordinateSpace.toAppKit(rect: frame))
     }
 
     func testFullRescanRetriesFloatingWindowWithoutUsableGeometry() throws {
