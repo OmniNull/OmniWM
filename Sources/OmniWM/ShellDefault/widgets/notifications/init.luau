@@ -382,7 +382,7 @@ function render(ctx)
     local scale = presentation.scale(ctx)
     local rows = { gap = 4 * scale, onClick = if native then "notifications center" else ui.popout,
         help = issue or omniwm.l10n("Notifications"),
-        presentation.icon(issue, 14 * scale) }
+        presentation.icon(issue, 14 * scale, ctx) }
     if count > 0 then
         local size = if ctx.data.bar.style.vertical then math.min(12 * scale, (ctx.data.bar.style.height - 8) / 2)
             else 12 * scale

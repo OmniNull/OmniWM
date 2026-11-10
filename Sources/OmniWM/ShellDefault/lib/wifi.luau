@@ -62,7 +62,7 @@ end
 
 function wifi.glyph(state, size: number)
     if not state.power then
-        return look.glyph{ name = "wifi.slash", size = size, color = "secondaryForeground" }
+        return look.glyph{ name = "wifi.slash", size = size, weight = look.barWeight, color = "secondaryForeground" }
     end
     return wifi.fan(state.level, size, "foreground")
 end

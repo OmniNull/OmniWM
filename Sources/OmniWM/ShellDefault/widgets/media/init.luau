@@ -14,7 +14,7 @@ function render(ctx)
     if not button then
         local scale = look.scale(ctx)
         local props = table.clone(behaviour)
-        props[1] = look.glyph{ name = m.symbol, size = 14 * scale }
+        props[1] = look.barGlyph(ctx, { name = m.symbol, size = 14 * scale })
         if not ctx.data.bar.style.vertical then
             props[2] = look.text{ text = m.title, size = 13 * scale, maxWidth = 160 * scale }
         end

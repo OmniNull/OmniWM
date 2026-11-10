@@ -13,7 +13,7 @@ function render(ctx)
     local button = look.wifiBar and look.wifiBar(ctx, state)
     if not button then
         local props = table.clone(behaviour)
-        props[1] = wifi.glyph(state, 16 * look.scale(ctx))
+        props[1] = wifi.glyph(state, look.px(ctx, "barSymbol"))
         button = look.bar(ctx, props)
     end
     for key, value in behaviour do

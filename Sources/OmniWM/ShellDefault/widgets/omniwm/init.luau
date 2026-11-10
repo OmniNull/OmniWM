@@ -28,7 +28,8 @@ function render(ctx: Context)
     glyph.color = iconColor(ctx.data.settings or {})
     glyph.w, glyph.h = glyph.size, glyph.size
     local symbol, name = layoutMark(ctx.data.bar)
-    local mark = symbol and look.glyph{ name = symbol, size = look.px(ctx, "symbol"), help = omniwm.l10n(name) }
+    local mark = symbol
+        and look.barGlyph(ctx, { name = symbol, size = look.px(ctx, "symbol"), help = omniwm.l10n(name) })
     local behaviour = { onClick = "shell menu", onRightClick = "shell menu",
         help = locked and omniwm.l10n("Secure Input is on: Option shortcuts are paused")
             or omniwm.l10n("Window manager controls") }
@@ -46,6 +47,10 @@ function render(ctx: Context)
         button = ui.stack(frame)
     else
         local props = table.clone(behaviour)
+        glyph = look.barSymbolProps(ctx, glyph)
+        if not style.vertical then
+            glyph.w, glyph.h = glyph.size, glyph.size
+        end
         props.w, props.h = item, item
         if mark and style.vertical then
             props.h = nil
