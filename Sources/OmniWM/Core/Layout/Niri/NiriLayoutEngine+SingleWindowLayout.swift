@@ -21,8 +21,6 @@ extension NiriLayoutEngine {
         )
     }
 
-    /// Converts rect-relative gesture offsets to working-area coordinates and
-    /// back; 0 outside single-window layouts.
     func singleWindowGestureOrigin(context: NiriInteractionContext) -> CGFloat {
         guard let rect = singleWindowScrollRect(
             in: context.workspaceId, workingFrame: context.workingFrame, gaps: LayoutGaps(

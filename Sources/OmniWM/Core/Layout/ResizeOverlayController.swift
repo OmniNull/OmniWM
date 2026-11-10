@@ -64,8 +64,6 @@ final class ResizeOverlayController {
         phase == .tracking && self.workspaceId == workspaceId
     }
 
-    /// Pointer-driven previews hold every plan until `settleOnLayout`; animation-driven ones
-    /// also hold, but expire into a relayout if the animation stops without a settling plan.
     func begin(workspaceId: WorkspaceDescriptor.ID, style: ResizePreviewStyle, pointerDriven: Bool) {
         guard style != .live else { return }
         if self.workspaceId != workspaceId || self.style != style {
@@ -79,15 +77,12 @@ final class ResizeOverlayController {
         armWatchdog()
     }
 
-    /// The next non-tick plan for the tracked workspace writes real frames and ends the preview.
     func settleOnLayout(in workspaceId: WorkspaceDescriptor.ID? = nil) {
         guard phase == .tracking, workspaceId == nil || workspaceId == self.workspaceId else { return }
         settlesOnLayout = true
         armWatchdog()
     }
 
-    /// Routes a plan's frame changes to the panels while a preview is tracking
-    /// the workspace. Only the settling plan keeps its writes.
     func intercept(_ plan: WorkspaceLayoutPlan) -> WorkspaceLayoutPlan {
         guard isTracking(plan.workspaceId) else { return plan }
         update(plan.diff.frameChanges)

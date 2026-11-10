@@ -98,8 +98,6 @@ extension NiriLayoutEngine {
         effectiveSettings(in: workspaceId).infiniteLoop
     }
 
-    /// Reassign a single workspace without pruning unrelated workspaces
-    /// that are omitted from the request.
     func moveWorkspace(
         _ workspaceId: WorkspaceDescriptor.ID,
         to monitorId: Monitor.ID,
@@ -111,8 +109,6 @@ extension NiriLayoutEngine {
         attachWorkspaceRootIfNeeded(workspaceId, to: targetMonitor)
     }
 
-    /// Reconcile the authoritative full workspace-to-monitor assignment set
-    /// during monitor sync and prune stale duplicate roots.
     func syncWorkspaceAssignments(
         _ assignments: [(workspaceId: WorkspaceDescriptor.ID, monitor: Monitor)],
         orientations: [Monitor.ID: Monitor.Orientation] = [:]

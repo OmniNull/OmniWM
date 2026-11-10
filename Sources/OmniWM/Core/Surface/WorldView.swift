@@ -9,11 +9,6 @@ struct WorldView {
     private let controller: WMController
     private let liveBoundsProvider: ((Int) -> CGRect?)?
 
-    /// Creates a world view over the window-manager controller.
-    /// - Parameters:
-    ///   - controller: The window manager this view reads state from.
-    ///   - liveBoundsProvider: Injectable source of live window bounds (defaults to
-    ///     querying the WindowServer); lets tests supply synthetic bounds.
     init(
         controller: WMController,
         liveBoundsProvider: ((Int) -> CGRect?)? = nil
@@ -293,13 +288,6 @@ struct WorldView {
         return true
     }
 
-    /// Resolves the frame the focused-window border ring should hug.
-    /// The ring follows presentation truth: live WindowServer bounds win whenever
-    /// they can be queried (apps apply AX writes late and may constrain themselves,
-    /// so layout-intent frames can overlap the presented window). Pending AX writes
-    /// and layout caches only backfill when live bounds are unavailable.
-    /// - Returns: The frame to draw the border around, or `nil` when the window has
-    ///   no usable geometry from any source.
     func borderFrame(for entry: WindowState) -> CGRect? {
         if let observed = observedWindowBounds(windowId: entry.windowId) {
             return observed
@@ -335,8 +323,6 @@ struct WorldView {
         return nil
     }
 
-    /// Returns the window's live bounds in AppKit screen coordinates, or `nil` when
-    /// the window has no positive-size WindowServer bounds.
     func observedWindowBounds(windowId: Int) -> CGRect? {
         if let liveBoundsProvider {
             return liveBoundsProvider(windowId)
