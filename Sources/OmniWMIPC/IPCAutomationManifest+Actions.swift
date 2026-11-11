@@ -204,6 +204,11 @@ extension IPCAutomationManifest {
             valuePlaceholder: "<name>"
         ),
         .init(
+            flag: "--scratchpad",
+            summary: "Join matching windows to a scratchpad slot from 1 to 10 when OmniWM starts managing them. Cannot be combined with --assign-to-workspace or --layout tile.",
+            valuePlaceholder: "<1-10>"
+        ),
+        .init(
             flag: "--initial-container-primary-span",
             summary: "Set the initial Niri container primary-span proportion for resizable windows (0.05 through 1.0).",
             valuePlaceholder: "<proportion>"

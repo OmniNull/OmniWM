@@ -193,6 +193,10 @@ extension IPCJSONWriter {
     mutating func fields2(_ value: borrowing IPCRuleSnapshot, _ first: inout Bool) throws {
         self.key("position", &first)
         try self.value(value.position)
+        if let fieldValue = value.scratchpad {
+            self.key("scratchpad", &first)
+            try self.value(fieldValue)
+        }
         self.key("specificity", &first)
         try self.value(value.specificity)
         if let fieldValue = value.titleRegex {

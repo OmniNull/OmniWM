@@ -32,7 +32,7 @@ final class WindowGatherIPCContractTests: XCTestCase {
             #"{"from":"all"}"#
         ]
         for payload in invalidPayloads {
-            let line = Data(#"{"version":22,"id":"gather","kind":"window-gather","payload":\#(payload)}"#.utf8)
+            let line = Data(#"{"version":23,"id":"gather","kind":"window-gather","payload":\#(payload)}"#.utf8)
             XCTAssertThrowsError(try IPCWire.decodeRequest(from: line), payload)
         }
         XCTAssertEqual(IPCRequestKind.windowGather.rawValue, "window-gather")

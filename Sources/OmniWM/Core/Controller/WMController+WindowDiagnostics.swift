@@ -59,6 +59,7 @@ extension WMController {
             deferredReason: evaluation.decision.deferredReason,
             admissionOutcome: evaluation.decision.admissionOutcome,
             workspaceName: evaluation.decision.workspaceName,
+            scratchpad: evaluation.decision.admissionHints.scratchpad,
             minWidth: evaluation.decision.ruleEffects.minWidth,
             minHeight: evaluation.decision.ruleEffects.minHeight,
             initialNiriContainerPrimarySpan: evaluation.decision.admissionHints.initialNiriContainerPrimarySpan,

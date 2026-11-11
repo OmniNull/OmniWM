@@ -26,7 +26,7 @@ final class CLIInvocationParsingTests: XCTestCase {
                 let parsed = try CLIParser.parse(arguments: ["omniwmctl"] + formatArguments + testCase.arguments)
 
                 XCTAssertEqual(parsed.request.kind, testCase.kind)
-                XCTAssertEqual(parsed.request.version, 22)
+                XCTAssertEqual(parsed.request.version, 23)
                 XCTAssertNotNil(UUID(uuidString: parsed.request.id))
                 XCTAssertEqual(parsed.outputFormat, !formatArguments.isEmpty || testCase.kind == .query ? .json : .text)
                 XCTAssertFalse(parsed.expectsEventStream)
@@ -155,6 +155,50 @@ final class CLIInvocationParsingTests: XCTestCase {
         for arguments in cases {
             XCTAssertThrowsError(try CLIParser.parse(arguments: ["omniwmctl", "rule", "apply"] + arguments)) { error in
                 XCTAssertEqual(error as? CLIParseError, .usage(CLIParser.usageText))
+            }
+        }
+    }
+
+    func testRuleAddAndReplaceCarryScratchpadSlot() throws {
+        let id = "B9B137A2-9406-4D68-BD0E-8ED465450413"
+        let expected = IPCRuleDefinition(bundleId: "com.example.App", scratchpad: 2)
+        let add = try CLIParser.parse(
+            arguments: ["omniwmctl", "rule", "add", "--bundle-id", "com.example.App", "--scratchpad", "2"]
+        )
+        let replace = try CLIParser.parse(
+            arguments: ["omniwmctl", "rule", "replace", id, "--bundle-id", "com.example.App", "--scratchpad", "2"]
+        )
+
+        guard case let .rule(addRequest) = add.request.payload,
+              case let .rule(replaceRequest) = replace.request.payload
+        else {
+            return XCTFail("Expected rule requests")
+        }
+        XCTAssertEqual(addRequest, .add(rule: expected))
+        XCTAssertEqual(replaceRequest, .replace(id: id, rule: expected))
+    }
+
+    func testRuleAddAndReplaceRejectInvalidOrConflictingScratchpad() {
+        let cases = [
+            ["--scratchpad", "0"],
+            ["--scratchpad", "11"],
+            ["--scratchpad", "abc"],
+            ["--scratchpad", "2", "--assign-to-workspace", "3"],
+            ["--scratchpad", "2", "--layout", "tile"]
+        ]
+        let prefixes = [
+            ["rule", "add"],
+            ["rule", "replace", "B9B137A2-9406-4D68-BD0E-8ED465450413"]
+        ]
+        for prefix in prefixes {
+            for arguments in cases {
+                let invocation = ["omniwmctl"] + prefix + ["--bundle-id", "com.example.App"] + arguments
+                XCTAssertThrowsError(
+                    try CLIParser.parse(arguments: invocation),
+                    arguments.joined(separator: " ")
+                ) { error in
+                    XCTAssertEqual(error as? CLIParseError, .usage(CLIParser.usageText))
+                }
             }
         }
     }

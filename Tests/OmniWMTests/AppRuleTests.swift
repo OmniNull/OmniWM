@@ -56,6 +56,50 @@ final class AppRuleTests: XCTestCase {
         }
     }
 
+    func testScratchpadRoundTripsThroughJSONAndTOML() throws {
+        let rule = AppRule(bundleId: "com.test.app", scratchpad: 3)
+        let json = try JSONDecoder().decode(AppRule.self, from: JSONEncoder().encode(rule))
+        XCTAssertEqual(json.scratchpad, 3)
+
+        var export = SettingsExport.defaults()
+        export.appRules = [rule]
+        let data = try SettingsTOMLCodec.encode(export)
+        let toml = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertTrue(toml.contains("scratchpad = 3"))
+        XCTAssertEqual(try SettingsTOMLCodec.decode(data).appRules.first?.scratchpad, 3)
+    }
+
+    func testValidScratchpadRequiresRangeAndNoConflict() {
+        XCTAssertEqual(AppRule(bundleId: "a", scratchpad: 1).validScratchpad, 1)
+        XCTAssertEqual(AppRule(bundleId: "a", scratchpad: 10).validScratchpad, 10)
+        XCTAssertNil(AppRule(bundleId: "a", scratchpad: 0).validScratchpad)
+        XCTAssertNil(AppRule(bundleId: "a", scratchpad: 11).validScratchpad)
+        XCTAssertNil(AppRule(bundleId: "a", assignToWorkspace: "2", scratchpad: 2).validScratchpad)
+        XCTAssertNil(AppRule(bundleId: "a", layout: .tile, scratchpad: 2).validScratchpad)
+        XCTAssertEqual(AppRule(bundleId: "a", layout: .float, scratchpad: 2).validScratchpad, 2)
+    }
+
+    func testScratchpadConflict() {
+        XCTAssertNil(AppRule(bundleId: "a").scratchpadConflict)
+        XCTAssertNil(AppRule(bundleId: "a", scratchpad: 2).scratchpadConflict)
+        XCTAssertEqual(
+            AppRule(bundleId: "a", assignToWorkspace: "2", scratchpad: 2).scratchpadConflict,
+            .assignToWorkspace
+        )
+        XCTAssertEqual(
+            AppRule(bundleId: "a", layout: .tile, assignToWorkspace: "2", scratchpad: 2).scratchpadConflict,
+            .assignToWorkspace
+        )
+        XCTAssertEqual(AppRule(bundleId: "a", layout: .tile, scratchpad: 2).scratchpadConflict, .tileLayout)
+        XCTAssertNil(AppRule(bundleId: "a", layout: .tile).scratchpadConflict)
+    }
+
+    func testScratchpadEffectCountsOnlyWhenValid() {
+        XCTAssertTrue(AppRule(bundleId: "a", scratchpad: 2).hasEffect)
+        XCTAssertFalse(AppRule(bundleId: "a", scratchpad: 11).hasEffect)
+        XCTAssertTrue(AppRule(bundleId: "a", scratchpad: 11).hasAnyRule)
+    }
+
     func testInitialContainerPrimarySpanRoundTripsThroughTOML() throws {
         var export = SettingsExport.defaults()
         export.appRules = [AppRule(bundleId: "com.test.app", initialContainerPrimarySpan: 0.5)]
@@ -163,6 +207,51 @@ final class AppRuleTests: XCTestCase {
         XCTAssertTrue(snapshot.validationMessages.contains { $0.hasPrefix("Initial container primary span") })
     }
 
+    @MainActor
+    func testIPCProjectionRoundTripsScratchpad() {
+        let rule = AppRule(bundleId: "com.test.app", scratchpad: 4)
+        let definition = IPCRuleProjection.definition(from: rule)
+        let projectedRule = IPCRuleProjection.appRule(from: definition, id: rule.id)
+        let snapshot = IPCRuleProjection.snapshot(
+            from: projectedRule,
+            position: 1,
+            invalidRegexMessagesByRuleId: [:]
+        )
+
+        XCTAssertEqual(definition.scratchpad, 4)
+        XCTAssertEqual(projectedRule, rule)
+        XCTAssertEqual(snapshot.scratchpad, 4)
+        XCTAssertTrue(snapshot.isValid)
+    }
+
+    @MainActor
+    func testIPCProjectionReportsTOMLLoadedInvalidScratchpadWithRawValue() throws {
+        let cases: [(rule: AppRule, message: String)] = [
+            (AppRule(bundleId: "com.test.app", scratchpad: 11), "Scratchpad must be a slot from 1 to 10"),
+            (
+                AppRule(bundleId: "com.test.app", assignToWorkspace: "2", scratchpad: 3),
+                "Choose a scratchpad or a workspace, not both"
+            ),
+            (
+                AppRule(bundleId: "com.test.app", layout: .tile, scratchpad: 3),
+                "Scratchpad windows float, so the layout can't be Tile"
+            )
+        ]
+        for testCase in cases {
+            var export = SettingsExport.defaults()
+            export.appRules = [testCase.rule]
+            let loaded = try XCTUnwrap(
+                SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)).appRules.first
+            )
+
+            let snapshot = IPCRuleProjection.snapshot(from: loaded, position: 1, invalidRegexMessagesByRuleId: [:])
+
+            XCTAssertEqual(snapshot.scratchpad, testCase.rule.scratchpad)
+            XCTAssertFalse(snapshot.isValid)
+            XCTAssertTrue(snapshot.validationMessages.contains(testCase.message), testCase.message)
+        }
+    }
+
     func testDraftDefaultsAndRoundTripsInitialContainerPrimarySpan() {
         let emptyDraft = AppRuleDraft()
         XCTAssertFalse(emptyDraft.initialContainerPrimarySpanEnabled)
@@ -238,6 +327,84 @@ final class AppRuleTests: XCTestCase {
         changed.initialContainerPrimarySpan = .infinity
         XCTAssertNotEqual(changed, rhs)
         XCTAssertFalse(changed.represents(rule))
+    }
+
+    func testDraftDefaultsAndRoundTripsScratchpad() {
+        let emptyDraft = AppRuleDraft()
+        XCTAssertFalse(emptyDraft.scratchpadEnabled)
+        XCTAssertEqual(emptyDraft.scratchpad, 1)
+        XCTAssertNil(emptyDraft.makeRule().scratchpad)
+
+        let rule = AppRule(bundleId: "com.test.app", scratchpad: 4)
+        let draft = AppRuleDraft(rule: rule)
+        XCTAssertTrue(draft.scratchpadEnabled)
+        XCTAssertEqual(draft.scratchpad, 4)
+        XCTAssertEqual(draft.makeRule(), rule)
+        XCTAssertTrue(draft.represents(rule))
+    }
+
+    func testDisabledDraftScratchpadIsOmittedFromRule() {
+        var draft = AppRuleDraft(rule: AppRule(bundleId: "com.test.app", scratchpad: 4))
+        draft.scratchpadEnabled = false
+
+        XCTAssertNil(draft.makeRule().scratchpad)
+        XCTAssertNotEqual(draft, AppRuleDraft(rule: AppRule(bundleId: "com.test.app", scratchpad: 4)))
+    }
+
+    func testScratchpadOnlyDraftIsValid() {
+        var draft = AppRuleDraft(bundleId: "com.test.app")
+        draft.scratchpadEnabled = true
+        draft.scratchpad = 10
+
+        XCTAssertNil(draft.scratchpadError)
+        XCTAssertNil(draft.effectHint)
+        XCTAssertTrue(draft.isValid)
+    }
+
+    func testDraftScratchpadWithWorkspaceIsInvalid() {
+        var draft = AppRuleDraft(bundleId: "com.test.app")
+        draft.scratchpadEnabled = true
+        draft.scratchpad = 2
+        draft.assignToWorkspaceEnabled = true
+        draft.assignToWorkspace = "3"
+
+        XCTAssertEqual(draft.scratchpadError, "Choose a scratchpad or a workspace, not both")
+        XCTAssertFalse(draft.isValid)
+    }
+
+    func testDraftScratchpadWithTileLayoutIsInvalid() {
+        var draft = AppRuleDraft(bundleId: "com.test.app")
+        draft.scratchpadEnabled = true
+        draft.scratchpad = 2
+        draft.layoutAction = .tile
+
+        XCTAssertEqual(draft.scratchpadError, "Scratchpad windows float, so the layout can't be Tile")
+        XCTAssertFalse(draft.isValid)
+
+        draft.layoutAction = .float
+        XCTAssertNil(draft.scratchpadError)
+        XCTAssertTrue(draft.isValid)
+    }
+
+    func testDraftScratchpadOutsideSlotRangeIsInvalid() {
+        for value in [0, 11] {
+            var draft = AppRuleDraft(rule: AppRule(bundleId: "com.test.app", scratchpad: value))
+            XCTAssertEqual(draft.scratchpadError, "Scratchpad must be a slot from 1 to 10")
+            XCTAssertFalse(draft.isValid)
+
+            draft.scratchpadEnabled = false
+            XCTAssertNil(draft.scratchpadError)
+        }
+    }
+
+    func testDraftEffectHintNamesScratchpad() {
+        let draft = AppRuleDraft(bundleId: "com.test.app")
+
+        XCTAssertEqual(
+            draft.effectHint,
+            "Set a layout, workspace, scratchpad, initial container primary span, or minimum size — this rule has no effect"
+        )
+        XCTAssertFalse(draft.isValid)
     }
 
     private func populatedDraft() -> AppRuleDraft {

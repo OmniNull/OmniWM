@@ -15,6 +15,7 @@ public struct IPCRuleDefinition: Codable, Equatable, Sendable {
     public let initialContainerPrimarySpan: Double?
     public let minWidth: Double?
     public let minHeight: Double?
+    public let scratchpad: Int?
 
     public init(
         bundleId: String,
@@ -27,7 +28,8 @@ public struct IPCRuleDefinition: Codable, Equatable, Sendable {
         assignToWorkspace: String? = nil,
         initialContainerPrimarySpan: Double? = nil,
         minWidth: Double? = nil,
-        minHeight: Double? = nil
+        minHeight: Double? = nil,
+        scratchpad: Int? = nil
     ) {
         self.bundleId = bundleId
         self.appNameSubstring = appNameSubstring
@@ -40,6 +42,7 @@ public struct IPCRuleDefinition: Codable, Equatable, Sendable {
         self.initialContainerPrimarySpan = initialContainerPrimarySpan
         self.minWidth = minWidth
         self.minHeight = minHeight
+        self.scratchpad = scratchpad
     }
 }
 
@@ -207,6 +210,7 @@ public struct IPCRuleSnapshot: Codable, Equatable, Sendable {
     public let initialContainerPrimarySpan: Double?
     public let minWidth: Double?
     public let minHeight: Double?
+    public let scratchpad: Int?
     public let specificity: Int
     public let isValid: Bool
     public let invalidRegexMessage: String?
@@ -214,7 +218,8 @@ public struct IPCRuleSnapshot: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case id, position, bundleId, appNameSubstring, titleSubstring, titleRegex, axRole, axSubrole
-        case layout, assignToWorkspace, initialContainerPrimarySpan, minWidth, minHeight, specificity, isValid
+        case layout, assignToWorkspace, initialContainerPrimarySpan, minWidth, minHeight, scratchpad, specificity,
+             isValid
         case invalidRegexMessage, validationMessages
     }
 
@@ -232,6 +237,7 @@ public struct IPCRuleSnapshot: Codable, Equatable, Sendable {
         initialContainerPrimarySpan: Double? = nil,
         minWidth: Double? = nil,
         minHeight: Double? = nil,
+        scratchpad: Int? = nil,
         specificity: Int,
         isValid: Bool,
         invalidRegexMessage: String? = nil,
@@ -250,6 +256,7 @@ public struct IPCRuleSnapshot: Codable, Equatable, Sendable {
         self.initialContainerPrimarySpan = initialContainerPrimarySpan
         self.minWidth = minWidth
         self.minHeight = minHeight
+        self.scratchpad = scratchpad
         self.specificity = specificity
         self.isValid = isValid
         self.invalidRegexMessage = invalidRegexMessage
@@ -271,6 +278,7 @@ public struct IPCRuleSnapshot: Codable, Equatable, Sendable {
         initialContainerPrimarySpan = try container.decodeIfPresent(Double.self, forKey: .initialContainerPrimarySpan)
         minWidth = try container.decodeIfPresent(Double.self, forKey: .minWidth)
         minHeight = try container.decodeIfPresent(Double.self, forKey: .minHeight)
+        scratchpad = try container.decodeIfPresent(Int.self, forKey: .scratchpad)
         specificity = try container.decode(Int.self, forKey: .specificity)
         isValid = try container.decode(Bool.self, forKey: .isValid)
         invalidRegexMessage = try container.decodeIfPresent(String.self, forKey: .invalidRegexMessage)

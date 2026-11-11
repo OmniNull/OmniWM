@@ -56,6 +56,10 @@ extension IPCJSONWriter {
             self.key("minWidth", &first)
             try self.value(fieldValue)
         }
+        if let fieldValue = value.scratchpad {
+            self.key("scratchpad", &first)
+            try self.value(fieldValue)
+        }
         if let fieldValue = value.titleRegex {
             self.key("titleRegex", &first)
             try self.value(fieldValue)
