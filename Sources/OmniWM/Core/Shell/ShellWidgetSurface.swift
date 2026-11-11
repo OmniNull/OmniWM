@@ -127,6 +127,8 @@ final class ShellWidgetSurface {
     var dragging = false
     var textInputs: [ElementHandle: ShellTextInput] = [:]
     var inputAppearances: [ElementHandle: ShellOwnedInputAppearance] = [:]
+    var pinnedInput: ShellTextInput?
+    var pinnedInputKey: UInt64 = 0
     weak var text: ShellTextStore?
 
     struct SymbolKey: Hashable {
@@ -237,12 +239,18 @@ extension ShellWidgetSurface {
     }
 
     @discardableResult
-    func apply(_ output: [UInt8], text: ShellTextStore, gestureAcknowledgement: UInt64 = 0) -> Bool {
+    func apply(
+        _ output: [UInt8],
+        text: ShellTextStore,
+        gestureAcknowledgement: UInt64 = 0,
+        keeping anchor: ShellScrollAnchor? = nil
+    ) -> Bool {
         let followerExits = followerExitBindings()
         guard layout.apply(output, text: text) else {
             acknowledgeGesture(through: gestureAcknowledgement)
             return false
         }
+        let anchored = anchor.flatMap(keep)
         if self.text !== text { keyDeclaration = 0
             declaredKeys = []
         }
@@ -266,6 +274,7 @@ extension ShellWidgetSurface {
         }
         reconcileOwnedEditorFocus()
         commands += self.commands(text: text)
+        if let anchored { commands.append(anchored) }
         reconcileResourceDrop()
         updateHover(into: &commands, reapply: true)
         let receipt = finishManipulationLayout(through: gestureAcknowledgement, commands: &commands)
@@ -399,7 +408,8 @@ extension ShellWidgetSurface {
         reveals.removeAll()
         retiringReveals.removeAll()
         blurDeclaredFocus()
-        for input in textInputs.values { input.remove() }
+        for input in textInputs.values where input !== pinnedInput { input.remove() }
+        pinnedInput?.unbind()
         textInputs.removeAll(keepingCapacity: true)
         inputAppearances.removeAll(keepingCapacity: true)
         self.text = text

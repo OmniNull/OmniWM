@@ -21,6 +21,11 @@ struct CommandPaletteView: View {
         }
         .ignoresSafeArea()
         .defaultFocus($isSearchFocused, true)
+        .onAppear {
+            if controller.isVisible {
+                isSearchFocused = true
+            }
+        }
         .onChange(of: controller.isVisible, initial: true) { _, isVisible in
             isSearchFocused = isVisible
         }
@@ -123,8 +128,8 @@ struct CommandPaletteView: View {
             CommandPaletteLoadingView(text: String(localized: "Loading files…"))
         } else if isEmptyStateVisible {
             CommandPaletteEmptyStateView(
-                symbolName: emptyStateSymbol,
-                text: emptyStateText
+                symbolName: controller.emptyStateSymbol,
+                text: controller.emptyStateText
             )
         } else if controller.selectedMode == .clipboard {
             GeometryReader { geometry in
@@ -278,48 +283,6 @@ struct CommandPaletteView: View {
             false
         }
     }
-
-    private var emptyStateSymbol: String {
-        switch controller.selectedMode {
-        case .windows:
-            "macwindow.on.rectangle"
-        case .menu:
-            controller.isMenuModeAvailable ? "text.magnifyingglass" : "menubar.rectangle"
-        case .clipboard:
-            "clipboard"
-        case .commands:
-            "command"
-        case .applications:
-            "app.fill"
-        case .files:
-            "folder"
-        }
-    }
-
-    private var emptyStateText: String {
-        switch controller.selectedMode {
-        case .windows:
-            return controller.searchText.isEmpty
-                ? String(localized: "No windows available")
-                : String(localized: "No windows found. Check the mark name or try a title, app, or workspace.")
-        case .menu:
-            if !controller.isMenuModeAvailable {
-                return controller.menuStatusText
-            }
-            return controller.searchText.isEmpty
-                ? String(localized: "No menu items available") : String(localized: "No menu items found")
-        case .clipboard:
-            return controller.searchText.isEmpty
-                ? String(localized: "No clipboard items available") : String(localized: "No clipboard items found")
-        case .commands:
-            return controller.searchText.isEmpty
-                ? String(localized: "No commands available") : String(localized: "No commands found")
-        case .applications:
-            return String(localized: "No applications found")
-        case .files:
-            return String(localized: "No files found")
-        }
-    }
 }
 
 struct CommandPaletteModePicker: View {
@@ -384,18 +347,7 @@ struct CommandPaletteModeIcon: View {
             Image(nsImage: image.withSymbolConfiguration(.init(pointSize: pointSize, weight: .medium)) ?? image)
                 .renderingMode(.template)
         } else {
-            Image(systemName: symbolName)
-        }
-    }
-
-    private var symbolName: String {
-        switch mode {
-        case .windows: "macwindow.on.rectangle"
-        case .menu: "menubar.rectangle"
-        case .clipboard: "clipboard"
-        case .commands: "command"
-        case .applications: "square.grid.3x3"
-        case .files: "folder"
+            Image(systemName: mode.symbolName)
         }
     }
 }

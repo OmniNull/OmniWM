@@ -237,6 +237,46 @@ extension ShellWidgetSurface {
         guard container.slot >= 0 else { return false }
         let vertical = layout.core.layoutStyle(of: container).axis == .column
         guard let offset = layout.scroll(container, by: Float(vertical ? delta.y : delta.x)) else { return true }
+        submitScroll(container, offset: offset, vertical: vertical)
+        return true
+    }
+
+    func reveal(key: String, within containerKey: String) {
+        guard let container = layout.handle(forKey: containerKey),
+              layout.core.content(of: container).scrolls,
+              let item = layout.handle(forKey: key)
+        else { return }
+        let vertical = layout.core.layoutStyle(of: container).axis == .column
+        let viewport = layout.core.absoluteFrame(of: container)
+        let target = layout.core.absoluteFrame(of: item)
+        let start = vertical ? viewport.y : viewport.x
+        let length = vertical ? viewport.height : viewport.width
+        let itemStart = vertical ? target.y : target.x
+        let itemEnd = itemStart + (vertical ? target.height : target.width)
+        let delta = itemStart < start ? itemStart - start : max(itemEnd - (start + length), 0)
+        guard delta != 0, let offset = layout.scroll(container, by: delta) else { return }
+        submitScroll(container, offset: offset, vertical: vertical)
+    }
+
+    func keep(_ anchor: ShellScrollAnchor) -> ShellLayerCommand? {
+        guard let container = layout.core.firstHandle(withKey: anchor.container),
+              layout.core.content(of: container).scrolls
+        else { return nil }
+        let vertical = layout.core.layoutStyle(of: container).axis == .column
+        var target = anchor.offset
+        if let key = anchor.item, let item = layout.core.firstHandle(withKey: key),
+           layout.core.parent(of: item) == container
+        {
+            let frame = layout.core.layoutFrame(of: item)
+            target = (vertical ? frame.y : frame.x) - anchor.top
+        }
+        guard let offset = layout.scroll(container, by: target - layout.core.scrollOffset(of: container)) else {
+            return nil
+        }
+        return .scroll(slot: container.slot, origin: Self.scrollOrigin(offset, vertical: vertical))
+    }
+
+    private func submitScroll(_ container: ElementHandle, offset: Float, vertical: Bool) {
         var commands: [ShellLayerCommand] = [
             .scroll(slot: container.slot, origin: Self.scrollOrigin(offset, vertical: vertical))
         ]
@@ -244,7 +284,6 @@ extension ShellWidgetSurface {
         scene.submit(commands, animated: false)
         layoutTextInputs()
         onMove?()
-        return true
     }
 
     func release(at point: CGPoint, event: ShellEvent = ShellEvent(), timestamp: TimeInterval = CACurrentMediaTime()) {

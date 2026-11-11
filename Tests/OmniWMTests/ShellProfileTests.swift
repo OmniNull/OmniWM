@@ -263,6 +263,7 @@ final class ShellDefaultsTests: XCTestCase {
             "omniwm",
             "hidden-bar",
             "hidden-bar-menu",
+            "command-palette",
             "system-stats",
             "volume",
             "media",

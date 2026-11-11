@@ -247,7 +247,9 @@ struct ShellBarLayout: Equatable, Sendable {
         "[" + names.map(ShellTOMLText.quoted).joined(separator: ", ") + "]"
     }
 
-    static let internalWidgets: Set = ["hidden-bar-menu", "effects-lab", ShellIslandConfig.focusRibbon]
+    static let internalWidgets: Set = [
+        "hidden-bar-menu", "effects-lab", ShellWidgetHost.commandPaletteWidget, ShellIslandConfig.focusRibbon
+    ]
 
     private static func available(config: ShellConfig, shellDirectory: URL) -> [Widget] {
         var seen: Set<String> = []

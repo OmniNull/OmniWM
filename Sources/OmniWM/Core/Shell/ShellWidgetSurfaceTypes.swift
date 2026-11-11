@@ -51,6 +51,20 @@ final class ShellWidgetLayout {
         core.scroll(handle, by: delta)
     }
 
+    func handle(forKey key: String) -> ElementHandle? {
+        core.firstHandle(withKey: Self.elementKey(key))
+    }
+
+    static func elementKey(_ key: String) -> UInt64 {
+        var hash: UInt64 = 0xCBF2_9CE4_8422_2325
+        for byte in key.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01B3
+        }
+        hash &= ~(UInt64(3) << 62)
+        return hash == 0 ? 1 : hash
+    }
+
     func setRootBleed(_ bleed: Insets) {
         patches.removeAll()
         core.setRootBleed(bleed, into: &patches)
@@ -70,6 +84,13 @@ final class ShellWidgetLayout {
             into: &patches
         )
     }
+}
+
+struct ShellScrollAnchor {
+    let container: UInt64
+    let item: UInt64?
+    let top: Float
+    let offset: Float
 }
 
 struct ShellPopoutChrome: Equatable {

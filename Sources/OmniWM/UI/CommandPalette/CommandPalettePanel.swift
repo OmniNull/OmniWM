@@ -13,11 +13,17 @@ final class CommandPalettePanel {
     static let width: CGFloat = 640
     static let expandedHeight: CGFloat = 430
     static let collapsedHeight: CGFloat = 56
+    nonisolated static let searchFieldHeight: CGFloat = 24
     static let expansionDuration: TimeInterval = 0.3
     static let revealDuration: TimeInterval = 0.2
     static let dismissalDuration: TimeInterval = revealDuration
 
     private(set) var panel: NSPanel?
+    private(set) var shell: CommandPaletteShellPresenter?
+    private var container: NSView?
+    private var hostingView: NSHostingView<CommandPaletteView>?
+    private var showsShell = false
+    private var appliedChrome: ShellPopoutChrome?
     private let motionPolicy: MotionPolicy
     private let ownedWindowRegistry: OwnedWindowRegistry
     private var savedOrigin: NSPoint?
@@ -64,14 +70,111 @@ final class CommandPalettePanel {
         panel.contentMinSize = NSSize(width: Self.width, height: Self.collapsedHeight)
         panel.collectionBehavior = [.moveToActiveSpace]
 
-        let hostingView = NSHostingView(rootView: CommandPaletteView(
-            controller: controller,
-            motionPolicy: motionPolicy
-        ))
-        panel.contentView = hostingView
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.width, height: Self.expandedHeight))
+        panel.contentView = container
+        self.container = container
+        installHostingView(controller: controller)
 
         ownedWindowRegistry.register(panel)
         self.panel = panel
+    }
+
+    private func installHostingView(controller: CommandPaletteController) {
+        guard hostingView == nil, let container else { return }
+        let view = NSHostingView(rootView: CommandPaletteView(controller: controller, motionPolicy: motionPolicy))
+        view.frame = container.bounds
+        view.autoresizingMask = [.width, .height]
+        container.addSubview(view)
+        hostingView = view
+    }
+
+    func prepareShell(host: ShellWidgetHost?, controller: CommandPaletteController, checksFiles: Bool) {
+        guard let panel, let container else { return }
+        if let shell, let host, shell.config == host.config,
+           !checksFiles || shell.fingerprint == host.commandPaletteFingerprint()
+        {
+            return
+        }
+        closeShell()
+        guard let source = host?.commandPaletteSource() else { return }
+        let presenter = CommandPaletteShellPresenter(
+            source: source,
+            scale: panel.backingScaleFactor,
+            fieldFrame: Self.fieldFrame(width: container.bounds.width)
+        )
+        presenter.onQuery = { [weak controller] query in
+            guard let controller, controller.searchText != query else { return }
+            controller.searchText = query
+        }
+        presenter.onCommand = { [weak controller] command in controller?.performShellCommand(command) }
+        presenter.onTree = { [weak self] in self?.applyShellChrome() }
+        presenter.onWindowChange = { [weak controller] in controller?.publishShellData() }
+        presenter.onFailure = { [weak self, weak controller] in
+            guard let self, let controller else { return }
+            closeShell()
+            showContent(shell: false, controller: controller)
+        }
+        presenter.chrome.frame = container.bounds
+        presenter.chrome.fill()
+        presenter.chrome.isHidden = true
+        container.addSubview(presenter.chrome)
+        shell = presenter
+    }
+
+    func showContent(shell useShell: Bool, controller: CommandPaletteController) {
+        guard let panel else { return }
+        if useShell, let shell {
+            guard !showsShell else { return }
+            showsShell = true
+            hostingView?.removeFromSuperview()
+            hostingView = nil
+            shell.chrome.isHidden = false
+            shell.setVisible(true)
+            applyShellChrome()
+            shell.focusField(in: panel)
+            return
+        }
+        showsShell = false
+        appliedChrome = nil
+        shell?.chrome.isHidden = true
+        shell?.setVisible(false)
+        panel.hasShadow = true
+        installHostingView(controller: controller)
+    }
+
+    func shellLayoutSize(expanded: Bool) -> CGSize {
+        let width = panel?.contentView?.bounds.width ?? Self.width
+        return CGSize(width: width, height: expanded ? displayedExpandedSize.height : Self.collapsedHeight)
+    }
+
+    func liveResized(_ panel: NSPanel, expanded: Bool) {
+        guard expanded, panel.inLiveResize else { return }
+        displayedExpandedSize = panel.frame.size
+    }
+
+    private func applyShellChrome() {
+        guard let shell, let panel, showsShell, shell.hasTree, shell.surface.chrome != appliedChrome else { return }
+        let chrome = shell.surface.chrome
+        appliedChrome = chrome
+        shell.chrome.apply(chrome, masksContent: true)
+        panel.hasShadow = !chrome.clear
+    }
+
+    private func closeShell() {
+        showsShell = false
+        appliedChrome = nil
+        shell?.close()
+        shell = nil
+    }
+
+    private static func fieldFrame(width: CGFloat) -> CGRect {
+        let inset = collapsedHeight
+        return CGRect(
+            x: inset,
+            y: (collapsedHeight - searchFieldHeight) / 2,
+            width: max(width - 2 * inset, 0),
+            height: searchFieldHeight
+        )
     }
 
     func position(_ panel: NSPanel) {
@@ -106,6 +209,11 @@ final class CommandPalettePanel {
             NSRect(x: x, y: y + size.height - Self.collapsedHeight, width: size.width, height: Self.collapsedHeight),
             display: true
         )
+        shell?.surface.updateDisplayContext(scale: screen.backingScaleFactor)
+    }
+
+    func backingPropertiesChanged(_ panel: NSPanel) {
+        shell?.surface.updateDisplayContext(scale: panel.backingScaleFactor)
     }
 
     func reveal(_ panel: NSPanel) {

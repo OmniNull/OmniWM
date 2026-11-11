@@ -245,6 +245,16 @@ IDs are host-issued identities. Use a current snapshot for actions; titles and l
 
 <LuauDeclaration name="HiddenBarMenuRow" />
 
+## Command palette snapshot
+
+Only the `command-palette` widget receives `ctx.data.commandPalette`, in its own script, while OmniWM's command palette is open. OmniWM owns the query, search, selection and actions: the widget draws the snapshot, puts the search field in a `ui.input` keyed `query`, puts the results in a scrolling column keyed `results` with each row keyed by its `id`, and sends `palette activate <id>`, `palette mode <id>`, `palette mark set`, `palette mark remove` or `palette clear` as click actions. OmniWM sends only the rows near the view, so the column starts with a box keyed `results-before` that is `before` points tall and ends with one keyed `results-after` that is `after` points tall, each only when its height is above zero. Rows whose `kind` is `heading` are section titles, and rows with `enabled` set to false take no click. A style changes the look through the optional `look.commandPalettePanel`, `commandPaletteSearch`, `commandPaletteTabs`, `commandPaletteRow`, `commandPaletteSection`, `commandPaletteBadge`, `commandPaletteAction` and `commandPaletteEmpty` hooks, or by shipping its own `widgets/command-palette/init.luau`.
+
+<LuauDeclaration name="CommandPalette" />
+
+<LuauDeclaration name="CommandPaletteRow" />
+
+<LuauDeclaration name="CommandPaletteBadge" />
+
 ## Audio and media snapshots
 
 Optional artwork is an image reference. Media elapsed time is sampled with `sampledAt` and `rate`; a missing duration/elapsed value must not be replaced with a claimed playback position. Spectrum and per-app volume require System Audio Recording permission; Now Playing does not.

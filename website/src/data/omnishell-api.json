@@ -538,6 +538,73 @@
       ]
     },
     {
+      "name": "CommandPaletteBadge",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalettebadge",
+      "declaration": "export type CommandPaletteBadge = {\n    text: string,\n    tone: \"neutral\" | \"accent\" | \"danger\" | \"warning\" | \"shortcut\" | \"shortcutMuted\",\n    symbol: string?,\n}",
+      "fields": [
+        "text",
+        "tone",
+        "symbol"
+      ],
+      "related": []
+    },
+    {
+      "name": "CommandPaletteRow",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpaletterow",
+      "declaration": "export type CommandPaletteRow = {\n    id: string,\n    kind: \"window\" | \"command\" | \"heading\",\n    title: string,\n    subtitle: string,\n    icon: { app: string?, pid: number?, symbol: string? },\n    badges: { CommandPaletteBadge },\n    marks: { CommandPaletteBadge },\n    hint: string?,\n    hintShortcut: string?,\n    selected: boolean,\n    enabled: boolean,\n}",
+      "fields": [
+        "id",
+        "kind",
+        "title",
+        "subtitle",
+        "icon",
+        "badges",
+        "marks",
+        "hint",
+        "hintShortcut",
+        "selected",
+        "enabled"
+      ],
+      "related": [
+        "CommandPaletteBadge"
+      ]
+    },
+    {
+      "name": "CommandPalette",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalette",
+      "declaration": "export type CommandPalette = {\n    open: boolean,\n    expanded: boolean,\n    width: number,\n    height: number,\n    mode: string,\n    modes: { { id: string, title: string, symbol: string, shortcut: string, selected: boolean, enabled: boolean } },\n    placeholder: string,\n    query: string,\n    state: \"results\" | \"empty\",\n    emptyText: string,\n    emptySymbol: string,\n    feedback: string?,\n    actions: { { id: string, title: string, symbol: string, shortcut: string } },\n    rows: { CommandPaletteRow },\n    selected: string,\n    first: number,\n    total: number,\n    before: number,\n    after: number,\n}",
+      "fields": [
+        "open",
+        "expanded",
+        "width",
+        "height",
+        "mode",
+        "modes",
+        "placeholder",
+        "query",
+        "state",
+        "emptyText",
+        "emptySymbol",
+        "feedback",
+        "actions",
+        "rows",
+        "selected",
+        "first",
+        "total",
+        "before",
+        "after"
+      ],
+      "related": [
+        "CommandPaletteRow"
+      ]
+    },
+    {
       "name": "BarDrag",
       "kind": "type",
       "topic": "context-data",
@@ -1149,7 +1216,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-data",
-      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    connection: Connection?,\n}",
+      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    connection: Connection?,\n    commandPalette: CommandPalette?,\n}",
       "fields": [
         "clock",
         "date",
@@ -1201,7 +1268,8 @@
         "awake",
         "microphone",
         "brightness",
-        "connection"
+        "connection",
+        "commandPalette"
       ],
       "related": [
         "Weather",
@@ -1227,7 +1295,8 @@
         "Awake",
         "Microphone",
         "Brightness",
-        "Connection"
+        "Connection",
+        "CommandPalette"
       ]
     },
     {

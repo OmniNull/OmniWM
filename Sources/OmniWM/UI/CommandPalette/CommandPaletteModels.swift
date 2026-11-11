@@ -17,6 +17,7 @@ struct CommandPaletteWindowItem: Identifiable {
     let isAppHidden: Bool
     let markNames: [String]
     var bundleIdentifier: String?
+    var hostedSymbol: String?
 }
 
 struct CommandPaletteCommandItem: Identifiable {

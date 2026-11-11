@@ -300,7 +300,8 @@ enum CommandPaletteSearch {
                 markNames: wmController.windowMarkRegistry.names(for: entry.token),
                 bundleIdentifier: entry.target.hostedMetadata == nil
                     ? wmController.appInfoCache.bundleId(for: entry.pid)
-                    : nil
+                    : nil,
+                hostedSymbol: entry.target.hostedMetadata?.icon
             ))
         }
 

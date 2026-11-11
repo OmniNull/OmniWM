@@ -55,6 +55,7 @@ enum ShellDataKey: String, CaseIterable, Sendable {
     case microphone
     case brightness
     case connection
+    case commandPalette
 
     private static let order = allCases
     static let table = order.map(\.rawValue).joined(separator: "\n")
@@ -169,6 +170,7 @@ struct ShellWidgetData: Equatable, Sendable {
     var vars: [String: String] = [:]
     var weather: ShellWeather?
     var hiddenBar = ShellHiddenBarData()
+    var commandPalette: ShellCommandPaletteData?
     var system: ShellSystemData?
     var world = ShellWorldData()
 }
@@ -212,6 +214,7 @@ extension ShellWidgetData {
             | Self.changed(.vars, when: vars != previous.vars)
             | Self.changed(.weather, when: weather != previous.weather)
             | Self.changed(.hiddenBar, when: hiddenBar != previous.hiddenBar)
+            | Self.changed(.commandPalette, when: commandPalette != previous.commandPalette)
             | Self.changed(.system, when: system != previous.system)
             | Self.changed(.tempo, when: spectrum?.bpm != previous.spectrum?.bpm)
             | Self.changed(.workspace, when: world.workspace != previous.world.workspace)

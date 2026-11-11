@@ -168,6 +168,48 @@ export type HiddenBar = {
     menu: HiddenBarMenu?,
 }
 
+export type CommandPaletteBadge = {
+    text: string,
+    tone: "neutral" | "accent" | "danger" | "warning" | "shortcut" | "shortcutMuted",
+    symbol: string?,
+}
+
+export type CommandPaletteRow = {
+    id: string,
+    kind: "window" | "command" | "heading",
+    title: string,
+    subtitle: string,
+    icon: { app: string?, pid: number?, symbol: string? },
+    badges: { CommandPaletteBadge },
+    marks: { CommandPaletteBadge },
+    hint: string?,
+    hintShortcut: string?,
+    selected: boolean,
+    enabled: boolean,
+}
+
+export type CommandPalette = {
+    open: boolean,
+    expanded: boolean,
+    width: number,
+    height: number,
+    mode: string,
+    modes: { { id: string, title: string, symbol: string, shortcut: string, selected: boolean, enabled: boolean } },
+    placeholder: string,
+    query: string,
+    state: "results" | "empty",
+    emptyText: string,
+    emptySymbol: string,
+    feedback: string?,
+    actions: { { id: string, title: string, symbol: string, shortcut: string } },
+    rows: { CommandPaletteRow },
+    selected: string,
+    first: number,
+    total: number,
+    before: number,
+    after: number,
+}
+
 export type BarDrag = {
     sources: { string },
     workspaces: { string },
@@ -579,6 +621,7 @@ export type Data = {
     microphone: Microphone?,
     brightness: Brightness?,
     connection: Connection?,
+    commandPalette: CommandPalette?,
 }
 
 export type Format = {

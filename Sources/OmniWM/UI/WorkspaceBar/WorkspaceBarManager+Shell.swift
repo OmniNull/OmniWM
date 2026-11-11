@@ -51,6 +51,7 @@ extension WorkspaceBarManager {
     func shellConfigurationSaved(_ config: ShellConfig) {
         if let shellHost {
             shellHost.applyConfig(config, problems: shellConfiguration.configProblems)
+            controller?.commandPaletteController.prewarmShell(host: shellHost)
         } else { applyShellProfile(config) }
     }
 
@@ -138,6 +139,7 @@ extension WorkspaceBarManager {
         shellPermissionPrompts?.observe(host)
         setShellLocked(controller?.isLockScreenActive == true)
         host.start()
+        controller?.commandPaletteController.prewarmShell(host: host)
     }
 
     private func makeShellHost(configDirectory: URL) -> ShellWidgetHost {
@@ -209,6 +211,9 @@ extension WorkspaceBarManager {
         host.onWidgetMenu = { [weak self] request in
             self?.showWidgetMenu(request)
         }
+        host.onRedraw = { [weak self] in
+            self?.controller?.commandPaletteController.presentation.shell?.redraw()
+        }
         host.onConfigChange = { [weak self] config in
             self?.shellConfiguration.adopt(config)
             NotificationCenter.default.post(name: .shellConfigDidChange, object: nil)
@@ -218,6 +223,7 @@ extension WorkspaceBarManager {
                 self?.controller?.surfaceReconciler.noteWorldChanged()
             }
             self?.controller?.mouseEventHandler.reconcileMouseMoveSubscription()
+            self?.controller?.commandPaletteController.prewarmShell(host: self?.shellHost)
         }
     }
 

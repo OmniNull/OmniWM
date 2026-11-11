@@ -54,7 +54,10 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     }
 
     var windows: [CommandPaletteWindowItem] = [] {
-        didSet { filterInputDidChange() }
+        didSet {
+            shellRowCache.removeAll(keepingCapacity: true)
+            filterInputDidChange()
+        }
     }
 
     private(set) var menuItems: [MenuItemModel] = [] {
@@ -67,7 +70,10 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     }
 
     private(set) var commandItems: [CommandPaletteCommandItem] = [] {
-        didSet { filterInputDidChange() }
+        didSet {
+            shellCommandRowCache.removeAll(keepingCapacity: true)
+            filterInputDidChange()
+        }
     }
 
     private(set) var filteredItems = CommandPaletteFilteredItems.windows([])
@@ -112,6 +118,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     var isConfirmingClipboardClear = false
     var isPresentingModalPrompt = false
     var clipboardPreviewGeneration = 0
+    @ObservationIgnored var shellObservationArmed = false
+    @ObservationIgnored var shellRowCache: [WindowToken: ShellCommandPaletteData.Row] = [:]
+    @ObservationIgnored var shellCommandRowCache: [String: ShellCommandPaletteData.Row] = [:]
+    @ObservationIgnored var shellHeaderCache: CommandPaletteShellHeader?
+    @ObservationIgnored weak var deferredShellHost: ShellWidgetHost?
 
     enum DismissReason {
         case cancel
@@ -178,11 +189,8 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         selectedItemID = nil
         menuSession.invalidate()
 
-        if presentation.panel == nil {
-            presentation.create(controller: self)
-        }
-
-        guard let panel = presentation.panel else { return }
+        guard let panel = preparePresentation(wmController) else { return }
+        presentation.shell?.beginSession()
 
         presentation.position(panel)
         isExpanded = false
@@ -202,6 +210,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         }
         updateSelectionAfterFilterChange()
         loadSelectedClipboardPreview()
+        syncShellContent()
         panel.orderFrontRegardless()
         panel.makeKey()
         presentation.reveal(panel)
@@ -212,6 +221,27 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             expandResults()
             startLauncherSearch()
         }
+    }
+
+    private func preparePresentation(_ wmController: WMController) -> NSPanel? {
+        if presentation.panel == nil {
+            presentation.create(controller: self)
+        }
+        presentation.prepareShell(
+            host: wmController.workspaceBarManager.shellHost, controller: self, checksFiles: false
+        )
+        return presentation.panel
+    }
+
+    func windowDidChangeBackingProperties(_: Notification) {
+        guard let panel = presentation.panel else { return }
+        presentation.backingPropertiesChanged(panel)
+    }
+
+    func windowDidResize(_: Notification) {
+        guard isVisible, let panel = presentation.panel else { return }
+        presentation.liveResized(panel, expanded: isExpanded)
+        publishShellData()
     }
 
     func windowDidResignKey(_: Notification) {
@@ -240,6 +270,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             startLauncherSearch()
         }
         updateSelectionAfterFilterChange()
+        if isVisible { syncShellContent() }
     }
 
     func filterInputDidChange() {
@@ -328,6 +359,10 @@ extension CommandPaletteController {
             environment.observeClipboardItems(wmController, nil)
             releasePaletteInput(wmController)
         }
+        if let shell = presentation.shell {
+            shell.publish(shellData(size: presentation.shellLayoutSize(expanded: false)))
+            shell.setVisible(false)
+        }
 
         var defersContentClear = false
         if let panel = presentation.panel {
@@ -390,6 +425,9 @@ extension CommandPaletteController {
         clipboardItems = []
         commandItems = []
         isClipboardHistoryEnabled = false
+        if let host = deferredShellHost {
+            prewarmShell(host: host)
+        }
     }
 
     private func installEventMonitor() {

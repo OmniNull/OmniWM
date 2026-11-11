@@ -10,7 +10,7 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         case idle, acquiring, editing
     }
 
-    let handle: ElementHandle
+    fileprivate(set) var handle: ElementHandle
     let view = ShellInputClipView()
     let field: ShellInputField?
     let editor: ShellInputTextView?
@@ -25,15 +25,23 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     private(set) var pendingFocus = false
     private(set) var onScreen = false
     private var focusDeclaration: Int8 = -1
-    private var maximum = 65536
-    private var lastChange: String?
+    fileprivate var maximum = 65536
+    fileprivate var lastChange: String?
     private var style: UInt32?
     private(set) var presentsTransiently = false
+    fileprivate let onText: (@MainActor (ShellEvent) -> Void)?
 
-    init(handle: ElementHandle, surface: ShellWidgetSurface, multiline: Bool) {
+    fileprivate init(
+        handle: ElementHandle,
+        surface: ShellWidgetSurface,
+        capture: ShellPointerCapture,
+        multiline: Bool,
+        onText: (@MainActor (ShellEvent) -> Void)?
+    ) {
         self.handle = handle
         self.surface = surface
-        capture = surface.capture(handle)
+        self.capture = capture
+        self.onText = onText
         if multiline {
             let editor = ShellInputTextView(frame: .zero)
             editor.isRichText = false
@@ -112,6 +120,7 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         if field?.placeholderString != placeholder { field?.placeholderString = placeholder }
         editor?.textColor = color
         editor?.placeholder = placeholder
+        guard !isPinned else { return }
         if !editing { replace(String(text.string(content.text).prefix(maximum))) }
         if content.inputFocus != focusDeclaration {
             focusDeclaration = content.inputFocus
@@ -161,10 +170,6 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         return true
     }
 
-    func requestFocus() {
-        surface?.focusTextInput(self)
-    }
-
     func focusApplied() {
         pendingFocus = false
     }
@@ -184,7 +189,7 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         focusState = .editing
         pendingFocus = false
         lastChange = text
-        surface?.recordDeclaredFocus(handle)
+        if !isPinned { surface?.recordDeclaredFocus(handle) }
         emit(capture.content.inputFocusAction, kind: .textFocus, focused: true)
     }
 
@@ -193,7 +198,7 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         changed()
         focusState = .idle
         emit(capture.content.inputFocusAction, kind: .textFocus, focused: false)
-        if surface?.focused == handle { surface?.blurDeclaredFocus() }
+        if !isPinned, surface?.focused == handle { surface?.blurDeclaredFocus() }
     }
 
     func changed() {
@@ -214,7 +219,7 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
             kind: commit ? .textCommit : .textCancel,
             text: commit ? text : nil
         )
-        if surface?.focused == handle { surface?.blurDeclaredFocus() }
+        if !isPinned, surface?.focused == handle { surface?.blurDeclaredFocus() }
     }
 
     func blur() {
@@ -233,7 +238,7 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         view.removeFromSuperview()
     }
 
-    private func replace(_ text: String, preserveSelection: Bool = false) {
+    fileprivate func replace(_ text: String, preserveSelection: Bool = false) {
         guard self.text != text else { return }
         let selection = preserveSelection ? textEditor?.selectedRange() : nil
         field?.stringValue = text
@@ -253,6 +258,10 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         event.focused = focused
         event.coalescingTarget = UInt64(handle.generation) << 32 | UInt64(UInt32(bitPattern: handle.slot))
         if kind == .textChange { event.phase = .changed }
+        if let onText {
+            onText(event)
+            return
+        }
         surface?.emit(action, capture: capture, point: capture.origin, event: event)
     }
 
@@ -325,6 +334,59 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
 
     func textView(_: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         command(commandSelector)
+    }
+}
+
+extension ShellTextInput {
+    var isPinned: Bool {
+        onText != nil
+    }
+
+    convenience init(handle: ElementHandle, surface: ShellWidgetSurface, multiline: Bool) {
+        self.init(handle: handle, surface: surface, capture: surface.capture(handle), multiline: multiline, onText: nil)
+    }
+
+    func requestFocus() {
+        guard !isPinned else {
+            view.window?.makeFirstResponder(responder)
+            return
+        }
+        surface?.focusTextInput(self)
+    }
+
+    convenience init(pinnedIn surface: ShellWidgetSurface, onText: @escaping @MainActor (ShellEvent) -> Void) {
+        let capture = ShellPointerCapture(
+            handle: .none,
+            content: Content(),
+            anchor: ShellAnchor(frame: .zero, level: .normal),
+            origin: .zero,
+            sequence: 0,
+            event: ShellEvent()
+        )
+        self.init(handle: .none, surface: surface, capture: capture, multiline: false, onText: onText)
+    }
+
+    func rebind(_ handle: ElementHandle) {
+        guard let surface else { return }
+        self.handle = handle
+        capture = surface.capture(handle)
+    }
+
+    func unbind() {
+        handle = .none
+    }
+
+    func setText(_ text: String) {
+        let limited = String(text.prefix(maximum))
+        replace(limited)
+        lastChange = limited
+    }
+
+    func place(_ frame: CGRect) {
+        view.isHidden = false
+        view.alphaValue = 1
+        view.frame = frame
+        field?.frame = CGRect(origin: .zero, size: frame.size)
     }
 }
 

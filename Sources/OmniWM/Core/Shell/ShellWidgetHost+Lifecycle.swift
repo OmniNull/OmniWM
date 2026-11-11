@@ -192,6 +192,7 @@ extension ShellWidgetHost {
     func iconsDidChange() {
         closePopout()
         redrawInstances()
+        onRedraw?()
     }
 
     private func redrawInstances() {

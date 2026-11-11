@@ -82,6 +82,12 @@ extension ShellWidgetPackage {
         if changed & ShellDataKey.hiddenBar.bit != 0 {
             setValue(instance, .hiddenBar) { next.hiddenBar.write(into: &$0) }
         }
+        if changed & ShellDataKey.commandPalette.bit != 0 {
+            setValue(instance, .commandPalette) { writer in
+                guard let palette = next.commandPalette else { return writer.null() }
+                palette.write(into: &writer)
+            }
+        }
     }
 
     private func updateAudio(

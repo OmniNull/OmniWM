@@ -29,6 +29,16 @@ extension ShellWidgetSurface {
 
     func insertTextInput(_ handle: ElementHandle) {
         guard textInputs[handle] == nil else { return }
+        if let pinnedInput, pinnedInputKey != 0, layout.core.key(of: handle) == pinnedInputKey,
+           !layout.core.content(of: handle).inputMultiline
+        {
+            if let previous = textInputs.first(where: { $0.value === pinnedInput })?.key {
+                textInputs.removeValue(forKey: previous)
+            }
+            pinnedInput.rebind(handle)
+            textInputs[handle] = pinnedInput
+            return
+        }
         let input = ShellTextInput(
             handle: handle,
             surface: self,
@@ -40,7 +50,27 @@ extension ShellWidgetSurface {
 
     func removeTextInput(_ handle: ElementHandle) {
         inputAppearances.removeValue(forKey: handle)
-        textInputs.removeValue(forKey: handle)?.remove()
+        guard let input = textInputs.removeValue(forKey: handle) else { return }
+        if input === pinnedInput {
+            input.unbind()
+        } else {
+            input.remove()
+        }
+    }
+
+    @discardableResult
+    func pinTextInput(
+        key: String,
+        frame: CGRect,
+        onText: @escaping @MainActor (ShellEvent) -> Void
+    ) -> ShellTextInput {
+        if let pinnedInput { return pinnedInput }
+        let input = ShellTextInput(pinnedIn: self, onText: onText)
+        pinnedInput = input
+        pinnedInputKey = ShellWidgetLayout.elementKey(key)
+        view.addSubview(input.view)
+        input.place(frame)
+        return input
     }
 
     func updateTextInputs() {

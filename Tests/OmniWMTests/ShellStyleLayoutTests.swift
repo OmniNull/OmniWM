@@ -4598,6 +4598,169 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
+    func testCommandPaletteKeepsQueryResultsRowsAndActionsAcrossSkins() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            let resources = ShellResources(motion: MotionPolicy(animationsEnabled: false))
+            resources.palette.refresh(theme: config.theme, appearance: try XCTUnwrap(NSAppearance(named: .darkAqua)))
+            for palette in [commandPaletteFixture(), commandModePaletteFixture()] {
+                try assertCommandPalette(palette, profile: profile, config: config, shell: shell, resources: resources)
+            }
+        }
+    }
+
+    private func assertCommandPalette(
+        _ palette: ShellCommandPaletteData,
+        profile: String,
+        config: ShellConfig,
+        shell: URL,
+        resources: ShellResources
+    ) throws {
+        let rowActions = palette.rows.filter(\.enabled).map { "palette activate \($0.id)" }
+        let profile = "\(profile) \(palette.mode)"
+        let widget = try makeWidget(
+            ShellWidgetHost.commandPaletteWidget, config: config, shell: shell, resources: resources
+        )
+        widget.render(fixture(config, height: 32, vertical: false))
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        let layout = widget.surface.layout
+        let query = try XCTUnwrap(layout.handle(forKey: CommandPaletteShellPresenter.queryKey), profile)
+        XCTAssertEqual(layout.core.kind(of: query), .input, profile)
+        let results = try XCTUnwrap(layout.handle(forKey: CommandPaletteShellPresenter.resultsKey), profile)
+        XCTAssertTrue(layout.core.content(of: results).scrolls, profile)
+        let strings = widget.strings(OMNI_VIEW_POPOUT)
+        for row in palette.rows {
+            XCTAssertTrue(
+                strings.contains { $0.localizedCaseInsensitiveContains(row.title) }, "\(profile): \(row.title)"
+            )
+            let handle = try XCTUnwrap(layout.handle(forKey: row.id), profile)
+            let frame = CGRect(layout.core.absoluteFrame(of: handle))
+            widget.surface.press(at: CGPoint(x: frame.midX, y: frame.midY))
+            widget.surface.release(at: CGPoint(x: frame.midX, y: frame.midY))
+        }
+        XCTAssertEqual(widget.clicks.map(\.action), rowActions, profile)
+        let actions = Set(layout.core.elements { $0.action != 0 }.map {
+            widget.text.string(layout.core.content(of: $0).action)
+        })
+        for action in palette.actions {
+            XCTAssertTrue(actions.contains("palette " + action.id), "\(profile): \(action.id)")
+        }
+        for row in palette.rows {
+            guard let symbol = row.icon.symbol else { continue }
+            let handle = try XCTUnwrap(layout.handle(forKey: row.id), profile)
+            let drawn = layout.core.elements { _ in true }.contains { element in
+                layout.core.kind(of: element) == .symbol
+                    && widget.text.string(layout.core.content(of: element).text) == symbol
+                    && layout.core.parent(of: element) == handle
+            }
+            XCTAssertTrue(drawn, "\(profile): \(row.id) draws its declared symbol")
+        }
+        guard ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] != nil else { return }
+        let expanded = try raster(widget.surface, scale: 2)
+        let expandedSize = widget.surface.size
+        var collapsed = palette
+        collapsed.expanded = false
+        collapsed.height = Double(CommandPalettePanel.collapsedHeight)
+        widget.set("commandPalette") { collapsed.write(into: &$0) }
+        widget.layoutPopout()
+        try write(
+            [
+                ("collapsed", raster(widget.surface, scale: 2), widget.surface.size),
+                ("expanded", expanded, expandedSize)
+            ],
+            name: "command-palette-\(profile.replacingOccurrences(of: " ", with: "-"))", scale: 2, dark: true,
+            solidBlack: false
+        )
+    }
+
+    private func commandModePaletteFixture() -> ShellCommandPaletteData {
+        var palette = commandPaletteFixture()
+        palette.mode = CommandPaletteMode.commands.rawValue
+        for index in palette.modes.indices {
+            palette.modes[index].selected = palette.modes[index].id == palette.mode
+        }
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: .commands)
+        palette.actions = []
+        let none = ShellCommandPaletteData.Icon(app: nil, pid: nil, symbol: nil)
+        let command = ShellCommandPaletteData.Icon(app: nil, pid: nil, symbol: CommandPaletteMode.commands.symbolName)
+        palette.rows = [
+            .init(
+                id: "heading-Monitor", kind: .heading, title: "Monitor", subtitle: "", icon: none, badges: [],
+                marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: false
+            ),
+            .init(
+                id: "focusLeft", kind: .command, title: "Focus Left", subtitle: "", icon: command,
+                badges: [
+                    .init(text: "All", tone: .neutral, symbol: nil),
+                    .init(text: "⌥H", tone: .shortcut, symbol: nil)
+                ],
+                marks: [], hint: nil, hintShortcut: nil, selected: true, enabled: true
+            ),
+            .init(
+                id: "balanceSizes", kind: .command, title: "Balance Sizes", subtitle: "", icon: command,
+                badges: [
+                    .init(text: "Dwindle", tone: .warning, symbol: nil),
+                    .init(text: "Unassigned", tone: .shortcutMuted, symbol: nil)
+                ],
+                marks: [], hint: nil, hintShortcut: nil, selected: false, enabled: false
+            ),
+            .init(
+                id: "heading-Layout", kind: .heading, title: "Layout", subtitle: "", icon: none, badges: [],
+                marks: [], hint: nil, hintShortcut: nil, selected: false, enabled: false
+            ),
+            .init(
+                id: "toggleFullscreen", kind: .command, title: "Toggle Fullscreen", subtitle: "Container and Column",
+                icon: command,
+                badges: [
+                    .init(text: "All", tone: .neutral, symbol: nil),
+                    .init(text: "Unassigned", tone: .shortcutMuted, symbol: nil)
+                ],
+                marks: [], hint: nil, hintShortcut: nil, selected: false, enabled: true
+            )
+        ]
+        palette.selected = palette.rows[1].id
+        return palette
+    }
+
+    private func commandPaletteFixture() -> ShellCommandPaletteData {
+        var palette = ShellCommandPaletteData()
+        palette.open = true
+        palette.expanded = true
+        palette.width = Double(CommandPalettePanel.width)
+        palette.height = Double(CommandPalettePanel.expandedHeight)
+        palette.mode = CommandPaletteMode.windows.rawValue
+        palette.modes = CommandPaletteMode.allCases.map {
+            .init(
+                id: $0.rawValue, title: $0.localizedDisplayName, symbol: $0.symbolName,
+                shortcut: CommandPalettePresentation.modeHint(for: $0).shortcut,
+                selected: $0 == .windows, enabled: true
+            )
+        }
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: .windows)
+        palette.actions = [
+            .init(id: "mark set", title: "Mark selected window…", symbol: "tag", shortcut: "⌃⌥⇧M"),
+            .init(id: "mark remove", title: "Remove mark…", symbol: "tag.slash", shortcut: "⌃⌥⇧R")
+        ]
+        palette.rows = [("Inbox", "Mail"), ("Notes", "Notes"), ("Terminal", "Ghostty")].enumerated().map { index, row in
+            .init(
+                id: "window-\(index)", kind: .window, title: row.0, subtitle: row.1,
+                icon: .init(app: nil, pid: nil, symbol: index == 2 ? "gearshape" : nil),
+                badges: [.init(text: "\(index + 1)", tone: .neutral, symbol: nil)],
+                marks: index == 1 ? [.init(text: "Mark: work", tone: .accent, symbol: nil)] : [],
+                hint: index == 1 ? "Summon Right" : nil, hintShortcut: index == 1 ? "⇧↩" : nil,
+                selected: index == 1, enabled: true
+            )
+        }
+        palette.selected = palette.rows[1].id
+        return palette
+    }
+
     func testSharedHiddenMenusScrollToTheLastActionWithinScreenBoundsAcrossSkins() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }

@@ -204,6 +204,27 @@ public struct SurfaceCore: ~Copyable {
         return next
     }
 
+    public func scrollOffset(of handle: ElementHandle) -> Float {
+        contains(handle) ? scrollOffset[Int(handle.slot)] : 0
+    }
+
+    public func firstHandle(withKey key: UInt64) -> ElementHandle? {
+        guard root >= 0 else { return nil }
+        var slot = root
+        while slot >= 0 {
+            if self.key[Int(slot)] == key { return handle(slot) }
+            if firstChild[Int(slot)] >= 0 {
+                slot = firstChild[Int(slot)]
+                continue
+            }
+            while slot >= 0, nextSibling[Int(slot)] < 0 {
+                slot = parent[Int(slot)]
+            }
+            if slot >= 0 { slot = nextSibling[Int(slot)] }
+        }
+        return nil
+    }
+
     public func contains(_ handle: ElementHandle) -> Bool {
         handle.slot >= 0 && Int(handle.slot) < generation.count && generation[Int(handle.slot)] == handle.generation
     }
