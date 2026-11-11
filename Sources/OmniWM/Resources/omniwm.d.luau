@@ -579,6 +579,8 @@ export type WallpaperDisplay = {
     custom: boolean,
     count: number,
     current: string?,
+    kind: "file" | "aerial" | "shuffle" | "other",
+    shown: string?,
     preview: string?,
     offset: number,
     items: { WallpaperItem },

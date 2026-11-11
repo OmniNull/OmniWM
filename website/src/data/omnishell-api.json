@@ -1237,7 +1237,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-wallpaperdisplay",
-      "declaration": "export type WallpaperDisplay = {\n    id: string,\n    name: string,\n    main: boolean,\n    builtin: boolean,\n    notch: boolean,\n    w: number,\n    h: number,\n    folder: string,\n    custom: boolean,\n    count: number,\n    current: string?,\n    preview: string?,\n    offset: number,\n    items: { WallpaperItem },\n    truncated: boolean,\n}",
+      "declaration": "export type WallpaperDisplay = {\n    id: string,\n    name: string,\n    main: boolean,\n    builtin: boolean,\n    notch: boolean,\n    w: number,\n    h: number,\n    folder: string,\n    custom: boolean,\n    count: number,\n    current: string?,\n    kind: \"file\" | \"aerial\" | \"shuffle\" | \"other\",\n    shown: string?,\n    preview: string?,\n    offset: number,\n    items: { WallpaperItem },\n    truncated: boolean,\n}",
       "fields": [
         "id",
         "name",
@@ -1250,6 +1250,8 @@
         "custom",
         "count",
         "current",
+        "kind",
+        "shown",
         "preview",
         "offset",
         "items",

@@ -97,7 +97,7 @@ final class WallpaperPreviews {
         guard demanded else { return }
         var keys: [WallpaperPreviewKey] = []
         for entry in entries {
-            if let current = entry.display.current {
+            if let current = entry.display.current ?? entry.display.thumbnail {
                 keys.append(WallpaperPreviewKey(
                     current, width: Self.cardWidth, display: entry.display.size, placement: placement
                 ))

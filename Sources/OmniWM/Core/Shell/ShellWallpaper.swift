@@ -95,6 +95,8 @@ struct ShellWallpaper: Equatable, Sendable, ShellValueWritable {
         var custom: Bool
         var count: Int
         var current: String?
+        var kind = "file"
+        var shown: String?
         var preview: String?
         var offset: Int
         var items: [Item]
@@ -162,8 +164,10 @@ struct ShellWallpaper: Equatable, Sendable, ShellValueWritable {
     }
 
     private func write(_ display: Display, into writer: inout ShellValueWriter) {
-        writer.map(15)
-        for (key, value) in [("id", display.id), ("name", display.name), ("folder", display.folder)] {
+        writer.map(17)
+        for (key, value) in [
+            ("id", display.id), ("name", display.name), ("folder", display.folder), ("kind", display.kind)
+        ] {
             writer.key(key)
             writer.string(value)
         }
@@ -181,7 +185,7 @@ struct ShellWallpaper: Equatable, Sendable, ShellValueWritable {
             writer.key(key)
             writer.number(value)
         }
-        for (key, value) in [("current", display.current), ("preview", display.preview)] {
+        for (key, value) in [("current", display.current), ("shown", display.shown), ("preview", display.preview)] {
             writer.key(key)
             value.map { writer.string($0) } ?? writer.null()
         }

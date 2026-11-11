@@ -40,6 +40,19 @@ local function schemeName(name: string): string
     return if title then title() else name
 end
 
+local function shownText(display): string
+    if display.kind == "aerial" then
+        return omniwm.l10n("Aerial")
+    elseif display.kind == "shuffle" then
+        return omniwm.l10n("Shuffled by macOS")
+    elseif display.kind == "other" then
+        return omniwm.l10n("Dynamic or live wallpaper")
+    end
+    return display.current or display.shown or omniwm.l10n("Not from this folder")
+end
+
+wallpaper.shownText = shownText
+
 local function aspect(display): number
     if display.w and display.h and display.w > 0 and display.h > 0 then
         return display.w / display.h
@@ -158,7 +171,7 @@ local function cards(ctx, data, selected, skin, width: number)
                 ui.column{ gap = 1, grow = 1, center = false,
                     ui.text{ text = display.name, size = 12.5, weight = "semibold", color = skin.text,
                         maxWidth = math.max(1, w - 76), lines = 1 },
-                    ui.text{ text = display.current or omniwm.l10n("Not from this folder"), size = 11,
+                    ui.text{ text = shownText(display), size = 11,
                         color = skin.muted, maxWidth = math.max(1, w - 76), lines = 1 } },
                 pill(skin, { key = "next " .. display.id, symbol = "forward.end.fill", text = omniwm.l10n("Next"),
                     help = omniwm.l10n("Show the next wallpaper on %@", display.name),

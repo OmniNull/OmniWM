@@ -10,7 +10,7 @@ local SKIN = table.freeze({
 local function compact(ctx)
     local data = wallpaper.state(ctx)
     local main = data and wallpaper.mainDisplay(data)
-    local text = if main and main.current then main.current else omniwm.l10n("Wallpaper")
+    local text = if main then wallpaper.shownText(main) else omniwm.l10n("Wallpaper")
     return view.compact(ctx, "photo.on.rectangle", text, "#a78bfa")
 end
 

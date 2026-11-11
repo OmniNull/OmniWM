@@ -19214,6 +19214,39 @@
           }
         }
       }
+    },
+    "Aerial" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aerial"
+          }
+        }
+      }
+    },
+    "Dynamic or live wallpaper" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dynamic or live wallpaper"
+          }
+        }
+      }
+    },
+    "Shuffled by macOS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shuffled by macOS"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

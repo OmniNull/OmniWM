@@ -43,7 +43,9 @@ extension WallpaperManager {
             custom: entry.custom,
             count: entry.files.count,
             current: entry.currentName,
-            preview: display.current.flatMap {
+            kind: display.kind.rawValue,
+            shown: display.current?.lastPathComponent,
+            preview: (display.current ?? display.thumbnail).flatMap {
                 previews.ready($0, width: WallpaperPreviews.cardWidth, display: display, placement: placement)
             },
             offset: offset,
