@@ -29,14 +29,18 @@ extension HotkeyCenter {
                 && keyboardModeInput.kind == .normal
         )
         if let action = decision.action { onWindowSwitcherAction?(action, windowSwitcherInput.generation) }
-        if decision.consumed, type == .keyUp, !windowSwitcherInput.holdsKeyboard {
+        if decision.consumed, type == .keyUp, windowSwitcherMayReleaseTap {
             DispatchQueue.main.async { [weak self] in self?.releaseWindowSwitcherTapIfIdle() }
         }
         return decision.consumed
     }
 
+    private var windowSwitcherMayReleaseTap: Bool {
+        !windowSwitcherInput.holdsKeyboard && !(isRunning && keyboardTapRequiredOutsideModes)
+    }
+
     private func releaseWindowSwitcherTapIfIdle() {
-        guard !windowSwitcherInput.holdsKeyboard else { return }
+        guard windowSwitcherMayReleaseTap else { return }
         if isRunning {
             updateEventTapEnablement()
         } else {
