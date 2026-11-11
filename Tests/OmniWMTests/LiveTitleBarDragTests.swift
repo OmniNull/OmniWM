@@ -259,17 +259,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.handler.canStartFusionDrag(windowId: nil, at: onWindow))
     }
 
-    func testTapKnowsTheMacOSFusionModifierOnlyWhileTheSettingIsOn() throws {
-        let fixture = try makeFixture(pid: 938_090)
-
-        fixture.handler.syncTapFilterSnapshot()
-        XCTAssertEqual(fixture.handler.inputTapThread.filterSnapshot.fusionDragModifier, .maskAlternate)
-
-        fixture.controller.settings.niri.macOSFusion = false
-        fixture.handler.syncTapFilterSnapshot()
-        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionDragModifier)
-    }
-
     func testMacOSFusionSettingChangesReachTheTapAtOnce() throws {
         let fixture = try makeFixture(pid: 938_092)
         let settings = fixture.controller.settings
@@ -377,7 +366,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 938_090)
         let clock = DragClock()
         fixture.handler.liveDragClock = { clock.now }
-        fixture.engine.stacksOnWindowCentres = true
         let (dragged, target) = (fixture.tokens[1], fixture.tokens[2])
         fixture.handler.retireNativeTitleBarDragAtInputBoundary()
         fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
@@ -513,11 +501,15 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 938_091)
         fixture.handler.state.liveDragReferenceOffset = 300
         let point = CGPoint(x: 400, y: 300)
-
-        fixture.handler.state.liveTabPull = nil
         XCTAssertEqual(fixture.handler.liveDragReference(point), CGPoint(x: 700, y: 300))
         XCTAssertEqual(fixture.handler.liveDragWindowMidX(point), 700)
-        fixture.handler.state.liveDragReferenceOffset = nil
+
+        fixture.handler.state.liveTabPull = .init(
+            token: fixture.tokens[1],
+            anchorLocation: point,
+            startFrame: try fixture.frame(fixture.tokens[1])
+        )
+
         XCTAssertEqual(fixture.handler.liveDragReference(point), point)
         XCTAssertNil(fixture.handler.liveDragWindowMidX(point))
     }
@@ -566,7 +558,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 938_005)
         let (dragged, neighbour) = (fixture.tokens[1], fixture.tokens[2])
         try fixture.startLiveDrag(dragged)
-        let drop = try fixture.centre(of: neighbour)
+        let drop = try fixture.farHalf(of: neighbour)
         fixture.drag(to: drop)
         let order = fixture.landingOrder()
 
@@ -686,7 +678,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNotEqual(fixture.landingOrder(), [0, 1, 2, 3].map { fixture.tokens[$0] })
     }
 
-    func testTheHoverDelayTimerMovesTheColumnWhileThePointerIsStill() throws {
+    func testTheHoverDelayTimerMovesTheColumnWhileThePointerKeepsMovingOverTheTarget() throws {
         let fixture = try makeFixture(pid: 938_013, hoverDelay: 0.12)
         let clock = DragClock()
         fixture.handler.liveDragClock = { clock.now }
@@ -694,12 +686,18 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let order = fixture.order()
         let target = try fixture.farHalf(of: fixture.tokens[2])
 
+        let hoverStart = clock.now
         fixture.drag(to: target)
+        for step in 1 ... 5 {
+            clock.now = hoverStart + Double(step) * 0.02
+            fixture.drag(to: CGPoint(x: target.x + CGFloat(step) * 4, y: target.y))
+        }
 
-        XCTAssertEqual(fixture.order(), order)
-        XCTAssertNotNil(fixture.handler.state.liveHoverTimer)
-        clock.now += 0.12
-        fixture.handler.state.liveHoverTimer?.fire()
+        XCTAssertEqual(fixture.landingOrder(), order)
+        let timer = try XCTUnwrap(fixture.handler.state.liveHoverTimer)
+        clock.now = hoverStart + 0.12
+        XCTAssertFalse(fixture.handler.livePointerHasSlowed(at: clock.now))
+        timer.fire()
         XCTAssertEqual(fixture.landingOrder(), [0, 2, 1, 3].map { fixture.tokens[$0] })
         XCTAssertNil(fixture.handler.state.liveHoverTimer)
     }
@@ -782,7 +780,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
     func testClickingAPeekFocusesItsColumnAndScrollsItIntoViewOnRelease() async throws {
         let fixture = try makeFixture(pid: 938_190, windowCount: 5)
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.settings.niri.edgePeekPercent = 3
         fixture.controller.applyMacOSFusionSettings()
         let target = fixture.tokens[3]
@@ -980,7 +977,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         centreColumns(.always, in: fixture)
         let (dragged, neighbour) = (fixture.tokens[1], fixture.tokens[2])
         try fixture.startLiveDrag(dragged)
-        let drop = try fixture.centre(of: neighbour)
+        let drop = try fixture.farHalf(of: neighbour)
         fixture.drag(to: drop)
         fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
 
@@ -1006,7 +1003,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         centreColumns(.always, in: fixture)
         let (dragged, neighbour) = (fixture.tokens[1], fixture.tokens[2])
         try fixture.startLiveDrag(dragged)
-        let drop = try fixture.centre(of: neighbour)
+        let drop = try fixture.farHalf(of: neighbour)
         fixture.drag(to: drop)
         fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
         fixture.handler.dispatchMouseUp(at: drop)
@@ -1030,7 +1027,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         centreColumns(.always, in: fixture)
         let (dragged, neighbour) = (fixture.tokens[1], fixture.tokens[2])
         try fixture.startLiveDrag(dragged)
-        let drop = try fixture.centre(of: neighbour)
+        let drop = try fixture.farHalf(of: neighbour)
         fixture.drag(to: drop)
         fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
         fixture.handler.dispatchMouseUp(at: drop)
@@ -1041,33 +1038,39 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.handler.state.liveDropScroll)
     }
 
-    func testHoldingAtTheRightEdgeScrollsOnlyAfterTheDelay() throws {
+    func testHoldingAtTheRightEdgeHopsOnlyAfterTheDelay() throws {
         let fixture = try makeFixture(pid: 938_020, windowCount: 6)
-        fixture.engine.moveConfiguration.liveEdgeHops = false
         let clock = edgeClock(fixture)
-        try fixture.startLiveDrag(fixture.tokens[1])
+        let dragged = fixture.tokens[1]
+        try fixture.startLiveDrag(dragged)
 
         fixture.drag(to: edgePoint(.trailing, fixture))
         XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .trailing)
+        let entered = fixture.landingOrder()
+        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
         clock.now += 0.29
         fixture.handler.startLiveEdgeScrollIfDue()
-        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
-        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopping, false)
+        XCTAssertEqual(fixture.landingOrder(), entered)
 
         clock.now += 0.01
         fixture.handler.startLiveEdgeScrollIfDue()
 
-        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
-        let motion = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
-        XCTAssertGreaterThan(motion.to, motion.from)
-        XCTAssertEqual(motion.speed, 1000)
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopping, true)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps + 1)
+        XCTAssertGreaterThan(
+            try XCTUnwrap(fixture.landingOrder().firstIndex(of: dragged)),
+            try XCTUnwrap(entered.firstIndex(of: dragged))
+        )
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
     }
 
     func testHoldingAtAnEdgeHopsTheDropSpacePastEachWindowUntilTheStripEnd() throws {
         for edge in [MouseInputState.LiveEdgeScroll.Edge.trailing, .leading] {
             let fixture = try makeFixture(pid: edge == .trailing ? 938_091 : 938_092, windowCount: 6)
             let dragged = fixture.tokens[edge == .trailing ? 1 : 4]
-            try startEdgeScroll(edge, dragging: dragged, in: fixture, hops: true)
+            try startEdgeScroll(edge, dragging: dragged, in: fixture)
             var indices = [try XCTUnwrap(fixture.landingOrder().firstIndex(of: dragged))]
 
             hopEdge(fixture) {
@@ -1108,7 +1111,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     func testReleaseAfterEdgeHopsLandsInTheLastGap() throws {
         let fixture = try makeFixture(pid: 938_093, windowCount: 6)
         let dragged = fixture.tokens[1]
-        try startEdgeScroll(.trailing, dragging: dragged, in: fixture, hops: true)
+        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
         var hops = 0
         hopEdge(fixture) {
             hops += 1
@@ -1121,37 +1124,143 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.order().firstIndex(of: dragged), landing)
     }
 
-    func testColumnsPassingUnderAStillCursorAtTheRightEdgeMoveTheDropSpaceOnceEachUntilTheStripEnd() throws {
-        let fixture = try makeFixture(pid: 938_021, windowCount: 6)
-        let dragged = fixture.tokens[1]
-        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
-        let startIndex = try XCTUnwrap(fixture.landingOrder().firstIndex(of: dragged))
-        let startSwaps = fixture.engine.liveColumnMove?.swapCount ?? 0
+    func testTheNextHopWaitsUntilTheSlideSettlesAndATenthOfASecondMore() throws {
+        let fixture = try makeFixture(pid: 938_320, windowCount: 6, animated: true)
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+        let clock = edgeClock(fixture)
+        let swaps = try XCTUnwrap(fixture.engine.liveColumnMove?.swapCount)
+        let nextCheck = { try XCTUnwrap(fixture.handler.state.liveEdgeScroll?.delayTimer) }
+        XCTAssertTrue(fixture.handler.hasPendingLiveColumnAnimation(in: fixture.workspaceId, engine: fixture.engine))
 
-        var indices = [startIndex]
-        tickEdgeScroll(fixture) {
-            if let index = fixture.landingOrder().firstIndex(of: dragged), index != indices.last {
-                indices.append(index)
-            }
-            return false
-        }
+        clock.now += 1
+        try nextCheck().fire()
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps)
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll?.hopSettledSince)
 
-        let afterFirstMove = Array(indices.dropFirst())
-        XCTAssertGreaterThan(try XCTUnwrap(afterFirstMove.first), startIndex)
-        XCTAssertEqual(afterFirstMove, Array(try XCTUnwrap(afterFirstMove.first) ... 5))
-        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, startSwaps + afterFirstMove.count)
-        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
-        XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
-        let workingFrame = fixture.controller.insetWorkingFrame(for: fixture.monitor)
-        let gap = fixture.controller.innerGap(for: fixture.monitor)
-        let last = try XCTUnwrap(liveStrip(fixture).last)
-        XCTAssertTrue(last.column.isLiveDropSpace)
-        XCTAssertEqual(last.maxX, workingFrame.maxX - gap, accuracy: 1)
+        fixture.manager.animationDriver.removeMotions(for: [fixture.workspaceId])
+        _ = fixture.engine.cancelAnimations(in: fixture.workspaceId)
+        try nextCheck().fire()
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopSettledSince, clock.now)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps)
+
+        clock.now += 0.09
+        try nextCheck().fire()
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps)
+
+        clock.now += 0.01
+        try nextCheck().fire()
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps + 1)
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopping, true)
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll?.hopSettledSince)
     }
 
-    func testTheEdgeScrollBuildsTheStripOnceAndShiftsItToMatchAFreshOne() throws {
-        let fixture = try makeFixture(pid: 938_040, windowCount: 6)
-        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+    func testNoHintOpensWhileThePointerIsInTheEdgeZone() throws {
+        let fixture = try makeFixture(pid: 938_321, windowCount: 5)
+        let clock = edgeClock(fixture)
+        let target = fixture.tokens[3]
+        try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
+        try fixture.startLiveDrag(fixture.tokens[1])
+        let (outside, inZone) = try centreThirdPoints(of: target, aroundTheTrailingEdgeZoneIn: fixture)
+
+        fixture.drag(to: inZone)
+        clock.now += 0.25
+        fixture.drag(to: inZone)
+        fixture.handler.state.liveHoverTimer?.fire()
+
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .trailing)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.landingIsHint, false)
+        XCTAssertNil(fixture.engine.liveColumnMove?.landing)
+
+        fixture.drag(to: outside)
+        clock.now += 0.25
+        fixture.drag(to: outside)
+        fixture.handler.state.liveHoverTimer?.fire()
+
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.landingIsHint, true)
+    }
+
+    func testTheFirstHopClosesAHintOpenWhenThePointerEnteredTheEdgeZone() throws {
+        let fixture = try makeFixture(pid: 938_322, windowCount: 5)
+        let clock = edgeClock(fixture)
+        let (dragged, target) = (fixture.tokens[1], fixture.tokens[3])
+        try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
+        try fixture.startLiveDrag(dragged)
+        let (outside, inZone) = try centreThirdPoints(of: target, aroundTheTrailingEdgeZoneIn: fixture)
+        fixture.drag(to: outside)
+        clock.now += 0.25
+        fixture.drag(to: outside)
+        fixture.handler.state.liveHoverTimer?.fire()
+        XCTAssertEqual(fixture.engine.liveColumnMove?.landingIsHint, true)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.landing?.columnId, try column(holding: target, in: fixture).id)
+
+        fixture.drag(to: inZone)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.landingIsHint, true)
+        clock.now += 0.3
+        fixture.handler.startLiveEdgeScrollIfDue()
+
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopping, true)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.landingIsHint, false)
+        XCTAssertNil(fixture.engine.liveColumnMove?.landing)
+        let landing = fixture.landingOrder()
+        XCTAssertGreaterThan(
+            try XCTUnwrap(landing.firstIndex(of: dragged)),
+            try XCTUnwrap(landing.firstIndex(of: target))
+        )
+    }
+
+    func testReleasingOverAnOpenHintWithoutTheModifierStacksOntoTheWindow() throws {
+        let fixture = try makeFixture(pid: 938_323)
+        let clock = DragClock()
+        fixture.handler.liveDragClock = { clock.now }
+        let (dragged, target) = (fixture.tokens[1], fixture.tokens[2])
+        try fixture.startLiveDrag(dragged)
+        let targetFrame = try fixture.frame(target)
+        let pointer = CGPoint(x: targetFrame.midX, y: targetFrame.minY + targetFrame.height / 4)
+
+        fixture.drag(to: pointer)
+        clock.now += 0.2
+        fixture.handler.state.liveHoverTimer?.fire()
+        XCTAssertEqual(fixture.engine.liveColumnMove?.landingIsHint, true)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, false)
+        fixture.handler.dispatchMouseUp(at: pointer)
+
+        XCTAssertNil(fixture.engine.liveColumnMove)
+        XCTAssertFalse(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+        XCTAssertEqual(try column(holding: target, in: fixture).windowNodes.map(\.token), [dragged, target])
+        XCTAssertEqual(fixture.engine.columns(in: fixture.workspaceId).count, 3)
+        XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
+        XCTAssertLessThan(try fixture.settledFrame(dragged).maxY, try fixture.settledFrame(target).minY)
+    }
+
+    func testAWindowMovingWithinItsStackScrollsTheStripSteadilyAtTheEdgeUntilItLeavesTheStack() throws {
+        let fixture = try makeFixture(pid: 938_324, windowCount: 6, stackFirstTwo: true)
+        let dragged = try startEdgeScrollWithinTheStack(in: fixture)
+        let stack = try column(holding: dragged, in: fixture)
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopping, false)
+        let motion = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
+        XCTAssertLessThan(motion.to, motion.from)
+        XCTAssertEqual(motion.speed, 1000)
+
+        var ticks = 0
+        tickEdgeScroll(fixture) {
+            ticks += 1
+            return ticks == 5
+        }
+        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.inStack, true)
+        XCTAssertEqual(stack.windowNodes.count, 2)
+
+        tickEdgeScroll(fixture)
+
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.inStack, false)
+        XCTAssertEqual(stack.windowNodes.count, 1)
+    }
+
+    func testAnEdgeScrollWithinAStackBuildsTheStripOnceAndShiftsItToMatchAFreshOne() throws {
+        let fixture = try makeFixture(pid: 938_040, windowCount: 6, stackFirstTwo: true)
+        try startEdgeScrollWithinTheStack(in: fixture)
         let motion = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
         let location = CGPoint(x: -10_000, y: 0)
         XCTAssertNil(fixture.handler.state.liveEdgeScroll?.strip)
@@ -1182,95 +1291,15 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         }
     }
 
-    func testColumnsReachingThePointerDuringAnEdgeScrollSkipTheHoverDelay() throws {
-        let fixture = try makeFixture(pid: 938_032, windowCount: 6, hoverDelay: 0.12)
-        fixture.handler.liveDragClock = { 1_000 }
-        let dragged = fixture.tokens[1]
-        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
-        let startIndex = try XCTUnwrap(fixture.landingOrder().firstIndex(of: dragged))
-
-        var indices = [startIndex]
-        tickEdgeScroll(fixture) {
-            if let index = fixture.landingOrder().firstIndex(of: dragged), index != indices.last {
-                indices.append(index)
-            }
-            return false
-        }
-
-        let afterFirstMove = Array(indices.dropFirst())
-        XCTAssertGreaterThan(try XCTUnwrap(afterFirstMove.first), startIndex)
-        XCTAssertEqual(afterFirstMove, Array(try XCTUnwrap(afterFirstMove.first) ... 5))
-        XCTAssertNil(fixture.handler.state.liveHoverTimer)
-    }
-
-    func testColumnsPassingUnderAStillCursorAtTheLeftEdgeMoveTheDropSpaceOnceEachUntilTheStripStart() throws {
-        let fixture = try makeFixture(pid: 938_022, windowCount: 6)
-        let workingFrame = fixture.controller.insetWorkingFrame(for: fixture.monitor)
-        let gap = fixture.controller.innerGap(for: fixture.monitor)
-        let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
-        let strip = fixture.engine.liveColumnStrip(
-            context: context,
-            state: fixture.manager.niriViewportState(for: fixture.workspaceId)
-        )
-        let overhang = try XCTUnwrap(strip.last).maxX - (workingFrame.maxX - gap)
-        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
-            state.jumpOffset(to: state.viewOffset + overhang)
-        }
-        try fixture.confirmLayout()
-        let dragged = fixture.tokens[4]
-        try startEdgeScroll(.leading, dragging: dragged, in: fixture)
-        let startIndex = try XCTUnwrap(fixture.landingOrder().firstIndex(of: dragged))
-
-        var indices = [startIndex]
-        tickEdgeScroll(fixture) {
-            if let index = fixture.landingOrder().firstIndex(of: dragged), index != indices.last {
-                indices.append(index)
-            }
-            return false
-        }
-
-        let afterFirstMove = Array(indices.dropFirst())
-        XCTAssertLessThan(try XCTUnwrap(afterFirstMove.first), startIndex)
-        XCTAssertEqual(afterFirstMove, Array((0 ... (try XCTUnwrap(afterFirstMove.first))).reversed()))
-        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
-        let first = try XCTUnwrap(liveStrip(fixture).first)
-        XCTAssertTrue(first.column.isLiveDropSpace)
-        XCTAssertEqual(first.minX, workingFrame.minX + gap, accuracy: 1)
-    }
-
-    func testTheEdgeScrollPausesWhileTheDropSpaceSettlesAndResumesAfter() throws {
-        let fixture = try makeFixture(pid: 938_023, windowCount: 6, animated: true)
-        let dragged = fixture.tokens[1]
-        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
-        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
-
-        tickEdgeScroll(fixture) { fixture.engine.liveColumnMove?.swapCount != swaps }
-
-        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps + 1)
-        XCTAssertEqual(fixture.engine.liveColumnMove?.phase, .settling)
-        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
-        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
-        let settlingOffset = fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset
-        fixture.handler.handleLiveEdgeScrollTick(in: fixture.workspaceId, at: CACurrentMediaTime() + 0.1)
-        XCTAssertEqual(fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset, settlingOffset)
-
-        fixture.manager.animationDriver.removeMotions(for: [fixture.workspaceId])
-        _ = fixture.engine.cancelAnimations(in: fixture.workspaceId)
-        fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
-
-        XCTAssertEqual(fixture.engine.liveColumnMove?.phase, .dragging)
-        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
-        let resumed = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
-        XCTAssertEqual(resumed.from, Double(settlingOffset), accuracy: 0.5)
-        XCTAssertGreaterThan(resumed.to, resumed.from)
-    }
-
-    func testLeavingTheZoneStopsTheScrollWithoutSnappingBack() throws {
+    func testLeavingTheZoneStopsTheStackModeScrollWithoutSnappingBack() throws {
         let fixture = try makeFixture(pid: 938_024, windowCount: 6)
-        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
+        let dragged = fixture.tokens[1]
+        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
         let motion = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
         let (from, limit) = (motion.from, motion.to)
-        let order = fixture.order()
+        let others = fixture.order().filter { $0 != dragged }
+        let swaps = fixture.engine.liveColumnMove?.swapCount
 
         fixture.drag(to: CGPoint(x: fixture.monitor.frame.maxX - 60, y: fixture.monitor.frame.midY))
 
@@ -1279,7 +1308,8 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let offset = fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset
         XCTAssertGreaterThanOrEqual(Double(offset), from - 0.001)
         XCTAssertLessThan(Double(offset), limit)
-        XCTAssertEqual(fixture.order(), order)
+        XCTAssertEqual(fixture.order().filter { $0 != dragged }, others)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps)
     }
 
     func testTheEdgeZoneIsThreePercentOfTheDisplayAndAtLeastFortyPoints() throws {
@@ -1363,11 +1393,15 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.enteredAt, clock.now)
     }
 
-    func testNoEdgeScrollStartsWhereTheStripIsAlreadyAtItsEnd() throws {
+    func testNoStackModeEdgeScrollStartsWhereTheStripIsAlreadyAtItsEnd() throws {
         let fixture = try makeFixture(pid: 938_027, windowCount: 6)
         let clock = edgeClock(fixture)
         try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
         fixture.drag(to: edgePoint(.leading, fixture))
+        settleLiveDrag(fixture)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, true)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.phase, .dragging)
         clock.now += 0.3
         fixture.handler.startLiveEdgeScrollIfDue()
         tickEdgeScroll(fixture)
@@ -1379,27 +1413,28 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
     }
 
-    func testCancellingDuringAnEdgeScrollRestoresTheLayout() throws {
-        for cancel in ["esc", "interaction", "pointer crosses to another display"] {
-            let pid: pid_t = switch cancel {
-            case "esc": 938_028
-            case "interaction": 938_029
-            default: 938_030
-            }
-            let fixture = try makeFixture(pid: pid, windowCount: 6)
+    func testCancellingDuringEdgeHopsRestoresTheLayout() throws {
+        for cancel in ["interaction", "pointer crosses to another display"] {
+            let fixture = try makeFixture(pid: cancel == "interaction" ? 938_029 : 938_030, windowCount: 6)
             let order = fixture.order()
             let offset = fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset
             try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
-            let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
-            tickEdgeScroll(fixture) { fixture.engine.liveColumnMove?.swapCount != swaps }
+            var hops = 0
+            hopEdge(fixture) {
+                hops += 1
+                return hops == 2
+            }
             XCTAssertNotEqual(fixture.landingOrder(), order, cancel)
+            XCTAssertNotEqual(
+                fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset,
+                offset,
+                accuracy: 1,
+                cancel
+            )
 
-            switch cancel {
-            case "esc":
-                fixture.handler.cancelLiveColumnDrag()
-            case "interaction":
+            if cancel == "interaction" {
                 fixture.handler.cancelActiveMouseInteraction()
-            default:
+            } else {
                 fixture.drag(to: CGPoint(x: fixture.monitor.frame.maxX + 5, y: fixture.monitor.frame.midY))
             }
 
@@ -1415,45 +1450,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         }
     }
 
-    func testReleaseDuringAnEdgeScrollDropsIntoTheDropSpace() throws {
-        let fixture = try makeFixture(pid: 938_031, windowCount: 6)
-        let dragged = fixture.tokens[1]
-        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
-        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
-        tickEdgeScroll(fixture) { fixture.engine.liveColumnMove?.swapCount != swaps }
-        let order = fixture.landingOrder()
-
-        fixture.handler.dispatchMouseUp(at: edgePoint(.trailing, fixture))
-
-        XCTAssertNil(fixture.engine.liveColumnMove)
-        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
-        XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
-        XCTAssertEqual(fixture.order(), order)
-    }
-
-    func testReleaseAfterAnEdgeScrollLandsWhereTheDropSpaceWasWithoutScrollingBack() throws {
-        let fixture = try makeFixture(pid: 938_034, windowCount: 8)
-        let dragged = fixture.tokens[1]
-        try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
-        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
-        tickEdgeScroll(fixture) { (fixture.engine.liveColumnMove?.swapCount ?? 0) >= swaps + 2 }
-        fixture.handler.stopLiveEdgeScroll()
-        let dropSpace = try XCTUnwrap(liveStrip(fixture).first { $0.column.isLiveDropSpace })
-        let landing = fixture.landingOrder()
-
-        fixture.handler.dispatchMouseUp(at: edgePoint(.trailing, fixture))
-
-        XCTAssertEqual(fixture.order(), landing)
-        let draggedColumn = try XCTUnwrap(fixture.engine.columns(in: fixture.workspaceId).first {
-            $0.windowNodes.first?.token == dragged
-        })
-        let landed = try XCTUnwrap(liveStrip(fixture).first { $0.column === draggedColumn })
-        let screen = fixture.monitor.frame
-        XCTAssertGreaterThanOrEqual(landed.minX, screen.minX - 1)
-        XCTAssertLessThanOrEqual(landed.maxX, screen.maxX + 1)
-        XCTAssertLessThanOrEqual(abs(dropSpace.minX - landed.minX), landed.maxX - landed.minX)
-    }
-
     private func liveStrip(_ fixture: Fixture) throws -> [LiveColumnMove.StripColumn] {
         let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
         return fixture.engine.liveColumnStrip(
@@ -1466,11 +1462,12 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         var now: TimeInterval = 1_000
     }
 
-    func testTheEdgeScrollStopsWhenTheEngineDropsTheMove() throws {
+    func testTheEdgeHopsStopWhenTheEngineDropsTheMove() throws {
         let fixture = try makeFixture(pid: 938_303, windowCount: 6)
         let dragged = fixture.tokens[1]
         try startEdgeScroll(.trailing, dragging: dragged, in: fixture)
-        XCTAssertTrue(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
+        let nextHopCheck = try XCTUnwrap(fixture.handler.state.liveEdgeScroll?.delayTimer)
+        XCTAssertTrue(nextHopCheck.isValid)
         let window = try XCTUnwrap(fixture.engine.findNode(for: dragged, in: fixture.workspaceId))
         fixture.manager.withEngineMutationScope(in: fixture.workspaceId) {
             fixture.engine.cancelInteractions(for: [window.id], in: fixture.workspaceId)
@@ -1479,33 +1476,44 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
         fixture.drag(to: edgePoint(.trailing, fixture))
 
-        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+        XCTAssertFalse(nextHopCheck.isValid)
         XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
     }
 
-    func testTheScrollTickDrivesTheEdgeScrollAndKeepsItRegistered() throws {
+    func testTheScrollTickDrivesTheStackModeEdgeScrollAndKeepsItRegistered() throws {
         let fixture = try makeFixture(pid: 938_304, windowCount: 6)
         fixture.controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
         try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
         let handler = fixture.controller.niriLayoutHandler
         XCTAssertTrue(handler.hasScrollAnimation(for: fixture.workspaceId))
-        let order = fixture.landingOrder()
-        var time = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId)).startTime
+        let motion = try XCTUnwrap(fixture.manager.animationDriver.edgeScroll(in: fixture.workspaceId))
+        var time = motion.startTime
+        var frames = 0
 
-        for _ in 0 ..< 600 where fixture.landingOrder() == order {
+        while fixture.handler.isLiveEdgeScrolling, frames < 600 {
             time += 1.0 / 60
+            frames += 1
             handler.tickScrollAnimation(targetTime: time, displayId: fixture.monitor.displayId)
             if fixture.handler.isLiveEdgeScrolling {
                 XCTAssertTrue(handler.hasScrollAnimation(for: fixture.workspaceId))
             }
         }
 
-        XCTAssertNotEqual(fixture.landingOrder(), order)
+        XCTAssertGreaterThan(frames, 1)
+        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertEqual(
+            Double(fixture.manager.niriViewportState(for: fixture.workspaceId).viewOffset),
+            motion.to,
+            accuracy: 1
+        )
     }
 
-    func testAnEdgeScrollRestartedOnItsLastFrameKeepsTheScrollTickRunning() throws {
+    func testAStackModeEdgeScrollRestartedOnItsLastFrameKeepsTheScrollTickRunning() throws {
         let fixture = try makeFixture(pid: 938_306, windowCount: 6)
         fixture.controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
+        fixture.handler.modifierFlagsProvider = { .maskAlternate }
         try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
         let handler = fixture.controller.niriLayoutHandler
         let driver = fixture.manager.animationDriver
@@ -1522,21 +1530,22 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
     func testTheEdgeZoneAtAnEdgeSharedWithAnotherDisplayWorksLikeAnOuterOne() throws {
         let fixture = try makeFixture(pid: 938_305, windowCount: 6)
-        fixture.engine.moveConfiguration.liveEdgeHops = false
         let right = try addDisplay(rightOf: fixture)
         let clock = edgeClock(fixture)
         try fixture.startLiveDrag(fixture.tokens[1])
 
         fixture.drag(to: edgePoint(.trailing, fixture))
         XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .trailing)
+        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
         clock.now += 0.3
         fixture.handler.startLiveEdgeScrollIfDue()
 
-        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopping, true)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, swaps + 1)
         XCTAssertNotEqual(fixture.manager.monitor(for: fixture.workspaceId)?.id, right.id)
     }
 
-    func testAQuickCrossingToAnotherDisplayStartsNoEdgeScroll() throws {
+    func testAQuickCrossingToAnotherDisplayStartsNoEdgeHops() throws {
         let fixture = try makeFixture(pid: 938_307, windowCount: 6)
         let right = try addDisplay(rightOf: fixture)
         let clock = edgeClock(fixture)
@@ -1548,6 +1557,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         clock.now += 0.3
         fixture.handler.startLiveEdgeScrollIfDue()
 
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
         XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
         XCTAssertFalse(fixture.manager.animationDriver.hasEdgeScroll(in: fixture.workspaceId))
     }
@@ -1578,7 +1588,8 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
         try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture, started: true)
         XCTAssertEqual(barrier.liveDragHold?.heldDirections.contains(.right), true)
-        tickEdgeScroll(fixture)
+        hopEdge(fixture)
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopsDone, true)
         fixture.drag(to: edgePoint(.trailing, fixture))
         XCTAssertEqual(barrier.liveDragHold?.heldDirections.contains(.right), false)
         XCTAssertEqual(barrier.liveDragHold?.heldDirections.contains(.left), true)
@@ -1686,21 +1697,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertLessThan(reported.height, 841)
     }
 
-    func testReleasingOptionDuringTheEdgeScrollSwapsColumnsAgain() throws {
-        let fixture = try makeFixture(pid: 938_099, windowCount: 6)
-        fixture.handler.modifierFlagsProvider = { .maskAlternate }
-        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture)
-        let swaps = fixture.engine.liveColumnMove?.swapCount ?? 0
-
-        fixture.handler.modifierFlagsProvider = { [] }
-        fixture.handler.updateLiveColumnDrag(at: edgePoint(.trailing, fixture))
-        XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, false)
-        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
-        tickEdgeScroll(fixture)
-
-        XCTAssertGreaterThan(fixture.engine.liveColumnMove?.swapCount ?? 0, swaps)
-    }
-
     private func settleLiveDrag(_ fixture: Fixture) {
         guard fixture.engine.liveColumnMove?.phase == .settling else { return }
         fixture.manager.animationDriver.removeMotions(for: [fixture.workspaceId])
@@ -1737,12 +1733,10 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         _ edge: MouseInputState.LiveEdgeScroll.Edge,
         dragging token: WindowToken,
         in fixture: Fixture,
-        started: Bool = false,
-        hops: Bool = false
+        started: Bool = false
     ) throws {
         let clock = edgeClock(fixture)
         fixture.engine.moveConfiguration.liveHoverDelay = 0.12
-        fixture.engine.moveConfiguration.liveEdgeHops = hops
         if !started {
             try fixture.startLiveDrag(token)
         }
@@ -1760,11 +1754,54 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         }
         clock.now += 0.3
         fixture.handler.startLiveEdgeScrollIfDue()
-        if hops {
-            XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopping, true)
-        } else {
+        if fixture.engine.liveColumnMove?.stackMode == true {
             XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        } else {
+            XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopping, true)
         }
+    }
+
+    private func centreThirdPoints(
+        of token: WindowToken,
+        aroundTheTrailingEdgeZoneIn fixture: Fixture
+    ) throws -> (outside: CGPoint, inZone: CGPoint) {
+        let column = try column(holding: token, in: fixture)
+        let placed = try XCTUnwrap(liveStrip(fixture).first { $0.column === column })
+        let frame = fixture.monitor.frame
+        let zone = fixture.engine.moveConfiguration.liveEdgeZoneWidth(forDisplayWidth: frame.width)
+        let y = try fixture.frame(token).midY
+        let outside = CGPoint(x: frame.maxX - zone - 20, y: y)
+        let inZone = CGPoint(x: frame.maxX - zone / 2, y: y)
+        let third = (placed.maxX - placed.minX) / 3
+        for x in [outside.x, outside.x + 25, inZone.x] {
+            XCTAssertGreaterThan(x, placed.minX + third)
+            XCTAssertLessThan(x, placed.maxX - third)
+        }
+        return (outside, inZone)
+    }
+
+    @discardableResult
+    private func startEdgeScrollWithinTheStack(in fixture: Fixture) throws -> WindowToken {
+        let clock = edgeClock(fixture)
+        let dragged = fixture.tokens[0]
+        let working = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+        let stack = try fixture.settledFrame(dragged)
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.jumpOffset(to: state.viewOffset + stack.midX - working.minX)
+        }
+        try fixture.confirmLayout()
+        let press = try fixture.press(dragged)
+        fixture.drag(to: CGPoint(x: press.x + 5, y: press.y))
+        try fixture.macOSMoves(dragged, to: try fixture.frame(dragged).offsetBy(dx: 30, dy: 0))
+        XCTAssertEqual(fixture.engine.liveColumnMove?.inStack, true)
+
+        fixture.drag(to: CGPoint(x: edgePoint(.leading, fixture).x, y: press.y))
+        clock.now += 0.3
+        fixture.handler.startLiveEdgeScrollIfDue()
+
+        XCTAssertEqual(fixture.engine.liveColumnMove?.inStack, true)
+        XCTAssertTrue(fixture.handler.isLiveEdgeScrolling)
+        return dragged
     }
 
     private func hopEdge(_ fixture: Fixture, until done: () -> Bool = { false }) {
@@ -1895,6 +1932,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             )
         }
         controller.enableNiriLayout()
+        controller.updateNiriConfig(macOSFusion: controller.macOSFusionConfiguration)
         let engine = try XCTUnwrap(controller.niriEngine)
         engine.moveConfiguration.liveHoverDelay = hoverDelay
         var previous: NiriWindow?
@@ -1952,6 +1990,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         }
         engine.cancelAnimations(in: workspaceId)
         controller.enableNiriLayout()
+        controller.updateNiriConfig(macOSFusion: controller.macOSFusionConfiguration)
         let niri = try XCTUnwrap(controller.niriEngine)
         var previous: NiriWindow?
         for token in tokens {
@@ -2029,7 +2068,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNotNil(fixture.engine.liveColumnMove)
         XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
         XCTAssertTrue(fixture.engine.isLiveDraggedColumn(column))
-        let drop = try fixture.centre(of: neighbour)
+        let drop = try fixture.farHalf(of: neighbour)
         fixture.drag(to: drop)
         fixture.handler.dispatchMouseUp(at: drop)
 
@@ -2060,7 +2099,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNotEqual(try railCommand(for: other, in: fixture).visibleTileFrame, .null)
         XCTAssertEqual(railOwners(fixture), [.niriColumn(other.id)])
 
-        let drop = try fixture.centre(of: fixture.tokens[3])
+        let drop = try fixture.farHalf(of: fixture.tokens[3])
         fixture.drag(to: drop)
         fixture.handler.dispatchMouseUp(at: drop)
         _ = try fixture.frames(animationTime: CACurrentMediaTime() + 60)
@@ -2071,7 +2110,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(Set(railOwners(fixture)), [.niriColumn(dragged.id), .niriColumn(other.id)])
     }
 
-    func testAnEdgeScrollWithATabbedColumnMovesTheDropSpaceOnceEachUntilTheStripEnd() throws {
+    func testEdgeHopsWithATabbedColumnMoveTheDropSpaceOnceEachUntilTheStripEnd() throws {
         let fixture = try makeFixture(pid: 938_062, windowCount: 8, tabbedRuns: [1 ... 3])
         let dragged = try column(holding: fixture.tokens[2], in: fixture)
         let landingIndex = { () -> Int? in
@@ -2079,22 +2118,23 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             return columns.filter { $0 !== dragged }.firstIndex { $0.isLiveDropSpace }
                 ?? columns.firstIndex { $0 === dragged }
         }
+        let homeIndex = try XCTUnwrap(landingIndex())
         try startEdgeScroll(.trailing, dragging: fixture.tokens[2], in: fixture)
-        let startIndex = try XCTUnwrap(landingIndex())
-        let startSwaps = fixture.engine.liveColumnMove?.swapCount ?? 0
+        let firstHop = try XCTUnwrap(landingIndex())
+        let firstHopSwaps = fixture.engine.liveColumnMove?.swapCount ?? 0
 
-        var indices = [startIndex]
-        tickEdgeScroll(fixture) {
+        var indices = [firstHop]
+        hopEdge(fixture) {
             if let index = landingIndex(), index != indices.last {
                 indices.append(index)
             }
             return false
         }
 
-        let afterFirstMove = Array(indices.dropFirst())
-        XCTAssertGreaterThan(try XCTUnwrap(afterFirstMove.first), startIndex)
-        XCTAssertEqual(afterFirstMove, Array(try XCTUnwrap(afterFirstMove.first) ... 5))
-        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, startSwaps + afterFirstMove.count)
+        XCTAssertGreaterThan(firstHop, homeIndex)
+        XCTAssertEqual(indices, Array(firstHop ... 5))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopsDone, true)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, firstHopSwaps + indices.count - 1)
         XCTAssertEqual(dragged.windowNodes.count, 3)
         XCTAssertTrue(dragged.isTabbed)
     }
@@ -2252,7 +2292,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         try fixture.startLiveDrag(fixture.tokens[1])
         fixture.handler.modifierFlagsProvider = { .maskAlternate }
         let targetFrame = try fixture.frame(fixture.tokens[2])
-        let point = CGPoint(x: targetFrame.midX, y: targetFrame.minY + targetFrame.height / 4)
+        let point = CGPoint(x: targetFrame.maxX - targetFrame.width / 6, y: targetFrame.minY + targetFrame.height / 4)
         fixture.drag(to: point)
         XCTAssertNotNil(fixture.engine.liveColumnMove?.landing)
 
@@ -2333,7 +2373,10 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 938_077, hoverDelay: 60)
         try fixture.startLiveDrag(fixture.tokens[1])
         let targetFrame = try fixture.frame(fixture.tokens[2])
-        fixture.drag(to: CGPoint(x: targetFrame.midX, y: targetFrame.minY + targetFrame.height / 4))
+        fixture.drag(to: CGPoint(
+            x: targetFrame.maxX - targetFrame.width / 6,
+            y: targetFrame.minY + targetFrame.height / 4
+        ))
         XCTAssertEqual(fixture.engine.liveColumnMove?.stackMode, false)
         let capture = fixture.handler.liveDragModifierCapture
 
@@ -2433,7 +2476,14 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.handler.state.liveEdgeZoneHold?.edge, .leading)
         clock.now += 0.4
         fixture.handler.startLiveEdgeScrollIfDue()
-        XCTAssertFalse(fixture.handler.isLiveEdgeScrolling)
+        XCTAssertNil(fixture.handler.state.liveEdgeScroll)
+
+        fixture.drag(to: CGPoint(x: inZone.x - 4, y: inZone.y))
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.edge, .leading)
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.enteredAt, clock.now)
+        clock.now += 0.3
+        fixture.handler.startLiveEdgeScrollIfDue()
+        XCTAssertEqual(fixture.handler.state.liveEdgeScroll?.hopping, true)
     }
 
     func testDraggingATabInTheRailPullsItOutAndTheWindowFollowsThePointer() throws {
@@ -2457,7 +2507,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertTrue(fixture.handler.liveDragModifierCapture.isActive)
         XCTAssertEqual(fixture.engine.liveFloatingFrame(for: pulled, in: fixture.workspaceId), start)
 
-        let away = try fixture.centre(of: neighbour)
+        let away = try fixture.farHalf(of: neighbour)
         fixture.drag(to: away)
         XCTAssertEqual(
             fixture.engine.liveFloatingFrame(for: pulled, in: fixture.workspaceId),
@@ -2579,7 +2629,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let press = CGPoint(x: start.minX - 10, y: start.midY)
         tabPull(pulled, at: press, rail: rail, in: fixture)
 
-        let away = try fixture.centre(of: fixture.tokens[3])
+        let away = try fixture.farHalf(of: fixture.tokens[3])
         fixture.drag(to: away)
 
         XCTAssertEqual(tabbed.windowNodes.map(\.token), [kept])
