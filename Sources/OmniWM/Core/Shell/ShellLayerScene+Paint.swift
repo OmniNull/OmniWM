@@ -126,15 +126,17 @@ extension ShellLayerScene {
         fill: CGColor?
     ) {
         let from = layer.presentation() ?? layer
-        add(
-            animation,
-            to: layer,
-            "backgroundColor",
-            from: from.backgroundColor ?? Self.clear,
-            to: fill ?? Self.clear,
-            changed: !Self.same(layer.backgroundColor, fill)
-        )
-        animateOutline(animation, of: layer, from: from, to: paint)
+        if !(layer is CAShapeLayer) {
+            add(
+                animation,
+                to: layer,
+                "backgroundColor",
+                from: from.backgroundColor ?? Self.clear,
+                to: fill ?? Self.clear,
+                changed: !Self.same(layer.backgroundColor, fill)
+            )
+            animateOutline(animation, of: layer, from: from, to: paint)
+        }
         add(
             animation,
             to: layer,
