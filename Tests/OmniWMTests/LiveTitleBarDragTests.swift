@@ -2619,4 +2619,28 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             layoutFrame.offsetBy(dx: 50, dy: -20)
         )
     }
+
+    func testFollowUpPassesStopAtTheLimitWhenEveryPassAsksForAnother() {
+        var passes: [Bool] = []
+
+        let finished = MouseEventHandler.runLiveDragPasses(immediate: true) { immediate in
+            passes.append(immediate)
+            return true
+        }
+
+        XCTAssertFalse(finished)
+        XCTAssertEqual(passes, [true] + Array(repeating: false, count: MouseEventHandler.liveDragPassLimit - 1))
+    }
+
+    func testFollowUpPassesStopAsSoonAsAPassNeedsNoOther() {
+        var passes = 0
+
+        let finished = MouseEventHandler.runLiveDragPasses(immediate: false) { _ in
+            passes += 1
+            return passes < 2
+        }
+
+        XCTAssertTrue(finished)
+        XCTAssertEqual(passes, 2)
+    }
 }

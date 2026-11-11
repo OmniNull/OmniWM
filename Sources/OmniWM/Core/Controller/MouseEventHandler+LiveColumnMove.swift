@@ -156,7 +156,27 @@ extension MouseEventHandler {
         return keptSize && moved
     }
 
+    static let liveDragPassLimit = 4
+
+    static func runLiveDragPasses(immediate: Bool, _ pass: (Bool) -> Bool) -> Bool {
+        var immediate = immediate
+        for _ in 0 ..< liveDragPassLimit {
+            guard pass(immediate) else { return true }
+            immediate = false
+        }
+        return false
+    }
+
     func updateLiveColumnDrag(at location: CGPoint, immediate: Bool = false) {
+        let finished = Self.runLiveDragPasses(immediate: immediate) { immediate in
+            runLiveColumnDragPass(at: location, immediate: immediate)
+        }
+        if !finished {
+            MouseTrace.record("live-drag passes capped at=\(TraceFormat.point(location))")
+        }
+    }
+
+    private func runLiveColumnDragPass(at location: CGPoint, immediate: Bool) -> Bool {
         guard isLiveColumnDragActive,
               let controller,
               let engine = controller.niriEngine,
@@ -164,7 +184,7 @@ extension MouseEventHandler {
               move.windowToken == (state.liveTabPull?.token ?? state.nativeTitleBarDrag?.token)
         else {
             endLiveColumnDragTracking()
-            return
+            return false
         }
         let workspaceId = move.workspaceId
         let reference = liveDragReference(location)
@@ -172,7 +192,7 @@ extension MouseEventHandler {
         traceLiveDrag(slowed ? "update slowed=1" : "update slowed=0", at: location)
         guard let monitor = controller.workspaceManager.monitor(for: workspaceId) else {
             cancelLiveColumnDrag()
-            return
+            return false
         }
         if pointerHasLeft(monitor, at: location) {
             if !carryLiveColumnDrag(from: workspaceId, at: location) {
@@ -180,7 +200,7 @@ extension MouseEventHandler {
                 cancelLiveColumnDrag()
                 state.nativeTitleBarDrag?.liveDragHandedOver = true
             }
-            return
+            return false
         }
         trackLiveEdgeZone(at: location, monitorFrame: monitor.frame)
         publishLiveDragHold(on: monitor, workspaceId: workspaceId)
@@ -190,7 +210,7 @@ extension MouseEventHandler {
             if !togglesStackMode,
                hopsRun || engine.moveConfiguration.liveEdgeHops && !move.stackMode && !move.inStack
             {
-                return
+                return false
             }
             if togglesStackMode, hopsRun {
                 state.liveEdgeScroll?.delayTimer?.invalidate()
@@ -210,21 +230,21 @@ extension MouseEventHandler {
                         state: &viewportState
                     )
                 }
-                return
+                return false
             }
             guard !move.stackMode, liveEdgeScrollReachesColumn(
                 at: reference,
                 time: CACurrentMediaTime(),
                 engine: engine,
                 workspaceId: workspaceId
-            ) else { return }
+            ) else { return false }
             stopLiveEdgeScroll()
             immediate = true
         }
         if move.phase == .settling, !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) {
             engine.liveColumnMoveSettled()
         }
-        guard let context = liveColumnContext(for: workspaceId) else { return }
+        guard let context = liveColumnContext(for: workspaceId) else { return false }
 
         let now = liveDragClock()
         let step = controller.workspaceManager.withNiriViewportState(
@@ -259,14 +279,13 @@ extension MouseEventHandler {
             if step == .unchanged {
                 startLiveEdgeScrollIfDue()
             }
-            return
+            return false
         }
         traceLiveDrag(immediate ? "changed-immediate" : "changed", at: location)
         refreshLiveColumnLayout(in: workspaceId, engine: engine)
-        if !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) {
-            engine.liveColumnMoveSettled()
-            updateLiveColumnDrag(at: location)
-        }
+        guard !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) else { return false }
+        engine.liveColumnMoveSettled()
+        return true
     }
 
     func wantsLiveStackMode(_ move: LiveColumnMove) -> Bool {
