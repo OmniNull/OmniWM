@@ -547,6 +547,34 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         XCTAssertGreaterThan(decoder.count, decodes)
     }
 
+    func testTheRecheckWritesThePaletteAgainAfterItsFileIsDeleted() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let destination = root.appendingPathComponent("themes/wallpaper.toml")
+        let file = StillFile(ShellWallpaperPalette.StillWallpaper(
+            url: root.appendingPathComponent("sunset.png"), size: 4096, modified: Date(timeIntervalSince1970: 1000)
+        ))
+        let still = rechecking(file, decoder: Decoder(Self.sunset), into: root)
+        still.start()
+        let sunset = palette(of: Self.sunset)
+        let wroteStill = await eventually { palette(in: root) == sunset }
+        XCTAssertTrue(wroteStill)
+        try FileManager.default.removeItem(at: destination)
+        let restoredStill = await eventually { palette(in: root) == sunset }
+        XCTAssertTrue(restoredStill, "an unchanged still wallpaper rewrites a deleted palette")
+        still.stop()
+
+        let captured = rechecking(Wallpaper(Self.forest), into: root)
+        defer { captured.stop() }
+        captured.start()
+        let forest = palette(of: Self.forest)
+        let wroteCapture = await eventually { palette(in: root) == forest }
+        XCTAssertTrue(wroteCapture)
+        try FileManager.default.removeItem(at: destination)
+        let restoredCapture = await eventually { palette(in: root) == forest }
+        XCTAssertTrue(restoredCapture, "an unchanged captured wallpaper rewrites a deleted palette")
+    }
+
     func testTheRecheckLooksAtTheWallpaperFileOffTheMainActor() async {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }

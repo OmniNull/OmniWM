@@ -413,7 +413,7 @@ final class ShellWallpaperPaletteWriter {
                 }
                 return
             }
-            guard !onlyIfChanged || still != record.written else { return }
+            guard !onlyIfChanged || still != record.written || !Self.exists(destination) else { return }
             guard let image = read(still.url) else {
                 Log.shell.error("Failed to read the wallpaper file for the wallpaper palette")
                 return
@@ -442,7 +442,7 @@ final class ShellWallpaperPaletteWriter {
         let destination = destination
         let record = record
         Self.queue.async {
-            guard !onlyIfChanged || pixels != record.pixels else { return }
+            guard !onlyIfChanged || pixels != record.pixels || !Self.exists(destination) else { return }
             do {
                 _ = try ShellWallpaperPalette.write(
                     ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme),
@@ -454,6 +454,10 @@ final class ShellWallpaperPaletteWriter {
                 Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
             }
         }
+    }
+
+    private nonisolated static func exists(_ destination: URL) -> Bool {
+        FileManager.default.fileExists(atPath: destination.path)
     }
 
     private func watchStore() {
