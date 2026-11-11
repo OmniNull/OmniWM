@@ -868,10 +868,214 @@ local function weatherPanel(ctx, m)
     return framedPanel(ctx, rows, WEATHER_WIDTH)
 end
 
+local PALETTE_TONES = {
+    accent = { color = "accent", fill = "accent/0.14" },
+    danger = { color = "error", fill = "error/0.14" },
+    warning = { color = "warning", fill = "warning/0.14" },
+    neutral = { color = "secondaryForeground", fill = "secondaryForeground/0.14" },
+}
+
+local function paletteBadge(_, item)
+    local tone = PALETTE_TONES[item.tone] or PALETTE_TONES.neutral
+    local color = tone.color
+    local shortcut = item.tone == "shortcut" or item.tone == "shortcutMuted"
+    local props = { h = 20, gap = 4, radius = 10, fill = tone.fill,
+        opacity = if item.tone == "shortcutMuted" then 0.6 else nil,
+        ui.box{ w = 5, h = 1 } }
+    if item.symbol then
+        props[#props + 1] = ui.symbol{ name = item.symbol, size = 10, weight = "semibold", color = color }
+    end
+    props[#props + 1] = ui.text{ text = item.text, size = 10, style = if shortcut then "mono" else nil,
+        weight = "semibold", color = color }
+    props[#props + 1] = ui.box{ w = 5, h = 1 }
+    return ui.row(props)
+end
+
+local function paletteIcon(item, size)
+    if item.icon.bitmap then
+        return ui.image{ image = item.icon.bitmap, w = size, h = size }
+    elseif item.icon.symbol then
+        return ui.symbol{ name = item.icon.symbol, w = size, h = size, size = size * 0.65,
+            weight = "medium", color = "secondaryForeground" }
+    end
+    return ui.icon{ app = item.icon.app, pid = item.icon.pid, w = size, h = size, placeholder = "app.fill" }
+end
+
+local function paletteRow(ctx, item, width)
+    local right = { gap = 4, center = false }
+    local badges = { gap = 5 }
+    if item.hint then
+        badges[#badges + 1] = ui.text{ text = item.hint, size = 10, weight = "medium", color = "secondaryForeground" }
+        badges[#badges + 1] = paletteBadge(ctx, { text = item.hintShortcut or "", tone = "shortcut" })
+    end
+    for _, entry in item.badges do
+        badges[#badges + 1] = paletteBadge(ctx, entry)
+    end
+    if #badges > 0 then
+        right[#right + 1] = ui.row(badges)
+    end
+    for _, mark in item.marks do
+        right[#right + 1] = paletteBadge(ctx, mark)
+    end
+    local icon = item.kind ~= "menu"
+    local reserve = if item.kind == "window" or item.kind == "command" then 200 elseif #right > 0 then 160 else 0
+    local textWidth = math.max(width - 16 - (if icon then 36 else 0) - reserve, 1)
+    local title = ui.text{ text = item.title, size = 14, weight = "semibold",
+        maxWidth = math.max(textWidth - (if item.pinned then 14 else 0), 1) }
+    if item.pinned then
+        title = ui.row{ gap = 4, title, ui.symbol{ name = "pin.fill", size = 10, color = "accent" } }
+    end
+    local label = { grow = 1, gap = 2, center = false, title }
+    if item.subtitle ~= "" then
+        label[#label + 1] = ui.text{ text = item.subtitle, size = 11, color = "secondaryForeground", maxWidth = textWidth }
+    end
+    local props = { w = width, gap = 8, pad = 8, radius = 14,
+        fill = if item.selected then "accent/0.14" else "surface/0.6",
+        border = if item.selected then "accent/0.55" else "border/0.65", borderWidth = 1,
+        hover = if item.enabled then "focus/0.14" else nil,
+        opacity = if item.enabled then nil else 0.55 }
+    if icon then
+        props[#props + 1] = paletteIcon(item, 28)
+    end
+    props[#props + 1] = ui.column(label)
+    if #right > 0 then
+        props[#props + 1] = ui.column(right)
+    end
+    return ui.row(props)
+end
+
+local function paletteAction(ctx, item)
+    local props = { h = 24, gap = 5, radius = 12, fill = "elevatedSurface", border = "border", borderWidth = 1,
+        hover = "focus/0.14", ui.box{ w = 7, h = 1 },
+        ui.symbol{ name = item.symbol, size = 11, weight = "semibold", color = "accent" },
+        ui.text{ text = item.title, size = 11, weight = "semibold" } }
+    if item.shortcut ~= "" then
+        props[#props + 1] = paletteBadge(ctx, { text = item.shortcut, tone = "shortcut" })
+    end
+    props[#props + 1] = ui.box{ w = 7, h = 1 }
+    return ui.row(props)
+end
+
+local function paletteSearch(_, m, input, width)
+    input.size, input.weight = 18, "medium"
+    local symbol = "magnifyingglass"
+    if m.expanded and not m.unified then
+        for _, mode in m.modes do
+            if mode.selected then
+                symbol = mode.symbol
+            end
+        end
+    end
+    local props = { w = width, h = 56, gap = 10, pad = 12,
+        ui.stack{ w = 30, h = 30, radius = 15, fill = "accent/0.14",
+            ui.symbol{ name = symbol, size = 15, weight = "semibold", color = "accent" } },
+        ui.input(input) }
+    if m.browseModes then
+        props[#props + 1] = ui.stack{ w = 24, h = 24, radius = 12, fill = "surface", hover = "focus/0.14",
+            onClick = "palette menu modes", help = omniwm.l10n("Browse modes"),
+            ui.symbol{ name = "ellipsis", size = 13, color = "secondaryForeground" } }
+    end
+    if m.query ~= "" then
+        props[#props + 1] = ui.stack{ w = 22, h = 22, radius = 11, hover = "focus/0.14",
+            onClick = "palette clear", help = omniwm.l10n("Clear"),
+            ui.symbol{ name = "xmark.circle.fill", size = 14, color = "mutedForeground" } }
+    end
+    return ui.row(props)
+end
+
+local function paletteTabs(_, m)
+    local props = { h = 44, gap = 4, pad = 4, radius = 22, fill = "surface", border = "border", borderWidth = 1 }
+    for _, mode in m.modes do
+        props[#props + 1] = ui.stack{ key = "mode-" .. mode.id, w = 36, h = 36, radius = 18,
+            fill = if mode.selected then "accent" else nil,
+            hover = if mode.enabled then "focus/0.14" else nil,
+            opacity = if mode.enabled then nil else 0.38,
+            onClick = if mode.enabled then "palette mode " .. mode.id else nil,
+            help = mode.title .. " (" .. mode.shortcut .. ")",
+            ui.symbol{ name = mode.symbol, size = 16, weight = "semibold",
+                color = if mode.selected then "accentForeground" else "secondaryForeground" } }
+    end
+    return ui.row(props)
+end
+
+local function paletteChip(_, item, kind)
+    local selected = item.selected
+    local props = { h = 26, gap = 4, radius = 13,
+        fill = if selected then "accent" else "elevatedSurface",
+        hover = if selected then nil else "focus/0.14",
+        border = if kind == "chip" and not selected then "border" else nil,
+        borderWidth = if kind == "chip" and not selected then 1 else nil }
+    local color = if selected then "accentForeground" else "secondaryForeground"
+    if item.symbol ~= "" then
+        props.w, props.h, props.radius = 24, 24, 12
+        props[1] = ui.symbol{ name = item.symbol, size = 12, weight = "medium", color = color }
+        return ui.stack(props)
+    end
+    props[1] = ui.box{ w = 7, h = 1 }
+    props[2] = ui.text{ text = item.title, size = 11, weight = "semibold", color = color }
+    props[3] = ui.box{ w = 7, h = 1 }
+    return ui.row(props)
+end
+
+local function paletteCell(_, item, width, height)
+    local tile = if item.icon.bitmap then ui.image{ image = item.icon.bitmap, w = 64, h = 64 }
+        else ui.symbol{ name = item.icon.symbol or "app.fill", size = 36, weight = "light", color = "accent" }
+    return ui.column{ w = width, h = height, gap = 7, pad = 6, radius = 14,
+        fill = if item.selected then "accent/0.14" else "surface/0.6",
+        border = if item.selected then "accent/0.55" else "border/0.65", borderWidth = 1,
+        hover = if item.selected then nil else "focus/0.14",
+        ui.stack{ w = 75, h = 75, radius = 18, fill = "elevatedSurface", tile },
+        ui.text{ text = item.title, size = 12, weight = "semibold", maxWidth = math.max(width - 12, 1),
+            lines = if item.kind == "file" then 2 else 1 } }
+end
+
+local function palettePreview(_, item, props)
+    props.radius, props.fill, props.border, props.borderWidth = 14, "surface/0.7", "border", 1
+    if item.state == "loading" then
+        local width, height = math.max(props.w - 24, 1), math.max(props.h - 24, 1)
+        props[1] = ui.column{ w = width, h = height, gap = 10, center = true,
+            ui.symbol{ name = "hourglass", size = 22, weight = "medium", color = "accent" },
+            ui.text{ text = omniwm.l10n("Loading preview…"), size = 12,
+                color = "secondaryForeground", maxWidth = width, lines = 2 } }
+    end
+    return ui.column(props)
+end
+
 return require("./skin")({
     base = 40,
     hover = "focus/0.14",
     primaryButton = { w = 40, h = 40, radius = 20, fill = "accent", color = "accentForeground" },
+    commandPalettePanel = function(_, props)
+        props.radius, props.material, props.fill = panelFrame.corner, "clear", "background"
+        props.border, props.borderWidth, props.center = "border", 1, false
+        return ui.column(props)
+    end,
+    commandPaletteSearch = paletteSearch,
+    commandPaletteTabs = paletteTabs,
+    commandPaletteRow = paletteRow,
+    commandPaletteSection = function(_, item, width)
+        return ui.row{ w = width, h = 32, gap = 7, pad = 8, center = false,
+            ui.box{ w = 6, h = 6, radius = 3, fill = "accent" },
+            ui.text{ text = item.title, size = 12, weight = "semibold", color = "secondaryForeground",
+                maxWidth = math.max(width - 29, 1) } }
+    end,
+    commandPaletteBadge = paletteBadge,
+    commandPaletteAction = paletteAction,
+    commandPaletteEmpty = function(_, m, width)
+        return ui.column{ w = width, grow = 1, gap = 12, center = true,
+            ui.stack{ w = 60, h = 60, radius = 30, fill = "surface", border = "border", borderWidth = 1,
+                ui.symbol{ name = m.emptySymbol ~= "" and m.emptySymbol or "magnifyingglass", size = 26,
+                    weight = "light", color = "accent" } },
+            ui.text{ text = m.emptyText, size = 13, weight = "medium", color = "secondaryForeground",
+                maxWidth = math.max(width - 48, 1), lines = 2 } }
+    end,
+    commandPalettePreview = palettePreview,
+    commandPaletteToolbar = function(_, _, props)
+        props.radius, props.fill, props.border, props.borderWidth = 12, "surface/0.6", "border", 1
+        return ui.row(props)
+    end,
+    commandPaletteChip = paletteChip,
+    commandPaletteCell = paletteCell,
     controlCenterBar = symbolChip,
     controlCenterPanel = function(ctx, props)
         props.w -= 2

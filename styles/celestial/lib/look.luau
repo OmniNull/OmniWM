@@ -166,7 +166,217 @@ local function panel(_, props)
     return ui.column{ material = "clear", pad = tokens.padding.small, ui.column(props) }
 end
 
+local PALETTE_MODES = {
+    windows = "web_asset", menu = "menu", clipboard = "content_paste", commands = "terminal",
+    applications = "apps", files = "folder_open",
+}
+
+local PALETTE_TONES = {
+    neutral = { fill = "highestSurface", color = "secondaryForeground" },
+    accent = { fill = "accentContainer", color = "accentContainerForeground" },
+    danger = { fill = "error/0.14", color = "error" },
+    warning = { fill = "warning/0.14", color = "warning" },
+    shortcut = { fill = "foreground/0.06", color = "secondaryForeground", mono = true },
+    shortcutMuted = { fill = "foreground/0.06", color = "secondaryForeground", mono = true, opacity = 0.6 },
+}
+
+local function paletteText(props)
+    if props.font == nil and props.style ~= "mono" then
+        props.font = "Google Sans Flex"
+    end
+    return ui.text(props)
+end
+
+local function paletteImage(icon, size, color)
+    if icon.bitmap then
+        return ui.image{ image = icon.bitmap, w = size, h = size }
+    elseif icon.symbol then
+        return ui.symbol{ name = icon.symbol, w = size, h = size, size = size * 0.7, color = color }
+    end
+    return ui.icon{ app = icon.app, pid = icon.pid, w = size, h = size, placeholder = "app.fill" }
+end
+
+local function paletteBadge(item)
+    local tone = PALETTE_TONES[item.tone] or PALETTE_TONES.neutral
+    local content = { gap = tokens.spacing.extraSmall, pad = tokens.padding.extraSmall,
+        radius = tokens.rounding.small, fill = tone.fill, opacity = tone.opacity }
+    if item.symbol then
+        content[#content + 1] = ui.symbol{ name = item.symbol, size = 10, color = tone.color }
+    end
+    content[#content + 1] = paletteText{ text = item.text, size = 11, weight = "medium", color = tone.color,
+        style = if tone.mono then "mono" else nil, maxWidth = 140 }
+    return ui.row(content)
+end
+
+local function paletteControl(name, command, help)
+    return ui.stack{ w = 24, h = 24, radius = tokens.rounding.medium, hover = "foreground/0.08",
+        onClick = command, help = help,
+        surface.icon(name, { size = tokens.icon.small, color = "secondaryForeground" }) }
+end
+
+local function paletteRow(_, item, width)
+    local primary = if item.selected then "secondaryContainerForeground" else "foreground"
+    local secondary = if item.selected then "secondaryContainerForeground" else "secondaryForeground"
+    local tags = { gap = tokens.spacing.extraSmall }
+    if item.hint then
+        tags[#tags + 1] = paletteText{ text = item.hint, size = 11, color = secondary, maxWidth = 100 }
+        tags[#tags + 1] = paletteBadge({ text = item.hintShortcut or "", tone = "shortcut" })
+    end
+    for _, badge in item.badges do
+        tags[#tags + 1] = paletteBadge(badge)
+    end
+    local right = { gap = tokens.spacing.extraSmall, center = false }
+    if #tags > 0 then
+        right[#right + 1] = ui.row(tags)
+    end
+    for _, mark in item.marks do
+        right[#right + 1] = paletteBadge(mark)
+    end
+    local hasIcon = item.kind ~= "menu"
+    local reserve = if #right > 0 then math.min(200, width * 0.4) + tokens.spacing.small else 0
+    local textWidth = math.max(width - 2 * tokens.padding.small
+        - (if hasIcon then 32 + tokens.spacing.small else 0) - reserve, 1)
+    local title = paletteText{ text = item.title, size = 14, weight = "medium", color = primary,
+        maxWidth = math.max(textWidth - (if item.pinned then 16 else 0), 1) }
+    local labels = { grow = 1, gap = 2, center = false,
+        if item.pinned then ui.row{ gap = tokens.spacing.extraSmall, title,
+            ui.symbol{ name = "pin.fill", w = 12, h = 12, size = 10, color = secondary } } else title }
+    if item.subtitle ~= "" then
+        labels[#labels + 1] = paletteText{ text = item.subtitle, size = 12, color = secondary, maxWidth = textWidth }
+    end
+    local content = { w = width, gap = tokens.spacing.small, pad = tokens.padding.small,
+        radius = tokens.rounding.large, fill = if item.selected then "secondaryContainer" else nil,
+        hover = if item.enabled and not item.selected then "foreground/0.06" else nil,
+        opacity = if item.enabled then nil else 0.55 }
+    if hasIcon then
+        content[#content + 1] = ui.stack{ w = 32, h = 32, radius = tokens.rounding.large,
+            fill = if item.selected then "secondaryContainerForeground/0.08" else "surface",
+            paletteImage(item.icon, 24, secondary) }
+    end
+    content[#content + 1] = ui.column(labels)
+    if #right > 0 then
+        content[#content + 1] = ui.column(right)
+    end
+    return ui.row(content)
+end
+
 return require("./skin")({
+    commandPalettePanel = function(_, props)
+        props.radius = tokens.rounding.extraLarge
+        props.material = "clear"
+        props.fill = "background"
+        props.border = "border/0.65"
+        props.borderWidth = 1
+        props.shadow = "shadow/0.3"
+        props.shadowRadius = tokens.rounding.medium
+        return ui.column(props)
+    end,
+    commandPaletteSearch = function(_, m, input, width)
+        input.font = "Rubik"
+        input.size = tokens.title.small
+        input.weight = "medium"
+        local content = { w = width, h = 56, gap = tokens.spacing.small, pad = tokens.padding.medium,
+            ui.stack{ w = 32, h = 32, radius = tokens.rounding.large, fill = "accentContainer",
+                surface.icon("search", { size = tokens.icon.small, color = "accentContainerForeground" }) },
+            ui.input(input) }
+        if m.query ~= "" then
+            content[#content + 1] = paletteControl("close", "palette clear", omniwm.l10n("Clear"))
+        end
+        if m.browseModes then
+            content[#content + 1] = paletteControl("more_horiz", "palette menu modes", omniwm.l10n("Browse modes"))
+        end
+        return ui.row(content)
+    end,
+    commandPaletteTabs = function(_, m)
+        local content = { h = 56, gap = tokens.spacing.small }
+        for _, mode in m.modes do
+            content[#content + 1] = ui.stack{ key = "mode-" .. mode.id, w = 36, h = 36, radius = 18,
+                fill = if mode.selected then "secondaryContainer" else "surface",
+                hover = if mode.enabled and not mode.selected then "foreground/0.08" else nil,
+                opacity = if mode.enabled then nil else 0.38,
+                onClick = if mode.enabled then "palette mode " .. mode.id else nil,
+                help = mode.title .. " (" .. mode.shortcut .. ")",
+                surface.icon(PALETTE_MODES[mode.id] or "search", { size = tokens.icon.small,
+                    color = if mode.selected then "secondaryContainerForeground" else "secondaryForeground" }) }
+        end
+        return ui.row(content)
+    end,
+    commandPaletteRow = paletteRow,
+    commandPaletteSection = function(_, item, width)
+        return ui.column{ w = width, gap = tokens.spacing.extraSmall, center = false,
+            ui.box{ w = 1, h = tokens.padding.small },
+            ui.row{ w = width, gap = tokens.spacing.small, pad = tokens.padding.extraSmall, center = false,
+                ui.box{ w = 4, h = 4, radius = 2, fill = "secondaryAccent" },
+                paletteText{ text = item.title, size = 12, weight = "semibold", color = "secondaryAccent",
+                    maxWidth = math.max(width - 20, 1) } } }
+    end,
+    commandPaletteBadge = function(_, item)
+        return paletteBadge(item)
+    end,
+    commandPaletteAction = function(_, item)
+        local content = { gap = tokens.spacing.small, pad = tokens.padding.small, radius = tokens.rounding.large,
+            fill = "secondaryContainer", hover = "secondaryContainerForeground/0.08",
+            ui.symbol{ name = item.symbol, size = 14, color = "secondaryContainerForeground" },
+            paletteText{ text = item.title, size = 12, weight = "medium", color = "secondaryContainerForeground" } }
+        if item.shortcut ~= "" then
+            content[#content + 1] = paletteText{ text = item.shortcut, style = "mono", size = 10,
+                color = "secondaryContainerForeground" }
+        end
+        return ui.row(content)
+    end,
+    commandPaletteEmpty = function(_, m, width)
+        local symbol = if m.emptySymbol and m.emptySymbol ~= "" then m.emptySymbol
+            elseif m.state == "loading" then "hourglass" else "magnifyingglass"
+        return ui.column{ w = width, grow = 1, gap = tokens.spacing.medium, center = true,
+            ui.stack{ w = 64, h = 64, radius = tokens.rounding.extraLargeIncreased, fill = "accentContainer",
+                ui.symbol{ name = symbol, size = tokens.icon.large, color = "accentContainerForeground" } },
+            paletteText{ text = m.emptyText, size = 14, color = "secondaryForeground",
+                maxWidth = math.max(width - 48, 1), lines = 3 } }
+    end,
+    commandPalettePreview = function(_, item, props)
+        props.radius = tokens.rounding.large
+        props.fill = "surface"
+        props.border = "border/0.5"
+        props.borderWidth = 1
+        if item.state == "text" then
+            props[1].font = "Google Sans Flex"
+        elseif item.state == "loading" then
+            local body = props[1]
+            props[1] = ui.column{ w = body.w, h = body.h, gap = tokens.spacing.small, center = true,
+                surface.icon("hourglass_top", { size = tokens.icon.medium, color = "secondaryAccent" }),
+                paletteText{ text = omniwm.l10n("Loading preview…"), size = 12, color = "secondaryForeground",
+                    maxWidth = body.w, lines = 2 } }
+        end
+        return ui.column(props)
+    end,
+    commandPaletteToolbar = function(_, _, props)
+        props.fill = "surface"
+        props.radius = tokens.rounding.large
+        return ui.row(props)
+    end,
+    commandPaletteChip = function(_, item, kind)
+        local color = if item.selected then "accentContainerForeground" else "secondaryForeground"
+        if item.symbol ~= "" then
+            return ui.stack{ w = 24, h = 24, radius = tokens.rounding.medium,
+                fill = if item.selected then "accentContainer" else nil, hover = "foreground/0.08",
+                ui.symbol{ name = item.symbol, size = 12, color = color } }
+        end
+        return ui.row{ gap = tokens.spacing.extraSmall, pad = 6, radius = tokens.rounding.medium,
+            fill = if item.selected then "accentContainer" elseif kind == "chip" then "highestSurface" else nil,
+            hover = if item.selected then nil else "foreground/0.08",
+            paletteText{ text = item.title, size = 12, weight = "medium", color = color } }
+    end,
+    commandPaletteCell = function(_, item, width, height)
+        local color = if item.selected then "secondaryContainerForeground" else "foreground"
+        return ui.column{ w = width, h = height, pad = 6, gap = 7, radius = tokens.rounding.large,
+            fill = if item.selected then "secondaryContainer" else "surface",
+            hover = if item.selected then nil else "foreground/0.06",
+            ui.stack{ w = 75, h = 75, radius = tokens.rounding.extraLarge,
+                fill = if item.selected then "secondaryContainerForeground/0.08" else "highestSurface",
+                paletteImage(item.icon, 64, color) },
+            paletteText{ text = item.title, size = 12, weight = "medium", color = color,
+                maxWidth = math.max(width - 12, 1), lines = if item.kind == "file" then 2 else 1 } }
+    end,
     base = 60,
     width = 300 - 2 * tokens.padding.medium,
     widths = { ["control-center"] = 320 },
