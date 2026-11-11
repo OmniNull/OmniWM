@@ -260,15 +260,17 @@ final class ShellWallpaperPaletteWriter {
         }
         let pixels = ShellWallpaperPalette.pixels(of: image)
         guard !onlyIfChanged || pixels != self.pixels else { return }
-        self.pixels = pixels
         let scheme = scheme
         let destination = destination
-        Self.queue.async {
+        Self.queue.async { [weak self] in
             do {
                 _ = try ShellWallpaperPalette.write(
                     ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme),
                     to: destination
                 )
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { self?.pixels = pixels }
+                }
             } catch {
                 Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
             }

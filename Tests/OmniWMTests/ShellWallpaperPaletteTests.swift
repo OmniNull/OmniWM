@@ -405,6 +405,27 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         XCTAssertEqual(palette(in: root), sunset)
     }
 
+    func testTheRecheckWritesThePaletteAgainAfterAFailedWrite() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let themes = root.appendingPathComponent("themes")
+        try Data().write(to: themes)
+        let wallpaper = Wallpaper(Self.sunset)
+        let writer = rechecking(wallpaper, into: root)
+        defer { writer.stop() }
+        writer.start()
+        let reads = wallpaper.reads
+        let rechecked = await eventually { wallpaper.reads >= reads + 3 }
+        XCTAssertTrue(rechecked)
+        XCTAssertNil(palette(in: root))
+
+        try FileManager.default.removeItem(at: themes)
+        let sunset = palette(of: Self.sunset)
+        let retried = await eventually { palette(in: root) == sunset }
+        XCTAssertTrue(retried)
+    }
+
     func testTheRecheckStopsWhenTheWriterIsStoppedOrReleased() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
