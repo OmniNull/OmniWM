@@ -10,6 +10,40 @@ import XCTest
 final class DisplayConfigurationTransientSampleTests: XCTestCase {
     private var sampledMonitors: [Monitor] = []
 
+    func testStartingObservationReconcilesMenuBarInsetThatSettledAfterServiceStart() throws {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "DisplayConfigurationTransientSampleTests")
+        let lifecycle = controller.serviceLifecycleManager
+        let withMenuBar = makeMonitor(displayId: 1, name: "External", originX: 0, width: 1440, menuBarHeight: 30)
+        let withoutMenuBar = makeMonitor(displayId: 1, name: "External", originX: 0, width: 1440)
+        let bar = controller.settings.workspaceBar
+        bar.position = .left
+        bar.fullWidth = true
+        controller.settings.gaps.outerGapTop = 0
+        controller.settings.borders.enabled = false
+
+        lifecycle.monitorConfiguration.refreshForServiceStart(currentMonitors: [withMenuBar])
+        XCTAssertEqual(controller.workspaceManager.monitors, [withMenuBar])
+        lifecycle.monitorConfiguration.currentMonitorsProvider = { [withoutMenuBar] }
+        controller.eventIntake.open(sink: controller.eventInterpreter)
+        defer {
+            lifecycle.monitorConfiguration.stopObserving()
+            lifecycle.topologyInventory.cancel()
+            controller.eventIntake.close()
+            controller.layoutRefreshController.resetState()
+        }
+
+        lifecycle.monitorConfiguration.startObserving()
+        controller.eventIntake.drainNow()
+
+        let monitor = try XCTUnwrap(controller.workspaceManager.monitors.first)
+        XCTAssertEqual(monitor.visibleFrame, withoutMenuBar.frame)
+        let resolved = bar.resolved(for: monitor)
+        let barFrame = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+            .frame(fittingLength: 100, monitor: monitor, resolved: resolved)
+        XCTAssertEqual(barFrame.height, withoutMenuBar.frame.height)
+        XCTAssertEqual(controller.layoutFrames(for: monitor, scale: 1).workingFrame.maxY, withoutMenuBar.frame.maxY)
+    }
+
     func testTransientUnusableResampleDoesNotTearDownPresentMonitor() throws {
         let controller = WindowAdmissionTestSupport.controller(prefix: "DisplayConfigurationTransientSampleTests")
         let manager = controller.serviceLifecycleManager
@@ -48,7 +82,7 @@ final class DisplayConfigurationTransientSampleTests: XCTestCase {
         let first = makeMonitor(displayId: 1, name: "First", originX: 0, width: 1440)
         let second = makeMonitor(displayId: 2, name: "Second", originX: 1440, width: 1440)
         sampledMonitors = [first, second]
-        let observer = DisplayConfigurationObserver(monitorSampler: { self.sampledMonitors })
+        let observer = DisplayConfigurationObserver(initialMonitors: sampledMonitors) { self.sampledMonitors }
         var events: [DisplayConfigurationObserver.DisplayEvent] = []
         observer.setEventHandler { events.append($0) }
 
@@ -65,7 +99,7 @@ final class DisplayConfigurationTransientSampleTests: XCTestCase {
         let notched = makeMonitor(displayId: 1, name: "Built-in", originX: 0, width: 1512, notchRange: 666 ... 846)
         let external = makeMonitor(displayId: 2, name: "External", originX: 1512, width: 1440)
         sampledMonitors = [plain, external]
-        let observer = DisplayConfigurationObserver(monitorSampler: { self.sampledMonitors })
+        let observer = DisplayConfigurationObserver(initialMonitors: sampledMonitors) { self.sampledMonitors }
         var reconfigured: [Monitor] = []
         var resampled: XCTestExpectation?
         observer.setEventHandler { event in
@@ -94,7 +128,7 @@ final class DisplayConfigurationTransientSampleTests: XCTestCase {
             makeMonitor(displayId: 1, name: "First", originX: 0, width: 1440, isMain: true),
             makeMonitor(displayId: 2, name: "Second", originX: 1440, width: 1440, isMain: false)
         ]
-        let observer = DisplayConfigurationObserver(monitorSampler: { self.sampledMonitors })
+        let observer = DisplayConfigurationObserver(initialMonitors: sampledMonitors) { self.sampledMonitors }
         var reconfigured: [Monitor] = []
         observer.setEventHandler { event in
             guard case let .reconfigured(monitor) = event else {
@@ -121,14 +155,15 @@ final class DisplayConfigurationTransientSampleTests: XCTestCase {
         originX: CGFloat,
         width: CGFloat,
         notchRange: ClosedRange<CGFloat>? = nil,
-        isMain: Bool? = nil
+        isMain: Bool? = nil,
+        menuBarHeight: CGFloat = 0
     ) -> Monitor {
         let frame = CGRect(x: originX, y: 0, width: width, height: 900)
         return Monitor(
             id: .init(displayId: displayId),
             displayId: displayId,
             frame: frame,
-            visibleFrame: frame,
+            visibleFrame: CGRect(x: originX, y: 0, width: width, height: frame.height - menuBarHeight),
             hasNotch: notchRange != nil,
             notchRange: notchRange,
             name: name,

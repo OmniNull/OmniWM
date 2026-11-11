@@ -22,10 +22,10 @@ final class DisplayConfigurationObserver: NSObject {
 
     private let debounceInterval: UInt64 = 100_000_000
 
-    init(monitorSampler: @escaping @MainActor () -> [Monitor] = { Monitor.current() }) {
+    init(initialMonitors: [Monitor], monitorSampler: @escaping @MainActor () -> [Monitor]) {
         self.monitorSampler = monitorSampler
         super.init()
-        updatePreviousMonitors(monitorSampler())
+        updatePreviousMonitors(initialMonitors)
 
         for name in [NSApplication.didChangeScreenParametersNotification, .screenSafeApertureDidChange] {
             NotificationCenter.default.addObserver(
