@@ -4,6 +4,22 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing IPCQueryRequest) throws {
+        begin(123)
+        var first = true
+        self.key("fields", &first)
+        try self.value(value.fields)
+        self.key("name", &first)
+        try self.value(value.name)
+        self.key("selectors", &first)
+        try self.value(value.selectors)
+        if let fieldValue = value.sort {
+            self.key("sort", &first)
+            try self.value(fieldValue)
+        }
+        end(125)
+    }
+
     mutating func fields0(_ value: borrowing IPCRuleDefinition, _ first: inout Bool) throws {
         if let fieldValue = value.appNameSubstring {
             self.key("appNameSubstring", &first)

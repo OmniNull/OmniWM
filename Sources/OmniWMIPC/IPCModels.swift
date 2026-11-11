@@ -131,6 +131,17 @@ public enum IPCWorkspaceLayout: String, Codable, Equatable, Sendable {
     case dwindle
 }
 
+public enum IPCWindowSwitcherDirection: String, Codable, CaseIterable, Equatable, Sendable {
+    case next
+    case previous
+}
+
+public enum IPCWindowSwitcherScope: String, Codable, CaseIterable, Equatable, Sendable {
+    case activeWorkspace = "active-workspace"
+    case visibleWorkspaces = "visible-workspaces"
+    case allWorkspaces = "all-workspaces"
+}
+
 public enum IPCCommandPaletteMode: String, Codable, CaseIterable, Equatable, Sendable {
     case windows
     case menu

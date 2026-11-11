@@ -123,6 +123,7 @@ extension HotkeyCenter {
         let enabled = keyboardTapRequiredOutsideModes
             || keyboardModeInput.capturesKeys
             || !suppressedHotkeyKeyCodes.isEmpty
+            || windowSwitcherInput.holdsKeyboard
         if CGEvent.tapIsEnabled(tap: tap) != enabled {
             CGEvent.tapEnable(tap: tap, enable: enabled)
         }

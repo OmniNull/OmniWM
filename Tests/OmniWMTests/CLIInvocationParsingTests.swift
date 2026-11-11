@@ -87,6 +87,26 @@ final class CLIInvocationParsingTests: XCTestCase {
         }
     }
 
+    func testWindowSwitcherParsesDirectionAndOptionalScope() throws {
+        let accepted: [([String], IPCCommandRequest)] = [
+            (["next"], .windowSwitcher(direction: .next, scope: nil)),
+            (["previous"], .windowSwitcher(direction: .previous, scope: nil)),
+            (["next", "active-workspace"], .windowSwitcher(direction: .next, scope: .activeWorkspace)),
+            (["previous", "visible-workspaces"], .windowSwitcher(direction: .previous, scope: .visibleWorkspaces)),
+            (["next", "all-workspaces"], .windowSwitcher(direction: .next, scope: .allWorkspaces))
+        ]
+        for (words, expected) in accepted {
+            let parsed = try CLIParser.parse(arguments: ["omniwmctl", "command", "window-switcher"] + words)
+            XCTAssertEqual(parsed.request.payload, .command(expected), words.joined(separator: " "))
+        }
+        for words in [[], ["forward"], ["all-workspaces"], ["next", "bogus"], ["next", "all-workspaces", "extra"]] {
+            XCTAssertNil(IPCCommandRequest(commandWords: ["window-switcher"] + words), words.joined(separator: " "))
+            XCTAssertThrowsError(try CLIParser.parse(arguments: ["omniwmctl", "command", "window-switcher"] + words)) {
+                XCTAssertEqual($0 as? CLIParseError, .usage(CLIParser.usageText))
+            }
+        }
+    }
+
     func testPositiveIndexAndWorkspaceArgumentsKeepIdenticalBounds() throws {
         let commands = ["switch-workspace", "focus-column", "focus-window-in-column"]
         for command in commands {

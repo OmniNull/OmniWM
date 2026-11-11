@@ -215,6 +215,10 @@ enum CLICompletionCatalog {
             return ["default", "niri", "dwindle"]
         case .paletteMode:
             return IPCCommandPaletteMode.allCases.map(\.rawValue)
+        case .switcherDirection:
+            return IPCWindowSwitcherDirection.allCases.map(\.rawValue)
+        case .switcherScope:
+            return IPCWindowSwitcherScope.allCases.map(\.rawValue)
         case .resizeAxis:
             return ["horizontal", "vertical"]
         case .resizeOperation:

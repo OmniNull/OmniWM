@@ -207,6 +207,8 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 |---------|-----------|--------|-------------|
 | `command open-command-palette` | — | shared | Toggle the command palette |
 | `command open-command-palette` | `<windows\|menu\|clipboard\|commands\|applications\|files>` | shared | Open the command palette in a mode; switch to it if open, close it if already there |
+| `command window-switcher` | `<next\|previous>` | shared | **Unreleased:** available when building from `main`. Open the window switcher in the remembered scope, or move its selection if open; releasing the held modifiers focuses the selection |
+| `command window-switcher` | `<next\|previous> <active-workspace\|visible-workspaces\|all-workspaces>` | shared | **Unreleased:** available when building from `main`. Open the window switcher in a scope, or move its selection if open; releasing the held modifiers focuses the selection |
 | `command open-menu-anywhere` | — | shared | Open the menu surface |
 | `command toggle-workspace-bar` | — | shared | Toggle workspace bar visibility |
 | `command hidden-bar panel` | — | shared | Toggle the panel containing configured hidden menu-bar items |

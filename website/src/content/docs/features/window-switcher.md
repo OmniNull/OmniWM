@@ -25,6 +25,23 @@ The first forward Tab selects the most recently focused window available in that
 
 A scope with one or two windows uses the same preview panel and controls as a larger scope. Opening the switcher does not activate a window: release the shortcut's modifier, press Return, or click a card to select it. Escape cancels, and S still changes the workspace scope.
 
+## From the command line
+
+**Unreleased — available when building from `main`.** `omniwmctl command window-switcher next` and `omniwmctl command window-switcher previous` let an external hotkey manager, such as skhd, Hammerspoon or Karabiner-Elements, drive the switcher. Only **Enable Window Switcher** has to be on. Command-Tab and Option-Tab can both be set to **Disabled**, and `hotkeysEnabled` can be `false`.
+
+```sh
+# ~/.skhdrc
+alt - tab         : omniwmctl command window-switcher next
+alt + shift - tab : omniwmctl command window-switcher previous
+```
+
+- When the command runs, OmniWM checks which of Command, Option and Control are held. It keeps the switcher open until one of them is released, then focuses the selected window. This also works with Control and Hyper chords.
+- While it is open, more `next` or `previous` calls move the selection in the same session. `Tab`, the arrow keys, `Return`, `Escape`, `S` and `W` work as they do with the built-in shortcut. Other keys pass through, so the hotkey manager still receives its own chord.
+- If no modifier is held, as in a script, or the key is released before the command arrives, the command switches once and leaves no panel open.
+- An optional third word sets the scope for that opening: `active-workspace`, `visible-workspaces` or `all-workspaces`. Without it, the switcher uses the remembered scope. While it is open, the scope word is ignored.
+
+Watching for the modifier release uses OmniWM's input event tap, which needs Input Monitoring permission. Without it, the command switches once.
+
 ## Appearance and previews
 
 **Window Order** offers two choices:

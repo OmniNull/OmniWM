@@ -24,7 +24,21 @@ struct WindowSwitcherInput {
     private(set) var generation: UInt64 = 0
     private var suppressedKeys: Set<Int> = []
     var shortcuts = WindowSwitcherShortcuts()
-    private var heldModifier = CGEventFlags.maskCommand
+    private var heldModifiers = CGEventFlags.maskCommand
+    private var passesUnhandledKeys = false
+
+    static let releaseModifiers: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl]
+
+    var holdsKeyboard: Bool {
+        isActive || !suppressedKeys.isEmpty
+    }
+
+    mutating func beginExternalSession(holding flags: CGEventFlags) {
+        heldModifiers = flags.intersection(Self.releaseModifiers)
+        passesUnhandledKeys = true
+        isActive = true
+        generation &+= 1
+    }
 
     mutating func cancel(generation: UInt64) {
         guard generation == self.generation else { return }
@@ -47,7 +61,7 @@ struct WindowSwitcherInput {
             return Decision(consumed: suppressedKeys.remove(keyCode) != nil)
         }
         if type == .flagsChanged {
-            guard isActive, !flags.contains(heldModifier) else { return Decision() }
+            guard isActive, !flags.contains(heldModifiers) else { return Decision() }
             isActive = false
             return Decision(action: .commit)
         }
@@ -57,7 +71,8 @@ struct WindowSwitcherInput {
             guard canBegin, keyCode == kVK_Tab, !isRepeat,
                   let shortcut = shortcut(for: flags)
             else { return Decision() }
-            heldModifier = flags.contains(.maskCommand) ? .maskCommand : .maskAlternate
+            heldModifiers = flags.contains(.maskCommand) ? .maskCommand : .maskAlternate
+            passesUnhandledKeys = false
             isActive = true
             generation &+= 1
             suppressedKeys.insert(keyCode)
@@ -66,7 +81,12 @@ struct WindowSwitcherInput {
                 action: .begin(reverse: flags.contains(.maskShift), scope: shortcut.initialScope)
             )
         }
-        suppressedKeys.insert(keyCode)
+        let decision = activeDecision(keyCode: keyCode, flags: flags, isRepeat: isRepeat)
+        if decision.consumed { suppressedKeys.insert(keyCode) }
+        return decision
+    }
+
+    private mutating func activeDecision(keyCode: Int, flags: CGEventFlags, isRepeat: Bool) -> Decision {
         switch keyCode {
         case kVK_Tab:
             return Decision(consumed: true, action: .cycle(reverse: flags.contains(.maskShift)))
@@ -90,7 +110,7 @@ struct WindowSwitcherInput {
             isActive = false
             return Decision(consumed: true, action: .cancel)
         default:
-            return Decision(consumed: true)
+            return Decision(consumed: !passesUnhandledKeys)
         }
     }
 

@@ -29,10 +29,21 @@ final class WindowSwitcherController {
     private var scale: CGFloat = 2
     private let dismissalMonitor = PanelDismissalMonitor()
     private var generation: UInt64 = 0
+    private let modifierFlags: () -> CGEventFlags
+    private let armExternalSession: @MainActor (HotkeyCenter, CGEventFlags) -> UInt64?
     private(set) var isVisible = false
 
-    init(controller: WMController, previewCapture: OverviewThumbnailCapture? = nil) {
+    init(
+        controller: WMController,
+        previewCapture: OverviewThumbnailCapture? = nil,
+        modifierFlags: @escaping () -> CGEventFlags = { CGEventSource.flagsState(.combinedSessionState) },
+        armExternalSession: @escaping @MainActor (HotkeyCenter, CGEventFlags) -> UInt64? = {
+            $0.beginExternalWindowSwitcherSession(holding: $1)
+        }
+    ) {
         self.controller = controller
+        self.modifierFlags = modifierFlags
+        self.armExternalSession = armExternalSession
         panel = WindowSwitcherPanel(ownedWindowRegistry: controller.ownedWindowRegistry)
         capture = previewCapture ?? OverviewThumbnailCapture(consumer: .windowSwitcher)
         capture.onPreview = { [weak self] handle, frame in
@@ -88,7 +99,7 @@ final class WindowSwitcherController {
     }
 
     private func begin(reverse: Bool, initialScope: WindowSwitcherScope?) {
-        guard let controller, controller.hotkeysEnabled, controller.settings.windowSwitcher.enabled,
+        guard let controller, controller.settings.windowSwitcher.enabled,
               !controller.isLockScreenActive,
               !controller.isOverviewOpen(), !controller.commandPaletteController.isVisible,
               let monitor = controller.monitorForInteraction()
@@ -312,5 +323,20 @@ final class WindowSwitcherController {
         panel.hide()
         controller?.focusPolicyEngine.endLease(owner: .windowSwitcher)
         dismissalMonitor.stop()
+    }
+}
+
+extension WindowSwitcherController {
+    func advanceFromAutomation(reverse: Bool, scope: WindowSwitcherScope?) {
+        guard !isVisible else {
+            handle(.cycle(reverse: reverse))
+            return
+        }
+        guard let hotkeys = controller?.hotkeys else { return }
+        let held = modifierFlags().intersection(WindowSwitcherInput.releaseModifiers)
+        let sessionGeneration = held.isEmpty ? nil : armExternalSession(hotkeys, held)
+        handle(.begin(reverse: reverse, scope: scope), generation: sessionGeneration)
+        let releasedBeforeTapArmed = !modifierFlags().contains(held)
+        if sessionGeneration == nil || releasedBeforeTapArmed { handle(.commit) }
     }
 }

@@ -43,10 +43,6 @@ final class HotkeyCenter {
         if isRunning { refreshCommandHotkeyRegistrations() }
     }
 
-    func cancelWindowSwitcherSession(generation: UInt64) {
-        windowSwitcherInput.cancel(generation: generation)
-    }
-
     let carbonRegistrations = CarbonHotkeyRegistration()
     private(set) var isRunning = false
     private(set) var commandHotkeysSuspended = false
@@ -244,7 +240,7 @@ final class HotkeyCenter {
         capsLockHyperRemapActive = false
     }
 
-    private func setupHyperTriggerTapIfNeeded() -> Bool {
+    func setupHyperTriggerTapIfNeeded() -> Bool {
         if hyperTriggerTap != nil { return true }
         let eventMask =
             (1 << CGEventType.keyDown.rawValue) |
@@ -309,15 +305,7 @@ final class HotkeyCenter {
 
 extension HotkeyCenter {
     func handleHyperTriggerEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        let switcherDecision = windowSwitcherInput.handle(
-            type: type,
-            keyCode: Int(event.getIntegerValueField(.keyboardEventKeycode)),
-            flags: event.flags,
-            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
-            canBegin: windowSwitcherEnabled && !commandHotkeysSuspended && keyboardModeInput.kind == .normal
-        )
-        if let action = switcherDecision.action { onWindowSwitcherAction?(action, windowSwitcherInput.generation) }
-        if switcherDecision.consumed { return nil }
+        if handleWindowSwitcherEvent(type: type, event: event) { return nil }
         switch type {
         case .tapDisabledByTimeout:
             InputTapHealth.recordTapDisabled(mouse: false, byTimeout: true)
@@ -330,6 +318,8 @@ extension HotkeyCenter {
             InputTapHealth.recordTapDisabled(mouse: false, byTimeout: false)
             resetTransientInputState()
             hyperTriggerTap.map { CGEvent.tapEnable(tap: $0, enable: false) }
+            return Unmanaged.passUnretained(event)
+        case _ where !isRunning:
             return Unmanaged.passUnretained(event)
         case .keyDown,
              .keyUp:

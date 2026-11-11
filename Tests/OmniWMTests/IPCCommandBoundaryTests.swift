@@ -164,6 +164,10 @@ final class IPCCommandBoundaryTests: XCTestCase {
             .layout(.niri)
         case .paletteMode:
             .paletteMode(.clipboard)
+        case .switcherDirection:
+            .switcherDirection(.next)
+        case .switcherScope:
+            .switcherScope(.allWorkspaces)
         case .resizeAxis:
             .resizeAxis(.horizontal)
         case .resizeOperation:
