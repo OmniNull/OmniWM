@@ -68,7 +68,7 @@ A scratchpad destination works differently from a workspace destination:
 
 - A window already in that slot is left as it is, whether it's parked or visible, so applying twice changes nothing.
 - A window in another slot, or in none, joins that slot.
-- A window you set to tile by hand is floated again.
+- A joining window that you set to tile by hand is floated again.
 
 When a workspace destination now wins for a scratchpad member, the window leaves its slot, comes back on screen if it was parked, and moves to that workspace with its layout from the rules. When no rule sets a destination, scratchpad membership doesn't change.
 

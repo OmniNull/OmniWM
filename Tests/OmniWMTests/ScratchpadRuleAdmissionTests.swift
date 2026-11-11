@@ -593,12 +593,43 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         XCTAssertNil(manager.manualLayoutOverride(for: newToken))
     }
 
-    func testReplayedReplacementCreateChecksFocusWhenItIsReplayed() throws {
-        for focusStayedOnWindow in [false, true] {
+    func testLiveCreateAsksTheAppWhenItsCachedFocusIsAnotherWindowOfTheSameApp() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let pid: pid_t = 975_261
+        let previous = WindowToken(pid: pid, windowId: 975_361)
+        let token = WindowToken(pid: pid, windowId: 975_362)
+        manager.recordExternalFocus(pid: pid, windowId: previous.windowId)
+        addTilingWindow(previous, to: fixture, title: "Plain")
+        XCTAssertEqual(manager.nativeManagedFocusToken, previous)
+        fixture.focusRecorder.frontmostPID = pid
+        fixture.focusRecorder.frontmostToken = token
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        try liveCreate(token, in: fixture)
+        try completeScratchpadFronting(in: fixture)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+        XCTAssertNil(manager.hiddenState(for: token))
+        XCTAssertEqual(hiddenTransitions(of: token, in: manager), 0)
+        XCTAssertEqual(parkIntents(of: token), 0)
+    }
+
+    func testReplayedReplacementCreateAsksTheAppForItsFocusedWindow() throws {
+        for newWindowIsFocused in [false, true] {
             let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
             let manager = fixture.controller.workspaceManager
             let handler = fixture.controller.axEventHandler
-            let token = WindowToken(pid: 975_211, windowId: 975_311)
+            let pid: pid_t = 975_211
+            let previous = WindowToken(pid: pid, windowId: 975_310)
+            let token = WindowToken(pid: pid, windowId: 975_311)
+            manager.recordExternalFocus(pid: pid, windowId: previous.windowId)
+            addTilingWindow(previous, to: fixture, title: "Plain")
+            XCTAssertEqual(manager.nativeManagedFocusToken, previous)
+            fixture.focusRecorder.frontmostPID = pid
+            fixture.focusRecorder.frontmostToken = newWindowIsFocused ? token : previous
             let candidate = try prepareCreate(token, in: fixture)
             handler.enqueueManagedReplacementCreate(
                 candidate,
@@ -611,18 +642,19 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
                     callbackGeneration: nil
                 )
             )
-            if focusStayedOnWindow {
-                manager.recordExternalFocus(pid: token.pid, windowId: token.windowId)
-            }
+            FrameApplyTrace.shared.beginCapture()
+            defer { FrameApplyTrace.shared.endCapture() }
 
             handler.flushManagedReplacementBurst(
-                for: AXEventHandler.ManagedReplacementKey(pid: token.pid, workspaceId: candidate.workspaceId)
+                for: AXEventHandler.ManagedReplacementKey(pid: pid, workspaceId: candidate.workspaceId)
             )
 
-            XCTAssertEqual(manager.scratchpadIndex(for: token), 1, "focusStayedOnWindow=\(focusStayedOnWindow)")
-            if focusStayedOnWindow {
+            XCTAssertEqual(manager.scratchpadIndex(for: token), 1, "newWindowIsFocused=\(newWindowIsFocused)")
+            if newWindowIsFocused {
                 XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
                 XCTAssertNil(manager.hiddenState(for: token))
+                XCTAssertEqual(hiddenTransitions(of: token, in: manager), 0)
+                XCTAssertEqual(parkIntents(of: token), 0)
             } else {
                 XCTAssertNil(manager.revealedScratchpadIndex())
                 XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
@@ -748,6 +780,35 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         XCTAssertEqual(parkIntents(of: token), 0)
     }
 
+    func testExplicitRuleApplyKeepsAMemberWhileItsWorkspaceDestinationIsUndecided() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let token = WindowToken(pid: 975_271, windowId: 975_371)
+        try liveCreate(token, in: fixture)
+        let before = memberSnapshot(token, in: manager)
+        XCTAssertEqual(before.index, 1)
+        XCTAssertEqual(before.hiddenState?.isScratchpad, true)
+        fixture.book.decisions[token] = Self.undecidedDecision(workspaceName: "unmaterialized", scratchpad: nil)
+
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+
+        XCTAssertEqual(memberSnapshot(token, in: manager), before)
+    }
+
+    func testExplicitRuleApplyDoesNotJoinWhileTheScratchpadDestinationIsUndecided() async throws {
+        let fixture = try makeFixture(rules: [])
+        let manager = fixture.controller.workspaceManager
+        let token = addTilingWindow(WindowToken(pid: 975_281, windowId: 975_381), to: fixture)
+        fixture.book.decisions[token] = Self.undecidedDecision(workspaceName: nil, scratchpad: 1)
+
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+
+        XCTAssertNil(manager.scratchpadIndex(for: token))
+        XCTAssertNil(manager.manualLayoutOverride(for: token))
+        XCTAssertNil(manager.hiddenState(for: token))
+        XCTAssertEqual(manager.entry(for: token)?.mode, .tiling)
+    }
+
     private struct Fixture {
         let controller: WMController
         let monitor: Monitor
@@ -783,6 +844,20 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
 
     private static func rule(title: String? = nil, scratchpad: Int? = nil, workspace: String? = nil) -> AppRule {
         AppRule(bundleId: bundleId, titleSubstring: title, assignToWorkspace: workspace, scratchpad: scratchpad)
+    }
+
+    private static func undecidedDecision(workspaceName: String?, scratchpad: ScratchpadIndex?) -> WindowDecision {
+        WindowDecision(
+            disposition: .undecided,
+            source: .heuristic,
+            layoutDecisionKind: .fallbackLayout,
+            workspaceName: workspaceName,
+            ruleEffects: .none,
+            admissionHints: ManagedWindowAdmissionHints(scratchpad: scratchpad),
+            ruleProvenance: .none,
+            heuristicReasons: [],
+            deferredReason: .requiredTitleMissing
+        )
     }
 
     private static func childDecision(scratchpad: ScratchpadIndex?) -> WindowDecision {

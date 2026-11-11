@@ -100,20 +100,14 @@ extension AXEventHandler {
     }
 
     private func createCountsAsFocused(_ token: WindowToken, controller: WMController) -> Bool {
-        let focusOwner = controller.workspaceManager.nativeFocusOwner
-        if focusOwner.externalToken == token { return true }
+        if controller.workspaceManager.nativeFocusOwner.externalToken == token { return true }
         guard frontmostApplicationPIDProvider() == token.pid else { return false }
-        if let provider = controller.commandHandler.frontmostFocusedWindowTokenProvider {
-            return provider() == token
+        let focusedToken = if let provider = controller.commandHandler.frontmostFocusedWindowTokenProvider {
+            provider()
+        } else {
+            focusedWindowToken(for: token.pid)
         }
-        switch focusOwner {
-        case let .managed(focusedToken) where focusedToken.pid == token.pid:
-            return false
-        case let .external(identity) where identity.pid == token.pid && identity.windowId != nil:
-            return false
-        default:
-            return focusedWindowToken(for: token.pid) == token
-        }
+        return focusedToken == token
     }
 
     private func shouldApplyFloatingCreateFrameImmediately(

@@ -145,7 +145,8 @@ extension WMController {
         _ token: WindowToken,
         decision: WindowDecision
     ) -> Bool {
-        guard decision.workspaceName != nil,
+        guard decision.isResolved,
+              decision.workspaceName != nil,
               decision.admissionHints.scratchpad == nil,
               workspaceManager.scratchpadIndex(for: token) != nil,
               let entry = workspaceManager.entry(for: token)
@@ -208,28 +209,31 @@ extension WMController {
     ) -> Bool {
         let isRevealed = workspaceManager.revealedScratchpadIndex() == index
         if wasParked {
-            if isRevealed {
-                showJoinedScratchpadWindow(entry, in: index)
-            }
-            return true
+            return !isRevealed || showJoinedScratchpadWindow(entry, in: index)
         }
         guard !isRevealed else { return true }
         return settleJoinedScratchpadWindow(entry, in: index, parkAdmission: parkAdmission, arrival: arrival)
     }
 
-    private func showJoinedScratchpadWindow(_ entry: WindowState, in index: ScratchpadIndex) {
+    private func showJoinedScratchpadWindow(_ entry: WindowState, in index: ScratchpadIndex) -> Bool {
         let visibleSibling = scratchpadEntries(in: index).first { sibling in
             sibling.token != entry.token && workspaceManager.hiddenState(for: sibling.token) == nil
         }
         guard let workspaceId = visibleSibling?.workspaceId ?? scratchpadTarget()?.workspaceId,
               let monitor = workspaceManager.monitor(for: workspaceId)
         else {
-            return
+            return false
         }
         if entry.workspaceId != workspaceId {
             reassignManagedWindow(entry.token, to: workspaceId)
         }
-        _ = showScratchpadWindow(entry, on: workspaceId, monitor: monitor)
+        guard showScratchpadWindow(entry, on: workspaceId, monitor: monitor) else {
+            if entry.workspaceId != workspaceId {
+                reassignManagedWindow(entry.token, to: entry.workspaceId)
+            }
+            return false
+        }
+        return true
     }
 
     private func settleJoinedScratchpadWindow(

@@ -102,16 +102,28 @@ extension LayoutRefreshController {
             admittedToken: admittedToken,
             context: context
         )
-        if let scratchpadAdmission {
-            context.controller.joinScratchpadOnAdmission(
-                admittedToken,
-                scratchpadAdmission,
-                observedFrame: window.candidate.capturedAppKitFrame ?? admitted.geometry?.frame,
-                appFullscreen: window.decision.appFullscreen,
-                arrival: .quiet(previousFocusToken: previousFocusToken)
-            )
-        }
+        joinFullRescanScratchpad(
+            scratchpadAdmission, window: window, admitted: admitted,
+            admittedToken: admittedToken, previousFocusToken: previousFocusToken
+        )
         progress.seenKeys.insert(admittedToken)
+    }
+
+    private func joinFullRescanScratchpad(
+        _ scratchpadAdmission: ScratchpadAdmission?,
+        window: FullRescanEvaluatedWindow,
+        admitted: WindowAdmission,
+        admittedToken: WindowToken,
+        previousFocusToken: WindowToken?
+    ) {
+        guard let scratchpadAdmission, let controller else { return }
+        controller.joinScratchpadOnAdmission(
+            admittedToken,
+            scratchpadAdmission,
+            observedFrame: window.candidate.capturedAppKitFrame ?? admitted.geometry?.frame,
+            appFullscreen: window.decision.appFullscreen,
+            arrival: .quiet(previousFocusToken: previousFocusToken)
+        )
     }
 
     private func shouldYieldFullRescanWindow(

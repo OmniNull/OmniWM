@@ -49,6 +49,7 @@ extension WindowRuleReevaluation {
         }
         guard context == .explicitRuleApply,
               window.existingEntry != nil,
+              window.evaluation.decision.isResolved,
               let index = controller.scratchpadDestination(for: window.evaluation)
         else {
             return
