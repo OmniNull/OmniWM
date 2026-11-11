@@ -177,10 +177,60 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             destination: root.appendingPathComponent("themes/wallpaper.toml"),
             scheme: .tonalSpot,
             recheckInterval: 0.02,
+            still: { nil },
             image: {
                 wallpaper.reads += 1
                 return wallpaper.image
             },
+            onFailure: { _ in }
+        )
+    }
+
+    private final class StillFile {
+        var wallpaper: ShellWallpaperPalette.StillWallpaper
+        var checks = 0
+
+        init(_ wallpaper: ShellWallpaperPalette.StillWallpaper) {
+            self.wallpaper = wallpaper
+        }
+    }
+
+    private final class Decoder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var image: CGImage
+        private var decodes = 0
+
+        init(_ image: CGImage) {
+            self.image = image
+        }
+
+        var count: Int {
+            lock.withLock { decodes }
+        }
+
+        func show(_ next: CGImage) {
+            lock.withLock { image = next }
+        }
+
+        func read(_: URL) -> CGImage? {
+            lock.withLock {
+                decodes += 1
+                return image
+            }
+        }
+    }
+
+    private func rechecking(_ file: StillFile, decoder: Decoder, into root: URL) -> ShellWallpaperPaletteWriter {
+        ShellWallpaperPaletteWriter(
+            destination: root.appendingPathComponent("themes/wallpaper.toml"),
+            scheme: .tonalSpot,
+            recheckInterval: 0.02,
+            still: {
+                file.checks += 1
+                return file.wallpaper
+            },
+            read: { decoder.read($0) },
+            image: { nil },
             onFailure: { _ in }
         )
     }
@@ -251,12 +301,11 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         capture: CGImage,
         location: (display: String, space: String)? = ("MAIN", "ACTIVE")
     ) -> CGImage? {
-        let cache = OverviewWallpaperCache(captureWallpaper: { _ in capture })
-        cache.desktopImageURL = { _ in url }
-        return ShellWallpaperPalette.image(
-            for: 999, frame: Self.screen, cache: cache, windows: { windows }, store: { store },
+        let still = ShellWallpaperPalette.stillWallpaper(
+            for: 999, frame: Self.screen, desktopImageURL: { _ in url }, windows: { windows }, store: { store },
             location: { _ in location }
         )
+        return still.map { ShellWallpaperPalette.read($0.url) } ?? capture
     }
 
     func testAStillWallpaperIsReadFromItsFileWhileTheCaptureStillShowsTheOldWallpaper() throws {
@@ -424,6 +473,57 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         let sunset = palette(of: Self.sunset)
         let retried = await eventually { palette(in: root) == sunset }
         XCTAssertTrue(retried)
+    }
+
+    func testARecheckOfAnUnchangedStillWallpaperDoesNotDecodeItAgain() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = StillFile(ShellWallpaperPalette.StillWallpaper(
+            url: root.appendingPathComponent("sunset.png"), size: 4096, modified: Date(timeIntervalSince1970: 1000)
+        ))
+        let decoder = Decoder(Self.sunset)
+        let writer = rechecking(file, decoder: decoder, into: root)
+        defer { writer.stop() }
+        writer.start()
+        let sunset = palette(of: Self.sunset)
+        let written = await eventually { palette(in: root) == sunset }
+        XCTAssertTrue(written)
+        var checks = file.checks
+        let settled = await eventually { file.checks >= checks + 3 }
+        XCTAssertTrue(settled)
+
+        let decodes = decoder.count
+        checks = file.checks
+        let rechecked = await eventually { file.checks >= checks + 5 }
+        XCTAssertTrue(rechecked)
+        XCTAssertEqual(decoder.count, decodes)
+        XCTAssertEqual(decodes, 1)
+    }
+
+    func testARecheckDecodesAStillWallpaperAgainWhenItsModificationDateChanges() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("wallpaper.png")
+        let file = StillFile(ShellWallpaperPalette.StillWallpaper(
+            url: url, size: 4096, modified: Date(timeIntervalSince1970: 1000)
+        ))
+        let decoder = Decoder(Self.sunset)
+        let writer = rechecking(file, decoder: decoder, into: root)
+        defer { writer.stop() }
+        writer.start()
+        let sunset = palette(of: Self.sunset)
+        let written = await eventually { palette(in: root) == sunset }
+        XCTAssertTrue(written)
+
+        let decodes = decoder.count
+        decoder.show(Self.forest)
+        file.wallpaper = ShellWallpaperPalette.StillWallpaper(
+            url: url, size: 4096, modified: Date(timeIntervalSince1970: 2000)
+        )
+        let forest = palette(of: Self.forest)
+        let followed = await eventually { palette(in: root) == forest }
+        XCTAssertTrue(followed)
+        XCTAssertGreaterThan(decoder.count, decodes)
     }
 
     func testTheRecheckStopsWhenTheWriterIsStoppedOrReleased() async throws {

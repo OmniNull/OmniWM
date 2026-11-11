@@ -94,7 +94,7 @@ final class OverviewWallpaperCache {
         return context.makeImage()
     }
 
-    func fileImage(for displayId: CGDirectDisplayID, maxPixelSize: Int) -> CGImage? {
+    private func fileImage(for displayId: CGDirectDisplayID, maxPixelSize: Int) -> CGImage? {
         let url = desktopImageURL(displayId)
         let previousURL = urlsByDisplay[displayId]
         urlsByDisplay[displayId] = url
