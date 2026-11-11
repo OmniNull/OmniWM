@@ -24,6 +24,25 @@ extension CrossDisplayDragTests {
         XCTAssertEqual(column.width, .fixed(fixture.niri.liveDropSpaceWidth(context: context)))
     }
 
+    func testAnEdgeHopAfterACarryMovesTheCarriedWindowAndOpensNoSecondGap() throws {
+        let drag = try startLiveTwoDisplayDrag(residents: 4)
+        let fixture = drag.fixture
+        try dragOnto(drag.residents[0], .right, drag)
+        let column = try XCTUnwrap(carriedColumn(drag))
+        let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
+
+        let passed = fixture.manager.withNiriViewportState(for: fixture.target) { state in
+            fixture.niri.liveColumnMoveHop(towardTrailingEdge: true, context: context, state: &state)
+        }
+
+        let beside = try XCTUnwrap(passed)
+        let columns = fixture.niri.columns(in: fixture.target)
+        XCTAssertFalse(columns.contains { $0.isLiveDropSpace })
+        let index = try XCTUnwrap(columns.firstIndex { $0 === beside })
+        XCTAssertTrue(columns.indices.contains(index + 1) && columns[index + 1] === column)
+        XCTAssertTrue(fixture.niriNode(drag.moved)?.parent === column)
+    }
+
     func testTheDropSpaceOnTheOtherDisplayHasTheRegularWidthWhateverTheWindow() throws {
         let drag = try startLiveTwoDisplayDrag(residents: 2)
         let fixture = drag.fixture

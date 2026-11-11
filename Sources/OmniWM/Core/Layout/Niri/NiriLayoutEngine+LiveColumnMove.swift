@@ -543,16 +543,33 @@ extension NiriLayoutEngine {
         } else {
             return nil
         }
-        guard let opened = openLiveDropSpace(
-            existing: dropSpace,
-            beside: beside,
-            side: side,
-            anchor: beside,
-            context: context,
-            state: &state
-        ) else { return nil }
-        move.dropSpaceId = opened.id
-        if let landing = liveColumnStrip(context: context, state: state).first(where: { $0.column === opened }) {
+        let landing: NiriContainer
+        if beside !== dragged,
+           moveLiveSpot(
+               dragged,
+               beside: beside,
+               side: side,
+               removing: dropSpace,
+               move: move,
+               context: context,
+               state: &state
+           )
+        {
+            move.dropSpaceId = nil
+            landing = dragged
+        } else {
+            guard let opened = openLiveDropSpace(
+                existing: dropSpace,
+                beside: beside,
+                side: side,
+                anchor: beside,
+                context: context,
+                state: &state
+            ) else { return nil }
+            move.dropSpaceId = opened.id
+            landing = opened
+        }
+        if let landing = liveColumnStrip(context: context, state: state).first(where: { $0.column === landing }) {
             let shift = towardTrailingEdge
                 ? max(0, landing.maxX - (context.workingFrame.maxX - context.gaps))
                 : min(0, landing.minX - (context.workingFrame.minX + context.gaps))
@@ -955,6 +972,30 @@ extension NiriLayoutEngine {
         dropSpace.cachedWidth = 0
         animateLivePinnedChange(from: before, pinning: anchor, context: context, state: &state)
         return dropSpace
+    }
+
+    private func moveLiveSpot(
+        _ home: NiriContainer,
+        beside target: NiriContainer,
+        side: LiveColumnMove.Side,
+        removing dropSpace: NiriContainer?,
+        move: LiveColumnMove,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
+        guard home.isLiveHomeSpot, !isClosingOrigin(move) else { return false }
+        if move.carry != nil {
+            return moveLiveCarriedColumn(home, beside: target, side: side, context: context, state: &state)
+        }
+        return moveLiveHomeSpot(
+            home,
+            beside: target,
+            side: side,
+            removing: dropSpace,
+            anchor: target,
+            context: context,
+            state: &state
+        )
     }
 
     private func moveLiveHomeSpot(

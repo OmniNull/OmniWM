@@ -1069,6 +1069,31 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(fixture.state.selectedNodeId, fixture.window(2).id)
     }
 
+    func testAnEdgeHopAfterLeavingAStackMovesTheHomeSpotAndOpensNoSecondGap() throws {
+        var fixture = makeFixture()
+        fixture.stack(3, onto: 2)
+        let stack = fixture.column(2)
+        XCTAssertTrue(fixture.begin(3))
+        XCTAssertEqual(
+            fixture.move(to: CGPoint(x: fixture.stripColumn(stack).maxX + 20, y: fixture.middle(of: 3).y)),
+            .changed
+        )
+        let home = fixture.column(3)
+        XCTAssertTrue(home.isLiveHomeSpot)
+
+        let passed = fixture.engine.liveColumnMoveHop(
+            towardTrailingEdge: true,
+            context: fixture.context,
+            state: &fixture.state
+        )
+
+        let beside = try XCTUnwrap(passed)
+        let columns = fixture.engine.columns(in: fixture.workspaceId)
+        XCTAssertFalse(columns.contains { $0.isLiveDropSpace })
+        let index = try XCTUnwrap(columns.firstIndex { $0 === beside })
+        XCTAssertTrue(columns.indices.contains(index + 1) && columns[index + 1] === home)
+    }
+
     func testLeavingAStackSidewaysOpensAHomeSpotBesideItOnThatSide() {
         for towardTrailing in [false, true] {
             var fixture = makeFixture()
