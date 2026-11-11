@@ -134,11 +134,13 @@ local function skin(look)
         local fit = math.min(1, m.scale)
         local inset = m.icon < 20 and 1 or 3
         local height = math.max(12 * fit, m.icon * 0.55)
-        return ui.row{ align = "topLeading", dx = dx, dy = dy, h = height, radius = height / 2, fill = "badge",
-            ui.box{ w = inset, h = 1 },
-            look.text{ text = item.badge, style = "mono", size = math.max(10 * fit, m.icon * 0.35), weight = "semibold",
-                color = "#FFFFFFFF", maxWidth = m.slot - inset * 2 },
-            ui.box{ w = inset, h = 1 } }
+        return ui.stack{ align = "topLeading", dx = dx, dy = dy, h = height, radius = height / 2, fill = "badge",
+            ui.box{ w = height, h = 1 },
+            ui.row{
+                ui.box{ w = inset, h = 1 },
+                look.text{ text = item.badge, style = "mono", size = math.max(10 * fit, m.icon * 0.35),
+                    weight = "semibold", color = "#FFFFFFFF", maxWidth = m.slot - inset * 2 },
+                ui.box{ w = inset, h = 1 } } }
     end
     look.panel = look.panel or function(ctx, props)
         props.pad = props.pad or 14
