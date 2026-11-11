@@ -44,6 +44,7 @@ extension NiriLayoutEngine {
             if move.landingIsHint, let landing = move.landing {
                 move.landingIsHint = false
                 guard placeLiveLanding(landing, move: &move, context: context, state: &state) else { return .unchanged }
+                armLiveStackSuppression(&move, at: cursor, context: context)
                 move.phase = .settling
                 return .changed
             }

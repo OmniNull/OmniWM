@@ -698,6 +698,27 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(fixture.height(of: 1), fixture.singleWindowHintHeight, accuracy: 0.5)
     }
 
+    func testTheModifierOverAnOpenHintArmsTheLockLikeEveryOtherOpening() {
+        var fixture = makeFixture()
+        fixture.stack(4, onto: 3)
+        XCTAssertTrue(fixture.begin(1))
+        let lower = [3, 4].min { fixture.span(of: $0).minY < fixture.span(of: $1).minY }!
+        let span = fixture.span(of: lower)
+        let cursor = CGPoint(
+            x: fixture.stripColumn(fixture.column(lower)).midX,
+            y: span.minY + (span.maxY - span.minY) * 0.55
+        )
+        _ = fixture.move(to: cursor, at: 1)
+        _ = fixture.move(to: cursor, at: 2)
+        XCTAssertEqual(fixture.move?.landingIsHint, true)
+
+        XCTAssertEqual(fixture.setStackMode(true, at: cursor), .changed)
+
+        XCTAssertEqual(fixture.move?.landingIsHint, false)
+        XCTAssertFalse(fixture.span(of: 1).contains(y: cursor.y))
+        XCTAssertEqual(fixture.move?.stackSuppressPoint, cursor)
+    }
+
     func testReleasingTheModifierOverASideThirdClosesTheGap() {
         var fixture = makeFixture()
         XCTAssertTrue(fixture.begin(1))
