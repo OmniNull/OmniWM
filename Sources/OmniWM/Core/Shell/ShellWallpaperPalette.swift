@@ -310,6 +310,7 @@ final class ShellWallpaperPaletteWriter {
     // Read and written only on the writer queue.
     private final class Record: @unchecked Sendable {
         var written: ShellWallpaperPalette.StillWallpaper?
+        var unreadable: ShellWallpaperPalette.StillWallpaper?
         var pixels: [UInt32]?
     }
 
@@ -407,17 +408,23 @@ final class ShellWallpaperPaletteWriter {
         let destination = destination
         let record = record
         Self.queue.async { [weak self] in
-            guard let still = lookup() else {
+            let capture = {
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated { self?.refreshImage(onlyIfChanged: onlyIfChanged) }
                 }
+            }
+            guard let still = lookup(), !onlyIfChanged || still != record.unreadable else {
+                capture()
                 return
             }
             guard !onlyIfChanged || still != record.written || !Self.exists(destination) else { return }
             guard let image = read(still.url) else {
                 Log.shell.error("Failed to read the wallpaper file for the wallpaper palette")
+                record.unreadable = still
+                capture()
                 return
             }
+            record.unreadable = nil
             do {
                 _ = try ShellWallpaperPalette.write(
                     ShellWallpaperPalette.theme(pixels: ShellWallpaperPalette.pixels(of: image), scheme: scheme),
