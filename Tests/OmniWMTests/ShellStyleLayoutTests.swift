@@ -4617,6 +4617,69 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
+    func testCommandPaletteCollapsedQueryAndModesStayInsideThePanelWithoutOverlapping() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        var palette = commandPaletteFixture()
+        palette.expanded = false
+        palette.height = Double(CommandPalettePanel.collapsedHeight)
+        let bounds = CGRect(x: 0, y: 0, width: palette.width, height: palette.height)
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            let widget = try makeWidget(ShellWidgetHost.commandPaletteWidget, config: config, shell: shell)
+            widget.render(fixture(config, height: ShellBarStyle().height, vertical: false))
+            widget.set("commandPalette") { palette.write(into: &$0) }
+            widget.layoutPopout()
+            let layout = widget.surface.layout
+            XCTAssertEqual(widget.surface.size, bounds.size, profile)
+            let query = try XCTUnwrap(layout.handle(forKey: CommandPaletteShellPresenter.queryKey), profile)
+            let queryFrame = CGRect(layout.core.absoluteFrame(of: query))
+            XCTAssertGreaterThan(queryFrame.width, 0, profile)
+            XCTAssertGreaterThan(queryFrame.height, 0, profile)
+            XCTAssertTrue(bounds.contains(queryFrame), profile)
+            var buttons: [CGRect] = []
+            for mode in palette.modes {
+                let handle = try XCTUnwrap(layout.handle(forKey: "mode-" + mode.id), profile)
+                let frame = CGRect(layout.core.absoluteFrame(of: handle))
+                XCTAssertGreaterThan(frame.width, 0, profile)
+                XCTAssertGreaterThan(frame.height, 0, profile)
+                XCTAssertTrue(bounds.contains(frame), profile)
+                XCTAssertFalse(queryFrame.intersects(frame), profile)
+                XCTAssertTrue(buttons.allSatisfy { !$0.intersects(frame) }, profile)
+                buttons.append(frame)
+            }
+            XCTAssertEqual(buttons.count, palette.modes.count, profile)
+        }
+    }
+
+    func testCommandPaletteDefaultHiddenBadgeKeepsTheRenderedWindowRowHeight() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        let config = ShellConfig.resolve(shellDirectory: shell)
+        XCTAssertEqual(config.profile, ShellDefaults.profile)
+        let widget = try makeWidget(ShellWidgetHost.commandPaletteWidget, config: config, shell: shell)
+        widget.render(fixture(config, height: ShellBarStyle().height, vertical: false))
+        var palette = commandPaletteFixture()
+        palette.rows = [try XCTUnwrap(palette.rows.first)]
+        let rowID = palette.rows[0].id
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        let visible = try XCTUnwrap(widget.surface.layout.handle(forKey: rowID))
+        let visibleHeight = widget.surface.layout.core.layoutFrame(of: visible).height
+        let hidden = ShellCommandPaletteData.Badge(
+            text: String(localized: "App hidden"), tone: .danger, symbol: "eye.slash.fill"
+        )
+        palette.rows[0].badges.insert(hidden, at: 0)
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        let hiddenRow = try XCTUnwrap(widget.surface.layout.handle(forKey: rowID))
+        XCTAssertEqual(widget.surface.layout.core.layoutFrame(of: hiddenRow).height, visibleHeight)
+        XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(hidden.text))
+    }
+
     func testCommandPaletteDrawsLauncherToolbarGridAndListAcrossSkins() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
@@ -4835,6 +4898,12 @@ final class ShellStyleLayoutTests: XCTestCase {
             XCTAssertTrue(
                 strings.contains { $0.localizedCaseInsensitiveContains(row.title) }, "\(profile): \(row.title)"
             )
+            for mark in row.marks {
+                XCTAssertTrue(
+                    strings.contains { $0.localizedCaseInsensitiveContains(mark.text) },
+                    "\(profile): \(mark.text)"
+                )
+            }
             let handle = try XCTUnwrap(layout.handle(forKey: row.id), profile)
             let frame = CGRect(layout.core.absoluteFrame(of: handle))
             widget.surface.press(at: CGPoint(x: frame.midX, y: frame.midY))
@@ -5122,7 +5191,9 @@ final class ShellStyleLayoutTests: XCTestCase {
                 id: "window-\(index)", kind: .window, title: row.0, subtitle: row.1,
                 icon: .init(app: nil, pid: nil, symbol: index == 2 ? "gearshape" : nil),
                 badges: [.init(text: "\(index + 1)", tone: .neutral, symbol: nil)],
-                marks: index == 1 ? [.init(text: "Mark: work", tone: .accent, symbol: nil)] : [],
+                marks: index == 1 ? ["editor", "research"].map {
+                    .init(text: String(localized: "Mark: \($0)"), tone: .accent, symbol: nil)
+                } : [],
                 hint: index == 1 ? "Summon Right" : nil, hintShortcut: index == 1 ? "⇧↩" : nil,
                 selected: index == 1, enabled: true
             )

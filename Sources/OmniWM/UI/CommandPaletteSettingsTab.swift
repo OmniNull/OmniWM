@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMLauncherSPI
 import SwiftUI
 
 struct CommandPaletteSettingsTab: View {
@@ -85,6 +86,22 @@ struct CommandPaletteSettingsTab: View {
         .dropDestination(for: String.self) { items, _ in
             guard let dragged = items.first.flatMap(CommandPaletteMode.init(rawValue:)) else { return false }
             return settings.commandPalette.moveSearchedMode(dragged, toPositionOf: mode)
+        }
+    }
+}
+
+private struct CommandPaletteModeIcon: View {
+    @MainActor private static let applicationImage = omniwm_launcher_private_symbol("appstore")
+
+    let mode: CommandPaletteMode
+    let pointSize: CGFloat
+
+    var body: some View {
+        if mode == .applications, let image = Self.applicationImage {
+            Image(nsImage: image.withSymbolConfiguration(.init(pointSize: pointSize, weight: .medium)) ?? image)
+                .renderingMode(.template)
+        } else {
+            Image(systemName: mode.symbolName)
         }
     }
 }

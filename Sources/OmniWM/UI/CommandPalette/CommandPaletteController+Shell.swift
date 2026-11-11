@@ -5,10 +5,6 @@ import AppKit
 import Observation
 
 extension CommandPaletteController {
-    var drawsWithShell: Bool {
-        presentation.shell != nil
-    }
-
     var emptyStateSymbol: String {
         switch selectedMode {
         case .windows: "macwindow.on.rectangle"
@@ -54,11 +50,11 @@ extension CommandPaletteController {
         if presentation.panel == nil {
             presentation.create(controller: self)
         }
-        presentation.prepareShell(from: source, controller: self, checksFiles: true)
+        _ = presentation.prepareShell(from: source, controller: self, checksFiles: true)
     }
 
     func syncShellContent() {
-        presentation.showContent(shell: drawsWithShell, controller: self)
+        presentation.showContent()
         publishShellData()
     }
 
@@ -345,7 +341,7 @@ extension CommandPaletteController {
     func publishShellData() {
         shellObservationGeneration &+= 1
         let generation = shellObservationGeneration
-        guard let shell = presentation.shell, isVisible, drawsWithShell else { return }
+        guard let shell = presentation.shell, isVisible else { return }
         let size = presentation.shellLayoutSize(expanded: isExpanded)
         let data = withObservationTracking {
             shellData(size: size)

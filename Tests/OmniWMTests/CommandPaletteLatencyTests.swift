@@ -3,10 +3,8 @@
 
 import AppKit
 import ApplicationServices
-import Combine
 @testable import OmniWM
 import OmniWMShellCore
-import QuartzCore
 import Synchronization
 import XCTest
 
@@ -15,7 +13,6 @@ import XCTest
     @MainActor
     final class CommandPaletteLatencyTests: XCTestCase {
         private struct Sample {
-            let shell: Bool
             let run: Int
             let typing: Bool
             let nanoseconds: UInt64
@@ -94,9 +91,8 @@ import XCTest
         }()
 
         private struct Editing {
-            let panel: NSPanel
-            let shell: CommandPaletteShellPresenter?
-            let probe: ShellProbe?
+            let shell: CommandPaletteShellPresenter
+            let probe: ShellProbe
             let editor: NSTextView
         }
 
@@ -131,20 +127,17 @@ import XCTest
         private func benchmark(_ workload: Workload) throws {
             var samples: [Sample] = []
             for run in 0 ..< Self.runs {
-                for shell in run.isMultiple(of: 2) ? [false, true] : [true, false] {
-                    samples += try measure(shell: shell, run: run, workload: workload)
-                }
+                samples += try measure(run: run, workload: workload)
             }
             try report(samples, mode: workload.identifier)
         }
 
-        private func measure(shell useShell: Bool, run: Int, workload: Workload) throws -> [Sample] {
+        private func measure(run: Int, workload: Workload) throws -> [Sample] {
             let menuFetched = workload == .menu
                 ? expectation(description: "The controlled Menu source supplies its rows") : nil
             let fixture = fixture(workload, menuFetched: menuFetched)
             defer { fixture.cleanup() }
-            let editing = try prepare(fixture, shell: useShell, workload: workload, menuFetched: menuFetched)
-            let panel = editing.panel
+            let editing = try prepare(fixture, workload: workload, menuFetched: menuFetched)
             let shell = editing.shell
             let probe = editing.probe
             let editor = editing.editor
@@ -153,7 +146,6 @@ import XCTest
             for word in workload.words {
                 let keys: [String?] = word.map { String($0) } + Array(repeating: nil, count: word.count)
                 for letter in keys {
-                    let listHeight = useShell ? nil : swiftUIListHeight(panel)
                     query = letter.map { query + $0 } ?? String(query.dropLast())
                     let start = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
                     if let letter {
@@ -161,25 +153,10 @@ import XCTest
                     } else {
                         editor.deleteBackward(nil)
                     }
-                    let end: UInt64
-                    if let probe, let shell {
-                        end = try commit(shell, probe: probe, query: query)
-                    } else {
-                        fixture.layout()
-                        CATransaction.flush()
-                        end = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
-                        if query == String(word.prefix(1)), letter != nil {
-                            XCTAssertNotEqual(
-                                swiftUIListHeight(panel),
-                                listHeight,
-                                "SwiftUI drew \(query) synchronously"
-                            )
-                        }
-                    }
-                    try drainMainQueue()
+                    let end = try commit(shell, probe: probe, query: query)
                     XCTAssertEqual(fixture.palette.searchText, query)
                     samples.append(Sample(
-                        shell: useShell, run: run, typing: letter != nil, nanoseconds: end - start,
+                        run: run, typing: letter != nil, nanoseconds: end - start,
                         results: resultCount(fixture.palette, workload: workload)
                     ))
                 }
@@ -188,7 +165,7 @@ import XCTest
         }
 
         private func prepare(
-            _ fixture: CommandPaletteFocusFixture, shell useShell: Bool, workload: Workload,
+            _ fixture: CommandPaletteFocusFixture, workload: Workload,
             menuFetched: XCTestExpectation?
         ) throws -> Editing {
             try selectProfile(for: fixture)
@@ -196,36 +173,29 @@ import XCTest
                 fixture.controller.settings.commandPalette.unifiedSearch = true
                 fixture.controller.settings.commandPalette.searchedModes = [.clipboard, .commands]
             }
-            if useShell { fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager) }
+            fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
             let panel = try fixture.show(mode: workload == .unified ? nil : workload.mode)
             fixture.palette.expandResults()
             if workload == .applicationGrid { fixture.palette.selectLauncherFilter(.apps) }
-            if !useShell { fixture.palette.presentation.shell?.onFailure?() }
             if let menuFetched {
                 wait(for: [menuFetched], timeout: failureBound)
                 XCTAssertFalse(fixture.palette.isMenuLoading)
                 XCTAssertEqual(fixture.palette.filteredMenuItems.count, Self.itemCount)
             }
-            let shell = fixture.palette.presentation.shell
-            XCTAssertEqual(shell != nil, useShell)
-            if let shell {
-                let probe = ShellProbe(shell)
-                try awaitPaletteTree(shell) {
-                    guard shell.hasTree, shell.published?.expanded == true else { return false }
-                    guard workload == .unified else { return shell.drawsPublishedList() }
-                    guard let field = shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.queryKey) else {
-                        return false
-                    }
-                    return shell.surface.text?.string(shell.surface.layout.core.content(of: field).placeholder)
-                        == shell.published?.placeholder
+            let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+            let probe = ShellProbe(shell)
+            try awaitPaletteTree(shell) {
+                guard shell.hasTree, shell.published?.expanded == true else { return false }
+                guard workload == .unified else { return shell.drawsPublishedList() }
+                guard let field = shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.queryKey) else {
+                    return false
                 }
-                shell.focusField(in: panel)
-                shell.field.beganEditing()
-                return try Editing(panel: panel, shell: shell, probe: probe, editor: XCTUnwrap(shell.field.textEditor))
+                return shell.surface.text?.string(shell.surface.layout.core.content(of: field).placeholder)
+                    == shell.published?.placeholder
             }
-            let editor = try awaitEditor(panel)
-            fixture.layout()
-            return Editing(panel: panel, shell: nil, probe: nil, editor: editor)
+            shell.focusField(in: panel)
+            shell.field.beganEditing()
+            return try Editing(shell: shell, probe: probe, editor: XCTUnwrap(shell.field.textEditor))
         }
 
         func testOpenToFirstTree() throws {
@@ -267,6 +237,7 @@ import XCTest
                 let record: [String: Any] = [
                     "arm": prewarmed ? "warm" : "cold", "opens": milliseconds.count,
                     "p50": percentile(milliseconds, 0.5), "p95": percentile(milliseconds, 0.95),
+                    "p99": percentile(milliseconds, 0.99),
                     "max": milliseconds.max() ?? 0
                 ]
                 print("PALETTE-OPEN", String(decoding: try JSONSerialization.data(
@@ -308,34 +279,6 @@ import XCTest
                 return nil
             }
             return shell.surface.text?.string(shell.surface.layout.core.content(of: field).text)
-        }
-
-        private func awaitEditor(_ panel: NSPanel) throws -> NSTextView {
-            let editing = expectation(description: "The SwiftUI search field becomes the first responder")
-            let observation = panel.publisher(for: \.firstResponder, options: [.initial, .new])
-                .first { $0 is NSTextView }
-                .sink { _ in editing.fulfill() }
-            defer { observation.cancel() }
-            wait(for: [editing], timeout: failureBound)
-            return try XCTUnwrap(panel.firstResponder as? NSTextView)
-        }
-
-        private func drainMainQueue() throws {
-            let drained = expectation(description: "The main queue runs the work queued before this marker")
-            DispatchQueue.main.async { drained.fulfill() }
-            wait(for: [drained], timeout: failureBound)
-        }
-
-        private func swiftUIListHeight(_ panel: NSPanel) -> CGFloat? {
-            var pending = panel.contentView.map { [$0] } ?? []
-            var list: NSScrollView?
-            while let view = pending.popLast() {
-                if let scroll = view as? NSScrollView, scroll.frame.width > (list?.frame.width ?? 0) {
-                    list = scroll
-                }
-                pending += view.subviews
-            }
-            return list?.documentView?.frame.height
         }
     }
 
@@ -482,35 +425,40 @@ import XCTest
             #else
                 let build = "Release"
             #endif
-            for shell in [false, true] {
-                let arm = samples.filter { $0.shell == shell }
-                let later = arm.filter { $0.run > 0 }
-                let sets: [(String, [Sample])] = [
-                    ("firstRun", arm.filter { $0.run == 0 }),
-                    ("pooled", later),
-                    ("typing", later.filter(\.typing)),
-                    ("deleting", later.filter { !$0.typing })
+            let later = samples.filter { $0.run > 0 }
+            let sets: [(String, [Sample])] = [
+                ("firstRun", samples.filter { $0.run == 0 }),
+                ("pooled", later),
+                ("typing", later.filter(\.typing)),
+                ("deleting", later.filter { !$0.typing })
+            ]
+            for (label, set) in sets {
+                let milliseconds = set.map { Double($0.nanoseconds) / 1_000_000 }
+                let record: [String: Any] = [
+                    "arm": "omnishell", "set": label, "build": build, "keys": set.count,
+                    "mode": mode,
+                    "profile": ProcessInfo.processInfo.environment["OMNIWM_PALETTE_PROFILE"] ?? "default",
+                    "preview": mode == "clipboard" ? (Self.longPreview ? "maximum" : "short") : "none",
+                    "previewCharacters": mode == "clipboard" ? Self.previewText.count : 0,
+                    "p50": percentile(milliseconds, 0.5), "p95": percentile(milliseconds, 0.95),
+                    "p99": percentile(milliseconds, 0.99), "max": milliseconds.max() ?? 0,
+                    "resultsMax": set.map(\.results).max() ?? 0
                 ]
-                for (label, set) in sets {
-                    let milliseconds = set.map { Double($0.nanoseconds) / 1_000_000 }
-                    let record: [String: Any] = [
-                        "arm": shell ? "omnishell" : "swiftui", "set": label, "build": build, "keys": set.count,
-                        "mode": mode,
-                        "profile": ProcessInfo.processInfo.environment["OMNIWM_PALETTE_PROFILE"] ?? "default",
-                        "preview": mode == "clipboard" ? (Self.longPreview ? "maximum" : "short") : "none",
-                        "previewCharacters": mode == "clipboard" ? Self.previewText.count : 0,
-                        "p50": percentile(milliseconds, 0.5), "p95": percentile(milliseconds, 0.95),
-                        "p99": percentile(milliseconds, 0.99), "max": milliseconds.max() ?? 0,
-                        "resultsMax": set.map(\.results).max() ?? 0
-                    ]
-                    print("PALETTE-LATENCY", String(decoding: try JSONSerialization.data(
-                        withJSONObject: record, options: [.sortedKeys]
-                    ), as: UTF8.self))
-                }
-                for run in 1 ..< Self.runs {
-                    let milliseconds = arm.filter { $0.run == run }.map { Double($0.nanoseconds) / 1_000_000 }
-                    print("PALETTE-LATENCY-RUN", shell ? "omnishell" : "swiftui", run, percentile(milliseconds, 0.95))
-                }
+                print("PALETTE-LATENCY", String(decoding: try JSONSerialization.data(
+                    withJSONObject: record, options: [.sortedKeys]
+                ), as: UTF8.self))
+            }
+            for run in 1 ..< Self.runs {
+                let milliseconds = samples.filter { $0.run == run }.map { Double($0.nanoseconds) / 1_000_000 }
+                let record: [String: Any] = [
+                    "arm": "omnishell", "mode": mode, "run": run,
+                    "profile": ProcessInfo.processInfo.environment["OMNIWM_PALETTE_PROFILE"] ?? "default",
+                    "p50": percentile(milliseconds, 0.5), "p95": percentile(milliseconds, 0.95),
+                    "p99": percentile(milliseconds, 0.99)
+                ]
+                print("PALETTE-LATENCY-RUN", String(decoding: try JSONSerialization.data(
+                    withJSONObject: record, options: [.sortedKeys]
+                ), as: UTF8.self))
             }
         }
     }

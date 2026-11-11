@@ -12,6 +12,11 @@ enum CommandPaletteFilteredItems {
 }
 
 extension CommandPaletteController {
+    var isCurrentWorkspaceEmpty: Bool {
+        guard let wmController, let workspaceId = focusSession.workspaceId else { return false }
+        return wmController.workspaceManager.windowCount(in: workspaceId) == 0
+    }
+
     var filteredWindowItems: [CommandPaletteWindowItem] {
         guard case let .windows(items) = filteredItems else { return [] }
         return items
@@ -57,17 +62,6 @@ extension CommandPaletteController {
             return CommandPalettePresentation.availableMenuStatusText(for: menuFocusTarget.app.localizedName)
         }
         return CommandPalettePresentation.unavailableMenuStatusText
-    }
-
-    var clipboardStatusText: String {
-        if let clipboardErrorText { return clipboardErrorText }
-        guard isClipboardHistoryEnabled else {
-            return String(localized: "Clipboard history is disabled.")
-        }
-        if clipboardItems.isEmpty {
-            return String(localized: "Clipboard history is empty.")
-        }
-        return String(localized: "Enter copies. Shift-Enter pastes.")
     }
 
     func resolvedInitialMode(_ preferredMode: CommandPaletteMode) -> CommandPaletteMode {

@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 private enum CommandPaletteFocusSignal {
     static let name = Notification.Name("OmniWM.CommandPalette.FocusChanged")

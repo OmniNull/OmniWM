@@ -18,7 +18,8 @@ final class HostedWindowExternalPresentationTests: XCTestCase {
         XCTAssertEqual(item.id, external.token)
         XCTAssertEqual(item.title, nativeTitle)
         XCTAssertEqual(item.appName, process.localizedName)
-        XCTAssertEqual(item.appIcon?.tiffRepresentation, process.icon?.tiffRepresentation)
+        XCTAssertEqual(item.bundleIdentifier, process.bundleIdentifier)
+        XCTAssertNil(item.hostedSymbol)
         var environment = OverviewEnvironment()
         var queriedTokens: [WindowToken] = []
         environment.windowTitle = { entry in

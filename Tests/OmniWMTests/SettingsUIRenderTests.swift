@@ -216,45 +216,6 @@ import XCTest
             await fixture.close()
         }
 
-        func testLauncherPaletteShowsFiltersAndSavedCommands() async throws {
-            try requireNativeRendering()
-            let fixture = try Fixture()
-            try await fixture.prepare()
-            var entry = LauncherEntry()
-            entry.name = "Build Project"
-            entry.command = "swift build"
-            fixture.settings.launcher.entries = [entry]
-            var environment = CommandPaletteEnvironment()
-            environment.submitApplicationSearch = { _, _, _, generation, publish in
-                publish(generation, [LauncherSection(id: .all, title: "Apps", items: [
-                    LauncherApplicationResult(
-                        bundleURL: URL(fileURLWithPath: ApplicationCatalogFilter.finderPath),
-                        bundleIdentifier: "com.apple.finder",
-                        displayName: "Finder"
-                    )
-                ])], [])
-            }
-            environment.stopApplicationSearch = {}
-            let palette = CommandPaletteController(
-                motionPolicy: fixture.controller.motionPolicy,
-                environment: environment
-            )
-            palette.show(wmController: fixture.controller, mode: .applications)
-            defer { palette.dismiss(reason: .cancel) }
-            do {
-                try await render(
-                    CommandPaletteView(controller: palette, motionPolicy: fixture.controller.motionPolicy),
-                    fixture: fixture, windowClass: WindowClass(size: CGSize(width: 760, height: 420), dark: true),
-                    section: .launcher, name: "launcher-palette",
-                    requiredText: ["All", "Apps", "Saved", "CLI Tools", "Add", "Build Project", "Finder"]
-                )
-            } catch {
-                await fixture.close()
-                throw error
-            }
-            await fixture.close()
-        }
-
         func testPopulatedAppRulesAndItsEditorRenderAtNarrowAndWideSizes() async throws {
             try requireNativeRendering()
             let fixture = try Fixture()

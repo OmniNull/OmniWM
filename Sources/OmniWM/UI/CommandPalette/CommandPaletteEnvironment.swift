@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 private final class CommandPaletteActionBox: @unchecked Sendable {
     let action: () -> Void

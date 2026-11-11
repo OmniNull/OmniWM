@@ -37,7 +37,7 @@ final class CommandPaletteShellModesTests: XCTestCase {
         defer { fixture.cleanup() }
         _ = try fixture.show(mode: .menu)
         fixture.palette.expandResults()
-        XCTAssertTrue(fixture.palette.drawsWithShell)
+        XCTAssertNotNil(fixture.palette.presentation.shell)
         XCTAssertEqual(snapshot(fixture).state, "loading")
         let shell = try XCTUnwrap(fixture.palette.presentation.shell)
         let loaded = expectation(description: "The shell draws the fetched Menu rows")
@@ -179,7 +179,7 @@ final class CommandPaletteShellModesTests: XCTestCase {
         let palette = fixture.palette
         let data = snapshot(fixture, whole: true)
         XCTAssertTrue(data.unified)
-        XCTAssertTrue(palette.drawsWithShell)
+        XCTAssertNotNil(palette.presentation.shell)
         XCTAssertTrue(data.modes.isEmpty)
         XCTAssertTrue(data.actions.isEmpty)
         XCTAssertFalse(data.browseModes)
@@ -228,6 +228,43 @@ final class CommandPaletteShellModesTests: XCTestCase {
         XCTAssertTrue(empty.actions.isEmpty)
         XCTAssertTrue(empty.modes.isEmpty)
         XCTAssertNil(empty.preview)
+    }
+
+    func testLauncherPaletteShowsFiltersAndSavedCommandsInTheShellTree() throws {
+        var entry = LauncherEntry()
+        entry.name = "Build Project"
+        entry.command = "swift build"
+        let finder = LauncherApplicationResult(
+            bundleURL: URL(fileURLWithPath: ApplicationCatalogFilter.finderPath),
+            bundleIdentifier: "com.apple.finder", displayName: "Finder"
+        )
+        let fixture = CommandPaletteFocusFixture(initialMode: .applications) { environment in
+            environment.submitApplicationSearch = { _, _, _, generation, publish in
+                publish(generation, [LauncherSection(id: .all, title: LauncherFilter.apps.title, items: [finder])], [])
+            }
+            environment.stopApplicationSearch = {}
+        }
+        defer { fixture.cleanup() }
+        fixture.controller.settings.launcher.entries = [entry]
+        _ = try fixture.show(mode: .applications)
+        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+        let names = [entry.name, finder.displayName]
+        try awaitPaletteTree(shell) {
+            let rows = (shell.published?.rows ?? []).flatMap { $0.kind == .gridRow ? $0.cells : [$0] }
+            return names.allSatisfy { name in rows.contains { $0.title == name } } && shell.drawsPublishedList()
+        }
+        let data = snapshot(fixture)
+        let launcher = try XCTUnwrap(data.launcher)
+        XCTAssertEqual(launcher.filters.map(\.id), LauncherFilter.allCases.map(\.rawValue))
+        let text = try XCTUnwrap(shell.surface.text)
+        let layout = shell.surface.layout
+        let strings = layout.core.elements { _ in true }.map { text.string(layout.core.content(of: $0).text) }
+        let add = try XCTUnwrap(launcher.add)
+        for title in LauncherFilter.allCases.map(\.title) + names + [add.title] {
+            XCTAssertTrue(strings.contains { $0.localizedCaseInsensitiveContains(title) }, title)
+        }
+        let actions = layout.core.elements { $0.action != 0 }.map { text.string(layout.core.content(of: $0).action) }
+        XCTAssertTrue(actions.contains("palette menu " + CommandPaletteController.shellLauncherAddTarget))
     }
 
     private func snapshot(_ fixture: CommandPaletteFocusFixture, whole: Bool = false) -> ShellCommandPaletteData {

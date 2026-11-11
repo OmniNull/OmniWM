@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 @MainActor
 @Observable
@@ -157,6 +156,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         case selection
         case deactivation
         case superseded
+        case failure
     }
 
     init(
@@ -251,7 +251,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         if presentation.panel == nil {
             presentation.create(controller: self)
         }
-        presentation.prepareShell(from: wmController.workspaceBarManager, controller: self, checksFiles: false)
+        guard presentation.prepareShell(from: wmController.workspaceBarManager, controller: self, checksFiles: false)
+        else {
+            dismiss(reason: .failure)
+            return nil
+        }
         return presentation.panel
     }
 
@@ -342,17 +346,13 @@ extension CommandPaletteController {
 
     func expandResults() {
         guard isVisible, !isExpanded, let panel = presentation.panel else { return }
-        if presentation.animatesPresentation {
-            withAnimation(.easeOut(duration: CommandPalettePanel.expansionDuration)) {
-                isExpanded = true
-            }
-        } else {
-            isExpanded = true
-        }
+        isExpanded = true
         presentation.expand(panel)
     }
 
     func dismiss(reason: DismissReason) {
+        let wasVisible = isVisible
+        if reason == .failure { deferredShellSource = nil }
         nativeMenu.cancel()
         shellPreviewCache = nil
         shellImageCache.removeAll(keepingCapacity: true)
@@ -382,9 +382,7 @@ extension CommandPaletteController {
             isProgrammaticDismiss = true
             if case .cancel = reason, presentation.animatesPresentation {
                 defersContentClear = true
-                withAnimation(.easeOut(duration: CommandPalettePanel.dismissalDuration)) {
-                    isExpanded = false
-                }
+                isExpanded = false
                 presentation.dismiss(panel) { [weak self] in
                     self?.clearPresentedContent()
                 }
@@ -395,7 +393,8 @@ extension CommandPaletteController {
             isProgrammaticDismiss = false
         }
 
-        let restoreTarget = reason == .cancel ? focusSession.restoreFocusTarget : nil
+        let restoresFocus = reason == .cancel || (reason == .failure && wasVisible)
+        let restoreTarget = restoresFocus ? focusSession.restoreFocusTarget : nil
 
         focusSession.clear()
         wmController = nil

@@ -1,9 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%@, top hit %@" : {
-
-    },
     "Choose how the palette searches windows, apps, commands, and files." : {
 
     },
@@ -11,9 +8,6 @@
 
     },
     "Enable Unified Search" : {
-
-    },
-    "Enter opens the selected result." : {
 
     },
     "No results" : {
@@ -6787,6 +6781,7 @@
       }
     },
     "%@ (%@)" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -21056,6 +21051,7 @@
       }
     },
     "App hidden, Workspace %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -27260,6 +27256,7 @@
       }
     },
     "Browse modes" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -32598,6 +32595,7 @@
       }
     },
     "Clipboard history is disabled." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -32722,6 +32720,7 @@
       }
     },
     "Clipboard history is empty." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -37194,6 +37193,7 @@
       }
     },
     "Copy %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -50972,6 +50972,7 @@
       }
     },
     "Enter copies. Shift-Enter pastes." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -51471,6 +51472,7 @@
       }
     },
     "Enter opens the selected file." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -51595,6 +51597,7 @@
       }
     },
     "Enter runs the selected command." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -56928,6 +56931,7 @@
       }
     },
     "Focuses this window" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -79889,6 +79893,7 @@
       }
     },
     "More Actions" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -101024,6 +101029,7 @@
       }
     },
     "Paste %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -116410,6 +116416,7 @@
       }
     },
     "Return · Unhide & Focus" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -120254,6 +120261,7 @@
       }
     },
     "Runs this OmniWM command" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -145260,6 +145268,7 @@
       }
     },
     "Unavailable in the current layout" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -145756,6 +145765,7 @@
       }
     },
     "Unhides the app and focuses this window" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -148738,6 +148748,7 @@
       }
     },
     "View content as" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -160105,18 +160116,13 @@
         }
       }
     },
-    "Enter jumps. %@" : {},
     "Mark selected window…" : {},
     "Mark Window…" : {},
     "No windows found. Check the mark name or try a title, app, or workspace." : {},
     "Remove mark…" : {},
     "Remove Mark…" : {},
-    "Shift-Enter moves here (empty workspace)." : {},
-    "Shift-Enter summons right." : {},
-    "Shift-Enter unavailable without an anchor." : {},
     "Remove a window mark" : {},
     "This window is no longer in the current results. Search again before focusing it." : {},
-    "Mark the selected window (Control-Option-Shift-M)" : {},
     "That mark changed while the chooser was open. Choose a current mark and try again." : {},
     "No mark was changed." : {},
     "Set Mark" : {},
@@ -160133,10 +160139,8 @@
     "Mark names must be non-empty and contain no control characters. Try another name." : {},
     "Window mark to remove" : {},
     "The window is no longer eligible. Reopen the Palette and choose a current managed window." : {},
-    "Marks the selected window row. Shortcut Control-Option-Shift-M." : {},
     "Enter a name you can search for in the Windows palette." : {},
     "Select a current window result first." : {},
-    "Choose a mark to remove from the selected window (Control-Option-Shift-R)" : {},
     "The selected window is already marked ‘%@’." : {},
     "This marked window is no longer available. Search again for a current result." : {},
     "This app is hidden. Press Enter to unhide and focus it; Shift-Enter cannot summon it." : {},
@@ -160147,12 +160151,10 @@
     "Could not move this window into the empty workspace. Press Enter to focus it instead." : {},
     "Removed mark ‘%@’ from the selected window." : {},
     "Marked the selected window as ‘%@’." : {},
-    "Choose a mark to remove from the selected window. Shortcut Control-Option-Shift-R." : {},
     "Window mark name" : {},
     "This window or mark is no longer available. Search again for a current result." : {},
     "Summon right is unavailable. Focus a managed window in the active workspace first." : {},
     "Choose which mark to remove from this window." : {},
-    "Shift-Enter unavailable for this window." : {},
     "Resize Increment" : {
       "localizations" : {
         "en" : {
@@ -173055,9 +173057,6 @@
     "Enter a command…" : {
 
     },
-    "Enter launches an entry or configures a CLI tool." : {
-
-    },
     "Entry Type" : {
 
     },
@@ -173077,9 +173076,6 @@
 
     },
     "File" : {
-
-    },
-    "Filter" : {
 
     },
     "Home folder" : {

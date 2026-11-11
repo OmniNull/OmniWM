@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 @MainActor
 enum CommandPaletteSearch {
@@ -294,7 +293,6 @@ enum CommandPaletteSearch {
                 handle: handle,
                 title: presentation.title ?? "",
                 appName: presentation.name ?? String(localized: "Unknown"),
-                appIcon: presentation.icon,
                 workspaceName: workspaceName,
                 isAppHidden: wmController.workspaceManager.isAppHidden(pid: entry.pid),
                 markNames: wmController.windowMarkRegistry.names(for: entry.token),

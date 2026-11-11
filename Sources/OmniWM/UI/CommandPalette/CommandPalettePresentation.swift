@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 enum CommandPalettePresentation {
     static let unavailableMenuStatusText =
@@ -101,11 +100,6 @@ enum CommandPalettePresentation {
         "⌘\(index + 1)"
     }
 
-    static func accessibilityValue(_ value: String, topHitShortcut: String?) -> String {
-        guard let topHitShortcut else { return value }
-        return String(localized: "\(value), top hit \(topHitShortcut)")
-    }
-
     static func modeNavigationTarget(
         currentMode: CommandPaletteMode,
         isMenuModeAvailable: Bool,
@@ -161,28 +155,6 @@ enum CommandPalettePresentation {
         isCurrentWorkspaceEmpty: Bool
     ) -> Bool {
         !item.isAppHidden && (isCurrentWorkspaceEmpty || isTiling)
-    }
-
-    static func windowsStatusText(
-        selectedItem: CommandPaletteWindowItem?,
-        isSummonRightAvailable: Bool,
-        isSelectedWindowEligibleForSummon: Bool = true,
-        isCurrentWorkspaceEmpty: Bool = false
-    ) -> String {
-        if selectedItem?.isAppHidden == true {
-            return String(localized: "Return · Unhide & Focus")
-        }
-
-        let summonText = if isCurrentWorkspaceEmpty {
-            String(localized: "Shift-Enter moves here (empty workspace).")
-        } else if !isSelectedWindowEligibleForSummon {
-            String(localized: "Shift-Enter unavailable for this window.")
-        } else if isSummonRightAvailable {
-            String(localized: "Shift-Enter summons right.")
-        } else {
-            String(localized: "Shift-Enter unavailable without an anchor.")
-        }
-        return String(localized: "Enter jumps. \(summonText)")
     }
 }
 

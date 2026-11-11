@@ -314,7 +314,7 @@ final class CommandPaletteShellPresenter {
 
     private func fail() {
         guard !closed else { return }
-        Log.shell.error("The command palette widget failed; using the built-in palette")
+        Log.shell.error("The command palette widget failed; closing the palette")
         close()
         onFailure?()
     }

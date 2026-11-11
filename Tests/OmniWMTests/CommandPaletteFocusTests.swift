@@ -443,12 +443,29 @@ final class CommandPaletteFocusTests: XCTestCase {
         let itemCount = fixture.palette.clipboardItems.count
         resignKey = { fixture.palette.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification)) }
 
+        let error = String(localized: "Could not clear clipboard history.")
+        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+        let rendered = expectation(description: "The shell draws the clipboard clear failure")
+        let previousTree = shell.onTree
+        defer { shell.onTree = previousTree }
+        shell.onTree = {
+            previousTree?()
+            guard !shell.surface.layout.core.elements(matching: {
+                $0.text != 0 && shell.surface.text?.string($0.text) == error
+            }).isEmpty else { return }
+            shell.onTree = previousTree
+            rendered.fulfill()
+        }
         fixture.palette.clearClipboardHistory()
-        await fulfillment(of: [failed], timeout: failureBound)
+        await fulfillment(of: [failed, rendered], timeout: failureBound)
         XCTAssertTrue(fixture.palette.isVisible)
         XCTAssertTrue(fixture.palette.isExpanded)
         XCTAssertEqual(fixture.palette.clipboardItems.count, itemCount)
-        XCTAssertEqual(fixture.palette.clipboardStatusText, "Could not clear clipboard history.")
+        XCTAssertEqual(fixture.palette.clipboardErrorText, error)
+        XCTAssertEqual(
+            fixture.palette.shellData(size: fixture.palette.presentation.shellLayoutSize(expanded: true)).error,
+            error
+        )
         resignKey?()
         XCTAssertFalse(fixture.palette.isVisible)
     }
@@ -1276,7 +1293,7 @@ final class CommandPaletteFocusTests: XCTestCase {
         fixture.palette.windows = tokens.enumerated().map { index, token in
             CommandPaletteWindowItem(
                 id: token, handle: WindowHandle(id: token), title: "Window \(token.windowId)", appName: "Notes",
-                appIcon: nil, workspaceName: "1", isAppHidden: false, markNames: marks(index)
+                workspaceName: "1", isAppHidden: false, markNames: marks(index)
             )
         }
         fixture.palette.expandResults()

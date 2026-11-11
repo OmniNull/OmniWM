@@ -68,7 +68,7 @@ final class CommandPaletteShellWindowSessionTests: XCTestCase {
     private func assertUnifiedWindows(_ tokens: [WindowToken], fixture: CommandPaletteFocusFixture) throws {
         XCTAssertTrue(fixture.palette.isUnifiedSearch)
         XCTAssertEqual(fixture.palette.searchText, "")
-        XCTAssertTrue(fixture.palette.drawsWithShell)
+        XCTAssertNotNil(fixture.palette.presentation.shell)
         fixture.palette.expandResults()
         let size = fixture.palette.presentation.shellLayoutSize(expanded: true)
         let expected = Set(tokens.map(CommandPaletteController.shellRowID))
