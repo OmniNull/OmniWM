@@ -97,7 +97,7 @@ final class InputTapThreadTests: XCTestCase {
     }
 
     @MainActor
-    func testNativeResizeCapturesWindowFramesOnlyForEnabledUnmodifiedClicks() async {
+    func testNativeResizeCapturesWindowFramesOnlyForEnabledUnmodifiedClicks() {
         let controller = makeController()
         controller.settings.gestures.mouseMoveModifierKey = .option
         let handler = controller.mouseEventHandler
@@ -108,7 +108,7 @@ final class InputTapThreadTests: XCTestCase {
         var captures = 0
 
         func click(modifiers: CGEventFlags = []) {
-            tap.evaluateLeftMouseDown(at: location, modifiers: modifiers, snapshot: tap.filterSnapshot) {
+            tap.evaluateLeftMouseDown(at: location, modifiers: modifiers, timestamp: 0, snapshot: tap.filterSnapshot) {
                 captures += 1
                 return [:]
             }
@@ -127,10 +127,6 @@ final class InputTapThreadTests: XCTestCase {
         controller.settings.gestures.adoptNativeResize = false
         click()
         XCTAssertEqual(captures, 1)
-
-        await withCheckedContinuation { continuation in
-            DispatchQueue.main.async { continuation.resume() }
-        }
     }
 
     @MainActor

@@ -81,17 +81,13 @@ extension MouseEventHandler {
         if type == .leftMouseDragged, Thread.isMainThread {
             let windowId = MouseEventHandler.eventWindowIdUnderPointer(event)
             let location = ScreenCoordinateSpace.toAppKit(point: event.location)
+            let timestamp = event.timestamp
             MainActor.assumeIsolated {
-                guard let handler = MouseEventHandler._instance,
-                      handler.state.awaitsNativeTitleBarDragTarget
-                else { return }
-                if handler.isCapturingPerformance {
-                    handler.recordCGEvent(type)
-                }
-                handler.receiveAnnotatedNativeMouseDragged(
-                    at: location,
-                    windowIdUnderPointer: windowId
-                )
+                guard let handler = MouseEventHandler._instance else { return }
+                if handler.controller?.eventIntake.recordPendingLeftMouseDragTarget(
+                    at: location, windowId: windowId, timestamp: timestamp
+                ) == true { return }
+                handler.dispatchAnnotatedLeftMouseDragged(at: location, windowIdUnderPointer: windowId)
             }
         } else {
             _ = MouseEventHandler.processTapCallback(type: type, event: event)

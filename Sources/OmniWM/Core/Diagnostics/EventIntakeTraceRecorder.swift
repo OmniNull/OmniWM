@@ -69,6 +69,8 @@ enum EventIntakeTrace {
         case .hotkeyInvocation: Identity(kind: "hotkey")
         case .intentExpired: Identity(kind: "intent-expired")
         case .ipcCommand: Identity(kind: "ipc-command")
+        case .leftMouseDown: Identity(kind: "left-mouse-down")
+        case .leftMouseUp: Identity(kind: "left-mouse-up")
         case .mouseDragged: Identity(kind: "mouse-drag")
         case .mouseMoved: Identity(kind: "mouse-move")
         case .mouseScroll: Identity(kind: "mouse-scroll")
