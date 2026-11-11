@@ -252,7 +252,7 @@ final class ShellConfigurationCoordinator {
         try await ordered { [self] in
             _ = try await persistence().perform { directory in
                 try ShellProfiles.setNodes(
-                    ["leading", "center", "trailing"].map { (ShellProfiles.key($0, of: profile), nil) },
+                    ["leading", "center", "trailing", "priority"].map { (ShellProfiles.key($0, of: profile), nil) },
                     in: directory
                 )
             }

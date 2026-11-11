@@ -854,6 +854,36 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         XCTAssertEqual(profile["theme"], .string(theme))
     }
 
+    func testPriorityIsWrittenAloneAndResetWithTheLayout() async throws {
+        let shell = try fixture()
+        defer { try? FileManager.default.removeItem(at: shell) }
+        let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
+        try await coordinator.refresh()
+        let selected = try await coordinator.selectProfile("default")
+        XCTAssertTrue(selected)
+        let order = ["clock", "workspaces"]
+        func profile() throws -> [String: TOMLNode] {
+            guard case let .table(profiles)? = try parsedBarConfiguration(shell)["profiles"],
+                  case let .table(profile)? = profiles["default"]
+            else { return [:] }
+            return profile
+        }
+
+        try await coordinator.editPriority { _ in order }
+
+        XCTAssertEqual(coordinator.config.priority, order)
+        XCTAssertEqual(coordinator.barLayout?.customized, true)
+        XCTAssertEqual(try profile()["priority"], .array(order.map { .string($0) }))
+        for lane in ShellLane.allCases {
+            XCTAssertNil(try profile()[lane.rawValue])
+        }
+
+        try await coordinator.resetBarLayout()
+
+        XCTAssertNil(try profile()["priority"])
+        XCTAssertEqual(coordinator.barLayout?.customized, false)
+    }
+
     private func barFixture() throws -> URL {
         let shell = try fixture()
         addTeardownBlock {

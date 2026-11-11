@@ -29,6 +29,13 @@ extension ShellConfigurationCoordinator {
         styles.map(\.name)
     }
 
+    func editPriority(profile: String? = nil, _ change: @escaping @Sendable (ShellConfig) -> [String]?) async throws {
+        let profile = try await explicitProfile(profile)
+        _ = try await editFile(refreshMetadata: false, scansSources: false) {
+            try ShellBarLayout.editPriority(profile: profile, in: $0, change)
+        }
+    }
+
     func style(_ profile: String) -> ShellStyle {
         styles.first { $0.name == profile } ?? ShellStyle(name: profile)
     }

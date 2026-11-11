@@ -193,6 +193,36 @@ extension ShellDesktopEditor {
         editLanes { $0.shift(name, by: delta) }
     }
 
+    var priorityOrder: [String] {
+        snapshot?.config.priorityOrder(hiddenBarEnabled: settings.hiddenBar.enabled) ?? []
+    }
+
+    func priorityPayload(for widget: String) -> String {
+        ["omniwm-priority", dragToken, selectedStyle, widget].joined(separator: "\n")
+    }
+
+    @discardableResult
+    func dropPriority(_ payload: String, at index: Int) -> Bool {
+        let parts = payload.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 4, parts[0] == "omniwm-priority", parts[1] == dragToken, parts[2] == selectedStyle,
+              priorityOrder.contains(parts[3])
+        else { return false }
+        let name = parts[3]
+        let hiddenBar = settings.hiddenBar.enabled
+        editPriority { $0.priority(moving: name, to: index, hiddenBarEnabled: hiddenBar) }
+        return true
+    }
+
+    func shiftPriority(_ name: String, by delta: Int) {
+        let hiddenBar = settings.hiddenBar.enabled
+        editPriority { $0.priority(shifting: name, by: delta, hiddenBarEnabled: hiddenBar) }
+    }
+
+    private func editPriority(_ change: @escaping @Sendable (ShellConfig) -> [String]?) {
+        let profile = selectedStyle
+        perform { [configuration] in try await configuration.editPriority(profile: profile, change) }
+    }
+
     func resetLayout() {
         let profile = selectedStyle
         perform { [configuration] in try await configuration.resetBarLayout(profile: profile) }

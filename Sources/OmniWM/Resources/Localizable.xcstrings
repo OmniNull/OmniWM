@@ -13,7 +13,13 @@
     "No results" : {
 
     },
+    "On full-width bars, widgets later in this list give way first when the bar is too full." : {
+
+    },
     "Open Command Palette searches several palette modes at once and shows up to three top hits above the results. Each mode’s own Command Palette shortcut still opens just that mode." : {
+
+    },
+    "Priority" : {
 
     },
     "Results are grouped in this order. Menu reads the frontmost app’s menus each time the palette opens. Clipboard needs clipboard history." : {

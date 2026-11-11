@@ -108,8 +108,26 @@ struct ShellBarLayout: Equatable, Sendable {
         return try ShellProfiles.setTopLevel(entries, in: shellDirectory)
     }
 
+    @discardableResult
+    static func editPriority(
+        profile: String?,
+        in shellDirectory: URL,
+        _ change: (ShellConfig) -> [String]?
+    ) throws -> Bool {
+        var problems: [String] = []
+        let loaded = if let profile {
+            ShellConfig.load(profile: profile, shellDirectory: shellDirectory, problems: &problems)
+        } else { ShellConfig.load(shellDirectory: shellDirectory, problems: &problems) }
+        guard let config = loaded else { throw Unreadable(problem: problems.last ?? "shell.toml") }
+        guard let order = change(config), order != config.priority else { return false }
+        return try ShellProfiles.setTopLevel(
+            [(ShellProfiles.key("priority", of: config.profile), list(order))],
+            in: shellDirectory
+        )
+    }
+
     private static func keys(of profile: String) -> [[String]] {
-        ShellLane.allCases.map { ShellProfiles.key($0.rawValue, of: profile) }
+        (ShellLane.allCases.map(\.rawValue) + ["priority"]).map { ShellProfiles.key($0, of: profile) }
     }
 
     @MainActor
