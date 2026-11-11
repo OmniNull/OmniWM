@@ -177,6 +177,7 @@ struct ShellDropTarget: Equatable {
     let frame: CGRect
     let drop: Bool
     var inIsland = false
+    var visible: CGRect?
 }
 
 @MainActor

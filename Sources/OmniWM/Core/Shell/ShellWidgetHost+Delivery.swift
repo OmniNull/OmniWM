@@ -31,6 +31,9 @@ extension ShellWidgetHost {
         surface.onMove = { [weak self] in
             self?.popout?.refreshAnchor()
         }
+        surface.onVisibleBoundsChange = { [weak self] in
+            self?.layoutGeneration &+= 1
+        }
         surface.onLayoutMenu = { [weak self, weak surface] anchor in
             guard let self, let surface else { return }
             onWidgetMenu?(ShellWidgetMenuRequest(
@@ -57,12 +60,14 @@ extension ShellWidgetHost {
         for state in widgets.values {
             for (key, instance) in state.instances where key.monitor == monitor {
                 guard let surface = instance.surface, surface.visible else { continue }
+                let visible = surface.visibleScreenFrame
                 for frame in surface.targetFrames() {
                     targets.append(ShellDropTarget(
                         target: state.text.string(frame.target),
                         frame: frame.frame,
                         drop: frame.drop,
-                        inIsland: key.placement == .island
+                        inIsland: key.placement == .island,
+                        visible: visible
                     ))
                 }
             }
@@ -366,6 +371,7 @@ extension ShellWidgetHost {
 
     func refreshSlots() {
         var placed: [Monitor.ID: [(rank: (lane: Int, rank: Int), widget: WorkspaceBarShellWidget)]] = [:]
+        let priorities = config.priorityRanks()
         for state in widgets.values {
             let placement = config.lane(of: state.name)
             for (key, instance) in state.instances where bars[key] != nil {
@@ -378,7 +384,8 @@ extension ShellWidgetHost {
                         size: instance.size,
                         lane: placement.lane,
                         island: key.island,
-                        failure: failure
+                        failure: failure,
+                        priority: priorities[state.name] ?? .max
                     )
                 ))
             }

@@ -86,6 +86,9 @@ extension ShellWidgetHost {
             updateIslands(desiredIslands, level: islandLevel)
             rescan(reloadConfiguration: false)
             onLayoutChange()
+        } else if next.priority != previous.priority {
+            refreshSlots()
+            onLayoutChange()
         } else if next.barShader != previous.barShader {
             onLayoutChange()
         }

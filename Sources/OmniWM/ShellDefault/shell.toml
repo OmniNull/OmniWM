@@ -5,6 +5,7 @@ theme = "native"
 leading = ["apple-menu", "app-menu", "omniwm", "workspaces", "scratchpads"]
 center = ["active-window"]
 trailing = ["media", "notifications", "volume", "wifi", "battery-details", "control-center", "system-stats", "clock"]
+priority = ["workspaces", "app-menu", "apple-menu", "clock", "control-center", "omniwm", "hidden-bar", "battery-details", "wifi", "volume", "notifications", "scratchpads", "system-stats", "media", "active-window"]
 hiddenBarWidget = "hidden-bar"
 systemStatsWidget = "system-stats"
 

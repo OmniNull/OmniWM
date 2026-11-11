@@ -50,6 +50,47 @@ final class ShellConfigurationApplicationTests: XCTestCase {
         XCTAssertEqual(layoutChanges, 1)
     }
 
+    func testChangingOnlyPriorityRepublishesSlotRanksAndRelayouts() throws {
+        var layoutChanges = 0
+        let host = ShellWidgetHost(
+            configDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),
+            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
+            world: { ShellWorldData() }, vars: { [:] }, bars: { [:] },
+            onLayoutChange: { layoutChanges += 1 }, onCommand: { _, _ in }, onMenu: { _ in },
+            onPreview: { _ in }, onDrag: { _ in }, onPopoutChange: {}, onTitleDemandChange: { _ in }
+        )
+        defer { host.stop() }
+        let monitor = Monitor.ID(displayId: 92201)
+        let bar = ShellBarKey(monitor: monitor)
+        let names = ["workspaces", "clock"]
+        host.config.leading = names
+        host.bars = [bar: ShellBarData()]
+        for name in names {
+            let state = ShellWidgetHost.WidgetState(
+                name: name,
+                sourceURL: URL(fileURLWithPath: "/tmp/\(name)/init.luau")
+            )
+            host.widgets[name] = state
+            host.place(state)
+            state.instances[bar]?.size = CGSize(width: 20, height: 10)
+        }
+        host.refreshSlots()
+        func ranks() -> [String: Int] {
+            Dictionary(uniqueKeysWithValues: host.slots(for: monitor).map { ($0.id, $0.priority) })
+        }
+        func order(_ names: [String]) -> [String: Int] {
+            Dictionary(uniqueKeysWithValues: names.enumerated().map { ($1, $0) })
+        }
+        XCTAssertEqual(ranks(), order(names))
+
+        var next = host.config
+        next.priority = ["clock"]
+        host.applyConfig(next)
+
+        XCTAssertEqual(layoutChanges, 1)
+        XCTAssertEqual(ranks(), order(next.priority + names.filter { !next.priority.contains($0) }))
+    }
+
     func testCoordinatorSavePreservesPreparedWarningsInTheLiveHost() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

@@ -121,8 +121,9 @@ private struct WorkspaceBarContentView: View {
     private var slots: some View {
         ForEach(ShellLane.allCases, id: \.self) { lane in
             ForEach(slice.shellWidgets(in: snapshot, lane: lane)) { widget in
-                ShellWidgetSlot(widget: widget, view: shellSurface?(widget.id))
+                ShellWidgetSlot(widget: widget, view: shellSurface?(widget.id), cuttable: zones != nil)
                     .layoutValue(key: WorkspaceBarZoneLayout.Lane.self, value: lane)
+                    .layoutValue(key: WorkspaceBarZoneLayout.Priority.self, value: widget.priority)
             }
         }
     }

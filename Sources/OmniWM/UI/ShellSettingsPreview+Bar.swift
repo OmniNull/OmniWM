@@ -36,8 +36,8 @@ extension ShellSettingsPreview {
         drawBackground(in: context, size: size, thickness: thickness, request: request)
         try await drawShader(in: context, size: size, scale: scale, request: request)
         drawOutline(in: context, size: size, thickness: thickness, request: request)
-        let offsets = offsets(of: images, sizes: sizes, length: length, zones: geometry.zones, request: request)
-        drawWidgets(images, in: context, size: size, offsets: offsets, vertical: vertical)
+        let spans = spans(of: images, sizes: sizes, length: length, zones: geometry.zones, request: request)
+        drawWidgets(images, in: context, size: size, spans: spans, request: request)
         guard let image = context.makeImage() else {
             throw ShellScriptFailure(kind: .memory, message: "The bar preview could not be rendered.")
         }
@@ -166,48 +166,65 @@ extension ShellSettingsPreview {
         }
     }
 
-    private static func offsets(
+    private static func spans(
         of images: [ShellSettingsPreviewRaster.Image], sizes: [CGFloat], length: CGFloat,
         zones: WorkspaceBarZones?, request: Request
-    ) -> [CGFloat] {
-        let vertical = request.style.vertical
-        let offsets: [CGFloat]
-        if let zones {
-            offsets = WorkspaceBarZoneLayout.offsets(
-                of: images.map { (request.config.lane(of: $0.name).lane, vertical ? $0.size.height : $0.size.width) },
-                length: length, zones: zones, spacing: 8, inset: 4
-            )
-        } else {
+    ) -> [WorkspaceBarZoneLayout.Span] {
+        guard let zones else {
             var cursor: CGFloat = 4
-            offsets = sizes.map { extent in
+            return sizes.map { extent in
                 defer { cursor += extent + 8 }
-                return cursor
+                return WorkspaceBarZoneLayout.Span(start: cursor, length: extent)
             }
         }
-        return offsets
+        let priorities = request.config.priorityRanks()
+        return WorkspaceBarZoneLayout.spans(
+            of: zip(images, sizes).map { image, extent in
+                WorkspaceBarZoneLayout.Item(
+                    lane: request.config.lane(of: image.name).lane,
+                    length: extent,
+                    priority: priorities[image.name] ?? .max
+                )
+            },
+            length: length, zones: zones, spacing: 8, inset: 4
+        )
     }
 
     private static func drawWidgets(
         _ images: [ShellSettingsPreviewRaster.Image], in context: CGContext,
-        size: CGSize, offsets: [CGFloat], vertical: Bool
+        size: CGSize, spans: [WorkspaceBarZoneLayout.Span], request: Request
     ) {
-        for (index, image) in images.enumerated() {
-            context.draw(
-                image.image,
-                in: vertical
-                    ? CGRect(
-                        x: (size.width - image.size.width) / 2,
-                        y: size.height - offsets[index] - image.size.height,
-                        width: image.size.width,
-                        height: image.size.height
-                    )
-                    : CGRect(
-                        x: offsets[index],
-                        y: (size.height - image.size.height) / 2,
-                        width: image.size.width,
-                        height: image.size.height
-                    )
-            )
+        let vertical = request.style.vertical
+        for (index, image) in images.enumerated() where spans[index].length > 0 {
+            let span = spans[index]
+            let natural = vertical ? image.size.height : image.size.width
+            let start = request.config.lane(of: image.name).lane == .trailing
+                ? span.start + span.length - natural
+                : span.start
+            context.saveGState()
+            if vertical {
+                context.clip(to: CGRect(
+                    x: 0,
+                    y: size.height - span.start - span.length,
+                    width: size.width,
+                    height: span.length
+                ))
+                context.draw(image.image, in: CGRect(
+                    x: (size.width - image.size.width) / 2,
+                    y: size.height - start - image.size.height,
+                    width: image.size.width,
+                    height: image.size.height
+                ))
+            } else {
+                context.clip(to: CGRect(x: span.start, y: 0, width: span.length, height: size.height))
+                context.draw(image.image, in: CGRect(
+                    x: start,
+                    y: (size.height - image.size.height) / 2,
+                    width: image.size.width,
+                    height: image.size.height
+                ))
+            }
+            context.restoreGState()
         }
     }
 }

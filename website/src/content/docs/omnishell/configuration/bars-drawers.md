@@ -11,6 +11,8 @@ Bar widgets and popouts use the same widget package. `render(ctx)` supplies the 
 
 `leading`, `center` and `trailing` are the bar's three groups, in order; widgets in a split bar's active island come from `leading` and `center`. With **Full Width** on, the bar spans the screen edge and the groups sit at its start, center and end; **Notch Mode** then picks where `center` goes on a notched display.
 
+When a full-width bar is too crowded, widgets never draw over each other, nor under the notch when **Notch Mode** places `center` beside it. `priority` lists widgets from most to least important, and the least important widget on the crowded side gives way first: it is cut by just the amount that doesn't fit, keeping its start, or its end in `trailing`, and is hidden when even that isn't enough. Widgets missing from the list rank after it, from the outer edges inward, then `center`.
+
 An enabled full-width bar requests macOS menu-bar auto-hide unless its position is **Below Menu Bar**. Moving the last requesting bar below the menu bar, disabling it or quitting OmniWM normally restores the previous preference if it still matches the value OmniWM applied. Another display's full-width bar can keep automatic hiding active because the preference is system-wide. See [Full Width](/features/workspace-bar/#layout-and-appearance-options) for manual hiding and crash recovery. At overlapping top placement, the bar stays above the native menu bar. The themed presets reserve their occupied space for tiled windows; **Reserve Space for Workspace Bar** controls this, and an automatically hidden workspace bar does not reserve space.
 
 **Settings > Styles & Widgets > Bar** edits them for the selected style: drag to reorder, select **Add Widget…** to choose a group, and select a widget for its options or **Remove from Bar**. **Use Style Layout…** restores all three groups together. Right-click a widget on the bar to move it, take it off the bar or open these settings; when the widget uses right-click itself, Option + right-click opens the same menu. Your own widgets in `widgets/` are listed there to add.
@@ -20,6 +22,7 @@ An enabled full-width bar requests macOS menu-bar auto-hide unless its position 
 profiles.default.leading = ["omniwm", "workspaces", "scratchpads"]
 profiles.default.center = ["clock"]
 profiles.default.trailing = ["volume", "system-stats"]
+profiles.default.priority = ["workspaces", "clock", "volume", "omniwm", "system-stats"]
 ```
 
 Use the active profile’s name instead of `default`. In that profile folder’s own `shell.toml`, omit `profiles.<name>.`. Profile settings and precedence are explained in [Profiles and palettes](/omnishell/configuration/profiles-palettes/#profile-settings).

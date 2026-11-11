@@ -97,10 +97,15 @@ extension ShellWidgetSurface {
     }
 
     func targetFrames() -> [ShellTargetFrame] {
-        layout.core.elements { ($0.drag || $0.drop) && $0.target != 0 }.map { handle in
+        layout.core.elements { ($0.drag || $0.drop) && $0.target != 0 }.compactMap { handle in
+            if let visibleBounds, !CGRect(presentedFrame(of: handle)).intersects(visibleBounds) { return nil }
             let content = layout.core.content(of: handle)
             return ShellTargetFrame(target: content.target, frame: anchor(of: handle).frame, drop: content.drop)
         }
+    }
+
+    var visibleScreenFrame: CGRect? {
+        visibleBounds.map(screenFrame)
     }
 
     func openContextMenu(at point: CGPoint, option: Bool) -> Bool {
@@ -131,7 +136,7 @@ extension ShellWidgetSurface {
         onMenu?(ShellMenuEvent(
             target: content.target,
             anchor: anchor(of: target),
-            label: label.slot >= 0 ? anchor(of: label).frame : nil
+            label: label.slot >= 0 ? shownFrame(of: label).map(screenFrame) : nil
         ))
         return true
     }
@@ -326,7 +331,7 @@ extension ShellWidgetSurface {
     var screenAnchor: ShellAnchor? {
         guard let window = view.window, window.isVisible else { return nil }
         return ShellAnchor(
-            frame: window.convertToScreen(view.convert(view.bounds, to: nil)),
+            frame: window.convertToScreen(view.convert(shownBounds, to: nil)),
             level: window.level,
             container: window.frame
         )
@@ -337,10 +342,26 @@ extension ShellWidgetSurface {
         return layout.core.contains(handle) ? anchor(of: handle) : nil
     }
 
+    var shownBounds: CGRect {
+        visibleBounds ?? view.bounds
+    }
+
+    func shownFrame(of handle: ElementHandle) -> CGRect? {
+        let presented = CGRect(presentedFrame(of: handle))
+        guard let visibleBounds else { return presented }
+        let shown = presented.intersection(visibleBounds)
+        return shown.isEmpty ? nil : shown
+    }
+
     func anchor(of handle: ElementHandle) -> ShellAnchor {
-        let frame = view.convert(CGRect(presentedFrame(of: handle)), to: nil)
+        let frame = screenFrame(shownFrame(of: handle) ?? CGRect(presentedFrame(of: handle)))
         guard let window = view.window else { return ShellAnchor(frame: frame, level: .popUpMenu) }
-        return ShellAnchor(frame: window.convertToScreen(frame), level: window.level, container: window.frame)
+        return ShellAnchor(frame: frame, level: window.level, container: window.frame)
+    }
+
+    private func screenFrame(_ rect: CGRect) -> CGRect {
+        let frame = view.convert(rect, to: nil)
+        return view.window?.convertToScreen(frame) ?? frame
     }
 
     func hover(at point: CGPoint?) {
@@ -354,8 +375,9 @@ extension ShellWidgetSurface {
     }
 
     func updatePreview() {
-        let target = element(at: pointer) { $0.preview && $0.target != 0 }
-        let frame = target.slot >= 0 ? presentedFrame(of: target) : nil
+        let visible = pointer.map { visibleBounds?.contains($0) ?? true } == true
+        let target = visible ? element(at: pointer) { $0.preview && $0.target != 0 } : .none
+        let frame = target.slot >= 0 ? shownFrame(of: target) : nil
         guard target != previewed || frame != previewFrame else { return }
         previewed = target
         previewFrame = frame

@@ -41,6 +41,7 @@ struct ShellConfig: Equatable {
     var leading: [String] = []
     var center: [String] = []
     var trailing: [String] = []
+    var priority: [String] = []
     var widgetSettings: [String: [UInt8]] = [:]
     var widgetIntervals: [String: Double] = [:]
     var scratchpadIcons = 3
@@ -90,26 +91,6 @@ struct ShellConfig: Equatable {
                 .boolValue
         }
     }
-
-    func barLane(of widget: String) -> ShellLane? {
-        ShellLane.allCases.first { lane in
-            switch lane {
-            case .leading: leading.contains(widget)
-            case .center: center.contains(widget)
-            case .trailing: trailing.contains(widget)
-            }
-        }
-    }
-
-    func lane(of widget: String) -> (lane: ShellLane, rank: Int) {
-        if let index = leading.firstIndex(of: widget) {
-            return (.leading, index)
-        }
-        if let index = center.firstIndex(of: widget) {
-            return (.center, index)
-        }
-        return (.trailing, trailing.firstIndex(of: widget) ?? trailing.count)
-    }
 }
 
 extension ShellConfig {
@@ -120,7 +101,7 @@ extension ShellConfig {
     static let profilesKey = "profiles"
     private static let topKeys: Set = ["profile", "weather", profilesKey]
     private static let profileKeys: Set = [
-        "theme", "scheme", "leading", "center", "trailing", "widgets", "weather", "hiddenBarWidget",
+        "theme", "scheme", "leading", "center", "trailing", "priority", "widgets", "weather", "hiddenBarWidget",
         "systemStatsWidget", "drawer", "workspaceBar", "hiddenBar", "monitorBarOverrides", "island", "barShader"
     ]
     private static let themeKeys: Set = ["light", "dark", "workspaceBar"]
@@ -198,6 +179,7 @@ extension ShellConfig {
         config.leading = names(table["leading"], key: "leading", &problems)
         config.center = names(table["center"], key: "center", &problems)
         config.trailing = names(table["trailing"], key: "trailing", &problems)
+        config.priority = names(table["priority"], key: "priority", &problems)
         if case let .table(widgets)? = table["widgets"] {
             applyWidgetSettings(widgets, to: &config, &problems)
         }
