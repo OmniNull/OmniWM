@@ -28,6 +28,11 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     fileprivate var maximum = 65536
     fileprivate var lastChange: String?
     private var style: UInt32?
+    private var editable = true
+    private var wraps = true
+    private var editorLayoutDirty = true
+    private var modelText: UInt32?
+    private var modelStore: ObjectIdentifier?
     private(set) var presentsTransiently = false
     fileprivate let onText: (@MainActor (ShellEvent) -> Void)?
 
@@ -108,12 +113,15 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
 
     func update(content: Content, text: ShellTextStore, color: NSColor) {
         capture = surface?.capture(handle) ?? capture
+        let maximumChanged = maximum != Int(content.inputMaxLength)
         maximum = Int(content.inputMaxLength)
+        updateOptions(content)
         if style != content.style {
             style = content.style
             let font = ShellTextStyle.font(for: content.style) as NSFont
             field?.font = font
             editor?.font = font
+            editorLayoutDirty = true
         }
         field?.textColor = color
         let placeholder = text.string(content.placeholder)
@@ -121,7 +129,14 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         editor?.textColor = color
         editor?.placeholder = placeholder
         guard !isPinned else { return }
-        if !editing { replace(String(text.string(content.text).prefix(maximum))) }
+        if !editing || !editable {
+            let store = ObjectIdentifier(text)
+            if editable || modelText != content.text || modelStore != store || maximumChanged {
+                replace(String(text.string(content.text).prefix(maximum)))
+                modelText = content.text
+                modelStore = store
+            }
+        }
         if content.inputFocus != focusDeclaration {
             focusDeclaration = content.inputFocus
             pendingFocus = content.inputFocus == 1
@@ -129,6 +144,29 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         }
     }
 
+    private func updateOptions(_ content: Content) {
+        let nextEditable = isPinned || content.inputEditable
+        if editable != nextEditable {
+            editable = nextEditable
+            field?.isEditable = editable
+            editor?.isEditable = editable
+            editor?.allowsUndo = editable
+        }
+        guard wraps != content.inputWrap, let editor, let scroll else { return }
+        wraps = content.inputWrap
+        editor.isHorizontallyResizable = !wraps
+        editor.autoresizingMask = wraps ? [.width] : []
+        editor.textContainer?.widthTracksTextView = wraps
+        editor.textContainer?.containerSize = NSSize(
+            width: wraps ? scroll.contentSize.width : CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        scroll.hasHorizontalScroller = !wraps
+        editorLayoutDirty = true
+    }
+}
+
+extension ShellTextInput {
     @discardableResult
     func measure(frame: CGRect, clip: CGRect, opacity: CGFloat) -> CGRect {
         let visible = frame.intersection(clip)
@@ -151,11 +189,18 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
             size: frame.size
         )
         field?.frame = inner
+        if scroll?.frame != inner { editorLayoutDirty = true }
         scroll?.frame = inner
         if let editor, let scroll {
             editor.minSize = NSSize(width: 0, height: scroll.contentSize.height)
             editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-            editor.frame.size.width = scroll.contentSize.width
+            if wraps {
+                editor.frame.size.width = scroll.contentSize.width
+            } else if editorLayoutDirty {
+                editor.sizeToFit()
+                editor.frame.size.width = max(editor.frame.width, scroll.contentSize.width)
+            }
+            editorLayoutDirty = false
         }
     }
 
@@ -202,7 +247,7 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     func changed() {
-        guard !hasMarkedText else { return }
+        guard editable, !hasMarkedText else { return }
         let current = text
         let limited = String(current.prefix(maximum))
         if limited != current { replace(limited, preserveSelection: true) }
@@ -243,6 +288,12 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         let selection = preserveSelection ? textEditor?.selectedRange() : nil
         field?.stringValue = text
         if let textEditor { textEditor.string = text }
+        editorLayoutDirty = true
+        if !editable, let scroll {
+            editor?.setSelectedRange(NSRange(location: 0, length: 0))
+            scroll.contentView.scroll(to: .zero)
+            scroll.reflectScrolledClipView(scroll.contentView)
+        }
         if let selection, let textEditor {
             let end = text.utf16.count
             let location = min(selection.location, end)
@@ -284,10 +335,11 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
               let editor = textEditor else { return false }
         switch event.charactersIgnoringModifiers?.lowercased() {
         case "c": editor.copy(nil)
-        case "v": editor.paste(nil)
-        case "x": editor.cut(nil)
+        case "v": if editable { editor.paste(nil) }
+        case "x": if editable { editor.cut(nil) }
         case "a": editor.selectAll(nil)
         case "z":
+            guard editable else { return true }
             if event.modifierFlags.contains(.shift) { editor.undoManager?.redo() }
             else { editor.undoManager?.undo() }
         case "\r",
@@ -334,6 +386,30 @@ final class ShellTextInput: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
 
     func textView(_: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         command(commandSelector)
+    }
+
+    func textView(_: NSTextView, shouldChangeTextIn _: NSRange, replacementString _: String?) -> Bool {
+        editable
+    }
+
+    func readOnlyState(key: UInt64) -> ShellReadOnlyInputState? {
+        guard !editable, let editor, let scroll else { return nil }
+        return ShellReadOnlyInputState(
+            key: key,
+            selection: editor.selectedRange(),
+            origin: scroll.contentView.bounds.origin,
+            focused: view.window?.firstResponder === editor
+        )
+    }
+
+    func restoreReadOnlyState(_ state: ShellReadOnlyInputState) {
+        guard !editable, let editor, let scroll else { return }
+        let end = editor.string.utf16.count
+        let location = min(state.selection.location, end)
+        editor.setSelectedRange(NSRange(location: location, length: min(state.selection.length, end - location)))
+        scroll.contentView.scroll(to: state.origin)
+        scroll.reflectScrolledClipView(scroll.contentView)
+        if state.focused, let window = view.window { focus(in: window) }
     }
 }
 
@@ -387,90 +463,5 @@ extension ShellTextInput {
         view.alphaValue = 1
         view.frame = frame
         field?.frame = CGRect(origin: .zero, size: frame.size)
-    }
-}
-
-@MainActor
-final class ShellInputField: NSTextField {
-    weak var owner: ShellTextInput?
-
-    override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
-        true
-    }
-
-    override func becomeFirstResponder() -> Bool {
-        let accepted = super.becomeFirstResponder()
-        if accepted { owner?.beganEditing() }
-        return accepted
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        owner?.requestFocus()
-        super.mouseDown(with: event)
-    }
-
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        owner?.editCommand(event) == true || super.performKeyEquivalent(with: event)
-    }
-}
-
-@MainActor
-final class ShellInputTextView: NSTextView {
-    weak var owner: ShellTextInput?
-    var placeholder = "" {
-        didSet { if placeholder != oldValue { needsDisplay = true } }
-    }
-
-    override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
-        true
-    }
-
-    override func becomeFirstResponder() -> Bool {
-        let accepted = super.becomeFirstResponder()
-        if accepted { owner?.beganEditing() }
-        return accepted
-    }
-
-    override func resignFirstResponder() -> Bool {
-        let resigned = super.resignFirstResponder()
-        if resigned { owner?.endedEditing() }
-        return resigned
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        owner?.requestFocus()
-        super.mouseDown(with: event)
-    }
-
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        owner?.editCommand(event) == true || super.performKeyEquivalent(with: event)
-    }
-
-    override func unmarkText() {
-        super.unmarkText()
-        owner?.changed()
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        guard string.isEmpty, !placeholder.isEmpty else { return }
-        let origin = CGPoint(
-            x: textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0),
-            y: textContainerInset.height
-        )
-        (placeholder as NSString).draw(
-            at: origin,
-            withAttributes: [
-                .font: font ?? NSFont.systemFont(ofSize: 12),
-                .foregroundColor: NSColor.placeholderTextColor
-            ]
-        )
-    }
-}
-
-@MainActor
-final class ShellInputClipView: NSView {
-    override var isFlipped: Bool {
-        true
     }
 }

@@ -176,16 +176,27 @@ export type CommandPaletteBadge = {
 
 export type CommandPaletteRow = {
     id: string,
-    kind: "window" | "command" | "heading",
+    kind: "window" | "command" | "heading" | "menu" | "clipboard" | "application" | "file" | "saved" | "showAll",
     title: string,
     subtitle: string,
-    icon: { app: string?, pid: number?, symbol: string? },
+    icon: { app: string?, pid: number?, symbol: string?, bitmap: string? },
     badges: { CommandPaletteBadge },
     marks: { CommandPaletteBadge },
     hint: string?,
     hintShortcut: string?,
     selected: boolean,
     enabled: boolean,
+    pinned: boolean,
+    actions: { { id: string, title: string, symbol: string, shortcut: string } },
+}
+
+export type CommandPalettePreview = {
+    id: string,
+    state: "loading" | "text" | "image" | "unavailable",
+    text: string?,
+    image: string?,
+    width: number,
+    height: number,
 }
 
 export type CommandPalette = {
@@ -197,7 +208,7 @@ export type CommandPalette = {
     modes: { { id: string, title: string, symbol: string, shortcut: string, selected: boolean, enabled: boolean } },
     placeholder: string,
     query: string,
-    state: "results" | "empty",
+    state: "results" | "empty" | "loading" | "disabled" | "blank",
     emptyText: string,
     emptySymbol: string,
     feedback: string?,
@@ -208,6 +219,10 @@ export type CommandPalette = {
     total: number,
     before: number,
     after: number,
+    unified: boolean,
+    browseModes: boolean,
+    error: string?,
+    preview: CommandPalettePreview?,
 }
 
 export type BarDrag = {
@@ -850,7 +865,7 @@ export type Props = {
     pressOpacity: number?,
     pressFill: Color?,
     pressAnimate: Animate?,
-    onHover: InputHandler?,
+    onHover: (InputHandler | string)?,
     hoverDelay: number?,
     hoverGrace: number?,
     gesture: Gesture?,
@@ -898,6 +913,8 @@ export type TextInputProps = Props & {
     text: string?,
     placeholder: string?,
     multiline: boolean?,
+    editable: boolean?,
+    wrap: boolean?,
     maxLength: number?,
     focus: boolean?,
     style: TextStyle?,

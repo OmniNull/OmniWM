@@ -14,6 +14,12 @@ enum ShellCommandPaletteRowKind: String, Sendable {
     case window
     case command
     case heading
+    case menu
+    case clipboard
+    case application
+    case file
+    case saved
+    case showAll
 }
 
 struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
@@ -36,6 +42,7 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
         var app: String?
         var pid: Int32?
         var symbol: String?
+        var bitmap: String?
     }
 
     struct Row: Equatable, Sendable {
@@ -50,6 +57,8 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
         var hintShortcut: String?
         var selected: Bool
         var enabled: Bool
+        var pinned = false
+        var actions: [Action] = []
     }
 
     struct Action: Equatable, Sendable {
@@ -57,6 +66,31 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
         var title: String
         var symbol: String
         var shortcut: String
+    }
+
+    struct Preview: Equatable, Sendable, ShellValueWritable {
+        var id: String
+        var state: String
+        var text: String?
+        var image: String?
+        var width = 0.0
+        var height = 0.0
+
+        func write(into writer: inout ShellValueWriter) {
+            writer.map(6)
+            writer.key("id")
+            writer.string(id)
+            writer.key("state")
+            writer.string(state)
+            writer.key("text")
+            ShellCommandPaletteData.write(text, into: &writer)
+            writer.key("image")
+            ShellCommandPaletteData.write(image, into: &writer)
+            writer.key("width")
+            writer.number(width)
+            writer.key("height")
+            writer.number(height)
+        }
     }
 
     var open = false
@@ -78,9 +112,13 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
     var total = 0
     var before = 0.0
     var after = 0.0
+    var unified = false
+    var browseModes = false
+    var error: String?
+    var preview: Preview?
 
     func write(into writer: inout ShellValueWriter) {
-        writer.map(19)
+        writer.map(23)
         writer.key("open")
         writer.bool(open)
         writer.key("expanded")
@@ -113,6 +151,10 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
         for action in actions {
             action.write(into: &writer)
         }
+        writeResults(into: &writer)
+    }
+
+    private func writeResults(into writer: inout ShellValueWriter) {
         writer.key("rows")
         writer.array(rows.count)
         for row in rows {
@@ -128,6 +170,14 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
         writer.number(before)
         writer.key("after")
         writer.number(after)
+        writer.key("unified")
+        writer.bool(unified)
+        writer.key("browseModes")
+        writer.bool(browseModes)
+        writer.key("error")
+        Self.write(error, into: &writer)
+        writer.key("preview")
+        if let preview { preview.write(into: &writer) } else { writer.null() }
     }
 
     fileprivate static func write(_ value: String?, into writer: inout ShellValueWriter) {
@@ -167,19 +217,21 @@ extension ShellCommandPaletteData.Badge: ShellValueWritable {
 
 extension ShellCommandPaletteData.Icon: ShellValueWritable {
     func write(into writer: inout ShellValueWriter) {
-        writer.map(3)
+        writer.map(4)
         writer.key("app")
         ShellCommandPaletteData.write(app, into: &writer)
         writer.key("pid")
         if let pid { writer.number(Double(pid)) } else { writer.null() }
         writer.key("symbol")
         ShellCommandPaletteData.write(symbol, into: &writer)
+        writer.key("bitmap")
+        ShellCommandPaletteData.write(bitmap, into: &writer)
     }
 }
 
 extension ShellCommandPaletteData.Row: ShellValueWritable {
     func write(into writer: inout ShellValueWriter) {
-        writer.map(11)
+        writer.map(13)
         writer.key("id")
         writer.string(id)
         writer.key("kind")
@@ -208,6 +260,11 @@ extension ShellCommandPaletteData.Row: ShellValueWritable {
         writer.bool(selected)
         writer.key("enabled")
         writer.bool(enabled)
+        writer.key("pinned")
+        writer.bool(pinned)
+        writer.key("actions")
+        writer.array(actions.count)
+        for action in actions { action.write(into: &writer) }
     }
 }
 

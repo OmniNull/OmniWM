@@ -4607,9 +4607,13 @@ final class ShellStyleLayoutTests: XCTestCase {
             let config = ShellConfig.resolve(shellDirectory: shell)
             let resources = ShellResources(motion: MotionPolicy(animationsEnabled: false))
             resources.palette.refresh(theme: config.theme, appearance: try XCTUnwrap(NSAppearance(named: .darkAqua)))
-            for palette in [commandPaletteFixture(), commandModePaletteFixture()] {
+            for palette in [
+                commandPaletteFixture(), commandModePaletteFixture(), menuModePaletteFixture(),
+                clipboardModePaletteFixture(), unifiedPaletteFixture()
+            ] {
                 try assertCommandPalette(palette, profile: profile, config: config, shell: shell, resources: resources)
             }
+            try assertClipboardPaletteStates(profile: profile, config: config, shell: shell, resources: resources)
         }
     }
 
@@ -4621,7 +4625,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         resources: ShellResources
     ) throws {
         let rowActions = palette.rows.filter(\.enabled).map { "palette activate \($0.id)" }
-        let profile = "\(profile) \(palette.mode)"
+        let profile = "\(profile) \(palette.unified ? "unified" : palette.mode)"
         let widget = try makeWidget(
             ShellWidgetHost.commandPaletteWidget, config: config, shell: shell, resources: resources
         )
@@ -4651,14 +4655,43 @@ final class ShellStyleLayoutTests: XCTestCase {
             XCTAssertTrue(actions.contains("palette " + action.id), "\(profile): \(action.id)")
         }
         for row in palette.rows {
-            guard let symbol = row.icon.symbol else { continue }
             let handle = try XCTUnwrap(layout.handle(forKey: row.id), profile)
+            if row.kind == .clipboard {
+                let content = layout.core.content(of: handle)
+                XCTAssertTrue(content.menu, profile)
+                XCTAssertEqual(widget.text.string(content.target), row.id, profile)
+                XCTAssertEqual(widget.text.string(content.hoverAction), "palette highlight " + row.id, profile)
+            }
+            for entry in row.actions {
+                XCTAssertTrue(actions.contains("palette " + entry.id), profile)
+                let control = try XCTUnwrap(layout.core.elements {
+                    widget.text.string($0.action) == "palette " + entry.id
+                }.first, profile)
+                let frame = CGRect(layout.core.absoluteFrame(of: control))
+                let before = widget.clicks.count
+                let point = CGPoint(x: frame.midX, y: frame.midY)
+                widget.surface.press(at: point)
+                widget.surface.release(at: point)
+                XCTAssertEqual(widget.clicks.dropFirst(before).map(\.action), ["palette " + entry.id], profile)
+            }
+            guard let symbol = row.icon.symbol else { continue }
             let drawn = layout.core.elements { _ in true }.contains { element in
-                layout.core.kind(of: element) == .symbol
-                    && widget.text.string(layout.core.content(of: element).text) == symbol
-                    && layout.core.parent(of: element) == handle
+                guard layout.core.kind(of: element) == .symbol,
+                      widget.text.string(layout.core.content(of: element).text) == symbol
+                else { return false }
+                var parent = layout.core.parent(of: element)
+                while parent.slot >= 0 {
+                    if parent == handle { return true }
+                    parent = layout.core.parent(of: parent)
+                }
+                return false
             }
             XCTAssertTrue(drawn, "\(profile): \(row.id) draws its declared symbol")
+        }
+        XCTAssertEqual(actions.contains("palette menu modes"), palette.browseModes, profile)
+        if palette.unified {
+            XCTAssertNil(layout.handle(forKey: "mode-windows"), profile)
+            XCTAssertNil(layout.handle(forKey: "clipboard-preview"), profile)
         }
         guard ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] != nil else { return }
         let expanded = try raster(widget.surface, scale: 2)
@@ -4676,6 +4709,148 @@ final class ShellStyleLayoutTests: XCTestCase {
             name: "command-palette-\(profile.replacingOccurrences(of: " ", with: "-"))", scale: 2, dark: true,
             solidBlack: false
         )
+    }
+
+    private func menuModePaletteFixture() -> ShellCommandPaletteData {
+        var palette = commandPaletteFixture()
+        palette.mode = CommandPaletteMode.menu.rawValue
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: .menu)
+        palette.browseModes = true
+        palette.actions = []
+        palette.rows = [
+            .init(
+                id: "menu-save", kind: .menu, title: "Save As", subtitle: "File", icon: .init(),
+                badges: [.init(text: "⇧⌘S", tone: .shortcut, symbol: nil)], marks: [],
+                hint: nil, hintShortcut: nil, selected: true, enabled: true
+            )
+        ]
+        palette.selected = palette.rows[0].id
+        return palette
+    }
+
+    private func clipboardModePaletteFixture() -> ShellCommandPaletteData {
+        var palette = commandPaletteFixture()
+        palette.mode = CommandPaletteMode.clipboard.rawValue
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: .clipboard)
+        palette.browseModes = true
+        palette.actions = []
+        palette.rows = [
+            .init(
+                id: "clipboard-text", kind: .clipboard, title: "Copied text", subtitle: "Text", icon: .init(
+                    app: nil, pid: nil, symbol: "text.alignleft"
+                ), badges: [], marks: [], hint: nil, hintShortcut: nil, selected: true, enabled: true
+            ),
+            .init(
+                id: "clipboard-image", kind: .clipboard, title: "Copied image", subtitle: "Image", icon: .init(
+                    app: nil, pid: nil, symbol: "photo"
+                ), badges: [], marks: [], hint: nil, hintShortcut: nil, selected: false, enabled: true
+            )
+        ]
+        for index in palette.rows.indices {
+            let id = palette.rows[index].id
+            palette.rows[index].actions = [
+                .init(id: "paste " + id, title: "Paste", symbol: "arrow.turn.down.left", shortcut: ""),
+                .init(id: "menu " + id, title: "More Actions", symbol: "ellipsis", shortcut: "")
+            ]
+        }
+        palette.rows[0].pinned = true
+        palette.selected = palette.rows[0].id
+        palette.preview = .init(
+            id: palette.rows[0].id, state: "text", text: "Selected preview text", image: nil, width: 0, height: 0
+        )
+        return palette
+    }
+
+    private func unifiedPaletteFixture() -> ShellCommandPaletteData {
+        var palette = commandModePaletteFixture()
+        palette.unified = true
+        palette.placeholder = String(localized: "Search…")
+        palette.modes = []
+        let menu = menuModePaletteFixture()
+        let clipboard = clipboardModePaletteFixture()
+        palette.rows += menu.rows + clipboard.rows
+        palette.rows += [
+            .init(
+                id: "application-result", kind: .application, title: "Calculator", subtitle: "Applications",
+                icon: .init(app: nil, pid: nil, symbol: "app.fill"), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            ),
+            .init(
+                id: "file-result", kind: .file, title: "Notes.txt", subtitle: "/Documents",
+                icon: .init(app: nil, pid: nil, symbol: "doc.fill"), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            ),
+            .init(
+                id: "saved-result", kind: .saved, title: "Saved command", subtitle: "echo hello",
+                icon: .init(app: nil, pid: nil, symbol: "terminal"), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            ),
+            .init(
+                id: "show-all", kind: .showAll, title: "Show all in Files", subtitle: "",
+                icon: .init(app: nil, pid: nil, symbol: "arrow.right.circle"), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            )
+        ]
+        for index in palette.rows.indices { palette.rows[index].selected = palette.rows[index].id == palette.selected }
+        palette.height = Double(palette.rows.count + 1) * Double(CommandPalettePanel.collapsedHeight)
+        return palette
+    }
+
+    private func assertClipboardPaletteStates(
+        profile: String, config: ShellConfig, shell: URL, resources: ShellResources
+    ) throws {
+        let widget = try makeWidget(
+            ShellWidgetHost.commandPaletteWidget,
+            config: config,
+            shell: shell,
+            resources: resources
+        )
+        widget.render(fixture(config, height: 32, vertical: false))
+        var palette = clipboardModePaletteFixture()
+        palette.error = String(localized: "Could not clear clipboard history.")
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(try XCTUnwrap(palette.error)), profile)
+        let inputKey = "clipboard-preview-" + (try XCTUnwrap(palette.preview)).id
+        let input = try XCTUnwrap(widget.surface.layout.handle(forKey: inputKey), profile)
+        let content = widget.surface.layout.core.content(of: input)
+        XCTAssertTrue(content.inputMultiline, profile)
+        XCTAssertFalse(content.inputEditable, profile)
+        XCTAssertFalse(content.inputWrap, profile)
+        XCTAssertEqual(widget.text.string(content.text), palette.preview?.text, profile)
+        for state in ["loading", "unavailable"] {
+            palette.preview?.state = state
+            widget.set("commandPalette") { palette.write(into: &$0) }
+            widget.layoutPopout()
+            XCTAssertNotNil(widget.surface.layout.handle(forKey: "clipboard-preview"), profile)
+            XCTAssertNil(widget.surface.layout.handle(forKey: inputKey), profile)
+            let label = state == "loading" ? String(localized: "Loading preview…") :
+                String(localized: "Preview unavailable")
+            XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(label), profile)
+        }
+        palette.preview?.state = "image"
+        palette.preview?.image = "palette/test-preview"
+        palette.preview?.width = palette.width
+        palette.preview?.height = palette.height
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        XCTAssertTrue(widget.surface.layout.core.elements { _ in true }.contains {
+            widget.surface.layout.core.kind(of: $0) == .bitmap
+                && widget.text.string(widget.surface.layout.core.content(of: $0).text) == palette.preview?.image
+        }, profile)
+        for state in ["disabled", "loading", "empty", "blank"] {
+            palette.state = state
+            palette.rows = []
+            palette.emptyText = state
+            palette.emptySymbol = CommandPaletteMode.clipboard.symbolName
+            widget.set("commandPalette") { palette.write(into: &$0) }
+            widget.layoutPopout()
+            XCTAssertNil(widget.surface.layout.handle(forKey: "clipboard-preview"), profile)
+            let actions = widget.surface.layout.core.elements { $0.action != 0 }.map {
+                widget.text.string(widget.surface.layout.core.content(of: $0).action)
+            }
+            XCTAssertEqual(actions.contains("palette enable"), state == "disabled", profile)
+        }
     }
 
     private func commandModePaletteFixture() -> ShellCommandPaletteData {

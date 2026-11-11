@@ -6,14 +6,15 @@ import Observation
 
 extension CommandPaletteController {
     var drawsWithShell: Bool {
-        guard presentation.shell != nil, !isUnifiedSearch else { return false }
+        guard presentation.shell != nil else { return false }
+        if isUnifiedSearch { return true }
         switch selectedMode {
         case .windows,
-             .commands:
+             .commands,
+             .menu,
+             .clipboard:
             return true
-        case .menu,
-             .clipboard,
-             .applications,
+        case .applications,
              .files:
             return false
         }
@@ -88,25 +89,55 @@ extension CommandPaletteController {
         data.placeholder = header.placeholder
         data.query = searchText
         data.feedback = actionFeedbackText
+        data.unified = isUnifiedSearch
+        data.browseModes = isExpanded && !isUnifiedSearch
+        if isUnifiedSearch {
+            data.modes = []
+            data.placeholder = Self.shellSearchPlaceholder
+        }
         guard isVisible else { return data }
-        data.actions = header.actions
-        switch selectedMode {
-        case .windows:
-            windowRows(into: &data, limit: Float(size.height))
-        case .commands:
-            commandRows(into: &data, limit: Float(size.height))
-        case .menu,
-             .clipboard,
-             .applications,
-             .files:
+        if isUnifiedSearch {
+            unifiedRows(into: &data, limit: Float(size.height))
             return data
         }
-        if data.rows.isEmpty {
+        data.actions = header.actions
+        fillShellRows(into: &data, size: size)
+        if data.rows.isEmpty, data.state == "results" {
             data.state = "empty"
             data.emptyText = emptyStateText
             data.emptySymbol = emptyStateSymbol
         }
         return data
+    }
+
+    private func fillShellRows(into data: inout ShellCommandPaletteData, size: CGSize) {
+        switch selectedMode {
+        case .windows:
+            windowRows(into: &data, limit: Float(size.height))
+        case .commands:
+            commandRows(into: &data, limit: Float(size.height))
+        case .menu:
+            if isMenuLoading {
+                data.state = "loading"
+                data.emptyText = String(localized: "Loading menu items...")
+                return
+            }
+            menuRows(into: &data, limit: Float(size.height))
+        case .clipboard:
+            data.error = clipboardErrorText
+            guard isClipboardHistoryEnabled else {
+                data.state = "disabled"
+                data.emptyText = String(localized: "Clipboard history is off")
+                data.emptySymbol = "clipboard"
+                data.actions = [.init(id: "enable", title: String(localized: "Enable"), symbol: "power", shortcut: "")]
+                return
+            }
+            clipboardRows(into: &data, limit: Float(size.height))
+            if !data.rows.isEmpty { data.preview = shellClipboardPreview() }
+        case .applications,
+             .files:
+            return
+        }
     }
 
     private func shellHeader() -> CommandPaletteShellHeader {
@@ -134,14 +165,14 @@ extension CommandPaletteController {
         return header
     }
 
-    private func windowRows(into data: inout ShellCommandPaletteData, limit: Float) {
-        let items = filteredWindowItems
+    func windowRows(into data: inout ShellCommandPaletteData, limit: Float) {
+        let items = selectableWindowItems
         let selectedToken: WindowToken? = if case let .window(token)? = selectedItemID { token } else { nil }
         var ids: [String] = []
         ids.reserveCapacity(items.count)
         var selectedIndex: Int?
         for (index, item) in items.enumerated() {
-            ids.append(cachedShellRow(item).id)
+            ids.append(shellRowKey(.window(item.id)))
             if item.id == selectedToken { selectedIndex = index }
         }
         let range = sliceRows(ids: ids, selectedIndex: selectedIndex, limit: limit, into: &data)
@@ -193,7 +224,7 @@ extension CommandPaletteController {
         }
     }
 
-    private func sliceRows(
+    func sliceRows(
         ids: [String],
         selectedIndex: Int?,
         limit: Float,
@@ -211,14 +242,14 @@ extension CommandPaletteController {
         return slice.range
     }
 
-    private func cachedShellRow(_ item: CommandPaletteWindowItem) -> ShellCommandPaletteData.Row {
+    func cachedShellRow(_ item: CommandPaletteWindowItem) -> ShellCommandPaletteData.Row {
         if let row = shellRowCache[item.id] { return row }
         let row = Self.shellRow(item)
         shellRowCache[item.id] = row
         return row
     }
 
-    private func cachedShellRow(_ item: CommandPaletteCommandItem) -> ShellCommandPaletteData.Row {
+    func cachedShellRow(_ item: CommandPaletteCommandItem) -> ShellCommandPaletteData.Row {
         if let row = shellCommandRowCache[item.id] { return row }
         let row = Self.shellRow(item)
         shellCommandRowCache[item.id] = row
@@ -319,23 +350,15 @@ extension CommandPaletteController {
     }
 
     func publishShellData() {
-        guard let shell = presentation.shell else { return }
-        guard isVisible, drawsWithShell else {
-            shellObservationArmed = false
-            return
-        }
+        shellObservationGeneration &+= 1
+        let generation = shellObservationGeneration
+        guard let shell = presentation.shell, isVisible, drawsWithShell else { return }
         let size = presentation.shellLayoutSize(expanded: isExpanded)
-        guard !shellObservationArmed else {
-            shell.publish(shellData(size: size), reveal: selectionScrollRequest)
-            return
-        }
-        shellObservationArmed = true
         let data = withObservationTracking {
             shellData(size: size)
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
-                guard let self else { return }
-                shellObservationArmed = false
+                guard let self, shellObservationGeneration == generation else { return }
                 publishShellData()
             }
         }
@@ -350,6 +373,14 @@ extension CommandPaletteController {
         switch verb {
         case "activate":
             activateShellRow(argument)
+        case "paste":
+            activateShellRow(argument, trigger: .alternate)
+        case "highlight":
+            guard let selection = shellSelection(for: argument), case .clipboard = selection else { return }
+            if isUnifiedSearch { highlightUnifiedRow(selection) } else { selectedItemID = selection }
+        case "enable":
+            guard selectedMode == .clipboard, !isUnifiedSearch else { return }
+            enableClipboardHistory()
         case "mode":
             guard let mode = CommandPaletteMode(rawValue: argument), isModeAvailable(mode) else { return }
             selectMode(mode)
@@ -365,23 +396,18 @@ extension CommandPaletteController {
         }
     }
 
-    private func activateShellRow(_ id: String) {
-        switch selectedMode {
-        case .windows:
-            guard let item = filteredWindowItems.first(where: { cachedShellRow($0).id == id }) else { return }
-            selectedItemID = .window(item.id)
-        case .commands:
-            guard let item = filteredCommandItems.first(where: { $0.id == id }), item.isLayoutCompatible else {
-                return
-            }
-            selectedItemID = .command(item.id)
-        case .menu,
-             .clipboard,
-             .applications,
-             .files:
-            return
+    private func activateShellRow(_ id: String, trigger: CommandPaletteSelectionTrigger = .primary) {
+        guard let selection = shellSelection(for: id) else { return }
+        if isUnifiedSearch {
+            activateUnifiedRow(selection, trigger: trigger)
+        } else {
+            selectedItemID = selection
+            selectCurrent(trigger: trigger)
         }
-        selectCurrent()
+    }
+
+    func shellSelection(for id: String) -> CommandPaletteSelectionID? {
+        shellSelectionIndex[id]
     }
 }
 

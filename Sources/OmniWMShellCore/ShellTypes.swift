@@ -257,6 +257,8 @@ public struct Content: Equatable, Sendable, BitwiseCopyable {
     public var inputFocusAction: UInt32 = 0
     public var inputMaxLength: UInt32 = 65536
     public var inputMultiline: Bool = false
+    public var inputEditable: Bool = true
+    public var inputWrap: Bool = true
     public var inputFocus: Int8 = -1
     public var textureRef: UInt32 = 0
     public var resourceImageRef: UInt32 = 0

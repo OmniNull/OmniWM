@@ -124,6 +124,10 @@ ui.input{
 
 AppKit owns selection, composition, clipboard and undo. While focused, the native editor keeps its text across renders. Once unfocused, it adopts the next declared `text`. `focus = true` requests focus when it changes to true; it does not repeatedly steal focus. `focus = false` releases it. `onFocus` receives `event.focused`.
 
+`editable` defaults to true. Set `editable = false` for selectable, copyable read-only content; it continues adopting declared `text` while focused and cannot be changed with typing, Cut, Paste or Undo. For a multiline input, `wrap` defaults to true. Set `wrap = false` to keep long lines unwrapped and allow horizontal as well as vertical scrolling.
+
+`onHover` accepts a command string or a callback. A command string is delivered directly to the surface owner with the hover event, without a Luau callback. Entry has phase `began`, and exit has phase `ended`; `hoverDelay` and `hoverGrace` still apply, with zero giving immediate delivery.
+
 Return commits a single-line field. With `multiline = true`, Return inserts a newline and Command + Return commits. Escape sends `onCancel` unless an IME is composing; it does not itself rewrite the value. Tab and Shift + Tab move among visible inputs. `maxLength` counts grapheme clusters, accepts 0–65,536 and defaults to 65,536. Composition can temporarily exceed the limit until committed.
 
 `onChange` is optional. Pending changes for the same field are coalesced; commit, cancel and focus events keep their order. Omit `onChange` when only the final text matters, so typing needs no Luau callback. A shell focus session transfers between surfaces while retaining its previous-window return target.

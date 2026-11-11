@@ -308,20 +308,7 @@ struct CommandPaletteClipboardRow: View {
     }
 
     private var symbolName: String {
-        switch item.kind {
-        case .text:
-            "text.alignleft"
-        case .richText:
-            "doc.richtext"
-        case .html:
-            "chevron.left.forwardslash.chevron.right"
-        case .image:
-            "photo"
-        case .fileURL:
-            "doc"
-        case .other:
-            "doc.questionmark"
-        }
+        item.kind.paletteSymbol
     }
 }
 

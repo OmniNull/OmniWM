@@ -36,7 +36,11 @@ final class LauncherIconStore {
     private(set) var cacheGeneration: UInt64 = 0
 
     func applicationIcon(for item: LauncherApplicationResult, points: CGFloat, scale: CGFloat) -> NSImage? {
-        applicationBox(for: Key(path: item.id, sequence: item.recordSequence, pixels: Int(points * scale))).image
+        applicationBox(for: item, points: points, scale: scale).image
+    }
+
+    func applicationBox(for item: LauncherApplicationResult, points: CGFloat, scale: CGFloat) -> ImageBox {
+        applicationBox(for: Key(path: item.id, sequence: item.recordSequence, pixels: Int(points * scale)))
     }
 
     func fileThumbnail(for item: LauncherFileResult, points: CGFloat, scale: CGFloat) -> NSImage? {

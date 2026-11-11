@@ -247,13 +247,21 @@ IDs are host-issued identities. Use a current snapshot for actions; titles and l
 
 ## Command palette snapshot
 
-Only the `command-palette` widget receives `ctx.data.commandPalette`, in its own script, while OmniWM's command palette is open. OmniWM owns the query, search, selection and actions: the widget draws the snapshot, puts the search field in a `ui.input` keyed `query`, puts the results in a scrolling column keyed `results` with each row keyed by its `id`, and sends `palette activate <id>`, `palette mode <id>`, `palette mark set`, `palette mark remove` or `palette clear` as click actions. OmniWM sends only the rows near the view, so the column starts with a box keyed `results-before` that is `before` points tall and ends with one keyed `results-after` that is `after` points tall, each only when its height is above zero. Rows whose `kind` is `heading` are section titles, and rows with `enabled` set to false take no click. A style changes the look through the optional `look.commandPalettePanel`, `commandPaletteSearch`, `commandPaletteTabs`, `commandPaletteRow`, `commandPaletteSection`, `commandPaletteBadge`, `commandPaletteAction` and `commandPaletteEmpty` hooks, or by shipping its own `widgets/command-palette/init.luau`.
+Only the `command-palette` widget receives `ctx.data.commandPalette`, in its own script. OmniWM owns the query, search, selection, previews and actions. The widget puts its search field in a `ui.input` keyed `query`, and results in a scrolling column keyed `results` with each direct row keyed by its `id`. Rows near the viewport arrive with `first` and `total`; add `results-before` and `results-after` spacer boxes only when their `before` or `after` height is positive. Heading rows and disabled rows take no activation.
+
+Rows cover Windows, Commands, Menu, Clipboard and unified search, including application, file, saved and Show All results. `unified` suppresses mode navigation; `browseModes` enables the native Browse Modes button. `state` distinguishes results, empty, loading, disabled and blank content, and `error` carries Clipboard feedback. Clipboard rows have a pinned indication and trailing `actions`. `preview` contains only the selected item's bounded text or a named bitmap with dimensions; use `ui.input{multiline=true, editable=false, wrap=false}` for selectable text. Icon bitmaps and preview bitmaps belong to the palette presenter and are retired when it closes, falls back or is replaced.
+
+Click actions include `palette activate <id>`, `palette paste <id>`, `palette mode <id>`, `palette mark set`, `palette mark remove`, `palette clear`, `palette enable` and `palette menu <id>` (`modes` opens Browse Modes). Clipboard rows use `onHover = "palette highlight <id>"`, `hoverDelay = 0`, `menu = true` and `target = id`; Swift handles selection and native menus, including right-click and Control-click. The host revalidates the current row and action. No AX objects or raw clipboard representations are exposed.
+
+Styles use optional `look.commandPalettePanel`, `commandPaletteSearch`, `commandPaletteTabs`, `commandPaletteRow`, `commandPaletteSection`, `commandPaletteBadge`, `commandPaletteAction`, `commandPaletteEmpty` and `commandPalettePreview` hooks, or provide their own `widgets/command-palette/init.luau`. `commandPalettePreview(ctx, preview, props)` wraps the shared preview content; the common widget attaches row actions and native-menu metadata after row hooks.
 
 <LuauDeclaration name="CommandPalette" />
 
 <LuauDeclaration name="CommandPaletteRow" />
 
 <LuauDeclaration name="CommandPaletteBadge" />
+
+<LuauDeclaration name="CommandPalettePreview" />
 
 ## Audio and media snapshots
 

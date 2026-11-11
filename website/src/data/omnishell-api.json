@@ -555,7 +555,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-commandpaletterow",
-      "declaration": "export type CommandPaletteRow = {\n    id: string,\n    kind: \"window\" | \"command\" | \"heading\",\n    title: string,\n    subtitle: string,\n    icon: { app: string?, pid: number?, symbol: string? },\n    badges: { CommandPaletteBadge },\n    marks: { CommandPaletteBadge },\n    hint: string?,\n    hintShortcut: string?,\n    selected: boolean,\n    enabled: boolean,\n}",
+      "declaration": "export type CommandPaletteRow = {\n    id: string,\n    kind: \"window\" | \"command\" | \"heading\" | \"menu\" | \"clipboard\" | \"application\" | \"file\" | \"saved\" | \"showAll\",\n    title: string,\n    subtitle: string,\n    icon: { app: string?, pid: number?, symbol: string?, bitmap: string? },\n    badges: { CommandPaletteBadge },\n    marks: { CommandPaletteBadge },\n    hint: string?,\n    hintShortcut: string?,\n    selected: boolean,\n    enabled: boolean,\n    pinned: boolean,\n    actions: { { id: string, title: string, symbol: string, shortcut: string } },\n}",
       "fields": [
         "id",
         "kind",
@@ -567,18 +567,36 @@
         "hint",
         "hintShortcut",
         "selected",
-        "enabled"
+        "enabled",
+        "pinned",
+        "actions"
       ],
       "related": [
         "CommandPaletteBadge"
       ]
     },
     {
+      "name": "CommandPalettePreview",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalettepreview",
+      "declaration": "export type CommandPalettePreview = {\n    id: string,\n    state: \"loading\" | \"text\" | \"image\" | \"unavailable\",\n    text: string?,\n    image: string?,\n    width: number,\n    height: number,\n}",
+      "fields": [
+        "id",
+        "state",
+        "text",
+        "image",
+        "width",
+        "height"
+      ],
+      "related": []
+    },
+    {
       "name": "CommandPalette",
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-commandpalette",
-      "declaration": "export type CommandPalette = {\n    open: boolean,\n    expanded: boolean,\n    width: number,\n    height: number,\n    mode: string,\n    modes: { { id: string, title: string, symbol: string, shortcut: string, selected: boolean, enabled: boolean } },\n    placeholder: string,\n    query: string,\n    state: \"results\" | \"empty\",\n    emptyText: string,\n    emptySymbol: string,\n    feedback: string?,\n    actions: { { id: string, title: string, symbol: string, shortcut: string } },\n    rows: { CommandPaletteRow },\n    selected: string,\n    first: number,\n    total: number,\n    before: number,\n    after: number,\n}",
+      "declaration": "export type CommandPalette = {\n    open: boolean,\n    expanded: boolean,\n    width: number,\n    height: number,\n    mode: string,\n    modes: { { id: string, title: string, symbol: string, shortcut: string, selected: boolean, enabled: boolean } },\n    placeholder: string,\n    query: string,\n    state: \"results\" | \"empty\" | \"loading\" | \"disabled\" | \"blank\",\n    emptyText: string,\n    emptySymbol: string,\n    feedback: string?,\n    actions: { { id: string, title: string, symbol: string, shortcut: string } },\n    rows: { CommandPaletteRow },\n    selected: string,\n    first: number,\n    total: number,\n    before: number,\n    after: number,\n    unified: boolean,\n    browseModes: boolean,\n    error: string?,\n    preview: CommandPalettePreview?,\n}",
       "fields": [
         "open",
         "expanded",
@@ -598,10 +616,15 @@
         "first",
         "total",
         "before",
-        "after"
+        "after",
+        "unified",
+        "browseModes",
+        "error",
+        "preview"
       ],
       "related": [
-        "CommandPaletteRow"
+        "CommandPaletteRow",
+        "CommandPalettePreview"
       ]
     },
     {
@@ -1708,7 +1731,7 @@
       "kind": "type",
       "topic": "layout-styling",
       "anchor": "api-props",
-      "declaration": "export type Props = {\n    cursor: (\"grab\" | \"pointer\")?,\n    decorative: boolean?,\n    manipulationCommit: string?,\n    manipulationFollow: { response: number, bounce: number? }?,\n    effect: { source: string, values: { number }?, fps: number?, bleed: number? }?,\n    accepts: { ResourceKind }?,\n    onDrop: ((ctx: Context, event: DropEvent) -> ())?,\n    onDropHover: ((ctx: Context, event: DropHoverEvent) -> ())?,\n    dragItems: { Resource }?,\n    onDragOut: ((ctx: Context, event: DragOutEvent) -> ())?,\n    appear: Presence?,\n    exit: Presence?,\n    reveal: Reveal?,\n    morph: Morph?,\n    key: string?,\n    rotate: number?,\n    loop: { dx: { number }?, dy: { number }?, rotate: { number }?, paused: boolean? }?,\n    trail: boolean?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    gap: number?,\n    pad: number?,\n    center: boolean?,\n    fill: Color?,\n    material: Material?,\n    blurRadius: number?,\n    saturation: number?,\n    bridge: boolean?,\n    attach: boolean?,\n    open: number?,\n    close: number?,\n    enter: Enter?,\n    mask: boolean?,\n    border: Color?,\n    borderWidth: number?,\n    radius: number?,\n    opacity: number?,\n    hover: Color?,\n    hoverScale: number?,\n    hoverOpacity: number?,\n    help: string?,\n    animate: Animate?,\n    hoverAnimate: (Motion | number)?,\n    hoverMaterial: Material?,\n    onClick: Click?,\n    onRightClick: Click?,\n    onScroll: Click?,\n    onPress: InputHandler?,\n    pressScale: number?,\n    pressOpacity: number?,\n    pressFill: Color?,\n    pressAnimate: Animate?,\n    onHover: InputHandler?,\n    hoverDelay: number?,\n    hoverGrace: number?,\n    gesture: Gesture?,\n    onGesture: InputHandler?,\n    gestureEvents: (\"boundary\" | \"all\")?,\n    scrollMomentum: (\"consume\" | \"deliver\")?,\n    focusable: boolean?,\n    focusRing: boolean?,\n    keys: { string }?,\n    onKey: InputHandler?,\n    onOutsidePress: InputHandler?,\n    popout: boolean?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    scale: number?,\n    shadow: Color?,\n    shadowRadius: number?,\n    shadowOffset: { x: number, y: number }?,\n    pulse: Pulse?,\n    target: string?,\n    menu: boolean?,\n    preview: boolean?,\n    drag: boolean?,\n    drop: boolean?,\n    scroll: boolean?,\n    [number]: Element,\n}",
+      "declaration": "export type Props = {\n    cursor: (\"grab\" | \"pointer\")?,\n    decorative: boolean?,\n    manipulationCommit: string?,\n    manipulationFollow: { response: number, bounce: number? }?,\n    effect: { source: string, values: { number }?, fps: number?, bleed: number? }?,\n    accepts: { ResourceKind }?,\n    onDrop: ((ctx: Context, event: DropEvent) -> ())?,\n    onDropHover: ((ctx: Context, event: DropHoverEvent) -> ())?,\n    dragItems: { Resource }?,\n    onDragOut: ((ctx: Context, event: DragOutEvent) -> ())?,\n    appear: Presence?,\n    exit: Presence?,\n    reveal: Reveal?,\n    morph: Morph?,\n    key: string?,\n    rotate: number?,\n    loop: { dx: { number }?, dy: { number }?, rotate: { number }?, paused: boolean? }?,\n    trail: boolean?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    gap: number?,\n    pad: number?,\n    center: boolean?,\n    fill: Color?,\n    material: Material?,\n    blurRadius: number?,\n    saturation: number?,\n    bridge: boolean?,\n    attach: boolean?,\n    open: number?,\n    close: number?,\n    enter: Enter?,\n    mask: boolean?,\n    border: Color?,\n    borderWidth: number?,\n    radius: number?,\n    opacity: number?,\n    hover: Color?,\n    hoverScale: number?,\n    hoverOpacity: number?,\n    help: string?,\n    animate: Animate?,\n    hoverAnimate: (Motion | number)?,\n    hoverMaterial: Material?,\n    onClick: Click?,\n    onRightClick: Click?,\n    onScroll: Click?,\n    onPress: InputHandler?,\n    pressScale: number?,\n    pressOpacity: number?,\n    pressFill: Color?,\n    pressAnimate: Animate?,\n    onHover: (InputHandler | string)?,\n    hoverDelay: number?,\n    hoverGrace: number?,\n    gesture: Gesture?,\n    onGesture: InputHandler?,\n    gestureEvents: (\"boundary\" | \"all\")?,\n    scrollMomentum: (\"consume\" | \"deliver\")?,\n    focusable: boolean?,\n    focusRing: boolean?,\n    keys: { string }?,\n    onKey: InputHandler?,\n    onOutsidePress: InputHandler?,\n    popout: boolean?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    scale: number?,\n    shadow: Color?,\n    shadowRadius: number?,\n    shadowOffset: { x: number, y: number }?,\n    pulse: Pulse?,\n    target: string?,\n    menu: boolean?,\n    preview: boolean?,\n    drag: boolean?,\n    drop: boolean?,\n    scroll: boolean?,\n    [number]: Element,\n}",
       "fields": [
         "cursor",
         "decorative",
@@ -1845,12 +1868,14 @@
       "kind": "type",
       "topic": "ui-elements",
       "anchor": "api-textinputprops",
-      "declaration": "export type TextInputProps = Props & {\n    key: string,\n    text: string?,\n    placeholder: string?,\n    multiline: boolean?,\n    maxLength: number?,\n    focus: boolean?,\n    style: TextStyle?,\n    font: Font?,\n    size: number?,\n    weight: Weight?,\n    color: Color?,\n    onChange: InputHandler?,\n    onCommit: InputHandler?,\n    onCancel: InputHandler?,\n    onFocus: InputHandler?,\n}",
+      "declaration": "export type TextInputProps = Props & {\n    key: string,\n    text: string?,\n    placeholder: string?,\n    multiline: boolean?,\n    editable: boolean?,\n    wrap: boolean?,\n    maxLength: number?,\n    focus: boolean?,\n    style: TextStyle?,\n    font: Font?,\n    size: number?,\n    weight: Weight?,\n    color: Color?,\n    onChange: InputHandler?,\n    onCommit: InputHandler?,\n    onCancel: InputHandler?,\n    onFocus: InputHandler?,\n}",
       "fields": [
         "key",
         "text",
         "placeholder",
         "multiline",
+        "editable",
+        "wrap",
         "maxLength",
         "focus",
         "style",

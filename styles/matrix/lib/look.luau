@@ -90,9 +90,19 @@ return require("./skin")({
             text{ text = ">", size = 16, weight = "semibold", color = "accent" },
             ui.input(input) }
         for _, mode in m.modes do
-            if m.expanded and mode.selected then
+            if m.expanded and not m.unified and mode.selected then
                 row[#row + 1] = text{ text = string.upper(mode.title) .. " //", size = 11, color = "secondaryForeground" }
             end
+        end
+        if m.query ~= "" then
+            row[#row + 1] = ui.stack{ w = 24, h = 24, radius = 2, hover = legacy.hover,
+                onClick = "palette clear", help = omniwm.l10n("Clear"),
+                text{ text = "[x]", size = 12, color = "secondaryForeground" } }
+        end
+        if m.browseModes then
+            row[#row + 1] = ui.stack{ w = 24, h = 24, radius = 2, hover = legacy.hover,
+                onClick = "palette menu modes", help = omniwm.l10n("Browse modes"),
+                text{ text = "[…]", size = 12, color = "secondaryForeground" } }
         end
         return ui.row(row)
     end,
@@ -133,22 +143,36 @@ return require("./skin")({
         for _, mark in item.marks do
             tags[#tags + 1] = text{ text = "#" .. mark.text, size = 10, color = if selected then primary else "accent" }
         end
-        local textWidth = width - 280
+        if item.pinned then
+            tags[#tags + 1] = ui.symbol{ name = "pin.fill", size = 10, color = secondary }
+        end
+        local pinnedOnly = item.pinned and item.hint == nil and #item.badges == 0 and #item.marks == 0
+        local trailingWidth = if pinnedOnly then 10 elseif #tags > 0 then 200 else 0
+        local structuralWidth = 2 * 7 + 10 + 10 + (if item.kind == "menu" then 0 else 20 + 10)
+            + (if #tags > 0 then trailingWidth + 10 else 0)
+        local reserved = if item.kind == "window" or item.kind == "command" then 280 else structuralWidth
+        local textWidth = math.max(width - reserved, 1)
         local label = { grow = 1, gap = 1, center = false,
             text{ text = item.title, size = 12, weight = "medium", color = primary, maxWidth = textWidth } }
         if item.subtitle ~= "" then
-            label[#label + 1] = text{ text = "~/" .. item.subtitle, size = 10, color = secondary,
+            label[#label + 1] = text{ text = item.subtitle, size = 10, color = secondary,
                 maxWidth = textWidth }
         end
-        return ui.row{ w = width, gap = 10, pad = 7, radius = 2,
+        local body = { w = width, gap = 10, pad = 7, radius = 2,
             fill = if selected then "accent" else nil,
             hover = if selected or not item.enabled then nil else legacy.hover,
             opacity = if item.enabled then nil else 0.55,
-            text{ text = if selected then ">" else " ", w = 10, size = 13, weight = "semibold", color = primary },
-            if item.icon.symbol then ui.symbol{ name = item.icon.symbol, w = 20, h = 20, size = 14, color = primary }
-                else ui.icon{ app = item.icon.app, pid = item.icon.pid, w = 20, h = 20, placeholder = "app.dashed" },
-            ui.column(label),
-            ui.row(tags) }
+            text{ text = if selected then ">" else " ", w = 10, size = 13, weight = "semibold", color = primary } }
+        if item.kind ~= "menu" then
+            body[#body + 1] = if item.icon.bitmap then ui.image{ image = item.icon.bitmap, w = 20, h = 20 }
+                elseif item.icon.symbol then ui.symbol{ name = item.icon.symbol, w = 20, h = 20, size = 14, color = primary }
+                else ui.icon{ app = item.icon.app, pid = item.icon.pid, w = 20, h = 20, placeholder = "app.dashed" }
+        end
+        body[#body + 1] = ui.column(label)
+        if #tags > 0 then
+            body[#body + 1] = ui.row(tags)
+        end
+        return ui.row(body)
     end,
     commandPaletteSection = function(_, item, width)
         return ui.column{ w = width, gap = 0, center = false,
@@ -161,8 +185,18 @@ return require("./skin")({
     end,
     commandPaletteEmpty = function(_, m, width)
         return ui.column{ w = width, grow = 1, gap = 6, center = true,
-            text{ text = "> no match", size = 13, color = "accent" },
+            text{ text = if m.state == "loading" then "> loading" elseif m.state == "disabled" then "> history off"
+                else "> no match", size = 13, color = "accent" },
             text{ text = m.emptyText, size = 11, color = "secondaryForeground", maxWidth = width - 40, lines = 2 } }
+    end,
+    commandPalettePreview = function(_, item, props)
+        props.radius = 2
+        props.border = "border"
+        props.borderWidth = 1
+        if item.state == "text" then
+            props[1].style = "caption"
+        end
+        return ui.column(props)
     end,
     workspaceMarker = function(ctx, workspace, style, m)
         if m.indicator ~= "numbers" or (m.compact and not style.labels) then

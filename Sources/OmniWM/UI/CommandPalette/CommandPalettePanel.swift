@@ -110,6 +110,10 @@ final class CommandPalettePanel {
             controller.searchText = query
         }
         presenter.onCommand = { [weak controller] command in controller?.performShellCommand(command) }
+        presenter.onMenu = { [weak controller, weak presenter] target, anchor in
+            guard let presenter else { return }
+            controller?.presentShellMenu(target, at: anchor, in: presenter.surface.view)
+        }
         presenter.onProblem = { failure in
             Log.shell.error("The command palette widget reported: \(failure.localizedDescription)")
         }

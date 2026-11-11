@@ -2,8 +2,10 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import ApplicationServices
 import Combine
 @testable import OmniWM
+import OmniWMShellCore
 import QuartzCore
 import Synchronization
 import XCTest
@@ -53,43 +55,83 @@ import XCTest
             }
         }
 
-        private static let words = ["focus", "move", "workspace", "column"]
+        private enum Workload: Equatable {
+            case commands, menu, clipboard, unified
+
+            var mode: CommandPaletteMode {
+                switch self {
+                case .commands: .commands
+                case .menu: .menu
+                case .clipboard,
+                     .unified: .clipboard
+                }
+            }
+
+            var identifier: String {
+                self == .unified ? "unified" : mode.rawValue
+            }
+
+            var words: [String] {
+                self == .commands ? ["focus", "move", "workspace", "column"] : ["focus", "jump", "verify", "back"]
+            }
+        }
+
         private static let runs = 12
+        private static let itemCount = 200
+        private static let longPreview = ProcessInfo.processInfo.environment["OMNIWM_PALETTE_LONG_PREVIEW"] == "1"
+        private static let previewText: String = {
+            guard longPreview else { return "Controlled selected-item preview" }
+            return ClipboardHistoryPasteboard.previewText(
+                String(repeating: "x", count: Int(Content().inputMaxLength))
+            )
+        }()
+
+        private struct Editing {
+            let panel: NSPanel
+            let shell: CommandPaletteShellPresenter?
+            let probe: ShellProbe?
+            let editor: NSTextView
+        }
 
         func testKeystrokeToCommit() throws {
+            try benchmark(.commands)
+        }
+
+        func testMenuKeystrokeToCommit() throws {
+            try benchmark(.menu)
+        }
+
+        func testClipboardKeystrokeToCommit() throws {
+            try benchmark(.clipboard)
+        }
+
+        func testUnifiedKeystrokeToCommit() throws {
+            try benchmark(.unified)
+        }
+
+        private func benchmark(_ workload: Workload) throws {
             var samples: [Sample] = []
             for run in 0 ..< Self.runs {
                 for shell in run.isMultiple(of: 2) ? [false, true] : [true, false] {
-                    samples += try measure(shell: shell, run: run)
+                    samples += try measure(shell: shell, run: run, workload: workload)
                 }
             }
-            try report(samples)
+            try report(samples, mode: workload.identifier)
         }
 
-        private func measure(shell useShell: Bool, run: Int) throws -> [Sample] {
-            let fixture = CommandPaletteFocusFixture(initialMode: .commands)
+        private func measure(shell useShell: Bool, run: Int, workload: Workload) throws -> [Sample] {
+            let menuFetched = workload == .menu
+                ? expectation(description: "The controlled Menu source supplies its rows") : nil
+            let fixture = fixture(workload, menuFetched: menuFetched)
             defer { fixture.cleanup() }
-            if useShell { fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager) }
-            let panel = try fixture.show(mode: .commands)
-            fixture.palette.expandResults()
-            if !useShell { fixture.palette.presentation.shell?.onFailure?() }
-            let shell = fixture.palette.presentation.shell
-            XCTAssertEqual(shell != nil, useShell)
-            var probe: ShellProbe?
-            let editor: NSTextView
-            if let shell {
-                probe = ShellProbe(shell)
-                try awaitPaletteTree(shell) { shell.drawsPublishedList() && shell.published?.expanded == true }
-                shell.focusField(in: panel)
-                shell.field.beganEditing()
-                editor = try XCTUnwrap(shell.field.textEditor)
-            } else {
-                editor = try awaitEditor(panel)
-                fixture.layout()
-            }
+            let editing = try prepare(fixture, shell: useShell, workload: workload, menuFetched: menuFetched)
+            let panel = editing.panel
+            let shell = editing.shell
+            let probe = editing.probe
+            let editor = editing.editor
             var samples: [Sample] = []
             var query = ""
-            for word in Self.words {
+            for word in workload.words {
                 let keys: [String?] = word.map { String($0) } + Array(repeating: nil, count: word.count)
                 for letter in keys {
                     let listHeight = useShell ? nil : swiftUIListHeight(panel)
@@ -119,11 +161,51 @@ import XCTest
                     XCTAssertEqual(fixture.palette.searchText, query)
                     samples.append(Sample(
                         shell: useShell, run: run, typing: letter != nil, nanoseconds: end - start,
-                        results: fixture.palette.filteredCommandItems.count
+                        results: resultCount(fixture.palette, workload: workload)
                     ))
                 }
             }
             return samples
+        }
+
+        private func prepare(
+            _ fixture: CommandPaletteFocusFixture, shell useShell: Bool, workload: Workload,
+            menuFetched: XCTestExpectation?
+        ) throws -> Editing {
+            try selectProfile(for: fixture)
+            if workload == .unified {
+                fixture.controller.settings.commandPalette.unifiedSearch = true
+                fixture.controller.settings.commandPalette.searchedModes = [.clipboard, .commands]
+            }
+            if useShell { fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager) }
+            let panel = try fixture.show(mode: workload == .unified ? nil : workload.mode)
+            fixture.palette.expandResults()
+            if !useShell { fixture.palette.presentation.shell?.onFailure?() }
+            if let menuFetched {
+                wait(for: [menuFetched], timeout: failureBound)
+                XCTAssertFalse(fixture.palette.isMenuLoading)
+                XCTAssertEqual(fixture.palette.filteredMenuItems.count, Self.itemCount)
+            }
+            let shell = fixture.palette.presentation.shell
+            XCTAssertEqual(shell != nil, useShell)
+            if let shell {
+                let probe = ShellProbe(shell)
+                try awaitPaletteTree(shell) {
+                    guard shell.hasTree, shell.published?.expanded == true else { return false }
+                    guard workload == .unified else { return shell.drawsPublishedList() }
+                    guard let field = shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.queryKey) else {
+                        return false
+                    }
+                    return shell.surface.text?.string(shell.surface.layout.core.content(of: field).placeholder)
+                        == shell.published?.placeholder
+                }
+                shell.focusField(in: panel)
+                shell.field.beganEditing()
+                return try Editing(panel: panel, shell: shell, probe: probe, editor: XCTUnwrap(shell.field.textEditor))
+            }
+            let editor = try awaitEditor(panel)
+            fixture.layout()
+            return Editing(panel: panel, shell: nil, probe: nil, editor: editor)
         }
 
         func testOpenToFirstTree() throws {
@@ -179,7 +261,8 @@ import XCTest
             defer { probe.onTree = nil }
             repeat {
                 let tree = expectation(description: "The palette applies a tree for \(query)")
-                probe.onTree = { [unowned self, unowned shell] in
+                probe.onTree = { [unowned self, unowned shell, unowned probe] in
+                    probe.onTree = nil
                     if committed == nil, self.drawnQuery(shell) == query {
                         let marker = self.expectation(description: "The engine commits the tree for \(query)")
                         ShellLayerScene.engineQueue.async {
@@ -225,11 +308,83 @@ import XCTest
 
         private func swiftUIListHeight(_ panel: NSPanel) -> CGFloat? {
             var pending = panel.contentView.map { [$0] } ?? []
+            var list: NSScrollView?
             while let view = pending.popLast() {
-                if let scroll = view as? NSScrollView { return scroll.documentView?.frame.height }
+                if let scroll = view as? NSScrollView, scroll.frame.width > (list?.frame.width ?? 0) {
+                    list = scroll
+                }
                 pending += view.subviews
             }
-            return nil
+            return list?.documentView?.frame.height
+        }
+    }
+
+    extension CommandPaletteLatencyTests {
+        private func fixture(_ workload: Workload, menuFetched: XCTestExpectation?) -> CommandPaletteFocusFixture {
+            if workload == .commands { return CommandPaletteFocusFixture(initialMode: .commands) }
+            if workload == .clipboard || workload == .unified {
+                let items = clipboardItems(words: workload.words)
+                return CommandPaletteFocusFixture(initialMode: .clipboard) { environment in
+                    environment.clipboardItems = { _ in items }
+                    environment.clipboardItemPreview = { _, _ in .text(Self.previewText) }
+                    environment.observeClipboardItems = { _, _ in }
+                }
+            }
+            let app = NSRunningApplication.current
+            let element = AXUIElementCreateApplication(app.processIdentifier)
+            let words = workload.words
+            let menuItems = (0 ..< Self.itemCount).map { index in
+                let title = words[index % words.count] + " \(index)"
+                return MenuItemModel(
+                    title: title, fullPath: "Tools > " + title, keyboardShortcut: nil,
+                    axElement: element, parentTitles: ["Tools"]
+                )
+            }
+            return CommandPaletteFocusFixture(initialMode: .menu) { environment in
+                environment.frontmostApplication = { app }
+                environment.runningApplication = { _ in app }
+                environment.ownBundleIdentifier = { "org.example.palette-latency" }
+                environment.fetchMenuItems = { _ in
+                    menuFetched?.fulfill()
+                    return menuItems
+                }
+            }
+        }
+
+        private func clipboardItems(words: [String]) -> [ClipboardPaletteItem] {
+            let kinds: [ClipboardContentKind] = [.text, .richText, .html, .image, .fileURL, .other]
+            return (0 ..< Self.itemCount).map { index in
+                let title = words[index % words.count] + " \(index)"
+                return ClipboardPaletteItem(
+                    id: UUID(), title: title, subtitle: "Tools", kind: kinds[index % kinds.count],
+                    sourceBundleIdentifier: nil, lastCopiedAt: Date(timeIntervalSince1970: Double(index)),
+                    numberOfCopies: 1, byteCount: title.utf8.count, isPinned: index.isMultiple(of: words.count),
+                    searchText: title, canPastePlainText: true
+                )
+            }
+        }
+
+        private func selectProfile(for fixture: CommandPaletteFocusFixture) throws {
+            guard let profile = ProcessInfo.processInfo.environment["OMNIWM_PALETTE_PROFILE"],
+                  profile != "default"
+            else {
+                return
+            }
+            let manager = fixture.controller.workspaceBarManager
+            let directory = manager.shellConfiguration.shellDirectory
+            XCTAssertEqual(try ShellStyleFixture.prepare(into: directory), [])
+            XCTAssertTrue(try ShellProfiles.select(profile, in: directory))
+            manager.shellConfigurationSaved(ShellConfig.resolve(shellDirectory: directory))
+        }
+
+        private func resultCount(_ palette: CommandPaletteController, workload: Workload) -> Int {
+            if workload == .unified { return palette.unifiedResults.selectionOrder.count }
+            return switch workload.mode {
+            case .commands: palette.filteredCommandItems.count
+            case .menu: palette.filteredMenuItems.count
+            case .clipboard: palette.filteredClipboardItems.count
+            default: 0
+            }
         }
 
         private func percentile(_ values: [Double], _ fraction: Double) -> Double {
@@ -239,7 +394,7 @@ import XCTest
             return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - Double(lower))
         }
 
-        private func report(_ samples: [Sample]) throws {
+        private func report(_ samples: [Sample], mode: String) throws {
             #if DEBUG
                 let build = "Debug"
             #else
@@ -258,6 +413,10 @@ import XCTest
                     let milliseconds = set.map { Double($0.nanoseconds) / 1_000_000 }
                     let record: [String: Any] = [
                         "arm": shell ? "omnishell" : "swiftui", "set": label, "build": build, "keys": set.count,
+                        "mode": mode,
+                        "profile": ProcessInfo.processInfo.environment["OMNIWM_PALETTE_PROFILE"] ?? "default",
+                        "preview": mode == "clipboard" ? (Self.longPreview ? "maximum" : "short") : "none",
+                        "previewCharacters": mode == "clipboard" ? Self.previewText.count : 0,
                         "p50": percentile(milliseconds, 0.5), "p95": percentile(milliseconds, 0.95),
                         "p99": percentile(milliseconds, 0.99), "max": milliseconds.max() ?? 0,
                         "resultsMax": set.map(\.results).max() ?? 0

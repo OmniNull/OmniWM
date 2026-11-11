@@ -318,6 +318,7 @@ extension CommandPaletteController {
 
     func updateSelectionAfterFilterChange() {
         let selectionList = currentSelectionList()
+        updateShellSelectionIndex(selectionList)
         if isUnifiedSearch, let selectedItemID, !selectionList.contains(selectedItemID) {
             unifiedSelectionFollowsFirstRow = true
         }

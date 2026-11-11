@@ -25,6 +25,7 @@ final class CommandPaletteShellPresenter {
 
     var onQuery: (@MainActor (String) -> Void)?
     var onCommand: (@MainActor (String) -> Void)?
+    var onMenu: (@MainActor (String, ShellAnchor) -> Void)?
     var onFailure: (@MainActor () -> Void)?
     var onProblem: (@MainActor (ShellScriptFailure) -> Void)?
     var onTree: (@MainActor () -> Void)?
@@ -55,6 +56,12 @@ final class CommandPaletteShellPresenter {
     private var outbox: ShellWidgetOutbox?
     private var generation = 0
     private var failures = 0
+    let bitmapPrefix = "palette/" + UUID().uuidString + "/"
+    var bitmaps: Set<String> = []
+
+    var bitmapGeneration: Int {
+        generation
+    }
 
     init(
         source: ShellCommandPaletteSource,
@@ -81,6 +88,10 @@ final class CommandPaletteShellPresenter {
         surface.onMove = { [weak self] in
             self?.scrolled()
         }
+        surface.onMenu = { [weak self] event in
+            guard let self, !closed else { return }
+            onMenu?(text.string(event.target), event.anchor)
+        }
         outbox = ShellWidgetOutbox { [weak self] batch in
             self?.receive(batch)
         }
@@ -94,7 +105,9 @@ final class CommandPaletteShellPresenter {
     func publish(_ data: ShellCommandPaletteData, reveal request: Int? = nil) {
         if let request { revealRequest = request }
         guard !closed, data != published else { return }
+        if let previous = published?.preview?.image, previous != data.preview?.image { removeBitmap(previous) }
         published = data
+        if !data.open { retireBitmaps() }
         if data.query != reportedQuery, !field.hasMarkedText {
             field.setText(data.query)
             reportedQuery = data.query
@@ -125,14 +138,10 @@ final class CommandPaletteShellPresenter {
         surface.setVisible(visible)
     }
 
-    func focusField(in window: NSWindow) {
-        guard window.firstResponder !== field.textEditor else { return }
-        window.makeFirstResponder(field.responder)
-    }
-
     func close() {
         guard !closed else { return }
         closed = true
+        retireBitmaps()
         retirePackage()
         surface.onAction = nil
         chrome.removeFromSuperview()
@@ -205,9 +214,7 @@ final class CommandPaletteShellPresenter {
 
     private func perform(_ click: ShellClick) {
         guard click.action & OMNI_ACTION_HANDLER != 0 else {
-            let command = text.string(click.action)
-            guard command.hasPrefix(Self.commandPrefix) else { return }
-            onCommand?(String(command.dropFirst(Self.commandPrefix.count)))
+            performCommand(click)
             return
         }
         var event = click.event
@@ -236,6 +243,20 @@ final class CommandPaletteShellPresenter {
         }
     }
 
+    private func performCommand(_ click: ShellClick) {
+        let command = text.string(click.action)
+        guard command.hasPrefix(Self.commandPrefix) else { return }
+        let action = command.dropFirst(Self.commandPrefix.count)
+        if applying, click.event.kind == .hover, click.event.phase == .began, action.hasPrefix("highlight ") {
+            return
+        }
+        if action.hasPrefix("menu ") {
+            onMenu?(String(action.dropFirst("menu ".count)), click.anchor)
+        } else if click.event.kind != .hover || click.event.phase == .began {
+            onCommand?(String(action))
+        }
+    }
+
     private func receive(_ batch: [String: ShellWidgetDelivery]) {
         guard !closed, let delivery = batch[ShellWidgetHost.commandPaletteWidget],
               delivery.generation == generation
@@ -253,6 +274,7 @@ final class CommandPaletteShellPresenter {
         let anchor = visibleAnchor()
         applying = true
         drawn = nil
+        let inputs = epoch != delivery.epoch ? surface.readOnlyInputStates() : []
         if epoch != delivery.epoch {
             epoch = delivery.epoch
             text = ShellTextStore()
@@ -266,22 +288,9 @@ final class CommandPaletteShellPresenter {
             return
         }
         if delivery.failure == nil { failures = 0 }
+        surface.restoreReadOnlyInputStates(inputs)
         lastNodes = tree.nodes
         lastSequence = tree.sequence
-        applied()
-    }
-
-    func redraw() {
-        guard !closed, !lastNodes.isEmpty else { return }
-        let anchor = visibleAnchor()
-        applying = true
-        drawn = nil
-        surface.reset(text: text)
-        surface.sequence = lastSequence
-        guard surface.apply(lastNodes, text: text, keeping: anchor) else {
-            fail()
-            return
-        }
         applied()
     }
 
@@ -299,6 +308,7 @@ final class CommandPaletteShellPresenter {
             windowChanged = false
             onWindowChange?()
         }
+        restoreQueryFocusIfNeeded()
         onTree?()
     }
 
@@ -330,11 +340,13 @@ extension CommandPaletteShellPresenter {
         let reason = failure?.localizedDescription ?? "its tree could not be applied"
         Log.shell.error("The command palette style failed (\(reason)); using the bundled palette")
         fallback = true
+        retireBitmaps()
         surface.cancelInput()
         retirePackage()
         generation += 1
         failures = 0
         epoch = nil
+        onWindowChange?()
         start(source)
     }
 
@@ -462,5 +474,23 @@ extension CommandPaletteShellPresenter {
             changed = rowWindow.record(advance: previous.height + gap, for: rows[index - 1].id) || changed
         }
         return changed
+    }
+}
+
+extension CommandPaletteShellPresenter {
+    func redraw() {
+        guard !closed, !lastNodes.isEmpty else { return }
+        let anchor = visibleAnchor()
+        let inputs = surface.readOnlyInputStates()
+        applying = true
+        drawn = nil
+        surface.reset(text: text)
+        surface.sequence = lastSequence
+        guard surface.apply(lastNodes, text: text, keeping: anchor) else {
+            fail()
+            return
+        }
+        surface.restoreReadOnlyInputStates(inputs)
+        applied()
     }
 }

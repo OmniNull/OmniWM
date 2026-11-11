@@ -1436,6 +1436,7 @@ extension XCTestCase {
         while !condition() {
             let tree = expectation(description: "The palette applies its next tree")
             shell.onTree = {
+                shell.onTree = previous
                 previous?()
                 tree.fulfill()
             }

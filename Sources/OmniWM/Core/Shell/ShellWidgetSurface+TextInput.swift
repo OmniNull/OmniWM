@@ -13,7 +13,31 @@ struct ShellOwnedInputAppearance: Equatable {
     let lines: Int
 }
 
+struct ShellReadOnlyInputState {
+    let key: UInt64
+    let selection: NSRange
+    let origin: CGPoint
+    let focused: Bool
+}
+
 extension ShellWidgetSurface {
+    func readOnlyInputStates() -> [ShellReadOnlyInputState] {
+        var states: [ShellReadOnlyInputState] = []
+        for (handle, input) in textInputs where layout.core.contains(handle) {
+            if let state = input.readOnlyState(key: layout.core.key(of: handle)) { states.append(state) }
+        }
+        return states
+    }
+
+    func restoreReadOnlyInputStates(_ states: [ShellReadOnlyInputState]) {
+        for state in states {
+            guard let handle = layout.core.firstHandle(withKey: state.key), let input = textInputs[handle] else {
+                continue
+            }
+            input.restoreReadOnlyState(state)
+        }
+    }
+
     var preferredFirstResponder: NSResponder {
         textInputs[focused]?.responder ?? view
     }

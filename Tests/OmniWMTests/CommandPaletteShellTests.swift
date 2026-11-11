@@ -247,7 +247,10 @@ final class CommandPaletteShellTests: XCTestCase {
         data.open = true
         func fail(_ query: String) {
             let problem = expectation(description: "The widget reports the failure for \(query)")
-            shell.onProblem = { _ in problem.fulfill() }
+            shell.onProblem = { _ in
+                shell.onProblem = nil
+                problem.fulfill()
+            }
             data.query = query
             shell.publish(data)
             wait(for: [problem], timeout: failureBound)
@@ -268,7 +271,10 @@ final class CommandPaletteShellTests: XCTestCase {
         }
         XCTAssertFalse(shell.fallback)
         let bundledTree = expectation(description: "The bundled palette delivers its first tree")
-        shell.onTree = { bundledTree.fulfill() }
+        shell.onTree = {
+            shell.onTree = nil
+            bundledTree.fulfill()
+        }
         fail("fail at the limit")
         XCTAssertTrue(shell.fallback)
         wait(for: [bundledTree], timeout: failureBound)

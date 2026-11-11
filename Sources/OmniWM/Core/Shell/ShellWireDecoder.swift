@@ -231,6 +231,8 @@ enum ShellWireDecoder {
         content.inputFocusAction = wire.input_focus_action
         content.inputMaxLength = wire.input_max_length
         content.inputMultiline = UInt32(wire.input_flags) & OMNI_INPUT_MULTILINE != 0
+        content.inputEditable = wire.behavior_flags & OMNI_NODE_BEHAVIOR_INPUT_READ_ONLY == 0
+        content.inputWrap = wire.behavior_flags & OMNI_NODE_BEHAVIOR_INPUT_NO_WRAP == 0
         content.inputFocus = UInt32(wire.input_flags) & OMNI_INPUT_FOCUS_PRESENT == 0 ? -1 :
             (UInt32(wire.input_flags) & OMNI_INPUT_FOCUS_VALUE != 0 ? 1 : 0)
     }
