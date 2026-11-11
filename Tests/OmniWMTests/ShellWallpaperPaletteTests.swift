@@ -171,6 +171,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
 
     private static let sunset = image([(0xFF7043, 4), (0x8E24AA, 3), (0x212121, 3)])
     private static let forest = image([(0x2E7D32, 6), (0x795548, 3), (0xC5E1A5, 1)])
+    private static let sky = image([(0x1E88E5, 5), (0x90CAF9, 3), (0xFFFFFF, 2)])
 
     private func rechecking(_ wallpaper: Wallpaper, into root: URL) -> ShellWallpaperPaletteWriter {
         ShellWallpaperPaletteWriter(
@@ -549,5 +550,108 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         reads = wallpaper.reads
         try await Task.sleep(for: .milliseconds(200))
         XCTAssertEqual(wallpaper.reads, reads)
+    }
+
+    private func aerialStore(_ asset: String) throws -> Data {
+        let configuration = try PropertyListSerialization.data(
+            fromPropertyList: ["assetID": asset], format: .binary, options: 0
+        )
+        let choice: [String: Any] = [
+            "Configuration": configuration, "Files": [Any](), "Provider": "com.apple.wallpaper.choice.aerials"
+        ]
+        return try store(["Spaces": ["ACTIVE": ["Displays": [
+            "MAIN": ["Desktop": ["Content": ["Choices": [choice], "Shuffle": "$null"]], "Type": "individual"]
+        ]]]])
+    }
+
+    func testAnAerialIsSampledFromItsThumbnailAndNeverFromAStaleWallpaperFile() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let aerials = root.appendingPathComponent("aerials", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: aerials.appendingPathComponent("thumbnails"), withIntermediateDirectories: true
+        )
+        let stale = root.appendingPathComponent("previous.png")
+        try writeWallpaper([Self.forest], to: stale, type: "public.png")
+        let thumbnail = aerials.appendingPathComponent("thumbnails/44166C39.png")
+        try writeWallpaper([Self.sunset], to: thumbnail, type: "public.png")
+        let system = window(7, level: CGWindowLevelForKey(.desktopWindow) - 1)
+        let store = try aerialStore("44166C39")
+
+        let still = try XCTUnwrap(ShellWallpaperPalette.stillWallpaper(
+            for: 999, frame: Self.screen, desktopImageURL: { _ in stale }, windows: { [system] }, store: { store },
+            location: { _ in ("MAIN", "ACTIVE") }, aerials: aerials
+        ))
+        XCTAssertEqual(still.url.standardizedFileURL, thumbnail.standardizedFileURL)
+        let image = try XCTUnwrap(ShellWallpaperPalette.read(still.url))
+        XCTAssertEqual(palette(of: image), palette(of: Self.sunset))
+        XCTAssertEqual(
+            ShellWallpaperPalette.desktopChoice(store: store, location: ("MAIN", "ACTIVE"), aerials: aerials),
+            .aerial(asset: "44166C39", thumbnail: thumbnail.standardizedFileURL)
+        )
+    }
+
+    func testAnAerialWithoutAThumbnailIsCapturedOrKeepsItsColorsButNeverReadsTheStaleFile() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let aerials = root.appendingPathComponent("aerials", isDirectory: true)
+        let stale = root.appendingPathComponent("previous.png")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try writeWallpaper([Self.forest], to: stale, type: "public.png")
+        let system = window(7, level: CGWindowLevelForKey(.desktopWindow) - 1)
+        let store = try aerialStore("MISSING")
+        XCTAssertNil(ShellWallpaperPalette.stillWallpaper(
+            for: 999, frame: Self.screen, desktopImageURL: { _ in stale }, windows: { [system] }, store: { store },
+            location: { _ in ("MAIN", "ACTIVE") }, aerials: aerials
+        ))
+        func screen(capture: CGImage?) -> CGImage? {
+            ShellWallpaperPalette.screenImage(
+                for: 999, store: { store }, location: { _ in ("MAIN", "ACTIVE") }, aerials: aerials,
+                capture: { _ in capture }, fallback: { _ in ShellWallpaperPalette.read(stale) }
+            )
+        }
+        XCTAssertEqual(screen(capture: Self.sunset).map(palette(of:)), palette(of: Self.sunset))
+        XCTAssertNil(screen(capture: nil), "a failed capture keeps the last colors instead of the stale file")
+
+        let still = root.appendingPathComponent("still.png")
+        try writeWallpaper([Self.sky], to: still, type: "public.png")
+        let fileStore = try self.store(still, shuffle: ["Interval": 300])
+        let other = ShellWallpaperPalette.screenImage(
+            for: 999, store: { fileStore }, location: { _ in ("MAIN", "ACTIVE") }, aerials: aerials,
+            capture: { _ in nil }, fallback: { _ in ShellWallpaperPalette.read(still) }
+        )
+        XCTAssertEqual(
+            other.map(palette(of:)), ShellWallpaperPalette.read(still).map(palette(of:)),
+            "other wallpapers keep their usual fallback"
+        )
+    }
+
+    func testTheDesktopChoiceNamesTheFileTheAerialOrTheShuffleForTheDisplayAndSpace() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let aerials = root.appendingPathComponent("aerials", isDirectory: true)
+        let still = root.appendingPathComponent("chosen.png")
+        XCTAssertEqual(
+            ShellWallpaperPalette.desktopChoice(
+                store: try store(still),
+                location: ("MAIN", "ACTIVE"),
+                aerials: aerials
+            ),
+            .file(still.standardizedFileURL)
+        )
+        XCTAssertEqual(
+            ShellWallpaperPalette.desktopChoice(
+                store: try store(still, shuffle: ["Interval": 300]), location: ("MAIN", "ACTIVE"), aerials: aerials
+            ),
+            .shuffle
+        )
+        XCTAssertEqual(
+            ShellWallpaperPalette.desktopChoice(
+                store: try aerialStore("X"),
+                location: ("MAIN", "ACTIVE"),
+                aerials: aerials
+            ),
+            .aerial(asset: "X", thumbnail: nil)
+        )
+        XCTAssertNil(ShellWallpaperPalette.desktopChoice(store: nil, location: ("MAIN", "ACTIVE"), aerials: aerials))
     }
 }
