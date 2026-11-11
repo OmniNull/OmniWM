@@ -95,10 +95,14 @@ final class ShellWallpaperPaletteWriter {
     private var observation: ShellDirectoryObservation?
     private var observers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
     private var scheme: ShellWallpaperScheme
+    private let recheckInterval: TimeInterval
+    private var recheck: DispatchSourceTimer?
+    private var pixels: [UInt32]?
 
     init(
         destination: URL,
         scheme: ShellWallpaperScheme,
+        recheckInterval: TimeInterval = 60,
         image: @escaping @MainActor () -> CGImage? = {
             OverviewWallpaperCache().image(for: CGMainDisplayID(), maxPixelSize: ShellWallpaperPalette.pixelSize)
         },
@@ -106,6 +110,7 @@ final class ShellWallpaperPaletteWriter {
     ) {
         self.destination = destination
         self.scheme = scheme
+        self.recheckInterval = recheckInterval
         self.image = image
         self.onFailure = onFailure
     }
@@ -129,6 +134,17 @@ final class ShellWallpaperPaletteWriter {
                 MainActor.assumeIsolated { self?.refresh() }
             })
         }
+        let recheck = DispatchSource.makeTimerSource(queue: .main)
+        recheck.schedule(
+            deadline: .now() + recheckInterval,
+            repeating: recheckInterval,
+            leeway: .milliseconds(Int(recheckInterval * 100))
+        )
+        recheck.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { self?.refresh(onlyIfChanged: true) }
+        }
+        recheck.resume()
+        self.recheck = recheck
         refresh()
     }
 
@@ -145,14 +161,22 @@ final class ShellWallpaperPaletteWriter {
             observer.center.removeObserver(observer.token)
         }
         observers = []
+        recheck?.cancel()
+        recheck = nil
     }
 
     func refresh() {
+        refresh(onlyIfChanged: false)
+    }
+
+    private func refresh(onlyIfChanged: Bool) {
         guard let image = image() else {
             onFailure("The wallpaper palette keeps its last colors because the wallpaper image is unavailable")
             return
         }
         let pixels = ShellWallpaperPalette.pixels(of: image)
+        guard !onlyIfChanged || pixels != self.pixels else { return }
+        self.pixels = pixels
         let scheme = scheme
         let destination = destination
         Self.queue.async {

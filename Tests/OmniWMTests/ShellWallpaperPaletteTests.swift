@@ -158,4 +158,110 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         XCTAssertEqual(problems.count, 1)
         XCTAssertTrue(problems[0].contains("scheme must be one of"), problems[0])
     }
+
+    private final class Wallpaper {
+        var image: CGImage
+        var reads = 0
+
+        init(_ image: CGImage) {
+            self.image = image
+        }
+    }
+
+    private static let sunset = image([(0xFF7043, 4), (0x8E24AA, 3), (0x212121, 3)])
+    private static let forest = image([(0x2E7D32, 6), (0x795548, 3), (0xC5E1A5, 1)])
+
+    private func rechecking(_ wallpaper: Wallpaper, into root: URL) -> ShellWallpaperPaletteWriter {
+        ShellWallpaperPaletteWriter(
+            destination: root.appendingPathComponent("themes/wallpaper.toml"),
+            scheme: .tonalSpot,
+            recheckInterval: 0.02,
+            image: {
+                wallpaper.reads += 1
+                return wallpaper.image
+            },
+            onFailure: { _ in }
+        )
+    }
+
+    private func eventually(_ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !condition() {
+            guard ContinuousClock.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return true
+    }
+
+    private func palette(of image: CGImage) -> String {
+        ShellWallpaperPalette.theme(pixels: ShellWallpaperPalette.pixels(of: image), scheme: .tonalSpot)
+    }
+
+    private func palette(in root: URL) -> String? {
+        try? String(contentsOf: root.appendingPathComponent("themes/wallpaper.toml"), encoding: .utf8)
+    }
+
+    func testTheRecheckFollowsAWallpaperThatChangesWithoutAStoreEvent() async {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let wallpaper = Wallpaper(Self.sunset)
+        let writer = rechecking(wallpaper, into: root)
+        defer { writer.stop() }
+        writer.start()
+        let sunset = palette(of: Self.sunset)
+        let wroteSunset = await eventually { palette(in: root) == sunset }
+        XCTAssertTrue(wroteSunset)
+
+        wallpaper.image = Self.forest
+        let forest = palette(of: Self.forest)
+        XCTAssertNotEqual(forest, sunset)
+        let followedTheShuffle = await eventually { palette(in: root) == forest }
+        XCTAssertTrue(followedTheShuffle)
+    }
+
+    func testTheRecheckLeavesAnUnchangedWallpaperPaletteUnwritten() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let wallpaper = Wallpaper(Self.sunset)
+        let writer = rechecking(wallpaper, into: root)
+        defer { writer.stop() }
+        writer.start()
+        let sunset = palette(of: Self.sunset)
+        let written = await eventually { palette(in: root) == sunset }
+        XCTAssertTrue(written)
+        let path = root.appendingPathComponent("themes/wallpaper.toml").path
+        let modified = try FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date
+
+        let reads = wallpaper.reads
+        let rechecked = await eventually { wallpaper.reads >= reads + 3 }
+        XCTAssertTrue(rechecked)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date, modified)
+        XCTAssertEqual(palette(in: root), sunset)
+    }
+
+    func testTheRecheckStopsWhenTheWriterIsStoppedOrReleased() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let wallpaper = Wallpaper(Self.sunset)
+        let stopped = rechecking(wallpaper, into: root)
+        stopped.start()
+        var reads = wallpaper.reads
+        let ticking = await eventually { wallpaper.reads >= reads + 2 }
+        XCTAssertTrue(ticking)
+        stopped.stop()
+        reads = wallpaper.reads
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(wallpaper.reads, reads)
+
+        var released: ShellWallpaperPaletteWriter? = rechecking(wallpaper, into: root)
+        released?.start()
+        reads = wallpaper.reads
+        let restarted = await eventually { wallpaper.reads >= reads + 2 }
+        XCTAssertTrue(restarted)
+        released = nil
+        reads = wallpaper.reads
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(wallpaper.reads, reads)
+    }
 }
