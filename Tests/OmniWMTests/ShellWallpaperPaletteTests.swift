@@ -218,30 +218,44 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         XCTAssertTrue(CGImageDestinationFinalize(destination))
     }
 
-    private func store(
+    private func desktop(
         _ url: URL,
         provider: String = "com.apple.wallpaper.choice.image",
         shuffle: Any = "$null"
-    ) throws -> Data {
+    ) throws -> [String: Any] {
         let configuration = try PropertyListSerialization.data(
             fromPropertyList: ["type": "imageFile", "url": ["relative": url.absoluteString]],
             format: .binary,
             options: 0
         )
         let choice: [String: Any] = ["Configuration": configuration, "Files": [Any](), "Provider": provider]
-        let content: [String: Any] = ["Choices": [choice], "Shuffle": shuffle]
-        return try PropertyListSerialization.data(
-            fromPropertyList: ["Displays": ["MAIN": ["Desktop": ["Content": content], "Type": "individual"]]],
-            format: .binary,
-            options: 0
-        )
+        return ["Desktop": ["Content": ["Choices": [choice], "Shuffle": shuffle]], "Type": "individual"]
     }
 
-    private func paletteImage(url: URL, windows: [[String: Any]], store: Data?, capture: CGImage) -> CGImage? {
+    private func store(
+        _ url: URL,
+        provider: String = "com.apple.wallpaper.choice.image",
+        shuffle: Any = "$null"
+    ) throws -> Data {
+        try store(["Displays": ["MAIN": desktop(url, provider: provider, shuffle: shuffle)]])
+    }
+
+    private func store(_ index: [String: Any]) throws -> Data {
+        try PropertyListSerialization.data(fromPropertyList: index, format: .binary, options: 0)
+    }
+
+    private func paletteImage(
+        url: URL,
+        windows: [[String: Any]],
+        store: Data?,
+        capture: CGImage,
+        location: (display: String, space: String)? = ("MAIN", "ACTIVE")
+    ) -> CGImage? {
         let cache = OverviewWallpaperCache(captureWallpaper: { _ in capture })
         cache.desktopImageURL = { _ in url }
         return ShellWallpaperPalette.image(
-            for: 999, frame: Self.screen, cache: cache, windows: { windows }, store: { store }
+            for: 999, frame: Self.screen, cache: cache, windows: { windows }, store: { store },
+            location: { _ in location }
         )
     }
 
@@ -292,6 +306,59 @@ final class ShellWallpaperPaletteTests: XCTestCase {
                 wallpaper.name
             )
             XCTAssertEqual(palette(of: image), palette(of: Self.forest), wallpaper.name)
+        }
+    }
+
+    func testTheStillWallpaperIsTheOneChosenForTheDisplayInItsActiveSpace() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let still = root.appendingPathComponent("sunset.png")
+        try writeWallpaper([Self.sunset], to: still, type: "public.png")
+        let system = window(7, level: CGWindowLevelForKey(.desktopWindow) - 1)
+        let shuffling = try desktop(still, shuffle: ["Interval": 300])
+        let showing = try desktop(still)
+        let aerial = try desktop(still, provider: "com.apple.wallpaper.choice.aerials")
+        let cases: [(name: String, index: [String: Any], location: (display: String, space: String)?, shows: CGImage)] =
+            [
+                (
+                    "the active Space shuffles while another Space shows the same wallpaper",
+                    ["Spaces": ["ACTIVE": ["Displays": ["MAIN": shuffling]], "OTHER": ["Displays": ["MAIN": showing]]]],
+                    ("MAIN", "ACTIVE"),
+                    Self.forest
+                ),
+                (
+                    "the display shuffles while another display shows the same wallpaper",
+                    ["Displays": ["MAIN": shuffling, "OTHER": showing]],
+                    ("MAIN", "ACTIVE"),
+                    Self.forest
+                ),
+                (
+                    "the active Space shows the wallpaper on this display",
+                    ["Spaces": ["ACTIVE": ["Displays": ["MAIN": showing]]], "Displays": ["MAIN": aerial]],
+                    ("MAIN", "ACTIVE"),
+                    Self.sunset
+                ),
+                (
+                    "the active Space shows the wallpaper on every display",
+                    ["Spaces": ["ACTIVE": ["Default": showing]], "Displays": ["MAIN": aerial]],
+                    ("MAIN", "ACTIVE"),
+                    Self.sunset
+                ),
+                ("the active Space is unknown", ["Displays": ["MAIN": showing]], nil, Self.forest)
+            ]
+        for wallpaper in cases {
+            let image = try XCTUnwrap(
+                paletteImage(
+                    url: still,
+                    windows: [system],
+                    store: store(wallpaper.index),
+                    capture: Self.forest,
+                    location: wallpaper.location
+                ),
+                wallpaper.name
+            )
+            XCTAssertEqual(palette(of: image), palette(of: wallpaper.shows), wallpaper.name)
         }
     }
 

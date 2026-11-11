@@ -97,11 +97,17 @@ extension ShellWallpaperPalette {
         },
         store: () -> Data? = {
             try? Data(contentsOf: ShellWallpaperPaletteWriter.store.appendingPathComponent("Index.plist"))
+        },
+        location: (CGDirectDisplayID) -> (display: String, space: String)? = { displayId in
+            SkyLight.displayUUID(for: displayId).flatMap { display in
+                SkyLight.shared.currentSpaceUUID(forDisplay: display).map { (display, $0) }
+            }
         }
     ) -> CGImage? {
         let frame = frame ?? CGDisplayBounds(displayId)
         if let url = cache.desktopImageURL(displayId),
-           showsStillImage(url, windows: windows(), frame: frame, store: store()),
+           let location = location(displayId),
+           showsStillImage(url, windows: windows(), frame: frame, store: store(), location: location),
            let image = cache.fileImage(for: displayId, maxPixelSize: pixelSize)
         {
             return image
@@ -110,7 +116,13 @@ extension ShellWallpaperPalette {
     }
 
     @MainActor
-    static func showsStillImage(_ url: URL, windows: [[String: Any]], frame: CGRect, store: Data?) -> Bool {
+    static func showsStillImage(
+        _ url: URL,
+        windows: [[String: Any]],
+        frame: CGRect,
+        store: Data?,
+        location: (display: String, space: String)
+    ) -> Bool {
         guard url.isFileURL,
               let wallpaper = SkyLight.wallpaperWindow(in: windows, frame: frame),
               windows.contains(where: {
@@ -120,28 +132,40 @@ extension ShellWallpaperPalette {
               let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               CGImageSourceGetCount(source) == 1,
               let store,
-              let index = try? PropertyListSerialization.propertyList(from: store, format: nil)
+              let index = try? PropertyListSerialization.propertyList(from: store, format: nil) as? [String: Any],
+              let content = desktopContent(in: index, location: location)
         else { return false }
-        return stillImagePaths(in: index).contains(url.standardizedFileURL.path)
+        return stillImagePath(of: content) == url.standardizedFileURL.path
     }
 
-    private static func stillImagePaths(in value: Any) -> Set<String> {
-        if let values = value as? [Any] {
-            return values.reduce(into: []) { $0.formUnion(stillImagePaths(in: $1)) }
-        }
-        guard let content = value as? [String: Any] else { return [] }
-        if content["Shuffle"] as? String == "$null",
-           let choices = content["Choices"] as? [[String: Any]], choices.count == 1,
-           choices[0]["Provider"] as? String == stillImageProvider,
-           let data = choices[0]["Configuration"] as? Data,
-           let configuration = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-           configuration["type"] as? String == "imageFile",
-           let relative = (configuration["url"] as? [String: Any])?["relative"] as? String,
-           let url = URL(string: relative), url.isFileURL
-        {
-            return [url.standardizedFileURL.path]
-        }
-        return content.values.reduce(into: []) { $0.formUnion(stillImagePaths(in: $1)) }
+    static func desktopContent(
+        in index: [String: Any],
+        location: (display: String, space: String)
+    ) -> [String: Any]? {
+        let space = (index["Spaces"] as? [String: Any])?[location.space] as? [String: Any]
+        let entries: [Any?] = [
+            (space?["Displays"] as? [String: Any])?[location.display],
+            space?["Default"],
+            (index["Displays"] as? [String: Any])?[location.display],
+            index["AllSpacesAndDisplays"],
+            index["SystemDefault"]
+        ]
+        return entries.lazy.compactMap { (($0 as? [String: Any])?["Desktop"] as? [String: Any])?["Content"] }
+            .first as? [String: Any]
+    }
+
+    private static func stillImagePath(of content: [String: Any]) -> String? {
+        guard content["Shuffle"] as? String == "$null",
+              let choices = content["Choices"] as? [[String: Any]], choices.count == 1,
+              choices[0]["Provider"] as? String == stillImageProvider,
+              let data = choices[0]["Configuration"] as? Data,
+              let configuration = try? PropertyListSerialization
+                  .propertyList(from: data, format: nil) as? [String: Any],
+              configuration["type"] as? String == "imageFile",
+              let relative = (configuration["url"] as? [String: Any])?["relative"] as? String,
+              let url = URL(string: relative), url.isFileURL
+        else { return nil }
+        return url.standardizedFileURL.path
     }
 }
 
