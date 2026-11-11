@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import ImageIO
 @testable import OmniWM
 import XCTest
 
@@ -195,6 +196,103 @@ final class ShellWallpaperPaletteTests: XCTestCase {
 
     private func palette(of image: CGImage) -> String {
         ShellWallpaperPalette.theme(pixels: ShellWallpaperPalette.pixels(of: image), scheme: .tonalSpot)
+    }
+
+    private static let screen = CGRect(x: 0, y: 0, width: 320, height: 180)
+
+    private func window(_ id: UInt32, level: Int32) -> [String: Any] {
+        [
+            kCGWindowNumber as String: id,
+            kCGWindowLayer as String: level,
+            kCGWindowBounds as String: Self.screen.dictionaryRepresentation
+        ]
+    }
+
+    private func writeWallpaper(_ images: [CGImage], to url: URL, type: String) throws {
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(
+            url as CFURL, type as CFString, images.count, nil
+        ))
+        for image in images {
+            CGImageDestinationAddImage(destination, image, nil)
+        }
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+    }
+
+    private func store(
+        _ url: URL,
+        provider: String = "com.apple.wallpaper.choice.image",
+        shuffle: Any = "$null"
+    ) throws -> Data {
+        let configuration = try PropertyListSerialization.data(
+            fromPropertyList: ["type": "imageFile", "url": ["relative": url.absoluteString]],
+            format: .binary,
+            options: 0
+        )
+        let choice: [String: Any] = ["Configuration": configuration, "Files": [Any](), "Provider": provider]
+        let content: [String: Any] = ["Choices": [choice], "Shuffle": shuffle]
+        return try PropertyListSerialization.data(
+            fromPropertyList: ["Displays": ["MAIN": ["Desktop": ["Content": content], "Type": "individual"]]],
+            format: .binary,
+            options: 0
+        )
+    }
+
+    private func paletteImage(url: URL, windows: [[String: Any]], store: Data?, capture: CGImage) -> CGImage? {
+        let cache = OverviewWallpaperCache(captureWallpaper: { _ in capture })
+        cache.desktopImageURL = { _ in url }
+        return ShellWallpaperPalette.image(
+            for: 999, frame: Self.screen, cache: cache, windows: { windows }, store: { store }
+        )
+    }
+
+    func testAStillWallpaperIsReadFromItsFileWhileTheCaptureStillShowsTheOldWallpaper() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let still = root.appendingPathComponent("sunset.png")
+        try writeWallpaper([Self.sunset], to: still, type: "public.png")
+        let system = window(7, level: CGWindowLevelForKey(.desktopWindow) - 1)
+
+        let image = try XCTUnwrap(paletteImage(
+            url: still,
+            windows: [system],
+            store: store(still),
+            capture: Self.forest
+        ))
+        XCTAssertEqual(palette(of: image), palette(of: Self.sunset))
+    }
+
+    func testALiveOrDynamicWallpaperIsStillCaptured() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let still = root.appendingPathComponent("sunset.png")
+        try writeWallpaper([Self.sunset], to: still, type: "public.png")
+        let dynamic = root.appendingPathComponent("dynamic.tiff")
+        try writeWallpaper([Self.sunset, Self.sunset], to: dynamic, type: "public.tiff")
+        let desktop = CGWindowLevelForKey(.desktopWindow)
+        let system = window(7, level: desktop - 1)
+        let live = window(8, level: desktop + 1)
+        let cases: [(name: String, url: URL, windows: [[String: Any]], store: Data?)] = try [
+            ("a live wallpaper app above the desktop", still, [live, system], store(still)),
+            ("a dynamic wallpaper with several frames", dynamic, [system], store(dynamic)),
+            ("an aerial wallpaper", still, [system], store(still, provider: "com.apple.wallpaper.choice.aerials")),
+            ("a shuffled folder", still, [system], store(still, shuffle: ["Interval": 300])),
+            ("a store that names another wallpaper", still, [system], store(dynamic)),
+            ("an unreadable store", still, [system], nil)
+        ]
+        for wallpaper in cases {
+            let image = try XCTUnwrap(
+                paletteImage(
+                    url: wallpaper.url,
+                    windows: wallpaper.windows,
+                    store: wallpaper.store,
+                    capture: Self.forest
+                ),
+                wallpaper.name
+            )
+            XCTAssertEqual(palette(of: image), palette(of: Self.forest), wallpaper.name)
+        }
     }
 
     private func palette(in root: URL) -> String? {

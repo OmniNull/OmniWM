@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import ImageIO
 import OmniWMMaterialColor
 
 enum ShellWallpaperScheme: String, CaseIterable, Sendable {
@@ -83,6 +84,67 @@ enum ShellWallpaperPalette {
     }
 }
 
+extension ShellWallpaperPalette {
+    static let stillImageProvider = "com.apple.wallpaper.choice.image"
+
+    @MainActor
+    static func image(
+        for displayId: CGDirectDisplayID,
+        frame: CGRect? = nil,
+        cache: OverviewWallpaperCache = OverviewWallpaperCache(),
+        windows: () -> [[String: Any]] = {
+            CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+        },
+        store: () -> Data? = {
+            try? Data(contentsOf: ShellWallpaperPaletteWriter.store.appendingPathComponent("Index.plist"))
+        }
+    ) -> CGImage? {
+        let frame = frame ?? CGDisplayBounds(displayId)
+        if let url = cache.desktopImageURL(displayId),
+           showsStillImage(url, windows: windows(), frame: frame, store: store()),
+           let image = cache.fileImage(for: displayId, maxPixelSize: pixelSize)
+        {
+            return image
+        }
+        return cache.image(for: displayId, maxPixelSize: pixelSize, frame: frame)
+    }
+
+    @MainActor
+    static func showsStillImage(_ url: URL, windows: [[String: Any]], frame: CGRect, store: Data?) -> Bool {
+        guard url.isFileURL,
+              let wallpaper = SkyLight.wallpaperWindow(in: windows, frame: frame),
+              windows.contains(where: {
+                  $0[kCGWindowNumber as String] as? UInt32 == wallpaper.id
+                      && $0[kCGWindowLayer as String] as? Int32 == CGWindowLevelForKey(.desktopWindow) - 1
+              }),
+              let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              CGImageSourceGetCount(source) == 1,
+              let store,
+              let index = try? PropertyListSerialization.propertyList(from: store, format: nil)
+        else { return false }
+        return stillImagePaths(in: index).contains(url.standardizedFileURL.path)
+    }
+
+    private static func stillImagePaths(in value: Any) -> Set<String> {
+        if let values = value as? [Any] {
+            return values.reduce(into: []) { $0.formUnion(stillImagePaths(in: $1)) }
+        }
+        guard let content = value as? [String: Any] else { return [] }
+        if content["Shuffle"] as? String == "$null",
+           let choices = content["Choices"] as? [[String: Any]], choices.count == 1,
+           choices[0]["Provider"] as? String == stillImageProvider,
+           let data = choices[0]["Configuration"] as? Data,
+           let configuration = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+           configuration["type"] as? String == "imageFile",
+           let relative = (configuration["url"] as? [String: Any])?["relative"] as? String,
+           let url = URL(string: relative), url.isFileURL
+        {
+            return [url.standardizedFileURL.path]
+        }
+        return content.values.reduce(into: []) { $0.formUnion(stillImagePaths(in: $1)) }
+    }
+}
+
 @MainActor
 final class ShellWallpaperPaletteWriter {
     static let store = FileManager.default.homeDirectoryForCurrentUser
@@ -103,9 +165,7 @@ final class ShellWallpaperPaletteWriter {
         destination: URL,
         scheme: ShellWallpaperScheme,
         recheckInterval: TimeInterval = 60,
-        image: @escaping @MainActor () -> CGImage? = {
-            OverviewWallpaperCache().image(for: CGMainDisplayID(), maxPixelSize: ShellWallpaperPalette.pixelSize)
-        },
+        image: @escaping @MainActor () -> CGImage? = { ShellWallpaperPalette.image(for: CGMainDisplayID()) },
         onFailure: @escaping @MainActor (String) -> Void
     ) {
         self.destination = destination
