@@ -16,7 +16,7 @@ The feature is off by default. Until you turn it on, OmniWM never sets a wallpap
 Open **Settings > Wallpaper** and turn on **Manage Wallpapers**. OmniWM uses `~/Pictures/Wallpapers` for every display until you choose another folder.
 
 - **Folders** lists every connected display, and displays you set a folder for that are not connected now. Each has **Choose…**, which opens the standard folder panel, and **Reset to Default**, and shows how many wallpapers its folder holds. **Default Folder** is the folder for every display without its own.
-- **Rotation** sets **Change Wallpaper** to **Off**, every 15 or 30 minutes, every hour, or **Custom** (1 to 1440 minutes). **Next Change** shows the time of the next change in 24-hour time. The time is kept across restarts, so quitting OmniWM does not postpone it.
+- **Rotation** sets **Change Wallpaper** to **Off**, every 15 or 30 minutes, every hour, or **Custom** (1 to 1440 minutes). It stays **Off** until you choose an interval, so turning the feature on changes nothing by itself. **Next Change** shows the time of the next change in 24-hour time. The time is kept across restarts, so quitting OmniWM does not postpone it.
 - **Placement** chooses **Fill Screen**, which crops the wallpaper to the display, or **Fit to Screen**.
 - **Next Wallpaper on All Displays** moves every display to its next wallpaper.
 
@@ -30,7 +30,7 @@ Displays are found as they connect: a MacBook alone, a MacBook with external dis
 
 **Colors** turns on **Match Colors to Wallpaper**, the same Wallpaper Colors palette as **Settings > Styles & Widgets > Palette**, and picks its Material 3 scheme. Each scheme shows a live preview made from the main display's current wallpaper; choosing one recolors OmniWM immediately. The scheme is the existing `scheme` setting in `shell.toml`, so it applies to everyone who uses the wallpaper palette, with or without the wallpaper manager.
 
-When OmniWM changes the main display's wallpaper, it makes the palette from the wallpaper file as that display shows it, applies it, and then sets the wallpaper, so the colors and the wallpaper change together. The palette for the next wallpaper in the shuffle is prepared ahead of time. Wallpapers you set elsewhere, such as in System Settings, are still followed the way the [wallpaper palette](/omnishell/configuration/profiles-palettes/#wallpaper-palette) always has.
+When OmniWM changes the main display's wallpaper, it makes the palette from the whole wallpaper file, applies it, and then sets the wallpaper, so the colors and the wallpaper change together. The palette comes from the whole file the same way OmniWM reads any still wallpaper, so a wallpaper gets the same colors on every display and with Fill or Fit. The palette for the next wallpaper in the shuffle is prepared ahead of time. Wallpapers you set elsewhere, such as in System Settings, are still followed the way the [wallpaper palette](/omnishell/configuration/profiles-palettes/#wallpaper-palette) always has.
 
 ## Bar widget and popout
 

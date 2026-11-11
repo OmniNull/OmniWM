@@ -7,9 +7,12 @@ import TOML
 import XCTest
 
 final class WallpaperSettingsTests: XCTestCase {
+    @MainActor
     func testTheFeatureIsOffByDefaultAndLeavesTheSettingsFileUnchanged() throws {
         let defaults = SettingsExport.defaults()
         XCTAssertFalse(defaults.wallpaper.enabled)
+        XCTAssertEqual(defaults.wallpaper.rotationMinutes, 0, "rotation stays off until the user picks an interval")
+        XCTAssertEqual(WallpaperSettings().rotationMinutes, 0)
         let text = try XCTUnwrap(String(data: SettingsTOMLCodec.encode(defaults), encoding: .utf8))
         XCTAssertFalse(text.contains("wallpaper"), "a user who never turns it on gets no new settings")
         XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(defaults)), defaults)
@@ -50,6 +53,9 @@ final class WallpaperSettingsTests: XCTestCase {
         XCTAssertEqual(decoded.rotationMinutes, 1440)
         XCTAssertEqual(decoded.folder, "~/Pictures/Wallpapers")
         XCTAssertEqual(decoded.placement, .fill)
+
+        tree["wallpaper"] = .table(["enabled": .boolean(true)])
+        XCTAssertEqual(try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)).wallpaper.rotationMinutes, 0)
 
         tree["wallpaper"] = .table(["enabled": .string("yes")])
         XCTAssertThrowsError(try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)))

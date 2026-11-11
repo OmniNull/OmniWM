@@ -89,7 +89,7 @@ final class WallpaperLibraryTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(WallpaperShuffle.self, from: data), shuffle)
     }
 
-    func testThePaletteSampleIsTheWallpaperAsTheDisplayShowsIt() throws {
+    func testThePaletteSampleIsTheWholeFileTheSameWayTheStillWallpaperReadIs() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -105,23 +105,12 @@ final class WallpaperLibraryTests: XCTestCase {
         try NSBitmapImageRep(cgImage: try XCTUnwrap(context.makeImage()))
             .representation(using: .png, properties: [:])!.write(to: url)
 
-        let square = CGSize(width: 1000, height: 1000)
-        let filled = try XCTUnwrap(WallpaperRendering.sample(WallpaperSampleKey(
-            url,
-            display: square,
-            placement: .fill
-        )))
-        let fitted = try XCTUnwrap(WallpaperRendering.sample(WallpaperSampleKey(url, display: square, placement: .fit)))
-        func blueShare(_ pixels: [UInt32]) -> Double {
-            Double(pixels.filter { $0 & 0xFF > 0x80 && ($0 >> 16) & 0xFF < 0x80 }.count) / Double(pixels.count)
-        }
-        XCTAssertGreaterThan(blueShare(filled), 0.9, "Fill on a square display shows the middle of a wide wallpaper")
-        XCTAssertLessThan(blueShare(fitted), 0.4, "Fit shows the whole wallpaper")
-        XCTAssertNotEqual(
-            WallpaperSampleKey(url, display: square, placement: .fill),
-            WallpaperSampleKey(url, display: CGSize(width: 1512, height: 982), placement: .fill),
-            "the sample key includes the display's size"
-        )
+        let sample = try XCTUnwrap(WallpaperRendering.sample(WallpaperSampleKey(url)))
+        let stillRead = try XCTUnwrap(ShellWallpaperPalette.read(url).map(ShellWallpaperPalette.pixels(of:)))
+        XCTAssertEqual(sample, stillRead, "the manager and the still wallpaper read sample a file identically")
+        let blue = Double(sample.filter { $0 & 0xFF > 0x80 && ($0 >> 16) & 0xFF < 0x80 }.count) / Double(sample.count)
+        XCTAssertLessThan(blue, 0.4, "the whole file is sampled, not the middle a square display would show")
+        XCTAssertEqual(WallpaperSampleKey(url), WallpaperSampleKey(url))
     }
 
     func testPreviewsAreCroppedToTheDisplayShape() throws {

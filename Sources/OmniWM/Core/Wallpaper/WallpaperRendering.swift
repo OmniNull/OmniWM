@@ -20,25 +20,13 @@ struct WallpaperFileStamp: Hashable, Sendable {
 
 struct WallpaperSampleKey: Hashable, Sendable {
     let file: WallpaperFileStamp
-    let width: Int
-    let height: Int
-    let placement: WallpaperPlacement
 
-    init(_ url: URL, display size: CGSize, placement: WallpaperPlacement) {
+    init(_ url: URL) {
         file = WallpaperFileStamp(url)
-        width = Int(size.width.rounded())
-        height = Int(size.height.rounded())
-        self.placement = placement
-    }
-
-    var aspect: Double {
-        width > 0 && height > 0 ? Double(width) / Double(height) : 16.0 / 9.0
     }
 }
 
 enum WallpaperRendering {
-    static let sampleSide = 256
-
     static func source(_ url: URL, maxPixelSize: Int) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return CGImageSourceCreateThumbnailAtIndex(source, 0, [
@@ -86,18 +74,8 @@ enum WallpaperRendering {
     }
 
     static func sample(_ key: WallpaperSampleKey) -> [UInt32]? {
-        let url = URL(fileURLWithPath: key.file.path)
-        guard let image = source(url, maxPixelSize: sampleSide * 2) else { return nil }
-        let shown: CGImage?
-        switch key.placement {
-        case .fill:
-            let size = canvas(aspect: key.aspect, longSide: sampleSide)
-            shown = render(image, width: size.width, height: size.height, placement: .fill, opaque: true)
-        case .fit:
-            shown = image
-        }
-        guard let shown else { return nil }
-        let pixels = ShellWallpaperPalette.pixels(of: shown)
+        let pixels = ShellWallpaperPalette.read(URL(fileURLWithPath: key.file.path))
+            .map(ShellWallpaperPalette.pixels(of:)) ?? []
         return pixels.isEmpty ? nil : pixels
     }
 

@@ -728,7 +728,7 @@ Both Boolean keys are optional and default to `true`. Turning a service off canc
 | --- | --- | --- | --- |
 | `enabled` | boolean | `false` | Lets OmniWM set each display's wallpaper from a folder. Off leaves your wallpapers as they are. |
 | `folder` | string | `"~/Pictures/Wallpapers"` | The folder for every display without its own. Starts with `/` or `~`. |
-| `rotationMinutes` | integer | `30` | Minutes between changes, from `1` to `1440`; `0` turns rotation off. Larger values are clamped. |
+| `rotationMinutes` | integer | `0` | Minutes between changes, from `1` to `1440`; `0`, the default, leaves rotation off until you choose an interval. Larger values are clamped. |
 | `placement` | enum | `"fill"` | `"fill"` crops the wallpaper to the display; `"fit"` shows all of it. |
 | `displays` *(optional)* | array of tables | `[]` | A folder for one display: `monitorName`, `monitorDisplayUUID` (or `monitorDisplayId` for a display without a UUID), `folder`, and an `id` UUID identifying the row. |
 

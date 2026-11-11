@@ -257,19 +257,19 @@ extension WallpaperManager {
     func palettePixels() -> [UInt32]? {
         guard let pin, let main = desktop.displays().first(where: \.isMain),
               main.current?.standardizedFileURL == pin.url.standardizedFileURL,
-              pin.key == WallpaperSampleKey(pin.url, display: main.size, placement: placement)
+              pin.key == WallpaperSampleKey(pin.url)
         else { return nil }
         return pin.pixels
     }
 
     func mainPixels() -> [UInt32]? {
         guard let main = desktop.displays().first(where: \.isMain), let current = main.current else { return nil }
-        return samples[WallpaperSampleKey(current, display: main.size, placement: placement)]
+        return samples[WallpaperSampleKey(current)]
     }
 
     func sampleMainWallpaper() async {
         guard let main = desktop.displays().first(where: \.isMain), let current = main.current else { return }
-        let key = WallpaperSampleKey(current, display: main.size, placement: placement)
+        let key = WallpaperSampleKey(current)
         if let known = samples[key] {
             if paletteSample != known { paletteSample = known }
             return
@@ -299,7 +299,7 @@ extension WallpaperManager {
         if let main = changes.first(where: { $0.entry.display.isMain }), let palette,
            palette.wallpaperPaletteState.active
         {
-            let key = WallpaperSampleKey(main.url, display: main.entry.display.size, placement: placement)
+            let key = WallpaperSampleKey(main.url)
             var pixels = samples[key]
             if pixels == nil, let computed = await environment.sample(key) {
                 remember(computed, for: key)
@@ -342,12 +342,10 @@ extension WallpaperManager {
         if let upcoming = state.shuffle.peek(
             display: main.display.key, folder: main.folder.path, files: main.files, random: random
         ) {
-            keys.append(WallpaperSampleKey(
-                main.folder.appendingPathComponent(upcoming), display: main.display.size, placement: placement
-            ))
+            keys.append(WallpaperSampleKey(main.folder.appendingPathComponent(upcoming)))
         }
         if let current = main.display.current {
-            keys.append(WallpaperSampleKey(current, display: main.display.size, placement: placement))
+            keys.append(WallpaperSampleKey(current))
         }
         let sample = environment.sample
         for key in keys where samples[key] == nil {
@@ -360,15 +358,6 @@ extension WallpaperManager {
 
     private func displaysDidChange() {
         refresh()
-        if let pin, let main = entries.first(where: \.display.isMain),
-           main.display.current?.standardizedFileURL == pin.url.standardizedFileURL
-        {
-            let key = WallpaperSampleKey(pin.url, display: main.display.size, placement: placement)
-            if pin.key != key {
-                self.pin = nil
-                Task { await self.repin(pin.url, key: key) }
-            }
-        }
         prefetch()
         onChange?()
     }
@@ -378,20 +367,6 @@ extension WallpaperManager {
         await apply(entries.compactMap { entry in
             entry.currentName.map { (entry, entry.folder.appendingPathComponent($0)) }
         })
-    }
-
-    private func repin(_ url: URL, key: WallpaperSampleKey) async {
-        await serialized { [self] in
-            var pixels = samples[key]
-            if pixels == nil, let computed = await environment.sample(key) {
-                remember(computed, for: key)
-                pixels = computed
-            }
-            guard let pixels, let palette, palette.wallpaperPaletteState.active else { return }
-            pin = Pin(url: url, key: key, pixels: pixels)
-            paletteSample = pixels
-            _ = palette.publishWallpaperPalette(pixels)
-        }
     }
 
     private func schedule(fresh: Bool) {

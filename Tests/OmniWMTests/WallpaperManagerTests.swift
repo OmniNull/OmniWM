@@ -40,7 +40,7 @@ final class WallpaperManagerTests: XCTestCase {
         environment.now = { [clock] in clock!.now }
         environment.schedule = { [clock] due, action in clock!.schedule(due, action) }
         environment.sample = { key in
-            [UInt32(truncatingIfNeeded: key.file.path.utf8.count + key.width + key.height)]
+            [UInt32(truncatingIfNeeded: key.file.path.utf8.count)]
         }
         environment.preview = { _ in nil }
         let manager = WallpaperManager(
@@ -91,7 +91,6 @@ final class WallpaperManagerTests: XCTestCase {
         await manager.next(.all)
         XCTAssertEqual(palette.published.count, 1)
         XCTAssertEqual(manager.pin?.url, desktop.screens[0].current, "the palette follows the main display")
-        XCTAssertEqual(manager.pin?.key.width, 2560)
 
         palette.published = []
         await manager.next(.display(WallpaperFixtures.macBook.monitorId))
@@ -151,7 +150,7 @@ final class WallpaperManagerTests: XCTestCase {
             WallpaperFixtures.studio,
             WallpaperFixtures.secondary(WallpaperFixtures.macBook)
         ])
-        let manager = makeManager(desktop)
+        let manager = makeManager(desktop) { $0.rotationMinutes = 30 }
         await manager.next(.all)
         let history = state.shuffle.displays[WallpaperFixtures.macBook.key]
         XCTAssertNotNil(history)
@@ -220,21 +219,25 @@ final class WallpaperManagerTests: XCTestCase {
         XCTAssertEqual(desktop.events.count, 1)
     }
 
-    func testTheWriterOverrideFollowsOnlyTheWallpaperOmniWMSetAtTheSameSizeAndPlacement() async {
+    func testTheWriterOverrideFollowsOnlyTheUnchangedFileOmniWMSet() async throws {
         let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
         let manager = makeManager(desktop, palette: FakeWallpaperPalette())
         await manager.next(.all)
         XCTAssertEqual(manager.palettePixels(), manager.pin?.pixels)
 
         manager.settings.placement = .fit
-        XCTAssertNil(manager.palettePixels(), "a placement change invalidates the sample")
+        XCTAssertEqual(manager.palettePixels(), manager.pin?.pixels, "the placement does not change the palette")
         manager.settings.placement = .fill
+
+        let current = try XCTUnwrap(desktop.screens[0].current)
+        try Data("changed".utf8).write(to: current)
+        XCTAssertNil(manager.palettePixels(), "a replaced file is read again by the writer")
 
         desktop.screens[0].current = URL(fileURLWithPath: "/Library/Desktop Pictures/Other.heic")
         XCTAssertNil(manager.palettePixels(), "a wallpaper set elsewhere is read by the writer as before")
     }
 
-    func testAResizedMainDisplayResamplesThePaletteForTheSameWallpaper() async {
+    func testAResizedMainDisplayKeepsThePaletteOfTheSameWallpaper() async {
         let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
         let palette = FakeWallpaperPalette()
         let manager = makeManager(desktop, palette: palette)
@@ -250,10 +253,9 @@ final class WallpaperManagerTests: XCTestCase {
         for _ in 0 ..< 10 { await Task.yield() }
         await manager.next(.display("display:999"))
 
-        XCTAssertEqual(manager.pin?.url, current)
-        XCTAssertNotEqual(manager.pin?.key, first?.key)
-        XCTAssertEqual(manager.pin?.key.width, 1440)
-        XCTAssertEqual(palette.published.count, 2)
+        XCTAssertEqual(manager.pin, first)
+        XCTAssertEqual(manager.palettePixels(), first?.pixels)
+        XCTAssertEqual(palette.published.count, 1, "a resize neither resamples nor republishes")
         XCTAssertEqual(desktop.screens[0].current, current, "a resize never changes the wallpaper")
     }
 
@@ -263,6 +265,7 @@ final class WallpaperManagerTests: XCTestCase {
         let manager = makeManager(desktop, palette: palette)
         await manager.next(.all)
         let current = desktop.screens[0].current
+        let pixels = manager.pin?.pixels
         desktop.events = []
         manager.settings.placement = .fit
         manager.settingsDidChange()
@@ -272,8 +275,47 @@ final class WallpaperManagerTests: XCTestCase {
             ["set \(WallpaperFixtures.studio.key) \(current!.lastPathComponent)"]
         )
         XCTAssertEqual(desktop.screens[0].current, current)
-        XCTAssertEqual(manager.pin?.key.placement, .fit)
-        XCTAssertEqual(manager.palettePixels(), manager.pin?.pixels)
+        XCTAssertEqual(manager.pin?.pixels, pixels)
+        XCTAssertEqual(manager.palettePixels(), pixels)
+    }
+
+    func testTheSameFileGivesTheSamePaletteOnAnyDisplayAndPlacement() async throws {
+        let folder = try WallpaperFixtures.makeFolder(root, "real", files: [])
+        let url = folder.appendingPathComponent("dunes.png")
+        try NSBitmapImageRep(cgImage: ShellBundledWidgetTests.wallpaperGradient(
+            640, 360, ShellBundledWidgetTests.wallpaperPalettes[0]
+        )).representation(using: .png, properties: [:])!.write(to: url)
+        let expected = try XCTUnwrap(ShellWallpaperPalette.read(url).map(ShellWallpaperPalette.pixels(of:)))
+        let ultrawide = WallpaperDisplay(
+            displayId: 7, uuid: "77777777-7777-7777-7777-777777777777", name: "Ultrawide",
+            size: CGSize(width: 5120, height: 1440), isMain: true
+        )
+        let laptop = WallpaperDisplay(
+            displayId: 8, uuid: "88888888-8888-8888-8888-888888888888", name: "Laptop",
+            size: CGSize(width: 1728, height: 1080), isMain: true, isBuiltin: true, hasNotch: true
+        )
+        var palettes: [[UInt32]] = []
+        for (display, placement) in [(ultrawide, WallpaperPlacement.fill), (laptop, .fit), (laptop, .fill)] {
+            let desktop = FakeWallpaperDesktop([display])
+            let palette = FakeWallpaperPalette()
+            let settings = WallpaperSettings()
+            settings.enabled = true
+            settings.placement = placement
+            settings.setFolder(folder.path, for: display.monitor)
+            var environment = WallpaperEnvironment()
+            environment.home = root.path
+            environment.schedule = { _, _ in {} }
+            environment.preview = { _ in nil }
+            let manager = WallpaperManager(
+                settings: settings, desktop: desktop, environment: environment,
+                loadState: { WallpaperRuntimeState() }, saveState: { _ in }
+            )
+            manager.palette = palette
+            manager.settingsDidChange()
+            await manager.set("dunes.png", on: display.monitorId)
+            palettes.append(try XCTUnwrap(palette.published.last))
+        }
+        XCTAssertEqual(palettes, [expected, expected, expected])
     }
 
     func testShuffleOrderPersistsAcrossRestartsAndEveryWallpaperShowsOncePerCycle() async {
@@ -315,6 +357,17 @@ final class WallpaperManagerTests: XCTestCase {
         manager.setRotation(45)
         XCTAssertEqual(manager.settings.rotationMinutes, 45)
         XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(45 * 60))
+    }
+
+    func testTurningTheFeatureOnLeavesRotationOffUntilAnIntervalIsChosen() async {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let manager = makeManager(desktop)
+        XCTAssertTrue(manager.running)
+        XCTAssertNil(manager.nextChange)
+        XCTAssertTrue(clock.pending.isEmpty)
+        XCTAssertTrue(desktop.events.isEmpty, "turning it on does not change any wallpaper")
+        manager.setRotation(30)
+        XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(30 * 60))
     }
 
     func testTurningTheFeatureOffStopsEverythingAndChangesNothing() async {

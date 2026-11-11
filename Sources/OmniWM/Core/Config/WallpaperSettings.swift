@@ -60,7 +60,7 @@ extension SettingsExport {
 
         var enabled = false
         var folder = WallpaperLibrary.defaultFolder
-        var rotationMinutes = 30
+        var rotationMinutes = 0
         var placement = WallpaperPlacement.fill
         var displays: [MonitorWallpaperSettings] = []
 
@@ -81,7 +81,7 @@ extension SettingsExport {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             self.folder = folder.flatMap { $0.isEmpty ? nil : $0 } ?? WallpaperLibrary.defaultFolder
             rotationMinutes = Self.normalizedRotation(
-                try container.decodeIfPresent(Int.self, forKey: .rotationMinutes) ?? 30
+                try container.decodeIfPresent(Int.self, forKey: .rotationMinutes) ?? 0
             )
             placement = try container.decodeIfPresent(WallpaperPlacement.self, forKey: .placement) ?? .fill
             displays = try container.decodeIfPresent([MonitorWallpaperSettings].self, forKey: .displays) ?? []
@@ -138,7 +138,7 @@ final class WallpaperSettings {
         didSet { if folder != oldValue { onChange?() } }
     }
 
-    var rotationMinutes = 30 {
+    var rotationMinutes = 0 {
         didSet {
             let normalized = SettingsExport.Wallpaper.normalizedRotation(rotationMinutes)
             guard normalized == rotationMinutes else {
