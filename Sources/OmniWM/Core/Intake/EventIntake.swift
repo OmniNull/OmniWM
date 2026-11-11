@@ -16,6 +16,8 @@ enum IntakeEvent: Sendable {
     case hotkeyInvocation(HotkeyInvocation)
     case intentExpired(intentId: IntentID, deadlineGeneration: UInt64)
     case ipcCommand(IPCCommandIntake)
+    case leftMouseDown(LeftMouseDownIntake)
+    case leftMouseUp(location: CGPoint)
     case mouseDragged(button: MouseEventHandler.MouseButton, location: CGPoint)
     case mouseMoved(location: CGPoint, modifiersRawValue: UInt64, windowIdUnderPointer: Int?)
     case mouseScroll(MouseScrollIntake)
@@ -31,6 +33,14 @@ enum IntakeEvent: Sendable {
 struct IPCCommandIntake: Sendable {
     let perform: @MainActor @Sendable (WMController) -> ExternalCommandResult
     let completion: @MainActor @Sendable (ExternalCommandResult) -> Void
+}
+
+struct LeftMouseDownIntake: Sendable {
+    let location: CGPoint
+    let modifiers: CGEventFlags
+    let timestamp: CGEventTimestamp
+    let windowServerFrames: [WindowToken: CGRect]
+    var dragTarget: (location: CGPoint, windowId: Int)?
 }
 
 struct MouseScrollIntake: Sendable {
@@ -132,6 +142,7 @@ final class EventIntake {
         var nextSeq: UInt64 = 1
         var orderedEvents: [StampedIntakeEvent] = []
         var spareOrderedEvents: [StampedIntakeEvent] = []
+        var hasPendingLeftMouseDown = false
         var pendingCGSFrameWindowIds: Set<UInt32> = []
         var pendingAXTitleWindowIds: Set<UInt32> = []
         var openMouseMovedSeq: UInt64?
@@ -235,6 +246,7 @@ final class EventIntake {
             state.drainScheduled = false
             state.orderedEvents.removeAll(keepingCapacity: false)
             state.spareOrderedEvents.removeAll(keepingCapacity: false)
+            state.hasPendingLeftMouseDown = false
             state.pendingCGSFrameWindowIds.removeAll(keepingCapacity: false)
             state.pendingAXTitleWindowIds.removeAll(keepingCapacity: false)
             state.closeMouseCoalescingWindows()
@@ -298,6 +310,10 @@ final class EventIntake {
             removePendingCGSFrameEvents(windowId: windowId, state: &state)
             state.closeMouseCoalescingWindows()
 
+        case .leftMouseDown:
+            state.hasPendingLeftMouseDown = true
+            state.closeMouseCoalescingWindows()
+
         case let .mouseDragged(button, _):
             switch button {
             case .left:
@@ -346,10 +362,13 @@ final class EventIntake {
 
     nonisolated func removePendingMouseEvents() {
         buffer.withLock { state in
+            state.hasPendingLeftMouseDown = false
             state.closeMouseCoalescingWindows()
             state.orderedEvents.removeAll { stamped in
                 switch stamped.event {
-                case .mouseDragged,
+                case .leftMouseDown,
+                     .leftMouseUp,
+                     .mouseDragged,
                      .mouseMoved,
                      .mouseScroll:
                     return true
@@ -386,6 +405,7 @@ final class EventIntake {
             swap(&events, &state.spareOrderedEvents)
             events.removeAll(keepingCapacity: true)
             swap(&events, &state.orderedEvents)
+            state.hasPendingLeftMouseDown = false
             state.pendingCGSFrameWindowIds.removeAll(keepingCapacity: true)
             state.pendingAXTitleWindowIds.removeAll(keepingCapacity: true)
             state.closeMouseCoalescingWindows()
@@ -411,6 +431,27 @@ final class EventIntake {
                   events.capacity > state.spareOrderedEvents.capacity
             else { return }
             state.spareOrderedEvents = events
+        }
+    }
+}
+
+extension EventIntake {
+    nonisolated func recordPendingLeftMouseDragTarget(
+        at location: CGPoint, windowId: Int?, timestamp: CGEventTimestamp
+    ) -> Bool {
+        buffer.withLock { state in
+            guard state.hasPendingLeftMouseDown,
+                  let index = state.orderedEvents.lastIndex(where: { stamped in
+                      guard case let .leftMouseDown(press) = stamped.event else { return false }
+                      return press.timestamp <= timestamp
+                  }),
+                  case var .leftMouseDown(press) = state.orderedEvents[index].event
+            else { return false }
+            if press.dragTarget == nil, let windowId {
+                press.dragTarget = (location, windowId)
+                state.orderedEvents[index] = state.orderedEvents[index].replacingEvent(with: .leftMouseDown(press))
+            }
+            return true
         }
     }
 }

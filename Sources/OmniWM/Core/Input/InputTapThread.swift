@@ -161,7 +161,8 @@ final class InputTapThread: @unchecked Sendable {
         switch type {
         case .leftMouseDown:
             evaluateLeftMouseDown(
-                at: location, modifiers: event.flags, snapshot: snap, captureWindowFrames: Self.captureWindowFrames
+                at: location, modifiers: event.flags, timestamp: event.timestamp,
+                snapshot: snap, captureWindowFrames: Self.captureWindowFrames
             )
             return event
         case .leftMouseDragged:
@@ -172,11 +173,7 @@ final class InputTapThread: @unchecked Sendable {
             return forwardCapturedDrag(event, type: type, location: location, buttonNumber: 0)
         case .leftMouseUp:
             guard snap.activeCapture == .left else {
-                DispatchQueue.main.async {
-                    MainActor.assumeIsolated {
-                        MouseEventHandler._instance?.receiveTapMouseUp(at: location, button: .left)
-                    }
-                }
+                EventIntake.post(.leftMouseUp(location: location))
                 return event
             }
             let suppress = evaluateAuthoritativeTapOnMain(
@@ -331,6 +328,7 @@ extension InputTapThread {
     nonisolated func evaluateLeftMouseDown(
         at location: CGPoint,
         modifiers: CGEventFlags,
+        timestamp: CGEventTimestamp,
         snapshot: TapFilterSnapshot,
         captureWindowFrames: () -> [WindowToken: CGRect]
     ) {
@@ -344,13 +342,9 @@ extension InputTapThread {
         let needsNativeResizeBaseline = snapshot.adoptNativeResize
             && modifiers.isDisjoint(with: MouseEventHandler.relevantModifierFlags)
         let windowServerFrames = needsNativeResizeBaseline ? captureWindowFrames() : [:]
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated {
-                _ = MouseEventHandler._instance?.receiveTapMouseDown(
-                    at: location, modifiers: modifiers, windowServerFramesAtMouseDown: windowServerFrames
-                )
-            }
-        }
+        EventIntake.post(.leftMouseDown(.init(
+            location: location, modifiers: modifiers, timestamp: timestamp, windowServerFrames: windowServerFrames
+        )))
     }
 
     private nonisolated static func captureWindowFrames() -> [WindowToken: CGRect] {

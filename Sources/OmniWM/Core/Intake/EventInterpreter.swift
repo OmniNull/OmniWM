@@ -57,18 +57,12 @@ final class EventInterpreter: EventIntakeSink {
         case let .ipcCommand(intake):
             intake.completion(intake.perform(controller))
 
-        case let .mouseDragged(button, location):
-            controller.mouseEventHandler.dispatchQueuedMouseDragged(at: location, button: button)
-
-        case let .mouseMoved(location, modifiersRawValue, windowIdUnderPointer):
-            controller.mouseEventHandler.dispatchMouseMoved(
-                at: location,
-                modifiersRawValue: modifiersRawValue,
-                windowIdUnderPointer: windowIdUnderPointer
-            )
-
-        case let .mouseScroll(payload):
-            controller.mouseEventHandler.dispatchScrollWheel(payload)
+        case .leftMouseDown,
+             .leftMouseUp,
+             .mouseDragged,
+             .mouseMoved,
+             .mouseScroll:
+            handleMouseIntakeEvent(stamped.event, handler: controller.mouseEventHandler)
 
         case let .pointerEdgeCrossed(target):
             controller.mouseWarpHandler.notePointerEdgeCrossing(to: target)
@@ -78,6 +72,32 @@ final class EventInterpreter: EventIntakeSink {
 
         case let .windowConstraintsResolved(fact):
             controller.layoutRefreshController.applyResolvedConstraints(fact)
+        }
+    }
+
+    private func handleMouseIntakeEvent(_ event: IntakeEvent, handler: MouseEventHandler) {
+        switch event {
+        case let .leftMouseDown(press):
+            handler.receiveTapMouseDown(at: press.location, modifiers: press.modifiers, queuedLeftPress: press)
+
+        case let .leftMouseUp(location):
+            handler.receiveTapMouseUp(at: location, drainPendingEvents: false)
+
+        case let .mouseDragged(button, location):
+            handler.dispatchQueuedMouseDragged(at: location, button: button)
+
+        case let .mouseMoved(location, modifiersRawValue, windowIdUnderPointer):
+            handler.dispatchMouseMoved(
+                at: location,
+                modifiersRawValue: modifiersRawValue,
+                windowIdUnderPointer: windowIdUnderPointer
+            )
+
+        case let .mouseScroll(payload):
+            handler.dispatchScrollWheel(payload)
+
+        default:
+            break
         }
     }
 
