@@ -188,7 +188,7 @@ extension AXEventHandler {
         for event in events.sorted(by: { $0.sequence < $1.sequence }) {
             switch event {
             case let .create(create):
-                trackPreparedCreate(create.candidate)
+                trackPreparedCreate(create.candidate, countsAsFocused: create.focusedActivation != nil)
                 completeDelayedFocusedManagedAdmission(create)
             case let .destroy(destroy):
                 processPreparedDestroy(destroy.candidate)

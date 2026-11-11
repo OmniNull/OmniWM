@@ -14,7 +14,12 @@ extension LayoutRefreshController {
         else { return }
         let decision = prepareFullRescanWindowDecision(candidate, identity: identity, context: context)
         let window = FullRescanEvaluatedWindow(candidate: candidate, identity: identity, decision: decision)
-        let requestedMode = decision.effectiveTrackedMode
+        let scratchpadAdmission = identity.existingEntry == nil
+            ? decision.effectiveTrackedMode.flatMap {
+                context.controller.scratchpadAdmission(for: decision.evaluation, requestedMode: $0)
+            }
+            : nil
+        let requestedMode = scratchpadAdmission == nil ? decision.effectiveTrackedMode : .floating
         let admitted = requestedMode.flatMap { mode in
             if decision.shouldPreservePreFullscreenState { return WindowAdmission(mode: mode) }
             return context.controller.resolveWindowAdmission(
@@ -28,7 +33,13 @@ extension LayoutRefreshController {
             window, trackedMode: admitted?.mode ?? requestedMode, context: context, progress: &progress
         ) { return }
         if let admitted {
-            reconcileTrackedFullRescanWindow(window, admitted: admitted, context: context, progress: &progress)
+            reconcileTrackedFullRescanWindow(
+                window,
+                admitted: admitted,
+                scratchpadAdmission: scratchpadAdmission,
+                context: context,
+                progress: &progress
+            )
         } else if requestedMode == nil {
             rejectFullRescanWindow(window, context: context, progress: &progress)
         } else {
@@ -45,6 +56,7 @@ extension LayoutRefreshController {
     private func reconcileTrackedFullRescanWindow(
         _ window: FullRescanEvaluatedWindow,
         admitted: WindowAdmission,
+        scratchpadAdmission: ScratchpadAdmission?,
         context: FullRescanMutationContext,
         progress: inout FullRescanProgress
     ) {
@@ -71,6 +83,7 @@ extension LayoutRefreshController {
             assignment: assignment,
             context: context
         )
+        let previousFocusToken = context.controller.workspaceManager.selectedManagedToken
         let admittedToken = admitFullRescanWindow(window, admission: admission, context: context)
         guard completeFullRescanTracking(
             window,
@@ -86,6 +99,14 @@ extension LayoutRefreshController {
             admittedToken: admittedToken,
             context: context
         )
+        if let scratchpadAdmission {
+            context.controller.joinScratchpadOnAdmission(
+                admittedToken,
+                scratchpadAdmission,
+                observedFrame: window.candidate.capturedAppKitFrame ?? admitted.geometry?.frame,
+                arrival: .quiet(previousFocusToken: previousFocusToken)
+            )
+        }
         progress.seenKeys.insert(admittedToken)
     }
 

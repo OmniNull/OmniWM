@@ -397,16 +397,6 @@ final class AppRuleTests: XCTestCase {
         }
     }
 
-    func testDraftEffectHintNamesScratchpad() {
-        let draft = AppRuleDraft(bundleId: "com.test.app")
-
-        XCTAssertEqual(
-            draft.effectHint,
-            "Set a layout, workspace, scratchpad, initial container primary span, or minimum size — this rule has no effect"
-        )
-        XCTAssertFalse(draft.isValid)
-    }
-
     private func populatedDraft() -> AppRuleDraft {
         var draft = AppRuleDraft(bundleId: "com.example.Previous")
         draft.layoutAction = .float

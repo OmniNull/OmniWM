@@ -64,11 +64,11 @@ struct WindowRuleReevaluation {
         windowInfo: WindowServerInfo?,
         windowServerLookupAttempted: Bool
     ) -> RuleReevaluationWindow? {
-        let existingEntry = controller.workspaceManager.entry(for: token)
-        guard existingEntry?.target.hostedMetadata == nil else { return nil }
-        let axRef = liveWindowsByToken[token] ?? existingEntry?.axRef
+        let trackedEntry = controller.workspaceManager.entry(for: token)
+        guard trackedEntry?.target.hostedMetadata == nil else { return nil }
+        let axRef = liveWindowsByToken[token] ?? trackedEntry?.axRef
         guard let axRef else { return nil }
-        let createPlacementContext = existingEntry == nil
+        let createPlacementContext = trackedEntry == nil
             ? controller.axEventHandler.pendingCreatePlacementContext(for: token.windowId)
             : nil
         let placementOrigin: WorkspacePlacementOrigin = createPlacementContext == nil
@@ -76,11 +76,9 @@ struct WindowRuleReevaluation {
             : .liveCreate
 
         evaluatedAnyWindow = true
-        let evaluation = controller.evaluateWindowDisposition(
-            axRef: axRef,
-            pid: token.pid,
-            windowInfo: windowInfo,
-            windowServerLookupAttempted: windowServerLookupAttempted
+        let (existingEntry, evaluation) = evaluate(
+            token, axRef: axRef, existingEntry: trackedEntry,
+            windowInfo: windowInfo, windowServerLookupAttempted: windowServerLookupAttempted
         )
         let ruleEffects = evaluation.decision.disposition == .undecided
             ? existingEntry?.ruleEffects ?? evaluation.decision.ruleEffects
@@ -89,7 +87,7 @@ struct WindowRuleReevaluation {
             ? existingEntry?.admissionHints ?? evaluation.decision.admissionHints
             : evaluation.decision.admissionHints
 
-        guard let requestedMode = controller.trackedModePreservingAutomaticFallbackState(
+        guard let decidedMode = controller.trackedModePreservingAutomaticFallbackState(
             decision: evaluation.decision,
             existingEntry: existingEntry,
             context: context
@@ -97,10 +95,12 @@ struct WindowRuleReevaluation {
             reject(token, existingEntry: existingEntry, evaluation: evaluation)
             return nil
         }
+        let scratchpadAdmission = existingEntry == nil
+            ? controller.scratchpadAdmission(for: evaluation, requestedMode: decidedMode) : nil
         guard let admission = controller.resolveWindowAdmission(
             evaluation: evaluation,
             axRef: axRef,
-            requestedMode: requestedMode,
+            requestedMode: scratchpadAdmission == nil ? decidedMode : .floating,
             existingMode: existingEntry?.mode
         ) else {
             controller.axEventHandler.scheduleGeometryAdmissionRetry(
@@ -108,12 +108,41 @@ struct WindowRuleReevaluation {
             )
             return nil
         }
-
         return RuleReevaluationWindow(
             token: token, axRef: axRef, existingEntry: existingEntry,
             evaluation: evaluation, ruleEffects: ruleEffects, admissionHints: admissionHints,
             admission: admission, placementOrigin: placementOrigin,
-            createPlacementContext: createPlacementContext
+            createPlacementContext: createPlacementContext, scratchpadAdmission: scratchpadAdmission
+        )
+    }
+
+    private func evaluate(
+        _ token: WindowToken,
+        axRef: AXWindowRef,
+        existingEntry: WindowState?,
+        windowInfo: WindowServerInfo?,
+        windowServerLookupAttempted: Bool
+    ) -> (existingEntry: WindowState?, evaluation: WMController.WindowDecisionEvaluation) {
+        let evaluation = controller.evaluateWindowDisposition(
+            axRef: axRef,
+            pid: token.pid,
+            windowInfo: windowInfo,
+            windowServerLookupAttempted: windowServerLookupAttempted
+        )
+        guard context == .explicitRuleApply,
+              existingEntry != nil,
+              controller.releaseScratchpadMemberForWorkspaceDestination(token, decision: evaluation.decision)
+        else {
+            return (existingEntry, evaluation)
+        }
+        return (
+            controller.workspaceManager.entry(for: token),
+            controller.evaluateWindowDisposition(
+                axRef: axRef,
+                pid: token.pid,
+                windowInfo: windowInfo,
+                windowServerLookupAttempted: windowServerLookupAttempted
+            )
         )
     }
 
@@ -167,11 +196,38 @@ struct WindowRuleReevaluation {
             return
         }
 
+        let previousFocusToken = controller.workspaceManager.selectedManagedToken
         admitIfNeeded(window, workspaceId: workspaceId)
         updateTracking(window)
         updateGeometry(window, workspaceId: workspaceId)
         updateReplacementMetadata(window)
+        applyScratchpadDestination(window, previousFocusToken: previousFocusToken)
         finishApplication(window, workspaceId: workspaceId)
+    }
+
+    private func applyScratchpadDestination(_ window: RuleReevaluationWindow, previousFocusToken: WindowToken?) {
+        if let scratchpadAdmission = window.scratchpadAdmission {
+            controller.joinScratchpadOnAdmission(
+                window.token,
+                scratchpadAdmission,
+                observedFrame: window.admission.geometry?.frame,
+                arrival: .quiet(previousFocusToken: previousFocusToken)
+            )
+            return
+        }
+        guard context == .explicitRuleApply,
+              window.existingEntry != nil,
+              let index = controller.scratchpadDestination(for: window.evaluation)
+        else {
+            return
+        }
+        controller.ensureScratchpadMembership(
+            window.token,
+            in: index,
+            observedFrame: WindowAdmissionGeometryEvidence.usableAppKitFrame(
+                fromWindowServer: window.evaluation.facts.windowServer?.frame
+            )
+        )
     }
 
     private func workspaceForReevaluatedWindow(
@@ -382,6 +438,7 @@ extension WindowRuleReevaluation {
 
     private func resolveAXWindowRef(for token: WindowToken) -> AXWindowRef? {
         controller.workspaceManager.entry(for: token)?.axRef
+            ?? controller.axWindowRefLookupForTests?(token)
             ?? AXWindowService.axWindowRef(for: UInt32(token.windowId), pid: token.pid)
     }
 }

@@ -628,6 +628,7 @@ Array of per-app window rules, editable in the **App Rules** window. Matchers se
 | `initialContainerPrimarySpan` *(optional)* | float | Initial Niri span for the window's container (`0.05`–`1.0`). |
 | `minWidth` *(optional)* | float | Minimum layout width in points. |
 | `minHeight` *(optional)* | float | Minimum layout height in points. |
+| `scratchpad` *(optional)* | integer | **Unreleased:** available when building from `main`. [Scratchpad](/features/scratchpads/#joining-by-app-rule) slot (`1`–`10`) that matching windows join when OmniWM starts managing them. Forms one [destination](/features/app-rules/#rule-destination) with `assignToWorkspace`, so a rule can't set both; it also can't be combined with `layout = "tile"`. Such a rule, or a slot outside `1`–`10`, loads with a validation message and its `scratchpad` is ignored. |
 
 The defaults ship 13 rules that set minimum sizes for apps with known resize floors (Codex, Commander One, Chrome, Zed, Safari, Zen, Firefox, Dia, Spotify, Discord, Ghostty, Outlook, Messages).
 

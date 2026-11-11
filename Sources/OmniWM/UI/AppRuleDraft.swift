@@ -216,7 +216,7 @@ struct AppRuleDraft: Identifiable, Equatable {
         let rule = makeRule()
         guard rule.hasIdentifyingMatcher, !rule.hasEffect else { return nil }
         return String(
-            localized: "Set a layout, workspace, scratchpad, initial container primary span, or minimum size — this rule has no effect"
+            localized: "This rule matches windows but has no effect — set a layout, workspace, initial container primary span, or minimum size."
         )
     }
 
