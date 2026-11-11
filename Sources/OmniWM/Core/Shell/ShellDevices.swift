@@ -17,7 +17,7 @@ protocol ShellDeviceSource: AnyObject {
 
 @MainActor
 final class ShellDevices {
-    let inputSource = InputSourceController()
+    let inputSource: InputSourceController
     let privacy = PrivacyMonitor()
     let wifi: WiFiMonitor
     let connection = ConnectionMonitor()
@@ -29,10 +29,12 @@ final class ShellDevices {
     let spectrum: AudioSpectrumMonitor
 
     init(
+        inputSource: InputSourceController = InputSourceController(),
         wifi: WiFiMonitor = WiFiMonitor(),
         brightness: ShellDisplayBrightness = ShellDisplayBrightness(),
         spectrum: AudioSpectrumMonitor = AudioSpectrumMonitor()
     ) {
+        self.inputSource = inputSource
         self.wifi = wifi
         self.brightness = brightness
         self.spectrum = spectrum
