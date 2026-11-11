@@ -593,7 +593,7 @@ extension CrossDisplayDragTests {
         fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
         fixture.handler.liveDragModifierCapture.installsEventTap = false
-        fixture.niri.moveConfiguration.liveHoverDelay = 0
+        fixture.niri.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.source, fixture)
         let neighbour = addWindow(2, to: fixture.source, fixture)
         _ = addWindow(3, to: fixture.target, fixture)
@@ -621,7 +621,7 @@ extension CrossDisplayDragTests {
         fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
         fixture.handler.liveDragModifierCapture.installsEventTap = false
-        fixture.niri.moveConfiguration.liveHoverDelay = 0
+        fixture.niri.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.workspaces[0], fixture)
         let neighbour = addWindow(2, to: fixture.workspaces[0], fixture)
         _ = addWindow(3, to: fixture.workspaces[1], fixture)
@@ -776,7 +776,7 @@ extension CrossDisplayDragTests {
         fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
         fixture.handler.liveDragModifierCapture.installsEventTap = false
-        fixture.niri.moveConfiguration.liveHoverDelay = 0
+        fixture.niri.liveHoverDelay = 0
         return fixture
     }
 
@@ -806,7 +806,7 @@ extension CrossDisplayDragTests {
         fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
         fixture.handler.liveDragModifierCapture.installsEventTap = false
-        fixture.niri.moveConfiguration.liveHoverDelay = 0
+        fixture.niri.liveHoverDelay = 0
         let first = addWindow(1, to: fixture.source, fixture)
         let moved = addWindow(2, to: fixture.source, fixture)
         let other = addWindow(3, to: fixture.source, fixture)
@@ -856,7 +856,7 @@ extension CrossDisplayDragTests {
             fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
         }
         fixture.handler.liveDragModifierCapture.installsEventTap = false
-        fixture.niri.moveConfiguration.liveHoverDelay = 0
+        fixture.niri.liveHoverDelay = 0
         let neighbour = addWindow(1, to: fixture.source, fixture)
         let moved = addWindow(2, to: fixture.source, fixture)
         if stacked {

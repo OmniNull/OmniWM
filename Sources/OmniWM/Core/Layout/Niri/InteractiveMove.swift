@@ -29,33 +29,32 @@ enum InsertPosition: Equatable {
 
 struct MoveConfiguration {
     var dragThreshold: CGFloat = 10.0
-    var liveHoverDelay: TimeInterval = 0.2
-    var liveSlowDownWindow: TimeInterval = 0.06
-    var liveSlowDownDistance: CGFloat = 6.0
-    var liveSideBySideDepth: CGFloat = 20.0
-    var liveWayBackShare: CGFloat = 1.0 / 3.0
-    var liveWayBackMinimum: CGFloat = 60.0
-    var liveDropSpaceShare: CGFloat = 0.05
-    var liveDropSpaceMaximumWidth: CGFloat = 200.0
-    var liveEdgeZoneShare: CGFloat = 0.03
-    var liveEdgeZoneMinimumWidth: CGFloat = 40.0
-    var liveEdgeScrollDelay: TimeInterval = 0.3
-    var liveEdgeScrollSpeed: CGFloat = 1000.0
-    var liveEdgeHops = true
-    var liveEdgeHopPause: TimeInterval = 0.1
-    var liveStackSuppressDistance: CGFloat = 30.0
-    var liveCentreMinimumWidth: CGFloat = 300.0
-    var liveStackLeaveOutsideShare: CGFloat = 0.4
-    var liveCentreStackDelay: TimeInterval = 0.2
-    var liveCentreExitMargin: CGFloat = 20.0
-    var liveLandingHintShare: CGFloat = 0.05
-    var liveLandingHintSingleWindowShare: CGFloat = 0.15
-    var liveStackMinimumWindowHeight: CGFloat = 100.0
-    var liveLandingHintMinimumHeight: CGFloat = 40.0
 
     static let `default` = MoveConfiguration()
 
-    func liveEdgeZoneWidth(forDisplayWidth displayWidth: CGFloat) -> CGFloat {
+    static let liveHoverDelay: TimeInterval = 0.2
+    static let liveSlowDownWindow: TimeInterval = 0.06
+    static let liveSlowDownDistance: CGFloat = 6.0
+    static let liveWayBackShare: CGFloat = 1.0 / 3.0
+    static let liveWayBackMinimum: CGFloat = 60.0
+    static let liveDropSpaceShare: CGFloat = 0.05
+    static let liveDropSpaceMaximumWidth: CGFloat = 200.0
+    static let liveEdgeZoneShare: CGFloat = 0.03
+    static let liveEdgeZoneMinimumWidth: CGFloat = 40.0
+    static let liveEdgeScrollDelay: TimeInterval = 0.3
+    static let liveEdgeScrollSpeed: CGFloat = 1000.0
+    static let liveEdgeHopPause: TimeInterval = 0.1
+    static let liveStackSuppressDistance: CGFloat = 30.0
+    static let liveCentreMinimumWidth: CGFloat = 300.0
+    static let liveStackLeaveOutsideShare: CGFloat = 0.4
+    static let liveCentreStackDelay: TimeInterval = 0.2
+    static let liveCentreExitMargin: CGFloat = 20.0
+    static let liveLandingHintShare: CGFloat = 0.05
+    static let liveLandingHintSingleWindowShare: CGFloat = 0.15
+    static let liveStackMinimumWindowHeight: CGFloat = 100.0
+    static let liveLandingHintMinimumHeight: CGFloat = 40.0
+
+    static func liveEdgeZoneWidth(forDisplayWidth displayWidth: CGFloat) -> CGFloat {
         max(displayWidth * liveEdgeZoneShare, liveEdgeZoneMinimumWidth)
     }
 }

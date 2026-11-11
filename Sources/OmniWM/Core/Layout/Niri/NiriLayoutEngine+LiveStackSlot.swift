@@ -46,8 +46,8 @@ extension NiriLayoutEngine {
         at x: CGFloat,
         move: LiveColumnMove
     ) -> LiveColumnMove.Side? {
-        let inset = stacksOnWindowCentres && !move.pullsTab
-            ? placed.width * max(0, 0.5 - moveConfiguration.liveStackLeaveOutsideShare)
+        let inset = !move.pullsTab
+            ? placed.width * max(0, 0.5 - MoveConfiguration.liveStackLeaveOutsideShare)
             : 0
         if x >= placed.maxX - inset { return .after }
         if x < placed.minX + inset { return .before }
@@ -192,7 +192,6 @@ extension NiriLayoutEngine {
         move.homeColumnId = column.id
         move.inStack = false
         move.homeSlotIndex = 0
-        move.sideBySideIds = []
         move.ownWindowSizing = .init(size: 1.0, height: .default)
 
         rebaseLiveView(from: positionsBefore, anchoredOn: column, context: context, state: &state)
@@ -208,7 +207,6 @@ extension NiriLayoutEngine {
                     under,
                     cursor: cursor,
                     strip: strip,
-                    home: column,
                     awayFromHome: false,
                     context: context
                 )
@@ -247,28 +245,15 @@ extension NiriLayoutEngine {
     ) {
         let strip = liveColumnStrip(context: context, state: state)
         let shift = toEdgeOnly
-            ? liveEdgeRevealShift(showing: column, strip: strip, context: context)
+            ? liveEdgeRevealShift(
+                showing: column,
+                checking: [.after, .before],
+                slack: 0.5,
+                strip: strip,
+                context: context
+            )
             : keepVisibleLiveShift(showing: column, besideTargetUnder: (column, cursor), strip: strip, context: context)
         animateLiveViewShift(shift, context: context, state: &state)
-    }
-
-    private func liveEdgeRevealShift(
-        showing column: NiriContainer,
-        strip: [LiveColumnMove.StripColumn],
-        context: NiriInteractionContext
-    ) -> CGFloat {
-        guard let placed = strip.first(where: { $0.column === column }) else { return 0 }
-        let leadingEdge = context.workingFrame.minX + context.gaps
-        let trailingEdge = context.workingFrame.maxX - context.gaps
-        let wanted: CGFloat = if placed.maxX > trailingEdge + 0.5 {
-            placed.maxX - trailingEdge
-        } else if placed.minX < leadingEdge - 0.5 {
-            placed.minX - leadingEdge
-        } else {
-            0
-        }
-        guard let range = liveStripScrollRange(strip: strip, context: context) else { return wanted }
-        return wanted.clamped(to: range)
     }
 
     private func animateLiveColumns(

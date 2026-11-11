@@ -48,10 +48,8 @@ final class NiriLayoutEngine {
     var interactiveResize: InteractiveResize?
     var interactiveMove: InteractiveMove?
     var openingWindows: Set<WindowToken> = []
-    var liveStackProbe: LiveColumnMove.StackProbe?
     var liveColumnMove: LiveColumnMove? {
         didSet {
-            liveStackProbe = nil
             if let oldValue {
                 releaseLivePlaceholders(of: oldValue)
             }
@@ -70,6 +68,8 @@ final class NiriLayoutEngine {
 
     var resizeConfiguration = ResizeConfiguration.default
     var moveConfiguration = MoveConfiguration.default
+    var liveHoverDelay = MoveConfiguration.liveHoverDelay
+    var liveCentreStackDelay = MoveConfiguration.liveCentreStackDelay
 
     var windowMovementAnimationConfig: SpringConfig = .niriWindowMovement
     var animationClock: AnimationClock?
@@ -160,7 +160,6 @@ final class NiriLayoutEngine {
     var clipsOverflowToDisplay = false
 
     var keepsWindowWidths = false
-    var stacksOnWindowCentres = false
     var tracedLiveStackRefusal: String?
     var reportedMinimumSize: ((WindowToken) -> CGSize?)?
     var animatesLearnedMinimumWidths = false

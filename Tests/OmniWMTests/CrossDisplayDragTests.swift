@@ -808,6 +808,44 @@ final class CrossDisplayDragTests: XCTestCase {
         XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
     }
 
+    func testTurningMacOSFusionOffHandsALiveDragOverToTheNativeMove() throws {
+        let fixture = try makeNativeFixture([.niri, .niri])
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.applyMacOSFusionSettings()
+        let moved = addWindow(1, to: fixture.source, fixture)
+        let neighbour = addWindow(2, to: fixture.source, fixture)
+        let resident = addWindow(3, to: fixture.target, fixture)
+        let sourceColumns = fixture.columns(fixture.source)
+        let start = try beginNativeDrag(moved, fixture)
+        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 30, dy: 0) }
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(
+            for: try XCTUnwrap(fixture.manager.entry(for: moved))
+        ))
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertNotNil(fixture.niri.liveColumnMove)
+
+        fixture.controller.settings.niri.macOSFusion = false
+        fixture.controller.applyMacOSFusionSettings()
+
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertNil(fixture.niri.liveColumnMove)
+        XCTAssertEqual(fixture.columns(fixture.source), sourceColumns)
+        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveDragHandedOver, true)
+        XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
+
+        let point = try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right)
+        fixture.handler.dispatchMouseDragged(at: point)
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
+        fixture.handler.dispatchMouseUp(at: point)
+
+        XCTAssertNil(fixture.niri.liveColumnMove)
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+        XCTAssertEqual(fixture.columns(fixture.source), [[neighbour]])
+        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved]])
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+    }
+
     func testAPortraitNiriDisplayGetsTheHandOverWithoutRestartingTheLiveDrag() throws {
         let fixture = try makeNativeFixture([.niri, .niri])
         fixture.controller.settings.niri.macOSFusion = true

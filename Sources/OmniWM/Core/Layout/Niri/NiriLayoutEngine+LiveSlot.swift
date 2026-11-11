@@ -91,24 +91,8 @@ extension NiriLayoutEngine {
         cursor: CGPoint
     ) -> LiveColumnMove.Passed? {
         guard let placed = strip.first(where: { $0.column === target }) else { return nil }
-        let distance = max(placed.width * moveConfiguration.liveWayBackShare, moveConfiguration.liveWayBackMinimum)
+        let distance = max(placed.width * MoveConfiguration.liveWayBackShare, MoveConfiguration.liveWayBackMinimum)
         return .init(columnId: target.id, furthestX: cursor.x, wayBack: side == .after ? -distance : distance)
-    }
-
-    func sideBySideVisibleColumns(
-        around home: NiriContainer,
-        context: NiriInteractionContext,
-        state: ViewportState
-    ) -> Set<NodeId> {
-        let frame = context.workingFrame
-        let visible = Set(
-            liveColumnStrip(context: context, state: state)
-                .filter { $0.isFullyVisible(in: frame) }
-                .map(\.column.id)
-        )
-        guard visible.contains(home.id) else { return [] }
-        let neighbours = [home.prevSibling(), home.nextSibling()].compactMap { $0 as? NiriContainer }
-        return Set(neighbours.map(\.id).filter { visible.contains($0) })
     }
 
     func narrowOffScreenHomeSlot(

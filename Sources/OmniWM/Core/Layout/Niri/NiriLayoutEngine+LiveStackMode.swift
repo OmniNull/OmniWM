@@ -139,40 +139,6 @@ extension NiriLayoutEngine {
         return .changed
     }
 
-    func liveStackWouldChange(
-        cursor: CGPoint,
-        strip: [LiveColumnMove.StripColumn],
-        move: LiveColumnMove,
-        context: NiriInteractionContext
-    ) -> Bool {
-        let columnId = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move))?.id
-        if let probe = liveStackProbe, probe.columnId == columnId, probe.cursor == cursor {
-            return probe.wouldChange
-        }
-        let wouldChange = liveStackChoiceChanges(cursor: cursor, strip: strip, move: move, context: context)
-        liveStackProbe = .init(columnId: columnId, cursor: cursor, wouldChange: wouldChange)
-        return wouldChange
-    }
-
-    private func liveStackChoiceChanges(
-        cursor: CGPoint,
-        strip: [LiveColumnMove.StripColumn],
-        move: LiveColumnMove,
-        context: NiriInteractionContext
-    ) -> Bool {
-        if isLiveStackSuppressed(at: cursor, strip: strip, move: move) {
-            return false
-        }
-        switch liveStackChoice(cursor: cursor, strip: strip, move: move, context: context) {
-        case .keep:
-            return false
-        case .home:
-            return move.landing != nil
-        case let .land(target):
-            return target != move.landing
-        }
-    }
-
     func liveWindowSpans(in column: NiriContainer, context: NiriInteractionContext) -> [LiveColumnMove.WindowSpan] {
         let windows = projectedWindows(in: column, workspaceId: context.workspaceId)
         guard !windows.isEmpty else { return [] }
@@ -304,7 +270,13 @@ extension NiriLayoutEngine {
             )
             return true
         }
-        let revealed = state.viewOffset + liveColumnRevealShift(target, context: context, state: state)
+        let revealed = state.viewOffset + liveEdgeRevealShift(
+            showing: target,
+            checking: [.before, .after],
+            slack: 0,
+            strip: liveColumnStrip(context: context, state: state),
+            context: context
+        )
         var final = liveDropFinalView(of: drop.windowId, settledAt: revealed, context: context, state: state)
         final.jumpOffset(to: final.viewOffset + liveStripEndsShift(context: context, state: final))
         state.animateToOffset(final.viewOffset, motion: context.motion, scale: displayScale(in: context.workspaceId))
@@ -426,8 +398,7 @@ extension NiriLayoutEngine {
         move: LiveColumnMove,
         context: NiriInteractionContext
     ) -> CGFloat? {
-        guard stacksOnWindowCentres,
-              home.isLiveHomeSpot,
+        guard home.isLiveHomeSpot,
               move.carry == nil,
               !isClosingOrigin(move),
               case let .fixed(width) = home.width
@@ -538,7 +509,7 @@ extension NiriLayoutEngine {
             beside: targetWindow,
             position: !column.isTabbed && landing.above ? .after : .before,
             removingEmptySource: false,
-            ignoringImpossibleMinimums: stacksOnWindowCentres,
+            ignoringImpossibleMinimums: true,
             in: context.workspaceId,
             geometry: context.sizingGeometry
         ) else { return false }
@@ -634,7 +605,7 @@ extension NiriLayoutEngine {
             adding: window,
             alsoAdding: followers,
             removing: window,
-            ignoringImpossibleMinimums: stacksOnWindowCentres,
+            ignoringImpossibleMinimums: true,
             axisMinimumOverride: { self.liveStackAxisMinimum(of: $0, geometry: context.sizingGeometry) },
             in: move.workspaceId,
             geometry: context.sizingGeometry
@@ -695,7 +666,7 @@ extension NiriLayoutEngine {
         let minimum = horizontal ? reported.height : reported.width
         return window.constraints.isFixed
             ? minimum
-            : max(minimum, moveConfiguration.liveStackMinimumWindowHeight)
+            : max(minimum, MoveConfiguration.liveStackMinimumWindowHeight)
     }
 
     func traceLiveStackRefusalDetail(_ detail: @autoclosure () -> String) {
@@ -716,7 +687,7 @@ extension NiriLayoutEngine {
               let column = window.parent as? NiriContainer,
               liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)) === column
         else { return false }
-        return hypot(cursor.x - point.x, cursor.y - point.y) < moveConfiguration.liveStackSuppressDistance
+        return hypot(cursor.x - point.x, cursor.y - point.y) < MoveConfiguration.liveStackSuppressDistance
     }
 
     func holdsLiveStackSuppression(
@@ -814,27 +785,6 @@ extension NiriLayoutEngine {
             )
         }
     }
-
-    private func liveColumnRevealShift(
-        _ column: NiriContainer,
-        context: NiriInteractionContext,
-        state: ViewportState
-    ) -> CGFloat {
-        let strip = liveColumnStrip(context: context, state: state)
-        guard let placed = strip.first(where: { $0.column === column }),
-              let range = liveStripScrollRange(strip: strip, context: context)
-        else { return 0 }
-        let leadingEdge = context.workingFrame.minX + context.gaps
-        let trailingEdge = context.workingFrame.maxX - context.gaps
-        let wanted: CGFloat = if placed.minX < leadingEdge {
-            placed.minX - leadingEdge
-        } else if placed.maxX > trailingEdge {
-            placed.maxX - trailingEdge
-        } else {
-            0
-        }
-        return wanted.clamped(to: range)
-    }
 }
 
 struct MacOSFusionConfiguration: Equatable {
@@ -851,7 +801,6 @@ extension NiriLayoutEngine {
         clipsOverflowToDisplay = configuration.enabled
         keepsWindowWidths = configuration.enabled
         edgePeekShare = configuration.edgePeekShare
-        stacksOnWindowCentres = configuration.enabled
         animatesLearnedMinimumWidths = configuration.enabled
     }
 }

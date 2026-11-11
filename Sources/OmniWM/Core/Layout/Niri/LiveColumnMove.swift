@@ -156,12 +156,6 @@ struct LiveColumnMove {
         let since: TimeInterval
     }
 
-    struct StackProbe: Equatable {
-        let columnId: NodeId?
-        let cursor: CGPoint
-        let wouldChange: Bool
-    }
-
     struct WindowSizing: Equatable {
         let size: CGFloat
         let height: WeightedSize
@@ -235,10 +229,8 @@ struct LiveColumnMove {
     var stackSuppressPoint: CGPoint?
     var awaitsPointerMoveFrom: CGPoint?
     var floatingFrame: CGRect?
-    var swapCount = 0
     var narrowedSlot: NarrowedSlot?
     var passed: Passed?
-    var sideBySideIds: Set<NodeId> = []
     var carry: Carry?
 
     func isStill(at cursor: CGPoint) -> Bool {

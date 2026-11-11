@@ -161,7 +161,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     private func makeFixture(widths: [CGFloat] = Array(repeating: 1.0 / 3.0, count: 5)) -> Fixture {
         let engine = NiriLayoutEngine()
-        engine.moveConfiguration.liveHoverDelay = 0
+        engine.liveHoverDelay = 0
         engine.applyMacOSFusion(.init(enabled: true, edgePeekShare: nil))
         let workspaceId = WorkspaceDescriptor.ID()
         let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
@@ -811,7 +811,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testASideThirdWaitsItsDelayAgainAfterTheCentre() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 0.12
+        fixture.engine.liveHoverDelay = 0.12
         XCTAssertTrue(fixture.begin(1))
         let side = fixture.side(of: 3, leading: false)
         _ = fixture.move(to: side, at: 1)
@@ -842,20 +842,10 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(fixture.stripColumn(fixture.column(3)).width, narrow, accuracy: 0.5)
     }
 
-    func testWithoutCentreStackingTheCentreNeverStacks() {
-        var fixture = makeFixture()
-        fixture.engine.stacksOnWindowCentres = false
-        XCTAssertTrue(fixture.begin(1))
-
-        fixture.openHint(over: 3, upper: true)
-
-        XCTAssertNil(fixture.move?.landing)
-    }
-
     func testTheGapLeftBehindClosesWithTheWindowAndStaysClosedOnceClosed() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         let home = fixture.column(1)
         let full = fixture.stripColumn(home).width
         let start = fixture.stripColumn(home).midX
@@ -886,8 +876,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testAPauseWhileThePlaceClosesWaitsOnlyForTheHoverDelay() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         let home = fixture.column(1)
         let full = fixture.stripColumn(home).width
         let start = fixture.stripColumn(home).midX
@@ -903,8 +893,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testAPartlyClosedPlaceOpensAgainOnTheWayBack() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         let home = fixture.column(1)
         let full = fixture.stripColumn(home).width
         let start = fixture.stripColumn(home).midX
@@ -921,8 +911,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testAClosedPlaceOpensAsAGapWhereItWasAndTheWindowLandsBackThere() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         let order = fixture.engine.columns(in: fixture.workspaceId).map(\.id)
         let home = fixture.column(1)
         let full = fixture.stripColumn(home).width
@@ -955,8 +945,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testAClosedPlaceAtTheStripEndOpensAsAGapPastTheLastWindow() {
         var fixture = makeFixture(widths: Array(repeating: 0.2, count: 4))
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         let order = fixture.engine.columns(in: fixture.workspaceId).map(\.id)
         let home = fixture.column(3)
         let placed = fixture.stripColumn(home)
@@ -994,8 +984,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testLettingGoWithNoLandingPutsTheWindowBackAtItsFullWidth() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         let home = fixture.column(1)
         let full = fixture.stripColumn(home).width
         let start = fixture.stripColumn(home).midX
@@ -1344,7 +1334,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testAPointerThatSlowsDownOpensTheDropSpaceAtOnce() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 0.2
+        fixture.engine.liveHoverDelay = 0.2
         XCTAssertTrue(fixture.begin(1))
         let side = fixture.side(of: 3, leading: false)
         _ = fixture.move(to: side, at: 1)
@@ -1358,7 +1348,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testAPointerStillMovingWaitsTheWholeDelay() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 0.2
+        fixture.engine.liveHoverDelay = 0.2
         XCTAssertTrue(fixture.begin(1))
         let side = fixture.side(of: 3, leading: false)
         _ = fixture.move(to: side, at: 1)
@@ -1401,8 +1391,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
     func testAClosedPlaceStaysClosedWhileThePointerRests() {
         for outward in [-1.0, 1.0] {
             var fixture = makeFixture(widths: Array(repeating: 1.0 / 3.0, count: 3))
-            fixture.engine.moveConfiguration.liveHoverDelay = 10
-            fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+            fixture.engine.liveHoverDelay = 10
+            fixture.engine.liveCentreStackDelay = 10
             let home = fixture.column(1)
             let placed = fixture.stripColumn(home)
             XCTAssertTrue(fixture.begin(1))
@@ -1421,8 +1411,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
     func testPastAStripEndThePlaceStaysAndNothingMoves() {
         for (index, outward) in [(0, -1.0), (4, 1.0)] {
             var fixture = makeFixture()
-            fixture.engine.moveConfiguration.liveHoverDelay = 10
-            fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+            fixture.engine.liveHoverDelay = 10
+            fixture.engine.liveCentreStackDelay = 10
             let home = fixture.column(index)
             let placed = fixture.stripColumn(home)
             let other = fixture.column(index == 0 ? 1 : 3)
@@ -1442,8 +1432,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testAQuickFlickClosesTheGapOnTheFirstUpdate() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         let home = fixture.column(1)
         let placed = fixture.stripColumn(home)
         XCTAssertTrue(fixture.begin(1))
@@ -1455,8 +1445,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testTheGapFollowsTheWindowItselfNotTheReferencePoint() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         let home = fixture.column(1)
         let placed = fixture.stripColumn(home)
         let overHome = CGPoint(x: placed.midX, y: fixture.frame.midY)
@@ -1471,8 +1461,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testThePlaceStaysAsWideAsTheWindowCoversItWhenScrolledOffScreen() {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         let home = fixture.column(1)
         XCTAssertTrue(fixture.begin(1))
         fixture.state.jumpOffset(to: fixture.state.viewOffset + fixture.stripColumn(home).maxX + 40)
@@ -1500,8 +1490,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testAWindowLeavingAStackKeepsItsNarrowLandingGap() throws {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         fixture.stack(3, onto: 2)
         let stack = fixture.column(2)
         let y = fixture.frame.midY
@@ -1522,8 +1512,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
     func testAWindowLeavesItsStackOnceFortyPercentOfItIsOutside() throws {
         for trailing in [true, false] {
             var fixture = makeFixture()
-            fixture.engine.moveConfiguration.liveHoverDelay = 10
-            fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+            fixture.engine.liveHoverDelay = 10
+            fixture.engine.liveCentreStackDelay = 10
             fixture.stack(3, onto: 2)
             let stack = fixture.column(2)
             let placed = fixture.stripColumn(stack)
@@ -1550,8 +1540,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testAnEarlyLeaveAtTheScreenEdgeShowsTheGapOnlyUpToTheEdge() throws {
         var fixture = makeFixture(widths: Array(repeating: 0.8, count: 4))
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         fixture.stack(2, onto: 1)
         XCTAssertEqual(
             fixture.engine.columns(in: fixture.workspaceId).last?.windowNodes.first?.token,
@@ -1578,7 +1568,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         for (trailing, tabbed) in [(true, false), (false, false), (true, true)] {
             let label = "trailing=\(trailing) tabbed=\(tabbed)"
             var fixture = makeFixture()
-            fixture.engine.moveConfiguration.liveHoverDelay = 10
+            fixture.engine.liveHoverDelay = 10
             if !trailing {
                 fixture.state.jumpOffset(to: fixture.state.viewOffset + 400)
             }
@@ -1612,7 +1602,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testTheGapBesideAStackKeepsTheDropSpaceWidthUnderTheStackModifier() throws {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.liveHoverDelay = 10
         try pullOutOfStack(&fixture, trailing: true, tabbed: false)
         let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: XCTUnwrap(fixture.move)))
         let open = fixture.stripColumn(home).width
@@ -1628,7 +1618,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testReleasingOverTheHintStacksTheWindowWithNothingElseMoving() throws {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.liveHoverDelay = 10
         try pullOutOfStack(&fixture, trailing: true, tabbed: false)
         let stack = fixture.column(2)
         let beyond = fixture.column(4)
@@ -1668,8 +1658,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
     func testATabPulledOutKeepsItsNarrowLandingGap() throws {
         var fixture = makeFixture()
-        fixture.engine.moveConfiguration.liveHoverDelay = 10
-        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        fixture.engine.liveHoverDelay = 10
+        fixture.engine.liveCentreStackDelay = 10
         fixture.stack(3, onto: 2)
         let tabs = fixture.column(2)
         tabs.displayMode = .tabbed
@@ -1694,13 +1684,11 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertGreaterThan(fixture.stripColumn(home).width, 0)
     }
 
-    func testMacOSFusionTurnsCentreStackingOnAndOff() {
+    func testMacOSFusionTurnsLearnedMinimumWidthAnimationOnAndOff() {
         let engine = NiriLayoutEngine()
         engine.applyMacOSFusion(.init(enabled: true, edgePeekShare: nil))
-        XCTAssertTrue(engine.stacksOnWindowCentres)
         XCTAssertTrue(engine.animatesLearnedMinimumWidths)
         engine.applyMacOSFusion(.init(enabled: false, edgePeekShare: nil))
-        XCTAssertFalse(engine.stacksOnWindowCentres)
         XCTAssertFalse(engine.animatesLearnedMinimumWidths)
     }
 

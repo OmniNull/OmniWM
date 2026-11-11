@@ -213,7 +213,7 @@ final class NiriLiveStackModeTests: XCTestCase {
         fusion: Bool = true
     ) -> Fixture {
         let engine = NiriLayoutEngine()
-        engine.moveConfiguration.liveHoverDelay = 0
+        engine.liveHoverDelay = 0
         if fusion {
             engine.applyMacOSFusion(.init(enabled: true, edgePeekShare: nil))
         }
@@ -483,7 +483,11 @@ final class NiriLiveStackModeTests: XCTestCase {
         var fixture = makeFixture()
         XCTAssertTrue(fixture.begin(1))
         XCTAssertEqual(fixture.move(to: fixture.point(inTrailingThirdOf: 2, y: 450)), .changed)
-        XCTAssertEqual(fixture.engine.liveColumnMove?.swapCount, 1)
+        let columns = fixture.engine.columns(in: fixture.workspaceId)
+        XCTAssertEqual(
+            columns.firstIndex { $0.isLiveDropSpace },
+            columns.firstIndex { $0 === fixture.column(2) }.map { $0 + 1 }
+        )
 
         XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 3)), .changed)
         XCTAssertTrue(fixture.endStacking())
@@ -982,23 +986,6 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(inset(), shownInset, accuracy: 0.5)
     }
 
-    func testTheEdgeScrollCheckSeesGapChangesButNoSwapsInStackMode() {
-        var fixture = makeFixture()
-        XCTAssertTrue(fixture.begin(1))
-        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 2)), .changed)
-
-        XCTAssertFalse(fixture.engine.liveColumnMoveWouldChange(
-            cursor: fixture.lowerHalf(of: 2),
-            strip: fixture.strip(),
-            context: fixture.context
-        ))
-        XCTAssertTrue(fixture.engine.liveColumnMoveWouldChange(
-            cursor: fixture.lowerHalf(of: 3),
-            strip: fixture.strip(),
-            context: fixture.context
-        ))
-    }
-
     func testClosingTheDraggedWindowInATargetColumnLeavesNoEmptyColumn() {
         var fixture = makeFixture()
         XCTAssertTrue(fixture.begin(1))
@@ -1492,7 +1479,7 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertTrue(home.isLiveHomeSpot)
         let placed = fixture.stripColumn(neighbour)
         XCTAssertTrue(placed.isFullyVisible(in: fixture.frame))
-        XCTAssertLessThan(placed.width, fixture.engine.moveConfiguration.liveCentreMinimumWidth)
+        XCTAssertLessThan(placed.width, MoveConfiguration.liveCentreMinimumWidth)
         let passedAt = CGPoint(x: placed.midX + 10, y: 450)
 
         XCTAssertEqual(fixture.move(to: passedAt), .changed)
@@ -1614,23 +1601,5 @@ final class NiriLiveStackModeTests: XCTestCase {
 
         XCTAssertEqual(fixture.storage(stack), [2, 3, 4].map { fixture.tokens[$0] })
         XCTAssertEqual(stack.activeTileIdx, 2)
-    }
-
-    func testTheStackProbeAnswersARepeatedEdgeScrollCheckAndClearsOnAnyChange() {
-        var fixture = makeFixture()
-        XCTAssertTrue(fixture.begin(1))
-        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 2)), .changed)
-        let elsewhere = fixture.lowerHalf(of: 3)
-
-        XCTAssertTrue(fixture.engine.liveColumnMoveWouldChange(
-            cursor: elsewhere, strip: fixture.strip(), context: fixture.context
-        ))
-        XCTAssertEqual(fixture.engine.liveStackProbe?.cursor, elsewhere)
-        XCTAssertEqual(fixture.engine.liveStackProbe?.wouldChange, true)
-
-        XCTAssertEqual(fixture.move(to: elsewhere), .changed)
-        XCTAssertFalse(fixture.engine.liveColumnMoveWouldChange(
-            cursor: elsewhere, strip: fixture.strip(), context: fixture.context
-        ))
     }
 }

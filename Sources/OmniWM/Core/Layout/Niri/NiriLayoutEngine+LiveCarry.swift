@@ -290,7 +290,7 @@ extension NiriLayoutEngine {
         let under = strip.first { $0.contains(x: cursor.x) }?.column
             ?? strip.min { abs($0.midX - cursor.x) < abs($1.midX - cursor.x) }?.column
         let side = under.map {
-            liveTargetSide($0, cursor: cursor, strip: strip, home: $0, awayFromHome: false, context: context)
+            liveTargetSide($0, cursor: cursor, strip: strip, awayFromHome: false, context: context)
         } ?? .after
         if let under {
             retargetActiveColumn(to: under, context: context, state: &state)
@@ -359,7 +359,6 @@ extension LiveColumnMove {
     mutating func forgetStrip() {
         narrowedSlot = nil
         passed = nil
-        sideBySideIds = []
         dropSpaceId = nil
         hover = nil
         landing = nil

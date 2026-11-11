@@ -66,9 +66,6 @@ extension NiriLayoutEngine {
             originalActiveColumnId: activeColumn.id,
             originalViewPosition: (positions[activeColumn.id] ?? 0) + state.viewOffset
         )
-        liveColumnMove?.sideBySideIds = stacksOnWindowCentres
-            ? []
-            : sideBySideVisibleColumns(around: column, context: context, state: state)
         retargetActiveColumn(to: column, context: context, state: &state)
         state.selectedNodeId = windowId
         return true
@@ -155,7 +152,6 @@ extension NiriLayoutEngine {
                 $0,
                 cursor: cursor,
                 strip: strip,
-                home: dragged,
                 awayFromHome: immediate && move.carry == nil,
                 context: context
             )
@@ -175,7 +171,7 @@ extension NiriLayoutEngine {
         else {
             return .unchanged
         }
-        let delay = moveConfiguration.liveHoverDelay
+        let delay = liveHoverDelay
         if let time, delay > 0 {
             let hover = previousHover?.columnId == target.id && previousHover?.side == side
                 ? previousHover
@@ -186,8 +182,6 @@ extension NiriLayoutEngine {
                 return .hovering(until: until)
             }
         }
-        let sideBySide = isLiveNeighbourBesideHome(target, home: dragged, move: move)
-        let passed = livePassed(target, side: side, strip: strip, cursor: cursor)
         let pinned = livePinnedColumn(
             under: underPointer,
             target: target,
@@ -207,7 +201,7 @@ extension NiriLayoutEngine {
             closeLiveDropSpace(dropSpace, anchor: pinned, context: context, state: &state)
             move.dropSpaceId = nil
             scrollLiveLandingUnderPointer(dragged, target: target, cursor: cursor, context: context, state: &state)
-            return markLiveChange(&move, target: target, side: side, passed: sideBySide ? passed : nil)
+            return markLiveChange(&move, target: target, side: side)
         }
         if move.carry != nil {
             guard moveLiveCarriedColumn(dragged, beside: target, side: side, context: context, state: &state)
@@ -216,7 +210,6 @@ extension NiriLayoutEngine {
             return markLiveChange(&move, target: target, side: side)
         }
         if !immediate,
-           !sideBySide,
            !isClosingOrigin(move),
            moveLiveHomeSpot(
                dragged,
@@ -229,7 +222,12 @@ extension NiriLayoutEngine {
            )
         {
             move.dropSpaceId = nil
-            return markLiveChange(&move, target: target, side: side, passed: passed)
+            return markLiveChange(
+                &move,
+                target: target,
+                side: side,
+                passed: livePassed(target, side: side, strip: strip, cursor: cursor)
+            )
         }
         guard let opened = openLiveDropSpace(
             existing: dropSpace,
@@ -248,7 +246,7 @@ extension NiriLayoutEngine {
             context: context,
             state: &state
         )
-        return markLiveChange(&move, target: target, side: side, passed: sideBySide ? passed : nil)
+        return markLiveChange(&move, target: target, side: side)
     }
 
     @discardableResult
@@ -350,7 +348,7 @@ extension NiriLayoutEngine {
         var lowest = min(0, min(landing.minX, target.minX) - pointerX)
         var highest = max(0, max(landing.maxX, target.maxX) - pointerX - 1)
         let slidesInWhole = edgeScrollReveals && (pullsStart || pullsEnd)
-        if stacksOnWindowCentres, !slidesInWhole, target.width >= moveConfiguration.liveCentreMinimumWidth - 0.5 {
+        if !slidesInWhole, target.width >= MoveConfiguration.liveCentreMinimumWidth - 0.5 {
             let third = target.width / 3
             if pointerX >= target.maxX - third {
                 lowest = max(lowest, min(0, target.maxX - third - pointerX + 1))
@@ -388,8 +386,8 @@ extension NiriLayoutEngine {
 
     func liveDropSpaceWidth(context: NiriInteractionContext) -> CGFloat {
         min(
-            context.workingFrame.width * moveConfiguration.liveDropSpaceShare,
-            moveConfiguration.liveDropSpaceMaximumWidth
+            context.workingFrame.width * MoveConfiguration.liveDropSpaceShare,
+            MoveConfiguration.liveDropSpaceMaximumWidth
         )
     }
 
@@ -412,7 +410,6 @@ extension NiriLayoutEngine {
         }
         move.lockedTarget = .init(columnId: target.id, side: side)
         move.phase = .settling
-        move.swapCount += 1
         return .changed
     }
 
@@ -430,9 +427,6 @@ extension NiriLayoutEngine {
               move.workspaceId == context.workspaceId,
               let dragged = liveDraggedColumn(for: move)
         else { return false }
-        if move.stackMode {
-            return liveStackWouldChange(cursor: cursor, strip: strip, move: move, context: context)
-        }
         if move.isStill(at: cursor) {
             return false
         }
@@ -455,7 +449,6 @@ extension NiriLayoutEngine {
             underPointer,
             cursor: cursor,
             strip: strip,
-            home: dragged,
             awayFromHome: move.carry == nil,
             context: context
         )
@@ -569,18 +562,16 @@ extension NiriLayoutEngine {
             move.dropSpaceId = opened.id
             landing = opened
         }
-        if let landing = liveColumnStrip(context: context, state: state).first(where: { $0.column === landing }) {
-            let shift = towardTrailingEdge
-                ? max(0, landing.maxX - (context.workingFrame.maxX - context.gaps))
-                : min(0, landing.minX - (context.workingFrame.minX + context.gaps))
-            if abs(shift) > 0.5 {
-                animateLiveViewShift(shift, context: context, state: &state)
-            }
-        }
-        move.lockedTarget = .init(columnId: beside.id, side: side)
+        let shift = liveEdgeRevealShift(
+            showing: landing,
+            checking: [side],
+            slack: 0.5,
+            strip: liveColumnStrip(context: context, state: state),
+            context: context
+        )
+        animateLiveViewShift(shift, context: context, state: &state)
         move.hover = nil
-        move.phase = .settling
-        move.swapCount += 1
+        _ = markLiveChange(&move, target: beside, side: side)
         return beside
     }
 
@@ -884,45 +875,17 @@ extension NiriLayoutEngine {
         _ target: NiriContainer,
         cursor: CGPoint,
         strip: [LiveColumnMove.StripColumn],
-        home: NiriContainer,
         awayFromHome: Bool,
         context: NiriInteractionContext
     ) -> LiveColumnMove.Side {
         guard let placed = strip.first(where: { $0.column === target }) else { return .after }
-        let landing = strip.first(where: { $0.column.isLiveDropSpace })?.column ?? home
-        if liveColumnMove?.sideBySideIds.contains(target.id) == true, !(awayFromHome && landing === home) {
-            let depth = moveConfiguration.liveSideBySideDepth
-            if target.prevSibling() === landing {
-                return cursor.x - placed.minX >= depth ? .after : .before
-            }
-            if target.nextSibling() === landing {
-                return placed.maxX - cursor.x >= depth ? .before : .after
-            }
-        }
         if awayFromHome, let ahead = liveColumnMove?.edgeScrollSide {
             return ahead
-        }
-        if awayFromHome,
-           let move = liveColumnMove,
-           isLiveNeighbourBesideHome(target, home: home, move: move),
-           let children = target.parent?.children,
-           let targetIndex = children.firstIndex(where: { $0 === target }),
-           let homeIndex = children.firstIndex(where: { $0 === home })
-        {
-            return targetIndex > homeIndex ? .after : .before
         }
         let visibleMinX = max(placed.minX, context.workingFrame.minX)
         let visibleMaxX = min(placed.maxX, context.workingFrame.maxX)
         let middle = visibleMaxX > visibleMinX ? (visibleMinX + visibleMaxX) / 2 : placed.midX
         return cursor.x < middle ? .before : .after
-    }
-
-    private func isLiveNeighbourBesideHome(
-        _ target: NiriContainer,
-        home: NiriContainer,
-        move: LiveColumnMove
-    ) -> Bool {
-        move.sideBySideIds.contains(target.id) && (target.prevSibling() === home || target.nextSibling() === home)
     }
 
     private func liveNeighbour(of column: NiriContainer, on side: LiveColumnMove.Side) -> NiriContainer? {
@@ -1128,6 +1091,33 @@ extension NiriLayoutEngine {
         let lowest = max(stripRange.lowerBound, min(0, underPointer.lowerBound - pointerX))
         let highest = min(stripRange.upperBound, max(0, underPointer.upperBound - pointerX - 1))
         return wanted.clamped(to: lowest ... highest)
+    }
+
+    func liveEdgeRevealShift(
+        showing column: NiriContainer,
+        checking edges: [LiveColumnMove.Side],
+        slack: CGFloat,
+        strip: [LiveColumnMove.StripColumn],
+        context: NiriInteractionContext
+    ) -> CGFloat {
+        guard let placed = strip.first(where: { $0.column === column }),
+              let range = liveStripScrollRange(strip: strip, context: context)
+        else { return 0 }
+        for edge in edges {
+            switch edge {
+            case .before:
+                let overshoot = placed.minX - (context.workingFrame.minX + context.gaps)
+                if overshoot < -slack {
+                    return overshoot.clamped(to: range)
+                }
+            case .after:
+                let overshoot = placed.maxX - (context.workingFrame.maxX - context.gaps)
+                if overshoot > slack {
+                    return overshoot.clamped(to: range)
+                }
+            }
+        }
+        return 0
     }
 
     func liveStripScrollRange(

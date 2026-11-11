@@ -87,6 +87,10 @@ extension NiriLayoutHandler {
         macOSFusion: MacOSFusionConfiguration? = nil
     ) {
         guard let controller else { return }
+        if macOSFusion?.enabled == false, controller.mouseEventHandler.isLiveColumnDragActive {
+            MouseTrace.record("live-drag handed over: macOS Fusion turned off")
+            controller.mouseEventHandler.handOverLiveColumnDrag()
+        }
         controller.workspaceManager.withEngineMutationScope {
             controller.niriEngine?.updateConfiguration(
                 visibleContainerCount: visibleContainerCount,

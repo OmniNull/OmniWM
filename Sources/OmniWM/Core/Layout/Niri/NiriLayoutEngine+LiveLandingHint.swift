@@ -29,7 +29,7 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> LiveColumnMove.Step? {
-        guard stacksOnWindowCentres, !move.stackMode else { return nil }
+        guard !move.stackMode else { return nil }
         let time = pointer.time
         switch liveCentreChoice(cursor: pointer.cursor, strip: strip, move: move, context: context) {
         case .keep:
@@ -55,7 +55,7 @@ extension NiriLayoutEngine {
             guard let time else { return nil }
             let since = move.centreWait?.columnId == landing.columnId ? move.centreWait?.since ?? time : time
             move.centreWait = .init(columnId: landing.columnId, since: since)
-            let until = since + moveConfiguration.liveCentreStackDelay
+            let until = since + liveCentreStackDelay
             guard pointer.slowed || time >= until else { return .hovering(until: until) }
             guard showLiveLandingHint(landing, move: &move, context: context, state: &state) else {
                 traceLiveStackRefusalDetail("hint-not-placed x=\(Int(pointer.cursor.x.rounded()))")
@@ -71,7 +71,7 @@ extension NiriLayoutEngine {
         move: LiveColumnMove,
         context: NiriInteractionContext
     ) -> Bool? {
-        guard stacksOnWindowCentres, !move.stackMode else { return nil }
+        guard !move.stackMode else { return nil }
         switch liveCentreChoice(cursor: cursor, strip: strip, move: move, context: context) {
         case .keep:
             return move.landingIsHint ? false : nil
@@ -88,16 +88,15 @@ extension NiriLayoutEngine {
         move: LiveColumnMove,
         context: NiriInteractionContext
     ) -> LiveColumnMove.StackChoice {
-        guard stacksOnWindowCentres,
-              !move.inStack,
+        guard !move.inStack,
               !move.pointerInEdgeZone,
               let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
               column.id != move.homeColumnId,
               let placed = strip.first(where: { $0.column === column }),
-              placed.width >= moveConfiguration.liveCentreMinimumWidth - 0.5
+              placed.width >= MoveConfiguration.liveCentreMinimumWidth - 0.5
         else { return .home }
         let hintedHere = move.landingIsHint && move.landing?.columnId == column.id
-        let margin = hintedHere ? moveConfiguration.liveCentreExitMargin : 0
+        let margin = hintedHere ? MoveConfiguration.liveCentreExitMargin : 0
         let third = placed.width / 3
         guard cursor.x >= placed.minX + third - margin, cursor.x < placed.maxX - third + margin else {
             return .home
@@ -142,9 +141,9 @@ extension NiriLayoutEngine {
 
     func liveLandingHintHeight(besideWindowCount count: Int, context: NiriInteractionContext) -> CGFloat {
         let share = count == 1
-            ? moveConfiguration.liveLandingHintSingleWindowShare
-            : moveConfiguration.liveLandingHintShare
-        return max(context.workingFrame.height * share, moveConfiguration.liveLandingHintMinimumHeight)
+            ? MoveConfiguration.liveLandingHintSingleWindowShare
+            : MoveConfiguration.liveLandingHintShare
+        return max(context.workingFrame.height * share, MoveConfiguration.liveLandingHintMinimumHeight)
     }
 
     func liveHintBaseSpans(

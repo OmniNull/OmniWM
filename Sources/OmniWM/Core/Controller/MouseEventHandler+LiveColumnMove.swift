@@ -197,8 +197,7 @@ extension MouseEventHandler {
         if pointerHasLeft(monitor, at: location) {
             if !carryLiveColumnDrag(from: workspaceId, at: location) {
                 MouseTrace.record("live-drag carry refused at=\(TraceFormat.point(location)) from=\(workspaceId)")
-                cancelLiveColumnDrag()
-                state.nativeTitleBarDrag?.liveDragHandedOver = true
+                handOverLiveColumnDrag()
             }
             return false
         }
@@ -208,7 +207,7 @@ extension MouseEventHandler {
         if let edgeScroll = state.liveEdgeScroll {
             let hopsRun = edgeScroll.hopping || edgeScroll.hopsDone
             if !togglesStackMode,
-               hopsRun || engine.moveConfiguration.liveEdgeHops && !move.stackMode && !move.inStack
+               hopsRun || !move.stackMode && !move.inStack
             {
                 return false
             }
@@ -415,6 +414,11 @@ extension MouseEventHandler {
     func recordLiveDragLayoutChange() {
         controller?.niriLayoutHandler.recordLayoutChange(since: state.liveDragLayoutStart)
         state.liveDragLayoutStart = nil
+    }
+
+    func handOverLiveColumnDrag() {
+        cancelLiveColumnDrag()
+        state.nativeTitleBarDrag?.liveDragHandedOver = true
     }
 
     func cancelLiveColumnDrag() {

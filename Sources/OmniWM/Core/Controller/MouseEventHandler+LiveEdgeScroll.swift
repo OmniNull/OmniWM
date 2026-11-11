@@ -23,7 +23,7 @@ extension MouseEventHandler {
         endLiveEdgeScroll()
         controller?.niriEngine?.liveColumnMoveEdgeScrolls(toward: nil)
         guard let engine = controller?.niriEngine, let workspaceId = engine.liveColumnMove?.workspaceId else { return }
-        let timer = scheduleLiveDragTimer(after: engine.moveConfiguration.liveEdgeScrollDelay) { [weak self] in
+        let timer = scheduleLiveDragTimer(after: MoveConfiguration.liveEdgeScrollDelay) { [weak self] in
             self?.startLiveEdgeScrollIfDue()
         }
         state.liveEdgeScroll = .init(
@@ -49,12 +49,12 @@ extension MouseEventHandler {
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
               move.phase == .dragging,
-              liveDragClock() - edgeScroll.enteredAt >= engine.moveConfiguration.liveEdgeScrollDelay - 0.005,
+              liveDragClock() - edgeScroll.enteredAt >= MoveConfiguration.liveEdgeScrollDelay - 0.005,
               let context = liveColumnContext(for: move.workspaceId)
         else { return }
 
         let workspaceId = move.workspaceId
-        if engine.moveConfiguration.liveEdgeHops, !move.stackMode, !move.inStack {
+        if !move.stackMode, !move.inStack {
             edgeScroll.hopping = true
             state.liveEdgeScroll = edgeScroll
             runLiveEdgeHop()
@@ -66,7 +66,7 @@ extension MouseEventHandler {
             state: controller.workspaceManager.niriViewportState(for: workspaceId)
         ) else { return }
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
-            viewportState.edgeScrollOffset(to: limit, speed: engine.moveConfiguration.liveEdgeScrollSpeed)
+            viewportState.edgeScrollOffset(to: limit, speed: MoveConfiguration.liveEdgeScrollSpeed)
         }
         edgeScroll.isScrolling = true
         edgeScroll.strip = nil
@@ -149,7 +149,7 @@ extension MouseEventHandler {
         let since = edgeScroll.hopSettledSince ?? now
         edgeScroll.hopSettledSince = since
         state.liveEdgeScroll = edgeScroll
-        guard now - since >= engine.moveConfiguration.liveEdgeHopPause - 0.005 else {
+        guard now - since >= MoveConfiguration.liveEdgeHopPause - 0.005 else {
             scheduleLiveEdgeHopCheck()
             return
         }
@@ -267,9 +267,8 @@ extension MouseEventHandler {
         containing location: CGPoint,
         monitorFrame: CGRect
     ) -> MouseInputState.LiveEdgeScroll.Edge? {
-        guard let width = controller?.niriEngine?.moveConfiguration
-            .liveEdgeZoneWidth(forDisplayWidth: monitorFrame.width)
-        else { return nil }
+        guard controller?.niriEngine != nil else { return nil }
+        let width = MoveConfiguration.liveEdgeZoneWidth(forDisplayWidth: monitorFrame.width)
         if location.x < monitorFrame.minX + width { return .leading }
         if location.x >= monitorFrame.maxX - width { return .trailing }
         return nil
