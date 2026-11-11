@@ -86,6 +86,24 @@ final class ShellNotificationsControllerTests: XCTestCase {
         XCTAssertEqual(controller.current.kept, 0)
     }
 
+    func testClockHostFollowsTheOSReleaseAndFallsBackToTheOtherHost() {
+        let pids: [String: pid_t] = [
+            "com.apple.notificationcenterui": 1,
+            "com.apple.MenuBarAgent": 2,
+            "com.apple.controlcenter": 3
+        ]
+        func resolve(_ major: Int, without missing: String? = nil) -> pid_t? {
+            ShellNotificationsController.nativeProcesses(osMajorVersion: major) {
+                $0 == missing ? nil : pids[$0]
+            }?.1
+        }
+        XCTAssertEqual(resolve(26), 3)
+        XCTAssertEqual(resolve(27), 2)
+        XCTAssertEqual(resolve(26, without: "com.apple.controlcenter"), 2)
+        XCTAssertEqual(resolve(27, without: "com.apple.MenuBarAgent"), 3)
+        XCTAssertNil(resolve(26, without: "com.apple.notificationcenterui"))
+    }
+
     func testCenterCommandIsTheBareWord() {
         XCTAssertEqual(ShellAction("notifications center"), .notifications(.center))
         XCTAssertNil(ShellAction("notifications center now"))
