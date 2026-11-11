@@ -87,6 +87,7 @@ final class WallpaperManager {
     @ObservationIgnored private var sampleOrder: [WallpaperSampleKey] = []
     @ObservationIgnored let previews: WallpaperPreviews
     @ObservationIgnored private(set) var pin: Pin?
+    @ObservationIgnored private var appliedPlacement: WallpaperPlacement?
 
     private(set) var entries: [Entry] = []
     private(set) var nextChange: Date?
@@ -125,6 +126,10 @@ final class WallpaperManager {
             desktop.onChange = { [weak self] in self?.displaysDidChange() }
         }
         refresh()
+        if let appliedPlacement, appliedPlacement != placement {
+            enqueue { [self] in await reapplyPlacement() }
+        }
+        appliedPlacement = placement
         schedule(fresh: false)
         prefetch()
         onChange?()
@@ -136,6 +141,7 @@ final class WallpaperManager {
         desktop.onChange = nil
         cancelTimer?()
         cancelTimer = nil
+        appliedPlacement = nil
         nextChange = nil
         entries = []
         pin = nil
@@ -274,14 +280,19 @@ extension WallpaperManager {
         onChange?()
     }
 
-    private func serialized(_ operation: @escaping @MainActor () async -> Void) async {
+    @discardableResult
+    private func enqueue(_ operation: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
         let previous = tail
         let task = Task { @MainActor in
             await previous?.value
             await operation()
         }
         tail = task
-        await task.value
+        return task
+    }
+
+    private func serialized(_ operation: @escaping @MainActor () async -> Void) async {
+        await enqueue(operation).value
     }
 
     private func apply(_ changes: [(entry: Entry, url: URL)]) async {
@@ -360,6 +371,13 @@ extension WallpaperManager {
         }
         prefetch()
         onChange?()
+    }
+
+    private func reapplyPlacement() async {
+        refresh()
+        await apply(entries.compactMap { entry in
+            entry.currentName.map { (entry, entry.folder.appendingPathComponent($0)) }
+        })
     }
 
     private func repin(_ url: URL, key: WallpaperSampleKey) async {

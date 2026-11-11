@@ -257,6 +257,25 @@ final class WallpaperManagerTests: XCTestCase {
         XCTAssertEqual(desktop.screens[0].current, current, "a resize never changes the wallpaper")
     }
 
+    func testChangingThePlacementShowsTheCurrentWallpapersAgainWithIt() async {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let palette = FakeWallpaperPalette()
+        let manager = makeManager(desktop, palette: palette)
+        await manager.next(.all)
+        let current = desktop.screens[0].current
+        desktop.events = []
+        manager.settings.placement = .fit
+        manager.settingsDidChange()
+        await manager.next(.display("display:999"))
+        XCTAssertEqual(
+            desktop.events.filter { $0.hasPrefix("set") },
+            ["set \(WallpaperFixtures.studio.key) \(current!.lastPathComponent)"]
+        )
+        XCTAssertEqual(desktop.screens[0].current, current)
+        XCTAssertEqual(manager.pin?.key.placement, .fit)
+        XCTAssertEqual(manager.palettePixels(), manager.pin?.pixels)
+    }
+
     func testShuffleOrderPersistsAcrossRestartsAndEveryWallpaperShowsOncePerCycle() async {
         let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
         var seen: [String] = []
