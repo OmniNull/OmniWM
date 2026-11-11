@@ -153,10 +153,14 @@ extension WMController {
         on monitorId: Monitor.ID? = nil,
         focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     ) -> ExternalCommandResult {
+        let members = scratchpadEntries(in: index)
+        if members.isEmpty, workspaceManager.revealedScratchpadIndex() == index {
+            workspaceManager.setRevealedScratchpad(nil)
+            return .executed
+        }
         guard let target = scratchpadTarget(on: monitorId) else {
             return .notFound
         }
-        let members = scratchpadEntries(in: index)
         guard !members.isEmpty else { return .notFound }
 
         let regroupsRevealedScratchpad = workspaceManager.revealedScratchpadIndex() == index

@@ -112,11 +112,12 @@ extension LayoutRefreshController {
 
     func reconcileRevealedScratchpadAfterGroupDiscard(_ index: ScratchpadIndex) {
         guard let controller,
-              controller.workspaceManager.revealedScratchpadIndex() == index,
-              !controller.workspaceManager.scratchpadMembers(in: index).contains(where: {
-                  controller.isManagedWindowDisplayable($0)
-              })
+              controller.workspaceManager.revealedScratchpadIndex() == index
         else {
+            return
+        }
+        let members = controller.workspaceManager.scratchpadMembers(in: index)
+        guard !members.isEmpty, !members.contains(where: { controller.isManagedWindowDisplayable($0) }) else {
             return
         }
         controller.workspaceManager.setRevealedScratchpad(nil)
