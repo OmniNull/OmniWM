@@ -124,7 +124,7 @@ The native **Settings > Styles & Widgets > Island** editors provide the same dec
 
 ## Editable Lake components
 
-The `lake` profile includes media, calendar, weather, battery, devices, microphone/camera indicators, Dock badges, reminders, world clocks, timers, quick notes, a file shelf, image conversion and CI status. Add and configure them in the island's settings. Custom bar widgets can run alongside any island layout.
+The `lake` profile includes media, calendar, weather, battery, devices, microphone/camera indicators, Dock badges, reminders, world clocks, timers, quick notes, a file shelf, image conversion, wallpaper and CI status. Add and configure them in the island's settings. Custom bar widgets can run alongside any island layout.
 
 The root widget owns navigation, regions, hover, expansion and alerts. Override `widgets/lake/init.luau` and `lib/lake/attention.luau`, `policy.luau`, `motion.luau` or `slots.luau` to change those behaviors. The stock profile offers solid and translucent appearances, deduplicates stable alert IDs per component and temporarily selects a matching file component during a drag. An alert scheduling error appears in settings.
 
@@ -137,6 +137,7 @@ Integrations live in `lib/lake/services/`. Keep a component's lifecycle and serv
 - Badges shows raw Dock badge labels for apps with managed windows, even when the Workspace Bar is disabled. It supplies no notification contents or reply API.
 - Quick note uses native multiline text input, explicit save and clipboard copy. Each configured instance has its own saved note.
 - Shelf and converter views reuse the [file services](/omnishell/reference/resources-desktop/). Conversion uses the native image resource operation with the `files` capability and does not run a provider or ask for program approval.
+- Wallpaper shows the main display's wallpaper when compact and the full [wallpaper](/features/wallpaper/) popout when expanded. It reads `ctx.data.wallpaper` and needs **Manage Wallpapers** on in **Settings > Wallpaper**.
 - CI status requires a repository in its options. Its polling and request failures are handled by the component's service module.
 
 Unavailable data and denied permissions have explicit UI states. Notification replies, call control and camera capture are outside these integrations; microphone/camera indicators report activity only.

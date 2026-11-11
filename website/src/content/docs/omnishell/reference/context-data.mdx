@@ -105,6 +105,7 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `reminders` | Access state, incomplete reminders, total count and read/action errors |
 | `badges` | Dock badge labels keyed by lowercase bundle ID for apps with managed windows; available to bars, islands and popouts |
 | `weather` | Current conditions with humidity, sunrise and sunset, 24 hours and 7 days |
+| `wallpaper` | OmniWM's wallpaper manager: each display's folder, current wallpaper and previews, rotation, and the wallpaper color schemes; see [Wallpaper](/features/wallpaper/) |
 | `user` | Your name and account picture |
 | `appearance` | `"light"` or `"dark"`, following macOS |
 | `hiddenBar` | Hidden Bar items, kept current while the Hidden Bar is closed, so a bar widget can show them inline |
@@ -202,6 +203,8 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 | `input-source select <id>`, `input-source settings` | Switch the keyboard input source; open the Keyboard settings |
 | `wifi authorize`, `wifi settings` | Ask for Location access, or open its privacy settings once asked; open the Wi-Fi settings |
 | `bluetooth authorize`, `bluetooth settings` | Ask for Bluetooth access, or open its privacy settings once asked; open the Bluetooth settings |
+| `wallpaper next [all\|<display>]`, `wallpaper set <display> <hex>`, `wallpaper page <display> <offset> <count>` | Show the next wallpaper on every display or one, set a wallpaper from that display's folder (`<hex>` is the UTF-8 file name as hexadecimal bytes), or choose which previews to make; `<display>` is an ID such as `display:1` from `wallpaper.displays` |
+| `wallpaper rotation off\|<minutes>`, `wallpaper scheme <scheme>`, `wallpaper open <display>`, `wallpaper folder <display> [reset]`, `wallpaper settings` | Set how often the wallpaper changes (1 to 1440 minutes), color OmniWM with a wallpaper scheme, open a display's folder in Finder, choose or reset its folder, or open Settings > Wallpaper |
 | `shell toggle <name>` | Open or close a drawer or a widget's popout, or send the island root a `toggle` trigger |
 | `shell trigger <widget> <name> [value]` | Call that widget's `trigger(ctx, event)` on each of its instances, as `omniwmctl shell trigger` does |
 | `shell menu` | Open the OmniWM menu at the widget |
@@ -351,6 +354,18 @@ Weather supplies current conditions, 24 hourly entries, and seven daily entries;
 <LuauDeclaration name="Bluetooth" />
 
 <LuauDeclaration name="BluetoothDevice" />
+
+## Wallpaper snapshots
+
+`ctx.data.wallpaper` is `nil` until a widget reads it, and its `enabled` is false until **Manage Wallpapers** is on in **Settings > Wallpaper**. Each display lists its folder's wallpapers by name, in Finder order; a very large folder is cut short and marked `truncated`. `preview` is an image reference made off the main thread and cropped to the display's shape; it is `nil` until the preview is ready, and only the current wallpapers and the requested `wallpaper page` have one. `next` is the Unix time of the next rotation. `schemes` holds four swatches per scheme, made from the main display's wallpaper, in light and dark.
+
+<LuauDeclaration name="Wallpaper" />
+
+<LuauDeclaration name="WallpaperDisplay" />
+
+<LuauDeclaration name="WallpaperItem" />
+
+<LuauDeclaration name="WallpaperScheme" />
 
 ## Island snapshots
 

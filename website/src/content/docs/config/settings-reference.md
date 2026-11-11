@@ -720,6 +720,34 @@ Both Boolean keys are optional and default to `true`. Turning a service off canc
 
 [Managed preferences](/config/managed-preferences/) can force a service off, block its hosts or disable native programs. Managed values are not stored here. Update checks, embedded Ghostty and terminal children, internal helpers and browser `openURL` actions are outside these shell controls.
 
+## wallpaper
+
+**Unreleased.** The [wallpaper manager](/features/wallpaper/). The table is optional and is written only after you change one of its values; when absent, the feature is off and every key has its default.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | boolean | `false` | Lets OmniWM set each display's wallpaper from a folder. Off leaves your wallpapers as they are. |
+| `folder` | string | `"~/Pictures/Wallpapers"` | The folder for every display without its own. Starts with `/` or `~`. |
+| `rotationMinutes` | integer | `30` | Minutes between changes, from `1` to `1440`; `0` turns rotation off. Larger values are clamped. |
+| `placement` | enum | `"fill"` | `"fill"` crops the wallpaper to the display; `"fit"` shows all of it. |
+| `displays` *(optional)* | array of tables | `[]` | A folder for one display: `monitorName`, `monitorDisplayUUID` (or `monitorDisplayId` for a display without a UUID), `folder`, and an `id` UUID identifying the row. |
+
+The shuffle order of each display and the time of the next change live in the state directory's `runtime-state.json`, not in this file. The wallpaper color scheme is the existing `scheme` in `shell.toml`; see [Wallpaper palette](/omnishell/configuration/profiles-palettes/#wallpaper-palette).
+
+```toml
+[wallpaper]
+enabled = true
+folder = "~/Pictures/Wallpapers"
+placement = "fill"
+rotationMinutes = 30
+
+[[wallpaper.displays]]
+folder = "~/Pictures/Wallpapers/ultrawide"
+id = "6F2C3D41-9B1E-4C77-8A55-1D2E3F405162"
+monitorDisplayUUID = "3EFD184C-D5D3-40EF-AF27-14C4222A467B"
+monitorName = "MPG491CX OLED"
+```
+
 ## Per-monitor overrides
 
 Five arrays hold per-monitor exceptions to the global tables. Every entry requires `monitorName`. Use the display’s `monitorDisplayUUID`; for a display without a UUID, supply both `monitorDisplayId` and `monitorName`. A name alone does not match a display. All entries except orientation also carry an `id` UUID identifying the override row, not the display. Override keys are all optional — an omitted key falls back to the corresponding global setting. All five arrays default to empty. Custom routing grids live separately in [`routing.arrangements`](#routing).
