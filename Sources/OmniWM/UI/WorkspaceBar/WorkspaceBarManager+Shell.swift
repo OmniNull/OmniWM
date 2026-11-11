@@ -91,6 +91,7 @@ extension WorkspaceBarManager {
         lastIslands = []
         notificationBadges.onLabelsChange = nil
         if controller?.wallpaperManager.palette === host { controller?.wallpaperManager.palette = nil }
+        setShellPalette(nil)
         host?.stop()
         controller?.appThemeShellIsOff { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         setShellBadgeDemand(false)
@@ -153,6 +154,7 @@ extension WorkspaceBarManager {
         setShellLocked(controller?.isLockScreenActive == true)
         host.start()
         controller?.commandPaletteController.prewarmShell(from: self)
+        setShellPalette(host.config.theme)
     }
 
     private func makeShellHost(configDirectory: URL) -> ShellWidgetHost {
@@ -226,6 +228,7 @@ extension WorkspaceBarManager {
             self?.showWidgetMenu(request)
         }
         host.onConfigChange = { [weak self] config in
+            self?.setShellPalette(config.theme)
             self?.shellConfiguration.adopt(config)
             NotificationCenter.default.post(name: .shellConfigDidChange, object: nil)
             self?.applyShellProfile(config)

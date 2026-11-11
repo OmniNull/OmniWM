@@ -39,6 +39,7 @@ final class WorkspaceBarManager {
     private let surfaceCoordinator = SurfaceCoordinator.shared
     private var hiddenBarJoin: HiddenBarPanelPlacement.Join?
     var shellHost: ShellWidgetHost?
+    var shellPalette: ShellTheme?
     let shellPermissions = ShellNetworkPermissions()
     var commandPaletteResources: ShellResources?
     var commandPaletteColorsObserver: NSObjectProtocol?

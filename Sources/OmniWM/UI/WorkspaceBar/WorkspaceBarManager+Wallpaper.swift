@@ -61,4 +61,11 @@ extension WorkspaceBarManager {
             self?.shellHost?.wallpaperPaletteDidChange()
         }
     }
+
+    func setShellPalette(_ palette: ShellTheme?) {
+        guard shellPalette != palette else { return }
+        shellPalette = palette
+        guard let controller, controller.settings.borders.colorSource == .palette else { return }
+        controller.surfaceReconciler.noteBorderChanged()
+    }
 }

@@ -104,6 +104,43 @@ final class WallpaperSettingsPageTests: XCTestCase {
         }
     }
 
+    func testTheBordersPageOffersFollowWallpaperColors() async throws {
+        let (settings, controller, _) = try fixture()
+        settings.borders.enabled = true
+        settings.borders.width = 2
+        settings.borders.colorSource = .palette
+        for dark in [false, true] {
+            let page = BorderSettingsTab(settings: settings, controller: controller)
+                .frame(width: 640, height: 760)
+                .environment(\.colorScheme, dark ? .dark : .light)
+            let hosting = NSHostingView(rootView: page)
+            hosting.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            hosting.frame = CGRect(x: 0, y: 0, width: 640, height: 760)
+            let window = NSWindow(
+                contentRect: hosting.frame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            window.appearance = hosting.appearance
+            window.contentView = hosting
+            for _ in 0 ..< 10 {
+                try await Task.sleep(for: .milliseconds(30))
+                hosting.layoutSubtreeIfNeeded()
+            }
+            let bitmap = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+            hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+            if let path = ProcessInfo.processInfo.environment["OMNIWM_SETTINGS_SNAPSHOTS"] {
+                try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).write(
+                    to: URL(fileURLWithPath: path)
+                        .appendingPathComponent("settings-borders-\(dark ? "dark" : "light").png")
+                )
+            }
+            window.contentView = nil
+        }
+        XCTAssertEqual(settings.toExport().borders.colorSource, .palette)
+    }
+
     func testRotationChoicesMapToMinutes() {
         XCTAssertEqual(WallpaperRotationChoice(0), .off)
         XCTAssertEqual(WallpaperRotationChoice(15), .minutes(15))

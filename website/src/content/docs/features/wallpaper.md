@@ -32,6 +32,10 @@ Displays are found as they connect: a MacBook alone, a MacBook with external dis
 
 When OmniWM changes the main display's wallpaper, it makes the palette from the whole wallpaper file, applies it, and then sets the wallpaper, so the colors and the wallpaper change together. The palette comes from the whole file the same way OmniWM reads any still wallpaper, so a wallpaper gets the same colors on every display and with Fill or Fit. The palette for the next wallpaper in the shuffle is prepared ahead of time. Wallpapers you set elsewhere, such as in System Settings, are still followed the way the [wallpaper palette](/omnishell/configuration/profiles-palettes/#wallpaper-palette) always has.
 
+## Window border
+
+In **Settings > Appearance > Borders**, **Follow Wallpaper Colors** colors the focused window's border with the palette's accent, in light and dark. With Wallpaper Colors it changes in the same moment as the bar. A gradient border runs from the accent to the tertiary accent, and a glow uses the accent. It works with any OmniWM palette and is off by default. A border width of 2 px gives a thinner look.
+
 ## Bar widget and popout
 
 Add **Wallpaper** to a bar lane in **Settings > Styles & Widgets**. The bar shows a plain wallpaper glyph; click it for the popout:

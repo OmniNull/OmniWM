@@ -32,6 +32,10 @@ final class BorderSettings {
         didSet { onChange?() }
     }
 
+    var colorSource = BorderSettings.defaults.colorSource ?? .fixed {
+        didSet { onChange?() }
+    }
+
     func setDarkGradientColor(
         _ color: SettingsColor?,
         at keyPath: WritableKeyPath<BorderGradientColors, SettingsColor?>
@@ -50,7 +54,8 @@ final class BorderSettings {
             color: color,
             darkColor: darkColor,
             gradient: gradient,
-            glow: glow
+            glow: glow,
+            colorSource: colorSource == .fixed ? nil : colorSource
         )
     }
 
@@ -63,6 +68,7 @@ final class BorderSettings {
         darkColor = Self.validatedColor(values.darkColor, keepingPrevious: darkColor)
         gradient = Self.validatedGradient(values.gradient, fallback: gradient)
         glow = Self.validatedGlow(values.glow, fallback: glow)
+        colorSource = values.colorSource ?? .fixed
     }
 
     private static func validatedWidth(_ width: Double) -> Double {

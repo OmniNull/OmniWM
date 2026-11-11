@@ -8,6 +8,11 @@ struct SettingsColor: Codable, Equatable {
     var alpha: Double
 }
 
+enum BorderColorSource: String, Codable, CaseIterable, Equatable {
+    case fixed
+    case palette
+}
+
 enum BorderGradientDirection: String, Codable, CaseIterable, Equatable, Hashable {
     case topLeftToBottomRight
     case topRightToBottomLeft

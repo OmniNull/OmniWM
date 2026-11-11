@@ -212,8 +212,11 @@ Border drawn around the focused window.
 | `glow.opacity` | float | `0.6` | Glow opacity from `0` through `1`. |
 | `glow.color` | optional color table | absent | Overrides the glow color in light appearance. When absent, the glow inherits the border's solid color or gradient endpoints. |
 | `glow.darkColor` | optional color table | absent | Glow color used in dark appearance. Falls back to `glow.color`, then to the border colors. |
+| `colorSource` *(optional)* | enum | absent (`"fixed"`) | **Unreleased.** `"palette"` colors the border with the active OmniWM palette's accent in light and dark appearance (**Settings > Appearance > Borders > Follow Wallpaper Colors**); a gradient runs from the accent to the tertiary accent and a glow uses the accent. `"fixed"` uses the colors above, which also apply while no palette is active. |
 
 Gradient and glow are composable. A missing table preserves solid rendering. Non-finite or structurally invalid values preserve the previous valid appearance; finite gradient color components are clamped to `0...1`, while glow radius and opacity must remain within their documented ranges. Glow reuses the border's solid color or gradient endpoints unless `glow.color` or `glow.darkColor` overrides it, so a gradient border produces a spatially matching gradient glow by default.
+
+With `colorSource = "palette"` and the `wallpaper` palette, the border changes color in the same moment as the bar when the wallpaper changes. A `width` of `2.0` gives a thinner look. Only the focused window has a border.
 
 Border and gradient colors resolve per macOS appearance: dark values apply when macOS uses the dark appearance, and update live as the appearance switches — no restart needed. Unset dark values keep the base colors, so existing configs render exactly as before. In Settings, inherited colors are labeled explicitly; Customize creates an override and Reset restores inheritance. Editing one dark gradient endpoint leaves the other inherited until customized. The glow inherits the resolved border color or gradient endpoints, so it adapts with them.
 

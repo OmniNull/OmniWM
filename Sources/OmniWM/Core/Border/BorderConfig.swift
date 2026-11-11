@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import AppKit
 import CoreGraphics
 
 struct BorderConfig: Equatable {
@@ -45,14 +46,16 @@ struct BorderConfig: Equatable {
         self.glow = glow
     }
 
-    @MainActor static func from(settings: SettingsStore, isDark: Bool) -> BorderConfig {
-        BorderConfig(
+    @MainActor static func from(settings: SettingsStore, isDark: Bool, palette: ShellTheme? = nil) -> BorderConfig {
+        let config = BorderConfig(
             enabled: settings.borders.enabled,
             width: CGFloat(settings.borders.width),
             color: resolvedColor(settings.borders.color, dark: settings.borders.darkColor, isDark: isDark),
             gradient: settings.borders.gradient.map { resolvedGradient($0, isDark: isDark) },
             glow: settings.borders.glow.map { resolvedGlow($0, isDark: isDark) }
         )
+        guard settings.borders.colorSource == .palette, let palette else { return config }
+        return config.following(palette, isDark: isDark)
     }
 
     static func keyboardModeColor(_ kind: KeyboardModeKind) -> SettingsColor? {
@@ -130,5 +133,20 @@ struct BorderConfig: Equatable {
             width: width,
             surfacePadding: surfacePadding
         )
+    }
+}
+
+extension BorderConfig {
+    func following(_ palette: ShellTheme, isDark: Bool) -> BorderConfig {
+        guard let accent = SettingsColor(nsColor: palette.resolvedColor(.accent, dark: isDark)) else { return self }
+        var config = self
+        config.color = accent
+        if var gradient = config.gradient {
+            gradient.start = accent
+            gradient.end = SettingsColor(nsColor: palette.resolvedColor(.tertiaryAccent, dark: isDark)) ?? accent
+            config.gradient = gradient
+        }
+        config.glow?.color = accent
+        return config
     }
 }

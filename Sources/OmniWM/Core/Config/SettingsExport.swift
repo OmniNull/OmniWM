@@ -173,6 +173,7 @@ struct SettingsExport: Equatable {
         var darkColor: SettingsColor?
         var gradient: BorderGradient?
         var glow: BorderGlow?
+        var colorSource: BorderColorSource?
     }
 
     struct Gestures: Codable, Equatable {

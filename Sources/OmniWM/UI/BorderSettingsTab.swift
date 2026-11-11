@@ -32,6 +32,22 @@ struct BorderSettingsTab: View {
                         controller.borderSettingsChanged()
                     }
 
+                    Toggle("Follow Wallpaper Colors", isOn: Binding(
+                        get: { settings.borders.colorSource == .palette },
+                        set: { follows in
+                            settings.borders.colorSource = follows ? .palette : .fixed
+                            controller.borderSettingsChanged()
+                        }
+                    ))
+                    .id("Follow Wallpaper Colors")
+                    .help(String(localized: "Color the focused window's border with the accent of OmniWM's palette"))
+                    SettingsCaption(localized: """
+                    Uses the accent of the active OmniWM palette in light and dark mode, so with Wallpaper Colors the \
+                    border changes with the wallpaper. A gradient runs from the accent to the tertiary accent, and a \
+                    glow uses the accent. The colors below are used when no palette is active. A width of 2 px gives \
+                    a thinner look.
+                    """)
+
                     ColorPicker("Border Color", selection: colorBinding, supportsOpacity: true)
                         .id("Border Color")
                     BorderColorOverrideRow(

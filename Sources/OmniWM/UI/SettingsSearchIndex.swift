@@ -45,6 +45,7 @@ enum SettingsSearchIndex {
         setting("Window Borders", section: .appearance, tab: "borders", anchor: "Window Borders"),
         setting("Enable Borders", section: .appearance, tab: "borders", anchor: "Enable Borders"),
         setting("Border Width", section: .appearance, tab: "borders", anchor: "Border Width"),
+        setting("Follow Wallpaper Colors", section: .appearance, tab: "borders", anchor: "Follow Wallpaper Colors"),
         setting("Border Color", section: .appearance, tab: "borders", anchor: "Border Color"),
         setting("Gradient Border", section: .appearance, tab: "borders", anchor: "Gradient Border"),
         setting("Gradient Direction", section: .appearance, tab: "borders", anchor: "Gradient Direction"),
