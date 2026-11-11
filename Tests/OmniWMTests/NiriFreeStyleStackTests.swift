@@ -91,7 +91,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
                 context: context,
                 state: &state
             )
-            if step == .changed {
+            if step.changesLayout {
                 engine.liveColumnMoveSettled()
             }
             return step
@@ -104,7 +104,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
                 context: context,
                 state: &state
             )
-            if step == .changed {
+            if step.changesLayout {
                 engine.liveColumnMoveSettled()
             }
             return step
@@ -882,6 +882,23 @@ final class NiriFreeStyleStackTests: XCTestCase {
             XCTAssertEqual(fixture.stripColumn(fixture.column(2)).minX, right.minX, accuracy: 0.5, "\(x)")
         }
         XCTAssertGreaterThan(full, 0)
+    }
+
+    func testAPauseWhileThePlaceClosesWaitsOnlyForTheHoverDelay() {
+        var fixture = makeFixture()
+        fixture.engine.moveConfiguration.liveHoverDelay = 10
+        fixture.engine.moveConfiguration.liveCentreStackDelay = 10
+        let home = fixture.column(1)
+        let full = fixture.stripColumn(home).width
+        let start = fixture.stripColumn(home).midX
+        let y = fixture.frame.midY
+        XCTAssertTrue(fixture.begin(1))
+        _ = fixture.move(to: CGPoint(x: start, y: y), at: 1)
+
+        let step = fixture.move(to: CGPoint(x: start + 440, y: y), at: 2)
+
+        XCTAssertEqual(step, .changedWhileHovering(until: 12))
+        XCTAssertEqual(fixture.stripColumn(home).width, full - 440, accuracy: 0.5)
     }
 
     func testAPartlyClosedPlaceOpensAgainOnTheWayBack() {

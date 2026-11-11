@@ -100,7 +100,7 @@ final class NiriLiveStackModeTests: XCTestCase {
                 context: context,
                 state: &state
             )
-            if step == .changed {
+            if step.changesLayout {
                 engine.liveColumnMoveSettled()
             }
             return step
@@ -112,7 +112,7 @@ final class NiriLiveStackModeTests: XCTestCase {
 
         mutating func move(to cursor: CGPoint, at time: TimeInterval = 0) -> LiveColumnMove.Step {
             let step = engine.liveColumnMoveUpdate(cursor: cursor, at: time, context: context, state: &state)
-            if step == .changed {
+            if step.changesLayout {
                 engine.liveColumnMoveSettled()
             }
             return step

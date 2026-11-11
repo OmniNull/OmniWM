@@ -229,7 +229,7 @@ extension MouseEventHandler {
         let now = liveDragClock()
         let step = controller.workspaceManager.withNiriViewportState(
             for: workspaceId,
-            committingIf: { $0 == .changed },
+            committingIf: { $0.changesLayout },
             {
                 togglesStackMode
                     ? engine.liveColumnMoveStackModeChanged(
@@ -249,14 +249,16 @@ extension MouseEventHandler {
                     )
             }
         )
-        if case let .hovering(until) = step {
+        if let until = step.hoverDeadline {
             let stopCheck = livePointerStopCheckDelay(at: now) ?? .infinity
             scheduleLiveHoverCheck(after: min(until - now, stopCheck))
-            return
+        } else {
+            cancelLiveHoverCheck()
         }
-        cancelLiveHoverCheck()
-        guard step == .changed else {
-            startLiveEdgeScrollIfDue()
+        guard step.changesLayout else {
+            if step == .unchanged {
+                startLiveEdgeScrollIfDue()
+            }
             return
         }
         traceLiveDrag(immediate ? "changed-immediate" : "changed", at: location)

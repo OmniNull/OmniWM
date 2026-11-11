@@ -102,7 +102,11 @@ extension NiriLayoutEngine {
             state: &state
         )
         let narrowed = narrowOffScreenHomeSlot(strip: step == .changed ? nil : current, context: context, state: &state)
-        return closed != nil || narrowed ? .changed : step
+        guard closed != nil || narrowed else { return step }
+        if case let .hovering(until) = step {
+            return .changedWhileHovering(until: until)
+        }
+        return .changed
     }
 
     private func liveColumnMoveStep(

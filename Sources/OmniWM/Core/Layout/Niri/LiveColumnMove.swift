@@ -36,6 +36,25 @@ struct LiveColumnMove {
         case unchanged
         case hovering(until: TimeInterval)
         case changed
+        case changedWhileHovering(until: TimeInterval)
+
+        var changesLayout: Bool {
+            switch self {
+            case .changed,
+                 .changedWhileHovering: true
+            case .unchanged,
+                 .hovering: false
+            }
+        }
+
+        var hoverDeadline: TimeInterval? {
+            switch self {
+            case let .hovering(until),
+                 let .changedWhileHovering(until): until
+            case .unchanged,
+                 .changed: nil
+            }
+        }
     }
 
     enum Side: Equatable {

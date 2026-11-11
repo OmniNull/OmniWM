@@ -119,7 +119,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
 
         mutating func moveAndSettle(to cursor: CGPoint) -> LiveColumnMove.Step {
             let step = move(to: cursor)
-            if step == .changed {
+            if step.changesLayout {
                 engine.liveColumnMoveSettled()
                 _ = move(to: cursor)
             }
@@ -744,7 +744,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             )
             let next = fixture.stripColumn(holding: passed)
             let onNext = CGPoint(x: headingRight ? next.minX + 100 : next.maxX - 100, y: fixture.midY)
-            XCTAssertEqual(fixture.move(to: onNext, at: 0.1), .changed)
+            XCTAssertEqual(fixture.move(to: onNext, at: 0.1), .changedWhileHovering(until: 0.22))
             fixture.engine.liveColumnMoveSettled()
             XCTAssertEqual(fixture.move(to: onNext, at: 0.3), .changed)
             fixture.engine.liveColumnMoveSettled()
@@ -1099,7 +1099,10 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertTrue(fixture.begin(2))
         let order = fixture.order()
         let neighbour = fixture.stripColumn(holding: 3)
-        XCTAssertEqual(fixture.move(to: CGPoint(x: neighbour.midX, y: fixture.midY), at: 10), .changed)
+        XCTAssertEqual(
+            fixture.move(to: CGPoint(x: neighbour.midX, y: fixture.midY), at: 10),
+            .changedWhileHovering(until: 10.12)
+        )
         fixture.engine.liveColumnMoveSettled()
 
         assertHovering(fixture.move(to: CGPoint(x: neighbour.midX, y: fixture.midY + 30), at: 10.1), until: 10.12)
