@@ -20,10 +20,16 @@ struct MonitorConfigurationHandler {
     }
 
     mutating func startObserving() {
-        displayObserver = DisplayConfigurationObserver()
-        displayObserver?.setEventHandler { event in
+        guard let controller else { return }
+        let observer = DisplayConfigurationObserver(
+            initialMonitors: controller.workspaceManager.monitors,
+            monitorSampler: currentMonitorsProvider
+        )
+        observer.setEventHandler { event in
             EventIntake.post(.display(event))
         }
+        displayObserver = observer
+        observer.sampleNow()
     }
 
     func handle(_ event: DisplayConfigurationObserver.DisplayEvent) {
