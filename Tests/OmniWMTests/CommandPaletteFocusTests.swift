@@ -140,6 +140,7 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertTrue(fixture.palette.isExpanded)
         XCTAssertGreaterThan(panel.frame.height, compactFrame.height + 200)
         XCTAssertEqual(panel.frame.maxY, compactFrame.maxY)
+        await waitForSearchEditing(panel)
         try fixture.insertText("clipboard")
         XCTAssertEqual(fixture.palette.searchText, "clipboard")
     }
@@ -223,6 +224,7 @@ final class CommandPaletteFocusTests: XCTestCase {
             XCTAssertTrue(panel.makeFirstResponder(nil))
             fixture.palette.selectedMode = mode
             fixture.layout()
+            await waitForSearchEditing(panel)
             try fixture.insertText(mode.rawValue)
             XCTAssertTrue(fixture.palette.searchText.hasSuffix(mode.rawValue))
             XCTAssertEqual(fixture.palette.selectedMode, mode)
@@ -889,14 +891,20 @@ final class CommandPaletteFocusTests: XCTestCase {
     func testShellPrewarmWaitsUntilThePaletteCloses() throws {
         let fixture = CommandPaletteFocusFixture()
         defer { fixture.cleanup() }
-        let host = makePaletteHost(fixture.root)
+        let manager = fixture.controller.workspaceBarManager
         _ = try fixture.show()
-        fixture.palette.prewarmShell(host: host)
-        XCTAssertNil(fixture.palette.presentation.shell)
+        let shown = try XCTUnwrap(fixture.palette.presentation.shell)
+        let host = makePaletteHost(fixture.root)
+        manager.shellHost = host
+        defer { manager.shellHost = nil }
+        XCTAssertNotEqual(host.config, shown.config)
+        fixture.palette.prewarmShell(from: manager)
+        XCTAssertTrue(fixture.palette.presentation.shell === shown)
         fixture.palette.toggle(wmController: fixture.controller)
         XCTAssertFalse(fixture.palette.isVisible)
-        fixture.palette.prewarmShell(host: host)
-        XCTAssertNotNil(fixture.palette.presentation.shell)
+        let rebuilt = try XCTUnwrap(fixture.palette.presentation.shell)
+        XCTAssertFalse(rebuilt === shown)
+        XCTAssertEqual(rebuilt.config, host.config)
     }
 
     func testShellRebuildsWhenStyleFilesChangeAndWaitsUntilThePaletteCloses() throws {
@@ -913,20 +921,20 @@ final class CommandPaletteFocusTests: XCTestCase {
             try (text + "\n").write(to: look, atomically: true, encoding: .utf8)
         }
 
-        fixture.palette.prewarmShell(host: host)
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
         let original = try XCTUnwrap(fixture.palette.presentation.shell)
-        fixture.palette.prewarmShell(host: host)
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
         XCTAssertTrue(fixture.palette.presentation.shell === original)
 
         try editLook()
-        fixture.palette.prewarmShell(host: host)
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
         let updated = try XCTUnwrap(fixture.palette.presentation.shell)
         XCTAssertFalse(updated === original)
 
         _ = try fixture.show()
         XCTAssertTrue(fixture.palette.presentation.shell === updated)
         try editLook()
-        fixture.palette.prewarmShell(host: host)
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
         XCTAssertTrue(fixture.palette.presentation.shell === updated)
         fixture.palette.toggle(wmController: fixture.controller)
         XCTAssertFalse(fixture.palette.isVisible)
@@ -934,10 +942,32 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertFalse(reopened === updated)
     }
 
+    func testShellPaletteUsesTheSelectedStyleWithTheBarOff() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let manager = fixture.controller.workspaceBarManager
+        XCTAssertNil(manager.shellHost)
+        let shellDirectory = manager.shellConfiguration.shellDirectory
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shellDirectory), [])
+        let profile = try XCTUnwrap(ShellStyleFixture.names().first)
+        XCTAssertTrue(try ShellProfiles.select(profile, in: shellDirectory))
+        let managed = shellDirectory.appendingPathComponent(
+            "\(ShellDefaults.profile)/widgets/\(ShellWidgetHost.commandPaletteWidget)", isDirectory: true
+        )
+        try FileManager.default.removeItem(at: managed)
+        manager.shellConfigurationSaved(ShellConfig.resolve(shellDirectory: shellDirectory))
+        fixture.palette.prewarmShell(from: manager)
+        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+        XCTAssertEqual(shell.config.profile, profile)
+        XCTAssertFalse(shell.fallback)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: managed.appendingPathComponent("init.luau").path))
+        try awaitPaletteTree(shell) { shell.hasTree }
+    }
+
     func testShellChromeStaysHiddenUntilTheFirstTreeArrives() throws {
         let fixture = CommandPaletteFocusFixture()
         defer { fixture.cleanup() }
-        fixture.palette.prewarmShell(host: makePaletteHost(fixture.root))
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
         let shell = try XCTUnwrap(fixture.palette.presentation.shell)
         let firstTree = expectation(description: "The palette widget delivers its first tree")
         let applyChrome = shell.onTree
@@ -960,7 +990,7 @@ final class CommandPaletteFocusTests: XCTestCase {
         defer { fixture.cleanup() }
         _ = try fixture.show()
         fixture.palette.selectMode(.commands)
-        let size = fixture.palette.presentation.shellLayoutSize(expanded: true)
+        let size = wholeCommandListSize(fixture)
         let items = Dictionary(uniqueKeysWithValues: fixture.palette.commandItems.map { ($0.id, $0) })
         guard case let .command(selectedID)? = fixture.palette.selectedItemID else {
             return XCTFail("Commands mode opens with a command selected")
@@ -974,6 +1004,7 @@ final class CommandPaletteFocusTests: XCTestCase {
             sections.append((.heading, category.localizedDisplayName))
             sections += members.map { (.command, $0.spec.localizedTitle) }
         }
+        XCTAssertEqual(grouped.first, 0)
         XCTAssertEqual(grouped.rows.map(\.kind), sections.map(\.0))
         XCTAssertEqual(grouped.rows.map(\.title), sections.map(\.1))
         XCTAssertEqual(grouped.rows.filter(\.selected).map(\.id), [selectedID])
@@ -1021,7 +1052,7 @@ final class CommandPaletteFocusTests: XCTestCase {
         _ = try fixture.show()
         fixture.palette.selectMode(.commands)
         fixture.palette.expandResults()
-        let rows = fixture.palette.shellData(size: fixture.palette.presentation.shellLayoutSize(expanded: true)).rows
+        let rows = fixture.palette.shellData(size: wholeCommandListSize(fixture)).rows
         let disabled = rows.filter { !$0.enabled }
         XCTAssertTrue(disabled.contains { $0.kind == .heading })
         XCTAssertTrue(disabled.contains { $0.kind == .command })
@@ -1102,7 +1133,8 @@ final class CommandPaletteFocusTests: XCTestCase {
         theme.light[ShellRole.foreground.rawValue] = foreground
         theme.dark[ShellRole.foreground.rawValue] = foreground
         XCTAssertNotEqual(shell.field.field?.textColor?.cgColor, foreground.cgColor)
-        host.resources.palette.refresh(theme: theme, appearance: panel.effectiveAppearance)
+        let resources = try XCTUnwrap(fixture.controller.workspaceBarManager.commandPaletteResources)
+        resources.palette.refresh(theme: theme, appearance: panel.effectiveAppearance)
         shell.redraw()
 
         XCTAssertTrue(fixture.palette.presentation.shell === shell)
@@ -1196,6 +1228,15 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertEqual(shell.published?.selected, ids[ids.count - 1])
     }
 
+    private func wholeCommandListSize(_ fixture: CommandPaletteFocusFixture) -> CGSize {
+        XCTAssertEqual(fixture.palette.presentation.shell?.rowWindow.viewport, 0)
+        let entries = fixture.palette.commandItems.count + HotkeyCategory.allCases.count
+        return CGSize(
+            width: fixture.palette.presentation.shellLayoutSize(expanded: true).width,
+            height: CGFloat(entries) * CGFloat(CommandPaletteRowWindow.shortestRow)
+        )
+    }
+
     private static let longListCount = 200
     private static let longListProcess: pid_t = 92_011
 
@@ -1227,7 +1268,7 @@ final class CommandPaletteFocusTests: XCTestCase {
         host: ShellWidgetHost,
         marks: (Int) -> [String] = { _ in [] }
     ) throws -> (CommandPaletteShellPresenter, [WindowToken]) {
-        fixture.palette.prewarmShell(host: host)
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
         let shell = try XCTUnwrap(fixture.palette.presentation.shell)
         _ = try fixture.show()
         XCTAssertTrue(fixture.palette.presentation.shell === shell)
@@ -1258,13 +1299,17 @@ final class CommandPaletteFocusTests: XCTestCase {
 
     private func showAndWaitForEditing(_ fixture: CommandPaletteFocusFixture) async throws -> NSPanel {
         let panel = try fixture.show()
+        await waitForSearchEditing(panel)
+        return panel
+    }
+
+    private func waitForSearchEditing(_ panel: NSPanel) async {
         let editing = expectation(description: "Search becomes the first responder")
         let observation = panel.publisher(for: \.firstResponder, options: [.initial, .new])
             .first { $0 is NSTextView }
             .sink { _ in editing.fulfill() }
         await fulfillment(of: [editing], timeout: failureBound)
         observation.cancel()
-        return panel
     }
 
     private func sendKey(keyCode: UInt16, characters: String, to panel: NSPanel) throws {
@@ -1404,7 +1449,7 @@ extension XCTestCase {
     @MainActor
     func makePaletteHost(_ root: URL) -> ShellWidgetHost {
         ShellWidgetHost(
-            configDirectory: root.appendingPathComponent("shell-config"),
+            configDirectory: root.appendingPathComponent("config"),
             resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
             resourceStore: ShellResourceStore(directory: root.appendingPathComponent("resources")),
             world: { ShellWorldData() },

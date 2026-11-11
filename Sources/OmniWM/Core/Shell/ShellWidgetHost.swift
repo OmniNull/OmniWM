@@ -370,7 +370,6 @@ final class ShellWidgetHost {
     var onWidgetMenu: (@MainActor (ShellWidgetMenuRequest) -> Void)?
     var onToggleNamesChange: (@MainActor () -> Void)?
     var onWidgetsChange: (@MainActor () -> Void)?
-    var onRedraw: (@MainActor () -> Void)?
     var publishedToggleNames: [String] = []
     var publishedReport: IPCShellWidgetsQueryResult?
     var configProblems: [String] = []

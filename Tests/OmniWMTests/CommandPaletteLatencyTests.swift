@@ -69,12 +69,10 @@ import XCTest
         private func measure(shell useShell: Bool, run: Int) throws -> [Sample] {
             let fixture = CommandPaletteFocusFixture(initialMode: .commands)
             defer { fixture.cleanup() }
-            let host = useShell ? makePaletteHost(fixture.root) : nil
-            fixture.controller.workspaceBarManager.shellHost = host
-            defer { fixture.controller.workspaceBarManager.shellHost = nil }
-            if let host { fixture.palette.prewarmShell(host: host) }
+            if useShell { fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager) }
             let panel = try fixture.show(mode: .commands)
             fixture.palette.expandResults()
+            if !useShell { fixture.palette.presentation.shell?.onFailure?() }
             let shell = fixture.palette.presentation.shell
             XCTAssertEqual(shell != nil, useShell)
             var probe: ShellProbe?
@@ -126,6 +124,53 @@ import XCTest
                 }
             }
             return samples
+        }
+
+        func testOpenToFirstTree() throws {
+            var opens: [Bool: [Double]] = [:]
+            for run in 0 ..< Self.runs {
+                for prewarmed in run.isMultiple(of: 2) ? [true, false] : [false, true] {
+                    let fixture = CommandPaletteFocusFixture(initialMode: .commands)
+                    defer { fixture.cleanup() }
+                    if prewarmed {
+                        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
+                        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+                        try awaitPaletteTree(shell) { shell.hasTree }
+                    }
+                    let start = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+                    _ = try fixture.show(mode: .commands)
+                    let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+                    let stamp = Stamp()
+                    let committed = expectation(description: "The engine commits the opened palette's first tree")
+                    let placeholder = CommandPalettePresentation.searchPlaceholder(for: .commands)
+                    let chrome = shell.onTree
+                    shell.onTree = { [unowned shell] in
+                        chrome?()
+                        guard let field = shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.queryKey),
+                              shell.surface.text?.string(shell.surface.layout.core.content(of: field).placeholder)
+                              == placeholder
+                        else { return }
+                        shell.onTree = chrome
+                        ShellLayerScene.engineQueue.async {
+                            stamp.value.store(clock_gettime_nsec_np(CLOCK_UPTIME_RAW), ordering: .relaxed)
+                            committed.fulfill()
+                        }
+                    }
+                    wait(for: [committed], timeout: failureBound)
+                    let elapsed = stamp.value.load(ordering: .relaxed) - start
+                    if run > 0 { opens[prewarmed, default: []].append(Double(elapsed) / 1_000_000) }
+                }
+            }
+            for (prewarmed, milliseconds) in opens.sorted(by: { $0.key && !$1.key }) {
+                let record: [String: Any] = [
+                    "arm": prewarmed ? "warm" : "cold", "opens": milliseconds.count,
+                    "p50": percentile(milliseconds, 0.5), "p95": percentile(milliseconds, 0.95),
+                    "max": milliseconds.max() ?? 0
+                ]
+                print("PALETTE-OPEN", String(decoding: try JSONSerialization.data(
+                    withJSONObject: record, options: [.sortedKeys]
+                ), as: UTF8.self))
+            }
         }
 
         private func commit(_ shell: CommandPaletteShellPresenter, probe: ShellProbe, query: String) throws -> UInt64 {

@@ -122,7 +122,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     @ObservationIgnored var shellRowCache: [WindowToken: ShellCommandPaletteData.Row] = [:]
     @ObservationIgnored var shellCommandRowCache: [String: ShellCommandPaletteData.Row] = [:]
     @ObservationIgnored var shellHeaderCache: CommandPaletteShellHeader?
-    @ObservationIgnored weak var deferredShellHost: ShellWidgetHost?
+    @ObservationIgnored weak var deferredShellSource: WorkspaceBarManager?
 
     enum DismissReason {
         case cancel
@@ -227,9 +227,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         if presentation.panel == nil {
             presentation.create(controller: self)
         }
-        presentation.prepareShell(
-            host: wmController.workspaceBarManager.shellHost, controller: self, checksFiles: false
-        )
+        presentation.prepareShell(from: wmController.workspaceBarManager, controller: self, checksFiles: false)
         return presentation.panel
     }
 
@@ -425,8 +423,8 @@ extension CommandPaletteController {
         clipboardItems = []
         commandItems = []
         isClipboardHistoryEnabled = false
-        if let host = deferredShellHost {
-            prewarmShell(host: host)
+        if let source = deferredShellSource {
+            prewarmShell(from: source)
         }
     }
 

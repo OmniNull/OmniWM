@@ -162,11 +162,11 @@ extension ShellWidgetHost {
         appearanceDidChange()
     }
 
-    private var paletteTheme: ShellTheme {
+    static func paletteTheme(config: ShellConfig, accent: SettingsColor?, foreground: SettingsColor?) -> ShellTheme {
         var theme = config.theme
         let profile = config.barOverride
-        let accent = profile?.accentColor ?? (profile?.usesThemeColors == true ? nil : barColors.accent)
-        let foreground = profile?.textColor ?? (profile?.usesThemeColors == true ? nil : barColors.foreground)
+        let accent = profile?.accentColor ?? (profile?.usesThemeColors == true ? nil : accent)
+        let foreground = profile?.textColor ?? (profile?.usesThemeColors == true ? nil : foreground)
         for (role, color) in [(ShellRole.accent, accent), (.foreground, foreground)] {
             guard let color else { continue }
             let resolved = NSColor(deviceRed: color.red, green: color.green, blue: color.blue, alpha: color.alpha)
@@ -177,9 +177,11 @@ extension ShellWidgetHost {
     }
 
     private func refreshPalettes() {
-        let theme = paletteTheme
-        resources.palette.refresh(theme: theme, appearance: NSApplication.shared.effectiveAppearance)
-        resources.darkPalette.refresh(theme: theme, appearance: ShellPalette.darkAppearance)
+        resources.refreshPalettes(theme: Self.paletteTheme(
+            config: config,
+            accent: barColors.accent,
+            foreground: barColors.foreground
+        ))
     }
 
     func appearanceDidChange() {
@@ -192,7 +194,6 @@ extension ShellWidgetHost {
     func iconsDidChange() {
         closePopout()
         redrawInstances()
-        onRedraw?()
     }
 
     private func redrawInstances() {

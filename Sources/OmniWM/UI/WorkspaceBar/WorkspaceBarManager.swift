@@ -40,6 +40,9 @@ final class WorkspaceBarManager {
     private var hiddenBarJoin: HiddenBarPanelPlacement.Join?
     var shellHost: ShellWidgetHost?
     let shellPermissions = ShellNetworkPermissions()
+    var commandPaletteResources: ShellResources?
+    var commandPaletteColorsObserver: NSObjectProtocol?
+    var commandPaletteConfigCache: ShellConfig?
     var shellPermissionPrompts: ShellPermissionPrompts?
     private let configDirectory: URL
     lazy var shellConfiguration = ShellConfigurationCoordinator(
@@ -61,6 +64,12 @@ final class WorkspaceBarManager {
     var shellHiddenBarBitmaps: Set<String> = []
     var retiredShellHiddenBarBitmaps: Set<String> = []
     var menuBarHold: MenuBarAutohideHold?
+
+    isolated deinit {
+        if let commandPaletteColorsObserver {
+            NotificationCenter.default.removeObserver(commandPaletteColorsObserver)
+        }
+    }
 
     init(
         configDirectory: URL,

@@ -88,25 +88,31 @@ final class CommandPalettePanel {
         hostingView = view
     }
 
-    func prepareShell(host: ShellWidgetHost?, controller: CommandPaletteController, checksFiles: Bool) {
+    func prepareShell(from manager: WorkspaceBarManager?, controller: CommandPaletteController, checksFiles: Bool) {
         guard let panel, let container else { return }
-        if let shell, let host, shell.config == host.config,
-           !checksFiles || shell.fingerprint == host.commandPaletteFingerprint()
+        if let shell, let manager, shell.config == manager.commandPaletteConfig,
+           !checksFiles || shell.fingerprint == manager.commandPaletteFingerprint()
         {
             return
         }
         closeShell()
-        guard let source = host?.commandPaletteSource() else { return }
+        guard let manager, let source = manager.commandPaletteSource() ?? manager.commandPaletteSource(bundled: true)
+        else { return }
         let presenter = CommandPaletteShellPresenter(
             source: source,
             scale: panel.backingScaleFactor,
             fieldFrame: Self.fieldFrame(width: container.bounds.width)
-        )
+        ) { [weak manager] in
+            manager?.commandPaletteSource(bundled: true)
+        }
         presenter.onQuery = { [weak controller] query in
             guard let controller, controller.searchText != query else { return }
             controller.searchText = query
         }
         presenter.onCommand = { [weak controller] command in controller?.performShellCommand(command) }
+        presenter.onProblem = { failure in
+            Log.shell.error("The command palette widget reported: \(failure.localizedDescription)")
+        }
         presenter.onTree = { [weak self] in self?.applyShellChrome() }
         presenter.onWindowChange = { [weak controller] in controller?.publishShellData() }
         presenter.onFailure = { [weak self, weak controller] in
@@ -124,13 +130,14 @@ final class CommandPalettePanel {
     func showContent(shell useShell: Bool, controller: CommandPaletteController) {
         guard let panel else { return }
         if useShell, let shell {
-            guard !showsShell else { return }
-            showsShell = true
-            hostingView?.removeFromSuperview()
-            hostingView = nil
-            shell.chrome.isHidden = false
-            shell.setVisible(true)
-            applyShellChrome()
+            if !showsShell {
+                showsShell = true
+                hostingView?.removeFromSuperview()
+                hostingView = nil
+                shell.chrome.isHidden = false
+                shell.setVisible(true)
+                applyShellChrome()
+            }
             shell.focusField(in: panel)
             return
         }
@@ -140,6 +147,17 @@ final class CommandPalettePanel {
         shell?.setVisible(false)
         panel.hasShadow = true
         installHostingView(controller: controller)
+        guard let hostingView, controller.isVisible else { return }
+        hostingView.layoutSubtreeIfNeeded()
+        var pending = [NSView](hostingView.subviews)
+        while !pending.isEmpty {
+            let view = pending.removeFirst()
+            if let field = view as? NSTextField, field.acceptsFirstResponder {
+                panel.makeFirstResponder(field)
+                return
+            }
+            pending += view.subviews
+        }
     }
 
     func shellLayoutSize(expanded: Bool) -> CGSize {

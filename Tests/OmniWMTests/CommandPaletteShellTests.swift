@@ -104,16 +104,16 @@ final class CommandPaletteShellTests: XCTestCase {
         let presenter = try CommandPaletteShellPresenter(
             source: ShellCommandPaletteSource(
                 config: ShellConfig(),
+                bundled: true,
                 fingerprint: [:],
                 source: ShellRenderedWidget.bundledSource(ShellWidgetHost.commandPaletteWidget),
                 directories: [],
                 resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
-                resourceStore: ShellResourceStore(directory: directory),
                 permissions: ShellNetworkPermissions()
             ),
             scale: 2,
             fieldFrame: Self.fieldFrame
-        )
+        ) { nil }
         defer { presenter.close() }
         var reported: [String] = []
         presenter.onQuery = { reported.append($0) }
@@ -192,5 +192,86 @@ final class CommandPaletteShellTests: XCTestCase {
         let offset = layout.core.scrollOffset(of: container)
         widget.surface.reveal(key: above, within: CommandPaletteShellPresenter.resultsKey)
         XCTAssertEqual(layout.core.scrollOffset(of: container), offset)
+    }
+
+    func testBrokenStyleScriptFallsBackToTheBundledPalette() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let manager = fixture.controller.workspaceBarManager
+        let shellDirectory = manager.shellConfiguration.shellDirectory
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shellDirectory), [])
+        let config = ShellConfig.resolve(shellDirectory: shellDirectory)
+        let look = try XCTUnwrap(config.file("lib/look.luau"))
+        try "return {".write(to: look, atomically: true, encoding: .utf8)
+        manager.shellConfigurationSaved(config)
+        fixture.palette.prewarmShell(from: manager)
+        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+        try awaitPaletteTree(shell) { shell.fallback && shell.hasTree }
+        XCTAssertNotNil(shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.queryKey))
+        XCTAssertTrue(fixture.palette.presentation.shell === shell)
+    }
+
+    func testRepeatedRenderFailuresFallBackOnlyAtTheHostLimitAndResetOnSuccess() throws {
+        _ = NSApplication.shared
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let folder = root.appendingPathComponent("widgets/\(ShellWidgetHost.commandPaletteWidget)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let script = folder.appendingPathComponent("init.luau")
+        try """
+        function render(ctx) return ui.row{} end
+        function popout(ctx)
+            local m = ctx.data.commandPalette
+            if m and string.sub(m.query, 1, 4) == "fail" then error("palette test failure") end
+            return ui.column{ ui.input{ key = "query", text = if m then m.query else "" } }
+        end
+        """.write(to: script, atomically: true, encoding: .utf8)
+        let resources = ShellResources(motion: MotionPolicy(animationsEnabled: false))
+        func source(_ widget: ShellWidgetSource, bundled: Bool) -> ShellCommandPaletteSource {
+            ShellCommandPaletteSource(
+                config: ShellConfig(), bundled: bundled, fingerprint: [:], source: widget, directories: [],
+                resources: resources, permissions: ShellNetworkPermissions()
+            )
+        }
+        let failing = try ShellWidgetSourceLoader.build(.init(
+            name: ShellWidgetHost.commandPaletteWidget, shellDirectory: root, sourceURL: script,
+            directories: [root], profile: "default"
+        ))
+        let bundled = try ShellRenderedWidget.bundledSource(ShellWidgetHost.commandPaletteWidget)
+        let shell = CommandPaletteShellPresenter(
+            source: source(failing, bundled: false), scale: 2, fieldFrame: Self.fieldFrame
+        ) { source(bundled, bundled: true) }
+        defer { shell.close() }
+        try awaitPaletteTree(shell) { shell.hasTree }
+        var data = ShellCommandPaletteData()
+        data.open = true
+        func fail(_ query: String) {
+            let problem = expectation(description: "The widget reports the failure for \(query)")
+            shell.onProblem = { _ in problem.fulfill() }
+            data.query = query
+            shell.publish(data)
+            wait(for: [problem], timeout: failureBound)
+            shell.onProblem = nil
+        }
+
+        for attempt in 1 ..< ShellWidgetHost.failureLimit {
+            fail("fail \(attempt)")
+        }
+        XCTAssertFalse(shell.fallback)
+        data.query = "ok"
+        shell.publish(data)
+        try awaitPaletteTree(shell) { shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.queryKey)
+            .map { shell.surface.text?.string(shell.surface.layout.core.content(of: $0).text) } == "ok"
+        }
+        for attempt in 1 ..< ShellWidgetHost.failureLimit {
+            fail("fail again \(attempt)")
+        }
+        XCTAssertFalse(shell.fallback)
+        let bundledTree = expectation(description: "The bundled palette delivers its first tree")
+        shell.onTree = { bundledTree.fulfill() }
+        fail("fail at the limit")
+        XCTAssertTrue(shell.fallback)
+        wait(for: [bundledTree], timeout: failureBound)
+        XCTAssertNotNil(shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.queryKey))
     }
 }

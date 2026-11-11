@@ -55,16 +55,16 @@ extension CommandPaletteController {
         }
     }
 
-    func prewarmShell(host: ShellWidgetHost?) {
+    func prewarmShell(from source: WorkspaceBarManager?) {
         guard !isVisible else {
-            deferredShellHost = host
+            deferredShellSource = source
             return
         }
-        deferredShellHost = nil
+        deferredShellSource = nil
         if presentation.panel == nil {
             presentation.create(controller: self)
         }
-        presentation.prepareShell(host: host, controller: self, checksFiles: true)
+        presentation.prepareShell(from: source, controller: self, checksFiles: true)
     }
 
     func syncShellContent() {

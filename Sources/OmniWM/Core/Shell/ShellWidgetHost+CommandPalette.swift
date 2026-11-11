@@ -5,36 +5,37 @@ import Foundation
 
 struct ShellCommandPaletteSource {
     let config: ShellConfig
+    let bundled: Bool
     let fingerprint: [String: SettingsFileAccess.Fingerprint]
     let source: ShellWidgetSource
     let directories: [URL]
     let resources: ShellResources
-    let resourceStore: ShellResourceStore
     let permissions: ShellNetworkPermissions
-}
 
-extension ShellWidgetHost {
-    nonisolated static let commandPaletteWidget = "command-palette"
-
-    private var commandPaletteURL: URL? {
-        config.widget(Self.commandPaletteWidget) ?? ShellConfig.bundledWidget(Self.commandPaletteWidget)
+    static func fingerprint(config: ShellConfig, shellDirectory: URL) -> [String: SettingsFileAccess.Fingerprint] {
+        input(config: config, shellDirectory: shellDirectory, bundled: false).map {
+            ShellWidgetSourceLoader.fingerprint($0)
+        } ?? [:]
     }
 
-    func commandPaletteFingerprint() -> [String: SettingsFileAccess.Fingerprint] {
-        commandPaletteURL.map(fingerprint(of:)) ?? [:]
-    }
-
-    func commandPaletteSource() -> ShellCommandPaletteSource? {
-        guard let url = commandPaletteURL else { return nil }
-        let state = WidgetState(name: Self.commandPaletteWidget, sourceURL: url)
+    @MainActor
+    static func make(
+        config: ShellConfig,
+        shellDirectory: URL,
+        resources: ShellResources,
+        permissions: ShellNetworkPermissions,
+        bundled: Bool = false
+    ) -> ShellCommandPaletteSource? {
+        guard let input = input(config: config, shellDirectory: shellDirectory, bundled: bundled) else { return nil }
+        let fingerprint = fingerprint(config: config, shellDirectory: shellDirectory)
         do {
             return try ShellCommandPaletteSource(
                 config: config,
-                fingerprint: fingerprint(of: url),
-                source: widgetSource(of: state),
-                directories: folders(of: state),
+                bundled: input.sourceURL == ShellConfig.bundledWidget(ShellWidgetHost.commandPaletteWidget),
+                fingerprint: fingerprint,
+                source: ShellWidgetSourceLoader.build(input),
+                directories: [input.sourceURL.deletingLastPathComponent()] + config.directories,
                 resources: resources,
-                resourceStore: resourceStore,
                 permissions: permissions
             )
         } catch {
@@ -42,4 +43,24 @@ extension ShellWidgetHost {
             return nil
         }
     }
+
+    private static func input(
+        config: ShellConfig,
+        shellDirectory: URL,
+        bundled: Bool
+    ) -> ShellWidgetSourceLoader.Input? {
+        let name = ShellWidgetHost.commandPaletteWidget
+        guard let url = (bundled ? nil : config.widget(name)) ?? ShellConfig.bundledWidget(name) else { return nil }
+        return ShellWidgetSourceLoader.Input(
+            name: name,
+            shellDirectory: shellDirectory,
+            sourceURL: url,
+            directories: config.directories,
+            profile: config.profile
+        )
+    }
+}
+
+extension ShellWidgetHost {
+    nonisolated static let commandPaletteWidget = "command-palette"
 }

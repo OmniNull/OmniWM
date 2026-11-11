@@ -24,6 +24,11 @@ final class ShellResources {
     private var icons: [String: NSImage?] = [:]
     private var bitmaps: [String: CGImage] = [:]
 
+    func refreshPalettes(theme: ShellTheme) {
+        palette.refresh(theme: theme, appearance: NSApplication.shared.effectiveAppearance)
+        darkPalette.refresh(theme: theme, appearance: ShellPalette.darkAppearance)
+    }
+
     init(
         motion: MotionPolicy,
         appVolumes: AppVolumeMixer? = nil,

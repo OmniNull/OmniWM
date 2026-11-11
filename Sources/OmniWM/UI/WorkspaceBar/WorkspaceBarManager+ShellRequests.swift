@@ -228,14 +228,17 @@ extension WorkspaceBarManager {
 
     func refreshShellAppearance() {
         shellHost?.appearanceDidChange()
+        refreshCommandPaletteAppearance()
     }
 
     func refreshShellIcons() {
         shellHost?.iconsDidChange()
+        controller?.commandPaletteController.presentation.shell?.redraw()
     }
 
     func refreshShellBarColors(_ settings: SettingsStore) {
         shellHost?.setBarColors(accent: settings.workspaceBar.accentColor, foreground: settings.workspaceBar.textColor)
+        refreshCommandPaletteAppearance()
     }
 
     func refreshShellShaders() {

@@ -26,6 +26,7 @@ final class CommandPaletteShellPresenter {
     var onQuery: (@MainActor (String) -> Void)?
     var onCommand: (@MainActor (String) -> Void)?
     var onFailure: (@MainActor () -> Void)?
+    var onProblem: (@MainActor (ShellScriptFailure) -> Void)?
     var onTree: (@MainActor () -> Void)?
     var onWindowChange: (@MainActor () -> Void)?
     private(set) var rowWindow = CommandPaletteRowWindow()
@@ -49,16 +50,24 @@ final class CommandPaletteShellPresenter {
     private var lastNodes: [UInt8] = []
     private var lastSequence = 0
     private var drawn: ShellCommandPaletteData?
+    private(set) var fallback: Bool
+    private let bundled: @MainActor () -> ShellCommandPaletteSource?
+    private var outbox: ShellWidgetOutbox?
+    private var generation = 0
+    private var failures = 0
 
     init(
         source: ShellCommandPaletteSource,
         scale: CGFloat,
         fieldFrame: CGRect,
         onNetworkApprovals: @escaping ([ShellNetworkApproval]) -> Void = { _ in },
-        onProviderApprovals: @escaping ([ShellProviderApproval]) -> Void = { _ in }
+        onProviderApprovals: @escaping ([ShellProviderApproval]) -> Void = { _ in },
+        bundled: @escaping @MainActor () -> ShellCommandPaletteSource?
     ) {
         config = source.config
         fingerprint = source.fingerprint
+        fallback = source.bundled
+        self.bundled = bundled
         self.onNetworkApprovals = onNetworkApprovals
         self.onProviderApprovals = onProviderApprovals
         self.fieldFrame = fieldFrame
@@ -72,21 +81,10 @@ final class CommandPaletteShellPresenter {
         surface.onMove = { [weak self] in
             self?.scrolled()
         }
-        let outbox = ShellWidgetOutbox { [weak self] batch in
+        outbox = ShellWidgetOutbox { [weak self] batch in
             self?.receive(batch)
         }
-        let package = ShellWidgetPackage(
-            name: ShellWidgetHost.commandPaletteWidget,
-            generation: 0,
-            outbox: outbox,
-            permissions: source.permissions,
-            resourceStore: source.resourceStore,
-            retireResourceImages: { [images = source.resources.resourceImages] owner in await images?.retire(owner) }
-        )
-        self.package = package
-        let mailbox = startWorker(package, source: source.source)
-        mailbox.yield(.bars([key: ShellBarData()]))
-        mailbox.yield(.popout(key, true))
+        start(source)
     }
 
     isolated deinit {
@@ -128,12 +126,39 @@ final class CommandPaletteShellPresenter {
     }
 
     func focusField(in window: NSWindow) {
+        guard window.firstResponder !== field.textEditor else { return }
         window.makeFirstResponder(field.responder)
     }
 
     func close() {
         guard !closed else { return }
         closed = true
+        retirePackage()
+        surface.onAction = nil
+        chrome.removeFromSuperview()
+    }
+
+    private func start(_ source: ShellCommandPaletteSource) {
+        guard let outbox else { return }
+        let package = ShellWidgetPackage(
+            name: ShellWidgetHost.commandPaletteWidget,
+            generation: generation,
+            outbox: outbox,
+            permissions: source.permissions,
+            retireResourceImages: { [images = source.resources.resourceImages] owner in await images?.retire(owner) }
+        )
+        self.package = package
+        let mailbox = startWorker(package, source: source.source, generation: generation)
+        mailbox.yield(.bars([key: ShellBarData()]))
+        mailbox.yield(.popout(key, true))
+        if let published {
+            var widgetData = ShellWidgetData()
+            widgetData.commandPalette = published
+            mailbox.yield(.update(widgetData))
+        }
+    }
+
+    private func retirePackage() {
         ShellWidgetHost.retireTraceCapture(package)
         mailbox?.finish()
         mailbox = nil
@@ -141,12 +166,10 @@ final class CommandPaletteShellPresenter {
         worker = nil
         ShellWidgetHost.close(package)
         package = nil
-        surface.onAction = nil
-        chrome.removeFromSuperview()
     }
 
     private func startWorker(
-        _ package: ShellWidgetPackage, source: ShellWidgetSource
+        _ package: ShellWidgetPackage, source: ShellWidgetSource, generation: Int
     ) -> AsyncStream<ShellWidgetMessage>.Continuation {
         let retiring = Array(ShellWidgetHost.retiringTasks.values)
         let (messages, mailbox) = AsyncStream.makeStream(of: ShellWidgetMessage.self)
@@ -161,8 +184,8 @@ final class CommandPaletteShellPresenter {
             guard !Task.isCancelled else { await package.close()
                 return
             }
-            if await package.load(source) != nil {
-                await self?.fail()
+            if let failure = await package.load(source) {
+                await self?.loadFailed(failure, generation: generation)
             } else {
                 for await message in messages {
                     guard !Task.isCancelled else { break }
@@ -214,17 +237,17 @@ final class CommandPaletteShellPresenter {
     }
 
     private func receive(_ batch: [String: ShellWidgetDelivery]) {
-        guard !closed, let delivery = batch[ShellWidgetHost.commandPaletteWidget] else { return }
+        guard !closed, let delivery = batch[ShellWidgetHost.commandPaletteWidget],
+              delivery.generation == generation
+        else { return }
         if !delivery.networkApprovals.isEmpty { onNetworkApprovals(delivery.networkApprovals) }
         if !delivery.providerApprovals.isEmpty { onProviderApprovals(delivery.providerApprovals) }
-        guard delivery.failure == nil else {
-            fail()
-            return
-        }
         let treeKey = ShellTreeKey(bar: key, view: .popout)
         let acknowledgement = delivery.acknowledgements[treeKey]?.invocationID ?? 0
+        if let failure = delivery.failure { onProblem?(failure) }
         guard let tree = delivery.trees[treeKey] else {
             surface.acknowledgeGesture(through: acknowledgement)
+            if delivery.failure != nil { countFailure(delivery.failure) }
             return
         }
         let anchor = visibleAnchor()
@@ -238,9 +261,11 @@ final class CommandPaletteShellPresenter {
         text.ingest(delivery.strings, count: delivery.stringCount)
         surface.sequence = tree.sequence
         guard surface.apply(tree.nodes, text: text, gestureAcknowledgement: acknowledgement, keeping: anchor) else {
-            fail()
+            applying = false
+            countFailure(nil)
             return
         }
+        if delivery.failure == nil { failures = 0 }
         lastNodes = tree.nodes
         lastSequence = tree.sequence
         applied()
@@ -286,6 +311,33 @@ final class CommandPaletteShellPresenter {
 }
 
 extension CommandPaletteShellPresenter {
+    private func loadFailed(_ failure: ShellScriptFailure, generation: Int) {
+        guard !closed, generation == self.generation else { return }
+        onProblem?(failure)
+        fallBack(failure)
+    }
+
+    private func countFailure(_ failure: ShellScriptFailure?) {
+        failures += 1
+        if failures >= ShellWidgetHost.failureLimit { fallBack(failure) }
+    }
+
+    private func fallBack(_ failure: ShellScriptFailure?) {
+        guard !fallback, let source = bundled() else {
+            fail()
+            return
+        }
+        let reason = failure?.localizedDescription ?? "its tree could not be applied"
+        Log.shell.error("The command palette style failed (\(reason)); using the bundled palette")
+        fallback = true
+        surface.cancelInput()
+        retirePackage()
+        generation += 1
+        failures = 0
+        epoch = nil
+        start(source)
+    }
+
     private func visibleAnchor() -> ShellScrollAnchor? {
         guard let container = surface.layout.handle(forKey: Self.resultsKey) else { return nil }
         let row = firstVisibleRow(in: container)
