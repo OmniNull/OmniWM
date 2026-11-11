@@ -1488,7 +1488,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertNotEqual(leavingAStack.home, .origin)
     }
 
-    func testAWindowLeavingAStackKeepsItsNarrowLandingGap() throws {
+    func testAWindowLeavingAStackClosesItsPlaceAndKeepsADropSpaceOpen() throws {
         var fixture = makeFixture()
         fixture.engine.liveHoverDelay = 10
         fixture.engine.liveCentreStackDelay = 10
@@ -1500,13 +1500,21 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         _ = fixture.move(to: CGPoint(x: fixture.stripColumn(stack).maxX + 20, y: y), at: 1)
         let left = try XCTUnwrap(fixture.move)
-        XCTAssertNotEqual(left.home, .stackSlot)
-        XCTAssertNotEqual(left.home, .origin)
+        XCTAssertEqual(left.home, .origin)
+        XCTAssertEqual(left.originClosedToward, .after)
         let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: left))
         XCTAssertFalse(home === stack)
+        XCTAssertEqual(fixture.stripColumn(home).width, -fixture.gap, accuracy: 0.5)
+        XCTAssertNotNil(fixture.engine.liveDropSpace(for: left))
 
         _ = fixture.move(to: CGPoint(x: fixture.stripColumn(stack).maxX + 400, y: y), at: 1)
-        XCTAssertGreaterThan(fixture.stripColumn(home).width, 0)
+        XCTAssertEqual(fixture.stripColumn(home).width, -fixture.gap, accuracy: 0.5)
+        let dropSpace = try XCTUnwrap(fixture.move.flatMap { fixture.engine.liveDropSpace(for: $0) })
+        XCTAssertEqual(
+            fixture.stripColumn(dropSpace).width,
+            fixture.engine.liveDropSpaceWidth(context: fixture.context),
+            accuracy: 0.5
+        )
     }
 
     func testAWindowLeavesItsStackOnceFortyPercentOfItIsOutside() throws {
@@ -1559,12 +1567,12 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         let left = try XCTUnwrap(fixture.move)
         XCTAssertNotEqual(left.home, .stackSlot)
-        let home = fixture.stripColumn(try XCTUnwrap(fixture.engine.liveDraggedColumn(for: left)))
-        XCTAssertEqual(home.maxX, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
-        XCTAssertEqual(fixture.stripColumn(stack).maxX, placed.maxX - home.width - fixture.gap, accuracy: 0.5)
+        let dropSpace = fixture.stripColumn(try XCTUnwrap(fixture.engine.liveDropSpace(for: left)))
+        XCTAssertEqual(dropSpace.maxX, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
+        XCTAssertEqual(fixture.stripColumn(stack).maxX, placed.maxX - dropSpace.width - fixture.gap, accuracy: 0.5)
     }
 
-    func testTheGapBesideAStackClosesWhileAHintHoldsTheWindowPulledOutOfIt() throws {
+    func testTheDropSpaceBesideAStackClosesWhileAHintHoldsTheWindowPulledOutOfIt() throws {
         for (trailing, tabbed) in [(true, false), (false, false), (true, true)] {
             let label = "trailing=\(trailing) tabbed=\(tabbed)"
             var fixture = makeFixture()
@@ -1575,15 +1583,17 @@ final class NiriFreeStyleStackTests: XCTestCase {
             try pullOutOfStack(&fixture, trailing: trailing, tabbed: tabbed)
             let stack = fixture.column(2)
             let beyond = fixture.column(trailing ? 4 : 1)
-            let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: XCTUnwrap(fixture.move)))
-            XCTAssertTrue(home.isLiveHomeSpot, label)
-            let open = fixture.stripColumn(home).width
-            XCTAssertGreaterThan(open, 0, label)
+            XCTAssertNotNil(fixture.move?.dropSpaceId, label)
+            let open = fixture.engine.liveDropSpaceWidth(context: fixture.context)
+            XCTAssertEqual(
+                fixture.gapBetween(stack, beyond, trailing: trailing), open + 2 * fixture.gap, accuracy: 0.5, label
+            )
             let stackMinX = fixture.stripColumn(stack).minX
 
             fixture.openHint(over: 2, upper: true)
 
             XCTAssertEqual(fixture.move?.showsLandingHint, true, label)
+            XCTAssertNil(fixture.move?.dropSpaceId, label)
             XCTAssertEqual(fixture.stripColumn(stack).minX, stackMinX, accuracy: 0.5, label)
             XCTAssertEqual(
                 fixture.gapBetween(stack, beyond, trailing: trailing), fixture.gap, accuracy: 0.5, label
@@ -1592,39 +1602,22 @@ final class NiriFreeStyleStackTests: XCTestCase {
             _ = fixture.move(to: fixture.side(of: 2, leading: trailing), at: 3)
 
             XCTAssertNotEqual(fixture.move?.showsLandingHint, true, label)
-            XCTAssertEqual(fixture.stripColumn(home).width, open, accuracy: 0.5, label)
             XCTAssertEqual(fixture.stripColumn(stack).minX, stackMinX, accuracy: 0.5, label)
             XCTAssertEqual(
-                fixture.gapBetween(stack, beyond, trailing: trailing), open + 2 * fixture.gap, accuracy: 0.5, label
+                fixture.gapBetween(stack, beyond, trailing: trailing), fixture.gap, accuracy: 0.5, label
             )
         }
     }
 
-    func testTheGapBesideAStackKeepsTheDropSpaceWidthUnderTheStackModifier() throws {
+    func testReleasingOverTheHintStacksTheWindowAndPutsTheStripBackAsBeforeTheDrag() throws {
         var fixture = makeFixture()
         fixture.engine.liveHoverDelay = 10
-        try pullOutOfStack(&fixture, trailing: true, tabbed: false)
-        let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: XCTUnwrap(fixture.move)))
-        let open = fixture.stripColumn(home).width
-        fixture.openHint(over: 2, upper: true)
-        XCTAssertEqual(fixture.move?.showsLandingHint, true)
-
-        XCTAssertEqual(fixture.setStackMode(true, at: fixture.centre(of: 2, upper: true)), .changed)
-
-        XCTAssertNotEqual(fixture.move?.showsLandingHint, true)
-        XCTAssertNotNil(fixture.move?.landing)
-        XCTAssertEqual(fixture.stripColumn(home).width, open, accuracy: 0.5)
-    }
-
-    func testReleasingOverTheHintStacksTheWindowWithNothingElseMoving() throws {
-        var fixture = makeFixture()
-        fixture.engine.liveHoverDelay = 10
-        try pullOutOfStack(&fixture, trailing: true, tabbed: false)
+        let before = try pullOutOfStack(&fixture, trailing: true, tabbed: false)
         let stack = fixture.column(2)
         let beyond = fixture.column(4)
         fixture.openHint(over: 2, upper: true)
-        let stackMinX = fixture.stripColumn(stack).minX
-        let beyondMinX = fixture.stripColumn(beyond).minX
+        let stackMinX = try XCTUnwrap(before[stack.id])
+        let beyondMinX = try XCTUnwrap(before[beyond.id])
 
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
@@ -1635,13 +1628,19 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.isLiveHomeSpot })
     }
 
-    private func pullOutOfStack(_ fixture: inout Fixture, trailing: Bool, tabbed: Bool) throws {
+    @discardableResult
+    private func pullOutOfStack(_ fixture: inout Fixture, trailing: Bool, tabbed: Bool) throws -> [NodeId: CGFloat] {
         fixture.stack(3, onto: 2)
         let stack = fixture.column(2)
         if tabbed {
             stack.displayMode = .tabbed
             fixture.engine.updateTabbedColumnVisibility(column: stack)
         }
+        let before = Dictionary(
+            fixture.engine.liveColumnStrip(context: fixture.context, state: fixture.state)
+                .map { ($0.column.id, $0.minX) },
+            uniquingKeysWith: { first, _ in first }
+        )
         let pulled = fixture.window(3)
         XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
             windowId: pulled.id,
@@ -1654,9 +1653,10 @@ final class NiriFreeStyleStackTests: XCTestCase {
         let x = trailing ? placed.maxX + 20 : placed.minX - 20
         _ = fixture.move(to: CGPoint(x: x, y: fixture.frame.midY), at: 1)
         XCTAssertNotEqual(try XCTUnwrap(fixture.move).home, .stackSlot)
+        return before
     }
 
-    func testATabPulledOutKeepsItsNarrowLandingGap() throws {
+    func testATabPulledOutClosesItsPlaceAndKeepsADropSpaceOpen() throws {
         var fixture = makeFixture()
         fixture.engine.liveHoverDelay = 10
         fixture.engine.liveCentreStackDelay = 10
@@ -1677,11 +1677,13 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         _ = fixture.move(to: CGPoint(x: fixture.stripColumn(tabs).maxX + 20, y: y), at: 1)
         let pulledOut = try XCTUnwrap(fixture.move)
-        XCTAssertNotEqual(pulledOut.home, .origin)
+        XCTAssertEqual(pulledOut.home, .origin)
         let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: pulledOut))
+        XCTAssertEqual(fixture.stripColumn(home).width, -fixture.gap, accuracy: 0.5)
 
         _ = fixture.move(to: CGPoint(x: fixture.stripColumn(tabs).maxX + 400, y: y), at: 1)
-        XCTAssertGreaterThan(fixture.stripColumn(home).width, 0)
+        XCTAssertEqual(fixture.stripColumn(home).width, -fixture.gap, accuracy: 0.5)
+        XCTAssertNotNil(fixture.move.flatMap { fixture.engine.liveDropSpace(for: $0) })
     }
 
     func testMacOSFusionTurnsLearnedMinimumWidthAnimationOnAndOff() {

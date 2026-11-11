@@ -25,9 +25,7 @@ extension NiriLayoutEngine {
         move: inout LiveColumnMove,
         context: NiriInteractionContext
     ) -> LiveColumnMove.SlotResize? {
-        guard let placement = liveHomePlacement(of: move, in: strip, context: context),
-              move.home == .origin
-        else { return nil }
+        guard let placement = liveHomePlacement(of: move, in: strip, context: context) else { return nil }
         let span = originLiveSlotSpan(
             placement.placed,
             slot: move.narrowedSlot,
@@ -37,7 +35,7 @@ extension NiriLayoutEngine {
             context: context
         )
         move.originClosedToward = span.closedToward
-        return liveSlotResize(placement, minX: span.minX, width: span.width, allowsGrowth: true)
+        return liveSlotResize(placement, minX: span.minX, width: span.width)
     }
 
     private func originLiveSlotSpan(
@@ -64,59 +62,35 @@ extension NiriLayoutEngine {
         return (shift > 0 ? originMinX + cut : originMinX, fullWidth - cut, closed)
     }
 
-    func livePassed(
-        _ target: NiriContainer,
-        side: LiveColumnMove.Side,
-        strip: [LiveColumnMove.StripColumn],
-        cursor: CGPoint
-    ) -> LiveColumnMove.Passed? {
-        guard let placed = strip.first(where: { $0.column === target }) else { return nil }
-        let distance = max(placed.width * MoveConfiguration.liveWayBackShare, MoveConfiguration.liveWayBackMinimum)
-        return .init(columnId: target.id, furthestX: cursor.x, wayBack: side == .after ? -distance : distance)
-    }
-
-    func liveNarrowingDecision(
-        strip: [LiveColumnMove.StripColumn],
-        move: LiveColumnMove,
-        context: NiriInteractionContext
-    ) -> LiveColumnMove.SlotResize? {
-        guard let placement = liveHomePlacement(of: move, in: strip, context: context),
-              move.home == .moving
-        else { return nil }
-        let placed = placement.placed
-        let width = liveDropSpaceWidth(context: context)
-        let bounds: ClosedRange<CGFloat>
-        if placed.maxX <= context.workingFrame.minX {
-            bounds = placed.maxX - width ... placed.maxX
-        } else if placed.minX >= context.workingFrame.maxX {
-            bounds = placed.minX ... placed.minX + width
-        } else {
-            return nil
-        }
-        return liveSlotResize(
-            placement,
-            minX: bounds.lowerBound,
-            width: bounds.upperBound - bounds.lowerBound,
-            allowsGrowth: false
-        )
-    }
-
     private func liveSlotResize(
         _ placement: (home: NiriContainer, placed: LiveColumnMove.StripColumn),
         minX: CGFloat,
-        width: CGFloat,
-        allowsGrowth: Bool
+        width: CGFloat
     ) -> LiveColumnMove.SlotResize? {
-        let placedWidth = placement.placed.width
-        let changes = allowsGrowth ? abs(width - placedWidth) > 0.5 : width < placedWidth - 0.5
-        guard changes else { return nil }
-        return .init(
-            home: placement.home,
-            placed: placement.placed,
-            minX: minX,
-            width: width,
-            allowsGrowth: allowsGrowth
+        guard abs(width - placement.placed.width) > 0.5 else { return nil }
+        return .init(home: placement.home, placed: placement.placed, minX: minX, width: width)
+    }
+
+    func closeLivePlace(
+        _ column: NiriContainer,
+        toward side: LiveColumnMove.Side,
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext
+    ) {
+        column.liveSlotWidth = nil
+        column.cachedWidth = 0
+        resolvePrimaryContainerSpans(
+            in: context.workspaceId,
+            workingFrame: context.workingFrame,
+            gaps: context.gaps,
+            orientation: context.orientation
         )
+        let fullWidth = column.cachedWidth
+        let closedCut = max(0, fullWidth + context.gaps)
+        move.narrowedSlot = .init(columnId: column.id, fullWidth: fullWidth, leftCut: side == .after ? closedCut : 0)
+        move.originClosedToward = side
+        column.liveSlotWidth = fullWidth - closedCut
+        column.cachedWidth = fullWidth - closedCut
     }
 
     func placeLiveSlot(
@@ -126,7 +100,6 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) -> [LiveColumnMove.StripColumn]? {
         let home = resize.home
-        let placedWidth = resize.placed.width
         guard var move = liveColumnMove else { return nil }
         let unchanged = (move: move, slotWidth: home.liveSlotWidth, cachedWidth: home.cachedWidth, state: state)
         let leftCut = resize.minX - resize.placed.minX
@@ -144,9 +117,7 @@ extension NiriLayoutEngine {
         let after = primaryPositions(context: context, state: state)
         state.rebaseOffset(by: -((after[active.id] ?? 0) - (before[active.id] ?? 0)) - leftCut)
         let stripAfter = liveColumnStrip(context: context, state: state)
-        guard let placedHome = stripAfter.first(where: { $0.column === home }),
-              resize.allowsGrowth || placedHome.width < placedWidth - 0.5
-        else {
+        guard stripAfter.contains(where: { $0.column === home }) else {
             liveColumnMove = unchanged.move
             home.liveSlotWidth = unchanged.slotWidth
             home.cachedWidth = unchanged.cachedWidth

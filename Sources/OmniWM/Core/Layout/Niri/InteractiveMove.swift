@@ -35,8 +35,6 @@ struct MoveConfiguration {
     static let liveHoverDelay: TimeInterval = 0.2
     static let liveSlowDownWindow: TimeInterval = 0.06
     static let liveSlowDownDistance: CGFloat = 6.0
-    static let liveWayBackShare: CGFloat = 1.0 / 3.0
-    static let liveWayBackMinimum: CGFloat = 60.0
     static let liveDropSpaceShare: CGFloat = 0.05
     static let liveDropSpaceMaximumWidth: CGFloat = 200.0
     static let liveEdgeZoneShare: CGFloat = 0.03

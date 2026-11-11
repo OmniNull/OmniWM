@@ -67,19 +67,12 @@ struct LiveColumnMove {
         let placed: StripColumn
         let minX: CGFloat
         let width: CGFloat
-        let allowsGrowth: Bool
-    }
-
-    enum SpotMove {
-        case carried
-        case homeSpot(removing: NiriContainer?, pinning: NiriContainer)
     }
 
     struct Reorder {
         enum Kind {
             case closeDropSpace(NiriContainer, revealsHome: Bool)
-            case carried
-            case openDropSpace(existing: NiriContainer?, beside: NiriContainer, triesHomeSpot: Bool)
+            case openDropSpace(existing: NiriContainer?, beside: NiriContainer)
         }
 
         let dragged: NiriContainer
@@ -93,7 +86,7 @@ struct LiveColumnMove {
         case nothing
         case hovering(until: TimeInterval)
         case placeStackLanding(LandingSlot?)
-        case leaveStack(towardTrailingSide: Bool, revealsToEdgeOnly: Bool)
+        case leaveStack(towardTrailingSide: Bool)
         case moveInStack(NiriWindow, home: NiriContainer, index: Int)
         case closeHint
         case showHint(LandingSlot, tracesRefusal: Bool)
@@ -121,10 +114,9 @@ struct LiveColumnMove {
         let strip: [StripColumn]
         var closing: SlotResize?
         var action: Action = .nothing
-        var narrowing: SlotResize?
 
         var passiveStep: Step? {
-            guard closing == nil, narrowing == nil else { return nil }
+            guard closing == nil else { return nil }
             return action.passiveStep
         }
     }
@@ -153,24 +145,6 @@ struct LiveColumnMove {
         let columnId: NodeId
         let fullWidth: CGFloat
         var leftCut: CGFloat
-    }
-
-    struct Passed: Equatable {
-        let columnId: NodeId
-        let furthestX: CGFloat
-        let wayBack: CGFloat
-
-        func hasComeBack(at x: CGFloat) -> Bool {
-            wayBack < 0 ? x <= furthestX + wayBack : x >= furthestX + wayBack
-        }
-
-        func extended(to x: CGFloat) -> Passed {
-            .init(
-                columnId: columnId,
-                furthestX: wayBack < 0 ? max(furthestX, x) : min(furthestX, x),
-                wayBack: wayBack
-            )
-        }
     }
 
     struct KeptWidths: Equatable {
@@ -203,7 +177,6 @@ struct LiveColumnMove {
     enum Home: Equatable {
         case origin
         case stackSlot
-        case moving
     }
 
     struct PointerHold: Equatable {
@@ -342,7 +315,6 @@ struct LiveColumnMove {
     var pointerHold: PointerHold?
     var floatingFrame: CGRect?
     var narrowedSlot: NarrowedSlot?
-    var passed: Passed?
     var carry: Carry?
 
     var showsLandingHint: Bool {
@@ -374,6 +346,6 @@ struct LiveColumnMove {
 
     mutating func setHome(columnId: NodeId, inStack: Bool) {
         homeColumnId = columnId
-        home = inStack ? .stackSlot : carry == nil && columnId == originalSlot.columnId ? .origin : .moving
+        home = inStack ? .stackSlot : .origin
     }
 }

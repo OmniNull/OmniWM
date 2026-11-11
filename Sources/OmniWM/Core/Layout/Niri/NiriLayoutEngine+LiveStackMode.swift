@@ -53,7 +53,6 @@ extension NiriLayoutEngine {
             return performLiveAction(
                 liveStackDecision(cursor: cursor, strip: strip, move: &move, context: context),
                 pointer: .init(cursor: cursor, time: nil),
-                strip: strip,
                 move: &move,
                 context: context,
                 state: &state
@@ -376,9 +375,7 @@ extension NiriLayoutEngine {
         let target = landing.flatMap { liveColumn(withId: $0.slot.columnId, in: move.workspaceId) }
         let affected = [source, target ?? home]
         let hint = landing?.isHint == true
-        let homeSpotWidth = liveHomeSpotWidth(home, closed: hint && target != nil, move: move, context: context)
-        let anchor = homeSpotWidth == nil ? home : target ?? source
-        retargetActiveColumn(to: anchor, context: context, state: &state)
+        retargetActiveColumn(to: home, context: context, state: &state)
         let columnsBefore = primaryPositions(context: context, state: state)
         let wasDeferred = window.defersMinimumWidth
         let placed = slideLiveWindows(in: affected, skipping: window, context: context) {
@@ -388,10 +385,6 @@ extension NiriLayoutEngine {
             restoreLiveMateHeight(&move)
             guard relocateLiveWindow(window, to: landing?.slot, from: source, move: &move, context: context) else {
                 return false
-            }
-            if let homeSpotWidth {
-                home.width = .fixed(homeSpotWidth)
-                home.cachedWidth = 0
             }
             shareLiveColumn(target, with: window, move: &move)
             keepLiveColumnWidths(landing: landing != nil, move: &move)
@@ -405,31 +398,8 @@ extension NiriLayoutEngine {
             return false
         }
         move.landing = landing
-        if homeSpotWidth == nil {
-            animateLiveColumnChange(from: columnsBefore, anchoredOn: anchor, context: context, state: &state)
-        } else {
-            animateLivePinnedChange(from: columnsBefore, pinning: anchor, context: context, state: &state)
-        }
+        animateLiveColumnChange(from: columnsBefore, anchoredOn: home, context: context, state: &state)
         return true
-    }
-
-    private func liveHomeSpotWidth(
-        _ home: NiriContainer,
-        closed: Bool,
-        move: LiveColumnMove,
-        context: NiriInteractionContext
-    ) -> CGFloat? {
-        guard home.isLiveHomeSpot,
-              move.carry == nil,
-              move.home != .origin,
-              case let .fixed(width) = home.width
-        else { return nil }
-        let closedWidth = -context.gaps
-        let isClosed = abs(width - closedWidth) < 0.5
-        if closed {
-            return isClosed ? nil : closedWidth
-        }
-        return isClosed ? liveDropSpaceWidth(context: context) : nil
     }
 
     private func shareLiveColumn(_ column: NiriContainer?, with window: NiriWindow, move: inout LiveColumnMove) {
@@ -604,7 +574,6 @@ extension NiriLayoutEngine {
             home.cachedWidth = 0
             return
         }
-        guard move.homeColumnId == move.originalSlot.columnId else { return }
         home.isLiveHomeSpot = false
         restoreLiveSizing(move.ownSizing, to: home)
     }

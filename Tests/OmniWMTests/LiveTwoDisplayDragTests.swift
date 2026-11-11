@@ -6,39 +6,40 @@ import CoreGraphics
 import XCTest
 
 extension CrossDisplayDragTests {
-    func testCrossingClosesTheWindowsPlaceAndOpensItsNarrowLandingBesideTheColumnUnderThePointer() throws {
+    func testCrossingClosesTheWindowsPlaceAndOpensADropSpaceBesideTheColumnUnderThePointer() throws {
         let drag = try startLiveTwoDisplayDrag()
         let fixture = drag.fixture
 
-        let point = try dragOnto(drag.residents[0], .right, drag)
+        try dragOnto(drag.residents[0], .right, drag)
 
         XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
-        XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.target)
-        XCTAssertEqual(fixture.niri.liveColumnMove?.carry?.originalWorkspaceId, fixture.source)
+        let move = try XCTUnwrap(fixture.niri.liveColumnMove)
+        XCTAssertEqual(move.workspaceId, fixture.target)
+        XCTAssertEqual(move.carry?.originalWorkspaceId, fixture.source)
+        XCTAssertEqual(move.home, .origin)
+        XCTAssertNotNil(move.originClosedToward)
         XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.target)
         XCTAssertEqual(fixture.columns(fixture.source), [[drag.neighbour]])
-        XCTAssertEqual(fixture.columns(fixture.target), [[drag.residents[0]], [drag.moved]])
-        XCTAssertNil(fixture.niri.liveColumnMove?.dropSpaceId)
-        let column = try XCTUnwrap(carriedColumn(drag))
+        XCTAssertEqual(fixture.columns(fixture.target), [[drag.residents[0]], [drag.moved], []])
         let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
-        let narrow = fixture.niri.liveDropSpaceWidth(context: context)
-        XCTAssertEqual(column.width, .fixed(narrow))
-        let placed = try XCTUnwrap(fixture.niri.liveColumnStrip(
+        let strip = fixture.niri.liveColumnStrip(
             context: context,
             state: fixture.manager.niriViewportState(for: fixture.target)
-        ).first { $0.column === column })
-        XCTAssertEqual(placed.maxX - placed.minX, narrow, accuracy: 0.5)
+        )
+        let column = try XCTUnwrap(carriedColumn(drag))
+        XCTAssertFalse(column.isLiveHomeSpot)
+        let placed = try XCTUnwrap(strip.first { $0.column === column })
+        XCTAssertEqual(placed.maxX - placed.minX, -context.gaps, accuracy: 0.5)
+        let dropSpace = try XCTUnwrap(fixture.niri.liveDropSpace(for: move))
+        let space = try XCTUnwrap(strip.first { $0.column === dropSpace })
+        XCTAssertEqual(space.maxX - space.minX, fixture.niri.liveDropSpaceWidth(context: context), accuracy: 0.5)
         let display = fixture.monitors[1].frame
-        XCTAssertTrue(placed.minX >= display.minX && placed.maxX <= display.maxX)
-        let under = try XCTUnwrap(fixture.niri.liveColumnStrip(
-            context: context,
-            state: fixture.manager.niriViewportState(for: fixture.target)
-        ).first { $0.contains(x: point.x) })
-        XCTAssertEqual(under.column.windowNodes.map(\.token), [drag.residents[0]])
-        XCTAssertGreaterThanOrEqual(placed.minX, under.maxX)
+        XCTAssertTrue(space.minX >= display.minX && space.maxX <= display.maxX)
+        let under = try XCTUnwrap(strip.first { $0.column.windowNodes.first?.token == drag.residents[0] })
+        XCTAssertEqual(space.minX, under.maxX + context.gaps, accuracy: 0.5)
     }
 
-    func testAnEdgeHopAfterACarryMovesTheCarriedWindowAndOpensNoSecondGap() throws {
+    func testAnEdgeHopAfterACarryMovesTheDropSpaceAndOpensNoSecondGap() throws {
         let drag = try startLiveTwoDisplayDrag(residents: 4)
         let fixture = drag.fixture
         try dragOnto(drag.residents[0], .right, drag)
@@ -51,9 +52,9 @@ extension CrossDisplayDragTests {
 
         let beside = try XCTUnwrap(passed)
         let columns = fixture.niri.columns(in: fixture.target)
-        XCTAssertFalse(columns.contains { $0.isLiveDropSpace })
+        XCTAssertEqual(columns.filter(\.isLiveDropSpace).count, 1)
         let index = try XCTUnwrap(columns.firstIndex { $0 === beside })
-        XCTAssertTrue(columns.indices.contains(index + 1) && columns[index + 1] === column)
+        XCTAssertTrue(columns.indices.contains(index + 1) && columns[index + 1].isLiveDropSpace)
         XCTAssertTrue(fixture.niriNode(drag.moved)?.parent === column)
     }
 
@@ -65,12 +66,11 @@ extension CrossDisplayDragTests {
 
         try dragOnto(drag.residents[0], .right, drag)
 
-        let column = try XCTUnwrap(carriedColumn(drag))
         let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
         let placed = try XCTUnwrap(fixture.niri.liveColumnStrip(
             context: context,
             state: fixture.manager.niriViewportState(for: fixture.target)
-        ).first { $0.column === column })
+        ).first { $0.column.isLiveDropSpace })
         XCTAssertEqual(placed.maxX - placed.minX, fixture.niri.liveDropSpaceWidth(context: context), accuracy: 0.5)
     }
 
@@ -97,8 +97,13 @@ extension CrossDisplayDragTests {
 
         var expected = drag.residents.map { [$0] }
         expected.insert([drag.moved], at: 2)
+        expected.insert([], at: 3)
         XCTAssertEqual(fixture.columns(fixture.target), expected)
-        let underPointer = try [placed(drag.residents[1]), placed(drag.moved)]
+        let dropSpace = try XCTUnwrap(fixture.niri.liveColumnStrip(
+            context: context,
+            state: fixture.manager.niriViewportState(for: fixture.target)
+        ).first { $0.column.isLiveDropSpace })
+        let underPointer = try [placed(drag.residents[1]), dropSpace]
         XCTAssertTrue(underPointer.contains { $0.contains(x: point.x) })
 
         let entering = try placed(drag.residents[1])
@@ -156,7 +161,7 @@ extension CrossDisplayDragTests {
         XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
         XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.target)
         XCTAssertEqual(fixture.columns(fixture.source), [[drag.neighbour]])
-        XCTAssertEqual(fixture.columns(fixture.target), [[drag.residents[0]], [drag.moved]])
+        XCTAssertEqual(fixture.columns(fixture.target), [[drag.residents[0]], [drag.moved], []])
 
         fixture.handler.dispatchMouseUp(at: point)
 
@@ -215,7 +220,7 @@ extension CrossDisplayDragTests {
 
         try dragOnto(drag.residents[0], .left, drag)
 
-        XCTAssertEqual(drag.fixture.columns(drag.fixture.target), [[drag.moved], [drag.residents[0]]])
+        XCTAssertEqual(drag.fixture.columns(drag.fixture.target), [[], [drag.moved], [drag.residents[0]]])
     }
 
     func testCrossingFromAStackClosesTheSlotAndKeepsTheStack() throws {
@@ -226,7 +231,7 @@ extension CrossDisplayDragTests {
         try dragOnto(drag.residents[0], .right, drag)
 
         XCTAssertEqual(fixture.columns(fixture.source), [[drag.neighbour]])
-        XCTAssertEqual(fixture.columns(fixture.target), [[drag.residents[0]], [drag.moved]])
+        XCTAssertEqual(fixture.columns(fixture.target), [[drag.residents[0]], [drag.moved], []])
     }
 
     func testCrossingIntoAnEmptyWorkspaceMakesTheOnlyColumn() throws {
@@ -252,13 +257,13 @@ extension CrossDisplayDragTests {
         XCTAssertEqual(fixture.columns(fixture.target), columns)
     }
 
-    func testOnTheOtherDisplayATargetMovesTheCarriedColumn() throws {
+    func testOnTheOtherDisplayATargetMovesTheDropSpace() throws {
         let drag = try startLiveTwoDisplayDrag(residents: 2)
         let fixture = drag.fixture
         try dragOnto(drag.residents[0], .right, drag)
         XCTAssertEqual(
             fixture.columns(fixture.target),
-            [[drag.residents[0]], [drag.moved], [drag.residents[1]]]
+            [[drag.residents[0]], [drag.moved], [], [drag.residents[1]]]
         )
 
         fixture.layout()
@@ -268,9 +273,47 @@ extension CrossDisplayDragTests {
 
         XCTAssertEqual(
             fixture.columns(fixture.target),
-            [[drag.residents[0]], [drag.residents[1]], [drag.moved]]
+            [[drag.residents[0]], [drag.moved], [drag.residents[1]], []]
         )
-        XCTAssertNil(fixture.niri.liveColumnMove?.dropSpaceId)
+        XCTAssertNotNil(fixture.niri.liveColumnMove?.dropSpaceId)
+    }
+
+    func testOnTheOtherDisplayTheDropSpaceMovesLikeAPlainDragsWithTheWindowUnderThePointerStill() throws {
+        let drag = try startLiveTwoDisplayDrag(residents: 3)
+        let fixture = drag.fixture
+        let narrow = try XCTUnwrap(fixture.niriNode(drag.residents[1])?.parent as? NiriContainer)
+        narrow.width = .proportion(0.3)
+        narrow.cachedWidth = 0
+        let target = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
+        try dragOnto(drag.residents[0], .right, drag)
+        func placed(_ token: WindowToken) throws -> LiveColumnMove.StripColumn {
+            try XCTUnwrap(fixture.niri.liveColumnStrip(
+                context: target,
+                state: fixture.manager.niriViewportState(for: fixture.target)
+            ).first { $0.column.windowNodes.first?.token == token })
+        }
+        let next = try placed(drag.residents[1])
+        fixture.layout()
+        let display = try XCTUnwrap(fixture.manager.monitor(for: fixture.target)).frame
+        let visible = try XCTUnwrap(fixture.frame(drag.residents[1])).intersection(display)
+        let point = CGPoint(x: visible.maxX - visible.width / 4, y: visible.midY)
+        XCTAssertTrue(next.contains(x: point.x))
+
+        fixture.handler.dispatchMouseDragged(at: point)
+
+        XCTAssertEqual(
+            fixture.columns(fixture.target),
+            [[drag.residents[0]], [drag.moved], [drag.residents[1]], [], [drag.residents[2]]]
+        )
+        XCTAssertEqual(try placed(drag.residents[1]).minX, next.minX, accuracy: 0.5)
+
+        fixture.handler.dispatchMouseUp(at: point)
+
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(
+            fixture.columns(fixture.target),
+            [[drag.residents[0]], [drag.residents[1]], [drag.moved], [drag.residents[2]]]
+        )
     }
 
     func testTheWindowLandsAtItsOwnWidthOnTheOtherDisplay() throws {
@@ -312,7 +355,7 @@ extension CrossDisplayDragTests {
         let point = try dragOnto(drag.residents[0], .right, drag)
         XCTAssertEqual(
             fixture.columns(fixture.target),
-            [[drag.residents[0]], [drag.moved], [drag.residents[1]]]
+            [[drag.residents[0]], [drag.moved], [], [drag.residents[1]]]
         )
 
         fixture.handler.dispatchMouseUp(at: point)
@@ -340,7 +383,7 @@ extension CrossDisplayDragTests {
 
         XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.source)
         XCTAssertEqual(fixture.columns(fixture.target), [[drag.residents[0]]])
-        XCTAssertEqual(fixture.columns(fixture.source), [[drag.neighbour], [drag.moved]])
+        XCTAssertEqual(fixture.columns(fixture.source), [[drag.neighbour], [drag.moved], []])
 
         fixture.handler.dispatchMouseUp(at: point)
 
@@ -415,7 +458,7 @@ extension CrossDisplayDragTests {
         XCTAssertEqual(carried, [drag.moved])
         XCTAssertEqual(
             fixture.columns(fixture.target),
-            [[drag.residents[0]], [drag.moved], [drag.residents[1]], [drag.residents[2]]]
+            [[drag.residents[0]], [drag.moved], [], [drag.residents[1]], [drag.residents[2]]]
         )
     }
 
@@ -471,7 +514,7 @@ extension CrossDisplayDragTests {
 
         fixture.handler.dispatchMouseDragged(at: CGPoint(x: shown.minX + shown.width * 0.3, y: shown.midY))
 
-        XCTAssertEqual(fixture.columns(fixture.target), [[drag.moved], [drag.residents[0]]])
+        XCTAssertEqual(fixture.columns(fixture.target), [[], [drag.moved], [drag.residents[0]]])
         XCTAssertEqual(lone.width, .fixed(shown.width))
         let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
         let placed = try XCTUnwrap(fixture.niri.liveColumnStrip(
@@ -523,7 +566,8 @@ extension CrossDisplayDragTests {
         let fixture = drag.fixture
         try dragOnto(drag.residents[1], .left, drag)
         let columns = [[drag.residents[0]], [drag.moved], [drag.residents[1]], [drag.residents[2]]]
-        XCTAssertEqual(fixture.columns(fixture.target), columns)
+        let dragging = [[drag.residents[0]], [], [drag.moved], [drag.residents[1]], [drag.residents[2]]]
+        XCTAssertEqual(fixture.columns(fixture.target), dragging)
         fixture.handler.handleNiriAnimationsSettled(in: fixture.target)
         let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
         let next = try XCTUnwrap(fixture.niri.liveColumnStrip(
@@ -532,7 +576,7 @@ extension CrossDisplayDragTests {
         ).first { $0.column.windowNodes.first?.token == drag.residents[1] })
         let point = CGPoint(x: next.minX + (next.maxX - next.minX) * 0.2, y: fixture.monitors[1].frame.midY)
         fixture.handler.dispatchMouseDragged(at: point)
-        XCTAssertEqual(fixture.columns(fixture.target), columns)
+        XCTAssertEqual(fixture.columns(fixture.target), dragging)
 
         fixture.handler.dispatchMouseUp(at: point)
 
@@ -550,7 +594,7 @@ extension CrossDisplayDragTests {
         let point = try dragOnto(drag.resident, .right, drag.fixture)
 
         XCTAssertEqual(fixture.columns(fixture.source), [[drag.other]])
-        XCTAssertEqual(fixture.columns(fixture.target), [[drag.resident], tabs])
+        XCTAssertEqual(fixture.columns(fixture.target), [[drag.resident], tabs, []])
         for tab in tabs {
             XCTAssertEqual(fixture.manager.workspace(for: tab), fixture.target)
         }
@@ -642,7 +686,7 @@ extension CrossDisplayDragTests {
         XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.workspaces[2])
         XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.workspaces[2])
         XCTAssertEqual(fixture.columns(fixture.workspaces[0]), [[neighbour]])
-        XCTAssertEqual(fixture.columns(fixture.workspaces[2]), [[resident], [moved]])
+        XCTAssertEqual(fixture.columns(fixture.workspaces[2]), [[resident], [moved], []])
     }
 
     func testStackModeOnTheOtherDisplayStacksIntoTheTarget() throws {
@@ -711,7 +755,7 @@ extension CrossDisplayDragTests {
 
         XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
         XCTAssertEqual(fixture.columns(fixture.source), [])
-        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved]])
+        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved], []])
 
         fixture.handler.dispatchMouseUp(at: point)
 

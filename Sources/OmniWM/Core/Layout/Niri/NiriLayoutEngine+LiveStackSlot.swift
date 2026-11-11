@@ -17,7 +17,7 @@ extension NiriLayoutEngine {
         else { return .nothing }
 
         if let leaving = liveStackLeaveSide(placed, at: cursor.x, move: move) {
-            return .leaveStack(towardTrailingSide: leaving == .after, revealsToEdgeOnly: placed.contains(x: cursor.x))
+            return .leaveStack(towardTrailingSide: leaving == .after)
         }
         guard !holdsLiveStackSuppression(&move, at: cursor, strip: strip) else { return .nothing }
         guard let index = liveSlotTarget(at: cursor, in: home, window: window, context: context) else {
@@ -94,7 +94,6 @@ extension NiriLayoutEngine {
         defer { liveColumnMove = move }
         return leaveLiveStack(
             towardTrailingSide: towardTrailingSide,
-            revealsToEdgeOnly: false,
             cursor: cursor,
             move: &move,
             context: context,
@@ -137,7 +136,6 @@ extension NiriLayoutEngine {
 
     func leaveLiveStack(
         towardTrailingSide: Bool,
-        revealsToEdgeOnly: Bool,
         cursor: CGPoint,
         move: inout LiveColumnMove,
         context: NiriInteractionContext,
@@ -159,28 +157,25 @@ extension NiriLayoutEngine {
                 context: context
             )
         }
+        let side: LiveColumnMove.Side = towardTrailingSide ? .after : .before
         move.setHome(columnId: column.id, inStack: false)
         move.homeSlotIndex = 0
         move.ownWindowSizing = .init(size: 1.0, height: .default)
+        closeLivePlace(column, toward: side, move: &move, context: context)
 
         rebaseLiveView(from: positionsBefore, anchoredOn: column, context: context, state: &state)
         keepLiveColumnStill(home, screenBefore: screenBefore, context: context, state: &state)
         animateLiveColumns(from: screenBefore, skipping: column, context: context, state: state)
-        revealLiveHomeSpot(column, under: cursor, toEdgeOnly: revealsToEdgeOnly, context: context, state: &state)
         move.endSideDwell()
-        let strip = liveColumnStrip(context: context, state: state)
-        move.lockedTarget = liveColumn(in: strip, at: cursor, ignoring: nil).flatMap { under in
-            under === column ? nil : .init(
-                columnId: under.id,
-                side: liveTargetSide(
-                    under,
-                    cursor: cursor,
-                    strip: strip,
-                    awayFromHome: false,
-                    context: context
-                )
-            )
-        }
+        openLiveDropSpace(
+            leaving: column,
+            beside: home,
+            side: side,
+            cursor: cursor,
+            move: &move,
+            context: context,
+            state: &state
+        )
         return true
     }
 
@@ -192,10 +187,8 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext
     ) -> NiriContainer {
         let column = NiriContainer()
-        column.isLiveHomeSpot = true
         root(for: context.workspaceId)?.insertChild(column, at: index)
         initializeNewContainerSizing(column, in: context.workspaceId, initialState: sizing)
-        column.width = .fixed(liveDropSpaceWidth(context: context))
         moveWindowToColumn(window, from: home, to: column, in: context.workspaceId)
         if home.isTabbed, home.windowNodes.count == 1 {
             home.displayMode = .normal
@@ -203,26 +196,6 @@ extension NiriLayoutEngine {
         }
         home.cachedWidth = 0
         return column
-    }
-
-    private func revealLiveHomeSpot(
-        _ column: NiriContainer,
-        under cursor: CGPoint,
-        toEdgeOnly: Bool,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) {
-        let strip = liveColumnStrip(context: context, state: state)
-        let shift = toEdgeOnly
-            ? liveEdgeRevealShift(
-                showing: column,
-                checking: [.after, .before],
-                slack: 0.5,
-                strip: strip,
-                context: context
-            )
-            : keepVisibleLiveShift(showing: column, besideTargetUnder: (column, cursor), strip: strip, context: context)
-        animateLiveViewShift(shift, context: context, state: &state)
     }
 
     private func animateLiveColumns(
