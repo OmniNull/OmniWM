@@ -12,6 +12,7 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
     case dwindle(IPCDwindleCommandName)
     case openCommandPalette
     case openCommandPaletteMode
+    case windowSwitcher
     case raiseAllFloatingWindows
     case toggleFloatingFocus
     case rescueOffscreenWindows
@@ -48,6 +49,8 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
             "open-command-palette"
         case .openCommandPaletteMode:
             "open-command-palette-mode"
+        case .windowSwitcher:
+            "window-switcher"
         case .raiseAllFloatingWindows:
             "raise-all-floating-windows"
         case .toggleFloatingFocus:
@@ -85,6 +88,8 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
             self = .openCommandPalette
         case "open-command-palette-mode":
             self = .openCommandPaletteMode
+        case "window-switcher":
+            self = .windowSwitcher
         case "raise-all-floating-windows":
             self = .raiseAllFloatingWindows
         case "toggle-floating-focus":
@@ -129,6 +134,7 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
         names.append(contentsOf: IPCDwindleCommandName.allCases.map(Self.dwindle))
         names.append(.openCommandPalette)
         names.append(.openCommandPaletteMode)
+        names.append(.windowSwitcher)
         names.append(.raiseAllFloatingWindows)
         names.append(.toggleFloatingFocus)
         names.append(.rescueOffscreenWindows)

@@ -41,6 +41,10 @@ extension IPCCommandArgumentValue {
         case .paletteMode:
             guard let mode = IPCCommandPaletteMode(rawValue: token) else { return nil }
             self = .paletteMode(mode)
+        case .switcherDirection,
+             .switcherScope:
+            guard let value = Self.windowSwitcherValue(token: token, kind: kind) else { return nil }
+            self = value
         case .resizeAxis:
             guard let axis = IPCResizeAxis(rawValue: token) else { return nil }
             self = .resizeAxis(axis)
@@ -51,6 +55,12 @@ extension IPCCommandArgumentValue {
             guard let change = IPCSizeChange(token: token) else { return nil }
             self = .sizeChange(change)
         }
+    }
+
+    private static func windowSwitcherValue(token: String, kind: IPCCommandArgumentKind) -> Self? {
+        kind == .switcherScope
+            ? IPCWindowSwitcherScope(rawValue: token).map(Self.switcherScope)
+            : IPCWindowSwitcherDirection(rawValue: token).map(Self.switcherDirection)
     }
 }
 

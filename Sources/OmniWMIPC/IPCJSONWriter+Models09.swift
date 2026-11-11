@@ -106,6 +106,34 @@ extension IPCJSONWriter {
         end(125)
     }
 
+    mutating func value(_ value: borrowing IPCWindowSwitcherDirection) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func value(_ value: borrowing IPCWindowSwitcherScope) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func windowSwitcherArguments(
+        _ direction: IPCWindowSwitcherDirection,
+        _ scope: IPCWindowSwitcherScope?,
+        _ first: inout Bool
+    ) throws {
+        self.key("arguments", &first)
+        begin(123)
+        var argumentFirst = true
+        self.key("direction", &argumentFirst)
+        try self.value(direction)
+        switch scope {
+        case let fieldValue?:
+            self.key("scope", &argumentFirst)
+            try self.value(fieldValue)
+        case nil:
+            break
+        }
+        end(125)
+    }
+
     mutating func value(_ value: borrowing IPCCommandRequest) throws {
         begin(123)
         var first = true
@@ -133,6 +161,8 @@ extension IPCJSONWriter {
             try self.argument("direction", argument, &first)
         case let .openCommandPaletteMode(argument):
             try self.argument("mode", argument.rawValue, &first)
+        case let .windowSwitcher(direction, scope):
+            try windowSwitcherArguments(direction, scope, &first)
         case .monitorFocus,
              .openCommandPalette,
              .raiseAllFloatingWindows,
@@ -236,21 +266,5 @@ extension IPCJSONWriter {
 
     mutating func value(_ value: borrowing IPCQuerySort) throws {
         try self.value(value.rawValue)
-    }
-
-    mutating func value(_ value: borrowing IPCQueryRequest) throws {
-        begin(123)
-        var first = true
-        self.key("fields", &first)
-        try self.value(value.fields)
-        self.key("name", &first)
-        try self.value(value.name)
-        self.key("selectors", &first)
-        try self.value(value.selectors)
-        if let fieldValue = value.sort {
-            self.key("sort", &first)
-            try self.value(fieldValue)
-        }
-        end(125)
     }
 }

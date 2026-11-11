@@ -54,6 +54,8 @@ public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Se
     case scratchpadIndex = "scratchpad-index"
     case layout
     case paletteMode = "palette-mode"
+    case switcherDirection = "switcher-direction"
+    case switcherScope = "switcher-scope"
     case resizeAxis = "resize-axis"
     case resizeOperation = "resize-operation"
     case sizeChange = "size-change"
@@ -73,6 +75,10 @@ public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Se
             "<default|niri|dwindle>"
         case .paletteMode:
             "<windows|menu|clipboard|commands|applications|files>"
+        case .switcherDirection:
+            "<next|previous>"
+        case .switcherScope:
+            "<active-workspace|visible-workspaces|all-workspaces>"
         case .resizeAxis:
             "<horizontal|vertical>"
         case .resizeOperation:
@@ -148,6 +154,14 @@ public struct IPCCommandArgumentDescriptor: Codable, Equatable, Sendable {
     static let paletteMode = Self(
         kind: .paletteMode,
         summary: "Command palette mode."
+    )
+    static let switcherDirection = Self(
+        kind: .switcherDirection,
+        summary: "Window switcher selection direction."
+    )
+    static let switcherScope = Self(
+        kind: .switcherScope,
+        summary: "Window switcher scope; omitted uses the remembered scope."
     )
     static let resizeAxis = Self(
         kind: .resizeAxis,

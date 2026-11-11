@@ -46,6 +46,10 @@ final class IPCCommandWireShapeTests: XCTestCase {
             .layout(.niri)
         case .paletteMode:
             .paletteMode(.clipboard)
+        case .switcherDirection:
+            .switcherDirection(.next)
+        case .switcherScope:
+            .switcherScope(.allWorkspaces)
         case .resizeAxis:
             .resizeAxis(.horizontal)
         case .resizeOperation:
@@ -127,6 +131,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"name":"preselect-clear"}"#,
         #"{"name":"open-command-palette"}"#,
         #"{"arguments":{"mode":"clipboard"},"name":"open-command-palette-mode"}"#,
+        #"{"arguments":{"direction":"next"},"name":"window-switcher"}"#,
         #"{"name":"raise-all-floating-windows"}"#,
         #"{"name":"toggle-floating-focus"}"#,
         #"{"name":"rescue-offscreen-windows"}"#,

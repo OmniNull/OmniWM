@@ -3,6 +3,7 @@
 
 import AppKit
 import ApplicationServices
+import Carbon
 @testable import OmniWM
 import XCTest
 
@@ -282,6 +283,103 @@ final class WindowSwitcherControllerTests: XCTestCase {
         XCTAssertNil(controller.windowSwitcherControllerStorage)
     }
 
+    func testCommandWithoutHeldModifierSwitchesOnceWithShortcutsAndHotkeysOff() async throws {
+        let fixture = try makePresentationFixture(windowCount: 2)
+        defer { fixture.close() }
+        fixture.controller.hotkeysEnabled = false
+        fixture.controller.settings.windowSwitcher.commandTab = .disabled
+        fixture.controller.settings.windowSwitcher.optionTab = .disabled
+        await fixture.enableFocusNavigation()
+        let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
+
+        XCTAssertEqual(router.handle(.windowSwitcher(direction: .previous, scope: nil)), .executed)
+
+        XCTAssertFalse(fixture.switcher.isVisible)
+        XCTAssertTrue(fixture.registry.visibleWindows().isEmpty)
+        XCTAssertNil(fixture.controller.focusPolicyEngine.activeLease)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        XCTAssertEqual(fixture.focusTarget, fixture.tokens[1])
+    }
+
+    func testCommandsWhileModifierIsHeldCycleOneSessionAndReleaseCommits() async throws {
+        let fixture = try makePresentationFixture(windowCount: 3)
+        defer { fixture.close() }
+        fixture.modifiers.flags = [.maskControl, .maskShift]
+        let otherWorkspaceId = try XCTUnwrap(WindowAdmissionTestSupport.workspace(
+            named: "2", layoutType: .niri, controller: fixture.controller
+        ))
+        let otherToken = WindowToken(pid: 81_001, windowId: 81_104)
+        _ = WindowAdmissionTestSupport.track(otherToken, in: otherWorkspaceId, controller: fixture.controller)
+        await fixture.enableFocusNavigation()
+        let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
+        let input = { fixture.controller.hotkeys.windowSwitcherInput }
+
+        XCTAssertEqual(router.handle(.windowSwitcher(direction: .previous, scope: .allWorkspaces)), .executed)
+        let generation = input().generation
+        XCTAssertTrue(fixture.switcher.isVisible)
+        let cards = try fixture.cardTokens()
+        XCTAssertEqual(Set(cards), Set(fixture.tokens + [otherToken]))
+        XCTAssertEqual(cards.first, fixture.tokens[0])
+        XCTAssertEqual(try fixture.selectedTokens(), [cards[cards.count - 1]])
+
+        XCTAssertEqual(router.handle(.windowSwitcher(direction: .previous, scope: .activeWorkspace)), .executed)
+        let target = cards[cards.count - 2]
+        XCTAssertEqual(input().generation, generation)
+        XCTAssertEqual(try fixture.cardTokens(), cards)
+        XCTAssertEqual(try fixture.selectedTokens(), [target])
+        XCTAssertEqual(fixture.controller.workspaceManager.nativeManagedFocusToken, fixture.tokens[0])
+
+        let release = fixture.controller.hotkeys.windowSwitcherInput.handle(
+            type: .flagsChanged, keyCode: kVK_Control, flags: [.maskShift], isRepeat: false, canBegin: true
+        )
+        fixture.switcher.handle(try XCTUnwrap(release.action), generation: generation)
+
+        XCTAssertFalse(fixture.switcher.isVisible)
+        XCTAssertFalse(input().isActive)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        XCTAssertNotEqual(target, fixture.tokens[0])
+        XCTAssertEqual(fixture.focusTarget, target)
+    }
+
+    func testCommandIsIgnoredWhileTheSwitcherIsDisabled() throws {
+        let fixture = try makePresentationFixture(windowCount: 2)
+        defer { fixture.close() }
+        fixture.controller.settings.windowSwitcher.enabled = false
+        let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
+
+        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: nil)), .ignoredDisabled)
+
+        XCTAssertFalse(fixture.switcher.isVisible)
+        XCTAssertEqual(fixture.focusTarget, fixture.tokens[0])
+    }
+
+    func testCommandSwitchesOnceWhenTheReleaseCannotBeWatched() async throws {
+        for (tapAvailable, releasesWhenArmed) in [(false, false), (true, true)] {
+            let fixture = try makePresentationFixture(windowCount: 2)
+            defer { fixture.close() }
+            fixture.modifiers.flags = [.maskAlternate]
+            fixture.modifiers.tapAvailable = tapAvailable
+            fixture.modifiers.releasesWhenArmed = releasesWhenArmed
+            await fixture.enableFocusNavigation()
+            let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
+
+            XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: nil)), .executed)
+
+            let label = tapAvailable ? "released before the tap was armed" : "no tap"
+            XCTAssertFalse(fixture.switcher.isVisible, label)
+            XCTAssertFalse(fixture.controller.hotkeys.windowSwitcherInput.isActive, label)
+            await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+            XCTAssertEqual(fixture.focusTarget, fixture.tokens[1], label)
+        }
+    }
+
+    private final class ModifierState {
+        var flags: CGEventFlags = []
+        var tapAvailable = true
+        var releasesWhenArmed = false
+    }
+
+    @MainActor
     private struct PresentationFixture {
         let controller: WMController
         let switcher: WindowSwitcherController
@@ -289,6 +387,41 @@ final class WindowSwitcherControllerTests: XCTestCase {
         let driver: OverviewPreviewTestDriver
         let tokens: [WindowToken]
         let monitors: [Monitor]
+        let modifiers: ModifierState
+
+        var focusTarget: WindowToken? {
+            controller.workspaceManager.pendingFocusedToken ?? controller.workspaceManager.nativeManagedFocusToken
+        }
+
+        func cardTokens() throws -> [WindowToken] {
+            try cards().map(\.handle.id)
+        }
+
+        func selectedTokens() throws -> [WindowToken] {
+            try cards().filter { $0.layer?.borderWidth == WindowSwitcherTile.selectedBorderWidth }.map(\.handle.id)
+        }
+
+        func enableFocusNavigation() async {
+            controller.niriLayoutHandler.enableNiriLayout()
+            await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+        }
+
+        func close() {
+            switcher.shutdown()
+            driver.finish()
+            controller.layoutRefreshController.resetState()
+            controller.surfaceReconciler.cleanup()
+        }
+
+        private func cards() throws -> [WindowSwitcherTile] {
+            let panel = try XCTUnwrap(registry.visibleWindows().first as? WindowSwitcherPanel)
+            return Self.tiles(in: try XCTUnwrap(panel.contentView))
+        }
+
+        private static func tiles(in view: NSView) -> [WindowSwitcherTile] {
+            if let tile = view as? WindowSwitcherTile { return [tile] }
+            return view.subviews.flatMap { tiles(in: $0) }
+        }
     }
 
     private func makePresentationFixture(windowCount: Int, monitorCount: Int = 1) throws -> PresentationFixture {
@@ -320,10 +453,22 @@ final class WindowSwitcherControllerTests: XCTestCase {
         controller.commandHandler.frontmostFocusedWindowTokenProvider = { tokens[0] }
         let driver = OverviewPreviewTestDriver()
         let capture = driver.makeCapture(consumer: .windowSwitcher, hasCaptureAccess: { false })
-        let switcher = WindowSwitcherController(controller: controller, previewCapture: capture)
+        let modifiers = ModifierState()
+        let switcher = WindowSwitcherController(
+            controller: controller,
+            previewCapture: capture,
+            modifierFlags: { modifiers.flags },
+            armExternalSession: { hotkeys, flags in
+                guard modifiers.tapAvailable else { return nil }
+                hotkeys.windowSwitcherInput.beginExternalSession(holding: flags)
+                if modifiers.releasesWhenArmed { modifiers.flags = [] }
+                return hotkeys.windowSwitcherInput.generation
+            }
+        )
+        controller.windowSwitcherControllerStorage = switcher
         return PresentationFixture(
             controller: controller, switcher: switcher, registry: registry, driver: driver, tokens: tokens,
-            monitors: monitors
+            monitors: monitors, modifiers: modifiers
         )
     }
 

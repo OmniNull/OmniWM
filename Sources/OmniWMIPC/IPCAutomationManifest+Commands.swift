@@ -385,6 +385,16 @@ extension IPCAutomationManifest {
             arguments: [.paletteMode]
         ),
         .init(
+            name: .windowSwitcher,
+            summary: "Open the window switcher, or move its selection if open; releasing the modifiers commits.",
+            arguments: [.switcherDirection]
+        ),
+        .init(
+            name: .windowSwitcher,
+            summary: "Open the window switcher in a scope, or move its selection if open; releasing the modifiers commits.",
+            arguments: [.switcherDirection, .switcherScope]
+        ),
+        .init(
             name: .raiseAllFloatingWindows,
             summary: "Raise all visible floating windows."
         ),
