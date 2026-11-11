@@ -61,7 +61,7 @@ final class WindowSwitcherInputTests: XCTestCase {
     func testScopeShortcutNeverLeaksCommandSAndDoesNotRepeat() {
         var input = WindowSwitcherInput()
         _ = key(&input, kVK_Tab)
-        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .toggleScope)
+        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .cycleScope)
         let repeated = key(&input, kVK_ANSI_S, isRepeat: true)
         XCTAssertTrue(repeated.consumed)
         XCTAssertNil(repeated.action)
@@ -126,7 +126,7 @@ final class WindowSwitcherInputTests: XCTestCase {
         input.shortcuts = WindowSwitcherShortcuts(commandTab: .remembered, optionTab: .disabled)
         XCTAssertFalse(key(&input, kVK_Tab, flags: [.maskAlternate]).consumed)
         XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false))
-        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .toggleScope)
+        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .cycleScope)
         XCTAssertEqual(key(&input, kVK_Command, type: .flagsChanged, flags: []).action, .commit)
     }
 
@@ -134,7 +134,7 @@ final class WindowSwitcherInputTests: XCTestCase {
         var input = WindowSwitcherInput()
         _ = key(&input, kVK_Tab)
         _ = key(&input, kVK_Tab, type: .keyUp)
-        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .toggleScope)
+        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .cycleScope)
         _ = key(&input, kVK_Command, type: .flagsChanged, flags: [])
         XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))
     }
@@ -149,6 +149,12 @@ final class WindowSwitcherInputTests: XCTestCase {
         )
         XCTAssertEqual(key(&input, kVK_Escape, flags: [.maskAlternate]).action, .cancel)
         XCTAssertNil(key(&input, kVK_Option, type: .flagsChanged, flags: []).action)
+    }
+
+    func testShortcutAssignedToVisibleWorkspacesOpensThatScope() {
+        var input = WindowSwitcherInput()
+        input.shortcuts = WindowSwitcherShortcuts(commandTab: .visibleWorkspaces, optionTab: .allWorkspaces)
+        XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .visibleWorkspaces))
     }
 
     func testBothShortcutsCanBeDisabled() {

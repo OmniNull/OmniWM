@@ -1,6 +1,6 @@
 ---
 title: Window Switcher
-description: Switch individual windows with thumbnail previews across all workspaces or just the active workspace.
+description: Switch individual windows with thumbnail previews across all workspaces, the workspaces shown on each monitor, or just the active workspace.
 sidebar:
   order: 8
 ---
@@ -9,15 +9,15 @@ Enable **Settings → Window Switcher → Enable Window Switcher** to cycle thro
 
 ## Shortcuts and workspace scope
 
-Configure **Command-Tab** and **Option-Tab** independently as **Active Workspace**, **All Workspaces**, **Last Used Scope**, or **Disabled**. New configurations assign Command-Tab to the active workspace and Option-Tab to all workspaces. Disabling Command-Tab leaves the macOS application switcher available.
+Configure **Command-Tab** and **Option-Tab** independently as **Active Workspace**, **Visible Workspaces**, **All Workspaces**, **Last Used Scope**, or **Disabled**. New configurations assign Command-Tab to the active workspace and Option-Tab to all workspaces. Disabling Command-Tab leaves the macOS application switcher available.
 
 - Hold the shortcut's Command or Option key and press `Tab` to cycle through windows. `Shift + Tab` reverses direction. Left and right move between cards; up and down move between rows.
 - Release the modifier or press `Return` to focus the selected window. Click a thumbnail to select it directly.
 - Press `Escape` or click outside to cancel.
-- Press `S` or click the scope button to switch between all workspaces and the active workspace.
+- Press `S` or click the scope button to move to the next scope: Active Workspace, then Visible Workspaces, then All Workspaces. Visible Workspaces is skipped when only one workspace is shown, because it would list the same windows as Active Workspace.
 - Press `W` or use the close button that appears when hovering over a preview to close that window. The card stays until the app actually closes the window, including when it asks about unsaved changes.
 
-**Active Workspace** uses the workspace on OmniWM's interaction monitor when the switcher opens. **All Workspaces** includes tracked windows across monitors, including floating windows and hidden applications. Minimized windows remain selectable with dimmed previews; selecting one restores it. Natively withdrawn and untracked windows are omitted.
+**Active Workspace** uses the workspace on OmniWM's interaction monitor when the switcher opens. **Visible Workspaces** (**Unreleased — available when building from `main`**) uses the workspace shown on each connected monitor when the switcher opens and leaves out workspaces that no monitor is showing; the switcher itself still opens on the interaction monitor. **All Workspaces** includes tracked windows across monitors, including floating windows and hidden applications. Minimized windows remain selectable with dimmed previews; selecting one restores it. Natively withdrawn and untracked windows are omitted.
 
 Each shortcut opens its assigned scope. **Last Used Scope** remembers the choice made with S or the scope button. For a single shortcut with a remembered scope, set Command-Tab to Last Used Scope and Option-Tab to Disabled.
 
@@ -29,10 +29,10 @@ A scope with one or two windows uses the same preview panel and controls as a la
 
 **Window Order** offers two choices:
 
-- **Omni Layout** (default): windows follow Niri column and tile order or Dwindle tree order within each workspace, with floating windows afterward. All Workspaces groups them in workspace-bar order.
+- **Omni Layout** (default): windows follow Niri column and tile order or Dwindle tree order within each workspace, with floating windows afterward. Visible Workspaces and All Workspaces group them in workspace-bar order.
 - **Last Used**: windows appear from most recently focused to least recently focused across the selected scope. Windows without focus history follow afterward in Omni layout order.
 
-All Workspaces shows a workspace badge using the same name or emoji as the bar.
+Visible Workspaces and All Workspaces show a workspace badge using the same name or emoji as the bar.
 
 **Show Switcher Footer** controls the scope button and window count together. Turning it off removes the footer; S still changes scope.
 
@@ -56,7 +56,7 @@ order = "omniLayout"
 scope = "allWorkspaces"
 ```
 
-`commandTab` and `optionTab` accept `"activeWorkspace"`, `"allWorkspaces"`, `"remembered"`, or `"disabled"`. `scope` stores the last chosen workspace scope. Changing shortcut assignments cancels an open switcher.
+`commandTab` and `optionTab` accept `"activeWorkspace"`, `"visibleWorkspaces"`, `"allWorkspaces"`, `"remembered"`, or `"disabled"`. `scope` stores the last chosen workspace scope: `"activeWorkspace"`, `"visibleWorkspaces"`, or `"allWorkspaces"`. Changing shortcut assignments cancels an open switcher.
 
 `order` accepts `"omniLayout"` or `"lastUsed"`. Existing configurations keep Omni layout ordering.
 

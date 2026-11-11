@@ -7,7 +7,7 @@ import CoreGraphics
 enum WindowSwitcherAction: Equatable, Sendable {
     case begin(reverse: Bool, scope: WindowSwitcherScope? = nil)
     case cycle(reverse: Bool)
-    case toggleScope
+    case cycleScope
     case close
     case moveRow(reverse: Bool)
     case commit
@@ -81,7 +81,7 @@ struct WindowSwitcherInput {
         case kVK_DownArrow:
             return Decision(consumed: true, action: .moveRow(reverse: false))
         case kVK_ANSI_S:
-            return Decision(consumed: true, action: isRepeat ? nil : .toggleScope)
+            return Decision(consumed: true, action: isRepeat ? nil : .cycleScope)
         case kVK_Return,
              kVK_ANSI_KeypadEnter:
             isActive = false

@@ -3,13 +3,23 @@
 
 enum WindowSwitcherScope: String, Codable, CaseIterable, Sendable {
     case allWorkspaces
+    case visibleWorkspaces
     case activeWorkspace
+
+    func next(offeringVisibleWorkspaces: Bool) -> WindowSwitcherScope {
+        switch self {
+        case .activeWorkspace: offeringVisibleWorkspaces ? .visibleWorkspaces : .allWorkspaces
+        case .visibleWorkspaces: .allWorkspaces
+        case .allWorkspaces: .activeWorkspace
+        }
+    }
 }
 
 enum WindowSwitcherShortcutScope: String, Codable, CaseIterable, Sendable {
     case disabled
     case remembered
     case activeWorkspace
+    case visibleWorkspaces
     case allWorkspaces
 
     var initialScope: WindowSwitcherScope? {
@@ -17,6 +27,7 @@ enum WindowSwitcherShortcutScope: String, Codable, CaseIterable, Sendable {
         case .disabled,
              .remembered: nil
         case .activeWorkspace: .activeWorkspace
+        case .visibleWorkspaces: .visibleWorkspaces
         case .allWorkspaces: .allWorkspaces
         }
     }

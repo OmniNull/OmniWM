@@ -122,7 +122,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         let panel = try XCTUnwrap(fixture.registry.visibleWindows().first as? WindowSwitcherPanel)
         XCTAssertEqual(tiles(in: try XCTUnwrap(panel.contentView)).map(\.handle.id), fixture.tokens)
 
-        fixture.switcher.handle(.toggleScope)
+        fixture.switcher.handle(.cycleScope)
 
         XCTAssertTrue(fixture.switcher.isVisible)
         XCTAssertEqual(
@@ -130,6 +130,82 @@ final class WindowSwitcherControllerTests: XCTestCase {
             Set(fixture.tokens + [otherToken])
         )
         XCTAssertEqual(fixture.controller.workspaceManager.nativeManagedFocusToken, fixture.tokens[0])
+    }
+
+    func testVisibleWorkspacesScopeListsTheWorkspaceShownOnEachMonitor() throws {
+        let fixture = try makePresentationFixture(windowCount: 2, monitorCount: 2)
+        defer {
+            fixture.switcher.shutdown()
+            fixture.driver.finish()
+            fixture.controller.layoutRefreshController.resetState()
+            fixture.controller.surfaceReconciler.cleanup()
+        }
+        let manager = fixture.controller.workspaceManager
+        let shownId = try showWorkspaceOnSecondMonitor(fixture)
+        let hiddenId = try XCTUnwrap(WindowAdmissionTestSupport.workspace(
+            named: "3", layoutType: .niri, controller: fixture.controller
+        ))
+        let shownToken = WindowToken(pid: 81_002, windowId: 81_201)
+        let hiddenToken = WindowToken(pid: 81_003, windowId: 81_301)
+        _ = WindowAdmissionTestSupport.track(shownToken, in: shownId, controller: fixture.controller)
+        _ = WindowAdmissionTestSupport.track(hiddenToken, in: hiddenId, controller: fixture.controller)
+        XCTAssertFalse(manager.visibleWorkspaceIds().contains(hiddenId))
+
+        fixture.switcher.handle(.begin(reverse: false, scope: .visibleWorkspaces))
+
+        let panel = try XCTUnwrap(fixture.registry.visibleWindows().first as? WindowSwitcherPanel)
+        let cards = tiles(in: try XCTUnwrap(panel.contentView))
+        XCTAssertEqual(cards.map(\.handle.id), fixture.tokens + [shownToken])
+        let badges = cards.map { $0.subviews.compactMap(\.toolTip).filter { ["1", "Right"].contains($0) } }
+        XCTAssertEqual(badges, [["1"], ["1"], ["Right"]])
+    }
+
+    func testScopeCycleOffersVisibleWorkspacesOnlyWhenSeveralWorkspacesAreShown() throws {
+        for monitorCount in [1, 2] {
+            let fixture = try makePresentationFixture(windowCount: 1, monitorCount: monitorCount)
+            defer {
+                fixture.switcher.shutdown()
+                fixture.driver.finish()
+                fixture.controller.layoutRefreshController.resetState()
+                fixture.controller.surfaceReconciler.cleanup()
+            }
+            if monitorCount == 2 { _ = try showWorkspaceOnSecondMonitor(fixture) }
+            fixture.switcher.handle(.begin(reverse: false, scope: .activeWorkspace))
+
+            let scopes = (0 ..< 3).map { _ in
+                fixture.switcher.handle(.cycleScope)
+                return fixture.controller.settings.windowSwitcher.scope
+            }
+
+            XCTAssertEqual(
+                scopes,
+                monitorCount == 2
+                    ? [.visibleWorkspaces, .allWorkspaces, .activeWorkspace]
+                    : [.allWorkspaces, .activeWorkspace, .allWorkspaces],
+                "monitors: \(monitorCount)"
+            )
+        }
+    }
+
+    func testRememberedVisibleScopeOnOneMonitorOpensThenMovesToAllWorkspaces() throws {
+        let fixture = try makePresentationFixture(windowCount: 1)
+        defer {
+            fixture.switcher.shutdown()
+            fixture.driver.finish()
+            fixture.controller.layoutRefreshController.resetState()
+            fixture.controller.surfaceReconciler.cleanup()
+        }
+        fixture.controller.settings.windowSwitcher.scope = .visibleWorkspaces
+
+        fixture.switcher.handle(.begin(reverse: false))
+
+        let panel = try XCTUnwrap(fixture.registry.visibleWindows().first as? WindowSwitcherPanel)
+        XCTAssertTrue(buttonTitles(in: try XCTUnwrap(panel.contentView)).contains("Visible Workspaces"))
+
+        fixture.switcher.handle(.cycleScope)
+
+        XCTAssertEqual(fixture.controller.settings.windowSwitcher.scope, .allWorkspaces)
+        XCTAssertTrue(buttonTitles(in: try XCTUnwrap(panel.contentView)).contains("All Workspaces"))
     }
 
     func testHiddenSwitcherRefreshDoesNotPinRetainedPreviews() async throws {
@@ -212,20 +288,25 @@ final class WindowSwitcherControllerTests: XCTestCase {
         let registry: OwnedWindowRegistry
         let driver: OverviewPreviewTestDriver
         let tokens: [WindowToken]
+        let monitors: [Monitor]
     }
 
-    private func makePresentationFixture(windowCount: Int) throws -> PresentationFixture {
+    private func makePresentationFixture(windowCount: Int, monitorCount: Int = 1) throws -> PresentationFixture {
         let registry = OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
         let controller = WindowAdmissionTestSupport.controller(
             prefix: "OmniWMWindowSwitcherPresentationTests", ownedWindowRegistry: registry
         )
         controller.settings.windowSwitcher.enabled = true
-        let frame = CGRect(x: 0, y: 0, width: 1200, height: 800)
-        let monitor = Monitor(
-            id: .init(displayId: 81_000), displayId: 81_000,
-            frame: frame, visibleFrame: frame, hasNotch: false, name: "Window Switcher Tests"
-        )
-        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        let monitors = (0 ..< monitorCount).map { index in
+            let frame = CGRect(x: CGFloat(index) * 1200, y: 0, width: 1200, height: 800)
+            let displayId = CGDirectDisplayID(81_000 + index)
+            return Monitor(
+                id: .init(displayId: displayId), displayId: displayId,
+                frame: frame, visibleFrame: frame, hasNotch: false, name: "Window Switcher Tests \(index)"
+            )
+        }
+        let monitor = monitors[0]
+        controller.workspaceManager.applyMonitorConfigurationChange(monitors)
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         let tokens = (1 ... windowCount).map { WindowToken(pid: 81_001, windowId: 81_100 + $0) }
@@ -241,12 +322,31 @@ final class WindowSwitcherControllerTests: XCTestCase {
         let capture = driver.makeCapture(consumer: .windowSwitcher, hasCaptureAccess: { false })
         let switcher = WindowSwitcherController(controller: controller, previewCapture: capture)
         return PresentationFixture(
-            controller: controller, switcher: switcher, registry: registry, driver: driver, tokens: tokens
+            controller: controller, switcher: switcher, registry: registry, driver: driver, tokens: tokens,
+            monitors: monitors
         )
+    }
+
+    private func showWorkspaceOnSecondMonitor(_ fixture: PresentationFixture) throws -> WorkspaceDescriptor.ID {
+        let manager = fixture.controller.workspaceManager
+        let secondMonitor = try XCTUnwrap(fixture.monitors.last)
+        fixture.controller.settings.workspaces.configurations.removeAll { $0.name == "6" }
+        fixture.controller.settings.workspaces.configurations.append(
+            WorkspaceConfiguration(name: "6", displayName: "Right", monitorAssignment: .secondary, layoutType: .niri)
+        )
+        manager.applySettings()
+        let workspaceId = try XCTUnwrap(manager.workspaceId(for: "6", createIfMissing: true))
+        XCTAssertEqual(manager.monitorId(for: workspaceId), secondMonitor.id)
+        XCTAssertTrue(manager.setActiveWorkspace(workspaceId, on: secondMonitor.id, updateInteractionMonitor: false))
+        return workspaceId
     }
 
     private func tiles(in view: NSView) -> [WindowSwitcherTile] {
         if let tile = view as? WindowSwitcherTile { return [tile] }
         return view.subviews.flatMap { tiles(in: $0) }
+    }
+
+    private func buttonTitles(in view: NSView) -> [String] {
+        ((view as? NSButton).map { [$0.title] } ?? []) + view.subviews.flatMap { buttonTitles(in: $0) }
     }
 }

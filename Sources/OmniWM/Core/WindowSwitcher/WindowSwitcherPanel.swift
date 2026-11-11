@@ -40,7 +40,7 @@ final class WindowSwitcherPanel: NSPanel {
     var onSelect: (WindowToken) -> Void = { _ in }
     var onClose: (WindowToken) -> Void = { _ in }
     var onVisibleItemsChanged: ([WindowSwitcherItem]) -> Void = { _ in }
-    var onToggleScope: () -> Void = {}
+    var onCycleScope: () -> Void = {}
 
     init(ownedWindowRegistry: OwnedWindowRegistry) {
         self.ownedWindowRegistry = ownedWindowRegistry
@@ -203,14 +203,14 @@ final class WindowSwitcherPanel: NSPanel {
     }
 
     private func layoutFooter(content: Content, selectedIndex: Int, width: CGFloat) {
-        let scopeButton = NSButton(
-            title: content.scope == .allWorkspaces
-                ? String(localized: "All Workspaces") : String(localized: "Active Workspace"),
-            target: self,
-            action: #selector(toggleScope)
-        )
+        let scopeTitle = switch content.scope {
+        case .activeWorkspace: String(localized: "Active Workspace")
+        case .visibleWorkspaces: String(localized: "Visible Workspaces")
+        case .allWorkspaces: String(localized: "All Workspaces")
+        }
+        let scopeButton = NSButton(title: scopeTitle, target: self, action: #selector(cycleScope))
         scopeButton.bezelStyle = .rounded
-        scopeButton.toolTip = String(localized: "Press S to toggle workspace scope")
+        scopeButton.toolTip = String(localized: "Press S to change workspace scope")
         effectView.addSubview(scopeButton)
         let count = NSTextField(labelWithString: content.items.isEmpty
             ? String(localized: "No windows in this workspace")
@@ -252,8 +252,8 @@ final class WindowSwitcherPanel: NSPanel {
         effectView.subviews.forEach { $0.removeFromSuperview() }
     }
 
-    @objc private func toggleScope() {
-        onToggleScope()
+    @objc private func cycleScope() {
+        onCycleScope()
     }
 
     @objc private func didScroll() {
