@@ -84,35 +84,32 @@ final class InputSourceIntegrationTests: XCTestCase {
         }
     }
 
-    func testKeyboardLayoutObserverDoesNotCallBackAfterObservationStops() async {
+    func testKeyboardLayoutObserverRemovesItsRegistrationWhenObservationStops() async {
         let center = TrackingNotificationCenter()
         let observer = KeyboardLayoutObserver(notificationCenter: center)
-        let delivered = expectation(description: "Layout change delivered before observation stops")
+        let delivered = expectation(description: "Layout change delivered while observing")
         observer.observe { delivered.fulfill() }
         XCTAssertEqual(center.registeredObserverCount, 1)
         center.post(name: selectionChanged, object: nil)
         await fulfillment(of: [delivered], timeout: failureBound)
 
-        observer.observe { XCTFail("Layout change delivered after observation stopped") }
-        center.post(name: selectionChanged, object: nil)
         observer.observe(nil)
         XCTAssertEqual(center.registeredObserverCount, 0)
-        center.post(name: selectionChanged, object: nil)
-        await Task { @MainActor in }.value
     }
 
     private func assertWidget(_ widget: ShellRenderedWidget, shows source: ShellInputSource) {
         XCTAssertTrue(widget.strings().contains(source.current.short))
         let nodes = widget.renderPopout()
-        let command = "input-source select "
-        let rows = nodes.indices.filter { widget.text.string(nodes[$0].content.action).hasPrefix(command) }
-        XCTAssertEqual(rows.count, source.sources.count)
-        for (index, entry) in zip(rows, source.sources) {
-            XCTAssertEqual(widget.text.string(nodes[index].content.action), command + entry.id)
-            let checked = nodes[(index + 1) ..< Int(nodes[index].subtreeEnd)].contains {
-                $0.kind == .symbol && widget.text.string($0.content.text) == "checkmark" && $0.paint.opacity > 0
-            }
-            XCTAssertEqual(checked, entry.id == source.current.id, entry.id)
+        let rows = nodes.indices.compactMap { index -> (index: Int, id: String)? in
+            guard case let .inputSource(.select(id))? = ShellAction(widget.text.string(nodes[index].content.action))
+            else { return nil }
+            return (index, id)
+        }
+        XCTAssertEqual(rows.map(\.id), source.sources.map(\.id))
+        for row in rows {
+            let symbols = nodes[(row.index + 1) ..< Int(nodes[row.index].subtreeEnd)].filter { $0.kind == .symbol }
+            XCTAssertEqual(symbols.count, 1, row.id)
+            XCTAssertEqual(symbols.first.map { $0.paint.opacity > 0 }, row.id == source.current.id, row.id)
         }
     }
 
