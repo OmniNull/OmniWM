@@ -6,7 +6,7 @@ import SwiftUI
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general, appearance, styles, menuBar, network
     case workspaces, layouts, monitors, appRules, overview, windowSwitcher
-    case hotkeys, mouseTrackpad, commandPalette, launcher, quakeTerminal, diagnostics, reportIssue, advanced
+    case hotkeys, mouseTrackpad, commandPalette, launcher, quakeTerminal, diagnostics, advanced
 
     var id: String {
         rawValue
@@ -139,12 +139,6 @@ enum SettingsSection: String, CaseIterable, Identifiable {
                 "stethoscope",
                 String(localized: "Check app health and record a problem or performance capture.")
             )
-        case .reportIssue:
-            Presentation(
-                String(localized: "Report an Issue"),
-                "ladybug",
-                String(localized: "Prepare a report and choose the evidence you want to share.")
-            )
         case .advanced:
             Presentation(
                 String(localized: "Advanced"),
@@ -179,7 +173,7 @@ enum SettingsSectionGroup: String, CaseIterable, Identifiable {
         case .windows: [.workspaces, .layouts, .monitors, .appRules, .overview, .windowSwitcher]
         case .input: [.hotkeys, .mouseTrackpad]
         case .tools: [.commandPalette, .launcher, .quakeTerminal]
-        case .support: [.diagnostics, .reportIssue, .advanced]
+        case .support: [.diagnostics, .advanced]
         }
     }
 }

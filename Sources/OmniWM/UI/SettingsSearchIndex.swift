@@ -265,7 +265,6 @@ enum SettingsSearchIndex {
         setting("OK", section: .hotkeys, anchor: "OK"),
         setting("Reset Hotkeys", section: .hotkeys, anchor: "Reset Hotkeys"),
         setting("Cancel", section: .hotkeys, anchor: "Cancel"),
-        setting("Report Crash…", section: .diagnostics),
         setting("Copy File", section: .diagnostics),
         setting("Reveal", section: .diagnostics),
         setting("Private-API Capability", section: .diagnostics, anchor: "Private-API Capability"),
@@ -275,27 +274,7 @@ enum SettingsSearchIndex {
         setting("Stop & Save Recording", section: .diagnostics, anchor: "Stop & Save Recording"),
         setting("Measure Performance", section: .diagnostics, anchor: "Measure Performance"),
         setting("Start Performance Capture", section: .diagnostics, anchor: "Start Performance Capture"),
-        setting("Stop & Save Performance Capture", section: .diagnostics, anchor: "Stop & Save Performance Capture"),
-        setting("Issue", section: .reportIssue, anchor: "Issue"),
-        setting("Title", section: .reportIssue, anchor: "Title"),
-        setting("Category", section: .reportIssue, anchor: "Category"),
-        setting("Context (optional)", section: .reportIssue, anchor: "Context (optional)"),
-        setting("Affected app(s)", section: .reportIssue, anchor: "Affected app(s)"),
-        setting("Active layout", section: .reportIssue, anchor: "Active layout"),
-        setting("Worked in an earlier version?", section: .reportIssue, anchor: "Worked in an earlier version?"),
-        setting("Last working version/build", section: .reportIssue, anchor: "Last working version/build"),
-        setting("Rewrite & Format with AI", section: .reportIssue, anchor: "Rewrite & Format with AI"),
-        setting("Apply", section: .reportIssue, anchor: "Apply"),
-        setting("Dismiss", section: .reportIssue, anchor: "Dismiss"),
-        setting("Submit to GitHub", section: .reportIssue, anchor: "Submit to GitHub"),
-        setting("Discard Draft", section: .reportIssue, anchor: "Discard Draft"),
-        setting("Keep Editing", section: .reportIssue, anchor: "Keep Editing"),
-        setting("Show guide", section: .reportIssue, anchor: "Show guide"),
-        setting("Report another issue", section: .reportIssue, anchor: "Report another issue"),
-        setting("Reveal Log Again", section: .reportIssue, anchor: "Reveal Log Again"),
-        setting("Diagnostics recording", section: .reportIssue, anchor: "Diagnostics recording"),
-        setting("Stop, Save & Include Recording", section: .reportIssue, anchor: "Stop, Save & Include Recording"),
-        setting("Additional evidence", section: .reportIssue, anchor: "Additional evidence")
+        setting("Stop & Save Performance Capture", section: .diagnostics, anchor: "Stop & Save Performance Capture")
     ]
 }
 

@@ -46,14 +46,14 @@ final class StatusMenuSettingsTests: XCTestCase {
 
     func testMenuItemsMasterToggleKeepsPerItemChoices() {
         let settings = StatusMenuSettings()
-        settings.setMenuItem(.reportBug, isVisible: false)
+        settings.setMenuItem(.appRules, isVisible: false)
         settings.setMenuItem(.settings, isVisible: true)
         settings.setMenuItem(.sponsors, isVisible: true)
         settings.showMenuItems = false
         XCTAssertTrue(StatusMenuItem.allCases.allSatisfy { !settings.isMenuItemVisible($0) })
 
         settings.showMenuItems = true
-        XCTAssertFalse(settings.isMenuItemVisible(.reportBug))
+        XCTAssertFalse(settings.isMenuItemVisible(.appRules))
         XCTAssertTrue(settings.isMenuItemVisible(.settings))
         XCTAssertTrue(settings.isMenuItemVisible(.sponsors))
     }
@@ -84,7 +84,7 @@ final class StatusMenuSettingsTests: XCTestCase {
     func testApplyKeepsOnlyNonEmptyHiddenControls() {
         let settings = StatusMenuSettings()
         let controls = [StatusMenuControl.bordersEnabled.rawValue, StatusMenuControl.hiddenBarEnabled.rawValue]
-        let items = [StatusMenuItem.sponsors.rawValue, StatusMenuItem.reportBug.rawValue]
+        let items = [StatusMenuItem.sponsors.rawValue, StatusMenuItem.appRules.rawValue]
         settings.apply(
             SettingsExport.StatusMenu(
                 showControls: false,
@@ -108,7 +108,7 @@ final class StatusMenuSettingsTests: XCTestCase {
         settings.showControlHelp = !(try XCTUnwrap(defaults.showControlHelp))
         settings.showMenuItems = !(try XCTUnwrap(defaults.showMenuItems))
         settings.setControl(StatusMenuControl.bordersEnabled.rawValue, isVisible: false)
-        settings.setMenuItem(.reportBug, isVisible: false)
+        settings.setMenuItem(.appRules, isVisible: false)
         settings.apply(
             SettingsExport.StatusMenu(
                 showControls: nil,
@@ -152,7 +152,7 @@ final class StatusMenuSettingsTests: XCTestCase {
 
     func testDisabledMenuItemSwitchKeepsItsStoredChoice() {
         withStatusMenuSettings { settings, _ in
-            let hidden = StatusMenuItem.reportBug
+            let hidden = StatusMenuItem.appRules
             let shown = StatusMenuItem.settings
             settings.statusMenu.setMenuItem(hidden, isVisible: false)
             settings.statusMenu.setMenuItem(shown, isVisible: true)
@@ -200,7 +200,7 @@ final class StatusMenuSettingsPersistenceTests: XCTestCase {
             settings.statusMenu.showControlHelp = try XCTUnwrap(expected.showControlHelp)
             XCTAssertEqual(try persisted(), expected)
 
-            let item = StatusMenuItem.reportBug
+            let item = StatusMenuItem.appRules
             expected.hiddenMenuItems = [item.rawValue]
             settings.statusMenu.setMenuItem(item, isVisible: false)
             XCTAssertEqual(try persisted(), expected)

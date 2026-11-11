@@ -790,7 +790,7 @@ Questions, setup help and config sharing happen on the [OmniWM Fluxer](https://f
 
 ## Reporting Bugs
 
-Use **Report a Bug…** in OmniWM's status-bar menu: it prepares a diagnostic log and opens a pre-filled GitHub issue. The [GitHub issue form](https://github.com/OmniNull/OmniWM/issues/new/choose) works too; include your OmniWM and macOS versions.
+Use the [GitHub issue form](https://github.com/OmniNull/OmniWM/issues/new/choose) and include your OmniWM and macOS versions.
 
 ## Contributing
 

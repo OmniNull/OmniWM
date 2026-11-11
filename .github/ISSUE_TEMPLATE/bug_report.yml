@@ -6,10 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Tip:** the easiest way to file a great report is from inside OmniWM — open the status-bar menu and choose **Report a Bug…**. It creates and reveals a diagnostics bundle for you to attach, and walks you through recording a trace first.
-        <!-- video guide placeholder: add link once recorded -->
-
-        Prefer the web form? Continue below. Please first search the existing [open and closed issues](https://github.com/OmniNull/OmniWM/issues?q=is%3Aissue) to avoid duplicates, and make sure you're on the latest OmniWM version.
+        Please first search the existing [open and closed issues](https://github.com/OmniNull/OmniWM/issues?q=is%3Aissue) to avoid duplicates, and make sure you're on the latest OmniWM version.
   - type: dropdown
     id: issue-type
     attributes:

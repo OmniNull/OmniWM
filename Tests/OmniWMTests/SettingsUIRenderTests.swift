@@ -50,7 +50,6 @@ import XCTest
                 settings.island.enabled = false
                 settings.animationsEnabled = false
                 settings.hotkeyBindings = []
-                settings.hasSeenIssueWalkthrough = true
                 settings.appRules = [
                     AppRule(bundleId: "com.example.Editor", layout: .tile, assignToWorkspace: "1"),
                     AppRule(bundleId: "com.example.Chat", layout: .float),
@@ -662,7 +661,6 @@ import XCTest
             case .launcher: String(localized: "Saved Entries")
             case .quakeTerminal: String(localized: "Enable Quake Terminal")
             case .diagnostics: String(localized: "Health")
-            case .reportIssue: String(localized: "Title")
             case .advanced: String(localized: "Reveal Settings File")
             }
         }

@@ -378,16 +378,6 @@ extension SettingsStore {
         runtimeState.windowRestoreCatalog = catalog.entries.isEmpty ? nil : catalog
     }
 
-    var issueDraft: IssueDraft? {
-        get { runtimeState.issueDraft }
-        set { runtimeState.issueDraft = newValue }
-    }
-
-    var hasSeenIssueWalkthrough: Bool {
-        get { runtimeState.hasSeenIssueWalkthrough }
-        set { runtimeState.hasSeenIssueWalkthrough = newValue }
-    }
-
     var appVolumes: [String: AppVolumeSetting] {
         get { runtimeState.appVolumes }
         set { runtimeState.appVolumes = newValue }

@@ -83,7 +83,7 @@ final class RuntimeStateStoreTests: XCTestCase {
     func testWelcomePresentedDecodesMissingKeyAsFalseAndRoundTrips() throws {
         let directory = makeDirectory()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try Data(#"{"hasSeenIssueWalkthrough":true}"#.utf8)
+        try Data(#"{"screenRecordingPromptDeclined":true}"#.utf8)
             .write(to: directory.appendingPathComponent(RuntimeStateStore.fileName))
         let store = RuntimeStateStore(directory: directory, deferSaves: false)
         XCTAssertFalse(store.welcomePresented)

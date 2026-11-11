@@ -104,7 +104,6 @@ Sources/
 │   │   ├── Clipboard/               Clipboard history service/store/models
 │   │   ├── Menu/                    Menu extraction for Menu Anywhere
 │   │   ├── Diagnostics/             Logging, bounded recorders, runtime trace capture, health reports
-│   │   ├── IssueReporter/           On-device issue rewrite, GitHub URL builder, prompt Markdown
 │   │   ├── SkyLight/                Private SkyLight/CGS wrappers
 │   │   ├── Sleep/                   Sleep prevention manager
 │   │   ├── LockScreen/              Lock screen detection
@@ -133,8 +132,6 @@ OmniWM uses a single third-party Swift package, vendored Luau and Material Color
 - **Key system frameworks**: AppKit/SwiftUI, Accessibility/ApplicationServices, Carbon/CoreHID, Core Graphics/Core Text/QuartzCore/ScreenCaptureKit, IOKit (including `hidsystem` and `pwr_mgt`), ServiceManagement, and os. The Luau shell's `ui.shader` compiles and draws Metal fragment shaders (`Core/Shell/ShellShader.swift`, `ShellShaderDrawer.swift`); MetalKit is link-time only, and the Ghostty surface reaches Metal through a `CAMetalLayer`.
 - **SkyLight**: a private Apple framework for low-latency window-server access, linked via `-framework SkyLight` and additionally `dlopen`/`dlsym`-loaded for SLS* symbols.
 - **CFPreferences**: Hidden Bar reads and updates the native per-app visibility data in the Control Center group preferences. The API is public; the stored data format is private to macOS.
-- **FoundationModels**: weak-linked and auto-link-disabled, so the app still launches where the framework is
-  unavailable. Used only by `Core/IssueReporter` for the on-device rewrite of bug reports.
 - **GhosttyKit**: a local binary xcframework at `Frameworks/GhosttyKit.xcframework` (prepared outside git) providing the Quake Terminal.
 - **System libraries**: libz, libc++ (required by GhosttyKit).
 
@@ -965,7 +962,6 @@ The per-frame **display link** is owned by `LayoutRefreshController` (not by `An
 | **Sleep / Lock** | `Core/Sleep/`, `Core/LockScreen/` | `SleepPreventionManager` (IOPM assertion), `LockScreenObserver` (DistributedNotificationCenter lock/unlock). |
 | **System Stats** | `Core/Shell/SystemStatsSampler.swift` | CPU, memory-pressure, GPU, disk, uptime, host, and display readings that shell widgets read as `ctx.data`; the bundled `system-stats` widget draws the button and popout. |
 | **Diagnostics & Trace Capture** | `Core/Diagnostics/RuntimeTraceCaptureCoordinator.swift` | Bounded ring recorders per domain plus the single capture owner for the `problem` (wire name `trace`) and `performance` profiles. Both auto-finalize after 600s; the UI, the status bar, and IPC all drive the same coordinator. |
-| **Issue Reporter** | `Core/IssueReporter/FoundationModelsIssueEngine.swift` | Optionally rewrites a rough bug report into the five-section issue template on Apple's on-device model, then builds a pre-filled GitHub URL (`maxURLLength` 8000). Without an applied rewrite, the manual form uses deterministic formatting; rewrite failures report an error and leave that draft available. Prompts live as Markdown resources — see [issue-report-prompt.md](https://github.com/OmniNull/OmniWM/blob/main/docs/issue-report-prompt.md). |
 | **Release Updater** | `App/UpdateCoordinator.swift` | Polls the latest GitHub release once per day, supports manual checks, shows a release-notes popup. |
 
 **Overview rendering and capture.** `OverviewLayerRenderer` retains workspace layers and window layers keyed by stable `WindowHandle` identity, and installs native Core Animation transitions. `OverviewThumbnailCapture` reconciles per-window `SCStream` previews for visible cards and limits concurrent stream **starts** to four; more than four streams may remain running. `OverviewPreviewStream` coalesces incoming frames before publication, and each thumbnail layer displays the retained IOSurface from its latest frame. Closing Overview retires the streams while preserving cached previews; memory-pressure events release that cache when no sources are active.

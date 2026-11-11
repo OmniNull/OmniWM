@@ -76,9 +76,7 @@ struct SettingsDetailView: View {
         case .quakeTerminal:
             QuakeTerminalSettingsTab(settings: settings, controller: controller)
         case .diagnostics:
-            DiagnosticsSettingsTab(controller: controller, navigation: navigation)
-        case .reportIssue:
-            ReportIssueSettingsTab(controller: controller)
+            DiagnosticsSettingsTab(controller: controller)
         case .advanced:
             AdvancedSettingsPage(settings: settings, controller: controller)
         }

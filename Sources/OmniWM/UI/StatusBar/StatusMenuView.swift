@@ -205,11 +205,6 @@ struct StatusMenuPrimaryView: View {
                         model.openSettings()
                     }
                 }
-                if model.isMenuItemVisible(.reportBug) {
-                    MenuActionRow(icon: StatusMenuItem.reportBug.icon, label: StatusMenuItem.reportBug.title) {
-                        model.openReportIssue()
-                    }
-                }
                 if model.isMenuItemVisible(.appRules) {
                     MenuActionRow(icon: StatusMenuItem.appRules.icon, label: StatusMenuItem.appRules.title) {
                         model.openAppRules()

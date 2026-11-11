@@ -8,7 +8,6 @@ extension StatusMenuItem {
         switch self {
         case .hiddenIcons: String(localized: "Show Hidden Icons")
         case .settings: String(localized: "Settings")
-        case .reportBug: String(localized: "Report a Bug…")
         case .appRules: String(localized: "App Rules")
         case .openShellFolder: String(localized: "Open Shell Folder")
         case .checkForUpdates: String(localized: "Check for Updates...")
@@ -23,7 +22,6 @@ extension StatusMenuItem {
         switch self {
         case .hiddenIcons: "eye"
         case .settings: "gearshape"
-        case .reportBug: "ladybug"
         case .appRules: "slider.horizontal.3"
         case .openShellFolder: "folder"
         case .checkForUpdates: "arrow.down.circle"

@@ -28,13 +28,11 @@ If you find OmniWM useful, consider supporting development through [GitHub Spons
 
 ## Reporting bugs
 
-The best way to report a bug is from inside OmniWM: open the status-bar menu and choose **Report a Bug…**. That opens the in-app report form, where recording or attaching trace and crash evidence is optional. On submit, OmniWM prepares one fresh diagnostic `.log` (with any evidence you selected appended), reveals it in Finder for you to attach, and opens a pre-filled GitHub issue — OmniWM never sees your GitHub login.
+Report bugs with the [GitHub issue form](https://github.com/OmniNull/OmniWM/issues/new/choose) and include your OmniWM and macOS versions. A trace helps most: open **Settings → Troubleshooting**, click **Start Recording**, reproduce the bug, then click **Stop & Save Recording** and attach the saved `.log`.
 
 :::caution[Review before you attach]
 Review the `.log` before attaching it to a public issue: it can include settings, app and window titles, and title-based rule matchers.
 :::
-
-Prefer the web? The [GitHub issue form](https://github.com/OmniNull/OmniWM/issues/new/choose) works too; please include your OmniWM and macOS versions there.
 
 ## Contributing
 
