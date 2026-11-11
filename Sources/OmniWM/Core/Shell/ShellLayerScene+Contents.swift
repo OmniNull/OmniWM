@@ -17,6 +17,7 @@ extension ShellLayerScene {
             layer.add(fade, forKey: "contents")
         }
         layer.contents = contents
+        refreshMarqueeContents(slot, contents: contents)
     }
 
     func rasterize(_ text: String, style: UInt32, color: CGColor, maxWidth: CGFloat, lines: Int) -> CGImage? {

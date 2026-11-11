@@ -35,6 +35,7 @@ extension ShellLayerScene {
 
     func applyPaint(_ slot: Int32, _ paint: ShellLayerPaint, preset: ShellAnimation?, animated: Bool) {
         guard let layer = layers[slot] else { return }
+        setMarquee(slot, enabled: paint.marquee)
         setPresence(slot, appear: paint.appear, exit: paint.exit, reveal: paint.reveal, morph: paint.morph)
         let glass = glassBodies[slot] != nil
         if !glass { applyMaterial(slot, paint, to: layer) }

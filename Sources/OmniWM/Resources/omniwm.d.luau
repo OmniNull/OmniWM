@@ -919,6 +919,8 @@ export type Props = {
     drag: boolean?,
     drop: boolean?,
     scroll: boolean?,
+    marquee: boolean?,
+    maxWidth: number?,
     [number]: Element,
 }
 
@@ -929,7 +931,6 @@ export type TextProps = Props & {
     filled: boolean?,
     size: number?,
     weight: Weight?,
-    maxWidth: number?,
     lines: number?,
     color: Color?,
     reserve: string?,

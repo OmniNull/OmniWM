@@ -92,6 +92,7 @@ struct ShellLayerPaint: Sendable {
     var reveal: ShellRevealRecipe?
     var morph: ShellMorphRecipe?
     var frameSize: CGSize?
+    var marquee = false
     var pulse: ShellPulseRecipe?
     var shadowOffset: CGSize = .zero
     var gradient: [CGColor]?
@@ -125,6 +126,8 @@ final class ShellLayerScene: @unchecked Sendable {
     var rotations: [Int32: CGFloat] = [:]
     var quarters: Set<Int32> = []
     var loops: [Int32: (loop: ShellLoop, size: CGSize)] = [:]
+    var marqueeSlots: [Int32] = []
+    var marquees: [Int32: ShellMarquee] = [:]
     var pulseKeys: [Int32: UInt64] = [:]
     var imageFrames: [Int32: ShellImageFrames] = [:]
     var playbackSettings: [Int32: ShellPlayback] = [:]
@@ -154,7 +157,7 @@ final class ShellLayerScene: @unchecked Sendable {
     var effects: [Int32: ShellGroupEffect] = [:]
     var transition = ShellShaderTransition.settled
     private var stage: ShellShaderStage?
-    private var visible = true
+    private(set) var visible = true
     static let clear = CGColor(gray: 0, alpha: 0)
 
     init(container: CALayer, scale: CGFloat, glassNativeEnabled: Bool = true) {
@@ -185,6 +188,7 @@ final class ShellLayerScene: @unchecked Sendable {
             flushGlass(animated: animated)
             flushReveals(animated: animated)
             flushPulses()
+            flushMarquees()
             CATransaction.commit()
             CATransaction.flush()
             if !effects.isEmpty { shaders?.redrawGroups() }
@@ -260,13 +264,6 @@ final class ShellLayerScene: @unchecked Sendable {
         replaceContents(slot, image, preset: preset, animated: animated)
         imageFrames[slot] = frames
         updatePlayback(slot, contentsReplaced: true)
-    }
-
-    private func applyScroll(_ slot: Int32, origin: CGPoint) {
-        guard let layer = layers[slot] else { return }
-        scrollOrigins[slot] = origin
-        layer.masksToBounds = true
-        layer.bounds.origin = origin
     }
 
     func framedAnimation(_ preset: ShellAnimation?, _ slot: Int32, _ animated: Bool) -> ShellAnimation? {
@@ -383,6 +380,7 @@ final class ShellLayerScene: @unchecked Sendable {
     }
 
     func forget(_ slot: Int32) {
+        setMarquee(slot, enabled: false)
         if let parent = parents[slot] { children[parent]?.remove(slot) }
         forgetPulse(slot)
         forgetGlass(slot)

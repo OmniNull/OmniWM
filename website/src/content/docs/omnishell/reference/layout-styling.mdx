@@ -21,6 +21,7 @@ Every UI element accepts `Props`; specialized constructors add their own fields.
 | `center` | Center children across the row/column’s cross axis; default true. False starts them at the padding. |
 | `align` | Placement inside an overlapping stack; defaults to center. Supports leading/trailing, top/bottom, and the four corners. |
 | `scroll` | Enable native scrolling in an overflowing fixed-size row or column. |
+| `marquee` | On a scrolling row with one passive `ui.text` child, repeat overflowing text through its viewport. `maxWidth` caps the viewport’s preferred width; leave the child text uncapped. The copy is visual only, and the containing widget owns clicks. |
 
 ```lua
 ui.row{ w = 260, pad = 12, gap = 8,

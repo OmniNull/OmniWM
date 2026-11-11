@@ -358,6 +358,7 @@ extension ShellWidgetSurface {
             reveal: reveal(paint.reveal),
             morph: morph(paint.morph),
             frameSize: CGRect(layout.core.layoutFrame(of: handle)).size,
+            marquee: layout.core.content(of: handle).marquee && motionPolicy.animationsEnabled,
             pulse: paint.pulse == 0 ? nil : text.flatMap { ShellPulseRecipe($0.string(paint.pulse)) },
             shadowOffset: CGSize(width: CGFloat(paint.shadowOffsetX), height: CGFloat(paint.shadowOffsetY)),
             gradient: paint.gradientSpecified

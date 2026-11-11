@@ -226,6 +226,7 @@ public struct Content: Equatable, Sendable, BitwiseCopyable {
     public var hoverMaterial: UInt8
     public var lines: UInt8
     public var scrolls: Bool
+    public var marquee: Bool
     public var bridges: Bool
     public var openDuration: Float
     public var closeDuration: Float
@@ -327,6 +328,7 @@ public struct Content: Equatable, Sendable, BitwiseCopyable {
         hoverMaterial: UInt8 = 0,
         lines: UInt8 = 0,
         scrolls: Bool = false,
+        marquee: Bool = false,
         bridges: Bool = false,
         openDuration: Float = -1,
         closeDuration: Float = -1,
@@ -366,6 +368,7 @@ public struct Content: Equatable, Sendable, BitwiseCopyable {
         self.hoverMaterial = hoverMaterial
         self.lines = lines
         self.scrolls = scrolls
+        self.marquee = marquee
         self.bridges = bridges
         self.openDuration = openDuration
         self.closeDuration = closeDuration

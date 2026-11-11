@@ -183,6 +183,7 @@ enum ShellWireDecoder {
             hoverMaterial: wire.hover_material,
             lines: wire.lines,
             scrolls: wire.flags & UInt16(OMNI_NODE_SCROLL) != 0,
+            marquee: wire.behavior_flags & UInt32(OMNI_NODE_MARQUEE) != 0,
             bridges: UInt32(wire.options) & OMNI_NODE_OPTION_BRIDGE != 0,
             openDuration: wire.open_duration,
             closeDuration: wire.close_duration,

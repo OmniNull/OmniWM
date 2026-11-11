@@ -177,8 +177,11 @@ final class ShellWidgetClipView: NSView {
             size: surface
         )
         if let content = content as? ShellSurfaceView {
-            content.surface?
-                .setVisibleBounds(isCut ? content.bounds.intersection(content.convert(bounds, from: self)) : nil)
+            let shown = content.bounds.intersection(content.convert(bounds, from: self))
+            if let surface = content.surface {
+                surface.setRootLimit(isCut && !keepsEnd && surface.hasMarquee ? shown.size : nil)
+                surface.setVisibleBounds(isCut ? shown : nil)
+            }
         }
     }
 }

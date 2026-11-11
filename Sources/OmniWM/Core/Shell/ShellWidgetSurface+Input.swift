@@ -240,6 +240,7 @@ extension ShellWidgetSurface {
     private func scrollContent(at point: CGPoint, by delta: CGPoint) -> Bool {
         let container = element(at: point) { $0.scrolls }
         guard container.slot >= 0 else { return false }
+        guard !layout.core.content(of: container).marquee else { return true }
         let vertical = layout.core.layoutStyle(of: container).axis == .column
         guard let offset = layout.scroll(container, by: Float(vertical ? delta.y : delta.x)) else { return true }
         submitScroll(container, offset: offset, vertical: vertical)

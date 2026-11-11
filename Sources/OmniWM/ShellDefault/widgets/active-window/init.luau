@@ -32,7 +32,8 @@ function render(ctx)
             props[#props + 1] = ui.icon{ app = m.bundle, w = 18 * scale, h = 18 * scale, placeholder = "app.dashed" }
         end
         if m.showText then
-            props[#props + 1] = look.text{ text = m.title, size = 13 * scale, weight = "medium", maxWidth = m.maxWidth }
+            props[#props + 1] = ui.row{ scroll = true, marquee = true, maxWidth = m.maxWidth,
+                look.text{ text = m.title, size = 13 * scale, weight = "medium" } }
         end
         button = look.bar(ctx, props)
     end

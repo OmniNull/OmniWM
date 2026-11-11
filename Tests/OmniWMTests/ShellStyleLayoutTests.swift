@@ -1886,7 +1886,9 @@ final class ShellStyleLayoutTests: XCTestCase {
                                 widget.text.string(label.content.text),
                                 profile == "matrix" ? "~/Safari" : "A quiet afternoon", context
                             )
-                            XCTAssertEqual(label.content.maxWidth, maximum, context)
+                            let viewport = tree.first { $0.content.marquee }
+                            XCTAssertEqual(viewport?.content.maxWidth ?? label.content.maxWidth, maximum, context)
+                            if viewport != nil { XCTAssertEqual(label.content.maxWidth, 0, context) }
                             XCTAssertEqual(label.paint.rotate, vertical ? 90 : 0, context)
                         }
                         XCTAssertLessThanOrEqual(

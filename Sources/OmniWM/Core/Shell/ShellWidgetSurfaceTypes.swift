@@ -30,7 +30,7 @@ final class ShellWidgetLayout {
         return CGSize(width: CGFloat(size.width), height: CGFloat(size.height))
     }
 
-    func apply(_ output: [UInt8], text: ShellTextStore) -> Bool {
+    func apply(_ output: [UInt8], text: ShellTextStore, visibleBounds: CGRect? = nil) -> Bool {
         let nodes = Self.scratch
         let count = output.withUnsafeBytes { buffer -> Int in
             guard let base = buffer.baseAddress else { return 0 }
@@ -44,6 +44,14 @@ final class ShellWidgetLayout {
             context: UnsafeMutableRawPointer(text.table),
             into: &patches
         )
+        if let visibleBounds {
+            let root = core.rootHandle
+            let marquee = core.content(of: root).marquee || core.firstDescendant(of: root) { $0.marquee } != .none
+            let size = visibleBounds.origin == .zero && marquee
+                ? Size2(width: Float(visibleBounds.width), height: Float(visibleBounds.height))
+                : Size2(width: .infinity, height: .infinity)
+            core.setRootLimit(size, into: &patches)
+        }
         return true
     }
 

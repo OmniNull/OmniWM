@@ -255,7 +255,7 @@ extension ShellWidgetSurface {
         keeping anchor: ShellScrollAnchor? = nil
     ) -> Bool {
         let followerExits = followerExitBindings()
-        guard layout.apply(output, text: text) else {
+        guard layout.apply(output, text: text, visibleBounds: visibleBounds) else {
             acknowledgeGesture(through: gestureAcknowledgement)
             return false
         }
@@ -368,10 +368,15 @@ extension ShellWidgetSurface {
         cancelManipulation(reason: "display-changed", immediate: true)
         finishSettle()
         layout.setRootLimit(size)
+        reconcileInput()
+        reconcileResourceDrop()
+        updatePreview()
         guard let text else { return }
         var commands = commands(text: text)
+        layoutTextInputs(into: &commands)
         appendFollow(into: &commands)
         scene.submit(commands, animated: false)
+        onMove?()
     }
 
     var animatesShaders: Bool {
