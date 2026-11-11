@@ -25,21 +25,21 @@ extension MouseEventHandler {
 
     func clearLiveDragReference() {
         state.liveDragReferenceOffset = nil
-        state.livePointerSamples = []
+        livePointer.samples = []
     }
 
     func recordLivePointerSample(_ location: CGPoint) {
         let now = liveDragClock()
         let window = MoveConfiguration.liveSlowDownWindow
-        state.livePointerSamples.append(.init(location: location, time: now))
-        while state.livePointerSamples.count > 1, state.livePointerSamples[1].time <= now - window {
-            state.livePointerSamples.removeFirst()
+        livePointer.samples.append(.init(location: location, time: now))
+        while livePointer.samples.count > 1, livePointer.samples[1].time <= now - window {
+            livePointer.samples.removeFirst()
         }
     }
 
     func livePointerHasSlowed(at now: TimeInterval) -> Bool {
-        guard let current = state.livePointerSamples.last,
-              let earlier = state.livePointerSamples.last(where: {
+        guard let current = livePointer.samples.last,
+              let earlier = livePointer.samples.last(where: {
                   $0.time <= now - MoveConfiguration.liveSlowDownWindow + 0.005
               })
         else { return false }
@@ -48,7 +48,7 @@ extension MouseEventHandler {
     }
 
     func livePointerStopCheckDelay(at now: TimeInterval) -> TimeInterval? {
-        guard let last = state.livePointerSamples.last else { return nil }
+        guard let last = livePointer.samples.last else { return nil }
         let delay = last.time + MoveConfiguration.liveSlowDownWindow - now
         return delay > 0.005 ? delay : nil
     }

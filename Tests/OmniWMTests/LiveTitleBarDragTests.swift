@@ -259,6 +259,23 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.order(), order)
     }
 
+    func testWithMacOSFusionOffAnOrdinaryDragKeepsNoLivePointerState() throws {
+        for fusion in [false, true] {
+            let fixture = try makeFixture(pid: fusion ? 938_405 : 938_404)
+            fixture.controller.settings.niri.macOSFusion = fusion
+            fixture.controller.applyMacOSFusionSettings()
+            try fixture.beginDrag(fixture.tokens[1])
+            XCTAssertNotNil(fixture.handler.state.nativeTitleBarDrag, "\(fusion)")
+
+            for step in 1 ... 3 {
+                _ = fixture.handler.trackLiveColumnDrag(at: CGPoint(x: 400 + CGFloat(step) * 10, y: 300), button: .left)
+            }
+
+            XCTAssertEqual(fixture.handler.livePointer.location != nil, fusion, "\(fusion)")
+            XCTAssertEqual(fixture.handler.livePointer.samples.isEmpty, !fusion, "\(fusion)")
+        }
+    }
+
     func testReloadedSettingsLeaveTheTapFilterAloneWhileMacOSFusionIsOff() throws {
         let fixture = try makeFixture(pid: 938_070)
         let controller = fixture.controller

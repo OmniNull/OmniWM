@@ -10,11 +10,18 @@ struct EdgePeekWidths: Equatable {
 }
 
 extension NiriLayoutEngine {
+    func refreshEdgePeeksPossible() {
+        edgePeeksPossible = edgePeekShare != nil
+            || monitors.values.contains { $0.resolvedSettings?.edgePeekShare != nil }
+    }
+
     func edgePeekShare(onDisplayWith viewFrame: CGRect?) -> CGFloat? {
         guard let viewFrame else { return nil }
-        guard let resolved = monitors.values.first(where: { $0.frame == viewFrame })?.resolvedSettings else {
-            return edgePeekShare
-        }
+        return edgePeekShare(on: monitors.values.first(where: { $0.frame == viewFrame }))
+    }
+
+    private func edgePeekShare(on monitor: NiriMonitor?) -> CGFloat? {
+        guard let resolved = monitor?.resolvedSettings else { return edgePeekShare }
         return resolved.edgePeekShare
     }
 
@@ -143,9 +150,10 @@ extension NiriLayoutEngine {
     }
 
     func applyEdgePeekCaps(in workspaceId: WorkspaceDescriptor.ID, workingFrame: CGRect, gap: CGFloat) {
+        guard edgePeeksPossible || hasSetEdgePeekCaps else { return }
         let monitor = monitorForWorkspace(workspaceId)
         guard !isLiveColumnMoveActive(in: workspaceId),
-              edgePeekShare(onDisplayWith: monitor?.frame) != nil
+              monitor != nil && edgePeekShare(on: monitor) != nil
               || hasSetEdgePeekCaps && columns(in: workspaceId).contains(where: { $0.edgePeekCap != nil })
         else { return }
         let orientation = monitor?.orientation ?? .horizontal

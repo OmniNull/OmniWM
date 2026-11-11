@@ -505,8 +505,8 @@ extension MouseEventHandler {
         state.nativeResizeStart = nil
         state.nativeCrossDisplayMove = nil
         cancelLiveColumnDrag()
-        state.liveDragLocation = nil
-        state.livePointerSamples = []
+        livePointer.location = nil
+        livePointer.samples = []
         state.awaitsNativeTitleBarDragTarget = false
         state.nativeTitleBarDragPressTimestamp = nil
         state.nativeTitleBarDragFallbackToken = nil

@@ -148,10 +148,7 @@ struct MouseInputState {
     var currentHoveredEdges: ResizeEdge = []
     var isResizing: Bool = false
     var isMoving: Bool = false
-    var liveDragLocation: CGPoint?
     var liveDragReferenceOffset: CGFloat?
-    var livePointerSamples: [LivePointerSample] = []
-    var liveDragModifiers: CGEventFlags?
     var liveDragTracedView: String?
     var liveDragTracedDecline: String?
     var liveTabPull: LiveTabPull?
@@ -211,4 +208,10 @@ struct MouseInputState {
     var consumedTrackpadSessions: [UInt64: MultitouchContactSession] = [:]
     var horizontalWheelTracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
     var verticalWheelTracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+}
+
+struct LiveDragPointer {
+    var location: CGPoint?
+    var samples: [MouseInputState.LivePointerSample] = []
+    var modifiers: CGEventFlags?
 }

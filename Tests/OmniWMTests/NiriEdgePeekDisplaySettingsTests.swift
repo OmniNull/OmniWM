@@ -76,6 +76,35 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
         XCTAssertNil(settings.resolved(for: monitor).edgePeekShare)
     }
 
+    func testThePeekCheckIsSkippedOnlyWhileNoDisplayCanPeek() {
+        let left = display(9, x: 0, width: 1_500, name: "No peeks")
+        let right = display(10, x: 3_000, width: 2_000, name: "Own peeks")
+        let settings = fusionSettings(percent: 0)
+        let engine = NiriLayoutEngine()
+        engine.syncWorkspaceAssignments(
+            [
+                (workspaceId: WorkspaceDescriptor.ID(), monitor: left),
+                (workspaceId: WorkspaceDescriptor.ID(), monitor: right)
+            ],
+            orientations: [left.id: .horizontal, right.id: .horizontal]
+        )
+        engine.updateMonitorSettings(settings.resolved(for: left), for: left.id)
+        engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
+        XCTAssertFalse(engine.edgePeeksPossible)
+
+        settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: 5), for: right)
+        engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
+        XCTAssertTrue(engine.edgePeeksPossible)
+        XCTAssertEqual(engine.edgePeekWidths(viewFrame: right.frame), EdgePeekWidths(leading: 100, trailing: 100))
+
+        settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: 0), for: right)
+        engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
+        XCTAssertFalse(engine.edgePeeksPossible)
+
+        engine.edgePeekShare = 0.03
+        XCTAssertTrue(engine.edgePeeksPossible)
+    }
+
     func testEachDisplayGetsPeeksOfItsOwnWidth() {
         let left = display(7, x: 0, width: 1_500, name: "Left peeks")
         let right = display(8, x: 3_000, width: 2_000, name: "Right peeks")

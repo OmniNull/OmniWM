@@ -53,6 +53,7 @@ extension NiriLayoutEngine {
     func updateMonitorSettings(_ settings: ResolvedNiriSettings, for monitorId: Monitor.ID) {
         assertSanctionedMutation()
         monitors[monitorId]?.resolvedSettings = settings
+        refreshEdgePeeksPossible()
     }
 
     func globalResolvedSettings() -> ResolvedNiriSettings {

@@ -165,8 +165,11 @@ final class NiriLayoutEngine {
     var animatesLearnedMinimumWidths = false
 
     var hasSetEdgePeekCaps = false
+    var edgePeeksPossible = false
 
-    var edgePeekShare: CGFloat?
+    var edgePeekShare: CGFloat? {
+        didSet { refreshEdgePeeksPossible() }
+    }
 
     var defaultContainerPrimarySpan: CGFloat? = 0.5
 

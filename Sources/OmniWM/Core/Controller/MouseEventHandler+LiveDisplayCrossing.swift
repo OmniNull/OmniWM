@@ -95,8 +95,8 @@ extension MouseEventHandler {
             + String(format: "off=%.0f live=%@ ", viewport.viewOffset, live.map { String(format: "%.0f", $0) } ?? "-")
             + "lock=\(lock) cols=[\(columns.joined(separator: ","))] phase=\(move.map { "\($0.phase)" } ?? "-") "
             + "stack=\(move?.stackMode ?? false) "
-            + "mods=\(InputDiagnostics.modifierLabel(UInt((state.liveDragModifiers ?? modifierFlagsProvider()).rawValue)))"
-            + (state.liveDragModifiers == nil ? "/state" : "/key")
+            + "mods=\(InputDiagnostics.modifierLabel(UInt((livePointer.modifiers ?? modifierFlagsProvider()).rawValue)))"
+            + (livePointer.modifiers == nil ? "/state" : "/key")
         let entry = "\(label) \(view)"
         guard !label.hasPrefix("update") || entry != state.liveDragTracedView else { return }
         state.liveDragTracedView = entry

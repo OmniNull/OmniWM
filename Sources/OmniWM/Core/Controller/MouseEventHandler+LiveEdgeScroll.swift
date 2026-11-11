@@ -162,7 +162,7 @@ extension MouseEventHandler {
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
               move.workspaceId == workspaceId,
-              let location = state.liveDragLocation
+              let location = livePointer.location
         else { return }
 
         guard !controller.workspaceManager.animationDriver.hasEdgeScroll(in: workspaceId)
