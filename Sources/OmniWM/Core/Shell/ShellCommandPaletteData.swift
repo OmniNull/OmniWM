@@ -20,6 +20,8 @@ enum ShellCommandPaletteRowKind: String, Sendable {
     case file
     case saved
     case showAll
+    case executable
+    case gridRow
 }
 
 struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
@@ -59,6 +61,7 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
         var enabled: Bool
         var pinned = false
         var actions: [Action] = []
+        var cells: [Row] = []
     }
 
     struct Action: Equatable, Sendable {
@@ -75,9 +78,12 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
         var image: String?
         var width = 0.0
         var height = 0.0
+        var title: String?
+        var symbol: String?
+        var details: [Detail] = []
 
         func write(into writer: inout ShellValueWriter) {
-            writer.map(6)
+            writer.map(9)
             writer.key("id")
             writer.string(id)
             writer.key("state")
@@ -90,6 +96,24 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
             writer.number(width)
             writer.key("height")
             writer.number(height)
+            writer.key("title")
+            ShellCommandPaletteData.write(title, into: &writer)
+            writer.key("symbol")
+            ShellCommandPaletteData.write(symbol, into: &writer)
+            ShellCommandPaletteData.write(details, key: "details", into: &writer)
+        }
+    }
+
+    struct Detail: Equatable, Sendable, ShellValueWritable {
+        var label: String
+        var value: String
+
+        func write(into writer: inout ShellValueWriter) {
+            writer.map(2)
+            writer.key("label")
+            writer.string(label)
+            writer.key("value")
+            writer.string(value)
         }
     }
 
@@ -116,9 +140,33 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
     var browseModes = false
     var error: String?
     var preview: Preview?
+    var launcher: Launcher?
+    var emptyAction: Action?
+
+    struct Launcher: Equatable, Sendable, ShellValueWritable {
+        var filters: [Mode] = []
+        var chips: [Mode] = []
+        var views: [Mode] = []
+        var add: Action?
+        var columns = 1
+        var grid = false
+
+        func write(into writer: inout ShellValueWriter) {
+            writer.map(6)
+            ShellCommandPaletteData.write(filters, key: "filters", into: &writer)
+            ShellCommandPaletteData.write(chips, key: "chips", into: &writer)
+            ShellCommandPaletteData.write(views, key: "views", into: &writer)
+            writer.key("add")
+            if let add { add.write(into: &writer) } else { writer.null() }
+            writer.key("columns")
+            writer.number(Double(columns))
+            writer.key("grid")
+            writer.bool(grid)
+        }
+    }
 
     func write(into writer: inout ShellValueWriter) {
-        writer.map(23)
+        writer.map(25)
         writer.key("open")
         writer.bool(open)
         writer.key("expanded")
@@ -178,10 +226,26 @@ struct ShellCommandPaletteData: Equatable, Sendable, ShellValueWritable {
         Self.write(error, into: &writer)
         writer.key("preview")
         if let preview { preview.write(into: &writer) } else { writer.null() }
+        writer.key("launcher")
+        if let launcher { launcher.write(into: &writer) } else { writer.null() }
+        writer.key("emptyAction")
+        if let emptyAction { emptyAction.write(into: &writer) } else { writer.null() }
     }
 
     fileprivate static func write(_ value: String?, into writer: inout ShellValueWriter) {
         if let value { writer.string(value) } else { writer.null() }
+    }
+
+    fileprivate static func write(
+        _ values: [some ShellValueWritable],
+        key: String,
+        into writer: inout ShellValueWriter
+    ) {
+        writer.key(key)
+        writer.array(values.count)
+        for value in values {
+            value.write(into: &writer)
+        }
     }
 }
 
@@ -231,7 +295,7 @@ extension ShellCommandPaletteData.Icon: ShellValueWritable {
 
 extension ShellCommandPaletteData.Row: ShellValueWritable {
     func write(into writer: inout ShellValueWriter) {
-        writer.map(13)
+        writer.map(14)
         writer.key("id")
         writer.string(id)
         writer.key("kind")
@@ -265,6 +329,9 @@ extension ShellCommandPaletteData.Row: ShellValueWritable {
         writer.key("actions")
         writer.array(actions.count)
         for action in actions { action.write(into: &writer) }
+        writer.key("cells")
+        writer.array(cells.count)
+        for cell in cells { cell.write(into: &writer) }
     }
 }
 

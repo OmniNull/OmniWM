@@ -109,7 +109,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     var fileViewStyle: LauncherViewStyle = .grid
     var isApplicationLoading = false
     var isFileLoading = false
-    var launcherColumnCount = 1
+    @ObservationIgnored var launcherColumnCount = 1
     var launcherScopeChipIndex = 0
     var launcherResultsFocused = false
     var launcherShowsPaths = false
@@ -145,6 +145,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
     @ObservationIgnored var shellImageSequence = 0
     @ObservationIgnored var shellFileIconRequests: [CommandPaletteShellFileIconRequest] = []
     @ObservationIgnored var shellHeaderCache: CommandPaletteShellHeader?
+    @ObservationIgnored var shellLauncherRowCache: [CommandPaletteSelectionID: CommandPaletteShellLauncherRow] = [:]
+    @ObservationIgnored var shellGridKeys: [String: String] = [:]
+    @ObservationIgnored var shellLauncherToolbarCache: CommandPaletteShellLauncherToolbar?
+    @ObservationIgnored var shellFilePreviewCache: CommandPaletteShellFilePreviewCache?
+    @ObservationIgnored var launcherQuickLook: ShellDesktopPlatform.Presentation?
     @ObservationIgnored weak var deferredShellSource: WorkspaceBarManager?
 
     enum DismissReason {
@@ -218,6 +223,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         }
 
         installEventMonitor()
+        syncLauncherPaths()
 
         isVisible = true
         claimPaletteInput(wmController)
@@ -254,6 +260,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             selectedMode = .windows
             return
         }
+        closeLauncherQuickLook()
         presentation.shell?.beginSession()
         finishShellFileIconDemand([])
         refreshFilteredItems()
@@ -321,7 +328,9 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
             }
         })
     }
+}
 
+extension CommandPaletteController {
     func dismissForLauncherSelection() {
         dismiss(reason: .selection)
     }
@@ -342,9 +351,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         }
         presentation.expand(panel)
     }
-}
 
-extension CommandPaletteController {
     func dismiss(reason: DismissReason) {
         nativeMenu.cancel()
         shellPreviewCache = nil
@@ -353,6 +360,7 @@ extension CommandPaletteController {
         removeEventMonitor()
         invalidateLauncherSearch()
         isVisible = false
+        closeLauncherQuickLook()
         clipboardPreviewGeneration &+= 1
         clipboardPreview = nil
         clipboardPreviewImage = nil
@@ -429,7 +437,8 @@ extension CommandPaletteController {
         clipboardItems = []
         commandItems = []
         shellRowKeys.removeAll(keepingCapacity: true)
-        shellUnifiedRowCache.removeAll(keepingCapacity: true)
+        shellGridKeys.removeAll(keepingCapacity: true)
+        clearShellLauncherRows()
         isClipboardHistoryEnabled = false
         if let source = deferredShellSource {
             prewarmShell(from: source)
@@ -438,8 +447,15 @@ extension CommandPaletteController {
 
     private func installEventMonitor() {
         removeEventMonitor()
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, isVisible, !isPresentingModalPrompt, !nativeMenu.isTracking else { return event }
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
+            guard let self, isVisible else { return event }
+            if event.type == .flagsChanged {
+                syncLauncherPaths(event.modifierFlags)
+                return event
+            }
+            guard !isPresentingModalPrompt, !nativeMenu.isTracking,
+                  launcherQuickLook == nil || event.window === presentation.panel
+            else { return event }
             return handleKeyDown(event) ? nil : event
         }
     }
@@ -473,17 +489,10 @@ extension CommandPaletteController {
 
     func windowDidResignKey(_: Notification) {
         guard isVisible, !isProgrammaticDismiss, !isConfirmingClipboardClear, !isPresentingModalPrompt,
-              !nativeMenu.isTracking
+              !nativeMenu.isTracking, launcherQuickLook == nil
         else {
             return
         }
         dismiss(reason: .deactivation)
-    }
-}
-
-extension CommandPaletteController {
-    var isCurrentWorkspaceEmpty: Bool {
-        guard let wmController, let workspaceId = focusSession.workspaceId else { return false }
-        return wmController.workspaceManager.windowCount(in: workspaceId) == 0
     }
 }

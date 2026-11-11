@@ -249,11 +249,11 @@ IDs are host-issued identities. Use a current snapshot for actions; titles and l
 
 Only the `command-palette` widget receives `ctx.data.commandPalette`, in its own script. OmniWM owns the query, search, selection, previews and actions. The widget puts its search field in a `ui.input` keyed `query`, and results in a scrolling column keyed `results` with each direct row keyed by its `id`. Rows near the viewport arrive with `first` and `total`; add `results-before` and `results-after` spacer boxes only when their `before` or `after` height is positive. Heading rows and disabled rows take no activation.
 
-Rows cover Windows, Commands, Menu, Clipboard and unified search, including application, file, saved and Show All results. `unified` suppresses mode navigation; `browseModes` enables the native Browse Modes button. `state` distinguishes results, empty, loading, disabled and blank content, and `error` carries Clipboard feedback. Clipboard rows have a pinned indication and trailing `actions`. `preview` contains only the selected item's bounded text or a named bitmap with dimensions; use `ui.input{multiline=true, editable=false, wrap=false}` for selectable text. Icon bitmaps and preview bitmaps belong to the palette presenter and are retired when it closes, falls back or is replaced.
+Rows cover Windows, Commands, Menu, Clipboard, Apps, Files and unified search, including application, file, saved, CLI and Show All results. In Apps and Files, `launcher` carries the filters, category chips, Grid and List choices and the Add… action; a `gridRow` row holds up to `launcher.columns` `cells`. `emptyAction` is the button an empty or disabled state offers. `unified` suppresses mode navigation; `browseModes` enables the native Browse Modes button. `state` distinguishes results, empty, loading, disabled and blank content, and `error` carries Clipboard feedback. Clipboard rows have a pinned indication and trailing `actions`. `preview` contains only the selected item's bounded text or a named bitmap with dimensions; in Files, ⌘Y adds a `file` preview with a thumbnail sized in points, a title and `details`, and Space opens macOS Quick Look; use `ui.input{multiline=true, editable=false, wrap=false}` for selectable text. Icon bitmaps and preview bitmaps belong to the palette presenter and are retired when it closes, falls back or is replaced.
 
-Click actions include `palette activate <id>`, `palette paste <id>`, `palette mode <id>`, `palette mark set`, `palette mark remove`, `palette clear`, `palette enable` and `palette menu <id>` (`modes` opens Browse Modes). Clipboard rows use `onHover = "palette highlight <id>"`, `hoverDelay = 0`, `menu = true` and `target = id`; Swift handles selection and native menus, including right-click and Control-click. The host revalidates the current row and action. No AX objects or raw clipboard representations are exposed.
+Click actions include `palette activate <id>`, `palette paste <id>`, `palette mode <id>`, `palette mark set`, `palette mark remove`, `palette clear`, `palette filter <id>`, `palette chip <id>`, `palette view <id>`, `palette menu <id>` (`modes` opens Browse Modes, `launcher-add` opens Add…) and `palette <emptyAction.id>`. Clipboard, saved and CLI rows use `onHover = "palette highlight <id>"` and `hoverDelay = 0`; they, Apps and Files rows and grid cells use `menu = true` and `target = id`. Swift handles selection and native menus, including right-click and Control-click. The host revalidates the current row and action. No AX objects or raw clipboard representations are exposed.
 
-Styles use optional `look.commandPalettePanel`, `commandPaletteSearch`, `commandPaletteTabs`, `commandPaletteRow`, `commandPaletteSection`, `commandPaletteBadge`, `commandPaletteAction`, `commandPaletteEmpty` and `commandPalettePreview` hooks, or provide their own `widgets/command-palette/init.luau`. `commandPalettePreview(ctx, preview, props)` wraps the shared preview content; the common widget attaches row actions and native-menu metadata after row hooks.
+Styles use optional `look.commandPalettePanel`, `commandPaletteSearch`, `commandPaletteTabs`, `commandPaletteRow`, `commandPaletteSection`, `commandPaletteBadge`, `commandPaletteAction`, `commandPaletteEmpty`, `commandPalettePreview`, `commandPaletteToolbar`, `commandPaletteChip` and `commandPaletteCell` hooks, or provide their own `widgets/command-palette/init.luau`. `commandPalettePreview(ctx, preview, props)` wraps the shared preview content; the common widget attaches row actions and native-menu metadata after row hooks.
 
 <LuauDeclaration name="CommandPalette" />
 
@@ -262,6 +262,12 @@ Styles use optional `look.commandPalettePanel`, `commandPaletteSearch`, `command
 <LuauDeclaration name="CommandPaletteBadge" />
 
 <LuauDeclaration name="CommandPalettePreview" />
+
+<LuauDeclaration name="CommandPaletteLauncher" />
+
+<LuauDeclaration name="CommandPaletteChoice" />
+
+<LuauDeclaration name="CommandPaletteAction" />
 
 ## Audio and media snapshots
 

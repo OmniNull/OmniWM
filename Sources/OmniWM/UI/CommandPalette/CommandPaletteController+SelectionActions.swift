@@ -114,7 +114,7 @@ extension CommandPaletteController {
     }
 
     func performLauncherContextAction(
-        _ action: CommandPaletteLauncherResultsView.ContextAction,
+        _ action: LauncherContextAction,
         for selection: LauncherSelection
     ) {
         guard isVisible, isLauncherMode, launcherPublishedGeneration == launcherRequestGeneration else { return }
@@ -131,7 +131,7 @@ extension CommandPaletteController {
         case .reveal:
             selectCurrent(trigger: .reveal)
         case .quickLook:
-            if selectedMode == .files { isLauncherPreviewVisible = true }
+            openLauncherQuickLook()
         case .dontSuggest:
             guard selectedMode == .applications,
                   selection.sectionID == .suggestions,

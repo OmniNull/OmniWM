@@ -8,7 +8,7 @@ import XCTest
 
 @MainActor
 final class CommandPaletteLauncherTests: XCTestCase {
-    private final class Recorder {
+    final class Recorder {
         var fileSubmissions: [(
             query: String,
             publish: @MainActor (Int, [LauncherSection<LauncherFileResult>]) -> Void
@@ -29,7 +29,7 @@ final class CommandPaletteLauncherTests: XCTestCase {
         var removalReplies: [@MainActor (Bool) -> Void] = []
     }
 
-    private func makeFixture(mode: CommandPaletteMode, recorder: Recorder) -> CommandPaletteFocusFixture {
+    func makeFixture(mode: CommandPaletteMode, recorder: Recorder) -> CommandPaletteFocusFixture {
         CommandPaletteFocusFixture(initialMode: mode) { environment in
             environment.submitFileSearch = { _, query, _, _, publish in
                 recorder.fileSubmissions.append((query, publish))
@@ -58,7 +58,7 @@ final class CommandPaletteLauncherTests: XCTestCase {
         }
     }
 
-    private func fileSection(_ names: [String]) -> [LauncherSection<LauncherFileResult>] {
+    func fileSection(_ names: [String]) -> [LauncherSection<LauncherFileResult>] {
         [LauncherSection(
             id: .results,
             title: "Results",
@@ -66,7 +66,7 @@ final class CommandPaletteLauncherTests: XCTestCase {
         )]
     }
 
-    private func key(_ keyCode: Int, _ characters: String, _ modifiers: NSEvent.ModifierFlags = []) throws -> NSEvent {
+    func key(_ keyCode: Int, _ characters: String, _ modifiers: NSEvent.ModifierFlags = []) throws -> NSEvent {
         try XCTUnwrap(NSEvent.keyEvent(
             with: .keyDown,
             location: .zero,

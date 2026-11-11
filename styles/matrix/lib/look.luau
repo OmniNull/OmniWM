@@ -189,6 +189,34 @@ return require("./skin")({
                 else "> no match", size = 13, color = "accent" },
             text{ text = m.emptyText, size = 11, color = "secondaryForeground", maxWidth = width - 40, lines = 2 } }
     end,
+    commandPaletteChip = function(_, item, kind)
+        local color = if item.selected then "accentForeground" else "secondaryForeground"
+        local label = if item.symbol ~= "" then ui.symbol{ name = item.symbol, size = 11, color = color }
+            else text{ text = "[" .. string.upper(item.title) .. "]", size = 10, color = color }
+        return ui.row{ pad = 4, radius = 2, hover = if item.selected then nil else legacy.hover,
+            fill = if item.selected then "accent" else nil,
+            border = if kind == "chip" and not item.selected then "border" else nil,
+            borderWidth = if kind == "chip" and not item.selected then 1 else nil,
+            label }
+    end,
+    commandPaletteToolbar = function(_, _, props)
+        table.insert(props, 1, text{ text = "$ ls", size = 11, weight = "semibold", color = "accent" })
+        return ui.row(props)
+    end,
+    commandPaletteCell = function(_, item, width, height)
+        local selected = item.selected
+        local tile = if item.icon.bitmap then ui.image{ image = item.icon.bitmap, w = 64, h = 64 }
+            else ui.symbol{ name = item.icon.symbol or "app.dashed", size = 30,
+                color = if selected then "accentForeground" else "accent" }
+        return ui.column{ w = width, h = height, gap = 6, pad = 6, radius = 2,
+            fill = if selected then "accent" else nil,
+            border = if selected then nil else "border", borderWidth = if selected then nil else 1,
+            hover = if selected then nil else legacy.hover,
+            ui.stack{ w = 75, h = 75, tile },
+            text{ text = if selected then "> " .. item.title else item.title, size = 11, weight = "medium",
+                color = if selected then "accentForeground" else "foreground", maxWidth = width - 12,
+                lines = if item.kind == "file" then 2 else 1 } }
+    end,
     commandPalettePreview = function(_, item, props)
         props.radius = 2
         props.border = "border"

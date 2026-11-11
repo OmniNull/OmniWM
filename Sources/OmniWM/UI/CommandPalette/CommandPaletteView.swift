@@ -447,3 +447,10 @@ struct CommandPaletteClipboardDisabledView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+
+extension CommandPaletteController {
+    var isCurrentWorkspaceEmpty: Bool {
+        guard let wmController, let workspaceId = focusSession.workspaceId else { return false }
+        return wmController.workspaceManager.windowCount(in: workspaceId) == 0
+    }
+}

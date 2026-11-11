@@ -4617,6 +4617,199 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
+    func testCommandPaletteDrawsLauncherToolbarGridAndListAcrossSkins() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            let resources = ShellResources(motion: MotionPolicy(animationsEnabled: false))
+            resources.palette.refresh(theme: config.theme, appearance: try XCTUnwrap(NSAppearance(named: .darkAqua)))
+            for palette in [launcherPaletteFixture(grid: true), launcherPaletteFixture(grid: false)] {
+                try assertLauncherPalette(palette, profile: profile, config: config, shell: shell, resources: resources)
+            }
+        }
+    }
+
+    private func assertLauncherPalette(
+        _ palette: ShellCommandPaletteData,
+        profile: String,
+        config: ShellConfig,
+        shell: URL,
+        resources: ShellResources
+    ) throws {
+        let profile = "\(profile) \(palette.mode)"
+        let widget = try makeWidget(
+            ShellWidgetHost.commandPaletteWidget, config: config, shell: shell, resources: resources
+        )
+        widget.render(fixture(config, height: 32, vertical: false))
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        let layout = widget.surface.layout
+        let launcher = try XCTUnwrap(palette.launcher)
+        let actions = Set(layout.core.elements { $0.action != 0 }.map {
+            widget.text.string(layout.core.content(of: $0).action)
+        })
+        let expected = launcher.filters.map { "palette filter " + $0.id }
+            + launcher.chips.map { "palette chip " + $0.id }
+            + launcher.views.map { "palette view " + $0.id }
+            + (launcher.add.map { ["palette menu " + $0.id] } ?? [])
+        for action in expected {
+            XCTAssertTrue(actions.contains(action), "\(profile): \(action)")
+        }
+        let results = try XCTUnwrap(layout.handle(forKey: CommandPaletteShellPresenter.resultsKey), profile)
+        var drawn: [UInt64] = []
+        layout.core.forEachChild(of: results) { _, key in drawn.append(key) }
+        XCTAssertEqual(drawn, palette.rows.map { ShellWidgetLayout.elementKey($0.id) }, profile)
+        let targets = palette.rows.flatMap { $0.kind == .gridRow ? $0.cells : $0.kind == .heading ? [] : [$0] }
+        for item in targets {
+            let handle = try XCTUnwrap(layout.handle(forKey: item.id), "\(profile): \(item.id)")
+            let content = layout.core.content(of: handle)
+            XCTAssertTrue(content.menu, "\(profile): \(item.id)")
+            XCTAssertEqual(widget.text.string(content.target), item.id, profile)
+            XCTAssertEqual(
+                widget.text.string(content.hoverAction),
+                item.kind == .saved || item.kind == .executable ? "palette highlight " + item.id : "",
+                "\(profile): \(item.id)"
+            )
+            XCTAssertTrue(
+                widget.strings(OMNI_VIEW_POPOUT).contains { $0.localizedCaseInsensitiveContains(item.title) },
+                "\(profile): \(item.title)"
+            )
+            let frame = CGRect(layout.core.absoluteFrame(of: handle))
+            let before = widget.clicks.count
+            widget.surface.press(at: CGPoint(x: frame.midX, y: frame.midY))
+            widget.surface.release(at: CGPoint(x: frame.midX, y: frame.midY))
+            XCTAssertEqual(
+                widget.clicks.dropFirst(before).map(\.action), ["palette activate " + item.id], "\(profile): \(item.id)"
+            )
+        }
+        for row in palette.rows where row.kind == .gridRow {
+            let handle = try XCTUnwrap(layout.handle(forKey: row.id), profile)
+            var cells: [UInt64] = []
+            layout.core.forEachChild(of: handle) { _, key in cells.append(key) }
+            XCTAssertEqual(cells, row.cells.map { ShellWidgetLayout.elementKey($0.id) }, profile)
+            let widths = row.cells.map {
+                layout.core.layoutFrame(of: layout.handle(forKey: $0.id) ?? handle).width
+            }
+            XCTAssertEqual(Set(widths).count, 1, "\(profile): grid cells share one width")
+        }
+        if let preview = palette.preview {
+            XCTAssertNotNil(layout.handle(forKey: palette.mode + "-preview"), profile)
+            for detail in preview.details {
+                XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(detail.value), "\(profile): \(detail.label)")
+            }
+        }
+        if ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] != nil {
+            try write(
+                [("launcher", raster(widget.surface, scale: 2), widget.surface.size)],
+                name: "command-palette-\(profile.replacingOccurrences(of: " ", with: "-"))", scale: 2, dark: true,
+                solidBlack: false
+            )
+        }
+        var empty = palette
+        empty.rows = []
+        empty.state = "empty"
+        empty.emptyText = String(localized: "No launcher results found")
+        empty.emptySymbol = CommandPaletteMode.applications.symbolName
+        empty.emptyAction = .init(
+            id: "launcher add",
+            title: String(localized: "Add Entry…"),
+            symbol: "plus",
+            shortcut: ""
+        )
+        widget.set("commandPalette") { empty.write(into: &$0) }
+        widget.layoutPopout()
+        let emptyActions = Set(layout.core.elements { $0.action != 0 }.map {
+            widget.text.string(layout.core.content(of: $0).action)
+        })
+        XCTAssertTrue(emptyActions.contains("palette launcher add"), profile)
+        XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(empty.emptyText), profile)
+    }
+
+    private func launcherPaletteFixture(grid: Bool) -> ShellCommandPaletteData {
+        var palette = commandPaletteFixture()
+        let mode: CommandPaletteMode = grid ? .files : .applications
+        palette.mode = mode.rawValue
+        for index in palette.modes.indices {
+            palette.modes[index].selected = palette.modes[index].id == palette.mode
+        }
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: mode)
+        palette.actions = []
+        let listWidth = grid
+            ? (CGFloat(palette.width) * CommandPaletteController.shellPreviewSplit).rounded(.down)
+            : CGFloat(palette.width)
+        let columns = CommandPaletteController.launcherColumnCount(
+            for: mode, width: listWidth, style: grid ? .grid : .list
+        )
+        let chip = { (id: String, selected: Bool) in
+            ShellCommandPaletteData.Mode(
+                id: id,
+                title: id.capitalized,
+                symbol: "",
+                shortcut: "",
+                selected: selected,
+                enabled: true
+            )
+        }
+        palette.launcher = .init(
+            filters: grid ? [] : LauncherFilter.allCases.map { chip($0.rawValue, $0 == .all) },
+            chips: ["documents", "images"].map { chip($0, $0 == "images") },
+            views: grid ? [
+                .init(
+                    id: "grid",
+                    title: "Grid",
+                    symbol: "square.grid.2x2",
+                    shortcut: "",
+                    selected: true,
+                    enabled: true
+                ),
+                .init(id: "list", title: "List", symbol: "list.bullet", shortcut: "", selected: false, enabled: true)
+            ] : [],
+            add: grid ? nil : .init(id: "launcher-add", title: "Add…", symbol: "plus", shortcut: ""),
+            columns: columns,
+            grid: grid
+        )
+        let item = { (id: String, kind: ShellCommandPaletteRowKind, title: String, symbol: String) in
+            ShellCommandPaletteData.Row(
+                id: id, kind: kind, title: title, subtitle: "Subtitle \(title)",
+                icon: .init(app: nil, pid: nil, symbol: symbol), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            )
+        }
+        let heading = ShellCommandPaletteData.Row(
+            id: "heading-launcher-results", kind: .heading, title: "Results", subtitle: "",
+            icon: .init(app: nil, pid: nil, symbol: nil), badges: [], marks: [], hint: nil, hintShortcut: nil,
+            selected: false, enabled: false
+        )
+        if grid {
+            let files = (0 ..< columns + 1).map { item("file-\($0)", .file, "Document \($0).txt", "doc.fill") }
+            palette.rows = [heading] + stride(from: 0, to: files.count, by: columns).map { start in
+                var row = item("grid-\(start)", .gridRow, "", "")
+                row.cells = Array(files[start ..< min(start + columns, files.count)])
+                return row
+            }
+            palette.rows[1].cells[0].selected = true
+            palette.rows[1].selected = true
+            palette.selected = palette.rows[1].id
+            palette.preview = .init(
+                id: files[0].id, state: "file", text: nil, image: nil, title: files[0].title, symbol: "doc.fill",
+                details: [.init(label: "Kind", value: "Plain Text"), .init(label: "Size", value: "2 KB")]
+            )
+        } else {
+            var saved = item("saved-0", .saved, "Deploy", "terminal")
+            saved.badges = [.init(text: "Terminal", tone: .neutral, symbol: nil)]
+            var tool = item("tool-0", .executable, "git", "terminal")
+            tool.badges = [.init(text: "CLI", tone: .neutral, symbol: nil)]
+            palette.rows = [heading, saved, tool, item("app-0", .application, "Calculator", "app.fill")]
+            palette.rows[1].selected = true
+            palette.selected = palette.rows[1].id
+        }
+        palette.total = palette.rows.count
+        return palette
+    }
+
     private func assertCommandPalette(
         _ palette: ShellCommandPaletteData,
         profile: String,
@@ -4843,6 +5036,8 @@ final class ShellStyleLayoutTests: XCTestCase {
             palette.rows = []
             palette.emptyText = state
             palette.emptySymbol = CommandPaletteMode.clipboard.symbolName
+            palette.emptyAction = state == "disabled"
+                ? .init(id: "enable", title: String(localized: "Enable"), symbol: "power", shortcut: "") : nil
             widget.set("commandPalette") { palette.write(into: &$0) }
             widget.layoutPopout()
             XCTAssertNil(widget.surface.layout.handle(forKey: "clipboard-preview"), profile)

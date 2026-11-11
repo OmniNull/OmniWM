@@ -56,7 +56,7 @@ import XCTest
         }
 
         private enum Workload: Equatable {
-            case commands, menu, clipboard, unified
+            case commands, menu, clipboard, unified, applications, applicationGrid, files
 
             var mode: CommandPaletteMode {
                 switch self {
@@ -64,11 +64,18 @@ import XCTest
                 case .menu: .menu
                 case .clipboard,
                      .unified: .clipboard
+                case .applications,
+                     .applicationGrid: .applications
+                case .files: .files
                 }
             }
 
             var identifier: String {
-                self == .unified ? "unified" : mode.rawValue
+                switch self {
+                case .unified: "unified"
+                case .applicationGrid: "applications-grid"
+                default: mode.rawValue
+                }
             }
 
             var words: [String] {
@@ -107,6 +114,18 @@ import XCTest
 
         func testUnifiedKeystrokeToCommit() throws {
             try benchmark(.unified)
+        }
+
+        func testApplicationsKeystrokeToCommit() throws {
+            try benchmark(.applications)
+        }
+
+        func testApplicationGridKeystrokeToCommit() throws {
+            try benchmark(.applicationGrid)
+        }
+
+        func testFilesKeystrokeToCommit() throws {
+            try benchmark(.files)
         }
 
         private func benchmark(_ workload: Workload) throws {
@@ -180,6 +199,7 @@ import XCTest
             if useShell { fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager) }
             let panel = try fixture.show(mode: workload == .unified ? nil : workload.mode)
             fixture.palette.expandResults()
+            if workload == .applicationGrid { fixture.palette.selectLauncherFilter(.apps) }
             if !useShell { fixture.palette.presentation.shell?.onFailure?() }
             if let menuFetched {
                 wait(for: [menuFetched], timeout: failureBound)
@@ -322,6 +342,8 @@ import XCTest
     extension CommandPaletteLatencyTests {
         private func fixture(_ workload: Workload, menuFetched: XCTestExpectation?) -> CommandPaletteFocusFixture {
             if workload == .commands { return CommandPaletteFocusFixture(initialMode: .commands) }
+            if workload.mode == .applications { return applicationFixture(words: workload.words) }
+            if workload == .files { return fileFixture(words: workload.words) }
             if workload == .clipboard || workload == .unified {
                 let items = clipboardItems(words: workload.words)
                 return CommandPaletteFocusFixture(initialMode: .clipboard) { environment in
@@ -347,6 +369,64 @@ import XCTest
                 environment.fetchMenuItems = { _ in
                     menuFetched?.fulfill()
                     return menuItems
+                }
+            }
+        }
+
+        private func applicationFixture(words: [String]) -> CommandPaletteFocusFixture {
+            let apps = (0 ..< Self.itemCount).map { index in
+                let name = words[index % words.count] + " \(index)"
+                return LauncherApplicationResult(
+                    bundleURL: URL(fileURLWithPath: "/Applications/\(name).app"),
+                    bundleIdentifier: "org.example.latency\(index)",
+                    displayName: name,
+                    categoryName: "Utilities"
+                )
+            }
+            return CommandPaletteFocusFixture(initialMode: .applications) { environment in
+                environment.stopApplicationSearch = {}
+                environment.runningApplicationForResult = { _ in nil }
+                environment.submitApplicationSearch = { _, query, _, generation, publish in
+                    guard !query.isEmpty else {
+                        publish(generation, [
+                            LauncherSection(id: .suggestions, title: "Suggestions", items: Array(apps.prefix(5))),
+                            LauncherSection(id: .all, title: "Applications", items: apps)
+                        ], [])
+                        return
+                    }
+                    let matches = apps.filter { $0.displayName.localizedCaseInsensitiveContains(query) }
+                    publish(generation, [LauncherSection(id: .results, title: "Results", items: matches)], [])
+                }
+            }
+        }
+
+        private func fileFixture(words: [String]) -> CommandPaletteFocusFixture {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("OmniWMPaletteLatencyFiles", isDirectory: true)
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let files = (0 ..< Self.itemCount).map { index in
+                let name = words[index % words.count] + " \(index).txt"
+                let url = directory.appendingPathComponent(name)
+                if !FileManager.default.fileExists(atPath: url.path) {
+                    try? Data(name.utf8).write(to: url)
+                }
+                return LauncherFileResult(
+                    fileURL: url,
+                    displayName: name,
+                    kind: "Plain Text",
+                    size: Int64(name.utf8.count)
+                )
+            }
+            return CommandPaletteFocusFixture(initialMode: .files) { environment in
+                environment.stopFileSearch = {}
+                environment.submitFileSearch = { _, query, _, generation, publish in
+                    let matches = query.isEmpty ? files
+                        : files.filter { $0.displayName.localizedCaseInsensitiveContains(query) }
+                    publish(generation, [LauncherSection(
+                        id: query.isEmpty ? .recents : .results,
+                        title: query.isEmpty ? "Recents" : "Results",
+                        items: matches
+                    )])
                 }
             }
         }
@@ -383,6 +463,8 @@ import XCTest
             case .commands: palette.filteredCommandItems.count
             case .menu: palette.filteredMenuItems.count
             case .clipboard: palette.filteredClipboardItems.count
+            case .applications,
+                 .files: palette.currentSelectionList().count
             default: 0
             }
         }

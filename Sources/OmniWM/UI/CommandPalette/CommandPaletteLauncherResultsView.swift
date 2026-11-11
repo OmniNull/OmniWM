@@ -16,17 +16,6 @@ struct CommandPaletteLauncherResultsView: View {
         let requestGeneration: Int
     }
 
-    enum ContextAction: Equatable {
-        case open
-        case reveal
-        case quickLook
-        case copy
-        case copyPath
-        case dontSuggest
-        case edit
-        case remove
-    }
-
     @State private var icons = LauncherIconStore.shared
     private static let topID = "launcher-top"
 
@@ -44,7 +33,7 @@ struct CommandPaletteLauncherResultsView: View {
     let onViewStyleChange: (LauncherViewStyle) -> Void
     let onSelect: (LauncherSelection) -> Void
     let onActivate: (LauncherSelection) -> Void
-    let onContextAction: (LauncherSelection, ContextAction) -> Void
+    let onContextAction: (LauncherSelection, LauncherContextAction) -> Void
     let onColumnCountChange: (Int) -> Void
     var filter: LauncherFilter = .all
     var savedEntries: [LauncherEntry] = []
@@ -58,7 +47,11 @@ struct CommandPaletteLauncherResultsView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let columnCount = Self.columnCount(for: mode, width: geometry.size.width, style: viewStyle)
+            let columnCount = CommandPaletteController.launcherColumnCount(
+                for: mode,
+                width: geometry.size.width,
+                style: viewStyle
+            )
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
@@ -115,13 +108,6 @@ struct CommandPaletteLauncherResultsView: View {
             return LauncherSelection(sectionID: section.id, itemID: section.items[0].id)
         }
         return nil
-    }
-
-    static func columnCount(for mode: CommandPaletteMode, width: CGFloat, style: LauncherViewStyle) -> Int {
-        guard style == .grid else { return 1 }
-        let cap = mode == .files ? 5 : 7
-        let availableWidth = max(0, width - 40)
-        return min(cap, max(1, Int((availableWidth + 10) / 100)))
     }
 
     @ViewBuilder

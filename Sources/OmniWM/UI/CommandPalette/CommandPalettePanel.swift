@@ -39,6 +39,14 @@ final class CommandPalettePanel {
         motionPolicy.animationsEnabled
     }
 
+    func registerOwnedChild(_ window: NSWindow) {
+        ownedWindowRegistry.register(window)
+    }
+
+    func unregisterOwnedChild(_ window: NSWindow) {
+        ownedWindowRegistry.unregister(window)
+    }
+
     init(motionPolicy: MotionPolicy, ownedWindowRegistry: OwnedWindowRegistry) {
         self.motionPolicy = motionPolicy
         self.ownedWindowRegistry = ownedWindowRegistry

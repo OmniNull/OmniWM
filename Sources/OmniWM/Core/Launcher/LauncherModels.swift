@@ -52,6 +52,17 @@ struct LauncherChip: Identifiable, Hashable, Sendable {
     let filter: LauncherChipFilter
 }
 
+enum LauncherContextAction: Equatable, Sendable {
+    case open
+    case reveal
+    case quickLook
+    case copy
+    case copyPath
+    case dontSuggest
+    case edit
+    case remove
+}
+
 struct LauncherSelection: Hashable, Sendable {
     let sectionID: LauncherSectionID
     let itemID: String

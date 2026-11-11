@@ -174,9 +174,21 @@ export type CommandPaletteBadge = {
     symbol: string?,
 }
 
+export type CommandPaletteChoice = {
+    id: string,
+    title: string,
+    symbol: string,
+    shortcut: string,
+    selected: boolean,
+    enabled: boolean,
+}
+
+export type CommandPaletteAction = { id: string, title: string, symbol: string, shortcut: string }
+
 export type CommandPaletteRow = {
     id: string,
-    kind: "window" | "command" | "heading" | "menu" | "clipboard" | "application" | "file" | "saved" | "showAll",
+    kind: "window" | "command" | "heading" | "menu" | "clipboard" | "application" | "file" | "saved" | "showAll"
+        | "executable" | "gridRow",
     title: string,
     subtitle: string,
     icon: { app: string?, pid: number?, symbol: string?, bitmap: string? },
@@ -187,16 +199,29 @@ export type CommandPaletteRow = {
     selected: boolean,
     enabled: boolean,
     pinned: boolean,
-    actions: { { id: string, title: string, symbol: string, shortcut: string } },
+    actions: { CommandPaletteAction },
+    cells: { CommandPaletteRow },
 }
 
 export type CommandPalettePreview = {
     id: string,
-    state: "loading" | "text" | "image" | "unavailable",
+    state: "loading" | "text" | "image" | "unavailable" | "file" | "blank",
     text: string?,
     image: string?,
     width: number,
     height: number,
+    title: string?,
+    symbol: string?,
+    details: { { label: string, value: string } },
+}
+
+export type CommandPaletteLauncher = {
+    filters: { CommandPaletteChoice },
+    chips: { CommandPaletteChoice },
+    views: { CommandPaletteChoice },
+    add: CommandPaletteAction?,
+    columns: number,
+    grid: boolean,
 }
 
 export type CommandPalette = {
@@ -205,14 +230,14 @@ export type CommandPalette = {
     width: number,
     height: number,
     mode: string,
-    modes: { { id: string, title: string, symbol: string, shortcut: string, selected: boolean, enabled: boolean } },
+    modes: { CommandPaletteChoice },
     placeholder: string,
     query: string,
     state: "results" | "empty" | "loading" | "disabled" | "blank",
     emptyText: string,
     emptySymbol: string,
     feedback: string?,
-    actions: { { id: string, title: string, symbol: string, shortcut: string } },
+    actions: { CommandPaletteAction },
     rows: { CommandPaletteRow },
     selected: string,
     first: number,
@@ -223,6 +248,8 @@ export type CommandPalette = {
     browseModes: boolean,
     error: string?,
     preview: CommandPalettePreview?,
+    launcher: CommandPaletteLauncher?,
+    emptyAction: CommandPaletteAction?,
 }
 
 export type BarDrag = {

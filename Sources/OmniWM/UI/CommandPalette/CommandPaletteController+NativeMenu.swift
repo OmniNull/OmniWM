@@ -6,7 +6,10 @@ import AppKit
 extension CommandPaletteController {
     func presentShellMenu(_ target: String, at anchor: ShellAnchor, in view: NSView) {
         let items = shellMenuItems(for: target)
-        guard !items.isEmpty, let action = nativeMenu.present(items, at: anchor, in: view) else { return }
+        guard !items.isEmpty else { return }
+        let action = nativeMenu.present(items, at: anchor, in: view)
+        syncLauncherPaths()
+        guard let action else { return }
         performShellMenuAction(action, target: target)
     }
 
@@ -21,11 +24,38 @@ extension CommandPaletteController {
                     && clipboardItems.contains(where: { !$0.isPinned })
             )
         }
-        guard isClipboardHistoryEnabled,
-              case let .clipboard(id)? = shellSelection(for: target),
-              let item = clipboardItems.first(where: { $0.id == id })
+        if target == Self.shellLauncherAddTarget {
+            guard selectedMode == .applications, !isUnifiedSearch else { return [] }
+            return CommandPaletteNativeMenu.launcherAdd
+        }
+        switch shellSelection(for: target) {
+        case let .clipboard(id)?:
+            guard isClipboardHistoryEnabled, let item = clipboardItems.first(where: { $0.id == id }) else { return [] }
+            return CommandPaletteNativeMenu.clipboard(item)
+        case let selection?:
+            return launcherMenuItems(for: selection)
+        case nil:
+            return []
+        }
+    }
+
+    private func launcherMenuItems(for selection: CommandPaletteSelectionID) -> [CommandPaletteNativeMenu.Item] {
+        guard isLauncherMode, !isUnifiedSearch, launcherPublishedGeneration == launcherRequestGeneration,
+              let item = Self.launcherSelection(selection)
         else { return [] }
-        return CommandPaletteNativeMenu.clipboard(item)
+        switch selection {
+        case .launcherEntry:
+            return CommandPaletteNativeMenu.saved(item)
+        case .executable:
+            return CommandPaletteNativeMenu.executable(item)
+        case let .application(sectionID, id):
+            let suggestion = sectionID == .suggestions ? applicationResult(sectionID, id)?.displayName : nil
+            return CommandPaletteNativeMenu.launcher(item, quickLook: false, suggestion: suggestion)
+        case .file:
+            return CommandPaletteNativeMenu.launcher(item, quickLook: true, suggestion: nil)
+        default:
+            return []
+        }
     }
 
     @discardableResult
@@ -46,6 +76,16 @@ extension CommandPaletteController {
             deleteClipboardItem(id)
         case .clipboardClear:
             clearClipboardHistory()
+        case let .launcherAdd(kind):
+            addLauncherEntry(kind)
+        case .launcherManage:
+            showLauncherSettings()
+        case .launcherRefresh:
+            refreshLauncher()
+        case let .launcherRun(selection):
+            selectLauncherItem(selection, activate: true)
+        case let .launcher(selection, action):
+            performLauncherContextAction(action, for: selection)
         }
         return true
     }

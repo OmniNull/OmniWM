@@ -21,7 +21,7 @@ extension CommandPaletteController {
     }
 
     func updateShellSelectionIndex(_ selections: [CommandPaletteSelectionID]) {
-        guard presentation.shell != nil, isUnifiedSearch || !isLauncherMode else {
+        guard presentation.shell != nil else {
             shellSelectionIndex.removeAll(keepingCapacity: true)
             return
         }

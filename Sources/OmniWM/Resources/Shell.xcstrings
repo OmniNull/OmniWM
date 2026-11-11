@@ -12,17 +12,6 @@
         }
       }
     },
-    "Enable" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable"
-          }
-        }
-      }
-    },
     "Loading preview…" : {
       "extractionState" : "manual",
       "localizations" : {

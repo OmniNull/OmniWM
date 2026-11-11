@@ -6,18 +6,7 @@ import Observation
 
 extension CommandPaletteController {
     var drawsWithShell: Bool {
-        guard presentation.shell != nil else { return false }
-        if isUnifiedSearch { return true }
-        switch selectedMode {
-        case .windows,
-             .commands,
-             .menu,
-             .clipboard:
-            return true
-        case .applications,
-             .files:
-            return false
-        }
+        presentation.shell != nil
     }
 
     var emptyStateSymbol: String {
@@ -129,16 +118,20 @@ extension CommandPaletteController {
                 data.state = "disabled"
                 data.emptyText = String(localized: "Clipboard history is off")
                 data.emptySymbol = "clipboard"
-                data.actions = [.init(id: "enable", title: String(localized: "Enable"), symbol: "power", shortcut: "")]
+                data.emptyAction = Self.shellEnableAction
                 return
             }
             clipboardRows(into: &data, limit: Float(size.height))
             if !data.rows.isEmpty { data.preview = shellClipboardPreview() }
         case .applications,
              .files:
-            return
+            launcherRows(into: &data, size: size)
         }
     }
+
+    private static let shellEnableAction = ShellCommandPaletteData.Action(
+        id: "enable", title: String(localized: "Enable"), symbol: "power", shortcut: ""
+    )
 
     private func shellHeader() -> CommandPaletteShellHeader {
         let menuAvailable = isMenuModeAvailable
@@ -376,8 +369,7 @@ extension CommandPaletteController {
         case "paste":
             activateShellRow(argument, trigger: .alternate)
         case "highlight":
-            guard let selection = shellSelection(for: argument), case .clipboard = selection else { return }
-            if isUnifiedSearch { highlightUnifiedRow(selection) } else { selectedItemID = selection }
+            highlightShellRow(argument)
         case "enable":
             guard selectedMode == .clipboard, !isUnifiedSearch else { return }
             enableClipboardHistory()
@@ -392,6 +384,20 @@ extension CommandPaletteController {
         case "clear":
             searchText = ""
         default:
+            performLauncherShellCommand(verb, argument)
+        }
+    }
+
+    private func highlightShellRow(_ id: String) {
+        guard let selection = shellSelection(for: id) else { return }
+        switch selection {
+        case .clipboard:
+            if isUnifiedSearch { highlightUnifiedRow(selection) } else { selectedItemID = selection }
+        case .launcherEntry,
+             .executable:
+            guard !isUnifiedSearch, let item = Self.launcherSelection(selection) else { return }
+            selectLauncherItem(item, activate: false)
+        default:
             return
         }
     }
@@ -400,6 +406,9 @@ extension CommandPaletteController {
         guard let selection = shellSelection(for: id) else { return }
         if isUnifiedSearch {
             activateUnifiedRow(selection, trigger: trigger)
+        } else if isLauncherMode {
+            guard let item = Self.launcherSelection(selection) else { return }
+            selectLauncherItem(item, activate: true)
         } else {
             selectedItemID = selection
             selectCurrent(trigger: trigger)

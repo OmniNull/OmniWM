@@ -28,16 +28,13 @@ extension CommandPaletteController {
     }
 
     var selectedLauncherItem: LauncherSelection? {
+        guard let selectedItemID else { return nil }
         switch selectedItemID {
-        case let .launcherEntry(id):
-            return LauncherSelection(sectionID: .saved, itemID: id.uuidString)
-        case let .executable(path):
-            return LauncherSelection(sectionID: .executables, itemID: path)
-        case let .application(sectionID, itemID) where selectedMode == .applications,
-             let .file(sectionID, itemID) where selectedMode == .files:
-            return LauncherSelection(sectionID: sectionID, itemID: itemID)
-        default:
+        case .application where selectedMode != .applications,
+             .file where selectedMode != .files:
             return nil
+        default:
+            return Self.launcherSelection(selectedItemID)
         }
     }
 
@@ -94,6 +91,7 @@ extension CommandPaletteController {
 
     func invalidateLauncherSearch() {
         isLauncherPreviewVisible = false
+        retireShellFilePreview()
         launcherRequestGeneration &+= 1
         launcherPublishedGeneration = -1
         pendingLauncherSelection = nil
@@ -217,10 +215,12 @@ extension CommandPaletteController {
         applicationChips = chips
         isApplicationLoading = false
         launcherPublishedGeneration = generation
-        if let priorSelection, currentSelectionList().contains(priorSelection) {
+        let selections = currentSelectionList()
+        updateShellSelectionIndex(selections)
+        if let priorSelection, selections.contains(priorSelection) {
             selectedItemID = priorSelection
         } else {
-            selectFirstLauncherResult(after: generation)
+            selectFirstLauncherResult(selections.first, after: generation)
         }
     }
 
@@ -229,11 +229,13 @@ extension CommandPaletteController {
         fileSections = sections
         isFileLoading = false
         launcherPublishedGeneration = generation
-        selectFirstLauncherResult(after: generation)
+        let selections = currentSelectionList()
+        updateShellSelectionIndex(selections)
+        selectFirstLauncherResult(selections.first, after: generation)
     }
 
-    private func selectFirstLauncherResult(after generation: Int) {
-        selectedItemID = currentSelectionList().first
+    private func selectFirstLauncherResult(_ first: CommandPaletteSelectionID?, after generation: Int) {
+        selectedItemID = first
         selectionScrollRequest &+= 1
         guard let pending = pendingLauncherSelection, pending.generation == generation else { return }
         pendingLauncherSelection = nil

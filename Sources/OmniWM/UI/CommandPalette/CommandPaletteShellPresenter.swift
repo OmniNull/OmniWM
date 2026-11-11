@@ -380,32 +380,6 @@ extension CommandPaletteShellPresenter {
         return found
     }
 
-    func drawsPublishedList() -> Bool {
-        guard let published, let container = surface.layout.handle(forKey: Self.resultsKey) else { return false }
-        let leading = published.before > 0 ? 1 : 0
-        let count = leading + published.rows.count + (published.after > 0 ? 1 : 0)
-        var position = 0
-        var matches = true
-        surface.layout.core.forEachChild(of: container) { child, key in
-            defer { position += 1 }
-            guard matches, position < count else {
-                matches = false
-                return
-            }
-            let row = position - leading
-            if row < 0 {
-                matches = key == Self.beforeKey
-                    && surface.layout.core.layoutFrame(of: child).height == Float(published.before)
-            } else if row < published.rows.count {
-                matches = key == ShellWidgetLayout.elementKey(published.rows[row].id)
-            } else {
-                matches = key == Self.afterKey
-                    && surface.layout.core.layoutFrame(of: child).height == Float(published.after)
-            }
-        }
-        return matches && position == count
-    }
-
     private func revealIfRequested() {
         guard revealedRequest != revealRequest, let selected = published?.selected else { return }
         if !selected.isEmpty {

@@ -175,7 +175,7 @@ extension CommandPaletteController {
         }
     }
 
-    private func shellLauncherRow(
+    func shellLauncherRow(
         _ selection: CommandPaletteSelectionID, kind: ShellCommandPaletteRowKind,
         title: String, subtitle: String, symbol: String
     ) -> ShellCommandPaletteData.Row {
@@ -196,23 +196,53 @@ extension CommandPaletteController {
 
     private func shellIcon(for selection: CommandPaletteSelectionID, into row: inout ShellCommandPaletteData.Row) {
         let scale = presentation.panel?.backingScaleFactor ?? 1
-        let points = Self.shellIconPoints
-        let store = LauncherIconStore.shared
-        let image: NSImage?
         switch selection {
         case let .application(section, id):
             guard let item = applicationResult(section, id) else { return }
-            image = store.applicationIcon(for: item, points: points, scale: scale)
-            store.loadApplicationIcon(for: item, points: points, scale: scale)
+            shellApplicationIcon(item, selection: selection, points: Self.shellIconPoints, scale: scale, into: &row)
         case let .file(section, id):
             guard let item = fileResult(section, id) else { return }
-            if !shellFileIconRequests.contains(where: { $0.id == row.id && $0.scale == scale }) {
-                shellFileIconRequests.append(.init(id: row.id, item: item, scale: scale))
-            }
-            image = store.fileThumbnail(for: item, points: points, scale: scale)
-            store.loadFileThumbnail(for: item, points: points, scale: scale)
-        default: return
+            shellFileIcon(item, selection: selection, points: Self.shellIconPoints, scale: scale, into: &row)
+        default:
+            return
         }
+    }
+
+    func shellApplicationIcon(
+        _ item: LauncherApplicationResult,
+        selection: CommandPaletteSelectionID,
+        points: CGFloat,
+        scale: CGFloat,
+        into row: inout ShellCommandPaletteData.Row
+    ) {
+        let store = LauncherIconStore.shared
+        let image = store.applicationIcon(for: item, points: points, scale: scale)
+        store.loadApplicationIcon(for: item, points: points, scale: scale)
+        attachShellBitmap(image, for: selection, scale: scale, into: &row)
+    }
+
+    func shellFileIcon(
+        _ item: LauncherFileResult,
+        selection: CommandPaletteSelectionID,
+        points: CGFloat,
+        scale: CGFloat,
+        into row: inout ShellCommandPaletteData.Row
+    ) {
+        if !shellFileIconRequests.contains(where: { $0.id == row.id && $0.points == points && $0.scale == scale }) {
+            shellFileIconRequests.append(.init(id: row.id, item: item, points: points, scale: scale))
+        }
+        let store = LauncherIconStore.shared
+        let image = store.fileThumbnail(for: item, points: points, scale: scale)
+        store.loadFileThumbnail(for: item, points: points, scale: scale)
+        attachShellBitmap(image, for: selection, scale: scale, into: &row)
+    }
+
+    private func attachShellBitmap(
+        _ image: NSImage?,
+        for selection: CommandPaletteSelectionID,
+        scale: CGFloat,
+        into row: inout ShellCommandPaletteData.Row
+    ) {
         guard let image, let shell = presentation.shell else { return }
         if let cache = shellImageCache[selection], cache.image === image,
            cache.owner == ObjectIdentifier(shell), cache.generation == shell.bitmapGeneration, cache.scale == scale
@@ -234,17 +264,23 @@ extension CommandPaletteController {
         row.icon.bitmap = id
     }
 
-    func finishShellFileIconDemand(_ rows: [ShellCommandPaletteData.Row]) {
+    func finishShellFileIconDemand(_ rows: [ShellCommandPaletteData.Row], points: CGFloat = shellIconPoints) {
         let scale = presentation.panel?.backingScaleFactor ?? 1
         shellFileIconRequests.removeAll { request in
-            guard request.scale != scale || !rows.contains(where: { $0.id == request.id }) else { return false }
+            guard request.scale != scale || request.points != points || !Self.draws(request.id, in: rows) else {
+                return false
+            }
             LauncherIconStore.shared.cancelFileThumbnail(
                 for: request.item,
-                points: Self.shellIconPoints,
+                points: request.points,
                 scale: request.scale
             )
             return true
         }
+    }
+
+    private static func draws(_ id: String, in rows: [ShellCommandPaletteData.Row]) -> Bool {
+        rows.contains { $0.id == id || $0.cells.contains { $0.id == id } }
     }
 }
 
@@ -259,5 +295,6 @@ struct CommandPaletteShellImage {
 struct CommandPaletteShellFileIconRequest {
     let id: String
     let item: LauncherFileResult
+    let points: CGFloat
     let scale: CGFloat
 }

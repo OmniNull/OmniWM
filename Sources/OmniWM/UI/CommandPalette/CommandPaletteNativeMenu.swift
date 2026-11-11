@@ -11,6 +11,11 @@ final class CommandPaletteNativeMenu: NSObject {
         case clipboardPin(UUID, Bool)
         case clipboardDelete(UUID)
         case clipboardClear
+        case launcherAdd(LauncherEntry.Kind)
+        case launcherManage
+        case launcherRefresh
+        case launcherRun(LauncherSelection)
+        case launcher(LauncherSelection, LauncherContextAction)
     }
 
     enum Item: Equatable {
@@ -108,6 +113,50 @@ final class CommandPaletteNativeMenu: NSObject {
         ))
         items.append(.action(String(localized: "Delete"), .clipboardDelete(item.id)))
         return items
+    }
+
+    static let launcherAdd: [Item] = [
+        .action(String(localized: "Add Application…"), .launcherAdd(.application)),
+        .action(String(localized: "Add Command…"), .launcherAdd(.command)),
+        .action(String(localized: "Add Script…"), .launcherAdd(.script)),
+        .separator,
+        .action(String(localized: "Manage Launcher…"), .launcherManage),
+        .action(String(localized: "Refresh"), .launcherRefresh)
+    ]
+
+    static func launcher(_ selection: LauncherSelection, quickLook: Bool, suggestion: String?) -> [Item] {
+        var items: [Item] = [
+            .action(String(localized: "Open"), .launcher(selection, .open)),
+            .action(String(localized: "Show in Finder"), .launcher(selection, .reveal))
+        ]
+        if quickLook { items.append(.action(String(localized: "Quick Look"), .launcher(selection, .quickLook))) }
+        items.append(.separator)
+        items.append(.action(String(localized: "Copy"), .launcher(selection, .copy)))
+        items.append(.action(String(localized: "Copy Path"), .launcher(selection, .copyPath)))
+        if let suggestion {
+            items.append(.separator)
+            items.append(.action(
+                String(localized: "Don’t Suggest “\(suggestion)”"),
+                .launcher(selection, .dontSuggest)
+            ))
+        }
+        return items
+    }
+
+    static func saved(_ selection: LauncherSelection) -> [Item] {
+        [
+            .action(String(localized: "Run"), .launcherRun(selection)),
+            .action(String(localized: "Edit"), .launcher(selection, .edit)),
+            .action(String(localized: "Remove"), .launcher(selection, .remove))
+        ]
+    }
+
+    static func executable(_ selection: LauncherSelection) -> [Item] {
+        [
+            .action(String(localized: "Run…"), .launcherRun(selection)),
+            .action(String(localized: "Show in Finder"), .launcher(selection, .reveal)),
+            .action(String(localized: "Copy Path"), .launcher(selection, .copyPath))
+        ]
     }
 
     @objc private func select(_ sender: NSMenuItem) {

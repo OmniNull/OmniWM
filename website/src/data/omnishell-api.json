@@ -551,11 +551,41 @@
       "related": []
     },
     {
+      "name": "CommandPaletteChoice",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalettechoice",
+      "declaration": "export type CommandPaletteChoice = {\n    id: string,\n    title: string,\n    symbol: string,\n    shortcut: string,\n    selected: boolean,\n    enabled: boolean,\n}",
+      "fields": [
+        "id",
+        "title",
+        "symbol",
+        "shortcut",
+        "selected",
+        "enabled"
+      ],
+      "related": []
+    },
+    {
+      "name": "CommandPaletteAction",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpaletteaction",
+      "declaration": "export type CommandPaletteAction = { id: string, title: string, symbol: string, shortcut: string }",
+      "fields": [
+        "id",
+        "title",
+        "symbol",
+        "shortcut"
+      ],
+      "related": []
+    },
+    {
       "name": "CommandPaletteRow",
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-commandpaletterow",
-      "declaration": "export type CommandPaletteRow = {\n    id: string,\n    kind: \"window\" | \"command\" | \"heading\" | \"menu\" | \"clipboard\" | \"application\" | \"file\" | \"saved\" | \"showAll\",\n    title: string,\n    subtitle: string,\n    icon: { app: string?, pid: number?, symbol: string?, bitmap: string? },\n    badges: { CommandPaletteBadge },\n    marks: { CommandPaletteBadge },\n    hint: string?,\n    hintShortcut: string?,\n    selected: boolean,\n    enabled: boolean,\n    pinned: boolean,\n    actions: { { id: string, title: string, symbol: string, shortcut: string } },\n}",
+      "declaration": "export type CommandPaletteRow = {\n    id: string,\n    kind: \"window\" | \"command\" | \"heading\" | \"menu\" | \"clipboard\" | \"application\" | \"file\" | \"saved\" | \"showAll\"\n        | \"executable\" | \"gridRow\",\n    title: string,\n    subtitle: string,\n    icon: { app: string?, pid: number?, symbol: string?, bitmap: string? },\n    badges: { CommandPaletteBadge },\n    marks: { CommandPaletteBadge },\n    hint: string?,\n    hintShortcut: string?,\n    selected: boolean,\n    enabled: boolean,\n    pinned: boolean,\n    actions: { CommandPaletteAction },\n    cells: { CommandPaletteRow },\n}",
       "fields": [
         "id",
         "kind",
@@ -569,10 +599,12 @@
         "selected",
         "enabled",
         "pinned",
-        "actions"
+        "actions",
+        "cells"
       ],
       "related": [
-        "CommandPaletteBadge"
+        "CommandPaletteBadge",
+        "CommandPaletteAction"
       ]
     },
     {
@@ -580,23 +612,45 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-commandpalettepreview",
-      "declaration": "export type CommandPalettePreview = {\n    id: string,\n    state: \"loading\" | \"text\" | \"image\" | \"unavailable\",\n    text: string?,\n    image: string?,\n    width: number,\n    height: number,\n}",
+      "declaration": "export type CommandPalettePreview = {\n    id: string,\n    state: \"loading\" | \"text\" | \"image\" | \"unavailable\" | \"file\" | \"blank\",\n    text: string?,\n    image: string?,\n    width: number,\n    height: number,\n    title: string?,\n    symbol: string?,\n    details: { { label: string, value: string } },\n}",
       "fields": [
         "id",
         "state",
         "text",
         "image",
         "width",
-        "height"
+        "height",
+        "title",
+        "symbol",
+        "details"
       ],
       "related": []
+    },
+    {
+      "name": "CommandPaletteLauncher",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalettelauncher",
+      "declaration": "export type CommandPaletteLauncher = {\n    filters: { CommandPaletteChoice },\n    chips: { CommandPaletteChoice },\n    views: { CommandPaletteChoice },\n    add: CommandPaletteAction?,\n    columns: number,\n    grid: boolean,\n}",
+      "fields": [
+        "filters",
+        "chips",
+        "views",
+        "add",
+        "columns",
+        "grid"
+      ],
+      "related": [
+        "CommandPaletteChoice",
+        "CommandPaletteAction"
+      ]
     },
     {
       "name": "CommandPalette",
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-commandpalette",
-      "declaration": "export type CommandPalette = {\n    open: boolean,\n    expanded: boolean,\n    width: number,\n    height: number,\n    mode: string,\n    modes: { { id: string, title: string, symbol: string, shortcut: string, selected: boolean, enabled: boolean } },\n    placeholder: string,\n    query: string,\n    state: \"results\" | \"empty\" | \"loading\" | \"disabled\" | \"blank\",\n    emptyText: string,\n    emptySymbol: string,\n    feedback: string?,\n    actions: { { id: string, title: string, symbol: string, shortcut: string } },\n    rows: { CommandPaletteRow },\n    selected: string,\n    first: number,\n    total: number,\n    before: number,\n    after: number,\n    unified: boolean,\n    browseModes: boolean,\n    error: string?,\n    preview: CommandPalettePreview?,\n}",
+      "declaration": "export type CommandPalette = {\n    open: boolean,\n    expanded: boolean,\n    width: number,\n    height: number,\n    mode: string,\n    modes: { CommandPaletteChoice },\n    placeholder: string,\n    query: string,\n    state: \"results\" | \"empty\" | \"loading\" | \"disabled\" | \"blank\",\n    emptyText: string,\n    emptySymbol: string,\n    feedback: string?,\n    actions: { CommandPaletteAction },\n    rows: { CommandPaletteRow },\n    selected: string,\n    first: number,\n    total: number,\n    before: number,\n    after: number,\n    unified: boolean,\n    browseModes: boolean,\n    error: string?,\n    preview: CommandPalettePreview?,\n    launcher: CommandPaletteLauncher?,\n    emptyAction: CommandPaletteAction?,\n}",
       "fields": [
         "open",
         "expanded",
@@ -620,11 +674,16 @@
         "unified",
         "browseModes",
         "error",
-        "preview"
+        "preview",
+        "launcher",
+        "emptyAction"
       ],
       "related": [
+        "CommandPaletteChoice",
+        "CommandPaletteAction",
         "CommandPaletteRow",
-        "CommandPalettePreview"
+        "CommandPalettePreview",
+        "CommandPaletteLauncher"
       ]
     },
     {

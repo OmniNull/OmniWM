@@ -22,6 +22,23 @@ local NOTICE = 32
 local PREVIEW_INSET = 12
 local LIST_FRACTION = 0.55
 local SPIN_SECONDS = 1
+local TOOLBAR = 40
+local TOGGLE = 24
+local GRID_GAP = 10
+local GRID_PAD = 6
+local TILE = 75
+local TILE_SYMBOL = 36
+local CELL_PAD = 6
+local CELL_GAP = 7
+local CELL_LINE = 15
+local DETAIL_LABEL = 80
+local DETAIL_LINE = 16
+local TITLE_LINES = 2
+local TITLE_LINE = 17
+local PREVIEW_GAP = 6
+local PREVIEW_SYMBOL = 48
+local LAUNCHER_KINDS = { application = true, file = true, saved = true, executable = true }
+local HOVER_KINDS = { saved = true, executable = true }
 
 function render(ctx)
     return ui.row{}
@@ -116,10 +133,63 @@ local function action(ctx, item)
     if custom then
         return custom
     end
-    return ui.row{ gap = 6, pad = 6, radius = look.radius(8), fill = "foreground/0.06", hover = look.hover,
+    local node = { gap = 6, pad = 6, radius = look.radius(8), fill = "foreground/0.06", hover = look.hover,
         look.glyph{ name = item.symbol, size = 12, weight = "medium" },
-        look.text{ text = item.title, size = 12, weight = "medium" },
-        badge(ctx, { text = item.shortcut, tone = "shortcut" }) }
+        look.text{ text = item.title, size = 12, weight = "medium" } }
+    if item.shortcut ~= "" then
+        node[#node + 1] = badge(ctx, { text = item.shortcut, tone = "shortcut" })
+    end
+    return ui.row(node)
+end
+
+local function chip(ctx, item, kind)
+    local custom = hook("commandPaletteChip", ctx, item, kind)
+    if custom then
+        return custom
+    end
+    if item.symbol ~= "" then
+        return ui.stack{ w = TOGGLE, h = TOGGLE, radius = look.radius(6), hover = look.hover,
+            fill = if item.selected then "foreground/0.12" else nil,
+            look.glyph{ name = item.symbol, size = 12,
+                color = if item.selected then "foreground" else "secondaryForeground" } }
+    end
+    local selected = if kind == "chip" then "accent/0.18" else "foreground/0.12"
+    return ui.row{ pad = 6, radius = look.radius(if kind == "chip" then 12 else 6), hover = look.hover,
+        fill = if item.selected then selected elseif kind == "chip" then "secondaryForeground/0.12" else nil,
+        look.text{ text = item.title, size = 11, weight = "medium",
+            color = if item.selected and kind == "chip" then "accent" else nil } }
+end
+
+local function chips(ctx, items, kind, props)
+    for _, item in items do
+        local node = chip(ctx, item, kind)
+        node.key = kind .. "-" .. item.id
+        node.onClick = "palette " .. kind .. " " .. item.id
+        node.help = item.title
+        props[#props + 1] = node
+    end
+    return ui.row(props)
+end
+
+local function toolbar(ctx, m, width)
+    local bar = m.launcher
+    local props = { key = "launcher-toolbar", w = width, h = TOOLBAR, gap = 8, pad = 8 }
+    if #bar.filters > 0 then
+        props[#props + 1] = chips(ctx, bar.filters, "filter",
+            { gap = 2, pad = 2, radius = look.radius(8), fill = "foreground/0.06" })
+    end
+    props[#props + 1] = chips(ctx, bar.chips, "chip", { key = "launcher-chips", grow = 1, gap = 6, scroll = true })
+    if bar.add then
+        local add = action(ctx, bar.add)
+        add.onClick = "palette menu " .. bar.add.id
+        add.help = bar.add.title
+        props[#props + 1] = add
+    end
+    if #bar.views > 0 then
+        props[#props + 1] = chips(ctx, bar.views, "view",
+            { gap = 2, pad = 2, radius = look.radius(8), fill = "foreground/0.06" })
+    end
+    return hook("commandPaletteToolbar", ctx, m, props) or ui.row(props)
 end
 
 local function row(ctx, item, width)
@@ -184,7 +254,42 @@ local function section(ctx, item, width)
         ui.box{ w = 1, h = SECTION_BOTTOM } }
 end
 
-local function resultRow(ctx, item, width)
+local function cell(ctx, item, width, height)
+    local custom = hook("commandPaletteCell", ctx, item, width, height)
+    if custom then
+        return custom
+    end
+    local tile = if item.icon.bitmap then ui.image{ image = item.icon.bitmap, w = TILE, h = TILE }
+        else look.glyph{ name = item.icon.symbol or "app.fill", size = TILE_SYMBOL, weight = "light",
+            color = "secondaryForeground" }
+    return ui.column{ w = width, h = height, gap = CELL_GAP, pad = CELL_PAD, radius = look.radius(10),
+        fill = if item.selected then "foreground/0.10" else nil, hover = look.hover,
+        ui.stack{ w = TILE, h = TILE, radius = look.radius(16), fill = "secondaryForeground/0.12", tile },
+        look.text{ text = item.title, size = 12, weight = "medium", maxWidth = width - 2 * CELL_PAD,
+            lines = if item.kind == "file" then 2 else 1 } }
+end
+
+local function gridRow(ctx, m, item, width)
+    local columns = math.max(m.launcher.columns, 1)
+    local lines = if item.cells[1].kind == "file" then 2 else 1
+    local height = 2 * CELL_PAD + TILE + CELL_GAP + lines * CELL_LINE
+    local cellWidth = math.max((width - 2 * GRID_PAD - (columns - 1) * GRID_GAP) / columns, 1)
+    local row = { key = item.id, w = width, gap = GRID_GAP, pad = GRID_PAD, center = false }
+    for _, entry in item.cells do
+        local node = cell(ctx, entry, cellWidth, height)
+        node.key = entry.id
+        node.onClick = "palette activate " .. entry.id
+        node.menu = true
+        node.target = entry.id
+        row[#row + 1] = node
+    end
+    return ui.row(row)
+end
+
+local function resultRow(ctx, m, item, width)
+    if item.kind == "gridRow" then
+        return gridRow(ctx, m, item, width)
+    end
     local controls = item.actions or {}
     local rowWidth = math.max(width - #controls * (CONTROL + 4), 1)
     local node = if item.kind == "heading" then section(ctx, item, width) else row(ctx, item, rowWidth)
@@ -199,9 +304,12 @@ local function resultRow(ctx, item, width)
     end
     node.key = item.id
     node.onClick = if item.enabled then "palette activate " .. item.id else nil
-    if item.kind == "clipboard" then
+    local launcher = not m.unified and LAUNCHER_KINDS[item.kind]
+    if item.kind == "clipboard" or (launcher and HOVER_KINDS[item.kind]) then
         node.onHover = "palette highlight " .. item.id
         node.hoverDelay = 0
+    end
+    if item.kind == "clipboard" or launcher then
         node.menu = true
         node.target = item.id
     end
@@ -213,24 +321,25 @@ local function results(ctx, m, width, height)
         return ui.box{ w = width, h = height }
     end
     if m.state ~= "results" then
+        local button = nil
+        if m.emptyAction then
+            button = action(ctx, m.emptyAction)
+            button.onClick = "palette " .. m.emptyAction.id
+        end
         local custom = hook("commandPaletteEmpty", ctx, m, width)
         if custom then
-            custom.h = if m.state == "disabled" then math.max(height - ACTIONS, 0) else height
-            if m.state == "disabled" then
-                local enable = action(ctx, { title = omniwm.l10n("Enable"), symbol = "power", shortcut = "" })
-                enable.onClick = "palette enable"
+            custom.h = if button then math.max(height - ACTIONS, 0) else height
+            if button then
                 return ui.column{ w = width, h = height, gap = 0, custom,
-                    ui.row{ w = width, h = ACTIONS, center = true, enable } }
+                    ui.row{ w = width, h = ACTIONS, center = true, button } }
             end
             return custom
         end
         local body = { w = width, h = height, gap = 10, center = true,
             look.glyph{ name = m.emptySymbol, size = 30, color = "secondaryForeground" },
             look.text{ text = m.emptyText, size = 13, color = "secondaryForeground", maxWidth = width - 40, lines = 2 } }
-        if m.state == "disabled" then
-            local enable = action(ctx, { title = omniwm.l10n("Enable"), symbol = "power", shortcut = "" })
-            enable.onClick = "palette enable"
-            body[#body + 1] = enable
+        if button then
+            body[#body + 1] = button
         end
         return ui.column(body)
     end
@@ -239,7 +348,7 @@ local function results(ctx, m, width, height)
         list[#list + 1] = ui.box{ key = "results-before", w = 1, h = m.before }
     end
     for _, item in m.rows do
-        list[#list + 1] = resultRow(ctx, item, width - 2 * OUTER)
+        list[#list + 1] = resultRow(ctx, m, item, width - 2 * OUTER)
     end
     if (m.after or 0) > 0 then
         list[#list + 1] = ui.box{ key = "results-after", w = 1, h = m.after }
@@ -252,7 +361,31 @@ local function preview(ctx, m, width, height)
     local insideWidth = math.max(width - 2 * PREVIEW_INSET, 1)
     local insideHeight = math.max(height - 2 * PREVIEW_INSET, 1)
     local body
-    if item.state == "text" then
+    if item.state == "file" then
+        local box = math.max(insideHeight - TITLE_LINES * TITLE_LINE - #item.details * DETAIL_LINE
+            - (#item.details + 1) * PREVIEW_GAP, 1)
+        local picture
+        if item.image then
+            local ratio = math.min(1, insideWidth / math.max(item.width, 1), box / math.max(item.height, 1))
+            picture = ui.image{ image = item.image, w = item.width * ratio, h = item.height * ratio }
+        else
+            picture = look.glyph{ name = item.symbol or "doc.fill", size = PREVIEW_SYMBOL, weight = "light",
+                color = "secondaryForeground" }
+        end
+        local children = { w = insideWidth, h = insideHeight, gap = PREVIEW_GAP, center = false,
+            ui.stack{ w = insideWidth, h = box, picture },
+            look.text{ text = item.title or "", size = 13, weight = "semibold", maxWidth = insideWidth,
+                lines = TITLE_LINES } }
+        for _, detail in item.details do
+            children[#children + 1] = ui.row{ w = insideWidth, gap = 8,
+                ui.row{ w = DETAIL_LABEL, center = false,
+                    look.text{ text = detail.label, size = 11, color = "secondaryForeground", maxWidth = DETAIL_LABEL } },
+                look.text{ text = detail.value, size = 11, maxWidth = math.max(insideWidth - DETAIL_LABEL - 8, 1) } }
+        end
+        body = ui.column(children)
+    elseif item.state == "blank" then
+        body = ui.box{ w = insideWidth, h = insideHeight }
+    elseif item.state == "text" then
         body = ui.input{ key = "clipboard-preview-" .. item.id, w = insideWidth, h = insideHeight,
             text = item.text or "", multiline = true, editable = false, wrap = false,
             size = 12, color = "foreground" }
@@ -271,7 +404,7 @@ local function preview(ctx, m, width, height)
             maxWidth = insideWidth, lines = 2 }
         body = ui.column(children)
     end
-    local props = { key = "clipboard-preview", w = width, h = height, pad = PREVIEW_INSET, center = false, body }
+    local props = { key = m.mode .. "-preview", w = width, h = height, pad = PREVIEW_INSET, center = false, body }
     return hook("commandPalettePreview", ctx, item, props) or ui.column(props)
 end
 
@@ -290,7 +423,7 @@ function popout(ctx)
         local bodyHeight = math.max(m.height - SEARCH - 1, 0)
         content[#content + 1] = field(ctx, m, width)
         content[#content + 1] = ui.box{ w = width, h = 1, fill = "foreground/0.10" }
-        if #m.actions > 0 and not m.unified and m.state ~= "disabled" then
+        if #m.actions > 0 and not m.unified then
             bodyHeight = math.max(bodyHeight - ACTIONS, 0)
             local bar = { w = width, h = ACTIONS, gap = 10, pad = 8 }
             for _, item in m.actions do
@@ -312,7 +445,11 @@ function popout(ctx)
                 look.glyph{ name = "exclamationmark.triangle", size = 12, color = "error" },
                 look.text{ text = m.error, size = 12, color = "error", maxWidth = width - 48 } }
         end
-        if m.mode == "clipboard" and not m.unified and m.state == "results" then
+        if m.launcher and not m.unified then
+            bodyHeight = math.max(bodyHeight - TOOLBAR, 0)
+            content[#content + 1] = toolbar(ctx, m, width)
+        end
+        if not m.unified and m.state == "results" and (m.mode == "clipboard" or (m.mode == "files" and m.preview)) then
             local listWidth = math.floor(width * LIST_FRACTION)
             content[#content + 1] = ui.row{ w = width, h = bodyHeight, gap = 0, center = false,
                 results(ctx, m, listWidth, bodyHeight),
