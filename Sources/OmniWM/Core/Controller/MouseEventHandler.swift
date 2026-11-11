@@ -11,7 +11,6 @@ final class MouseEventHandler {
     weak var controller: WMController?
     let eventIntake: EventIntake
     let inputTapThread = InputTapThread()
-    let liveDragModifierCapture = LiveDragModifierCapture()
     var livePointer = LiveDragPointer()
     var liveDragSession: LiveDragSession?
     var state = MouseInputState() {
@@ -37,7 +36,6 @@ final class MouseEventHandler {
     var pressedMouseButtonsProvider: @MainActor () -> Int = { Int(NSEvent.pressedMouseButtons) }
     var liveDragClock: @MainActor () -> TimeInterval = { CACurrentMediaTime() }
     var nativeResizeSettleQuietTime: TimeInterval = 0.15
-    var modifierFlagsProvider: @MainActor () -> CGEventFlags = { CGEventSource.flagsState(.combinedSessionState) }
     var nativeWindowFrameProvider: @MainActor (AXWindowRef) -> CGRect? = {
         AXWindowService.framePreferFast($0)
     }
@@ -291,11 +289,6 @@ final class MouseEventHandler {
         let moveFlags = controller?.settings.gestures.mouseMoveModifierKey.cgEventFlags
         let adoptNativeResize = controller?.settings.gestures.adoptNativeResize == true
         let macOSFusion = controller?.settings.niri.macOSFusion ?? false
-        let fusionDragFlags = controller.flatMap { controller in
-            controller.settings.niri.macOSFusion
-                ? controller.settings.niri.macOSFusionModifier.cgEventFlags
-                : nil
-        }
         let resizeFlags = controller?.settings.gestures.mouseResizeModifierKey.cgEventFlag ?? []
         let scrollFlags = controller?.settings.gestures.scrollModifierKey.cgEventFlag ?? []
         let minFingers: Int
@@ -315,7 +308,6 @@ final class MouseEventHandler {
             snapshot.claimedOtherButtonMask = otherButtonMask
             snapshot.moveModifier = moveFlags
             snapshot.adoptNativeResize = adoptNativeResize
-            snapshot.fusionDragModifier = fusionDragFlags
             snapshot.macOSFusion = macOSFusion
             snapshot.resizeModifier = resizeFlags
             snapshot.scrollModifier = scrollFlags

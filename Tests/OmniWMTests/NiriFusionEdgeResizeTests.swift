@@ -974,9 +974,8 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.settledFrame(lower), lowerStart)
     }
 
-    func testAnOptionPressOnAFixedSizeWindowsEdgeStillMovesIt() throws {
+    func testAnOptionPressOnAFixedSizeWindowsEdgeStartsNoMoveWithMacOSFusionOn() throws {
         let fixture = try makeFixture(pid: 871_054)
-        fixture.controller.settings.niri.macOSFusionModifier = .control
         fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         let pressed = fixture.tokens[1]
         let frame = try fixture.frame(pressed)
@@ -989,7 +988,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             windowIdUnderPointer: pressed.windowId
         )
 
-        XCTAssertTrue(fixture.handler.state.isMoving)
+        XCTAssertFalse(fixture.handler.state.isMoving)
     }
 
     func testACentredWidthDragAtTheScreenEdgeGrowsAwayFromIt() throws {
@@ -1026,9 +1025,8 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(frame.midX, start.midX, accuracy: 1)
     }
 
-    func testWithAnotherStackModifierAnOptionPressOnAWindowEdgeIsLeftToMacOS() throws {
+    func testAnOptionPressOnAWindowEdgeIsLeftToMacOS() throws {
         let fixture = try makeFixture(pid: 871_045)
-        fixture.controller.settings.niri.macOSFusionModifier = .control
         fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         let pressed = fixture.tokens[1]
         let frame = try fixture.frame(pressed)
@@ -1045,7 +1043,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             modifiers: .maskAlternate,
             windowIdUnderPointer: pressed.windowId
         )
-        XCTAssertTrue(fixture.handler.state.isMoving)
+        XCTAssertFalse(fixture.handler.state.isMoving)
     }
 
     @discardableResult

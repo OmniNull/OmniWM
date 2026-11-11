@@ -29,39 +29,4 @@ extension NiriLayoutEngine {
         if cursor.x < first.minX { return first.column }
         return nil
     }
-
-    func liveColumnMoveToStripEnd(
-        at cursor: CGPoint,
-        move: inout LiveColumnMove,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) {
-        guard liveColumnPastStripEnd(
-            in: liveColumnStrip(context: context, state: state),
-            at: cursor,
-            ignoring: liveDropSpace(for: move),
-            context: context
-        ) != nil else { return }
-        move.stackMode = false
-        move.endPointerHold(.modifierRelease)
-        if move.home == .stackSlot {
-            stepLiveColumnMove(to: cursor, move: &move, context: context, state: &state)
-        }
-        if move.home != .stackSlot {
-            stepLiveColumnMove(to: cursor, move: &move, context: context, state: &state)
-        }
-    }
-
-    private func stepLiveColumnMove(
-        to cursor: CGPoint,
-        move: inout LiveColumnMove,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) {
-        liveColumnMove = move
-        _ = liveColumnMoveUpdate(cursor: cursor, at: 0, immediate: true, context: context, state: &state)
-        if let updated = liveColumnMove {
-            move = updated
-        }
-    }
 }

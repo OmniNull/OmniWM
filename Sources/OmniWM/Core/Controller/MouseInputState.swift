@@ -80,7 +80,6 @@ struct MouseInputState {
         var isScrolling = false
         var hopping = false
         var hopsDone = false
-        var hopSettledSince: TimeInterval?
         var strip: (columns: [LiveColumnMove.StripColumn], viewOffset: CGFloat)?
         var stripContext: NiriInteractionContext?
     }
@@ -212,7 +211,6 @@ struct LiveDragPointer {
 struct LiveDragSession {
     var tabPull: MouseInputState.LiveTabPull?
     var referenceOffset: CGFloat?
-    var modifiers: CGEventFlags?
     var edgeScroll: MouseInputState.LiveEdgeScroll?
     var edgeZoneHold: MouseInputState.LiveEdgeZoneHold?
     var hoverTimer: Timer?

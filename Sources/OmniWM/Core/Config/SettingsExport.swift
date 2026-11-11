@@ -122,7 +122,6 @@ struct SettingsExport: Equatable {
         var overscrollVisibleStripPercent: Int?
         var shrinkToFit: Bool?
         var macOSFusion: Bool?
-        var macOSFusionModifier: MouseMoveModifierKey?
         var edgePeekPercent: Double?
     }
 

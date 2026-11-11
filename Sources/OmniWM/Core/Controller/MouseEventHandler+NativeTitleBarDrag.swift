@@ -285,7 +285,8 @@ extension MouseEventHandler {
             discardNativeTitleBarDragState()
             return
         }
-        let finishedLiveDrag = drag.liveDrag && finishLiveColumnDrag(token: drag.token)
+        let finishedLiveDrag = drag.liveDrag
+            && finishLiveColumnDrag(token: drag.token, startSize: drag.adoptionStartFrame?.size)
         drag.liveDrag = false
         drag.pendingExcludedCorrection = excludedFrameWrite
         state.nativeTitleBarDrag = drag

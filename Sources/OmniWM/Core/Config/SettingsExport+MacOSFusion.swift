@@ -5,7 +5,6 @@ extension SettingsExport.Niri {
     func withMacOSFusionDefaults(edgePeekPercent: Double? = nil) -> Self {
         var niri = self
         niri.macOSFusion = macOSFusion ?? false
-        niri.macOSFusionModifier = macOSFusionModifier ?? .option
         niri.edgePeekPercent = self.edgePeekPercent ?? edgePeekPercent
         return niri
     }

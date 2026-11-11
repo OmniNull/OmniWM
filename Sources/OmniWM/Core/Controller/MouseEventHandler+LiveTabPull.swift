@@ -40,7 +40,7 @@ extension MouseEventHandler {
             holdLiveEdgeZone(startingAt: drag.location, monitorFrame: monitor.frame)
         }
         state.deferredClickScroll = nil
-        startLiveDragKeyCapture()
+        controller.syncLiveDragPointerHold(active: true)
         let detached = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveDetachTab(
                 towardTrailingSide: drag.location.x >= drag.pressLocation.x,
@@ -67,7 +67,6 @@ extension MouseEventHandler {
         )
         livePointer.location = location
         recordLivePointerSample(location)
-        liveDragSession?.modifiers = nil
         updateLiveColumnDrag(at: location)
         controller.layoutRefreshController.requestImmediateRelayout(
             reason: .interactiveGesture,

@@ -381,7 +381,6 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             XCTAssertEqual(fixture.move(to: cursor, at: time), .unchanged, "\(time)")
         }
         XCTAssertNil(fixture.engine.liveColumnMove?.landing)
-        XCTAssertEqual(fixture.engine.liveColumnMove?.showsLandingHint, false)
         XCTAssertEqual(fixture.stripColumn(holding: 3).minX, target.minX, accuracy: 0.5)
         XCTAssertNotNil(fixture.dropSpace())
     }
@@ -1675,29 +1674,6 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
         XCTAssertEqual(fixture.order(), [fixture.tokens[0], fixture.tokens[1], extra])
         XCTAssertEqual(fixture.column(0).windowNodes.map(\.token), [fixture.tokens[0]])
-    }
-
-    func testReleasingWithTheStackModifierOverFreeScreenMovesTheWindowToTheEnd() {
-        var fixture = makeFixture(widths: [0.25, 0.25, 0.25], activeIndex: 0)
-        let freeScreen = CGPoint(x: fixture.stripColumn(holding: 2).maxX + 100, y: fixture.midY)
-        XCTAssertTrue(fixture.begin(0))
-        _ = fixture.engine.liveColumnMoveStackModeChanged(
-            held: true,
-            cursor: fixture.point(on: 0, half: .before),
-            context: fixture.context,
-            state: &fixture.state
-        )
-        _ = fixture.move(to: freeScreen)
-        XCTAssertNil(fixture.dropSpace())
-        XCTAssertEqual(fixture.order(), [fixture.tokens[0], fixture.tokens[1], fixture.tokens[2]])
-
-        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
-            releasedAt: freeScreen,
-            stacking: true,
-            context: fixture.context,
-            state: &fixture.state
-        ))
-        XCTAssertEqual(fixture.order(), [fixture.tokens[1], fixture.tokens[2], fixture.tokens[0]])
     }
 
     func testAPointerOffTheStripsDisplayIsNotFreeScreen() {

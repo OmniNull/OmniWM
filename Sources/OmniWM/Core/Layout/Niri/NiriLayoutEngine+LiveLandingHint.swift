@@ -28,19 +28,18 @@ extension NiriLayoutEngine {
         move: inout LiveColumnMove,
         context: NiriInteractionContext
     ) -> LiveColumnMove.Action? {
-        guard !move.stackMode else { return nil }
         let time = pointer.time
         switch liveCentreChoice(cursor: pointer.cursor, strip: strip, move: move, context: context) {
         case .keep:
-            return move.showsLandingHint ? .nothing : nil
+            return move.landing != nil ? .nothing : nil
         case .home:
             move.endCentreDwell()
-            return move.showsLandingHint ? .closeHint : nil
+            return move.landing != nil ? .closeHint : nil
         case let .land(landing):
             move.endSideDwell()
-            if move.showsLandingHint {
-                guard landing != move.landing?.slot else { return .nothing }
-                if landing.columnId == move.landing?.slot.columnId {
+            if move.landing != nil {
+                guard landing != move.landing else { return .nothing }
+                if landing.columnId == move.landing?.columnId {
                     return .showHint(landing, tracesRefusal: false)
                 }
                 return .switchHint(columnId: landing.columnId, dwellSince: time)
@@ -67,7 +66,7 @@ extension NiriLayoutEngine {
               let placed = strip.first(where: { $0.column === column }),
               placed.width >= MoveConfiguration.liveCentreMinimumWidth - 0.5
         else { return .home }
-        let hintedHere = move.showsLandingHint && move.landing?.slot.columnId == column.id
+        let hintedHere = move.landing?.columnId == column.id
         let margin = hintedHere ? MoveConfiguration.liveCentreExitMargin : 0
         let third = placed.width / 3
         guard cursor.x >= placed.minX + third - margin, cursor.x < placed.maxX - third + margin else {
@@ -83,7 +82,7 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
-        guard placeLiveLanding(.hint(landing), move: &move, context: context, state: &state) else {
+        guard placeLiveLanding(landing, move: &move, context: context, state: &state) else {
             return false
         }
         if let hinted = liveColumn(withId: landing.columnId, in: move.workspaceId) {
@@ -100,8 +99,7 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) {
-        if let landing = move.landing {
-            move.landing = .gap(landing.slot)
+        if move.landing != nil {
             placeLiveLanding(nil, move: &move, context: context, state: &state)
         }
         move.endSideDwell()

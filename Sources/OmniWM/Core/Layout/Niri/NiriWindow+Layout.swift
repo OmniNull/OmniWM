@@ -81,7 +81,7 @@ extension NiriWindow {
         case .horizontal:
             let minY = containerRect.minY
             let maxY = containerRect.maxY - offsetFrame.height
-            if maxY >= minY {
+            if maxY >= minY, !moveYLeavesColumn {
                 offsetFrame.origin.y = min(max(offsetFrame.origin.y, minY), maxY)
             }
         case .vertical:

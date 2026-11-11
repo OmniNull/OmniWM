@@ -441,25 +441,6 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.frame(fixture.tokens[1]), start)
     }
 
-    func testWithTheStackModifierOffTheTapStillAsksAboutDoubleClicks() throws {
-        let fixture = try makeFixture(pid: 941_091)
-        fixture.controller.settings.niri.macOSFusionModifier = .off
-        fixture.handler.syncTapFilterSnapshot()
-        let snapshot = fixture.handler.inputTapThread.filterSnapshot
-        XCTAssertNil(snapshot.fusionDragModifier)
-        XCTAssertTrue(snapshot.macOSFusion)
-        let edge = try fixture.rightEdge(fixture.tokens[1])
-
-        XCTAssertTrue(MouseEventHandler.asksAboutFusionDoubleClick(
-            clickCount: 2,
-            flags: [],
-            macOSFusion: snapshot.macOSFusion,
-            armedAt: edge,
-            location: edge
-        ))
-        XCTAssertTrue(fixture.doubleClick(at: edge))
-    }
-
     func testDoubleClickingTheRightEdgeStretchesItToTheScreenEdgeAndBack() throws {
         let fixture = try makeFixture(pid: 941_006)
         let column = try fixture.column(fixture.tokens[1])
@@ -759,55 +740,37 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(column.width, .proportion(1))
     }
 
-    func testOnlyATiledWindowsTitleBarHoldsADragStill() throws {
-        let fixture = try makeFixture(pid: 941_131)
+    func testWithMacOSFusionOnAModifierTitleBarPressPassesOnAsARegularDragWithoutOption() throws {
+        let fixture = try makeFixture(pid: 941_132)
+        fixture.controller.settings.gestures.mouseMoveModifierKey = .option
+        MouseEventHandler._instance = fixture.handler
+        addTeardownBlock { @MainActor in MouseEventHandler._instance = nil }
+        fixture.handler.syncTapFilterSnapshot()
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        let tap = fixture.handler.inputTapThread
         let titleBar = try fixture.titleBar(fixture.tokens[1])
-        let frame = try fixture.frame(fixture.tokens[1])
-
-        XCTAssertTrue(fixture.handler.holdsTitleBarDragStill(at: titleBar))
-        XCTAssertFalse(fixture.handler.holdsTitleBarDragStill(at: CGPoint(x: frame.midX, y: frame.midY)))
-        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
-            role: "AXButton",
-            placement: .insideBar(elementWithinBar: true)
-        ) }
-        XCTAssertFalse(fixture.handler.holdsTitleBarDragStill(at: titleBar))
-    }
-
-    func testATabOrAWindowOverTheTitleBarDoesNotHoldADragStill() throws {
-        let fixture = try makeFixture(pid: 941_137)
-        let token = fixture.tokens[1]
-        let titleBar = try fixture.titleBar(token)
-        XCTAssertTrue(fixture.handler.holdsTitleBarDragStill(at: titleBar, windowIdUnderPointer: token.windowId))
-
-        XCTAssertFalse(fixture.handler.holdsTitleBarDragStill(at: titleBar, windowIdUnderPointer: token.windowId + 900))
-
-        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
-            role: "AXRadioButton",
-            subrole: TitleBarHitTest.tabButtonSubrole,
-            placement: .insideBar(elementWithinBar: true)
-        ) }
-        XCTAssertFalse(fixture.handler.holdsTitleBarDragStill(at: titleBar, windowIdUnderPointer: token.windowId))
-    }
-
-    func testAnAppsOwnDrawnTitleBarDoesNotHoldADragStill() throws {
-        let fixture = try makeFixture(pid: 941_139)
-        let token = fixture.tokens[1]
-        let titleBar = try fixture.titleBar(token)
-        for role in ["AXGroup", "AXTabGroup"] {
-            fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
-                role: role,
-                placement: .insideBar(elementWithinBar: true)
-            ) }
-            XCTAssertFalse(
-                fixture.handler.holdsTitleBarDragStill(at: titleBar, windowIdUnderPointer: token.windowId),
-                role
+        for modifier in [CGEventFlags.maskAlternate, .maskCommand, .maskControl, .maskShift] {
+            let event = { (type: CGEventType, point: CGPoint) in
+                let event = try XCTUnwrap(CGEvent(
+                    mouseEventSource: nil,
+                    mouseType: type,
+                    mouseCursorPosition: ScreenCoordinateSpace.toWindowServer(point: point),
+                    mouseButton: .left
+                ))
+                event.flags = modifier
+                return event
+            }
+            let pressed = tap.evaluateTap(type: .leftMouseDown, event: try event(.leftMouseDown, titleBar))
+            let dragged = tap.evaluateTap(
+                type: .leftMouseDragged,
+                event: try event(.leftMouseDragged, CGPoint(x: titleBar.x + 40, y: titleBar.y))
             )
+
+            XCTAssertEqual(pressed?.flags.contains(modifier), modifier != .maskAlternate, "\(modifier)")
+            XCTAssertNotNil(dragged, "\(modifier)")
+            XCTAssertFalse(fixture.handler.state.isMoving, "\(modifier)")
+            fixture.handler.cancelActiveMouseInteraction()
         }
-        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(
-            role: "AXToolbar",
-            placement: .insideBar(elementWithinBar: true)
-        ) }
-        XCTAssertTrue(fixture.handler.holdsTitleBarDragStill(at: titleBar, windowIdUnderPointer: token.windowId))
     }
 
     func testWithMacOSFusionTheCycleSizeKeysResizeAroundTheCentre() throws {
@@ -1082,7 +1045,6 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
 
         XCTAssertFalse(fixture.doubleClick(at: CGPoint(x: frame.midX, y: frame.midY)))
         XCTAssertFalse(fixture.doubleClick(at: CGPoint(x: frame.maxX - 1, y: frame.maxY - 1)))
-        XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1]), modifiers: .maskAlternate))
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1]), modifiers: .maskCommand))
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1]), clickCount: 1))
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1]), clickCount: 3))

@@ -29,12 +29,6 @@ enum TitleBarHitTest {
         kAXStaticTextRole
     ]
 
-    static let bareTitleBarRoles: Set<String> = [
-        kAXWindowRole,
-        kAXToolbarRole,
-        kAXStaticTextRole
-    ]
-
     static let controlRoles: Set<String> = [
         kAXButtonRole,
         kAXRadioButtonRole,
@@ -72,11 +66,6 @@ enum TitleBarHitTest {
             return isWindowBackground(role: hit.role)
                 || !(isControl(role: hit.role, subrole: hit.subrole) && elementWithinBar)
         }
-    }
-
-    static func isBareTitleBar(_ hit: TitleBarHit?) -> Bool {
-        guard let hit, hit.placement != .outsideBar else { return false }
-        return hit.role.map(bareTitleBarRoles.contains) ?? false
     }
 
     static func hit(pid: pid_t, at point: CGPoint) -> TitleBarHit? {

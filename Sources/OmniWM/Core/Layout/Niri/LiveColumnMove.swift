@@ -85,7 +85,6 @@ struct LiveColumnMove {
     enum Action {
         case nothing
         case hovering(until: TimeInterval)
-        case placeStackLanding(LandingSlot?)
         case leaveStack(towardTrailingSide: Bool)
         case moveInStack(NiriWindow, home: NiriContainer, index: Int)
         case closeHint
@@ -97,8 +96,7 @@ struct LiveColumnMove {
             switch self {
             case .nothing: .unchanged
             case let .hovering(until): .hovering(until: until)
-            case .placeStackLanding,
-                 .leaveStack,
+            case .leaveStack,
                  .moveInStack,
                  .closeHint,
                  .showHint,
@@ -157,46 +155,16 @@ struct LiveColumnMove {
         let above: Bool
     }
 
-    enum Landing: Equatable {
-        case hint(LandingSlot)
-        case gap(LandingSlot)
-
-        var slot: LandingSlot {
-            switch self {
-            case let .hint(slot),
-                 let .gap(slot): slot
-            }
-        }
-
-        var isHint: Bool {
-            if case .hint = self { return true }
-            return false
-        }
-    }
-
     enum Home: Equatable {
         case origin
         case stackSlot
     }
 
     struct PointerHold: Equatable {
-        enum Kind: Equatable {
-            case stackLock
-            case modifierRelease
-        }
-
         let point: CGPoint
-        let kind: Kind
-
-        var distance: CGFloat {
-            switch kind {
-            case .stackLock: MoveConfiguration.liveStackSuppressDistance
-            case .modifierRelease: 1
-            }
-        }
 
         func holds(at cursor: CGPoint) -> Bool {
-            hypot(cursor.x - point.x, cursor.y - point.y) < distance
+            hypot(cursor.x - point.x, cursor.y - point.y) < MoveConfiguration.liveStackSuppressDistance
         }
     }
 
@@ -308,23 +276,13 @@ struct LiveColumnMove {
     var heldTabs: [NiriWindow] = []
     var pulledStripEnd: Side?
     var originClosedToward: Side?
-    var stackMode = false
-    var landing: Landing?
+    var landing: LandingSlot?
     var mateHeight: MateHeight?
     var keptWidths: KeptWidths?
     var pointerHold: PointerHold?
     var floatingFrame: CGRect?
     var narrowedSlot: NarrowedSlot?
     var carry: Carry?
-
-    var showsLandingHint: Bool {
-        landing?.isHint == true
-    }
-
-    func isStill(at cursor: CGPoint) -> Bool {
-        guard let hold = pointerHold, hold.kind == .modifierRelease else { return false }
-        return hold.holds(at: cursor)
-    }
 
     mutating func endSideDwell() {
         if dwell?.region != .centre {
@@ -335,12 +293,6 @@ struct LiveColumnMove {
     mutating func endCentreDwell() {
         if dwell?.region == .centre {
             dwell = nil
-        }
-    }
-
-    mutating func endPointerHold(_ kind: PointerHold.Kind) {
-        if pointerHold?.kind == kind {
-            pointerHold = nil
         }
     }
 

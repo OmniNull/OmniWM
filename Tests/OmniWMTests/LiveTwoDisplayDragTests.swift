@@ -636,7 +636,6 @@ extension CrossDisplayDragTests {
         let fixture = try makeNativeFixture([.niri, .dwindle])
         fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
-        fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.source, fixture)
         let neighbour = addWindow(2, to: fixture.source, fixture)
@@ -664,7 +663,6 @@ extension CrossDisplayDragTests {
         let fixture = try makeNativeFixture([.niri, .dwindle, .niri])
         fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
-        fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.workspaces[0], fixture)
         let neighbour = addWindow(2, to: fixture.workspaces[0], fixture)
@@ -687,61 +685,6 @@ extension CrossDisplayDragTests {
         XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.workspaces[2])
         XCTAssertEqual(fixture.columns(fixture.workspaces[0]), [[neighbour]])
         XCTAssertEqual(fixture.columns(fixture.workspaces[2]), [[resident], [moved], []])
-    }
-
-    func testStackModeOnTheOtherDisplayStacksIntoTheTarget() throws {
-        let drag = try startLiveTwoDisplayDrag(residents: 2)
-        let fixture = drag.fixture
-        let target = drag.residents[1]
-        try dragOnto(drag.residents[0], .right, drag)
-        XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.target)
-
-        fixture.layout()
-        let targetX = try XCTUnwrap(fixture.frame(target)).minX
-        fixture.handler.modifierFlagsProvider = { .maskAlternate }
-        let point = try dragOnto(target, .down, drag)
-        XCTAssertEqual(fixture.niri.liveColumnMove?.stackMode, true)
-        XCTAssertNotNil(fixture.niri.liveColumnMove?.landing)
-        fixture.layout()
-        XCTAssertEqual(try XCTUnwrap(fixture.frame(target)).minX, targetX, accuracy: 0.5)
-        fixture.handler.dispatchMouseUp(at: point)
-        settleStackDrop(in: fixture.target, fixture)
-
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.target)
-        XCTAssertEqual(fixture.columns(fixture.source), [[drag.neighbour]])
-        let columns = fixture.columns(fixture.target)
-        XCTAssertEqual(columns.count, 2)
-        XCTAssertEqual(columns.first, [drag.residents[0]])
-        XCTAssertEqual(Set(columns.last ?? []), [target, drag.moved])
-        XCTAssertFalse(fixture.niri.columns(in: fixture.target).contains { $0.isLiveHomeSpot })
-    }
-
-    func testATabbedTargetOnTheOtherDisplayTakesTheWindowAsATab() throws {
-        let drag = try startLiveTwoDisplayDrag(residents: 3)
-        let fixture = drag.fixture
-        try stack(drag.residents[2], onto: drag.residents[1], in: fixture.target, fixture)
-        let tabbed = try XCTUnwrap(fixture.niriNode(drag.residents[1])?.parent as? NiriContainer)
-        fixture.manager.withEngineMutationScope(in: fixture.target) {
-            tabbed.displayMode = .tabbed
-            fixture.niri.updateTabbedColumnVisibility(column: tabbed)
-        }
-        try dragOnto(drag.residents[0], .right, drag)
-        XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.target)
-
-        fixture.handler.modifierFlagsProvider = { .maskAlternate }
-        let shown = try XCTUnwrap(tabbed.windowNodes[tabbed.activeTileIdx].token)
-        let point = try dragOnto(shown, .down, drag)
-        XCTAssertEqual(tabbed.windowNodes.count, 3)
-        fixture.handler.dispatchMouseUp(at: point)
-        settleStackDrop(in: fixture.target, fixture)
-
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.target)
-        XCTAssertTrue(tabbed.isTabbed)
-        XCTAssertEqual(tabbed.windowNodes.count, 3)
-        XCTAssertEqual(tabbed.windowNodes[tabbed.activeTileIdx].token, drag.moved)
-        XCTAssertEqual(fixture.niri.columns(in: fixture.target).count, 2)
     }
 
     func testAWindowAloneOnItsDisplayCarriesALiveDragOntoTheOtherDisplay() throws {
@@ -819,7 +762,6 @@ extension CrossDisplayDragTests {
         let fixture = try makeNativeFixture(layouts)
         fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
-        fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.liveHoverDelay = 0
         return fixture
     }
@@ -849,7 +791,6 @@ extension CrossDisplayDragTests {
         let fixture = try makeNativeFixture([.niri, .niri])
         fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
-        fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.liveHoverDelay = 0
         let first = addWindow(1, to: fixture.source, fixture)
         let moved = addWindow(2, to: fixture.source, fixture)
@@ -899,7 +840,6 @@ extension CrossDisplayDragTests {
         if fusion {
             fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
         }
-        fixture.handler.liveDragModifierCapture.installsEventTap = false
         fixture.niri.liveHoverDelay = 0
         let neighbour = addWindow(1, to: fixture.source, fixture)
         let moved = addWindow(2, to: fixture.source, fixture)

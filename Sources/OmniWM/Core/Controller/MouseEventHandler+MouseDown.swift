@@ -24,8 +24,9 @@ extension MouseEventHandler {
             return false
         }
 
-        let startsFusionDrag = button == .left && macOSFusionTakesModifiers(modifiers, in: wsId)
-        if button == .left, startsFusionDrag || modifiers.isDisjoint(with: Self.relevantModifierFlags) {
+        if button == .left,
+           modifiers.isDisjoint(with: Self.relevantModifierFlags) || macOSFusionDrags(in: wsId)
+        {
             finishNiriSlideBeforePress(in: wsId)
             recordPointerFocusIntent(
                 at: location,
@@ -44,12 +45,11 @@ extension MouseEventHandler {
         guard let engine = controller.niriEngine else { return false }
 
         if button == .left,
-           !startsFusionDrag,
+           !controller.settings.niri.macOSFusion,
            Self.mouseMoveModifiersMatch(
                modifiers,
                required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
-           ),
-           !leavesCentredResizeToMacOS(at: location, modifiers: modifiers, engine: engine, workspaceId: wsId)
+           )
         {
             beginNiriMouseMove(at: location, engine: engine, workspaceId: wsId, button: button)
             return false
@@ -84,35 +84,10 @@ extension MouseEventHandler {
         MouseTrace.record("press finished the running slide ws=\(workspaceId)")
     }
 
-    func macOSFusionTakesModifiers(_ modifiers: CGEventFlags, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
-        guard let controller,
-              controller.settings.niri.macOSFusion,
-              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri
-        else { return false }
-        return Self.mouseMoveModifiersMatch(
-            modifiers,
-            required: controller.settings.niri.macOSFusionModifier.cgEventFlags
-        )
-    }
-
-    private func leavesCentredResizeToMacOS(
-        at location: CGPoint,
-        modifiers: CGEventFlags,
-        engine: NiriLayoutEngine,
-        workspaceId: WorkspaceDescriptor.ID
-    ) -> Bool {
-        guard controller?.settings.niri.macOSFusion == true,
-              modifiers.contains(.maskAlternate),
-              let window = engine.hitTestTiled(point: location, in: workspaceId),
-              !window.constraints.isFixed,
-              let frame = window.renderedFrame ?? window.frame
-        else { return false }
-        return Self.isOnResizeEdge(location, of: frame)
-    }
-
-    static func isOnResizeEdge(_ location: CGPoint, of frame: CGRect) -> Bool {
-        let threshold = ResizeConfiguration.default.edgeThreshold
-        return frame.contains(location) && !frame.insetBy(dx: threshold, dy: threshold).contains(location)
+    private func macOSFusionDrags(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let controller else { return false }
+        return controller.settings.niri.macOSFusion
+            && controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri
     }
 
     private func beginNiriMouseMove(

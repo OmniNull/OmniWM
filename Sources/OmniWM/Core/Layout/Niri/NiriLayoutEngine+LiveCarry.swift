@@ -327,7 +327,6 @@ extension LiveColumnMove {
         dwell = nil
         landing = nil
         mateHeight = nil
-        stackMode = false
         pointerHold = nil
         edgeScrollSide = nil
         pulledStripEnd = nil

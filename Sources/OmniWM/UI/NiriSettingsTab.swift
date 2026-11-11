@@ -238,34 +238,6 @@ private struct GlobalNiriSettingsSection: View {
                 localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. A share of each display’s width; at 0%, peeking is off."
             )
 
-            Picker(
-                "Drop Modifier",
-                selection: Bindable(settings.niri).macOSFusionModifier
-            ) {
-                ForEach(MouseMoveModifierKey.allCases, id: \.self) { key in
-                    Text(key.localizedDisplayName).tag(key)
-                }
-            }
-            .id("Drop Modifier")
-            .disabled(!settings.niri.macOSFusion)
-            .onChange(of: settings.niri.macOSFusionModifier) {
-                if settings.niri.macOSFusion {
-                    controller.applyMacOSFusionSettings()
-                }
-            }
-
-            SettingsCaption(
-                localized: "Hold this modifier while dragging a title bar to stack the window onto the one under the pointer. That column makes room where the window will land; over tabbed windows it lands as a new tab. When it matches the Left Mouse Move Modifier, it replaces that move in Niri. Choose Off to never stack."
-            )
-
-            if settings.niri.macOSFusion,
-               settings.niri.macOSFusionModifier.cgEventFlags?.contains(.maskCommand) == true
-            {
-                SettingsCaption(
-                    localized: "macOS also uses Command-drag to move a window behind others without bringing it to the front."
-                )
-            }
-
             LayoutHistoryHotkeyRow(actionId: "undo", anchor: "Undo", settings: settings, controller: controller)
                 .disabled(!settings.niri.macOSFusion)
 

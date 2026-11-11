@@ -24,7 +24,7 @@ extension WMController {
         setGapSize(settings.gaps.size, publishChange: false)
 
         applyPersistedLayoutSettings(settings)
-        mouseEventHandler.syncFusionDragTapFilter()
+        mouseEventHandler.syncMacOSFusionTapFilter()
         setTabRailAppIcons(settings.tabRailAppIcons, persist: false)
 
         updateWorkspaceConfig()

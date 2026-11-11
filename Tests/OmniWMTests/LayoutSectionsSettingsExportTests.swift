@@ -32,7 +32,6 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
             "overscrollVisibleStripPercent": .integer(5),
             "shrinkToFit": .boolean(false),
             "macOSFusion": .boolean(false),
-            "macOSFusionModifier": .string("option"),
             "edgePeekPercent": .float(5.0)
         ]))
         XCTAssertEqual(tree["dwindle"], .table([
@@ -192,31 +191,17 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
     }
 
     @MainActor
-    func testMacOSFusionModifierDefaultsToOptionRoundTripsAndLoadsWhenOmitted() throws {
-        XCTAssertEqual(SettingsExport.defaults().niri.macOSFusionModifier, .option)
-        XCTAssertEqual(NiriSettings().macOSFusionModifier, .option)
-        for key in [MouseMoveModifierKey.off, .control, .controlOptionCommand] {
-            var export = SettingsExport.defaults()
-            export.niri.macOSFusionModifier = key
-            let encoded = try SettingsTOMLCodec.encode(export)
-            XCTAssertTrue(String(decoding: encoded, as: UTF8.self)
-                .contains("macOSFusionModifier = \"\(key.rawValue)\""))
-            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
-            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
-        }
-
+    func testASettingsFileThatStillHoldsTheRemovedDropModifierLoads() throws {
         let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let omitted = try removing(key: "macOSFusionModifier", from: "niri", in: source)
-        let result = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8))
+        let withOldKey = source.replacingOccurrences(
+            of: "macOSFusion = false\n",
+            with: "macOSFusion = false\nmacOSFusionModifier = \"option\"\n"
+        )
+        XCTAssertNotEqual(withOldKey, source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(withOldKey.utf8))
         XCTAssertNil(result.migration)
-        XCTAssertEqual(result.export.niri.macOSFusionModifier, .option)
-
-        let settings = NiriSettings()
-        var changed = SettingsExport.Niri.defaults()
-        changed.macOSFusionModifier = .command
-        settings.apply(changed, baseline: .defaults())
-        XCTAssertEqual(settings.macOSFusionModifier, .command)
-        XCTAssertEqual(settings.export().macOSFusionModifier, .command)
+        XCTAssertEqual(result.export, SettingsExport.defaults())
+        XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: Data(withOldKey.utf8)), ["niri.macOSFusionModifier"])
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {

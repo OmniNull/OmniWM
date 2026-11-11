@@ -805,7 +805,6 @@ final class CrossDisplayDragTests: XCTestCase {
         XCTAssertEqual(fixture.dwindleTile(moved), [moved])
         XCTAssertEqual(fixture.manager.workspace(for: resident), fixture.target)
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
-        XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
     }
 
     func testTurningMacOSFusionOffHandsALiveDragOverToTheNativeMove() throws {
@@ -831,7 +830,6 @@ final class CrossDisplayDragTests: XCTestCase {
         XCTAssertNil(fixture.niri.liveColumnMove)
         XCTAssertEqual(fixture.columns(fixture.source), sourceColumns)
         XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveDragHandedOver, true)
-        XCTAssertFalse(fixture.handler.liveDragModifierCapture.isActive)
 
         let point = try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right)
         fixture.handler.dispatchMouseDragged(at: point)
@@ -1304,8 +1302,6 @@ final class CrossDisplayDragTests: XCTestCase {
     func makeNativeFixture(_ layouts: [LayoutType], enabled: Bool = true) throws -> Fixture {
         let fixture = try makeFixture(layouts)
         fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays = enabled
-        fixture.handler.liveDragModifierCapture.installsEventTap = false
-        fixture.handler.modifierFlagsProvider = { [] }
         addTeardownBlock { @MainActor [controller = fixture.controller] in
             controller.hasStartedServices = false
             controller.layoutRefreshController.resetState()

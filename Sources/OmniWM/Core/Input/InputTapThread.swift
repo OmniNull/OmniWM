@@ -10,7 +10,6 @@ struct TapFilterSnapshot: Sendable {
     var claimedOtherButtonMask: UInt32 = 0
     var moveModifier: CGEventFlags?
     var adoptNativeResize = false
-    var fusionDragModifier: CGEventFlags?
     var macOSFusion = false
     var resizeModifier: CGEventFlags = []
     var scrollModifier: CGEventFlags = []
@@ -18,7 +17,6 @@ struct TapFilterSnapshot: Sendable {
     var gestureActiveOrLatched: Bool = false
     var isInputSuppressed: Bool = false
     var fusionDoubleClickArmedAt: CGPoint?
-    var holdsTitleBarDrag = false
 }
 
 private struct TouchCountProviderBox: Sendable {
@@ -166,16 +164,12 @@ final class InputTapThread: @unchecked Sendable {
         case .leftMouseDown:
             return evaluateLeftMouseDown(event, location: location, snap: snap)
         case .leftMouseDragged:
-            if snap.holdsTitleBarDrag { return nil }
             guard snap.activeCapture == .left else {
                 EventIntake.post(.mouseDragged(button: .left, location: location))
                 return event
             }
             return forwardCapturedDrag(event, type: type, location: location, buttonNumber: 0)
         case .leftMouseUp:
-            if snap.holdsTitleBarDrag {
-                updateFilterSnapshot { $0.holdsTitleBarDrag = false }
-            }
             guard snap.activeCapture == .left else {
                 EventIntake.post(.leftMouseUp(location: location))
                 return event
@@ -383,11 +377,7 @@ extension InputTapThread {
         snap: TapFilterSnapshot
     ) -> CGEvent? {
         let flags = event.flags
-        let holdsDrag = holdsTitleBarDrag(event, location: location, snap: snap)
-        if holdsDrag != snap.holdsTitleBarDrag {
-            updateFilterSnapshot { $0.holdsTitleBarDrag = holdsDrag }
-        }
-        stripFusionDragOption(from: event, location: location, snap: snap)
+        removeOptionFromFusionDragPress(event, location: location, snap: snap)
         let clickCount = event.getIntegerValueField(.mouseEventClickState)
         if MouseEventHandler.asksAboutFusionDoubleClick(
             clickCount: clickCount,
@@ -438,42 +428,17 @@ extension InputTapThread {
 }
 
 extension InputTapThread {
-    private nonisolated func stripFusionDragOption(
-        from event: CGEvent,
+    private nonisolated func removeOptionFromFusionDragPress(
+        _ event: CGEvent,
         location: CGPoint,
         snap: TapFilterSnapshot
     ) {
         let flags = event.flags
-        guard MouseEventHandler.mouseMoveModifiersMatch(flags, required: snap.fusionDragModifier),
+        guard snap.macOSFusion,
+              flags.contains(.maskAlternate),
               fusionDragCanStart(windowId: MouseEventHandler.eventWindowIdUnderPointer(event), at: location)
         else { return }
-        event.flags = MouseEventHandler.fusionDragPassThroughFlags(
-            flags,
-            fusionDragModifier: snap.fusionDragModifier
-        )
-    }
-
-    private nonisolated func holdsTitleBarDrag(_ event: CGEvent, location: CGPoint, snap: TapFilterSnapshot) -> Bool {
-        guard snap.macOSFusion,
-              MouseEventHandler.isUnassignedDragModifier(
-                  event.flags,
-                  moveModifier: snap.moveModifier,
-                  fusionDragModifier: snap.fusionDragModifier
-              )
-        else { return false }
-        let windowId = MouseEventHandler.eventWindowIdUnderPointer(event)
-        if Thread.isMainThread {
-            return MainActor.assumeIsolated {
-                MouseEventHandler._instance?.holdsTitleBarDragStill(at: location, windowIdUnderPointer: windowId)
-                    ?? false
-            }
-        }
-        return DispatchQueue.main.sync {
-            MainActor.assumeIsolated {
-                MouseEventHandler._instance?.holdsTitleBarDragStill(at: location, windowIdUnderPointer: windowId)
-                    ?? false
-            }
-        }
+        event.flags = flags.subtracting(.maskAlternate)
     }
 
     private nonisolated func fusionDragCanStart(windowId: Int?, at location: CGPoint) -> Bool {

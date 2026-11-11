@@ -18,31 +18,10 @@ extension MouseEventHandler {
         return relevantModifiers == required || relevantModifiers == required.union(.maskShift)
     }
 
-    nonisolated static func fusionDragPassThroughFlags(
-        _ modifiers: CGEventFlags,
-        fusionDragModifier: CGEventFlags?
-    ) -> CGEventFlags {
-        guard mouseMoveModifiersMatch(modifiers, required: fusionDragModifier) else { return modifiers }
-        return modifiers.subtracting(.maskAlternate)
-    }
-
-    func syncFusionDragTapFilter() {
-        let snapshot = inputTapThread.filterSnapshot
-        guard controller?.settings.niri.macOSFusion == true
-            || snapshot.macOSFusion
-            || snapshot.fusionDragModifier != nil
+    func syncMacOSFusionTapFilter() {
+        guard controller?.settings.niri.macOSFusion == true || inputTapThread.filterSnapshot.macOSFusion
         else { return }
         syncTapFilterSnapshot()
-    }
-
-    nonisolated static func isUnassignedDragModifier(
-        _ modifiers: CGEventFlags,
-        moveModifier: CGEventFlags?,
-        fusionDragModifier: CGEventFlags?
-    ) -> Bool {
-        !modifiers.isDisjoint(with: Self.relevantModifierFlags)
-            && !mouseMoveModifiersMatch(modifiers, required: moveModifier)
-            && !mouseMoveModifiersMatch(modifiers, required: fusionDragModifier)
     }
 
     func canStartFusionDrag(windowId: Int?, at location: CGPoint) -> Bool {

@@ -81,16 +81,6 @@ extension MouseEventHandler {
         return FusionDoubleClickCandidate(hit: hit, entry: entry, engine: engine, workspaceId: workspaceId)
     }
 
-    func holdsTitleBarDragStill(at location: CGPoint, windowIdUnderPointer: Int? = nil) -> Bool {
-        guard let candidate = fusionDoubleClickCandidate(at: location),
-              candidate.hit.zone == .titleBar,
-              windowIdUnderPointer == nil || windowIdUnderPointer == candidate.entry.windowId,
-              TitleBarHitTest.isBareTitleBar(titleBarHitProvider(candidate.entry.pid, location))
-        else { return false }
-        MouseTrace.record("title-bar drag held still token=\(TraceFormat.token(candidate.entry.token))")
-        return true
-    }
-
     private func fusionDoubleClickTarget(at location: CGPoint) -> FusionDoubleClickTarget? {
         guard !state.isMoving, !state.isResizing,
               state.capturedInteractionButton == nil,

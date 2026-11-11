@@ -48,13 +48,16 @@ extension MouseEventHandler {
               let controller,
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
-              move.phase == .dragging,
+              move.phase == .dragging || move.home != .stackSlot,
               liveDragClock() - edgeScroll.enteredAt >= MoveConfiguration.liveEdgeScrollDelay - 0.005,
               let context = liveColumnContext(for: move.workspaceId)
         else { return }
 
         let workspaceId = move.workspaceId
-        if !move.stackMode, move.home != .stackSlot {
+        if move.home != .stackSlot {
+            if move.phase == .settling {
+                engine.liveColumnMoveSettled()
+            }
             edgeScroll.hopping = true
             liveDragSession?.edgeScroll = edgeScroll
             runLiveEdgeHop()
@@ -107,9 +110,63 @@ extension MouseEventHandler {
                 + " hidden=[\(hiddenColumnIds(in: workspaceId, engine: engine))]"
         )
         refreshLiveColumnLayout(in: workspaceId, engine: engine)
-        edgeScroll.hopSettledSince = nil
-        liveDragSession?.edgeScroll = edgeScroll
-        scheduleLiveEdgeHopCheck()
+        liveDragSession?.edgeScroll?.delayTimer?.invalidate()
+        liveDragSession?.edgeScroll?.delayTimer = nil
+        if !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine)
+            || livePointerIsOverTheGap(in: workspaceId, engine: engine, at: CACurrentMediaTime())
+        {
+            startLiveEdgeHopInterval()
+        }
+    }
+
+    func startLiveEdgeHopInterval() {
+        guard let edgeScroll = liveDragSession?.edgeScroll, edgeScroll.hopping, edgeScroll.delayTimer == nil
+        else { return }
+        liveDragSession?.edgeScroll?.delayTimer = scheduleLiveDragTimer(
+            after: MoveConfiguration.liveEdgeHopInterval
+        ) { [weak self] in
+            self?.runNextLiveEdgeHop()
+        }
+    }
+
+    private func startLiveEdgeHopIntervalIfThePointerIsOverTheGap(
+        in workspaceId: WorkspaceDescriptor.ID,
+        at time: TimeInterval
+    ) {
+        guard let edgeScroll = liveDragSession?.edgeScroll,
+              edgeScroll.hopping,
+              edgeScroll.delayTimer == nil,
+              edgeScroll.workspaceId == workspaceId,
+              let engine = controller?.niriEngine,
+              livePointerIsOverTheGap(in: workspaceId, engine: engine, at: time)
+        else { return }
+        startLiveEdgeHopInterval()
+    }
+
+    private func livePointerIsOverTheGap(
+        in workspaceId: WorkspaceDescriptor.ID,
+        engine: NiriLayoutEngine,
+        at time: TimeInterval
+    ) -> Bool {
+        guard let controller,
+              let move = engine.liveColumnMove,
+              let gap = engine.liveDropSpace(for: move),
+              let pointer = livePointer.location,
+              let context = liveColumnContext(for: workspaceId)
+        else { return false }
+        var probe = controller.workspaceManager.niriViewportState(for: workspaceId)
+        probe.viewOffset = controller.workspaceManager.animationDriver.liveViewOffset(
+            in: workspaceId,
+            semanticOffset: probe.viewOffset,
+            at: time
+        ) ?? probe.viewOffset
+        let strip = engine.liveColumnStrip(context: context, state: probe)
+            .filter { $0.maxX > $0.minX || $0.column === gap }
+        guard let index = strip.firstIndex(where: { $0.column === gap }) else { return false }
+        let shift: (LiveColumnMove.StripColumn) -> CGFloat = { $0.column.renderOffset(at: time).x }
+        let before = strip[..<index].last.map { $0.maxX + shift($0) } ?? -.infinity
+        let after = strip[(index + 1)...].first.map { $0.minX + shift($0) } ?? .infinity
+        return before <= pointer.x && pointer.x < after
     }
 
     private func hiddenColumnIds(in workspaceId: WorkspaceDescriptor.ID, engine: NiriLayoutEngine) -> String {
@@ -122,41 +179,20 @@ extension MouseEventHandler {
             .joined(separator: ",")
     }
 
-    private func scheduleLiveEdgeHopCheck() {
-        liveDragSession?.edgeScroll?.delayTimer?.invalidate()
-        liveDragSession?.edgeScroll?.delayTimer = scheduleLiveDragTimer(after: 0.05) { [weak self] in
-            self?.checkLiveEdgeHop()
-        }
-    }
-
-    private func checkLiveEdgeHop() {
-        guard var edgeScroll = liveDragSession?.edgeScroll,
-              edgeScroll.hopping,
-              let controller,
-              let engine = controller.niriEngine,
+    private func runNextLiveEdgeHop() {
+        liveDragSession?.edgeScroll?.delayTimer = nil
+        guard liveDragSession?.edgeScroll?.hopping == true,
+              let engine = controller?.niriEngine,
               let move = engine.liveColumnMove
         else { return }
-        if hasPendingLiveColumnAnimation(in: move.workspaceId, engine: engine) {
-            edgeScroll.hopSettledSince = nil
-            liveDragSession?.edgeScroll = edgeScroll
-            scheduleLiveEdgeHopCheck()
-            return
-        }
         if move.phase == .settling {
             engine.liveColumnMoveSettled()
-        }
-        let now = liveDragClock()
-        let since = edgeScroll.hopSettledSince ?? now
-        edgeScroll.hopSettledSince = since
-        liveDragSession?.edgeScroll = edgeScroll
-        guard now - since >= MoveConfiguration.liveEdgeHopPause - 0.005 else {
-            scheduleLiveEdgeHopCheck()
-            return
         }
         runLiveEdgeHop()
     }
 
     func handleLiveEdgeScrollTick(in workspaceId: WorkspaceDescriptor.ID, at time: TimeInterval) {
+        startLiveEdgeHopIntervalIfThePointerIsOverTheGap(in: workspaceId, at: time)
         guard isLiveEdgeScrolling,
               let controller,
               let engine = controller.niriEngine,
@@ -166,8 +202,7 @@ extension MouseEventHandler {
         else { return }
 
         guard !controller.workspaceManager.animationDriver.hasEdgeScroll(in: workspaceId)
-            || !move.stackMode
-            && liveEdgeScrollReachesColumn(
+            || liveEdgeScrollReachesColumn(
                 at: liveDragReference(location),
                 time: time,
                 engine: engine,

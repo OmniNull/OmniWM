@@ -41,7 +41,7 @@ struct MoveConfiguration {
     static let liveEdgeZoneMinimumWidth: CGFloat = 40.0
     static let liveEdgeScrollDelay: TimeInterval = 0.3
     static let liveEdgeScrollSpeed: CGFloat = 1000.0
-    static let liveEdgeHopPause: TimeInterval = 0.1
+    static let liveEdgeHopInterval: TimeInterval = 0.5
     static let liveStackSuppressDistance: CGFloat = 30.0
     static let liveCentreMinimumWidth: CGFloat = 300.0
     static let liveStackLeaveOutsideShare: CGFloat = 0.4

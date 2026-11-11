@@ -115,12 +115,6 @@ enum SettingsSearchIndex {
             tab: "niri",
             anchor: "macOS Fusion"
         ),
-        setting(
-            "Drop Modifier",
-            section: .layouts,
-            tab: "niri",
-            anchor: "Drop Modifier"
-        ),
         setting("Peripheral Vision", section: .layouts, tab: "niri", anchor: "Peripheral Vision"),
         setting("Undo", section: .layouts, tab: "niri", anchor: "Undo"),
         setting("Redo", section: .layouts, tab: "niri", anchor: "Redo"),
