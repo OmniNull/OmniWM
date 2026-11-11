@@ -9,9 +9,9 @@ final class WindowSwitcherSettingsTests: XCTestCase {
     func testRoundTripPersistsEnabledAndWorkspaceScope() throws {
         var settings = SettingsExport.defaults()
         settings.windowSwitcher.enabled = true
-        settings.windowSwitcher.scope = .activeWorkspace
+        settings.windowSwitcher.scope = .visibleWorkspaces
         settings.windowSwitcher.commandTab = .remembered
-        settings.windowSwitcher.optionTab = .disabled
+        settings.windowSwitcher.optionTab = .visibleWorkspaces
         settings.windowSwitcher.showFooter = false
         settings.windowSwitcher.order = .lastUsed
         let data = try SettingsTOMLCodec.encode(settings)

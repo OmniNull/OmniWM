@@ -238,9 +238,9 @@ The [window switcher](/features/window-switcher/). The table is optional; when a
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `enabled` | boolean | `false` | Takes over Command-Tab and Option-Tab, as assigned below, through OmniWM's input event tap. |
-| `commandTab` | string | `"activeWorkspace"` | Scope Command-Tab opens: `activeWorkspace`, `allWorkspaces`, `remembered` (the last scope chosen with S), or `disabled` (leaves the macOS app switcher). |
+| `commandTab` | string | `"activeWorkspace"` | Scope Command-Tab opens: `activeWorkspace`, `visibleWorkspaces` (the workspace shown on each monitor), `allWorkspaces`, `remembered` (the last scope chosen with S), or `disabled` (leaves the macOS app switcher). |
 | `optionTab` | string | `"allWorkspaces"` | Scope Option-Tab opens. Same values as `commandTab`. |
-| `scope` | string | `"allWorkspaces"` | The remembered scope, saved when you press S or click the scope button: `allWorkspaces` or `activeWorkspace`. |
+| `scope` | string | `"allWorkspaces"` | The remembered scope, saved when you press S or click the scope button: `allWorkspaces`, `visibleWorkspaces`, or `activeWorkspace`. |
 | `showFooter` | boolean | `true` | Shows the scope button and window count. |
 | `order` | string | `"omniLayout"` | Window order: `omniLayout` follows the workspace layout; `lastUsed` sorts by focus recency across the selected scope, followed by windows without focus history in layout order. |
 

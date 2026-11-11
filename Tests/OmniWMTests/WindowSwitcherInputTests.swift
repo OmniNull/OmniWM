@@ -151,6 +151,12 @@ final class WindowSwitcherInputTests: XCTestCase {
         XCTAssertNil(key(&input, kVK_Option, type: .flagsChanged, flags: []).action)
     }
 
+    func testShortcutAssignedToVisibleWorkspacesOpensThatScope() {
+        var input = WindowSwitcherInput()
+        input.shortcuts = WindowSwitcherShortcuts(commandTab: .visibleWorkspaces, optionTab: .allWorkspaces)
+        XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .visibleWorkspaces))
+    }
+
     func testBothShortcutsCanBeDisabled() {
         var input = WindowSwitcherInput()
         input.shortcuts = WindowSwitcherShortcuts(commandTab: .disabled, optionTab: .disabled)
