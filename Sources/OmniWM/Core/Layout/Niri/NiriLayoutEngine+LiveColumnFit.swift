@@ -43,11 +43,11 @@ extension NiriLayoutEngine {
             context: context
         ) != nil else { return }
         move.stackMode = false
-        move.awaitsPointerMoveFrom = nil
-        if move.inStack {
+        move.endPointerHold(.modifierRelease)
+        if move.home == .stackSlot {
             stepLiveColumnMove(to: cursor, move: &move, context: context, state: &state)
         }
-        if !move.inStack {
+        if move.home != .stackSlot {
             stepLiveColumnMove(to: cursor, move: &move, context: context, state: &state)
         }
     }

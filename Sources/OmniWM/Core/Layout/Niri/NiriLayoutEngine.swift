@@ -48,21 +48,8 @@ final class NiriLayoutEngine {
     var interactiveResize: InteractiveResize?
     var interactiveMove: InteractiveMove?
     var openingWindows: Set<WindowToken> = []
-    var liveColumnMove: LiveColumnMove? {
-        didSet {
-            if let oldValue {
-                releaseLivePlaceholders(of: oldValue)
-            }
-        }
-    }
-
-    var liveStackDrop: LiveColumnMove.StackDrop? {
-        didSet {
-            if let oldValue {
-                releaseLivePlaceholders(of: oldValue)
-            }
-        }
-    }
+    var liveColumnMove: LiveColumnMove?
+    var liveStackDrop: LiveColumnMove.StackDrop?
 
     var stripGlides: [WindowToken: StripGlide] = [:]
 
@@ -92,10 +79,10 @@ final class NiriLayoutEngine {
         if let live = liveColumnMove, live.workspaceId == workspaceId {
             restoreWidenedLiveColumn(live.carry?.widenedColumn)
             releaseLiveLandingState(of: live)
-            liveColumnMove = nil
+            endLiveColumnMove()
         }
         if liveStackDrop?.workspaceId == workspaceId {
-            liveStackDrop = nil
+            endLiveStackDrop()
         }
     }
 
@@ -118,13 +105,13 @@ final class NiriLayoutEngine {
         {
             restoreWidenedLiveColumn(live.carry?.widenedColumn)
             releaseLiveLandingState(of: live)
-            liveColumnMove = nil
+            endLiveColumnMove()
         }
         if let drop = liveStackDrop,
            drop.workspaceId == workspaceId,
            windowIds.contains(drop.windowId)
         {
-            liveStackDrop = nil
+            endLiveStackDrop()
         }
     }
 

@@ -22,63 +22,35 @@ extension NiriLayoutEngine {
         )
     }
 
-    func liveCentreUpdate(
+    func liveCentreDecision(
         pointer: LiveColumnMove.Pointer,
         strip: [LiveColumnMove.StripColumn],
         move: inout LiveColumnMove,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) -> LiveColumnMove.Step? {
+        context: NiriInteractionContext
+    ) -> LiveColumnMove.Action? {
         guard !move.stackMode else { return nil }
         let time = pointer.time
         switch liveCentreChoice(cursor: pointer.cursor, strip: strip, move: move, context: context) {
         case .keep:
-            return move.landingIsHint ? .unchanged : nil
+            return move.showsLandingHint ? .nothing : nil
         case .home:
-            move.centreWait = nil
-            guard move.landingIsHint else { return nil }
-            closeLiveLandingHint(move: &move, context: context, state: &state)
-            return .changed
+            move.endCentreDwell()
+            return move.showsLandingHint ? .closeHint : nil
         case let .land(landing):
-            move.hover = nil
-            if move.landingIsHint {
-                guard landing != move.landing else { return .unchanged }
-                if landing.columnId == move.landing?.columnId {
-                    return showLiveLandingHint(landing, move: &move, context: context, state: &state)
-                        ? .changed
-                        : .unchanged
+            move.endSideDwell()
+            if move.showsLandingHint {
+                guard landing != move.landing?.slot else { return .nothing }
+                if landing.columnId == move.landing?.slot.columnId {
+                    return .showHint(landing, tracesRefusal: false)
                 }
-                closeLiveLandingHint(move: &move, context: context, state: &state)
-                move.centreWait = time.map { .init(columnId: landing.columnId, since: $0) }
-                return .changed
+                return .switchHint(columnId: landing.columnId, dwellSince: time)
             }
             guard let time else { return nil }
-            let since = move.centreWait?.columnId == landing.columnId ? move.centreWait?.since ?? time : time
-            move.centreWait = .init(columnId: landing.columnId, since: since)
+            let since = move.dwell?.start(on: landing.columnId, in: .centre) ?? time
+            move.dwell = .init(columnId: landing.columnId, region: .centre, since: since)
             let until = since + liveCentreStackDelay
             guard pointer.slowed || time >= until else { return .hovering(until: until) }
-            guard showLiveLandingHint(landing, move: &move, context: context, state: &state) else {
-                traceLiveStackRefusalDetail("hint-not-placed x=\(Int(pointer.cursor.x.rounded()))")
-                return .unchanged
-            }
-            return .changed
-        }
-    }
-
-    func liveCentreWouldChange(
-        cursor: CGPoint,
-        strip: [LiveColumnMove.StripColumn],
-        move: LiveColumnMove,
-        context: NiriInteractionContext
-    ) -> Bool? {
-        guard !move.stackMode else { return nil }
-        switch liveCentreChoice(cursor: cursor, strip: strip, move: move, context: context) {
-        case .keep:
-            return move.landingIsHint ? false : nil
-        case let .land(landing):
-            return move.landingIsHint ? landing != move.landing : nil
-        case .home:
-            return move.landingIsHint ? true : nil
+            return .showHint(landing, tracesRefusal: true)
         }
     }
 
@@ -88,14 +60,14 @@ extension NiriLayoutEngine {
         move: LiveColumnMove,
         context: NiriInteractionContext
     ) -> LiveColumnMove.StackChoice {
-        guard !move.inStack,
+        guard move.home != .stackSlot,
               !move.pointerInEdgeZone,
               let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
               column.id != move.homeColumnId,
               let placed = strip.first(where: { $0.column === column }),
               placed.width >= MoveConfiguration.liveCentreMinimumWidth - 0.5
         else { return .home }
-        let hintedHere = move.landingIsHint && move.landing?.columnId == column.id
+        let hintedHere = move.showsLandingHint && move.landing?.slot.columnId == column.id
         let margin = hintedHere ? MoveConfiguration.liveCentreExitMargin : 0
         let third = placed.width / 3
         guard cursor.x >= placed.minX + third - margin, cursor.x < placed.maxX - third + margin else {
@@ -106,21 +78,18 @@ extension NiriLayoutEngine {
 
     @discardableResult
     func showLiveLandingHint(
-        _ landing: LiveColumnMove.Landing,
+        _ landing: LiveColumnMove.LandingSlot,
         move: inout LiveColumnMove,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
-        let wasHint = move.landingIsHint
-        move.landingIsHint = true
-        guard placeLiveLanding(landing, move: &move, context: context, state: &state) else {
-            move.landingIsHint = wasHint && move.landing != nil
+        guard placeLiveLanding(.hint(landing), move: &move, context: context, state: &state) else {
             return false
         }
         if let hinted = liveColumn(withId: landing.columnId, in: move.workspaceId) {
             closeOpenLiveDropSpace(move: &move, anchor: hinted, context: context, state: &state)
         }
-        move.hover = nil
+        move.endSideDwell()
         move.lockedTarget = nil
         move.phase = .settling
         return true
@@ -131,11 +100,11 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) {
-        move.landingIsHint = false
-        if move.landing != nil {
+        if let landing = move.landing {
+            move.landing = .gap(landing.slot)
             placeLiveLanding(nil, move: &move, context: context, state: &state)
         }
-        move.hover = nil
+        move.endSideDwell()
         move.phase = .settling
     }
 

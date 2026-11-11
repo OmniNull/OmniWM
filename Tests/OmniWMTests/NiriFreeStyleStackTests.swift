@@ -207,7 +207,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(fixture.move?.isWholeColumn, true)
 
         fixture.openHint(over: 3, upper: false)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
 
@@ -241,7 +241,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertTrue(fixture.begin(1))
 
         fixture.openHint(over: 3, upper: false)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
 
@@ -304,7 +304,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         _ = makeTabbed(&fixture, stacking: 0, onto: 1)
         XCTAssertTrue(fixture.begin(1))
         fixture.openHint(over: 3, upper: false)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         let hinted = fixture.column(3)
 
         let otherWorkspaceId = WorkspaceDescriptor.ID()
@@ -363,7 +363,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(fixture.move?.isWholeColumn, true)
 
         fixture.openHint(over: 3, upper: false)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
 
@@ -386,7 +386,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         fixture.openHint(over: 3, upper: false)
 
-        XCTAssertNotEqual(fixture.move?.landingIsHint, true)
+        XCTAssertNotEqual(fixture.move?.showsLandingHint, true)
     }
 
     func testHoldingTheStackModifierStacksATabbedColumnToo() {
@@ -413,14 +413,14 @@ final class NiriFreeStyleStackTests: XCTestCase {
         _ = makeTabbed(&fixture, stacking: 0, onto: 1)
         XCTAssertTrue(fixture.begin(1))
         fixture.openHint(over: 3, upper: false)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         XCTAssertNil(fixture.frames(at: 3)[fixture.tokens[0]])
 
         let side = fixture.side(of: 3, leading: false)
         _ = fixture.move(to: side, at: 3)
         _ = fixture.move(to: side, at: 4)
 
-        XCTAssertNotEqual(fixture.move?.landingIsHint, true)
+        XCTAssertNotEqual(fixture.move?.showsLandingHint, true)
         let home = fixture.window(1).parent as? NiriContainer
         XCTAssertTrue(fixture.window(0).parent === home)
         XCTAssertEqual(home?.windowNodes.map(\.token), [fixture.tokens[1], fixture.tokens[0]])
@@ -439,8 +439,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
             XCTAssertNil(fixture.move?.landing)
             XCTAssertEqual(fixture.move(to: target, at: 1.25), .changed)
 
-            XCTAssertEqual(fixture.move?.landingIsHint, true)
-            XCTAssertEqual(fixture.move?.landing?.above, upper)
+            XCTAssertEqual(fixture.move?.showsLandingHint, true)
+            XCTAssertEqual(fixture.move?.landing?.slot.above, upper)
             XCTAssertTrue(fixture.window(1).parent === fixture.column(3))
             XCTAssertEqual(fixture.height(of: 1), fixture.singleWindowHintHeight, accuracy: 0.5)
             XCTAssertEqual(
@@ -461,7 +461,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(fixture.move(to: nudged, at: 1.1), .hovering(until: 1 + 0.2))
 
         _ = fixture.move(to: fixture.side(of: 3, leading: false), at: 1.12)
-        XCTAssertNil(fixture.move?.centreWait)
+        XCTAssertNotEqual(fixture.move?.dwell?.region, .centre)
         _ = fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state)
 
         var again = makeFixture()
@@ -479,7 +479,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(fixture.move(to: fixture.side(of: 3, leading: false), at: 1), .changed)
 
         XCTAssertNil(fixture.move?.landing)
-        XCTAssertFalse(fixture.move?.landingIsHint ?? true)
+        XCTAssertFalse(fixture.move?.showsLandingHint ?? true)
         XCTAssertEqual(fixture.column(3).windowNodes.count, 1)
     }
 
@@ -503,7 +503,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         fixture.openHint(over: 0, upper: true)
 
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         XCTAssertEqual(fixture.height(of: 0), heights.top - fixture.hintHeight - fixture.gap, accuracy: 0.5)
         XCTAssertEqual(fixture.height(of: 4), heights.middle, accuracy: 0.5)
         XCTAssertEqual(fixture.height(of: 3), heights.bottom, accuracy: 0.5)
@@ -520,7 +520,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         fixture.openHint(over: 3, upper: false)
 
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
         XCTAssertEqual(fixture.column(3).windowNodes.map(\.token), [fixture.tokens[1], fixture.tokens[3]])
@@ -542,7 +542,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         fixture.openHint(over: 3, upper: false)
 
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
     }
 
     func testEveryWindowCountsAsAtLeastTheFloorHeight() {
@@ -556,13 +556,13 @@ final class NiriFreeStyleStackTests: XCTestCase {
         }
         XCTAssertTrue(fixture.begin(1))
         fixture.openHint(over: 0, upper: false)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         _ = fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state)
 
         fixture.stack(8, onto: 0)
         XCTAssertTrue(fixture.begin(1))
         fixture.openHint(over: 0, upper: false)
-        XCTAssertNotEqual(fixture.move?.landingIsHint, true)
+        XCTAssertNotEqual(fixture.move?.showsLandingHint, true)
     }
 
     func testMinimumHeightsThatCannotShareTheDisplayStillBlockTheHint() {
@@ -578,7 +578,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         fixture.openHint(over: 3, upper: false)
 
-        XCTAssertNotEqual(fixture.move?.landingIsHint, true)
+        XCTAssertNotEqual(fixture.move?.showsLandingHint, true)
     }
 
     func testAStackDropKeepsTheWindowsBeforeTheDraggedOneWhereTheyWere() {
@@ -589,7 +589,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         _ = fixture.move(to: target, at: 1)
         _ = fixture.move(to: target, at: 2)
         fixture.openHint(over: 3, upper: false)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
 
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
@@ -613,7 +613,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         fixture.engine.liveColumnMoveSettled()
         XCTAssertGreaterThan(fixture.stripColumn(first).minX, fixture.frame.minX + fixture.gap + 0.5)
         fixture.openHint(over: 0, upper: true)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
 
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
@@ -632,7 +632,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         )
         XCTAssertTrue(fixture.begin(0))
         fixture.openHint(over: 1, upper: true)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
 
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
@@ -690,11 +690,11 @@ final class NiriFreeStyleStackTests: XCTestCase {
         let cursor = fixture.centre(of: 3, upper: true)
 
         XCTAssertEqual(fixture.setStackMode(true, at: cursor), .changed)
-        XCTAssertEqual(fixture.move?.landingIsHint, false)
+        XCTAssertEqual(fixture.move?.showsLandingHint, false)
         XCTAssertEqual(fixture.height(of: 1), fixture.height(of: 3), accuracy: 0.5)
 
         XCTAssertEqual(fixture.setStackMode(false, at: cursor), .changed)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         XCTAssertEqual(fixture.height(of: 1), fixture.singleWindowHintHeight, accuracy: 0.5)
     }
 
@@ -710,13 +710,13 @@ final class NiriFreeStyleStackTests: XCTestCase {
         )
         _ = fixture.move(to: cursor, at: 1)
         _ = fixture.move(to: cursor, at: 2)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
 
         XCTAssertEqual(fixture.setStackMode(true, at: cursor), .changed)
 
-        XCTAssertEqual(fixture.move?.landingIsHint, false)
+        XCTAssertEqual(fixture.move?.showsLandingHint, false)
         XCTAssertFalse(fixture.span(of: 1).contains(y: cursor.y))
-        XCTAssertEqual(fixture.move?.stackSuppressPoint, cursor)
+        XCTAssertEqual(fixture.move?.pointerHold, .init(point: cursor, kind: .stackLock))
     }
 
     func testReleasingTheModifierOverASideThirdClosesTheGap() {
@@ -739,10 +739,10 @@ final class NiriFreeStyleStackTests: XCTestCase {
         let y = fixture.centre(of: 3, upper: true).y
 
         _ = fixture.move(to: CGPoint(x: placed.minX + placed.width / 3 - 10, y: y), at: 3)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
 
         _ = fixture.move(to: CGPoint(x: placed.minX + placed.width / 3 - 30, y: y), at: 3.1)
-        XCTAssertEqual(fixture.move?.landingIsHint, false)
+        XCTAssertEqual(fixture.move?.showsLandingHint, false)
         XCTAssertTrue(fixture.window(1).parent !== fixture.column(3))
     }
 
@@ -757,7 +757,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         ))
 
         XCTAssertNil(fixture.move?.landing)
-        XCTAssertEqual(fixture.move?.landingIsHint, false)
+        XCTAssertEqual(fixture.move?.showsLandingHint, false)
         XCTAssertTrue(fixture.column(3).windowNodes.allSatisfy { $0.liveSpanOverride == nil })
     }
 
@@ -1030,7 +1030,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         }
 
         XCTAssertNil(fixture.move?.dropSpaceId)
-        XCTAssertNotEqual(fixture.move?.landingIsHint, true)
+        XCTAssertNotEqual(fixture.move?.showsLandingHint, true)
         XCTAssertEqual(fixture.stripColumn(fixture.column(0)).minX, neighbour.minX, accuracy: 0.5)
 
         let farThird = CGPoint(x: neighbour.minX + 60, y: fixture.frame.midY)
@@ -1051,7 +1051,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertTrue(neighbour.isFullyVisible(in: fixture.frame))
         XCTAssertTrue(fixture.begin(1))
         fixture.openHint(over: 2, upper: true)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
 
         let nearThird = CGPoint(x: neighbour.minX + 60, y: fixture.frame.midY)
         for time in [2.1, 2.2, 2.4, 3.0] {
@@ -1061,7 +1061,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         let columns = fixture.engine.columns(in: fixture.workspaceId)
         let homeIndex = columns.firstIndex { $0.id == order[1] } ?? 0
         let farSide = columns.firstIndex { $0.id == order[2] }.map { $0 + 1 } ?? 0
-        XCTAssertNotEqual(fixture.move?.landingIsHint, true)
+        XCTAssertNotEqual(fixture.move?.showsLandingHint, true)
         XCTAssertFalse(columns.indices.contains(farSide) && columns[farSide].isLiveDropSpace)
         if let dropSpace = columns.firstIndex(where: { $0.isLiveDropSpace }) {
             XCTAssertEqual(abs(dropSpace - homeIndex), 1)
@@ -1327,7 +1327,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         _ = fixture.move(to: fixture.centre(of: 3, upper: true), at: 1.1)
         XCTAssertEqual(fixture.move(to: fixture.centre(of: 3, upper: true), at: 1.35), .changed)
 
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
         XCTAssertNil(fixture.move?.dropSpaceId)
         XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.isLiveDropSpace })
     }
@@ -1368,8 +1368,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         XCTAssertEqual(fixture.move(to: target, slowed: true, at: 1.06), .changed)
 
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
-        XCTAssertEqual(fixture.move?.landing?.above, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
+        XCTAssertEqual(fixture.move?.landing?.slot.above, true)
     }
 
     func testAHintOpenWhileTheWindowStillCoversItsPlaceSettles() {
@@ -1382,7 +1382,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         _ = fixture.move(to: target, windowMidX: halfOff, at: 1)
         _ = fixture.move(to: target, windowMidX: halfOff, at: 1)
         XCTAssertEqual(fixture.move(to: target, windowMidX: halfOff, at: 1.25), .changed)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
 
         XCTAssertNotEqual(fixture.move(to: target, windowMidX: halfOff, at: 1.3), .changed)
         XCTAssertEqual(fixture.stripColumn(home).width, placed.width / 2, accuracy: 0.5)
@@ -1482,10 +1482,10 @@ final class NiriFreeStyleStackTests: XCTestCase {
         var fixture = makeFixture()
         XCTAssertTrue(fixture.begin(1))
         let move = try XCTUnwrap(fixture.move)
-        XCTAssertTrue(fixture.engine.isClosingOrigin(move))
+        XCTAssertEqual(move.home, .origin)
         var leavingAStack = move
-        leavingAStack.inStack = true
-        XCTAssertFalse(fixture.engine.isClosingOrigin(leavingAStack))
+        leavingAStack.setHome(columnId: move.homeColumnId, inStack: true)
+        XCTAssertNotEqual(leavingAStack.home, .origin)
     }
 
     func testAWindowLeavingAStackKeepsItsNarrowLandingGap() throws {
@@ -1496,12 +1496,12 @@ final class NiriFreeStyleStackTests: XCTestCase {
         let stack = fixture.column(2)
         let y = fixture.frame.midY
         XCTAssertTrue(fixture.begin(3))
-        XCTAssertFalse(try fixture.engine.isClosingOrigin(XCTUnwrap(fixture.move)))
+        XCTAssertNotEqual(try XCTUnwrap(fixture.move).home, .origin)
 
         _ = fixture.move(to: CGPoint(x: fixture.stripColumn(stack).maxX + 20, y: y), at: 1)
         let left = try XCTUnwrap(fixture.move)
-        XCTAssertFalse(left.inStack)
-        XCTAssertFalse(fixture.engine.isClosingOrigin(left))
+        XCTAssertNotEqual(left.home, .stackSlot)
+        XCTAssertNotEqual(left.home, .origin)
         let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: left))
         XCTAssertFalse(home === stack)
 
@@ -1525,11 +1525,11 @@ final class NiriFreeStyleStackTests: XCTestCase {
             XCTAssertTrue(fixture.begin(3))
 
             _ = fixture.move(to: CGPoint(x: edge - outward * 5, y: y), at: 1)
-            XCTAssertEqual(fixture.move?.inStack, true, "\(trailing)")
+            XCTAssertEqual(fixture.move?.home, .stackSlot, "\(trailing)")
             _ = fixture.move(to: CGPoint(x: edge + outward * 5, y: y), at: 1)
 
             let left = try XCTUnwrap(fixture.move)
-            XCTAssertFalse(left.inStack, "\(trailing)")
+            XCTAssertNotEqual(left.home, .stackSlot, "\(trailing)")
             let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: left))
             let columns = fixture.engine.columns(in: fixture.workspaceId)
             let stackIndex = try XCTUnwrap(columns.firstIndex { $0 === stack })
@@ -1558,7 +1558,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         _ = fixture.move(to: CGPoint(x: placed.maxX - placed.width * 0.1 + 5, y: y), at: 1)
 
         let left = try XCTUnwrap(fixture.move)
-        XCTAssertFalse(left.inStack)
+        XCTAssertNotEqual(left.home, .stackSlot)
         let home = fixture.stripColumn(try XCTUnwrap(fixture.engine.liveDraggedColumn(for: left)))
         XCTAssertEqual(home.maxX, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
         XCTAssertEqual(fixture.stripColumn(stack).maxX, placed.maxX - home.width - fixture.gap, accuracy: 0.5)
@@ -1583,7 +1583,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
             fixture.openHint(over: 2, upper: true)
 
-            XCTAssertEqual(fixture.move?.landingIsHint, true, label)
+            XCTAssertEqual(fixture.move?.showsLandingHint, true, label)
             XCTAssertEqual(fixture.stripColumn(stack).minX, stackMinX, accuracy: 0.5, label)
             XCTAssertEqual(
                 fixture.gapBetween(stack, beyond, trailing: trailing), fixture.gap, accuracy: 0.5, label
@@ -1591,7 +1591,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
             _ = fixture.move(to: fixture.side(of: 2, leading: trailing), at: 3)
 
-            XCTAssertNotEqual(fixture.move?.landingIsHint, true, label)
+            XCTAssertNotEqual(fixture.move?.showsLandingHint, true, label)
             XCTAssertEqual(fixture.stripColumn(home).width, open, accuracy: 0.5, label)
             XCTAssertEqual(fixture.stripColumn(stack).minX, stackMinX, accuracy: 0.5, label)
             XCTAssertEqual(
@@ -1607,11 +1607,11 @@ final class NiriFreeStyleStackTests: XCTestCase {
         let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: XCTUnwrap(fixture.move)))
         let open = fixture.stripColumn(home).width
         fixture.openHint(over: 2, upper: true)
-        XCTAssertEqual(fixture.move?.landingIsHint, true)
+        XCTAssertEqual(fixture.move?.showsLandingHint, true)
 
         XCTAssertEqual(fixture.setStackMode(true, at: fixture.centre(of: 2, upper: true)), .changed)
 
-        XCTAssertNotEqual(fixture.move?.landingIsHint, true)
+        XCTAssertNotEqual(fixture.move?.showsLandingHint, true)
         XCTAssertNotNil(fixture.move?.landing)
         XCTAssertEqual(fixture.stripColumn(home).width, open, accuracy: 0.5)
     }
@@ -1653,7 +1653,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         let placed = fixture.stripColumn(stack)
         let x = trailing ? placed.maxX + 20 : placed.minX - 20
         _ = fixture.move(to: CGPoint(x: x, y: fixture.frame.midY), at: 1)
-        XCTAssertNotEqual(try XCTUnwrap(fixture.move).inStack, true)
+        XCTAssertNotEqual(try XCTUnwrap(fixture.move).home, .stackSlot)
     }
 
     func testATabPulledOutKeepsItsNarrowLandingGap() throws {
@@ -1673,11 +1673,11 @@ final class NiriFreeStyleStackTests: XCTestCase {
             context: fixture.context,
             state: &fixture.state
         ))
-        XCTAssertFalse(try fixture.engine.isClosingOrigin(XCTUnwrap(fixture.move)))
+        XCTAssertNotEqual(try XCTUnwrap(fixture.move).home, .origin)
 
         _ = fixture.move(to: CGPoint(x: fixture.stripColumn(tabs).maxX + 20, y: y), at: 1)
         let pulledOut = try XCTUnwrap(fixture.move)
-        XCTAssertFalse(fixture.engine.isClosingOrigin(pulledOut))
+        XCTAssertNotEqual(pulledOut.home, .origin)
         let home = try XCTUnwrap(fixture.engine.liveDraggedColumn(for: pulledOut))
 
         _ = fixture.move(to: CGPoint(x: fixture.stripColumn(tabs).maxX + 400, y: y), at: 1)

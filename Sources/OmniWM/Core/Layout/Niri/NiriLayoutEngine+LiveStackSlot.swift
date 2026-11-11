@@ -5,40 +5,25 @@ import CoreGraphics
 import Foundation
 
 extension NiriLayoutEngine {
-    func liveInStackUpdate(
+    func liveInStackDecision(
         cursor: CGPoint,
         strip: [LiveColumnMove.StripColumn],
         move: inout LiveColumnMove,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) -> LiveColumnMove.Step {
+        context: NiriInteractionContext
+    ) -> LiveColumnMove.Action {
         guard let home = liveDraggedColumn(for: move),
               let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
               let placed = strip.first(where: { $0.column === home })
-        else { return .unchanged }
+        else { return .nothing }
 
         if let leaving = liveStackLeaveSide(placed, at: cursor.x, move: move) {
-            guard leaveLiveStack(
-                towardTrailingSide: leaving == .after,
-                revealsToEdgeOnly: placed.contains(x: cursor.x),
-                cursor: cursor,
-                move: &move,
-                context: context,
-                state: &state
-            ) else { return .unchanged }
-            move.stackSuppressPoint = nil
-            move.phase = .settling
-            return .changed
+            return .leaveStack(towardTrailingSide: leaving == .after, revealsToEdgeOnly: placed.contains(x: cursor.x))
         }
-        guard !holdsLiveStackSuppression(&move, at: cursor, strip: strip) else { return .unchanged }
+        guard !holdsLiveStackSuppression(&move, at: cursor, strip: strip) else { return .nothing }
         guard let index = liveSlotTarget(at: cursor, in: home, window: window, context: context) else {
-            return .unchanged
+            return .nothing
         }
-        moveLiveSlot(window, in: home, to: index, context: context)
-        move.homeSlotIndex = index
-        armLiveStackSuppression(&move, at: cursor, context: context)
-        move.phase = .settling
-        return .changed
+        return .moveInStack(window, home: home, index: index)
     }
 
     private func liveStackLeaveSide(
@@ -54,30 +39,13 @@ extension NiriLayoutEngine {
         return nil
     }
 
-    func liveInStackWouldChange(
-        cursor: CGPoint,
-        strip: [LiveColumnMove.StripColumn],
-        move: LiveColumnMove,
-        context: NiriInteractionContext
-    ) -> Bool {
-        guard let home = liveDraggedColumn(for: move),
-              let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
-              let placed = strip.first(where: { $0.column === home })
-        else { return false }
-        guard liveStackLeaveSide(placed, at: cursor.x, move: move) == nil else { return true }
-        if isLiveStackSuppressed(at: cursor, strip: strip, move: move) {
-            return false
-        }
-        return liveSlotTarget(at: cursor, in: home, window: window, context: context) != nil
-    }
-
     func liveInStackEnd(
         releasedAt release: CGRect?,
         move: LiveColumnMove,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
-        liveColumnMove = nil
+        endLiveColumnMove()
         guard let home = liveDraggedColumn(for: move),
               let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
               window.parent === home
@@ -106,9 +74,11 @@ extension NiriLayoutEngine {
         if let current, current !== column, current.windowNodes.isEmpty {
             current.remove()
         }
-        move.homeColumnId = column.id
+        move.setHome(
+            columnId: column.id,
+            inStack: projectedWindows(in: column, workspaceId: move.workspaceId).count > 1 && !move.isWholeColumn
+        )
         move.homeSlotIndex = original.index
-        move.inStack = projectedWindows(in: column, workspaceId: move.workspaceId).count > 1 && !move.isWholeColumn
         move.ownWindowSizing = original.windowSizing
     }
 
@@ -119,7 +89,7 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) -> Bool {
         assertSanctionedMutation()
-        guard var move = liveColumnMove, move.pullsTab, move.inStack, move.workspaceId == context.workspaceId
+        guard var move = liveColumnMove, move.pullsTab, move.home == .stackSlot, move.workspaceId == context.workspaceId
         else { return false }
         defer { liveColumnMove = move }
         return leaveLiveStack(
@@ -153,7 +123,7 @@ extension NiriLayoutEngine {
         return home.windowNodes.firstIndex { $0 === mate.window }
     }
 
-    private func moveLiveSlot(
+    func moveLiveSlot(
         _ window: NiriWindow,
         in home: NiriContainer,
         to index: Int,
@@ -165,7 +135,7 @@ extension NiriLayoutEngine {
         }
     }
 
-    private func leaveLiveStack(
+    func leaveLiveStack(
         towardTrailingSide: Bool,
         revealsToEdgeOnly: Bool,
         cursor: CGPoint,
@@ -189,8 +159,7 @@ extension NiriLayoutEngine {
                 context: context
             )
         }
-        move.homeColumnId = column.id
-        move.inStack = false
+        move.setHome(columnId: column.id, inStack: false)
         move.homeSlotIndex = 0
         move.ownWindowSizing = .init(size: 1.0, height: .default)
 
@@ -198,7 +167,7 @@ extension NiriLayoutEngine {
         keepLiveColumnStill(home, screenBefore: screenBefore, context: context, state: &state)
         animateLiveColumns(from: screenBefore, skipping: column, context: context, state: state)
         revealLiveHomeSpot(column, under: cursor, toEdgeOnly: revealsToEdgeOnly, context: context, state: &state)
-        move.hover = nil
+        move.endSideDwell()
         let strip = liveColumnStrip(context: context, state: state)
         move.lockedTarget = liveColumn(in: strip, at: cursor, ignoring: nil).flatMap { under in
             under === column ? nil : .init(

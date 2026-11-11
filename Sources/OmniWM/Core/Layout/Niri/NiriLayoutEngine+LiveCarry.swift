@@ -34,7 +34,7 @@ extension NiriLayoutEngine {
             _ = placeLiveLanding(nil, move: &move, context: source, state: &sourceState)
         }
         guard let column = window.parent as? NiriContainer else {
-            liveColumnMove = move
+            replaceLiveColumnMove(with: move)
             return []
         }
         let narrowed = move.narrowedSlot.flatMap { slot in
@@ -77,15 +77,14 @@ extension NiriLayoutEngine {
         move.carry = carry
         move.forgetStrip()
         move.workspaceId = target.workspaceId
-        move.homeColumnId = arrival.column.id
-        move.inStack = false
+        move.setHome(columnId: arrival.column.id, inStack: false)
         move.homeSlotIndex = 0
         move.lockedTarget = arrival.lock
         move.ownWindowSizing = .init(size: 1.0, height: .default)
         move.ownSizing = sizing
         move.originalViewPosition = arrival.viewPosition
         move.phase = .settling
-        liveColumnMove = move
+        replaceLiveColumnMove(with: move)
         targetState.selectedNodeId = window.id
         return carried.windowNodes.map(\.token)
     }
@@ -145,12 +144,11 @@ extension NiriLayoutEngine {
         move.carry = nil
         move.forgetStrip()
         move.workspaceId = originalWorkspaceId
-        move.homeColumnId = home.id
-        move.inStack = home.windowNodes.count > 1 && !move.isWholeColumn
+        move.setHome(columnId: home.id, inStack: home.windowNodes.count > 1 && !move.isWholeColumn)
         move.homeSlotIndex = home.windowNodes.count - 1
         move.ownSizing = carry.originalOwnSizing
         move.lockedTarget = nil
-        liveColumnMove = move
+        replaceLiveColumnMove(with: move)
         return move.isWholeColumn ? home.windowNodes.map(\.token) : [window.token]
     }
 
@@ -199,27 +197,6 @@ extension NiriLayoutEngine {
         guard leaving else { return column }
         if index > 0 { return columns[index - 1] }
         return columns.indices.contains(index + 1) ? columns[index + 1] : nil
-    }
-
-    func moveLiveCarriedColumn(
-        _ column: NiriContainer,
-        beside target: NiriContainer,
-        side: LiveColumnMove.Side,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) -> Bool {
-        guard let root = root(for: context.workspaceId),
-              column !== target,
-              root.children.contains(where: { $0 === target }),
-              root.children.contains(where: { $0 === column })
-        else { return false }
-        retargetActiveColumn(to: target, context: context, state: &state)
-        let before = primaryPositions(context: context, state: state)
-        column.detach()
-        guard let targetIndex = root.children.firstIndex(where: { $0 === target }) else { return false }
-        root.insertChild(column, at: side == .before ? targetIndex : targetIndex + 1)
-        animateLiveColumnChange(from: before, anchoredOn: target, context: context, state: &state)
-        return true
     }
 
     private func leaveLiveStrip(
@@ -360,14 +337,11 @@ extension LiveColumnMove {
         narrowedSlot = nil
         passed = nil
         dropSpaceId = nil
-        hover = nil
+        dwell = nil
         landing = nil
-        landingIsHint = false
-        centreWait = nil
         mateHeight = nil
         stackMode = false
-        stackSuppressPoint = nil
-        awaitsPointerMoveFrom = nil
+        pointerHold = nil
         edgeScrollSide = nil
         pulledStripEnd = nil
         originClosedToward = nil

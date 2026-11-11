@@ -381,7 +381,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             XCTAssertEqual(fixture.move(to: cursor, at: time), .unchanged, "\(time)")
         }
         XCTAssertNil(fixture.engine.liveColumnMove?.landing)
-        XCTAssertEqual(fixture.engine.liveColumnMove?.landingIsHint, false)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.showsLandingHint, false)
         XCTAssertEqual(fixture.stripColumn(holding: 3).minX, target.minX, accuracy: 0.5)
         XCTAssertNotNil(fixture.dropSpace())
     }
@@ -1042,7 +1042,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
 
         XCTAssertEqual(fixture.move(to: CGPoint(x: farThird.x, y: fixture.midY + 30), at: 10.12), .changed)
         XCTAssertEqual(fixture.landingOrder(), [0, 1, 3, 2, 4].map { fixture.tokens[$0] })
-        XCTAssertNil(fixture.engine.liveColumnMove?.hover)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.dwell?.region ?? .centre, .centre)
     }
 
     func testMovingOntoAnotherColumnOrBackOverTheEmptySpaceRestartsTheHoverDelay() {
@@ -1061,7 +1061,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             until: 10.22
         )
         XCTAssertEqual(fixture.move(to: CGPoint(x: emptySpace.midX, y: fixture.midY), at: 10.15), .unchanged)
-        XCTAssertNil(fixture.engine.liveColumnMove?.hover)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.dwell?.region ?? .centre, .centre)
         assertHovering(
             fixture.move(to: CGPoint(x: right.maxX - right.width / 4, y: fixture.midY), at: 10.2),
             until: 10.32
@@ -1503,7 +1503,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertFalse(stacked.column(1).isTabbed)
         XCTAssertTrue(stacked.begin(1))
         XCTAssertEqual(stacked.engine.liveColumnMove?.isWholeColumn, false)
-        XCTAssertEqual(stacked.engine.liveColumnMove?.inStack, true)
+        XCTAssertEqual(stacked.engine.liveColumnMove?.home, .stackSlot)
     }
 
     func testATabbedColumnLandsPastAVisibleNeighbourAndKeepsItsTabsOnRelease() {
@@ -1667,7 +1667,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         ))
 
         XCTAssertEqual(fixture.move(to: freeScreen), .changed)
-        XCTAssertEqual(fixture.engine.liveColumnMove?.inStack, false)
+        XCTAssertEqual(fixture.engine.liveColumnMove.map { $0.home != .stackSlot }, true)
         XCTAssertEqual(fixture.order(), [fixture.tokens[0], extra, fixture.tokens[1]])
         fixture.engine.liveColumnMoveSettled()
         XCTAssertEqual(fixture.move(to: CGPoint(x: freeScreen.x + 10, y: freeScreen.y)), .changed)

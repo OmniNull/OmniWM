@@ -6,7 +6,7 @@ import Foundation
 
 extension MouseEventHandler {
     var isLiveEdgeScrolling: Bool {
-        state.liveEdgeScroll?.isScrolling == true
+        liveDragSession?.edgeScroll?.isScrolling == true
     }
 
     func trackLiveEdgeZone(at location: CGPoint, monitorFrame: CGRect) {
@@ -17,16 +17,16 @@ extension MouseEventHandler {
             return
         }
         controller?.niriEngine?.liveColumnMovePointerInEdgeZone(true)
-        if let hold = state.liveEdgeZoneHold, hold.edge == edge, !hold.isPassed(by: location) { return }
-        state.liveEdgeZoneHold = nil
-        guard state.liveEdgeScroll?.edge != edge else { return }
+        if let hold = liveDragSession?.edgeZoneHold, hold.edge == edge, !hold.isPassed(by: location) { return }
+        liveDragSession?.edgeZoneHold = nil
+        guard liveDragSession?.edgeScroll?.edge != edge else { return }
         endLiveEdgeScroll()
         controller?.niriEngine?.liveColumnMoveEdgeScrolls(toward: nil)
         guard let engine = controller?.niriEngine, let workspaceId = engine.liveColumnMove?.workspaceId else { return }
         let timer = scheduleLiveDragTimer(after: MoveConfiguration.liveEdgeScrollDelay) { [weak self] in
             self?.startLiveEdgeScrollIfDue()
         }
-        state.liveEdgeScroll = .init(
+        liveDragSession?.edgeScroll = .init(
             edge: edge,
             workspaceId: workspaceId,
             enteredAt: liveDragClock(),
@@ -35,12 +35,12 @@ extension MouseEventHandler {
     }
 
     func holdLiveEdgeZone(startingAt location: CGPoint, monitorFrame: CGRect) {
-        state.liveEdgeZoneHold = liveEdgeZone(containing: location, monitorFrame: monitorFrame)
+        liveDragSession?.edgeZoneHold = liveEdgeZone(containing: location, monitorFrame: monitorFrame)
             .map { .init(edge: $0, x: location.x) }
     }
 
     func startLiveEdgeScrollIfDue() {
-        guard var edgeScroll = state.liveEdgeScroll,
+        guard var edgeScroll = liveDragSession?.edgeScroll,
               !edgeScroll.isScrolling,
               !edgeScroll.hopping,
               !edgeScroll.hopsDone,
@@ -54,9 +54,9 @@ extension MouseEventHandler {
         else { return }
 
         let workspaceId = move.workspaceId
-        if !move.stackMode, !move.inStack {
+        if !move.stackMode, move.home != .stackSlot {
             edgeScroll.hopping = true
-            state.liveEdgeScroll = edgeScroll
+            liveDragSession?.edgeScroll = edgeScroll
             runLiveEdgeHop()
             return
         }
@@ -70,7 +70,7 @@ extension MouseEventHandler {
         }
         edgeScroll.isScrolling = true
         edgeScroll.strip = nil
-        state.liveEdgeScroll = edgeScroll
+        liveDragSession?.edgeScroll = edgeScroll
         engine.liveColumnMoveEdgeScrolls(toward: edgeScroll.edge == .trailing ? .after : .before)
         MouseTrace.record("live-drag edge-scroll start edge=\(edgeScroll.edge) ws=\(workspaceId) limit=\(Int(limit))")
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
@@ -80,7 +80,7 @@ extension MouseEventHandler {
     }
 
     func runLiveEdgeHop() {
-        guard var edgeScroll = state.liveEdgeScroll,
+        guard var edgeScroll = liveDragSession?.edgeScroll,
               edgeScroll.hopping,
               isLiveColumnDragActive,
               let controller,
@@ -99,7 +99,7 @@ extension MouseEventHandler {
         guard let hopped else {
             edgeScroll.hopping = false
             edgeScroll.hopsDone = true
-            state.liveEdgeScroll = edgeScroll
+            liveDragSession?.edgeScroll = edgeScroll
             return
         }
         MouseTrace.record(
@@ -108,7 +108,7 @@ extension MouseEventHandler {
         )
         refreshLiveColumnLayout(in: workspaceId, engine: engine)
         edgeScroll.hopSettledSince = nil
-        state.liveEdgeScroll = edgeScroll
+        liveDragSession?.edgeScroll = edgeScroll
         scheduleLiveEdgeHopCheck()
     }
 
@@ -123,14 +123,14 @@ extension MouseEventHandler {
     }
 
     private func scheduleLiveEdgeHopCheck() {
-        state.liveEdgeScroll?.delayTimer?.invalidate()
-        state.liveEdgeScroll?.delayTimer = scheduleLiveDragTimer(after: 0.05) { [weak self] in
+        liveDragSession?.edgeScroll?.delayTimer?.invalidate()
+        liveDragSession?.edgeScroll?.delayTimer = scheduleLiveDragTimer(after: 0.05) { [weak self] in
             self?.checkLiveEdgeHop()
         }
     }
 
     private func checkLiveEdgeHop() {
-        guard var edgeScroll = state.liveEdgeScroll,
+        guard var edgeScroll = liveDragSession?.edgeScroll,
               edgeScroll.hopping,
               let controller,
               let engine = controller.niriEngine,
@@ -138,7 +138,7 @@ extension MouseEventHandler {
         else { return }
         if hasPendingLiveColumnAnimation(in: move.workspaceId, engine: engine) {
             edgeScroll.hopSettledSince = nil
-            state.liveEdgeScroll = edgeScroll
+            liveDragSession?.edgeScroll = edgeScroll
             scheduleLiveEdgeHopCheck()
             return
         }
@@ -148,7 +148,7 @@ extension MouseEventHandler {
         let now = liveDragClock()
         let since = edgeScroll.hopSettledSince ?? now
         edgeScroll.hopSettledSince = since
-        state.liveEdgeScroll = edgeScroll
+        liveDragSession?.edgeScroll = edgeScroll
         guard now - since >= MoveConfiguration.liveEdgeHopPause - 0.005 else {
             scheduleLiveEdgeHopCheck()
             return
@@ -200,7 +200,7 @@ extension MouseEventHandler {
         engine: NiriLayoutEngine,
         workspaceId: WorkspaceDescriptor.ID
     ) -> (columns: [LiveColumnMove.StripColumn], context: NiriInteractionContext)? {
-        if let cached = state.liveEdgeScroll?.strip, let context = state.liveEdgeScroll?.stripContext {
+        if let cached = liveDragSession?.edgeScroll?.strip, let context = liveDragSession?.edgeScroll?.stripContext {
             let shift = cached.viewOffset - viewport.viewOffset
             let columns = cached.columns.map { LiveColumnMove.StripColumn(
                 column: $0.column,
@@ -211,14 +211,14 @@ extension MouseEventHandler {
         }
         guard let context = liveColumnContext(for: workspaceId) else { return nil }
         let columns = engine.liveColumnStrip(context: context, state: viewport)
-        state.liveEdgeScroll?.strip = (columns, viewport.viewOffset)
-        state.liveEdgeScroll?.stripContext = context
+        liveDragSession?.edgeScroll?.strip = (columns, viewport.viewOffset)
+        liveDragSession?.edgeScroll?.stripContext = context
         return (columns, context)
     }
 
     func stopLiveEdgeScroll(at time: TimeInterval = CACurrentMediaTime()) {
-        guard let workspaceId = state.liveEdgeScroll?.workspaceId, isLiveEdgeScrolling else { return }
-        state.liveEdgeScroll?.isScrolling = false
+        guard let workspaceId = liveDragSession?.edgeScroll?.workspaceId, isLiveEdgeScrolling else { return }
+        liveDragSession?.edgeScroll?.isScrolling = false
         guard let controller else { return }
         let driver = controller.workspaceManager.animationDriver
         guard driver.hasEdgeScroll(in: workspaceId) else { return }
@@ -229,7 +229,7 @@ extension MouseEventHandler {
     }
 
     func clearLiveEdgeZone() {
-        state.liveEdgeZoneHold = nil
+        liveDragSession?.edgeZoneHold = nil
         endLiveEdgeScroll()
     }
 
@@ -242,7 +242,7 @@ extension MouseEventHandler {
             return
         }
         let viewportState = controller.workspaceManager.niriViewportState(for: workspaceId)
-        let scrollingEdge = isLiveEdgeScrolling ? state.liveEdgeScroll?.edge : nil
+        let scrollingEdge = isLiveEdgeScrolling ? liveDragSession?.edgeScroll?.edge : nil
         var held: Set<Direction> = []
         if scrollingEdge == .trailing
             || engine.liveEdgeScrollLimit(towardTrailingEdge: true, context: context, state: viewportState) != nil
@@ -259,8 +259,8 @@ extension MouseEventHandler {
 
     func endLiveEdgeScroll() {
         stopLiveEdgeScroll()
-        state.liveEdgeScroll?.delayTimer?.invalidate()
-        state.liveEdgeScroll = nil
+        liveDragSession?.edgeScroll?.delayTimer?.invalidate()
+        liveDragSession?.edgeScroll = nil
     }
 
     private func liveEdgeZone(

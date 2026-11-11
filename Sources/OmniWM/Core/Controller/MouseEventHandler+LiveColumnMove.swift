@@ -6,7 +6,7 @@ import Foundation
 
 extension MouseEventHandler {
     var isLiveColumnDragActive: Bool {
-        state.nativeTitleBarDrag?.liveDrag == true || state.liveTabPull != nil
+        state.nativeTitleBarDrag?.liveDrag == true || liveDragSession?.tabPull != nil
     }
 
     func holdsSelectionScroll(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
@@ -41,7 +41,7 @@ extension MouseEventHandler {
     }
 
     func trackLiveColumnDrag(at location: CGPoint, button: MouseButton) -> Bool {
-        if button == .left, state.liveTabPull != nil {
+        if button == .left, liveDragSession?.tabPull != nil {
             moveLiveTabPull(to: location)
             return true
         }
@@ -51,7 +51,7 @@ extension MouseEventHandler {
         else { return false }
         livePointer.location = location
         recordLivePointerSample(location)
-        livePointer.modifiers = nil
+        liveDragSession?.modifiers = nil
         resumeHandedOverLiveColumnDrag(at: location)
         guard isLiveColumnDragActive else { return false }
         updateLiveColumnDrag(at: location)
@@ -129,7 +129,7 @@ extension MouseEventHandler {
             return false
         }
         state.liveDragLayoutStart = layoutStart
-        state.liveDragReferenceOffset = livePointer.location.map { observed.midX - $0.x }
+        liveDragSession = .init(referenceOffset: livePointer.location.map { observed.midX - $0.x })
         drag.liveDrag = true
         drag.adoptionStartFrame = start
         state.deferredClickScroll = nil
@@ -146,7 +146,7 @@ extension MouseEventHandler {
         controller?.syncLiveDragPointerHold(active: true)
         liveDragModifierCapture.start { [weak self] flags in
             guard let self, let location = livePointer.location else { return }
-            livePointer.modifiers = flags
+            liveDragSession?.modifiers = flags
             updateLiveColumnDrag(at: location)
         }
     }
@@ -159,24 +159,29 @@ extension MouseEventHandler {
         return keptSize && moved
     }
 
-    static let liveDragPassLimit = 4
-
-    static func runLiveDragPasses(immediate: Bool, _ pass: (Bool) -> Bool) -> Bool {
-        var immediate = immediate
-        for _ in 0 ..< liveDragPassLimit {
-            guard pass(immediate) else { return true }
-            immediate = false
-        }
-        return false
+    func updateLiveColumnDrag(at location: CGPoint, immediate: Bool = false) {
+        cancelLiveDragFollowUp()
+        guard runLiveColumnDragPass(at: location, immediate: immediate) else { return }
+        scheduleLiveDragFollowUp()
     }
 
-    func updateLiveColumnDrag(at location: CGPoint, immediate: Bool = false) {
-        let finished = Self.runLiveDragPasses(immediate: immediate) { immediate in
-            runLiveColumnDragPass(at: location, immediate: immediate)
+    private func scheduleLiveDragFollowUp() {
+        guard liveDragSession != nil, liveDragSession?.followUp == nil else { return }
+        liveDragSession?.followUp = scheduleLiveDragTimer(after: 0) { [weak self] in
+            self?.runLiveDragFollowUp()
         }
-        if !finished {
-            MouseTrace.record("live-drag passes capped at=\(TraceFormat.point(location))")
-        }
+    }
+
+    private func runLiveDragFollowUp() {
+        guard liveDragSession?.followUp != nil else { return }
+        liveDragSession?.followUp = nil
+        guard let location = livePointer.location else { return }
+        updateLiveColumnDrag(at: location)
+    }
+
+    private func cancelLiveDragFollowUp() {
+        liveDragSession?.followUp?.invalidate()
+        liveDragSession?.followUp = nil
     }
 
     private func runLiveColumnDragPass(at location: CGPoint, immediate: Bool) -> Bool {
@@ -184,9 +189,9 @@ extension MouseEventHandler {
               let controller,
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
-              move.windowToken == (state.liveTabPull?.token ?? state.nativeTitleBarDrag?.token)
+              move.windowToken == (liveDragSession?.tabPull?.token ?? state.nativeTitleBarDrag?.token)
         else {
-            endLiveColumnDragTracking()
+            endLiveDragSession()
             return false
         }
         let workspaceId = move.workspaceId
@@ -207,17 +212,17 @@ extension MouseEventHandler {
         trackLiveEdgeZone(at: location, monitorFrame: monitor.frame)
         publishLiveDragHold(on: monitor, workspaceId: workspaceId)
         let togglesStackMode = wantsLiveStackMode(move) != move.stackMode
-        if let edgeScroll = state.liveEdgeScroll {
+        if let edgeScroll = liveDragSession?.edgeScroll {
             let hopsRun = edgeScroll.hopping || edgeScroll.hopsDone
             if !togglesStackMode,
-               hopsRun || !move.stackMode && !move.inStack
+               hopsRun || !move.stackMode && move.home != .stackSlot
             {
                 return false
             }
             if togglesStackMode, hopsRun {
-                state.liveEdgeScroll?.delayTimer?.invalidate()
-                state.liveEdgeScroll?.hopping = false
-                state.liveEdgeScroll?.hopsDone = false
+                liveDragSession?.edgeScroll?.delayTimer?.invalidate()
+                liveDragSession?.edgeScroll?.hopping = false
+                liveDragSession?.edgeScroll?.hopsDone = false
             }
         }
         var immediate = immediate
@@ -249,28 +254,28 @@ extension MouseEventHandler {
         guard let context = liveColumnContext(for: workspaceId) else { return false }
 
         let now = liveDragClock()
-        let step = controller.workspaceManager.withNiriViewportState(
-            for: workspaceId,
-            committingIf: { $0.changesLayout },
-            {
-                togglesStackMode
-                    ? engine.liveColumnMoveStackModeChanged(
+        let step = togglesStackMode
+            ? controller.workspaceManager.withNiriViewportState(
+                for: workspaceId,
+                committingIf: { $0.changesLayout },
+                {
+                    engine.liveColumnMoveStackModeChanged(
                         held: !move.stackMode,
                         cursor: reference,
                         context: context,
                         state: &$0
                     )
-                    : engine.liveColumnMoveUpdate(
-                        cursor: reference,
-                        windowMidX: liveDragWindowMidX(location),
-                        at: now,
-                        immediate: immediate,
-                        slowed: slowed,
-                        context: context,
-                        state: &$0
-                    )
-            }
-        )
+                }
+            )
+            : runLiveColumnMoveUpdate(
+                cursor: reference,
+                windowMidX: liveDragWindowMidX(location),
+                at: now,
+                immediate: immediate,
+                slowed: slowed,
+                engine: engine,
+                context: context
+            )
         if let until = step.hoverDeadline {
             let stopCheck = livePointerStopCheckDelay(at: now) ?? .infinity
             scheduleLiveHoverCheck(after: min(until - now, stopCheck))
@@ -290,10 +295,40 @@ extension MouseEventHandler {
         return true
     }
 
+    private func runLiveColumnMoveUpdate(
+        cursor: CGPoint,
+        windowMidX: CGFloat?,
+        at time: TimeInterval,
+        immediate: Bool,
+        slowed: Bool,
+        engine: NiriLayoutEngine,
+        context: NiriInteractionContext
+    ) -> LiveColumnMove.Step {
+        guard let manager = controller?.workspaceManager,
+              let decision = engine.liveColumnMoveDecision(
+                  cursor: cursor,
+                  windowMidX: windowMidX,
+                  at: time,
+                  immediate: immediate,
+                  slowed: slowed,
+                  context: context,
+                  state: manager.niriViewportState(for: context.workspaceId)
+              )
+        else { return .unchanged }
+        if let step = engine.keepLiveColumnMoveDecision(decision) {
+            return step
+        }
+        return manager.withNiriViewportState(
+            for: context.workspaceId,
+            committingIf: { $0.changesLayout },
+            { engine.applyLiveColumnMoveDecision(decision, context: context, state: &$0) }
+        )
+    }
+
     func wantsLiveStackMode(_ move: LiveColumnMove) -> Bool {
         guard let controller else { return false }
         return Self.mouseMoveModifiersMatch(
-            livePointer.modifiers ?? modifierFlagsProvider(),
+            liveDragSession?.modifiers ?? modifierFlagsProvider(),
             required: controller.settings.niri.macOSFusionModifier.cgEventFlags
         )
     }
@@ -321,13 +356,18 @@ extension MouseEventHandler {
     func finishLiveColumnDrag(token: WindowToken, releaseFrame releasedFrame: CGRect? = nil) -> Bool {
         let stacking = controller?.niriEngine?.liveColumnMove.map { wantsLiveStackMode($0) } ?? false
         let releasedAt = livePointer.location.map(liveDragReference)
-        endLiveColumnDragTracking()
+        endLiveDragSession()
         guard let controller,
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
-              move.windowToken == token,
-              let context = liveColumnContext(for: move.workspaceId)
+              move.windowToken == token
         else { return false }
+        guard let context = liveColumnContext(for: move.workspaceId) else {
+            MouseTrace.record("live-drag release without context ws=\(move.workspaceId), cancelling")
+            state.liveDragLayoutStart = nil
+            cancelLiveColumnMove()
+            return false
+        }
 
         let workspaceId = move.workspaceId
         let carriedFrom = move.carry?.originalWorkspaceId
@@ -428,15 +468,19 @@ extension MouseEventHandler {
         MouseTrace.record("live-drag cancel requested active=\(isLiveColumnDragActive)")
         guard isLiveColumnDragActive else { return }
         state.liveDragLayoutStart = nil
-        endLiveColumnDragTracking()
+        endLiveDragSession()
         state.nativeTitleBarDrag?.liveDragDeclined = true
+        cancelLiveColumnMove()
+    }
+
+    private func cancelLiveColumnMove() {
         returnCarriedLiveColumnDragHome()
         guard let controller,
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
               let context = liveColumnContext(for: move.workspaceId)
         else {
-            controller?.niriEngine?.liveColumnMove = nil
+            controller?.niriEngine?.endLiveColumnMove()
             return
         }
         let cancelled = controller.workspaceManager.withNiriViewportState(for: move.workspaceId) { viewportState in
@@ -449,15 +493,15 @@ extension MouseEventHandler {
 
     private func scheduleLiveHoverCheck(after delay: TimeInterval) {
         let fireDate = Date(timeIntervalSinceNow: max(0, delay))
-        if let timer = state.liveHoverTimer, timer.isValid {
+        if let timer = liveDragSession?.hoverTimer, timer.isValid {
             if abs(timer.fireDate.timeIntervalSince(fireDate)) >= 0.005 {
                 timer.fireDate = fireDate
             }
             return
         }
-        state.liveHoverTimer = scheduleLiveDragTimer(after: delay) { [weak self] in
+        liveDragSession?.hoverTimer = scheduleLiveDragTimer(after: delay) { [weak self] in
             guard let self, let location = livePointer.location else { return }
-            state.liveHoverTimer = nil
+            liveDragSession?.hoverTimer = nil
             updateLiveColumnDrag(at: location)
         }
     }
@@ -471,19 +515,19 @@ extension MouseEventHandler {
     }
 
     func cancelLiveHoverCheck() {
-        state.liveHoverTimer?.invalidate()
-        state.liveHoverTimer = nil
+        liveDragSession?.hoverTimer?.invalidate()
+        liveDragSession?.hoverTimer = nil
     }
 
-    private func endLiveColumnDragTracking() {
+    private func endLiveDragSession() {
         controller?.pointerEdgeBarrier.publishLiveDragHold(nil)
         controller?.syncLiveDragPointerHold(active: false)
-        clearLiveEdgeZone()
-        cancelLiveHoverCheck()
+        endLiveEdgeScroll()
+        liveDragSession?.hoverTimer?.invalidate()
+        liveDragSession?.followUp?.invalidate()
+        liveDragSession = nil
         state.nativeTitleBarDrag?.liveDrag = false
-        state.liveTabPull = nil
-        livePointer.modifiers = nil
-        clearLiveDragReference()
+        livePointer.samples = []
         liveDragModifierCapture.stop()
     }
 

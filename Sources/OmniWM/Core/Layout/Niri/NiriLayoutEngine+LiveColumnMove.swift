@@ -50,7 +50,7 @@ extension NiriLayoutEngine {
             homeColumnId: column.id,
             isWholeColumn: isWholeColumn,
             pullsTab: pullsTab,
-            inStack: inStack,
+            home: inStack ? .stackSlot : .origin,
             homeSlotIndex: index,
             originalSlot: .init(
                 columnId: column.id,
@@ -80,26 +80,92 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> LiveColumnMove.Step {
+        guard let decision = liveColumnMoveDecision(
+            cursor: cursor,
+            windowMidX: windowMidX,
+            at: time,
+            immediate: immediate,
+            slowed: slowed,
+            context: context,
+            state: state
+        ) else { return .unchanged }
+        return applyLiveColumnMoveDecision(decision, context: context, state: &state)
+    }
+
+    func liveColumnMoveDecision(
+        cursor: CGPoint,
+        windowMidX: CGFloat? = nil,
+        at time: TimeInterval,
+        immediate: Bool = false,
+        slowed: Bool = false,
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) -> LiveColumnMove.Decision? {
         guard let move = liveColumnMove,
               move.workspaceId == context.workspaceId,
               liveDraggedColumn(for: move) != nil
-        else { return .unchanged }
-        let strip = liveColumnStrip(context: context, state: state)
-        let closed = closeLiveSlotAroundPointer(
+        else { return nil }
+        var decision = LiveColumnMove.Decision(
+            move: move,
+            pointer: .init(cursor: cursor, time: immediate ? nil : time, slowed: slowed),
+            strip: liveColumnStrip(context: context, state: state)
+        )
+        decision.closing = liveClosingSlotDecision(
             windowMidX: windowMidX ?? cursor.x,
-            strip: strip,
-            context: context,
-            state: &state
+            strip: decision.strip,
+            move: &decision.move,
+            context: context
         )
-        let current = closed ?? strip
-        let step = liveColumnMoveStep(
-            .init(cursor: cursor, time: immediate ? nil : time, slowed: slowed),
-            strip: current,
-            context: context,
-            state: &state
+        guard decision.closing == nil else { return decision }
+        decision.action = liveStepDecision(
+            decision.pointer,
+            strip: decision.strip,
+            move: &decision.move,
+            context: context
         )
-        let narrowed = narrowOffScreenHomeSlot(strip: step == .changed ? nil : current, context: context, state: &state)
-        guard closed != nil || narrowed else { return step }
+        guard decision.action.passiveStep != nil else { return decision }
+        decision.narrowing = liveNarrowingDecision(strip: decision.strip, move: decision.move, context: context)
+        return decision
+    }
+
+    func keepLiveColumnMoveDecision(_ decision: LiveColumnMove.Decision) -> LiveColumnMove.Step? {
+        guard let step = decision.passiveStep else { return nil }
+        liveColumnMove = decision.move
+        return step
+    }
+
+    func applyLiveColumnMoveDecision(
+        _ decision: LiveColumnMove.Decision,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> LiveColumnMove.Step {
+        var current = decision.strip
+        var closed = false
+        let step: LiveColumnMove.Step
+        if let closing = decision.closing {
+            liveColumnMove = decision.move
+            if let strip = placeLiveSlot(closing, in: current, context: context, state: &state) {
+                current = strip
+                closed = true
+            }
+            step = liveColumnMoveStep(decision.pointer, strip: current, context: context, state: &state)
+        } else {
+            step = applyLiveAction(
+                decision.action,
+                pointer: decision.pointer,
+                strip: current,
+                move: decision.move,
+                context: context,
+                state: &state
+            )
+        }
+        let narrowStrip = step == .changed ? liveColumnStrip(context: context, state: state) : current
+        let narrowing = decision.closing == nil && decision.action.passiveStep != nil
+            ? decision.narrowing
+            : liveColumnMove.flatMap { liveNarrowingDecision(strip: narrowStrip, move: $0, context: context) }
+        let narrowed = narrowing.map { placeLiveSlot($0, in: narrowStrip, context: context, state: &state) != nil }
+            ?? false
+        guard closed || narrowed else { return step }
         if case let .hovering(until) = step {
             return .changedWhileHovering(until: until)
         }
@@ -112,28 +178,29 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> LiveColumnMove.Step {
+        guard var move = liveColumnMove, move.workspaceId == context.workspaceId else { return .unchanged }
+        let action = liveStepDecision(pointer, strip: strip, move: &move, context: context)
+        return applyLiveAction(action, pointer: pointer, strip: strip, move: move, context: context, state: &state)
+    }
+
+    private func liveStepDecision(
+        _ pointer: LiveColumnMove.Pointer,
+        strip: [LiveColumnMove.StripColumn],
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext
+    ) -> LiveColumnMove.Action {
+        guard let dragged = liveDraggedColumn(for: move) else { return .nothing }
         let cursor = pointer.cursor
         let time = pointer.time
-        guard var move = liveColumnMove,
-              move.workspaceId == context.workspaceId,
-              let dragged = liveDraggedColumn(for: move)
-        else { return .unchanged }
-        defer { liveColumnMove = move }
         let immediate = time == nil
 
         let dropSpace = liveDropSpace(for: move)
         noteLiveHeading(&move, at: cursor.x)
-        if let step = liveSpecialModeUpdate(
-            pointer: pointer,
-            strip: strip,
-            move: &move,
-            context: context,
-            state: &state
-        ) {
-            return step
+        if let action = liveSpecialModeDecision(pointer: pointer, strip: strip, move: &move, context: context) {
+            return action
         }
-        let previousHover = move.hover
-        move.hover = nil
+        let previousDwell = move.dwell
+        move.endSideDwell()
         let homeClosed = move.originClosedToward != nil
         let underPointer = liveColumnOrStripEnd(
             in: homeClosed ? strip.filter { $0.column !== dragged } : strip,
@@ -169,16 +236,14 @@ extension NiriLayoutEngine {
               ),
               move.lockedTarget != .init(columnId: target.id, side: side)
         else {
-            return .unchanged
+            return .nothing
         }
         let delay = liveHoverDelay
         if let time, delay > 0 {
-            let hover = previousHover?.columnId == target.id && previousHover?.side == side
-                ? previousHover
-                : .init(columnId: target.id, side: side, since: time)
-            let until = (hover?.since ?? time) + delay
+            let since = previousDwell?.start(on: target.id, in: .side(side)) ?? time
+            let until = since + delay
             guard pointer.slowed || time >= until else {
-                move.hover = hover
+                move.dwell = .init(columnId: target.id, region: .side(side), since: since)
                 return .hovering(until: until)
             }
         }
@@ -190,63 +255,160 @@ extension NiriLayoutEngine {
             strip: strip,
             cursor: cursor
         )
-
-        if target === dragged, let dropSpace {
-            closeLiveDropSpace(dropSpace, anchor: pinned, context: context, state: &state)
-            move.dropSpaceId = nil
-            return markLiveChange(&move, target: target, side: side)
-        }
         let besideHome = liveNeighbour(of: target, on: side) === dragged
-        if let dropSpace, besideHome, !homeClosed {
-            closeLiveDropSpace(dropSpace, anchor: pinned, context: context, state: &state)
-            move.dropSpaceId = nil
-            scrollLiveLandingUnderPointer(dragged, target: target, cursor: cursor, context: context, state: &state)
-            return markLiveChange(&move, target: target, side: side)
+        let kind: LiveColumnMove.Reorder.Kind
+        if target === dragged, let dropSpace {
+            kind = .closeDropSpace(dropSpace, revealsHome: false)
+        } else if let dropSpace, besideHome, !homeClosed {
+            kind = .closeDropSpace(dropSpace, revealsHome: true)
+        } else if move.carry != nil {
+            kind = .carried
+        } else {
+            kind = .openDropSpace(
+                existing: dropSpace,
+                beside: besideHome && homeClosed ? dragged : target,
+                triesHomeSpot: !immediate && move.home != .origin
+            )
         }
-        if move.carry != nil {
-            guard moveLiveCarriedColumn(dragged, beside: target, side: side, context: context, state: &state)
+        return .reorder(.init(dragged: dragged, target: target, side: side, pinned: pinned, kind: kind))
+    }
+
+    private func applyLiveAction(
+        _ action: LiveColumnMove.Action,
+        pointer: LiveColumnMove.Pointer,
+        strip: [LiveColumnMove.StripColumn],
+        move: LiveColumnMove,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> LiveColumnMove.Step {
+        var move = move
+        defer { liveColumnMove = move }
+        return performLiveAction(action, pointer: pointer, strip: strip, move: &move, context: context, state: &state)
+    }
+
+    func performLiveAction(
+        _ action: LiveColumnMove.Action,
+        pointer: LiveColumnMove.Pointer,
+        strip: [LiveColumnMove.StripColumn],
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> LiveColumnMove.Step {
+        let cursor = pointer.cursor
+        switch action {
+        case .nothing:
+            return .unchanged
+        case let .hovering(until):
+            return .hovering(until: until)
+        case let .placeStackLanding(landing):
+            guard placeLiveLanding(landing.map { .gap($0) }, move: &move, context: context, state: &state) else {
+                return .unchanged
+            }
+            if landing != nil {
+                armLiveStackSuppression(&move, at: cursor, context: context)
+            }
+            move.phase = .settling
+            return .changed
+        case let .leaveStack(towardTrailingSide, revealsToEdgeOnly):
+            guard leaveLiveStack(
+                towardTrailingSide: towardTrailingSide,
+                revealsToEdgeOnly: revealsToEdgeOnly,
+                cursor: cursor,
+                move: &move,
+                context: context,
+                state: &state
+            ) else { return .unchanged }
+            move.endPointerHold(.stackLock)
+            move.phase = .settling
+            return .changed
+        case let .moveInStack(window, home, index):
+            moveLiveSlot(window, in: home, to: index, context: context)
+            move.homeSlotIndex = index
+            armLiveStackSuppression(&move, at: cursor, context: context)
+            move.phase = .settling
+            return .changed
+        case .closeHint:
+            closeLiveLandingHint(move: &move, context: context, state: &state)
+            return .changed
+        case let .showHint(landing, tracesRefusal):
+            guard showLiveLandingHint(landing, move: &move, context: context, state: &state) else {
+                if tracesRefusal {
+                    traceLiveStackRefusalDetail("hint-not-placed x=\(Int(cursor.x.rounded()))")
+                }
+                return .unchanged
+            }
+            return .changed
+        case let .switchHint(columnId, dwellSince):
+            closeLiveLandingHint(move: &move, context: context, state: &state)
+            move.dwell = dwellSince.map { .init(columnId: columnId, region: .centre, since: $0) }
+            return .changed
+        case let .reorder(reorder):
+            return applyLiveReorder(reorder, cursor: cursor, strip: strip, move: &move, context: context, state: &state)
+        }
+    }
+
+    private func applyLiveReorder(
+        _ reorder: LiveColumnMove.Reorder,
+        cursor: CGPoint,
+        strip: [LiveColumnMove.StripColumn],
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> LiveColumnMove.Step {
+        let dragged = reorder.dragged
+        let target = reorder.target
+        let side = reorder.side
+        switch reorder.kind {
+        case let .closeDropSpace(dropSpace, revealsHome):
+            closeLiveDropSpace(dropSpace, anchor: reorder.pinned, context: context, state: &state)
+            move.dropSpaceId = nil
+            if revealsHome {
+                scrollLiveLandingUnderPointer(dragged, target: target, cursor: cursor, context: context, state: &state)
+            }
+            return markLiveChange(&move, target: target, side: side)
+        case .carried:
+            guard moveLiveSpot(dragged, beside: target, side: side, as: .carried, context: context, state: &state)
             else { return .unchanged }
             scrollLiveLandingUnderPointer(dragged, target: target, cursor: cursor, context: context, state: &state)
             return markLiveChange(&move, target: target, side: side)
-        }
-        if !immediate,
-           !isClosingOrigin(move),
-           moveLiveHomeSpot(
-               dragged,
-               beside: target,
-               side: side,
-               removing: dropSpace,
-               anchor: pinned,
-               context: context,
-               state: &state
-           )
-        {
-            move.dropSpaceId = nil
-            return markLiveChange(
-                &move,
-                target: target,
+        case let .openDropSpace(dropSpace, beside, triesHomeSpot):
+            if triesHomeSpot,
+               moveLiveSpot(
+                   dragged,
+                   beside: target,
+                   side: side,
+                   as: .homeSpot(removing: dropSpace, pinning: reorder.pinned),
+                   context: context,
+                   state: &state
+               )
+            {
+                move.dropSpaceId = nil
+                return markLiveChange(
+                    &move,
+                    target: target,
+                    side: side,
+                    passed: livePassed(target, side: side, strip: strip, cursor: cursor)
+                )
+            }
+            guard let opened = openLiveDropSpace(
+                existing: dropSpace,
+                beside: beside,
                 side: side,
-                passed: livePassed(target, side: side, strip: strip, cursor: cursor)
+                anchor: reorder.pinned,
+                context: context,
+                state: &state
+            ) else { return .unchanged }
+            move.dropSpaceId = opened.id
+            move.pulledStripEnd = scrollLiveLandingUnderPointer(
+                opened,
+                target: target,
+                cursor: cursor,
+                pulledEnd: move.pulledStripEnd,
+                context: context,
+                state: &state
             )
+            return markLiveChange(&move, target: target, side: side)
         }
-        guard let opened = openLiveDropSpace(
-            existing: dropSpace,
-            beside: besideHome && homeClosed ? dragged : target,
-            side: side,
-            anchor: pinned,
-            context: context,
-            state: &state
-        ) else { return .unchanged }
-        move.dropSpaceId = opened.id
-        move.pulledStripEnd = scrollLiveLandingUnderPointer(
-            opened,
-            target: target,
-            cursor: cursor,
-            pulledEnd: move.pulledStripEnd,
-            context: context,
-            state: &state
-        )
-        return markLiveChange(&move, target: target, side: side)
     }
 
     @discardableResult
@@ -366,22 +528,21 @@ extension NiriLayoutEngine {
         return (shift, pulledEnd)
     }
 
-    private func liveSpecialModeUpdate(
+    private func liveSpecialModeDecision(
         pointer: LiveColumnMove.Pointer,
         strip: [LiveColumnMove.StripColumn],
         move: inout LiveColumnMove,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) -> LiveColumnMove.Step? {
+        context: NiriInteractionContext
+    ) -> LiveColumnMove.Action? {
         let cursor = pointer.cursor
         if move.stackMode {
-            return liveStackUpdate(cursor: cursor, strip: strip, move: &move, context: context, state: &state)
+            return liveStackDecision(cursor: cursor, strip: strip, move: &move, context: context)
         }
-        guard !waitsForPointerMove(&move, at: cursor) else { return .unchanged }
-        if move.inStack {
-            return liveInStackUpdate(cursor: cursor, strip: strip, move: &move, context: context, state: &state)
+        guard !waitsForPointerMove(&move, at: cursor) else { return .nothing }
+        if move.home == .stackSlot {
+            return liveInStackDecision(cursor: cursor, strip: strip, move: &move, context: context)
         }
-        return liveCentreUpdate(pointer: pointer, strip: strip, move: &move, context: context, state: &state)
+        return liveCentreDecision(pointer: pointer, strip: strip, move: &move, context: context)
     }
 
     func liveDropSpaceWidth(context: NiriInteractionContext) -> CGFloat {
@@ -393,7 +554,7 @@ extension NiriLayoutEngine {
 
     private func waitsForPointerMove(_ move: inout LiveColumnMove, at cursor: CGPoint) -> Bool {
         guard move.isStill(at: cursor) else {
-            move.awaitsPointerMoveFrom = nil
+            move.endPointerHold(.modifierRelease)
             return false
         }
         return true
@@ -423,44 +584,9 @@ extension NiriLayoutEngine {
         strip: [LiveColumnMove.StripColumn],
         context: NiriInteractionContext
     ) -> Bool {
-        guard let move = liveColumnMove,
-              move.workspaceId == context.workspaceId,
-              let dragged = liveDraggedColumn(for: move)
-        else { return false }
-        if move.isStill(at: cursor) {
-            return false
-        }
-        if move.inStack {
-            return liveInStackWouldChange(cursor: cursor, strip: strip, move: move, context: context)
-        }
-        if let centre = liveCentreWouldChange(cursor: cursor, strip: strip, move: move, context: context) {
-            return centre
-        }
-        let dropSpace = liveDropSpace(for: move)
-        let homeClosed = move.originClosedToward != nil
-        guard let underPointer = liveColumnOrStripEnd(
-            in: homeClosed ? strip.filter { $0.column !== dragged } : strip,
-            at: cursor,
-            ignoring: dropSpace,
-            context: context
-        )
-        else { return false }
-        let side = liveTargetSide(
-            underPointer,
-            cursor: cursor,
-            strip: strip,
-            awayFromHome: move.carry == nil,
-            context: context
-        )
-        guard let target = liveTarget(
-            underPointer,
-            side: side,
-            dragged: dragged,
-            homeClosed: homeClosed,
-            dropSpace: dropSpace,
-            justPassed: move.passed?.columnId
-        ) else { return false }
-        return move.lockedTarget != .init(columnId: target.id, side: side)
+        guard var move = liveColumnMove, move.workspaceId == context.workspaceId else { return false }
+        let action = liveStepDecision(.init(cursor: cursor, time: nil), strip: strip, move: &move, context: context)
+        return action.passiveStep == nil
     }
 
     func liveEdgeScrollLimit(
@@ -485,14 +611,14 @@ extension NiriLayoutEngine {
         guard var move = liveColumnMove,
               move.workspaceId == context.workspaceId,
               !move.stackMode,
-              !move.inStack,
+              move.home != .stackSlot,
               let dragged = liveDraggedColumn(for: move),
               let root = root(for: context.workspaceId)
         else { return nil }
-        defer { liveColumnMove = move }
-        let hinted = move.landingIsHint ? move.landing
-            .flatMap { liveColumn(withId: $0.columnId, in: move.workspaceId) } : nil
-        if move.landingIsHint {
+        defer { replaceLiveColumnMove(with: move) }
+        let hinted = move.showsLandingHint ? move.landing
+            .flatMap { liveColumn(withId: $0.slot.columnId, in: move.workspaceId) } : nil
+        if move.showsLandingHint {
             closeLiveLandingHint(move: &move, context: context, state: &state)
         }
         let dropSpace = liveDropSpace(for: move)
@@ -538,12 +664,13 @@ extension NiriLayoutEngine {
         }
         let landing: NiriContainer
         if beside !== dragged,
+           dragged.isLiveHomeSpot,
+           move.home != .origin,
            moveLiveSpot(
                dragged,
                beside: beside,
                side: side,
-               removing: dropSpace,
-               move: move,
+               as: move.carry != nil ? .carried : .homeSpot(removing: dropSpace, pinning: beside),
                context: context,
                state: &state
            )
@@ -570,7 +697,7 @@ extension NiriLayoutEngine {
             context: context
         )
         animateLiveViewShift(shift, context: context, state: &state)
-        move.hover = nil
+        move.endSideDwell()
         _ = markLiveChange(&move, target: beside, side: side)
         return beside
     }
@@ -621,7 +748,7 @@ extension NiriLayoutEngine {
         {
             liveColumnMoveToStripEnd(at: cursor, move: &move, context: context, state: &state)
         }
-        if stacking || move.landingIsHint, move.landing != nil {
+        if stacking || move.showsLandingHint, move.landing != nil {
             return liveStackDropBegin(
                 releasedAt: releasedFrame,
                 move: move,
@@ -633,7 +760,7 @@ extension NiriLayoutEngine {
             placeLiveLanding(nil, move: &move, context: context, state: &state)
             liveColumnMove = move
         }
-        if move.inStack {
+        if move.home == .stackSlot {
             return liveInStackEnd(
                 releasedAt: releasedFrame,
                 move: move,
@@ -647,7 +774,7 @@ extension NiriLayoutEngine {
         }
         let dropSpace = liveDropSpace(for: move)
         guard let dragged = liveDraggedColumn(for: move) else {
-            liveColumnMove = nil
+            endLiveColumnMove()
             return true
         }
 
@@ -662,7 +789,7 @@ extension NiriLayoutEngine {
         {
             root.insertChild(dragged, at: landingIndex)
         }
-        liveColumnMove = nil
+        endLiveColumnMove()
         dragged.isLiveHomeSpot = false
         restoreLiveSizing(move.ownSizing, to: dragged)
         let tilesOrigin = projectedTilesOrigin(
@@ -772,7 +899,7 @@ extension NiriLayoutEngine {
         assertSanctionedMutation()
         guard var move = liveColumnMove, move.workspaceId == context.workspaceId else { return false }
         guard let root = root(for: context.workspaceId), liveDraggedColumn(for: move) != nil else {
-            liveColumnMove = nil
+            endLiveColumnMove()
             return false
         }
         if move.landing != nil {
@@ -784,12 +911,12 @@ extension NiriLayoutEngine {
         restoreLiveOriginalSlot(&move)
         liveColumnMove = move
         guard let dragged = liveDraggedColumn(for: move) else {
-            liveColumnMove = nil
+            endLiveColumnMove()
             return false
         }
 
         let before = primaryPositions(context: context, state: state)
-        liveColumnMove = nil
+        endLiveColumnMove()
         let columnsById = Dictionary(uniqueKeysWithValues: root.columns.map { ($0.id, $0) })
         let restoredOrder = move.originalColumnOrder.compactMap { columnsById[$0] }
         for (index, column) in restoredOrder.enumerated() {
@@ -938,52 +1065,42 @@ extension NiriLayoutEngine {
     }
 
     private func moveLiveSpot(
-        _ home: NiriContainer,
+        _ column: NiriContainer,
         beside target: NiriContainer,
         side: LiveColumnMove.Side,
-        removing dropSpace: NiriContainer?,
-        move: LiveColumnMove,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) -> Bool {
-        guard home.isLiveHomeSpot, !isClosingOrigin(move) else { return false }
-        if move.carry != nil {
-            return moveLiveCarriedColumn(home, beside: target, side: side, context: context, state: &state)
-        }
-        return moveLiveHomeSpot(
-            home,
-            beside: target,
-            side: side,
-            removing: dropSpace,
-            anchor: target,
-            context: context,
-            state: &state
-        )
-    }
-
-    private func moveLiveHomeSpot(
-        _ home: NiriContainer,
-        beside target: NiriContainer,
-        side: LiveColumnMove.Side,
-        removing dropSpace: NiriContainer?,
-        anchor: NiriContainer,
+        as spot: LiveColumnMove.SpotMove,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
         guard let root = root(for: context.workspaceId),
+              column !== target,
               root.children.contains(where: { $0 === target }),
-              root.children.contains(where: { $0 === home }),
-              home.isLiveHomeSpot,
-              isLiveColumnFullyVisible(home, atOffset: state.viewOffset, context: context, state: state)
+              root.children.contains(where: { $0 === column })
         else { return false }
+        let anchor: NiriContainer
+        switch spot {
+        case .carried:
+            anchor = target
+        case let .homeSpot(_, pinned):
+            guard column.isLiveHomeSpot,
+                  isLiveColumnFullyVisible(column, atOffset: state.viewOffset, context: context, state: state)
+            else { return false }
+            anchor = pinned
+        }
         retargetActiveColumn(to: anchor, context: context, state: &state)
         let before = primaryPositions(context: context, state: state)
-        dropSpace?.detach()
-        home.detach()
-        if let targetIndex = root.children.firstIndex(where: { $0 === target }) {
-            root.insertChild(home, at: side == .before ? targetIndex : targetIndex + 1)
+        if case let .homeSpot(dropSpace?, _) = spot {
+            dropSpace.detach()
         }
-        animateLivePinnedChange(from: before, pinning: anchor, context: context, state: &state)
+        column.detach()
+        guard let targetIndex = root.children.firstIndex(where: { $0 === target }) else { return false }
+        root.insertChild(column, at: side == .before ? targetIndex : targetIndex + 1)
+        switch spot {
+        case .carried:
+            animateLiveColumnChange(from: before, anchoredOn: anchor, context: context, state: &state)
+        case .homeSpot:
+            animateLivePinnedChange(from: before, pinning: anchor, context: context, state: &state)
+        }
         return true
     }
 

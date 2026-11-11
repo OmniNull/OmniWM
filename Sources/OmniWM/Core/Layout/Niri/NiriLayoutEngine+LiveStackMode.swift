@@ -36,23 +36,30 @@ extension NiriLayoutEngine {
         defer { liveColumnMove = move }
 
         move.stackMode = held
-        move.hover = nil
-        move.stackSuppressPoint = nil
-        move.centreWait = nil
+        move.dwell = nil
         if held {
-            move.awaitsPointerMoveFrom = nil
-            if move.landingIsHint, let landing = move.landing {
-                move.landingIsHint = false
-                guard placeLiveLanding(landing, move: &move, context: context, state: &state) else { return .unchanged }
+            move.pointerHold = nil
+            if case let .hint(landing) = move.landing {
+                move.landing = .gap(landing)
+                guard placeLiveLanding(.gap(landing), move: &move, context: context, state: &state) else {
+                    return .unchanged
+                }
                 armLiveStackSuppression(&move, at: cursor, context: context)
                 move.phase = .settling
                 return .changed
             }
             guard !duringEdgeScroll else { return .unchanged }
             let strip = liveColumnStrip(context: context, state: state)
-            return liveStackUpdate(cursor: cursor, strip: strip, move: &move, context: context, state: &state)
+            return performLiveAction(
+                liveStackDecision(cursor: cursor, strip: strip, move: &move, context: context),
+                pointer: .init(cursor: cursor, time: nil),
+                strip: strip,
+                move: &move,
+                context: context,
+                state: &state
+            )
         }
-        move.awaitsPointerMoveFrom = duringEdgeScroll ? nil : cursor
+        move.pointerHold = duringEdgeScroll ? nil : .init(point: cursor, kind: .modifierRelease)
         if !duringEdgeScroll, let hint = liveLandingHintOnRelease(
             cursor: cursor,
             move: move,
@@ -73,12 +80,12 @@ extension NiriLayoutEngine {
         move: LiveColumnMove,
         context: NiriInteractionContext,
         state: ViewportState
-    ) -> LiveColumnMove.Landing? {
+    ) -> LiveColumnMove.LandingSlot? {
         guard move.landing != nil else { return nil }
         let strip = liveColumnStrip(context: context, state: state)
         switch liveCentreChoice(cursor: cursor, strip: strip, move: move, context: context) {
         case .keep:
-            return move.landing
+            return move.landing?.slot
         case let .land(landing):
             return landing
         case .home:
@@ -90,13 +97,13 @@ extension NiriLayoutEngine {
         assertSanctionedMutation()
         guard var move = liveColumnMove,
               move.workspaceId == context.workspaceId,
-              move.stackMode || move.landingIsHint,
-              move.landing != nil
+              move.stackMode || move.showsLandingHint,
+              let landing = move.landing
         else { return false }
         defer { liveColumnMove = move }
-        move.stackSuppressPoint = nil
-        move.landingIsHint = false
-        move.centreWait = nil
+        move.endPointerHold(.stackLock)
+        move.landing = .gap(landing.slot)
+        move.endCentreDwell()
         return placeLiveLanding(nil, move: &move, context: context, state: &state)
     }
 
@@ -109,34 +116,27 @@ extension NiriLayoutEngine {
         let strip = liveColumnStrip(context: context, state: state)
         guard case let .land(landing) = liveStackChoice(cursor: cursor, strip: strip, move: move, context: context)
         else { return false }
-        return placeLiveLanding(landing, move: &move, context: context, state: &state)
+        return placeLiveLanding(.gap(landing), move: &move, context: context, state: &state)
     }
 
-    func liveStackUpdate(
+    func liveStackDecision(
         cursor: CGPoint,
         strip: [LiveColumnMove.StripColumn],
         move: inout LiveColumnMove,
-        context: NiriInteractionContext,
-        state: inout ViewportState
-    ) -> LiveColumnMove.Step {
-        guard !holdsLiveStackSuppression(&move, at: cursor, strip: strip) else { return .unchanged }
-        let landing: LiveColumnMove.Landing?
+        context: NiriInteractionContext
+    ) -> LiveColumnMove.Action {
+        guard !holdsLiveStackSuppression(&move, at: cursor, strip: strip) else { return .nothing }
+        let landing: LiveColumnMove.LandingSlot?
         switch liveStackChoice(cursor: cursor, strip: strip, move: move, context: context) {
         case .keep:
-            return .unchanged
+            return .nothing
         case .home:
             landing = nil
         case let .land(target):
             landing = target
         }
-        guard landing != move.landing,
-              placeLiveLanding(landing, move: &move, context: context, state: &state)
-        else { return .unchanged }
-        if landing != nil {
-            armLiveStackSuppression(&move, at: cursor, context: context)
-        }
-        move.phase = .settling
-        return .changed
+        guard landing != move.landing?.slot else { return .nothing }
+        return .placeStackLanding(landing)
     }
 
     func liveWindowSpans(in column: NiriContainer, context: NiriInteractionContext) -> [LiveColumnMove.WindowSpan] {
@@ -174,7 +174,7 @@ extension NiriLayoutEngine {
         let dropped = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow
         guard let landing = move.landing,
               let window = dropped,
-              let column = liveColumn(withId: landing.columnId, in: move.workspaceId),
+              let column = liveColumn(withId: landing.slot.columnId, in: move.workspaceId),
               window.parent === column
         else {
             dropped?.defersMinimumWidth = false
@@ -184,19 +184,19 @@ extension NiriLayoutEngine {
                     joinHeldLiveTabs(after: dropped, in: parent, move: move)
                 }
             }
-            liveColumnMove = nil
+            endLiveColumnMove()
             return false
         }
-        liveStackDrop = .init(
+        replaceLiveStackDrop(with: .init(
             workspaceId: move.workspaceId,
             windowId: move.windowId,
             homeColumnId: move.homeColumnId,
             dropSpaceId: move.dropSpaceId,
             targetColumnId: column.id,
             originalViewPosition: move.carry == nil ? move.originalViewPosition : nil
-        )
-        liveColumnMove = nil
-        if move.landingIsHint {
+        ))
+        endLiveColumnMove()
+        if landing.isHint {
             slideLiveWindows(in: [column], skipping: window, context: context) {
                 clearLiveSpanOverrides(in: [column])
                 joinHeldLiveTabs(after: window, in: column, move: move)
@@ -242,18 +242,18 @@ extension NiriLayoutEngine {
     func liveStackDropAbandon(in workspaceId: WorkspaceDescriptor.ID) {
         guard liveStackDrop?.workspaceId == workspaceId else { return }
         assertSanctionedMutation()
-        liveStackDrop = nil
+        endLiveStackDrop()
     }
 
     func liveStackDropFinish(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
         assertSanctionedMutation()
         guard let drop = liveStackDrop, drop.workspaceId == context.workspaceId else { return false }
         guard let target = liveColumn(withId: drop.targetColumnId, in: drop.workspaceId) else {
-            liveStackDrop = nil
+            endLiveStackDrop()
             return false
         }
         let before = primaryPositions(context: context, state: state)
-        liveStackDrop = nil
+        endLiveStackDrop()
         animateLiveColumnChange(from: before, anchoredOn: target, context: context, state: &state)
         retargetActiveColumn(to: target, context: context, state: &state)
         if let original = drop.originalViewPosition,
@@ -296,7 +296,31 @@ extension NiriLayoutEngine {
         return min(0, ends.highest)
     }
 
-    func releaseLivePlaceholders(of previous: LiveColumnMove) {
+    func endLiveColumnMove() {
+        replaceLiveColumnMove(with: nil)
+    }
+
+    func replaceLiveColumnMove(with move: LiveColumnMove?) {
+        let previous = liveColumnMove
+        liveColumnMove = move
+        if let previous {
+            releaseLivePlaceholders(of: previous)
+        }
+    }
+
+    func endLiveStackDrop() {
+        replaceLiveStackDrop(with: nil)
+    }
+
+    func replaceLiveStackDrop(with drop: LiveColumnMove.StackDrop?) {
+        let previous = liveStackDrop
+        liveStackDrop = drop
+        if let previous {
+            releaseLivePlaceholders(of: previous)
+        }
+    }
+
+    private func releaseLivePlaceholders(of previous: LiveColumnMove) {
         if let slot = previous.narrowedSlot,
            liveColumnMove?.narrowedSlot?.columnId != slot.columnId,
            liveStackDrop?.homeColumnId != slot.columnId
@@ -325,7 +349,7 @@ extension NiriLayoutEngine {
         }
     }
 
-    func releaseLivePlaceholders(of previous: LiveColumnMove.StackDrop) {
+    private func releaseLivePlaceholders(of previous: LiveColumnMove.StackDrop) {
         if liveStackDrop?.homeColumnId != previous.homeColumnId {
             removeLivePlaceholder(previous.homeColumnId, in: previous.workspaceId)
         }
@@ -349,9 +373,9 @@ extension NiriLayoutEngine {
               let home = liveDraggedColumn(for: move),
               let source = findColumn(containing: window, in: move.workspaceId)
         else { return false }
-        let target = landing.flatMap { liveColumn(withId: $0.columnId, in: move.workspaceId) }
+        let target = landing.flatMap { liveColumn(withId: $0.slot.columnId, in: move.workspaceId) }
         let affected = [source, target ?? home]
-        let hint = move.landingIsHint
+        let hint = landing?.isHint == true
         let homeSpotWidth = liveHomeSpotWidth(home, closed: hint && target != nil, move: move, context: context)
         let anchor = homeSpotWidth == nil ? home : target ?? source
         retargetActiveColumn(to: anchor, context: context, state: &state)
@@ -362,7 +386,7 @@ extension NiriLayoutEngine {
             window.defersMinimumWidth = target != nil && target !== home
             let hintBase = hint ? target.map { liveHintBaseSpans(in: $0, without: window, context: context) } : nil
             restoreLiveMateHeight(&move)
-            guard relocateLiveWindow(window, to: landing, from: source, move: &move, context: context) else {
+            guard relocateLiveWindow(window, to: landing?.slot, from: source, move: &move, context: context) else {
                 return false
             }
             if let homeSpotWidth {
@@ -381,9 +405,6 @@ extension NiriLayoutEngine {
             return false
         }
         move.landing = landing
-        if landing == nil {
-            move.landingIsHint = false
-        }
         if homeSpotWidth == nil {
             animateLiveColumnChange(from: columnsBefore, anchoredOn: anchor, context: context, state: &state)
         } else {
@@ -400,7 +421,7 @@ extension NiriLayoutEngine {
     ) -> CGFloat? {
         guard home.isLiveHomeSpot,
               move.carry == nil,
-              !isClosingOrigin(move),
+              move.home != .origin,
               case let .fixed(width) = home.width
         else { return nil }
         let closedWidth = -context.gaps
@@ -462,7 +483,7 @@ extension NiriLayoutEngine {
 
     private func relocateLiveWindow(
         _ window: NiriWindow,
-        to landing: LiveColumnMove.Landing?,
+        to landing: LiveColumnMove.LandingSlot?,
         from source: NiriContainer,
         move: inout LiveColumnMove,
         context: NiriInteractionContext
@@ -495,7 +516,7 @@ extension NiriLayoutEngine {
 
     private func insertLiveLanding(
         _ window: NiriWindow,
-        at landing: LiveColumnMove.Landing,
+        at landing: LiveColumnMove.LandingSlot,
         in column: NiriContainer,
         home: NiriContainer,
         context: NiriInteractionContext
@@ -578,7 +599,7 @@ extension NiriLayoutEngine {
         home.insertChild(window, at: min(move.homeSlotIndex, home.windowNodes.count))
         move.ownWindowSizing.apply(to: window)
         window.isHiddenInTabbedMode = false
-        if move.inStack {
+        if move.home == .stackSlot {
             activateWindow(window.id, in: move.workspaceId)
             home.cachedWidth = 0
             return
@@ -596,7 +617,7 @@ extension NiriLayoutEngine {
     ) -> LiveColumnMove.StackChoice {
         guard let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow else { return .keep }
         guard let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
-              column.id != move.homeColumnId || move.inStack,
+              column.id != move.homeColumnId || move.home == .stackSlot,
               projectedWindows(in: column, workspaceId: move.workspaceId).contains(where: { $0 !== window })
         else { return .home }
         let followers = liveWholeColumnFollowers(of: move)
@@ -682,12 +703,13 @@ extension NiriLayoutEngine {
         strip: [LiveColumnMove.StripColumn],
         move: LiveColumnMove
     ) -> Bool {
-        guard let point = move.stackSuppressPoint,
+        guard let hold = move.pointerHold,
+              hold.kind == .stackLock,
               let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
               let column = window.parent as? NiriContainer,
               liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)) === column
         else { return false }
-        return hypot(cursor.x - point.x, cursor.y - point.y) < MoveConfiguration.liveStackSuppressDistance
+        return hold.holds(at: cursor)
     }
 
     func holdsLiveStackSuppression(
@@ -695,9 +717,9 @@ extension NiriLayoutEngine {
         at cursor: CGPoint,
         strip: [LiveColumnMove.StripColumn]
     ) -> Bool {
-        guard move.stackSuppressPoint != nil else { return false }
+        guard move.pointerHold?.kind == .stackLock else { return false }
         if isLiveStackSuppressed(at: cursor, strip: strip, move: move) { return true }
-        move.stackSuppressPoint = nil
+        move.pointerHold = nil
         return false
     }
 
@@ -708,7 +730,7 @@ extension NiriLayoutEngine {
         else { return }
         let slot = liveWindowSpans(in: column, context: context).first { $0.window === window }
         if slot?.contains(y: cursor.y) != true {
-            move.stackSuppressPoint = cursor
+            move.pointerHold = .init(point: cursor, kind: .stackLock)
         }
     }
 

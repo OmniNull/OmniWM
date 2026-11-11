@@ -94,7 +94,7 @@ extension MouseEventHandler {
     private func fusionDoubleClickTarget(at location: CGPoint) -> FusionDoubleClickTarget? {
         guard !state.isMoving, !state.isResizing,
               state.capturedInteractionButton == nil,
-              state.liveTabPull == nil,
+              liveDragSession?.tabPull == nil,
               let candidate = fusionDoubleClickCandidate(at: location),
               let handle = controller?.workspaceManager.handle(for: candidate.hit.window.token),
               let column = candidate.engine.column(of: candidate.hit.window)

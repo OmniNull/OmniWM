@@ -148,14 +148,8 @@ struct MouseInputState {
     var currentHoveredEdges: ResizeEdge = []
     var isResizing: Bool = false
     var isMoving: Bool = false
-    var liveDragReferenceOffset: CGFloat?
-    var liveDragTracedView: String?
     var liveDragTracedDecline: String?
-    var liveTabPull: LiveTabPull?
     var liveDropScroll: LiveDropScroll?
-    var liveHoverTimer: Timer?
-    var liveEdgeScroll: LiveEdgeScroll?
-    var liveEdgeZoneHold: LiveEdgeZoneHold?
     var deferredClickScroll: WindowToken?
     var fusionDoubleClickWidths: [NodeId: FusionDoubleClickWidth] = [:]
     var liveDragLayoutStart: NiriLayoutChangeStart?
@@ -213,5 +207,15 @@ struct MouseInputState {
 struct LiveDragPointer {
     var location: CGPoint?
     var samples: [MouseInputState.LivePointerSample] = []
+}
+
+struct LiveDragSession {
+    var tabPull: MouseInputState.LiveTabPull?
+    var referenceOffset: CGFloat?
     var modifiers: CGEventFlags?
+    var edgeScroll: MouseInputState.LiveEdgeScroll?
+    var edgeZoneHold: MouseInputState.LiveEdgeZoneHold?
+    var hoverTimer: Timer?
+    var followUp: Timer?
+    var tracedView: String?
 }

@@ -13,6 +13,7 @@ final class MouseEventHandler {
     let inputTapThread = InputTapThread()
     let liveDragModifierCapture = LiveDragModifierCapture()
     var livePointer = LiveDragPointer()
+    var liveDragSession: LiveDragSession?
     var state = MouseInputState() {
         didSet {
             if oldValue.capturedInteractionButton != state.capturedInteractionButton

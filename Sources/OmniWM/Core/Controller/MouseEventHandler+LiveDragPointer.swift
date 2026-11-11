@@ -6,9 +6,9 @@ import Foundation
 
 extension MouseEventHandler {
     func liveDragReference(_ location: CGPoint) -> CGPoint {
-        guard state.liveTabPull == nil,
-              state.liveEdgeScroll == nil,
-              let offset = state.liveDragReferenceOffset
+        guard liveDragSession?.tabPull == nil,
+              liveDragSession?.edgeScroll == nil,
+              let offset = liveDragSession?.referenceOffset
         else { return location }
         guard let display = controller?.workspaceManager.monitors.first(where: { $0.frame.contains(location) })?.frame
         else { return CGPoint(x: location.x + offset, y: location.y) }
@@ -19,13 +19,8 @@ extension MouseEventHandler {
     }
 
     func liveDragWindowMidX(_ location: CGPoint) -> CGFloat? {
-        guard state.liveTabPull == nil, let offset = state.liveDragReferenceOffset else { return nil }
+        guard liveDragSession?.tabPull == nil, let offset = liveDragSession?.referenceOffset else { return nil }
         return location.x + offset
-    }
-
-    func clearLiveDragReference() {
-        state.liveDragReferenceOffset = nil
-        livePointer.samples = []
     }
 
     func recordLivePointerSample(_ location: CGPoint) {

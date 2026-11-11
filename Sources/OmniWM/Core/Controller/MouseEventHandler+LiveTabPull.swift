@@ -35,10 +35,10 @@ extension MouseEventHandler {
         }
         guard began else { return }
         state.liveDragLayoutStart = layoutStart
+        liveDragSession = .init(tabPull: .init(token: token, anchorLocation: drag.location, startFrame: startFrame))
         if let monitor = controller.workspaceManager.monitor(for: entry.workspaceId) {
             holdLiveEdgeZone(startingAt: drag.location, monitorFrame: monitor.frame)
         }
-        state.liveTabPull = .init(token: token, anchorLocation: drag.location, startFrame: startFrame)
         state.deferredClickScroll = nil
         startLiveDragKeyCapture()
         let detached = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
@@ -56,7 +56,7 @@ extension MouseEventHandler {
     }
 
     func moveLiveTabPull(to location: CGPoint) {
-        guard let pull = state.liveTabPull,
+        guard let pull = liveDragSession?.tabPull,
               let controller,
               let engine = controller.niriEngine,
               engine.liveColumnMove?.windowToken == pull.token
@@ -67,7 +67,7 @@ extension MouseEventHandler {
         )
         livePointer.location = location
         recordLivePointerSample(location)
-        livePointer.modifiers = nil
+        liveDragSession?.modifiers = nil
         updateLiveColumnDrag(at: location)
         controller.layoutRefreshController.requestImmediateRelayout(
             reason: .interactiveGesture,
@@ -76,7 +76,7 @@ extension MouseEventHandler {
     }
 
     func endLiveTabPull(at location: CGPoint) {
-        guard let pull = state.liveTabPull, let controller, let engine = controller.niriEngine else { return }
+        guard let pull = liveDragSession?.tabPull, let controller, let engine = controller.niriEngine else { return }
         moveLiveTabPull(to: location)
         let released = engine.liveColumnMove?.floatingFrame
         _ = finishLiveColumnDrag(token: pull.token, releaseFrame: released)

@@ -62,10 +62,86 @@ struct LiveColumnMove {
         case after
     }
 
-    struct Hover: Equatable {
-        let columnId: NodeId
+    struct SlotResize {
+        let home: NiriContainer
+        let placed: StripColumn
+        let minX: CGFloat
+        let width: CGFloat
+        let allowsGrowth: Bool
+    }
+
+    enum SpotMove {
+        case carried
+        case homeSpot(removing: NiriContainer?, pinning: NiriContainer)
+    }
+
+    struct Reorder {
+        enum Kind {
+            case closeDropSpace(NiriContainer, revealsHome: Bool)
+            case carried
+            case openDropSpace(existing: NiriContainer?, beside: NiriContainer, triesHomeSpot: Bool)
+        }
+
+        let dragged: NiriContainer
+        let target: NiriContainer
         let side: Side
+        let pinned: NiriContainer
+        let kind: Kind
+    }
+
+    enum Action {
+        case nothing
+        case hovering(until: TimeInterval)
+        case placeStackLanding(LandingSlot?)
+        case leaveStack(towardTrailingSide: Bool, revealsToEdgeOnly: Bool)
+        case moveInStack(NiriWindow, home: NiriContainer, index: Int)
+        case closeHint
+        case showHint(LandingSlot, tracesRefusal: Bool)
+        case switchHint(columnId: NodeId, dwellSince: TimeInterval?)
+        case reorder(Reorder)
+
+        var passiveStep: Step? {
+            switch self {
+            case .nothing: .unchanged
+            case let .hovering(until): .hovering(until: until)
+            case .placeStackLanding,
+                 .leaveStack,
+                 .moveInStack,
+                 .closeHint,
+                 .showHint,
+                 .switchHint,
+                 .reorder: nil
+            }
+        }
+    }
+
+    struct Decision {
+        var move: LiveColumnMove
+        let pointer: Pointer
+        let strip: [StripColumn]
+        var closing: SlotResize?
+        var action: Action = .nothing
+        var narrowing: SlotResize?
+
+        var passiveStep: Step? {
+            guard closing == nil, narrowing == nil else { return nil }
+            return action.passiveStep
+        }
+    }
+
+    struct Dwell: Equatable {
+        enum Region: Equatable {
+            case side(Side)
+            case centre
+        }
+
+        let columnId: NodeId
+        let region: Region
         let since: TimeInterval
+
+        func start(on columnId: NodeId, in region: Region) -> TimeInterval? {
+            self.columnId == columnId && self.region == region ? since : nil
+        }
     }
 
     struct TargetLock: Equatable {
@@ -101,10 +177,54 @@ struct LiveColumnMove {
         let manualColumnCount: Int?
     }
 
-    struct Landing: Equatable {
+    struct LandingSlot: Equatable {
         let columnId: NodeId
         let targetWindowId: NodeId
         let above: Bool
+    }
+
+    enum Landing: Equatable {
+        case hint(LandingSlot)
+        case gap(LandingSlot)
+
+        var slot: LandingSlot {
+            switch self {
+            case let .hint(slot),
+                 let .gap(slot): slot
+            }
+        }
+
+        var isHint: Bool {
+            if case .hint = self { return true }
+            return false
+        }
+    }
+
+    enum Home: Equatable {
+        case origin
+        case stackSlot
+        case moving
+    }
+
+    struct PointerHold: Equatable {
+        enum Kind: Equatable {
+            case stackLock
+            case modifierRelease
+        }
+
+        let point: CGPoint
+        let kind: Kind
+
+        var distance: CGFloat {
+            switch kind {
+            case .stackLock: MoveConfiguration.liveStackSuppressDistance
+            case .modifierRelease: 1
+            }
+        }
+
+        func holds(at cursor: CGPoint) -> Bool {
+            hypot(cursor.x - point.x, cursor.y - point.y) < distance
+        }
     }
 
     struct StackDrop: Equatable {
@@ -142,18 +262,13 @@ struct LiveColumnMove {
     enum StackChoice: Equatable {
         case keep
         case home
-        case land(Landing)
+        case land(LandingSlot)
     }
 
     struct Pointer {
         let cursor: CGPoint
         let time: TimeInterval?
         var slowed = false
-    }
-
-    struct CentreWait: Equatable {
-        let columnId: NodeId
-        let since: TimeInterval
     }
 
     struct WindowSizing: Equatable {
@@ -200,7 +315,7 @@ struct LiveColumnMove {
     var homeColumnId: NodeId
     let isWholeColumn: Bool
     let pullsTab: Bool
-    var inStack: Bool
+    var home: Home
     var homeSlotIndex: Int
     let originalSlot: OriginalSlot
     var ownSizing: NiriContainerSizingState
@@ -210,7 +325,7 @@ struct LiveColumnMove {
     let originalActiveColumnId: NodeId
     var originalViewPosition: CGFloat
     var phase: Phase = .dragging
-    var hover: Hover?
+    var dwell: Dwell?
     var dropSpaceId: NodeId?
     var heading: Side?
     var headingFromX: CGFloat?
@@ -222,19 +337,43 @@ struct LiveColumnMove {
     var originClosedToward: Side?
     var stackMode = false
     var landing: Landing?
-    var landingIsHint = false
-    var centreWait: CentreWait?
     var mateHeight: MateHeight?
     var keptWidths: KeptWidths?
-    var stackSuppressPoint: CGPoint?
-    var awaitsPointerMoveFrom: CGPoint?
+    var pointerHold: PointerHold?
     var floatingFrame: CGRect?
     var narrowedSlot: NarrowedSlot?
     var passed: Passed?
     var carry: Carry?
 
+    var showsLandingHint: Bool {
+        landing?.isHint == true
+    }
+
     func isStill(at cursor: CGPoint) -> Bool {
-        guard let still = awaitsPointerMoveFrom else { return false }
-        return hypot(cursor.x - still.x, cursor.y - still.y) < 1
+        guard let hold = pointerHold, hold.kind == .modifierRelease else { return false }
+        return hold.holds(at: cursor)
+    }
+
+    mutating func endSideDwell() {
+        if dwell?.region != .centre {
+            dwell = nil
+        }
+    }
+
+    mutating func endCentreDwell() {
+        if dwell?.region == .centre {
+            dwell = nil
+        }
+    }
+
+    mutating func endPointerHold(_ kind: PointerHold.Kind) {
+        if pointerHold?.kind == kind {
+            pointerHold = nil
+        }
+    }
+
+    mutating func setHome(columnId: NodeId, inStack: Bool) {
+        homeColumnId = columnId
+        home = inStack ? .stackSlot : carry == nil && columnId == originalSlot.columnId ? .origin : .moving
     }
 }
