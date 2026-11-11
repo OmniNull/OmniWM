@@ -1,0 +1,298 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+import AppKit
+import SwiftUI
+
+struct AppThemingReview: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+    let confirmTitle: String
+    let changes: [AppThemeChange]
+    let action: () throws -> Void
+}
+
+struct AppThemingSettingsPage: View {
+    @Bindable var settings: SettingsStore
+    @Bindable var service: AppThemeService
+    @State private var review: AppThemingReview?
+    @State private var editing: SettingsExport.AppTheming.Custom?
+    @State private var problem: String?
+    @State private var previewDark: Bool?
+    @State private var ghosttyStatus = AppThemeGhosttyStatus.selected
+
+    var body: some View {
+        Form {
+            Section {
+                AppThemePalettePreview(palette: service.palette, dark: previewDark ?? service.isDark)
+                Picker("Preview", selection: previewBinding) {
+                    Text("Light").tag(false)
+                    Text("Dark").tag(true)
+                }
+                .pickerStyle(.segmented)
+                Picker("Terminal Colors", selection: terminalColorsBinding) {
+                    Text("Follow Palette").tag(AppThemeTerminalColors.palette)
+                    Text("Standard Hues").tag(AppThemeTerminalColors.standard)
+                }
+                SettingsCaption(
+                    localized: "Follow Palette takes terminal colors from a wallpaper palette’s accents, so the terminal matches the wallpaper, though red and green may not look red and green in diffs. Standard Hues keeps familiar red, green, yellow, blue, magenta and cyan for ls and git, tinted toward the accent. A theme with its own terminal hues keeps them with Follow Palette."
+                )
+                HStack {
+                    SettingsCaption(
+                        localized: "Apps update the moment OmniWM’s palette or macOS light and dark changes."
+                    )
+                    Spacer()
+                    if service.isRunning { ProgressView().controlSize(.small) }
+                    Button("Apply Now") { service.applyNow() }
+                        .disabled(!settings.appTheming.values.anyEnabled || service.palette == nil)
+                }
+            } header: {
+                Text("Palette")
+            }
+            Section {
+                ForEach(AppThemeBuiltIn.allCases) { app in
+                    builtInRow(app)
+                }
+            } header: {
+                Text("Apps")
+            } footer: {
+                SettingsCaption(
+                    localized: "Nothing is on until you turn it on. OmniWM only writes the files listed here, and asks before it changes an app’s own settings file."
+                )
+            }
+            AppThemingCustomSection(
+                settings: settings.appTheming,
+                service: service,
+                editing: $editing,
+                review: $review
+            )
+            AppThemingPlaceholderHelp()
+        }
+        .formStyle(.grouped)
+        .onAppear { refreshGhosttySelection() }
+        .onChange(of: service.results) { _, _ in refreshGhosttySelection() }
+        .sheet(item: $review) { review in
+            AppThemingReviewSheet(review: review, backupFolder: backupFolder) { error in
+                problem = error
+                refreshGhosttySelection()
+            }
+        }
+        .sheet(item: $editing) { custom in
+            AppThemingCustomEditor(custom: custom, policy: service.engine.policy) { saved in
+                var values = settings.appTheming.values
+                if let index = values.custom.firstIndex(where: { $0.id == saved.id }) {
+                    values.custom[index] = saved
+                } else {
+                    values.custom.append(saved)
+                }
+                settings.appTheming.values = values
+            }
+        }
+        .alert("App Theming", isPresented: problemBinding) {
+            Button("OK") { problem = nil }
+        } message: {
+            Text(verbatim: problem ?? "")
+        }
+    }
+
+    private var backupFolder: String {
+        service.engine.policy.display(service.engine.store.backupsDirectory)
+    }
+
+    private var previewBinding: Binding<Bool> {
+        Binding(get: { previewDark ?? service.isDark }, set: { previewDark = $0 })
+    }
+
+    private var problemBinding: Binding<Bool> {
+        Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })
+    }
+
+    @ViewBuilder
+    private func builtInRow(_ app: AppThemeBuiltIn) -> some View {
+        let target = service.target(for: app)
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: enabledBinding(app)) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: app.name)
+                    SettingsCaption(reloadDescription(app))
+                }
+            }
+            AppThemingPaths(paths: service.outputPaths(for: target))
+            if settings.appTheming.values.isEnabled(app) {
+                AppThemingStatus(result: service.results[app.id]) { reviewConflict(target) }
+                extras(app)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func extras(_ app: AppThemeBuiltIn) -> some View {
+        switch app {
+        case .ghostty:
+            switch ghosttyStatus {
+            case .selected:
+                EmptyView()
+            case .notSelected:
+                HStack {
+                    Text(verbatim: AppThemeBuiltIn.ghosttyThemeLine)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                    Spacer()
+                    Button("Add to Ghostty Config…") { reviewGhosttySelection() }
+                }
+                SettingsCaption(localized: "Ghostty uses these themes once its config selects them.")
+            case let .overridden(path):
+                HStack(alignment: .firstTextBaseline) {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Another Ghostty config sets a different theme").font(.caption)
+                            Text(verbatim: path).font(.caption.monospaced()).foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    }
+                    Spacer()
+                    Button("Fix Ghostty Config…") { reviewGhosttySelection() }
+                }
+            }
+        case .kitty:
+            SettingsCaption(
+                localized: "kitty 0.38 or newer loads these files by itself and switches them with macOS light and dark."
+            )
+        case .herdr:
+            Toggle("Also reload saved herdr machines", isOn: herdrMachinesBinding)
+            SettingsCaption(
+                localized: "A herdr client attached to another machine draws with this terminal’s colors, so OmniWM reloads every enabled saved machine after the terminal."
+            )
+        case .neovim:
+            neovimActivation
+        }
+    }
+
+    private func reloadDescription(_ app: AppThemeBuiltIn) -> String {
+        switch app {
+        case .ghostty: String(
+                localized: "Light and dark themes · reloads Ghostty through its AppleScript reload_config action"
+            )
+        case .kitty: String(localized: "Automatic light and dark themes · reloads kitty with SIGUSR1")
+        case .herdr: String(
+                localized: "The [theme.custom] table of herdr’s config · reloads with herdr server reload-config"
+            )
+        case .neovim: String(
+                localized: "A base16 module for the current appearance · reloads Neovim with SIGUSR1"
+            )
+        }
+    }
+
+    private func enabledBinding(_ app: AppThemeBuiltIn) -> Binding<Bool> {
+        Binding(
+            get: { settings.appTheming.values.isEnabled(app) },
+            set: { enabled in
+                guard enabled else {
+                    settings.appTheming.values.setEnabled(app, false)
+                    return
+                }
+                turnOn(app)
+            }
+        )
+    }
+
+    private var neovimActivation: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: AppThemeNeovim.pluginLine)
+                    Text(verbatim: AppThemeNeovim.setupLine)
+                }
+                .font(.caption.monospaced())
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(
+                        AppThemeNeovim.pluginLine + "\n" + AppThemeNeovim.setupLine,
+                        forType: .string
+                    )
+                }
+            }
+            SettingsCaption(
+                localized: "Add the base16-nvim plugin to your plugin list and the setup line to your init.lua. OmniWM never edits your Neovim config; it signals running Neovim instances to reload the module."
+            )
+            Link("App Theming guide", destination: AppThemeNeovim.guideURL)
+                .font(.caption)
+        }
+    }
+
+    private var terminalColorsBinding: Binding<AppThemeTerminalColors> {
+        Binding(
+            get: { settings.appTheming.values.terminalColors },
+            set: { settings.appTheming.values.terminalColors = $0 }
+        )
+    }
+
+    private var herdrMachinesBinding: Binding<Bool> {
+        Binding(
+            get: { settings.appTheming.values.herdr.reloadSavedMachines },
+            set: { settings.appTheming.values.herdr.reloadSavedMachines = $0 }
+        )
+    }
+
+    private func turnOn(_ app: AppThemeBuiltIn) {
+        do {
+            let changes = try service.changes(for: service.target(for: app), onlyExisting: true)
+            guard !changes.isEmpty else {
+                settings.appTheming.values.setEnabled(app, true)
+                return
+            }
+            review = AppThemingReview(
+                title: String(localized: "Turn On \(app.name)"),
+                message: String(
+                    localized: "OmniWM will change these existing files and keep them updated when the palette changes."
+                ),
+                confirmTitle: String(localized: "Back Up and Turn On"),
+                changes: changes
+            ) { [service] in try service.confirm(changes, enabling: app) }
+        } catch {
+            problem = error.localizedDescription
+        }
+    }
+
+    private func reviewConflict(_ target: AppThemeTarget) {
+        do {
+            let changes = try service.changes(for: target, onlyExisting: true)
+            review = AppThemingReview(
+                title: String(localized: "Replace Changed Files"),
+                message: String(
+                    localized: "These files have changes OmniWM didn’t make. Replacing them keeps a backup of each."
+                ),
+                confirmTitle: String(localized: "Back Up and Replace"),
+                changes: changes
+            ) { [service] in try service.confirm(changes, reloading: target.id) }
+        } catch {
+            problem = error.localizedDescription
+        }
+    }
+
+    private func reviewGhosttySelection() {
+        let changes = service.ghosttySelectionChanges()
+        guard !changes.isEmpty else {
+            refreshGhosttySelection()
+            return
+        }
+        review = AppThemingReview(
+            title: String(localized: "Select the OmniWM Themes in Ghostty"),
+            message: String(
+                localized: "Ghostty reads each of these files in turn, and the last theme line wins. OmniWM will select its themes and comment out every other theme line."
+            ),
+            confirmTitle: String(localized: "Back Up and Change"),
+            changes: changes
+        ) { [service] in try service.applyGhosttySelection(changes) }
+    }
+
+    private func refreshGhosttySelection() {
+        ghosttyStatus = service.ghosttySelectionStatus()
+    }
+}

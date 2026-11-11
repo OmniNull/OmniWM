@@ -530,6 +530,33 @@ Optional. When present, OmniWM sends the position and an explicit width and heig
 | `widthPercent` | float | `100.0` | Width as a percentage of the panel's area (`10`–`100`). |
 | `heightPercent` | float | `50.0` | Height as a percentage of the panel's area (`10`–`100`). |
 
+## appTheming
+
+[App theming](/features/app-theming/). Every table is optional; when absent, nothing is themed.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `terminalColors` | string | `"palette"` | How terminal colors 1 to 6 and 9 to 14 are made: `palette` follows an accent-only palette such as the wallpaper's (a theme with its own hues keeps them), `standard` keeps standard hues tinted toward the accent. See [terminal colors](/features/app-theming/#terminal-colors). |
+| `ghostty.enabled` | boolean | `false` | Writes `omniwm-light` and `omniwm-dark` to `ghostty/themes/` in your config folder and reloads Ghostty when the palette changes. |
+| `kitty.enabled` | boolean | `false` | Writes kitty's `light-theme.auto.conf` and `dark-theme.auto.conf` and reloads kitty with `SIGUSR1`. |
+| `herdr.enabled` | boolean | `false` | Keeps `[theme.custom]` in herdr's `config.toml` in step with the palette. Turn it on in Settings, which shows the change and makes a backup first; OmniWM won't change an existing herdr config it hasn't been allowed to. |
+| `herdr.reloadSavedMachines` | boolean | `true` | Also runs `herdr --machine <label> server reload-config` for every enabled saved machine. |
+| `neovim.enabled` | boolean | `false` | Writes the `omniwm.lua` base16 module, with light and dark palettes chosen by Neovim's `background`, to `nvim/lua/` in your config folder, plus `nvim/colors/omniwm.lua`, and reloads running Neovim with `SIGUSR1`. See [Neovim](/features/app-theming/#neovim). |
+
+### appTheming.custom
+
+An array of tables, one per custom template.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `id` | string | generated | Identifies the template's status and state. |
+| `name` | string | `""` | Shown in Settings. |
+| `enabled` | boolean | `false` | Renders the template. |
+| `template` | string | `""` | Path of the template file; `~/` is your home folder. |
+| `darkTemplate` *(optional)* | string | unset | Template used in dark mode instead of `template`. |
+| `output` | string | `""` | File to write, inside `~/.config` (or `$XDG_CONFIG_HOME`) or `~/Library/Application Support`. |
+| `reload` | string | `"none"` | After writing: `none`, `ghostty`, `kitty` or `herdr`. Any other value, and an older `reloadCommand` key, is ignored; nothing is run. |
+
 ## scratchpads
 
 Optional labels for the ten scratchpad slots. A label replaces the slot number in the workspace bar and in `omniwmctl` output.

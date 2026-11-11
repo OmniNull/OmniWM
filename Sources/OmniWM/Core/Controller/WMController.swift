@@ -190,6 +190,7 @@ final class WMController {
         return terminal
     }()
 
+    @ObservationIgnored private(set) lazy var appThemeService: AppThemeService = makeAppThemeService()
     @ObservationIgnored
     lazy var commandPaletteController: CommandPaletteController = .init(motionPolicy: motionPolicy)
     @ObservationIgnored var windowSwitcherControllerStorage: WindowSwitcherController?

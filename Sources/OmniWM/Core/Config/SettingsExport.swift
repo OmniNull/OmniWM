@@ -59,6 +59,7 @@ struct SettingsExport: Equatable {
     var clipboard: Clipboard
 
     var quakeTerminal: QuakeTerminal
+    var appTheming = AppTheming()
 
     var appearanceMode: AppearanceMode
     var tabRailAppIcons: Bool

@@ -1,0 +1,194 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+import AppKit
+import Foundation
+
+@MainActor @Observable
+final class AppThemeService {
+    private(set) var results: [String: AppThemeResult]
+    private(set) var theme: ShellTheme?
+    private(set) var isDark: Bool
+    private(set) var isRunning = false
+    var lastBackup: URL?
+
+    @ObservationIgnored var onGhosttyThemesChanged: (() -> Void)?
+    @ObservationIgnored var onRunFinished: (() -> Void)?
+    @ObservationIgnored let settings: AppThemingSettings
+    @ObservationIgnored let engine: AppThemeEngine
+    @ObservationIgnored private let systemIsDark: @MainActor () -> Bool
+    @ObservationIgnored private let queue = DispatchQueue(label: "com.barut.OmniWM.app-theming", qos: .userInitiated)
+    @ObservationIgnored private var rerun = false
+    @ObservationIgnored private var appearanceChanged = false
+    @ObservationIgnored private var takeOver: Set<String> = []
+    @ObservationIgnored private var forceReload: Set<String> = []
+    @ObservationIgnored private var enabledTargets: Set<String> = []
+    @ObservationIgnored private var paletteTerminalColors = AppThemeTerminalColors.palette
+    @ObservationIgnored private var appearanceObserver: NSObjectProtocol?
+    @ObservationIgnored private var effectiveAppearanceObserver: NSKeyValueObservation?
+    @ObservationIgnored private var fallbackTheme: (@MainActor () -> ShellTheme)?
+    @ObservationIgnored private var cachedPalette: AppThemePalette?
+    @ObservationIgnored private var appliedPalette: AppThemePalette?
+
+    init(
+        settings: AppThemingSettings,
+        engine: AppThemeEngine,
+        systemIsDark: @escaping @MainActor () -> Bool = AppThemeService.liveSystemIsDark
+    ) {
+        self.settings = settings
+        self.engine = engine
+        self.systemIsDark = systemIsDark
+        isDark = systemIsDark()
+        paletteTerminalColors = settings.values.terminalColors
+        enabledTargets = Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id))
+        results = engine.store.load().results
+    }
+
+    isolated deinit {
+        if let appearanceObserver {
+            DistributedNotificationCenter.default().removeObserver(appearanceObserver)
+        }
+    }
+
+    static func live(settings: AppThemingSettings) -> AppThemeService {
+        AppThemeService(
+            settings: settings,
+            engine: AppThemeEngine(
+                policy: .live(),
+                store: AppThemeStateStore(
+                    directory: OmniWMStoragePaths.live.stateDirectory.appendingPathComponent("app-theming")
+                ),
+                environment: .live
+            )
+        )
+    }
+
+    static func liveSystemIsDark() -> Bool {
+        NSApplication.shared.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
+    var configHome: URL {
+        engine.policy.configHome
+    }
+
+    func start() {
+        guard appearanceObserver == nil else { return }
+        appearanceObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.appearanceNotificationReceived() }
+        }
+        effectiveAppearanceObserver = NSApplication.shared.observe(\.effectiveAppearance) { [weak self] _, _ in
+            Task { @MainActor [weak self] in self?.appearanceDidChange() }
+        }
+    }
+
+    func useThemeWhileShellIsOff(_ provider: @escaping @MainActor () -> ShellTheme, refresh: Bool = false) {
+        guard refresh || fallbackTheme == nil else { return }
+        fallbackTheme = provider
+        theme = nil
+        cachedPalette = nil
+        guard settings.values.anyEnabled, palette != appliedPalette else { return }
+        schedule()
+    }
+
+    var palette: AppThemePalette? {
+        if let cachedPalette { return cachedPalette }
+        guard let theme = theme ?? fallbackTheme?() else { return nil }
+        let palette = AppThemePalette(theme: theme, terminalColors: settings.values.terminalColors)
+        cachedPalette = palette
+        return palette
+    }
+
+    func paletteDidChange(_ theme: ShellTheme) {
+        fallbackTheme = nil
+        self.theme = theme
+        cachedPalette = nil
+        guard settings.values.anyEnabled, palette != appliedPalette else { return }
+        schedule()
+    }
+
+    func appearanceNotificationReceived() {
+        appearanceDidChange()
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated { self?.appearanceDidChange() }
+        }
+    }
+
+    func appearanceDidChange() {
+        let dark = systemIsDark()
+        guard dark != isDark else { return }
+        isDark = dark
+        appearanceChanged = true
+        schedule()
+    }
+
+    func settingsDidChange() {
+        if settings.values.terminalColors != paletteTerminalColors {
+            paletteTerminalColors = settings.values.terminalColors
+            cachedPalette = nil
+        }
+        let enabled = Set(settings.values.targets(configHome: configHome).map(\.id))
+        forceReload.formUnion(enabled.subtracting(enabledTargets))
+        enabledTargets = enabled
+        schedule()
+    }
+
+    func applyNow() {
+        schedule()
+    }
+
+    func markTakeOver(_ path: String) {
+        takeOver.insert(path)
+    }
+
+    func markForceReload(_ targetID: String) {
+        forceReload.insert(targetID)
+    }
+
+    func schedule() {
+        guard !isRunning else {
+            rerun = true
+            return
+        }
+        guard let palette else { return }
+        let targets = settings.values.targets(configHome: configHome)
+        guard !targets.isEmpty else { return }
+        let dark = systemIsDark()
+        if dark != isDark {
+            isDark = dark
+            appearanceChanged = true
+        }
+        let job = AppThemeJob(
+            palette: palette,
+            dark: isDark,
+            appearanceChanged: appearanceChanged,
+            targets: targets,
+            takeOver: takeOver,
+            forceReload: forceReload
+        )
+        appearanceChanged = false
+        takeOver = []
+        forceReload = []
+        appliedPalette = palette
+        isRunning = true
+        let engine = engine
+        queue.async { [weak self] in
+            let report = engine.run(job)
+            Task { @MainActor [weak self] in self?.finish(report) }
+        }
+    }
+
+    private func finish(_ report: AppThemeRunReport) {
+        results.merge(report.results) { $1 }
+        isRunning = false
+        if report.ghosttyThemesChanged { onGhosttyThemesChanged?() }
+        if rerun {
+            rerun = false
+            schedule()
+        }
+        onRunFinished?()
+    }
+}

@@ -47,6 +47,8 @@ struct SettingsDetailView: View {
                 controller: controller,
                 windowCornerPreferences: windowCornerPreferences
             )
+        case .appTheming:
+            AppThemingSettingsPage(settings: settings, service: controller.appThemeService)
         case .styles:
             ShellDesktopEditorPage(settings: settings, controller: controller)
         case .menuBar:

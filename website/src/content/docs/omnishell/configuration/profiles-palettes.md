@@ -99,3 +99,4 @@ Styles that declare an effect expose its controls under **Styles & Widgets > Bar
 
 Use [development diagnostics](/omnishell/configuration/development/#diagnostics) to find unknown keys, invalid values and theme errors.
 
+[App Theming](/features/app-theming/) writes these roles into Ghostty, kitty, herdr and your own templates.

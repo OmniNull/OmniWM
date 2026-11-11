@@ -27,6 +27,7 @@ struct CanonicalTOMLConfig: Codable, Equatable {
     var commandPalette: SettingsExport.CommandPalette
     var clipboard: SettingsExport.Clipboard
     var quakeTerminal: SettingsExport.QuakeTerminal
+    var appTheming: SettingsExport.AppTheming
     var scratchpads: SettingsExport.Scratchpads
     var appearance: Appearance
     var hotkeys: [HotkeyBinding]
@@ -102,6 +103,7 @@ extension CanonicalTOMLConfig {
         commandPalette = try Self.decodeOptionalTable(.commandPalette, from: container) ?? .init()
         clipboard = try container.decode(SettingsExport.Clipboard.self, forKey: .clipboard)
         quakeTerminal = try container.decode(SettingsExport.QuakeTerminal.self, forKey: .quakeTerminal)
+        appTheming = try Self.decodeOptionalTable(.appTheming, from: container) ?? .init()
         scratchpads = try container.decode(SettingsExport.Scratchpads.self, forKey: .scratchpads)
         appearance = try container.decode(Appearance.self, forKey: .appearance)
         hotkeys = try Self.decodeHotkeys(from: container)
@@ -175,6 +177,7 @@ extension CanonicalTOMLConfig {
         monitorDwindleOverrides = export.monitorDwindleSettings
         monitorGapOverrides = export.monitorGapSettings
         shellPermissions = export.shellPermissions
+        appTheming = export.appTheming
     }
 
     func toSettingsExport() -> SettingsExport {
@@ -220,6 +223,7 @@ extension CanonicalTOMLConfig {
             commandPalette: commandPalette,
             clipboard: clipboard,
             quakeTerminal: quakeTerminal,
+            appTheming: appTheming,
             appearanceMode: appearance.mode,
             tabRailAppIcons: appearance.tabRailAppIcons,
             shellPermissions: shellPermissions
