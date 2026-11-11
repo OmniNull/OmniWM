@@ -266,6 +266,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         source: @escaping @Sendable () -> ShellWallpaperPalette.Source,
         read: @escaping @Sendable (URL) -> CGImage? = { _ in nil },
         image: @escaping @MainActor (Bool) -> CGImage? = { _ in nil },
+        override: @escaping @MainActor () -> [UInt32]? = { nil },
         deliver: @escaping ShellWallpaperPaletteWriter.Deliver = { MainActor.assumeIsolated($0) },
         onFailure: @escaping @MainActor (String) -> Void = { _ in }
     ) -> ShellWallpaperPaletteWriter {
@@ -275,6 +276,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             source: { source },
             read: read,
             image: image,
+            override: override,
             perform: { $0() },
             deliver: deliver,
             onFailure: onFailure
@@ -913,5 +915,54 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             .aerial(asset: "X", thumbnail: nil)
         )
         XCTAssertNil(ShellWallpaperPalette.desktopChoice(store: nil, location: ("MAIN", "ACTIVE"), aerials: aerials))
+    }
+
+    @MainActor
+    private final class ManagedSample {
+        var pixels: [UInt32]?
+
+        init(_ pixels: [UInt32]?) {
+            self.pixels = pixels
+        }
+    }
+
+    func testAWallpaperTheManagerSetKeepsItsPaletteWithoutAnotherDecodeOrCapture() {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = StillFile(ShellWallpaperPalette.StillWallpaper(
+            url: root.appendingPathComponent("managed.png"), size: 4096, modified: Date(timeIntervalSince1970: 1000)
+        ))
+        let decoder = Decoder(Self.sunset)
+        let managed = ManagedSample(ShellWallpaperPalette.pixels(of: Self.forest))
+        let screen = Wallpaper(Self.sunset)
+        let writer = makeWriter(
+            into: root,
+            source: { .still(file.check(), aerial: false) },
+            read: { decoder.read($0) },
+            image: { _ in
+                screen.reads += 1
+                return screen.image
+            },
+            override: { managed.pixels }
+        )
+        defer { writer.stop() }
+        writer.start()
+        let forest = palette(of: Self.forest)
+        XCTAssertEqual(palette(in: root), forest)
+        writer.refresh()
+        writer.refreshIfChanged()
+        XCTAssertEqual(palette(in: root), forest, "neither the file read nor a capture replaces the manager's palette")
+        XCTAssertEqual(decoder.count, 0, "the still file is not decoded again while the managed wallpaper shows")
+        XCTAssertEqual(screen.reads, 0)
+        XCTAssertEqual(file.checks, 0)
+
+        managed.pixels = nil
+        writer.refreshIfChanged()
+        XCTAssertEqual(
+            palette(in: root),
+            palette(of: Self.sunset),
+            "once the wallpaper is not the managed one, the still file read takes over"
+        )
+        XCTAssertEqual(decoder.count, 1)
     }
 }
