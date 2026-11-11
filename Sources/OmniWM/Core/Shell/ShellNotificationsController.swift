@@ -6,9 +6,7 @@ import Foundation
 
 @MainActor
 final class ShellNotificationsController {
-    private static let dismissalPersistenceGrace: Duration = .seconds(6)
-    private static let initialDismissalRetryDelay: Duration = .seconds(1)
-    private static let maximumDismissalRetryDelay: Duration = .seconds(30)
+    static let dismissalPersistenceGrace: Duration = .seconds(6)
 
     enum RefreshReason: String {
         case manual
@@ -51,7 +49,6 @@ final class ShellNotificationsController {
     private(set) var task: Task<Void, Never>?
     private(set) var actionTask: Task<Void, Never>?
     private var dismissalConfirmationTask: Task<Void, Never>?
-    private var dismissalRetryDelay = ShellNotificationsController.initialDismissalRetryDelay
     private(set) var generation: UInt64 = 0
     private var pending = false
     private var readSequence: UInt64 = 0
@@ -213,9 +210,6 @@ extension ShellNotificationsController {
         if pending {
             pending = false
             refresh(.coalesced)
-        } else if task == nil, dismissalConfirmationTask == nil, !dispatched.isEmpty {
-            scheduleDismissalConfirmation(at: now().advanced(by: dismissalRetryDelay))
-            dismissalRetryDelay = min(dismissalRetryDelay * 2, Self.maximumDismissalRetryDelay)
         }
     }
 
@@ -264,7 +258,6 @@ extension ShellNotificationsController {
         let deadline = now().advanced(by: Self.dismissalPersistenceGrace)
         dispatched[id] = deadline
         current.dispatched = dispatched.keys.map { $0.uuidString.lowercased() }.sorted()
-        dismissalRetryDelay = Self.initialDismissalRetryDelay
         scheduleDismissalConfirmation(at: deadline)
     }
 

@@ -112,6 +112,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
 
     private let firstBundle = "com.example.NotificationFixture"
     private let secondBundle = "com.example.OtherNotificationFixture"
+    private let grace = ShellNotificationsController.dismissalPersistenceGrace
 
     private func item(_ id: UUID, bundle: String? = nil, body: String = "Retained body") -> ShellServiceValue {
         .object([
@@ -559,7 +560,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         let task = try XCTUnwrap(controller.actionTask)
         await fulfillment(of: [entered], timeout: failureBound)
         gate.emit(0, .dispatched)
-        gate.now = gate.now.advanced(by: .seconds(7))
+        gate.now = gate.now.advanced(by: grace)
         gate.emit(0, .dispatched)
         controller.refresh(.filesystem)
         await controller.task?.value
@@ -699,7 +700,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         let dispatched = [id.uuidString.lowercased()]
         XCTAssertEqual(controller.current.dispatched, dispatched)
 
-        gate.now = gate.now.advanced(by: .seconds(5))
+        gate.now = gate.now.advanced(by: grace / 2)
         gate.snapshot = .init(state: "ready", items: [other, item(id)])
         gate.storageRevision = .init(database: gate.storageRevision.database, wal: Gate.revision(1).database)
         controller.refresh(.filesystem)
@@ -725,7 +726,10 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         let confirmationEntered = expectation(description: "follow-up read scheduled")
         let restored = expectation(description: "follow-up read restores retained row")
         gate.entered = { _ in entered.fulfill() }
-        gate.confirmationEntered = { _ in confirmationEntered.fulfill() }
+        gate.confirmationEntered = { deadline in
+            XCTAssertEqual(gate.now.duration(to: deadline), ShellNotificationsController.dismissalPersistenceGrace)
+            confirmationEntered.fulfill()
+        }
         let controller = await controller(gate)
         defer { controller.setListening(false) }
         XCTAssertTrue(controller.perform(.dismissAll))
@@ -745,7 +749,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         controller.onChange = { value in
             if value.kept == 1 { restored.fulfill() }
         }
-        gate.now = gate.now.advanced(by: .seconds(7))
+        gate.now = gate.now.advanced(by: grace)
         gate.finishConfirmation()
         await fulfillment(of: [restored], timeout: failureBound)
         controller.onChange = nil
@@ -770,70 +774,6 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         XCTAssertEqual(controller.current.items, initial.items)
     }
 
-    func testScheduledConfirmationRetriesIncompleteAndUnstableReads() async throws {
-        let id = UUID()
-        let initial = ShellNotificationsData(state: "ready", items: [item(id)])
-        let gate = Gate(snapshot: initial)
-        let entered = expectation(description: "batch starts")
-        let confirmation = expectation(description: "first confirmation scheduled")
-        gate.entered = { _ in entered.fulfill() }
-        gate.confirmationEntered = { _ in confirmation.fulfill() }
-        let controller = await controller(gate)
-        defer { controller.setListening(false) }
-        XCTAssertTrue(controller.perform(.dismissAll))
-        let task = try XCTUnwrap(controller.actionTask)
-        await fulfillment(of: [entered], timeout: failureBound)
-        gate.emit(0, .dispatched)
-        XCTAssertTrue(gate.finish(0, .dispatched))
-        await task.value
-        await controller.task?.value
-        await fulfillment(of: [confirmation], timeout: failureBound)
-
-        let retry = expectation(description: "incomplete confirmation schedules a retry")
-        var retryDeadline: SuspendingClock.Instant?
-        gate.confirmationEntered = { deadline in
-            retryDeadline = deadline
-            retry.fulfill()
-        }
-        gate.snapshot = .init(state: "incomplete", items: initial.items, complete: false)
-        gate.now = gate.now.advanced(by: .seconds(6))
-        gate.finishConfirmation()
-        await fulfillment(of: [retry], timeout: failureBound)
-        let deadline = try XCTUnwrap(retryDeadline)
-        XCTAssertEqual(gate.now.duration(to: deadline), .seconds(1))
-        XCTAssertTrue(controller.hasDispatched(id))
-        XCTAssertEqual(controller.current.kept, 0)
-
-        let readEntered = expectation(description: "confirmation retry starts reading")
-        let nextRetry = expectation(description: "unstable confirmation backs off before retrying")
-        gate.holdNextRead = true
-        gate.readEntered = { _ in readEntered.fulfill() }
-        gate.confirmationEntered = { deadline in
-            XCTAssertEqual(gate.now.duration(to: deadline), .seconds(2))
-            nextRetry.fulfill()
-        }
-        let index = gate.readCount
-        gate.now = deadline
-        gate.finishConfirmation()
-        await fulfillment(of: [readEntered], timeout: failureBound)
-        gate.storageRevision = Gate.revision(1)
-        XCTAssertTrue(gate.finishRead(index, with: initial))
-        await fulfillment(of: [nextRetry], timeout: failureBound)
-        XCTAssertTrue(controller.hasDispatched(id))
-        XCTAssertEqual(controller.current.kept, 0)
-
-        let restored = expectation(description: "stable confirmation restores the retained notification")
-        controller.onChange = { value in
-            if value.kept == 1 { restored.fulfill() }
-        }
-        gate.snapshot = initial
-        gate.now = gate.now.advanced(by: .seconds(2))
-        gate.finishConfirmation()
-        await fulfillment(of: [restored], timeout: failureBound)
-        XCTAssertFalse(controller.hasDispatched(id))
-        XCTAssertNil(controller.current.dismissAll)
-    }
-
     func testIncompleteAndUnstableFilesystemReadsCannotRestoreDispatchedRows() async throws {
         let id = UUID()
         let initial = ShellNotificationsData(state: "ready", items: [item(id)])
@@ -850,7 +790,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         await task.value
         await controller.task?.value
 
-        gate.now = gate.now.advanced(by: .seconds(7))
+        gate.now = gate.now.advanced(by: grace)
         gate.storageRevision = Gate.revision(1)
         gate.snapshot = .init(state: "incomplete", items: initial.items, complete: false)
         controller.refresh(.filesystem)
@@ -922,7 +862,7 @@ final class ShellNotificationsDismissAllTests: XCTestCase {
         controller.refresh()
         let firstReadTask = try XCTUnwrap(controller.task)
         await fulfillment(of: [firstReadEntered], timeout: failureBound)
-        gate.now = gate.now.advanced(by: .seconds(7))
+        gate.now = gate.now.advanced(by: grace)
         controller.refresh(.filesystem)
         gate.holdNextRead = true
         XCTAssertTrue(gate.finishRead(index, with: initial))
