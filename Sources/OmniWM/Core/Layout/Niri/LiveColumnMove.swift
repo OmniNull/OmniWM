@@ -105,6 +105,10 @@ struct LiveColumnMove {
         func contains(y: CGFloat) -> Bool {
             minY <= y && y < maxY
         }
+
+        func distance(toY y: CGFloat) -> CGFloat {
+            max(minY - y, y - maxY, 0)
+        }
     }
 
     struct MateHeight: Equatable {

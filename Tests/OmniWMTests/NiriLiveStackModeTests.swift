@@ -439,6 +439,30 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(fixture.columnOrder().filter { !$0.isEmpty }.map(\.count), [1, 1, 1, 1, 1])
     }
 
+    func testThePointerBetweenTwoStackedWindowsOpensTheGapBetweenThem() {
+        var fixture = makeFixture()
+        fixture.stack(4, onto: 3)
+        let old = fixture.column(2)
+        let stack = fixture.column(3)
+        XCTAssertTrue(fixture.begin(1))
+        fixture.arrive(at: fixture.lowerHalf(of: 2))
+        XCTAssertEqual(fixture.setStackMode(true, at: fixture.lowerHalf(of: 2)), .changed)
+        XCTAssertTrue(fixture.window(1).parent === old)
+        let spans = fixture.spans(stack).sorted { $0.minY < $1.minY }
+        let between = fixture.point(inColumnOf: 3, y: (spans[0].maxY + spans[1].minY) / 2)
+        XCTAssertFalse(spans.contains { $0.contains(y: between.y) })
+
+        XCTAssertEqual(fixture.move(to: between), .changed)
+
+        XCTAssertTrue(fixture.window(1).parent === stack)
+        XCTAssertEqual(fixture.storage(stack), [3, 1, 4].map { fixture.tokens[$0] })
+        XCTAssertEqual(fixture.storage(old), [fixture.tokens[2]])
+        XCTAssertTrue(fixture.endStacking())
+        XCTAssertTrue(fixture.finishStackDrop())
+        XCTAssertEqual(fixture.storage(stack), [3, 1, 4].map { fixture.tokens[$0] })
+        XCTAssertEqual(fixture.storage(old), [fixture.tokens[2]])
+    }
+
     func testAMovePastAColumnBeforeStackModeStays() {
         var fixture = makeFixture()
         XCTAssertTrue(fixture.begin(1))

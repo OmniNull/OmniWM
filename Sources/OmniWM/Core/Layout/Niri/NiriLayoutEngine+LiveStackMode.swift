@@ -649,18 +649,13 @@ extension NiriLayoutEngine {
             return .land(.init(columnId: column.id, targetWindowId: shown.id, above: false))
         }
         let spans = liveWindowSpans(in: column, context: context)
-        if spans.contains(where: { $0.window === window && $0.contains(y: cursor.y) }) {
+        guard let nearest = spans.min(by: { $0.distance(toY: cursor.y) < $1.distance(toY: cursor.y) })
+        else { return .home }
+        if nearest.window === window {
             return .keep
         }
         let others = spans.filter { $0.window !== window }
-        guard let hitIndex = others.firstIndex(where: { $0.contains(y: cursor.y) }) else {
-            traceLiveStackRefusalDetail(
-                "missed-height y=\(Int(cursor.y.rounded())) spans=["
-                    + spans.map { "\(Int($0.minY.rounded()))-\(Int($0.maxY.rounded()))" }.joined(separator: ",")
-                    + "] frame=\(context.workingFrame.integral)"
-            )
-            return .keep
-        }
+        guard let hitIndex = others.firstIndex(where: { $0.window === nearest.window }) else { return .home }
         let hit = others[hitIndex]
         let above = cursor.y >= (hit.minY + hit.maxY) / 2
         guard !above, hitIndex > 0 else {
