@@ -52,7 +52,7 @@ extension ShellAppWindowManager {
               let token = admit(
                   window, metadata: HostedWindowMetadata(
                       appId: HostedWindowMetadata.settingsAppID, title: window.title, minimumSize: window.minSize,
-                      icon: "gearshape", admitsFloating: true
+                      icon: HostedWindowMetadata.settingsIcon, admitsFloating: true
                   ),
                   to: workspace
               ) else { return nil }

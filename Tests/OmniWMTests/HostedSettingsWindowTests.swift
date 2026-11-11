@@ -30,7 +30,7 @@ final class HostedSettingsWindowTests: XCTestCase {
         XCTAssertEqual(metadata.title, fixture.title)
         XCTAssertEqual(metadata.minimumSize, fixture.minimumSize)
         XCTAssertEqual(metadata.appId, HostedWindowMetadata.settingsAppID)
-        XCTAssertEqual(metadata.icon, "gearshape")
+        XCTAssertEqual(metadata.icon, HostedWindowMetadata.settingsIcon)
     }
 
     func testClosingTheSettingsWindowRemovesItsEntry() throws {
