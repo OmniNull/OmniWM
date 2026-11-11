@@ -434,18 +434,11 @@ extension CommandPaletteShellPresenter {
         let gap = surface.layout.core.layoutStyle(of: container).gap
         var changed = false
         var index = 0
-        var previous: Rect?
         surface.layout.core.forEachChild(of: container) { child, key in
             guard key != Self.beforeKey, key != Self.afterKey else { return }
-            let frame = surface.layout.core.layoutFrame(of: child)
-            if let previous {
-                changed = rowWindow.record(advance: frame.y - previous.y, for: rows[index - 1].id) || changed
-            }
-            previous = frame
+            let height = surface.layout.core.layoutFrame(of: child).height
+            changed = rowWindow.record(advance: height + gap, for: rows[index].id) || changed
             index += 1
-        }
-        if let previous {
-            changed = rowWindow.record(advance: previous.height + gap, for: rows[index - 1].id) || changed
         }
         return changed
     }
