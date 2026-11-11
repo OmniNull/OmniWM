@@ -178,7 +178,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             destination: root.appendingPathComponent("themes/wallpaper.toml"),
             scheme: .tonalSpot,
             recheckInterval: 0.02,
-            still: { nil },
+            still: { { nil } },
             image: {
                 wallpaper.reads += 1
                 return wallpaper.image
@@ -187,12 +187,35 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         )
     }
 
-    private final class StillFile {
-        var wallpaper: ShellWallpaperPalette.StillWallpaper
-        var checks = 0
+    private final class StillFile: @unchecked Sendable {
+        private let lock = NSLock()
+        private var current: ShellWallpaperPalette.StillWallpaper
+        private var looks = 0
+        private var looksOnMain = 0
 
         init(_ wallpaper: ShellWallpaperPalette.StillWallpaper) {
-            self.wallpaper = wallpaper
+            current = wallpaper
+        }
+
+        var checks: Int {
+            lock.withLock { looks }
+        }
+
+        var checksOnMain: Int {
+            lock.withLock { looksOnMain }
+        }
+
+        func show(_ next: ShellWallpaperPalette.StillWallpaper) {
+            lock.withLock { current = next }
+        }
+
+        func check() -> ShellWallpaperPalette.StillWallpaper? {
+            let onMain = Thread.isMainThread
+            return lock.withLock {
+                looks += 1
+                looksOnMain += onMain ? 1 : 0
+                return current
+            }
         }
     }
 
@@ -226,10 +249,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             destination: root.appendingPathComponent("themes/wallpaper.toml"),
             scheme: .tonalSpot,
             recheckInterval: 0.02,
-            still: {
-                file.checks += 1
-                return file.wallpaper
-            },
+            still: { { file.check() } },
             read: { decoder.read($0) },
             image: { nil },
             onFailure: { _ in }
@@ -518,13 +538,30 @@ final class ShellWallpaperPaletteTests: XCTestCase {
 
         let decodes = decoder.count
         decoder.show(Self.forest)
-        file.wallpaper = ShellWallpaperPalette.StillWallpaper(
+        file.show(ShellWallpaperPalette.StillWallpaper(
             url: url, size: 4096, modified: Date(timeIntervalSince1970: 2000)
-        )
+        ))
         let forest = palette(of: Self.forest)
         let followed = await eventually { palette(in: root) == forest }
         XCTAssertTrue(followed)
         XCTAssertGreaterThan(decoder.count, decodes)
+    }
+
+    func testTheRecheckLooksAtTheWallpaperFileOffTheMainActor() async {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = StillFile(ShellWallpaperPalette.StillWallpaper(
+            url: root.appendingPathComponent("sunset.png"), size: 4096, modified: Date(timeIntervalSince1970: 1000)
+        ))
+        let writer = rechecking(file, decoder: Decoder(Self.sunset), into: root)
+        defer { writer.stop() }
+        writer.start()
+        let rechecked = await eventually { file.checks >= 4 }
+        XCTAssertTrue(rechecked)
+        XCTAssertEqual(
+            file.checksOnMain, 0,
+            "the Store read, the image source check and the file stat must not wait on a slow volume on the main actor"
+        )
     }
 
     func testTheRecheckStopsWhenTheWriterIsStoppedOrReleased() async throws {

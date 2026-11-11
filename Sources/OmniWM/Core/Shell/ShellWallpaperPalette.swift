@@ -103,6 +103,12 @@ extension ShellWallpaperPalette {
         let modified: Date
     }
 
+    struct StillProbe: Sendable {
+        let url: URL?
+        let showsWallpaperWindow: Bool
+        let location: (display: String, space: String)?
+    }
+
     @MainActor
     static func stillWallpaper(
         for displayId: CGDirectDisplayID,
@@ -113,24 +119,48 @@ extension ShellWallpaperPalette {
         windows: () -> [[String: Any]] = {
             CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
         },
-        store: () -> Data? = {
-            try? Data(contentsOf: ShellWallpaperPaletteWriter.store.appendingPathComponent("Index.plist"))
-        },
+        store: () -> Data? = { ShellWallpaperPalette.storeIndex() },
         location: (CGDirectDisplayID) -> (display: String, space: String)? = { ShellWallpaperPalette.location(of: $0) },
         aerials: URL = Self.aerials
     ) -> StillWallpaper? {
-        let frame = frame ?? CGDisplayBounds(displayId)
-        let store = store()
-        if let location = location(displayId),
-           case let .aerial(_, thumbnail?) = desktopChoice(store: store, location: location, aerials: aerials)
-        {
+        let probe = stillProbe(
+            for: displayId, frame: frame, desktopImageURL: desktopImageURL, windows: windows, location: location
+        )
+        return stillWallpaper(probe, store: store(), aerials: aerials)
+    }
+
+    @MainActor
+    static func stillProbe(
+        for displayId: CGDirectDisplayID,
+        frame: CGRect? = nil,
+        desktopImageURL: (CGDirectDisplayID) -> URL? = { displayId in
+            NSScreen.screens.first { $0.displayId == displayId }.flatMap { NSWorkspace.shared.desktopImageURL(for: $0) }
+        },
+        windows: () -> [[String: Any]] = {
+            CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+        },
+        location: (CGDirectDisplayID) -> (display: String, space: String)? = { ShellWallpaperPalette.location(of: $0) }
+    ) -> StillProbe {
+        StillProbe(
+            url: desktopImageURL(displayId),
+            showsWallpaperWindow: showsWallpaperWindow(windows(), frame: frame ?? CGDisplayBounds(displayId)),
+            location: location(displayId)
+        )
+    }
+
+    static func stillWallpaper(_ probe: StillProbe, store: Data?, aerials: URL = Self.aerials) -> StillWallpaper? {
+        guard let location = probe.location else { return nil }
+        if case let .aerial(_, thumbnail?) = desktopChoice(store: store, location: location, aerials: aerials) {
             return stamp(thumbnail)
         }
-        guard let url = desktopImageURL(displayId),
-              let location = location(displayId),
-              showsStillImage(url, windows: windows(), frame: frame, store: store, location: location)
+        guard let url = probe.url, probe.showsWallpaperWindow,
+              showsStillImage(url, store: store, location: location)
         else { return nil }
         return stamp(url)
+    }
+
+    static func storeIndex() -> Data? {
+        try? Data(contentsOf: ShellWallpaperPaletteWriter.store.appendingPathComponent("Index.plist"))
     }
 
     @MainActor
@@ -151,9 +181,7 @@ extension ShellWallpaperPalette {
     @MainActor
     static func screenImage(
         for displayId: CGDirectDisplayID,
-        store: () -> Data? = {
-            try? Data(contentsOf: ShellWallpaperPaletteWriter.store.appendingPathComponent("Index.plist"))
-        },
+        store: () -> Data? = { ShellWallpaperPalette.storeIndex() },
         location: (CGDirectDisplayID) -> (display: String, space: String)? = { ShellWallpaperPalette.location(of: $0) },
         aerials: URL = Self.aerials,
         capture: (CGDirectDisplayID) -> CGImage? = { displayId in
@@ -217,19 +245,20 @@ extension ShellWallpaperPalette {
     }
 
     @MainActor
+    static func showsWallpaperWindow(_ windows: [[String: Any]], frame: CGRect) -> Bool {
+        guard let wallpaper = SkyLight.wallpaperWindow(in: windows, frame: frame) else { return false }
+        return windows.contains {
+            $0[kCGWindowNumber as String] as? UInt32 == wallpaper.id
+                && $0[kCGWindowLayer as String] as? Int32 == CGWindowLevelForKey(.desktopWindow) - 1
+        }
+    }
+
     static func showsStillImage(
         _ url: URL,
-        windows: [[String: Any]],
-        frame: CGRect,
         store: Data?,
         location: (display: String, space: String)
     ) -> Bool {
         guard url.isFileURL,
-              let wallpaper = SkyLight.wallpaperWindow(in: windows, frame: frame),
-              windows.contains(where: {
-                  $0[kCGWindowNumber as String] as? UInt32 == wallpaper.id
-                      && $0[kCGWindowLayer as String] as? Int32 == CGWindowLevelForKey(.desktopWindow) - 1
-              }),
               let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               CGImageSourceGetCount(source) == 1,
               let store,
@@ -272,12 +301,20 @@ extension ShellWallpaperPalette {
 
 @MainActor
 final class ShellWallpaperPaletteWriter {
-    static let store = FileManager.default.homeDirectoryForCurrentUser
+    nonisolated static let store = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/com.apple.wallpaper/Store", isDirectory: true)
     private static let queue = DispatchQueue(label: "com.barut.OmniWM.shell.wallpaper", qos: .utility)
 
+    typealias StillLookup = @Sendable () -> ShellWallpaperPalette.StillWallpaper?
+
+    // Read and written only on the writer queue.
+    private final class Record: @unchecked Sendable {
+        var written: ShellWallpaperPalette.StillWallpaper?
+        var pixels: [UInt32]?
+    }
+
     private let destination: URL
-    private let still: @MainActor () -> ShellWallpaperPalette.StillWallpaper?
+    private let still: @MainActor () -> StillLookup
     private let read: @Sendable (URL) -> CGImage?
     private let image: @MainActor () -> CGImage?
     private let onFailure: @MainActor (String) -> Void
@@ -286,15 +323,15 @@ final class ShellWallpaperPaletteWriter {
     private var scheme: ShellWallpaperScheme
     private let recheckInterval: TimeInterval
     private var recheck: DispatchSourceTimer?
-    private var pixels: [UInt32]?
-    private var written: ShellWallpaperPalette.StillWallpaper?
+    private let record = Record()
 
     init(
         destination: URL,
         scheme: ShellWallpaperScheme,
         recheckInterval: TimeInterval = 60,
-        still: @escaping @MainActor () -> ShellWallpaperPalette.StillWallpaper? = {
-            ShellWallpaperPalette.stillWallpaper(for: CGMainDisplayID())
+        still: @escaping @MainActor () -> StillLookup = {
+            let probe = ShellWallpaperPalette.stillProbe(for: CGMainDisplayID())
+            return { ShellWallpaperPalette.stillWallpaper(probe, store: ShellWallpaperPalette.storeIndex()) }
         },
         read: @escaping @Sendable (URL) -> CGImage? = { ShellWallpaperPalette.read($0) },
         image: @escaping @MainActor () -> CGImage? = { ShellWallpaperPalette.screenImage(for: CGMainDisplayID()) },
@@ -364,42 +401,19 @@ final class ShellWallpaperPaletteWriter {
     }
 
     private func refresh(onlyIfChanged: Bool) {
-        if let still = still() {
-            refresh(still, onlyIfChanged: onlyIfChanged)
-            return
-        }
-        guard let image = image() else {
-            onFailure("The wallpaper palette keeps its last colors because the wallpaper image is unavailable")
-            return
-        }
-        let pixels = ShellWallpaperPalette.pixels(of: image)
-        guard !onlyIfChanged || pixels != self.pixels else { return }
-        let scheme = scheme
-        let destination = destination
-        Self.queue.async { [weak self] in
-            do {
-                _ = try ShellWallpaperPalette.write(
-                    ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme),
-                    to: destination
-                )
-                DispatchQueue.main.async {
-                    MainActor.assumeIsolated {
-                        self?.pixels = pixels
-                        self?.written = nil
-                    }
-                }
-            } catch {
-                Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func refresh(_ still: ShellWallpaperPalette.StillWallpaper, onlyIfChanged: Bool) {
-        guard !onlyIfChanged || still != written else { return }
+        let lookup = still()
         let read = read
         let scheme = scheme
         let destination = destination
+        let record = record
         Self.queue.async { [weak self] in
+            guard let still = lookup() else {
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { self?.refreshImage(onlyIfChanged: onlyIfChanged) }
+                }
+                return
+            }
+            guard !onlyIfChanged || still != record.written else { return }
             guard let image = read(still.url) else {
                 Log.shell.error("Failed to read the wallpaper file for the wallpaper palette")
                 return
@@ -409,12 +423,33 @@ final class ShellWallpaperPaletteWriter {
                     ShellWallpaperPalette.theme(pixels: ShellWallpaperPalette.pixels(of: image), scheme: scheme),
                     to: destination
                 )
-                DispatchQueue.main.async {
-                    MainActor.assumeIsolated {
-                        self?.written = still
-                        self?.pixels = nil
-                    }
-                }
+                record.written = still
+                record.pixels = nil
+            } catch {
+                Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func refreshImage(onlyIfChanged: Bool) {
+        guard !onlyIfChanged || recheck != nil else { return }
+        guard let image = image() else {
+            onFailure("The wallpaper palette keeps its last colors because the wallpaper image is unavailable")
+            return
+        }
+        let pixels = ShellWallpaperPalette.pixels(of: image)
+        let scheme = scheme
+        let destination = destination
+        let record = record
+        Self.queue.async {
+            guard !onlyIfChanged || pixels != record.pixels else { return }
+            do {
+                _ = try ShellWallpaperPalette.write(
+                    ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme),
+                    to: destination
+                )
+                record.pixels = pixels
+                record.written = nil
             } catch {
                 Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
             }
