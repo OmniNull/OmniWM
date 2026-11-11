@@ -122,7 +122,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         let panel = try XCTUnwrap(fixture.registry.visibleWindows().first as? WindowSwitcherPanel)
         XCTAssertEqual(tiles(in: try XCTUnwrap(panel.contentView)).map(\.handle.id), fixture.tokens)
 
-        fixture.switcher.handle(.toggleScope)
+        fixture.switcher.handle(.cycleScope)
 
         XCTAssertTrue(fixture.switcher.isVisible)
         XCTAssertEqual(
@@ -154,9 +154,9 @@ final class WindowSwitcherControllerTests: XCTestCase {
         fixture.switcher.handle(.begin(reverse: false, scope: .visibleWorkspaces))
 
         let panel = try XCTUnwrap(fixture.registry.visibleWindows().first as? WindowSwitcherPanel)
-        let shown = tiles(in: try XCTUnwrap(panel.contentView))
-        XCTAssertEqual(shown.map(\.handle.id), fixture.tokens + [shownToken])
-        let badges = shown.map { $0.subviews.compactMap(\.toolTip).filter { ["1", "Right"].contains($0) } }
+        let cards = tiles(in: try XCTUnwrap(panel.contentView))
+        XCTAssertEqual(cards.map(\.handle.id), fixture.tokens + [shownToken])
+        let badges = cards.map { $0.subviews.compactMap(\.toolTip).filter { ["1", "Right"].contains($0) } }
         XCTAssertEqual(badges, [["1"], ["1"], ["Right"]])
     }
 
@@ -173,7 +173,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
             fixture.switcher.handle(.begin(reverse: false, scope: .activeWorkspace))
 
             let scopes = (0 ..< 3).map { _ in
-                fixture.switcher.handle(.toggleScope)
+                fixture.switcher.handle(.cycleScope)
                 return fixture.controller.settings.windowSwitcher.scope
             }
 
@@ -202,7 +202,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         let panel = try XCTUnwrap(fixture.registry.visibleWindows().first as? WindowSwitcherPanel)
         XCTAssertTrue(buttonTitles(in: try XCTUnwrap(panel.contentView)).contains("Visible Workspaces"))
 
-        fixture.switcher.handle(.toggleScope)
+        fixture.switcher.handle(.cycleScope)
 
         XCTAssertEqual(fixture.controller.settings.windowSwitcher.scope, .allWorkspaces)
         XCTAssertTrue(buttonTitles(in: try XCTUnwrap(panel.contentView)).contains("All Workspaces"))

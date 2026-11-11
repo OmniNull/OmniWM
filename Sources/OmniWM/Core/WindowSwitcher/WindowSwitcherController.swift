@@ -46,7 +46,7 @@ final class WindowSwitcherController {
             self?.selection.select(token)
             self?.commit(focusOrigin: .pointerSelection)
         }
-        panel.onToggleScope = { [weak self] in self?.handle(.toggleScope) }
+        panel.onCycleScope = { [weak self] in self?.handle(.cycleScope) }
         panel.onClose = { [weak self] token in self?.close(token) }
         panel.onVisibleItemsChanged = { [weak self] displayed in self?.captureVisibleItems(displayed) }
     }
@@ -67,7 +67,7 @@ final class WindowSwitcherController {
             reconcileItems()
             if selection.selected == previous { selection.cycle(reverse: reverse) }
             render()
-        case .toggleScope:
+        case .cycleScope:
             guard isVisible else { return }
             scope = scope.next(offeringVisibleWorkspaces: visibleWorkspaceIds.count > 1)
             controller?.settings.windowSwitcher.scope = scope
