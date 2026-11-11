@@ -50,6 +50,7 @@ extension AXEventHandler {
 
         prepareRetirementFocus(entry, policy: policy, ownsLiveFocus: ownsLiveFocus, controller: controller)
         controller.mouseEventHandler.discardNativeTitleBarDrag(for: token)
+        releaseScratchpadMembershipOfLiveWindow(token, reason: reason)
         _ = controller.workspaceManager.removeWindow(pid: token.pid, windowId: token.windowId)
         if let axRef = entry.axRef {
             noteManagedWindowSubscriptionIdentityChanged()
@@ -77,6 +78,22 @@ extension AXEventHandler {
         )
         if case .terminalFrameRefusal = reason {
             controller.surfaceReconciler.noteRestackOccurred()
+        }
+    }
+
+    private func releaseScratchpadMembershipOfLiveWindow(
+        _ token: WindowToken,
+        reason: ManagedWindowRetirementReason
+    ) {
+        guard let controller, controller.workspaceManager.isScratchpadToken(token) else { return }
+        switch reason {
+        case .decisionRejection,
+             .staleIncarnation,
+             .terminalFrameRefusal:
+            controller.cleanupScratchpadWindowResources(for: token)
+        case .destroyed,
+             .authoritativeRescan:
+            break
         }
     }
 

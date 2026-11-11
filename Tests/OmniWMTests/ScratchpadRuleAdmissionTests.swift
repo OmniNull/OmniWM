@@ -308,6 +308,7 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
             token,
             ScratchpadAdmission(index: 1, fallbackMode: .tiling),
             observedFrame: nil,
+            appFullscreen: false,
             arrival: .quiet(previousFocusToken: nil)
         )
 
@@ -445,6 +446,308 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         XCTAssertTrue(manager.scratchpadMembers(in: 1).isEmpty)
     }
 
+    func testLiveCreatedFullscreenMemberParksLogicallyUntilItLeavesFullscreen() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let token = WindowToken(pid: 975_171, windowId: 975_271)
+        fixture.book.fullscreen.insert(token)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        try liveCreate(token, in: fixture)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertTrue(fixture.controller.isManagedWindowSuspendedForNativeFullscreen(token))
+        XCTAssertEqual(parkIntents(of: token), 0)
+
+        fixture.book.fullscreen.remove(token)
+        let entry = try XCTUnwrap(manager.entry(for: token))
+        fixture.controller.axEventHandler.handleManagedAppActivation(
+            entry: entry,
+            isWorkspaceActive: true,
+            appFullscreen: false,
+            confirmRequest: false,
+            bindCurrentPidRequest: false
+        )
+
+        XCTAssertEqual(manager.layoutReason(for: token), .standard)
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertGreaterThan(parkIntents(of: token), 0)
+    }
+
+    func testFullRescanFullscreenMemberParksLogicallyUntilItLeavesFullscreen() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let token = WindowToken(pid: 975_181, windowId: 975_281)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        rescan(token, in: fixture, fullscreen: true)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertTrue(fixture.controller.isManagedWindowSuspendedForNativeFullscreen(token))
+        XCTAssertEqual(parkIntents(of: token), 0)
+
+        rescan(token, in: fixture)
+
+        XCTAssertEqual(manager.layoutReason(for: token), .standard)
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertGreaterThan(parkIntents(of: token), 0)
+    }
+
+    func testAdmissionParksWithItsCapturedGeometryWhenTheLiveFrameIsUnavailable() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        fixture.controller.layoutRefreshController.fastFrameProvider = { _, _ in nil }
+        let token = WindowToken(pid: 975_191, windowId: 975_291)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        try liveCreate(token, in: fixture)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertGreaterThan(parkIntents(of: token), 0)
+    }
+
+    func testAdmissionJoinThatCannotParkRollsBackToTheFallbackMode() throws {
+        let fixture = try makeFixture(rules: [])
+        let manager = fixture.controller.workspaceManager
+        fixture.controller.layoutRefreshController.fastFrameProvider = { _, _ in nil }
+        let token = WindowToken(pid: 975_192, windowId: 975_292)
+        addFloatingWindow(token, to: fixture)
+
+        fixture.controller.joinScratchpadOnAdmission(
+            token,
+            ScratchpadAdmission(index: 1, fallbackMode: .tiling),
+            observedFrame: nil,
+            appFullscreen: false,
+            arrival: .quiet(previousFocusToken: nil)
+        )
+
+        XCTAssertNil(manager.scratchpadIndex(for: token))
+        XCTAssertTrue(manager.scratchpadMembers(in: 1).isEmpty)
+        XCTAssertNil(manager.revealedScratchpadIndex())
+        XCTAssertNil(manager.manualLayoutOverride(for: token))
+        XCTAssertNil(manager.hiddenState(for: token))
+        XCTAssertEqual(manager.entry(for: token)?.mode, .tiling)
+    }
+
+    func testExplicitRuleApplyThatCannotParkLeavesTheWindowOutOfTheSlot() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        fixture.controller.layoutRefreshController.fastFrameProvider = { _, _ in nil }
+        let token = WindowToken(pid: 975_193, windowId: 975_293)
+        addFloatingWindow(token, to: fixture)
+
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+
+        XCTAssertNil(manager.scratchpadIndex(for: token))
+        XCTAssertTrue(manager.scratchpadMembers(in: 1).isEmpty)
+        XCTAssertNil(manager.manualLayoutOverride(for: token))
+        XCTAssertNil(manager.hiddenState(for: token))
+        XCTAssertEqual(manager.entry(for: token)?.mode, .tiling)
+    }
+
+    func testFullRescanReplacementOfATiledWindowKeepsTilingAndDoesNotJoin() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let oldToken = WindowToken(pid: 975_201, windowId: 975_301)
+        let newToken = WindowToken(pid: oldToken.pid, windowId: 975_302)
+        _ = manager.addWindow(
+            WindowAdmissionTestSupport.axRef(for: oldToken),
+            pid: oldToken.pid,
+            windowId: oldToken.windowId,
+            to: fixture.workspaceId,
+            mode: .tiling,
+            managedReplacementMetadata: ManagedReplacementMetadata(
+                bundleId: Self.bundleId,
+                workspaceId: fixture.workspaceId,
+                mode: .tiling,
+                role: kAXWindowRole as String,
+                subrole: kAXStandardWindowSubrole as String,
+                title: "Notes",
+                windowLevel: 0,
+                parentWindowId: nil,
+                frame: Self.windowServerFrame
+            )
+        )
+        fixture.controller.axManager.confirmFrameWrite(
+            for: oldToken.windowId,
+            frame: ScreenCoordinateSpace.toAppKit(rect: Self.windowServerFrame)
+        )
+        let handle = try XCTUnwrap(manager.handle(for: oldToken))
+
+        rescan(newToken, in: fixture)
+
+        XCTAssertNil(manager.entry(for: oldToken))
+        XCTAssertTrue(manager.handle(for: newToken) === handle)
+        let entry = try XCTUnwrap(manager.entry(for: newToken))
+        XCTAssertEqual(entry.mode, .tiling)
+        XCTAssertEqual(entry.managedReplacementMetadata?.mode, .tiling)
+        XCTAssertNil(manager.scratchpadIndex(for: newToken))
+        XCTAssertNil(manager.manualLayoutOverride(for: newToken))
+    }
+
+    func testReplayedReplacementCreateChecksFocusWhenItIsReplayed() throws {
+        for focusStayedOnWindow in [false, true] {
+            let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+            let manager = fixture.controller.workspaceManager
+            let handler = fixture.controller.axEventHandler
+            let token = WindowToken(pid: 975_211, windowId: 975_311)
+            let candidate = try prepareCreate(token, in: fixture)
+            handler.enqueueManagedReplacementCreate(
+                candidate,
+                focusedActivation: PendingFocusedManagedActivation(
+                    source: .workspaceDidActivateApplication,
+                    origin: .external,
+                    observationGeneration: 0,
+                    appFullscreen: false,
+                    request: .unrelatedNoRequest,
+                    callbackGeneration: nil
+                )
+            )
+            if focusStayedOnWindow {
+                manager.recordExternalFocus(pid: token.pid, windowId: token.windowId)
+            }
+
+            handler.flushManagedReplacementBurst(
+                for: AXEventHandler.ManagedReplacementKey(pid: token.pid, workspaceId: candidate.workspaceId)
+            )
+
+            XCTAssertEqual(manager.scratchpadIndex(for: token), 1, "focusStayedOnWindow=\(focusStayedOnWindow)")
+            if focusStayedOnWindow {
+                XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+                XCTAssertNil(manager.hiddenState(for: token))
+            } else {
+                XCTAssertNil(manager.revealedScratchpadIndex())
+                XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+            }
+        }
+    }
+
+    func testRetiringALiveRevealedMemberClearsTheReveal() throws {
+        enum Retirement: CaseIterable {
+            case decisionRejection
+            case staleIncarnation
+        }
+        for retirement in Retirement.allCases {
+            let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+            let manager = fixture.controller.workspaceManager
+            let token = WindowToken(pid: 975_221, windowId: 975_321)
+            try liveCreate(token, in: fixture)
+            XCTAssertEqual(fixture.controller.toggleScratchpad(1, on: fixture.monitor.id), .executed)
+            try completeReveal(token, in: fixture)
+            let entry = try XCTUnwrap(manager.entry(for: token))
+
+            switch retirement {
+            case .decisionRejection:
+                fixture.controller.axEventHandler.retireManagedWindowAfterDecisionRejection(entry)
+            case .staleIncarnation:
+                fixture.controller.axEventHandler.discardStaleManagedWindowIncarnation(entry)
+            }
+
+            XCTAssertNil(manager.entry(for: token), "\(retirement)")
+            XCTAssertNil(manager.revealedScratchpadIndex(), "\(retirement)")
+            XCTAssertEqual(fixture.controller.toggleScratchpad(1), .notFound, "\(retirement)")
+        }
+    }
+
+    func testExplicitRuleApplyNeverLeavesFocusOnTheWindowItParks() async throws {
+        for arrivingHoldsFocus in [false, true] {
+            let fixture = try makeFixture(rules: [])
+            let manager = fixture.controller.workspaceManager
+            let other = addTilingWindow(WindowToken(pid: 975_231, windowId: 975_331), to: fixture, title: "Plain")
+            let token = addTilingWindow(WindowToken(pid: 975_232, windowId: 975_332), to: fixture)
+            focus(other, in: fixture)
+            if arrivingHoldsFocus {
+                focus(token, in: fixture)
+            }
+            fixture.controller.windowRuleEngine.rebuild(rules: [Self.rule(title: "Notes", scratchpad: 1)])
+
+            await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+
+            XCTAssertEqual(manager.scratchpadIndex(for: token), 1, "holdsFocus=\(arrivingHoldsFocus)")
+            XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+            XCTAssertNotEqual(manager.selectedManagedToken, token)
+            XCTAssertNotEqual(manager.pendingFocusedToken, token)
+            XCTAssertNotEqual(manager.nativeManagedFocusToken, token)
+            XCTAssertEqual(manager.pendingFocusedToken ?? manager.selectedManagedToken, other)
+        }
+    }
+
+    func testMinimizedMemberFoundByRescanParksWhenItIsUnminimized() throws {
+        enum Unminimize: CaseIterable {
+            case axEvent
+            case rescan
+        }
+        for route in Unminimize.allCases {
+            let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+            let manager = fixture.controller.workspaceManager
+            let token = WindowToken(pid: 975_241, windowId: 975_341)
+            FrameApplyTrace.shared.beginCapture()
+            defer { FrameApplyTrace.shared.endCapture() }
+
+            rescan(token, in: fixture, minimized: true, runsRetirement: true)
+
+            XCTAssertEqual(manager.scratchpadIndex(for: token), 1, "\(route)")
+            XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true, "\(route)")
+            XCTAssertTrue(manager.isWindowSuppressedByMacOS(token), "\(route)")
+            XCTAssertEqual(parkIntents(of: token), 0, "\(route)")
+
+            switch route {
+            case .axEvent:
+                let axRef = try XCTUnwrap(manager.entry(for: token)?.axRef)
+                fixture.controller.axEventHandler.handleWindowMinimized(pid: token.pid, axRef: axRef, minimized: false)
+            case .rescan:
+                rescan(token, in: fixture)
+            }
+
+            XCTAssertFalse(manager.isWindowSuppressedByMacOS(token), "\(route)")
+            XCTAssertEqual(manager.scratchpadIndex(for: token), 1, "\(route)")
+            XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true, "\(route)")
+            XCTAssertGreaterThan(parkIntents(of: token), 0, "\(route)")
+        }
+    }
+
+    func testFocusedActivationAdmissionRevealsTheSlotAndFocusesTheWindow() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let token = WindowToken(pid: 975_251, windowId: 975_351)
+        let axRef = WindowAdmissionTestSupport.axRef(for: token)
+        fixture.book.facts[token] = facts(for: token)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        _ = fixture.controller.axEventHandler.admitFocusedWindowBeforeExternalFocusFallback(
+            identity: AXManagedWindowIdentity(token: token, axRef: axRef),
+            facts: ActivationFacts(
+                pid: token.pid,
+                source: .workspaceDidActivateApplication,
+                origin: .external,
+                observationGeneration: 0,
+                requestedAtSeq: manager.worldSeq,
+                focusedWindow: FocusedWindowFact(axRef: axRef, isFullscreen: false, isSystemModalSurface: false)
+            ),
+            requestDisposition: .unrelatedNoRequest,
+            appFullscreen: false,
+            allowsSelectedParentBorderContinuity: false
+        )
+        try completeScratchpadFronting(in: fixture)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+        XCTAssertNil(manager.hiddenState(for: token))
+        XCTAssertEqual(manager.manualLayoutOverride(for: token), .forceFloat)
+        XCTAssertEqual(manager.selectedManagedToken, token)
+        XCTAssertEqual(hiddenTransitions(of: token, in: manager), 0)
+        XCTAssertEqual(parkIntents(of: token), 0)
+    }
+
     private struct Fixture {
         let controller: WMController
         let monitor: Monitor
@@ -471,6 +774,7 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
     private final class EvaluationBook {
         var facts: [WindowToken: WindowRuleFacts] = [:]
         var decisions: [WindowToken: WindowDecision] = [:]
+        var fullscreen: Set<WindowToken> = []
 
         func windowInfo(_ windowId: UInt32) -> WindowServerInfo? {
             facts.values.lazy.compactMap(\.windowServer).first { $0.id == windowId }
@@ -517,19 +821,20 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         controller.axEventHandler.windowInfoBatchProvider = { windowIds in
             Dictionary(uniqueKeysWithValues: windowIds.compactMap { id in book.windowInfo(id).map { (id, $0) } })
         }
-        controller.axWindowRefLookupForTests = { token in
+        controller.axEventHandler.ruleReevaluation.axWindowRefProvider = { token in
             book.facts[token] == nil ? nil : WindowAdmissionTestSupport.axRef(for: token)
         }
         controller.windowDispositionEvaluationForTests = { [weak controller] token in
             guard let controller, let facts = book.facts[token] else { return nil }
+            let appFullscreen = book.fullscreen.contains(token)
             let manualOverride = controller.workspaceManager.manualLayoutOverride(for: token)
             let baseDecision = book.decisions[token]
-                ?? controller.windowRuleEngine.decision(for: facts, token: token, appFullscreen: false)
+                ?? controller.windowRuleEngine.decision(for: facts, token: token, appFullscreen: appFullscreen)
             return WMController.WindowDecisionEvaluation(
                 token: token,
                 facts: facts,
                 decision: WindowRuleEngine.applyingManualOverride(baseDecision, manualOverride: manualOverride),
-                appFullscreen: false,
+                appFullscreen: appFullscreen,
                 manualOverride: manualOverride,
                 admissionGeometry: WindowAdmissionGeometryEvidence(
                     isSizeSettable: true,
@@ -610,6 +915,19 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         isMinimized: Bool = false,
         countsAsFocused: Bool = false
     ) throws -> AXEventHandler.PreparedCreate {
+        var candidate = try prepareCreate(token, in: fixture, title: title, facts: explicitFacts)
+        candidate.isMinimized = isMinimized
+        fixture.controller.axEventHandler.trackPreparedCreate(candidate, countsAsFocused: countsAsFocused)
+        XCTAssertNotNil(fixture.controller.workspaceManager.entry(for: token))
+        return candidate
+    }
+
+    private func prepareCreate(
+        _ token: WindowToken,
+        in fixture: Fixture,
+        title: String = "Notes",
+        facts explicitFacts: WindowRuleFacts? = nil
+    ) throws -> AXEventHandler.PreparedCreate {
         let facts = explicitFacts ?? self.facts(for: token, title: title)
         fixture.book.facts[token] = facts
         let outcome = fixture.controller.axEventHandler.prepareCreateCandidate(
@@ -623,11 +941,7 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         } else {
             nil
         }
-        var candidate = try XCTUnwrap(prepared, "Expected a prepared create, got \(outcome)")
-        candidate.isMinimized = isMinimized
-        fixture.controller.axEventHandler.trackPreparedCreate(candidate, countsAsFocused: countsAsFocused)
-        XCTAssertNotNil(fixture.controller.workspaceManager.entry(for: token))
-        return candidate
+        return try XCTUnwrap(prepared, "Expected a prepared create, got \(outcome)")
     }
 
     @discardableResult
@@ -646,6 +960,27 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         )
     }
 
+    private func addFloatingWindow(_ token: WindowToken, to fixture: Fixture) {
+        fixture.book.facts[token] = facts(for: token)
+        let manager = fixture.controller.workspaceManager
+        _ = manager.addWindow(
+            WindowAdmissionTestSupport.axRef(for: token),
+            pid: token.pid,
+            windowId: token.windowId,
+            to: fixture.workspaceId,
+            mode: .floating
+        )
+        manager.setFloatingState(
+            FloatingState(
+                lastFrame: CGRect(x: 120, y: 80, width: 900, height: 620),
+                normalizedOrigin: CGPoint(x: 0.05, y: 0.05),
+                referenceMonitorId: fixture.monitor.id,
+                restoreToFloating: true
+            ),
+            for: token
+        )
+    }
+
     private func focus(_ token: WindowToken, in fixture: Fixture) {
         let manager = fixture.controller.workspaceManager
         _ = manager.cancelCurrentManagedFocusRequest()
@@ -658,7 +993,14 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         )
     }
 
-    private func rescan(_ token: WindowToken, in fixture: Fixture, title: String = "Notes") {
+    private func rescan(
+        _ token: WindowToken,
+        in fixture: Fixture,
+        title: String = "Notes",
+        fullscreen: Bool = false,
+        minimized: Bool = false,
+        runsRetirement: Bool = false
+    ) {
         let facts = self.facts(for: token, title: title)
         fixture.book.facts[token] = facts
         let axRef = WindowAdmissionTestSupport.axRef(for: token)
@@ -673,8 +1015,8 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
                     isSizeSettable: true,
                     frame: ScreenCoordinateSpace.toAppKit(rect: Self.windowServerFrame)
                 ),
-                fullscreenAttribute: false,
-                minimizedAttribute: false,
+                fullscreenAttribute: fullscreen,
+                minimizedAttribute: minimized,
                 decisionEvidence: AXWindowDecisionEvidence(facts: facts.ax, sizeConstraints: .unconstrained)
             ),
             logicalPID: token.pid,
@@ -682,26 +1024,34 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
             windowServerOwnerPID: windowServerInfo?.pid,
             enumerationRoute: .persistent
         )
+        let context = FullRescanMutationContext(
+            controller: fixture.controller,
+            enumerationSnapshot: AXManager.FullRescanEnumerationSnapshot(
+                windows: [candidate],
+                successfullyEnumeratedPIDs: [token.pid],
+                failedPIDs: [],
+                authoritativeTargetPIDs: [token.pid],
+                exactWindowIds: nil,
+                identityAliasesByWindowId: [
+                    token.windowId: .init(pids: [token.pid], axRefs: [axRef])
+                ],
+                windowServerInfoByWindowId: windowServerInfo.map { [token.windowId: $0] } ?? [:]
+            ),
+            scope: .all,
+            focusedWorkspaceId: fixture.workspaceId,
+            screenFrames: []
+        )
         var progress = FullRescanProgress(affectedWorkspaceIds: [])
         fixture.controller.layoutRefreshController.reconcileFullRescanCandidate(
             candidate,
-            context: FullRescanMutationContext(
-                controller: fixture.controller,
-                enumerationSnapshot: AXManager.FullRescanEnumerationSnapshot(
-                    windows: [candidate],
-                    successfullyEnumeratedPIDs: [token.pid],
-                    failedPIDs: [],
-                    authoritativeTargetPIDs: [token.pid],
-                    exactWindowIds: nil,
-                    identityAliasesByWindowId: [
-                        token.windowId: .init(pids: [token.pid], axRefs: [axRef])
-                    ],
-                    windowServerInfoByWindowId: windowServerInfo.map { [token.windowId: $0] } ?? [:]
-                ),
-                scope: .all,
-                focusedWorkspaceId: fixture.workspaceId,
-                screenFrames: []
-            ),
+            context: context,
+            progress: &progress
+        )
+        guard runsRetirement else { return }
+        fixture.controller.layoutRefreshController.retireFullRescanWindows(
+            context: context,
+            hadNativeFullscreenLifecycleContextAtStart: false,
+            permitsMissingRetirement: false,
             progress: &progress
         )
     }

@@ -58,11 +58,13 @@ extension LayoutRefreshController {
         let controller = context.controller
         var existingEntry = entry
         if let entry = existingEntry, let minimized = candidate.minimizedAttribute {
-            controller.axEventHandler.updateWindowMinimizedState(
+            if controller.axEventHandler.updateWindowMinimizedState(
                 minimized,
                 token: entry.token,
                 requestRefresh: false
-            )
+            ), !minimized {
+                controller.reconcileDisplayableScratchpadMember(entry.token)
+            }
             existingEntry = controller.workspaceManager.entry(for: entry.token)
         }
         if let entry = existingEntry {

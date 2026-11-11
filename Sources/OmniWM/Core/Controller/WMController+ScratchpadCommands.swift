@@ -268,7 +268,7 @@ extension WMController {
         }
     }
 
-    func reconcileScratchpadMemberAfterUnminimize(_ token: WindowToken) {
+    func reconcileDisplayableScratchpadMember(_ token: WindowToken) {
         guard let entry = workspaceManager.entry(for: token),
               !workspaceManager.isWindowSuppressedByMacOS(entry)
         else {

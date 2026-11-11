@@ -94,6 +94,13 @@ final class AppRuleTests: XCTestCase {
         XCTAssertNil(AppRule(bundleId: "a", layout: .tile).scratchpadConflict)
     }
 
+    func testWhitespaceWorkspaceDoesNotConflictWithScratchpad() {
+        let rule = AppRule(bundleId: "a", assignToWorkspace: "  ", scratchpad: 2)
+        XCTAssertNil(rule.scratchpadConflict)
+        XCTAssertEqual(rule.validScratchpad, 2)
+        XCTAssertNil(AppRuleDraftValidation.scratchpadError(for: rule))
+    }
+
     func testScratchpadEffectCountsOnlyWhenValid() {
         XCTAssertTrue(AppRule(bundleId: "a", scratchpad: 2).hasEffect)
         XCTAssertFalse(AppRule(bundleId: "a", scratchpad: 11).hasEffect)

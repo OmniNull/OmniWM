@@ -334,9 +334,7 @@ extension WorldStore {
     func appVisibilityGeneration(for pid: pid_t) -> UInt64 {
         appVisibilityGenerationByPID[pid] ?? 0
     }
-}
 
-extension WorldStore {
     func applyMonitorSessions(_ sessions: [Monitor.ID: MonitorSession]) {
         assertInCommit("applyMonitorSessions")
         monitorSessions = sessions

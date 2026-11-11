@@ -65,5 +65,5 @@ omniwmctl query windows --scratchpad
 `scratchpad assign` and `scratchpad toggle` take a slot number from 1 to 10; the `--scratchpad` flag limits the window query to windows assigned to a scratchpad.
 
 :::note
-Scratchpad membership lasts for the lifetime of the OmniWM process; only the labels are persisted. App Rules with a scratchpad destination put matching windows back in their slots at startup.
+Scratchpad membership lasts for the lifetime of the OmniWM process; only the labels are persisted. **Unreleased:** available when building from `main`. App Rules with a scratchpad destination put matching windows back in their slots at startup.
 :::

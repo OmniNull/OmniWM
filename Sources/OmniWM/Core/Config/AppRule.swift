@@ -102,9 +102,18 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         return initialContainerPrimarySpan
     }
 
+    var assignedWorkspaceName: String? {
+        guard let trimmed = assignToWorkspace?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty
+        else {
+            return nil
+        }
+        return trimmed
+    }
+
     var scratchpadConflict: AppRuleScratchpadConflict? {
         guard scratchpad != nil else { return nil }
-        if assignToWorkspace?.isEmpty == false { return .assignToWorkspace }
+        if assignedWorkspaceName != nil { return .assignToWorkspace }
         if effectiveLayoutAction == .tile { return .tileLayout }
         return nil
     }
@@ -116,7 +125,7 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
 
     var hasEffect: Bool {
         effectiveLayoutAction != .auto ||
-            assignToWorkspace?.isEmpty == false ||
+            assignedWorkspaceName != nil ||
             validInitialContainerPrimarySpan != nil ||
             validScratchpad != nil ||
             minWidth != nil || minHeight != nil

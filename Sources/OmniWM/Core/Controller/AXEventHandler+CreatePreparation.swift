@@ -240,7 +240,7 @@ extension AXEventHandler {
         let axPid = facts.axPid
         let bundleId = facts.bundleId
         let evaluation = facts.evaluation
-        let trackedMode = admission.mode
+        let trackedMode = scratchpadAdmission?.replacementMode(for: admission) ?? admission.mode
         let resolvedBundleId = bundleId ?? evaluation.facts.ax.bundleId
         let replacementMatch = structuralReplacementMatch(
             token: token,

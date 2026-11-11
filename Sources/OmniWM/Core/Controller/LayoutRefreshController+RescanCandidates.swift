@@ -61,13 +61,16 @@ extension LayoutRefreshController {
         progress: inout FullRescanProgress
     ) {
         let trackedMode = admitted.mode
-        let structuralMatch = fullRescanStructuralMatch(window, trackedMode: trackedMode, context: context)
-        if rekeyFullRescanReplacement(
+        let replacementAdmission = scratchpadAdmission.map {
+            WindowAdmission(mode: $0.replacementMode(for: admitted), geometry: admitted.geometry)
+        } ?? admitted
+        let structuralMatch = fullRescanStructuralMatch(
             window,
-            admitted: admitted,
-            match: structuralMatch,
-            context: context,
-            progress: &progress
+            trackedMode: replacementAdmission.mode,
+            context: context
+        )
+        if rekeyFullRescanReplacement(
+            window, admitted: replacementAdmission, match: structuralMatch, context: context, progress: &progress
         ) { return }
         let defaultWorkspace = fullRescanDefaultWorkspace(
             window,
@@ -104,6 +107,7 @@ extension LayoutRefreshController {
                 admittedToken,
                 scratchpadAdmission,
                 observedFrame: window.candidate.capturedAppKitFrame ?? admitted.geometry?.frame,
+                appFullscreen: window.decision.appFullscreen,
                 arrival: .quiet(previousFocusToken: previousFocusToken)
             )
         }

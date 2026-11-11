@@ -374,6 +374,29 @@ final class WindowRuleEngineTests: XCTestCase {
         XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(scratchpad: rule.id))
     }
 
+    func testWhitespaceWorkspaceDoesNotBlockScratchpadDestination() {
+        let engine = WindowRuleEngine()
+        let rule = AppRule(bundleId: "com.test.app", assignToWorkspace: "  ", scratchpad: 2)
+        engine.rebuild(rules: [rule])
+
+        let decision = evaluate(engine, facts(appName: "Test", bundleId: "com.test.app"))
+
+        XCTAssertEqual(decision.admissionHints.scratchpad, 2)
+        XCTAssertNil(decision.workspaceName)
+        XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(scratchpad: rule.id))
+    }
+
+    func testWhitespaceWorkspaceIsNotADestination() {
+        let engine = WindowRuleEngine()
+        let rule = AppRule(bundleId: "com.test.app", layout: .float, assignToWorkspace: "  ")
+        engine.rebuild(rules: [rule])
+
+        let decision = evaluate(engine, facts(appName: "Test", bundleId: "com.test.app"))
+
+        XCTAssertNil(decision.workspaceName)
+        XCTAssertNil(decision.ruleProvenance.workspace)
+    }
+
     func testMoreSpecificWorkspaceRuleBeatsScratchpadRule() {
         let engine = WindowRuleEngine()
         let scratchpadRule = AppRule(bundleId: "com.test.app", scratchpad: 2)

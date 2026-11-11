@@ -7,11 +7,19 @@ import Foundation
 struct ScratchpadAdmission: Equatable {
     let index: ScratchpadIndex
     let fallbackMode: TrackedWindowMode
+
+    func replacementMode(for admission: WindowAdmission) -> TrackedWindowMode {
+        admission.readOnlyFrame == nil ? fallbackMode : .floating
+    }
 }
 
 enum ScratchpadJoinArrival: Equatable {
     case quiet(previousFocusToken: WindowToken?)
     case focused
+}
+
+struct ScratchpadParkAdmission {
+    let observedFrame: CGRect?
 }
 
 extension WMController {
@@ -37,13 +45,17 @@ extension WMController {
         _ token: WindowToken,
         _ admission: ScratchpadAdmission,
         observedFrame: CGRect?,
+        appFullscreen: Bool,
         arrival: ScratchpadJoinArrival
     ) {
+        if appFullscreen {
+            _ = workspaceManager.markNativeFullscreenSuspended(token, ownsNativeFocus: false)
+        }
         guard !ensureScratchpadMembership(
             token,
             in: admission.index,
             observedFrame: observedFrame,
-            readsLiveFrame: false,
+            allowLiveFrameFallback: false,
             arrival: arrival
         ) else {
             return
@@ -56,46 +68,70 @@ extension WMController {
         )
     }
 
+    func reissueScratchpadAdmissionPark(_ token: WindowToken) {
+        guard let entry = workspaceManager.entry(for: token),
+              let index = workspaceManager.scratchpadIndex(for: token),
+              workspaceManager.revealedScratchpadIndex() != index,
+              workspaceManager.hiddenState(for: token)?.isScratchpad == true,
+              let monitor = workspaceManager.monitor(for: entry.workspaceId) ?? monitorForInteraction()
+        else {
+            return
+        }
+        _ = parkScratchpadWindow(
+            entry,
+            monitor: monitor,
+            captureGeometry: false,
+            admission: ScratchpadParkAdmission(observedFrame: nil)
+        )
+    }
+
     @discardableResult
     func ensureScratchpadMembership(
         _ token: WindowToken,
         in index: ScratchpadIndex,
         observedFrame: CGRect? = nil,
-        readsLiveFrame: Bool = true,
-        arrival: ScratchpadJoinArrival = .quiet(previousFocusToken: nil),
-        focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
+        allowLiveFrameFallback: Bool = true,
+        arrival: ScratchpadJoinArrival = .quiet(previousFocusToken: nil)
     ) -> Bool {
         guard let entry = workspaceManager.entry(for: token),
               entry.target.hostedMetadata?.role.parent == nil
         else {
             return false
         }
-        if workspaceManager.scratchpadIndex(for: token) == index { return true }
+        let previousIndex = workspaceManager.scratchpadIndex(for: token)
+        if previousIndex == index { return true }
 
+        let previousOverride = workspaceManager.manualLayoutOverride(for: token)
         let wasParked = workspaceManager.hiddenState(for: token)?.isScratchpad == true
         let transitionedFromTiling = entry.mode == .tiling
         guard prepareWindowForScratchpadAssignment(
             token,
             preferredMonitor: workspaceManager.monitor(for: entry.workspaceId),
             observedFrame: observedFrame,
-            readsLiveFrame: readsLiveFrame
+            allowLiveFrameFallback: allowLiveFrameFallback
         ) else {
             return false
         }
         if workspaceManager.setScratchpadMembership(token, to: index) {
             requestWorkspaceBarRefresh()
         }
-        guard let joinedEntry = workspaceManager.entry(for: token) else {
-            cleanupScratchpadWindowResources(for: token)
+        guard let joinedEntry = workspaceManager.entry(for: token),
+              presentJoinedScratchpadWindow(
+                  joinedEntry,
+                  in: index,
+                  wasParked: wasParked,
+                  parkAdmission: allowLiveFrameFallback ? nil : ScratchpadParkAdmission(observedFrame: observedFrame),
+                  arrival: arrival
+              )
+        else {
+            rollBackScratchpadJoin(
+                token,
+                previousIndex: previousIndex,
+                previousOverride: previousOverride,
+                restoresTiling: transitionedFromTiling
+            )
             return false
         }
-        presentJoinedScratchpadWindow(
-            joinedEntry,
-            in: index,
-            wasParked: wasParked,
-            arrival: arrival,
-            focusOrigin: focusOrigin
-        )
 
         if transitionedFromTiling {
             layoutRefreshController.requestLayoutCommandRelayout(
@@ -105,7 +141,6 @@ extension WMController {
         return true
     }
 
-    @discardableResult
     func releaseScratchpadMemberForWorkspaceDestination(
         _ token: WindowToken,
         decision: WindowDecision
@@ -141,19 +176,45 @@ extension WMController {
         return true
     }
 
+    private func rollBackScratchpadJoin(
+        _ token: WindowToken,
+        previousIndex: ScratchpadIndex?,
+        previousOverride: ManualWindowOverride?,
+        restoresTiling: Bool
+    ) {
+        if let previousIndex {
+            if workspaceManager.setScratchpadMembership(token, to: previousIndex) {
+                requestWorkspaceBarRefresh()
+            }
+        } else {
+            cleanupScratchpadWindowResources(for: token)
+        }
+        workspaceManager.setManualLayoutOverride(previousOverride, for: token)
+        guard restoresTiling,
+              transitionWindowMode(for: token, to: .tiling, allowLiveFrameFallback: false),
+              let workspaceId = workspaceManager.workspace(for: token)
+        else {
+            return
+        }
+        layoutRefreshController.requestLayoutCommandRelayout(affectedWorkspaceIds: [workspaceId])
+    }
+
     private func presentJoinedScratchpadWindow(
         _ entry: WindowState,
         in index: ScratchpadIndex,
         wasParked: Bool,
-        arrival: ScratchpadJoinArrival,
-        focusOrigin: ManagedFocusOrigin
-    ) {
+        parkAdmission: ScratchpadParkAdmission?,
+        arrival: ScratchpadJoinArrival
+    ) -> Bool {
         let isRevealed = workspaceManager.revealedScratchpadIndex() == index
-        if wasParked, isRevealed {
-            showJoinedScratchpadWindow(entry, in: index)
-        } else if !wasParked, !isRevealed {
-            settleJoinedScratchpadWindow(entry, in: index, arrival: arrival, focusOrigin: focusOrigin)
+        if wasParked {
+            if isRevealed {
+                showJoinedScratchpadWindow(entry, in: index)
+            }
+            return true
         }
+        guard !isRevealed else { return true }
+        return settleJoinedScratchpadWindow(entry, in: index, parkAdmission: parkAdmission, arrival: arrival)
     }
 
     private func showJoinedScratchpadWindow(_ entry: WindowState, in index: ScratchpadIndex) {
@@ -174,38 +235,36 @@ extension WMController {
     private func settleJoinedScratchpadWindow(
         _ entry: WindowState,
         in index: ScratchpadIndex,
-        arrival: ScratchpadJoinArrival,
-        focusOrigin: ManagedFocusOrigin
-    ) {
+        parkAdmission: ScratchpadParkAdmission?,
+        arrival: ScratchpadJoinArrival
+    ) -> Bool {
         let monitor = workspaceManager.monitor(for: entry.workspaceId) ?? monitorForInteraction()
         if arrival == .focused,
-           revealScratchpadWindow(entry.token, index: index, on: monitor?.id, focusOrigin: focusOrigin) == .executed
+           revealScratchpadWindow(entry.token, index: index, on: monitor?.id) == .executed
         {
-            return
+            return true
         }
-        guard let monitor else { return }
+        guard let monitor else { return false }
 
         let workspaceId = workspaceManager.workspace(for: entry.token) ?? entry.workspaceId
         let holdsFocus = workspaceManager.selectedManagedToken == entry.token
             || workspaceManager.pendingFocusedToken == entry.token
             || workspaceManager.nativeManagedFocusToken == entry.token
-        _ = parkScratchpadWindow(entry, monitor: monitor, captureGeometry: false)
+        guard parkScratchpadWindow(entry, monitor: monitor, captureGeometry: false, admission: parkAdmission) else {
+            return false
+        }
         requestWorkspaceBarRefresh()
-        guard holdsFocus else { return }
+        guard holdsFocus else { return true }
 
         workspaceManager.clearWorkspaceFocus(in: workspaceId)
         if case let .quiet(previousFocusToken?) = arrival,
            canRestoreFocusAfterScratchpadJoin(previousFocusToken, joinedToken: entry.token)
         {
-            focusWindow(previousFocusToken, origin: focusOrigin)
-            return
+            focusWindow(previousFocusToken)
+            return true
         }
-        recoverFocusAfterScratchpadHide(
-            in: workspaceId,
-            excluding: [entry.token],
-            on: monitor.id,
-            focusOrigin: focusOrigin
-        )
+        recoverFocusAfterScratchpadHide(in: workspaceId, excluding: [entry.token], on: monitor.id)
+        return true
     }
 
     private func canRestoreFocusAfterScratchpadJoin(_ token: WindowToken, joinedToken: WindowToken) -> Bool {

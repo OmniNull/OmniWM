@@ -23,7 +23,7 @@ struct ComposedUserRules {
         if rule.effectiveLayoutAction != .auto {
             Self.keepHigherRanked(&layout, candidate)
         }
-        if rule.assignToWorkspace?.isEmpty == false || rule.validScratchpad != nil {
+        if rule.assignedWorkspaceName != nil || rule.validScratchpad != nil {
             Self.keepHigherRanked(&destination, candidate)
         }
         if rule.minWidth != nil {
@@ -137,7 +137,7 @@ struct MatchedWindowRules {
             disposition: disposition,
             source: source,
             layoutDecisionKind: layoutDecisionKind,
-            workspaceName: scratchpad == nil ? destinationRule?.assignToWorkspace : nil,
+            workspaceName: scratchpad == nil ? destinationRule?.assignedWorkspaceName : nil,
             ruleEffects: ManagedWindowRuleEffects(
                 minWidth: userRules.minWidth?.rule.minWidth,
                 minHeight: userRules.minHeight?.rule.minHeight

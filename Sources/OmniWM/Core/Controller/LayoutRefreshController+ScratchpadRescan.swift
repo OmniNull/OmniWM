@@ -25,7 +25,7 @@ extension LayoutRefreshController {
     ) {
         guard let controller else { return }
         for entry in entries where controller.workspaceManager.hiddenState(for: entry.token)?.isScratchpad == true {
-            if controller.workspaceManager.isAppHidden(pid: entry.pid) {
+            if controller.workspaceManager.isWindowSuppressedByMacOS(entry) {
                 seenKeys.insert(entry.token)
                 continue
             }

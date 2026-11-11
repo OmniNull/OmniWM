@@ -21,6 +21,10 @@ struct RuleReevaluationWindow {
         admission.mode
     }
 
+    var replacementMode: TrackedWindowMode {
+        scratchpadAdmission?.replacementMode(for: admission) ?? mode
+    }
+
     func admissionMetadata(workspaceId: WorkspaceDescriptor.ID) -> ManagedReplacementMetadata {
         let parentWindowId = self.evaluation.facts.windowServer.flatMap { $0.parentId == 0 ? nil : $0.parentId }
         return ManagedReplacementMetadata(

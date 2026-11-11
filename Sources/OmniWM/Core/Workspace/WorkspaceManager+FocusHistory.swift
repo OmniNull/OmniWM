@@ -200,19 +200,16 @@ extension WorkspaceManager {
         return nil
     }
 
-    @discardableResult
-    func clearWorkspaceFocus(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+    func clearWorkspaceFocus(in workspaceId: WorkspaceDescriptor.ID) {
         let focus = focusSessionSnapshot
         let clearsPending = focus.pendingManagedFocus != .empty
             && focus.pendingManagedFocus.workspaceId == workspaceId
         let clearsFocused = focus.selectedManagedToken.flatMap { entry(for: $0)?.workspaceId } == workspaceId
-        guard clearsPending || clearsFocused,
-              applyFocusReconcileEvent(.workspaceFocusCleared(workspaceId: workspaceId, source: .workspaceManager))
-        else {
-            return false
+        if clearsPending || clearsFocused,
+           applyFocusReconcileEvent(.workspaceFocusCleared(workspaceId: workspaceId, source: .workspaceManager))
+        {
+            notifySessionStateChanged()
         }
-        notifySessionStateChanged()
-        return true
     }
 
     var suppressedFocusToken: WindowToken? {

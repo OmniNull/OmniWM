@@ -266,8 +266,6 @@ final class WMController {
     @ObservationIgnored
     var windowDispositionEvaluationForTests: ((WindowToken) -> WindowDecisionEvaluation?)?
     @ObservationIgnored
-    var axWindowRefLookupForTests: ((WindowToken) -> AXWindowRef?)?
-    @ObservationIgnored
     weak var ipcApplicationBridge: IPCApplicationBridge?
 
     let animationClock = AnimationClock()

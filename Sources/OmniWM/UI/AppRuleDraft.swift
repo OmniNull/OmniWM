@@ -281,13 +281,6 @@ enum AppRuleDraftValidation {
     }
 
     static func scratchpadError(for rule: AppRule) -> String? {
-        let definition = IPCRuleDefinition(
-            bundleId: rule.bundleId,
-            layout: IPCRuleLayout(rawValue: rule.effectiveLayoutAction.rawValue) ?? .auto,
-            assignToWorkspace: rule.assignToWorkspace,
-            scratchpad: rule.scratchpad
-        )
-        guard let message = IPCRuleValidator.scratchpadError(for: definition) else { return nil }
         if let scratchpad = rule.scratchpad, ScratchpadIndex(scratchpad) == nil {
             return String(localized: "Scratchpad must be a slot from 1 to 10")
         }
@@ -297,7 +290,7 @@ enum AppRuleDraftValidation {
         case .tileLayout:
             return String(localized: "Scratchpad windows float, so the layout can't be Tile")
         case nil:
-            return message
+            return nil
         }
     }
 

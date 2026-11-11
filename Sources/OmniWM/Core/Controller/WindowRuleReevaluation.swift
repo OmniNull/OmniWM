@@ -7,8 +7,8 @@ import OmniWMIPC
 
 @MainActor
 struct WindowRuleReevaluation {
-    private let controller: WMController
-    private let context: WindowRuleReevaluationContext
+    let controller: WMController
+    let context: WindowRuleReevaluationContext
     private let epochSeq: UInt64
     private let epochDomains: InvalidationDomain = [.workspace, .layout, .focus, .fullscreen]
     private var liveWindowsByToken: [WindowToken: AXWindowRef] = [:]
@@ -116,36 +116,6 @@ struct WindowRuleReevaluation {
         )
     }
 
-    private func evaluate(
-        _ token: WindowToken,
-        axRef: AXWindowRef,
-        existingEntry: WindowState?,
-        windowInfo: WindowServerInfo?,
-        windowServerLookupAttempted: Bool
-    ) -> (existingEntry: WindowState?, evaluation: WMController.WindowDecisionEvaluation) {
-        let evaluation = controller.evaluateWindowDisposition(
-            axRef: axRef,
-            pid: token.pid,
-            windowInfo: windowInfo,
-            windowServerLookupAttempted: windowServerLookupAttempted
-        )
-        guard context == .explicitRuleApply,
-              existingEntry != nil,
-              controller.releaseScratchpadMemberForWorkspaceDestination(token, decision: evaluation.decision)
-        else {
-            return (existingEntry, evaluation)
-        }
-        return (
-            controller.workspaceManager.entry(for: token),
-            controller.evaluateWindowDisposition(
-                axRef: axRef,
-                pid: token.pid,
-                windowInfo: windowInfo,
-                windowServerLookupAttempted: windowServerLookupAttempted
-            )
-        )
-    }
-
     private mutating func reject(
         _ token: WindowToken,
         existingEntry: WindowState?,
@@ -164,7 +134,7 @@ struct WindowRuleReevaluation {
     private mutating func apply(_ window: RuleReevaluationWindow) {
         let candidate = ManagedReplacementCandidateFacts(
             bundleId: window.evaluation.facts.ax.bundleId,
-            mode: window.mode,
+            mode: window.replacementMode,
             facts: window.evaluation.facts
         )
         let structuralMatch = window.existingEntry == nil
@@ -203,31 +173,6 @@ struct WindowRuleReevaluation {
         updateReplacementMetadata(window)
         applyScratchpadDestination(window, previousFocusToken: previousFocusToken)
         finishApplication(window, workspaceId: workspaceId)
-    }
-
-    private func applyScratchpadDestination(_ window: RuleReevaluationWindow, previousFocusToken: WindowToken?) {
-        if let scratchpadAdmission = window.scratchpadAdmission {
-            controller.joinScratchpadOnAdmission(
-                window.token,
-                scratchpadAdmission,
-                observedFrame: window.admission.geometry?.frame,
-                arrival: .quiet(previousFocusToken: previousFocusToken)
-            )
-            return
-        }
-        guard context == .explicitRuleApply,
-              window.existingEntry != nil,
-              let index = controller.scratchpadDestination(for: window.evaluation)
-        else {
-            return
-        }
-        controller.ensureScratchpadMembership(
-            window.token,
-            in: index,
-            observedFrame: WindowAdmissionGeometryEvidence.usableAppKitFrame(
-                fromWindowServer: window.evaluation.facts.windowServer?.frame
-            )
-        )
     }
 
     private func workspaceForReevaluatedWindow(
@@ -438,7 +383,6 @@ extension WindowRuleReevaluation {
 
     private func resolveAXWindowRef(for token: WindowToken) -> AXWindowRef? {
         controller.workspaceManager.entry(for: token)?.axRef
-            ?? controller.axWindowRefLookupForTests?(token)
-            ?? AXWindowService.axWindowRef(for: UInt32(token.windowId), pid: token.pid)
+            ?? controller.axEventHandler.ruleReevaluation.axWindowRefProvider(token)
     }
 }

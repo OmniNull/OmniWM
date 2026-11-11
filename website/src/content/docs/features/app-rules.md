@@ -5,7 +5,7 @@ sidebar:
   order: 7
 ---
 
-Open **App Rules** from OmniWM's status-bar menu to configure window-matching behavior. Rules can match by bundle ID, app-name substring, title substring or regex, and AX role/subrole. When several rules match a window, each setting (layout, destination, minimum width, minimum height, and initial container span) comes from the most specific matching rule that sets it; ties follow list order. A setting left on Automatic or turned off adds nothing, so it never erases another rule's value.
+Open **App Rules** from OmniWM's status-bar menu to configure window-matching behavior. Rules can match by bundle ID, app-name substring, title substring or regex, and AX role/subrole. When several rules match a window, each setting (layout, destination (workspace or, **Unreleased:** when building from `main`, scratchpad), minimum width, minimum height, and initial container span) comes from the most specific matching rule that sets it; ties follow list order. A setting left on Automatic or turned off adds nothing, so it never erases another rule's value.
 
 ## Create a rule from a window
 

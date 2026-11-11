@@ -11,14 +11,14 @@ extension WMController {
         _ token: WindowToken,
         preferredMonitor: Monitor? = nil,
         observedFrame: CGRect? = nil,
-        readsLiveFrame: Bool = true
+        allowLiveFrameFallback: Bool = true
     ) -> Bool {
         guard let entry = workspaceManager.entry(for: token) else {
             return false
         }
 
         if entry.mode == .floating {
-            let captured = readsLiveFrame
+            let captured = allowLiveFrameFallback
                 && captureVisibleFloatingGeometry(for: token, preferredMonitor: preferredMonitor) != nil
             if !captured, let observedFrame {
                 seedFloatingGeometryIfNeeded(
@@ -37,7 +37,7 @@ extension WMController {
             return true
         }
 
-        guard let frame = (readsLiveFrame ? liveFrame(for: entry) : nil) ?? observedFrame else { return false }
+        guard let frame = (allowLiveFrameFallback ? liveFrame(for: entry) : nil) ?? observedFrame else { return false }
         let referenceMonitor = floatingPlacementMonitor(
             for: entry,
             preferredMonitor: preferredMonitor,
