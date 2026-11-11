@@ -144,13 +144,15 @@ extension ShellWidgetHost {
             return
         }
         let writer = ShellWallpaperPaletteWriter(
-            destination: shellDirectory.appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml"),
-            scheme: config.wallpaperScheme
-        ) { [weak self] problem in
-            guard let self, !configProblems.contains(problem) else { return }
-            ShellConfig.report(problem, &configProblems)
-            publishToggleNames()
-        }
+            destination: wallpaperThemeURL,
+            scheme: config.wallpaperScheme,
+            override: { [weak self] in self?.resources.wallpaper?.palettePixels() },
+            onFailure: { [weak self] problem in
+                guard let self, !configProblems.contains(problem) else { return }
+                ShellConfig.report(problem, &configProblems)
+                publishToggleNames()
+            }
+        )
         wallpaperPalette = writer
         writer.start()
     }
@@ -379,6 +381,7 @@ extension ShellWidgetHost {
                 appVolumes: resources.appVolumes,
                 media: resources.media,
                 calendar: resources.calendar,
+                wallpaper: resources.wallpaper.map(WallpaperFeedSource.init),
                 devices: resources.devices,
                 notifications: resources.notifications,
                 onBadgesDemandChange: { [weak self] in self?.onBadgesDemandChange?($0) },

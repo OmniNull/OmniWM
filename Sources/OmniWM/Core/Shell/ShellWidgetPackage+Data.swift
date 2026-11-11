@@ -212,6 +212,12 @@ extension ShellWidgetPackage {
                 calendar.write(into: &writer)
             }
         }
+        if changed & ShellDataKey.wallpaper.bit != 0 {
+            setValue(instance, .wallpaper) { writer in
+                guard let wallpaper = next.wallpaper else { return writer.null() }
+                wallpaper.write(into: &writer)
+            }
+        }
     }
 
     private func updateDeviceSources(

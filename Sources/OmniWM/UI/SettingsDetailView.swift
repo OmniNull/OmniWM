@@ -51,6 +51,8 @@ struct SettingsDetailView: View {
             AppThemingSettingsPage(settings: settings, controller: controller)
         case .styles:
             ShellDesktopEditorPage(settings: settings, controller: controller)
+        case .wallpaper:
+            WallpaperSettingsPage(settings: settings, controller: controller)
         case .menuBar:
             MenuBarSettingsPage(settings: settings, controller: controller)
         case .network:

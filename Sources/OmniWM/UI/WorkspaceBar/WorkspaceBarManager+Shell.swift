@@ -90,6 +90,7 @@ extension WorkspaceBarManager {
         lastBars = []
         lastIslands = []
         notificationBadges.onLabelsChange = nil
+        if controller?.wallpaperManager.palette === host { controller?.wallpaperManager.palette = nil }
         host?.stop()
         controller?.appThemeShellIsOff { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         setShellBadgeDemand(false)
@@ -148,6 +149,7 @@ extension WorkspaceBarManager {
             self?.controller?.appThemePaletteDidChange(theme)
         }
         shellPermissionPrompts?.observe(host)
+        attachWallpaper(to: host)
         setShellLocked(controller?.isLockScreenActive == true)
         host.start()
         controller?.commandPaletteController.prewarmShell(from: self)
@@ -200,6 +202,7 @@ extension WorkspaceBarManager {
             appVolumes: controller?.appVolumeMixer,
             media: controller?.mediaController,
             calendar: controller?.calendarController,
+            wallpaper: controller?.wallpaperManager,
             windowIcon: { [weak self] id in self?.shellItemIcons[id] },
             iconOverride: { [weak self] bundleId in
                 self?.controller?.workspaceBarIconResolver.image(for: bundleId)

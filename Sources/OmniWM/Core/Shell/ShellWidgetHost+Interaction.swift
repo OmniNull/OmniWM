@@ -160,6 +160,7 @@ extension ShellWidgetHost {
             if !command.perform(), let url = ShellSettingsPane.appearance.url {
                 NSWorkspace.shared.open(url)
             }
+        case let .wallpaper(command): onWallpaperCommand?(command)
         case let .settings(pane):
             if let url = pane.url {
                 NSWorkspace.shared.open(url)

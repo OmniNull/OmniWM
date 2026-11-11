@@ -65,6 +65,7 @@ struct SettingsExport: Equatable {
 
     var tabRailAppIcons: Bool
     var shellPermissions = ShellPermissionDecisions()
+    var wallpaper = Wallpaper.defaults()
 
     struct Island: Codable, Equatable {
         var enabled: Bool

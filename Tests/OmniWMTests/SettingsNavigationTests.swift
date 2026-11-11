@@ -23,7 +23,7 @@ final class SettingsNavigationTests: XCTestCase {
         let destinations = SettingsSectionGroup.allCases.flatMap(\.sections)
         XCTAssertEqual(Set(destinations), Set(SettingsSection.allCases))
         XCTAssertEqual(destinations.count, Set(destinations).count)
-        XCTAssertEqual(SettingsSectionGroup.desktop.sections, [.styles, .menuBar, .network])
+        XCTAssertEqual(SettingsSectionGroup.desktop.sections, [.styles, .wallpaper, .menuBar, .network])
     }
 
     func testSearchFindsShellTasksAndIndividualControls() throws {

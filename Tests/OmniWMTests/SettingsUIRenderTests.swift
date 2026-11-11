@@ -649,6 +649,7 @@ import XCTest
             case .appearance: String(localized: "App Appearance")
             case .appTheming: String(localized: "Apply Now")
             case .styles: String(localized: "Bar Widgets")
+            case .wallpaper: String(localized: "Manage Wallpapers")
             case .menuBar: String(localized: "Show Workspace")
             case .network: String(localized: "Built-in Services")
             case .workspaces: String(localized: "Layout Algorithm")

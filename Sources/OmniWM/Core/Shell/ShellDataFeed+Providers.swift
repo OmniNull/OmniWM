@@ -89,6 +89,7 @@ extension ShellDataFeed {
         listenToMedia(!paused && (demands(.media) || demands(.lyrics)))
         showLyrics(!paused && demands(.lyrics))
         listenToCalendar(!paused && demands(.calendar))
+        listenToWallpaper(!paused && demands(.wallpaper))
         listenToReminders(!paused && demands(.reminders))
         listenToNotifications(started && !paused && demands(.notifications))
         listenToBadges()
@@ -112,6 +113,22 @@ extension ShellDataFeed {
             publish()
         }
         data.calendar = calendar.calendar
+    }
+
+    func listenToWallpaper(_ listening: Bool) {
+        guard let wallpaper else { return }
+        wallpaper.setListening(listening)
+        guard listening else {
+            wallpaper.onChange = nil
+            data.wallpaper = nil
+            return
+        }
+        wallpaper.onChange = { [weak self] value in
+            guard let self, data.wallpaper != value else { return }
+            data.wallpaper = value
+            publish()
+        }
+        data.wallpaper = wallpaper.value
     }
 
     func listenToNotifications(_ listening: Bool) {

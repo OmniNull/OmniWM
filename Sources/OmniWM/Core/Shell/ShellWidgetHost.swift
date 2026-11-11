@@ -106,6 +106,7 @@ enum ShellAction: Equatable, Sendable {
     case bluetooth(ShellBluetoothCommand)
     case session(ShellSessionCommand)
     case appearance(ShellAppearanceCommand)
+    case wallpaper(ShellWallpaperCommand)
     case settings(ShellSettingsPane)
     case toggle(widget: String)
     case trigger(widget: String, name: String, value: String?)
@@ -122,6 +123,7 @@ enum ShellAction: Equatable, Sendable {
         "wifi": { ShellWiFiCommand(words: $0).map(ShellAction.wifi) },
         "bluetooth": { ShellBluetoothCommand(words: $0).map(ShellAction.bluetooth) },
         "appearance": { ShellAppearanceCommand(words: $0).map(ShellAction.appearance) },
+        "wallpaper": { ShellWallpaperCommand(words: $0).map(ShellAction.wallpaper) },
         "session": {
             ShellAwakeCommand(words: $0).map(ShellAction.awake)
                 ?? ShellSessionCommand(words: $0).map(ShellAction.session)
@@ -338,6 +340,7 @@ final class ShellWidgetHost {
     var feed: ShellDataFeed?
     var observation: ShellDirectoryObservation?
     var wallpaperPalette: ShellWallpaperPaletteWriter?
+    var onWallpaperCommand: (@MainActor (ShellWallpaperCommand) -> Void)?
     var systemColorsObserver: NSObjectProtocol?
     var powerStateObserver: NSObjectProtocol?
     var displaySleepObservers: [NSObjectProtocol] = []

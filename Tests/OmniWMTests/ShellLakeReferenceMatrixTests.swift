@@ -41,6 +41,13 @@ final class ShellLakeReferenceMatrixTests: XCTestCase {
                 .dropFirst(profile.path.count + 1))
             modules.append(("profile/" + relative, try String(contentsOf: file, encoding: .utf8)))
         }
+        let defaultLibrary = try XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("lib")
+        for name in try FileManager.default.contentsOfDirectory(atPath: defaultLibrary.path)
+            where name.hasSuffix(".luau") && !modules.contains(where: { $0.path == "profile/lib/" + name })
+        {
+            let source = try String(contentsOf: defaultLibrary.appendingPathComponent(name), encoding: .utf8)
+            modules.append(("profile/lib/" + name, source))
+        }
         modules.sort { $0.path < $1.path }
         for widget in widgets {
             let descriptor = try ShellComponentCatalog.load(widget, directories: [profile])

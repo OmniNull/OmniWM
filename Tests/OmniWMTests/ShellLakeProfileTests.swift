@@ -481,7 +481,7 @@ final class ShellLakeProfileTests: XCTestCase {
         let source = try source(in: root)
         let config = ShellConfig.resolve(shellDirectory: root.appendingPathComponent("shell"))
         let entries = try ShellComponentCatalog.installed(directories: config.directories)
-        XCTAssertEqual(entries.count, 14)
+        XCTAssertEqual(entries.count, 15)
         XCTAssertTrue(entries.allSatisfy { $0.error == nil && $0.descriptor != nil })
         let settings = try XCTUnwrap(ShellRootSettings.load("lake", directories: config.directories))
         let catalog = try ShellComponentCatalog.catalogBytes(entries)
@@ -655,6 +655,46 @@ final class ShellLakeProfileTests: XCTestCase {
         XCTAssertEqual(before.nodes.map(\.height), after.nodes.map(\.height))
         XCTAssertEqual(before.nodes.map(\.fill), after.nodes.map(\.fill))
         XCTAssertEqual(renamed.components.filter { $0.widget == "zz-world-clock" }.count, 2)
+    }
+
+    func testWallpaperComponentIsOfferedAndShowsTheWallpaperPanelWhenExpanded() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        _ = try source(in: root)
+        let profile = root.appendingPathComponent("shell/lake")
+        let config = ShellConfig.resolve(shellDirectory: root.appendingPathComponent("shell"))
+        let entry = try XCTUnwrap(
+            ShellComponentCatalog.installed(directories: config.directories).first { $0.widget == "wallpaper" }
+        )
+        XCTAssertNil(entry.error)
+        XCTAssertEqual(entry.descriptor?.title, "Wallpaper")
+        let configURL = profile.appendingPathComponent("shell.toml")
+        let text = try String(contentsOf: configURL, encoding: .utf8)
+        let first = try XCTUnwrap(text.range(of: "[[island.components]]"))
+        let replaced = text[..<first.lowerBound] + "[[island.components]]\nid = \"walls\"\nwidget = \"wallpaper\"\n"
+        try Data(replaced.utf8).write(to: configURL)
+        let fixture = try Fixture(source: source(in: root, install: false))
+        configure(fixture, notch: false)
+        fixture.set("wallpaper") { writer in
+            var value = ShellWallpaper()
+            value.enabled = true
+            value.rotation = 15
+            value.displays = [ShellWallpaper.Display(
+                id: "display:1", name: "Studio Display", main: true, builtin: false, notch: false, width: 2560,
+                height: 1440, folder: "~/Pictures/Wallpapers", custom: false, count: 2, current: "Harbour Fog.heic",
+                preview: nil, offset: 0, items: [.init(name: "Harbour Fog.heic"), .init(name: "Low Tide.jpg")],
+                truncated: false
+            )]
+            value.write(into: &writer)
+        }
+        try fixture.render()
+        XCTAssertTrue(fixture.captions.contains("Harbour Fog.heic"), "\(fixture.captions)")
+        let primary = try XCTUnwrap(fixture.nodes.first { $0.width > 200 && $0.width < 500 && $0.action != 0 })
+        fixture.invoke(primary.action)
+        try fixture.render()
+        for caption in ["Wallpaper", "Studio Display", "Next", "Low Tide.jpg", "Open folder"] {
+            XCTAssertTrue(fixture.captions.contains(caption), "missing \(caption) in \(fixture.captions)")
+        }
     }
 
     func testStockWeatherAcceptsMissingOptionalFieldsAndClockInstancesKeepTheirOptions() throws {

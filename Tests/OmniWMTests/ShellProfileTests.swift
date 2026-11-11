@@ -280,7 +280,8 @@ final class ShellDefaultsTests: XCTestCase {
             "privacy",
             "world-clock",
             "stats",
-            "control-center"
+            "control-center",
+            "wallpaper"
         ]
         XCTAssertEqual(widgets, expectedWidgets.sorted())
         for widget in expectedWidgets {

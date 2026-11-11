@@ -5,32 +5,6 @@ import AppKit
 import ImageIO
 import OmniWMMaterialColor
 
-enum ShellWallpaperScheme: String, CaseIterable, Sendable {
-    case tonalSpot
-    case content
-    case vibrant
-    case expressive
-    case fidelity
-    case fruitSalad
-    case rainbow
-    case neutral
-    case monochrome
-
-    var variant: omni_material_variant {
-        switch self {
-        case .tonalSpot: OMNI_MATERIAL_TONAL_SPOT
-        case .content: OMNI_MATERIAL_CONTENT
-        case .vibrant: OMNI_MATERIAL_VIBRANT
-        case .expressive: OMNI_MATERIAL_EXPRESSIVE
-        case .fidelity: OMNI_MATERIAL_FIDELITY
-        case .fruitSalad: OMNI_MATERIAL_FRUIT_SALAD
-        case .rainbow: OMNI_MATERIAL_RAINBOW
-        case .neutral: OMNI_MATERIAL_NEUTRAL
-        case .monochrome: OMNI_MATERIAL_MONOCHROME
-        }
-    }
-}
-
 enum ShellWallpaperPalette {
     static let themeName = "wallpaper"
     static let pixelSize = 128
@@ -300,6 +274,7 @@ final class ShellWallpaperPaletteWriter {
     private let source: @MainActor () -> Lookup
     private let read: @Sendable (URL) -> CGImage?
     private let image: @MainActor (_ aerial: Bool) -> CGImage?
+    private let override: @MainActor () -> [UInt32]?
     private let perform: Perform
     private let deliver: Deliver
     private let onFailure: @MainActor (String) -> Void
@@ -324,6 +299,7 @@ final class ShellWallpaperPaletteWriter {
         image: @escaping @MainActor (_ aerial: Bool) -> CGImage? = {
             ShellWallpaperPalette.screenImage(for: CGMainDisplayID(), aerial: $0)
         },
+        override: @escaping @MainActor () -> [UInt32]? = { nil },
         perform: @escaping Perform = ShellWallpaperPaletteWriter.performOnWriterQueue,
         deliver: @escaping Deliver = ShellWallpaperPaletteWriter.deliverOnMain,
         onFailure: @escaping @MainActor (String) -> Void
@@ -333,6 +309,7 @@ final class ShellWallpaperPaletteWriter {
         self.source = source
         self.read = read
         self.image = image
+        self.override = override
         self.perform = perform
         self.deliver = deliver
         self.onFailure = onFailure
@@ -407,6 +384,7 @@ final class ShellWallpaperPaletteWriter {
     }
 
     private func refresh(onlyIfChanged: Bool) {
+        let pinned = override()
         let lookup = source()
         let read = read
         let scheme = scheme
@@ -416,6 +394,10 @@ final class ShellWallpaperPaletteWriter {
         perform { [weak self] in
             record.generation &+= 1
             let generation = record.generation
+            if let pinned {
+                Self.keep(pinned, onlyIfChanged: onlyIfChanged, scheme: scheme, to: destination, record: record)
+                return
+            }
             let capture = { (aerial: Bool) in
                 deliver {
                     self?.refreshImage(onlyIfChanged: onlyIfChanged, aerial: aerial, generation: generation)
@@ -484,8 +466,29 @@ final class ShellWallpaperPaletteWriter {
         }
     }
 
+    private nonisolated static func keep(
+        _ pixels: [UInt32], onlyIfChanged: Bool, scheme: ShellWallpaperScheme, to destination: URL, record: Record
+    ) {
+        guard !onlyIfChanged || pixels != record.pixels || scheme != record.scheme || !exists(destination),
+              write(pixels: pixels, scheme: scheme, to: destination)
+        else { return }
+        record.scheme = scheme
+        record.pixels = pixels
+        record.written = nil
+    }
+
     private nonisolated static func exists(_ destination: URL) -> Bool {
         FileManager.default.fileExists(atPath: destination.path)
+    }
+
+    func publish(_ text: String) throws -> Bool {
+        let record = record
+        perform { record.generation &+= 1 }
+        return try Self.publish(text, to: destination)
+    }
+
+    static func publish(_ text: String, to destination: URL) throws -> Bool {
+        try queue.sync { try ShellWallpaperPalette.write(text, to: destination) }
     }
 
     private func watchStore() {

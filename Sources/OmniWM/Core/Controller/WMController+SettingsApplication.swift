@@ -44,6 +44,7 @@ extension WMController {
         setPreventSleepEnabled(settings.preventSleepEnabled)
         setQuakeTerminalEnabled(settings.quakeTerminal.enabled)
         syncClipboardHistoryService()
+        applyWallpaperSettings()
 
         applyKittyQuakeSettings()
         reloadQuakeTerminalAppearance()
@@ -161,5 +162,15 @@ extension WMController {
             splitWidthMultiplier: settings.dwindle.splitWidthMultiplier,
             singleWindowFit: settings.dwindle.singleWindowFit
         )
+    }
+}
+
+extension WMController {
+    func applyWallpaperSettings() {
+        if settings.onWallpaperSettingsChanged == nil {
+            settings.onWallpaperSettingsChanged = { [weak self] in self?.applyWallpaperSettings() }
+        }
+        guard settings.wallpaper.enabled || wallpaperManager.running else { return }
+        wallpaperManager.settingsDidChange()
     }
 }

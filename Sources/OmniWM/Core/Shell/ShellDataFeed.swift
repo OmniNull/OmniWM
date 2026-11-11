@@ -87,6 +87,7 @@ final class ShellDataFeed {
     let media: MediaController?
     let lyrics: LyricsController
     let calendar: CalendarController?
+    let wallpaper: WallpaperFeedSource?
     let devices: ShellDevices?
     let notifications: ShellNotificationsController?
     let awakeManager: SleepPreventionManager
@@ -100,6 +101,7 @@ final class ShellDataFeed {
         media: MediaController? = nil,
         lyrics: LyricsController = LyricsController(),
         calendar: CalendarController? = nil,
+        wallpaper: WallpaperFeedSource? = nil,
         devices: ShellDevices? = nil,
         notifications: ShellNotificationsController? = nil,
         awakeManager: SleepPreventionManager = .shared,
@@ -116,6 +118,7 @@ final class ShellDataFeed {
         self.lyrics = lyrics
         lyrics.setPermissions(permissions)
         self.calendar = calendar
+        self.wallpaper = wallpaper
         self.devices = devices
         self.notifications = notifications
         self.awakeManager = awakeManager
@@ -194,6 +197,7 @@ final class ShellDataFeed {
         listenToMedia(false)
         showLyrics(false)
         listenToCalendar(false)
+        listenToWallpaper(false)
         listenToReminders(false)
         listenToNotifications(false)
         devices.map(stopDevices)

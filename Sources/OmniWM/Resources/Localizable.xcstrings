@@ -1,6 +1,117 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ is no longer connected" : {
+
+    },
+    "%@ is not a wallpaper in this display’s folder" : {
+
+    },
+    "Change Wallpaper" : {
+
+    },
+    "Choose a folder for each display, rotate wallpapers, and color OmniWM from them." : {
+
+    },
+    "Choose a folder of wallpapers" : {
+
+    },
+    "Choose the folder of wallpapers for this display." : {
+
+    },
+    "Color OmniWM with the %@ scheme" : {
+
+    },
+    "Color the bar, island and popouts from the main display’s wallpaper" : {
+
+    },
+    "Colors" : {
+
+    },
+    "Default Folder" : {
+
+    },
+    "Default folder" : {
+
+    },
+    "Each display uses the default folder until you choose one for it. Displays are recognized by their identity, so identical monitors keep separate folders, and a display you unplug keeps its folder." : {
+
+    },
+    "Every 15 Minutes" : {
+
+    },
+    "Every 30 Minutes" : {
+
+    },
+    "Every Hour" : {
+
+    },
+    "Fill Screen" : {
+
+    },
+    "Fit to Screen" : {
+
+    },
+    "Let OmniWM set each display’s wallpaper from a folder" : {
+
+    },
+    "Manage Wallpapers" : {
+
+    },
+    "Match Colors to Wallpaper" : {
+
+    },
+    "Minutes" : {
+
+    },
+    "Next Change" : {
+
+    },
+    "Next Wallpaper on All Displays" : {
+
+    },
+    "No wallpapers in %@" : {
+
+    },
+    "Not connected" : {
+
+    },
+    "OmniWM sets each display’s wallpaper from a folder, shuffles through it and can change it on a schedule. Turning this off leaves your current wallpapers as they are." : {
+
+    },
+    "Previews appear once OmniWM can read the main display’s wallpaper." : {
+
+    },
+    "Rotation" : {
+
+    },
+    "Rotation runs while OmniWM runs and keeps its time across restarts." : {
+
+    },
+    "Show the next wallpaper from each display’s folder" : {
+
+    },
+    "That display is no longer connected" : {
+
+    },
+    "The folder every display uses unless you choose one for it" : {
+
+    },
+    "Use Folder" : {
+
+    },
+    "Use the default folder for this display again" : {
+
+    },
+    "Uses the main display’s wallpaper. When OmniWM changes the wallpaper, the colors change at the same moment. This is the same Wallpaper Colors palette as in Styles & Widgets." : {
+
+    },
+    "Wallpaper" : {
+
+    },
+    "^[%lld wallpaper](inflect: true)" : {
+
+    },
     "This removes the saved launcher entry and clears its keyboard shortcut. Your apps and script files stay on disk." : {
 
     },

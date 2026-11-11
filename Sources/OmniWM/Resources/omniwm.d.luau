@@ -562,6 +562,47 @@ export type Connection = {
     interface: string?,
 }
 
+export type WallpaperItem = {
+    name: string,
+    preview: string?,
+}
+
+export type WallpaperDisplay = {
+    id: string,
+    name: string,
+    main: boolean,
+    builtin: boolean,
+    notch: boolean,
+    w: number,
+    h: number,
+    folder: string,
+    custom: boolean,
+    count: number,
+    current: string?,
+    preview: string?,
+    offset: number,
+    items: { WallpaperItem },
+    truncated: boolean,
+}
+
+export type WallpaperScheme = {
+    name: "tonalSpot" | "content" | "vibrant" | "expressive" | "fidelity" | "fruitSalad" | "rainbow" | "neutral"
+        | "monochrome",
+    light: { string },
+    dark: { string },
+}
+
+export type Wallpaper = {
+    enabled: boolean,
+    rotation: number,
+    next: number?,
+    palette: boolean,
+    scheme: string,
+    problem: string?,
+    displays: { WallpaperDisplay },
+    schemes: { WallpaperScheme },
+}
+
 export type BluetoothDevice = {
     id: string,
     name: string,
@@ -664,6 +705,7 @@ export type Data = {
     brightness: Brightness?,
     connection: Connection?,
     commandPalette: CommandPalette?,
+    wallpaper: Wallpaper?,
 }
 
 export type Format = {

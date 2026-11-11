@@ -137,6 +137,7 @@ final class WMController {
     let mediaController = MediaController()
     @ObservationIgnored
     let calendarController = CalendarController()
+    @ObservationIgnored lazy var wallpaperManager = WallpaperManager(store: settings)
     @ObservationIgnored
     private(set) lazy var quakeTerminalController: QuakeTerminalController = .init(
         settings: settings,

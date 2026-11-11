@@ -760,6 +760,31 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         )
     }
 
+    func testTheManagersPaletteIsNotOverwrittenByACaptureStillOnItsWay() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let hops = HeldHops()
+        let writer = makeWriter(
+            into: root,
+            source: { .capture(aerial: false) },
+            image: { _ in Self.sunset },
+            deliver: { hops.deliver($0) }
+        )
+        defer { writer.stop() }
+        writer.start()
+        XCTAssertNil(palette(in: root))
+
+        let forest = palette(of: Self.forest)
+        XCTAssertTrue(try writer.publish(forest))
+        XCTAssertEqual(palette(in: root), forest)
+        hops.release()
+        XCTAssertEqual(
+            palette(in: root),
+            forest,
+            "a capture taken before the wallpaper manager set the wallpaper does not replace its palette"
+        )
+    }
+
     private func aerialStore(_ asset: String) throws -> Data {
         let configuration = try PropertyListSerialization.data(
             fromPropertyList: ["assetID": asset], format: .binary, options: 0

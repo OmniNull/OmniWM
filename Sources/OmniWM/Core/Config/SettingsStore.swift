@@ -22,7 +22,7 @@ final class SettingsStore {
     let workspaces = WorkspaceSettings()
 
     private let persistence: SettingsFilePersistence
-    private let runtimeState: RuntimeStateStore
+    let runtimeState: RuntimeStateStore
     private let autosaveEnabled: Bool
     private(set) var isApplyingExport = false
     private var isApplyingRuntimeState = false
@@ -36,6 +36,7 @@ final class SettingsStore {
     var onTrackpadGestureAvailabilityChanged: (@MainActor (Bool) -> Void)?
     var onPointerSettingsChanged: (@MainActor () -> Void)?
     var onDynamicHotkeysChanged: (@MainActor () -> Void)?
+    var onWallpaperSettingsChanged: (@MainActor () -> Void)?
     var liveWorkspaceNamesForHotkeys: (@MainActor () -> [String])?
     var liveShellNamesForHotkeys: (@MainActor () -> [String])?
     private(set) var configNotice: SettingsConfigNotice?
@@ -182,6 +183,7 @@ final class SettingsStore {
     }
 
     let clipboard = ClipboardSettings()
+    let wallpaper = WallpaperSettings()
 
     let quakeTerminal = QuakeTerminalSettings()
 
@@ -255,6 +257,7 @@ final class SettingsStore {
         workspaceBar.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         workspaceBar.onNotificationBadgesChange = { [weak self] in self?.scheduleSave() }
         island.onChange = { [weak self] in self?.scheduleSave() }
+        wallpaper.onChange = { [weak self] in self?.wallpaperSettingsDidChange() }
         shellPermissions.onChange = { [weak self] in self?.scheduleSave() }
         appTheming.onChange = { [weak self] in self?.scheduleSave() }
         workspaces.onChange = { [weak self] in self?.workspacesDidChange() }
@@ -476,6 +479,7 @@ extension SettingsStore {
         tabRailAppIcons = export.tabRailAppIcons
         shellPermissions.apply(export.shellPermissions)
         appTheming.apply(export.appTheming)
+        wallpaper.apply(export.wallpaper)
     }
 
     private func pointerSettingsDidChange() {

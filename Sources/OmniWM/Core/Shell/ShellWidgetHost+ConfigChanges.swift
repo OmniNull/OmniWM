@@ -37,6 +37,7 @@ extension ShellWidgetHost {
         }
         if next.themeName != previous.themeName || next.wallpaperScheme != previous.wallpaperScheme {
             updateWallpaperPalette()
+            wallpaperPaletteDidChange()
         }
         updateConfiguredWidgets(next, from: previous)
         updateConfiguredLayout(next, from: previous)
