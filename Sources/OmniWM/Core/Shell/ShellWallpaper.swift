@@ -4,6 +4,18 @@
 import Foundation
 import OmniWMMaterialColor
 
+struct ShellWallpaperPaletteOverride: Equatable, Sendable {
+    let url: URL
+    let pixels: [UInt32]
+
+    func pixels(for source: ShellWallpaperPalette.Source) -> [UInt32]? {
+        guard case let .still(still, _) = source, still.url.standardizedFileURL == url.standardizedFileURL else {
+            return nil
+        }
+        return pixels
+    }
+}
+
 enum ShellWallpaperCommand: Equatable, Sendable {
     case next(WallpaperTarget)
     case set(display: String, name: String)

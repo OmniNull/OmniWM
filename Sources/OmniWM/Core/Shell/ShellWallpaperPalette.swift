@@ -274,7 +274,7 @@ final class ShellWallpaperPaletteWriter {
     private let source: @MainActor () -> Lookup
     private let read: @Sendable (URL) -> CGImage?
     private let image: @MainActor (_ aerial: Bool) -> CGImage?
-    private let override: @MainActor () -> [UInt32]?
+    private let override: @MainActor () -> ShellWallpaperPaletteOverride?
     private let perform: Perform
     private let deliver: Deliver
     private let onFailure: @MainActor (String) -> Void
@@ -299,7 +299,7 @@ final class ShellWallpaperPaletteWriter {
         image: @escaping @MainActor (_ aerial: Bool) -> CGImage? = {
             ShellWallpaperPalette.screenImage(for: CGMainDisplayID(), aerial: $0)
         },
-        override: @escaping @MainActor () -> [UInt32]? = { nil },
+        override: @escaping @MainActor () -> ShellWallpaperPaletteOverride? = { nil },
         perform: @escaping Perform = ShellWallpaperPaletteWriter.performOnWriterQueue,
         deliver: @escaping Deliver = ShellWallpaperPaletteWriter.deliverOnMain,
         onFailure: @escaping @MainActor (String) -> Void
@@ -384,8 +384,8 @@ final class ShellWallpaperPaletteWriter {
     }
 
     private func refresh(onlyIfChanged: Bool) {
-        let pinned = override()
         let lookup = source()
+        let pinned = override()
         let read = read
         let scheme = scheme
         let destination = destination
@@ -394,16 +394,16 @@ final class ShellWallpaperPaletteWriter {
         perform { [weak self] in
             record.generation &+= 1
             let generation = record.generation
-            if let pinned {
-                Self.keep(pinned, onlyIfChanged: onlyIfChanged, scheme: scheme, to: destination, record: record)
-                return
-            }
             let capture = { (aerial: Bool) in
                 deliver {
                     self?.refreshImage(onlyIfChanged: onlyIfChanged, aerial: aerial, generation: generation)
                 }
             }
             let looked = lookup()
+            if let pixels = pinned?.pixels(for: looked) {
+                Self.keep(pixels, onlyIfChanged: onlyIfChanged, scheme: scheme, to: destination, record: record)
+                return
+            }
             guard case let .still(still, aerial) = looked else {
                 if case let .capture(aerial) = looked {
                     capture(aerial)

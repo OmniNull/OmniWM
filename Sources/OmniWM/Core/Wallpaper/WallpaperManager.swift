@@ -254,6 +254,10 @@ final class WallpaperManager {
 }
 
 extension WallpaperManager {
+    func palettePin() -> ShellWallpaperPaletteOverride? {
+        palettePixels().flatMap { pixels in pin.map { ShellWallpaperPaletteOverride(url: $0.url, pixels: pixels) } }
+    }
+
     func palettePixels() -> [UInt32]? {
         guard let pin, let main = desktop.displays().first(where: \.isMain),
               main.current?.standardizedFileURL == pin.url.standardizedFileURL,

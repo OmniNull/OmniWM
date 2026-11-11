@@ -81,9 +81,19 @@ final class ShellWallpaperTests: XCTestCase {
         capture.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
         let staleImage = try XCTUnwrap(capture.makeImage())
         let pinned = PinnedPixels(filePixels)
+        let managedURL = root.appendingPathComponent("managed.png")
         let writer = ShellWallpaperPaletteWriter(
-            destination: destination, scheme: .tonalSpot, source: { { .capture(aerial: false) } },
-            image: { _ in staleImage }, override: { pinned.value },
+            destination: destination, scheme: .tonalSpot,
+            source: {
+                let showsManaged = pinned.value != nil
+                return {
+                    showsManaged ? .still(ShellWallpaperPalette.StillWallpaper(
+                        url: managedURL, size: 1, modified: Date(timeIntervalSince1970: 1)
+                    ), aerial: false) : .capture(aerial: false)
+                }
+            },
+            read: { _ in nil }, image: { _ in staleImage },
+            override: { pinned.value.map { ShellWallpaperPaletteOverride(url: managedURL, pixels: $0) } },
             perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }
         ) { _ in }
         writer.refresh()

@@ -146,7 +146,7 @@ extension ShellWidgetHost {
         let writer = ShellWallpaperPaletteWriter(
             destination: wallpaperThemeURL,
             scheme: config.wallpaperScheme,
-            override: { [weak self] in self?.resources.wallpaper?.palettePixels() },
+            override: { [weak self] in self?.resources.wallpaper?.palettePin() },
             onFailure: { [weak self] problem in
                 guard let self, !configProblems.contains(problem) else { return }
                 ShellConfig.report(problem, &configProblems)

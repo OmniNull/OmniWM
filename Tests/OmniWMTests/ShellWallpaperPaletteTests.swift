@@ -266,7 +266,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         source: @escaping @Sendable () -> ShellWallpaperPalette.Source,
         read: @escaping @Sendable (URL) -> CGImage? = { _ in nil },
         image: @escaping @MainActor (Bool) -> CGImage? = { _ in nil },
-        override: @escaping @MainActor () -> [UInt32]? = { nil },
+        override: @escaping @MainActor () -> ShellWallpaperPaletteOverride? = { nil },
         deliver: @escaping ShellWallpaperPaletteWriter.Deliver = { MainActor.assumeIsolated($0) },
         onFailure: @escaping @MainActor (String) -> Void = { _ in }
     ) -> ShellWallpaperPaletteWriter {
@@ -929,8 +929,9 @@ final class ShellWallpaperPaletteTests: XCTestCase {
     func testAWallpaperTheManagerSetKeepsItsPaletteWithoutAnotherDecodeOrCapture() {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        let managedURL = root.appendingPathComponent("managed.png")
         let file = StillFile(ShellWallpaperPalette.StillWallpaper(
-            url: root.appendingPathComponent("managed.png"), size: 4096, modified: Date(timeIntervalSince1970: 1000)
+            url: managedURL, size: 4096, modified: Date(timeIntervalSince1970: 1000)
         ))
         let decoder = Decoder(Self.sunset)
         let managed = ManagedSample(ShellWallpaperPalette.pixels(of: Self.forest))
@@ -943,7 +944,9 @@ final class ShellWallpaperPaletteTests: XCTestCase {
                 screen.reads += 1
                 return screen.image
             },
-            override: { managed.pixels }
+            override: {
+                managed.pixels.map { ShellWallpaperPaletteOverride(url: managedURL, pixels: $0) }
+            }
         )
         defer { writer.stop() }
         writer.start()
@@ -954,7 +957,6 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         XCTAssertEqual(palette(in: root), forest, "neither the file read nor a capture replaces the manager's palette")
         XCTAssertEqual(decoder.count, 0, "the still file is not decoded again while the managed wallpaper shows")
         XCTAssertEqual(screen.reads, 0)
-        XCTAssertEqual(file.checks, 0)
 
         managed.pixels = nil
         writer.refreshIfChanged()
@@ -964,5 +966,51 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             "once the wallpaper is not the managed one, the still file read takes over"
         )
         XCTAssertEqual(decoder.count, 1)
+    }
+
+    func testAManagedWallpaperIsIgnoredOnceTheStoreShowsSomethingElseForTheDisplay() {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let managedURL = root.appendingPathComponent("managed.png")
+        let source = SourceBox(.still(ShellWallpaperPalette.StillWallpaper(
+            url: managedURL, size: 4096, modified: Date(timeIntervalSince1970: 1000)
+        ), aerial: false))
+        let decoder = Decoder(Self.sunset)
+        let screen = Wallpaper(Self.sunset)
+        let managed = ShellWallpaperPalette.pixels(of: Self.forest)
+        let writer = makeWriter(
+            into: root,
+            source: { source.current },
+            read: { decoder.read($0) },
+            image: { _ in
+                screen.reads += 1
+                return screen.image
+            },
+            override: { ShellWallpaperPaletteOverride(url: managedURL, pixels: managed) }
+        )
+        defer { writer.stop() }
+        writer.start()
+        XCTAssertEqual(palette(in: root), palette(of: Self.forest))
+
+        source.show(.capture(aerial: true))
+        writer.refresh()
+        XCTAssertEqual(
+            palette(in: root),
+            palette(of: Self.sunset),
+            "a stale desktopImageURL cannot keep the managed palette once the Store shows an Aerial"
+        )
+        XCTAssertEqual(screen.reads, 1)
+
+        source.show(.still(ShellWallpaperPalette.StillWallpaper(
+            url: root.appendingPathComponent("chosen-in-settings.png"), size: 10,
+            modified: Date(timeIntervalSince1970: 5)
+        ), aerial: false))
+        decoder.show(Self.sky)
+        writer.refresh()
+        XCTAssertEqual(
+            palette(in: root),
+            palette(of: Self.sky),
+            "a different still file chosen elsewhere is read, not the managed sample"
+        )
     }
 }
