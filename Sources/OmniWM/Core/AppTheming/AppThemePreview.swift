@@ -48,14 +48,17 @@ struct AppThemePreview {
         }
     }
 
-    private var ghosttyFiles: [(url: URL, text: String)] {
+    private var ghosttyFiles: [(url: URL, text: String, digest: String)] {
         AppThemeGhosttySelection.loadedFiles(configHome: configHome, home: engine.policy.home).compactMap { url in
-            (try? String(contentsOf: url, encoding: .utf8)).map { (url, $0) }
+            guard let data = try? Data(contentsOf: url), let text = String(data: data, encoding: .utf8) else {
+                return nil
+            }
+            return (url, text, AppThemeFileWriter.digest(data))
         }
     }
 
     func ghosttySelectionStatus() -> AppThemeGhosttyStatus {
-        switch AppThemeGhosttySelection.status(ghosttyFiles) {
+        switch AppThemeGhosttySelection.status(ghosttyFiles.map { ($0.url, $0.text) }) {
         case let .overridden(path): .overridden(engine.policy.display(URL(fileURLWithPath: path)))
         case let status: status
         }
@@ -63,11 +66,18 @@ struct AppThemePreview {
 
     func ghosttySelectionChanges() -> [AppThemeChange] {
         let fallback = AppThemeGhosttySelection.candidates(configHome: configHome, home: engine.policy.home)[0]
-        let plans = AppThemeGhosttySelection.plan(ghosttyFiles, fallback: fallback)
+        let files = ghosttyFiles
+        let plans = AppThemeGhosttySelection.plan(files.map { ($0.url, $0.text) }, fallback: fallback)
         let blocked = plans.filter { (try? engine.policy.destination(for: $0.url.path)) == nil }
         var changes = plans.compactMap { plan -> AppThemeChange? in
             guard let url = try? engine.policy.destination(for: plan.url.path) else { return nil }
-            return AppThemeChange(url: url, display: engine.policy.display(url), before: plan.before, after: plan.after)
+            return AppThemeChange(
+                url: url,
+                display: engine.policy.display(url),
+                before: plan.before,
+                after: plan.after,
+                beforeDigest: files.first { $0.url == plan.url }?.digest
+            )
         }
         if !blocked.isEmpty, !changes.isEmpty {
             changes[0].note = String(

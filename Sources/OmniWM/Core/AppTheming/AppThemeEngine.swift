@@ -71,6 +71,15 @@ struct AppThemeEngine: Sendable {
     private func runLocked(_ job: AppThemeJob) -> AppThemeRunReport {
         var state = store.load()
         var report = AppThemeRunReport()
+        if !job.selection.isEmpty {
+            do {
+                report.backups += try commit(job.selection)
+            } catch AppThemeEngineError.changedOutsideOmniWM {
+                report.reviewAgain.append(AppThemeService.ghosttySelectionReview)
+            } catch {
+                report.selectionProblem = error.localizedDescription
+            }
+        }
         var changed: [String: Bool] = [:]
         var claimed: [String: String] = [:]
         var created: Set<String> = []
@@ -207,6 +216,28 @@ struct AppThemeEngine: Sendable {
             written.append(item.url.lastPathComponent)
         }
         return (written, rendered.contains { $0.before == nil })
+    }
+
+    func commit(_ changes: [AppThemeChange]) throws -> [URL] {
+        let stale = try changes.filter { change in
+            try AppThemeFileWriter.read(change.url).map(AppThemeFileWriter.digest) != change.beforeDigest
+        }
+        guard stale.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(stale.map(\.display)) }
+        var backups: [URL] = []
+        for change in changes {
+            let current = try AppThemeFileWriter.read(change.url)
+            let backup = try current.map { try store.backup($0, of: change.url, date: now()) }
+            willReplace(change.url)
+            guard try AppThemeFileWriter.read(change.url) == current,
+                  current.map(AppThemeFileWriter.digest) == change.beforeDigest
+            else {
+                if let backup { try? FileManager.default.removeItem(at: backup) }
+                throw AppThemeEngineError.changedOutsideOmniWM([change.display])
+            }
+            try AppThemeFileWriter.writeAtomically(Data(change.after.utf8), to: change.url)
+            if let backup { backups.append(backup) }
+        }
+        return backups
     }
 
     private static func isReviewed(_ item: Rendered, _ job: AppThemeJob) -> Bool {

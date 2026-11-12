@@ -15,6 +15,9 @@ final class AppThemeService {
     private(set) var isRunning = false
     var lastBackup: URL?
     private(set) var reviewAgain: String?
+    private(set) var problem: String?
+
+    nonisolated static let ghosttySelectionReview = "ghostty-config"
 
     @ObservationIgnored var onGhosttyThemesChanged: (() -> Void)?
     @ObservationIgnored var onRunFinished: (() -> Void)?
@@ -27,6 +30,7 @@ final class AppThemeService {
     @ObservationIgnored private var appearanceChanged = false
     @ObservationIgnored private var takeOver: [String: String] = [:]
     @ObservationIgnored private var forceReload: Set<String> = []
+    @ObservationIgnored var selection: [AppThemeChange] = []
     @ObservationIgnored private var enabledTargets: Set<String> = []
     @ObservationIgnored private let currentTargets = AppThemeEnabledTargets([])
     @ObservationIgnored private var paletteTerminalColors = AppThemeTerminalColors.palette
@@ -147,6 +151,10 @@ final class AppThemeService {
         reviewAgain = nil
     }
 
+    func problemShown() {
+        problem = nil
+    }
+
     func applyNow() {
         schedule()
     }
@@ -178,8 +186,10 @@ final class AppThemeService {
             targets: targets,
             takeOver: takeOver,
             forceReload: forceReload,
-            enabled: currentTargets
+            enabled: currentTargets,
+            selection: selection
         )
+        selection = []
         appearanceChanged = false
         takeOver = [:]
         forceReload = []
@@ -197,6 +207,7 @@ final class AppThemeService {
         results.merge(report.results) { $1 }
         if let backup = report.backups.last { lastBackup = backup }
         if let target = report.reviewAgain.first { reviewAgain = target }
+        if let failure = report.selectionProblem { problem = failure }
         isRunning = false
         if report.ghosttyThemesChanged { onGhosttyThemesChanged?() }
         if rerun {

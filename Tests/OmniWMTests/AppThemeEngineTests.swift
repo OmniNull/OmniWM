@@ -368,6 +368,24 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), "include newer.conf\n")
     }
 
+    func testAReviewedConfigEditIsCheckedAgainRightBeforeTheReplace() throws {
+        try sandbox.write("theme = a\n", to: ".config/ghostty/config")
+        let url = sandbox.path(".config/ghostty/config")
+        let change = AppThemeChange(
+            url: url,
+            display: "~/.config/ghostty/config",
+            before: "theme = a\n",
+            after: "# theme = a\n",
+            beforeDigest: AppThemeFileWriter.digest(Data("theme = a\n".utf8))
+        )
+        var engine = sandbox.engine(fake)
+        engine.willReplace = { replaced in try? Data("theme = b\n".utf8).write(to: replaced) }
+        XCTAssertThrowsError(try engine.store.withLock { try engine.commit([change]) }) { error in
+            XCTAssertEqual(error as? AppThemeEngineError, .changedOutsideOmniWM(["~/.config/ghostty/config"]))
+        }
+        XCTAssertEqual(sandbox.read(".config/ghostty/config"), "theme = b\n")
+    }
+
     func testTwoAppsCannotShareAnOutputFile() throws {
         try sandbox.write("custom {{colors.background.default.hex}}\n", to: "templates/app.conf")
         try FileManager.default.createDirectory(at: sandbox.path(".config/kitty"), withIntermediateDirectories: true)

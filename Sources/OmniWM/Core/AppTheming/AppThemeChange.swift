@@ -16,7 +16,7 @@ struct AppThemeDiffLine: Equatable, Identifiable {
     let text: String
 }
 
-struct AppThemeChange: Equatable, Identifiable {
+struct AppThemeChange: Equatable, Identifiable, Sendable {
     let url: URL
     let display: String
     let before: String?

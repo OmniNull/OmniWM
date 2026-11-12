@@ -48,21 +48,9 @@ extension AppThemeService {
         preview.ghosttySelectionChanges()
     }
 
-    func applyGhosttySelection(_ changes: [AppThemeChange]) throws {
-        let stale = changes.filter { change in
-            (try? String(contentsOf: change.url, encoding: .utf8)) != change.before
-        }
-        guard stale.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(stale.map(\.display)) }
-        for change in changes {
-            if let before = change.before {
-                lastBackup = try engine.store.backup(Data(before.utf8), of: change.url)
-            }
-        }
-        for change in changes {
-            try AppThemeFileWriter.writeAtomically(Data(change.after.utf8), to: change.url)
-        }
+    func applyGhosttySelection(_ changes: [AppThemeChange]) {
+        selection = changes
         markForceReload(AppThemeBuiltIn.ghostty.id)
         schedule()
-        if !isRunning { onRunFinished?() }
     }
 }

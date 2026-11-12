@@ -78,6 +78,7 @@ struct AppThemeJob: Sendable {
     var takeOver: [String: String] = [:]
     var forceReload: Set<String> = []
     var enabled = AppThemeEnabledTargets.all
+    var selection: [AppThemeChange] = []
 }
 
 final class AppThemeEnabledTargets: Sendable {
@@ -103,4 +104,5 @@ struct AppThemeRunReport: Sendable {
     var ghosttyThemesChanged = false
     var backups: [URL] = []
     var reviewAgain: [String] = []
+    var selectionProblem: String?
 }

@@ -84,7 +84,16 @@ struct AppThemingSettingsPage: View {
         .onChange(of: service?.reviewAgain) { _, target in
             guard let target else { return }
             service?.reviewShown()
-            reviewAgain(target)
+            if target == AppThemeService.ghosttySelectionReview {
+                reviewGhosttySelection()
+            } else {
+                reviewAgain(target)
+            }
+        }
+        .onChange(of: service?.problem) { _, failure in
+            guard let failure else { return }
+            service?.problemShown()
+            problem = failure
         }
         .sheet(item: $review) { review in
             AppThemingReviewSheet(review: review, backupFolder: backupFolder) { error in
@@ -311,7 +320,7 @@ struct AppThemingSettingsPage: View {
             ),
             confirmTitle: String(localized: "Back Up and Change"),
             changes: changes
-        ) { [service] in try service?.applyGhosttySelection(changes) }
+        ) { [service] in service?.applyGhosttySelection(changes) }
     }
 
     private func refreshGhosttySelection() {
