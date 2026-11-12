@@ -76,9 +76,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             preferring x: CGFloat,
             within range: ClosedRange<CGFloat>
         ) -> CGPoint {
-            let third = placed.width / 3
-            let centre = placed.minX + third ..< placed.maxX - third
-            guard placed.width >= MoveConfiguration.liveCentreMinimumWidth - 0.5, centre.contains(x) else {
+            guard let centre = engine.liveCentreThird(of: placed, context: context), centre.contains(x) else {
                 return CGPoint(x: x, y: midY)
             }
             let pieces = [
@@ -357,25 +355,23 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertEqual(fixture.changes, 1)
     }
 
-    func testTheKeepVisibleScrollStopsShortOfAPartlyHiddenTargetsMiddleThird() {
+    func testBesideAPartlyHiddenTargetTheKeepVisibleScrollBringsTheDropSpaceInWithThePointerOutOfItsCentre() {
         var fixture = makeFixture(widths: Array(repeating: 1.0 / 3.0, count: 7))
         let span = fixture.stripColumn(holding: 3).width
-        XCTAssertGreaterThanOrEqual(span, MoveConfiguration.liveCentreMinimumWidth)
         fixture.scrollSoThat(3, startsAt: fixture.frame.maxX - span / 2)
         XCTAssertTrue(fixture.begin(2))
         let cursor = CGPoint(x: fixture.frame.maxX - span / 5, y: fixture.midY)
         let targetBefore = fixture.stripColumn(holding: 3)
-        XCTAssertLessThan(cursor.x, targetBefore.minX + span / 3)
 
         XCTAssertEqual(fixture.moveAndSettle(to: cursor), .changed)
 
         XCTAssertEqual(fixture.landingOrder(), [0, 1, 3, 2, 4, 5, 6].map { fixture.tokens[$0] })
         let target = fixture.stripColumn(holding: 3)
         XCTAssertLessThan(target.minX, targetBefore.minX - 0.5)
-        XCTAssertLessThan(cursor.x, target.minX + span / 3)
-        XCTAssertGreaterThan(cursor.x, target.minX + span / 3 - 2)
         let dropSpace = try? XCTUnwrap(fixture.dropSpace())
-        XCTAssertGreaterThanOrEqual(dropSpace?.minX ?? 0, fixture.frame.maxX)
+        XCTAssertLessThanOrEqual(dropSpace?.maxX ?? .infinity, fixture.frame.maxX + 0.5)
+        let centre = fixture.engine.liveCentreThird(of: target, context: fixture.context)
+        XCTAssertNotEqual(centre?.contains(cursor.x), true)
 
         for time in [0.1, fixture.engine.liveCentreStackDelay + 0.1, 2] {
             XCTAssertEqual(fixture.move(to: cursor, at: time), .unchanged, "\(time)")

@@ -64,15 +64,27 @@ extension NiriLayoutEngine {
               let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
               column.id != move.homeColumnId,
               let placed = strip.first(where: { $0.column === column }),
-              placed.width >= MoveConfiguration.liveCentreMinimumWidth - 0.5
+              let centre = liveCentreThird(
+                  of: placed,
+                  margin: move.landing?.columnId == column.id ? MoveConfiguration.liveCentreExitMargin : 0,
+                  context: context
+              ),
+              centre.contains(cursor.x)
         else { return .home }
-        let hintedHere = move.landing?.columnId == column.id
-        let margin = hintedHere ? MoveConfiguration.liveCentreExitMargin : 0
-        let third = placed.width / 3
-        guard cursor.x >= placed.minX + third - margin, cursor.x < placed.maxX - third + margin else {
-            return .home
-        }
         return liveStackChoice(cursor: cursor, strip: strip, move: move, context: context)
+    }
+
+    func liveCentreThird(
+        of placed: LiveColumnMove.StripColumn,
+        shiftedBy shift: CGFloat = 0,
+        margin: CGFloat = 0,
+        context: NiriInteractionContext
+    ) -> Range<CGFloat>? {
+        let minX = max(placed.minX, context.workingFrame.minX + shift)
+        let maxX = min(placed.maxX, context.workingFrame.maxX + shift)
+        guard maxX - minX >= MoveConfiguration.liveCentreMinimumWidth - 0.5 else { return nil }
+        let third = (maxX - minX) / 3
+        return (minX + third - margin) ..< (maxX - third + margin)
     }
 
     @discardableResult

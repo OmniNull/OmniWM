@@ -1221,6 +1221,10 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 938_332, windowCount: 6, animated: true)
         let clock = edgeClock(fixture)
         let dragged = fixture.tokens[3]
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.jumpOffset(to: state.viewOffset + 1_000)
+        }
+        try fixture.confirmLayout()
         try fixture.startLiveDrag(dragged)
         let start = try fixture.centre(of: dragged)
         let end = edgePoint(.leading, fixture)
@@ -1249,20 +1253,19 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     }
 
     func testNoHintOpensWhileThePointerIsInTheEdgeZone() throws {
-        let fixture = try makeFixture(pid: 938_321, windowCount: 5)
+        let fixture = try makeFixture(pid: 938_321, windowCount: 5, displayWidth: 4_000)
         let clock = edgeClock(fixture)
-        let target = fixture.tokens[3]
-        try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
-        try fixture.startLiveDrag(fixture.tokens[1])
-        let (outside, inZone) = try centreThirdPoints(of: target, aroundTheTrailingEdgeZoneIn: fixture)
+        let target = fixture.tokens[1]
+        try scroll(fixture, so: target, showsAtTheLeftEdge: 300)
+        try fixture.startLiveDrag(fixture.tokens[2])
+        let (outside, inZone) = try centreThirdPoints(of: target, aroundTheLeadingEdgeZoneIn: fixture)
 
         fixture.drag(to: inZone)
         clock.now += 0.25
         fixture.drag(to: inZone)
         fixture.handler.liveDragSession?.hoverTimer?.fire()
 
-        XCTAssertEqual(fixture.handler.liveDragSession?.edgeScroll?.edge, .trailing)
-        XCTAssertNil(fixture.engine.liveColumnMove?.landing)
+        XCTAssertEqual(fixture.handler.liveDragSession?.edgeScroll?.edge, .leading)
         XCTAssertNil(fixture.engine.liveColumnMove?.landing)
 
         fixture.drag(to: outside)
@@ -1275,12 +1278,12 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     }
 
     func testTheFirstHopClosesAHintOpenWhenThePointerEnteredTheEdgeZone() throws {
-        let fixture = try makeFixture(pid: 938_322, windowCount: 5)
+        let fixture = try makeFixture(pid: 938_322, windowCount: 5, displayWidth: 4_000)
         let clock = edgeClock(fixture)
-        let (dragged, target) = (fixture.tokens[1], fixture.tokens[3])
-        try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
+        let (dragged, target) = (fixture.tokens[2], fixture.tokens[1])
+        try scroll(fixture, so: target, showsAtTheLeftEdge: 300)
         try fixture.startLiveDrag(dragged)
-        let (outside, inZone) = try centreThirdPoints(of: target, aroundTheTrailingEdgeZoneIn: fixture)
+        let (outside, inZone) = try centreThirdPoints(of: target, aroundTheLeadingEdgeZoneIn: fixture)
         fixture.drag(to: outside)
         clock.now += 0.25
         fixture.drag(to: outside)
@@ -1300,7 +1303,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.engine.liveColumnMove?.landing)
         XCTAssertNil(fixture.engine.liveColumnMove?.landing)
         let landing = fixture.landingOrder()
-        XCTAssertGreaterThan(
+        XCTAssertLessThan(
             try XCTUnwrap(landing.firstIndex(of: dragged)),
             try XCTUnwrap(landing.firstIndex(of: target))
         )
@@ -2244,19 +2247,19 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
     private func centreThirdPoints(
         of token: WindowToken,
-        aroundTheTrailingEdgeZoneIn fixture: Fixture
+        aroundTheLeadingEdgeZoneIn fixture: Fixture
     ) throws -> (outside: CGPoint, inZone: CGPoint) {
         let column = try column(holding: token, in: fixture)
         let placed = try XCTUnwrap(liveStrip(fixture).first { $0.column === column })
+        let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
+        let centre = try XCTUnwrap(fixture.engine.liveCentreThird(of: placed, context: context))
         let frame = fixture.monitor.frame
         let zone = MoveConfiguration.liveEdgeZoneWidth(forDisplayWidth: frame.width)
         let y = try fixture.frame(token).midY
-        let outside = CGPoint(x: frame.maxX - zone - 20, y: y)
-        let inZone = CGPoint(x: frame.maxX - zone / 2, y: y)
-        let third = (placed.maxX - placed.minX) / 3
-        for x in [outside.x, outside.x + 25, inZone.x] {
-            XCTAssertGreaterThan(x, placed.minX + third)
-            XCTAssertLessThan(x, placed.maxX - third)
+        let outside = CGPoint(x: frame.minX + zone + 10, y: y)
+        let inZone = CGPoint(x: frame.minX + zone - 3, y: y)
+        for x in [outside.x, inZone.x] {
+            XCTAssertTrue(centre.contains(x), "\(x) outside \(centre)")
         }
         return (outside, inZone)
     }
@@ -2315,6 +2318,16 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTFail("Edge scroll did not finish")
     }
 
+    private func scroll(_ fixture: Fixture, so token: WindowToken, showsAtTheLeftEdge visible: CGFloat) throws {
+        let frame = try fixture.settledFrame(token)
+        let edge = fixture.controller.insetWorkingFrame(for: fixture.monitor).minX
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.jumpOffset(to: state.viewOffset + frame.maxX - (edge + visible))
+        }
+        try fixture.confirmLayout()
+        XCTAssertEqual(try fixture.settledFrame(token).maxX, edge + visible, accuracy: 1)
+    }
+
     private func scroll(_ fixture: Fixture, so token: WindowToken, isHalfOffTheRightEdge: Void) throws {
         let frame = try fixture.settledFrame(token)
         let edge = fixture.controller.insetWorkingFrame(for: fixture.monitor).maxX
@@ -2363,7 +2376,8 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         tabbedRuns: [ClosedRange<Int>] = [],
         animated: Bool = false,
         hoverDelay: TimeInterval = 0,
-        layout: LayoutType = .niri
+        layout: LayoutType = .niri,
+        displayWidth: CGFloat? = nil
     ) throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "LiveTitleBarDragTests")
         addTeardownBlock { @MainActor [controller] in
@@ -2374,11 +2388,13 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             controller.axManager.cleanup()
         }
         controller.motionPolicy.animationsEnabled = animated
+        var displayFrame = workingFrame
+        displayFrame.size.width = displayWidth ?? displayFrame.width
         let monitor = Monitor(
             id: .init(displayId: 93_801),
             displayId: 93_801,
-            frame: workingFrame,
-            visibleFrame: workingFrame,
+            frame: displayFrame,
+            visibleFrame: displayFrame,
             hasNotch: false,
             name: "Live Title Bar Drag"
         )

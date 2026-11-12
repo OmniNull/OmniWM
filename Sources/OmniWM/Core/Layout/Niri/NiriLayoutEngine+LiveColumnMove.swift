@@ -486,18 +486,13 @@ extension NiriLayoutEngine {
             return (0, pulledEnd)
         }
         let pointerX = pointer.cursor.x
-        var lowest = min(0, min(landing.minX, target.minX) - pointerX)
-        var highest = max(0, max(landing.maxX, target.maxX) - pointerX - 1)
+        let lowest = min(0, min(landing.minX, target.minX) - pointerX)
+        let highest = max(0, max(landing.maxX, target.maxX) - pointerX - 1)
+        var shift = wanted.clamped(to: lowest ... highest)
         let slidesInWhole = edgeScrollReveals && (pullsStart || pullsEnd)
-        if !slidesInWhole, target.width >= MoveConfiguration.liveCentreMinimumWidth - 0.5 {
-            let third = target.width / 3
-            if pointerX >= target.maxX - third {
-                lowest = max(lowest, min(0, target.maxX - third - pointerX + 1))
-            } else if pointerX < target.minX + third {
-                highest = min(highest, max(0, target.minX + third - pointerX - 1))
-            }
+        if !slidesInWhole, liveCentreThird(of: target, context: context)?.contains(pointerX) != true {
+            shift = liveShiftKeepingPointerOutOfCentre(shift, target: target, pointerX: pointerX, context: context)
         }
-        let shift = wanted.clamped(to: lowest ... highest)
         if pullsStart, shift < -0.5 {
             return (shift, .before)
         }
@@ -505,6 +500,25 @@ extension NiriLayoutEngine {
             return (shift, .after)
         }
         return (shift, pulledEnd)
+    }
+
+    private func liveShiftKeepingPointerOutOfCentre(
+        _ shift: CGFloat,
+        target: LiveColumnMove.StripColumn,
+        pointerX: CGFloat,
+        context: NiriInteractionContext
+    ) -> CGFloat {
+        func keepsOut(_ candidate: CGFloat) -> Bool {
+            liveCentreThird(of: target, shiftedBy: candidate, context: context)?.contains(pointerX + candidate) != true
+        }
+        guard !keepsOut(shift) else { return shift }
+        var allowed: CGFloat = 0
+        var refused = shift
+        while abs(refused - allowed) > 0.5 {
+            let middle = (allowed + refused) / 2
+            if keepsOut(middle) { allowed = middle } else { refused = middle }
+        }
+        return allowed
     }
 
     private func liveSpecialModeDecision(

@@ -1143,7 +1143,36 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertTrue(passed === fixture.column(try XCTUnwrap(visible.last)))
     }
 
-    func testInTheEdgeZoneAStripEndSlidesTheDropSpaceWhollyIntoView() throws {
+    func testTheCentreOfAWindowMostlyOffScreenIsTheCentreThirdOfItsVisiblePart() throws {
+        var fixture = makeFixture(widths: [0.3, 0.3, 0.3, 0.9])
+        let last = fixture.stripColumn(fixture.column(3))
+        fixture.state.jumpOffset(to: fixture.state.viewOffset + last.minX - (fixture.frame.maxX - 400))
+        XCTAssertGreaterThan(fixture.stripColumn(fixture.column(3)).maxX, fixture.frame.maxX + 800)
+        let span = fixture.span(of: 3)
+        let visibleMiddle = CGPoint(x: fixture.frame.maxX - 200, y: span.maxY - (span.maxY - span.minY) / 4)
+        XCTAssertTrue(fixture.begin(1))
+
+        _ = fixture.move(to: visibleMiddle, at: 1)
+        _ = fixture.move(to: visibleMiddle, at: 2)
+
+        XCTAssertEqual(fixture.move?.landing?.columnId, fixture.column(3).id)
+    }
+
+    func testAWindowWithLessThan300PointsOnScreenHasNoCentre() throws {
+        var fixture = makeFixture(widths: [0.3, 0.3, 0.3, 0.9])
+        let last = fixture.stripColumn(fixture.column(3))
+        fixture.state.jumpOffset(to: fixture.state.viewOffset + last.minX - (fixture.frame.maxX - 250))
+        let span = fixture.span(of: 3)
+        let visibleMiddle = CGPoint(x: fixture.frame.maxX - 125, y: span.maxY - (span.maxY - span.minY) / 4)
+        XCTAssertTrue(fixture.begin(1))
+
+        _ = fixture.move(to: visibleMiddle, at: 1)
+        _ = fixture.move(to: visibleMiddle, at: 2)
+
+        XCTAssertNil(fixture.move?.landing)
+    }
+
+    func testAStripEndSlidesTheDropSpaceWhollyIntoViewInAndOutOfTheEdgeZone() throws {
         for inZone in [true, false] {
             var fixture = makeFixture(widths: [0.3, 0.3, 0.3, 0.9])
             let last = fixture.stripColumn(fixture.column(3))
@@ -1161,12 +1190,8 @@ final class NiriFreeStyleStackTests: XCTestCase {
             let strip = fixture.engine.liveColumnStrip(context: fixture.context, state: fixture.state)
             XCTAssertEqual(strip.last?.column.isLiveDropSpace, true, "\(inZone)")
             let landing = try XCTUnwrap(strip.last)
-            if inZone {
-                XCTAssertLessThanOrEqual(landing.maxX, fixture.frame.maxX + 0.5)
-                XCTAssertGreaterThanOrEqual(landing.minX, fixture.frame.maxX - 2 * landing.width)
-            } else {
-                XCTAssertGreaterThan(landing.maxX, fixture.frame.maxX + 100)
-            }
+            XCTAssertLessThanOrEqual(landing.maxX, fixture.frame.maxX + 0.5, "\(inZone)")
+            XCTAssertGreaterThanOrEqual(landing.minX, fixture.frame.maxX - 2 * landing.width, "\(inZone)")
         }
     }
 
