@@ -51,6 +51,7 @@ struct AppThemeEngine: Sendable {
     }
 
     func run(_ job: AppThemeJob) -> AppThemeRunReport {
+        guard job.targets.contains(where: { job.enabled.contains($0.id) }) else { return AppThemeRunReport() }
         do {
             return try store.withLock { runLocked(job) }
         } catch {
@@ -72,7 +73,7 @@ struct AppThemeEngine: Sendable {
         var changed: [String: Bool] = [:]
         var claimed: [String: String] = [:]
         var created: Set<String> = []
-        for target in job.targets {
+        for target in job.targets where job.enabled.contains(target.id) {
             do {
                 try claim(target, in: &claimed)
                 let (names, newFiles) = try write(target, job: job, state: &state, backups: &report.backups)
@@ -128,7 +129,9 @@ struct AppThemeEngine: Sendable {
             .sorted { ($0.element.reload?.phase ?? 0, $0.offset) < ($1.element.reload?.phase ?? 0, $1.offset) }
             .map(\.element)
         for target in ordered {
-            guard let action = target.reload, let wrote = changed[target.id] else { continue }
+            guard let action = target.reload, let wrote = changed[target.id], job.enabled.contains(target.id) else {
+                continue
+            }
             let needed = wrote || state.reloadPending.contains(target.id) || job.forceReload.contains(target.id)
                 || (action.runsAfterTerminals && (terminalsChanged || job.appearanceChanged))
             guard needed else { continue }
@@ -141,7 +144,8 @@ struct AppThemeEngine: Sendable {
             report.results[target.id]?.reloadFailed = !outcome.succeeded
         }
         report.ghosttyThemesChanged = job.targets.contains { target in
-            target.reload == .ghostty && (changed[target.id] == true || job.forceReload.contains(target.id))
+            target.reload == .ghostty && job.enabled.contains(target.id)
+                && (changed[target.id] == true || job.forceReload.contains(target.id))
         }
     }
 

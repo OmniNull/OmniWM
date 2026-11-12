@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import os
 
 enum AppThemeVariant: String, Codable, Equatable, Sendable {
     case current
@@ -76,6 +77,25 @@ struct AppThemeJob: Sendable {
     let targets: [AppThemeTarget]
     var takeOver: [String: String] = [:]
     var forceReload: Set<String> = []
+    var enabled = AppThemeEnabledTargets.all
+}
+
+final class AppThemeEnabledTargets: Sendable {
+    static let all = AppThemeEnabledTargets(nil)
+
+    private let ids: OSAllocatedUnfairLock<Set<String>?>
+
+    init(_ ids: Set<String>?) {
+        self.ids = OSAllocatedUnfairLock(initialState: ids)
+    }
+
+    func contains(_ id: String) -> Bool {
+        ids.withLock { $0?.contains(id) ?? true }
+    }
+
+    func set(_ next: Set<String>) {
+        ids.withLock { $0 = next }
+    }
 }
 
 struct AppThemeRunReport: Sendable {

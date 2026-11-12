@@ -27,6 +27,7 @@ final class AppThemeService {
     @ObservationIgnored private var takeOver: [String: String] = [:]
     @ObservationIgnored private var forceReload: Set<String> = []
     @ObservationIgnored private var enabledTargets: Set<String> = []
+    @ObservationIgnored private let currentTargets = AppThemeEnabledTargets([])
     @ObservationIgnored private var paletteTerminalColors = AppThemeTerminalColors.palette
     @ObservationIgnored private var effectiveAppearanceObserver: NSKeyValueObservation?
     @ObservationIgnored private var fallbackTheme: (@MainActor () -> ShellTheme)?
@@ -52,6 +53,7 @@ final class AppThemeService {
             enabledTargets = Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id))
         }
         results = engine.store.load().results
+        currentTargets.set(Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id)))
     }
 
     private nonisolated static let queue = DispatchQueue(label: "com.barut.OmniWM.app-theming", qos: .userInitiated)
@@ -84,6 +86,7 @@ final class AppThemeService {
     func stop() {
         effectiveAppearanceObserver?.invalidate()
         effectiveAppearanceObserver = nil
+        currentTargets.set([])
     }
 
     func setFallbackTheme(_ provider: @escaping @MainActor () -> ShellTheme) {
@@ -135,6 +138,7 @@ final class AppThemeService {
         let enabled = Set(settings.values.targets(configHome: configHome).map(\.id))
         forceReload.formUnion(enabled.subtracting(enabledTargets))
         enabledTargets = enabled
+        currentTargets.set(enabled)
         schedule()
     }
 
@@ -168,7 +172,8 @@ final class AppThemeService {
             appearanceChanged: appearanceChanged,
             targets: targets,
             takeOver: takeOver,
-            forceReload: forceReload
+            forceReload: forceReload,
+            enabled: currentTargets
         )
         appearanceChanged = false
         takeOver = [:]

@@ -190,6 +190,38 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testAnAppTurnedOffAfterItsRunWasQueuedIsNotWritten() {
+        let settings = AppThemingSettings()
+        settings.values.kitty.enabled = true
+        settings.values.herdr = .init(enabled: true, reloadSavedMachines: false)
+        let worker = AppThemeHeldWork()
+        let service = sandbox.service(settings, fake, perform: worker.perform) { true }
+        settings.onValuesChange = { service.settingsDidChange() }
+        service.paletteDidChange(theme(background: .black))
+        settings.values.kitty.enabled = false
+        worker.release()
+        XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
+        XCTAssertNil(service.results["kitty"])
+        XCTAssertNotNil(sandbox.read(".config/herdr/config.toml"))
+        XCTAssertFalse(fake.calls.contains { $0.arguments.contains("kitty") })
+    }
+
+    @MainActor
+    func testAStoppedServiceDropsItsQueuedRun() {
+        let settings = AppThemingSettings()
+        settings.values.kitty.enabled = true
+        let worker = AppThemeHeldWork()
+        let service = sandbox.service(settings, fake, perform: worker.perform) { true }
+        service.paletteDidChange(theme(background: .black))
+        service.stop()
+        worker.release()
+        XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
+        XCTAssertNil(service.results["kitty"])
+        XCTAssertTrue(fake.calls.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sandbox.store.stateURL.path))
+    }
+
+    @MainActor
     func testDisabledAppsAreNeverWritten() {
         let service = sandbox.service(AppThemingSettings(), fake) { true }
         service.paletteDidChange(theme(background: .black))
