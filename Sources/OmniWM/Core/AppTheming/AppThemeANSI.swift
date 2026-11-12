@@ -77,8 +77,6 @@ enum AppThemeANSI {
         }
     }
 
-    // Adapted from Noctalia's paletteAnsiColors (src/theme/fixed_palette.cpp, MIT);
-    // its notice is in Resources/Licenses/Noctalia-LICENSE.txt.
     private static func accentSources(
         _ roles: [ShellRole: AppThemeColor],
         foreground: AppThemeColor
