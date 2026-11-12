@@ -904,6 +904,62 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         XCTAssertEqual(manager.entry(for: token)?.mode, .tiling)
     }
 
+    func testManualAssignAfterExplicitRetryDispatchKeepsTheChosenSlot() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 2)])
+        let manager = fixture.controller.workspaceManager
+        let handler = fixture.controller.axEventHandler
+        let token = WindowToken(pid: 975_391, windowId: 975_491)
+        let windowId = UInt32(token.windowId)
+        addFloatingWindow(token, to: fixture)
+        fixture.book.withoutAdmissionGeometry.insert(token)
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+        XCTAssertNotNil(handler.admissionRetryStateByWindowId[windowId])
+        fixture.book.withoutAdmissionGeometry.remove(token)
+        XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
+        let retry = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
+
+        XCTAssertEqual(
+            fixture.controller.assignWindowToScratchpad(token, to: 3, preferredMonitor: fixture.monitor),
+            .executed
+        )
+        await retry.value
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 3)
+        XCTAssertTrue(manager.scratchpadMembers(in: 2).isEmpty)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+    }
+
+    func testManualReleaseWithAPendingRevealAfterExplicitRetryDispatchWins() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let handler = fixture.controller.axEventHandler
+        let reveals = fixture.controller.layoutRefreshController
+        let ruleWorkspace = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: true))
+        let token = WindowToken(pid: 975_392, windowId: 975_492)
+        let windowId = UInt32(token.windowId)
+        try liveCreate(token, in: fixture)
+        fixture.controller.windowRuleEngine.rebuild(rules: [Self.rule(workspace: "2")])
+        fixture.book.withoutAdmissionGeometry.insert(token)
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertNotNil(handler.admissionRetryStateByWindowId[windowId])
+        fixture.book.withoutAdmissionGeometry.remove(token)
+        XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
+        let retry = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
+
+        XCTAssertEqual(fixture.controller.unassignScratchpadWindows([token], on: fixture.monitor.id), .executed)
+        XCTAssertNotNil(reveals.pendingRevealTransactionId(forWindowId: token.windowId))
+        let pendingTrigger = handler.admissionRetryStateByWindowId[windowId]?.trigger
+        guard case .ruleReevaluation(_, _, .automatic)? = pendingTrigger else {
+            return XCTFail("unassign must downgrade the dispatched explicit retry while its reveal is pending")
+        }
+        await retry.value
+
+        XCTAssertEqual(manager.workspace(for: token), fixture.workspaceId)
+        XCTAssertNotEqual(manager.workspace(for: token), ruleWorkspace)
+        XCTAssertNotEqual(manager.entry(for: token)?.mode, .tiling)
+    }
+
     func testMemberArrivingWhileTheSlotsRevealIsPendingKeepsTheSlotRevealed() throws {
         let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
         let manager = fixture.controller.workspaceManager

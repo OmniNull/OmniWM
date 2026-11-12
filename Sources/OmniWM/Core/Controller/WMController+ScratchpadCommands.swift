@@ -82,6 +82,9 @@ extension WMController {
         }
         guard !entries.isEmpty else { return .notFound }
         let hidden = entries.filter { workspaceManager.hiddenState(for: $0.token)?.isScratchpad == true }
+        for entry in entries {
+            axEventHandler.downgradeExplicitRuleApplyRetry(windowId: entry.windowId)
+        }
         for entry in entries where workspaceManager.hiddenState(for: entry.token)?.isScratchpad != true {
             releaseScratchpadWindow(entry.token, entry: entry, arrivesQuietly: arrivesQuietly)
         }

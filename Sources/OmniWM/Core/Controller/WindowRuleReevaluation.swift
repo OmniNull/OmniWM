@@ -8,7 +8,8 @@ import OmniWMIPC
 @MainActor
 struct WindowRuleReevaluation {
     let controller: WMController
-    let context: WindowRuleReevaluationContext
+    private(set) var context: WindowRuleReevaluationContext
+    private let stillWantsExplicitApply: (() -> Bool)?
     private let epochSeq: UInt64
     private let epochDomains: InvalidationDomain = [.workspace, .layout, .focus, .fullscreen]
     private var liveWindowsByToken: [WindowToken: AXWindowRef] = [:]
@@ -20,9 +21,14 @@ struct WindowRuleReevaluation {
     private var evaluatedAnyWindow = false
     private var affectedWorkspaceIds: Set<WorkspaceDescriptor.ID> = []
 
-    init(controller: WMController, context: WindowRuleReevaluationContext) {
+    init(
+        controller: WMController,
+        context: WindowRuleReevaluationContext,
+        stillWantsExplicitApply: (() -> Bool)? = nil
+    ) {
         self.controller = controller
         self.context = context
+        self.stillWantsExplicitApply = stillWantsExplicitApply
         epochSeq = controller.workspaceManager.worldSeq
     }
 
@@ -45,6 +51,9 @@ struct WindowRuleReevaluation {
         guard !tokensToReevaluate.isEmpty else { return outcome(stale: false) }
         let batchedWindowInfoByToken = await batchedWindowServerInfo(for: tokensToReevaluate)
         guard isCurrent else { return outcome(stale: true) }
+        if context == .explicitRuleApply, stillWantsExplicitApply?() == false {
+            context = .automatic
+        }
         for token in tokensToReevaluate.sorted(by: {
             if $0.pid == $1.pid { return $0.windowId < $1.windowId }
             return $0.pid < $1.pid

@@ -135,7 +135,13 @@ extension AXEventHandler {
         case let .ruleReevaluation(token, axRef, context):
             let task = Task { @MainActor [weak self] in
                 guard let self, let controller = self.controller else { return }
-                let outcome = await controller.reevaluateWindowRules(for: [.window(token)], context: context)
+                let outcome = await controller.reevaluateWindowRules(
+                    for: [.window(token)],
+                    context: context,
+                    stillWantsExplicitApply: {
+                        self.retryStillWantsExplicitRuleApply(windowId: windowId, generation: state.generation)
+                    }
+                )
                 self.finishRuleReevaluationRetry(
                     execution: .init(windowId: windowId, generation: state.generation, executionOwner: executionOwner),
                     identity: .init(token: token, axRef: axRef),
@@ -211,6 +217,16 @@ extension AXEventHandler {
             cancelCreatedWindowRetry(windowId: windowId)
             finishDeferredReplacementAfterTracking(windowId: windowId)
         }
+    }
+
+    func retryStillWantsExplicitRuleApply(windowId: UInt32, generation: UInt64) -> Bool {
+        guard let state = admissionRetryStateByWindowId[windowId],
+              state.generation == generation,
+              case .ruleReevaluation(_, _, .explicitRuleApply) = state.trigger
+        else {
+            return false
+        }
+        return true
     }
 
     func requestFocusedAdmissionFacts(
