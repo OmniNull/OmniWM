@@ -114,9 +114,6 @@
     "After Writing" : {
 
     },
-    "Allow OmniWM to control Ghostty in System Settings › Privacy & Security › Automation" : {
-
-    },
     "Already up to date" : {
 
     },
@@ -168,6 +165,9 @@
     "Formats: hex, hex_stripped, rgb, rgba, red, green, blue and alpha. {{mode}} is light or dark." : {
 
     },
+    "Ghostty %@ doesn’t reload on a signal; update it, or reload its config with ⌘⇧," : {
+
+    },
     "Ghostty Theme" : {
 
     },
@@ -180,7 +180,7 @@
     "Ghostty uses these themes once its config selects them." : {
 
     },
-    "Light and dark themes · reloads Ghostty through its AppleScript reload_config action" : {
+    "Light and dark themes · reloads Ghostty 1.2 or newer with SIGUSR2" : {
 
     },
     "Light palette preview" : {
@@ -232,6 +232,9 @@
     "Reloaded herdr" : {
 
     },
+    "Reloaded herdr with warnings" : {
+
+    },
     "Reloaded kitty" : {
 
     },
@@ -263,9 +266,6 @@
 
     },
     "Terminal colors 0 to 15. Colors 1 to 15 keep at least 4.5:1 contrast with the background." : {
-
-    },
-    "The [theme.custom] table of herdr’s config · reloads with herdr server reload-config" : {
 
     },
     "The rendered template is not a valid TOML table" : {
@@ -307,13 +307,28 @@
     "herdr Theme" : {
 
     },
+    "herdr couldn’t apply its config" : {
+
+    },
     "herdr didn’t reload" : {
 
     },
     "herdr isn’t running; it uses the new colors when it starts" : {
 
     },
-    "herdr wasn’t found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin" : {
+    "it closed the connection without a reply" : {
+
+    },
+    "it isn’t valid app theming state" : {
+
+    },
+    "its output didn’t finish" : {
+
+    },
+    "its reply was too long" : {
+
+    },
+    "its socket path is too long" : {
 
     },
     "kitty 0.38 or newer loads these files by itself and switches them with macOS light and dark." : {
@@ -329,6 +344,9 @@
 
     },
     "saved machines couldn’t be listed" : {
+
+    },
+    "the request couldn’t be written" : {
 
     },
     "timed out" : {
@@ -7881,6 +7899,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@과(와) %2$@은(는) 디스플레이 배열에서 수직으로 겹칩니다. 수평 방향으로 화면 밖에 숨겨 둔 창이 인접한 디스플레이에 걸쳐 보일 수 있습니다."
+          }
+        }
+      }
+    },
+    "%@ can’t be read: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ can’t be read: %2$@"
           }
         }
       }
@@ -93504,6 +93532,12 @@
         }
       }
     },
+    "OmniWM can’t read this Ghostty config, so it can’t tell which theme Ghostty uses" : {
+
+    },
+    "OmniWM can’t tell which Ghostty version is running, so it didn’t signal it; reload its config with ⌘⇧," : {
+
+    },
     "OmniWM checks the latest GitHub release once per day on launch. Updates stay manual and the popup includes both the GitHub page and the Homebrew command." : {
       "localizations" : {
         "ja" : {
@@ -137882,6 +137916,9 @@
         }
       }
     },
+    "The [theme.custom] table of herdr’s config · reloads herdr through its socket API" : {
+
+    },
     "The active capture was not a diagnostic recording" : {
       "localizations" : {
         "ja" : {
@@ -158958,6 +158995,9 @@
           }
         }
       }
+    },
+    "saved machines need herdr in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin" : {
+
     },
     "settings.toml contains keys OmniWM does not recognize: %@. They are ignored." : {
       "localizations" : {
