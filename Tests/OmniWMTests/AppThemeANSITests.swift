@@ -93,23 +93,34 @@ final class AppThemeANSITests: XCTestCase {
         }
     }
 
+    private let fullTurn = 360.0
+    private let hueSectors = 6.0
+
+    private var halfTurn: Double {
+        fullTurn / 2
+    }
+
     private func hueDistance(_ first: Double, _ second: Double) -> Double {
-        let difference = abs(first - second).truncatingRemainder(dividingBy: 360)
-        return min(difference, 360 - difference)
+        let difference = abs(first - second).truncatingRemainder(dividingBy: fullTurn)
+        return min(difference, fullTurn - difference)
+    }
+
+    private func signedTurn(from hue: Double, to target: Double) -> Double {
+        (target - hue + fullTurn + halfTurn).truncatingRemainder(dividingBy: fullTurn) - halfTurn
     }
 
     private func hueRounding(_ colors: AppThemeColor...) -> Double {
         let step = 1 / Double(UInt8.max)
-        let degreesPerSector = 360.0 / 6
+        let degreesPerSector = fullTurn / hueSectors
         return colors.reduce(0) { total, color in
             let channels = [color.red, color.green, color.blue]
             let chroma = Double((channels.max() ?? 0) - (channels.min() ?? 0)) * step
-            return total + (chroma > step ? 2 * degreesPerSector * step / (chroma - step) : 180)
+            return total + (chroma > step ? 2 * degreesPerSector * step / (chroma - step) : halfTurn)
         }
     }
 
     private func tintedHue(_ hue: Double, toward accent: Double) -> Double {
-        let difference = (accent - hue + 540).truncatingRemainder(dividingBy: 360) - 180
+        let difference = signedTurn(from: hue, to: accent)
         return hue + min(max(difference / 2, -AppThemeANSI.maximumHueShift), AppThemeANSI.maximumHueShift)
     }
 
@@ -206,7 +217,8 @@ final class AppThemeANSITests: XCTestCase {
 
     func testHarmonizingKeepsTheHueOrder() {
         let accent = AppThemeColor(hex: "#2A9D8F")!
-        let hues = stride(from: 0.0, to: 360, by: 15).map { AppThemeColor(hsl: AppThemeHSL(
+        let samples = 24.0
+        let hues = stride(from: 0.0, to: fullTurn, by: fullTurn / samples).map { AppThemeColor(hsl: AppThemeHSL(
             hue: $0,
             saturation: 0.8,
             lightness: 0.5
@@ -214,7 +226,7 @@ final class AppThemeANSITests: XCTestCase {
         let moved = hues.map { AppThemeANSI.harmonized($0, toward: accent) }
         let accentHue = accent.hsl.hue
         func unwrap(_ hue: Double) -> Double {
-            (hue - accentHue + 540).truncatingRemainder(dividingBy: 360) - 180
+            signedTurn(from: accentHue, to: hue)
         }
         let ordered = zip(hues, moved).map { (unwrap($0.0.hsl.hue), unwrap($0.1.hsl.hue), $0.1) }
             .sorted { $0.0 < $1.0 }
