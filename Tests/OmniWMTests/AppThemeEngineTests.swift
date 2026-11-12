@@ -198,6 +198,16 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertTrue(fake.calls.dropFirst(before).contains { $0.arguments == ["server", "reload-config"] })
     }
 
+    func testCommandOutputIsKeptWhole() {
+        let result = AppThemeProcessRunner.run(
+            "/bin/sh",
+            ["-c", "head -c 10000 /dev/zero | tr '\\0' x"],
+            timeout: 10
+        )
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(result.output.count, 10000)
+    }
+
     func testHerdrNotRunningIsFine() throws {
         fake.responses["/opt/homebrew/bin/herdr server"] = AppThemeCommandResult(
             status: 1,

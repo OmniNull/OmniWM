@@ -75,7 +75,7 @@ enum AppThemeProcessRunner {
             }
         }
         let data = collected.wait(timeout: .now() + 1) == .success ? output.data : Data()
-        let text = String(decoding: data.prefix(4096), as: UTF8.self)
+        let text = String(decoding: data, as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return AppThemeCommandResult(status: process.terminationStatus, output: text, timedOut: timedOut)
     }
