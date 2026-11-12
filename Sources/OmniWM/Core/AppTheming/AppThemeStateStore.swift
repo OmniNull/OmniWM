@@ -56,12 +56,13 @@ struct AppThemeStateStore: Sendable {
 
     func backup(_ data: Data, of url: URL, date: Date = Date()) throws -> URL {
         try FileManager.default.createDirectory(at: backupsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: backupsDirectory.path)
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd-HHmmss-SSS"
         let name = "\(formatter.string(from: date))-\(url.deletingLastPathComponent().lastPathComponent)-\(url.lastPathComponent)"
         let destination = backupsDirectory.appendingPathComponent(name)
-        try AppThemeFileWriter.writeAtomically(data, to: destination)
+        try AppThemeFileWriter.writeAtomically(data, to: destination, mode: 0o600)
         pruneBackups()
         return destination
     }

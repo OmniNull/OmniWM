@@ -22,7 +22,7 @@ enum AppThemeFileWriter {
         }
     }
 
-    static func writeAtomically(_ data: Data, to url: URL) throws {
+    static func writeAtomically(_ data: Data, to url: URL, mode requested: mode_t? = nil) throws {
         let folder = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         var mode: mode_t = 0o644
@@ -30,6 +30,7 @@ enum AppThemeFileWriter {
         if lstat(url.path, &info) == 0 {
             mode = info.st_mode & 0o777
         }
+        if let requested { mode = requested }
         let temporary = folder.appendingPathComponent(".\(url.lastPathComponent).omniwm-\(UUID().uuidString).tmp")
         let descriptor = open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode)
         guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }

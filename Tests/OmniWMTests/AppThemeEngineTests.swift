@@ -424,6 +424,21 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(fake.calls.filter { $0.executable == "/usr/bin/pkill" }.count, 1)
     }
 
+    func testBackupsArePrivate() throws {
+        try FileManager.default.createDirectory(
+            at: sandbox.store.backupsDirectory,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o755]
+        )
+        let backup = try sandbox.store.backup(Data("token = secret\n".utf8), of: sandbox.path(".config/herdr/config.toml"))
+        let manager = FileManager.default
+        XCTAssertEqual(try manager.attributesOfItem(atPath: backup.path)[.posixPermissions] as? Int, 0o600)
+        XCTAssertEqual(
+            try manager.attributesOfItem(atPath: sandbox.store.backupsDirectory.path)[.posixPermissions] as? Int,
+            0o700
+        )
+    }
+
     func testBackupsAreBounded() throws {
         let url = sandbox.path(".config/kitty/kitty.conf")
         for index in 0 ..< AppThemeStateStore.backupLimit + 5 {
