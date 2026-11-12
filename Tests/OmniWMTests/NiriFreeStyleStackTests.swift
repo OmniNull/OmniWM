@@ -358,7 +358,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertFalse(fixture.column(3).isTabbed)
     }
 
-    func testATabbedColumnWhoseWindowsDoNotFitTogetherIsNotHinted() {
+    func testATabbedColumnWhoseWindowsDoNotFitTogetherIsStillHinted() {
         var fixture = makeFixture()
         _ = makeTabbed(&fixture, stacking: 0, onto: 1)
         let tall = WindowSizeConstraints(
@@ -373,7 +373,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         fixture.openHint(over: 3, upper: false)
 
-        XCTAssertNil(fixture.move?.landing)
+        XCTAssertNotNil(fixture.move?.landing)
     }
 
     func testClosingTheHintPutsTheTabbedColumnBackWhole() {
@@ -477,7 +477,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(fixture.height(of: 3), heights.bottom, accuracy: 0.5)
     }
 
-    func testAMinimumHeightTallerThanTheDisplayDoesNotBlockTheHint() {
+    func testAMinimumHeightTallerThanTheDisplayIsIgnoredWhenTheStackSharesItsHeight() {
         var fixture = makeFixture()
         fixture.window(3).constraints = WindowSizeConstraints(
             minSize: CGSize(width: 100, height: fixture.frame.height * 2),
@@ -488,52 +488,13 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         fixture.openHint(over: 3, upper: false)
 
-        XCTAssertNotNil(fixture.move?.landing)
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
         XCTAssertEqual(fixture.column(3).windowNodes.map(\.token), [fixture.tokens[1], fixture.tokens[3]])
         XCTAssertEqual(fixture.height(of: 1), fixture.height(of: 3), accuracy: 0.5)
     }
 
-    func testAGuessedMinimumHeightDoesNotBlockTheHint() {
-        var fixture = makeFixture()
-        fixture.window(3).constraints = WindowSizeConstraints(
-            minSize: CGSize(width: 100, height: fixture.frame.height * 0.9),
-            maxSize: .zero,
-            isFixed: false
-        )
-        let guessed = fixture.tokens[3]
-        fixture.engine.reportedMinimumSize = { token in
-            token == guessed ? CGSize(width: 100, height: 200) : nil
-        }
-        XCTAssertTrue(fixture.begin(1))
-
-        fixture.openHint(over: 3, upper: false)
-
-        XCTAssertNotNil(fixture.move?.landing)
-    }
-
-    func testEveryWindowCountsAsAtLeastTheFloorHeight() {
-        var fixture = makeFixture(widths: Array(repeating: 1.0 / 3.0, count: 9))
-        let tiny = WindowSizeConstraints(minSize: CGSize(width: 1, height: 1), maxSize: .zero, isFixed: false)
-        for index in 0 ..< 9 {
-            fixture.window(index).constraints = tiny
-        }
-        for index in 3 ..< 8 {
-            fixture.stack(index, onto: 0)
-        }
-        XCTAssertTrue(fixture.begin(1))
-        fixture.openHint(over: 0, upper: false)
-        XCTAssertNotNil(fixture.move?.landing)
-        _ = fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state)
-
-        fixture.stack(8, onto: 0)
-        XCTAssertTrue(fixture.begin(1))
-        fixture.openHint(over: 0, upper: false)
-        XCTAssertNil(fixture.move?.landing)
-    }
-
-    func testMinimumHeightsThatCannotShareTheDisplayStillBlockTheHint() {
+    func testMinimumHeightsThatCannotShareTheDisplayNeverBlockStacking() {
         var fixture = makeFixture()
         let tall = WindowSizeConstraints(
             minSize: CGSize(width: 100, height: fixture.frame.height * 0.6),
@@ -546,7 +507,10 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         fixture.openHint(over: 3, upper: false)
 
-        XCTAssertNil(fixture.move?.landing)
+        XCTAssertNotNil(fixture.move?.landing)
+        XCTAssertTrue(fixture.end())
+        XCTAssertTrue(fixture.finish())
+        XCTAssertEqual(fixture.column(3).windowNodes.map(\.token), [fixture.tokens[1], fixture.tokens[3]])
     }
 
     func testAStackDropKeepsTheWindowsBeforeTheDraggedOneWhereTheyWere() {

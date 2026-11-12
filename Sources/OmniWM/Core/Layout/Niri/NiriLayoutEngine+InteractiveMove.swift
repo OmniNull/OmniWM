@@ -307,12 +307,24 @@ extension NiriLayoutEngine {
             return false
         }
 
+        if let sourceColumn = findColumn(containing: sourceWindow, in: context.workspaceId),
+           let targetColumn = findColumn(containing: targetWindow, in: context.workspaceId),
+           sourceColumn.id != targetColumn.id,
+           !columnCanAcceptTransfer(
+               targetColumn,
+               adding: sourceWindow,
+               in: context.workspaceId,
+               geometry: context.sizingGeometry
+           )
+        {
+            return false
+        }
+
         guard stackWindow(
             sourceWindow,
             beside: targetWindow,
             position: position,
-            in: context.workspaceId,
-            geometry: context.sizingGeometry
+            in: context.workspaceId
         ) else {
             return false
         }
@@ -331,9 +343,7 @@ extension NiriLayoutEngine {
         beside targetWindow: NiriWindow,
         position: InsertPosition,
         removingEmptySource: Bool = true,
-        ignoringImpossibleMinimums: Bool = false,
-        in workspaceId: WorkspaceDescriptor.ID,
-        geometry: NiriSizingGeometry
+        in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
         guard let sourceColumn = findColumn(containing: sourceWindow, in: workspaceId),
               let targetColumn = findColumn(containing: targetWindow, in: workspaceId)
@@ -347,18 +357,6 @@ extension NiriLayoutEngine {
 
         let sameColumn = sourceColumn.id == targetColumn.id
         let sourceColumnWillBeEmpty = sourceColumn.children.count == 1 && !sameColumn
-
-        if !sameColumn {
-            guard columnCanAcceptTransfer(
-                targetColumn,
-                adding: sourceWindow,
-                ignoringImpossibleMinimums: ignoringImpossibleMinimums,
-                in: workspaceId,
-                geometry: geometry
-            ) else {
-                return false
-            }
-        }
 
         sourceWindow.detach()
 

@@ -64,6 +64,10 @@ struct NiriLayoutSnapshot {
                 && displayMode == other.displayMode
                 && (displayMode == .normal || activeTile == other.activeTile)
         }
+
+        func hasSameHeights(as other: Column) -> Bool {
+            sizing.windows.mapValues(\.height) == other.sizing.windows.mapValues(\.height)
+        }
     }
 
     let columns: [Column]
@@ -103,15 +107,38 @@ struct NiriLayoutTransfers {
     }
 }
 
+struct NiriLayoutStepTiming {
+    let startedAt: TimeInterval
+    let recordedAt: TimeInterval
+    let sizesAtStart: [WindowToken: CGSize]
+}
+
+struct NiriNewestLayoutStep {
+    let timing: NiriLayoutStepTiming
+    let before: NiriLayoutSnapshot
+    let after: NiriLayoutSnapshot
+}
+
 struct NiriLayoutHistory {
     static let limit = 20
 
     private(set) var undoSnapshots: [NiriLayoutSnapshot] = []
     private(set) var redoSnapshots: [NiriLayoutSnapshot] = []
+    private var newest: (timing: NiriLayoutStepTiming, after: NiriLayoutSnapshot)?
 
-    mutating func record(_ before: NiriLayoutSnapshot) {
+    var newestStep: NiriNewestLayoutStep? {
+        guard let newest, let before = undoSnapshots.last else { return nil }
+        return NiriNewestLayoutStep(timing: newest.timing, before: before, after: newest.after)
+    }
+
+    mutating func record(
+        _ before: NiriLayoutSnapshot,
+        after: NiriLayoutSnapshot? = nil,
+        timing: NiriLayoutStepTiming? = nil
+    ) {
         push(before, onto: &undoSnapshots)
         redoSnapshots.removeAll()
+        newest = timing.flatMap { timing in after.map { (timing, $0) } }
     }
 
     func last(_ direction: NiriLayoutHistoryDirection) -> NiriLayoutSnapshot? {
@@ -127,11 +154,13 @@ struct NiriLayoutHistory {
     }
 
     mutating func popUndo() -> NiriLayoutSnapshot? {
-        undoSnapshots.popLast()
+        newest = nil
+        return undoSnapshots.popLast()
     }
 
     mutating func popRedo() -> NiriLayoutSnapshot? {
-        redoSnapshots.popLast()
+        newest = nil
+        return redoSnapshots.popLast()
     }
 
     mutating func pushUndo(_ snapshot: NiriLayoutSnapshot) {
@@ -166,19 +195,31 @@ extension NiriLayoutEngine {
         else { return nil }
         let workspace = ensureState(for: workspaceId)
         return NiriLayoutSnapshot(
-            columns: root.columns.map { column in
-                NiriLayoutSnapshot.Column(
-                    id: column.id,
-                    windows: column.windowNodes.map(\.token),
-                    sizing: NiriColumnSizing(column, engine: self),
-                    displayMode: column.displayMode,
-                    activeTile: column.activeTileIdx
-                )
-            },
+            columns: root.columns.map(layoutSnapshotColumn),
             manualWidthColumnCount: workspace.manualWidthColumnCount,
             manualHeightColumnCount: workspace.manualHeightColumnCount,
             focused: focused
         )
+    }
+
+    func layoutSnapshotColumn(_ column: NiriContainer) -> NiriLayoutSnapshot.Column {
+        NiriLayoutSnapshot.Column(
+            id: column.id,
+            windows: column.windowNodes.map(\.token),
+            sizing: NiriColumnSizing(column, engine: self),
+            displayMode: column.displayMode,
+            activeTile: column.activeTileIdx
+        )
+    }
+
+    func newestLayoutStep(in workspaceId: WorkspaceDescriptor.ID) -> NiriNewestLayoutStep? {
+        states[workspaceId]?.layoutHistory.newestStep
+    }
+
+    func windowSizes(in workspaceId: WorkspaceDescriptor.ID) -> [WindowToken: CGSize] {
+        (root(for: workspaceId)?.allWindows ?? []).reduce(into: [:]) { sizes, window in
+            sizes[window.token] = window.frame?.size
+        }
     }
 
     func recordLayoutChange(in workspaceId: WorkspaceDescriptor.ID, since before: NiriLayoutSnapshot?) {
@@ -187,6 +228,10 @@ extension NiriLayoutEngine {
               !after.hasSameLayout(as: before)
         else { return }
         ensureState(for: workspaceId).layoutHistory.record(before)
+    }
+
+    func forgetLastRedo(in workspaceId: WorkspaceDescriptor.ID) {
+        _ = states[workspaceId]?.layoutHistory.popRedo()
     }
 
     func clearLayoutHistory(in workspaceId: WorkspaceDescriptor.ID) {
@@ -340,7 +385,8 @@ extension NiriLayoutEngine {
 extension NiriLayoutEngine {
     func recordLayoutChanges(
         in mainWorkspaceId: WorkspaceDescriptor.ID,
-        since before: [WorkspaceDescriptor.ID: NiriLayoutSnapshot]
+        since before: [WorkspaceDescriptor.ID: NiriLayoutSnapshot],
+        timing: NiriLayoutStepTiming? = nil
     ) {
         let origins = before.reduce(into: [WindowToken: WorkspaceDescriptor.ID]()) { origins, item in
             for token in item.value.tokens {
@@ -362,7 +408,7 @@ extension NiriLayoutEngine {
             let departed = previous.tokens.contains { locations[$0].map { $0 != workspaceId } ?? false }
             guard !arrived.isEmpty || departed else {
                 if workspaceId == mainWorkspaceId, !after.hasSameLayout(as: previous) {
-                    ensureState(for: workspaceId).layoutHistory.record(previous)
+                    ensureState(for: workspaceId).layoutHistory.record(previous, after: after, timing: timing)
                 }
                 continue
             }
@@ -370,7 +416,7 @@ extension NiriLayoutEngine {
             entry.away = Dictionary(grouping: arrived) { origins[$0]! }.compactMap { origin, tokens in
                 before[origin].map { NiriLayoutAway(workspaceId: origin, tokens: tokens, snapshot: $0) }
             }
-            ensureState(for: workspaceId).layoutHistory.record(entry)
+            ensureState(for: workspaceId).layoutHistory.record(entry, after: after, timing: timing)
         }
     }
 

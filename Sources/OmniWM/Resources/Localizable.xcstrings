@@ -4671,6 +4671,9 @@
         }
       }
     },
+    "Not enough room for these windows, so the change was undone." : {
+
+    },
     "Not found" : {
       "extractionState" : "stale",
       "localizations" : {

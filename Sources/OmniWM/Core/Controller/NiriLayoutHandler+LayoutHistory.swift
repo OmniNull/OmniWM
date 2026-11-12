@@ -7,6 +7,8 @@ import QuartzCore
 struct NiriLayoutChangeStart {
     let workspaceId: WorkspaceDescriptor.ID
     let snapshots: [WorkspaceDescriptor.ID: NiriLayoutSnapshot]
+    let startedAt: TimeInterval
+    let sizes: [WindowToken: CGSize]
 }
 
 extension NiriLayoutHandler {
@@ -19,12 +21,19 @@ extension NiriLayoutHandler {
               let main = engine.layoutSnapshot(in: workspaceId, focused: focusedToken(in: workspaceId))
         else { return nil }
         var snapshots = [workspaceId: main]
+        var sizes = engine.windowSizes(in: workspaceId)
         for other in controller.workspaceManager.workspaces.map(\.id)
             where other != workspaceId && controller.workspaceManager.activeLayoutKind(for: other) == .niri
         {
             snapshots[other] = engine.layoutSnapshot(in: other, focused: focusedToken(in: other))
+            sizes.merge(engine.windowSizes(in: other)) { here, _ in here }
         }
-        return NiriLayoutChangeStart(workspaceId: workspaceId, snapshots: snapshots)
+        return NiriLayoutChangeStart(
+            workspaceId: workspaceId,
+            snapshots: snapshots,
+            startedAt: layoutStepClock(),
+            sizes: sizes
+        )
     }
 
     func activeLayoutChangeStart() -> NiriLayoutChangeStart? {
@@ -33,22 +42,40 @@ extension NiriLayoutHandler {
 
     func recordLayoutChange(since start: NiriLayoutChangeStart?) {
         guard let start, let engine = controller?.niriEngine else { return }
-        engine.recordLayoutChanges(in: start.workspaceId, since: start.snapshots)
+        engine.recordLayoutChanges(
+            in: start.workspaceId,
+            since: start.snapshots,
+            timing: NiriLayoutStepTiming(
+                startedAt: start.startedAt,
+                recordedAt: layoutStepClock(),
+                sizesAtStart: start.sizes
+            )
+        )
+        scheduleOverflowCheck()
     }
 
     @discardableResult
-    func stepLayoutHistory(_ direction: NiriLayoutHistoryDirection) -> Bool {
+    func stepLayoutHistory(
+        _ direction: NiriLayoutHistoryDirection,
+        in requestedWorkspaceId: WorkspaceDescriptor.ID? = nil,
+        keepingFocus: Bool = false
+    ) -> Bool {
         guard let controller,
               controller.settings.niri.macOSFusion,
-              let workspaceId = layoutHistoryWorkspaceId(),
+              let workspaceId = requestedWorkspaceId ?? layoutHistoryWorkspaceId(),
               controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
               let engine = controller.niriEngine,
               !engine.isLiveColumnMoveActive(in: workspaceId),
               !engine.isLiveStackDropPending(in: workspaceId)
         else { return false }
-        if applyLayoutHistoryStep(in: workspaceId, step: { engine, wsId, focused in
-            engine.stepLayoutHistory(direction, in: wsId, focused: focused)
-        }) {
+        if applyLayoutHistoryStep(
+            in: workspaceId,
+            keepingFocus: keepingFocus,
+            frontsRestoredWindow: !keepingFocus,
+            step: { engine, wsId, focused in
+                engine.stepLayoutHistory(direction, in: wsId, focused: focused)
+            }
+        ) {
             return true
         }
         guard let entry = engine.peekLayoutHistory(direction, in: workspaceId) else { return false }
@@ -70,13 +97,16 @@ extension NiriLayoutHandler {
             }
         }
         let broughtBack = transfers.bringIn.last?.token
+        let keyboardFocus = controller.focusedManagedTokenForCommand()
         let followed = broughtBack != nil ? nil : transfers.sendAway.last { isShownOnADisplay($0.workspaceId) }
             .flatMap { away in away.tokens.last.map { (token: $0, workspaceId: away.workspaceId) } }
+            .flatMap { followed in !keepingFocus || followed.token == keyboardFocus ? followed : nil }
         let stepped = applyLayoutHistoryStep(
             in: workspaceId,
             drawn: drawn,
             focusedBefore: focused,
-            frontsRestoredWindow: followed == nil
+            keepingFocus: keepingFocus,
+            frontsRestoredWindow: !keepingFocus && followed == nil
         ) { engine, wsId, _ in
             engine.commitTransferredLayoutHistoryStep(direction, in: wsId, inverse: inverse).map { step in
                 broughtBack.map { NiriLayoutHistoryStep(focused: $0) } ?? step
@@ -99,7 +129,7 @@ extension NiriLayoutHandler {
         return stepped
     }
 
-    private func isShownOnADisplay(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
+    func isShownOnADisplay(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
         guard let manager = controller?.workspaceManager, let monitorId = manager.monitorId(for: workspaceId) else {
             return false
         }
@@ -134,6 +164,7 @@ extension NiriLayoutHandler {
         in workspaceId: WorkspaceDescriptor.ID,
         drawn earlierDrawn: NiriDrawnLayout? = nil,
         focusedBefore: WindowToken? = nil,
+        keepingFocus: Bool = false,
         frontsRestoredWindow: Bool = true,
         step: (NiriLayoutEngine, WorkspaceDescriptor.ID, WindowToken?) -> NiriLayoutHistoryStep?
     ) -> Bool {
@@ -152,7 +183,8 @@ extension NiriLayoutHandler {
                 gaps: gaps,
                 orientation: orientation
             )
-            if let token = step.focused ?? focused, let window = engine.findNode(for: token, in: wsId) {
+            let kept = keepingFocus ? focused.flatMap { engine.findNode(for: $0, in: wsId) == nil ? nil : $0 } : nil
+            if let token = kept ?? step.focused ?? focused, let window = engine.findNode(for: token, in: wsId) {
                 state.selectedNodeId = window.id
                 if token != focused { fronted = window }
                 let span = engine.findColumn(containing: window, in: wsId)

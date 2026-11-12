@@ -299,6 +299,7 @@ extension MouseEventHandler {
 
     func handleNiriAnimationsSettled(in workspaceId: WorkspaceDescriptor.ID) {
         guard let engine = controller?.niriEngine else { return }
+        controller?.niriLayoutHandler.followOverflowMessage(in: workspaceId)
         if engine.isLiveStackDropPending(in: workspaceId), engine.liveColumnMove?.workspaceId != workspaceId {
             finishLiveStackDrop(in: workspaceId)
             return
@@ -440,6 +441,7 @@ extension MouseEventHandler {
         endLiveDragSession()
         state.nativeTitleBarDrag?.liveDragDeclined = true
         cancelLiveColumnMove()
+        controller?.niriLayoutHandler.scheduleOverflowCheck()
     }
 
     private func cancelLiveColumnMove() {

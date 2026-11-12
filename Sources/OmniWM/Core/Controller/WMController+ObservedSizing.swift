@@ -91,29 +91,16 @@ extension WMController {
         adoptObservedSizeEvidence(evidence, for: token, in: window.workspaceId)
     }
 
-    func reportedMinimumSize(for token: WindowToken) -> CGSize? {
-        guard let entry = workspaceManager.entry(for: token) else { return nil }
-        var minSize = entry.target.hostedMetadata?.minimumSize
-            ?? workspaceManager.cachedConstraints(for: token, maxAge: .greatestFiniteMagnitude)?.minSize
-            ?? CGSize(width: 1, height: 1)
-        if let minWidth = entry.ruleEffects.minWidth {
-            minSize.width = max(minSize.width, minWidth)
-        }
-        if let minHeight = entry.ruleEffects.minHeight {
-            minSize.height = max(minSize.height, minHeight)
-        }
-        return minSize
-    }
-
     func forgetObservedHeights(of tokens: [WindowToken]) {
         for token in tokens {
             guard let entry = workspaceManager.entry(for: token),
                   var evidence = workspaceManager.observedSizeEvidence(for: token),
                   evidence.minSize.height > 1 || evidence.hints.height != nil
             else { continue }
-            MouseTrace.record(
-                "live-drag stack guess cleared win=\(token.windowId) height=\(Int(evidence.minSize.height.rounded()))"
-            )
+            MouseTrace
+                .record(
+                    "live-drag stack guess cleared win=\(token.windowId) height=\(Int(evidence.minSize.height.rounded()))"
+                )
             evidence.minSize.height = 1
             evidence.hints.height = nil
             adoptObservedSizeEvidence(evidence, for: token, in: entry.workspaceId)

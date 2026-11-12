@@ -147,8 +147,6 @@ final class NiriLayoutEngine {
     var clipsOverflowToDisplay = false
 
     var keepsWindowWidths = false
-    var tracedLiveStackRefusal: String?
-    var reportedMinimumSize: ((WindowToken) -> CGSize?)?
     var animatesLearnedMinimumWidths = false
 
     var hasSetEdgePeekCaps = false

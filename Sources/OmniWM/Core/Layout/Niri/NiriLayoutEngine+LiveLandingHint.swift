@@ -40,7 +40,7 @@ extension NiriLayoutEngine {
             if move.landing != nil {
                 guard landing != move.landing else { return .nothing }
                 if landing.columnId == move.landing?.columnId {
-                    return .showHint(landing, tracesRefusal: false)
+                    return .showHint(landing)
                 }
                 return .switchHint(columnId: landing.columnId, dwellSince: time)
             }
@@ -49,7 +49,7 @@ extension NiriLayoutEngine {
             move.dwell = .init(columnId: landing.columnId, region: .centre, since: since)
             let until = since + liveCentreStackDelay
             guard pointer.slowed || time >= until else { return .hovering(until: until) }
-            return .showHint(landing, tracesRefusal: true)
+            return .showHint(landing)
         }
     }
 

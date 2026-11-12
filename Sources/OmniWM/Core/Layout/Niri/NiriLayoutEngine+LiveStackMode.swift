@@ -367,9 +367,7 @@ extension NiriLayoutEngine {
             beside: targetWindow,
             position: !column.isTabbed && landing.above ? .after : .before,
             removingEmptySource: false,
-            ignoringImpossibleMinimums: true,
-            in: context.workspaceId,
-            geometry: context.sizingGeometry
+            in: context.workspaceId
         ) else { return false }
 
         if let shownTab, shownTab.parent === column {
@@ -422,13 +420,6 @@ extension NiriLayoutEngine {
         }
     }
 
-    func liveWholeColumnFollowers(of move: LiveColumnMove) -> [NiriWindow] {
-        guard move.isWholeColumn else { return [] }
-        if !move.heldTabs.isEmpty { return move.heldTabs }
-        guard let home = liveColumn(withId: move.homeColumnId, in: move.workspaceId) else { return [] }
-        return home.windowNodes.filter { $0.id != move.windowId }
-    }
-
     private func returnLiveWindowHome(_ window: NiriWindow, to home: NiriContainer, move: LiveColumnMove) {
         if let source = window.parent as? NiriContainer, source.isTabbed {
             source.cachedWidth = 0
@@ -456,21 +447,6 @@ extension NiriLayoutEngine {
               column.id != move.homeColumnId || move.home == .stackSlot,
               projectedWindows(in: column, workspaceId: move.workspaceId).contains(where: { $0 !== window })
         else { return .home }
-        let followers = liveWholeColumnFollowers(of: move)
-        guard columnCanAcceptTransfer(
-            column,
-            adding: window,
-            alsoAdding: followers,
-            removing: window,
-            ignoringImpossibleMinimums: true,
-            axisMinimumOverride: { self.liveStackAxisMinimum(of: $0, geometry: context.sizingGeometry) },
-            in: move.workspaceId,
-            geometry: context.sizingGeometry
-        ) else {
-            traceLiveStackRefusal(of: window, onto: column, move: move, context: context)
-            return .home
-        }
-        tracedLiveStackRefusal = nil
 
         if column.isTabbed {
             guard let shown = projectedActiveWindow(in: column, workspaceId: move.workspaceId),
@@ -491,47 +467,6 @@ extension NiriLayoutEngine {
             return .land(.init(columnId: column.id, targetWindowId: hit.window.id, above: above))
         }
         return .land(.init(columnId: column.id, targetWindowId: others[hitIndex - 1].window.id, above: true))
-    }
-
-    private func traceLiveStackRefusal(
-        of window: NiriWindow,
-        onto column: NiriContainer,
-        move: LiveColumnMove,
-        context: NiriInteractionContext
-    ) {
-        guard MouseTrace.shared.isActive else { return }
-        let geometry = context.sizingGeometry
-        let horizontal = geometry.orientation == .horizontal
-        let space = horizontal ? geometry.workingFrame.height : geometry.workingFrame.width
-        let windows = [window] + liveWholeColumnFollowers(of: move)
-            + projectedWindows(in: column, workspaceId: move.workspaceId).filter { $0 !== window }
-        let minimums = windows.map { candidate in
-            let constraints = candidate.constraints.normalized()
-            let merged = horizontal ? constraints.minSize.height : constraints.minSize.width
-            let counted = liveStackAxisMinimum(of: candidate, geometry: geometry)
-            let guess = merged > counted + 0.5 ? "(guess \(Int(merged.rounded())))" : ""
-            return "\(candidate.token.windowId):\(Int(counted.rounded()))\(guess)\(constraints.isFixed ? "fixed" : "")"
-        }
-        let detail = "col=\(column.id) space=\(Int(space.rounded())) gaps=\(Int(geometry.gaps.rounded())) "
-            + "mins=[\(minimums.joined(separator: ","))]"
-        traceLiveStackRefusalDetail(detail)
-    }
-
-    func liveStackAxisMinimum(of window: NiriWindow, geometry: NiriSizingGeometry) -> CGFloat {
-        let horizontal = geometry.orientation == .horizontal
-        let reported = reportedMinimumSize?(window.token) ?? window.constraints.normalized().minSize
-        let minimum = horizontal ? reported.height : reported.width
-        return window.constraints.isFixed
-            ? minimum
-            : max(minimum, MoveConfiguration.liveStackMinimumWindowHeight)
-    }
-
-    func traceLiveStackRefusalDetail(_ detail: @autoclosure () -> String) {
-        guard MouseTrace.shared.isActive else { return }
-        let detail = detail()
-        guard detail != tracedLiveStackRefusal else { return }
-        tracedLiveStackRefusal = detail
-        MouseTrace.record("live-drag stack refused \(detail)")
     }
 
     func isLiveStackSuppressed(

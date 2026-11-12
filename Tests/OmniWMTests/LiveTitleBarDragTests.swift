@@ -1622,39 +1622,571 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(barrier.liveDragHold)
     }
 
-    func testAStackDropForgetsTheTargetColumnsGuessedHeights() throws {
+    func testAWindowTallerThanItsLayoutFrameStillStartsALiveDrag() throws {
+        let fixture = try makeFixture(pid: 938_135)
+        let token = fixture.tokens[1]
+        let laidOut = try fixture.frame(token)
+        let real = CGRect(x: laidOut.minX, y: laidOut.minY - 24, width: laidOut.width, height: laidOut.height + 24)
+        fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        fixture.reported.frame = real
+        fixture.handler.nativeWindowFrameProvider = { [reported = fixture.reported] _ in reported.frame }
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(
+            at: CGPoint(x: real.midX, y: real.maxY - 10),
+            modifiers: [],
+            windowIdUnderPointer: token.windowId
+        ))
+        fixture.handler.dispatchMouseDragged(at: CGPoint(x: real.midX + 5, y: real.maxY - 10))
+
+        try fixture.macOSMoves(token, to: real.offsetBy(dx: 30, dy: 0))
+
+        XCTAssertNotNil(fixture.engine.liveColumnMove)
+    }
+
+    func testAnUndoThatScrollsStartsEveryWindowWhereItIsDrawn() throws {
+        let fixture = try makeFixture(pid: 938_136, windowCount: 8, animated: true)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+        let width = fixture.controller.insetWorkingFrame(for: fixture.monitor).width
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.jumpOffset(to: state.viewOffset + width * 1.5)
+        }
+        let now = CACurrentMediaTime()
+        let drawn = try framesWhereDrawn(fixture, at: now)
+
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: fixture.workspaceId))
+
+        XCTAssertTrue(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+        let started = try framesWhereDrawn(fixture, at: now)
+        let screen = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+        var checked = 0
+        for token in fixture.tokens where token != fixture.tokens[1] {
+            let before = try XCTUnwrap(drawn[token])
+            guard before.intersects(screen) else { continue }
+            let after = try XCTUnwrap(started[token])
+            XCTAssertEqual(after.minX, before.minX, accuracy: 5, "window \(token.windowId) jumped")
+            checked += 1
+        }
+        XCTAssertGreaterThan(checked, 0)
+    }
+
+    private func framesWhereDrawn(_ fixture: Fixture, at time: TimeInterval) throws -> [WindowToken: CGRect] {
+        var probe = fixture.manager.niriViewportState(for: fixture.workspaceId)
+        probe.viewOffset = fixture.manager.animationDriver.liveViewOffset(
+            in: fixture.workspaceId,
+            semanticOffset: probe.viewOffset,
+            at: time
+        ) ?? probe.viewOffset
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
+        return try XCTUnwrap(fixture.controller.niriEngine).calculateLayoutWithVisibility(
+            state: probe,
+            workspaceId: fixture.workspaceId,
+            monitorFrame: fixture.controller.insetWorkingFrame(for: fixture.monitor),
+            gaps: (horizontal: gap, vertical: gap),
+            orientation: fixture.controller.settings.monitors.effectiveOrientation(for: fixture.monitor),
+            animationTime: time
+        ).frames
+    }
+
+    func testAStackDropThatOverflowsIsUndoneWithTheMessageOverTheWindowThatWentBack() throws {
         let fixture = try makeFixture(pid: 938_125)
-        let target = fixture.tokens[2]
+        let watch = watchOverflows(fixture)
+        let columnsBefore = fixture.engine.columns(in: fixture.workspaceId).count
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+        let stack = try column(holding: fixture.tokens[2], in: fixture)
+        XCTAssertEqual(stack.windowNodes.count, 2)
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(fixture.engine.columns(in: fixture.workspaceId).count, columnsBefore)
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
+        XCTAssertEqual(
+            fixture.controller.columnModeToast.message,
+            .overflowUndone(columnId: stack.id, window: fixture.tokens[1])
+        )
+        XCTAssertEqual(fixture.controller.columnModeToast.source?.workspaceId, fixture.workspaceId)
+        XCTAssertNil(fixture.engine.peekLayoutHistory(.redo, in: fixture.workspaceId))
+        XCTAssertFalse(fixture.controller.niriLayoutHandler.stepLayoutHistory(.redo, in: fixture.workspaceId))
+    }
+
+    func testWithAnimationsTheMessageShowsOnceTheUndoneWindowsSettle() throws {
+        let fixture = try makeFixture(pid: 938_152, animated: true)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture, settling: false)
+        settle(fixture)
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
+        XCTAssertTrue(hasPendingNiriAnimationWork(
+            state: fixture.manager.niriViewportState(for: fixture.workspaceId),
+            driver: fixture.manager.animationDriver,
+            engine: fixture.engine,
+            workspaceId: fixture.workspaceId
+        ))
+        XCTAssertTrue(layOut(fixture))
+        fixture.controller.niriLayoutHandler.followOverflowMessage(in: fixture.workspaceId)
+        XCTAssertNil(fixture.controller.columnModeToast.message)
+
+        settle(fixture)
+        XCTAssertTrue(layOut(fixture))
+        fixture.controller.niriLayoutHandler.followOverflowMessage(in: fixture.workspaceId)
+
+        XCTAssertNotNil(fixture.controller.columnModeToast.message)
+    }
+
+    func testAKeyboardMoveIntoAStackThatOverflowsIsUndone() throws {
+        let fixture = try makeFixture(pid: 938_133)
+        let watch = watchOverflows(fixture)
+        try recordStep(in: fixture) {
+            XCTAssertTrue(move(fixture.tokens[1], after: fixture.tokens[2], in: fixture))
+        }
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[1], in: fixture).windowNodes.count, 1)
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
+    }
+
+    func testATabbedColumnTurnedIntoAStackThatOverflowsIsUndone() throws {
+        let fixture = try makeFixture(pid: 938_150, tabbedRuns: [1 ... 2])
+        let watch = watchOverflows(fixture)
+        let tabbed = try column(holding: fixture.tokens[1], in: fixture)
+        XCTAssertTrue(layOut(fixture))
+        try recordStep(in: fixture) {
+            fixture.manager.withEngineMutationScope(in: fixture.workspaceId) {
+                tabbed.displayMode = .normal
+                fixture.engine.updateTabbedColumnVisibility(column: tabbed)
+            }
+        }
+
+        try appTakes(40, more: fixture.tokens[2], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertTrue(tabbed.isTabbed)
+        XCTAssertNotNil(fixture.controller.columnModeToast.message)
+    }
+
+    func testAHeightResizeThatSqueezesAWindowBelowItsAppIsUndone() throws {
+        let fixture = try makeFixture(pid: 938_151, stackFirstTwo: true)
+        let watch = watchOverflows(fixture)
+        let top = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[0], in: fixture.workspaceId))
+        let heightBefore = top.height
+        try recordStep(in: fixture) {
+            top.height = .auto(weight: 3)
+        }
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(top.height, heightBefore)
+        let stack = try column(holding: fixture.tokens[0], in: fixture)
+        XCTAssertEqual(fixture.controller.columnModeToast.message, .overflowUndone(columnId: stack.id, window: nil))
+    }
+
+    func testAWidthChangeOnAnOverflowingStackIsKept() throws {
+        let fixture = try makeFixture(pid: 938_137, stackFirstTwo: true)
+        let watch = watchOverflows(fixture)
+        let stack = try column(holding: fixture.tokens[0], in: fixture)
+        try recordStep(in: fixture) {
+            stack.width = .proportion(0.5)
+            stack.cachedWidth = 0
+        }
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(stack.width, .proportion(0.5))
+        XCTAssertNil(fixture.controller.columnModeToast.message)
+    }
+
+    func testAnAppThatSnapsBy16PointsOrLessIsKept() throws {
+        let fixture = try makeFixture(pid: 938_138)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+
+        try appTakes(16, more: fixture.tokens[1], in: fixture, watch)
+
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.overflowReports.isEmpty)
+        checkOverflows(fixture)
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
+    }
+
+    func testTakingAWindowOutOfAnOverflowingStackIsKept() throws {
+        let fixture = try makeFixture(pid: 938_134, windowCount: 5, stackFirstTwo: true)
+        let watch = watchOverflows(fixture)
+        XCTAssertTrue(move(fixture.tokens[2], after: fixture.tokens[1], in: fixture))
+        let stack = try column(holding: fixture.tokens[0], in: fixture)
+        XCTAssertEqual(stack.windowNodes.count, 3)
+        try recordStep(in: fixture) {
+            XCTAssertTrue(move(fixture.tokens[1], after: fixture.tokens[3], in: fixture))
+        }
+        XCTAssertEqual(stack.windowNodes.count, 2)
+
+        try appTakes(40, more: fixture.tokens[0], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[3], in: fixture).windowNodes.count, 2)
+        XCTAssertNil(fixture.controller.columnModeToast.message)
+    }
+
+    func testAfterUndoALateReportUndoesNothingAndAfterRedoTheOverflowStays() throws {
+        let fixture = try makeFixture(pid: 938_139, stackFirstTwo: true)
+        let watch = watchOverflows(fixture)
+        let top = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[0], in: fixture.workspaceId))
+        try recordStep(in: fixture) { top.height = .auto(weight: 2) }
+        try recordStep(in: fixture) { top.height = .auto(weight: 3) }
+        let handler = fixture.controller.niriLayoutHandler
+
+        XCTAssertTrue(handler.stepLayoutHistory(.undo, in: fixture.workspaceId))
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+        XCTAssertEqual(top.height, .auto(weight: 2))
+
+        XCTAssertTrue(handler.stepLayoutHistory(.redo, in: fixture.workspaceId))
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+        XCTAssertEqual(top.height, .auto(weight: 3))
+        XCTAssertNil(fixture.controller.columnModeToast.message)
+    }
+
+    func testACommandThatChangesNothingDoesNotStopTheDropsUndo() throws {
+        let fixture = try makeFixture(pid: 938_140)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+        try recordStep(in: fixture) {}
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
+    }
+
+    func testAReportHeldWhileTheStackDropSettlesIsDecidedWhenTheDropIsRecorded() throws {
+        let fixture = try makeFixture(pid: 938_130, animated: true)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture, settling: false)
+        XCTAssertTrue(fixture.engine.isLiveStackDropPending(in: fixture.workspaceId))
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        fixture.controller.niriLayoutHandler.overflowReports[fixture.tokens[1]] = watch.clock.now
+        checkOverflows(fixture)
+        XCTAssertFalse(fixture.controller.niriLayoutHandler.overflowReports.isEmpty)
+        XCTAssertNil(fixture.controller.columnModeToast.message)
+
+        settle(fixture)
+        checkOverflows(fixture)
+        settle(fixture)
+        fixture.controller.niriLayoutHandler.followOverflowMessage(in: fixture.workspaceId)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
+        XCTAssertNotNil(fixture.controller.columnModeToast.message)
+    }
+
+    func testAReportDuringADragThatIsCancelledUndoesNothingLater() throws {
+        let fixture = try makeFixture(pid: 938_141, stackFirstTwo: true)
+        let watch = watchOverflows(fixture)
+        try fixture.startLiveDrag(fixture.tokens[3])
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+        XCTAssertFalse(fixture.controller.niriLayoutHandler.overflowReports.isEmpty)
+
+        fixture.handler.cancelLiveColumnDrag()
+        checkOverflows(fixture)
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.overflowReports.isEmpty)
+
+        watch.clock.now += 1
+        try stackDrop(fixture.tokens[3], onto: fixture.tokens[2], in: fixture)
+        checkOverflows(fixture)
+        XCTAssertEqual(try column(holding: fixture.tokens[0], in: fixture).windowNodes.count, 2)
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
+        XCTAssertNil(fixture.controller.columnModeToast.message)
+    }
+
+    func testADragStartedWhileADropSettlesIsNotDisturbed() throws {
+        let fixture = try makeFixture(pid: 938_142, animated: true)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture, settling: false)
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        fixture.controller.niriLayoutHandler.overflowReports[fixture.tokens[1]] = watch.clock.now
+
+        try fixture.startLiveDrag(fixture.tokens[0])
+
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
+        XCTAssertNil(fixture.controller.columnModeToast.message)
+        checkOverflows(fixture)
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertFalse(fixture.controller.niriLayoutHandler.overflowReports.isEmpty)
+    }
+
+    func testOmniWMsOwnResizeAfterADropDoesNotUndoTheDrop() throws {
+        let fixture = try makeFixture(pid: 938_132)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        fixture.handler.state.isResizing = true
+        checkOverflows(fixture)
+        XCTAssertFalse(fixture.controller.niriLayoutHandler.overflowReports.isEmpty)
+
+        let joined = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[1], in: fixture.workspaceId))
+        joined.height = .auto(weight: 3)
+        fixture.handler.state.isResizing = false
+        checkOverflows(fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
+        XCTAssertNil(fixture.controller.columnModeToast.message)
+    }
+
+    func testAReportTheWindowServerContradictsUndoesNothing() throws {
+        let fixture = try makeFixture(pid: 938_143)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+
+        let asked = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[1], in: fixture.workspaceId)?.frame)
+        watch.shown[fixture.tokens[1].windowId] = asked
+        checkOverflows(fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
+    }
+
+    func testAReportCheckedMoreThanThreeSecondsAfterTheStepUndoesNothing() throws {
+        let fixture = try makeFixture(pid: 938_144)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+        watch.clock.now += MoveConfiguration.overflowUndoWindow + 0.1
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
+    }
+
+    func testATabbedColumnAndALoneWindowAreNeverReported() throws {
+        let fixture = try makeFixture(pid: 938_129, tabbedRuns: [0 ... 1])
+        let watch = watchOverflows(fixture)
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        try appTakes(40, more: fixture.tokens[2], in: fixture, watch)
+
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.overflowReports.isEmpty)
+    }
+
+    func testLearningAMinimumAfterADropDoesNotStopItsUndoAndTheMinimumIsLearned() throws {
+        let fixture = try makeFixture(pid: 938_145)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+        let height = fixture.controller.insetWorkingFrame(for: fixture.monitor).height
+
+        try appTakes(height * 0.4, more: fixture.tokens[1], in: fixture, watch, clamping: true)
+        try appTakes(height * 0.4, more: fixture.tokens[2], in: fixture, watch, clamping: true)
+        checkOverflows(fixture)
+
+        XCTAssertGreaterThan(
+            try XCTUnwrap(fixture.manager.observedSizeEvidence(for: fixture.tokens[1])).minSize.height,
+            height / 2
+        )
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
+    }
+
+    func testAMinimumLearnedAfterADropThatThenFitsKeepsTheDrop() throws {
+        let fixture = try makeFixture(pid: 938_146)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch, clamping: true)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
+    }
+
+    func testTheAutomaticUndoKeepsTheFocusedWindow() throws {
+        let fixture = try makeFixture(pid: 938_147)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+        let clicked = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[0], in: fixture.workspaceId))
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { $0.selectedNodeId = clicked.id }
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
+        XCTAssertEqual(fixture.manager.niriViewportState(for: fixture.workspaceId).selectedNodeId, clicked.id)
+    }
+
+    func testAStackDropForgetsTheTargetColumnsGuessedHeights() throws {
+        let fixture = try makeFixture(pid: 938_148)
         var guess = ObservedSizeEvidence()
-        guess.minSize = CGSize(width: 300, height: 400)
-        _ = fixture.manager.setObservedSizeEvidence(guess, for: target)
+        guess.minSize.height = 500
+        XCTAssertTrue(fixture.manager.setObservedSizeEvidence(guess, for: fixture.tokens[2]))
+
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+
+        XCTAssertLessThanOrEqual(fixture.manager.observedSizeEvidence(for: fixture.tokens[2])?.minSize.height ?? 1, 1)
+    }
+
+    private func move(_ token: WindowToken, after target: WindowToken, in fixture: Fixture) -> Bool {
+        guard let window = fixture.engine.findNode(for: token, in: fixture.workspaceId),
+              let beside = fixture.engine.findNode(for: target, in: fixture.workspaceId),
+              let context = fixture.handler.liveColumnContext(for: fixture.workspaceId)
+        else { return false }
+        return fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            fixture.engine.insertWindowByMove(
+                sourceWindowId: window.id,
+                targetWindowId: beside.id,
+                position: .after,
+                context: context,
+                state: &state
+            )
+        }
+    }
+
+    func testTheMessageFollowsTheWindowThatWentBackWhenTheStripScrolls() throws {
+        let fixture = try makeFixture(pid: 938_127)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+        let panel = try XCTUnwrap(fixture.controller.ownedWindowRegistry.visibleWindows(kind: .columnModeToast).first)
+        XCTAssertTrue(layOut(fixture))
+        fixture.controller.niriLayoutHandler.followOverflowMessage(in: fixture.workspaceId)
+        let before = try XCTUnwrap(column(holding: fixture.tokens[1], in: fixture).renderedFrame)
+        XCTAssertEqual(panel.frame.midX, before.midX, accuracy: 1)
+
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.jumpOffset(to: state.viewOffset + 200)
+        }
+        XCTAssertTrue(layOut(fixture))
+
+        let after = try XCTUnwrap(column(holding: fixture.tokens[1], in: fixture).renderedFrame)
+        XCTAssertNotEqual(after.midX, before.midX, accuracy: 1)
+        XCTAssertEqual(panel.frame.midX, after.midX, accuracy: 1)
+    }
+
+    private func layOut(_ fixture: Fixture) -> Bool {
+        fixture.controller.niriLayoutHandler.applyFramesOnDemand(
+            wsId: fixture.workspaceId,
+            state: fixture.manager.niriViewportState(for: fixture.workspaceId),
+            engine: fixture.engine,
+            monitor: fixture.monitor
+        )
+    }
+
+    private final class OverflowWatch {
+        let clock = DragClock()
+        var shown: [Int: CGRect] = [:]
+    }
+
+    private func watchOverflows(_ fixture: Fixture) -> OverflowWatch {
+        let watch = OverflowWatch()
+        fixture.controller.niriLayoutHandler.layoutStepClock = { [clock = watch.clock] in clock.now }
+        fixture.controller.serviceLifecycleManager.connectAXFrameCallbacks(fixture.controller)
+        addTeardownBlock { @MainActor in fixture.controller.columnModeToast.destroy() }
+        return watch
+    }
+
+    private func recordStep(in fixture: Fixture, _ change: () throws -> Void) throws {
+        let handler = fixture.controller.niriLayoutHandler
+        let start = handler.layoutChangeStart(in: fixture.workspaceId)
+        XCTAssertNotNil(start)
+        try change()
+        handler.recordLayoutChange(since: start)
+        XCTAssertTrue(layOut(fixture))
+    }
+
+    private func appTakes(
+        _ extra: CGFloat,
+        more token: WindowToken,
+        in fixture: Fixture,
+        _ watch: OverflowWatch,
+        clamping: Bool = false
+    ) throws {
+        XCTAssertTrue(layOut(fixture))
+        let asked = try XCTUnwrap(fixture.engine.findNode(for: token, in: fixture.workspaceId)?.frame)
+        var taken = asked
+        taken.size.height += extra
+        watch.shown[token.windowId] = taken
+        fixture.handler.nativeWindowFrameProvider = { [watch] in watch.shown[$0.windowId] }
+        let axManager = fixture.controller.axManager
+        guard clamping else {
+            axManager.onTerminalFrameRefusal?(AXFrameTerminalRefusal(
+                pid: token.pid,
+                windowId: token.windowId,
+                targetFrame: asked,
+                observedFrame: taken,
+                failureReason: .verificationMismatch
+            ))
+            return
+        }
+        axManager.onStableSizeClamp?(AXFrameApplyResult(
+            requestId: 0,
+            pid: token.pid,
+            windowId: token.windowId,
+            expectedWindow: try XCTUnwrap(fixture.entry(token).axRef),
+            targetFrame: asked,
+            currentFrameHint: nil,
+            writeResult: AXFrameWriteResult(
+                observedFrame: taken,
+                writeOrder: .sizeThenPosition,
+                sizeError: .success,
+                positionError: .success,
+                failureReason: .verificationMismatch
+            )
+        ))
+    }
+
+    private func checkOverflows(_ fixture: Fixture) {
+        fixture.controller.layoutRefreshController.dropQueuedRefreshes()
+        fixture.manager.withEngineMutationScope(in: fixture.workspaceId) {
+            for token in fixture.tokens {
+                guard let learned = fixture.manager.observedSizeEvidence(for: token)?.minSize else { continue }
+                fixture.engine.updateWindowConstraints(
+                    for: token,
+                    constraints: WindowSizeConstraints(minSize: learned, maxSize: .zero, isFixed: false),
+                    in: fixture.workspaceId,
+                    motion: .disabled
+                )
+            }
+        }
+        _ = layOut(fixture)
+        fixture.controller.niriLayoutHandler.checkOverflowReports()
+    }
+
+    func testAStackDropThatFitsShowsNoMessage() throws {
+        let fixture = try makeFixture(pid: 938_126)
+
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[1], in: fixture).windowNodes.count, 2)
+        XCTAssertNil(fixture.controller.columnModeToast.message)
+    }
+
+    private func stackDrop(
+        _ token: WindowToken,
+        onto target: WindowToken,
+        in fixture: Fixture,
+        settling: Bool = true
+    ) throws {
         let clock = DragClock()
         fixture.handler.liveDragClock = { clock.now }
-        try fixture.startLiveDrag(fixture.tokens[1])
-
+        try fixture.startLiveDrag(token)
         let drop = try fixture.centre(of: target)
         fixture.drag(to: drop)
         clock.now += 0.2
         fixture.handler.liveDragSession?.hoverTimer?.fire()
         XCTAssertNotNil(fixture.engine.liveColumnMove?.landing)
         fixture.handler.dispatchMouseUp(at: drop)
-
-        XCTAssertEqual(try column(holding: fixture.tokens[1], in: fixture).windowNodes.count, 2)
-        let kept = try XCTUnwrap(fixture.manager.observedSizeEvidence(for: target))
-        XCTAssertEqual(kept.minSize.height, 1)
-        XCTAssertEqual(kept.minSize.width, 300)
+        if settling {
+            settle(fixture)
+        }
     }
 
-    func testTheEngineGetsTheMinimumTheAppReportsWithoutTheGuess() throws {
-        let fixture = try makeFixture(pid: 938_126)
-        let token = fixture.tokens[2]
-        var guess = ObservedSizeEvidence()
-        guess.minSize = CGSize(width: 1, height: 841)
-        _ = fixture.manager.setObservedSizeEvidence(guess, for: token)
-
-        let reported = try XCTUnwrap(fixture.engine.reportedMinimumSize?(token))
-
-        XCTAssertLessThan(reported.height, 841)
+    private func settle(_ fixture: Fixture) {
+        fixture.manager.animationDriver.removeMotions(for: [fixture.workspaceId])
+        _ = fixture.engine.cancelAnimations(in: fixture.workspaceId)
+        fixture.handler.handleNiriAnimationsSettled(in: fixture.workspaceId)
     }
 
     private func edgeClock(_ fixture: Fixture) -> EdgeClock {
@@ -2615,5 +3147,16 @@ private final class PassCounter {
     func tick() -> TimeInterval {
         calls += 1
         return 1_000
+    }
+}
+
+extension LayoutRefreshController {
+    func dropQueuedRefreshes() {
+        layoutState.activeRefreshTask?.cancel()
+        layoutState.activeRefreshTask = nil
+        layoutState.activeRefresh = nil
+        layoutState.pendingRefresh = nil
+        layoutState.pendingDebounceTask?.cancel()
+        layoutState.pendingDebounceTask = nil
     }
 }

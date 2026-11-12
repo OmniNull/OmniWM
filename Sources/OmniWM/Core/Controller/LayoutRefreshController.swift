@@ -209,6 +209,10 @@ extension LayoutRefreshController {
 }
 
 extension LayoutRefreshController {
+    var isRefreshQueued: Bool {
+        layoutState.activeRefresh != nil || layoutState.pendingRefresh != nil || layoutState.pendingDebounceTask != nil
+    }
+
     func hasPendingRevealTransaction(for windowId: Int) -> Bool {
         pendingRevealTransactionsByWindowId[windowId] != nil
     }

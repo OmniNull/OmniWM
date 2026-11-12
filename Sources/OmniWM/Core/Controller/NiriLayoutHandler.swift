@@ -48,6 +48,10 @@ enum StructuralMutationOutcome: Equatable {
 
 @MainActor final class NiriLayoutHandler {
     weak var controller: WMController?
+    var layoutStepClock: @MainActor () -> TimeInterval = { CACurrentMediaTime() }
+    var overflowReports: [WindowToken: TimeInterval] = [:]
+    var isOverflowCheckScheduled = false
+    var unshownOverflowMessage: UnshownOverflowMessage?
 
     struct NiriLayoutPass {
         let motion: MotionSnapshot

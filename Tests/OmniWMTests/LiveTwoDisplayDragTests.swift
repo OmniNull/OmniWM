@@ -758,6 +758,46 @@ extension CrossDisplayDragTests {
         }
     }
 
+    func testACarriedDropOntoAStackItDoesNotFitIsUndoneBackOntoTheFirstDisplay() throws {
+        let drag = try startLiveTwoDisplayDrag(residents: 2)
+        let fixture = drag.fixture
+        fixture.controller.serviceLifecycleManager.connectAXFrameCallbacks(fixture.controller)
+        addTeardownBlock { @MainActor in fixture.controller.columnModeToast.destroy() }
+        fixture.handler.liveDragClock = { 1_000 }
+        try dragOnto(drag.residents[0], .right, drag)
+        fixture.layout()
+        let point = try XCTUnwrap(fixture.frame(drag.residents[0])).center
+        fixture.handler.dispatchMouseDragged(at: point)
+        fixture.handler.liveDragClock = { 1_000.2 }
+        fixture.handler.liveDragSession?.hoverTimer?.fire()
+        XCTAssertNotNil(fixture.niri.liveColumnMove?.landing)
+        fixture.handler.dispatchMouseUp(at: point)
+        settleStackDrop(in: fixture.target, fixture)
+        fixture.layout()
+        XCTAssertEqual(fixture.columns(fixture.target).first?.count, 2)
+
+        let asked = try XCTUnwrap(fixture.frame(drag.moved))
+        var taken = asked
+        taken.size.height += 200
+        fixture.handler.nativeWindowFrameProvider = { [taken] _ in taken }
+        fixture.controller.axManager.onTerminalFrameRefusal?(AXFrameTerminalRefusal(
+            pid: drag.moved.pid,
+            windowId: drag.moved.windowId,
+            targetFrame: asked,
+            observedFrame: taken,
+            failureReason: .verificationMismatch
+        ))
+        fixture.controller.layoutRefreshController.dropQueuedRefreshes()
+        fixture.controller.niriLayoutHandler.checkOverflowReports()
+        fixture.layout()
+        fixture.controller.niriLayoutHandler.followOverflowMessage(in: fixture.source)
+
+        XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.source)
+        XCTAssertEqual(fixture.columns(fixture.target), [[drag.residents[0]], [drag.residents[1]]])
+        XCTAssertEqual(fixture.controller.columnModeToast.source?.workspaceId, fixture.source)
+        XCTAssertNil(fixture.niri.peekLayoutHistory(.redo, in: fixture.target))
+    }
+
     private func makeLiveFixture(_ layouts: [LayoutType]) throws -> Fixture {
         let fixture = try makeNativeFixture(layouts)
         fixture.controller.settings.niri.macOSFusion = true

@@ -296,11 +296,8 @@ extension NiriLayoutEngine {
         case .closeHint:
             closeLiveLandingHint(move: &move, context: context, state: &state)
             return .changed
-        case let .showHint(landing, tracesRefusal):
+        case let .showHint(landing):
             guard showLiveLandingHint(landing, move: &move, context: context, state: &state) else {
-                if tracesRefusal {
-                    traceLiveStackRefusalDetail("hint-not-placed x=\(Int(cursor.x.rounded()))")
-                }
                 return .unchanged
             }
             return .changed

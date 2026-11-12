@@ -10,26 +10,41 @@ extension NiriLayoutHandler {
         state: ViewportState,
         motion: MotionSnapshot
     ) {
+        let column = state.selectedNodeId
+            .flatMap { engine.findNode(by: $0, in: workspaceId) }
+            .flatMap { engine.column(of: $0) }
+        showToast(.columnMode(isTabbed: column?.isTabbed ?? false), over: column, in: workspaceId, motion: motion)
+    }
+
+    func showToast(
+        _ message: ColumnModeToastController.Message,
+        over column: NiriContainer?,
+        in workspaceId: WorkspaceDescriptor.ID,
+        motion: MotionSnapshot
+    ) {
         guard let controller,
               let monitor = controller.workspaceManager.monitor(for: workspaceId),
-              let selectedId = state.selectedNodeId,
-              let selectedNode = engine.findNode(by: selectedId, in: workspaceId),
-              let column = engine.column(of: selectedNode),
-              let frame = column.renderedFrame,
-              !frame.isNull,
-              !frame.isInfinite,
-              frame.width > 0,
-              frame.height > 0
+              let frame = toastFrame(of: column)
         else {
             controller?.columnModeToast.hide()
             return
         }
         controller.columnModeToast.show(
-            isTabbed: column.isTabbed,
+            message,
             columnFrame: frame,
             visibleFrame: monitor.visibleFrame,
             motion: motion,
             source: .init(workspaceId: workspaceId, monitorId: monitor.id)
         )
+    }
+
+    func toastFrame(of column: NiriContainer?) -> CGRect? {
+        guard let frame = column?.renderedFrame,
+              !frame.isNull,
+              !frame.isInfinite,
+              frame.width > 0,
+              frame.height > 0
+        else { return nil }
+        return frame
     }
 }

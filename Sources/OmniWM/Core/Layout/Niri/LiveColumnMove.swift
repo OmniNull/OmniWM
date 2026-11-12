@@ -88,7 +88,7 @@ struct LiveColumnMove {
         case leaveStack(towardTrailingSide: Bool)
         case moveInStack(NiriWindow, home: NiriContainer, index: Int)
         case closeHint
-        case showHint(LandingSlot, tracesRefusal: Bool)
+        case showHint(LandingSlot)
         case switchHint(columnId: NodeId, dwellSince: TimeInterval?)
         case reorder(Reorder)
 
