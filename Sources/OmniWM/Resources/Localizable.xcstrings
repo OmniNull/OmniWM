@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Choose how the palette searches windows, apps, commands, and files." : {
+
+    },
     "A base16 module for the current appearance · reloads Neovim with SIGUSR1" : {
 
     },
@@ -353,9 +356,6 @@
 
     },
     "timed out" : {
-
-    },
-    "Choose how the palette searches windows, apps, commands, and files." : {
 
     },
     "Clear Pick History" : {
