@@ -263,6 +263,28 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testAQueuedRunSkipsATemplateWhoseOutputChangedSince() throws {
+        try sandbox.write("{{mode}}\n", to: "templates/mode.conf")
+        let settings = AppThemingSettings()
+        let custom = SettingsExport.AppTheming.Custom(
+            name: "Mode",
+            template: sandbox.path("templates/mode.conf").path,
+            output: "~/.config/mode/old.conf"
+        )
+        settings.values.custom = [custom]
+        let worker = AppThemeHeldWork()
+        let service = sandbox.service(settings, fake, perform: worker.perform) { true }
+        settings.onValuesChange = { service.settingsDidChange() }
+        service.paletteDidChange(theme(background: .black))
+        settings.values.custom[0].output = "~/.config/mode/new.conf"
+        worker.release()
+        XCTAssertNil(sandbox.read(".config/mode/old.conf"))
+        worker.release()
+        XCTAssertEqual(sandbox.read(".config/mode/new.conf"), "dark\n")
+        XCTAssertNil(sandbox.read(".config/mode/old.conf"))
+    }
+
+    @MainActor
     func testDisabledAppsAreNeverWritten() {
         let service = sandbox.service(AppThemingSettings(), fake) { true }
         service.paletteDidChange(theme(background: .black))

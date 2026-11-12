@@ -63,7 +63,7 @@ struct AppThemeEngine: Sendable {
     }
 
     func run(_ job: AppThemeJob) -> AppThemeRunReport {
-        guard job.targets.contains(where: { job.enabled.contains($0.id) }) else { return AppThemeRunReport() }
+        guard job.targets.contains(where: { job.enabled.contains($0) }) else { return AppThemeRunReport() }
         willLock()
         do {
             return try store.withLock { try runLocked(job) }
@@ -81,7 +81,7 @@ struct AppThemeEngine: Sendable {
     }
 
     private func runLocked(_ job: AppThemeJob) throws -> AppThemeRunReport {
-        guard job.targets.contains(where: { job.enabled.contains($0.id) }) else { return AppThemeRunReport() }
+        guard job.targets.contains(where: { job.enabled.contains($0) }) else { return AppThemeRunReport() }
         var state = try store.load()
         var report = AppThemeRunReport()
         report.stored = state.results
@@ -90,7 +90,7 @@ struct AppThemeEngine: Sendable {
         var changed: [String: Bool] = [:]
         var claimed: [String: String] = [:]
         var created: Set<String> = []
-        for target in job.targets where job.enabled.contains(target.id) {
+        for target in job.targets where job.enabled.contains(target) {
             do {
                 try claim(target, in: &claimed, roots: roots)
                 let (names, newFiles) = try write(
@@ -168,7 +168,7 @@ struct AppThemeEngine: Sendable {
             .sorted { ($0.element.reload?.phase ?? 0, $0.offset) < ($1.element.reload?.phase ?? 0, $1.offset) }
             .map(\.element)
         let needed = ordered.filter { target in
-            guard let action = target.reload, let wrote = changed[target.id], job.enabled.contains(target.id) else {
+            guard let action = target.reload, let wrote = changed[target.id], job.enabled.contains(target) else {
                 return false
             }
             return wrote || state.reloadPending.contains(target.id) || job.forceReload.contains(target.id)
@@ -176,10 +176,10 @@ struct AppThemeEngine: Sendable {
         }
         var outcomes: [AppThemeReloadAction: AppThemeReloadOutcome] = [:]
         for target in needed {
-            guard let action = target.reload, job.enabled.contains(target.id) else { continue }
+            guard let action = target.reload, job.enabled.contains(target) else { continue }
             state.reloadPending.insert(target.id)
             try? store.save(state)
-            let reloader = AppThemeReloader(environment: environment) { job.enabled.contains(target.id) }
+            let reloader = AppThemeReloader(environment: environment) { job.enabled.contains(target) }
             let outcome = outcomes[action] ?? reloader.reload(
                 action,
                 newFiles: needed.contains { $0.reload == action && created.contains($0.id) }
@@ -190,7 +190,7 @@ struct AppThemeEngine: Sendable {
             report.results[target.id]?.reloadFailed = !outcome.succeeded
         }
         report.ghosttyThemesChanged = job.targets.contains { target in
-            target.reload == .ghostty && job.enabled.contains(target.id)
+            target.reload == .ghostty && job.enabled.contains(target)
                 && (changed[target.id] == true || job.forceReload.contains(target.id))
         }
     }
@@ -256,7 +256,7 @@ struct AppThemeEngine: Sendable {
         try store.save(state)
         do {
             try replace(item.url, with: item.after, expecting: item.before, display: item.display) {
-                job.enabled.contains(target.id)
+                job.enabled.contains(target)
             }
         } catch {
             if let backup { try? FileManager.default.removeItem(at: backup) }

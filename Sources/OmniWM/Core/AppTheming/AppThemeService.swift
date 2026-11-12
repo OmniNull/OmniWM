@@ -54,10 +54,10 @@ final class AppThemeService {
         self.deliver = deliver
         isDark = systemIsDark()
         paletteTerminalColors = settings.values.terminalColors
-        let enabled = Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id))
-        if !reloadsEnabledApps { enabledTargets = enabled }
+        let targets = settings.values.targets(configHome: engine.policy.configHome)
+        if !reloadsEnabledApps { enabledTargets = Set(targets.map(\.id)) }
         results = [:]
-        currentTargets.set(enabled)
+        currentTargets.set(targets: targets)
     }
 
     private nonisolated static let queue = DispatchQueue(label: "com.barut.OmniWM.app-theming", qos: .userInitiated)
@@ -143,7 +143,7 @@ final class AppThemeService {
         let enabled = Set(targets.map(\.id))
         forceReload.formUnion(enabled.subtracting(enabledTargets))
         enabledTargets = enabled
-        currentTargets.set(enabled)
+        currentTargets.set(targets: targets)
         schedule(targets)
     }
 

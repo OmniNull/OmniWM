@@ -84,18 +84,39 @@ struct AppThemeJob: Sendable {
 final class AppThemeEnabledTargets: Sendable {
     static let all = AppThemeEnabledTargets(nil)
 
-    private let ids: OSAllocatedUnfairLock<Set<String>?>
+    private struct Current {
+        var ids: Set<String>?
+        var targets: [String: AppThemeTarget] = [:]
+    }
+
+    private let current: OSAllocatedUnfairLock<Current>
 
     init(_ ids: Set<String>?) {
-        self.ids = OSAllocatedUnfairLock(initialState: ids)
+        current = OSAllocatedUnfairLock(initialState: Current(ids: ids))
     }
 
     func contains(_ id: String) -> Bool {
-        ids.withLock { $0?.contains(id) ?? true }
+        current.withLock { $0.ids?.contains(id) ?? true }
+    }
+
+    func contains(_ target: AppThemeTarget) -> Bool {
+        current.withLock { current in
+            guard current.ids?.contains(target.id) ?? true else { return false }
+            return current.targets[target.id].map { $0 == target } ?? true
+        }
     }
 
     func set(_ next: Set<String>) {
-        ids.withLock { $0 = next }
+        current.withLock { $0 = Current(ids: next) }
+    }
+
+    func set(targets next: [AppThemeTarget]) {
+        current.withLock { current in
+            current = Current(
+                ids: Set(next.map(\.id)),
+                targets: Dictionary(next.map { ($0.id, $0) }) { first, _ in first }
+            )
+        }
     }
 }
 
