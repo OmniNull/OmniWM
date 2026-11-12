@@ -277,16 +277,32 @@ extension MouseEventHandler {
             return
         }
         let viewportState = controller.workspaceManager.niriViewportState(for: workspaceId)
+        publishLiveDragHold(
+            on: monitor,
+            strip: engine.liveColumnStrip(context: context, state: viewportState),
+            context: context,
+            state: viewportState
+        )
+    }
+
+    func publishLiveDragHold(
+        on monitor: Monitor,
+        strip: [LiveColumnMove.StripColumn],
+        context: NiriInteractionContext,
+        state viewportState: ViewportState
+    ) {
+        guard let controller, let engine = controller.niriEngine else { return }
+        guard controller.workspaceManager.monitors.count > 1 else {
+            controller.pointerEdgeBarrier.publishLiveDragHold(nil)
+            return
+        }
         let scrollingEdge = isLiveEdgeScrolling ? liveDragSession?.edgeScroll?.edge : nil
+        let limits = engine.liveEdgeScrollLimits(strip: strip, context: context, state: viewportState)
         var held: Set<Direction> = []
-        if scrollingEdge == .trailing
-            || engine.liveEdgeScrollLimit(towardTrailingEdge: true, context: context, state: viewportState) != nil
-        {
+        if scrollingEdge == .trailing || limits.trailing != nil {
             held.insert(.right)
         }
-        if scrollingEdge == .leading
-            || engine.liveEdgeScrollLimit(towardTrailingEdge: false, context: context, state: viewportState) != nil
-        {
+        if scrollingEdge == .leading || limits.leading != nil {
             held.insert(.left)
         }
         controller.pointerEdgeBarrier.publishLiveDragHold(.init(monitorId: monitor.id, heldDirections: held))

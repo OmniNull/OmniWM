@@ -1587,8 +1587,22 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         return right
     }
 
+    func testOnOneDisplayALiveDragPublishesNoHold() throws {
+        let fixture = try makeFixture(pid: 938_194, windowCount: 6)
+        let barrier = fixture.controller.pointerEdgeBarrier
+        try fixture.startLiveDrag(fixture.tokens[1])
+        fixture.drag(to: try fixture.centre(of: fixture.tokens[1]))
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertNil(barrier.liveDragHold)
+
+        try startEdgeScroll(.trailing, dragging: fixture.tokens[1], in: fixture, started: true)
+        XCTAssertNil(barrier.liveDragHold)
+        fixture.handler.dispatchMouseUp(at: edgePoint(.trailing, fixture))
+    }
+
     func testALiveDragHoldsOnlyTheSidesTheStripCanScrollUntilItEnds() throws {
         let fixture = try makeFixture(pid: 938_193, windowCount: 6)
+        _ = try addDisplay(rightOf: fixture)
         let barrier = fixture.controller.pointerEdgeBarrier
         XCTAssertNil(barrier.liveDragHold)
         try fixture.startLiveDrag(fixture.tokens[1])

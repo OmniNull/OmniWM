@@ -35,7 +35,7 @@ struct MouseInputState {
         case committed
     }
 
-    enum NativeTitleBarDragPhase {
+    enum NativeTitleBarDragPhase: Equatable {
         case armed
         case dragging
         case awaitingFrameChange
@@ -49,7 +49,7 @@ struct MouseInputState {
         var timer: Timer?
     }
 
-    struct NativeTitleBarDrag {
+    struct NativeTitleBarDrag: Equatable {
         let token: WindowToken
         var phase: NativeTitleBarDragPhase = .armed
         var targetWasRejected = false
@@ -215,5 +215,47 @@ struct LiveDragSession {
     var edgeZoneHold: MouseInputState.LiveEdgeZoneHold?
     var hoverTimer: Timer?
     var followUp: Timer?
-    var tracedView: String?
+    var tracedView: LiveStripTrace?
+}
+
+struct LiveStripTrace: Equatable {
+    struct Lock: Equatable {
+        let windowIds: [Int]?
+        let side: LiveColumnMove.Side
+    }
+
+    struct Column: Equatable {
+        let windowIds: [Int]
+        let isHomeSpot: Bool
+        let isDropSpace: Bool
+        let minX: Int
+        let maxX: Int
+    }
+
+    let label: String
+    let workspaceId: WorkspaceDescriptor.ID
+    let activeColumnIndex: Int
+    let viewOffset: String
+    let liveOffset: String?
+    let lock: Lock?
+    let columns: [Column]
+    let phase: LiveColumnMove.Phase?
+
+    var view: String {
+        let lockText = lock.map { lock in
+            "\(lock.windowIds.map(Self.ids) ?? "?")/\(lock.side)"
+        } ?? "none"
+        let columnsText = columns.map { column in
+            let ids = Self.ids(column.windowIds)
+            let name = column.isHomeSpot ? "*\(ids)" : column.isDropSpace ? "_" : ids
+            return "\(name)@\(column.minX)-\(column.maxX)"
+        }
+        return "ws=\(workspaceId) active=\(activeColumnIndex) "
+            + "off=\(viewOffset) live=\(liveOffset ?? "-") "
+            + "lock=\(lockText) cols=[\(columnsText.joined(separator: ","))] phase=\(phase.map { "\($0)" } ?? "-")"
+    }
+
+    private static func ids(_ windowIds: [Int]) -> String {
+        windowIds.map(String.init).joined(separator: "+")
+    }
 }

@@ -62,7 +62,9 @@ extension MouseEventHandler {
         entry: WindowState
     ) -> Bool {
         if drag.liveDrag {
-            state.nativeTitleBarDrag = drag
+            if state.nativeTitleBarDrag != drag {
+                state.nativeTitleBarDrag = drag
+            }
             return true
         }
         guard beginLiveColumnDragIfEligible(&drag, entry: entry) else { return false }
@@ -187,12 +189,14 @@ extension MouseEventHandler {
         let workspaceId = move.workspaceId
         let reference = liveDragReference(location)
         let slowed = livePointerHasSlowed(at: liveDragClock())
-        traceLiveDrag(slowed ? "update slowed=1" : "update slowed=0", at: location)
+        let updateLabel = slowed ? "update slowed=1" : "update slowed=0"
         guard let monitor = controller.workspaceManager.monitor(for: workspaceId) else {
+            traceLiveDrag(updateLabel, at: location)
             cancelLiveColumnDrag()
             return false
         }
         if pointerHasLeft(monitor, at: location) {
+            traceLiveDrag(updateLabel, at: location)
             if !carryLiveColumnDrag(from: workspaceId, at: location) {
                 MouseTrace.record("live-drag carry refused at=\(TraceFormat.point(location)) from=\(workspaceId)")
                 handOverLiveColumnDrag()
@@ -200,7 +204,16 @@ extension MouseEventHandler {
             return false
         }
         trackLiveEdgeZone(at: location, monitorFrame: monitor.frame)
-        publishLiveDragHold(on: monitor, workspaceId: workspaceId)
+        guard let context = liveColumnContext(for: workspaceId) else {
+            traceLiveDrag(updateLabel, at: location)
+            controller.pointerEdgeBarrier.publishLiveDragHold(nil)
+            return false
+        }
+        let manager = controller.workspaceManager
+        var viewport = manager.niriViewportState(for: workspaceId)
+        var strip = engine.liveColumnStrip(context: context, state: viewport)
+        traceLiveStrip(updateLabel, in: workspaceId, at: location, strip: strip, viewport: viewport)
+        publishLiveDragHold(on: monitor, strip: strip, context: context, state: viewport)
         if let edgeScroll = liveDragSession?.edgeScroll,
            edgeScroll.hopping || edgeScroll.hopsDone || move.home != .stackSlot
         {
@@ -216,11 +229,12 @@ extension MouseEventHandler {
             ) else { return false }
             stopLiveEdgeScroll()
             immediate = true
+            viewport = manager.niriViewportState(for: workspaceId)
+            strip = engine.liveColumnStrip(context: context, state: viewport)
         }
         if move.phase == .settling, !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) {
             engine.liveColumnMoveSettled()
         }
-        guard let context = liveColumnContext(for: workspaceId) else { return false }
 
         let now = liveDragClock()
         let step = runLiveColumnMoveUpdate(
@@ -230,7 +244,8 @@ extension MouseEventHandler {
             immediate: immediate,
             slowed: slowed,
             engine: engine,
-            context: context
+            context: context,
+            strip: strip
         )
         if let until = step.hoverDeadline {
             let stopCheck = livePointerStopCheckDelay(at: now) ?? .infinity
@@ -258,7 +273,8 @@ extension MouseEventHandler {
         immediate: Bool,
         slowed: Bool,
         engine: NiriLayoutEngine,
-        context: NiriInteractionContext
+        context: NiriInteractionContext,
+        strip: [LiveColumnMove.StripColumn]
     ) -> LiveColumnMove.Step {
         guard let manager = controller?.workspaceManager,
               let decision = engine.liveColumnMoveDecision(
@@ -268,7 +284,7 @@ extension MouseEventHandler {
                   immediate: immediate,
                   slowed: slowed,
                   context: context,
-                  state: manager.niriViewportState(for: context.workspaceId)
+                  strip: strip
               )
         else { return .unchanged }
         if let step = engine.keepLiveColumnMoveDecision(decision) {

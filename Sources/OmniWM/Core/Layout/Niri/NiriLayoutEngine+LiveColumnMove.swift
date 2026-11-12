@@ -87,7 +87,7 @@ extension NiriLayoutEngine {
             immediate: immediate,
             slowed: slowed,
             context: context,
-            state: state
+            strip: liveColumnStrip(context: context, state: state)
         ) else { return .unchanged }
         return applyLiveColumnMoveDecision(decision, context: context, state: &state)
     }
@@ -99,7 +99,7 @@ extension NiriLayoutEngine {
         immediate: Bool = false,
         slowed: Bool = false,
         context: NiriInteractionContext,
-        state: ViewportState
+        strip: [LiveColumnMove.StripColumn]
     ) -> LiveColumnMove.Decision? {
         guard let move = liveColumnMove,
               move.workspaceId == context.workspaceId,
@@ -108,7 +108,7 @@ extension NiriLayoutEngine {
         var decision = LiveColumnMove.Decision(
             move: move,
             pointer: .init(cursor: cursor, time: immediate ? nil : time, slowed: slowed),
-            strip: liveColumnStrip(context: context, state: state)
+            strip: strip
         )
         decision.closing = liveClosingSlotDecision(
             windowMidX: windowMidX ?? cursor.x,
@@ -560,13 +560,27 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: ViewportState
     ) -> CGFloat? {
-        guard isLiveColumnMoveActive(in: context.workspaceId) else { return nil }
-        let strip = liveColumnStrip(context: context, state: state)
-        guard let range = liveStripScrollRange(strip: strip, context: context) else { return nil }
+        let limits = liveEdgeScrollLimits(
+            strip: liveColumnStrip(context: context, state: state),
+            context: context,
+            state: state
+        )
+        return towardTrailingEdge ? limits.trailing : limits.leading
+    }
+
+    func liveEdgeScrollLimits(
+        strip: [LiveColumnMove.StripColumn],
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) -> (leading: CGFloat?, trailing: CGFloat?) {
+        guard isLiveColumnMoveActive(in: context.workspaceId),
+              let range = liveStripScrollRange(strip: strip, context: context)
+        else { return (nil, nil) }
         let pixel = 1.0 / displayScale(in: context.workspaceId)
-        let shift = towardTrailingEdge ? range.upperBound : range.lowerBound
-        guard abs(shift) >= pixel else { return nil }
-        return state.viewOffset + shift
+        func limit(_ shift: CGFloat) -> CGFloat? {
+            abs(shift) >= pixel ? state.viewOffset + shift : nil
+        }
+        return (limit(range.lowerBound), limit(range.upperBound))
     }
 
     func liveColumnMoveHop(

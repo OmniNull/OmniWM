@@ -72,32 +72,56 @@ extension MouseEventHandler {
               let controller,
               let engine = controller.niriEngine
         else { return }
-        let move = engine.liveColumnMove
         let viewport = controller.workspaceManager.niriViewportState(for: workspaceId)
+        let strip = liveColumnContext(for: workspaceId).map {
+            engine.liveColumnStrip(context: $0, state: viewport)
+        } ?? []
+        traceLiveStrip(label, in: workspaceId, at: location, strip: strip, viewport: viewport)
+    }
+
+    func traceLiveStrip(
+        _ label: String,
+        in workspaceId: WorkspaceDescriptor.ID,
+        at location: CGPoint?,
+        strip: [LiveColumnMove.StripColumn],
+        viewport: ViewportState
+    ) {
+        guard MouseTrace.shared.isActive,
+              let controller,
+              let engine = controller.niriEngine
+        else { return }
+        let move = engine.liveColumnMove
         let live = controller.workspaceManager.animationDriver.liveViewOffset(
             in: workspaceId,
             semanticOffset: viewport.viewOffset
         )
-        let strip = liveColumnContext(for: workspaceId).map {
-            engine.liveColumnStrip(context: $0, state: viewport)
-        } ?? []
-        let columns = strip.map { placed in
-            let column = placed.column
-            let ids = column.traceWindowIds
-            let name = column.isLiveHomeSpot ? "*\(ids)" : column.isLiveDropSpace ? "_" : ids
-            return "\(name)@\(Int(placed.minX))-\(Int(placed.maxX))"
-        }
-        let lock = move?.lockedTarget.map { lock in
-            let ids = engine.liveColumn(withId: lock.columnId, in: workspaceId)?.traceWindowIds ?? "?"
-            return "\(ids)/\(lock.side)"
-        } ?? "none"
-        let view = "ws=\(workspaceId) active=\(viewport.activeColumnIndex) "
-            + String(format: "off=%.0f live=%@ ", viewport.viewOffset, live.map { String(format: "%.0f", $0) } ?? "-")
-            + "lock=\(lock) cols=[\(columns.joined(separator: ","))] phase=\(move.map { "\($0.phase)" } ?? "-")"
-        let entry = "\(label) \(view)"
-        guard !label.hasPrefix("update") || entry != liveDragSession?.tracedView else { return }
-        liveDragSession?.tracedView = entry
-        MouseTrace.record("live-drag \(label) at=\(TraceFormat.point(location)) \(view)")
+        let trace = LiveStripTrace(
+            label: label,
+            workspaceId: workspaceId,
+            activeColumnIndex: viewport.activeColumnIndex,
+            viewOffset: String(format: "%.0f", viewport.viewOffset),
+            liveOffset: live.map { String(format: "%.0f", $0) },
+            lock: move?.lockedTarget.map { lock in
+                .init(
+                    windowIds: engine.liveColumn(withId: lock.columnId, in: workspaceId)?.windowNodes
+                        .map(\.token.windowId),
+                    side: lock.side
+                )
+            },
+            columns: strip.map { placed in
+                .init(
+                    windowIds: placed.column.windowNodes.map(\.token.windowId),
+                    isHomeSpot: placed.column.isLiveHomeSpot,
+                    isDropSpace: placed.column.isLiveDropSpace,
+                    minX: Int(placed.minX),
+                    maxX: Int(placed.maxX)
+                )
+            },
+            phase: move?.phase
+        )
+        guard !label.hasPrefix("update") || trace != liveDragSession?.tracedView else { return }
+        liveDragSession?.tracedView = trace
+        MouseTrace.record("live-drag \(label) at=\(TraceFormat.point(location)) \(trace.view)")
     }
 
     func returnCarriedLiveColumnDragHome() {
