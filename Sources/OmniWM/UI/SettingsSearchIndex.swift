@@ -38,7 +38,6 @@ enum SettingsSearchIndex {
         setting("Check for Updates Automatically", section: .general, anchor: "Check for Updates Automatically"),
         setting("Check for Updates...", section: .general, anchor: "Check for Updates..."),
         setting("Appearance", section: .appearance, tab: "app", anchor: "Appearance"),
-        setting("App Appearance", section: .appearance, tab: "app", anchor: "App Appearance"),
         setting("Show app icons in tab rails", section: .appearance, tab: "app", anchor: "Show app icons in tab rails"),
         setting("Enable Animations", section: .appearance, tab: "app", anchor: "Enable Animations"),
         setting("Slide Workspace Switches", section: .appearance, tab: "app", anchor: "Slide Workspace Switches"),

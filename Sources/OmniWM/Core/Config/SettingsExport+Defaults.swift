@@ -49,7 +49,6 @@ extension SettingsExport {
             language: nil,
             clipboard: Clipboard.defaults(),
             quakeTerminal: QuakeTerminal.defaults(),
-            appearanceMode: .dark,
             tabRailAppIcons: false
         )
     }

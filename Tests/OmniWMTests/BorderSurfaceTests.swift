@@ -834,7 +834,7 @@ final class BorderSurfaceTests: XCTestCase {
     }
 
     @MainActor
-    func testControllerCachesBorderAppearanceAndRefreshesAfterModeChanges() {
+    func testControllerCachesBorderAppearanceAndRefreshesAfterAppearanceChanges() {
         let app = NSApplication.shared
         let originalAppearance = app.appearance
         defer { app.appearance = originalAppearance }
@@ -848,12 +848,12 @@ final class BorderSurfaceTests: XCTestCase {
         XCTAssertEqual(WorldView(controller: controller).borderConfig.color, lightColor)
         controller.refreshBorderAppearance()
         XCTAssertEqual(WorldView(controller: controller).borderConfig.color, darkColor)
-        controller.settings.appearanceMode = .light
-        controller.applyCurrentAppearanceMode()
+        app.appearance = NSAppearance(named: .aqua)
+        controller.applyCurrentAppearance()
         XCTAssertFalse(controller.borderUsesDarkAppearance)
         XCTAssertEqual(WorldView(controller: controller).borderConfig.color, lightColor)
-        controller.settings.appearanceMode = .dark
-        controller.applyCurrentAppearanceMode()
+        app.appearance = NSAppearance(named: .darkAqua)
+        controller.applyCurrentAppearance()
         XCTAssertTrue(controller.borderUsesDarkAppearance)
         XCTAssertEqual(WorldView(controller: controller).borderConfig.color, darkColor)
     }

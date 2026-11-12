@@ -913,7 +913,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
                 "monitorMode = \"everywhere\"",
                 "monitorMode"
             ),
-            ("mode = \"\(AppearanceMode.dark.rawValue)\"", "mode = \"sepia\"", "appearance.mode"),
             (
                 "workspaceSwipeFingerCount = 3\n",
                 "workspaceSwipeFingerCount = 5\n",

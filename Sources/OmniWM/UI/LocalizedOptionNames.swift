@@ -24,16 +24,6 @@ private func localizedModifierName(_ name: String) -> String {
     }.joined(separator: "+")
 }
 
-extension AppearanceMode {
-    var localizedDisplayName: String {
-        switch self {
-        case .automatic: String(localized: "Automatic")
-        case .light: String(localized: "Light")
-        case .dark: String(localized: "Dark")
-        }
-    }
-}
-
 extension LayoutType {
     var localizedDisplayName: String {
         switch self {

@@ -86,8 +86,8 @@ import XCTest
                 )
             )
             settings.borders.glow = BorderGlow(enabled: true, radius: 8, opacity: 0.25)
-            settings.appearanceMode = .light
-            controller.applyCurrentAppearanceMode()
+            app.appearance = NSAppearance(named: .aqua)
+            controller.applyCurrentAppearance()
             XCTAssertFalse(controller.borderUsesDarkAppearance)
             let config = BorderConfig.from(settings: settings, isDark: controller.borderUsesDarkAppearance)
             let target = CGRect(
@@ -130,8 +130,8 @@ import XCTest
                 )
             }
 
-            settings.appearanceMode = .dark
-            controller.applyCurrentAppearanceMode()
+            app.appearance = NSAppearance(named: .darkAqua)
+            controller.applyCurrentAppearance()
             XCTAssertTrue(controller.borderUsesDarkAppearance)
             let darkConfig = BorderConfig.from(settings: settings, isDark: controller.borderUsesDarkAppearance)
             configure(panel, geometry: movedGeometry, radii: WindowCornerRadii(uniform: 24), config: darkConfig)

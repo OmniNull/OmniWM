@@ -61,7 +61,6 @@ struct SettingsExport: Equatable {
 
     var quakeTerminal: QuakeTerminal
 
-    var appearanceMode: AppearanceMode
     var tabRailAppIcons: Bool
     var shellPermissions = ShellPermissionDecisions()
 

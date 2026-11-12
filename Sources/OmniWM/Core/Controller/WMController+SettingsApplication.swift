@@ -14,7 +14,7 @@ extension WMController {
         workspaceBarManager.updateShellPermissions(settings, reloadingManagedPolicy: true)
         setAnimationsEnabled(settings.animationsEnabled, persist: false)
         setAnimationSpeed(settings.animationSpeed, persist: false)
-        applyCurrentAppearanceMode()
+        applyCurrentAppearance()
 
         updateHotkeyBindings(settings.hotkeyBindings)
         updateWindowSwitcherSettings()
@@ -95,8 +95,7 @@ extension WMController {
         layoutRefreshController.requestRelayout(reason: .layoutConfigChanged)
     }
 
-    func applyCurrentAppearanceMode() {
-        settings.appearanceMode.apply()
+    func applyCurrentAppearance() {
         borderUsesDarkAppearance = Self.effectiveAppearanceUsesDarkAqua
         workspaceBarManager.updateAppearance()
         surfaceReconciler.noteWorldChanged()

@@ -213,7 +213,7 @@ Border drawn around the focused window.
 
 Gradient and glow are composable. A missing table preserves solid rendering. Non-finite or structurally invalid values preserve the previous valid appearance; finite gradient color components are clamped to `0...1`, while glow radius and opacity must remain within their documented ranges. Glow reuses the border's solid color or gradient endpoints unless `glow.color` or `glow.darkColor` overrides it, so a gradient border produces a spatially matching gradient glow by default.
 
-Border and gradient colors resolve per macOS appearance: dark values apply when the system (or OmniWM's own Appearance setting, when not Automatic) uses the dark appearance, and update live as the appearance switches — no restart needed. Unset dark values keep the base colors, so existing configs render exactly as before. In Settings, inherited colors are labeled explicitly; Customize creates an override and Reset restores inheritance. Editing one dark gradient endpoint leaves the other inherited until customized. The glow inherits the resolved border color or gradient endpoints, so it adapts with them.
+Border and gradient colors resolve per macOS appearance: dark values apply when macOS uses the dark appearance, and update live as the appearance switches — no restart needed. Unset dark values keep the base colors, so existing configs render exactly as before. In Settings, inherited colors are labeled explicitly; Customize creates an override and Reset restores inheritance. Editing one dark gradient endpoint leaves the other inherited until customized. The glow inherits the resolved border color or gradient endpoints, so it adapts with them.
 
 ## overview
 
@@ -551,14 +551,12 @@ Appearance of OmniWM's own UI.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `mode` | string | `"dark"` | `automatic`, `light`, or `dark`. |
 | `tabRailAppIcons` *(optional)* | boolean | `false` | Replaces compact tab markers with app icons in Niri and Dwindle. Each tab group reserves a 28-point rail instead of 10 points; crowded rails scroll vertically. |
 
 The **Show app icons in tab rails** toggle in **Settings → Appearance → App & Motion** controls the same option. Changes apply live without restarting.
 
 ```toml
 [appearance]
-mode = "dark"
 tabRailAppIcons = true
 ```
 

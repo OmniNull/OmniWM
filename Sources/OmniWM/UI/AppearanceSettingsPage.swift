@@ -33,18 +33,6 @@ struct AppearanceSettingsPage: View {
         )
         return Form {
             Section("Appearance") {
-                Picker("App Appearance", selection: $settings.appearanceMode) {
-                    ForEach(AppearanceMode.allCases, id: \.self) { mode in
-                        Text(mode.localizedDisplayName).tag(mode)
-                    }
-                }
-                .id("App Appearance")
-                .onChange(of: settings.appearanceMode) { _, _ in
-                    controller.applyCurrentAppearanceMode()
-                }
-
-                SettingsCaption(localized: "Follows macOS appearance or uses the selected light or dark appearance.")
-
                 Toggle("Show app icons in tab rails", isOn: Binding(
                     get: { settings.tabRailAppIcons },
                     set: { controller.setTabRailAppIcons($0) }

@@ -216,10 +216,6 @@ final class SettingsStore {
         quakeTerminalCustomFrame = nil
     }
 
-    var appearanceMode = SettingsStore.defaultExport.appearanceMode {
-        didSet { scheduleSave() }
-    }
-
     var tabRailAppIcons = SettingsStore.defaultExport.tabRailAppIcons {
         didSet { scheduleSave() }
     }
@@ -476,7 +472,6 @@ extension SettingsStore {
 
         quakeTerminal.apply(export.quakeTerminal, baseline: SettingsStore.defaultExport.quakeTerminal)
 
-        appearanceMode = export.appearanceMode
         tabRailAppIcons = export.tabRailAppIcons
         shellPermissions.apply(export.shellPermissions)
     }
