@@ -48,7 +48,13 @@ extension WMController {
             guard let self else { return }
             updateHotkeyBindings(settings.hotkeyBindings)
         }
+    }
+
+    func configureMotionCallbacks() {
         settings.gestures.onWorkspaceSwipeEnabledChange = { [weak self] in
+            self?.layoutRefreshController.workspaceSwipe.syncAvailability()
+        }
+        settings.onSlideWorkspaceSwitchesChanged = { [weak self] in
             self?.layoutRefreshController.workspaceSwipe.syncAvailability()
         }
         motionPolicy.onAnimationsEnabledChange = { [weak self] in

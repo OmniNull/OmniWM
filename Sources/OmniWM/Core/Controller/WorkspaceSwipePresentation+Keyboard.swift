@@ -17,6 +17,8 @@ extension WorkspaceSwipePresentation {
         guard let controller, canAnimateSwitch(to: targetId, on: monitorId),
               let monitor = controller.workspaceManager.monitor(byId: monitorId)
         else { return false }
+        let preview = previewSurface(controller, for: monitorId)
+        guard preview.hasCaptureAccess() else { return false }
         let existing = flights[monitorId]
         let predecessor = existing.flatMap { $0.committing || $0.motion.target == 1 ? $0 : nil }
         if let existing, predecessor == nil { cancel(existing, reason: "keyboard") }
@@ -34,7 +36,6 @@ extension WorkspaceSwipePresentation {
             monitor: monitor, frame: monitor.visibleFrame, source: source,
             previous: isNext ? nil : destination, next: isNext ? destination : nil
         )
-        let preview = previewSurface(controller, for: monitorId)
         if let predecessor,
            let handled = handOff(from: predecessor, into: preparation, toward: destination, using: preview)
         {
@@ -43,7 +44,7 @@ extension WorkspaceSwipePresentation {
         let now = mediaTimeProvider()
         let flight = Flight(
             preparation: preparation, destination: destination,
-            axis: controller.settings.gestures.effectiveWorkspaceSwipeAxis,
+            axis: controller.settings.gestures.workspaceSwipeAxis,
             cumulative: 1, isNext: isNext, timestamp: now, recognitionMovement: nil
         )
         flight.isKeyboard = true
@@ -73,7 +74,10 @@ extension WorkspaceSwipePresentation {
             source: preparation.source.items, destination: flight.destination.items,
             monitor: preparation.monitor, workingFrame: preparation.frame
         )
-        return show(preview, for: flight)
+        return preview.begin(
+            source: preparation.source.items, destination: flight.destination.items,
+            monitor: preparation.monitor, workingFrame: preparation.frame
+        )
     }
 
     private func launch(_ flight: Flight, after predecessor: Flight?, at now: TimeInterval) -> Bool {

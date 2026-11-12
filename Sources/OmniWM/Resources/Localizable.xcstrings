@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Slide Workspace Switches" : {
+
+    },
+    "Workspace switches from shortcuts, the command palette and omniwmctl slide like a trackpad swipe. Needs Screen Recording." : {
+
+    },
     "Choose how the palette searches windows, apps, commands, and files." : {
 
     },

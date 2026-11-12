@@ -41,6 +41,7 @@ enum SettingsSearchIndex {
         setting("App Appearance", section: .appearance, tab: "app", anchor: "App Appearance"),
         setting("Show app icons in tab rails", section: .appearance, tab: "app", anchor: "Show app icons in tab rails"),
         setting("Enable Animations", section: .appearance, tab: "app", anchor: "Enable Animations"),
+        setting("Slide Workspace Switches", section: .appearance, tab: "app", anchor: "Slide Workspace Switches"),
         setting("Tiling Animation Speed", section: .appearance, tab: "app", anchor: "Tiling Animation Speed"),
         setting("Window Borders", section: .appearance, tab: "borders", anchor: "Window Borders"),
         setting("Enable Borders", section: .appearance, tab: "borders", anchor: "Enable Borders"),

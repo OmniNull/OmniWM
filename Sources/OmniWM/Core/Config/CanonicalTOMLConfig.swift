@@ -49,6 +49,7 @@ struct CanonicalTOMLConfig: Codable, Equatable {
         var ipcEnabled: Bool
         var animationsEnabled: Bool
         var animationSpeed: Double?
+        var slideWorkspaceSwitches: Bool?
         var language: String?
         var workspaceAutoBackAndForth: Bool?
     }
@@ -139,6 +140,7 @@ extension CanonicalTOMLConfig {
             ipcEnabled: export.ipcEnabled,
             animationsEnabled: export.animationsEnabled,
             animationSpeed: AnimationSpeed.normalized(export.animationSpeed),
+            slideWorkspaceSwitches: export.slideWorkspaceSwitches,
             language: export.language,
             workspaceAutoBackAndForth: export.workspaceAutoBackAndForth
         )
@@ -215,6 +217,7 @@ extension CanonicalTOMLConfig {
             hiddenBar: hiddenBar,
             animationsEnabled: general.animationsEnabled,
             animationSpeed: AnimationSpeed.normalized(general.animationSpeed ?? 1),
+            slideWorkspaceSwitches: general.slideWorkspaceSwitches ?? false,
             language: general.language,
             launcher: launcher,
             commandPalette: commandPalette,

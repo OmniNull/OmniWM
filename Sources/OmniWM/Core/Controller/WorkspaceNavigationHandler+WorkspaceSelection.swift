@@ -38,15 +38,17 @@ extension WorkspaceNavigationHandler {
             return false
         }
 
-        if affectedWorkspaces.isEmpty,
+        if controller.settings.slideWorkspaceSwitchesUntracked, affectedWorkspaces.isEmpty,
            let monitorId = interactionMonitorId(for: controller),
            let currentWorkspace,
            controller.workspaceManager.monitor(for: currentWorkspace.id)?.id == monitorId,
            let targetWorkspaceId = controller.workspaceManager.workspaceId(named: rawWorkspaceID),
            controller.workspaceManager.monitor(for: targetWorkspaceId)?.id == monitorId,
-           let targetWorkspace = controller.workspaceManager.descriptor(for: targetWorkspaceId)
+           controller.layoutRefreshController.workspaceSwipe.animateSwitch(
+               to: targetWorkspaceId, on: monitorId, isNext: nil
+           )
         {
-            return activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: monitorId)
+            return true
         }
 
         if let currentWorkspace {
@@ -81,12 +83,14 @@ extension WorkspaceNavigationHandler {
         guard let controller else { return }
         guard let currentMonitorId = explicitMonitorId ?? interactionMonitorId(for: controller)
         else { return }
-        let pendingWorkspace = controller.layoutRefreshController.workspaceSwipe
-            .pendingSwitchTarget(on: currentMonitorId)
-            .flatMap { controller.workspaceManager.descriptor(for: $0) }
-        let resolvedWorkspace = pendingWorkspace ?? (explicitMonitorId == nil
-            ? controller.activeWorkspace()
-            : controller.workspaceManager.activeWorkspaceOrFirst(on: currentMonitorId))
+        let slides = controller.settings.slideWorkspaceSwitchesUntracked
+        let pendingId = slides
+            ? controller.layoutRefreshController.workspaceSwipe.pendingSwitchTarget(on: currentMonitorId)
+            : nil
+        let resolvedWorkspace = pendingId.flatMap { controller.workspaceManager.descriptor(for: $0) }
+            ?? (explicitMonitorId == nil
+                ? controller.activeWorkspace()
+                : controller.workspaceManager.activeWorkspaceOrFirst(on: currentMonitorId))
         guard let currentWorkspace = resolvedWorkspace else { return }
         let skipEmpty = skipsEmptyWorkspaces(on: currentMonitorId)
 
@@ -107,7 +111,9 @@ extension WorkspaceNavigationHandler {
         }
 
         guard let targetWorkspace else { return }
-        activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: currentMonitorId, isNext: isNext)
+        activateWorkspaceInOrder(
+            targetWorkspace, from: currentWorkspace.id, on: currentMonitorId, isNext: isNext, animated: slides
+        )
     }
 
     func switchWorkspaceBySwipe(isNext: Bool, monitorId: Monitor.ID) {
@@ -118,7 +124,7 @@ extension WorkspaceNavigationHandler {
               )
         else { return }
         controller.layoutRefreshController.workspaceSwipe.noteSwitchWithoutPresentation(on: monitorId)
-        activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: monitorId, animated: false)
+        activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: monitorId)
     }
 
     func swipeTargetWorkspace(
@@ -180,7 +186,10 @@ extension WorkspaceNavigationHandler {
             }
             return false
         }
-        return activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: monitorId)
+        return activateWorkspaceInOrder(
+            targetWorkspace, from: currentWorkspace.id, on: monitorId,
+            animated: controller.settings.slideWorkspaceSwitchesUntracked
+        )
     }
 
     @discardableResult
@@ -189,7 +198,7 @@ extension WorkspaceNavigationHandler {
         from currentWorkspaceId: WorkspaceDescriptor.ID,
         on monitorId: Monitor.ID,
         isNext: Bool? = nil,
-        animated: Bool = true
+        animated: Bool = false
     ) -> Bool {
         guard let controller else { return false }
         if animated, controller.layoutRefreshController.workspaceSwipe.animateSwitch(
@@ -271,11 +280,11 @@ extension WorkspaceNavigationHandler {
         }
 
         let currentWorkspace = controller.activeWorkspace()
-        if let currentWorkspace,
+        if controller.settings.slideWorkspaceSwitchesUntracked, let currentWorkspace,
            controller.workspaceManager.monitor(for: currentWorkspace.id)?.id == currentMonitorId,
            controller.workspaceManager.monitor(for: prevWorkspace.id)?.id == currentMonitorId
         {
-            activateWorkspaceInOrder(prevWorkspace, from: currentWorkspace.id, on: currentMonitorId)
+            activateWorkspaceInOrder(prevWorkspace, from: currentWorkspace.id, on: currentMonitorId, animated: true)
             return
         }
         if let currentWorkspace {

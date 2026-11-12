@@ -61,6 +61,13 @@ struct AppearanceSettingsPage: View {
                         : String(localized: "Turns OmniWM-authored animations on or off live without relaunching.")
                 )
 
+                Toggle("Slide Workspace Switches", isOn: $settings.slideWorkspaceSwitches)
+                    .id("Slide Workspace Switches")
+                    .disabled(!controller.motionPolicy.animationsEnabled)
+                SettingsCaption(
+                    localized: "Workspace switches from shortcuts, the command palette and omniwmctl slide like a trackpad swipe. Needs Screen Recording."
+                )
+
                 SettingsSliderRow(
                     label: String(localized: "Tiling Animation Speed"),
                     value: Binding(

@@ -319,6 +319,7 @@ final class WMController {
             workspaceBarIconResolutionRevision = 1
         }
         configureInputRouting()
+        configureMotionCallbacks()
         configureSurfaceCallbacks()
         configureWorldCallbacks()
         configureFocusAndMenuCallbacks()

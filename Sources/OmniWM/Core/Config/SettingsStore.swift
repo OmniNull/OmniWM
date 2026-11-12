@@ -36,6 +36,7 @@ final class SettingsStore {
     }
 
     var onIPCEnabledChanged: (@MainActor (Bool) -> Void)?
+    var onSlideWorkspaceSwitchesChanged: (@MainActor () -> Void)?
     var onExternalSettingsReloaded: (@MainActor () -> Void)?
     var onConfigNoticeChanged: (@MainActor () -> Void)?
     var onTrackpadGestureAvailabilityChanged: (@MainActor (Bool) -> Void)?
@@ -156,6 +157,18 @@ final class SettingsStore {
             }
             scheduleSave()
         }
+    }
+
+    var slideWorkspaceSwitches = SettingsStore.defaultExport.slideWorkspaceSwitches {
+        didSet {
+            guard oldValue != slideWorkspaceSwitches else { return }
+            onSlideWorkspaceSwitchesChanged?()
+            scheduleSave()
+        }
+    }
+
+    var slideWorkspaceSwitchesUntracked: Bool {
+        _slideWorkspaceSwitches
     }
 
     var language = SettingsStore.defaultExport.language {
@@ -455,6 +468,7 @@ extension SettingsStore {
         hiddenBar.apply(export.hiddenBar)
         animationsEnabled = export.animationsEnabled
         animationSpeed = export.animationSpeed
+        slideWorkspaceSwitches = export.slideWorkspaceSwitches
         language = export.language
         clipboard.apply(export.clipboard)
         launcher = export.launcher

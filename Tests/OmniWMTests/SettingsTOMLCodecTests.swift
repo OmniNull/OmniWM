@@ -74,6 +74,25 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertNil(result.migration)
     }
 
+    func testSlideWorkspaceSwitchesDefaultsOffAndRoundTrips() throws {
+        var export = SettingsExport.defaults()
+        XCTAssertFalse(export.slideWorkspaceSwitches)
+        for enabled in [false, true] {
+            export.slideWorkspaceSwitches = enabled
+            let data = try SettingsTOMLCodec.encode(export)
+            XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
+            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("general.slideWorkspaceSwitches"))
+        }
+
+        let omitted = try canonicalDefaultLines { lines in
+            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("slideWorkspaceSwitches = ") })
+            lines.remove(at: index)
+        }
+        let result = try SettingsTOMLCodec.decodeForLoad(omitted)
+        XCTAssertFalse(result.export.slideWorkspaceSwitches)
+        XCTAssertNil(result.migration)
+    }
+
     func testTabRailAppIconsDefaultsAndRoundTrips() throws {
         var export = SettingsExport.defaults()
         XCTAssertFalse(export.tabRailAppIcons)

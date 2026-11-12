@@ -8,6 +8,7 @@ extension WorkspaceSwipePresentation {
         guard preparation == nil,
               let controller, controller.hasStartedServices,
               controller.motionPolicy.animationsEnabled,
+              controller.settings.gestures.workspaceSwipeEnabled || controller.settings.slideWorkspaceSwitchesUntracked,
               !controller.isOverviewOpen(),
               let monitor = controller.monitorForInteraction(),
               flights[monitor.id] == nil,

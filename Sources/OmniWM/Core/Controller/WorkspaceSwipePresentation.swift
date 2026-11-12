@@ -261,7 +261,7 @@ extension WorkspaceSwipePresentation {
         return (preparation ?? makePreparation(monitorId: chainMonitorId), nil)
     }
 
-    func show(_ preview: WorkspaceSwipePreview, for flight: Flight) -> Bool {
+    private func show(_ preview: WorkspaceSwipePreview, for flight: Flight) -> Bool {
         let preparation = flight.preparation
         guard preview.begin(
             source: preparation.source.items,

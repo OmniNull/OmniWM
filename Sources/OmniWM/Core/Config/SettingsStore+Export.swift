@@ -40,6 +40,7 @@ extension SettingsStore {
             hiddenBar: hiddenBar.export(),
             animationsEnabled: animationsEnabled,
             animationSpeed: animationSpeed,
+            slideWorkspaceSwitches: slideWorkspaceSwitches,
             language: language,
             launcher: launcher,
             commandPalette: commandPalette.export(),
