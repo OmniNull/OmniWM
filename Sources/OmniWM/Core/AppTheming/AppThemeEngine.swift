@@ -79,6 +79,7 @@ struct AppThemeEngine: Sendable {
         guard job.targets.contains(where: { job.enabled.contains($0.id) }) else { return AppThemeRunReport() }
         var state = try store.load()
         var report = AppThemeRunReport()
+        report.stored = state.results
         commitSelection(of: job, into: &report)
         var changed: [String: Bool] = [:]
         var claimed: [String: String] = [:]

@@ -57,7 +57,7 @@ final class AppThemeService {
         if !reloadsEnabledApps {
             enabledTargets = Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id))
         }
-        results = (try? engine.store.load())?.results ?? [:]
+        results = [:]
         currentTargets.set(Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id)))
     }
 
@@ -204,6 +204,7 @@ final class AppThemeService {
     }
 
     private func finish(_ report: AppThemeRunReport) {
+        results.merge(report.stored) { current, _ in current }
         results.merge(report.results) { $1 }
         if let backup = report.backups.last { lastBackup = backup }
         if let target = report.reviewAgain.first { reviewAgain = target }

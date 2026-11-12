@@ -241,6 +241,28 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testStoredResultsArriveFromTheWorkersRunNotFromTheMainThread() {
+        var stored = SettingsExport.AppTheming()
+        stored.herdr = .init(enabled: true, reloadSavedMachines: false)
+        _ = sandbox.engine(fake).run(AppThemeJob(
+            palette: AppThemeFixtures.palette,
+            dark: true,
+            appearanceChanged: false,
+            targets: stored.targets(configHome: sandbox.policy.configHome)
+        ))
+        let settings = AppThemingSettings()
+        settings.values.kitty.enabled = true
+        let worker = AppThemeHeldWork()
+        let service = sandbox.service(settings, fake, perform: worker.perform) { true }
+        XCTAssertTrue(service.results.isEmpty)
+        service.paletteDidChange(theme(background: .black))
+        XCTAssertTrue(service.results.isEmpty)
+        worker.release()
+        XCTAssertEqual(service.results["herdr"]?.outcome, .updated)
+        XCTAssertEqual(service.results["kitty"]?.outcome, .updated)
+    }
+
+    @MainActor
     func testDisabledAppsAreNeverWritten() {
         let service = sandbox.service(AppThemingSettings(), fake) { true }
         service.paletteDidChange(theme(background: .black))
