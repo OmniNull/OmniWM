@@ -45,21 +45,19 @@ extension ShellNotificationsController {
         ]
     }
 
-    // macOS 27 moved menu extras into MenuBarAgent; earlier releases keep them in ControlCenter.
-    static func clockHostBundles(osMajorVersion: Int) -> [String] {
-        let agent = "com.apple.MenuBarAgent"
-        let controlCenter = "com.apple.controlcenter"
-        return osMajorVersion >= 27 ? [agent, controlCenter] : [controlCenter, agent]
-    }
-
     static func nativeProcesses(
         osMajorVersion: Int = ProcessInfo.processInfo.operatingSystemVersion.majorVersion,
         runningPID: (String) -> pid_t? = {
             NSRunningApplication.runningApplications(withBundleIdentifier: $0).first?.processIdentifier
         }
     ) -> (pid_t, pid_t)? {
+        let menuBarAgent = "com.apple.MenuBarAgent"
+        let controlCenter = "com.apple.controlcenter"
+        let (clockHost, fallbackClockHost) = osMajorVersion >= 27
+            ? (menuBarAgent, controlCenter)
+            : (controlCenter, menuBarAgent)
         guard let notificationPID = runningPID("com.apple.notificationcenterui"),
-              let menuPID = clockHostBundles(osMajorVersion: osMajorVersion).lazy.compactMap(runningPID).first
+              let menuPID = runningPID(clockHost) ?? runningPID(fallbackClockHost)
         else { return nil }
         return (notificationPID, menuPID)
     }
