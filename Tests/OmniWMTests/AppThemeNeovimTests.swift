@@ -118,7 +118,7 @@ final class AppThemeNeovimTests: XCTestCase {
     }
 
     func testNeovimReloadsAfterTerminalsAndBeforeHerdr() throws {
-        fake.runningApps = [AppThemeReloader.ghosttyBundleIdentifier]
+        fake.runGhostty()
         var settings = SettingsExport.AppTheming()
         settings.herdr = .init(enabled: true, reloadSavedMachines: false)
         settings.neovim.enabled = true
@@ -129,9 +129,8 @@ final class AppThemeNeovimTests: XCTestCase {
             appearanceChanged: false,
             targets: settings.targets(configHome: sandbox.policy.configHome)
         ))
-        XCTAssertEqual(fake.calls.map { ([$0.executable] + $0.arguments.suffix(1)).joined(separator: " ") }, [
-            "/usr/bin/osascript \(AppThemeReloader.ghosttyScript)", "/usr/bin/pkill nvim",
-            "/opt/homebrew/bin/herdr reload-config"
+        XCTAssertEqual(fake.events.map { $0.components(separatedBy: " ").last }, [
+            "\(SIGUSR2)", "nvim", "reload-config"
         ])
         XCTAssertEqual(report.results["neovim"]?.outcome, .updated)
         XCTAssertNotNil(sandbox.read(".config/nvim/lua/omniwm.lua"))

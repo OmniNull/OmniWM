@@ -43,27 +43,57 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
         let arguments: [String]
     }
 
+    struct Signal: Equatable {
+        let pid: pid_t
+        let signal: Int32
+    }
+
+    static let ghosttyPID: pid_t = 4242
+
     private let lock = NSLock()
-    private var recorded: [Call] = []
+    private var recorded: [String] = []
+    private var commands: [Call] = []
+    private var sent: [Signal] = []
     var responses: [String: AppThemeCommandResult] = [:]
-    var runningApps: Set<String> = []
+    var ghostty: [AppThemeGhosttyApp] = []
+    var signalErrors: [pid_t: Int32] = [:]
     var executables: [String: String] = ["herdr": "/opt/homebrew/bin/herdr"]
 
     var calls: [Call] {
+        lock.withLock { commands }
+    }
+
+    var signals: [Signal] {
+        lock.withLock { sent }
+    }
+
+    var events: [String] {
         lock.withLock { recorded }
+    }
+
+    func runGhostty(version: String = "1.4.0") {
+        ghostty = [AppThemeGhosttyApp(pid: Self.ghosttyPID, version: version)]
     }
 
     var environment: AppThemeEnvironment {
         AppThemeEnvironment(
             run: { [self] executable, arguments, _ in
                 lock.withLock {
-                    recorded.append(Call(executable: executable, arguments: arguments))
+                    commands.append(Call(executable: executable, arguments: arguments))
+                    recorded.append((["run", executable] + arguments).joined(separator: " "))
                     let key = ([executable] + arguments).joined(separator: " ")
                     return responses.first { key.hasPrefix($0.key) }?.value
                         ?? AppThemeCommandResult(status: 0, output: "")
                 }
             },
-            isAppRunning: { [self] identifier in lock.withLock { runningApps.contains(identifier) } },
+            ghosttyApps: { [self] in lock.withLock { ghostty } },
+            signal: { [self] pid, signal in
+                lock.withLock {
+                    sent.append(Signal(pid: pid, signal: signal))
+                    recorded.append("signal \(pid) \(signal)")
+                    return signalErrors[pid] ?? 0
+                }
+            },
             executable: { [self] name in lock.withLock { executables[name] } },
             userID: 501
         )

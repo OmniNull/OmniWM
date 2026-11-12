@@ -182,9 +182,7 @@ struct AppThemingSettingsPage: View {
 
     private func reloadDescription(_ app: AppThemeBuiltIn) -> String {
         switch app {
-        case .ghostty: String(
-                localized: "Light and dark themes · reloads Ghostty through its AppleScript reload_config action"
-            )
+        case .ghostty: String(localized: "Light and dark themes · reloads Ghostty 1.2 or newer with SIGUSR2")
         case .kitty: String(localized: "Automatic light and dark themes · reloads kitty with SIGUSR1")
         case .herdr: String(
                 localized: "The [theme.custom] table of herdr’s config · reloads with herdr server reload-config"

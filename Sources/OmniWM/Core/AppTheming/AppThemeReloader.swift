@@ -9,16 +9,6 @@ struct AppThemeReloadOutcome: Equatable, Sendable {
 }
 
 struct AppThemeReloader: Sendable {
-    static let ghosttyBundleIdentifier = "com.mitchellh.ghostty"
-    static let ghosttyScript = """
-    tell application id "com.mitchellh.ghostty"
-        set openTerminals to terminals
-        if (count of openTerminals) is 0 then return "none"
-        perform action "reload_config" on item 1 of openTerminals
-        return "reloaded"
-    end tell
-    """
-
     let environment: AppThemeEnvironment
 
     func reload(_ action: AppThemeReloadAction, newFiles: Bool = false) -> AppThemeReloadOutcome {
@@ -31,25 +21,31 @@ struct AppThemeReloader: Sendable {
     }
 
     private func reloadGhostty() -> AppThemeReloadOutcome {
-        guard environment.isAppRunning(Self.ghosttyBundleIdentifier) else {
+        let apps = environment.ghosttyApps()
+        guard !apps.isEmpty else {
             return AppThemeReloadOutcome(
                 succeeded: true,
                 message: String(localized: "Ghostty isn’t running; it uses the new theme when it opens")
             )
         }
-        let result = environment.run("/usr/bin/osascript", ["-e", Self.ghosttyScript], 5)
-        if result.succeeded {
-            return AppThemeReloadOutcome(succeeded: true, message: String(localized: "Reloaded Ghostty"))
+        var problems: [String] = []
+        for app in apps {
+            guard app.reloadsOnSignal else {
+                problems.append(app.version.map {
+                    String(localized: "Ghostty \($0) doesn’t reload on a signal; update it, or reload its config with ⌘⇧,")
+                } ?? String(
+                    localized: "OmniWM can’t tell which Ghostty version is running, so it didn’t signal it; reload its config with ⌘⇧,"
+                ))
+                continue
+            }
+            let error = environment.signal(app.pid, SIGUSR2)
+            if error != 0, error != ESRCH {
+                problems.append(String(localized: "Ghostty didn’t reload") + ": " + String(cString: strerror(error)))
+            }
         }
-        if result.output.contains("-1743") {
-            return AppThemeReloadOutcome(
-                succeeded: false,
-                message: String(
-                    localized: "Allow OmniWM to control Ghostty in System Settings › Privacy & Security › Automation"
-                )
-            )
-        }
-        return failure(String(localized: "Ghostty didn’t reload"), result)
+        return problems.isEmpty
+            ? AppThemeReloadOutcome(succeeded: true, message: String(localized: "Reloaded Ghostty"))
+            : AppThemeReloadOutcome(succeeded: false, message: problems.joined(separator: " · "))
     }
 
     private func reloadKitty(newFiles: Bool) -> AppThemeReloadOutcome {

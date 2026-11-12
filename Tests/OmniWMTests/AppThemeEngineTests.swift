@@ -13,7 +13,7 @@ final class AppThemeEngineTests: XCTestCase {
     override func setUpWithError() throws {
         sandbox = try AppThemeSandbox()
         fake = AppThemeFakeEnvironment()
-        fake.runningApps = [AppThemeReloader.ghosttyBundleIdentifier]
+        fake.runGhostty()
     }
 
     override func tearDown() {
@@ -58,7 +58,7 @@ final class AppThemeEngineTests: XCTestCase {
         let dark = try XCTUnwrap(sandbox.read(".config/ghostty/themes/omniwm-dark"))
         XCTAssertTrue(light.contains("background = #eff1f5\n"))
         XCTAssertTrue(dark.contains("background = #11111b\n"))
-        XCTAssertEqual(fake.calls.map(\.executable), ["/usr/bin/osascript"])
+        XCTAssertEqual(fake.events, ["signal \(AppThemeFakeEnvironment.ghosttyPID) \(SIGUSR2)"])
         XCTAssertEqual(report.results["ghostty"]?.reload, String(localized: "Reloaded Ghostty"))
     }
 
@@ -119,7 +119,7 @@ final class AppThemeEngineTests: XCTestCase {
     }
 
     func testAReloadFailureDoesNotBlockOtherApps() throws {
-        fake.responses["/usr/bin/osascript"] = AppThemeCommandResult(status: 1, output: "execution error: (-1743)")
+        fake.signalErrors[AppThemeFakeEnvironment.ghosttyPID] = EPERM
         let report = run(targets([.ghostty, .kitty, .herdr]))
         XCTAssertEqual(report.results["ghostty"]?.outcome, .updated)
         XCTAssertEqual(report.results["ghostty"]?.reloadFailed, true)
@@ -133,7 +133,7 @@ final class AppThemeEngineTests: XCTestCase {
 
     func testAForcedReloadRunsOnceEvenWhenNothingChanged() throws {
         _ = run(targets([.ghostty]))
-        let before = fake.calls.count
+        let before = fake.events.count
         var job = AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
@@ -144,19 +144,19 @@ final class AppThemeEngineTests: XCTestCase {
         let report = sandbox.engine(fake).run(job)
         XCTAssertEqual(report.results["ghostty"]?.outcome, .unchanged)
         XCTAssertEqual(report.results["ghostty"]?.reload, String(localized: "Reloaded Ghostty"))
-        XCTAssertEqual(fake.calls.dropFirst(before).map(\.executable), ["/usr/bin/osascript"])
+        XCTAssertEqual(fake.events.dropFirst(before), ["signal \(AppThemeFakeEnvironment.ghosttyPID) \(SIGUSR2)"])
         _ = run(targets([.ghostty]))
-        XCTAssertEqual(fake.calls.count, before + 1)
+        XCTAssertEqual(fake.events.count, before + 1)
     }
 
     func testAFailedReloadIsRetriedOnTheNextRun() throws {
-        fake.responses["/usr/bin/osascript"] = AppThemeCommandResult(status: 1, output: "boom")
+        fake.signalErrors[AppThemeFakeEnvironment.ghosttyPID] = EPERM
         _ = run(targets([.ghostty]))
-        fake.responses = [:]
+        fake.signalErrors = [:]
         let report = run(targets([.ghostty]))
         XCTAssertEqual(report.results["ghostty"]?.outcome, .unchanged)
         XCTAssertEqual(report.results["ghostty"]?.reloadFailed, false)
-        XCTAssertEqual(fake.calls.filter { $0.executable == "/usr/bin/osascript" }.count, 2)
+        XCTAssertEqual(fake.signals.count, 2)
         XCTAssertTrue(sandbox.store.load().reloadPending.isEmpty)
     }
 
@@ -177,12 +177,11 @@ final class AppThemeEngineTests: XCTestCase {
             output: #"[{"id":"1","label":"netrunner","enabled":true},{"id":"2","label":"off","enabled":false},{"id":"3","label":"-x","enabled":true}]"#
         )
         let report = run(targets([.herdr, .ghostty]))
-        let order = fake.calls.map { ([$0.executable] + $0.arguments).joined(separator: " ") }
-        XCTAssertEqual(order, [
-            "/usr/bin/osascript -e \(AppThemeReloader.ghosttyScript)",
-            "/opt/homebrew/bin/herdr server reload-config",
-            "/opt/homebrew/bin/herdr machine list --json",
-            "/opt/homebrew/bin/herdr --machine netrunner server reload-config"
+        XCTAssertEqual(fake.events, [
+            "signal \(AppThemeFakeEnvironment.ghosttyPID) \(SIGUSR2)",
+            "run /opt/homebrew/bin/herdr server reload-config",
+            "run /opt/homebrew/bin/herdr machine list --json",
+            "run /opt/homebrew/bin/herdr --machine netrunner server reload-config"
         ])
         XCTAssertTrue(report.results["herdr"]?.reload?.contains("1 of 1") == true)
     }
@@ -195,15 +194,15 @@ final class AppThemeEngineTests: XCTestCase {
         _ = run(targets([.herdr, .ghostty]))
         var dark = AppThemeFixtures.dark
         dark[.accentForeground] = AppThemeColor(hex: "#000001")
-        let calls = fake.calls.count
+        let events = fake.events.count
         let report = run(
             targets([.herdr, .ghostty]),
             palette: AppThemePalette(light: AppThemeFixtures.light, dark: dark)
         )
         XCTAssertEqual(report.results["ghostty"]?.outcome, .updated)
         XCTAssertEqual(report.results["herdr"]?.outcome, .unchanged)
-        XCTAssertEqual(fake.calls.dropFirst(calls).map(\.arguments.last), [
-            AppThemeReloader.ghosttyScript, "reload-config", "--json", "reload-config"
+        XCTAssertEqual(fake.events.dropFirst(events).map { $0.components(separatedBy: " ").last }, [
+            "\(SIGUSR2)", "reload-config", "--json", "reload-config"
         ])
         let before = fake.calls.count
         _ = run(targets([.herdr, .ghostty], machines: false))

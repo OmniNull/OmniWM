@@ -357,14 +357,14 @@ final class AppThemeServiceTests: XCTestCase {
 
     @MainActor
     func testGhosttySelectionEditReloadsGhosttyOnceWhenThemesAreUnchanged() throws {
-        fake.runningApps = [AppThemeReloader.ghosttyBundleIdentifier]
+        fake.runGhostty()
         try sandbox.write("theme = catppuccin\n", to: ".config/ghostty/config")
         let settings = AppThemingSettings()
         settings.values.ghostty.enabled = true
         let service = sandbox.service(settings, fake) { true }
         settings.onValuesChange = { service.settingsDidChange() }
         service.paletteDidChange(theme(background: .black))
-        let reloads = { self.fake.calls.filter { $0.executable == "/usr/bin/osascript" }.count }
+        let reloads = { self.fake.signals.count }
         XCTAssertEqual(reloads(), 1)
         let changes = service.ghosttySelectionChanges()
         XCTAssertEqual(changes.count, 1)
