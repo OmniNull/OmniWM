@@ -83,9 +83,7 @@ extension WorkspaceSwipePresentation {
     private func launch(_ flight: Flight, after predecessor: Flight?, at now: TimeInterval) -> Bool {
         guard let controller else { return false }
         install(flight, after: predecessor, tracksGesture: false)
-        flight.motion.animateToDestination(
-            startTime: now, config: controller.motionPolicy.snapshot().scaled(.niriHorizontalViewMovement)
-        )
+        flight.motion.animateToDestination(startTime: now, motion: controller.motionPolicy.snapshot())
         flight.phase = .settling
         guard activateDisplayLink(for: flight) else {
             cancel(flight, reason: "display-link-unavailable")

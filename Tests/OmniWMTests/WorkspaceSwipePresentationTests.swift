@@ -1335,7 +1335,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
     private func slideDuration(_ controller: WMController) -> TimeInterval {
         SpringAnimation(
             from: 0, to: 1, startTime: 0,
-            config: controller.motionPolicy.snapshot().scaled(.niriHorizontalViewMovement)
+            config: controller.motionPolicy.snapshot().scaled(WorkspaceSwipeMotion.springConfig)
         ).duration
     }
 
