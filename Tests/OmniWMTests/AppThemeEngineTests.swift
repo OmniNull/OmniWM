@@ -377,8 +377,10 @@ final class AppThemeEngineTests: XCTestCase {
         let path = sandbox.path(".config/herdr/config.toml")
         let edited = try XCTUnwrap(sandbox.read(".config/herdr/config.toml")) + "\n[keys]\nprefix = \"ctrl+a\"\n"
         var engine = sandbox.engine(fake)
+        let prepared = AppThemeSeen()
         engine.willReplace = { url in
             guard url == path else { return }
+            prepared.note(AppThemeSeen.replacementIsPrepared(beside: url))
             try? Data(edited.utf8).write(to: url)
         }
         let events = fake.events.count
@@ -394,14 +396,18 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(sandbox.read(".config/herdr/config.toml"), edited)
         XCTAssertEqual(fake.events.count, events)
         XCTAssertNil(try sandbox.store.load().pending[path.path])
+        XCTAssertTrue(prepared.value)
+        XCTAssertEqual(AppThemeSeen.leftovers(beside: path), [])
     }
 
     func testAnApprovedFileThatChangesBeforeTheReplaceAsksForAnotherReview() throws {
         try sandbox.write("include mine.conf\n", to: ".config/kitty/dark-theme.auto.conf")
         let url = sandbox.path(".config/kitty/dark-theme.auto.conf")
         var engine = sandbox.engine(fake)
+        let prepared = AppThemeSeen()
         engine.willReplace = { replaced in
             guard replaced == url else { return }
+            prepared.note(AppThemeSeen.replacementIsPrepared(beside: replaced))
             try? Data("include newer.conf\n".utf8).write(to: replaced)
         }
         let report = engine.run(AppThemeJob(
@@ -413,6 +419,8 @@ final class AppThemeEngineTests: XCTestCase {
         ))
         XCTAssertEqual(report.results["kitty"]?.outcome, .conflict)
         XCTAssertEqual(report.reviewAgain, ["kitty"])
+        XCTAssertTrue(prepared.value)
+        XCTAssertEqual(AppThemeSeen.leftovers(beside: url), [])
         XCTAssertEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), "include newer.conf\n")
     }
 
@@ -427,11 +435,17 @@ final class AppThemeEngineTests: XCTestCase {
             beforeDigest: AppThemeFileWriter.digest(Data("theme = a\n".utf8))
         )
         var engine = sandbox.engine(fake)
-        engine.willReplace = { replaced in try? Data("theme = b\n".utf8).write(to: replaced) }
+        let prepared = AppThemeSeen()
+        engine.willReplace = { replaced in
+            prepared.note(AppThemeSeen.replacementIsPrepared(beside: replaced))
+            try? Data("theme = b\n".utf8).write(to: replaced)
+        }
         XCTAssertThrowsError(try engine.store.withLock { try engine.commit([change]) }) { error in
             XCTAssertEqual(error as? AppThemeEngineError, .changedOutsideOmniWM(["~/.config/ghostty/config"]))
         }
         XCTAssertEqual(sandbox.read(".config/ghostty/config"), "theme = b\n")
+        XCTAssertTrue(prepared.value)
+        XCTAssertEqual(AppThemeSeen.leftovers(beside: url), [])
     }
 
     func testTwoOutputsOfOneAppCannotShareAFile() throws {

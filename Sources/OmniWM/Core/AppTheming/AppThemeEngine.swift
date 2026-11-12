@@ -207,15 +207,15 @@ struct AppThemeEngine: Sendable {
             state.pending[path] = digest
             if target.reload != nil { state.reloadPending.insert(target.id) }
             try store.save(state)
-            willReplace(item.url)
-            guard try AppThemeFileWriter.read(item.url) == item.before else {
+            do {
+                try replace(item.url, with: item.after, expecting: item.before, display: item.display)
+            } catch {
                 if let backup { try? FileManager.default.removeItem(at: backup) }
                 state.pending[path] = nil
                 try store.save(state)
-                throw AppThemeEngineError.changedOutsideOmniWM([item.display])
+                throw error
             }
             if let backup { backups.append(backup) }
-            try AppThemeFileWriter.writeAtomically(item.after, to: item.url)
             state.owned[path] = digest
             state.pending[path] = nil
             try store.save(state)
@@ -232,18 +232,28 @@ struct AppThemeEngine: Sendable {
         var backups: [URL] = []
         for change in changes {
             let current = try AppThemeFileWriter.read(change.url)
-            let backup = try current.map { try store.backup($0, of: change.url, date: now()) }
-            willReplace(change.url)
-            guard try AppThemeFileWriter.read(change.url) == current,
-                  current.map(AppThemeFileWriter.digest) == change.beforeDigest
-            else {
-                if let backup { try? FileManager.default.removeItem(at: backup) }
+            guard current.map(AppThemeFileWriter.digest) == change.beforeDigest else {
                 throw AppThemeEngineError.changedOutsideOmniWM([change.display])
             }
-            try AppThemeFileWriter.writeAtomically(Data(change.after.utf8), to: change.url)
+            let backup = try current.map { try store.backup($0, of: change.url, date: now()) }
+            do {
+                try replace(change.url, with: Data(change.after.utf8), expecting: current, display: change.display)
+            } catch {
+                if let backup { try? FileManager.default.removeItem(at: backup) }
+                throw error
+            }
             if let backup { backups.append(backup) }
         }
         return backups
+    }
+
+    private func replace(_ url: URL, with data: Data, expecting current: Data?, display: String) throws {
+        try AppThemeFileWriter.writeAtomically(data, to: url) {
+            willReplace(url)
+            guard try AppThemeFileWriter.read(url, display: display) == current else {
+                throw AppThemeEngineError.changedOutsideOmniWM([display])
+            }
+        }
     }
 
     private static func isReviewed(_ item: Rendered, _ job: AppThemeJob) -> Bool {

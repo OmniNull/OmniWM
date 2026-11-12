@@ -43,7 +43,12 @@ enum AppThemeFileWriter {
         }
     }
 
-    static func writeAtomically(_ data: Data, to url: URL, mode requested: mode_t? = nil) throws {
+    static func writeAtomically(
+        _ data: Data,
+        to url: URL,
+        mode requested: mode_t? = nil,
+        beforeReplace: () throws -> Void = {}
+    ) throws {
         let folder = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         var mode: mode_t = 0o644
@@ -63,6 +68,12 @@ enum AppThemeFileWriter {
             close(descriptor)
         } catch {
             close(descriptor)
+            unlink(temporary.path)
+            throw error
+        }
+        do {
+            try beforeReplace()
+        } catch {
             unlink(temporary.path)
             throw error
         }

@@ -251,3 +251,25 @@ extension AppThemeGhosttyApp {
         self.init(process: AppThemeProcess(listed: pid, name: "ghostty"), version: version)
     }
 }
+
+final class AppThemeSeen: Sendable {
+    private let seen = OSAllocatedUnfairLock(initialState: false)
+
+    var value: Bool {
+        seen.withLock { $0 }
+    }
+
+    func note(_ value: Bool) {
+        seen.withLock { $0 = $0 || value }
+    }
+
+    static func replacementIsPrepared(beside url: URL) -> Bool {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: url.deletingLastPathComponent().path)) ?? []
+        return names.contains { $0.hasPrefix(".\(url.lastPathComponent).omniwm-") }
+    }
+
+    static func leftovers(beside url: URL) -> [String] {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: url.deletingLastPathComponent().path)) ?? []
+        return names.filter { $0.hasPrefix(".") && $0.hasSuffix(".tmp") }
+    }
+}
