@@ -345,9 +345,15 @@ void budgetHook(lua_State *L, int gc) {
 void enableLuauFlags() {
     static std::once_flag once;
     std::call_once(once, [] {
+        static const char *const enabled[] = {
+            "LuauTableMoveTimeoutFix", "LuauCompileTableFoldFix", "LuauGcHeapShrinkFix", "LuauTableRobustOom",
+            "LuauNewPointerEncode",
+        };
         for (Luau::FValue<bool> *flag = Luau::FValue<bool>::list; flag != nullptr; flag = flag->next) {
-            if (std::strcmp(flag->name, "LuauTableMoveTimeoutFix") == 0) {
-                flag->value = true;
+            for (const char *name : enabled) {
+                if (std::strcmp(flag->name, name) == 0) {
+                    flag->value = true;
+                }
             }
         }
     });
@@ -596,6 +602,9 @@ omni_vm *omni_vm_create(size_t memory_limit_bytes, const char *data_keys, size_t
             return nullptr;
         }
         lua_State *L = owned->main;
+        uint64_t pointerKey[4];
+        arc4random_buf(pointerKey, sizeof pointerKey);
+        lua_setpointerencodekey(L, pointerKey[0], pointerKey[1], pointerKey[2], pointerKey[3]);
         lua_callbacks(L)->userdata = owned.get();
         lua_callbacks(L)->useratom = shellAtom;
         luaL_openlibs(L);
