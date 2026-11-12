@@ -93,6 +93,6 @@ extension WMController {
     }
 
     func workspaceAssignment(pid: pid_t, windowId: Int) -> WorkspaceDescriptor.ID? {
-        workspaceManager.entry(forPid: pid, windowId: windowId)?.workspaceId
+        workspaceManager.workspace(for: WindowToken(pid: pid, windowId: windowId))
     }
 }

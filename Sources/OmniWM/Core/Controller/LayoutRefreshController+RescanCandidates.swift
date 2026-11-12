@@ -95,6 +95,7 @@ extension LayoutRefreshController {
         context: FullRescanMutationContext,
         progress: inout FullRescanProgress
     ) -> Bool {
+        guard !window.identity.isTracked else { return false }
         let enumerationSnapshot = context.enumerationSnapshot
         let scope = context.scope
         let token = window.identity.token

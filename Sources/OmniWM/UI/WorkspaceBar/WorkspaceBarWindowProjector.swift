@@ -151,7 +151,7 @@ struct WorkspaceBarWindowProjector {
             icon: icon(
                 for: entries[firstIndex],
                 fallback: presentation.icon,
-                processBundleId: appInfoCache.bundleId(for: entries[appIndex].pid)
+                processPid: entries[appIndex].pid
             ),
             isFocused: indices.contains { entries[$0].token == focusedToken },
             windowCount: windowInfos.count,
@@ -182,7 +182,7 @@ struct WorkspaceBarWindowProjector {
                 icon: icon(
                     for: entries[index],
                     fallback: presentation.icon,
-                    processBundleId: appInfoCache.bundleId(for: token.pid)
+                    processPid: token.pid
                 ),
                 isFocused: token == focusedToken,
                 windowCount: 1,
@@ -204,11 +204,11 @@ struct WorkspaceBarWindowProjector {
     private func icon(
         for entry: WindowState,
         fallback: NSImage?,
-        processBundleId: String?
+        processPid: pid_t
     ) -> NSImage? {
         guard iconResolver.hasOverrides else { return fallback }
         if let bundleId = normalizedBundleId(entry.managedReplacementMetadata?.bundleId)
-            ?? normalizedBundleId(processBundleId),
+            ?? normalizedBundleId(appInfoCache.bundleId(for: processPid)),
            let override = iconResolver.image(for: bundleId)
         {
             return override
@@ -243,10 +243,10 @@ struct WorkspaceBarWindowProjector {
     }
 
     private func windowTitle(for entry: WindowState) -> String? {
-        guard let title = appInfoCache.presentation(
-                  for: entry, title: AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
-              ).title,
-              !title.isEmpty else { return nil }
+        guard let title = entry.target.hostedMetadata?.title
+            ?? AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId)),
+            !title.isEmpty
+        else { return nil }
         return title
     }
 }

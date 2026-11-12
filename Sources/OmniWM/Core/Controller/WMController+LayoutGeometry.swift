@@ -171,7 +171,7 @@ extension WMController {
         monitor: Monitor,
         gap: CGFloat
     ) -> CGRect {
-        guard settings.gaps.resolved(for: monitor).fullscreenUsesOuterGaps else { return fullscreenLayoutFrame }
+        guard settings.gaps.resolvedFullscreenUsesOuterGaps(for: monitor) else { return fullscreenLayoutFrame }
         return niriWorkingFrame(workingFrame, roomGapLimits: roomGapLimits, gap: gap).insetBy(dx: gap, dy: gap)
     }
 

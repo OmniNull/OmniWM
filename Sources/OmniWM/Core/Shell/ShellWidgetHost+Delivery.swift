@@ -124,14 +124,27 @@ extension ShellWidgetHost {
     }
 
     func palette(for key: ShellBarKey) -> ShellPalette {
-        key.placement == .bar && bars[key]?.style.solidBlack == true ? resources.darkPalette : resources.palette
+        palette(for: key, dark: darkBarKeys())
+    }
+
+    private func palette(for key: ShellBarKey, dark: Set<ShellBarKey>) -> ShellPalette {
+        dark.contains(key) ? resources.darkPalette : resources.palette
+    }
+
+    private func darkBarKeys() -> Set<ShellBarKey> {
+        var keys: Set<ShellBarKey> = []
+        for (key, data) in bars where key.placement == .bar && data.style.solidBlack {
+            keys.insert(key)
+        }
+        return keys
     }
 
     private func syncBarPalettes() {
+        let dark = darkBarKeys()
         for state in widgets.values {
             for (key, instance) in state.instances {
                 guard let surface = instance.surface else { continue }
-                let palette = palette(for: key)
+                let palette = palette(for: key, dark: dark)
                 guard surface.palette !== palette else { continue }
                 surface.palette = palette
                 instance.redraw(text: state.text)
@@ -390,11 +403,17 @@ extension ShellWidgetHost {
                 ))
             }
         }
-        placedSlots = placed.mapValues { entries in
-            entries.sorted {
-                ($0.rank.lane, $0.rank.rank, $0.widget.id) < ($1.rank.lane, $1.rank.rank, $1.widget.id)
-            }.map(\.widget)
-        }
+        placedSlots = placed.mapValues(Self.slotOrder)
+    }
+
+    private nonisolated static func slotOrder(
+        _ entries: [(rank: (lane: Int, rank: Int), widget: WorkspaceBarShellWidget)]
+    ) -> [WorkspaceBarShellWidget] {
+        entries.indices.sorted {
+            entries[$0].rank != entries[$1].rank
+                ? entries[$0].rank < entries[$1].rank
+                : entries[$0].widget.id < entries[$1].widget.id
+        }.map { entries[$0].widget }
     }
 
     private func failure(of state: WidgetState, at instance: InstanceState) -> ShellWidgetFailure? {

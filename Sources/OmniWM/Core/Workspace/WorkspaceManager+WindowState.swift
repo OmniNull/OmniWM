@@ -49,7 +49,7 @@ extension WorkspaceManager {
         _ metadata: ManagedReplacementMetadata?,
         for token: WindowToken
     ) -> Bool {
-        guard let entry = windowQueries.entry(for: token) else {
+        guard let workspaceId = windowQueries.workspace(for: token) else {
             return false
         }
         guard windowQueries.managedReplacementMetadata(for: token) != metadata else {
@@ -58,8 +58,8 @@ extension WorkspaceManager {
         recordReconcileEvent(
             .managedReplacementMetadataChanged(
                 token: token,
-                workspaceId: entry.workspaceId,
-                monitorId: monitorId(for: entry.workspaceId),
+                workspaceId: workspaceId,
+                monitorId: monitorId(for: workspaceId),
                 metadata: metadata,
                 source: .workspaceManager
             )
@@ -144,11 +144,13 @@ extension WorkspaceManager {
         _ admissionHints: ManagedWindowAdmissionHints,
         for token: WindowToken
     ) -> Bool {
-        guard let entry = windowQueries.entry(for: token), entry.admissionHints != admissionHints else { return false }
+        guard let (workspaceId, currentHints) = windowQueries.withEntry(token, { ($0.workspaceId, $0.admissionHints) }),
+              currentHints != admissionHints
+        else { return false }
         recordReconcileEvent(
             .windowAdmissionHintsChanged(
                 token: token,
-                workspaceId: entry.workspaceId,
+                workspaceId: workspaceId,
                 admissionHints: admissionHints,
                 source: .workspaceManager
             )

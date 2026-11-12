@@ -91,41 +91,43 @@ struct WorkspaceBarDataSource {
         focusedToken: WindowToken?,
         hiddenAppPIDs: Set<pid_t>
     ) -> WorkspaceBarItem {
-        let topology = workspaceManager.layoutTopology(for: snapshot.workspace.id)
-        let grouping: WorkspaceBarWindowProjector.Grouping = options.deduplicateAppIcons
-            ? .byApp(keepsLayoutOrder: topology.hasColumns) : .individual
-        let entries = snapshot.entries
-        let tiledWindows = windowProjector.items(
-            entries: entries,
-            order: visibilityOrdered(
-                WorkspaceEntryOrdering.orderedIndices(snapshot.tiled, in: entries, topology: topology),
-                in: entries,
-                hiddenAppPIDs: hiddenAppPIDs
-            ),
-            grouping: grouping,
-            focusedToken: focusedToken,
-            hiddenAppPIDs: hiddenAppPIDs
-        )
-        let floatingWindows = windowProjector.items(
-            entries: entries,
-            order: visibilityOrdered(
-                WorkspaceEntryOrdering.orderedIndices(snapshot.floating, in: entries, topology: topology),
-                in: entries,
-                hiddenAppPIDs: hiddenAppPIDs
-            ),
-            grouping: grouping,
-            focusedToken: focusedToken,
-            hiddenAppPIDs: hiddenAppPIDs
-        )
-
+        let windows = snapshot.hasBarOccupancy
+            ? windowItems(snapshot, options: options, focusedToken: focusedToken, hiddenAppPIDs: hiddenAppPIDs)
+            : (tiled: [], floating: [])
         return WorkspaceBarItem(
             id: snapshot.workspace.id,
             name: settings.workspaces.displayName(for: snapshot.workspace.name),
             rawName: snapshot.workspace.name,
             isFocused: snapshot.workspace.id == activeWorkspaceId,
-            tiledWindows: tiledWindows,
-            floatingWindows: floatingWindows
+            tiledWindows: windows.tiled,
+            floatingWindows: windows.floating
         )
+    }
+
+    private func windowItems(
+        _ snapshot: WorkspaceSnapshot,
+        options: WorkspaceBarProjectionOptions,
+        focusedToken: WindowToken?,
+        hiddenAppPIDs: Set<pid_t>
+    ) -> (tiled: [WorkspaceBarWindowItem], floating: [WorkspaceBarWindowItem]) {
+        let topology = workspaceManager.layoutTopology(for: snapshot.workspace.id)
+        let grouping: WorkspaceBarWindowProjector.Grouping = options.deduplicateAppIcons
+            ? .byApp(keepsLayoutOrder: topology.hasColumns) : .individual
+        let entries = snapshot.entries
+        func items(_ indices: [Int]) -> [WorkspaceBarWindowItem] {
+            windowProjector.items(
+                entries: entries,
+                order: visibilityOrdered(
+                    WorkspaceEntryOrdering.orderedIndices(indices, in: entries, topology: topology),
+                    in: entries,
+                    hiddenAppPIDs: hiddenAppPIDs
+                ),
+                grouping: grouping,
+                focusedToken: focusedToken,
+                hiddenAppPIDs: hiddenAppPIDs
+            )
+        }
+        return (items(snapshot.tiled), items(snapshot.floating))
     }
 
     private func workspaceSnapshot(

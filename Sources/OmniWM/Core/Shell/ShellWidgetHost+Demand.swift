@@ -5,9 +5,15 @@ extension ShellWidgetHost {
     private static let titleDemand = ShellDataKey.title.bit | ShellDataKey.bar.bit
 
     func publishDemand() {
-        let demand = dataDemand
-        let cadence = ShellDataFeed.Cadence.of(widgets.values.map { (self.demand(of: $0), interval(of: $0)) })
-        feed?.setDemand(demand, cadence: cadence)
+        var demand: UInt64 = 0
+        var readers: [(deps: UInt64, interval: Double?)] = []
+        readers.reserveCapacity(widgets.count)
+        for state in widgets.values {
+            let deps = self.demand(of: state)
+            demand |= deps
+            readers.append((deps, interval(of: state)))
+        }
+        feed?.setDemand(demand, cadence: ShellDataFeed.Cadence.of(readers))
         publishTitleDemand(demand & Self.titleDemand != 0)
     }
 

@@ -9,22 +9,31 @@ extension WorkspaceBarManager {
         notificationBadgeTargetsByMonitor = Dictionary(uniqueKeysWithValues: bars.map { bar in
             let snapshot = bar.visible ? barsByMonitor[bar.monitor.id]?.model.snapshot ?? bar.snapshot : bar.snapshot
             var bundleIDs: Set<String> = []
-            for item in snapshot.items {
-                for window in item.tiledWindows + item.floatingWindows {
-                    if let bundleID = window.bundleId { bundleIDs.insert(bundleID.lowercased()) }
-                }
+            let items = snapshot.items
+            for index in items.indices {
+                Self.insertBundleIDs(of: items[index].tiledWindows, into: &bundleIDs)
+                Self.insertBundleIDs(of: items[index].floatingWindows, into: &bundleIDs)
             }
             let compacted = shellCompactedScratchpads[bar.monitor.id] ?? []
-            for scratchpad in snapshot.scratchpads
-                where scratchpad.presentation == .expanded && !compacted.contains(scratchpad.index)
+            let scratchpads = snapshot.scratchpads
+            for index in scratchpads.indices
+                where scratchpads[index].presentation == .expanded && !compacted.contains(scratchpads[index].index)
             {
-                for window in scratchpad.windows.prefix(scratchpadIcons) {
-                    if let bundleID = window.bundleId { bundleIDs.insert(bundleID.lowercased()) }
-                }
+                Self.insertBundleIDs(of: scratchpads[index].windows, limit: scratchpadIcons, into: &bundleIDs)
             }
             return (bar.monitor.id, bundleIDs)
         })
         syncNotificationBadges()
+    }
+
+    private static func insertBundleIDs(
+        of windows: [WorkspaceBarWindowItem],
+        limit: Int = .max,
+        into bundleIDs: inout Set<String>
+    ) {
+        for index in windows.indices.prefix(limit) {
+            if let bundleID = windows[index].bundleId { bundleIDs.insert(bundleID.lowercased()) }
+        }
     }
 
     func setShellBadgeDemand(_ demanded: Bool) {

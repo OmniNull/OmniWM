@@ -83,12 +83,12 @@ final class ResizeOverlayController {
         armWatchdog()
     }
 
-    func intercept(_ plan: WorkspaceLayoutPlan) -> WorkspaceLayoutPlan {
-        guard isTracking(plan.workspaceId) else { return plan }
+    func intercept(_ plan: WorkspaceLayoutPlan) -> WorkspaceLayoutPlan? {
+        guard isTracking(plan.workspaceId) else { return nil }
         update(plan.diff.frameChanges)
         if settlesOnLayout, !plan.isAnimationTick {
             finish()
-            return plan
+            return nil
         }
         var plan = plan
         plan.diff.frameChanges.removeAll()

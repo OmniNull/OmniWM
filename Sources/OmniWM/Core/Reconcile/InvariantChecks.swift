@@ -7,6 +7,7 @@ enum InvariantChecks {
     static func validate(snapshot: ReconcileSnapshot) -> [ReconcileInvariantViolation] {
         var violations: [ReconcileInvariantViolation] = []
         var windowByToken: [WindowToken: ReconcileWindowSnapshot] = [:]
+        windowByToken.reserveCapacity(snapshot.windows.count)
         var duplicateTokens: Set<WindowToken> = []
         for window in snapshot.windows where windowByToken.updateValue(window, forKey: window.token) != nil {
             duplicateTokens.insert(window.token)
@@ -290,7 +291,7 @@ extension ReconcileWindowSnapshot {
 
     private func validateMonitors(topology: TopologyProfile, violations: inout [ReconcileInvariantViolation]) {
         if let observedMonitorId = self.observedState.monitorId,
-           !topology.displays.contains(where: { $0.displayId == observedMonitorId.displayId })
+           !topology.containsDisplay(observedMonitorId.displayId)
         {
             violations.append(
                 .init(
@@ -301,7 +302,7 @@ extension ReconcileWindowSnapshot {
         }
 
         if let desiredMonitorId = self.desiredState.monitorId,
-           !topology.displays.contains(where: { $0.displayId == desiredMonitorId.displayId })
+           !topology.containsDisplay(desiredMonitorId.displayId)
         {
             violations.append(
                 .init(

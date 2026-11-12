@@ -16,9 +16,7 @@ extension LayoutRefreshController {
         let candidate = window.candidate
         let winId = window.identity.token.windowId
         let token = window.identity.token
-        let existingEntry = window.identity.existingEntry
         let shouldPreservePreFullscreenState = window.decision.shouldPreservePreFullscreenState
-        let refreshedEntry = admission.refreshedEntry
         let admissionHints = admission.assignment.admissionHints
         guard admittedToken == token else {
             progress.seenKeys.insert(admittedToken)
@@ -36,10 +34,9 @@ extension LayoutRefreshController {
             candidate.enumeratedWindow.decisionEvidence.sizeConstraints,
             for: admittedToken
         )
-        if refreshedEntry != nil {
+        if window.identity.isTracked {
             _ = controller.workspaceManager.updateAdmissionHints(admissionHints, for: admittedToken)
-        }
-        if existingEntry == nil {
+        } else {
             controller.axEventHandler.discardCreatePlacementContext(for: winId)
         }
         if let windowId = UInt32(exactly: winId) {
@@ -72,7 +69,8 @@ extension LayoutRefreshController {
         context: FullRescanMutationContext
     ) {
         let controller = context.controller
-        guard controller.workspaceManager.entry(for: admittedToken)?.observedState.isNativeSuppressed != true else {
+        guard controller.workspaceManager.withEntry(admittedToken, { $0.observedState.isNativeSuppressed }) != true
+        else {
             return
         }
         let candidate = window.candidate

@@ -160,27 +160,27 @@ extension NiriLayoutEngine {
         time: TimeInterval,
         orientation: Monitor.Orientation
     ) -> [NiriPreparedLayoutColumn] {
-        for projectedColumn in projectedColumns
-            where projectedColumn.windows.count == projectedColumn.column.windowNodes.count
-        {
+        for projectedColumn in projectedColumns {
             switch orientation {
             case .horizontal:
-                if projectedColumn.column.cachedWidth <= 0 {
-                    projectedColumn.column.resolveAndCacheWidth(
-                        workingAreaWidth: area.workingFrame.width,
-                        gaps: primaryGap,
-                        contentInset: projectedColumn.windows.count > 1
-                            ? tabContentInset(for: projectedColumn.column)
-                            : 0
-                    )
-                }
+                guard projectedColumn.column.cachedWidth <= 0,
+                      projectedColumn.windows.count == projectedColumn.column.windowNodes.count
+                else { continue }
+                projectedColumn.column.resolveAndCacheWidth(
+                    workingAreaWidth: area.workingFrame.width,
+                    gaps: primaryGap,
+                    contentInset: projectedColumn.windows.count > 1
+                        ? tabContentInset(for: projectedColumn.column)
+                        : 0
+                )
             case .vertical:
-                if projectedColumn.column.cachedHeight <= 0 {
-                    projectedColumn.column.resolveAndCacheHeight(
-                        workingAreaHeight: area.workingFrame.height,
-                        gaps: primaryGap
-                    )
-                }
+                guard projectedColumn.column.cachedHeight <= 0,
+                      projectedColumn.windows.count == projectedColumn.column.windowNodes.count
+                else { continue }
+                projectedColumn.column.resolveAndCacheHeight(
+                    workingAreaHeight: area.workingFrame.height,
+                    gaps: primaryGap
+                )
             }
         }
 

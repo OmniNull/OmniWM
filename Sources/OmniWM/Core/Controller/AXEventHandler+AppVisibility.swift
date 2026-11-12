@@ -129,7 +129,8 @@ extension AXEventHandler {
     ) -> Bool {
         guard let controller else { return false }
         let ledger = controller.intentLedger
-        guard let intent = ledger.entries.last(where: { $0.kind == .activateApp(pid: getpid()) }),
+        let ownPid = getpid()
+        guard let intent = ledger.lastIntent(where: { $0.kind == .activateApp(pid: ownPid) }),
               intent.phase == .pending || intent.phase == .confirmed
         else { return false }
         if intent.phase == .confirmed,

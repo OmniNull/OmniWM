@@ -44,8 +44,13 @@ extension WMController {
     }
 
     func cancelPendingFrameJobsForInvalidation(workspaceId: WorkspaceDescriptor.ID?) {
-        let entries = workspaceId.map { workspaceManager.entries(in: $0) } ?? workspaceManager.allEntries()
-        guard !entries.isEmpty else { return }
-        axManager.cancelPendingFrameJobs(entries.map { ($0.pid, $0.windowId) }, reason: "invalidation")
+        var windows: [(pid: pid_t, windowId: Int)] = []
+        if let workspaceId {
+            workspaceManager.windowQueries.forEachToken(in: workspaceId) { windows.append(($0.pid, $0.windowId)) }
+        } else {
+            workspaceManager.windowQueries.forEachToken { windows.append(($0.pid, $0.windowId)) }
+        }
+        guard !windows.isEmpty else { return }
+        axManager.cancelPendingFrameJobs(windows, reason: "invalidation")
     }
 }

@@ -91,6 +91,10 @@ final class GapSettings {
         )
     }
 
+    func resolvedFullscreenUsesOuterGaps(for monitor: Monitor) -> Bool {
+        settings(for: monitor)?.fullscreenUsesOuterGaps ?? fullscreenUsesOuterGaps
+    }
+
     func resolvedInnerGap(_ override: Double?) -> CGFloat {
         CGFloat(min(64, max(0, override ?? size)))
     }

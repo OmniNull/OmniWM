@@ -117,10 +117,12 @@ extension WorkspaceManager {
 
     @discardableResult
     func promoteLifetimeAuthorityForObservedTopLevelWindows(_ tokens: Set<WindowToken>) -> Bool {
-        let promotableTokens = Set(tokens.lazy.filter {
-            guard let entry = self.windowQueries.entry(for: $0) else { return false }
-            return entry.axRef != nil && entry.lifetimeAuthority == .directLifecycle
-        })
+        var promotableTokens: Set<WindowToken> = []
+        for token in tokens where windowQueries.withEntry(token, {
+            $0.lifetimeAuthority == .directLifecycle && $0.axRef != nil
+        }) == true {
+            promotableTokens.insert(token)
+        }
         guard !promotableTokens.isEmpty else { return false }
         recordReconcileEvent(
             .topLevelInventoryObserved(

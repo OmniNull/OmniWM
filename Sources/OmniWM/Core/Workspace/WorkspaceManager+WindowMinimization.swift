@@ -19,14 +19,16 @@ extension WorkspaceManager {
         token: WindowToken,
         source: WMEventSource = .ax
     ) -> Bool {
-        guard let entry = entry(for: token), entry.observedState.isMinimized != minimized else { return false }
-        if let parent = entry.target.hostedMetadata?.role.parent {
+        guard let (workspaceId, isMinimized) = withEntry(token, { ($0.workspaceId, $0.observedState.isMinimized) }),
+              isMinimized != minimized
+        else { return false }
+        if let parent = withEntry(token, { $0.target.hostedMetadata?.role.parent }) ?? nil {
             guard hostedFamilyRoot(for: token) == parent,
-                  self.entry(for: parent)?.observedState.isMinimized == minimized else { return false }
+                  withEntry(parent, { $0.observedState.isMinimized }) == minimized else { return false }
         }
         let txn = recordReconcileEvent(.windowMinimizedChanged(
             token: token,
-            workspaceId: entry.workspaceId,
+            workspaceId: workspaceId,
             minimized: minimized,
             source: source
         ))
@@ -43,10 +45,14 @@ extension WorkspaceManager {
         token: WindowToken,
         source: WMEventSource = .ax
     ) -> Bool {
-        guard let entry = entry(for: token), entry.observedState.isNativeWithdrawn != withdrawn else { return false }
+        guard let (workspaceId, isNativeWithdrawn) = withEntry(token, {
+                  ($0.workspaceId, $0.observedState.isNativeWithdrawn)
+              }),
+              isNativeWithdrawn != withdrawn
+        else { return false }
         let txn = recordReconcileEvent(.windowNativeWithdrawalChanged(
             token: token,
-            workspaceId: entry.workspaceId,
+            workspaceId: workspaceId,
             withdrawn: withdrawn,
             source: source
         ))

@@ -41,10 +41,10 @@ extension WMController {
         frontmost: @autoclosure () -> NSRunningApplication? = NSWorkspace.shared.frontmostApplication
     ) -> ShellMenuApp? {
         if let token = workspaceManager.selectedManagedToken,
-           let entry = workspaceManager.entry(for: token)
+           let pid = workspaceManager.withEntry(token, { $0.pid })
         {
-            let info = appInfoCache.info(for: entry.pid)
-            return ShellMenuApp(pid: entry.pid, name: info?.name ?? "", bundle: info?.bundleId ?? "")
+            let info = appInfoCache.info(for: pid)
+            return ShellMenuApp(pid: pid, name: info?.name ?? "", bundle: info?.bundleId ?? "")
         }
         guard let app = frontmost(), !app.isTerminated else { return nil }
         return ShellMenuApp(
@@ -67,16 +67,18 @@ extension WMController {
                 windows: workspaceManager.windowCount(in: workspace.id)
             )
         }
-        let entry = focusedToken.flatMap { workspaceManager.entry(for: $0) }
-        let hosted = entry?.target.hostedMetadata
-        let info = hosted == nil ? entry.flatMap { appInfoCache.info(for: $0.pid) } : nil
+        let focus = focusedToken.flatMap { token in
+            workspaceManager.withEntry(token) { (pid: $0.pid, windowId: $0.windowId, hosted: $0.target.hostedMetadata) }
+        }
+        let hosted = focus?.hosted
+        let info = hosted == nil ? focus.flatMap { appInfoCache.info(for: $0.pid) } : nil
         let frontmost = hosted == nil && (info?.name == nil || info?.bundleId == nil)
             ? NSWorkspace.shared.frontmostApplication : nil
         return ShellWorldData(
             workspace: workspaces.first(where: \.focused)?.name ?? "",
             app: hosted?.title ?? info?.name ?? frontmost?.localizedName ?? "",
             bundle: hosted?.appId ?? info?.bundleId ?? frontmost?.bundleIdentifier ?? "",
-            title: hosted?.title ?? entry
+            title: hosted?.title ?? focus
                 .flatMap { AXWindowService.titlePreferFast(windowId: UInt32($0.windowId)) } ?? "",
             workspaces: workspaces,
             menuApp: shellMenuApp()

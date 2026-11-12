@@ -256,10 +256,10 @@ extension WMController {
     }
 
     func publishWorkspaceDataChanges(from previous: DesiredSurfaceScene, to desired: DesiredSurfaceScene) {
-        if desired.bars != previous.bars, statusBarRefreshIsEnabled {
+        let channels = Self.workspaceDataChannels(from: previous, to: desired)
+        if channels.contains(.workspaceBar), statusBarRefreshIsEnabled {
             refreshStatusBar()
         }
-        let channels = Self.workspaceDataChannels(from: previous, to: desired)
         guard !channels.isEmpty, let ipcApplicationBridge else { return }
         Task {
             for channel in channels {

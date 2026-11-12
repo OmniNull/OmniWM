@@ -123,6 +123,9 @@ extension NiriLayoutHandler {
                 diff.restoreChanges.append(.init(token: token, hiddenState: hiddenState))
             }
             guard let frame = frames[token] else { continue }
+            if diff.frameChanges.isEmpty {
+                diff.frameChanges.reserveCapacity(windows.count)
+            }
             diff.frameChanges.append(layoutFrameChange(
                 token: token, frame: frame, node: workspace?.nodesByToken[token], context: context
             ))

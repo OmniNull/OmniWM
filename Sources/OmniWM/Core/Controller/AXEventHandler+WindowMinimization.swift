@@ -51,9 +51,11 @@ extension AXEventHandler {
         requestRefresh: Bool = true
     ) -> Bool {
         guard let controller,
-              let entry = controller.workspaceManager.entry(for: token),
+              let observed = controller.workspaceManager.withEntry(token, {
+                  (isMinimized: $0.observedState.isMinimized, isNativeFullscreen: $0.observedState.isNativeFullscreen)
+              }),
               !withdrawn || (!controller.workspaceManager.isAppHidden(token)
-                  && !entry.observedState.isMinimized && !entry.observedState.isNativeFullscreen),
+                  && !observed.isMinimized && !observed.isNativeFullscreen),
               controller.workspaceManager.setWindowNativeWithdrawn(withdrawn, token: token, source: source)
         else { return false }
         refreshWindowNativeSuppression(

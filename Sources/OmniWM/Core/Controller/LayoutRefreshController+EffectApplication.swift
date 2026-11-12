@@ -158,8 +158,21 @@ extension LayoutRefreshController {
             return nil
         }
         controller.workspaceManager.quietArrivalTokens.subtract(plan.quietArrivalTokens)
+        if let intercepted = controller.resizeOverlay.intercept(plan) {
+            return acceptLayoutPlan(
+                intercepted,
+                suppressWindowActivation: suppressWindowActivation,
+                controller: controller
+            )
+        }
+        return acceptLayoutPlan(plan, suppressWindowActivation: suppressWindowActivation, controller: controller)
+    }
 
-        let plan = controller.resizeOverlay.intercept(plan)
+    private func acceptLayoutPlan(
+        _ plan: WorkspaceLayoutPlan,
+        suppressWindowActivation: Bool,
+        controller: WMController
+    ) -> AcceptedSeq {
         controller.niriEdgePictures.reconcile(plan)
         applyLayoutMutations(plan, controller: controller)
         publishAcceptedLayoutSurfaces(plan, controller: controller)

@@ -8,6 +8,10 @@ struct FullRescanCandidateIdentity {
     let token: WindowToken
     let existingEntry: WindowState?
     let bundleId: String?
+
+    var isTracked: Bool {
+        existingEntry?.token != nil
+    }
 }
 
 struct FullRescanWindowDecision {

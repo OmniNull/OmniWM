@@ -385,7 +385,6 @@ extension WorkspaceManager {
     }
 
     func setCachedConstraints(_ constraints: WindowSizeConstraints, for token: WindowToken) {
-        guard windowQueries.entry(for: token) != nil else { return }
         world.setCachedConstraints(constraints.normalized(), for: token)
     }
 
