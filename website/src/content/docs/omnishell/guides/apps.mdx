@@ -108,12 +108,13 @@ This example asks its provider to check for work. The provider answers with an e
 
 <ExampleFile file="apps/provider-review/init.luau" />
 
-<ExampleFile file="apps/provider-review/provider.sh" />
+<ExampleFile file="apps/provider-review/provider.swift" />
 
-Download the three files into `~/.config/omniwm/apps/provider-review/`, then make the script executable:
+Download the three files into `~/.config/omniwm/apps/provider-review/`, then compile the Swift source into the program named in the manifest:
 
 ```bash
-chmod +x ~/.config/omniwm/apps/provider-review/provider.sh
+cd ~/.config/omniwm/apps/provider-review
+swiftc provider.swift -o provider
 ```
 
 Open **Provider Review** and approve the program when prompted. Nothing runs until you do. The provider can be written in any language.

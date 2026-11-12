@@ -15,7 +15,7 @@ if (!path.startsWith(directory.endsWith(sep) ? directory : directory + sep)) {
   throw new Error(`Example path is outside the examples directory: ${file}`);
 }
 const code = readFileSync(path, 'utf8');
-const language = file.endsWith('.toml') ? 'toml' : file.endsWith('.sh') ? 'sh' : 'lua';
+const language = file.endsWith('.toml') ? 'toml' : file.endsWith('.swift') ? 'swift' : 'lua';
 const url = '/examples/omnishell/' + file.split('/').map(encodeURIComponent).join('/');
 ---
 

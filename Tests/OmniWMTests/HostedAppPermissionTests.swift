@@ -71,11 +71,9 @@ final class HostedAppPermissionTests: XCTestCase {
     }
 
     private func providerReview() async throws -> ShellAppDefinition {
-        let apps = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("website/public/examples/omnishell/apps")
+        let apps = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: apps) }
+        _ = try ShellProviderReviewExampleFixture.copy(to: apps)
         let snapshot = try await ShellAppCatalogLoader().load(directories: [apps], bundled: nil)
         return try XCTUnwrap(snapshot.definitions["provider-review"])
     }

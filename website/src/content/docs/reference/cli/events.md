@@ -105,36 +105,19 @@ If you persist event streams, prefer a per-user directory such as `~/Library/Log
 mkdir -p ~/Library/Logs/OmniWM
 umask 077 && omniwmctl watch focus --exec tee -a ~/Library/Logs/OmniWM/focus.ndjson
 
-# Run a script on workspace changes
-omniwmctl watch active-workspace --exec ./on-workspace-change.sh
+# Run a program on workspace changes
+omniwmctl watch active-workspace --exec /path/to/workspace-handler
 
 # Process all events with jq
 omniwmctl watch --all --exec jq '.result'
 
-# Badge workspaces whose window titles match a pattern
-omniwmctl watch workspace-bar --reconnect --exec ./badge.sh
+# Inspect workspace-bar changes and reconnect after a restart
+omniwmctl watch workspace-bar --reconnect --exec jq '.result.payload.monitors'
 ```
 
 ### Badging workspaces from events
 
-`badge.sh` prefixes 🚨 to the label of any workspace holding a window whose title matches `PATTERN` and strips the prefix otherwise. It reads one `workspace-bar` envelope on stdin and calls `omniwmctl workspace rename` only for labels that differ from the computed state:
-
-```bash
-#!/bin/bash
-export PATH="/opt/homebrew/bin:$PATH"
-pattern="${PATTERN:-incoming call}"
-jq -j --arg re "$pattern" '
-  .result.payload.monitors[]?.workspaces[]?
-  | .rawName as $raw
-  | (.displayName | sub("^🚨 "; "")) as $base
-  | (any(.windows[]?.allWindows[]?.title; test($re; "i"))) as $hit
-  | (if $hit then "🚨 " + $base elif $base == $raw then "" else $base end) as $want
-  | select($want != .displayName and ($want != "" or .displayName != $raw))
-  | ([0] | implode) as $nul
-  | $raw + $nul + $want + $nul
-' | while IFS= read -r -d '' raw && IFS= read -r -d '' want; do
-  omniwmctl workspace rename "$raw" "$want"
-done
-```
-
-Address workspaces by raw ID: a badged label changes what `focus-name` matches. Rename activity stops once labels match the computed state, because the script renames only on a difference and OmniWM publishes `workspace-bar` only when the bar changed; how many times the script runs per change is not guaranteed. `watch` logs a non-zero child exit and keeps running, so a no-op rename (exit 1, `no_change`) is harmless. With `hideEmptyWorkspaces` enabled, an emptied workspace leaves the snapshot, so its badge is cleared the next time it appears. Fields are NUL-framed, so labels containing backslashes, tabs, or spaces survive unchanged.
+Use `omniwmctl watch workspace-bar --exec /path/to/your-program` to receive workspace-bar updates.
+Your program can read each workspace's window titles from the event on stdin and choose a label.
+Apply it with `omniwmctl workspace rename <rawName> <label>`, using the workspace's `rawName` from the event, because a label changes its display name; an empty label restores the raw ID.
+Only rename when the label changes, since renaming also publishes a workspace-bar update.
