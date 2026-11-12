@@ -4,6 +4,7 @@
 import Darwin
 import Foundation
 @testable import OmniWM
+import os
 import XCTest
 
 final class AppThemeHerdrSocketTests: XCTestCase {
@@ -60,6 +61,75 @@ final class AppThemeHerdrSocketTests: XCTestCase {
             _ = reply.withCString { Darwin.write(client, $0, strlen($0)) }
         }
         return group
+    }
+
+    private final class ScriptedClock: Sendable {
+        private let reading = OSAllocatedUnfairLock<UInt64>(initialState: 0)
+
+        func now() -> UInt64 {
+            reading.withLock { $0 }
+        }
+
+        func set(_ value: UInt64) {
+            reading.withLock { $0 = value }
+        }
+    }
+
+    private var timeoutNanoseconds: UInt64 {
+        UInt64(AppThemeHerdrSocket.replyTimeout * Double(NSEC_PER_SEC))
+    }
+
+    private func serve(_ listener: Int32, _ script: @escaping @Sendable (Int32) -> Void) -> DispatchGroup {
+        let group = DispatchGroup()
+        group.enter()
+        DispatchQueue.global().async {
+            defer { group.leave() }
+            let client = accept(listener, nil, nil)
+            guard client >= 0 else { return }
+            defer { close(client) }
+            var byte: UInt8 = 0
+            while Darwin.read(client, &byte, 1) == 1, byte != UInt8(ascii: "\n") {}
+            script(client)
+        }
+        return group
+    }
+
+    private static func send(_ client: Int32, _ text: String) {
+        _ = text.withCString { Darwin.write(client, $0, strlen($0)) }
+    }
+
+    func testAReplyThatIsStillArrivingAtTheDeadlineIsTimedOut() throws {
+        let path = folder.appendingPathComponent("herdr.sock").path
+        let listener = try listen(at: path)
+        defer { close(listener) }
+        let clock = ScriptedClock()
+        let late = timeoutNanoseconds + 1
+        let served = serve(listener) { client in
+            Self.send(client, #"{"id":"omniwm:app-theming","#)
+            clock.set(late)
+            Self.send(client, #""result":{"type":"config_reload","status":"applied","diagnostics":[]}}"# + "\n")
+        }
+        let reply = AppThemeHerdrSocket.send("server.reload_config", to: path, clock: clock.now)
+        XCTAssertEqual(served.wait(timeout: .now() + failureBound), .success)
+        XCTAssertEqual(reply, .failed(String(localized: "timed out")))
+    }
+
+    func testAServerThatNeverRepliesIsTimedOutAtTheDeadline() throws {
+        let path = folder.appendingPathComponent("herdr.sock").path
+        let listener = try listen(at: path)
+        defer { close(listener) }
+        let clock = ScriptedClock()
+        let served = serve(listener) { client in
+            var byte: UInt8 = 0
+            _ = Darwin.read(client, &byte, 1)
+        }
+        let nearlyDue = timeoutNanoseconds - NSEC_PER_USEC
+        let reply = AppThemeHerdrSocket.send("server.reload_config", to: path) {
+            defer { clock.set(nearlyDue) }
+            return clock.now()
+        }
+        XCTAssertEqual(served.wait(timeout: .now() + failureBound), .success)
+        XCTAssertEqual(reply, .failed(String(localized: "timed out")))
     }
 
     func testAReloadRequestIsOneJSONLineAndTheReplyLineComesBack() throws {
