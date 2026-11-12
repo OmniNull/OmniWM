@@ -70,6 +70,7 @@ enum ShellSettingsPane: String, Sendable {
     case notifications
     case focus
     case screenshot
+    case appearance
 
     var url: URL? {
         if self == .screenshot {
@@ -84,6 +85,7 @@ enum ShellSettingsPane: String, Sendable {
         case .notifications: "com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles"
         case .focus: "com.apple.Focus-Settings.extension"
         case .screenshot: ""
+        case .appearance: "com.apple.Appearance-Settings.extension"
         }
         return URL(string: "x-apple.systempreferences:\(pane)")
     }
@@ -103,6 +105,7 @@ enum ShellAction: Equatable, Sendable {
     case wifi(ShellWiFiCommand)
     case bluetooth(ShellBluetoothCommand)
     case session(ShellSessionCommand)
+    case appearance(ShellAppearanceCommand)
     case settings(ShellSettingsPane)
     case toggle(widget: String)
     case trigger(widget: String, name: String, value: String?)
@@ -118,6 +121,7 @@ enum ShellAction: Equatable, Sendable {
         "input-source": { ShellInputSourceCommand(words: $0).map(ShellAction.inputSource) },
         "wifi": { ShellWiFiCommand(words: $0).map(ShellAction.wifi) },
         "bluetooth": { ShellBluetoothCommand(words: $0).map(ShellAction.bluetooth) },
+        "appearance": { ShellAppearanceCommand(words: $0).map(ShellAction.appearance) },
         "session": {
             ShellAwakeCommand(words: $0).map(ShellAction.awake)
                 ?? ShellSessionCommand(words: $0).map(ShellAction.session)

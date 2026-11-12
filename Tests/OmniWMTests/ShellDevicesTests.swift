@@ -53,6 +53,13 @@ final class ShellDevicesTests: XCTestCase {
         XCTAssertNil(ShellAction("input-source"))
     }
 
+    func testAppearanceCommandsParse() {
+        XCTAssertEqual(ShellAction("appearance toggle"), .appearance(.toggle))
+        XCTAssertEqual(ShellAction("appearance settings"), .settings(.appearance))
+        XCTAssertNil(ShellAction("appearance"))
+        XCTAssertNil(ShellAction("appearance dark"))
+    }
+
     func testWidgetsReadTheInputSource() throws {
         let widget = try ShellRenderedWidget(name: "source", source: """
         function render(ctx)

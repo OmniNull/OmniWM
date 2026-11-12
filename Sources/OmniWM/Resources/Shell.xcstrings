@@ -474,6 +474,28 @@
         }
       }
     },
+    "Dark Mode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dark Mode"
+          }
+        }
+      }
+    },
+    "Appearance Settings…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance Settings…"
+          }
+        }
+      }
+    },
     "Make it yours" : {
       "extractionState" : "manual",
       "localizations" : {

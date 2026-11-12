@@ -109,6 +109,17 @@ local function overview(ctx)
                 if radio and not radio.granted then "bluetooth authorize" else "bluetooth settings") },
         audio.level(ctx, CONTENT),
         media.content(ctx, true, CONTENT) }
+    local dark = ctx.data.appearance == "dark"
+    rows[#rows + 1] = ui.row{ w = CONTENT, gap = 6,
+        look.group{ w = CONTENT - 42, hover = look.hover, onClick = "appearance toggle",
+            ui.row{ w = INNER - 42, gap = 8,
+                look.glyph{ name = if dark then "moon.fill" else "sun.max.fill", w = 22, h = 16,
+                    color = if dark then "accent" else "secondaryForeground" },
+                look.text{ text = omniwm.l10n("Dark Mode"), size = 13, grow = 1 },
+                look.text{ text = if dark then omniwm.l10n("On") else omniwm.l10n("Off"), size = 13,
+                    color = "secondaryForeground" } } },
+        look.button("chevron.right", "appearance settings",
+            { w = 36, h = 36, help = omniwm.l10n("Appearance Settings…") }) }
     local charge = battery.model(ctx)
     if charge then
         rows[#rows + 1] = card{ hover = look.hover, onClick = charge.settings,
