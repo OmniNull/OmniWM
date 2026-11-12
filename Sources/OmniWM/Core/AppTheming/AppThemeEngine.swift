@@ -149,6 +149,10 @@ struct AppThemeEngine: Sendable {
         let url = try policy.destination(for: output.path)
         let display = policy.display(url)
         let before = try AppThemeFileWriter.read(url)
+        let existingText = try before.map { data in
+            guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(display) }
+            return text
+        }
         guard let keys = output.table else {
             return Rendered(
                 url: url,
@@ -156,13 +160,10 @@ struct AppThemeEngine: Sendable {
                 before: before,
                 after: Data(text.utf8),
                 ownedText: text,
-                currentOwnedText: before.map { String(decoding: $0, as: UTF8.self) }
+                currentOwnedText: existingText
             )
         }
-        let existing = try before.map { data in
-            guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(display) }
-            return text
-        } ?? ""
+        let existing = existingText ?? ""
         let table = AppThemeTOMLTable(keys: keys)
         let body = text.hasSuffix("\n") ? text : text + "\n"
         let current = table.current(in: existing)

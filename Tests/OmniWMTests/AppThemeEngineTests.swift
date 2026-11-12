@@ -251,6 +251,24 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertTrue(fake.calls.isEmpty)
     }
 
+    func testAnExistingOutputThatIsNotTextIsNeverReplaced() throws {
+        try sandbox.write("{{mode}}\n", to: "templates/app.conf")
+        let url = sandbox.path(".config/app/colors.conf")
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let original = Data([0x66, 0xFF, 0xFE, 0x0A])
+        try original.write(to: url)
+        let custom = SettingsExport.AppTheming.Custom(
+            name: "App",
+            template: sandbox.path("templates/app.conf").path,
+            output: "~/.config/app/colors.conf"
+        )
+        let job = AppThemeJob(palette: AppThemeFixtures.palette, dark: true, appearanceChanged: false, targets: [])
+        XCTAssertThrowsError(try sandbox.engine(fake).render(custom.target.outputs[0], job: job))
+        let report = run([custom.target], takeOver: [url.path])
+        XCTAssertEqual(report.results[custom.targetID]?.outcome, .failed)
+        XCTAssertEqual(try Data(contentsOf: url), original)
+    }
+
     func testAnInterruptedWriteIsRecognisedAsOmniWMsOwn() throws {
         _ = run(targets([.kitty]))
         let url = sandbox.path(".config/kitty/dark-theme.auto.conf")
