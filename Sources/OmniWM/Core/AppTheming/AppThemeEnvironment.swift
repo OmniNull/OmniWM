@@ -49,7 +49,8 @@ struct AppThemeGhosttyApp: Equatable, Sendable {
         var info = stat()
         guard lstat(url.path, &info) == 0 else { return nil }
         let changed = info.st_ctimespec
-        return Date(timeIntervalSince1970: TimeInterval(changed.tv_sec) + TimeInterval(changed.tv_nsec) / nanosecondsPerSecond)
+        return Date(timeIntervalSince1970: TimeInterval(changed.tv_sec) + TimeInterval(changed.tv_nsec) /
+            nanosecondsPerSecond)
     }
 
     static func running() -> [AppThemeGhosttyApp] {
@@ -75,7 +76,8 @@ struct AppThemeProcess: Equatable, Sendable {
     private static let microsecondsPerSecond: TimeInterval = 1_000_000
 
     var started: Date {
-        Date(timeIntervalSince1970: TimeInterval(startSeconds) + TimeInterval(startMicroseconds) / Self.microsecondsPerSecond)
+        Date(timeIntervalSince1970: TimeInterval(startSeconds) + TimeInterval(startMicroseconds) / Self
+            .microsecondsPerSecond)
     }
 }
 

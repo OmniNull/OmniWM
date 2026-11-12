@@ -79,17 +79,7 @@ struct AppThemeEngine: Sendable {
         guard job.targets.contains(where: { job.enabled.contains($0.id) }) else { return AppThemeRunReport() }
         var state = try store.load()
         var report = AppThemeRunReport()
-        let ghostty = AppThemeBuiltIn.ghostty.id
-        if !job.selection.isEmpty, job.enabled.contains(ghostty) {
-            do {
-                report.backups += try commit(job.selection) { job.enabled.contains(ghostty) }
-            } catch is AppThemeCancelled {
-            } catch AppThemeEngineError.changedOutsideOmniWM {
-                report.reviewAgain.append(AppThemeService.ghosttySelectionReview)
-            } catch {
-                report.selectionProblem = error.localizedDescription
-            }
-        }
+        commitSelection(of: job, into: &report)
         var changed: [String: Bool] = [:]
         var claimed: [String: String] = [:]
         var created: Set<String> = []
@@ -234,51 +224,6 @@ struct AppThemeEngine: Sendable {
             written.append(item.url.lastPathComponent)
         }
         return (written, rendered.contains { $0.before == nil })
-    }
-
-    func commit(_ changes: [AppThemeChange], isCurrent: () -> Bool = { true }) throws -> [URL] {
-        let stale = try changes.filter { change in
-            try AppThemeFileWriter.read(change.url).map(AppThemeFileWriter.digest) != change.beforeDigest
-        }
-        guard stale.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(stale.map(\.display)) }
-        var backups: [URL] = []
-        for change in changes {
-            let current = try AppThemeFileWriter.read(change.url)
-            guard current.map(AppThemeFileWriter.digest) == change.beforeDigest else {
-                throw AppThemeEngineError.changedOutsideOmniWM([change.display])
-            }
-            let backup = try current.map { try store.backup($0, of: change.url, date: now()) }
-            do {
-                try replace(
-                    change.url,
-                    with: Data(change.after.utf8),
-                    expecting: current,
-                    display: change.display,
-                    isCurrent: isCurrent
-                )
-            } catch {
-                if let backup { try? FileManager.default.removeItem(at: backup) }
-                throw error
-            }
-            if let backup { backups.append(backup) }
-        }
-        return backups
-    }
-
-    private func replace(
-        _ url: URL,
-        with data: Data,
-        expecting current: Data?,
-        display: String,
-        isCurrent: () -> Bool
-    ) throws {
-        try AppThemeFileWriter.writeAtomically(data, to: url) {
-            willReplace(url)
-            guard isCurrent() else { throw AppThemeCancelled() }
-            guard try AppThemeFileWriter.read(url, display: display) == current else {
-                throw AppThemeEngineError.changedOutsideOmniWM([display])
-            }
-        }
     }
 
     private static func isReviewed(_ item: Rendered, _ job: AppThemeJob) -> Bool {
