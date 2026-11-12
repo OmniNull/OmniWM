@@ -28,6 +28,7 @@ extension MouseEventHandler {
            modifiers.isDisjoint(with: Self.relevantModifierFlags) || macOSFusionDrags(in: wsId)
         {
             finishNiriSlideBeforePress(in: wsId)
+            holdEdgeResizeAtThePeek(at: location, modifiers: modifiers)
             recordPointerFocusIntent(
                 at: location,
                 workspaceId: wsId,

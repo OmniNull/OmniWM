@@ -44,7 +44,7 @@ extension MouseEventHandler {
         return true
     }
 
-    private struct FusionDoubleClickCandidate {
+    struct FusionDoubleClickCandidate {
         let hit: FusionDoubleClickHit
         let entry: WindowState
         let engine: NiriLayoutEngine
@@ -60,7 +60,7 @@ extension MouseEventHandler {
         let projectedWindowCount: Int
     }
 
-    private func fusionDoubleClickCandidate(at location: CGPoint) -> FusionDoubleClickCandidate? {
+    func fusionDoubleClickCandidate(at location: CGPoint) -> FusionDoubleClickCandidate? {
         guard let controller,
               controller.settings.niri.macOSFusion,
               canHandleManagedMouseInteraction(controller: controller),

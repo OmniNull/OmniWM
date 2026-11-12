@@ -95,6 +95,16 @@ final class PointerEdgeBarrier: Sendable {
         var liveDragHold: LiveDragHold?
         var liveDragPush = LiveDragHold.Push()
         var liveDragHolding = false
+        var resizeHold: ResizeHold?
+    }
+
+    struct ResizeHold: Equatable {
+        var minX: CGFloat?
+        var maxX: CGFloat?
+
+        func clamped(_ x: CGFloat) -> CGFloat {
+            min(max(x, minX ?? -.infinity), maxX ?? .infinity)
+        }
     }
 
     private struct TapState {
@@ -149,6 +159,22 @@ final class PointerEdgeBarrier: Sendable {
 
     var liveDragHold: LiveDragHold? {
         state.withLock { $0.liveDragHold }
+    }
+
+    var resizeHold: ResizeHold? {
+        state.withLock { $0.resizeHold }
+    }
+
+    func publishResizeHold(_ hold: ResizeHold?) {
+        let changed = state.withLock { current -> Bool in
+            defer { current.resizeHold = hold }
+            return hold != current.resizeHold
+        }
+        guard changed else { return }
+        MouseTrace.record(
+            "edge-resize-hold publish min=\(hold?.minX.map { "\(Int($0))" } ?? "-") "
+                + "max=\(hold?.maxX.map { "\(Int($0))" } ?? "-")"
+        )
     }
 
     func publishLiveDragHold(_ hold: LiveDragHold?) {
@@ -238,7 +264,10 @@ final class PointerEdgeBarrier: Sendable {
             reset()
             return Unmanaged.passUnretained(event)
         }
-        if type == .leftMouseDragged { return handleLiveDragEvent(event) }
+        if type == .leftMouseDragged {
+            applyResizeHold(to: event)
+            return handleLiveDragEvent(event)
+        }
         guard type == .mouseMoved else { return Unmanaged.passUnretained(event) }
         let receivedAt = clock()
         let cgLocation = event.location
@@ -300,6 +329,14 @@ final class PointerEdgeBarrier: Sendable {
         EventIntake.post(.pointerEdgeCrossed(target: crossing.target.id))
         postMove(warpPoint)
         return nil
+    }
+
+    func applyResizeHold(to event: CGEvent) {
+        guard let hold = state.withLock({ $0.resizeHold }) else { return }
+        let location = event.location
+        let x = hold.clamped(location.x)
+        guard x != location.x else { return }
+        event.location = CGPoint(x: x, y: location.y)
     }
 
     private func handleLiveDragEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {

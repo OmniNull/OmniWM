@@ -122,6 +122,9 @@ extension MouseEventHandler {
     }
 
     func dispatchMouseUp(at location: CGPoint, button: MouseButton = .left) {
+        if button == .left {
+            releaseEdgeResizeHold()
+        }
         if state.parkingEdgePressButton == button {
             state.parkingEdgePressButton = nil
         }

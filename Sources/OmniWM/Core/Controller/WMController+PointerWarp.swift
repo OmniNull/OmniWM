@@ -27,6 +27,17 @@ extension WMController {
         }
     }
 
+    func holdPointerForEdgeResize(_ hold: PointerEdgeBarrier.ResizeHold?) {
+        pointerEdgeBarrier.publishResizeHold(hold)
+        guard !settings.pointer.enabled, hasStartedServices, !mouseEventHandler.isLiveColumnDragActive else { return }
+        if hold != nil {
+            pointerEdgeBarrier.start()
+            publishPointerEdgeTopology()
+        } else {
+            pointerEdgeBarrier.stop()
+        }
+    }
+
     func publishPointerEdgeTopology() {
         let monitors = workspaceManager.monitors
         var topology = PointerEdgeTopology()
