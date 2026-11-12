@@ -56,7 +56,7 @@ struct AppThemeReloader: Sendable {
                 ))
                 continue
             }
-            let error = environment.signal(app.pid, SIGUSR2)
+            let error = environment.signal(app.process, SIGUSR2)
             if error != 0, error != ESRCH {
                 problems.append(failure(String(localized: "Ghostty didn’t reload"), error: error).message)
             }
@@ -106,9 +106,9 @@ struct AppThemeReloader: Sendable {
     }
 
     private func signalAll(_ name: String) -> Signalled {
-        let pids = environment.processes(name)
-        guard !pids.isEmpty else { return .notRunning }
-        let errors = pids.map { environment.signal($0, SIGUSR1) }.filter { $0 != 0 && $0 != ESRCH }
+        let processes = environment.processes(name)
+        guard !processes.isEmpty else { return .notRunning }
+        let errors = processes.map { environment.signal($0, SIGUSR1) }.filter { $0 != 0 && $0 != ESRCH }
         return errors.first.map(Signalled.failed) ?? .signalled
     }
 

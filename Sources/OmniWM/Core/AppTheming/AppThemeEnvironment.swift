@@ -18,8 +18,12 @@ struct AppThemeGhosttyApp: Equatable, Sendable {
     static let bundleIdentifier = "com.mitchellh.ghostty"
     static let signalReloadVersion = [1, 2]
 
-    let pid: pid_t
+    let process: AppThemeProcess
     let version: String?
+
+    var pid: pid_t {
+        process.pid
+    }
 
     var reloadsOnSignal: Bool {
         guard let version else { return false }
@@ -37,24 +41,33 @@ struct AppThemeGhosttyApp: Equatable, Sendable {
     static func running() -> [AppThemeGhosttyApp] {
         NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
             .filter { !$0.isTerminated }
-            .map { app in
+            .compactMap { app in
+                guard let process = AppThemeProcesses.identity(of: app.processIdentifier) else { return nil }
                 let plist = app.bundleURL?.appendingPathComponent("Contents/Info.plist")
                 let modified = plist.flatMap {
                     try? FileManager.default.attributesOfItem(atPath: $0.path)[.modificationDate] as? Date
                 }
                 let info = plist.flatMap { NSDictionary(contentsOf: $0) as? [String: Any] }
                 return AppThemeGhosttyApp(
-                    pid: app.processIdentifier,
+                    process: process,
                     version: runningVersion(info: info, modified: modified, launched: app.launchDate)
                 )
             }
     }
 }
 
+struct AppThemeProcess: Equatable, Sendable {
+    let pid: pid_t
+    let startSeconds: UInt64
+    let startMicroseconds: UInt64
+    let realUserID: uid_t
+    let name: String
+}
+
 enum AppThemeProcesses {
     private static let headroom = 64
 
-    static func list(named name: String, realUserID: uid_t) -> [pid_t] {
+    static func list(named name: String, realUserID: uid_t) -> [AppThemeProcess] {
         let stride = MemoryLayout<pid_t>.stride
         let needed = proc_listpids(UInt32(PROC_RUID_ONLY), realUserID, nil, 0)
         guard needed > 0 else { return [] }
@@ -63,7 +76,32 @@ enum AppThemeProcesses {
             proc_listpids(UInt32(PROC_RUID_ONLY), realUserID, buffer.baseAddress, Int32(buffer.count))
         }
         guard filled > 0 else { return [] }
-        return pids.prefix(Int(filled) / stride).filter { $0 > 0 && self.name(of: $0) == name }
+        return pids.prefix(Int(filled) / stride).compactMap { pid in
+            guard pid > 0, let process = identity(of: pid), process.name == name,
+                  process.realUserID == realUserID
+            else { return nil }
+            return process
+        }
+    }
+
+    static func identity(of pid: pid_t) -> AppThemeProcess? {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size, let name = name(of: pid) else {
+            return nil
+        }
+        return AppThemeProcess(
+            pid: pid,
+            startSeconds: info.pbi_start_tvsec,
+            startMicroseconds: info.pbi_start_tvusec,
+            realUserID: info.pbi_ruid,
+            name: name
+        )
+    }
+
+    static func signal(_ process: AppThemeProcess, _ signal: Int32) -> Int32 {
+        guard identity(of: process.pid) == process else { return ESRCH }
+        return kill(process.pid, signal) == 0 ? 0 : errno
     }
 
     static func name(of pid: pid_t) -> String? {
@@ -76,8 +114,8 @@ enum AppThemeProcesses {
 struct AppThemeEnvironment: Sendable {
     var run: @Sendable (_ executable: String, _ arguments: [String], _ timeout: TimeInterval) -> AppThemeCommandResult
     var ghosttyApps: @Sendable () -> [AppThemeGhosttyApp]
-    var processes: @Sendable (_ name: String) -> [pid_t]
-    var signal: @Sendable (_ pid: pid_t, _ signal: Int32) -> Int32
+    var processes: @Sendable (_ name: String) -> [AppThemeProcess]
+    var signal: @Sendable (_ process: AppThemeProcess, _ signal: Int32) -> Int32
     var herdr: @Sendable (_ socket: String, _ method: String) -> AppThemeSocketReply
     var variables: [String: String]
     var executable: @Sendable (_ name: String) -> String?
@@ -94,8 +132,8 @@ struct AppThemeEnvironment: Sendable {
         },
         ghosttyApps: { AppThemeGhosttyApp.running() },
         processes: { AppThemeProcesses.list(named: $0, realUserID: getuid()) },
-        signal: { pid, signal in
-            kill(pid, signal) == 0 ? 0 : errno
+        signal: { process, signal in
+            AppThemeProcesses.signal(process, signal)
         },
         herdr: { socket, method in
             AppThemeHerdrSocket.send(method, to: socket)

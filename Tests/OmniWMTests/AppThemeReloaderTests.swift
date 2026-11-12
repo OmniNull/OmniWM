@@ -146,10 +146,53 @@ extension AppThemeReloaderTests {
     func testProcessesAreFoundByTheirExactNameForTheRealUserOnly() throws {
         let pid = getpid()
         let name = try XCTUnwrap(AppThemeProcesses.name(of: pid))
-        XCTAssertTrue(AppThemeProcesses.list(named: name, realUserID: getuid()).contains(pid))
-        XCTAssertFalse(AppThemeProcesses.list(named: name + "x", realUserID: getuid()).contains(pid))
-        XCTAssertFalse(AppThemeProcesses.list(named: String(name.dropLast()), realUserID: getuid()).contains(pid))
-        XCTAssertFalse(AppThemeProcesses.list(named: name, realUserID: getuid() &+ 1).contains(pid))
+        func pids(_ name: String, _ user: uid_t) -> [pid_t] {
+            AppThemeProcesses.list(named: name, realUserID: user).map(\.pid)
+        }
+        XCTAssertTrue(pids(name, getuid()).contains(pid))
+        XCTAssertFalse(pids(name + "x", getuid()).contains(pid))
+        XCTAssertFalse(pids(String(name.dropLast()), getuid()).contains(pid))
+        XCTAssertFalse(pids(name, getuid() &+ 1).contains(pid))
+    }
+
+    func testASignalGoesOnlyToTheProcessThatWasListed() throws {
+        let existenceCheck: Int32 = 0
+        let listed = try XCTUnwrap(AppThemeProcesses.identity(of: getpid()))
+        XCTAssertEqual(listed.realUserID, getuid())
+        XCTAssertEqual(AppThemeProcesses.signal(listed, existenceCheck), 0)
+        let replacements = [
+            AppThemeProcess(
+                pid: listed.pid,
+                startSeconds: listed.startSeconds + 1,
+                startMicroseconds: listed.startMicroseconds,
+                realUserID: listed.realUserID,
+                name: listed.name
+            ),
+            AppThemeProcess(
+                pid: listed.pid,
+                startSeconds: listed.startSeconds,
+                startMicroseconds: listed.startMicroseconds + 1,
+                realUserID: listed.realUserID,
+                name: listed.name
+            ),
+            AppThemeProcess(
+                pid: listed.pid,
+                startSeconds: listed.startSeconds,
+                startMicroseconds: listed.startMicroseconds,
+                realUserID: listed.realUserID &+ 1,
+                name: listed.name
+            ),
+            AppThemeProcess(
+                pid: listed.pid,
+                startSeconds: listed.startSeconds,
+                startMicroseconds: listed.startMicroseconds,
+                realUserID: listed.realUserID,
+                name: listed.name + "x"
+            )
+        ]
+        for replacement in replacements {
+            XCTAssertEqual(AppThemeProcesses.signal(replacement, existenceCheck), ESRCH)
+        }
     }
 }
 

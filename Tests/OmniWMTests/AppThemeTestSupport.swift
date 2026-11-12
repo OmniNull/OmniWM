@@ -99,9 +99,12 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
                 }
             },
             ghosttyApps: { [self] in lock.withLock { ghostty } },
-            processes: { [self] name in lock.withLock { processes[name] ?? [] } },
-            signal: { [self] pid, signal in
-                lock.withLock {
+            processes: { [self] name in
+                lock.withLock { (processes[name] ?? []).map { AppThemeProcess(listed: $0, name: name) } }
+            },
+            signal: { [self] process, signal in
+                let pid = process.pid
+                return lock.withLock {
                     sent.append(Signal(pid: pid, signal: signal))
                     recorded.append("signal \(pid) \(signal)")
                     return signalErrors[pid] ?? 0
@@ -234,5 +237,17 @@ final class AppThemeHeldHops: Sendable {
         for item in work {
             item()
         }
+    }
+}
+
+extension AppThemeProcess {
+    init(listed pid: pid_t, name: String) {
+        self.init(pid: pid, startSeconds: 0, startMicroseconds: 0, realUserID: getuid(), name: name)
+    }
+}
+
+extension AppThemeGhosttyApp {
+    init(pid: pid_t, version: String?) {
+        self.init(process: AppThemeProcess(listed: pid, name: "ghostty"), version: version)
     }
 }
