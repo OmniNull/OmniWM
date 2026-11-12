@@ -734,7 +734,7 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 
 - Optional [window switcher](website/src/content/docs/features/window-switcher.md) with previews and separate Command-Tab / Option-Tab workspace scopes
 - Ghostty-powered quake/sticky terminal
-- Optional [app theming](website/src/content/docs/features/app-theming.md) that colors Ghostty, kitty, herdr and your own templates from the palette in light and dark
+- Optional [app theming](website/src/content/docs/features/app-theming.md) that colors Ghostty, kitty, herdr, Neovim and your own templates from the palette in light and dark
 - Native macOS window-tab support
 - Local IPC and `omniwmctl` automation
 - Scratchpads and sticky windows for any app

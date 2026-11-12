@@ -733,7 +733,8 @@ final class AppThemeEngineTests: XCTestCase {
             appearanceChanged: false,
             targets: targets([.kitty])
         )
-        DispatchQueue.concurrentPerform(iterations: 4) { _ in _ = engine.run(job) }
+        let simultaneousRuns = 4
+        DispatchQueue.concurrentPerform(iterations: simultaneousRuns) { _ in _ = engine.run(job) }
         XCTAssertEqual(try sandbox.store.load().results["kitty"]?.outcome, .unchanged)
         XCTAssertEqual(fake.signals.filter { $0.signal == SIGUSR1 }.count, 1)
     }
@@ -758,7 +759,8 @@ final class AppThemeEngineTests: XCTestCase {
 
     func testBackupsAreBounded() throws {
         let url = sandbox.path(".config/kitty/kitty.conf")
-        for index in 0 ..< AppThemeStateStore.backupLimit + 5 {
+        let beyondTheLimit = 5
+        for index in 0 ..< AppThemeStateStore.backupLimit + beyondTheLimit {
             _ = try sandbox.store.backup(
                 Data("\(index)".utf8),
                 of: url,
