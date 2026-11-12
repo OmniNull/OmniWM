@@ -47,8 +47,8 @@ Global switches: hotkeys, Hyper key, default layout, sleep, updates, IPC, animat
 | `preventSleepEnabled` | boolean | `false` | Prevents idle display sleep while your user session is active. |
 | `updateChecksEnabled` | boolean | `true` | Automatic update checks. |
 | `ipcEnabled` | boolean | `false` | Enables the IPC server used by `omniwmctl`. |
-| `animationsEnabled` | boolean | `true` | Animates window layout changes and other OmniWM-authored motion. macOS Reduce Motion turns them off regardless of this key. |
-| `animationSpeed` *(optional)* | float | `1.0` | Tiling animation speed multiplier: `2.0` is twice as fast, `0.5` is half as fast. Applies to Niri focus, window/column movement and resizing, Dwindle layout changes, and workspace swipe settling. Values are clamped to `0.25`–`4.0`; nonfinite values use `1.0`. Changes apply to newly started transitions. Direct gesture tracking, inertial scrolling, Overview, and Quake terminal animations keep their own behavior. |
+| `animationsEnabled` | boolean | `true` | Animates window layout changes and other OmniWM-authored motion. macOS Reduce Motion turns them off regardless of this key. **Unreleased:** Available when building from `main`. Workspace switches from shortcuts, the command palette, and `omniwmctl` slide between workspaces like a workspace swipe, whether or not `workspaceSwipeEnabled` is on. The slide needs Screen Recording; without it, or when the destination workspace hasn't been captured yet since launch, the switch is instant. |
+| `animationSpeed` *(optional)* | float | `1.0` | Tiling animation speed multiplier: `2.0` is twice as fast, `0.5` is half as fast. Applies to Niri focus, window/column movement and resizing, Dwindle layout changes, workspace swipe settling, and workspace switch slides. Values are clamped to `0.25`–`4.0`; nonfinite values use `1.0`. Changes apply to newly started transitions. Direct gesture tracking, inertial scrolling, Overview, and Quake terminal animations keep their own behavior. |
 | `language` *(optional)* | string | unset | Interface language as a packaged localization code, such as `"ja"` or `"sr-Latn"`. Leave it unset to follow macOS. Takes effect the next time OmniWM starts. |
 | `workspaceAutoBackAndForth` *(optional)* | boolean | `false` | When a workspace shortcut or command palette entry targets the workspace you are already on, switch to the previously active workspace instead, like i3's `workspace_auto_back_and_forth`. `omniwmctl` workspace commands are unaffected. Settings > Workspaces > Workspace Switching. |
 
@@ -331,7 +331,7 @@ The seven optional `overviewGesture…` and `window…` keys below configure Ove
 | `trackpadScrollStyle` | string | `"snap"` | `snap` (snap to columns) or `momentum`. |
 | `workspaceSwipeEnabled` | boolean | `false` | Trackpad swipe switches to the next/previous workspace. |
 | `workspaceSwipeFingerCount` | integer | `3` | Workspace-swipe finger count: `2`, `3`, or `4`. |
-| `workspaceSwipeAxis` | string | `"vertical"` | Workspace-swipe axis: `horizontal` or `vertical`. |
+| `workspaceSwipeAxis` | string | `"vertical"` | Workspace-swipe axis: `horizontal` or `vertical`. Also sets the direction workspace switches from shortcuts slide in. |
 | `workspaceSwipeEdgeBehavior` *(optional)* | string | `"cycle"` | What a workspace swipe does past the first or last workspace: `cycle` wraps around, `none` ignores the swipe, and `onePast` moves from the last occupied workspace to an empty one, creating it if needed, while ignoring swipes past an empty last workspace or before the first. Applies to trackpad swipes only; next/previous workspace hotkeys always wrap. |
 | `overviewGestureEnabled` *(optional)* | boolean | `false` | Enable the trackpad gesture that opens Overview with an upward swipe and closes it with a downward swipe. |
 | `overviewGestureFingerCount` *(optional)* | integer | `4` | Overview gesture finger count: `3` or `4`. |

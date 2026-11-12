@@ -41,7 +41,6 @@ extension WorkspaceSwipePresentation {
         var carried = CGVector.zero
         var chained = false
         var serial = 0
-        /// Started by a keyboard switch: commits at once and keeps sliding while the windows settle.
         var isKeyboard = false
         var motionFinished = false
         var deferredFinishReason: String?

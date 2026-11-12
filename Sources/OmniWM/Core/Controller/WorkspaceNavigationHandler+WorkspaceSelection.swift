@@ -183,7 +183,6 @@ extension WorkspaceNavigationHandler {
         return activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: monitorId)
     }
 
-    /// Switches to `targetWorkspace`, sliding over to it like a trackpad swipe when `animated`.
     @discardableResult
     private func activateWorkspaceInOrder(
         _ targetWorkspace: WorkspaceDescriptor,
