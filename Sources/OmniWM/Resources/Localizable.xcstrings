@@ -268,6 +268,9 @@
     "Terminal colors 0 to 15. Colors 1 to 15 keep at least 4.5:1 contrast with the background." : {
 
     },
+    "The [theme.custom] table of herdr’s config · reloads herdr through its socket API" : {
+
+    },
     "The rendered template is not a valid TOML table" : {
 
     },
@@ -137915,9 +137918,6 @@
           }
         }
       }
-    },
-    "The [theme.custom] table of herdr’s config · reloads herdr through its socket API" : {
-
     },
     "The active capture was not a diagnostic recording" : {
       "localizations" : {
