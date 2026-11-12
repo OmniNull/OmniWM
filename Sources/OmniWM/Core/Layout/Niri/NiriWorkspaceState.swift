@@ -95,12 +95,26 @@ struct NiriRenderStyle {
     )
 }
 
+struct NiriShrinkToFitGeometry: Equatable {
+    let span: CGFloat
+    let gaps: CGFloat
+    let orientation: Monitor.Orientation
+
+    init(_ workingFrame: CGRect, gaps: CGFloat, orientation: Monitor.Orientation) {
+        span = orientation == .horizontal ? workingFrame.width : workingFrame.height
+        self.gaps = gaps
+        self.orientation = orientation
+    }
+}
+
 final class NiriWorkspaceState {
     let root: NiriRoot
     var nodesByToken: [WindowToken: NiriWindow] = [:]
     var attachedMonitorId: Monitor.ID?
     var manualWidthColumnCount: Int?
     var manualHeightColumnCount: Int?
+    var shrinkToFitColumnIds: Set<NodeId> = []
+    var shrinkToFitGeometry: NiriShrinkToFitGeometry?
 
     init(workspaceId: WorkspaceDescriptor.ID) {
         root = NiriRoot(workspaceId: workspaceId)
