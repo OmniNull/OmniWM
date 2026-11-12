@@ -221,6 +221,32 @@ final class NiriShrinkToFitTests: XCTestCase {
         XCTAssertEqual(frames[2].maxX, monitorFrame.width - padding, accuracy: pixel)
     }
 
+    func testOnlyVisibleContainersColumnsAreFittedWhenAnotherPeeksIn() throws {
+        let fixture = try makeFixture(shrinkToFit: false)
+        try fixture.addWindow()
+        try fixture.addWindow()
+        for index in 0 ..< 4 {
+            XCTAssertTrue(fixture.setSpan(.setProportion(40), onColumn: index))
+        }
+        try fixture.focus(column: 1)
+        let peeking = fixture.columns[3]
+        let peekingWidth = peeking.cachedWidth
+        fixture.controller.settings.niri.shrinkToFit = true
+
+        XCTAssertTrue(fixture.setSpan(.setProportion(60), onColumn: 1))
+        fixture.settle()
+
+        let columns = fixture.columns
+        XCTAssertEqual(columns[1].cachedWidth, fixture.raw(0.6))
+        XCTAssertEqual(
+            columns[2].cachedWidth,
+            fixture.available(2) - fixture.raw(0.6),
+            accuracy: CGFloat.rounding(operations: 4, at: fixture.span)
+        )
+        XCTAssertNil(peeking.fittedWidth)
+        XCTAssertEqual(peeking.cachedWidth, peekingWidth)
+    }
+
     func testTabbedNeighbourFillsTheRest() throws {
         let fixture = try makeFixture(shrinkToFit: true)
         try fixture.addWindow()

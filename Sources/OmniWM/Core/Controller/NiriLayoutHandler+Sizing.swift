@@ -54,7 +54,25 @@ extension NiriLayoutHandler {
             : []
         resize(&state)
         guard let column, !onScreen.isEmpty else { return }
-        engine.shrinkVisibleColumnsToFit(around: column, onScreen: onScreen, context: context, state: &state)
+        let fitSet = Self.visibleContainersRun(
+            of: onScreen,
+            around: column,
+            visibleCount: engine.effectiveVisibleContainerCount(in: context.workspaceId)
+        )
+        engine.shrinkVisibleColumnsToFit(around: column, onScreen: fitSet, context: context, state: &state)
+    }
+
+    static func visibleContainersRun(
+        of onScreen: [NiriProjectedColumn],
+        around column: NiriContainer,
+        visibleCount: Int
+    ) -> [NiriProjectedColumn] {
+        guard onScreen.count > visibleCount,
+              visibleCount > 0,
+              let index = onScreen.firstIndex(where: { $0.column === column })
+        else { return onScreen }
+        let start = min(max(0, index - visibleCount + 1), onScreen.count - visibleCount)
+        return Array(onScreen[start ..< start + visibleCount])
     }
 
     @discardableResult
