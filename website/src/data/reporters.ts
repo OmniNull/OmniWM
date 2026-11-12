@@ -9,4 +9,5 @@ export const bugReporters: Contributor[] = [
   { name: 'macsmister', handle: 'macsmister' },
   { name: 'Manukashyap.U.V', handle: 'kashyapmanu' },
   { name: 'Max Rydahl Andersen', handle: 'maxandersen' },
+  { name: 'Muhammad Auriz Dwichery', handle: 'madwichery' },
 ];
