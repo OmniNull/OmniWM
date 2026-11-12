@@ -188,18 +188,13 @@ final class SurfaceScene {
             }
         }
 
-        let matchingIDs = nodesByID.compactMap { id, node -> String? in
-            guard node.window?.windowNumber == windowNumber else { return nil }
-            return id
-        }
-        guard !matchingIDs.isEmpty else { return false }
-
-        for id in matchingIDs {
-            guard var node = nodesByID[id] else { continue }
-            node.windowNumber = windowNumber
-            nodesByID[id] = node
-            surfaceIDsByWindowNumber[windowNumber, default: []].insert(id)
-        }
+        guard let window = NSApplication.shared.window(withWindowNumber: windowNumber),
+              let id = windowIDByObject[ObjectIdentifier(window)],
+              var node = nodesByID[id], node.window === window
+        else { return false }
+        node.windowNumber = windowNumber
+        nodesByID[id] = node
+        surfaceIDsByWindowNumber[windowNumber, default: []].insert(id)
         return true
     }
 

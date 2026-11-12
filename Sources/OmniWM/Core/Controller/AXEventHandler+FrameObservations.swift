@@ -28,8 +28,14 @@ extension AXEventHandler {
     func handleFrameChanged(windowId: UInt32) {
         guard let controller, !controller.isOwnedWindow(windowNumber: Int(windowId)) else { return }
         controller.layoutRefreshController.workspaceSwipe.windowFrameChanged(windowId)
-        let trackedEntry = controller.workspaceManager.entry(forWindowId: Int(windowId))
-        if shouldIgnoreScrollingFrameChange(trackedEntry, controller: controller) { return }
+        let tracked = controller.workspaceManager.withEntry(forWindowId: Int(windowId)) {
+            (mode: $0.mode, hiddenState: $0.hiddenState, workspaceId: $0.workspaceId)
+        }
+        if let tracked, tracked.mode == .tiling, tracked.hiddenState == nil,
+           controller.niriLayoutHandler.hasScrollAnimation(for: tracked.workspaceId)
+        {
+            return
+        }
         if controller.mouseEventHandler.tracksNativeTitleBarDrag(windowId: Int(windowId)) {
             cancelFrameObservation(windowId: windowId)
             applyFrameChange(
@@ -43,7 +49,7 @@ extension AXEventHandler {
         } else if frameObservations.byWindowId[windowId] != nil {
             frameObservations.byWindowId[windowId]?.needsRequery = true
         } else {
-            startFrameObservation(windowId: windowId, hiddenState: trackedEntry?.hiddenState)
+            startFrameObservation(windowId: windowId, hiddenState: tracked?.hiddenState)
         }
     }
 
@@ -79,9 +85,15 @@ extension AXEventHandler {
         else { return }
         frameObservations.byWindowId[windowId] = nil
         guard let controller, !controller.isOwnedWindow(windowNumber: Int(windowId)) else { return }
-        let trackedEntry = controller.workspaceManager.entry(forWindowId: Int(windowId))
-        if shouldIgnoreScrollingFrameChange(trackedEntry, controller: controller) { return }
-        let isCurrent = trackedEntry?.hiddenState == observation.hiddenState
+        let tracked = controller.workspaceManager.withEntry(forWindowId: Int(windowId)) {
+            (mode: $0.mode, hiddenState: $0.hiddenState, workspaceId: $0.workspaceId)
+        }
+        if let tracked, tracked.mode == .tiling, tracked.hiddenState == nil,
+           controller.niriLayoutHandler.hasScrollAnimation(for: tracked.workspaceId)
+        {
+            return
+        }
+        let isCurrent = tracked?.hiddenState == observation.hiddenState
         if isCurrent {
             applyFrameChange(
                 windowId: windowId,
@@ -92,7 +104,7 @@ extension AXEventHandler {
         if !isCurrent || observation.needsRequery {
             startFrameObservation(
                 windowId: windowId,
-                hiddenState: controller.workspaceManager.entry(forWindowId: Int(windowId))?.hiddenState
+                hiddenState: controller.workspaceManager.withEntry(forWindowId: Int(windowId)) { $0.hiddenState } ?? nil
             )
         }
     }
@@ -255,16 +267,5 @@ extension AXEventHandler {
 
     func observedFrame(for entry: WindowState) -> CGRect? {
         entry.axRef.flatMap { observedFrame(for: $0) }
-    }
-
-    private func shouldIgnoreScrollingFrameChange(_ trackedEntry: WindowState?, controller: WMController) -> Bool {
-        if let trackedEntry,
-           trackedEntry.mode == .tiling,
-           trackedEntry.hiddenState == nil,
-           controller.niriLayoutHandler.hasScrollAnimation(for: trackedEntry.workspaceId)
-        {
-            return true
-        }
-        return false
     }
 }

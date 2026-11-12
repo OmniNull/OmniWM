@@ -55,6 +55,14 @@ extension WorkspaceManager {
         windowQueries.entry(for: token)
     }
 
+    func withEntry<Result>(_ token: WindowToken, _ read: (borrowing WindowState) -> Result) -> Result? {
+        windowQueries.withEntry(token, read)
+    }
+
+    func withEntry<Result>(forWindowId windowId: Int, _ read: (borrowing WindowState) -> Result) -> Result? {
+        windowQueries.withEntry(forWindowId: windowId, read)
+    }
+
     func entry(for handle: WindowHandle) -> WindowState? {
         windowQueries.entry(for: handle)
     }

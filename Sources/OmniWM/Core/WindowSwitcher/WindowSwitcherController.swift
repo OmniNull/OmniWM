@@ -209,7 +209,10 @@ final class WindowSwitcherController {
                 return byToken[token]
             }
         }
-        return WorkspaceEntryOrdering.orderedEntries(entries, topology: manager.layoutTopology(for: workspaceId))
+        return WorkspaceEntryOrdering.orderedEntries(
+            consume entries,
+            topology: manager.layoutTopology(for: workspaceId)
+        )
     }
 
     private func reconcileItems() {

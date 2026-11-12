@@ -51,25 +51,31 @@ final class LayoutDiffExecutor {
         var terminalRecoveryFrameUpdates: [AXFrameApplicationTarget] = []
 
         for change in changes {
-            guard let entry = controller.workspaceManager.entry(for: change.token),
-                  entry.layoutReason != .nativeFullscreen
+            guard let (axRef, isNativeFullscreen) = controller.workspaceManager.withEntry(change.token, {
+                      ($0.axRef, $0.layoutReason == .nativeFullscreen)
+                  }),
+                  !isNativeFullscreen
             else {
                 continue
             }
-            guard let axRef = entry.axRef else {
-                controller.shellAppWindowManager.setFrame(change.frame, for: entry.token, components: change.components)
+            guard let axRef else {
+                controller.shellAppWindowManager.setFrame(
+                    change.frame,
+                    for: change.token,
+                    components: change.components
+                )
                 continue
             }
             let forceNativeFullscreenRestoreApply = refreshController
                 .consumeNativeFullscreenRestoredFrameApply(for: change.token)
             if change.forceApply {
-                controller.axManager.forceApplyNextFrame(for: entry.windowId)
+                controller.axManager.forceApplyNextFrame(for: change.token.windowId)
             }
             if forceNativeFullscreenRestoreApply {
-                controller.axManager.forceApplyNextFrame(for: entry.windowId)
+                controller.axManager.forceApplyNextFrame(for: change.token.windowId)
             }
             let frameUpdate = AXFrameApplicationTarget(
-                pid: entry.pid,
+                pid: change.token.pid,
                 window: axRef,
                 frame: change.frame,
                 components: change.components

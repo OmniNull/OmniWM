@@ -29,26 +29,34 @@ extension WorkspaceManager {
     }
 
     func adjacentMonitor(from monitorId: Monitor.ID, direction: Direction, wrapAround: Bool = false) -> Monitor? {
+        adjacentMonitor(from: monitorId, direction: direction, wrapAround: wrapAround, grid: monitorRoutingGrid())
+    }
+
+    func monitorRoutingGrid() -> MonitorRouting.Grid? {
+        guard settings.monitors.routingMode == .custom else { return nil }
+        let monitors = monitors
+        return MonitorRouting.Grid(
+            layout: MonitorRouting.layout(for: monitors, in: settings.monitors.arrangements),
+            monitors: monitors
+        )
+    }
+
+    func adjacentMonitor(
+        from monitorId: Monitor.ID,
+        direction: Direction,
+        wrapAround: Bool = false,
+        grid: MonitorRouting.Grid?
+    ) -> Monitor? {
         guard let current = monitor(byId: monitorId) else { return nil }
-
-        if settings.monitors.routingMode == .custom {
-            switch MonitorRouting.gridAdjacent(
-                from: current,
-                direction: direction,
-                layout: MonitorRouting.layout(for: monitors, in: settings.monitors.arrangements),
-                monitors: monitors,
-                wrapAround: wrapAround
-            ) {
-            case let .monitor(target):
-                return target
-            case .edge:
-                return nil
-            case .fallBackToMacOS:
-                break
-            }
+        switch grid?.adjacent(from: monitorId, direction: direction, wrapAround: wrapAround) {
+        case let .monitor(target):
+            return target
+        case .edge:
+            return nil
+        case .fallBackToMacOS,
+             nil:
+            return macOSAdjacentMonitor(from: current, direction: direction, wrapAround: wrapAround)
         }
-
-        return macOSAdjacentMonitor(from: current, direction: direction, wrapAround: wrapAround)
     }
 
     func previousMonitor(from monitorId: Monitor.ID) -> Monitor? {

@@ -118,6 +118,29 @@ final class ActiveLayoutRoutingTests: XCTestCase {
         XCTAssertEqual(ordered.map(\.token), entryTokens)
     }
 
+    func testEntryOrderingPlacesNiriColumnsFirstThenRemainingEntries() throws {
+        let controller = makeController()
+        controller.niriLayoutHandler.enableNiriLayout()
+        let niriEngine = try XCTUnwrap(controller.niriEngine)
+        let workspaceId = try makeTransientWorkspace(named: "65", layoutType: .niri, controller: controller)
+        let tokens = (1 ... 4).map { addManagedWindow(pid: 955, windowId: $0, to: workspaceId, controller: controller) }
+        let columns = [tokens[2], tokens[0], tokens[1]]
+        controller.workspaceManager.withEngineMutationScope {
+            for token in columns {
+                _ = niriEngine.addWindow(token: token, to: workspaceId, afterSelection: nil)
+            }
+        }
+        let entries = controller.workspaceManager.entries(in: workspaceId)
+        XCTAssertEqual(entries.map(\.token), tokens)
+
+        let ordered = WorkspaceEntryOrdering.orderedEntries(
+            entries,
+            topology: controller.workspaceManager.layoutTopology(for: workspaceId)
+        )
+
+        XCTAssertEqual(ordered.map(\.token), columns + [tokens[3]])
+    }
+
     func testKeyboardFocusFrameQueriesActiveNiriEngine() throws {
         let controller = makeController()
         controller.niriLayoutHandler.enableNiriLayout()
