@@ -64,6 +64,9 @@
     "Could Not Install Update" : {
 
     },
+    "Could Not Relaunch OmniWM" : {
+
+    },
     "GitHub returned HTTP %lld while downloading the update." : {
 
     },
@@ -80,6 +83,9 @@
 
     },
     "The downloaded update could not be unpacked (ditto exited with %d)." : {
+
+    },
+    "The update is installed, but OmniWM could not prepare to reopen (error %d). Quit OmniWM and open it again to finish." : {
 
     },
     "The downloaded update does not contain OmniWM.app." : {

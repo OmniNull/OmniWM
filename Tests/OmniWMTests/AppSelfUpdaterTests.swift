@@ -196,57 +196,105 @@ final class AppSelfUpdaterTests: XCTestCase {
         XCTAssertTrue(try AppSelfUpdater.runningAppRequirement().hasSuffix(") and notarized"))
     }
 
-    func testRelaunchOpensOnlyAfterTerminationIsConfirmedAndTheOldProcessExits() async throws {
+    func testRelaunchOpensANewInstanceOnlyWhenTerminationIsConfirmed() async throws {
         let opener = root.appendingPathComponent("open.sh")
         let opened = root.appendingPathComponent("opened")
-        try "#!/bin/sh\necho \"$1\" > \"\(opened.path)\"\n".write(to: opener, atomically: true, encoding: .utf8)
+        try "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"\(opened.path)\"\n"
+            .write(to: opener, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: opener.path)
         let app = root.appendingPathComponent("OmniWM.app")
-        let target = Process()
-        target.executableURL = URL(fileURLWithPath: "/bin/cat")
-        target.standardInput = Pipe()
-        try target.run()
-        defer { target.terminate() }
-        let relaunchReturned = Flag()
-        let terminated = Flag()
-        var onTerminate: () -> Void = {}
-        let updater = AppSelfUpdater(
-            bundleURL: app, processIdentifier: target.processIdentifier, opener: opener,
-            terminate: {
-                XCTAssertTrue(relaunchReturned.value, "terminate ran inside relaunch")
-                terminated.value = true
-                onTerminate()
-            }
-        )
+        let processIdentifier: pid_t = 4242
 
         for confirmed in [false, true] {
-            relaunchReturned.value = false
-            terminated.value = false
+            let relaunchReturned = Flag()
             let quitReturned = expectation(description: "quit returned")
-            onTerminate = { quitReturned.fulfill() }
-            try updater.relaunch()
+            var parked: pid_t = 0
+            var updater: AppSelfUpdater?
+            updater = AppSelfUpdater(
+                bundleURL: app, processIdentifier: processIdentifier, opener: opener,
+                terminate: {
+                    XCTAssertTrue(relaunchReturned.value, "terminate ran inside relaunch")
+                    XCTAssertNotNil(updater?.relaunchObserver)
+                    parked = updater?.suspendedRelaunch ?? 0
+                    if confirmed { updater?.resumeRelaunch() }
+                    quitReturned.fulfill()
+                }
+            )
+            let relaunching = try XCTUnwrap(updater)
+            try relaunching.relaunch()
+            XCTAssertEqual(getpgid(relaunching.suspendedRelaunch), relaunching.suspendedRelaunch)
             relaunchReturned.value = true
-            XCTAssertFalse(terminated.value)
-            let helper = try XCTUnwrap(updater.relaunchHelper)
-            XCTAssertTrue(helper.isRunning)
-            let exited = expectation(description: "helper exited")
-            helper.terminationHandler = { _ in exited.fulfill() }
-
+            await fulfillment(of: [quitReturned], timeout: failureBound)
+            XCTAssertNil(relaunching.relaunchObserver)
+            XCTAssertEqual(relaunching.suspendedRelaunch, 0)
+            XCTAssertGreaterThan(parked, 0)
+            var status: Int32 = -1
             if confirmed {
-                updater.confirmRelaunch()
-                await fulfillment(of: [quitReturned], timeout: failureBound)
-                XCTAssertFalse(FileManager.default.fileExists(atPath: opened.path))
-                target.terminate()
-                target.waitUntilExit()
+                XCTAssertEqual(waitpid(parked, &status, 0), parked)
+                XCTAssertEqual(status, EXIT_SUCCESS)
             } else {
-                await fulfillment(of: [quitReturned], timeout: failureBound)
+                XCTAssertEqual(waitpid(parked, &status, WNOHANG), -1, "the vetoed opener was not reaped")
+                XCTAssertEqual(errno, ECHILD)
             }
-            await fulfillment(of: [exited], timeout: failureBound)
-            XCTAssertNil(updater.relaunchHelper)
-            XCTAssertNil(updater.relaunchSignal)
             XCTAssertEqual(FileManager.default.fileExists(atPath: opened.path), confirmed)
         }
-        XCTAssertEqual(try String(contentsOf: opened, encoding: .utf8), app.path + "\n")
+        XCTAssertEqual(
+            try String(contentsOf: opened, encoding: .utf8),
+            ["-n", app.path, "--args", AppRelaunch.argument, String(processIdentifier)].map { $0 + "\n" }.joined()
+        )
+    }
+
+    func testRelaunchReportsASpawnFailureWithoutQuitting() throws {
+        let updater = AppSelfUpdater(
+            bundleURL: root.appendingPathComponent("OmniWM.app"),
+            opener: root.appendingPathComponent("missing-open"),
+            terminate: { XCTFail("quit although the relaunch could not be prepared") }
+        )
+        XCTAssertThrowsError(try updater.relaunch()) { error in
+            guard case let .relaunchUnavailable(status) = error as? AppSelfUpdateError else {
+                return XCTFail("unexpected \(error)")
+            }
+            XCTAssertEqual(status, ENOENT)
+        }
+        XCTAssertNil(updater.relaunchObserver)
+        XCTAssertEqual(updater.suspendedRelaunch, 0)
+    }
+
+    func testRelaunchedInstanceWaitsForThePredecessorToExit() async throws {
+        let predecessor = Process()
+        predecessor.executableURL = URL(fileURLWithPath: "/bin/cat")
+        let input = Pipe()
+        predecessor.standardInput = input
+        try predecessor.run()
+        defer { if predecessor.isRunning { predecessor.terminate() } }
+        let waiting = expectation(description: "about to wait")
+        let returned = expectation(description: "wait returned")
+        let identifier = predecessor.processIdentifier
+        DispatchQueue.global().async {
+            waiting.fulfill()
+            XCTAssertTrue(AppRelaunch.awaitExit(of: identifier))
+            XCTAssertTrue(Self.hasExited(identifier), "the wait returned before the predecessor exited")
+            returned.fulfill()
+        }
+        await fulfillment(of: [waiting], timeout: failureBound)
+        try input.fileHandleForWriting.close()
+        await fulfillment(of: [returned], timeout: failureBound)
+        predecessor.waitUntilExit()
+        XCTAssertTrue(AppRelaunch.awaitExit(of: identifier))
+    }
+
+    private nonisolated static func hasExited(_ process: pid_t) -> Bool {
+        var info = siginfo_t()
+        guard waitid(P_PID, id_t(process), &info, WEXITED | WNOHANG | WNOWAIT) == 0 else { return errno == ECHILD }
+        return info.si_pid == process
+    }
+
+    func testStartupWithoutARelaunchArgumentDoesNotWait() {
+        AppRelaunch.awaitPredecessor(arguments: ["OmniWM"])
+        AppRelaunch.awaitPredecessor(arguments: ["OmniWM", AppRelaunch.argument])
+        AppRelaunch.awaitPredecessor(arguments: ["OmniWM", AppRelaunch.argument, "not-a-pid"])
+        AppRelaunch.awaitPredecessor(arguments: ["OmniWM", AppRelaunch.argument, "0"])
+        AppRelaunch.awaitPredecessor(arguments: ["OmniWM", AppRelaunch.argument, "-1"])
     }
 
     private final class Flag {

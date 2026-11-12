@@ -363,7 +363,10 @@ final class UpdateCoordinator: AppUpdateCoordinating {
             } catch {
                 guard !Task.isCancelled else { return }
                 windowController.close(markingActionHandled: true)
-                infoAlertPresenter(String(localized: "Could Not Install Update"), error.localizedDescription)
+                let title = installer.isInstalled(release)
+                    ? String(localized: "Could Not Relaunch OmniWM")
+                    : String(localized: "Could Not Install Update")
+                infoAlertPresenter(title, error.localizedDescription)
             }
         }
     }

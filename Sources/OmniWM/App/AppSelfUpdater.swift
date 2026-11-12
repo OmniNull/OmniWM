@@ -42,6 +42,7 @@ enum AppSelfUpdateError: LocalizedError {
     case missingApp
     case versionMismatch(String)
     case untrustedSignature(Int32)
+    case relaunchUnavailable(Int32)
 
     var errorDescription: String? {
         switch self {
@@ -63,6 +64,10 @@ enum AppSelfUpdateError: LocalizedError {
             return String(
                 localized: "The downloaded update is not signed and notarized like this copy of OmniWM (error \(status))."
             )
+        case let .relaunchUnavailable(status):
+            return String(
+                localized: "The update is installed, but OmniWM could not prepare to reopen (error \(status)). Quit OmniWM and open it again to finish."
+            )
         }
     }
 }
@@ -75,9 +80,8 @@ final class AppSelfUpdater: AppUpdateInstalling {
     private let processIdentifier: Int32
     private let opener: URL
     private let terminate: () -> Void
-    private(set) var relaunchSignal: FileHandle?
-    private(set) var relaunchHelper: Process?
-    private var relaunchObserver: NSObjectProtocol?
+    private(set) var relaunchObserver: NSObjectProtocol?
+    private(set) var suspendedRelaunch: pid_t = 0
 
     init(
         bundleURL: URL = Bundle.main.bundleURL,
@@ -129,42 +133,62 @@ final class AppSelfUpdater: AppUpdateInstalling {
     }
 
     func relaunch() throws {
-        if relaunchSignal == nil {
-            let script = """
-            read -r _ || exit 0
-            while kill -0 "$1" 2>/dev/null; do sleep 0.1; done
-            exec "$3" "$2"
-            """
-            let input = Pipe()
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/sh")
-            process.arguments = ["-c", script, "sh", String(processIdentifier), bundleURL.path, opener.path]
-            process.standardInput = input
-            try process.run()
-            relaunchHelper = process
-            relaunchSignal = input.fileHandleForWriting
+        suspendedRelaunch = try Self.spawnSuspended(
+            opener, arguments: ["-n", bundleURL.path, "--args", AppRelaunch.argument, String(processIdentifier)]
+        )
+        if relaunchObserver == nil {
             relaunchObserver = NotificationCenter.default.addObserver(
                 forName: NSApplication.willTerminateNotification, object: nil, queue: nil
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.confirmRelaunch() }
+                MainActor.assumeIsolated { self?.resumeRelaunch() }
             }
         }
         scheduleOnMainRunLoop { [self] in
             terminate()
-            disarmRelaunch()
+            abandonRelaunch()
         }
     }
 
-    func confirmRelaunch() {
-        try? relaunchSignal?.write(contentsOf: Data("\n".utf8))
+    func resumeRelaunch() {
+        guard suspendedRelaunch > 0 else { return }
+        kill(suspendedRelaunch, SIGCONT)
+        suspendedRelaunch = 0
     }
 
-    private func disarmRelaunch() {
+    private func abandonRelaunch() {
+        if suspendedRelaunch > 0 {
+            kill(suspendedRelaunch, SIGKILL)
+            var status: Int32 = 0
+            while waitpid(suspendedRelaunch, &status, 0) < 0, errno == EINTR {}
+            suspendedRelaunch = 0
+        }
         relaunchObserver.map(NotificationCenter.default.removeObserver)
         relaunchObserver = nil
-        try? relaunchSignal?.close()
-        relaunchSignal = nil
-        relaunchHelper = nil
+    }
+
+    private nonisolated static func spawnSuspended(_ executable: URL, arguments: [String]) throws -> pid_t {
+        func check(_ status: Int32) throws {
+            if status != 0 { throw AppSelfUpdateError.relaunchUnavailable(status) }
+        }
+        var attributes: posix_spawnattr_t?
+        try check(posix_spawnattr_init(&attributes))
+        defer { posix_spawnattr_destroy(&attributes) }
+        var hangup = sigset_t()
+        var unblocked = sigset_t()
+        sigemptyset(&hangup)
+        sigaddset(&hangup, SIGHUP)
+        sigemptyset(&unblocked)
+        try check(posix_spawnattr_setflags(&attributes, Int16(
+            POSIX_SPAWN_START_SUSPENDED | POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK
+        )))
+        try check(posix_spawnattr_setpgroup(&attributes, 0))
+        try check(posix_spawnattr_setsigdefault(&attributes, &hangup))
+        try check(posix_spawnattr_setsigmask(&attributes, &unblocked))
+        var pointers = ([executable.path] + arguments).map { strdup($0) } + [nil]
+        defer { pointers.forEach { free($0) } }
+        var child: pid_t = 0
+        try check(posix_spawn(&child, executable.path, nil, &attributes, &pointers, environ))
+        return child
     }
 
     private func download(_ archive: ReleaseArchive, into staging: URL) async throws -> URL {
@@ -263,5 +287,36 @@ final class AppSelfUpdater: AppUpdateInstalling {
 
     nonisolated static func notarized(_ designatedRequirement: String) -> String {
         "(\(designatedRequirement)) and notarized"
+    }
+}
+
+public enum AppRelaunch {
+    static let argument = "--relaunched-after"
+
+    public static func awaitPredecessor(arguments: [String] = CommandLine.arguments) {
+        guard let flag = arguments.firstIndex(of: argument), arguments.indices.contains(flag + 1),
+              let predecessor = pid_t(arguments[flag + 1]), predecessor > 0
+        else { return }
+        guard awaitExit(of: predecessor) else {
+            Log.diagnostics.error("OmniWM could not wait for the copy it replaced (pid \(predecessor)) to quit")
+            exit(EXIT_FAILURE)
+        }
+    }
+
+    static func awaitExit(of process: pid_t) -> Bool {
+        let queue = kqueue()
+        guard queue >= 0 else { return false }
+        defer { close(queue) }
+        var change = kevent(
+            ident: UInt(process), filter: Int16(EVFILT_PROC), flags: UInt16(EV_ADD | EV_ONESHOT),
+            fflags: NOTE_EXIT, data: 0, udata: nil
+        )
+        var event = kevent()
+        while true {
+            if kevent(queue, &change, 1, &event, 1, nil) > 0 {
+                return event.flags & UInt16(EV_ERROR) == 0 || event.data == Int(ESRCH)
+            }
+            if errno != EINTR { return errno == ESRCH }
+        }
     }
 }
