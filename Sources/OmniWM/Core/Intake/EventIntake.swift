@@ -360,15 +360,18 @@ final class EventIntake {
         return true
     }
 
-    nonisolated func removePendingMouseEvents() {
+    nonisolated func removePendingMouseEvents(includingButtons: Bool) {
         buffer.withLock { state in
-            state.hasPendingLeftMouseDown = false
+            if includingButtons {
+                state.hasPendingLeftMouseDown = false
+            }
             state.closeMouseCoalescingWindows()
             state.orderedEvents.removeAll { stamped in
                 switch stamped.event {
                 case .leftMouseDown,
-                     .leftMouseUp,
-                     .mouseDragged,
+                     .leftMouseUp:
+                    return includingButtons
+                case .mouseDragged,
                      .mouseMoved,
                      .mouseScroll:
                     return true

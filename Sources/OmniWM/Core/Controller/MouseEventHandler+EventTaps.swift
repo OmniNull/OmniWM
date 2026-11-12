@@ -84,9 +84,9 @@ extension MouseEventHandler {
             let timestamp = event.timestamp
             MainActor.assumeIsolated {
                 guard let handler = MouseEventHandler._instance else { return }
-                if handler.controller?.eventIntake.recordPendingLeftMouseDragTarget(
+                if handler.eventIntake.recordPendingLeftMouseDragTarget(
                     at: location, windowId: windowId, timestamp: timestamp
-                ) == true { return }
+                ) { return }
                 handler.dispatchAnnotatedLeftMouseDragged(at: location, windowIdUnderPointer: windowId)
             }
         } else {

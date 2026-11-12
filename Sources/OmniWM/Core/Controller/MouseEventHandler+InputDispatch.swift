@@ -215,7 +215,7 @@ extension MouseEventHandler {
         }
         let blocked = shouldBlockOwnWindowInput(at: location)
         if blocked {
-            if queuedLeftPress == nil { dropPendingTapEvents() }
+            if queuedLeftPress == nil { dropPendingTapMovement() }
             if button == .left, !isInputSuppressed,
                state.nativeTitleBarDrag == nil,
                state.awaitsNativeTitleBarDragTarget,
@@ -293,7 +293,7 @@ extension MouseEventHandler {
         }
         if drainPendingEvents {
             if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
-                dropPendingTapEvents()
+                dropPendingTapMovement()
             } else {
                 flushQueuedTapEventsBeforeImmediateDispatch()
             }
@@ -409,7 +409,7 @@ extension MouseEventHandler {
         }
         guard shouldProcessGestureFrame(snapshot) else { return }
         if shouldBlockOwnWindowGestureInput(at: snapshot.location) {
-            dropPendingTapEvents()
+            dropPendingTapMovement()
         } else {
             flushQueuedTapEventsBeforeImmediateDispatch()
         }
@@ -435,11 +435,15 @@ extension MouseEventHandler {
     }
 
     func dropPendingTapEvents() {
-        controller?.eventIntake.removePendingMouseEvents()
+        eventIntake.removePendingMouseEvents(includingButtons: true)
+    }
+
+    private func dropPendingTapMovement() {
+        eventIntake.removePendingMouseEvents(includingButtons: false)
     }
 
     private func flushQueuedTapEventsBeforeImmediateDispatch() {
-        controller?.eventIntake.drainNow()
+        eventIntake.drainNow()
     }
 
     func dispatchQueuedMouseDragged(at location: CGPoint, button: MouseButton) {

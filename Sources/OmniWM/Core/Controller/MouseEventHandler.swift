@@ -9,6 +9,7 @@ final class MouseEventHandler {
     nonisolated(unsafe) weak static var _instance: MouseEventHandler?
 
     weak var controller: WMController?
+    let eventIntake: EventIntake
     let inputTapThread = InputTapThread()
     var state = MouseInputState() {
         didSet {
@@ -41,6 +42,7 @@ final class MouseEventHandler {
 
     init(controller: WMController) {
         self.controller = controller
+        eventIntake = controller.eventIntake
     }
 
     @discardableResult
@@ -96,7 +98,7 @@ final class MouseEventHandler {
         MouseEventHandler._instance = nil
         DiagnosticsEventRecorder.shared.recordLifecycle(name: "mouse.moveTap.removed")
         DiagnosticsEventRecorder.shared.recordLifecycle(name: "mouse.tap.removed")
-        controller?.eventIntake.removePendingMouseEvents()
+        eventIntake.removePendingMouseEvents(includingButtons: true)
         resetForMultitouchSourceReplacement()
     }
 

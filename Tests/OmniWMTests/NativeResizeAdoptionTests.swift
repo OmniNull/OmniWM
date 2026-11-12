@@ -497,9 +497,10 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let (left, right) = (fixture.tokens[0], fixture.tokens[1])
         let leftStart = try fixture.frame(left)
         let rightStart = try fixture.frame(right)
-        let observed = grown(leftStart, right: 140)
+        let delta: CGFloat = 140
+        let observed = grown(leftStart, right: delta)
         let press = CGPoint(x: leftStart.maxX - FrameTolerance.frameWrite, y: leftStart.midY)
-        let drag = CGPoint(x: press.x + 140, y: press.y)
+        let drag = CGPoint(x: press.x + delta, y: press.y)
         let reported = try XCTUnwrap(fixture.nativeFrames[left.windowId])
         let intake = fixture.controller.eventIntake
         intake.open(sink: fixture.controller.eventInterpreter)
@@ -525,6 +526,63 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
 
         XCTAssertEqual(try fixture.frame(left).width, observed.width, accuracy: FrameTolerance.frameWrite)
+    }
+
+    func testDwindleNativeResizeKeepsItsQueuedReleaseWhenABlockedRightPressArrives() async throws {
+        let fixture = try makeFixture(.dwindle, pid: 835_274)
+        let left = fixture.tokens[0]
+        let leftStart = try fixture.frame(left)
+        let delta: CGFloat = 140
+        let observed = grown(leftStart, right: delta)
+        let press = CGPoint(x: leftStart.maxX - FrameTolerance.frameWrite, y: leftStart.midY)
+        let drag = CGPoint(x: press.x + delta, y: press.y)
+        let reported = try XCTUnwrap(fixture.nativeFrames[left.windowId])
+        let intake = fixture.controller.eventIntake
+        intake.open(sink: fixture.controller.eventInterpreter)
+        defer { intake.close() }
+
+        fixture.handler.state.moveTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        MouseEventHandler._instance = fixture.handler
+        fixture.handler.syncTapFilterSnapshot()
+        let tap = fixture.handler.inputTapThread
+
+        tap.evaluateLeftMouseDown(at: press, modifiers: [], timestamp: 10, snapshot: tap.filterSnapshot) {
+            [left: ScreenCoordinateSpace.toWindowServer(rect: leftStart)]
+        }
+        reported.frame = observed
+        XCTAssertTrue(EventIntake.post(.mouseDragged(button: .left, location: drag)))
+        try fixture.annotatedDrag(windowId: left.windowId, at: drag, timestamp: 20)
+        intake.drainNow()
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+        fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(left.windowId))
+        XCTAssertNotNil(fixture.handler.state.nativeTitleBarDrag)
+
+        let ownedFrame = CGRect(x: -800, y: -800, width: 40, height: 40)
+        let surfaceId = "blocked-right-press-\(left.windowId)"
+        fixture.controller.ownedWindowRegistry.registerWindowNumber(
+            surfaceId: surfaceId,
+            policy: SurfacePolicy(
+                kind: .utility,
+                hitTestPolicy: .interactive,
+                capturePolicy: .included,
+                suppressesManagedFocusRecovery: true
+            ),
+            windowNumber: left.windowId + 10_000,
+            frameProvider: { ownedFrame },
+            visibilityProvider: { true }
+        )
+        defer { fixture.controller.ownedWindowRegistry.unregister(surfaceId: surfaceId) }
+        XCTAssertTrue(fixture.handler.shouldBlockOwnWindowInput(at: ownedFrame.center))
+
+        fixture.handler.pressedMouseButtonsProvider = { 0 }
+        XCTAssertTrue(EventIntake.post(.leftMouseUp(location: drag)))
+        XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: ownedFrame.center, modifiers: [], button: .right))
+        intake.drainNow()
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(firstWriteTarget(for: left)?.width, observed.width)
     }
 
     func testVisibilityChangeDiscardsPendingNativeResizePress() throws {

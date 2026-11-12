@@ -361,7 +361,7 @@ final class EventIntakeReplayTests: XCTestCase {
         intake.enqueue(.leftMouseDown(.init(location: .zero, modifiers: [], timestamp: 50, windowServerFrames: [:])))
         intake.enqueue(.leftMouseUp(location: .zero))
         XCTAssertTrue(intake.recordPendingLeftMouseDragTarget(at: .zero, windowId: 12, timestamp: 60))
-        intake.removePendingMouseEvents()
+        intake.removePendingMouseEvents(includingButtons: true)
         XCTAssertFalse(intake.recordPendingLeftMouseDragTarget(at: .zero, windowId: 12, timestamp: 60))
         intake.enqueue(.leftMouseDown(.init(location: .zero, modifiers: [], timestamp: 70, windowServerFrames: [:])))
         XCTAssertTrue(intake.recordPendingLeftMouseDragTarget(at: .zero, windowId: 24, timestamp: 80))
@@ -372,6 +372,31 @@ final class EventIntakeReplayTests: XCTestCase {
             return XCTFail("Expected the press received after cancellation")
         }
         XCTAssertEqual(later.dragTarget?.windowId, 24)
+    }
+
+    @MainActor
+    func testDroppingMouseMovementKeepsQueuedPressAndRelease() {
+        let intake = EventIntake()
+        let sink = RecordingSink()
+        intake.open(sink: sink)
+        defer { intake.close() }
+        let press = LeftMouseDownIntake(location: .zero, modifiers: [], timestamp: 10, windowServerFrames: [:])
+        let windowId = 12
+
+        intake.enqueue(.leftMouseDown(press))
+        intake.enqueue(.mouseDragged(button: .left, location: .zero))
+        intake.enqueue(.leftMouseUp(location: .zero))
+        intake.removePendingMouseEvents(includingButtons: false)
+        XCTAssertTrue(intake.recordPendingLeftMouseDragTarget(
+            at: .zero, windowId: windowId, timestamp: press.timestamp
+        ))
+        intake.drainNow()
+
+        guard sink.received.count == 2,
+              case let .leftMouseDown(kept) = sink.received[0].event,
+              case .leftMouseUp = sink.received[1].event
+        else { return XCTFail("Expected only the press and the release, got \(sink.received.map(\.event))") }
+        XCTAssertEqual(kept.dragTarget?.windowId, windowId)
     }
 
     @MainActor
