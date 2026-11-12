@@ -885,6 +885,50 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertEqual(pasteCount, 0)
     }
 
+    func testClipboardPasteIgnoresSecureInputWhenGuardIsOff() async {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        fixture.controller.settings.secureInputGuard = false
+        let copied = expectation(description: "Clipboard item copied")
+        let awaitingFocus = expectation(description: "Paste waits for target focus")
+        let app = NSRunningApplication.current
+        var frontmostApp: NSRunningApplication?
+        var readyExpectation: XCTestExpectation? = awaitingFocus
+        var pasteCount = 0
+        var environment = CommandPaletteEnvironment()
+        environment.runningApplication = { pid in pid == app.processIdentifier ? app : nil }
+        environment.frontmostApplication = {
+            readyExpectation?.fulfill()
+            readyExpectation = nil
+            return frontmostApp
+        }
+        environment.focusedWindowID = { _ in 42 }
+        environment.isOwnWindowKey = { false }
+        environment.focusedInputProcessIdentifier = { app.processIdentifier }
+        environment.copyClipboardItem = { _, _ in
+            copied.fulfill()
+            return true
+        }
+        environment.isSecureInputActive = { true }
+        environment.isAccessibilityTrusted = { true }
+        environment.isLockScreenActive = { _ in false }
+        environment.postPasteShortcut = {
+            pasteCount += 1
+            return true
+        }
+        let focusSession = CommandPaletteFocusSession(environment: environment)
+        let executor = CommandPaletteActionExecutor(environment: environment, focusSession: focusSession)
+        let focusTarget = CommandPaletteFocusTarget(app: .init(app: app), focusedWindow: nil, focusedWindowID: 42)
+        let pasteTarget = CommandPaletteClipboardPasteTarget(focusTarget: focusTarget, expectedWindowId: 42)
+
+        executor.perform(.pasteClipboard(fixture.controller, UUID(), pasteTarget, false))
+        await fulfillment(of: [copied, awaitingFocus], timeout: failureBound)
+        XCTAssertEqual(pasteCount, 0)
+        frontmostApp = app
+        executor.applicationActivated(pid: app.processIdentifier)
+        XCTAssertEqual(pasteCount, 1)
+    }
+
     func testPasteWithoutFormattingUsesPlainTextCopy() async {
         let fixture = CommandPaletteFocusFixture()
         defer { fixture.cleanup() }

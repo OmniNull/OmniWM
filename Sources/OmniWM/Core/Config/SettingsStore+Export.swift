@@ -41,6 +41,7 @@ extension SettingsStore {
             animationsEnabled: animationsEnabled,
             animationSpeed: animationSpeed,
             slideWorkspaceSwitches: slideWorkspaceSwitches,
+            secureInputGuard: secureInputGuard,
             language: language,
             launcher: launcher,
             commandPalette: commandPalette.export(),

@@ -90,6 +90,12 @@ struct HotkeySettingsView: View {
                     }
                 }
 
+                Toggle("Secure Input Guard", isOn: $settings.secureInputGuard)
+                    .id("Secure Input Guard")
+                SettingsCaption(localized:
+                    "While macOS Secure Input is on, keyboard modes don’t start and the command palette doesn’t paste. Turn off if an app holds Secure Input in the background. macOS still pauses shortcuts marked “Paused during Secure Input”."
+                )
+
                 LabeledContent("Defaults") {
                     Button("Reset to Defaults", role: .destructive) {
                         confirmsResetToDefaults = true

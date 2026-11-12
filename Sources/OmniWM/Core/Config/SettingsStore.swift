@@ -171,6 +171,10 @@ final class SettingsStore {
         _slideWorkspaceSwitches
     }
 
+    var secureInputGuard = SettingsStore.defaultExport.secureInputGuard {
+        didSet { scheduleSave() }
+    }
+
     var language = SettingsStore.defaultExport.language {
         didSet { scheduleSave() }
     }
@@ -469,6 +473,7 @@ extension SettingsStore {
         animationsEnabled = export.animationsEnabled
         animationSpeed = export.animationSpeed
         slideWorkspaceSwitches = export.slideWorkspaceSwitches
+        secureInputGuard = export.secureInputGuard
         language = export.language
         clipboard.apply(export.clipboard)
         launcher = export.launcher
