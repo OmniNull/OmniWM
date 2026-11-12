@@ -109,6 +109,7 @@ struct MouseInputState {
     var resizeLayout: LayoutType?
     var moveLayout: LayoutType?
     var awaitsNativeTitleBarDragTarget = false
+    var nativeTitleBarDragPressTimestamp: CGEventTimestamp?
     var nativeTitleBarDragFallbackToken: WindowToken?
     var nativeTitleBarDragFallbackReleased = false
     var nativeTitleBarDrag: NativeTitleBarDrag?

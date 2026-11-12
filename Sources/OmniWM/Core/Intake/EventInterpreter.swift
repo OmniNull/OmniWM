@@ -80,8 +80,11 @@ final class EventInterpreter: EventIntakeSink {
         case let .leftMouseDown(press):
             handler.receiveTapMouseDown(at: press.location, modifiers: press.modifiers, queuedLeftPress: press)
 
-        case let .leftMouseUp(location):
+        case let .leftMouseUp(location, receivedDragWithoutWindow):
             handler.receiveTapMouseUp(at: location, drainPendingEvents: false)
+            if receivedDragWithoutWindow {
+                handler.dispatchAnnotatedLeftMouseDragged(at: location, windowIdUnderPointer: nil)
+            }
 
         case let .mouseDragged(button, location):
             handler.dispatchQueuedMouseDragged(at: location, button: button)

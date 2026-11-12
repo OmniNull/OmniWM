@@ -84,8 +84,11 @@ extension MouseEventHandler {
             let timestamp = event.timestamp
             MainActor.assumeIsolated {
                 guard let handler = MouseEventHandler._instance else { return }
+                let activePressTimestamp = handler.state.awaitsNativeTitleBarDragTarget
+                    ? handler.state.nativeTitleBarDragPressTimestamp : nil
+                if let activePressTimestamp, timestamp < activePressTimestamp { return }
                 if handler.eventIntake.recordPendingLeftMouseDragTarget(
-                    at: location, windowId: windowId, timestamp: timestamp
+                    at: location, windowId: windowId, timestamp: timestamp, hasActivePress: activePressTimestamp != nil
                 ) { return }
                 handler.dispatchAnnotatedLeftMouseDragged(at: location, windowIdUnderPointer: windowId)
             }
