@@ -148,7 +148,7 @@ struct AppThemeEngine: Sendable {
         let text = try AppThemeTemplate.render(templateText(source), palette: job.palette, dark: dark)
         let url = try policy.destination(for: output.path)
         let display = policy.display(url)
-        let before = AppThemeFileWriter.read(url)
+        let before = try AppThemeFileWriter.read(url)
         guard let keys = output.table else {
             return Rendered(
                 url: url,

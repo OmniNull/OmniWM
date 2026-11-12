@@ -240,6 +240,17 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(run(targets([.kitty]), takeOver: [path]).results["kitty"]?.outcome, .updated)
     }
 
+    func testAnUnreadableExistingFileIsNeverReplaced() throws {
+        try sandbox.write("mine\n", to: ".config/kitty/dark-theme.auto.conf")
+        let path = sandbox.path(".config/kitty/dark-theme.auto.conf").path
+        try FileManager.default.setAttributes([.posixPermissions: 0o200], ofItemAtPath: path)
+        let report = run(targets([.kitty]))
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+        XCTAssertEqual(report.results["kitty"]?.outcome, .failed)
+        XCTAssertEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), "mine\n")
+        XCTAssertTrue(fake.calls.isEmpty)
+    }
+
     func testAnInterruptedWriteIsRecognisedAsOmniWMsOwn() throws {
         _ = run(targets([.kitty]))
         let url = sandbox.path(".config/kitty/dark-theme.auto.conf")

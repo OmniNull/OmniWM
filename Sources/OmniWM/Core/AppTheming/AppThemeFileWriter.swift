@@ -14,8 +14,12 @@ enum AppThemeFileWriter {
         digest(Data(text.utf8))
     }
 
-    static func read(_ url: URL) -> Data? {
-        try? Data(contentsOf: url)
+    static func read(_ url: URL) throws -> Data? {
+        do {
+            return try Data(contentsOf: url)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        }
     }
 
     static func writeAtomically(_ data: Data, to url: URL) throws {
