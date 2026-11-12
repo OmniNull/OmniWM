@@ -29,12 +29,6 @@ final class SettingsStore {
     @ObservationIgnored private var lastEffectiveTrackpadAvailability: Bool?
     @ObservationIgnored private(set) var layoutConfigurationRevision: UInt64 = 0
 
-    var effectiveTrackpadGesturesEnabled: Bool {
-        gestures.scrollEnabled || gestures.workspaceSwipeEnabled ||
-            (gestures.overviewGestureEnabled && overview.enabled) ||
-            gestures.windowMoveEnabled || gestures.windowResizeEnabled
-    }
-
     var onIPCEnabledChanged: (@MainActor (Bool) -> Void)?
     var onSlideWorkspaceSwitchesChanged: (@MainActor () -> Void)?
     var onExternalSettingsReloaded: (@MainActor () -> Void)?
