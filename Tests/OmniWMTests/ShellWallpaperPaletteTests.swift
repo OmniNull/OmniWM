@@ -732,6 +732,35 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         )
     }
 
+    func testAnAerialUnderALiveWallpaperAppIsCapturedInsteadOfReadFromItsThumbnail() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let aerials = root.appendingPathComponent("aerials", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: aerials.appendingPathComponent("thumbnails"), withIntermediateDirectories: true
+        )
+        let thumbnail = aerials.appendingPathComponent("thumbnails/44166C39.png")
+        try writeWallpaper([Self.sunset], to: thumbnail, type: "public.png")
+        let desktop = CGWindowLevelForKey(.desktopWindow)
+        let system = window(7, level: desktop - 1)
+        let live = window(8, level: desktop + 1)
+        let store = try aerialStore("44166C39")
+        func still(_ windows: [[String: Any]]) -> ShellWallpaperPalette.StillWallpaper? {
+            ShellWallpaperPalette.stillWallpaper(
+                for: 999, frame: Self.screen, desktopImageURL: { _ in nil }, windows: { windows }, store: { store },
+                location: { _ in ("MAIN", "ACTIVE") }, aerials: aerials
+            )
+        }
+
+        XCTAssertEqual(still([system])?.url.standardizedFileURL, thumbnail.standardizedFileURL)
+        XCTAssertNil(still([live, system]), "a live wallpaper app in front of the Aerial is not its thumbnail")
+        let shown = ShellWallpaperPalette.screenImage(
+            for: 999, store: { store }, location: { _ in ("MAIN", "ACTIVE") }, aerials: aerials,
+            capture: { _ in Self.forest }, fallback: { _ in nil }
+        )
+        XCTAssertEqual(shown.map(palette(of:)), palette(of: Self.forest))
+    }
+
     func testAnAerialWithoutAThumbnailIsCapturedOrKeepsItsColorsButNeverReadsTheStaleFile() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }

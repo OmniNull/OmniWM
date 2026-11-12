@@ -149,12 +149,11 @@ extension ShellWallpaperPalette {
     }
 
     static func stillWallpaper(_ probe: StillProbe, store: Data?, aerials: URL = Self.aerials) -> StillWallpaper? {
-        guard let location = probe.location else { return nil }
+        guard let location = probe.location, probe.showsWallpaperWindow else { return nil }
         if case let .aerial(_, thumbnail?) = desktopChoice(store: store, location: location, aerials: aerials) {
             return stamp(thumbnail)
         }
-        guard let url = probe.url, probe.showsWallpaperWindow,
-              showsStillImage(url, store: store, location: location)
+        guard let url = probe.url, showsStillImage(url, store: store, location: location)
         else { return nil }
         return stamp(url)
     }
