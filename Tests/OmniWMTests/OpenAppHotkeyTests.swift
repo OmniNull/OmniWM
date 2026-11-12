@@ -134,10 +134,13 @@ final class OpenAppHotkeyTests: XCTestCase {
         )
     }
 
-    func testLauncherAppRowsRetainAssignedBindingsAfterEntryRemovalAndTOMLReload() throws {
+    func testRemovingTheLastLauncherEntryForAnAppClearsItsShortcutAcrossTOMLReload() throws {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let settings = makeSettings(root)
+        var environment = CommandPaletteEnvironment()
+        environment.confirmLauncherEntryRemoval = { _, _, reply in reply(true) }
+        let controller = makeController(root, environment: environment)
+        let settings = controller.settings
         let bundleID = try finderBundleID()
         let actionID = ActionCatalog.openAppPrefix + bundleID
         var changes: [String] = []
@@ -145,26 +148,36 @@ final class OpenAppHotkeyTests: XCTestCase {
         var finder = LauncherEntry()
         finder.kind = .application
         finder.path = finderURL.path
+        var otherFinder = LauncherEntry()
+        otherFinder.kind = .application
+        otherFinder.path = finderURL.path
         var command = LauncherEntry()
         command.command = "true"
 
-        settings.launcher.entries = [finder, command]
+        settings.launcher.entries = [finder, otherFinder, command]
         XCTAssertEqual(changes, [actionID])
         XCTAssertEqual(settings.hotkeyBindings.filter { $0.id.hasPrefix(ActionCatalog.openAppPrefix) }.map(\.id), [
             actionID
         ])
         settings.updateTrigger(for: actionID, newTrigger: chord)
-        settings.launcher.entries = []
-        let retained = HotkeyBinding(id: actionID, command: .openApp(bundleID), trigger: chord)
-        XCTAssertEqual(settings.hotkeyBindings.first { $0.id == actionID }, retained)
+        settings.updateModeKey(for: actionID, newModeKey: KeyBinding(keyCode: UInt32(kVK_ANSI_F), modifiers: 0))
+        let assigned = try XCTUnwrap(settings.hotkeyBindings.first { $0.id == actionID })
+
+        controller.commandPaletteController.removeLauncherEntry(finder.id, settings: settings)
+        XCTAssertEqual(settings.launcher.entries.map(\.id), [otherFinder.id, command.id])
+        XCTAssertEqual(settings.hotkeyBindings.first { $0.id == actionID }, assigned)
+
+        controller.commandPaletteController.removeLauncherEntry(otherFinder.id, settings: settings)
+        XCTAssertEqual(settings.launcher.entries.map(\.id), [command.id])
+        XCTAssertFalse(settings.hotkeyBindings.contains { $0.id == actionID })
+        XCTAssertEqual(changes, [actionID, actionID])
 
         settings.flushNow()
         let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
-        XCTAssertEqual(saved.hotkeyBindings.first { $0.id == actionID }, retained)
+        XCTAssertFalse(saved.hotkeyBindings.contains { $0.id == actionID })
         let reloaded = makeSettings(root)
         XCTAssertNil(reloaded.configNotice)
-        XCTAssertTrue(reloaded.launcher.entries.isEmpty)
-        XCTAssertEqual(reloaded.hotkeyBindings.first { $0.id == actionID }, retained)
+        XCTAssertFalse(reloaded.hotkeyBindings.contains { $0.id == actionID })
     }
 
     func testConfigureShortcutReconcilesAnApplicationInstalledAfterItsEntryWasSaved() throws {
