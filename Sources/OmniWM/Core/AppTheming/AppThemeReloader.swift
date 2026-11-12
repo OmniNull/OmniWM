@@ -21,10 +21,10 @@ struct AppThemeReloader: Sendable {
 
     let environment: AppThemeEnvironment
 
-    func reload(_ action: AppThemeReloadAction) -> AppThemeReloadOutcome {
+    func reload(_ action: AppThemeReloadAction, newFiles: Bool = false) -> AppThemeReloadOutcome {
         switch action {
         case .ghostty: reloadGhostty()
-        case .kitty: reloadKitty()
+        case .kitty: reloadKitty(newFiles: newFiles)
         case let .herdr(savedMachines): reloadHerdr(savedMachines: savedMachines)
         case .neovim: reloadNeovim()
         }
@@ -52,11 +52,16 @@ struct AppThemeReloader: Sendable {
         return failure(String(localized: "Ghostty didn’t reload"), result)
     }
 
-    private func reloadKitty() -> AppThemeReloadOutcome {
+    private func reloadKitty(newFiles: Bool) -> AppThemeReloadOutcome {
         let result = environment.run("/usr/bin/pkill", ["-USR1", "-U", String(environment.userID), "-x", "kitty"], 3)
         switch result.status {
         case 0 where !result.timedOut:
-            return AppThemeReloadOutcome(succeeded: true, message: String(localized: "Reloaded kitty"))
+            return AppThemeReloadOutcome(
+                succeeded: true,
+                message: newFiles
+                    ? String(localized: "Reloaded kitty; kitty 0.49 or older uses new theme files after a restart")
+                    : String(localized: "Reloaded kitty")
+            )
         case 1 where !result.timedOut:
             return AppThemeReloadOutcome(
                 succeeded: true,

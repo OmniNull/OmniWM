@@ -105,6 +105,17 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("text = \"#4c4f69\""))
     }
 
+    func testNewKittyThemeFilesTellOlderKittyToRestart() throws {
+        let first = run(targets([.kitty]))
+        XCTAssertEqual(
+            first.results["kitty"]?.reload,
+            String(localized: "Reloaded kitty; kitty 0.49 or older uses new theme files after a restart")
+        )
+        let second = run(targets([.kitty]), palette: AppThemeFixtures.shifted("#000000"))
+        XCTAssertEqual(second.results["kitty"]?.outcome, .updated)
+        XCTAssertEqual(second.results["kitty"]?.reload, String(localized: "Reloaded kitty"))
+    }
+
     func testAReloadFailureDoesNotBlockOtherApps() throws {
         fake.responses["/usr/bin/osascript"] = AppThemeCommandResult(status: 1, output: "execution error: (-1743)")
         let report = run(targets([.ghostty, .kitty, .herdr]))

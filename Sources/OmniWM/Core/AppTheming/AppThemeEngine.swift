@@ -61,6 +61,7 @@ struct AppThemeEngine: Sendable {
         var report = AppThemeRunReport()
         var changed: [String: Bool] = [:]
         var claimed: [String: String] = [:]
+        var created: Set<String> = []
         for target in job.targets {
             do {
                 let paths = target.outputs.compactMap { try? policy.destination(for: $0.path).path }
@@ -73,8 +74,9 @@ struct AppThemeEngine: Sendable {
                 for path in paths {
                     claimed[path] = target.name
                 }
-                let names = try write(target, job: job, state: &state)
+                let (names, newFiles) = try write(target, job: job, state: &state)
                 changed[target.id] = !names.isEmpty
+                if newFiles { created.insert(target.id) }
                 report.results[target.id] = AppThemeResult(
                     date: now(),
                     outcome: names.isEmpty ? .unchanged : .updated,
@@ -108,7 +110,8 @@ struct AppThemeEngine: Sendable {
             guard needed else { continue }
             state.reloadPending.insert(target.id)
             try? store.save(state)
-            let outcome = AppThemeReloader(environment: environment).reload(action)
+            let outcome = AppThemeReloader(environment: environment)
+                .reload(action, newFiles: created.contains(target.id))
             if outcome.succeeded { state.reloadPending.remove(target.id) }
             report.results[target.id]?.reload = outcome.message
             report.results[target.id]?.reloadFailed = !outcome.succeeded
@@ -121,7 +124,11 @@ struct AppThemeEngine: Sendable {
         return report
     }
 
-    private func write(_ target: AppThemeTarget, job: AppThemeJob, state: inout AppThemeState) throws -> [String] {
+    private func write(
+        _ target: AppThemeTarget,
+        job: AppThemeJob,
+        state: inout AppThemeState
+    ) throws -> (names: [String], newFiles: Bool) {
         let rendered = try target.outputs.map { try render($0, job: job) }
         let conflicts = rendered.filter { item in
             guard item.before != item.after, let current = item.currentOwnedText else { return false }
@@ -151,7 +158,7 @@ struct AppThemeEngine: Sendable {
             try store.save(state)
             written.append(item.url.lastPathComponent)
         }
-        return written
+        return (written, rendered.contains { $0.before == nil })
     }
 
     func render(_ output: AppThemeOutput, job: AppThemeJob) throws -> Rendered {

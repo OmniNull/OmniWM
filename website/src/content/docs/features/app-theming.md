@@ -23,7 +23,7 @@ When the palette changes, OmniWM reloads Ghostty with its AppleScript `reload_co
 
 ## kitty
 
-Turning an app on reloads it once, even when its files already match. Turning on **kitty** writes `light-theme.auto.conf` and `dark-theme.auto.conf` to `~/.config/kitty/`. kitty 0.38 or newer reads these files automatically and switches between them with macOS appearance, so `kitty.conf` doesn't change. OmniWM reloads running kitty instances with `SIGUSR1` when the palette changes. If you already have these files, from `kitten themes` for example, OmniWM shows the change and keeps a backup before it replaces them.
+Turning an app on reloads it once, even when its files already match. Turning on **kitty** writes `light-theme.auto.conf` and `dark-theme.auto.conf` to `~/.config/kitty/`. kitty 0.38 or newer reads these files automatically and switches between them with macOS appearance, so `kitty.conf` doesn't change. OmniWM reloads running kitty instances with `SIGUSR1` when the palette changes. kitty 0.50 or newer also picks up these files on that reload the first time they appear; an older kitty that was already open when you turned kitty on uses them after a restart or at the next light and dark switch ([kitty's changelog](https://sw.kovidgoyal.net/kitty/changelog/)), and the row says so. If you already have these files, from `kitten themes` for example, OmniWM shows the change and keeps a backup before it replaces them.
 
 ## herdr
 
