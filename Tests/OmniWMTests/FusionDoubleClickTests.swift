@@ -463,6 +463,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
 
     func testDoubleClickingTheLeftEdgeStretchesItToTheScreenEdgeAndBack() throws {
         let fixture = try makeFixture(pid: 941_021)
+        try fixture.settleStripStart()
         let column = try fixture.column(fixture.tokens[1])
         let width = column.width
         let start = try fixture.frame(fixture.tokens[1])
@@ -1090,6 +1091,73 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         column.cachedWidth = 0
         fixture.controller.niriLayoutHandler.recordLayoutChange(since: start)
         fixture.relayout()
+    }
+
+    func testARightEdgeStretchFromACentredRowStillReachesThePeek() async throws {
+        let fixture = try await makeCentredRowFixture(pid: 941_160)
+        let (first, last) = (fixture.tokens[0], fixture.tokens[1])
+        let start = try fixture.frame(first)
+        let sides = centredRowSides(fixture)
+        XCTAssertGreaterThan(start.minX, sides.left + 100)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.rightEdge(first)))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(try fixture.frame(first).minX, sides.left, accuracy: 1)
+        XCTAssertEqual(try fixture.frame(first).maxX, sides.rightPeek, accuracy: 1)
+        XCTAssertEqual(try fixture.frame(last).minX, fixture.monitor.frame.maxX - sides.peek, accuracy: 1)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.rightEdge(first)))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(try fixture.frame(first).minX, start.minX, accuracy: 1)
+        XCTAssertEqual(try fixture.frame(first).width, start.width, accuracy: 1)
+    }
+
+    func testALeftEdgeStretchFromACentredRowStillReachesThePeek() async throws {
+        let fixture = try await makeCentredRowFixture(pid: 941_161, selecting: 1)
+        let (first, last) = (fixture.tokens[0], fixture.tokens[1])
+        let start = try fixture.frame(last)
+        let sides = centredRowSides(fixture)
+        XCTAssertLessThan(start.maxX, sides.right - 100)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.leftEdge(last)))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(try fixture.frame(last).maxX, sides.right, accuracy: 1)
+        XCTAssertEqual(try fixture.frame(last).minX, sides.leftPeek, accuracy: 1)
+        XCTAssertEqual(try fixture.frame(first).maxX, fixture.monitor.frame.minX + sides.peek, accuracy: 1)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.leftEdge(last)))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(try fixture.frame(last).maxX, start.maxX, accuracy: 1)
+        XCTAssertEqual(try fixture.frame(last).width, start.width, accuracy: 1)
+    }
+
+    private func makeCentredRowFixture(pid: pid_t, selecting index: Int = 0) async throws -> Fixture {
+        let fixture = try makeFixture(pid: pid, windowCount: 2)
+        let settings = fixture.controller.settings
+        settings.niri.alwaysCenterSingleColumn = true
+        settings.niri.centerFocusedColumn = .onOverflow
+        settings.niri.edgeGaps = false
+        settings.niri.edgePeekPercent = 2
+        fixture.controller.workspaceManager.applySettings()
+        fixture.controller.applyMacOSFusionSettings()
+        try fixture.select(fixture.tokens[index])
+        fixture.controller.layoutRefreshController.requestRelayout(reason: .workspaceConfigChanged)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        return fixture
+    }
+
+    private func centredRowSides(
+        _ fixture: Fixture
+    ) -> (left: CGFloat, right: CGFloat, leftPeek: CGFloat, rightPeek: CGFloat, peek: CGFloat) {
+        let frame = fixture.controller.niriWorkingFrame(for: fixture.monitor)
+        let display = fixture.monitor.frame
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
+        let peek = fixture.engine.edgePeekWidths(in: fixture.workspaceId)?.trailing ?? 0
+        return (frame.minX + gap, frame.maxX - gap, display.minX + peek + gap, display.maxX - peek - gap, peek)
     }
 
     private func makeFixture(pid: pid_t, windowCount: Int = 3, stackFirstTwo: Bool = false) throws -> Fixture {
