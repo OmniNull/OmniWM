@@ -60,9 +60,14 @@ struct AppThemeStateStore: Sendable {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd-HHmmss-SSS"
-        let name = "\(formatter.string(from: date))-\(url.deletingLastPathComponent().lastPathComponent)-\(url.lastPathComponent)"
+        let source = "\(url.deletingLastPathComponent().lastPathComponent)-\(url.lastPathComponent)"
+        let name = "\(formatter.string(from: date))-\(UUID().uuidString)-\(source)"
         let destination = backupsDirectory.appendingPathComponent(name)
-        try AppThemeFileWriter.writeAtomically(data, to: destination, mode: 0o600)
+        try AppThemeFileWriter.writeAtomically(data, to: destination, mode: 0o600) {
+            guard try AppThemeFileWriter.read(destination) == nil else {
+                throw POSIXError(.EEXIST)
+            }
+        }
         pruneBackups()
         return destination
     }

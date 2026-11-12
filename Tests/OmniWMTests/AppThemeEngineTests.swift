@@ -831,6 +831,16 @@ final class AppThemeEngineTests: XCTestCase {
         )
     }
 
+    func testTwoBackupsMadeAtTheSameMomentAreBothKept() throws {
+        let url = sandbox.path(".config/kitty/kitty.conf")
+        let moment = Date(timeIntervalSince1970: 0)
+        let first = try sandbox.store.backup(Data("first\n".utf8), of: url, date: moment)
+        let second = try sandbox.store.backup(Data("second\n".utf8), of: url, date: moment)
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(try String(contentsOf: first, encoding: .utf8), "first\n")
+        XCTAssertEqual(try String(contentsOf: second, encoding: .utf8), "second\n")
+    }
+
     func testBackupsAreBounded() throws {
         let url = sandbox.path(".config/kitty/kitty.conf")
         let beyondTheLimit = 5
