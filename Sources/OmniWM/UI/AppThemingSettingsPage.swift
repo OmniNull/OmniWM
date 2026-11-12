@@ -185,7 +185,7 @@ struct AppThemingSettingsPage: View {
         case .ghostty: String(localized: "Light and dark themes · reloads Ghostty 1.2 or newer with SIGUSR2")
         case .kitty: String(localized: "Automatic light and dark themes · reloads kitty with SIGUSR1")
         case .herdr: String(
-                localized: "The [theme.custom] table of herdr’s config · reloads with herdr server reload-config"
+                localized: "The [theme.custom] table of herdr’s config · reloads herdr through its socket API"
             )
         case .neovim: String(
                 localized: "A base16 module for the current appearance · reloads Neovim with SIGUSR1"

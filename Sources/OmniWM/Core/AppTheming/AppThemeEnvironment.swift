@@ -78,7 +78,13 @@ struct AppThemeEnvironment: Sendable {
     var ghosttyApps: @Sendable () -> [AppThemeGhosttyApp]
     var processes: @Sendable (_ name: String) -> [pid_t]
     var signal: @Sendable (_ pid: pid_t, _ signal: Int32) -> Int32
+    var herdr: @Sendable (_ socket: String, _ method: String) -> AppThemeSocketReply
+    var variables: [String: String]
     var executable: @Sendable (_ name: String) -> String?
+
+    var home: URL {
+        URL(fileURLWithPath: variables["HOME"] ?? NSHomeDirectory(), isDirectory: true)
+    }
 
     static let searchFolders = ["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "~/.cargo/bin"]
 
@@ -91,6 +97,10 @@ struct AppThemeEnvironment: Sendable {
         signal: { pid, signal in
             kill(pid, signal) == 0 ? 0 : errno
         },
+        herdr: { socket, method in
+            AppThemeHerdrSocket.send(method, to: socket)
+        },
+        variables: ProcessInfo.processInfo.environment,
         executable: { name in
             let home = FileManager.default.homeDirectoryForCurrentUser.path
             return searchFolders

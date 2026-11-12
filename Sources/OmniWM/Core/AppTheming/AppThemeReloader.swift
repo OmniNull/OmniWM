@@ -9,6 +9,8 @@ struct AppThemeReloadOutcome: Equatable, Sendable {
 }
 
 struct AppThemeReloader: Sendable {
+    static let messageLimit = 200
+
     let environment: AppThemeEnvironment
 
     func reload(_ action: AppThemeReloadAction, newFiles: Bool = false) -> AppThemeReloadOutcome {
@@ -99,28 +101,65 @@ struct AppThemeReloader: Sendable {
     }
 
     private func reloadHerdr(savedMachines: Bool) -> AppThemeReloadOutcome {
-        guard let herdr = environment.executable("herdr") else {
-            return AppThemeReloadOutcome(
-                succeeded: false,
-                message: String(localized: "herdr wasn’t found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin")
+        let socket = AppThemeHerdrSocket.path(variables: environment.variables, home: environment.home)
+        var outcome = Self.herdrOutcome(environment.herdr(socket, "server.reload_config"))
+        guard savedMachines else { return outcome }
+        if let herdr = environment.executable("herdr") {
+            if let remote = reloadSavedMachines(herdr) { outcome.message += " · " + remote }
+        } else {
+            outcome.message += " · " + String(
+                localized: "saved machines need herdr in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin"
             )
         }
-        let local = environment.run(herdr, ["server", "reload-config"], 5)
-        let notRunning = local.output.contains("server_not_running") || local.output.contains("not running")
-        var outcome = if local.succeeded {
-            AppThemeReloadOutcome(succeeded: true, message: String(localized: "Reloaded herdr"))
-        } else if notRunning, !local.timedOut {
-            AppThemeReloadOutcome(
+        return outcome
+    }
+
+    static func herdrOutcome(_ reply: AppThemeSocketReply) -> AppThemeReloadOutcome {
+        let summary = String(localized: "herdr didn’t reload")
+        switch reply {
+        case .notRunning:
+            return AppThemeReloadOutcome(
                 succeeded: true,
                 message: String(localized: "herdr isn’t running; it uses the new colors when it starts")
             )
-        } else {
-            failure(String(localized: "herdr didn’t reload"), local)
+        case let .failed(problem):
+            return AppThemeReloadOutcome(succeeded: false, message: summary + ": " + problem)
+        case let .line(text):
+            struct Reply: Decodable {
+                struct Result: Decodable {
+                    let status: String?
+                    let diagnostics: [String]?
+                }
+
+                struct Failure: Decodable {
+                    let message: String?
+                }
+
+                let result: Result?
+                let error: Failure?
+            }
+            guard let reply = try? JSONDecoder().decode(Reply.self, from: Data(text.utf8)) else {
+                return AppThemeReloadOutcome(succeeded: false, message: summary + ": " + String(text.prefix(messageLimit)))
+            }
+            if let error = reply.error {
+                return AppThemeReloadOutcome(succeeded: false, message: summary + ": " + (error.message ?? ""))
+            }
+            let details = (reply.result?.diagnostics ?? []).joined(separator: "; ")
+            switch reply.result?.status {
+            case "applied":
+                return AppThemeReloadOutcome(succeeded: true, message: String(localized: "Reloaded herdr"))
+            case "partial":
+                return AppThemeReloadOutcome(
+                    succeeded: true,
+                    message: String(localized: "Reloaded herdr with warnings") + ": " + details
+                )
+            default:
+                return AppThemeReloadOutcome(
+                    succeeded: false,
+                    message: String(localized: "herdr couldn’t apply its config") + ": " + details
+                )
+            }
         }
-        if savedMachines, let remote = reloadSavedMachines(herdr) {
-            outcome.message += " · " + remote
-        }
-        return outcome
     }
 
     private func reloadSavedMachines(_ herdr: String) -> String? {
@@ -155,7 +194,7 @@ struct AppThemeReloader: Sendable {
         let detail = result.timedOut ? String(localized: "timed out") : result.output
         return AppThemeReloadOutcome(
             succeeded: false,
-            message: detail.isEmpty ? summary : "\(summary): \(detail.prefix(200))"
+            message: detail.isEmpty ? summary : "\(summary): \(detail.prefix(Self.messageLimit))"
         )
     }
 }

@@ -128,7 +128,7 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertNotNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
         XCTAssertNotNil(sandbox.read(".config/herdr/config.toml"))
         XCTAssertTrue(fake.signals.contains { $0.signal == SIGUSR1 })
-        XCTAssertTrue(fake.calls.contains { $0.arguments == ["server", "reload-config"] })
+        XCTAssertTrue(fake.events.contains("herdr server.reload_config"))
     }
 
     func testAForcedReloadRunsOnceEvenWhenNothingChanged() throws {
@@ -179,7 +179,7 @@ final class AppThemeEngineTests: XCTestCase {
         let report = run(targets([.herdr, .ghostty]))
         XCTAssertEqual(fake.events, [
             "signal \(AppThemeFakeEnvironment.ghosttyPID) \(SIGUSR2)",
-            "run /opt/homebrew/bin/herdr server reload-config",
+            "herdr server.reload_config",
             "run /opt/homebrew/bin/herdr machine list --json",
             "run /opt/homebrew/bin/herdr --machine netrunner server reload-config"
         ])
@@ -202,12 +202,12 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(report.results["ghostty"]?.outcome, .updated)
         XCTAssertEqual(report.results["herdr"]?.outcome, .unchanged)
         XCTAssertEqual(fake.events.dropFirst(events).map { $0.components(separatedBy: " ").last }, [
-            "\(SIGUSR2)", "reload-config", "--json", "reload-config"
+            "\(SIGUSR2)", "server.reload_config", "--json", "reload-config"
         ])
-        let before = fake.calls.count
+        let before = fake.events.count
         _ = run(targets([.herdr, .ghostty], machines: false))
-        XCTAssertFalse(fake.calls.dropFirst(before).contains { $0.arguments.contains("--machine") })
-        XCTAssertTrue(fake.calls.dropFirst(before).contains { $0.arguments == ["server", "reload-config"] })
+        XCTAssertFalse(fake.events.dropFirst(before).contains { $0.hasPrefix("run ") })
+        XCTAssertTrue(fake.events.dropFirst(before).contains("herdr server.reload_config"))
     }
 
     func testCommandOutputIsKeptWhole() {
@@ -221,10 +221,7 @@ final class AppThemeEngineTests: XCTestCase {
     }
 
     func testHerdrNotRunningIsFine() throws {
-        fake.responses["/opt/homebrew/bin/herdr server"] = AppThemeCommandResult(
-            status: 1,
-            output: "error: server_not_running"
-        )
+        fake.herdrReply = .notRunning
         let report = run(targets([.herdr], machines: false))
         XCTAssertEqual(report.results["herdr"]?.reloadFailed, false)
         XCTAssertTrue(sandbox.store.load().reloadPending.isEmpty)

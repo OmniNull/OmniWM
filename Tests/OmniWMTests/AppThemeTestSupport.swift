@@ -61,6 +61,15 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
     var processes: [String: [pid_t]] = ["kitty": [kittyPID], "nvim": [neovimPID]]
     var signalErrors: [pid_t: Int32] = [:]
     var executables: [String: String] = ["herdr": "/opt/homebrew/bin/herdr"]
+    var variables: [String: String] = ["HOME": "/Users/omniwm-test"]
+    var herdrReply = AppThemeSocketReply.line(
+        #"{"id":"omniwm:app-theming","result":{"type":"config_reload","status":"applied","diagnostics":[]}}"#
+    )
+    private var sockets: [String] = []
+
+    var herdrSockets: [String] {
+        lock.withLock { sockets }
+    }
 
     var calls: [Call] {
         lock.withLock { commands }
@@ -98,6 +107,14 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
                     return signalErrors[pid] ?? 0
                 }
             },
+            herdr: { [self] socket, method in
+                lock.withLock {
+                    sockets.append(socket)
+                    recorded.append("herdr \(method)")
+                    return herdrReply
+                }
+            },
+            variables: variables,
             executable: { [self] name in lock.withLock { executables[name] } }
         )
     }

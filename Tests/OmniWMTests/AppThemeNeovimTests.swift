@@ -128,7 +128,7 @@ final class AppThemeNeovimTests: XCTestCase {
             targets: settings.targets(configHome: sandbox.policy.configHome)
         ))
         XCTAssertEqual(fake.events.map { $0.components(separatedBy: " ").last }, [
-            "\(SIGUSR2)", "\(SIGUSR1)", "reload-config"
+            "\(SIGUSR2)", "\(SIGUSR1)", "server.reload_config"
         ])
         XCTAssertEqual(report.results["neovim"]?.outcome, .updated)
         XCTAssertNotNil(sandbox.read(".config/nvim/lua/omniwm.lua"))

@@ -145,3 +145,80 @@ extension AppThemeReloaderTests {
         XCTAssertFalse(AppThemeProcesses.list(named: name, realUserID: getuid() &+ 1).contains(pid))
     }
 }
+
+extension AppThemeReloaderTests {
+    private func reply(status: String, diagnostics: [String] = []) -> AppThemeSocketReply {
+        let list = diagnostics.map { "\"\($0)\"" }.joined(separator: ",")
+        return .line(
+            #"{"id":"omniwm:app-theming","result":{"type":"config_reload","status":""#
+                + status + #"","diagnostics":["# + list + "]}}"
+        )
+    }
+
+    func testHerdrsSocketIsFoundTheWayHerdrFindsIt() {
+        let home = URL(fileURLWithPath: "/Users/someone")
+        func path(_ variables: [String: String]) -> String {
+            AppThemeHerdrSocket.path(variables: variables, home: home)
+        }
+        XCTAssertEqual(path([:]), "/Users/someone/.config/herdr/herdr.sock")
+        XCTAssertEqual(
+            path(["HERDR_SOCKET_PATH": "/run/custom.sock", "HERDR_SESSION": "work"]),
+            "/run/custom.sock"
+        )
+        XCTAssertEqual(path(["HERDR_SESSION": "work"]), "/Users/someone/.config/herdr/sessions/work/herdr.sock")
+        XCTAssertEqual(path(["HERDR_SESSION": "default"]), "/Users/someone/.config/herdr/herdr.sock")
+        for invalid in ["", ".", "..", "../work", "a/b", "wörk", String(repeating: "a", count: AppThemeHerdrSocket.maximumSessionName + 1)] {
+            XCTAssertEqual(path(["HERDR_SESSION": invalid]), "/Users/someone/.config/herdr/herdr.sock", invalid)
+        }
+        XCTAssertEqual(path(["XDG_CONFIG_HOME": "/xdg", "HERDR_SESSION": "w-1.x_2"]), "/xdg/herdr/sessions/w-1.x_2/herdr.sock")
+    }
+
+    func testLocalHerdrIsReloadedThroughItsSocketAndNothingIsRun() {
+        fake.variables = ["HOME": "/Users/someone"]
+        let outcome = reload(.herdr(savedMachines: false))
+        XCTAssertTrue(outcome.succeeded)
+        XCTAssertEqual(outcome.message, String(localized: "Reloaded herdr"))
+        XCTAssertEqual(fake.events, ["herdr server.reload_config"])
+        XCTAssertEqual(fake.herdrSockets, ["/Users/someone/.config/herdr/herdr.sock"])
+        XCTAssertTrue(fake.calls.isEmpty)
+    }
+
+    func testHerdrNotRunningIsFine() {
+        fake.herdrReply = .notRunning
+        let outcome = reload(.herdr(savedMachines: false))
+        XCTAssertTrue(outcome.succeeded)
+        XCTAssertEqual(outcome.message, String(localized: "herdr isn’t running; it uses the new colors when it starts"))
+    }
+
+    func testHerdrsOwnReloadResultIsShown() {
+        fake.herdrReply = reply(status: "partial", diagnostics: ["unknown key theme.custom.foo"])
+        let partial = reload(.herdr(savedMachines: false))
+        XCTAssertTrue(partial.succeeded)
+        XCTAssertEqual(
+            partial.message,
+            String(localized: "Reloaded herdr with warnings") + ": unknown key theme.custom.foo"
+        )
+        fake.herdrReply = reply(status: "failed", diagnostics: ["config.toml: expected a string"])
+        let failed = reload(.herdr(savedMachines: false))
+        XCTAssertFalse(failed.succeeded)
+        XCTAssertEqual(
+            failed.message,
+            String(localized: "herdr couldn’t apply its config") + ": config.toml: expected a string"
+        )
+        fake.herdrReply = .line(#"{"id":"omniwm:app-theming","error":{"code":"denied","message":"not allowed"}}"#)
+        let refused = reload(.herdr(savedMachines: false))
+        XCTAssertFalse(refused.succeeded)
+        XCTAssertEqual(refused.message, String(localized: "herdr didn’t reload") + ": not allowed")
+        fake.herdrReply = .failed("timed out")
+        XCTAssertEqual(reload(.herdr(savedMachines: false)).message, String(localized: "herdr didn’t reload") + ": timed out")
+        fake.herdrReply = .line("not json")
+        XCTAssertFalse(reload(.herdr(savedMachines: false)).succeeded)
+    }
+
+    func testLocalHerdrNeedsNoHerdrCommand() {
+        fake.executables = [:]
+        let outcome = reload(.herdr(savedMachines: false))
+        XCTAssertTrue(outcome.succeeded)
+        XCTAssertTrue(fake.calls.isEmpty)
+    }
+}
