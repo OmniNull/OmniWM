@@ -411,6 +411,7 @@ extension MouseEventHandler {
         state.nativeResizeStart = nil
         state.nativeCrossDisplayMove = nil
         state.awaitsNativeTitleBarDragTarget = false
+        state.nativeTitleBarDragPressTimestamp = nil
         state.nativeTitleBarDragFallbackToken = nil
         state.nativeTitleBarDragFallbackReleased = false
         if var drag = state.nativeTitleBarDrag {

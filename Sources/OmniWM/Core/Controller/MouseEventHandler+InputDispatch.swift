@@ -235,8 +235,11 @@ extension MouseEventHandler {
             button: button,
             windowServerFramesAtMouseDown: queuedLeftPress?.windowServerFrames
         )
-        if !blocked, let target = queuedLeftPress?.dragTarget {
-            dispatchAnnotatedLeftMouseDragged(at: target.location, windowIdUnderPointer: target.windowId)
+        if !blocked, let queuedLeftPress, state.awaitsNativeTitleBarDragTarget {
+            state.nativeTitleBarDragPressTimestamp = queuedLeftPress.timestamp
+            if let target = queuedLeftPress.dragTarget {
+                dispatchAnnotatedLeftMouseDragged(at: target.location, windowIdUnderPointer: target.windowId)
+            }
         }
         return suppress
     }
