@@ -1341,7 +1341,7 @@ return require("./skin")({
     hiddenIndicator = function(item)
         local full = item.count > 0 and item.hidden == item.count
         return ui.stack{ align = "bottomLeading", dx = -1, dy = 1, w = 10, h = 10, radius = 5,
-            fill = full and "badge" or "surface", border = full and nil or "badge", borderWidth = 1,
+            fill = full and "badge" or "surface", border = if full then nil else "badge", borderWidth = 1,
             ui.symbol{ name = full and "eye.slash.fill" or "eye.slash", size = 6, weight = "bold",
                 color = full and "background" or "badge" } }
     end,

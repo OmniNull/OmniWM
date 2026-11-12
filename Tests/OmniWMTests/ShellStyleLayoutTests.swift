@@ -3791,6 +3791,33 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
+    func testWaylineHiddenIndicatorOutlinesOnlyPartlyHiddenApps() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        XCTAssertTrue(try ShellProfiles.select("wayline", in: shell))
+        let config = ShellConfig.resolve(shellDirectory: shell)
+        let widget = try makeWidget("workspaces", config: config, shell: shell)
+        let height = config.barOverride?.settings.height ?? SettingsExport.WorkspaceBar.defaults().height
+        let bar = fixture(config, height: height, vertical: false)
+        widget.render(bar)
+        let tree = widget.tree()
+        var outlines: [String: Color] = [:]
+        for (index, node) in tree.enumerated() where node.kind == .symbol {
+            let name = widget.text.string(node.content.text)
+            guard name.hasPrefix("eye.slash") else { continue }
+            let indicator = try XCTUnwrap(tree.indices.last { $0 < index && Int(tree[$0].subtreeEnd) > index })
+            XCTAssertNil(outlines.updateValue(tree[indicator].paint.stroke, forKey: name), name)
+        }
+        let apps = bar.workspaces.flatMap(\.windows).filter { $0.hidden > 0 }
+        XCTAssertEqual(Set(apps.map { $0.hidden == $0.count }), [true, false])
+        let full = try XCTUnwrap(outlines["eye.slash.fill"])
+        XCTAssertEqual(full.alpha, 0)
+        XCTAssertEqual(full.role, 0)
+        let partial = try XCTUnwrap(outlines["eye.slash"])
+        XCTAssertEqual(partial.role & 0xFF, UInt16(ShellRole.badge.rawValue + 1))
+    }
+
     func testSharedNocturneStatsKeepsUniformFrameInsets() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
