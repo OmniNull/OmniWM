@@ -540,7 +540,7 @@ Optional. When present, OmniWM sends the position and an explicit width and heig
 | `ghostty.enabled` | boolean | `false` | Writes `omniwm-light` and `omniwm-dark` to `ghostty/themes/` in your config folder and reloads Ghostty when the palette changes. |
 | `kitty.enabled` | boolean | `false` | Writes kitty's `light-theme.auto.conf` and `dark-theme.auto.conf` and reloads kitty with `SIGUSR1`. |
 | `herdr.enabled` | boolean | `false` | Keeps `[theme.custom]` in herdr's `config.toml` in step with the palette. Turn it on in Settings, which shows the change and makes a backup first; OmniWM won't change an existing herdr config it hasn't been allowed to. |
-| `herdr.reloadSavedMachines` | boolean | `true` | Also runs `herdr --machine <label> server reload-config` for every enabled saved machine. Custom templates with `reload = "herdr"` follow it too. |
+| `herdr.reloadSavedMachines` | boolean | `true` | Also runs `herdr --machine <label> server reload-config` for every enabled saved machine. Custom templates with `reload = "herdr"` follow it too. When it is off, OmniWM runs no herdr command; the local server always reloads through herdr's socket. |
 | `neovim.enabled` | boolean | `false` | Writes the `omniwm.lua` base16 module, with light and dark palettes chosen by Neovim's `background`, to `nvim/lua/` in your config folder, plus `nvim/colors/omniwm.lua`, and reloads running Neovim with `SIGUSR1`. See [Neovim](/features/app-theming/#neovim). |
 
 ### appTheming.custom
