@@ -129,6 +129,9 @@ struct AppThemeEngine: Sendable {
         if let path = paths.first(where: { claimed[$0] != nil }), let owner = claimed[path] {
             throw AppThemeEngineError.sharedOutput(path: policy.display(URL(fileURLWithPath: path)), owner: owner)
         }
+        if let path = paths.enumerated().first(where: { paths[..<$0.offset].contains($0.element) })?.element {
+            throw AppThemeEngineError.sharedOutput(path: policy.display(URL(fileURLWithPath: path)), owner: target.name)
+        }
         for path in paths {
             claimed[path] = target.name
         }

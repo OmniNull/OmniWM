@@ -433,6 +433,27 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(sandbox.read(".config/ghostty/config"), "theme = b\n")
     }
 
+    func testTwoOutputsOfOneAppCannotShareAFile() throws {
+        let themes = sandbox.path(".config/ghostty/themes")
+        try FileManager.default.createDirectory(at: themes, withIntermediateDirectories: true)
+        try sandbox.write("mine\n", to: ".config/ghostty/themes/shared")
+        for name in ["omniwm-light", "omniwm-dark"] {
+            try FileManager.default.createSymbolicLink(
+                at: themes.appendingPathComponent(name),
+                withDestinationURL: themes.appendingPathComponent("shared")
+            )
+        }
+        let shared = themes.appendingPathComponent("shared").path
+        let report = run(targets([.ghostty]), takeOver: [shared])
+        XCTAssertEqual(report.results["ghostty"]?.outcome, .failed)
+        XCTAssertEqual(
+            report.results["ghostty"]?.message,
+            AppThemeEngineError.sharedOutput(path: "~/.config/ghostty/themes/shared", owner: "Ghostty").localizedDescription
+        )
+        XCTAssertEqual(sandbox.read(".config/ghostty/themes/shared"), "mine\n")
+        XCTAssertTrue(fake.events.isEmpty)
+    }
+
     func testTwoAppsCannotShareAnOutputFile() throws {
         try sandbox.write("custom {{colors.background.default.hex}}\n", to: "templates/app.conf")
         try FileManager.default.createDirectory(at: sandbox.path(".config/kitty"), withIntermediateDirectories: true)
