@@ -115,20 +115,18 @@ extension NiriLayoutEngine {
         _ geometry: NiriShrinkToFitGeometry
     ) {
         guard !workspace.shrinkToFitColumnIds.isEmpty else { return }
+        let stored = workspace.shrinkToFitGeometry
         let manualCount = geometry.orientation == .horizontal
             ? workspace.manualWidthColumnCount
             : workspace.manualHeightColumnCount
-        guard manualCount != nil else {
-            workspace.shrinkToFitColumnIds.removeAll()
-            workspace.shrinkToFitGeometry = nil
-            return
-        }
-        guard workspace.shrinkToFitGeometry != geometry else { return }
-        for column in columns where workspace.shrinkToFitColumnIds.contains(column.id) {
-            column.invalidateCachedPrimarySpan(orientation: geometry.orientation)
-            switch geometry.orientation {
-            case .horizontal: column.fittedWidth = nil
-            case .vertical: column.fittedHeight = nil
+        if manualCount != nil, stored == geometry { return }
+        if let stored, manualCount != nil || stored.orientation != geometry.orientation {
+            for column in columns where workspace.shrinkToFitColumnIds.contains(column.id) {
+                column.invalidateCachedPrimarySpan(orientation: stored.orientation)
+                switch stored.orientation {
+                case .horizontal: column.fittedWidth = nil
+                case .vertical: column.fittedHeight = nil
+                }
             }
         }
         workspace.shrinkToFitColumnIds.removeAll()
