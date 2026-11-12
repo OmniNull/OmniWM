@@ -147,18 +147,22 @@ extension SettingsExport {
                     reload: app.reload(savedMachines: herdr.reloadSavedMachines)
                 )
             }
-            return builtIns + custom.filter(\.enabled).map(\.target)
+            return builtIns + custom.filter(\.enabled).map { $0.target(savedMachines: herdr.reloadSavedMachines) }
         }
     }
 }
 
 extension AppThemingCustom {
     var target: AppThemeTarget {
+        target(savedMachines: true)
+    }
+
+    func target(savedMachines: Bool) -> AppThemeTarget {
         let reloadAction: AppThemeReloadAction? = switch reload {
         case .none: nil
         case .ghostty: .ghostty
         case .kitty: .kitty
-        case .herdr: .herdr(savedMachines: true)
+        case .herdr: .herdr(savedMachines: savedMachines)
         }
         let dark = darkTemplate.flatMap { $0.isEmpty ? nil : AppThemeTemplateSource.file($0) }
         return AppThemeTarget(

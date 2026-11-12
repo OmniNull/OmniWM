@@ -14,6 +14,16 @@ final class AppThemingSettingsTests: XCTestCase {
         XCTAssertTrue(defaults.targets(configHome: URL(fileURLWithPath: "/Users/x/.config")).isEmpty)
     }
 
+    func testCustomHerdrReloadsFollowTheSavedMachinesSetting() {
+        var settings = SettingsExport.AppTheming()
+        settings.custom = [.init(name: "herdr", template: "~/t.conf", output: "~/.config/x/y.conf", reload: .herdr)]
+        let configHome = URL(fileURLWithPath: "/Users/x/.config")
+        settings.herdr.reloadSavedMachines = false
+        XCTAssertEqual(settings.targets(configHome: configHome).first?.reload, .herdr(savedMachines: false))
+        settings.herdr.reloadSavedMachines = true
+        XCTAssertEqual(settings.targets(configHome: configHome).first?.reload, .herdr(savedMachines: true))
+    }
+
     func testSettingsRoundTripThroughTOML() throws {
         var settings = SettingsExport.defaults()
         settings.appTheming.ghostty.enabled = true
