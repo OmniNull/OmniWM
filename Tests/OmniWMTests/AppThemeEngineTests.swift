@@ -238,13 +238,14 @@ final class AppThemeEngineTests: XCTestCase {
     }
 
     func testCommandOutputIsKeptWhole() {
+        let length = AppThemeReloader.messageLimit + 1
         let result = AppThemeProcessRunner.run(
             "/bin/sh",
-            ["-c", "head -c 10000 /dev/zero | tr '\\0' x"],
-            timeout: 10
+            ["-c", "head -c \(length) /dev/zero | tr '\\0' x"],
+            timeout: failureBound
         )
         XCTAssertTrue(result.succeeded)
-        XCTAssertEqual(result.output.count, 10000)
+        XCTAssertEqual(result.output.count, length)
     }
 
     func testACommandWhoseOutputDidNotFinishIsAFailure() {
