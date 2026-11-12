@@ -20,9 +20,8 @@ enum AppThemeHerdrSocket {
 
     static func path(variables: [String: String], home: URL) -> String {
         if let path = variables["HERDR_SOCKET_PATH"], !path.isEmpty { return path }
-        let config = variables["XDG_CONFIG_HOME"].map { URL(fileURLWithPath: $0, isDirectory: true) }
-            ?? home.appendingPathComponent(".config", isDirectory: true)
-        var folder = config.appendingPathComponent("herdr", isDirectory: true)
+        var folder = AppThemeOutputPolicy.configHome(environment: variables, home: home)
+            .appendingPathComponent("herdr", isDirectory: true)
         if let session = variables["HERDR_SESSION"], session != defaultSession, isValidSession(session) {
             folder = folder.appendingPathComponent("sessions", isDirectory: true)
                 .appendingPathComponent(session, isDirectory: true)

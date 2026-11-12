@@ -37,14 +37,8 @@ struct AppThemeOutputPolicy: Equatable, Sendable {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         home: URL = FileManager.default.homeDirectoryForCurrentUser
     ) -> AppThemeOutputPolicy {
-        func base(_ key: String, _ fallback: String) -> URL {
-            guard let value = environment[key], value.hasPrefix("/") else {
-                return home.appendingPathComponent(fallback, isDirectory: true)
-            }
-            return URL(fileURLWithPath: value, isDirectory: true)
-        }
-        let configHome = base("XDG_CONFIG_HOME", ".config")
-        let stateHome = base("XDG_STATE_HOME", ".local/state")
+        let configHome = base("XDG_CONFIG_HOME", ".config", environment: environment, home: home)
+        let stateHome = base("XDG_STATE_HOME", ".local/state", environment: environment, home: home)
         let roots = [
             configHome,
             home.appendingPathComponent(".config", isDirectory: true),
@@ -66,6 +60,17 @@ struct AppThemeOutputPolicy: Equatable, Sendable {
 
     var configHome: URL {
         allowedRoots[0]
+    }
+
+    static func configHome(environment: [String: String], home: URL) -> URL {
+        base("XDG_CONFIG_HOME", ".config", environment: environment, home: home)
+    }
+
+    private static func base(_ key: String, _ fallback: String, environment: [String: String], home: URL) -> URL {
+        guard let value = environment[key], value.hasPrefix("/") else {
+            return home.appendingPathComponent(fallback, isDirectory: true)
+        }
+        return URL(fileURLWithPath: value, isDirectory: true)
     }
 
     func expand(_ path: String) -> String {

@@ -241,6 +241,13 @@ extension AppThemeReloaderTests {
             path(["XDG_CONFIG_HOME": "/xdg", "HERDR_SESSION": "w-1.x_2"]),
             "/xdg/herdr/sessions/w-1.x_2/herdr.sock"
         )
+        for ignored in ["", "relative/config"] {
+            XCTAssertEqual(path(["XDG_CONFIG_HOME": ignored]), "/Users/someone/.config/herdr/herdr.sock", ignored)
+            XCTAssertEqual(
+                AppThemeOutputPolicy.live(environment: ["XDG_CONFIG_HOME": ignored], home: home).configHome.path,
+                "/Users/someone/.config"
+            )
+        }
     }
 
     func testLocalHerdrIsReloadedThroughItsSocketAndNothingIsRun() {
