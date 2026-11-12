@@ -184,7 +184,9 @@ extension NiriLayoutHandler {
         let pass = makeLayoutPass(snapshot: snapshot, engine: engine, monitor: monitor, motion: motion)
         let currentSelection = state.selectedNodeId
         pass.engine.setProjectionExclusions(snapshot.excludedTokens, in: pass.wsId)
-        let previousExclusions = laidOutExclusions.updateValue(snapshot.excludedTokens, forKey: pass.wsId)
+        let previousExclusions = controller?.settings.niri.macOSFusion == true
+            ? laidOutExclusions.updateValue(snapshot.excludedTokens, forKey: pass.wsId)
+            : laidOutExclusions.removeValue(forKey: pass.wsId)
         slideAroundExclusionChanges(from: previousExclusions, pass: pass, state: &state, snapshot: snapshot)
 
         let removal = processWindowRemovals(

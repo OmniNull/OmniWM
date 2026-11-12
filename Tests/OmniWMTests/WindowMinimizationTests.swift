@@ -503,6 +503,7 @@ final class WindowMinimizationTests: XCTestCase {
                 label
             )
             relayout(controller, workspaceId)
+            XCTAssertEqual(controller.niriLayoutHandler.laidOutExclusions[workspaceId] != nil, fusion, label)
             columns[2].animateMoveFrom(
                 displacement: CGPoint(x: 300, y: 0),
                 clock: engine.animationClock,

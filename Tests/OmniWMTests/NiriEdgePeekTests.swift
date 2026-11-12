@@ -281,6 +281,29 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertTrue(shown.hasWidthAnimationRunning)
     }
 
+    func testOnlyWithMacOSFusionIsAColumnHiddenOffScreenParked() {
+        for fusion in [false, true] {
+            let fixture = makeFixture(widths: [0.5, 0.5, 0.5, 0.5])
+            fixture.engine.edgePeekShare = nil
+            fixture.engine.finishesParkedWidthChanges = fusion
+            var result = LayoutResult(frames: [:], hiddenHandles: [:])
+            let monitor = HiddenPlacementMonitorContext(
+                id: .init(displayId: 95), frame: fixture.frame, visibleFrame: fixture.frame
+            )
+            fixture.engine.calculateLayoutInto(
+                result: &result, state: fixture.state, workspaceId: fixture.workspaceId,
+                geometry: NiriLayoutGeometry(
+                    workingArea: WorkingAreaContext(workingFrame: fixture.frame, viewFrame: fixture.frame, scale: 1),
+                    gaps: LayoutGaps(horizontal: fixture.gap, vertical: fixture.gap), orientation: .horizontal
+                ),
+                animationTime: 0, hiddenPlacementMonitor: monitor, hiddenPlacementMonitors: [monitor],
+                isSettled: true, recordsPresentationGeometry: true
+            )
+
+            XCTAssertEqual(fixture.column(3).isParked, fusion, "macOS Fusion \(fusion)")
+        }
+    }
+
     func testCyclingSizesNeverCoversAPeek() {
         for target in [0, 1, 3] {
             for forwards in [true, false] {

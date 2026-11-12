@@ -753,6 +753,15 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertTrue(fixture.engine.stripGlides.isEmpty)
     }
 
+    func testTurningMacOSFusionOffDropsAGlideNotedJustBefore() {
+        let fixture = makeFixture(widths: [0.25], activeIndex: 0)
+        fixture.engine.noteStripGlide(for: WindowToken(pid: 941, windowId: 99), from: .zero)
+
+        fixture.engine.applyMacOSFusion(.init(enabled: false, edgePeekShare: nil))
+
+        XCTAssertTrue(fixture.engine.stripGlides.isEmpty)
+    }
+
     func testAWindowDroppedOutOfAStackGrowsToItsFullHeightSmoothly() {
         var fixture = makeFixture()
         fixture.motion = .enabled

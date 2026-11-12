@@ -588,6 +588,9 @@ struct MacOSFusionConfiguration: Equatable {
 
 extension NiriLayoutEngine {
     func applyMacOSFusion(_ configuration: MacOSFusionConfiguration) {
+        if !configuration.enabled {
+            stripGlides.removeAll()
+        }
         tabbedColumnsFillHeight = configuration.enabled
         windowsFillColumnHeight = configuration.enabled
         keepsStripEndsOnScreen = configuration.enabled
@@ -596,5 +599,6 @@ extension NiriLayoutEngine {
         keepsWindowWidths = configuration.enabled
         edgePeekShare = configuration.edgePeekShare
         animatesLearnedMinimumWidths = configuration.enabled
+        finishesParkedWidthChanges = configuration.enabled
     }
 }

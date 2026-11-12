@@ -172,7 +172,9 @@ final class TabRailView: NSView {
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         guard let item = item(at: point) else { return }
-        dragGesture.press(visualIndex: item.visualIndex, at: NSEvent.mouseLocation)
+        if acceptsDrags() {
+            dragGesture.press(visualIndex: item.visualIndex, at: NSEvent.mouseLocation)
+        }
         onSelect?(item.visualIndex)
     }
 

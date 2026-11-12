@@ -1285,7 +1285,128 @@
       }
     },
     "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off." : {
-
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يحافظ macOS Fusion على العرض الخاص بكل نافذة، لذا لا تُطبَّق الحاويات المرئية إلا عند إيقاف macOS Fusion."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion bevarer hvert vindues egen bredde, så Synlige beholdere gælder kun, når macOS Fusion er slået fra."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion behält die eigene Breite jedes Fensters bei, daher gilt „Sichtbare Container“ nur, wenn macOS Fusion aus ist."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το macOS Fusion διατηρεί το πλάτος κάθε παραθύρου, οπότε τα Ορατά κοντέινερ ισχύουν μόνο όταν το macOS Fusion είναι απενεργοποιημένο."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion mantiene el ancho propio de cada ventana, así que Contenedores visibles solo se aplica con macOS Fusion desactivado."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion säilyttää jokaisen ikkunan oman leveyden, joten Näkyvät kontit on käytössä vain, kun macOS Fusion on pois päältä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion conserve la largeur propre de chaque fenêtre ; Conteneurs visibles ne s’applique donc que lorsque macOS Fusion est désactivé."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion שומר על הרוחב של כל חלון, ולכן מכלים גלויים חלים רק כש־macOS Fusion כבוי."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion हर विंडो की अपनी चौड़ाई बनाए रखता है, इसलिए दृश्य कंटेनर केवल macOS Fusion बंद होने पर लागू होते हैं।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion mantiene la larghezza propria di ogni finestra, quindi Contenitori visibili si applica solo con macOS Fusion disattivato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion は各ウインドウ自身の幅を保つため、可視コンテナは macOS Fusion がオフのときだけ適用されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion은 각 창의 고유 너비를 유지하므로 표시된 컨테이너는 macOS Fusion이 꺼져 있을 때만 적용됩니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion beholder hvert vindus egen bredde, så Synlige beholdere gjelder bare når macOS Fusion er av."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion behoudt de eigen breedte van elk venster, dus Zichtbare containers geldt alleen als macOS Fusion uit staat."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion zachowuje własną szerokość każdego okna, więc Widoczne kontenery działają tylko przy wyłączonym macOS Fusion."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion сохраняет собственную ширину каждого окна, поэтому «Видимые контейнеры» действуют только при выключенном macOS Fusion."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion zadržava sopstvenu širinu svakog prozora, pa Vidljivi kontejneri važe samo kada je macOS Fusion isključen."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion behåller varje fönsters egen bredd, så Synliga behållare gäller bara när macOS Fusion är av."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion зберігає власну ширину кожного вікна, тож «Видимі контейнери» діють лише з вимкненим macOS Fusion."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS Fusion 会保留每个窗口自身的宽度，因此可见容器仅在关闭 macOS Fusion 时生效。"
+          }
+        }
+      }
     },
     "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. A share of each display’s width; at 0%, peeking is off." : {
       "localizations" : {
@@ -4672,7 +4793,128 @@
       }
     },
     "Not enough room for these windows, so the change was undone." : {
-
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد مساحة كافية لهذه النوافذ، لذا تم التراجع عن التغيير."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der er ikke plads nok til disse vinduer, så ændringen blev fortrudt."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht genug Platz für diese Fenster, daher wurde die Änderung rückgängig gemacht."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δεν υπάρχει αρκετός χώρος για αυτά τα παράθυρα, οπότε η αλλαγή αναιρέθηκε."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay espacio suficiente para estas ventanas, así que se ha deshecho el cambio."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Näille ikkunoille ei ole tarpeeksi tilaa, joten muutos peruttiin."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas assez de place pour ces fenêtres, la modification a donc été annulée."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין מספיק מקום לחלונות האלה, ולכן השינוי בוטל."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इन विंडो के लिए पर्याप्त जगह नहीं है, इसलिए बदलाव पूर्ववत कर दिया गया।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spazio insufficiente per queste finestre, quindi la modifica è stata annullata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これらのウインドウを収める余地がないため、変更を取り消しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 창들을 위한 공간이 부족하여 변경 사항을 취소했습니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Det er ikke nok plass til disse vinduene, så endringen ble angret."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet genoeg ruimte voor deze vensters, dus de wijziging is ongedaan gemaakt."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Za mało miejsca na te okna, więc zmiana została cofnięta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недостаточно места для этих окон, поэтому изменение отменено."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nema dovoljno mesta za ove prozore, pa je promena poništena."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Det finns inte tillräckligt med plats för de här fönstren, så ändringen ångrades."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недостатньо місця для цих вікон, тож зміну скасовано."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些窗口没有足够的空间，因此已撤销该更改。"
+          }
+        }
+      }
     },
     "Not found" : {
       "extractionState" : "stale",

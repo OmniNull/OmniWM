@@ -13,13 +13,10 @@ class NiriWindow: NiriNode {
     var height: WeightedSize = .default {
         didSet {
             if oldValue != height {
-                heightRevision &+= 1
                 invalidateAxisSolveInputs()
             }
         }
     }
-
-    private(set) var heightRevision = 0
 
     var savedHeight: WeightedSize?
 
