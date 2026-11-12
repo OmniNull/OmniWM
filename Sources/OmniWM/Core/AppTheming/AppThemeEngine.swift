@@ -88,7 +88,13 @@ struct AppThemeEngine: Sendable {
         for target in job.targets where job.enabled.contains(target.id) {
             do {
                 try claim(target, in: &claimed, roots: roots)
-                let (names, newFiles) = try write(target, job: job, roots: roots, state: &state, backups: &report.backups)
+                let (names, newFiles) = try write(
+                    target,
+                    job: job,
+                    roots: roots,
+                    state: &state,
+                    backups: &report.backups
+                )
                 changed[target.id] = !names.isEmpty
                 if newFiles { created.insert(target.id) }
                 report.results[target.id] = AppThemeResult(
@@ -101,11 +107,7 @@ struct AppThemeEngine: Sendable {
             } catch is AppThemeCancelled {
                 continue
             } catch let AppThemeEngineError.changedOutsideOmniWM(paths) {
-                let approved = target.outputs.contains { output in
-                    (try? policy.destination(for: output.path, roots: roots)).map { job.takeOver[$0.path] != nil }
-                        ?? false
-                }
-                if approved { report.reviewAgain.append(target.id) }
+                if wasApproved(target, job: job, roots: roots) { report.reviewAgain.append(target.id) }
                 report.results[target.id] = AppThemeResult(
                     date: now(),
                     outcome: .conflict,
@@ -124,6 +126,12 @@ struct AppThemeEngine: Sendable {
         state.results.merge(report.results) { $1 }
         try? store.save(state)
         return report
+    }
+
+    private func wasApproved(_ target: AppThemeTarget, job: AppThemeJob, roots: AppThemeOutputPolicy.Roots) -> Bool {
+        target.outputs.contains { output in
+            (try? policy.destination(for: output.path, roots: roots)).map { job.takeOver[$0.path] != nil } ?? false
+        }
     }
 
     private func claim(

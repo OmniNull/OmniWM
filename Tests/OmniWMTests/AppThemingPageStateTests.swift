@@ -34,7 +34,10 @@ final class AppThemingPageStateTests: XCTestCase {
         worker.release()
         XCTAssertTrue(state.paths.isEmpty)
         hops.release()
-        XCTAssertEqual(state.paths["kitty"], ["~/.config/kitty/light-theme.auto.conf", "~/.config/kitty/dark-theme.auto.conf"])
+        XCTAssertEqual(
+            state.paths["kitty"],
+            ["~/.config/kitty/light-theme.auto.conf", "~/.config/kitty/dark-theme.auto.conf"]
+        )
         XCTAssertEqual(state.paths["herdr"], ["~/.config/herdr/config.toml"])
         XCTAssertEqual(state.ghosttyStatus, .notSelected)
         XCTAssertEqual(state.backupFolder, "~/.local/state/omniwm/app-theming/backups")
