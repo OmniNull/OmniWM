@@ -149,7 +149,7 @@ final class AppThemeNeovimTests: XCTestCase {
         )
         XCTAssertEqual(sandbox.engine(fake).run(job).results["neovim"]?.outcome, .conflict)
         XCTAssertEqual(sandbox.read(".config/nvim/lua/omniwm.lua"), "return {}\n")
-        job.takeOver = [sandbox.path(".config/nvim/lua/omniwm.lua").path]
+        job.takeOver = [sandbox.path(".config/nvim/lua/omniwm.lua").path: AppThemeFileWriter.digest("return {}\n")]
         XCTAssertEqual(sandbox.engine(fake).run(job).results["neovim"]?.outcome, .updated)
     }
 

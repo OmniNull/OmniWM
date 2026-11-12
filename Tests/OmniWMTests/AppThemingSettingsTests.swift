@@ -190,6 +190,26 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testTakingOverAFileThatChangedSinceTheReviewIsRefused() async throws {
+        try sandbox.write("include mine.conf\n", to: ".config/kitty/dark-theme.auto.conf")
+        let settings = AppThemingSettings()
+        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { true }
+        settings.onValuesChange = { service.settingsDidChange() }
+        service.paletteDidChange(theme(background: .black))
+        let stale = try service.changes(for: service.target(for: .kitty), onlyExisting: true)
+        try sandbox.write("include newer.conf\n", to: ".config/kitty/dark-theme.auto.conf")
+        await waitForRun(service) { try? service.confirm(stale, enabling: .kitty) }
+        XCTAssertEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), "include newer.conf\n")
+        XCTAssertEqual(service.results["kitty"]?.outcome, .conflict)
+        XCTAssertNil(service.lastBackup)
+        let reviewed = try service.changes(for: service.target(for: .kitty), onlyExisting: true)
+        await waitForRun(service) { try? service.confirm(reviewed) }
+        XCTAssertEqual(service.results["kitty"]?.outcome, .updated)
+        let backup = try XCTUnwrap(service.lastBackup)
+        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), "include newer.conf\n")
+    }
+
+    @MainActor
     func testGhosttySelectionEditShowsTheLineAndBacksUp() throws {
         try sandbox.write("font-size = 14\ntheme = catppuccin\n", to: ".config/ghostty/config")
         let service = AppThemeService(settings: AppThemingSettings(), engine: sandbox.engine(fake)) { true }

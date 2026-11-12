@@ -29,7 +29,8 @@ extension AppThemeService {
                 url: rendered.url,
                 display: rendered.display,
                 before: rendered.before.map { String(decoding: $0, as: UTF8.self) },
-                after: String(decoding: rendered.after, as: UTF8.self)
+                after: String(decoding: rendered.after, as: UTF8.self),
+                beforeDigest: rendered.before.map { AppThemeFileWriter.digest($0) }
             )
         }
     }
@@ -40,10 +41,7 @@ extension AppThemeService {
         reloading targetID: String? = nil
     ) throws {
         for change in changes {
-            if let before = change.before {
-                lastBackup = try engine.store.backup(Data(before.utf8), of: change.url)
-            }
-            markTakeOver(change.url.path)
+            if let digest = change.beforeDigest { markTakeOver(change.url.path, reviewed: digest) }
         }
         if let targetID { markForceReload(targetID) }
         if let app, !settings.values.isEnabled(app) {

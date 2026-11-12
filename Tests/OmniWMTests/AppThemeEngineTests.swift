@@ -39,7 +39,9 @@ final class AppThemeEngineTests: XCTestCase {
             dark: dark,
             appearanceChanged: appearanceChanged,
             targets: targets,
-            takeOver: takeOver
+            takeOver: Dictionary(uniqueKeysWithValues: takeOver.map { path in
+                (path, AppThemeFileWriter.digest((try? Data(contentsOf: URL(fileURLWithPath: path))) ?? Data()))
+            })
         ))
     }
 
@@ -316,6 +318,17 @@ final class AppThemeEngineTests: XCTestCase {
         let second = run(all)
         XCTAssertEqual(second.results["kitty"]?.outcome, .unchanged)
         XCTAssertEqual(fake.calls.count, calls)
+    }
+
+    func testATakeoverBacksUpExactlyTheBytesItReplaces() throws {
+        try sandbox.write("include mine.conf\n", to: ".config/kitty/light-theme.auto.conf")
+        let path = sandbox.path(".config/kitty/light-theme.auto.conf").path
+        XCTAssertEqual(run(targets([.kitty]), takeOver: [path]).results["kitty"]?.outcome, .updated)
+        let folder = sandbox.store.backupsDirectory
+        let names = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+        XCTAssertEqual(names.count, 1)
+        let backup = try XCTUnwrap(names.first.map { folder.appendingPathComponent($0) })
+        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), "include mine.conf\n")
     }
 
     func testAnInterruptedWriteIsRecognisedAsOmniWMsOwn() throws {

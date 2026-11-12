@@ -65,7 +65,7 @@ struct AppThemeEngine: Sendable {
         for target in job.targets {
             do {
                 try claim(target, in: &claimed)
-                let (names, newFiles) = try write(target, job: job, state: &state)
+                let (names, newFiles) = try write(target, job: job, state: &state, backups: &report.backups)
                 changed[target.id] = !names.isEmpty
                 if newFiles { created.insert(target.id) }
                 report.results[target.id] = AppThemeResult(
@@ -138,14 +138,15 @@ struct AppThemeEngine: Sendable {
     private func write(
         _ target: AppThemeTarget,
         job: AppThemeJob,
-        state: inout AppThemeState
+        state: inout AppThemeState,
+        backups: inout [URL]
     ) throws -> (names: [String], newFiles: Bool) {
         let rendered = try target.outputs.map { try render($0, job: job) }
         let conflicts = rendered.filter { item in
             guard item.before != item.after, let current = item.currentOwnedText else { return false }
             let digest = AppThemeFileWriter.digest(current)
             let owned = state.owned[item.url.path] == digest || state.pending[item.url.path] == digest
-            return !owned && !job.takeOver.contains(item.url.path)
+            return !owned && !Self.isReviewed(item, job)
         }
         guard conflicts.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(conflicts.map(\.display)) }
         var written: [String] = []
@@ -160,6 +161,9 @@ struct AppThemeEngine: Sendable {
                 }
                 continue
             }
+            if let before = item.before, Self.isReviewed(item, job) {
+                backups.append(try store.backup(before, of: item.url, date: now()))
+            }
             state.pending[path] = digest
             if target.reload != nil { state.reloadPending.insert(target.id) }
             try store.save(state)
@@ -170,6 +174,11 @@ struct AppThemeEngine: Sendable {
             written.append(item.url.lastPathComponent)
         }
         return (written, rendered.contains { $0.before == nil })
+    }
+
+    private static func isReviewed(_ item: Rendered, _ job: AppThemeJob) -> Bool {
+        guard let before = item.before, let reviewed = job.takeOver[item.url.path] else { return false }
+        return AppThemeFileWriter.digest(before) == reviewed
     }
 
     func render(_ output: AppThemeOutput, job: AppThemeJob) throws -> Rendered {

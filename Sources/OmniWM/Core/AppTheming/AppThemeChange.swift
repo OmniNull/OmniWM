@@ -21,6 +21,7 @@ struct AppThemeChange: Equatable, Identifiable {
     let display: String
     let before: String?
     let after: String
+    var beforeDigest: String?
     var note: String?
 
     var id: String {

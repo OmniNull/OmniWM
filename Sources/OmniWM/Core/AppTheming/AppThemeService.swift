@@ -20,7 +20,7 @@ final class AppThemeService {
     @ObservationIgnored private let queue = DispatchQueue(label: "com.barut.OmniWM.app-theming", qos: .userInitiated)
     @ObservationIgnored private var rerun = false
     @ObservationIgnored private var appearanceChanged = false
-    @ObservationIgnored private var takeOver: Set<String> = []
+    @ObservationIgnored private var takeOver: [String: String] = [:]
     @ObservationIgnored private var forceReload: Set<String> = []
     @ObservationIgnored private var enabledTargets: Set<String> = []
     @ObservationIgnored private var paletteTerminalColors = AppThemeTerminalColors.palette
@@ -140,8 +140,8 @@ final class AppThemeService {
         schedule()
     }
 
-    func markTakeOver(_ path: String) {
-        takeOver.insert(path)
+    func markTakeOver(_ path: String, reviewed digest: String) {
+        takeOver[path] = digest
     }
 
     func markForceReload(_ targetID: String) {
@@ -170,7 +170,7 @@ final class AppThemeService {
             forceReload: forceReload
         )
         appearanceChanged = false
-        takeOver = []
+        takeOver = [:]
         forceReload = []
         appliedPalette = palette
         isRunning = true
@@ -183,6 +183,7 @@ final class AppThemeService {
 
     private func finish(_ report: AppThemeRunReport) {
         results.merge(report.results) { $1 }
+        if let backup = report.backups.last { lastBackup = backup }
         isRunning = false
         if report.ghosttyThemesChanged { onGhosttyThemesChanged?() }
         if rerun {

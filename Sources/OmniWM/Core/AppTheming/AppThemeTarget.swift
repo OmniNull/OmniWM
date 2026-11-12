@@ -74,11 +74,12 @@ struct AppThemeJob: Sendable {
     let dark: Bool
     let appearanceChanged: Bool
     let targets: [AppThemeTarget]
-    var takeOver: Set<String> = []
+    var takeOver: [String: String] = [:]
     var forceReload: Set<String> = []
 }
 
 struct AppThemeRunReport: Sendable {
     var results: [String: AppThemeResult] = [:]
     var ghosttyThemesChanged = false
+    var backups: [URL] = []
 }
