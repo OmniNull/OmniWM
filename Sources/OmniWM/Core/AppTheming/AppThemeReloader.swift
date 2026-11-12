@@ -197,14 +197,6 @@ struct AppThemeReloader: Sendable {
             return label
         }
     }
-
-    private func failure(_ summary: String, _ result: AppThemeCommandResult) -> AppThemeReloadOutcome {
-        let detail = result.timedOut ? String(localized: "timed out") : result.output
-        return AppThemeReloadOutcome(
-            succeeded: false,
-            message: detail.isEmpty ? summary : "\(summary): \(detail.prefix(Self.messageLimit))"
-        )
-    }
 }
 
 final class AppThemeLockedArray<Element: Sendable>: @unchecked Sendable {
