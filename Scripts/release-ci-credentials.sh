@@ -61,8 +61,12 @@ IDENTITY="${OMNIWM_RELEASE_SIGNING_IDENTITY:-Developer ID Application: Oliver Ni
 NOTARIZE_PROFILE="${OMNIWM_RELEASE_NOTARIZE_PROFILE:-OmniWM-Notarize}"
 CERT_PATH="$RUNNER_TEMP/developer-id.p12"
 NOTARY_KEY_PATH="$RUNNER_TEMP/AuthKey_${APPLE_NOTARY_KEY_ID}.p8"
+PROBE_PATH="$RUNNER_TEMP/omniwm-signing-probe"
+LEAF_PATH="$RUNNER_TEMP/omniwm-signing-leaf.pem"
+INTERMEDIATE="$(dirname "$0")/DeveloperIDG2CA.cer"
+SYSTEM_KEYCHAIN=/Library/Keychains/System.keychain
 
-trap 'rm -f "$CERT_PATH" "$NOTARY_KEY_PATH"' EXIT
+trap 'rm -f "$CERT_PATH" "$NOTARY_KEY_PATH" "$PROBE_PATH" "$LEAF_PATH"' EXIT
 
 umask 077
 printf '%s' "$APPLE_DEVELOPER_ID_CERT_P12_BASE64" | base64 --decode > "$CERT_PATH"
@@ -88,6 +92,11 @@ fi
   security list-keychains -d user
 } | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//' > "$STATE_FILE"
 
+INTERMEDIATE_SHA256="$(shasum -a 256 "$INTERMEDIATE" | cut -d ' ' -f 1 | tr '[:lower:]' '[:upper:]')"
+if ! security find-certificate -a -Z "$SYSTEM_KEYCHAIN" | grep -xF "SHA-256 hash: $INTERMEDIATE_SHA256" >/dev/null; then
+  sudo -n security add-certificates -k "$SYSTEM_KEYCHAIN" "$INTERMEDIATE"
+fi
+
 security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
 security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -98,7 +107,6 @@ security import "$CERT_PATH" \
   -t cert \
   -f pkcs12 \
   -k "$KEYCHAIN_PATH"
-security add-certificates -k "$KEYCHAIN_PATH" "$(dirname "$0")/DeveloperIDG2CA.cer"
 
 security list-keychains -d user -s "$KEYCHAIN_PATH"
 security default-keychain -s "$KEYCHAIN_PATH"
@@ -113,6 +121,17 @@ IDENTITIES="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
 if ! grep -qF -- "$IDENTITY" <<<"$IDENTITIES"; then
   echo "$SCRIPT_NAME: signing identity '$IDENTITY' not found in $KEYCHAIN_PATH; check OMNIWM_RELEASE_SIGNING_IDENTITY and the imported certificate" >&2
   security find-identity -p codesigning "$KEYCHAIN_PATH" >&2
+  exit 1
+fi
+
+cp /usr/bin/true "$PROBE_PATH"
+if ! codesign --force --sign "$IDENTITY" --timestamp=none "$PROBE_PATH"; then
+  echo "$SCRIPT_NAME: '$IDENTITY' cannot sign a test file; the checks below show whether its chain reaches Apple Root CA" >&2
+  set +e
+  security find-certificate -a -Z -c "Developer ID Certification Authority" >&2
+  security find-certificate -c "$IDENTITY" -p "$KEYCHAIN_PATH" > "$LEAF_PATH"
+  security verify-cert -p basic -L -v -c "$LEAF_PATH" >&2
+  security verify-cert -p basic -L -v -c "$LEAF_PATH" -c "$INTERMEDIATE" >&2
   exit 1
 fi
 

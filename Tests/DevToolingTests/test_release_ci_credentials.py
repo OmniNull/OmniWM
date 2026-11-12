@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -7,6 +8,9 @@ import unittest
 
 SCRIPT = Path(__file__).resolve().parents[2] / "Scripts" / "release-ci-credentials.sh"
 INTERMEDIATE = SCRIPT.parent / "DeveloperIDG2CA.cer"
+INTERMEDIATE_SHA256 = hashlib.sha256(INTERMEDIATE.read_bytes()).hexdigest().upper()
+OTHER_SYSTEM_CERT_SHA256 = "0" * len(INTERMEDIATE_SHA256)
+SYSTEM_KEYCHAIN = "/Library/Keychains/System.keychain"
 
 REQUIRED_VARS = [
     "APPLE_DEVELOPER_ID_CERT_P12_BASE64",
@@ -45,6 +49,10 @@ set -eu
 } >> "$OMNIWM_TEST_CMDLOG"
 if [ "${1:-}" = "find-identity" ] && [ -n "${OMNIWM_TEST_FAKE_IDENTITY:-}" ]; then
   printf '  1) 1234ABCDEF "%s"\n' "$OMNIWM_TEST_FAKE_IDENTITY"
+elif [ "${1:-}" = "find-certificate" ] && [ "${*: -1}" = "$OMNIWM_TEST_SYSTEM_KEYCHAIN" ]; then
+  for hash in $OMNIWM_TEST_SYSTEM_CERT_HASHES; do
+    printf 'SHA-256 hash: %s\n' "$hash"
+  done
 elif [ "${1:-}" = "default-keychain" ] && [ "${2:-}" = "-d" ]; then
   printf '    "%s"\n' "$OMNIWM_TEST_LOGIN_KEYCHAIN"
 elif [ "${1:-}" = "list-keychains" ] && [ "${2:-}" = "-d" ]; then
@@ -67,6 +75,27 @@ set -eu
 } >> "$OMNIWM_TEST_CMDLOG"
 """
 
+SUDO_STUB = r"""#!/bin/bash
+set -eu
+{
+  printf 'sudo'
+  for arg in "$@"; do printf '\t%s' "$arg"; done
+  printf '\n'
+} >> "$OMNIWM_TEST_CMDLOG"
+"""
+
+CODESIGN_STUB = r"""#!/bin/bash
+set -eu
+{
+  printf 'codesign'
+  for arg in "$@"; do printf '\t%s' "$arg"; done
+  printf '\n'
+} >> "$OMNIWM_TEST_CMDLOG"
+if [ -n "${OMNIWM_TEST_CODESIGN_FAILS:-}" ]; then
+  exit 1
+fi
+"""
+
 
 class ReleaseCICredentialsTests(unittest.TestCase):
     def setUp(self):
@@ -77,6 +106,8 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         self.tools.mkdir()
         self.write_command(self.tools / "security", SECURITY_STUB)
         self.write_command(self.tools / "xcrun", XCRUN_STUB)
+        self.write_command(self.tools / "sudo", SUDO_STUB)
+        self.write_command(self.tools / "codesign", CODESIGN_STUB)
         self.runner_temp = self.root / "runner-temp"
         self.runner_temp.mkdir()
         self.login_keychain = self.root / "login.keychain-db"
@@ -90,6 +121,8 @@ class ReleaseCICredentialsTests(unittest.TestCase):
             "OMNIWM_TEST_FAKE_IDENTITY": SIGNING_IDENTITY,
             "OMNIWM_TEST_LOGIN_KEYCHAIN": str(self.login_keychain),
             "OMNIWM_TEST_OTHER_KEYCHAIN": str(self.other_keychain),
+            "OMNIWM_TEST_SYSTEM_KEYCHAIN": SYSTEM_KEYCHAIN,
+            "OMNIWM_TEST_SYSTEM_CERT_HASHES": OTHER_SYSTEM_CERT_SHA256,
             "RUNNER_TEMP": str(self.runner_temp),
             "APPLE_DEVELOPER_ID_CERT_P12_BASE64": CERT_P12_BASE64,
             "APPLE_DEVELOPER_ID_CERT_PASSWORD": CERT_PASSWORD,
@@ -101,7 +134,12 @@ class ReleaseCICredentialsTests(unittest.TestCase):
 
     @staticmethod
     def clean_environ():
-        reserved = {*REQUIRED_VARS, "OMNIWM_TEST_CMDLOG", "OMNIWM_TEST_FAKE_IDENTITY"}
+        reserved = {
+            *REQUIRED_VARS,
+            "OMNIWM_TEST_CMDLOG",
+            "OMNIWM_TEST_FAKE_IDENTITY",
+            "OMNIWM_TEST_CODESIGN_FAILS",
+        }
         return {
             name: value
             for name, value in os.environ.items()
@@ -187,13 +225,15 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         self.assert_ordered(
             tokens,
             [
+                "find-certificate",
+                "sudo",
                 "create-keychain",
                 "import",
-                "add-certificates",
                 "list-keychains",
                 "default-keychain",
                 "set-key-partition-list",
                 "find-identity",
+                "codesign",
                 "notarytool",
             ],
         )
@@ -217,9 +257,24 @@ class ReleaseCICredentialsTests(unittest.TestCase):
 
         self.assertTrue(INTERMEDIATE.is_file())
         self.assertEqual(
-            commands[tokens.index("add-certificates")],
-            ["add-certificates", "-k", keychain, str(INTERMEDIATE)],
+            commands[tokens.index("sudo")],
+            ["sudo", "-n", "security", "add-certificates", "-k", SYSTEM_KEYCHAIN, str(INTERMEDIATE)],
         )
+        self.assertNotIn("add-certificates", tokens)
+
+        probe = commands[tokens.index("codesign")]
+        self.assertEqual(
+            probe,
+            [
+                "codesign",
+                "--force",
+                "--sign",
+                SIGNING_IDENTITY,
+                "--timestamp=none",
+                str(self.runner_temp / "omniwm-signing-probe"),
+            ],
+        )
+        self.assertNotIn("verify-cert", tokens)
 
         set_calls = [c for c in commands if c[:4] == ["list-keychains", "-d", "user", "-s"]]
         self.assertEqual(set_calls, [["list-keychains", "-d", "user", "-s", keychain]])
@@ -253,12 +308,49 @@ class ReleaseCICredentialsTests(unittest.TestCase):
         )
         self.assert_no_secrets(result)
 
+    def test_intermediate_already_in_system_keychain_is_not_added_again(self):
+        result = self.run_script(
+            overrides={
+                "OMNIWM_TEST_SYSTEM_CERT_HASHES": f"{OTHER_SYSTEM_CERT_SHA256} {INTERMEDIATE_SHA256}"
+            }
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(["find-certificate", "-a", "-Z", SYSTEM_KEYCHAIN], self.commands())
+        self.assertNotIn("sudo", self.first_tokens())
+        self.assertNotIn("add-certificates", self.first_tokens())
+
+    def test_identity_that_cannot_sign_fails_with_chain_checks_before_storing_credentials(self):
+        result = self.run_script(overrides={"OMNIWM_TEST_CODESIGN_FAILS": "1"})
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(SIGNING_IDENTITY, result.stderr)
+        leaf = str(self.runner_temp / "omniwm-signing-leaf.pem")
+        commands = self.commands()
+        self.assertIn(
+            ["find-certificate", "-c", SIGNING_IDENTITY, "-p", self.keychain_path()], commands
+        )
+        self.assertEqual(
+            [c for c in commands if c[0] == "verify-cert"],
+            [
+                ["verify-cert", "-p", "basic", "-L", "-v", "-c", leaf],
+                ["verify-cert", "-p", "basic", "-L", "-v", "-c", leaf, "-c", str(INTERMEDIATE)],
+            ],
+        )
+        self.assert_not_stored()
+        self.assertEqual(
+            sorted(p.name for p in self.runner_temp.iterdir()),
+            ["omniwm-release-keychain-state"],
+        )
+        self.assert_no_secrets(result)
+
     def test_absent_signing_identity_fails_before_storing_credentials(self):
         result = self.run_script(overrides={"OMNIWM_TEST_FAKE_IDENTITY": ""})
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("OMNIWM_RELEASE_SIGNING_IDENTITY", result.stderr)
         self.assertIn(["find-identity", "-p", "codesigning", self.keychain_path()], self.commands())
+        self.assertNotIn("codesign", self.first_tokens())
         self.assert_not_stored()
 
     def test_malformed_p8_fails_before_storing_credentials(self):
