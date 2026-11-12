@@ -113,7 +113,9 @@ struct AppThemeEngine: Sendable {
             report.results[target.id]?.reload = outcome.message
             report.results[target.id]?.reloadFailed = !outcome.succeeded
         }
-        report.ghosttyThemesChanged = job.targets.contains { $0.reload == .ghostty && changed[$0.id] == true }
+        report.ghosttyThemesChanged = job.targets.contains { target in
+            target.reload == .ghostty && (changed[target.id] == true || job.forceReload.contains(target.id))
+        }
         state.results.merge(report.results) { $1 }
         try? store.save(state)
         return report

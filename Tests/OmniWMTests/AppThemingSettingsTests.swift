@@ -288,6 +288,24 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testGhosttySelectionEditAlsoReloadsTheQuakeTerminal() async throws {
+        try sandbox.write("theme = catppuccin\n", to: ".config/ghostty/config")
+        let settings = AppThemingSettings()
+        settings.values.ghostty.enabled = true
+        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { true }
+        var quakeReloads = 0
+        service.onGhosttyThemesChanged = { quakeReloads += 1 }
+        await waitForRun(service) { service.paletteDidChange(theme(background: .black)) }
+        XCTAssertEqual(quakeReloads, 1)
+        let changes = service.ghosttySelectionChanges()
+        await waitForRun(service) { try? service.applyGhosttySelection(changes) }
+        XCTAssertEqual(service.results["ghostty"]?.outcome, .unchanged)
+        XCTAssertEqual(quakeReloads, 2)
+        await waitForRun(service) { service.applyNow() }
+        XCTAssertEqual(quakeReloads, 2)
+    }
+
+    @MainActor
     func testTurningAnAppOnReloadsItEvenWhenItsFilesAlreadyMatch() async throws {
         let configHome = sandbox.policy.configHome
         var enabled = SettingsExport.AppTheming()
