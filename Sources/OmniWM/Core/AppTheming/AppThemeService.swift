@@ -14,6 +14,7 @@ final class AppThemeService {
     private(set) var isDark: Bool
     private(set) var isRunning = false
     var lastBackup: URL?
+    private(set) var reviewAgain: String?
 
     @ObservationIgnored var onGhosttyThemesChanged: (() -> Void)?
     @ObservationIgnored var onRunFinished: (() -> Void)?
@@ -142,6 +143,10 @@ final class AppThemeService {
         schedule()
     }
 
+    func reviewShown() {
+        reviewAgain = nil
+    }
+
     func applyNow() {
         schedule()
     }
@@ -191,6 +196,7 @@ final class AppThemeService {
     private func finish(_ report: AppThemeRunReport) {
         results.merge(report.results) { $1 }
         if let backup = report.backups.last { lastBackup = backup }
+        if let target = report.reviewAgain.first { reviewAgain = target }
         isRunning = false
         if report.ghosttyThemesChanged { onGhosttyThemesChanged?() }
         if rerun {

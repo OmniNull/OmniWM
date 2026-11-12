@@ -102,4 +102,5 @@ struct AppThemeRunReport: Sendable {
     var results: [String: AppThemeResult] = [:]
     var ghosttyThemesChanged = false
     var backups: [URL] = []
+    var reviewAgain: [String] = []
 }

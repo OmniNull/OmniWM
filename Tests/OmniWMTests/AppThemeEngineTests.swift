@@ -324,6 +324,50 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: url), original)
     }
 
+    func testASaveMadeJustBeforeTheReplaceIsKept() throws {
+        _ = run(targets([.herdr], machines: false))
+        let path = sandbox.path(".config/herdr/config.toml")
+        let edited = try XCTUnwrap(sandbox.read(".config/herdr/config.toml")) + "\n[keys]\nprefix = \"ctrl+a\"\n"
+        var engine = sandbox.engine(fake)
+        engine.willReplace = { url in
+            guard url == path else { return }
+            try? Data(edited.utf8).write(to: url)
+        }
+        let events = fake.events.count
+        var dark = AppThemeFixtures.dark
+        dark[.accent] = AppThemeColor(hex: "#000001")
+        let report = engine.run(AppThemeJob(
+            palette: AppThemePalette(light: AppThemeFixtures.light, dark: dark),
+            dark: true,
+            appearanceChanged: false,
+            targets: targets([.herdr], machines: false)
+        ))
+        XCTAssertEqual(report.results["herdr"]?.outcome, .conflict)
+        XCTAssertEqual(sandbox.read(".config/herdr/config.toml"), edited)
+        XCTAssertEqual(fake.events.count, events)
+        XCTAssertNil(sandbox.store.load().pending[path.path])
+    }
+
+    func testAnApprovedFileThatChangesBeforeTheReplaceAsksForAnotherReview() throws {
+        try sandbox.write("include mine.conf\n", to: ".config/kitty/dark-theme.auto.conf")
+        let url = sandbox.path(".config/kitty/dark-theme.auto.conf")
+        var engine = sandbox.engine(fake)
+        engine.willReplace = { replaced in
+            guard replaced == url else { return }
+            try? Data("include newer.conf\n".utf8).write(to: replaced)
+        }
+        let report = engine.run(AppThemeJob(
+            palette: AppThemeFixtures.palette,
+            dark: true,
+            appearanceChanged: false,
+            targets: targets([.kitty]),
+            takeOver: [url.path: AppThemeFileWriter.digest(Data("include mine.conf\n".utf8))]
+        ))
+        XCTAssertEqual(report.results["kitty"]?.outcome, .conflict)
+        XCTAssertEqual(report.reviewAgain, ["kitty"])
+        XCTAssertEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), "include newer.conf\n")
+    }
+
     func testTwoAppsCannotShareAnOutputFile() throws {
         try sandbox.write("custom {{colors.background.default.hex}}\n", to: "templates/app.conf")
         try FileManager.default.createDirectory(at: sandbox.path(".config/kitty"), withIntermediateDirectories: true)

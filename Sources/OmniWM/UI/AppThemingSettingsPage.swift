@@ -81,6 +81,11 @@ struct AppThemingSettingsPage: View {
         .formStyle(.grouped)
         .onAppear { refreshGhosttySelection() }
         .onChange(of: service?.results) { _, _ in refreshGhosttySelection() }
+        .onChange(of: service?.reviewAgain) { _, target in
+            guard let target else { return }
+            service?.reviewShown()
+            reviewAgain(target)
+        }
         .sheet(item: $review) { review in
             AppThemingReviewSheet(review: review, backupFolder: backupFolder) { error in
                 problem = error
@@ -281,6 +286,15 @@ struct AppThemingSettingsPage: View {
             ) { [service] in service?.confirm(changes, reloading: target.id) }
         } catch {
             problem = error.localizedDescription
+        }
+    }
+
+    private func reviewAgain(_ targetID: String) {
+        let preview = preview
+        if let app = AppThemeBuiltIn(rawValue: targetID) {
+            reviewConflict(preview.target(for: app))
+        } else if let custom = settings.appTheming.values.custom.first(where: { $0.targetID == targetID }) {
+            reviewConflict(preview.target(for: custom))
         }
     }
 

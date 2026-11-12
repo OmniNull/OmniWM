@@ -30,6 +30,7 @@ struct AppThemeEngine: Sendable {
     let store: AppThemeStateStore
     let environment: AppThemeEnvironment
     var now: @Sendable () -> Date = { Date() }
+    var willReplace: @Sendable (URL) -> Void = { _ in }
 
     static var live: AppThemeEngine {
         AppThemeEngine(
@@ -87,6 +88,10 @@ struct AppThemeEngine: Sendable {
                         : String(localized: "Wrote \(names.joined(separator: ", "))")
                 )
             } catch let AppThemeEngineError.changedOutsideOmniWM(paths) {
+                let approved = target.outputs.contains { output in
+                    (try? policy.destination(for: output.path)).map { job.takeOver[$0.path] != nil } ?? false
+                }
+                if approved { report.reviewAgain.append(target.id) }
                 report.results[target.id] = AppThemeResult(
                     date: now(),
                     outcome: .conflict,
@@ -181,12 +186,20 @@ struct AppThemeEngine: Sendable {
                 }
                 continue
             }
-            if let before = item.before, Self.isReviewed(item, job) {
-                backups.append(try store.backup(before, of: item.url, date: now()))
+            let backup = try item.before.flatMap { before in
+                Self.isReviewed(item, job) ? try store.backup(before, of: item.url, date: now()) : nil
             }
             state.pending[path] = digest
             if target.reload != nil { state.reloadPending.insert(target.id) }
             try store.save(state)
+            willReplace(item.url)
+            guard try AppThemeFileWriter.read(item.url) == item.before else {
+                if let backup { try? FileManager.default.removeItem(at: backup) }
+                state.pending[path] = nil
+                try store.save(state)
+                throw AppThemeEngineError.changedOutsideOmniWM([item.display])
+            }
+            if let backup { backups.append(backup) }
             try AppThemeFileWriter.writeAtomically(item.after, to: item.url)
             state.owned[path] = digest
             state.pending[path] = nil

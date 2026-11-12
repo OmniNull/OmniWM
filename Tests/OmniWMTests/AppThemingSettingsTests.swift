@@ -287,6 +287,23 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testAReviewedFileThatChangedSinceIsReviewedAgain() throws {
+        try sandbox.write("include mine.conf\n", to: ".config/kitty/dark-theme.auto.conf")
+        let settings = AppThemingSettings()
+        let service = sandbox.service(settings, fake) { true }
+        settings.onValuesChange = { service.settingsDidChange() }
+        service.paletteDidChange(theme(background: .black))
+        let stale = try service.changes(for: service.target(for: .kitty), onlyExisting: true)
+        try sandbox.write("include newer.conf\n", to: ".config/kitty/dark-theme.auto.conf")
+        service.confirm(stale, enabling: .kitty)
+        XCTAssertEqual(service.reviewAgain, "kitty")
+        service.reviewShown()
+        XCTAssertNil(service.reviewAgain)
+        service.applyNow()
+        XCTAssertNil(service.reviewAgain)
+    }
+
+    @MainActor
     func testGhosttySelectionEditShowsTheLineAndBacksUp() throws {
         try sandbox.write("font-size = 14\ntheme = catppuccin\n", to: ".config/ghostty/config")
         let service = sandbox.service(AppThemingSettings(), fake) { true }
