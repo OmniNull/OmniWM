@@ -6,6 +6,9 @@ import Foundation
 
 @MainActor @Observable
 final class AppThemeService {
+    typealias Perform = @Sendable (@escaping @Sendable () -> Void) -> Void
+    typealias Deliver = @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
+
     private(set) var results: [String: AppThemeResult]
     private(set) var theme: ShellTheme?
     private(set) var isDark: Bool
@@ -17,7 +20,8 @@ final class AppThemeService {
     @ObservationIgnored let settings: AppThemingSettings
     @ObservationIgnored let engine: AppThemeEngine
     @ObservationIgnored private let systemIsDark: @MainActor () -> Bool
-    @ObservationIgnored private let queue = DispatchQueue(label: "com.barut.OmniWM.app-theming", qos: .userInitiated)
+    @ObservationIgnored private let perform: Perform
+    @ObservationIgnored private let deliver: Deliver
     @ObservationIgnored private var rerun = false
     @ObservationIgnored private var appearanceChanged = false
     @ObservationIgnored private var takeOver: [String: String] = [:]
@@ -33,11 +37,15 @@ final class AppThemeService {
     init(
         settings: AppThemingSettings,
         engine: AppThemeEngine,
-        systemIsDark: @escaping @MainActor () -> Bool = AppThemeService.liveSystemIsDark
+        systemIsDark: @escaping @MainActor () -> Bool = AppThemeService.liveSystemIsDark,
+        perform: @escaping Perform = AppThemeService.performOnWorkerQueue,
+        deliver: @escaping Deliver = AppThemeService.deliverOnMain
     ) {
         self.settings = settings
         self.engine = engine
         self.systemIsDark = systemIsDark
+        self.perform = perform
+        self.deliver = deliver
         isDark = systemIsDark()
         paletteTerminalColors = settings.values.terminalColors
         enabledTargets = Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id))
@@ -61,6 +69,18 @@ final class AppThemeService {
                 environment: .live
             )
         )
+    }
+
+    private nonisolated static let queue = DispatchQueue(label: "com.barut.OmniWM.app-theming", qos: .userInitiated)
+
+    nonisolated static func performOnWorkerQueue(_ work: @escaping @Sendable () -> Void) {
+        queue.async(execute: work)
+    }
+
+    nonisolated static func deliverOnMain(_ work: @escaping @MainActor @Sendable () -> Void) {
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated(work)
+        }
     }
 
     static func liveSystemIsDark() -> Bool {
@@ -175,9 +195,10 @@ final class AppThemeService {
         appliedPalette = palette
         isRunning = true
         let engine = engine
-        queue.async { [weak self] in
+        let deliver = deliver
+        perform { [weak self] in
             let report = engine.run(job)
-            Task { @MainActor [weak self] in self?.finish(report) }
+            deliver { [weak self] in self?.finish(report) }
         }
     }
 

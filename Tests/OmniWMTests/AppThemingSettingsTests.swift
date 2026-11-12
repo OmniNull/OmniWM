@@ -138,51 +138,61 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
-    private func waitForRun(_ service: AppThemeService, _ body: () -> Void) async {
-        let finished = expectation(description: "run finished")
-        finished.assertForOverFulfill = false
-        service.onRunFinished = { if !service.isRunning { finished.fulfill() } }
-        body()
-        await fulfillment(of: [finished], timeout: 10)
-    }
-
-    @MainActor
-    func testPaletteChangeAppliesRightAwayAndKeepsTheLatestPalette() async throws {
+    func testPaletteChangeAppliesRightAwayAndKeepsTheLatestPalette() throws {
         let settings = AppThemingSettings()
         settings.values.kitty.enabled = true
         let dark = AppThemeTestFlag(true)
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { dark.value }
-        await waitForRun(service) {
-            service.paletteDidChange(theme(background: .black))
-            service.paletteDidChange(theme(background: NSColor(srgbRed: 0.1, green: 0.2, blue: 0.3, alpha: 1)))
-        }
+        let service = sandbox.service(settings, fake) { dark.value }
+        service.paletteDidChange(theme(background: .black))
+        service.paletteDidChange(theme(background: NSColor(srgbRed: 0.1, green: 0.2, blue: 0.3, alpha: 1)))
         XCTAssertTrue(sandbox.read(".config/kitty/dark-theme.auto.conf")?.contains("background #1a334d") == true)
         XCTAssertEqual(service.results["kitty"]?.outcome, .updated)
         dark.value = false
-        await waitForRun(service) { service.appearanceDidChange() }
+        service.appearanceDidChange()
         XCTAssertFalse(service.isDark)
     }
 
     @MainActor
+    func testARunGoesThroughTheWorkerAndComesBackThroughTheMainThreadHop() throws {
+        let settings = AppThemingSettings()
+        settings.values.kitty.enabled = true
+        let worker = AppThemeHeldWork()
+        let hops = AppThemeHeldHops()
+        let service = sandbox.service(settings, fake, perform: worker.perform, deliver: hops.deliver) { true }
+        service.paletteDidChange(theme(background: .black))
+        XCTAssertTrue(service.isRunning)
+        XCTAssertEqual(worker.count, 1)
+        XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
+        worker.release()
+        XCTAssertNotNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
+        XCTAssertTrue(service.isRunning)
+        XCTAssertNil(service.results["kitty"])
+        XCTAssertEqual(hops.count, 1)
+        hops.release()
+        XCTAssertFalse(service.isRunning)
+        XCTAssertEqual(service.results["kitty"]?.outcome, .updated)
+    }
+
+    @MainActor
     func testDisabledAppsAreNeverWritten() {
-        let service = AppThemeService(settings: AppThemingSettings(), engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(AppThemingSettings(), fake) { true }
         service.paletteDidChange(theme(background: .black))
         XCTAssertFalse(service.isRunning)
         XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
     }
 
     @MainActor
-    func testTurningOnAnAppWithAnExistingFileBacksItUpFirst() async throws {
+    func testTurningOnAnAppWithAnExistingFileBacksItUpFirst() throws {
         try sandbox.write("[keys]\nprefix = \"x\"\n", to: ".config/herdr/config.toml")
         let settings = AppThemingSettings()
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(settings, fake) { true }
         settings.onValuesChange = { service.settingsDidChange() }
         service.paletteDidChange(theme(background: .black))
         let changes = try service.changes(for: service.target(for: .herdr), onlyExisting: true)
         XCTAssertEqual(changes.count, 1)
         XCTAssertEqual(changes.first?.diff.filter { $0.kind == .removed }, [])
         XCTAssertTrue(changes.first?.diff.contains { $0.kind == .added && $0.text == "[theme.custom]" } == true)
-        await waitForRun(service) { try? service.confirm(changes, enabling: .herdr) }
+        try service.confirm(changes, enabling: .herdr)
         XCTAssertTrue(settings.values.herdr.enabled)
         XCTAssertEqual(service.results["herdr"]?.outcome, .updated)
         let backup = try XCTUnwrap(service.lastBackup)
@@ -190,20 +200,20 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
-    func testTakingOverAFileThatChangedSinceTheReviewIsRefused() async throws {
+    func testTakingOverAFileThatChangedSinceTheReviewIsRefused() throws {
         try sandbox.write("include mine.conf\n", to: ".config/kitty/dark-theme.auto.conf")
         let settings = AppThemingSettings()
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(settings, fake) { true }
         settings.onValuesChange = { service.settingsDidChange() }
         service.paletteDidChange(theme(background: .black))
         let stale = try service.changes(for: service.target(for: .kitty), onlyExisting: true)
         try sandbox.write("include newer.conf\n", to: ".config/kitty/dark-theme.auto.conf")
-        await waitForRun(service) { try? service.confirm(stale, enabling: .kitty) }
+        try service.confirm(stale, enabling: .kitty)
         XCTAssertEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), "include newer.conf\n")
         XCTAssertEqual(service.results["kitty"]?.outcome, .conflict)
         XCTAssertNil(service.lastBackup)
         let reviewed = try service.changes(for: service.target(for: .kitty), onlyExisting: true)
-        await waitForRun(service) { try? service.confirm(reviewed) }
+        try service.confirm(reviewed)
         XCTAssertEqual(service.results["kitty"]?.outcome, .updated)
         let backup = try XCTUnwrap(service.lastBackup)
         XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), "include newer.conf\n")
@@ -212,7 +222,7 @@ final class AppThemeServiceTests: XCTestCase {
     @MainActor
     func testGhosttySelectionEditShowsTheLineAndBacksUp() throws {
         try sandbox.write("font-size = 14\ntheme = catppuccin\n", to: ".config/ghostty/config")
-        let service = AppThemeService(settings: AppThemingSettings(), engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(AppThemingSettings(), fake) { true }
         XCTAssertEqual(service.ghosttySelectionStatus(), .notSelected)
         let changes = service.ghosttySelectionChanges()
         XCTAssertEqual(changes.map(\.display), ["~/.config/ghostty/config"])
@@ -239,7 +249,7 @@ final class AppThemeServiceTests: XCTestCase {
             "font-size = 13\ntheme = dark:omniwm-wallpaper-dark,light:omniwm-wallpaper-light\n",
             to: support
         )
-        let service = AppThemeService(settings: AppThemingSettings(), engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(AppThemingSettings(), fake) { true }
         XCTAssertEqual(service.ghosttySelectionStatus(), .overridden("~/\(support)"))
         let changes = service.ghosttySelectionChanges()
         XCTAssertEqual(changes.map(\.display), ["~/\(support)"])
@@ -271,7 +281,7 @@ final class AppThemeServiceTests: XCTestCase {
             sandbox.path("\(supportFolder)/config.ghostty").path,
             sandbox.path("\(supportFolder)/extra.conf").path
         ])
-        let service = AppThemeService(settings: AppThemingSettings(), engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(AppThemingSettings(), fake) { true }
         XCTAssertEqual(service.ghosttySelectionStatus(), .notSelected)
         let changes = service.ghosttySelectionChanges()
         XCTAssertEqual(changes.count, 4)
@@ -288,7 +298,7 @@ final class AppThemeServiceTests: XCTestCase {
         let support = "Library/Application Support/com.mitchellh.ghostty/config.ghostty"
         try sandbox.write("theme = a\n", to: ".config/ghostty/config")
         try sandbox.write("theme = b\n", to: support)
-        let service = AppThemeService(settings: AppThemingSettings(), engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(AppThemingSettings(), fake) { true }
         let changes = service.ghosttySelectionChanges()
         XCTAssertEqual(changes.count, 2)
         try sandbox.write("theme = c\n", to: support)
@@ -298,50 +308,50 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
-    func testGhosttySelectionEditReloadsGhosttyOnceWhenThemesAreUnchanged() async throws {
+    func testGhosttySelectionEditReloadsGhosttyOnceWhenThemesAreUnchanged() throws {
         fake.runningApps = [AppThemeReloader.ghosttyBundleIdentifier]
         try sandbox.write("theme = catppuccin\n", to: ".config/ghostty/config")
         let settings = AppThemingSettings()
         settings.values.ghostty.enabled = true
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(settings, fake) { true }
         settings.onValuesChange = { service.settingsDidChange() }
-        await waitForRun(service) { service.paletteDidChange(theme(background: .black)) }
+        service.paletteDidChange(theme(background: .black))
         let reloads = { self.fake.calls.filter { $0.executable == "/usr/bin/osascript" }.count }
         XCTAssertEqual(reloads(), 1)
         let changes = service.ghosttySelectionChanges()
         XCTAssertEqual(changes.count, 1)
-        await waitForRun(service) { try? service.applyGhosttySelection(changes) }
+        try service.applyGhosttySelection(changes)
         XCTAssertEqual(service.results["ghostty"]?.outcome, .unchanged)
         XCTAssertEqual(reloads(), 2)
-        await waitForRun(service) { service.applyNow() }
+        service.applyNow()
         XCTAssertEqual(reloads(), 2)
     }
 
     @MainActor
-    func testGhosttySelectionEditAlsoReloadsTheQuakeTerminal() async throws {
+    func testGhosttySelectionEditAlsoReloadsTheQuakeTerminal() throws {
         try sandbox.write("theme = catppuccin\n", to: ".config/ghostty/config")
         let settings = AppThemingSettings()
         settings.values.ghostty.enabled = true
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(settings, fake) { true }
         var quakeReloads = 0
         service.onGhosttyThemesChanged = { quakeReloads += 1 }
-        await waitForRun(service) { service.paletteDidChange(theme(background: .black)) }
+        service.paletteDidChange(theme(background: .black))
         XCTAssertEqual(quakeReloads, 1)
         let changes = service.ghosttySelectionChanges()
-        await waitForRun(service) { try? service.applyGhosttySelection(changes) }
+        try service.applyGhosttySelection(changes)
         XCTAssertEqual(service.results["ghostty"]?.outcome, .unchanged)
         XCTAssertEqual(quakeReloads, 2)
-        await waitForRun(service) { service.applyNow() }
+        service.applyNow()
         XCTAssertEqual(quakeReloads, 2)
     }
 
     @MainActor
-    func testTurningAnAppOnReloadsItEvenWhenItsFilesAlreadyMatch() async throws {
+    func testTurningAnAppOnReloadsItEvenWhenItsFilesAlreadyMatch() throws {
         let configHome = sandbox.policy.configHome
         var enabled = SettingsExport.AppTheming()
         enabled.kitty.enabled = true
         let settings = AppThemingSettings()
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(settings, fake) { true }
         settings.onValuesChange = { service.settingsDidChange() }
         service.paletteDidChange(theme(background: .black))
         let palette = try XCTUnwrap(service.palette)
@@ -350,28 +360,28 @@ final class AppThemeServiceTests: XCTestCase {
         ))
         let kills = { self.fake.calls.filter { $0.executable == "/usr/bin/pkill" }.count }
         XCTAssertEqual(kills(), 1)
-        await waitForRun(service) { settings.values.kitty.enabled = true }
+        settings.values.kitty.enabled = true
         XCTAssertEqual(service.results["kitty"]?.outcome, .unchanged)
         XCTAssertEqual(kills(), 2)
-        await waitForRun(service) { service.applyNow() }
+        service.applyNow()
         XCTAssertEqual(kills(), 2)
     }
 
     @MainActor
-    func testChangingTerminalColorsRedrawsThePreviewAndRewritesApps() async throws {
+    func testChangingTerminalColorsRedrawsThePreviewAndRewritesApps() throws {
         let settings = AppThemingSettings()
         settings.values.kitty.enabled = true
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(settings, fake) { true }
         settings.onValuesChange = { service.settingsDidChange() }
         var wallpaper = ShellTheme.native
         for (role, hex) in [(ShellRole.accent, "#4FD8EB"), (.background, "#0E1415"), (.foreground, "#DDE4E5")] {
             wallpaper.dark[role.rawValue] = NSColor(shellHex: hex)!
             wallpaper.light[role.rawValue] = NSColor(shellHex: hex)!
         }
-        await waitForRun(service) { service.paletteDidChange(wallpaper) }
+        service.paletteDidChange(wallpaper)
         let followed = try XCTUnwrap(service.palette).dark.ansi
         let before = sandbox.read(".config/kitty/dark-theme.auto.conf")
-        await waitForRun(service) { settings.values.terminalColors = .standard }
+        settings.values.terminalColors = .standard
         let standard = try XCTUnwrap(service.palette).dark.ansi
         XCTAssertNotEqual(followed, standard)
         XCTAssertEqual(standard, AppThemePalette(theme: wallpaper, terminalColors: .standard).dark.ansi)
@@ -390,42 +400,42 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
-    func testDarkEffectiveAppearanceWritesDarkColors() async throws {
+    func testDarkEffectiveAppearanceWritesDarkColors() throws {
         let saved = NSApplication.shared.appearance
         defer { NSApplication.shared.appearance = saved }
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
         let settings = AppThemingSettings()
         settings.values.herdr = .init(enabled: true, reloadSavedMachines: false)
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake))
+        let service = sandbox.service(settings, fake, systemIsDark: AppThemeService.liveSystemIsDark)
         XCTAssertTrue(service.isDark)
-        await waitForRun(service) { service.paletteDidChange(theme(background: .black)) }
+        service.paletteDidChange(theme(background: .black))
         let herdr = try XCTUnwrap(sandbox.read(".config/herdr/config.toml"))
         XCTAssertTrue(herdr.contains("from its dark palette"), herdr)
     }
 
     @MainActor
-    func testEveryPaletteRunReadsTheAppearanceFresh() async throws {
+    func testEveryPaletteRunReadsTheAppearanceFresh() throws {
         let saved = NSApplication.shared.appearance
         defer { NSApplication.shared.appearance = saved }
         NSApplication.shared.appearance = NSAppearance(named: .aqua)
         let settings = AppThemingSettings()
         settings.values.herdr = .init(enabled: true, reloadSavedMachines: false)
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake))
+        let service = sandbox.service(settings, fake, systemIsDark: AppThemeService.liveSystemIsDark)
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
-        await waitForRun(service) { service.paletteDidChange(theme(background: .black)) }
+        service.paletteDidChange(theme(background: .black))
         XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its dark palette"))
         NSApplication.shared.appearance = NSAppearance(named: .aqua)
-        await waitForRun(service) { service.paletteDidChange(theme(background: .darkGray)) }
+        service.paletteDidChange(theme(background: .darkGray))
         XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its light palette"))
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
-        await waitForRun(service) { service.paletteDidChange(theme(background: .black)) }
+        service.paletteDidChange(theme(background: .black))
         XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its dark palette"))
     }
 
     @MainActor
     func testAThemeChangeNotificationReReadsTheAppearanceOnTheNextTurn() async throws {
         let reads = AppThemeTestCounter()
-        let service = AppThemeService(settings: AppThemingSettings(), engine: sandbox.engine(fake)) {
+        let service = sandbox.service(AppThemingSettings(), fake) {
             reads.value += 1
             return reads.value >= 3
         }
@@ -443,7 +453,7 @@ final class AppThemeServiceTests: XCTestCase {
     func testWithTheShellOffTheRealThemeIsUsed() throws {
         let settings = AppThemingSettings()
         settings.values.kitty.enabled = true
-        let service = AppThemeService(settings: settings, engine: sandbox.engine(fake)) { true }
+        let service = sandbox.service(settings, fake) { true }
         let catppuccin = theme(background: NSColor(srgbRed: 0x11 / 255, green: 0x11 / 255, blue: 0x1B / 255, alpha: 1))
         var asked = 0
         service.useThemeWhileShellIsOff {

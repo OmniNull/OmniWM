@@ -3,6 +3,7 @@
 
 import Foundation
 @testable import OmniWM
+import os
 
 enum AppThemeFixtures {
     static func roles(_ values: [ShellRole: String]) -> [ShellRole: AppThemeColor] {
@@ -105,6 +106,23 @@ struct AppThemeSandbox {
         AppThemeEngine(policy: policy, store: store, environment: fake.environment)
     }
 
+    @MainActor
+    func service(
+        _ settings: AppThemingSettings,
+        _ fake: AppThemeFakeEnvironment,
+        perform: @escaping AppThemeService.Perform = { $0() },
+        deliver: @escaping AppThemeService.Deliver = { MainActor.assumeIsolated($0) },
+        systemIsDark: @escaping @MainActor () -> Bool
+    ) -> AppThemeService {
+        AppThemeService(
+            settings: settings,
+            engine: engine(fake),
+            systemIsDark: systemIsDark,
+            perform: perform,
+            deliver: deliver
+        )
+    }
+
     func remove() {
         try? FileManager.default.removeItem(at: root)
     }
@@ -122,4 +140,49 @@ final class AppThemeTestFlag {
 @MainActor
 final class AppThemeTestCounter {
     var value = 0
+}
+
+final class AppThemeHeldWork: Sendable {
+    private let held = OSAllocatedUnfairLock<[@Sendable () -> Void]>(initialState: [])
+
+    var count: Int {
+        held.withLock { $0.count }
+    }
+
+    func perform(_ work: @escaping @Sendable () -> Void) {
+        held.withLock { $0.append(work) }
+    }
+
+    func release() {
+        let work = held.withLock { held in
+            defer { held.removeAll() }
+            return held
+        }
+        for item in work {
+            item()
+        }
+    }
+}
+
+final class AppThemeHeldHops: Sendable {
+    private let held = OSAllocatedUnfairLock<[@MainActor @Sendable () -> Void]>(initialState: [])
+
+    var count: Int {
+        held.withLock { $0.count }
+    }
+
+    func deliver(_ work: @escaping @MainActor @Sendable () -> Void) {
+        held.withLock { $0.append(work) }
+    }
+
+    @MainActor
+    func release() {
+        let work = held.withLock { held in
+            defer { held.removeAll() }
+            return held
+        }
+        for item in work {
+            item()
+        }
+    }
 }
