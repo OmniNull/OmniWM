@@ -61,6 +61,7 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
     var processes: [String: [pid_t]] = ["kitty": [kittyPID], "nvim": [neovimPID]]
     var signalErrors: [pid_t: Int32] = [:]
     var executables: [String: String] = ["herdr": "/opt/homebrew/bin/herdr"]
+    var onEvent: (@Sendable (String) -> Void)?
     var variables: [String: String] = ["HOME": "/Users/omniwm-test"]
     var herdrReply = AppThemeSocketReply.line(
         #"{"id":"omniwm:app-theming","result":{"type":"config_reload","status":"applied","diagnostics":[]}}"#
@@ -87,12 +88,19 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
         ghostty = [AppThemeGhosttyApp(pid: Self.ghosttyPID, version: version)]
     }
 
+    private func announce(_ event: String) {
+        let hook = lock.withLock { onEvent }
+        hook?(event)
+    }
+
     var environment: AppThemeEnvironment {
         AppThemeEnvironment(
             run: { [self] executable, arguments, _ in
-                lock.withLock {
+                let event = (["run", executable] + arguments).joined(separator: " ")
+                defer { announce(event) }
+                return lock.withLock {
                     commands.append(Call(executable: executable, arguments: arguments))
-                    recorded.append((["run", executable] + arguments).joined(separator: " "))
+                    recorded.append(event)
                     let key = ([executable] + arguments).joined(separator: " ")
                     return responses.first { key.hasPrefix($0.key) }?.value
                         ?? AppThemeCommandResult(status: 0, output: "")
@@ -104,14 +112,17 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
             },
             signal: { [self] process, signal in
                 let pid = process.pid
+                let event = "signal \(pid) \(signal)"
+                defer { announce(event) }
                 return lock.withLock {
                     sent.append(Signal(pid: pid, signal: signal))
-                    recorded.append("signal \(pid) \(signal)")
+                    recorded.append(event)
                     return signalErrors[pid] ?? 0
                 }
             },
             herdr: { [self] socket, method in
-                lock.withLock {
+                defer { announce("herdr \(method)") }
+                return lock.withLock {
                     sockets.append(socket)
                     recorded.append("herdr \(method)")
                     return herdrReply

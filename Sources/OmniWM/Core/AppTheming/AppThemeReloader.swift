@@ -26,6 +26,7 @@ struct AppThemeReloader: Sendable {
     static let messageLimit = 200
 
     let environment: AppThemeEnvironment
+    var isCurrent: @Sendable () -> Bool = { true }
 
     func reload(_ action: AppThemeReloadAction, newFiles: Bool = false) -> AppThemeReloadOutcome {
         switch action {
@@ -119,7 +120,7 @@ struct AppThemeReloader: Sendable {
     private func reloadHerdr(savedMachines: Bool) -> AppThemeReloadOutcome {
         let socket = AppThemeHerdrSocket.path(variables: environment.variables, home: environment.home)
         var outcome = Self.herdrOutcome(environment.herdr(socket, "server.reload_config"))
-        guard savedMachines else { return outcome }
+        guard savedMachines, isCurrent() else { return outcome }
         if let herdr = environment.executable("herdr") {
             if let remote = reloadSavedMachines(herdr) { outcome.message += " · " + remote }
         } else {
@@ -172,9 +173,10 @@ struct AppThemeReloader: Sendable {
         let listing = environment.run(herdr, ["machine", "list", "--json"], 3)
         guard listing.succeeded else { return String(localized: "saved machines couldn’t be listed") }
         let labels = Self.enabledMachines(in: listing.output)
-        guard !labels.isEmpty else { return nil }
+        guard !labels.isEmpty, isCurrent() else { return nil }
         let results = AppThemeLockedArray<Bool>(count: labels.count, value: false)
         DispatchQueue.concurrentPerform(iterations: labels.count) { index in
+            guard isCurrent() else { return }
             let result = environment.run(herdr, ["--machine", labels[index], "server", "reload-config"], 5)
             results.set(index, result.succeeded)
         }

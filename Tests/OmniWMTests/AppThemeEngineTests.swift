@@ -448,6 +448,97 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(AppThemeSeen.leftovers(beside: url), [])
     }
 
+    private func ghosttyConfigEdit() throws -> AppThemeChange {
+        try sandbox.write("theme = a\n", to: ".config/ghostty/config")
+        return AppThemeChange(
+            url: sandbox.path(".config/ghostty/config"),
+            display: "~/.config/ghostty/config",
+            before: "theme = a\n",
+            after: "# theme = a\n",
+            beforeDigest: AppThemeFileWriter.digest(Data("theme = a\n".utf8))
+        )
+    }
+
+    private func gatedJob(_ apps: [AppThemeBuiltIn], enabled: AppThemeEnabledTargets) -> AppThemeJob {
+        var job = AppThemeJob(
+            palette: AppThemeFixtures.palette,
+            dark: true,
+            appearanceChanged: false,
+            targets: targets(apps, machines: true)
+        )
+        job.enabled = enabled
+        return job
+    }
+
+    func testAGhosttyConfigEditIsDroppedWhenGhosttyWasTurnedOffBeforeItsRun() throws {
+        var job = gatedJob([.ghostty, .kitty], enabled: AppThemeEnabledTargets(["kitty"]))
+        job.selection = try [ghosttyConfigEdit()]
+        _ = sandbox.engine(fake).run(job)
+        XCTAssertEqual(sandbox.read(".config/ghostty/config"), "theme = a\n")
+        XCTAssertNotNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
+    }
+
+    func testARunThatWaitedForTheLockAfterEverythingWasTurnedOffDoesNothing() throws {
+        let enabled = AppThemeEnabledTargets(["ghostty", "kitty"])
+        var job = gatedJob([.ghostty, .kitty], enabled: enabled)
+        job.selection = try [ghosttyConfigEdit()]
+        var engine = sandbox.engine(fake)
+        engine.willLock = { enabled.set([]) }
+        let report = engine.run(job)
+        XCTAssertTrue(report.results.isEmpty)
+        XCTAssertEqual(sandbox.read(".config/ghostty/config"), "theme = a\n")
+        XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sandbox.store.stateURL.path))
+        XCTAssertTrue(fake.events.isEmpty)
+    }
+
+    func testAnAppTurnedOffJustBeforeAReplaceIsNotReplaced() throws {
+        let enabled = AppThemeEnabledTargets(["kitty"])
+        var engine = sandbox.engine(fake)
+        engine.willReplace = { _ in enabled.set([]) }
+        let report = engine.run(gatedJob([.kitty], enabled: enabled))
+        XCTAssertNil(report.results["kitty"])
+        XCTAssertNil(sandbox.read(".config/kitty/light-theme.auto.conf"))
+        XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
+        XCTAssertTrue(fake.events.isEmpty)
+    }
+
+    func testAGhosttyConfigEditStopsWhenGhosttyIsTurnedOffJustBeforeTheReplace() throws {
+        let enabled = AppThemeEnabledTargets(["ghostty", "kitty"])
+        var job = gatedJob([.ghostty, .kitty], enabled: enabled)
+        job.selection = try [ghosttyConfigEdit()]
+        var engine = sandbox.engine(fake)
+        let config = sandbox.path(".config/ghostty/config")
+        engine.willReplace = { url in
+            if url == config { enabled.set(["kitty"]) }
+        }
+        _ = engine.run(job)
+        XCTAssertEqual(sandbox.read(".config/ghostty/config"), "theme = a\n")
+    }
+
+    func testReloadsStopForAnAppTurnedOffDuringAnEarlierReload() throws {
+        let enabled = AppThemeEnabledTargets(["kitty", "herdr"])
+        fake.onEvent = { event in
+            if event.hasPrefix("signal") { enabled.set(["kitty"]) }
+        }
+        let report = sandbox.engine(fake).run(gatedJob([.kitty, .herdr], enabled: enabled))
+        XCTAssertEqual(fake.events, ["signal \(AppThemeFakeEnvironment.kittyPID) \(SIGUSR1)"])
+        XCTAssertNil(report.results["herdr"]?.reload)
+    }
+
+    func testSavedMachinesStopWhenHerdrIsTurnedOffDuringItsReload() throws {
+        fake.responses["/opt/homebrew/bin/herdr machine list"] = AppThemeCommandResult(
+            status: 0,
+            output: #"[{"label":"netrunner","enabled":true}]"#
+        )
+        let enabled = AppThemeEnabledTargets(["herdr"])
+        fake.onEvent = { event in
+            if event.hasPrefix("herdr") { enabled.set([]) }
+        }
+        _ = sandbox.engine(fake).run(gatedJob([.herdr], enabled: enabled))
+        XCTAssertEqual(fake.events, ["herdr server.reload_config"])
+    }
+
     func testTwoOutputsOfOneAppCannotShareAFile() throws {
         let themes = sandbox.path(".config/ghostty/themes")
         try FileManager.default.createDirectory(at: themes, withIntermediateDirectories: true)
