@@ -44,7 +44,9 @@ extension WorkspaceSwipePresentation {
         let now = mediaTimeProvider()
         let flight = Flight(
             preparation: preparation, destination: destination,
-            axis: controller.settings.gestures.workspaceSwipeAxis,
+            axis: controller.workspaceManager.descriptor(for: sourceId)
+                .flatMap { controller.mouseEventHandler.workspaceSwipeAxis(for: $0, on: monitor) }
+                ?? controller.settings.gestures.workspaceSwipeAxis,
             cumulative: 1, isNext: isNext, timestamp: now, recognitionMovement: nil
         )
         flight.isKeyboard = true

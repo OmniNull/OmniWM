@@ -214,13 +214,7 @@ extension MouseEventHandler {
               let workspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)
         else { return nil }
         let layoutType = controller.settings.workspaces.layoutType(for: workspace.name)
-        let supportsColumnScroll = switch layoutType {
-        case .niri,
-             .defaultLayout:
-            controller.niriEngine != nil
-        case .dwindle:
-            false
-        }
+        let supportsColumnScroll = supportsColumnScroll(layoutType, in: controller)
         let target = TrackpadGestureIntent.windowGestureMode(config, fingerCount: fingerCount) != nil
             ? windowGestureTarget(at: location, wsId: workspace.id, layoutType: layoutType) : nil
         guard TrackpadGestureIntent.hasCandidateMode(
