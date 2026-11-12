@@ -6,6 +6,7 @@ import SwiftUI
 struct AppThemingCustomSection: View {
     @Bindable var settings: AppThemingSettings
     let controller: WMController
+    let paths: [String: [String]]
     @Binding var editing: SettingsExport.AppTheming.Custom?
     @Binding var review: AppThemingReview?
 
@@ -48,8 +49,7 @@ struct AppThemingCustomSection: View {
                 Image(systemName: "doc.plaintext").foregroundStyle(.secondary)
                 Text(verbatim: custom.template).font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
             }
-            let preview = controller.appThemePreview
-            AppThemingPaths(paths: preview.outputPaths(for: preview.target(for: custom)))
+            AppThemingPaths(paths: paths[custom.targetID] ?? [])
             if custom.enabled {
                 AppThemingStatus(result: controller.appThemeService?.results[custom.targetID]) { replace(custom) }
             }

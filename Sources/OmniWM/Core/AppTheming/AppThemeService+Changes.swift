@@ -12,10 +12,6 @@ extension AppThemeService {
         preview.target(for: app)
     }
 
-    func outputPaths(for target: AppThemeTarget) -> [String] {
-        preview.outputPaths(for: target)
-    }
-
     func changes(for target: AppThemeTarget, onlyExisting: Bool) throws -> [AppThemeChange] {
         try preview.changes(for: target, onlyExisting: onlyExisting)
     }

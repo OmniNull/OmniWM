@@ -226,6 +226,11 @@ final class AppThemeHeldWork: Sendable {
             item()
         }
     }
+
+    func releaseNewest() {
+        let work = held.withLock { $0.popLast() }
+        work?()
+    }
 }
 
 final class AppThemeHeldHops: Sendable {

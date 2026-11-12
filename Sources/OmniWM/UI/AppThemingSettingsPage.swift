@@ -20,7 +20,7 @@ struct AppThemingSettingsPage: View {
     @State private var editing: SettingsExport.AppTheming.Custom?
     @State private var problem: String?
     @State private var previewDark: Bool?
-    @State private var ghosttyStatus = AppThemeGhosttyStatus.selected
+    @State private var page = AppThemingPageState()
 
     private var service: AppThemeService? {
         controller.appThemeService
@@ -73,6 +73,7 @@ struct AppThemingSettingsPage: View {
             AppThemingCustomSection(
                 settings: settings.appTheming,
                 controller: controller,
+                paths: page.paths,
                 editing: $editing,
                 review: $review
             )
@@ -81,6 +82,7 @@ struct AppThemingSettingsPage: View {
         .formStyle(.grouped)
         .onAppear { refreshGhosttySelection() }
         .onChange(of: service?.results) { _, _ in refreshGhosttySelection() }
+        .onChange(of: settings.appTheming.values) { _, _ in refreshGhosttySelection() }
         .onChange(of: service?.reviewAgain) { _, target in
             guard let target else { return }
             service?.reviewShown()
@@ -120,7 +122,7 @@ struct AppThemingSettingsPage: View {
     }
 
     private var backupFolder: String {
-        controller.appThemeEngine.policy.display(controller.appThemeEngine.store.backupsDirectory)
+        page.backupFolder
     }
 
     private var previewBinding: Binding<Bool> {
@@ -141,7 +143,7 @@ struct AppThemingSettingsPage: View {
                     SettingsCaption(reloadDescription(app))
                 }
             }
-            AppThemingPaths(paths: preview.outputPaths(for: target))
+            AppThemingPaths(paths: page.paths[target.id] ?? [])
             if settings.appTheming.values.isEnabled(app) {
                 AppThemingStatus(result: service?.results[app.id]) { reviewConflict(target) }
                 extras(app)
@@ -154,7 +156,7 @@ struct AppThemingSettingsPage: View {
     private func extras(_ app: AppThemeBuiltIn) -> some View {
         switch app {
         case .ghostty:
-            switch ghosttyStatus {
+            switch page.ghosttyStatus {
             case .selected:
                 EmptyView()
             case .notSelected:
@@ -343,6 +345,9 @@ extension AppThemingSettingsPage {
     }
 
     private func refreshGhosttySelection() {
-        ghosttyStatus = preview.ghosttySelectionStatus()
+        let preview = preview
+        let targets = AppThemeBuiltIn.allCases.map(preview.target(for:))
+            + settings.appTheming.values.custom.map(preview.target(for:))
+        page.refresh(controller.appThemeEngine, targets: targets)
     }
 }

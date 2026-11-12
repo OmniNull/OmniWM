@@ -26,12 +26,6 @@ struct AppThemePreview {
         custom.target(savedMachines: values.herdr.reloadSavedMachines)
     }
 
-    func outputPaths(for target: AppThemeTarget) -> [String] {
-        target.outputs.map { output in
-            (try? engine.policy.destination(for: output.path)).map(engine.policy.display) ?? output.path
-        }
-    }
-
     func changes(for target: AppThemeTarget, onlyExisting: Bool) throws -> [AppThemeChange] {
         guard let palette = palette() else { return [] }
         let job = AppThemeJob(palette: palette, dark: dark, appearanceChanged: false, targets: [target])
