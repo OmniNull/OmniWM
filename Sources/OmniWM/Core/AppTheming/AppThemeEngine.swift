@@ -30,6 +30,11 @@ enum AppThemeEngineError: Error, Equatable, LocalizedError {
 
 struct AppThemeCancelled: Error {}
 
+enum FileWrite {
+    case unchanged
+    case replaced(previousOwner: String?)
+}
+
 struct AppThemeEngine: Sendable {
     let policy: AppThemeOutputPolicy
     let store: AppThemeStateStore
@@ -206,40 +211,63 @@ struct AppThemeEngine: Sendable {
         }
         guard conflicts.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(conflicts.map(\.display)) }
         var written: [String] = []
-        for item in rendered {
-            let digest = AppThemeFileWriter.digest(item.ownedText)
-            let path = item.url.path
-            if item.before == item.after {
-                if state.owned[path] != digest || state.pending[path] != nil {
-                    state.owned[path] = digest
-                    state.pending[path] = nil
-                    try store.save(state)
+        var replaced: [(item: Rendered, owned: String?)] = []
+        do {
+            for item in rendered {
+                if case let .replaced(owner) = try write(item, of: target, job: job, state: &state, backups: &backups) {
+                    replaced.append((item, owner))
+                    written.append(item.url.lastPathComponent)
                 }
-                continue
             }
-            let backup = try item.before.flatMap { before in
-                Self.isReviewed(item, job) ? try store.backup(before, of: item.url, date: now()) : nil
+        } catch {
+            for (item, owned) in replaced.reversed() where (try? restore(item)) != nil {
+                state.owned[item.url.path] = owned
             }
-            state.pending[path] = digest
-            if target.reload != nil { state.reloadPending.insert(target.id) }
-            try store.save(state)
-            do {
-                try replace(item.url, with: item.after, expecting: item.before, display: item.display) {
-                    job.enabled.contains(target.id)
-                }
-            } catch {
-                if let backup { try? FileManager.default.removeItem(at: backup) }
-                state.pending[path] = nil
-                try store.save(state)
-                throw error
-            }
-            if let backup { backups.append(backup) }
-            state.owned[path] = digest
-            state.pending[path] = nil
-            try store.save(state)
-            written.append(item.url.lastPathComponent)
+            try? store.save(state)
+            throw error
         }
         return (written, rendered.contains { $0.before == nil })
+    }
+
+    private func write(
+        _ item: Rendered,
+        of target: AppThemeTarget,
+        job: AppThemeJob,
+        state: inout AppThemeState,
+        backups: inout [URL]
+    ) throws -> FileWrite {
+        let digest = AppThemeFileWriter.digest(item.ownedText)
+        let path = item.url.path
+        if item.before == item.after {
+            if state.owned[path] != digest || state.pending[path] != nil {
+                state.owned[path] = digest
+                state.pending[path] = nil
+                try store.save(state)
+            }
+            return .unchanged
+        }
+        let backup = try item.before.flatMap { before in
+            Self.isReviewed(item, job) ? try store.backup(before, of: item.url, date: now()) : nil
+        }
+        state.pending[path] = digest
+        if target.reload != nil { state.reloadPending.insert(target.id) }
+        try store.save(state)
+        do {
+            try replace(item.url, with: item.after, expecting: item.before, display: item.display) {
+                job.enabled.contains(target.id)
+            }
+        } catch {
+            if let backup { try? FileManager.default.removeItem(at: backup) }
+            state.pending[path] = nil
+            try store.save(state)
+            throw error
+        }
+        if let backup { backups.append(backup) }
+        let previous = state.owned[path]
+        state.owned[path] = digest
+        state.pending[path] = nil
+        try store.save(state)
+        return .replaced(previousOwner: previous)
     }
 
     private static func isReviewed(_ item: Rendered, _ job: AppThemeJob) -> Bool {

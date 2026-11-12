@@ -44,6 +44,17 @@ extension AppThemeEngine {
         return backups
     }
 
+    func restore(_ item: Rendered) throws {
+        guard let before = item.before else {
+            guard try AppThemeFileWriter.read(item.url, display: item.display) == item.after else {
+                throw AppThemeEngineError.changedOutsideOmniWM([item.display])
+            }
+            guard unlink(item.url.path) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+            return
+        }
+        try replace(item.url, with: before, expecting: item.after, display: item.display) { true }
+    }
+
     func replace(
         _ url: URL,
         with data: Data,

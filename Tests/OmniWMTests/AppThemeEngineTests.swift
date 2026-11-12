@@ -421,6 +421,52 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(AppThemeSeen.leftovers(beside: path), [])
     }
 
+    func testAnAppsEarlierFilesAreRestoredWhenALaterOneCannotBeReplaced() throws {
+        _ = run(targets([.kitty]))
+        let light = try XCTUnwrap(sandbox.read(".config/kitty/light-theme.auto.conf"))
+        let dark = sandbox.path(".config/kitty/dark-theme.auto.conf")
+        var engine = sandbox.engine(fake)
+        engine.willReplace = { url in
+            guard url == dark else { return }
+            try? Data("foreground #ffffff\n".utf8).write(to: url)
+        }
+        var lightRoles = AppThemeFixtures.light
+        lightRoles[.background] = AppThemeColor(hex: "#ffffff")
+        var darkRoles = AppThemeFixtures.dark
+        darkRoles[.background] = AppThemeColor(hex: "#000000")
+        let events = fake.events.count
+        let report = engine.run(AppThemeJob(
+            palette: AppThemePalette(light: lightRoles, dark: darkRoles),
+            dark: true,
+            appearanceChanged: false,
+            targets: targets([.kitty])
+        ))
+        XCTAssertEqual(report.results["kitty"]?.outcome, .conflict)
+        XCTAssertEqual(sandbox.read(".config/kitty/light-theme.auto.conf"), light)
+        XCTAssertEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), "foreground #ffffff\n")
+        XCTAssertEqual(fake.events.count, events)
+        XCTAssertEqual(run(targets([.kitty])).results["kitty"]?.outcome, .conflict)
+        XCTAssertEqual(sandbox.read(".config/kitty/light-theme.auto.conf"), light)
+    }
+
+    func testAnAppsNewFilesAreRemovedWhenALaterOneCannotBeReplaced() throws {
+        let dark = sandbox.path(".config/kitty/dark-theme.auto.conf")
+        var engine = sandbox.engine(fake)
+        engine.willReplace = { url in
+            guard url == dark else { return }
+            try? Data("foreground #ffffff\n".utf8).write(to: url)
+        }
+        let report = engine.run(AppThemeJob(
+            palette: AppThemeFixtures.palette,
+            dark: true,
+            appearanceChanged: false,
+            targets: targets([.kitty])
+        ))
+        XCTAssertEqual(report.results["kitty"]?.outcome, .conflict)
+        XCTAssertNil(sandbox.read(".config/kitty/light-theme.auto.conf"))
+        XCTAssertEqual(AppThemeSeen.leftovers(beside: dark), [])
+    }
+
     func testAnApprovedFileThatChangesBeforeTheReplaceAsksForAnotherReview() throws {
         try sandbox.write("include mine.conf\n", to: ".config/kitty/dark-theme.auto.conf")
         let url = sandbox.path(".config/kitty/dark-theme.auto.conf")
