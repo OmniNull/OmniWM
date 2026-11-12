@@ -440,6 +440,27 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testALinkedGhosttyConfigGetsOneEditForItsFile() throws {
+        let support = "Library/Application Support/com.mitchellh.ghostty/config"
+        try sandbox.write("font-size = 13\ntheme = catppuccin\n", to: support)
+        try FileManager.default.createDirectory(
+            at: sandbox.path(".config/ghostty"),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: sandbox.path(".config/ghostty/config"),
+            withDestinationURL: sandbox.path(support)
+        )
+        let service = ghosttyService()
+        let changes = try service.ghosttySelectionChanges()
+        XCTAssertEqual(changes.map(\.url.path), [sandbox.path(support).path])
+        service.applyGhosttySelection(changes)
+        XCTAssertNil(service.reviewAgain)
+        XCTAssertEqual(service.ghosttySelectionStatus(), .selected)
+        XCTAssertTrue(try XCTUnwrap(sandbox.read(support)).contains(AppThemeBuiltIn.ghosttyThemeLine))
+    }
+
+    @MainActor
     func testGhosttySelectionRefusesWhenAnyFileChangedSinceTheReview() throws {
         let support = "Library/Application Support/com.mitchellh.ghostty/config.ghostty"
         try sandbox.write("theme = a\n", to: ".config/ghostty/config")

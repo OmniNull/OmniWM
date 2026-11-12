@@ -53,7 +53,11 @@ struct AppThemePreview {
             let display = engine.policy.display(url)
             guard let data = try AppThemeFileWriter.read(url, display: display) else { return nil }
             guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(display) }
-            return GhosttyFile(url: url, text: text, digest: AppThemeFileWriter.digest(data))
+            return GhosttyFile(
+                url: AppThemeOutputPolicy.resolve(url),
+                text: text,
+                digest: AppThemeFileWriter.digest(data)
+            )
         }
     }
 

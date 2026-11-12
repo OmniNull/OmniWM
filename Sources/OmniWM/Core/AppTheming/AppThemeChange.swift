@@ -168,7 +168,9 @@ enum AppThemeGhosttySelection {
         let hasSelection = files.contains { $0.text.components(separatedBy: "\n").contains(where: selectsOmniWM) }
         let target = files.last { $0.text.components(separatedBy: "\n").contains(where: isThemeLine) }?.url
             ?? files.first?.url ?? fallback
-        var plans = files.compactMap { file -> Plan? in
+        var seen = Set<URL>()
+        let unique = files.filter { seen.insert($0.url).inserted }
+        var plans = unique.compactMap { file -> Plan? in
             let after = edited(file.text, adding: !hasSelection && file.url == target)
             return after == file.text ? nil : Plan(url: file.url, before: file.text, after: after)
         }
