@@ -45,7 +45,7 @@ Use the target's actual bundle ID and AX values. This escape hatch does not admi
   if the window has a usable frame and its `AXSize` is read-only or unsupported. A tiling request can wait for another
   read when writability is unknown.
 - **Assign to Workspace** — use a valid workspace assignment as the initial default whenever the matching app currently has no tracked windows. Additional windows open on the workspace active when creation began. Automatic rule reevaluation leaves managed windows in place, while explicit rule application can move them. Readmission, structural replacements, and unique persisted boot-restore matches preserve their existing placement continuity.
-- **Scratchpad** — **Unreleased — available when building from `main`.** Add each matching window to a [scratchpad](/features/scratchpads/#joining-by-app-rule) slot, 1–10, when OmniWM starts managing it. The picker shows slot labels, but the rule stores the slot number. See [Rule destination](#rule-destination).
+- **Assign to Scratchpad** — **Unreleased — available when building from `main`.** Add each matching window to a [scratchpad](/features/scratchpads/#joining-by-app-rule) slot, 1–10, when OmniWM starts managing it. The picker shows slot labels, but the rule stores the slot number. See [Rule destination](#rule-destination).
 - **Initial Container Primary Span (Niri)** — start matching resizable windows at 5–100% when they create or claim a new container; the container remains freely resizable afterward.
 - **Minimum Size** — prevent the layout engine from sizing windows below a threshold.
 
@@ -55,7 +55,7 @@ Initial container primary span is a one-time seed. It controls width in horizont
 
 ## Rule destination
 
-**Unreleased — available when building from `main`.** Assign to Workspace and Scratchpad are one setting, the rule's destination. A rule sets one or the other, never both. When several matching rules set a destination, the most specific one wins and ties follow list order, so a more specific workspace rule beats a less specific scratchpad rule, and the other way round. If the winning workspace destination is skipped because the app already has tracked windows or the workspace doesn't exist, the window gets default placement. It doesn't fall back to a scratchpad rule that lost.
+**Unreleased — available when building from `main`.** Assign to Workspace and Assign to Scratchpad are one setting, the rule's destination. A rule sets one or the other, never both. When several matching rules set a destination, the most specific one wins and ties follow list order, so a more specific workspace rule beats a less specific scratchpad rule, and the other way round. If the winning workspace destination is skipped because the app already has tracked windows or the workspace doesn't exist, the window gets default placement. It doesn't fall back to a scratchpad rule that lost.
 
 A scratchpad destination works differently from a workspace destination:
 

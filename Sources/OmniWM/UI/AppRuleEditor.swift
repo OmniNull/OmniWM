@@ -230,7 +230,7 @@ struct RuleWindowBehaviorSection: View {
                 }
             }
 
-            Toggle("Scratchpad", isOn: scratchpadEnabled)
+            Toggle("Assign to Scratchpad", isOn: scratchpadEnabled)
 
             if draft.scratchpadEnabled {
                 Picker("Scratchpad Slot", selection: $draft.scratchpad) {
