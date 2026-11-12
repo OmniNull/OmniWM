@@ -208,98 +208,100 @@ final class AppThemeNeovimTests: XCTestCase {
         }
     }
 
-    func testAColorschemeChosenAfterOmniWMIsKeptOnReload() throws {
-        guard let nvim = AppThemeEnvironment.live.executable("nvim") else {
-            throw XCTSkip("Neovim is not installed here")
-        }
-        let runtime = sandbox.root.appendingPathComponent("rtp", isDirectory: true)
-        for (relative, text) in [
-            ("lua/omniwm.lua", try module(AppThemeFixtures.palette, dark: true)),
-            ("colors/omniwm.lua", AppThemeBuiltIn.neovimColorscheme)
-        ] {
-            let file = runtime.appendingPathComponent(relative)
-            try FileManager.default.createDirectory(
-                at: file.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            try text.write(to: file, atomically: true, encoding: .utf8)
-        }
-        let script = runtime.appendingPathComponent("probe.lua")
-        try #"""
-        package.preload["base16-colorscheme"] = function()
-          return { setup = function(c) vim.api.nvim_set_hl(0, "Normal", { fg = c.base05, bg = c.base00 }) end }
-        end
-        local seen = 0
-        vim.api.nvim_create_autocmd("User", { pattern = "OmniWMColors", callback = function() seen = seen + 1 end })
-        require("omniwm").setup({ transparent = true })
-        vim.cmd.colorscheme("retrobox")
-        vim.api.nvim_exec_autocmds("Signal", { pattern = "SIGUSR1" })
-        vim.o.background = vim.o.background == "dark" and "light" or "dark"
-        local kept = vim.g.colors_name .. " " .. seen
-        vim.cmd.colorscheme("omniwm")
-        vim.api.nvim_exec_autocmds("Signal", { pattern = "SIGUSR1" })
-        io.write(kept .. " " .. vim.g.colors_name .. " " .. seen)
-        """#.write(to: script, atomically: true, encoding: .utf8)
-        let result = AppThemeProcessRunner.run(nvim, [
-            "--headless", "-u", "NONE", "-i", "NONE", "--cmd", "set rtp^=\(runtime.path)",
-            "--cmd", "set background=dark", "-c", "luafile \(script.path)", "-c", "qa!"
-        ], timeout: 20)
-        XCTAssertEqual(result.output, "retrobox 1 omniwm 3", "status \(result.status)")
-    }
-
-    func testModuleLoadsReloadsAndAnnouncesInHeadlessNeovim() throws {
-        guard let nvim = AppThemeEnvironment.live.executable("nvim") else {
-            throw XCTSkip("Neovim is not installed here")
-        }
-        let runtime = sandbox.root.appendingPathComponent("rtp", isDirectory: true)
-        let file = runtime.appendingPathComponent("lua/omniwm.lua")
-        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try module(AppThemeFixtures.palette, dark: true).write(to: file, atomically: true, encoding: .utf8)
-        let colors = runtime.appendingPathComponent("colors/omniwm.lua")
-        try FileManager.default.createDirectory(
-            at: colors.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try AppThemeBuiltIn.neovimColorscheme.write(to: colors, atomically: true, encoding: .utf8)
-        let script = runtime.appendingPathComponent("probe.lua")
-        try #"""
-        local seen = {}
-        package.preload["base16-colorscheme"] = function()
-          return { setup = function(c) vim.api.nvim_set_hl(0, "Normal", { fg = c.base05, bg = c.base00 }) end }
-        end
-        vim.api.nvim_create_autocmd("User", { pattern = "OmniWMColors", callback = function(event)
-          table.insert(seen, event.data.accent .. "," .. event.data.base08)
-        end })
-        local ok = pcall(dofile, "MODULE_PATH")
-        require("omniwm").setup({ transparent = true })
-        vim.api.nvim_exec_autocmds("Signal", { pattern = "SIGUSR1" })
-        local normal = vim.api.nvim_get_hl(0, { name = "Normal" })
-        local before = seen[#seen]
-        vim.o.background = vim.o.background == "dark" and "light" or "dark"
-        io.write(table.concat({ tostring(ok), tostring(normal.bg), tostring(normal.fg ~= nil),
-          vim.g.colors_name, #seen, before, seen[#seen] }, " "))
-        """#.replacingOccurrences(of: "MODULE_PATH", with: file.path).write(
-            to: script,
-            atomically: true,
-            encoding: .utf8
-        )
-        func expected(_ scheme: AppThemePalette.Scheme) -> String {
-            "\(scheme.roles[.accent]!.hex),\(scheme.ansi[1].hex)"
-        }
-        let palette = AppThemeFixtures.palette
-        for (background, first, second) in [
-            ("dark", palette.dark, palette.light),
-            ("light", palette.light, palette.dark)
-        ] {
+    #if OMNIWM_LIVE_CHECKS
+        func testAColorschemeChosenAfterOmniWMIsKeptOnReload() throws {
+            guard let nvim = AppThemeEnvironment.live.executable("nvim") else {
+                throw MissingTestPrerequisite("Neovim is not installed here")
+            }
+            let runtime = sandbox.root.appendingPathComponent("rtp", isDirectory: true)
+            for (relative, text) in [
+                ("lua/omniwm.lua", try module(AppThemeFixtures.palette, dark: true)),
+                ("colors/omniwm.lua", AppThemeBuiltIn.neovimColorscheme)
+            ] {
+                let file = runtime.appendingPathComponent(relative)
+                try FileManager.default.createDirectory(
+                    at: file.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try text.write(to: file, atomically: true, encoding: .utf8)
+            }
+            let script = runtime.appendingPathComponent("probe.lua")
+            try #"""
+            package.preload["base16-colorscheme"] = function()
+              return { setup = function(c) vim.api.nvim_set_hl(0, "Normal", { fg = c.base05, bg = c.base00 }) end }
+            end
+            local seen = 0
+            vim.api.nvim_create_autocmd("User", { pattern = "OmniWMColors", callback = function() seen = seen + 1 end })
+            require("omniwm").setup({ transparent = true })
+            vim.cmd.colorscheme("retrobox")
+            vim.api.nvim_exec_autocmds("Signal", { pattern = "SIGUSR1" })
+            vim.o.background = vim.o.background == "dark" and "light" or "dark"
+            local kept = vim.g.colors_name .. " " .. seen
+            vim.cmd.colorscheme("omniwm")
+            vim.api.nvim_exec_autocmds("Signal", { pattern = "SIGUSR1" })
+            io.write(kept .. " " .. vim.g.colors_name .. " " .. seen)
+            """#.write(to: script, atomically: true, encoding: .utf8)
             let result = AppThemeProcessRunner.run(nvim, [
                 "--headless", "-u", "NONE", "-i", "NONE", "--cmd", "set rtp^=\(runtime.path)",
-                "--cmd", "set background=\(background)", "-c", "luafile \(script.path)", "-c", "qa!"
-            ], timeout: 20)
-            XCTAssertEqual(
-                result.output,
-                "true nil true omniwm 3 \(expected(first)) \(expected(second))",
-                "background \(background), status \(result.status)"
-            )
+                "--cmd", "set background=dark", "-c", "luafile \(script.path)", "-c", "qa!"
+            ], timeout: failureBound)
+            XCTAssertEqual(result.output, "retrobox 1 omniwm 3", "status \(result.status)")
         }
-    }
+
+        func testModuleLoadsReloadsAndAnnouncesInHeadlessNeovim() throws {
+            guard let nvim = AppThemeEnvironment.live.executable("nvim") else {
+                throw MissingTestPrerequisite("Neovim is not installed here")
+            }
+            let runtime = sandbox.root.appendingPathComponent("rtp", isDirectory: true)
+            let file = runtime.appendingPathComponent("lua/omniwm.lua")
+            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try module(AppThemeFixtures.palette, dark: true).write(to: file, atomically: true, encoding: .utf8)
+            let colors = runtime.appendingPathComponent("colors/omniwm.lua")
+            try FileManager.default.createDirectory(
+                at: colors.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try AppThemeBuiltIn.neovimColorscheme.write(to: colors, atomically: true, encoding: .utf8)
+            let script = runtime.appendingPathComponent("probe.lua")
+            try #"""
+            local seen = {}
+            package.preload["base16-colorscheme"] = function()
+              return { setup = function(c) vim.api.nvim_set_hl(0, "Normal", { fg = c.base05, bg = c.base00 }) end }
+            end
+            vim.api.nvim_create_autocmd("User", { pattern = "OmniWMColors", callback = function(event)
+              table.insert(seen, event.data.accent .. "," .. event.data.base08)
+            end })
+            local ok = pcall(dofile, "MODULE_PATH")
+            require("omniwm").setup({ transparent = true })
+            vim.api.nvim_exec_autocmds("Signal", { pattern = "SIGUSR1" })
+            local normal = vim.api.nvim_get_hl(0, { name = "Normal" })
+            local before = seen[#seen]
+            vim.o.background = vim.o.background == "dark" and "light" or "dark"
+            io.write(table.concat({ tostring(ok), tostring(normal.bg), tostring(normal.fg ~= nil),
+              vim.g.colors_name, #seen, before, seen[#seen] }, " "))
+            """#.replacingOccurrences(of: "MODULE_PATH", with: file.path).write(
+                to: script,
+                atomically: true,
+                encoding: .utf8
+            )
+            func expected(_ scheme: AppThemePalette.Scheme) -> String {
+                "\(scheme.roles[.accent]!.hex),\(scheme.ansi[1].hex)"
+            }
+            let palette = AppThemeFixtures.palette
+            for (background, first, second) in [
+                ("dark", palette.dark, palette.light),
+                ("light", palette.light, palette.dark)
+            ] {
+                let result = AppThemeProcessRunner.run(nvim, [
+                    "--headless", "-u", "NONE", "-i", "NONE", "--cmd", "set rtp^=\(runtime.path)",
+                    "--cmd", "set background=\(background)", "-c", "luafile \(script.path)", "-c", "qa!"
+                ], timeout: failureBound)
+                XCTAssertEqual(
+                    result.output,
+                    "true nil true omniwm 3 \(expected(first)) \(expected(second))",
+                    "background \(background), status \(result.status)"
+                )
+            }
+        }
+    #endif
 }
