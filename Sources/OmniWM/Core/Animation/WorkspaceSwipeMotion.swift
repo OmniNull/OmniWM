@@ -89,6 +89,15 @@ final class WorkspaceSwipeMotion {
         return true
     }
 
+    /// Runs the whole switch without a gesture, as a keyboard shortcut does, on `config`.
+    @discardableResult
+    func animateToDestination(startTime: TimeInterval, config: SpringConfig) -> Bool {
+        guard spring == nil, target == nil, startTime.isFinite else { return false }
+        target = 1
+        spring = SpringAnimation(from: trackedProgress, to: 1, startTime: startTime, config: config)
+        return true
+    }
+
     @discardableResult
     func catchMotion(cumulativeUnits: Double, timestamp: TimeInterval, animationTime: TimeInterval) -> Bool {
         guard accepts(cumulativeUnits: cumulativeUnits, timestamp: timestamp),

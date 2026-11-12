@@ -25,9 +25,7 @@ extension WorkspaceSwipePresentation {
     }
 
     func syncAvailability() {
-        guard let controller, !allPreviews.isEmpty,
-              !controller.motionPolicy.animationsEnabled || !controller.settings.gestures.workspaceSwipeEnabled
-        else { return }
+        guard let controller, !allPreviews.isEmpty, !controller.motionPolicy.animationsEnabled else { return }
         cancelAll(reason: "disabled")
         for preview in allPreviews {
             preview.release()
