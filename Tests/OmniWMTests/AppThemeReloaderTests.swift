@@ -81,27 +81,36 @@ final class AppThemeReloaderTests: XCTestCase {
         XCTAssertFalse(AppThemeGhosttyApp(pid: 1, version: nil).reloadsOnSignal)
     }
 
-    func testTheRunningGhosttyVersionIsUnknownOnceItsBundleChangedAfterLaunch() throws {
-        let launch = Date.distantPast
-        XCTAssertEqual(
-            AppThemeGhosttyApp.runningVersion(
-                info: ["CFBundleShortVersionString": "1.4.0"],
-                modified: launch,
-                launched: launch
-            ),
-            "1.4.0"
+    private let packaged = Date(timeIntervalSince1970: 0)
+
+    private func makeGhosttyBundle(in folder: URL, executable: Bool = true) throws -> URL {
+        let bundle = folder.appendingPathComponent("Ghostty.app", isDirectory: true)
+        let contents = bundle.appendingPathComponent("Contents", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: contents.appendingPathComponent("MacOS", isDirectory: true),
+            withIntermediateDirectories: true
         )
-        XCTAssertNil(AppThemeGhosttyApp.runningVersion(
-            info: ["CFBundleShortVersionString": "1.4.0"],
-            modified: Date.now,
-            launched: launch
-        ))
-        XCTAssertNil(AppThemeGhosttyApp.runningVersion(info: nil, modified: launch, launched: launch))
-        XCTAssertNil(AppThemeGhosttyApp.runningVersion(
-            info: ["CFBundleShortVersionString": "1.4.0"],
-            modified: launch,
-            launched: nil
-        ))
+        let info: NSDictionary = ["CFBundleShortVersionString": "1.4.0", "CFBundleExecutable": "ghostty"]
+        try info.write(to: contents.appendingPathComponent("Info.plist"))
+        var files = [contents.appendingPathComponent("Info.plist")]
+        if executable {
+            try Data().write(to: contents.appendingPathComponent("MacOS/ghostty"))
+            files.append(contents.appendingPathComponent("MacOS/ghostty"))
+        }
+        for file in files {
+            try FileManager.default.setAttributes([.modificationDate: packaged], ofItemAtPath: file.path)
+        }
+        return bundle
+    }
+
+    func testTheRunningGhosttyVersionIsKnownOnlyFromFilesUnchangedSinceItStarted() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let bundle = try makeGhosttyBundle(in: folder)
+        XCTAssertEqual(AppThemeGhosttyApp.runningVersion(bundle: bundle, started: Date.distantFuture), "1.4.0")
+        XCTAssertNil(AppThemeGhosttyApp.runningVersion(bundle: bundle, started: packaged))
+        let incomplete = try makeGhosttyBundle(in: folder.appendingPathComponent("incomplete"), executable: false)
+        XCTAssertNil(AppThemeGhosttyApp.runningVersion(bundle: incomplete, started: Date.distantFuture))
     }
 }
 

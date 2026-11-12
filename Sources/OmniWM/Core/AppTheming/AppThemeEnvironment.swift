@@ -17,6 +17,7 @@ struct AppThemeCommandResult: Equatable, Sendable {
 struct AppThemeGhosttyApp: Equatable, Sendable {
     static let bundleIdentifier = "com.mitchellh.ghostty"
     static let signalReloadVersion = [1, 2]
+    private static let nanosecondsPerSecond: TimeInterval = 1_000_000_000
 
     let process: AppThemeProcess
     let version: String?
@@ -33,9 +34,22 @@ struct AppThemeGhosttyApp: Equatable, Sendable {
         return !numbers.compactMap(\.self).lexicographicallyPrecedes(Self.signalReloadVersion)
     }
 
-    static func runningVersion(info: [String: Any]?, modified: Date?, launched: Date?) -> String? {
-        guard let launched, let modified, modified <= launched else { return nil }
-        return info?["CFBundleShortVersionString"] as? String
+    static func runningVersion(bundle: URL, started: Date) -> String? {
+        let contents = bundle.appendingPathComponent("Contents", isDirectory: true)
+        let plist = contents.appendingPathComponent("Info.plist")
+        guard let info = NSDictionary(contentsOf: plist) as? [String: Any],
+              let executable = info["CFBundleExecutable"] as? String,
+              let version = info["CFBundleShortVersionString"] as? String
+        else { return nil }
+        let files = [plist, contents.appendingPathComponent("MacOS").appendingPathComponent(executable)]
+        return files.allSatisfy { statusChanged($0).map { $0 <= started } ?? false } ? version : nil
+    }
+
+    private static func statusChanged(_ url: URL) -> Date? {
+        var info = stat()
+        guard lstat(url.path, &info) == 0 else { return nil }
+        let changed = info.st_ctimespec
+        return Date(timeIntervalSince1970: TimeInterval(changed.tv_sec) + TimeInterval(changed.tv_nsec) / nanosecondsPerSecond)
     }
 
     static func running() -> [AppThemeGhosttyApp] {
@@ -43,14 +57,9 @@ struct AppThemeGhosttyApp: Equatable, Sendable {
             .filter { !$0.isTerminated }
             .compactMap { app in
                 guard let process = AppThemeProcesses.identity(of: app.processIdentifier) else { return nil }
-                let plist = app.bundleURL?.appendingPathComponent("Contents/Info.plist")
-                let modified = plist.flatMap {
-                    try? FileManager.default.attributesOfItem(atPath: $0.path)[.modificationDate] as? Date
-                }
-                let info = plist.flatMap { NSDictionary(contentsOf: $0) as? [String: Any] }
                 return AppThemeGhosttyApp(
                     process: process,
-                    version: runningVersion(info: info, modified: modified, launched: app.launchDate)
+                    version: app.bundleURL.flatMap { runningVersion(bundle: $0, started: process.started) }
                 )
             }
     }
@@ -62,6 +71,12 @@ struct AppThemeProcess: Equatable, Sendable {
     let startMicroseconds: UInt64
     let realUserID: uid_t
     let name: String
+
+    private static let microsecondsPerSecond: TimeInterval = 1_000_000
+
+    var started: Date {
+        Date(timeIntervalSince1970: TimeInterval(startSeconds) + TimeInterval(startMicroseconds) / Self.microsecondsPerSecond)
+    }
 }
 
 enum AppThemeProcesses {
