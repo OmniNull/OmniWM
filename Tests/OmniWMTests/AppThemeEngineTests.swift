@@ -155,7 +155,7 @@ final class AppThemeEngineTests: XCTestCase {
         for target in targets([.ghostty, .herdr]) + customs {
             XCTAssertNotNil(report.results[target.id]?.reload, target.name)
         }
-        XCTAssertTrue(sandbox.store.load().reloadPending.isEmpty)
+        XCTAssertTrue(try sandbox.store.load().reloadPending.isEmpty)
     }
 
     func testAForcedReloadRunsOnceEvenWhenNothingChanged() throws {
@@ -184,7 +184,7 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(report.results["ghostty"]?.outcome, .unchanged)
         XCTAssertEqual(report.results["ghostty"]?.reloadFailed, false)
         XCTAssertEqual(fake.signals.count, 2)
-        XCTAssertTrue(sandbox.store.load().reloadPending.isEmpty)
+        XCTAssertTrue(try sandbox.store.load().reloadPending.isEmpty)
     }
 
     func testAFailingTemplateDoesNotBlockOtherApps() throws {
@@ -260,7 +260,7 @@ final class AppThemeEngineTests: XCTestCase {
         fake.herdrReply = .notRunning
         let report = run(targets([.herdr], machines: false))
         XCTAssertEqual(report.results["herdr"]?.reloadFailed, false)
-        XCTAssertTrue(sandbox.store.load().reloadPending.isEmpty)
+        XCTAssertTrue(try sandbox.store.load().reloadPending.isEmpty)
     }
 
     func testHerdrKeepsTheRestOfItsConfigAndNeedsConsentForAnExistingFile() throws {
@@ -302,8 +302,55 @@ final class AppThemeEngineTests: XCTestCase {
         let report = run(targets([.kitty]))
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
         XCTAssertEqual(report.results["kitty"]?.outcome, .failed)
+        XCTAssertEqual(
+            report.results["kitty"]?.message,
+            AppThemeEngineError.unreadable(
+                "~/.config/kitty/dark-theme.auto.conf",
+                String(cString: strerror(EACCES))
+            ).localizedDescription
+        )
         XCTAssertEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), "mine\n")
         XCTAssertTrue(fake.events.isEmpty)
+    }
+
+    func testAnExistingOutputThatIsNotARegularFileIsNeverRead() throws {
+        try FileManager.default.createDirectory(at: sandbox.path(".config/kitty"), withIntermediateDirectories: true)
+        let fifo = sandbox.path(".config/kitty/dark-theme.auto.conf").path
+        XCTAssertEqual(mkfifo(fifo, 0o600), 0)
+        let report = run(targets([.kitty]))
+        XCTAssertEqual(report.results["kitty"]?.outcome, .failed)
+        XCTAssertEqual(
+            report.results["kitty"]?.message,
+            AppThemeOutputError.notRegularFile("~/.config/kitty/dark-theme.auto.conf").localizedDescription
+        )
+        XCTAssertTrue(fake.events.isEmpty)
+    }
+
+    func testATemplateThatIsNotARegularFileIsNeverRead() throws {
+        try FileManager.default.createDirectory(at: sandbox.path("templates"), withIntermediateDirectories: true)
+        XCTAssertEqual(mkfifo(sandbox.path("templates/app.conf").path, 0o600), 0)
+        let custom = SettingsExport.AppTheming.Custom(
+            name: "App",
+            template: sandbox.path("templates/app.conf").path,
+            output: "~/.config/app/colors.conf"
+        )
+        let report = run([custom.target(savedMachines: false)])
+        XCTAssertEqual(report.results[custom.targetID]?.outcome, .failed)
+        XCTAssertNil(sandbox.read(".config/app/colors.conf"))
+    }
+
+    func testAnUnreadableStateFileStopsEveryAppWithAMessage() throws {
+        _ = run(targets([.kitty]))
+        let state = sandbox.store.stateURL.path
+        try FileManager.default.setAttributes([.posixPermissions: 0o200], ofItemAtPath: state)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: state) }
+        let events = fake.events.count
+        let report = run(targets([.kitty, .herdr]), palette: AppThemeFixtures.shifted("#000000"))
+        XCTAssertEqual(report.results["kitty"]?.outcome, .failed)
+        XCTAssertEqual(report.results["herdr"]?.outcome, .failed)
+        XCTAssertTrue(report.results["kitty"]?.message.contains("state.json") == true)
+        XCTAssertNil(sandbox.read(".config/herdr/config.toml"))
+        XCTAssertEqual(fake.events.count, events)
     }
 
     func testAnExistingOutputThatIsNotTextIsNeverReplaced() throws {
@@ -345,7 +392,7 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(report.results["herdr"]?.outcome, .conflict)
         XCTAssertEqual(sandbox.read(".config/herdr/config.toml"), edited)
         XCTAssertEqual(fake.events.count, events)
-        XCTAssertNil(sandbox.store.load().pending[path.path])
+        XCTAssertNil(try sandbox.store.load().pending[path.path])
     }
 
     func testAnApprovedFileThatChangesBeforeTheReplaceAsksForAnotherReview() throws {
@@ -437,14 +484,14 @@ final class AppThemeEngineTests: XCTestCase {
                 targets: []
             )
         )
-        var state = sandbox.store.load()
+        var state = try sandbox.store.load()
         state.pending[url.path] = AppThemeFileWriter.digest(next.ownedText)
         try sandbox.store.save(state)
         try AppThemeFileWriter.writeAtomically(next.after, to: url)
         let report = run(targets([.kitty]), palette: AppThemeFixtures.shifted("#000000"))
         XCTAssertEqual(report.results["kitty"]?.outcome, .unchanged)
-        XCTAssertEqual(sandbox.store.load().owned[url.path], AppThemeFileWriter.digest(next.ownedText))
-        XCTAssertTrue(sandbox.store.load().pending.isEmpty)
+        XCTAssertEqual(try sandbox.store.load().owned[url.path], AppThemeFileWriter.digest(next.ownedText))
+        XCTAssertTrue(try sandbox.store.load().pending.isEmpty)
     }
 
     func testHostileCustomTemplatesCannotRunOrWriteOutsideAllowedFolders() throws {
@@ -538,7 +585,7 @@ final class AppThemeEngineTests: XCTestCase {
             targets: targets([.kitty])
         )
         DispatchQueue.concurrentPerform(iterations: 4) { _ in _ = engine.run(job) }
-        XCTAssertEqual(sandbox.store.load().results["kitty"]?.outcome, .unchanged)
+        XCTAssertEqual(try sandbox.store.load().results["kitty"]?.outcome, .unchanged)
         XCTAssertEqual(fake.signals.filter { $0.signal == SIGUSR1 }.count, 1)
     }
 

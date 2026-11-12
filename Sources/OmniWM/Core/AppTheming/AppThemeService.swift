@@ -57,7 +57,7 @@ final class AppThemeService {
         if !reloadsEnabledApps {
             enabledTargets = Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id))
         }
-        results = engine.store.load().results
+        results = (try? engine.store.load())?.results ?? [:]
         currentTargets.set(Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id)))
     }
 

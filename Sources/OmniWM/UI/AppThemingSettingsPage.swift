@@ -179,6 +179,16 @@ struct AppThemingSettingsPage: View {
                     Spacer()
                     Button("Fix Ghostty Config…") { reviewGhosttySelection() }
                 }
+            case let .unreadable(path):
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("OmniWM can’t read this Ghostty config, so it can’t tell which theme Ghostty uses")
+                            .font(.caption)
+                        Text(verbatim: path).font(.caption.monospaced()).foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                }
             }
         case .kitty:
             SettingsCaption(
@@ -308,7 +318,14 @@ struct AppThemingSettingsPage: View {
     }
 
     private func reviewGhosttySelection() {
-        let changes = preview.ghosttySelectionChanges()
+        let changes: [AppThemeChange]
+        do {
+            changes = try preview.ghosttySelectionChanges()
+        } catch {
+            problem = error.localizedDescription
+            refreshGhosttySelection()
+            return
+        }
         guard !changes.isEmpty else {
             refreshGhosttySelection()
             return

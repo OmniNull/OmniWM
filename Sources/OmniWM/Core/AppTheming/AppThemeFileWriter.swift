@@ -14,11 +14,32 @@ enum AppThemeFileWriter {
         digest(Data(text.utf8))
     }
 
-    static func read(_ url: URL) throws -> Data? {
-        do {
-            return try Data(contentsOf: url)
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            return nil
+    private static let readChunk = 65536
+
+    static func read(_ url: URL, display: String? = nil) throws -> Data? {
+        let name = display ?? url.path
+        let descriptor = open(url.path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)
+        guard descriptor >= 0 else {
+            let error = errno
+            if error == ENOENT { return nil }
+            throw AppThemeEngineError.unreadable(name, String(cString: strerror(error)))
+        }
+        defer { close(descriptor) }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0 else {
+            throw AppThemeEngineError.unreadable(name, String(cString: strerror(errno)))
+        }
+        guard info.st_mode & S_IFMT == S_IFREG else { throw AppThemeOutputError.notRegularFile(name) }
+        var data = Data()
+        var chunk = [UInt8](repeating: 0, count: readChunk)
+        while true {
+            let count = Darwin.read(descriptor, &chunk, chunk.count)
+            if count < 0 {
+                if errno == EINTR { continue }
+                throw AppThemeEngineError.unreadable(name, String(cString: strerror(errno)))
+            }
+            guard count > 0 else { return data }
+            data.append(contentsOf: chunk[0 ..< count])
         }
     }
 

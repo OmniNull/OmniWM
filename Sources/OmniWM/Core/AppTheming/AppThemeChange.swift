@@ -73,6 +73,7 @@ enum AppThemeGhosttyStatus: Equatable {
     case selected
     case notSelected
     case overridden(String)
+    case unreadable(String)
 }
 
 enum AppThemeGhosttySelection {
@@ -102,10 +103,17 @@ enum AppThemeGhosttySelection {
     static func loadedFiles(configHome: URL, home: URL) -> [URL] {
         var files: [URL] = []
         func visit(_ url: URL, depth: Int) {
-            guard depth < includeDepth, !files.contains(url),
-                  let text = try? String(contentsOf: url, encoding: .utf8)
-            else { return }
+            guard depth < includeDepth, !files.contains(url) else { return }
+            let data: Data
+            do {
+                guard let read = try AppThemeFileWriter.read(url) else { return }
+                data = read
+            } catch {
+                files.append(url)
+                return
+            }
             files.append(url)
+            guard let text = String(data: data, encoding: .utf8) else { return }
             for include in includes(in: text, of: url, home: home) {
                 visit(include, depth: depth + 1)
             }

@@ -44,8 +44,8 @@ extension AppThemeService {
         preview.ghosttySelectionStatus()
     }
 
-    func ghosttySelectionChanges() -> [AppThemeChange] {
-        preview.ghosttySelectionChanges()
+    func ghosttySelectionChanges() throws -> [AppThemeChange] {
+        try preview.ghosttySelectionChanges()
     }
 
     func applyGhosttySelection(_ changes: [AppThemeChange]) {

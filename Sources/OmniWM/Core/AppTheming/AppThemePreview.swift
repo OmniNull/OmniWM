@@ -48,25 +48,35 @@ struct AppThemePreview {
         }
     }
 
-    private var ghosttyFiles: [(url: URL, text: String, digest: String)] {
-        AppThemeGhosttySelection.loadedFiles(configHome: configHome, home: engine.policy.home).compactMap { url in
-            guard let data = try? Data(contentsOf: url), let text = String(data: data, encoding: .utf8) else {
-                return nil
-            }
+    private func ghosttyFiles() throws -> [(url: URL, text: String, digest: String)] {
+        try AppThemeGhosttySelection.loadedFiles(configHome: configHome, home: engine.policy.home).compactMap { url in
+            let display = engine.policy.display(url)
+            guard let data = try AppThemeFileWriter.read(url, display: display) else { return nil }
+            guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(display) }
             return (url, text, AppThemeFileWriter.digest(data))
         }
     }
 
+    private var unreadableGhosttyFile: String? {
+        AppThemeGhosttySelection.loadedFiles(configHome: configHome, home: engine.policy.home).first { url in
+            switch Result(catching: { try AppThemeFileWriter.read(url) }) {
+            case .failure: true
+            case let .success(data): data.map { String(data: $0, encoding: .utf8) == nil } ?? false
+            }
+        }.map(engine.policy.display)
+    }
+
     func ghosttySelectionStatus() -> AppThemeGhosttyStatus {
-        switch AppThemeGhosttySelection.status(ghosttyFiles.map { ($0.url, $0.text) }) {
+        guard let files = try? ghosttyFiles() else { return .unreadable(unreadableGhosttyFile ?? "") }
+        return switch AppThemeGhosttySelection.status(files.map { ($0.url, $0.text) }) {
         case let .overridden(path): .overridden(engine.policy.display(URL(fileURLWithPath: path)))
         case let status: status
         }
     }
 
-    func ghosttySelectionChanges() -> [AppThemeChange] {
+    func ghosttySelectionChanges() throws -> [AppThemeChange] {
         let fallback = AppThemeGhosttySelection.candidates(configHome: configHome, home: engine.policy.home)[0]
-        let files = ghosttyFiles
+        let files = try ghosttyFiles()
         let plans = AppThemeGhosttySelection.plan(files.map { ($0.url, $0.text) }, fallback: fallback)
         let blocked = plans.filter { (try? engine.policy.destination(for: $0.url.path)) == nil }
         var changes = plans.compactMap { plan -> AppThemeChange? in

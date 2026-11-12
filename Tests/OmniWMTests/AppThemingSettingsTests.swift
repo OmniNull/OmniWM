@@ -313,13 +313,27 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testAnUnreadableGhosttyConfigIsReportedNotSkipped() throws {
+        try sandbox.write("theme = light:omniwm-light,dark:omniwm-dark\n", to: ".config/ghostty/config")
+        let support = "Library/Application Support/com.mitchellh.ghostty/config"
+        try sandbox.write("theme = catppuccin\n", to: support)
+        try FileManager.default.setAttributes([.posixPermissions: 0o200], ofItemAtPath: sandbox.path(support).path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: sandbox.path(support).path)
+        }
+        let service = ghosttyService()
+        XCTAssertEqual(service.ghosttySelectionStatus(), .unreadable("~/\(support)"))
+        XCTAssertThrowsError(try service.ghosttySelectionChanges())
+    }
+
+    @MainActor
     func testGhosttySelectionBacksUpTheExactBytesItReplaces() throws {
         let url = sandbox.path(".config/ghostty/config")
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let original = Data([0xEF, 0xBB, 0xBF]) + Data("font-size = 14\r\ntheme = catppuccin\n".utf8)
         try original.write(to: url)
         let service = ghosttyService()
-        let changes = service.ghosttySelectionChanges()
+        let changes = try service.ghosttySelectionChanges()
         XCTAssertEqual(changes.map(\.url), [url])
         service.applyGhosttySelection(changes)
         XCTAssertEqual(service.ghosttySelectionStatus(), .selected)
@@ -333,7 +347,7 @@ final class AppThemeServiceTests: XCTestCase {
         try sandbox.write("font-size = 14\ntheme = catppuccin\n", to: ".config/ghostty/config")
         let service = ghosttyService()
         XCTAssertEqual(service.ghosttySelectionStatus(), .notSelected)
-        let changes = service.ghosttySelectionChanges()
+        let changes = try service.ghosttySelectionChanges()
         XCTAssertEqual(changes.map(\.display), ["~/.config/ghostty/config"])
         XCTAssertEqual(changes.first?.after, """
         font-size = 14
@@ -346,7 +360,7 @@ final class AppThemeServiceTests: XCTestCase {
         service.applyGhosttySelection(changes)
         XCTAssertEqual(sandbox.read(".config/ghostty/config"), changes.first?.after)
         XCTAssertEqual(service.ghosttySelectionStatus(), .selected)
-        XCTAssertTrue(service.ghosttySelectionChanges().isEmpty)
+        XCTAssertTrue(try service.ghosttySelectionChanges().isEmpty)
         XCTAssertEqual(try String(contentsOf: XCTUnwrap(service.lastBackup), encoding: .utf8), changes.first?.before)
     }
 
@@ -360,7 +374,7 @@ final class AppThemeServiceTests: XCTestCase {
         )
         let service = ghosttyService()
         XCTAssertEqual(service.ghosttySelectionStatus(), .overridden("~/\(support)"))
-        let changes = service.ghosttySelectionChanges()
+        let changes = try service.ghosttySelectionChanges()
         XCTAssertEqual(changes.map(\.display), ["~/\(support)"])
         XCTAssertEqual(
             changes.first?.after,
@@ -392,7 +406,7 @@ final class AppThemeServiceTests: XCTestCase {
         ])
         let service = ghosttyService()
         XCTAssertEqual(service.ghosttySelectionStatus(), .notSelected)
-        let changes = service.ghosttySelectionChanges()
+        let changes = try service.ghosttySelectionChanges()
         XCTAssertEqual(changes.count, 4)
         service.applyGhosttySelection(changes)
         XCTAssertEqual(service.ghosttySelectionStatus(), .selected)
@@ -408,7 +422,7 @@ final class AppThemeServiceTests: XCTestCase {
         try sandbox.write("theme = a\n", to: ".config/ghostty/config")
         try sandbox.write("theme = b\n", to: support)
         let service = ghosttyService()
-        let changes = service.ghosttySelectionChanges()
+        let changes = try service.ghosttySelectionChanges()
         XCTAssertEqual(changes.count, 2)
         try sandbox.write("theme = c\n", to: support)
         service.applyGhosttySelection(changes)
@@ -428,7 +442,7 @@ final class AppThemeServiceTests: XCTestCase {
         service.paletteDidChange(theme(background: .black))
         let reloads = { self.fake.signals.count }
         XCTAssertEqual(reloads(), 1)
-        let changes = service.ghosttySelectionChanges()
+        let changes = try service.ghosttySelectionChanges()
         XCTAssertEqual(changes.count, 1)
         service.applyGhosttySelection(changes)
         XCTAssertEqual(service.results["ghostty"]?.outcome, .unchanged)
@@ -447,7 +461,7 @@ final class AppThemeServiceTests: XCTestCase {
         service.onGhosttyThemesChanged = { quakeReloads += 1 }
         service.paletteDidChange(theme(background: .black))
         XCTAssertEqual(quakeReloads, 1)
-        let changes = service.ghosttySelectionChanges()
+        let changes = try service.ghosttySelectionChanges()
         service.applyGhosttySelection(changes)
         XCTAssertEqual(service.results["ghostty"]?.outcome, .unchanged)
         XCTAssertEqual(quakeReloads, 2)

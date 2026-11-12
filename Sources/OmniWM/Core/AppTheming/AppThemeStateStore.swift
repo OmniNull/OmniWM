@@ -24,15 +24,15 @@ struct AppThemeStateStore: Sendable {
         directory.appendingPathComponent("backups", isDirectory: true)
     }
 
-    func load() -> AppThemeState {
+    func load() throws -> AppThemeState {
+        guard let data = try AppThemeFileWriter.read(stateURL) else { return AppThemeState() }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        guard let data = try? Data(contentsOf: stateURL),
-              let state = try? decoder.decode(AppThemeState.self, from: data)
-        else {
-            return AppThemeState()
+        do {
+            return try decoder.decode(AppThemeState.self, from: data)
+        } catch {
+            throw AppThemeEngineError.unreadable(stateURL.path, String(localized: "it isn’t valid app theming state"))
         }
-        return state
     }
 
     func save(_ state: AppThemeState) throws {

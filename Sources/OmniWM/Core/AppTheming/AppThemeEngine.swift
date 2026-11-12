@@ -8,6 +8,7 @@ enum AppThemeEngineError: Error, Equatable, LocalizedError {
     case unreadableTemplate(String)
     case notText(String)
     case sharedOutput(path: String, owner: String)
+    case unreadable(String, String)
 
     var errorDescription: String? {
         switch self {
@@ -21,6 +22,8 @@ enum AppThemeEngineError: Error, Equatable, LocalizedError {
             String(localized: "\(path) isn’t a UTF-8 text file")
         case let .sharedOutput(path, owner):
             String(localized: "\(path) is already written by \(owner). Choose another output file.")
+        case let .unreadable(path, reason):
+            String(localized: "\(path) can’t be read: \(reason)")
         }
     }
 }
@@ -54,7 +57,7 @@ struct AppThemeEngine: Sendable {
     func run(_ job: AppThemeJob) -> AppThemeRunReport {
         guard job.targets.contains(where: { job.enabled.contains($0.id) }) else { return AppThemeRunReport() }
         do {
-            return try store.withLock { runLocked(job) }
+            return try store.withLock { try runLocked(job) }
         } catch {
             var report = AppThemeRunReport()
             for target in job.targets {
@@ -68,8 +71,8 @@ struct AppThemeEngine: Sendable {
         }
     }
 
-    private func runLocked(_ job: AppThemeJob) -> AppThemeRunReport {
-        var state = store.load()
+    private func runLocked(_ job: AppThemeJob) throws -> AppThemeRunReport {
+        var state = try store.load()
         var report = AppThemeRunReport()
         if !job.selection.isEmpty {
             do {
@@ -255,7 +258,7 @@ struct AppThemeEngine: Sendable {
         let text = try AppThemeTemplate.render(templateText(source), palette: job.palette, dark: dark)
         let url = try policy.destination(for: output.path)
         let display = policy.display(url)
-        let before = try AppThemeFileWriter.read(url)
+        let before = try AppThemeFileWriter.read(url, display: display)
         let existingText = try before.map { data in
             guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(display) }
             return text
@@ -300,7 +303,9 @@ struct AppThemeEngine: Sendable {
             guard size <= AppThemeTemplate.maximumBytes else {
                 throw AppThemeTemplateError.tooLarge(bytes: size)
             }
-            guard let data = try? Data(contentsOf: url) else { throw AppThemeEngineError.unreadableTemplate(path) }
+            guard let data = try AppThemeFileWriter.read(url, display: path) else {
+                throw AppThemeEngineError.unreadableTemplate(path)
+            }
             guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(path) }
             return text
         }
