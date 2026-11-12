@@ -327,6 +327,27 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertTrue(fake.events.isEmpty)
     }
 
+    func testADanglingOutputLinkIsRefusedNotReplaced() throws {
+        let folder = sandbox.path(".config/kitty")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let link = folder.appendingPathComponent("dark-theme.auto.conf")
+        try FileManager.default.createSymbolicLink(
+            at: link,
+            withDestinationURL: sandbox.path(".config/themes/missing.conf")
+        )
+        let report = run(targets([.kitty]))
+        XCTAssertEqual(report.results["kitty"]?.outcome, .failed)
+        XCTAssertEqual(
+            report.results["kitty"]?.message,
+            AppThemeOutputError.notRegularFile("~/.config/kitty/dark-theme.auto.conf").localizedDescription
+        )
+        XCTAssertEqual(
+            try FileManager.default.destinationOfSymbolicLink(atPath: link.path),
+            sandbox.path(".config/themes/missing.conf").path
+        )
+        XCTAssertTrue(fake.events.isEmpty)
+    }
+
     func testATemplateThatIsNotARegularFileIsNeverRead() throws {
         try FileManager.default.createDirectory(at: sandbox.path("templates"), withIntermediateDirectories: true)
         XCTAssertEqual(mkfifo(sandbox.path("templates/app.conf").path, 0o600), 0)

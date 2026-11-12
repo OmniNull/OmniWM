@@ -21,7 +21,9 @@ enum AppThemeFileWriter {
         let descriptor = open(url.path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)
         guard descriptor >= 0 else {
             let error = errno
-            if error == ENOENT { return nil }
+            var entry = stat()
+            if error == ENOENT, lstat(url.path, &entry) != 0 { return nil }
+            if error == ENOENT { throw AppThemeOutputError.notRegularFile(name) }
             throw AppThemeEngineError.unreadable(name, String(cString: strerror(error)))
         }
         defer { close(descriptor) }
