@@ -19,16 +19,13 @@ extension AppThemeEngine {
     }
 
     func commit(_ changes: [AppThemeChange], isCurrent: () -> Bool = { true }) throws -> [URL] {
-        let stale = try changes.filter { change in
-            try AppThemeFileWriter.read(change.url).map(AppThemeFileWriter.digest) != change.beforeDigest
+        let currents = try changes.map { try AppThemeFileWriter.read($0.url) }
+        let stale = zip(changes, currents).filter { change, current in
+            current.map(AppThemeFileWriter.digest) != change.beforeDigest
         }
-        guard stale.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(stale.map(\.display)) }
+        guard stale.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(stale.map(\.0.display)) }
         var backups: [URL] = []
-        for change in changes {
-            let current = try AppThemeFileWriter.read(change.url)
-            guard current.map(AppThemeFileWriter.digest) == change.beforeDigest else {
-                throw AppThemeEngineError.changedOutsideOmniWM([change.display])
-            }
+        for (change, current) in zip(changes, currents) {
             let backup = try current.map { try store.backup($0, of: change.url, date: now()) }
             do {
                 try replace(
