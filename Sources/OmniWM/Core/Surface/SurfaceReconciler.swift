@@ -293,9 +293,9 @@ final class SurfaceReconciler {
         controller: WMController
     ) -> Bool {
         guard let border,
-              let entry = controller.workspaceManager.entry(for: border.token)
+              let workspaceId = controller.workspaceManager.workspace(for: border.token)
         else { return false }
-        return !controller.workspaceManager.animationDriver.hasMotion(in: entry.workspaceId)
+        return !controller.workspaceManager.animationDriver.hasMotion(in: workspaceId)
             && !controller.axManager.hasPendingFrameWrite(for: border.windowId)
     }
 

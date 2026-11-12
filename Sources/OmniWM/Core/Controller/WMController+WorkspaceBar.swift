@@ -143,10 +143,9 @@ extension WMController {
         }
 
         let focusedAppName: String? = if let focusedToken = workspaceManager.selectedManagedToken,
-                                         let entry = workspaceManager.entry(for: focusedToken),
-                                         entry.workspaceId == workspace.id
+                                         workspaceManager.workspace(for: focusedToken) == workspace.id
         {
-            resolvedAppInfo(for: entry.pid)?.name
+            resolvedAppInfo(for: focusedToken.pid)?.name
         } else {
             nil
         }

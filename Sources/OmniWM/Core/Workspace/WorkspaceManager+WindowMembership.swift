@@ -105,9 +105,9 @@ extension WorkspaceManager {
     }
 
     func setHiddenState(_ state: HiddenState?, for token: WindowToken) {
-        if let parent = entry(for: token)?.target.hostedMetadata?.role.parent {
+        if let parent = withEntry(token, { $0.target.hostedMetadata?.role.parent }) ?? nil {
             guard hostedFamilyRoot(for: token) == parent,
-                  entry(for: parent)?.hiddenState?.reason == state?.reason else { return }
+                  (withEntry(parent, { $0.hiddenState?.reason }) ?? nil) == state?.reason else { return }
         }
         guard windowQueries.hiddenState(for: token) != state else { return }
         guard let workspaceId = workspace(for: token) else { return }
