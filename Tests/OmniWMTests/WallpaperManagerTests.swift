@@ -29,7 +29,8 @@ final class WallpaperManagerTests: XCTestCase {
     private func makeManager(
         _ desktop: FakeWallpaperDesktop,
         palette: FakeWallpaperPalette? = nil,
-        configure: (WallpaperSettings) -> Void = { _ in }
+        configure: (WallpaperSettings) -> Void = { _ in },
+        environment change: (inout WallpaperEnvironment) -> Void = { _ in }
     ) -> WallpaperManager {
         let settings = WallpaperSettings()
         settings.enabled = true
@@ -43,6 +44,7 @@ final class WallpaperManagerTests: XCTestCase {
             [UInt32(truncatingIfNeeded: key.file.path.utf8.count)]
         }
         environment.preview = { _ in nil }
+        change(&environment)
         let manager = WallpaperManager(
             settings: settings, desktop: desktop, environment: environment,
             loadState: { [unowned self] in state },
@@ -159,7 +161,7 @@ final class WallpaperManagerTests: XCTestCase {
         desktop.unplug(WallpaperFixtures.macBook.key)
         desktop.events = []
         clock.advance(to: due ?? clock.now)
-        for _ in 0 ..< 5 { await Task.yield() }
+        await manager.idle()
         await manager.next(.display(WallpaperFixtures.studio.monitorId))
 
         XCTAssertFalse(desktop.events.contains { $0.contains("Built-in") || $0.hasPrefix("missing") })
@@ -190,7 +192,7 @@ final class WallpaperManagerTests: XCTestCase {
         let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
         let manager = makeManager(desktop)
         XCTAssertEqual(manager.entries[0].files, ["a.jpg", "b.png", "c.heic", "d.webp", "x.JPG"])
-        for _ in 0 ..< 10 {
+        for _ in 0 ..< 2 * manager.entries[0].files.count {
             await manager.next(.all)
             XCTAssertTrue(WallpaperLibrary.isImage(desktop.screens[0].current!.lastPathComponent))
         }
@@ -221,8 +223,10 @@ final class WallpaperManagerTests: XCTestCase {
 
     func testTheWriterOverrideFollowsOnlyTheUnchangedFileOmniWMSet() async throws {
         let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
-        let manager = makeManager(desktop, palette: FakeWallpaperPalette())
+        let palette = FakeWallpaperPalette()
+        let manager = makeManager(desktop, palette: palette)
         await manager.next(.all)
+        XCTAssertNotNil(manager.pin)
         XCTAssertEqual(manager.palettePixels(), manager.pin?.pixels)
 
         manager.settings.placement = .fit
@@ -250,8 +254,7 @@ final class WallpaperManagerTests: XCTestCase {
             size: CGSize(width: 1440, height: 2560), isMain: true, current: current
         )
         desktop.onChange?()
-        for _ in 0 ..< 10 { await Task.yield() }
-        await manager.next(.display("display:999"))
+        await manager.idle()
 
         XCTAssertEqual(manager.pin, first)
         XCTAssertEqual(manager.palettePixels(), first?.pixels)
@@ -346,8 +349,7 @@ final class WallpaperManagerTests: XCTestCase {
         XCTAssertEqual(manager.nextChange, state.nextChange, "a restart keeps the planned time")
 
         clock.advance(to: manager.nextChange!)
-        for _ in 0 ..< 10 { await Task.yield() }
-        await manager.next(.display("display:999"))
+        await manager.idle()
         XCTAssertEqual(desktop.events.filter { $0.hasPrefix("set") }.count, 1)
         XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(15 * 60))
 
@@ -395,4 +397,209 @@ final class WallpaperManagerTests: XCTestCase {
         manager.reveal(WallpaperFixtures.studio.monitorId)
         XCTAssertEqual(desktop.revealed.map(\.path), [defaultFolder])
     }
+
+    func testANextStillSamplingWhenManagementTurnsOffChangesNothing() async {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let palette = FakeWallpaperPalette()
+        palette.wallpaperPaletteState.active = false
+        let gate = WallpaperSampleGate(holding: ["a.jpg", "b.png", "c.heic", "d.webp"])
+        let manager = makeManager(desktop, palette: palette, environment: { $0.sample = { await gate.sample($0) } })
+        palette.wallpaperPaletteState.active = true
+        let next = Task { await manager.next(.all) }
+        await gate.requested()
+
+        manager.settings.enabled = false
+        manager.settingsDidChange()
+        gate.release()
+        await next.value
+
+        XCTAssertTrue(desktop.events.isEmpty, "a Next overtaken by turning management off sets nothing")
+        XCTAssertEqual(state.shuffle, WallpaperShuffle())
+    }
+
+    func testANextWhosePaletteIsBeingWrittenWhenManagementTurnsOffGivesThePaletteBack() async {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let palette = FakeWallpaperPalette()
+        palette.holding = true
+        let manager = makeManager(desktop, palette: palette)
+        let next = Task { await manager.next(.all) }
+        await palette.publishing()
+
+        manager.settings.enabled = false
+        manager.settingsDidChange()
+        palette.release()
+        await next.value
+
+        XCTAssertFalse(desktop.events.contains { $0.hasPrefix("set") })
+        XCTAssertEqual(palette.refreshed, 1, "the palette written for a wallpaper never set is made again")
+        XCTAssertNil(manager.pin)
+    }
+
+    func testThePalettePinIsCheckedByTheWriterWithoutReadingTheDesktopOnTheMainThread() async {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let palette = FakeWallpaperPalette()
+        let manager = makeManager(desktop, palette: palette)
+        await manager.next(.all)
+        XCTAssertNotNil(manager.pin)
+        let reads = desktop.reads
+        let pin = manager.palettePin()
+        XCTAssertEqual(pin?.file, manager.pin?.key.file, "the writer compares the file it finds with this stamp")
+        XCTAssertEqual(desktop.reads, reads)
+    }
+
+    func testAFailedWallpaperOnTheMainDisplayGivesThePaletteBackToTheWallpaperShown() async {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        desktop.failing = [WallpaperFixtures.studio.key]
+        let palette = FakeWallpaperPalette()
+        let manager = makeManager(desktop, palette: palette)
+        await manager.next(.all)
+
+        XCTAssertEqual(palette.published.count, 1)
+        XCTAssertEqual(palette.refreshed, 1, "the palette follows the wallpaper the display still shows")
+        XCTAssertNil(manager.pin)
+        XCTAssertNotNil(manager.problem)
+    }
+
+    func testAPaletteThatCannotBeWrittenIsNotKeptForTheNewWallpaper() async {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let palette = FakeWallpaperPalette()
+        palette.accepts = false
+        let manager = makeManager(desktop, palette: palette)
+        await manager.next(.all)
+
+        XCTAssertNil(manager.pin, "the palette writer reads the new wallpaper itself")
+        XCTAssertEqual(desktop.events.filter { $0.hasPrefix("set") }.count, 1)
+    }
+
+    func testADisplayWhoseWallpaperFailsKeepsItsShufflePosition() async {
+        let desktop = FakeWallpaperDesktop([
+            WallpaperFixtures.studio,
+            WallpaperFixtures.secondary(WallpaperFixtures.macBook)
+        ])
+        desktop.failing = [WallpaperFixtures.macBook.key]
+        let manager = makeManager(desktop)
+        await manager.next(.all)
+
+        XCTAssertNotNil(state.shuffle.displays[WallpaperFixtures.studio.key])
+        XCTAssertNil(
+            state.shuffle.displays[WallpaperFixtures.macBook.key],
+            "a wallpaper that was never shown is still the next one for that display"
+        )
+    }
+
+    func testARotationDueWhileOmniWMWasQuitRunsAtStartup() async {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let overdue = clock.now.addingTimeInterval(-60)
+        state.nextChange = overdue
+        let manager = makeManager(desktop) { $0.rotationMinutes = 15 }
+        XCTAssertEqual(manager.nextChange, clock.now, "quitting does not postpone the rotation")
+
+        clock.advance(to: clock.now)
+        await manager.idle()
+        XCTAssertEqual(desktop.events.filter { $0.hasPrefix("set") }.count, 1)
+        XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(15 * 60))
+    }
+
+    func testTurningManagementOffForgetsThePlannedChange() {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let manager = makeManager(desktop) { $0.rotationMinutes = 15 }
+        XCTAssertNotNil(state.nextChange)
+        manager.settings.enabled = false
+        manager.settingsDidChange()
+        XCTAssertNil(state.nextChange, "turning it on again does not change the wallpaper at once")
+    }
+
+    func testAnOlderMainSampleNeverReplacesTheSchemePreviewOfANewerWallpaper() async {
+        var display = WallpaperFixtures.studio
+        display.current = root.appendingPathComponent("Pictures/Wallpapers/a.jpg")
+        let desktop = FakeWallpaperDesktop([display])
+        let palette = FakeWallpaperPalette()
+        palette.wallpaperPaletteState.active = false
+        let gate = WallpaperSampleGate(holding: ["a.jpg"])
+        let manager = makeManager(desktop, palette: palette, environment: { $0.sample = { await gate.sample($0) } })
+        palette.wallpaperPaletteState.active = true
+        let older = Task { await manager.sampleMainWallpaper() }
+        await gate.requested("a.jpg")
+
+        await manager.set("b.png", on: WallpaperFixtures.studio.monitorId)
+        gate.release("a.jpg")
+        await older.value
+        XCTAssertEqual(manager.paletteSample, WallpaperSampleGate.pixels("b.png"))
+
+        desktop.screens[0].current = root.appendingPathComponent("Pictures/Wallpapers/c.heic")
+        desktop.onChange?()
+        await manager.idle()
+        XCTAssertEqual(
+            manager.paletteSample,
+            WallpaperSampleGate.pixels("c.heic"),
+            "a wallpaper chosen elsewhere updates the scheme previews"
+        )
+    }
+
+    func testDisplaysSharingAFolderScanItOncePerRefresh() {
+        let desktop = FakeWallpaperDesktop([
+            WallpaperFixtures.studio,
+            WallpaperFixtures.secondary(WallpaperFixtures.macBook)
+        ])
+        var scans: [String] = []
+        let manager = makeManager(desktop, environment: { environment in
+            environment.files = { folder in
+                scans.append(folder.lastPathComponent)
+                return WallpaperLibrary.files(in: folder)
+            }
+        })
+        XCTAssertEqual(scans, ["Wallpapers"])
+        manager.refresh()
+        XCTAssertEqual(scans, ["Wallpapers", "Wallpapers"])
+    }
+
+    func testTheShellDataPagesThroughAFolderLargerThanAnyOnePage() async throws {
+        let names = (0 ..< 1001).map { String(format: "w%04d.jpg", $0) }
+        let big = try WallpaperFixtures.makeFolder(root, "big", files: names)
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let manager = makeManager(desktop) { $0.setFolder(big.path, for: WallpaperFixtures.studio.monitor) }
+        let last = names.count - names.count % WallpaperPreviews.defaultWindow
+        manager.perform(
+            .page(display: WallpaperFixtures.studio.monitorId, offset: last, count: WallpaperPreviews.defaultWindow),
+            chooseFolder: { _ in nil }
+        )
+        let shown = try XCTUnwrap(manager.shellValue().displays.first)
+        XCTAssertEqual(shown.count, names.count)
+        XCTAssertEqual(shown.offset, last)
+        XCTAssertEqual(shown.items.map(\.name), Array(names[last...]), "the last wallpapers can be reached")
+    }
+
+    func testChangingTheFolderResetsThePageAndMakesItsPreviews() async throws {
+        let many = try WallpaperFixtures.makeFolder(root, "many", files: (0 ..< 30).map { "m\($0).jpg" })
+        let few = try WallpaperFixtures.makeFolder(root, "few", files: ["f1.jpg", "f2.jpg", "f3.jpg", "f4.jpg"])
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let image = WallpaperManagerTests.image
+        let manager = makeManager(
+            desktop,
+            configure: { $0.setFolder(many.path, for: WallpaperFixtures.studio.monitor) },
+            environment: { $0.preview = { _ in image } }
+        )
+        let id = WallpaperFixtures.studio.monitorId
+        let page = 4 * WallpaperPreviews.defaultWindow
+        manager.perform(
+            .page(display: id, offset: page, count: WallpaperPreviews.defaultWindow), chooseFolder: { _ in nil }
+        )
+        XCTAssertEqual(manager.shellValue().displays.first?.offset, page)
+
+        manager.previews.demanded = true
+        manager.setFolder(few, for: id)
+        await manager.previews.settle()
+        let shown = try XCTUnwrap(manager.shellValue().displays.first)
+        XCTAssertEqual(shown.offset, 0, "a page beyond the new folder starts over")
+        XCTAssertEqual(shown.items.map(\.name), ["f1.jpg", "f2.jpg", "f3.jpg", "f4.jpg"])
+        XCTAssertEqual(manager.previews.count, 4, "the new folder's wallpapers get their previews")
+    }
+
+    private nonisolated static let image: CGImage = {
+        let context = CGContext(
+            data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        return context.makeImage()!
+    }()
 }

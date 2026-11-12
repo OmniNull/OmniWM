@@ -16,6 +16,12 @@ struct WallpaperFileStamp: Hashable, Sendable {
         modified = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
         bytes = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
     }
+
+    init(path: String, modified: Double, bytes: Int64) {
+        self.path = path
+        self.modified = modified
+        self.bytes = bytes
+    }
 }
 
 struct WallpaperSampleKey: Hashable, Sendable {

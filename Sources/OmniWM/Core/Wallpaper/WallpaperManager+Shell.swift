@@ -21,16 +21,12 @@ extension WallpaperManager {
 
     private func shellDisplay(_ entry: Entry) -> ShellWallpaper.Display {
         let display = entry.display
-        let listed = ShellWallpaper.items(entry.files) { name in
+        let listed = ShellWallpaper.items(previews.visible(entry)) { name in
             previews.ready(
                 entry.folder.appendingPathComponent(name), width: WallpaperPreviews.gridWidth, display: display,
                 placement: placement
             )
         }
-        let offset = previews.window(for: display.key)?.offset
-            ?? (entry.currentName.flatMap { entry.files.firstIndex(of: $0) }.map {
-                $0 / WallpaperPreviews.defaultWindow * WallpaperPreviews.defaultWindow
-            } ?? 0)
         return ShellWallpaper.Display(
             id: display.monitorId,
             name: display.name,
@@ -48,7 +44,7 @@ extension WallpaperManager {
             preview: (display.current ?? display.thumbnail).flatMap {
                 previews.ready($0, width: WallpaperPreviews.cardWidth, display: display, placement: placement)
             },
-            offset: offset,
+            offset: previews.window(for: entry).offset,
             items: listed.items,
             truncated: listed.truncated
         )

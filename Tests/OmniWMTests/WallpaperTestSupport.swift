@@ -11,13 +11,16 @@ final class FakeWallpaperDesktop: WallpaperDesktop {
     var screens: [WallpaperDisplay]
     var events: [String] = []
     var revealed: [URL] = []
+    var failing: Set<String> = []
+    private(set) var reads = 0
 
     init(_ screens: [WallpaperDisplay]) {
         self.screens = screens
     }
 
     func displays() -> [WallpaperDisplay] {
-        screens
+        reads += 1
+        return screens
     }
 
     func setWallpaper(_ url: URL, on display: WallpaperDisplay, placement: WallpaperPlacement) throws {
@@ -25,7 +28,7 @@ final class FakeWallpaperDesktop: WallpaperDesktop {
             if let uuid = display.uuid { return screens[index].uuid == uuid }
             return screens[index].displayId == display.displayId
         }
-        guard matches.count == 1, let index = matches.first else {
+        guard matches.count == 1, let index = matches.first, !failing.contains(display.key) else {
             events.append("missing \(display.name)")
             throw WallpaperDesktopFailure(message: "\(display.name) is no longer connected")
         }
@@ -53,11 +56,75 @@ final class FakeWallpaperPalette: WallpaperPaletteTarget {
     var wallpaperPaletteState = WallpaperPaletteState(active: true, scheme: .tonalSpot)
     weak var desktop: FakeWallpaperDesktop?
     var published: [[UInt32]] = []
+    var accepts = true
+    var refreshed = 0
+    var holding = false
+    private var held: [CheckedContinuation<Void, Never>] = []
+    private var arrivals: [CheckedContinuation<Void, Never>] = []
 
-    func publishWallpaperPalette(_ pixels: [UInt32]) -> Bool {
+    func publishWallpaperPalette(_ pixels: [UInt32]) async -> Bool {
         published.append(pixels)
         desktop?.events.append("palette \(pixels.first ?? 0)")
-        return true
+        arrivals.forEach { $0.resume() }
+        arrivals = []
+        if holding { await withCheckedContinuation { held.append($0) } }
+        return accepts
+    }
+
+    func refreshWallpaperPalette() {
+        refreshed += 1
+    }
+
+    func publishing() async {
+        guard published.isEmpty else { return }
+        await withCheckedContinuation { arrivals.append($0) }
+    }
+
+    func release() {
+        holding = false
+        held.forEach { $0.resume() }
+        held = []
+    }
+}
+
+@MainActor
+final class WallpaperSampleGate {
+    private var holding: Set<String>
+    private var held: [String: [CheckedContinuation<Void, Never>]] = [:]
+    private var arrivals: [String: [CheckedContinuation<Void, Never>]] = [:]
+    private(set) var requests: [String] = []
+
+    init(holding: Set<String> = []) {
+        self.holding = holding
+    }
+
+    static func pixels(_ name: String) -> [UInt32] {
+        [name.utf8.reduce(UInt32(0)) { $0 &* 31 &+ UInt32($1) }]
+    }
+
+    func sample(_ key: WallpaperSampleKey) async -> [UInt32]? {
+        let name = URL(fileURLWithPath: key.file.path).lastPathComponent
+        requests.append(name)
+        arrivals.removeValue(forKey: name)?.forEach { $0.resume() }
+        arrivals.removeValue(forKey: "")?.forEach { $0.resume() }
+        if holding.contains(name) { await withCheckedContinuation { held[name, default: []].append($0) } }
+        return Self.pixels(name)
+    }
+
+    func requested(_ name: String? = nil) async {
+        guard name.map({ !requests.contains($0) }) ?? requests.isEmpty else { return }
+        await withCheckedContinuation { arrivals[name ?? "", default: []].append($0) }
+    }
+
+    func release(_ name: String? = nil) {
+        if let name {
+            holding.remove(name)
+            held.removeValue(forKey: name)?.forEach { $0.resume() }
+            return
+        }
+        holding = []
+        held.values.joined().forEach { $0.resume() }
+        held = [:]
     }
 }
 

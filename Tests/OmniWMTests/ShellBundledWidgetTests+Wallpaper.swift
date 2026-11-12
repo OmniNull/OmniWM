@@ -140,10 +140,8 @@ extension ShellBundledWidgetTests {
         }
     }
 
-    func testWallpaperPopoutSnapshotsInBothAppearances() throws {
-        guard let directory = ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] else {
-            throw XCTSkip("Set OMNIWM_SHELL_SNAPSHOTS to export the wallpaper popout")
-        }
+    func testWallpaperPopoutRendersInBothAppearances() throws {
+        let directory = ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"]
         let defaults = try XCTUnwrap(ShellDefaults.bundled)
         let sample = Self.wallpaperGradient(64, 36, Self.wallpaperPalettes[0])
         let themeText = ShellWallpaperPalette.theme(
@@ -167,6 +165,7 @@ extension ShellBundledWidgetTests {
             try renderStyle("default", widget: "wallpaper", data: data, capture: { view, bytes, text in
                 let surface = ShellWidgetSurface(scale: 2, resources: resources, directories: [defaults])
                 XCTAssertTrue(surface.apply(bytes, text: text))
+                guard let directory else { return }
                 let kind = view == OMNI_VIEW_BAR ? "bar" : "popout"
                 try Self.writeSnapshot(
                     surface, name: "wallpaper-\(kind)-\(dark ? "dark" : "light")", dark: dark, directory: directory,
@@ -175,5 +174,26 @@ extension ShellBundledWidgetTests {
                 )
             })
         }
+    }
+
+    func testThePickerShowsThePageTheManagerListsDeepInALargeFolder() throws {
+        var sample = wallpaperSample()
+        let total = 1001
+        let offset = total - total % WallpaperPreviews.defaultWindow
+        let names = (offset ..< total).map { String(format: "w%04d.jpg", $0) }
+        sample.displays[0].count = total
+        sample.displays[0].offset = offset
+        sample.displays[0].current = nil
+        sample.displays[0].items = names.map { ShellWallpaper.Item(name: $0, preview: nil) }
+        var data = try fullData()
+        data.append(("wallpaper", value { sample.write(into: &$0) }))
+        data.append(("appearance", value { ShellAppearance(dark: true).write(into: &$0) }))
+        try renderStyle("default", widget: "wallpaper", data: data, inspect: { view, nodes, text in
+            guard view == OMNI_VIEW_POPOUT else { return }
+            let strings = nodes.map { text.string($0.text) }
+            for name in names {
+                XCTAssertTrue(strings.contains(name), "missing \(name) in \(strings)")
+            }
+        })
     }
 }

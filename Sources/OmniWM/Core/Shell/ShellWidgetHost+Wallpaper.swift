@@ -15,13 +15,11 @@ extension ShellWidgetHost: WallpaperPaletteTarget {
         )
     }
 
-    func publishWallpaperPalette(_ pixels: [UInt32]) -> Bool {
-        guard config.themeName == ShellWallpaperPalette.themeName else { return false }
+    func publishWallpaperPalette(_ pixels: [UInt32]) async -> Bool {
+        guard config.themeName == ShellWallpaperPalette.themeName, let writer = wallpaperPalette else { return false }
         let text = ShellWallpaperPalette.theme(pixels: pixels, scheme: config.wallpaperScheme)
         do {
-            let changed = try wallpaperPalette?.publish(text)
-                ?? ShellWallpaperPaletteWriter.publish(text, to: wallpaperThemeURL)
-            guard changed else { return true }
+            guard try await writer.publish(text) else { return true }
         } catch {
             Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
             return false
@@ -30,7 +28,21 @@ extension ShellWidgetHost: WallpaperPaletteTarget {
         return true
     }
 
+    func refreshWallpaperPalette() {
+        wallpaperPalette?.refresh()
+    }
+
     func wallpaperPaletteDidChange() {
         feed?.wallpaper?.update()
+    }
+}
+
+extension ShellWallpaperPaletteWriter {
+    static func publish(_ text: String, to destination: URL) async throws -> Bool {
+        try await withCheckedThrowingContinuation { continuation in
+            performOnWriterQueue {
+                continuation.resume(with: Result { try ShellWallpaperPalette.write(text, to: destination) })
+            }
+        }
     }
 }

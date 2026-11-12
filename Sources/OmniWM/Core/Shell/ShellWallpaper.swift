@@ -5,13 +5,13 @@ import Foundation
 import OmniWMMaterialColor
 
 struct ShellWallpaperPaletteOverride: Equatable, Sendable {
-    let url: URL
+    let file: WallpaperFileStamp
     let pixels: [UInt32]
 
     func pixels(for source: ShellWallpaperPalette.Source) -> [UInt32]? {
-        guard case let .still(still, _) = source, still.url.standardizedFileURL == url.standardizedFileURL else {
-            return nil
-        }
+        guard case let .still(still, _) = source, still.url.standardizedFileURL.path == file.path,
+              still.size == file.bytes, still.modified.timeIntervalSince1970 == file.modified
+        else { return nil }
         return pixels
     }
 }
@@ -61,7 +61,8 @@ enum ShellWallpaperCommand: Equatable, Sendable {
             }
             return .set(display: words[1], name: name)
         case ("page", 4):
-            guard let offset = Int(words[2]), let count = Int(words[3]), offset >= 0, (1 ... 24).contains(count)
+            guard let offset = Int(words[2]), let count = Int(words[3]), offset >= 0,
+                  (1 ... WallpaperPreviews.pageLimit).contains(count)
             else { return nil }
             return .page(display: words[1], offset: offset, count: count)
         default: return nil

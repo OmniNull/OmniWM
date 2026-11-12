@@ -93,7 +93,13 @@ final class ShellWallpaperTests: XCTestCase {
                 }
             },
             read: { _ in nil }, image: { _ in staleImage },
-            override: { pinned.value.map { ShellWallpaperPaletteOverride(url: managedURL, pixels: $0) } },
+            override: {
+                pinned.value.map {
+                    ShellWallpaperPaletteOverride(
+                        file: WallpaperFileStamp(path: managedURL.path, modified: 1, bytes: 1), pixels: $0
+                    )
+                }
+            },
             perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }
         ) { _ in }
         writer.refresh()
@@ -109,14 +115,16 @@ final class ShellWallpaperTests: XCTestCase {
         )
     }
 
-    func testPublishingWritesSynchronouslyAndReportsWhetherTheFileChanged() throws {
+    func testPublishingWritesOnTheWriterQueueAndReportsWhetherTheFileChanged() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let destination = root.appendingPathComponent("themes/wallpaper.toml")
         let text = ShellWallpaperPalette.theme(pixels: [0xFF11_2233], scheme: .vibrant)
-        XCTAssertTrue(try ShellWallpaperPaletteWriter.publish(text, to: destination))
+        let first = try await ShellWallpaperPaletteWriter.publish(text, to: destination)
+        XCTAssertTrue(first)
         XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), text)
-        XCTAssertFalse(try ShellWallpaperPaletteWriter.publish(text, to: destination))
+        let again = try await ShellWallpaperPaletteWriter.publish(text, to: destination)
+        XCTAssertFalse(again)
     }
 
     func testTheFeedPublishesOnlyWhileAWidgetReadsIt() async throws {
@@ -167,7 +175,8 @@ final class ShellWallpaperTests: XCTestCase {
         previews.retain(entries: [entry], placement: .fill)
         XCTAssertEqual(previews.count, 0, "nothing is made until a widget reads the feed")
         previews.demanded = true
-        try await waitUntil { previews.count == 1 + WallpaperPreviews.defaultWindow }
+        await previews.settle()
+        XCTAssertEqual(previews.count, 1 + WallpaperPreviews.defaultWindow)
         let first = try XCTUnwrap(previews.ready(
             display.current!,
             width: WallpaperPreviews.cardWidth,
@@ -182,7 +191,8 @@ final class ShellWallpaperTests: XCTestCase {
             display: display,
             placement: .fill
         ))
-        try await waitUntil { previews.count == 1 + WallpaperPreviews.defaultWindow }
+        await previews.settle()
+        XCTAssertEqual(previews.count, 1 + WallpaperPreviews.defaultWindow)
         XCTAssertNotEqual(
             previews.ready(display.current!, width: WallpaperPreviews.cardWidth, display: display, placement: .fit),
             first
@@ -195,11 +205,14 @@ final class ShellWallpaperTests: XCTestCase {
         previews.retain(entries: [entry], placement: .fit)
         XCTAssertEqual(previews.count, 0, "a new display shape drops the old previews")
 
-        for offset in stride(from: 0, to: 200, by: 24) {
-            previews.setWindow(.init(offset: offset, count: 24), for: entry, placement: .fit)
-            try await waitUntil { previews.count == 25 || offset > 180 }
+        for offset in stride(from: 0, to: entry.files.count, by: WallpaperPreviews.pageLimit) {
+            previews.setWindow(
+                .init(offset: offset, count: WallpaperPreviews.pageLimit), for: entry, placement: .fit
+            )
+            await previews.settle()
+            XCTAssertEqual(previews.count, 1 + min(WallpaperPreviews.pageLimit, entry.files.count - offset))
+            XCTAssertLessThanOrEqual(previews.count, WallpaperPreviews.limit)
         }
-        XCTAssertLessThanOrEqual(previews.count, WallpaperPreviews.limit)
         entry.files = []
         entry.display.current = nil
         previews.retain(entries: [entry], placement: .fit)
@@ -231,10 +244,25 @@ final class ShellWallpaperTests: XCTestCase {
         }
     }
 
-    private func waitUntil(_ condition: @MainActor () -> Bool) async throws {
-        for _ in 0 ..< 400 where !condition() {
-            try await Task.sleep(for: .milliseconds(5))
+    func testAReadyPreviewIsFoundWithoutLookingAtTheFileAgain() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let folder = try WallpaperFixtures.makeFolder(root, "w", files: ["a.jpg", "b.jpg"])
+        let previews = WallpaperPreviews { _ in Self.image }
+        let entry = WallpaperManager.Entry(
+            display: WallpaperFixtures.studio, folder: folder, custom: false, files: ["a.jpg", "b.jpg"]
+        )
+        previews.demanded = true
+        previews.retain(entries: [entry], placement: .fill)
+        await previews.settle()
+        let file = folder.appendingPathComponent("a.jpg")
+        func ready() -> String? {
+            previews.ready(
+                file, width: WallpaperPreviews.gridWidth, display: WallpaperFixtures.studio, placement: .fill
+            )
         }
-        XCTAssertTrue(condition())
+        let id = try XCTUnwrap(ready())
+        try FileManager.default.removeItem(at: file)
+        XCTAssertEqual(ready(), id, "publishing the shell data does not stat every listed wallpaper")
     }
 }

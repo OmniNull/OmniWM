@@ -3,6 +3,7 @@
 
 import AppKit
 @testable import OmniWM
+import QuartzCore
 import SwiftUI
 import XCTest
 
@@ -86,11 +87,8 @@ final class WallpaperSettingsPageTests: XCTestCase {
             )
             window.appearance = hosting.appearance
             window.contentView = hosting
-            hosting.layoutSubtreeIfNeeded()
-            for _ in 0 ..< 10 {
-                try await Task.sleep(for: .milliseconds(30))
-                hosting.layoutSubtreeIfNeeded()
-            }
+            await display(window)
+            await display(window)
             let bitmap = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
             hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
             XCTAssertEqual(bitmap.pixelsWide, Int(640 * window.backingScaleFactor))
@@ -124,10 +122,8 @@ final class WallpaperSettingsPageTests: XCTestCase {
             )
             window.appearance = hosting.appearance
             window.contentView = hosting
-            for _ in 0 ..< 10 {
-                try await Task.sleep(for: .milliseconds(30))
-                hosting.layoutSubtreeIfNeeded()
-            }
+            await display(window)
+            await display(window)
             let bitmap = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
             hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
             if let path = ProcessInfo.processInfo.environment["OMNIWM_SETTINGS_SNAPSHOTS"] {
@@ -139,6 +135,18 @@ final class WallpaperSettingsPageTests: XCTestCase {
             window.contentView = nil
         }
         XCTAssertEqual(settings.toExport().borders.colorSource, .palette)
+    }
+
+    private func display(_ window: NSWindow) async {
+        await withCheckedContinuation { continuation in
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            CATransaction.setCompletionBlock { continuation.resume() }
+            window.contentView?.layoutSubtreeIfNeeded()
+            window.display()
+            CATransaction.commit()
+            CATransaction.flush()
+        }
     }
 
     func testRotationChoicesMapToMinutes() {

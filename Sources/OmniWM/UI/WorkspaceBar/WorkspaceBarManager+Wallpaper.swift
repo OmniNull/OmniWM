@@ -34,17 +34,22 @@ extension WorkspaceBarManager {
     func selectWallpaperScheme(_ scheme: ShellWallpaperScheme) {
         guard let controller, let shellDirectory else { return }
         let manager = controller.wallpaperManager
-        if let pixels = manager.palettePixels() ?? manager.mainPixels() {
-            let destination = shellDirectory.appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml")
-            do {
-                _ = try ShellWallpaperPaletteWriter.publish(
-                    ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme), to: destination
-                )
-            } catch {
-                Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
-            }
-        }
+        let pixels = manager.palettePixels() ?? manager.mainPixels()
+        let destination = shellDirectory.appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml")
+        let writer = shellHost?.wallpaperPalette
         Task { @MainActor [weak self] in
+            if let pixels {
+                let text = ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme)
+                do {
+                    if let writer {
+                        _ = try await writer.publish(text)
+                    } else {
+                        _ = try await ShellWallpaperPaletteWriter.publish(text, to: destination)
+                    }
+                } catch {
+                    Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
+                }
+            }
             _ = await self?.applyShellFileRequest(.theme(
                 name: ShellWallpaperPalette.themeName,
                 scheme: scheme.rawValue

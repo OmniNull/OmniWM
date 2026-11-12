@@ -164,7 +164,6 @@ local function cards(ctx, data, selected, skin, width: number)
             help = omniwm.l10n("Show the wallpapers for %@", display.name),
             onClick = function(next)
                 next.state.wallpaperTab = display.id
-                next.state.wallpaperPage = nil
             end,
             shown,
             ui.row{ w = w, gap = 6,
@@ -229,7 +228,6 @@ local function tabs(ctx, data, selected, skin, width: number)
             fill = if on then skin.raised else nil, hover = skin.hover, help = display.folder,
             onClick = function(next)
                 next.state.wallpaperTab = display.id
-                next.state.wallpaperPage = nil
             end,
             ui.box{ w = 10, h = 1 },
             ui.text{ text = omniwm.l10n("%@ · %@", display.name, tostring(display.count)), size = 12,
@@ -241,8 +239,8 @@ end
 
 local function pageOf(ctx, display): (number, number, number)
     local per = if ctx.state.wallpaperAll then MANY else FEW
-    local pages = math.max(1, math.ceil(#display.items / per))
-    local page = ctx.state.wallpaperPage or (math.floor((display.offset or 0) / per) + 1)
+    local pages = math.max(1, math.ceil(display.count / per))
+    local page = math.floor((display.offset or 0) / per) + 1
     return math.clamp(page, 1, pages), pages, per
 end
 
@@ -251,12 +249,11 @@ local function showPage(display, page: number, per: number)
 end
 
 local function grid(ctx, display, skin, width: number)
-    local page, _, per = pageOf(ctx, display)
+    local _, _, per = pageOf(ctx, display)
     local tileW = math.floor((width - 8 * (COLUMNS - 1)) / COLUMNS)
     local tileH = math.floor(tileW / aspect(display))
     local lines = {}
-    local first = (page - 1) * per + 1
-    for index = first, math.min(#display.items, first + per - 1) do
+    for index = 1, math.min(#display.items, per) do
         local item = display.items[index]
         local current = item.name == display.current
         local tile = { key = "tile " .. display.id .. " " .. item.name, w = tileW, h = tileH, radius = 10,
@@ -282,7 +279,7 @@ local function grid(ctx, display, skin, width: number)
     for _, line in lines do
         rows[#rows + 1] = ui.row(line)
     end
-    if #display.items == 0 then
+    if display.count == 0 then
         rows[#rows + 1] = ui.text{ text = omniwm.l10n("No wallpapers in %@", display.folder), size = 12,
             color = skin.secondary, maxWidth = width, lines = 2 }
     end
@@ -295,24 +292,17 @@ local function footer(ctx, display, skin, width: number)
     if ctx.state.wallpaperAll and pages > 1 then
         right[#right + 1] = pill(skin, { key = "previous page", symbol = "chevron.left", text = "",
             help = omniwm.l10n("Previous page"),
-            action = function(next)
-                next.state.wallpaperPage = math.max(1, page - 1)
-                showPage(display, next.state.wallpaperPage, per)
-            end })
+            action = function() showPage(display, math.max(1, page - 1), per) end })
         right[#right + 1] = ui.text{ text = page .. "/" .. pages, size = 11, style = "mono", color = skin.secondary }
         right[#right + 1] = pill(skin, { key = "next page", symbol = "chevron.right", text = "",
             help = omniwm.l10n("Next page"),
-            action = function(next)
-                next.state.wallpaperPage = math.min(pages, page + 1)
-                showPage(display, next.state.wallpaperPage, per)
-            end })
+            action = function() showPage(display, math.min(pages, page + 1), per) end })
     end
     right[#right + 1] = pill(skin, { key = "show all",
         text = if ctx.state.wallpaperAll then omniwm.l10n("Show fewer") else omniwm.l10n("Show all"),
         color = skin.secondary, help = omniwm.l10n("Page through every wallpaper in the folder"),
         action = function(next)
             next.state.wallpaperAll = not next.state.wallpaperAll
-            next.state.wallpaperPage = nil
             local nextPer = if next.state.wallpaperAll then MANY else FEW
             showPage(display, math.floor((display.offset or 0) / nextPer) + 1, nextPer)
         end })

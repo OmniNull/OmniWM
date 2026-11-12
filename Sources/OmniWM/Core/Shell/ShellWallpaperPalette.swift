@@ -481,14 +481,14 @@ final class ShellWallpaperPaletteWriter {
         FileManager.default.fileExists(atPath: destination.path)
     }
 
-    func publish(_ text: String) throws -> Bool {
-        let record = record
-        perform { record.generation &+= 1 }
-        return try Self.publish(text, to: destination)
-    }
-
-    static func publish(_ text: String, to destination: URL) throws -> Bool {
-        try queue.sync { try ShellWallpaperPalette.write(text, to: destination) }
+    func publish(_ text: String) async throws -> Bool {
+        let (record, destination, perform) = (record, destination, perform)
+        return try await withCheckedThrowingContinuation { continuation in
+            perform {
+                record.generation &+= 1
+                continuation.resume(with: Result { try ShellWallpaperPalette.write(text, to: destination) })
+            }
+        }
     }
 
     private func watchStore() {

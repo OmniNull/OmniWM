@@ -25,6 +25,29 @@ enum WallpaperRotationChoice: Hashable {
     }
 }
 
+@MainActor
+struct WallpaperFolderChoice {
+    let settings: WallpaperSettings
+    var home = NSHomeDirectory()
+
+    func setDefault(_ url: URL) {
+        guard settings.enabled else { return }
+        settings.folder = WallpaperLibrary.abbreviate(url.standardizedFileURL.path, home: home)
+    }
+
+    func set(_ url: URL?, for monitor: Monitor) {
+        guard settings.enabled else { return }
+        settings.setFolder(
+            url.map { WallpaperLibrary.abbreviate($0.standardizedFileURL.path, home: home) }, for: monitor
+        )
+    }
+
+    func forget(_ id: String) {
+        guard settings.enabled else { return }
+        settings.displays.removeAll { $0.id.uuidString == id }
+    }
+}
+
 struct WallpaperSettingsPage: View {
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
@@ -34,6 +57,10 @@ struct WallpaperSettingsPage: View {
 
     private var manager: WallpaperManager {
         controller.wallpaperManager
+    }
+
+    private var choice: WallpaperFolderChoice {
+        WallpaperFolderChoice(settings: settings.wallpaper)
     }
 
     var body: some View {
@@ -104,6 +131,7 @@ struct WallpaperSettingsPage: View {
             """)
         }
         .id("Folders")
+        .disabled(!settings.wallpaper.enabled)
     }
 
     private func folderControls(
@@ -196,8 +224,16 @@ struct WallpaperSettingsPage: View {
 
     private func reload() {
         let home = NSHomeDirectory()
+        var counts = Dictionary(manager.entries.map { ($0.folder, $0.files.count) }) { first, _ in first }
+        func count(_ folder: URL?) -> Int {
+            guard let folder else { return 0 }
+            if let known = counts[folder] { return known }
+            let found = WallpaperLibrary.files(in: folder).count
+            counts[folder] = found
+            return found
+        }
         let fallback = WallpaperLibrary.folderURL(settings.wallpaper.folder, home: home)
-        defaultCount = fallback.map { WallpaperLibrary.files(in: $0).count } ?? 0
+        defaultCount = count(fallback)
         let connected = manager.desktop.displays()
         var next = connected.map { display -> WallpaperFolderRow in
             let own = settings.wallpaper.folder(for: display.monitor)
@@ -205,7 +241,7 @@ struct WallpaperSettingsPage: View {
             return WallpaperFolderRow(
                 id: display.key, display: display, name: display.name,
                 folder: own?.folder ?? settings.wallpaper.folder, custom: own != nil,
-                count: (folder ?? fallback).map { WallpaperLibrary.files(in: $0).count } ?? 0
+                count: count(folder ?? fallback)
             )
         }
         for entry in settings.wallpaper.displays where !connected.contains(where: {
@@ -214,7 +250,7 @@ struct WallpaperSettingsPage: View {
             let folder = WallpaperLibrary.folderURL(entry.folder, home: home)
             next.append(WallpaperFolderRow(
                 id: entry.id.uuidString, display: nil, name: entry.monitorName, folder: entry.folder, custom: true,
-                count: folder.map { WallpaperLibrary.files(in: $0).count } ?? 0
+                count: count(folder)
             ))
         }
         rows = next
@@ -223,21 +259,21 @@ struct WallpaperSettingsPage: View {
     private func chooseDefaultFolder() {
         let current = WallpaperLibrary.folderURL(settings.wallpaper.folder)
         guard let url = WallpaperManager.chooseFolder(startingAt: current) else { return }
-        settings.wallpaper.folder = WallpaperLibrary.abbreviate(url.standardizedFileURL.path)
+        choice.setDefault(url)
     }
 
     private func choose(for display: WallpaperDisplay) {
         let start = settings.wallpaper.folder(for: display.monitor).flatMap { WallpaperLibrary.folderURL($0.folder) }
             ?? WallpaperLibrary.folderURL(settings.wallpaper.folder)
         guard let url = WallpaperManager.chooseFolder(startingAt: start) else { return }
-        settings.wallpaper.setFolder(WallpaperLibrary.abbreviate(url.standardizedFileURL.path), for: display.monitor)
+        choice.set(url, for: display.monitor)
     }
 
     private func reset(_ row: WallpaperFolderRow) {
         if let display = row.display {
-            settings.wallpaper.setFolder(nil, for: display.monitor)
+            choice.set(nil, for: display.monitor)
         } else {
-            settings.wallpaper.displays.removeAll { $0.id.uuidString == row.id }
+            choice.forget(row.id)
         }
     }
 }

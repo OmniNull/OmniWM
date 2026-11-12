@@ -99,4 +99,20 @@ final class WallpaperSettingsTests: XCTestCase {
         let reloaded = RuntimeStateStore(directory: directory, deferSaves: false)
         XCTAssertEqual(reloaded.wallpaper, state)
     }
+
+    @MainActor
+    func testFolderChoicesWaitUntilManagementIsOn() {
+        let settings = WallpaperSettings()
+        let choice = WallpaperFolderChoice(settings: settings, home: "/Users/someone")
+        let chosen = URL(fileURLWithPath: "/Users/someone/Pictures/Elsewhere", isDirectory: true)
+        choice.setDefault(chosen)
+        choice.set(chosen, for: WallpaperFixtures.studio.monitor)
+        XCTAssertEqual(settings.export(), SettingsExport.Wallpaper(), "nothing is written before it is turned on")
+
+        settings.enabled = true
+        choice.setDefault(chosen)
+        choice.set(chosen, for: WallpaperFixtures.studio.monitor)
+        XCTAssertEqual(settings.folder, "~/Pictures/Elsewhere")
+        XCTAssertEqual(settings.displays.map(\.folder), ["~/Pictures/Elsewhere"])
+    }
 }
