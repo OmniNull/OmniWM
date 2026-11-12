@@ -131,6 +131,33 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertTrue(fake.events.contains("herdr server.reload_config"))
     }
 
+    func testEachAppIsReloadedOncePerRunHoweverManyTargetsAskForIt() throws {
+        fake.responses["/opt/homebrew/bin/herdr machine list"] = AppThemeCommandResult(
+            status: 0,
+            output: #"[{"label":"netrunner","enabled":true}]"#
+        )
+        try sandbox.write("{{mode}}\n", to: "templates/mode.conf")
+        let customs = [AppThemeCustomReload.ghostty, .herdr].map { reload in
+            SettingsExport.AppTheming.Custom(
+                name: reload.rawValue,
+                template: sandbox.path("templates/mode.conf").path,
+                output: "~/.config/extra/\(reload.rawValue).conf",
+                reload: reload
+            ).target(savedMachines: true)
+        }
+        let report = run(targets([.ghostty, .herdr]) + customs)
+        XCTAssertEqual(fake.events, [
+            "signal \(AppThemeFakeEnvironment.ghosttyPID) \(SIGUSR2)",
+            "herdr server.reload_config",
+            "run /opt/homebrew/bin/herdr machine list --json",
+            "run /opt/homebrew/bin/herdr --machine netrunner server reload-config"
+        ])
+        for target in targets([.ghostty, .herdr]) + customs {
+            XCTAssertNotNil(report.results[target.id]?.reload, target.name)
+        }
+        XCTAssertTrue(sandbox.store.load().reloadPending.isEmpty)
+    }
+
     func testAForcedReloadRunsOnceEvenWhenNothingChanged() throws {
         _ = run(targets([.ghostty]))
         let before = fake.events.count

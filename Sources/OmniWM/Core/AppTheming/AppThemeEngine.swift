@@ -128,17 +128,23 @@ struct AppThemeEngine: Sendable {
         let ordered = job.targets.enumerated()
             .sorted { ($0.element.reload?.phase ?? 0, $0.offset) < ($1.element.reload?.phase ?? 0, $1.offset) }
             .map(\.element)
-        for target in ordered {
+        let needed = ordered.filter { target in
             guard let action = target.reload, let wrote = changed[target.id], job.enabled.contains(target.id) else {
-                continue
+                return false
             }
-            let needed = wrote || state.reloadPending.contains(target.id) || job.forceReload.contains(target.id)
+            return wrote || state.reloadPending.contains(target.id) || job.forceReload.contains(target.id)
                 || (action.runsAfterTerminals && (terminalsChanged || job.appearanceChanged))
-            guard needed else { continue }
+        }
+        var outcomes: [AppThemeReloadAction: AppThemeReloadOutcome] = [:]
+        for target in needed {
+            guard let action = target.reload else { continue }
             state.reloadPending.insert(target.id)
             try? store.save(state)
-            let outcome = AppThemeReloader(environment: environment)
-                .reload(action, newFiles: created.contains(target.id))
+            let outcome = outcomes[action] ?? AppThemeReloader(environment: environment).reload(
+                action,
+                newFiles: needed.contains { $0.reload == action && created.contains($0.id) }
+            )
+            outcomes[action] = outcome
             if outcome.succeeded { state.reloadPending.remove(target.id) }
             report.results[target.id]?.reload = outcome.message
             report.results[target.id]?.reloadFailed = !outcome.succeeded

@@ -23,7 +23,7 @@ struct AppThemeOutput: Equatable, Sendable {
     var table: [String]?
 }
 
-enum AppThemeReloadAction: Equatable, Sendable {
+enum AppThemeReloadAction: Hashable, Sendable {
     case ghostty
     case kitty
     case herdr(savedMachines: Bool)
