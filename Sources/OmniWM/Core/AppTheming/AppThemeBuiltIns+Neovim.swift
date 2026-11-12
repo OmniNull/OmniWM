@@ -136,6 +136,10 @@ extension AppThemeBuiltIn {
       if not state.active then
         return
       end
+      local current = vim.g.colors_name
+      if current ~= nil and current ~= "omniwm" then
+        return
+      end
       package.loaded["omniwm"] = nil
       local ok, omniwm = pcall(require, "omniwm")
       if ok then

@@ -211,6 +211,45 @@ final class AppThemeNeovimTests: XCTestCase {
         }
     }
 
+    func testAColorschemeChosenAfterOmniWMIsKeptOnReload() throws {
+        guard let nvim = AppThemeEnvironment.live.executable("nvim") else {
+            throw XCTSkip("Neovim is not installed here")
+        }
+        let runtime = sandbox.root.appendingPathComponent("rtp", isDirectory: true)
+        for (relative, text) in [
+            ("lua/omniwm.lua", try module(AppThemeFixtures.palette, dark: true)),
+            ("colors/omniwm.lua", AppThemeBuiltIn.neovimColorscheme)
+        ] {
+            let file = runtime.appendingPathComponent(relative)
+            try FileManager.default.createDirectory(
+                at: file.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try text.write(to: file, atomically: true, encoding: .utf8)
+        }
+        let script = runtime.appendingPathComponent("probe.lua")
+        try #"""
+        package.preload["base16-colorscheme"] = function()
+          return { setup = function(c) vim.api.nvim_set_hl(0, "Normal", { fg = c.base05, bg = c.base00 }) end }
+        end
+        local seen = 0
+        vim.api.nvim_create_autocmd("User", { pattern = "OmniWMColors", callback = function() seen = seen + 1 end })
+        require("omniwm").setup({ transparent = true })
+        vim.cmd.colorscheme("retrobox")
+        vim.api.nvim_exec_autocmds("Signal", { pattern = "SIGUSR1" })
+        vim.o.background = vim.o.background == "dark" and "light" or "dark"
+        local kept = vim.g.colors_name .. " " .. seen
+        vim.cmd.colorscheme("omniwm")
+        vim.api.nvim_exec_autocmds("Signal", { pattern = "SIGUSR1" })
+        io.write(kept .. " " .. vim.g.colors_name .. " " .. seen)
+        """#.write(to: script, atomically: true, encoding: .utf8)
+        let result = AppThemeProcessRunner.run(nvim, [
+            "--headless", "-u", "NONE", "-i", "NONE", "--cmd", "set rtp^=\(runtime.path)",
+            "--cmd", "set background=dark", "-c", "luafile \(script.path)", "-c", "qa!"
+        ], timeout: 20)
+        XCTAssertEqual(result.output, "retrobox 1 omniwm 3", "status \(result.status)")
+    }
+
     func testModuleLoadsReloadsAndAnnouncesInHeadlessNeovim() throws {
         guard let nvim = AppThemeEnvironment.live.executable("nvim") else {
             throw XCTSkip("Neovim is not installed here")
