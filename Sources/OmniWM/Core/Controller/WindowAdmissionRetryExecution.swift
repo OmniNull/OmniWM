@@ -132,27 +132,32 @@ extension AXEventHandler {
             )
         case .identityRebind:
             resumeIdentityRebindRetry(state: state, executionOwner: executionOwner)
-        case let .ruleReevaluation(token, axRef, context):
-            let task = Task { @MainActor [weak self] in
-                guard let self, let controller = self.controller else { return }
-                let outcome = await controller.reevaluateWindowRules(
-                    for: [.window(token)],
-                    context: context,
-                    stillWantsExplicitApply: {
-                        self.retryStillWantsExplicitRuleApply(windowId: windowId, generation: state.generation)
-                    }
-                )
-                self.finishRuleReevaluationRetry(
-                    execution: .init(windowId: windowId, generation: state.generation, executionOwner: executionOwner),
-                    identity: .init(token: token, axRef: axRef),
-                    reason: state.reason,
-                    stale: outcome.stale
-                )
-            }
-            var activeState = state
-            activeState.task = task
-            admissionRetryStateByWindowId[windowId] = activeState
+        case .ruleReevaluation:
+            resumeRuleReevaluationRetry(windowId: windowId, state: state, executionOwner: executionOwner)
         }
+    }
+
+    private func resumeRuleReevaluationRetry(windowId: UInt32, state: AdmissionRetryState, executionOwner: UInt64) {
+        guard case let .ruleReevaluation(token, axRef, context) = state.trigger else { return }
+        let task = Task { @MainActor [weak self] in
+            guard let self, let controller = self.controller else { return }
+            let outcome = await controller.reevaluateWindowRules(
+                for: [.window(token)],
+                context: context,
+                stillWantsExplicitApply: {
+                    self.retryStillWantsExplicitRuleApply(windowId: windowId, generation: state.generation)
+                }
+            )
+            self.finishRuleReevaluationRetry(
+                execution: .init(windowId: windowId, generation: state.generation, executionOwner: executionOwner),
+                identity: .init(token: token, axRef: axRef),
+                reason: state.reason,
+                stale: outcome.stale
+            )
+        }
+        var activeState = state
+        activeState.task = task
+        admissionRetryStateByWindowId[windowId] = activeState
     }
 
     private func resumeIdentityRebindRetry(state: AdmissionRetryState, executionOwner: UInt64) {
