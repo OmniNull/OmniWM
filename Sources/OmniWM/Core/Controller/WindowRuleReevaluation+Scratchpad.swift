@@ -33,8 +33,18 @@ extension WindowRuleReevaluation {
         return (rulesEvaluation, release)
     }
 
-    func applyScratchpadDestination(_ window: RuleReevaluationWindow, previousFocusToken: WindowToken?) {
-        let arrival = ScratchpadJoinArrival.quiet(previousFocusToken: previousFocusToken)
+    func scratchpadArrival(for window: RuleReevaluationWindow) -> ScratchpadJoinArrival {
+        guard let scratchpadAdmission = window.scratchpadAdmission else {
+            return .quiet(previousFocusToken: controller.workspaceManager.selectedManagedToken)
+        }
+        return controller.axEventHandler.scratchpadJoinArrival(
+            window.token,
+            in: scratchpadAdmission.index,
+            canCountAsFocused: !window.evaluation.appFullscreen
+        )
+    }
+
+    func applyScratchpadDestination(_ window: RuleReevaluationWindow, arrival: ScratchpadJoinArrival) {
         if let scratchpadAdmission = window.scratchpadAdmission {
             controller.joinScratchpadOnAdmission(
                 window.token,
@@ -48,7 +58,7 @@ extension WindowRuleReevaluation {
         guard context == .explicitRuleApply,
               window.existingEntry != nil,
               window.evaluation.decision.isResolved,
-              let index = controller.scratchpadDestination(for: window.evaluation)
+              let index = window.evaluation.decision.admissionHints.scratchpad
         else {
             return
         }

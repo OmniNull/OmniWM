@@ -224,36 +224,6 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         XCTAssertNil(manager.scratchpadIndex(for: tracked))
     }
 
-    func testTrackedParentChildFollowsItsParentsSlot() throws {
-        let fixture = try makeFixture(rules: [Self.rule(title: "Parent", scratchpad: 3)])
-        let manager = fixture.controller.workspaceManager
-        let pid: pid_t = 975_081
-        let memberParent = WindowToken(pid: pid, windowId: 975_181)
-        let plainParent = addTilingWindow(WindowToken(pid: pid, windowId: 975_182), to: fixture, title: "Plain")
-        try liveCreate(memberParent, in: fixture, title: "Parent")
-        XCTAssertEqual(manager.scratchpadIndex(for: memberParent), 3)
-
-        let followingChild = WindowToken(pid: pid, windowId: 975_183)
-        let orphanedChild = WindowToken(pid: pid, windowId: 975_184)
-        let plainChild = WindowToken(pid: pid, windowId: 975_185)
-        fixture.book.decisions[followingChild] = Self.childDecision(scratchpad: 1)
-        fixture.book.decisions[orphanedChild] = Self.childDecision(scratchpad: 1)
-        fixture.book.decisions[plainChild] = Self.childDecision(scratchpad: nil)
-        try liveCreate(followingChild, in: fixture, facts: childFacts(for: followingChild, parent: memberParent))
-        try liveCreate(orphanedChild, in: fixture, facts: childFacts(for: orphanedChild, parent: plainParent))
-        try liveCreate(plainChild, in: fixture, facts: childFacts(for: plainChild, parent: memberParent))
-
-        XCTAssertEqual(manager.scratchpadIndex(for: followingChild), 3)
-        XCTAssertEqual(manager.hiddenState(for: followingChild)?.isScratchpad, true)
-        XCTAssertTrue(manager.scratchpadMembers(in: 1).isEmpty)
-        for child in [orphanedChild, plainChild] {
-            XCTAssertNotNil(manager.entry(for: child))
-            XCTAssertNil(manager.scratchpadIndex(for: child))
-            XCTAssertNil(manager.manualLayoutOverride(for: child))
-            XCTAssertNil(manager.hiddenState(for: child))
-        }
-    }
-
     func testMemberAdmittedWhileNotDisplayableParksOnceItBecomesDisplayable() throws {
         enum Suppression: CaseIterable {
             case minimized
@@ -848,6 +818,182 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         XCTAssertEqual(memberSnapshot(token, in: manager), before)
     }
 
+    func testExplicitRuleApplyReleasesAMemberOnlyForAWorkspaceThatExists() async throws {
+        for targetsCurrentWorkspace in [false, true] {
+            let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+            let manager = fixture.controller.workspaceManager
+            let token = WindowToken(pid: 975_311, windowId: 975_411)
+            try liveCreate(token, in: fixture)
+            let before = memberSnapshot(token, in: manager)
+            XCTAssertEqual(before.hiddenState?.isScratchpad, true)
+            let destination = targetsCurrentWorkspace ? "1" : "missing-workspace"
+            fixture.controller.windowRuleEngine.rebuild(rules: [Self.rule(workspace: destination)])
+
+            await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+
+            if targetsCurrentWorkspace {
+                XCTAssertNil(manager.scratchpadIndex(for: token))
+                XCTAssertNotEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+                XCTAssertNil(manager.manualLayoutOverride(for: token))
+                XCTAssertEqual(manager.workspace(for: token), fixture.workspaceId)
+            } else {
+                XCTAssertEqual(memberSnapshot(token, in: manager), before)
+            }
+        }
+    }
+
+    func testExplicitRuleApplyRetryMovesTheMemberOnceGeometryReturns() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let handler = fixture.controller.axEventHandler
+        let destination = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: true))
+        let token = WindowToken(pid: 975_321, windowId: 975_421)
+        let windowId = UInt32(token.windowId)
+        try liveCreate(token, in: fixture)
+        fixture.controller.windowRuleEngine.rebuild(rules: [Self.rule(workspace: "2")])
+        fixture.book.withoutAdmissionGeometry.insert(token)
+
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertNotNil(handler.admissionRetryStateByWindowId[windowId])
+        fixture.book.withoutAdmissionGeometry.remove(token)
+        XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
+        if let retry = handler.admissionRetryStateByWindowId[windowId]?.task {
+            await retry.value
+        }
+
+        XCTAssertNil(manager.scratchpadIndex(for: token))
+        XCTAssertNotEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertNil(manager.manualLayoutOverride(for: token))
+        XCTAssertEqual(manager.workspace(for: token), destination)
+    }
+
+    func testMemberArrivingWhileTheSlotsRevealIsPendingKeepsTheSlotRevealed() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let reveals = fixture.controller.layoutRefreshController
+        let first = WindowToken(pid: 975_331, windowId: 975_431)
+        let second = WindowToken(pid: 975_332, windowId: 975_432)
+        try liveCreate(first, in: fixture)
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1, on: fixture.monitor.id), .executed)
+        XCTAssertNotNil(reveals.pendingRevealTransactionId(forWindowId: first.windowId))
+
+        try liveCreate(second, in: fixture)
+
+        XCTAssertNil(reveals.pendingRevealTransactionId(forWindowId: first.windowId))
+        XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+        XCTAssertEqual(manager.scratchpadIndex(for: second), 1)
+        XCTAssertNil(manager.hiddenState(for: second))
+    }
+
+    func testFailedMoveRestoresTheRevealOfTheSourceSlot() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(title: "Alpha", scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let departed = WindowToken(pid: 975_341, windowId: 975_441)
+        let token = WindowToken(pid: 975_342, windowId: 975_442)
+        try liveCreate(departed, in: fixture, title: "Alpha")
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1, on: fixture.monitor.id), .executed)
+        try completeReveal(departed, in: fixture)
+        fixture.controller.axEventHandler.handleRemoved(token: departed)
+        try liveCreate(token, in: fixture, title: "Alpha")
+        XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+        XCTAssertNil(manager.hiddenState(for: token))
+        fixture.controller.layoutRefreshController.fastFrameProvider = { _, _ in nil }
+        fixture.controller.windowRuleEngine.rebuild(rules: [Self.rule(title: "Alpha", scratchpad: 2)])
+
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertTrue(manager.scratchpadMembers(in: 2).isEmpty)
+        XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+        XCTAssertNil(manager.hiddenState(for: token))
+    }
+
+    func testOrderedInEventAfterDeminiaturizingWhileWithdrawnReparksTheMember() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let handler = fixture.controller.axEventHandler
+        let token = WindowToken(pid: 975_351, windowId: 975_451)
+        rescan(token, in: fixture, orderedIn: false)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertEqual(manager.entry(for: token)?.observedState.isNativeWithdrawn, true)
+        handler.updateWindowMinimizedState(true, token: token, requestRefresh: false)
+        let axRef = try XCTUnwrap(manager.entry(for: token)?.axRef)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        handler.handleWindowMinimized(pid: token.pid, axRef: axRef, minimized: false)
+        XCTAssertEqual(parkIntents(of: token), 0)
+        handler.applyObservedWindowOrdering(
+            WindowServerInfo(
+                id: UInt32(token.windowId),
+                pid: token.pid,
+                level: 0,
+                frame: Self.windowServerFrame,
+                isOrderedIn: true
+            ),
+            token: token
+        )
+
+        XCTAssertFalse(manager.isWindowSuppressedByMacOS(token))
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertGreaterThan(parkIntents(of: token), 0)
+    }
+
+    func testRuleReevaluationAdmittingAFocusedWindowRevealsItsSlot() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let token = WindowToken(pid: 975_361, windowId: 975_461)
+        fixture.book.facts[token] = facts(for: token)
+        manager.recordExternalFocus(pid: token.pid, windowId: token.windowId)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)])
+        try completeScratchpadFronting(in: fixture)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+        XCTAssertNil(manager.hiddenState(for: token))
+        XCTAssertEqual(hiddenTransitions(of: token, in: manager), 0)
+        XCTAssertEqual(parkIntents(of: token), 0)
+    }
+
+    func testRescanHonorsFocusOnlyForAWindowWithALiveCreateContext() throws {
+        for hasLiveCreateContext in [false, true] {
+            let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+            let manager = fixture.controller.workspaceManager
+            let token = WindowToken(pid: 975_371, windowId: 975_471)
+            if hasLiveCreateContext {
+                fixture.controller.axEventHandler.createPlacementContextsByWindowId[UInt32(token.windowId)] =
+                    WindowCreatePlacementContext(
+                        nativeSpaceMonitorId: nil,
+                        pendingFocusedWorkspaceId: nil,
+                        pendingFocusedMonitorId: nil,
+                        focusedWorkspaceId: fixture.workspaceId,
+                        focusedMonitorId: fixture.monitor.id,
+                        interactionWorkspaceId: fixture.workspaceId,
+                        interactionMonitorId: fixture.monitor.id,
+                        createdAt: Date()
+                    )
+            }
+            manager.recordExternalFocus(pid: token.pid, windowId: token.windowId)
+
+            rescan(token, in: fixture)
+
+            XCTAssertEqual(manager.scratchpadIndex(for: token), 1, "hasLiveCreateContext=\(hasLiveCreateContext)")
+            if hasLiveCreateContext {
+                XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+                XCTAssertNil(manager.hiddenState(for: token))
+            } else {
+                XCTAssertNil(manager.revealedScratchpadIndex())
+                XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+                XCTAssertNotEqual(manager.selectedManagedToken, token)
+            }
+        }
+    }
+
     private struct Fixture {
         let controller: WMController
         let monitor: Monitor
@@ -897,20 +1043,6 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
             ruleProvenance: .none,
             heuristicReasons: [],
             deferredReason: .requiredTitleMissing
-        )
-    }
-
-    private static func childDecision(scratchpad: ScratchpadIndex?) -> WindowDecision {
-        WindowDecision(
-            disposition: .floating,
-            source: .userRule(UUID()),
-            layoutDecisionKind: .explicitLayout,
-            workspaceName: nil,
-            ruleEffects: .none,
-            admissionHints: ManagedWindowAdmissionHints(scratchpad: scratchpad),
-            ruleProvenance: .none,
-            heuristicReasons: [],
-            deferredReason: nil
         )
     }
 
@@ -983,24 +1115,11 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
     }
 
     private func facts(for token: WindowToken, title: String = "Notes") -> WindowRuleFacts {
-        windowFacts(for: token, title: title, subrole: kAXStandardWindowSubrole as String, parentId: 0)
-    }
-
-    private func childFacts(for token: WindowToken, parent: WindowToken) -> WindowRuleFacts {
-        windowFacts(for: token, title: "Dialog", subrole: kAXDialogSubrole as String, parentId: UInt32(parent.windowId))
-    }
-
-    private func windowFacts(
-        for token: WindowToken,
-        title: String,
-        subrole: String,
-        parentId: UInt32
-    ) -> WindowRuleFacts {
         WindowRuleFacts(
             appName: "Scratchpad Rule",
             ax: AXWindowFacts(
                 role: kAXWindowRole as String,
-                subrole: subrole,
+                subrole: kAXStandardWindowSubrole as String,
                 title: title,
                 hasCloseButton: true,
                 hasFullscreenButton: true,
@@ -1016,8 +1135,7 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
                 id: UInt32(token.windowId),
                 pid: token.pid,
                 level: 0,
-                frame: Self.windowServerFrame,
-                parentId: parentId
+                frame: Self.windowServerFrame
             )
         )
     }
@@ -1027,11 +1145,10 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         _ token: WindowToken,
         in fixture: Fixture,
         title: String = "Notes",
-        facts explicitFacts: WindowRuleFacts? = nil,
         isMinimized: Bool = false,
         countsAsFocused: Bool = false
     ) throws -> AXEventHandler.PreparedCreate {
-        var candidate = try prepareCreate(token, in: fixture, title: title, facts: explicitFacts)
+        var candidate = try prepareCreate(token, in: fixture, title: title)
         candidate.isMinimized = isMinimized
         fixture.controller.axEventHandler.trackPreparedCreate(candidate, countsAsFocused: countsAsFocused)
         XCTAssertNotNil(fixture.controller.workspaceManager.entry(for: token))
@@ -1041,10 +1158,9 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
     private func prepareCreate(
         _ token: WindowToken,
         in fixture: Fixture,
-        title: String = "Notes",
-        facts explicitFacts: WindowRuleFacts? = nil
+        title: String = "Notes"
     ) throws -> AXEventHandler.PreparedCreate {
-        let facts = explicitFacts ?? self.facts(for: token, title: title)
+        let facts = self.facts(for: token, title: title)
         fixture.book.facts[token] = facts
         let outcome = fixture.controller.axEventHandler.prepareCreateCandidate(
             windowId: UInt32(token.windowId),

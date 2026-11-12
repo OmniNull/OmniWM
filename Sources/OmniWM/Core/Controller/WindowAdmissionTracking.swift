@@ -89,14 +89,25 @@ extension AXEventHandler {
         else {
             return nil
         }
+        return scratchpadJoinArrival(
+            candidate.token,
+            in: scratchpadAdmission.index,
+            canCountAsFocused: !candidate.isMinimized && !candidate.appFullscreen,
+            countsAsFocused: countsAsFocused
+        )
+    }
+
+    func scratchpadJoinArrival(
+        _ token: WindowToken,
+        in index: ScratchpadIndex,
+        canCountAsFocused: Bool,
+        countsAsFocused: Bool = false
+    ) -> ScratchpadJoinArrival {
+        guard let controller else { return .quiet(previousFocusToken: nil) }
         let quiet = ScratchpadJoinArrival.quiet(previousFocusToken: controller.workspaceManager.selectedManagedToken)
-        guard controller.workspaceManager.revealedScratchpadIndex() != scratchpadAdmission.index,
-              !candidate.isMinimized,
-              !candidate.appFullscreen
-        else {
-            return quiet
-        }
-        return countsAsFocused || createCountsAsFocused(candidate.token, controller: controller) ? .focused : quiet
+        if controller.workspaceManager.revealedScratchpadIndex() == index { return .intoRevealedSlot }
+        guard canCountAsFocused else { return quiet }
+        return countsAsFocused || createCountsAsFocused(token, controller: controller) ? .focused : quiet
     }
 
     private func createCountsAsFocused(_ token: WindowToken, controller: WMController) -> Bool {

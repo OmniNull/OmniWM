@@ -105,7 +105,8 @@ struct WindowRuleReevaluation {
         ) else {
             _ = scratchpadRelease.map(controller.cancelScratchpadMemberRelease)
             controller.axEventHandler.scheduleGeometryAdmissionRetry(
-                token: token, axRef: axRef, existingEntry: existingEntry, placementOrigin: placementOrigin
+                token: token, axRef: axRef, existingEntry: existingEntry,
+                placementOrigin: placementOrigin, context: context
             )
             return nil
         }
@@ -170,12 +171,12 @@ struct WindowRuleReevaluation {
         if let scratchpadRelease = window.scratchpadRelease {
             controller.completeScratchpadMemberRelease(scratchpadRelease)
         }
-        let previousFocusToken = controller.workspaceManager.selectedManagedToken
+        let arrival = scratchpadArrival(for: window)
         admitIfNeeded(window, workspaceId: workspaceId)
         updateTracking(window)
         updateGeometry(window, workspaceId: workspaceId)
         updateReplacementMetadata(window)
-        applyScratchpadDestination(window, previousFocusToken: previousFocusToken)
+        applyScratchpadDestination(window, arrival: arrival)
         finishApplication(window, workspaceId: workspaceId)
     }
 

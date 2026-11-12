@@ -16,6 +16,7 @@ struct ScratchpadAdmission: Equatable {
 enum ScratchpadJoinArrival: Equatable {
     case quiet(previousFocusToken: WindowToken?)
     case focused
+    case intoRevealedSlot
 }
 
 struct ScratchpadParkAdmission {
@@ -28,22 +29,13 @@ struct ScratchpadMemberRelease {
 }
 
 extension WMController {
-    func scratchpadDestination(for evaluation: WindowDecisionEvaluation) -> ScratchpadIndex? {
-        guard let index = evaluation.decision.admissionHints.scratchpad else { return nil }
-        guard shouldInheritTrackedParentWorkspace(for: evaluation),
-              let parentId = evaluation.facts.windowServer?.parentId,
-              let parent = workspaceManager.entry(forWindowId: Int(parentId))
-        else {
-            return index
-        }
-        return workspaceManager.scratchpadIndex(for: parent.token)
-    }
-
     func scratchpadAdmission(
         for evaluation: WindowDecisionEvaluation,
         requestedMode: TrackedWindowMode
     ) -> ScratchpadAdmission? {
-        scratchpadDestination(for: evaluation).map { ScratchpadAdmission(index: $0, fallbackMode: requestedMode) }
+        evaluation.decision.admissionHints.scratchpad.map {
+            ScratchpadAdmission(index: $0, fallbackMode: requestedMode)
+        }
     }
 
     func joinScratchpadOnAdmission(
@@ -107,6 +99,7 @@ extension WMController {
         if previousIndex == index { return true }
 
         let previousOverride = workspaceManager.manualLayoutOverride(for: token)
+        let previousRevealedIndex = workspaceManager.revealedScratchpadIndex()
         let wasParked = workspaceManager.hiddenState(for: token)?.isScratchpad == true
         let transitionedFromTiling = entry.mode == .tiling
         guard prepareWindowForScratchpadAssignment(
@@ -133,6 +126,7 @@ extension WMController {
                 token,
                 previousIndex: previousIndex,
                 previousOverride: previousOverride,
+                previousRevealedIndex: previousRevealedIndex,
                 restoresTiling: transitionedFromTiling
             )
             return false
@@ -151,7 +145,8 @@ extension WMController {
         decision: WindowDecision
     ) -> ScratchpadMemberRelease? {
         guard decision.isResolved,
-              decision.workspaceName != nil,
+              let workspaceName = decision.workspaceName,
+              workspaceManager.workspaceId(for: workspaceName, createIfMissing: false) != nil,
               decision.admissionHints.scratchpad == nil,
               workspaceManager.scratchpadIndex(for: token) != nil,
               workspaceManager.entry(for: token) != nil
@@ -199,6 +194,7 @@ extension WMController {
         _ token: WindowToken,
         previousIndex: ScratchpadIndex?,
         previousOverride: ManualWindowOverride?,
+        previousRevealedIndex: ScratchpadIndex?,
         restoresTiling: Bool
     ) {
         if let previousIndex {
@@ -207,6 +203,9 @@ extension WMController {
             }
         } else {
             cleanupScratchpadWindowResources(for: token)
+        }
+        if workspaceManager.setRevealedScratchpad(previousRevealedIndex) {
+            requestWorkspaceBarRefresh()
         }
         workspaceManager.setManualLayoutOverride(previousOverride, for: token)
         guard restoresTiling,
@@ -230,6 +229,13 @@ extension WMController {
             return !isRevealed || showJoinedScratchpadWindow(entry, in: index)
         }
         guard !isRevealed else { return true }
+        if arrival == .intoRevealedSlot,
+           workspaceManager.revealedScratchpadIndex() == nil,
+           workspaceManager.setRevealedScratchpad(index)
+        {
+            requestWorkspaceBarRefresh()
+            return true
+        }
         return settleJoinedScratchpadWindow(entry, in: index, parkAdmission: parkAdmission, arrival: arrival)
     }
 

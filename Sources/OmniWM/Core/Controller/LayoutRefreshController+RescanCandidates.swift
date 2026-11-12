@@ -86,7 +86,7 @@ extension LayoutRefreshController {
             assignment: assignment,
             context: context
         )
-        let previousFocusToken = context.controller.workspaceManager.selectedManagedToken
+        let arrival = fullRescanScratchpadArrival(window, scratchpadAdmission: scratchpadAdmission, context: context)
         let admittedToken = admitFullRescanWindow(window, admission: admission, context: context)
         guard completeFullRescanTracking(
             window,
@@ -104,9 +104,25 @@ extension LayoutRefreshController {
         )
         joinFullRescanScratchpad(
             scratchpadAdmission, window: window, admitted: admitted,
-            admittedToken: admittedToken, previousFocusToken: previousFocusToken
+            admittedToken: admittedToken, arrival: arrival
         )
         progress.seenKeys.insert(admittedToken)
+    }
+
+    private func fullRescanScratchpadArrival(
+        _ window: FullRescanEvaluatedWindow,
+        scratchpadAdmission: ScratchpadAdmission?,
+        context: FullRescanMutationContext
+    ) -> ScratchpadJoinArrival {
+        let controller = context.controller
+        guard let scratchpadAdmission, window.decision.createPlacementContext != nil else {
+            return .quiet(previousFocusToken: controller.workspaceManager.selectedManagedToken)
+        }
+        return controller.axEventHandler.scratchpadJoinArrival(
+            window.identity.token,
+            in: scratchpadAdmission.index,
+            canCountAsFocused: !window.decision.appFullscreen && window.candidate.minimizedAttribute != true
+        )
     }
 
     private func joinFullRescanScratchpad(
@@ -114,7 +130,7 @@ extension LayoutRefreshController {
         window: FullRescanEvaluatedWindow,
         admitted: WindowAdmission,
         admittedToken: WindowToken,
-        previousFocusToken: WindowToken?
+        arrival: ScratchpadJoinArrival
     ) {
         guard let scratchpadAdmission, let controller else { return }
         controller.joinScratchpadOnAdmission(
@@ -122,7 +138,7 @@ extension LayoutRefreshController {
             scratchpadAdmission,
             observedFrame: window.candidate.capturedAppKitFrame ?? admitted.geometry?.frame,
             appFullscreen: window.decision.appFullscreen,
-            arrival: .quiet(previousFocusToken: previousFocusToken)
+            arrival: arrival
         )
     }
 

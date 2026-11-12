@@ -33,7 +33,6 @@ scratchpad = 1
 - **Hidden slot:** the new window is parked and the slot stays hidden. Focus stays on, or returns to, the window you were using when it's still on screen; otherwise OmniWM focuses another window, if there is one. The new window can show on screen for a moment before it's parked. If the new window is focused when it arrives, OmniWM reveals the slot instead, as if you clicked the window's icon in the slot's pill, and the window is never parked.
 - **Revealed slot:** the new window appears in place, on the workspace OmniWM would normally put it on, without being moved.
 - **Startup:** no slot is revealed, so matching windows that are already open go back into their slots, parked.
-- **Child windows:** a dialog or other child window that opens on its parent's workspace follows its parent. It joins the parent's slot when the parent is a member, whichever slot the rule names, and stays out otherwise.
 - **Taking a window out:** a window you take out of a slot stays out, even when its title changes. The rule applies again only to windows the app opens later.
 
 A revealed slot stays revealed when its last window closes or its app quits, so the next window to join it, by rule or by hand, shows in place. It stops being revealed when you reveal another slot or toggle that slot. Releasing, moving, or tiling its last window still hides the slot.

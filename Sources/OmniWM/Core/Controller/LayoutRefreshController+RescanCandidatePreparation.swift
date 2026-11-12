@@ -57,15 +57,13 @@ extension LayoutRefreshController {
     ) -> WindowState? {
         let controller = context.controller
         var existingEntry = entry
-        var deminiaturizedToken: WindowToken?
+        let wasNativeSuppressed = entry?.observedState.isNativeSuppressed == true
         if let entry = existingEntry, let minimized = candidate.minimizedAttribute {
-            if controller.axEventHandler.updateWindowMinimizedState(
+            controller.axEventHandler.updateWindowMinimizedState(
                 minimized,
                 token: entry.token,
                 requestRefresh: false
-            ), !minimized {
-                deminiaturizedToken = entry.token
-            }
+            )
             existingEntry = controller.workspaceManager.entry(for: entry.token)
         }
         if let entry = existingEntry {
@@ -77,9 +75,9 @@ extension LayoutRefreshController {
             )
             existingEntry = controller.workspaceManager.entry(for: entry.token)
         }
-        if let deminiaturizedToken {
-            controller.reconcileDisplayableScratchpadMember(deminiaturizedToken)
-            existingEntry = controller.workspaceManager.entry(for: deminiaturizedToken)
+        if wasNativeSuppressed, let entry = existingEntry, !entry.observedState.isNativeSuppressed {
+            controller.reconcileDisplayableScratchpadMember(entry.token)
+            existingEntry = controller.workspaceManager.entry(for: entry.token)
         }
         return existingEntry
     }

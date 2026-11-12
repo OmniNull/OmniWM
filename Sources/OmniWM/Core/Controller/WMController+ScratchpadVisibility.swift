@@ -193,12 +193,7 @@ extension WMController {
                 return handle.id
             }
             guard !survivors.isEmpty else {
-                if self.workspaceManager.revealedScratchpadIndex() == index,
-                   !self.workspaceManager.scratchpadMembers(in: index).isEmpty
-                {
-                    self.workspaceManager.setRevealedScratchpad(nil)
-                    self.requestWorkspaceBarRefresh()
-                }
+                self.layoutRefreshController.reconcileRevealedScratchpadAfterGroupDiscard(index)
                 return
             }
             self.scratchpadStacking

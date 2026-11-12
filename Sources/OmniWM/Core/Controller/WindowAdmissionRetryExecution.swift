@@ -132,10 +132,10 @@ extension AXEventHandler {
             )
         case .identityRebind:
             resumeIdentityRebindRetry(state: state, executionOwner: executionOwner)
-        case let .ruleReevaluation(token, axRef):
+        case let .ruleReevaluation(token, axRef, context):
             let task = Task { @MainActor [weak self] in
                 guard let self, let controller = self.controller else { return }
-                let outcome = await controller.reevaluateWindowRules(for: [.window(token)])
+                let outcome = await controller.reevaluateWindowRules(for: [.window(token)], context: context)
                 self.finishRuleReevaluationRetry(
                     execution: .init(windowId: windowId, generation: state.generation, executionOwner: executionOwner),
                     identity: .init(token: token, axRef: axRef),
@@ -195,7 +195,7 @@ extension AXEventHandler {
         guard var state = admissionRetryStateByWindowId[windowId],
               state.generation == generation,
               state.executionPhase == .running(executionOwner),
-              case let .ruleReevaluation(retryToken, retryAXRef) = state.trigger,
+              case let .ruleReevaluation(retryToken, retryAXRef, retryContext) = state.trigger,
               retryToken == token,
               CFEqual(retryAXRef.element, axRef.element)
         else {
@@ -205,7 +205,7 @@ extension AXEventHandler {
         state.executionPhase = .waiting
         if stale {
             admissionRetryStateByWindowId[windowId] = state
-            _ = scheduleTrackedTilingPromotionRetry(token: token, axRef: axRef, reason: reason)
+            _ = scheduleTrackedTilingPromotionRetry(token: token, axRef: axRef, reason: reason, context: retryContext)
         } else {
             admissionRetryStateByWindowId[windowId] = state
             cancelCreatedWindowRetry(windowId: windowId)
