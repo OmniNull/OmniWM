@@ -111,6 +111,8 @@ struct AppThemeEnvironment: Sendable {
 }
 
 enum AppThemeProcessRunner {
+    static let terminationGrace: TimeInterval = 1
+
     static func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) -> AppThemeCommandResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -137,19 +139,30 @@ enum AppThemeProcessRunner {
             output.data = pipe.fileHandleForReading.readDataToEndOfFile()
             collected.signal()
         }
+        let deadline = DispatchTime.now() + timeout
         var timedOut = false
-        if finished.wait(timeout: .now() + timeout) == .timedOut {
+        if finished.wait(timeout: deadline) == .timedOut {
             timedOut = true
             process.terminate()
-            if finished.wait(timeout: .now() + 1) == .timedOut {
+            if finished.wait(timeout: .now() + terminationGrace) == .timedOut {
                 kill(process.processIdentifier, SIGKILL)
                 finished.wait()
             }
         }
-        let data = collected.wait(timeout: .now() + 1) == .success ? output.data : Data()
-        let text = String(decoding: data, as: UTF8.self)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return AppThemeCommandResult(status: process.terminationStatus, output: text, timedOut: timedOut)
+        let complete = collected.wait(timeout: max(deadline, .now())) == .success
+        return result(status: process.terminationStatus, output: complete ? output.data : nil, timedOut: timedOut)
+    }
+
+    static func result(status: Int32, output: Data?, timedOut: Bool) -> AppThemeCommandResult {
+        guard let output else {
+            return AppThemeCommandResult(
+                status: status,
+                output: String(localized: "its output didn’t finish"),
+                timedOut: true
+            )
+        }
+        let text = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        return AppThemeCommandResult(status: status, output: text, timedOut: timedOut)
     }
 }
 

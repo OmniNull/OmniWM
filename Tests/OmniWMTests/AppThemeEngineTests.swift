@@ -220,6 +220,15 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(result.output.count, 10000)
     }
 
+    func testACommandWhoseOutputDidNotFinishIsAFailure() {
+        let unfinished = AppThemeProcessRunner.result(status: 0, output: nil, timedOut: false)
+        XCTAssertFalse(unfinished.succeeded)
+        XCTAssertTrue(unfinished.timedOut)
+        let finished = AppThemeProcessRunner.result(status: 0, output: Data(" [] \n".utf8), timedOut: false)
+        XCTAssertTrue(finished.succeeded)
+        XCTAssertEqual(finished.output, "[]")
+    }
+
     func testHerdrNotRunningIsFine() throws {
         fake.herdrReply = .notRunning
         let report = run(targets([.herdr], machines: false))
