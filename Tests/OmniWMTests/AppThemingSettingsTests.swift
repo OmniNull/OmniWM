@@ -433,20 +433,35 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
-    func testAThemeChangeNotificationReReadsTheAppearanceOnTheNextTurn() async throws {
-        let reads = AppThemeTestCounter()
-        let service = sandbox.service(AppThemingSettings(), fake) {
-            reads.value += 1
-            return reads.value >= 3
-        }
-        XCTAssertFalse(service.isDark)
-        service.appearanceNotificationReceived()
-        XCTAssertFalse(service.isDark)
-        for _ in 0 ..< 20 where !service.isDark {
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
+    func testAnAppearanceChangeIsAppliedAsItHappens() throws {
+        let saved = NSApplication.shared.appearance
+        defer { NSApplication.shared.appearance = saved }
+        NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        let settings = AppThemingSettings()
+        settings.values.herdr = .init(enabled: true, reloadSavedMachines: false)
+        let service = sandbox.service(settings, fake, systemIsDark: AppThemeService.liveSystemIsDark)
+        service.start()
+        defer { service.stop() }
+        service.paletteDidChange(theme(background: .black))
+        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its light palette"))
+        NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
         XCTAssertTrue(service.isDark)
-        XCTAssertGreaterThanOrEqual(reads.value, 3)
+        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its dark palette"))
+    }
+
+    @MainActor
+    func testAStoppedServiceNoLongerFollowsTheAppearance() {
+        let saved = NSApplication.shared.appearance
+        defer { NSApplication.shared.appearance = saved }
+        NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        let settings = AppThemingSettings()
+        settings.values.kitty.enabled = true
+        let service = sandbox.service(settings, fake, systemIsDark: AppThemeService.liveSystemIsDark)
+        service.start()
+        service.stop()
+        NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
+        XCTAssertFalse(service.isDark)
+        XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
     }
 
     @MainActor

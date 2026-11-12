@@ -28,7 +28,6 @@ final class AppThemeService {
     @ObservationIgnored private var forceReload: Set<String> = []
     @ObservationIgnored private var enabledTargets: Set<String> = []
     @ObservationIgnored private var paletteTerminalColors = AppThemeTerminalColors.palette
-    @ObservationIgnored private var appearanceObserver: NSObjectProtocol?
     @ObservationIgnored private var effectiveAppearanceObserver: NSKeyValueObservation?
     @ObservationIgnored private var fallbackTheme: (@MainActor () -> ShellTheme)?
     @ObservationIgnored private var cachedPalette: AppThemePalette?
@@ -50,12 +49,6 @@ final class AppThemeService {
         paletteTerminalColors = settings.values.terminalColors
         enabledTargets = Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id))
         results = engine.store.load().results
-    }
-
-    isolated deinit {
-        if let appearanceObserver {
-            DistributedNotificationCenter.default().removeObserver(appearanceObserver)
-        }
     }
 
     static func live(settings: AppThemingSettings) -> AppThemeService {
@@ -92,17 +85,15 @@ final class AppThemeService {
     }
 
     func start() {
-        guard appearanceObserver == nil else { return }
-        appearanceObserver = DistributedNotificationCenter.default().addObserver(
-            forName: Notification.Name("AppleInterfaceThemeChangedNotification"),
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.appearanceNotificationReceived() }
-        }
+        guard effectiveAppearanceObserver == nil else { return }
         effectiveAppearanceObserver = NSApplication.shared.observe(\.effectiveAppearance) { [weak self] _, _ in
-            Task { @MainActor [weak self] in self?.appearanceDidChange() }
+            MainActor.assumeIsolated { self?.appearanceDidChange() }
         }
+    }
+
+    func stop() {
+        effectiveAppearanceObserver?.invalidate()
+        effectiveAppearanceObserver = nil
     }
 
     func useThemeWhileShellIsOff(_ provider: @escaping @MainActor () -> ShellTheme, refresh: Bool = false) {
@@ -128,13 +119,6 @@ final class AppThemeService {
         cachedPalette = nil
         guard settings.values.anyEnabled, palette != appliedPalette else { return }
         schedule()
-    }
-
-    func appearanceNotificationReceived() {
-        appearanceDidChange()
-        DispatchQueue.main.async { [weak self] in
-            MainActor.assumeIsolated { self?.appearanceDidChange() }
-        }
     }
 
     func appearanceDidChange() {
