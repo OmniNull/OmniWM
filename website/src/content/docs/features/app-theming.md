@@ -131,4 +131,4 @@ The **Follow Palette** terminal colors adapt [Noctalia](https://github.com/nocta
 
 ## Backups and state
 
-Backups go to `~/.local/state/omniwm/app-theming/backups/` (`omniwm-dev` for the Dev app); OmniWM keeps the newest 20. The same folder holds `state.json`, which records what OmniWM last wrote to each file, so it can tell your edits from its own, and any reload still owed after a failure, which it retries on the next update. See [`appTheming`](/config/settings-reference/#apptheming) for the settings keys.
+Backups go to `~/.local/state/omniwm/app-theming/backups/` (`omniwm-dev` for the Dev app), readable only by you; OmniWM keeps the newest 20. `state.json`, in `~/.local/state/omniwm/app-theming/` itself, records what OmniWM last wrote to each file, so it can tell your edits from its own, and any reload still owed after a failure, which it retries on the next update. See [`appTheming`](/config/settings-reference/#apptheming) for the settings keys.
