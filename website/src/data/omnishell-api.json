@@ -69,7 +69,7 @@
       "kind": "type",
       "topic": "ui-elements",
       "anchor": "api-element",
-      "declaration": "export type Element = { kind: number }",
+      "declaration": "export type Element = { kind: number, [any]: any }",
       "fields": [
         "kind"
       ],
