@@ -2948,7 +2948,8 @@ final class ShellStyleLayoutTests: XCTestCase {
                             .muted,
                             .outputs,
                             .media,
-                            .battery
+                            .battery,
+                            .appearance
                         ]
                         if hasBattery { expected.formUnion([.charging, .power]) }
                         XCTAssertEqual(deps & ~ShellDataKey.bar.bit, expected.reduce(0) { $0 | $1.bit }, context)
@@ -3031,10 +3032,28 @@ final class ShellStyleLayoutTests: XCTestCase {
         wifiFixture(widget)
         bluetoothFixture(widget)
         batteryFixture(widget)
-        mediaFixture(widget)
-        calendarFixture(widget)
-        weatherFixture(widget)
-        systemStatsFixture(widget)
+        let title = "Northern Lights"
+        mediaFixture(widget, title: title)
+        let calendar = calendarFixture(widget)
+        let weather = weatherFixture(widget)
+        let system = systemStatsFixture(widget)
+        func label(_ key: String) -> String {
+            ShellLocalizer.string(key, [])
+        }
+        let namedCards = try [
+            (
+                "overview",
+                [label("Wi-Fi"), label("Bluetooth"), label("Sound"), title, label("Dark Mode"), label("Battery")]
+            ),
+            ("audio", [label("Sound"), label("Output"), label("Applications")]),
+            ("media", [title, label("Lyrics")]),
+            ("calendar", [XCTUnwrap(calendar.events.first).title, String(XCTUnwrap(calendar.month).days)]),
+            (
+                "weather",
+                [XCTUnwrap(weather.place), XCTUnwrap(weather.hours.first).label, XCTUnwrap(weather.days.first).label]
+            ),
+            ("system", [label("CPU"), system.host.hostname])
+        ]
         for capsule in [false, true] {
             var bar = fixture(config, height: 40, vertical: false)
             if capsule {
@@ -3042,14 +3061,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                 bar.style.backgrounds = true
             }
             widget.render(bar)
-            for (tab, count) in [
-                ("overview", 5),
-                ("audio", 3),
-                ("media", 2),
-                ("calendar", 2),
-                ("weather", 3),
-                ("system", 2)
-            ] {
+            for (tab, names) in namedCards {
                 let context = "\(tab)/capsule=\(capsule)"
                 widget.set("settings") { ShellServiceValue.object(["tab": .text(tab)]).write(to: &$0) }
                 widget.layoutPopout()
@@ -3058,11 +3070,22 @@ final class ShellStyleLayoutTests: XCTestCase {
                     return paint.fill.role & 0xFF == UInt16(ShellRole.elevatedSurface.rawValue + 1)
                         && paint.cornerRadius == 9
                 }
-                XCTAssertEqual(cards.count, count, context)
+                let cardTexts = cards.map { card in
+                    var texts: Set<String> = []
+                    _ = widget.surface.layout.core.firstDescendant(of: card) { content in
+                        if content.text != 0 { texts.insert(widget.text.string(content.text)) }
+                        return false
+                    }
+                    return texts
+                }
+                XCTAssertEqual(cards.count, names.count, context)
+                for name in names {
+                    XCTAssertEqual(cardTexts.filter { $0.contains(name) }.count, 1, "\(context): \(name)")
+                }
                 let tabs = widget.surface.layout.core.elements {
                     $0.help != 0 && $0.action != 0
                 }.filter { widget.surface.layout.core.absoluteFrame(of: $0).height == 30 }
-                XCTAssertEqual(tabs.count, 6, context)
+                XCTAssertEqual(tabs.count, namedCards.count, context)
                 let tabBottom = try XCTUnwrap(tabs.map {
                     CGRect(widget.surface.layout.core.absoluteFrame(of: $0)).maxY
                 }.max(), context)
@@ -5896,7 +5919,12 @@ final class ShellStyleLayoutTests: XCTestCase {
         widget.set("audioApps") { ShellAudioApps(access: access, apps: apps).write(into: &$0) }
     }
 
-    private func calendarFixture(_ widget: ShellRenderedWidget, access: String = "full", month: Bool = true) {
+    @discardableResult
+    private func calendarFixture(
+        _ widget: ShellRenderedWidget,
+        access: String = "full",
+        month: Bool = true
+    ) -> ShellCalendar {
         let now = 1_000_000.0
         let events = access == "full" ? [
             ShellCalendarEvent(
@@ -5924,6 +5952,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         widget.set("seconds") { $0.number(now) }
         widget.set("clock") { $0.string("9:41 AM") }
         widget.set("date") { $0.string("Fri Oct 23") }
+        return calendar
     }
 
     private func percent(_ value: Double) -> String {
@@ -6170,27 +6199,27 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
-    private func systemStatsFixture(_ widget: ShellRenderedWidget) {
-        widget.set("system") { writer in
-            ShellSystemData(
-                memoryUsed: 21 << 30,
-                memoryTotal: 36 << 30,
-                pressure: .normal,
-                diskUsed: 612_000_000_000,
-                diskTotal: 994_000_000_000,
-                uptime: 273_840,
-                host: SystemStatsHostInfo(
-                    chip: "Apple M4 Max",
-                    modelIdentifier: "Mac16,9",
-                    osVersion: "Version 27.2",
-                    hostname: "studio"
-                ),
-                displays: [
-                    ShellSystemDisplay(width: 5120, height: 2880, refresh: 120),
-                    ShellSystemDisplay(width: 3024, height: 1964, refresh: 120)
-                ]
-            ).write(into: &writer)
-        }
+    @discardableResult
+    private func systemStatsFixture(_ widget: ShellRenderedWidget) -> ShellSystemData {
+        let system = ShellSystemData(
+            memoryUsed: 21 << 30,
+            memoryTotal: 36 << 30,
+            pressure: .normal,
+            diskUsed: 612_000_000_000,
+            diskTotal: 994_000_000_000,
+            uptime: 273_840,
+            host: SystemStatsHostInfo(
+                chip: "Apple M4 Max",
+                modelIdentifier: "Mac16,9",
+                osVersion: "Version 27.2",
+                hostname: "studio"
+            ),
+            displays: [
+                ShellSystemDisplay(width: 5120, height: 2880, refresh: 120),
+                ShellSystemDisplay(width: 3024, height: 1964, refresh: 120)
+            ]
+        )
+        widget.set("system") { system.write(into: &$0) }
         widget.set("cpu") { $0.number(37) }
         widget.set("gpu") { $0.number(18) }
         widget.set("memory") { $0.number(58) }
@@ -6204,6 +6233,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
         widget.set("networkHistory") { history.write(into: &$0) }
         batteryFixture(widget)
+        return system
     }
 
     private func hiddenBarFixture(vertical: Bool, menu: Bool) -> ShellHiddenBarData {
