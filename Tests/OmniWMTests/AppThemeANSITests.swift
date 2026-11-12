@@ -98,6 +98,21 @@ final class AppThemeANSITests: XCTestCase {
         return min(difference, 360 - difference)
     }
 
+    private func hueRounding(_ colors: AppThemeColor...) -> Double {
+        let step = 1 / Double(UInt8.max)
+        let degreesPerSector = 360.0 / 6
+        return colors.reduce(0) { total, color in
+            let channels = [color.red, color.green, color.blue]
+            let chroma = Double((channels.max() ?? 0) - (channels.min() ?? 0)) * step
+            return total + (chroma > step ? 2 * degreesPerSector * step / (chroma - step) : 180)
+        }
+    }
+
+    private func tintedHue(_ hue: Double, toward accent: Double) -> Double {
+        let difference = (accent - hue + 540).truncatingRemainder(dividingBy: 360) - 180
+        return hue + min(max(difference / 2, -AppThemeANSI.maximumHueShift), AppThemeANSI.maximumHueShift)
+    }
+
     @MainActor
     private func wallpaperPalette(
         _ pixel: UInt32,
@@ -123,13 +138,12 @@ final class AppThemeANSITests: XCTestCase {
                 let slots = Array(tinted.ansi[1 ... 6]) + Array(tinted.ansi[9 ... 14])
                 XCTAssertEqual(Set(slots).count, slots.count, slots.map(\.hex).joined(separator: " "))
                 for (offset, role) in AppThemeANSI.hueRoles.enumerated() {
-                    let systemHue = try XCTUnwrap(plain.roles[role]).hsl.hue
-                    let hue = tinted.ansi[offset + 1].hsl.hue
-                    XCTAssertLessThanOrEqual(hueDistance(hue, systemHue), 35, "\(role) lost its hue")
-                    guard hueDistance(systemHue, accent) > 8 else { continue }
-                    XCTAssertLessThan(
-                        hueDistance(hue, accent), hueDistance(systemHue, accent) - 3,
-                        "\(role) \(tinted.ansi[offset + 1].hex) did not move toward the accent hue \(Int(accent))"
+                    let system = try XCTUnwrap(plain.roles[role])
+                    let slot = tinted.ansi[offset + 1]
+                    XCTAssertLessThanOrEqual(
+                        hueDistance(slot.hsl.hue, tintedHue(system.hsl.hue, toward: accent)),
+                        hueRounding(system, slot),
+                        "\(role) \(slot.hex) should turn from \(system.hex) toward the accent hue \(accent)"
                     )
                 }
             }
@@ -153,10 +167,14 @@ final class AppThemeANSITests: XCTestCase {
                 ]
                 for (offset, role) in sources.enumerated() {
                     let source = try XCTUnwrap(scheme.roles[role])
-                    for slot in [offset + 1, offset + 9] where source.hsl.saturation > 0.12 {
+                    var dimmed = source.hsl
+                    dimmed.lightness = AppThemeANSI.fixedDimLightness
+                    for slot in [offset + 1, offset + 9] {
+                        let color = scheme.ansi[slot]
                         XCTAssertLessThanOrEqual(
-                            hueDistance(scheme.ansi[slot].hsl.hue, source.hsl.hue), 25,
-                            "ansi\(slot) \(scheme.ansi[slot].hex) should follow \(role) \(source.hex)"
+                            hueDistance(color.hsl.hue, source.hsl.hue),
+                            AppThemeANSI.maximumHueNudge + hueRounding(source, AppThemeColor(hsl: dimmed), color),
+                            "ansi\(slot) \(color.hex) should follow \(role) \(source.hex)"
                         )
                     }
                 }
@@ -171,9 +189,10 @@ final class AppThemeANSITests: XCTestCase {
         for (scheme, roles) in [(palette.light, AppThemeFixtures.light), (palette.dark, AppThemeFixtures.dark)] {
             for (offset, role) in AppThemeANSI.hueRoles.enumerated() {
                 let source = roles[role]!
+                let slot = scheme.ansi[offset + 1]
                 XCTAssertLessThanOrEqual(
-                    hueDistance(scheme.ansi[offset + 1].hsl.hue, source.hsl.hue), 2.5,
-                    "\(role) \(scheme.ansi[offset + 1].hex) moved from \(source.hex)"
+                    hueDistance(slot.hsl.hue, source.hsl.hue), hueRounding(source, slot),
+                    "\(role) \(slot.hex) moved from \(source.hex)"
                 )
             }
         }
@@ -192,17 +211,21 @@ final class AppThemeANSITests: XCTestCase {
             saturation: 0.8,
             lightness: 0.5
         )) }
-        let shifted = hues.map { AppThemeANSI.harmonized($0, toward: accent).hsl.hue }
+        let moved = hues.map { AppThemeANSI.harmonized($0, toward: accent) }
         let accentHue = accent.hsl.hue
         func unwrap(_ hue: Double) -> Double {
             (hue - accentHue + 540).truncatingRemainder(dividingBy: 360) - 180
         }
-        let ordered = zip(hues, shifted).map { (unwrap($0.0.hsl.hue), unwrap($0.1)) }.sorted { $0.0 < $1.0 }
+        let ordered = zip(hues, moved).map { (unwrap($0.0.hsl.hue), unwrap($0.1.hsl.hue), $0.1) }
+            .sorted { $0.0 < $1.0 }
         for (before, after) in zip(ordered, ordered.dropFirst()) {
-            XCTAssertLessThanOrEqual(before.1, after.1 + 1)
+            XCTAssertLessThanOrEqual(before.1, after.1 + hueRounding(before.2, after.2))
         }
-        for (original, moved) in zip(hues, shifted) {
-            XCTAssertLessThanOrEqual(hueDistance(original.hsl.hue, moved), 15.5)
+        for (original, shifted) in zip(hues, moved) {
+            XCTAssertLessThanOrEqual(
+                hueDistance(original.hsl.hue, shifted.hsl.hue),
+                AppThemeANSI.maximumHueShift + hueRounding(shifted)
+            )
         }
     }
 

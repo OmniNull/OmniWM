@@ -10,10 +10,14 @@ enum AppThemeANSI {
     private static let brightSaturation = 1.15
     private static let hueNudges: [Double] = [0, 10, -10, 20, -20]
     private static let lightnessNudges: [Double] = [0, 0.05, 0.1]
-    private static let maximumHueShift = 15.0
+    static let maximumHueShift = 15.0
     private static let minimumChroma = 0.05
 
-    private static let fixedDimLightness = 0.78
+    static var maximumHueNudge: Double {
+        hueNudges.map(abs).max() ?? 0
+    }
+
+    static let fixedDimLightness = 0.78
 
     private struct Ground {
         let background: AppThemeColor
