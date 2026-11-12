@@ -24,6 +24,8 @@ struct AppThemeHerdrReply: Decodable {
 
 struct AppThemeReloader: Sendable {
     static let messageLimit = 200
+    static let machineListTimeout: TimeInterval = 3
+    static let machineReloadTimeout: TimeInterval = 5
 
     let environment: AppThemeEnvironment
     var isCurrent: @Sendable () -> Bool = { true }
@@ -170,14 +172,18 @@ struct AppThemeReloader: Sendable {
     }
 
     private func reloadSavedMachines(_ herdr: String) -> String? {
-        let listing = environment.run(herdr, ["machine", "list", "--json"], 3)
+        let listing = environment.run(herdr, ["machine", "list", "--json"], Self.machineListTimeout)
         guard listing.succeeded else { return String(localized: "saved machines couldn’t be listed") }
         let labels = Self.enabledMachines(in: listing.output)
         guard !labels.isEmpty, isCurrent() else { return nil }
         let results = AppThemeLockedArray<Bool>(count: labels.count, value: false)
         DispatchQueue.concurrentPerform(iterations: labels.count) { index in
             guard isCurrent() else { return }
-            let result = environment.run(herdr, ["--machine", labels[index], "server", "reload-config"], 5)
+            let result = environment.run(
+                herdr,
+                ["--machine", labels[index], "server", "reload-config"],
+                Self.machineReloadTimeout
+            )
             results.set(index, result.succeeded)
         }
         let reloaded = results.values.filter(\.self).count
