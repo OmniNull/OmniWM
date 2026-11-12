@@ -67,6 +67,16 @@
     "%@ isn’t a UTF-8 text file" : {
 
     },
+    "%@ is already written by %@. Choose another output file." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is already written by %2$@. Choose another output file."
+          }
+        }
+      }
+    },
     "%@ must be a full path starting with / or ~/" : {
 
     },

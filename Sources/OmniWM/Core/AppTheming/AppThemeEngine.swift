@@ -7,6 +7,7 @@ enum AppThemeEngineError: Error, Equatable, LocalizedError {
     case changedOutsideOmniWM([String])
     case unreadableTemplate(String)
     case notText(String)
+    case sharedOutput(path: String, owner: String)
 
     var errorDescription: String? {
         switch self {
@@ -18,6 +19,8 @@ enum AppThemeEngineError: Error, Equatable, LocalizedError {
             String(localized: "The template \(path) can’t be read")
         case let .notText(path):
             String(localized: "\(path) isn’t a UTF-8 text file")
+        case let .sharedOutput(path, owner):
+            String(localized: "\(path) is already written by \(owner). Choose another output file.")
         }
     }
 }
@@ -57,8 +60,19 @@ struct AppThemeEngine: Sendable {
         var state = store.load()
         var report = AppThemeRunReport()
         var changed: [String: Bool] = [:]
+        var claimed: [String: String] = [:]
         for target in job.targets {
             do {
+                let paths = target.outputs.compactMap { try? policy.destination(for: $0.path).path }
+                if let path = paths.first(where: { claimed[$0] != nil }), let owner = claimed[path] {
+                    throw AppThemeEngineError.sharedOutput(
+                        path: policy.display(URL(fileURLWithPath: path)),
+                        owner: owner
+                    )
+                }
+                for path in paths {
+                    claimed[path] = target.name
+                }
                 let names = try write(target, job: job, state: &state)
                 changed[target.id] = !names.isEmpty
                 report.results[target.id] = AppThemeResult(
