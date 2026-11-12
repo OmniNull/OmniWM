@@ -190,14 +190,7 @@ final class WMController {
         return terminal
     }()
 
-    var appThemeService: AppThemeService?
-    @ObservationIgnored lazy var appThemeEngine: AppThemeEngine = .live
-    @ObservationIgnored var makeAppThemeService: @MainActor (AppThemingSettings, AppThemeEngine, Bool)
-        -> AppThemeService = { settings, engine, reloadsEnabledApps in
-            AppThemeService(settings: settings, engine: engine, reloadsEnabledApps: reloadsEnabledApps)
-        }
-
-    @ObservationIgnored var pendingAppThemeApprovals: [AppThemeChange] = []
+    @ObservationIgnored let appTheming = AppThemingHost()
     @ObservationIgnored
     lazy var commandPaletteController: CommandPaletteController = .init(motionPolicy: motionPolicy)
     @ObservationIgnored var windowSwitcherControllerStorage: WindowSwitcherController?
@@ -328,7 +321,6 @@ final class WMController {
         }
         configureInputRouting()
         configureSurfaceCallbacks()
-        configureAppTheming()
         configureWorldCallbacks()
         configureFocusAndMenuCallbacks()
         installEffectiveAppearanceObserver()

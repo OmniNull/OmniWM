@@ -270,7 +270,9 @@ struct AppThemingSettingsPage: View {
             set: { settings.appTheming.values.herdr.reloadSavedMachines = $0 }
         )
     }
+}
 
+extension AppThemingSettingsPage {
     private func turnOn(_ app: AppThemeBuiltIn) {
         do {
             let preview = preview

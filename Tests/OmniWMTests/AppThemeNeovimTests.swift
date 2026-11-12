@@ -254,7 +254,10 @@ final class AppThemeNeovimTests: XCTestCase {
             }
             let runtime = sandbox.root.appendingPathComponent("rtp", isDirectory: true)
             let file = runtime.appendingPathComponent("lua/omniwm.lua")
-            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: file.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
             try module(AppThemeFixtures.palette, dark: true).write(to: file, atomically: true, encoding: .utf8)
             let colors = runtime.appendingPathComponent("colors/omniwm.lua")
             try FileManager.default.createDirectory(

@@ -338,7 +338,8 @@ final class AppThemeServiceTests: XCTestCase {
         service.applyGhosttySelection(changes)
         XCTAssertEqual(service.ghosttySelectionStatus(), .selected)
         XCTAssertEqual(try Data(contentsOf: XCTUnwrap(service.lastBackup)), original)
-        let mode = try FileManager.default.attributesOfItem(atPath: XCTUnwrap(service.lastBackup).path)[.posixPermissions]
+        let mode = try FileManager.default
+            .attributesOfItem(atPath: XCTUnwrap(service.lastBackup).path)[.posixPermissions]
         XCTAssertEqual(mode as? Int, 0o600)
     }
 

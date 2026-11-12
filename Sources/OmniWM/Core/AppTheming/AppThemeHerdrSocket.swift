@@ -31,8 +31,11 @@ enum AppThemeHerdrSocket {
     }
 
     static func isValidSession(_ name: String) -> Bool {
-        let allowed = [UInt8(ascii: "a") ... UInt8(ascii: "z"), UInt8(ascii: "A") ... UInt8(ascii: "Z"),
-                       UInt8(ascii: "0") ... UInt8(ascii: "9")]
+        let allowed = [
+            UInt8(ascii: "a") ... UInt8(ascii: "z"),
+            UInt8(ascii: "A") ... UInt8(ascii: "Z"),
+            UInt8(ascii: "0") ... UInt8(ascii: "9")
+        ]
         return !name.isEmpty && name.utf8.count <= maximumSessionName && name != "." && name != ".."
             && name.utf8.allSatisfy { byte in
                 allowed.contains { $0.contains(byte) } || "._-".utf8.contains(byte)

@@ -48,12 +48,18 @@ struct AppThemePreview {
         }
     }
 
-    private func ghosttyFiles() throws -> [(url: URL, text: String, digest: String)] {
+    private struct GhosttyFile {
+        let url: URL
+        let text: String
+        let digest: String
+    }
+
+    private func ghosttyFiles() throws -> [GhosttyFile] {
         try AppThemeGhosttySelection.loadedFiles(configHome: configHome, home: engine.policy.home).compactMap { url in
             let display = engine.policy.display(url)
             guard let data = try AppThemeFileWriter.read(url, display: display) else { return nil }
             guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(display) }
-            return (url, text, AppThemeFileWriter.digest(data))
+            return GhosttyFile(url: url, text: text, digest: AppThemeFileWriter.digest(data))
         }
     }
 

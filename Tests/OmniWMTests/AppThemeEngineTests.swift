@@ -449,7 +449,8 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(report.results["ghostty"]?.outcome, .failed)
         XCTAssertEqual(
             report.results["ghostty"]?.message,
-            AppThemeEngineError.sharedOutput(path: "~/.config/ghostty/themes/shared", owner: "Ghostty").localizedDescription
+            AppThemeEngineError.sharedOutput(path: "~/.config/ghostty/themes/shared", owner: "Ghostty")
+                .localizedDescription
         )
         XCTAssertEqual(sandbox.read(".config/ghostty/themes/shared"), "mine\n")
         XCTAssertTrue(fake.events.isEmpty)

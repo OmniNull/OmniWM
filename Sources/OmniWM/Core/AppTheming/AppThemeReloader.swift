@@ -8,6 +8,20 @@ struct AppThemeReloadOutcome: Equatable, Sendable {
     var message: String
 }
 
+struct AppThemeHerdrReply: Decodable {
+    struct Result: Decodable {
+        let status: String?
+        let diagnostics: [String]?
+    }
+
+    struct Failure: Decodable {
+        let message: String?
+    }
+
+    let result: Result?
+    let error: Failure?
+}
+
 struct AppThemeReloader: Sendable {
     static let messageLimit = 200
 
@@ -34,7 +48,9 @@ struct AppThemeReloader: Sendable {
         for app in apps {
             guard app.reloadsOnSignal else {
                 problems.append(app.version.map {
-                    String(localized: "Ghostty \($0) doesn’t reload on a signal; update it, or reload its config with ⌘⇧,")
+                    String(
+                        localized: "Ghostty \($0) doesn’t reload on a signal; update it, or reload its config with ⌘⇧,"
+                    )
                 } ?? String(
                     localized: "OmniWM can’t tell which Ghostty version is running, so it didn’t signal it; reload its config with ⌘⇧,"
                 ))
@@ -125,21 +141,11 @@ struct AppThemeReloader: Sendable {
         case let .failed(problem):
             return AppThemeReloadOutcome(succeeded: false, message: summary + ": " + problem)
         case let .line(text):
-            struct Reply: Decodable {
-                struct Result: Decodable {
-                    let status: String?
-                    let diagnostics: [String]?
-                }
-
-                struct Failure: Decodable {
-                    let message: String?
-                }
-
-                let result: Result?
-                let error: Failure?
-            }
-            guard let reply = try? JSONDecoder().decode(Reply.self, from: Data(text.utf8)) else {
-                return AppThemeReloadOutcome(succeeded: false, message: summary + ": " + String(text.prefix(messageLimit)))
+            guard let reply = try? JSONDecoder().decode(AppThemeHerdrReply.self, from: Data(text.utf8)) else {
+                return AppThemeReloadOutcome(
+                    succeeded: false,
+                    message: summary + ": " + String(text.prefix(messageLimit))
+                )
             }
             if let error = reply.error {
                 return AppThemeReloadOutcome(succeeded: false, message: summary + ": " + (error.message ?? ""))

@@ -3,7 +3,39 @@
 
 import Foundation
 
+@MainActor @Observable
+final class AppThemingHost {
+    var service: AppThemeService?
+    @ObservationIgnored lazy var engine: AppThemeEngine = .live
+    @ObservationIgnored var makeService: @MainActor (AppThemingSettings, AppThemeEngine, Bool)
+        -> AppThemeService = { settings, engine, reloadsEnabledApps in
+            AppThemeService(settings: settings, engine: engine, reloadsEnabledApps: reloadsEnabledApps)
+        }
+
+    @ObservationIgnored var pendingApprovals: [AppThemeChange] = []
+}
+
 extension WMController {
+    var appThemeService: AppThemeService? {
+        get { appTheming.service }
+        set { appTheming.service = newValue }
+    }
+
+    var appThemeEngine: AppThemeEngine {
+        get { appTheming.engine }
+        set { appTheming.engine = newValue }
+    }
+
+    var makeAppThemeService: @MainActor (AppThemingSettings, AppThemeEngine, Bool) -> AppThemeService {
+        get { appTheming.makeService }
+        set { appTheming.makeService = newValue }
+    }
+
+    private var pendingAppThemeApprovals: [AppThemeChange] {
+        get { appTheming.pendingApprovals }
+        set { appTheming.pendingApprovals = newValue }
+    }
+
     func configureAppTheming() {
         settings.appTheming.onValuesChange = { [weak self] in
             self?.appThemingSettingsDidChange()
@@ -50,7 +82,9 @@ extension WMController {
             values: values,
             dark: AppThemeService.liveSystemIsDark()
         ) { [weak self] in
-            self.map { AppThemePalette(theme: $0.workspaceBarManager.appTheme(), terminalColors: values.terminalColors) }
+            self
+                .map { AppThemePalette(theme: $0.workspaceBarManager.appTheme(), terminalColors: values.terminalColors)
+                }
         }
     }
 

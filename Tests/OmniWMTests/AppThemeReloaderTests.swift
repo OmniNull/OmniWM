@@ -84,7 +84,11 @@ final class AppThemeReloaderTests: XCTestCase {
     func testTheRunningGhosttyVersionIsUnknownOnceItsBundleChangedAfterLaunch() throws {
         let launch = Date.distantPast
         XCTAssertEqual(
-            AppThemeGhosttyApp.runningVersion(info: ["CFBundleShortVersionString": "1.4.0"], modified: launch, launched: launch),
+            AppThemeGhosttyApp.runningVersion(
+                info: ["CFBundleShortVersionString": "1.4.0"],
+                modified: launch,
+                launched: launch
+            ),
             "1.4.0"
         )
         XCTAssertNil(AppThemeGhosttyApp.runningVersion(
@@ -133,7 +137,10 @@ extension AppThemeReloaderTests {
         fake.signalErrors = [21: EPERM]
         let outcome = reload(.kitty)
         XCTAssertFalse(outcome.succeeded)
-        XCTAssertEqual(outcome.message, String(localized: "kitty didn’t reload") + ": " + String(cString: strerror(EPERM)))
+        XCTAssertEqual(
+            outcome.message,
+            String(localized: "kitty didn’t reload") + ": " + String(cString: strerror(EPERM))
+        )
     }
 
     func testProcessesAreFoundByTheirExactNameForTheRealUserOnly() throws {
@@ -167,10 +174,21 @@ extension AppThemeReloaderTests {
         )
         XCTAssertEqual(path(["HERDR_SESSION": "work"]), "/Users/someone/.config/herdr/sessions/work/herdr.sock")
         XCTAssertEqual(path(["HERDR_SESSION": "default"]), "/Users/someone/.config/herdr/herdr.sock")
-        for invalid in ["", ".", "..", "../work", "a/b", "wörk", String(repeating: "a", count: AppThemeHerdrSocket.maximumSessionName + 1)] {
+        for invalid in [
+            "",
+            ".",
+            "..",
+            "../work",
+            "a/b",
+            "wörk",
+            String(repeating: "a", count: AppThemeHerdrSocket.maximumSessionName + 1)
+        ] {
             XCTAssertEqual(path(["HERDR_SESSION": invalid]), "/Users/someone/.config/herdr/herdr.sock", invalid)
         }
-        XCTAssertEqual(path(["XDG_CONFIG_HOME": "/xdg", "HERDR_SESSION": "w-1.x_2"]), "/xdg/herdr/sessions/w-1.x_2/herdr.sock")
+        XCTAssertEqual(
+            path(["XDG_CONFIG_HOME": "/xdg", "HERDR_SESSION": "w-1.x_2"]),
+            "/xdg/herdr/sessions/w-1.x_2/herdr.sock"
+        )
     }
 
     func testLocalHerdrIsReloadedThroughItsSocketAndNothingIsRun() {
@@ -210,7 +228,10 @@ extension AppThemeReloaderTests {
         XCTAssertFalse(refused.succeeded)
         XCTAssertEqual(refused.message, String(localized: "herdr didn’t reload") + ": not allowed")
         fake.herdrReply = .failed("timed out")
-        XCTAssertEqual(reload(.herdr(savedMachines: false)).message, String(localized: "herdr didn’t reload") + ": timed out")
+        XCTAssertEqual(
+            reload(.herdr(savedMachines: false)).message,
+            String(localized: "herdr didn’t reload") + ": timed out"
+        )
         fake.herdrReply = .line("not json")
         XCTAssertFalse(reload(.herdr(savedMachines: false)).succeeded)
     }
