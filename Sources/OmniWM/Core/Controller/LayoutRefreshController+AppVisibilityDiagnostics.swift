@@ -54,6 +54,7 @@ extension LayoutRefreshController {
         var visible: [Int] = []
         var parkedCount = 0
         var appHiddenCount = 0
+        var audited: [(entry: WindowState, windowId: UInt32, hidden: HiddenState?)] = []
         for entry in controller.workspaceManager.allEntries() {
             if controller.workspaceManager.isAppHidden(pid: entry.pid)
                 || controller.axManager.macOSHiddenAppPIDs.contains(entry.pid)
@@ -62,12 +63,26 @@ extension LayoutRefreshController {
                 continue
             }
             guard let windowId = UInt32(exactly: entry.windowId) else { continue }
-            guard let hidden = controller.workspaceManager.hiddenState(for: entry.token) else {
+            audited.append((entry, windowId, controller.workspaceManager.hiddenState(for: entry.token)))
+        }
+        let readStartNs = DispatchTime.now().uptimeNanoseconds
+        let bounds = windowBoundsProvider(
+            audited.filter { $0.hidden != nil || $0.entry.mode == .tiling }.map(\.windowId)
+        )
+        let readEndNs = DispatchTime.now().uptimeNanoseconds
+        for (entry, windowId, hidden) in audited {
+            guard let hidden else {
                 visible.append(entry.windowId)
-                appendVisibleWindowAudit(entry, windowId: windowId, controller: controller, strays: &strays)
+                appendVisibleWindowAudit(entry, bounds: bounds[windowId], controller: controller, strays: &strays)
                 continue
             }
-            guard let frame = readHiddenWindowAudit(entry, windowId: windowId, hidden: hidden, controller: controller)
+            guard let frame = readHiddenWindowAudit(
+                entry,
+                bounds: bounds[windowId],
+                hidden: hidden,
+                controller: controller,
+                readNs: (readStartNs, readEndNs)
+            )
             else { continue }
             let overlap = monitorFrames
                 .map { $0.intersection(frame) }
@@ -98,11 +113,12 @@ extension LayoutRefreshController {
 
 extension LayoutRefreshController {
     private func readHiddenWindowAudit(
-        _ entry: WindowState, windowId: UInt32, hidden: HiddenState, controller: WMController
+        _ entry: WindowState,
+        bounds: CGRect?,
+        hidden: HiddenState,
+        controller: WMController,
+        readNs: (start: UInt64, end: UInt64)
     ) -> CGRect? {
-        let readStartNs = DispatchTime.now().uptimeNanoseconds
-        let bounds = SkyLight.shared.getWindowBounds(windowId)
-        let readEndNs = DispatchTime.now().uptimeNanoseconds
         let frame = bounds.map { ScreenCoordinateSpace.toAppKit(rect: $0) }
         if FrameApplyTrace.shared.isActive {
             let handle = controller.workspaceManager.handle(for: entry.token).map(ObjectIdentifier.init)
@@ -114,18 +130,16 @@ extension LayoutRefreshController {
                 target: controller.axManager.parkTargetFrame(for: entry.windowId), observed: frame,
                 confirmed: controller.axManager.verifiedParkFrame(for: entry.windowId),
                 requestId: request?.requestId ?? 0, traceRequestId: request?.traceRequestId ?? 0,
-                lane: .park, uptimeNs: readEndNs, readStartedNs: readStartNs
+                lane: .park, uptimeNs: readNs.end, readStartedNs: readNs.start
             )
         }
         return frame
     }
 
     private func appendVisibleWindowAudit(
-        _ entry: WindowState, windowId: UInt32, controller: WMController, strays: inout [String]
+        _ entry: WindowState, bounds: CGRect?, controller: WMController, strays: inout [String]
     ) {
-        if entry.mode == .tiling,
-           let bounds = SkyLight.shared.getWindowBounds(windowId)
-        {
+        if entry.mode == .tiling, let bounds {
             let frame = ScreenCoordinateSpace.toAppKit(rect: bounds)
             let expectations = [
                 controller.axManager.lastAppliedFrame(for: entry.windowId)?.origin,

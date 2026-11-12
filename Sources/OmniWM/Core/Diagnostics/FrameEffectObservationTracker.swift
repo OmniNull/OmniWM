@@ -155,35 +155,48 @@ final class FrameEffectObservationTracker: @unchecked Sendable {
         scheduleObservation(windowId: windowId, token: token)
     }
 
+    @MainActor private static var queuedObservations: [(windowId: Int, token: UInt64)] = []
+    @MainActor private static var observationPassScheduled = false
+
     @MainActor
-    private static func observeWindowServerFrame(windowId: Int, token: UInt64) {
-        switch shared.prepareObservation(windowId: windowId, token: token) {
-        case .none:
-            return
-        case let .reschedule(nextToken):
-            scheduleObservation(windowId: windowId, token: nextToken)
-            return
-        case .sample:
-            break
+    private static func observeWindowServerFrames(_ queued: [(windowId: Int, token: UInt64)]) {
+        var sampled: [(windowId: Int, token: UInt64)] = []
+        for (windowId, token) in queued {
+            switch shared.prepareObservation(windowId: windowId, token: token) {
+            case .none:
+                continue
+            case let .reschedule(nextToken):
+                scheduleObservation(windowId: windowId, token: nextToken)
+            case .sample:
+                sampled.append((windowId, token))
+            }
         }
-        let observed = SkyLight.shared.getWindowBounds(UInt32(windowId)).map {
-            ScreenCoordinateSpace.toAppKit(rect: $0)
-        }
-        let nextToken = shared.completeObservation(
-            windowId: windowId,
-            token: token,
-            observed: observed,
-            sampledNs: DispatchTime.now().uptimeNanoseconds
-        )
-        if let nextToken {
-            scheduleObservation(windowId: windowId, token: nextToken)
+        guard !sampled.isEmpty else { return }
+        let bounds = SkyLight.shared.getWindowBounds(sampled.map { UInt32($0.windowId) })
+        let sampledNs = DispatchTime.now().uptimeNanoseconds
+        for (windowId, token) in sampled {
+            let nextToken = shared.completeObservation(
+                windowId: windowId,
+                token: token,
+                observed: bounds[UInt32(windowId)].map { ScreenCoordinateSpace.toAppKit(rect: $0) },
+                sampledNs: sampledNs
+            )
+            if let nextToken {
+                scheduleObservation(windowId: windowId, token: nextToken)
+            }
         }
     }
 
     private static func scheduleObservation(windowId: Int, token: UInt64) {
         Task { @MainActor in
+            queuedObservations.append((windowId, token))
+            guard !observationPassScheduled else { return }
+            observationPassScheduled = true
             await Task.yield()
-            observeWindowServerFrame(windowId: windowId, token: token)
+            observationPassScheduled = false
+            let queued = queuedObservations
+            queuedObservations = []
+            observeWindowServerFrames(queued)
         }
     }
 

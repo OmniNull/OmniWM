@@ -231,6 +231,35 @@ final class AppVisibilityDiagnosticsTests: XCTestCase {
         }
     }
 
+    func testParkAuditReadsAllItsWindowsInOneQuery() throws {
+        let controller = makeController()
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        let shown = addWindow(pid: 881_005, windowId: 881_105, workspaceId: workspaceId, controller: controller)
+        let parked = addWindow(pid: 881_006, windowId: 881_106, workspaceId: workspaceId, controller: controller)
+        controller.workspaceManager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .layoutTransient(.right)),
+            for: parked
+        )
+        var queries: [[UInt32]] = []
+        controller.layoutRefreshController.windowBoundsProvider = { ids in
+            queries.append(ids)
+            return [
+                UInt32(shown.windowId): CGRect(x: 0, y: 0, width: 400, height: 300),
+                UInt32(parked.windowId): CGRect(x: -100_000, y: -100_000, width: 400, height: 300)
+            ]
+        }
+        ParkVisibilityAudit.shared.beginCapture()
+        defer { ParkVisibilityAudit.shared.endCapture() }
+
+        controller.layoutRefreshController.auditParkVisibility(displayId: 1)
+
+        XCTAssertEqual(queries.count, 1)
+        XCTAssertEqual(Set(queries.first ?? []), [UInt32(shown.windowId), UInt32(parked.windowId)])
+        let dump = ParkVisibilityAudit.shared.dump()
+        XCTAssertTrue(dump.contains("visible=[\(shown.windowId)]"), dump)
+        XCTAssertTrue(dump.contains("parked=1"), dump)
+    }
+
     private func makeController() -> WMController {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("OmniWMAppVisibilityDiagnosticsTests-\(UUID().uuidString)", isDirectory: true)
