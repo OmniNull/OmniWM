@@ -106,7 +106,7 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `badges` | Dock badge labels keyed by lowercase bundle ID for apps with managed windows; available to bars, islands and popouts |
 | `weather` | Current conditions with humidity, sunrise and sunset, 24 hours and 7 days |
 | `user` | Your name and account picture |
-| `appearance` | `"light"` or `"dark"` |
+| `appearance` | `"light"` or `"dark"`, following macOS |
 | `hiddenBar` | Hidden Bar items, kept current while the Hidden Bar is closed, so a bar widget can show them inline |
 | `menuApp` | App-menu target with process ID, name, and bundle ID; absent if no target is available |
 | `components`, `catalog`, `settingsSchema` | Configured instance metadata, installed component catalog, and root option schema; see [components and configuration](/omnishell/reference/components-configuration/) |
@@ -191,7 +191,7 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 | `volume permission` | Open the System Audio Recording privacy settings |
 | `media play`, `media pause`, `media toggle`, `media next`, `media previous`, `media seek <seconds>`, `media shuffle`, `media repeat`, `media open` | Playback; shuffle turns shuffle on or off and repeat steps through off, one and all, as `media.shuffle` and `media.repeatMode` show; when no widget reads `media`, play, pause and track changes send the media keys |
 | `session lock`, `session sleep`, `session logout`, `session restart`, `session shutdown` | Lock the screen, sleep, or ask macOS to log out, restart or shut down; macOS shows its usual confirmation for the last three, and asks once for permission to control loginwindow |
-| `appearance toggle`, `appearance settings` | Switch macOS between light and dark appearance; macOS asks once for permission to control System Events. Open the Appearance settings, where Auto is set |
+| `appearance toggle`, `appearance settings` | Switch macOS between light and dark appearance, or open the Appearance settings, where Auto is set |
 | `calendar authorize`, `calendar settings`, `calendar open [event]`, `calendar month next\|previous\|today`, `calendar day <yyyy-mm-dd>` | Calendar; `settings` opens the Calendars privacy settings |
 | `reminders authorize`, `reminders settings`, `reminders complete <id>`, `reminders add <text>` | Request Reminders access, open its privacy settings, or complete a selected writable reminder; failures appear in `ctx.data.reminders.error` |
 | `notifications refresh`, `notifications settings`, `notifications open <bundle>` | Refresh retained notifications, open Full Disk Access settings, or open the source application |
