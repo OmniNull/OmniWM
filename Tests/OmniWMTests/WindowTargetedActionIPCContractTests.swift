@@ -158,14 +158,10 @@ final class WindowTargetedActionIPCContractTests: XCTestCase {
             .contains("omniwmctl window cycle-window-primary-span <opaque-id> <forward|backward>"))
 
         let names = try parseCases().map { $0.0[0] }
+        let suggestions = CLICompletionSelector.suggestions(words: ["omniwmctl", "window", ""])
         for name in names {
             XCTAssertTrue(CLIParser.usageText.contains("omniwmctl window \(name) <opaque-id>"), name)
-        }
-        for shell in CLIShell.allCases {
-            let script = CLICompletionGenerator.script(for: shell)
-            for name in names {
-                XCTAssertTrue(script.contains(name), "\(shell) \(name)")
-            }
+            XCTAssertTrue(suggestions.contains(name), name)
         }
     }
 

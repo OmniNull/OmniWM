@@ -46,11 +46,9 @@ final class CloseWindowCommandTests: XCTestCase {
     func testHelpAndCompletionsExposeWindowClose() {
         XCTAssertTrue(CLIParser.usageText.contains("omniwmctl window close <opaque-id>"))
         XCTAssertTrue(CLIParser.usageText.contains("close-focused-window"))
-        for shell in CLIShell.allCases {
-            let script = CLICompletionGenerator.script(for: shell)
-            XCTAssertTrue(script.contains("close"))
-            XCTAssertTrue(script.contains("close-focused-window"))
-        }
+        XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", "window", ""]).contains("close"))
+        XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", "command", ""])
+            .contains("close-focused-window"))
     }
 
     func testWindowActionFailedMapsToErrorAndRejectedExitCode() {

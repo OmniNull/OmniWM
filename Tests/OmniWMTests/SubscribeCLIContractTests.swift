@@ -76,8 +76,8 @@ final class SubscribeCLIContractTests: XCTestCase {
         XCTAssertTrue(
             CLIParser.usageText.contains("omniwmctl watch --all [--no-send-initial] [--reconnect] --exec <argv...>")
         )
-        for shell in CLIShell.allCases {
-            XCTAssertTrue(CLICompletionGenerator.script(for: shell).contains("--reconnect"), shell.rawValue)
+        for family in ["subscribe", "watch"] {
+            XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", family, ""]).contains("--reconnect"))
         }
     }
 }

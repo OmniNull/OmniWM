@@ -49,27 +49,14 @@ final class CaptureCLIContractTests: XCTestCase {
         XCTAssertTrue(CLIParser.usageText.contains("omniwmctl capture start <trace|performance>"))
         XCTAssertTrue(CLIParser.usageText.contains("omniwmctl capture stop"))
         XCTAssertTrue(CLIParser.usageText.contains("omniwmctl capture status"))
-
-        for shell in CLIShell.allCases {
-            let script = CLICompletionGenerator.script(for: shell)
-            switch shell {
-            case .zsh:
-                XCTAssertTrue(script.contains("capture)\n      if (( CURRENT == 3 ))"))
-                XCTAssertTrue(script.contains("suggestions=\"start status stop\""))
-                XCTAssertTrue(script.contains("suggestions=\"performance trace\""))
-            case .bash:
-                XCTAssertTrue(script.contains("capture)\n      if [[ ${COMP_CWORD} -eq 2 ]]"))
-                XCTAssertTrue(script.contains("__omniwmctl_compgen \"start status stop\""))
-                XCTAssertTrue(script.contains("__omniwmctl_compgen \"performance trace\""))
-            case .fish:
-                XCTAssertTrue(script.contains("__fish_seen_subcommand_from capture"))
-                XCTAssertTrue(script.contains("__fish_seen_subcommand_from performance trace' -a 'trace'"))
-                XCTAssertTrue(script.contains("__fish_seen_subcommand_from performance trace' -a 'performance'"))
-            case .nu:
-                XCTAssertTrue(script.contains("captureActionNames: [\"start\" \"status\" \"stop\"]"))
-                XCTAssertTrue(script.contains("captureProfiles: [\"performance\" \"trace\"]"))
-            }
-        }
+        XCTAssertEqual(
+            Set(CLICompletionSelector.suggestions(words: ["omniwmctl", "capture", ""])),
+            Set(IPCAutomationManifest.captureActionDescriptors.map(\.name.rawValue))
+        )
+        XCTAssertEqual(
+            Set(CLICompletionSelector.suggestions(words: ["omniwmctl", "capture", "start", ""])),
+            Set([IPCCaptureProfile.trace.rawValue, IPCCaptureProfile.performance.rawValue])
+        )
     }
 
     func testRendererIncludesCaptureStateAndArtifactMetadata() throws {

@@ -60,8 +60,9 @@ final class WorkspaceSlotIPCCommandTests: XCTestCase {
             .contains("slot") == true)
         XCTAssertTrue(CLICompletionCatalog.commandSlotThreeSuggestionsByFirst["move-to-workspace"]?
             .contains("slot") == true)
-        for shell in CLIShell.allCases {
-            XCTAssertTrue(CLICompletionGenerator.script(for: shell).contains("slot"), shell.rawValue)
+        for command in ["switch-workspace", "move-to-workspace"] {
+            XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", "command", command, ""])
+                .contains("slot"))
         }
     }
 

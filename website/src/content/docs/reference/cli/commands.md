@@ -27,11 +27,11 @@ omniwmctl <command> [arguments...] [--format json|ndjson|table|tsv|text] [--json
 | `subscribe` | remote | Stream the subscribe handshake plus live event envelopes as JSON |
 | `watch` | remote | Consume subscription events and run a child command once per event |
 | `help`, `--help`, `-h` | local | Print CLI usage text without connecting to IPC |
-| `completion <zsh\|bash\|fish\|nu>` | local | Emit a shell completion script without connecting to IPC |
+| `completion <zsh\|bash\|fish\|nu>` | local | Emit shell registration for native completion without connecting to IPC |
 
 Remote commands require IPC to be enabled. Local commands work even when the IPC server is disabled.
 
-For Nushell 0.108 or newer, `omniwmctl completion nu` emits a module that adds Tab suggestions for commands, options, and fixed argument values. Save it as `omniwmctl-completions.nu` and import its `omniwmctl` definition from `config.nu`; see [shell completion setup](/reference/cli/overview/#nushell) for the commands. Regenerate the file after upgrading OmniWM.
+Shell completion requires `omniwmctl` on `PATH` when you press Tab. Fish requires version 4.0 or newer, and Nushell requires version 0.116.0 or newer. `omniwmctl completion nu` emits a registration module that delegates Tab suggestions to the installed native CLI. Save it as `omniwmctl-completions.nu` and import its `omniwmctl` definition from `config.nu`; see [shell completion setup](/reference/cli/overview/#nushell) for the commands.
 
 `omniwmctl version --json` returns `protocolVersion` and the available `appVersion`, `gitHash`, `buildConfiguration`, and `executableSHA256` fields in `result.payload`. Optional fields are omitted when unavailable; the fingerprint identifies the running app build and executable.
 

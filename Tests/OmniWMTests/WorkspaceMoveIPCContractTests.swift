@@ -130,15 +130,12 @@ final class WorkspaceMoveIPCContractTests: XCTestCase {
             )
         )
 
-        for shell in CLIShell.allCases {
-            let script = CLICompletionGenerator.script(for: shell)
-            XCTAssertTrue(script.contains("move-to-monitor"))
-            XCTAssertTrue(script.contains("--force"))
-            XCTAssertTrue(script.contains("left"))
-            XCTAssertTrue(script.contains("right"))
-            XCTAssertTrue(script.contains("up"))
-            XCTAssertTrue(script.contains("down"))
-        }
+        XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", "workspace", ""])
+            .contains("move-to-monitor"))
+        XCTAssertEqual(
+            Set(CLICompletionSelector.suggestions(words: ["omniwmctl", "workspace", "move-to-monitor", "S", ""])),
+            Set(["left", "right", "up", "down", "--force"])
+        )
     }
 
     func testRenameWireShapeIsPreserved() throws {
@@ -217,9 +214,7 @@ final class WorkspaceMoveIPCContractTests: XCTestCase {
     func testHelpAndCompletionsExposeWorkspaceRenameContract() {
         XCTAssertTrue(CLIParser.usageText.contains("omniwmctl workspace rename <workspace> <display-name>"))
 
-        for shell in CLIShell.allCases {
-            XCTAssertTrue(CLICompletionGenerator.script(for: shell).contains("rename"))
-        }
+        XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", "workspace", ""]).contains("rename"))
     }
 
     func testWorkspaceMoveCompletionsTrackNonFlagPositionals() throws {
@@ -233,15 +228,11 @@ final class WorkspaceMoveIPCContractTests: XCTestCase {
     }
 
     func testFishWorkspaceMoveCompletionsTrackNonFlagPositionals() throws {
-        guard fishExecutablePath() != nil else {
-            throw MissingTestPrerequisite("Fish is not installed")
-        }
-
         try assertWorkspaceMoveCompletions(shell: .fish)
     }
 
     func testBashAndZshScratchpadCompletionsSeparateActionsFromSlots() throws {
-        let slots = Set((1 ... 10).map(String.init))
+        let slots = Set(IPCScratchpadSlots.range.map(String.init))
         for shell in [CLIShell.zsh, .bash] {
             let results = try shellCompletions(
                 shell: shell,
@@ -254,11 +245,7 @@ final class WorkspaceMoveIPCContractTests: XCTestCase {
     }
 
     func testFishScratchpadCompletionsSeparateActionsFromSlots() throws {
-        guard fishExecutablePath() != nil else {
-            throw MissingTestPrerequisite("Fish is not installed")
-        }
-
-        let slots = Set((1 ... 10).map(String.init))
+        let slots = Set(IPCScratchpadSlots.range.map(String.init))
         let results = try shellCompletions(
             shell: .fish,
             arguments: ["command scratchpad", "command scratchpad assign", "command scratchpad toggle"]
@@ -322,85 +309,10 @@ final class WorkspaceMoveIPCContractTests: XCTestCase {
         if shell == .nu {
             return try NuCompletionTestSupport.completions(arguments.map { "omniwmctl \($0) " })
         }
-        let script = try completionScript(shell: shell, arguments: arguments)
-        let process = Process()
-        let standardOutput = Pipe()
-        let standardError = Pipe()
-        process.executableURL = URL(fileURLWithPath: script.executable)
-        process.arguments = ["-c", script.script]
-        process.standardOutput = standardOutput
-        process.standardError = standardError
-
-        try process.run()
-        let output = standardOutput.fileHandleForReading.readDataToEndOfFile()
-        let error = standardError.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw TestFailure.shellFailure(process.terminationStatus, String(decoding: error, as: UTF8.self))
-        }
-
-        var results: [[String]] = []
-        for line in String(decoding: output, as: UTF8.self).split(separator: "\n") {
-            if line == Self.caseMarker {
-                results.append([])
-            } else if !results.isEmpty, let first = line.split(separator: "\t", maxSplits: 1).first {
-                results[results.count - 1].append(String(first))
-            }
-        }
-        guard results.count == arguments.count else {
-            throw TestFailure.shellFailure(
-                process.terminationStatus,
-                "\(shell.rawValue): expected \(arguments.count) results, got \(results.count); stderr: "
-                    + String(decoding: error, as: UTF8.self)
+        return try arguments.map {
+            try CLICompletionTestSupport.complete(
+                shell: shell, words: ["omniwmctl"] + $0.split(separator: " ").map(String.init) + [""]
             )
-        }
-        return results
-    }
-
-    private static let caseMarker = "@@@"
-
-    private func completionScript(shell: CLIShell, arguments: [String]) throws -> (executable: String, script: String) {
-        let marker = Self.caseMarker
-        let generatedScript = CLICompletionGenerator.script(for: shell)
-        let cases = arguments.map { (words: "omniwmctl \($0) ''", count: $0.split(separator: " ").count) }
-
-        switch shell {
-        case .zsh:
-            let invocations = cases.map {
-                "words=(\($0.words))\nCURRENT=\($0.count + 2)\nprint -r -- \(marker)\n_omniwmctl"
-            }
-            return ("/bin/zsh", """
-            function compadd {
-              if [[ "$1" == "--" ]]; then
-                shift
-              fi
-              print -rl -- "$@"
-            }
-            function compdef { :; }
-            \(generatedScript)
-            \(invocations.joined(separator: "\n"))
-            true
-            """)
-        case .bash:
-            let invocations = cases.map {
-                """
-                COMP_WORDS=(\($0.words))
-                COMP_CWORD=\($0.count + 1)
-                COMPREPLY=()
-                echo \(marker)
-                _omniwmctl
-                printf '%s\\n' "${COMPREPLY[@]}"
-                """
-            }
-            return ("/bin/bash", "\(generatedScript)\n\(invocations.joined(separator: "\n"))")
-        case .fish:
-            guard let fishExecutable = fishExecutablePath() else {
-                throw MissingTestPrerequisite("Fish is not installed")
-            }
-            let invocations = arguments.map { "echo \(marker)\ncomplete -C \"omniwmctl \($0) \"" }
-            return (fishExecutable, "\(generatedScript)\n\(invocations.joined(separator: "\n"))")
-        case .nu:
-            preconditionFailure("nu completions run through NuCompletionTestSupport")
         }
     }
 
@@ -427,17 +339,7 @@ final class WorkspaceMoveIPCContractTests: XCTestCase {
         ]
     }
 
-    private func fishExecutablePath() -> String? {
-        let paths = ProcessInfo.processInfo.environment["PATH"]?
-            .split(separator: ":")
-            .map { String($0) } ?? []
-        return paths
-            .map { URL(fileURLWithPath: $0).appendingPathComponent("fish").path }
-            .first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-
     private enum TestFailure: Error {
         case unexpectedPayload
-        case shellFailure(Int32, String)
     }
 }

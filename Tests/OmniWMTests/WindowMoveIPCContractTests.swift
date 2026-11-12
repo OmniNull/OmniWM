@@ -86,10 +86,8 @@ final class WindowMoveIPCContractTests: XCTestCase {
 
     func testHelpAndCompletionsExposeWindowMove() {
         XCTAssertTrue(CLIParser.usageText.contains("omniwmctl window move-to-workspace <opaque-id> <workspace>"))
-
-        for shell in CLIShell.allCases {
-            XCTAssertTrue(CLICompletionGenerator.script(for: shell).contains("move-to-workspace"))
-        }
+        XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", "window", ""])
+            .contains("move-to-workspace"))
     }
 
     private func parseWindowRequest(_ arguments: [String]) throws -> IPCWindowRequest {

@@ -26,10 +26,7 @@ final class MetricsQueryContractTests: XCTestCase {
     }
 
     func testCompletionsOfferTheMetricsQuery() {
-        for shell in CLIShell.allCases {
-            let script = CLICompletionGenerator.script(for: shell)
-            XCTAssertTrue(script.contains("metrics"), "\(shell) completions should offer the metrics query")
-        }
+        XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", "query", ""]).contains("metrics"))
     }
 
     func testMetricsResultRoundTripsOnTheWire() throws {
