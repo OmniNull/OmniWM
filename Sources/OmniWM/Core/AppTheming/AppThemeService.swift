@@ -157,9 +157,8 @@ final class AppThemeService {
             rerun = true
             return
         }
-        guard let palette else { return }
         let targets = settings.values.targets(configHome: configHome)
-        guard !targets.isEmpty else { return }
+        guard !targets.isEmpty, let palette else { return }
         let dark = systemIsDark()
         if dark != isDark {
             isDark = dark

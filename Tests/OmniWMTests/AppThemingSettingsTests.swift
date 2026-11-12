@@ -174,6 +174,22 @@ final class AppThemeServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testWithEveryAppOffNoPaletteIsBuilt() {
+        let settings = AppThemingSettings()
+        let service = sandbox.service(settings, fake) { true }
+        let asked = AppThemeTestCounter()
+        service.useThemeWhileShellIsOff {
+            asked.value += 1
+            return .native
+        }
+        service.applyNow()
+        service.settingsDidChange()
+        service.appearanceDidChange()
+        XCTAssertEqual(asked.value, 0)
+        XCTAssertFalse(service.isRunning)
+    }
+
+    @MainActor
     func testDisabledAppsAreNeverWritten() {
         let service = sandbox.service(AppThemingSettings(), fake) { true }
         service.paletteDidChange(theme(background: .black))
