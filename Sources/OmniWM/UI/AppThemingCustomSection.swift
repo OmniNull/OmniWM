@@ -5,7 +5,7 @@ import SwiftUI
 
 struct AppThemingCustomSection: View {
     @Bindable var settings: AppThemingSettings
-    @Bindable var service: AppThemeService
+    let controller: WMController
     @Binding var editing: SettingsExport.AppTheming.Custom?
     @Binding var review: AppThemingReview?
 
@@ -48,9 +48,9 @@ struct AppThemingCustomSection: View {
                 Image(systemName: "doc.plaintext").foregroundStyle(.secondary)
                 Text(verbatim: custom.template).font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
             }
-            AppThemingPaths(paths: service.outputPaths(for: custom.target))
+            AppThemingPaths(paths: controller.appThemePreview.outputPaths(for: custom.target))
             if custom.enabled {
-                AppThemingStatus(result: service.results[custom.targetID]) { replace(custom) }
+                AppThemingStatus(result: controller.appThemeService?.results[custom.targetID]) { replace(custom) }
             }
         }
         .padding(.vertical, 2)
@@ -76,7 +76,9 @@ struct AppThemingCustomSection: View {
     }
 
     private func replace(_ custom: SettingsExport.AppTheming.Custom) {
-        guard let changes = try? service.changes(for: custom.target, onlyExisting: true) else { return }
+        guard let changes = try? controller.appThemePreview.changes(for: custom.target, onlyExisting: true) else {
+            return
+        }
         review = AppThemingReview(
             title: String(localized: "Replace Changed Files"),
             message: String(
@@ -84,6 +86,6 @@ struct AppThemingCustomSection: View {
             ),
             confirmTitle: String(localized: "Back Up and Replace"),
             changes: changes
-        ) { [service] in try service.confirm(changes, reloading: custom.targetID) }
+        ) { [controller] in controller.appThemeService?.confirm(changes, reloading: custom.targetID) }
     }
 }

@@ -15,17 +15,26 @@ struct AppThemingReview: Identifiable {
 
 struct AppThemingSettingsPage: View {
     @Bindable var settings: SettingsStore
-    @Bindable var service: AppThemeService
+    let controller: WMController
     @State private var review: AppThemingReview?
     @State private var editing: SettingsExport.AppTheming.Custom?
     @State private var problem: String?
     @State private var previewDark: Bool?
     @State private var ghosttyStatus = AppThemeGhosttyStatus.selected
 
+    private var service: AppThemeService? {
+        controller.appThemeService
+    }
+
+    private var preview: AppThemePreview {
+        controller.appThemePreview
+    }
+
     var body: some View {
-        Form {
+        let preview = preview
+        return Form {
             Section {
-                AppThemePalettePreview(palette: service.palette, dark: previewDark ?? service.isDark)
+                AppThemePalettePreview(palette: preview.palette(), dark: previewDark ?? preview.dark)
                 Picker("Preview", selection: previewBinding) {
                     Text("Light").tag(false)
                     Text("Dark").tag(true)
@@ -43,16 +52,16 @@ struct AppThemingSettingsPage: View {
                         localized: "Apps update the moment OmniWM’s palette or macOS light and dark changes."
                     )
                     Spacer()
-                    if service.isRunning { ProgressView().controlSize(.small) }
-                    Button("Apply Now") { service.applyNow() }
-                        .disabled(!settings.appTheming.values.anyEnabled || service.palette == nil)
+                    if service?.isRunning == true { ProgressView().controlSize(.small) }
+                    Button("Apply Now") { service?.applyNow() }
+                        .disabled(service?.palette == nil)
                 }
             } header: {
                 Text("Palette")
             }
             Section {
                 ForEach(AppThemeBuiltIn.allCases) { app in
-                    builtInRow(app)
+                    builtInRow(app, preview: preview)
                 }
             } header: {
                 Text("Apps")
@@ -63,7 +72,7 @@ struct AppThemingSettingsPage: View {
             }
             AppThemingCustomSection(
                 settings: settings.appTheming,
-                service: service,
+                controller: controller,
                 editing: $editing,
                 review: $review
             )
@@ -71,7 +80,7 @@ struct AppThemingSettingsPage: View {
         }
         .formStyle(.grouped)
         .onAppear { refreshGhosttySelection() }
-        .onChange(of: service.results) { _, _ in refreshGhosttySelection() }
+        .onChange(of: service?.results) { _, _ in refreshGhosttySelection() }
         .sheet(item: $review) { review in
             AppThemingReviewSheet(review: review, backupFolder: backupFolder) { error in
                 problem = error
@@ -79,7 +88,7 @@ struct AppThemingSettingsPage: View {
             }
         }
         .sheet(item: $editing) { custom in
-            AppThemingCustomEditor(custom: custom, policy: service.engine.policy) { saved in
+            AppThemingCustomEditor(custom: custom, policy: controller.appThemeEngine.policy) { saved in
                 var values = settings.appTheming.values
                 if let index = values.custom.firstIndex(where: { $0.id == saved.id }) {
                     values.custom[index] = saved
@@ -97,11 +106,11 @@ struct AppThemingSettingsPage: View {
     }
 
     private var backupFolder: String {
-        service.engine.policy.display(service.engine.store.backupsDirectory)
+        controller.appThemeEngine.policy.display(controller.appThemeEngine.store.backupsDirectory)
     }
 
     private var previewBinding: Binding<Bool> {
-        Binding(get: { previewDark ?? service.isDark }, set: { previewDark = $0 })
+        Binding(get: { previewDark ?? preview.dark }, set: { previewDark = $0 })
     }
 
     private var problemBinding: Binding<Bool> {
@@ -109,8 +118,8 @@ struct AppThemingSettingsPage: View {
     }
 
     @ViewBuilder
-    private func builtInRow(_ app: AppThemeBuiltIn) -> some View {
-        let target = service.target(for: app)
+    private func builtInRow(_ app: AppThemeBuiltIn, preview: AppThemePreview) -> some View {
+        let target = preview.target(for: app)
         VStack(alignment: .leading, spacing: 8) {
             Toggle(isOn: enabledBinding(app)) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -118,9 +127,9 @@ struct AppThemingSettingsPage: View {
                     SettingsCaption(reloadDescription(app))
                 }
             }
-            AppThemingPaths(paths: service.outputPaths(for: target))
+            AppThemingPaths(paths: preview.outputPaths(for: target))
             if settings.appTheming.values.isEnabled(app) {
-                AppThemingStatus(result: service.results[app.id]) { reviewConflict(target) }
+                AppThemingStatus(result: service?.results[app.id]) { reviewConflict(target) }
                 extras(app)
             }
         }
@@ -242,7 +251,8 @@ struct AppThemingSettingsPage: View {
 
     private func turnOn(_ app: AppThemeBuiltIn) {
         do {
-            let changes = try service.changes(for: service.target(for: app), onlyExisting: true)
+            let preview = preview
+            let changes = try preview.changes(for: preview.target(for: app), onlyExisting: true)
             guard !changes.isEmpty else {
                 settings.appTheming.values.setEnabled(app, true)
                 return
@@ -254,7 +264,7 @@ struct AppThemingSettingsPage: View {
                 ),
                 confirmTitle: String(localized: "Back Up and Turn On"),
                 changes: changes
-            ) { [service] in try service.confirm(changes, enabling: app) }
+            ) { [controller] in controller.turnOnAppTheme(app, approving: changes) }
         } catch {
             problem = error.localizedDescription
         }
@@ -262,7 +272,7 @@ struct AppThemingSettingsPage: View {
 
     private func reviewConflict(_ target: AppThemeTarget) {
         do {
-            let changes = try service.changes(for: target, onlyExisting: true)
+            let changes = try preview.changes(for: target, onlyExisting: true)
             review = AppThemingReview(
                 title: String(localized: "Replace Changed Files"),
                 message: String(
@@ -270,14 +280,14 @@ struct AppThemingSettingsPage: View {
                 ),
                 confirmTitle: String(localized: "Back Up and Replace"),
                 changes: changes
-            ) { [service] in try service.confirm(changes, reloading: target.id) }
+            ) { [service] in service?.confirm(changes, reloading: target.id) }
         } catch {
             problem = error.localizedDescription
         }
     }
 
     private func reviewGhosttySelection() {
-        let changes = service.ghosttySelectionChanges()
+        let changes = preview.ghosttySelectionChanges()
         guard !changes.isEmpty else {
             refreshGhosttySelection()
             return
@@ -289,10 +299,10 @@ struct AppThemingSettingsPage: View {
             ),
             confirmTitle: String(localized: "Back Up and Change"),
             changes: changes
-        ) { [service] in try service.applyGhosttySelection(changes) }
+        ) { [service] in try service?.applyGhosttySelection(changes) }
     }
 
     private func refreshGhosttySelection() {
-        ghosttyStatus = service.ghosttySelectionStatus()
+        ghosttyStatus = preview.ghosttySelectionStatus()
     }
 }

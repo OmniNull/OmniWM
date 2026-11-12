@@ -36,6 +36,7 @@ final class AppThemeService {
     init(
         settings: AppThemingSettings,
         engine: AppThemeEngine,
+        reloadsEnabledApps: Bool = false,
         systemIsDark: @escaping @MainActor () -> Bool = AppThemeService.liveSystemIsDark,
         perform: @escaping Perform = AppThemeService.performOnWorkerQueue,
         deliver: @escaping Deliver = AppThemeService.deliverOnMain
@@ -47,21 +48,10 @@ final class AppThemeService {
         self.deliver = deliver
         isDark = systemIsDark()
         paletteTerminalColors = settings.values.terminalColors
-        enabledTargets = Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id))
+        if !reloadsEnabledApps {
+            enabledTargets = Set(settings.values.targets(configHome: engine.policy.configHome).map(\.id))
+        }
         results = engine.store.load().results
-    }
-
-    static func live(settings: AppThemingSettings) -> AppThemeService {
-        AppThemeService(
-            settings: settings,
-            engine: AppThemeEngine(
-                policy: .live(),
-                store: AppThemeStateStore(
-                    directory: OmniWMStoragePaths.live.stateDirectory.appendingPathComponent("app-theming")
-                ),
-                environment: .live
-            )
-        )
     }
 
     private nonisolated static let queue = DispatchQueue(label: "com.barut.OmniWM.app-theming", qos: .userInitiated)
@@ -96,11 +86,21 @@ final class AppThemeService {
         effectiveAppearanceObserver = nil
     }
 
-    func useThemeWhileShellIsOff(_ provider: @escaping @MainActor () -> ShellTheme, refresh: Bool = false) {
-        guard refresh || fallbackTheme == nil else { return }
+    func setFallbackTheme(_ provider: @escaping @MainActor () -> ShellTheme) {
         fallbackTheme = provider
         theme = nil
         cachedPalette = nil
+    }
+
+    func setTheme(_ theme: ShellTheme) {
+        fallbackTheme = nil
+        self.theme = theme
+        cachedPalette = nil
+    }
+
+    func useThemeWhileShellIsOff(_ provider: @escaping @MainActor () -> ShellTheme, refresh: Bool = false) {
+        guard refresh || fallbackTheme == nil else { return }
+        setFallbackTheme(provider)
         guard settings.values.anyEnabled, palette != appliedPalette else { return }
         schedule()
     }
@@ -114,9 +114,7 @@ final class AppThemeService {
     }
 
     func paletteDidChange(_ theme: ShellTheme) {
-        fallbackTheme = nil
-        self.theme = theme
-        cachedPalette = nil
+        setTheme(theme)
         guard settings.values.anyEnabled, palette != appliedPalette else { return }
         schedule()
     }

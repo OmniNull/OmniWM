@@ -370,6 +370,23 @@ extension WorkspaceBarManager {
 }
 
 extension WorkspaceBarManager {
+    func appTheme() -> ShellTheme {
+        guard let shellHost else { return appThemeFallbackTheme() }
+        return ShellWidgetHost.paletteTheme(
+            config: shellHost.config,
+            accent: shellHost.barColors.accent,
+            foreground: shellHost.barColors.foreground
+        )
+    }
+
+    func offerAppTheme(to service: AppThemeService) {
+        if shellHost != nil {
+            service.setTheme(appTheme())
+        } else {
+            service.setFallbackTheme { [weak self] in self?.appThemeFallbackTheme() ?? .native }
+        }
+    }
+
     func appThemeFallbackTheme() -> ShellTheme {
         ShellWidgetHost.paletteTheme(
             config: commandPaletteConfig,

@@ -153,6 +153,7 @@ final class ServiceLifecycleManager {
         }
 
         controller.spaceTracker.start()
+        controller.startAppTheming()
         startLockScreenObserver()
         controller.shellAppWindowManager.reconcileManagementResume()
         controller.shellAppWindowManager.admitPendingSettingsWindow()

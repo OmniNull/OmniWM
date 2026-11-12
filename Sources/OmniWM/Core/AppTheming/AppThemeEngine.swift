@@ -31,6 +31,16 @@ struct AppThemeEngine: Sendable {
     let environment: AppThemeEnvironment
     var now: @Sendable () -> Date = { Date() }
 
+    static var live: AppThemeEngine {
+        AppThemeEngine(
+            policy: .live(),
+            store: AppThemeStateStore(
+                directory: OmniWMStoragePaths.live.stateDirectory.appendingPathComponent("app-theming")
+            ),
+            environment: .live
+        )
+    }
+
     struct Rendered: Equatable {
         let url: URL
         let display: String
