@@ -43,6 +43,13 @@ extension NiriContainer {
         return false
     }
 
+    func finishWidthAnimation() {
+        guard widthAnimation != nil else { return }
+        if let targetWidth { cachedWidth = targetWidth }
+        widthAnimation = nil
+        targetWidth = nil
+    }
+
     var hasWidthAnimationRunning: Bool {
         widthAnimation != nil
     }

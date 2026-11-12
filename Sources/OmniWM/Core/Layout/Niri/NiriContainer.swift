@@ -44,6 +44,7 @@ class NiriContainer: NiriNode {
     private var moveAnimationOrientation: Monitor.Orientation?
 
     var widthAnimation: SpringAnimation?
+    var isParked = false
     var targetWidth: CGFloat?
     var heightAnimation: SpringAnimation?
     var targetHeight: CGFloat?

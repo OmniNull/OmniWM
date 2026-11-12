@@ -190,6 +190,7 @@ extension NiriLayoutEngine {
         var anyRunning = false
         for column in columns {
             if column.tickMoveAnimation(at: time) { anyRunning = true }
+            if column.isParked { column.finishWidthAnimation() }
             if column.tickWidthAnimation(at: time) { anyRunning = true }
             if column.tickHeightAnimation(at: time) { anyRunning = true }
         }

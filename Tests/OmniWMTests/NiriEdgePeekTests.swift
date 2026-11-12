@@ -146,6 +146,22 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(fixture.rightPeek), peek, accuracy: 0.5)
     }
 
+    func testWithoutPeeksASecondColumnLeavesTheFirstAsItWas() {
+        var fixture = makeFixture(widths: [1.0])
+        fixture.engine.edgePeekShare = nil
+        fixture.focus(0, from: 0)
+        let before = fixture.span(of: 0)
+
+        let token = WindowToken(pid: 951, windowId: 99)
+        _ = fixture.engine.addWindow(token: token, to: fixture.workspaceId, afterSelection: fixture.window(0).id)
+        fixture.tokens.append(token)
+        fixture.focus(0, from: 0)
+
+        let after = fixture.span(of: 0)
+        XCTAssertNil(fixture.column(0).edgePeekCap)
+        XCTAssertEqual(after.upperBound - after.lowerBound, before.upperBound - before.lowerBound, accuracy: 0.5)
+    }
+
     func testTheEndColumnsGiveUpRoomForOnePeekOnly() {
         var fixture = makeFixture(widths: [1.0, 1.0, 1.0])
 
@@ -244,6 +260,25 @@ final class NiriEdgePeekTests: XCTestCase {
 
         XCTAssertTrue(last.hasWidthAnimationRunning)
         XCTAssertNotNil(last.stripEndPeekRoom)
+    }
+
+    func testAParkedColumnTakesAWidthChangeInOneStep() {
+        let fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        let parked = fixture.column(0)
+        let shown = fixture.column(1)
+        let start = parked.cachedWidth
+        parked.isParked = true
+        let now = CACurrentMediaTime()
+        for column in [parked, shown] {
+            column.animateWidthTo(newWidth: start + 100, clock: nil, config: .default, animated: true)
+        }
+
+        _ = fixture.engine.tickAllColumnAnimations(in: fixture.workspaceId, at: now + 1.0 / 60)
+
+        XCTAssertEqual(parked.cachedWidth, start + 100, accuracy: 0.5)
+        XCTAssertFalse(parked.hasWidthAnimationRunning)
+        XCTAssertLessThan(shown.cachedWidth, start + 99)
+        XCTAssertTrue(shown.hasWidthAnimationRunning)
     }
 
     func testCyclingSizesNeverCoversAPeek() {

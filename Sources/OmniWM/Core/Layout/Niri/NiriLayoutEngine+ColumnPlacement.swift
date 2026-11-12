@@ -134,6 +134,11 @@ extension NiriLayoutEngine {
         )
         if pass.context.recordsPresentationGeometry {
             column.column.edgeHiddenFrame = visibility.isEdgeHidden ? visibility.visibleRect : nil
+            if case .hidden = visibility.state {
+                column.column.isParked = true
+            } else {
+                column.column.isParked = false
+            }
         }
         let renderedRect = renderedColumnFrame(column, at: index, visibility: visibility, pass: pass, result: &result)
         layoutContainer(
