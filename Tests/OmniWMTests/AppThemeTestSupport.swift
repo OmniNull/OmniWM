@@ -49,6 +49,8 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
     }
 
     static let ghosttyPID: pid_t = 4242
+    static let kittyPID: pid_t = 4343
+    static let neovimPID: pid_t = 4444
 
     private let lock = NSLock()
     private var recorded: [String] = []
@@ -56,6 +58,7 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
     private var sent: [Signal] = []
     var responses: [String: AppThemeCommandResult] = [:]
     var ghostty: [AppThemeGhosttyApp] = []
+    var processes: [String: [pid_t]] = ["kitty": [kittyPID], "nvim": [neovimPID]]
     var signalErrors: [pid_t: Int32] = [:]
     var executables: [String: String] = ["herdr": "/opt/homebrew/bin/herdr"]
 
@@ -87,6 +90,7 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
                 }
             },
             ghosttyApps: { [self] in lock.withLock { ghostty } },
+            processes: { [self] name in lock.withLock { processes[name] ?? [] } },
             signal: { [self] pid, signal in
                 lock.withLock {
                     sent.append(Signal(pid: pid, signal: signal))
@@ -94,8 +98,7 @@ final class AppThemeFakeEnvironment: @unchecked Sendable {
                     return signalErrors[pid] ?? 0
                 }
             },
-            executable: { [self] name in lock.withLock { executables[name] } },
-            userID: 501
+            executable: { [self] name in lock.withLock { executables[name] } }
         )
     }
 }

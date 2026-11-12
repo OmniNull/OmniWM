@@ -203,7 +203,7 @@ final class AppThemeServiceTests: XCTestCase {
         XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
         XCTAssertNil(service.results["kitty"])
         XCTAssertNotNil(sandbox.read(".config/herdr/config.toml"))
-        XCTAssertFalse(fake.calls.contains { $0.arguments.contains("kitty") })
+        XCTAssertFalse(fake.signals.contains { $0.pid == AppThemeFakeEnvironment.kittyPID })
     }
 
     @MainActor
@@ -217,7 +217,7 @@ final class AppThemeServiceTests: XCTestCase {
         worker.release()
         XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
         XCTAssertNil(service.results["kitty"])
-        XCTAssertTrue(fake.calls.isEmpty)
+        XCTAssertTrue(fake.events.isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: sandbox.store.stateURL.path))
     }
 
@@ -406,7 +406,7 @@ final class AppThemeServiceTests: XCTestCase {
         _ = sandbox.engine(fake).run(AppThemeJob(
             palette: palette, dark: true, appearanceChanged: false, targets: enabled.targets(configHome: configHome)
         ))
-        let kills = { self.fake.calls.filter { $0.executable == "/usr/bin/pkill" }.count }
+        let kills = { self.fake.signals.filter { $0.signal == SIGUSR1 }.count }
         XCTAssertEqual(kills(), 1)
         settings.values.kitty.enabled = true
         XCTAssertEqual(service.results["kitty"]?.outcome, .unchanged)

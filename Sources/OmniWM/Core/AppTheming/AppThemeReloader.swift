@@ -40,7 +40,7 @@ struct AppThemeReloader: Sendable {
             }
             let error = environment.signal(app.pid, SIGUSR2)
             if error != 0, error != ESRCH {
-                problems.append(String(localized: "Ghostty didn’t reload") + ": " + String(cString: strerror(error)))
+                problems.append(failure(String(localized: "Ghostty didn’t reload"), error: error).message)
             }
         }
         return problems.isEmpty
@@ -49,38 +49,53 @@ struct AppThemeReloader: Sendable {
     }
 
     private func reloadKitty(newFiles: Bool) -> AppThemeReloadOutcome {
-        let result = environment.run("/usr/bin/pkill", ["-USR1", "-U", String(environment.userID), "-x", "kitty"], 3)
-        switch result.status {
-        case 0 where !result.timedOut:
-            return AppThemeReloadOutcome(
+        switch signalAll("kitty") {
+        case .notRunning:
+            AppThemeReloadOutcome(
+                succeeded: true,
+                message: String(localized: "kitty isn’t running; it uses the new theme when it opens")
+            )
+        case .signalled:
+            AppThemeReloadOutcome(
                 succeeded: true,
                 message: newFiles
                     ? String(localized: "Reloaded kitty; kitty 0.49 or older uses new theme files after a restart")
                     : String(localized: "Reloaded kitty")
             )
-        case 1 where !result.timedOut:
-            return AppThemeReloadOutcome(
-                succeeded: true,
-                message: String(localized: "kitty isn’t running; it uses the new theme when it opens")
-            )
-        default:
-            return failure(String(localized: "kitty didn’t reload"), result)
+        case let .failed(error):
+            failure(String(localized: "kitty didn’t reload"), error: error)
         }
     }
 
     private func reloadNeovim() -> AppThemeReloadOutcome {
-        let result = environment.run("/usr/bin/pkill", ["-USR1", "-U", String(environment.userID), "-x", "nvim"], 3)
-        switch result.status {
-        case 0 where !result.timedOut:
-            return AppThemeReloadOutcome(succeeded: true, message: String(localized: "Reloaded Neovim"))
-        case 1 where !result.timedOut:
-            return AppThemeReloadOutcome(
+        switch signalAll("nvim") {
+        case .notRunning:
+            AppThemeReloadOutcome(
                 succeeded: true,
                 message: String(localized: "Neovim isn’t running; it loads the new colors when it starts")
             )
-        default:
-            return failure(String(localized: "Neovim didn’t reload"), result)
+        case .signalled:
+            AppThemeReloadOutcome(succeeded: true, message: String(localized: "Reloaded Neovim"))
+        case let .failed(error):
+            failure(String(localized: "Neovim didn’t reload"), error: error)
         }
+    }
+
+    private enum Signalled {
+        case notRunning
+        case signalled
+        case failed(Int32)
+    }
+
+    private func signalAll(_ name: String) -> Signalled {
+        let pids = environment.processes(name)
+        guard !pids.isEmpty else { return .notRunning }
+        let errors = pids.map { environment.signal($0, SIGUSR1) }.filter { $0 != 0 && $0 != ESRCH }
+        return errors.first.map(Signalled.failed) ?? .signalled
+    }
+
+    private func failure(_ summary: String, error: Int32) -> AppThemeReloadOutcome {
+        AppThemeReloadOutcome(succeeded: false, message: summary + ": " + String(cString: strerror(error)))
     }
 
     private func reloadHerdr(savedMachines: Bool) -> AppThemeReloadOutcome {

@@ -98,17 +98,15 @@ final class AppThemeNeovimTests: XCTestCase {
         }
     }
 
-    func testReloadSignalsOnlyThisUsersNeovimWithoutAShell() {
+    func testReloadSignalsNeovimWithoutRunningAnything() {
         let outcome = AppThemeReloader(environment: fake.environment).reload(.neovim)
         XCTAssertTrue(outcome.succeeded)
-        XCTAssertEqual(
-            fake.calls,
-            [.init(executable: "/usr/bin/pkill", arguments: ["-USR1", "-U", "501", "-x", "nvim"])]
-        )
+        XCTAssertEqual(fake.signals, [.init(pid: AppThemeFakeEnvironment.neovimPID, signal: SIGUSR1)])
+        XCTAssertTrue(fake.calls.isEmpty)
     }
 
     func testNoNeovimRunningIsSuccess() {
-        fake.responses["/usr/bin/pkill"] = AppThemeCommandResult(status: 1, output: "")
+        fake.processes = [:]
         let outcome = AppThemeReloader(environment: fake.environment).reload(.neovim)
         XCTAssertTrue(outcome.succeeded)
         XCTAssertEqual(
@@ -130,7 +128,7 @@ final class AppThemeNeovimTests: XCTestCase {
             targets: settings.targets(configHome: sandbox.policy.configHome)
         ))
         XCTAssertEqual(fake.events.map { $0.components(separatedBy: " ").last }, [
-            "\(SIGUSR2)", "nvim", "reload-config"
+            "\(SIGUSR2)", "\(SIGUSR1)", "reload-config"
         ])
         XCTAssertEqual(report.results["neovim"]?.outcome, .updated)
         XCTAssertNotNil(sandbox.read(".config/nvim/lua/omniwm.lua"))

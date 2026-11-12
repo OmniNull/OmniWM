@@ -51,12 +51,34 @@ struct AppThemeGhosttyApp: Equatable, Sendable {
     }
 }
 
+enum AppThemeProcesses {
+    private static let headroom = 64
+
+    static func list(named name: String, realUserID: uid_t) -> [pid_t] {
+        let stride = MemoryLayout<pid_t>.stride
+        let needed = proc_listpids(UInt32(PROC_RUID_ONLY), realUserID, nil, 0)
+        guard needed > 0 else { return [] }
+        var pids = [pid_t](repeating: 0, count: Int(needed) / stride + headroom)
+        let filled = pids.withUnsafeMutableBytes { buffer in
+            proc_listpids(UInt32(PROC_RUID_ONLY), realUserID, buffer.baseAddress, Int32(buffer.count))
+        }
+        guard filled > 0 else { return [] }
+        return pids.prefix(Int(filled) / stride).filter { $0 > 0 && self.name(of: $0) == name }
+    }
+
+    static func name(of pid: pid_t) -> String? {
+        var buffer = [CChar](repeating: 0, count: Int(MAXCOMLEN) * 2 + 1)
+        guard proc_name(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
+        return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+}
+
 struct AppThemeEnvironment: Sendable {
     var run: @Sendable (_ executable: String, _ arguments: [String], _ timeout: TimeInterval) -> AppThemeCommandResult
     var ghosttyApps: @Sendable () -> [AppThemeGhosttyApp]
+    var processes: @Sendable (_ name: String) -> [pid_t]
     var signal: @Sendable (_ pid: pid_t, _ signal: Int32) -> Int32
     var executable: @Sendable (_ name: String) -> String?
-    var userID: UInt32 = getuid()
 
     static let searchFolders = ["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "~/.cargo/bin"]
 
@@ -65,6 +87,7 @@ struct AppThemeEnvironment: Sendable {
             AppThemeProcessRunner.run(executable, arguments, timeout: timeout)
         },
         ghosttyApps: { AppThemeGhosttyApp.running() },
+        processes: { AppThemeProcesses.list(named: $0, realUserID: getuid()) },
         signal: { pid, signal in
             kill(pid, signal) == 0 ? 0 : errno
         },

@@ -100,3 +100,48 @@ final class AppThemeReloaderTests: XCTestCase {
         ))
     }
 }
+
+extension AppThemeReloaderTests {
+    func testKittyAndNeovimAreSignalledWithSIGUSR1AndNothingIsRun() {
+        fake.processes = ["kitty": [20, 21], "nvim": [30]]
+        XCTAssertTrue(reload(.kitty).succeeded)
+        XCTAssertTrue(reload(.neovim).succeeded)
+        XCTAssertEqual(fake.signals, [
+            .init(pid: 20, signal: SIGUSR1), .init(pid: 21, signal: SIGUSR1), .init(pid: 30, signal: SIGUSR1)
+        ])
+        XCTAssertTrue(fake.calls.isEmpty)
+    }
+
+    func testKittyOrNeovimNotRunningIsFine() {
+        fake.processes = [:]
+        let kitty = reload(.kitty)
+        let neovim = reload(.neovim)
+        XCTAssertTrue(kitty.succeeded)
+        XCTAssertTrue(neovim.succeeded)
+        XCTAssertEqual(kitty.message, String(localized: "kitty isn’t running; it uses the new theme when it opens"))
+        XCTAssertEqual(
+            neovim.message,
+            String(localized: "Neovim isn’t running; it loads the new colors when it starts")
+        )
+        XCTAssertTrue(fake.signals.isEmpty)
+    }
+
+    func testAKittyThatQuitBeforeTheSignalIsFineAndOtherFailuresAreReported() {
+        fake.processes = ["kitty": [20, 21]]
+        fake.signalErrors = [20: ESRCH]
+        XCTAssertTrue(reload(.kitty).succeeded)
+        fake.signalErrors = [21: EPERM]
+        let outcome = reload(.kitty)
+        XCTAssertFalse(outcome.succeeded)
+        XCTAssertEqual(outcome.message, String(localized: "kitty didn’t reload") + ": " + String(cString: strerror(EPERM)))
+    }
+
+    func testProcessesAreFoundByTheirExactNameForTheRealUserOnly() throws {
+        let pid = getpid()
+        let name = try XCTUnwrap(AppThemeProcesses.name(of: pid))
+        XCTAssertTrue(AppThemeProcesses.list(named: name, realUserID: getuid()).contains(pid))
+        XCTAssertFalse(AppThemeProcesses.list(named: name + "x", realUserID: getuid()).contains(pid))
+        XCTAssertFalse(AppThemeProcesses.list(named: String(name.dropLast()), realUserID: getuid()).contains(pid))
+        XCTAssertFalse(AppThemeProcesses.list(named: name, realUserID: getuid() &+ 1).contains(pid))
+    }
+}
