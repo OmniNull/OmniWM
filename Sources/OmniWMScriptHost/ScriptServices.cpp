@@ -1074,7 +1074,7 @@ int desktopRequest(lua_State *L) {
 }
 
 const char *readResourceIDs(lua_State *L, int index, bool filesOnly,
-                            std::array<omni_resource_id, maximumResourceBatch> &ids, size_t &count) {
+                            std::array<omni_resource_id, maximumResourceBatch> &ids, size_t &count, bool allowPending = false) {
     if (!lua_istable(L, index)) { return "invalid_resources"; }
     count = lua_objlen(L, index);
     if (count == 0 || count > maximumResourceBatch) { return "invalid_resources"; }
@@ -1099,7 +1099,7 @@ const char *readResourceIDs(lua_State *L, int index, bool filesOnly,
         if (!sameOwner(proxy.owner, scriptOwner(L))) { return "resource_denied"; }
         ResourceRecord *record = resourceFor(services(L), proxy.owner, proxy.id);
         if (record == nullptr) { return "resource_unavailable"; }
-        if (record->state != OMNI_RESOURCE_READY) { return "resource_not_ready"; }
+        if (record->state != OMNI_RESOURCE_READY && !(allowPending && record->state == OMNI_RESOURCE_PENDING)) { return "resource_not_ready"; }
         if (record->kind != "file" && record->kind != "image" && (filesOnly || (record->kind != "url" && record->kind != "text"))) {
             return "unsupported_resource";
         }
@@ -1123,6 +1123,37 @@ const char *presentationResources(lua_State *L, int index, bool filesOnly, int p
     }
     lua_setfield(L, payload, "resources");
     return nullptr;
+}
+
+int convertResources(lua_State *L) {
+    currentOwner(L);
+    if (lua_gettop(L) != 3 || !lua_isfunction(L, 3)) { return returnedError(L, "invalid_request"); }
+    size_t length = 0;
+    const char *format = lua_type(L, 2) == LUA_TSTRING ? lua_tolstring(L, 2, &length) : nullptr;
+    if (format == nullptr || !((length == 3 && std::memcmp(format, "png", 3) == 0)
+        || (length == 4 && std::memcmp(format, "jpeg", 4) == 0)
+        || (length == 4 && std::memcmp(format, "tiff", 4) == 0))) {
+        return returnedError(L, "invalid_format");
+    }
+    std::array<omni_resource_id, maximumResourceBatch> ids{};
+    size_t count = 0;
+    if (const char *failure = readResourceIDs(L, 1, true, ids, count, true)) { return returnedError(L, failure); }
+    lua_createtable(L, 0, 3);
+    int payload = lua_gettop(L);
+    lua_pushliteral(L, "convert");
+    lua_setfield(L, payload, "op");
+    lua_pushvalue(L, 2);
+    lua_setfield(L, payload, "format");
+    lua_createtable(L, static_cast<int>(count), 0);
+    for (size_t offset = 0; offset < count; offset++) {
+        lua_pushlstring(L, reinterpret_cast<const char *>(ids[offset].bytes), sizeof ids[offset].bytes);
+        lua_rawseti(L, -2, static_cast<int>(offset + 1));
+    }
+    lua_setfield(L, payload, "resources");
+    std::vector<uint8_t> bytes;
+    std::string failure;
+    if (!encodeValue(L, payload, bytes, 8192, failure)) { return returnedError(L, failure.c_str()); }
+    return admitStructured(L, OMNI_SERVICE_DESKTOP, std::move(bytes), 3, true);
 }
 
 int resourceDragMarker(lua_State *) { return 0; }
@@ -1961,6 +1992,8 @@ void installServices(lua_State *L, ShellPackage &package) {
     lua_pushboolean(L, false);
     lua_pushcclosure(L, resourceRequest, "restore", 1);
     lua_setfield(L, -2, "restore");
+    lua_pushcfunction(L, convertResources, "convert");
+    lua_setfield(L, -2, "convert");
     lua_setreadonly(L, -1, true);
     lua_setfield(L, -2, "resources");
     constexpr const char *desktopNames[] = {"pick", "open", "reveal"};
@@ -2130,6 +2163,35 @@ bool omni_vm_next_service(omni_vm *vm, omni_service_request *out) noexcept {
         request.kind == OMNI_SERVICE_STORE ? owner.storeBytes.size() : request.bytes.size(),
         request.source.display, request.source.view, request.source.surface};
     return true;
+}
+
+omni_status omni_vm_progress_service(omni_vm *vm, omni_owner_token owner, uint64_t id,
+    const uint8_t *value, size_t value_length, uint64_t budget_ns, bool *handled, char *error, size_t error_capacity) noexcept {
+    if (handled != nullptr) { *handled = false; }
+    if (vm == nullptr) { return OMNI_ERR_INTERNAL; }
+    if (vm->inCall) { return OMNI_ERR_REENTRANT; }
+    ServiceState &state = *vm->package.services;
+    ServiceRequest *request = requestFor(state, owner, id);
+    if (request == nullptr || request->kind != OMNI_SERVICE_DESKTOP || !request->resourceResult
+        || !request->dispatched || !ownerIsLive(state, owner) || request->callbackRef == LUA_NOREF) { return OMNI_OK; }
+    lua_State *L = vm->thread;
+    try {
+        lua_settop(L, 0);
+        lua_getref(L, request->callbackRef);
+        ScriptSource source = request->source;
+        if (value == nullptr || value_length == 0 || value_length > 4096 || value[0] != OMNI_VALUE_MAP
+            || !pushEncodedValue(L, value, value_length, true)) {
+            lua_settop(L, 0);
+            copyMessage("invalid service progress", error, error_capacity);
+            return OMNI_ERR_INTERNAL;
+        }
+        if (handled != nullptr) { *handled = true; }
+        return deliverOwnedCall(vm, owner, source, 1, budget_ns, false, error, error_capacity);
+    } catch (...) {
+        lua_settop(L, 0);
+        copyMessage("unexpected exception delivering service progress", error, error_capacity);
+        return OMNI_ERR_INTERNAL;
+    }
 }
 
 omni_status omni_vm_complete_service(omni_vm *vm, omni_owner_token owner_token, uint64_t id, uint64_t revision,

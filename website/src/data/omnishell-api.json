@@ -2175,6 +2175,22 @@
       ]
     },
     {
+      "name": "ImageConversionUpdate",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-imageconversionupdate",
+      "declaration": "export type ImageConversionUpdate = {\n    progress: { completed: number, total: number }?,\n    ok: boolean?,\n    items: { Resource }?,\n    error: string?,\n}",
+      "fields": [
+        "progress",
+        "ok",
+        "items",
+        "error"
+      ],
+      "related": [
+        "Resource"
+      ]
+    },
+    {
       "name": "ServiceHandle",
       "kind": "type",
       "topic": "services",
@@ -2310,12 +2326,13 @@
       "kind": "namespace",
       "topic": "services",
       "anchor": "api-omniwm",
-      "declaration": "declare omniwm: {\n    windows: {\n        open: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),\n        close: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),\n    },\n    resources: {\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },\n    pick: (options: { files: boolean, multiple: boolean? }, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    open: (resource: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    reveal: (resource: Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    quicklook: ((resources: { Resource }, index: number?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    share: ((resources: { Resource }, anchor: string, service: \"airdrop\"?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, anchor: string, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    clipboard: {\n        copy: (content: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n        read: (callback: DesktopCallback) -> (ServiceHandle?, string?),\n    },\n    provider: {\n        send: (name: string, args: any, options: { files: { Resource }? }?, callback: ((result: ProviderResult) -> ())?) -> (ServiceHandle?, string?),\n    },\n    http: (request: HTTPRequest, callback: (result: HTTPResult) -> ()) -> (ServiceHandle?, string?),\n    after: (seconds: number, callback: () -> ()) -> (ServiceHandle?, string?),\n    store: {\n        get: (key: string) -> any,\n        set: (key: string, value: any) -> (boolean?, string?),\n        status: StoreStatus,\n    },\n    asset: (path: string) -> Asset,\n    components: {\n        activity: (id: string) -> ComponentActivity?,\n        add: (widget: string, options: { [string]: ComponentValue }?, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        remove: (id: string, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        move: (id: string, index: number, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        enable: (id: string, enabled: boolean, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        set: (id: string, key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    config: {\n        set: (key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    run: (command: string) -> (),\n    log: (...any) -> (),\n    l10n: (key: string, ...any) -> string,\n}",
+      "declaration": "declare omniwm: {\n    windows: {\n        open: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),\n        close: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),\n    },\n    resources: {\n        convert: (resources: { Resource }, format: \"png\" | \"jpeg\" | \"tiff\", callback: (update: ImageConversionUpdate) -> ()) -> (ServiceHandle?, string?),\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },\n    pick: (options: { files: boolean, multiple: boolean? }, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    open: (resource: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    reveal: (resource: Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    quicklook: ((resources: { Resource }, index: number?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    share: ((resources: { Resource }, anchor: string, service: \"airdrop\"?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, anchor: string, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    clipboard: {\n        copy: (content: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n        read: (callback: DesktopCallback) -> (ServiceHandle?, string?),\n    },\n    provider: {\n        send: (name: string, args: any, options: { files: { Resource }? }?, callback: ((result: ProviderResult) -> ())?) -> (ServiceHandle?, string?),\n    },\n    http: (request: HTTPRequest, callback: (result: HTTPResult) -> ()) -> (ServiceHandle?, string?),\n    after: (seconds: number, callback: () -> ()) -> (ServiceHandle?, string?),\n    store: {\n        get: (key: string) -> any,\n        set: (key: string, value: any) -> (boolean?, string?),\n        status: StoreStatus,\n    },\n    asset: (path: string) -> Asset,\n    components: {\n        activity: (id: string) -> ComponentActivity?,\n        add: (widget: string, options: { [string]: ComponentValue }?, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        remove: (id: string, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        move: (id: string, index: number, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        enable: (id: string, enabled: boolean, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        set: (id: string, key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    config: {\n        set: (key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    run: (command: string) -> (),\n    log: (...any) -> (),\n    l10n: (key: string, ...any) -> string,\n}",
       "fields": [],
       "related": [
         "WindowCallback",
         "ServiceHandle",
         "Resource",
+        "ImageConversionUpdate",
         "DesktopCallback",
         "ProviderResult",
         "HTTPRequest",
@@ -2368,10 +2385,25 @@
       "kind": "namespace",
       "topic": "resources-desktop",
       "anchor": "api-omniwm-resources",
-      "declaration": "    resources: {\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },",
+      "declaration": "    resources: {\n        convert: (resources: { Resource }, format: \"png\" | \"jpeg\" | \"tiff\", callback: (update: ImageConversionUpdate) -> ()) -> (ServiceHandle?, string?),\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },",
       "fields": [],
       "related": [
-        "Resource"
+        "Resource",
+        "ImageConversionUpdate",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.resources.convert",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-resources-convert",
+      "declaration": "        convert: (resources: { Resource }, format: \"png\" | \"jpeg\" | \"tiff\", callback: (update: ImageConversionUpdate) -> ()) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "Resource",
+        "ImageConversionUpdate",
+        "ServiceHandle"
       ]
     },
     {

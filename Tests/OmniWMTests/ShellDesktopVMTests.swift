@@ -161,6 +161,25 @@ final class ShellDesktopVMTests: XCTestCase {
             XCTAssertTrue(handled)
         }
 
+        func progress(_ request: Request, completed: Int, total: Int) -> Bool {
+            var writer = ShellValueWriter()
+            writer.map(1)
+            writer.key("progress")
+            writer.map(2)
+            writer.key("completed")
+            writer.number(Double(completed))
+            writer.key("total")
+            writer.number(Double(total))
+            var handled = false
+            XCTAssertEqual(writer.bytes.withUnsafeBufferPointer {
+                omni_vm_progress_service(
+                    vm, request.owner, request.id, $0.baseAddress, $0.count,
+                    200_000_000, &handled, &error, error.count
+                )
+            }, OMNI_OK, message)
+            return handled
+        }
+
         func picked(
             _ request: Request,
             ids: [omni_resource_id],
@@ -216,6 +235,79 @@ final class ShellDesktopVMTests: XCTestCase {
             XCTAssertEqual(omni_vm_global_number(vm, name, &number), OMNI_OK)
             return number
         }
+    }
+
+    func testImageConversionAcceptsPendingFilesDeliversProgressAndReturnsOwnedResources() throws {
+        let fixture = try Fixture("""
+        progressUpdates=0
+        converted=0
+        assert(omniwm.pick({files=true},function(result)
+            local resource=result.items[1]
+            assert(resource.state=='pending')
+            for _,format in {'jpg','PNG','',false} do
+                local handle,message=omniwm.resources.convert({resource},format,function() end)
+                assert(handle==nil and message=='invalid_format')
+            end
+            assert(omniwm.resources.convert({},'png',function() end)==nil)
+            assert(omniwm.resources.convert({resource,resource},'png',function() end)==nil)
+            assert(omniwm.resources.convert({resource},'png',false)==nil)
+            assert(omniwm.resources.convert({resource},'jpeg',function(update)
+                if update.progress then
+                    assert(update.progress.completed==0 and update.progress.total==1)
+                    assert(not pcall(function() update.progress.completed=1 end))
+                    progressUpdates+=1
+                else
+                    assert(update.ok and #update.items==1 and update.items[1].state=='ready')
+                    assert(not pcall(function() update.items[1]=nil end))
+                    converted+=1
+                end
+            end))
+        end))
+        """)
+        let picker = try XCTUnwrap(fixture.drain().first)
+        let input = fixture.admit(picker.owner, kind: "image", ready: false)
+        XCTAssertTrue(fixture.picked(picker, ids: [input]).transferred)
+        let conversion = try XCTUnwrap(fixture.drain().first)
+        XCTAssertEqual(conversion.kind, OMNI_SERVICE_DESKTOP)
+        let fields = try XCTUnwrap(ShellServiceValue.decode(conversion.bytes).fields)
+        XCTAssertEqual(fields["op"]?.string, "convert")
+        XCTAssertEqual(fields["format"]?.string, "jpeg")
+        XCTAssertEqual(fields["resources"]?.values, [.bytes(withUnsafeBytes(of: input) { Array($0) })])
+        XCTAssertTrue(fixture.progress(conversion, completed: 0, total: 1))
+        XCTAssertEqual(fixture.number("progressUpdates"), 1)
+        XCTAssertEqual(omni_vm_service_stats(fixture.vm).reserved, 1)
+        let output = fixture.admit(conversion.owner, kind: "image")
+        XCTAssertTrue(fixture.picked(conversion, ids: [output]).transferred)
+        XCTAssertEqual(fixture.number("converted"), 1)
+        XCTAssertEqual(omni_vm_service_stats(fixture.vm).reserved, 0)
+        XCTAssertFalse(fixture.progress(conversion, completed: 1, total: 1))
+        XCTAssertEqual(fixture.number("progressUpdates"), 1)
+    }
+
+    func testImageConversionProgressMayCancelWithoutDeliveringLaterResults() throws {
+        let fixture = try Fixture("""
+        progressUpdates=0
+        local conversion
+        assert(omniwm.pick({files=true},function(result)
+            conversion=assert(omniwm.resources.convert(result.items,'tiff',function(update)
+                assert(update.progress)
+                progressUpdates+=1
+                conversion:cancel()
+            end))
+        end))
+        """)
+        let picker = try XCTUnwrap(fixture.drain().first)
+        let input = fixture.admit(picker.owner, kind: "image")
+        XCTAssertTrue(fixture.picked(picker, ids: [input]).transferred)
+        let conversion = try XCTUnwrap(fixture.drain().first)
+        XCTAssertTrue(fixture.progress(conversion, completed: 0, total: 1))
+        XCTAssertEqual(fixture.number("progressUpdates"), 1)
+        let cancellation = try XCTUnwrap(fixture.drain().first)
+        XCTAssertTrue(cancellation.cancelled)
+        XCTAssertEqual(cancellation.id, conversion.id)
+        XCTAssertEqual(omni_vm_service_stats(fixture.vm).reserved, 0)
+        XCTAssertFalse(fixture.progress(conversion, completed: 1, total: 1))
+        XCTAssertFalse(fixture.picked(conversion, ids: []).handled)
     }
 
     func testArgumentBoundsAndOptionalCallbacksReserveOnlyValidOperations() throws {

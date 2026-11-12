@@ -81,7 +81,7 @@ end
 
 Persistence returns a host token at admission. Check `resource.persistence.state` (`pending`, `durable`, `failed`) or its callback before claiming it is saved. Pending promised Resources may be submitted for persistence; they finish only after the underlying data resolves. `omniwm.resources.restore(token)` returns a pending Resource or `nil, error`; only tokens previously issued to that owner can restore. The host orders resource persistence before the final owner-store flush. Token and store failure remain explicit. There is no arbitrary file operations API, and deleting a shelf row does not delete the original file.
 
-The bundled **Shelf** component keeps up to 32 items, shows four rows per page, and supports drop, paste, file picking, label editing, thumbnails, preview, sharing and drag-out. **Image converter** uses the same shelf for its outputs and offers PNG, JPEG and TIFF conversion after you approve its program. Their logic lives in `lib/lake/services/shelf.luau` and `lib/lake/services/convert.luau`; their views can be replaced independently. Removing a row removes its saved reference. Live Resources remain owned until the component retires; durable tokens remain subject to the namespace limit.
+The bundled **Shelf** component keeps up to 32 items, shows four rows per page, and supports drop, paste, file picking, label editing, thumbnails, preview, sharing and drag-out. **Image converter** uses the same shelf for its outputs and offers PNG, JPEG and TIFF conversion through the native image service. Their logic lives in `lib/lake/services/shelf.luau` and `lib/lake/services/convert.luau`; their views can be replaced independently. Removing a row removes its saved reference. Live Resources remain owned until the component retires; durable tokens remain subject to the namespace limit.
 
 ## Resource and input contracts
 
@@ -124,6 +124,28 @@ File and clipboard grants are separate. Reading yields Resources; copying a plai
 <LuauDeclaration name="omniwm.clipboard.read" />
 
 <LuauDeclaration name="omniwm.clipboard" />
+
+## Image conversion
+
+`omniwm.resources.convert(resources, format, callback)` converts 1–32 unique file or image Resources to `"png"`, `"jpeg"`, or `"tiff"` using ImageIO off the main thread. It requires the files capability and waits for pending promised files. Inputs remain unchanged. The callback receives progress updates with `progress = {completed, total}`, followed by one result with `ok` and output `items`, or `error`. Each item represents one converted input. Persist the returned Resources to keep them across owner reloads.
+
+The returned handle cancels conversion and suppresses later callbacks. Removing or reloading its owner also cancels the request. Progress updates may be coalesced before delivery.
+
+```lua
+local request, err = omniwm.resources.convert(images, "png", function(update)
+    if update.progress then
+        instance.state.progress = update.progress
+    elseif update.ok then
+        instance.state.outputs = update.items
+    else
+        instance.state.error = update.error
+    end
+end)
+```
+
+<LuauDeclaration name="ImageConversionUpdate" />
+
+<LuauDeclaration name="omniwm.resources.convert" />
 
 ## Persistent resource tokens
 

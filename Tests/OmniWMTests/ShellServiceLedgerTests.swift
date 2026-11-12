@@ -96,6 +96,42 @@ final class ShellServiceLedgerTests: XCTestCase {
         XCTAssertEqual(cancellations.withLock { $0 }, 2)
     }
 
+    func testProgressCoalescesAndKeepsOperationUntilTerminalDelivery() {
+        let ledger = ShellServiceLedger(generation: 1)
+        let cancellations = Mutex(0)
+        let service = id(1)
+        XCTAssertTrue(ledger.register(service) { cancellations.withLock { $0 += 1 } })
+        let values: [UInt8] = [0, 1, 2]
+        for value in values {
+            XCTAssertTrue(ledger.complete(ShellServiceCompletion(id: service, payload: [value], isProgress: true)))
+        }
+        XCTAssertEqual(ledger.pendingCount, 1)
+        let progress = ledger.takeBatch()
+        XCTAssertEqual(progress.map(\.payload), [[values.last!]])
+        XCTAssertTrue(progress.allSatisfy(\.isProgress))
+        XCTAssertEqual(ledger.activeCount, 1)
+        XCTAssertEqual(cancellations.withLock { $0 }, 0)
+        XCTAssertFalse(ledger.finishBatch())
+        XCTAssertTrue(ledger.complete(ShellServiceCompletion(id: service, payload: [], isProgress: true)))
+        XCTAssertTrue(ledger.complete(ShellServiceCompletion(id: service, payload: [])))
+        XCTAssertFalse(ledger.complete(ShellServiceCompletion(id: service, payload: [], isProgress: true)))
+        XCTAssertEqual(ledger.takeBatch().map(\.isProgress), [true, false])
+        XCTAssertEqual(ledger.activeCount, 0)
+        XCTAssertEqual(cancellations.withLock { $0 }, 1)
+    }
+
+    func testCancellingProgressDoesNotDiscardAResultThatWasNeverProduced() {
+        let ledger = ShellServiceLedger(generation: 1)
+        let discarded = Mutex(0)
+        let service = id(1)
+        XCTAssertTrue(ledger.register(service, discard: { _ in discarded.withLock { $0 += 1 } }))
+        XCTAssertTrue(ledger.complete(ShellServiceCompletion(id: service, payload: [], isProgress: true)))
+        ledger.cancel(service)
+        XCTAssertEqual(discarded.withLock { $0 }, 0)
+        XCTAssertTrue(ledger.takeBatch().isEmpty)
+        XCTAssertFalse(ledger.complete(ShellServiceCompletion(id: service, payload: [])))
+    }
+
     func testOneShotTimerPostsExactlyOneCompletion() async {
         let ledger = ShellServiceLedger(generation: 1)
         let fired = expectation(description: "timer completion")

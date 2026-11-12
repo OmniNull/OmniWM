@@ -670,9 +670,9 @@ Each row requires `name`, `source` and a `command` string array. `sha256` is opt
 
 ```toml
 [[shellPermissions.programs]]
-name = "converter"
-source = "/Users/me/.config/omniwm/shell/lake/widgets/converter"
-command = ["provider.pl"]
+name = "provider-review"
+source = "/Users/me/.config/omniwm/apps/provider-review"
+command = ["provider"]
 denied = true
 ```
 

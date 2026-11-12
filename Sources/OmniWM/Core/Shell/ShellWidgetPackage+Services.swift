@@ -174,6 +174,12 @@ extension ShellWidgetPackage {
     ) -> omni_status {
         let payload = completion.authorization?.failure.map { ShellHTTPResponse.failure($0.code) } ?? completion.payload
         return payload.withUnsafeBufferPointer { payload in
+            if completion.isProgress {
+                return omni_vm_progress_service(
+                    script.vm, completion.id.owner.wire, completion.id.request,
+                    payload.baseAddress, payload.count, Self.handlerBudget, &handled, &errorBuffer, errorBuffer.count
+                )
+            }
             if let resource = completion.resource {
                 let problem = resource.error ?? ""
                 return omni_vm_complete_resource(

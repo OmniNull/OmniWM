@@ -57,6 +57,8 @@ actor ShellResourceStore {
         var files: [ShellResourceID: ShellResourceFile] = [:]
         var pending: Set<ShellResourceID>
         var completion: (@Sendable (Result<ActionFiles, ShellResourceFailure>) -> Void)?
+        var conversion: ShellImageConversionState = .idle
+        var conversionWaiters: [CheckedContinuation<Void, Never>] = []
     }
 
     struct ActionFiles: Sendable {
@@ -212,25 +214,6 @@ actor ShellResourceStore {
     func release(_ pin: Pin) {
         guard let ids = pins.removeValue(forKey: pin.id) else { return }
         for id in ids { releaseBacking(id) }
-    }
-
-    @discardableResult
-    func retire(_ owner: ShellServiceOwner) -> [ShellResourcePersistenceResult] {
-        let namespace = catalog.namespace(owner, includingInactive: true)
-        catalog.deactivate(owner)
-        for token in selections.keys.filter({ selections[$0]?.owner == owner }) {
-            if let selected = selections.removeValue(forKey: token) {
-                for item in selected.items { clean(item.ownedDirectory) }
-            }
-        }
-        let failures = flush(owner)
-        catalog.retire(owner)
-        if let namespace { manifests.removeValue(forKey: namespace) }
-        for key in actions.keys.filter({ $0.id.owner == owner }) { finishAction(key) }
-        for id in records.keys.filter({ records[$0]?.owner == owner }) {
-            if let record = records.removeValue(forKey: id) { releaseBacking(record.backing) }
-        }
-        return failures
     }
 
     func requirePending(_ ids: [ShellResourceID], owner: ShellServiceOwner) throws {

@@ -17,11 +17,13 @@ local function start(instance)
     local format = instance.options.format or "png"
     if not formats[format] then state.error = "Unsupported output format"; return false, state.error end
     state.error = nil
-    local request, err = omniwm.provider.send("convert", { format = format }, { files = state.inputs }, function(result)
+    state.progress = nil
+    local request, err = omniwm.resources.convert(state.inputs, format, function(result)
+        if result.progress then state.progress = result.progress; return end
         state.request = nil
         if result.ok then
-            if not result.files or #result.files == 0 then state.error = "Converter returned no files"; return end
-            local added, failure = shelf.add(instance, result.files)
+            if not result.items or #result.items == 0 then state.error = "Converter returned no files"; return end
+            local added, failure = shelf.add(instance, result.items)
             state.error = failure
             if added then
                 state.serial += 1
@@ -65,8 +67,8 @@ end
 
 local function status(instance)
     if not instance.state.convert.request then return "Drop images to make " .. string.upper(instance.options.format or "png") .. " copies" end
-    local progress = instance.provider.state.conversion
-    if type(progress) == "table" and progress.active == true and type(progress.total) == "number"
+    local progress = instance.state.convert.progress
+    if type(progress) == "table" and type(progress.total) == "number"
         and progress.total >= 1 and progress.total <= 32 and progress.total % 1 == 0
         and type(progress.completed) == "number" and progress.completed >= 0 and progress.completed <= progress.total
         and progress.completed % 1 == 0 then

@@ -143,7 +143,6 @@ final class ShellFileComponentTests: XCTestCase {
                 "id": .text("files"),
                 "widget": .text(widget),
                 "enabled": .bool(enabled),
-                "provider": .bool(true),
                 "options": .object(["format": .text(format)])
             ])])
             var writer = ShellValueWriter()
@@ -393,28 +392,32 @@ final class ShellFileComponentTests: XCTestCase {
         }
 
         func converted(_ request: Request, ids: [omni_resource_id], failure: String? = nil) {
+            if failure == nil { picked(request, ids: ids)
+                return
+            }
+            storeComplete(request, failure: failure)
+        }
+
+        func conversionProgress(_ request: Request, completed: Int, total: Int) {
+            var writer = ShellValueWriter()
+            ShellServiceValue.object(["progress": .object([
+                "completed": .number(Double(completed)), "total": .number(Double(total))
+            ])]).write(to: &writer)
             var handled = false
-            var transferred = false
-            let json = failure.map { "\"" + $0 + "\"" } ?? "{\"converted\":\(ids.count)}"
-            XCTAssertEqual(ids.withUnsafeBufferPointer {
-                omni_vm_complete_provider(
+            XCTAssertEqual(writer.bytes.withUnsafeBufferPointer {
+                omni_vm_progress_service(
                     vm,
                     request.owner,
                     request.id,
-                    failure == nil,
-                    json,
-                    json.utf8.count,
                     $0.baseAddress,
                     $0.count,
                     200_000_000,
                     &handled,
-                    &transferred,
                     &error,
                     error.count
                 )
             }, OMNI_OK, message)
             XCTAssertTrue(handled)
-            XCTAssertEqual(transferred, !ids.isEmpty)
         }
     }
 
@@ -574,11 +577,14 @@ final class ShellFileComponentTests: XCTestCase {
         try fixture.action("convert")
         let pick = try XCTUnwrap(fixture.drain().first { $0.kind == OMNI_SERVICE_DESKTOP })
         fixture.picked(pick, ids: fixture.admit(pick.owner, ready: false))
-        let request = try XCTUnwrap(fixture.drain().first { $0.kind == OMNI_SERVICE_PROVIDER })
+        let request = try XCTUnwrap(fixture.drain().first { $0.kind == OMNI_SERVICE_DESKTOP })
         let payload = try ShellServiceValue.decode(request.bytes).fields
-        XCTAssertEqual(payload?["name"]?.string, "convert")
-        XCTAssertEqual(payload?["files"]?.values?.count, 1)
-        XCTAssertTrue(payload?["argsJSON"]?.string?.contains("png") == true)
+        XCTAssertEqual(payload?["op"]?.string, "convert")
+        XCTAssertEqual(payload?["resources"]?.values?.count, 1)
+        XCTAssertEqual(payload?["format"]?.string, "png")
+        fixture.conversionProgress(request, completed: 0, total: 1)
+        try fixture.render()
+        XCTAssertTrue(fixture.captions.contains("Converting 0 / 1"))
         try fixture.action("retry-convert")
         XCTAssertTrue(fixture.drain().isEmpty)
         let outputs = fixture.admit(request.owner)
@@ -590,20 +596,20 @@ final class ShellFileComponentTests: XCTestCase {
         XCTAssertTrue(fixture.captions.contains("count:1"))
         XCTAssertTrue(fixture.captions.contains("alert:converted:1"))
         try fixture.action("retry-convert")
-        let retry = try XCTUnwrap(fixture.drain().first { $0.kind == OMNI_SERVICE_PROVIDER })
+        let retry = try XCTUnwrap(fixture.drain().first { $0.kind == OMNI_SERVICE_DESKTOP })
         fixture.converted(retry, ids: [], failure: "conversion_failed")
         try fixture.render()
         XCTAssertTrue(fixture.captions.contains("count:1"))
         XCTAssertTrue(fixture.captions.contains("conversion_failed"))
         try fixture.action("retry-convert")
-        let active = try XCTUnwrap(fixture.drain().first { $0.kind == OMNI_SERVICE_PROVIDER })
+        let active = try XCTUnwrap(fixture.drain().first { $0.kind == OMNI_SERVICE_DESKTOP })
         fixture.configure(format: "jpeg")
         XCTAssertTrue(fixture.drain().contains { $0.id == active.id && $0.cancelled })
         try fixture.render()
         XCTAssertTrue(fixture.captions.contains("Options changed; retry conversion"))
     }
 
-    func testUnsupportedConverterInputsNeverReachProvider() throws {
+    func testUnsupportedConverterInputsNeverReachNativeConversion() throws {
         let fixture = try Fixture(widget: "converter")
         try fixture.action("convert")
         let pick = try XCTUnwrap(fixture.drain().first { $0.kind == OMNI_SERVICE_DESKTOP })
@@ -611,15 +617,14 @@ final class ShellFileComponentTests: XCTestCase {
             pick,
             ids: fixture.admit(pick.owner, name: "note.txt", kind: "text", uti: "public.utf8-plain-text")
         )
-        XCTAssertFalse(fixture.drain().contains { $0.kind == OMNI_SERVICE_PROVIDER })
+        XCTAssertTrue(fixture.drain().isEmpty)
         try fixture.render()
         XCTAssertTrue(fixture.captions.contains("Only supported image files can be converted"))
         let profile = ShellStyleFixture.directory.appendingPathComponent("lake")
         let descriptor = try ShellComponentCatalog.load("converter", directories: [profile])
-        XCTAssertEqual(descriptor.providerCommand, ["provider.pl"])
+        XCTAssertNil(descriptor.providerCommand)
         XCTAssertTrue(descriptor.capabilities.files)
-        XCTAssertTrue(descriptor.capabilities.provider)
-        XCTAssertNil(ShellNetworkPermissions().approvedDigest(for: descriptor.principal, command: ["provider.pl"]))
+        XCTAssertFalse(descriptor.capabilities.provider)
         let format = try XCTUnwrap(descriptor.options["format"])
         XCTAssertTrue(format.accepts(.string("png")))
         XCTAssertFalse(format.accepts(.string("shell-command")))

@@ -508,6 +508,7 @@ omni_status omni_vm_set_service_generation(omni_vm *vm, uint64_t generation) OMN
 omni_status omni_vm_set_configuration_enabled(omni_vm *vm, bool enabled) OMNI_NOEXCEPT;
 omni_status omni_vm_seed_store(omni_vm *vm, const char *owner_name, size_t owner_name_length, const uint8_t *value, size_t value_length, const char *store_error, size_t store_error_length, char *error, size_t error_capacity) OMNI_NOEXCEPT;
 bool omni_vm_next_service(omni_vm *vm, omni_service_request *out) OMNI_NOEXCEPT;
+omni_status omni_vm_progress_service(omni_vm *vm, omni_owner_token owner, uint64_t id, const uint8_t *value, size_t value_length, uint64_t budget_ns, bool *handled, char *error, size_t error_capacity) OMNI_NOEXCEPT;
 omni_status omni_vm_complete_service(omni_vm *vm, omni_owner_token owner, uint64_t id, uint64_t revision, const uint8_t *value, size_t value_length, uint64_t budget_ns, bool *handled, char *error, size_t error_capacity) OMNI_NOEXCEPT;
 omni_status omni_vm_close_services(omni_vm *vm) OMNI_NOEXCEPT;
 omni_service_stats omni_vm_service_stats(const omni_vm *vm) OMNI_NOEXCEPT;

@@ -1,10 +1,7 @@
 title = "Image converter"
 icon = "arrow.triangle.2.circlepath"
 views = ["compact", "peek", "expanded"]
-capabilities = { provider = true, files = true, clipboard = true }
-
-[provider]
-command = ["provider.pl"]
+capabilities = { files = true, clipboard = true }
 
 [options.format]
 type = "choice"

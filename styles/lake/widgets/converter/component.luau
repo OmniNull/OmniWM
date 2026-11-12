@@ -18,13 +18,10 @@ local function expanded(ctx)
     local height = math.max(64, (ctx.view.h or 300) - top - 10)
     local instance = ctx.instance
     local error = service.error(instance)
-    local provider = instance.provider
     return ui.column{ gap = 10, w = width, h = height, scroll = true, align = "top", dy = top,
         accepts = { "file", "image" }, onDrop = drop,
         ui.text{ text = "Image converter", size = 17, weight = "semibold", color = view.foreground },
         ui.text{ text = service.status(instance), size = 12, color = view.secondary },
-        ui.text{ text = "Provider: " .. provider.status .. (provider.error and " · " .. provider.error or ""), size = 10, color = view.secondary, maxWidth = width - 10 },
-        provider.status == "not_approved" and ui.text{ text = omniwm.l10n("Allow this program in Network & Permissions"), size = 10, color = view.secondary } or nil,
         ui.row{ gap = 6,
             shelfView.button("Retry conversion", function(next) service.retry(next.instance) end),
             shelfView.button("Retry save", function(next) shelf.retry(next.instance) end),
