@@ -57,13 +57,14 @@ extension LayoutRefreshController {
     ) -> WindowState? {
         let controller = context.controller
         var existingEntry = entry
+        var deminiaturizedToken: WindowToken?
         if let entry = existingEntry, let minimized = candidate.minimizedAttribute {
             if controller.axEventHandler.updateWindowMinimizedState(
                 minimized,
                 token: entry.token,
                 requestRefresh: false
             ), !minimized {
-                controller.reconcileDisplayableScratchpadMember(entry.token)
+                deminiaturizedToken = entry.token
             }
             existingEntry = controller.workspaceManager.entry(for: entry.token)
         }
@@ -75,6 +76,10 @@ extension LayoutRefreshController {
                 requestRefresh: false
             )
             existingEntry = controller.workspaceManager.entry(for: entry.token)
+        }
+        if let deminiaturizedToken {
+            controller.reconcileDisplayableScratchpadMember(deminiaturizedToken)
+            existingEntry = controller.workspaceManager.entry(for: deminiaturizedToken)
         }
         return existingEntry
     }

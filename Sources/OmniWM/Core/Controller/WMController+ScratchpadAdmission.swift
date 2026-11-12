@@ -22,6 +22,11 @@ struct ScratchpadParkAdmission {
     let observedFrame: CGRect?
 }
 
+struct ScratchpadMemberRelease {
+    let token: WindowToken
+    let previousOverride: ManualWindowOverride?
+}
+
 extension WMController {
     func scratchpadDestination(for evaluation: WindowDecisionEvaluation) -> ScratchpadIndex? {
         guard let index = evaluation.decision.admissionHints.scratchpad else { return nil }
@@ -141,22 +146,36 @@ extension WMController {
         return true
     }
 
-    func releaseScratchpadMemberForWorkspaceDestination(
+    func beginScratchpadMemberRelease(
         _ token: WindowToken,
         decision: WindowDecision
-    ) -> Bool {
+    ) -> ScratchpadMemberRelease? {
         guard decision.isResolved,
               decision.workspaceName != nil,
               decision.admissionHints.scratchpad == nil,
               workspaceManager.scratchpadIndex(for: token) != nil,
-              let entry = workspaceManager.entry(for: token)
+              workspaceManager.entry(for: token) != nil
         else {
-            return false
+            return nil
         }
+        let release = ScratchpadMemberRelease(
+            token: token,
+            previousOverride: workspaceManager.manualLayoutOverride(for: token)
+        )
+        workspaceManager.setManualLayoutOverride(nil, for: token)
+        return release
+    }
+
+    func cancelScratchpadMemberRelease(_ release: ScratchpadMemberRelease) {
+        workspaceManager.setManualLayoutOverride(release.previousOverride, for: release.token)
+    }
+
+    func completeScratchpadMemberRelease(_ release: ScratchpadMemberRelease) {
+        let token = release.token
+        guard let entry = workspaceManager.entry(for: token) else { return }
         let wasParked = workspaceManager.hiddenState(for: token)?.isScratchpad == true
         cleanupScratchpadWindowResources(for: token)
-        workspaceManager.setManualLayoutOverride(nil, for: token)
-        guard wasParked else { return true }
+        guard wasParked else { return }
 
         workspaceManager.setHiddenState(nil, for: token)
         guard !workspaceManager.isWindowSuppressedByMacOS(token),
@@ -165,7 +184,7 @@ extension WMController {
                   preferredMonitor: workspaceManager.monitor(for: entry.workspaceId)
               )
         else {
-            return true
+            return
         }
         if let axRef = entry.axRef {
             axManager.forceApplyNextFrame(for: entry.windowId)
@@ -174,7 +193,6 @@ extension WMController {
             shellAppWindowManager.setFrame(frame, for: token)
             shellAppWindowManager.setHidden(false, for: token)
         }
-        return true
     }
 
     private func rollBackScratchpadJoin(

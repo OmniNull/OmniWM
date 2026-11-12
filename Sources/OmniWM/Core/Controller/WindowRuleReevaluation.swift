@@ -64,11 +64,11 @@ struct WindowRuleReevaluation {
         windowInfo: WindowServerInfo?,
         windowServerLookupAttempted: Bool
     ) -> RuleReevaluationWindow? {
-        let trackedEntry = controller.workspaceManager.entry(for: token)
-        guard trackedEntry?.target.hostedMetadata == nil else { return nil }
-        let axRef = liveWindowsByToken[token] ?? trackedEntry?.axRef
+        let existingEntry = controller.workspaceManager.entry(for: token)
+        guard existingEntry?.target.hostedMetadata == nil else { return nil }
+        let axRef = liveWindowsByToken[token] ?? existingEntry?.axRef
         guard let axRef else { return nil }
-        let createPlacementContext = trackedEntry == nil
+        let createPlacementContext = existingEntry == nil
             ? controller.axEventHandler.pendingCreatePlacementContext(for: token.windowId)
             : nil
         let placementOrigin: WorkspacePlacementOrigin = createPlacementContext == nil
@@ -76,8 +76,8 @@ struct WindowRuleReevaluation {
             : .liveCreate
 
         evaluatedAnyWindow = true
-        let (existingEntry, evaluation) = evaluate(
-            token, axRef: axRef, existingEntry: trackedEntry,
+        let (evaluation, scratchpadRelease) = evaluate(
+            token, axRef: axRef, existingEntry: existingEntry,
             windowInfo: windowInfo, windowServerLookupAttempted: windowServerLookupAttempted
         )
         let ruleEffects = evaluation.decision.disposition == .undecided
@@ -103,6 +103,7 @@ struct WindowRuleReevaluation {
             requestedMode: scratchpadAdmission == nil ? decidedMode : .floating,
             existingMode: existingEntry?.mode
         ) else {
+            _ = scratchpadRelease.map(controller.cancelScratchpadMemberRelease)
             controller.axEventHandler.scheduleGeometryAdmissionRetry(
                 token: token, axRef: axRef, existingEntry: existingEntry, placementOrigin: placementOrigin
             )
@@ -111,7 +112,7 @@ struct WindowRuleReevaluation {
         return RuleReevaluationWindow(
             token: token, axRef: axRef, existingEntry: existingEntry,
             evaluation: evaluation, ruleEffects: ruleEffects, admissionHints: admissionHints,
-            admission: admission, placementOrigin: placementOrigin,
+            admission: admission, placementOrigin: placementOrigin, scratchpadRelease: scratchpadRelease,
             createPlacementContext: createPlacementContext, scratchpadAdmission: scratchpadAdmission
         )
     }
@@ -166,6 +167,9 @@ struct WindowRuleReevaluation {
             return
         }
 
+        if let scratchpadRelease = window.scratchpadRelease {
+            controller.completeScratchpadMemberRelease(scratchpadRelease)
+        }
         let previousFocusToken = controller.workspaceManager.selectedManagedToken
         admitIfNeeded(window, workspaceId: workspaceId)
         updateTracking(window)

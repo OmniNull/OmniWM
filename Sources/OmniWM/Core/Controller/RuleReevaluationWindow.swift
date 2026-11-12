@@ -14,6 +14,7 @@ struct RuleReevaluationWindow {
     let admissionHints: ManagedWindowAdmissionHints
     let admission: WindowAdmission
     let placementOrigin: WorkspacePlacementOrigin
+    let scratchpadRelease: ScratchpadMemberRelease?
     let createPlacementContext: WindowCreatePlacementContext?
     let scratchpadAdmission: ScratchpadAdmission?
 

@@ -11,7 +11,7 @@ extension WindowRuleReevaluation {
         existingEntry: WindowState?,
         windowInfo: WindowServerInfo?,
         windowServerLookupAttempted: Bool
-    ) -> (existingEntry: WindowState?, evaluation: WMController.WindowDecisionEvaluation) {
+    ) -> (evaluation: WMController.WindowDecisionEvaluation, scratchpadRelease: ScratchpadMemberRelease?) {
         let evaluation = controller.evaluateWindowDisposition(
             axRef: axRef,
             pid: token.pid,
@@ -20,19 +20,17 @@ extension WindowRuleReevaluation {
         )
         guard context == .explicitRuleApply,
               existingEntry != nil,
-              controller.releaseScratchpadMemberForWorkspaceDestination(token, decision: evaluation.decision)
+              let release = controller.beginScratchpadMemberRelease(token, decision: evaluation.decision)
         else {
-            return (existingEntry, evaluation)
+            return (evaluation, nil)
         }
-        return (
-            controller.workspaceManager.entry(for: token),
-            controller.evaluateWindowDisposition(
-                axRef: axRef,
-                pid: token.pid,
-                windowInfo: windowInfo,
-                windowServerLookupAttempted: windowServerLookupAttempted
-            )
+        let rulesEvaluation = controller.evaluateWindowDisposition(
+            axRef: axRef,
+            pid: token.pid,
+            windowInfo: windowInfo,
+            windowServerLookupAttempted: windowServerLookupAttempted
         )
+        return (rulesEvaluation, release)
     }
 
     func applyScratchpadDestination(_ window: RuleReevaluationWindow, previousFocusToken: WindowToken?) {

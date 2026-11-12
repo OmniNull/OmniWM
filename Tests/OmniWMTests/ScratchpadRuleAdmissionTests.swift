@@ -809,6 +809,45 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         XCTAssertEqual(manager.entry(for: token)?.mode, .tiling)
     }
 
+    func testRescanReparksADeminiaturizedMemberAfterItsWindowOrderingUpdates() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let token = WindowToken(pid: 975_291, windowId: 975_391)
+        rescan(token, in: fixture, orderedIn: false)
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertEqual(manager.entry(for: token)?.observedState.isNativeWithdrawn, true)
+        fixture.controller.axEventHandler.updateWindowMinimizedState(true, token: token, requestRefresh: false)
+        XCTAssertEqual(manager.entry(for: token)?.observedState.isMinimized, true)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        rescan(token, in: fixture, orderedIn: true)
+
+        XCTAssertFalse(manager.isWindowSuppressedByMacOS(token))
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertGreaterThan(parkIntents(of: token), 0)
+    }
+
+    func testExplicitRuleApplyKeepsAParkedMemberWhenItsWorkspaceAdmissionIsPending() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        _ = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: true))
+        let token = WindowToken(pid: 975_301, windowId: 975_401)
+        try liveCreate(token, in: fixture)
+        let before = memberSnapshot(token, in: manager)
+        XCTAssertEqual(before.index, 1)
+        XCTAssertEqual(before.hiddenState?.isScratchpad, true)
+        XCTAssertEqual(before.manualOverride, .forceFloat)
+        fixture.controller.windowRuleEngine.rebuild(rules: [Self.rule(workspace: "2")])
+        fixture.book.withoutAdmissionGeometry.insert(token)
+
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+
+        XCTAssertEqual(memberSnapshot(token, in: manager), before)
+    }
+
     private struct Fixture {
         let controller: WMController
         let monitor: Monitor
@@ -836,6 +875,7 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         var facts: [WindowToken: WindowRuleFacts] = [:]
         var decisions: [WindowToken: WindowDecision] = [:]
         var fullscreen: Set<WindowToken> = []
+        var withoutAdmissionGeometry: Set<WindowToken> = []
 
         func windowInfo(_ windowId: UInt32) -> WindowServerInfo? {
             facts.values.lazy.compactMap(\.windowServer).first { $0.id == windowId }
@@ -911,10 +951,11 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
                 decision: WindowRuleEngine.applyingManualOverride(baseDecision, manualOverride: manualOverride),
                 appFullscreen: appFullscreen,
                 manualOverride: manualOverride,
-                admissionGeometry: WindowAdmissionGeometryEvidence(
-                    isSizeSettable: true,
-                    frame: ScreenCoordinateSpace.toAppKit(rect: facts.windowServer?.frame ?? .zero)
-                )
+                admissionGeometry: book.withoutAdmissionGeometry
+                    .contains(token) ? nil : WindowAdmissionGeometryEvidence(
+                        isSizeSettable: true,
+                        frame: ScreenCoordinateSpace.toAppKit(rect: facts.windowServer?.frame ?? .zero)
+                    )
             )
         }
         controller.windowRuleEngine.rebuild(rules: rules)
@@ -1074,12 +1115,14 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         title: String = "Notes",
         fullscreen: Bool = false,
         minimized: Bool = false,
-        runsRetirement: Bool = false
+        runsRetirement: Bool = false,
+        orderedIn: Bool? = nil
     ) {
         let facts = self.facts(for: token, title: title)
         fixture.book.facts[token] = facts
         let axRef = WindowAdmissionTestSupport.axRef(for: token)
-        let windowServerInfo = facts.windowServer
+        var windowServerInfo = facts.windowServer
+        windowServerInfo?.isOrderedIn = orderedIn
         let candidate = FullRescanWindowCandidate(
             enumeratedWindow: AXEnumeratedWindow(
                 axRef: axRef,
