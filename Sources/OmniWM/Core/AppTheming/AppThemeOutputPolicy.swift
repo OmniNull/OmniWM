@@ -86,7 +86,16 @@ struct AppThemeOutputPolicy: Equatable, Sendable {
         return url.path
     }
 
-    func destination(for path: String) throws -> URL {
+    struct Roots: Sendable {
+        let allowed: [URL]
+        let protected: [URL]
+    }
+
+    func resolvedRoots() -> Roots {
+        Roots(allowed: ([home] + allowedRoots).map(Self.resolve), protected: protectedFolders.map(Self.resolve))
+    }
+
+    func destination(for path: String, roots known: Roots? = nil) throws -> URL {
         let expanded = expand(path)
         guard expanded.hasPrefix("/") else { throw AppThemeOutputError.notAbsolute(path) }
         let components = expanded.split(separator: "/", omittingEmptySubsequences: true)
@@ -101,10 +110,11 @@ struct AppThemeOutputPolicy: Equatable, Sendable {
             throw AppThemeOutputError.protectedFolder(path)
         }
         let resolved = Self.resolve(lexical)
-        guard ([home] + allowedRoots).map(Self.resolve).contains(where: { Self.contains($0, resolved) }) else {
+        let roots = known ?? resolvedRoots()
+        guard roots.allowed.contains(where: { Self.contains($0, resolved) }) else {
             throw AppThemeOutputError.outsideAllowedFolders(path)
         }
-        guard !protectedFolders.map(Self.resolve).contains(where: { Self.contains($0, resolved) }) else {
+        guard !roots.protected.contains(where: { Self.contains($0, resolved) }) else {
             throw AppThemeOutputError.protectedFolder(path)
         }
         var isDirectory: ObjCBool = false

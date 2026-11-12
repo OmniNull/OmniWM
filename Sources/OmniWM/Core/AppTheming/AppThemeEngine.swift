@@ -81,13 +81,14 @@ struct AppThemeEngine: Sendable {
         var report = AppThemeRunReport()
         report.stored = state.results
         commitSelection(of: job, into: &report)
+        let roots = policy.resolvedRoots()
         var changed: [String: Bool] = [:]
         var claimed: [String: String] = [:]
         var created: Set<String> = []
         for target in job.targets where job.enabled.contains(target.id) {
             do {
-                try claim(target, in: &claimed)
-                let (names, newFiles) = try write(target, job: job, state: &state, backups: &report.backups)
+                try claim(target, in: &claimed, roots: roots)
+                let (names, newFiles) = try write(target, job: job, roots: roots, state: &state, backups: &report.backups)
                 changed[target.id] = !names.isEmpty
                 if newFiles { created.insert(target.id) }
                 report.results[target.id] = AppThemeResult(
@@ -101,7 +102,8 @@ struct AppThemeEngine: Sendable {
                 continue
             } catch let AppThemeEngineError.changedOutsideOmniWM(paths) {
                 let approved = target.outputs.contains { output in
-                    (try? policy.destination(for: output.path)).map { job.takeOver[$0.path] != nil } ?? false
+                    (try? policy.destination(for: output.path, roots: roots)).map { job.takeOver[$0.path] != nil }
+                        ?? false
                 }
                 if approved { report.reviewAgain.append(target.id) }
                 report.results[target.id] = AppThemeResult(
@@ -124,8 +126,12 @@ struct AppThemeEngine: Sendable {
         return report
     }
 
-    private func claim(_ target: AppThemeTarget, in claimed: inout [String: String]) throws {
-        let paths = target.outputs.compactMap { try? policy.destination(for: $0.path).path }
+    private func claim(
+        _ target: AppThemeTarget,
+        in claimed: inout [String: String],
+        roots: AppThemeOutputPolicy.Roots
+    ) throws {
+        let paths = target.outputs.compactMap { try? policy.destination(for: $0.path, roots: roots).path }
         if let path = paths.first(where: { claimed[$0] != nil }), let owner = claimed[path] {
             throw AppThemeEngineError.sharedOutput(path: policy.display(URL(fileURLWithPath: path)), owner: owner)
         }
@@ -179,10 +185,11 @@ struct AppThemeEngine: Sendable {
     private func write(
         _ target: AppThemeTarget,
         job: AppThemeJob,
+        roots: AppThemeOutputPolicy.Roots,
         state: inout AppThemeState,
         backups: inout [URL]
     ) throws -> (names: [String], newFiles: Bool) {
-        let rendered = try target.outputs.map { try render($0, job: job) }
+        let rendered = try target.outputs.map { try render($0, job: job, roots: roots) }
         let conflicts = rendered.filter { item in
             guard item.before != item.after, let current = item.currentOwnedText else { return false }
             let digest = AppThemeFileWriter.digest(current)
@@ -232,7 +239,11 @@ struct AppThemeEngine: Sendable {
         return AppThemeFileWriter.digest(before) == reviewed
     }
 
-    func render(_ output: AppThemeOutput, job: AppThemeJob) throws -> Rendered {
+    func render(
+        _ output: AppThemeOutput,
+        job: AppThemeJob,
+        roots: AppThemeOutputPolicy.Roots? = nil
+    ) throws -> Rendered {
         let dark = switch output.variant {
         case .current: job.dark
         case .light: false
@@ -240,7 +251,7 @@ struct AppThemeEngine: Sendable {
         }
         let source = dark ? output.darkTemplate ?? output.template : output.template
         let text = try AppThemeTemplate.render(templateText(source), palette: job.palette, dark: dark)
-        let url = try policy.destination(for: output.path)
+        let url = try policy.destination(for: output.path, roots: roots)
         let display = policy.display(url)
         let before = try AppThemeFileWriter.read(url, display: display)
         let existingText = try before.map { data in

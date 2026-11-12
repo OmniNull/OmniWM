@@ -26,6 +26,25 @@ final class AppThemeOutputPolicyTests: XCTestCase {
         XCTAssertEqual(policy.display(sandbox.path(".config/kitty/x.conf")), "~/.config/kitty/x.conf")
     }
 
+    func testRootsResolvedOnceGiveTheSameAnswers() throws {
+        let policy = sandbox.policy
+        let roots = policy.resolvedRoots()
+        try FileManager.default.createDirectory(at: sandbox.path(".config/kitty"), withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: sandbox.path(".config/link"), withDestinationURL: sandbox.home)
+        for path in [
+            "~/.config/ghostty/themes/omniwm-dark", "~/Library/Application Support/x/y.json", "~/.zshrc",
+            "~/.config/link/.ssh/config", "~/.config/omniwm/settings.toml", "~/.config/kitty", "relative/theme"
+        ] {
+            let once = Result { try policy.destination(for: path, roots: roots) }.map(\.path)
+            let each = Result { try policy.destination(for: path) }.map(\.path)
+            XCTAssertEqual(
+                String(describing: once),
+                String(describing: each),
+                path
+            )
+        }
+    }
+
     func testRefusesPathsOutsideTheAllowedFolders() {
         let policy = sandbox.policy
         for path in ["~/.zshrc", "~/Documents/theme", "/etc/hosts", "/tmp/theme", "~/.config"] {
