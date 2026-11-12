@@ -25,34 +25,43 @@ extension AppThemeEngine {
         }
         guard stale.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(stale.map(\.0.display)) }
         var backups: [URL] = []
-        for (change, current) in zip(changes, currents) {
-            let backup = try current.map { try store.backup($0, of: change.url, date: now()) }
-            do {
-                try replace(
-                    change.url,
-                    with: Data(change.after.utf8),
-                    expecting: current,
-                    display: change.display,
-                    isCurrent: isCurrent
-                )
-            } catch {
-                if let backup { try? FileManager.default.removeItem(at: backup) }
-                throw error
+        var replaced: [(change: AppThemeChange, before: Data?)] = []
+        do {
+            for (change, current) in zip(changes, currents) {
+                let backup = try current.map { try store.backup($0, of: change.url, date: now()) }
+                do {
+                    try replace(
+                        change.url,
+                        with: Data(change.after.utf8),
+                        expecting: current,
+                        display: change.display,
+                        isCurrent: isCurrent
+                    )
+                } catch {
+                    if let backup { try? FileManager.default.removeItem(at: backup) }
+                    throw error
+                }
+                if let backup { backups.append(backup) }
+                replaced.append((change, current))
             }
-            if let backup { backups.append(backup) }
+        } catch {
+            for (change, before) in replaced.reversed() {
+                try? restore(change.url, display: change.display, to: before, from: Data(change.after.utf8))
+            }
+            throw error
         }
         return backups
     }
 
-    func restore(_ item: Rendered) throws {
-        guard let before = item.before else {
-            guard try AppThemeFileWriter.read(item.url, display: item.display) == item.after else {
-                throw AppThemeEngineError.changedOutsideOmniWM([item.display])
+    func restore(_ url: URL, display: String, to before: Data?, from after: Data) throws {
+        guard let before else {
+            guard try AppThemeFileWriter.read(url, display: display) == after else {
+                throw AppThemeEngineError.changedOutsideOmniWM([display])
             }
-            guard unlink(item.url.path) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+            guard unlink(url.path) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
             return
         }
-        try replace(item.url, with: before, expecting: item.after, display: item.display) { true }
+        try replace(url, with: before, expecting: after, display: display) { true }
     }
 
     func replace(

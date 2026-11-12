@@ -220,7 +220,9 @@ struct AppThemeEngine: Sendable {
                 }
             }
         } catch {
-            for (item, owned) in replaced.reversed() where (try? restore(item)) != nil {
+            for (item, owned) in replaced.reversed()
+                where (try? restore(item.url, display: item.display, to: item.before, from: item.after)) != nil
+            {
                 state.owned[item.url.path] = owned
             }
             try? store.save(state)

@@ -606,6 +606,34 @@ final class AppThemeEngineTests: XCTestCase {
         XCTAssertEqual(fake.events, ["herdr server.reload_config"])
     }
 
+    func testAGhosttyConfigEditIsUndoneWhenALaterFileCannotBeReplaced() throws {
+        let support = "Library/Application Support/com.mitchellh.ghostty/config"
+        try sandbox.write("theme = a\n", to: ".config/ghostty/config")
+        try sandbox.write("theme = b\n", to: support)
+        func edit(_ relative: String, _ before: String, _ after: String) -> AppThemeChange {
+            AppThemeChange(
+                url: sandbox.path(relative),
+                display: "~/" + relative,
+                before: before,
+                after: after,
+                beforeDigest: AppThemeFileWriter.digest(Data(before.utf8))
+            )
+        }
+        let changes = [
+            edit(".config/ghostty/config", "theme = a\n", "# theme = a\n"),
+            edit(support, "theme = b\n", "theme = b\n\(AppThemeBuiltIn.ghosttyThemeLine)\n")
+        ]
+        var engine = sandbox.engine(fake)
+        let later = sandbox.path(support)
+        engine.willReplace = { url in
+            guard url == later else { return }
+            try? Data("theme = c\n".utf8).write(to: url)
+        }
+        XCTAssertThrowsError(try engine.store.withLock { try engine.commit(changes) })
+        XCTAssertEqual(sandbox.read(".config/ghostty/config"), "theme = a\n")
+        XCTAssertEqual(sandbox.read(support), "theme = c\n")
+    }
+
     func testTwoOutputsOfOneAppCannotShareAFile() throws {
         let themes = sandbox.path(".config/ghostty/themes")
         try FileManager.default.createDirectory(at: themes, withIntermediateDirectories: true)
