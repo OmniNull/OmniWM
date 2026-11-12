@@ -337,6 +337,75 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertFalse(swipe.hasPresentation)
     }
 
+    func testKeyboardSwitchCommitsAtOnceAndSlidesUntilBothFinish() throws {
+        var mediaTime = 10.0
+        let (controller, swipe, monitor, source) = try fixture(mediaTimeProvider: { mediaTime })
+        let manager = controller.workspaceManager
+        let next = try XCTUnwrap(manager.nextWorkspaceInOrder(on: monitor.id, from: source, wrapAround: true))
+
+        XCTAssertTrue(swipe.animateSwitch(to: next.id, on: monitor.id, isNext: true))
+
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, next.id)
+        let flight = try XCTUnwrap(swipe.flights[monitor.id])
+        XCTAssertTrue(flight.isKeyboard)
+        XCTAssertNil(swipe.flight)
+        XCTAssertTrue(swipe.hasDisplayWork(monitor.displayId))
+
+        swipe.didSubmitPlacement(flight)
+        XCTAssertTrue(swipe.hasPresentation)
+
+        mediaTime = 10.05
+        swipe.tick(displayId: monitor.displayId, timestamp: mediaTime)
+        XCTAssertGreaterThan(flight.progress, 0)
+        XCTAssertLessThan(flight.progress, 1)
+        XCTAssertTrue(swipe.hasPresentation)
+
+        swipe.tick(displayId: monitor.displayId, timestamp: 12)
+        XCTAssertFalse(swipe.hasPresentation)
+        XCTAssertFalse(swipe.hasDisplayWork(monitor.displayId))
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, next.id)
+    }
+
+    func testKeyboardSwitchDuringSlideChainsFromTheDestination() throws {
+        var mediaTime = 10.0
+        let (controller, swipe, monitor, source) = try fixture(mediaTimeProvider: { mediaTime })
+        let manager = controller.workspaceManager
+        let third = try XCTUnwrap(manager.workspaceId(for: "3", createIfMissing: true))
+        manager.assignWorkspaceToMonitor(third, monitorId: monitor.id)
+        let second = try XCTUnwrap(manager.nextWorkspaceInOrder(on: monitor.id, from: source, wrapAround: false))
+        XCTAssertTrue(swipe.animateSwitch(to: second.id, on: monitor.id, isNext: true))
+        let first = try XCTUnwrap(swipe.flights[monitor.id])
+
+        mediaTime = 10.05
+        swipe.tick(displayId: monitor.displayId, timestamp: mediaTime)
+        let residual = try XCTUnwrap(first.residual(at: mediaTime))
+        XCTAssertTrue(swipe.animateSwitch(to: third, on: monitor.id, isNext: true))
+
+        let chained = try XCTUnwrap(swipe.flights[monitor.id])
+        XCTAssertFalse(chained === first)
+        XCTAssertEqual(chained.preparation.source.id, second.id)
+        XCTAssertEqual(chained.destination.id, third)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, third)
+        XCTAssertEqual(chained.offset(destination: false).dy, residual.dy, accuracy: 0.001)
+
+        swipe.didSubmitPlacement(chained)
+        swipe.tick(displayId: monitor.displayId, timestamp: 12)
+        XCTAssertFalse(swipe.hasPresentation)
+    }
+
+    func testKeyboardSwitchDoesNothingWithAnimationsOff() throws {
+        let (controller, swipe, monitor, source) = try fixture()
+        controller.motionPolicy.animationsEnabled = false
+        let next = try XCTUnwrap(controller.workspaceManager.nextWorkspaceInOrder(
+            on: monitor.id, from: source, wrapAround: true
+        ))
+
+        XCTAssertFalse(swipe.animateSwitch(to: next.id, on: monitor.id, isNext: true))
+
+        XCTAssertEqual(controller.workspaceManager.activeWorkspace(on: monitor.id)?.id, source)
+        XCTAssertFalse(swipe.hasPresentation)
+    }
+
     func testSwipeOnAnotherMonitorRunsAlongsideTheSettlingSwitch() throws {
         var mediaTime = 1.06
         let (controller, swipe, monitor, other, source, otherSource) = try twoMonitorFixture { mediaTime }
@@ -1132,9 +1201,8 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertEqual(fixture.driver.streams[0].request.pixelWidth, Int(ceil(settledWidth)))
     }
 
-    func testTurningSwipeOrAnimationsOffReleasesThePreviewAndItsCache() async throws {
+    func testTurningAnimationsOffReleasesThePreviewAndItsCache() async throws {
         let disablers: [@MainActor (WMController) -> Void] = [
-            { $0.settings.gestures.workspaceSwipeEnabled = false },
             { $0.setAnimationsEnabled(false) },
             { $0.motionPolicy.systemReducesMotion = true }
         ]

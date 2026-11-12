@@ -117,6 +117,11 @@ extension WorkspaceSwipePresentation {
     private func finishHandoff(_ flight: Flight, confirmed: Bool) {
         guard isCurrent(flight) else { return }
         let failed = flight.settlement?.failed == true
-        cancel(flight, reason: failed ? "placement-failed" : confirmed ? "completed" : "handoff-unconfirmed")
+        let reason = failed ? "placement-failed" : confirmed ? "completed" : "handoff-unconfirmed"
+        if flight.isKeyboard, !flight.motionFinished {
+            flight.deferredFinishReason = reason
+            return
+        }
+        cancel(flight, reason: reason)
     }
 }
