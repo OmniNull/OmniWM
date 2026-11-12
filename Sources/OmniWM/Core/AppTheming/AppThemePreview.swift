@@ -22,6 +22,10 @@ struct AppThemePreview {
         )
     }
 
+    func target(for custom: AppThemingCustom) -> AppThemeTarget {
+        custom.target(savedMachines: values.herdr.reloadSavedMachines)
+    }
+
     func outputPaths(for target: AppThemeTarget) -> [String] {
         target.outputs.map { output in
             (try? engine.policy.destination(for: output.path)).map(engine.policy.display) ?? output.path

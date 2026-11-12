@@ -153,10 +153,6 @@ extension SettingsExport {
 }
 
 extension AppThemingCustom {
-    var target: AppThemeTarget {
-        target(savedMachines: true)
-    }
-
     func target(savedMachines: Bool) -> AppThemeTarget {
         let reloadAction: AppThemeReloadAction? = switch reload {
         case .none: nil

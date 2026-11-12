@@ -48,7 +48,8 @@ struct AppThemingCustomSection: View {
                 Image(systemName: "doc.plaintext").foregroundStyle(.secondary)
                 Text(verbatim: custom.template).font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
             }
-            AppThemingPaths(paths: controller.appThemePreview.outputPaths(for: custom.target))
+            let preview = controller.appThemePreview
+            AppThemingPaths(paths: preview.outputPaths(for: preview.target(for: custom)))
             if custom.enabled {
                 AppThemingStatus(result: controller.appThemeService?.results[custom.targetID]) { replace(custom) }
             }
@@ -76,7 +77,8 @@ struct AppThemingCustomSection: View {
     }
 
     private func replace(_ custom: SettingsExport.AppTheming.Custom) {
-        guard let changes = try? controller.appThemePreview.changes(for: custom.target, onlyExisting: true) else {
+        let preview = controller.appThemePreview
+        guard let changes = try? preview.changes(for: preview.target(for: custom), onlyExisting: true) else {
             return
         }
         review = AppThemingReview(

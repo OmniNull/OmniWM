@@ -166,7 +166,7 @@ final class AppThemeEngineTests: XCTestCase {
             template: sandbox.path("missing.template").path,
             output: "~/.config/broken/colors.conf"
         )
-        let report = run([bad.target] + targets([.kitty]))
+        let report = run([bad.target(savedMachines: false)] + targets([.kitty]))
         XCTAssertEqual(report.results[bad.targetID]?.outcome, .failed)
         XCTAssertEqual(report.results["kitty"]?.outcome, .updated)
     }
@@ -282,8 +282,8 @@ final class AppThemeEngineTests: XCTestCase {
             output: "~/.config/app/colors.conf"
         )
         let job = AppThemeJob(palette: AppThemeFixtures.palette, dark: true, appearanceChanged: false, targets: [])
-        XCTAssertThrowsError(try sandbox.engine(fake).render(custom.target.outputs[0], job: job))
-        let report = run([custom.target], takeOver: [url.path])
+        XCTAssertThrowsError(try sandbox.engine(fake).render(custom.target(savedMachines: false).outputs[0], job: job))
+        let report = run([custom.target(savedMachines: false)], takeOver: [url.path])
         XCTAssertEqual(report.results[custom.targetID]?.outcome, .failed)
         XCTAssertEqual(try Data(contentsOf: url), original)
     }
@@ -302,7 +302,7 @@ final class AppThemeEngineTests: XCTestCase {
                 output: "~/.config/\(folder)/dark-theme.auto.conf"
             )
         }
-        let all = targets([.kitty]) + customs.map(\.target)
+        let all = targets([.kitty]) + customs.map { $0.target(savedMachines: false) }
         let first = run(all)
         XCTAssertEqual(first.results["kitty"]?.outcome, .updated)
         for custom in customs {
@@ -365,7 +365,7 @@ final class AppThemeEngineTests: XCTestCase {
                 template: sandbox.path("templates/evil.conf").path,
                 output: output
             )
-            let report = run([custom.target])
+            let report = run([custom.target(savedMachines: false)])
             XCTAssertEqual(report.results[custom.targetID]?.outcome, .failed, output)
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: sandbox.path(".zshrc").path))
@@ -375,7 +375,7 @@ final class AppThemeEngineTests: XCTestCase {
             template: sandbox.path("templates/evil.conf").path,
             output: "~/.config/evil/evil.conf"
         )
-        XCTAssertEqual(run([allowed.target]).results[allowed.targetID]?.outcome, .updated)
+        XCTAssertEqual(run([allowed.target(savedMachines: false)]).results[allowed.targetID]?.outcome, .updated)
         XCTAssertEqual(sandbox.read(".config/evil/evil.conf"), "x = $(touch \(marker.path))\n`touch \(marker.path)`\n")
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
         XCTAssertTrue(fake.events.isEmpty)
@@ -390,9 +390,9 @@ final class AppThemeEngineTests: XCTestCase {
             darkTemplate: sandbox.path("templates/app-dark.conf").path,
             output: "~/.config/app/colors.conf"
         )
-        _ = run([custom.target], dark: true)
+        _ = run([custom.target(savedMachines: false)], dark: true)
         XCTAssertEqual(sandbox.read(".config/app/colors.conf"), "dark #11111b\n")
-        _ = run([custom.target], dark: false, appearanceChanged: true)
+        _ = run([custom.target(savedMachines: false)], dark: false, appearanceChanged: true)
         XCTAssertEqual(sandbox.read(".config/app/colors.conf"), "light #eff1f5\n")
         XCTAssertTrue(fake.events.isEmpty)
     }
@@ -423,8 +423,8 @@ final class AppThemeEngineTests: XCTestCase {
         let custom = try XCTUnwrap(SettingsTOMLCodec.decode(Data(legacy.utf8)).appTheming.custom.first)
         XCTAssertEqual(custom.name, "Old")
         XCTAssertEqual(custom.reload, AppThemeCustomReload.none)
-        XCTAssertNil(custom.target.reload)
-        let report = run([custom.target])
+        XCTAssertNil(custom.target(savedMachines: false).reload)
+        let report = run([custom.target(savedMachines: false)])
         XCTAssertEqual(report.results[custom.targetID]?.outcome, .updated)
         XCTAssertNil(report.results[custom.targetID]?.reload)
         XCTAssertTrue(fake.events.isEmpty)

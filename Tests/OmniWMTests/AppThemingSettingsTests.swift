@@ -24,6 +24,25 @@ final class AppThemingSettingsTests: XCTestCase {
         XCTAssertEqual(settings.targets(configHome: configHome).first?.reload, .herdr(savedMachines: true))
     }
 
+    func testThePageBuildsCustomHerdrTargetsFromTheSavedMachinesSetting() throws {
+        var values = SettingsExport.AppTheming()
+        let custom = SettingsExport.AppTheming.Custom(
+            name: "herdr", template: "~/t.conf", output: "~/.config/x/y.conf", reload: .herdr
+        )
+        values.custom = [custom]
+        let sandbox = try AppThemeSandbox()
+        defer { sandbox.remove() }
+        for machines in [false, true] {
+            values.herdr.reloadSavedMachines = machines
+            let preview = AppThemePreview(
+                engine: sandbox.engine(AppThemeFakeEnvironment()),
+                values: values,
+                dark: true
+            ) { nil }
+            XCTAssertEqual(preview.target(for: custom).reload, .herdr(savedMachines: machines))
+        }
+    }
+
     func testSettingsRoundTripThroughTOML() throws {
         var settings = SettingsExport.defaults()
         settings.appTheming.ghostty.enabled = true
