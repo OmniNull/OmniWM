@@ -83,6 +83,17 @@ extension AXEventHandler {
         )
     }
 
+    func downgradeExplicitRuleApplyRetry(windowId: Int) {
+        guard let windowId = UInt32(exactly: windowId),
+              var state = admissionRetryStateByWindowId[windowId],
+              case let .ruleReevaluation(token, axRef, .explicitRuleApply) = state.trigger
+        else {
+            return
+        }
+        state.trigger = .ruleReevaluation(token: token, axRef: axRef, context: .automatic)
+        admissionRetryStateByWindowId[windowId] = state
+    }
+
     func scheduleAdmissionRetry(
         windowId: UInt32,
         expectedToken: WindowToken?,

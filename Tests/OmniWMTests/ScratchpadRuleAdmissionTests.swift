@@ -869,6 +869,41 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         XCTAssertEqual(manager.workspace(for: token), destination)
     }
 
+    func testManualSlotReleaseWinsOverADeferredExplicitRuleApply() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 2)])
+        let manager = fixture.controller.workspaceManager
+        let handler = fixture.controller.axEventHandler
+        let token = WindowToken(pid: 975_381, windowId: 975_481)
+        let windowId = UInt32(token.windowId)
+        addFloatingWindow(token, to: fixture)
+        fixture.book.withoutAdmissionGeometry.insert(token)
+
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+
+        XCTAssertNil(manager.scratchpadIndex(for: token))
+        XCTAssertNotNil(handler.admissionRetryStateByWindowId[windowId])
+        XCTAssertEqual(
+            fixture.controller.assignWindowToScratchpad(token, to: 2, preferredMonitor: fixture.monitor),
+            .executed
+        )
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertEqual(fixture.controller.unassignScratchpadWindows([token], on: fixture.monitor.id), .executed)
+        try completeReveal(token, in: fixture)
+        XCTAssertNil(manager.scratchpadIndex(for: token))
+        XCTAssertNotNil(handler.admissionRetryStateByWindowId[windowId])
+        fixture.book.withoutAdmissionGeometry.remove(token)
+        XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
+        if let retry = handler.admissionRetryStateByWindowId[windowId]?.task {
+            await retry.value
+        }
+
+        XCTAssertNil(manager.scratchpadIndex(for: token))
+        XCTAssertTrue(manager.scratchpadMembers(in: 2).isEmpty)
+        XCTAssertNotEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+        XCTAssertEqual(manager.manualLayoutOverride(for: token), .forceTile)
+        XCTAssertEqual(manager.entry(for: token)?.mode, .tiling)
+    }
+
     func testMemberArrivingWhileTheSlotsRevealIsPendingKeepsTheSlotRevealed() throws {
         let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
         let manager = fixture.controller.workspaceManager

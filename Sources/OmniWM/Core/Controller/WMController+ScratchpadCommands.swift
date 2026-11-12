@@ -41,6 +41,7 @@ extension WMController {
             return .notFound
         }
 
+        axEventHandler.downgradeExplicitRuleApplyRetry(windowId: token.windowId)
         if workspaceManager.setScratchpadMembership(token, to: index) {
             requestWorkspaceBarRefresh()
         }
@@ -143,6 +144,7 @@ extension WMController {
     }
 
     private func releaseScratchpadWindow(_ token: WindowToken, entry: WindowState, arrivesQuietly: Bool = false) {
+        axEventHandler.downgradeExplicitRuleApplyRetry(windowId: token.windowId)
         cleanupScratchpadWindowResources(for: token)
         applyManagedWindowOverride(.forceTile, for: token, entry: entry, arrivesQuietly: arrivesQuietly)
     }
