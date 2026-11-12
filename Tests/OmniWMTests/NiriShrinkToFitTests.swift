@@ -156,6 +156,20 @@ final class NiriShrinkToFitTests: XCTestCase {
         XCTAssertEqual(fixture.columns[0].cachedWidth, fixture.raw(0.3))
     }
 
+    func testNothingIsFittedWhenEvenTheMinimumsCannotFit() throws {
+        let fixture = try makeFixture(shrinkToFit: true)
+        let available = fixture.available(2)
+        fixture.constrain(0, minimum: available * 0.15, maximum: 0)
+        fixture.constrain(1, minimum: available * 0.9, maximum: 0)
+
+        XCTAssertTrue(fixture.setSpan(.setProportion(70), on: 0))
+        fixture.settle()
+
+        XCTAssertEqual(fixture.columns[0].cachedWidth, fixture.raw(0.7))
+        XCTAssertNil(fixture.columns[0].fittedWidth)
+        XCTAssertNil(fixture.columns[1].fittedWidth)
+    }
+
     func testNeighbourPackingIsRespected() throws {
         let fixture = try makeFixture(shrinkToFit: true)
         let share = fixture.available(2) - fixture.raw(0.7)
