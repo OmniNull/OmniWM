@@ -9,7 +9,7 @@ App theming writes OmniWM's palette into other apps' theme files and asks those 
 
 When the palette changes, or macOS switches between light and dark, OmniWM renders every app you turned on straight away. A file is only written when its contents change, each write replaces the file in one step, and one app failing never stops the others. Each app's row shows the files it writes, how it reloads, and the result of the last update.
 
-OmniWM reloads apps itself, with no AppleScript and no helper commands: it signals Ghostty, kitty and Neovim with `kill()`, and talks to herdr over herdr's own socket. The only command it ever runs is `herdr --machine <label> server reload-config`, and only for saved herdr machines when **Also reload saved herdr machines** is on. Each app reloads once per update, after every file is written.
+OmniWM reloads apps itself, with no AppleScript and no helper commands: it signals Ghostty, kitty and Neovim with `kill()`, and talks to herdr over herdr's own socket. The only commands it ever runs are herdr's own `herdr machine list --json` and `herdr --machine <label> server reload-config`, and only for saved herdr machines when **Also reload saved herdr machines** is on. Each app reloads once per update, after every file is written.
 
 ## Ghostty
 
