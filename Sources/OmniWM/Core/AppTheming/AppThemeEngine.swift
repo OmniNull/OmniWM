@@ -64,16 +64,7 @@ struct AppThemeEngine: Sendable {
         var created: Set<String> = []
         for target in job.targets {
             do {
-                let paths = target.outputs.compactMap { try? policy.destination(for: $0.path).path }
-                if let path = paths.first(where: { claimed[$0] != nil }), let owner = claimed[path] {
-                    throw AppThemeEngineError.sharedOutput(
-                        path: policy.display(URL(fileURLWithPath: path)),
-                        owner: owner
-                    )
-                }
-                for path in paths {
-                    claimed[path] = target.name
-                }
+                try claim(target, in: &claimed)
                 let (names, newFiles) = try write(target, job: job, state: &state)
                 changed[target.id] = !names.isEmpty
                 if newFiles { created.insert(target.id) }
@@ -99,6 +90,29 @@ struct AppThemeEngine: Sendable {
                 )
             }
         }
+        reload(job, changed: changed, created: created, state: &state, report: &report)
+        state.results.merge(report.results) { $1 }
+        try? store.save(state)
+        return report
+    }
+
+    private func claim(_ target: AppThemeTarget, in claimed: inout [String: String]) throws {
+        let paths = target.outputs.compactMap { try? policy.destination(for: $0.path).path }
+        if let path = paths.first(where: { claimed[$0] != nil }), let owner = claimed[path] {
+            throw AppThemeEngineError.sharedOutput(path: policy.display(URL(fileURLWithPath: path)), owner: owner)
+        }
+        for path in paths {
+            claimed[path] = target.name
+        }
+    }
+
+    private func reload(
+        _ job: AppThemeJob,
+        changed: [String: Bool],
+        created: Set<String>,
+        state: inout AppThemeState,
+        report: inout AppThemeRunReport
+    ) {
         let terminalsChanged = job.targets.contains { $0.isTerminal && changed[$0.id] == true }
         let ordered = job.targets.enumerated()
             .sorted { ($0.element.reload?.phase ?? 0, $0.offset) < ($1.element.reload?.phase ?? 0, $1.offset) }
@@ -119,9 +133,6 @@ struct AppThemeEngine: Sendable {
         report.ghosttyThemesChanged = job.targets.contains { target in
             target.reload == .ghostty && (changed[target.id] == true || job.forceReload.contains(target.id))
         }
-        state.results.merge(report.results) { $1 }
-        try? store.save(state)
-        return report
     }
 
     private func write(

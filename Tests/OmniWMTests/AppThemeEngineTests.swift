@@ -441,7 +441,10 @@ final class AppThemeEngineTests: XCTestCase {
             withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o755]
         )
-        let backup = try sandbox.store.backup(Data("token = secret\n".utf8), of: sandbox.path(".config/herdr/config.toml"))
+        let backup = try sandbox.store.backup(
+            Data("token = secret\n".utf8),
+            of: sandbox.path(".config/herdr/config.toml")
+        )
         let manager = FileManager.default
         XCTAssertEqual(try manager.attributesOfItem(atPath: backup.path)[.posixPermissions] as? Int, 0o600)
         XCTAssertEqual(
