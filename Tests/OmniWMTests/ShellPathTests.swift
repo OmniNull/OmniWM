@@ -62,6 +62,31 @@ final class ShellPathTests: XCTestCase {
         XCTAssertEqual(end, CGPoint(x: 10, y: 0))
     }
 
+    func testMorphingAnEllipseAcrossEquivalentAxesPreservesItsExtent() throws {
+        let start = try XCTUnwrap(ShellPath.parse("M10 0 A10 5 0 0 1 0 5")?.arc(fitting: nil, into: .zero))
+        let swapped = try XCTUnwrap(ShellPath.parse("M10 0 A5 10 90 0 1 0 5")?.arc(fitting: nil, into: .zero))
+        let swappedBounds = start.interpolated(to: swapped, at: 0.5).path().boundingBoxOfPath
+        assertRect(swappedBounds, CGRect(x: 0, y: 0, width: 10, height: 5))
+        let left = -5 * sqrt(2.0)
+        for source in ["M10 0 A10 5 180 0 1 -10 0", "M10 0 A5 10 90 0 1 -10 0"] {
+            let target = try XCTUnwrap(ShellPath.parse(source)?.arc(fitting: nil, into: .zero))
+            let bounds = start.interpolated(to: target, at: 0.5).path().boundingBoxOfPath
+            assertRect(bounds, CGRect(x: left, y: 0, width: 10 - left, height: 5))
+        }
+    }
+
+    func testRotatingAnEllipsePreservesItsRadiiWithANonuniformViewBox() throws {
+        let viewBox = CGRect(x: -2, y: -3, width: 20, height: 20)
+        let size = CGSize(width: 40, height: 60)
+        let start = try XCTUnwrap(ShellPath.parse("M10 0 A10 5 0 0 1 0 5")?.arc(fitting: viewBox, into: size))
+        let target = try XCTUnwrap(ShellPath.parse("M0 10 A10 5 90 0 1 -5 0")?.arc(fitting: viewBox, into: size))
+        let midpoint = start.interpolated(to: target, at: 0.5).path()
+        let diagonal = sqrt(0.5)
+        XCTAssertEqual(midpoint.boundingBoxOfPath.maxX, 4 + 20 * diagonal, accuracy: 0.000001)
+        XCTAssertEqual(midpoint.currentPoint.x, 4 - 10 * diagonal, accuracy: 0.000001)
+        XCTAssertEqual(midpoint.currentPoint.y, 9 + 15 * diagonal, accuracy: 0.000001)
+    }
+
     func testMalformedPathDataDrawsNothing() {
         XCTAssertNil(ShellPath.parse(""))
         XCTAssertNil(ShellPath.parse("10 10"))
