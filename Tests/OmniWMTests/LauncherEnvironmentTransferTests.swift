@@ -106,7 +106,7 @@ final class LauncherEnvironmentTransferTests: XCTestCase {
         let environmentFile = directory.appendingPathComponent("environment")
         let script = """
         #!/bin/sh
-        /usr/bin/printf '%s\\0' "$OMNIWM_CAPTURED_SECRET" "${OMNIWM_EMPTY_TEST+set}" "$OMNIWM_EMPTY_TEST" "$TERM" > \(LauncherLaunchRequest.quote(environmentFile.path))
+        /usr/bin/printf '%s\\0' "$OMNIWM_CAPTURED_SECRET" "${OMNIWM_EMPTY_TEST+set}" "$OMNIWM_EMPTY_TEST" "$TERM" > \(LauncherHelperTestSupport.quote(environmentFile.path))
         /usr/bin/printf 'executed\\n'
         if [ "$#" -gt 0 ]; then /usr/bin/printf '%s\\0' "$@"; fi
         exit 7
@@ -150,20 +150,60 @@ final class LauncherEnvironmentTransferTests: XCTestCase {
         }
     }
 
+    func testFreshTerminalOverlaysCapturedValuesAndKeepsInheritedEnvironment() async throws {
+        let inherited = [
+            "PATH": "/stale/path", "TERM": "xterm-256color", "COLORTERM": "",
+            "OMNIWM_INHERITED_TEST": "kept", "OMNIWM_CAPTURED_TEST": "stale"
+        ]
+        let captured = [
+            "PATH": "/usr/bin:/bin", "TERM": "dumb", "OMNIWM_CAPTURED_TEST": "fresh",
+            "OMNIWM_EMPTY_TEST": ""
+        ]
+        let request = LauncherLaunchRequest(
+            executable: "/usr/bin/env", arguments: ["-0"], directory: "/private/tmp", environment: captured
+        )
+        let result = try await LauncherHelperTestSupport.run(
+            request, inheriting: inherited, isolateEnvironment: false
+        )
+        XCTAssertEqual(result.status, 0)
+        let received = environment(in: result.output)
+        for (key, value) in inherited.merging(request.terminalEnvironment, uniquingKeysWith: { _, fresh in fresh }) {
+            XCTAssertEqual(received[key], value, key)
+        }
+    }
+
+    func testSignaledChildReturnsTheSameShellStatus() async throws {
+        let command = "kill -TERM $$"
+        let request = LauncherLaunchRequest(
+            executable: "/bin/sh", arguments: ["-c", command], directory: "/private/tmp", environment: [:]
+        )
+        let expected = try await LauncherProcess.run(
+            executable: "/bin/sh",
+            arguments: ["-c", "/bin/sh -c \(LauncherHelperTestSupport.quote(command)); exit $?"], environment: [:]
+        )
+        let result = try await LauncherHelperTestSupport.run(request, inheriting: [:])
+        XCTAssertEqual(result.status, expected.status)
+        XCTAssertNotEqual(result.status, 0)
+    }
+
+    func testEnvironmentHelperUsesNulFramingAndPreservesEmptyValues() async throws {
+        let marker = UUID().uuidString
+        let inherited = ["PATH": "/usr/bin:/bin", "OMNIWM_EMPTY_TEST": "", "OMNIWM_TEXT_TEST": "a ' \" $HOME; 雪\nvalue"]
+        let result = try await LauncherProcess.run(
+            executable: LauncherHelperTestSupport.executable.path, arguments: ["__environment", marker],
+            environment: inherited, deadline: failureBound
+        )
+        let prefix = Data((marker + "\0").utf8)
+        XCTAssertEqual(result.status, 0)
+        XCTAssertTrue(result.output.starts(with: prefix))
+        let received = environment(in: Data(result.output.dropFirst(prefix.count)))
+        for (key, value) in inherited { XCTAssertEqual(received[key], value, key) }
+    }
+
     private func runTransfer(
         _ request: LauncherLaunchRequest, inheriting environment: [String: String]
     ) async throws -> LauncherProcessResult {
-        let transfer = try LauncherEnvironmentTransfer(request: request)
-        defer { transfer.cancel() }
-        let helper = try request.makeTerminalHelper(holdOutput: false, transfer: transfer)
-        defer { try? FileManager.default.removeItem(at: helper.deletingLastPathComponent()) }
-        let result = try await LauncherProcess.run(
-            executable: "/bin/sh", arguments: [helper.path], environment: environment, deadline: 10
-        )
-        try await transfer.waitForDelivery()
-        XCTAssertFalse(FileManager.default.fileExists(atPath: transfer.endpoint))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: helper.deletingLastPathComponent().path))
-        return result
+        try await LauncherHelperTestSupport.run(request, inheriting: environment)
     }
 
     private func environment(in output: Data) -> [String: String] {

@@ -3,6 +3,7 @@
 
 import Darwin
 import Foundation
+import OmniWMIPC
 import Synchronization
 
 final class LauncherEnvironmentTransfer: Sendable {
@@ -12,9 +13,8 @@ final class LauncherEnvironmentTransfer: Sendable {
         var channel: DispatchIO?
     }
 
+    let helper: LauncherHelperExecutable
     let endpoint: String
-    let marker = UUID().uuidString
-    private let folder: URL
     private let descriptor: Int32
     private let queue = DispatchQueue(label: "com.omniwm.launcher.environment", qos: .userInitiated)
     private let reader: DispatchSourceRead
@@ -22,27 +22,45 @@ final class LauncherEnvironmentTransfer: Sendable {
     private let payload: Data
     private let state = Mutex(State())
 
-    init(request: LauncherLaunchRequest) throws {
-        folder = URL(fileURLWithPath: "/private/tmp/omniwm-env-" + UUID().uuidString, isDirectory: true)
-        endpoint = folder.appendingPathComponent("environment.sock").path
-        payload = Data((request.terminalShellCommand + "\n" + marker).utf8)
-        descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard descriptor >= 0
-        else {
-            throw LauncherFailure(String(localized: "The launcher environment connection could not be created."))
-        }
+    var arguments: [String] {
+        [helper.executable.path, "__launch", endpoint]
+    }
+
+    var command: String {
+        arguments.joined(separator: " ")
+    }
+
+    init(
+        request: LauncherLaunchRequest,
+        isolateEnvironment: Bool = true,
+        holdOutput: Bool = true,
+        helperExecutable: URL? = nil
+    ) throws {
+        let helper = try LauncherHelperExecutable(executable: helperExecutable)
+        let endpoint = helper.folder.appendingPathComponent("request.sock").path
+        let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         do {
-            try FileManager.default.createDirectory(
-                at: folder,
-                withIntermediateDirectories: false,
-                attributes: [.posixPermissions: 0o700]
-            )
+            guard descriptor >= 0 else {
+                throw LauncherFailure(String(localized: "The launcher environment connection could not be created."))
+            }
+            payload = try JSONEncoder().encode(LauncherHelperRequest(
+                argv: [request.executable] + request.arguments,
+                directory: request.directory,
+                environment: request.terminalEnvironment,
+                isolateEnvironment: isolateEnvironment,
+                holdOutput: holdOutput,
+                exitStatusLabel: String(localized: "Exit status"),
+                holdPrompt: String(localized: "Press Return to close.")
+            ))
             try Self.openListener(descriptor, endpoint: endpoint)
         } catch {
-            close(descriptor)
-            try? FileManager.default.removeItem(at: folder)
+            if descriptor >= 0 { close(descriptor) }
+            helper.remove()
             throw error
         }
+        self.helper = helper
+        self.endpoint = endpoint
+        self.descriptor = descriptor
         reader = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: queue)
         timer = DispatchSource.makeTimerSource(queue: queue)
         reader.setEventHandler { self.acceptConnection() }
@@ -158,7 +176,7 @@ final class LauncherEnvironmentTransfer: Sendable {
         timer.cancel()
         if case .success = result { channel?.close() }
         else { channel?.close(flags: .stop) }
-        try? FileManager.default.removeItem(at: folder)
+        helper.remove()
         continuation?.resume(with: result.mapError { $0 as Error })
     }
 }

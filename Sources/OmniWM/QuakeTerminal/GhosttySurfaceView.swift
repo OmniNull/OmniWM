@@ -110,35 +110,6 @@ final class GhosttySurfaceView: NSView {
         addTrackingArea(trackingArea)
     }
 
-    private static func makeLaunchSurface(
-        app: ghostty_app_t,
-        config: inout ghostty_surface_config_s,
-        launch: LauncherLaunchRequest
-    ) -> ghostty_surface_t? {
-        var strings: [UnsafeMutablePointer<CChar>] = []
-        defer { strings.forEach { free($0) } }
-        var variables: [ghostty_env_var_s] = []
-        for (key, value) in launch.terminalEnvironment {
-            guard let keyPointer = strdup(key) else { return nil }
-            strings.append(keyPointer)
-            guard let valuePointer = strdup(value) else { return nil }
-            strings.append(valuePointer)
-            variables.append(ghostty_env_var_s(key: UnsafePointer(keyPointer), value: UnsafePointer(valuePointer)))
-        }
-        return ("/usr/bin/env " + launch.shellCommand).withCString { command in
-            launch.directory.withCString { directory in
-                variables.withUnsafeMutableBufferPointer { variables in
-                    config.command = command
-                    config.working_directory = directory
-                    config.env_vars = variables.baseAddress
-                    config.env_var_count = variables.count
-                    config.wait_after_command = true
-                    return ghostty_surface_new(app, &config)
-                }
-            }
-        }
-    }
-
     init(
         occlusionHandlerForTests: @escaping (Bool) -> Void,
         displayHooksForTests: GhosttySurfaceDisplayTestHooks? = nil

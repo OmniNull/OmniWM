@@ -173,13 +173,15 @@ struct LauncherEnvironment: Sendable {
     let executable: String
     let values: [String: String]
 
-    static func load(configuration: LauncherConfiguration) async throws -> Self {
+    static func load(configuration: LauncherConfiguration, helperExecutable: URL? = nil) async throws -> Self {
         let inherited = ProcessInfo.processInfo.environment
         let resolved = try LauncherPaths.shell(
             configuration.shell, executable: configuration.shellExecutable, environment: inherited
         )
         let marker = "OMNIWM_ENV_" + UUID().uuidString
-        let command = "/usr/bin/printf '" + marker + "\\0'; /usr/bin/env -0"
+        let helper = try LauncherHelperExecutable(executable: helperExecutable)
+        defer { helper.remove() }
+        let command = helper.executable.path + " __environment " + marker
         let result = try await LauncherProcess.run(
             executable: resolved.path,
             arguments: resolved.kind.commandArguments(command, interactive: true),

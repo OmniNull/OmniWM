@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "The bundled launcher helper could not be found." : {
+
+    },
     "Slide Workspace Switches" : {
 
     },
