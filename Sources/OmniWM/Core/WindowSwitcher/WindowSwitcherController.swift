@@ -24,6 +24,7 @@ final class WindowSwitcherController {
     private var selection = WindowSwitcherSelection()
     private var workspaceId: WorkspaceDescriptor.ID?
     private var visibleWorkspaceIds: Set<WorkspaceDescriptor.ID> = []
+    private var hasMultipleMonitors = false
     private var scope = WindowSwitcherScope.allWorkspaces
     private var screenFrame = CGRect.zero
     private var scale: CGFloat = 2
@@ -80,7 +81,7 @@ final class WindowSwitcherController {
             render()
         case .cycleScope:
             guard isVisible else { return }
-            scope = scope.next(offeringVisibleWorkspaces: visibleWorkspaceIds.count > 1)
+            scope = scope.next(offeringVisibleWorkspaces: hasMultipleMonitors)
             controller?.settings.windowSwitcher.scope = scope
             reconcileItems()
             render()
@@ -109,6 +110,7 @@ final class WindowSwitcherController {
         }
         workspaceId = controller.activeWorkspace()?.id
         visibleWorkspaceIds = controller.workspaceManager.visibleWorkspaceIds()
+        hasMultipleMonitors = controller.workspaceManager.monitors.count > 1
         scope = initialScope ?? controller.settings.windowSwitcher.scope
         screenFrame = monitor.visibleFrame
         scale = NSScreen.screens.first { $0.displayId == monitor.displayId }?.backingScaleFactor ?? 2
