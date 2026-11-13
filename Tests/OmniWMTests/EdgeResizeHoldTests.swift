@@ -121,4 +121,29 @@ final class EdgeResizeHoldTests: XCTestCase {
         XCTAssertNil(controller.pointerEdgeBarrier.resizeHold)
     }
 
+    @MainActor
+    func testTheResizeHoldRunsItsOwnTapUnlessMouseWarpRunsOne() {
+        let controller = WindowAdmissionTestSupport.controller()
+        let main = Monitor(
+            id: .init(displayId: 88_101), displayId: 88_101,
+            frame: CGRect(x: 0, y: 0, width: 1500, height: 900),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1500, height: 900),
+            hasNotch: false, name: "Main"
+        )
+        let side = Monitor(
+            id: .init(displayId: 88_102), displayId: 88_102,
+            frame: CGRect(x: 1500, y: 0, width: 1500, height: 900),
+            visibleFrame: CGRect(x: 1500, y: 0, width: 1500, height: 900),
+            hasNotch: false, name: "Side"
+        )
+        for (warp, monitors, owned) in [
+            (true, [main], false),
+            (true, [main, side], true),
+            (false, [main, side], false)
+        ] {
+            controller.settings.pointer.enabled = warp
+            controller.workspaceManager.applyMonitorConfigurationChange(monitors)
+            XCTAssertEqual(controller.mouseWarpOwnsPointerEdgeTap, owned, "warp \(warp), \(monitors.count) displays")
+        }
+    }
 }

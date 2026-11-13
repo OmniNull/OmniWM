@@ -27,9 +27,15 @@ extension WMController {
         }
     }
 
+    var mouseWarpOwnsPointerEdgeTap: Bool {
+        settings.pointer.enabled && shouldUseMouseWarp()
+    }
+
     func holdPointerForEdgeResize(_ hold: PointerEdgeBarrier.ResizeHold?) {
         pointerEdgeBarrier.publishResizeHold(hold)
-        guard !settings.pointer.enabled, hasStartedServices, !mouseEventHandler.isLiveColumnDragActive else { return }
+        guard !mouseWarpOwnsPointerEdgeTap, hasStartedServices, !mouseEventHandler.isLiveColumnDragActive else {
+            return
+        }
         if hold != nil {
             pointerEdgeBarrier.start()
             publishPointerEdgeTopology()
