@@ -215,13 +215,6 @@ final class WindowSwitcherController {
         )
     }
 
-    private var visibleScopeAddsWorkspaces: Bool {
-        if let workspaceId, visibleWorkspaceIds.contains(workspaceId) {
-            return visibleWorkspaceIds.count > 1
-        }
-        return !visibleWorkspaceIds.isEmpty
-    }
-
     private func reconcileItems() {
         selection.reconcile(tokens: scopedItems().map { $0.handle.id })
     }
@@ -337,6 +330,13 @@ final class WindowSwitcherController {
 }
 
 extension WindowSwitcherController {
+    private var visibleScopeAddsWorkspaces: Bool {
+        if let workspaceId, visibleWorkspaceIds.contains(workspaceId) {
+            return visibleWorkspaceIds.count > 1
+        }
+        return !visibleWorkspaceIds.isEmpty
+    }
+
     func advanceFromAutomation(reverse: Bool, scope: WindowSwitcherScope?) {
         guard !isVisible else {
             handle(.cycle(reverse: reverse))

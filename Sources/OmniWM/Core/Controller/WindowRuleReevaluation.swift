@@ -79,8 +79,7 @@ struct WindowRuleReevaluation {
         guard let axRef else { return nil }
         let isTracked = existingEntry?.token != nil
         let createPlacementContext = isTracked
-            ? nil
-            : controller.axEventHandler.pendingCreatePlacementContext(for: token.windowId)
+            ? nil : controller.axEventHandler.pendingCreatePlacementContext(for: token.windowId)
         let placementOrigin: WorkspacePlacementOrigin = createPlacementContext == nil
             ? .discovery
             : .liveCreate
