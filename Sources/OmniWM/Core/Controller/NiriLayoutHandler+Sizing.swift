@@ -24,7 +24,9 @@ extension NiriLayoutHandler {
     func cycleContainerPrimarySpan(forward: Bool, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
             guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
-            engine.toggleContainerPrimarySpan(column, forwards: forward, context: context, state: &state)
+            fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
+                engine.toggleContainerPrimarySpan(column, forwards: forward, context: context, state: &state)
+            }
             return .containerPrimarySpanChanged
         }
     }
@@ -32,9 +34,45 @@ extension NiriLayoutHandler {
     @discardableResult
     func cycleWindowPrimarySpan(forward: Bool, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
-            engine.toggleWindowPrimarySpan(windowNode, forwards: forward, context: context, state: &state)
+            let column = engine.findColumn(containing: windowNode, in: context.workspaceId)
+            fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
+                engine.toggleWindowPrimarySpan(windowNode, forwards: forward, context: context, state: &state)
+            }
             return .windowSizeChanged(token: windowNode.token)
         }
+    }
+
+    private func fittingVisibleColumns(
+        around column: NiriContainer?,
+        engine: NiriLayoutEngine,
+        context: NiriInteractionContext,
+        state: inout ViewportState,
+        _ resize: (inout ViewportState) -> Void
+    ) {
+        let onScreen = controller?.settings.niri.shrinkToFit == true
+            ? engine.onScreenProjectedColumns(in: context.workspaceId, state: state, geometry: context.sizingGeometry)
+            : []
+        resize(&state)
+        guard let column, !onScreen.isEmpty else { return }
+        let fitSet = Self.visibleContainersRun(
+            of: onScreen,
+            around: column,
+            visibleCount: engine.effectiveVisibleContainerCount(in: context.workspaceId)
+        )
+        engine.shrinkVisibleColumnsToFit(around: column, onScreen: fitSet, context: context, state: &state)
+    }
+
+    static func visibleContainersRun(
+        of onScreen: [NiriProjectedColumn],
+        around column: NiriContainer,
+        visibleCount: Int
+    ) -> [NiriProjectedColumn] {
+        guard onScreen.count > visibleCount,
+              visibleCount > 0,
+              let index = onScreen.firstIndex(where: { $0.column === column })
+        else { return onScreen }
+        let start = min(max(0, index - visibleCount + 1), onScreen.count - visibleCount)
+        return Array(onScreen[start ..< start + visibleCount])
     }
 
     @discardableResult
@@ -119,7 +157,9 @@ extension NiriLayoutHandler {
     func setContainerPrimarySpan(_ change: NiriSizeChange, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
             guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
-            engine.setContainerPrimarySpan(column, change: change, context: context, state: &state)
+            fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
+                engine.setContainerPrimarySpan(column, change: change, context: context, state: &state)
+            }
             return .containerPrimarySpanChanged
         }
     }
@@ -127,7 +167,10 @@ extension NiriLayoutHandler {
     @discardableResult
     func setWindowPrimarySpan(_ change: NiriSizeChange, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
-            engine.setWindowPrimarySpan(windowNode, change: change, context: context, state: &state)
+            let column = engine.findColumn(containing: windowNode, in: context.workspaceId)
+            fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
+                engine.setWindowPrimarySpan(windowNode, change: change, context: context, state: &state)
+            }
             return .windowSizeChanged(token: windowNode.token)
         }
     }

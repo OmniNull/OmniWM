@@ -154,6 +154,12 @@ private struct GlobalNiriSettingsSection: View {
             )
             .id("Stack Moved Window Into Adjacent Column")
 
+            Toggle("Shrink Columns to Fit", isOn: Bindable(settings.niri).shrinkToFit)
+                .id("Shrink Columns to Fit")
+            SettingsCaption(
+                localized: "Keyboard resizing also resizes the other visible columns to fill the view. If a window can't shrink to its share, resize again."
+            )
+
             SingleWindowFitControls(
                 label: String(localized: "Single Window"),
                 fit: settings.niri.singleWindowFit,
