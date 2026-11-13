@@ -148,7 +148,7 @@ final class ShellLayerScene: @unchecked Sendable {
     var enters: [Int32: ShellEnter] = [:]
     var masks: [Int32: ShellLayerMask] = [:]
     var paths: [Int32: ShellLayerPath] = [:]
-    var pathArcs: [Int32: (model: ShellPathArc, morph: ShellArcMorph?)] = [:]
+    var pathShapes: [Int32: (model: ShellPathShape, morph: ShellArcMorph?)] = [:]
     static let enterPathKey = "omni.enter.path"
     var maskable: Set<Int32> = []
     var bitmaps: Set<Int32> = []
@@ -394,7 +394,7 @@ final class ShellLayerScene: @unchecked Sendable {
         maskable.remove(slot)
         bitmaps.remove(slot)
         paths.removeValue(forKey: slot)
-        pathArcs.removeValue(forKey: slot)
+        pathShapes.removeValue(forKey: slot)
         scales.removeValue(forKey: slot)
         rotations.removeValue(forKey: slot)
         quarters.remove(slot)

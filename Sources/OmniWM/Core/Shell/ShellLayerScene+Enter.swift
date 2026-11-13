@@ -19,14 +19,14 @@ struct ShellLayerPath: Equatable, Sendable {
         path?.path(fitting: viewBox, into: size)
     }
 
-    func fittedArc(to size: CGSize) -> ShellPathArc? {
-        path?.arc(fitting: viewBox, into: size)
+    func fittedShape(to size: CGSize) -> ShellPathShape? {
+        path?.shape(fitting: viewBox, into: size)
     }
 }
 
 struct ShellArcMorph {
-    private let from: ShellPathArc
-    private let target: ShellPathArc
+    private let from: ShellPathShape
+    private let target: ShellPathShape
     private let begin: CFTimeInterval
     private let duration: CFTimeInterval
     private let steps: Int
@@ -35,31 +35,34 @@ struct ShellArcMorph {
 
     init?(
         _ preset: ShellAnimation,
-        from: ShellPathArc,
-        to target: ShellPathArc,
+        from: ShellPathShape,
+        to target: ShellPathShape,
         begin: CFTimeInterval
     ) {
-        let timing = preset.make("path")
-        guard timing.duration.isFinite, timing.duration > 0 else { return nil }
+        guard from.morphs(to: target) else { return nil }
+        if case let .ease(seconds) = preset.motion {
+            duration = seconds / preset.speed
+            spring = nil
+        } else {
+            let timing = preset.make("path")
+            duration = timing.duration
+            spring = (timing as? CASpringAnimation).map { spring in
+                ShellReveal(
+                    begin: 0, progress: 0, target: 1,
+                    spring: .init(mass: spring.mass, stiffness: spring.stiffness, damping: spring.damping),
+                    duration: timing.duration
+                )
+            }
+        }
+        guard duration.isFinite, duration > 0 else { return nil }
         self.from = from
         self.target = target
         self.begin = begin
-        duration = timing.duration
         steps = max(2, Int(min(ceil(duration * ShellReveal.rate), 240)))
-        if let spring = timing as? CASpringAnimation {
-            let parameters = ShellSpringDynamics.Parameters(
-                mass: spring.mass,
-                stiffness: spring.stiffness,
-                damping: spring.damping
-            )
-            self.spring = ShellReveal(begin: 0, progress: 0, target: 1, spring: parameters, duration: duration)
-        } else {
-            spring = nil
-        }
         curve = preset.curve ?? ShellCurve(wire: 4, custom: nil)
     }
 
-    func arc(at time: CFTimeInterval) -> ShellPathArc {
+    func shape(at time: CFTimeInterval) -> ShellPathShape {
         let position = min(max((time - begin) / duration, 0), 1) * Double(steps)
         let lower = Int(position)
         let start = progress(at: lower)
@@ -252,11 +255,11 @@ extension ShellLayerScene {
         guard let shape = layers[slot] as? CAShapeLayer, let spec = paths[slot] else { return }
         let size = shape.bounds.size
         let path = spec.fitted(to: size)
-        let arc = spec.fittedArc(to: size)
-        let morph = shape.path == path ? pathArcs[slot]?.morph : animatePath(
-            slot, shape: shape, to: path, arc: arc, animation: animation
+        let target = spec.fittedShape(to: size)
+        let morph = shape.path == path ? pathShapes[slot]?.morph : animatePath(
+            slot, shape: shape, to: path, target: target, animation: animation
         )
-        pathArcs[slot] = arc.map { ($0, morph) }
+        pathShapes[slot] = target.map { ($0, morph) }
         shape.path = path
         shape.fillRule = spec.evenOdd ? .evenOdd : .nonZero
         if let mask = masks[slot] {
@@ -268,7 +271,7 @@ extension ShellLayerScene {
         _ slot: Int32,
         shape: CAShapeLayer,
         to path: CGPath?,
-        arc: ShellPathArc?,
+        target: ShellPathShape?,
         animation: ShellAnimation?
     ) -> ShellArcMorph? {
         let mask = masks[slot]?.layer
@@ -276,14 +279,14 @@ extension ShellLayerScene {
         if let animation, let path, let model = shape.path {
             let visible = mask ?? shape
             let from = (visible.presentation() as? CAShapeLayer)?.path ?? model
-            if let arc, let previous = pathArcs[slot], !shapeTracks.contours.contains(slot),
+            if let target, let previous = pathShapes[slot], !shapeTracks.contours.contains(slot),
                visible.animation(forKey: Self.enterPathKey) == nil
             {
                 let time = now()
                 let localTime = shape.convertTime(time, from: nil)
                 let running = shape.animation(forKey: "path") is CAKeyframeAnimation ? previous.morph : nil
-                let fromArc = running?.arc(at: localTime) ?? (from == model ? previous.model : nil)
-                if let fromArc, let morph = ShellArcMorph(animation, from: fromArc, to: arc, begin: localTime) {
+                let shown = running?.shape(at: localTime) ?? (from == model ? previous.model : nil)
+                if let shown, let morph = ShellArcMorph(animation, from: shown, to: target, begin: localTime) {
                     let frames = morph.keyframes()
                     for layer in targets {
                         frames.beginTime = layer.convertTime(time, from: nil)

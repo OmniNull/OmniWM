@@ -14,7 +14,7 @@ struct ShellPathData: Equatable, Sendable {
     }
 
     var elements: [Element] = []
-    fileprivate var openArc: ShellPathArc?
+    fileprivate var shape: ShellPathShape?
 
     func path(fitting viewBox: CGRect?, into size: CGSize) -> CGPath {
         let transform = Self.fittingTransform(viewBox, into: size)
@@ -32,8 +32,9 @@ struct ShellPathData: Equatable, Sendable {
         return path.copy() ?? path
     }
 
-    func arc(fitting viewBox: CGRect?, into size: CGSize) -> ShellPathArc? {
-        openArc?.fitted(using: Self.fittingTransform(viewBox, into: size))
+    func shape(fitting viewBox: CGRect?, into size: CGSize) -> ShellPathShape? {
+        guard let shape else { return nil }
+        return shape.fitted(using: Self.fittingTransform(viewBox, into: size))
     }
 
     private static func fittingTransform(_ viewBox: CGRect?, into size: CGSize) -> CGAffineTransform {
@@ -84,7 +85,14 @@ enum ShellPath {
                 command = UInt8(ascii: "L")
             }
         }
-        if steps != 2 { parser.path.openArc = nil }
+        let closes = command | 0x20 == UInt8(ascii: "z")
+        if steps == ShellPathBand.commandCount, closes, parser.arcCount == parser.bandEdges.count,
+           case .move? = parser.path.elements.first
+        {
+            parser.path.shape = ShellPathBand(parser.bandEdges).map { .band($0) }
+        } else if steps != 2 {
+            parser.path.shape = nil
+        }
         return parser.path.elements.isEmpty ? nil : parser.path
     }
 
@@ -104,6 +112,8 @@ enum ShellPath {
         var start = CGPoint.zero
         var cubic: CGPoint?
         var quadratic: CGPoint?
+        var bandEdges = InlineArray<4, ShellPathBand.Edge?>(repeating: nil)
+        var arcCount = 0
 
         mutating func apply(_ command: UInt8) -> Bool {
             let relative = command >= UInt8(ascii: "a")
@@ -190,6 +200,10 @@ enum ShellPath {
             }
             let end = origin + point
             let arc = Arc(radii: CGSize(width: rx, height: ry), rotation: rotation, large: large, sweep: sweep)
+            if arcCount < bandEdges.count {
+                bandEdges[arcCount] = ShellPathBand.Edge(arc: arc, from: current, to: end)
+            }
+            arcCount += 1
             ShellPath.addArc(arc, to: &path, from: current, to: end)
             current = end
             return true
@@ -201,6 +215,10 @@ enum ShellPath {
         let rotation: CGFloat
         let large: Bool
         let sweep: Bool
+
+        var isCircle: Bool {
+            radii.width > 0 && radii.width == radii.height
+        }
     }
 
     private static func addArc(_ arc: Arc, to path: inout ShellPathData, from start: CGPoint, to end: CGPoint) {
@@ -210,7 +228,7 @@ enum ShellPath {
             return
         }
         let geometry = ShellPathArc(arc, from: start, to: end)
-        if path.elements.count == 1, case .move = path.elements[0] { path.openArc = geometry }
+        if path.elements.count == 1, case .move = path.elements[0] { path.shape = .arc(geometry) }
         let quarterTurns = abs(geometry.delta) / (.pi / 2)
         let boundaryTolerance = 16 * quarterTurns.ulp
         let segments = max(Int((quarterTurns - boundaryTolerance).rounded(.up)), 1)
@@ -325,9 +343,172 @@ private func - (lhs: CGPoint, rhs: CGPoint) -> CGPoint {
     CGPoint(x: lhs.x - rhs.x, y: lhs.y - rhs.y)
 }
 
+enum ShellPathShape: Equatable, Sendable {
+    case arc(ShellPathArc)
+    case band(ShellPathBand)
+
+    fileprivate func fitted(using fit: CGAffineTransform) -> Self? {
+        switch self {
+        case let .arc(arc):
+            return .arc(arc.fitted(using: fit))
+        case let .band(band):
+            guard let fitted = band.fitted(using: fit) else { return nil }
+            return .band(fitted)
+        }
+    }
+
+    func morphs(to target: Self) -> Bool {
+        switch (self, target) {
+        case (.arc, .arc): true
+        case let (.band(band), .band(other)): band.morphs(to: other)
+        default: false
+        }
+    }
+
+    func interpolated(to target: Self, at progress: CGFloat) -> Self {
+        switch (self, target) {
+        case let (.arc(arc), .arc(other)): .arc(arc.interpolated(to: other, at: progress))
+        case let (.band(band), .band(other)): .band(band.interpolated(to: other, at: progress))
+        default: target
+        }
+    }
+
+    func path() -> CGPath {
+        switch self {
+        case let .arc(arc): arc.path()
+        case let .band(band): band.path()
+        }
+    }
+}
+
+struct ShellPathBand: Equatable, Sendable {
+    fileprivate struct Edge {
+        let arc: ShellPath.Arc
+        let from: CGPoint
+        let to: CGPoint
+    }
+
+    fileprivate static let commandCount = 6
+    private static let capSegments = 2
+    private static let unseenOffset: CGFloat = 0.25
+
+    private var center: CGPoint
+    private var outer: CGFloat
+    private var inner: CGFloat
+    private var cap: CGFloat
+    private var start: CGFloat
+    private var sweep: CGFloat
+    private var modelOffset: CGFloat = 0
+    private var fit = CGAffineTransform.identity
+
+    fileprivate init?(_ edges: InlineArray<4, Edge?>) {
+        guard let outerEdge = edges[0], let endCap = edges[1], let innerEdge = edges[2], let startCap = edges[3],
+              outerEdge.arc.isCircle, endCap.arc.isCircle, innerEdge.arc.isCircle,
+              startCap.arc.radii == endCap.arc.radii, outerEdge.arc.radii.width > innerEdge.arc.radii.width,
+              outerEdge.arc.sweep != innerEdge.arc.sweep, outerEdge.arc.large == innerEdge.arc.large,
+              endCap.arc.sweep == outerEdge.arc.sweep, startCap.arc.sweep == outerEdge.arc.sweep,
+              !endCap.arc.large, !startCap.arc.large, startCap.to == outerEdge.from, outerEdge.from != outerEdge.to
+        else { return nil }
+        let startAxis = outerEdge.from - innerEdge.to
+        let endAxis = outerEdge.to - endCap.to
+        let startWidth = hypot(startAxis.x, startAxis.y)
+        let endWidth = hypot(endAxis.x, endAxis.y)
+        guard startWidth > 0, endWidth > 0 else { return nil }
+        outer = outerEdge.arc.radii.width
+        inner = innerEdge.arc.radii.width
+        cap = endCap.arc.radii.width
+        let middle = (outer + inner) / 2
+        center = CGPoint(
+            x: (outerEdge.from.x + innerEdge.to.x + outerEdge.to.x + endCap.to.x) / 4
+                - middle * (startAxis.x / startWidth + endAxis.x / endWidth) / 2,
+            y: (outerEdge.from.y + innerEdge.to.y + outerEdge.to.y + endCap.to.y) / 4
+                - middle * (startAxis.y / startWidth + endAxis.y / endWidth) / 2
+        )
+        start = atan2(startAxis.y, startAxis.x)
+        let direction: CGFloat = outerEdge.arc.sweep ? 1 : -1
+        var turn = (atan2(endAxis.y, endAxis.x) - start) * direction
+        turn -= ShellPathArc.fullTurn * (turn / ShellPathArc.fullTurn).rounded(.down)
+        var flagOffset: CGFloat = 0
+        if outerEdge.arc.large != (turn > .pi) {
+            if outerEdge.arc.large, turn < .pi / 2 {
+                turn = ShellPathArc.fullTurn
+            } else if !outerEdge.arc.large, turn > 3 * .pi / 2 {
+                return nil
+            } else {
+                flagOffset = outer * abs(turn - .pi)
+            }
+        }
+        sweep = turn * direction
+        let end = start + sweep
+        modelOffset = max(
+            flagOffset,
+            Self.distance(outerEdge.from, point(outer, start)), Self.distance(outerEdge.to, point(outer, end)),
+            Self.distance(endCap.to, point(inner, end)), Self.distance(innerEdge.to, point(inner, start))
+        )
+    }
+
+    fileprivate func fitted(using fit: CGAffineTransform) -> Self? {
+        guard modelOffset * max(abs(fit.a), abs(fit.d)) <= Self.unseenOffset else { return nil }
+        var result = self
+        result.fit = fit
+        return result
+    }
+
+    fileprivate func morphs(to target: Self) -> Bool {
+        fit == target.fit && sweep * target.sweep > 0
+    }
+
+    fileprivate func interpolated(to target: Self, at progress: CGFloat) -> Self {
+        func mix(_ from: CGFloat, _ to: CGFloat) -> CGFloat {
+            from + (to - from) * progress
+        }
+        var result = self
+        result.center = CGPoint(x: mix(center.x, target.center.x), y: mix(center.y, target.center.y))
+        result.outer = mix(outer, target.outer)
+        result.inner = mix(inner, target.inner)
+        result.cap = mix(cap, target.cap)
+        result.start = start + (target.start - start).remainder(dividingBy: ShellPathArc.fullTurn) * progress
+        result.sweep = mix(sweep, target.sweep)
+        return result
+    }
+
+    fileprivate func path() -> CGPath {
+        let end = start + sweep
+        let capArc = ShellPath.Arc(
+            radii: CGSize(width: cap, height: cap), rotation: 0, large: false, sweep: sweep > 0
+        )
+        let path = CGMutablePath()
+        path.move(to: point(outer, start).applying(fit))
+        add(
+            ShellPathArc(center: center, radius: outer, theta: start, delta: sweep),
+            ShellPathArc.fullTurnSegments,
+            path
+        )
+        add(ShellPathArc(capArc, from: point(outer, end), to: point(inner, end)), Self.capSegments, path)
+        add(ShellPathArc(center: center, radius: inner, theta: end, delta: -sweep), ShellPathArc.fullTurnSegments, path)
+        add(ShellPathArc(capArc, from: point(inner, start), to: point(outer, start)), Self.capSegments, path)
+        path.closeSubpath()
+        return path
+    }
+
+    private func point(_ radius: CGFloat, _ angle: CGFloat) -> CGPoint {
+        CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+    }
+
+    private static func distance(_ first: CGPoint, _ second: CGPoint) -> CGFloat {
+        hypot(first.x - second.x, first.y - second.y)
+    }
+
+    private func add(_ arc: ShellPathArc, _ segments: Int, _ path: CGMutablePath) {
+        arc.fitted(using: fit).appendCurves(segments: segments) { end, first, second in
+            path.addCurve(to: end, control1: first, control2: second)
+        }
+    }
+}
+
 struct ShellPathArc: Equatable, Sendable {
-    private static let fullTurn = 2 * CGFloat.pi
-    private static let fullTurnSegments = 4
+    fileprivate static let fullTurn = 2 * CGFloat.pi
+    fileprivate static let fullTurnSegments = 4
 
     private var center: CGPoint
     private var radii: CGSize
@@ -344,6 +525,14 @@ struct ShellPathArc: Equatable, Sendable {
             c: -radii.height * sinPhi * fitScale.width, d: radii.height * cosPhi * fitScale.height,
             tx: center.x, ty: center.y
         )
+    }
+
+    fileprivate init(center: CGPoint, radius: CGFloat, theta: CGFloat, delta: CGFloat) {
+        self.center = center
+        radii = CGSize(width: radius, height: radius)
+        rotation = 0
+        self.theta = theta
+        self.delta = delta
     }
 
     fileprivate init(_ arc: ShellPath.Arc, from start: CGPoint, to end: CGPoint) {

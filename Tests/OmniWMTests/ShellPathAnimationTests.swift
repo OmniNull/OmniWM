@@ -14,6 +14,9 @@ final class ShellPathAnimationTests: XCTestCase {
     private let inProgress = [0.25, 0.5, 0.75]
     private let afterCompletion = 2.0
     private let probeClearance = 3
+    private let gaugeSide = 72
+    private let bandWidth = 12
+    private let mostlyCovered = 0.75
 
     private var center: Int {
         side / 2
@@ -43,14 +46,18 @@ final class ShellPathAnimationTests: XCTestCase {
     }
 
     func testStatsGaugeMorphsAlongTheRing() throws {
-        let gaugeSide = 72
         let widget = try statsGauge(side: gaugeSide)
-        let frames = try animatedFrames(widget, side: gaugeSide, duration: 0.2)
-        let initial = gaugeStrokeRadii(frames.initial, side: gaugeSide)
+        let frames = try animatedFrames(widget, side: gaugeSide, duration: try statsGaugeDuration())
+        let initial = gaugeRadii(frames.initial)
+        let ring = try settledRing(frames)
         let animated = try frames.animated.map { fraction, pixels in
-            let radii = gaugeStrokeRadii(pixels, side: gaugeSide)
-            XCTAssertGreaterThanOrEqual(try XCTUnwrap(radii.min()), 27, "Stroke bent inward at \(fraction)")
-            XCTAssertLessThanOrEqual(try XCTUnwrap(radii.max()), 30, "Stroke bent outward at \(fraction)")
+            let radii = gaugeRadii(pixels)
+            XCTAssertGreaterThanOrEqual(
+                try XCTUnwrap(radii.min()),
+                ring.lowerBound,
+                "Stroke bent inward at \(fraction)"
+            )
+            XCTAssertLessThanOrEqual(try XCTUnwrap(radii.max()), ring.upperBound, "Stroke bent outward at \(fraction)")
             return (fraction, radii.count)
         }
         let midpoint = try XCTUnwrap(animated.first { $0.0 == 0.5 }?.1)
@@ -58,33 +65,31 @@ final class ShellPathAnimationTests: XCTestCase {
         XCTAssertLessThan(midpoint, try XCTUnwrap(animated.last?.1))
     }
 
-    func testCircularArcMorphPreservesRadiusAcrossRotationChanges() throws {
-        let gaugeSide = 72
-        for (startRotation, targetRotation) in [(0, 90), (0, 180), (-1, 1), (179, 1)] {
-            let widget = try ShellRenderedWidget(name: "arc-rotation", source: """
-            function render(ctx)
-                local changed = ctx.data.seconds == 1
-                local d = changed and 'M12 2.5 A9.5 9.5 \(targetRotation) 0 1 17.58 19.69'
-                    or 'M12 2.5 A9.5 9.5 \(startRotation) 0 1 21.04 9.06'
-                return ui.path{ key = 'arc', w = \(gaugeSide), h = \(gaugeSide), viewBox = {0, 0, 24, 24},
-                    d = d, border = '#FF0000FF', borderWidth = 2.6, animate = { duration = 0.2, curve = 'linear' } }
-            end
-            """, scale: 1)
-            let frames = try animatedFrames(widget, side: gaugeSide, duration: 0.2)
-            let midpoint = try XCTUnwrap(frames.animated.first { $0.fraction == 0.5 }?.pixels)
-            let final = try XCTUnwrap(frames.animated.last?.pixels)
-            let radii = gaugeStrokeRadii(midpoint, side: gaugeSide)
-            let transition = "\(startRotation)° to \(targetRotation)°"
-            XCTAssertGreaterThan(radii.count, gaugeStrokeRadii(frames.initial, side: gaugeSide).count, transition)
-            XCTAssertLessThan(radii.count, gaugeStrokeRadii(final, side: gaugeSide).count, transition)
-            XCTAssertGreaterThanOrEqual(try XCTUnwrap(radii.min()), 27, "Stroke bent inward during \(transition)")
-            XCTAssertLessThanOrEqual(try XCTUnwrap(radii.max()), 30, "Stroke bent outward during \(transition)")
+    func testCelestialGaugeBandMorphsAlongItsRing() throws {
+        for (start, target) in [(20, 40), (40, 20), (10, 90), (90, 10)] {
+            let transition = "\(start)% to \(target)%"
+            let widget = try celestialGauge(from: start, to: target)
+            let frames = try animatedFrames(widget, side: gaugeSide, duration: duration)
+            let outer = Double(gaugeSide) / 2
+            let inner = outer - Double(bandWidth)
+            var covered = gaugeRadii(frames.initial).count
+            for (fraction, pixels) in frames.animated {
+                let radii = gaugeRadii(pixels)
+                let at = "\(transition) at \(fraction)"
+                XCTAssertGreaterThanOrEqual(try XCTUnwrap(radii.min()), inner, "Band bent inward, \(at)")
+                XCTAssertLessThanOrEqual(try XCTUnwrap(radii.max()), outer, "Band bent outward, \(at)")
+                if target > start {
+                    XCTAssertGreaterThan(radii.count, covered, "Band stopped growing, \(at)")
+                } else {
+                    XCTAssertLessThan(radii.count, covered, "Band stopped shrinking, \(at)")
+                }
+                covered = radii.count
+            }
         }
     }
 
-    func testRetargetingTheStatsGaugeStartsAtTheDisplayedSweep() throws {
-        let gaugeSide = 72
-        let widget = try statsGauge(side: gaugeSide)
+    func testRetargetingTheCelestialGaugeBandStartsAtTheDisplayedSweep() throws {
+        let widget = try celestialGauge(from: 20, to: 80, then: 40)
         let start = CACurrentMediaTime()
         widget.surface.clock = { start }
         widget.render(ShellBarData())
@@ -92,16 +97,71 @@ final class ShellPathAnimationTests: XCTestCase {
         widget.resources.motion.userAnimationsEnabled = true
         widget.set("seconds") { $0.number(1) }
         widget.render(ShellBarData())
-        let retarget = start + 0.1
+        let retarget = start + duration / 2
         let before = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: retarget) }
         widget.surface.clock = { retarget }
         widget.set("seconds") { $0.number(2) }
         widget.render(ShellBarData())
         let after = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: retarget) }
-        let settled = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: retarget + 0.4) }
-        let beforeRadii = gaugeStrokeRadii(before, side: gaugeSide)
-        XCTAssertEqual(gaugeStrokeRadii(after, side: gaugeSide), beforeRadii)
-        XCTAssertLessThan(gaugeStrokeRadii(settled, side: gaugeSide).count, beforeRadii.count)
+        let settled = try ShellLayerScene.engineQueue.sync {
+            try renderer.render(paused: retarget + duration * afterCompletion)
+        }
+        XCTAssertEqual(gaugeRadii(after), gaugeRadii(before))
+        XCTAssertLessThan(gaugeRadii(settled).count, gaugeRadii(before).count)
+    }
+
+    func testCircularArcMorphPreservesRadiusAcrossRotationChanges() throws {
+        let arcDuration = 0.2
+        for (startRotation, targetRotation) in [(0, 90), (0, 180), (-1, 1), (179, 1)] {
+            let widget = try ShellRenderedWidget(name: "arc-rotation", source: """
+            function render(ctx)
+                local changed = ctx.data.seconds == 1
+                local d = changed and 'M12 2.5 A9.5 9.5 \(targetRotation) 0 1 17.58 19.69'
+                    or 'M12 2.5 A9.5 9.5 \(startRotation) 0 1 21.04 9.06'
+                return ui.path{ key = 'arc', w = \(gaugeSide), h = \(gaugeSide), viewBox = {0, 0, 24, 24},
+                    d = d, border = '#FF0000FF', borderWidth = 2.6,
+                    animate = { duration = \(arcDuration), curve = 'linear' } }
+            end
+            """, scale: 1)
+            let frames = try animatedFrames(widget, side: gaugeSide, duration: arcDuration)
+            let midpoint = try XCTUnwrap(frames.animated.first { $0.fraction == 0.5 }?.pixels)
+            let final = try XCTUnwrap(frames.animated.last?.pixels)
+            let ring = try settledRing(frames)
+            let radii = gaugeRadii(midpoint)
+            let transition = "\(startRotation)° to \(targetRotation)°"
+            XCTAssertGreaterThan(radii.count, gaugeRadii(frames.initial).count, transition)
+            XCTAssertLessThan(radii.count, gaugeRadii(final).count, transition)
+            XCTAssertGreaterThanOrEqual(
+                try XCTUnwrap(radii.min()), ring.lowerBound, "Stroke bent inward during \(transition)"
+            )
+            XCTAssertLessThanOrEqual(
+                try XCTUnwrap(radii.max()), ring.upperBound, "Stroke bent outward during \(transition)"
+            )
+        }
+    }
+
+    func testRetargetingTheStatsGaugeStartsAtTheDisplayedSweep() throws {
+        let widget = try statsGauge(side: gaugeSide)
+        let duration = try statsGaugeDuration()
+        let start = CACurrentMediaTime()
+        widget.surface.clock = { start }
+        widget.render(ShellBarData())
+        let renderer = try pausedRenderer(widget, side: gaugeSide, at: start)
+        widget.resources.motion.userAnimationsEnabled = true
+        widget.set("seconds") { $0.number(1) }
+        widget.render(ShellBarData())
+        let retarget = start + duration / 2
+        let before = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: retarget) }
+        widget.surface.clock = { retarget }
+        widget.set("seconds") { $0.number(2) }
+        widget.render(ShellBarData())
+        let after = try ShellLayerScene.engineQueue.sync { try renderer.render(paused: retarget) }
+        let settled = try ShellLayerScene.engineQueue.sync {
+            try renderer.render(paused: retarget + duration * afterCompletion)
+        }
+        let beforeRadii = gaugeRadii(before)
+        XCTAssertEqual(gaugeRadii(after), beforeRadii)
+        XCTAssertLessThan(gaugeRadii(settled).count, beforeRadii.count)
     }
 
     func testIncompatiblePathsShowTheDestinationImmediately() throws {
@@ -132,12 +192,50 @@ final class ShellPathAnimationTests: XCTestCase {
         """, modules: bundled.modules, chunk: bundled.chunk, scale: 1)
     }
 
-    private func gaugeStrokeRadii(_ pixels: [UInt8], side: Int) -> [Double] {
-        let center = Double(side) / 2
-        return (0 ..< side * side).compactMap { index in
+    private func statsGaugeDuration() throws -> Double {
+        var seconds: Double?
+        if case let .ease(duration) = ShellMotion.ease { seconds = duration }
+        return try XCTUnwrap(seconds, "The stats gauge animates with the ease preset")
+    }
+
+    private func celestialGauge(from start: Int, to target: Int, then next: Int? = nil) throws -> ShellRenderedWidget {
+        let geometry = try String(
+            contentsOf: ShellStyleFixture.source("celestial").appendingPathComponent("lib/geometry.luau"),
+            encoding: .utf8
+        )
+        return try ShellRenderedWidget(
+            name: "celestial-gauge",
+            source: """
+            local geometry = require("../lib/geometry")
+            function render(ctx)
+                local percent = if ctx.data.seconds == 1 then \(target)
+                    elseif ctx.data.seconds == 2 then \(next ?? target) else \(start)
+                return ui.path{ key = 'gauge', w = \(gaugeSide), h = \(gaugeSide), fill = '#FF0000FF',
+                    d = geometry.gauge(\(gaugeSide), \(bandWidth), percent / 100).value,
+                    animate = { duration = \(duration), curve = 'linear' } }
+            end
+            """,
+            modules: [.init(path: "celestial/lib/geometry.luau", source: geometry)],
+            chunk: "@celestial/widgets/gauge.luau",
+            scale: 1
+        )
+    }
+
+    private func settledRing(
+        _ frames: (initial: [UInt8], animated: [(fraction: Double, pixels: [UInt8])])
+    ) throws -> ClosedRange<Double> {
+        let settled = gaugeRadii(frames.initial) + gaugeRadii(try XCTUnwrap(frames.animated.last?.pixels))
+        return try XCTUnwrap(settled.min()) ... XCTUnwrap(settled.max())
+    }
+
+    private func gaugeRadii(_ pixels: [UInt8]) -> [Double] {
+        let center = Double(gaugeSide) / 2
+        let covered = UInt8(mostlyCovered * Double(UInt8.max))
+        let clear = UInt8.max - covered
+        return (0 ..< gaugeSide * gaugeSide).compactMap { index in
             let offset = index * 4
-            guard pixels[offset + 2] > 192, pixels[offset + 1] < 64, pixels[offset] < 64 else { return nil }
-            return hypot(Double(index % side) + 0.5 - center, Double(index / side) + 0.5 - center)
+            guard pixels[offset + 2] > covered, pixels[offset + 1] < clear, pixels[offset] < clear else { return nil }
+            return hypot(Double(index % gaugeSide) + 0.5 - center, Double(index / gaugeSide) + 0.5 - center)
         }
     }
 
