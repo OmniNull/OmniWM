@@ -213,7 +213,7 @@ extension NiriLayoutHandler {
                 )
                 let now = engine.animationClock?.now() ?? CACurrentMediaTime()
                 engine.stopWindowMoveAnimations(in: wsId)
-                let settled = operation.predictedFrames(state: state, at: now + 2.0)
+                let settled = operation.settledFrames(state: state)
                 engine.animateRestoredWidths(from: drawn, settled: settled, context: context)
                 var drawnView = state
                 drawnView.viewOffset = controller.workspaceManager.animationDriver.plannedRenderOffset(

@@ -251,6 +251,33 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         XCTAssertEqual(order(fixture, in: fixture.workspaceId), [[fixture.tokens[0]], [fixture.tokens[2]]])
     }
 
+    func testSettledFramesAreWhereEveryAnimationEndsHoweverLongItRuns() throws {
+        let fixture = try makeFixture(pid: 834_232)
+        let window = fixture.window(1)
+        let slow = SpringConfig(dampingRatio: 1, stiffness: 1, epsilon: 0.0001)
+        window.animateHeightFrom(delta: 200, clock: nil, config: slow, animated: true)
+        let now = CACurrentMediaTime()
+        let state = fixture.controller.workspaceManager.niriViewportState(for: fixture.workspaceId)
+        let operation = NiriOperationContext(
+            controller: fixture.controller,
+            engine: fixture.engine,
+            motion: fixture.controller.motionPolicy.snapshot(),
+            wsId: fixture.workspaceId,
+            windowNode: fixture.window(0),
+            monitor: fixture.monitor,
+            orientation: .horizontal,
+            workingFrame: fixture.controller.niriWorkingFrame(for: fixture.monitor),
+            gaps: fixture.controller.innerGap(for: fixture.monitor)
+        )
+
+        let settled = try XCTUnwrap(operation.settledFrames(state: state)[fixture.tokens[1]])
+        let twoSecondsOn = try XCTUnwrap(fixture.frames(at: now + 2)[fixture.tokens[1]])
+        let muchLater = try XCTUnwrap(fixture.frames(at: now + 10_000)[fixture.tokens[1]])
+
+        XCTAssertGreaterThan(twoSecondsOn.height - muchLater.height, 1)
+        XCTAssertEqual(settled.height, muchLater.height, accuracy: 0.5)
+    }
+
     func testUndoAndRedoDoNothingWhileTheMouseResizesAWindow() throws {
         let fixture = try makeFixture(pid: 834_229, workspaceNames: ["1", "2"])
         let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
