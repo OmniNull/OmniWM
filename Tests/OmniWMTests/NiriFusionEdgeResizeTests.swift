@@ -1135,7 +1135,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             name: "Niri Live Edge Resize"
         )
         controller.settings.niri.macOSFusion = true
-        controller.mouseEventHandler.nativeResizeSettleQuietTime = 0
+        controller.mouseEventHandler.settlesNativeResizes = false
         controller.settings.niri.edgePeekPercent = 0
         controller.settings.gestures.adoptNativeResize = false
         controller.settings.workspaces.configurations = [

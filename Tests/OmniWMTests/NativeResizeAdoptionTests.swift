@@ -267,7 +267,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         fixture.controller.settings.niri.macOSFusion = true
-        fixture.handler.nativeResizeSettleQuietTime = 0.15
+        fixture.handler.settlesNativeResizes = true
         let resized = fixture.tokens[0]
         let start = try fixture.frame(resized)
         let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
@@ -276,16 +276,66 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         reported.frame = grown(start, right: 20)
         XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
 
+        fixture.handler.state.leftPressLocation = CGPoint(x: start.center.x - 240, y: start.center.y)
         fixture.handler.dispatchMouseUp(at: start.center)
         XCTAssertEqual(fixture.phase, .settlingResize)
 
-        reported.frame = grown(start, right: 240)
+        reported.frame = grown(start, right: 120)
         XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
         XCTAssertEqual(fixture.phase, .settlingResize)
-        fixture.handler.finishNativeResizeSettling()
+        reported.frame = grown(start, right: 240)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
 
-        XCTAssertEqual(try fixture.frame(resized).width, start.width + 240, accuracy: FrameTolerance.frameWrite)
         XCTAssertNil(fixture.handler.state.nativeResizeSettling)
+        XCTAssertEqual(try fixture.frame(resized).width, start.width + 240, accuracy: FrameTolerance.frameWrite)
+    }
+
+    func testAResizeThatReachesItsSizeAtTheReleaseIsAdoptedWithoutSettling() throws {
+        let fixture = try makeFixture(.niri, pid: 834_016)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.handler.settlesNativeResizes = true
+        let resized = fixture.tokens[0]
+        let start = try fixture.frame(resized)
+        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        try fixture.beginDrag(resized)
+        reported.frame = grown(start, right: 180)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+
+        fixture.handler.state.leftPressLocation = CGPoint(x: start.center.x - 180, y: start.center.y)
+        fixture.handler.dispatchMouseUp(at: start.center)
+
+        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
+        XCTAssertNotEqual(fixture.phase, .settlingResize)
+    }
+
+    func testAResizeStoppedByTheWindowsMinimumSettlesThereWithoutWaitingForInput() throws {
+        let fixture = try makeFixture(.niri, pid: 834_017)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.handler.settlesNativeResizes = true
+        let resized = fixture.tokens[0]
+        let start = try fixture.frame(resized)
+        var evidence = ObservedSizeEvidence()
+        evidence.minSize = CGSize(width: start.width - 100, height: 1)
+        _ = fixture.manager.setObservedSizeEvidence(evidence, for: resized)
+        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        try fixture.beginDrag(resized)
+        reported.frame = grown(start, right: -20)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+
+        fixture.handler.state.leftPressLocation = CGPoint(x: start.center.x + 300, y: start.center.y)
+        fixture.handler.dispatchMouseUp(at: start.center)
+        XCTAssertEqual(fixture.phase, .settlingResize)
+        reported.frame = grown(start, right: -100)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+
+        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
+        XCTAssertEqual(try fixture.frame(resized).width, start.width - 100, accuracy: FrameTolerance.frameWrite)
     }
 
     func testAResizeThatArrivesAfterTheReleaseIsKeptOverAPendingLayoutWrite() throws {
@@ -293,7 +343,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         fixture.controller.settings.niri.macOSFusion = true
-        fixture.handler.nativeResizeSettleQuietTime = 0.15
+        fixture.handler.settlesNativeResizes = true
         let resized = fixture.tokens[0]
         let start = try fixture.frame(resized)
         let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
@@ -320,7 +370,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         fixture.controller.settings.niri.macOSFusion = true
-        fixture.handler.nativeResizeSettleQuietTime = 0.15
+        fixture.handler.settlesNativeResizes = true
         let resized = fixture.tokens[0]
         let start = try fixture.frame(resized)
 
@@ -3301,7 +3351,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             let fixture = try makeFixture(.niri, pid: pid_t(835_262 + index))
             let engine = try XCTUnwrap(fixture.controller.niriEngine)
             fixture.controller.settings.niri.macOSFusion = true
-            fixture.controller.mouseEventHandler.nativeResizeSettleQuietTime = 0
+            fixture.controller.mouseEventHandler.settlesNativeResizes = false
             let token = fixture.tokens[0]
             let pressedFrame = try fixture.frame(token)
             if slides {
@@ -3572,7 +3622,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let frames = try fixture.frames()
         try fixture.confirmLayout()
         controller.mouseEventHandler.nativeWindowFrameProvider = { nativeFrames[$0.windowId]?.frame }
-        controller.mouseEventHandler.nativeResizeSettleQuietTime = 0
+        controller.mouseEventHandler.settlesNativeResizes = false
         controller.axEventHandler.windowInfoProvider = { windowId in
             guard let token = tokens.first(where: { $0.windowId == Int(windowId) }) else { return nil }
             return WindowServerInfo(id: windowId, pid: token.pid, level: 0, frame: frames[token] ?? .zero)

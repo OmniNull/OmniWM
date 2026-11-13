@@ -80,6 +80,7 @@ extension MouseEventHandler {
         }
         guard controller != nil else { return false }
         controller?.niriLayoutHandler.noteUserAction()
+        if button == .left { state.leftPressLocation = location }
         let blocked = shouldBlockOwnWindowInput(at: location, windowIdUnderPointer: windowIdUnderPointer)
         if MouseTrace.shared.isActive {
             let geometric = controller?.ownedWindowRegistry.containsGeometric(point: location) ?? false
@@ -133,6 +134,7 @@ extension MouseEventHandler {
             handleInputSuppressionBegan()
             return
         }
+        if button == .left { state.leftReleaseLocation = location }
         markNativeTitleBarDragFallbackReleased(button: button, at: location)
         finishNativeTitleBarDragIfNeeded(button: button)
         if button == .left {

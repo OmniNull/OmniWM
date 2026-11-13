@@ -46,7 +46,7 @@ struct MouseInputState {
 
     struct NativeResizeSettling {
         let releasedAt: TimeInterval
-        var timer: Timer?
+        let target: CGSize
     }
 
     struct NativeTitleBarDrag: Equatable {
@@ -173,6 +173,8 @@ struct MouseInputState {
     var nativeTitleBarDragFallbackReleased = false
     var nativeTitleBarDrag: NativeTitleBarDrag?
     var nativeResizeSettling: NativeResizeSettling?
+    var leftPressLocation: CGPoint?
+    var leftReleaseLocation: CGPoint?
     var nativeResizeStart: NativeResizeStart?
     var nativeResizeCorrectionsByWindowId: [Int: NativeResizeCorrection] = [:]
     var nativeCrossDisplayMove: NativeCrossDisplayMove?

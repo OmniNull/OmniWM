@@ -51,7 +51,7 @@ extension MouseEventHandler {
         case .settlingResize:
             drag.receivedFrameChange = true
             state.nativeTitleBarDrag = drag
-            scheduleNativeResizeSettle()
+            settleNativeResizeIfReached(entry)
             return true
         case .awaitingFrameWrite:
             drag.receivedFrameChange = true
@@ -189,14 +189,16 @@ extension MouseEventHandler {
         observedFrame: CGRect?
     ) -> Bool {
         guard let controller,
-              nativeResizeSettleQuietTime > 0,
+              settlesNativeResizes,
               controller.settings.niri.macOSFusion,
               controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
               let observedFrame,
               let start = drag.adoptionStartFrame ?? drag.pendingWriteStartFrame ?? drag.liveStartFrame,
               abs(observedFrame.width - start.width) > FrameTolerance.screenMatch
               || abs(observedFrame.height - start.height) > FrameTolerance.screenMatch,
-              !Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: true).isEmpty
+              !Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: true).isEmpty,
+              let target = nativeResizeTarget(from: start, observed: observedFrame, entry: entry),
+              !Self.nativeResize(observedFrame.size, reaches: target)
         else { return false }
         var settling = drag
         settling.phase = .settlingResize
@@ -204,12 +206,10 @@ extension MouseEventHandler {
         settling.lateResize = true
         settling.adoptionStartFrame = start
         state.nativeTitleBarDrag = settling
-        state.nativeResizeSettling?.timer?.invalidate()
-        state.nativeResizeSettling = .init(releasedAt: liveDragClock(), timer: nil)
+        state.nativeResizeSettling = .init(releasedAt: liveDragClock(), target: target)
         MouseTrace.record(
             "title-bar drag settling late token=\(TraceFormat.token(drag.token)) observed=\(TraceFormat.rect(observedFrame))"
         )
-        scheduleNativeResizeSettle()
         return true
     }
 

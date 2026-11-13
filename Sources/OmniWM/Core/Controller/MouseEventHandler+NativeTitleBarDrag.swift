@@ -306,7 +306,7 @@ extension MouseEventHandler {
 
     private func beginNativeResizeSettlingIfNeeded(_ drag: MouseInputState.NativeTitleBarDrag) -> Bool {
         guard let controller,
-              nativeResizeSettleQuietTime > 0,
+              settlesNativeResizes,
               controller.settings.niri.macOSFusion,
               drag.phase == .dragging,
               !drag.liveDrag,
@@ -317,34 +317,87 @@ extension MouseEventHandler {
               let start = drag.adoptionStartFrame ?? drag.pendingWriteStartFrame ?? drag.liveStartFrame,
               let observed = terminalNativeWindowFrame(for: entry),
               abs(observed.width - start.width) > FrameTolerance.screenMatch
-              || abs(observed.height - start.height) > FrameTolerance.screenMatch
+              || abs(observed.height - start.height) > FrameTolerance.screenMatch,
+              let target = nativeResizeTarget(from: start, observed: observed, entry: entry),
+              !Self.nativeResize(observed.size, reaches: target)
         else { return false }
         var settling = drag
         settling.phase = .settlingResize
         state.nativeTitleBarDrag = settling
-        state.nativeResizeSettling?.timer?.invalidate()
-        state.nativeResizeSettling = .init(releasedAt: liveDragClock(), timer: nil)
+        state.nativeResizeSettling = .init(releasedAt: liveDragClock(), target: target)
         MouseTrace.record(
-            "title-bar drag settling token=\(TraceFormat.token(drag.token)) observed=\(TraceFormat.rect(observed))"
+            "title-bar drag settling token=\(TraceFormat.token(drag.token)) observed=\(TraceFormat.rect(observed)) "
+                + "target=\(Int(target.width.rounded()))x\(Int(target.height.rounded()))"
         )
-        scheduleNativeResizeSettle()
         return true
     }
 
-    func scheduleNativeResizeSettle() {
-        guard var settling = state.nativeResizeSettling else { return }
-        settling.timer?.invalidate()
-        let limit = Self.nativeResizeSettleLimit - (liveDragClock() - settling.releasedAt)
-        let delay = min(nativeResizeSettleQuietTime, max(0, limit))
-        settling.timer = scheduleLiveDragTimer(after: delay) { [weak self] in
-            self?.finishNativeResizeSettling()
+    func nativeResizeTarget(from start: CGRect, observed: CGRect, entry: WindowState) -> CGSize? {
+        guard let controller,
+              let press = state.leftPressLocation,
+              let release = state.leftReleaseLocation,
+              let axRef = entry.axRef
+        else { return nil }
+        let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: true)
+        guard !edges.isEmpty else { return nil }
+        let dx = release.x - press.x
+        let dy = release.y - press.y
+        func span(_ length: CGFloat, low: Bool, high: Bool, delta: CGFloat, pressedHigh: Bool) -> CGFloat {
+            switch (low, high) {
+            case (true, true): length + 2 * (pressedHigh ? delta : -delta)
+            case (false, true): length + delta
+            case (true, false): length - delta
+            case (false, false): length
+            }
         }
-        state.nativeResizeSettling = settling
+        let reported = controller.evaluateSizeConstraints(for: entry.token, axRef: axRef).normalized()
+        let constraints = reported.isFixed ? WindowSizeConstraints.unconstrained : reported
+        let learned = controller.workspaceManager.observedSizeEvidence(for: entry.token)?.minSize ?? .zero
+        func clamped(_ value: CGFloat, min minimum: CGFloat, max maximum: CGFloat) -> CGFloat {
+            let floor = max(value, minimum)
+            return maximum > 0 ? min(floor, maximum) : floor
+        }
+        return CGSize(
+            width: clamped(
+                span(
+                    start.width,
+                    low: edges.contains(.left),
+                    high: edges.contains(.right),
+                    delta: dx,
+                    pressedHigh: press.x >= start.midX
+                ),
+                min: max(constraints.minSize.width, learned.width),
+                max: constraints.maxSize.width
+            ),
+            height: clamped(
+                span(
+                    start.height,
+                    low: edges.contains(.bottom),
+                    high: edges.contains(.top),
+                    delta: dy,
+                    pressedHigh: press.y >= start.midY
+                ),
+                min: max(constraints.minSize.height, learned.height),
+                max: constraints.maxSize.height
+            )
+        )
+    }
+
+    nonisolated static func nativeResize(_ size: CGSize, reaches target: CGSize) -> Bool {
+        abs(size.width - target.width) <= AXRecentFrameWriteFailure.maxAcceptedSizeSnap
+            && abs(size.height - target.height) <= AXRecentFrameWriteFailure.maxAcceptedSizeSnap
+    }
+
+    func settleNativeResizeIfReached(_ entry: WindowState) {
+        guard let settling = state.nativeResizeSettling,
+              let observed = terminalNativeWindowFrame(for: entry),
+              Self.nativeResize(observed.size, reaches: settling.target)
+        else { return }
+        finishNativeResizeSettling()
     }
 
     func finishNativeResizeSettling() {
         guard let settling = state.nativeResizeSettling else { return }
-        settling.timer?.invalidate()
         state.nativeResizeSettling = nil
         guard var drag = state.nativeTitleBarDrag, drag.phase == .settlingResize else { return }
         drag.phase = .dragging
@@ -355,8 +408,6 @@ extension MouseEventHandler {
         )
         completeNativeTitleBarRelease(drag)
     }
-
-    static let nativeResizeSettleLimit: TimeInterval = 1.0
 
     private func settleReleasedNativeTitleBarDrag(
         _ drag: MouseInputState.NativeTitleBarDrag,
@@ -500,7 +551,6 @@ extension MouseEventHandler {
     }
 
     func discardNativeTitleBarDragState() {
-        state.nativeResizeSettling?.timer?.invalidate()
         state.nativeResizeSettling = nil
         correctDeferredNativeResizeFrameIfNeeded()
         state.nativeResizeStart = nil

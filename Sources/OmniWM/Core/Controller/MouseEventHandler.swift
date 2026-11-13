@@ -35,7 +35,7 @@ final class MouseEventHandler {
     var multitouchSourceFactory: @MainActor () -> MultitouchGestureSource = { MultitouchGestureSource() }
     var pressedMouseButtonsProvider: @MainActor () -> Int = { Int(NSEvent.pressedMouseButtons) }
     var liveDragClock: @MainActor () -> TimeInterval = { CACurrentMediaTime() }
-    var nativeResizeSettleQuietTime: TimeInterval = 0.15
+    var settlesNativeResizes = true
     var nativeWindowFrameProvider: @MainActor (AXWindowRef) -> CGRect? = {
         AXWindowService.framePreferFast($0)
     }
