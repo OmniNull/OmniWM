@@ -206,4 +206,24 @@ extension HostedSettingsWindowTests {
             )
         }
     }
+
+    func testSettingsMinimizedBeforeServicesStartStaysMinimizedWhenAdmitted() throws {
+        let fixture = try HostedSettingsWindowFixture()
+        defer { fixture.close() }
+        let controller = fixture.controller
+        let window = fixture.makeWindow()
+        let token = WindowToken(ownWindow: window)
+        controller.hasStartedServices = false
+        XCTAssertFalse(fixture.manager.showSettingsWindow(window, shouldClose: { true }))
+        window.reportsMiniaturized = true
+
+        controller.hasStartedServices = true
+        fixture.manager.reconcileManagementResume()
+        fixture.manager.admitPendingSettingsWindow()
+
+        let entry = try XCTUnwrap(controller.workspaceManager.entry(for: token))
+        XCTAssertEqual(entry.workspaceId, fixture.first)
+        XCTAssertTrue(entry.observedState.isMinimized)
+        XCTAssertTrue(fixture.nativelyFocused.isEmpty)
+    }
 }

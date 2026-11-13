@@ -178,6 +178,51 @@ final class HostedSettingsWindowTests: XCTestCase {
         XCTAssertTrue(fixture.controller.hasVisibleOwnedWindow)
     }
 
+    func testHoveringManagedSettingsIgnoresEdgePictureButRespectsOtherOwnedSurfaces() throws {
+        let fixture = try HostedSettingsWindowFixture()
+        defer { fixture.close() }
+        let controller = fixture.controller
+        let window = fixture.makeWindow()
+        window.reportsMain = true
+        window.orderFront(nil)
+        let token = try XCTUnwrap(fixture.admit(window))
+        let frame = window.frame
+        let mouse = controller.mouseEventHandler
+        controller.setFocusFollowsMouse(true)
+
+        let edgePictureWindowId = token.windowId + 1
+        fixture.registry.registerWindowNumber(
+            surfaceId: "edge-picture",
+            policy: SurfacePolicy(
+                kind: .niriEdgePicture, hitTestPolicy: .interactive,
+                capturePolicy: .excluded, suppressesManagedFocusRecovery: false
+            ),
+            windowNumber: edgePictureWindowId,
+            frameProvider: { frame },
+            visibilityProvider: { true }
+        )
+        mouse.dispatchMouseMoved(at: frame.center, windowIdUnderPointer: edgePictureWindowId)
+        XCTAssertTrue(fixture.nativelyFocused.isEmpty)
+
+        fixture.registry.registerWindowNumber(
+            surfaceId: "covering-overlay",
+            policy: SurfacePolicy(
+                kind: .utility, hitTestPolicy: .interactive,
+                capturePolicy: .excluded, suppressesManagedFocusRecovery: false
+            ),
+            windowNumber: token.windowId + 2,
+            frameProvider: { frame },
+            visibilityProvider: { true }
+        )
+        mouse.dispatchMouseMoved(at: frame.center, windowIdUnderPointer: token.windowId)
+        XCTAssertTrue(fixture.nativelyFocused.isEmpty)
+
+        fixture.registry.unregister(surfaceId: "covering-overlay")
+        mouse.dispatchMouseMoved(at: frame.center, windowIdUnderPointer: token.windowId)
+        XCTAssertEqual(fixture.nativelyFocused, [token])
+        XCTAssertTrue(mouse.shouldBlockOwnWindowInput(at: frame.center, windowIdUnderPointer: token.windowId))
+    }
+
     func testOwnActivationLeavesTheFocusedSettingsWindowToKeyConfirmation() throws {
         let fixture = try HostedSettingsWindowFixture()
         defer { fixture.close() }

@@ -7,9 +7,21 @@ import OmniWMIPC
 import XCTest
 
 @MainActor
-final class HostedSettingsKeyWindow: NSWindow {
+final class HostedSettingsTestWindow: NSWindow {
+    var reportsKey = false
+    var reportsMain = false
+    var reportsMiniaturized = false
+
     override var isKeyWindow: Bool {
-        true
+        reportsKey || super.isKeyWindow
+    }
+
+    override var isMainWindow: Bool {
+        reportsMain || super.isMainWindow
+    }
+
+    override var isMiniaturized: Bool {
+        reportsMiniaturized || super.isMiniaturized
     }
 }
 
@@ -62,12 +74,11 @@ final class HostedSettingsWindowFixture {
         controller.shellAppWindowManager.focusWithoutRaising = { [weak self] in self?.nativelyFocused.append($0) }
     }
 
-    func makeWindow(reportsKey: Bool = false) -> NSWindow {
+    func makeWindow(reportsKey: Bool = false) -> HostedSettingsTestWindow {
         let rect = CGRect(x: 200, y: 100, width: 1040, height: 760)
         let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
-        let window: NSWindow = reportsKey
-            ? HostedSettingsKeyWindow(contentRect: rect, styleMask: style, backing: .buffered, defer: false)
-            : NSWindow(contentRect: rect, styleMask: style, backing: .buffered, defer: false)
+        let window = HostedSettingsTestWindow(contentRect: rect, styleMask: style, backing: .buffered, defer: false)
+        window.reportsKey = reportsKey
         window.isReleasedWhenClosed = false
         window.title = title
         window.minSize = minimumSize
