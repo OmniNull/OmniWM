@@ -48,6 +48,10 @@ final class MouseEventHandler {
         TitleBarHitTest.hit(pid: $0, at: $1)
     }
 
+    var topmostWindowIdProvider: @MainActor (CGPoint) -> Int? = {
+        MouseEventHandler.topmostWindowId(at: $0)
+    }
+
     init(controller: WMController) {
         self.controller = controller
         eventIntake = controller.eventIntake

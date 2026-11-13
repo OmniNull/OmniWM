@@ -1155,6 +1155,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         }
         controller.enableNiriLayout()
         controller.applyMacOSFusionSettings()
+        controller.mouseEventHandler.topmostWindowIdProvider = { _ in nil }
         let engine = try XCTUnwrap(controller.niriEngine)
         let first = engine.addWindow(token: tokens[0], to: workspaceId, afterSelection: nil)
         if stacked || stackedThree {

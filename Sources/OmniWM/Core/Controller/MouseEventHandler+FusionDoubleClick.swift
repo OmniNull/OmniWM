@@ -23,6 +23,26 @@ extension MouseEventHandler {
         return hypot(location.x - armedAt.x, location.y - armedAt.y) <= fusionDoubleClickArmRadius
     }
 
+    nonisolated static func topmostWindowId(at location: CGPoint) -> Int? {
+        let point = ScreenCoordinateSpace.toWindowServer(point: location)
+        let ownPid = ProcessInfo.processInfo.processIdentifier
+        guard let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] else { return nil }
+        for window in windows {
+            guard let windowId = window[kCGWindowNumber as String] as? Int,
+                  let pid = window[kCGWindowOwnerPID as String] as? pid_t, pid != ownPid,
+                  (window[kCGWindowLayer as String] as? Int) == 0,
+                  (window[kCGWindowAlpha as String] as? Double ?? 1) > 0,
+                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+                  frame.contains(point)
+            else { continue }
+            return windowId
+        }
+        return nil
+    }
+
     func armFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags, clickCount: Int64) {
         let armed = clickCount == 1
             && Self.takesFusionDoubleClick(modifiers)
@@ -91,6 +111,12 @@ extension MouseEventHandler {
         else { return nil }
         let titleBarHit = candidate.hit.zone == .titleBar ? titleBarHitProvider(candidate.entry.pid, location) : nil
         if candidate.hit.zone == .titleBar, !TitleBarHitTest.isTitleBar(titleBarHit) {
+            return nil
+        }
+        if case .edge = candidate.hit.zone,
+           let topmost = topmostWindowIdProvider(location),
+           topmost != candidate.hit.window.token.windowId
+        {
             return nil
         }
         return FusionDoubleClickTarget(

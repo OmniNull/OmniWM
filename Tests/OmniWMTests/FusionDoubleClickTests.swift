@@ -977,6 +977,21 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
+    func testAnEdgeDoubleClickOnAWindowCoveringTheEdgeIsLeftToThatWindow() throws {
+        let fixture = try makeFixture(pid: 941_031)
+        let column = try fixture.column(fixture.tokens[1])
+        let width = column.width
+        let edge = try fixture.rightEdge(fixture.tokens[1])
+
+        fixture.handler.topmostWindowIdProvider = { _ in 999_999 }
+        XCTAssertFalse(fixture.doubleClick(at: edge))
+        XCTAssertEqual(column.width, width)
+
+        fixture.handler.topmostWindowIdProvider = { _ in fixture.tokens[1].windowId }
+        XCTAssertTrue(fixture.doubleClick(at: edge))
+        XCTAssertNotEqual(column.width, width)
+    }
+
     func testATitleBarDoubleClickOnAControlIsLeftToTheApp() throws {
         let fixture = try makeFixture(pid: 941_008)
         let column = try fixture.column(fixture.tokens[1])
@@ -1230,6 +1245,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         }
         controller.mouseEventHandler
             .titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }
+        controller.mouseEventHandler.topmostWindowIdProvider = { _ in nil }
         controller.layoutRefreshController.resetState()
         controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
         controller.hasStartedServices = true
