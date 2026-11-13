@@ -885,10 +885,10 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertEqual(pasteCount, 0)
     }
 
-    func testClipboardPasteIgnoresSecureInputWhenGuardIsOff() async {
+    func testClipboardPasteIgnoresSecureInputWhenItsPauseIsOff() async {
         let fixture = CommandPaletteFocusFixture()
         defer { fixture.cleanup() }
-        fixture.controller.settings.secureInputGuard = false
+        fixture.controller.settings.pausePalettePasteDuringSecureInput = false
         let copied = expectation(description: "Clipboard item copied")
         let awaitingFocus = expectation(description: "Paste waits for target focus")
         let app = NSRunningApplication.current

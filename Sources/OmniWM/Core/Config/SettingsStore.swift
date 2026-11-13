@@ -166,7 +166,7 @@ final class SettingsStore {
         _slideWorkspaceSwitches
     }
 
-    var secureInputGuard = SettingsStore.defaultExport.secureInputGuard {
+    var pausePalettePasteDuringSecureInput = SettingsStore.defaultExport.pausePalettePasteDuringSecureInput {
         didSet { scheduleSave() }
     }
 
@@ -465,7 +465,7 @@ extension SettingsStore {
         animationsEnabled = export.animationsEnabled
         animationSpeed = export.animationSpeed
         slideWorkspaceSwitches = export.slideWorkspaceSwitches
-        secureInputGuard = export.secureInputGuard
+        pausePalettePasteDuringSecureInput = export.pausePalettePasteDuringSecureInput
         language = export.language
         clipboard.apply(export.clipboard)
         launcher = export.launcher

@@ -267,7 +267,11 @@ enum SettingsSearchIndex {
         setting("Controls", section: .hotkeys, anchor: "Controls"),
         setting("System Hyper Trigger", section: .hotkeys, anchor: "System Hyper Trigger"),
         setting("Request Permission", section: .hotkeys, anchor: "Request Permission"),
-        setting("Secure Input Guard", section: .hotkeys, anchor: "Secure Input Guard"),
+        setting(
+            "Pause Palette Paste During Secure Input",
+            section: .hotkeys,
+            anchor: "Pause Palette Paste During Secure Input"
+        ),
         setting("Reset to Defaults", section: .hotkeys, anchor: "Reset to Defaults"),
         setting("Shortcuts", section: .hotkeys, anchor: "Shortcuts"),
         setting("Command, shortcut, or scope", section: .hotkeys, anchor: "Command, shortcut, or scope"),

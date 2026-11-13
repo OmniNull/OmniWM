@@ -90,10 +90,10 @@ struct HotkeySettingsView: View {
                     }
                 }
 
-                Toggle("Secure Input Guard", isOn: $settings.secureInputGuard)
-                    .id("Secure Input Guard")
+                Toggle("Pause Palette Paste During Secure Input", isOn: $settings.pausePalettePasteDuringSecureInput)
+                    .id("Pause Palette Paste During Secure Input")
                 SettingsCaption(localized:
-                    "While macOS Secure Input is on, keyboard modes don’t start and the command palette doesn’t paste. Turn off if an app holds Secure Input in the background. macOS still pauses shortcuts marked “Paused during Secure Input”."
+                    "While macOS Secure Input is on, the command palette doesn’t paste clipboard entries. Turn off if an app holds Secure Input in the background. Keyboard modes and shortcuts marked “Paused during Secure Input” stay paused either way."
                 )
 
                 LabeledContent("Defaults") {

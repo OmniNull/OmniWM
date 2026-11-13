@@ -74,22 +74,23 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertNil(result.migration)
     }
 
-    func testSecureInputGuardDefaultsOnAndRoundTrips() throws {
+    func testPausePalettePasteDuringSecureInputDefaultsOnAndRoundTrips() throws {
         var export = SettingsExport.defaults()
-        XCTAssertTrue(export.secureInputGuard)
+        XCTAssertTrue(export.pausePalettePasteDuringSecureInput)
         for enabled in [false, true] {
-            export.secureInputGuard = enabled
+            export.pausePalettePasteDuringSecureInput = enabled
             let data = try SettingsTOMLCodec.encode(export)
             XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("general.secureInputGuard"))
+            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data)
+                .contains("general.pausePalettePasteDuringSecureInput"))
         }
 
         let omitted = try canonicalDefaultLines { lines in
-            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("secureInputGuard = ") })
+            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("pausePalettePasteDuringSecureInput = ") })
             lines.remove(at: index)
         }
         let result = try SettingsTOMLCodec.decodeForLoad(omitted)
-        XCTAssertTrue(result.export.secureInputGuard)
+        XCTAssertTrue(result.export.pausePalettePasteDuringSecureInput)
         XCTAssertNil(result.migration)
     }
 
