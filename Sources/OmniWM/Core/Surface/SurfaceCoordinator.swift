@@ -78,8 +78,10 @@ final class SurfaceCoordinator {
         scene.contains(windowNumber: windowNumber)
     }
 
-    func containsInteractive(point: CGPoint, excluding kinds: [SurfaceKind] = []) -> Bool {
-        scene.containsInteractive(point: point, excluding: kinds)
+    func containsInteractive(
+        point: CGPoint, excluding kinds: [SurfaceKind] = [], excludingWindow: NSWindow? = nil
+    ) -> Bool {
+        scene.containsInteractive(point: point, excluding: kinds, excludingWindow: excludingWindow)
     }
 
     func containsGeometric(point: CGPoint) -> Bool {

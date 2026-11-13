@@ -58,6 +58,10 @@ final class ShellAppWindowManager: NSObject, NSWindowDelegate {
         windows[token]?.frame
     }
 
+    func window(withWindowNumber windowNumber: Int) -> NSWindow? {
+        windows[WindowToken(pid: getpid(), windowId: windowNumber)]
+    }
+
     @discardableResult
     func setFrame(_ frame: CGRect, for token: WindowToken, components: AXFrameComponents = .all) -> Bool {
         guard windows[token] != nil else { return false }

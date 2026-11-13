@@ -9,8 +9,8 @@ extension WMController {
         lockScreenObserver.isFrontmostAppLockScreen()
     }
 
-    func isPointInOwnWindow(_ point: CGPoint) -> Bool {
-        ownedWindowRegistry.contains(point: point)
+    func isPointInOwnWindow(_ point: CGPoint, excludingWindow: NSWindow? = nil) -> Bool {
+        ownedWindowRegistry.contains(point: point, excludingWindow: excludingWindow)
     }
 
     var hasFrontmostOwnedWindow: Bool {
