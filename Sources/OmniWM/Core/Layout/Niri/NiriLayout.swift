@@ -261,7 +261,9 @@ extension NiriLayoutEngine {
                 within: containerFrames,
                 at: context.time
             )
-            result[window.token] = anchoredToTrailingEdge(renderedFrame, of: window, in: container)
+            let anchoredFrame = anchoredToTrailingEdge(renderedFrame, of: window, in: container)
+            window.renderedFrame = anchoredFrame
+            result[window.token] = anchoredFrame
 
             if !isTabbed {
                 pos += span

@@ -1744,6 +1744,10 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertTrue(column.hasWidthAnimationRunning)
         XCTAssertEqual(column.cachedWidth, narrow, accuracy: 0.5)
         XCTAssertEqual(column.targetWidth ?? 0, narrow + 150, accuracy: 0.5)
+
+        let drawn = fixture.frames(at: CACurrentMediaTime())[fixture.tokens[1]]
+        XCTAssertEqual(drawn?.width ?? 0, narrow + 150, accuracy: 0.5)
+        XCTAssertEqual(fixture.window(1).renderedFrame, drawn)
     }
 
     func testADropFromPartlyOffScreenStartsFromTheWholeReleasedFrameAndEachEdgeMovesOneWay() {
