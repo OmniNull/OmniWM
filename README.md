@@ -61,6 +61,11 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
     </td>
     <td align="center">
       <a href="https://www.coderabbit.ai/oss">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/coderabbit-dark.png">
+          <img src="assets/sponsors/coderabbit-light.png" width="200" alt="CodeRabbit logo">
+        </picture>
+        <br>
         <strong>CodeRabbit</strong>
       </a>
       <br>
