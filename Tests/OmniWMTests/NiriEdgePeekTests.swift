@@ -531,6 +531,33 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertEqual(area.width, fixture.frame.width, accuracy: 0.5)
     }
 
+    func testAScrollEndingOnAFullscreenOrMaximisedColumnLeavesItCoveringTheScreen() {
+        for mode in [SizingMode.fullscreen, .maximized] {
+            for snaps in [true, false] {
+                let strip = columns([600, 1000, 600])
+                let window = NiriWindow(token: WindowToken(pid: 945, windowId: 1))
+                window.sizingMode = mode
+                strip[1].appendChild(window)
+                var state = ViewportState()
+                state.endGesture(
+                    currentOffset: 0,
+                    projectedOffset: 610,
+                    columns: strip,
+                    geometry: geometry(edgePeek: 100),
+                    motion: .disabled,
+                    snapToColumn: snaps,
+                    edges: .init(keepsStripEndsOnScreen: true)
+                )
+                let viewStart = state.containerPosition(
+                    at: state.activeColumnIndex, containers: strip, gap: 10, sizeKeyPath: \.cachedWidth
+                ) + state.viewOffset
+
+                XCTAssertEqual(state.activeColumnIndex, 1, "\(mode), snaps \(snaps)")
+                XCTAssertEqual(viewStart, 610, accuracy: 0.5, "\(mode), snaps \(snaps)")
+            }
+        }
+    }
+
     func testAScrollEndingWithTheEdgeInAGapSlidesToShowThePeek() {
         let viewStart = landing(at: 225, widths: Array(repeating: 400, count: 6))
 

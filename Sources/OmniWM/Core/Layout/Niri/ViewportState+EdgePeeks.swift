@@ -124,6 +124,9 @@ extension ViewportState {
         _ columns: [NiriContainer],
         geometry: NiriViewportGeometry
     ) -> NiriGestureMomentumPlan.Landing {
+        guard columns.indices.contains(landing.normalizedActiveColumn),
+              columns[landing.normalizedActiveColumn].effectiveSizingMode == .normal
+        else { return landing }
         let sizeKeyPath = geometry.orientation.renderedSpanKeyPath
         let activePosition = containerPosition(
             at: landing.normalizedActiveColumn,

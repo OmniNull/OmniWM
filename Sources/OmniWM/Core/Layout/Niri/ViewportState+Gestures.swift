@@ -102,7 +102,10 @@ extension ViewportState {
         let snappedOffset = abs(correctedTargetOffset - snapTargetOffset) < pixel
             ? snapTargetOffset
             : correctedTargetOffset
-        let targetOffset = geometry.areas.edgePeeks == nil ? snappedOffset : Double(viewStartRestoringEdgePeeks(
+        let restoresEdgePeeks = geometry.areas.edgePeeks != nil
+            && columns.indices.contains(result.columnIndex)
+            && columns[result.columnIndex].effectiveSizingMode == .normal
+        let targetOffset = !restoresEdgePeeks ? snappedOffset : Double(viewStartRestoringEdgePeeks(
             newContainerPosition + CGFloat(snappedOffset),
             columns: columns,
             areas: geometry.areas,
