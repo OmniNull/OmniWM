@@ -173,7 +173,11 @@ final class TabRailView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         guard let item = item(at: point) else { return }
         if acceptsDrags() {
-            dragGesture.press(visualIndex: item.visualIndex, at: NSEvent.mouseLocation)
+            dragGesture.press(
+                visualIndex: item.visualIndex,
+                token: tabs.first { $0.visualIndex == item.visualIndex }?.token,
+                at: NSEvent.mouseLocation
+            )
         }
         onSelect?(item.visualIndex)
     }

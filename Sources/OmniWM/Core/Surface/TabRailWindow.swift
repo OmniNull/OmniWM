@@ -120,12 +120,11 @@ class TabRailWindow: NSPanel {
     }
 
     private func forwardDrag(_ event: TabRailDragGesture.Event, at location: CGPoint) {
-        guard let currentInfo else { return }
-        let token = currentInfo.tabs.first(where: { $0.visualIndex == event.visualIndex })?.token
+        guard let currentInfo, let tab = event.pressedTab(in: currentInfo.tabs) else { return }
         onDrag?(TabRailDrag(
             info: currentInfo,
-            visualIndex: event.visualIndex,
-            token: token,
+            visualIndex: tab.visualIndex,
+            token: tab.token,
             location: location,
             pressLocation: event.pressPoint
         ))
