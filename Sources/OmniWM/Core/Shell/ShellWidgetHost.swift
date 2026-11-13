@@ -337,7 +337,6 @@ final class ShellWidgetHost {
     var traceImagesBegin: Task<Void, Never>?
     var feed: ShellDataFeed?
     var observation: ShellDirectoryObservation?
-    var wallpaperPalette: ShellWallpaperPaletteWriter?
     var systemColorsObserver: NSObjectProtocol?
     var powerStateObserver: NSObjectProtocol?
     var displaySleepObservers: [NSObjectProtocol] = []

@@ -11,6 +11,89 @@ import XCTest
 final class CommandPaletteShellTests: XCTestCase {
     private static let fieldFrame = CGRect(x: 0, y: 0, width: 200, height: CommandPalettePanel.searchFieldHeight)
 
+    @MainActor
+    private final class Wallpaper {
+        var image = ShellWallpaperPaletteTests.image([(0xE20030, 1)])
+    }
+
+    func testCommandPaletteStartsWallpaperSamplingWithTheBarAndIslandOff() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let controller = fixture.controller
+        let manager = controller.workspaceBarManager
+        let settings = controller.settings
+        settings.workspaceBar.enabled = false
+        settings.island.enabled = false
+        manager.setup(controller: controller, settings: settings)
+        let root = manager.shellConfiguration.shellDirectory
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        XCTAssertTrue(try ShellProfiles.selectTheme(ShellWallpaperPalette.themeName, in: root))
+        let wallpaper = Wallpaper()
+        manager.makeWallpaperPalette = { destination, scheme, onFailure in
+            ShellWallpaperPaletteWriter(
+                destination: destination, scheme: scheme,
+                source: { { .capture(aerial: false) } }, image: { _ in wallpaper.image },
+                perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }, onFailure: onFailure
+            )
+        }
+
+        XCTAssertNotNil(manager.commandPaletteSource())
+        XCTAssertNil(manager.shellHost)
+        let writer = try XCTUnwrap(manager.wallpaperPalette)
+        XCTAssertTrue(writer.isRechecking)
+        let destination = root.appendingPathComponent("themes/wallpaper.toml")
+        let pixels = ShellWallpaperPalette.pixels(of: wallpaper.image)
+        XCTAssertEqual(
+            try String(contentsOf: destination, encoding: .utf8),
+            ShellWallpaperPalette.theme(pixels: pixels, scheme: .tonalSpot)
+        )
+    }
+
+    func testVisibleCommandPaletteFollowsWallpaperColorsWithoutReplacingItsSearch() throws {
+        let fixture = CommandPaletteFocusFixture()
+        let controller = fixture.controller
+        controller.commandPaletteController = fixture.palette
+        let manager = controller.workspaceBarManager
+        let settings = controller.settings
+        defer {
+            manager.stopShellHost()
+            fixture.cleanup()
+        }
+        let wallpaper = Wallpaper()
+        manager.makeWallpaperPalette = { destination, scheme, onFailure in
+            ShellWallpaperPaletteWriter(
+                destination: destination, scheme: scheme,
+                source: { { .capture(aerial: false) } }, image: { _ in wallpaper.image },
+                perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }, onFailure: onFailure
+            )
+        }
+        let root = manager.shellConfiguration.shellDirectory
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        XCTAssertTrue(try ShellProfiles.selectTheme(ShellWallpaperPalette.themeName, in: root))
+        settings.workspaceBar.enabled = true
+        manager.setup(controller: controller, settings: settings)
+        manager.prepareShell(for: [], settings: settings)
+        let host = try XCTUnwrap(manager.shellHost)
+        let writer = try XCTUnwrap(manager.wallpaperPalette)
+
+        _ = try fixture.show(mode: .windows)
+        let presenter = try XCTUnwrap(fixture.palette.presentation.shell)
+        try awaitPaletteTree(presenter) { presenter.hasTree }
+        fixture.palette.searchText = "wallpaper"
+        let role = ShellRole.background.rawValue
+        let previous = presenter.surface.palette.shaderColors[role]
+        XCTAssertEqual(previous, host.resources.palette.shaderColors[role])
+
+        wallpaper.image = ShellWallpaperPaletteTests.image([(0x105FEA, 1)])
+        writer.refreshIfChanged()
+        let updated = host.resources.palette.shaderColors[role]
+        XCTAssertNotEqual(updated, previous)
+        XCTAssertTrue(fixture.palette.isVisible)
+        XCTAssertTrue(fixture.palette.presentation.shell === presenter)
+        XCTAssertEqual(presenter.surface.palette.shaderColors[role], updated)
+        XCTAssertEqual(fixture.palette.searchText, "wallpaper")
+    }
+
     func testPinnedQueryFieldExistsBeforeAnyTreeAndKeepsEditingAcrossRebuildsResetsAndAbsence() throws {
         _ = NSApplication.shared
         var changes: [String] = []

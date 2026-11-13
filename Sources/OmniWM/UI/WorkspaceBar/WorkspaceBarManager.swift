@@ -39,8 +39,17 @@ final class WorkspaceBarManager {
     private let surfaceCoordinator = SurfaceCoordinator.shared
     private var hiddenBarJoin: HiddenBarPanelPlacement.Join?
     var shellHost: ShellWidgetHost?
+    var wallpaperPalette: ShellWallpaperPaletteWriter?
+    var isQuittingShell = false
+    var makeWallpaperPalette: @MainActor (
+        URL, ShellWallpaperScheme, @escaping @MainActor (String) -> Void
+    ) -> ShellWallpaperPaletteWriter = { destination, scheme, onFailure in
+        ShellWallpaperPaletteWriter(destination: destination, scheme: scheme, onFailure: onFailure)
+    }
+
     let shellPermissions = ShellNetworkPermissions()
     var commandPaletteResources: ShellResources?
+    var commandPaletteTheme: ShellTheme?
     var commandPaletteColorsObserver: NSObjectProtocol?
     var commandPaletteConfigCache: ShellConfig?
     var shellPermissionPrompts: ShellPermissionPrompts?

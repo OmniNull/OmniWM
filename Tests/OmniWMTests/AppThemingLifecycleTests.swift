@@ -170,4 +170,63 @@ final class AppThemingLifecycleTests: XCTestCase {
         }
         host.started = false
     }
+
+    @MainActor
+    func testAppThemingGeneratesAndFollowsWallpaperColorsWithTheBarAndIslandOff() async throws {
+        let controller = makeController()
+        let settings = controller.settings
+        settings.workspaceBar.enabled = false
+        settings.island.enabled = false
+        let manager = controller.workspaceBarManager
+        manager.setup(controller: controller, settings: settings)
+        let shell = manager.shellConfiguration
+        try FileManager.default.createDirectory(at: shell.shellDirectory, withIntermediateDirectories: true)
+        var configurationChanged: (@MainActor () -> Void)?
+        shell.makeObservation = { onChange in
+            configurationChanged = onChange
+            return ShellDirectoryObservation(onChange: {})
+        }
+        let wallpaper = Wallpaper()
+        manager.makeWallpaperPalette = { destination, scheme, onFailure in
+            ShellWallpaperPaletteWriter(
+                destination: destination, scheme: scheme,
+                source: { { .capture(aerial: false) } }, image: { _ in wallpaper.image },
+                perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }, onFailure: onFailure
+            )
+        }
+
+        settings.appTheming.values.kitty.enabled = true
+        let service = try XCTUnwrap(controller.appThemeService)
+        XCTAssertNil(manager.wallpaperPalette)
+        let notifyConfigurationChange = try XCTUnwrap(configurationChanged)
+        XCTAssertTrue(try ShellProfiles.selectTheme(ShellWallpaperPalette.themeName, in: shell.shellDirectory))
+        notifyConfigurationChange()
+        try await shell.refresh()
+        try await shell.refresh()
+        let writer = try XCTUnwrap(manager.wallpaperPalette)
+        XCTAssertNil(manager.shellHost)
+        XCTAssertTrue(writer.isRechecking)
+        XCTAssertTrue(FileManager.default
+            .fileExists(atPath: shell.shellDirectory.appendingPathComponent("themes/wallpaper.toml").path))
+        try await shell.refresh()
+        let previous = try XCTUnwrap(sandbox.read(".config/kitty/dark-theme.auto.conf"))
+        XCTAssertEqual(service.palette, AppThemePalette(theme: shell.config.theme))
+
+        wallpaper.image = ShellWallpaperPaletteTests.image([(0x105FEA, 1)])
+        writer.refreshIfChanged()
+        try await shell.refresh()
+        XCTAssertNotEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), previous)
+        XCTAssertEqual(service.palette, AppThemePalette(theme: shell.config.theme))
+        XCTAssertTrue(manager.wallpaperPalette === writer)
+        XCTAssertNil(manager.commandPaletteResources)
+
+        settings.appTheming.values.kitty.enabled = false
+        XCTAssertNil(manager.wallpaperPalette)
+        XCTAssertFalse(writer.isRechecking)
+    }
+
+    @MainActor
+    private final class Wallpaper {
+        var image = ShellWallpaperPaletteTests.image([(0xE20030, 1)])
+    }
 }

@@ -35,9 +35,6 @@ extension ShellWidgetHost {
             Log.shell.notice("Using theme \(next.themeName)")
             appearanceDidChange()
         }
-        if next.themeName != previous.themeName || next.wallpaperScheme != previous.wallpaperScheme {
-            updateWallpaperPalette()
-        }
         updateConfiguredWidgets(next, from: previous)
         updateConfiguredLayout(next, from: previous)
         publishToggleNames()
