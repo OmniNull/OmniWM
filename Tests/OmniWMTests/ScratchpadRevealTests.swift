@@ -549,6 +549,61 @@ final class ScratchpadRevealTests: XCTestCase {
         )
     }
 
+    func testRehomeRestacksMembersByFocusRecencyWhenAnotherWindowHasFocus() throws {
+        let fixture = try makeFixture()
+        let manager = fixture.controller.workspaceManager
+        let first = addFloatingWindow(pid: 971_096, windowId: 971_196, to: fixture)
+        let second = addFloatingWindow(pid: 971_097, windowId: 971_197, to: fixture)
+        let third = addFloatingWindow(pid: 971_098, windowId: 971_198, to: fixture)
+        let workspaceFocus = addFloatingWindow(pid: 971_099, windowId: 971_199, to: fixture)
+        for token in [first, second, third] {
+            XCTAssertEqual(assign(token, to: 1, in: fixture), .executed)
+        }
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1), .executed)
+        for token in [first, second, third] {
+            try completeReveal(token, in: fixture)
+        }
+        for token in [first, workspaceFocus] {
+            XCTAssertTrue(manager.setManagedFocus(token, in: fixture.workspaceId, onMonitor: fixture.monitor.id))
+        }
+
+        let secondWorkspace = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: true))
+        fixture.controller.reassignManagedWindow(workspaceFocus, to: secondWorkspace)
+        _ = manager.focusWorkspace(named: "2")
+        fixture.controller.scratchpadStacking.rehomeRevealedScratchpad(activeWorkspaceIds: [secondWorkspace])
+        fixture.focusRecorder.reset()
+
+        fixture.controller.focusWindow(workspaceFocus)
+        fixture.controller.scratchpadStacking.resumeRehomedScratchpadStackingAfterFocusHandoff()
+        try completeScratchpadFronting(in: fixture)
+
+        XCTAssertEqual(
+            fixture.focusRecorder.focusedWindowIds,
+            [workspaceFocus, second, third, first].map { UInt32($0.windowId) }
+        )
+    }
+
+    func testStackingOrderKeepsNeverFocusedMembersFirstAndThePreferredMemberLast() throws {
+        let fixture = try makeFixture()
+        let manager = fixture.controller.workspaceManager
+        let neverFocused = [971_291, 971_292].map { addFloatingWindow(pid: 971_191, windowId: $0, to: fixture) }
+        let usedEarlier = addFloatingWindow(pid: 971_192, windowId: 971_293, to: fixture)
+        let usedLast = addFloatingWindow(pid: 971_193, windowId: 971_294, to: fixture)
+        for token in [usedEarlier, usedLast] {
+            XCTAssertTrue(manager.setManagedFocus(token, in: fixture.workspaceId, onMonitor: fixture.monitor.id))
+        }
+        let members = [usedLast, neverFocused[0], usedEarlier, neverFocused[1]]
+
+        XCTAssertEqual(
+            manager.scratchpadStackingOrder(members, preferring: nil),
+            neverFocused + [usedEarlier, usedLast]
+        )
+        XCTAssertEqual(
+            manager.scratchpadStackingOrder(members, preferring: usedEarlier),
+            neverFocused + [usedLast, usedEarlier]
+        )
+    }
+
     func testStackingContinuationAbortsForSameAppDifferentWindowFocus() throws {
         let fixture = try makeFixture()
         let first = addFloatingWindow(pid: 971_074, windowId: 971_181, to: fixture)

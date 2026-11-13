@@ -311,8 +311,7 @@ extension ScratchpadStackingController {
             controller.workspaceManager.entry(for: token)?.workspaceId == targetWorkspaceId
                 && controller.workspaceManager.hiddenState(for: token) == nil
         }
-        let preferred = focusedMember.flatMap { survivors.contains($0) ? $0 : nil } ?? survivors.last
-        let ordered = survivors.filter { $0 != preferred } + survivors.filter { $0 == preferred }
+        let ordered = controller.workspaceManager.scratchpadStackingOrder(survivors, preferring: focusedMember)
         guard !ordered.isEmpty else { return }
         deferredScratchpadStacking = DeferredScratchpadStacking(
             id: planId,
