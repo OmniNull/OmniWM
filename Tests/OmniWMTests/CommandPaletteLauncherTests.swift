@@ -51,7 +51,7 @@ final class CommandPaletteLauncherTests: XCTestCase {
             environment.revealInFinder = { recorder.revealed.append($0) }
             environment.recordLauncherLaunch = { _, targetID, _, _ in recorder.recorded.append(targetID) }
             environment.presentCommandFailure = { recorder.failures.append($0) }
-            environment.confirmLauncherEntryRemoval = { entry, _, reply in
+            environment.confirmLauncherEntryRemoval = { entry, _, _, reply in
                 recorder.removalRequests.append(entry)
                 recorder.removalReplies.append(reply)
             }
@@ -218,13 +218,28 @@ final class CommandPaletteLauncherTests: XCTestCase {
     func testRemovalAlertNamesTheEntryAndHasSafeCancelAndExplicitRemove() {
         var entry = LauncherEntry()
         entry.name = "Build Project"
-        let alert = LauncherEntryRemovalPrompt.makeAlert(entry: entry)
+        let alert = LauncherEntryRemovalPrompt.makeAlert(entry: entry, clearsShortcut: false)
         XCTAssertEqual(alert.messageText, "Remove “Build Project”?")
+        XCTAssertEqual(
+            alert.informativeText,
+            String(localized: "This removes the saved launcher entry. Your apps and script files stay on disk.")
+        )
         XCTAssertEqual(alert.buttons.map(\.title), [String(localized: "Cancel"), String(localized: "Remove")])
         XCTAssertEqual(alert.buttons[0].keyEquivalent, "\u{1b}")
         XCTAssertTrue(alert.buttons[1].hasDestructiveAction)
         XCTAssertTrue(alert.buttons[1].keyEquivalent.isEmpty)
         XCTAssertNil(alert.window.defaultButtonCell)
+    }
+
+    func testRemovalAlertSaysWhenTheShortcutIsClearedToo() {
+        var entry = LauncherEntry()
+        entry.name = "Finder"
+        XCTAssertEqual(
+            LauncherEntryRemovalPrompt.makeAlert(entry: entry, clearsShortcut: true).informativeText,
+            String(
+                localized: "This removes the saved launcher entry and clears its keyboard shortcut. Your apps and script files stay on disk."
+            )
+        )
     }
 
     func testStalePublicationIsIgnoredAndCurrentOneSelectsFirstResult() throws {

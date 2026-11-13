@@ -29,8 +29,10 @@ enum CommandPaletteKeyboardLanguage {
 
 @MainActor
 struct CommandPaletteEnvironment {
-    var confirmLauncherEntryRemoval: (LauncherEntry, NSWindow?, @escaping @MainActor (Bool) -> Void) -> Void = {
-        LauncherEntryRemovalPrompt.confirm($0, from: $1, completion: $2)
+    var confirmLauncherEntryRemoval: (
+        LauncherEntry, Bool, NSWindow?, @escaping @MainActor (Bool) -> Void
+    ) -> Void = {
+        LauncherEntryRemovalPrompt.confirm($0, clearsShortcut: $1, from: $2, completion: $3)
     }
 
     var requestWindowMarkName: () -> String? = { CommandPaletteMarkNamePrompt.requestName() }

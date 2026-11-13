@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "This removes the saved launcher entry and clears its keyboard shortcut. Your apps and script files stay on disk." : {
+
+    },
     "%@ sets a theme but is outside the folders OmniWM writes. Comment that line out yourself." : {
 
     },
