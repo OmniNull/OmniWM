@@ -348,10 +348,9 @@ extension IPCCommandRouter {
             return guardResult
         }
         guard controller.settings.windowSwitcher.enabled else { return .ignoredDisabled }
-        controller.windowSwitcherController.advanceFromAutomation(
+        return controller.windowSwitcherController.advanceFromAutomation(
             reverse: direction == .previous,
             scope: scope.map(WindowSwitcherScope.init(ipc:))
         )
-        return .executed
     }
 }
