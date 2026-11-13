@@ -489,6 +489,37 @@ final class ScratchpadRevealTests: XCTestCase {
         XCTAssertNil(fixture.controller.intentLedger.activeManagedRequest)
     }
 
+    func testStackingAdvancesWhenFrontmostLagsActivationNotification() throws {
+        let fixture = try makeFixture()
+        let first = addFloatingWindow(pid: 971_091, windowId: 971_191, to: fixture)
+        let second = addFloatingWindow(pid: 971_092, windowId: 971_192, to: fixture)
+        for token in [first, second] {
+            XCTAssertEqual(assign(token, to: 1, in: fixture), .executed)
+        }
+        fixture.focusRecorder.frontmostPID = 971_999
+        fixture.focusRecorder.reset()
+
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1), .executed)
+        try completeReveal(first, in: fixture)
+        try completeReveal(second, in: fixture, completeFronting: false)
+        XCTAssertEqual(fixture.focusRecorder.focusedWindowIds, [UInt32(first.windowId)])
+
+        fixture.focusRecorder.frontmostPID = 971_999
+        fixture.controller.scratchpadStacking.noteScratchpadStackingAppActivation(
+            pid: first.pid,
+            source: .workspaceDidActivateApplication
+        )
+        XCTAssertEqual(fixture.focusRecorder.focusedWindowIds, [UInt32(first.windowId)])
+
+        fixture.focusRecorder.frontmostPID = first.pid
+        try confirmScratchpadFrontingStage(first, source: .focusedWindowChanged, in: fixture)
+
+        XCTAssertEqual(
+            fixture.focusRecorder.focusedWindowIds,
+            [UInt32(first.windowId), UInt32(second.windowId)]
+        )
+    }
+
     func testStackingContinuationAbortsForSameAppDifferentWindowFocus() throws {
         let fixture = try makeFixture()
         let first = addFloatingWindow(pid: 971_074, windowId: 971_181, to: fixture)
