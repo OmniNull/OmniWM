@@ -29,12 +29,6 @@ final class SettingsStore {
     @ObservationIgnored private var lastEffectiveTrackpadAvailability: Bool?
     @ObservationIgnored private(set) var layoutConfigurationRevision: UInt64 = 0
 
-    var effectiveTrackpadGesturesEnabled: Bool {
-        gestures.scrollEnabled || gestures.workspaceSwipeEnabled ||
-            (gestures.overviewGestureEnabled && overview.enabled) ||
-            gestures.windowMoveEnabled || gestures.windowResizeEnabled
-    }
-
     var onIPCEnabledChanged: (@MainActor (Bool) -> Void)?
     var onSlideWorkspaceSwitchesChanged: (@MainActor () -> Void)?
     var onExternalSettingsReloaded: (@MainActor () -> Void)?
@@ -170,6 +164,10 @@ final class SettingsStore {
 
     var slideWorkspaceSwitchesUntracked: Bool {
         _slideWorkspaceSwitches
+    }
+
+    var secureInputGuard = SettingsStore.defaultExport.secureInputGuard {
+        didSet { scheduleSave() }
     }
 
     var language = SettingsStore.defaultExport.language {
@@ -467,6 +465,7 @@ extension SettingsStore {
         animationsEnabled = export.animationsEnabled
         animationSpeed = export.animationSpeed
         slideWorkspaceSwitches = export.slideWorkspaceSwitches
+        secureInputGuard = export.secureInputGuard
         language = export.language
         clipboard.apply(export.clipboard)
         launcher = export.launcher

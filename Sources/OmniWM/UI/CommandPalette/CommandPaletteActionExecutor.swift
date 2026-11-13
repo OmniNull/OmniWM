@@ -188,7 +188,7 @@ final class CommandPaletteActionExecutor {
                   let target,
                   !environment.isLockScreenActive(wmController),
                   environment.isAccessibilityTrusted(),
-                  !environment.isSecureInputActive()
+                  !(wmController.settings.secureInputGuard && environment.isSecureInputActive())
             else {
                 return
             }
@@ -443,7 +443,7 @@ extension CommandPaletteActionExecutor {
         case let .paste(controller):
             guard !environment.isLockScreenActive(controller),
                   environment.isAccessibilityTrusted(),
-                  !environment.isSecureInputActive()
+                  !(controller.settings.secureInputGuard && environment.isSecureInputActive())
             else {
                 return
             }

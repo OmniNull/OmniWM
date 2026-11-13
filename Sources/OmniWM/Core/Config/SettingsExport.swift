@@ -52,6 +52,7 @@ struct SettingsExport: Equatable {
     var animationsEnabled: Bool
     var animationSpeed: Double
     var slideWorkspaceSwitches = false
+    var secureInputGuard = true
     var language: String?
 
     var launcher = LauncherConfiguration()

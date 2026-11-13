@@ -74,6 +74,25 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertNil(result.migration)
     }
 
+    func testSecureInputGuardDefaultsOnAndRoundTrips() throws {
+        var export = SettingsExport.defaults()
+        XCTAssertTrue(export.secureInputGuard)
+        for enabled in [false, true] {
+            export.secureInputGuard = enabled
+            let data = try SettingsTOMLCodec.encode(export)
+            XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
+            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("general.secureInputGuard"))
+        }
+
+        let omitted = try canonicalDefaultLines { lines in
+            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("secureInputGuard = ") })
+            lines.remove(at: index)
+        }
+        let result = try SettingsTOMLCodec.decodeForLoad(omitted)
+        XCTAssertTrue(result.export.secureInputGuard)
+        XCTAssertNil(result.migration)
+    }
+
     func testSlideWorkspaceSwitchesDefaultsOffAndRoundTrips() throws {
         var export = SettingsExport.defaults()
         XCTAssertFalse(export.slideWorkspaceSwitches)

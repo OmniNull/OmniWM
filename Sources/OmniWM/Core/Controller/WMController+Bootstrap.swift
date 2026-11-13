@@ -31,7 +31,7 @@ extension WMController {
         }
         hotkeys.isKeyboardModeArmingBlocked = { [weak self] in
             guard let self else { return true }
-            return secureInputMonitor.isSecureInputActive || isLockScreenActive
+            return (settings.secureInputGuard && secureInputMonitor.isSecureInputActive) || isLockScreenActive
         }
         hotkeys.onWindowSwitcherAction = { [weak self] action, generation in
             DispatchQueue.main.async { [weak self] in

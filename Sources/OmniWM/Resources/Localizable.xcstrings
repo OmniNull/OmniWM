@@ -37,6 +37,12 @@
     "The bundled launcher helper could not be found." : {
 
     },
+    "Secure Input Guard" : {
+
+    },
+    "While macOS Secure Input is on, keyboard modes don’t start and the command palette doesn’t paste. Turn off if an app holds Secure Input in the background. macOS still pauses shortcuts marked “Paused during Secure Input”." : {
+
+    },
     "Slide Workspace Switches" : {
 
     },
