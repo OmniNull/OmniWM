@@ -408,7 +408,7 @@ extension NiriLayoutEngine {
     func joinHeldLiveTabs(after window: NiriWindow, in column: NiriContainer, move: LiveColumnMove) {
         guard !move.heldTabs.isEmpty else { return }
         var previous = window
-        for tab in move.heldTabs where tab !== window {
+        for tab in move.heldTabs where tab !== window && findNode(for: tab.token, in: move.workspaceId) === tab {
             tab.detach()
             column.insertAfter(tab, reference: previous)
             tab.isHiddenInTabbedMode = column.isTabbed

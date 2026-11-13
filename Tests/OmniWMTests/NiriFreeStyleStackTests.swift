@@ -421,6 +421,22 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertNil(fixture.engine.findNode(for: residents[0], in: fixture.workspaceId))
     }
 
+    func testATabClosedWhileItsTabbedColumnIsHintedStaysClosedAfterTheDrop() {
+        var fixture = makeFixture()
+        _ = makeTabbed(&fixture, stacking: 0, onto: 1)
+        XCTAssertTrue(fixture.begin(1))
+        fixture.openHint(over: 3, upper: false)
+        XCTAssertEqual(fixture.move?.heldTabs.map(\.token), [fixture.tokens[0]])
+
+        fixture.engine.removeWindow(token: fixture.tokens[0], in: fixture.workspaceId)
+        XCTAssertTrue(fixture.end())
+        XCTAssertTrue(fixture.finish())
+
+        let placed = fixture.engine.columns(in: fixture.workspaceId).flatMap { $0.windowNodes.map(\.token) }
+        XCTAssertFalse(placed.contains(fixture.tokens[0]))
+        XCTAssertEqual(fixture.column(3).windowNodes.map(\.token), [fixture.tokens[1], fixture.tokens[3]])
+    }
+
     func testATabbedColumnOfOneWindowStacksAsAPlainWindow() {
         var fixture = makeFixture()
         let single = fixture.column(1)
