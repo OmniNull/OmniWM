@@ -320,7 +320,6 @@ final class WorldStore {
     private func applyWindowRemovalAfterPlan(_ event: WMEvent, monitors: [Monitor]) {
         guard case let .windowRemoved(token, _, _) = event else { return }
         model.removeWindow(key: token)
-        scratchpads.remove(token)
         spaceTopology.windowSpace.removeValue(forKey: token.windowId)
         reconcileNiriMembership(for: token, keeping: nil, monitors: monitors)
     }

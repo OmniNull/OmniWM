@@ -76,35 +76,47 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
     }
 
     func testMemberJoiningARevealedSlotStaysWherePlacementPutIt() throws {
-        for keepsRevealedMember in [true, false] {
-            let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
-            let manager = fixture.controller.workspaceManager
-            let revealedMember = WindowToken(pid: 975_021, windowId: 975_121)
-            try liveCreate(revealedMember, in: fixture)
-            XCTAssertEqual(fixture.controller.toggleScratchpad(1, on: fixture.monitor.id), .executed)
-            try completeReveal(revealedMember, in: fixture)
-            if !keepsRevealedMember {
-                fixture.controller.axEventHandler.handleRemoved(token: revealedMember)
-                XCTAssertTrue(manager.scratchpadMembers(in: 1).isEmpty)
-            }
-            XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
-            let token = WindowToken(pid: 975_022, windowId: 975_122)
-            FrameApplyTrace.shared.beginCapture()
-            defer { FrameApplyTrace.shared.endCapture() }
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let revealedMember = WindowToken(pid: 975_021, windowId: 975_121)
+        try liveCreate(revealedMember, in: fixture)
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1, on: fixture.monitor.id), .executed)
+        try completeReveal(revealedMember, in: fixture)
+        XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+        let token = WindowToken(pid: 975_022, windowId: 975_122)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
 
-            let candidate = try liveCreate(token, in: fixture)
+        let candidate = try liveCreate(token, in: fixture)
 
-            XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
-            XCTAssertEqual(manager.manualLayoutOverride(for: token), .forceFloat)
-            XCTAssertNil(manager.hiddenState(for: token))
-            XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
-            XCTAssertEqual(manager.workspace(for: token), fixture.workspaceId)
-            XCTAssertEqual(manager.floatingState(for: token)?.lastFrame, candidate.observedFrame)
-            XCTAssertNil(fixture.controller.layoutRefreshController
-                .pendingRevealTransactionId(forWindowId: token.windowId))
-            XCTAssertEqual(hiddenTransitions(of: token, in: manager), 0)
-            XCTAssertEqual(parkIntents(of: token), 0)
-        }
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertEqual(manager.manualLayoutOverride(for: token), .forceFloat)
+        XCTAssertNil(manager.hiddenState(for: token))
+        XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
+        XCTAssertEqual(manager.workspace(for: token), fixture.workspaceId)
+        XCTAssertEqual(manager.floatingState(for: token)?.lastFrame, candidate.observedFrame)
+        XCTAssertNil(fixture.controller.layoutRefreshController
+            .pendingRevealTransactionId(forWindowId: token.windowId))
+        XCTAssertEqual(hiddenTransitions(of: token, in: manager), 0)
+        XCTAssertEqual(parkIntents(of: token), 0)
+    }
+
+    func testMemberJoiningASlotWhoseLastWindowClosedIsParked() throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let departed = WindowToken(pid: 975_023, windowId: 975_123)
+        try liveCreate(departed, in: fixture)
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1, on: fixture.monitor.id), .executed)
+        try completeReveal(departed, in: fixture)
+        fixture.controller.axEventHandler.handleRemoved(token: departed)
+        XCTAssertNil(manager.revealedScratchpadIndex())
+        let token = WindowToken(pid: 975_024, windowId: 975_124)
+
+        try liveCreate(token, in: fixture)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        XCTAssertNil(manager.revealedScratchpadIndex())
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
     }
 
     func testFullRescanParksAMatchingWindowWhetherOrNotItHoldsFocus() throws {
@@ -986,8 +998,9 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         try liveCreate(departed, in: fixture, title: "Alpha")
         XCTAssertEqual(fixture.controller.toggleScratchpad(1, on: fixture.monitor.id), .executed)
         try completeReveal(departed, in: fixture)
-        fixture.controller.axEventHandler.handleRemoved(token: departed)
         try liveCreate(token, in: fixture, title: "Alpha")
+        fixture.controller.axEventHandler.handleRemoved(token: departed)
+        XCTAssertEqual(manager.scratchpadMembers(in: 1), [token])
         XCTAssertEqual(manager.revealedScratchpadIndex(), 1)
         XCTAssertNil(manager.hiddenState(for: token))
         fixture.controller.layoutRefreshController.fastFrameProvider = { _, _ in nil }

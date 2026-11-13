@@ -48,7 +48,7 @@ final class ScratchpadMembershipTests: XCTestCase {
         XCTAssertEqual(fixture.manager.worldSeq, initialSeq)
     }
 
-    func testRevealRequiresAnOccupiedSlotAndClearsWhenItsLastMemberIsReleased() throws {
+    func testRevealRequiresAnOccupiedSlotAndClearsWhenItEmpties() throws {
         let fixture = makeFixture()
         let token = addWindow(pid: 970_031, windowId: 970_131, to: fixture)
 
@@ -75,7 +75,7 @@ final class ScratchpadMembershipTests: XCTestCase {
         XCTAssertEqual(fixture.manager.scratchpadMembers(in: 7), [token])
     }
 
-    func testDestroyingTheLastMemberKeepsTheEmptySlotRevealed() throws {
+    func testDestroyingTheLastMemberClearsTheReveal() throws {
         let fixture = makeFixture()
         let token = addWindow(pid: 970_072, windowId: 970_172, to: fixture)
         XCTAssertTrue(fixture.manager.setScratchpadMembership(token, to: 3))
@@ -85,10 +85,10 @@ final class ScratchpadMembershipTests: XCTestCase {
 
         XCTAssertNil(fixture.manager.scratchpadIndex(for: token))
         XCTAssertTrue(fixture.manager.occupiedScratchpadIndices().isEmpty)
-        XCTAssertEqual(fixture.manager.revealedScratchpadIndex(), 3)
+        XCTAssertNil(fixture.manager.revealedScratchpadIndex())
     }
 
-    func testAppQuitOfTheLastMemberKeepsTheEmptySlotRevealed() throws {
+    func testAppQuitOfTheLastMemberClearsTheReveal() throws {
         let fixture = makeFixture()
         let first = addWindow(pid: 970_073, windowId: 970_173, to: fixture)
         let second = addWindow(pid: 970_073, windowId: 970_174, to: fixture)
@@ -99,51 +99,7 @@ final class ScratchpadMembershipTests: XCTestCase {
         XCTAssertFalse(fixture.manager.removeWindowsForApp(pid: first.pid).isEmpty)
 
         XCTAssertTrue(fixture.manager.scratchpadMembers(in: 3).isEmpty)
-        XCTAssertEqual(fixture.manager.revealedScratchpadIndex(), 3)
-    }
-
-    func testKeptRevealSurvivesMembershipChangesInOtherSlots() throws {
-        let fixture = makeFixture()
-        let departed = addWindow(pid: 970_074, windowId: 970_175, to: fixture)
-        let other = addWindow(pid: 970_075, windowId: 970_176, to: fixture)
-        XCTAssertTrue(fixture.manager.setScratchpadMembership(departed, to: 3))
-        XCTAssertTrue(fixture.manager.setRevealedScratchpad(3))
-        XCTAssertNotNil(fixture.manager.removeWindow(pid: departed.pid, windowId: departed.windowId))
-
-        XCTAssertTrue(fixture.manager.setScratchpadMembership(other, to: 5))
-        XCTAssertEqual(fixture.manager.revealedScratchpadIndex(), 3)
-        XCTAssertTrue(fixture.manager.clearScratchpadIfMatches(other))
-
-        XCTAssertEqual(fixture.manager.revealedScratchpadIndex(), 3)
-    }
-
-    func testRevealingAnotherSlotReplacesTheKeptReveal() throws {
-        let fixture = makeFixture()
-        let departed = addWindow(pid: 970_076, windowId: 970_177, to: fixture)
-        let other = addWindow(pid: 970_077, windowId: 970_178, to: fixture)
-        XCTAssertTrue(fixture.manager.setScratchpadMembership(departed, to: 3))
-        XCTAssertTrue(fixture.manager.setScratchpadMembership(other, to: 5))
-        XCTAssertTrue(fixture.manager.setRevealedScratchpad(3))
-        XCTAssertNotNil(fixture.manager.removeWindow(pid: departed.pid, windowId: departed.windowId))
-
-        XCTAssertTrue(fixture.manager.setRevealedScratchpad(5))
-
-        XCTAssertEqual(fixture.manager.revealedScratchpadIndex(), 5)
-        XCTAssertFalse(fixture.manager.setRevealedScratchpad(3))
-    }
-
-    func testWindowJoiningTheKeptRevealedSlotFindsItRevealed() throws {
-        let fixture = makeFixture()
-        let departed = addWindow(pid: 970_078, windowId: 970_179, to: fixture)
-        let newcomer = addWindow(pid: 970_079, windowId: 970_180, to: fixture)
-        XCTAssertTrue(fixture.manager.setScratchpadMembership(departed, to: 3))
-        XCTAssertTrue(fixture.manager.setRevealedScratchpad(3))
-        XCTAssertNotNil(fixture.manager.removeWindow(pid: departed.pid, windowId: departed.windowId))
-
-        XCTAssertTrue(fixture.manager.setScratchpadMembership(newcomer, to: 3))
-
-        XCTAssertEqual(fixture.manager.scratchpadMembers(in: 3), [newcomer])
-        XCTAssertEqual(fixture.manager.revealedScratchpadIndex(), 3)
+        XCTAssertNil(fixture.manager.revealedScratchpadIndex())
     }
 
     func testRemovingOneOfSeveralMembersKeepsTheSlotRevealed() throws {

@@ -10,19 +10,12 @@ struct ScratchpadState {
             guard slot != index else { return }
             let remaining = members.filter { $0 != token }
             membersBySlot[slot] = remaining.isEmpty ? nil : remaining
-            if remaining.isEmpty, revealedIndex == slot {
-                revealedIndex = nil
-            }
         }
         if let index {
             membersBySlot[index, default: []].append(token)
         }
-    }
-
-    mutating func remove(_ token: WindowToken) {
-        for (slot, members) in membersBySlot where members.contains(token) {
-            let remaining = members.filter { $0 != token }
-            membersBySlot[slot] = remaining.isEmpty ? nil : remaining
+        if let revealed = revealedIndex, membersBySlot[revealed] == nil {
+            revealedIndex = nil
         }
     }
 

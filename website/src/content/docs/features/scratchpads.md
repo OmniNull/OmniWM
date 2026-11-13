@@ -35,7 +35,7 @@ scratchpad = 1
 - **Startup:** no slot is revealed, so matching windows that are already open go back into their slots, parked.
 - **Taking a window out:** a window you take out of a slot stays out, even when its title changes. The rule applies again only to windows the app opens later.
 
-A revealed slot stays revealed when its last window closes or its app quits, so the next window to join it, by rule or by hand, shows in place. It stops being revealed when you reveal another slot or toggle that slot. Releasing, moving, or tiling its last window still hides the slot.
+A revealed slot is hidden again once its last window is gone, whether the window closed, its app quit, or you released, moved or tiled it. The next window to join it arrives as described under **Hidden slot**.
 
 :::caution
 Remove any script that calls `omniwmctl command scratchpad assign` or `omniwmctl window assign-to-scratchpad` on `windows-changed` events. Assigning is a toggle, so it would take a window the rule just added back out of its slot.

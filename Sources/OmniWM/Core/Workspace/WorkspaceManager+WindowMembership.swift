@@ -43,7 +43,6 @@ extension WorkspaceManager {
     private func removeTrackedWindow(_ entry: WindowState) -> WindowState {
         let previousFocus = focusSessionSnapshot
         let removesNativeFullscreenFocusOwner = activeNativeFullscreenFocusOwnerToken == entry.token
-        let leavesScratchpad = scratchpadIndex(for: entry.token) != nil
         recordReconcileEvent(
             .windowRemoved(
                 token: entry.token,
@@ -57,7 +56,8 @@ extension WorkspaceManager {
             _ = clearNativeFocusOwner()
         }
         let focusChanged = auxiliaryFocusStateChanged(from: previousFocus)
-        if focusChanged || leavesScratchpad {
+        let scratchpadChanged = updateScratchpadMembership(entry.token, to: nil, notify: false)
+        if focusChanged || scratchpadChanged {
             notifySessionStateChanged()
         }
         drainPendingRuntimeMonitorOverrideClears()

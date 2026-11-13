@@ -838,8 +838,7 @@ minimum-size constraints can clamp the resolved span without mutating the stored
 
 A rule's scratchpad slot is also an admission hint. It shares the rule destination with `assignToWorkspace`, so
 `WindowRuleEngine` takes whichever of the two the highest-ranked destination-setting rule sets, and admission adds
-the window to that slot once. A revealed scratchpad stays revealed when its last member's window is destroyed or
-its app quits.
+the window to that slot once.
 
 ### 4.8 IPC System
 
