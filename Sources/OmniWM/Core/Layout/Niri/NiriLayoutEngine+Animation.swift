@@ -387,6 +387,19 @@ extension NiriLayoutEngine {
         return anyAnimationStarted
     }
 
+    func framesIncludingHeightAnimations(
+        _ frames: [WindowToken: CGRect],
+        in workspaceId: WorkspaceDescriptor.ID,
+        at time: TimeInterval
+    ) -> [WindowToken: CGRect] {
+        var drawn = frames
+        for (token, frame) in frames {
+            guard let window = findNode(for: token, in: workspaceId), window.heightAnimation != nil else { continue }
+            drawn[token]?.size.height = max(1, frame.height + window.renderHeightOffset(at: time))
+        }
+        return drawn
+    }
+
     func hasAnyWindowAnimationsRunning(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         guard let root = root(for: workspaceId) else { return false }
         return root.allWindows.contains { $0.hasMoveAnimationsRunning }

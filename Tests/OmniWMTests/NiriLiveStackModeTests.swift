@@ -721,6 +721,29 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(window.renderHeightOffset(at: now), 0)
     }
 
+    func testAHeightSpringRestartedFromAPredictedLayoutStartsFromTheDrawnHeight() {
+        let fixture = makeFixture(widths: [0.5], activeIndex: 0)
+        fixture.engine.applyMacOSFusion(.init(enabled: true, edgePeekShare: nil))
+        let window = fixture.window(0)
+        let token = fixture.tokens[0]
+        window.animateHeightFrom(delta: 120, clock: nil, animated: true)
+        let now = CACurrentMediaTime()
+        let drawn = CGRect(x: 0, y: 0, width: 400, height: 500 + window.renderHeightOffset(at: now))
+        let predicted = CGRect(x: 0, y: 0, width: 400, height: 400)
+
+        let newFrames = fixture.engine.framesIncludingHeightAnimations(
+            [token: predicted], in: fixture.workspaceId, at: now
+        )
+        XCTAssertTrue(fixture.engine.animateFilledHeightChanges(
+            in: fixture.workspaceId,
+            oldFrames: [token: drawn],
+            newFrames: newFrames,
+            motion: .enabled
+        ))
+
+        XCTAssertEqual(window.renderHeightOffset(at: now), drawn.height - predicted.height, accuracy: 3)
+    }
+
     func testAWindowThatBecomesTiledGlidesFromWhereItWasIntoItsSlot() {
         var fixture = makeFixture(widths: [0.25], activeIndex: 0)
         fixture.motion = .enabled
