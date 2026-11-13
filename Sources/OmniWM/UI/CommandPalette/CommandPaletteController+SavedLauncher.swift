@@ -77,6 +77,14 @@ extension CommandPaletteController {
                     self.isPresentingModalPrompt = false
                 }
                 guard confirmed, settings.launcher.entries.contains(entry) else { return }
+                // Cleared before the entry goes so the reconcile drops the row and re-registers hotkeys.
+                if let bundleID = entry.bundleIdentifier,
+                   !settings.launcher.entries.contains(where: { $0.id != id && $0.bundleIdentifier == bundleID })
+                {
+                    let actionID = ActionCatalog.openAppPrefix + bundleID
+                    settings.clearBinding(for: actionID)
+                    settings.updateModeKey(for: actionID, newModeKey: nil)
+                }
                 settings.launcher.entries.removeAll { $0.id == id }
                 if self.isVisible {
                     self.refreshSavedApplicationIdentifiers(settings: settings)
