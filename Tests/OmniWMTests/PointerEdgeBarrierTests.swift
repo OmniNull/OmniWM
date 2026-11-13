@@ -384,6 +384,22 @@ final class PointerEdgeBarrierTests: XCTestCase {
         XCTAssertTrue(warps.all.isEmpty)
     }
 
+    func testWithWarpOffASlowPushIsLetThroughOntoTheOtherDisplay() throws {
+        let warps = PointRecorder()
+        let clock = StepClock()
+        let barrier = liveDragBarrier(adjoining, warps: warps, warpsPointer: false, clock: clock)
+
+        XCTAssertEqual(try drag(barrier, CGPoint(x: 2559, y: 700), dx: 1), CGPoint(x: 2558, y: 700))
+        clock.advance()
+        var point = CGPoint(x: 2558, y: 700)
+        for _ in 0 ..< 200 where point.x == 2558 {
+            point = try drag(barrier, CGPoint(x: 2559, y: 700), dx: 1)
+        }
+
+        XCTAssertEqual(point, CGPoint(x: 2560, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
     func testWithWarpOffAnEdgeMacOSDoesNotShareIsNotHeld() throws {
         let warps = PointRecorder()
         let apart = Self.monitor(7, CGRect(x: 3000, y: 0, width: 1920, height: 1440))

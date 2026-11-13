@@ -11,7 +11,7 @@ struct LiveDragHold: Equatable, Sendable {
         case pass
         case hold(CGPoint)
         case cross(destination: CGPoint, target: Monitor.ID)
-        case letThrough
+        case letThrough(CGPoint)
     }
 
     struct Push: Equatable, Sendable {
@@ -66,7 +66,10 @@ struct LiveDragHold: Equatable, Sendable {
         }
         guard push.distance >= PointerEdgeTopology.pushDistance else { return .hold(held) }
         push = Push()
-        guard topology.warpsPointer else { return .letThrough }
+        guard topology.warpsPointer else {
+            let past = direction == .right ? max(location.x, frame.maxX) : min(location.x, frame.minX - 1)
+            return .letThrough(CGPoint(x: past, y: location.y))
+        }
         let zone = MouseWarpGeometry.crossing(toward: direction, location: held, frame: frame)
         return .cross(
             destination: MouseWarpGeometry.destinationPoint(
@@ -378,8 +381,9 @@ final class PointerEdgeBarrier: Sendable {
         switch decision {
         case .pass:
             return Unmanaged.passUnretained(event)
-        case .letThrough:
-            MouseTrace.record("live-drag-hold let through at=\(TraceFormat.point(cgLocation))")
+        case let .letThrough(point):
+            event.location = CGPoint(x: point.x, y: flipY - point.y)
+            MouseTrace.record("live-drag-hold let through at=\(TraceFormat.point(event.location))")
             return Unmanaged.passUnretained(event)
         case let .hold(point):
             event.location = CGPoint(x: point.x, y: flipY - point.y)
