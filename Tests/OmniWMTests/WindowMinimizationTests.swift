@@ -169,8 +169,13 @@ final class WindowMinimizationTests: XCTestCase {
             let slides = fusion && animated
             for index in [3, 4] {
                 XCTAssertEqual(columns[index].moveAnimation != nil, slides, "\(label) after \(index)")
-                if slides {
-                    XCTAssertEqual(columns[index].renderOffset().x, span + gap, accuracy: 1, "\(label) \(index)")
+                if let start = columns[index].moveAnimation?.animation.startTime {
+                    XCTAssertEqual(
+                        columns[index].renderOffset(at: start).x,
+                        span + gap,
+                        accuracy: 1,
+                        "\(label) \(index)"
+                    )
                 }
             }
             for index in [0, 1] {
