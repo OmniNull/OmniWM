@@ -47,8 +47,9 @@ struct AppThemePalette: Equatable, Sendable {
     @MainActor
     static func ownsHues(_ theme: ShellTheme) -> Bool {
         let native = ShellTheme.native
-        let setsHues = AppThemeANSI.hueRoles.map(\.rawValue).contains { index in
-            theme.light[index] != native.light[index] || theme.dark[index] != native.dark[index]
+        let setsHues = AppThemeANSI.hueRoles.contains { role in
+            theme.light[role.rawValue] != native.light[role.rawValue] ||
+                theme.dark[role.rawValue] != native.dark[role.rawValue]
         }
         let materialPalette = !theme.derivedLight.contains(.tertiaryAccent) || !theme.derivedDark
             .contains(.tertiaryAccent)
@@ -62,11 +63,13 @@ struct AppThemePalette: Equatable, Sendable {
     @MainActor
     private static func resolve(_ theme: ShellTheme, dark: Bool) -> [ShellRole: AppThemeColor] {
         let source = dark ? theme.dark : theme.light
-        var colors: [CGColor] = source.map(\.cgColor)
+        var colors: [CGColor] = []
         if let appearance = NSAppearance(named: dark ? .darkAqua : .aqua) {
             appearance.performAsCurrentDrawingAppearance {
                 colors = source.map(\.cgColor)
             }
+        } else {
+            colors = source.map(\.cgColor)
         }
         theme.deriveRoles(&colors, dark: dark)
         var roles: [ShellRole: AppThemeColor] = [:]

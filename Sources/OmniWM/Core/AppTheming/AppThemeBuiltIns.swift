@@ -99,7 +99,7 @@ enum AppThemeBuiltIn: String, CaseIterable, Identifiable, Sendable {
     cursor-text = {{colors.accentForeground.default.hex}}
     selection-background = {{colors.accentContainer.default.hex}}
     selection-foreground = {{colors.accentContainerForeground.default.hex}}
-    \((0 ..< 16).map { "palette = \($0)={{colors.ansi\($0).default.hex}}" }.joined(separator: "\n"))
+    \((0 ..< AppThemeANSI.colorCount).map { "palette = \($0)={{colors.ansi\($0).default.hex}}" }.joined(separator: "\n"))
 
     """
 
@@ -121,7 +121,7 @@ enum AppThemeBuiltIn: String, CaseIterable, Identifiable, Sendable {
     tab_bar_background {{colors.background.default.hex}}
     mark1_foreground {{colors.accentForeground.default.hex}}
     mark1_background {{colors.accent.default.hex}}
-    \((0 ..< 16).map { "color\($0) {{colors.ansi\($0).default.hex}}" }.joined(separator: "\n"))
+    \((0 ..< AppThemeANSI.colorCount).map { "color\($0) {{colors.ansi\($0).default.hex}}" }.joined(separator: "\n"))
 
     """
 

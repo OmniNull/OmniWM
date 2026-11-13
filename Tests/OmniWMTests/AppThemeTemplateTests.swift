@@ -32,7 +32,7 @@ final class AppThemeTemplateTests: XCTestCase {
 
     func testANSIPlaceholdersMatchTheDerivedTerminalColors() throws {
         let rendered = try AppThemeTemplate.render(
-            (0 ..< 16).map { "{{colors.ansi\($0).dark.hex}}" }.joined(separator: " "),
+            (0 ..< AppThemeANSI.colorCount).map { "{{colors.ansi\($0).dark.hex}}" }.joined(separator: " "),
             palette: palette,
             dark: false
         )
@@ -53,7 +53,10 @@ final class AppThemeTemplateTests: XCTestCase {
             ("ok\n{{colors.nope.default.hex}}", "colors.nope.default.hex"),
             ("ok\n{{colors.accent.sepia.hex}}", "colors.accent.sepia.hex"),
             ("ok\n{{colors.accent.default.cmyk}}", "colors.accent.default.cmyk"),
-            ("ok\n{{colors.ansi16.default.hex}}", "colors.ansi16.default.hex"),
+            (
+                "ok\n{{colors.ansi\(AppThemeANSI.colorCount).default.hex}}",
+                "colors.ansi\(AppThemeANSI.colorCount).default.hex"
+            ),
             ("ok\n{{colors.ansi01.default.hex}}", "colors.ansi01.default.hex"),
             ("ok\n{{env.HOME}}", "env.HOME")
         ] {

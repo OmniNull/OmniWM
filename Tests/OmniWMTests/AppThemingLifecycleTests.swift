@@ -114,4 +114,60 @@ final class AppThemingLifecycleTests: XCTestCase {
         NSApplication.shared.appearance = NSAppearance(named: .aqua)
         XCTAssertTrue(service.isDark)
     }
+
+    @MainActor
+    func testBarColorChangesRefreshTheCachedPaletteWithTheShellOff() throws {
+        let controller = makeController()
+        controller.settings.workspaceBar.enabled = false
+        controller.settings.island.enabled = false
+        controller.workspaceBarManager.setup(controller: controller, settings: controller.settings)
+        controller.workspaceBarManager.commandPaletteConfigCache = ShellConfig()
+        controller.settings.appTheming.values.kitty.enabled = true
+        let service = try XCTUnwrap(controller.appThemeService)
+        let before = try XCTUnwrap(service.palette)
+        let accent = SettingsColor(red: 0, green: 0, blue: 0, alpha: 1)
+        let foreground = SettingsColor(red: 1, green: 1, blue: 1, alpha: 1)
+        controller.settings.workspaceBar.accentColor = accent
+        controller.settings.workspaceBar.textColor = foreground
+        controller.workspaceBarManager.refreshShellBarColors(controller.settings)
+        let after = try XCTUnwrap(service.palette)
+        XCTAssertNotEqual(after, before)
+        for scheme in [after.light, after.dark] {
+            XCTAssertEqual(scheme.roles[.accent], .black)
+            XCTAssertEqual(scheme.roles[.foreground], .white)
+        }
+        XCTAssertNil(controller.workspaceBarManager.shellHost)
+    }
+
+    @MainActor
+    func testBarColorChangesPublishOnceForNativeAndCustomThemes() throws {
+        let host = ShellWidgetHost(
+            configDirectory: sandbox.root,
+            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
+            resourceStore: ShellResourceStore(directory: sandbox.root.appendingPathComponent("resources")),
+            world: { ShellWorldData() }, vars: { [:] }, bars: { [:] }, onLayoutChange: {},
+            onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
+            onPopoutChange: {}, onTitleDemandChange: { _ in }
+        )
+        let accent = SettingsColor(red: 0, green: 0, blue: 0, alpha: 1)
+        let foreground = SettingsColor(red: 1, green: 1, blue: 1, alpha: 1)
+        var delivered: [ShellTheme] = []
+        host.onPaletteChange = { delivered.append($0) }
+        for name in ["native", "custom"] {
+            host.started = false
+            host.setBarColors(accent: nil, foreground: nil)
+            delivered = []
+            host.config.themeName = name
+            host.started = true
+            host.setBarColors(accent: accent, foreground: foreground)
+            host.setBarColors(accent: accent, foreground: foreground)
+            XCTAssertEqual(delivered.count, 1)
+            let palette = AppThemePalette(theme: try XCTUnwrap(delivered.first))
+            for scheme in [palette.light, palette.dark] {
+                XCTAssertEqual(scheme.roles[.accent], .black)
+                XCTAssertEqual(scheme.roles[.foreground], .white)
+            }
+        }
+        host.started = false
+    }
 }

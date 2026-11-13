@@ -13,8 +13,8 @@ final class AppThemeANSITests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        XCTAssertEqual(ansi.count, 16, file: file, line: line)
-        for index in 1 ..< 16 {
+        XCTAssertEqual(ansi.count, AppThemeANSI.colorCount, file: file, line: line)
+        for index in 1 ..< AppThemeANSI.colorCount {
             XCTAssertGreaterThanOrEqual(
                 ansi[index].contrast(background), AppThemeANSI.readableContrast,
                 "ansi\(index) \(ansi[index].hex) on \(background.hex)", file: file, line: line
@@ -32,7 +32,8 @@ final class AppThemeANSITests: XCTestCase {
 
     func testReadableHueSlotsAreDistinct() {
         for scheme in [AppThemeFixtures.palette.light, AppThemeFixtures.palette.dark] {
-            let slots = Array(scheme.ansi[1 ... 6]) + Array(scheme.ansi[9 ... 14])
+            let slots = Array(scheme.ansi[AppThemeANSI.normalHueSlots]) +
+                Array(scheme.ansi[AppThemeANSI.brightHueSlots])
             XCTAssertEqual(Set(slots).count, slots.count, slots.map(\.hex).joined(separator: " "))
         }
     }
@@ -46,14 +47,14 @@ final class AppThemeANSITests: XCTestCase {
 
     func testBrightColorsMoveAwayFromTheBackground() {
         let palette = AppThemeFixtures.palette
-        for index in 1 ... 6 {
+        for (normal, bright) in zip(AppThemeANSI.normalHueSlots, AppThemeANSI.brightHueSlots) {
             XCTAssertGreaterThanOrEqual(
-                palette.dark.ansi[index + 8].hsl.lightness,
-                palette.dark.ansi[index].hsl.lightness
+                palette.dark.ansi[bright].hsl.lightness,
+                palette.dark.ansi[normal].hsl.lightness
             )
             XCTAssertLessThanOrEqual(
-                palette.light.ansi[index + 8].hsl.lightness,
-                palette.light.ansi[index].hsl.lightness
+                palette.light.ansi[bright].hsl.lightness,
+                palette.light.ansi[normal].hsl.lightness
             )
         }
     }
@@ -146,11 +147,12 @@ final class AppThemeANSITests: XCTestCase {
                 let background = try XCTUnwrap(tinted.roles[.background])
                 let accent = try XCTUnwrap(tinted.roles[.accent]).hsl.hue
                 assertReadable(tinted.ansi, on: background)
-                let slots = Array(tinted.ansi[1 ... 6]) + Array(tinted.ansi[9 ... 14])
+                let slots = Array(tinted.ansi[AppThemeANSI.normalHueSlots]) +
+                    Array(tinted.ansi[AppThemeANSI.brightHueSlots])
                 XCTAssertEqual(Set(slots).count, slots.count, slots.map(\.hex).joined(separator: " "))
                 for (offset, role) in AppThemeANSI.hueRoles.enumerated() {
                     let system = try XCTUnwrap(plain.roles[role])
-                    let slot = tinted.ansi[offset + 1]
+                    let slot = tinted.ansi[AppThemeANSI.normalHueSlots.lowerBound + offset]
                     XCTAssertLessThanOrEqual(
                         hueDistance(slot.hsl.hue, tintedHue(system.hsl.hue, toward: accent)),
                         hueRounding(system, slot),
@@ -180,7 +182,10 @@ final class AppThemeANSITests: XCTestCase {
                     let source = try XCTUnwrap(scheme.roles[role])
                     var dimmed = source.hsl
                     dimmed.lightness = AppThemeANSI.fixedDimLightness
-                    for slot in [offset + 1, offset + 9] {
+                    for slot in [
+                        AppThemeANSI.normalHueSlots.lowerBound + offset,
+                        AppThemeANSI.brightHueSlots.lowerBound + offset
+                    ] {
                         let color = scheme.ansi[slot]
                         XCTAssertLessThanOrEqual(
                             hueDistance(color.hsl.hue, source.hsl.hue),
@@ -189,7 +194,8 @@ final class AppThemeANSITests: XCTestCase {
                         )
                     }
                 }
-                let slots = Array(scheme.ansi[1 ... 6]) + Array(scheme.ansi[9 ... 14])
+                let slots = Array(scheme.ansi[AppThemeANSI.normalHueSlots]) +
+                    Array(scheme.ansi[AppThemeANSI.brightHueSlots])
                 XCTAssertEqual(Set(slots).count, slots.count, slots.map(\.hex).joined(separator: " "))
             }
         }
@@ -200,7 +206,7 @@ final class AppThemeANSITests: XCTestCase {
         for (scheme, roles) in [(palette.light, AppThemeFixtures.light), (palette.dark, AppThemeFixtures.dark)] {
             for (offset, role) in AppThemeANSI.hueRoles.enumerated() {
                 let source = roles[role]!
-                let slot = scheme.ansi[offset + 1]
+                let slot = scheme.ansi[AppThemeANSI.normalHueSlots.lowerBound + offset]
                 XCTAssertLessThanOrEqual(
                     hueDistance(slot.hsl.hue, source.hsl.hue), hueRounding(source, slot),
                     "\(role) \(slot.hex) moved from \(source.hex)"

@@ -6,6 +6,9 @@ import Foundation
 enum AppThemeANSI {
     static let readableContrast = ShellRGBA.readableTextContrast
     static let hueRoles: [ShellRole] = [.red, .green, .yellow, .blue, .purple, .cyan]
+    static let colorCount = 16
+    static let normalHueSlots = 1 ... 6
+    static let brightHueSlots = 9 ... 14
     private static let brightLightness = 0.08
     private static let brightSaturation = 1.15
     private static let hueNudges: [Double] = [0, 10, -10, 20, -20]
@@ -44,7 +47,7 @@ enum AppThemeANSI {
             foreground: foreground,
             keepsHue: followsAccents
         )
-        var palette = [AppThemeColor](repeating: foreground, count: 16)
+        var palette = [AppThemeColor](repeating: foreground, count: colorCount)
         palette[0] = ((followsAccents ? roles[.highestSurface] : nil) ?? roles[.surface] ?? background).opaque
         palette[7] = readable((roles[.secondaryForeground] ?? foreground).opaque, on: background, lightens: lightens)
             ?? foreground
@@ -60,8 +63,8 @@ enum AppThemeANSI {
             used.insert(normal)
             let bright = distinctReadable(normal, bright: true, ground: ground, avoiding: used)
             used.insert(bright)
-            palette[offset + 1] = normal
-            palette[offset + 9] = bright
+            palette[normalHueSlots.lowerBound + offset] = normal
+            palette[brightHueSlots.lowerBound + offset] = bright
         }
         return palette
     }

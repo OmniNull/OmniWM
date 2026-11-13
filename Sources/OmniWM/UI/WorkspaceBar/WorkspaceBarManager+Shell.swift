@@ -15,7 +15,6 @@ extension WorkspaceBarManager {
             startShellHostIfNeeded(settings: settings)
         } else {
             if shellHost != nil { stopShellHost() }
-            controller?.appThemeShellIsOff { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         }
         shellHost?.updateWorld()
         shellHost?.updateBars()
@@ -92,6 +91,7 @@ extension WorkspaceBarManager {
         lastIslands = []
         notificationBadges.onLabelsChange = nil
         host?.stop()
+        controller?.appThemeShellIsOff { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         setShellBadgeDemand(false)
         controller?.mouseEventHandler.reconcileMouseMoveSubscription()
     }

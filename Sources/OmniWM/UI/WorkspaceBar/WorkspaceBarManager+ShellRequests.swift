@@ -237,7 +237,17 @@ extension WorkspaceBarManager {
     }
 
     func refreshShellBarColors(_ settings: SettingsStore) {
-        shellHost?.setBarColors(accent: settings.workspaceBar.accentColor, foreground: settings.workspaceBar.textColor)
+        if let shellHost {
+            shellHost.setBarColors(
+                accent: settings.workspaceBar.accentColor,
+                foreground: settings.workspaceBar.textColor
+            )
+        } else {
+            controller?.appThemeShellIsOff(
+                theme: { [weak self] in self?.appThemeFallbackTheme() ?? .native },
+                refresh: true
+            )
+        }
         refreshCommandPaletteAppearance()
     }
 
