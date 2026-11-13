@@ -235,6 +235,15 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(TitleBarHitTest.isTitleBar(nil))
     }
 
+    func testAnAppThatDoesntAnswerIsNotTreatedAsHavingNoBar() {
+        for error in [AXError.cannotComplete, .failure, .apiDisabled, .notImplemented] {
+            XCTAssertTrue(TitleBarHitTest.isFailedRead(error), "\(error.rawValue)")
+        }
+        for error in [AXError.success, .noValue, .attributeUnsupported] {
+            XCTAssertFalse(TitleBarHitTest.isFailedRead(error), "\(error.rawValue)")
+        }
+    }
+
     func testBelowTheWindowsBarNothingCountsAsTheTitleBar() {
         for role in ["AXWindow", "AXGroup", "AXStaticText", "AXScrollArea", "AXButton"] {
             XCTAssertFalse(TitleBarHitTest.isTitleBar(TitleBarHit(role: role, placement: .outsideBar)), role)

@@ -71,13 +71,25 @@ enum TitleBarHitTest {
     static func hit(pid: pid_t, at point: CGPoint) -> TitleBarHit? {
         let probe = AccessibilityProbe(deadline: CACurrentMediaTime() + budget)
         let hit = probe.hit(pid: pid, at: ScreenCoordinateSpace.toWindowServer(point: point))
-        return probe.ranOutOfTime ? nil : hit
+        return probe.ranOutOfTime || probe.readFailed ? nil : hit
+    }
+
+    static func isFailedRead(_ error: AXError) -> Bool {
+        switch error {
+        case .success,
+             .noValue,
+             .attributeUnsupported:
+            false
+        default:
+            true
+        }
     }
 }
 
 private final class AccessibilityProbe {
     private let deadline: CFTimeInterval
     private(set) var ranOutOfTime = false
+    private(set) var readFailed = false
 
     init(deadline: CFTimeInterval) {
         self.deadline = deadline
@@ -150,7 +162,11 @@ private final class AccessibilityProbe {
     private func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
         guard limit(element) else { return nil }
         var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else { return nil }
+        let error = AXUIElementCopyAttributeValue(element, name as CFString, &value)
+        guard error == .success else {
+            if TitleBarHitTest.isFailedRead(error) { readFailed = true }
+            return nil
+        }
         return value
     }
 
