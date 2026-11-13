@@ -14,11 +14,11 @@ extension NiriMonitorPlaneGeometry {
         case .horizontal:
             clipped.origin.y = max(rect.minY, displayFrame.minY)
             clipped.size.height = min(rect.maxY, displayFrame.maxY) - clipped.minY
-            return clipped.height > 0 ? clipped : nil
+            return clipped.size.height > 0 ? clipped : nil
         case .vertical:
             clipped.origin.x = max(rect.minX, displayFrame.minX)
             clipped.size.width = min(rect.maxX, displayFrame.maxX) - clipped.minX
-            return clipped.width > 0 ? clipped : nil
+            return clipped.size.width > 0 ? clipped : nil
         }
     }
 }
