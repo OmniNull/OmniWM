@@ -45,7 +45,6 @@ extension ShellWidgetHost {
         }
         observeSystem()
         rescan()
-        updateWallpaperPalette()
     }
 
     private func observeSystem() {
@@ -90,8 +89,6 @@ extension ShellWidgetHost {
         latestData.publish(ShellWidgetData())
         observation?.cancel()
         observation = nil
-        wallpaperPalette?.stop()
-        wallpaperPalette = nil
         if let systemColorsObserver {
             NotificationCenter.default.removeObserver(systemColorsObserver)
             self.systemColorsObserver = nil
@@ -131,28 +128,6 @@ extension ShellWidgetHost {
         placedSlots = [:]
         networkApprovals = [:]
         providerApprovals = [:]
-    }
-
-    func updateWallpaperPalette() {
-        guard config.themeName == ShellWallpaperPalette.themeName else {
-            wallpaperPalette?.stop()
-            wallpaperPalette = nil
-            return
-        }
-        if let wallpaperPalette {
-            wallpaperPalette.setScheme(config.wallpaperScheme)
-            return
-        }
-        let writer = ShellWallpaperPaletteWriter(
-            destination: shellDirectory.appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml"),
-            scheme: config.wallpaperScheme
-        ) { [weak self] problem in
-            guard let self, !configProblems.contains(problem) else { return }
-            ShellConfig.report(problem, &configProblems)
-            publishToggleNames()
-        }
-        wallpaperPalette = writer
-        writer.start()
     }
 
     func setBarColors(accent: SettingsColor?, foreground: SettingsColor?) {

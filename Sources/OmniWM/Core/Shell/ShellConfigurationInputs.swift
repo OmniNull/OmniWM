@@ -4,6 +4,16 @@
 import Foundation
 
 struct ShellConfigurationInputs: Sendable {
+    struct MetadataScope: Equatable {
+        let directories: [URL]
+        let root: String?
+
+        init(_ config: ShellConfig) {
+            directories = config.directories
+            root = config.island?.root
+        }
+    }
+
     struct Prepared: Sendable {
         let config: ShellConfig
         let problems: [String]

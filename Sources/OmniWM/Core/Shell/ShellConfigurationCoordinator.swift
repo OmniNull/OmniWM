@@ -8,16 +8,8 @@ import TOML
 @MainActor
 @Observable
 final class ShellConfigurationCoordinator {
-    private struct MetadataScope: Equatable {
-        let directories: [URL]
-        let root: String?
-
-        init(_ config: ShellConfig) {
-            directories = config.directories
-            root = config.island?.root
-        }
-    }
-
+    private typealias MetadataScope = ShellConfigurationInputs.MetadataScope
+    enum Observer { case settings, shellTheme }
     struct IslandCommit: Sendable {
         let instanceID: String?
         let revision: UInt64
@@ -54,6 +46,7 @@ final class ShellConfigurationCoordinator {
     @ObservationIgnored private var observationTask: Task<Void, Never>?
     @ObservationIgnored private var needsRefresh = false
     @ObservationIgnored private var observationGeneration: UInt64 = 0
+    @ObservationIgnored private var observers: Set<Observer> = []
     @ObservationIgnored private let onDefaultsUpdated: @MainActor ([URL]) -> Void
     @ObservationIgnored var makeObservation: @MainActor (@escaping @MainActor () -> Void)
         -> ShellDirectoryObservation = {
@@ -84,7 +77,8 @@ final class ShellConfigurationCoordinator {
         try await refresh(onlyIfNeeded: true)
     }
 
-    func startObserving() {
+    func startObserving(for observer: Observer = .settings) {
+        observers.insert(observer)
         guard observation == nil else { return }
         observation = makeObservation { [weak self] in self?.requestRefresh() }
         observation?.sync(
@@ -94,9 +88,11 @@ final class ShellConfigurationCoordinator {
         requestRefresh()
     }
 
-    func stopObserving() {
-        observation?.cancel()
-        observation = nil
+    func stopObserving(for observer: Observer = .settings) {
+        observers.remove(observer)
+        guard observers.isEmpty, let observation else { return }
+        observation.cancel()
+        self.observation = nil
         observationGeneration += 1
         observationTask?.cancel()
         observationTask = nil
@@ -450,7 +446,7 @@ extension ShellConfigurationCoordinator {
         previewConfigurations.removeAll(keepingCapacity: true)
     }
 
-    private func requestRefresh() {
+    func requestRefresh() {
         guard observation != nil else { return }
         needsRefresh = true
         guard observationTask == nil else { return }

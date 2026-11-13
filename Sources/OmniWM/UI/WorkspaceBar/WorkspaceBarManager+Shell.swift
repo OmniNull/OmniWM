@@ -54,12 +54,15 @@ extension WorkspaceBarManager {
         } else {
             applyShellProfile(config)
             commandPaletteConfigCache = nil
+            updateShellTheme(config, needed: usesShellThemeWithoutHost)
             controller?.appThemeShellIsOff(
                 theme: { [weak self] in self?.appThemeFallbackTheme() ?? .native },
                 refresh: true
             )
         }
-        controller?.commandPaletteController.prewarmShell(from: self)
+        if shellHost != nil || commandPaletteResources != nil {
+            controller?.commandPaletteController.prewarmShell(from: self)
+        }
     }
 
     func toggleShellSystemStats(preferring monitors: [Monitor]) -> Bool {
@@ -91,12 +94,18 @@ extension WorkspaceBarManager {
         lastIslands = []
         notificationBadges.onLabelsChange = nil
         host?.stop()
+        if let host {
+            updateShellTheme(host.config, needed: usesShellThemeWithoutHost)
+        }
         controller?.appThemeShellIsOff { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         setShellBadgeDemand(false)
         controller?.mouseEventHandler.reconcileMouseMoveSubscription()
     }
 
     func flushShellForQuit() async {
+        isQuittingShell = true
+        shellConfiguration.stopObserving(for: .shellTheme)
+        stopWallpaperPalette()
         shellHost?.stop()
         await shellConfiguration.flush()
         await ShellWidgetHost.flushRetiredWork()
@@ -224,6 +233,7 @@ extension WorkspaceBarManager {
         }
         host.onConfigChange = { [weak self] config in
             self?.shellConfiguration.adopt(config)
+            self?.updateShellTheme(config)
             NotificationCenter.default.post(name: .shellConfigDidChange, object: nil)
             self?.applyShellProfile(config)
             self?.applyIslands(self?.lastIslands ?? [])
@@ -383,8 +393,15 @@ extension WorkspaceBarManager {
         if shellHost != nil {
             service.setTheme(appTheme())
         } else {
+            updateShellTheme(commandPaletteConfig)
             service.setFallbackTheme { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         }
+    }
+
+    func stopShellThemeObservationIfUnused() {
+        guard shellHost == nil, !usesShellThemeWithoutHost else { return }
+        shellConfiguration.stopObserving(for: .shellTheme)
+        stopWallpaperPalette()
     }
 
     func appThemeFallbackTheme() -> ShellTheme {
@@ -393,5 +410,54 @@ extension WorkspaceBarManager {
             accent: controller?.settings.workspaceBar.accentColor,
             foreground: controller?.settings.workspaceBar.textColor
         )
+    }
+
+    func updateShellTheme(_ config: ShellConfig, needed: Bool = true) {
+        guard !isQuittingShell else { return }
+        if needed, shellHost == nil {
+            shellConfiguration.startObserving(for: .shellTheme)
+        } else {
+            shellConfiguration.stopObserving(for: .shellTheme)
+        }
+        guard needed, config.themeName == ShellWallpaperPalette.themeName else {
+            stopWallpaperPalette()
+            return
+        }
+        if let wallpaperPalette {
+            wallpaperPalette.setScheme(config.wallpaperScheme)
+            return
+        }
+        let destination = shellConfiguration.shellDirectory
+            .appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml")
+        let writer = makeWallpaperPalette(destination, config.wallpaperScheme) { [weak self] problem in
+            guard let self else { return }
+            if let shellHost {
+                guard !shellHost.configProblems.contains(problem) else { return }
+                ShellConfig.report(problem, &shellHost.configProblems)
+                shellHost.publishToggleNames()
+            } else {
+                Log.shell.error(problem)
+            }
+        }
+        writer.onWrite = { [weak self] in
+            guard let self else { return }
+            if let shellHost {
+                shellHost.reloadConfig()
+            } else {
+                shellConfiguration.requestRefresh()
+            }
+        }
+        wallpaperPalette = writer
+        writer.start()
+    }
+
+    private var usesShellThemeWithoutHost: Bool {
+        commandPaletteResources != nil || controller?.appThemeService != nil
+    }
+
+    private func stopWallpaperPalette() {
+        wallpaperPalette?.onWrite = nil
+        wallpaperPalette?.stop()
+        wallpaperPalette = nil
     }
 }

@@ -56,9 +56,11 @@ extension WMController {
 
     private func updateAppThemeService(reloadsEnabledApps: Bool) {
         guard settings.appTheming.values.anyEnabled else {
+            let wasEnabled = appThemeService != nil
             appThemeService?.stop()
             appThemeService = nil
             pendingAppThemeApprovals = []
+            if wasEnabled { workspaceBarManager.stopShellThemeObservationIfUnused() }
             return
         }
         guard appThemeService == nil else { return }
