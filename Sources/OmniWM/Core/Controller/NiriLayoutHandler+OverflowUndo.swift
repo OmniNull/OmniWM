@@ -43,6 +43,14 @@ extension NiriLayoutHandler {
         scheduleOverflowCheck()
     }
 
+    func noteUserAction() {
+        lastUserActionAt = layoutStepClock()
+    }
+
+    private func hasUserActed(since time: TimeInterval) -> Bool {
+        lastUserActionAt.map { $0 > time } ?? false
+    }
+
     func scheduleOverflowCheck() {
         guard !overflowReports.isEmpty, !isOverflowCheckScheduled else { return }
         isOverflowCheckScheduled = true
@@ -107,8 +115,8 @@ extension NiriLayoutHandler {
         guard isShownOnADisplay(workspaceId) else { return .keep("rule=not-shown") }
         guard let step = engine.newestLayoutStep(in: workspaceId) else { return .keep("rule=no-newest-step") }
         let age = layoutStepClock() - step.timing.recordedAt
-        guard age < MoveConfiguration.overflowUndoWindow, reportedAt >= step.timing.startedAt else {
-            return .keep("rule=step-not-recent")
+        guard !hasUserActed(since: step.timing.recordedAt), reportedAt >= step.timing.startedAt else {
+            return .keep("rule=user-acted-since")
         }
         guard let window = engine.findNode(for: token, in: workspaceId),
               let column = window.parent as? NiriContainer,
@@ -163,7 +171,8 @@ extension NiriLayoutHandler {
     func followOverflowMessage(in workspaceId: WorkspaceDescriptor.ID) {
         guard let controller, let engine = controller.niriEngine else { return }
         if let unshown = unshownOverflowMessage, unshown.workspaceId == workspaceId {
-            guard layoutStepClock() - unshown.undoneAt < MoveConfiguration.overflowUndoWindow else {
+            let newerStep = engine.newestLayoutStep(in: workspaceId).map { $0.timing.recordedAt > unshown.undoneAt }
+            guard !hasUserActed(since: unshown.undoneAt), newerStep != true else {
                 unshownOverflowMessage = nil
                 return
             }

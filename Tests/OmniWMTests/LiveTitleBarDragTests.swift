@@ -1972,16 +1972,37 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
     }
 
-    func testAReportCheckedMoreThanThreeSecondsAfterTheStepUndoesNothing() throws {
+    func testAReportLongAfterTheStepWithNothingDoneSinceStillUndoesIt() throws {
         let fixture = try makeFixture(pid: 938_144)
         let watch = watchOverflows(fixture)
         try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
-        watch.clock.now += MoveConfiguration.overflowUndoWindow + 0.1
+        watch.clock.now += 60
 
         try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
         checkOverflows(fixture)
 
-        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
+    }
+
+    func testAReportAfterTheUserActedSinceTheStepUndoesNothing() throws {
+        for act in ["mouse-down", "command"] {
+            let fixture = try makeFixture(pid: act == "command" ? 938_152 : 938_151)
+            let watch = watchOverflows(fixture)
+            try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
+            watch.clock.now += 0.1
+            if act == "mouse-down" {
+                fixture.handler.dispatchMouseDown(at: CGPoint(x: -10_000, y: -10_000), modifiers: [])
+            } else {
+                _ = fixture.controller.commandHandler
+                    .handleHotkeyInvocation(.init(command: .focusNavigation(.previous)))
+            }
+            watch.clock.now += 0.1
+
+            try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+            checkOverflows(fixture)
+
+            XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2, act)
+        }
     }
 
     func testATabbedColumnAndALoneWindowAreNeverReported() throws {

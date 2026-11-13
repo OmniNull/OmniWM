@@ -42,7 +42,6 @@ struct MoveConfiguration {
     static let liveEdgeScrollDelay: TimeInterval = 0.3
     static let liveEdgeScrollSpeed: CGFloat = 1000.0
     static let liveEdgeHopInterval: TimeInterval = 0.5
-    static let overflowUndoWindow: TimeInterval = 3.0
     static let liveStackSuppressDistance: CGFloat = 30.0
     static let liveCentreMinimumWidth: CGFloat = 300.0
     static let liveStackLeaveOutsideShare: CGFloat = 0.4
