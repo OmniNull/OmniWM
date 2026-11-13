@@ -520,6 +520,35 @@ final class ScratchpadRevealTests: XCTestCase {
         )
     }
 
+    func testRevealStacksMembersByFocusRecencyAndFocusesTheLastUsedMember() throws {
+        let fixture = try makeFixture()
+        let manager = fixture.controller.workspaceManager
+        let first = addFloatingWindow(pid: 971_093, windowId: 971_193, to: fixture)
+        let second = addFloatingWindow(pid: 971_094, windowId: 971_194, to: fixture)
+        let third = addFloatingWindow(pid: 971_095, windowId: 971_195, to: fixture)
+        for token in [first, second, third] {
+            XCTAssertEqual(assign(token, to: 1, in: fixture), .executed)
+        }
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1), .executed)
+        for token in [first, second, third] {
+            try completeReveal(token, in: fixture)
+        }
+        XCTAssertTrue(manager.setManagedFocus(first, in: fixture.workspaceId, onMonitor: fixture.monitor.id))
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1), .executed)
+        _ = manager.cancelCurrentManagedFocusRequest()
+        fixture.focusRecorder.reset()
+
+        XCTAssertEqual(fixture.controller.toggleScratchpad(1), .executed)
+        for token in [first, second, third] {
+            try completeReveal(token, in: fixture)
+        }
+
+        XCTAssertEqual(
+            fixture.focusRecorder.focusedWindowIds,
+            [second, third, first].map { UInt32($0.windowId) }
+        )
+    }
+
     func testStackingContinuationAbortsForSameAppDifferentWindowFocus() throws {
         let fixture = try makeFixture()
         let first = addFloatingWindow(pid: 971_074, windowId: 971_181, to: fixture)

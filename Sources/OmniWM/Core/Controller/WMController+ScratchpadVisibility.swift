@@ -173,10 +173,10 @@ extension WMController {
         for entry in scratchpadEntries(in: index) where entry.workspaceId != workspaceId {
             reassignManagedWindow(entry.token, to: workspaceId)
         }
-        let resolvedEntries = entries.compactMap { workspaceManager.entry(for: $0.token) }
-        let preferredToken = preferredToken ?? workspaceManager.lastFocusedToken(in: workspaceId)
-        let ordered = resolvedEntries.filter { $0.token != preferredToken }
-            + resolvedEntries.filter { $0.token == preferredToken }
+        let ordered = scratchpadRevealOrder(
+            entries.compactMap { workspaceManager.entry(for: $0.token) },
+            preferring: preferredToken
+        )
         let orderedHandles = ordered.compactMap { workspaceManager.handle(for: $0.token) }
         var revealed = false
         let groupId = layoutRefreshController.revealGroups.begin(index: index) { [weak self] outcome in
@@ -216,6 +216,23 @@ extension WMController {
         layoutRefreshController.revealGroups.seal(groupId)
         requestWorkspaceBarRefresh()
         return true
+    }
+
+    private func scratchpadRevealOrder(
+        _ entries: [WindowState],
+        preferring preferredToken: WindowToken?
+    ) -> [WindowState] {
+        let focusRecency = Dictionary(
+            workspaceManager.focusSessionSnapshot.windowFocusHistory.enumerated().map { ($1, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let byRecency = entries.enumerated().sorted { lhs, rhs in
+            let lhsRank = focusRecency[lhs.element.token] ?? Int.max
+            let rhsRank = focusRecency[rhs.element.token] ?? Int.max
+            return lhsRank != rhsRank ? lhsRank > rhsRank : lhs.offset < rhs.offset
+        }.map(\.element)
+        return byRecency.filter { $0.token != preferredToken }
+            + byRecency.filter { $0.token == preferredToken }
     }
 
     func hideRevealedScratchpad(
