@@ -180,10 +180,10 @@ final class ScratchpadStackingController {
               !plan.continuationScheduled,
               plan.pendingActivationObserved,
               let pendingPID = plan.pendingHandle?.id.pid,
-              controller.axEventHandler.frontmostApplicationPIDProvider() == pendingPID,
               let requestId = plan.pendingRequestId,
               controller.intentLedger.intent(id: requestId)?.phase == .confirmed,
-              controller.intentLedger.newestFocusIntentId() == requestId
+              controller.intentLedger.newestFocusIntentId() == requestId,
+              controller.axEventHandler.frontmostApplicationPIDProvider() == pendingPID
         else {
             return
         }
