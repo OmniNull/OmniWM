@@ -107,7 +107,7 @@ At the edge between two displays, the pointer holds for a moment while the strip
 - Each workspace keeps its own history, so Undo never changes a workspace you can't see.
 - A move to another workspace or display can be undone on either side. A swap between two displays is undone on both.
 - Windows that closed since are left out, and windows that opened since stay where they are.
-- The history lasts until OmniWM quits.
+- The history lasts until OmniWM quits. Switching a workspace to Dwindle clears its history.
 
 ## Good to know
 
