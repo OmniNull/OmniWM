@@ -23,16 +23,24 @@ extension MouseEventHandler {
         return hypot(location.x - armedAt.x, location.y - armedAt.y) <= fusionDoubleClickArmRadius
     }
 
+    nonisolated static let coveringWindowLayers = 0 ..< Int(CGWindowLevelForKey(.dockWindow))
+
     nonisolated static func topmostWindowId(at location: CGPoint) -> Int? {
-        let point = ScreenCoordinateSpace.toWindowServer(point: location)
-        let ownPid = ProcessInfo.processInfo.processIdentifier
         guard let windows = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
         ) as? [[String: Any]] else { return nil }
+        return topmostWindowId(
+            in: windows,
+            at: ScreenCoordinateSpace.toWindowServer(point: location),
+            ownPid: ProcessInfo.processInfo.processIdentifier
+        )
+    }
+
+    nonisolated static func topmostWindowId(in windows: [[String: Any]], at point: CGPoint, ownPid: pid_t) -> Int? {
         for window in windows {
             guard let windowId = window[kCGWindowNumber as String] as? Int,
                   let pid = window[kCGWindowOwnerPID as String] as? pid_t, pid != ownPid,
-                  (window[kCGWindowLayer as String] as? Int) == 0,
+                  let layer = window[kCGWindowLayer as String] as? Int, coveringWindowLayers.contains(layer),
                   (window[kCGWindowAlpha as String] as? Double ?? 1) > 0,
                   let bounds = window[kCGWindowBounds as String] as? [String: Any],
                   let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary),

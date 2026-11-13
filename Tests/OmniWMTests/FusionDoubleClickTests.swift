@@ -992,6 +992,35 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertNotEqual(column.width, width)
     }
 
+    func testAFloatingPanelOverAnEdgeIsTheWindowOnTopButTheDockAndMenuBarAreNot() {
+        func window(
+            _ id: Int,
+            layer: Int,
+            pid: pid_t = 500,
+            alpha: Double = 1,
+            frame: CGRect = CGRect(x: 0, y: 0, width: 400, height: 400)
+        ) -> [String: Any] {
+            [
+                kCGWindowNumber as String: id,
+                kCGWindowOwnerPID as String: pid,
+                kCGWindowLayer as String: layer,
+                kCGWindowAlpha as String: alpha,
+                kCGWindowBounds as String: frame.dictionaryRepresentation
+            ]
+        }
+        let point = CGPoint(x: 100, y: 100)
+        let tiled = window(1, layer: 0)
+        let topmost = { (windows: [[String: Any]]) in
+            MouseEventHandler.topmostWindowId(in: windows, at: point, ownPid: 99)
+        }
+
+        XCTAssertEqual(topmost([window(2, layer: 3), tiled]), 2)
+        XCTAssertEqual(topmost([window(3, layer: 8), tiled]), 3)
+        XCTAssertEqual(topmost([window(4, layer: 20), window(5, layer: 24), window(6, layer: 25), tiled]), 1)
+        XCTAssertEqual(topmost([window(7, layer: 3, pid: 99), window(8, layer: 3, alpha: 0), tiled]), 1)
+        XCTAssertNil(topmost([window(9, layer: 3, frame: CGRect(x: 500, y: 500, width: 10, height: 10))]))
+    }
+
     func testATitleBarDoubleClickOnAControlIsLeftToTheApp() throws {
         let fixture = try makeFixture(pid: 941_008)
         let column = try fixture.column(fixture.tokens[1])
