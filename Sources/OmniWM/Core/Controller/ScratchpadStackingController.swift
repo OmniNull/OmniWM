@@ -62,7 +62,7 @@ final class ScratchpadStackingController {
             nextHandleIndex: 0,
             pendingHandle: nil,
             pendingRequestId: nil,
-            pendingActivationSettled: false,
+            pendingActivationObserved: false,
             continuationScheduled: false,
             focusOrigin: focusOrigin
         )
@@ -81,7 +81,7 @@ final class ScratchpadStackingController {
             }
             plan.pendingHandle = barrierHandle
             plan.pendingRequestId = barrierRequest.requestId
-            plan.pendingActivationSettled = controller.axEventHandler.frontmostApplicationPIDProvider()
+            plan.pendingActivationObserved = controller.axEventHandler.frontmostApplicationPIDProvider()
                 == barrierRequest.token.pid
             scratchpadStackingPlan = plan
             return
@@ -126,7 +126,7 @@ final class ScratchpadStackingController {
 
             plan.pendingHandle = handle
             plan.pendingRequestId = nil
-            plan.pendingActivationSettled = controller.axEventHandler.frontmostApplicationPIDProvider() == entry.pid
+            plan.pendingActivationObserved = controller.axEventHandler.frontmostApplicationPIDProvider() == entry.pid
             plan.continuationScheduled = false
             scratchpadStackingPlan = plan
             let origin: ManagedFocusOrigin = plan.handles[plan.nextHandleIndex...].contains { candidate in
@@ -178,8 +178,9 @@ final class ScratchpadStackingController {
         guard var plan = scratchpadStackingPlan,
               plan.id == planId,
               !plan.continuationScheduled,
-              plan.pendingActivationSettled,
+              plan.pendingActivationObserved,
               let pendingPID = plan.pendingHandle?.id.pid,
+              controller.axEventHandler.frontmostApplicationPIDProvider() == pendingPID,
               let requestId = plan.pendingRequestId,
               controller.intentLedger.intent(id: requestId)?.phase == .confirmed,
               controller.intentLedger.newestFocusIntentId() == requestId
@@ -209,7 +210,7 @@ final class ScratchpadStackingController {
             }
             currentPlan.pendingHandle = nil
             currentPlan.pendingRequestId = nil
-            currentPlan.pendingActivationSettled = false
+            currentPlan.pendingActivationObserved = false
             currentPlan.continuationScheduled = false
             scratchpadStackingPlan = currentPlan
             advanceScratchpadStacking(planId: planId)
@@ -225,7 +226,7 @@ private struct ScratchpadStackingPlan {
     var nextHandleIndex: Int
     var pendingHandle: WindowHandle?
     var pendingRequestId: IntentID?
-    var pendingActivationSettled: Bool
+    var pendingActivationObserved: Bool
     var continuationScheduled: Bool
     let focusOrigin: ManagedFocusOrigin
 }
@@ -257,7 +258,7 @@ extension ScratchpadStackingController {
         }
         plan.pendingHandle = nil
         plan.pendingRequestId = nil
-        plan.pendingActivationSettled = false
+        plan.pendingActivationObserved = false
         plan.continuationScheduled = false
         scratchpadStackingPlan = plan
         advanceScratchpadStacking(planId: plan.id)
@@ -269,17 +270,15 @@ extension ScratchpadStackingController {
     }
 
     func noteScratchpadStackingAppActivation(pid: pid_t, source: ActivationEventSource) {
-        guard let controller else { return }
-        guard source == .workspaceDidActivateApplication,
-              var plan = scratchpadStackingPlan,
-              let pendingHandle = plan.pendingHandle,
-              pendingHandle.id.pid == pid,
-              controller.axEventHandler.frontmostApplicationPIDProvider() == pid
+        guard var plan = scratchpadStackingPlan,
+              plan.pendingHandle?.id.pid == pid
         else {
             return
         }
-        plan.pendingActivationSettled = true
-        scratchpadStackingPlan = plan
+        if source == .workspaceDidActivateApplication {
+            plan.pendingActivationObserved = true
+            scratchpadStackingPlan = plan
+        }
         scheduleScratchpadStackingIfReady(planId: plan.id)
     }
 
