@@ -1866,6 +1866,23 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
     }
 
+    func testAReportHeldBackByAQueuedRefreshIsCheckedAgainWhenTheRefreshEnds() throws {
+        let fixture = try makeFixture(pid: 938_150)
+        let handler = fixture.controller.niriLayoutHandler
+        let refreshes = fixture.controller.layoutRefreshController
+        handler.overflowReports[fixture.tokens[1]] = 0
+        XCTAssertFalse(handler.isOverflowCheckScheduled)
+
+        refreshes.finishRefresh(
+            .init(kind: .immediateRelayout, reason: .workspaceTransition),
+            didComplete: true,
+            generation: refreshes.layoutState.refreshGeneration
+        )
+
+        XCTAssertTrue(handler.isOverflowCheckScheduled)
+        handler.overflowReports.removeAll()
+    }
+
     func testAReportHeldWhileTheStackDropSettlesIsDecidedWhenTheDropIsRecorded() throws {
         let fixture = try makeFixture(pid: 938_130, animated: true)
         let watch = watchOverflows(fixture)
