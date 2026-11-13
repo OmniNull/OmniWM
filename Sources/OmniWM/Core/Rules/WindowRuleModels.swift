@@ -55,12 +55,14 @@ struct WindowRuleProvenance: Equatable, Sendable {
     var minWidth: UUID?
     var minHeight: UUID?
     var initialContainerPrimarySpan: UUID?
+    var scratchpad: UUID?
 
     static let none = WindowRuleProvenance()
 }
 
 struct ManagedWindowAdmissionHints: Equatable, Sendable {
     var initialNiriContainerPrimarySpan: Double?
+    var scratchpad: ScratchpadIndex?
 
     static let none = ManagedWindowAdmissionHints()
 }

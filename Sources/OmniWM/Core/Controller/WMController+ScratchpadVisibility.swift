@@ -27,7 +27,8 @@ extension WMController {
     func parkScratchpadWindow(
         _ entry: WindowState,
         monitor: Monitor,
-        captureGeometry: Bool = true
+        captureGeometry: Bool = true,
+        admission: ScratchpadParkAdmission? = nil
     ) -> Bool {
         let logicalOnly = workspaceManager.isWindowSuppressedByMacOS(entry.token)
             || isManagedWindowSuspendedForNativeFullscreen(entry.token)
@@ -45,7 +46,9 @@ extension WMController {
         if captureGeometry {
             _ = captureVisibleFloatingGeometry(for: entry.token, preferredMonitor: monitor)
         }
-        if entry.axRef != nil, let ref = AXWindowService.axWindowRef(for: UInt32(entry.windowId), pid: entry.pid) {
+        if let axRef = entry.axRef,
+           let ref = admission == nil ? AXWindowService.axWindowRef(for: UInt32(entry.windowId), pid: entry.pid) : axRef
+        {
             AXWindowService.pinAXElement(ref.element, for: UInt32(entry.windowId))
         }
 
@@ -53,7 +56,8 @@ extension WMController {
             entry,
             monitor: monitor,
             side: layoutRefreshController.preferredHideSide(for: monitor),
-            reason: .scratchpad
+            reason: .scratchpad,
+            observedFrame: admission?.observedFrame
         )
         if !parked,
            workspaceManager.hiddenState(for: entry.token) == nil,
@@ -189,10 +193,7 @@ extension WMController {
                 return handle.id
             }
             guard !survivors.isEmpty else {
-                if self.workspaceManager.revealedScratchpadIndex() == index {
-                    self.workspaceManager.setRevealedScratchpad(nil)
-                    self.requestWorkspaceBarRefresh()
-                }
+                self.layoutRefreshController.reconcileRevealedScratchpadAfterGroupDiscard(index)
                 return
             }
             self.scratchpadStacking

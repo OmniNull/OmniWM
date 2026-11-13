@@ -33,6 +33,14 @@ enum WorkspaceConfigurationDeletePolicy {
             ? String(localized: "Delete workspace")
             : String(localized: "Move or close all windows in this workspace before deleting it")
     }
+
+    static func assignedRuleCount(_ config: WorkspaceConfiguration, in rules: [AppRule]) -> Int {
+        rules.count { assignsRule($0, to: config) }
+    }
+
+    static func assignsRule(_ rule: AppRule, to config: WorkspaceConfiguration) -> Bool {
+        rule.assignedWorkspaceName == config.name
+    }
 }
 
 enum WorkspaceConfigurationAddPolicy {
@@ -182,7 +190,7 @@ struct WorkspacesSettingsTab: View {
     }
 
     private func deleteConfirmationMessage(for config: WorkspaceConfiguration) -> String {
-        let matchingRuleCount = settings.appRules.count { $0.assignToWorkspace == config.name }
+        let matchingRuleCount = WorkspaceConfigurationDeletePolicy.assignedRuleCount(config, in: settings.appRules)
         guard matchingRuleCount > 0 else {
             return String(localized: "Delete workspace \(config.effectiveDisplayName)?")
         }
@@ -227,7 +235,9 @@ struct WorkspacesSettingsTab: View {
     private func deleteConfiguration(_ config: WorkspaceConfiguration) {
         guard canDeleteConfiguration(config) else { return }
         settings.workspaces.configurations.removeAll { $0.id == config.id }
-        for index in settings.appRules.indices where settings.appRules[index].assignToWorkspace == config.name {
+        for index in settings.appRules.indices
+            where WorkspaceConfigurationDeletePolicy.assignsRule(settings.appRules[index], to: config)
+        {
             settings.appRules[index].assignToWorkspace = nil
         }
         controller.updateWorkspaceConfig()

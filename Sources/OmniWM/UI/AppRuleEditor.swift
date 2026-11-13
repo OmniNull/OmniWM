@@ -44,7 +44,7 @@ struct AppRuleDetailView: View {
     var body: some View {
         Form {
             RuleApplicationSection(draft: $draft, controller: controller)
-            RuleWindowBehaviorSection(draft: $draft, workspaceNames: workspaceNames)
+            RuleWindowBehaviorSection(draft: $draft, workspaceNames: workspaceNames, settings: controller.settings)
             RuleMinimumSizeSection(draft: $draft)
 
             Section {
@@ -150,7 +150,7 @@ struct AppRuleAddSheet: View {
 
             Form {
                 RuleApplicationSection(draft: $draft, controller: controller)
-                RuleWindowBehaviorSection(draft: $draft, workspaceNames: workspaceNames)
+                RuleWindowBehaviorSection(draft: $draft, workspaceNames: workspaceNames, settings: controller.settings)
                 RuleMinimumSizeSection(draft: $draft)
 
                 Section {
@@ -189,6 +189,7 @@ struct AppRuleAddSheet: View {
 struct RuleWindowBehaviorSection: View {
     @Binding var draft: AppRuleDraft
     let workspaceNames: [String]
+    let settings: SettingsStore
 
     var body: some View {
         Section("Window Behavior") {
@@ -203,7 +204,7 @@ struct RuleWindowBehaviorSection: View {
                 localized: "Settings left on Automatic or off can come from other rules that match the same window."
             )
 
-            Toggle("Assign to Workspace", isOn: $draft.assignToWorkspaceEnabled)
+            Toggle("Assign to Workspace", isOn: assignToWorkspaceEnabled)
                 .onChange(of: draft.assignToWorkspaceEnabled) { _, enabled in
                     guard enabled else { return }
                     seedWorkspaceIfNeeded()
@@ -226,6 +227,25 @@ struct RuleWindowBehaviorSection: View {
                     Text("Workspace \"\(draft.assignToWorkspace)\" no longer exists. Pick another.")
                         .font(.caption)
                         .foregroundStyle(.orange)
+                }
+            }
+
+            Toggle("Assign to Scratchpad", isOn: scratchpadEnabled)
+
+            if draft.scratchpadEnabled {
+                Picker("Scratchpad Slot", selection: $draft.scratchpad) {
+                    ForEach(Array(ScratchpadIndex.range), id: \.self) { slot in
+                        Text(scratchpadSlotName(slot)).tag(slot)
+                    }
+                    if !ScratchpadIndex.range.contains(draft.scratchpad) {
+                        Text("Slot \(draft.scratchpad)").tag(draft.scratchpad)
+                    }
+                }
+
+                if let error = draft.scratchpadError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
                 }
             }
 
@@ -289,6 +309,30 @@ struct RuleWindowBehaviorSection: View {
         draft.assignToWorkspaceEnabled &&
             !draft.assignToWorkspace.isEmpty &&
             !workspaceNames.contains(draft.assignToWorkspace)
+    }
+
+    private var assignToWorkspaceEnabled: Binding<Bool> {
+        Binding(
+            get: { draft.assignToWorkspaceEnabled },
+            set: { enabled in
+                draft.assignToWorkspaceEnabled = enabled
+                if enabled { draft.scratchpadEnabled = false }
+            }
+        )
+    }
+
+    private var scratchpadEnabled: Binding<Bool> {
+        Binding(
+            get: { draft.scratchpadEnabled },
+            set: { enabled in
+                draft.scratchpadEnabled = enabled
+                if enabled { draft.assignToWorkspaceEnabled = false }
+            }
+        )
+    }
+
+    private func scratchpadSlotName(_ slot: Int) -> String {
+        settings.scratchpadLabel(for: slot) ?? String(localized: "Slot \(slot)")
     }
 
     private func seedWorkspaceIfNeeded() {

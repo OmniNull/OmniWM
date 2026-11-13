@@ -33,6 +33,13 @@ enum CLIArgumentParser {
         return value
     }
 
+    static func parseScratchpadIndex(_ rawValue: String) throws -> Int {
+        guard let value = Int(rawValue), IPCScratchpadSlots.range.contains(value) else {
+            throw CLIParseError.usage(CLIParser.usageText)
+        }
+        return value
+    }
+
     static func parsePID(_ rawValue: String) throws -> Int32 {
         guard let value = Int32(rawValue), value > 0 else {
             throw CLIParseError.usage(CLIParser.usageText)

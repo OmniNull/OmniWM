@@ -14,10 +14,16 @@ struct RuleReevaluationWindow {
     let admissionHints: ManagedWindowAdmissionHints
     let admission: WindowAdmission
     let placementOrigin: WorkspacePlacementOrigin
+    let scratchpadRelease: ScratchpadMemberRelease?
     let createPlacementContext: WindowCreatePlacementContext?
+    let scratchpadAdmission: ScratchpadAdmission?
 
     var mode: TrackedWindowMode {
         admission.mode
+    }
+
+    var replacementMode: TrackedWindowMode {
+        scratchpadAdmission?.replacementMode(for: admission) ?? mode
     }
 
     func admissionMetadata(workspaceId: WorkspaceDescriptor.ID) -> ManagedReplacementMetadata {

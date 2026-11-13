@@ -362,6 +362,107 @@ final class WindowRuleEngineTests: XCTestCase {
         XCTAssertEqual(titled.ruleProvenance, WindowRuleProvenance(workspace: bundleRule.id, minWidth: titleRule.id))
     }
 
+    func testScratchpadRuleBecomesAdmissionDestination() {
+        let engine = WindowRuleEngine()
+        let rule = AppRule(bundleId: "com.test.app", scratchpad: 2)
+        engine.rebuild(rules: [rule])
+
+        let decision = evaluate(engine, facts(appName: "Test", bundleId: "com.test.app"))
+
+        XCTAssertEqual(decision.admissionHints.scratchpad, 2)
+        XCTAssertNil(decision.workspaceName)
+        XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(scratchpad: rule.id))
+    }
+
+    func testWhitespaceWorkspaceDoesNotBlockScratchpadDestination() {
+        let engine = WindowRuleEngine()
+        let rule = AppRule(bundleId: "com.test.app", assignToWorkspace: "  ", scratchpad: 2)
+        engine.rebuild(rules: [rule])
+
+        let decision = evaluate(engine, facts(appName: "Test", bundleId: "com.test.app"))
+
+        XCTAssertEqual(decision.admissionHints.scratchpad, 2)
+        XCTAssertNil(decision.workspaceName)
+        XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(scratchpad: rule.id))
+    }
+
+    func testWhitespaceWorkspaceIsNotADestination() {
+        let engine = WindowRuleEngine()
+        let rule = AppRule(bundleId: "com.test.app", layout: .float, assignToWorkspace: "  ")
+        engine.rebuild(rules: [rule])
+
+        let decision = evaluate(engine, facts(appName: "Test", bundleId: "com.test.app"))
+
+        XCTAssertNil(decision.workspaceName)
+        XCTAssertNil(decision.ruleProvenance.workspace)
+    }
+
+    func testMoreSpecificWorkspaceRuleBeatsScratchpadRule() {
+        let engine = WindowRuleEngine()
+        let scratchpadRule = AppRule(bundleId: "com.test.app", scratchpad: 2)
+        let workspaceRule = AppRule(bundleId: "com.test.app", titleSubstring: "Doc", assignToWorkspace: "3")
+        engine.rebuild(rules: [scratchpadRule, workspaceRule])
+
+        let decision = evaluate(engine, facts(appName: "Test", bundleId: "com.test.app", title: "Doc"))
+
+        XCTAssertEqual(decision.workspaceName, "3")
+        XCTAssertNil(decision.admissionHints.scratchpad)
+        XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(workspace: workspaceRule.id))
+    }
+
+    func testMoreSpecificScratchpadRuleBeatsWorkspaceRule() {
+        let engine = WindowRuleEngine()
+        let workspaceRule = AppRule(bundleId: "com.test.app", assignToWorkspace: "3")
+        let scratchpadRule = AppRule(bundleId: "com.test.app", titleSubstring: "Doc", scratchpad: 2)
+        engine.rebuild(rules: [workspaceRule, scratchpadRule])
+
+        let decision = evaluate(engine, facts(appName: "Test", bundleId: "com.test.app", title: "Doc"))
+
+        XCTAssertEqual(decision.admissionHints.scratchpad, 2)
+        XCTAssertNil(decision.workspaceName)
+        XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(scratchpad: scratchpadRule.id))
+    }
+
+    func testRuleSettingScratchpadAndWorkspaceUsesOnlyWorkspace() {
+        let engine = WindowRuleEngine()
+        let rule = AppRule(bundleId: "com.test.app", assignToWorkspace: "3", scratchpad: 2)
+        engine.rebuild(rules: [rule])
+
+        let decision = evaluate(engine, facts(appName: "Test", bundleId: "com.test.app"))
+
+        XCTAssertEqual(decision.workspaceName, "3")
+        XCTAssertNil(decision.admissionHints.scratchpad)
+        XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(workspace: rule.id))
+    }
+
+    func testRuleSettingScratchpadAndTileLayoutKeepsOnlyTileLayout() {
+        let engine = WindowRuleEngine()
+        let rule = AppRule(bundleId: "com.test.app", layout: .tile, scratchpad: 2)
+        engine.rebuild(rules: [rule])
+
+        let decision = evaluate(engine, facts(appName: "Test", bundleId: "com.test.app"))
+
+        XCTAssertEqual(decision.disposition, .managed)
+        XCTAssertEqual(decision.layoutDecisionKind, .explicitLayout)
+        XCTAssertNil(decision.admissionHints.scratchpad)
+        XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(layout: rule.id))
+    }
+
+    func testManualOverrideKeepsScratchpadDestination() {
+        let engine = WindowRuleEngine()
+        let rule = AppRule(bundleId: "com.test.app", scratchpad: 4)
+        engine.rebuild(rules: [rule])
+
+        let decision = WindowRuleEngine.applyingManualOverride(
+            evaluate(engine, facts(appName: "Test", bundleId: "com.test.app")),
+            manualOverride: .forceTile
+        )
+
+        XCTAssertEqual(decision.source, .manualOverride)
+        XCTAssertEqual(decision.admissionHints.scratchpad, 4)
+        XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(scratchpad: rule.id))
+    }
+
     func testManualOverrideKeepsComposedEffectsAndDropsLayoutProvenance() {
         let engine = WindowRuleEngine()
         let floating = AppRule(bundleId: "com.test.app", layout: .float, assignToWorkspace: "2")
@@ -383,6 +484,7 @@ final class WindowRuleEngineTests: XCTestCase {
     func testDebugDumpNamesTheRuleBehindEachSetting() {
         let workspaceRuleId = UUID()
         let minWidthRuleId = UUID()
+        let scratchpadRuleId = UUID()
         let snapshot = WindowDecisionDebugSnapshot(
             token: nil,
             appName: "Test",
@@ -398,16 +500,23 @@ final class WindowRuleEngineTests: XCTestCase {
             deferredReason: nil,
             admissionOutcome: .trackedTiling,
             workspaceName: "2",
+            scratchpad: 5,
             minWidth: 400,
             minHeight: nil,
             initialNiriContainerPrimarySpan: nil,
-            ruleProvenance: WindowRuleProvenance(workspace: workspaceRuleId, minWidth: minWidthRuleId),
+            ruleProvenance: WindowRuleProvenance(
+                workspace: workspaceRuleId,
+                minWidth: minWidthRuleId,
+                scratchpad: scratchpadRuleId
+            ),
             heuristicReasons: [],
             attributeFetchSucceeded: true
         )
         let lines = Set(snapshot.formattedDump().split(separator: "\n").map(String.init))
 
         XCTAssertTrue(lines.contains("workspaceRuleId=\(workspaceRuleId.uuidString)"))
+        XCTAssertTrue(lines.contains("scratchpad=5"))
+        XCTAssertTrue(lines.contains("scratchpadRuleId=\(scratchpadRuleId.uuidString)"))
         XCTAssertTrue(lines.contains("minWidthRuleId=\(minWidthRuleId.uuidString)"))
         XCTAssertTrue(lines.contains("minHeightRuleId=nil"))
         XCTAssertTrue(lines.contains("layoutRuleId=nil"))

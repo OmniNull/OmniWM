@@ -57,6 +57,7 @@ extension LayoutRefreshController {
     ) -> WindowState? {
         let controller = context.controller
         var existingEntry = entry
+        let wasNativeSuppressed = entry?.observedState.isNativeSuppressed == true
         if let entry = existingEntry, let minimized = candidate.minimizedAttribute {
             controller.axEventHandler.updateWindowMinimizedState(
                 minimized,
@@ -72,6 +73,10 @@ extension LayoutRefreshController {
                 appFullscreen: candidate.isFullscreen(screenFrames: context.screenFrames),
                 requestRefresh: false
             )
+            existingEntry = controller.workspaceManager.entry(for: entry.token)
+        }
+        if wasNativeSuppressed, let entry = existingEntry, !entry.observedState.isNativeSuppressed {
+            controller.reconcileDisplayableScratchpadMember(entry.token)
             existingEntry = controller.workspaceManager.entry(for: entry.token)
         }
         return existingEntry

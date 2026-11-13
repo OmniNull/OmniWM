@@ -8,7 +8,7 @@ import Foundation
 struct ComposedUserRules {
     private(set) var primary: CompiledWindowRule?
     private(set) var layout: CompiledWindowRule?
-    private(set) var workspace: CompiledWindowRule?
+    private(set) var destination: CompiledWindowRule?
     private(set) var minWidth: CompiledWindowRule?
     private(set) var minHeight: CompiledWindowRule?
     private(set) var initialContainerPrimarySpan: CompiledWindowRule?
@@ -23,8 +23,8 @@ struct ComposedUserRules {
         if rule.effectiveLayoutAction != .auto {
             Self.keepHigherRanked(&layout, candidate)
         }
-        if rule.assignToWorkspace?.isEmpty == false {
-            Self.keepHigherRanked(&workspace, candidate)
+        if rule.assignedWorkspaceName != nil || rule.validScratchpad != nil {
+            Self.keepHigherRanked(&destination, candidate)
         }
         if rule.minWidth != nil {
             Self.keepHigherRanked(&minWidth, candidate)
@@ -131,25 +131,29 @@ struct MatchedWindowRules {
         heuristicReasons: [AXWindowHeuristicReason] = [],
         deferredReason: WindowDecisionDeferredReason? = nil
     ) -> WindowDecision {
-        WindowDecision(
+        let destinationRule = userRules.destination?.rule
+        let scratchpad = destinationRule?.validScratchpad
+        return WindowDecision(
             disposition: disposition,
             source: source,
             layoutDecisionKind: layoutDecisionKind,
-            workspaceName: userRules.workspace?.rule.assignToWorkspace,
+            workspaceName: scratchpad == nil ? destinationRule?.assignedWorkspaceName : nil,
             ruleEffects: ManagedWindowRuleEffects(
                 minWidth: userRules.minWidth?.rule.minWidth,
                 minHeight: userRules.minHeight?.rule.minHeight
             ),
             admissionHints: ManagedWindowAdmissionHints(
                 initialNiriContainerPrimarySpan: userRules.initialContainerPrimarySpan?.rule
-                    .validInitialContainerPrimarySpan
+                    .validInitialContainerPrimarySpan,
+                scratchpad: scratchpad
             ),
             ruleProvenance: WindowRuleProvenance(
                 layout: layoutRuleId,
-                workspace: userRules.workspace?.rule.id,
+                workspace: scratchpad == nil ? destinationRule?.id : nil,
                 minWidth: userRules.minWidth?.rule.id,
                 minHeight: userRules.minHeight?.rule.id,
-                initialContainerPrimarySpan: userRules.initialContainerPrimarySpan?.rule.id
+                initialContainerPrimarySpan: userRules.initialContainerPrimarySpan?.rule.id,
+                scratchpad: scratchpad == nil ? nil : destinationRule?.id
             ),
             heuristicReasons: heuristicReasons,
             deferredReason: deferredReason

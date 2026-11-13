@@ -153,11 +153,74 @@ final class IPCRuleValidatorTests: XCTestCase {
         XCTAssertNil(decoded.initialContainerPrimarySpan)
     }
 
+    func testScratchpadSlotBoundsAcceptedAsTheOnlyEffect() {
+        for slot in [1, 10] {
+            let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: "com.test.app", scratchpad: slot))
+            XCTAssertNil(report.scratchpadError)
+            XCTAssertNil(report.effectError)
+            XCTAssertTrue(report.isValid)
+        }
+    }
+
+    func testScratchpadOutsideSlotRangeRejectedWithoutCountingAsEffect() {
+        for slot in [0, 11, -1] {
+            let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: "com.test.app", scratchpad: slot))
+            XCTAssertEqual(report.scratchpadError, "Scratchpad must be a slot from 1 to 10")
+            XCTAssertNotNil(report.effectError)
+            XCTAssertFalse(report.isValid)
+        }
+    }
+
+    func testScratchpadConflictsWithWorkspaceAndTileLayout() {
+        let workspace = IPCRuleValidator.validate(
+            IPCRuleDefinition(bundleId: "com.test.app", assignToWorkspace: "3", scratchpad: 2)
+        )
+        XCTAssertEqual(workspace.scratchpadError, "Choose a scratchpad or a workspace, not both")
+        XCTAssertFalse(workspace.isValid)
+
+        let tile = IPCRuleValidator.validate(
+            IPCRuleDefinition(bundleId: "com.test.app", layout: .tile, scratchpad: 2)
+        )
+        XCTAssertEqual(tile.scratchpadError, "Scratchpad windows float, so the layout can't be Tile")
+        XCTAssertFalse(tile.isValid)
+
+        let float = IPCRuleValidator.validate(
+            IPCRuleDefinition(bundleId: "com.test.app", layout: .float, scratchpad: 2)
+        )
+        XCTAssertNil(float.scratchpadError)
+        XCTAssertTrue(float.isValid)
+    }
+
+    func testScratchpadIPCModelsRoundTripAndManifestOption() throws {
+        let definition = IPCRuleDefinition(bundleId: "com.test.app", scratchpad: 4)
+        let definitionData = try JSONEncoder().encode(definition)
+        XCTAssertEqual(try JSONDecoder().decode(IPCRuleDefinition.self, from: definitionData), definition)
+
+        let snapshot = IPCRuleSnapshot(
+            id: "x",
+            position: 1,
+            bundleId: "com.test.app",
+            layout: .auto,
+            scratchpad: 4,
+            specificity: 2,
+            isValid: true
+        )
+        let snapshotData = try IPCWire.makeEncoder().encode(snapshot)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: snapshotData) as? [String: Any])
+        XCTAssertEqual(object["scratchpad"] as? Int, 4)
+        XCTAssertEqual(try JSONDecoder().decode(IPCRuleSnapshot.self, from: snapshotData), snapshot)
+
+        let descriptor = try XCTUnwrap(
+            IPCAutomationManifest.ruleDefinitionOptionDescriptors.first { $0.flag == "--scratchpad" }
+        )
+        XCTAssertEqual(descriptor.valuePlaceholder, "<1-10>")
+    }
+
     func testMessagesAggregateAllErrors() {
         let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: ""))
         XCTAssertEqual(report.messages, [
             "Set a bundle ID, app name, or title matcher",
-            "Set a layout, workspace, initial container primary span, or minimum size — this rule has no effect"
+            "Set a layout, workspace, scratchpad, initial container primary span, or minimum size — this rule has no effect"
         ])
         XCTAssertEqual(report.messages, report.messages.filter { !$0.isEmpty })
         XCTAssertFalse(report.messages.isEmpty)
@@ -168,10 +231,14 @@ final class IPCRuleValidatorTests: XCTestCase {
             identifierError: "identifier",
             titleMatcherError: "title",
             initialContainerPrimarySpanError: "span",
+            scratchpadError: "scratchpad",
             effectError: "effect",
             minSizeError: "size"
         )
-        XCTAssertEqual(complete.messages, ["bundle", "regex", "identifier", "title", "span", "effect", "size"])
+        XCTAssertEqual(
+            complete.messages,
+            ["bundle", "regex", "identifier", "title", "span", "scratchpad", "effect", "size"]
+        )
     }
 
     func testSnapshotCodecToleratesMissingValidationMessages() throws {

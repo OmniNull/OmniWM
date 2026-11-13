@@ -83,6 +83,9 @@ extension AXEventHandler {
             controller.layoutRefreshController.cancelActiveAnimations(for: entry.workspaceId)
         }
         if entry.axRef != nil { controller.axManager.setWindowNativeSuppressed(suppressed, token: token) }
+        if requestRefresh, !suppressed {
+            controller.reconcileDisplayableScratchpadMember(token)
+        }
         controller.mouseEventHandler.handleAppVisibilityChanged()
         controller.windowActionHandler.refreshOverviewProjection(affectedWorkspaceIds: [entry.workspaceId])
         if requestRefresh {

@@ -5,7 +5,7 @@ import AppKit
 import Foundation
 
 extension AXEventHandler {
-    func trackPreparedCreate(_ candidate: PreparedCreate) {
+    func trackPreparedCreate(_ candidate: PreparedCreate, countsAsFocused: Bool = false) {
         defer { releasePreparedWindowSubscription(candidate.windowId) }
         guard let controller else { return }
         discardCreatePlacementContext(windowId: candidate.windowId)
@@ -20,16 +20,105 @@ extension AXEventHandler {
             )
         )
 
-        guard let trackedEntry = admitPreparedCreate(candidate, axPid: axPid, controller: controller) else { return }
-        let floatingTargetFrame = floatingCreateTarget(candidate, entry: trackedEntry, controller: controller)
+        let joinArrival = scratchpadArrival(for: candidate, countsAsFocused: countsAsFocused, controller: controller)
+        let admittedMode = joinArrival == nil ? candidate.mode : .floating
+        guard let trackedEntry = admitPreparedCreate(
+            candidate,
+            mode: admittedMode,
+            axPid: axPid,
+            controller: controller
+        )
+        else { return }
+        var floatingTargetFrame = floatingCreateTarget(candidate, entry: trackedEntry, controller: controller)
+        if let joinArrival, joinScratchpadOnCreate(candidate, arrival: joinArrival, controller: controller) {
+            floatingTargetFrame = nil
+        }
         bindPreparedCreate(trackedEntry, floatingTargetFrame: floatingTargetFrame, controller: controller)
+        let relayoutWorkspaceId = controller.workspaceManager.workspace(for: trackedEntry.token)
+            ?? trackedEntry.workspaceId
         controller.layoutRefreshController.requestRelayout(
             reason: .axWindowCreated,
-            affectedWorkspaceIds: [trackedEntry.workspaceId],
+            affectedWorkspaceIds: [relayoutWorkspaceId],
             suppressWindowActivation: false
         )
         scheduleWindowRuleReevaluationIfNeeded(targets: [.pid(trackedEntry.pid)])
         finishAdmissionRetryAfterTracking(windowId: candidate.windowId)
+    }
+
+    private func joinScratchpadOnCreate(
+        _ candidate: PreparedCreate,
+        arrival: ScratchpadJoinArrival,
+        controller: WMController
+    ) -> Bool {
+        guard let scratchpadAdmission = candidate.scratchpadAdmission else { return false }
+        controller.joinScratchpadOnAdmission(
+            candidate.token,
+            scratchpadAdmission,
+            observedFrame: candidate.observedFrame,
+            appFullscreen: candidate.appFullscreen,
+            arrival: arrival
+        )
+        guard let joinedEntry = controller.workspaceManager.entry(for: candidate.token) else { return true }
+        if joinedEntry.hiddenState?.isScratchpad == true, !controller.axManager.hasContext(for: candidate.token.pid) {
+            scheduleScratchpadParkAfterContextWarmup(candidate.token)
+        }
+        return joinedEntry.hiddenState != nil || joinedEntry.mode != .floating
+    }
+
+    private func scheduleScratchpadParkAfterContextWarmup(_ token: WindowToken) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.warmAXContextIfNeeded(for: token.pid)
+            guard let controller = self.controller,
+                  controller.hasStartedServices,
+                  controller.axManager.hasContext(for: token.pid)
+            else {
+                return
+            }
+            controller.reissueScratchpadAdmissionPark(token)
+        }
+    }
+
+    private func scratchpadArrival(
+        for candidate: PreparedCreate,
+        countsAsFocused: Bool,
+        controller: WMController
+    ) -> ScratchpadJoinArrival? {
+        guard let scratchpadAdmission = candidate.scratchpadAdmission,
+              controller.workspaceManager.entry(for: candidate.token) == nil
+        else {
+            return nil
+        }
+        return scratchpadJoinArrival(
+            candidate.token,
+            in: scratchpadAdmission.index,
+            canCountAsFocused: !candidate.isMinimized && !candidate.appFullscreen,
+            countsAsFocused: countsAsFocused
+        )
+    }
+
+    func scratchpadJoinArrival(
+        _ token: WindowToken,
+        in index: ScratchpadIndex,
+        canCountAsFocused: Bool,
+        countsAsFocused: Bool = false
+    ) -> ScratchpadJoinArrival {
+        guard let controller else { return .quiet(previousFocusToken: nil) }
+        let quiet = ScratchpadJoinArrival.quiet(previousFocusToken: controller.workspaceManager.selectedManagedToken)
+        if controller.workspaceManager.revealedScratchpadIndex() == index { return .intoRevealedSlot }
+        guard canCountAsFocused else { return quiet }
+        return countsAsFocused || createCountsAsFocused(token, controller: controller) ? .focused : quiet
+    }
+
+    private func createCountsAsFocused(_ token: WindowToken, controller: WMController) -> Bool {
+        if controller.workspaceManager.nativeFocusOwner.externalToken == token { return true }
+        guard frontmostApplicationPIDProvider() == token.pid else { return false }
+        let focusedToken = if let provider = controller.commandHandler.frontmostFocusedWindowTokenProvider {
+            provider()
+        } else {
+            focusedWindowToken(for: token.pid)
+        }
+        return focusedToken == token
     }
 
     private func shouldApplyFloatingCreateFrameImmediately(
@@ -146,6 +235,7 @@ extension AXEventHandler {
 
     private func admitPreparedCreate(
         _ candidate: PreparedCreate,
+        mode: TrackedWindowMode,
         axPid: pid_t?,
         controller: WMController
     ) -> WindowState? {
@@ -159,7 +249,7 @@ extension AXEventHandler {
             pid: candidate.token.pid,
             windowId: candidate.token.windowId,
             to: candidate.workspaceId,
-            mode: candidate.mode,
+            mode: mode,
             ruleEffects: candidate.ruleEffects,
             admissionHints: candidate.admissionHints,
             lifetimeAuthority: .directLifecycle,

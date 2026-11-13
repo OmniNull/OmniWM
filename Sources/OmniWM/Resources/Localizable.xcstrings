@@ -1,6 +1,33 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Choose a scratchpad or a workspace, not both" : {
+
+    },
+    "Invalid scratchpad" : {
+
+    },
+    "Joins scratchpad %lld" : {
+
+    },
+    "SP %lld" : {
+
+    },
+    "Scratchpad Slot" : {
+
+    },
+    "Scratchpad invalid" : {
+
+    },
+    "Scratchpad must be a slot from 1 to 10" : {
+
+    },
+    "Scratchpad windows float, so the layout can't be Tile" : {
+
+    },
+    "Slot %lld" : {
+
+    },
     "The bundled launcher helper could not be found." : {
 
     },

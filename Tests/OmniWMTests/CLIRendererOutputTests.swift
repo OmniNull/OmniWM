@@ -309,4 +309,39 @@ final class CLIRendererOutputTests: XCTestCase {
 
         XCTAssertEqual(Set(markerColumns).count, 1)
     }
+
+    func testRulesShowScratchpadColumnAfterWorkspace() throws {
+        let rules = IPCRulesQueryResult(rules: [
+            IPCRuleSnapshot(
+                id: "r1",
+                position: 1,
+                bundleId: "com.example.A",
+                layout: .auto,
+                scratchpad: 2,
+                specificity: 1,
+                isValid: true
+            ),
+            IPCRuleSnapshot(
+                id: "r2",
+                position: 2,
+                bundleId: "com.example.B",
+                layout: .float,
+                assignToWorkspace: "3",
+                specificity: 1,
+                isValid: true
+            )
+        ])
+        let response = IPCResponse.success(id: "1", kind: .query, result: IPCResult(rules: rules))
+        let text = try String(decoding: CLIRenderer.responseOutput(response, format: .tsv).data, as: UTF8.self)
+        let lines = text.trimmingCharacters(in: .newlines).components(separatedBy: "\n").map {
+            $0.components(separatedBy: "\t")
+        }
+
+        XCTAssertEqual(lines.count, 3)
+        let workspace = try XCTUnwrap(lines[0].firstIndex(of: "WORKSPACE"))
+        XCTAssertEqual(lines[0][workspace + 1], "SCRATCHPAD")
+        XCTAssertEqual(lines[1][workspace + 1], "2")
+        XCTAssertEqual(lines[2][workspace], "3")
+        XCTAssertEqual(lines[2][workspace + 1], "-")
+    }
 }

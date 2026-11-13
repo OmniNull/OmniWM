@@ -815,7 +815,7 @@ struct WindowDecision: Equatable, Sendable {
     let layoutDecisionKind: WindowDecisionLayoutKind   // .explicitLayout / .fallbackLayout
     let workspaceName: String?
     let ruleEffects: ManagedWindowRuleEffects   // minWidth/minHeight + matchedRuleId
-    let admissionHints: ManagedWindowAdmissionHints    // initialNiriContainerPrimarySpan
+    let admissionHints: ManagedWindowAdmissionHints    // initialNiriContainerPrimarySpan, scratchpad
     let heuristicReasons: [AXWindowHeuristicReason]
     let deferredReason: WindowDecisionDeferredReason?
 }
@@ -835,6 +835,11 @@ window creates or claims a new container. Niri owns that initial primary-span se
 Dwindle ignores it, restored placement takes precedence, and later resize or relayout operations do not
 reassert the rule value. Single Window Fit retains visual precedence for a lone window, while physical
 minimum-size constraints can clamp the resolved span without mutating the stored initial proportion.
+
+A rule's scratchpad slot is also an admission hint. It shares the rule destination with `assignToWorkspace`, so
+`WindowRuleEngine` takes whichever of the two the highest-ranked destination-setting rule sets, and admission adds
+the window to that slot once. A revealed scratchpad stays revealed when its last member's window is destroyed or
+its app quits.
 
 ### 4.8 IPC System
 

@@ -34,6 +34,7 @@ enum IPCRuleProjection {
             validation.identifierError,
             validation.titleMatcherError,
             validation.initialContainerPrimarySpanError,
+            validation.scratchpadError,
             validation.effectError,
             validation.minSizeError
         ].compactMap { $0 }
@@ -53,6 +54,7 @@ enum IPCRuleProjection {
             initialContainerPrimarySpan: definition.initialContainerPrimarySpan,
             minWidth: definition.minWidth,
             minHeight: definition.minHeight,
+            scratchpad: definition.scratchpad,
             specificity: rule.specificity,
             isValid: isValid,
             invalidRegexMessage: invalidRegexMessage,
@@ -73,7 +75,8 @@ enum IPCRuleProjection {
                 assignToWorkspace: rule.assignToWorkspace,
                 initialContainerPrimarySpan: rule.initialContainerPrimarySpan,
                 minWidth: rule.minWidth,
-                minHeight: rule.minHeight
+                minHeight: rule.minHeight,
+                scratchpad: rule.scratchpad
             )
         )
     }
@@ -92,7 +95,8 @@ enum IPCRuleProjection {
             assignToWorkspace: normalized.assignToWorkspace,
             initialContainerPrimarySpan: normalized.initialContainerPrimarySpan,
             minWidth: normalized.minWidth,
-            minHeight: normalized.minHeight
+            minHeight: normalized.minHeight,
+            scratchpad: normalized.scratchpad
         )
     }
 
@@ -108,7 +112,8 @@ enum IPCRuleProjection {
             assignToWorkspace: trimmedNonEmpty(definition.assignToWorkspace),
             initialContainerPrimarySpan: definition.initialContainerPrimarySpan,
             minWidth: definition.minWidth,
-            minHeight: definition.minHeight
+            minHeight: definition.minHeight,
+            scratchpad: definition.scratchpad
         )
     }
 

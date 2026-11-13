@@ -16,13 +16,15 @@ extension AXEventHandler {
         token: WindowToken,
         axRef: AXWindowRef,
         existingEntry: WindowState?,
-        placementOrigin: WorkspacePlacementOrigin
+        placementOrigin: WorkspacePlacementOrigin,
+        context: WindowRuleReevaluationContext = .automatic
     ) {
         if let existingEntry {
             scheduleTrackedTilingPromotionRetry(
                 token: existingEntry.token,
                 axRef: axRef,
-                reason: .degenerateGeometry
+                reason: .degenerateGeometry,
+                context: context
             )
         } else if let windowId = UInt32(exactly: token.windowId) {
             scheduleCandidateAdmissionRetry(
@@ -61,16 +63,35 @@ extension AXEventHandler {
     func scheduleTrackedTilingPromotionRetry(
         token: WindowToken,
         axRef: AXWindowRef,
-        reason: WindowAdmissionPendingReason
+        reason: WindowAdmissionPendingReason,
+        context: WindowRuleReevaluationContext = .automatic
     ) -> Bool {
         guard let windowId = UInt32(exactly: token.windowId) else { return false }
+        let pendingTrigger = admissionRetryStateByWindowId[windowId]?.trigger
+        let keepsExplicitApply = if case .ruleReevaluation(_, _, .explicitRuleApply)? = pendingTrigger { true }
+        else { false }
         return scheduleAdmissionRetry(
             windowId: windowId,
             expectedToken: token,
             axRef: axRef,
             reason: reason,
-            trigger: .ruleReevaluation(token: token, axRef: axRef)
+            trigger: .ruleReevaluation(
+                token: token,
+                axRef: axRef,
+                context: keepsExplicitApply ? .explicitRuleApply : context
+            )
         )
+    }
+
+    func downgradeExplicitRuleApplyRetry(windowId: Int) {
+        guard let windowId = UInt32(exactly: windowId),
+              var state = admissionRetryStateByWindowId[windowId],
+              case let .ruleReevaluation(token, axRef, .explicitRuleApply) = state.trigger
+        else {
+            return
+        }
+        state.trigger = .ruleReevaluation(token: token, axRef: axRef, context: .automatic)
+        admissionRetryStateByWindowId[windowId] = state
     }
 
     func scheduleAdmissionRetry(

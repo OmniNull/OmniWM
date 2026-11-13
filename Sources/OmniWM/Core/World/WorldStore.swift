@@ -320,6 +320,7 @@ final class WorldStore {
     private func applyWindowRemovalAfterPlan(_ event: WMEvent, monitors: [Monitor]) {
         guard case let .windowRemoved(token, _, _) = event else { return }
         model.removeWindow(key: token)
+        scratchpads.remove(token)
         spaceTopology.windowSpace.removeValue(forKey: token.windowId)
         reconcileNiriMembership(for: token, keeping: nil, monitors: monitors)
     }
@@ -333,9 +334,7 @@ extension WorldStore {
     func appVisibilityGeneration(for pid: pid_t) -> UInt64 {
         appVisibilityGenerationByPID[pid] ?? 0
     }
-}
 
-extension WorldStore {
     func applyMonitorSessions(_ sessions: [Monitor.ID: MonitorSession]) {
         assertInCommit("applyMonitorSessions")
         monitorSessions = sessions

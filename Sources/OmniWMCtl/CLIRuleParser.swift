@@ -108,6 +108,7 @@ private struct CLIRuleDefinitionArguments {
     private var initialContainerPrimarySpan: Double?
     private var minWidth: Double?
     private var minHeight: Double?
+    private var scratchpad: Int?
 
     mutating func set(flag: String, value: String) throws {
         switch flag {
@@ -136,6 +137,8 @@ private struct CLIRuleDefinitionArguments {
             minWidth = try CLIArgumentParser.parsePositiveDouble(value)
         case "--min-height":
             minHeight = try CLIArgumentParser.parsePositiveDouble(value)
+        case "--scratchpad":
+            scratchpad = try CLIArgumentParser.parseScratchpadIndex(value)
         default:
             throw CLIParseError.usage(CLIParser.usageText)
         }
@@ -153,7 +156,8 @@ private struct CLIRuleDefinitionArguments {
             assignToWorkspace: assignToWorkspace,
             initialContainerPrimarySpan: initialContainerPrimarySpan,
             minWidth: minWidth,
-            minHeight: minHeight
+            minHeight: minHeight,
+            scratchpad: scratchpad
         )
 
         guard IPCRuleValidator.validate(definition).isValid else {

@@ -53,7 +53,8 @@ import XCTest
                 settings.appRules = [
                     AppRule(bundleId: "com.example.Editor", layout: .tile, assignToWorkspace: "1"),
                     AppRule(bundleId: "com.example.Chat", layout: .float),
-                    AppRule(bundleId: "com.example.Browser", titleSubstring: "Documentation", layout: .tile)
+                    AppRule(bundleId: "com.example.Browser", titleSubstring: "Documentation", layout: .tile),
+                    AppRule(bundleId: "com.example.Notes", layout: .float, scratchpad: 2)
                 ]
                 controller = WMController(
                     settings: settings,

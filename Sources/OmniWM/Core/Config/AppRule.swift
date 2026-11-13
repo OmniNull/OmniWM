@@ -21,6 +21,11 @@ enum WindowRuleLayoutAction: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum AppRuleScratchpadConflict: Equatable, Sendable {
+    case assignToWorkspace
+    case tileLayout
+}
+
 struct AppRule: Codable, Identifiable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case id
@@ -35,6 +40,7 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         case initialContainerPrimarySpan
         case minWidth
         case minHeight
+        case scratchpad
     }
 
     let id: UUID
@@ -49,6 +55,7 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
     var initialContainerPrimarySpan: Double?
     var minWidth: Double?
     var minHeight: Double?
+    var scratchpad: Int?
 
     init(
         id: UUID = UUID(),
@@ -62,7 +69,8 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         assignToWorkspace: String? = nil,
         initialContainerPrimarySpan: Double? = nil,
         minWidth: Double? = nil,
-        minHeight: Double? = nil
+        minHeight: Double? = nil,
+        scratchpad: Int? = nil
     ) {
         self.id = id
         self.bundleId = bundleId
@@ -76,6 +84,7 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         self.initialContainerPrimarySpan = initialContainerPrimarySpan
         self.minWidth = minWidth
         self.minHeight = minHeight
+        self.scratchpad = scratchpad
         normalizeSingleTitle()
     }
 
@@ -93,10 +102,32 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         return initialContainerPrimarySpan
     }
 
+    var assignedWorkspaceName: String? {
+        guard let trimmed = assignToWorkspace?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty
+        else {
+            return nil
+        }
+        return trimmed
+    }
+
+    var scratchpadConflict: AppRuleScratchpadConflict? {
+        guard scratchpad != nil else { return nil }
+        if assignedWorkspaceName != nil { return .assignToWorkspace }
+        if effectiveLayoutAction == .tile { return .tileLayout }
+        return nil
+    }
+
+    var validScratchpad: ScratchpadIndex? {
+        guard let scratchpad, scratchpadConflict == nil else { return nil }
+        return ScratchpadIndex(scratchpad)
+    }
+
     var hasEffect: Bool {
         effectiveLayoutAction != .auto ||
-            assignToWorkspace?.isEmpty == false ||
+            assignedWorkspaceName != nil ||
             validInitialContainerPrimarySpan != nil ||
+            validScratchpad != nil ||
             minWidth != nil || minHeight != nil
     }
 
@@ -143,6 +174,7 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
             assignToWorkspace != nil ||
             initialContainerPrimarySpan != nil ||
             minWidth != nil || minHeight != nil ||
+            scratchpad != nil ||
             hasAdvancedMatchers
     }
 
@@ -160,6 +192,7 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         initialContainerPrimarySpan = try container.decodeIfPresent(Double.self, forKey: .initialContainerPrimarySpan)
         minWidth = try container.decodeIfPresent(Double.self, forKey: .minWidth)
         minHeight = try container.decodeIfPresent(Double.self, forKey: .minHeight)
+        scratchpad = try container.decodeIfPresent(Int.self, forKey: .scratchpad)
         normalizeSingleTitle()
     }
 
@@ -177,6 +210,7 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         try container.encodeIfPresent(initialContainerPrimarySpan, forKey: .initialContainerPrimarySpan)
         try container.encodeIfPresent(minWidth, forKey: .minWidth)
         try container.encodeIfPresent(minHeight, forKey: .minHeight)
+        try container.encodeIfPresent(scratchpad, forKey: .scratchpad)
     }
 
     private mutating func normalizeSingleTitle() {

@@ -120,7 +120,11 @@ enum AdmissionRetryTrigger {
         admissionHints: ManagedWindowAdmissionHints?,
         sizeConstraints: WindowSizeConstraints?
     )
-    case ruleReevaluation(token: WindowToken, axRef: AXWindowRef)
+    case ruleReevaluation(
+        token: WindowToken,
+        axRef: AXWindowRef,
+        context: WindowRuleReevaluationContext = .automatic
+    )
 
     var allowsTrackedIdentityReplacement: Bool {
         if case .create = self { return true }
@@ -155,7 +159,7 @@ enum AdmissionRetryTrigger {
             []
         case let .candidate(token, _, _),
              let .focused(token, _, _, _),
-             let .ruleReevaluation(token, _):
+             let .ruleReevaluation(token, _, _):
             [token.pid]
         case let .identityRebind(oldWindow, newWindow, _, _, _):
             [oldWindow.token.pid, newWindow.token.pid]

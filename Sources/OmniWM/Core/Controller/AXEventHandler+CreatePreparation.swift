@@ -90,7 +90,7 @@ extension AXEventHandler {
         )
         traceCreateClassification(facts, controller: controller)
 
-        guard let requestedMode = evaluation.decision.trackedMode else {
+        guard let decidedMode = evaluation.decision.trackedMode else {
             if evaluation.decision.disposition == .undecided {
                 return .pending(
                     token: token,
@@ -100,14 +100,18 @@ extension AXEventHandler {
             }
             return .ignored(token: token, reason: evaluation.decision.admissionRejectionReason)
         }
+        let scratchpadAdmission = controller.scratchpadAdmission(for: evaluation, requestedMode: decidedMode)
         guard let admission = controller.resolveWindowAdmission(
             evaluation: evaluation,
             axRef: axRef,
-            requestedMode: requestedMode
+            requestedMode: scratchpadAdmission == nil ? decidedMode : .floating
         ) else {
             return .pending(token: token, axRef: axRef, reason: .degenerateGeometry)
         }
-        return prepareClassifiedCreate(facts, admission: admission, placement: placement, controller: controller)
+        return prepareClassifiedCreate(
+            facts, admission: admission, scratchpadAdmission: scratchpadAdmission,
+            placement: placement, controller: controller
+        )
     }
 
     func preparedCreateCandidate(
@@ -227,7 +231,7 @@ extension AXEventHandler {
     }
 
     private func prepareClassifiedCreate(
-        _ facts: ClassifiedCreateFacts, admission: WindowAdmission,
+        _ facts: ClassifiedCreateFacts, admission: WindowAdmission, scratchpadAdmission: ScratchpadAdmission?,
         placement: LiveCreatePlacement, controller: WMController
     ) -> CreatePreparationOutcome {
         let token = facts.identity.token
@@ -236,7 +240,7 @@ extension AXEventHandler {
         let axPid = facts.axPid
         let bundleId = facts.bundleId
         let evaluation = facts.evaluation
-        let trackedMode = admission.mode
+        let trackedMode = scratchpadAdmission?.replacementMode(for: admission) ?? admission.mode
         let resolvedBundleId = bundleId ?? evaluation.facts.ax.bundleId
         let replacementMatch = structuralReplacementMatch(
             token: token,
@@ -263,7 +267,8 @@ extension AXEventHandler {
                 readOnlyAdmissionFrame: admission.readOnlyFrame
             ),
             structuralReplacementMatch: replacementMatch,
-            observedFrame: admission.geometry?.frame
+            observedFrame: admission.geometry?.frame,
+            scratchpadAdmission: scratchpadAdmission
         )
         WindowAdmissionTrace.record(
             .init(
