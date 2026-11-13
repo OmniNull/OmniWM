@@ -118,7 +118,7 @@ struct WorldView {
                         transparentBackground: resolved.transparentBackground,
                         solidBlackBackground: resolved.solidBlackBackground,
                         barHeight: geometry.barHeight,
-                        orientation: resolved.position.isVertical ? .vertical : .horizontal,
+                        orientation: resolved.position.orientation,
                         secureInputActive: controller.isSecureInputIndicated,
                         keyboardMode: controller.keyboardModeKind,
                         barFill: resolved.barFill,

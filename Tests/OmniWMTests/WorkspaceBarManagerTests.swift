@@ -248,6 +248,70 @@ final class WorkspaceBarManagerTests: XCTestCase {
         XCTAssertEqual(zonesAtWrite, [zones])
     }
 
+    func testBarProjectedForAnotherOrientationKeepsItsFrameUntilItsProjectionMatches() async throws {
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        var writes: [NSRect] = []
+        manager.frameApplier = { panel, frame in
+            writes.append(frame)
+            panel.setFrame(frame, display: false)
+        }
+        try await manager.shellConfiguration.set(true, key: "fullWidth")
+        let horizontal = barSurface(itemCount: 1)
+        manager.apply([horizontal])
+        let instance = try XCTUnwrap(manager.barsByMonitor[monitor.id])
+        let horizontalWrites = writes
+
+        try await manager.shellConfiguration.set(WorkspaceBarPosition.left, key: "position")
+        manager.apply([horizontal])
+        XCTAssertTrue(manager.barsByMonitor[monitor.id] === instance)
+        XCTAssertEqual(writes, horizontalWrites)
+
+        let resolved = controller.settings.workspaceBar.resolved(for: monitor)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        manager.apply([barSurface(itemCount: 1, orientation: resolved.position.orientation)])
+        XCTAssertTrue(manager.barsByMonitor[monitor.id] === instance)
+        XCTAssertEqual(
+            writes,
+            horizontalWrites + [geometry.frame(fittingLength: 0, monitor: monitor, resolved: resolved)]
+        )
+    }
+
+    func testFirstApplyAfterTheShellStartsWaitsForBarsProjectedFromItsProfile() throws {
+        let shell = controller.settings.settingsFileURL.deletingLastPathComponent()
+            .appendingPathComponent("shell/shell.toml")
+        let profilePosition = WorkspaceBarPosition.left
+        try Data("""
+        profiles.default.leading = []
+        profiles.default.center = []
+        profiles.default.trailing = []
+        profiles.default.workspaceBar.position = "\(profilePosition.rawValue)"
+        profiles.default.workspaceBar.fullWidth = true
+        """.utf8).write(to: shell)
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        var writes: [NSRect] = []
+        manager.frameApplier = { panel, frame in
+            writes.append(frame)
+            panel.setFrame(frame, display: false)
+        }
+        let projectedBeforeTheShellStarted = barSurface(itemCount: 1)
+        XCTAssertNotEqual(
+            controller.settings.workspaceBar.resolved(for: monitor).position.orientation,
+            profilePosition.orientation
+        )
+
+        manager.apply([projectedBeforeTheShellStarted])
+        let resolved = controller.settings.workspaceBar.resolved(for: monitor)
+        XCTAssertEqual(resolved.position, profilePosition)
+        XCTAssertNil(manager.barsByMonitor[monitor.id])
+        XCTAssertEqual(writes, [])
+
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        manager.apply([barSurface(itemCount: 1, orientation: profilePosition.orientation)])
+        XCTAssertEqual(writes, [geometry.frame(fittingLength: 0, monitor: monitor, resolved: resolved)])
+    }
+
     func testACancelledShellDragEndsTheSessionWithoutADrop() {
         let manager = makeManager()
         defer { manager.cleanup() }
@@ -1024,8 +1088,15 @@ final class WorkspaceBarManagerTests: XCTestCase {
         return manager
     }
 
-    private func barSurface(itemCount: Int) -> DesiredBarSurface {
-        DesiredBarSurface(monitor: monitor, visible: true, snapshot: snapshot(itemCount: itemCount))
+    private func barSurface(
+        itemCount: Int,
+        orientation: WorkspaceBarOrientation = .horizontal
+    ) -> DesiredBarSurface {
+        DesiredBarSurface(
+            monitor: monitor,
+            visible: true,
+            snapshot: snapshot(itemCount: itemCount, orientation: orientation)
+        )
     }
 
     private var monitor: Monitor {
@@ -1037,7 +1108,11 @@ final class WorkspaceBarManagerTests: XCTestCase {
         )
     }
 
-    private func snapshot(itemCount: Int, barHeight: CGFloat = 24) -> WorkspaceBarSnapshot {
+    private func snapshot(
+        itemCount: Int,
+        barHeight: CGFloat = 24,
+        orientation: WorkspaceBarOrientation = .horizontal
+    ) -> WorkspaceBarSnapshot {
         let items = (0 ..< itemCount).map { index in
             WorkspaceBarItem(
                 id: WorkspaceDescriptor.ID(),
@@ -1051,7 +1126,8 @@ final class WorkspaceBarManagerTests: XCTestCase {
         return WorkspaceBarSnapshot(
             projection: WorkspaceBarProjection(items: items, scratchpads: []),
             backgroundOpacity: 0.6,
-            barHeight: barHeight
+            barHeight: barHeight,
+            orientation: orientation
         )
     }
 }

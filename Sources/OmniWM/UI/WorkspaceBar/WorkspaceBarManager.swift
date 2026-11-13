@@ -110,14 +110,16 @@ final class WorkspaceBarManager {
         var staleMonitorIds = Set(barsByMonitor.keys)
         for bar in bars where bar.isRetained {
             staleMonitorIds.remove(bar.monitor.id)
+            let resolved = settings.workspaceBar.resolved(for: bar.monitor)
+            guard bar.snapshot.orientation == resolved.position.orientation else { continue }
             let snapshot = shellSnapshot(for: bar)
             if let existing = barsByMonitor[bar.monitor.id] {
-                if !updateBarForMonitor(bar.monitor, snapshot: snapshot, instance: existing) {
+                if !updateBarForMonitor(bar.monitor, snapshot: snapshot, resolved: resolved, instance: existing) {
                     removeBarForMonitor(bar.monitor.id)
-                    createBarForMonitor(bar.monitor, snapshot: snapshot)
+                    createBarForMonitor(bar.monitor, snapshot: snapshot, resolved: resolved)
                 }
             } else {
-                createBarForMonitor(bar.monitor, snapshot: snapshot)
+                createBarForMonitor(bar.monitor, snapshot: snapshot, resolved: resolved)
             }
             applyVisibility(bar.visible, on: bar.monitor.id)
         }
@@ -147,10 +149,13 @@ final class WorkspaceBarManager {
         refreshShellBarColors(settings)
     }
 
-    private func createBarForMonitor(_ monitor: Monitor, snapshot: WorkspaceBarSnapshot) {
-        guard controller != nil, let settings else { return }
+    private func createBarForMonitor(
+        _ monitor: Monitor,
+        snapshot: WorkspaceBarSnapshot,
+        resolved: ResolvedBarSettings
+    ) {
+        guard controller != nil else { return }
 
-        let resolved = settings.workspaceBar.resolved(for: monitor)
         let model = WorkspaceBarModel(snapshot: snapshot)
         model.hiddenBarJoinEdge = hiddenBarJoinEdge(on: monitor.id)
         let measurementView = NSHostingView(rootView: WorkspaceBarMeasurementView(snapshot: snapshot))
@@ -184,14 +189,12 @@ final class WorkspaceBarManager {
     private func updateBarForMonitor(
         _ monitor: Monitor,
         snapshot: WorkspaceBarSnapshot,
+        resolved: ResolvedBarSettings,
         instance: WorkspaceBarInstance
     ) -> Bool {
-        guard let settings else { return false }
-
         let screen = screenProvider(monitor.displayId)
         guard instance.updateMonitor(monitor, screen: screen) else { return false }
 
-        let resolved = settings.workspaceBar.resolved(for: monitor)
         instance.updateSnapshot(snapshot)
         instance.applyCurrentAppearance()
         instance.applyPanelSettings(resolved: resolved)
