@@ -142,7 +142,9 @@ Place editors in settled, untransformed regions. Their frames follow delivered l
 
 ## Vector paths
 
-`ui.path` draws a vector shape from SVG path data, without writing a shader: `d` takes the commands `M L H V C S Q T A Z` (lowercase for relative), `fill`, `border` and `borderWidth` colour it, and `evenOdd = true` switches the fill rule. With `viewBox = { x, y, width, height }` the path is stretched to the element's size, so `viewBox = { 0, 0, 24, 24 }` with `w` and `h` draws a 24-point icon at any size; without `w` and `h` it takes the viewBox size, or fills the `ui.stack` it is in. A path with `mask = true` shapes its stack like a mask shader. When `d` changes and the path has `animate`, it morphs to the new shape, and `enter = { d = "..." }` morphs from that shape as the popout opens; both shapes need the same commands for a smooth morph.
+`ui.path` draws a vector shape from SVG path data, without writing a shader: `d` takes the commands `M L H V C S Q T A Z` (lowercase for relative), `fill`, `border` and `borderWidth` colour it, and `evenOdd = true` switches the fill rule. With `viewBox = { x, y, width, height }` the path is stretched to the element's size, so `viewBox = { 0, 0, 24, 24 }` with `w` and `h` draws a 24-point icon at any size; without `w` and `h` it takes the viewBox size, or fills the `ui.stack` it is in. A path with `mask = true` shapes its stack like a mask shader.
+
+When `d` changes with `animate`, two single open arcs (`M` followed by `A`) animate their ellipse and sweep, so a gauge's stroke follows its ring as it grows or shrinks. Other path morphs, including `enter = { d = "..." }` as a popout opens, require matching segment types and counts after parsing. An SVG arc can split into different numbers of cubic segments depending on its sweep. Incompatible paths display the destination outline immediately.
 
 ```lua
 ui.stack{ material = "thin", w = 120, h = 120,
