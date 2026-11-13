@@ -70,10 +70,13 @@ final class AppRuleTests: XCTestCase {
     }
 
     func testValidScratchpadRequiresRangeAndNoConflict() {
-        XCTAssertEqual(AppRule(bundleId: "a", scratchpad: 1).validScratchpad, 1)
-        XCTAssertEqual(AppRule(bundleId: "a", scratchpad: 10).validScratchpad, 10)
-        XCTAssertNil(AppRule(bundleId: "a", scratchpad: 0).validScratchpad)
-        XCTAssertNil(AppRule(bundleId: "a", scratchpad: 11).validScratchpad)
+        let slots = ScratchpadIndex.range
+        for slot in [slots.lowerBound, slots.upperBound] {
+            XCTAssertEqual(AppRule(bundleId: "a", scratchpad: slot).validScratchpad?.rawValue, slot)
+        }
+        for slot in [slots.lowerBound - 1, slots.upperBound + 1] {
+            XCTAssertNil(AppRule(bundleId: "a", scratchpad: slot).validScratchpad)
+        }
         XCTAssertNil(AppRule(bundleId: "a", assignToWorkspace: "2", scratchpad: 2).validScratchpad)
         XCTAssertNil(AppRule(bundleId: "a", layout: .tile, scratchpad: 2).validScratchpad)
         XCTAssertEqual(AppRule(bundleId: "a", layout: .float, scratchpad: 2).validScratchpad, 2)
@@ -103,8 +106,9 @@ final class AppRuleTests: XCTestCase {
 
     func testScratchpadEffectCountsOnlyWhenValid() {
         XCTAssertTrue(AppRule(bundleId: "a", scratchpad: 2).hasEffect)
-        XCTAssertFalse(AppRule(bundleId: "a", scratchpad: 11).hasEffect)
-        XCTAssertTrue(AppRule(bundleId: "a", scratchpad: 11).hasAnyRule)
+        let outOfRange = AppRule(bundleId: "a", scratchpad: ScratchpadIndex.range.upperBound + 1)
+        XCTAssertFalse(outOfRange.hasEffect)
+        XCTAssertTrue(outOfRange.hasAnyRule)
     }
 
     func testInitialContainerPrimarySpanRoundTripsThroughTOML() throws {
@@ -234,7 +238,10 @@ final class AppRuleTests: XCTestCase {
     @MainActor
     func testIPCProjectionReportsTOMLLoadedInvalidScratchpadWithRawValue() throws {
         let cases: [(rule: AppRule, message: String)] = [
-            (AppRule(bundleId: "com.test.app", scratchpad: 11), "Scratchpad must be a slot from 1 to 10"),
+            (
+                AppRule(bundleId: "com.test.app", scratchpad: ScratchpadIndex.range.upperBound + 1),
+                "Scratchpad must be a slot from 1 to 10"
+            ),
             (
                 AppRule(bundleId: "com.test.app", assignToWorkspace: "2", scratchpad: 3),
                 "Choose a scratchpad or a workspace, not both"
@@ -361,7 +368,7 @@ final class AppRuleTests: XCTestCase {
     func testScratchpadOnlyDraftIsValid() {
         var draft = AppRuleDraft(bundleId: "com.test.app")
         draft.scratchpadEnabled = true
-        draft.scratchpad = 10
+        draft.scratchpad = ScratchpadIndex.range.upperBound
 
         XCTAssertNil(draft.scratchpadError)
         XCTAssertNil(draft.effectHint)

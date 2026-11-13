@@ -26,7 +26,7 @@ final class CLIInvocationParsingTests: XCTestCase {
                 let parsed = try CLIParser.parse(arguments: ["omniwmctl"] + formatArguments + testCase.arguments)
 
                 XCTAssertEqual(parsed.request.kind, testCase.kind)
-                XCTAssertEqual(parsed.request.version, 23)
+                XCTAssertEqual(parsed.request.version, OmniWMIPCProtocol.version)
                 XCTAssertNotNil(UUID(uuidString: parsed.request.id))
                 XCTAssertEqual(parsed.outputFormat, !formatArguments.isEmpty || testCase.kind == .query ? .json : .text)
                 XCTAssertFalse(parsed.expectsEventStream)
@@ -179,9 +179,10 @@ final class CLIInvocationParsingTests: XCTestCase {
     }
 
     func testRuleAddAndReplaceRejectInvalidOrConflictingScratchpad() {
+        let slots = IPCScratchpadSlots.range
         let cases = [
-            ["--scratchpad", "0"],
-            ["--scratchpad", "11"],
+            ["--scratchpad", String(slots.lowerBound - 1)],
+            ["--scratchpad", String(slots.upperBound + 1)],
             ["--scratchpad", "abc"],
             ["--scratchpad", "2", "--assign-to-workspace", "3"],
             ["--scratchpad", "2", "--layout", "tile"]

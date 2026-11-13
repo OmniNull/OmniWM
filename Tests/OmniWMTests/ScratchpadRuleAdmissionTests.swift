@@ -1497,8 +1497,11 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
     }
 
     private func completeScratchpadFronting(in fixture: Fixture) throws {
-        for _ in 0 ..< 32 {
-            guard let request = fixture.controller.intentLedger.activeManagedRequest else { return }
+        var awaitingActivation = Set(fixture.controller.workspaceManager.allEntries().map(\.token))
+        while let request = fixture.controller.intentLedger.activeManagedRequest {
+            guard awaitingActivation.remove(request.token) != nil else {
+                return XCTFail("Scratchpad fronting asked for \(request.token) again after its activation")
+            }
             let entry = try XCTUnwrap(fixture.controller.workspaceManager.entry(for: request.token))
             fixture.controller.axEventHandler.handleManagedAppActivation(
                 entry: entry,
@@ -1508,6 +1511,5 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
                 activeRequestId: request.requestId
             )
         }
-        XCTFail("Scratchpad fronting did not settle")
     }
 }

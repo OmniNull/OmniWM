@@ -154,7 +154,8 @@ final class IPCRuleValidatorTests: XCTestCase {
     }
 
     func testScratchpadSlotBoundsAcceptedAsTheOnlyEffect() {
-        for slot in [1, 10] {
+        let slots = IPCScratchpadSlots.range
+        for slot in [slots.lowerBound, slots.upperBound] {
             let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: "com.test.app", scratchpad: slot))
             XCTAssertNil(report.scratchpadError)
             XCTAssertNil(report.effectError)
@@ -163,7 +164,8 @@ final class IPCRuleValidatorTests: XCTestCase {
     }
 
     func testScratchpadOutsideSlotRangeRejectedWithoutCountingAsEffect() {
-        for slot in [0, 11, -1] {
+        let slots = IPCScratchpadSlots.range
+        for slot in [slots.lowerBound - 1, slots.upperBound + 1, -slots.upperBound] {
             let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: "com.test.app", scratchpad: slot))
             XCTAssertEqual(report.scratchpadError, "Scratchpad must be a slot from 1 to 10")
             XCTAssertNotNil(report.effectError)
