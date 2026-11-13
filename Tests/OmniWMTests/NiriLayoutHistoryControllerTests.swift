@@ -159,7 +159,10 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         line: UInt = #line
     ) {
         for (token, frame) in expected {
-            guard let other = actual[token] else { continue }
+            guard let other = actual[token] else {
+                XCTFail("\(message): no frame for window \(token.windowId)", file: file, line: line)
+                continue
+            }
             for (a, b, allowance) in [
                 (frame.minX, other.minX, 0), (frame.minY, other.minY, 0),
                 (frame.width, other.width, widthAllowance), (frame.height, other.height, 0)
