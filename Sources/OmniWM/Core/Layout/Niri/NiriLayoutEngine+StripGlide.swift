@@ -22,6 +22,12 @@ extension NiriLayoutEngine {
         at time: TimeInterval = CACurrentMediaTime()
     ) {
         stripGlides = stripGlides.filter { time - $0.value.since < 2 }
+        guard context.orientation == .horizontal else {
+            for token in tokens {
+                stripGlides.removeValue(forKey: token)
+            }
+            return
+        }
         for token in tokens {
             guard let glide = stripGlides.removeValue(forKey: token),
                   let window = findNode(for: token, in: context.workspaceId),

@@ -776,6 +776,25 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertTrue(fixture.engine.stripGlides.isEmpty)
     }
 
+    func testAWindowThatBecomesTiledOnAPortraitStripDoesntGlide() {
+        let fixture = makeFixture(widths: [0.25], activeIndex: 0)
+        let token = WindowToken(pid: 941, windowId: 97)
+        fixture.engine.noteStripGlide(for: token, from: CGRect(x: 300, y: 200, width: 500, height: 400))
+        _ = fixture.engine.addWindow(token: token, to: fixture.workspaceId, afterSelection: nil)
+        let portrait = NiriInteractionContext(
+            workspaceId: fixture.workspaceId,
+            motion: .enabled,
+            workingFrame: fixture.frame,
+            gaps: fixture.gap,
+            orientation: .vertical
+        )
+
+        fixture.engine.glideIntoStrip([token], context: portrait, state: fixture.state)
+
+        XCTAssertFalse(fixture.engine.findNode(for: token, in: fixture.workspaceId)?.hasMoveAnimationsRunning ?? true)
+        XCTAssertTrue(fixture.engine.stripGlides.isEmpty)
+    }
+
     func testTurningMacOSFusionOffDropsAGlideNotedJustBefore() {
         let fixture = makeFixture(widths: [0.25], activeIndex: 0)
         fixture.engine.noteStripGlide(for: WindowToken(pid: 941, windowId: 99), from: .zero)
