@@ -18,7 +18,8 @@ extension NiriLayoutEngine {
         let hasPreviousFit = columns.contains {
             orientation == .horizontal ? $0.fittedWidth != nil : $0.fittedHeight != nil
         }
-        if keepsWindowWidths, !hasPreviousFit { return }
+        let keepsSpans = keepsWindowWidths && orientation == .horizontal
+        if keepsSpans, !hasPreviousFit { return }
         let visibleCount = effectiveVisibleContainerCount(in: workspaceId)
         let exclusions = projectionExclusions(in: workspaceId)
         if exclusions.isEmpty, columns.count >= visibleCount, !hasPreviousFit,
@@ -35,7 +36,7 @@ extension NiriLayoutEngine {
         dropStaleShrinkToFit(columns, in: workspace, .init(workingFrame, gaps: gaps, orientation: orientation))
         let isSingleWindow = count == 1 && projected[0].windows.count == 1
         let manual = workspace[keyPath: manualCountKey] != nil && !isSingleWindow
-        let canFit = !keepsWindowWidths && !manual && count > 0 && count < visibleCount && !isSingleWindow
+        let canFit = !keepsSpans && !manual && count > 0 && count < visibleCount && !isSingleWindow
         guard canFit || hasPreviousFit else { return }
 
         clearExcludedPrimarySpanFits(columns, excluding: exclusions, orientation: orientation)

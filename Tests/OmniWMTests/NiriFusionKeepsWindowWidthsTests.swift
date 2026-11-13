@@ -139,6 +139,25 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
         }
     }
 
+    func testAPortraitStripStillFillsItsHeightWithFewerRowsThanVisibleContainers() {
+        let fixture = makeFixture(widths: [400, 400], keepsWindowWidths: true)
+        let portrait = CGRect(x: 0, y: 0, width: 900, height: 1_500)
+        for column in fixture.engine.columns(in: fixture.workspaceId) {
+            column.height = .proportion(1.0 / 3.0)
+            column.cachedHeight = 0
+        }
+
+        fixture.engine.reconcilePrimarySpanFit(
+            in: fixture.workspaceId,
+            workingFrame: portrait,
+            gaps: gap,
+            orientation: .vertical,
+            motion: nil
+        )
+
+        XCTAssertTrue(fixture.engine.columns(in: fixture.workspaceId).contains { $0.fittedHeight != nil })
+    }
+
     func testBalanceSizesSharesTheScreenAmongTheColumnsOnScreen() {
         let fixture = makeFixture(widths: [500, 900, 700, 600], keepsWindowWidths: true)
 
