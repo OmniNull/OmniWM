@@ -34,8 +34,12 @@ extension NiriLayoutHandler {
     @discardableResult
     func cycleWindowPrimarySpan(forward: Bool, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
-            let column = engine.findColumn(containing: windowNode, in: context.workspaceId)
-            fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
+            fittingVisibleColumns(
+                around: engine.findColumn(containing: windowNode, in: context.workspaceId),
+                engine: engine,
+                context: context,
+                state: &state
+            ) { state in
                 engine.toggleWindowPrimarySpan(windowNode, forwards: forward, context: context, state: &state)
             }
             return .windowSizeChanged(token: windowNode.token)
@@ -43,36 +47,40 @@ extension NiriLayoutHandler {
     }
 
     private func fittingVisibleColumns(
-        around column: NiriContainer?,
+        around column: @autoclosure () -> NiriContainer?,
         engine: NiriLayoutEngine,
         context: NiriInteractionContext,
         state: inout ViewportState,
         _ resize: (inout ViewportState) -> Void
     ) {
-        let onScreen = controller?.settings.niri.shrinkToFit == true
-            ? engine.onScreenProjectedColumns(in: context.workspaceId, state: state, geometry: context.sizingGeometry)
-            : []
+        guard engine.shrinkToFit, let column = column() else { return resize(&state) }
+        var onScreen = engine.onScreenProjectedColumns(
+            in: context.workspaceId, state: state, geometry: context.sizingGeometry
+        )
         resize(&state)
-        guard let column, !onScreen.isEmpty else { return }
-        let fitSet = Self.visibleContainersRun(
-            of: onScreen,
+        guard !onScreen.isEmpty else { return }
+        Self.keepVisibleContainersRun(
+            in: &onScreen,
             around: column,
             visibleCount: engine.effectiveVisibleContainerCount(in: context.workspaceId)
         )
-        engine.shrinkVisibleColumnsToFit(around: column, onScreen: fitSet, context: context, state: &state)
+        engine.shrinkVisibleColumnsToFit(around: column, onScreen: onScreen, context: context, state: &state)
     }
 
-    static func visibleContainersRun(
-        of onScreen: [NiriProjectedColumn],
+    private nonisolated static func keepVisibleContainersRun(
+        in onScreen: inout [NiriProjectedColumn],
         around column: NiriContainer,
         visibleCount: Int
-    ) -> [NiriProjectedColumn] {
-        guard onScreen.count > visibleCount,
-              visibleCount > 0,
-              let index = onScreen.firstIndex(where: { $0.column === column })
-        else { return onScreen }
+    ) {
+        guard onScreen.count > visibleCount, visibleCount > 0 else { return }
+        var index = 0
+        while index < onScreen.count, onScreen[index].column !== column {
+            index += 1
+        }
+        guard index < onScreen.count else { return }
         let start = min(max(0, index - visibleCount + 1), onScreen.count - visibleCount)
-        return Array(onScreen[start ..< start + visibleCount])
+        onScreen.removeSubrange((start + visibleCount)...)
+        onScreen.removeSubrange(..<start)
     }
 
     @discardableResult
@@ -167,8 +175,12 @@ extension NiriLayoutHandler {
     @discardableResult
     func setWindowPrimarySpan(_ change: NiriSizeChange, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
-            let column = engine.findColumn(containing: windowNode, in: context.workspaceId)
-            fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
+            fittingVisibleColumns(
+                around: engine.findColumn(containing: windowNode, in: context.workspaceId),
+                engine: engine,
+                context: context,
+                state: &state
+            ) { state in
                 engine.setWindowPrimarySpan(windowNode, change: change, context: context, state: &state)
             }
             return .windowSizeChanged(token: windowNode.token)

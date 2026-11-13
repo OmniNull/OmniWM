@@ -219,6 +219,7 @@ final class NiriShrinkToFitTests: XCTestCase {
         }
         try fixture.focus(column: 0)
         fixture.controller.settings.niri.shrinkToFit = true
+        fixture.controller.updateNiriConfig(shrinkToFit: true)
 
         XCTAssertTrue(fixture.setSpan(.setProportion(50), onColumn: 1))
         fixture.settle()
@@ -246,6 +247,7 @@ final class NiriShrinkToFitTests: XCTestCase {
         let peeking = fixture.columns[3]
         let peekingWidth = peeking.cachedWidth
         fixture.controller.settings.niri.shrinkToFit = true
+        fixture.controller.updateNiriConfig(shrinkToFit: true)
 
         XCTAssertTrue(fixture.setSpan(.setProportion(60), onColumn: 1))
         fixture.settle()
@@ -341,6 +343,18 @@ final class NiriShrinkToFitTests: XCTestCase {
         XCTAssertEqual(settings.export(), decoded.niri)
     }
 
+    func testEngineFollowsTheSettingWhenSettingsAreApplied() throws {
+        let fixture = try makeFixture(shrinkToFit: false)
+        let controller = fixture.controller
+        let engine = try XCTUnwrap(controller.niriEngine)
+        XCTAssertFalse(engine.shrinkToFit)
+
+        controller.settings.niri.shrinkToFit = true
+        controller.applyPersistedSettings(controller.settings, startServices: false)
+
+        XCTAssertTrue(engine.shrinkToFit)
+    }
+
     private func makeFixture(shrinkToFit: Bool, portrait: Bool = false) throws -> Fixture {
         let frame = portrait
             ? CGRect(x: 0, y: 0, width: monitorFrame.height, height: monitorFrame.width)
@@ -391,6 +405,7 @@ final class NiriShrinkToFitTests: XCTestCase {
         controller.workspaceManager.applySettings()
         controller.niriLayoutHandler.enableNiriLayout()
         controller.syncMonitorsToNiriEngine()
+        controller.updateNiriConfig(shrinkToFit: shrinkToFit)
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(named: "1"))
         XCTAssertTrue(controller.workspaceManager.setActiveWorkspace(workspaceId, on: monitor.id))
         let fixture = Fixture(controller: controller, monitor: monitor, workspaceId: workspaceId)

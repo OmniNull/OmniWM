@@ -39,6 +39,8 @@ final class NiriLayoutEngine {
 
     var edgeOverscroll: NiriEdgeOverscroll = .disabled
 
+    var shrinkToFit = false
+
     var edgePicturesAvailable = true
 
     var renderStyle: NiriRenderStyle = .default
@@ -256,9 +258,13 @@ final class NiriLayoutEngine {
         singleWindowFit: SingleWindowFit? = nil,
         edgeOverscroll: NiriEdgeOverscroll? = nil,
         presetContainerPrimarySpans: [PresetSize]? = nil,
-        defaultContainerPrimarySpan: CGFloat?? = nil
+        defaultContainerPrimarySpan: CGFloat?? = nil,
+        shrinkToFit: Bool? = nil
     ) {
         assertSanctionedMutation()
+        if let shrinkToFit {
+            self.shrinkToFit = shrinkToFit
+        }
         if let max = visibleContainerCount {
             self.visibleContainerCount = max.clamped(to: 1 ... 5)
         }

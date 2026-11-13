@@ -45,7 +45,7 @@ extension NiriLayoutEngine {
         )
     }
 
-    private func viewportRelations(
+    func viewportRelations(
         of columns: [NiriProjectedColumn],
         in workspaceId: WorkspaceDescriptor.ID,
         state: ViewportState,

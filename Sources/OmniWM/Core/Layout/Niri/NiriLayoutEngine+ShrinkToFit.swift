@@ -10,12 +10,13 @@ extension NiriLayoutEngine {
         geometry: NiriSizingGeometry
     ) -> [NiriProjectedColumn] {
         let projected = projectedColumns(in: workspaceId)
-        guard let relations = columnSummary(in: workspaceId, state: state, geometry: geometry).viewport,
-              relations.count == projected.count
-        else { return [] }
-        return zip(projected, relations).compactMap { column, relation in
-            relation == .intersecting && !column.windows.isEmpty ? column : nil
+        let relations = viewportRelations(of: projected, in: workspaceId, state: state, geometry: geometry)
+        var onScreen: [NiriProjectedColumn] = []
+        onScreen.reserveCapacity(projected.count)
+        for index in projected.indices where relations[index] == .intersecting && !projected[index].windows.isEmpty {
+            onScreen.append(projected[index])
         }
+        return onScreen
     }
 
     func shrinkVisibleColumnsToFit(

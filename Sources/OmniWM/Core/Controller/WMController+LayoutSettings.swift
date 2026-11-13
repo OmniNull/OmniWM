@@ -81,7 +81,8 @@ extension WMController {
         singleWindowFit: SingleWindowFit? = nil,
         edgeOverscroll: NiriEdgeOverscroll? = nil,
         containerPrimarySpanPresets: [Double]? = nil,
-        defaultContainerPrimarySpan: Double?? = nil
+        defaultContainerPrimarySpan: Double?? = nil,
+        shrinkToFit: Bool? = nil
     ) {
         niriLayoutHandler.updateNiriConfig(
             visibleContainerCount: visibleContainerCount,
@@ -91,7 +92,8 @@ extension WMController {
             singleWindowFit: singleWindowFit,
             edgeOverscroll: edgeOverscroll,
             containerPrimarySpanPresets: containerPrimarySpanPresets,
-            defaultContainerPrimarySpan: defaultContainerPrimarySpan
+            defaultContainerPrimarySpan: defaultContainerPrimarySpan,
+            shrinkToFit: shrinkToFit
         )
     }
 
