@@ -15,23 +15,22 @@ struct AppRulesView: View {
     @State private var pendingSelection: AppRule.ID?
     @State private var pendingDraft: AppRuleDraft?
     @State private var isConfirmingDiscard = false
+    @State private var sidebarWidth: CGFloat = 230
+    @State private var dragStartWidth: CGFloat?
 
     var body: some View {
         GeometryReader { geometry in
             let wide = geometry.size.width >= 760
             let layout = wide ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
+            // One layout container keeps the editor's identity (and its unsaved draft) across the wide/narrow switch.
             layout {
-                AppRulesSidebar(
-                    rules: settings.appRules,
-                    searchText: $searchText,
-                    selection: selectionBinding,
-                    onAdd: { presentNewRule() },
-                    onDelete: { pendingDeleteRule = $0 },
-                    onMove: moveHandler
-                )
-                .frame(width: wide ? 230 : nil)
-                .frame(maxHeight: wide ? .infinity : selectedRuleId == nil ? 220 : 0)
-                .clipped()
+                sidebar
+                    .frame(width: wide ? sidebarWidth : nil)
+                    .frame(maxHeight: wide ? .infinity : selectedRuleId == nil ? 220 : 0)
+                    .clipped()
+                if wide {
+                    sidebarResizeHandle
+                }
                 VStack(alignment: .leading, spacing: 0) {
                     if !wide, selectedRuleId != nil {
                         Button("All Rules", systemImage: "chevron.left") { selectionBinding.wrappedValue = nil }
@@ -93,6 +92,36 @@ struct AppRulesView: View {
                 }
             }
         )
+    }
+
+    private var sidebar: some View {
+        AppRulesSidebar(
+            rules: settings.appRules,
+            searchText: $searchText,
+            selection: selectionBinding,
+            onAdd: { presentNewRule() },
+            onDelete: { pendingDeleteRule = $0 },
+            onMove: moveHandler
+        )
+    }
+
+    private var sidebarResizeHandle: some View {
+        Divider()
+            .padding(.horizontal, 3)
+            .contentShape(Rectangle())
+            .onHover { inside in
+                if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { value in
+                        let start = dragStartWidth ?? sidebarWidth
+                        dragStartWidth = start
+                        sidebarWidth = min(max(start + value.translation.width, 200), 420)
+                    }
+                    .onEnded { _ in dragStartWidth = nil }
+            )
+            .accessibilityHidden(true)
     }
 
     @ViewBuilder private var detailColumn: some View {
@@ -264,6 +293,8 @@ struct AppRuleSidebarRow: View {
                 Text(rule.displayLabel)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(rule.displayLabel)
 
                 HStack(spacing: 4) {
                     badges
