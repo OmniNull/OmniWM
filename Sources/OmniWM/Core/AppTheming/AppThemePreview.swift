@@ -49,30 +49,31 @@ struct AppThemePreview {
     }
 
     private func ghosttyFiles() throws -> [GhosttyFile] {
-        try AppThemeGhosttySelection.loadedFiles(configHome: configHome, home: engine.policy.home).compactMap { url in
-            let display = engine.policy.display(url)
-            guard let data = try AppThemeFileWriter.read(url, display: display) else { return nil }
-            guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(display) }
+        try AppThemeGhosttySelection.loadedFiles(
+            configHome: configHome,
+            home: engine.policy.home,
+            display: engine.policy.display
+        ).map { file in
+            let (data, text) = try file.contents.get()
             return GhosttyFile(
-                url: AppThemeOutputPolicy.resolve(url),
+                url: AppThemeOutputPolicy.resolve(file.url),
                 text: text,
                 digest: AppThemeFileWriter.digest(data)
             )
         }
     }
 
-    private var unreadableGhosttyFile: String? {
-        AppThemeGhosttySelection.loadedFiles(configHome: configHome, home: engine.policy.home).first { url in
-            switch Result(catching: { try AppThemeFileWriter.read(url) }) {
-            case .failure: true
-            case let .success(data): data.map { String(data: $0, encoding: .utf8) == nil } ?? false
-            }
-        }.map(engine.policy.display)
-    }
-
     func ghosttySelectionStatus() -> AppThemeGhosttyStatus {
-        guard let files = try? ghosttyFiles() else { return .unreadable(unreadableGhosttyFile ?? "") }
-        return switch AppThemeGhosttySelection.status(files.map { ($0.url, $0.text) }) {
+        var files: [(url: URL, text: String)] = []
+        for file in AppThemeGhosttySelection.loadedFiles(configHome: configHome, home: engine.policy.home) {
+            switch file.contents {
+            case let .success(contents):
+                files.append((AppThemeOutputPolicy.resolve(file.url), contents.text))
+            case .failure:
+                return .unreadable(engine.policy.display(file.url))
+            }
+        }
+        return switch AppThemeGhosttySelection.status(files) {
         case let .overridden(path): .overridden(engine.policy.display(URL(fileURLWithPath: path)))
         case let status: status
         }
@@ -93,7 +94,10 @@ struct AppThemePreview {
                 beforeDigest: files.first { $0.url == plan.url }?.digest
             )
         }
-        if !blocked.isEmpty, !changes.isEmpty {
+        if !blocked.isEmpty {
+            guard !changes.isEmpty else {
+                throw AppThemeEngineError.blockedGhosttySelection(blocked.map { engine.policy.display($0.url) })
+            }
             changes[0].note = String(
                 localized: "\(blocked.map { engine.policy.display($0.url) }.joined(separator: ", ")) also sets a theme but is outside the folders OmniWM writes. Comment that line out yourself."
             )

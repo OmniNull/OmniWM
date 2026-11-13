@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ sets a theme but is outside the folders OmniWM writes. Comment that line out yourself." : {
+
+    },
     "Choose a scratchpad or a workspace, not both" : {
 
     },

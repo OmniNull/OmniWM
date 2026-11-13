@@ -9,6 +9,7 @@ enum AppThemeEngineError: Error, Equatable, LocalizedError {
     case notText(String)
     case sharedOutput(path: String, owner: String)
     case unreadable(String, String)
+    case blockedGhosttySelection([String])
 
     var errorDescription: String? {
         switch self {
@@ -24,6 +25,10 @@ enum AppThemeEngineError: Error, Equatable, LocalizedError {
             String(localized: "\(path) is already written by \(owner). Choose another output file.")
         case let .unreadable(path, reason):
             String(localized: "\(path) can’t be read: \(reason)")
+        case let .blockedGhosttySelection(paths):
+            String(
+                localized: "\(paths.joined(separator: ", ")) sets a theme but is outside the folders OmniWM writes. Comment that line out yourself."
+            )
         }
     }
 }

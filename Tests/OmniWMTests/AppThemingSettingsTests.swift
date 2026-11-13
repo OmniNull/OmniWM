@@ -442,7 +442,7 @@ final class AppThemeServiceTests: XCTestCase {
         let files = AppThemeGhosttySelection.loadedFiles(
             configHome: sandbox.policy.configHome,
             home: sandbox.home
-        ).map(\.path)
+        ).map(\.url.path)
         XCTAssertEqual(files, [
             sandbox.path(".config/ghostty/config.ghostty").path,
             sandbox.path(".config/ghostty/config").path,

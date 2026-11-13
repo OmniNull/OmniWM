@@ -77,6 +77,11 @@ enum AppThemeGhosttyStatus: Equatable {
 }
 
 enum AppThemeGhosttySelection {
+    struct LoadedFile {
+        let url: URL
+        let contents: Result<(data: Data, text: String), any Error>
+    }
+
     struct Plan: Equatable {
         let url: URL
         let before: String?
@@ -100,22 +105,26 @@ enum AppThemeGhosttySelection {
         ]
     }
 
-    static func loadedFiles(configHome: URL, home: URL) -> [URL] {
-        var files: [URL] = []
+    static func loadedFiles(
+        configHome: URL,
+        home: URL,
+        display: (URL) -> String = { $0.path }
+    ) -> [LoadedFile] {
+        var files: [LoadedFile] = []
         func visit(_ url: URL, depth: Int) {
-            guard depth < includeDepth, !files.contains(url) else { return }
-            let data: Data
+            guard depth < includeDepth, !files.contains(where: { $0.url == url }) else { return }
             do {
-                guard let read = try AppThemeFileWriter.read(url) else { return }
-                data = read
+                let name = display(url)
+                guard let data = try AppThemeFileWriter.read(url, display: name) else { return }
+                guard let text = String(data: data, encoding: .utf8) else {
+                    throw AppThemeEngineError.notText(name)
+                }
+                files.append(LoadedFile(url: url, contents: .success((data, text))))
+                for include in includes(in: text, of: url, home: home) {
+                    visit(include, depth: depth + 1)
+                }
             } catch {
-                files.append(url)
-                return
-            }
-            files.append(url)
-            guard let text = String(data: data, encoding: .utf8) else { return }
-            for include in includes(in: text, of: url, home: home) {
-                visit(include, depth: depth + 1)
+                files.append(LoadedFile(url: url, contents: .failure(error)))
             }
         }
         for candidate in candidates(configHome: configHome, home: home) {

@@ -13,6 +13,7 @@ final class AppThemingPageState {
     @ObservationIgnored private let perform: AppThemeService.Perform
     @ObservationIgnored private let deliver: AppThemeService.Deliver
     @ObservationIgnored private var generation: UInt64 = 0
+    @ObservationIgnored private var reviewGeneration: UInt64 = 0
 
     init(
         perform: @escaping AppThemeService.Perform = AppThemeService.performOnWorkerQueue,
@@ -20,6 +21,35 @@ final class AppThemingPageState {
     ) {
         self.perform = perform
         self.deliver = deliver
+    }
+
+    func invalidateReview() {
+        reviewGeneration &+= 1
+    }
+
+    func review(
+        _ preview: AppThemePreview,
+        target: AppThemeTarget? = nil,
+        completion: @escaping @MainActor @Sendable (Result<[AppThemeChange], Error>) -> Void
+    ) {
+        invalidateReview()
+        let current = reviewGeneration
+        let engine = preview.engine
+        let values = preview.values
+        let dark = preview.dark
+        let palette = preview.palette()
+        let deliver = deliver
+        perform { [weak self] in
+            let preview = AppThemePreview(engine: engine, values: values, dark: dark) { palette }
+            let result = Result {
+                if let target { return try preview.changes(for: target, onlyExisting: true) }
+                return try preview.ghosttySelectionChanges()
+            }
+            deliver { [weak self] in
+                guard let self, current == reviewGeneration else { return }
+                completion(result)
+            }
+        }
     }
 
     func refresh(_ engine: AppThemeEngine, targets: [AppThemeTarget]) {

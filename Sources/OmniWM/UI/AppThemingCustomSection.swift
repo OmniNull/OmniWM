@@ -8,7 +8,7 @@ struct AppThemingCustomSection: View {
     let controller: WMController
     let paths: [String: [String]]
     @Binding var editing: SettingsExport.AppTheming.Custom?
-    @Binding var review: AppThemingReview?
+    let onReplace: (SettingsExport.AppTheming.Custom) -> Void
 
     var body: some View {
         Section {
@@ -51,7 +51,7 @@ struct AppThemingCustomSection: View {
             }
             AppThemingPaths(paths: paths[custom.targetID] ?? [])
             if custom.enabled {
-                AppThemingStatus(result: controller.appThemeService?.results[custom.targetID]) { replace(custom) }
+                AppThemingStatus(result: controller.appThemeService?.results[custom.targetID]) { onReplace(custom) }
             }
         }
         .padding(.vertical, 2)
@@ -74,20 +74,5 @@ struct AppThemingCustomSection: View {
                 settings.values.custom[index].enabled = value
             }
         )
-    }
-
-    private func replace(_ custom: SettingsExport.AppTheming.Custom) {
-        let preview = controller.appThemePreview
-        guard let changes = try? preview.changes(for: preview.target(for: custom), onlyExisting: true) else {
-            return
-        }
-        review = AppThemingReview(
-            title: String(localized: "Replace Changed Files"),
-            message: String(
-                localized: "These files have changes OmniWM didn’t make. Replacing them keeps a backup of each."
-            ),
-            confirmTitle: String(localized: "Back Up and Replace"),
-            changes: changes
-        ) { [controller] in controller.appThemeService?.confirm(changes, reloading: custom.targetID) }
     }
 }

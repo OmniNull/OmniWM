@@ -135,4 +135,70 @@ final class AppThemeFileTransactionTests: XCTestCase {
         XCTAssertNotEqual(restored.owned[last.path], before.owned[last.path])
         XCTAssertNil(restored.pending[last.path])
     }
+
+    private var preview: AppThemePreview {
+        AppThemePreview(
+            engine: sandbox.engine(fake),
+            values: SettingsExport.AppTheming(),
+            dark: true,
+            palette: { AppThemeFixtures.palette }
+        )
+    }
+
+    func testGhosttySelectionReportsWhenEveryEditIsOutsideAllowedFolders() throws {
+        let outside = "themes/ghostty.conf"
+        let base = "config-file = ~/\(outside)\n"
+        let theme = "theme = catppuccin\n"
+        try sandbox.write(base, to: ".config/ghostty/config")
+        try sandbox.write(theme, to: outside)
+
+        XCTAssertThrowsError(try preview.ghosttySelectionChanges()) { error in
+            XCTAssertEqual(error as? AppThemeEngineError, .blockedGhosttySelection(["~/\(outside)"]))
+        }
+
+        XCTAssertEqual(sandbox.read(".config/ghostty/config"), base)
+        XCTAssertEqual(sandbox.read(outside), theme)
+    }
+
+    func testGhosttySelectionKeepsTheWarningWhenAnAllowedEditRemains() throws {
+        let outside = "themes/ghostty.conf"
+        try sandbox.write("theme = base\nconfig-file = ~/\(outside)\n", to: ".config/ghostty/config")
+        try sandbox.write("theme = override\n", to: outside)
+
+        let changes = try preview.ghosttySelectionChanges()
+
+        XCTAssertEqual(changes.map(\.url), [sandbox.path(".config/ghostty/config")])
+        XCTAssertTrue(try XCTUnwrap(changes.first?.note).contains("~/\(outside)"))
+    }
+
+    func testGhosttyDiscoveryRetainsTheBytesAndTextItRead() throws {
+        let config = ".config/ghostty/config"
+        let original = Data([0xEF, 0xBB, 0xBF]) + Data("font-size = 14\r\ntheme = original\n".utf8)
+        try sandbox.write("", to: config)
+        try original.write(to: sandbox.path(config))
+
+        let files = AppThemeGhosttySelection.loadedFiles(configHome: sandbox.policy.configHome, home: sandbox.home)
+        try sandbox.write("theme = newer\n", to: config)
+
+        XCTAssertEqual(files.map(\.url), [sandbox.path(config)])
+        let contents = try XCTUnwrap(files.first).contents.get()
+        XCTAssertEqual(contents.data, original)
+        XCTAssertEqual(contents.text, String(data: original, encoding: .utf8))
+    }
+
+    func testGhosttyDiscoveryKeepsUnreadableAndNonTextFilesInTheReview() throws {
+        let config = ".config/ghostty/config"
+        try FileManager.default.createDirectory(at: sandbox.path(config), withIntermediateDirectories: true)
+        XCTAssertEqual(preview.ghosttySelectionStatus(), .unreadable("~/\(config)"))
+        XCTAssertThrowsError(try preview.ghosttySelectionChanges()) { error in
+            XCTAssertEqual(error as? AppThemeOutputError, .notRegularFile("~/\(config)"))
+        }
+
+        try FileManager.default.removeItem(at: sandbox.path(config))
+        try Data([0xFF]).write(to: sandbox.path(config))
+        XCTAssertEqual(preview.ghosttySelectionStatus(), .unreadable("~/\(config)"))
+        XCTAssertThrowsError(try preview.ghosttySelectionChanges()) { error in
+            XCTAssertEqual(error as? AppThemeEngineError, .notText("~/\(config)"))
+        }
+    }
 }

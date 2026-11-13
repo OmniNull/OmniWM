@@ -75,14 +75,18 @@ struct AppThemingSettingsPage: View {
                 controller: controller,
                 paths: page.paths,
                 editing: $editing,
-                review: $review
+                onReplace: { reviewConflict(preview.target(for: $0)) }
             )
             AppThemingPlaceholderHelp()
         }
         .formStyle(.grouped)
         .onAppear { refreshGhosttySelection() }
         .onChange(of: service?.results) { _, _ in refreshGhosttySelection() }
-        .onChange(of: settings.appTheming.values) { _, _ in refreshGhosttySelection() }
+        .onChange(of: settings.appTheming.values) { _, _ in
+            page.invalidateReview()
+            refreshGhosttySelection()
+        }
+        .onDisappear { page.invalidateReview() }
         .onChange(of: service?.reviewAgain) { _, target in
             guard let target else { return }
             service?.reviewShown()
@@ -276,39 +280,43 @@ struct AppThemingSettingsPage: View {
 
 extension AppThemingSettingsPage {
     private func turnOn(_ app: AppThemeBuiltIn) {
-        do {
-            let preview = preview
-            let changes = try preview.changes(for: preview.target(for: app), onlyExisting: true)
-            guard !changes.isEmpty else {
-                settings.appTheming.values.setEnabled(app, true)
-                return
+        let preview = preview
+        page.review(preview, target: preview.target(for: app)) { result in
+            do {
+                let changes = try result.get()
+                guard !changes.isEmpty else {
+                    settings.appTheming.values.setEnabled(app, true)
+                    return
+                }
+                review = AppThemingReview(
+                    title: String(localized: "Turn On \(app.name)"),
+                    message: String(
+                        localized: "OmniWM will change these existing files and keep them updated when the palette changes."
+                    ),
+                    confirmTitle: String(localized: "Back Up and Turn On"),
+                    changes: changes
+                ) { [controller] in controller.turnOnAppTheme(app, approving: changes) }
+            } catch {
+                problem = error.localizedDescription
             }
-            review = AppThemingReview(
-                title: String(localized: "Turn On \(app.name)"),
-                message: String(
-                    localized: "OmniWM will change these existing files and keep them updated when the palette changes."
-                ),
-                confirmTitle: String(localized: "Back Up and Turn On"),
-                changes: changes
-            ) { [controller] in controller.turnOnAppTheme(app, approving: changes) }
-        } catch {
-            problem = error.localizedDescription
         }
     }
 
     private func reviewConflict(_ target: AppThemeTarget) {
-        do {
-            let changes = try preview.changes(for: target, onlyExisting: true)
-            review = AppThemingReview(
-                title: String(localized: "Replace Changed Files"),
-                message: String(
-                    localized: "These files have changes OmniWM didn’t make. Replacing them keeps a backup of each."
-                ),
-                confirmTitle: String(localized: "Back Up and Replace"),
-                changes: changes
-            ) { [service] in service?.confirm(changes, reloading: target.id) }
-        } catch {
-            problem = error.localizedDescription
+        page.review(preview, target: target) { result in
+            do {
+                let changes = try result.get()
+                review = AppThemingReview(
+                    title: String(localized: "Replace Changed Files"),
+                    message: String(
+                        localized: "These files have changes OmniWM didn’t make. Replacing them keeps a backup of each."
+                    ),
+                    confirmTitle: String(localized: "Back Up and Replace"),
+                    changes: changes
+                ) { [service] in service?.confirm(changes, reloading: target.id) }
+            } catch {
+                problem = error.localizedDescription
+            }
         }
     }
 
@@ -322,26 +330,26 @@ extension AppThemingSettingsPage {
     }
 
     private func reviewGhosttySelection() {
-        let changes: [AppThemeChange]
-        do {
-            changes = try preview.ghosttySelectionChanges()
-        } catch {
-            problem = error.localizedDescription
-            refreshGhosttySelection()
-            return
+        page.review(preview) { result in
+            do {
+                let changes = try result.get()
+                guard !changes.isEmpty else {
+                    refreshGhosttySelection()
+                    return
+                }
+                review = AppThemingReview(
+                    title: String(localized: "Select the OmniWM Themes in Ghostty"),
+                    message: String(
+                        localized: "Ghostty reads each of these files in turn, and the last theme line wins. OmniWM will select its themes and comment out every other theme line."
+                    ),
+                    confirmTitle: String(localized: "Back Up and Change"),
+                    changes: changes
+                ) { [service] in service?.applyGhosttySelection(changes) }
+            } catch {
+                problem = error.localizedDescription
+                refreshGhosttySelection()
+            }
         }
-        guard !changes.isEmpty else {
-            refreshGhosttySelection()
-            return
-        }
-        review = AppThemingReview(
-            title: String(localized: "Select the OmniWM Themes in Ghostty"),
-            message: String(
-                localized: "Ghostty reads each of these files in turn, and the last theme line wins. OmniWM will select its themes and comment out every other theme line."
-            ),
-            confirmTitle: String(localized: "Back Up and Change"),
-            changes: changes
-        ) { [service] in service?.applyGhosttySelection(changes) }
     }
 
     private func refreshGhosttySelection() {
