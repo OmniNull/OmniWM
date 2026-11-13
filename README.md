@@ -59,6 +59,13 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
       <br>
       <sub>All of OmniWM's CI runs on Blacksmith. On their smallest runners (6 vCPU Mac, 2 vCPU Linux), a full CI run finishes 44% faster than on GitHub-hosted macOS runners, and signed, notarized builds take half the time. Their larger runners, up to 12 vCPU on Mac and 32 on Linux, can go faster still.</sub>
     </td>
+    <td align="center">
+      <a href="https://www.coderabbit.ai/oss">
+        <strong>CodeRabbit</strong>
+      </a>
+      <br>
+      <sub>CodeRabbit isn't a formal sponsor; this is my personal thank-you. Their AI-powered code review service automatically reviews pull requests, summarizes changes, and flags potential bugs and security issues with suggested fixes. They offer it free to open-source projects like OmniWM, and it has been truly helpful. I truly appreciate their support for open source.</sub>
+    </td>
   </tr>
 </table>
 
