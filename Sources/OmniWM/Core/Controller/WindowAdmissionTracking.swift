@@ -34,8 +34,9 @@ extension AXEventHandler {
             floatingTargetFrame = nil
         }
         bindPreparedCreate(trackedEntry, floatingTargetFrame: floatingTargetFrame, controller: controller)
-        let relayoutWorkspaceId = controller.workspaceManager.workspace(for: trackedEntry.token)
-            ?? trackedEntry.workspaceId
+        let relayoutWorkspaceId = joinArrival == nil
+            ? trackedEntry.workspaceId
+            : controller.workspaceManager.workspace(for: trackedEntry.token) ?? trackedEntry.workspaceId
         controller.layoutRefreshController.requestRelayout(
             reason: .axWindowCreated,
             affectedWorkspaceIds: [relayoutWorkspaceId],

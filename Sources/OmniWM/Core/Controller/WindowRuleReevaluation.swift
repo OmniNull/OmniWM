@@ -77,16 +77,17 @@ struct WindowRuleReevaluation {
         guard existingEntry?.target.hostedMetadata == nil else { return nil }
         let axRef = liveWindowsByToken[token] ?? existingEntry?.axRef
         guard let axRef else { return nil }
-        let createPlacementContext = existingEntry == nil
-            ? controller.axEventHandler.pendingCreatePlacementContext(for: token.windowId)
-            : nil
+        let isTracked = existingEntry?.token != nil
+        let createPlacementContext = isTracked
+            ? nil
+            : controller.axEventHandler.pendingCreatePlacementContext(for: token.windowId)
         let placementOrigin: WorkspacePlacementOrigin = createPlacementContext == nil
             ? .discovery
             : .liveCreate
 
         evaluatedAnyWindow = true
         let (evaluation, scratchpadRelease) = evaluate(
-            token, axRef: axRef, existingEntry: existingEntry,
+            token, axRef: axRef, isTracked: isTracked,
             windowInfo: windowInfo, windowServerLookupAttempted: windowServerLookupAttempted
         )
         let ruleEffects = evaluation.decision.disposition == .undecided
@@ -104,8 +105,8 @@ struct WindowRuleReevaluation {
             reject(token, existingEntry: existingEntry, evaluation: evaluation)
             return nil
         }
-        let scratchpadAdmission = existingEntry == nil
-            ? controller.scratchpadAdmission(for: evaluation, requestedMode: decidedMode) : nil
+        let scratchpadAdmission = isTracked
+            ? nil : controller.scratchpadAdmission(for: evaluation, requestedMode: decidedMode)
         guard let admission = controller.resolveWindowAdmission(
             evaluation: evaluation,
             axRef: axRef,

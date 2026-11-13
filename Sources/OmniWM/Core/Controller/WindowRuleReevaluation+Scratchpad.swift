@@ -8,7 +8,7 @@ extension WindowRuleReevaluation {
     func evaluate(
         _ token: WindowToken,
         axRef: AXWindowRef,
-        existingEntry: WindowState?,
+        isTracked: Bool,
         windowInfo: WindowServerInfo?,
         windowServerLookupAttempted: Bool
     ) -> (evaluation: WMController.WindowDecisionEvaluation, scratchpadRelease: ScratchpadMemberRelease?) {
@@ -19,7 +19,7 @@ extension WindowRuleReevaluation {
             windowServerLookupAttempted: windowServerLookupAttempted
         )
         guard context == .explicitRuleApply,
-              existingEntry != nil,
+              isTracked,
               let release = controller.beginScratchpadMemberRelease(token, decision: evaluation.decision)
         else {
             return (evaluation, nil)
@@ -33,18 +33,20 @@ extension WindowRuleReevaluation {
         return (rulesEvaluation, release)
     }
 
-    func scratchpadArrival(for window: RuleReevaluationWindow) -> ScratchpadJoinArrival {
-        guard let scratchpadAdmission = window.scratchpadAdmission else {
-            return .quiet(previousFocusToken: controller.workspaceManager.selectedManagedToken)
+    func scratchpadArrival(for window: RuleReevaluationWindow) -> ScratchpadJoinArrival? {
+        if let scratchpadAdmission = window.scratchpadAdmission {
+            return controller.axEventHandler.scratchpadJoinArrival(
+                window.token,
+                in: scratchpadAdmission.index,
+                canCountAsFocused: !window.evaluation.appFullscreen
+            )
         }
-        return controller.axEventHandler.scratchpadJoinArrival(
-            window.token,
-            in: scratchpadAdmission.index,
-            canCountAsFocused: !window.evaluation.appFullscreen
-        )
+        guard context == .explicitRuleApply else { return nil }
+        return .quiet(previousFocusToken: controller.workspaceManager.selectedManagedToken)
     }
 
-    func applyScratchpadDestination(_ window: RuleReevaluationWindow, arrival: ScratchpadJoinArrival) {
+    func applyScratchpadDestination(_ window: RuleReevaluationWindow, arrival: ScratchpadJoinArrival?) {
+        guard let arrival else { return }
         if let scratchpadAdmission = window.scratchpadAdmission {
             controller.joinScratchpadOnAdmission(
                 window.token,

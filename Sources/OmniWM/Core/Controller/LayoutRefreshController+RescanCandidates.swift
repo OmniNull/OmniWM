@@ -14,11 +14,11 @@ extension LayoutRefreshController {
         else { return }
         let decision = prepareFullRescanWindowDecision(candidate, identity: identity, context: context)
         let window = FullRescanEvaluatedWindow(candidate: candidate, identity: identity, decision: decision)
-        let scratchpadAdmission = identity.existingEntry == nil
-            ? decision.effectiveTrackedMode.flatMap {
+        let scratchpadAdmission = identity.isTracked
+            ? nil
+            : decision.effectiveTrackedMode.flatMap {
                 context.controller.scratchpadAdmission(for: decision.evaluation, requestedMode: $0)
             }
-            : nil
         let requestedMode = scratchpadAdmission == nil ? decision.effectiveTrackedMode : .floating
         let admitted = requestedMode.flatMap { mode in
             if decision.shouldPreservePreFullscreenState { return WindowAdmission(mode: mode) }
@@ -113,9 +113,10 @@ extension LayoutRefreshController {
         _ window: FullRescanEvaluatedWindow,
         scratchpadAdmission: ScratchpadAdmission?,
         context: FullRescanMutationContext
-    ) -> ScratchpadJoinArrival {
+    ) -> ScratchpadJoinArrival? {
+        guard let scratchpadAdmission else { return nil }
         let controller = context.controller
-        guard let scratchpadAdmission, window.decision.createPlacementContext != nil else {
+        guard window.decision.createPlacementContext != nil else {
             return .quiet(previousFocusToken: controller.workspaceManager.selectedManagedToken)
         }
         return controller.axEventHandler.scratchpadJoinArrival(
@@ -130,9 +131,9 @@ extension LayoutRefreshController {
         window: FullRescanEvaluatedWindow,
         admitted: WindowAdmission,
         admittedToken: WindowToken,
-        arrival: ScratchpadJoinArrival
+        arrival: ScratchpadJoinArrival?
     ) {
-        guard let scratchpadAdmission, let controller else { return }
+        guard let scratchpadAdmission, let arrival, let controller else { return }
         controller.joinScratchpadOnAdmission(
             admittedToken,
             scratchpadAdmission,
