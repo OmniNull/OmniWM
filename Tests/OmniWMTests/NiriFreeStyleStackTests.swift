@@ -341,6 +341,86 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(targetState.selectedNodeId, arrived.id)
     }
 
+    func testATabbedColumnCarriedHomeWithItsHintOpenComesBackWholeAndLeavesTheTargetAlone() throws {
+        var fixture = makeFixture()
+        _ = makeTabbed(&fixture, stacking: 0, onto: 1)
+        XCTAssertTrue(fixture.begin(1))
+
+        let otherWorkspaceId = WorkspaceDescriptor.ID()
+        let otherFrame = CGRect(x: 1_500, y: 0, width: 1_500, height: 900)
+        fixture.engine.syncWorkspaceAssignments(
+            [
+                (workspaceId: fixture.workspaceId, monitor: Monitor(
+                    id: Monitor.ID(displayId: 96), displayId: 96, frame: fixture.frame, visibleFrame: fixture.frame,
+                    hasNotch: false, name: "Free-style stacking"
+                )),
+                (workspaceId: otherWorkspaceId, monitor: Monitor(
+                    id: Monitor.ID(displayId: 97), displayId: 97, frame: otherFrame, visibleFrame: otherFrame,
+                    hasNotch: false, name: "Other strip"
+                ))
+            ],
+            orientations: [Monitor.ID(displayId: 96): .horizontal, Monitor.ID(displayId: 97): .horizontal]
+        )
+        let residents = [WindowToken(pid: 961, windowId: 50), WindowToken(pid: 961, windowId: 51)]
+        for resident in residents {
+            _ = fixture.engine.addWindow(token: resident, to: otherWorkspaceId, afterSelection: nil)
+        }
+        fixture.engine.resolvePrimaryContainerSpans(
+            in: otherWorkspaceId, workingFrame: otherFrame, gaps: fixture.gap, orientation: .horizontal
+        )
+        let target = NiriInteractionContext(
+            workspaceId: otherWorkspaceId,
+            motion: .disabled,
+            workingFrame: otherFrame,
+            gaps: fixture.gap,
+            orientation: .horizontal
+        )
+        var targetState = ViewportState()
+        _ = fixture.engine.liveColumnMoveCarry(
+            cursor: CGPoint(x: otherFrame.maxX - 100, y: otherFrame.midY),
+            windowWidth: nil,
+            from: fixture.context,
+            sourceState: &fixture.state,
+            to: target,
+            targetState: &targetState
+        )
+        fixture.engine.liveColumnMoveSettled()
+
+        let resident = try XCTUnwrap(fixture.engine.findNode(for: residents[0], in: otherWorkspaceId))
+        let residentColumn = try XCTUnwrap(resident.parent as? NiriContainer)
+        let placed = try XCTUnwrap(
+            fixture.engine.liveColumnStrip(context: target, state: targetState).first { $0.column === residentColumn }
+        )
+        let span = try XCTUnwrap(
+            fixture.engine.liveWindowSpans(in: residentColumn, context: target).first { $0.window === resident }
+        )
+        let centre = CGPoint(x: placed.midX, y: span.minY + (span.maxY - span.minY) / 4)
+        for time in [1.0, 2.0] {
+            let step = fixture.engine.liveColumnMoveUpdate(
+                cursor: centre, windowMidX: nil, at: time, slowed: false, context: target, state: &targetState
+            )
+            if step.changesLayout {
+                fixture.engine.liveColumnMoveSettled()
+            }
+        }
+        XCTAssertNotNil(fixture.move?.landing)
+        XCTAssertTrue(fixture.engine.findNode(for: fixture.tokens[1], in: otherWorkspaceId)?.parent === residentColumn)
+
+        var viewports = [fixture.workspaceId: fixture.state, otherWorkspaceId: targetState]
+        let returned = fixture.engine.liveColumnMoveReturnHome(
+            contexts: [fixture.workspaceId: fixture.context, otherWorkspaceId: target],
+            viewports: &viewports
+        )
+
+        XCTAssertEqual(Set(returned), [fixture.tokens[1], fixture.tokens[0]])
+        let home = try XCTUnwrap(fixture.window(1).parent as? NiriContainer)
+        XCTAssertTrue(fixture.window(0).parent === home)
+        XCTAssertTrue(fixture.engine.columns(in: fixture.workspaceId).contains { $0 === home })
+        XCTAssertTrue(fixture.engine.columns(in: otherWorkspaceId).contains { $0 === residentColumn })
+        XCTAssertEqual(residentColumn.windowNodes.map(\.token), [residents[0]])
+        XCTAssertNil(fixture.engine.findNode(for: residents[0], in: fixture.workspaceId))
+    }
+
     func testATabbedColumnOfOneWindowStacksAsAPlainWindow() {
         var fixture = makeFixture()
         let single = fixture.column(1)

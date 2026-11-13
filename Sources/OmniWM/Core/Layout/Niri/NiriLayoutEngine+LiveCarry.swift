@@ -83,11 +83,16 @@ extension NiriLayoutEngine {
               let carry = move.carry,
               let current = contexts[move.workspaceId],
               let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
-              let column = window.parent as? NiriContainer
+              window.parent is NiriContainer
         else { return [] }
         var currentState = viewports[current.workspaceId] ?? ViewportState()
         if move.landing != nil {
             _ = placeLiveLanding(nil, move: &move, context: current, state: &currentState)
+        }
+        guard let column = window.parent as? NiriContainer else {
+            viewports[current.workspaceId] = currentState
+            replaceLiveColumnMove(with: move)
+            return []
         }
         _ = leaveLiveStrip(window, move: move, context: current, state: &currentState)
         restoreWidenedLiveColumn(carry.widenedColumn)
