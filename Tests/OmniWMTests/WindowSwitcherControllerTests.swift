@@ -161,7 +161,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         XCTAssertEqual(badges, [["1"], ["1"], ["Right"]])
     }
 
-    func testScopeCycleOffersVisibleWorkspacesOnlyWithMultipleMonitors() throws {
+    func testScopeCycleOffersVisibleWorkspacesOnlyWhenAnotherWorkspaceIsShown() throws {
         for monitorCount in [1, 2] {
             let fixture = try makePresentationFixture(windowCount: 1, monitorCount: monitorCount)
             defer {
@@ -188,36 +188,49 @@ final class WindowSwitcherControllerTests: XCTestCase {
         }
     }
 
-    func testVisibleWorkspacesIsOfferedFromAnUnassignedInteractionMonitor() throws {
-        let fixture = try makePresentationFixture(windowCount: 1, monitorCount: 2)
-        defer { fixture.close() }
+    func testVisibleWorkspacesIsOfferedOnlyWhereItAddsToTheActiveWorkspace() throws {
+        for opensOnUnassignedMonitor in [true, false] {
+            let fixture = try makePresentationFixture(windowCount: 1, monitorCount: 2)
+            defer { fixture.close() }
 
-        let controller = fixture.controller
-        let manager = controller.workspaceManager
-        let primary = fixture.monitors[0]
-        let secondary = fixture.monitors[1]
-        controller.settings.workspaces.configurations = [
-            WorkspaceConfiguration(name: "1", monitorAssignment: .main, layoutType: .niri),
-            WorkspaceConfiguration(name: "2", monitorAssignment: .main, layoutType: .niri)
-        ]
-        manager.applySettings()
-        let shownId = try XCTUnwrap(manager.workspaceId(for: "1", createIfMissing: false))
-        let hiddenId = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: false))
-        let hiddenToken = WindowToken(pid: 81_002, windowId: 81_201)
-        _ = WindowAdmissionTestSupport.track(hiddenToken, in: hiddenId, controller: controller)
+            let controller = fixture.controller
+            let manager = controller.workspaceManager
+            let primary = fixture.monitors[0]
+            let secondary = fixture.monitors[1]
+            controller.settings.workspaces.configurations = [
+                WorkspaceConfiguration(name: "1", monitorAssignment: .main, layoutType: .niri),
+                WorkspaceConfiguration(name: "2", monitorAssignment: .main, layoutType: .niri)
+            ]
+            manager.applySettings()
+            let shownId = try XCTUnwrap(manager.workspaceId(for: "1", createIfMissing: false))
+            let hiddenId = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: false))
+            let hiddenToken = WindowToken(pid: 81_002, windowId: 81_201)
+            _ = WindowAdmissionTestSupport.track(hiddenToken, in: hiddenId, controller: controller)
 
-        XCTAssertEqual(manager.visibleWorkspaceId(on: primary.id), shownId)
-        XCTAssertNil(manager.visibleWorkspaceId(on: secondary.id))
-        XCTAssertEqual(manager.visibleWorkspaceIds(), [shownId])
-        controller.mouseWarpHandler.notePointerEdgeCrossing(to: secondary.id)
-        XCTAssertEqual(controller.monitorForInteraction()?.id, secondary.id)
-        XCTAssertNil(controller.activeWorkspace())
+            XCTAssertEqual(manager.visibleWorkspaceId(on: primary.id), shownId)
+            XCTAssertNil(manager.visibleWorkspaceId(on: secondary.id))
+            XCTAssertEqual(manager.visibleWorkspaceIds(), [shownId])
+            if opensOnUnassignedMonitor {
+                controller.mouseWarpHandler.notePointerEdgeCrossing(to: secondary.id)
+                XCTAssertEqual(controller.monitorForInteraction()?.id, secondary.id)
+                XCTAssertNil(controller.activeWorkspace())
+            } else {
+                XCTAssertEqual(controller.monitorForInteraction()?.id, primary.id)
+                XCTAssertEqual(controller.activeWorkspace()?.id, shownId)
+            }
 
-        fixture.switcher.handle(.begin(reverse: false, scope: .activeWorkspace))
-        XCTAssertEqual(try fixture.cardTokens(), [])
-        fixture.switcher.handle(.cycleScope)
-        XCTAssertEqual(controller.settings.windowSwitcher.scope, .visibleWorkspaces)
-        XCTAssertEqual(try fixture.cardTokens(), fixture.tokens)
+            fixture.switcher.handle(.begin(reverse: false, scope: .activeWorkspace))
+            XCTAssertEqual(try fixture.cardTokens(), opensOnUnassignedMonitor ? [] : fixture.tokens)
+            fixture.switcher.handle(.cycleScope)
+            XCTAssertEqual(
+                controller.settings.windowSwitcher.scope,
+                opensOnUnassignedMonitor ? .visibleWorkspaces : .allWorkspaces
+            )
+            XCTAssertEqual(
+                try fixture.cardTokens(),
+                opensOnUnassignedMonitor ? fixture.tokens : fixture.tokens + [hiddenToken]
+            )
+        }
     }
 
     func testRememberedVisibleScopeOnOneMonitorOpensThenMovesToAllWorkspaces() throws {

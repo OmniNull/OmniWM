@@ -14,7 +14,7 @@ Configure **Command-Tab** and **Option-Tab** independently as **Active Workspace
 - Hold the shortcut's Command or Option key and press `Tab` to cycle through windows. `Shift + Tab` reverses direction. Left and right move between cards; up and down move between rows.
 - Release the modifier or press `Return` to focus the selected window. Click a thumbnail to select it directly.
 - Press `Escape` or click outside to cancel.
-- Press `S` or click the scope button to move to the next scope: Active Workspace, then Visible Workspaces, then All Workspaces. When the switcher opens with one connected monitor, the cycle skips Visible Workspaces.
+- Press `S` or click the scope button to move to the next scope: Active Workspace, then Visible Workspaces, then All Workspaces. The cycle skips Visible Workspaces when no monitor shows a workspace other than the active one, because it would list the same windows as Active Workspace.
 - Press `W` or use the close button that appears when hovering over a preview to close that window. The card stays until the app actually closes the window, including when it asks about unsaved changes.
 
 **Active Workspace** uses the workspace on OmniWM's interaction monitor when the switcher opens. **Visible Workspaces** (**Unreleased — available when building from `main`**) uses the workspace shown on each connected monitor when the switcher opens and leaves out workspaces that no monitor is showing; the switcher itself still opens on the interaction monitor. **All Workspaces** includes tracked windows across monitors, including floating windows and hidden applications. Minimized windows remain selectable with dimmed previews; selecting one restores it. Natively withdrawn and untracked windows are omitted.
