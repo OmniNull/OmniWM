@@ -48,6 +48,9 @@ final class EventInterpreter: EventIntakeSink {
         case let .hotkeyInvocation(invocation):
             handleHotkeyInvocation(invocation, sequence: stamped.seq, controller: controller)
 
+        case let .windowSwitcherAction(action, generation):
+            controller.handleWindowSwitcherAction(action, generation: generation)
+
         case let .intentExpired(intentId, deadlineGeneration):
             controller.axEventHandler.handleIntentExpired(
                 intentId,

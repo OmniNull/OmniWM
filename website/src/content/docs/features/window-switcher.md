@@ -36,9 +36,10 @@ alt + shift - tab : omniwmctl command window-switcher previous
 ```
 
 - When the command runs, OmniWM checks which of Command, Option and Control are held. It keeps the switcher open until one of them is released, then focuses the selected window. This also works with Control and Hyper chords.
-- While it is open, more `next` or `previous` calls move the selection in the same session. `Tab`, the arrow keys, `Return`, `Escape`, `S` and `W` work as they do with the built-in shortcut. Other keys pass through, so the hotkey manager still receives its own chord.
+- While it is open, more `next` or `previous` calls move the selection in the same session. Hotkey managers such as skhd get the first chance to handle their bindings. The switcher handles `Tab`, the arrow keys, `Return`, `Escape`, `S` and `W` when those keys reach it.
 - If no modifier is held, as in a script, or the key is released before the command arrives, the command switches once and leaves no panel open.
 - An optional third word sets the scope for that opening: `active-workspace`, `visible-workspaces` or `all-workspaces`. Without it, the switcher uses the remembered scope. While it is open, the scope word is ignored.
+- A one-shot call with no target returns `not_found`. A call that leaves the selection or focus unchanged, or is blocked by the open Command Palette, returns `no_change`.
 
 Watching for the modifier release uses OmniWM's input event tap, which needs Input Monitoring permission. Without it, the command switches once.
 

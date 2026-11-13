@@ -34,13 +34,10 @@ extension WMController {
             return secureInputMonitor.isSecureInputActive || isLockScreenActive
         }
         hotkeys.onWindowSwitcherAction = { [weak self] action, generation in
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if case .begin = action {
-                    guard settings.windowSwitcher.enabled else { return }
-                    windowSwitcherController.handle(action, generation: generation)
-                } else {
-                    windowSwitcherControllerStorage?.handle(action, generation: generation)
+            guard let self else { return }
+            if !eventIntake.enqueue(.windowSwitcherAction(action, generation: generation)) {
+                DispatchQueue.main.async { [weak self] in
+                    self?.handleWindowSwitcherAction(action, generation: generation)
                 }
             }
         }
