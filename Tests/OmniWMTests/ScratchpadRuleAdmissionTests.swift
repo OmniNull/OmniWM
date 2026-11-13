@@ -972,6 +972,52 @@ final class ScratchpadRuleAdmissionTests: XCTestCase {
         XCTAssertNotEqual(manager.entry(for: token)?.mode, .tiling)
     }
 
+    func testUnassignThatRevealsNothingKeepsTheDeferredExplicitRuleApply() async throws {
+        let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
+        let manager = fixture.controller.workspaceManager
+        let handler = fixture.controller.axEventHandler
+        let home = MonitorAssignment.specificDisplay(OutputId(from: fixture.monitor))
+        fixture.controller.settings.workspaces.configurations = ["1", "2"].map {
+            WorkspaceConfiguration(name: $0, monitorAssignment: home)
+        }
+        let emptyFrame = fixture.monitor.frame.offsetBy(dx: fixture.monitor.frame.width, dy: 0)
+        let emptyMonitor = Monitor(
+            id: .init(displayId: fixture.monitor.displayId &+ 1),
+            displayId: fixture.monitor.displayId &+ 1,
+            frame: emptyFrame,
+            visibleFrame: emptyFrame,
+            hasNotch: false,
+            name: "NoWorkspaces",
+            isMain: false
+        )
+        manager.applyMonitorConfigurationChange([fixture.monitor, emptyMonitor])
+        manager.applySettings()
+        XCTAssertNil(manager.activeWorkspaceOrFirst(on: emptyMonitor.id))
+        let destination = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: true))
+        let token = WindowToken(pid: 975_393, windowId: 975_493)
+        let windowId = UInt32(token.windowId)
+        try liveCreate(token, in: fixture)
+        fixture.controller.windowRuleEngine.rebuild(rules: [Self.rule(workspace: "2")])
+        fixture.book.withoutAdmissionGeometry.insert(token)
+        await fixture.controller.reevaluateWindowRules(for: [.window(token)], context: .explicitRuleApply)
+        XCTAssertEqual(manager.hiddenState(for: token)?.isScratchpad, true)
+
+        XCTAssertEqual(fixture.controller.unassignScratchpadWindows([token], on: emptyMonitor.id), .notFound)
+
+        XCTAssertEqual(manager.scratchpadIndex(for: token), 1)
+        let pendingTrigger = handler.admissionRetryStateByWindowId[windowId]?.trigger
+        guard case .ruleReevaluation(_, _, .explicitRuleApply)? = pendingTrigger else {
+            return XCTFail("an unassign that reveals nothing must leave the deferred explicit rule apply pending")
+        }
+        fixture.book.withoutAdmissionGeometry.remove(token)
+        XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
+        let retry = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
+        await retry.value
+
+        XCTAssertNil(manager.scratchpadIndex(for: token))
+        XCTAssertEqual(manager.workspace(for: token), destination)
+    }
+
     func testMemberArrivingWhileTheSlotsRevealIsPendingKeepsTheSlotRevealed() throws {
         let fixture = try makeFixture(rules: [Self.rule(scratchpad: 1)])
         let manager = fixture.controller.workspaceManager
