@@ -91,6 +91,7 @@ final class MouseEventHandler {
         clearNativeTitleBarDrag()
         state.nativeResizeCorrectionsByWindowId.removeAll()
         cancelActiveMouseInteraction()
+        releaseEdgeResizeHold()
         state.capturedInteractionButton = nil
         state.capturedOtherMouseButton = nil
         tearDownEventTaps()

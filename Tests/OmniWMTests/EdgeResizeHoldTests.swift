@@ -107,4 +107,18 @@ final class EdgeResizeHoldTests: XCTestCase {
         barrier.publishResizeHold(nil)
         XCTAssertNil(barrier.resizeHold)
     }
+
+    @MainActor
+    func testStoppingTheMouseHandlerLetsGoOfTheResizeHold() {
+        let controller = WindowAdmissionTestSupport.controller()
+        var hold = PointerEdgeBarrier.ResizeHold()
+        hold.maxX = 1200
+        controller.holdPointerForEdgeResize(hold)
+        XCTAssertNotNil(controller.pointerEdgeBarrier.resizeHold)
+
+        controller.mouseEventHandler.cleanup()
+
+        XCTAssertNil(controller.pointerEdgeBarrier.resizeHold)
+    }
+
 }
