@@ -13,8 +13,9 @@ extension WorkspaceBarManager {
         lastBars = bars
         if settings.workspaceBar.enabled || settings.island.enabled {
             startShellHostIfNeeded(settings: settings)
-        } else if shellHost != nil {
-            stopShellHost()
+        } else {
+            if shellHost != nil { stopShellHost() }
+            controller?.appThemeShellIsOff { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         }
         shellHost?.updateWorld()
         shellHost?.updateBars()
@@ -54,6 +55,10 @@ extension WorkspaceBarManager {
         } else {
             applyShellProfile(config)
             commandPaletteConfigCache = nil
+            controller?.appThemeShellIsOff(
+                theme: { [weak self] in self?.appThemeFallbackTheme() ?? .native },
+                refresh: true
+            )
         }
         controller?.commandPaletteController.prewarmShell(from: self)
     }
@@ -139,6 +144,9 @@ extension WorkspaceBarManager {
             publishShellBadges()
         }
         host.setBarColors(accent: settings.workspaceBar.accentColor, foreground: settings.workspaceBar.textColor)
+        host.onPaletteChange = { [weak self] theme in
+            self?.controller?.appThemePaletteDidChange(theme)
+        }
         shellPermissionPrompts?.observe(host)
         setShellLocked(controller?.isLockScreenActive == true)
         host.start()
@@ -358,5 +366,32 @@ extension WorkspaceBarManager {
         case focusWindow(WindowToken)
         case focusWorkspace(rawName: String)
         case toggleScratchpad(ScratchpadIndex)
+    }
+}
+
+extension WorkspaceBarManager {
+    func appTheme() -> ShellTheme {
+        guard let shellHost else { return appThemeFallbackTheme() }
+        return ShellWidgetHost.paletteTheme(
+            config: shellHost.config,
+            accent: shellHost.barColors.accent,
+            foreground: shellHost.barColors.foreground
+        )
+    }
+
+    func offerAppTheme(to service: AppThemeService) {
+        if shellHost != nil {
+            service.setTheme(appTheme())
+        } else {
+            service.setFallbackTheme { [weak self] in self?.appThemeFallbackTheme() ?? .native }
+        }
+    }
+
+    func appThemeFallbackTheme() -> ShellTheme {
+        ShellWidgetHost.paletteTheme(
+            config: commandPaletteConfig,
+            accent: controller?.settings.workspaceBar.accentColor,
+            foreground: controller?.settings.workspaceBar.textColor
+        )
     }
 }

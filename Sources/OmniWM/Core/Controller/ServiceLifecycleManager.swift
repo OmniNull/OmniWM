@@ -43,6 +43,7 @@ final class ServiceLifecycleManager {
 
     func start() {
         guard let controller, !isStoppingForUser, !quitRequested else { return }
+        controller.startAppTheming()
         let initialPermissionGranted = AccessibilityPermissionMonitor.shared.isGranted
         controller.updateAccessibilityPermissionGranted(initialPermissionGranted)
         setupSeparateSpacesObserver()

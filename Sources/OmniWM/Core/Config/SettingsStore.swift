@@ -70,6 +70,7 @@ final class SettingsStore {
     let windowSwitcher = WindowSwitcherSettings()
     let keyboardModes = KeyboardModeSettings()
     let commandPalette = CommandPaletteSettings()
+    let appTheming = AppThemingSettings()
 
     var hotkeyBindings = SettingsStore.defaultExport.hotkeyBindings {
         didSet { scheduleSave() }
@@ -257,6 +258,7 @@ final class SettingsStore {
         workspaceBar.onNotificationBadgesChange = { [weak self] in self?.scheduleSave() }
         island.onChange = { [weak self] in self?.scheduleSave() }
         shellPermissions.onChange = { [weak self] in self?.scheduleSave() }
+        appTheming.onChange = { [weak self] in self?.scheduleSave() }
         workspaces.onChange = { [weak self] in self?.workspacesDidChange() }
         borders.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         overview.onChange = { [weak self] in
@@ -474,6 +476,7 @@ extension SettingsStore {
 
         tabRailAppIcons = export.tabRailAppIcons
         shellPermissions.apply(export.shellPermissions)
+        appTheming.apply(export.appTheming)
     }
 
     private func pointerSettingsDidChange() {

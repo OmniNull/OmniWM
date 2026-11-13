@@ -40,6 +40,360 @@
     "Choose how the palette searches windows, apps, commands, and files." : {
 
     },
+    "A base16 module for the current appearance · reloads Neovim with SIGUSR1" : {
+
+    },
+    "Add the base16-nvim plugin to your plugin list and the setup line to your init.lua. OmniWM never edits your Neovim config; it signals running Neovim instances to reload the module." : {
+
+    },
+    "App Theming guide" : {
+
+    },
+    "Color Ghostty, kitty, herdr, Neovim and your own templates from OmniWM’s palette." : {
+
+    },
+    "Neovim Theme" : {
+
+    },
+    "Neovim didn’t reload" : {
+
+    },
+    "Neovim isn’t running; it loads the new colors when it starts" : {
+
+    },
+    "Reloaded Neovim" : {
+
+    },
+    "Follow Palette" : {
+
+    },
+    "Follow Palette takes terminal colors from a wallpaper palette’s accents, so the terminal matches the wallpaper, though red and green may not look red and green in diffs. Standard Hues keeps familiar red, green, yellow, blue, magenta and cyan for ls and git, tinted toward the accent. A theme with its own terminal hues keeps them with Follow Palette." : {
+
+    },
+    "Standard Hues" : {
+
+    },
+    "%@ also sets a theme but is outside the folders OmniWM writes. Comment that line out yourself." : {
+
+    },
+    "Another Ghostty config sets a different theme" : {
+
+    },
+    "Fix Ghostty Config…" : {
+
+    },
+    "Ghostty reads each of these files in turn, and the last theme line wins. OmniWM will select its themes and comment out every other theme line." : {
+
+    },
+    "The app has to watch this file itself, or you reload it by hand." : {
+
+    },
+    "%@ has changes OmniWM didn’t make. Review and replace it to continue." : {
+
+    },
+    "%@ is in a folder OmniWM never writes app themes to" : {
+
+    },
+    "%@ is not a regular file, so OmniWM won’t replace it" : {
+
+    },
+    "%@ is not valid TOML, so OmniWM left it unchanged" : {
+
+    },
+    "%@ is outside ~/.config and ~/Library/Application Support, so OmniWM won’t write it" : {
+
+    },
+    "%@ isn’t a UTF-8 text file" : {
+
+    },
+    "%@ is already written by %@. Choose another output file." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is already written by %2$@. Choose another output file."
+          }
+        }
+      }
+    },
+    "%@ must be a full path starting with / or ~/" : {
+
+    },
+    "%@ must not contain .. or . folders" : {
+
+    },
+    "%lld of %lld saved machines reloaded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld saved machines reloaded"
+          }
+        }
+      }
+    },
+    "A copy of each file is saved in %@ before anything changes." : {
+
+    },
+    "A custom template writes one file inside ~/.config or ~/Library/Application Support, rendered for the current macOS appearance." : {
+
+    },
+    "A herdr client attached to another machine draws with this terminal’s colors, so OmniWM reloads every enabled saved machine after the terminal." : {
+
+    },
+    "Add Custom Template" : {
+
+    },
+    "Add Custom Template…" : {
+
+    },
+    "Add to Ghostty Config…" : {
+
+    },
+    "After Writing" : {
+
+    },
+    "Already up to date" : {
+
+    },
+    "Also reload saved herdr machines" : {
+
+    },
+    "App Theming" : {
+
+    },
+    "Apply Now" : {
+
+    },
+    "Apps update the moment OmniWM’s palette or macOS light and dark changes." : {
+
+    },
+    "Automatic light and dark themes · reloads kitty with SIGUSR1" : {
+
+    },
+    "Back Up and Change" : {
+
+    },
+    "Back Up and Replace" : {
+
+    },
+    "Back Up and Turn On" : {
+
+    },
+    "Custom Templates" : {
+
+    },
+    "Dark Template (optional)" : {
+
+    },
+    "Dark palette preview" : {
+
+    },
+    "Do Nothing" : {
+
+    },
+    "Edit Custom Template" : {
+
+    },
+    "Edit…" : {
+
+    },
+    "For literal braces, write" : {
+
+    },
+    "Formats: hex, hex_stripped, rgb, rgba, red, green, blue and alpha. {{mode}} is light or dark." : {
+
+    },
+    "Ghostty %@ doesn’t reload on a signal; update it, or reload its config with ⌘⇧," : {
+
+    },
+    "Ghostty Theme" : {
+
+    },
+    "Ghostty didn’t reload" : {
+
+    },
+    "Ghostty isn’t running; it uses the new theme when it opens" : {
+
+    },
+    "Ghostty uses these themes once its config selects them." : {
+
+    },
+    "Light and dark themes · reloads Ghostty 1.2 or newer with SIGUSR2" : {
+
+    },
+    "Light palette preview" : {
+
+    },
+    "Line %lld: a placeholder opened with {{ is not closed with }} on the same line" : {
+
+    },
+    "Line %lld: unknown placeholder {{%@}}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Line %1$lld: unknown placeholder {{%2$@}}"
+          }
+        }
+      }
+    },
+    "Names: every OmniWM palette role, such as background, foreground, accent or accentContainer, plus ansi0 to ansi15." : {
+
+    },
+    "New file" : {
+
+    },
+    "Not written yet." : {
+
+    },
+    "Nothing is on until you turn it on. OmniWM only writes the files listed here, and asks before it changes an app’s own settings file." : {
+
+    },
+    "OmniWM will change these existing files and keep them updated when the palette changes." : {
+
+    },
+    "Output File" : {
+
+    },
+    "Reload Ghostty" : {
+
+    },
+    "Reload herdr" : {
+
+    },
+    "Reload kitty" : {
+
+    },
+    "Reloaded Ghostty" : {
+
+    },
+    "Reloaded herdr" : {
+
+    },
+    "Reloaded herdr with warnings" : {
+
+    },
+    "Reloaded kitty" : {
+
+    },
+    "Reloaded kitty; kitty 0.49 or older uses new theme files after a restart" : {
+
+    },
+    "Replace Changed Files" : {
+
+    },
+    "Replacing the table would change other settings in the file, so OmniWM left it unchanged" : {
+
+    },
+    "Review and Replace…" : {
+
+    },
+    "Select the OmniWM Themes in Ghostty" : {
+
+    },
+    "Template" : {
+
+    },
+    "Template Placeholders" : {
+
+    },
+    "Templates are only filled in. Nothing in a template is ever run." : {
+
+    },
+    "Terminal Colors" : {
+
+    },
+    "Terminal colors 0 to 15. Colors 1 to 15 keep at least 4.5:1 contrast with the background." : {
+
+    },
+    "The [theme.custom] table of herdr’s config · reloads herdr through its socket API" : {
+
+    },
+    "The rendered template is not a valid TOML table" : {
+
+    },
+    "The template %@ can’t be read" : {
+
+    },
+    "The template is %lld bytes; templates are limited to 1 MB" : {
+
+    },
+    "Then reloads Ghostty" : {
+
+    },
+    "Then reloads herdr" : {
+
+    },
+    "Then reloads kitty" : {
+
+    },
+    "These files have changes OmniWM didn’t make. Replacing them keeps a backup of each." : {
+
+    },
+    "Turn On %@" : {
+
+    },
+    "Variants: default follows macOS light and dark; light and dark pick one." : {
+
+    },
+    "Waiting for OmniWM’s palette." : {
+
+    },
+    "Writes the file only" : {
+
+    },
+    "Wrote %@" : {
+
+    },
+    "herdr Theme" : {
+
+    },
+    "herdr couldn’t apply its config" : {
+
+    },
+    "herdr didn’t reload" : {
+
+    },
+    "herdr isn’t running; it uses the new colors when it starts" : {
+
+    },
+    "it closed the connection without a reply" : {
+
+    },
+    "it isn’t valid app theming state" : {
+
+    },
+    "its output didn’t finish" : {
+
+    },
+    "its reply was too long" : {
+
+    },
+    "its socket path is too long" : {
+
+    },
+    "kitty 0.38 or newer loads these files by itself and switches them with macOS light and dark." : {
+
+    },
+    "kitty Theme" : {
+
+    },
+    "kitty didn’t reload" : {
+
+    },
+    "kitty isn’t running; it uses the new theme when it opens" : {
+
+    },
+    "saved machines couldn’t be listed" : {
+
+    },
+    "the request couldn’t be written" : {
+
+    },
+    "timed out" : {
+
+    },
     "Clear Pick History" : {
 
     },
@@ -7596,6 +7950,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@과(와) %2$@은(는) 디스플레이 배열에서 수직으로 겹칩니다. 수평 방향으로 화면 밖에 숨겨 둔 창이 인접한 디스플레이에 걸쳐 보일 수 있습니다."
+          }
+        }
+      }
+    },
+    "%@ can’t be read: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ can’t be read: %2$@"
           }
         }
       }
@@ -88999,6 +89363,12 @@
         }
       }
     },
+    "OmniWM can’t read this Ghostty config, so it can’t tell which theme Ghostty uses" : {
+
+    },
+    "OmniWM can’t tell which Ghostty version is running, so it didn’t signal it; reload its config with ⌘⇧," : {
+
+    },
     "OmniWM checks the latest GitHub release once per day on launch. Updates stay manual and the popup includes both the GitHub page and the Homebrew command." : {
       "localizations" : {
         "ja" : {
@@ -149623,6 +149993,9 @@
           }
         }
       }
+    },
+    "saved machines need herdr in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin" : {
+
     },
     "settings.toml contains keys OmniWM does not recognize: %@. They are ignored." : {
       "localizations" : {

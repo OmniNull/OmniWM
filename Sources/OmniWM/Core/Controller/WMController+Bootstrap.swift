@@ -64,6 +64,7 @@ extension WMController {
     }
 
     func configureSurfaceCallbacks() {
+        configureAppTheming()
         traceCaptureCoordinator.onStateChange = { [weak self] in
             self?.statusBarController?.handleTraceCaptureStateChange()
         }

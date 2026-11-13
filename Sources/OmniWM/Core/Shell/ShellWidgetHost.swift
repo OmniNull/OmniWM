@@ -372,6 +372,7 @@ final class ShellWidgetHost {
     var drawerKeys: [String: ShellBarKey] = [:]
     var onBadgesDemandChange: (@MainActor (Bool) -> Void)?
     var onConfigChange: (@MainActor (ShellConfig) -> Void)?
+    var onPaletteChange: (@MainActor (ShellTheme) -> Void)?
     var onWidgetMenu: (@MainActor (ShellWidgetMenuRequest) -> Void)?
     var onToggleNamesChange: (@MainActor () -> Void)?
     var onWidgetsChange: (@MainActor () -> Void)?

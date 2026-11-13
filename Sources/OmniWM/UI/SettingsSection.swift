@@ -4,7 +4,7 @@
 import SwiftUI
 
 enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, appearance, styles, menuBar, network
+    case general, appearance, appTheming, styles, menuBar, network
     case workspaces, layouts, monitors, appRules, overview, windowSwitcher
     case hotkeys, mouseTrackpad, commandPalette, launcher, quakeTerminal, diagnostics, advanced
 
@@ -49,6 +49,12 @@ enum SettingsSection: String, CaseIterable, Identifiable {
                 String(localized: "Appearance"),
                 "paintpalette",
                 String(localized: "Choose how OmniWM looks and moves.")
+            )
+        case .appTheming:
+            Presentation(
+                String(localized: "App Theming"),
+                "paintbrush.pointed",
+                String(localized: "Color Ghostty, kitty, herdr, Neovim and your own templates from OmniWM’s palette.")
             )
         case .styles:
             Presentation(
@@ -168,7 +174,7 @@ enum SettingsSectionGroup: String, CaseIterable, Identifiable {
 
     var sections: [SettingsSection] {
         switch self {
-        case .app: [.general, .appearance]
+        case .app: [.general, .appearance, .appTheming]
         case .desktop: [.styles, .menuBar, .network]
         case .windows: [.workspaces, .layouts, .monitors, .appRules, .overview, .windowSwitcher]
         case .input: [.hotkeys, .mouseTrackpad]

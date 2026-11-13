@@ -647,6 +647,7 @@ import XCTest
             switch section {
             case .general: String(localized: "App Language")
             case .appearance: String(localized: "App Appearance")
+            case .appTheming: String(localized: "Apply Now")
             case .styles: String(localized: "Bar Widgets")
             case .menuBar: String(localized: "Show Workspace")
             case .network: String(localized: "Built-in Services")

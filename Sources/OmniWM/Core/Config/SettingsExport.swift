@@ -60,6 +60,7 @@ struct SettingsExport: Equatable {
     var clipboard: Clipboard
 
     var quakeTerminal: QuakeTerminal
+    var appTheming = AppTheming()
 
     var tabRailAppIcons: Bool
     var shellPermissions = ShellPermissionDecisions()

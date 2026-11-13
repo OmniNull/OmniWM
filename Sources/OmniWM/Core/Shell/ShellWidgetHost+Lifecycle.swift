@@ -177,11 +177,9 @@ extension ShellWidgetHost {
     }
 
     private func refreshPalettes() {
-        resources.refreshPalettes(theme: Self.paletteTheme(
-            config: config,
-            accent: barColors.accent,
-            foreground: barColors.foreground
-        ))
+        let theme = Self.paletteTheme(config: config, accent: barColors.accent, foreground: barColors.foreground)
+        resources.refreshPalettes(theme: theme)
+        onPaletteChange?(theme)
     }
 
     func appearanceDidChange() {

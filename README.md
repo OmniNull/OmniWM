@@ -734,6 +734,7 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 
 - Optional [window switcher](website/src/content/docs/features/window-switcher.md) with previews and separate Command-Tab / Option-Tab workspace scopes
 - Ghostty-powered quake/sticky terminal
+- Optional [app theming](website/src/content/docs/features/app-theming.md) that colors Ghostty, kitty, herdr, Neovim and your own templates from the palette in light and dark
 - Native macOS window-tab support
 - Local IPC and `omniwmctl` automation
 - Scratchpads and sticky windows for any app
@@ -781,7 +782,7 @@ Everything lives at [omniwm.app](https://omniwm.app) and follows current `main`.
 
 - [Layout Modes](https://omniwm.app/guides/layouts/) · [Keyboard Shortcuts](https://omniwm.app/guides/keyboard-shortcuts/) · [Multi-Monitor](https://omniwm.app/guides/multi-monitor/) · [Tips](https://omniwm.app/guides/tips/)
 - [Configuration](https://omniwm.app/config/configuration/) · [Settings Reference](https://omniwm.app/config/settings-reference/) · [App Rules](https://omniwm.app/features/app-rules/) · [Scratchpads](https://omniwm.app/features/scratchpads/)
-- [Quake Terminal](https://omniwm.app/features/quake-terminal/) · [Command Palette](https://omniwm.app/features/command-palette/) · [Overview](https://omniwm.app/features/overview/) · [Workspace Bar](https://omniwm.app/features/workspace-bar/) · [Hidden Bar](https://omniwm.app/features/hidden-bar/) · [OmniShell](https://omniwm.app/features/luau-shell/)
+- [Quake Terminal](https://omniwm.app/features/quake-terminal/) · [Command Palette](https://omniwm.app/features/command-palette/) · [Overview](https://omniwm.app/features/overview/) · [Workspace Bar](https://omniwm.app/features/workspace-bar/) · [Hidden Bar](https://omniwm.app/features/hidden-bar/) · [OmniShell](https://omniwm.app/features/luau-shell/) · [App Theming](https://omniwm.app/features/app-theming/)
 - [IPC & CLI Reference](https://omniwm.app/reference/cli/overview/) (`omniwmctl`, IPC is off until you enable it) · [Architecture Guide](https://omniwm.app/developers/architecture/)
 
 ## Community
