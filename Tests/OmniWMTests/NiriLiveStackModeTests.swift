@@ -751,8 +751,8 @@ final class NiriLiveStackModeTests: XCTestCase {
         let stale = WindowToken(pid: 941, windowId: 98)
         let start = CGRect(x: 300, y: 200, width: 500, height: 400)
         let now = CACurrentMediaTime()
-        fixture.engine.noteStripGlide(for: token, from: start, at: now)
-        fixture.engine.noteStripGlide(for: stale, from: start, at: now - 5)
+        fixture.engine.noteStripGlide(for: token, from: start)
+        fixture.engine.noteStripGlide(for: stale, from: start)
         for added in [token, stale] {
             _ = fixture.engine.addWindow(token: added, to: fixture.workspaceId, afterSelection: nil)
         }
@@ -763,7 +763,7 @@ final class NiriLiveStackModeTests: XCTestCase {
             orientation: .horizontal
         )
         let landed = fixture.frames()[token]
-        fixture.engine.glideIntoStrip([token, stale], context: fixture.context, state: fixture.state, at: now)
+        fixture.engine.glideIntoStrip([token], context: fixture.context, state: fixture.state)
 
         let first = fixture.frames(at: now)[token]
         XCTAssertEqual(first?.minX ?? 0, start.minX, accuracy: 2)
@@ -774,6 +774,18 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertEqual(settled?.minY ?? 0, landed?.minY ?? 1, accuracy: 1)
         XCTAssertFalse(fixture.engine.findNode(for: stale, in: fixture.workspaceId)?.hasMoveAnimationsRunning ?? true)
         XCTAssertTrue(fixture.engine.stripGlides.isEmpty)
+    }
+
+    func testAGlideWaitsForItsWindowToBePlacedHoweverLongItTakes() {
+        let fixture = makeFixture(widths: [0.25], activeIndex: 0)
+        let token = WindowToken(pid: 941, windowId: 96)
+        fixture.engine.noteStripGlide(for: token, from: CGRect(x: 300, y: 200, width: 500, height: 400))
+
+        for _ in 0 ..< 3 {
+            fixture.engine.glideIntoStrip([], context: fixture.context, state: fixture.state)
+        }
+
+        XCTAssertNotNil(fixture.engine.stripGlides[token])
     }
 
     func testAWindowThatBecomesTiledOnAPortraitStripDoesntGlide() {

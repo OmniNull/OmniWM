@@ -3,25 +3,24 @@
 
 import CoreGraphics
 import Foundation
-import QuartzCore
 
 struct StripGlide: Equatable {
     let frame: CGRect
-    let since: TimeInterval
 }
 
 extension NiriLayoutEngine {
-    func noteStripGlide(for token: WindowToken, from frame: CGRect, at time: TimeInterval = CACurrentMediaTime()) {
-        stripGlides[token] = .init(frame: frame, since: time)
+    func noteStripGlide(for token: WindowToken, from frame: CGRect) {
+        stripGlides[token] = .init(frame: frame)
     }
 
-    func glideIntoStrip(
-        _ tokens: [WindowToken],
-        context: NiriInteractionContext,
-        state: ViewportState,
-        at time: TimeInterval = CACurrentMediaTime()
-    ) {
-        stripGlides = stripGlides.filter { time - $0.value.since < 2 }
+    func glideIntoStrip(_ tokens: [WindowToken], context: NiriInteractionContext, state: ViewportState) {
+        guard !stripGlides.isEmpty else { return }
+        let placedNow = Set(tokens)
+        for token in stripGlides.keys
+            where !placedNow.contains(token) && findNode(for: token, in: context.workspaceId) != nil
+        {
+            stripGlides.removeValue(forKey: token)
+        }
         guard context.orientation == .horizontal else {
             for token in tokens {
                 stripGlides.removeValue(forKey: token)
