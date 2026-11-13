@@ -458,6 +458,78 @@ extension NiriLayoutEngine {
         }
     }
 
+    func restoreAwayColumns(_ away: NiriLayoutAway, in workspaceId: WorkspaceDescriptor.ID) {
+        guard let root = root(for: workspaceId) else { return }
+        let moved = Set(away.tokens)
+        let windows = Dictionary(root.allWindows.map { ($0.token, $0) }, uniquingKeysWith: { first, _ in first })
+        let saved = away.snapshot.columns
+        for (index, column) in saved.enumerated() {
+            let returning = column.windows.filter(moved.contains).compactMap { windows[$0] }
+            guard !returning.isEmpty else { continue }
+            let stayed = column.windows.lazy.filter { !moved.contains($0) }.compactMap { windows[$0] }
+            let container: NiriContainer
+            let comesBackWhole: Bool
+            if let host = stayed.first?.parent as? NiriContainer {
+                container = host
+                comesBackWhole = false
+            } else {
+                container = NiriContainer()
+                comesBackWhole = true
+            }
+            let wanted = column.windows.compactMap { windows[$0] }
+                .filter { moved.contains($0.token) || $0.parent === container }
+            for (position, window) in wanted.enumerated()
+                where window.parent !== container || container.children.firstIndex(where: { $0 === window }) != position
+            {
+                container.insertChild(window, at: position)
+            }
+            if comesBackWhole {
+                for emptied in root.columns where emptied.windowNodes.isEmpty {
+                    emptied.remove()
+                }
+                root.insertChild(
+                    container,
+                    at: awayColumnIndex(index, in: root, saved: saved, moved: moved, windows: windows)
+                )
+                column.sizing.restore(to: container, engine: self)
+                container.displayMode = column.displayMode
+                container.setActiveTileIdx(column.activeTile)
+            } else {
+                for window in returning {
+                    column.sizing.windows[window.token]?.restore(window, in: container)
+                }
+            }
+            updateTabbedColumnVisibility(column: container)
+        }
+        for emptied in root.columns where emptied.windowNodes.isEmpty {
+            emptied.remove()
+        }
+    }
+
+    private func awayColumnIndex(
+        _ index: Int,
+        in root: NiriRoot,
+        saved: [NiriLayoutSnapshot.Column],
+        moved: Set<WindowToken>,
+        windows: [WindowToken: NiriWindow]
+    ) -> Int {
+        let current = root.columns
+        func position(of column: NiriLayoutSnapshot.Column, placed: Bool) -> Int? {
+            column.windows.lazy
+                .filter { placed || !moved.contains($0) }
+                .compactMap { windows[$0]?.parent as? NiriContainer }
+                .compactMap { host in current.firstIndex { $0 === host } }
+                .first
+        }
+        if let previous = saved[..<index].reversed().lazy.compactMap({ position(of: $0, placed: true) }).first {
+            return previous + 1
+        }
+        if let next = saved[(index + 1)...].lazy.compactMap({ position(of: $0, placed: false) }).first {
+            return next
+        }
+        return min(index, current.count)
+    }
+
     func commitTransferredLayoutHistoryStep(
         _ direction: NiriLayoutHistoryDirection,
         in workspaceId: WorkspaceDescriptor.ID,
@@ -465,8 +537,8 @@ extension NiriLayoutEngine {
     ) -> NiriLayoutHistoryStep? {
         let workspace = ensureState(for: workspaceId)
         guard let entry = workspace.layoutHistory.pop(direction) else { return nil }
-        for away in entry.away where root(for: away.workspaceId) != nil {
-            restoreLayoutSnapshot(away.snapshot, in: away.workspaceId)
+        for away in entry.away {
+            restoreAwayColumns(away, in: away.workspaceId)
         }
         if !entry.columns.isEmpty {
             restoreLayoutSnapshot(entry, in: workspaceId)

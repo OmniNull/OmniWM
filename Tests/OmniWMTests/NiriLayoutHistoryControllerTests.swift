@@ -295,6 +295,52 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         XCTAssertEqual(order(fixture, in: fixture.workspaceId), [[fixture.tokens[1]], [fixture.tokens[2]]])
     }
 
+    func testUndoWhereTheWindowArrivedLeavesLaterChangesWhereItCameFrom() throws {
+        let fixture = try makeFixture(pid: 834_230, workspaceNames: ["1", "2"])
+        let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
+        fixture.mutate { fixture.column(1).width = .fixed(640) }
+        let before = order(fixture, in: fixture.workspaceId)
+        try moveWindow(fixture, 1, to: other)
+        fixture.mutate { fixture.column(2).width = .fixed(500) }
+        _ = fixture.controller.workspaceManager.focusWorkspace(named: "2")
+
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
+
+        XCTAssertEqual(order(fixture, in: fixture.workspaceId), before)
+        XCTAssertEqual(fixture.column(1).width, .fixed(640))
+        XCTAssertEqual(fixture.column(2).width, .fixed(500))
+        XCTAssertTrue(order(fixture, in: other).isEmpty)
+
+        _ = fixture.controller.workspaceManager.focusWorkspace(named: "1")
+        fixture.mutate { fixture.column(0).width = .fixed(700) }
+        _ = fixture.controller.workspaceManager.focusWorkspace(named: "2")
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.redo))
+
+        XCTAssertEqual(order(fixture, in: other), [[fixture.tokens[1]]])
+        XCTAssertEqual(order(fixture, in: fixture.workspaceId), [[fixture.tokens[0]], [fixture.tokens[2]]])
+        XCTAssertEqual(fixture.column(0).width, .fixed(700))
+        XCTAssertEqual(fixture.column(2).width, .fixed(500))
+    }
+
+    func testUndoWhereTheWindowLeftThenRedoLeavesLaterChangesWhereItWent() throws {
+        let fixture = try makeFixture(pid: 834_231, workspaceNames: ["1", "2"])
+        let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
+        try moveWindow(fixture, 0, to: other)
+        try moveWindow(fixture, 1, to: other)
+        let arrived = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[0], in: other)?
+            .parent as? NiriContainer)
+
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
+        XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: fixture.tokens[1]), fixture.workspaceId)
+        fixture.controller.workspaceManager.withEngineMutationScope(in: other) { arrived.width = .fixed(520) }
+
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.redo))
+
+        XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: fixture.tokens[1]), other)
+        let kept = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[0], in: other)?.parent as? NiriContainer)
+        XCTAssertEqual(kept.width, .fixed(520))
+    }
+
     func testUndoOnTheOtherDisplaySendsTheWindowBackAndFocusesItThere() throws {
         let fixture = try makeFixture(pid: 834_223, workspaceNames: ["1", "2"], secondDisplay: true)
         let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
