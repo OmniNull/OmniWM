@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import os
 
 struct AppThemeReloadOutcome: Equatable, Sendable {
     var succeeded: Bool
@@ -111,8 +112,12 @@ struct AppThemeReloader: Sendable {
     private func signalAll(_ name: String) -> Signalled {
         let processes = environment.processes(name)
         guard !processes.isEmpty else { return .notRunning }
-        let errors = processes.map { environment.signal($0, SIGUSR1) }.filter { $0 != 0 && $0 != ESRCH }
-        return errors.first.map(Signalled.failed) ?? .signalled
+        var firstError: Int32?
+        for process in processes {
+            let error = environment.signal(process, SIGUSR1)
+            if error != 0, error != ESRCH, firstError == nil { firstError = error }
+        }
+        return firstError.map(Signalled.failed) ?? .signalled
     }
 
     private func failure(_ summary: String, error: Int32) -> AppThemeReloadOutcome {
@@ -124,8 +129,12 @@ struct AppThemeReloader: Sendable {
         var outcome = Self.herdrOutcome(environment.herdr(socket, "server.reload_config"))
         guard savedMachines, isCurrent() else { return outcome }
         if let herdr = environment.executable("herdr") {
-            if let remote = reloadSavedMachines(herdr) { outcome.message += " · " + remote }
+            if let remote = reloadSavedMachines(herdr) {
+                outcome.succeeded = outcome.succeeded && remote.succeeded
+                outcome.message += " · " + remote.message
+            }
         } else {
+            outcome.succeeded = false
             outcome.message += " · " + String(
                 localized: "saved machines need herdr in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin"
             )
@@ -171,12 +180,16 @@ struct AppThemeReloader: Sendable {
         }
     }
 
-    private func reloadSavedMachines(_ herdr: String) -> String? {
+    private func reloadSavedMachines(_ herdr: String) -> AppThemeReloadOutcome? {
         let listing = environment.run(herdr, ["machine", "list", "--json"], Self.machineListTimeout)
-        guard listing.succeeded else { return String(localized: "saved machines couldn’t be listed") }
-        let labels = Self.enabledMachines(in: listing.output)
+        guard listing.succeeded, let labels = try? Self.enabledMachines(in: listing.output) else {
+            return AppThemeReloadOutcome(
+                succeeded: false,
+                message: String(localized: "saved machines couldn’t be listed")
+            )
+        }
         guard !labels.isEmpty, isCurrent() else { return nil }
-        let results = AppThemeLockedArray<Bool>(count: labels.count, value: false)
+        let successes = OSAllocatedUnfairLock(initialState: 0)
         DispatchQueue.concurrentPerform(iterations: labels.count) { index in
             guard isCurrent() else { return }
             let result = environment.run(
@@ -184,40 +197,26 @@ struct AppThemeReloader: Sendable {
                 ["--machine", labels[index], "server", "reload-config"],
                 Self.machineReloadTimeout
             )
-            results.set(index, result.succeeded)
+            if result.succeeded { successes.withLock { $0 += 1 } }
         }
-        let reloaded = results.values.filter(\.self).count
-        return String(localized: "\(reloaded) of \(labels.count) saved machines reloaded")
+        let reloaded = successes.withLock { $0 }
+        return AppThemeReloadOutcome(
+            succeeded: reloaded == labels.count,
+            message: String(localized: "\(reloaded) of \(labels.count) saved machines reloaded")
+        )
     }
 
-    static func enabledMachines(in json: String) -> [String] {
+    private static func enabledMachines(in json: String) throws -> [String] {
         struct Machine: Decodable {
             let label: String?
             let enabled: Bool?
         }
-        let machines = (try? JSONDecoder().decode([Machine].self, from: Data(json.utf8))) ?? []
+        let machines = try JSONDecoder().decode([Machine].self, from: Data(json.utf8))
         return machines.compactMap { machine in
             guard machine.enabled == true, let label = machine.label, !label.isEmpty, !label.hasPrefix("-") else {
                 return nil
             }
             return label
         }
-    }
-}
-
-final class AppThemeLockedArray<Element: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var storage: [Element]
-
-    init(count: Int, value: Element) {
-        storage = Array(repeating: value, count: count)
-    }
-
-    var values: [Element] {
-        lock.withLock { storage }
-    }
-
-    func set(_ index: Int, _ value: Element) {
-        lock.withLock { storage[index] = value }
     }
 }

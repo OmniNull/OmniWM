@@ -152,6 +152,19 @@ extension AppThemeReloaderTests {
         )
     }
 
+    func testEveryProcessIsSignalledAndTheFirstFailureIsReported() {
+        let pids: [pid_t] = [20, 21, 22]
+        fake.processes = ["kitty": pids]
+        fake.signalErrors = [pids[0]: ESRCH, pids[1]: EPERM, pids[2]: EACCES]
+        let outcome = reload(.kitty)
+        XCTAssertFalse(outcome.succeeded)
+        XCTAssertEqual(
+            outcome.message,
+            String(localized: "kitty didn’t reload") + ": " + String(cString: strerror(EPERM))
+        )
+        XCTAssertEqual(fake.signals, pids.map { .init(pid: $0, signal: SIGUSR1) })
+    }
+
     func testProcessesAreFoundByTheirExactNameForTheRealUserOnly() throws {
         let pid = getpid()
         let name = try XCTUnwrap(AppThemeProcesses.name(of: pid))
@@ -209,7 +222,7 @@ extension AppThemeReloaderTests {
     private func reply(status: String, diagnostics: [String] = []) -> AppThemeSocketReply {
         let list = diagnostics.map { "\"\($0)\"" }.joined(separator: ",")
         return .line(
-            #"{"id":"omniwm:app-theming","result":{"type":"config_reload","status":""#
+            #"{"id":"\#(AppThemeHerdrSocket.requestID)","result":{"type":"config_reload","status":""#
                 + status + #"","diagnostics":["# + list + "]}}"
         )
     }
@@ -282,7 +295,9 @@ extension AppThemeReloaderTests {
             failed.message,
             String(localized: "herdr couldn’t apply its config") + ": config.toml: expected a string"
         )
-        fake.herdrReply = .line(#"{"id":"omniwm:app-theming","error":{"code":"denied","message":"not allowed"}}"#)
+        fake.herdrReply = .line(
+            #"{"id":"\#(AppThemeHerdrSocket.requestID)","error":{"code":"denied","message":"not allowed"}}"#
+        )
         let refused = reload(.herdr(savedMachines: false))
         XCTAssertFalse(refused.succeeded)
         XCTAssertEqual(refused.message, String(localized: "herdr didn’t reload") + ": not allowed")
@@ -300,5 +315,113 @@ extension AppThemeReloaderTests {
         let outcome = reload(.herdr(savedMachines: false))
         XCTAssertTrue(outcome.succeeded)
         XCTAssertTrue(fake.calls.isEmpty)
+    }
+}
+
+extension AppThemeReloaderTests {
+    private var listCommand: String {
+        AppThemeFakeEnvironment.herdrExecutable + " machine list"
+    }
+
+    private func listMachines(_ labels: [String]) {
+        let machines = labels.map { #"{"label":"\#($0)","enabled":true}"# }.joined(separator: ",")
+        fake.responses[listCommand] = AppThemeCommandResult(status: 0, output: "[" + machines + "]")
+    }
+
+    func testSavedMachineReloadNeedsTheHerdrExecutable() {
+        fake.executables = [:]
+        let outcome = reload(.herdr(savedMachines: true))
+        XCTAssertFalse(outcome.succeeded)
+        XCTAssertEqual(outcome.message, String(localized: "Reloaded herdr") + " · " + String(
+            localized: "saved machines need herdr in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin"
+        ))
+        XCTAssertTrue(fake.calls.isEmpty)
+    }
+
+    func testSavedMachinesMustBeListedSuccessfullyAndDecoded() {
+        for response in [
+            AppThemeCommandResult(status: 1, output: "[]"),
+            AppThemeCommandResult(status: 0, output: "[]", timedOut: true),
+            AppThemeCommandResult(status: 0, output: "not json"),
+            AppThemeCommandResult(status: 0, output: "{}")
+        ] {
+            fake = AppThemeFakeEnvironment()
+            fake.responses[listCommand] = response
+            let outcome = reload(.herdr(savedMachines: true))
+            XCTAssertFalse(outcome.succeeded, "\(response)")
+            XCTAssertEqual(
+                outcome.message,
+                String(localized: "Reloaded herdr") + " · " + String(localized: "saved machines couldn’t be listed")
+            )
+            XCTAssertEqual(fake.calls, [.init(
+                executable: AppThemeFakeEnvironment.herdrExecutable,
+                arguments: ["machine", "list", "--json"]
+            )])
+        }
+    }
+
+    func testAnEmptySavedMachineListIsSuccessful() {
+        listMachines([])
+        let outcome = reload(.herdr(savedMachines: true))
+        XCTAssertTrue(outcome.succeeded)
+        XCTAssertEqual(outcome.message, String(localized: "Reloaded herdr"))
+        XCTAssertEqual(fake.calls.map(\.arguments), [["machine", "list", "--json"]])
+    }
+
+    func testEveryRequestedSavedMachineMustReloadSuccessfully() {
+        let labels = ["studio", "server"]
+        for failures in [[], [labels[0]], labels] {
+            fake = AppThemeFakeEnvironment()
+            listMachines(labels)
+            for label in failures {
+                fake.responses[AppThemeFakeEnvironment.herdrExecutable + " --machine " + label] =
+                    AppThemeCommandResult(status: 1, output: "unavailable")
+            }
+            let outcome = reload(.herdr(savedMachines: true))
+            let successes = labels.count - failures.count
+            XCTAssertEqual(outcome.succeeded, failures.isEmpty)
+            XCTAssertEqual(outcome.message, String(localized: "Reloaded herdr") + " · " + String(
+                localized: "\(successes) of \(labels.count) saved machines reloaded"
+            ))
+            XCTAssertEqual(fake.calls.dropFirst().map(\.arguments).sorted { $0[1] < $1[1] }, labels.sorted().map {
+                ["--machine", $0, "server", "reload-config"]
+            })
+        }
+    }
+
+    func testSuccessfulSavedMachineReloadsDoNotHideALocalFailure() {
+        listMachines(["studio"])
+        fake.herdrReply = .failed("unavailable")
+        XCTAssertFalse(reload(.herdr(savedMachines: true)).succeeded)
+    }
+
+    func testAFailedSavedMachineReloadStaysPendingAndRetriesWithoutAFileChange() throws {
+        let sandbox = try AppThemeSandbox()
+        defer { sandbox.remove() }
+        let label = "studio"
+        listMachines([label])
+        let command = AppThemeFakeEnvironment.herdrExecutable + " --machine " + label
+        fake.responses[command] = AppThemeCommandResult(status: 1, output: "unavailable")
+        var settings = SettingsExport.AppTheming()
+        settings.setEnabled(.herdr, true)
+        settings.herdr.reloadSavedMachines = true
+        let job = AppThemeJob(
+            palette: AppThemeFixtures.palette,
+            dark: true,
+            appearanceChanged: false,
+            targets: settings.targets(configHome: sandbox.policy.configHome)
+        )
+        let first = sandbox.engine(fake).run(job)
+        XCTAssertEqual(first.results[AppThemeBuiltIn.herdr.id]?.reloadFailed, true)
+        XCTAssertEqual(try sandbox.store.load().reloadPending, [AppThemeBuiltIn.herdr.id])
+        let callsBeforeRetry = fake.calls.count
+        fake.responses[command] = AppThemeCommandResult(status: 0, output: "")
+        let retry = sandbox.engine(fake).run(job)
+        XCTAssertEqual(retry.results[AppThemeBuiltIn.herdr.id]?.outcome, .unchanged)
+        XCTAssertEqual(retry.results[AppThemeBuiltIn.herdr.id]?.reloadFailed, false)
+        XCTAssertTrue(try sandbox.store.load().reloadPending.isEmpty)
+        XCTAssertEqual(fake.calls.dropFirst(callsBeforeRetry).map(\.arguments), [
+            ["machine", "list", "--json"], ["--machine", label, "server", "reload-config"]
+        ])
     }
 }

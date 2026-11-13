@@ -22,10 +22,6 @@ final class AppThemeHerdrSocketTests: XCTestCase {
         try? FileManager.default.removeItem(at: folder)
     }
 
-    private final class Received: @unchecked Sendable {
-        var line = ""
-    }
-
     private func listen(at path: String) throws -> Int32 {
         let listener = socket(AF_UNIX, SOCK_STREAM, 0)
         XCTAssertGreaterThanOrEqual(listener, 0)
@@ -44,12 +40,24 @@ final class AppThemeHerdrSocketTests: XCTestCase {
         return listener
     }
 
-    private func serveOnce(_ listener: Int32, reply: String, into received: Received) -> DispatchGroup {
+    private static func acceptClient(_ listener: Int32) -> Int32 {
+        let client = accept(listener, nil, nil)
+        guard client >= 0 else { return client }
+        var enabled: Int32 = 1
+        XCTAssertEqual(setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &enabled, socklen_t(MemoryLayout<Int32>.size)), 0)
+        return client
+    }
+
+    private func serveOnce(
+        _ listener: Int32,
+        reply: String,
+        into received: OSAllocatedUnfairLock<String>
+    ) -> DispatchGroup {
         let group = DispatchGroup()
         group.enter()
         DispatchQueue.global().async {
             defer { group.leave() }
-            let client = accept(listener, nil, nil)
+            let client = Self.acceptClient(listener)
             guard client >= 0 else { return }
             defer { close(client) }
             var data = Data()
@@ -57,7 +65,8 @@ final class AppThemeHerdrSocketTests: XCTestCase {
             while Darwin.read(client, &byte, 1) == 1, byte != UInt8(ascii: "\n") {
                 data.append(byte)
             }
-            received.line = String(decoding: data, as: UTF8.self)
+            let line = String(decoding: data, as: UTF8.self)
+            received.withLock { $0 = line }
             _ = reply.withCString { Darwin.write(client, $0, strlen($0)) }
         }
         return group
@@ -84,7 +93,7 @@ final class AppThemeHerdrSocketTests: XCTestCase {
         group.enter()
         DispatchQueue.global().async {
             defer { group.leave() }
-            let client = accept(listener, nil, nil)
+            let client = Self.acceptClient(listener)
             guard client >= 0 else { return }
             defer { close(client) }
             var byte: UInt8 = 0
@@ -105,7 +114,7 @@ final class AppThemeHerdrSocketTests: XCTestCase {
         let clock = ScriptedClock()
         let late = timeoutNanoseconds + 1
         let served = serve(listener) { client in
-            Self.send(client, #"{"id":"omniwm:app-theming","#)
+            Self.send(client, #"{"id":"\#(AppThemeHerdrSocket.requestID)","#)
             clock.set(late)
             Self.send(client, #""result":{"type":"config_reload","status":"applied","diagnostics":[]}}"# + "\n")
         }
@@ -136,17 +145,17 @@ final class AppThemeHerdrSocketTests: XCTestCase {
         let path = folder.appendingPathComponent("herdr.sock").path
         let listener = try listen(at: path)
         defer { close(listener) }
-        let received = Received()
-        let answer = #"{"id":"omniwm:app-theming","result":{"type":"config_reload","status":"applied","diagnostics":[]}}"#
+        let received = OSAllocatedUnfairLock(initialState: "")
+        let answer = #"{"id":"\#(AppThemeHerdrSocket.requestID)","result":{"type":"config_reload","status":"applied","diagnostics":[]}}"#
         let served = serveOnce(listener, reply: answer + "\n", into: received)
         let reply = AppThemeHerdrSocket.send("server.reload_config", to: path)
         XCTAssertEqual(served.wait(timeout: .now() + failureBound), .success)
         XCTAssertEqual(reply, .line(answer))
         let request = try XCTUnwrap(
-            JSONSerialization.jsonObject(with: Data(received.line.utf8)) as? [String: Any]
+            JSONSerialization.jsonObject(with: received.withLock { Data($0.utf8) }) as? [String: Any]
         )
         XCTAssertEqual(request["method"] as? String, "server.reload_config")
-        XCTAssertEqual(request["id"] as? String, "omniwm:app-theming")
+        XCTAssertEqual(request["id"] as? String, AppThemeHerdrSocket.requestID)
         XCTAssertEqual((request["params"] as? [String: Any])?.isEmpty, true)
     }
 
@@ -162,7 +171,7 @@ final class AppThemeHerdrSocketTests: XCTestCase {
         let path = folder.appendingPathComponent("herdr.sock").path
         let listener = try listen(at: path)
         defer { close(listener) }
-        let served = serveOnce(listener, reply: "", into: Received())
+        let served = serveOnce(listener, reply: "", into: OSAllocatedUnfairLock(initialState: ""))
         let reply = AppThemeHerdrSocket.send("server.reload_config", to: path)
         XCTAssertEqual(served.wait(timeout: .now() + failureBound), .success)
         guard case .failed = reply else { return XCTFail("\(reply)") }

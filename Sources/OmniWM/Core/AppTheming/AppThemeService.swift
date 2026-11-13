@@ -68,7 +68,7 @@ final class AppThemeService {
 
     nonisolated static func deliverOnMain(_ work: @escaping @MainActor @Sendable () -> Void) {
         DispatchQueue.main.async {
-            MainActor.assumeIsolated(work)
+            work()
         }
     }
 

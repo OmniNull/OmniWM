@@ -3,6 +3,7 @@
 
 import AppKit
 import Foundation
+import os
 
 struct AppThemeCommandResult: Equatable, Sendable {
     var status: Int32
@@ -184,14 +185,15 @@ enum AppThemeProcessRunner {
         let finished = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in finished.signal() }
         let collected = DispatchSemaphore(value: 0)
-        let output = AppThemeOutputBuffer()
+        let output = OSAllocatedUnfairLock(initialState: Data())
         do {
             try process.run()
         } catch {
             return AppThemeCommandResult(status: -1, output: error.localizedDescription)
         }
         DispatchQueue.global(qos: .userInitiated).async {
-            output.data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            output.withLock { $0 = data }
             collected.signal()
         }
         let deadline = DispatchTime.now() + timeout
@@ -205,7 +207,11 @@ enum AppThemeProcessRunner {
             }
         }
         let complete = collected.wait(timeout: max(deadline, .now())) == .success
-        return result(status: process.terminationStatus, output: complete ? output.data : nil, timedOut: timedOut)
+        return result(
+            status: process.terminationStatus,
+            output: complete ? output.withLock { $0 } : nil,
+            timedOut: timedOut
+        )
     }
 
     static func result(status: Int32, output: Data?, timedOut: Bool) -> AppThemeCommandResult {
@@ -219,8 +225,4 @@ enum AppThemeProcessRunner {
         let text = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         return AppThemeCommandResult(status: status, output: text, timedOut: timedOut)
     }
-}
-
-private final class AppThemeOutputBuffer: @unchecked Sendable {
-    var data = Data()
 }
