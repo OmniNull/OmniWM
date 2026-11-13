@@ -32,7 +32,7 @@ struct AppThemeCancelled: Error {}
 
 enum FileWrite {
     case unchanged
-    case replaced(previousOwner: String?)
+    case replaced(previousOwner: String?, previousPending: String?)
 }
 
 struct AppThemeEngine: Sendable {
@@ -195,83 +195,6 @@ struct AppThemeEngine: Sendable {
         }
     }
 
-    private func write(
-        _ target: AppThemeTarget,
-        job: AppThemeJob,
-        roots: AppThemeOutputPolicy.Roots,
-        state: inout AppThemeState,
-        backups: inout [URL]
-    ) throws -> (names: [String], newFiles: Bool) {
-        let rendered = try target.outputs.map { try render($0, job: job, roots: roots) }
-        let conflicts = rendered.filter { item in
-            guard item.before != item.after, let current = item.currentOwnedText else { return false }
-            let digest = AppThemeFileWriter.digest(current)
-            let owned = state.owned[item.url.path] == digest || state.pending[item.url.path] == digest
-            return !owned && !Self.isReviewed(item, job)
-        }
-        guard conflicts.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(conflicts.map(\.display)) }
-        var written: [String] = []
-        var replaced: [(item: Rendered, owned: String?)] = []
-        do {
-            for item in rendered {
-                if case let .replaced(owner) = try write(item, of: target, job: job, state: &state, backups: &backups) {
-                    replaced.append((item, owner))
-                    written.append(item.url.lastPathComponent)
-                }
-            }
-        } catch {
-            for (item, owned) in replaced.reversed()
-                where (try? restore(item.url, display: item.display, to: item.before, from: item.after)) != nil
-            {
-                state.owned[item.url.path] = owned
-            }
-            try? store.save(state)
-            throw error
-        }
-        return (written, rendered.contains { $0.before == nil })
-    }
-
-    private func write(
-        _ item: Rendered,
-        of target: AppThemeTarget,
-        job: AppThemeJob,
-        state: inout AppThemeState,
-        backups: inout [URL]
-    ) throws -> FileWrite {
-        let digest = AppThemeFileWriter.digest(item.ownedText)
-        let path = item.url.path
-        if item.before == item.after {
-            if state.owned[path] != digest || state.pending[path] != nil {
-                state.owned[path] = digest
-                state.pending[path] = nil
-                try store.save(state)
-            }
-            return .unchanged
-        }
-        let backup = try item.before.flatMap { before in
-            Self.isReviewed(item, job) ? try store.backup(before, of: item.url, date: now()) : nil
-        }
-        state.pending[path] = digest
-        if target.reload != nil { state.reloadPending.insert(target.id) }
-        try store.save(state)
-        do {
-            try replace(item.url, with: item.after, expecting: item.before, display: item.display) {
-                job.enabled.contains(target)
-            }
-        } catch {
-            if let backup { try? FileManager.default.removeItem(at: backup) }
-            state.pending[path] = nil
-            try store.save(state)
-            throw error
-        }
-        if let backup { backups.append(backup) }
-        let previous = state.owned[path]
-        state.owned[path] = digest
-        state.pending[path] = nil
-        try store.save(state)
-        return .replaced(previousOwner: previous)
-    }
-
     private static func isReviewed(_ item: Rendered, _ job: AppThemeJob) -> Bool {
         guard let before = item.before, let reviewed = job.takeOver[item.url.path] else { return false }
         return AppThemeFileWriter.digest(before) == reviewed
@@ -342,5 +265,102 @@ struct AppThemeEngine: Sendable {
             guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(path) }
             return text
         }
+    }
+}
+
+extension AppThemeEngine {
+    private struct Replaced {
+        let item: Rendered
+        let owned: String?
+        let pending: String?
+    }
+
+    private func write(
+        _ target: AppThemeTarget,
+        job: AppThemeJob,
+        roots: AppThemeOutputPolicy.Roots,
+        state: inout AppThemeState,
+        backups: inout [URL]
+    ) throws -> (names: [String], newFiles: Bool) {
+        let rendered = try target.outputs.map { try render($0, job: job, roots: roots) }
+        let conflicts = rendered.filter { item in
+            guard item.before != item.after, let current = item.currentOwnedText else { return false }
+            let digest = AppThemeFileWriter.digest(current)
+            let owned = state.owned[item.url.path] == digest || state.pending[item.url.path] == digest
+            return !owned && !Self.isReviewed(item, job)
+        }
+        guard conflicts.isEmpty else { throw AppThemeEngineError.changedOutsideOmniWM(conflicts.map(\.display)) }
+        var written: [String] = []
+        var replaced: [Replaced] = []
+        do {
+            for item in rendered {
+                if case let .replaced(owner, pending) = try write(
+                    item, of: target, job: job, state: &state, backups: &backups
+                ) {
+                    replaced.append(Replaced(item: item, owned: owner, pending: pending))
+                    written.append(item.url.lastPathComponent)
+                }
+            }
+        } catch {
+            for previous in replaced.reversed() {
+                restore(previous.item, owned: previous.owned, pending: previous.pending, state: &state)
+            }
+            try? store.save(state)
+            throw error
+        }
+        return (written, rendered.contains { $0.before == nil })
+    }
+
+    private func write(
+        _ item: Rendered,
+        of target: AppThemeTarget,
+        job: AppThemeJob,
+        state: inout AppThemeState,
+        backups: inout [URL]
+    ) throws -> FileWrite {
+        let digest = AppThemeFileWriter.digest(item.ownedText)
+        let path = item.url.path
+        if item.before == item.after {
+            if state.owned[path] != digest || state.pending[path] != nil {
+                state.owned[path] = digest
+                state.pending[path] = nil
+                try store.save(state)
+            }
+            return .unchanged
+        }
+        let previous = state.owned[path]
+        let previousPending = state.pending[path]
+        let backup = try item.before.flatMap { before in
+            Self.isReviewed(item, job) ? try store.backup(before, of: item.url, date: now()) : nil
+        }
+        state.pending[path] = digest
+        if target.reload != nil { state.reloadPending.insert(target.id) }
+        try store.save(state)
+        do {
+            try replace(item.url, with: item.after, expecting: item.before, display: item.display) {
+                job.enabled.contains(target)
+            }
+        } catch {
+            if let backup { try? FileManager.default.removeItem(at: backup) }
+            state.pending[path] = previousPending
+            try store.save(state)
+            throw error
+        }
+        if let backup { backups.append(backup) }
+        state.owned[path] = digest
+        state.pending[path] = nil
+        do {
+            try store.save(state)
+        } catch {
+            restore(item, owned: previous, pending: previousPending, state: &state)
+            throw error
+        }
+        return .replaced(previousOwner: previous, previousPending: previousPending)
+    }
+
+    private func restore(_ item: Rendered, owned: String?, pending: String?, state: inout AppThemeState) {
+        guard (try? restore(item.url, display: item.display, to: item.before, from: item.after)) != nil else { return }
+        state.owned[item.url.path] = owned
+        state.pending[item.url.path] = pending
     }
 }
