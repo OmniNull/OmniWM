@@ -66,7 +66,8 @@ extension NiriLayoutHandler {
               controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
               let engine = controller.niriEngine,
               !engine.isLiveColumnMoveActive(in: workspaceId),
-              !engine.isLiveStackDropPending(in: workspaceId)
+              !engine.isLiveStackDropPending(in: workspaceId),
+              !isMouseResizeUnderway(engine: engine)
         else { return false }
         if applyLayoutHistoryStep(
             in: workspaceId,

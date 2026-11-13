@@ -248,6 +248,31 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         XCTAssertEqual(order(fixture, in: fixture.workspaceId), [[fixture.tokens[0]], [fixture.tokens[2]]])
     }
 
+    func testUndoAndRedoDoNothingWhileTheMouseResizesAWindow() throws {
+        let fixture = try makeFixture(pid: 834_229, workspaceNames: ["1", "2"])
+        let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
+        try moveWindow(fixture, 1, to: other)
+        let handler = fixture.controller.niriLayoutHandler
+
+        fixture.controller.mouseEventHandler.state.isResizing = true
+        XCTAssertFalse(handler.stepLayoutHistory(.undo))
+        fixture.controller.mouseEventHandler.state.isResizing = false
+
+        XCTAssertTrue(fixture.engine.interactiveResizeBegin(
+            windowId: fixture.window(0).id,
+            edges: .right,
+            startLocation: .zero,
+            in: fixture.workspaceId,
+            orientation: .horizontal
+        ))
+        XCTAssertFalse(handler.stepLayoutHistory(.undo))
+        XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: fixture.tokens[1]), other)
+        fixture.engine.interactiveResize = nil
+
+        XCTAssertTrue(handler.stepLayoutHistory(.undo))
+        XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: fixture.tokens[1]), fixture.workspaceId)
+    }
+
     func testUndoWhereTheWindowArrivedSendsItBackToItsPlace() throws {
         let fixture = try makeFixture(pid: 834_222, workspaceNames: ["1", "2"])
         let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))

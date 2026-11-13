@@ -84,13 +84,18 @@ extension NiriLayoutHandler {
 
     private func isLayoutStepUnderway(engine: NiriLayoutEngine) -> Bool {
         guard let controller else { return false }
-        let mouse = controller.mouseEventHandler.state
         return engine.liveColumnMove != nil
             || engine.liveStackDrop != nil
-            || engine.interactiveResize != nil
+            || isMouseResizeUnderway(engine: engine)
+            || controller.layoutRefreshController.isRefreshQueued
+    }
+
+    func isMouseResizeUnderway(engine: NiriLayoutEngine) -> Bool {
+        guard let controller else { return false }
+        let mouse = controller.mouseEventHandler.state
+        return engine.interactiveResize != nil
             || mouse.isResizing
             || mouse.nativeResizeStart?.wasDragged == true
-            || controller.layoutRefreshController.isRefreshQueued
     }
 
     private func overflowVerdict(
