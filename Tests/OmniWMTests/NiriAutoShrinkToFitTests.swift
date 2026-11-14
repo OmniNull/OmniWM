@@ -74,6 +74,44 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         XCTAssertEqual(frames[1].maxX, monitorFrame.width - sidePadding, accuracy: pixel)
     }
 
+    func testARefusalDuringADecelerationIsFittedOnceItEnds() throws {
+        let fixture = try makeEvenFixture(windowCount: 3, visibleContainerCount: 3)
+        fixture.controller.settings.niri.shrinkToFit = true
+        fixture.controller.updateNiriConfig(shrinkToFit: true)
+        _ = try settledFrames(fixture)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        let refusing = try XCTUnwrap(engine.findNode(for: fixture.tokens[2], in: fixture.workspaceId))
+        learnMinimumWidth(900, for: fixture.tokens[2], fixture: fixture)
+
+        fixture.controller.niriLayoutHandler.withNiriWorkspaceContext {
+            engine, workspaceId, _, state, _, workingFrame, gaps, orientation in
+            refusing.constraints = WindowSizeConstraints(
+                minSize: CGSize(width: 900, height: 1), maxSize: .zero, isFixed: false
+            )
+            engine.findColumn(containing: refusing, in: workspaceId)?
+                .invalidateCachedPrimarySpan(orientation: orientation)
+            state.decelerateOffset(to: state.viewOffset)
+            engine.autoFitVisibleColumns(
+                context: NiriInteractionContext(
+                    workspaceId: workspaceId,
+                    motion: .disabled,
+                    workingFrame: workingFrame,
+                    gaps: gaps,
+                    orientation: orientation
+                ),
+                state: &state
+            )
+            state.clearOffsetTransition()
+        }
+        XCTAssertTrue(engine.columns(in: fixture.workspaceId).allSatisfy { $0.fittedWidth == nil })
+
+        let frames = try settledFrames(fixture)
+        let pixel = try pixel(fixture)
+        XCTAssertGreaterThanOrEqual(frames.map(\.width).max() ?? 0, 900)
+        XCTAssertEqual(frames[0].minX, sidePadding, accuracy: pixel)
+        XCTAssertEqual(frames[2].maxX, monitorFrame.width - sidePadding, accuracy: pixel)
+    }
+
     func testOffLeavesTheOverflow() throws {
         let fixture = try makeEvenFixture(windowCount: 4, visibleContainerCount: 4)
         setMinimumWidth(900, for: fixture.tokens[3], fixture: fixture)

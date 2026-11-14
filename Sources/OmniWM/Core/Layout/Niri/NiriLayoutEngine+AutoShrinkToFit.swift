@@ -23,10 +23,7 @@ extension NiriLayoutEngine {
             visibleCount: visibleCount,
             context: context
         )
-        guard !all.isEmpty, !autoFitPaused(workspace, state: state) else {
-            workspace.autoFitChangePending = false
-            return
-        }
+        guard !all.isEmpty, !autoFitPaused(workspace, sizesChanged: sizesChanged, state: state) else { return }
         let active = all[projectedActiveColumnIndex(state: state, columns: all, in: context.workspaceId)].column
         let changed = autoFitChange(sizesChanged, active: active, in: workspace)
         guard let focusIndex = projected.firstIndex(where: { $0.column === active }) else { return }
@@ -64,13 +61,20 @@ extension NiriLayoutEngine {
         return changed
     }
 
-    private func autoFitPaused(_ workspace: NiriWorkspaceState, state: ViewportState) -> Bool {
+    private func autoFitPaused(
+        _ workspace: NiriWorkspaceState,
+        sizesChanged: Bool,
+        state: ViewportState
+    ) -> Bool {
         let endingMouseResize = workspace.autoFitSkipsMouseResize
         workspace.autoFitSkipsMouseResize = interactiveResize != nil
-        return interactiveResize != nil
-            || endingMouseResize
-            || state.preservesGestureOffset
-            || state.offsetTransition.kind == .deceleration
+        if interactiveResize != nil || endingMouseResize {
+            workspace.autoFitChangePending = false
+            return true
+        }
+        guard state.preservesGestureOffset || state.offsetTransition.kind == .deceleration else { return false }
+        workspace.autoFitChangePending = workspace.autoFitChangePending || sizesChanged
+        return true
     }
 
     private func fit(
