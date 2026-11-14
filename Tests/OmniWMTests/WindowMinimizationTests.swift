@@ -818,6 +818,28 @@ final class WindowMinimizationTests: XCTestCase {
         }
     }
 
+    func testAFloatingWindowTiledInADwindleWorkspaceNotesNoGlide() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.niriLayoutHandler.enableNiriLayout()
+        controller.enableDwindleLayout()
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+        let engine = try XCTUnwrap(controller.niriEngine)
+        let token = WindowToken(pid: 688_012, windowId: 688_912)
+        _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
+        XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: token))
+        controller.settings.niri.macOSFusion = true
+
+        XCTAssertTrue(controller.transitionWindowMode(
+            for: token,
+            to: .tiling,
+            observedFrame: CGRect(x: 300, y: 200, width: 500, height: 400)
+        ))
+
+        XCTAssertTrue(engine.stripGlides.isEmpty)
+    }
+
     func testUnknownWindowNotificationInvalidatesInitialEnumeration() {
         let controller = WindowAdmissionTestSupport.controller()
         let token = WindowToken(pid: 688_008, windowId: 688_801)
