@@ -193,4 +193,36 @@ final class OrderedOutWindowRetirementTests: XCTestCase {
         XCTAssertNil(controller.layoutRefreshController.layoutState.pendingRefresh)
         XCTAssertEqual(controller.axEventHandler.previouslyFocusedManagedToken, managedToken)
     }
+
+    func testWithdrawingHiddenWindowRescansItsAppOnlyWhenOmniWMHidIt() throws {
+        let token = WindowToken(pid: 913_005, windowId: 913_105)
+        let orderedOut = WindowServerInfo(
+            id: UInt32(token.windowId), pid: token.pid, level: 0, frame: .zero, isOrderedIn: false
+        )
+        for hidden in [false, true] {
+            let controller = WindowAdmissionTestSupport.controller()
+            let workspaceId = try XCTUnwrap(
+                controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
+            )
+            _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
+            controller.layoutRefreshController.resetState()
+            if hidden {
+                controller.workspaceManager.setHiddenState(
+                    HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .workspaceInactive),
+                    for: token
+                )
+            }
+
+            controller.axEventHandler.applyObservedWindowOrdering(orderedOut, token: token)
+
+            XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, true)
+            let layoutState = controller.layoutRefreshController.layoutState
+            let requestedRescan = [layoutState.activeRefresh, layoutState.pendingRefresh].contains {
+                $0?.kind == .fullRescan
+                    && $0?.rescanScope == .targeted(appPIDs: [token.pid], nativeSpaceIds: [])
+            }
+            XCTAssertEqual(requestedRescan, hidden)
+            controller.layoutRefreshController.resetState()
+        }
+    }
 }
