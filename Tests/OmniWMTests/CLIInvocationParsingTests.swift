@@ -178,6 +178,29 @@ final class CLIInvocationParsingTests: XCTestCase {
         XCTAssertEqual(replaceRequest, .replace(id: id, rule: expected))
     }
 
+    func testRuleAddAndReplaceCarryWorkspaceAssignmentForAllWindows() throws {
+        let id = "B9B137A2-9406-4D68-BD0E-8ED465450413"
+        let option = "--assign-to-workspace-for-all-windows"
+        let flags = ["--bundle-id", "com.example.App", option, "--assign-to-workspace", "32"]
+        let definition = IPCRuleDefinition(
+            bundleId: "com.example.App", assignToWorkspace: "32", assignToWorkspaceForAllWindows: true
+        )
+        let cases: [([String], IPCRuleRequest)] = [
+            (["add"], .add(rule: definition)),
+            (["replace", id], .replace(id: id, rule: definition))
+        ]
+        for (action, expected) in cases {
+            let invocation = ["omniwmctl", "rule"] + action + flags
+            let parsed = try CLIParser.parse(arguments: invocation)
+            XCTAssertEqual(parsed.request.payload, .rule(expected))
+            XCTAssertThrowsError(try CLIParser.parse(arguments: invocation + [option]))
+        }
+
+        XCTAssertThrowsError(try CLIParser.parse(arguments: [
+            "omniwmctl", "rule", "add", "--bundle-id", "com.example.App", "--layout", "tile", option
+        ]))
+    }
+
     func testRuleAddAndReplaceRejectInvalidOrConflictingScratchpad() {
         let slots = IPCScratchpadSlots.range
         let cases = [

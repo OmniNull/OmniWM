@@ -49,6 +49,7 @@ struct WorkspacePlacementWindow {
 
 struct WorkspacePlacementRules {
     let workspaceName: String?
+    let assignToWorkspaceForAllWindows: Bool
     let inheritTrackedParentWorkspace: Bool
     let structuralReplacementWorkspaceId: WorkspaceDescriptor.ID?
     let allowsFloatingSpawnPlacement: Bool
