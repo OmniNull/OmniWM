@@ -735,7 +735,7 @@ Both Boolean keys are optional and default to `true`. Turning a service off canc
 | `placement` | enum | `"fill"` | `"fill"` crops the wallpaper to the display; `"fit"` shows all of it. |
 | `displays` *(optional)* | array of tables | `[]` | A folder for one display: `monitorName`, `monitorDisplayUUID` (or `monitorDisplayId` for a display without a UUID), `folder`, and an `id` UUID identifying the row. |
 
-The shuffle order of each display and the time of the next change live in the state directory's `runtime-state.json`, not in this file. The wallpaper color scheme is the existing `scheme` in `shell.toml`; see [Wallpaper palette](/omnishell/configuration/profiles-palettes/#wallpaper-palette).
+The shuffle order of each display and the time of the next change live in the state directory's `wallpaper-state.json`, not in this file. The wallpaper color scheme is the existing `scheme` in `shell.toml`; see [Wallpaper palette](/omnishell/configuration/profiles-palettes/#wallpaper-palette).
 
 ```toml
 [wallpaper]
