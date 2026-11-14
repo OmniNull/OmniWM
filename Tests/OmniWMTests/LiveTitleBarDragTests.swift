@@ -538,14 +538,15 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
         fixture.drag(to: target)
         let timer = try XCTUnwrap(fixture.handler.liveDragSession?.hoverTimer)
-        let firstFireDate = timer.fireDate
-        clock.now += 0.02
-        Thread.sleep(forTimeInterval: 0.02)
+        let elapsed = MoveConfiguration.liveSlowDownWindow / 2
+        let fireDateAfterElapsed = timer.fireDate.addingTimeInterval(-elapsed)
+        clock.now += elapsed
+        timer.fireDate = fireDateAfterElapsed
         fixture.drag(to: CGPoint(x: target.x + 1, y: target.y))
 
         XCTAssertTrue(fixture.handler.liveDragSession?.hoverTimer === timer)
         XCTAssertTrue(timer.isValid)
-        XCTAssertGreaterThan(timer.fireDate, firstFireDate)
+        XCTAssertGreaterThan(timer.fireDate, fireDateAfterElapsed)
     }
 
     func testATabPullKeepsThePointerAsTheReference() throws {

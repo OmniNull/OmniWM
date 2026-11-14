@@ -131,11 +131,7 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         controller.layoutRefreshController.resetState()
         controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
         controller.hasStartedServices = true
-        let blocker = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        let blocker = WindowAdmissionTestSupport.parkedTask()
         controller.layoutRefreshController.layoutState.activeRefreshTask = blocker
         controller.layoutRefreshController.layoutState.activeRefresh = .init(
             kind: .immediateRelayout,
@@ -254,9 +250,11 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
     func testSettledFramesAreWhereEveryAnimationEndsHoweverLongItRuns() throws {
         let fixture = try makeFixture(pid: 834_232)
         let window = fixture.window(1)
+        let token = fixture.tokens[1]
+        let now = CACurrentMediaTime()
+        let resting = try XCTUnwrap(fixture.frames(at: now)[token])
         let slow = SpringConfig(dampingRatio: 1, stiffness: 1, epsilon: 0.0001)
         window.animateHeightFrom(delta: 200, clock: nil, config: slow, animated: true)
-        let now = CACurrentMediaTime()
         let state = fixture.controller.workspaceManager.niriViewportState(for: fixture.workspaceId)
         let operation = NiriOperationContext(
             controller: fixture.controller,
@@ -270,12 +268,8 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
             gaps: fixture.controller.innerGap(for: fixture.monitor)
         )
 
-        let settled = try XCTUnwrap(operation.settledFrames(state: state)[fixture.tokens[1]])
-        let twoSecondsOn = try XCTUnwrap(fixture.frames(at: now + 2)[fixture.tokens[1]])
-        let muchLater = try XCTUnwrap(fixture.frames(at: now + 10_000)[fixture.tokens[1]])
-
-        XCTAssertGreaterThan(twoSecondsOn.height - muchLater.height, 1)
-        XCTAssertEqual(settled.height, muchLater.height, accuracy: 0.5)
+        XCTAssertNotEqual(try XCTUnwrap(fixture.frames(at: now)[token]), resting)
+        XCTAssertEqual(try XCTUnwrap(operation.settledFrames(state: state)[token]), resting)
     }
 
     func testAWorkspaceSwitchedToDwindleAndBackKeepsItsArrangementAndHistory() throws {
