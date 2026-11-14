@@ -8,7 +8,7 @@ import XCTest
 
 @MainActor
 final class NiriLayoutSwitchTests: XCTestCase {
-    func testWithMacOSFusionAWorkspaceSwitchedToDwindleForgetsItsNiriStrip() throws {
+    func testAWorkspaceSwitchedToDwindleKeepsItsNiriStrip() throws {
         for fusion in [false, true] {
             let controller = makeController()
             controller.settings.niri.macOSFusion = fusion
@@ -37,7 +37,7 @@ final class NiriLayoutSwitchTests: XCTestCase {
                 controller.dwindleLayoutHandler.layoutWithDwindleEngine(activeWorkspaces: [workspaceId])
             }
 
-            XCTAssertEqual(engine.root(for: workspaceId) == nil, fusion, "fusion=\(fusion)")
+            XCTAssertEqual(engine.columns(in: workspaceId).count, 2, "fusion=\(fusion)")
         }
     }
 

@@ -278,6 +278,29 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         XCTAssertEqual(settled.height, muchLater.height, accuracy: 0.5)
     }
 
+    func testAWorkspaceSwitchedToDwindleAndBackKeepsItsArrangementAndHistory() throws {
+        let fixture = try makeFixture(pid: 834_233)
+        let original = order(fixture, in: fixture.workspaceId)
+        fixture.change { fixture.stack(2, onto: 0) }
+        let stacked = order(fixture, in: fixture.workspaceId)
+        XCTAssertNotEqual(stacked, original)
+        fixture.controller.enableDwindleLayout()
+
+        XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+        fixture.controller.workspaceManager.withBatchedLayoutBuild {
+            fixture.controller.dwindleLayoutHandler.layoutWithDwindleEngine(activeWorkspaces: [fixture.workspaceId])
+        }
+
+        XCTAssertEqual(order(fixture, in: fixture.workspaceId), stacked)
+        XCTAssertFalse(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: fixture.workspaceId))
+
+        XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "1"))
+
+        XCTAssertEqual(order(fixture, in: fixture.workspaceId), stacked)
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: fixture.workspaceId))
+        XCTAssertEqual(order(fixture, in: fixture.workspaceId), original)
+    }
+
     func testUndoAndRedoDoNothingWhileTheMouseResizesAWindow() throws {
         let fixture = try makeFixture(pid: 834_229, workspaceNames: ["1", "2"])
         let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
