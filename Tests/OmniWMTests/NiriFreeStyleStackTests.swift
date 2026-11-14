@@ -573,10 +573,11 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(fixture.height(of: 3), heights.bottom, accuracy: 0.5)
     }
 
-    func testAMinimumHeightTallerThanTheDisplayIsIgnoredWhenTheStackSharesItsHeight() {
+    func testAMinimumHeightTallerThanTheDisplayStillCountsWhenTheWindowIsStacked() {
         var fixture = makeFixture()
+        let minimum = fixture.frame.height * 2
         fixture.window(3).constraints = WindowSizeConstraints(
-            minSize: CGSize(width: 100, height: fixture.frame.height * 2),
+            minSize: CGSize(width: 100, height: minimum),
             maxSize: .zero,
             isFixed: false
         )
@@ -587,7 +588,13 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertTrue(fixture.end())
         XCTAssertTrue(fixture.finish())
         XCTAssertEqual(fixture.column(3).windowNodes.map(\.token), [fixture.tokens[1], fixture.tokens[3]])
-        XCTAssertEqual(fixture.height(of: 1), fixture.height(of: 3), accuracy: 0.5)
+        let usable = fixture.frame.height - fixture.gap * 3
+        let floors = minimum + NiriAxisSolver.minimumRenderableSpan
+        XCTAssertEqual(
+            fixture.height(of: 3),
+            minimum * (usable / floors),
+            accuracy: CGFloat.rounding(operations: 4, at: fixture.frame.height)
+        )
     }
 
     func testMinimumHeightsThatCannotShareTheDisplayNeverBlockStacking() {
