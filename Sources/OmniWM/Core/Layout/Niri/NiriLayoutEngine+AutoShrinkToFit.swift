@@ -23,8 +23,12 @@ extension NiriLayoutEngine {
             visibleCount: visibleCount,
             context: context
         )
-        guard !all.isEmpty, !autoFitPaused(workspace, state: state) else { return }
+        guard !all.isEmpty, !autoFitPaused(workspace, state: state) else {
+            workspace.autoFitChangePending = false
+            return
+        }
         let active = all[projectedActiveColumnIndex(state: state, columns: all, in: context.workspaceId)].column
+        let changed = autoFitChange(sizesChanged, active: active, in: workspace)
         guard let focusIndex = projected.firstIndex(where: { $0.column === active }) else { return }
         let window = autoFitWindow(
             projected,
@@ -46,9 +50,18 @@ extension NiriLayoutEngine {
             alignViewport(toFirstOf: window, context: context, state: &state)
             return
         }
-        guard sizesChanged else { return }
+        guard changed else { return }
         fit(window, around: projected[focusIndex].column, columnCount: projected.count, context: context, state: &state)
+        workspace.autoFitChangePending = false
         _ = updateAutoFitSignature(of: workspace, projected, visibleCount: visibleCount, context: context)
+    }
+
+    private func autoFitChange(_ sizesChanged: Bool, active: NiriContainer, in workspace: NiriWorkspaceState) -> Bool {
+        let activeMoved = workspace.autoFitActiveColumnId != active.id
+        workspace.autoFitActiveColumnId = active.id
+        let changed = sizesChanged || workspace.autoFitChangePending
+        workspace.autoFitChangePending = changed && activeMoved
+        return changed
     }
 
     private func autoFitPaused(_ workspace: NiriWorkspaceState, state: ViewportState) -> Bool {

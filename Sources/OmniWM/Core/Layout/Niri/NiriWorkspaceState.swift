@@ -117,6 +117,8 @@ final class NiriWorkspaceState {
     var shrinkToFitGeometry: NiriShrinkToFitGeometry?
     var autoFitSignature: NiriAutoFitSignature?
     var autoFitSkipsMouseResize = false
+    var autoFitChangePending = false
+    var autoFitActiveColumnId: NodeId?
 
     init(workspaceId: WorkspaceDescriptor.ID) {
         root = NiriRoot(workspaceId: workspaceId)
