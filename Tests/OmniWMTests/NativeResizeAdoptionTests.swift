@@ -1395,6 +1395,100 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         }
     }
 
+    func testWithMacOSFusionAnUnannotatedDragBegunDuringASlideEndsTheSlideAndItsResizeIsAdopted() async throws {
+        let fixture = try makeFixture(.niri, pid: 834_109)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.mouseEventHandler.settlesNativeResizes = false
+        let token = fixture.tokens[0]
+        let pressedFrame = try fixture.frame(token)
+        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: token.windowId))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.animateToOffset(state.viewOffset + 120, motion: .enabled, scale: 2)
+        }
+        fixture.controller.niriLayoutHandler.startScrollAnimationIfNeeded(
+            for: fixture.workspaceId,
+            state: fixture.manager.niriViewportState(for: fixture.workspaceId),
+            engine: engine
+        )
+
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(at: pressedFrame.center, modifiers: []))
+
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+        XCTAssertEqual(fixture.handler.state.nativeTitleBarDragFallbackToken, token)
+        XCTAssertTrue(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+
+        fixture.handler.dispatchMouseDragged(at: nativeDragLocation(from: pressedFrame))
+
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+        XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+
+        fixture.controller.niriLayoutHandler.tickScrollAnimation(
+            targetTime: fixture.controller.animationClock.now(),
+            displayId: fixture.monitor.displayId
+        )
+        let observed = grown(try fixture.frame(token), right: 120)
+        reported.frame = observed
+        fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+
+        XCTAssertEqual(fixture.phase, .dragging)
+
+        fixture.handler.dispatchMouseUp(at: observed.center)
+        fixture.controller.niriLayoutHandler.tickScrollAnimation(
+            targetTime: fixture.controller.animationClock.now(),
+            displayId: fixture.monitor.displayId
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: FrameTolerance.frameWrite)
+    }
+
+    func testWithMacOSFusionAResizeReportedBeforeTheSlideSettlesIsAdoptedWhenItDoes() async throws {
+        let fixture = try makeFixture(.niri, pid: 834_110)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.mouseEventHandler.settlesNativeResizes = false
+        let token = fixture.tokens[0]
+        let pressedFrame = try fixture.frame(token)
+        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: token.windowId))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.animateToOffset(state.viewOffset + 120, motion: .enabled, scale: 2)
+        }
+        fixture.controller.niriLayoutHandler.startScrollAnimationIfNeeded(
+            for: fixture.workspaceId,
+            state: fixture.manager.niriViewportState(for: fixture.workspaceId),
+            engine: engine
+        )
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(at: pressedFrame.center, modifiers: []))
+        fixture.handler.dispatchMouseDragged(at: nativeDragLocation(from: pressedFrame))
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.workspaceId))
+
+        let observed = grown(try fixture.frame(token), right: 120)
+        reported.frame = observed
+        fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+        fixture.handler.pressedMouseButtonsProvider = { 0 }
+        fixture.handler.dispatchMouseUp(at: observed.center)
+
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+        XCTAssertEqual(fixture.handler.state.nativeTitleBarDragFallbackToken, token)
+
+        fixture.controller.niriLayoutHandler.tickScrollAnimation(
+            targetTime: fixture.controller.animationClock.now(),
+            displayId: fixture.monitor.displayId
+        )
+        fixture.controller.niriLayoutHandler.tickScrollAnimation(
+            targetTime: fixture.controller.animationClock.now(),
+            displayId: fixture.monitor.displayId
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: FrameTolerance.frameWrite)
+    }
+
     func testMouseDownWithoutAFastFrameDoesNotReadAXOrArmResize() throws {
         for (index, layout) in [LayoutType.niri, .dwindle].enumerated() {
             let fixture = try makeFixture(layout, pid: pid_t(835_201 + index))
@@ -3321,7 +3415,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: FrameTolerance.frameWrite)
     }
 
-    func testAPressFinishesTheStripsRunningSlide() throws {
+    func testAPressLeavesTheStripsSlideRunningAndTheFirstDragMovementEndsIt() throws {
         let fixture = try makeFixture(.niri, pid: 834_079)
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
         fixture.controller.settings.niri.macOSFusion = true
@@ -3340,9 +3434,21 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             engine: engine,
             workspaceId: fixture.workspaceId
         ))
+        let start = try fixture.frame(token)
+        fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
 
-        try fixture.beginDrag(token)
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(
+            at: start.center,
+            modifiers: [],
+            windowIdUnderPointer: token.windowId
+        ))
 
+        XCTAssertTrue(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+
+        fixture.handler.dispatchMouseDragged(at: nativeDragLocation(from: start))
+
+        XCTAssertEqual(fixture.phase, .dragging)
         XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
     }
 
@@ -3373,13 +3479,18 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 windowIdUnderPointer: token.windowId,
                 windowServerFramesAtMouseDown: [token: ScreenCoordinateSpace.toWindowServer(rect: pressedFrame)]
             )
-            XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId), "slides: \(slides)")
+            XCTAssertEqual(
+                fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId),
+                slides,
+                "slides: \(slides)"
+            )
 
             let settled = try fixture.frame(token)
             let observed = grown(settled, right: 140)
             let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: token.windowId))
             fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
             fixture.handler.dispatchMouseDragged(at: nativeDragLocation(from: settled))
+            XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId), "slides: \(slides)")
             fixture.controller.niriLayoutHandler.tickScrollAnimation(
                 targetTime: fixture.controller.animationClock.now(),
                 displayId: fixture.monitor.displayId

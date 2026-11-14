@@ -67,8 +67,33 @@ extension MouseEventHandler {
         }
         state.nativeResizeStart?.wasDragged = true
         let deferredToken = state.nativeResizeStart.flatMap { $0.hasDeferredFrameChange ? $0.token : nil }
+        finishNiriSlideBeforeUnannotatedDrag()
         beginNativeTitleBarDragIfNeeded(button: button)
         handleDeferredNativeTitleBarFrameIfNeeded(for: deferredToken)
+    }
+
+    private func finishNiriSlideBeforeUnannotatedDrag() {
+        guard state.moveTap == nil,
+              state.nativeTitleBarDrag == nil,
+              state.awaitsNativeTitleBarDragTarget,
+              let token = state.nativeTitleBarDragFallbackToken,
+              let controller,
+              let pressed = controller.workspaceManager.entry(for: token),
+              pressed.mode == .tiling
+        else { return }
+        finishNiriSlideBeforeDrag(in: pressed.workspaceId, controller: controller)
+    }
+
+    func recheckUnannotatedDragAfterSlide(in workspaceId: WorkspaceDescriptor.ID) {
+        guard state.nativeTitleBarDrag == nil,
+              state.awaitsNativeTitleBarDragTarget,
+              let token = state.nativeTitleBarDragFallbackToken,
+              let controller,
+              controller.settings.niri.macOSFusion,
+              let pressed = controller.workspaceManager.entry(for: token),
+              pressed.workspaceId == workspaceId
+        else { return }
+        _ = handleNativeTitleBarDragFrameChanged(for: pressed)
     }
 
     private func handleDeferredNativeTitleBarFrameIfNeeded(for token: WindowToken? = nil) {
@@ -181,8 +206,10 @@ extension MouseEventHandler {
               var drag = state.nativeTitleBarDrag,
               drag.phase == .armed,
               let controller,
-              controller.workspaceManager.entry(for: drag.token)?.mode == .tiling
+              let dragged = controller.workspaceManager.entry(for: drag.token),
+              dragged.mode == .tiling
         else { return }
+        finishNiriSlideBeforeDrag(in: dragged.workspaceId, controller: controller)
         state.nativeResizeCorrectionsByWindowId[drag.token.windowId] = nil
         let hadUnsettledFrameWrite = controller.axManager.isAwaitingFrameWrite(drag.token.windowId)
             || controller.axManager.hasInFlightFrameWrite(for: drag.token)
@@ -231,6 +258,24 @@ extension MouseEventHandler {
         else { return }
         currentDrag.adoptionStartFrame = startFrame
         state.nativeTitleBarDrag = currentDrag
+    }
+
+    private func finishNiriSlideBeforeDrag(in workspaceId: WorkspaceDescriptor.ID, controller: WMController) {
+        guard controller.settings.niri.macOSFusion,
+              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
+              let engine = controller.niriEngine,
+              !engine.isLiveColumnMoveActive(in: workspaceId),
+              !engine.isLiveStackDropPending(in: workspaceId),
+              hasPendingNiriAnimationWork(
+                  state: controller.workspaceManager.niriViewportState(for: workspaceId),
+                  driver: controller.workspaceManager.animationDriver,
+                  engine: engine,
+                  workspaceId: workspaceId
+              )
+        else { return }
+        controller.niriLayoutHandler.cancelAnimationMotion(for: workspaceId)
+        refreshLiveColumnLayout(in: workspaceId, engine: engine)
+        MouseTrace.record("drag finished the running slide ws=\(workspaceId)")
     }
 
     private func prepareNativeTitleBarDragForSettlement(button: MouseButton) -> MouseInputState.NativeTitleBarDrag? {

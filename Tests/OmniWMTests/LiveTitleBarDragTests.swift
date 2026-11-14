@@ -2071,6 +2071,24 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         }
     }
 
+    func testATitleBarDragBegunDuringASlideEndsTheSlideAndBecomesALiveDrag() throws {
+        let fixture = try makeFixture(pid: 938_503, windowCount: 5)
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.animateToOffset(state.viewOffset + 300, motion: .enabled, scale: 2)
+        }
+        fixture.controller.niriLayoutHandler.startScrollAnimationIfNeeded(
+            for: fixture.workspaceId,
+            state: fixture.manager.niriViewportState(for: fixture.workspaceId),
+            engine: fixture.engine
+        )
+        XCTAssertTrue(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+
+        try fixture.startLiveDrag(fixture.tokens[1])
+
+        XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+    }
+
     func testATabbedColumnAndALoneWindowAreNeverReported() throws {
         let fixture = try makeFixture(pid: 938_129, tabbedRuns: [0 ... 1])
         let watch = watchOverflows(fixture)
