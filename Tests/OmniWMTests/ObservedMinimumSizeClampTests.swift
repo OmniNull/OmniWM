@@ -238,69 +238,72 @@ final class ObservedMinimumSizeClampTests: XCTestCase {
         )
     }
 
-    func testNoMinimumIsLearnedWhileTheWindowsSizeAnimates() throws {
-        let fixture = try makeFixture()
-        let manager = fixture.controller.workspaceManager
-        fixture.controller.settings.niri.macOSFusion = true
-        fixture.controller.niriLayoutHandler.enableNiriLayout()
-        let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        let node = engine.findNode(for: fixture.token, in: fixture.workspaceId)
-            ?? engine.addWindow(token: fixture.token, to: fixture.workspaceId, afterSelection: nil)
-        node.animateHeightFrom(
-            delta: 400,
-            clock: engine.animationClock,
-            config: engine.windowMovementAnimationConfig,
-            displayRefreshRate: 60,
-            animated: true
-        )
-        XCTAssertNotNil(node.heightAnimation)
-        let target = CGRect(x: 20, y: 30, width: 400, height: 300)
-        let taller = CGRect(x: 20, y: target.maxY - 700, width: 400, height: 700)
+    func testAMinimumIsLearnedWhileTheWindowsHeightAnimates() throws {
+        for macOSFusion in [true, false] {
+            let fixture = try makeFixture()
+            let manager = fixture.controller.workspaceManager
+            fixture.controller.settings.niri.macOSFusion = macOSFusion
+            fixture.controller.niriLayoutHandler.enableNiriLayout()
+            let engine = try XCTUnwrap(fixture.controller.niriEngine)
+            let node = engine.findNode(for: fixture.token, in: fixture.workspaceId)
+                ?? engine.addWindow(token: fixture.token, to: fixture.workspaceId, afterSelection: nil)
+            node.animateHeightFrom(
+                delta: 400,
+                clock: engine.animationClock,
+                config: engine.windowMovementAnimationConfig,
+                displayRefreshRate: 60,
+                animated: true
+            )
+            XCTAssertNotNil(node.heightAnimation, "\(macOSFusion)")
+            let target = CGRect(x: 20, y: 30, width: 400, height: 300)
+            let taller = CGRect(x: 20, y: target.maxY - 700, width: 400, height: 700)
 
-        fixture.controller.adoptObservedMinimumAfterStableSizeClamp(clampResult(
-            fixture,
-            target: target,
-            observed: taller
-        ))
+            fixture.controller.adoptObservedMinimumAfterStableSizeClamp(clampResult(
+                fixture,
+                target: target,
+                observed: taller
+            ))
 
-        XCTAssertNil(manager.observedSizeEvidence(for: fixture.token))
-
-        node.heightAnimation = nil
-        fixture.controller.adoptObservedMinimumAfterStableSizeClamp(clampResult(
-            fixture,
-            target: target,
-            observed: taller
-        ))
-
-        XCTAssertEqual(manager.observedSizeEvidence(for: fixture.token)?.minSize.height, 700)
+            XCTAssertEqual(
+                manager.observedSizeEvidence(for: fixture.token)?.minSize.height,
+                taller.height,
+                "\(macOSFusion)"
+            )
+        }
     }
 
-    func testWithMacOSFusionOffAMinimumIsLearnedWhileTheColumnsWidthAnimates() throws {
-        let fixture = try makeFixture()
-        let manager = fixture.controller.workspaceManager
-        XCTAssertFalse(fixture.controller.settings.niri.macOSFusion)
-        fixture.controller.niriLayoutHandler.enableNiriLayout()
-        let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        let node = engine.findNode(for: fixture.token, in: fixture.workspaceId)
-            ?? engine.addWindow(token: fixture.token, to: fixture.workspaceId, afterSelection: nil)
-        let column = try XCTUnwrap(node.parent as? NiriContainer)
-        column.animateWidthTo(
-            newWidth: 300,
-            clock: engine.animationClock,
-            config: engine.windowMovementAnimationConfig,
-            animated: true
-        )
-        XCTAssertTrue(column.hasWidthAnimationRunning)
-        let target = CGRect(x: 20, y: 30, width: 300, height: 400)
-        let wider = CGRect(x: 20, y: 30, width: 520, height: 400)
+    func testAMinimumIsLearnedWhileTheColumnsWidthAnimates() throws {
+        for macOSFusion in [true, false] {
+            let fixture = try makeFixture()
+            let manager = fixture.controller.workspaceManager
+            fixture.controller.settings.niri.macOSFusion = macOSFusion
+            fixture.controller.niriLayoutHandler.enableNiriLayout()
+            let engine = try XCTUnwrap(fixture.controller.niriEngine)
+            let node = engine.findNode(for: fixture.token, in: fixture.workspaceId)
+                ?? engine.addWindow(token: fixture.token, to: fixture.workspaceId, afterSelection: nil)
+            let column = try XCTUnwrap(node.parent as? NiriContainer)
+            column.animateWidthTo(
+                newWidth: 300,
+                clock: engine.animationClock,
+                config: engine.windowMovementAnimationConfig,
+                animated: true
+            )
+            XCTAssertTrue(column.hasWidthAnimationRunning, "\(macOSFusion)")
+            let target = CGRect(x: 20, y: 30, width: 300, height: 400)
+            let wider = CGRect(x: 20, y: 30, width: 520, height: 400)
 
-        fixture.controller.adoptObservedMinimumAfterStableSizeClamp(clampResult(
-            fixture,
-            target: target,
-            observed: wider
-        ))
+            fixture.controller.adoptObservedMinimumAfterStableSizeClamp(clampResult(
+                fixture,
+                target: target,
+                observed: wider
+            ))
 
-        XCTAssertEqual(manager.observedSizeEvidence(for: fixture.token)?.minSize.width, 520)
+            XCTAssertEqual(
+                manager.observedSizeEvidence(for: fixture.token)?.minSize.width,
+                wider.width,
+                "\(macOSFusion)"
+            )
+        }
     }
 
     private struct Fixture {

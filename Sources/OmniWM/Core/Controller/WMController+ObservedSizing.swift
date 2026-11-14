@@ -14,7 +14,6 @@ extension WMController {
               entry.layoutReason == .standard,
               entry.hiddenState == nil,
               !workspaceManager.isWindowSuppressedByMacOS(entry.token),
-              !isSizeAnimating(entry.token, in: entry.workspaceId),
               let observed = result.writeResult.observedFrame?.size
         else {
             return
@@ -41,8 +40,7 @@ extension WMController {
               let entry = workspaceManager.entry(forWindowId: refusal.windowId),
               entry.axRef != nil,
               entry.mode == .tiling,
-              workspaceManager.hiddenState(for: entry.token) == nil,
-              !isSizeAnimating(entry.token, in: entry.workspaceId)
+              workspaceManager.hiddenState(for: entry.token) == nil
         else {
             return
         }
