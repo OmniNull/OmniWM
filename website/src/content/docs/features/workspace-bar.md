@@ -19,6 +19,7 @@ Open **Settings > Styles & Widgets > Bar** to arrange widgets, select a widget f
 
 - Click a workspace chip to switch to that workspace.
 - Click an app icon to focus that window directly.
+- When the bar covers the macOS menus, use the **App Menu** widget to open the focused app’s menu. In JetBrains IDEs such as PhpStorm, selecting a heading such as **File** opens the IDE’s native menu.
 - When **Deduplicate App Icons** is enabled, multiple windows from one app share a single grouped icon with a count badge; click a grouped icon to open their window list, while a single-window icon focuses that window directly.
 - macOS-hidden windows are marked with an eye-slash badge; selecting a hidden window unhides its app and focuses that exact window.
 - Non-empty [scratchpad](/features/scratchpads/) slots appear as pills; clicking a pill toggles that scratchpad.
