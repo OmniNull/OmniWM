@@ -168,7 +168,7 @@ extension NiriLayoutEngine {
         }
     }
 
-    private func alignViewport(
+    func alignViewport(
         toFirstOf onScreen: [NiriProjectedColumn],
         context: NiriInteractionContext,
         state: inout ViewportState

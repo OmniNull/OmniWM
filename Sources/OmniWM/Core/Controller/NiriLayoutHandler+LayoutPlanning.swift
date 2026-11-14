@@ -219,6 +219,10 @@ extension NiriLayoutHandler {
             snapshot: snapshot
         )
 
+        if pass.engine.shrinkToFit {
+            pass.engine.autoFitVisibleColumns(context: pass.interactionContext, state: &state)
+        }
+
         var plan = computeLayoutPlan(
             pass: pass,
             state: state,

@@ -91,7 +91,8 @@ extension NiriLayoutEngine {
             viewPosition: viewPosition,
             selectedNodeId: selection.state.selectedNodeId,
             settledContentFrame: sampling.isSettled
-                ? settledContentFrame(context: context, activeSpan: activeColumn.span) : nil
+                ? settledContentFrame(context: context, activeSpan: activeColumn.span) : nil,
+            spillLimit: shrinkToFit ? context.area.workingFrame : nil
         )
     }
 
@@ -202,6 +203,7 @@ extension NiriLayoutEngine {
                 renderedContainerRect = layoutArea.settledRenderedContainerRect(
                     visibilityRect,
                     contentFrame: settledContentFrame,
+                    spillLimit: pass.spillLimit,
                     orientation: orientation
                 )
             } else {
