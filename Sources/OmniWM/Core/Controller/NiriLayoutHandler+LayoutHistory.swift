@@ -8,6 +8,7 @@ struct NiriLayoutChangeStart {
     let workspaceId: WorkspaceDescriptor.ID
     let snapshots: [WorkspaceDescriptor.ID: NiriLayoutSnapshot]
     let startedAt: TimeInterval
+    let userActionCount: UInt64
     let sizes: [WindowToken: CGSize]
 }
 
@@ -32,6 +33,7 @@ extension NiriLayoutHandler {
             workspaceId: workspaceId,
             snapshots: snapshots,
             startedAt: layoutStepClock(),
+            userActionCount: userActionCount,
             sizes: sizes
         )
     }
@@ -48,7 +50,8 @@ extension NiriLayoutHandler {
             timing: NiriLayoutStepTiming(
                 startedAt: start.startedAt,
                 recordedAt: layoutStepClock(),
-                sizesAtStart: start.sizes
+                sizesAtStart: start.sizes,
+                userActionCountAtStart: start.userActionCount
             )
         )
         scheduleOverflowCheck()

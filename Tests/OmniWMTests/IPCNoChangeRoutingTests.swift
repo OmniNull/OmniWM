@@ -17,6 +17,48 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         let workspace2: WorkspaceDescriptor.ID
     }
 
+    func testEachIPCRequestThatChangesSomethingCountsOneUserAction() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.controller.layoutRefreshController.resetState() }
+        let layout = fixture.controller.niriLayoutHandler
+        var counted = layout.userActionCount
+
+        fixture.controller.eventInterpreter.handleIntakeEvent(StampedIntakeEvent(
+            seq: 1,
+            event: .ipcCommand(IPCCommandIntake(
+                perform: { IPCCommandRouter(controller: $0, sessionToken: "test").handle(.raiseAllFloatingWindows) },
+                completion: { _ in }
+            ))
+        ))
+        counted += 1
+        XCTAssertEqual(layout.userActionCount, counted)
+
+        _ = await IPCApplicationBridge.shellResponse(
+            for: .toggle(widget: "clock"),
+            id: "test",
+            controller: fixture.controller
+        )
+        counted += 1
+        XCTAssertEqual(layout.userActionCount, counted)
+
+        _ = IPCWindowGatherRequestExecutor(controller: fixture.controller, sessionToken: "")
+            .response(for: IPCWindowGatherRequest(windowIds: [], from: .workspace), id: "test")
+        counted += 1
+        XCTAssertEqual(layout.userActionCount, counted)
+
+        let marks = IPCWindowMarkRequestExecutor(controller: fixture.controller)
+        _ = marks.response(for: .focus(name: "missing"), id: "test")
+        counted += 1
+        XCTAssertEqual(layout.userActionCount, counted)
+
+        _ = marks.response(for: .list, id: "test")
+        XCTAssertEqual(layout.userActionCount, counted)
+
+        _ = await IPCRuleRouter(controller: fixture.controller, sessionToken: "").handle(.remove(id: "missing"))
+        counted += 1
+        XCTAssertEqual(layout.userActionCount, counted)
+    }
+
     func testWorkspaceSwitchesDistinguishNoChangeFromAbsentTargets() throws {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }

@@ -55,6 +55,7 @@ final class EventInterpreter: EventIntakeSink {
             )
 
         case let .ipcCommand(intake):
+            controller.niriLayoutHandler.noteUserAction()
             intake.completion(intake.perform(controller))
 
         case .leftMouseDown,

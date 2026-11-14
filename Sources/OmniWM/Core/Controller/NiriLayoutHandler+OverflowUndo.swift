@@ -7,6 +7,7 @@ struct UnshownOverflowMessage {
     let message: ColumnModeToastController.Message
     let workspaceId: WorkspaceDescriptor.ID
     let undoneAt: TimeInterval
+    let userActionCount: UInt64
 }
 
 extension NiriLayoutHandler {
@@ -44,11 +45,7 @@ extension NiriLayoutHandler {
     }
 
     func noteUserAction() {
-        lastUserActionAt = layoutStepClock()
-    }
-
-    private func hasUserActed(since time: TimeInterval) -> Bool {
-        lastUserActionAt.map { $0 > time } ?? false
+        userActionCount &+= 1
     }
 
     func scheduleOverflowCheck() {
@@ -115,7 +112,7 @@ extension NiriLayoutHandler {
         guard isShownOnADisplay(workspaceId) else { return .keep("rule=not-shown") }
         guard let step = engine.newestLayoutStep(in: workspaceId) else { return .keep("rule=no-newest-step") }
         let age = layoutStepClock() - step.timing.recordedAt
-        guard !hasUserActed(since: step.timing.recordedAt), reportedAt >= step.timing.startedAt else {
+        guard userActionCount == step.timing.userActionCountAtStart, reportedAt >= step.timing.startedAt else {
             return .keep("rule=user-acted-since")
         }
         guard let window = engine.findNode(for: token, in: workspaceId),
@@ -163,7 +160,8 @@ extension NiriLayoutHandler {
         unshownOverflowMessage = UnshownOverflowMessage(
             message: message,
             workspaceId: shownIn,
-            undoneAt: layoutStepClock()
+            undoneAt: layoutStepClock(),
+            userActionCount: userActionCount
         )
         followOverflowMessage(in: shownIn)
     }
@@ -172,7 +170,7 @@ extension NiriLayoutHandler {
         guard let controller, let engine = controller.niriEngine else { return }
         if let unshown = unshownOverflowMessage, unshown.workspaceId == workspaceId {
             let newerStep = engine.newestLayoutStep(in: workspaceId).map { $0.timing.recordedAt > unshown.undoneAt }
-            guard !hasUserActed(since: unshown.undoneAt), newerStep != true else {
+            guard userActionCount == unshown.userActionCount, newerStep != true else {
                 unshownOverflowMessage = nil
                 return
             }

@@ -2051,16 +2051,39 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     }
 
     func testAReportAfterTheUserActedSinceTheStepUndoesNothing() throws {
-        for act in ["mouse-down", "command"] {
-            let fixture = try makeFixture(pid: act == "command" ? 938_152 : 938_151)
+        let pids: [String: pid_t] = ["mouse-down": 938_151, "command": 938_152, "wheel": 938_504, "ipc": 938_505]
+        for act in ["mouse-down", "command", "wheel", "ipc"] {
+            let fixture = try makeFixture(pid: try XCTUnwrap(pids[act]))
             let watch = watchOverflows(fixture)
             try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
             watch.clock.now += 0.1
-            if act == "mouse-down" {
+            switch act {
+            case "mouse-down":
                 fixture.handler.dispatchMouseDown(at: CGPoint(x: -10_000, y: -10_000), modifiers: [])
-            } else {
+            case "command":
                 _ = fixture.controller.commandHandler
                     .handleHotkeyInvocation(.init(command: .focusNavigation(.previous)))
+            case "wheel":
+                let gestures = fixture.controller.settings.gestures
+                gestures.scrollEnabled = true
+                fixture.handler.handleScrollWheelFromTap(MouseScrollIntake(
+                    location: fixture.monitor.frame.center,
+                    deltaX: -niriWheelScrollTickAmount,
+                    deltaY: 0,
+                    momentumPhase: 0,
+                    phase: 0,
+                    modifiersRawValue: gestures.scrollModifierKey.cgEventFlag.rawValue
+                ))
+            default:
+                fixture.controller.eventInterpreter.handleIntakeEvent(StampedIntakeEvent(
+                    seq: 1,
+                    event: .ipcCommand(IPCCommandIntake(
+                        perform: {
+                            IPCCommandRouter(controller: $0, sessionToken: "test").handle(.raiseAllFloatingWindows)
+                        },
+                        completion: { _ in }
+                    ))
+                ))
             }
             watch.clock.now += 0.1
 
@@ -2069,6 +2092,19 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
             XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2, act)
         }
+    }
+
+    func testAClickWhileTheDropStillSettlesCountsAsActingSinceTheStep() throws {
+        let fixture = try makeFixture(pid: 938_506, animated: true)
+        let watch = watchOverflows(fixture)
+        try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture, settling: false)
+        fixture.handler.dispatchMouseDown(at: CGPoint(x: -10_000, y: -10_000), modifiers: [])
+        settle(fixture)
+
+        try appTakes(40, more: fixture.tokens[1], in: fixture, watch)
+        checkOverflows(fixture)
+
+        XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 2)
     }
 
     func testATitleBarDragBegunDuringASlideEndsTheSlideAndBecomesALiveDrag() throws {

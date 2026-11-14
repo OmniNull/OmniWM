@@ -53,6 +53,7 @@ extension MouseEventHandler {
             ticks = state.verticalWheelTracker.accumulate(delta)
         }
         guard ticks != 0 else { return }
+        controller.niriLayoutHandler.noteUserAction()
 
         applyMouseWheelColumnTicks(
             ticks,

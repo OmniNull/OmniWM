@@ -67,6 +67,7 @@ extension MouseEventHandler {
               let target = fusionDoubleClickTarget(at: location)
         else { return false }
         clearNativeTitleBarDrag()
+        controller?.niriLayoutHandler.noteUserAction()
         performFusionDoubleClick(on: target)
         state.capturedInteractionButton = .left
         return true

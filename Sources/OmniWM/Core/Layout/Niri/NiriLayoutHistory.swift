@@ -111,6 +111,7 @@ struct NiriLayoutStepTiming {
     let startedAt: TimeInterval
     let recordedAt: TimeInterval
     let sizesAtStart: [WindowToken: CGSize]
+    let userActionCountAtStart: UInt64
 }
 
 struct NiriNewestLayoutStep {
