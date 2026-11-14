@@ -165,19 +165,7 @@ extension NiriLayoutHandler {
                 state: &state
             ) else { return nil }
             ctx.prepareCapturedAnimation(oldFrames: oldFrames)
-            raiseMovingColumn(column, keepingOnTop: ctx.windowNode)
             return NiriStructuralMutation(operation: .columnMoved)
-        }
-    }
-
-    private func raiseMovingColumn(_ column: NiriContainer, keepingOnTop focused: NiriWindow) {
-        guard let controller, controller.settings.niri.macOSFusion else { return }
-        let raised = column.windowNodes.filter { $0 !== focused && !$0.isHiddenInTabbedMode } + [focused]
-        for window in raised {
-            guard let entry = controller.workspaceManager.entry(for: window.token),
-                  let element = entry.axRef?.element
-            else { continue }
-            controller.windowFocusOperations.raiseWindow(element)
         }
     }
 

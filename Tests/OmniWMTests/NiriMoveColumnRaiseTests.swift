@@ -8,7 +8,7 @@ import XCTest
 
 @MainActor
 final class NiriMoveColumnRaiseTests: XCTestCase {
-    func testWithMacOSFusionMovingAStackedColumnBringsEveryWindowForwardWithTheFocusedOneOnTop() throws {
+    func testMovingAStackedColumnBringsNoWindowForwardWithMacOSFusionOffOrOn() throws {
         var ordered: [pid_t] = []
         let controller = makeController { element in
             var pid: pid_t = 0
@@ -34,7 +34,6 @@ final class NiriMoveColumnRaiseTests: XCTestCase {
         let focused = try XCTUnwrap(controller.workspaceManager.handle(for: tokens[0]))
         _ = controller.niriLayoutHandler.consumeWindowIntoColumn(containing: focused)
         XCTAssertEqual(engine.columns(in: workspaceId).map { $0.windowNodes.map(\.token) }.first?.count, 2)
-        let mate = try XCTUnwrap(engine.columns(in: workspaceId).first?.windowNodes.first { $0.token != tokens[0] })
         controller.settings.niri.macOSFusion = false
         ordered = []
 
@@ -47,7 +46,7 @@ final class NiriMoveColumnRaiseTests: XCTestCase {
         _ = controller.niriLayoutHandler.moveColumn(containing: focused, direction: .left)
 
         XCTAssertEqual(engine.columns(in: workspaceId).first?.windowNodes.contains { $0.token == tokens[0] }, true)
-        XCTAssertEqual(ordered, [mate.token.pid, tokens[0].pid])
+        XCTAssertEqual(ordered, [])
     }
 
     private func makeController(raiseWindow: @escaping (AXUIElement) -> Void) -> WMController {
