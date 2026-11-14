@@ -37,6 +37,28 @@ final class ColumnModeToastLifecycleTests: XCTestCase {
     private let column = CGRect(x: 200, y: 100, width: 400, height: 600)
     private let visible = CGRect(x: 0, y: 0, width: 1000, height: 800)
 
+    func testAMessageFollowingAColumnStaysOnTheDisplayAtTheSameSize() throws {
+        let registry = OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
+        let toast = ColumnModeToastController(ownedWindowRegistry: registry, sleep: { _ in })
+        defer { toast.destroy() }
+        let source = ColumnModeToastController.Source(workspaceId: UUID(), monitorId: Monitor.ID(displayId: 1))
+        toast.show(
+            .columnMode(isTabbed: true),
+            columnFrame: column,
+            visibleFrame: visible,
+            motion: .disabled,
+            source: source
+        )
+        let panel = try XCTUnwrap(registry.visibleWindows(kind: .columnModeToast).first as? NSPanel)
+        let size = panel.frame.size
+
+        toast.move(columnFrame: column.offsetBy(dx: visible.maxX - column.minX - 20, dy: 0), visibleFrame: visible)
+
+        XCTAssertEqual(panel.frame.size, size)
+        XCTAssertLessThanOrEqual(panel.frame.maxX, visible.maxX + 0.5)
+        XCTAssertGreaterThanOrEqual(panel.frame.minX, visible.minX - 0.5)
+    }
+
     func testDismissesWhenDisplayTimerFires() async throws {
         let sleeper = ColumnModeToastManualSleeper()
         let registry = OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
@@ -49,7 +71,13 @@ final class ColumnModeToastLifecycleTests: XCTestCase {
             sleeper.resumeAll()
         }
         let source = ColumnModeToastController.Source(workspaceId: UUID(), monitorId: Monitor.ID(displayId: 1))
-        toast.show(isTabbed: true, columnFrame: column, visibleFrame: visible, motion: .disabled, source: source)
+        toast.show(
+            .columnMode(isTabbed: true),
+            columnFrame: column,
+            visibleFrame: visible,
+            motion: .disabled,
+            source: source
+        )
         let panel = try XCTUnwrap(registry.visibleWindows(kind: .columnModeToast).first as? NSPanel)
         let dismissalTask = try XCTUnwrap(toast.dismissalTask)
         XCTAssertTrue(panel.isVisible)
@@ -76,13 +104,25 @@ final class ColumnModeToastLifecycleTests: XCTestCase {
         }
         let firstSource = ColumnModeToastController.Source(workspaceId: UUID(), monitorId: Monitor.ID(displayId: 1))
         let secondSource = ColumnModeToastController.Source(workspaceId: UUID(), monitorId: Monitor.ID(displayId: 1))
-        toast.show(isTabbed: true, columnFrame: column, visibleFrame: visible, motion: .enabled, source: firstSource)
+        toast.show(
+            .columnMode(isTabbed: true),
+            columnFrame: column,
+            visibleFrame: visible,
+            motion: .enabled,
+            source: firstSource
+        )
         let firstGeneration = toast.generation
         let firstDismissalTask = try XCTUnwrap(toast.dismissalTask)
         sleeper.resumeNext()
         await firstDismissalTask.value
 
-        toast.show(isTabbed: false, columnFrame: column, visibleFrame: visible, motion: .enabled, source: secondSource)
+        toast.show(
+            .columnMode(isTabbed: false),
+            columnFrame: column,
+            visibleFrame: visible,
+            motion: .enabled,
+            source: secondSource
+        )
         let replacementPanel = try XCTUnwrap(registry.visibleWindows(kind: .columnModeToast).first as? NSPanel)
         toast.finishFade(generation: firstGeneration)
 
@@ -114,7 +154,13 @@ final class ColumnModeToastLifecycleTests: XCTestCase {
         let toast = controller.columnModeToast
         defer { toast.destroy() }
         let source = ColumnModeToastController.Source(workspaceId: sourceWorkspace, monitorId: monitor.id)
-        toast.show(isTabbed: true, columnFrame: column, visibleFrame: visible, motion: .disabled, source: source)
+        toast.show(
+            .columnMode(isTabbed: true),
+            columnFrame: column,
+            visibleFrame: visible,
+            motion: .disabled,
+            source: source
+        )
         let panel = try XCTUnwrap(controller.ownedWindowRegistry.visibleWindows(kind: .columnModeToast)
             .first as? NSPanel)
         XCTAssertTrue(panel.isVisible)

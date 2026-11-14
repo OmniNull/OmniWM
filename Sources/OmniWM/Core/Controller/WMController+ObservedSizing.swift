@@ -14,6 +14,7 @@ extension WMController {
               entry.layoutReason == .standard,
               entry.hiddenState == nil,
               !workspaceManager.isWindowSuppressedByMacOS(entry.token),
+              !isSizeAnimating(entry.token, in: entry.workspaceId),
               let observed = result.writeResult.observedFrame?.size
         else {
             return
@@ -40,7 +41,8 @@ extension WMController {
               let entry = workspaceManager.entry(forWindowId: refusal.windowId),
               entry.axRef != nil,
               entry.mode == .tiling,
-              workspaceManager.hiddenState(for: entry.token) == nil
+              workspaceManager.hiddenState(for: entry.token) == nil,
+              !isSizeAnimating(entry.token, in: entry.workspaceId)
         else {
             return
         }
@@ -87,6 +89,31 @@ extension WMController {
             accepted: accepted.height
         )
         adoptObservedSizeEvidence(evidence, for: token, in: window.workspaceId)
+    }
+
+    func forgetObservedHeights(of tokens: [WindowToken]) {
+        for token in tokens {
+            guard let entry = workspaceManager.entry(for: token),
+                  var evidence = workspaceManager.observedSizeEvidence(for: token),
+                  evidence.minSize.height > 1 || evidence.hints.height != nil
+            else { continue }
+            MouseTrace
+                .record(
+                    "live-drag stack guess cleared win=\(token.windowId) height=\(Int(evidence.minSize.height.rounded()))"
+                )
+            evidence.minSize.height = 1
+            evidence.hints.height = nil
+            adoptObservedSizeEvidence(evidence, for: token, in: entry.workspaceId)
+        }
+    }
+
+    func isSizeAnimating(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard settings.niri.macOSFusion,
+              let window = niriEngine?.findNode(for: token, in: workspaceId)
+        else { return false }
+        if window.heightAnimation != nil { return true }
+        guard let column = window.parent as? NiriContainer else { return false }
+        return column.hasWidthAnimationRunning || column.hasHeightAnimationRunning
     }
 
     private func adoptObservedSizeEvidence(

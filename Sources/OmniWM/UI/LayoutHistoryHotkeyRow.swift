@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+import SwiftUI
+
+struct LayoutHistoryHotkeyRow: View {
+    let actionId: String
+    let anchor: String
+    @Bindable var settings: SettingsStore
+    @Bindable var controller: WMController
+    @State private var recordingTarget: HotkeyRecordingTarget?
+    @State private var conflictAlert: ConflictAlert?
+    @State private var captureRejection: String?
+
+    var body: some View {
+        if let binding = settings.hotkeyBindings.first(where: { $0.id == actionId }) {
+            HotkeyBindingRow(
+                binding: binding,
+                recordingTarget: $recordingTarget,
+                failureReason: controller.hotkeyRegistrationFailures[binding.command],
+                modeKeyFailure: nil,
+                showsModeKey: false,
+                pausedDuringSecureInput: SecureInputShortcutRisk.isPaused(
+                    binding.binding,
+                    hyperTriggerConfigured: settings.systemHyperTrigger != .none,
+                    hyperModifiers: settings.hyperKeyModifiers.carbonMask,
+                    shiftedCharacters: SecureInputShortcutRisk.currentLayoutShiftedCharacters()
+                ),
+                isHyperActive: { controller.isHyperTriggerActive },
+                onStartChordRecording: { recordingTarget = .chord($0) },
+                onChordCaptured: handleChordCaptured,
+                onCancelRecording: cancelRecording,
+                onClearBinding: { actionId in
+                    settings.clearBinding(for: actionId)
+                    applyBindings()
+                },
+                onResetBindings: { actionId in
+                    settings.resetBindings(for: actionId)
+                    applyBindings()
+                },
+                onSetSide: setSide,
+                onModeKeyCaptured: { _, _ in },
+                onClearModeKey: { _ in }
+            )
+            .id(anchor)
+            .onChange(of: recordingTarget) { _, _ in
+                controller.setHotkeyRecordingActive(recordingTarget != nil)
+            }
+            .modifier(HotkeyConflictAlerts(
+                conflictAlert: $conflictAlert,
+                captureRejection: $captureRejection,
+                settings: settings,
+                onReplaced: applyBindings,
+                onCancelled: cancelRecording
+            ))
+        }
+    }
+
+    private func handleChordCaptured(actionId: String, newTrigger: HotkeyTrigger) {
+        capture(HotkeyBindingEditor.triggerKeepingSide(newTrigger, for: actionId, settings: settings), for: actionId)
+    }
+
+    private func setSide(actionId: String, side: ModifierSide) {
+        guard let trigger = HotkeyBindingEditor.trigger(for: actionId, side: side, settings: settings) else { return }
+        capture(trigger, for: actionId)
+    }
+
+    private func capture(_ trigger: HotkeyTrigger, for actionId: String) {
+        switch HotkeyBindingEditor.capture(trigger, for: actionId, settings: settings) {
+        case .applied:
+            applyBindings()
+        case let .conflict(alert):
+            conflictAlert = alert
+            cancelRecording()
+        case let .rejected(message):
+            captureRejection = message
+            cancelRecording()
+        }
+    }
+
+    private func applyBindings() {
+        controller.updateHotkeyBindings(settings.hotkeyBindings)
+        cancelRecording()
+    }
+
+    private func cancelRecording() {
+        recordingTarget = nil
+        controller.setHotkeyRecordingActive(false)
+    }
+}

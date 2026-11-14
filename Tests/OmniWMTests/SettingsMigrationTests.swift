@@ -571,7 +571,10 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertEqual(Set(hotkeyIDs(in: migratedData)), persistedIDs)
         XCTAssertEqual(hotkeyIDs(in: migratedData), currentIDs.filter { persistedIDs.contains($0) })
         for id in Set(currentIDs).subtracting(persistedIDs) {
-            XCTAssertEqual(hotkey(id, in: result.export)?.binding, .unassigned, id)
+            let expected = HotkeyBindingRegistry.idsGivenTheirDefaultWhenMissing.contains(id)
+                ? HotkeyBindingRegistry.defaultBinding(for: id)?.binding
+                : .unassigned
+            XCTAssertEqual(hotkey(id, in: result.export)?.binding, expected, id)
         }
         let markerSections = hotkeySections(in: migratedData).filter {
             $0.contains("futureHotkeySetting = \"keep-by-id\"")

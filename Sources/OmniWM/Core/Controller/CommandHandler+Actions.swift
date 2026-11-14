@@ -222,6 +222,10 @@ extension CommandHandler {
             controller.niriLayoutHandler.setWindowSecondarySpan(change)
         case .balanceSizes:
             layoutHandler(as: LayoutSizable.self)?.balanceSizes()
+        case .undo:
+            controller.niriLayoutHandler.stepLayoutHistory(.undo)
+        case .redo:
+            controller.niriLayoutHandler.stepLayoutHistory(.redo)
         }
         return .executed
     }

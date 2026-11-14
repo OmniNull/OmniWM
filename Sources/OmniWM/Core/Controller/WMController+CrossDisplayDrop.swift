@@ -11,6 +11,8 @@ extension WMController {
 
     func performCrossDisplayDrop(_ plan: CrossDisplayDropPlan) {
         let drop = plan.drop
+        let layoutStart = niriLayoutHandler.layoutChangeStart(in: drop.sourceWorkspaceId)
+        defer { niriLayoutHandler.recordLayoutChange(since: layoutStart) }
         let heldSelection = workspaceManager.selectedManagedToken.map(plan.unit.tokens.contains) == true
         workspaceManager.withBatchedCrossWorkspaceDrop(
             into: drop.workspaceId,

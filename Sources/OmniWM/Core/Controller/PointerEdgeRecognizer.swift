@@ -20,6 +20,7 @@ struct PointerEdgeTopology: Sendable {
     static let containmentFreshnessNs: UInt64 = 1_000_000_000
 
     var isEnabled = false
+    var warpsPointer = true
     var margin: CGFloat = 1
     var flipY: CGFloat = 0
     var monitors: [Monitor] = []
@@ -101,7 +102,7 @@ struct PointerEdgeRecognizer: Sendable {
         timestamp: UInt64,
         topology: PointerEdgeTopology
     ) -> Decision {
-        guard topology.isEnabled else {
+        guard topology.isEnabled, topology.warpsPointer else {
             reset()
             return .pass
         }

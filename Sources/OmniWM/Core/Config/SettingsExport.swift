@@ -121,6 +121,8 @@ struct SettingsExport: Equatable {
         var allowOverscroll: Bool?
         var overscrollVisibleStripPercent: Int?
         var shrinkToFit: Bool?
+        var macOSFusion: Bool?
+        var edgePeekPercent: Double?
     }
 
     struct Dwindle: Codable, Equatable {

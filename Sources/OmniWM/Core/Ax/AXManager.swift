@@ -352,6 +352,10 @@ extension AXManager {
         frameLedger.hasPendingFrameWrite(for: windowId) || pendingFrameRetryRequestsByWindowId[windowId] != nil
     }
 
+    func awaitedFrameWrite(for windowId: Int) -> CGRect? {
+        frameLedger.pendingFrameWrite(for: windowId) ?? pendingFrameRetryRequestsByWindowId[windowId]?.frame
+    }
+
     func hasPendingFrameSizeChange(for windowId: Int, comparedTo size: CGSize) -> Bool {
         let targets = [
             frameLedger.pendingFrameWrite(for: windowId),

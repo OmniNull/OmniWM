@@ -125,6 +125,7 @@ extension NiriLayoutEngine {
         clearExcludedColumnFrames(
             in: workspaceId, excluding: excludedTokens, recordsPresentationGeometry: recordsPresentationGeometry
         )
+        applyEdgePeekCaps(in: workspaceId, workingFrame: context.area.workingFrame, gap: context.primaryGap)
         if animationTime == nil {
             reconcilePrimarySpanFit(
                 in: workspaceId,
@@ -260,7 +261,9 @@ extension NiriLayoutEngine {
                 within: containerFrames,
                 at: context.time
             )
-            result[window.token] = renderedFrame
+            let anchoredFrame = anchoredToTrailingEdge(renderedFrame, of: window, in: container)
+            window.renderedFrame = anchoredFrame
+            result[window.token] = anchoredFrame
 
             if !isTabbed {
                 pos += span
@@ -294,19 +297,24 @@ extension NiriLayoutEngine {
         if let memo = container.axisSolveMemo, memo.key == cacheKey {
             outputs = memo.outputs
         } else {
-            let inputs = windows.map { window in
-                axisSolverInput(for: window, axis: axis)
-            }
+            let inputs = withoutImpossibleMinimums(
+                windows.map { window in axisSolverInput(for: window, axis: axis) },
+                axis: axis
+            )
             let hardOutputs = NiriAxisSolver.solve(
                 windows: inputs,
                 availableSpace: axis.availableSpace,
                 gapSize: axis.gap,
                 isTabbed: axis.isTabbed
             )
-            outputs = packedSecondarySpans(
-                windows: windows,
+            outputs = columnFillingSpans(
+                packedSecondarySpans(
+                    windows: windows,
+                    inputs: inputs,
+                    hardOutputs: hardOutputs,
+                    axis: axis
+                ),
                 inputs: inputs,
-                hardOutputs: hardOutputs,
                 axis: axis
             )
             container.axisSolveMemo = (cacheKey, outputs)
@@ -366,10 +374,66 @@ extension NiriLayoutEngine {
         )
     }
 
+    private func columnFillingSpans(
+        _ outputs: [NiriAxisSolver.Output],
+        inputs: [NiriAxisSolver.Input],
+        axis: NiriAxisLayout
+    ) -> [NiriAxisSolver.Output] {
+        guard windowsFillColumnHeight, !axis.isTabbed, axis.orientation == .horizontal else { return outputs }
+        let usableSpace = axis.availableSpace - axis.gap * CGFloat(outputs.count + 1)
+        let total = outputs.reduce(0) { $0 + $1.value }
+        guard total > 0, total < usableSpace - 0.5 else { return outputs }
+        let shares = zip(inputs, outputs).map { input, output in
+            NiriAxisSolver.Input(
+                weight: output.value,
+                minConstraint: input.minConstraint,
+                maxConstraint: input.maxConstraint,
+                hasMaxConstraint: input.hasMaxConstraint,
+                isConstraintFixed: input.isConstraintFixed,
+                hasFixedValue: false,
+                fixedValue: nil
+            )
+        }
+        return NiriAxisSolver.solve(
+            windows: shares,
+            availableSpace: axis.availableSpace,
+            gapSize: axis.gap,
+            isTabbed: false
+        )
+    }
+
+    private func withoutImpossibleMinimums(
+        _ inputs: [NiriAxisSolver.Input],
+        axis: NiriAxisLayout
+    ) -> [NiriAxisSolver.Input] {
+        guard windowsFillColumnHeight, axis.orientation == .horizontal, !axis.isTabbed, inputs.count > 1 else {
+            return inputs
+        }
+        let tallest = axis.availableSpace - 2 * axis.gap
+        return inputs.map { input in
+            guard !input.isConstraintFixed, input.minConstraint > tallest + 0.5 else { return input }
+            return NiriAxisSolver.Input(
+                weight: input.weight,
+                minConstraint: 0,
+                maxConstraint: input.maxConstraint,
+                hasMaxConstraint: input.hasMaxConstraint,
+                isConstraintFixed: false,
+                hasFixedValue: input.hasFixedValue,
+                fixedValue: input.fixedValue
+            )
+        }
+    }
+
     private func axisSolverInput(
         for window: NiriWindow,
         axis: NiriAxisLayout
     ) -> NiriAxisSolver.Input {
+        if axis.isTabbed, tabbedColumnsFillHeight {
+            return window.axisSolverInput(orientation: axis.orientation, hasFixedValue: false, fixedValue: nil)
+        }
+        if axis.orientation == .horizontal, let override = window.liveSpanOverride {
+            return liveSpanOverrideInput(override, for: window)
+        }
         let specification = switch axis.orientation {
         case .horizontal: window.height
         case .vertical: window.windowWidth

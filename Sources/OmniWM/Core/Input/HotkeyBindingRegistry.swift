@@ -115,11 +115,12 @@ enum HotkeyBindingRegistry {
             }
             overrides[entry.id] = entry
         }
+        let takenTriggers = persisted.map(\.binding)
         let staticBindings = defaultBindings.map { binding in
             HotkeyBinding(
                 id: binding.id,
                 command: binding.command,
-                trigger: overrides[binding.id]?.binding ?? .unassigned,
+                trigger: overrides[binding.id]?.binding ?? triggerForMissingEntry(binding, taken: takenTriggers),
                 modeKey: overrides[binding.id]?.modeKey
             )
         }
@@ -127,6 +128,15 @@ enum HotkeyBindingRegistry {
             .filter { bindingsByID[$0.id] == nil }
             .compactMap { makeBinding(id: $0.id, trigger: $0.binding, modeKey: $0.modeKey) }
         return staticBindings + workspaceNumberBindings
+    }
+
+    static let idsGivenTheirDefaultWhenMissing: Set<String> = ["undo", "redo"]
+
+    private static func triggerForMissingEntry(_ binding: HotkeyBinding, taken: [HotkeyTrigger]) -> HotkeyTrigger {
+        guard idsGivenTheirDefaultWhenMissing.contains(binding.id),
+              !taken.contains(where: { $0.conflicts(with: binding.binding) })
+        else { return .unassigned }
+        return binding.binding
     }
 
     static func canonicalizeTrigger(_ trigger: HotkeyTrigger) -> HotkeyTrigger {

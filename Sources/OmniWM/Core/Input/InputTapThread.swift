@@ -10,11 +10,13 @@ struct TapFilterSnapshot: Sendable {
     var claimedOtherButtonMask: UInt32 = 0
     var moveModifier: CGEventFlags?
     var adoptNativeResize = false
+    var macOSFusion = false
     var resizeModifier: CGEventFlags = []
     var scrollModifier: CGEventFlags = []
     var minGestureFingers: Int = 3
     var gestureActiveOrLatched: Bool = false
     var isInputSuppressed: Bool = false
+    var fusionDoubleClickArmedAt: CGPoint?
 }
 
 private struct TouchCountProviderBox: Sendable {
@@ -160,11 +162,7 @@ final class InputTapThread: @unchecked Sendable {
         let location = ScreenCoordinateSpace.toAppKit(point: event.location)
         switch type {
         case .leftMouseDown:
-            evaluateLeftMouseDown(
-                at: location, modifiers: event.flags, timestamp: event.timestamp,
-                snapshot: snap, captureWindowFrames: Self.captureWindowFrames
-            )
-            return event
+            return evaluateLeftMouseDown(event, location: location, snap: snap)
         case .leftMouseDragged:
             guard snap.activeCapture == .left else {
                 EventIntake.post(.mouseDragged(button: .left, location: location))
@@ -296,7 +294,8 @@ final class InputTapThread: @unchecked Sendable {
         location: CGPoint,
         modifiers: CGEventFlags,
         buttonNumber: Int64,
-        scrollPayload: (payload: MouseScrollIntake, traceMetadata: TrackpadScrollTrace.ScrollMetadata?)?
+        scrollPayload: (payload: MouseScrollIntake, traceMetadata: TrackpadScrollTrace.ScrollMetadata?)?,
+        clickCount: Int64 = 1
     ) -> Bool {
         if Thread.isMainThread {
             return MainActor.assumeIsolated {
@@ -305,7 +304,8 @@ final class InputTapThread: @unchecked Sendable {
                     location: location,
                     modifiers: modifiers,
                     buttonNumber: buttonNumber,
-                    scrollPayload: scrollPayload
+                    scrollPayload: scrollPayload,
+                    clickCount: clickCount
                 ) ?? false
             }
         }
@@ -317,7 +317,8 @@ final class InputTapThread: @unchecked Sendable {
                     location: location,
                     modifiers: modifiers,
                     buttonNumber: buttonNumber,
-                    scrollPayload: scrollPayload
+                    scrollPayload: scrollPayload,
+                    clickCount: clickCount
                 ) ?? false
             }
         }
@@ -329,13 +330,15 @@ extension InputTapThread {
         at location: CGPoint,
         modifiers: CGEventFlags,
         timestamp: CGEventTimestamp,
+        clickCount: Int64 = 1,
         snapshot: TapFilterSnapshot,
         captureWindowFrames: () -> [WindowToken: CGRect]
     ) {
         let isMoveCandidate = MouseEventHandler.mouseMoveModifiersMatch(modifiers, required: snapshot.moveModifier)
         if isMoveCandidate {
             _ = evaluateAuthoritativeTapOnMain(
-                type: .leftMouseDown, location: location, modifiers: modifiers, buttonNumber: 0, scrollPayload: nil
+                type: .leftMouseDown, location: location, modifiers: modifiers, buttonNumber: 0, scrollPayload: nil,
+                clickCount: clickCount
             )
             return
         }
@@ -343,7 +346,11 @@ extension InputTapThread {
             && modifiers.isDisjoint(with: MouseEventHandler.relevantModifierFlags)
         let windowServerFrames = needsNativeResizeBaseline ? captureWindowFrames() : [:]
         EventIntake.post(.leftMouseDown(.init(
-            location: location, modifiers: modifiers, timestamp: timestamp, windowServerFrames: windowServerFrames
+            location: location,
+            modifiers: modifiers,
+            timestamp: timestamp,
+            windowServerFrames: windowServerFrames,
+            clickCount: clickCount
         )))
     }
 
@@ -362,6 +369,38 @@ extension InputTapThread {
             frames[WindowToken(pid: pid, windowId: windowId)] = frame
         }
         return frames
+    }
+
+    private nonisolated func evaluateLeftMouseDown(
+        _ event: CGEvent,
+        location: CGPoint,
+        snap: TapFilterSnapshot
+    ) -> CGEvent? {
+        let flags = event.flags
+        removeOptionFromFusionDragPress(event, location: location, snap: snap)
+        let clickCount = event.getIntegerValueField(.mouseEventClickState)
+        if MouseEventHandler.asksAboutFusionDoubleClick(
+            clickCount: clickCount,
+            flags: flags,
+            macOSFusion: snap.macOSFusion,
+            armedAt: snap.fusionDoubleClickArmedAt,
+            location: location
+        ) {
+            let suppress = evaluateAuthoritativeTapOnMain(
+                type: .leftMouseDown, location: location, modifiers: flags, buttonNumber: 0, scrollPayload: nil,
+                clickCount: clickCount
+            )
+            return suppress ? nil : event
+        }
+        evaluateLeftMouseDown(
+            at: location,
+            modifiers: flags,
+            timestamp: event.timestamp,
+            clickCount: clickCount,
+            snapshot: snap,
+            captureWindowFrames: Self.captureWindowFrames
+        )
+        return event
     }
 
     private nonisolated func forwardCapturedDrag(
@@ -385,5 +424,33 @@ extension InputTapThread {
             }
         }
         return nil
+    }
+}
+
+extension InputTapThread {
+    private nonisolated func removeOptionFromFusionDragPress(
+        _ event: CGEvent,
+        location: CGPoint,
+        snap: TapFilterSnapshot
+    ) {
+        let flags = event.flags
+        guard snap.macOSFusion,
+              flags.contains(.maskAlternate),
+              fusionDragCanStart(windowId: MouseEventHandler.eventWindowIdUnderPointer(event), at: location)
+        else { return }
+        event.flags = flags.subtracting(.maskAlternate)
+    }
+
+    private nonisolated func fusionDragCanStart(windowId: Int?, at location: CGPoint) -> Bool {
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated {
+                MouseEventHandler._instance?.canStartFusionDrag(windowId: windowId, at: location) ?? false
+            }
+        }
+        return DispatchQueue.main.sync {
+            MainActor.assumeIsolated {
+                MouseEventHandler._instance?.canStartFusionDrag(windowId: windowId, at: location) ?? false
+            }
+        }
     }
 }

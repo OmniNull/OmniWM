@@ -148,4 +148,23 @@ extension ActionCatalog {
             action(id: "swapSplit", command: .dwindle(.swapSplit), category: .layout, binding: .unassigned)
         ])
     }
+
+    static func appendLayoutHistoryBindings(_ specs: inout [ActionSpec]) {
+        specs.append(action(
+            id: "undo",
+            command: .sizing(.undo),
+            category: .layout,
+            binding: KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(optionKey | cmdKey)),
+            visibility: .niriSettings,
+            keywords: ["undo", "layout", "move", "stack", "resize", "tabs", "restore"]
+        ))
+        specs.append(action(
+            id: "redo",
+            command: .sizing(.redo),
+            category: .layout,
+            binding: KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(optionKey | cmdKey | shiftKey)),
+            visibility: .niriSettings,
+            keywords: ["redo", "layout", "move", "stack", "resize", "tabs"]
+        ))
+    }
 }

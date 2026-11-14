@@ -34,6 +34,14 @@ extension NiriLayoutHandler {
         let columnSpan = columns.span
         for index in columnSpan.indices where columnSpan[index].isTabbed {
             let column = columnSpan[index]
+            guard !engine.isLiveDraggedColumn(column) else {
+                commands.append(TabRailGeometryCommand(
+                    key: TabRailKey(workspaceId: workspaceId, owner: .niriColumn(column.id)),
+                    tileFrame: .zero,
+                    visibleTileFrame: .null
+                ))
+                continue
+            }
             let picture = monitor.orientation == .vertical
                 ? engine.projectedActiveWindow(in: column, workspaceId: workspaceId).flatMap {
                     controller?.niriEdgePictures.presentation(for: $0.token)
@@ -52,7 +60,7 @@ extension NiriLayoutHandler {
     ) -> [TabRailInfo] {
         guard let controller else { return [] }
         var infos: [TabRailInfo] = []
-        for column in engine.columns(in: workspaceId) where column.isTabbed {
+        for column in engine.columns(in: workspaceId) where column.isTabbed && !engine.isLiveDraggedColumn(column) {
             let windows = engine.projectedWindows(in: column, workspaceId: workspaceId)
             guard windows.count > 1 else { continue }
 
@@ -67,7 +75,9 @@ extension NiriLayoutHandler {
                 windows: windows,
                 activeVisualIndex: activeVisualIndex,
                 controller: controller
-            )
+            ).map { tab in
+                tab.token.map { engine.isLiveDraggedWindow($0, in: workspaceId) } == true ? Self.blankTab(tab) : tab
+            }
             let picture = engine.monitor(for: monitor.id)?.orientation == .vertical
                 ? controller.niriEdgePictures.presentation(for: activeWindow.token) : nil
             let geometry = tabRailGeometry(
@@ -110,6 +120,17 @@ extension NiriLayoutHandler {
             visibleTileFrame: isValid ? frame.intersection(visibleFrame) : .null,
             orderingWindowId: picture.map { Int($0.windowId) },
             displayFrame: picture?.displayFrame
+        )
+    }
+
+    private static func blankTab(_ tab: TabRailTabInfo) -> TabRailTabInfo {
+        TabRailTabInfo(
+            visualIndex: tab.visualIndex,
+            token: nil,
+            windowId: nil,
+            appName: nil,
+            title: nil,
+            isActive: tab.isActive
         )
     }
 

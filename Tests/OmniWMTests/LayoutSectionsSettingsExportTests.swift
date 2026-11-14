@@ -30,7 +30,9 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
             "moveWindowStacksIntoColumn": .boolean(true),
             "allowOverscroll": .boolean(false),
             "overscrollVisibleStripPercent": .integer(5),
-            "shrinkToFit": .boolean(false)
+            "shrinkToFit": .boolean(false),
+            "macOSFusion": .boolean(false),
+            "edgePeekPercent": .float(5.0)
         ]))
         XCTAssertEqual(tree["dwindle"], .table([
             "smartSplit": .boolean(false),
@@ -136,6 +138,70 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
         XCTAssertEqual(restored.resizeStepPercent, 7)
         XCTAssertEqual(decoded.hotkeyBindings, export.hotkeyBindings)
         XCTAssertEqual(decoded.hotkeyBindings.filter { ids.contains($0.id) }.count, 6)
+    }
+
+    @MainActor
+    func testMacOSFusionDefaultsOffRoundTripsAndLoadsWhenOmitted() throws {
+        XCTAssertEqual(SettingsExport.defaults().niri.macOSFusion, false)
+        XCTAssertFalse(NiriSettings().macOSFusion)
+        for enabled in [false, true] {
+            var export = SettingsExport.defaults()
+            export.niri.macOSFusion = enabled
+            let encoded = try SettingsTOMLCodec.encode(export)
+            XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("macOSFusion = \(enabled)"))
+            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
+        }
+
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "macOSFusion", from: "niri", in: source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8))
+        XCTAssertNil(result.migration)
+        XCTAssertEqual(result.export.niri.macOSFusion, false)
+
+        let settings = NiriSettings()
+        var enabled = SettingsExport.Niri.defaults()
+        enabled.macOSFusion = true
+        settings.apply(enabled, baseline: .defaults())
+        XCTAssertTrue(settings.macOSFusion)
+        XCTAssertEqual(settings.export().macOSFusion, true)
+    }
+
+    @MainActor
+    func testPeripheralVisionDefaultsToFiveRoundTripsAndIsClampedFromZeroToTen() throws {
+        XCTAssertEqual(SettingsExport.defaults().niri.edgePeekPercent, 5.0)
+        XCTAssertEqual(NiriSettings().edgePeekPercent, 5.0)
+        var export = SettingsExport.defaults()
+        export.niri.edgePeekPercent = 0
+        let encoded = try SettingsTOMLCodec.encode(export)
+        XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("edgePeekPercent = 0"))
+        XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "edgePeekPercent", from: "niri", in: source)
+        let decoded = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8)).export
+        XCTAssertNil(decoded.niri.edgePeekPercent)
+        let settings = NiriSettings()
+        settings.apply(decoded.niri, baseline: .defaults())
+        XCTAssertEqual(settings.edgePeekPercent, 5.0)
+        settings.edgePeekPercent = 40
+        XCTAssertEqual(settings.edgePeekPercent, 10)
+        settings.edgePeekPercent = -1
+        XCTAssertEqual(settings.edgePeekPercent, 0)
+    }
+
+    @MainActor
+    func testASettingsFileThatStillHoldsTheRemovedDropModifierLoads() throws {
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let withOldKey = source.replacingOccurrences(
+            of: "macOSFusion = false\n",
+            with: "macOSFusion = false\nmacOSFusionModifier = \"option\"\n"
+        )
+        XCTAssertNotEqual(withOldKey, source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(withOldKey.utf8))
+        XCTAssertNil(result.migration)
+        XCTAssertEqual(result.export, SettingsExport.defaults())
+        XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: Data(withOldKey.utf8)), ["niri.macOSFusionModifier"])
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {

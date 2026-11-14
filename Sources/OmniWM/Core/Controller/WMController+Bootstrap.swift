@@ -72,6 +72,11 @@ extension WMController {
             self?.statusBarController?.openSettings(section: .hotkeys)
         }
         tabRailManager.ringOrderedAbove = { [weak self] in self?.surfaceReconciler.ringWindowId(orderedAbove: $0) }
+        tabRailManager.onDrag = { [weak self] drag in
+            guard case .niriColumn = drag.info.owner else { return }
+            self?.mouseEventHandler.handleTabRailDrag(drag)
+        }
+        tabRailManager.acceptsDrags = { [weak self] in self?.settings.niri.macOSFusion == true }
         tabRailManager.onSelect = { [weak self] info, visualIndex, token in
             guard let self else { return }
             switch info.owner {

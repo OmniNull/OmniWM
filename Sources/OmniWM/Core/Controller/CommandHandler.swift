@@ -24,6 +24,7 @@ final class CommandHandler {
     func handleHotkeyInvocation(_ invocation: HotkeyInvocation) -> ExternalCommandResult {
         guard let controller else { return .notFound }
         guard controller.isEnabled else { return .ignoredDisabled }
+        controller.niriLayoutHandler.noteUserAction()
         if invocation.command == .presentation(.overview), invocation.trigger?.isRepeat == true {
             return .executed
         }
@@ -63,7 +64,43 @@ final class CommandHandler {
         }
     }
 
+    static func recordsLayoutChange(_ command: HotkeyCommand) -> Bool {
+        switch command {
+        case .move,
+             .moveColumn,
+             .windowMovement:
+            true
+        case let .column(action):
+            switch action {
+            case .moveToFirst,
+                 .moveToLast,
+                 .moveToIndex,
+                 .toggleTabbed,
+                 .moveToWorkspace,
+                 .moveToWorkspaceUp,
+                 .moveToWorkspaceDown: true
+            }
+        case let .workspace(action):
+            switch action {
+            case .moveTo,
+                 .moveUp,
+                 .moveDown,
+                 .moveToMonitor,
+                 .moveToSlot: true
+            default: false
+            }
+        case let .sizing(action):
+            action != .undo && action != .redo
+        default:
+            false
+        }
+    }
+
     private func performAllowedCommand(_ command: HotkeyCommand, controller: WMController) -> ExternalCommandResult {
+        let changeStart = Self.recordsLayoutChange(command)
+            ? controller.niriLayoutHandler.activeLayoutChangeStart()
+            : nil
+        defer { controller.niriLayoutHandler.recordLayoutChange(since: changeStart) }
         switch command {
         case let .focus(direction):
             focusWindow(direction: direction)

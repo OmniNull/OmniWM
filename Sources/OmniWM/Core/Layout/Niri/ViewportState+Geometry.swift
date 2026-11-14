@@ -9,6 +9,7 @@ struct ViewportColumnTarget {
     let position: CGFloat
     let span: CGFloat
     let mode: SizingMode
+    var columnCount = 0
 }
 
 struct ViewportFittingAreas {
@@ -16,6 +17,7 @@ struct ViewportFittingAreas {
     let parent: CGRect
     let orientation: Monitor.Orientation
     let scale: CGFloat
+    var edgePeeks: EdgePeekWidths?
 
     var viewSpan: CGFloat {
         span(of: parent)
@@ -95,6 +97,7 @@ extension ViewportFittingAreas {
             orientation: orientation,
             scale: geometry.scale
         )
+        edgePeeks = geometry.edgePeeks
     }
 
     private func computeFitOffset(
@@ -140,7 +143,7 @@ extension ViewportFittingAreas {
             return 0
         }
 
-        let area = self.area(for: target.mode)
+        let area = fittingArea(for: target)
         let areaStart = origin(of: area)
         let padding = target.mode.isMaximized ? 0 : gap
         let newOffset = computeFitOffset(
@@ -289,7 +292,8 @@ extension ViewportState {
                 sizeKeyPath: sizeKeyPath
             ),
             span: containers[containerIndex][keyPath: sizeKeyPath],
-            mode: containers[containerIndex].effectiveSizingMode
+            mode: containers[containerIndex].effectiveSizingMode,
+            columnCount: containers.count
         )
 
         return areas.centeredOffset(
@@ -307,11 +311,15 @@ extension ViewportState {
         centerMode: CenterFocusedColumn,
         alwaysCenterSingleColumn: Bool = false,
         fromContainerIndex: Int? = nil,
+        edges: ViewportEdgeRules = .init(),
         scale: CGFloat = 2.0,
         viewFrame: CGRect? = nil
     ) -> CGFloat {
         guard !containers.isEmpty, containerIndex >= 0, containerIndex < containers.count else { return 0 }
 
+        if let offset = fittingStripOffset(containerIndex, containers, context, edges, scale) {
+            return offset
+        }
         let sizeKeyPath = context.orientation.settledSpanKeyPath
         let viewportSpan: CGFloat = switch context.orientation {
         case .horizontal: context.workingFrame.width
@@ -323,7 +331,8 @@ extension ViewportState {
             orientation: context.orientation,
             workingArea: context.workingFrame,
             viewFrame: viewFrame,
-            scale: scale
+            scale: scale,
+            edgePeeks: edges.peeks
         ))
         let effectiveCenterMode = (containers.count == 1 && alwaysCenterSingleColumn) ? .always : centerMode
         let target = ViewportColumnTarget(
@@ -335,7 +344,8 @@ extension ViewportState {
                 sizeKeyPath: sizeKeyPath
             ),
             span: containers[containerIndex][keyPath: sizeKeyPath],
-            mode: containers[containerIndex].effectiveSizingMode
+            mode: containers[containerIndex].effectiveSizingMode,
+            columnCount: containers.count
         )
 
         let shouldCenter = switch effectiveCenterMode {
@@ -350,10 +360,79 @@ extension ViewportState {
                 areas: areas
             )
         }
-        if shouldCenter {
-            return areas.centeredOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
+        let offset = shouldCenter
+            ? areas.centeredOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
+            : areas.fitOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
+        let keptOnScreen = edges.keepsStripEndsOnScreen && target.mode == .normal && effectiveCenterMode != .always
+            ? offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
+            : offset
+        return areas.offsetShowingEdgePeeks(keptOnScreen, target: target, containers: containers, gap: context.gaps)
+    }
+
+    private func fittingStripOffset(
+        _ containerIndex: Int,
+        _ containers: [NiriContainer],
+        _ context: NiriInteractionContext,
+        _ edges: ViewportEdgeRules,
+        _ scale: CGFloat
+    ) -> CGFloat? {
+        guard edges.centersFittingStrip,
+              let start = Self.centredStripStart(of: containers, context: context, scale: scale)
+        else { return nil }
+        return start - containerPosition(
+            at: containerIndex,
+            containers: containers,
+            gap: context.gaps,
+            sizeKeyPath: context.orientation.settledSpanKeyPath
+        )
+    }
+
+    static func centredStripStart(
+        of containers: [NiriContainer],
+        context: NiriInteractionContext,
+        scale: CGFloat
+    ) -> CGFloat? {
+        guard !containers.isEmpty else { return nil }
+        let sizeKeyPath = context.orientation.settledSpanKeyPath
+        let viewportSpan = switch context.orientation {
+        case .horizontal: context.workingFrame.width
+        case .vertical: context.workingFrame.height
         }
-        return areas.fitOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
+        let stripSpan = containers.reduce(0) { $0 + $1[keyPath: sizeKeyPath] }
+            + CGFloat(containers.count - 1) * context.gaps
+        return centredStripOffset(stripSpan: stripSpan, viewSpan: viewportSpan, gap: context.gaps, scale: scale)
+    }
+
+    static func centredStripOffset(stripSpan: CGFloat, viewSpan: CGFloat, gap: CGFloat, scale: CGFloat) -> CGFloat? {
+        guard stripSpan + gap * 2 <= viewSpan + FrameTolerance.screenMatch else { return nil }
+        return ((stripSpan - viewSpan) / 2).roundedToPhysicalPixel(scale: scale)
+    }
+
+    private func offsetKeepingStripEndsOnScreen(
+        _ offset: CGFloat,
+        target: ViewportColumnTarget,
+        containers: [NiriContainer],
+        context: NiriInteractionContext
+    ) -> CGFloat {
+        let stripEnd = totalSpan(
+            containers: containers,
+            gap: context.gaps,
+            sizeKeyPath: context.orientation.settledSpanKeyPath
+        )
+        let viewportSpan = switch context.orientation {
+        case .horizontal: context.workingFrame.width
+        case .vertical: context.workingFrame.height
+        }
+        guard let range = Self.stripEndOffsets(stripSpan: stripEnd, viewSpan: viewportSpan, gap: context.gaps)
+        else { return offset }
+        return (target.position + offset).clamped(to: range) - target.position
+    }
+
+    static func stripEndOffsets(stripSpan: CGFloat, viewSpan: CGFloat, gap: CGFloat) -> ClosedRange<CGFloat>? {
+        let earliest = -gap
+        let latest = stripSpan + gap - viewSpan
+        guard latest >= earliest - FrameTolerance.screenMatch else { return nil }
+        return earliest ... max(earliest, latest)
     }
 
     private func shouldCenterAdjacentPair(
@@ -385,4 +464,10 @@ extension ViewportState {
         return (pairSpan + context.gaps * 2).roundedToPhysicalPixel(scale: areas.scale)
             > areas.span(of: areas.working).roundedToPhysicalPixel(scale: areas.scale)
     }
+}
+
+struct ViewportEdgeRules: Equatable {
+    var keepsStripEndsOnScreen = false
+    var centersFittingStrip = false
+    var peeks: EdgePeekWidths?
 }

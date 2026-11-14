@@ -24,6 +24,7 @@ extension WMController {
         setGapSize(settings.gaps.size, publishChange: false)
 
         applyPersistedLayoutSettings(settings)
+        mouseEventHandler.syncMacOSFusionTapFilter()
         setTabRailAppIcons(settings.tabRailAppIcons, persist: false)
 
         updateWorkspaceConfig()
@@ -133,6 +134,22 @@ extension WMController {
         }
     }
 
+    var edgePeekShare: CGFloat? {
+        guard settings.niri.macOSFusion, settings.niri.edgePeekPercent > 0 else { return nil }
+        return CGFloat(settings.niri.edgePeekPercent / 100)
+    }
+
+    var macOSFusionConfiguration: MacOSFusionConfiguration {
+        MacOSFusionConfiguration(enabled: settings.niri.macOSFusion, edgePeekShare: edgePeekShare)
+    }
+
+    func applyMacOSFusionSettings() {
+        updateNiriConfig(macOSFusion: macOSFusionConfiguration)
+        mouseEventHandler.syncTapFilterSnapshot()
+        pointerEdgeBarrier.setTracksLiveDrags(settings.niri.macOSFusion)
+        updateHotkeyBindings(settings.hotkeyBindings)
+    }
+
     private func applyPersistedLayoutSettings(_ settings: SettingsStore) {
         if niriEngine == nil {
             enableNiriLayout(
@@ -149,7 +166,8 @@ extension WMController {
             edgeOverscroll: settings.niri.edgeOverscroll,
             containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets,
             defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan,
-            shrinkToFit: settings.niri.shrinkToFit
+            shrinkToFit: settings.niri.shrinkToFit,
+            macOSFusion: macOSFusionConfiguration
         )
 
         if dwindleEngine == nil {

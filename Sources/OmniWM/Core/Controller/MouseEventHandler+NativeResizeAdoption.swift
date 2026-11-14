@@ -46,13 +46,22 @@ extension MouseEventHandler {
             finishNativeDwindleResize(&drag)
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
-            guard let start = nativeResizeStartFrame(drag, entry: entry), let observedFrame else { return false }
-            let edges = Self.nativeResizeEdges(from: start, to: observedFrame)
+            let fusionResize = fusionResizeApplies(liveColumnContext(for: entry.workspaceId)?.orientation)
+            guard controller.settings.gestures.adoptNativeResize || fusionResize,
+                  let start = nativeResizeStartFrame(drag, entry: entry),
+                  let observedFrame
+            else { return false }
+            let edges = Self.nativeResizeEdges(
+                from: start,
+                to: observedFrame,
+                allowsCentred: fusionResize
+            )
             guard !edges.isEmpty,
                   adoptNiriNativeResize(entry, edges: edges, from: start, to: observedFrame)
             else { return false }
         }
         drag.adoptionStartFrame = nil
+        drag.pendingWriteStartFrame = nil
         drag.phase = .awaitingCorrection
         drag.receivedFrameChange = false
         return true
@@ -80,11 +89,9 @@ extension MouseEventHandler {
         _ drag: MouseInputState.NativeTitleBarDrag,
         entry: WindowState
     ) -> CGRect? {
-        guard let controller,
-              controller.settings.gestures.adoptNativeResize,
-              let start = drag.adoptionStartFrame,
-              entry.layoutReason == .standard else { return nil }
-        if entry.target.hostedMetadata != nil { return start }
+        guard let controller, entry.layoutReason == .standard else { return nil }
+        guard let start = drag.adoptionStartFrame else { return drag.pendingWriteStartFrame }
+        if entry.target.hostedMetadata != nil || drag.lateResize { return start }
         guard !controller.axManager.isAwaitingFrameWrite(entry.windowId),
               controller.axManager.lastAppliedFrame(for: entry.windowId)?.approximatelyEqual(
                   to: start,
@@ -96,7 +103,7 @@ extension MouseEventHandler {
         return start
     }
 
-    static func nativeResizeEdges(from start: CGRect, to observed: CGRect) -> ResizeEdge {
+    static func nativeResizeEdges(from start: CGRect, to observed: CGRect, allowsCentred: Bool = false) -> ResizeEdge {
         func moved(_ before: CGFloat, _ after: CGFloat) -> Bool {
             abs(after - before) > FrameTolerance.screenMatch
         }
@@ -104,7 +111,9 @@ extension MouseEventHandler {
         let right = moved(start.maxX, observed.maxX)
         let bottom = moved(start.minY, observed.minY)
         let top = moved(start.maxY, observed.maxY)
-        guard !(left && right), !(bottom && top) else { return [] }
+        let centredX = allowsCentred && isCentredResize(start.minX ... start.maxX, observed.minX ... observed.maxX)
+        let centredY = allowsCentred && isCentredResize(start.minY ... start.maxY, observed.minY ... observed.maxY)
+        guard !(left && right) || centredX, !(bottom && top) || centredY else { return [] }
         var edges: ResizeEdge = []
         if left { edges.insert(.left) }
         if right { edges.insert(.right) }
@@ -135,6 +144,10 @@ extension MouseEventHandler {
         return CGPoint(x: start.minX + dx, y: start.minY + dy)
     }
 
+    private func fusionResizeApplies(_ orientation: Monitor.Orientation?) -> Bool {
+        controller?.settings.niri.macOSFusion == true && orientation == .horizontal
+    }
+
     private func adoptNiriNativeResize(
         _ entry: WindowState,
         edges: ResizeEdge,
@@ -147,49 +160,66 @@ extension MouseEventHandler {
               let monitor = controller.workspaceManager.monitor(for: workspaceId),
               !controller.niriLayoutHandler.hasScrollAnimation(for: workspaceId),
               let window = engine.findNode(for: entry.token, in: workspaceId),
-              engine.interactiveResizeTarget(windowId: window.id, in: workspaceId) != nil
+              engine.interactiveResizeTarget(windowId: window.id, in: workspaceId) != nil,
+              let context = liveColumnContext(for: workspaceId)
         else {
             return false
         }
-        let context = nativeResizeContext(controller, engine: engine, workspaceId: workspaceId, monitor: monitor)
         let horizontal = context.orientation == .horizontal
         let primaryEdges = edges.intersection(horizontal ? [.left, .right] : [.top, .bottom])
-        let adoptsSecondary = !edges.subtracting(primaryEdges).isEmpty
-            && !(horizontal && engine.singleWindowLayoutContext(in: workspaceId) != nil)
-        guard !primaryEdges.isEmpty || adoptsSecondary else { return false }
+        let secondary = edges.subtracting(primaryEdges)
+        let secondarySpan = adoptedSecondarySpan(secondary, of: window, in: workspaceId, from: start, to: observed)
+        guard !primaryEdges.isEmpty || secondarySpan != nil else { return false }
+        let primary = centredPrimaryResize(primaryEdges, from: start, to: observed)
 
+        let slide = fusionResizeApplies(context.orientation)
+            ? fusionEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
+            : nil
+        let changeStart = controller.niriLayoutHandler.layoutChangeStart(in: workspaceId)
         var changed = false
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
-            if adoptsSecondary {
+            if let secondarySpan {
                 changed = adoptNiriSecondarySpan(
                     window,
-                    span: horizontal ? observed.height : observed.width,
-                    renderedSpan: horizontal ? start.height : start.width,
+                    span: secondarySpan,
+                    frames: (start, observed),
                     context: context
                 )
             }
             if !primaryEdges.isEmpty,
                resizeNiriPrimarySpan(
                    window,
-                   edges: primaryEdges,
-                   frames: (start, observed),
+                   edges: primary.edges,
+                   frames: (start, primary.observed),
                    context: context,
                    state: &viewportState
                )
             {
+                keepCentredResizeInPlace(window, primary, context: context, state: &viewportState)
                 changed = true
             }
         }
         guard changed else { return false }
-        if entry.axRef != nil { controller.axManager.forceApplyNextFrame(for: entry.windowId) }
-        settleNiriResize(entry.token, in: workspaceId)
+        if entry.axRef != nil {
+            if fusionResizeApplies(context.orientation) {
+                controller.axManager.confirmFrameWrite(for: entry.windowId, frame: observed)
+            } else {
+                controller.axManager.forceApplyNextFrame(for: entry.windowId)
+            }
+        }
+        if let slide {
+            settleFusionEdgeResize(window, sliding: slide, monitor: monitor, context: context)
+        } else {
+            settleNiriResize(entry.token, in: workspaceId)
+        }
+        controller.niriLayoutHandler.recordLayoutChange(since: changeStart)
         return true
     }
 
     private func adoptNiriSecondarySpan(
         _ window: NiriWindow,
         span: CGFloat,
-        renderedSpan: CGFloat,
+        frames: (start: CGRect, observed: CGRect),
         context: NiriInteractionContext
     ) -> Bool {
         guard let engine = controller?.niriEngine,
@@ -207,8 +237,14 @@ extension MouseEventHandler {
             in: context.workspaceId,
             geometry: context.sizingGeometry
         )
-        let applied = context.orientation == .horizontal ? window.height : window.windowWidth
-        guard case let .fixed(value) = applied, abs(value - renderedSpan) <= FrameTolerance.frameWrite else {
+        let horizontal = context.orientation == .horizontal
+        let renderedSpan = horizontal ? frames.start.height : frames.start.width
+        let applied = horizontal ? window.height : window.windowWidth
+        guard case let .fixed(value) = applied else { return true }
+        if abs(value - renderedSpan) > FrameTolerance.frameWrite,
+           !fusionResizeApplies(context.orientation)
+           || neighboursGiveWay(to: window, from: frames.start, to: frames.observed, context: context)
+        {
             return true
         }
         for sibling in siblings {
@@ -218,22 +254,6 @@ extension MouseEventHandler {
         window.savedHeight = savedHeight
         window.sizingMode = sizingMode
         return false
-    }
-
-    private func nativeResizeContext(
-        _ controller: WMController,
-        engine: NiriLayoutEngine,
-        workspaceId: WorkspaceDescriptor.ID,
-        monitor: Monitor
-    ) -> NiriInteractionContext {
-        let geometry = controller.niriInteractionGeometry(for: monitor)
-        return NiriInteractionContext(
-            workspaceId: workspaceId,
-            motion: controller.motionPolicy.snapshot(),
-            workingFrame: geometry.workingFrame,
-            gaps: geometry.innerGap,
-            orientation: resolvedNiriOrientation(engine: engine, workspaceId: workspaceId, monitor: monitor)
-        )
     }
 
     private func resizeNiriPrimarySpan(
@@ -264,12 +284,16 @@ extension MouseEventHandler {
             engine.clearInteractiveResize()
             return false
         }
-        engine.interactiveResizeEnd(
-            motion: context.motion,
-            state: &state,
-            workingFrame: context.workingFrame,
-            gaps: context.gaps
-        )
+        if fusionResizeApplies(context.orientation) {
+            engine.clearInteractiveResize()
+        } else {
+            engine.interactiveResizeEnd(
+                motion: context.motion,
+                state: &state,
+                workingFrame: context.workingFrame,
+                gaps: context.gaps
+            )
+        }
         return true
     }
 
@@ -285,6 +309,7 @@ extension MouseEventHandler {
               controller.workspaceManager.activeLayoutKind(for: workspaceId) == .dwindle,
               drag.dwindleResizeWorkspaceId == nil || drag.dwindleResizeWorkspaceId == workspaceId,
               let monitor = controller.workspaceManager.monitor(for: workspaceId),
+              controller.settings.gestures.adoptNativeResize,
               let start = nativeResizeStartFrame(drag, entry: entry)
         else {
             finishNativeDwindleResize(&drag)

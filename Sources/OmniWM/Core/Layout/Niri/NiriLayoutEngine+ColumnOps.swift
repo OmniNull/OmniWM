@@ -174,6 +174,8 @@ extension NiriLayoutEngine {
 
         let newColumn = NiriContainer()
         switch sizingPolicy {
+        case .workspaceDefault where keepsWindowWidths:
+            copyContainerSizingState(from: sourceColumn, to: newColumn)
         case .workspaceDefault:
             initializeNewContainerSizing(newColumn, in: context.workspaceId)
         case .inheritSource:
@@ -227,6 +229,51 @@ extension NiriLayoutEngine {
         column.remove()
     }
 
+    private func balanceColumnsOnScreen(
+        _ columns: [NiriProjectedColumn],
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) -> Bool {
+        let frame = context.workingFrame
+        let shown = columns.indices.filter { index in
+            guard let span = columnScreenSpan(columns[index].column, context: context, state: state) else {
+                return false
+            }
+            let visible = min(span.upperBound, frame.maxX) - max(span.lowerBound, frame.minX)
+            return visible >= (span.upperBound - span.lowerBound) / 2
+        }
+        guard let first = shown.first, let last = shown.last else { return false }
+        let peeks = edgePeekWidths(in: context.workspaceId)
+        let viewFrame = monitorForWorkspace(context.workspaceId)?.frame ?? frame
+        let minX = first > 0 ? max(frame.minX, viewFrame.minX + (peeks?.leading ?? 0)) : frame.minX
+        let maxX = last < columns.count - 1 ? min(frame.maxX, viewFrame.maxX - (peeks?.trailing ?? 0)) : frame.maxX
+        let count = CGFloat(shown.count)
+        let width = (maxX - minX - context.gaps * (count + 1)) / count
+        guard width >= 1 else { return false }
+        for index in shown {
+            let projectedColumn = columns[index]
+            let column = projectedColumn.column
+            beginManualPrimarySpanResize(column, in: context.workspaceId, orientation: .horizontal)
+            let target = clampedSpan(width, to: projectedWidthBounds(for: column, workspaceId: context.workspaceId))
+            column.width = .fixed(target)
+            column.isFullWidth = false
+            column.savedWidth = nil
+            column.presetWidthIdx = nil
+            column.hasManualSingleWindowWidthOverride = false
+            column.animateWidthTo(
+                newWidth: target,
+                clock: animationClock,
+                config: context.motion.scaled(windowMovementAnimationConfig),
+                displayRefreshRate: displayRefreshRate(in: context.workspaceId),
+                animated: context.motion.animationsEnabled
+            )
+            for window in projectedColumn.windows {
+                window.size = 1.0
+            }
+        }
+        return true
+    }
+
     private func clampedSpan(
         _ span: CGFloat,
         to bounds: (min: CGFloat, max: CGFloat?)
@@ -241,11 +288,22 @@ extension NiriLayoutEngine {
         motion: MotionSnapshot,
         workingFrame: CGRect,
         gaps: CGFloat,
-        orientation: Monitor.Orientation
+        orientation: Monitor.Orientation,
+        state: ViewportState? = nil
     ) -> Bool {
         assertSanctionedMutation()
         let columns = projectedColumns(in: workspaceId)
         guard !columns.isEmpty else { return false }
+        if keepsWindowWidths, orientation == .horizontal, let state {
+            let context = NiriInteractionContext(
+                workspaceId: workspaceId,
+                motion: motion,
+                workingFrame: workingFrame,
+                gaps: gaps,
+                orientation: orientation
+            )
+            return balanceColumnsOnScreen(columns, context: context, state: state)
+        }
 
         for projectedColumn in columns {
             beginManualPrimarySpanResize(projectedColumn.column, in: workspaceId, orientation: orientation)

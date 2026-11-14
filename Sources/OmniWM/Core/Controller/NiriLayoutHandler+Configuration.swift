@@ -82,9 +82,14 @@ extension NiriLayoutHandler {
         edgeOverscroll: NiriEdgeOverscroll? = nil,
         containerPrimarySpanPresets: [Double]? = nil,
         defaultContainerPrimarySpan: Double?? = nil,
-        shrinkToFit: Bool? = nil
+        shrinkToFit: Bool? = nil,
+        macOSFusion: MacOSFusionConfiguration? = nil
     ) {
         guard let controller else { return }
+        if macOSFusion?.enabled == false, controller.mouseEventHandler.isLiveColumnDragActive {
+            MouseTrace.record("live-drag handed over: macOS Fusion turned off")
+            controller.mouseEventHandler.handOverLiveColumnDrag()
+        }
         controller.workspaceManager.withEngineMutationScope {
             controller.niriEngine?.updateConfiguration(
                 visibleContainerCount: visibleContainerCount,
@@ -95,7 +100,8 @@ extension NiriLayoutHandler {
                 edgeOverscroll: edgeOverscroll,
                 presetContainerPrimarySpans: containerPrimarySpanPresets?.map { .proportion($0) },
                 defaultContainerPrimarySpan: defaultContainerPrimarySpan.map { $0.map { CGFloat($0) } },
-                shrinkToFit: shrinkToFit
+                shrinkToFit: shrinkToFit,
+                macOSFusion: macOSFusion
             )
         }
         refreshResolvedMonitorSettings(rebalanceChangedSpans: defaultContainerPrimarySpan != nil)

@@ -1,0 +1,206 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+import CoreGraphics
+@testable import OmniWM
+import XCTest
+
+@MainActor
+final class NiriCentredStripTests: XCTestCase {
+    private struct Fixture {
+        let engine: NiriLayoutEngine
+        let workspaceId: WorkspaceDescriptor.ID
+        let frame: CGRect
+        let gap: CGFloat
+        let tokens: [WindowToken]
+        var state: ViewportState
+
+        var context: NiriInteractionContext {
+            .init(workspaceId: workspaceId, motion: .disabled, workingFrame: frame, gaps: gap, orientation: .horizontal)
+        }
+
+        func window(_ index: Int) -> NiriWindow {
+            engine.findNode(for: tokens[index], in: workspaceId)!
+        }
+
+        func strip() -> [LiveColumnMove.StripColumn] {
+            engine.liveColumnStrip(context: context, state: state)
+        }
+
+        func margins() -> (leading: CGFloat, trailing: CGFloat) {
+            let strip = strip()
+            return (strip.first!.minX - frame.minX, frame.maxX - strip.last!.maxX)
+        }
+
+        mutating func show(_ index: Int) {
+            engine.ensureSelectionVisible(node: window(index), context: context, state: &state)
+        }
+    }
+
+    private func makeFixture(
+        widths: [CGFloat],
+        activeIndex: Int = 0,
+        macOSFusion: Bool = true
+    ) -> Fixture {
+        let engine = NiriLayoutEngine()
+        engine.alwaysCenterSingleColumn = true
+        engine.applyMacOSFusion(.init(enabled: macOSFusion))
+        let workspaceId = WorkspaceDescriptor.ID()
+        let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
+        let monitor = Monitor(
+            id: Monitor.ID(displayId: 95), displayId: 95, frame: frame, visibleFrame: frame,
+            hasNotch: false, name: "Centred strip"
+        )
+        engine.syncWorkspaceAssignments(
+            [(workspaceId: workspaceId, monitor: monitor)],
+            orientations: [monitor.id: .horizontal]
+        )
+        let tokens = widths.indices.map { WindowToken(pid: 951, windowId: $0 + 1) }
+        for token in tokens {
+            _ = engine.addWindow(token: token, to: workspaceId, afterSelection: nil)
+        }
+        for (column, width) in zip(engine.columns(in: workspaceId), widths) {
+            column.width = .proportion(width)
+        }
+        let gap: CGFloat = 12
+        engine.resolvePrimaryContainerSpans(in: workspaceId, workingFrame: frame, gaps: gap, orientation: .horizontal)
+        let active = engine.findNode(for: tokens[activeIndex], in: workspaceId)!
+        var state = ViewportState(selectedNodeId: active.id)
+        state.activeColumnIndex = activeIndex
+        state.jumpOffset(to: -gap)
+        return Fixture(engine: engine, workspaceId: workspaceId, frame: frame, gap: gap, tokens: tokens, state: state)
+    }
+
+    func testWindowsThatFitTogetherAreCentredAsAStripWhicheverIsFocused() {
+        var fixture = makeFixture(widths: [0.3, 0.25])
+        for index in [0, 1, 0] {
+            fixture.show(index)
+            let margins = fixture.margins()
+            XCTAssertGreaterThan(margins.leading, fixture.gap, "\(index)")
+            XCTAssertEqual(margins.leading, margins.trailing, accuracy: 1, "\(index)")
+        }
+    }
+
+    func testADropInAStripThatFitsSettlesCentredInOneMove() {
+        var fixture = makeFixture(widths: [0.3, 0.25])
+        fixture.show(0)
+        XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+            windowId: fixture.window(0).id,
+            windowToken: fixture.tokens[0],
+            context: fixture.context,
+            state: &fixture.state
+        ))
+        let target = fixture.strip()[1]
+        let cursor = CGPoint(x: target.maxX - 20, y: fixture.frame.midY)
+        _ = fixture.engine.liveColumnMoveUpdate(cursor: cursor, at: 1, context: fixture.context, state: &fixture.state)
+        _ = fixture.engine.liveColumnMoveUpdate(cursor: cursor, at: 2, context: fixture.context, state: &fixture.state)
+
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+
+        let settled = fixture.state.viewOffset
+        let margins = fixture.margins()
+        XCTAssertGreaterThan(margins.leading, fixture.gap)
+        XCTAssertEqual(margins.leading, margins.trailing, accuracy: 1)
+        fixture.show(0)
+        XCTAssertEqual(fixture.state.viewOffset, settled, accuracy: 0.5)
+    }
+
+    func testAStripThatDoesNotFitScrollsAsUsual() {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        fixture.show(0)
+        XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: 1)
+    }
+
+    func testWithoutMacOSFusionOnlyASingleColumnIsCentred() {
+        var fixture = makeFixture(widths: [0.3, 0.25], macOSFusion: false)
+        fixture.show(0)
+        XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: 1)
+    }
+
+    func testClosingAWindowSoTheRestFitCentresTheStrip() {
+        var fixture = makeFixture(widths: [0.3, 0.3, 0.5])
+        fixture.show(0)
+        XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: 1)
+
+        fixture.engine.removeWindow(token: fixture.tokens[2], in: fixture.workspaceId)
+        XCTAssertTrue(fixture.engine.correctViewportAfterColumnRemoval(context: fixture.context, state: &fixture.state))
+
+        let margins = fixture.margins()
+        XCTAssertGreaterThan(margins.leading, fixture.gap)
+        XCTAssertEqual(margins.leading, margins.trailing, accuracy: 1)
+    }
+
+    func testTheStripHoldsStillDuringALiveDrag() {
+        var fixture = makeFixture(widths: [0.3, 0.25])
+        XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+            windowId: fixture.window(0).id,
+            windowToken: fixture.tokens[0],
+            context: fixture.context,
+            state: &fixture.state
+        ))
+
+        XCTAssertFalse(fixture.engine.viewportEdgeRules(in: fixture.workspaceId).centersFittingStrip)
+        XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+        XCTAssertTrue(fixture.engine.viewportEdgeRules(in: fixture.workspaceId).centersFittingStrip)
+    }
+
+    func testAWindowEnteringTheStripKeepsItsWidthAndOnlyANewOneTakesTheSettingsWidth() {
+        let fixture = makeFixture(widths: [0.3])
+        func entering(opening: Bool, hasRuleWidth: Bool = false) -> ProportionalSize? {
+            fixture.engine.enteringContainerSizingState(
+                width: 640,
+                opening: opening,
+                hasRuleWidth: hasRuleWidth,
+                in: fixture.workspaceId,
+                workingWidth: fixture.frame.width,
+                gaps: fixture.gap
+            )?.width
+        }
+
+        fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(nil))
+        XCTAssertEqual(entering(opening: true), .fixed(640))
+        XCTAssertNil(entering(opening: true, hasRuleWidth: true))
+        XCTAssertEqual(entering(opening: false, hasRuleWidth: true), .fixed(640))
+
+        fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(0.5))
+        XCTAssertNil(entering(opening: true))
+        XCTAssertEqual(entering(opening: false), .fixed(640))
+    }
+
+    func testAnOpeningWindowIsTakenOnlyOnce() {
+        let fixture = makeFixture(widths: [0.3])
+        let token = WindowToken(pid: 977, windowId: 1)
+        XCTAssertFalse(fixture.engine.takeOpeningWindow(token))
+
+        fixture.engine.noteOpeningWindow(token)
+
+        XCTAssertTrue(fixture.engine.takeOpeningWindow(token))
+        XCTAssertFalse(fixture.engine.takeOpeningWindow(token))
+    }
+
+    func testACentredStripStartsOnAWholePixelOnANonRetinaDisplay() {
+        XCTAssertEqual(ViewportState.centredStripOffset(stripSpan: 901, viewSpan: 1_500, gap: 12, scale: 1), -300)
+        XCTAssertEqual(ViewportState.centredStripOffset(stripSpan: 901, viewSpan: 1_500, gap: 12, scale: 2), -299.5)
+        XCTAssertNil(ViewportState.centredStripOffset(stripSpan: 1_490, viewSpan: 1_500, gap: 12, scale: 1))
+    }
+
+    func testANewColumnOpensAtTheAppsOwnWidthCappedToTheDisplay() {
+        let fixture = makeFixture(widths: [0.3])
+        fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(nil))
+        func opening(_ width: CGFloat) -> ProportionalSize? {
+            fixture.engine.openingContainerSizingState(
+                width: width,
+                in: fixture.workspaceId,
+                workingWidth: fixture.frame.width,
+                gaps: fixture.gap
+            )?.width
+        }
+
+        XCTAssertEqual(opening(640), .fixed(640))
+        XCTAssertEqual(opening(4_000), .fixed(fixture.frame.width - fixture.gap * 2))
+        XCTAssertNil(opening(0))
+
+        fixture.engine.updateConfiguration(defaultContainerPrimarySpan: .some(0.5))
+        XCTAssertNil(opening(640))
+    }
+}
