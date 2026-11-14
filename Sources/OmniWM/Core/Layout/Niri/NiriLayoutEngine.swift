@@ -47,9 +47,16 @@ final class NiriLayoutEngine {
 
     var interactiveResize: InteractiveResize?
     var interactiveMove: InteractiveMove?
+    var openingWindows: Set<WindowToken> = []
+    var liveColumnMove: LiveColumnMove?
+    var liveStackDrop: LiveColumnMove.StackDrop?
+
+    var stripGlides: [WindowToken: StripGlide] = [:]
 
     var resizeConfiguration = ResizeConfiguration.default
     var moveConfiguration = MoveConfiguration.default
+    var liveHoverDelay = MoveConfiguration.liveHoverDelay
+    var liveCentreStackDelay = MoveConfiguration.liveCentreStackDelay
 
     var windowMovementAnimationConfig: SpringConfig = .niriWindowMovement
     var animationClock: AnimationClock?
@@ -69,6 +76,14 @@ final class NiriLayoutEngine {
         if interactiveResize?.workspaceId == workspaceId {
             clearInteractiveResize()
         }
+        if let live = liveColumnMove, live.workspaceId == workspaceId {
+            restoreWidenedLiveColumn(live.carry?.widenedColumn)
+            releaseLiveLandingState(of: live)
+            endLiveColumnMove()
+        }
+        if liveStackDrop?.workspaceId == workspaceId {
+            endLiveStackDrop()
+        }
     }
 
     func cancelInteractions(for windowIds: Set<NodeId>, in workspaceId: WorkspaceDescriptor.ID) {
@@ -84,6 +99,20 @@ final class NiriLayoutEngine {
         {
             clearInteractiveResize()
         }
+        if let live = liveColumnMove,
+           live.workspaceId == workspaceId,
+           windowIds.contains(live.windowId)
+        {
+            restoreWidenedLiveColumn(live.carry?.widenedColumn)
+            releaseLiveLandingState(of: live)
+            endLiveColumnMove()
+        }
+        if let drop = liveStackDrop,
+           drop.workspaceId == workspaceId,
+           windowIds.contains(drop.windowId)
+        {
+            endLiveStackDrop()
+        }
     }
 
     var presetContainerPrimarySpans: [PresetSize] = NiriLayoutEngine.defaultPresetContainerPrimarySpans
@@ -93,6 +122,39 @@ final class NiriLayoutEngine {
                 axisSolveConfigurationRevision &+= 1
             }
         }
+    }
+
+    var tabbedColumnsFillHeight = false {
+        didSet {
+            if oldValue != tabbedColumnsFillHeight {
+                axisSolveConfigurationRevision &+= 1
+            }
+        }
+    }
+
+    var windowsFillColumnHeight = false {
+        didSet {
+            if oldValue != windowsFillColumnHeight {
+                axisSolveConfigurationRevision &+= 1
+            }
+        }
+    }
+
+    var keepsStripEndsOnScreen = false
+
+    var centersFittingStrips = false
+
+    var clipsOverflowToDisplay = false
+
+    var keepsWindowWidths = false
+    var animatesLearnedMinimumWidths = false
+    var finishesParkedWidthChanges = false
+
+    var hasSetEdgePeekCaps = false
+    var edgePeeksPossible = false
+
+    var edgePeekShare: CGFloat? {
+        didSet { refreshEdgePeeksPossible() }
     }
 
     var defaultContainerPrimarySpan: CGFloat? = 0.5
@@ -259,11 +321,15 @@ final class NiriLayoutEngine {
         edgeOverscroll: NiriEdgeOverscroll? = nil,
         presetContainerPrimarySpans: [PresetSize]? = nil,
         defaultContainerPrimarySpan: CGFloat?? = nil,
-        shrinkToFit: Bool? = nil
+        shrinkToFit: Bool? = nil,
+        macOSFusion: MacOSFusionConfiguration? = nil
     ) {
         assertSanctionedMutation()
         if let shrinkToFit {
             self.shrinkToFit = shrinkToFit
+        }
+        if let macOSFusion {
+            applyMacOSFusion(macOSFusion)
         }
         if let max = visibleContainerCount {
             self.visibleContainerCount = max.clamped(to: 1 ... 5)
@@ -320,6 +386,9 @@ extension NiriLayoutEngine {
             let span = CGFloat(defaultSpan)
             return (span, matchingPresetIndex(for: span))
         }
+        if keepsWindowWidths, case let .proportion(span)? = presetContainerPrimarySpans.first?.kind {
+            return (span, 0)
+        }
         return (1.0 / CGFloat(settings.visibleContainerCount), nil)
     }
 
@@ -360,7 +429,7 @@ extension NiriLayoutEngine {
         return containerSizingState(for: column)
     }
 
-    private func applyContainerSizingState(_ state: NiriContainerSizingState, to column: NiriContainer) {
+    func applyContainerSizingState(_ state: NiriContainerSizingState, to column: NiriContainer) {
         column.width = state.width
         column.presetWidthIdx = state.presetWidthIndex
         column.isFullWidth = state.isFullWidth

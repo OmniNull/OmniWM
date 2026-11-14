@@ -74,11 +74,14 @@ extension NiriWindow {
     ) -> CGRect {
         let windowOffset = renderOffset(at: time)
         var offsetFrame = renderedBaseFrame.offsetBy(dx: windowOffset.x, dy: windowOffset.y)
+        if heightAnimation != nil {
+            offsetFrame.size.height = max(1, offsetFrame.height + renderHeightOffset(at: time))
+        }
         switch orientation {
         case .horizontal:
             let minY = containerRect.minY
             let maxY = containerRect.maxY - offsetFrame.height
-            if maxY >= minY {
+            if maxY >= minY, !moveYLeavesColumn {
                 offsetFrame.origin.y = min(max(offsetFrame.origin.y, minY), maxY)
             }
         case .vertical:

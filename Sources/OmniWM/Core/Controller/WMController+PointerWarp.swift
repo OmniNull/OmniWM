@@ -17,11 +17,40 @@ extension WMController {
         publishPointerEdgeTopology()
     }
 
+    func syncLiveDragPointerHold(active: Bool) {
+        guard !settings.pointer.enabled, hasStartedServices, shouldUseMouseWarp() else { return }
+        if active {
+            pointerEdgeBarrier.start()
+            publishPointerEdgeTopology()
+        } else {
+            pointerEdgeBarrier.stop()
+        }
+    }
+
+    var mouseWarpOwnsPointerEdgeTap: Bool {
+        settings.pointer.enabled && shouldUseMouseWarp()
+    }
+
+    func holdPointerForEdgeResize(_ hold: PointerEdgeBarrier.ResizeHold?) {
+        pointerEdgeBarrier.publishResizeHold(hold)
+        guard !mouseWarpOwnsPointerEdgeTap, hasStartedServices, !mouseEventHandler.isLiveColumnDragActive else {
+            return
+        }
+        if hold != nil {
+            pointerEdgeBarrier.start()
+            publishPointerEdgeTopology()
+        } else {
+            pointerEdgeBarrier.stop()
+        }
+    }
+
     func publishPointerEdgeTopology() {
         let monitors = workspaceManager.monitors
         var topology = PointerEdgeTopology()
-        topology.isEnabled = isEnabled && settings.pointer.enabled && monitors.count > 1
-            && !mouseEventHandler.isInputSuppressed
+        topology.isEnabled = isEnabled && (settings.pointer.enabled || settings.niri.macOSFusion)
+            && monitors.count > 1 && !mouseEventHandler.isInputSuppressed
+        topology.warpsPointer = settings.pointer.enabled
+        pointerEdgeBarrier.setTracksLiveDrags(settings.niri.macOSFusion)
         guard topology.isEnabled else {
             pointerEdgeBarrier.publish(topology)
             return

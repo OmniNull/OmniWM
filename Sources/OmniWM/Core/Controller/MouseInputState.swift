@@ -35,15 +35,21 @@ struct MouseInputState {
         case committed
     }
 
-    enum NativeTitleBarDragPhase {
+    enum NativeTitleBarDragPhase: Equatable {
         case armed
         case dragging
         case awaitingFrameChange
         case awaitingFrameWrite
         case awaitingCorrection
+        case settlingResize
     }
 
-    struct NativeTitleBarDrag {
+    struct NativeResizeSettling {
+        let releasedAt: TimeInterval
+        let target: CGSize
+    }
+
+    struct NativeTitleBarDrag: Equatable {
         let token: WindowToken
         var phase: NativeTitleBarDragPhase = .armed
         var targetWasRejected = false
@@ -52,7 +58,55 @@ struct MouseInputState {
         var issuedUnreadableCorrection = false
         var terminalFailureRetryRequestId: AXFrameRequestId?
         var adoptionStartFrame: CGRect?
+        var pendingWriteStartFrame: CGRect?
+        var lateResize = false
+        var liveStartFrame: CGRect?
         var dwindleResizeWorkspaceId: WorkspaceDescriptor.ID?
+        var liveDrag = false
+        var liveDragDeclined = false
+        var liveDragHandedOver = false
+    }
+
+    struct LiveEdgeScroll {
+        enum Edge: Equatable {
+            case leading
+            case trailing
+        }
+
+        let edge: Edge
+        let workspaceId: WorkspaceDescriptor.ID
+        let enteredAt: TimeInterval
+        var delayTimer: Timer?
+        var isScrolling = false
+        var hopping = false
+        var hopsDone = false
+        var strip: (columns: [LiveColumnMove.StripColumn], viewOffset: CGFloat)?
+        var stripContext: NiriInteractionContext?
+    }
+
+    struct LiveEdgeZoneHold {
+        let edge: LiveEdgeScroll.Edge
+        let x: CGFloat
+
+        func isPassed(by location: CGPoint) -> Bool {
+            edge == .leading ? location.x < x : location.x > x
+        }
+    }
+
+    struct LivePointerSample {
+        let location: CGPoint
+        let time: TimeInterval
+    }
+
+    struct LiveTabPull {
+        let token: WindowToken
+        let anchorLocation: CGPoint
+        let startFrame: CGRect
+    }
+
+    struct LiveDropScroll {
+        let token: WindowToken
+        let workspaceId: WorkspaceDescriptor.ID
     }
 
     struct NativeResizeStart {
@@ -93,6 +147,11 @@ struct MouseInputState {
     var currentHoveredEdges: ResizeEdge = []
     var isResizing: Bool = false
     var isMoving: Bool = false
+    var liveDragTracedDecline: String?
+    var liveDropScroll: LiveDropScroll?
+    var deferredClickScroll: WindowToken?
+    var fusionDoubleClickWidths: [NodeId: FusionDoubleClickWidth] = [:]
+    var liveDragLayoutStart: NiriLayoutChangeStart?
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {
         get { activeInteractionSource?.mouseButton }
@@ -113,6 +172,9 @@ struct MouseInputState {
     var nativeTitleBarDragFallbackToken: WindowToken?
     var nativeTitleBarDragFallbackReleased = false
     var nativeTitleBarDrag: NativeTitleBarDrag?
+    var nativeResizeSettling: NativeResizeSettling?
+    var leftPressLocation: CGPoint?
+    var leftReleaseLocation: CGPoint?
     var nativeResizeStart: NativeResizeStart?
     var nativeResizeCorrectionsByWindowId: [Int: NativeResizeCorrection] = [:]
     var nativeCrossDisplayMove: NativeCrossDisplayMove?
@@ -141,4 +203,61 @@ struct MouseInputState {
     var consumedTrackpadSessions: [UInt64: MultitouchContactSession] = [:]
     var horizontalWheelTracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
     var verticalWheelTracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+}
+
+struct LiveDragPointer {
+    var location: CGPoint?
+    var samples: [MouseInputState.LivePointerSample] = []
+}
+
+struct LiveDragSession {
+    var tabPull: MouseInputState.LiveTabPull?
+    var referenceOffset: CGFloat?
+    var edgeScroll: MouseInputState.LiveEdgeScroll?
+    var edgeZoneHold: MouseInputState.LiveEdgeZoneHold?
+    var hoverTimer: Timer?
+    var followUp: Timer?
+    var tracedView: LiveStripTrace?
+}
+
+struct LiveStripTrace: Equatable {
+    struct Lock: Equatable {
+        let windowIds: [Int]?
+        let side: LiveColumnMove.Side
+    }
+
+    struct Column: Equatable {
+        let windowIds: [Int]
+        let isHomeSpot: Bool
+        let isDropSpace: Bool
+        let minX: Int
+        let maxX: Int
+    }
+
+    let label: String
+    let workspaceId: WorkspaceDescriptor.ID
+    let activeColumnIndex: Int
+    let viewOffset: String
+    let liveOffset: String?
+    let lock: Lock?
+    let columns: [Column]
+    let phase: LiveColumnMove.Phase?
+
+    var view: String {
+        let lockText = lock.map { lock in
+            "\(lock.windowIds.map(Self.ids) ?? "?")/\(lock.side)"
+        } ?? "none"
+        let columnsText = columns.map { column in
+            let ids = Self.ids(column.windowIds)
+            let name = column.isHomeSpot ? "*\(ids)" : column.isDropSpace ? "_" : ids
+            return "\(name)@\(column.minX)-\(column.maxX)"
+        }
+        return "ws=\(workspaceId) active=\(activeColumnIndex) "
+            + "off=\(viewOffset) live=\(liveOffset ?? "-") "
+            + "lock=\(lockText) cols=[\(columnsText.joined(separator: ","))] phase=\(phase.map { "\($0)" } ?? "-")"
+    }
+
+    private static func ids(_ windowIds: [Int]) -> String {
+        windowIds.map(String.init).joined(separator: "+")
+    }
 }

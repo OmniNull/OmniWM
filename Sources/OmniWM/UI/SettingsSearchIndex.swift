@@ -110,6 +110,15 @@ enum SettingsSearchIndex {
         setting("Single Window", section: .layouts, tab: "niri", anchor: "Niri Layout"),
         setting("Resize Increment", section: .layouts, tab: "niri", anchor: "Resize Increment"),
         setting(
+            "macOS Fusion",
+            section: .layouts,
+            tab: "niri",
+            anchor: "macOS Fusion"
+        ),
+        setting("Peripheral Vision", section: .layouts, tab: "niri", anchor: "Peripheral Vision"),
+        setting("Undo", section: .layouts, tab: "niri", anchor: "Undo"),
+        setting("Redo", section: .layouts, tab: "niri", anchor: "Redo"),
+        setting(
             "Default New Container Primary Span",
             section: .layouts,
             tab: "niri",

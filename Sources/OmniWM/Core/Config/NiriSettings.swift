@@ -97,6 +97,25 @@ final class NiriSettings {
         min(100, max(1, percent))
     }
 
+    var macOSFusion = NiriSettings.defaults.macOSFusion ?? false {
+        didSet { onChange?() }
+    }
+
+    var edgePeekPercent = NiriSettings.defaults.edgePeekPercent ?? BuiltInSettingsDefaults.niriEdgePeekPercent {
+        didSet {
+            let validated = NiriSettings.validatedEdgePeekPercent(edgePeekPercent)
+            if validated != edgePeekPercent {
+                edgePeekPercent = validated
+                return
+            }
+            onChange?()
+        }
+    }
+
+    nonisolated static func validatedEdgePeekPercent(_ percent: Double) -> Double {
+        min(10, max(0, percent))
+    }
+
     var monitorOverrides: [MonitorNiriSettings] = [] {
         didSet { onChange?() }
     }
@@ -115,7 +134,9 @@ final class NiriSettings {
             moveWindowStacksIntoColumn: moveWindowStacksIntoColumn,
             allowOverscroll: allowOverscroll,
             overscrollVisibleStripPercent: overscrollVisibleStripPercent,
-            shrinkToFit: shrinkToFit
+            shrinkToFit: shrinkToFit,
+            macOSFusion: macOSFusion,
+            edgePeekPercent: edgePeekPercent
         )
     }
 
@@ -131,6 +152,10 @@ final class NiriSettings {
         edgeGaps = niri.edgeGaps ?? baseline.edgeGaps ?? true
         moveWindowStacksIntoColumn = niri.moveWindowStacksIntoColumn ?? baseline.moveWindowStacksIntoColumn ?? true
         shrinkToFit = niri.shrinkToFit ?? baseline.shrinkToFit ?? false
+        macOSFusion = niri.macOSFusion ?? baseline.macOSFusion ?? false
+        edgePeekPercent = NiriSettings.validatedEdgePeekPercent(
+            niri.edgePeekPercent ?? baseline.edgePeekPercent ?? BuiltInSettingsDefaults.niriEdgePeekPercent
+        )
         resizeStepPercent = niri.resizeStepPercent ?? baseline.resizeStepPercent ?? BuiltInSettingsDefaults
             .niriResizeStepPercent
         containerPrimarySpanPresets = NiriSettings.validatedContainerPrimarySpanPresets(
@@ -173,8 +198,15 @@ final class NiriSettings {
             edgeOverscroll: NiriEdgeOverscroll(
                 allowed: override?.allowOverscroll ?? allowOverscroll,
                 visibleStripPercent: override?.overscrollVisibleStripPercent ?? overscrollVisibleStripPercent
-            )
+            ),
+            edgePeekShare: edgePeekShare(override: override)
         )
+    }
+
+    private func edgePeekShare(override: MonitorNiriSettings?) -> CGFloat? {
+        let percent = override?.edgePeekPercent ?? edgePeekPercent
+        guard macOSFusion, percent > 0 else { return nil }
+        return CGFloat(percent) / 100
     }
 
     nonisolated static let defaultContainerPrimarySpanPresets: [Double] = BuiltInSettingsDefaults

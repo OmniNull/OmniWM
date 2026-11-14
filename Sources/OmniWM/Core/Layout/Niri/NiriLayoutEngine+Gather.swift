@@ -138,12 +138,16 @@ extension NiriLayoutEngine {
         }
         let destinationState = ensureState(for: destinationId)
         let reusedColumn = plan.placement.reusedColumnId.map { liveGatherColumn($0, in: destinationId) }
+        let keptSizing = keepsWindowWidths
+            ? nodes.first.flatMap { containerSizingState(for: $0.0.token, in: $0.1) }
+            : nil
 
         detachGatheredNodes(nodes, keeping: reusedColumn, into: destinationState, destinationId: destinationId)
         let gatheredColumn = reusedColumn ?? insertGatheredColumn(
             for: plan.placement,
             into: destinationState,
-            destinationId: destinationId
+            destinationId: destinationId,
+            sizing: keptSizing
         )
         for (index, (node, _)) in nodes.enumerated() {
             gatheredColumn.insertChild(node, at: index)
@@ -304,12 +308,13 @@ extension NiriLayoutEngine {
     private func insertGatheredColumn(
         for placement: NiriGatherPlan.Placement,
         into destinationState: NiriWorkspaceState,
-        destinationId: WorkspaceDescriptor.ID
+        destinationId: WorkspaceDescriptor.ID,
+        sizing: NiriContainerSizingState?
     ) -> NiriContainer {
         let root = destinationState.root
         removeEmptyColumnsIfWorkspaceEmpty(in: root)
         let column = NiriContainer()
-        initializeNewContainerSizing(column, in: destinationId)
+        initializeNewContainerSizing(column, in: destinationId, initialState: sizing)
         if case let .newColumn(after: precedingColumnId?) = placement {
             root.insertAfter(column, reference: liveGatherColumn(precedingColumnId, in: destinationId))
         } else if let leadingColumn = root.columns.first {

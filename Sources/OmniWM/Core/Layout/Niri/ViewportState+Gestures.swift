@@ -13,7 +13,8 @@ extension ViewportState {
         motion: MotionSnapshot,
         snapToColumn: Bool = true,
         centerMode: CenterFocusedColumn = .never,
-        alwaysCenterSingleColumn: Bool = false
+        alwaysCenterSingleColumn: Bool = false,
+        edges: ViewportEdgeRules = .init()
     ) {
         guard !columns.isEmpty else {
             endGestureWithoutSnap(currentOffset: currentOffset)
@@ -33,6 +34,7 @@ extension ViewportState {
                 columns: columns,
                 geometry: geometry,
                 totalContentSpan: totalContentSpan,
+                padding: edges.keepsStripEndsOnScreen ? Double(geometry.gap) : 0,
                 motion: motion
             )
             return
@@ -97,9 +99,19 @@ extension ViewportState {
             geometry: geometry
         )
         let pixel = 1.0 / Double(max(geometry.areas.scale, 1.0))
-        let targetOffset = abs(correctedTargetOffset - snapTargetOffset) < pixel
+        let snappedOffset = abs(correctedTargetOffset - snapTargetOffset) < pixel
             ? snapTargetOffset
             : correctedTargetOffset
+        let restoresEdgePeeks = geometry.areas.edgePeeks != nil
+            && columns.indices.contains(result.columnIndex)
+            && columns[result.columnIndex].effectiveSizingMode == .normal
+        let targetOffset = !restoresEdgePeeks ? snappedOffset : Double(viewStartRestoringEdgePeeks(
+            newContainerPosition + CGFloat(snappedOffset),
+            columns: columns,
+            areas: geometry.areas,
+            gap: geometry.gap,
+            sizeKeyPath: geometry.sizeKeyPath
+        ) - newContainerPosition)
 
         guard motion.animationsEnabled else {
             jumpOffset(to: CGFloat(targetOffset))
@@ -294,6 +306,7 @@ extension ViewportState {
         columns: [NiriContainer],
         geometry: NiriViewportGeometry,
         totalContentSpan: Double,
+        padding: Double,
         motion: MotionSnapshot
     ) {
         let sizeKeyPath = geometry.orientation.renderedSpanKeyPath
@@ -304,15 +317,17 @@ extension ViewportState {
             sizeKeyPath: sizeKeyPath
         )
 
-        guard let preserved = NiriGestureMomentumPlan(
+        let viewStartBounds = geometry.overscrollBounds(columns: columns).map {
+            Double($0.lowerBound) ... Double($0.upperBound)
+        } ?? (-padding ... max(-padding, totalContentSpan - Double(geometry.viewportSpan) + padding))
+
+        guard let landing = NiriGestureMomentumPlan(
             columns: columns,
             gap: geometry.gap,
             viewportSpan: Double(geometry.viewportSpan),
             totalContentSpan: totalContentSpan,
             sizeKeyPath: sizeKeyPath,
-            viewStartBounds: geometry.overscrollBounds(columns: columns).map {
-                Double($0.lowerBound) ... Double($0.upperBound)
-            }
+            viewStartBounds: viewStartBounds
         )?.landing(
             columns: columns,
             activeIndex: activeColumnIndex,
@@ -322,6 +337,9 @@ extension ViewportState {
             activatePrevColumnOnRemoval = nil
             return
         }
+        let preserved = geometry.edgePeeks == nil
+            ? landing
+            : edgePeekLanding(landing, columns, geometry: geometry)
 
         let newActivePosition = containerPosition(
             at: preserved.normalizedActiveColumn,
@@ -336,11 +354,7 @@ extension ViewportState {
         }
         activeColumnIndex = preserved.normalizedActiveColumn
 
-        let maxViewStart = max(0, totalContentSpan - Double(geometry.viewportSpan))
-        let bounds = geometry.overscrollBounds(columns: columns).map {
-            Double($0.lowerBound) ... Double($0.upperBound)
-        } ?? (0 ... maxViewStart)
-        let overscrolled = !bounds.contains(Double(oldActivePosition) + projectedOffset)
+        let overscrolled = !viewStartBounds.contains(Double(oldActivePosition) + projectedOffset)
 
         applyMomentumLanding(
             finalOffset: preserved.finalOffset, offsetDelta: offsetDelta, overscrolled: overscrolled, motion: motion

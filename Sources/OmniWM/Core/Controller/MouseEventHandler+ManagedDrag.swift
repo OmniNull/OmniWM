@@ -118,6 +118,8 @@ extension MouseEventHandler {
             return
         }
 
+        if trackLiveColumnDrag(at: location, button: button) { return }
+
         guard state.isResizing else { return }
         guard shouldAcceptInteractionButton(button) else { return }
 

@@ -79,6 +79,8 @@ extension MouseEventHandler {
             return false
         }
         guard controller != nil else { return false }
+        controller?.niriLayoutHandler.noteUserAction()
+        if button == .left { state.leftPressLocation = location }
         let blocked = shouldBlockOwnWindowInput(at: location, windowIdUnderPointer: windowIdUnderPointer)
         if MouseTrace.shared.isActive {
             let geometric = controller?.ownedWindowRegistry.containsGeometric(point: location) ?? false
@@ -114,7 +116,7 @@ extension MouseEventHandler {
         warpDraggedPointer(at: location)
         controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
         confirmNativeMouseDrag(at: location, button: button)
-        if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
+        if ownWindowInterruptsDrag(button, at: location) {
             cancelActiveMouseInteraction()
             return
         }
@@ -122,6 +124,9 @@ extension MouseEventHandler {
     }
 
     func dispatchMouseUp(at location: CGPoint, button: MouseButton = .left) {
+        if button == .left {
+            releaseEdgeResizeHold()
+        }
         if state.parkingEdgePressButton == button {
             state.parkingEdgePressButton = nil
         }
@@ -129,8 +134,13 @@ extension MouseEventHandler {
             handleInputSuppressionBegan()
             return
         }
+        if button == .left { state.leftReleaseLocation = location }
         markNativeTitleBarDragFallbackReleased(button: button, at: location)
         finishNativeTitleBarDragIfNeeded(button: button)
+        if button == .left {
+            endLiveTabPull(at: location)
+            runDeferredClickScroll()
+        }
         if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
             cancelActiveMouseInteraction()
             return
@@ -206,8 +216,13 @@ extension MouseEventHandler {
         at location: CGPoint,
         modifiers: CGEventFlags,
         button: MouseButton = .left,
-        queuedLeftPress: LeftMouseDownIntake? = nil
+        clickCount: Int64 = 1,
+        queuedLeftPress: LeftMouseDownIntake? = nil,
+        authoritative: Bool = false
     ) -> Bool {
+        if button == .left {
+            armFusionDoubleClick(at: location, modifiers: modifiers, clickCount: clickCount)
+        }
         if let latched = state.parkingEdgePressButton,
            latched == button || pressedMouseButtonsProvider() & latched.pressedMask == 0
         {
@@ -226,8 +241,14 @@ extension MouseEventHandler {
         } else {
             if queuedLeftPress == nil { flushQueuedTapEventsBeforeImmediateDispatch() }
             if button == .left, !isInputSuppressed {
+                state.liveDropScroll = nil
                 retireNativeTitleBarDragAtInputBoundary()
             }
+        }
+        if authoritative, button == .left, clickCount == 2,
+           handleFusionDoubleClick(at: location, modifiers: modifiers)
+        {
+            return true
         }
         let suppress = dispatchMouseDown(
             at: location,
@@ -264,6 +285,14 @@ extension MouseEventHandler {
               let entry = controller?.workspaceManager.entry(forWindowId: windowIdUnderPointer),
               entry.mode == .tiling
         else {
+            if state.awaitsNativeTitleBarDragTarget, state.nativeTitleBarDrag == nil {
+                let entry = windowIdUnderPointer.flatMap { controller?.workspaceManager.entry(forWindowId: $0) }
+                traceLiveDragDecline(
+                    "annotated-drag windowUnderPointer=\(windowIdUnderPointer.map(String.init) ?? "nil") "
+                        + "managed=\(entry != nil) mode=\(entry.map { "\($0.mode)" } ?? "-") "
+                        + "fallback=\(TraceFormat.token(state.nativeTitleBarDragFallbackToken))"
+                )
+            }
             if windowIdUnderPointer != nil || state.nativeTitleBarDragFallbackReleased {
                 rejectNativeTitleBarDragTarget()
             }
@@ -367,7 +396,7 @@ extension MouseEventHandler {
         }
         if controller.isOverviewOpen() { return .overview }
         if shouldBlockOwnWindowGestureInput(at: location) { return .ownWindow }
-        guard !state.isResizing, !state.isMoving else { return .windowInteraction }
+        guard !state.isResizing, !state.isMoving, !isLiveColumnDragActive else { return .windowInteraction }
         guard controller.settings.gestures.scrollEnabled else { return .wheelDisabled }
         let requiredModifiers = controller.settings.gestures.scrollModifierKey.cgEventFlag
         guard Self.mouseWheelModifiersMatch(modifiers, required: requiredModifiers) else { return .modifierMismatch }
@@ -457,11 +486,15 @@ extension MouseEventHandler {
         warpDraggedPointer(at: location)
         controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
         confirmNativeMouseDrag(at: location, button: button)
-        if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
+        if ownWindowInterruptsDrag(button, at: location) {
             cancelActiveMouseInteraction()
             return
         }
         handleMouseDraggedFromTap(at: location, button: button, requirePressedButtonCheck: false)
+    }
+
+    private func ownWindowInterruptsDrag(_ button: MouseButton, at location: CGPoint) -> Bool {
+        !isCapturedInteraction(button) && !isLiveColumnDragActive && shouldBlockOwnWindowInput(at: location)
     }
 
     private func warpDraggedPointer(at location: CGPoint) {

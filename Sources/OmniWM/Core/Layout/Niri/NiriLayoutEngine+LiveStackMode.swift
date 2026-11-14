@@ -1,0 +1,604 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+import CoreGraphics
+import Foundation
+
+extension NiriLayoutEngine {
+    func liveColumnMoveCloseLandingForEdgeScroll(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
+        assertSanctionedMutation()
+        guard var move = liveColumnMove,
+              move.workspaceId == context.workspaceId,
+              move.landing != nil
+        else { return false }
+        defer { liveColumnMove = move }
+        move.pointerHold = nil
+        move.endCentreDwell()
+        return placeLiveLanding(nil, move: &move, context: context, state: &state)
+    }
+
+    func liveWindowSpans(in column: NiriContainer, context: NiriInteractionContext) -> [LiveColumnMove.WindowSpan] {
+        let windows = projectedWindows(in: column, workspaceId: context.workspaceId)
+        guard !windows.isEmpty else { return [] }
+        let isTabbed = column.isTabbed && windows.count > 1
+        let spans = resolveWindowSpans(
+            container: column,
+            windows: windows,
+            axis: NiriAxisLayout(
+                availableSpace: context.workingFrame.height,
+                gap: context.gaps,
+                isTabbed: isTabbed,
+                orientation: .horizontal
+            ),
+            secondarySpanOverride: nil
+        )
+        var position = context.workingFrame.minY + context.gaps
+        var result: [LiveColumnMove.WindowSpan] = []
+        for (window, span) in zip(windows, spans) {
+            result.append(.init(window: window, minY: position, maxY: position + span.value))
+            if !isTabbed {
+                position += span.value + context.gaps
+            }
+        }
+        return result
+    }
+
+    func liveStackDropBegin(
+        releasedAt release: CGRect?,
+        move: LiveColumnMove,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
+        let dropped = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow
+        guard let landing = move.landing,
+              let window = dropped,
+              let column = liveColumn(withId: landing.columnId, in: move.workspaceId),
+              window.parent === column
+        else {
+            dropped?.defersMinimumWidth = false
+            if let parent = dropped?.parent as? NiriContainer {
+                clearLiveSpanOverrides(in: [parent])
+                if let dropped {
+                    joinHeldLiveTabs(after: dropped, in: parent, move: move)
+                }
+            }
+            endLiveColumnMove()
+            return false
+        }
+        replaceLiveStackDrop(with: .init(
+            workspaceId: move.workspaceId,
+            windowId: move.windowId,
+            homeColumnId: move.homeColumnId,
+            dropSpaceId: move.dropSpaceId,
+            targetColumnId: column.id,
+            originalViewPosition: move.carry == nil ? move.originalViewPosition : nil
+        ))
+        endLiveColumnMove()
+        slideLiveWindows(in: [column], skipping: window, context: context) {
+            clearLiveSpanOverrides(in: [column])
+            joinHeldLiveTabs(after: window, in: column, move: move)
+        }
+        widenLiveStackForDrop(
+            column,
+            for: window,
+            home: liveColumn(withId: move.homeColumnId, in: move.workspaceId),
+            context: context,
+            state: &state
+        )
+        settleLiveWindow(window, in: column, releasedAt: release, context: context, state: &state)
+        return true
+    }
+
+    func settleLiveWindow(
+        _ window: NiriWindow,
+        in column: NiriContainer,
+        releasedAt release: CGRect?,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        activateWindow(window.id, in: context.workspaceId)
+        retargetActiveColumn(to: column, context: context, state: &state)
+        state.selectedNodeId = window.id
+        if let release,
+           let landed = liveWindowFrame(of: window, in: column, context: context, state: state)
+        {
+            animateLiveWindow(window, from: release, to: landed, leavingColumnVertically: true, context: context)
+        }
+    }
+
+    func liveStackDropAbandon(in workspaceId: WorkspaceDescriptor.ID) {
+        guard liveStackDrop?.workspaceId == workspaceId else { return }
+        assertSanctionedMutation()
+        endLiveStackDrop()
+    }
+
+    func liveStackDropFinish(context: NiriInteractionContext, state: inout ViewportState) -> Bool {
+        assertSanctionedMutation()
+        guard let drop = liveStackDrop, drop.workspaceId == context.workspaceId else { return false }
+        guard let target = liveColumn(withId: drop.targetColumnId, in: drop.workspaceId) else {
+            endLiveStackDrop()
+            return false
+        }
+        let before = primaryPositions(context: context, state: state)
+        endLiveStackDrop()
+        animateLiveColumnChange(from: before, anchoredOn: target, context: context, state: &state)
+        retargetActiveColumn(to: target, context: context, state: &state)
+        if let original = drop.originalViewPosition,
+           let landed = primaryPositions(context: context, state: state)[target.id],
+           isLiveColumnFullyVisible(target, atOffset: original - landed, context: context, state: state)
+        {
+            var atOriginal = state
+            atOriginal.jumpOffset(to: original - landed)
+            let centring = fittingStripDrift(liveColumnStrip(context: context, state: atOriginal), context: context)
+            state.animateToOffset(
+                original - landed + (centring ?? 0),
+                motion: context.motion,
+                scale: displayScale(in: context.workspaceId)
+            )
+            return true
+        }
+        let revealed = state.viewOffset + liveEdgeRevealShift(
+            showing: target,
+            checking: [.before, .after],
+            slack: 0,
+            strip: liveColumnStrip(context: context, state: state),
+            context: context
+        )
+        var final = liveDropFinalView(of: drop.windowId, settledAt: revealed, context: context, state: state)
+        final.jumpOffset(to: final.viewOffset + liveStripEndsShift(context: context, state: final))
+        state.animateToOffset(final.viewOffset, motion: context.motion, scale: displayScale(in: context.workspaceId))
+        return true
+    }
+
+    private func liveStripEndsShift(context: NiriInteractionContext, state: ViewportState) -> CGFloat {
+        let strip = liveColumnStrip(context: context, state: state)
+        if let centred = fittingStripDrift(strip, context: context) {
+            return centred
+        }
+        guard let ends = stripEndsDrift(strip: strip, context: context) else { return 0 }
+        if ends.lowest > 0 {
+            return ends.lowest
+        }
+        guard keptStripEndsDrift(strip: strip, context: context) != nil else { return 0 }
+        return min(0, ends.highest)
+    }
+
+    func endLiveColumnMove() {
+        replaceLiveColumnMove(with: nil)
+    }
+
+    func replaceLiveColumnMove(with move: LiveColumnMove?) {
+        let previous = liveColumnMove
+        liveColumnMove = move
+        if let previous {
+            releaseLivePlaceholders(of: previous)
+        }
+    }
+
+    func endLiveStackDrop() {
+        replaceLiveStackDrop(with: nil)
+    }
+
+    func replaceLiveStackDrop(with drop: LiveColumnMove.StackDrop?) {
+        let previous = liveStackDrop
+        liveStackDrop = drop
+        if let previous {
+            releaseLivePlaceholders(of: previous)
+        }
+    }
+
+    private func releaseLivePlaceholders(of previous: LiveColumnMove) {
+        if let slot = previous.narrowedSlot,
+           liveColumnMove?.narrowedSlot?.columnId != slot.columnId,
+           liveStackDrop?.homeColumnId != slot.columnId
+        {
+            widenLiveSlot(slot, in: previous.workspaceId)
+        }
+        if let dropSpaceId = previous.dropSpaceId,
+           liveColumnMove?.dropSpaceId != dropSpaceId,
+           liveStackDrop?.dropSpaceId != dropSpaceId
+        {
+            removeLivePlaceholder(dropSpaceId, in: previous.workspaceId)
+        }
+        if liveColumnMove == nil, liveStackDrop?.homeColumnId != previous.homeColumnId {
+            removeLivePlaceholder(previous.homeColumnId, in: previous.workspaceId)
+        }
+        if liveColumnMove == nil, liveStackDrop?.windowId != previous.windowId {
+            if let kept = previous.keptWidths {
+                ensureState(for: previous.workspaceId).manualWidthColumnCount = kept.manualColumnCount
+            }
+            if let saved = previous.mateHeight,
+               let mate = findNode(by: saved.windowId, in: previous.workspaceId) as? NiriWindow,
+               mate.height != saved.height
+            {
+                saved.apply(to: mate)
+            }
+        }
+    }
+
+    private func releaseLivePlaceholders(of previous: LiveColumnMove.StackDrop) {
+        if liveStackDrop?.homeColumnId != previous.homeColumnId {
+            removeLivePlaceholder(previous.homeColumnId, in: previous.workspaceId)
+        }
+        if let dropSpaceId = previous.dropSpaceId, liveStackDrop?.dropSpaceId != dropSpaceId {
+            removeLivePlaceholder(dropSpaceId, in: previous.workspaceId)
+        }
+    }
+
+    func isLiveStackDropPending(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        liveStackDrop?.workspaceId == workspaceId
+    }
+
+    @discardableResult
+    func placeLiveLanding(
+        _ landing: LiveColumnMove.LandingSlot?,
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
+        guard let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
+              let home = liveDraggedColumn(for: move),
+              let source = findColumn(containing: window, in: move.workspaceId)
+        else { return false }
+        let target = landing.flatMap { liveColumn(withId: $0.columnId, in: move.workspaceId) }
+        let affected = [source, target ?? home]
+        retargetActiveColumn(to: home, context: context, state: &state)
+        let columnsBefore = primaryPositions(context: context, state: state)
+        let wasDeferred = window.defersMinimumWidth
+        let placed = slideLiveWindows(in: affected, skipping: window, context: context) {
+            clearLiveSpanOverrides(in: affected)
+            window.defersMinimumWidth = target != nil && target !== home
+            let hintBase = target.map { liveHintBaseSpans(in: $0, without: window, context: context) }
+            restoreLiveMateHeight(&move)
+            guard relocateLiveWindow(window, to: landing, from: source, move: &move, context: context) else {
+                return false
+            }
+            shareLiveColumn(target, with: window, move: &move)
+            keepLiveColumnWidths(landing: landing != nil, move: &move)
+            if let hintBase, let target {
+                applyLiveLandingHint(window, in: target, base: hintBase, context: context)
+            }
+            return true
+        }
+        guard placed else {
+            window.defersMinimumWidth = wasDeferred
+            return false
+        }
+        move.landing = landing
+        animateLiveColumnChange(from: columnsBefore, anchoredOn: home, context: context, state: &state)
+        return true
+    }
+
+    private func shareLiveColumn(_ column: NiriContainer?, with window: NiriWindow, move: inout LiveColumnMove) {
+        guard let column, !column.isTabbed else { return }
+        let mates = column.windowNodes.filter { $0 !== window }
+        guard mates.count == 1, let mate = mates.first, mate.height != .default else { return }
+        move.mateHeight = .init(windowId: mate.id, height: mate.height)
+        mate.height = .default
+    }
+
+    private func keepLiveColumnWidths(landing: Bool, move: inout LiveColumnMove) {
+        let workspace = ensureState(for: move.workspaceId)
+        guard landing else {
+            if let kept = move.keptWidths {
+                workspace.manualWidthColumnCount = kept.manualColumnCount
+                move.keptWidths = nil
+            }
+            return
+        }
+        if move.keptWidths == nil {
+            move.keptWidths = .init(manualColumnCount: workspace.manualWidthColumnCount)
+        }
+        workspace.manualWidthColumnCount = projectedColumns(in: move.workspaceId).filter { !$0.windows.isEmpty }.count
+    }
+
+    private func restoreLiveMateHeight(_ move: inout LiveColumnMove) {
+        guard let saved = move.mateHeight else { return }
+        move.mateHeight = nil
+        if let mate = findNode(by: saved.windowId, in: move.workspaceId) as? NiriWindow {
+            saved.apply(to: mate)
+        }
+    }
+
+    func slideLiveWindows<Result>(
+        in columns: [NiriContainer],
+        skipping skipped: NiriWindow,
+        context: NiriInteractionContext,
+        _ change: () -> Result
+    ) -> Result {
+        let before = liveWindowPlaces(in: columns, context: context)
+        let result = change()
+        let after = liveWindowPlaces(in: columns, context: context)
+        for (id, previous) in before where id != skipped.id {
+            guard let current = after[id],
+                  let node = findNode(by: id, in: context.workspaceId) as? NiriWindow
+            else { continue }
+            animateLiveWindow(node, from: previous, to: current, context: context)
+        }
+        return result
+    }
+
+    private func relocateLiveWindow(
+        _ window: NiriWindow,
+        to landing: LiveColumnMove.LandingSlot?,
+        from source: NiriContainer,
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext
+    ) -> Bool {
+        guard let home = liveDraggedColumn(for: move) else { return false }
+        let target = landing.flatMap { liveColumn(withId: $0.columnId, in: move.workspaceId) }
+        if move.isWholeColumn, target != nil, target !== home {
+            holdLiveTabs(of: home, except: window, move: &move)
+        }
+        let sourceActive = source !== home && source.isTabbed
+            ? projectedActiveWindow(in: source, workspaceId: move.workspaceId)
+            : nil
+        if let landing, let target {
+            guard insertLiveLanding(window, at: landing, in: target, home: home, context: context) else {
+                return false
+            }
+            if target === home {
+                move.ownWindowSizing.apply(to: window)
+            }
+        } else {
+            returnLiveWindowHome(window, to: home, move: move)
+            restoreHeldLiveTabs(to: home, around: window, move: &move)
+        }
+        if let sourceActive, source !== target, sourceActive.parent === source {
+            activateWindow(sourceActive.id, in: move.workspaceId)
+            source.cachedWidth = 0
+        }
+        return true
+    }
+
+    private func insertLiveLanding(
+        _ window: NiriWindow,
+        at landing: LiveColumnMove.LandingSlot,
+        in column: NiriContainer,
+        home: NiriContainer,
+        context: NiriInteractionContext
+    ) -> Bool {
+        guard let targetWindow = findNode(by: landing.targetWindowId, in: context.workspaceId) as? NiriWindow
+        else { return false }
+        let homeWidth = home.cachedWidth
+        let shownTab = column.isTabbed ? projectedActiveWindow(in: column, workspaceId: context.workspaceId) : nil
+        guard stackWindow(
+            window,
+            beside: targetWindow,
+            position: !column.isTabbed && landing.above ? .after : .before,
+            removingEmptySource: false,
+            in: context.workspaceId
+        ) else { return false }
+
+        if let shownTab, shownTab.parent === column {
+            activateWindow(shownTab.id, in: context.workspaceId)
+            column.cachedWidth = 0
+        } else {
+            window.isHiddenInTabbedMode = false
+        }
+        if projectedWindows(in: home, workspaceId: context.workspaceId).isEmpty, !home.isLiveHomeSpot {
+            home.isLiveHomeSpot = true
+            home.width = .fixed(homeWidth)
+            home.cachedWidth = 0
+        }
+        return true
+    }
+
+    private func holdLiveTabs(of home: NiriContainer, except window: NiriWindow, move: inout LiveColumnMove) {
+        guard move.heldTabs.isEmpty, window.parent === home else { return }
+        move.heldTabs = home.windowNodes.filter { $0 !== window }
+        liveColumnMove?.heldTabs = move.heldTabs
+        home.invalidateAxisSolveInputs()
+    }
+
+    private func restoreHeldLiveTabs(to home: NiriContainer, around window: NiriWindow, move: inout LiveColumnMove) {
+        guard !move.heldTabs.isEmpty else { return }
+        move.heldTabs = []
+        liveColumnMove?.heldTabs = []
+        activateWindow(window.id, in: move.workspaceId)
+        home.invalidateAxisSolveInputs()
+        home.cachedWidth = 0
+    }
+
+    func liveHeldTabTokens(in workspaceId: WorkspaceDescriptor.ID) -> Set<WindowToken> {
+        guard let move = liveColumnMove, move.workspaceId == workspaceId, !move.heldTabs.isEmpty else { return [] }
+        return Set(move.heldTabs.map(\.token))
+    }
+
+    func joinHeldLiveTabs(after window: NiriWindow, in column: NiriContainer, move: LiveColumnMove) {
+        guard !move.heldTabs.isEmpty else { return }
+        var previous = window
+        for tab in move.heldTabs where tab !== window && findNode(for: tab.token, in: move.workspaceId) === tab {
+            tab.detach()
+            column.insertAfter(tab, reference: previous)
+            tab.isHiddenInTabbedMode = column.isTabbed
+            previous = tab
+        }
+        guard !column.isTabbed else { return }
+        for member in column.windowNodes {
+            member.height = .default
+        }
+    }
+
+    private func returnLiveWindowHome(_ window: NiriWindow, to home: NiriContainer, move: LiveColumnMove) {
+        if let source = window.parent as? NiriContainer, source.isTabbed {
+            source.cachedWidth = 0
+        }
+        home.insertChild(window, at: min(move.homeSlotIndex, home.windowNodes.count))
+        move.ownWindowSizing.apply(to: window)
+        window.isHiddenInTabbedMode = false
+        if move.home == .stackSlot {
+            activateWindow(window.id, in: move.workspaceId)
+            home.cachedWidth = 0
+            return
+        }
+        home.isLiveHomeSpot = false
+        restoreLiveSizing(move.ownSizing, to: home)
+    }
+
+    func liveStackChoice(
+        cursor: CGPoint,
+        strip: [LiveColumnMove.StripColumn],
+        move: LiveColumnMove,
+        context: NiriInteractionContext
+    ) -> LiveColumnMove.StackChoice {
+        guard let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow else { return .keep }
+        guard let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
+              column.id != move.homeColumnId || move.home == .stackSlot,
+              projectedWindows(in: column, workspaceId: move.workspaceId).contains(where: { $0 !== window })
+        else { return .home }
+
+        if column.isTabbed {
+            guard let shown = projectedActiveWindow(in: column, workspaceId: move.workspaceId),
+                  shown !== window else { return .home }
+            return .land(.init(columnId: column.id, targetWindowId: shown.id, above: false))
+        }
+        let spans = liveWindowSpans(in: column, context: context)
+        guard let nearest = spans.min(by: { $0.distance(toY: cursor.y) < $1.distance(toY: cursor.y) })
+        else { return .home }
+        if nearest.window === window {
+            return .keep
+        }
+        let others = spans.filter { $0.window !== window }
+        guard let hitIndex = others.firstIndex(where: { $0.window === nearest.window }) else { return .home }
+        let hit = others[hitIndex]
+        let above = cursor.y >= (hit.minY + hit.maxY) / 2
+        guard !above, hitIndex > 0 else {
+            return .land(.init(columnId: column.id, targetWindowId: hit.window.id, above: above))
+        }
+        return .land(.init(columnId: column.id, targetWindowId: others[hitIndex - 1].window.id, above: true))
+    }
+
+    func isLiveStackSuppressed(
+        at cursor: CGPoint,
+        strip: [LiveColumnMove.StripColumn],
+        move: LiveColumnMove
+    ) -> Bool {
+        guard let hold = move.pointerHold,
+              let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
+              let column = window.parent as? NiriContainer,
+              liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)) === column
+        else { return false }
+        return hold.holds(at: cursor)
+    }
+
+    func holdsLiveStackSuppression(
+        _ move: inout LiveColumnMove,
+        at cursor: CGPoint,
+        strip: [LiveColumnMove.StripColumn]
+    ) -> Bool {
+        guard move.pointerHold != nil else { return false }
+        if isLiveStackSuppressed(at: cursor, strip: strip, move: move) { return true }
+        move.pointerHold = nil
+        return false
+    }
+
+    func armLiveStackSuppression(_ move: inout LiveColumnMove, at cursor: CGPoint, context: NiriInteractionContext) {
+        guard let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow,
+              let column = window.parent as? NiriContainer,
+              !column.isTabbed
+        else { return }
+        let slot = liveWindowSpans(in: column, context: context).first { $0.window === window }
+        if slot?.contains(y: cursor.y) != true {
+            move.pointerHold = .init(point: cursor)
+        }
+    }
+
+    func liveWindowPlaces(
+        in columns: [NiriContainer],
+        context: NiriInteractionContext
+    ) -> [NodeId: CGRect] {
+        var places: [NodeId: CGRect] = [:]
+        for column in columns {
+            let windows = projectedWindows(in: column, workspaceId: context.workspaceId)
+            let tilesX = projectedTilesOrigin(displayMode: column.displayMode, visibleWindowCount: windows.count).x
+            for span in liveWindowSpans(in: column, context: context) {
+                places[span.window.id] = CGRect(x: tilesX, y: span.minY, width: 0, height: span.maxY - span.minY)
+            }
+        }
+        return places
+    }
+
+    func liveWindowFrame(
+        of window: NiriWindow,
+        in column: NiriContainer,
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) -> CGRect? {
+        guard let placed = liveColumnStrip(context: context, state: state).first(where: { $0.column === column }),
+              let place = liveWindowPlaces(in: [column], context: context)[window.id]
+        else { return nil }
+        return CGRect(
+            x: placed.minX + place.minX,
+            y: place.minY,
+            width: placed.maxX - placed.minX - place.minX,
+            height: place.height
+        ).roundedToPhysicalPixels(scale: displayScale(in: context.workspaceId))
+    }
+
+    func animateLiveViewShift(_ shift: CGFloat, context: NiriInteractionContext, state: inout ViewportState) {
+        guard abs(shift) > 0.001 else { return }
+        state.animateToOffset(
+            state.viewOffset + shift,
+            motion: context.motion,
+            scale: displayScale(in: context.workspaceId)
+        )
+    }
+
+    func animateLiveWindow(
+        _ window: NiriWindow,
+        from previous: CGRect,
+        to current: CGRect,
+        leavingColumnVertically: Bool = false,
+        context: NiriInteractionContext
+    ) {
+        let displacement = CGPoint(x: previous.minX - current.minX, y: previous.minY - current.minY)
+        let heightDelta = previous.height - current.height
+        let moves = abs(displacement.x) > 0.001 || abs(displacement.y) > 0.001
+        let resizes = previous.height > 0 && abs(heightDelta) > 0.5
+        guard moves || resizes else { return }
+        let config = context.motion.scaled(windowMovementAnimationConfig)
+        let refreshRate = displayRefreshRate(in: context.workspaceId)
+        if moves {
+            window.animateMoveFrom(
+                displacement: displacement,
+                leavingColumnVertically: leavingColumnVertically,
+                clock: animationClock,
+                config: config,
+                displayRefreshRate: refreshRate,
+                animated: context.motion.animationsEnabled
+            )
+        }
+        if resizes {
+            window.animateHeightFrom(
+                delta: heightDelta,
+                clock: animationClock,
+                config: config,
+                displayRefreshRate: refreshRate,
+                animated: context.motion.animationsEnabled
+            )
+        }
+    }
+}
+
+struct MacOSFusionConfiguration: Equatable {
+    var enabled: Bool
+    var edgePeekShare: CGFloat?
+}
+
+extension NiriLayoutEngine {
+    func applyMacOSFusion(_ configuration: MacOSFusionConfiguration) {
+        if !configuration.enabled {
+            stripGlides.removeAll()
+        }
+        tabbedColumnsFillHeight = configuration.enabled
+        windowsFillColumnHeight = configuration.enabled
+        keepsStripEndsOnScreen = configuration.enabled
+        centersFittingStrips = configuration.enabled
+        clipsOverflowToDisplay = configuration.enabled
+        keepsWindowWidths = configuration.enabled
+        edgePeekShare = configuration.edgePeekShare
+        animatesLearnedMinimumWidths = configuration.enabled
+        finishesParkedWidthChanges = configuration.enabled
+    }
+}

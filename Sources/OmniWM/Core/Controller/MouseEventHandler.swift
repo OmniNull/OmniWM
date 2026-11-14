@@ -11,6 +11,8 @@ final class MouseEventHandler {
     weak var controller: WMController?
     let eventIntake: EventIntake
     let inputTapThread = InputTapThread()
+    var livePointer = LiveDragPointer()
+    var liveDragSession: LiveDragSession?
     var state = MouseInputState() {
         didSet {
             if oldValue.capturedInteractionButton != state.capturedInteractionButton
@@ -32,12 +34,22 @@ final class MouseEventHandler {
     private var performanceCounters: MousePerformanceCounters?
     var multitouchSourceFactory: @MainActor () -> MultitouchGestureSource = { MultitouchGestureSource() }
     var pressedMouseButtonsProvider: @MainActor () -> Int = { Int(NSEvent.pressedMouseButtons) }
+    var liveDragClock: @MainActor () -> TimeInterval = { CACurrentMediaTime() }
+    var settlesNativeResizes = true
     var nativeWindowFrameProvider: @MainActor (AXWindowRef) -> CGRect? = {
         AXWindowService.framePreferFast($0)
     }
 
     var nativeWindowFrameFallbackProvider: @MainActor (AXWindowRef) -> CGRect? = {
         try? AXWindowService.frame($0)
+    }
+
+    var titleBarHitProvider: @MainActor (pid_t, CGPoint) -> TitleBarHit? = {
+        TitleBarHitTest.hit(pid: $0, at: $1)
+    }
+
+    var topmostWindowIdProvider: @MainActor (CGPoint) -> Int? = {
+        MouseEventHandler.topmostWindowId(at: $0)
     }
 
     init(controller: WMController) {
@@ -83,6 +95,7 @@ final class MouseEventHandler {
         clearNativeTitleBarDrag()
         state.nativeResizeCorrectionsByWindowId.removeAll()
         cancelActiveMouseInteraction()
+        releaseEdgeResizeHold()
         state.capturedInteractionButton = nil
         state.capturedOtherMouseButton = nil
         tearDownEventTaps()
@@ -280,6 +293,7 @@ final class MouseEventHandler {
         let otherButtonMask = resolvedOtherButtonMask
         let moveFlags = controller?.settings.gestures.mouseMoveModifierKey.cgEventFlags
         let adoptNativeResize = controller?.settings.gestures.adoptNativeResize == true
+        let macOSFusion = controller?.settings.niri.macOSFusion ?? false
         let resizeFlags = controller?.settings.gestures.mouseResizeModifierKey.cgEventFlag ?? []
         let scrollFlags = controller?.settings.gestures.scrollModifierKey.cgEventFlag ?? []
         let minFingers: Int
@@ -299,6 +313,7 @@ final class MouseEventHandler {
             snapshot.claimedOtherButtonMask = otherButtonMask
             snapshot.moveModifier = moveFlags
             snapshot.adoptNativeResize = adoptNativeResize
+            snapshot.macOSFusion = macOSFusion
             snapshot.resizeModifier = resizeFlags
             snapshot.scrollModifier = scrollFlags
             snapshot.minGestureFingers = minFingers

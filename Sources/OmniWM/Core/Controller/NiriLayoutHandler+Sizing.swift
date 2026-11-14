@@ -17,7 +17,15 @@ extension NiriLayoutHandler {
     }
 
     func cycleSize(forward: Bool) {
-        cycleContainerPrimarySpan(forward: forward)
+        guard let controller, controller.settings.niri.macOSFusion else {
+            cycleContainerPrimarySpan(forward: forward)
+            return
+        }
+        performWindowSizing(on: .focused) { engine, windowNode, context, state in
+            guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
+            engine.cycleColumnWidthAroundCentre(column, forwards: forward, context: context, state: &state)
+            return .containerPrimarySpanChanged
+        }
     }
 
     @discardableResult
@@ -211,7 +219,8 @@ extension NiriLayoutHandler {
                 motion: motion,
                 workingFrame: workingFrame,
                 gaps: gaps,
-                orientation: orientation
+                orientation: orientation,
+                state: state
             ) else { return }
             engine.recoverSettledCoverage(
                 context: .init(
@@ -230,7 +239,7 @@ extension NiriLayoutHandler {
     }
 
     func balanceSizesAllWorkspaces(on monitorId: Monitor.ID? = nil, onlyAutomaticSpans: Bool = false) {
-        guard let controller, let engine = controller.niriEngine else { return }
+        guard let controller, let engine = controller.niriEngine, !engine.keepsWindowWidths else { return }
         var changed: Set<WorkspaceDescriptor.ID> = []
         for descriptor in controller.workspaceManager.workspaces {
             guard controller.settings.workspaces.layoutType(for: descriptor.name) != .dwindle else { continue }
@@ -267,7 +276,7 @@ extension NiriLayoutHandler {
     }
 
     @discardableResult
-    private func performWindowSizing(
+    func performWindowSizing(
         on target: WindowTarget,
         focusesWindowAfterLayout: Bool = false,
         _ operation: (NiriLayoutEngine, NiriWindow, NiriInteractionContext, inout ViewportState) -> LayoutOperation?

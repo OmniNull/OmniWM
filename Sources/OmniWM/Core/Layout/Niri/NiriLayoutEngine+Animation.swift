@@ -190,6 +190,7 @@ extension NiriLayoutEngine {
         var anyRunning = false
         for column in columns {
             if column.tickMoveAnimation(at: time) { anyRunning = true }
+            if column.isParked { column.finishWidthAnimation() }
             if column.tickWidthAnimation(at: time) { anyRunning = true }
             if column.tickHeightAnimation(at: time) { anyRunning = true }
         }
@@ -356,6 +357,47 @@ extension NiriLayoutEngine {
         }
 
         return anyAnimationStarted
+    }
+
+    @discardableResult
+    func animateFilledHeightChanges(
+        in workspaceId: WorkspaceDescriptor.ID,
+        oldFrames: [WindowToken: CGRect],
+        newFrames: [WindowToken: CGRect],
+        motion: MotionSnapshot,
+        threshold: CGFloat = 1.0
+    ) -> Bool {
+        guard windowsFillColumnHeight, let root = root(for: workspaceId) else { return false }
+        var anyAnimationStarted = false
+        for window in root.allWindows {
+            guard let oldFrame = oldFrames[window.token],
+                  let newFrame = newFrames[window.token],
+                  oldFrame.height > 0,
+                  abs(oldFrame.height - newFrame.height) > threshold
+            else { continue }
+            window.animateHeightFrom(
+                delta: oldFrame.height - newFrame.height,
+                clock: animationClock,
+                config: motion.scaled(windowMovementAnimationConfig),
+                displayRefreshRate: displayRefreshRate(in: workspaceId),
+                animated: motion.animationsEnabled
+            )
+            anyAnimationStarted = true
+        }
+        return anyAnimationStarted
+    }
+
+    func framesIncludingHeightAnimations(
+        _ frames: [WindowToken: CGRect],
+        in workspaceId: WorkspaceDescriptor.ID,
+        at time: TimeInterval
+    ) -> [WindowToken: CGRect] {
+        var drawn = frames
+        for (token, frame) in frames {
+            guard let window = findNode(for: token, in: workspaceId), window.heightAnimation != nil else { continue }
+            drawn[token]?.size.height = max(1, frame.height + window.renderHeightOffset(at: time))
+        }
+        return drawn
     }
 
     func hasAnyWindowAnimationsRunning(in workspaceId: WorkspaceDescriptor.ID) -> Bool {

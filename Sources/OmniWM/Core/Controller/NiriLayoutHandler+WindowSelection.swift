@@ -39,7 +39,11 @@ extension NiriLayoutHandler {
         var states: [WindowToken: NiriContainerSizingState]?
         for token in pass.windowTokens where pass.engine.findNode(for: token, in: pass.wsId) == nil {
             let state: NiriContainerSizingState?
-            if let detached = controller.workspaceManager.restoreIntent(for: token)?.detachedNiriContainerSizingState {
+            if let fusion = macOSFusionContainerSizingState(for: token, pass: pass) {
+                state = fusion
+            } else if let detached = controller.workspaceManager.restoreIntent(for: token)?
+                .detachedNiriContainerSizingState
+            {
                 state = detached
             } else if let initial = controller.workspaceManager.admissionHints(for: token)?
                 .initialNiriContainerPrimarySpan
@@ -56,6 +60,29 @@ extension NiriLayoutHandler {
             states?[token] = state
         }
         return states
+    }
+
+    private func macOSFusionContainerSizingState(
+        for token: WindowToken,
+        pass: NiriLayoutPass
+    ) -> NiriContainerSizingState? {
+        guard let controller,
+              controller.settings.niri.macOSFusion,
+              pass.orientation == .horizontal
+        else { return nil }
+        let opening = pass.engine.takeOpeningWindow(token)
+        guard let entry = controller.workspaceManager.entry(for: token),
+              let frame = controller.axEventHandler.observedFrame(for: entry)
+        else { return nil }
+        return pass.engine.enteringContainerSizingState(
+            width: frame.width,
+            opening: opening,
+            hasRuleWidth: controller.workspaceManager.admissionHints(for: token)?
+                .initialNiriContainerPrimarySpan != nil,
+            in: pass.wsId,
+            workingWidth: pass.insetFrame.width,
+            gaps: pass.gap
+        )
     }
 
     private func unpositionedPlacements(
@@ -92,12 +119,18 @@ extension NiriLayoutHandler {
            !state.preservesGestureOffset || removal.removedColumn
            || pass.engine.effectiveSettings(in: pass.wsId).edgeOverscroll == .disabled
         {
+            if state.viewOffset != 0 || state.activeColumnIndex != 0 {
+                MouseTrace.record("niri single-window viewport reset ws=\(pass.wsId)")
+            }
             resetViewportForSingleWindowFit(state: &state)
         }
 
-        let viewportNeedsRecalc = reconcileSelectionVisibility(
-            pass: pass, state: &state, removal: removal, snapshot: snapshot, usesSingleWindowFit: usesSingleWindowFit
-        )
+        let viewportNeedsRecalc = controller?.mouseEventHandler.holdsSelectionScroll(in: pass.wsId) == true
+            ? removal.removalResult.viewportNeedsRecalc
+            : reconcileSelectionVisibility(
+                pass: pass, state: &state, removal: removal, snapshot: snapshot,
+                usesSingleWindowFit: usesSingleWindowFit
+            )
 
         let rememberedFocusToken: WindowToken?
         if let selectedId = state.selectedNodeId,
@@ -133,6 +166,9 @@ extension NiriLayoutHandler {
            snapshot.isActiveWorkspace
         {
             let isTabLocalArrival = insertion.tabLocalTokens.contains(newToken)
+            if pass.engine.isLiveColumnMoveActive(in: pass.wsId) {
+                MouseTrace.record("niri arrival during live drag ws=\(pass.wsId) token=\(TraceFormat.token(newToken))")
+            }
             state.selectedNodeId = newNode.id
 
             if wasEmpty {
@@ -270,7 +306,17 @@ extension NiriLayoutHandler {
            let selectedWindow = pass.engine.findNode(by: selectedNodeId, in: pass.wsId) as? NiriWindow,
            snapshot.excludedTokens.contains(selectedWindow.token)
         {
-            state.selectedNodeId = nil
+            let neighbour = neighbourAfterExclusion(
+                of: selectedWindow,
+                pass: pass,
+                excludedTokens: snapshot.excludedTokens
+            )
+            state.selectedNodeId = neighbour?.id
+            if let neighbour {
+                NiriLayoutTrace.record(.viewport, workspaceId: pass.wsId, {
+                    "neighbour-after-exclusion from=\(selectedWindow.token.windowId) to=\(neighbour.token.windowId)"
+                }())
+            }
         }
 
         if state.selectedNodeId == nil {
@@ -283,6 +329,28 @@ extension NiriLayoutHandler {
                 state.selectedNodeId = firstNode.id
             }
         }
+    }
+
+    private func neighbourAfterExclusion(
+        of window: NiriWindow,
+        pass: NiriLayoutPass,
+        excludedTokens: Set<WindowToken>
+    ) -> NiriWindow? {
+        guard controller?.settings.niri.macOSFusion == true,
+              let column = pass.engine.column(of: window)
+        else { return nil }
+        let isShown: (NiriWindow) -> Bool = { !excludedTokens.contains($0.token) }
+        let stack = column.windowNodes
+        if let index = stack.firstIndex(where: { $0 === window }),
+           let mate = stack[(index + 1)...].first(where: isShown) ?? stack[..<index].reversed().first(where: isShown)
+        {
+            return mate
+        }
+        let columns = pass.engine.columns(in: pass.wsId)
+        guard let columnIndex = columns.firstIndex(where: { $0 === column }) else { return nil }
+        let shownWindow: (NiriContainer) -> NiriWindow? = { $0.shownWindow(excluding: excludedTokens) }
+        return columns[(columnIndex + 1)...].lazy.compactMap(shownWindow).first
+            ?? columns[..<columnIndex].reversed().lazy.compactMap(shownWindow).first
     }
 
     private func activateFirstArrival(
@@ -395,6 +463,9 @@ extension NiriLayoutHandler {
                 : state.viewOffset - offsetBefore
             if abs(liveOffsetDelta) > 1 {
                 viewportNeedsRecalc = true
+                MouseTrace.record(
+                    "niri selection scroll ws=\(pass.wsId) delta=\(Int(liveOffsetDelta)) active=\(state.activeColumnIndex)"
+                )
             }
         }
 

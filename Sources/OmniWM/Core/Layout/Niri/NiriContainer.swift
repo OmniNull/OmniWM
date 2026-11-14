@@ -21,6 +21,14 @@ class NiriContainer: NiriNode {
     var savedWidth: ProportionalSize?
 
     var hasManualSingleWindowWidthOverride: Bool = false
+    var isLiveDropSpace = false
+    var liveSlotWidth: CGFloat?
+    var isLiveHomeSpot = false
+    var growsTowardLeadingEdge = false
+    var centreCycle: ColumnCentreCycle?
+    var widthBeforeFull: ColumnWidthBeforeFull?
+    var edgePeekCap: CGFloat?
+    var stripEndPeekRoom: StripEndPeekRoom?
 
     var height: ProportionalSize = .default
 
@@ -36,6 +44,7 @@ class NiriContainer: NiriNode {
     private var moveAnimationOrientation: Monitor.Orientation?
 
     var widthAnimation: SpringAnimation?
+    var isParked = false
     var targetWidth: CGFloat?
     var heightAnimation: SpringAnimation?
     var targetHeight: CGFloat?
@@ -78,6 +87,9 @@ class NiriContainer: NiriNode {
         contentInset: CGFloat = 0,
         applyingPackingHints: Bool = true
     ) -> CGFloat {
+        if isLiveHomeSpot, orientation == .horizontal, case let .fixed(size) = spec {
+            return size
+        }
         let bounds = orientation == .horizontal ? widthBounds(contentInset: contentInset) : heightBounds()
         var result: CGFloat = switch spec {
         case let .proportion(proportion):
@@ -96,6 +108,10 @@ class NiriContainer: NiriNode {
             )
         }
         if let effectiveMaxConstraint, result > effectiveMaxConstraint { result = effectiveMaxConstraint }
+        if orientation == .horizontal, let edgePeekCap {
+            let stripEndCap = stripEndPeekRoom?.cappedSpan(result) ?? edgePeekCap
+            result = min(result, max(min(edgePeekCap, stripEndCap), bounds.min))
+        }
         return result
     }
 
@@ -139,10 +155,13 @@ class NiriContainer: NiriNode {
     func widthBounds(contentInset: CGFloat = 0) -> (min: CGFloat, max: CGFloat?) {
         var minWidth: CGFloat = 1
         var maxWidth: CGFloat?
+        guard !isLiveHomeSpot else { return (minWidth + contentInset, nil) }
 
         for window in windowNodes {
             let constraints = window.constraints.normalized()
-            minWidth = max(minWidth, constraints.minSize.width)
+            if !window.defersMinimumWidth {
+                minWidth = max(minWidth, constraints.minSize.width)
+            }
             if constraints.hasMaxWidth {
                 let candidateMax = constraints.maxSize.width
                 maxWidth = min(maxWidth ?? candidateMax, candidateMax)
@@ -190,7 +209,7 @@ class NiriContainer: NiriNode {
         gaps: CGFloat,
         contentInset: CGFloat = 0
     ) {
-        cachedWidth = resolvedWidthPixels(
+        cachedWidth = liveSlotWidth ?? resolvedWidthPixels(
             isFullWidth ? .proportion(1) : width,
             availableSpan: workingAreaWidth,
             gaps: gaps,
@@ -272,6 +291,19 @@ class NiriContainer: NiriNode {
         } else if idx < activeTileIdx {
             activeTileIdx = max(0, activeTileIdx - 1)
         }
+    }
+}
+
+extension NiriContainer {
+    func shownWindow(excluding excludedTokens: Set<WindowToken>) -> NiriWindow? {
+        if let active = activeWindow, !excludedTokens.contains(active.token) {
+            return active
+        }
+        return windowNodes.first { !excludedTokens.contains($0.token) }
+    }
+
+    var traceWindowIds: String {
+        windowNodes.map { String($0.token.windowId) }.joined(separator: "+")
     }
 }
 

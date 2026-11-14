@@ -1,0 +1,734 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+import CoreGraphics
+import Foundation
+@testable import OmniWM
+import XCTest
+
+@MainActor
+final class NiriEdgePeekTests: XCTestCase {
+    private let peek: CGFloat = 76
+
+    private struct Fixture {
+        let engine: NiriLayoutEngine
+        let workspaceId: WorkspaceDescriptor.ID
+        let frame: CGRect
+        let gap: CGFloat
+        var tokens: [WindowToken]
+        var state: ViewportState
+
+        var context: NiriInteractionContext {
+            .init(workspaceId: workspaceId, motion: .disabled, workingFrame: frame, gaps: gap, orientation: .horizontal)
+        }
+
+        var cap: CGFloat {
+            frame.width - 2 * (76 + gap)
+        }
+
+        func window(_ index: Int) -> NiriWindow {
+            engine.findNode(for: tokens[index], in: workspaceId)!
+        }
+
+        func column(_ index: Int) -> NiriContainer {
+            engine.findColumn(containing: window(index), in: workspaceId)!
+        }
+
+        func span(of index: Int) -> ClosedRange<CGFloat> {
+            engine.columnScreenSpan(column(index), context: context, state: state)!
+        }
+
+        func spans() -> [ClosedRange<CGFloat>] {
+            tokens.indices.map(span(of:))
+        }
+
+        var leftPeek: CGFloat? {
+            spans().last { $0.lowerBound < frame.minX - 0.5 }.map { max(0, $0.upperBound - frame.minX) }
+        }
+
+        var rightPeek: CGFloat? {
+            spans().first { $0.upperBound > frame.maxX + 0.5 }.map { max(0, frame.maxX - $0.lowerBound) }
+        }
+
+        mutating func focus(_ index: Int, from previous: Int) {
+            state.selectedNodeId = window(index).id
+            engine.ensureSelectionVisible(
+                node: window(index),
+                context: context,
+                state: &state,
+                fromContainerIndex: previous
+            )
+        }
+    }
+
+    func testANearlyFullWidthColumnBetweenTwoOthersLeavesAPeekOnEachSide() {
+        var fixture = makeFixture(widths: [0.5, 0.97, 0.5], centering: .always)
+
+        fixture.focus(1, from: 0)
+
+        XCTAssertEqual(fixture.span(of: 1).upperBound - fixture.span(of: 1).lowerBound, fixture.cap, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(fixture.leftPeek), peek - 0.5)
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(fixture.rightPeek), peek - 0.5)
+    }
+
+    func testAFullWidthColumnIsCappedToLeaveBothPeeks() {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        fixture.column(1).isFullWidth = true
+        fixture.column(1).cachedWidth = 0
+
+        fixture.focus(1, from: 0)
+
+        let span = fixture.span(of: 1)
+        XCTAssertEqual(span.upperBound - span.lowerBound, fixture.cap, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(span.lowerBound, fixture.frame.minX + peek + fixture.gap - 0.5)
+        XCTAssertLessThanOrEqual(span.upperBound, fixture.frame.maxX - peek - fixture.gap + 0.5)
+    }
+
+    func testTurningPeeksOffGivesTheColumnItsStoredWidthBack() {
+        var fixture = makeFixture(widths: [0.5, 0.97, 0.5], centering: .always)
+        fixture.focus(1, from: 0)
+        let stored = fixture.column(1).width
+
+        fixture.engine.edgePeekShare = nil
+        fixture.focus(1, from: 1)
+
+        XCTAssertEqual(fixture.column(1).width, stored)
+        let span = fixture.span(of: 1)
+        XCTAssertEqual(
+            span.upperBound - span.lowerBound,
+            (fixture.frame.width - fixture.gap) * 0.97 - fixture.gap,
+            accuracy: 0.5
+        )
+    }
+
+    func testTheFirstColumnGoesToTheLeftEdgeWithAPeekOnlyOnTheRight() {
+        var fixture = makeFixture(widths: [1.0, 0.5, 0.5])
+
+        fixture.focus(0, from: 1)
+
+        XCTAssertEqual(fixture.span(of: 0).lowerBound, fixture.frame.minX + fixture.gap, accuracy: 0.5)
+        XCTAssertNil(fixture.leftPeek)
+        XCTAssertEqual(try XCTUnwrap(fixture.rightPeek), peek, accuracy: 0.5)
+    }
+
+    func testTheLastColumnGoesToTheRightEdgeWithAPeekOnlyOnTheLeft() {
+        var fixture = makeFixture(widths: [0.5, 0.5, 1.0])
+
+        fixture.focus(1, from: 0)
+        fixture.focus(2, from: 1)
+
+        XCTAssertEqual(fixture.span(of: 2).upperBound, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
+        XCTAssertNil(fixture.rightPeek)
+        XCTAssertEqual(try XCTUnwrap(fixture.leftPeek), peek, accuracy: 0.5)
+    }
+
+    func testASingleColumnHasNoPeeksAndCanBeFullWidth() {
+        var fixture = makeFixture(widths: [1.0])
+
+        fixture.focus(0, from: 0)
+
+        XCTAssertNil(fixture.column(0).edgePeekCap)
+        let span = fixture.span(of: 0)
+        XCTAssertEqual(span.upperBound - span.lowerBound, fixture.frame.width - 2 * fixture.gap, accuracy: 0.5)
+    }
+
+    func testAddingASecondColumnCapsTheFirst() {
+        var fixture = makeFixture(widths: [1.0])
+        fixture.focus(0, from: 0)
+
+        let token = WindowToken(pid: 951, windowId: 99)
+        _ = fixture.engine.addWindow(token: token, to: fixture.workspaceId, afterSelection: fixture.window(0).id)
+        fixture.tokens.append(token)
+        fixture.focus(0, from: 0)
+
+        let span = fixture.span(of: 0)
+        XCTAssertEqual(span.upperBound - span.lowerBound, fixture.cap + peek, accuracy: 0.5)
+        XCTAssertEqual(try XCTUnwrap(fixture.rightPeek), peek, accuracy: 0.5)
+    }
+
+    func testWithoutPeeksASecondColumnLeavesTheFirstAsItWas() {
+        var fixture = makeFixture(widths: [1.0])
+        fixture.engine.edgePeekShare = nil
+        fixture.focus(0, from: 0)
+        let before = fixture.span(of: 0)
+
+        let token = WindowToken(pid: 951, windowId: 99)
+        _ = fixture.engine.addWindow(token: token, to: fixture.workspaceId, afterSelection: fixture.window(0).id)
+        fixture.tokens.append(token)
+        fixture.focus(0, from: 0)
+
+        let after = fixture.span(of: 0)
+        XCTAssertNil(fixture.column(0).edgePeekCap)
+        XCTAssertEqual(after.upperBound - after.lowerBound, before.upperBound - before.lowerBound, accuracy: 0.5)
+    }
+
+    func testTheEndColumnsGiveUpRoomForOnePeekOnly() {
+        var fixture = makeFixture(widths: [1.0, 1.0, 1.0])
+
+        fixture.focus(1, from: 0)
+
+        XCTAssertEqual(fixture.column(0).cachedWidth, fixture.cap + peek, accuracy: 0.5)
+        XCTAssertEqual(fixture.column(1).cachedWidth, fixture.cap, accuracy: 0.5)
+        XCTAssertEqual(fixture.column(2).cachedWidth, fixture.cap + peek, accuracy: 0.5)
+    }
+
+    func testTheDragsPlaceholdersDontCountForTheCaps() {
+        let fixture = makeFixture(widths: [1.0])
+        let dropSpace = NiriContainer()
+        dropSpace.isLiveDropSpace = true
+        fixture.engine.root(for: fixture.workspaceId)!.insertChild(dropSpace, at: 0)
+
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+
+        XCTAssertNil(fixture.column(0).edgePeekCap)
+    }
+
+    func testTwoHalfColumnsAtTheStripStartLeaveRoomForThePeekBeyondThem() throws {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+
+        fixture.focus(0, from: 1)
+
+        XCTAssertEqual(fixture.span(of: 0).lowerBound, fixture.frame.minX + fixture.gap, accuracy: 0.5)
+        XCTAssertNil(fixture.leftPeek)
+        XCTAssertLessThanOrEqual(fixture.span(of: 1).upperBound, fixture.frame.maxX + 0.5)
+        XCTAssertEqual(try XCTUnwrap(fixture.rightPeek), peek, accuracy: 0.5)
+        XCTAssertEqual(fixture.column(0).width, .proportion(0.5))
+    }
+
+    func testTwoHalfColumnsAtTheStripEndLeaveRoomForThePeekBeforeThem() throws {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+
+        fixture.focus(1, from: 0)
+        fixture.focus(2, from: 1)
+
+        XCTAssertEqual(fixture.span(of: 2).upperBound, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
+        XCTAssertNil(fixture.rightPeek)
+        XCTAssertGreaterThanOrEqual(fixture.span(of: 1).lowerBound, fixture.frame.minX - 0.5)
+        XCTAssertEqual(try XCTUnwrap(fixture.leftPeek), peek, accuracy: 0.5)
+        XCTAssertEqual(fixture.column(2).width, .proportion(0.5))
+    }
+
+    func testStretchingAnEndColumnNarrowedForThePeekReachesThePeek() throws {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        fixture.focus(0, from: 1)
+        let before = fixture.span(of: 0)
+
+        let stretch = try XCTUnwrap(fixture.engine.columnStretchToScreenEdge(
+            fixture.column(0),
+            rightSide: true,
+            context: fixture.context,
+            state: fixture.state
+        ))
+        fixture.engine.stretchColumn(
+            fixture.column(0),
+            to: stretch,
+            rightSide: true,
+            context: fixture.context,
+            state: &fixture.state
+        )
+        fixture.focus(0, from: 0)
+
+        let after = fixture.span(of: 0)
+        XCTAssertGreaterThan(after.upperBound - after.lowerBound, before.upperBound - before.lowerBound + 100)
+        XCTAssertEqual(after.lowerBound, before.lowerBound, accuracy: 0.5)
+        XCTAssertEqual(try XCTUnwrap(fixture.rightPeek), peek, accuracy: 0.5)
+    }
+
+    func testAWidthChangeThatGivesAnEndColumnRoomForThePeekAnimates() throws {
+        var fixture = makeFixture(widths: [0.5, 0.5, 1.0 / 3.0])
+        fixture.focus(1, from: 0)
+        fixture.focus(2, from: 1)
+        let last = fixture.column(2)
+        let context = NiriInteractionContext(
+            workspaceId: fixture.workspaceId,
+            motion: .enabled,
+            workingFrame: fixture.frame,
+            gaps: fixture.gap,
+            orientation: .horizontal
+        )
+        fixture.engine.presetContainerPrimarySpans = [.proportion(1.0 / 3.0), .proportion(0.5)]
+        last.presetWidthIdx = 0
+
+        fixture.engine.toggleContainerPrimarySpan(last, forwards: true, context: context, state: &fixture.state)
+        XCTAssertEqual(last.width, .proportion(0.5))
+        fixture.engine.ensureSelectionVisible(
+            node: fixture.window(2),
+            context: context,
+            state: &fixture.state,
+            fromContainerIndex: 2
+        )
+
+        XCTAssertTrue(last.hasWidthAnimationRunning)
+        XCTAssertNotNil(last.stripEndPeekRoom)
+    }
+
+    func testAParkedColumnTakesAWidthChangeInOneStep() {
+        let fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        let parked = fixture.column(0)
+        let shown = fixture.column(1)
+        let start = parked.cachedWidth
+        parked.isParked = true
+        let now = CACurrentMediaTime()
+        for column in [parked, shown] {
+            column.animateWidthTo(newWidth: start + 100, clock: nil, config: .default, animated: true)
+        }
+
+        _ = fixture.engine.tickAllColumnAnimations(in: fixture.workspaceId, at: now + 1.0 / 60)
+
+        XCTAssertEqual(parked.cachedWidth, start + 100, accuracy: 0.5)
+        XCTAssertFalse(parked.hasWidthAnimationRunning)
+        XCTAssertLessThan(shown.cachedWidth, start + 99)
+        XCTAssertTrue(shown.hasWidthAnimationRunning)
+    }
+
+    func testOnlyWithMacOSFusionIsAColumnHiddenOffScreenParked() {
+        for fusion in [false, true] {
+            let fixture = makeFixture(widths: [0.5, 0.5, 0.5, 0.5])
+            fixture.engine.edgePeekShare = nil
+            fixture.engine.finishesParkedWidthChanges = fusion
+            var result = LayoutResult(frames: [:], hiddenHandles: [:])
+            let monitor = HiddenPlacementMonitorContext(
+                id: .init(displayId: 95), frame: fixture.frame, visibleFrame: fixture.frame
+            )
+            fixture.engine.calculateLayoutInto(
+                result: &result, state: fixture.state, workspaceId: fixture.workspaceId,
+                geometry: NiriLayoutGeometry(
+                    workingArea: WorkingAreaContext(workingFrame: fixture.frame, viewFrame: fixture.frame, scale: 1),
+                    gaps: LayoutGaps(horizontal: fixture.gap, vertical: fixture.gap), orientation: .horizontal
+                ),
+                animationTime: 0, hiddenPlacementMonitor: monitor, hiddenPlacementMonitors: [monitor],
+                isSettled: true, recordsPresentationGeometry: true
+            )
+
+            XCTAssertEqual(fixture.column(3).isParked, fusion, "macOS Fusion \(fusion)")
+        }
+    }
+
+    func testCyclingSizesNeverCoversAPeek() {
+        for target in [0, 1, 3] {
+            for forwards in [true, false] {
+                var fixture = makeFixture(widths: [0.5, 0.5, 0.5, 0.5])
+                if target > 0 {
+                    for index in 1 ... target {
+                        fixture.focus(index, from: index - 1)
+                    }
+                }
+                for press in 1 ... 6 {
+                    fixture.engine.toggleContainerPrimarySpan(
+                        fixture.column(target),
+                        forwards: forwards,
+                        context: fixture.context,
+                        state: &fixture.state
+                    )
+                    fixture.engine.resolvePrimaryContainerSpans(
+                        in: fixture.workspaceId,
+                        workingFrame: fixture.frame,
+                        gaps: fixture.gap,
+                        orientation: .horizontal
+                    )
+                    let label = "column \(target) \(forwards ? "forward" : "backward") press \(press)"
+                    let spans = fixture.spans()
+                    if spans.contains(where: { $0.lowerBound < fixture.frame.minX - 0.5 }) {
+                        XCTAssertGreaterThanOrEqual(fixture.leftPeek ?? 0, peek - 0.5, label)
+                    }
+                    if spans.contains(where: { $0.upperBound > fixture.frame.maxX + 0.5 }) {
+                        XCTAssertGreaterThanOrEqual(fixture.rightPeek ?? 0, peek - 0.5, label)
+                    }
+                }
+            }
+        }
+    }
+
+    func testFocusingANeighbourKeepsAPeekOnBothSides() throws {
+        for centering in [CenterFocusedColumn.never, .onOverflow, .always] {
+            var fixture = makeFixture(widths: [0.6, 0.6, 0.6, 0.6, 0.6], centering: centering)
+            for index in 1 ... 3 {
+                fixture.focus(index, from: index - 1)
+
+                XCTAssertGreaterThanOrEqual(try XCTUnwrap(fixture.leftPeek), peek - 0.5, "\(centering) \(index)")
+                XCTAssertGreaterThanOrEqual(try XCTUnwrap(fixture.rightPeek), peek - 0.5, "\(centering) \(index)")
+            }
+            for index in stride(from: 2, through: 1, by: -1) {
+                fixture.focus(index, from: index + 1)
+
+                XCTAssertGreaterThanOrEqual(try XCTUnwrap(fixture.leftPeek), peek - 0.5, "\(centering) \(index)")
+                XCTAssertGreaterThanOrEqual(try XCTUnwrap(fixture.rightPeek), peek - 0.5, "\(centering) \(index)")
+            }
+        }
+    }
+
+    func testANeighbourAlreadyShowingMoreThanAPeekIsLeftAsItIs() {
+        var fixture = makeFixture(widths: [0.3, 0.3, 0.3, 0.3, 0.3], centering: .never)
+        fixture.focus(1, from: 0)
+        let offset = fixture.state.viewOffset
+        let before = fixture.span(of: 2)
+
+        fixture.focus(2, from: 1)
+
+        XCTAssertEqual(fixture.span(of: 2).lowerBound, before.lowerBound, accuracy: 0.5)
+        XCTAssertNotEqual(fixture.state.viewOffset, offset)
+    }
+
+    func testPeeksLeaveVerticalStripsAlone() {
+        let fixture = makeFixture(widths: [0.97, 0.5])
+        let columns = fixture.engine.columns(in: fixture.workspaceId)
+
+        fixture.engine.applyEdgePeekCaps(
+            to: columns,
+            viewFrame: fixture.frame,
+            workingFrame: fixture.frame,
+            gap: fixture.gap,
+            orientation: .vertical
+        )
+
+        XCTAssertTrue(columns.allSatisfy { $0.edgePeekCap == nil })
+    }
+
+    func testTheTitleBarPresetsAreCappedAtThePeek() {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        fixture.focus(1, from: 0)
+        let column = fixture.column(1)
+
+        let full = column.resolvedWidthPixels(
+            .proportion(1),
+            availableSpan: fixture.frame.width,
+            gaps: fixture.gap,
+            contentInset: 0
+        )
+        let half = column.resolvedWidthPixels(
+            .proportion(0.5),
+            availableSpan: fixture.frame.width,
+            gaps: fixture.gap,
+            contentInset: 0
+        )
+
+        XCTAssertEqual(full, fixture.cap, accuracy: 0.5)
+        XCTAssertEqual(half, (fixture.frame.width - fixture.gap) * 0.5 - fixture.gap, accuracy: 0.5)
+    }
+
+    func testATitleBarPresetCycledAroundTheCentreStopsAtThePeek() {
+        var fixture = makeFixture(widths: [0.1, 0.5, 0.3, 0.3], centering: .never)
+        fixture.focus(1, from: 0)
+        let before = fixture.span(of: 1)
+
+        fixture.engine.cycleColumnWidthAroundCentre(fixture.column(1), context: fixture.context, state: &fixture.state)
+
+        let after = fixture.span(of: 1)
+        XCTAssertGreaterThan(after.upperBound - after.lowerBound, before.upperBound - before.lowerBound + 100)
+        XCTAssertGreaterThanOrEqual(after.lowerBound, fixture.frame.minX + peek + fixture.gap - 0.5)
+        XCTAssertLessThanOrEqual(after.upperBound, fixture.frame.maxX - peek - fixture.gap + 0.5)
+    }
+
+    func testCapsStayPutDuringALiveDragAndFollowTheDrop() {
+        var fixture = makeFixture(widths: [0.5, 0.97, 0.5])
+        let column = fixture.column(1)
+        let middleCap = column.edgePeekCap
+        XCTAssertNotNil(middleCap)
+        XCTAssertTrue(fixture.engine.liveColumnMoveBegin(
+            windowId: fixture.window(1).id,
+            windowToken: fixture.tokens[1],
+            context: fixture.context,
+            state: &fixture.state
+        ))
+        let root = fixture.engine.root(for: fixture.workspaceId)!
+        root.insertChild(column, at: root.children.count - 1)
+
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+        XCTAssertEqual(column.edgePeekCap, middleCap)
+
+        fixture.engine.liveColumnMove = nil
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+        XCTAssertEqual(
+            column.edgePeekCap ?? 0,
+            fixture.frame.width - peek - 2 * fixture.gap,
+            accuracy: 0.5
+        )
+    }
+
+    func testASideEdgeDoubleClickStopsAtThePeek() throws {
+        var fixture = makeFixture(widths: [0.3, 0.3, 0.3, 0.3], centering: .never)
+        fixture.focus(1, from: 0)
+        let span = fixture.span(of: 1)
+
+        let stretch = try XCTUnwrap(fixture.engine.columnStretchToScreenEdge(
+            fixture.column(1),
+            rightSide: true,
+            context: fixture.context,
+            state: fixture.state
+        ))
+
+        XCTAssertEqual(span.lowerBound + stretch.width, fixture.frame.maxX - peek - fixture.gap, accuracy: 0.5)
+    }
+
+    func testOnASideWithNothingBeyondAResizeReachesTheScreenEdge() throws {
+        var fixture = makeFixture(widths: [0.3, 0.3, 0.3], centering: .never)
+        fixture.focus(1, from: 0)
+        fixture.focus(2, from: 1)
+        let span = fixture.span(of: 2)
+
+        let stretch = try XCTUnwrap(fixture.engine.columnStretchToScreenEdge(
+            fixture.column(2),
+            rightSide: true,
+            context: fixture.context,
+            state: fixture.state
+        ))
+
+        XCTAssertEqual(span.lowerBound + stretch.width, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
+    }
+
+    func testAnEdgeSharedWithAnotherDisplayHasNoPeek() throws {
+        var fixture = makeFixture(widths: [0.5, 0.97, 0.5], centering: .always)
+        let right = CGRect(x: fixture.frame.maxX, y: 0, width: 1_200, height: 900)
+        let other = Monitor(
+            id: Monitor.ID(displayId: 96), displayId: 96, frame: right, visibleFrame: right,
+            hasNotch: false, name: "Right of edge peeks"
+        )
+        let otherWorkspace = WorkspaceDescriptor.ID()
+        let monitor = try XCTUnwrap(fixture.engine.monitorForWorkspace(fixture.workspaceId))
+        fixture.engine.syncWorkspaceAssignments(
+            [
+                (workspaceId: fixture.workspaceId, monitor: Monitor(
+                    id: monitor.id, displayId: monitor.displayId, frame: fixture.frame, visibleFrame: fixture.frame,
+                    hasNotch: false, name: "Edge peeks"
+                )),
+                (workspaceId: otherWorkspace, monitor: other)
+            ],
+            orientations: [monitor.id: .horizontal, other.id: .horizontal]
+        )
+
+        fixture.focus(1, from: 0)
+
+        XCTAssertEqual(
+            fixture.engine.edgePeekWidths(in: fixture.workspaceId),
+            EdgePeekWidths(leading: peek, trailing: 0)
+        )
+        let span = fixture.span(of: 1)
+        XCTAssertEqual(span.upperBound - span.lowerBound, fixture.frame.width - peek - 2 * fixture.gap, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(fixture.leftPeek), peek - 0.5)
+    }
+
+    func testAMaximisedColumnIsntCapped() {
+        var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        fixture.focus(1, from: 0)
+        let column = fixture.column(1)
+
+        fixture.window(1).sizingMode = .maximized
+        let area = ViewportFittingAreas(geometry: NiriViewportGeometry(
+            gap: fixture.gap,
+            viewportSpan: fixture.frame.width,
+            orientation: .horizontal,
+            workingArea: fixture.frame,
+            viewFrame: fixture.frame,
+            edgePeeks: EdgePeekWidths(leading: peek, trailing: peek)
+        )).fittingArea(for: ViewportColumnTarget(
+            index: 1,
+            position: 0,
+            span: column.cachedWidth,
+            mode: column.effectiveSizingMode,
+            columnCount: 3
+        ))
+
+        XCTAssertEqual(area.width, fixture.frame.width, accuracy: 0.5)
+    }
+
+    func testAScrollEndingOnAFullscreenOrMaximisedColumnLeavesItCoveringTheScreen() {
+        for mode in [SizingMode.fullscreen, .maximized] {
+            for snaps in [true, false] {
+                let strip = columns([600, 1000, 600])
+                let window = NiriWindow(token: WindowToken(pid: 945, windowId: 1))
+                window.sizingMode = mode
+                strip[1].appendChild(window)
+                var state = ViewportState()
+                state.endGesture(
+                    currentOffset: 0,
+                    projectedOffset: 610,
+                    columns: strip,
+                    geometry: geometry(edgePeek: 100),
+                    motion: .disabled,
+                    snapToColumn: snaps,
+                    edges: .init(keepsStripEndsOnScreen: true)
+                )
+                let viewStart = state.containerPosition(
+                    at: state.activeColumnIndex, containers: strip, gap: 10, sizeKeyPath: \.cachedWidth
+                ) + state.viewOffset
+
+                XCTAssertEqual(state.activeColumnIndex, 1, "\(mode), snaps \(snaps)")
+                XCTAssertEqual(viewStart, 610, accuracy: 0.5, "\(mode), snaps \(snaps)")
+            }
+        }
+    }
+
+    func testAScrollEndingWithTheEdgeInAGapSlidesToShowThePeek() {
+        let viewStart = landing(at: 225, widths: Array(repeating: 400, count: 6))
+
+        XCTAssertEqual(viewStart, 230 + peek, accuracy: 0.001)
+    }
+
+    func testAScrollEndingWithTooLittleOfTheNextColumnShowingSlidesToShowThePeek() {
+        let viewStart = landing(at: 250, widths: Array(repeating: 400, count: 6))
+
+        XCTAssertEqual(viewStart, 230 + peek, accuracy: 0.001)
+    }
+
+    func testAScrollEndingWithAPeekShowingDoesntMove() {
+        let viewStart = landing(at: 310, widths: Array(repeating: 400, count: 6))
+
+        XCTAssertEqual(viewStart, 310, accuracy: 0.001)
+    }
+
+    func testWhenOnePeekWouldHideTheOtherTheViewGoesToTheNearestPlaceWithBoth() throws {
+        let widths: [CGFloat] = Array(repeating: 300, count: 6)
+
+        let viewStart = landing(at: 280, widths: widths)
+
+        let areas = ViewportFittingAreas(geometry: geometry(edgePeek: peek))
+        let missing = areas.missingEdgePeeks(
+            at: viewStart,
+            spans: widths,
+            gap: 10,
+            peeks: EdgePeekWidths(leading: peek, trailing: peek)
+        )
+        XCTAssertEqual(missing.leading, 0, accuracy: 0.5)
+        XCTAssertEqual(missing.trailing, 0, accuracy: 0.5)
+        XCTAssertEqual(viewStart, 316, accuracy: 1)
+    }
+
+    func testAScrollEndingWithMomentumCorrectsOnlyOnceItLands() {
+        let widths: [CGFloat] = Array(repeating: 400, count: 6)
+        var state = ViewportState()
+        state.endGesture(
+            currentOffset: 100,
+            projectedOffset: 225,
+            columns: columns(widths),
+            geometry: geometry(edgePeek: peek),
+            motion: .enabled,
+            snapToColumn: false,
+            edges: .init(keepsStripEndsOnScreen: true)
+        )
+
+        let viewStart = state.containerPosition(
+            at: state.activeColumnIndex,
+            containers: columns(widths),
+            gap: 10,
+            sizeKeyPath: \.cachedWidth
+        ) + state.viewOffset
+        XCTAssertEqual(viewStart, 230 + peek, accuracy: 0.001)
+        XCTAssertEqual(state.offsetTransition.kind, .deceleration)
+    }
+
+    func testAtTheStripsEndsTheScrollStillRestsAGapFromTheEdge() {
+        let widths: [CGFloat] = Array(repeating: 400, count: 6)
+
+        XCTAssertEqual(landing(at: -500, widths: widths), -10, accuracy: 0.001)
+        XCTAssertEqual(landing(at: 5000, widths: widths), 2450 + 10 - 1000, accuracy: 0.001)
+    }
+
+    func testWithAllowOverscrollOnTheEndColumnStillShowsAtLeastAPeek() {
+        let widths: [CGFloat] = Array(repeating: 400, count: 6)
+        var state = ViewportState()
+        state.endGesture(
+            currentOffset: 0,
+            projectedOffset: 5000,
+            columns: columns(widths),
+            geometry: NiriViewportGeometry(
+                gap: 10,
+                viewportSpan: 1000,
+                orientation: .horizontal,
+                edgeOverscroll: .enabled(visibleFraction: 0.05),
+                edgePeeks: EdgePeekWidths(leading: peek, trailing: peek)
+            ),
+            motion: .disabled,
+            snapToColumn: false,
+            edges: .init(keepsStripEndsOnScreen: true)
+        )
+
+        let viewStart = state.containerPosition(
+            at: state.activeColumnIndex,
+            containers: columns(widths),
+            gap: 10,
+            sizeKeyPath: \.cachedWidth
+        ) + state.viewOffset
+        XCTAssertEqual(viewStart, 2450 - peek, accuracy: 0.5)
+    }
+
+    func testWithoutPeeksAnOffsetComesBackExactlyAsItWas() {
+        let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
+        let areas = ViewportFittingAreas(working: frame, parent: frame, orientation: .horizontal, scale: 2)
+        let target = ViewportColumnTarget(index: 1, position: 0.1, span: 400, mode: .normal)
+
+        XCTAssertEqual(areas.offsetShowingEdgePeeks(0.2, target: target, containers: [], gap: 12), 0.2)
+    }
+
+    func testWithoutPeeksAScrollEndsWhereItLands() {
+        XCTAssertEqual(landing(at: 225, widths: Array(repeating: 400, count: 6), edgePeek: nil), 225, accuracy: 0.001)
+    }
+
+    private func landing(at viewStart: CGFloat, widths: [CGFloat], edgePeek: CGFloat? = 76) -> CGFloat {
+        var state = ViewportState()
+        state.endGesture(
+            currentOffset: 0,
+            projectedOffset: Double(viewStart),
+            columns: columns(widths),
+            geometry: geometry(edgePeek: edgePeek),
+            motion: .disabled,
+            snapToColumn: false,
+            edges: .init(keepsStripEndsOnScreen: true)
+        )
+        return state.containerPosition(
+            at: state.activeColumnIndex,
+            containers: columns(widths),
+            gap: 10,
+            sizeKeyPath: \.cachedWidth
+        ) + state.viewOffset
+    }
+
+    private func geometry(edgePeek: CGFloat?) -> NiriViewportGeometry {
+        NiriViewportGeometry(
+            gap: 10,
+            viewportSpan: 1000,
+            orientation: .horizontal,
+            edgePeeks: edgePeek.map { EdgePeekWidths(leading: $0, trailing: $0) }
+        )
+    }
+
+    private func columns(_ widths: [CGFloat]) -> [NiriContainer] {
+        widths.map { width in
+            let column = NiriContainer()
+            column.cachedWidth = width
+            return column
+        }
+    }
+
+    private func makeFixture(widths: [CGFloat], centering: CenterFocusedColumn = .onOverflow) -> Fixture {
+        let engine = NiriLayoutEngine()
+        engine.centerFocusedColumn = centering
+        engine.keepsStripEndsOnScreen = true
+        engine.edgePeekShare = 76.0 / 1_500
+        let workspaceId = WorkspaceDescriptor.ID()
+        let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
+        let monitor = Monitor(
+            id: Monitor.ID(displayId: 95), displayId: 95, frame: frame, visibleFrame: frame,
+            hasNotch: false, name: "Edge peeks"
+        )
+        engine.syncWorkspaceAssignments(
+            [(workspaceId: workspaceId, monitor: monitor)],
+            orientations: [monitor.id: .horizontal]
+        )
+        let tokens = widths.indices.map { WindowToken(pid: 951, windowId: $0 + 1) }
+        var previous: NiriWindow?
+        for token in tokens {
+            previous = engine.addWindow(token: token, to: workspaceId, afterSelection: previous?.id)
+        }
+        for (column, width) in zip(engine.columns(in: workspaceId), widths) {
+            column.width = .proportion(width)
+            column.cachedWidth = 0
+        }
+        let gap: CGFloat = 12
+        engine.resolvePrimaryContainerSpans(in: workspaceId, workingFrame: frame, gaps: gap, orientation: .horizontal)
+        let active = engine.findNode(for: tokens[0], in: workspaceId)!
+        var state = ViewportState(selectedNodeId: active.id)
+        state.activeColumnIndex = 0
+        state.jumpOffset(to: -gap)
+        return Fixture(engine: engine, workspaceId: workspaceId, frame: frame, gap: gap, tokens: tokens, state: state)
+    }
+}

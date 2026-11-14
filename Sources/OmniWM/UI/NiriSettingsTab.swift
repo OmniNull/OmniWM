@@ -48,6 +48,7 @@ struct NiriSettingsTab: View {
 private struct GlobalNiriSettingsSection: View {
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
+    @State private var windowTilingSettingsProbe = WindowTilingSettingsProbe()
 
     var body: some View {
         let spanMode = Binding<NiriDefaultSpanSettingsSection.Mode>(
@@ -82,9 +83,16 @@ private struct GlobalNiriSettingsSection: View {
                 valueWidth: 32
             )
             .id("Visible Containers")
+            .disabled(settings.niri.macOSFusion)
             .onChange(of: settings.niri.visibleContainerCount) { _, newValue in
                 controller.updateNiriConfig(visibleContainerCount: newValue)
                 controller.rebalanceNiriSizesForVisibleContainerCountChange()
+            }
+
+            if settings.niri.macOSFusion {
+                SettingsCaption(
+                    localized: "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off."
+                )
             }
 
             Toggle("Infinite Loop Navigation", isOn: Bindable(settings.niri).infiniteLoop)
@@ -191,6 +199,57 @@ private struct GlobalNiriSettingsSection: View {
         }
         .id("Niri Layout")
 
+        Section("macOS Fusion") {
+            Toggle("macOS Fusion", isOn: Bindable(settings.niri).macOSFusion)
+                .onChange(of: settings.niri.macOSFusion) {
+                    controller.applyMacOSFusionSettings()
+                    refreshWindowTilingProbe()
+                }
+                .onAppear(perform: refreshWindowTilingProbe)
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    refreshWindowTilingProbe()
+                }
+
+            SettingsCaption(
+                localized: "Drag a tiled window by its title bar to move its Niri column. Rest on another window and the windows slide over to make room; near a screen edge, a narrow gap shows where it will land, and holding the pointer at the edge scrolls. Release to drop it. Off: title-bar drags snap back."
+            )
+
+            if settings.niri.macOSFusion, !windowTilingSettingsProbe.enabledSettings.isEmpty {
+                windowTilingNote
+            }
+
+            SettingsSliderRow(
+                label: String(localized: "Peripheral Vision"),
+                value: Bindable(settings.niri).edgePeekPercent,
+                range: 0 ... 10,
+                step: 0.5,
+                valueText: settings.niri.edgePeekPercent.formatted(.number.precision(.fractionLength(0 ... 1))) + "%",
+                valueWidth: 56
+            )
+            .id("Peripheral Vision")
+            .disabled(!settings.niri.macOSFusion)
+            .onChange(of: settings.niri.edgePeekPercent) {
+                if settings.niri.macOSFusion {
+                    controller.applyMacOSFusionSettings()
+                }
+            }
+
+            SettingsCaption(
+                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. A share of each display’s width; at 0%, peeking is off."
+            )
+
+            LayoutHistoryHotkeyRow(actionId: "undo", anchor: "Undo", settings: settings, controller: controller)
+                .disabled(!settings.niri.macOSFusion)
+
+            LayoutHistoryHotkeyRow(actionId: "redo", anchor: "Redo", settings: settings, controller: controller)
+                .disabled(!settings.niri.macOSFusion)
+
+            SettingsCaption(
+                localized: "Undo takes back the last change to the windows in this workspace, such as a move, a stack, a resize or tabs, up to 20 changes. Redo puts it back."
+            )
+        }
+        .id("macOS Fusion")
+
         NiriDefaultSpanSettingsSection(
             allowsGlobal: false,
             mode: spanMode,
@@ -257,6 +316,31 @@ private struct GlobalNiriSettingsSection: View {
     }
 }
 
+private extension GlobalNiriSettingsSection {
+    func refreshWindowTilingProbe() {
+        guard settings.niri.macOSFusion else { return }
+        windowTilingSettingsProbe.refresh()
+    }
+
+    var windowTilingNote: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(
+                "macOS window tiling interferes with dragging. Turn off these settings in Desktop & Dock:",
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            ForEach(windowTilingSettingsProbe.enabledSettings, id: \.preferenceKey) { setting in
+                Text(verbatim: "• \(setting.localizedName)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Button("Open Desktop & Dock Settings", action: windowTilingSettingsProbe.openDesktopAndDockSettings)
+                .accessibilityHint("Opens macOS Desktop & Dock settings, where window tiling can be turned off.")
+        }
+    }
+}
+
 private struct MonitorNiriSettingsSection: View {
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
@@ -319,6 +403,13 @@ private struct MonitorNiriSettingsSection: View {
                 },
                 onReset: { updateSetting { $0.visibleContainerCount = nil } }
             )
+            .disabled(settings.niri.macOSFusion)
+
+            if settings.niri.macOSFusion {
+                SettingsCaption(
+                    localized: "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off."
+                )
+            }
 
             OverridableToggle(
                 label: String(localized: "Infinite Loop Navigation"),
@@ -376,6 +467,25 @@ private struct MonitorNiriSettingsSection: View {
             )
         }
         .id("Niri Layout")
+
+        Section("macOS Fusion") {
+            OverridableSlider(
+                label: String(localized: "Peripheral Vision"),
+                value: ms.edgePeekPercent,
+                globalValue: settings.niri.edgePeekPercent,
+                range: 0 ... 10,
+                step: 0.5,
+                formatter: { $0.formatted(.number.precision(.fractionLength(0 ... 1))) + "%" },
+                onChange: { newValue in updateSetting { $0.edgePeekPercent = newValue } },
+                onReset: { updateSetting { $0.edgePeekPercent = nil } }
+            )
+            .disabled(!settings.niri.macOSFusion)
+
+            SettingsCaption(
+                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. A share of each display’s width; at 0%, peeking is off."
+            )
+        }
+        .id("macOS Fusion")
 
         NiriDefaultSpanSettingsSection(allowsGlobal: true, mode: spanMode, percent: spanPercent)
     }

@@ -161,13 +161,19 @@ final class ServiceLifecycleManager {
         startSecureInputMonitor()
     }
 
-    private func connectAXFrameCallbacks(_ controller: WMController) {
+    func connectAXFrameCallbacks(_ controller: WMController) {
         controller.axManager.onTerminalFrameRefusal = { [weak controller] refusal in
             controller?.niriEdgePictures.frameApplicationEnded(
                 token: WindowToken(pid: refusal.pid, windowId: refusal.windowId),
                 targetFrame: refusal.targetFrame, applied: false
             )
             controller?.axEventHandler.handleTerminalFrameRefusal(refusal)
+            controller?.niriLayoutHandler.reportSizeTaken(
+                pid: refusal.pid,
+                windowId: refusal.windowId,
+                asked: refusal.targetFrame,
+                taken: refusal.observedFrame
+            )
             controller?.axEventHandler.releaseFocusLossRescan(windowId: refusal.windowId)
         }
         controller.axManager.onFrameApplyTerminated = { [weak controller] result in
@@ -183,6 +189,15 @@ final class ServiceLifecycleManager {
         }
         controller.axManager.onStableSizeClamp = { [weak controller] result in
             controller?.adoptObservedMinimumAfterStableSizeClamp(result)
+            if let taken = result.writeResult.observedFrame {
+                controller?.niriLayoutHandler.reportSizeTaken(
+                    pid: result.pid,
+                    windowId: result.windowId,
+                    asked: result.targetFrame,
+                    taken: taken,
+                    expectedWindow: result.expectedWindow
+                )
+            }
         }
         controller.axManager.onManagedWindowBindingFailed = { [weak controller] pid in
             controller?.layoutRefreshController.requestFullRescan(

@@ -65,7 +65,9 @@ extension NiriLayoutHandler {
         let columnAnimationsRunning = engine.tickAllColumnAnimations(in: wsId, at: targetTime)
         let viewportTick = controller.workspaceManager.animationDriver.tickResult(in: wsId, at: targetTime)
         applyExpiredViewportGesture(viewportTick, workspaceId: wsId, controller: controller)
+        controller.mouseEventHandler.handleLiveEdgeScrollTick(in: wsId, at: targetTime)
         let viewportMotionRunning = viewportTick.isRunning
+            || controller.workspaceManager.animationDriver.hasEdgeScroll(in: wsId)
         let animsMs = scrollTrace ? (CACurrentMediaTime() - animsStart) * 1000 : 0
         let state = controller.workspaceManager.niriViewportState(for: wsId)
         let animationsOngoing = viewportMotionRunning
@@ -98,6 +100,7 @@ extension NiriLayoutHandler {
                 activeWorkspaceIds: activeWorkspaceIds(controller: controller)
             )
             controller.layoutRefreshController.stopScrollAnimation(for: displayId)
+            controller.mouseEventHandler.handleNiriAnimationsSettled(in: wsId)
         }
     }
 
@@ -267,6 +270,7 @@ extension NiriLayoutHandler {
         terminateViewportGesture(for: workspaceId, disposition: gestureDisposition)
         driver.removeMotions(for: [workspaceId])
         let hadEngineAnimations = engine?.cancelAnimations(in: workspaceId) == true
+        controller.mouseEventHandler.finishInterruptedLiveStackDrop(in: workspaceId)
         return hadViewportMotion || hadEngineAnimations
     }
 

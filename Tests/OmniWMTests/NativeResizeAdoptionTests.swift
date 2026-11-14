@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import Carbon
 import CoreGraphics
 @testable import OmniWM
 import XCTest
@@ -46,6 +47,14 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
         func niriNode(_ token: WindowToken) throws -> NiriWindow {
             try XCTUnwrap(controller.niriEngine?.findNode(for: token, in: workspaceId))
+        }
+
+        func column(_ token: WindowToken) throws -> NiriContainer {
+            try XCTUnwrap(controller.niriEngine?.findColumn(containing: niriNode(token), in: workspaceId))
+        }
+
+        func target(_ token: WindowToken) throws -> NiriLayoutHandler.WindowTarget {
+            try .window(XCTUnwrap(manager.handle(for: token)))
         }
 
         func frames() throws -> [WindowToken: CGRect] {
@@ -251,6 +260,127 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 || fixture.controller.niriLayoutHandler.scrollAnimationByDisplay[fixture.monitor.displayId]
                 == fixture.workspaceId
         )
+    }
+
+    func testAResizeIsAdoptedOnceTheWindowHasCaughtUpAfterTheRelease() throws {
+        let fixture = try makeFixture(.niri, pid: 834_013)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.handler.settlesNativeResizes = true
+        let resized = fixture.tokens[0]
+        let start = try fixture.frame(resized)
+        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        try fixture.beginDrag(resized)
+        reported.frame = grown(start, right: 20)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+
+        fixture.handler.state.leftPressLocation = CGPoint(x: start.center.x - 240, y: start.center.y)
+        fixture.handler.dispatchMouseUp(at: start.center)
+        XCTAssertEqual(fixture.phase, .settlingResize)
+
+        reported.frame = grown(start, right: 120)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+        XCTAssertEqual(fixture.phase, .settlingResize)
+        reported.frame = grown(start, right: 240)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+
+        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
+        XCTAssertEqual(try fixture.frame(resized).width, start.width + 240, accuracy: FrameTolerance.frameWrite)
+    }
+
+    func testAResizeThatReachesItsSizeAtTheReleaseIsAdoptedWithoutSettling() throws {
+        let fixture = try makeFixture(.niri, pid: 834_016)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.handler.settlesNativeResizes = true
+        let resized = fixture.tokens[0]
+        let start = try fixture.frame(resized)
+        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        try fixture.beginDrag(resized)
+        reported.frame = grown(start, right: 180)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+
+        fixture.handler.state.leftPressLocation = CGPoint(x: start.center.x - 180, y: start.center.y)
+        fixture.handler.dispatchMouseUp(at: start.center)
+
+        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
+        XCTAssertNotEqual(fixture.phase, .settlingResize)
+    }
+
+    func testAResizeStoppedByTheWindowsMinimumSettlesThereWithoutWaitingForInput() throws {
+        let fixture = try makeFixture(.niri, pid: 834_017)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.handler.settlesNativeResizes = true
+        let resized = fixture.tokens[0]
+        let start = try fixture.frame(resized)
+        var evidence = ObservedSizeEvidence()
+        evidence.minSize = CGSize(width: start.width - 100, height: 1)
+        _ = fixture.manager.setObservedSizeEvidence(evidence, for: resized)
+        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        try fixture.beginDrag(resized)
+        reported.frame = grown(start, right: -20)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+
+        fixture.handler.state.leftPressLocation = CGPoint(x: start.center.x + 300, y: start.center.y)
+        fixture.handler.dispatchMouseUp(at: start.center)
+        XCTAssertEqual(fixture.phase, .settlingResize)
+        reported.frame = grown(start, right: -100)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+
+        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
+        XCTAssertEqual(try fixture.frame(resized).width, start.width - 100, accuracy: FrameTolerance.frameWrite)
+    }
+
+    func testAResizeThatArrivesAfterTheReleaseIsKeptOverAPendingLayoutWrite() throws {
+        let fixture = try makeFixture(.niri, pid: 834_015)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.handler.settlesNativeResizes = true
+        let resized = fixture.tokens[0]
+        let start = try fixture.frame(resized)
+        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        try fixture.beginDrag(resized)
+        fixture.handler.dispatchMouseUp(at: start.center)
+        XCTAssertEqual(fixture.phase, .awaitingFrameChange)
+
+        let reference = try XCTUnwrap(fixture.entry(resized).axRef)
+        fixture.controller.axManager.applyFramesParallel([
+            AXFrameApplicationTarget(pid: resized.pid, window: reference, frame: start.offsetBy(dx: 30, dy: 0))
+        ])
+        XCTAssertTrue(fixture.controller.axManager.isAwaitingFrameWrite(resized.windowId))
+        reported.frame = grown(start, right: 200)
+        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+        XCTAssertEqual(fixture.phase, .settlingResize)
+        fixture.handler.finishNativeResizeSettling()
+
+        XCTAssertEqual(try fixture.frame(resized).width, start.width + 200, accuracy: FrameTolerance.frameWrite)
+    }
+
+    func testAPressWhileAResizeSettlesAdoptsItFirst() throws {
+        let fixture = try makeFixture(.niri, pid: 834_014)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.handler.settlesNativeResizes = true
+        let resized = fixture.tokens[0]
+        let start = try fixture.frame(resized)
+
+        try fixture.release(resized, at: grown(start, right: 120))
+        XCTAssertEqual(fixture.phase, .settlingResize)
+
+        try fixture.beginDrag(fixture.tokens[1])
+
+        XCTAssertEqual(try fixture.frame(resized).width, start.width + 120, accuracy: FrameTolerance.frameWrite)
+        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
     }
 
     func testNiriLeftEdgeKeepsTheRightEdgeInPlace() throws {
@@ -1167,6 +1297,57 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             XCTAssertEqual(fixture.phase, .awaitingCorrection)
             XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
         }
+    }
+
+    func testAnEdgeDragDuringAPendingWriteStartsFromThePendingFrame() throws {
+        let fixture = try makeFixture(.niri, pid: 834_047)
+        fixture.controller.settings.niri.macOSFusion = true
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let token = fixture.tokens[0]
+        let start = try fixture.frame(token)
+        let reference = try XCTUnwrap(fixture.entry(token).axRef)
+        let pending = start.offsetBy(dx: -30, dy: 0)
+        fixture.controller.axManager.applyFramesParallel([
+            AXFrameApplicationTarget(pid: token.pid, window: reference, frame: pending)
+        ])
+        XCTAssertTrue(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
+        let grownFrame = grown(pending, right: 200)
+        fixture.handler.nativeWindowFrameProvider = { _ in grownFrame }
+
+        try fixture.beginDrag(token)
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
+        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.pendingWriteStartFrame, pending)
+        fixture.handler.dispatchMouseUp(at: grownFrame.center)
+
+        XCTAssertEqual(try fixture.frame(token).width, grownFrame.width, accuracy: FrameTolerance.frameWrite)
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.pendingWriteStartFrame)
+    }
+
+    func testWithMacOSFusionOffAnEdgeDragDuringAPendingWriteIsPutBack() throws {
+        let fixture = try makeFixture(.niri, pid: 834_048)
+        XCTAssertFalse(fixture.controller.settings.niri.macOSFusion)
+        XCTAssertTrue(fixture.controller.settings.gestures.adoptNativeResize)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let token = fixture.tokens[0]
+        let start = try fixture.frame(token)
+        let reference = try XCTUnwrap(fixture.entry(token).axRef)
+        let pending = start.offsetBy(dx: -30, dy: 0)
+        fixture.controller.axManager.applyFramesParallel([
+            AXFrameApplicationTarget(pid: token.pid, window: reference, frame: pending)
+        ])
+        XCTAssertTrue(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
+        let grownFrame = grown(pending, right: 200)
+        fixture.handler.nativeWindowFrameProvider = { _ in grownFrame }
+
+        try fixture.beginDrag(token)
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.pendingWriteStartFrame)
+        fixture.handler.dispatchMouseUp(at: grownFrame.center)
+
+        XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
     }
 
     func testFrameFallbackAdoptsNativeResizeThroughTheNormalDragLifecycle() throws {
@@ -2943,6 +3124,284 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         XCTAssertEqual(try single.frames(), singleBefore)
     }
 
+    func testUndoGivesALoneFilledWindowItsFillFrameBack() throws {
+        for (index, fusion) in [false, true].enumerated() {
+            let fixture = try makeFixture(.niri, windowCount: 1, pid: pid_t(834_081 + index))
+            fixture.controller.settings.gestures.adoptNativeResize = !fusion
+            fixture.controller.settings.niri.macOSFusion = fusion
+            fixture.controller.motionPolicy.animationsEnabled = false
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let before = try fixture.frames()
+            try fixture.release(token, at: grown(try fixture.frame(token), right: -300))
+            XCTAssertNotEqual(try fixture.frames(), before, "fusion=\(fusion)")
+            guard fusion else {
+                XCTAssertFalse(undo(fixture))
+                continue
+            }
+
+            XCTAssertTrue(undo(fixture), "fusion=\(fusion)")
+
+            XCTAssertFalse(try fixture.column(token).hasManualSingleWindowWidthOverride, "fusion=\(fusion)")
+            XCTAssertEqual(try fixture.frames(), before, "fusion=\(fusion)")
+            XCTAssertFalse(undo(fixture), "fusion=\(fusion)")
+        }
+    }
+
+    func testUndoAndRedoAreRegisteredOnlyWithMacOSFusionAndKeepTheirBindings() throws {
+        let fixture = try makeFixture(.niri, pid: 834_090)
+        let controller = fixture.controller
+        let registered = { (id: String) in controller.hotkeys.configuration.bindings.contains { $0.id == id } }
+        for id in ["undo", "redo"] {
+            XCTAssertNotNil(controller.settings.hotkeyBindings.first { $0.id == id }, id)
+        }
+
+        controller.settings.niri.macOSFusion = false
+        controller.applyMacOSFusionSettings()
+        XCTAssertFalse(controller.settings.isCommandFeatureEnabled(.sizing(.undo)))
+        XCTAssertFalse(controller.settings.isCommandFeatureEnabled(.sizing(.redo)))
+        let undo = try XCTUnwrap(controller.settings.hotkeyBindings.first { $0.id == "undo" })
+        XCTAssertTrue(controller.settings.findConflicts(for: undo.binding, excluding: "other").isEmpty)
+        XCTAssertFalse(registered("undo"))
+        XCTAssertFalse(registered("redo"))
+
+        controller.settings.niri.macOSFusion = true
+        controller.applyMacOSFusionSettings()
+        XCTAssertTrue(controller.settings.isCommandFeatureEnabled(.sizing(.undo)))
+        XCTAssertEqual(
+            controller.settings.findConflicts(for: undo.binding, excluding: "other").map(\.id),
+            ["undo"]
+        )
+        XCTAssertTrue(registered("undo"))
+        XCTAssertTrue(registered("redo"))
+    }
+
+    func testCapturedChordsKeepTheirModifierSideAndSidesCanBeSet() throws {
+        let fixture = try makeFixture(.niri, pid: 834_091)
+        let settings = fixture.controller.settings
+        let chord = KeyBinding(keyCode: 6, modifiers: UInt32(optionKey | cmdKey))
+        settings.updateTrigger(for: "undo", newTrigger: .chord(chord.settingSide(.right)))
+
+        let replacement = KeyBinding(keyCode: 7, modifiers: UInt32(optionKey | cmdKey))
+        let kept = HotkeyBindingEditor.triggerKeepingSide(.chord(replacement), for: "undo", settings: settings)
+        XCTAssertEqual(kept.chordBinding, replacement.settingSide(.right))
+        XCTAssertEqual(
+            HotkeyBindingEditor.trigger(for: "undo", side: .left, settings: settings)?.chordBinding,
+            chord.settingSide(.left)
+        )
+    }
+
+    func testUndoTakesBackTheLastResizeThenTheOneBeforeAndRedoPutsThemBack() throws {
+        let fixture = try makeFixture(.niri, pid: 834_084)
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.motionPolicy.animationsEnabled = false
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (first, second) = (fixture.tokens[0], fixture.tokens[1])
+        let firstSpec = try fixture.column(first).width
+        let secondSpec = try fixture.column(second).width
+        try fixture.release(first, at: grown(try fixture.frame(first), right: 200))
+        try fixture.confirmLayout()
+        let firstResized = try fixture.column(first).width
+        try fixture.release(second, at: grown(try fixture.frame(second), right: -100))
+        let secondResized = try fixture.column(second).width
+
+        XCTAssertTrue(undo(fixture))
+        XCTAssertEqual(try fixture.column(second).width, secondSpec)
+        XCTAssertEqual(try fixture.column(first).width, firstResized)
+        XCTAssertTrue(undo(fixture))
+        XCTAssertEqual(try fixture.column(first).width, firstSpec)
+
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.redo))
+        XCTAssertEqual(try fixture.column(first).width, firstResized)
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.redo))
+        XCTAssertEqual(try fixture.column(second).width, secondResized)
+        XCTAssertFalse(fixture.controller.niriLayoutHandler.stepLayoutHistory(.redo))
+    }
+
+    func testUndoGivesAStackBothHeightsBack() throws {
+        let fixture = try makeFixture(.niri, stacked: true, pid: 834_085)
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.motionPolicy.animationsEnabled = false
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (top, bottom) = try stackedTopAndBottom(fixture)
+        let before = try fixture.frames()
+        try fixture.release(top, at: grown(try fixture.frame(top), bottom: 100))
+        XCTAssertNotEqual(try fixture.frame(bottom).height, before[bottom]?.height)
+
+        XCTAssertTrue(undo(fixture))
+
+        XCTAssertEqual(try fixture.frames(), before)
+    }
+
+    func testUndoTakesBackAKeyboardSizeChangeBeforeTheResizeBeforeIt() throws {
+        let fixture = try makeFixture(.niri, pid: 834_086)
+        fixture.controller.settings.niri.macOSFusion = true
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let token = fixture.tokens[0]
+        let spec = try fixture.column(token).width
+        try fixture.release(token, at: grown(try fixture.frame(token), right: 200))
+        let resized = try fixture.column(token).width
+        let node = try fixture.niriNode(token)
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { $0.selectedNodeId = node.id }
+        _ = fixture.controller.commandHandler.performCommand(.sizing(.toggleContainerFullPrimarySpan))
+        XCTAssertTrue(try fixture.column(token).isFullWidth)
+
+        XCTAssertTrue(undo(fixture))
+        XCTAssertFalse(try fixture.column(token).isFullWidth)
+        XCTAssertEqual(try fixture.column(token).width, resized)
+        XCTAssertTrue(undo(fixture))
+        XCTAssertEqual(try fixture.column(token).width, spec)
+    }
+
+    func testUndoAnimatesTheWidthBackAndTheNeighbourRidesAlong() throws {
+        let fixture = try makeFixture(.niri, pid: 834_087)
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.motionPolicy.animationsEnabled = true
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (first, second) = (fixture.tokens[0], fixture.tokens[1])
+        try fixture.release(first, at: grown(try fixture.frame(first), right: 200))
+        try fixture.confirmLayout()
+        for token in [first, second] {
+            let node = try fixture.niriNode(token)
+            node.stopMoveAnimations()
+            node.renderedFrame = node.frame
+        }
+
+        XCTAssertTrue(undo(fixture))
+
+        XCTAssertNotNil(try fixture.column(first).widthAnimation)
+        XCTAssertFalse(try fixture.niriNode(second).hasMoveAnimationsRunning)
+    }
+
+    func testUndoBringsTheWindowItRestoresToTheFront() throws {
+        let fixture = try makeFixture(.niri, pid: 834_088)
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.motionPolicy.animationsEnabled = false
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let (first, second) = (fixture.tokens[0], fixture.tokens[1])
+        let firstNode = try fixture.niriNode(first)
+        let secondNode = try fixture.niriNode(second)
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { $0.selectedNodeId = firstNode.id }
+        try fixture.release(first, at: grown(try fixture.frame(first), right: 200))
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { $0.selectedNodeId = secondNode.id }
+
+        XCTAssertTrue(undo(fixture))
+
+        XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.token, first)
+    }
+
+    private func undo(_ fixture: Fixture) -> Bool {
+        fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo)
+    }
+
+    func testWithMacOSFusionAKeptResizeSendsTheWindowNoFrameItAlreadyHas() async throws {
+        let fixture = try makeFixture(.niri, pid: 834_078)
+        fixture.controller.settings.niri.macOSFusion = true
+        let token = fixture.tokens[0]
+        let observed = grown(try fixture.frame(token), right: 200)
+        FrameApplyTrace.shared.beginCapture()
+        defer { FrameApplyTrace.shared.endCapture() }
+
+        try fixture.release(token, at: observed)
+        fixture.controller.niriLayoutHandler.tickScrollAnimation(
+            targetTime: fixture.controller.animationClock.now(),
+            displayId: fixture.monitor.displayId
+        )
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+        if let target = firstWriteTarget(for: token) {
+            XCTAssertFalse(target.approximatelyEqual(to: observed, tolerance: FrameTolerance.frameWrite))
+        }
+        XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: FrameTolerance.frameWrite)
+    }
+
+    func testAPressFinishesTheStripsRunningSlide() throws {
+        let fixture = try makeFixture(.niri, pid: 834_079)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        fixture.controller.settings.niri.macOSFusion = true
+        let token = fixture.tokens[1]
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.animateToOffset(state.viewOffset + 300, motion: .enabled, scale: 2)
+        }
+        fixture.controller.niriLayoutHandler.startScrollAnimationIfNeeded(
+            for: fixture.workspaceId,
+            state: fixture.manager.niriViewportState(for: fixture.workspaceId),
+            engine: engine
+        )
+        XCTAssertTrue(hasPendingNiriAnimationWork(
+            state: fixture.manager.niriViewportState(for: fixture.workspaceId),
+            driver: fixture.manager.animationDriver,
+            engine: engine,
+            workspaceId: fixture.workspaceId
+        ))
+
+        try fixture.beginDrag(token)
+
+        XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+    }
+
+    func testAnEdgeResizePressedDuringASlideIsKeptWithTheFramesCapturedAtThePress() async throws {
+        for (index, slides) in [false, true].enumerated() {
+            let fixture = try makeFixture(.niri, pid: pid_t(835_262 + index))
+            let engine = try XCTUnwrap(fixture.controller.niriEngine)
+            fixture.controller.settings.niri.macOSFusion = true
+            fixture.controller.mouseEventHandler.settlesNativeResizes = false
+            let token = fixture.tokens[0]
+            let pressedFrame = try fixture.frame(token)
+            if slides {
+                fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+                    state.animateToOffset(state.viewOffset + 120, motion: .enabled, scale: 2)
+                }
+                fixture.controller.niriLayoutHandler.startScrollAnimationIfNeeded(
+                    for: fixture.workspaceId,
+                    state: fixture.manager.niriViewportState(for: fixture.workspaceId),
+                    engine: engine
+                )
+            }
+            let press = CGPoint(x: pressedFrame.maxX - FrameTolerance.frameWrite, y: pressedFrame.midY)
+            fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+            fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+            _ = fixture.handler.dispatchMouseDown(
+                at: press,
+                modifiers: [],
+                windowIdUnderPointer: token.windowId,
+                windowServerFramesAtMouseDown: [token: ScreenCoordinateSpace.toWindowServer(rect: pressedFrame)]
+            )
+            XCTAssertFalse(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId), "slides: \(slides)")
+
+            let settled = try fixture.frame(token)
+            let observed = grown(settled, right: 140)
+            let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: token.windowId))
+            fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+            fixture.handler.dispatchMouseDragged(at: nativeDragLocation(from: settled))
+            fixture.controller.niriLayoutHandler.tickScrollAnimation(
+                targetTime: fixture.controller.animationClock.now(),
+                displayId: fixture.monitor.displayId
+            )
+            reported.frame = observed
+            XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(token)))
+            fixture.handler.dispatchMouseUp(at: observed.center)
+            fixture.controller.niriLayoutHandler.tickScrollAnimation(
+                targetTime: fixture.controller.animationClock.now(),
+                displayId: fixture.monitor.displayId
+            )
+            await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+
+            XCTAssertEqual(
+                try fixture.frame(token).width,
+                observed.width,
+                accuracy: FrameTolerance.frameWrite,
+                "slides: \(slides)"
+            )
+        }
+    }
+
     func testAdoptedFrameIsTheFirstWriteForTheResizedWindow() async throws {
         let cases: [(LayoutType, Int, (CGRect) -> CGRect)] = [
             (.niri, 0, { self.grown($0, right: 200) }),
@@ -3163,6 +3622,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let frames = try fixture.frames()
         try fixture.confirmLayout()
         controller.mouseEventHandler.nativeWindowFrameProvider = { nativeFrames[$0.windowId]?.frame }
+        controller.mouseEventHandler.settlesNativeResizes = false
         controller.axEventHandler.windowInfoProvider = { windowId in
             guard let token = tokens.first(where: { $0.windowId == Int(windowId) }) else { return nil }
             return WindowServerInfo(id: windowId, pid: token.pid, level: 0, frame: frames[token] ?? .zero)

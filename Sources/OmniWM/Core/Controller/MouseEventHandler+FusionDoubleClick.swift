@@ -1,0 +1,235 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+import AppKit
+import Foundation
+
+extension MouseEventHandler {
+    nonisolated static let fusionDoubleClickArmRadius: CGFloat = 8
+
+    nonisolated static func takesFusionDoubleClick(_ flags: CGEventFlags) -> Bool {
+        flags.intersection(relevantModifierFlags).isEmpty
+    }
+
+    nonisolated static func asksAboutFusionDoubleClick(
+        clickCount: Int64,
+        flags: CGEventFlags,
+        macOSFusion: Bool,
+        armedAt: CGPoint?,
+        location: CGPoint
+    ) -> Bool {
+        guard clickCount == 2, macOSFusion, takesFusionDoubleClick(flags), let armedAt
+        else { return false }
+        return hypot(location.x - armedAt.x, location.y - armedAt.y) <= fusionDoubleClickArmRadius
+    }
+
+    nonisolated static let coveringWindowLayers = 0 ..< Int(CGWindowLevelForKey(.dockWindow))
+
+    nonisolated static func topmostWindowId(at location: CGPoint) -> Int? {
+        guard let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] else { return nil }
+        return topmostWindowId(
+            in: windows,
+            at: ScreenCoordinateSpace.toWindowServer(point: location),
+            ownPid: ProcessInfo.processInfo.processIdentifier
+        )
+    }
+
+    nonisolated static func topmostWindowId(in windows: [[String: Any]], at point: CGPoint, ownPid: pid_t) -> Int? {
+        for window in windows {
+            guard let windowId = window[kCGWindowNumber as String] as? Int,
+                  let pid = window[kCGWindowOwnerPID as String] as? pid_t, pid != ownPid,
+                  let layer = window[kCGWindowLayer as String] as? Int, coveringWindowLayers.contains(layer),
+                  (window[kCGWindowAlpha as String] as? Double ?? 1) > 0,
+                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+                  frame.contains(point)
+            else { continue }
+            return windowId
+        }
+        return nil
+    }
+
+    func armFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags, clickCount: Int64) {
+        let armed = clickCount == 1
+            && Self.takesFusionDoubleClick(modifiers)
+            && fusionDoubleClickCandidate(at: location) != nil
+        let armedAt: CGPoint? = armed ? location : nil
+        guard armedAt != inputTapThread.filterSnapshot.fusionDoubleClickArmedAt else { return }
+        inputTapThread.updateFilterSnapshot { $0.fusionDoubleClickArmedAt = armedAt }
+    }
+
+    func handleFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags) -> Bool {
+        guard Self.takesFusionDoubleClick(modifiers),
+              !isInputSuppressed,
+              !shouldBlockOwnWindowInput(at: location),
+              let target = fusionDoubleClickTarget(at: location)
+        else { return false }
+        clearNativeTitleBarDrag()
+        performFusionDoubleClick(on: target)
+        state.capturedInteractionButton = .left
+        return true
+    }
+
+    struct FusionDoubleClickCandidate {
+        let hit: FusionDoubleClickHit
+        let entry: WindowState
+        let engine: NiriLayoutEngine
+        let workspaceId: WorkspaceDescriptor.ID
+    }
+
+    private struct FusionDoubleClickTarget {
+        let handle: WindowHandle
+        let window: NiriWindow
+        let column: NiriContainer
+        let workspaceId: WorkspaceDescriptor.ID
+        let zone: FusionDoubleClickZone
+        let projectedWindowCount: Int
+    }
+
+    func fusionDoubleClickCandidate(at location: CGPoint) -> FusionDoubleClickCandidate? {
+        guard let controller,
+              controller.settings.niri.macOSFusion,
+              canHandleManagedMouseInteraction(controller: controller),
+              let engine = controller.niriEngine,
+              let workspaceId = workspaceIdForPointer(at: location),
+              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
+              let monitor = controller.workspaceManager.monitor(for: workspaceId),
+              resolvedNiriOrientation(engine: engine, workspaceId: workspaceId, monitor: monitor) == .horizontal,
+              let hit = engine.fusionDoubleClickHit(
+                  at: location,
+                  in: workspaceId,
+                  gap: controller.niriInteractionGeometry(for: monitor).innerGap,
+                  bounds: monitor.visibleFrame
+              ),
+              let entry = controller.workspaceManager.entry(for: hit.window.token),
+              entry.mode == .tiling
+        else { return nil }
+        return FusionDoubleClickCandidate(hit: hit, entry: entry, engine: engine, workspaceId: workspaceId)
+    }
+
+    private func fusionDoubleClickTarget(at location: CGPoint) -> FusionDoubleClickTarget? {
+        guard !state.isMoving, !state.isResizing,
+              state.capturedInteractionButton == nil,
+              liveDragSession?.tabPull == nil,
+              let candidate = fusionDoubleClickCandidate(at: location),
+              let handle = controller?.workspaceManager.handle(for: candidate.hit.window.token),
+              let column = candidate.engine.column(of: candidate.hit.window)
+        else { return nil }
+        let titleBarHit = candidate.hit.zone == .titleBar ? titleBarHitProvider(candidate.entry.pid, location) : nil
+        if candidate.hit.zone == .titleBar, !TitleBarHitTest.isTitleBar(titleBarHit) {
+            return nil
+        }
+        if case .edge = candidate.hit.zone,
+           let topmost = topmostWindowIdProvider(location),
+           topmost != candidate.hit.window.token.windowId
+        {
+            return nil
+        }
+        return FusionDoubleClickTarget(
+            handle: handle,
+            window: candidate.hit.window,
+            column: column,
+            workspaceId: candidate.workspaceId,
+            zone: candidate.hit.zone,
+            projectedWindowCount: candidate.engine.projectedWindows(in: column, workspaceId: candidate.workspaceId)
+                .count
+        )
+    }
+
+    private func performFusionDoubleClick(on target: FusionDoubleClickTarget) {
+        guard let controller, let engine = controller.niriEngine else { return }
+        forgetDoubleClickSizesOfGoneColumns(engine: engine, in: target.workspaceId)
+        let layout = controller.niriLayoutHandler
+        let changeStart = layout.layoutChangeStart(in: target.workspaceId)
+        defer { layout.recordLayoutChange(since: changeStart) }
+        switch target.zone {
+        case .titleBar:
+            layout.performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
+                guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
+                guard engine.toggleColumnFullWidthAndBack(column, context: context, state: &viewport)
+                else { return nil }
+                return .containerPrimarySpanChanged
+            }
+        case .edge(.left):
+            stretchColumnFromDoubleClick(target, rightSide: false)
+        case .edge(.right):
+            stretchColumnFromDoubleClick(target, rightSide: true)
+        case .edge:
+            if target.projectedWindowCount > 1 {
+                toggleTabbedFromDoubleClick(target)
+            }
+        }
+    }
+
+    private func toggleTabbedFromDoubleClick(_ target: FusionDoubleClickTarget) {
+        guard let controller, let engine = controller.niriEngine else { return }
+        if !target.column.isTabbed {
+            controller.workspaceManager.withEngineMutationScope(in: target.workspaceId) {
+                engine.activateWindow(target.window.id, in: target.workspaceId)
+            }
+        }
+        controller.niriLayoutHandler.toggleColumnTabbed(target: .window(target.handle))
+    }
+
+    private func stretchColumnFromDoubleClick(_ target: FusionDoubleClickTarget, rightSide: Bool) {
+        guard let controller else { return }
+        let columnId = target.column.id
+        controller.niriLayoutHandler
+            .performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
+                guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
+                let width = column.targetWidth ?? column.cachedWidth
+                if let stretch = state.fusionDoubleClickWidths[columnId],
+                   stretch.rightSide == rightSide, abs(stretch.stretch.width - width) < 1
+                {
+                    state.fusionDoubleClickWidths[columnId] = nil
+                    engine.stretchColumn(
+                        column,
+                        to: ColumnStretch(width: stretch.width, keptSideShift: -stretch.stretch.keptSideShift),
+                        rightSide: rightSide,
+                        context: context,
+                        state: &viewport
+                    )
+                    column.width = stretch.spec
+                    column.presetWidthIdx = stretch.presetIndex
+                    column.hasManualSingleWindowWidthOverride = stretch.hadManualWidth
+                    return .containerPrimarySpanChanged
+                }
+                guard let reach = engine.columnStretchToScreenEdge(
+                    column,
+                    rightSide: rightSide,
+                    context: context,
+                    state: viewport
+                ), reach.width > width + 1
+                else { return nil }
+                state.fusionDoubleClickWidths[columnId] = FusionDoubleClickWidth(
+                    workspaceId: context.workspaceId,
+                    rightSide: rightSide,
+                    width: width,
+                    spec: column.width,
+                    presetIndex: column.presetWidthIdx,
+                    hadManualWidth: column.hasManualSingleWindowWidthOverride,
+                    stretch: reach
+                )
+                engine.stretchColumn(column, to: reach, rightSide: rightSide, context: context, state: &viewport)
+                return .containerPrimarySpanChanged
+            }
+    }
+
+    private func forgetDoubleClickSizesOfGoneColumns(engine: NiriLayoutEngine, in workspaceId: WorkspaceDescriptor.ID) {
+        state.fusionDoubleClickWidths = state.fusionDoubleClickWidths.filter {
+            $0.value.workspaceId != workspaceId || engine.findNode(by: $0.key, in: workspaceId) is NiriContainer
+        }
+    }
+}
+
+struct FusionDoubleClickWidth {
+    let workspaceId: WorkspaceDescriptor.ID
+    let rightSide: Bool
+    let width: CGFloat
+    let spec: ProportionalSize
+    let presetIndex: Int?
+    let hadManualWidth: Bool
+    let stretch: ColumnStretch
+}

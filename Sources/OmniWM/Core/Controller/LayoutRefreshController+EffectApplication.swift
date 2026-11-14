@@ -176,6 +176,8 @@ extension LayoutRefreshController {
         controller.niriEdgePictures.reconcile(plan)
         applyLayoutMutations(plan, controller: controller)
         publishAcceptedLayoutSurfaces(plan, controller: controller)
+        controller.niriLayoutHandler.followOverflowMessage(in: plan.workspaceId)
+        controller.niriLayoutHandler.scheduleOverflowCheck()
         if let disposition = plan.dwindleAnimationTargetDisposition {
             acceptDwindleAnimationTarget(
                 disposition,

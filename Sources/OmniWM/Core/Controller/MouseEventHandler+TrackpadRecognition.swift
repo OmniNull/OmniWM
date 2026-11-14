@@ -158,7 +158,7 @@ extension MouseEventHandler {
             abortActiveGestureIfNeeded()
             return false
         }
-        if state.isResizing || state.isMoving, !state.gestureOwnsWindowInteraction {
+        if isLiveColumnDragActive || state.isResizing || state.isMoving, !state.gestureOwnsWindowInteraction {
             abortActiveGestureIfNeeded()
             return false
         }
@@ -180,6 +180,7 @@ extension MouseEventHandler {
             return
         }
         MouseTrace.record("gesture: armed \(activeTouchCount) fingers at \(TraceFormat.point(location))")
+        controller?.niriLayoutHandler.noteUserAction()
         state.lockedGestureContext = context
         if context.workspaceAxis != nil {
             state.workspaceSwipeTracker.reset()
