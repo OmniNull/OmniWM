@@ -26,10 +26,6 @@ struct WallpaperFileStamp: Hashable, Sendable {
 
 struct WallpaperSampleKey: Hashable, Sendable {
     let file: WallpaperFileStamp
-
-    init(_ url: URL) {
-        file = WallpaperFileStamp(url)
-    }
 }
 
 enum WallpaperRendering {

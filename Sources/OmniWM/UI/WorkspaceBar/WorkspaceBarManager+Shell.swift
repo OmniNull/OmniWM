@@ -90,7 +90,7 @@ extension WorkspaceBarManager {
         lastBars = []
         lastIslands = []
         notificationBadges.onLabelsChange = nil
-        if controller?.wallpaperManager.palette === host { controller?.wallpaperManager.palette = nil }
+        host?.setWallpaperManager(nil)
         setShellPalette(nil)
         host?.stop()
         controller?.appThemeShellIsOff { [weak self] in self?.appThemeFallbackTheme() ?? .native }
@@ -146,15 +146,19 @@ extension WorkspaceBarManager {
             publishShellBadges()
         }
         host.setBarColors(accent: settings.workspaceBar.accentColor, foreground: settings.workspaceBar.textColor)
-        host.onPaletteChange = { [weak self] theme in
-            self?.controller?.appThemePaletteDidChange(theme)
-        }
+        observeShellPalette(host)
         shellPermissionPrompts?.observe(host)
         attachWallpaper(to: host)
         setShellLocked(controller?.isLockScreenActive == true)
         host.start()
         controller?.commandPaletteController.prewarmShell(from: self)
-        setShellPalette(host.config.theme)
+    }
+
+    func observeShellPalette(_ host: ShellWidgetHost) {
+        host.onPaletteChange = { [weak self] theme in
+            self?.controller?.appThemePaletteDidChange(theme)
+            self?.setShellPalette(theme)
+        }
     }
 
     private func makeShellHost(configDirectory: URL) -> ShellWidgetHost {
@@ -204,7 +208,6 @@ extension WorkspaceBarManager {
             appVolumes: controller?.appVolumeMixer,
             media: controller?.mediaController,
             calendar: controller?.calendarController,
-            wallpaper: controller?.wallpaperManager,
             windowIcon: { [weak self] id in self?.shellItemIcons[id] },
             iconOverride: { [weak self] bundleId in
                 self?.controller?.workspaceBarIconResolver.image(for: bundleId)
@@ -228,7 +231,6 @@ extension WorkspaceBarManager {
             self?.showWidgetMenu(request)
         }
         host.onConfigChange = { [weak self] config in
-            self?.setShellPalette(config.theme)
             self?.shellConfiguration.adopt(config)
             NotificationCenter.default.post(name: .shellConfigDidChange, object: nil)
             self?.applyShellProfile(config)

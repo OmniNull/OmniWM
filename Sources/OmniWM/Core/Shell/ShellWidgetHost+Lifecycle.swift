@@ -381,7 +381,6 @@ extension ShellWidgetHost {
                 appVolumes: resources.appVolumes,
                 media: resources.media,
                 calendar: resources.calendar,
-                wallpaper: resources.wallpaper.map(WallpaperFeedSource.init),
                 devices: resources.devices,
                 notifications: resources.notifications,
                 onBadgesDemandChange: { [weak self] in self?.onBadgesDemandChange?($0) },
@@ -390,6 +389,7 @@ extension ShellWidgetHost {
                 }
             )
             self.feed = feed
+            feed.setWallpaper(resources.wallpaper)
             feed.setWorld(world())
             feed.setVars(vars())
             feed.setWeatherLocation(config.weather)

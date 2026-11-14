@@ -1221,23 +1221,11 @@
       "related": []
     },
     {
-      "name": "WallpaperItem",
-      "kind": "type",
-      "topic": "context-data",
-      "anchor": "api-wallpaperitem",
-      "declaration": "export type WallpaperItem = {\n    name: string,\n    preview: string?,\n}",
-      "fields": [
-        "name",
-        "preview"
-      ],
-      "related": []
-    },
-    {
       "name": "WallpaperDisplay",
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-wallpaperdisplay",
-      "declaration": "export type WallpaperDisplay = {\n    id: string,\n    name: string,\n    main: boolean,\n    builtin: boolean,\n    notch: boolean,\n    w: number,\n    h: number,\n    folder: string,\n    custom: boolean,\n    count: number,\n    current: string?,\n    kind: \"file\" | \"aerial\" | \"shuffle\" | \"other\",\n    shown: string?,\n    preview: string?,\n    offset: number,\n    items: { WallpaperItem },\n    truncated: boolean,\n}",
+      "declaration": "export type WallpaperDisplay = {\n    id: string,\n    name: string,\n    main: boolean,\n    builtin: boolean,\n    notch: boolean,\n    w: number,\n    h: number,\n    folder: string,\n    custom: boolean,\n    count: number,\n    current: string?,\n    kind: \"file\" | \"aerial\" | \"shuffle\" | \"other\",\n    shown: string?,\n    problem: string?,\n    offset: number,\n    page: number,\n    items: { string },\n    truncated: boolean,\n}",
       "fields": [
         "id",
         "name",
@@ -1252,14 +1240,13 @@
         "current",
         "kind",
         "shown",
-        "preview",
+        "problem",
         "offset",
+        "page",
         "items",
         "truncated"
       ],
-      "related": [
-        "WallpaperItem"
-      ]
+      "related": []
     },
     {
       "name": "WallpaperScheme",
@@ -1279,7 +1266,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-wallpaper",
-      "declaration": "export type Wallpaper = {\n    enabled: boolean,\n    rotation: number,\n    next: number?,\n    palette: boolean,\n    scheme: string,\n    problem: string?,\n    displays: { WallpaperDisplay },\n    schemes: { WallpaperScheme },\n}",
+      "declaration": "export type Wallpaper = {\n    enabled: boolean,\n    rotation: number,\n    next: number?,\n    palette: boolean,\n    scheme: string,\n    problem: string?,\n    defaultPage: number,\n    rotations: { number },\n    displays: { WallpaperDisplay },\n    schemes: { WallpaperScheme },\n}",
       "fields": [
         "enabled",
         "rotation",
@@ -1287,6 +1274,8 @@
         "palette",
         "scheme",
         "problem",
+        "defaultPage",
+        "rotations",
         "displays",
         "schemes"
       ],
@@ -1294,6 +1283,18 @@
         "WallpaperDisplay",
         "WallpaperScheme"
       ]
+    },
+    {
+      "name": "WallpaperPreviewSet",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-wallpaperpreviewset",
+      "declaration": "export type WallpaperPreviewSet = {\n    card: string?,\n    items: { [string]: string },\n}",
+      "fields": [
+        "card",
+        "items"
+      ],
+      "related": []
     },
     {
       "name": "BluetoothDevice",
@@ -1373,7 +1374,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-data",
-      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    connection: Connection?,\n    commandPalette: CommandPalette?,\n    wallpaper: Wallpaper?,\n}",
+      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    connection: Connection?,\n    commandPalette: CommandPalette?,\n    wallpaper: Wallpaper?,\n    wallpaperPreviews: { [string]: WallpaperPreviewSet }?,\n}",
       "fields": [
         "clock",
         "date",
@@ -1427,7 +1428,8 @@
         "brightness",
         "connection",
         "commandPalette",
-        "wallpaper"
+        "wallpaper",
+        "wallpaperPreviews"
       ],
       "related": [
         "Weather",
@@ -1455,7 +1457,8 @@
         "Brightness",
         "Connection",
         "CommandPalette",
-        "Wallpaper"
+        "Wallpaper",
+        "WallpaperPreviewSet"
       ]
     },
     {

@@ -18984,17 +18984,6 @@
         }
       }
     },
-    "No wallpapers in %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No wallpapers in %@"
-          }
-        }
-      }
-    },
     "Not from this folder" : {
       "extractionState" : "manual",
       "localizations" : {

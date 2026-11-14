@@ -14,7 +14,7 @@ final class ShellResources {
     let appVolumes: AppVolumeMixer?
     let media: MediaController?
     let calendar: CalendarController?
-    let wallpaper: WallpaperManager?
+    var wallpaper: WallpaperManager?
     let devices = ShellDevices()
     let notifications: ShellNotificationsController
     var resourceImages: ShellResourceImages?
@@ -35,7 +35,6 @@ final class ShellResources {
         appVolumes: AppVolumeMixer? = nil,
         media: MediaController? = nil,
         calendar: CalendarController? = nil,
-        wallpaper: WallpaperManager? = nil,
         notifications: ShellNotificationsController? = nil,
         windowIcon: @escaping @MainActor (String) -> NSImage? = { _ in nil },
         processIcon: @escaping @MainActor (pid_t) -> NSImage? = { NSRunningApplication(processIdentifier: $0)?.icon },
@@ -46,7 +45,6 @@ final class ShellResources {
         self.appVolumes = appVolumes
         self.media = media
         self.calendar = calendar
-        self.wallpaper = wallpaper
         self.notifications = notifications ?? ShellNotificationsController()
         self.windowIcon = windowIcon
         self.processIcon = processIcon

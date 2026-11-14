@@ -777,7 +777,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         XCTAssertNil(palette(in: root))
 
         let forest = palette(of: Self.forest)
-        let published = try await writer.publish(forest)
+        let published = try await writer.publish(ShellWallpaperPalette.pixels(of: Self.forest), scheme: .tonalSpot)
         XCTAssertTrue(published)
         XCTAssertEqual(palette(in: root), forest)
         hops.release()
@@ -863,7 +863,8 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             onFailure: { _ in }
         )
         let forest = palette(of: Self.forest)
-        let publishing = Task { try await writer.publish(forest) }
+        let pixels = ShellWallpaperPalette.pixels(of: Self.forest)
+        let publishing = Task { try await writer.publish(pixels, scheme: .tonalSpot) }
         await held.queued()
         XCTAssertNil(palette(in: root), "the palette is written when the writer queue reaches it")
 

@@ -38,18 +38,19 @@ final class ShellWallpaperTests: XCTestCase {
     }
 
     func testTheDataFeedStaysWithinItsBudgetWhateverTheFileNames() {
-        let names = (0 ..< 5000).map { "wall \"\($0)\" \\ \(String(repeating: "é", count: 20)).jpg" }
-        let listed = ShellWallpaper.items(names) { _ in "wallpaper/abc" }
+        let long = String(repeating: "é", count: ShellWallpaper.nameBudget / WallpaperPreviews.pageLimit)
+        let names = (0 ..< WallpaperPreviews.pageLimit).map { "wall \"\($0)\" \\ \(long).jpg" }
+        let listed = ShellWallpaper.items(names[...])
         XCTAssertTrue(listed.truncated)
         var writer = ShellValueWriter()
         for item in listed.items {
-            ShellWallpaper.write(item, into: &writer)
+            writer.string(item)
         }
         XCTAssertLessThanOrEqual(writer.bytes.count, ShellWallpaper.nameBudget)
-        XCTAssertGreaterThan(listed.items.count, 100)
-        let few = ShellWallpaper.items(["a.jpg", "b.jpg"]) { _ in nil }
+        XCTAssertFalse(listed.items.isEmpty)
+        let few = ShellWallpaper.items(["a.jpg", "b.jpg"])
         XCTAssertFalse(few.truncated)
-        XCTAssertEqual(few.items.map(\.name), ["a.jpg", "b.jpg"])
+        XCTAssertEqual(few.items, ["a.jpg", "b.jpg"])
     }
 
     func testSwatchesCoverEverySchemeInBothAppearances() {
@@ -119,49 +120,91 @@ final class ShellWallpaperTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let destination = root.appendingPathComponent("themes/wallpaper.toml")
-        let text = ShellWallpaperPalette.theme(pixels: [0xFF11_2233], scheme: .vibrant)
-        let first = try await ShellWallpaperPaletteWriter.publish(text, to: destination)
+        let pixels: [UInt32] = [0xFF11_2233]
+        let first = try await ShellWallpaperPaletteWriter.publish(pixels, scheme: .vibrant, to: destination)
         XCTAssertTrue(first)
-        XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), text)
-        let again = try await ShellWallpaperPaletteWriter.publish(text, to: destination)
+        XCTAssertEqual(
+            try String(contentsOf: destination, encoding: .utf8),
+            ShellWallpaperPalette.theme(pixels: pixels, scheme: .vibrant)
+        )
+        let again = try await ShellWallpaperPaletteWriter.publish(pixels, scheme: .vibrant, to: destination)
         XCTAssertFalse(again)
     }
 
-    func testTheFeedPublishesOnlyWhileAWidgetReadsIt() async throws {
-        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+    private func feedManager(_ root: URL, preview: @escaping @Sendable (WallpaperPreviewKey) async -> CGImage?)
+        -> WallpaperManager
+    {
+        var display = WallpaperFixtures.studio
+        display.current = root.appendingPathComponent("Pictures/Wallpapers/a.jpg")
+        let desktop = FakeWallpaperDesktop([display])
         let settings = WallpaperSettings()
         settings.enabled = true
-        var environment = WallpaperEnvironment()
+        var environment = WallpaperFixtures.environment(state: WallpaperStateBox(), home: root.path)
         environment.sample = { _ in [0xFF33_6699] }
-        environment.preview = { _ in nil }
-        environment.schedule = { _, _ in {} }
-        var state = WallpaperRuntimeState()
-        let manager = WallpaperManager(
-            settings: settings, desktop: desktop, environment: environment,
-            loadState: { state }, saveState: { state = $0 }
-        )
-        manager.settingsDidChange()
-        let feed = ShellDataFeed(wallpaper: WallpaperFeedSource(manager: manager)) { _ in }
+        environment.preview = preview
+        let manager = WallpaperManager(settings: settings, desktop: desktop, environment: environment)
+        manager.start(resumingRotation: false)
+        return manager
+    }
+
+    func testTheFeedPublishesOnlyWhileAWidgetReadsIt() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        _ = try WallpaperFixtures.makeFolder(root, "Pictures/Wallpapers", files: ["a.jpg"])
+        let manager = feedManager(root) { _ in nil }
+        let feed = ShellDataFeed { _ in }
+        feed.setWallpaper(manager)
         feed.start()
         XCTAssertNil(feed.current.wallpaper)
-        XCTAssertFalse(manager.previews.demanded)
         feed.setDemand(ShellDataKey.wallpaper.bit, cadence: .init())
         XCTAssertEqual(feed.current.wallpaper?.enabled, true)
         XCTAssertEqual(feed.current.wallpaper?.displays.map(\.id), [WallpaperFixtures.studio.monitorId])
-        XCTAssertTrue(manager.previews.demanded)
-        settings.rotationMinutes = 60
-        manager.setRotation(60)
-        XCTAssertEqual(feed.current.wallpaper?.rotation, 60)
+        let minutes = SettingsExport.Wallpaper.rotationPresets[0]
+        manager.setRotation(minutes)
+        XCTAssertEqual(feed.current.wallpaper?.rotation, minutes)
         feed.setDemand(0, cadence: .init())
         XCTAssertNil(feed.current.wallpaper)
-        XCTAssertFalse(manager.previews.demanded)
         feed.stop()
+    }
+
+    func testPreviewsAreMadeOnlyForAWidgetThatReadsThem() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        _ = try WallpaperFixtures.makeFolder(root, "Pictures/Wallpapers", files: ["a.jpg", "b.jpg"])
+        let rendered = RenderedKeys()
+        let manager = feedManager(root) { key in
+            await rendered.add(key)
+            return Self.image
+        }
+        let feed = ShellDataFeed { _ in }
+        feed.setWallpaper(manager)
+        feed.start()
+        defer { feed.stop() }
+        feed.setDemand(ShellDataKey.wallpaper.bit, cadence: .init())
+        await manager.previews.settle()
+        XCTAssertFalse(manager.previews.demanded, "a widget that shows names never makes previews")
+        XCTAssertEqual(manager.previews.count, 0)
+        XCTAssertNil(feed.current.wallpaperPreviews)
+        let none = await rendered.keys
+        XCTAssertTrue(none.isEmpty)
+
+        feed.setDemand(ShellDataKey.wallpaper.bit | ShellDataKey.wallpaperPreviews.bit, cadence: .init())
+        await manager.previews.settle()
+        XCTAssertTrue(manager.previews.demanded)
+        let shown = try XCTUnwrap(feed.current.wallpaperPreviews?.displays[WallpaperFixtures.studio.monitorId])
+        XCTAssertNotNil(shown.card)
+        XCTAssertEqual(Set(shown.items.keys), ["a.jpg", "b.jpg"])
+
+        feed.setDemand(ShellDataKey.wallpaper.bit, cadence: .init())
+        XCTAssertFalse(manager.previews.demanded)
+        XCTAssertEqual(manager.previews.count, 0, "closing the picker drops its previews")
     }
 
     func testPreviewsFollowTheDisplayShapePlacementAndFolderAndStayBounded() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let folder = try WallpaperFixtures.makeFolder(root, "w", files: (0 ..< 200).map { "w\($0).jpg" })
+        let count = WallpaperPreviews.limit * 2
+        let folder = try WallpaperFixtures.makeFolder(root, "w", files: (0 ..< count).map { "w\($0).jpg" })
         let rendered = RenderedKeys()
         let previews = WallpaperPreviews { key in
             await rendered.add(key)
@@ -169,12 +212,18 @@ final class ShellWallpaperTests: XCTestCase {
         }
         var display = WallpaperFixtures.studio
         display.current = folder.appendingPathComponent("w0.jpg")
-        var entry = WallpaperManager.Entry(
+        var entry = try WallpaperManager.Entry(
             display: display, folder: folder, custom: false, files: WallpaperLibrary.files(in: folder)
         )
-        previews.retain(entries: [entry], placement: .fill)
+        var stamps: [String: WallpaperFileStamp] = [:]
+        for name in entry.files {
+            let url = folder.appendingPathComponent(name)
+            stamps[url.standardizedFileURL.path] = WallpaperFileStamp(url)
+        }
+        previews.retain(entries: [entry], stamps: stamps, placement: .fill)
         XCTAssertEqual(previews.count, 0, "nothing is made until a widget reads the feed")
         previews.demanded = true
+        previews.retain(entries: [entry], stamps: stamps, placement: .fill)
         await previews.settle()
         XCTAssertEqual(previews.count, 1 + WallpaperPreviews.defaultWindow)
         let first = try XCTUnwrap(previews.ready(
@@ -184,7 +233,7 @@ final class ShellWallpaperTests: XCTestCase {
             placement: .fill
         ))
 
-        previews.retain(entries: [entry], placement: .fit)
+        previews.retain(entries: [entry], stamps: stamps, placement: .fit)
         XCTAssertNil(previews.ready(
             display.current!,
             width: WallpaperPreviews.cardWidth,
@@ -202,20 +251,19 @@ final class ShellWallpaperTests: XCTestCase {
             displayId: 2, uuid: display.uuid, name: display.name, size: CGSize(width: 1440, height: 2560), isMain: true,
             current: display.current
         )
-        previews.retain(entries: [entry], placement: .fit)
+        previews.retain(entries: [entry], stamps: stamps, placement: .fit)
         XCTAssertEqual(previews.count, 0, "a new display shape drops the old previews")
 
         for offset in stride(from: 0, to: entry.files.count, by: WallpaperPreviews.pageLimit) {
-            previews.setWindow(
-                .init(offset: offset, count: WallpaperPreviews.pageLimit), for: entry, placement: .fit
-            )
+            previews.setWindow(.init(offset: offset, count: WallpaperPreviews.pageLimit), for: entry)
+            previews.retain(entries: [entry], stamps: stamps, placement: .fit)
             await previews.settle()
             XCTAssertEqual(previews.count, 1 + min(WallpaperPreviews.pageLimit, entry.files.count - offset))
             XCTAssertLessThanOrEqual(previews.count, WallpaperPreviews.limit)
         }
         entry.files = []
         entry.display.current = nil
-        previews.retain(entries: [entry], placement: .fit)
+        previews.retain(entries: [entry], stamps: stamps, placement: .fit)
         XCTAssertEqual(previews.count, 0, "a folder change drops previews of wallpapers no longer shown")
         previews.demanded = false
         XCTAssertEqual(previews.count, 0)
@@ -252,8 +300,13 @@ final class ShellWallpaperTests: XCTestCase {
         let entry = WallpaperManager.Entry(
             display: WallpaperFixtures.studio, folder: folder, custom: false, files: ["a.jpg", "b.jpg"]
         )
+        var stamps: [String: WallpaperFileStamp] = [:]
+        for name in entry.files {
+            let url = folder.appendingPathComponent(name)
+            stamps[url.standardizedFileURL.path] = WallpaperFileStamp(url)
+        }
         previews.demanded = true
-        previews.retain(entries: [entry], placement: .fill)
+        previews.retain(entries: [entry], stamps: stamps, placement: .fill)
         await previews.settle()
         let file = folder.appendingPathComponent("a.jpg")
         func ready() -> String? {
@@ -264,5 +317,33 @@ final class ShellWallpaperTests: XCTestCase {
         let id = try XCTUnwrap(ready())
         try FileManager.default.removeItem(at: file)
         XCTAssertEqual(ready(), id, "publishing the shell data does not stat every listed wallpaper")
+    }
+
+    func testAPublishedPaletteIsRecordedSoTheRecheckLeavesItAlone() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let destination = root.appendingPathComponent("themes/wallpaper.toml")
+        let managed = WallpaperFileStamp(path: root.appendingPathComponent("managed.png").path, modified: 1, bytes: 1)
+        let pixels: [UInt32] = [0xFF20_40E0]
+        let writer = ShellWallpaperPaletteWriter(
+            destination: destination, scheme: .tonalSpot,
+            source: {
+                { .still(ShellWallpaperPalette.StillWallpaper(
+                    url: URL(fileURLWithPath: managed.path), size: managed.bytes,
+                    modified: Date(timeIntervalSince1970: managed.modified)
+                ), aerial: false) }
+            },
+            read: { _ in nil }, image: { _ in nil },
+            override: { ShellWallpaperPaletteOverride(file: managed, pixels: pixels) },
+            perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }
+        ) { _ in }
+        _ = try await writer.publish(pixels, scheme: .tonalSpot)
+        let edited = "edited by hand"
+        try Data(edited.utf8).write(to: destination)
+        writer.refreshIfChanged()
+        XCTAssertEqual(
+            try String(contentsOf: destination, encoding: .utf8), edited,
+            "the recheck knows the palette it published and does not write it again"
+        )
     }
 }

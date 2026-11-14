@@ -170,29 +170,8 @@ extension ShellWallpaperPalette {
         location: (display: String, space: String),
         aerials: URL
     ) -> DesktopChoice? {
-        guard let store,
-              let index = try? PropertyListSerialization.propertyList(from: store, format: nil) as? [String: Any],
-              let content = desktopContent(in: index, location: location)
-        else { return nil }
-        if let path = stillImagePath(of: content) {
-            return .file(URL(fileURLWithPath: path))
-        }
-        guard let choices = content["Choices"] as? [[String: Any]], choices.count == 1 else { return .other }
-        if content["Shuffle"] as? String != "$null" {
-            return .shuffle
-        }
-        guard choices[0]["Provider"] as? String == aerialProvider,
-              let data = choices[0]["Configuration"] as? Data,
-              let configuration = try? PropertyListSerialization.propertyList(from: data, format: nil)
-              as? [String: Any],
-              let asset = configuration["assetID"] as? String,
-              !asset.isEmpty, !asset.contains("/")
-        else { return .other }
-        let thumbnail = aerials.appendingPathComponent("thumbnails/\(asset).png").standardizedFileURL
-        return .aerial(
-            asset: asset,
-            thumbnail: FileManager.default.fileExists(atPath: thumbnail.path) ? thumbnail : nil
-        )
+        guard let store, let index = try? storeIndex(from: store) else { return nil }
+        return desktopChoice(in: index, location: location, aerials: aerials)
     }
 
     static func read(_ url: URL) -> CGImage? {
@@ -278,8 +257,6 @@ final class ShellWallpaperPaletteWriter {
     private let perform: Perform
     private let deliver: Deliver
     private let onFailure: @MainActor (String) -> Void
-    private var observation: ShellDirectoryObservation?
-    private var observers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
     private var scheme: ShellWallpaperScheme
     private var recheck: DispatchSourceTimer?
     private let record = Record()
@@ -330,20 +307,8 @@ final class ShellWallpaperPaletteWriter {
     }
 
     func start() {
-        guard observation == nil else { return }
-        observation = ShellDirectoryObservation { [weak self] in
-            self?.watchStore()
-            self?.refresh()
-        }
-        watchStore()
-        observers = [
-            (NSWorkspace.shared.notificationCenter, NSWorkspace.activeSpaceDidChangeNotification),
-            (NotificationCenter.default, NSApplication.didChangeScreenParametersNotification)
-        ].map { center, name in
-            (center, center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refresh() }
-            })
-        }
+        guard recheck == nil else { return }
+        ShellWallpaperEvents.shared.subscribe(self) { [weak self] in self?.refresh() }
         let recheck = DispatchSource.makeTimerSource(queue: .main)
         recheck.schedule(
             deadline: .now() + Self.recheckInterval,
@@ -365,12 +330,7 @@ final class ShellWallpaperPaletteWriter {
     }
 
     func stop() {
-        observation?.cancel()
-        observation = nil
-        for observer in observers {
-            observer.center.removeObserver(observer.token)
-        }
-        observers = []
+        ShellWallpaperEvents.shared.unsubscribe(self)
         recheck?.cancel()
         recheck = nil
     }
@@ -481,19 +441,20 @@ final class ShellWallpaperPaletteWriter {
         FileManager.default.fileExists(atPath: destination.path)
     }
 
-    func publish(_ text: String) async throws -> Bool {
+    func publish(_ pixels: [UInt32], scheme: ShellWallpaperScheme) async throws -> Bool {
         let (record, destination, perform) = (record, destination, perform)
         return try await withCheckedThrowingContinuation { continuation in
             perform {
                 record.generation &+= 1
-                continuation.resume(with: Result { try ShellWallpaperPalette.write(text, to: destination) })
+                continuation.resume(with: Result {
+                    let changed = try ShellWallpaperPalette.write(
+                        ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme), to: destination
+                    )
+                    record.scheme = scheme
+                    record.pixels = pixels
+                    return changed
+                })
             }
         }
-    }
-
-    private func watchStore() {
-        observation?.sync(
-            paths: [Self.store, Self.store.appendingPathComponent("Index.plist")], recursivePaths: [Self.store]
-        )
     }
 }

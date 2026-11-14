@@ -14,19 +14,38 @@ extension WallpaperManager {
         value.palette = state.active
         value.scheme = state.scheme.rawValue
         value.problem = problem
-        value.swatches = paletteSample.map(ShellWallpaperPalette.swatches(pixels:)) ?? []
-        value.displays = entries.map(shellDisplay)
+        value.swatches = paletteSwatches
+        value.displays.reserveCapacity(entries.count)
+        for entry in entries {
+            value.displays.append(shellDisplay(entry))
+        }
+        return value
+    }
+
+    func shellPreviews() -> ShellWallpaperPreviews {
+        var value = ShellWallpaperPreviews()
+        for entry in entries {
+            let display = entry.display
+            var shown = ShellWallpaperPreviews.Display()
+            shown.card = (display.current ?? display.thumbnail).flatMap {
+                previews.ready($0, width: WallpaperPreviews.cardWidth, display: display, placement: placement)
+            }
+            for name in previews.visible(entry) {
+                guard let id = previews.ready(
+                    entry.folder.appendingPathComponent(name), width: WallpaperPreviews.gridWidth, display: display,
+                    placement: placement
+                ) else { continue }
+                shown.items[name] = id
+            }
+            value.displays[display.monitorId] = shown
+        }
         return value
     }
 
     private func shellDisplay(_ entry: Entry) -> ShellWallpaper.Display {
         let display = entry.display
-        let listed = ShellWallpaper.items(previews.visible(entry)) { name in
-            previews.ready(
-                entry.folder.appendingPathComponent(name), width: WallpaperPreviews.gridWidth, display: display,
-                placement: placement
-            )
-        }
+        let window = previews.window(for: entry)
+        let listed = ShellWallpaper.items(WallpaperPreviews.visible(entry, in: window))
         return ShellWallpaper.Display(
             id: display.monitorId,
             name: display.name,
@@ -41,10 +60,9 @@ extension WallpaperManager {
             current: entry.currentName,
             kind: display.kind.rawValue,
             shown: display.current?.lastPathComponent,
-            preview: (display.current ?? display.thumbnail).flatMap {
-                previews.ready($0, width: WallpaperPreviews.cardWidth, display: display, placement: placement)
-            },
-            offset: previews.window(for: entry).offset,
+            problem: entry.failure == nil && !entry.files.isEmpty ? nil : folderProblem(entry),
+            offset: window.offset,
+            page: window.count,
             items: listed.items,
             truncated: listed.truncated
         )
@@ -57,9 +75,7 @@ extension WallpaperManager {
         case let .set(display, name):
             Task { await set(name, on: display) }
         case let .page(display, offset, count):
-            guard let entry = entry(for: display) else { return }
-            previews.setWindow(.init(offset: offset, count: count), for: entry, placement: placement)
-            onChange?()
+            showPage(.init(offset: offset, count: count), for: display)
         case let .rotation(minutes):
             setRotation(minutes)
         case let .reveal(display):
@@ -90,35 +106,39 @@ extension WallpaperManager {
 }
 
 @MainActor
-final class WallpaperFeedSource: ShellDeviceSource {
-    private let manager: WallpaperManager
+final class WallpaperFeedSource {
+    let manager: WallpaperManager
     private(set) var value: ShellWallpaper?
-    var onChange: ((ShellWallpaper?) -> Void)?
-    private var listening = false
+    private(set) var previews: ShellWallpaperPreviews?
+    var onChange: (() -> Void)?
 
     init(manager: WallpaperManager) {
         self.manager = manager
     }
 
-    func setListening(_ listening: Bool) {
-        guard listening != self.listening else { return }
-        self.listening = listening
-        manager.previews.demanded = listening
-        guard listening else {
+    func listen(data: Bool, previews shown: Bool) {
+        guard data != (value != nil) || shown != (previews != nil) else { return }
+        let wasListening = value != nil
+        manager.showPreviews(shown)
+        manager.showSwatches(data, for: .widget)
+        guard data || shown else {
             manager.onChange = nil
             value = nil
+            previews = nil
             return
         }
         manager.onChange = { [weak self] in self?.update() }
-        value = manager.shellValue()
-        Task { await manager.sampleMainWallpaper() }
+        value = data ? manager.shellValue() : nil
+        previews = shown ? manager.shellPreviews() : nil
+        if data, !wasListening { manager.refresh(rescan: true) }
     }
 
     func update() {
-        guard listening else { return }
-        let next = manager.shellValue()
-        guard next != value else { return }
+        let next = value.map { _ in manager.shellValue() }
+        let shown = previews.map { _ in manager.shellPreviews() }
+        guard next != value || shown != previews else { return }
         value = next
-        onChange?(value)
+        previews = shown
+        onChange?()
     }
 }

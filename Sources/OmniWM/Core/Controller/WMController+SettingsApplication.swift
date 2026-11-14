@@ -44,7 +44,7 @@ extension WMController {
         setPreventSleepEnabled(settings.preventSleepEnabled)
         setQuakeTerminalEnabled(settings.quakeTerminal.enabled)
         syncClipboardHistoryService()
-        applyWallpaperSettings()
+        applyWallpaperSettings(resumingRotation: true)
 
         applyKittyQuakeSettings()
         reloadQuakeTerminalAppearance()
@@ -166,11 +166,27 @@ extension WMController {
 }
 
 extension WMController {
-    func applyWallpaperSettings() {
+    func applyWallpaperSettings(
+        resumingRotation: Bool = false,
+        make: @MainActor (SettingsStore) -> WallpaperManager = { WallpaperManager(store: $0) }
+    ) {
         if settings.onWallpaperSettingsChanged == nil {
             settings.onWallpaperSettingsChanged = { [weak self] in self?.applyWallpaperSettings() }
         }
-        guard settings.wallpaper.enabled || wallpaperManager.running else { return }
-        wallpaperManager.settingsDidChange()
+        guard settings.wallpaper.enabled else {
+            guard let manager = wallpaperManager else { return }
+            manager.stop()
+            wallpaperManager = nil
+            workspaceBarManager.offerWallpaper(nil)
+            return
+        }
+        if let wallpaperManager {
+            wallpaperManager.settingsDidChange()
+            return
+        }
+        let manager = make(settings)
+        wallpaperManager = manager
+        workspaceBarManager.offerWallpaper(manager)
+        manager.start(resumingRotation: resumingRotation)
     }
 }

@@ -57,6 +57,7 @@ struct MonitorWallpaperSettings: MonitorSettingsType {
 extension SettingsExport {
     struct Wallpaper: Codable, Equatable {
         static let rotationLimit = 1440
+        static let rotationPresets = [15, 30, 60]
 
         var enabled = false
         var folder = WallpaperLibrary.defaultFolder
@@ -109,19 +110,15 @@ extension SettingsStore {
         scheduleSave()
         onWallpaperSettingsChanged?()
     }
-
-    var wallpaperState: WallpaperRuntimeState {
-        get { runtimeState.wallpaper }
-        set { runtimeState.wallpaper = newValue }
-    }
 }
 
 extension WallpaperManager {
     convenience init(store: SettingsStore) {
         self.init(
             settings: store.wallpaper,
-            loadState: { [weak store] in store?.wallpaperState ?? WallpaperRuntimeState() },
-            saveState: { [weak store] in store?.wallpaperState = $0 }
+            environment: WallpaperEnvironment(
+                stateFile: store.runtimeState.directoryURL.appendingPathComponent(WallpaperStateFile.name)
+            )
         )
     }
 }

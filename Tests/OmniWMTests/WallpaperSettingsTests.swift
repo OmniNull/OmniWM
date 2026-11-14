@@ -45,13 +45,13 @@ final class WallpaperSettingsTests: XCTestCase {
         )
         tree["wallpaper"] = .table([
             "enabled": .boolean(true),
-            "rotationMinutes": .integer(99999),
+            "rotationMinutes": .integer(.init(SettingsExport.Wallpaper.rotationLimit + 1)),
             "folder": .string("  ")
         ])
         let decoded = try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)).wallpaper
         XCTAssertTrue(decoded.enabled)
-        XCTAssertEqual(decoded.rotationMinutes, 1440)
-        XCTAssertEqual(decoded.folder, "~/Pictures/Wallpapers")
+        XCTAssertEqual(decoded.rotationMinutes, SettingsExport.Wallpaper.rotationLimit)
+        XCTAssertEqual(decoded.folder, WallpaperLibrary.defaultFolder)
         XCTAssertEqual(decoded.placement, .fill)
 
         tree["wallpaper"] = .table(["enabled": .boolean(true)])
@@ -62,7 +62,7 @@ final class WallpaperSettingsTests: XCTestCase {
     }
 
     @MainActor
-    func testEditsPersistThroughTheStoreAndRuntimeStateKeepsTheShuffle() throws {
+    func testEditsPersistThroughTheStoreAndTheStateFileKeepsTheShuffle() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let settings = SettingsStore(
@@ -94,10 +94,12 @@ final class WallpaperSettingsTests: XCTestCase {
         var random = WallpaperRandom(seed: 3)
         _ = state.shuffle.next(display: "A", folder: "/w", files: ["a.jpg", "b.jpg"], using: &random)
         state.nextChange = Date(timeIntervalSince1970: 1_800_000_000)
-        settings.wallpaperState = state
-        settings.flushNow()
-        let reloaded = RuntimeStateStore(directory: directory, deferSaves: false)
-        XCTAssertEqual(reloaded.wallpaper, state)
+        let file = directory.appendingPathComponent(WallpaperStateFile.name)
+        XCTAssertEqual(try WallpaperStateFile.load(file), WallpaperRuntimeState(), "no file is a fresh start")
+        try WallpaperStateFile.save(state, to: file)
+        XCTAssertEqual(try WallpaperStateFile.load(file), state)
+        try Data("not json".utf8).write(to: file)
+        XCTAssertThrowsError(try WallpaperStateFile.load(file), "a damaged file is reported, not read as empty")
     }
 
     @MainActor

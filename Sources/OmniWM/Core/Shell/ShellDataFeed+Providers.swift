@@ -89,7 +89,7 @@ extension ShellDataFeed {
         listenToMedia(!paused && (demands(.media) || demands(.lyrics)))
         showLyrics(!paused && demands(.lyrics))
         listenToCalendar(!paused && demands(.calendar))
-        listenToWallpaper(!paused && demands(.wallpaper))
+        listenToWallpaper()
         listenToReminders(!paused && demands(.reminders))
         listenToNotifications(started && !paused && demands(.notifications))
         listenToBadges()
@@ -115,20 +115,42 @@ extension ShellDataFeed {
         data.calendar = calendar.calendar
     }
 
-    func listenToWallpaper(_ listening: Bool) {
-        guard let wallpaper else { return }
-        wallpaper.setListening(listening)
-        guard listening else {
-            wallpaper.onChange = nil
-            data.wallpaper = nil
+    func listenToWallpaper() {
+        let data = !paused && demands(.wallpaper)
+        let previews = !paused && demands(.wallpaperPreviews)
+        guard let wallpaper else {
+            self.data.wallpaper = data ? ShellWallpaper() : nil
+            self.data.wallpaperPreviews = previews ? ShellWallpaperPreviews() : nil
             return
         }
-        wallpaper.onChange = { [weak self] value in
-            guard let self, data.wallpaper != value else { return }
-            data.wallpaper = value
-            publish()
+        if !(data || previews) {
+            wallpaper.onChange = nil
+        } else if wallpaper.onChange == nil {
+            wallpaper.onChange = { [weak self, weak wallpaper] in
+                guard let self, let wallpaper else { return }
+                self.data.wallpaper = wallpaper.value
+                self.data.wallpaperPreviews = wallpaper.previews
+                publish()
+            }
         }
-        data.wallpaper = wallpaper.value
+        wallpaper.listen(data: data, previews: previews)
+        self.data.wallpaper = wallpaper.value
+        self.data.wallpaperPreviews = wallpaper.previews
+    }
+
+    func setWallpaper(_ manager: WallpaperManager?) {
+        guard wallpaper?.manager !== manager else { return }
+        stopWallpaper()
+        wallpaper = manager.map(WallpaperFeedSource.init)
+        listenToWallpaper()
+        if started { publish() }
+    }
+
+    func stopWallpaper() {
+        wallpaper?.onChange = nil
+        wallpaper?.listen(data: false, previews: false)
+        data.wallpaper = nil
+        data.wallpaperPreviews = nil
     }
 
     func listenToNotifications(_ listening: Bool) {

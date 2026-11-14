@@ -675,14 +675,14 @@ final class ShellLakeProfileTests: XCTestCase {
         try Data(replaced.utf8).write(to: configURL)
         let fixture = try Fixture(source: source(in: root, install: false))
         configure(fixture, notch: false)
-        fixture.set("wallpaper") { writer in
+        fixture.set(ShellDataKey.wallpaper.rawValue) { writer in
             var value = ShellWallpaper()
             value.enabled = true
-            value.rotation = 15
+            value.rotation = SettingsExport.Wallpaper.rotationPresets[0]
             value.displays = [ShellWallpaper.Display(
                 id: "display:1", name: "Studio Display", main: true, builtin: false, notch: false, width: 2560,
                 height: 1440, folder: "~/Pictures/Wallpapers", custom: false, count: 2, current: "Harbour Fog.heic",
-                preview: nil, offset: 0, items: [.init(name: "Harbour Fog.heic"), .init(name: "Low Tide.jpg")],
+                offset: 0, page: WallpaperPreviews.defaultWindow, items: ["Harbour Fog.heic", "Low Tide.jpg"],
                 truncated: false
             )]
             value.write(into: &writer)

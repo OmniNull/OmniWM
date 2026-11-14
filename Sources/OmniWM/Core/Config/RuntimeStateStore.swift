@@ -65,7 +65,6 @@ struct RuntimeState: Codable, Equatable, Sendable {
     var launchOverlayPlayedVersion: String?
     var appVolumes: [String: AppVolumeSetting]?
     var menuBarHideHold: MenuBarHideHold?
-    var wallpaper: WallpaperRuntimeState?
 }
 
 @MainActor
@@ -416,17 +415,5 @@ extension RuntimeStateStore {
         guard state.unifiedSearchPickHistory != nil else { return }
         state.unifiedSearchPickHistory = nil
         scheduleSave()
-    }
-}
-
-extension RuntimeStateStore {
-    var wallpaper: WallpaperRuntimeState {
-        get { state.wallpaper ?? WallpaperRuntimeState() }
-        set {
-            let stored = newValue == WallpaperRuntimeState() ? nil : newValue
-            guard state.wallpaper != stored else { return }
-            state.wallpaper = stored
-            scheduleSave()
-        }
     }
 }

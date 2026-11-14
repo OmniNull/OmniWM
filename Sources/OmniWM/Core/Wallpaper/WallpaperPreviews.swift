@@ -10,8 +10,8 @@ struct WallpaperPreviewKey: Hashable, Sendable {
     let ratio: Int
     let placement: WallpaperPlacement
 
-    init(_ url: URL, width: Int, display size: CGSize, placement: WallpaperPlacement) {
-        file = WallpaperFileStamp(url)
+    init(file: WallpaperFileStamp, width: Int, display size: CGSize, placement: WallpaperPlacement) {
+        self.file = file
         self.width = width
         let aspect = size.width > 0 && size.height > 0 ? size.width / size.height : 16.0 / 9.0
         ratio = Int((aspect * 1000).rounded())
@@ -34,13 +34,13 @@ struct WallpaperPreviewKey: Hashable, Sendable {
 @MainActor
 final class WallpaperPreviews {
     nonisolated static let prefix = "wallpaper/"
-    static let cardWidth = 800
-    static let gridWidth = 400
-    static let limit = 64
-    static let defaultWindow = 6
+    nonisolated static let cardWidth = 800
+    nonisolated static let gridWidth = 400
+    nonisolated static let limit = 64
+    nonisolated static let defaultWindow = 6
     nonisolated static let pageLimit = 24
 
-    struct Window: Equatable {
+    struct Window: Equatable, Sendable {
         var offset: Int
         var count: Int
         var folder = ""
@@ -54,14 +54,9 @@ final class WallpaperPreviews {
     private var queue: [WallpaperPreviewKey] = []
     private var working: Task<Void, Never>?
     private var generation = 0
-    private var windows: [String: Window] = [:]
-    private var lastEntries: [WallpaperManager.Entry] = []
-    private var lastPlacement = WallpaperPlacement.fill
+    private(set) var windows: [String: Window] = [:]
     var demanded = false {
-        didSet {
-            guard demanded != oldValue else { return }
-            if demanded { retain(entries: lastEntries, placement: lastPlacement) } else { reset() }
-        }
+        didSet { if !demanded, oldValue { reset() } }
     }
 
     var onChange: (@MainActor () -> Void)?
@@ -84,9 +79,12 @@ final class WallpaperPreviews {
     }
 
     func window(for entry: WallpaperManager.Entry) -> Window {
+        Self.window(for: entry, saved: windows[entry.display.key])
+    }
+
+    nonisolated static func window(for entry: WallpaperManager.Entry, saved: Window?) -> Window {
         let files = entry.files
-        let saved = windows[entry.display.key].flatMap { $0.folder == entry.folder.path ? $0 : nil }
-        var window = saved ?? {
+        var window = saved.flatMap { $0.folder == entry.folder.path ? $0 : nil } ?? {
             let index = entry.currentName.flatMap { files.firstIndex(of: $0) } ?? 0
             return Window(offset: index / Self.defaultWindow * Self.defaultWindow, count: Self.defaultWindow)
         }()
@@ -97,14 +95,11 @@ final class WallpaperPreviews {
         return window
     }
 
-    func setWindow(_ window: Window, for entry: WallpaperManager.Entry, placement: WallpaperPlacement) {
-        let bounded = Window(
+    func setWindow(_ window: Window, for entry: WallpaperManager.Entry) {
+        windows[entry.display.key] = Window(
             offset: max(0, window.offset), count: min(max(window.count, 1), Self.pageLimit),
             folder: entry.folder.path
         )
-        guard windows[entry.display.key] != bounded else { return }
-        windows[entry.display.key] = bounded
-        retain(entries: lastEntries, placement: placement)
     }
 
     func settle() async {
@@ -120,14 +115,15 @@ final class WallpaperPreviews {
         "\(display.key)|\(width)|\(placement.rawValue)|\(url.standardizedFileURL.path)"
     }
 
-    func retain(entries: [WallpaperManager.Entry], placement: WallpaperPlacement) {
-        lastEntries = entries
-        lastPlacement = placement
+    func retain(
+        entries: [WallpaperManager.Entry], stamps: [String: WallpaperFileStamp], placement: WallpaperPlacement
+    ) {
         guard demanded else { return }
         var keys: [WallpaperPreviewKey] = []
         var slots: [String: String] = [:]
         func want(_ url: URL, width: Int, display: WallpaperDisplay) {
-            let key = WallpaperPreviewKey(url, width: width, display: display.size, placement: placement)
+            guard let stamp = stamps[url.standardizedFileURL.path] else { return }
+            let key = WallpaperPreviewKey(file: stamp, width: width, display: display.size, placement: placement)
             keys.append(key)
             slots[Self.slot(url, width: width, display: display, placement: placement)] = key.id
         }
@@ -163,10 +159,13 @@ final class WallpaperPreviews {
         queue = []
     }
 
-    func visible(_ entry: WallpaperManager.Entry) -> [String] {
-        let window = window(for: entry)
+    func visible(_ entry: WallpaperManager.Entry) -> ArraySlice<String> {
+        Self.visible(entry, in: window(for: entry))
+    }
+
+    nonisolated static func visible(_ entry: WallpaperManager.Entry, in window: Window) -> ArraySlice<String> {
         let start = min(window.offset, entry.files.count)
-        return Array(entry.files[start ..< min(entry.files.count, start + window.count)])
+        return entry.files[start ..< min(entry.files.count, start + window.count)]
     }
 
     private func work() {

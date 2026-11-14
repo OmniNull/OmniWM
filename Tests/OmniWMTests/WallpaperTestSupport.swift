@@ -4,6 +4,7 @@
 import AppKit
 import Foundation
 @testable import OmniWM
+import os
 
 @MainActor
 final class FakeWallpaperDesktop: WallpaperDesktop {
@@ -12,15 +13,25 @@ final class FakeWallpaperDesktop: WallpaperDesktop {
     var events: [String] = []
     var revealed: [URL] = []
     var failing: Set<String> = []
-    private(set) var reads = 0
+    var unreadable: String?
+    private let looks = OSAllocatedUnfairLock(initialState: 0)
 
     init(_ screens: [WallpaperDisplay]) {
         self.screens = screens
     }
 
-    func displays() -> [WallpaperDisplay] {
-        reads += 1
-        return screens
+    var reads: Int {
+        looks.withLock { $0 }
+    }
+
+    func lookup() -> (screens: [WallpaperDisplay], shown: WallpaperShownLookup) {
+        let screens = screens
+        let (looks, unreadable) = (looks, unreadable)
+        return (screens, {
+            looks.withLock { $0 += 1 }
+            if let unreadable { return .failure(WallpaperDesktopFailure(message: unreadable)) }
+            return .success(screens.map { WallpaperShown(current: $0.current, thumbnail: $0.thumbnail, kind: $0.kind) })
+        })
     }
 
     func setWallpaper(_ url: URL, on display: WallpaperDisplay, placement: WallpaperPlacement) throws {
@@ -53,21 +64,29 @@ final class FakeWallpaperDesktop: WallpaperDesktop {
 
 @MainActor
 final class FakeWallpaperPalette: WallpaperPaletteTarget {
+    struct Refused: Error, LocalizedError {
+        var errorDescription: String? {
+            "the disk is full"
+        }
+    }
+
     var wallpaperPaletteState = WallpaperPaletteState(active: true, scheme: .tonalSpot)
     weak var desktop: FakeWallpaperDesktop?
     var published: [[UInt32]] = []
     var accepts = true
+    var fails = false
     var refreshed = 0
     var holding = false
     private var held: [CheckedContinuation<Void, Never>] = []
     private var arrivals: [CheckedContinuation<Void, Never>] = []
 
-    func publishWallpaperPalette(_ pixels: [UInt32]) async -> Bool {
+    func publishWallpaperPalette(_ pixels: [UInt32]) async throws -> Bool {
         published.append(pixels)
         desktop?.events.append("palette \(pixels.first ?? 0)")
         arrivals.forEach { $0.resume() }
         arrivals = []
         if holding { await withCheckedContinuation { held.append($0) } }
+        if fails { throw Refused() }
         return accepts
     }
 
@@ -128,6 +147,114 @@ final class WallpaperSampleGate {
     }
 }
 
+final class WallpaperHeldWork: Sendable {
+    private let held = OSAllocatedUnfairLock<[@Sendable () -> Void]>(initialState: [])
+
+    var count: Int {
+        held.withLock { $0.count }
+    }
+
+    func perform(_ work: @escaping @Sendable () -> Void) {
+        held.withLock { $0.append(work) }
+    }
+
+    func release() {
+        let work = held.withLock { held in
+            defer { held.removeAll() }
+            return held
+        }
+        for item in work {
+            item()
+        }
+    }
+
+    func releaseNewest() {
+        let newest = held.withLock { $0.popLast() }
+        newest?()
+    }
+}
+
+final class WallpaperHeldHops: Sendable {
+    private let held = OSAllocatedUnfairLock<[@MainActor @Sendable () -> Void]>(initialState: [])
+
+    var count: Int {
+        held.withLock { $0.count }
+    }
+
+    func deliver(_ work: @escaping @MainActor @Sendable () -> Void) {
+        held.withLock { $0.append(work) }
+    }
+
+    @MainActor
+    func release() {
+        let work = held.withLock { held in
+            defer { held.removeAll() }
+            return held
+        }
+        for item in work {
+            item()
+        }
+    }
+
+    @MainActor
+    func releaseNewest() {
+        let newest = held.withLock { $0.popLast() }
+        newest?()
+    }
+}
+
+final class WallpaperStateBox: Sendable {
+    struct Failure: Error, LocalizedError {
+        var errorDescription: String? {
+            "the volume is read-only"
+        }
+    }
+
+    private let stored: OSAllocatedUnfairLock<(state: WallpaperRuntimeState, saves: Int, failing: Bool)>
+
+    init(_ state: WallpaperRuntimeState = WallpaperRuntimeState()) {
+        stored = OSAllocatedUnfairLock(initialState: (state, 0, false))
+    }
+
+    var state: WallpaperRuntimeState {
+        get { stored.withLock { $0.state } }
+        set { stored.withLock { $0.state = newValue } }
+    }
+
+    var saves: Int {
+        stored.withLock { $0.saves }
+    }
+
+    var failing: Bool {
+        get { stored.withLock { $0.failing } }
+        set { stored.withLock { $0.failing = newValue } }
+    }
+
+    func load() -> WallpaperRuntimeState {
+        state
+    }
+
+    func save(_ next: WallpaperRuntimeState) throws {
+        try stored.withLock { stored in
+            guard !stored.failing else { throw Failure() }
+            stored.state = next
+            stored.saves += 1
+        }
+    }
+}
+
+final class WallpaperCounter: Sendable {
+    private let counted = OSAllocatedUnfairLock<[String]>(initialState: [])
+
+    var values: [String] {
+        counted.withLock { $0 }
+    }
+
+    func add(_ value: String) {
+        counted.withLock { $0.append(value) }
+    }
+}
+
 @MainActor
 final class ManualWallpaperClock {
     var now = Date(timeIntervalSince1970: 1_800_000_000)
@@ -184,6 +311,22 @@ enum WallpaperFixtures {
             try Data(file.utf8).write(to: folder.appendingPathComponent(file))
         }
         return folder
+    }
+
+    static func environment(
+        state: WallpaperStateBox, home: String, synchronous: Bool = true
+    ) -> WallpaperEnvironment {
+        var environment = WallpaperEnvironment(stateFile: URL(fileURLWithPath: home).appendingPathComponent("state"))
+        environment.home = home
+        environment.loadState = { state.load() }
+        environment.saveState = { try state.save($0) }
+        environment.schedule = { _, _ in {} }
+        environment.preview = { _ in nil }
+        if synchronous {
+            environment.perform = { $0() }
+            environment.deliver = { MainActor.assumeIsolated($0) }
+        }
+        return environment
     }
 
     static func writeImage(_ url: URL, width: Int, height: Int, color: (CGFloat, CGFloat, CGFloat)) throws {

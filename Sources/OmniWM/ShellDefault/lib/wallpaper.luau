@@ -5,9 +5,7 @@ local wallpaper = {}
 
 local GAP = 10
 local COLUMNS = 3
-local FEW = 6
 local MANY = 12
-local CYCLE = { 0, 15, 30, 60 }
 local SCHEMES = {
     tonalSpot = function() return omniwm.l10n("Tonal Spot") end,
     content = function() return omniwm.l10n("Content") end,
@@ -101,10 +99,13 @@ local function pill(skin, props)
     return ui.row(row)
 end
 
-local function nextRotation(minutes: number): number
-    for index, value in CYCLE do
+local function nextRotation(data, minutes: number): number
+    if minutes <= 0 then
+        return data.rotations[1] or 0
+    end
+    for index, value in data.rotations do
         if value == minutes then
-            return CYCLE[index % #CYCLE + 1]
+            return data.rotations[index + 1] or 0
         end
     end
     return 0
@@ -135,7 +136,7 @@ local function header(ctx, data, skin, width: number)
             border = if on then nil else skin.border,
             help = omniwm.l10n("Change how often the wallpaper changes: every 15, 30 or 60 minutes, or off"),
             action = function()
-                omniwm.run("wallpaper rotation " .. tostring(nextRotation(data.rotation)))
+                omniwm.run("wallpaper rotation " .. tostring(nextRotation(data, data.rotation)))
             end }),
         pill(skin, { key = "next all", symbol = "forward.end.fill", text = nextLabel, fill = skin.accent,
             color = skin.accentText, weight = "semibold",
@@ -143,7 +144,7 @@ local function header(ctx, data, skin, width: number)
             action = function() omniwm.run("wallpaper next all") end }) }
 end
 
-local function cards(ctx, data, selected, skin, width: number)
+local function cards(ctx, data, previews, selected, skin, width: number)
     local total = 0
     for _, display in data.displays do
         total += aspect(display)
@@ -154,7 +155,8 @@ local function cards(ctx, data, selected, skin, width: number)
     local row = { w = width, gap = GAP }
     for _, display in data.displays do
         local w = math.floor(aspect(display) * height)
-        local shown = if display.preview then ui.image{ image = display.preview, w = w, h = height, radius = 10 }
+        local card = previews[display.id] and previews[display.id].card
+        local shown = if card then ui.image{ image = card, w = w, h = height, radius = 10 }
             else ui.stack{ w = w, h = height, radius = 10, fill = skin.raised,
                 ui.symbol{ name = "photo", size = 18, color = skin.muted } }
         local isChosen = selected and selected.id == display.id
@@ -237,8 +239,8 @@ local function tabs(ctx, data, selected, skin, width: number)
     return ui.row{ w = width, pad = 1, ui.row(row), ui.box{ grow = 1, h = 1 } }
 end
 
-local function pageOf(ctx, display): (number, number, number)
-    local per = if ctx.state.wallpaperAll then MANY else FEW
+local function pageOf(display): (number, number, number)
+    local per = math.max(1, display.page)
     local pages = math.max(1, math.ceil(display.count / per))
     local page = math.floor((display.offset or 0) / per) + 1
     return math.clamp(page, 1, pages), pages, per
@@ -248,20 +250,21 @@ local function showPage(display, page: number, per: number)
     omniwm.run(string.format("wallpaper page %s %d %d", display.id, (page - 1) * per, per))
 end
 
-local function grid(ctx, display, skin, width: number)
-    local _, _, per = pageOf(ctx, display)
+local function grid(display, tiles, skin, width: number)
+    local _, _, per = pageOf(display)
     local tileW = math.floor((width - 8 * (COLUMNS - 1)) / COLUMNS)
     local tileH = math.floor(tileW / aspect(display))
     local lines = {}
     for index = 1, math.min(#display.items, per) do
-        local item = display.items[index]
-        local current = item.name == display.current
-        local tile = { key = "tile " .. display.id .. " " .. item.name, w = tileW, h = tileH, radius = 10,
+        local name = display.items[index]
+        local current = name == display.current
+        local preview = tiles[name]
+        local tile = { key = "tile " .. display.id .. " " .. name, w = tileW, h = tileH, radius = 10,
             fill = skin.raised, border = if current then skin.accent else nil, borderWidth = if current then 2 else nil,
-            help = item.name, hoverScale = 1.02, hoverAnimate = 0.12,
-            onClick = function() omniwm.run("wallpaper set " .. display.id .. " " .. token(item.name)) end }
-        tile[#tile + 1] = if item.preview then ui.image{ image = item.preview, w = tileW, h = tileH, radius = 10 }
-            else ui.text{ text = item.name, size = 10.5, color = skin.muted, maxWidth = tileW - 12, lines = 2 }
+            help = name, hoverScale = 1.02, hoverAnimate = 0.12,
+            onClick = function() omniwm.run("wallpaper set " .. display.id .. " " .. token(name)) end }
+        tile[#tile + 1] = if preview then ui.image{ image = preview, w = tileW, h = tileH, radius = 10 }
+            else ui.text{ text = name, size = 10.5, color = skin.muted, maxWidth = tileW - 12, lines = 2 }
         if current then
             tile[#tile + 1] = ui.row{ align = "topLeading", dx = 5, dy = 5, h = 16, radius = 8, fill = skin.accent,
                 ui.box{ w = 6, h = 1 },
@@ -279,17 +282,18 @@ local function grid(ctx, display, skin, width: number)
     for _, line in lines do
         rows[#rows + 1] = ui.row(line)
     end
-    if display.count == 0 then
-        rows[#rows + 1] = ui.text{ text = omniwm.l10n("No wallpapers in %@", display.folder), size = 12,
-            color = skin.secondary, maxWidth = width, lines = 2 }
+    if display.problem then
+        rows[#rows + 1] = ui.text{ text = display.problem, size = 12, color = skin.secondary, maxWidth = width,
+            lines = 2 }
     end
     return ui.column(rows)
 end
 
-local function footer(ctx, display, skin, width: number)
-    local page, pages, per = pageOf(ctx, display)
+local function footer(data, display, skin, width: number)
+    local page, pages, per = pageOf(display)
+    local all = per > data.defaultPage
     local right = { gap = 6 }
-    if ctx.state.wallpaperAll and pages > 1 then
+    if all and pages > 1 then
         right[#right + 1] = pill(skin, { key = "previous page", symbol = "chevron.left", text = "",
             help = omniwm.l10n("Previous page"),
             action = function() showPage(display, math.max(1, page - 1), per) end })
@@ -299,11 +303,10 @@ local function footer(ctx, display, skin, width: number)
             action = function() showPage(display, math.min(pages, page + 1), per) end })
     end
     right[#right + 1] = pill(skin, { key = "show all",
-        text = if ctx.state.wallpaperAll then omniwm.l10n("Show fewer") else omniwm.l10n("Show all"),
+        text = if all then omniwm.l10n("Show fewer") else omniwm.l10n("Show all"),
         color = skin.secondary, help = omniwm.l10n("Page through every wallpaper in the folder"),
-        action = function(next)
-            next.state.wallpaperAll = not next.state.wallpaperAll
-            local nextPer = if next.state.wallpaperAll then MANY else FEW
+        action = function()
+            local nextPer = if all then data.defaultPage else MANY
             showPage(display, math.floor((display.offset or 0) / nextPer) + 1, nextPer)
         end })
     right[#right + 1] = pill(skin, { key = "change folder", symbol = "folder.badge.gearshape",
@@ -337,18 +340,20 @@ function wallpaper.panel(ctx, skin, width: number)
     if not data then
         return wallpaper.off(ctx, skin, width)
     end
+    local previews = ctx.data.wallpaperPreviews or {}
     local items = { w = width, gap = 12, center = false, header(ctx, data, skin, width) }
     local selected = chosen(ctx, data)
     if #data.displays > 0 then
-        items[#items + 1] = cards(ctx, data, selected, skin, width)
+        items[#items + 1] = cards(ctx, data, previews, selected, skin, width)
         items[#items + 1] = palette(ctx, data, skin, width)
         if #data.displays > 1 then
             items[#items + 1] = tabs(ctx, data, selected, skin, width)
         end
     end
     if selected then
-        items[#items + 1] = grid(ctx, selected, skin, width)
-        items[#items + 1] = footer(ctx, selected, skin, width)
+        local shown = previews[selected.id]
+        items[#items + 1] = grid(selected, if shown then shown.items else {}, skin, width)
+        items[#items + 1] = footer(data, selected, skin, width)
     end
     if data.problem then
         items[#items + 1] = ui.text{ text = data.problem, size = 11, color = "error", maxWidth = width, lines = 3 }

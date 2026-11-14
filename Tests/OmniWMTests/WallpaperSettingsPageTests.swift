@@ -54,27 +54,27 @@ final class WallpaperSettingsPageTests: XCTestCase {
         oled.current = ultrawide.appendingPathComponent("wall-0.png")
         let builtin = WallpaperFixtures.secondary(WallpaperFixtures.macBook)
         let desktop = FakeWallpaperDesktop([oled, builtin])
+        let environment = WallpaperFixtures.environment(state: WallpaperStateBox(), home: directory.path)
+        controller.wallpaperManager = WallpaperManager(
+            settings: settings.wallpaper, desktop: desktop, environment: environment
+        )
         settings.wallpaper.folder = shared.path
         settings.wallpaper.enabled = true
         settings.wallpaper.setFolder(ultrawide.path, for: oled.monitor)
         settings.wallpaper.displays.append(MonitorWallpaperSettings(
             monitorName: "Studio Display", monitorDisplayUUID: "BBBBBBBB-1111-2222-3333-444444444444",
-            folder: "~/Pictures/Studio"
+            folder: "~/Studio"
         ))
-        var environment = WallpaperEnvironment()
-        environment.schedule = { _, _ in {} }
-        controller.wallpaperManager = WallpaperManager(
-            settings: settings.wallpaper, desktop: desktop, environment: environment,
-            loadState: { WallpaperRuntimeState() }, saveState: { _ in }
-        )
-        controller.wallpaperManager.settingsDidChange()
+        controller.applyWallpaperSettings()
         return (settings, controller, desktop)
     }
 
     func testThePageListsEveryDisplayWithItsFolderAndCountAndRendersInBothAppearances() async throws {
         let (settings, controller, _) = try fixture()
-        await controller.wallpaperManager.sampleMainWallpaper()
-        XCTAssertNotNil(controller.wallpaperManager.paletteSample)
+        let manager = try XCTUnwrap(controller.wallpaperManager)
+        manager.showSwatches(true, for: .settings)
+        await manager.idle()
+        XCTAssertNotNil(manager.paletteSample)
         for dark in [false, true] {
             let page = WallpaperSettingsPage(settings: settings, controller: controller)
                 .frame(width: 640, height: 1180)
@@ -151,8 +151,39 @@ final class WallpaperSettingsPageTests: XCTestCase {
 
     func testRotationChoicesMapToMinutes() {
         XCTAssertEqual(WallpaperRotationChoice(0), .off)
-        XCTAssertEqual(WallpaperRotationChoice(15), .minutes(15))
-        XCTAssertEqual(WallpaperRotationChoice(60), .minutes(60))
-        XCTAssertEqual(WallpaperRotationChoice(45), .custom)
+        for minutes in SettingsExport.Wallpaper.rotationPresets {
+            XCTAssertEqual(WallpaperRotationChoice(minutes), .minutes(minutes))
+        }
+        let custom = SettingsExport.Wallpaper.rotationPresets[0] + 1
+        XCTAssertFalse(SettingsExport.Wallpaper.rotationPresets.contains(custom))
+        XCTAssertEqual(WallpaperRotationChoice(custom), .custom)
+    }
+
+    func testThePageTakesFolderCountsFromTheManagerAndNeverScansOnTheMainThread() async throws {
+        let (settings, controller, _) = try fixture()
+        let manager = try XCTUnwrap(controller.wallpaperManager)
+        let held = WallpaperHeldWork()
+        let probe = WallpaperManager(
+            settings: settings.wallpaper, desktop: FakeWallpaperDesktop([WallpaperFixtures.studio]),
+            environment: {
+                var environment = manager.environment
+                environment.perform = held.perform
+                return environment
+            }()
+        )
+        controller.wallpaperManager = probe
+        probe.start(resumingRotation: false)
+        let page = WallpaperSettingsPage(settings: settings, controller: controller).frame(width: 640, height: 1180)
+        let hosting = NSHostingView(rootView: page)
+        hosting.frame = CGRect(x: 0, y: 0, width: 640, height: 1180)
+        let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = hosting
+        await display(window)
+        XCTAssertTrue(probe.listsEveryFolder, "the open page asks the manager for every folder's count")
+        XCTAssertTrue(probe.lists.isEmpty, "nothing is listed until the worker runs")
+        held.release()
+        let studio = try XCTUnwrap(WallpaperLibrary.folderURL("~/Studio", home: directory.path))
+        XCTAssertNotNil(probe.list(for: studio))
+        window.contentView = nil
     }
 }

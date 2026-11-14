@@ -37,6 +37,36 @@ struct WallpaperDisplay: Equatable, Sendable {
             hasNotch: hasNotch, name: name, displayUUID: uuid, isMain: isMain
         )
     }
+
+    func showing(_ shown: WallpaperShown) -> WallpaperDisplay {
+        var display = self
+        display.current = shown.current
+        display.thumbnail = shown.thumbnail
+        display.kind = shown.kind
+        return display
+    }
+}
+
+struct WallpaperShown: Equatable, Sendable {
+    var current: URL?
+    var thumbnail: URL?
+    var kind = WallpaperDisplay.Kind.other
+
+    init(current: URL? = nil, thumbnail: URL? = nil, kind: WallpaperDisplay.Kind = .other) {
+        self.current = current
+        self.thumbnail = thumbnail
+        self.kind = kind
+    }
+
+    init(_ choice: ShellWallpaperPalette.DesktopChoice?) {
+        switch choice {
+        case let .file(url): self.init(current: url, kind: .file)
+        case let .aerial(_, thumbnail): self.init(thumbnail: thumbnail, kind: .aerial)
+        case .shuffle: self.init(kind: .shuffle)
+        case .other,
+             nil: self.init()
+        }
+    }
 }
 
 struct WallpaperDesktopFailure: Error, Equatable, LocalizedError {
@@ -47,10 +77,12 @@ struct WallpaperDesktopFailure: Error, Equatable, LocalizedError {
     }
 }
 
+typealias WallpaperShownLookup = @Sendable () -> Result<[WallpaperShown], WallpaperDesktopFailure>
+
 @MainActor
 protocol WallpaperDesktop: AnyObject {
     var onChange: (@MainActor () -> Void)? { get set }
-    func displays() -> [WallpaperDisplay]
+    func lookup() -> (screens: [WallpaperDisplay], shown: WallpaperShownLookup)
     func setWallpaper(_ url: URL, on display: WallpaperDisplay, placement: WallpaperPlacement) throws
     func reveal(_ folder: URL)
 }
@@ -58,66 +90,82 @@ protocol WallpaperDesktop: AnyObject {
 @MainActor
 final class LiveWallpaperDesktop: WallpaperDesktop {
     typealias Apply = @MainActor (URL, WallpaperDisplay, WallpaperPlacement) throws -> Void
+    typealias Store = @Sendable () throws -> Data?
+    typealias Location = (display: String, space: String)
 
     var onChange: (@MainActor () -> Void)? {
         didSet { observe(onChange != nil) }
     }
 
     private let screens: @MainActor () -> [WallpaperDisplay]
-    private let store: @MainActor () -> Data?
-    private let location: @MainActor (CGDirectDisplayID) -> (display: String, space: String)?
+    private let store: Store
+    private let location: @MainActor (CGDirectDisplayID) -> Location?
     private let aerials: URL
     private let apply: Apply
-    private var observers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
-    private var storeObservation: ShellDirectoryObservation?
+    private let events: ShellWallpaperEvents
 
     init(
         screens: @escaping @MainActor () -> [WallpaperDisplay] = LiveWallpaperDesktop.connectedScreens,
-        store: @escaping @MainActor () -> Data? = {
-            try? Data(contentsOf: ShellWallpaperPaletteWriter.store.appendingPathComponent("Index.plist"))
-        },
-        location: @escaping @MainActor (CGDirectDisplayID) -> (display: String, space: String)? = {
-            ShellWallpaperPalette.location(of: $0)
-        },
+        store: @escaping Store = LiveWallpaperDesktop.readStore,
+        location: @escaping @MainActor (CGDirectDisplayID) -> Location? = { ShellWallpaperPalette.location(of: $0) },
         aerials: URL = ShellWallpaperPalette.aerials,
-        apply: @escaping Apply = LiveWallpaperDesktop.setDesktopImage
+        apply: @escaping Apply = LiveWallpaperDesktop.setDesktopImage,
+        events: ShellWallpaperEvents = .shared
     ) {
         self.screens = screens
         self.store = store
         self.location = location
         self.aerials = aerials
         self.apply = apply
+        self.events = events
     }
 
-    func displays() -> [WallpaperDisplay] {
-        let index = store()
-        return screens().map { screen in
-            var display = screen
-            let choice = location(screen.displayId).flatMap {
-                ShellWallpaperPalette.desktopChoice(store: index, location: $0, aerials: aerials)
-            }
-            switch choice {
-            case let .file(url):
-                display.current = url
-                display.kind = .file
-            case let .aerial(_, thumbnail):
-                display.current = nil
-                display.thumbnail = thumbnail
-                display.kind = .aerial
-            case .shuffle:
-                display.current = nil
-                display.kind = .shuffle
-            case .other,
-                 nil:
-                display.current = nil
-                display.kind = .other
-            }
-            return display
+    isolated deinit {
+        events.unsubscribe(self)
+    }
+
+    func lookup() -> (screens: [WallpaperDisplay], shown: WallpaperShownLookup) {
+        let screens = screens()
+        var locations: [Location?] = []
+        locations.reserveCapacity(screens.count)
+        for screen in screens {
+            locations.append(location(screen.displayId))
         }
+        let (store, aerials, located) = (store, aerials, locations)
+        return (screens, { Self.shown(at: located, store: store, aerials: aerials) })
     }
 
-    func storeDidChange() {
-        onChange?()
+    nonisolated static func shown(
+        at locations: [Location?], store: Store, aerials: URL
+    ) -> Result<[WallpaperShown], WallpaperDesktopFailure> {
+        let index: [String: Any]?
+        do {
+            index = try store().map(ShellWallpaperPalette.storeIndex(from:))
+        } catch {
+            return .failure(WallpaperDesktopFailure(message: String(
+                localized: "macOS’s wallpaper settings can’t be read: \(error.localizedDescription)"
+            )))
+        }
+        var shown: [WallpaperShown] = []
+        shown.reserveCapacity(locations.count)
+        for location in locations {
+            guard let location, let index else {
+                shown.append(WallpaperShown())
+                continue
+            }
+            shown.append(WallpaperShown(ShellWallpaperPalette.desktopChoice(
+                in: index, location: location, aerials: aerials
+            )))
+        }
+        return .success(shown)
+    }
+
+    nonisolated static func readStore() throws -> Data? {
+        do {
+            return try Data(contentsOf: ShellWallpaperPaletteWriter.store.appendingPathComponent("Index.plist"))
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        }
     }
 
     func setWallpaper(_ url: URL, on display: WallpaperDisplay, placement: WallpaperPlacement) throws {
@@ -164,26 +212,46 @@ final class LiveWallpaperDesktop: WallpaperDesktop {
     }
 
     private func observe(_ observing: Bool) {
-        for observer in observers {
-            observer.center.removeObserver(observer.token)
+        guard observing else {
+            events.unsubscribe(self)
+            return
         }
-        observers = []
-        storeObservation?.cancel()
-        storeObservation = nil
-        guard observing else { return }
-        observers = [
-            (NotificationCenter.default, NSApplication.didChangeScreenParametersNotification),
-            (NSWorkspace.shared.notificationCenter, NSWorkspace.activeSpaceDidChangeNotification)
-        ].map { center, name in
-            (center, center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.onChange?() }
-            })
+        events.subscribe(self) { [weak self] in self?.onChange?() }
+    }
+}
+
+extension ShellWallpaperPalette {
+    static func storeIndex(from data: Data) throws -> [String: Any] {
+        guard let index = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+            throw CocoaError(.propertyListReadCorrupt)
         }
-        let observation = ShellDirectoryObservation { [weak self] in self?.storeDidChange() }
-        let storeFolder = ShellWallpaperPaletteWriter.store
-        observation.sync(
-            paths: [storeFolder, storeFolder.appendingPathComponent("Index.plist")], recursivePaths: [storeFolder]
+        return index
+    }
+
+    static func desktopChoice(
+        in index: [String: Any],
+        location: (display: String, space: String),
+        aerials: URL
+    ) -> DesktopChoice? {
+        guard let content = desktopContent(in: index, location: location) else { return nil }
+        if let path = stillImagePath(of: content) {
+            return .file(URL(fileURLWithPath: path))
+        }
+        guard let choices = content["Choices"] as? [[String: Any]], choices.count == 1 else { return .other }
+        if content["Shuffle"] as? String != "$null" {
+            return .shuffle
+        }
+        guard choices[0]["Provider"] as? String == aerialProvider,
+              let data = choices[0]["Configuration"] as? Data,
+              let configuration = try? PropertyListSerialization.propertyList(from: data, format: nil)
+              as? [String: Any],
+              let asset = configuration["assetID"] as? String,
+              !asset.isEmpty, !asset.contains("/")
+        else { return .other }
+        let thumbnail = aerials.appendingPathComponent("thumbnails/\(asset).png").standardizedFileURL
+        return .aerial(
+            asset: asset,
+            thumbnail: FileManager.default.fileExists(atPath: thumbnail.path) ? thumbnail : nil
         )
-        storeObservation = observation
     }
 }

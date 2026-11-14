@@ -21,8 +21,11 @@ final class WallpaperLibraryTests: XCTestCase {
             at: folder.appendingPathComponent("linked.png"),
             withDestinationURL: folder.appendingPathComponent("img2.jpg")
         )
-        XCTAssertEqual(WallpaperLibrary.files(in: folder), ["img2.jpg", "img10.jpg", "linked.png", "Photo.HEIC"])
-        XCTAssertEqual(WallpaperLibrary.files(in: root.appendingPathComponent("missing")), [])
+        XCTAssertEqual(try WallpaperLibrary.files(in: folder), ["img2.jpg", "img10.jpg", "linked.png", "Photo.HEIC"])
+        XCTAssertThrowsError(
+            try WallpaperLibrary.files(in: root.appendingPathComponent("missing")),
+            "a folder that cannot be listed is a failure, not an empty folder"
+        )
     }
 
     func testPathsExpandAndAbbreviateAroundTheHomeFolder() {
@@ -46,9 +49,9 @@ final class WallpaperLibraryTests: XCTestCase {
     func testEveryWallpaperShowsOnceBeforeAnyRepeatsAndCyclesDoNotRepeatAtTheSeam() {
         var shuffle = WallpaperShuffle()
         var random = WallpaperRandom(seed: 42)
-        let files = (1 ... 9).map { "w\($0).jpg" }
+        let files = (1 ... WallpaperPreviews.defaultWindow).map { "w\($0).jpg" }
         var previous: String?
-        for _ in 0 ..< 20 {
+        for _ in 0 ..< 2 * WallpaperPreviews.pageLimit {
             var cycle: [String] = []
             for _ in files {
                 let pick = shuffle.next(display: "A", folder: "/w", files: files, using: &random)!
@@ -105,12 +108,12 @@ final class WallpaperLibraryTests: XCTestCase {
         try NSBitmapImageRep(cgImage: try XCTUnwrap(context.makeImage()))
             .representation(using: .png, properties: [:])!.write(to: url)
 
-        let sample = try XCTUnwrap(WallpaperRendering.sample(WallpaperSampleKey(url)))
+        let sample = try XCTUnwrap(WallpaperRendering.sample(WallpaperSampleKey(file: WallpaperFileStamp(url))))
         let stillRead = try XCTUnwrap(ShellWallpaperPalette.read(url).map(ShellWallpaperPalette.pixels(of:)))
         XCTAssertEqual(sample, stillRead, "the manager and the still wallpaper read sample a file identically")
         let blue = Double(sample.filter { $0 & 0xFF > 0x80 && ($0 >> 16) & 0xFF < 0x80 }.count) / Double(sample.count)
         XCTAssertLessThan(blue, 0.4, "the whole file is sampled, not the middle a square display would show")
-        XCTAssertEqual(WallpaperSampleKey(url), WallpaperSampleKey(url))
+        XCTAssertEqual(WallpaperFileStamp(url), WallpaperFileStamp(url))
     }
 
     func testPreviewsAreCroppedToTheDisplayShape() throws {
@@ -119,15 +122,20 @@ final class WallpaperLibraryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let url = root.appendingPathComponent("w.png")
         try WallpaperFixtures.writeImage(url, width: 1600, height: 900, color: (0.2, 0.4, 0.6))
-        let ultrawide = try XCTUnwrap(WallpaperRendering.preview(url, width: 400, aspect: 32.0 / 9.0, placement: .fill))
-        XCTAssertEqual(ultrawide.width, 400)
-        XCTAssertEqual(ultrawide.height, 113)
-        let portrait = try XCTUnwrap(WallpaperRendering.preview(url, width: 400, aspect: 9.0 / 16.0, placement: .fill))
-        XCTAssertEqual(portrait.width, 225)
-        XCTAssertEqual(portrait.height, 400)
+        let width = WallpaperPreviews.gridWidth
+        let ultrawide = try XCTUnwrap(WallpaperRendering.preview(
+            url, width: width, aspect: 32.0 / 9.0, placement: .fill
+        ))
+        XCTAssertEqual(ultrawide.width, width)
+        XCTAssertEqual(ultrawide.height, Int((Double(width) * 9 / 32).rounded()))
+        let portrait = try XCTUnwrap(WallpaperRendering.preview(
+            url, width: width, aspect: 9.0 / 16.0, placement: .fill
+        ))
+        XCTAssertEqual(portrait.width, Int((Double(width) * 9 / 16).rounded()))
+        XCTAssertEqual(portrait.height, width)
         XCTAssertNil(WallpaperRendering.preview(
             root.appendingPathComponent("none.png"),
-            width: 400,
+            width: width,
             aspect: 1,
             placement: .fill
         ))

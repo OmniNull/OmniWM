@@ -40,6 +40,7 @@ final class WorkspaceBarManager {
     private var hiddenBarJoin: HiddenBarPanelPlacement.Join?
     var shellHost: ShellWidgetHost?
     var shellPalette: ShellTheme?
+    var paletteRequests: UInt64 = 0
     let shellPermissions = ShellNetworkPermissions()
     var commandPaletteResources: ShellResources?
     var commandPaletteColorsObserver: NSObjectProtocol?

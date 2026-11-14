@@ -40,7 +40,8 @@ final class BorderPaletteColorTests: XCTestCase {
         let text = ShellWallpaperPalette.theme(pixels: ShellWallpaperPalette.pixels(of: image), scheme: .tonalSpot)
         var problems: [String] = []
         let theme = ShellTheme(
-            toml: try TOMLDecoder().decode([String: TOMLNode].self, from: Data(text.utf8)), name: "wallpaper",
+            toml: try TOMLDecoder().decode([String: TOMLNode].self, from: Data(text.utf8)),
+            name: ShellWallpaperPalette.themeName,
             problems: &problems
         )
         XCTAssertEqual(problems, [])
@@ -127,5 +128,58 @@ final class BorderPaletteColorTests: XCTestCase {
         XCTAssertEqual(controller.resolvedBorderConfig().color, try color(second, .accent, dark: dark))
         controller.workspaceBarManager.setShellPalette(nil)
         XCTAssertEqual(controller.resolvedBorderConfig().color, settings.borders.color)
+    }
+
+    func testEveryInputOfTheShellPaletteReachesTheBorder() throws {
+        let settings = store()
+        let controller = WMController(
+            settings: settings,
+            clipboardHistoryDirectory: directory.appendingPathComponent("clipboard"),
+            diagnosticsDirectory: directory.appendingPathComponent("diagnostics"),
+            ownedWindowRegistry: OwnedWindowRegistry()
+        )
+        controller.workspaceBarManager.setup(controller: controller, settings: settings)
+        settings.borders.enabled = true
+        settings.borders.colorSource = .palette
+        let host = ShellWidgetHost(
+            configDirectory: directory,
+            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
+            resourceStore: ShellResourceStore(directory: directory.appendingPathComponent("resources")),
+            world: { ShellWorldData() }, vars: { [:] }, bars: { [:] }, onLayoutChange: {},
+            onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
+            onPopoutChange: {}, onTitleDemandChange: { _ in }
+        )
+        controller.workspaceBarManager.observeShellPalette(host)
+        let dark = controller.borderUsesDarkAppearance
+        let accent = SettingsColor(red: 0, green: 0.5, blue: 1, alpha: 1)
+        func expected(_ config: ShellConfig) throws -> SettingsColor {
+            try color(
+                ShellWidgetHost.paletteTheme(config: config, accent: accent, foreground: nil),
+                .accent,
+                dark: dark
+            )
+        }
+        for name in ["native", "custom"] {
+            host.started = false
+            host.setBarColors(accent: nil, foreground: nil)
+            host.config.themeName = name
+            host.started = true
+            host.setBarColors(accent: accent, foreground: nil)
+            XCTAssertEqual(
+                controller.resolvedBorderConfig().color, try expected(host.config),
+                "a bar color edited under the \(name) theme reaches the border"
+            )
+        }
+
+        var next = host.config
+        next.theme = try theme([(0x2E7D32, 6), (0xC5E1A5, 1)])
+        host.applyConfig(next)
+        XCTAssertEqual(controller.resolvedBorderConfig().color, try expected(host.config), "a theme change reaches it")
+
+        controller.workspaceBarManager.stopShellHost()
+        XCTAssertEqual(
+            controller.resolvedBorderConfig().color, settings.borders.color, "with the shell off it is fixed again"
+        )
+        host.started = false
     }
 }

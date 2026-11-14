@@ -15,16 +15,11 @@ extension ShellWidgetHost: WallpaperPaletteTarget {
         )
     }
 
-    func publishWallpaperPalette(_ pixels: [UInt32]) async -> Bool {
+    func publishWallpaperPalette(_ pixels: [UInt32]) async throws -> Bool {
         guard config.themeName == ShellWallpaperPalette.themeName, let writer = wallpaperPalette else { return false }
-        let text = ShellWallpaperPalette.theme(pixels: pixels, scheme: config.wallpaperScheme)
-        do {
-            guard try await writer.publish(text) else { return true }
-        } catch {
-            Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
-            return false
+        if try await writer.publish(pixels, scheme: config.wallpaperScheme) {
+            reloadConfig()
         }
-        reloadConfig()
         return true
     }
 
@@ -35,13 +30,26 @@ extension ShellWidgetHost: WallpaperPaletteTarget {
     func wallpaperPaletteDidChange() {
         feed?.wallpaper?.update()
     }
+
+    func setWallpaperManager(_ manager: WallpaperManager?) {
+        if let previous = resources.wallpaper, previous !== manager, previous.palette === self {
+            previous.palette = nil
+        }
+        resources.wallpaper = manager
+        manager?.palette = self
+        feed?.setWallpaper(manager)
+    }
 }
 
 extension ShellWallpaperPaletteWriter {
-    static func publish(_ text: String, to destination: URL) async throws -> Bool {
+    static func publish(_ pixels: [UInt32], scheme: ShellWallpaperScheme, to destination: URL) async throws -> Bool {
         try await withCheckedThrowingContinuation { continuation in
             performOnWriterQueue {
-                continuation.resume(with: Result { try ShellWallpaperPalette.write(text, to: destination) })
+                continuation.resume(with: Result {
+                    try ShellWallpaperPalette.write(
+                        ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme), to: destination
+                    )
+                })
             }
         }
     }

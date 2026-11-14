@@ -1,6 +1,33 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Can’t be read: %@" : {
+
+    },
+    "Every %lld Minutes" : {
+
+    },
+    "OmniWM can’t change its colors. Check the Styles & Widgets folder." : {
+
+    },
+    "Previews of each scheme appear while Manage Wallpapers is on." : {
+
+    },
+    "The wallpaper colors can’t be updated: %@" : {
+
+    },
+    "The wallpaper colors can’t be written: %@" : {
+
+    },
+    "Wallpaper rotation can’t be restored: %@" : {
+
+    },
+    "Wallpaper rotation can’t be saved: %@" : {
+
+    },
+    "macOS’s wallpaper settings can’t be read: %@" : {
+
+    },
     "Color the focused window's border with the accent of OmniWM's palette" : {
 
     },
@@ -44,15 +71,6 @@
 
     },
     "Each display uses the default folder until you choose one for it. Displays are recognized by their identity, so identical monitors keep separate folders, and a display you unplug keeps its folder." : {
-
-    },
-    "Every 15 Minutes" : {
-
-    },
-    "Every 30 Minutes" : {
-
-    },
-    "Every Hour" : {
 
     },
     "Fill Screen" : {

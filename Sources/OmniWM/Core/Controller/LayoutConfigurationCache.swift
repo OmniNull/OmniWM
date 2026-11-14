@@ -30,27 +30,25 @@ struct BorderConfigCacheEntry {
     let revision: UInt64
     let isDark: Bool
     let keyboardMode: KeyboardModeKind
-    var palette: ShellTheme?
     let value: BorderConfig
 }
 
 extension WMController {
     func resolvedBorderConfig() -> BorderConfig {
         let revision = settings.layoutConfigurationRevision
-        let palette = settings.borders.colorSource == .palette ? workspaceBarManager.shellPalette : nil
         if let cachedBorderConfig,
            cachedBorderConfig.revision == revision,
            cachedBorderConfig.isDark == borderUsesDarkAppearance,
-           cachedBorderConfig.keyboardMode == keyboardModeKind,
-           cachedBorderConfig.palette == palette
+           cachedBorderConfig.keyboardMode == keyboardModeKind
         {
             return cachedBorderConfig.value
         }
-        let value = BorderConfig.from(settings: settings, isDark: borderUsesDarkAppearance, palette: palette)
-            .indicating(keyboardModeKind)
+        let value = BorderConfig.from(
+            settings: settings, isDark: borderUsesDarkAppearance, palette: workspaceBarManager.shellPalette
+        )
+        .indicating(keyboardModeKind)
         cachedBorderConfig = BorderConfigCacheEntry(
-            revision: revision, isDark: borderUsesDarkAppearance, keyboardMode: keyboardModeKind, palette: palette,
-            value: value
+            revision: revision, isDark: borderUsesDarkAppearance, keyboardMode: keyboardModeKind, value: value
         )
         return value
     }

@@ -20,18 +20,19 @@ enum WallpaperLibrary {
         return imageExtensions.contains(ext)
     }
 
-    static func files(in folder: URL) -> [String] {
-        let keys: [URLResourceKey] = [.isRegularFileKey]
-        guard let items = try? FileManager.default.contentsOfDirectory(
-            at: folder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]
-        ) else { return [] }
-        return items.compactMap { item -> String? in
-            let name = item.lastPathComponent
-            guard isImage(name),
-                  (try? item.resolvingSymlinksInPath().resourceValues(forKeys: Set(keys)).isRegularFile) == true
-            else { return nil }
-            return name
-        }.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    static func files(in folder: URL) throws -> [String] {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey]
+        let items = try FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]
+        )
+        var names: [String] = []
+        for item in items where isImage(item.lastPathComponent) {
+            guard (try? item.resolvingSymlinksInPath().resourceValues(forKeys: keys).isRegularFile) == true else {
+                continue
+            }
+            names.append(item.lastPathComponent)
+        }
+        return names.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
     static func expand(_ path: String, home: String = NSHomeDirectory()) -> String {

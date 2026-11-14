@@ -562,11 +562,6 @@ export type Connection = {
     interface: string?,
 }
 
-export type WallpaperItem = {
-    name: string,
-    preview: string?,
-}
-
 export type WallpaperDisplay = {
     id: string,
     name: string,
@@ -581,9 +576,10 @@ export type WallpaperDisplay = {
     current: string?,
     kind: "file" | "aerial" | "shuffle" | "other",
     shown: string?,
-    preview: string?,
+    problem: string?,
     offset: number,
-    items: { WallpaperItem },
+    page: number,
+    items: { string },
     truncated: boolean,
 }
 
@@ -601,8 +597,15 @@ export type Wallpaper = {
     palette: boolean,
     scheme: string,
     problem: string?,
+    defaultPage: number,
+    rotations: { number },
     displays: { WallpaperDisplay },
     schemes: { WallpaperScheme },
+}
+
+export type WallpaperPreviewSet = {
+    card: string?,
+    items: { [string]: string },
 }
 
 export type BluetoothDevice = {
@@ -708,6 +711,7 @@ export type Data = {
     connection: Connection?,
     commandPalette: CommandPalette?,
     wallpaper: Wallpaper?,
+    wallpaperPreviews: { [string]: WallpaperPreviewSet }?,
 }
 
 export type Format = {

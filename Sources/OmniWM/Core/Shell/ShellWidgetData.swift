@@ -57,6 +57,7 @@ enum ShellDataKey: String, CaseIterable, Sendable {
     case connection
     case commandPalette
     case wallpaper
+    case wallpaperPreviews
 
     private static let order = allCases
     static let table = order.map(\.rawValue).joined(separator: "\n")
@@ -162,6 +163,7 @@ struct ShellWidgetData: Equatable, Sendable {
     var wifi: ShellWiFi?
     var connection: ShellConnection?
     var wallpaper: ShellWallpaper?
+    var wallpaperPreviews: ShellWallpaperPreviews?
     var bluetooth: ShellBluetooth?
     var user: ShellUser?
     var thermal: ShellThermal?
@@ -207,6 +209,7 @@ extension ShellWidgetData {
             | Self.changed(.wifi, when: wifi != previous.wifi)
             | Self.changed(.connection, when: connection != previous.connection)
             | Self.changed(.wallpaper, when: wallpaper != previous.wallpaper)
+            | Self.changed(.wallpaperPreviews, when: wallpaperPreviews != previous.wallpaperPreviews)
             | Self.changed(.bluetooth, when: bluetooth != previous.bluetooth)
             | Self.changed(.user, when: user != previous.user)
             | Self.changed(.thermal, when: thermal != previous.thermal)

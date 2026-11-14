@@ -213,9 +213,11 @@ extension ShellWidgetPackage {
             }
         }
         if changed & ShellDataKey.wallpaper.bit != 0 {
-            setValue(instance, .wallpaper) { writer in
-                guard let wallpaper = next.wallpaper else { return writer.null() }
-                wallpaper.write(into: &writer)
+            setValue(instance, .wallpaper) { writer in next.wallpaper.map { $0.write(into: &writer) } ?? writer.null() }
+        }
+        if changed & ShellDataKey.wallpaperPreviews.bit != 0 {
+            setValue(instance, .wallpaperPreviews) { writer in
+                next.wallpaperPreviews.map { $0.write(into: &writer) } ?? writer.null()
             }
         }
     }

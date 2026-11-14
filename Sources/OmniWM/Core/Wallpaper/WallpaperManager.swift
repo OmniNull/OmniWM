@@ -13,7 +13,7 @@ struct WallpaperPaletteState: Equatable, Sendable {
 @MainActor
 protocol WallpaperPaletteTarget: AnyObject {
     var wallpaperPaletteState: WallpaperPaletteState { get }
-    func publishWallpaperPalette(_ pixels: [UInt32]) async -> Bool
+    func publishWallpaperPalette(_ pixels: [UInt32]) async throws -> Bool
     func refreshWallpaperPalette()
 }
 
@@ -22,44 +22,19 @@ enum WallpaperTarget: Equatable, Sendable {
     case display(String)
 }
 
-struct WallpaperEnvironment {
-    var home = NSHomeDirectory()
-    var now: @MainActor () -> Date = { Date() }
-    var schedule: @MainActor (Date, @escaping @MainActor () -> Void) -> (@MainActor () -> Void) = WallpaperEnvironment
-        .wallClockTimer
-    var sample: @Sendable (WallpaperSampleKey) async -> [UInt32]? = { key in
-        await Task.detached(priority: .userInitiated) { WallpaperRendering.sample(key) }.value
-    }
-
-    var preview: @Sendable (WallpaperPreviewKey) async -> CGImage? = { key in
-        await Task.detached(priority: .utility) {
-            WallpaperRendering.preview(
-                URL(fileURLWithPath: key.file.path), width: key.width, aspect: key.aspect, placement: key.placement
-            )
-        }.value
-    }
-
-    var files: @MainActor (URL) -> [String] = { WallpaperLibrary.files(in: $0) }
-    var seed = UInt64.random(in: .min ... .max)
-
-    static func wallClockTimer(
-        _ date: Date, _ action: @escaping @MainActor () -> Void
-    ) -> (@MainActor () -> Void) {
-        let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(wallDeadline: .now() + max(1, date.timeIntervalSinceNow), leeway: .seconds(1))
-        timer.setEventHandler { MainActor.assumeIsolated { action() } }
-        timer.resume()
-        return { timer.cancel() }
-    }
+enum WallpaperSwatchReader: Hashable {
+    case widget
+    case settings
 }
 
 @MainActor @Observable
 final class WallpaperManager {
-    struct Entry: Equatable {
+    struct Entry: Equatable, Sendable {
         var display: WallpaperDisplay
         var folder: URL
         var custom: Bool
-        var files: [String]
+        var files: [String] = []
+        var failure: String?
 
         var currentName: String? {
             guard let current = display.current,
@@ -75,44 +50,55 @@ final class WallpaperManager {
         let pixels: [UInt32]
     }
 
+    static let sampleLimit = 48
+
     let settings: WallpaperSettings
     @ObservationIgnored let desktop: WallpaperDesktop
     @ObservationIgnored let environment: WallpaperEnvironment
-    @ObservationIgnored private let loadState: @MainActor () -> WallpaperRuntimeState
-    @ObservationIgnored private let saveState: @MainActor (WallpaperRuntimeState) -> Void
+    @ObservationIgnored let previews: WallpaperPreviews
     @ObservationIgnored weak var palette: (any WallpaperPaletteTarget)?
     @ObservationIgnored var onChange: (@MainActor () -> Void)?
-    @ObservationIgnored private var random: WallpaperRandom
-    @ObservationIgnored private var cancelTimer: (@MainActor () -> Void)?
-    @ObservationIgnored private var tail: Task<Void, Never>?
-    @ObservationIgnored private(set) var samples: [WallpaperSampleKey: [UInt32]] = [:]
-    @ObservationIgnored private var sampleOrder: [WallpaperSampleKey] = []
-    @ObservationIgnored let previews: WallpaperPreviews
-    @ObservationIgnored private(set) var pin: Pin?
-    @ObservationIgnored private var appliedPlacement: WallpaperPlacement?
-    @ObservationIgnored private var epoch = 0
+    @ObservationIgnored var random: WallpaperRandom
+    @ObservationIgnored var cancelTimer: (@MainActor () -> Void)?
+    @ObservationIgnored var tail: Task<Void, Never>?
+    @ObservationIgnored var samples: [WallpaperSampleKey: [UInt32]] = [:]
+    @ObservationIgnored var sampleOrder: [WallpaperSampleKey] = []
+    @ObservationIgnored var prefetching: [WallpaperSampleKey: Task<[UInt32]?, Never>] = [:]
+    @ObservationIgnored var pin: Pin?
+    @ObservationIgnored var appliedPlacement: WallpaperPlacement?
+    @ObservationIgnored var epoch = 0
+    @ObservationIgnored var sampleEpoch = 0
+    @ObservationIgnored var state: WallpaperRuntimeState?
+    @ObservationIgnored var stamps: [String: WallpaperFileStamp] = [:]
+    @ObservationIgnored var upcoming: WallpaperFileStamp?
+    @ObservationIgnored var swatchReaders: Set<WallpaperSwatchReader> = []
+    @ObservationIgnored var sampled: WallpaperSampleKey?
+    @ObservationIgnored var sampling: Task<Void, Never>?
+    @ObservationIgnored private var resumesRotation = false
     @ObservationIgnored private var folders: [String] = []
-    @ObservationIgnored private var sampleEpoch = 0
-    @ObservationIgnored private var prefetching: [WallpaperSampleKey: Task<[UInt32]?, Never>] = [:]
+    @ObservationIgnored private var passes: UInt64 = 0
+    @ObservationIgnored private var saves: UInt64 = 0
+    @ObservationIgnored private var waiters: [CheckedContinuation<Void, Never>] = []
 
     private(set) var entries: [Entry] = []
-    private(set) var nextChange: Date?
-    private(set) var problem: String?
+    private(set) var lists: [URL: WallpaperFolderList] = [:]
+    var nextChange: Date?
+    var problems = WallpaperProblems()
     private(set) var running = false
-    private(set) var paletteSample: [UInt32]?
+    var paletteSample: [UInt32]?
+    var paletteSwatches: [ShellWallpaper.Swatch] = []
+    var listsEveryFolder = false {
+        didSet { if listsEveryFolder, !oldValue { refresh(rescan: true) } }
+    }
 
     init(
         settings: WallpaperSettings,
         desktop: WallpaperDesktop = LiveWallpaperDesktop(),
-        environment: WallpaperEnvironment = WallpaperEnvironment(),
-        loadState: @escaping @MainActor () -> WallpaperRuntimeState,
-        saveState: @escaping @MainActor (WallpaperRuntimeState) -> Void
+        environment: WallpaperEnvironment
     ) {
         self.settings = settings
         self.desktop = desktop
         self.environment = environment
-        self.loadState = loadState
-        self.saveState = saveState
         random = WallpaperRandom(seed: environment.seed)
         previews = WallpaperPreviews(render: environment.preview)
         previews.onChange = { [weak self] in self?.onChange?() }
@@ -122,32 +108,35 @@ final class WallpaperManager {
         settings.placement
     }
 
+    var problem: String? {
+        problems.text
+    }
+
+    func start(resumingRotation: Bool) {
+        resumesRotation = resumingRotation
+        settingsDidChange()
+    }
+
     func settingsDidChange() {
         guard settings.enabled else {
             stop()
-            var state = loadState()
-            if state.nextChange != nil {
-                state.nextChange = nil
-                saveState(state)
-            }
             return
         }
         if !running {
             running = true
-            desktop.onChange = { [weak self] in self?.displaysDidChange() }
+            desktop.onChange = { [weak self] in self?.refresh() }
         }
         let folders = [settings.folder] + settings.displays.map { "\($0.id) \($0.folder)" }
         if folders != self.folders {
             self.folders = folders
             epoch &+= 1
         }
-        refresh()
+        refresh(rescan: true)
         if let appliedPlacement, appliedPlacement != placement {
             enqueue { [self] in await reapplyPlacement() }
         }
         appliedPlacement = placement
-        schedule(fresh: false)
-        prefetch()
+        if state != nil { schedule(fresh: false) }
         onChange?()
     }
 
@@ -155,6 +144,7 @@ final class WallpaperManager {
         guard running || cancelTimer != nil else { return }
         running = false
         epoch &+= 1
+        passes &+= 1
         folders = []
         desktop.onChange = nil
         cancelTimer?()
@@ -162,300 +152,172 @@ final class WallpaperManager {
         appliedPlacement = nil
         nextChange = nil
         entries = []
+        lists = [:]
+        stamps = [:]
+        upcoming = nil
         pin = nil
-        problem = nil
+        state = nil
+        resumesRotation = false
+        problems = WallpaperProblems()
         previews.reset()
+        resumeWaiters()
         onChange?()
     }
 
-    func refresh() {
+    func refresh(rescan: Bool = false) {
         guard running else { return }
+        passes &+= 1
+        let generation = passes
+        let lookup = desktop.lookup()
         let home = environment.home
         let fallback = WallpaperLibrary.folderURL(settings.folder, home: home)
             ?? URL(fileURLWithPath: WallpaperLibrary.expand(WallpaperLibrary.defaultFolder, home: home))
-        var scanned: [URL: [String]] = [:]
-        entries = desktop.displays().map { display in
+        var planned: [Entry] = []
+        planned.reserveCapacity(lookup.screens.count)
+        for display in lookup.screens {
             let own = settings.folder(for: display.monitor)
                 .flatMap { WallpaperLibrary.folderURL($0.folder, home: home) }
-            let folder = own ?? fallback
-            let files = scanned[folder] ?? environment.files(folder)
-            scanned[folder] = files
-            return Entry(display: display, folder: folder, custom: own != nil, files: files)
+            planned.append(Entry(display: display, folder: own ?? fallback, custom: own != nil))
         }
-        previews.retain(entries: entries, placement: placement)
+        let pass = WallpaperPass(
+            planned: planned,
+            lists: rescan ? [:] : lists,
+            extra: listsEveryFolder ? configuredFolders(fallback: fallback) : [],
+            pages: previews.demanded ? previews.windows : nil,
+            upcoming: palette?.wallpaperPaletteState.active == true
+                ? state.map { WallpaperPass.Upcoming(shuffle: $0.shuffle, random: random) } : nil,
+            loadsState: state == nil
+        )
+        let (shown, environment) = (lookup.shown, environment)
+        environment.perform { [weak self] in
+            let snapshot = pass.run(
+                shown, files: environment.files, stamp: environment.stamp, loadState: environment.loadState
+            )
+            environment.deliver { self?.land(snapshot, generation: generation) }
+        }
+    }
+
+    private func configuredFolders(fallback: URL) -> [URL] {
+        var folders = [fallback]
+        for display in settings.displays {
+            guard let folder = WallpaperLibrary.folderURL(display.folder, home: environment.home) else { continue }
+            folders.append(folder)
+        }
+        return folders
+    }
+
+    private func land(_ snapshot: WallpaperSnapshot, generation: UInt64) {
+        guard running, generation == passes else { return }
+        if state == nil, let loaded = snapshot.state {
+            restore(loaded)
+        }
+        entries = snapshot.entries
+        lists = snapshot.lists
+        stamps = snapshot.stamps
+        upcoming = snapshot.upcoming
+        problems.desktop = snapshot.failure
+        previews.retain(entries: entries, stamps: stamps, placement: placement)
+        prefetch()
+        followMainSample()
+        resumeWaiters()
+        onChange?()
+    }
+
+    private func restore(_ loaded: Result<WallpaperRuntimeState, any Error>) {
+        switch loaded {
+        case let .success(saved):
+            state = saved
+        case let .failure(error):
+            state = WallpaperRuntimeState()
+            problems.state = String(localized: "Wallpaper rotation can’t be restored: \(error.localizedDescription)")
+        }
+        if !resumesRotation {
+            state?.nextChange = nil
+        }
+        schedule(fresh: false)
+    }
+
+    func snapshot(rescan: Bool) async {
+        guard running else { return }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+            refresh(rescan: rescan)
+        }
+    }
+
+    private func resumeWaiters() {
+        let waiting = waiters
+        waiters = []
+        for waiter in waiting {
+            waiter.resume()
+        }
+    }
+
+    func persist(_ next: WallpaperRuntimeState) {
+        state = next
+        saves &+= 1
+        let generation = saves
+        let environment = environment
+        environment.perform { [weak self] in
+            let failure: String?
+            do {
+                try environment.saveState(next)
+                failure = nil
+            } catch {
+                failure = error.localizedDescription
+            }
+            environment.deliver { self?.saved(failure, generation: generation) }
+        }
+    }
+
+    private func saved(_ failure: String?, generation: UInt64) {
+        guard running, generation == saves else { return }
+        let problem = failure.map { String(localized: "Wallpaper rotation can’t be saved: \($0)") }
+        guard problems.state != problem else { return }
+        problems.state = problem
+        onChange?()
     }
 
     func entry(for monitorId: String) -> Entry? {
         entries.first { $0.display.monitorId == monitorId }
     }
 
-    func next(_ target: WallpaperTarget) async {
-        await serialized { [self] in await advance(target) }
-    }
-
-    func idle() async {
-        while true {
-            if let task = tail {
-                await task.value
-                if tail == task { tail = nil }
-            } else if let pending = prefetching.values.first {
-                _ = await pending.value
-            } else {
-                return
-            }
-        }
-    }
-
-    private func advance(_ target: WallpaperTarget) async {
-        guard running else { return }
-        refresh()
-        let targets: [Entry] = switch target {
-        case .all: entries
-        case let .display(id): entries.filter { $0.display.monitorId == id }
-        }
-        if case .display = target, targets.isEmpty {
-            problem = String(localized: "That display is no longer connected")
-            onChange?()
-            return
-        }
-        var proposed = loadState().shuffle
-        var changes: [(entry: Entry, url: URL)] = []
-        var empty: [Entry] = []
-        for entry in targets {
-            guard let name = proposed.next(
-                display: entry.display.key, folder: entry.folder.path, files: entry.files, using: &random
-            ) else {
-                empty.append(entry)
-                continue
-            }
-            changes.append((entry, entry.folder.appendingPathComponent(name)))
-        }
-        problem = empty.first.map {
-            String(
-                localized: "No wallpapers in \(WallpaperLibrary.abbreviate($0.folder.path, home: environment.home))"
-            )
-        }
-        let applied = await apply(changes)
-        guard running else { return }
-        var state = loadState()
-        for key in applied ?? [] {
-            state.shuffle.displays[key] = proposed.displays[key]
-        }
-        if target == .all { state.nextChange = nil }
-        saveState(state)
-        if target == .all { schedule(fresh: true) }
-    }
-
-    func set(_ name: String, on monitorId: String) async {
-        await serialized { [self] in
-            guard running else { return }
-            refresh()
-            guard let entry = entry(for: monitorId) else {
-                problem = String(localized: "That display is no longer connected")
-                onChange?()
-                return
-            }
-            guard entry.files.contains(name) else {
-                problem = String(localized: "\(name) is not a wallpaper in this display’s folder")
-                onChange?()
-                return
-            }
-            problem = nil
-            _ = await apply([(entry, entry.folder.appendingPathComponent(name))])
-        }
+    func list(for folder: URL) -> WallpaperFolderList? {
+        lists[folder]
     }
 
     func setRotation(_ minutes: Int) {
+        guard running, settings.enabled else { return }
         settings.rotationMinutes = SettingsExport.Wallpaper.normalizedRotation(minutes)
-        var state = loadState()
-        state.nextChange = nil
-        saveState(state)
+        if var state {
+            state.nextChange = nil
+            persist(state)
+        }
         schedule(fresh: true)
         onChange?()
     }
 
     func setFolder(_ url: URL?, for monitorId: String) {
-        guard let display = entries.first(where: { $0.display.monitorId == monitorId })?.display else { return }
+        guard running, let display = entry(for: monitorId)?.display else { return }
         let path = url.map { WallpaperLibrary.abbreviate($0.standardizedFileURL.path, home: environment.home) }
         settings.setFolder(path, for: display.monitor)
-        refresh()
-        prefetch()
-        onChange?()
     }
 
     func reveal(_ monitorId: String) {
         guard let folder = entry(for: monitorId)?.folder else { return }
         desktop.reveal(folder)
     }
-}
 
-extension WallpaperManager {
-    func palettePin() -> ShellWallpaperPaletteOverride? {
-        pin.map { ShellWallpaperPaletteOverride(file: $0.key.file, pixels: $0.pixels) }
-    }
-
-    func palettePixels() -> [UInt32]? {
-        guard let pin, let main = desktop.displays().first(where: \.isMain),
-              main.current?.standardizedFileURL == pin.url.standardizedFileURL,
-              pin.key == WallpaperSampleKey(pin.url)
-        else { return nil }
-        return pin.pixels
-    }
-
-    func mainPixels() -> [UInt32]? {
-        guard let main = desktop.displays().first(where: \.isMain), let current = main.current else { return nil }
-        return samples[WallpaperSampleKey(current)]
-    }
-
-    func sampleMainWallpaper() async {
-        guard let main = desktop.displays().first(where: \.isMain), let current = main.current else { return }
-        let started = sampleEpoch
-        guard let pixels = await pixels(for: WallpaperSampleKey(current)), started == sampleEpoch,
-              paletteSample != pixels
-        else { return }
-        paletteSample = pixels
+    func showPage(_ window: WallpaperPreviews.Window, for monitorId: String) {
+        guard let entry = entry(for: monitorId) else { return }
+        previews.setWindow(window, for: entry)
+        refresh()
         onChange?()
     }
 
-    @discardableResult
-    private func enqueue(_ operation: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
-        let previous = tail
-        let task = Task { @MainActor in
-            await previous?.value
-            await operation()
-        }
-        tail = task
-        return task
-    }
-
-    private func serialized(_ operation: @escaping @MainActor () async -> Void) async {
-        await enqueue(operation).value
-    }
-
-    private func apply(_ changes: [(entry: Entry, url: URL)]) async -> Set<String>? {
-        let epoch = epoch
-        var published: Pin?
-        if let main = changes.first(where: { $0.entry.display.isMain }), let palette,
-           palette.wallpaperPaletteState.active
-        {
-            let key = WallpaperSampleKey(main.url)
-            let pixels = await pixels(for: key)
-            guard epoch == self.epoch else { return nil }
-            if let pixels, await palette.publishWallpaperPalette(pixels) {
-                published = Pin(url: main.url, key: key, pixels: pixels)
-            }
-            guard epoch == self.epoch else {
-                if published != nil { palette.refreshWallpaperPalette() }
-                return nil
-            }
-        }
-        pin = published ?? (changes.contains { $0.entry.display.isMain } ? nil : pin)
-        if let published {
-            paletteSample = published.pixels
-            sampleEpoch &+= 1
-        }
-        var applied: Set<String> = []
-        var failure: String?
-        for change in changes {
-            do {
-                try desktop.setWallpaper(change.url, on: change.entry.display, placement: placement)
-                applied.insert(change.entry.display.key)
-            } catch {
-                failure = error.localizedDescription
-                if change.entry.display.isMain, published != nil {
-                    pin = nil
-                    palette?.refreshWallpaperPalette()
-                }
-            }
-        }
-        if let failure { problem = failure }
-        refresh()
-        prefetch()
-        onChange?()
-        return applied
-    }
-
-    private func pixels(for key: WallpaperSampleKey) async -> [UInt32]? {
-        if let known = samples[key] { return known }
-        if let pending = prefetching[key] { return await pending.value }
-        let pixels = await environment.sample(key)
-        if let pixels { remember(pixels, for: key) }
-        return pixels
-    }
-
-    private func remember(_ pixels: [UInt32], for key: WallpaperSampleKey) {
-        if samples[key] == nil { sampleOrder.append(key) }
-        samples[key] = pixels
-        while sampleOrder.count > 48 {
-            samples.removeValue(forKey: sampleOrder.removeFirst())
-        }
-    }
-
-    private func prefetch() {
-        guard running, palette?.wallpaperPaletteState.active == true,
-              let main = entries.first(where: \.display.isMain)
-        else { return }
-        let state = loadState()
-        var keys: [WallpaperSampleKey] = []
-        if let upcoming = state.shuffle.peek(
-            display: main.display.key, folder: main.folder.path, files: main.files, random: random
-        ) {
-            keys.append(WallpaperSampleKey(main.folder.appendingPathComponent(upcoming)))
-        }
-        if let current = main.display.current {
-            keys.append(WallpaperSampleKey(current))
-        }
-        let sample = environment.sample
-        for key in keys where samples[key] == nil && prefetching[key] == nil {
-            prefetching[key] = Task { @MainActor [weak self] in
-                let pixels = await sample(key)
-                if let pixels { self?.remember(pixels, for: key) }
-                self?.prefetching[key] = nil
-                return pixels
-            }
-        }
-    }
-
-    private func displaysDidChange() {
-        refresh()
-        prefetch()
-        if paletteSample != nil {
-            enqueue { [self] in await sampleMainWallpaper() }
-        }
-        onChange?()
-    }
-
-    private func reapplyPlacement() async {
-        refresh()
-        _ = await apply(entries.compactMap { entry in
-            entry.currentName.map { (entry, entry.folder.appendingPathComponent($0)) }
-        })
-    }
-
-    private func schedule(fresh: Bool) {
-        cancelTimer?()
-        cancelTimer = nil
-        let minutes = settings.rotationMinutes
-        guard running, minutes > 0 else {
-            nextChange = nil
-            return
-        }
-        let now = environment.now()
-        let period = TimeInterval(minutes * 60)
-        var state = loadState()
-        var due = now.addingTimeInterval(period)
-        if !fresh, let saved = state.nextChange, saved.timeIntervalSince(now) <= period {
-            due = max(saved, now)
-        }
-        if state.nextChange != due {
-            state.nextChange = due
-            saveState(state)
-        }
-        nextChange = due
-        cancelTimer = environment.schedule(due) { [weak self] in
-            guard let self else { return }
-            cancelTimer = nil
-            enqueue { [self] in await advance(.all) }
-        }
+    func showPreviews(_ shown: Bool) {
+        guard previews.demanded != shown else { return }
+        previews.demanded = shown
+        if shown { refresh() }
     }
 }
