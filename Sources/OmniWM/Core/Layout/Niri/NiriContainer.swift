@@ -98,36 +98,28 @@ class NiriContainer: NiriNode {
             size
         }
         let effectiveMaxConstraint = bounds.max.map { max($0, bounds.min) }
-        if result < bounds.min { result = bounds.min }
-        if applyingPackingHints {
-            result = packedPrimarySpan(
-                result,
+        let packedWindows = applyingPackingHints ? windowNodes : []
+        func packedWithinMaximum(_ span: CGFloat) -> CGFloat {
+            let packed = Self.packedPrimarySpan(
+                span,
+                windows: packedWindows,
                 orientation: orientation,
                 limit: availableSpace - gaps * 2,
                 contentInset: contentInset
             )
+            guard let effectiveMaxConstraint, packed > effectiveMaxConstraint else { return packed }
+            return effectiveMaxConstraint
         }
-        if let effectiveMaxConstraint, result > effectiveMaxConstraint { result = effectiveMaxConstraint }
+        if result < bounds.min { result = bounds.min }
+        result = packedWithinMaximum(result)
         if orientation == .horizontal, let edgePeekCap {
             let stripEndCap = stripEndPeekRoom?.cappedSpan(result) ?? edgePeekCap
-            result = min(result, max(min(edgePeekCap, stripEndCap), bounds.min))
+            let capped = max(min(edgePeekCap, stripEndCap), bounds.min)
+            if capped < result {
+                result = min(result, packedWithinMaximum(capped))
+            }
         }
         return result
-    }
-
-    func packedPrimarySpan(
-        _ span: CGFloat,
-        orientation: Monitor.Orientation,
-        limit: CGFloat,
-        contentInset: CGFloat = 0
-    ) -> CGFloat {
-        Self.packedPrimarySpan(
-            span,
-            windows: windowNodes,
-            orientation: orientation,
-            limit: limit,
-            contentInset: contentInset
-        )
     }
 
     static func packedPrimarySpan(

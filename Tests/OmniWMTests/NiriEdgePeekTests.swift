@@ -84,6 +84,54 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertLessThanOrEqual(span.upperBound, fixture.frame.maxX - peek - fixture.gap + 0.5)
     }
 
+    func testACappedColumnStopsAtTheWidthItsWindowIsKnownToSettleAt() {
+        var fixture = makeFixture(widths: [0.5, 0.97, 0.5], centering: .always)
+        let hint = ObservedAxisHint(requested: fixture.cap, observed: fixture.cap + 40)
+        fixture.window(1).packingHints = ObservedPackingHints(width: hint)
+        fixture.column(1).cachedWidth = 0
+        fixture.focus(1, from: 0)
+        let column = fixture.column(1)
+        XCTAssertEqual(column.edgePeekCap, fixture.cap)
+
+        let packed = column.resolvedPrimarySpan(
+            column.width, orientation: .horizontal, availableSpace: fixture.frame.width, gaps: fixture.gap
+        )
+        let unpacked = column.resolvedPrimarySpan(
+            column.width,
+            orientation: .horizontal,
+            availableSpace: fixture.frame.width,
+            gaps: fixture.gap,
+            applyingPackingHints: false
+        )
+
+        XCTAssertEqual(packed, hint.packed(fixture.cap, limit: fixture.frame.width - 2 * fixture.gap))
+        XCTAssertGreaterThan(packed, fixture.cap)
+        XCTAssertEqual(unpacked, fixture.cap)
+    }
+
+    func testACappedColumnsMaximumWidthStillWinsOverItsPackedWidth() {
+        var fixture = makeFixture(widths: [0.5, 0.97, 0.5], centering: .always)
+        let maximum = fixture.cap + 20
+        fixture.window(1).packingHints = ObservedPackingHints(
+            width: ObservedAxisHint(requested: fixture.cap, observed: fixture.cap + 40)
+        )
+        fixture.window(1).constraints = WindowSizeConstraints(
+            minSize: CGSize(width: 1, height: 1),
+            maxSize: CGSize(width: maximum, height: 0),
+            isFixed: false
+        )
+        fixture.column(1).cachedWidth = 0
+        fixture.focus(1, from: 0)
+        let column = fixture.column(1)
+
+        XCTAssertEqual(
+            column.resolvedPrimarySpan(
+                column.width, orientation: .horizontal, availableSpace: fixture.frame.width, gaps: fixture.gap
+            ),
+            maximum
+        )
+    }
+
     func testTurningPeeksOffGivesTheColumnItsStoredWidthBack() {
         var fixture = makeFixture(widths: [0.5, 0.97, 0.5], centering: .always)
         fixture.focus(1, from: 0)
