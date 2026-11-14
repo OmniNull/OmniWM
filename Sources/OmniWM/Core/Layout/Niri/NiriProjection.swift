@@ -65,7 +65,7 @@ extension NiriLayoutEngine {
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
         excludedTokensByWorkspace[workspaceId]?.contains(token) == true
-            || liveHeldTabTokens(in: workspaceId).contains(token)
+            || isLiveHeldTab(token, in: workspaceId)
     }
 
     private func layoutExclusions(in workspaceId: WorkspaceDescriptor.ID) -> Set<WindowToken> {

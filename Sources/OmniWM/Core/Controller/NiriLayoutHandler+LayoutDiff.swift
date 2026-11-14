@@ -104,6 +104,7 @@ extension NiriLayoutHandler {
         var diff = WorkspaceLayoutDiff()
         diff.frameChanges.reserveCapacity(windows.count)
         let workspace = context.engine.states[context.workspaceId]
+        let liveDrag = context.engine.liveDraggedWindow(in: context.workspaceId)
         for window in windows {
             let token = window.token
             if window.isNativeFullscreenSuspended {
@@ -116,14 +117,13 @@ extension NiriLayoutHandler {
                 )
                 continue
             }
-            if appendLiveFloatingFrame(window, node: workspace?.nodesByToken[token], context: context, diff: &diff) {
+            if let liveDrag, liveDrag.token == token {
+                appendLiveFloatingFrame(
+                    liveDrag.floatingFrame, for: window, in: workspace, context: context, diff: &diff
+                )
                 continue
             }
-            if context.excludedTokens.contains(token)
-                || context.engine.isLiveDraggedWindow(token, in: context.workspaceId)
-            {
-                continue
-            }
+            if context.excludedTokens.contains(token) { continue }
             let previousOffscreenSide = window.hiddenState?.offscreenSide
             if let side = hiddenHandles[token] {
                 if previousOffscreenSide != side || context.reassertHidden
@@ -151,20 +151,20 @@ extension NiriLayoutHandler {
     }
 
     private func appendLiveFloatingFrame(
-        _ window: LayoutWindowSnapshot,
-        node: NiriWindow?,
+        _ floating: CGRect?,
+        for window: LayoutWindowSnapshot,
+        in workspace: NiriWorkspaceState?,
         context: NiriLayoutDiffContext,
         diff: inout WorkspaceLayoutDiff
-    ) -> Bool {
+    ) {
         let token = window.token
-        guard !context.excludedTokens.contains(token),
-              let floating = context.engine.liveFloatingFrame(for: token, in: context.workspaceId)
-        else { return false }
+        guard let floating, !context.excludedTokens.contains(token) else { return }
         if window.hiddenState != nil {
             diff.visibilityChanges.append(.show(token))
         }
-        diff.frameChanges.append(layoutFrameChange(token: token, frame: floating, node: node, context: context))
-        return true
+        diff.frameChanges.append(layoutFrameChange(
+            token: token, frame: floating, node: workspace?.nodesByToken[token], context: context
+        ))
     }
 
     private func appendNativeFullscreenSlot(

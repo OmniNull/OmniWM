@@ -101,6 +101,11 @@ extension NiriLayoutEngine {
         )
     }
 
+    func liveDraggedWindow(in workspaceId: WorkspaceDescriptor.ID) -> (token: WindowToken, floatingFrame: CGRect?)? {
+        guard let move = liveColumnMove, move.workspaceId == workspaceId else { return nil }
+        return (move.windowToken, move.floatingFrame)
+    }
+
     func liveFloatingFrame(for token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> CGRect? {
         guard let move = liveColumnMove, move.windowToken == token, move.workspaceId == workspaceId else {
             return nil

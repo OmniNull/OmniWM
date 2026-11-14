@@ -400,6 +400,16 @@ extension NiriLayoutEngine {
         home.cachedWidth = 0
     }
 
+    func isLiveHeldTab(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let heldTabs = liveColumnMove?.heldTabs, !heldTabs.isEmpty,
+              liveColumnMove?.workspaceId == workspaceId
+        else { return false }
+        for tab in heldTabs where tab.token == token {
+            return true
+        }
+        return false
+    }
+
     func liveHeldTabTokens(in workspaceId: WorkspaceDescriptor.ID) -> Set<WindowToken> {
         guard let move = liveColumnMove, move.workspaceId == workspaceId, !move.heldTabs.isEmpty else { return [] }
         return Set(move.heldTabs.map(\.token))
