@@ -58,6 +58,10 @@ extension AXEventHandler {
                   && !observed.isMinimized && !observed.isNativeFullscreen),
               controller.workspaceManager.setWindowNativeWithdrawn(withdrawn, token: token, source: source)
         else { return false }
+        // A rescan that ran before this withdrawal kept the hidden window, and nothing else rescans its app.
+        if withdrawn, controller.workspaceManager.hiddenState(for: token) != nil {
+            requestTargetedFullRescan(for: [token.pid])
+        }
         refreshWindowNativeSuppression(
             token: token,
             reason: withdrawn ? .windowWithdrawn : .windowReopened,
