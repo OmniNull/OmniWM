@@ -117,10 +117,6 @@ final class CommandPaletteShellPresenter {
         mailbox?.yield(.update(widgetData))
     }
 
-    func resize(to size: CGSize) {
-        surface.setRootLimit(size)
-    }
-
     func beginSession() {
         rowWindow.reset()
         revealedRequest = nil

@@ -27,17 +27,6 @@ extension CommandPaletteController {
         return selectedMode == .applications ? selectedApplicationChip?.id : selectedFileChip?.id
     }
 
-    var selectedLauncherItem: LauncherSelection? {
-        guard let selectedItemID else { return nil }
-        switch selectedItemID {
-        case .application where selectedMode != .applications,
-             .file where selectedMode != .files:
-            return nil
-        default:
-            return Self.launcherSelection(selectedItemID)
-        }
-    }
-
     var selectedLauncherFileResult: LauncherFileResult? {
         guard selectedMode == .files,
               launcherPublishedGeneration == launcherRequestGeneration,
