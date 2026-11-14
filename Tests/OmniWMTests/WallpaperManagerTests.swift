@@ -347,7 +347,7 @@ final class WallpaperManagerTests: XCTestCase {
         XCTAssertEqual(manager.nextChange, later(presets[0]))
         XCTAssertEqual(state.nextChange, manager.nextChange)
 
-        clock.now = later(presets[0] / 3)
+        clock.now = later(presets[0]).addingTimeInterval(-WallpaperManager.minute)
         manager.stop()
         manager = makeManager(desktop) { $0.rotationMinutes = self.presets[0] }
         XCTAssertEqual(manager.nextChange, state.nextChange, "a restart keeps the planned time")

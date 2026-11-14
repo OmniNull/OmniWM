@@ -127,7 +127,7 @@ extension WallpaperManager {
         {
             published = await publish(main, to: palette)
             guard epoch == self.epoch else {
-                if published != nil {
+                if published != nil, running {
                     if pin == published { pin = nil }
                     palette.refreshWallpaperPalette()
                 }

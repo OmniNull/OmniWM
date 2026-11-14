@@ -146,6 +146,7 @@ final class WallpaperManager {
 
     func stop() {
         guard running || cancelTimer != nil else { return }
+        let held = pin != nil
         running = false
         epoch &+= 1
         passes &+= 1
@@ -166,6 +167,7 @@ final class WallpaperManager {
         problems = WallpaperProblems()
         previews.reset()
         resumeWaiters()
+        if held { palette?.refreshWallpaperPalette() }
         onChange?()
     }
 

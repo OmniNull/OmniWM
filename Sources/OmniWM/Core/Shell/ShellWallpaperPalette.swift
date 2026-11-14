@@ -373,8 +373,9 @@ final class ShellWallpaperPaletteWriter {
             if let pinned {
                 if let pixels = pinned.pixels(for: looked) {
                     Self.keep(pixels, onlyIfChanged: onlyIfChanged, scheme: scheme, to: destination, record: record)
+                    return
                 }
-                return
+                guard onlyIfChanged else { return }
             }
             guard case let .still(still, aerial) = looked else {
                 if case let .capture(aerial) = looked {
@@ -464,6 +465,7 @@ final class ShellWallpaperPaletteWriter {
                     )
                     record.scheme = scheme
                     record.pixels = pixels
+                    record.written = nil
                     return changed
                 })
             }

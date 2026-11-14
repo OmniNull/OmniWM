@@ -314,4 +314,21 @@ final class WallpaperPassTests: XCTestCase {
         manager.flushState()
         XCTAssertEqual(drains.values, ["drain"])
     }
+
+    func testTurningManagementOffDuringAHoldGivesThePaletteBackToTheStore() async {
+        var display = WallpaperFixtures.studio
+        display.current = file("a.jpg")
+        let desktop = FakeWallpaperDesktop([display])
+        desktop.ignoring = [display.key]
+        let palette = FakeWallpaperPalette()
+        let manager = makeManager(desktop, held: false, palette: palette)
+        await manager.set("b.png", on: display.monitorId)
+        desktop.onChange?()
+        XCTAssertNotNil(manager.palettePin(), "macOS accepted the change but the display still shows a.jpg")
+        XCTAssertEqual(palette.refreshed, 0)
+
+        manager.settings.enabled = false
+        XCTAssertNil(manager.palettePin())
+        XCTAssertEqual(palette.refreshed, 1, "the writer is asked to follow the Store again")
+    }
 }

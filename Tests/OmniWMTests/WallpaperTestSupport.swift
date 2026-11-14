@@ -13,6 +13,7 @@ final class FakeWallpaperDesktop: WallpaperDesktop {
     var events: [String] = []
     var revealed: [URL] = []
     var failing: Set<String> = []
+    var ignoring: Set<String> = []
     var unreadable: String?
     private let looks = OSAllocatedUnfairLock(initialState: 0)
 
@@ -43,8 +44,9 @@ final class FakeWallpaperDesktop: WallpaperDesktop {
             events.append("missing \(display.name)")
             throw WallpaperDesktopFailure(message: "\(display.name) is no longer connected")
         }
-        screens[index].current = url
         events.append("set \(screens[index].key) \(url.lastPathComponent)")
+        guard !ignoring.contains(display.key) else { return }
+        screens[index].current = url
     }
 
     func reveal(_ folder: URL) {
