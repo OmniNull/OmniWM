@@ -32,7 +32,7 @@ extension MouseEventHandler {
     }
 
     var steadyTouchFrameFloor: Int {
-        guard state.gesturePhase == .idle, let config = trackpadGestureConfig else { return 0 }
+        guard tapInputs.gesturePhase == .idle, let config = trackpadGestureConfig else { return 0 }
         return config.minimumFingerCount
     }
 
@@ -171,9 +171,9 @@ extension MouseEventHandler {
     }
 
     func receiveTapOtherMouseButton(type: CGEventType, button: Int64, modifiers: CGEventFlags = []) -> Bool {
-        if state.capturedOtherMouseButton == button {
+        if tapInputs.capturedOtherMouseButton == button {
             if type == .otherMouseUp {
-                state.capturedOtherMouseButton = nil
+                tapInputs.capturedOtherMouseButton = nil
             }
             return true
         }
@@ -184,7 +184,7 @@ extension MouseEventHandler {
         guard canCaptureOtherMouseButton(controller),
               controller.hotkeys.dispatchMouseButton(button, flags: modifiers)
         else { return false }
-        state.capturedOtherMouseButton = button
+        tapInputs.capturedOtherMouseButton = button
         return true
     }
 
@@ -200,14 +200,14 @@ extension MouseEventHandler {
         guard canCaptureOtherMouseButton(controller), !isTrackpadSwipeSessionActive,
               !nativeTitleBarDragBlocksOverview, !state.awaitsNativeTitleBarDragTarget
         else { return false }
-        state.capturedOtherMouseButton = button
+        tapInputs.capturedOtherMouseButton = button
         controller.windowActionHandler.toggleOverview()
         return true
     }
 
     private func canCaptureOtherMouseButton(_ controller: WMController) -> Bool {
         controller.isEnabled && !isInputSuppressed
-            && state.capturedOtherMouseButton == nil && state.capturedInteractionButton == nil
+            && tapInputs.capturedOtherMouseButton == nil && tapInputs.capturedInteractionButton == nil
             && !state.isMoving && !state.isResizing
     }
 
@@ -319,8 +319,8 @@ extension MouseEventHandler {
     func receiveTapMouseUp(at location: CGPoint, button: MouseButton = .left, drainPendingEvents: Bool = true) {
         markNativeTitleBarDragFallbackReleased(button: button, at: location)
         defer {
-            if state.capturedInteractionButton == button {
-                state.capturedInteractionButton = nil
+            if tapInputs.capturedInteractionButton == button {
+                tapInputs.capturedInteractionButton = nil
             }
         }
         if drainPendingEvents {
@@ -405,17 +405,17 @@ extension MouseEventHandler {
 
     private func trackpadScrollDecision(momentumPhase: UInt32, phase: UInt32) -> ScrollDecision {
         if isTrackpadSwipeSessionActive {
-            if phase == CGScrollPhase.began.rawValue { state.suppressTrackpadMomentumScroll = false }
+            if phase == CGScrollPhase.began.rawValue { tapInputs.suppressTrackpadMomentumScroll = false }
             return .activeGesture
         }
-        if state.consumeTrackpadScrollUntilAllTouchesLift { return .liftLatch }
-        if state.suppressTrackpadMomentumScroll {
+        if tapInputs.consumeTrackpadScrollUntilAllTouchesLift { return .liftLatch }
+        if tapInputs.suppressTrackpadMomentumScroll {
             if momentumPhase != 0 { return .momentumTail }
             if phase == CGScrollPhase.ended.rawValue || phase == CGScrollPhase.cancelled.rawValue {
                 return .terminalTail
             }
             guard phase == CGScrollPhase.began.rawValue else { return .momentumTail }
-            state.suppressTrackpadMomentumScroll = false
+            tapInputs.suppressTrackpadMomentumScroll = false
             return .freshPhase
         }
         return .trackpadUnclaimed
@@ -450,11 +450,11 @@ extension MouseEventHandler {
     }
 
     private func shouldProcessGestureFrame(_ snapshot: GestureEventSnapshot) -> Bool {
-        guard state.gesturePhase == .idle else { return true }
+        guard tapInputs.gesturePhase == .idle else { return true }
         let activeTouchCount = Self.activeTouchCount(in: snapshot.touches)
         guard activeTouchCount > 0 else {
             state.suppressGestureStartUntilAllTouchesLift = false
-            state.consumeTrackpadScrollUntilAllTouchesLift = false
+            tapInputs.consumeTrackpadScrollUntilAllTouchesLift = false
             return true
         }
         if state.suppressGestureStartUntilAllTouchesLift { return false }

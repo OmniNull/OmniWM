@@ -132,12 +132,12 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         var gesture = fixture.driver(at: fixture.firstFrame.center)
         gesture.begin(fingers: 4, x: 0.2)
-        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .armed)
         XCTAssertFalse(handler.state.isMoving)
 
         gesture.drag(fingers: 4, fromX: 0.2, toX: 0.2 + fixture.travelToSecond)
 
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
         XCTAssertEqual(handler.state.activeGestureMode, .windowMove)
         XCTAssertTrue(handler.state.isMoving)
         XCTAssertTrue(handler.state.gestureOwnsWindowInteraction)
@@ -156,7 +156,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         gesture.end()
 
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
         XCTAssertNil(fixture.engine.interactiveMove)
@@ -189,7 +189,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
             XCTAssertFalse(handler.state.isResizing)
             XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
             XCTAssertNil(fixture.engine.interactiveResize)
-            XCTAssertEqual(handler.state.gesturePhase, .idle)
+            XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
             let widthAfter = try XCTUnwrap(fixture.frames()[fixture.first.token]).width
             XCTAssertEqual(widthAfter, widthBefore + delta)
         }
@@ -201,13 +201,13 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         var gesture = fixture.driver(at: CGPoint(x: workingFrame.maxX + 400, y: workingFrame.midY))
         gesture.begin(fingers: 4, x: 0.2)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertTrue(
             handler.state.suppressGestureStartUntilAllTouchesLift,
             "The cursor cannot move while fingers rest, so retrying every frame is pointless"
         )
         gesture.drag(fingers: 4, fromX: 0.2, toX: 0.45, steps: 5)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertNil(fixture.engine.interactiveMove)
         gesture.end()
@@ -259,7 +259,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertNil(fixture.engine.interactiveMove)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertEqual(fixture.windowOrder(), [fixture.first.token, fixture.second.token])
     }
 
@@ -336,7 +336,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         var gesture = fixture.driver(at: fixture.firstFrame.center)
         gesture.begin(fingers: 3, x: 0.2)
         gesture.frame(fingers: 3, x: 0.21)
-        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .armed)
         XCTAssertEqual(handler.state.lockedGestureContext?.fingerCount, 3)
 
         gesture.frame(fingers: 4, x: 0.21)
@@ -389,7 +389,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
         XCTAssertNil(fixture.engine.interactiveMove)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertEqual(fixture.windowOrder(), [fixture.first.token, fixture.second.token])
 
         gesture.end()
@@ -410,7 +410,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
         XCTAssertNil(fixture.engine.interactiveMove)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.isInteractiveGestureActive)
     }
 
@@ -540,7 +540,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
             XCTAssertNil(fixture.engine.interactiveMove)
             XCTAssertNil(fixture.engine.interactiveResize)
             XCTAssertNil(handler.state.activeInteractionSource)
-            XCTAssertEqual(handler.state.gesturePhase, .idle)
+            XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
             XCTAssertFalse(handler.state.isMoving)
             XCTAssertFalse(handler.state.isResizing)
             gesture.begin(fingers: fingers, x: 0.2)

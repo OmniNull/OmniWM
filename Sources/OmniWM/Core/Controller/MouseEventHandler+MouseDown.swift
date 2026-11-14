@@ -212,6 +212,6 @@ extension MouseEventHandler {
     }
 
     func isCapturedInteraction(_ button: MouseButton) -> Bool {
-        state.capturedInteractionButton == button
+        tapInputs.capturedInteractionButton == button
     }
 }

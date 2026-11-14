@@ -6,11 +6,11 @@ import Foundation
 
 extension MouseEventHandler {
     var isTrackpadSwipeSessionActive: Bool {
-        state.gesturePhase != .idle
+        tapInputs.gesturePhase != .idle
     }
 
     var isViewportGestureActive: Bool {
-        switch state.gesturePhase {
+        switch tapInputs.gesturePhase {
         case .idle:
             false
         case .armed:
@@ -43,7 +43,7 @@ extension MouseEventHandler {
         sessionID: AnimationDriver.GestureSessionID,
         disposition: ViewportGestureTerminationDisposition
     ) -> Bool {
-        guard state.gesturePhase == .committed,
+        guard tapInputs.gesturePhase == .committed,
               state.lockedGestureContext?.workspaceId == workspaceId,
               state.activeGestureMode == .columnScroll,
               state.viewportGestureSessionID == sessionID
@@ -63,8 +63,8 @@ extension MouseEventHandler {
         }
         if disposition != .viewportAlreadySettled {
             state.suppressGestureStartUntilAllTouchesLift = true
-            state.consumeTrackpadScrollUntilAllTouchesLift = true
-            state.suppressTrackpadMomentumScroll = true
+            tapInputs.consumeTrackpadScrollUntilAllTouchesLift = true
+            tapInputs.suppressTrackpadMomentumScroll = true
         }
         resetGestureState(settleViewportGesture: false)
         return true
@@ -124,14 +124,14 @@ extension MouseEventHandler {
         if pressedButtons & MouseButton.left.pressedMask == 0 {
             finishNativeTitleBarDragIfNeeded(button: .left)
         }
-        if let button = state.capturedInteractionButton, pressedButtons & button.pressedMask == 0 {
-            state.capturedInteractionButton = nil
+        if let button = tapInputs.capturedInteractionButton, pressedButtons & button.pressedMask == 0 {
+            tapInputs.capturedInteractionButton = nil
         }
         if let button = state.parkingEdgePressButton, pressedButtons & button.pressedMask == 0 {
             state.parkingEdgePressButton = nil
         }
-        if let button = state.capturedOtherMouseButton, pressedButtons & (1 << Int(button)) == 0 {
-            state.capturedOtherMouseButton = nil
+        if let button = tapInputs.capturedOtherMouseButton, pressedButtons & (1 << Int(button)) == 0 {
+            tapInputs.capturedOtherMouseButton = nil
         }
     }
 

@@ -69,7 +69,7 @@ extension MouseEventHandler {
         clearNativeTitleBarDrag()
         controller?.niriLayoutHandler.noteUserAction()
         performFusionDoubleClick(on: target)
-        state.capturedInteractionButton = .left
+        tapInputs.capturedInteractionButton = .left
         return true
     }
 
@@ -112,7 +112,7 @@ extension MouseEventHandler {
 
     private func fusionDoubleClickTarget(at location: CGPoint) -> FusionDoubleClickTarget? {
         guard !state.isMoving, !state.isResizing,
-              state.capturedInteractionButton == nil,
+              tapInputs.capturedInteractionButton == nil,
               liveDragSession?.tabPull == nil,
               let candidate = fusionDoubleClickCandidate(at: location),
               let handle = controller?.workspaceManager.handle(for: candidate.hit.window.token),

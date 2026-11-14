@@ -1176,7 +1176,7 @@ final class CrossDisplayDragTests: XCTestCase {
 
         XCTAssertEqual(fixture.manager.worldSeq, before)
         XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
-        XCTAssertNil(fixture.handler.state.capturedInteractionButton)
+        XCTAssertNil(fixture.handler.tapInputs.capturedInteractionButton)
         fixture.handler.retireNativeTitleBarDragAtInputBoundary()
         XCTAssertNil(fixture.handler.state.nativeCrossDisplayMove)
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
@@ -1324,7 +1324,7 @@ final class CrossDisplayDragTests: XCTestCase {
         ))
         fixture.handler.dispatchMouseDragged(at: frame.center)
         XCTAssertFalse(fixture.handler.state.isMoving)
-        XCTAssertNil(fixture.handler.state.capturedInteractionButton)
+        XCTAssertNil(fixture.handler.tapInputs.capturedInteractionButton)
         return frame
     }
 

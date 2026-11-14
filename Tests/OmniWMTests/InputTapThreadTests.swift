@@ -186,7 +186,7 @@ final class InputTapThreadTests: XCTestCase {
 
         XCTAssertFalse(MouseEventHandler.processTapCallback(type: .leftMouseDragged, event: drag))
 
-        handler.state.capturedInteractionButton = .left
+        handler.tapInputs.capturedInteractionButton = .left
         XCTAssertEqual(handler.inputTapThread.filterSnapshot.activeCapture, .left)
         XCTAssertTrue(MouseEventHandler.processTapCallback(type: .leftMouseDragged, event: drag))
 
@@ -197,7 +197,7 @@ final class InputTapThreadTests: XCTestCase {
             mouseButton: .left
         ))
         XCTAssertTrue(MouseEventHandler.processTapCallback(type: .leftMouseUp, event: upEvent))
-        XCTAssertNil(handler.state.capturedInteractionButton)
+        XCTAssertNil(handler.tapInputs.capturedInteractionButton)
         XCTAssertNil(handler.inputTapThread.filterSnapshot.activeCapture)
     }
 
@@ -211,7 +211,7 @@ final class InputTapThreadTests: XCTestCase {
             _ = handler.endPerformanceCapture()
             handler.cleanup()
         }
-        handler.state.capturedInteractionButton = .right
+        handler.tapInputs.capturedInteractionButton = .right
 
         let source = try XCTUnwrap(CGEventSource(stateID: .combinedSessionState))
         let drag = try XCTUnwrap(CGEvent(
@@ -255,19 +255,60 @@ final class InputTapThreadTests: XCTestCase {
         ))
         scrollEvent.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(CGScrollPhase.changed.rawValue))
 
-        handler.state.gesturePhase = .committed
+        handler.tapInputs.gesturePhase = .committed
         XCTAssertTrue(handler.inputTapThread.filterSnapshot.gestureActiveOrLatched)
         XCTAssertTrue(MouseEventHandler.processTapCallback(type: .scrollWheel, event: scrollEvent))
 
-        handler.state.gesturePhase = .idle
-        handler.state.consumeTrackpadScrollUntilAllTouchesLift = true
+        handler.tapInputs.gesturePhase = .idle
+        handler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift = true
         XCTAssertTrue(handler.inputTapThread.filterSnapshot.gestureActiveOrLatched)
         XCTAssertTrue(MouseEventHandler.processTapCallback(type: .scrollWheel, event: scrollEvent))
 
-        handler.state.consumeTrackpadScrollUntilAllTouchesLift = false
+        handler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift = false
         handler.inputTapThread.touchCountProvider = { 3 }
         XCTAssertFalse(handler.inputTapThread.filterSnapshot.gestureActiveOrLatched)
         XCTAssertFalse(MouseEventHandler.processTapCallback(type: .scrollWheel, event: scrollEvent))
+    }
+
+    @MainActor
+    func testTheTapFilterIsPublishedWhenOneOfItsFiveInputsChangesAndOnlyThen() throws {
+        let controller = makeController()
+        let handler = controller.mouseEventHandler
+        handler.setup()
+        defer { handler.cleanup() }
+        let tap = handler.inputTapThread
+        let published = tap.filterSnapshot.isInputSuppressed
+        let unclaimed = try XCTUnwrap(MouseButtonBinding.supportedButtons.first {
+            tap.filterSnapshot.claimedOtherButtonMask & (UInt32(1) << $0) == 0
+        })
+        let changes: [(String, (MouseEventHandler) -> Void)] = [
+            ("the captured button", { $0.tapInputs.capturedInteractionButton = .right }),
+            ("the captured other button", { $0.tapInputs.capturedOtherMouseButton = unclaimed }),
+            ("the gesture phase", { $0.tapInputs.gesturePhase = .armed }),
+            ("scroll consumed until lift", { $0.tapInputs.consumeTrackpadScrollUntilAllTouchesLift = true }),
+            ("momentum scroll suppressed", { $0.tapInputs.suppressTrackpadMomentumScroll = true })
+        ]
+        for (name, change) in changes {
+            tap.updateFilterSnapshot { $0.isInputSuppressed.toggle() }
+            handler.state.leftPressLocation = .zero
+            XCTAssertNotEqual(tap.filterSnapshot.isInputSuppressed, published, "other mouse state, before \(name)")
+
+            change(handler)
+            XCTAssertEqual(tap.filterSnapshot.isInputSuppressed, published, name)
+
+            tap.updateFilterSnapshot { $0.isInputSuppressed.toggle() }
+            change(handler)
+            XCTAssertNotEqual(tap.filterSnapshot.isInputSuppressed, published, "\(name) written again unchanged")
+            tap.updateFilterSnapshot { $0.isInputSuppressed.toggle() }
+        }
+        XCTAssertEqual(tap.filterSnapshot.activeCapture, .right)
+        XCTAssertNotEqual(tap.filterSnapshot.claimedOtherButtonMask & (UInt32(1) << unclaimed), 0)
+        XCTAssertTrue(tap.filterSnapshot.gestureActiveOrLatched)
+
+        handler.tapInputs = TapFilterInputs()
+        XCTAssertNil(tap.filterSnapshot.activeCapture)
+        XCTAssertEqual(tap.filterSnapshot.claimedOtherButtonMask & (UInt32(1) << unclaimed), 0)
+        XCTAssertFalse(tap.filterSnapshot.gestureActiveOrLatched)
     }
 
     @MainActor

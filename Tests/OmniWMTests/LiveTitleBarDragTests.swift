@@ -2940,7 +2940,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
             XCTAssertEqual(fixture.handler.state.isMoving, !macOSFusion)
             XCTAssertEqual(fixture.engine.interactiveMove != nil, !macOSFusion)
-            XCTAssertEqual(fixture.handler.state.capturedInteractionButton != nil, !macOSFusion)
+            XCTAssertEqual(fixture.handler.tapInputs.capturedInteractionButton != nil, !macOSFusion)
             fixture.handler.cancelActiveMouseInteraction()
         }
     }

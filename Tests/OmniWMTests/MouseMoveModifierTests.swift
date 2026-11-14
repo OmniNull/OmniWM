@@ -322,7 +322,7 @@ final class MouseMoveModifierTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.handler.dispatchMouseDown(at: fixture.firstFrame.center, modifiers: .maskControl))
         XCTAssertTrue(fixture.handler.state.isMoving)
         XCTAssertEqual(fixture.handler.state.moveLayout, .dwindle)
-        XCTAssertEqual(fixture.handler.state.capturedInteractionButton, .left)
+        XCTAssertEqual(fixture.handler.tapInputs.capturedInteractionButton, .left)
         XCTAssertEqual(fixture.engine.interactiveMove?.token, fixture.first)
 
         fixture.handler.dispatchMouseDragged(at: fixture.secondFrame.center)

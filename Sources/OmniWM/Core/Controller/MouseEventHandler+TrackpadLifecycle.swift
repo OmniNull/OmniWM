@@ -45,7 +45,7 @@ extension MouseEventHandler {
         MouseTrace.record("gesture: committed \(mode) with \(lockedContext.fingerCount) fingers")
         metrics.traceRecognition(mode, timestamp: timestamp)
         state.activeGestureMode = mode
-        state.gesturePhase = .committed
+        tapInputs.gesturePhase = .committed
         if case let .workspaceSwitch(axis) = mode {
             if controller.layoutRefreshController.workspaceSwipe.begin(
                 axis: axis, cumulative: axis == .horizontal ? metrics.cumulativeX : metrics.cumulativeY,
@@ -179,8 +179,8 @@ extension MouseEventHandler {
         guard TrackpadGestureIntent.overviewTriggered(action: action, translation: translation) else { return }
         retainConsumedTrackpadSession()
         state.suppressGestureStartUntilAllTouchesLift = true
-        state.consumeTrackpadScrollUntilAllTouchesLift = true
-        state.suppressTrackpadMomentumScroll = true
+        tapInputs.consumeTrackpadScrollUntilAllTouchesLift = true
+        tapInputs.suppressTrackpadMomentumScroll = true
         resetGestureState(settleViewportGesture: false)
         switch action {
         case .open:
@@ -217,7 +217,7 @@ extension MouseEventHandler {
         switch state.activeGestureMode {
         case .overview:
             controller?.windowActionHandler.endOverviewGesture(timestamp: allowFlick ? timestamp : nil)
-            state.suppressTrackpadMomentumScroll = true
+            tapInputs.suppressTrackpadMomentumScroll = true
         case let .workspaceSwitch(axis):
             finalizeWorkspaceSwipe(
                 monitorId: lockedContext.monitorId,
@@ -252,7 +252,7 @@ extension MouseEventHandler {
         allowFlick: Bool,
         timestamp: TimeInterval
     ) {
-        defer { state.suppressTrackpadMomentumScroll = true }
+        defer { tapInputs.suppressTrackpadMomentumScroll = true }
         if controller?.layoutRefreshController.workspaceSwipe
             .release(timestamp: timestamp, allowFlick: allowFlick) == true
         {
@@ -364,9 +364,9 @@ extension MouseEventHandler {
         retainConsumedTrackpadSession()
         finishCommittedGestureOnRelease(timestamp: timestamp, allowFlick: true)
         state.suppressGestureStartUntilAllTouchesLift = true
-        state.consumeTrackpadScrollUntilAllTouchesLift = true
+        tapInputs.consumeTrackpadScrollUntilAllTouchesLift = true
         resetGestureState()
-        state.suppressTrackpadMomentumScroll = true
+        tapInputs.suppressTrackpadMomentumScroll = true
     }
 
     func cancelCommittedGestureViewportState(
@@ -388,13 +388,13 @@ extension MouseEventHandler {
     }
 
     func abortActiveGestureIfNeeded() {
-        if state.gesturePhase == .committed {
+        if tapInputs.gesturePhase == .committed {
             retainConsumedTrackpadSession()
             if case .overview = state.activeGestureMode {
-                state.suppressTrackpadMomentumScroll = true
+                tapInputs.suppressTrackpadMomentumScroll = true
             } else if case .workspaceSwitch = state.activeGestureMode {
                 controller?.layoutRefreshController.workspaceSwipe.cancel(reason: "gesture-aborted")
-                state.suppressTrackpadMomentumScroll = true
+                tapInputs.suppressTrackpadMomentumScroll = true
             } else if state.activeGestureMode?.isWindowInteraction == true {
                 cancelGestureWindowInteraction()
             } else if let lockedContext = state.lockedGestureContext {
@@ -411,7 +411,7 @@ extension MouseEventHandler {
                 assertionFailure("Committed gesture missing locked context")
             }
             state.suppressGestureStartUntilAllTouchesLift = true
-            state.consumeTrackpadScrollUntilAllTouchesLift = true
+            tapInputs.consumeTrackpadScrollUntilAllTouchesLift = true
         }
         resetGestureState()
     }
@@ -428,7 +428,7 @@ extension MouseEventHandler {
         {
             cancelCommittedGestureViewportState(for: lockedContext.workspaceId)
         }
-        state.gesturePhase = .idle
+        tapInputs.gesturePhase = .idle
         state.gestureStartX = 0.0
         state.gestureStartY = 0.0
         state.gestureLastAverageX = 0.0

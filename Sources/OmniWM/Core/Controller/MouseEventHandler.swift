@@ -13,14 +13,10 @@ final class MouseEventHandler {
     let inputTapThread = InputTapThread()
     var livePointer = LiveDragPointer()
     var liveDragSession: LiveDragSession?
-    var state = MouseInputState() {
+    var state = MouseInputState()
+    var tapInputs = TapFilterInputs() {
         didSet {
-            if oldValue.capturedInteractionButton != state.capturedInteractionButton
-                || oldValue.capturedOtherMouseButton != state.capturedOtherMouseButton
-                || oldValue.gesturePhase != state.gesturePhase
-                || oldValue.consumeTrackpadScrollUntilAllTouchesLift != state.consumeTrackpadScrollUntilAllTouchesLift
-                || oldValue.suppressTrackpadMomentumScroll != state.suppressTrackpadMomentumScroll
-            {
+            if tapInputs != oldValue {
                 syncTapFilterSnapshot()
             }
         }
@@ -96,8 +92,8 @@ final class MouseEventHandler {
         state.nativeResizeCorrectionsByWindowId.removeAll()
         cancelActiveMouseInteraction()
         releaseEdgeResizeHold()
-        state.capturedInteractionButton = nil
-        state.capturedOtherMouseButton = nil
+        tapInputs.capturedInteractionButton = nil
+        tapInputs.capturedOtherMouseButton = nil
         tearDownEventTaps()
         inputTapThread.touchCountProvider = nil
         inputTapThread.stop()
@@ -175,7 +171,7 @@ final class MouseEventHandler {
 
     func clearGestureLatches() {
         state.suppressGestureStartUntilAllTouchesLift = false
-        state.consumeTrackpadScrollUntilAllTouchesLift = false
+        tapInputs.consumeTrackpadScrollUntilAllTouchesLift = false
     }
 
     func suspendMultitouchForSleep() {
@@ -191,7 +187,7 @@ final class MouseEventHandler {
         resetGestureState()
         state.workspaceSwipeTracker.reset()
         clearGestureLatches()
-        state.suppressTrackpadMomentumScroll = false
+        tapInputs.suppressTrackpadMomentumScroll = false
         state.contactSessions = MultitouchContactSessions()
         clearConsumedTrackpadSessions()
         inputTapThread.touchCountProvider = nil
@@ -212,7 +208,7 @@ final class MouseEventHandler {
     }
 
     func retainConsumedTrackpadSession() {
-        guard state.gesturePhase != .idle,
+        guard tapInputs.gesturePhase != .idle,
               let contact = state.lockedGestureContext?.contactSession,
               let senderId = contact.senderId, senderId != 0,
               state.contactSessions.contains(contact)
@@ -239,7 +235,7 @@ final class MouseEventHandler {
     }
 
     func consumesTrackpadSession(senderId: UInt64) -> Bool {
-        if state.gesturePhase != .idle,
+        if tapInputs.gesturePhase != .idle,
            let contact = state.lockedGestureContext?.contactSession,
            contact.senderId == senderId,
            state.contactSessions.contains(contact)
@@ -283,9 +279,9 @@ final class MouseEventHandler {
     }
 
     func syncTapFilterSnapshot() {
-        let capturedButton = state.capturedInteractionButton
+        let capturedButton = tapInputs.capturedInteractionButton
         var resolvedOtherButtonMask = claimedOtherMouseButtonMask()
-        if let capturedOther = state.capturedOtherMouseButton,
+        if let capturedOther = tapInputs.capturedOtherMouseButton,
            MouseButtonBinding.supportedButtons.contains(capturedOther)
         {
             resolvedOtherButtonMask |= UInt32(1) << capturedOther
@@ -303,9 +299,9 @@ final class MouseEventHandler {
         } else {
             minFingers = .max
         }
-        let latched = state.gesturePhase != .idle
-            || state.consumeTrackpadScrollUntilAllTouchesLift
-            || state.suppressTrackpadMomentumScroll
+        let latched = tapInputs.gesturePhase != .idle
+            || tapInputs.consumeTrackpadScrollUntilAllTouchesLift
+            || tapInputs.suppressTrackpadMomentumScroll
         let inputSuppressed = isInputSuppressed
 
         inputTapThread.updateFilterSnapshot { snapshot in

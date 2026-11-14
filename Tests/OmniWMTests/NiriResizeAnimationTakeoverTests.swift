@@ -36,7 +36,7 @@ final class NiriResizeAnimationTakeoverTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.column.widthAnimation)
         XCTAssertEqual(fixture.column.cachedWidth, expectedSpan)
         XCTAssertTrue(fixture.controller.mouseEventHandler.state.isResizing)
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.capturedInteractionButton, .right)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.capturedInteractionButton, .right)
     }
 
     @MainActor
@@ -44,7 +44,7 @@ final class NiriResizeAnimationTakeoverTests: NiriInteractionTestCase {
         let fixture = try makeFixture()
         let handler = fixture.controller.mouseEventHandler
         let driver = fixture.controller.workspaceManager.animationDriver
-        handler.state.gesturePhase = .committed
+        handler.tapInputs.gesturePhase = .committed
         handler.state.activeGestureMode = .columnScroll
         handler.state.lockedGestureContext = .init(
             workspaceId: fixture.workspaceId, monitorId: fixture.monitor.id,

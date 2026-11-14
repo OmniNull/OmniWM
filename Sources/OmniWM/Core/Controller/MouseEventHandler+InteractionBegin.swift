@@ -44,7 +44,7 @@ extension MouseEventHandler {
         state.isMoving = true
         state.moveLayout = .niri
         state.activeInteractionSource = source
-        state.capturedInteractionButton = source.mouseButton
+        tapInputs.capturedInteractionButton = source.mouseButton
         NSCursor.closedHand.set()
 
         if let entry = controller.workspaceManager.entry(for: tiledWindow.token),
@@ -96,7 +96,7 @@ extension MouseEventHandler {
         state.isResizing = true
         state.resizeLayout = .niri
         state.activeInteractionSource = source
-        state.capturedInteractionButton = source.mouseButton
+        tapInputs.capturedInteractionButton = source.mouseButton
         state.currentHoveredEdges = edges
         edges.cursor.set()
 
@@ -122,7 +122,7 @@ extension MouseEventHandler {
         state.isMoving = true
         state.moveLayout = .dwindle
         state.activeInteractionSource = source
-        state.capturedInteractionButton = source.mouseButton
+        tapInputs.capturedInteractionButton = source.mouseButton
         NSCursor.closedHand.set()
         if state.dragGhostController == nil {
             state.dragGhostController = DragGhostController()
@@ -164,7 +164,7 @@ extension MouseEventHandler {
         engine.cancelAnimations(in: wsId)
         state.isResizing = true
         state.activeInteractionSource = source
-        state.capturedInteractionButton = source.mouseButton
+        tapInputs.capturedInteractionButton = source.mouseButton
         state.currentHoveredEdges = edges
         state.resizeLayout = .dwindle
         edges.cursor.set()

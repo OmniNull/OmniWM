@@ -162,8 +162,6 @@ struct MouseInputState {
         activeInteractionSource == .trackpadGesture
     }
 
-    var capturedInteractionButton: MouseEventHandler.MouseButton?
-    var capturedOtherMouseButton: Int64?
     var parkingEdgePressButton: MouseEventHandler.MouseButton?
     var resizeLayout: LayoutType?
     var moveLayout: LayoutType?
@@ -184,7 +182,6 @@ struct MouseInputState {
     let focusFollowsMouseDebounce: TimeInterval = 0.1
     var dragGhostController: DragGhostController?
 
-    var gesturePhase: GesturePhase = .idle
     var gestureStartX: CGFloat = 0.0
     var gestureStartY: CGFloat = 0.0
     var gestureLastAverageX: CGFloat = 0.0
@@ -197,12 +194,18 @@ struct MouseInputState {
     var workspaceSwipeFired = false
     let workspaceSwipeTracker = SwipeTracker()
     var suppressGestureStartUntilAllTouchesLift = false
-    var consumeTrackpadScrollUntilAllTouchesLift = false
-    var suppressTrackpadMomentumScroll = false
     var contactSessions = MultitouchContactSessions()
     var consumedTrackpadSessions: [UInt64: MultitouchContactSession] = [:]
     var horizontalWheelTracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
     var verticalWheelTracker = NiriScrollTracker(tick: niriWheelScrollTickAmount)
+}
+
+struct TapFilterInputs: Equatable {
+    var capturedInteractionButton: MouseEventHandler.MouseButton?
+    var capturedOtherMouseButton: Int64?
+    var gesturePhase = MouseInputState.GesturePhase.idle
+    var consumeTrackpadScrollUntilAllTouchesLift = false
+    var suppressTrackpadMomentumScroll = false
 }
 
 struct LiveDragPointer {

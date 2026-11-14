@@ -64,7 +64,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
                 scrollPayload: nil
             )
             XCTAssertEqual(pressTaken, releaseTaken)
-            XCTAssertNil(handler.state.capturedInteractionButton)
+            XCTAssertNil(handler.tapInputs.capturedInteractionButton)
             relayout()
             return pressTaken
         }
@@ -455,7 +455,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         ))
         fixture.relayout()
 
-        XCTAssertNil(fixture.handler.state.capturedInteractionButton)
+        XCTAssertNil(fixture.handler.tapInputs.capturedInteractionButton)
         XCTAssertEqual(column.width, width)
         XCTAssertEqual(try fixture.frame(fixture.tokens[1]), start)
     }
@@ -1089,7 +1089,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertTrue(fixture.handler.dispatchAuthoritativeTap(
             type: .leftMouseDown, location: point, modifiers: [], buttonNumber: 0, scrollPayload: nil, clickCount: 2
         ))
-        XCTAssertEqual(fixture.handler.state.capturedInteractionButton, .left)
+        XCTAssertEqual(fixture.handler.tapInputs.capturedInteractionButton, .left)
         XCTAssertEqual(fixture.handler.inputTapThread.filterSnapshot.activeCapture, .left)
         XCTAssertTrue(fixture.handler.dispatchAuthoritativeTap(
             type: .leftMouseDragged, location: point, modifiers: [], buttonNumber: 0, scrollPayload: nil
@@ -1097,7 +1097,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertTrue(fixture.handler.dispatchAuthoritativeTap(
             type: .leftMouseUp, location: point, modifiers: [], buttonNumber: 0, scrollPayload: nil
         ))
-        XCTAssertNil(fixture.handler.state.capturedInteractionButton)
+        XCTAssertNil(fixture.handler.tapInputs.capturedInteractionButton)
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
     }
 
