@@ -160,7 +160,7 @@ private struct GlobalNiriSettingsSection: View {
                     controller.updateNiriConfig(shrinkToFit: newValue)
                 }
             SettingsCaption(
-                localized: "Keyboard resizing also resizes the other visible columns to fill the view. If a window can't shrink to its share, resize again."
+                localized: "Keyboard resizing also resizes the other visible columns to fill the view, and visible columns that would extend past it are fitted on their own."
             )
 
             SingleWindowFitControls(

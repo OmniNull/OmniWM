@@ -124814,7 +124814,7 @@
     "Shrink Columns to Fit" : {
 
     },
-    "Keyboard resizing also resizes the other visible columns to fill the view. If a window can't shrink to its share, resize again." : {
+    "Keyboard resizing also resizes the other visible columns to fill the view, and visible columns that would extend past it are fitted on their own." : {
 
     },
     "Stack above" : {
