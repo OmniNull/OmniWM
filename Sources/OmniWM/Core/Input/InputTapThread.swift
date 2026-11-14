@@ -377,7 +377,6 @@ extension InputTapThread {
         snap: TapFilterSnapshot
     ) -> CGEvent? {
         let flags = event.flags
-        removeOptionFromFusionDragPress(event, location: location, snap: snap)
         let clickCount = event.getIntegerValueField(.mouseEventClickState)
         if MouseEventHandler.asksAboutFusionDoubleClick(
             clickCount: clickCount,
@@ -424,33 +423,5 @@ extension InputTapThread {
             }
         }
         return nil
-    }
-}
-
-extension InputTapThread {
-    private nonisolated func removeOptionFromFusionDragPress(
-        _ event: CGEvent,
-        location: CGPoint,
-        snap: TapFilterSnapshot
-    ) {
-        let flags = event.flags
-        guard snap.macOSFusion,
-              flags.contains(.maskAlternate),
-              fusionDragCanStart(windowId: MouseEventHandler.eventWindowIdUnderPointer(event), at: location)
-        else { return }
-        event.flags = flags.subtracting(.maskAlternate)
-    }
-
-    private nonisolated func fusionDragCanStart(windowId: Int?, at location: CGPoint) -> Bool {
-        if Thread.isMainThread {
-            return MainActor.assumeIsolated {
-                MouseEventHandler._instance?.canStartFusionDrag(windowId: windowId, at: location) ?? false
-            }
-        }
-        return DispatchQueue.main.sync {
-            MainActor.assumeIsolated {
-                MouseEventHandler._instance?.canStartFusionDrag(windowId: windowId, at: location) ?? false
-            }
-        }
     }
 }

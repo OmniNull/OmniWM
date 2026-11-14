@@ -24,25 +24,6 @@ extension MouseEventHandler {
         syncTapFilterSnapshot()
     }
 
-    func canStartFusionDrag(windowId: Int?, at location: CGPoint) -> Bool {
-        if let windowId {
-            return canStartFusionDrag(windowId: windowId)
-        }
-        guard let workspaceId = workspaceIdForPointer(at: location),
-              let token = geometricFocusIntentCandidate(at: location, workspaceId: workspaceId)
-        else { return false }
-        return canStartFusionDrag(windowId: token.windowId)
-    }
-
-    func canStartFusionDrag(windowId: Int) -> Bool {
-        guard let controller,
-              controller.settings.niri.macOSFusion,
-              let entry = controller.workspaceManager.entry(forWindowId: windowId),
-              entry.mode == .tiling
-        else { return false }
-        return controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri
-    }
-
     nonisolated static func modifierFlagsMatch(_ modifiers: CGEventFlags, required: CGEventFlags) -> Bool {
         modifiers.intersection(Self.relevantModifierFlags) == required
     }

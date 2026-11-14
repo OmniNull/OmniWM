@@ -759,7 +759,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(column.width, .proportion(1))
     }
 
-    func testWithMacOSFusionOnAModifierTitleBarPressPassesOnAsARegularDragWithoutOption() throws {
+    func testWithMacOSFusionOnAModifierTitleBarPressPassesOnAsARegularDragWithItsModifier() throws {
         let fixture = try makeFixture(pid: 941_132)
         fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         MouseEventHandler._instance = fixture.handler
@@ -785,7 +785,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
                 event: try event(.leftMouseDragged, CGPoint(x: titleBar.x + 40, y: titleBar.y))
             )
 
-            XCTAssertEqual(pressed?.flags.contains(modifier), modifier != .maskAlternate, "\(modifier)")
+            XCTAssertEqual(pressed?.flags.contains(modifier), true, "\(modifier)")
             XCTAssertNotNil(dragged, "\(modifier)")
             XCTAssertFalse(fixture.handler.state.isMoving, "\(modifier)")
             fixture.handler.cancelActiveMouseInteraction()
