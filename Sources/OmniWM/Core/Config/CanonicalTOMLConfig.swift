@@ -66,6 +66,26 @@ struct CanonicalTOMLConfig: Codable, Equatable {
     }
 }
 
+extension CanonicalTOMLConfig.General {
+    init(export: SettingsExport) {
+        self.init(
+            hotkeysEnabled: export.hotkeysEnabled,
+            systemHyperTrigger: export.systemHyperTrigger,
+            hyperKeyModifiers: export.hyperKeyModifiers,
+            defaultLayoutType: export.defaultLayoutType,
+            preventSleepEnabled: export.preventSleepEnabled,
+            updateChecksEnabled: export.updateChecksEnabled,
+            ipcEnabled: export.ipcEnabled,
+            animationsEnabled: export.animationsEnabled,
+            animationSpeed: AnimationSpeed.normalized(export.animationSpeed),
+            slideWorkspaceSwitches: export.slideWorkspaceSwitches,
+            pausePalettePasteDuringSecureInput: export.pausePalettePasteDuringSecureInput,
+            language: export.language,
+            workspaceAutoBackAndForth: export.workspaceAutoBackAndForth
+        )
+    }
+}
+
 extension CanonicalTOMLConfig.Appearance {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -112,16 +132,10 @@ extension CanonicalTOMLConfig {
         appRules = try container.decode([AppRule].self, forKey: .appRules)
         monitorBarOverrides = try container
             .decodeIfPresent([MonitorBarSettings].self, forKey: .monitorBarOverrides) ?? []
-        monitorOrientationOverrides = try container.decodeIfPresent(
-            [MonitorOrientationSettings].self,
-            forKey: .monitorOrientationOverrides
-        ) ?? []
+        monitorOrientationOverrides = try Self.decodeOptionalTable(.monitorOrientationOverrides, from: container) ?? []
         monitorNiriOverrides = try container
             .decodeIfPresent([MonitorNiriSettings].self, forKey: .monitorNiriOverrides) ?? []
-        monitorDwindleOverrides = try container.decodeIfPresent(
-            [MonitorDwindleSettings].self,
-            forKey: .monitorDwindleOverrides
-        ) ?? []
+        monitorDwindleOverrides = try Self.decodeOptionalTable(.monitorDwindleOverrides, from: container) ?? []
         monitorGapOverrides = try container
             .decodeIfPresent([MonitorGapSettings].self, forKey: .monitorGapOverrides) ?? []
         shellPermissions = try container
@@ -133,21 +147,7 @@ extension CanonicalTOMLConfig {
 extension CanonicalTOMLConfig {
     init(export: SettingsExport) {
         schemaVersion = SettingsTOMLCodec.currentSchemaVersion
-        general = General(
-            hotkeysEnabled: export.hotkeysEnabled,
-            systemHyperTrigger: export.systemHyperTrigger,
-            hyperKeyModifiers: export.hyperKeyModifiers,
-            defaultLayoutType: export.defaultLayoutType,
-            preventSleepEnabled: export.preventSleepEnabled,
-            updateChecksEnabled: export.updateChecksEnabled,
-            ipcEnabled: export.ipcEnabled,
-            animationsEnabled: export.animationsEnabled,
-            animationSpeed: AnimationSpeed.normalized(export.animationSpeed),
-            slideWorkspaceSwitches: export.slideWorkspaceSwitches,
-            pausePalettePasteDuringSecureInput: export.pausePalettePasteDuringSecureInput,
-            language: export.language,
-            workspaceAutoBackAndForth: export.workspaceAutoBackAndForth
-        )
+        general = General(export: export)
         focus = export.focus
         focus.edgeNavigationInterval = FocusSettings.normalizedEdgeNavigationInterval(focus.edgeNavigationInterval)
         mouseWarp = export.mouseWarp

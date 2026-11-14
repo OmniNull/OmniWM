@@ -129,29 +129,7 @@ extension ShellWidgetHost {
         case let .media(command): resources.media?.perform(command)
         case let .calendar(command): resources.calendar?.perform(command)
         case let .reminders(command): resources.calendar?.perform(command)
-        case let .notifications(command):
-            switch command {
-            case .refresh:
-                ShellNotificationTrace.record("host.command", fields: "kind=refresh")
-                resources.notifications.refresh()
-            case let .open(bundle):
-                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) {
-                    NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-                }
-            case .dismiss,
-                 .reply,
-                 .dismissAll,
-                 .cancelDismissAll,
-                 .center:
-                ShellNotificationTrace.record(
-                    "host.command",
-                    fields: "kind=action focusedSurface=\(focusedSurface != nil)"
-                )
-                if resources.notifications.perform(command), let focusedSurface {
-                    releaseShellFocus(from: focusedSurface, restore: false)
-                    ShellNotificationTrace.record("host.focusReleased")
-                }
-            }
+        case let .notifications(command): run(command)
         case let .inputSource(command): resources.devices.inputSource.perform(command)
         case let .wifi(command): resources.devices.wifi.perform(command)
         case let .bluetooth(command): resources.devices.bluetooth.perform(command)
@@ -172,6 +150,31 @@ extension ShellWidgetHost {
         case let .trigger(widget, name, value):
             if !trigger(widget, name: name, value: value) {
                 reportMissing("shell trigger: no widget named \"\(widget)\" with a trigger hook", for: state)
+            }
+        }
+    }
+
+    private func run(_ command: ShellNotificationsCommand) {
+        switch command {
+        case .refresh:
+            ShellNotificationTrace.record("host.command", fields: "kind=refresh")
+            resources.notifications.refresh()
+        case let .open(bundle):
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) {
+                NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+            }
+        case .dismiss,
+             .reply,
+             .dismissAll,
+             .cancelDismissAll,
+             .center:
+            ShellNotificationTrace.record(
+                "host.command",
+                fields: "kind=action focusedSurface=\(focusedSurface != nil)"
+            )
+            if resources.notifications.perform(command), let focusedSurface {
+                releaseShellFocus(from: focusedSurface, restore: false)
+                ShellNotificationTrace.record("host.focusReleased")
             }
         }
     }
