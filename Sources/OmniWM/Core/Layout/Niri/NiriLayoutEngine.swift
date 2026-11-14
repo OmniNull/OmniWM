@@ -382,12 +382,26 @@ extension NiriLayoutEngine {
         for monitorId: Monitor.ID?
     ) -> (proportion: CGFloat, presetWidthIdx: Int?) {
         let settings = monitorId.map(effectiveSettings(for:)) ?? globalResolvedSettings()
+        if settings.defaultContainerPrimarySpan == nil, keepsWindowWidths,
+           case let .proportion(span)? = presetContainerPrimarySpans.first?.kind
+        {
+            return (span, 0)
+        }
+        return configuredContainerResetPrimarySpan(settings)
+    }
+
+    func configuredContainerResetPrimarySpan(
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> (proportion: CGFloat, presetWidthIdx: Int?) {
+        configuredContainerResetPrimarySpan(effectiveSettings(in: workspaceId))
+    }
+
+    private func configuredContainerResetPrimarySpan(
+        _ settings: ResolvedNiriSettings
+    ) -> (proportion: CGFloat, presetWidthIdx: Int?) {
         if let defaultSpan = settings.defaultContainerPrimarySpan {
             let span = CGFloat(defaultSpan)
             return (span, matchingPresetIndex(for: span))
-        }
-        if keepsWindowWidths, case let .proportion(span)? = presetContainerPrimarySpans.first?.kind {
-            return (span, 0)
         }
         return (1.0 / CGFloat(settings.visibleContainerCount), nil)
     }

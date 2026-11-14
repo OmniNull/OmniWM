@@ -158,22 +158,59 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
         XCTAssertTrue(fixture.engine.columns(in: fixture.workspaceId).contains { $0.fittedHeight != nil })
     }
 
-    func testBalanceSizesSharesTheScreenAmongTheColumnsOnScreen() {
-        let fixture = makeFixture(widths: [500, 900, 700, 600], keepsWindowWidths: true)
+    func testBalanceSizesResetsEveryColumnToOneOverVisibleContainersOnAuto() {
+        let visibleCount = 4
+        for keepsWindowWidths in [false, true] {
+            let fixture = makeFixture(
+                widths: [500, 900, 700, 600],
+                keepsWindowWidths: keepsWindowWidths,
+                visibleCount: visibleCount
+            )
+            XCTAssertNotEqual(
+                fixture.engine.presetContainerPrimarySpans.first?.kind,
+                .proportion(1.0 / CGFloat(visibleCount))
+            )
 
-        XCTAssertTrue(fixture.engine.balanceSizes(
-            in: fixture.workspaceId,
-            motion: .disabled,
-            workingFrame: frame,
-            gaps: gap,
-            orientation: .horizontal,
-            state: fixture.state
-        ))
+            XCTAssertTrue(fixture.engine.balanceSizes(
+                in: fixture.workspaceId,
+                motion: .disabled,
+                workingFrame: frame,
+                gaps: gap,
+                orientation: .horizontal
+            ))
 
-        let shared = (frame.width - gap * 3) / 2
-        XCTAssertEqual(fixture.column(0).width, .fixed(shared))
-        XCTAssertEqual(fixture.column(1).width, .fixed(shared))
-        XCTAssertEqual(fixture.column(2).width, .fixed(700))
-        XCTAssertEqual(fixture.column(3).width, .fixed(600))
+            for index in fixture.tokens.indices {
+                XCTAssertEqual(
+                    fixture.column(index).width,
+                    .proportion(1.0 / CGFloat(visibleCount)),
+                    "keepsWindowWidths=\(keepsWindowWidths) column=\(index)"
+                )
+                XCTAssertNil(fixture.column(index).presetWidthIdx)
+            }
+        }
+    }
+
+    func testBalanceSizesResetsEveryColumnToACustomDefaultWidth() {
+        let customDefault = 0.5
+        for keepsWindowWidths in [false, true] {
+            let fixture = makeFixture(widths: [500, 900, 700, 600], keepsWindowWidths: keepsWindowWidths)
+            fixture.engine.defaultContainerPrimarySpan = customDefault
+
+            XCTAssertTrue(fixture.engine.balanceSizes(
+                in: fixture.workspaceId,
+                motion: .disabled,
+                workingFrame: frame,
+                gaps: gap,
+                orientation: .horizontal
+            ))
+
+            for index in fixture.tokens.indices {
+                XCTAssertEqual(
+                    fixture.column(index).width,
+                    .proportion(CGFloat(customDefault)),
+                    "keepsWindowWidths=\(keepsWindowWidths) column=\(index)"
+                )
+            }
+        }
     }
 }

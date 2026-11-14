@@ -219,8 +219,7 @@ extension NiriLayoutHandler {
                 motion: motion,
                 workingFrame: workingFrame,
                 gaps: gaps,
-                orientation: orientation,
-                state: state
+                orientation: orientation
             ) else { return }
             engine.recoverSettledCoverage(
                 context: .init(
