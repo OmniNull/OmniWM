@@ -8,12 +8,18 @@ final class ShellWallpaperEvents {
     static let shared = ShellWallpaperEvents()
 
     private let store: URL
+    private let centers: (workspace: NotificationCenter, screens: NotificationCenter)
     private var handlers: [ObjectIdentifier: @MainActor () -> Void] = [:]
     private var observation: ShellDirectoryObservation?
     private var observers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
 
-    init(store: URL = ShellWallpaperPaletteWriter.store) {
+    init(
+        store: URL = ShellWallpaperPaletteWriter.store,
+        workspace: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        screens: NotificationCenter = .default
+    ) {
         self.store = store
+        centers = (workspace, screens)
     }
 
     var subscribers: Int {
@@ -33,8 +39,8 @@ final class ShellWallpaperEvents {
         }
         watchStore()
         observers = [
-            (NSWorkspace.shared.notificationCenter, NSWorkspace.activeSpaceDidChangeNotification),
-            (NotificationCenter.default, NSApplication.didChangeScreenParametersNotification)
+            (centers.workspace, NSWorkspace.activeSpaceDidChangeNotification),
+            (centers.screens, NSApplication.didChangeScreenParametersNotification)
         ].map { center, name in
             (center, center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.changed() }

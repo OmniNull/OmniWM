@@ -106,7 +106,9 @@ extension WallpaperManager {
         let key = await WallpaperSampleKey(file: stamp(main.url))
         guard epoch == self.epoch, let pixels = await pixels(for: key), epoch == self.epoch else { return nil }
         let previous = pin
-        let candidate = Pin(url: main.url, key: key, pixels: pixels)
+        let candidate = Pin(
+            url: main.url, key: key, pixels: pixels, before: main.entry.display.current?.standardizedFileURL.path
+        )
         pin = candidate
         do {
             if try await palette.publishWallpaperPalette(pixels) { return candidate }
@@ -189,15 +191,36 @@ extension WallpaperManager {
         }
     }
 
-    private func fetch(_ key: WallpaperSampleKey) {
-        guard samples[key] == nil, prefetching[key] == nil else { return }
+    private func fetch(_ key: WallpaperSampleKey, then: (@MainActor ([UInt32]?) -> Void)? = nil) {
+        if let pending = prefetching[key] {
+            guard let then else { return }
+            sampling = Task { @MainActor in then(await pending.value) }
+            return
+        }
+        guard samples[key] == nil else { return }
         let sample = environment.sample
         prefetching[key] = Task { @MainActor [weak self] in
             let pixels = await sample(key)
             if let pixels { self?.remember(pixels, for: key) }
             self?.prefetching[key] = nil
+            then?(pixels)
             return pixels
         }
+    }
+
+    func followPin() {
+        guard var pin, let main = entries.first(where: \.display.isMain) else { return }
+        let shown = main.display.current?.standardizedFileURL.path
+        if let shown, shown == pin.url.standardizedFileURL.path, stamps[shown] == pin.key.file {
+            if !pin.seen {
+                pin.seen = true
+                self.pin = pin
+            }
+            return
+        }
+        guard pin.seen || shown != pin.before else { return }
+        self.pin = nil
+        palette?.refreshWallpaperPalette()
     }
 
     func reapplyPlacement() async {
@@ -217,7 +240,7 @@ extension WallpaperManager {
             return
         }
         let now = environment.now()
-        let period = TimeInterval(minutes * 60)
+        let period = TimeInterval(minutes) * Self.minute
         var due = now.addingTimeInterval(period)
         if !fresh, let saved = state.nextChange, saved.timeIntervalSince(now) <= period {
             due = max(saved, now)
@@ -279,8 +302,8 @@ extension WallpaperManager {
             return
         }
         let started = sampleEpoch
-        sampling = Task { @MainActor [weak self] in
-            guard let pixels = await self?.pixels(for: key), let self, running, started == sampleEpoch else { return }
+        fetch(key) { [weak self] pixels in
+            guard let self, let pixels, running, started == sampleEpoch, sampled == key else { return }
             setPaletteSample(pixels)
         }
     }

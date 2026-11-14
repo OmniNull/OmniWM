@@ -243,10 +243,9 @@ extension ShellWallpaperPalette {
     static let swatchRoles: [ShellRole] = [.accent, .secondaryAccent, .tertiaryAccent, .surface]
 
     static func swatches(pixels: [UInt32]) -> [ShellWallpaper.Swatch] {
-        let seed = pixels.withUnsafeBufferPointer { omni_material_seed($0.baseAddress, $0.count, 0) }
+        let seed = seed(of: pixels)
         return ShellWallpaperScheme.allCases.map { scheme in
-            let variant = seed == 0 ? OMNI_MATERIAL_MONOCHROME : scheme.variant
-            let source = seed == 0 ? 0xFF80_8080 : seed
+            let (source, variant) = material(seed: seed, scheme: scheme)
             func colors(dark: Bool) -> [String] {
                 let roles = ShellMaterialPalette.colors(seed: source, variant: variant, dark: dark)
                 return swatchRoles.map { "#" + String(format: "%06X", roles[$0] ?? 0) }

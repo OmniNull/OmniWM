@@ -12,6 +12,12 @@ final class WallpaperManagerTests: XCTestCase {
     private var box = WallpaperStateBox()
     private var clock: ManualWallpaperClock!
 
+    private let presets = SettingsExport.Wallpaper.rotationPresets
+
+    private func later(_ minutes: Int) -> Date {
+        clock.now.addingTimeInterval(TimeInterval(minutes) * WallpaperManager.minute)
+    }
+
     private var state: WallpaperRuntimeState {
         get { box.state }
         set { box.state = newValue }
@@ -145,20 +151,20 @@ final class WallpaperManagerTests: XCTestCase {
         XCTAssertNil(desktop.screens[0].current, "the surviving twin keeps its wallpaper")
     }
 
-    func testUnplugMidRotationSetsTheRemainingDisplayAndKeepsTheOtherHistory() async {
+    func testUnplugMidRotationSetsTheRemainingDisplayAndKeepsTheOtherHistory() async throws {
         let desktop = FakeWallpaperDesktop([
             WallpaperFixtures.studio,
             WallpaperFixtures.secondary(WallpaperFixtures.macBook)
         ])
-        let manager = makeManager(desktop) { $0.rotationMinutes = 30 }
+        let manager = makeManager(desktop) { $0.rotationMinutes = self.presets[1] }
         await manager.next(.all)
         let history = state.shuffle.displays[WallpaperFixtures.macBook.key]
         XCTAssertNotNil(history)
-        let due = try? XCTUnwrap(manager.nextChange)
+        let due = try XCTUnwrap(manager.nextChange)
 
         desktop.unplug(WallpaperFixtures.macBook.key)
         desktop.events = []
-        clock.advance(to: due ?? clock.now)
+        clock.advance(to: due)
         await manager.idle()
         await manager.next(.display(WallpaperFixtures.studio.monitorId))
 
@@ -232,9 +238,12 @@ final class WallpaperManagerTests: XCTestCase {
         manager.settings.placement = .fill
 
         let current = try XCTUnwrap(desktop.screens[0].current)
+        let refreshed = palette.refreshed
         try Data("changed".utf8).write(to: current)
         desktop.onChange?()
         XCTAssertNil(manager.palettePixels(), "a replaced file is read again by the writer")
+        XCTAssertNil(manager.pin, "the pin is let go once the Store shows a different file")
+        XCTAssertEqual(palette.refreshed, refreshed + 1, "and the writer is asked to follow the Store again")
 
         desktop.screens[0].current = URL(fileURLWithPath: "/Library/Desktop Pictures/Other.heic")
         desktop.onChange?()
@@ -334,26 +343,28 @@ final class WallpaperManagerTests: XCTestCase {
 
     func testRotationRunsOnTheChosenIntervalAndSurvivesARestart() async {
         let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
-        var manager = makeManager(desktop) { $0.rotationMinutes = 15 }
-        XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(15 * 60))
+        var manager = makeManager(desktop) { $0.rotationMinutes = self.presets[0] }
+        XCTAssertEqual(manager.nextChange, later(presets[0]))
         XCTAssertEqual(state.nextChange, manager.nextChange)
 
-        clock.now = clock.now.addingTimeInterval(5 * 60)
+        clock.now = later(presets[0] / 3)
         manager.stop()
-        manager = makeManager(desktop) { $0.rotationMinutes = 15 }
+        manager = makeManager(desktop) { $0.rotationMinutes = self.presets[0] }
         XCTAssertEqual(manager.nextChange, state.nextChange, "a restart keeps the planned time")
 
         clock.advance(to: manager.nextChange!)
         await manager.idle()
         XCTAssertEqual(desktop.events.filter { $0.hasPrefix("set") }.count, 1)
-        XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(15 * 60))
+        XCTAssertEqual(manager.nextChange, later(presets[0]))
 
         manager.setRotation(0)
         XCTAssertNil(manager.nextChange)
         XCTAssertTrue(clock.pending.isEmpty)
-        manager.setRotation(45)
-        XCTAssertEqual(manager.settings.rotationMinutes, 45)
-        XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(45 * 60))
+        let custom = presets[0] + presets[1]
+        XCTAssertFalse(presets.contains(custom))
+        manager.setRotation(custom)
+        XCTAssertEqual(manager.settings.rotationMinutes, custom)
+        XCTAssertEqual(manager.nextChange, later(custom))
     }
 
     func testTurningTheFeatureOnLeavesRotationOffUntilAnIntervalIsChosen() async {
@@ -363,8 +374,8 @@ final class WallpaperManagerTests: XCTestCase {
         XCTAssertNil(manager.nextChange)
         XCTAssertTrue(clock.pending.isEmpty)
         XCTAssertTrue(desktop.events.isEmpty, "turning it on does not change any wallpaper")
-        manager.setRotation(30)
-        XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(30 * 60))
+        manager.setRotation(presets[1])
+        XCTAssertEqual(manager.nextChange, later(presets[1]))
     }
 
     func testTurningTheFeatureOffStopsEverythingAndChangesNothing() async {
@@ -482,28 +493,28 @@ final class WallpaperManagerTests: XCTestCase {
 
     func testARotationDueWhileOmniWMWasQuitRunsAtStartup() async {
         let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
-        let overdue = clock.now.addingTimeInterval(-60)
+        let overdue = clock.now.addingTimeInterval(-WallpaperManager.minute)
         state.nextChange = overdue
-        let manager = makeManager(desktop) { $0.rotationMinutes = 15 }
+        let manager = makeManager(desktop) { $0.rotationMinutes = self.presets[0] }
         XCTAssertEqual(manager.nextChange, clock.now, "quitting does not postpone the rotation")
 
         clock.advance(to: clock.now)
         await manager.idle()
         XCTAssertEqual(desktop.events.filter { $0.hasPrefix("set") }.count, 1)
-        XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(15 * 60))
+        XCTAssertEqual(manager.nextChange, later(presets[0]))
     }
 
-    func testTurningManagementOnAgainDoesNotRunAChangePlannedBeforeItWasOff() {
+    func testTurningManagementOnAgainDoesNotRunAChangePlannedBeforeItWasOff() throws {
         let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
-        let manager = makeManager(desktop) { $0.rotationMinutes = 15 }
-        let planned = try? XCTUnwrap(state.nextChange)
+        let manager = makeManager(desktop) { $0.rotationMinutes = self.presets[0] }
+        let planned = try XCTUnwrap(state.nextChange)
         manager.settings.enabled = false
         let saves = box.saves
-        clock.now = clock.now.addingTimeInterval(60 * 60)
+        clock.now = later(presets[2])
         manager.settings.enabled = true
         XCTAssertEqual(box.saves, saves + 1)
         XCTAssertNotEqual(manager.nextChange, planned, "turning it on again does not change the wallpaper at once")
-        XCTAssertEqual(manager.nextChange, clock.now.addingTimeInterval(15 * 60))
+        XCTAssertEqual(manager.nextChange, later(presets[0]))
         XCTAssertTrue(desktop.events.isEmpty)
     }
 
@@ -601,4 +612,27 @@ final class WallpaperManagerTests: XCTestCase {
         )!
         return context.makeImage()!
     }()
+
+    func testAnOlderOutsideSampleNeverReplacesANewerOneInTheSchemePreviews() async {
+        var display = WallpaperFixtures.studio
+        display.current = root.appendingPathComponent("Pictures/Wallpapers/a.jpg")
+        let desktop = FakeWallpaperDesktop([display])
+        let gate = WallpaperSampleGate(holding: ["a.jpg", "b.png"])
+        let manager = makeManager(desktop, environment: { $0.sample = { await gate.sample($0) } })
+        manager.showSwatches(true, for: .widget)
+        await gate.requested("a.jpg")
+
+        desktop.screens[0].current = root.appendingPathComponent("Pictures/Wallpapers/b.png")
+        desktop.onChange?()
+        await gate.requested("b.png")
+        gate.release("b.png")
+        await gate.finished("b.png")
+        XCTAssertEqual(manager.paletteSample, WallpaperSampleGate.pixels("b.png"))
+        gate.release("a.jpg")
+        await gate.finished("a.jpg")
+        XCTAssertEqual(
+            manager.paletteSample, WallpaperSampleGate.pixels("b.png"),
+            "the slow sample of the wallpaper shown before does not replace the newer one"
+        )
+    }
 }

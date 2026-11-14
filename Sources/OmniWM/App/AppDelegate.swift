@@ -90,6 +90,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             controller.workspaceManager.flushPersistedWindowRestoreCatalogNow()
         }
         AppDelegate.sharedBootstrap?.settings?.flushNow()
+        AppDelegate.sharedBootstrap?.controller?.wallpaperManager?.flushState()
         stopMonitorSetupPresentationObservation()
         stopIPCServer()
         runtimeStateStore?.flushNow()

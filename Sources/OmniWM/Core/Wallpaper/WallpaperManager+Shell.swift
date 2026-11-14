@@ -119,7 +119,7 @@ final class WallpaperFeedSource {
     func listen(data: Bool, previews shown: Bool) {
         guard data != (value != nil) || shown != (previews != nil) else { return }
         let wasListening = value != nil
-        manager.showPreviews(shown)
+        let previewsStarted = manager.showPreviews(shown, refreshing: false)
         manager.showSwatches(data, for: .widget)
         guard data || shown else {
             manager.onChange = nil
@@ -130,7 +130,8 @@ final class WallpaperFeedSource {
         manager.onChange = { [weak self] in self?.update() }
         value = data ? manager.shellValue() : nil
         previews = shown ? manager.shellPreviews() : nil
-        if data, !wasListening { manager.refresh(rescan: true) }
+        let dataStarted = data && !wasListening
+        if dataStarted || previewsStarted { manager.refresh(rescan: dataStarted) }
     }
 
     func update() {

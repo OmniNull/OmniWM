@@ -111,7 +111,9 @@ final class WallpaperSampleGate {
     private var holding: Set<String>
     private var held: [String: [CheckedContinuation<Void, Never>]] = [:]
     private var arrivals: [String: [CheckedContinuation<Void, Never>]] = [:]
+    private var returns: [String: [CheckedContinuation<Void, Never>]] = [:]
     private(set) var requests: [String] = []
+    private(set) var returned: [String] = []
 
     init(holding: Set<String> = []) {
         self.holding = holding
@@ -127,7 +129,14 @@ final class WallpaperSampleGate {
         arrivals.removeValue(forKey: name)?.forEach { $0.resume() }
         arrivals.removeValue(forKey: "")?.forEach { $0.resume() }
         if holding.contains(name) { await withCheckedContinuation { held[name, default: []].append($0) } }
+        returned.append(name)
+        returns.removeValue(forKey: name)?.forEach { $0.resume() }
         return Self.pixels(name)
+    }
+
+    func finished(_ name: String) async {
+        guard !returned.contains(name) else { return }
+        await withCheckedContinuation { returns[name, default: []].append($0) }
     }
 
     func requested(_ name: String? = nil) async {
@@ -148,20 +157,39 @@ final class WallpaperSampleGate {
 }
 
 final class WallpaperHeldWork: Sendable {
-    private let held = OSAllocatedUnfairLock<[@Sendable () -> Void]>(initialState: [])
+    private let state = OSAllocatedUnfairLock<(
+        held: [@Sendable () -> Void], waiting: [CheckedContinuation<Void, Never>]
+    )>(initialState: ([], []))
 
     var count: Int {
-        held.withLock { $0.count }
+        state.withLock { $0.held.count }
     }
 
     func perform(_ work: @escaping @Sendable () -> Void) {
-        held.withLock { $0.append(work) }
+        let waiting = state.withLock { state in
+            state.held.append(work)
+            defer { state.waiting = [] }
+            return state.waiting
+        }
+        for waiter in waiting {
+            waiter.resume()
+        }
+    }
+
+    func queued() async {
+        await withCheckedContinuation { continuation in
+            let ready = state.withLock { state in
+                if state.held.isEmpty { state.waiting.append(continuation) }
+                return !state.held.isEmpty
+            }
+            if ready { continuation.resume() }
+        }
     }
 
     func release() {
-        let work = held.withLock { held in
-            defer { held.removeAll() }
-            return held
+        let work = state.withLock { state in
+            defer { state.held.removeAll() }
+            return state.held
         }
         for item in work {
             item()
@@ -169,7 +197,7 @@ final class WallpaperHeldWork: Sendable {
     }
 
     func releaseNewest() {
-        let newest = held.withLock { $0.popLast() }
+        let newest = state.withLock { $0.held.popLast() }
         newest?()
     }
 }

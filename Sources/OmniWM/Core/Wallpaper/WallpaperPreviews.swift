@@ -5,6 +5,8 @@ import CoreGraphics
 import Foundation
 
 struct WallpaperPreviewKey: Hashable, Sendable {
+    static let ratioScale = 1000.0
+
     let file: WallpaperFileStamp
     let width: Int
     let ratio: Int
@@ -13,13 +15,13 @@ struct WallpaperPreviewKey: Hashable, Sendable {
     init(file: WallpaperFileStamp, width: Int, display size: CGSize, placement: WallpaperPlacement) {
         self.file = file
         self.width = width
-        let aspect = size.width > 0 && size.height > 0 ? size.width / size.height : 16.0 / 9.0
-        ratio = Int((aspect * 1000).rounded())
+        let aspect = size.width > 0 && size.height > 0 ? size.width / size.height : WallpaperRendering.wideAspect
+        ratio = Int((aspect * Self.ratioScale).rounded())
         self.placement = placement
     }
 
     var aspect: Double {
-        Double(ratio) / 1000
+        Double(ratio) / Self.ratioScale
     }
 
     var id: String {

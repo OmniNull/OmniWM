@@ -223,14 +223,6 @@ final class WMController {
     private(set) lazy var workspaceNavigationHandler = WorkspaceNavigationHandler(controller: self)
     @ObservationIgnored
     private(set) lazy var layoutRefreshController = LayoutRefreshController(controller: self)
-    var niriLayoutHandler: NiriLayoutHandler {
-        layoutRefreshController.niriHandler
-    }
-
-    var dwindleLayoutHandler: DwindleLayoutHandler {
-        layoutRefreshController.dwindleHandler
-    }
-
     @ObservationIgnored
     private(set) lazy var serviceLifecycleManager = ServiceLifecycleManager(controller: self)
     @ObservationIgnored
@@ -326,6 +318,14 @@ final class WMController {
 }
 
 extension WMController {
+    var niriLayoutHandler: NiriLayoutHandler {
+        layoutRefreshController.niriHandler
+    }
+
+    var dwindleLayoutHandler: DwindleLayoutHandler {
+        layoutRefreshController.dwindleHandler
+    }
+
     var isHyperTriggerActive: Bool {
         hotkeys.isHyperTriggerActive
     }

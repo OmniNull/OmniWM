@@ -27,6 +27,12 @@ extension ShellWidgetHost: WallpaperPaletteTarget {
         wallpaperPalette?.refresh()
     }
 
+    func reportWallpaperProblem(_ problem: String) {
+        guard !configProblems.contains(problem) else { return }
+        ShellConfig.report(problem, &configProblems)
+        publishToggleNames()
+    }
+
     func wallpaperPaletteDidChange() {
         feed?.wallpaper?.update()
     }

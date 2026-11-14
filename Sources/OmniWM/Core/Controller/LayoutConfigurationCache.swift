@@ -44,7 +44,8 @@ extension WMController {
             return cachedBorderConfig.value
         }
         let value = BorderConfig.from(
-            settings: settings, isDark: borderUsesDarkAppearance, palette: workspaceBarManager.shellPalette
+            settings: settings, isDark: borderUsesDarkAppearance,
+            palette: settings.borders.colorSource == .palette ? workspaceBarManager.borderPalette : nil
         )
         .indicating(keyboardModeKind)
         cachedBorderConfig = BorderConfigCacheEntry(

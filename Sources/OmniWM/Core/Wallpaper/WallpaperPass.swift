@@ -30,6 +30,7 @@ struct WallpaperEnvironment {
     var stamp: @Sendable (URL) -> WallpaperFileStamp = { WallpaperFileStamp($0) }
     var loadState: @Sendable () throws -> WallpaperRuntimeState
     var saveState: @Sendable (WallpaperRuntimeState) throws -> Void
+    var drain: @Sendable () -> Void = WallpaperEnvironment.drainWorker
     var perform: Perform = WallpaperEnvironment.performOnWorker
     var deliver: Deliver = WallpaperEnvironment.deliverOnMain
     var seed = UInt64.random(in: .min ... .max)
@@ -41,6 +42,10 @@ struct WallpaperEnvironment {
 
     nonisolated static func performOnWorker(_ work: @escaping @Sendable () -> Void) {
         queue.async(execute: work)
+    }
+
+    nonisolated static func drainWorker() {
+        queue.sync {}
     }
 
     nonisolated static func deliverOnMain(_ work: @escaping @MainActor @Sendable () -> Void) {
@@ -73,9 +78,24 @@ enum WallpaperStateFile {
         return try JSONDecoder().decode(WallpaperRuntimeState.self, from: data)
     }
 
+    static let folderPermissions = 0o700
+    static let filePermissions = 0o600
+
     static func save(_ state: WallpaperRuntimeState, to url: URL) throws {
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try JSONEncoder().encode(state).write(to: url, options: .atomic)
+        let folder = url.deletingLastPathComponent()
+        let files = FileManager.default
+        try files.createDirectory(at: folder, withIntermediateDirectories: true)
+        try files.setAttributes([.posixPermissions: folderPermissions], ofItemAtPath: folder.path)
+        let temporary = folder.appendingPathComponent(".\(name).\(UUID().uuidString).tmp")
+        do {
+            try JSONEncoder().encode(state).write(to: temporary, options: .withoutOverwriting)
+            try files.setAttributes([.posixPermissions: filePermissions], ofItemAtPath: temporary.path)
+            guard rename(temporary.path, url.path) == 0
+            else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        } catch {
+            try? files.removeItem(at: temporary)
+            throw error
+        }
     }
 }
 

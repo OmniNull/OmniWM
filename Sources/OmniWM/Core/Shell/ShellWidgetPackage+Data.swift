@@ -212,6 +212,14 @@ extension ShellWidgetPackage {
                 calendar.write(into: &writer)
             }
         }
+        updateWallpaper(instance, next, changed)
+    }
+
+    private func updateWallpaper(
+        _ instance: OpaquePointer,
+        _ next: borrowing ShellWidgetData,
+        _ changed: UInt64
+    ) {
         if changed & ShellDataKey.wallpaper.bit != 0 {
             setValue(instance, .wallpaper) { writer in next.wallpaper.map { $0.write(into: &writer) } ?? writer.null() }
         }

@@ -22,7 +22,8 @@ final class WallpaperSettingsTests: XCTestCase {
         var export = SettingsExport.defaults()
         export.wallpaper.enabled = true
         export.wallpaper.folder = "~/Pictures/Walls"
-        export.wallpaper.rotationMinutes = 45
+        let custom = SettingsExport.Wallpaper.rotationPresets[0] + SettingsExport.Wallpaper.rotationPresets[1]
+        export.wallpaper.rotationMinutes = custom
         export.wallpaper.placement = .fit
         export.wallpaper.displays = [
             MonitorWallpaperSettings(
@@ -35,7 +36,7 @@ final class WallpaperSettingsTests: XCTestCase {
         XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
         let tree = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
         guard case let .table(wallpaper)? = tree["wallpaper"] else { return XCTFail("no [wallpaper] table") }
-        XCTAssertEqual(wallpaper["rotationMinutes"], .integer(45))
+        XCTAssertEqual(wallpaper["rotationMinutes"], .integer(.init(custom)))
         XCTAssertEqual(wallpaper["placement"], .string("fit"))
     }
 
@@ -73,12 +74,12 @@ final class WallpaperSettingsTests: XCTestCase {
         settings.onWallpaperSettingsChanged = { changes += 1 }
         settings.wallpaper.enabled = true
         settings.wallpaper.setFolder("~/Pictures/Left", for: WallpaperFixtures.twinLeft.monitor)
-        settings.wallpaper.rotationMinutes = 15
+        settings.wallpaper.rotationMinutes = SettingsExport.Wallpaper.rotationPresets[0]
         XCTAssertEqual(changes, 3)
 
         let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
         XCTAssertTrue(saved.wallpaper.enabled)
-        XCTAssertEqual(saved.wallpaper.rotationMinutes, 15)
+        XCTAssertEqual(saved.wallpaper.rotationMinutes, SettingsExport.Wallpaper.rotationPresets[0])
         XCTAssertEqual(saved.wallpaper.displays.map(\.folder), ["~/Pictures/Left"])
         XCTAssertEqual(saved.wallpaper.displays.map(\.monitorDisplayUUID), [WallpaperFixtures.twinLeft.uuid])
         XCTAssertEqual(settings.wallpaper.folder(for: WallpaperFixtures.twinLeft.monitor)?.folder, "~/Pictures/Left")
@@ -116,5 +117,20 @@ final class WallpaperSettingsTests: XCTestCase {
         choice.set(chosen, for: WallpaperFixtures.studio.monitor)
         XCTAssertEqual(settings.folder, "~/Pictures/Elsewhere")
         XCTAssertEqual(settings.displays.map(\.folder), ["~/Pictures/Elsewhere"])
+    }
+
+    func testTheStateFileIsPrivateLikeOmniWMsOtherState() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("state").appendingPathComponent(WallpaperStateFile.name)
+        try WallpaperStateFile.save(WallpaperRuntimeState(), to: file)
+        let folder = try FileManager.default.attributesOfItem(atPath: file.deletingLastPathComponent().path)
+        let saved = try FileManager.default.attributesOfItem(atPath: file.path)
+        XCTAssertEqual((folder[.posixPermissions] as? NSNumber)?.intValue, WallpaperStateFile.folderPermissions)
+        XCTAssertEqual((saved[.posixPermissions] as? NSNumber)?.intValue, WallpaperStateFile.filePermissions)
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path),
+            [WallpaperStateFile.name], "no temporary file is left behind"
+        )
     }
 }

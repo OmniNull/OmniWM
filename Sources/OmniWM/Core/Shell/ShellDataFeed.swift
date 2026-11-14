@@ -133,14 +133,6 @@ final class ShellDataFeed {
         }
     }
 
-    var current: ShellWidgetData {
-        data
-    }
-
-    var observesPowerSources: Bool {
-        powerSource != nil
-    }
-
     func setWorld(_ world: ShellWorldData) {
         guard world != data.world else { return }
         data.world = world
@@ -332,5 +324,15 @@ final class ShellDataFeed {
 
     func demands(_ key: ShellDataKey) -> Bool {
         demand & key.bit != 0
+    }
+}
+
+extension ShellDataFeed {
+    var current: ShellWidgetData {
+        data
+    }
+
+    var observesPowerSources: Bool {
+        powerSource != nil
     }
 }

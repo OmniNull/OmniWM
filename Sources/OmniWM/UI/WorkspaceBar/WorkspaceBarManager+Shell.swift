@@ -91,7 +91,7 @@ extension WorkspaceBarManager {
         lastIslands = []
         notificationBadges.onLabelsChange = nil
         host?.setWallpaperManager(nil)
-        setShellPalette(nil)
+        borderPaletteDidChange()
         host?.stop()
         controller?.appThemeShellIsOff { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         setShellBadgeDemand(false)
@@ -157,7 +157,7 @@ extension WorkspaceBarManager {
     func observeShellPalette(_ host: ShellWidgetHost) {
         host.onPaletteChange = { [weak self] theme in
             self?.controller?.appThemePaletteDidChange(theme)
-            self?.setShellPalette(theme)
+            self?.borderPaletteDidChange()
         }
     }
 

@@ -107,7 +107,7 @@ final class BorderPaletteColorTests: XCTestCase {
         XCTAssertEqual(fixed.gradient?.start, settings.borders.gradient?.start)
     }
 
-    func testTheBorderFollowsAPaletteChangeAtOnce() throws {
+    func testWithFollowWallpaperColorsOffAPaletteChangeLeavesTheBorderAlone() throws {
         let settings = store()
         let controller = WMController(
             settings: settings,
@@ -117,17 +117,29 @@ final class BorderPaletteColorTests: XCTestCase {
         )
         controller.workspaceBarManager.setup(controller: controller, settings: settings)
         settings.borders.enabled = true
-        settings.borders.colorSource = .palette
-        let first = try theme([(0x1E88E5, 5), (0x90CAF9, 3)])
-        let second = try theme([(0x2E7D32, 6), (0xC5E1A5, 1)])
-        let dark = controller.borderUsesDarkAppearance
-
-        controller.workspaceBarManager.setShellPalette(first)
-        XCTAssertEqual(controller.resolvedBorderConfig().color, try color(first, .accent, dark: dark))
-        controller.workspaceBarManager.setShellPalette(second)
-        XCTAssertEqual(controller.resolvedBorderConfig().color, try color(second, .accent, dark: dark))
-        controller.workspaceBarManager.setShellPalette(nil)
+        let host = ShellWidgetHost(
+            configDirectory: directory,
+            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
+            resourceStore: ShellResourceStore(directory: directory.appendingPathComponent("resources")),
+            world: { ShellWorldData() }, vars: { [:] }, bars: { [:] }, onLayoutChange: {},
+            onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
+            onPopoutChange: {}, onTitleDemandChange: { _ in }
+        )
+        controller.workspaceBarManager.shellHost = host
+        controller.workspaceBarManager.observeShellPalette(host)
+        _ = controller.resolvedBorderConfig()
+        let cached = try XCTUnwrap(controller.cachedBorderConfig)
+        var next = host.config
+        next.theme = try theme([(0x2E7D32, 6), (0xC5E1A5, 1)])
+        host.started = true
+        host.applyConfig(next)
+        XCTAssertEqual(
+            controller.cachedBorderConfig?.revision, cached.revision,
+            "with the option off a palette change neither stores a palette nor touches the border"
+        )
+        XCTAssertNotNil(controller.cachedBorderConfig)
         XCTAssertEqual(controller.resolvedBorderConfig().color, settings.borders.color)
+        host.started = false
     }
 
     func testEveryInputOfTheShellPaletteReachesTheBorder() throws {
@@ -149,6 +161,7 @@ final class BorderPaletteColorTests: XCTestCase {
             onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
             onPopoutChange: {}, onTitleDemandChange: { _ in }
         )
+        controller.workspaceBarManager.shellHost = host
         controller.workspaceBarManager.observeShellPalette(host)
         let dark = controller.borderUsesDarkAppearance
         let accent = SettingsColor(red: 0, green: 0.5, blue: 1, alpha: 1)

@@ -35,9 +35,19 @@ enum ShellWallpaperPalette {
         return drawn ? pixels : []
     }
 
+    static func seed(of pixels: [UInt32]) -> UInt32 {
+        pixels.withUnsafeBufferPointer { omni_material_seed($0.baseAddress, $0.count, 0) }
+    }
+
+    static func material(
+        seed: UInt32,
+        scheme: ShellWallpaperScheme
+    ) -> (source: UInt32, variant: omni_material_variant) {
+        seed == 0 ? (gray, OMNI_MATERIAL_MONOCHROME) : (seed, scheme.variant)
+    }
+
     static func theme(pixels: [UInt32], scheme: ShellWallpaperScheme) -> String {
-        let seed = pixels.withUnsafeBufferPointer { omni_material_seed($0.baseAddress, $0.count, 0) }
-        let (source, variant) = seed == 0 ? (gray, OMNI_MATERIAL_MONOCHROME) : (seed, scheme.variant)
+        let (source, variant) = material(seed: seed(of: pixels), scheme: scheme)
         var text = ""
         for (name, dark) in [("light", false), ("dark", true)] {
             let colors = ShellMaterialPalette.colors(seed: source, variant: variant, dark: dark)
@@ -360,8 +370,10 @@ final class ShellWallpaperPaletteWriter {
                 }
             }
             let looked = lookup()
-            if let pixels = pinned?.pixels(for: looked) {
-                Self.keep(pixels, onlyIfChanged: onlyIfChanged, scheme: scheme, to: destination, record: record)
+            if let pinned {
+                if let pixels = pinned.pixels(for: looked) {
+                    Self.keep(pixels, onlyIfChanged: onlyIfChanged, scheme: scheme, to: destination, record: record)
+                }
                 return
             }
             guard case let .still(still, aerial) = looked else {

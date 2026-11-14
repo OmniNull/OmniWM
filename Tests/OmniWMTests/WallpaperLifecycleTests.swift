@@ -106,28 +106,60 @@ final class WallpaperLifecycleTests: XCTestCase {
     }
 
     func testTheWriterAndTheManagerShareOneObserverForEachDesktopEvent() {
-        let events = ShellWallpaperEvents.shared
-        let subscribers = events.subscribers
-        let desktop = LiveWallpaperDesktop(screens: { [] }, store: { nil }, location: { _ in nil })
+        let workspace = NotificationCenter()
+        let screens = NotificationCenter()
+        let events = ShellWallpaperEvents(store: directory, workspace: workspace, screens: screens)
+        let desktop = LiveWallpaperDesktop(screens: { [] }, store: { nil }, location: { _ in nil }, events: events)
+        let writer = Owner()
         var desktopEvents = 0
+        var writerEvents = 0
         desktop.onChange = { desktopEvents += 1 }
+        events.subscribe(writer) { writerEvents += 1 }
+        XCTAssertEqual(events.subscribers, 2)
+        XCTAssertTrue(events.isObserving)
+
+        workspace.post(name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+        screens.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        XCTAssertEqual(desktopEvents, 2, "each Space or screen change reaches the manager once")
+        XCTAssertEqual(writerEvents, 2, "and the writer once, through the same observer")
+
+        events.unsubscribe(writer)
+        desktop.onChange = nil
+        XCTAssertFalse(events.isObserving, "the observer goes away with its last subscriber")
+    }
+
+    func testThePaletteWriterSubscribesToTheSharedObserverOnlyWhileStarted() {
+        let shared = ShellWallpaperEvents.shared
+        let subscribers = shared.subscribers
         let writer = ShellWallpaperPaletteWriter(
             destination: directory.appendingPathComponent("themes/wallpaper.toml"), scheme: .tonalSpot,
             source: { { .capture(aerial: false) } }, read: { _ in nil }, image: { _ in nil },
             perform: { _ in }, deliver: { _ in }
         ) { _ in }
         writer.start()
-        XCTAssertEqual(events.subscribers, subscribers + 2)
-        XCTAssertTrue(events.isObserving)
-
-        NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
-        XCTAssertEqual(desktopEvents, 1, "one Space switch reaches the manager once")
-
+        XCTAssertEqual(shared.subscribers, subscribers + 1)
         writer.stop()
-        desktop.onChange = nil
-        XCTAssertEqual(events.subscribers, subscribers)
-        XCTAssertEqual(events.isObserving, subscribers > 0)
+        XCTAssertEqual(shared.subscribers, subscribers)
     }
+
+    func testAColorFailureWhileManagementIsOffIsShownWithTheShellsProblems() {
+        let controller = makeController()
+        let host = ShellWidgetHost(
+            configDirectory: directory,
+            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
+            resourceStore: ShellResourceStore(directory: directory.appendingPathComponent("resources")),
+            world: { ShellWorldData() }, vars: { [:] }, bars: { [:] }, onLayoutChange: {},
+            onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
+            onPopoutChange: {}, onTitleDemandChange: { _ in }
+        )
+        controller.workspaceBarManager.shellHost = host
+        let problem = "The wallpaper colors can’t be written: the disk is full"
+        controller.workspaceBarManager.reportWallpaperProblem(problem)
+        XCTAssertTrue(host.configProblems.contains(problem), "\(host.configProblems)")
+        controller.workspaceBarManager.shellHost = nil
+    }
+
+    private final class Owner {}
 
     func testANewerColorChoiceDiscardsTheOlderOneStillOnItsWay() async {
         let controller = makeController()

@@ -22,7 +22,7 @@ final class SettingsStore {
     let workspaces = WorkspaceSettings()
 
     private let persistence: SettingsFilePersistence
-    let runtimeState: RuntimeStateStore
+    private let runtimeState: RuntimeStateStore
     private let autosaveEnabled: Bool
     private(set) var isApplyingExport = false
     private var isApplyingRuntimeState = false

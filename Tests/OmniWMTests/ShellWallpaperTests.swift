@@ -346,4 +346,59 @@ final class ShellWallpaperTests: XCTestCase {
             "the recheck knows the palette it published and does not write it again"
         )
     }
+
+    func testARecheckOrEventBeforeTheStoreShowsThePublishedWallpaperKeepsItsColors() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let destination = root.appendingPathComponent("themes/wallpaper.toml")
+        let shown = ShellWallpaperPalette.StillWallpaper(
+            url: root.appendingPathComponent("old.png"), size: 1, modified: Date(timeIntervalSince1970: 1)
+        )
+        let oldPixels: [UInt32] = [0xFF20_40E0]
+        let newPixels: [UInt32] = [0xFFE0_4020]
+        let stale = try XCTUnwrap(CGContext(
+            data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )?.makeImage())
+        let pin = PinnedOverride(ShellWallpaperPaletteOverride(
+            file: WallpaperFileStamp(path: shown.url.path, modified: 1, bytes: 1), pixels: oldPixels
+        ))
+        let writer = ShellWallpaperPaletteWriter(
+            destination: destination, scheme: .tonalSpot,
+            source: { { .still(shown, aerial: false) } },
+            read: { _ in stale }, image: { _ in nil },
+            override: { pin.value },
+            perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }
+        ) { _ in }
+        writer.refresh()
+        XCTAssertEqual(
+            try String(contentsOf: destination, encoding: .utf8),
+            ShellWallpaperPalette.theme(pixels: oldPixels, scheme: .tonalSpot)
+        )
+
+        pin.value = ShellWallpaperPaletteOverride(
+            file: WallpaperFileStamp(path: root.appendingPathComponent("new.png").path, modified: 1, bytes: 1),
+            pixels: newPixels
+        )
+        _ = try await writer.publish(newPixels, scheme: .tonalSpot)
+        let published = ShellWallpaperPalette.theme(pixels: newPixels, scheme: .tonalSpot)
+        writer.refreshIfChanged()
+        XCTAssertEqual(
+            try String(contentsOf: destination, encoding: .utf8), published,
+            "a recheck before the Store shows the new wallpaper keeps the colors made for it"
+        )
+        writer.refresh()
+        XCTAssertEqual(
+            try String(contentsOf: destination, encoding: .utf8), published,
+            "a Space or Store event before the Store shows the new wallpaper keeps them too"
+        )
+    }
+
+    @MainActor
+    private final class PinnedOverride {
+        var value: ShellWallpaperPaletteOverride?
+        init(_ value: ShellWallpaperPaletteOverride?) {
+            self.value = value
+        }
+    }
 }

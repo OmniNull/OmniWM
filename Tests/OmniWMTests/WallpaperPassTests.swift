@@ -32,6 +32,7 @@ final class WallpaperPassTests: XCTestCase {
     private func makeManager(
         _ desktop: FakeWallpaperDesktop,
         held: Bool,
+        holdsDelivery: Bool = true,
         palette: FakeWallpaperPalette? = nil,
         change: (inout WallpaperEnvironment) -> Void = { _ in }
     ) -> WallpaperManager {
@@ -50,7 +51,7 @@ final class WallpaperPassTests: XCTestCase {
         environment.sample = { key in [UInt32(truncatingIfNeeded: key.file.path.utf8.count)] }
         if held {
             environment.perform = worker.perform
-            environment.deliver = hops.deliver
+            if holdsDelivery { environment.deliver = hops.deliver }
         }
         change(&environment)
         let manager = WallpaperManager(settings: settings, desktop: desktop, environment: environment)
@@ -248,5 +249,69 @@ final class WallpaperPassTests: XCTestCase {
         palette.release()
         await next.value
         XCTAssertEqual(manager.palettePin()?.file, WallpaperFileStamp(file("b.png")))
+    }
+
+    func testAPickKeepsItsFolderRescanWhenADesktopEventOvertakesIt() async throws {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let manager = makeManager(desktop, held: true, holdsDelivery: false)
+        worker.release()
+        try Data("d".utf8).write(to: file("d.jpg"))
+        let pick = Task { await manager.set("d.jpg", on: WallpaperFixtures.studio.monitorId) }
+        await worker.queued()
+        desktop.onChange?()
+        worker.release()
+        await pick.value
+        XCTAssertEqual(
+            desktop.screens[0].current?.lastPathComponent, "d.jpg",
+            "a Space switch during a pick does not hand the pick the folder list from before"
+        )
+        XCTAssertNil(manager.problem)
+    }
+
+    func testThePinStaysWhileTheStoreStillShowsTheWallpaperFromBeforeTheChange() async throws {
+        var display = WallpaperFixtures.studio
+        display.current = file("a.jpg")
+        let desktop = FakeWallpaperDesktop([display])
+        let palette = FakeWallpaperPalette()
+        palette.holding = true
+        let manager = makeManager(desktop, held: false, palette: palette)
+        let pick = Task { await manager.set("b.png", on: WallpaperFixtures.studio.monitorId) }
+        await palette.publishing()
+        desktop.onChange?()
+        XCTAssertEqual(
+            manager.palettePin()?.file, WallpaperFileStamp(file("b.png")),
+            "a Store event before the new wallpaper shows keeps the pin, so the writer keeps the new colors"
+        )
+        XCTAssertEqual(palette.refreshed, 0)
+        palette.release()
+        await pick.value
+        desktop.onChange?()
+        XCTAssertEqual(manager.palettePin()?.file, WallpaperFileStamp(file("b.png")))
+
+        desktop.screens[0].current = file("c.heic")
+        desktop.onChange?()
+        XCTAssertNil(manager.pin, "a wallpaper chosen elsewhere afterwards lets the writer follow the Store")
+        XCTAssertEqual(palette.refreshed, 1)
+    }
+
+    func testOpeningThePickerLooksAtTheDesktopOnce() {
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let manager = makeManager(desktop, held: false)
+        let source = WallpaperFeedSource(manager: manager)
+        let reads = desktop.reads
+        source.listen(data: true, previews: true)
+        XCTAssertEqual(desktop.reads, reads + 1, "starting to show names and previews is one pass, not two")
+        XCTAssertTrue(manager.previews.demanded)
+        source.listen(data: false, previews: false)
+    }
+
+    func testQuittingWaitsForTheRotationStateToBeWritten() {
+        let drains = WallpaperCounter()
+        let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
+        let manager = makeManager(desktop, held: false) { environment in
+            environment.drain = { drains.add("drain") }
+        }
+        manager.flushState()
+        XCTAssertEqual(drains.values, ["drain"])
     }
 }

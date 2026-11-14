@@ -834,20 +834,34 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         )
         let decoder = Decoder(Self.sunset)
         let managed = ShellWallpaperPalette.pixels(of: Self.forest)
+        let pin = PinBox(ShellWallpaperPaletteOverride(file: Self.stamp(managedURL), pixels: managed))
         let writer = makeWriter(
             into: root,
             source: { .still(replaced, aerial: false) },
             read: { decoder.read($0) },
-            override: { ShellWallpaperPaletteOverride(file: Self.stamp(managedURL), pixels: managed) }
+            override: { pin.value }
         )
         defer { writer.stop() }
         writer.start()
+        XCTAssertNil(palette(in: root), "the managed sample is never used for a file replaced under its name")
+        XCTAssertEqual(decoder.count, 0, "and nothing is read while the manager still holds its pin")
+
+        pin.value = nil
+        writer.refresh()
         XCTAssertEqual(
             palette(in: root),
             palette(of: Self.sunset),
-            "a file replaced after the manager sampled it is read again"
+            "once the manager lets the pin go, the replaced file is read again"
         )
         XCTAssertEqual(decoder.count, 1)
+    }
+
+    @MainActor
+    private final class PinBox {
+        var value: ShellWallpaperPaletteOverride?
+        init(_ value: ShellWallpaperPaletteOverride?) {
+            self.value = value
+        }
     }
 
     func testPublishingWaitsForTheWriterQueueInsteadOfBlockingTheMainThread() async throws {
@@ -1065,6 +1079,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         let decoder = Decoder(Self.sunset)
         let screen = Wallpaper(Self.sunset)
         let managed = ShellWallpaperPalette.pixels(of: Self.forest)
+        let pin = PinBox(ShellWallpaperPaletteOverride(file: Self.stamp(managedURL), pixels: managed))
         let writer = makeWriter(
             into: root,
             source: { source.current },
@@ -1073,13 +1088,17 @@ final class ShellWallpaperPaletteTests: XCTestCase {
                 screen.reads += 1
                 return screen.image
             },
-            override: { ShellWallpaperPaletteOverride(file: Self.stamp(managedURL), pixels: managed) }
+            override: { pin.value }
         )
         defer { writer.stop() }
         writer.start()
         XCTAssertEqual(palette(in: root), palette(of: Self.forest))
 
         source.show(.capture(aerial: true))
+        writer.refresh()
+        XCTAssertEqual(palette(in: root), palette(of: Self.forest), "the writer holds while the manager has a pin")
+        XCTAssertEqual(screen.reads, 0)
+        pin.value = nil
         writer.refresh()
         XCTAssertEqual(
             palette(in: root),

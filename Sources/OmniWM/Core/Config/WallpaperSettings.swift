@@ -117,7 +117,7 @@ extension WallpaperManager {
         self.init(
             settings: store.wallpaper,
             environment: WallpaperEnvironment(
-                stateFile: store.runtimeState.directoryURL.appendingPathComponent(WallpaperStateFile.name)
+                stateFile: OmniWMStoragePaths.live.stateDirectory.appendingPathComponent(WallpaperStateFile.name)
             )
         )
     }

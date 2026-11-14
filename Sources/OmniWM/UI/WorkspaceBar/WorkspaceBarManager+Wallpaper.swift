@@ -19,15 +19,23 @@ extension WorkspaceBarManager {
         guard let controller else { return }
         switch command {
         case let .scheme(scheme):
-            selectWallpaperScheme(scheme) { [weak controller] problem in
-                guard let problem, let manager = controller?.wallpaperManager else { return }
-                manager.report(problem)
-                manager.onChange?()
+            selectWallpaperScheme(scheme) { [weak self] problem in
+                guard let problem else { return }
+                self?.reportWallpaperProblem(problem)
             }
         case .settings:
             controller.statusBarController?.openSettings(section: .wallpaper)
         default:
             controller.wallpaperManager?.perform(command, chooseFolder: WallpaperManager.chooseFolder(startingAt:))
+        }
+    }
+
+    func reportWallpaperProblem(_ problem: String) {
+        if let manager = controller?.wallpaperManager {
+            manager.report(problem)
+            manager.onChange?()
+        } else {
+            shellHost?.reportWallpaperProblem(problem)
         }
     }
 
@@ -99,9 +107,11 @@ extension WorkspaceBarManager {
         }
     }
 
-    func setShellPalette(_ palette: ShellTheme?) {
-        guard shellPalette != palette else { return }
-        shellPalette = palette
+    var borderPalette: ShellTheme? {
+        shellHost == nil ? nil : appTheme()
+    }
+
+    func borderPaletteDidChange() {
         guard let controller, controller.settings.borders.colorSource == .palette else { return }
         controller.cachedBorderConfig = nil
         controller.surfaceReconciler.noteBorderChanged()

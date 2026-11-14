@@ -29,6 +29,8 @@ struct WallpaperSampleKey: Hashable, Sendable {
 }
 
 enum WallpaperRendering {
+    static let wideAspect = 16.0 / 9.0
+
     static func source(_ url: URL, maxPixelSize: Int) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return CGImageSourceCreateThumbnailAtIndex(source, 0, [
@@ -40,7 +42,7 @@ enum WallpaperRendering {
     }
 
     static func canvas(aspect: Double, longSide: Int) -> (width: Int, height: Int) {
-        let aspect = aspect.isFinite && aspect > 0 ? aspect : 16.0 / 9.0
+        let aspect = aspect.isFinite && aspect > 0 ? aspect : wideAspect
         if aspect >= 1 {
             return (longSide, max(1, Int((Double(longSide) / aspect).rounded())))
         }

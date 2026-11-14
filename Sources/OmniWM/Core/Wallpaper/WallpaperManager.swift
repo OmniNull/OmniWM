@@ -48,9 +48,12 @@ final class WallpaperManager {
         let url: URL
         let key: WallpaperSampleKey
         let pixels: [UInt32]
+        var before: String?
+        var seen = false
     }
 
     static let sampleLimit = 48
+    static let minute: TimeInterval = 60
 
     let settings: WallpaperSettings
     @ObservationIgnored let desktop: WallpaperDesktop
@@ -77,6 +80,7 @@ final class WallpaperManager {
     @ObservationIgnored private var resumesRotation = false
     @ObservationIgnored private var folders: [String] = []
     @ObservationIgnored private var passes: UInt64 = 0
+    @ObservationIgnored private var rescanOwed = false
     @ObservationIgnored private var saves: UInt64 = 0
     @ObservationIgnored private var waiters: [CheckedContinuation<Void, Never>] = []
 
@@ -153,6 +157,7 @@ final class WallpaperManager {
         nextChange = nil
         entries = []
         lists = [:]
+        rescanOwed = false
         stamps = [:]
         upcoming = nil
         pin = nil
@@ -168,6 +173,7 @@ final class WallpaperManager {
         guard running else { return }
         passes &+= 1
         let generation = passes
+        rescanOwed = rescanOwed || rescan
         let lookup = desktop.lookup()
         let home = environment.home
         let fallback = WallpaperLibrary.folderURL(settings.folder, home: home)
@@ -181,7 +187,7 @@ final class WallpaperManager {
         }
         let pass = WallpaperPass(
             planned: planned,
-            lists: rescan ? [:] : lists,
+            lists: rescanOwed ? [:] : lists,
             extra: listsEveryFolder ? configuredFolders(fallback: fallback) : [],
             pages: previews.demanded ? previews.windows : nil,
             upcoming: palette?.wallpaperPaletteState.active == true
@@ -208,6 +214,7 @@ final class WallpaperManager {
 
     private func land(_ snapshot: WallpaperSnapshot, generation: UInt64) {
         guard running, generation == passes else { return }
+        rescanOwed = false
         if state == nil, let loaded = snapshot.state {
             restore(loaded)
         }
@@ -217,6 +224,7 @@ final class WallpaperManager {
         upcoming = snapshot.upcoming
         problems.desktop = snapshot.failure
         previews.retain(entries: entries, stamps: stamps, placement: placement)
+        followPin()
         prefetch()
         followMainSample()
         resumeWaiters()
@@ -278,6 +286,10 @@ final class WallpaperManager {
         onChange?()
     }
 
+    func flushState() {
+        environment.drain()
+    }
+
     func entry(for monitorId: String) -> Entry? {
         entries.first { $0.display.monitorId == monitorId }
     }
@@ -315,9 +327,11 @@ final class WallpaperManager {
         onChange?()
     }
 
-    func showPreviews(_ shown: Bool) {
-        guard previews.demanded != shown else { return }
+    @discardableResult
+    func showPreviews(_ shown: Bool, refreshing: Bool = true) -> Bool {
+        guard previews.demanded != shown else { return false }
         previews.demanded = shown
-        if shown { refresh() }
+        if shown, refreshing { refresh() }
+        return shown
     }
 }
