@@ -90,7 +90,7 @@ Drag a window's edge or corner to resize it as anywhere in macOS. When you let g
 
 ![A narrow strip of the next window shows at each screen edge with more windows beyond.](../../../assets/macos-fusion/edge-peek.svg)
 
-It is set as a share of the display's width, from 0% to 10% (5% by default; 0% turns it off). Each display can have its own value: pick the display at the top of the Niri settings and set **Peripheral Vision** in its **macOS Fusion** section. An edge shared with another display shows no peek.
+It is set as a share of the display's width, from 0% to 10%. It starts at 0%, which turns it off. Each display can have its own value: pick the display at the top of the Niri settings and set **Peripheral Vision** in its **macOS Fusion** section. An edge shared with another display shows no peek.
 
 ## More than one display
 
@@ -124,6 +124,6 @@ All in **Settings → Layouts → Niri**, in the **macOS Fusion** section. The c
 | Setting | What it does | Default |
 | --- | --- | --- |
 | **macOS Fusion** (`macOSFusion`) | Move, stack and resize windows with the mouse as described here | Off |
-| **Peripheral Vision** (`edgePeekPercent`) | How much of the next window stays in view at each screen edge with more windows, as a share of the display's width | 5% |
+| **Peripheral Vision** (`edgePeekPercent`) | How much of the next window stays in view at each screen edge with more windows, as a share of the display's width | 0% (off) |
 | **Undo** | Take back the last change to the windows in this workspace | `Option + Command + Z` |
 | **Redo** | Put back what Undo took back | `Option + Shift + Command + Z` |

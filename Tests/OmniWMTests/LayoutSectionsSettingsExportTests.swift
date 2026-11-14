@@ -32,7 +32,7 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
             "overscrollVisibleStripPercent": .integer(5),
             "shrinkToFit": .boolean(false),
             "macOSFusion": .boolean(false),
-            "edgePeekPercent": .float(5.0)
+            "edgePeekPercent": .float(BuiltInSettingsDefaults.niriEdgePeekPercent)
         ]))
         XCTAssertEqual(tree["dwindle"], .table([
             "smartSplit": .boolean(false),
@@ -168,13 +168,14 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
     }
 
     @MainActor
-    func testPeripheralVisionDefaultsToFiveRoundTripsAndIsClampedFromZeroToTen() throws {
-        XCTAssertEqual(SettingsExport.defaults().niri.edgePeekPercent, 5.0)
-        XCTAssertEqual(NiriSettings().edgePeekPercent, 5.0)
+    func testPeripheralVisionDefaultsToOffRoundTripsAndIsClampedFromZeroToTen() throws {
+        XCTAssertEqual(BuiltInSettingsDefaults.niriEdgePeekPercent, 0)
+        XCTAssertEqual(SettingsExport.defaults().niri.edgePeekPercent, BuiltInSettingsDefaults.niriEdgePeekPercent)
+        XCTAssertEqual(NiriSettings().edgePeekPercent, BuiltInSettingsDefaults.niriEdgePeekPercent)
         var export = SettingsExport.defaults()
-        export.niri.edgePeekPercent = 0
+        export.niri.edgePeekPercent = 5
         let encoded = try SettingsTOMLCodec.encode(export)
-        XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("edgePeekPercent = 0"))
+        XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("edgePeekPercent = 5"))
         XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
 
         let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
@@ -183,7 +184,7 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
         XCTAssertNil(decoded.niri.edgePeekPercent)
         let settings = NiriSettings()
         settings.apply(decoded.niri, baseline: .defaults())
-        XCTAssertEqual(settings.edgePeekPercent, 5.0)
+        XCTAssertEqual(settings.edgePeekPercent, BuiltInSettingsDefaults.niriEdgePeekPercent)
         settings.edgePeekPercent = 40
         XCTAssertEqual(settings.edgePeekPercent, 10)
         settings.edgePeekPercent = -1

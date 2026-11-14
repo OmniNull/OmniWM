@@ -347,7 +347,7 @@ extension CrossDisplayDragTests {
     }
 
     func testACarriedWindowWiderThanTheDisplayLandsAtThatDisplaysEdgePeekCap() throws {
-        let drag = try startLiveTwoDisplayDrag(residents: 2)
+        let drag = try startLiveTwoDisplayDrag(residents: 2, edgePeekPercent: 5)
         let fixture = drag.fixture
         let start = try XCTUnwrap(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
         let wide = CGRect(x: start.minX + 30, y: start.minY, width: 3000, height: start.height)
@@ -873,10 +873,14 @@ extension CrossDisplayDragTests {
         stacked: Bool = false,
         movedHeight: WeightedSize? = nil,
         fusion: Bool = true,
-        keepsNativeMovesAcrossDisplays: Bool = true
+        keepsNativeMovesAcrossDisplays: Bool = true,
+        edgePeekPercent: Double? = nil
     ) throws -> LiveTwoDisplayDrag {
         let fixture = try makeNativeFixture([.niri, .niri], enabled: keepsNativeMovesAcrossDisplays)
         fixture.controller.settings.niri.macOSFusion = true
+        if let edgePeekPercent {
+            fixture.controller.settings.niri.edgePeekPercent = edgePeekPercent
+        }
         if fusion {
             fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
         }
