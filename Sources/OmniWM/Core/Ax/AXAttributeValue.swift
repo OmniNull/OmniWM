@@ -27,6 +27,13 @@ enum AXAttributeValue {
         return CFGetTypeID(value) == AXUIElementGetTypeID()
     }
 
+    static func rectValue(_ value: CFTypeRef?) -> CGRect? {
+        guard let value, CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        var rect = CGRect.zero
+        guard AXValueGetValue(unsafeDowncast(value, to: AXValue.self), .cgRect, &rect) else { return nil }
+        return rect
+    }
+
     static func frame(positionValue: Any?, sizeValue: Any?) -> CGRect? {
         guard let positionValue,
               let sizeValue,
