@@ -174,6 +174,71 @@ final class MenuAnywhereControllerTests: XCTestCase {
         XCTAssertNil(item.action)
     }
 
+    func testApplicationMenuOpensNativeSubmenuAfterTrackingEnds() {
+        let app = NSRunningApplication.current
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        let file = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
+        file.submenu = rootedMenu()
+        file.representedObject = element
+        let disabled = NSMenuItem(title: "Disabled", action: nil, keyEquivalent: "")
+        disabled.submenu = rootedMenu()
+        disabled.isEnabled = false
+        var opened = 0
+        var tracking: [Bool] = []
+        let controller = MenuAnywhereController(
+            menuLoader: { _, _, _, _ in .loaded([file, disabled]) },
+            menuPresenter: { _, _ in
+                XCTAssertNil(file.submenu)
+                XCTAssertNil(disabled.submenu)
+                XCTAssertFalse(disabled.isEnabled)
+                XCTAssertNil(disabled.action)
+                guard let action = file.action else { return XCTFail("Missing File menu action") }
+                XCTAssertTrue(NSApplication.shared.sendAction(action, to: file.target, from: file))
+                XCTAssertEqual(tracking, [true])
+            },
+            usesNativeSubmenus: { _ in true },
+            openNativeSubmenu: { target, item in
+                XCTAssertEqual(target.processIdentifier, app.processIdentifier)
+                XCTAssertTrue(CFEqual(item, element))
+                XCTAssertEqual(tracking, [true, false])
+                XCTAssertNil(file.representedObject)
+                opened += 1
+                return nil
+            },
+            submenuLoader: { _, _, _ in
+                XCTFail("The application owns this submenu")
+                return .unavailable
+            }
+        )
+        controller.onMenuTrackingChanged = { tracking.append($0) }
+
+        controller.showNativeMenu(
+            for: app, content: .application, anchor: .zero, edge: .below,
+            visibleFrame: CGRect(x: 0, y: 0, width: 1200, height: 1000)
+        )
+
+        XCTAssertEqual(opened, 1)
+    }
+
+    func testOtherMenusKeepTheirMirroredSubmenus() {
+        for (content, usesNativeSubmenus) in [(MenuContent.application, false), (.apple, true)] {
+            let submenu = rootedMenu()
+            let item = NSMenuItem(title: "Menu", action: nil, keyEquivalent: "")
+            item.submenu = submenu
+            let controller = MenuAnywhereController(
+                menuLoader: { _, _, _, _ in .loaded([item]) },
+                menuPresenter: { _, _ in XCTAssertTrue(item.submenu === submenu) },
+                usesNativeSubmenus: { _ in usesNativeSubmenus },
+                submenuLoader: { _, _, _ in .unavailable }
+            )
+
+            controller.showNativeMenu(
+                for: .current, content: content, anchor: .zero, edge: .below,
+                visibleFrame: CGRect(x: 0, y: 0, width: 1200, height: 1000)
+            )
+        }
+    }
+
     func testAnchoredRootSeparatesEmptyAndUnavailableStatuses() {
         let cases: [(MenuSubmenuLoadResult, String)] = [
             (.loaded([]), "(No items)"),
