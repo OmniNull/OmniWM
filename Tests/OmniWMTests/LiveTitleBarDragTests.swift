@@ -2177,15 +2177,15 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.manager.niriViewportState(for: fixture.workspaceId).selectedNodeId, clicked.id)
     }
 
-    func testAStackDropForgetsTheTargetColumnsGuessedHeights() throws {
+    func testAStackDropKeepsTheTargetColumnsLearnedHeights() throws {
         let fixture = try makeFixture(pid: 938_148)
-        var guess = ObservedSizeEvidence()
-        guess.minSize.height = 500
-        XCTAssertTrue(fixture.manager.setObservedSizeEvidence(guess, for: fixture.tokens[2]))
+        var learned = ObservedSizeEvidence()
+        learned.minSize.height = 500
+        XCTAssertTrue(fixture.manager.setObservedSizeEvidence(learned, for: fixture.tokens[2]))
 
         try stackDrop(fixture.tokens[1], onto: fixture.tokens[2], in: fixture)
 
-        XCTAssertLessThanOrEqual(fixture.manager.observedSizeEvidence(for: fixture.tokens[2])?.minSize.height ?? 1, 1)
+        XCTAssertEqual(fixture.manager.observedSizeEvidence(for: fixture.tokens[2]), learned)
     }
 
     private func move(_ token: WindowToken, after target: WindowToken, in fixture: Fixture) -> Bool {

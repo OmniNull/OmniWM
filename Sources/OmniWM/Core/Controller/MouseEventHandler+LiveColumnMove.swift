@@ -361,11 +361,6 @@ extension MouseEventHandler {
         }
         guard ended else { return false }
         traceLiveStrip("release-ended", in: workspaceId, at: livePointer.location)
-        if let drop = engine.liveStackDrop, drop.workspaceId == workspaceId,
-           let target = engine.liveColumn(withId: drop.targetColumnId, in: workspaceId)
-        {
-            controller.forgetObservedHeights(of: target.windowNodes.map(\.token))
-        }
         controller.workspaceManager.recordLayoutOperation(
             .interactiveMoveEnded(token: token),
             in: workspaceId,

@@ -91,22 +91,6 @@ extension WMController {
         adoptObservedSizeEvidence(evidence, for: token, in: window.workspaceId)
     }
 
-    func forgetObservedHeights(of tokens: [WindowToken]) {
-        for token in tokens {
-            guard let entry = workspaceManager.entry(for: token),
-                  var evidence = workspaceManager.observedSizeEvidence(for: token),
-                  evidence.minSize.height > 1 || evidence.hints.height != nil
-            else { continue }
-            MouseTrace
-                .record(
-                    "live-drag stack guess cleared win=\(token.windowId) height=\(Int(evidence.minSize.height.rounded()))"
-                )
-            evidence.minSize.height = 1
-            evidence.hints.height = nil
-            adoptObservedSizeEvidence(evidence, for: token, in: entry.workspaceId)
-        }
-    }
-
     func isSizeAnimating(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         guard settings.niri.macOSFusion,
               let window = niriEngine?.findNode(for: token, in: workspaceId)
