@@ -324,12 +324,7 @@ enum MenuBarItemLocator {
 
     static func frame(of element: AXUIElement) -> CGRect? {
         var valueRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, "AXFrame" as CFString, &valueRef) == .success,
-              let valueRef, CFGetTypeID(valueRef) == AXValueGetTypeID()
-        else { return nil }
-        var rect = CGRect.zero
-        let value = unsafeDowncast(valueRef as AnyObject, to: AXValue.self)
-        guard AXValueGetValue(value, .cgRect, &rect) else { return nil }
-        return rect
+        guard AXUIElementCopyAttributeValue(element, "AXFrame" as CFString, &valueRef) == .success else { return nil }
+        return AXAttributeValue.rectValue(valueRef)
     }
 }

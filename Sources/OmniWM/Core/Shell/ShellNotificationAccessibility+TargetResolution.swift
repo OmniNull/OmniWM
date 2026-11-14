@@ -11,7 +11,7 @@ extension ShellNotificationAccessibility.Session {
     }
 
     func individual() throws -> AXUIElement {
-        var current = try snapshot()
+        var current = try retryAX { try snapshot() }
         var expanded = Set<UUID>()
         while true {
             guard current.history else { throw ShellNotificationAccessibility.ActionFailure(outcome: .historyClosed) }
