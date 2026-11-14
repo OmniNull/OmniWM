@@ -4,6 +4,31 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing [IPCWindowActionDescriptor]) throws {
+        begin(91)
+        var first = true
+        let span = value.span
+        var index = 0
+        while index < span.count {
+            item(&first)
+            try self.value(span[index])
+            index += 1
+        }
+        end(93)
+    }
+
+    mutating func value(_ value: borrowing IPCWindowGatherActionDescriptor) throws {
+        begin(123)
+        var first = true
+        self.key("arguments", &first)
+        try self.value(value.arguments)
+        self.key("path", &first)
+        try self.value(value.path)
+        self.key("summary", &first)
+        try self.value(value.summary)
+        end(125)
+    }
+
     mutating func value(_ value: borrowing [IPCWindowGatherActionDescriptor]) throws {
         begin(91)
         var first = true
@@ -224,36 +249,5 @@ extension IPCJSONWriter {
         self.key("channels", &first)
         try self.value(value.channels)
         end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCWindowMarkEntry) throws {
-        begin(123)
-        var first = true
-        self.key("app", &first)
-        try self.value(value.app)
-        self.key("id", &first)
-        try self.value(value.id)
-        self.key("name", &first)
-        try self.value(value.name)
-        if let fieldValue = value.title {
-            self.key("title", &first)
-            try self.value(fieldValue)
-        }
-        self.key("workspace", &first)
-        try self.value(value.workspace)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing [IPCWindowMarkEntry]) throws {
-        begin(91)
-        var first = true
-        let span = value.span
-        var index = 0
-        while index < span.count {
-            item(&first)
-            try self.value(span[index])
-            index += 1
-        }
-        end(93)
     }
 }

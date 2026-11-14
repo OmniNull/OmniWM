@@ -204,6 +204,10 @@ extension IPCAutomationManifest {
             valuePlaceholder: "<name>"
         ),
         .init(
+            flag: "--assign-to-workspace-for-all-windows",
+            summary: "Apply the workspace assignment to every new matching window. Requires --assign-to-workspace."
+        ),
+        .init(
             flag: "--scratchpad",
             summary: "Join matching windows to a scratchpad slot from 1 to 10 when OmniWM starts managing them. Cannot be combined with --assign-to-workspace or --layout tile.",
             valuePlaceholder: "<1-10>"

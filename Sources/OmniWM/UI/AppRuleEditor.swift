@@ -228,6 +228,8 @@ struct RuleWindowBehaviorSection: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
+
+                Toggle("Apply to Every New Matching Window", isOn: $draft.assignToWorkspaceForAllWindows)
             }
 
             Toggle("Assign to Scratchpad", isOn: scratchpadEnabled)

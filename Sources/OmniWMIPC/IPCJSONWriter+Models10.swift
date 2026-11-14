@@ -4,6 +4,41 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func fields1(_ value: borrowing IPCQuerySelectors, _ first: inout Bool) throws {
+        if let fieldValue = value.main {
+            self.key("main", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.scratchpad {
+            self.key("scratchpad", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.visible {
+            self.key("visible", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.window {
+            self.key("window", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.workspace {
+            self.key("workspace", &first)
+            try self.value(fieldValue)
+        }
+    }
+
+    mutating func value(_ value: borrowing IPCQuerySelectors) throws {
+        begin(123)
+        var first = true
+        try fields0(value, &first)
+        try fields1(value, &first)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCQuerySort) throws {
+        try self.value(value.rawValue)
+    }
+
     mutating func value(_ value: borrowing IPCQueryRequest) throws {
         begin(123)
         var first = true
@@ -29,6 +64,10 @@ extension IPCJSONWriter {
             self.key("assignToWorkspace", &first)
             try self.value(fieldValue)
         }
+        if let fieldValue = value.assignToWorkspaceForAllWindows {
+            self.key("assignToWorkspaceForAllWindows", &first)
+            try self.value(fieldValue)
+        }
         if let fieldValue = value.axRole {
             self.key("axRole", &first)
             try self.value(fieldValue)
@@ -39,13 +78,13 @@ extension IPCJSONWriter {
         }
         self.key("bundleId", &first)
         try self.value(value.bundleId)
+    }
+
+    mutating func fields1(_ value: borrowing IPCRuleDefinition, _ first: inout Bool) throws {
         if let fieldValue = value.initialContainerPrimarySpan {
             self.key("initialContainerPrimarySpan", &first)
             try self.value(fieldValue)
         }
-    }
-
-    mutating func fields1(_ value: borrowing IPCRuleDefinition, _ first: inout Bool) throws {
         self.key("layout", &first)
         try self.value(value.layout)
         if let fieldValue = value.minHeight {
@@ -64,6 +103,9 @@ extension IPCJSONWriter {
             self.key("titleRegex", &first)
             try self.value(fieldValue)
         }
+    }
+
+    mutating func fields2(_ value: borrowing IPCRuleDefinition, _ first: inout Bool) throws {
         if let fieldValue = value.titleSubstring {
             self.key("titleSubstring", &first)
             try self.value(fieldValue)
@@ -75,6 +117,7 @@ extension IPCJSONWriter {
         var first = true
         try fields0(value, &first)
         try fields1(value, &first)
+        try fields2(value, &first)
         end(125)
     }
 
@@ -213,44 +256,5 @@ extension IPCJSONWriter {
             try self.value(text)
             end(125)
         }
-    }
-
-    mutating func value(_ value: borrowing IPCWorkspaceRequest) throws {
-        switch value {
-        case let .focusName(target):
-            begin(123)
-            var first = true
-            self.key("name", &first)
-            try self.value("focus-name")
-            self.key("workspaceTarget", &first)
-            try self.value(target)
-            end(125)
-        case let .moveToMonitor(target, direction, force):
-            begin(123)
-            var first = true
-            self.key("direction", &first)
-            try self.value(direction)
-            self.key("force", &first)
-            try self.value(force)
-            self.key("name", &first)
-            try self.value("move-to-monitor")
-            self.key("workspaceTarget", &first)
-            try self.value(target)
-            end(125)
-        case let .rename(target, displayName):
-            begin(123)
-            var first = true
-            self.key("displayName", &first)
-            try self.value(displayName)
-            self.key("name", &first)
-            try self.value("rename")
-            self.key("workspaceTarget", &first)
-            try self.value(target)
-            end(125)
-        }
-    }
-
-    mutating func value(_ value: borrowing IPCCycleDirection) throws {
-        try self.value(value.rawValue)
     }
 }

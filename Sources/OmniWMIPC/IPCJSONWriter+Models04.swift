@@ -153,6 +153,10 @@ extension IPCJSONWriter {
             self.key("assignToWorkspace", &first)
             try self.value(fieldValue)
         }
+        if let fieldValue = value.assignToWorkspaceForAllWindows {
+            self.key("assignToWorkspaceForAllWindows", &first)
+            try self.value(fieldValue)
+        }
         if let fieldValue = value.axRole {
             self.key("axRole", &first)
             try self.value(fieldValue)
@@ -163,11 +167,11 @@ extension IPCJSONWriter {
         }
         self.key("bundleId", &first)
         try self.value(value.bundleId)
-        self.key("id", &first)
-        try self.value(value.id)
     }
 
     mutating func fields1(_ value: borrowing IPCRuleSnapshot, _ first: inout Bool) throws {
+        self.key("id", &first)
+        try self.value(value.id)
         if let fieldValue = value.initialContainerPrimarySpan {
             self.key("initialContainerPrimarySpan", &first)
             try self.value(fieldValue)
@@ -184,13 +188,13 @@ extension IPCJSONWriter {
             self.key("minHeight", &first)
             try self.value(fieldValue)
         }
+    }
+
+    mutating func fields2(_ value: borrowing IPCRuleSnapshot, _ first: inout Bool) throws {
         if let fieldValue = value.minWidth {
             self.key("minWidth", &first)
             try self.value(fieldValue)
         }
-    }
-
-    mutating func fields2(_ value: borrowing IPCRuleSnapshot, _ first: inout Bool) throws {
         self.key("position", &first)
         try self.value(value.position)
         if let fieldValue = value.scratchpad {
@@ -207,6 +211,9 @@ extension IPCJSONWriter {
             self.key("titleSubstring", &first)
             try self.value(fieldValue)
         }
+    }
+
+    mutating func fields3(_ value: borrowing IPCRuleSnapshot, _ first: inout Bool) throws {
         self.key("validationMessages", &first)
         try self.value(value.validationMessages)
     }
@@ -217,6 +224,7 @@ extension IPCJSONWriter {
         try fields0(value, &first)
         try fields1(value, &first)
         try fields2(value, &first)
+        try fields3(value, &first)
         end(125)
     }
 
@@ -243,23 +251,5 @@ extension IPCJSONWriter {
 
     mutating func value(_ value: borrowing IPCRuleActionName) throws {
         try self.value(value.rawValue)
-    }
-
-    mutating func value(_ value: borrowing IPCRuleActionOptionDescriptor) throws {
-        begin(123)
-        var first = true
-        if let fieldValue = value.exclusiveGroup {
-            self.key("exclusiveGroup", &first)
-            try self.value(fieldValue)
-        }
-        self.key("flag", &first)
-        try self.value(value.flag)
-        self.key("summary", &first)
-        try self.value(value.summary)
-        if let fieldValue = value.valuePlaceholder {
-            self.key("valuePlaceholder", &first)
-            try self.value(fieldValue)
-        }
-        end(125)
     }
 }

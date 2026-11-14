@@ -654,6 +654,7 @@ Array of per-app window rules, editable in the **App Rules** window. Matchers se
 | `axSubrole` *(optional)* | string | Matches the accessibility subrole. |
 | `layout` *(optional)* | string | `auto` (default), `tile`, or `float`. |
 | `assignToWorkspace` *(optional)* | string | Workspace name the window is routed to. |
+| `assignToWorkspaceForAllWindows` *(optional)* | boolean | **Unreleased:** available when building from `main`. Apply the rule's workspace assignment to every new matching window. Defaults to `false` and requires `assignToWorkspace`. |
 | `initialContainerPrimarySpan` *(optional)* | float | Initial Niri span for the window's container (`0.05`–`1.0`). |
 | `minWidth` *(optional)* | float | Minimum layout width in points. |
 | `minHeight` *(optional)* | float | Minimum layout height in points. |

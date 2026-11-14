@@ -235,11 +235,12 @@ struct WorkspacesSettingsTab: View {
     private func deleteConfiguration(_ config: WorkspaceConfiguration) {
         guard canDeleteConfiguration(config) else { return }
         settings.workspaces.configurations.removeAll { $0.id == config.id }
-        for index in settings.appRules.indices
-            where WorkspaceConfigurationDeletePolicy.assignsRule(settings.appRules[index], to: config)
-        {
-            settings.appRules[index].assignToWorkspace = nil
+        var rules = settings.appRules
+        for index in rules.indices where WorkspaceConfigurationDeletePolicy.assignsRule(rules[index], to: config) {
+            rules[index].assignToWorkspace = nil
+            rules[index].assignToWorkspaceForAllWindows = nil
         }
+        settings.appRules = rules
         controller.updateWorkspaceConfig()
         controller.updateAppRules()
     }
