@@ -827,6 +827,71 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertLessThanOrEqual(try fixture.settledFrame(target).maxX, workingFrame.maxX + 1)
     }
 
+    private func viewOrigin(_ fixture: Fixture) -> CGFloat {
+        fixture.manager.niriViewportState(for: fixture.workspaceId).viewPosPixels(
+            columns: fixture.engine.columns(in: fixture.workspaceId),
+            gap: fixture.controller.innerGap(for: fixture.monitor)
+        )
+    }
+
+    func testWithFocusClickedWindowsWithoutScrollingAClickLeavesTheViewWhereItWas() async throws {
+        let fixture = try makeFixture(pid: 938_501, windowCount: 5)
+        fixture.controller.settings.focus.clickFocusWithoutScrolling = true
+        let target = fixture.tokens[3]
+        try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
+        let before = viewOrigin(fixture)
+        let targetId = fixture.engine.findNode(for: target, in: fixture.workspaceId)?.id
+
+        let press = try fixture.press(target)
+        fixture.controller.axEventHandler.handleManagedAppActivation(
+            entry: try fixture.entry(target), isWorkspaceActive: true, appFullscreen: false
+        )
+        try await drainRefreshes(fixture)
+
+        XCTAssertNil(fixture.handler.state.deferredClickScroll)
+        XCTAssertEqual(fixture.manager.niriViewportState(for: fixture.workspaceId).selectedNodeId, targetId)
+        XCTAssertEqual(viewOrigin(fixture), before)
+
+        fixture.handler.pressedMouseButtonsProvider = { 0 }
+        fixture.handler.dispatchMouseUp(at: press)
+        try await drainRefreshes(fixture)
+
+        XCTAssertEqual(viewOrigin(fixture), before)
+
+        fixture.controller.layoutRefreshController.requestLayoutCommandRelayout(
+            affectedWorkspaceIds: [fixture.workspaceId]
+        )
+        try await drainRefreshes(fixture)
+
+        XCTAssertEqual(viewOrigin(fixture), before)
+        XCTAssertEqual(fixture.manager.niriViewportState(for: fixture.workspaceId).clickFocusedNodeId, targetId)
+    }
+
+    func testWithCenterFocusedColumnAlwaysAClickStillScrollsOnRelease() async throws {
+        let fixture = try makeFixture(pid: 938_502, windowCount: 5)
+        fixture.controller.settings.focus.clickFocusWithoutScrolling = true
+        centreColumns(.always, in: fixture)
+        let target = fixture.tokens[3]
+        try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
+        let before = viewOrigin(fixture)
+
+        let press = try fixture.press(target)
+        fixture.controller.axEventHandler.handleManagedAppActivation(
+            entry: try fixture.entry(target), isWorkspaceActive: true, appFullscreen: false
+        )
+        try await drainRefreshes(fixture)
+
+        XCTAssertEqual(fixture.handler.state.deferredClickScroll, target)
+        XCTAssertEqual(viewOrigin(fixture), before)
+
+        fixture.handler.pressedMouseButtonsProvider = { 0 }
+        fixture.handler.dispatchMouseUp(at: press)
+        try await drainRefreshes(fixture)
+
+        XCTAssertNil(fixture.handler.state.deferredClickScroll)
+        XCTAssertNotEqual(viewOrigin(fixture), before)
+    }
+
     func testClickingAPeekFocusesItsColumnAndScrollsItIntoViewOnRelease() async throws {
         let fixture = try makeFixture(pid: 938_190, windowCount: 5)
         fixture.controller.settings.niri.edgePeekPercent = 3
