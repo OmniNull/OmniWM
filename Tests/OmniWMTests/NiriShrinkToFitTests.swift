@@ -51,6 +51,25 @@ final class NiriShrinkToFitTests: XCTestCase {
         XCTAssertEqual(frames[1].maxX, monitorFrame.width - padding, accuracy: pixel)
     }
 
+    func testWithMacOSFusionTheCycleSizeKeyStillFitsTheNeighbour() throws {
+        let fixture = try makeFixture(shrinkToFit: true)
+        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.applyMacOSFusionSettings()
+        fixture.settle()
+        let neighbour = fixture.columns[1]
+        let before = fixture.columns[0].cachedWidth
+
+        fixture.controller.niriLayoutHandler.cycleSize(forward: true)
+        fixture.settle()
+
+        XCTAssertGreaterThan(fixture.columns[0].cachedWidth, before)
+        XCTAssertNotNil(neighbour.fittedWidth)
+        let frames = try fixture.frames()
+        let pixel = 1 / fixture.scale
+        XCTAssertEqual(frames[0].minX, padding, accuracy: pixel)
+        XCTAssertEqual(frames[1].maxX, monitorFrame.width - padding, accuracy: pixel)
+    }
+
     func testWidthsAndViewportAnimateTogetherFromTheCurrentFrame() throws {
         let fixture = try makeFixture(shrinkToFit: true)
         try fixture.focus(1)
