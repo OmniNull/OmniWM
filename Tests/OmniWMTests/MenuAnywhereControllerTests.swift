@@ -174,7 +174,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
         XCTAssertNil(item.action)
     }
 
-    func testApplicationMenuOpensNativeSubmenuAfterTrackingEnds() async {
+    func testApplicationMenuOpensNativeSubmenuAfterTrackingEnds() {
         let app = NSRunningApplication.current
         let element = AXUIElementCreateApplication(app.processIdentifier)
         let file = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
@@ -183,7 +183,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
         let disabled = NSMenuItem(title: "Disabled", action: nil, keyEquivalent: "")
         disabled.submenu = rootedMenu()
         disabled.isEnabled = false
-        let opened = expectation(description: "Open the original File menu")
+        var opened = 0
         var tracking: [Bool] = []
         let controller = MenuAnywhereController(
             menuLoader: { _, _, _, _ in .loaded([file, disabled]) },
@@ -202,7 +202,8 @@ final class MenuAnywhereControllerTests: XCTestCase {
                 XCTAssertTrue(CFEqual(item, element))
                 XCTAssertEqual(tracking, [true, false])
                 XCTAssertNil(file.representedObject)
-                opened.fulfill()
+                opened += 1
+                return nil
             },
             submenuLoader: { _, _, _ in
                 XCTFail("The application owns this submenu")
@@ -216,8 +217,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
             visibleFrame: CGRect(x: 0, y: 0, width: 1200, height: 1000)
         )
 
-        await fulfillment(of: [opened], timeout: 2)
-        withExtendedLifetime(controller) {}
+        XCTAssertEqual(opened, 1)
     }
 
     func testOtherMenusKeepTheirMirroredSubmenus() {

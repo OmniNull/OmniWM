@@ -14,7 +14,7 @@ final class MenuAnywhereController: NSObject, NSMenuDelegate {
     typealias SubmenuLoader = @MainActor (AXUIElement, AnyObject?, Selector?) -> MenuSubmenuLoadResult
     typealias MenuLoader = @MainActor (pid_t, MenuContent, AnyObject?, Selector?) -> MenuSubmenuLoadResult
     typealias MenuPresenter = @MainActor (NSMenu, CGPoint) -> Void
-    typealias NativeSubmenuOpener = @MainActor (NSRunningApplication, AXUIElement) -> Void
+    typealias NativeSubmenuOpener = @MainActor (NSRunningApplication, AXUIElement) -> Task<Void, Never>?
 
     static let shared = MenuAnywhereController()
 
@@ -61,7 +61,7 @@ final class MenuAnywhereController: NSObject, NSMenuDelegate {
         makeMenu: @escaping @MainActor () -> NSMenu = { NSMenu() },
         usesNativeSubmenus: @escaping @MainActor (NSRunningApplication) -> Bool = MenuAnywhereController
             .bundlesJetBrainsScreenMenu,
-        openNativeSubmenu: @escaping NativeSubmenuOpener = MenuAnywhereController.pressNativeSubmenu,
+        openNativeSubmenu: @escaping NativeSubmenuOpener = MenuAnywhereController.scheduleNativeSubmenu,
         submenuLoader: @escaping SubmenuLoader
     ) {
         self.menuLoader = menuLoader
@@ -147,7 +147,7 @@ final class MenuAnywhereController: NSObject, NSMenuDelegate {
         let selection = selectedNativeSubmenu
         selectedNativeSubmenu = nil
         cleanupActiveMenu()
-        if let selection { scheduleNativeSubmenu(selection, for: app) }
+        if let selection { nativeSubmenuTask = openNativeSubmenu(app, selection) }
     }
 
     private func routeNativeSubmenus(in menu: NSMenu) {
@@ -165,25 +165,22 @@ final class MenuAnywhereController: NSObject, NSMenuDelegate {
         selectedNativeSubmenu = sender.representedObject.flatMap { AXUIElement.from($0 as CFTypeRef) }
     }
 
-    private func scheduleNativeSubmenu(_ element: AXUIElement, for app: NSRunningApplication) {
-        guard !app.isTerminated else { return }
+    private static func scheduleNativeSubmenu(
+        _ app: NSRunningApplication,
+        _ element: AXUIElement
+    ) -> Task<Void, Never>? {
+        guard !app.isTerminated else { return nil }
         if !app.isActive { app.activate(options: []) }
-        nativeSubmenuTask = Task { @MainActor [weak self] in
+        return Task { @MainActor in
             try? await Task.sleep(for: .seconds(Self.appActivationDelay))
-            guard let self, !Task.isCancelled else { return }
-            nativeSubmenuTask = nil
-            openNativeSubmenu(app, element)
+            guard !Task.isCancelled, app.isActive, !app.isTerminated else { return }
+            performAXAction(element, kAXPressAction, noteKey: "nativeSubmenuPressFailed")
         }
     }
 
     private func cancelNativeSubmenu() {
         nativeSubmenuTask?.cancel()
         nativeSubmenuTask = nil
-    }
-
-    private static func pressNativeSubmenu(_ app: NSRunningApplication, _ element: AXUIElement) {
-        guard app.isActive, !app.isTerminated else { return }
-        performAXAction(element, kAXPressAction, noteKey: "nativeSubmenuPressFailed")
     }
 
     private func cleanupActiveMenu() {
