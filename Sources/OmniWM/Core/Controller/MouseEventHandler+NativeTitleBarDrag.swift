@@ -67,14 +67,15 @@ extension MouseEventHandler {
         }
         state.nativeResizeStart?.wasDragged = true
         let deferredToken = state.nativeResizeStart.flatMap { $0.hasDeferredFrameChange ? $0.token : nil }
-        finishNiriSlideBeforeUnannotatedDrag()
+        if state.moveTap == nil {
+            finishNiriSlideBeforeUnannotatedDrag()
+        }
         beginNativeTitleBarDragIfNeeded(button: button)
         handleDeferredNativeTitleBarFrameIfNeeded(for: deferredToken)
     }
 
     private func finishNiriSlideBeforeUnannotatedDrag() {
-        guard state.moveTap == nil,
-              state.nativeTitleBarDrag == nil,
+        guard state.nativeTitleBarDrag == nil,
               state.awaitsNativeTitleBarDragTarget,
               let token = state.nativeTitleBarDragFallbackToken,
               let controller,
@@ -86,7 +87,6 @@ extension MouseEventHandler {
 
     func recheckUnannotatedDragAfterSlide(in workspaceId: WorkspaceDescriptor.ID) {
         guard state.nativeTitleBarDrag == nil,
-              state.awaitsNativeTitleBarDragTarget,
               let token = state.nativeTitleBarDragFallbackToken,
               let controller,
               controller.settings.niri.macOSFusion,

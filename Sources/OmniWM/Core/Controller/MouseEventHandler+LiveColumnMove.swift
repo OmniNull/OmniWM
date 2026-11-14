@@ -317,7 +317,9 @@ extension MouseEventHandler {
         if state.liveDropScroll?.workspaceId == workspaceId {
             runLiveDropScroll()
         }
-        recheckUnannotatedDragAfterSlide(in: workspaceId)
+        if state.awaitsNativeTitleBarDragTarget {
+            recheckUnannotatedDragAfterSlide(in: workspaceId)
+        }
     }
 
     func finishLiveColumnDrag(
