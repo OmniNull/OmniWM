@@ -315,7 +315,9 @@ final class WindowRuleEngineTests: XCTestCase {
     func testEachSettingTakesTheMostSpecificThenEarliestRule() {
         let engine = WindowRuleEngine()
         let early = AppRule(bundleId: "com.test.app", assignToWorkspace: "1", minWidth: 300)
-        let late = AppRule(bundleId: "com.test.app", assignToWorkspace: "2", minHeight: 200)
+        let late = AppRule(
+            bundleId: "com.test.app", assignToWorkspace: "2", assignToWorkspaceForAllWindows: true, minHeight: 200
+        )
         let specific = AppRule(bundleId: "com.test.app", titleSubstring: "Editor", minWidth: 500)
         engine.rebuild(rules: [early, late, specific])
 
@@ -323,6 +325,7 @@ final class WindowRuleEngineTests: XCTestCase {
 
         XCTAssertEqual(decision.source, .userRule(specific.id))
         XCTAssertEqual(decision.workspaceName, "1")
+        XCTAssertFalse(decision.assignToWorkspaceForAllWindows)
         XCTAssertEqual(decision.ruleEffects, ManagedWindowRuleEffects(minWidth: 500, minHeight: 200))
         XCTAssertEqual(
             decision.ruleProvenance,
@@ -465,7 +468,9 @@ final class WindowRuleEngineTests: XCTestCase {
 
     func testManualOverrideKeepsComposedEffectsAndDropsLayoutProvenance() {
         let engine = WindowRuleEngine()
-        let floating = AppRule(bundleId: "com.test.app", layout: .float, assignToWorkspace: "2")
+        let floating = AppRule(
+            bundleId: "com.test.app", layout: .float, assignToWorkspace: "2", assignToWorkspaceForAllWindows: true
+        )
         let sized = AppRule(bundleId: "com.test.app", titleSubstring: "Doc", minWidth: 400)
         engine.rebuild(rules: [floating, sized])
 
@@ -477,6 +482,7 @@ final class WindowRuleEngineTests: XCTestCase {
         XCTAssertEqual(decision.disposition, .managed)
         XCTAssertEqual(decision.source, .manualOverride)
         XCTAssertEqual(decision.workspaceName, "2")
+        XCTAssertTrue(decision.assignToWorkspaceForAllWindows)
         XCTAssertEqual(decision.ruleEffects.minWidth, 400)
         XCTAssertEqual(decision.ruleProvenance, WindowRuleProvenance(workspace: floating.id, minWidth: sized.id))
     }

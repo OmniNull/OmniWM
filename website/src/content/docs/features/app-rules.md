@@ -45,6 +45,8 @@ Use the target's actual bundle ID and AX values. This escape hatch does not admi
   if the window has a usable frame and its `AXSize` is read-only or unsupported. A tiling request can wait for another
   read when writability is unknown.
 - **Assign to Workspace** — use a valid workspace assignment as the initial default whenever the matching app currently has no tracked windows. Additional windows open on the workspace active when creation began. Automatic rule reevaluation leaves managed windows in place, while explicit rule application can move them. Readmission, structural replacements, and unique persisted boot-restore matches preserve their existing placement continuity.
+  **Unreleased:** when building from `main`, enable **Apply to Every New Matching Window** to route later
+  matching windows to the same workspace when OmniWM starts managing them.
 - **Assign to Scratchpad** — **Unreleased — available when building from `main`.** Add each matching window to a [scratchpad](/features/scratchpads/#joining-by-app-rule) slot, 1–10, when OmniWM starts managing it. The picker shows slot labels, but the rule stores the slot number. See [Rule destination](#rule-destination).
 - **Initial Container Primary Span (Niri)** — start matching resizable windows at 5–100% when they create or claim a new container; the container remains freely resizable afterward.
 - **Minimum Size** — prevent the layout engine from sizing windows below a threshold.
@@ -55,11 +57,11 @@ Initial container primary span is a one-time seed. It controls width in horizont
 
 ## Rule destination
 
-**Unreleased — available when building from `main`.** Assign to Workspace and Assign to Scratchpad are one setting, the rule's destination. A rule sets one or the other, never both. When several matching rules set a destination, the most specific one wins and ties follow list order, so a more specific workspace rule beats a less specific scratchpad rule, and the other way round. If the winning workspace destination is skipped because the app already has tracked windows or the workspace doesn't exist, the window gets default placement. It doesn't fall back to a scratchpad rule that lost.
+**Unreleased — available when building from `main`.** Assign to Workspace and Assign to Scratchpad are one setting, the rule's destination. A rule sets one or the other, never both. When several matching rules set a destination, the most specific one wins and ties follow list order, so a more specific workspace rule beats a less specific scratchpad rule, and the other way round. If the winning workspace doesn't exist, or the app already has tracked windows and **Apply to Every New Matching Window** is off for the winning rule, the window gets default placement. It doesn't fall back to a scratchpad rule that lost.
 
 A scratchpad destination works differently from a workspace destination:
 
-- It applies to every matching window when OmniWM starts managing it, including windows already open at startup. Assign to Workspace's limit to apps with no tracked windows doesn't apply.
+- It applies to every matching window when OmniWM starts managing it, including windows already open at startup.
 - Joining the slot floats the window, as assigning it by hand does. The rule never floats a window that doesn't join. Adding or editing a scratchpad rule, or a title change, leaves windows OmniWM already manages as they are. A member stays floating and stays in its slot after its title stops matching or the rule is removed.
 - Scratchpad can't be combined with Assign to Workspace or with Layout set to Tile. The App Rules window, `omniwmctl`, and IPC refuse such a rule. In `settings.toml` the rule still loads, but its scratchpad is ignored and the rule list shows a validation message. `omniwmctl` and IPC also refuse a slot outside 1–10, and `settings.toml` ignores one the same way.
 - Scratchpad alone doesn't admit a surface that needs a precise inclusion rule (see [Structural admission](#structural-admission)). For such a surface, also set Layout to Float and set `axRole` and `axSubrole`.
@@ -74,7 +76,18 @@ When a workspace destination now wins for a scratchpad member, the window leaves
 
 ## TOML
 
-Rules can also be written in `settings.toml` (see [Configuration](/config/configuration/)). The equivalent TOML rule uses a proportion:
+Rules can also be written in `settings.toml` (see [Configuration](/config/configuration/)). To send every new
+matching VS Code window to a configured workspace named `32`, use this rule (**Unreleased:** available when
+building from `main`).
+
+```toml
+[[appRules]]
+bundleId = "com.microsoft.VSCode"
+assignToWorkspace = "32"
+assignToWorkspaceForAllWindows = true
+```
+
+The initial container primary span uses a proportion:
 
 ```toml
 [[appRules]]

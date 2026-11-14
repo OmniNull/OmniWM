@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Apply to Every New Matching Window" : {
+
+    },
     "This removes the saved launcher entry and clears its keyboard shortcut. Your apps and script files stay on disk." : {
 
     },

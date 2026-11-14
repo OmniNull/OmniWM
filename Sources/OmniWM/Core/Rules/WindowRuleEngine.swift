@@ -98,6 +98,7 @@ final class WindowRuleEngine {
             source: .manualOverride,
             layoutDecisionKind: .explicitLayout,
             workspaceName: decision.workspaceName,
+            assignToWorkspaceForAllWindows: decision.assignToWorkspaceForAllWindows,
             ruleEffects: decision.ruleEffects,
             admissionHints: decision.admissionHints,
             ruleProvenance: provenance,

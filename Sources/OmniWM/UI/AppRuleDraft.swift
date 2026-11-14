@@ -46,6 +46,7 @@ struct AppRuleDraft: Identifiable, Equatable {
     var layoutAction: WindowRuleLayoutAction
     var assignToWorkspaceEnabled: Bool
     var assignToWorkspace: String
+    var assignToWorkspaceForAllWindows: Bool
     var scratchpadEnabled: Bool
     var scratchpad: Int
     var initialContainerPrimarySpanEnabled: Bool
@@ -70,6 +71,7 @@ struct AppRuleDraft: Identifiable, Equatable {
         layoutAction = .auto
         assignToWorkspaceEnabled = false
         assignToWorkspace = ""
+        assignToWorkspaceForAllWindows = false
         scratchpadEnabled = false
         scratchpad = 1
         initialContainerPrimarySpanEnabled = false
@@ -95,6 +97,8 @@ struct AppRuleDraft: Identifiable, Equatable {
         layoutAction = rule.effectiveLayoutAction
         assignToWorkspaceEnabled = rule.assignToWorkspace != nil
         assignToWorkspace = rule.assignToWorkspace ?? ""
+        assignToWorkspaceForAllWindows = rule.assignedWorkspaceName != nil && rule
+            .assignToWorkspaceForAllWindows == true
         scratchpadEnabled = rule.scratchpad != nil
         scratchpad = rule.scratchpad ?? 1
         initialContainerPrimarySpanEnabled = rule.initialContainerPrimarySpan != nil
@@ -126,6 +130,7 @@ struct AppRuleDraft: Identifiable, Equatable {
             lhs.layoutAction == rhs.layoutAction &&
             lhs.assignToWorkspaceEnabled == rhs.assignToWorkspaceEnabled &&
             lhs.assignToWorkspace == rhs.assignToWorkspace &&
+            lhs.assignToWorkspaceForAllWindows == rhs.assignToWorkspaceForAllWindows &&
             lhs.scratchpadEnabled == rhs.scratchpadEnabled &&
             lhs.scratchpad == rhs.scratchpad &&
             lhs.initialContainerPrimarySpanEnabled == rhs.initialContainerPrimarySpanEnabled &&
@@ -244,7 +249,8 @@ struct AppRuleDraft: Identifiable, Equatable {
     }
 
     func makeRule(id: UUID? = nil) -> AppRule {
-        AppRule(
+        let workspace = assignToWorkspaceEnabled ? trimmedRuleValue(assignToWorkspace) : nil
+        return AppRule(
             id: id ?? self.id,
             bundleId: bundleId.trimmingCharacters(in: .whitespacesAndNewlines),
             appNameSubstring: appNameMatcherEnabled ? trimmedRuleValue(appNameSubstring) : nil,
@@ -253,7 +259,8 @@ struct AppRuleDraft: Identifiable, Equatable {
             axRole: axRoleEnabled ? trimmedRuleValue(axRole) : nil,
             axSubrole: axSubroleEnabled ? trimmedRuleValue(axSubrole) : nil,
             layout: layoutAction == .auto ? nil : layoutAction,
-            assignToWorkspace: assignToWorkspaceEnabled ? trimmedRuleValue(assignToWorkspace) : nil,
+            assignToWorkspace: workspace,
+            assignToWorkspaceForAllWindows: workspace != nil && assignToWorkspaceForAllWindows ? true : nil,
             initialContainerPrimarySpan: initialContainerPrimarySpanEnabled ? initialContainerPrimarySpan : nil,
             minWidth: minWidthEnabled ? minWidth : nil,
             minHeight: minHeightEnabled ? minHeight : nil,

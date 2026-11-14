@@ -4,6 +4,37 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing IPCWindowMarkEntry) throws {
+        begin(123)
+        var first = true
+        self.key("app", &first)
+        try self.value(value.app)
+        self.key("id", &first)
+        try self.value(value.id)
+        self.key("name", &first)
+        try self.value(value.name)
+        if let fieldValue = value.title {
+            self.key("title", &first)
+            try self.value(fieldValue)
+        }
+        self.key("workspace", &first)
+        try self.value(value.workspace)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing [IPCWindowMarkEntry]) throws {
+        begin(91)
+        var first = true
+        let span = value.span
+        var index = 0
+        while index < span.count {
+            item(&first)
+            try self.value(span[index])
+            index += 1
+        }
+        end(93)
+    }
+
     mutating func value(_ value: borrowing IPCWindowMarksResult) throws {
         begin(123)
         var first = true
@@ -221,31 +252,6 @@ extension IPCJSONWriter {
         try self.value(value.source)
         self.key("state", &first)
         try self.value(value.state)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing [IPCShellWidget]) throws {
-        begin(91)
-        var first = true
-        let span = value.span
-        var index = 0
-        while index < span.count {
-            item(&first)
-            try self.value(span[index])
-            index += 1
-        }
-        end(93)
-    }
-
-    mutating func value(_ value: borrowing IPCShellWidgetsQueryResult) throws {
-        begin(123)
-        var first = true
-        self.key("problems", &first)
-        try self.value(value.problems)
-        self.key("profile", &first)
-        try self.value(value.profile)
-        self.key("widgets", &first)
-        try self.value(value.widgets)
         end(125)
     }
 }

@@ -9,6 +9,7 @@ public struct IPCRuleValidationReport: Equatable, Sendable {
     public let identifierError: String?
     public let titleMatcherError: String?
     public let initialContainerPrimarySpanError: String?
+    public let workspaceAssignmentError: String?
     public let scratchpadError: String?
     public let effectError: String?
     public let minSizeError: String?
@@ -19,6 +20,7 @@ public struct IPCRuleValidationReport: Equatable, Sendable {
         identifierError: String? = nil,
         titleMatcherError: String? = nil,
         initialContainerPrimarySpanError: String? = nil,
+        workspaceAssignmentError: String? = nil,
         scratchpadError: String? = nil,
         effectError: String? = nil,
         minSizeError: String? = nil
@@ -28,6 +30,7 @@ public struct IPCRuleValidationReport: Equatable, Sendable {
         self.identifierError = identifierError
         self.titleMatcherError = titleMatcherError
         self.initialContainerPrimarySpanError = initialContainerPrimarySpanError
+        self.workspaceAssignmentError = workspaceAssignmentError
         self.scratchpadError = scratchpadError
         self.effectError = effectError
         self.minSizeError = minSizeError
@@ -40,6 +43,7 @@ public struct IPCRuleValidationReport: Equatable, Sendable {
             identifierError,
             titleMatcherError,
             initialContainerPrimarySpanError,
+            workspaceAssignmentError,
             scratchpadError,
             effectError,
             minSizeError
@@ -102,6 +106,13 @@ public enum IPCRuleValidator {
         return nil
     }
 
+    private static func workspaceAssignmentError(for rule: IPCRuleDefinition) -> String? {
+        if rule.assignToWorkspaceForAllWindows == true, !nonEmpty(rule.assignToWorkspace) {
+            return "Set a workspace to assign every new matching window"
+        }
+        return nil
+    }
+
     public static func initialContainerPrimarySpanError(for value: Double?) -> String? {
         guard let value else { return nil }
         guard value.isFinite, (0.05 ... 1.0).contains(value) else {
@@ -145,6 +156,7 @@ public enum IPCRuleValidator {
             identifierError: identifierError(for: rule),
             titleMatcherError: titleMatcherError(for: rule),
             initialContainerPrimarySpanError: initialContainerPrimarySpanError(for: rule.initialContainerPrimarySpan),
+            workspaceAssignmentError: workspaceAssignmentError(for: rule),
             scratchpadError: scratchpadError(for: rule),
             effectError: effectError(for: rule),
             minSizeError: minSizeError(for: rule)
