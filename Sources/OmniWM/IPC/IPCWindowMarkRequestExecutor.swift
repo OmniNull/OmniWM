@@ -17,7 +17,7 @@ struct IPCWindowMarkRequestExecutor {
 
     func response(for request: IPCWindowMarkRequest, id: String) -> IPCResponse {
         if request != .list {
-            controller.niriLayoutHandler.noteUserAction()
+            controller.noteUserAction()
         }
         switch request {
         case .list:

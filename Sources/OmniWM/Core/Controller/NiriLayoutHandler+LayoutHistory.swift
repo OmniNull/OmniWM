@@ -33,7 +33,7 @@ extension NiriLayoutHandler {
             workspaceId: workspaceId,
             snapshots: snapshots,
             startedAt: layoutStepClock(),
-            userActionCount: userActionCount,
+            userActionCount: controller.userActionCount,
             sizes: sizes
         )
     }

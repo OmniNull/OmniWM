@@ -30,6 +30,8 @@ final class WMController {
     private(set) var systemHyperTriggerFailure: SystemHyperTriggerFailure?
     private(set) var windowSwitcherInputAvailable = false
     var keyboardModeKind = KeyboardModeKind.normal
+    @ObservationIgnored
+    var userActionCount: UInt64 = 0
     let secureInputMonitor = SecureInputMonitor()
     let secureInputIndicator = SecureInputIndicatorController()
     let lockScreenObserver = LockScreenObserver()

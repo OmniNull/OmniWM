@@ -52,7 +52,6 @@ enum StructuralMutationOutcome: Equatable {
     var overflowReports: [WindowToken: TimeInterval] = [:]
     var isOverflowCheckScheduled = false
     var unshownOverflowMessage: UnshownOverflowMessage?
-    var userActionCount: UInt64 = 0
 
     struct NiriLayoutPass {
         let motion: MotionSnapshot

@@ -24,7 +24,7 @@ final class CommandHandler {
     func handleHotkeyInvocation(_ invocation: HotkeyInvocation) -> ExternalCommandResult {
         guard let controller else { return .notFound }
         guard controller.isEnabled else { return .ignoredDisabled }
-        controller.niriLayoutHandler.noteUserAction()
+        controller.noteUserAction()
         if invocation.command == .presentation(.overview), invocation.trigger?.isRepeat == true {
             return .executed
         }

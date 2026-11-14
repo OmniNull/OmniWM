@@ -180,7 +180,7 @@ extension MouseEventHandler {
             return
         }
         MouseTrace.record("gesture: armed \(activeTouchCount) fingers at \(TraceFormat.point(location))")
-        controller?.niriLayoutHandler.noteUserAction()
+        controller?.noteUserAction()
         state.lockedGestureContext = context
         if context.workspaceAxis != nil {
             state.workspaceSwipeTracker.reset()

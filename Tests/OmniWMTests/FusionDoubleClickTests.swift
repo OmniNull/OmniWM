@@ -345,12 +345,11 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
 
     func testATakenDoubleClickCountsAsOneUserAction() throws {
         let fixture = try makeFixture(pid: 941_302)
-        let layout = fixture.controller.niriLayoutHandler
-        let before = layout.userActionCount
+        let before = fixture.controller.userActionCount
 
         XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[0])))
 
-        XCTAssertEqual(layout.userActionCount, before + 1)
+        XCTAssertEqual(fixture.controller.userActionCount, before + 1)
     }
 
     func testTheBottomEdgeOfAStackedWindowActsLikeItsTopEdge() throws {

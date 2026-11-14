@@ -79,7 +79,7 @@ extension MouseEventHandler {
             return false
         }
         guard controller != nil else { return false }
-        controller?.niriLayoutHandler.noteUserAction()
+        controller?.noteUserAction()
         if button == .left { state.leftPressLocation = location }
         let blocked = shouldBlockOwnWindowInput(at: location, windowIdUnderPointer: windowIdUnderPointer)
         if MouseTrace.shared.isActive {
