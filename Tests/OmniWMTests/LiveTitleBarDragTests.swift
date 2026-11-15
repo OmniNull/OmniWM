@@ -200,7 +200,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             XCTAssertNil(fixture.engine.liveColumnMove)
             XCTAssertEqual(fixture.order(), order)
             XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveDragHandedOver, true)
-            XCTAssertFalse(fixture.engine.tabbedColumnsFillHeight)
 
             fixture.drag(to: try fixture.farHalf(of: fixture.tokens[2]))
             XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
@@ -307,7 +306,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         settings.niri.macOSFusion = false
         fixture.controller.applyMacOSFusionSettings()
         XCTAssertFalse(snapshot())
-        XCTAssertFalse(fixture.engine.tabbedColumnsFillHeight)
 
         settings.niri.macOSFusion = true
         settings.quakeTerminal.enabled = false
@@ -321,11 +319,11 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         settings.quakeTerminal.enabled = false
 
         fixture.controller.applyPersistedSettings(settings, startServices: false)
-        XCTAssertTrue(fixture.engine.tabbedColumnsFillHeight)
+        XCTAssertTrue(fixture.engine.keepsStripEndsOnScreen)
 
         settings.niri.macOSFusion = false
         fixture.controller.applyPersistedSettings(settings, startServices: false)
-        XCTAssertFalse(fixture.engine.tabbedColumnsFillHeight)
+        XCTAssertFalse(fixture.engine.keepsStripEndsOnScreen)
     }
 
     func testPeeksNeedMacOSFusion() throws {

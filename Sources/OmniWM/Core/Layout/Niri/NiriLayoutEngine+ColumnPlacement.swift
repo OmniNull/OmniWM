@@ -85,8 +85,7 @@ extension NiriLayoutEngine {
             context: context,
             viewport: NiriLayoutViewport(
                 area: context.area, orientation: context.orientation, workspaceOffset: 0,
-                viewPositions: viewPositions, revealMargin: revealMargin,
-                clipsOverflowToDisplay: clipsOverflowToDisplay
+                viewPositions: viewPositions, revealMargin: revealMargin
             ),
             activeIndex: activeIndex,
             viewPosition: viewPosition,
@@ -134,7 +133,7 @@ extension NiriLayoutEngine {
         )
         if pass.context.recordsPresentationGeometry {
             column.column.edgeHiddenFrame = visibility.isEdgeHidden ? visibility.visibleRect : nil
-            if case .hidden = visibility.state, finishesParkedWidthChanges {
+            if case .hidden = visibility.state {
                 column.column.isParked = true
             } else {
                 column.column.isParked = false

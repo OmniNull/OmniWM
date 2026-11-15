@@ -329,27 +329,25 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertTrue(shown.hasWidthAnimationRunning)
     }
 
-    func testOnlyWithMacOSFusionIsAColumnHiddenOffScreenParked() {
-        for fusion in [false, true] {
-            let fixture = makeFixture(widths: [0.5, 0.5, 0.5, 0.5])
-            fixture.engine.edgePeekShare = nil
-            fixture.engine.finishesParkedWidthChanges = fusion
-            var result = LayoutResult(frames: [:], hiddenHandles: [:])
-            let monitor = HiddenPlacementMonitorContext(
-                id: .init(displayId: 95), frame: fixture.frame, visibleFrame: fixture.frame
-            )
-            fixture.engine.calculateLayoutInto(
-                result: &result, state: fixture.state, workspaceId: fixture.workspaceId,
-                geometry: NiriLayoutGeometry(
-                    workingArea: WorkingAreaContext(workingFrame: fixture.frame, viewFrame: fixture.frame, scale: 1),
-                    gaps: LayoutGaps(horizontal: fixture.gap, vertical: fixture.gap), orientation: .horizontal
-                ),
-                animationTime: 0, hiddenPlacementMonitor: monitor, hiddenPlacementMonitors: [monitor],
-                isSettled: true, recordsPresentationGeometry: true
-            )
+    func testOnlyAColumnHiddenOffScreenIsParked() {
+        let fixture = makeFixture(widths: [0.5, 0.5, 0.5, 0.5])
+        fixture.engine.edgePeekShare = nil
+        var result = LayoutResult(frames: [:], hiddenHandles: [:])
+        let monitor = HiddenPlacementMonitorContext(
+            id: .init(displayId: 95), frame: fixture.frame, visibleFrame: fixture.frame
+        )
+        fixture.engine.calculateLayoutInto(
+            result: &result, state: fixture.state, workspaceId: fixture.workspaceId,
+            geometry: NiriLayoutGeometry(
+                workingArea: WorkingAreaContext(workingFrame: fixture.frame, viewFrame: fixture.frame, scale: 1),
+                gaps: LayoutGaps(horizontal: fixture.gap, vertical: fixture.gap), orientation: .horizontal
+            ),
+            animationTime: 0, hiddenPlacementMonitor: monitor, hiddenPlacementMonitors: [monitor],
+            isSettled: true, recordsPresentationGeometry: true
+        )
 
-            XCTAssertEqual(fixture.column(3).isParked, fusion, "macOS Fusion \(fusion)")
-        }
+        XCTAssertFalse(fixture.column(0).isParked)
+        XCTAssertTrue(fixture.column(3).isParked)
     }
 
     func testCyclingSizesNeverCoversAPeek() {
@@ -593,8 +591,7 @@ final class NiriEdgePeekTests: XCTestCase {
                     columns: strip,
                     geometry: geometry(edgePeek: 100),
                     motion: .disabled,
-                    snapToColumn: snaps,
-                    edges: .init(keepsStripEndsOnScreen: true)
+                    snapToColumn: snaps
                 )
                 let viewStart = state.containerPosition(
                     at: state.activeColumnIndex, containers: strip, gap: 10, sizeKeyPath: \.cachedWidth
@@ -650,8 +647,7 @@ final class NiriEdgePeekTests: XCTestCase {
             columns: columns(widths),
             geometry: geometry(edgePeek: peek),
             motion: .enabled,
-            snapToColumn: false,
-            edges: .init(keepsStripEndsOnScreen: true)
+            snapToColumn: false
         )
 
         let viewStart = state.containerPosition(
@@ -686,8 +682,7 @@ final class NiriEdgePeekTests: XCTestCase {
                 edgePeeks: EdgePeekWidths(leading: peek, trailing: peek)
             ),
             motion: .disabled,
-            snapToColumn: false,
-            edges: .init(keepsStripEndsOnScreen: true)
+            snapToColumn: false
         )
 
         let viewStart = state.containerPosition(
@@ -719,8 +714,7 @@ final class NiriEdgePeekTests: XCTestCase {
             columns: columns(widths),
             geometry: geometry(edgePeek: edgePeek),
             motion: .disabled,
-            snapToColumn: false,
-            edges: .init(keepsStripEndsOnScreen: true)
+            snapToColumn: false
         )
         return state.containerPosition(
             at: state.activeColumnIndex,

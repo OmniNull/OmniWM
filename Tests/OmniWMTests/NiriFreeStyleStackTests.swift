@@ -1687,14 +1687,6 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertNotNil(fixture.move.flatMap { fixture.engine.liveDropSpace(for: $0) })
     }
 
-    func testMacOSFusionTurnsLearnedMinimumWidthAnimationOnAndOff() {
-        let engine = NiriLayoutEngine()
-        engine.applyMacOSFusion(.init(enabled: true, edgePeekShare: nil))
-        XCTAssertTrue(engine.animatesLearnedMinimumWidths)
-        engine.applyMacOSFusion(.init(enabled: false, edgePeekShare: nil))
-        XCTAssertFalse(engine.animatesLearnedMinimumWidths)
-    }
-
     func testANarrowStackTakesAWiderWindowAndWidensOnlyOnTheDrop() {
         var fixture = makeFixture()
         let narrow = fixture.stripColumn(fixture.column(3)).width
@@ -1826,26 +1818,26 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertEqual(fixture.stripColumn(fixture.column(3)).width, width, accuracy: 0.5)
     }
 
-    func testALearnedMinimumWidensItsColumnWithAnAnimation() {
-        for animates in [true, false] {
+    func testALearnedMinimumWidensItsColumnWithAnAnimationOnlyWhileMotionIsOn() {
+        let growth: CGFloat = 200
+        for motion in [MotionSnapshot.enabled, .disabled] {
             let fixture = makeFixture()
-            fixture.engine.animatesLearnedMinimumWidths = animates
             let column = fixture.column(3)
             let width = column.cachedWidth
 
             fixture.engine.updateWindowConstraints(
                 for: fixture.tokens[3],
                 constraints: WindowSizeConstraints(
-                    minSize: CGSize(width: width + 200, height: 1),
+                    minSize: CGSize(width: width + growth, height: 1),
                     maxSize: .zero,
                     isFixed: false
                 ),
                 in: fixture.workspaceId,
-                motion: .enabled
+                motion: motion
             )
 
-            XCTAssertEqual(column.hasWidthAnimationRunning, animates)
-            XCTAssertEqual(animates ? column.targetWidth ?? 0 : column.cachedWidth, width + 200, accuracy: 0.5)
+            XCTAssertEqual(column.hasWidthAnimationRunning, motion.animationsEnabled)
+            XCTAssertEqual(column.settledWidth, width + growth, accuracy: 0.5)
         }
     }
 }

@@ -49,7 +49,7 @@ extension NiriLayoutEngine {
         let current = column.targetWidth ?? column.cachedWidth
         guard column.targetWidth != nil || current > 0 else { return }
         let clamped = column.clampedToWidthBounds(current, contentInset: contentInset)
-        let springs = column.targetWidth != nil || animatesLearnedMinimumWidths && clamped > current + 0.5
+        let springs = column.targetWidth != nil || clamped > current + 0.5
         guard springs else {
             column.cachedWidth = clamped
             return

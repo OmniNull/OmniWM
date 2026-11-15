@@ -389,8 +389,7 @@ extension NiriLayoutEngine {
                 motion: context.motion,
                 snapToColumn: snapToColumn,
                 centerMode: centerMode,
-                alwaysCenterSingleColumn: alwaysCenterSingleColumn,
-                edges: viewportEdgeRules(in: context.workspaceId)
+                alwaysCenterSingleColumn: alwaysCenterSingleColumn
             )
 
             projectedState.rebaseOffset(by: -singleOriginOffset)

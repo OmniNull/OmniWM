@@ -13,8 +13,7 @@ extension ViewportState {
         motion: MotionSnapshot,
         snapToColumn: Bool = true,
         centerMode: CenterFocusedColumn = .never,
-        alwaysCenterSingleColumn: Bool = false,
-        edges: ViewportEdgeRules = .init()
+        alwaysCenterSingleColumn: Bool = false
     ) {
         guard !columns.isEmpty else {
             endGestureWithoutSnap(currentOffset: currentOffset)
@@ -34,7 +33,6 @@ extension ViewportState {
                 columns: columns,
                 geometry: geometry,
                 totalContentSpan: totalContentSpan,
-                padding: edges.keepsStripEndsOnScreen ? Double(geometry.gap) : 0,
                 motion: motion
             )
             return
@@ -306,9 +304,9 @@ extension ViewportState {
         columns: [NiriContainer],
         geometry: NiriViewportGeometry,
         totalContentSpan: Double,
-        padding: Double,
         motion: MotionSnapshot
     ) {
+        let padding = Double(geometry.gap)
         let sizeKeyPath = geometry.orientation.renderedSpanKeyPath
         let oldActivePosition = containerPosition(
             at: activeColumnIndex,

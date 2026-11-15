@@ -24,10 +24,7 @@ final class NiriCornerDisplayOverflowTests: XCTestCase {
     }
 
     func testAColumnPastAnEdgeThatOnlyMeetsAnotherDisplayAtACornerStaysShowing() throws {
-        let fixture = makeFixture(
-            neighbour: CGRect(x: 0, y: 0, width: 3360, height: 1890),
-            macOSFusion: true
-        )
+        let fixture = makeFixture(neighbour: CGRect(x: 0, y: 0, width: 3360, height: 1890))
 
         let layout = layout(fixture, active: 3, offset: -331)
 
@@ -45,10 +42,7 @@ final class NiriCornerDisplayOverflowTests: XCTestCase {
     }
 
     func testThePeekPastACornerEdgeStaysShowing() {
-        let fixture = makeFixture(
-            neighbour: CGRect(x: 0, y: 0, width: 3360, height: 1890),
-            macOSFusion: true
-        )
+        let fixture = makeFixture(neighbour: CGRect(x: 0, y: 0, width: 3360, height: 1890))
 
         let layout = layout(fixture, active: 2, offset: -61)
 
@@ -56,21 +50,7 @@ final class NiriCornerDisplayOverflowTests: XCTestCase {
     }
 
     func testAColumnPastAnEdgeSharedWithAnotherDisplayIsStillHidden() {
-        let fixture = makeFixture(
-            neighbour: CGRect(x: 0, y: 1500, width: 3360, height: 1890),
-            macOSFusion: true
-        )
-
-        let layout = layout(fixture, active: 3, offset: -331)
-
-        XCTAssertEqual(layout.hiddenHandles[fixture.tokens[2]], .left)
-    }
-
-    func testWithoutMacOSFusionACornerDisplayStillHidesTheColumn() {
-        let fixture = makeFixture(
-            neighbour: CGRect(x: 0, y: 0, width: 3360, height: 1890),
-            macOSFusion: false
-        )
+        let fixture = makeFixture(neighbour: CGRect(x: 0, y: 1500, width: 3360, height: 1890))
 
         let layout = layout(fixture, active: 3, offset: -331)
 
@@ -99,12 +79,9 @@ final class NiriCornerDisplayOverflowTests: XCTestCase {
         )
     }
 
-    private func makeFixture(neighbour: CGRect, macOSFusion: Bool) -> Fixture {
+    private func makeFixture(neighbour: CGRect) -> Fixture {
         let engine = NiriLayoutEngine()
-        engine.updateConfiguration(
-            centerFocusedColumn: .onOverflow,
-            macOSFusion: .init(enabled: macOSFusion)
-        )
+        engine.updateConfiguration(centerFocusedColumn: .onOverflow)
         let other = Monitor(
             id: Monitor.ID(displayId: 2), displayId: 2, frame: neighbour, visibleFrame: neighbour,
             hasNotch: false, name: "Neighbour"

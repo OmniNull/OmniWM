@@ -124,31 +124,9 @@ final class NiriLayoutEngine {
         }
     }
 
-    var tabbedColumnsFillHeight = false {
-        didSet {
-            if oldValue != tabbedColumnsFillHeight {
-                axisSolveConfigurationRevision &+= 1
-            }
-        }
-    }
-
-    var windowsFillColumnHeight = false {
-        didSet {
-            if oldValue != windowsFillColumnHeight {
-                axisSolveConfigurationRevision &+= 1
-            }
-        }
-    }
-
     var keepsStripEndsOnScreen = false
 
-    var centersFittingStrips = false
-
-    var clipsOverflowToDisplay = false
-
     var keepsWindowWidths = false
-    var animatesLearnedMinimumWidths = false
-    var finishesParkedWidthChanges = false
 
     var hasSetEdgePeekCaps = false
     var edgePeeksPossible = false

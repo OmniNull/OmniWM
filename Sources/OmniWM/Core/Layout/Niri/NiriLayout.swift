@@ -378,7 +378,7 @@ extension NiriLayoutEngine {
         inputs: [NiriAxisSolver.Input],
         axis: NiriAxisLayout
     ) -> [NiriAxisSolver.Output] {
-        guard windowsFillColumnHeight, !axis.isTabbed, axis.orientation == .horizontal else { return outputs }
+        guard outputs.count > 1, !axis.isTabbed, axis.orientation == .horizontal else { return outputs }
         let usableSpace = axis.availableSpace - axis.gap * CGFloat(outputs.count + 1)
         let total = outputs.reduce(0) { $0 + $1.value }
         guard total > 0, total < usableSpace - 0.5 else { return outputs }
@@ -405,7 +405,7 @@ extension NiriLayoutEngine {
         for window: NiriWindow,
         axis: NiriAxisLayout
     ) -> NiriAxisSolver.Input {
-        if axis.isTabbed, tabbedColumnsFillHeight {
+        if axis.isTabbed {
             return window.axisSolverInput(orientation: axis.orientation, hasFixedValue: false, fixedValue: nil)
         }
         if axis.orientation == .horizontal, let override = window.liveSpanOverride {

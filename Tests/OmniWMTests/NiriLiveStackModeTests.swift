@@ -170,14 +170,10 @@ final class NiriLiveStackModeTests: XCTestCase {
 
     private func makeFixture(
         widths: [CGFloat] = Array(repeating: 1.0 / 3.0, count: 5),
-        activeIndex: Int = 1,
-        fusion: Bool = true
+        activeIndex: Int = 1
     ) -> Fixture {
         let engine = NiriLayoutEngine()
         engine.liveHoverDelay = 0
-        if fusion {
-            engine.applyMacOSFusion(.init(enabled: true, edgePeekShare: nil))
-        }
         let workspaceId = WorkspaceDescriptor.ID()
         let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
         let monitor = Monitor(
@@ -204,26 +200,23 @@ final class NiriLiveStackModeTests: XCTestCase {
         return Fixture(engine: engine, workspaceId: workspaceId, frame: frame, gap: gap, tokens: tokens, state: state)
     }
 
-    func testAWindowLeftAloneInAStackGrowsToTheFullHeightWithAnAnimation() {
+    func testAWindowLeftAloneInAStackKeepsTheHeightItWasGiven() {
         var fixture = makeFixture()
         fixture.motion = .enabled
         fixture.stack(3, onto: 2)
         let stack = fixture.column(2)
         let left = fixture.window(2)
-        left.height = .fixed(300)
+        let chosenHeight: CGFloat = 300
+        left.height = .fixed(chosenHeight)
         let before = fixture.span(of: 2)
+        XCTAssertEqual(before.maxY - before.minY, chosenHeight, accuracy: 0.5)
         XCTAssertTrue(fixture.begin(3))
 
         XCTAssertEqual(fixture.move(to: CGPoint(x: fixture.stripColumn(stack).maxX + 20, y: 450)), .changed)
 
-        let fullHeight = fixture.frame.height - 2 * fixture.gap
         let after = fixture.span(of: 2)
-        XCTAssertEqual(after.maxY - after.minY, fullHeight, accuracy: 0.5)
-        XCTAssertGreaterThan(after.maxY - after.minY, before.maxY - before.minY + 1)
-        XCTAssertNotNil(left.heightAnimation)
-        let now = CACurrentMediaTime()
-        XCTAssertEqual(fixture.frames(at: now)[fixture.tokens[2]]?.height ?? 0, before.maxY - before.minY, accuracy: 2)
-        XCTAssertEqual(fixture.frames(at: now + 10)[fixture.tokens[2]]?.height ?? 0, fullHeight, accuracy: 2)
+        XCTAssertEqual(after.maxY - after.minY, chosenHeight, accuracy: 0.5)
+        XCTAssertNil(left.heightAnimation)
     }
 
     func testAWindowPulledOutOfAStackPassesItsNeighbourWhichStaysStillWhileTheStackClosesIn() {
@@ -326,7 +319,7 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertLessThan(fixture.span(of: 2).maxY, fixture.span(of: 3).minY)
     }
 
-    func testATabbedColumnTakesTheFullHeightWithMacOSFusionOn() {
+    func testATabbedColumnTakesTheFullHeight() {
         var fixture = makeFixture()
         let column = makeTabbedColumnWithAResizedTab(&fixture)
 
@@ -335,28 +328,6 @@ final class NiriLiveStackModeTests: XCTestCase {
         for window in column.windowNodes {
             XCTAssertEqual(frames[window.token]?.height ?? .nan, fullTabHeight(fixture), accuracy: 1)
         }
-    }
-
-    func testATabbedColumnKeepsAFixedTabHeightWithMacOSFusionOff() {
-        var fixture = makeFixture(fusion: false)
-        let column = makeTabbedColumnWithAResizedTab(&fixture)
-
-        let frames = fixture.frames()
-
-        for window in column.windowNodes {
-            XCTAssertEqual(frames[window.token]?.height ?? .nan, 400, accuracy: 1)
-        }
-    }
-
-    func testTurningTheFlagOnRelaysOutCachedTabbedColumns() {
-        var fixture = makeFixture(fusion: false)
-        let column = makeTabbedColumnWithAResizedTab(&fixture)
-        let shown = column.windowNodes[column.activeTileIdx]
-        XCTAssertEqual(fixture.frames()[shown.token]?.height ?? .nan, 400, accuracy: 1)
-
-        fixture.engine.tabbedColumnsFillHeight = true
-
-        XCTAssertEqual(fixture.frames()[shown.token]?.height ?? .nan, fullTabHeight(fixture), accuracy: 1)
     }
 
     func testATabbedColumnTurnedNormalGetsItsResizedHeightBack() {
@@ -723,7 +694,6 @@ final class NiriLiveStackModeTests: XCTestCase {
 
     func testAHeightSpringRestartedFromAPredictedLayoutStartsFromTheDrawnHeight() {
         let fixture = makeFixture(widths: [0.5], activeIndex: 0)
-        fixture.engine.applyMacOSFusion(.init(enabled: true, edgePeekShare: nil))
         let window = fixture.window(0)
         let token = fixture.tokens[0]
         window.animateHeightFrom(delta: 120, clock: nil, animated: true)

@@ -6,8 +6,7 @@ import Foundation
 
 extension NiriLayoutEngine {
     func centresFittingStrip(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
-        centersFittingStrips
-            && effectiveSettings(in: workspaceId).alwaysCenterSingleColumn
+        effectiveSettings(in: workspaceId).alwaysCenterSingleColumn
             && !isLiveColumnMoveActive(in: workspaceId)
     }
 

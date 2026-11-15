@@ -367,7 +367,7 @@ extension NiriLayoutEngine {
         motion: MotionSnapshot,
         threshold: CGFloat = 1.0
     ) -> Bool {
-        guard windowsFillColumnHeight, let root = root(for: workspaceId) else { return false }
+        guard let root = root(for: workspaceId) else { return false }
         var anyAnimationStarted = false
         for window in root.allWindows {
             guard let oldFrame = oldFrames[window.token],

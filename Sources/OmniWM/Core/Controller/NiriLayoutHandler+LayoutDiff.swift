@@ -42,10 +42,7 @@ extension NiriLayoutHandler {
             viewportNeedsRecalc: selection.viewportNeedsRecalc, arrival: arrival
         )
 
-        if controller?.settings.niri.macOSFusion == true,
-           pass.motion.animationsEnabled,
-           pass.engine.hasAnyWindowAnimationsRunning(in: pass.wsId)
-        {
+        if pass.motion.animationsEnabled, pass.engine.hasAnyWindowAnimationsRunning(in: pass.wsId) {
             (frames, hiddenHandles) = calculateRelayoutFrames(
                 pass: pass,
                 state: state,
@@ -297,7 +294,7 @@ extension NiriLayoutHandler {
             directives.append(.startNiriScroll(workspaceId: pass.wsId))
         } else if !snapshot.useScrollAnimationPath, hasColumnAnimations {
             directives.append(.startNiriScroll(workspaceId: pass.wsId))
-        } else if state.hasPendingOffsetAnimation, controller?.settings.niri.macOSFusion == true {
+        } else if state.hasPendingOffsetAnimation {
             directives.append(.startNiriScroll(workspaceId: pass.wsId))
         }
 

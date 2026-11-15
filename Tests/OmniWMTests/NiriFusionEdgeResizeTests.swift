@@ -1049,7 +1049,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
     @discardableResult
     private func makeTabbed(_ fixture: Fixture, showing shown: WindowToken) throws -> NiriContainer {
         let column = try fixture.column(shown)
-        fixture.engine.tabbedColumnsFillHeight = true
         fixture.manager.withNiriViewportState(for: fixture.workspaceId) { _ in
             column.displayMode = .tabbed
             column.setActiveTileIdx(0)

@@ -281,36 +281,28 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         TitleBarHit(role: role, subrole: subrole, placement: .insideBar(elementWithinBar: elementWithinBar))
     }
 
-    func testALoneWindowFillsItsColumnWhateverHeightItHas() throws {
+    func testALoneWindowKeepsAHeightItWasGiven() throws {
         let fixture = try makeFixture(pid: 941_001)
-        let lone = try fixture.window(fixture.tokens[0])
-        lone.height = .fixed(400)
+        let chosenHeight: CGFloat = 400
+        try fixture.window(fixture.tokens[0]).height = .fixed(chosenHeight)
         fixture.relayout()
 
-        XCTAssertEqual(try fixture.frame(fixture.tokens[0]).height, try fixture.frame(fixture.tokens[1]).height)
+        XCTAssertEqual(try fixture.frame(fixture.tokens[0]).height, chosenHeight)
+        XCTAssertGreaterThan(try fixture.frame(fixture.tokens[1]).height, chosenHeight)
     }
 
-    func testAStackWithFixedHeightsFillsItsColumnInProportionOnlyWithMacOSFusion() throws {
-        for macOSFusion in [true, false] {
-            let fixture = try makeFixture(pid: macOSFusion ? 941_150 : 941_151, stackFirstTwo: true)
-            fixture.controller.settings.niri.macOSFusion = macOSFusion
-            fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
-            try fixture.window(fixture.tokens[0]).height = .fixed(200)
-            try fixture.window(fixture.tokens[1]).height = .fixed(100)
-            fixture.relayout()
-            let upper = try fixture.frame(fixture.tokens[0])
-            let lower = try fixture.frame(fixture.tokens[1])
-            let lone = try fixture.frame(fixture.tokens[2])
-            let gap = fixture.controller.innerGap(for: fixture.monitor)
+    func testAStackWithFixedHeightsFillsItsColumnInProportion() throws {
+        let fixture = try makeFixture(pid: 941_150, stackFirstTwo: true)
+        try fixture.window(fixture.tokens[0]).height = .fixed(200)
+        try fixture.window(fixture.tokens[1]).height = .fixed(100)
+        fixture.relayout()
+        let upper = try fixture.frame(fixture.tokens[0])
+        let lower = try fixture.frame(fixture.tokens[1])
+        let lone = try fixture.frame(fixture.tokens[2])
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
 
-            if macOSFusion {
-                XCTAssertEqual(upper.height + lower.height + gap, lone.height, accuracy: 1)
-                XCTAssertEqual(upper.height, 2 * lower.height, accuracy: 1)
-            } else {
-                XCTAssertEqual(upper.height, 200, accuracy: 1)
-                XCTAssertEqual(lower.height, 100, accuracy: 1)
-            }
-        }
+        XCTAssertEqual(upper.height + lower.height + gap, lone.height, accuracy: 1)
+        XCTAssertEqual(upper.height, 2 * lower.height, accuracy: 1)
     }
 
     func testExpellingAWindowFromAStackGrowsTheWindowLeftWithAnAnimation() throws {

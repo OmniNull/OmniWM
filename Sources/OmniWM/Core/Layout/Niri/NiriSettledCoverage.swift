@@ -33,12 +33,11 @@ enum NiriMonitorPlaneGeometry {
         viewportFrame: CGRect,
         orientation: Monitor.Orientation,
         hiddenPlacementMonitor: HiddenPlacementMonitorContext?,
-        hiddenPlacementMonitors: [HiddenPlacementMonitorContext],
-        clipsToDisplay: Bool = false
+        hiddenPlacementMonitors: [HiddenPlacementMonitorContext]
     ) -> AxisHideEdge? {
-        let displayFrame = clipsToDisplay ? hiddenPlacementMonitor?.frame : nil
-        guard let rect = displayFrame.map({ crossAxisClipped(renderedRect, to: $0, orientation: orientation) })
-            ?? renderedRect
+        guard let rect = hiddenPlacementMonitor.map({
+            crossAxisClipped(renderedRect, to: $0.frame, orientation: orientation)
+        }) ?? renderedRect
         else { return nil }
         let (minimumOverflow, maximumOverflow) = overflowRects(
             of: rect,
@@ -151,7 +150,6 @@ struct NiriSettledCoverageEvaluator {
         let orientation: Monitor.Orientation
         let scale: CGFloat
         var edgePicturesAvailable = true
-        var clipsOverflowToDisplay = false
 
         fileprivate func renderedContainerRect(
             position: CGFloat,
@@ -205,8 +203,7 @@ struct NiriSettledCoverageEvaluator {
                 viewportFrame: workingFrame,
                 orientation: orientation,
                 hiddenPlacementMonitor: sourceMonitor,
-                hiddenPlacementMonitors: monitors,
-                clipsToDisplay: clipsOverflowToDisplay
+                hiddenPlacementMonitors: monitors
             ) == nil {
                 let clampedRect = NiriMonitorPlaneGeometry.clampedFrame(
                     renderedRect,
@@ -218,8 +215,7 @@ struct NiriSettledCoverageEvaluator {
                     viewportFrame: workingFrame,
                     orientation: orientation,
                     hiddenPlacementMonitor: sourceMonitor,
-                    hiddenPlacementMonitors: monitors,
-                    clipsToDisplay: clipsOverflowToDisplay
+                    hiddenPlacementMonitors: monitors
                 ) == nil {
                     let visibleRect = clampedRect.intersection(workingFrame)
                     if !visibleRect.isNull {
@@ -465,8 +461,7 @@ extension NiriLayoutEngine {
                     monitors: monitors.values.map(HiddenPlacementMonitorContext.init),
                     orientation: context.orientation,
                     scale: sourceMonitor.scale,
-                    edgePicturesAvailable: edgePicturesAvailable,
-                    clipsOverflowToDisplay: clipsOverflowToDisplay
+                    edgePicturesAvailable: edgePicturesAvailable
                 )
             )
             guard abs(offset - projectedState.viewOffset) > 0.0001 else { return false }

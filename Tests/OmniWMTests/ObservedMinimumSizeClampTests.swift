@@ -171,6 +171,7 @@ final class ObservedMinimumSizeClampTests: XCTestCase {
         )
         manager.applyMonitorConfigurationChange([monitor])
         controller.settings.animationsEnabled = false
+        controller.motionPolicy.animationsEnabled = false
         controller.settings.gaps.size = 12
         manager.setGaps(to: 12)
         controller.settings.gaps.outerGapLeft = 0

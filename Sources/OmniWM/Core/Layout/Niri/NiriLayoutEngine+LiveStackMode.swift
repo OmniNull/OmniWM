@@ -601,14 +601,8 @@ extension NiriLayoutEngine {
         if !configuration.enabled {
             stripGlides.removeAll()
         }
-        tabbedColumnsFillHeight = configuration.enabled
-        windowsFillColumnHeight = configuration.enabled
         keepsStripEndsOnScreen = configuration.enabled
-        centersFittingStrips = configuration.enabled
-        clipsOverflowToDisplay = configuration.enabled
         keepsWindowWidths = configuration.enabled
         edgePeekShare = configuration.edgePeekShare
-        animatesLearnedMinimumWidths = configuration.enabled
-        finishesParkedWidthChanges = configuration.enabled
     }
 }
