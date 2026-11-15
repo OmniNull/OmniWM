@@ -343,7 +343,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
         XCTAssertEqual(column.cachedWidth, widthBeforeConstraint)
 
         let spring = try XCTUnwrap(column.widthAnimation)
-        _ = column.tickWidthAnimation(at: spring.startTime + spring.duration)
+        _ = column.tickWidthAnimation(at: (spring.startTime + spring.duration).nextUp)
         XCTAssertEqual(column.cachedWidth, 800)
     }
 
@@ -364,7 +364,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
         XCTAssertEqual(column.cachedWidth, widthBeforeConstraint)
 
         let spring = try XCTUnwrap(column.widthAnimation)
-        _ = column.tickWidthAnimation(at: spring.startTime + spring.duration)
+        _ = column.tickWidthAnimation(at: (spring.startTime + spring.duration).nextUp)
         XCTAssertEqual(column.cachedWidth, 800)
     }
 
