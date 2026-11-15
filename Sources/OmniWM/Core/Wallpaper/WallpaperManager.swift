@@ -4,6 +4,7 @@
 import AppKit
 import Foundation
 import Observation
+import os
 
 struct WallpaperPaletteState: Equatable, Sendable {
     var active = false
@@ -82,6 +83,7 @@ final class WallpaperManager {
     @ObservationIgnored private var passes: UInt64 = 0
     @ObservationIgnored private var rescanOwed = false
     @ObservationIgnored private var saves: UInt64 = 0
+    @ObservationIgnored private let stops = OSAllocatedUnfairLock(initialState: UInt64(0))
     @ObservationIgnored private var waiters: [CheckedContinuation<Void, Never>] = []
 
     private(set) var entries: [Entry] = []
@@ -148,6 +150,7 @@ final class WallpaperManager {
         guard running || cancelTimer != nil else { return }
         let held = pin != nil
         running = false
+        stops.withLock { $0 &+= 1 }
         epoch &+= 1
         passes &+= 1
         folders = []
@@ -197,7 +200,9 @@ final class WallpaperManager {
             loadsState: state == nil
         )
         let (shown, environment) = (lookup.shown, environment)
-        environment.perform { [weak self] in
+        let stopped = stops.withLock { $0 }
+        environment.perform { [weak self, stops] in
+            guard stops.withLock({ $0 }) == stopped else { return }
             let snapshot = pass.run(
                 shown, files: environment.files, stamp: environment.stamp, loadState: environment.loadState
             )

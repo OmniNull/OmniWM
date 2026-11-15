@@ -124,6 +124,24 @@ final class WallpaperPassTests: XCTestCase {
         XCTAssertNil(desktop.onChange)
     }
 
+    func testAPassQueuedBeforeManagementTurnsOffReadsNothing() {
+        var display = WallpaperFixtures.studio
+        display.current = file("a.jpg")
+        let desktop = FakeWallpaperDesktop([display])
+        let manager = makeManager(desktop, held: true)
+        land()
+        let (reads, scanned, stamped) = (desktop.reads, scans.values, stamps.values)
+
+        manager.refresh(rescan: true)
+        XCTAssertEqual(worker.count, 1)
+        manager.settings.enabled = false
+        worker.release()
+        XCTAssertEqual(desktop.reads, reads, "the Store is not read once management is off")
+        XCTAssertEqual(scans.values, scanned, "no folder is listed once management is off")
+        XCTAssertEqual(stamps.values, stamped, "no file is checked once management is off")
+        XCTAssertEqual(hops.count, 0)
+    }
+
     func testDesktopEventsReuseTheFolderListAndOnlyActionsReadItAgain() async {
         let desktop = FakeWallpaperDesktop([WallpaperFixtures.studio])
         let manager = makeManager(desktop, held: false)
