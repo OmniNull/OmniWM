@@ -19,8 +19,8 @@ extension NiriLayoutEngine {
             orientation == .horizontal ? $0.fittedWidth != nil : $0.fittedHeight != nil
         }
         let settings = workspace.attachedMonitorId.map(effectiveSettings(for:)) ?? effectiveSettings(in: workspaceId)
-        let keepsSpans = orientation == .horizontal && !settings.fitsVisibleContainerCount
-        if keepsSpans, !hasPreviousFit { return }
+        let keepsSpans = !settings.fitsVisibleContainerCount
+        if keepsSpans, !hasPreviousFit, workspace.shrinkToFitColumnIds.isEmpty { return }
         let visibleCount = settings.visibleContainerCount
         let exclusions = projectionExclusions(in: workspaceId)
         if exclusions.isEmpty, columns.count >= visibleCount, !hasPreviousFit,

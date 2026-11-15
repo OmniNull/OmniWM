@@ -156,23 +156,37 @@ final class NiriStripPolicyTests: XCTestCase {
         }
     }
 
-    func testAPortraitStripStillFillsItsHeightWithVisibleContainersOff() {
-        let fixture = makeFixture(widths: [400, 400], policies: NiriStripPolicies(fitsVisibleContainerCount: false))
-        let portrait = CGRect(x: 0, y: 0, width: 900, height: 1_500)
-        for column in fixture.engine.columns(in: fixture.workspaceId) {
-            column.height = .proportion(1.0 / 3.0)
+    func testAPortraitStripFitsOnlyWhenVisibleContainersIsOnAndClearsAnOldFit() {
+        let fixture = makeFixture(widths: [400, 400], policies: NiriStripPolicies(fitsVisibleContainerCount: true))
+        let portrait = CGRect(x: 0, y: 0, width: frame.height, height: frame.width)
+        let span = ProportionalSize.proportion(1 / CGFloat(fixture.engine.visibleContainerCount))
+        let columns = fixture.engine.columns(in: fixture.workspaceId)
+        for column in columns {
+            column.height = span
             column.cachedHeight = 0
         }
+        func reconcile() {
+            fixture.engine.reconcilePrimarySpanFit(
+                in: fixture.workspaceId,
+                workingFrame: portrait,
+                gaps: gap,
+                orientation: .vertical,
+                motion: .disabled
+            )
+        }
 
-        fixture.engine.reconcilePrimarySpanFit(
-            in: fixture.workspaceId,
-            workingFrame: portrait,
-            gaps: gap,
-            orientation: .vertical,
-            motion: nil
-        )
+        reconcile()
+        XCTAssertTrue(columns.allSatisfy { $0.fittedHeight != nil })
 
-        XCTAssertTrue(fixture.engine.columns(in: fixture.workspaceId).contains { $0.fittedHeight != nil })
+        fixture.engine.policies.fitsVisibleContainerCount = false
+        reconcile()
+
+        for column in columns {
+            XCTAssertNil(column.fittedHeight)
+            XCTAssertEqual(column.height, span)
+        }
+        reconcile()
+        XCTAssertTrue(columns.allSatisfy { $0.fittedHeight == nil })
     }
 
     func testBalanceSizesResetsEveryColumnToOneOverVisibleContainersOnAuto() {

@@ -1,6 +1,21 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "App’s Own Size" : {
+
+    },
+    "Keep Existing Window Sizes" : {
+
+    },
+    "With fewer columns than this number, columns grow to fill the display. Off keeps their own widths in horizontal strips and heights in vertical strips." : {
+
+    },
+    "A new window keeps its app’s width in a horizontal strip or height in a vertical strip. A window with an opening-size rule keeps its rule." : {
+
+    },
+    "A window already open when OmniWM first tiles it keeps its width in a horizontal strip or height in a vertical strip." : {
+
+    },
     "Undo and Redo" : {
 
     },
@@ -13,9 +28,6 @@
     "Also centers a strip whose columns all fit on the display." : {
 
     },
-    "App’s Own Width" : {
-
-    },
     "Auto divides the primary axis by the Visible Containers setting, or uses Preset 1 when that is Off." : {
 
     },
@@ -23,9 +35,6 @@
 
     },
     "Focusing or closing the first or last column leaves no empty space past the end of the strip." : {
-
-    },
-    "Keep Existing Window Widths" : {
 
     },
     "Keep Size When Pulling Out or Gathering" : {
@@ -41,15 +50,6 @@
 
     },
     "Kept Sizes" : {
-
-    },
-    "On a landscape display a new window opens as wide as its app makes it. A window with an opening-width rule keeps its rule." : {
-
-    },
-    "On a landscape display, a window that is already open when OmniWM first tiles it keeps the width it has." : {
-
-    },
-    "With fewer columns than this number, columns grow to fill a landscape display. Off leaves every column at its own width." : {
 
     },
     "This removes the saved launcher entry and clears its keyboard shortcut. Your apps and script files stay on disk." : {

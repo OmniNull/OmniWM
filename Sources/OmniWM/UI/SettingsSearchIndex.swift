@@ -95,7 +95,7 @@ enum SettingsSearchIndex {
         setting("Always Center Single Column", section: .layouts, tab: "niri", anchor: "Always Center Single Column"),
         setting("Keep Strip Ends on Screen", section: .layouts, tab: "niri", anchor: "Keep Strip Ends on Screen"),
         setting("Kept Sizes", section: .layouts, tab: "niri", anchor: "Kept Sizes"),
-        setting("Keep Existing Window Widths", section: .layouts, tab: "niri", anchor: "Keep Existing Window Widths"),
+        setting("Keep Existing Window Sizes", section: .layouts, tab: "niri", anchor: "Keep Existing Window Sizes"),
         setting(
             "Keep Size When Pulling Out or Gathering", section: .layouts, tab: "niri",
             anchor: "Keep Size When Pulling Out or Gathering"

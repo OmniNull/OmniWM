@@ -39,7 +39,7 @@ extension NiriLayoutHandler {
         var states: [WindowToken: NiriContainerSizingState]?
         for token in pass.windowTokens where pass.engine.findNode(for: token, in: pass.wsId) == nil {
             let state: NiriContainerSizingState?
-            if let kept = keptWidthSizingState(for: token, pass: pass) {
+            if let kept = keptPrimarySpanSizingState(for: token, pass: pass) {
                 state = kept
             } else if let detached = controller.workspaceManager.restoreIntent(for: token)?
                 .detachedNiriContainerSizingState
@@ -62,14 +62,13 @@ extension NiriLayoutHandler {
         return states
     }
 
-    private func keptWidthSizingState(
+    private func keptPrimarySpanSizingState(
         for token: WindowToken,
         pass: NiriLayoutPass
     ) -> NiriContainerSizingState? {
         guard let controller, controller.settings.niri.readsObservedWindowWidths else { return nil }
         let opening = pass.engine.takeOpeningWindow(token)
-        guard pass.orientation == .horizontal,
-              pass.engine.keepsEnteringWindowWidth(
+        guard pass.engine.keepsEnteringWindowWidth(
                   opening: opening,
                   hasRuleWidth: controller.workspaceManager.admissionHints(for: token)?
                       .initialNiriContainerPrimarySpan != nil,
@@ -80,10 +79,11 @@ extension NiriLayoutHandler {
               let frame = controller.axEventHandler.observedFrame(for: entry)
         else { return nil }
         return pass.engine.keptContainerSizingState(
-            width: frame.width,
+            primarySpan: pass.orientation == .horizontal ? frame.width : frame.height,
             in: pass.wsId,
-            workingWidth: pass.insetFrame.width,
-            gaps: pass.gap
+            workingSpan: pass.orientation == .horizontal ? pass.insetFrame.width : pass.insetFrame.height,
+            gaps: pass.gap,
+            orientation: pass.orientation
         )
     }
 

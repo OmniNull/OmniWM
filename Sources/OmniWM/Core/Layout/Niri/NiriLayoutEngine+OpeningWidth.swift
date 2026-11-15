@@ -24,19 +24,22 @@ extension NiriLayoutEngine {
     }
 
     func keptContainerSizingState(
-        width: CGFloat,
+        primarySpan: CGFloat,
         in workspaceId: WorkspaceDescriptor.ID,
-        workingWidth: CGFloat,
-        gaps: CGFloat
+        workingSpan: CGFloat,
+        gaps: CGFloat,
+        orientation: Monitor.Orientation
     ) -> NiriContainerSizingState? {
-        guard width.isFinite, width >= 1 else { return nil }
+        guard primarySpan.isFinite, primarySpan >= 1 else { return nil }
+        let kept = ProportionalSize.fixed(min(primarySpan, workingSpan - gaps * 2))
+        let fallback = ProportionalSize.proportion(resolvedContainerResetPrimarySpan(in: workspaceId).proportion)
         return NiriContainerSizingState(
-            width: .fixed(min(width, workingWidth - gaps * 2)),
+            width: orientation == .horizontal ? kept : fallback,
             presetWidthIndex: nil,
             isFullWidth: false,
             savedWidth: nil,
             hasManualSingleWindowWidthOverride: false,
-            height: .proportion(resolvedContainerResetPrimarySpan(in: workspaceId).proportion),
+            height: orientation == .vertical ? kept : fallback,
             isFullHeight: false,
             savedHeight: nil,
             hasManualSingleWindowHeightOverride: false

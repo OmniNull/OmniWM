@@ -98,7 +98,7 @@ private struct GlobalNiriSettingsSection: View {
             }
 
             SettingsCaption(
-                localized: "With fewer columns than this number, columns grow to fill a landscape display. Off leaves every column at its own width."
+                localized: "With fewer columns than this number, columns grow to fill the display. Off keeps their own widths in horizontal strips and heights in vertical strips."
             )
 
             Toggle("Infinite Loop Navigation", isOn: Bindable(settings.niri).infiniteLoop)
@@ -359,7 +359,7 @@ struct NiriDefaultSpanSettingsSection: View {
                     Text("Use Global").tag(Mode.useGlobal)
                 }
                 Text("Auto").tag(Mode.auto)
-                Text("App’s Own Width").tag(Mode.app)
+                Text("App’s Own Size").tag(Mode.app)
                 Text("Custom").tag(Mode.custom)
             }
             .id("Span Mode")
@@ -390,7 +390,7 @@ struct NiriDefaultSpanSettingsSection: View {
                 )
             case .app:
                 SettingsCaption(
-                    localized: "On a landscape display a new window opens as wide as its app makes it. A window with an opening-width rule keeps its rule."
+                    localized: "A new window keeps its app’s width in a horizontal strip or height in a vertical strip. A window with an opening-size rule keeps its rule."
                 )
             case .custom:
                 SettingsCaption(
@@ -408,11 +408,11 @@ private struct NiriKeptSizesSettingsSection: View {
 
     var body: some View {
         Section("Kept Sizes") {
-            Toggle("Keep Existing Window Widths", isOn: Bindable(settings.niri).keepExistingWindowWidth)
-                .id("Keep Existing Window Widths")
+            Toggle("Keep Existing Window Sizes", isOn: Bindable(settings.niri).keepExistingWindowWidth)
+                .id("Keep Existing Window Sizes")
 
             SettingsCaption(
-                localized: "On a landscape display, a window that is already open when OmniWM first tiles it keeps the width it has."
+                localized: "A window already open when OmniWM first tiles it keeps its width in a horizontal strip or height in a vertical strip."
             )
 
             Toggle("Keep Size When Pulling Out or Gathering", isOn: Bindable(settings.niri).keepSizeOnUnstack)

@@ -15,6 +15,10 @@ final class NiriCentredStripTests: XCTestCase {
         let tokens: [WindowToken]
         var state: ViewportState
 
+        var pixel: CGFloat {
+            1 / engine.displayScale(in: workspaceId)
+        }
+
         var context: NiriInteractionContext {
             .init(workspaceId: workspaceId, motion: .disabled, workingFrame: frame, gaps: gap, orientation: .horizontal)
         }
@@ -76,7 +80,7 @@ final class NiriCentredStripTests: XCTestCase {
             fixture.show(index)
             let margins = fixture.margins()
             XCTAssertGreaterThan(margins.leading, fixture.gap, "\(index)")
-            XCTAssertEqual(margins.leading, margins.trailing, accuracy: 1, "\(index)")
+            XCTAssertEqual(margins.leading, margins.trailing, accuracy: fixture.pixel, "\(index)")
         }
     }
 
@@ -90,43 +94,48 @@ final class NiriCentredStripTests: XCTestCase {
             state: &fixture.state
         ))
         let target = fixture.strip()[1]
-        let cursor = CGPoint(x: target.maxX - 20, y: fixture.frame.midY)
-        _ = fixture.engine.liveColumnMoveUpdate(cursor: cursor, at: 1, context: fixture.context, state: &fixture.state)
-        _ = fixture.engine.liveColumnMoveUpdate(cursor: cursor, at: 2, context: fixture.context, state: &fixture.state)
+        let cursor = CGPoint(x: target.maxX - fixture.gap, y: fixture.frame.midY)
+        _ = fixture.engine.liveColumnMoveUpdate(cursor: cursor, at: 0, context: fixture.context, state: &fixture.state)
+        _ = fixture.engine.liveColumnMoveUpdate(
+            cursor: cursor,
+            at: fixture.engine.liveHoverDelay,
+            context: fixture.context,
+            state: &fixture.state
+        )
 
         XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
 
         let settled = fixture.state.viewOffset
         let margins = fixture.margins()
         XCTAssertGreaterThan(margins.leading, fixture.gap)
-        XCTAssertEqual(margins.leading, margins.trailing, accuracy: 1)
+        XCTAssertEqual(margins.leading, margins.trailing, accuracy: fixture.pixel)
         fixture.show(0)
-        XCTAssertEqual(fixture.state.viewOffset, settled, accuracy: 0.5)
+        XCTAssertEqual(fixture.state.viewOffset, settled, accuracy: fixture.pixel / 2)
     }
 
     func testAStripThatDoesNotFitScrollsAsUsual() {
         var fixture = makeFixture(widths: [0.5, 0.5, 0.5])
         fixture.show(0)
-        XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: 1)
+        XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: fixture.pixel)
     }
 
     func testWithAlwaysCenterSingleColumnOffAStripThatFitsIsNotCentred() {
         var fixture = makeFixture(widths: [0.3, 0.25], alwaysCenterSingleColumn: false)
         fixture.show(0)
-        XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: 1)
+        XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: fixture.pixel)
     }
 
     func testClosingAWindowSoTheRestFitCentresTheStrip() {
         var fixture = makeFixture(widths: [0.3, 0.3, 0.5])
         fixture.show(0)
-        XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: 1)
+        XCTAssertEqual(fixture.margins().leading, fixture.gap, accuracy: fixture.pixel)
 
         fixture.engine.removeWindow(token: fixture.tokens[2], in: fixture.workspaceId)
         XCTAssertTrue(fixture.engine.correctViewportAfterColumnRemoval(context: fixture.context, state: &fixture.state))
 
         let margins = fixture.margins()
         XCTAssertGreaterThan(margins.leading, fixture.gap)
-        XCTAssertEqual(margins.leading, margins.trailing, accuracy: 1)
+        XCTAssertEqual(margins.leading, margins.trailing, accuracy: fixture.pixel)
     }
 
     func testTheStripHoldsStillDuringALiveDrag() {
@@ -193,24 +202,39 @@ final class NiriCentredStripTests: XCTestCase {
     }
 
     func testACentredStripStartsOnAWholePixelOnANonRetinaDisplay() {
-        XCTAssertEqual(ViewportState.centredStripOffset(stripSpan: 901, viewSpan: 1_500, gap: 12, scale: 1), -300)
-        XCTAssertEqual(ViewportState.centredStripOffset(stripSpan: 901, viewSpan: 1_500, gap: 12, scale: 2), -299.5)
-        XCTAssertNil(ViewportState.centredStripOffset(stripSpan: 1_490, viewSpan: 1_500, gap: 12, scale: 1))
+        let stripSpan: CGFloat = 901
+        let viewSpan: CGFloat = 1_500
+        let gap: CGFloat = 12
+        let centred = (stripSpan - viewSpan) / 2
+        for scale: CGFloat in [1, 2] {
+            XCTAssertEqual(
+                ViewportState.centredStripOffset(stripSpan: stripSpan, viewSpan: viewSpan, gap: gap, scale: scale),
+                centred.roundedToPhysicalPixel(scale: scale)
+            )
+        }
+        XCTAssertNil(ViewportState.centredStripOffset(
+            stripSpan: viewSpan - gap,
+            viewSpan: viewSpan,
+            gap: gap,
+            scale: 1
+        ))
     }
 
     func testAKeptWidthIsCappedToTheDisplay() {
         let fixture = makeFixture(widths: [0.3])
         func kept(_ width: CGFloat) -> ProportionalSize? {
             fixture.engine.keptContainerSizingState(
-                width: width,
+                primarySpan: width,
                 in: fixture.workspaceId,
-                workingWidth: fixture.frame.width,
-                gaps: fixture.gap
+                workingSpan: fixture.frame.width,
+                gaps: fixture.gap,
+                orientation: .horizontal
             )?.width
         }
 
-        XCTAssertEqual(kept(640), .fixed(640))
-        XCTAssertEqual(kept(4_000), .fixed(fixture.frame.width - fixture.gap * 2))
+        let requested: CGFloat = 640
+        XCTAssertEqual(kept(requested), .fixed(requested))
+        XCTAssertEqual(kept(fixture.frame.width * 2), .fixed(fixture.frame.width - fixture.gap * 2))
         XCTAssertNil(kept(0))
     }
 }
