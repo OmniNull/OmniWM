@@ -47,13 +47,18 @@ extension MouseEventHandler {
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
             let landscape = controller.isLandscapeNiriStrip(entry.workspaceId)
-            guard landscape ? drag.pointerWasDragged : controller.settings.gestures.adoptNativeResize,
-                  let start = nativeResizeStartFrame(drag, entry: entry),
-                  let observedFrame
+            guard landscape ? drag.pointerWasDragged
+                : drag.pointerWasDragged || controller.settings.gestures.adoptNativeResize,
+                let start = nativeResizeStartFrame(drag, entry: entry),
+                let observedFrame
             else { return false }
-            let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: landscape)
-            guard !edges.isEmpty else { return false }
-            let completed = landscape
+            let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: true)
+            let primary = landscape || edges.hasVertical && !edges.hasHorizontal
+            guard !edges.isEmpty,
+                  primary ? drag.pointerWasDragged : controller.settings.gestures.adoptNativeResize,
+                  primary || !edges.contains([.left, .right]) && !edges.contains([.top, .bottom])
+            else { return false }
+            let completed = primary
                 ? completedNativeResize(of: drag, edges: edges, from: start, observed: observedFrame, entry: entry)
                 : observedFrame
             guard adoptNiriNativeResize(entry, edges: edges, from: start, to: completed, shownAt: observedFrame)
@@ -73,9 +78,12 @@ extension MouseEventHandler {
               entry.target.hostedMetadata != nil, entry.mode == .tiling, entry.layoutReason == .standard,
               entry.hiddenState == nil else { return false }
         let landscape = controller.isLandscapeNiriStrip(entry.workspaceId)
-        guard controller.settings.gestures.adoptNativeResize || landscape else { return false }
-        let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: landscape)
-        guard !edges.isEmpty else { return false }
+        let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: true)
+        let primary = landscape || controller.isNiriStrip(entry.workspaceId) && edges.hasVertical && !edges
+            .hasHorizontal
+        guard !edges.isEmpty, controller.settings.gestures.adoptNativeResize || primary,
+              primary || !edges.contains([.left, .right]) && !edges.contains([.top, .bottom])
+        else { return false }
         if controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri {
             return adoptNiriNativeResize(entry, edges: edges, from: start, to: observed, shownAt: observed)
         }
@@ -169,10 +177,11 @@ extension MouseEventHandler {
         let secondary = edges.subtracting(primaryEdges)
         let secondarySpan = adoptedSecondarySpan(secondary, of: window, in: workspaceId, from: start, to: observed)
         guard !primaryEdges.isEmpty || secondarySpan != nil else { return false }
-        let primary = centredPrimaryResize(primaryEdges, from: start, to: observed)
 
-        let slide = horizontal
-            ? fusionEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
+        let slide = horizontal || secondary.isEmpty
+            ? fusionEdgeResizeSlide(
+                around: window, in: workspaceId, resizedFrom: start, to: observed, includeStackMates: horizontal
+            )
             : nil
         let changeStart = controller.niriLayoutHandler.layoutChangeStart(in: workspaceId)
         var changed = false
@@ -188,13 +197,12 @@ extension MouseEventHandler {
             if !primaryEdges.isEmpty,
                resizeNiriPrimarySpan(
                    window,
-                   edges: primary.edges,
-                   frames: (start, primary.observed),
+                   edges: edges,
+                   frames: (start, observed),
                    context: context,
                    state: &viewportState
                )
             {
-                keepCentredResizeInPlace(window, primary, context: context, state: &viewportState)
                 changed = true
             }
         }
@@ -279,10 +287,15 @@ extension MouseEventHandler {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
+        let horizontal = context.orientation == .horizontal
+        let primaryEdges = edges.intersection(horizontal ? [.left, .right] : [.bottom, .top])
+        let primary = centredPrimaryResize(
+            primaryEdges, from: frames.start, to: frames.observed, orientation: context.orientation
+        )
         guard let engine = controller?.niriEngine,
               engine.interactiveResizeBegin(
                   windowId: window.id,
-                  edges: edges,
+                  edges: primary.edges,
                   startLocation: frames.start.origin,
                   in: context.workspaceId,
                   orientation: context.orientation,
@@ -292,7 +305,7 @@ extension MouseEventHandler {
             return false
         }
         guard engine.interactiveResizeUpdate(
-            currentLocation: Self.nativeResizeLocation(edges, from: frames.start, to: frames.observed),
+            currentLocation: Self.nativeResizeLocation(primary.edges, from: frames.start, to: primary.observed),
             monitorFrame: context.workingFrame,
             gaps: LayoutGaps(horizontal: context.gaps, vertical: context.gaps),
             viewportState: { $0(&state) }
@@ -300,7 +313,7 @@ extension MouseEventHandler {
             engine.clearInteractiveResize()
             return false
         }
-        if context.orientation == .horizontal {
+        if horizontal || edges == primaryEdges {
             engine.clearInteractiveResize()
         } else {
             engine.interactiveResizeEnd(
@@ -310,6 +323,7 @@ extension MouseEventHandler {
                 gaps: context.gaps
             )
         }
+        keepCentredResizeInPlace(window, primary, context: context, state: &state)
         return true
     }
 

@@ -31,6 +31,10 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             handler.state.nativeTitleBarDrag?.phase
         }
 
+        var pixel: CGFloat {
+            1 / engine.displayScale(in: workspaceId)
+        }
+
         var widest: CGFloat {
             controller.insetWorkingFrame(for: monitor).width - 2 * controller.innerGap(for: monitor)
         }
@@ -59,19 +63,18 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         }
 
         func settledFrame(_ token: WindowToken) throws -> CGRect {
-            try frame(token, after: 10)
+            try frame(token, at: .infinity)
         }
 
-        func frame(_ token: WindowToken, after seconds: TimeInterval) throws -> CGRect {
+        func frame(_ token: WindowToken, at time: TimeInterval) throws -> CGRect {
             let gap = controller.innerGap(for: monitor)
-            let later = (engine.animationClock?.now() ?? CACurrentMediaTime()) + seconds
             return try XCTUnwrap(engine.calculateLayoutWithVisibility(
                 state: manager.niriViewportState(for: workspaceId),
                 workspaceId: workspaceId,
                 monitorFrame: controller.insetWorkingFrame(for: monitor),
                 gaps: (horizontal: gap, vertical: gap),
                 orientation: orientation,
-                animationTime: later
+                animationTime: time
             ).frames[token])
         }
 
@@ -81,18 +84,22 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             }
         }
 
-        func beginDrag(_ token: WindowToken) throws {
+        func beginDrag(_ token: WindowToken, at press: CGPoint? = nil) throws {
             handler.retireNativeTitleBarDragAtInputBoundary()
             applyPendingFrames()
             handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
             let start = try frame(token)
             handler.nativeWindowFrameProvider = { _ in start }
             XCTAssertFalse(handler.dispatchMouseDown(
-                at: start.center,
+                at: press ?? start.center,
                 modifiers: [],
                 windowIdUnderPointer: token.windowId
             ))
-            handler.dispatchMouseDragged(at: CGPoint(x: start.center.x + 5, y: start.center.y))
+            let pressed = press ?? start.center
+            let dragged = orientation == .horizontal
+                ? CGPoint(x: (pressed.x + FrameTolerance.frameWrite).nextUp, y: pressed.y)
+                : CGPoint(x: pressed.x, y: (pressed.y + FrameTolerance.frameWrite).nextUp)
+            handler.dispatchMouseDragged(at: dragged)
             XCTAssertEqual(phase, .dragging)
         }
 
@@ -101,9 +108,9 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
         }
 
-        func release(at observed: CGRect) {
+        func release(at observed: CGRect, cursor: CGPoint? = nil) {
             handler.nativeWindowFrameProvider = { _ in observed }
-            handler.dispatchMouseUp(at: observed.center)
+            handler.dispatchMouseUp(at: cursor ?? observed.center)
         }
 
         func moveByTitleBar(
@@ -124,9 +131,17 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         }
 
         func resize(_ token: WindowToken, to observed: CGRect) throws {
-            try beginDrag(token)
+            let start = try frame(token)
+            let edges = MouseEventHandler.nativeResizeEdges(from: start, to: observed, allowsCentred: true)
+            let press = orientation == .vertical && edges.hasVertical && !edges.hasHorizontal
+                ? CGPoint(x: start.midX, y: edges.contains(.top) ? start.maxY - pixel : start.minY + pixel) : nil
+            try beginDrag(token, at: press)
             drag(token, to: observed)
-            release(at: observed)
+            let cursor = press.map {
+                CGPoint(x: $0.x, y: $0.y + (edges.contains(.top)
+                        ? observed.maxY - start.maxY : observed.minY - start.minY))
+            }
+            release(at: observed, cursor: cursor)
             applyPendingFrames()
         }
 
@@ -215,21 +230,24 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         let (upper, lower) = try upperAndLower(fixture)
         let upperStart = try fixture.frame(upper)
         let lowerStart = try fixture.frame(lower)
+        let growth: CGFloat = 100
         try fixture.beginDrag(lower)
-        fixture.drag(lower, to: grown(lowerStart, top: 100))
+        fixture.drag(lower, to: grown(lowerStart, top: growth))
 
-        fixture.release(at: grown(lowerStart, top: 100))
+        fixture.release(at: grown(lowerStart, top: growth))
 
         XCTAssertTrue(try fixture.node(upper).hasMoveAnimationsRunning)
         XCTAssertFalse(try fixture.node(lower).hasMoveAnimationsRunning)
         XCTAssertEqual(try fixture.frame(upper), upperStart)
-        let midway = try fixture.frame(upper, after: 0.08)
-        XCTAssertEqual(midway.maxY, upperStart.maxY, accuracy: 1)
-        XCTAssertLessThan(midway.height, upperStart.height - 1)
-        XCTAssertGreaterThan(midway.height, upperStart.height - 99)
+        let spring = try XCTUnwrap(fixture.node(upper).heightAnimation).animation
+        let nextFrame = min(spring.duration / 2, 1 / fixture.engine.displayRefreshRate(in: fixture.workspaceId))
+        let midway = try fixture.frame(upper, at: spring.startTime + nextFrame)
+        XCTAssertEqual(midway.maxY, upperStart.maxY, accuracy: fixture.pixel)
+        XCTAssertLessThan(midway.height, upperStart.height - fixture.pixel)
+        XCTAssertGreaterThan(midway.height, upperStart.height - growth + fixture.pixel)
         let settled = try fixture.settledFrame(upper)
-        XCTAssertEqual(settled.maxY, upperStart.maxY, accuracy: 1)
-        XCTAssertEqual(settled.height, upperStart.height - 100, accuracy: 1)
+        XCTAssertEqual(settled.maxY, upperStart.maxY, accuracy: fixture.pixel)
+        XCTAssertEqual(settled.height, upperStart.height - growth, accuracy: fixture.pixel)
     }
 
     func testAStackMateDoesntSlideSideways() throws {
@@ -249,22 +267,37 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(frame.width, upperStart.width + 80, accuracy: 1)
     }
 
-    func testOnAVerticalStripAKeptEdgeResizeDoesntSlide() throws {
+    func testPortraitPrimaryReleaseSlidesNeighborsFromTheirOldFrames() throws {
         let fixture = try makeFixture(portrait: true, pid: 871_020)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.gestures.adoptNativeResize = true
-        XCTAssertEqual(fixture.handler.liveColumnContext(for: fixture.workspaceId)?.orientation, .vertical)
         let resized = fixture.tokens[1]
-        let start = try fixture.frame(resized)
-        let observed = grown(start, bottom: 100)
-        try fixture.beginDrag(resized)
+        let before = fixture.frames()
+        let start = try XCTUnwrap(before[resized])
+        let growth = start.height / 4
+        let observed = grown(start, bottom: growth)
+        let press = CGPoint(x: start.midX, y: start.minY + fixture.pixel)
+        try fixture.beginDrag(resized, at: press)
         fixture.drag(resized, to: observed)
+        XCTAssertEqual(fixture.frames(), before)
+        XCTAssertNil(fixture.engine.interactiveResize)
 
-        fixture.release(at: observed)
+        fixture.release(at: observed, cursor: CGPoint(x: press.x, y: press.y - growth))
 
-        for token in fixture.tokens {
-            XCTAssertFalse(try fixture.node(token).hasMoveAnimationsRunning)
+        XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        XCTAssertFalse(try fixture.node(resized).hasMoveAnimationsRunning)
+        XCTAssertEqual(try fixture.column(resized).cachedHeight, observed.height, accuracy: fixture.pixel)
+        XCTAssertEqual(try fixture.settledFrame(resized).maxY, start.maxY, accuracy: fixture.pixel)
+        let moved = try fixture.tokens.filter { token in
+            guard token != resized else { return false }
+            let settled = try fixture.settledFrame(token)
+            let old = try XCTUnwrap(before[token])
+            return abs(settled.minY - old.minY) > fixture.pixel
+        }
+        XCTAssertFalse(moved.isEmpty)
+        for token in moved {
+            let animation = try XCTUnwrap(fixture.node(token).moveYAnimation).animation
+            XCTAssertEqual(try fixture.frame(token, at: animation.startTime), try XCTUnwrap(before[token]))
         }
     }
 
@@ -562,6 +595,70 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.frame(resized).width, cap, accuracy: 1)
     }
 
+    func testPortraitPrimaryReleaseHonorsThePeekAndHeightConstraints() throws {
+        let fixture = try makeFixture(portrait: true, pid: 871_191)
+        fixture.controller.motionPolicy.animationsEnabled = false
+        fixture.controller.settings.niri.edgePeekPercent = 3
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let resized = fixture.tokens[1]
+        let start = try fixture.frame(resized)
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
+        let span = fixture.controller.insetWorkingFrame(for: fixture.monitor).height
+        let share = CGFloat(fixture.controller.settings.niri.edgePeekPercent) / 100
+        let view = fixture.monitor.frame
+        let working = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+        let peek = (view.height * share).rounded()
+        let cap = min(working.maxY, view.maxY - peek) - max(working.minY, view.minY + peek) - 2 * gap
+        let observed = grown(start, top: span)
+        try fixture.resize(resized, to: observed)
+        XCTAssertEqual(try fixture.settledFrame(resized).height, cap, accuracy: fixture.pixel)
+
+        let minimum = start.height / 2
+        let maximum = start.height
+        try fixture.node(resized).constraints = WindowSizeConstraints(
+            minSize: CGSize(width: 0, height: minimum),
+            maxSize: CGSize(width: 0, height: maximum),
+            isFixed: false
+        )
+        fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+        try fixture.resize(resized, to: grown(try fixture.frame(resized), top: span))
+        XCTAssertEqual(try fixture.settledFrame(resized).height, maximum, accuracy: fixture.pixel)
+        fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+        let current = try fixture.frame(resized)
+        try fixture.resize(resized, to: grown(current, top: minimum / 2 - current.height))
+        XCTAssertEqual(try fixture.settledFrame(resized).height, minimum, accuracy: fixture.pixel)
+    }
+
+    func testPortraitOptionPrimaryEdgesStayNativeWhileBodyTitleAndSecondaryMovesRemain() throws {
+        for index in 0 ..< 5 {
+            let fixture = try makeFixture(portrait: true, pid: pid_t(871_200 + index))
+            fixture.controller.settings.gestures.mouseMoveModifierKey = .option
+            let token = fixture.tokens[1]
+            let frame = try fixture.frame(token)
+            let edgeInset = NiriLayoutEngine.doubleClickEdgeInset / 2
+            let point: CGPoint = switch index {
+            case 0: CGPoint(x: frame.midX, y: frame.minY + edgeInset)
+            case 1: CGPoint(x: frame.midX, y: frame.maxY - edgeInset)
+            case 2: frame.center
+            case 3: CGPoint(x: frame.midX, y: frame.maxY - NiriLayoutEngine.doubleClickTitleBarDepth / 2)
+            default: CGPoint(x: frame.minX + edgeInset, y: frame.midY)
+            }
+            XCTAssertFalse(fixture.handler.dispatchMouseDown(
+                at: point, modifiers: .maskAlternate, windowIdUnderPointer: token.windowId
+            ))
+            XCTAssertEqual(fixture.handler.state.isMoving, index >= 2)
+            if index < 2 {
+                fixture.handler.dispatchMouseDragged(at: CGPoint(
+                    x: point.x, y: (point.y + FrameTolerance.frameWrite).nextUp
+                ))
+                XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.startedOnLandscapeNiriStrip, false)
+            }
+        }
+    }
+
     func testATitleBarDragStaysALiveColumnMove() throws {
         let fixture = try makeFixture(pid: 871_012)
         let blocker = blockRefreshes(fixture)
@@ -720,44 +817,48 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertTrue(try fixture.node(shown).height.isAuto)
     }
 
-    func testOnAVerticalStripAnEdgeDragStillSnapsBack() throws {
-        let fixture = try makeFixture(pid: 871_090)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.monitors.updateOrientationSettings(
-            MonitorOrientationSettings(
-                monitorName: fixture.monitor.name,
-                monitorDisplayId: fixture.monitor.displayId,
-                orientation: .vertical
-            ),
-            for: fixture.monitor
-        )
-        XCTAssertEqual(fixture.handler.liveColumnContext(for: fixture.workspaceId)?.orientation, .vertical)
-        let resized = fixture.tokens[1]
-        let start = try fixture.frame(resized)
-        try fixture.beginDrag(resized)
-        fixture.drag(resized, to: grown(start, bottom: 60))
-
-        fixture.release(at: grown(start, bottom: 60))
-
-        XCTAssertEqual(try fixture.frame(resized), start)
+    func testPortraitTopAndBottomEdgeResizesKeepTheOppositeEdge() throws {
+        for top in [false, true] {
+            let fixture = try makeFixture(portrait: true, pid: top ? 871_090 : 871_091)
+            fixture.controller.motionPolicy.animationsEnabled = false
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let resized = fixture.tokens[1]
+            let start = try fixture.frame(resized)
+            let growth = start.height / 4
+            let observed = grown(start, bottom: top ? 0 : growth, top: top ? growth : 0)
+            let press = CGPoint(x: start.midX, y: top ? start.maxY - fixture.pixel : start.minY + fixture.pixel)
+            try fixture.beginDrag(resized, at: press)
+            fixture.drag(resized, to: observed)
+            fixture.release(at: observed, cursor: CGPoint(x: press.x, y: press.y + (top ? growth : -growth)))
+            let settled = try fixture.settledFrame(resized)
+            XCTAssertEqual(settled.height, observed.height, accuracy: fixture.pixel)
+            XCTAssertEqual(top ? settled.minY : settled.maxY, top ? start.minY : start.maxY, accuracy: fixture.pixel)
+            XCTAssertEqual(settled.width, start.width, accuracy: fixture.pixel)
+            XCTAssertNil(fixture.engine.interactiveResize)
+            XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        }
     }
 
-    func testOnAVerticalStripACentredDragSnapsBackEvenWithKeepNativeEdgeResizesOn() throws {
-        let fixture = try makeFixture(portrait: true, pid: 871_041)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.gestures.adoptNativeResize = true
-        XCTAssertEqual(fixture.handler.liveColumnContext(for: fixture.workspaceId)?.orientation, .vertical)
-        let resized = fixture.tokens[1]
-        let start = try fixture.frame(resized)
-        let released = grown(start, bottom: 60, top: 60)
-        try fixture.beginDrag(resized)
-        fixture.drag(resized, to: released)
-
-        fixture.release(at: released)
-
-        XCTAssertEqual(try fixture.frame(resized), start)
+    func testPortraitCenteredPrimaryResizePreservesItsCenterWithTheLegacySettingOff() throws {
+        for growing in [false, true] {
+            let fixture = try makeFixture(portrait: true, pid: growing ? 871_041 : 871_092)
+            fixture.controller.motionPolicy.animationsEnabled = false
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let resized = fixture.tokens[1]
+            let start = try fixture.frame(resized)
+            let growth = start.height / 8 * (growing ? 1 : -1)
+            let observed = grown(start, bottom: growth, top: growth)
+            let press = CGPoint(x: start.midX, y: start.maxY - fixture.pixel)
+            try fixture.beginDrag(resized, at: press)
+            fixture.drag(resized, to: observed)
+            fixture.release(at: observed, cursor: CGPoint(x: press.x, y: press.y + growth))
+            let settled = try fixture.settledFrame(resized)
+            XCTAssertEqual(settled.height, observed.height, accuracy: fixture.pixel)
+            XCTAssertEqual(settled.midY, start.midY, accuracy: fixture.pixel)
+            XCTAssertEqual(settled.width, start.width, accuracy: fixture.pixel)
+        }
     }
 
     func testACentredHeightDragOnAStacksMiddleWindowGrowsBothWays() throws {
@@ -1095,6 +1196,10 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         for column in engine.columns(in: workspaceId) {
             column.width = .proportion(1.0 / 3.0)
             column.cachedWidth = 0
+            if portrait {
+                column.height = .proportion(1.0 / 3.0)
+                column.cachedHeight = 0
+            }
         }
         let fixture = Fixture(
             controller: controller,

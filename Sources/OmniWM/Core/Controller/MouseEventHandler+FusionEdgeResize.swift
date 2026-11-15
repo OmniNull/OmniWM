@@ -94,14 +94,22 @@ extension MouseEventHandler {
         return Self.nativeResizeFrame(observed, edges: edges, size: size)
     }
 
-    func centredPrimaryResize(_ edges: ResizeEdge, from start: CGRect, to observed: CGRect) -> CentredPrimaryResize {
-        guard edges == [.left, .right] else {
+    func centredPrimaryResize(
+        _ edges: ResizeEdge, from start: CGRect, to observed: CGRect, orientation: Monitor.Orientation
+    ) -> CentredPrimaryResize {
+        let horizontal = orientation == .horizontal
+        guard edges == (horizontal ? [.left, .right] : [.bottom, .top]) else {
             return CentredPrimaryResize(edges: edges, observed: observed, centre: nil)
         }
         return CentredPrimaryResize(
-            edges: .right,
-            observed: CGRect(x: start.minX, y: observed.minY, width: observed.width, height: observed.height),
-            centre: observed.midX
+            edges: horizontal ? .right : .top,
+            observed: CGRect(
+                x: horizontal ? start.minX : observed.minX,
+                y: horizontal ? observed.minY : start.minY,
+                width: observed.width,
+                height: observed.height
+            ),
+            centre: horizontal ? observed.midX : observed.midY
         )
     }
 
@@ -210,7 +218,8 @@ extension MouseEventHandler {
         around window: NiriWindow,
         in workspaceId: WorkspaceDescriptor.ID,
         resizedFrom start: CGRect,
-        to observed: CGRect
+        to observed: CGRect,
+        includeStackMates: Bool
     ) -> FusionEdgeResizeSlide? {
         guard let engine = controller?.niriEngine,
               let column = engine.findColumn(containing: window, in: workspaceId)
@@ -218,10 +227,10 @@ extension MouseEventHandler {
         let stack = column.windowNodes
         return FusionEdgeResizeSlide(
             neighbourFrames: engine.captureWindowFrames(in: workspaceId, excluding: Set(stack.map(\.token))),
-            stackMates: stack.compactMap { mate in
+            stackMates: includeStackMates ? stack.compactMap { mate in
                 guard mate !== window, let frame = mate.renderedFrame ?? mate.frame else { return nil }
                 return FusionEdgeResizeSlide.StackMate(window: mate, frame: frame)
-            },
+            } : [],
             start: start,
             observed: observed
         )

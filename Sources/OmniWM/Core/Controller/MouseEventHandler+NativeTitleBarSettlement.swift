@@ -100,8 +100,8 @@ extension MouseEventHandler {
         let released = state.nativeTitleBarDragFallbackReleased
         let hasResizeStart = state.nativeResizeStart?.token == entry.token
             && state.nativeResizeStart?.wasDragged == true
-        let landscape = controller.isLandscapeNiriStrip(entry.workspaceId)
-        let keepsBaseline = hasResizeStart || landscape
+        let onNiriStrip = controller.isNiriStrip(entry.workspaceId)
+        let keepsBaseline = hasResizeStart || onNiriStrip
         if !released || state.moveTap != nil,
            state.nativeResizeStart?.token == entry.token,
            state.nativeResizeStart?.wasDragged == false || state.moveTap != nil
@@ -117,7 +117,7 @@ extension MouseEventHandler {
         if released {
             if settleNativeCrossDisplayMoveIfNeeded(entry, observedFrame: observedFrame) { return true }
             if let pendingFrame = controller.axManager.pendingFrameWrite(for: entry.windowId),
-               !keepsBaseline || !(controller.settings.gestures.adoptNativeResize || landscape)
+               !keepsBaseline || !(controller.settings.gestures.adoptNativeResize || onNiriStrip)
                || controller.axManager.hasInFlightFrameWrite(for: entry.token)
             {
                 awaitNativeTitleBarDragFrameWrite(
@@ -193,13 +193,16 @@ extension MouseEventHandler {
         observedFrame: CGRect?
     ) -> Bool {
         guard let controller,
-              controller.isLandscapeNiriStrip(entry.workspaceId),
+              controller.isNiriStrip(entry.workspaceId),
               let observedFrame,
               let start = drag.adoptionStartFrame ?? drag.pendingWriteStartFrame ?? drag.liveStartFrame,
               abs(observedFrame.width - start.width) > FrameTolerance.screenMatch
               || abs(observedFrame.height - start.height) > FrameTolerance.screenMatch,
-              !Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: true).isEmpty,
               drag.pressLocation != nil, drag.releaseLocation != nil, entry.axRef != nil
+        else { return false }
+        let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: true)
+        guard !edges.isEmpty,
+              controller.isOnLandscapeDisplay(entry.workspaceId) || edges.hasVertical && !edges.hasHorizontal
         else { return false }
         var late = drag
         late.lateResize = true

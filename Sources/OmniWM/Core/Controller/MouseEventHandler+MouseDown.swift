@@ -45,7 +45,7 @@ extension MouseEventHandler {
         }
         guard !state.isMoving, !state.isResizing else { return false }
 
-        guard let strip = strip ?? pressedStrip(at: location) else { return false }
+        guard var strip = strip ?? pressedStrip(at: location) else { return false }
         let wsId = strip.workspaceId
         let onNiriStrip = strip.layoutKind == .niri
 
@@ -54,7 +54,9 @@ extension MouseEventHandler {
                 modifiers,
                 required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
             )
-            && !(onNiriStrip && controller.isOnLandscapeDisplay(wsId))
+            && !keepsNativeNiriPress(
+                at: location, in: &strip, windowId: windowIdUnderPointer, controller: controller
+            )
         if button == .left,
            modifiers.isDisjoint(with: Self.relevantModifierFlags) || onNiriStrip && !startsModifierMove
         {
@@ -86,6 +88,21 @@ extension MouseEventHandler {
         else { return false }
 
         return beginNiriMouseResize(at: location, engine: engine, workspaceId: wsId, button: button)
+    }
+
+    private func keepsNativeNiriPress(
+        at location: CGPoint, in strip: inout PressedStrip, windowId: Int?, controller: WMController
+    ) -> Bool {
+        guard strip.layoutKind == .niri else { return false }
+        if controller.isOnLandscapeDisplay(strip.workspaceId) { return true }
+        let candidate = fusionDoubleClickCandidate(at: location, in: strip)
+        strip.doubleClick = .done(candidate)
+        guard let candidate,
+              case let .edge(edges) = candidate.hit.zone,
+              edges.hasVertical,
+              windowId == nil || windowId == candidate.hit.window.token.windowId
+        else { return false }
+        return true
     }
 
     private func beginNiriMouseMove(

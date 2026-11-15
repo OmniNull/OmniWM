@@ -199,12 +199,9 @@ extension MouseEventHandler {
         let hadUnsettledFrameWrite = controller.axManager.isAwaitingFrameWrite(drag.token.windowId)
             || controller.axManager.hasInFlightFrameWrite(for: drag.token)
         let startFrame = state.nativeResizeStart.flatMap { $0.token == drag.token ? $0.frame : nil }
-        let pendingFrameChangesSize = startFrame.map {
-            controller.axManager.hasPendingFrameSizeChange(for: drag.token.windowId, comparedTo: $0.size)
-        } ?? true
         state.nativeResizeStart = nil
         drag.phase = .dragging
-        recordNativeDragStartFrames(
+        let pendingFrameChangesSize = recordNativeDragStartFrames(
             &drag,
             from: startFrame,
             awaitingWrite: hadUnsettledFrameWrite,
@@ -244,14 +241,22 @@ extension MouseEventHandler {
         awaitingWrite hadUnsettledFrameWrite: Bool,
         in workspaceId: WorkspaceDescriptor.ID,
         controller: WMController
-    ) {
-        let onLandscapeStrip = controller.isLandscapeNiriStrip(workspaceId)
+    ) -> Bool {
+        let onNiriStrip = controller.isNiriStrip(workspaceId)
+        let onLandscapeStrip = onNiriStrip && controller.isOnLandscapeDisplay(workspaceId)
         drag.startedOnLandscapeNiriStrip = onLandscapeStrip
-        let stripStartFrame = onLandscapeStrip ? controller.axManager.lastAppliedFrame(for: drag.token.windowId) : nil
-        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? stripStartFrame
-        drag.pendingWriteStartFrame = hadUnsettledFrameWrite && onLandscapeStrip
-            ? controller.axManager.awaitedFrameWrite(for: drag.token.windowId) ?? stripStartFrame
-            : nil
+        let stripStartFrame = onNiriStrip ? controller.axManager.lastAppliedFrame(for: drag.token.windowId) : nil
+        let pending = hadUnsettledFrameWrite && onNiriStrip
+            ? controller.axManager.awaitedFrameWrite(for: drag.token.windowId) : nil
+        let pendingChangesSize = hadUnsettledFrameWrite
+            ? (startFrame ?? (onLandscapeStrip ? nil : stripStartFrame)).map {
+                controller.axManager.hasPendingFrameSizeChange(for: drag.token.windowId, comparedTo: $0.size)
+            } ?? true : false
+        let hasPrimaryPress = onLandscapeStrip || onNiriStrip &&
+            isPortraitPrimaryResizePress(in: pending ?? stripStartFrame)
+        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? (hasPrimaryPress ? stripStartFrame : nil)
+        drag.pendingWriteStartFrame = hadUnsettledFrameWrite && hasPrimaryPress
+            && (onLandscapeStrip || !pendingChangesSize) ? pending ?? stripStartFrame : nil
         if onLandscapeStrip {
             let entry = controller.workspaceManager.entry(for: drag.token)
             drag.liveStartFrame = entry.flatMap(fastNativeWindowFrame) ?? stripStartFrame ?? startFrame
@@ -259,6 +264,19 @@ extension MouseEventHandler {
                     controller.niriEngine?.findNode(for: drag.token, in: entry.workspaceId)?.frame
                 }
         }
+        return pendingChangesSize
+    }
+
+    private func isPortraitPrimaryResizePress(in frame: CGRect?) -> Bool {
+        guard let frame, let press = state.leftPressLocation else { return false }
+        let outset = NiriLayoutEngine.doubleClickEdgeOutset
+        let zone = NiriLayoutEngine.fusionDoubleClickZone(
+            at: press,
+            in: frame,
+            gap: outset * 2,
+            bounds: frame.insetBy(dx: -outset, dy: -outset)
+        )
+        return zone == .edge(.top) || zone == .edge(.bottom)
     }
 
     private func finishNiriSlideBeforeDrag(in workspaceId: WorkspaceDescriptor.ID, controller: WMController) {

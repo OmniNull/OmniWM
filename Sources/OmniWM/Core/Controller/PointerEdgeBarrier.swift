@@ -103,11 +103,15 @@ final class PointerEdgeBarrier: Sendable {
     }
 
     struct ResizeHold: Equatable {
-        var minX: CGFloat?
-        var maxX: CGFloat?
+        var orientation: Monitor.Orientation = .horizontal
+        var minimum: CGFloat?
+        var maximum: CGFloat?
 
-        func clamped(_ x: CGFloat) -> CGFloat {
-            min(max(x, minX ?? -.infinity), maxX ?? .infinity)
+        func clamped(_ point: CGPoint) -> CGPoint {
+            let horizontal = orientation == .horizontal
+            let value = horizontal ? point.x : point.y
+            let clamped = min(max(value, minimum ?? -.infinity), maximum ?? .infinity)
+            return horizontal ? CGPoint(x: clamped, y: point.y) : CGPoint(x: point.x, y: clamped)
         }
     }
 
@@ -171,8 +175,8 @@ final class PointerEdgeBarrier: Sendable {
         }
         guard changed else { return }
         MouseTrace.record(
-            "edge-resize-hold publish min=\(hold?.minX.map { "\(Int($0))" } ?? "-") "
-                + "max=\(hold?.maxX.map { "\(Int($0))" } ?? "-")"
+            "edge-resize-hold publish min=\(hold?.minimum.map { "\(Int($0))" } ?? "-") "
+                + "max=\(hold?.maximum.map { "\(Int($0))" } ?? "-")"
         )
     }
 
@@ -340,9 +344,9 @@ final class PointerEdgeBarrier: Sendable {
         let (resizeHold, holdsLiveDrag) = state.withLock { ($0.resizeHold, $0.liveDragHold != nil) }
         if let resizeHold {
             let location = event.location
-            let x = resizeHold.clamped(location.x)
-            if x != location.x {
-                event.location = CGPoint(x: x, y: location.y)
+            let clamped = resizeHold.clamped(location)
+            if clamped != location {
+                event.location = clamped
             }
         }
         return holdsLiveDrag ? handleLiveDragEvent(event) : Unmanaged.passUnretained(event)
