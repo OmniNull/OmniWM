@@ -88,18 +88,15 @@ final class WindowMinimizationTests: XCTestCase {
         }, original)
     }
 
-    func testWithMacOSFusionMinimizingTheSelectedWindowSelectsTheWindowTakingItsPlace() throws {
-        let cases: [(fusion: Bool, minimized: Int, stacked: Bool, expected: Int)] = [
-            (true, 2, false, 3),
-            (true, 4, false, 3),
-            (true, 1, true, 2),
-            (false, 2, false, 0),
-            (false, 4, false, 0)
+    func testMinimizingTheSelectedWindowSelectsTheWindowTakingItsPlace() throws {
+        let cases: [(minimized: Int, stacked: Bool, expected: Int)] = [
+            (2, false, 3),
+            (4, false, 3),
+            (1, true, 2)
         ]
         for (index, testCase) in cases.enumerated() {
             let label = "case \(index)"
             let controller = WindowAdmissionTestSupport.controller()
-            controller.settings.niri.macOSFusion = testCase.fusion
             let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
             _ = controller.workspaceManager.focusWorkspace(named: "1")
             controller.niriLayoutHandler.enableNiriLayout()
@@ -135,11 +132,10 @@ final class WindowMinimizationTests: XCTestCase {
         }
     }
 
-    func testWithMacOSFusionTheColumnsBesideAMinimizedWindowSlideIntoItsPlaceAndBack() throws {
-        for (fusion, animated) in [(true, true), (false, true), (true, false)] {
-            let label = "fusion \(fusion) animated \(animated)"
+    func testTheColumnsBesideAMinimizedWindowSlideIntoItsPlaceAndBack() throws {
+        for animated in [true, false] {
+            let label = "animated \(animated)"
             let controller = WindowAdmissionTestSupport.controller()
-            controller.settings.niri.macOSFusion = fusion
             controller.motionPolicy.animationsEnabled = animated
             let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
             _ = controller.workspaceManager.focusWorkspace(named: "1")
@@ -166,16 +162,10 @@ final class WindowMinimizationTests: XCTestCase {
                 controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [workspaceId]).first
             }, label)
 
-            let slides = fusion && animated
             for index in [3, 4] {
-                XCTAssertEqual(columns[index].moveAnimation != nil, slides, "\(label) after \(index)")
+                XCTAssertEqual(columns[index].moveAnimation != nil, animated, "\(label) after \(index)")
                 if let start = columns[index].moveAnimation?.animation.startTime {
-                    XCTAssertEqual(
-                        columns[index].renderOffset(at: start).x,
-                        span + gap,
-                        accuracy: 1,
-                        "\(label) \(index)"
-                    )
+                    XCTAssertEqual(columns[index].renderOffset(at: start).x, span + gap, "\(label) \(index)")
                 }
             }
             for index in [0, 1] {
@@ -195,13 +185,12 @@ final class WindowMinimizationTests: XCTestCase {
                 controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [workspaceId]).first
             }, label)
             let reopened = columns.contains { $0.moveAnimation != nil }
-            XCTAssertEqual(reopened, slides, "\(label) shown again")
+            XCTAssertEqual(reopened, animated, "\(label) shown again")
         }
     }
 
-    func testWithMacOSFusionAWindowMinimizedInsideAStackResizesItsMatesWithAnAnimation() throws {
+    func testAWindowMinimizedInsideAStackResizesItsMatesWithAnAnimation() throws {
         let controller = WindowAdmissionTestSupport.controller()
-        controller.settings.niri.macOSFusion = true
         controller.motionPolicy.animationsEnabled = true
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         _ = controller.workspaceManager.focusWorkspace(named: "1")
@@ -269,13 +258,12 @@ final class WindowMinimizationTests: XCTestCase {
         XCTAssertNil(mate.moveXAnimation, "the stack-mate doesn't move sideways on the restore")
     }
 
-    func testWithMacOSFusionARestoredWindowOpensInItsPlace() throws {
+    func testARestoredWindowOpensInItsPlace() throws {
         let wide: [CGFloat] = [0.2, 0.45, 0.4, 0.3, 0.3]
         let cases: [(Int, Int, [CGFloat]?)] = [(2, 3, nil), (4, 3, nil), (0, 1, nil), (2, 1, nil), (1, 2, wide)]
         for (minimized, selectedAfter, widths) in cases {
             let label = "minimized \(minimized) selected \(selectedAfter) wide \(widths != nil)"
             let controller = WindowAdmissionTestSupport.controller()
-            controller.settings.niri.macOSFusion = true
             controller.motionPolicy.animationsEnabled = true
             let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
             _ = controller.workspaceManager.focusWorkspace(named: "1")
@@ -343,7 +331,7 @@ final class WindowMinimizationTests: XCTestCase {
         }
     }
 
-    func testWithMacOSFusionMinimizingAndRestoringGivesTheScreenBack() throws {
+    func testMinimizingAndRestoringGivesTheScreenBack() throws {
         for count in [5, 6, 7] {
             for focusedFirst in 0 ..< count {
                 for minimized in 0 ..< count {
@@ -366,11 +354,10 @@ final class WindowMinimizationTests: XCTestCase {
         }
     }
 
-    func testWithMacOSFusionMinimizingTheFocusedOneOfTwoCentredWindowsSlidesTheOtherFromWhereItIs() throws {
+    func testMinimizingTheFocusedOneOfTwoCentredWindowsSlidesTheOtherFromWhereItIs() throws {
         for minimized in [1, 0] {
             let label = "minimized \(minimized)"
             let controller = WindowAdmissionTestSupport.controller()
-            controller.settings.niri.macOSFusion = true
             controller.settings.niri.alwaysCenterSingleColumn = true
             controller.settings.niri.singleWindowFit = SingleWindowFit(mode: .containerPrimarySpan)
             controller.motionPolicy.animationsEnabled = true
@@ -425,11 +412,10 @@ final class WindowMinimizationTests: XCTestCase {
         }
     }
 
-    func testWithMacOSFusionTwoColumnsHiddenAndShownTogetherGiveTheScreenBack() throws {
+    func testTwoColumnsHiddenAndShownTogetherGiveTheScreenBack() throws {
         for (first, second) in [(1, 3), (0, 4), (2, 3)] {
             let label = "hidden \(first) and \(second)"
             let controller = WindowAdmissionTestSupport.controller()
-            controller.settings.niri.macOSFusion = true
             controller.motionPolicy.animationsEnabled = true
             let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
             _ = controller.workspaceManager.focusWorkspace(named: "1")
@@ -492,84 +478,116 @@ final class WindowMinimizationTests: XCTestCase {
         }
     }
 
-    func testWithMacOSFusionAMinimizesSecondNoticeKeepsTheSlidesItsPassStarted() throws {
-        for fusion in [true, false] {
-            let label = "fusion \(fusion)"
-            let controller = WindowAdmissionTestSupport.controller()
-            controller.settings.niri.macOSFusion = fusion
-            controller.motionPolicy.animationsEnabled = true
-            let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
-            _ = controller.workspaceManager.focusWorkspace(named: "1")
-            controller.niriLayoutHandler.enableNiriLayout()
-            controller.applyMacOSFusionSettings()
-            let tokens = (0 ..< 3).map { WindowToken(pid: 688_100, windowId: 689_100 + $0) }
-            for token in tokens {
-                _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
-            }
-            let engine = try XCTUnwrap(controller.niriEngine)
-            relayout(controller, workspaceId)
-            controller.layoutRefreshController.layoutState.hasCompletedInitialRefresh = true
-            let columns = engine.columns(in: workspaceId)
-            let minimized = try XCTUnwrap(columns[1].windowNodes.first).token
-
-            XCTAssertTrue(
-                controller.axEventHandler.updateWindowNativeWithdrawalState(
-                    true,
-                    token: minimized,
-                    requestRefresh: false
-                ),
-                label
-            )
-            relayout(controller, workspaceId)
-            XCTAssertEqual(controller.niriLayoutHandler.laidOutExclusions[workspaceId] != nil, fusion, label)
-            columns[2].animateMoveFrom(
-                displacement: CGPoint(x: 300, y: 0),
-                clock: engine.animationClock,
-                config: engine.windowMovementAnimationConfig,
-                animated: true
-            )
-            XCTAssertNotNil(columns[2].moveAnimation, label)
-
-            XCTAssertTrue(
-                controller.axEventHandler.updateWindowMinimizedState(true, token: minimized, requestRefresh: false),
-                label
-            )
-
-            XCTAssertEqual(columns[2].moveAnimation != nil, fusion, "\(label) slide kept")
+    func testAMinimizesSecondNoticeKeepsTheSlidesItsPassStarted() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        controller.motionPolicy.animationsEnabled = true
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.niriLayoutHandler.enableNiriLayout()
+        controller.applyMacOSFusionSettings()
+        let tokens = (0 ..< 3).map { WindowToken(pid: 688_100, windowId: 689_100 + $0) }
+        for token in tokens {
+            _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
         }
+        let engine = try XCTUnwrap(controller.niriEngine)
+        relayout(controller, workspaceId)
+        controller.layoutRefreshController.layoutState.hasCompletedInitialRefresh = true
+        let columns = engine.columns(in: workspaceId)
+        let minimized = try XCTUnwrap(columns[1].windowNodes.first).token
+
+        XCTAssertTrue(
+            controller.axEventHandler.updateWindowNativeWithdrawalState(
+                true,
+                token: minimized,
+                requestRefresh: false
+            )
+        )
+        relayout(controller, workspaceId)
+        XCTAssertNotNil(controller.niriLayoutHandler.laidOutExclusions[workspaceId])
+        columns[2].animateMoveFrom(
+            displacement: CGPoint(x: 300, y: 0),
+            clock: engine.animationClock,
+            config: engine.windowMovementAnimationConfig,
+            animated: true
+        )
+        XCTAssertNotNil(columns[2].moveAnimation)
+
+        XCTAssertTrue(
+            controller.axEventHandler.updateWindowMinimizedState(true, token: minimized, requestRefresh: false)
+        )
+
+        XCTAssertNotNil(columns[2].moveAnimation)
     }
 
-    func testWithMacOSFusionAPassThatLeavesAViewSlidePendingStartsTheRun() throws {
-        for fusion in [true] {
-            let label = "fusion \(fusion)"
-            let controller = WindowAdmissionTestSupport.controller()
-            controller.settings.niri.macOSFusion = fusion
-            controller.motionPolicy.animationsEnabled = true
-            let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
-            _ = controller.workspaceManager.focusWorkspace(named: "1")
-            controller.niriLayoutHandler.enableNiriLayout()
-            controller.applyMacOSFusionSettings()
-            for index in 0 ..< 4 {
-                let token = WindowToken(pid: 688_110, windowId: 689_200 + index)
-                _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
-            }
-            relayout(controller, workspaceId)
-            controller.layoutRefreshController.layoutState.hasCompletedInitialRefresh = true
-            controller.workspaceManager.withNiriViewportState(for: workspaceId) { state in
-                state.springOffset(to: state.viewOffset - 200)
-            }
-
-            let plan = try XCTUnwrap(controller.workspaceManager.withEngineMutationScope {
-                controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [workspaceId]).first
-            }, label)
-
-            XCTAssertTrue(try XCTUnwrap(plan.sessionPatch.viewportState, label).hasPendingOffsetAnimation, label)
-            let starts = plan.animationDirectives.contains { directive in
-                if case let .startNiriScroll(scrolled) = directive { return scrolled == workspaceId }
-                return false
-            }
-            XCTAssertTrue(starts, "\(label) run started")
+    func testAPassThatLeavesAViewSlidePendingStartsTheRun() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        controller.motionPolicy.animationsEnabled = true
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.niriLayoutHandler.enableNiriLayout()
+        controller.applyMacOSFusionSettings()
+        for index in 0 ..< 4 {
+            let token = WindowToken(pid: 688_110, windowId: 689_200 + index)
+            _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
         }
+        relayout(controller, workspaceId)
+        controller.layoutRefreshController.layoutState.hasCompletedInitialRefresh = true
+        controller.workspaceManager.withNiriViewportState(for: workspaceId) { state in
+            state.springOffset(to: state.viewOffset - 200)
+        }
+
+        let plan = try XCTUnwrap(controller.workspaceManager.withEngineMutationScope {
+            controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [workspaceId]).first
+        })
+
+        XCTAssertTrue(try XCTUnwrap(plan.sessionPatch.viewportState).hasPendingOffsetAnimation)
+        let starts = plan.animationDirectives.contains { directive in
+            if case let .startNiriScroll(scrolled) = directive { return scrolled == workspaceId }
+            return false
+        }
+        XCTAssertTrue(starts)
+    }
+
+    func testAWorkspaceSwitchedToDwindleStillCancelsItsAnimationsWhenAWindowIsMinimized() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        controller.motionPolicy.animationsEnabled = true
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.niriLayoutHandler.enableNiriLayout()
+        controller.enableDwindleLayout()
+        let tokens = (0 ..< 3).map { WindowToken(pid: 688_120, windowId: 689_300 + $0) }
+        for token in tokens {
+            _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
+        }
+        let engine = try XCTUnwrap(controller.niriEngine)
+        relayout(controller, workspaceId)
+        controller.layoutRefreshController.layoutState.hasCompletedInitialRefresh = true
+        let columns = engine.columns(in: workspaceId)
+        let minimized = try XCTUnwrap(columns[1].windowNodes.first).token
+        XCTAssertTrue(
+            controller.axEventHandler.updateWindowNativeWithdrawalState(
+                true,
+                token: minimized,
+                requestRefresh: false
+            )
+        )
+        relayout(controller, workspaceId)
+
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+        XCTAssertEqual(controller.niriLayoutHandler.laidOutExclusions[workspaceId]?.contains(minimized), true)
+        columns[2].animateMoveFrom(
+            displacement: CGPoint(x: columns[2].cachedWidth, y: 0),
+            clock: engine.animationClock,
+            config: engine.windowMovementAnimationConfig,
+            animated: true
+        )
+        XCTAssertNotNil(columns[2].moveAnimation)
+
+        XCTAssertTrue(
+            controller.axEventHandler.updateWindowMinimizedState(true, token: minimized, requestRefresh: false)
+        )
+
+        XCTAssertNil(columns[2].moveAnimation)
     }
 
     private func checkMinimizeAndRestore(
@@ -580,7 +598,6 @@ final class WindowMinimizationTests: XCTestCase {
     ) throws {
         let label = "count \(count) focused first \(focusedFirst) minimized \(minimized) strip ends \(keepsStripEnds)"
         let controller = WindowAdmissionTestSupport.controller()
-        controller.settings.niri.macOSFusion = true
         controller.settings.niri.keepStripEndsOnScreen = keepsStripEnds
         controller.motionPolicy.animationsEnabled = true
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
@@ -789,7 +806,7 @@ final class WindowMinimizationTests: XCTestCase {
         XCTAssertEqual(factReads, 1)
     }
 
-    func testWithMacOSFusionRestoringAFloatingWindowRescansItsAppSoItsKindIsReadAgain() throws {
+    func testRestoringAFloatingWindowRescansItsAppSoItsKindIsReadAgain() throws {
         let controller = WindowAdmissionTestSupport.controller()
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         let floating = WindowToken(pid: 688_009, windowId: 688_901)
@@ -809,33 +826,24 @@ final class WindowMinimizationTests: XCTestCase {
         controller.axEventHandler.handleWindowMinimized(pid: tiled.pid, axRef: tiledRef, minimized: false)
         XCTAssertEqual(rescans(), [])
 
-        controller.settings.niri.macOSFusion = false
-        controller.workspaceManager.setWindowMinimized(true, token: floating)
-        controller.axEventHandler.handleWindowMinimized(pid: floating.pid, axRef: floatingRef, minimized: false)
-        XCTAssertEqual(rescans(), [])
-
-        controller.settings.niri.macOSFusion = true
         controller.workspaceManager.setWindowMinimized(true, token: floating)
         controller.axEventHandler.handleWindowMinimized(pid: floating.pid, axRef: floatingRef, minimized: false)
         XCTAssertEqual(rescans(), [.targeted(appPIDs: [floating.pid], nativeSpaceIds: [])])
     }
 
-    func testAFloatingWindowTiledWithMacOSFusionGlidesFromWhereItWas() throws {
+    func testAFloatingWindowTiledOnANiriStripGlidesFromWhereItWas() throws {
         let controller = WindowAdmissionTestSupport.controller()
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         controller.niriLayoutHandler.enableNiriLayout()
         let engine = try XCTUnwrap(controller.niriEngine)
         let frame = CGRect(x: 300, y: 200, width: 500, height: 400)
-        for (index, macOSFusion) in [false, true].enumerated() {
-            let token = WindowToken(pid: 688_011, windowId: 688_910 + index)
-            _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
-            XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: token))
-            controller.settings.niri.macOSFusion = macOSFusion
+        let token = WindowToken(pid: 688_011, windowId: 688_911)
+        _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
+        XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: token))
 
-            XCTAssertTrue(controller.transitionWindowMode(for: token, to: .tiling, observedFrame: frame))
+        XCTAssertTrue(controller.transitionWindowMode(for: token, to: .tiling, observedFrame: frame))
 
-            XCTAssertEqual(engine.stripGlides[token]?.frame, macOSFusion ? frame : nil)
-        }
+        XCTAssertEqual(engine.stripGlides[token]?.frame, frame)
     }
 
     func testAFloatingWindowTiledInADwindleWorkspaceNotesNoGlide() throws {
@@ -849,7 +857,6 @@ final class WindowMinimizationTests: XCTestCase {
         let token = WindowToken(pid: 688_012, windowId: 688_912)
         _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
         XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: token))
-        controller.settings.niri.macOSFusion = true
 
         XCTAssertTrue(controller.transitionWindowMode(
             for: token,

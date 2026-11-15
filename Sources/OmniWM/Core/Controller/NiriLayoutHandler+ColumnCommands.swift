@@ -214,7 +214,7 @@ extension NiriLayoutHandler {
         withNiriWindowContext(target) { engine, windowNode, context, state in
             let workspaceId = context.workspaceId
             guard let column = engine.column(of: windowNode) else { return }
-            let movesFromRealPlaces = controller.settings.niri.macOSFusion && context.orientation == .horizontal
+            let movesFromRealPlaces = context.orientation == .horizontal
             let previousPlaces = movesFromRealPlaces ? engine.liveWindowPlaces(in: [column], context: context) : [:]
             let shownTab = movesFromRealPlaces && column.isTabbed
                 ? engine.projectedActiveWindow(in: column, workspaceId: workspaceId)

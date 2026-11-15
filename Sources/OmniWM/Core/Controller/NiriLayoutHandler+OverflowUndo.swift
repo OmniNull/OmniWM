@@ -24,8 +24,8 @@ extension NiriLayoutHandler {
         expectedWindow: AXWindowRef? = nil
     ) {
         guard let controller,
-              controller.settings.niri.macOSFusion,
               let entry = controller.workspaceManager.entry(forPid: pid, windowId: windowId),
+              controller.isNiriStrip(entry.workspaceId),
               let axRef = entry.axRef,
               expectedWindow.map({ sameAXWindowIdentity(axRef, $0) }) ?? true,
               entry.mode == .tiling,

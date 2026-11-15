@@ -220,9 +220,7 @@ extension WMController {
         referenceMonitor: Monitor?
     ) -> Bool {
         let token = entry.token
-        if let currentFrame, settings.niri.macOSFusion,
-           workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri
-        {
+        if let currentFrame, isNiriStrip(entry.workspaceId) {
             niriEngine?.noteStripGlide(for: token, from: currentFrame)
         }
         if let currentFrame {

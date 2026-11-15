@@ -263,11 +263,7 @@ extension AXEventHandler {
         case .external: false
         }
         let animationDriver = controller.workspaceManager.animationDriver
-        let preserveViewport = (
-            controller.settings.niri.macOSFusion
-                ? animationDriver.hasUserMotion(in: wsId)
-                : animationDriver.hasMotion(in: wsId)
-        )
+        let preserveViewport = animationDriver.hasUserMotion(in: wsId)
             || preservesPointerViewport
             || preservesAppTerminationRecoveryViewport(for: entry.token)
         let clickFocusWithoutScrolling = controller.settings.focus.clickFocusWithoutScrolling

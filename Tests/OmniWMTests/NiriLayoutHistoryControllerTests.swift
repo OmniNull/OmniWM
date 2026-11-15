@@ -101,7 +101,6 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
             hasNotch: false,
             name: "Undo animation, second"
         )
-        controller.settings.niri.macOSFusion = true
         controller.settings.workspaces.configurations = workspaceNames.enumerated().map { index, name in
             WorkspaceConfiguration(
                 name: name,

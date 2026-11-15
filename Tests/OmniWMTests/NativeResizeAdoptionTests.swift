@@ -3324,31 +3324,24 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
     }
 
     func testUndoGivesALoneFilledWindowItsFillFrameBack() throws {
-        for (index, fusion) in [false, true].enumerated() {
-            let fixture = try makeFixture(.niri, windowCount: 1, pid: pid_t(834_081 + index))
-            fixture.controller.settings.gestures.adoptNativeResize = !fusion
-            fixture.controller.settings.niri.macOSFusion = fusion
-            fixture.controller.motionPolicy.animationsEnabled = false
-            let blocker = blockRefreshes(fixture)
-            defer { unblockRefreshes(fixture, blocker: blocker) }
-            let token = fixture.tokens[0]
-            let before = try fixture.frames()
-            try fixture.release(token, at: grown(try fixture.frame(token), right: -300))
-            XCTAssertNotEqual(try fixture.frames(), before, "fusion=\(fusion)")
-            guard fusion else {
-                XCTAssertFalse(undo(fixture))
-                continue
-            }
+        let fixture = try makeFixture(.niri, windowCount: 1, pid: 834_082)
+        fixture.controller.settings.gestures.adoptNativeResize = false
+        fixture.controller.motionPolicy.animationsEnabled = false
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let token = fixture.tokens[0]
+        let before = try fixture.frames()
+        try fixture.release(token, at: grown(try fixture.frame(token), right: -300))
+        XCTAssertNotEqual(try fixture.frames(), before)
 
-            XCTAssertTrue(undo(fixture), "fusion=\(fusion)")
+        XCTAssertTrue(undo(fixture))
 
-            XCTAssertFalse(try fixture.column(token).hasManualSingleWindowWidthOverride, "fusion=\(fusion)")
-            XCTAssertEqual(try fixture.frames(), before, "fusion=\(fusion)")
-            XCTAssertFalse(undo(fixture), "fusion=\(fusion)")
-        }
+        XCTAssertFalse(try fixture.column(token).hasManualSingleWindowWidthOverride)
+        XCTAssertEqual(try fixture.frames(), before)
+        XCTAssertFalse(undo(fixture))
     }
 
-    func testUndoAndRedoAreRegisteredOnlyWithMacOSFusionAndKeepTheirBindings() throws {
+    func testUndoAndRedoAreRegisteredAndKeepTheirBindings() throws {
         let fixture = try makeFixture(.niri, pid: 834_090)
         let controller = fixture.controller
         let registered = { (id: String) in controller.hotkeys.configuration.bindings.contains { $0.id == id } }
@@ -3356,18 +3349,11 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             XCTAssertNotNil(controller.settings.hotkeyBindings.first { $0.id == id }, id)
         }
 
-        controller.settings.niri.macOSFusion = false
-        controller.applyMacOSFusionSettings()
-        XCTAssertFalse(controller.settings.isCommandFeatureEnabled(.sizing(.undo)))
-        XCTAssertFalse(controller.settings.isCommandFeatureEnabled(.sizing(.redo)))
         let undo = try XCTUnwrap(controller.settings.hotkeyBindings.first { $0.id == "undo" })
-        XCTAssertTrue(controller.settings.findConflicts(for: undo.binding, excluding: "other").isEmpty)
-        XCTAssertFalse(registered("undo"))
-        XCTAssertFalse(registered("redo"))
 
-        controller.settings.niri.macOSFusion = true
         controller.applyMacOSFusionSettings()
         XCTAssertTrue(controller.settings.isCommandFeatureEnabled(.sizing(.undo)))
+        XCTAssertTrue(controller.settings.isCommandFeatureEnabled(.sizing(.redo)))
         XCTAssertEqual(
             controller.settings.findConflicts(for: undo.binding, excluding: "other").map(\.id),
             ["undo"]

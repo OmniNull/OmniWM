@@ -855,31 +855,24 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.handler.holdsSelectionScroll(in: fixture.workspaceId))
     }
 
-    func testAWindowFocusedWhileOmniWMsOwnScrollRunsIsScrolledIntoViewOnlyWithMacOSFusion() async throws {
-        for macOSFusion in [true, false] {
-            let fixture = try makeFixture(pid: macOSFusion ? 938_017 : 938_400, windowCount: 5)
-            let target = fixture.tokens[3]
-            try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
-            fixture.controller.settings.niri.macOSFusion = macOSFusion
-            fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
-                state.springOffset(to: state.viewOffset - 40)
-            }
-            XCTAssertTrue(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
-            XCTAssertFalse(fixture.manager.animationDriver.hasUserMotion(in: fixture.workspaceId))
-
-            fixture.controller.axEventHandler.handleManagedAppActivation(
-                entry: try fixture.entry(target), isWorkspaceActive: true, appFullscreen: false
-            )
-            fixture.manager.animationDriver.removeMotions(for: [fixture.workspaceId])
-            try await drainRefreshes(fixture)
-
-            let workingFrame = fixture.controller.insetWorkingFrame(for: fixture.monitor)
-            XCTAssertEqual(
-                try fixture.settledFrame(target).maxX <= workingFrame.maxX + 1,
-                macOSFusion,
-                "macOSFusion: \(macOSFusion)"
-            )
+    func testAWindowFocusedWhileOmniWMsOwnScrollRunsIsScrolledIntoView() async throws {
+        let fixture = try makeFixture(pid: 938_017, windowCount: 5)
+        let target = fixture.tokens[3]
+        try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
+        fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.springOffset(to: state.viewOffset - 40)
         }
+        XCTAssertTrue(fixture.manager.animationDriver.hasMotion(in: fixture.workspaceId))
+        XCTAssertFalse(fixture.manager.animationDriver.hasUserMotion(in: fixture.workspaceId))
+
+        fixture.controller.axEventHandler.handleManagedAppActivation(
+            entry: try fixture.entry(target), isWorkspaceActive: true, appFullscreen: false
+        )
+        fixture.manager.animationDriver.removeMotions(for: [fixture.workspaceId])
+        try await drainRefreshes(fixture)
+
+        let workingFrame = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+        XCTAssertLessThanOrEqual(try fixture.settledFrame(target).maxX, workingFrame.maxX)
     }
 
     func testAPressThatBecomesALiveDragDropsTheDeferredClickScroll() throws {
@@ -1723,6 +1716,36 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
         XCTAssertEqual(try column(holding: fixture.tokens[1], in: fixture).windowNodes.count, 1)
         XCTAssertEqual(try column(holding: fixture.tokens[2], in: fixture).windowNodes.count, 1)
+    }
+
+    func testASizeRefusalInAWorkspaceSwitchedToDwindleReportsNoOverflow() throws {
+        for switchesToDwindle in [false, true] {
+            let fixture = try makeFixture(pid: switchesToDwindle ? 938_146 : 938_145)
+            _ = watchOverflows(fixture)
+            try recordStep(in: fixture) {
+                XCTAssertTrue(move(fixture.tokens[1], after: fixture.tokens[2], in: fixture))
+            }
+            let token = fixture.tokens[1]
+            let asked = try XCTUnwrap(fixture.engine.findNode(for: token, in: fixture.workspaceId)?.frame)
+            var taken = asked
+            taken.size.height += 2 * AXRecentFrameWriteFailure.maxAcceptedSizeSnap
+            if switchesToDwindle {
+                XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+                XCTAssertEqual(try column(holding: token, in: fixture).windowNodes.count, 2)
+            }
+
+            fixture.controller.axManager.onTerminalFrameRefusal?(AXFrameTerminalRefusal(
+                pid: token.pid,
+                windowId: token.windowId,
+                targetFrame: asked,
+                observedFrame: taken,
+                failureReason: .verificationMismatch
+            ))
+
+            let handler = fixture.controller.niriLayoutHandler
+            XCTAssertEqual(handler.overflowReports.isEmpty, switchesToDwindle, "to Dwindle \(switchesToDwindle)")
+            XCTAssertEqual(handler.isOverflowCheckScheduled, !switchesToDwindle, "to Dwindle \(switchesToDwindle)")
+        }
     }
 
     func testATabbedColumnTurnedIntoAStackThatOverflowsIsUndone() throws {

@@ -20,7 +20,7 @@ extension AXEventHandler {
         }
         guard let entryAXRef = entry.axRef, CFEqual(entryAXRef.element, axRef.element) else { return }
         updateWindowMinimizedState(minimized, token: token)
-        if !minimized, entry.mode == .floating, controller.settings.niri.macOSFusion {
+        if !minimized, entry.mode == .floating {
             requestTargetedFullRescan(for: [pid])
         }
         if !minimized, frontmostApplicationPIDProvider() == pid {
@@ -83,7 +83,7 @@ extension AXEventHandler {
                 _ = controller.cancelManagedFocusRequest(request)
             }
             controller.intentLedger.discardPendingFocus(token)
-            let slideAlreadyPlanned = controller.settings.niri.macOSFusion
+            let slideAlreadyPlanned = controller.isNiriStrip(entry.workspaceId)
                 && controller.niriLayoutHandler.laidOutExclusions[entry.workspaceId]?.contains(token) == true
             if !slideAlreadyPlanned {
                 controller.layoutRefreshController.cancelActiveAnimations(for: entry.workspaceId)

@@ -338,9 +338,7 @@ extension NiriLayoutHandler {
         pass: NiriLayoutPass,
         excludedTokens: Set<WindowToken>
     ) -> NiriWindow? {
-        guard controller?.settings.niri.macOSFusion == true,
-              let column = pass.engine.column(of: window)
-        else { return nil }
+        guard let column = pass.engine.column(of: window) else { return nil }
         let isShown: (NiriWindow) -> Bool = { !excludedTokens.contains($0.token) }
         let stack = column.windowNodes
         if let index = stack.firstIndex(where: { $0 === window }),

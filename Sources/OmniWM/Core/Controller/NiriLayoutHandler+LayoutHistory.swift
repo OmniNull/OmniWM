@@ -15,9 +15,8 @@ struct NiriLayoutChangeStart {
 extension NiriLayoutHandler {
     func layoutChangeStart(in workspaceId: WorkspaceDescriptor.ID?) -> NiriLayoutChangeStart? {
         guard let controller,
-              controller.settings.niri.macOSFusion,
               let workspaceId,
-              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
+              controller.isNiriStrip(workspaceId),
               let engine = controller.niriEngine,
               let main = engine.layoutSnapshot(in: workspaceId, focused: focusedToken(in: workspaceId))
         else { return nil }
@@ -64,9 +63,8 @@ extension NiriLayoutHandler {
         keepingFocus: Bool = false
     ) -> Bool {
         guard let controller,
-              controller.settings.niri.macOSFusion,
               let workspaceId = requestedWorkspaceId ?? layoutHistoryWorkspaceId(),
-              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
+              controller.isNiriStrip(workspaceId),
               let engine = controller.niriEngine,
               !engine.isLiveColumnMoveActive(in: workspaceId),
               !engine.isLiveStackDropPending(in: workspaceId),

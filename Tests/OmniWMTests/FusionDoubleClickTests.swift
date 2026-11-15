@@ -800,19 +800,20 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
-    func testWithoutMacOSFusionTheCycleSizeKeysKeepUpstreamsResize() throws {
-        let keyed = try makeFixture(pid: 941_124)
-        let upstream = try makeFixture(pid: 941_125)
+    func testOnAPortraitStripTheCycleSizeKeysKeepUpstreamsResize() throws {
+        let keyed = try makeFixture(pid: 941_124, portrait: true)
+        let upstream = try makeFixture(pid: 941_125, portrait: true)
         for fixture in [keyed, upstream] {
-            fixture.controller.settings.niri.macOSFusion = false
             try fixture.select(fixture.tokens[1])
         }
+        let before = try keyed.frame(keyed.tokens[1])
 
         keyed.controller.niriLayoutHandler.cycleSize(forward: true)
         upstream.controller.niriLayoutHandler.cycleContainerPrimarySpan(forward: true)
         keyed.relayout()
         upstream.relayout()
 
+        XCTAssertNotEqual(try keyed.frame(keyed.tokens[1]), before)
         for index in 0 ..< 3 {
             XCTAssertEqual(try keyed.frame(keyed.tokens[index]), try upstream.frame(upstream.tokens[index]), "\(index)")
         }
@@ -1247,7 +1248,12 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         return (frame.minX + gap, frame.maxX - gap, display.minX + peek + gap, display.maxX - peek - gap, peek)
     }
 
-    private func makeFixture(pid: pid_t, windowCount: Int = 3, stackFirstTwo: Bool = false) throws -> Fixture {
+    private func makeFixture(
+        pid: pid_t,
+        windowCount: Int = 3,
+        stackFirstTwo: Bool = false,
+        portrait: Bool = false
+    ) throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "FusionDoubleClickTests")
         addTeardownBlock { @MainActor [controller] in
             controller.hasStartedServices = false
@@ -1267,6 +1273,16 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         )
         controller.settings.niri.macOSFusion = true
         controller.settings.niri.edgePeekPercent = 0
+        if portrait {
+            controller.settings.monitors.updateOrientationSettings(
+                MonitorOrientationSettings(
+                    monitorName: monitor.name,
+                    monitorDisplayId: monitor.displayId,
+                    orientation: .vertical
+                ),
+                for: monitor
+            )
+        }
         controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(
                 name: "1",

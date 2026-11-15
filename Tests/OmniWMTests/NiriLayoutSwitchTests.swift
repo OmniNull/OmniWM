@@ -9,36 +9,33 @@ import XCTest
 @MainActor
 final class NiriLayoutSwitchTests: XCTestCase {
     func testAWorkspaceSwitchedToDwindleKeepsItsNiriStrip() throws {
-        for fusion in [false, true] {
-            let controller = makeController()
-            controller.settings.niri.macOSFusion = fusion
-            let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
-            _ = controller.workspaceManager.focusWorkspace(named: "1")
-            controller.niriLayoutHandler.enableNiriLayout()
-            controller.enableDwindleLayout()
-            let engine = try XCTUnwrap(controller.niriEngine)
-            var previous: NodeId?
-            for index in 0 ..< 2 {
-                let token = controller.workspaceManager.addWindow(
-                    AXWindowRef(
-                        element: AXUIElementCreateApplication(881_301 + pid_t(index)),
-                        windowId: 881_401 + index
-                    ),
-                    pid: 881_301 + pid_t(index),
-                    windowId: 881_401 + index,
-                    to: workspaceId
-                )
-                previous = engine.addWindow(token: token, to: workspaceId, afterSelection: previous).id
-            }
-            XCTAssertEqual(engine.columns(in: workspaceId).count, 2)
-
-            XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
-            controller.workspaceManager.withBatchedLayoutBuild {
-                controller.dwindleLayoutHandler.layoutWithDwindleEngine(activeWorkspaces: [workspaceId])
-            }
-
-            XCTAssertEqual(engine.columns(in: workspaceId).count, 2, "fusion=\(fusion)")
+        let controller = makeController()
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.niriLayoutHandler.enableNiriLayout()
+        controller.enableDwindleLayout()
+        let engine = try XCTUnwrap(controller.niriEngine)
+        var previous: NodeId?
+        for index in 0 ..< 2 {
+            let token = controller.workspaceManager.addWindow(
+                AXWindowRef(
+                    element: AXUIElementCreateApplication(881_301 + pid_t(index)),
+                    windowId: 881_401 + index
+                ),
+                pid: 881_301 + pid_t(index),
+                windowId: 881_401 + index,
+                to: workspaceId
+            )
+            previous = engine.addWindow(token: token, to: workspaceId, afterSelection: previous).id
         }
+        XCTAssertEqual(engine.columns(in: workspaceId).count, 2)
+
+        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+        controller.workspaceManager.withBatchedLayoutBuild {
+            controller.dwindleLayoutHandler.layoutWithDwindleEngine(activeWorkspaces: [workspaceId])
+        }
+
+        XCTAssertEqual(engine.columns(in: workspaceId).count, 2)
     }
 
     private func makeController() -> WMController {
