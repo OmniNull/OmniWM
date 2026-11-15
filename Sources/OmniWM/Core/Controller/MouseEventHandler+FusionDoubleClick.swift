@@ -85,6 +85,7 @@ extension MouseEventHandler {
         let hit: FusionDoubleClickHit
         let engine: NiriLayoutEngine
         let workspaceId: WorkspaceDescriptor.ID
+        let orientation: Monitor.Orientation
     }
 
     private struct FusionDoubleClickTarget {
@@ -92,8 +93,8 @@ extension MouseEventHandler {
         let window: NiriWindow
         let column: NiriContainer
         let workspaceId: WorkspaceDescriptor.ID
+        let orientation: Monitor.Orientation
         let zone: FusionDoubleClickZone
-        let projectedWindowCount: Int
     }
 
     func fusionDoubleClickCandidate(at location: CGPoint, in strip: PressedStrip) -> FusionDoubleClickCandidate? {
@@ -109,9 +110,10 @@ extension MouseEventHandler {
               let controller,
               canHandleManagedMouseInteraction(controller: controller),
               let engine = controller.niriEngine,
-              let monitor = controller.workspaceManager.monitor(for: strip.workspaceId),
-              resolvedNiriOrientation(engine: engine, workspaceId: strip.workspaceId, monitor: monitor) == .horizontal,
-              let hit = engine.fusionDoubleClickHit(
+              let monitor = controller.workspaceManager.monitor(for: strip.workspaceId)
+        else { return nil }
+        let orientation = resolvedNiriOrientation(engine: engine, workspaceId: strip.workspaceId, monitor: monitor)
+        guard let hit = engine.fusionDoubleClickHit(
                   at: location,
                   in: strip.workspaceId,
                   gap: controller.innerGap(for: monitor),
@@ -119,7 +121,10 @@ extension MouseEventHandler {
               ),
               controller.workspaceManager.entry(for: hit.window.token)?.mode == .tiling
         else { return nil }
-        return FusionDoubleClickCandidate(hit: hit, engine: engine, workspaceId: strip.workspaceId)
+        if orientation == .vertical, hit.zone == .edge(.left) || hit.zone == .edge(.right) { return nil }
+        return FusionDoubleClickCandidate(
+            hit: hit, engine: engine, workspaceId: strip.workspaceId, orientation: orientation
+        )
     }
 
     private func fusionDoubleClickTarget(at location: CGPoint) -> FusionDoubleClickTarget? {
@@ -147,9 +152,8 @@ extension MouseEventHandler {
             window: candidate.hit.window,
             column: column,
             workspaceId: candidate.workspaceId,
-            zone: candidate.hit.zone,
-            projectedWindowCount: candidate.engine.projectedWindows(in: column, workspaceId: candidate.workspaceId)
-                .count
+            orientation: candidate.orientation,
+            zone: candidate.hit.zone
         )
     }
 
@@ -163,16 +167,16 @@ extension MouseEventHandler {
         case .titleBar:
             layout.performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
                 guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
-                guard engine.toggleColumnFullWidthAndBack(column, context: context, state: &viewport)
+                guard engine.toggleColumnFullSpanAndBack(column, context: context, state: &viewport)
                 else { return nil }
                 return .containerPrimarySpanChanged
             }
-        case .edge(.left):
-            stretchColumnFromDoubleClick(target, rightSide: false)
-        case .edge(.right):
-            stretchColumnFromDoubleClick(target, rightSide: true)
-        case .edge:
-            if target.projectedWindowCount > 1 {
+        case let .edge(edge):
+            let isPrimary = target.orientation == .horizontal
+                ? edge == .left || edge == .right : edge == .bottom || edge == .top
+            if isPrimary {
+                stretchColumnFromDoubleClick(target, towardTrailingEdge: edge == .right || edge == .top)
+            } else if engine.projectedWindows(in: target.column, workspaceId: target.workspaceId).count > 1 {
                 toggleTabbedFromDoubleClick(target)
             }
         }
@@ -188,63 +192,83 @@ extension MouseEventHandler {
         controller.niriLayoutHandler.toggleColumnTabbed(target: .window(target.handle))
     }
 
-    private func stretchColumnFromDoubleClick(_ target: FusionDoubleClickTarget, rightSide: Bool) {
+    private func stretchColumnFromDoubleClick(_ target: FusionDoubleClickTarget, towardTrailingEdge: Bool) {
         guard let controller else { return }
         let columnId = target.column.id
         controller.niriLayoutHandler
             .performWindowSizing(on: .window(target.handle)) { engine, window, context, viewport in
                 guard let column = engine.findColumn(containing: window, in: context.workspaceId) else { return nil }
-                let width = column.targetWidth ?? column.cachedWidth
-                if let stretch = state.fusionDoubleClickWidths[columnId],
-                   stretch.rightSide == rightSide, abs(stretch.stretch.width - width) < 1
+                let horizontal = context.orientation == .horizontal
+                let span = horizontal ? column.settledWidth : column.settledHeight
+                if let stretch = state.fusionDoubleClickSpans[columnId],
+                   stretch.orientation == context.orientation, stretch.towardTrailingEdge == towardTrailingEdge,
+                   abs(stretch.stretch.span - span) < 1
                 {
-                    state.fusionDoubleClickWidths[columnId] = nil
+                    state.fusionDoubleClickSpans[columnId] = nil
                     engine.stretchColumn(
                         column,
-                        to: ColumnStretch(width: stretch.width, keptSideShift: -stretch.stretch.keptSideShift),
-                        rightSide: rightSide,
+                        to: ColumnStretch(span: stretch.span, keptSideShift: -stretch.stretch.keptSideShift),
+                        towardTrailingEdge: towardTrailingEdge,
                         context: context,
                         state: &viewport
                     )
-                    column.width = stretch.spec
-                    column.presetWidthIdx = stretch.presetIndex
-                    column.hasManualSingleWindowWidthOverride = stretch.hadManualWidth
+                    stretch.restoreSpecification(on: column)
                     return .containerPrimarySpanChanged
                 }
                 guard let reach = engine.columnStretchToScreenEdge(
                     column,
-                    rightSide: rightSide,
+                    towardTrailingEdge: towardTrailingEdge,
                     context: context,
                     state: viewport
-                ), reach.width > width + 1
+                ), reach.span > span + 1
                 else { return nil }
-                state.fusionDoubleClickWidths[columnId] = FusionDoubleClickWidth(
+                state.fusionDoubleClickSpans[columnId] = FusionDoubleClickSpan(
                     workspaceId: context.workspaceId,
-                    rightSide: rightSide,
-                    width: width,
-                    spec: column.width,
-                    presetIndex: column.presetWidthIdx,
-                    hadManualWidth: column.hasManualSingleWindowWidthOverride,
+                    orientation: context.orientation,
+                    towardTrailingEdge: towardTrailingEdge,
+                    span: span,
+                    spec: horizontal ? column.width : column.height,
+                    presetIndex: horizontal ? column.presetWidthIdx : nil,
+                    hadManualSpan: horizontal
+                        ? column.hasManualSingleWindowWidthOverride : column.hasManualSingleWindowHeightOverride,
                     stretch: reach
                 )
-                engine.stretchColumn(column, to: reach, rightSide: rightSide, context: context, state: &viewport)
+                engine.stretchColumn(
+                    column,
+                    to: reach,
+                    towardTrailingEdge: towardTrailingEdge,
+                    context: context,
+                    state: &viewport
+                )
                 return .containerPrimarySpanChanged
             }
     }
 
     private func forgetDoubleClickSizesOfGoneColumns(engine: NiriLayoutEngine, in workspaceId: WorkspaceDescriptor.ID) {
-        state.fusionDoubleClickWidths = state.fusionDoubleClickWidths.filter {
+        state.fusionDoubleClickSpans = state.fusionDoubleClickSpans.filter {
             $0.value.workspaceId != workspaceId || engine.findNode(by: $0.key, in: workspaceId) is NiriContainer
         }
     }
 }
 
-struct FusionDoubleClickWidth {
+struct FusionDoubleClickSpan {
     let workspaceId: WorkspaceDescriptor.ID
-    let rightSide: Bool
-    let width: CGFloat
+    let orientation: Monitor.Orientation
+    let towardTrailingEdge: Bool
+    let span: CGFloat
     let spec: ProportionalSize
     let presetIndex: Int?
-    let hadManualWidth: Bool
+    let hadManualSpan: Bool
     let stretch: ColumnStretch
+
+    func restoreSpecification(on column: NiriContainer) {
+        if orientation == .horizontal {
+            column.width = spec
+            column.presetWidthIdx = presetIndex
+            column.hasManualSingleWindowWidthOverride = hadManualSpan
+        } else {
+            column.height = spec
+            column.hasManualSingleWindowHeightOverride = hadManualSpan
+        }
+    }
 }

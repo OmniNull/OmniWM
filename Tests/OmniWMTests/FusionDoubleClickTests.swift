@@ -35,6 +35,32 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
             return try XCTUnwrap(window.renderedFrame ?? window.frame)
         }
 
+        var orientation: Monitor.Orientation {
+            handler.resolvedNiriOrientation(engine: engine, workspaceId: workspaceId, monitor: monitor)
+        }
+
+        var tolerance: CGFloat {
+            1 / monitor.backingScale
+        }
+
+        var primarySides: ClosedRange<CGFloat> {
+            let frame = controller.insetWorkingFrame(for: monitor)
+            let gap = controller.innerGap(for: monitor)
+            return orientation == .horizontal
+                ? (frame.minX + gap) ... (frame.maxX - gap)
+                : (frame.minY + gap) ... (frame.maxY - gap)
+        }
+
+        func primaryRange(_ token: WindowToken) throws -> ClosedRange<CGFloat> {
+            let frame = try frame(token)
+            return orientation == .horizontal ? frame.minX ... frame.maxX : frame.minY ... frame.maxY
+        }
+
+        func primaryEdge(_ token: WindowToken, trailing: Bool) throws -> CGPoint {
+            if orientation == .horizontal { return try trailing ? rightEdge(token) : leftEdge(token) }
+            return try trailing ? topEdge(token) : bottomEdge(token)
+        }
+
         func relayout() {
             let gap = controller.innerGap(for: monitor)
             _ = engine.calculateLayoutWithVisibility(
@@ -42,7 +68,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
                 workspaceId: workspaceId,
                 monitorFrame: controller.insetWorkingFrame(for: monitor),
                 gaps: (horizontal: gap, vertical: gap),
-                orientation: .horizontal
+                orientation: orientation
             )
         }
 
@@ -91,7 +117,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         }
 
         func settleStripStart() throws {
-            let drift = try frame(tokens[0]).minX - screenSides.left
+            let drift = try primaryRange(tokens[0]).lowerBound - primarySides.lowerBound
             controller.workspaceManager.withNiriViewportState(for: workspaceId) { state in
                 state.jumpOffset(to: state.viewOffset + drift)
             }
@@ -800,22 +826,26 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
-    func testOnAPortraitStripTheCycleSizeKeysKeepUpstreamsResize() throws {
-        let keyed = try makeFixture(pid: 941_124, portrait: true)
-        let upstream = try makeFixture(pid: 941_125, portrait: true)
-        for fixture in [keyed, upstream] {
-            try fixture.select(fixture.tokens[1])
-        }
-        let before = try keyed.frame(keyed.tokens[1])
-
-        keyed.controller.niriLayoutHandler.cycleSize(forward: true)
-        upstream.controller.niriLayoutHandler.cycleContainerPrimarySpan(forward: true)
-        keyed.relayout()
-        upstream.relayout()
-
-        XCTAssertNotEqual(try keyed.frame(keyed.tokens[1]), before)
-        for index in 0 ..< 3 {
-            XCTAssertEqual(try keyed.frame(keyed.tokens[index]), try upstream.frame(upstream.tokens[index]), "\(index)")
+    func testOnAPortraitStripTheCycleSizeKeysResizeAroundTheCentre() throws {
+        let fixture = try makeFixture(pid: 941_124, portrait: true)
+        let token = fixture.tokens[1]
+        try fixture.select(token)
+        let sides = fixture.primarySides
+        for forward in [true, true, false] {
+            let before = try fixture.primaryRange(token)
+            fixture.controller.niriLayoutHandler.cycleSize(forward: forward)
+            fixture.relayout()
+            let after = try fixture.primaryRange(token)
+            let span = after.upperBound - after.lowerBound
+            XCTAssertNotEqual(span, before.upperBound - before.lowerBound, accuracy: fixture.tolerance)
+            let leading = try after.lowerBound - fixture.primaryRange(fixture.tokens[0]).lowerBound
+            let trailing = try fixture.primaryRange(fixture.tokens[2]).upperBound - after.lowerBound
+            let center = (before.lowerBound + before.upperBound) / 2
+            var expected = min(max(center - span / 2, sides.lowerBound), sides.upperBound - span)
+            if leading + trailing >= sides.upperBound - sides.lowerBound - fixture.tolerance {
+                expected = min(max(expected, sides.upperBound - trailing), sides.lowerBound + leading)
+            }
+            XCTAssertEqual(after.lowerBound, expected, accuracy: fixture.tolerance)
         }
     }
 
@@ -1095,34 +1125,10 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(column.width, width)
     }
 
-    func testDoubleClicksAreIgnoredOnAPortraitStripAndInDwindle() throws {
+    func testDoubleClicksAreIgnoredInDwindle() throws {
         let fixture = try makeFixture(pid: 941_011)
         let column = try fixture.column(fixture.tokens[1])
         let width = column.width
-        let titleBar = try fixture.titleBar(fixture.tokens[1])
-        let rightEdge = try fixture.rightEdge(fixture.tokens[1])
-
-        fixture.controller.settings.monitors.updateOrientationSettings(
-            MonitorOrientationSettings(
-                monitorName: fixture.monitor.name,
-                monitorDisplayId: fixture.monitor.displayId,
-                orientation: .vertical
-            ),
-            for: fixture.monitor
-        )
-        XCTAssertEqual(fixture.handler.liveColumnContext(for: fixture.workspaceId)?.orientation, .vertical)
-        XCTAssertFalse(fixture.doubleClick(at: titleBar))
-        XCTAssertFalse(fixture.doubleClick(at: rightEdge))
-        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionDoubleClickArmedAt)
-
-        fixture.controller.settings.monitors.updateOrientationSettings(
-            MonitorOrientationSettings(
-                monitorName: fixture.monitor.name,
-                monitorDisplayId: fixture.monitor.displayId,
-                orientation: .horizontal
-            ),
-            for: fixture.monitor
-        )
         fixture.controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(
                 name: "1",
@@ -1135,6 +1141,235 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1])))
 
         XCTAssertEqual(column.width, width)
+    }
+
+    func testPortraitTitleBarExpandsHeightAndRestoresItsSizeCenterAndUndoStep() throws {
+        let display = CGRect(x: -380, y: 210, width: 900, height: 1600)
+        let fixture = try makeFixture(pid: 941_201, portrait: true, frame: display)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        try fixture.settleStripStart()
+        let before = try fixture.primaryRange(token)
+        let specification = column.height
+        let manual = column.hasManualSingleWindowHeightOverride
+        let width = column.width
+        let sides = fixture.primarySides
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertEqual(column.height, .proportion(1))
+        let expanded = try fixture.primaryRange(token)
+        XCTAssertEqual(expanded.lowerBound, sides.lowerBound, accuracy: fixture.tolerance)
+        XCTAssertEqual(expanded.upperBound, sides.upperBound, accuracy: fixture.tolerance)
+        XCTAssertEqual(column.width, width)
+
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertEqual(column.height, specification)
+        XCTAssertEqual(column.hasManualSingleWindowHeightOverride, manual)
+        let restored = try fixture.primaryRange(token)
+        XCTAssertEqual(restored.lowerBound, before.lowerBound, accuracy: fixture.tolerance)
+        XCTAssertEqual(restored.upperBound, before.upperBound, accuracy: fixture.tolerance)
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
+        XCTAssertEqual(column.height, .proportion(1))
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
+        XCTAssertEqual(column.height, specification)
+    }
+
+    func testPortraitPrimaryEdgesReachTheScreenAndRestoreTheOppositeEdge() throws {
+        for (index, trailing) in [false, true].enumerated() {
+            let fixture = try makeFixture(pid: pid_t(941_210 + index), portrait: true)
+            let token = fixture.tokens[1]
+            try fixture.settleStripStart()
+            let before = try fixture.primaryRange(token)
+            let column = try fixture.column(token)
+            let specification = column.height
+            let width = column.width
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.primaryEdge(token, trailing: trailing)))
+            let stretched = try fixture.primaryRange(token)
+            XCTAssertEqual(
+                trailing ? stretched.upperBound : stretched.lowerBound,
+                trailing ? fixture.primarySides.upperBound : fixture.primarySides.lowerBound,
+                accuracy: fixture.tolerance
+            )
+            XCTAssertEqual(
+                trailing ? stretched.lowerBound : stretched.upperBound,
+                trailing ? before.lowerBound : before.upperBound,
+                accuracy: fixture.tolerance
+            )
+            XCTAssertEqual(column.width, width)
+            XCTAssertFalse(column.isFullHeight)
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.primaryEdge(token, trailing: trailing)))
+            let restored = try fixture.primaryRange(token)
+            XCTAssertEqual(restored.lowerBound, before.lowerBound, accuracy: fixture.tolerance)
+            XCTAssertEqual(restored.upperBound, before.upperBound, accuracy: fixture.tolerance)
+            XCTAssertEqual(column.height, specification)
+        }
+    }
+
+    func testPortraitEdgeExpansionRespectsTheMaximumHeight() throws {
+        let fixture = try makeFixture(pid: 941_224, portrait: true)
+        let token = fixture.tokens[1]
+        let window = try fixture.window(token)
+        let column = try fixture.column(token)
+        let before = try fixture.primaryRange(token)
+        let original = column.height
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
+        let maximum = before.upperBound - before.lowerBound + gap
+        window.constraints.maxSize.height = maximum
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(token)))
+        XCTAssertEqual(column.settledHeight, maximum, accuracy: fixture.tolerance)
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(token)))
+        XCTAssertEqual(column.height, original)
+    }
+
+    func testPortraitObservedHeightPackingStillRestoresTheEarlierHeight() throws {
+        let fixture = try makeFixture(pid: 941_225, portrait: true)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        let original = column.height
+        let before = try fixture.primaryRange(token)
+        let reach = fixture.primarySides.upperBound - before.lowerBound
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
+        try fixture.window(token).packingHints = ObservedPackingHints(
+            height: ObservedAxisHint(requested: reach - fixture.tolerance, observed: reach + gap)
+        )
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(token)))
+        let stretched = try fixture.primaryRange(token)
+        XCTAssertEqual(stretched.upperBound - stretched.lowerBound, reach + gap, accuracy: fixture.tolerance)
+        XCTAssertEqual(stretched.upperBound, fixture.primarySides.upperBound, accuracy: fixture.tolerance)
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(token)))
+        let restored = try fixture.primaryRange(token)
+        XCTAssertEqual(restored.lowerBound, before.lowerBound, accuracy: fixture.tolerance)
+        XCTAssertEqual(restored.upperBound, before.upperBound, accuracy: fixture.tolerance)
+        XCTAssertEqual(column.height, original)
+    }
+
+    func testPortraitTitleBarKeepsAnAlwaysCenteredColumnCentered() throws {
+        let fixture = try makeFixture(pid: 941_226, portrait: true)
+        let current = fixture.engine.effectiveSettings(in: fixture.workspaceId)
+        fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.workspaceId) {
+            fixture.engine.updateMonitorSettings(
+                ResolvedNiriSettings(
+                    visibleContainerCount: current.visibleContainerCount,
+                    defaultContainerPrimarySpan: current.defaultContainerPrimarySpan,
+                    centerFocusedColumn: .always,
+                    alwaysCenterSingleColumn: current.alwaysCenterSingleColumn,
+                    singleWindowFit: current.singleWindowFit,
+                    infiniteLoop: current.infiniteLoop
+                ),
+                for: fixture.monitor.id
+            )
+        }
+        let token = fixture.tokens[1]
+        try fixture.select(token)
+        let column = try fixture.column(token)
+        let original = column.height
+        let middle = (fixture.primarySides.lowerBound + fixture.primarySides.upperBound) / 2
+        for specification in [ProportionalSize.proportion(1), original] {
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+            let span = try fixture.primaryRange(token)
+            XCTAssertEqual((span.lowerBound + span.upperBound) / 2, middle, accuracy: fixture.tolerance)
+            XCTAssertEqual(column.height, specification)
+        }
+    }
+
+    func testPortraitSecondaryEdgesAndProtectedHitRegionsPassThrough() throws {
+        let fixture = try makeFixture(pid: 941_220, stackFirstTwo: true, portrait: true)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        let height = column.height
+        XCTAssertFalse(fixture.doubleClick(at: try fixture.leftEdge(token)))
+        XCTAssertFalse(fixture.doubleClick(at: try fixture.rightEdge(token)))
+        XCTAssertFalse(column.isTabbed)
+        XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(token), modifiers: .maskShift))
+        let frame = try fixture.frame(token)
+        XCTAssertFalse(fixture.doubleClick(at: CGPoint(x: frame.midX, y: frame.midY)))
+        let inset = NiriLayoutEngine.doubleClickEdgeInset / 2
+        XCTAssertFalse(fixture.doubleClick(at: CGPoint(x: frame.maxX - inset, y: frame.maxY - inset)))
+        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(role: "AXButton") }
+        XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(token)))
+        fixture.handler.topmostWindowIdProvider = { _ in token.windowId + 1 }
+        XCTAssertFalse(fixture.doubleClick(at: try fixture.topEdge(token)))
+        XCTAssertEqual(column.height, height)
+        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionDoubleClickArmedAt)
+    }
+
+    func testPortraitTitleBarRespectsThePeekAndHeightConstraints() throws {
+        let fixture = try makeFixture(pid: 941_221, portrait: true)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        let width = column.width
+        let percent: Double = 5
+        fixture.controller.settings.niri.edgePeekPercent = percent
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
+        try fixture.select(token)
+        let gap = fixture.controller.innerGap(for: fixture.monitor)
+        let peek = fixture.monitor.frame.height * CGFloat(percent) / 100
+        let cap = fixture.monitor.frame.height - 2 * (peek + gap)
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertEqual(column.settledHeight, cap, accuracy: fixture.tolerance)
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        let minimum = cap + gap
+        let window = try fixture.window(token)
+        window.constraints.minSize.height = minimum
+        column.invalidateCachedPrimarySpan(orientation: .vertical)
+        fixture.relayout()
+        try fixture.select(token)
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertGreaterThanOrEqual(column.settledHeight, minimum)
+        XCTAssertEqual(column.width, width)
+    }
+
+    func testPortraitCycleUsesItsPresetsAndReturnsThroughThemInReverse() throws {
+        let fixture = try makeFixture(pid: 941_222, portrait: true)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        let width = column.width
+        let presets: [CGFloat] = [1.0 / 3.0, 0.5, 2.0 / 3.0]
+        fixture.engine.presetContainerPrimarySpans = presets.map { .proportion(Double($0)) }
+        let expectedSpecs = fixture.engine.presetContainerPrimarySpans.map {
+            NiriSizeChange($0).primarySpanSpec(
+                currentPixels: column.settledHeight,
+                axisSpan: fixture.controller.insetWorkingFrame(for: fixture.monitor).height,
+                gaps: fixture.controller.innerGap(for: fixture.monitor)
+            )
+        }
+        column.height = .proportion((presets[0] + presets[1]) / 2)
+        column.invalidateCachedPrimarySpan(orientation: .vertical)
+        fixture.relayout()
+        try fixture.select(token)
+        for expected in [expectedSpecs[1], expectedSpecs[2], expectedSpecs[0]] {
+            fixture.controller.niriLayoutHandler.cycleSize(forward: true)
+            fixture.relayout()
+            XCTAssertEqual(column.height, expected)
+        }
+        for expected in [expectedSpecs[2], expectedSpecs[1], expectedSpecs[0]] {
+            fixture.controller.niriLayoutHandler.cycleSize(forward: false)
+            fixture.relayout()
+            XCTAssertEqual(column.height, expected)
+        }
+        XCTAssertEqual(column.width, width)
+    }
+
+    func testRotationCannotUseAWidthRestoreAsAHeightRestore() throws {
+        let fixture = try makeFixture(pid: 941_223)
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        let before = try XCTUnwrap(column.spanBeforeFull)
+        XCTAssertEqual(before.orientation, .horizontal)
+        fixture.controller.settings.monitors.updateOrientationSettings(
+            MonitorOrientationSettings(
+                monitorName: fixture.monitor.name, monitorDisplayId: fixture.monitor.displayId, orientation: .vertical
+            ),
+            for: fixture.monitor
+        )
+        column.height = .proportion(1)
+        column.invalidateCachedPrimarySpan(orientation: .vertical)
+        fixture.relayout()
+        try fixture.select(token)
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.titleBar(token)))
+        XCTAssertEqual(column.height, .proportion(1))
+        XCTAssertEqual(column.spanBeforeFull, before)
     }
 
     private func pressCycleSizeForward(in fixture: Fixture) {
@@ -1246,7 +1481,8 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         pid: pid_t,
         windowCount: Int = 3,
         stackFirstTwo: Bool = false,
-        portrait: Bool = false
+        portrait: Bool = false,
+        frame: CGRect? = nil
     ) throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "FusionDoubleClickTests")
         addTeardownBlock { @MainActor [controller] in
@@ -1257,11 +1493,14 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
             controller.axManager.cleanup()
         }
         controller.motionPolicy.animationsEnabled = false
+        let displayFrame = frame ?? (portrait
+            ? CGRect(x: workingFrame.minX, y: workingFrame.minY, width: workingFrame.height, height: workingFrame.width)
+            : workingFrame)
         let monitor = Monitor(
             id: .init(displayId: 94_101),
             displayId: 94_101,
-            frame: workingFrame,
-            visibleFrame: workingFrame,
+            frame: displayFrame,
+            visibleFrame: displayFrame,
             hasNotch: false,
             name: "Fusion Double Click"
         )
@@ -1312,8 +1551,12 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
             previous = engine.addWindow(token: token, to: workspaceId, afterSelection: previous?.id)
         }
         for column in engine.columns(in: workspaceId) {
-            column.width = .proportion(1.0 / 3.0)
-            column.cachedWidth = 0
+            if portrait {
+                column.height = .proportion(1.0 / 3.0)
+            } else {
+                column.width = .proportion(1.0 / 3.0)
+            }
+            column.invalidateCachedPrimarySpan(orientation: portrait ? .vertical : .horizontal)
         }
         controller.mouseEventHandler
             .titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }

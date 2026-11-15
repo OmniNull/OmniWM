@@ -148,7 +148,7 @@ struct MouseInputState {
     var liveDragTracedDecline: String?
     var liveDropScroll: LiveDropScroll?
     var deferredClickScroll: WindowToken?
-    var fusionDoubleClickWidths: [NodeId: FusionDoubleClickWidth] = [:]
+    var fusionDoubleClickSpans: [NodeId: FusionDoubleClickSpan] = [:]
     var liveDragLayoutStart: NiriLayoutChangeStart?
     var activeInteractionSource: InteractionSource?
     var activeInteractionButton: MouseEventHandler.MouseButton? {

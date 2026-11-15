@@ -7,22 +7,27 @@ import Foundation
 struct ColumnCentreCycle {
     static let nearPresetShare: CGFloat = 0.02
 
+    let orientation: Monitor.Orientation
     let centre: CGFloat
     let columnIndex: Int?
     let followedPresetIndex: Int?
     var presetStop: Int?
-    var width: ProportionalSize
+    var spec: ProportionalSize
     var presetIndex: Int?
-    var isFullWidth: Bool
+    var isFullSpan: Bool
     var span: ClosedRange<CGFloat>?
 
-    func continues(_ column: NiriContainer, at index: Int?, span current: ClosedRange<CGFloat>) -> Bool {
-        guard let span,
+    func continues(
+        _ column: NiriContainer, at index: Int?, span current: ClosedRange<CGFloat>, orientation: Monitor.Orientation
+    ) -> Bool {
+        guard self.orientation == orientation, let span,
               abs(span.lowerBound - current.lowerBound) < 2,
               abs(span.upperBound - current.upperBound) < 2
         else { return false }
-        return column.width == width && column.presetWidthIdx == presetIndex
-            && column.isFullWidth == isFullWidth && index == columnIndex
+        let horizontal = orientation == .horizontal
+        return (horizontal ? column.width : column.height) == spec
+            && (horizontal ? column.presetWidthIdx : nil) == presetIndex
+            && (horizontal ? column.isFullWidth : column.isFullHeight) == isFullSpan && index == columnIndex
     }
 
     func nextPresetStop(forwards: Bool, presetCount: Int) -> Int {
@@ -34,65 +39,80 @@ struct ColumnCentreCycle {
     }
 }
 
-struct ColumnWidthBeforeFull: Equatable {
-    let width: ProportionalSize
+struct ColumnSpanBeforeFull: Equatable {
+    let orientation: Monitor.Orientation
+    let spec: ProportionalSize
     let presetIndex: Int?
-    let hadManualWidth: Bool
+    let hadManualSpan: Bool
     let centre: CGFloat?
+
+    func restoreManualOverride(on column: NiriContainer) {
+        if orientation == .horizontal {
+            column.hasManualSingleWindowWidthOverride = hadManualSpan
+        } else {
+            column.hasManualSingleWindowHeightOverride = hadManualSpan
+        }
+    }
 }
 
 extension NiriLayoutEngine {
     @discardableResult
-    func toggleColumnFullWidthAndBack(
+    func toggleColumnFullSpanAndBack(
         _ column: NiriContainer,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
-        guard context.orientation == .horizontal else { return false }
+        let horizontal = context.orientation == .horizontal
+        let spec = horizontal ? column.width : column.height
+        let presetIndex = horizontal ? column.presetWidthIdx : nil
+        let isFull = horizontal ? column.isFullWidth : column.isFullHeight
         let full = ProportionalSize.proportion(1)
-        if let before = column.widthBeforeFull, column.width == full, column.presetWidthIdx == nil,
-           !column.isFullWidth
+        if let before = column.spanBeforeFull, before.orientation == context.orientation, spec == full,
+           presetIndex == nil, !isFull
         {
             column.centreCycle = nil
             setContainerPrimarySpan(
                 column,
-                to: before.width,
+                to: before.spec,
                 presetIndex: before.presetIndex,
                 context: context,
                 state: &state
             )
-            column.hasManualSingleWindowWidthOverride = before.hadManualWidth
+            before.restoreManualOverride(on: column)
             if let centre = before.centre {
-                centreAfterWidthToggle(column, on: centre, context: context, state: &state)
+                centreAfterSpanToggle(column, on: centre, context: context, state: &state)
             }
             return true
         }
-        let pixels = column.settledWidth > 0 ? column.settledWidth : widthPixels(
-            column.width,
+        let settled = horizontal ? column.settledWidth : column.settledHeight
+        let pixels = settled > 0 ? settled : spanPixels(
+            spec,
             for: column,
             context: context
         )
-        guard !column.isFullWidth, column.width != full,
-              pixels < widthPixels(full, for: column, context: context) - 1
+        guard !isFull, spec != full,
+              pixels < spanPixels(full, for: column, context: context) - 1
         else { return false }
         let centre = settledScreenSpan(of: column, context: context, state: state)
             .map { ($0.lowerBound + $0.upperBound) / 2 }
-        let before = ColumnWidthBeforeFull(
-            width: column.width,
-            presetIndex: column.presetWidthIdx,
-            hadManualWidth: column.hasManualSingleWindowWidthOverride,
+        let before = ColumnSpanBeforeFull(
+            orientation: context.orientation,
+            spec: spec,
+            presetIndex: presetIndex,
+            hadManualSpan: horizontal
+                ? column.hasManualSingleWindowWidthOverride : column.hasManualSingleWindowHeightOverride,
             centre: centre
         )
         column.centreCycle = nil
         setContainerPrimarySpan(column, to: full, presetIndex: nil, context: context, state: &state)
-        column.widthBeforeFull = before
+        column.spanBeforeFull = before
         if let centre {
-            centreAfterWidthToggle(column, on: centre, context: context, state: &state)
+            centreAfterSpanToggle(column, on: centre, context: context, state: &state)
         }
         return true
     }
 
-    private func centreAfterWidthToggle(
+    private func centreAfterSpanToggle(
         _ column: NiriContainer,
         on centre: CGFloat,
         context: NiriInteractionContext,
@@ -106,14 +126,13 @@ extension NiriLayoutEngine {
 }
 
 extension NiriLayoutEngine {
-    func cycleColumnWidthAroundCentre(
+    func cycleColumnSpanAroundCentre(
         _ column: NiriContainer,
         forwards: Bool = true,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) {
-        guard context.orientation == .horizontal,
-              !presetContainerPrimarySpans.isEmpty,
+        guard !presetContainerPrimarySpans.isEmpty,
               let before = settledScreenSpan(of: column, context: context, state: state)
         else {
             column.centreCycle = nil
@@ -121,7 +140,12 @@ extension NiriLayoutEngine {
             return
         }
         let index = columnIndex(of: column, in: context.workspaceId)
-        var cycle = column.centreCycle.flatMap { $0.continues(column, at: index, span: before) ? $0 : nil }
+        var cycle = column.centreCycle.flatMap { $0.continues(
+            column,
+            at: index,
+            span: before,
+            orientation: context.orientation
+        ) ? $0 : nil }
             ?? startCentreCycle(column, centre: (before.lowerBound + before.upperBound) / 2, index: index, context)
         let next = cycle.nextPresetStop(forwards: forwards, presetCount: presetContainerPrimarySpans.count)
         setContainerPrimarySpan(
@@ -132,9 +156,10 @@ extension NiriLayoutEngine {
             state: &state
         )
         cycle.presetStop = next
-        cycle.width = column.width
-        cycle.presetIndex = column.presetWidthIdx
-        cycle.isFullWidth = column.isFullWidth
+        let horizontal = context.orientation == .horizontal
+        cycle.spec = horizontal ? column.width : column.height
+        cycle.presetIndex = horizontal ? column.presetWidthIdx : nil
+        cycle.isFullSpan = horizontal ? column.isFullWidth : column.isFullHeight
         if !(isViewportAnchor(column, in: context.workspaceId, state: state)
             && centresFocusedColumn(in: context.workspaceId))
         {
@@ -149,9 +174,12 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: ViewportState
     ) -> ClosedRange<CGFloat>? {
-        let width = column.cachedWidth
-        column.cachedWidth = column.settledWidth
-        defer { column.cachedWidth = width }
+        let horizontal = context.orientation == .horizontal
+        let cached = horizontal ? column.cachedWidth : column.cachedHeight
+        if horizontal { column.cachedWidth = column.settledWidth } else { column.cachedHeight = column.settledHeight }
+        defer {
+            if horizontal { column.cachedWidth = cached } else { column.cachedHeight = cached }
+        }
         return columnScreenSpan(column, context: context, state: state)
     }
 
@@ -161,27 +189,36 @@ extension NiriLayoutEngine {
         index: Int?,
         _ context: NiriInteractionContext
     ) -> ColumnCentreCycle {
-        let pixels = column.settledWidth > 0
-            ? column.settledWidth
-            : widthPixels(column.isFullWidth ? .proportion(1) : column.width, for: column, context: context)
-        let presetPixels = presetContainerPrimarySpans.indices.map { presetIndex in
-            widthPixels(presetSpec(presetIndex, for: column, context: context), for: column, context: context)
+        let horizontal = context.orientation == .horizontal
+        let settled = horizontal ? column.settledWidth : column.settledHeight
+        let spec = horizontal ? column.width : column.height
+        let isFull = horizontal ? column.isFullWidth : column.isFullHeight
+        let pixels = settled > 0 ? settled : spanPixels(isFull ? .proportion(1) : spec, for: column, context: context)
+        var nearest: Int?
+        var nearestDistance = CGFloat.infinity
+        var widestNarrower: Int?
+        var widestSpan = -CGFloat.infinity
+        for presetIndex in presetContainerPrimarySpans.indices {
+            let span = spanPixels(presetSpec(presetIndex, for: column, context: context), for: column, context: context)
+            let distance = abs(span - pixels)
+            if distance < nearestDistance {
+                nearest = presetIndex
+                nearestDistance = distance
+            }
+            if span < pixels, span > widestSpan {
+                widestNarrower = presetIndex
+                widestSpan = span
+            }
         }
-        let nearest = presetPixels.indices.min { abs(presetPixels[$0] - pixels) < abs(presetPixels[$1] - pixels) }
-        let isNear = nearest.map {
-            abs(presetPixels[$0] - pixels) <= context.workingFrame.width * ColumnCentreCycle.nearPresetShare
-        } ?? false
-        let widestNarrower = presetPixels.indices
-            .filter { presetPixels[$0] < pixels }
-            .max { presetPixels[$0] < presetPixels[$1] }
         return ColumnCentreCycle(
+            orientation: context.orientation,
             centre: centre,
             columnIndex: index,
             followedPresetIndex: widestNarrower,
-            presetStop: isNear ? nearest : nil,
-            width: column.width,
-            presetIndex: column.presetWidthIdx,
-            isFullWidth: column.isFullWidth,
+            presetStop: nearestDistance <= context.primarySpan * ColumnCentreCycle.nearPresetShare ? nearest : nil,
+            spec: spec,
+            presetIndex: horizontal ? column.presetWidthIdx : nil,
+            isFullSpan: isFull,
             span: nil
         )
     }
@@ -192,22 +229,23 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext
     ) -> ProportionalSize {
         NiriSizeChange(presetContainerPrimarySpans[presetIndex]).primarySpanSpec(
-            currentPixels: column.settledWidth,
-            axisSpan: context.workingFrame.width,
+            currentPixels: context.orientation == .horizontal ? column.settledWidth : column.settledHeight,
+            axisSpan: context.primarySpan,
             gaps: context.gaps
         )
     }
 
-    private func widthPixels(
-        _ width: ProportionalSize,
+    private func spanPixels(
+        _ spec: ProportionalSize,
         for column: NiriContainer,
         context: NiriInteractionContext
     ) -> CGFloat {
-        column.resolvedWidthPixels(
-            width,
-            availableSpan: context.workingFrame.width,
+        column.resolvedPrimarySpan(
+            spec,
+            orientation: context.orientation,
+            availableSpace: context.primarySpan,
             gaps: context.gaps,
-            contentInset: tabContentInset(for: column)
+            contentInset: context.orientation == .horizontal ? tabContentInset(for: column) : 0
         )
     }
 }

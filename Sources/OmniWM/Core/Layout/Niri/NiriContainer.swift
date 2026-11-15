@@ -26,7 +26,7 @@ class NiriContainer: NiriNode {
     var isLiveHomeSpot = false
     var growsTowardLeadingEdge = false
     var centreCycle: ColumnCentreCycle?
-    var widthBeforeFull: ColumnWidthBeforeFull?
+    var spanBeforeFull: ColumnSpanBeforeFull?
     var edgePeekCap: CGFloat?
     var stripEndPeekRoom: StripEndPeekRoom?
 

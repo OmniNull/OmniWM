@@ -10,6 +10,18 @@ struct NiriInteractionContext {
     let gaps: CGFloat
     let orientation: Monitor.Orientation
 
+    var primaryOrigin: CGFloat {
+        orientation == .horizontal ? workingFrame.minX : workingFrame.minY
+    }
+
+    var primaryEnd: CGFloat {
+        orientation == .horizontal ? workingFrame.maxX : workingFrame.maxY
+    }
+
+    var primarySpan: CGFloat {
+        orientation == .horizontal ? workingFrame.width : workingFrame.height
+    }
+
     var sizingGeometry: NiriSizingGeometry {
         NiriSizingGeometry(workingFrame: workingFrame, gaps: gaps, orientation: orientation)
     }

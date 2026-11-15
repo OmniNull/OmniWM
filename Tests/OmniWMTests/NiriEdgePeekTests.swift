@@ -357,14 +357,14 @@ final class NiriEdgePeekTests: XCTestCase {
 
         let stretch = try XCTUnwrap(fixture.engine.columnStretchToScreenEdge(
             fixture.column(0),
-            rightSide: true,
+            towardTrailingEdge: true,
             context: fixture.context,
             state: fixture.state
         ))
         fixture.engine.stretchColumn(
             fixture.column(0),
             to: stretch,
-            rightSide: true,
+            towardTrailingEdge: true,
             context: fixture.context,
             state: &fixture.state
         )
@@ -562,7 +562,7 @@ final class NiriEdgePeekTests: XCTestCase {
         let nextPreset: CGFloat = 1
         fixture.engine.presetContainerPrimarySpans = [.proportion(0.5), .proportion(nextPreset)]
         fixture.column(1).presetWidthIdx = 0
-        fixture.engine.cycleColumnWidthAroundCentre(fixture.column(1), context: fixture.context, state: &fixture.state)
+        fixture.engine.cycleColumnSpanAroundCentre(fixture.column(1), context: fixture.context, state: &fixture.state)
 
         let after = fixture.span(of: 1)
         XCTAssertGreaterThan(after.upperBound - after.lowerBound, before.upperBound - before.lowerBound)
@@ -608,13 +608,13 @@ final class NiriEdgePeekTests: XCTestCase {
 
         let stretch = try XCTUnwrap(fixture.engine.columnStretchToScreenEdge(
             fixture.column(1),
-            rightSide: true,
+            towardTrailingEdge: true,
             context: fixture.context,
             state: fixture.state
         ))
 
         XCTAssertEqual(
-            span.lowerBound + stretch.width,
+            span.lowerBound + stretch.span,
             fixture.frame.maxX - peek - fixture.gap,
             accuracy: fixture.tolerance
         )
@@ -628,12 +628,12 @@ final class NiriEdgePeekTests: XCTestCase {
 
         let stretch = try XCTUnwrap(fixture.engine.columnStretchToScreenEdge(
             fixture.column(2),
-            rightSide: true,
+            towardTrailingEdge: true,
             context: fixture.context,
             state: fixture.state
         ))
 
-        XCTAssertEqual(span.lowerBound + stretch.width, fixture.frame.maxX - fixture.gap, accuracy: fixture.tolerance)
+        XCTAssertEqual(span.lowerBound + stretch.span, fixture.frame.maxX - fixture.gap, accuracy: fixture.tolerance)
     }
 
     func testAnEdgeSharedWithAnotherDisplayHasNoPeek() throws {

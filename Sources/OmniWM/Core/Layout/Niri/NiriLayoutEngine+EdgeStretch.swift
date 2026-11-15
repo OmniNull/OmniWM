@@ -5,7 +5,7 @@ import AppKit
 import Foundation
 
 struct ColumnStretch: Equatable {
-    let width: CGFloat
+    let span: CGFloat
     let keptSideShift: CGFloat
 }
 
@@ -13,7 +13,7 @@ private struct StretchedStrip {
     let placed: ClosedRange<CGFloat>
     let start: CGFloat
     let end: CGFloat
-    let rightSide: Bool
+    let towardTrailingEdge: Bool
 
     var lead: CGFloat {
         placed.lowerBound - start
@@ -23,22 +23,21 @@ private struct StretchedStrip {
         end - start - (placed.upperBound - placed.lowerBound)
     }
 
-    func keptStart(width: CGFloat) -> CGFloat {
-        rightSide ? start : placed.upperBound - width - lead
+    func keptStart(span: CGFloat) -> CGFloat {
+        towardTrailingEdge ? start : placed.upperBound - span - lead
     }
 
-    func reachesWhenPlaced(at target: CGFloat, context: NiriInteractionContext) -> [CGFloat] {
-        let frame = context.workingFrame
-        if rightSide {
-            return [
-                target - (frame.minX + context.gaps) - lead,
-                2 * (target - frame.minX - lead) - (frame.width - rest)
-            ]
+    func reachesWhenPlaced(at target: CGFloat, context: NiriInteractionContext) -> (CGFloat, CGFloat) {
+        if towardTrailingEdge {
+            return (
+                target - (context.primaryOrigin + context.gaps) - lead,
+                2 * (target - context.primaryOrigin - lead) - (context.primarySpan - rest)
+            )
         }
-        return [
-            frame.maxX - context.gaps - rest + lead - target,
-            frame.width - rest - 2 * (target - frame.minX - lead)
-        ]
+        return (
+            context.primaryEnd - context.gaps - rest + lead - target,
+            context.primarySpan - rest - 2 * (target - context.primaryOrigin - lead)
+        )
     }
 }
 
@@ -55,7 +54,7 @@ extension NiriLayoutEngine {
 
     func columnStretchToScreenEdge(
         _ column: NiriContainer,
-        rightSide: Bool,
+        towardTrailingEdge: Bool,
         context: NiriInteractionContext,
         state: ViewportState
     ) -> ColumnStretch? {
@@ -68,89 +67,110 @@ extension NiriLayoutEngine {
             placed: placed.minX ... placed.maxX,
             start: first.minX,
             end: last.maxX,
-            rightSide: rightSide
+            towardTrailingEdge: towardTrailingEdge
         )
         let limits = edgePeekBounds(of: column, context: context)
-        let target = rightSide ? limits.upperBound : limits.lowerBound
-        let keptReach = rightSide ? target - placed.minX : placed.maxX - target
-        let bounds = projectedWidthBounds(for: column, workspaceId: context.workspaceId)
-        let widest = min(context.workingFrame.width - 2 * context.gaps, bounds.max ?? .infinity)
-        let candidates = [keptReach] + stretched.reachesWhenPlaced(at: target, context: context)
-        let requested = candidates
-            .map { max(bounds.min, min($0, widest)) }
-            .min { candidate, other in
-                abs(farEdge(of: stretched, width: candidate, context: context) - target)
-                    < abs(farEdge(of: stretched, width: other, context: context) - target) - 0.5
-            } ?? keptReach
-        let width = column.resolvedWidthPixels(
+        let target = towardTrailingEdge ? limits.upperBound : limits.lowerBound
+        let keptReach = towardTrailingEdge ? target - placed.minX : placed.maxX - target
+        let horizontal = context.orientation == .horizontal
+        let bounds = horizontal
+            ? projectedWidthBounds(for: column, workspaceId: context.workspaceId)
+            : projectedHeightBounds(for: column, workspaceId: context.workspaceId)
+        let widest = min(context.primarySpan - 2 * context.gaps, bounds.max ?? .infinity)
+        let reaches = stretched.reachesWhenPlaced(at: target, context: context)
+        let candidates: InlineArray<3, CGFloat> = [keptReach, reaches.0, reaches.1]
+        var requested = max(bounds.min, min(candidates[0], widest))
+        var distance = abs(farEdge(of: stretched, span: requested, context: context) - target)
+        for index in 1 ..< candidates.count {
+            let candidate = max(bounds.min, min(candidates[index], widest))
+            let candidateDistance = abs(farEdge(of: stretched, span: candidate, context: context) - target)
+            if candidateDistance < distance - 0.5 {
+                requested = candidate
+                distance = candidateDistance
+            }
+        }
+        let span = column.resolvedPrimarySpan(
             .fixed(requested),
-            availableSpan: context.workingFrame.width,
+            orientation: context.orientation,
+            availableSpace: context.primarySpan,
             gaps: context.gaps,
-            contentInset: tabContentInset(for: column)
+            contentInset: horizontal ? tabContentInset(for: column) : 0
         )
-        let settled = settledSpan(of: stretched, width: width, context: context)
-        let moved = rightSide ? placed.minX - settled.lowerBound : settled.upperBound - placed.maxX
-        let overshoot = abs(moved) < 0.5 ? max(0, width - max(requested, keptReach)) : 0
-        return ColumnStretch(width: width, keptSideShift: moved + overshoot)
+        let settled = settledSpan(of: stretched, span: span, context: context)
+        let moved = towardTrailingEdge ? placed.minX - settled.lowerBound : settled.upperBound - placed.maxX
+        let overshoot = abs(moved) < 0.5 ? max(0, span - max(requested, keptReach)) : 0
+        return ColumnStretch(span: span, keptSideShift: moved + overshoot)
     }
 
-    private func farEdge(of stretched: StretchedStrip, width: CGFloat, context: NiriInteractionContext) -> CGFloat {
-        let span = settledSpan(of: stretched, width: width, context: context)
-        return stretched.rightSide ? span.upperBound : span.lowerBound
+    private func farEdge(of stretched: StretchedStrip, span: CGFloat, context: NiriInteractionContext) -> CGFloat {
+        let placed = settledSpan(of: stretched, span: span, context: context)
+        return stretched.towardTrailingEdge ? placed.upperBound : placed.lowerBound
     }
 
     private func settledSpan(
         of stretched: StretchedStrip,
-        width: CGFloat,
+        span: CGFloat,
         context: NiriInteractionContext
     ) -> ClosedRange<CGFloat> {
-        let frame = context.workingFrame
-        let span = stretched.rest + width
-        var start = stretched.keptStart(width: width)
+        let stripSpan = stretched.rest + span
+        var start = stretched.keptStart(span: span)
         if centresFittingStrip(in: context.workspaceId),
            let offset = ViewportState.centredStripOffset(
-               stripSpan: span,
-               viewSpan: frame.width,
+               stripSpan: stripSpan,
+               viewSpan: context.primarySpan,
                gap: context.gaps,
                scale: displayScale(in: context.workspaceId)
            )
         {
-            start = frame.minX - offset
+            start = context.primaryOrigin - offset
         } else if !centresFocusedColumn(in: context.workspaceId),
-                  ViewportState.stripEndOffsets(stripSpan: span, viewSpan: frame.width, gap: context.gaps) != nil
+                  ViewportState
+                      .stripEndOffsets(stripSpan: stripSpan, viewSpan: context.primarySpan, gap: context.gaps) != nil
         {
-            start = min(max(start, frame.maxX - context.gaps - span), frame.minX + context.gaps)
+            start = min(max(start, context.primaryEnd - context.gaps - stripSpan), context.primaryOrigin + context.gaps)
         }
         let minX = start + stretched.lead
-        return minX ... minX + width
+        return minX ... minX + span
     }
 
     func stretchColumn(
         _ column: NiriContainer,
         to stretch: ColumnStretch,
-        rightSide: Bool,
+        towardTrailingEdge: Bool,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) {
         assertSanctionedMutation()
         guard let before = columnScreenSpan(column, context: context, state: state) else { return }
         beginManualPrimarySpanResize(column, in: context.workspaceId, orientation: context.orientation)
-        let startWidth = column.cachedWidth
-        applyPrimarySpanResize(stretch.width, to: column, orientation: .horizontal)
+        let horizontal = context.orientation == .horizontal
+        let startSpan = horizontal ? column.cachedWidth : column.cachedHeight
+        applyPrimarySpanResize(stretch.span, to: column, orientation: context.orientation)
 
         let landingDrift = columnScreenSpan(column, context: context, state: state).map { after in
-            rightSide ? after.lowerBound - before.lowerBound : after.upperBound - before.upperBound
+            towardTrailingEdge ? after.lowerBound - before.lowerBound : after.upperBound - before.upperBound
         } ?? 0
-        let drift = landingDrift + (rightSide ? stretch.keptSideShift : -stretch.keptSideShift)
+        let drift = landingDrift + (towardTrailingEdge ? stretch.keptSideShift : -stretch.keptSideShift)
 
-        column.cachedWidth = startWidth
-        column.animateWidthTo(
-            newWidth: stretch.width,
-            clock: animationClock,
-            config: context.motion.scaled(windowMovementAnimationConfig),
-            displayRefreshRate: displayRefreshRate(in: context.workspaceId),
-            animated: context.motion.animationsEnabled
-        )
+        if horizontal {
+            column.cachedWidth = startSpan
+            column.animateWidthTo(
+                newWidth: stretch.span,
+                clock: animationClock,
+                config: context.motion.scaled(windowMovementAnimationConfig),
+                displayRefreshRate: displayRefreshRate(in: context.workspaceId),
+                animated: context.motion.animationsEnabled
+            )
+        } else {
+            column.cachedHeight = startSpan
+            column.animateHeightTo(
+                newHeight: stretch.span,
+                clock: animationClock,
+                config: context.motion.scaled(windowMovementAnimationConfig),
+                displayRefreshRate: displayRefreshRate(in: context.workspaceId),
+                animated: context.motion.animationsEnabled
+            )
+        }
         if abs(drift) > 0.5 {
             animateViewDrift(drift, context: context, state: &state)
         }
@@ -172,16 +192,17 @@ extension NiriLayoutEngine {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) {
-        let width = column.settledWidth
-        let startWidth = column.cachedWidth
-        column.cachedWidth = width
+        let horizontal = context.orientation == .horizontal
+        let span = horizontal ? column.settledWidth : column.settledHeight
+        let cached = horizontal ? column.cachedWidth : column.cachedHeight
+        if horizontal { column.cachedWidth = span } else { column.cachedHeight = span }
         let strip = liveColumnStrip(context: context, state: state)
-        column.cachedWidth = startWidth
+        if horizontal { column.cachedWidth = cached } else { column.cachedHeight = cached }
         guard let after = strip.first(where: { $0.column === column }) else { return }
         let limits = edgePeekBounds(of: column, context: context)
         let lowest = limits.lowerBound
-        let highest = max(lowest, limits.upperBound - width)
-        var drift = after.minX - min(max(centre - width / 2, lowest), highest)
+        let highest = max(lowest, limits.upperBound - span)
+        var drift = after.minX - min(max(centre - span / 2, lowest), highest)
         if let centred = fittingStripDrift(strip, context: context) {
             drift = centred
         } else if !centresFocusedColumn(in: context.workspaceId),

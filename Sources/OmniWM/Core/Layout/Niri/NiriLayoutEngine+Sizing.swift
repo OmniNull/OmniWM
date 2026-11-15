@@ -273,14 +273,19 @@ extension NiriLayoutEngine {
 
     func setContainerPrimarySpan(
         _ column: NiriContainer,
-        to width: ProportionalSize,
+        to span: ProportionalSize,
         presetIndex: Int?,
         context: NiriInteractionContext,
         state: inout ViewportState
     ) {
         assertSanctionedMutation()
         beginManualPrimarySpanResize(column, in: context.workspaceId, orientation: context.orientation)
-        applyColumnWidth(column, width: width, presetIndex: presetIndex, context: context, state: &state)
+        switch context.orientation {
+        case .horizontal:
+            applyColumnWidth(column, width: span, presetIndex: presetIndex, context: context, state: &state)
+        case .vertical:
+            applyContainerHeight(column, height: span, context: context, state: &state)
+        }
     }
 
     private func nextContainerWidthPresetIndex(

@@ -24,8 +24,9 @@ extension NiriLayoutEngine {
         guard let anchor = projectedViewportAnchor(state: state, geometry: geometry, in: context.workspaceId)
         else { return [] }
         let viewPosition = anchor.primaryPosition + state.viewOffset
+        let origin = context.primaryOrigin
         return geometry.columns.map { column in
-            let minX = context.workingFrame.minX + column.primaryPosition - viewPosition
+            let minX = origin + column.primaryPosition - viewPosition
             let span = projectedPrimarySpan(
                 for: column.projectedColumn,
                 workingFrame: context.workingFrame,
@@ -199,7 +200,7 @@ extension NiriLayoutEngine {
         guard let first = strip.first, let last = strip.last,
               ViewportState.stripEndOffsets(
                   stripSpan: last.maxX - first.minX,
-                  viewSpan: context.workingFrame.width,
+                  viewSpan: context.primarySpan,
                   gap: context.gaps
               ) != nil
         else { return nil }
@@ -212,8 +213,8 @@ extension NiriLayoutEngine {
     ) -> (lowest: CGFloat, highest: CGFloat)? {
         guard let first = strip.first, let last = strip.last else { return nil }
         return (
-            first.minX - (context.workingFrame.minX + context.gaps),
-            last.maxX - (context.workingFrame.maxX - context.gaps)
+            first.minX - (context.primaryOrigin + context.gaps),
+            last.maxX - (context.primaryEnd - context.gaps)
         )
     }
 }

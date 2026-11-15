@@ -20,11 +20,7 @@ extension NiriLayoutHandler {
         performWindowSizing(on: .focused) { engine, windowNode, context, state in
             guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
             fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
-                if context.orientation == .horizontal {
-                    engine.cycleColumnWidthAroundCentre(column, forwards: forward, context: context, state: &state)
-                } else {
-                    engine.toggleContainerPrimarySpan(column, forwards: forward, context: context, state: &state)
-                }
+                engine.cycleColumnSpanAroundCentre(column, forwards: forward, context: context, state: &state)
             }
             return .containerPrimarySpanChanged
         }
