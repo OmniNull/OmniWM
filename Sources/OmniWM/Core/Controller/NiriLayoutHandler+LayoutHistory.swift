@@ -10,10 +10,24 @@ struct NiriLayoutChangeStart {
     let startedAt: TimeInterval
     let userActionCount: UInt64
     let sizes: [WindowToken: CGSize]
+    let coversEveryNiriWorkspace: Bool
 }
 
 extension NiriLayoutHandler {
     func layoutChangeStart(in workspaceId: WorkspaceDescriptor.ID?) -> NiriLayoutChangeStart? {
+        layoutChangeStart(in: workspaceId, coveringEveryNiriWorkspace: false)
+    }
+
+    func layoutChangeStartCoveringEveryNiriWorkspace(
+        in workspaceId: WorkspaceDescriptor.ID?
+    ) -> NiriLayoutChangeStart? {
+        layoutChangeStart(in: workspaceId, coveringEveryNiriWorkspace: true)
+    }
+
+    private func layoutChangeStart(
+        in workspaceId: WorkspaceDescriptor.ID?,
+        coveringEveryNiriWorkspace: Bool
+    ) -> NiriLayoutChangeStart? {
         guard let controller,
               let workspaceId,
               controller.isNiriStrip(workspaceId),
@@ -22,19 +36,48 @@ extension NiriLayoutHandler {
         else { return nil }
         var snapshots = [workspaceId: main]
         var sizes = engine.windowSizes(in: workspaceId)
-        for other in controller.workspaceManager.workspaces.map(\.id)
-            where other != workspaceId && controller.workspaceManager.activeLayoutKind(for: other) == .niri
-        {
-            snapshots[other] = engine.layoutSnapshot(in: other, focused: focusedToken(in: other))
-            sizes.merge(engine.windowSizes(in: other)) { here, _ in here }
+        if coveringEveryNiriWorkspace {
+            captureEveryOtherNiriWorkspace(into: &snapshots, sizes: &sizes, engine: engine, controller: controller)
         }
         return NiriLayoutChangeStart(
             workspaceId: workspaceId,
             snapshots: snapshots,
             startedAt: layoutStepClock(),
             userActionCount: controller.userActionCount,
-            sizes: sizes
+            sizes: sizes,
+            coversEveryNiriWorkspace: coveringEveryNiriWorkspace
         )
+    }
+
+    func coveringEveryNiriWorkspace(_ start: NiriLayoutChangeStart?) -> NiriLayoutChangeStart? {
+        guard let start, !start.coversEveryNiriWorkspace, let controller, let engine = controller.niriEngine else {
+            return start
+        }
+        var snapshots = start.snapshots
+        var sizes = start.sizes
+        captureEveryOtherNiriWorkspace(into: &snapshots, sizes: &sizes, engine: engine, controller: controller)
+        return NiriLayoutChangeStart(
+            workspaceId: start.workspaceId,
+            snapshots: snapshots,
+            startedAt: start.startedAt,
+            userActionCount: start.userActionCount,
+            sizes: sizes,
+            coversEveryNiriWorkspace: true
+        )
+    }
+
+    private func captureEveryOtherNiriWorkspace(
+        into snapshots: inout [WorkspaceDescriptor.ID: NiriLayoutSnapshot],
+        sizes: inout [WindowToken: CGSize],
+        engine: NiriLayoutEngine,
+        controller: WMController
+    ) {
+        for other in controller.workspaceManager.workspaces.map(\.id)
+            where snapshots[other] == nil && controller.workspaceManager.activeLayoutKind(for: other) == .niri
+        {
+            snapshots[other] = engine.layoutSnapshot(in: other, focused: focusedToken(in: other))
+            sizes.merge(engine.windowSizes(in: other)) { here, _ in here }
+        }
     }
 
     func activeLayoutChangeStart() -> NiriLayoutChangeStart? {
@@ -46,6 +89,7 @@ extension NiriLayoutHandler {
         engine.recordLayoutChanges(
             in: start.workspaceId,
             since: start.snapshots,
+            coveringEveryWorkspace: start.coversEveryNiriWorkspace,
             timing: NiriLayoutStepTiming(
                 startedAt: start.startedAt,
                 recordedAt: layoutStepClock(),

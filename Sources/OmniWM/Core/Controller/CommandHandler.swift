@@ -65,16 +65,16 @@ final class CommandHandler {
     }
 
     private func performAllowedCommand(_ command: HotkeyCommand, controller: WMController) -> ExternalCommandResult {
-        let changeStart = layoutChangeStart(recording: command, controller: controller)
+        var changeStart = layoutChangeStart(recording: command, controller: controller)
         defer { controller.niriLayoutHandler.recordLayoutChange(since: changeStart) }
         switch command {
         case let .focus(direction):
             focusWindow(direction: direction)
         case let .focusNavigation(action): return perform(action, controller: controller)
         case let .move(direction):
-            moveWindowCrossingMonitors(direction: direction, controller: controller)
+            moveWindowCrossingMonitors(direction: direction, controller: controller, widening: &changeStart)
         case let .workspace(action): return perform(action, controller: controller)
-        case let .windowMovement(action): return perform(action, controller: controller)
+        case let .windowMovement(action): return perform(action, controller: controller, widening: &changeStart)
         case let .column(action): return perform(action, controller: controller)
         case let .monitorFocus(action): return perform(action, controller: controller)
         case let .fullscreen(action): return perform(action, controller: controller)
@@ -329,21 +329,26 @@ final class CommandHandler {
 }
 
 extension CommandHandler {
-    static func recordsLayoutChange(_ command: HotkeyCommand) -> Bool {
+    enum LayoutChangeCoverage {
+        case ownWorkspace
+        case everyNiriWorkspace
+    }
+
+    static func layoutChangeCoverage(of command: HotkeyCommand) -> LayoutChangeCoverage? {
         switch command {
         case .move,
              .moveColumn,
              .windowMovement:
-            true
+            .ownWorkspace
         case let .column(action):
             switch action {
             case .moveToFirst,
                  .moveToLast,
                  .moveToIndex,
-                 .toggleTabbed,
-                 .moveToWorkspace,
+                 .toggleTabbed: .ownWorkspace
+            case .moveToWorkspace,
                  .moveToWorkspaceUp,
-                 .moveToWorkspaceDown: true
+                 .moveToWorkspaceDown: .everyNiriWorkspace
             }
         case let .workspace(action):
             switch action {
@@ -351,13 +356,13 @@ extension CommandHandler {
                  .moveUp,
                  .moveDown,
                  .moveToMonitor,
-                 .moveToSlot: true
-            default: false
+                 .moveToSlot: .everyNiriWorkspace
+            default: nil
             }
         case let .sizing(action):
-            action != .undo && action != .redo
+            action != .undo && action != .redo ? .ownWorkspace : nil
         default:
-            false
+            nil
         }
     }
 
@@ -365,12 +370,23 @@ extension CommandHandler {
         recording command: HotkeyCommand,
         controller: WMController
     ) -> NiriLayoutChangeStart? {
-        Self.recordsLayoutChange(command) ? controller.niriLayoutHandler.activeLayoutChangeStart() : nil
+        let layout = controller.niriLayoutHandler
+        return switch Self.layoutChangeCoverage(of: command) {
+        case .ownWorkspace: layout.activeLayoutChangeStart()
+        case .everyNiriWorkspace:
+            layout.layoutChangeStartCoveringEveryNiriWorkspace(in: controller.activeWorkspace()?.id)
+        case nil: nil
+        }
     }
 
-    private func moveWindowCrossingMonitors(direction: Direction, controller: WMController) {
+    private func moveWindowCrossingMonitors(
+        direction: Direction,
+        controller: WMController,
+        widening changeStart: inout NiriLayoutChangeStart?
+    ) {
         let outcome = moveWindow(direction: direction)
         if outcome == .atWorkspaceEdge, controller.settings.focus.moveCrossesMonitorAtEdge {
+            changeStart = controller.niriLayoutHandler.coveringEveryNiriWorkspace(changeStart)
             controller.workspaceNavigationHandler.moveWindowAcrossMonitorAtEdge(direction: direction)
         }
     }

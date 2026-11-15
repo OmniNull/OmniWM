@@ -113,16 +113,20 @@ extension CommandHandler {
         _ = controller.workspaceNavigationHandler.moveWorkspaceToMonitor(workspaceId, direction: direction, force: true)
     }
 
-    func perform(_ action: WindowMovementAction, controller: WMController) -> ExternalCommandResult {
+    func perform(
+        _ action: WindowMovementAction,
+        controller: WMController,
+        widening changeStart: inout NiriLayoutChangeStart?
+    ) -> ExternalCommandResult {
         switch action {
         case .down:
             moveWindowWithinContainer(direction: .down)
         case .up:
             moveWindowWithinContainer(direction: .up)
         case .downOrToWorkspaceDown:
-            controller.niriLayoutHandler.moveWindowOrToAdjacentWorkspace(direction: .down)
+            controller.niriLayoutHandler.moveWindowOrToAdjacentWorkspace(direction: .down, widening: &changeStart)
         case .upOrToWorkspaceUp:
-            controller.niriLayoutHandler.moveWindowOrToAdjacentWorkspace(direction: .up)
+            controller.niriLayoutHandler.moveWindowOrToAdjacentWorkspace(direction: .up, widening: &changeStart)
         case .consumeOrExpelLeft:
             controller.niriLayoutHandler.consumeOrExpelWindow(direction: .left)
         case .consumeOrExpelRight:

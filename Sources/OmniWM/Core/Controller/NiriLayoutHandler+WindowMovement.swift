@@ -170,9 +170,13 @@ extension NiriLayoutHandler {
         return outcome
     }
 
-    func moveWindowOrToAdjacentWorkspace(direction: Direction) {
+    func moveWindowOrToAdjacentWorkspace(
+        direction: Direction,
+        widening changeStart: inout NiriLayoutChangeStart?
+    ) {
         guard direction == .down || direction == .up else { return }
         guard moveWindowWithinContainer(direction: direction) == .atWorkspaceEdge else { return }
+        changeStart = coveringEveryNiriWorkspace(changeStart)
         controller?.workspaceNavigationHandler.moveWindowToAdjacentWorkspace(direction: direction)
     }
 

@@ -69,6 +69,27 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
             body()
             controller.niriLayoutHandler.recordLayoutChange(since: start)
         }
+
+        func changeAcrossWorkspaces(_ body: () -> Void) {
+            let start = controller.niriLayoutHandler.layoutChangeStartCoveringEveryNiriWorkspace(in: workspaceId)
+            body()
+            controller.niriLayoutHandler.recordLayoutChange(since: start)
+        }
+
+        func focus(_ index: Int) {
+            _ = controller.workspaceManager.commitWorkspaceSelection(
+                nodeId: window(index).id,
+                focusedToken: tokens[index],
+                in: workspaceId,
+                onMonitor: monitor.id
+            )
+            _ = controller.workspaceManager.confirmManagedFocus(
+                tokens[index],
+                in: workspaceId,
+                onMonitor: monitor.id,
+                activateWorkspaceOnMonitor: true
+            )
+        }
     }
 
     private func makeFixture(
@@ -206,7 +227,7 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
     private func moveWindow(_ fixture: Fixture, _ index: Int, to workspaceId: WorkspaceDescriptor.ID) throws {
         let handle = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: fixture.tokens[index]))
         let navigation = fixture.controller.workspaceNavigationHandler
-        fixture.change {
+        fixture.changeAcrossWorkspaces {
             if let mutation = navigation.moveWindow(handle: handle, toWorkspaceId: workspaceId).mutation {
                 navigation.finishWorkspaceMove(mutation, focusPolicy: .retainCurrent)
             }
@@ -219,9 +240,9 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
             .workspace(.moveToMonitor(.right)), .column(.moveToWorkspace(1)), .column(.moveToWorkspaceUp),
             .column(.moveToWorkspaceDown)
         ] {
-            XCTAssertTrue(CommandHandler.recordsLayoutChange(command), "\(command)")
+            XCTAssertEqual(CommandHandler.layoutChangeCoverage(of: command), .everyNiriWorkspace, "\(command)")
         }
-        XCTAssertFalse(CommandHandler.recordsLayoutChange(.workspace(.switchTo(1))))
+        XCTAssertNil(CommandHandler.layoutChangeCoverage(of: .workspace(.switchTo(1))))
     }
 
     func testUndoWhereTheWindowLeftBringsItBackToItsPlaceAndWidth() throws {
@@ -428,7 +449,7 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         let navigation = fixture.controller.workspaceNavigationHandler
         let first = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: fixture.tokens[0]))
         let third = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: fixture.tokens[2]))
-        fixture.change {
+        fixture.changeAcrossWorkspaces {
             for (handle, target) in [(first, other), (third, fixture.workspaceId)] {
                 if let mutation = navigation.moveWindow(handle: handle, toWorkspaceId: target).mutation {
                     navigation.finishWorkspaceMove(mutation, focusPolicy: .retainCurrent)
@@ -455,6 +476,82 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
 
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, other)
         XCTAssertNotEqual(fixture.controller.intentLedger.activeManagedRequest?.token, fixture.tokens[1])
+    }
+
+    func testAChangeInsideAWorkspaceCapturesThatWorkspaceAlone() throws {
+        let fixture = try makeFixture(pid: 834_240, workspaceNames: ["1", "2"])
+        let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
+        try moveWindow(fixture, 2, to: other)
+        fixture.engine.clearLayoutHistory(in: fixture.workspaceId)
+        fixture.engine.clearLayoutHistory(in: other)
+        let handler = fixture.controller.niriLayoutHandler
+        let before = order(fixture, in: fixture.workspaceId)
+        let there = order(fixture, in: other)
+        XCTAssertFalse(there.isEmpty)
+
+        let start = try XCTUnwrap(handler.layoutChangeStart(in: fixture.workspaceId))
+        XCTAssertEqual(Array(start.snapshots.keys), [fixture.workspaceId])
+        XCTAssertFalse(start.coversEveryNiriWorkspace)
+        fixture.mutate { fixture.stack(1, onto: 0) }
+        handler.recordLayoutChange(since: start)
+
+        let after = order(fixture, in: fixture.workspaceId)
+        XCTAssertNotEqual(after, before)
+        XCTAssertNil(fixture.engine.peekLayoutHistory(.undo, in: other))
+        XCTAssertTrue(handler.stepLayoutHistory(.undo, in: fixture.workspaceId))
+        XCTAssertEqual(order(fixture, in: fixture.workspaceId), before)
+        XCTAssertTrue(handler.stepLayoutHistory(.redo, in: fixture.workspaceId))
+        XCTAssertEqual(order(fixture, in: fixture.workspaceId), after)
+        XCTAssertEqual(order(fixture, in: other), there)
+    }
+
+    func testWideningAddsEveryOtherNiriWorkspaceOnceAndKeepsTheFirstSnapshot() throws {
+        let fixture = try makeFixture(pid: 834_241, workspaceNames: ["1", "2"])
+        let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
+        try moveWindow(fixture, 2, to: other)
+        let handler = fixture.controller.niriLayoutHandler
+        let first = order(fixture, in: fixture.workspaceId)
+        let start = try XCTUnwrap(handler.layoutChangeStart(in: fixture.workspaceId))
+        fixture.mutate { fixture.stack(1, onto: 0) }
+        XCTAssertNotEqual(order(fixture, in: fixture.workspaceId), first)
+
+        let wide = try XCTUnwrap(handler.coveringEveryNiriWorkspace(start))
+
+        func orders(_ change: NiriLayoutChangeStart) -> [WorkspaceDescriptor.ID: [[WindowToken]]] {
+            change.snapshots.mapValues { $0.columns.map(\.windows) }
+        }
+        XCTAssertTrue(wide.coversEveryNiriWorkspace)
+        XCTAssertEqual(orders(wide), [fixture.workspaceId: first, other: order(fixture, in: other)])
+        XCTAssertEqual(wide.startedAt, start.startedAt)
+        XCTAssertEqual(wide.userActionCount, start.userActionCount)
+        XCTAssertEqual(orders(try XCTUnwrap(handler.coveringEveryNiriWorkspace(wide))), orders(wide))
+        XCTAssertEqual(
+            orders(try XCTUnwrap(handler.layoutChangeStartCoveringEveryNiriWorkspace(in: other))),
+            [fixture.workspaceId: order(fixture, in: fixture.workspaceId), other: order(fixture, in: other)]
+        )
+    }
+
+    func testACommandThatMovesAWindowToTheWorkspaceBelowIsUndoneFromThere() throws {
+        let commands: [HotkeyCommand] = [.workspace(.moveDown), .windowMovement(.downOrToWorkspaceDown)]
+        XCTAssertEqual(commands.map(CommandHandler.layoutChangeCoverage), [.everyNiriWorkspace, .ownWorkspace])
+        for (index, command) in commands.enumerated() {
+            let fixture = try makeFixture(pid: pid_t(834_250 + index), workspaceNames: ["1", "2"])
+            let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
+            try moveWindow(fixture, 1, to: other)
+            fixture.engine.clearLayoutHistory(in: fixture.workspaceId)
+            fixture.engine.clearLayoutHistory(in: other)
+            let moved = fixture.tokens[2]
+            fixture.focus(2)
+            let here = order(fixture, in: fixture.workspaceId)
+            let there = order(fixture, in: other)
+
+            XCTAssertEqual(fixture.controller.commandHandler.performCommand(command), .executed, "\(command)")
+
+            XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: moved), other, "\(command)")
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: other), "\(command)")
+            XCTAssertEqual(order(fixture, in: other), there, "\(command)")
+            XCTAssertEqual(order(fixture, in: fixture.workspaceId), here, "\(command)")
+        }
     }
 
     func testEveryKindOfUndoStartsWhereTheWindowsAreDrawnAndLandsWhereTheyWere() throws {

@@ -8,6 +8,7 @@ extension NiriLayoutEngine {
     func recordLayoutChanges(
         in mainWorkspaceId: WorkspaceDescriptor.ID,
         since before: [WorkspaceDescriptor.ID: NiriLayoutSnapshot],
+        coveringEveryWorkspace: Bool,
         timing: NiriLayoutStepTiming? = nil
     ) {
         let origins = before.reduce(into: [WindowToken: WorkspaceDescriptor.ID]()) { origins, item in
@@ -15,10 +16,15 @@ extension NiriLayoutEngine {
                 origins[token] = item.key
             }
         }
-        let afters = Set(before.keys).union(states.keys)
-            .reduce(into: [WorkspaceDescriptor.ID: NiriLayoutSnapshot]()) { afters, workspaceId in
+        var afters: [WorkspaceDescriptor.ID: NiriLayoutSnapshot] = [:]
+        for workspaceId in before.keys {
+            afters[workspaceId] = layoutSnapshot(in: workspaceId, focused: nil)
+        }
+        if coveringEveryWorkspace {
+            for workspaceId in states.keys where before[workspaceId] == nil {
                 afters[workspaceId] = layoutSnapshot(in: workspaceId, focused: nil)
             }
+        }
         let locations = afters.reduce(into: [WindowToken: WorkspaceDescriptor.ID]()) { locations, item in
             for token in item.value.tokens {
                 locations[token] = item.key

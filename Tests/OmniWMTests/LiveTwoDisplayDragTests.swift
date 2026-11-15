@@ -751,6 +751,36 @@ extension CrossDisplayDragTests {
         }
     }
 
+    func testAWindowGatheredWhileADragIsHeldIsSentBackByThatDragsUndo() throws {
+        let fixture = try makeLiveFixture([.niri, .niri])
+        let dragged = addWindow(1, to: fixture.source, fixture)
+        _ = addWindow(2, to: fixture.source, fixture)
+        let gathered = addWindow(10, to: fixture.target, fixture)
+        _ = addWindow(11, to: fixture.target, fixture)
+        fixture.layout()
+        let there = fixture.columns(fixture.target)
+        let start = try startLiveDrag(dragged, fixture)
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(fixture.handler.state.liveDragLayoutStart?.coversEveryNiriWorkspace, true)
+
+        let outcome = fixture.controller.niriLayoutHandler.gatherWindows(
+            [gathered],
+            from: .all,
+            into: NiriGatherDestination(workspaceId: fixture.source, monitor: fixture.monitors[0])
+        )
+        guard case .gathered = outcome else { return XCTFail("\(outcome)") }
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(fixture.manager.workspace(for: gathered), fixture.source)
+
+        fixture.handler.dispatchMouseUp(at: start.center)
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        fixture.layout()
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: fixture.source))
+
+        XCTAssertEqual(fixture.manager.workspace(for: gathered), fixture.target)
+        XCTAssertEqual(fixture.columns(fixture.target), there)
+    }
+
     func testACarriedDropOntoAStackItDoesNotFitIsUndoneBackOntoTheFirstDisplay() throws {
         let drag = try startLiveTwoDisplayDrag(residents: 2)
         let fixture = drag.fixture

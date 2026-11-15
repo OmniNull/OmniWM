@@ -103,7 +103,8 @@ extension MouseEventHandler {
         else { return false }
 
         finishPendingLiveStackDrop()
-        let layoutStart = controller.niriLayoutHandler.layoutChangeStart(in: entry.workspaceId)
+        let layoutStart = controller.niriLayoutHandler
+            .layoutChangeStartCoveringEveryNiriWorkspace(in: entry.workspaceId)
         let began = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveBegin(
                 windowId: window.id,
