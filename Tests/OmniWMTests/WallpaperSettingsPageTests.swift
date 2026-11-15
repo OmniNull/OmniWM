@@ -127,10 +127,10 @@ final class WallpaperSettingsPageTests: XCTestCase {
             let bitmap = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
             hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
             if let path = ProcessInfo.processInfo.environment["OMNIWM_SETTINGS_SNAPSHOTS"] {
-                try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).write(
-                    to: URL(fileURLWithPath: path)
-                        .appendingPathComponent("settings-borders-\(dark ? "dark" : "light").png")
-                )
+                let folder = URL(fileURLWithPath: path, isDirectory: true)
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+                    .write(to: folder.appendingPathComponent("settings-borders-\(dark ? "dark" : "light").png"))
             }
             window.contentView = nil
         }
