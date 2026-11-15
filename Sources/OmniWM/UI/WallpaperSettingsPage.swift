@@ -20,8 +20,12 @@ enum WallpaperRotationChoice: Hashable {
 
     static let presets = SettingsExport.Wallpaper.rotationPresets
 
-    init(_ minutes: Int) {
-        self = minutes <= 0 ? .off : Self.presets.contains(minutes) ? .minutes(minutes) : .custom
+    init(_ minutes: Int, customAt: Int? = nil) {
+        if customAt == minutes {
+            self = .custom
+        } else {
+            self = minutes <= 0 ? .off : Self.presets.contains(minutes) ? .minutes(minutes) : .custom
+        }
     }
 }
 
@@ -51,7 +55,7 @@ struct WallpaperFolderChoice {
 struct WallpaperSettingsPage: View {
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
-    @State private var customRotation = false
+    @State private var customAt: Int?
 
     private var manager: WallpaperManager? {
         controller.wallpaperManager
@@ -153,17 +157,17 @@ struct WallpaperSettingsPage: View {
     private var rotation: some View {
         Section("Rotation") {
             Picker("Change Wallpaper", selection: Binding(
-                get: { customRotation ? .custom : WallpaperRotationChoice(settings.wallpaper.rotationMinutes) },
+                get: { rotationChoice },
                 set: { choice in
                     switch choice {
                     case .off:
-                        customRotation = false
+                        customAt = nil
                         manager?.setRotation(0)
                     case let .minutes(value):
-                        customRotation = false
+                        customAt = nil
                         manager?.setRotation(value)
                     case .custom:
-                        customRotation = true
+                        customAt = settings.wallpaper.rotationMinutes
                     }
                 }
             )) {
@@ -174,7 +178,7 @@ struct WallpaperSettingsPage: View {
                 Text("Custom").tag(WallpaperRotationChoice.custom)
             }
             .id("Change Wallpaper")
-            if customRotation || WallpaperRotationChoice(settings.wallpaper.rotationMinutes) == .custom {
+            if rotationChoice == .custom {
                 Stepper(value: customMinutes, in: 1 ... SettingsExport.Wallpaper.rotationLimit) {
                     LabeledContent("Minutes") {
                         TextField("Minutes", value: customMinutes, format: .number)
@@ -203,8 +207,15 @@ struct WallpaperSettingsPage: View {
         String(localized: "Every \(minutes) Minutes")
     }
 
+    private var rotationChoice: WallpaperRotationChoice {
+        WallpaperRotationChoice(settings.wallpaper.rotationMinutes, customAt: customAt)
+    }
+
     private var customMinutes: Binding<Int> {
-        Binding(get: { max(1, settings.wallpaper.rotationMinutes) }, set: { manager?.setRotation($0) })
+        Binding(get: { max(1, settings.wallpaper.rotationMinutes) }, set: { minutes in
+            manager?.setRotation(minutes)
+            customAt = settings.wallpaper.rotationMinutes
+        })
     }
 
     private var nextChangeText: String {

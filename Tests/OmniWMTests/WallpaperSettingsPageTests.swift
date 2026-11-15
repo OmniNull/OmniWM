@@ -159,6 +159,21 @@ final class WallpaperSettingsPageTests: XCTestCase {
         XCTAssertEqual(WallpaperRotationChoice(custom), .custom)
     }
 
+    func testCustomRotationFollowsAChangeMadeOutsideSettings() {
+        let presets = SettingsExport.Wallpaper.rotationPresets
+        let custom = presets[0] + 1
+        XCTAssertEqual(WallpaperRotationChoice(0, customAt: 0), .custom, "choosing Custom while off opens the editor")
+        XCTAssertEqual(WallpaperRotationChoice(presets[0], customAt: presets[0]), .custom)
+        XCTAssertEqual(WallpaperRotationChoice(custom, customAt: custom), .custom)
+        XCTAssertEqual(
+            WallpaperRotationChoice(0, customAt: custom), .off, "rotation turned off from the widget shows Off"
+        )
+        XCTAssertEqual(
+            WallpaperRotationChoice(presets[1], customAt: presets[0]), .minutes(presets[1]),
+            "an interval chosen from the widget shows that interval"
+        )
+    }
+
     func testTheColorsSectionFollowsAPaletteChangeMadeWhileItIsOpen() async throws {
         let (settings, controller, _) = try fixture()
         let manager = try XCTUnwrap(controller.wallpaperManager)
