@@ -9,10 +9,7 @@ extension ShellWidgetHost: WallpaperPaletteTarget {
     }
 
     var wallpaperPaletteState: WallpaperPaletteState {
-        WallpaperPaletteState(
-            active: config.themeName == ShellWallpaperPalette.themeName,
-            scheme: config.wallpaperScheme
-        )
+        WallpaperPaletteState(config)
     }
 
     func publishWallpaperPalette(_ pixels: [UInt32]) async throws -> Bool {

@@ -159,6 +159,59 @@ final class WallpaperSettingsPageTests: XCTestCase {
         XCTAssertEqual(WallpaperRotationChoice(custom), .custom)
     }
 
+    func testTheColorsSectionFollowsAPaletteChangeMadeWhileItIsOpen() async throws {
+        let (settings, controller, _) = try fixture()
+        let manager = try XCTUnwrap(controller.wallpaperManager)
+        let host = ShellWidgetHost(
+            configDirectory: directory,
+            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
+            resourceStore: ShellResourceStore(directory: directory.appendingPathComponent("resources")),
+            world: { ShellWorldData() }, vars: { [:] }, bars: { [:] }, onLayoutChange: {},
+            onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
+            onPopoutChange: {}, onTitleDemandChange: { _ in }
+        )
+        controller.workspaceBarManager.shellHost = host
+        defer { controller.workspaceBarManager.shellHost = nil }
+        func render() -> NSWindow {
+            let section = Form { WallpaperSchemeSection(settings: settings, controller: controller) }
+                .formStyle(.grouped)
+                .frame(width: 640, height: 420)
+            let hosting = NSHostingView(rootView: section)
+            hosting.frame = CGRect(x: 0, y: 0, width: 640, height: 420)
+            let window = NSWindow(
+                contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false
+            )
+            window.contentView = hosting
+            return window
+        }
+        func pixels(_ window: NSWindow) async throws -> Data? {
+            await display(window)
+            await display(window)
+            let hosting = try XCTUnwrap(window.contentView)
+            let bitmap = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+            hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+            return bitmap.representation(using: .png, properties: [:])
+        }
+        let open = render()
+        _ = try await pixels(open)
+        await manager.idle()
+        XCTAssertFalse(manager.paletteSwatches.isEmpty)
+        let before = try await pixels(open)
+
+        let configuration = controller.workspaceBarManager.shellConfiguration
+        let original = configuration.config
+        var config = original
+        config.themeName = ShellWallpaperPalette.themeName
+        config.wallpaperScheme = .vibrant
+        configuration.adopt(config)
+        let after = try await pixels(open)
+        XCTAssertNotEqual(after, before, "a scheme chosen from the shell shows in the open section")
+        configuration.adopt(original)
+        let restored = try await pixels(open)
+        XCTAssertEqual(restored, before, "going back to the style palette shows in the open section too")
+        open.contentView = nil
+    }
+
     func testThePageTakesFolderCountsFromTheManagerAndNeverScansOnTheMainThread() async throws {
         let (settings, controller, _) = try fixture()
         let manager = try XCTUnwrap(controller.wallpaperManager)

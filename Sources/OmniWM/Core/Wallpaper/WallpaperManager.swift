@@ -11,6 +11,12 @@ struct WallpaperPaletteState: Equatable, Sendable {
     var scheme = ShellWallpaperScheme.tonalSpot
 }
 
+extension WallpaperPaletteState {
+    init(_ config: ShellConfig) {
+        self.init(active: config.themeName == ShellWallpaperPalette.themeName, scheme: config.wallpaperScheme)
+    }
+}
+
 @MainActor
 protocol WallpaperPaletteTarget: AnyObject {
     var wallpaperPaletteState: WallpaperPaletteState { get }

@@ -40,11 +40,7 @@ extension WorkspaceBarManager {
     }
 
     var wallpaperPaletteState: WallpaperPaletteState {
-        let config = shellHost?.config ?? shellConfiguration.config
-        return WallpaperPaletteState(
-            active: config.themeName == ShellWallpaperPalette.themeName,
-            scheme: config.wallpaperScheme
-        )
+        WallpaperPaletteState(shellHost?.config ?? shellConfiguration.config)
     }
 
     @discardableResult

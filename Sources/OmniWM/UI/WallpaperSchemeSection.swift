@@ -11,7 +11,7 @@ struct WallpaperSchemeSection: View {
     @State private var problem: String?
 
     private var state: WallpaperPaletteState {
-        controller.workspaceBarManager.wallpaperPaletteState
+        WallpaperPaletteState(controller.workspaceBarManager.shellConfiguration.config)
     }
 
     private var manager: WallpaperManager? {
