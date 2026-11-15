@@ -80,6 +80,18 @@ extension NiriLayoutHandler {
         ) {
             return true
         }
+        return stepLayoutHistoryAcrossWorkspaces(
+            direction, in: workspaceId, keepingFocus: keepingFocus, engine: engine, controller: controller
+        )
+    }
+
+    private func stepLayoutHistoryAcrossWorkspaces(
+        _ direction: NiriLayoutHistoryDirection,
+        in workspaceId: WorkspaceDescriptor.ID,
+        keepingFocus: Bool,
+        engine: NiriLayoutEngine,
+        controller: WMController
+    ) -> Bool {
         guard let entry = engine.peekLayoutHistory(direction, in: workspaceId) else { return false }
         let transfers = engine.layoutHistoryTransfers(entry, in: workspaceId)
         let focused = focusedToken(in: workspaceId)
@@ -120,15 +132,23 @@ extension NiriLayoutHandler {
         if stepped, let followed, let window = engine.findNode(for: followed.token, in: followed.workspaceId) {
             controller.workspaceManager
                 .withNiriViewportState(for: followed.workspaceId) { $0.selectedNodeId = window.id }
-            _ = controller.workspaceManager.commitWorkspaceSelection(
-                nodeId: window.id,
-                focusedToken: window.token,
-                in: followed.workspaceId,
-                onMonitor: controller.workspaceManager.monitorId(for: followed.workspaceId)
-            )
-            controller.focusWindow(window.token)
+            frontRestoredWindow(window, in: followed.workspaceId, controller: controller)
         }
         return stepped
+    }
+
+    private func frontRestoredWindow(
+        _ window: NiriWindow,
+        in workspaceId: WorkspaceDescriptor.ID,
+        controller: WMController
+    ) {
+        _ = controller.workspaceManager.commitWorkspaceSelection(
+            nodeId: window.id,
+            focusedToken: window.token,
+            in: workspaceId,
+            onMonitor: controller.workspaceManager.monitorId(for: workspaceId)
+        )
+        controller.focusWindow(window.token)
     }
 
     func isShownOnADisplay(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
@@ -187,16 +207,8 @@ extension NiriLayoutHandler {
             )
             let kept = keepingFocus ? focused.flatMap { engine.findNode(for: $0, in: wsId) == nil ? nil : $0 } : nil
             if let token = kept ?? step.focused ?? focused, let window = engine.findNode(for: token, in: wsId) {
-                state.selectedNodeId = window.id
                 if token != focused { fronted = window }
-                let span = engine.findColumn(containing: window, in: wsId)
-                    .flatMap { engine.columnScreenSpan($0, context: context, state: state) }
-                let shown = span.map {
-                    $0.lowerBound >= workingFrame.minX - 0.5 && $0.upperBound <= workingFrame.maxX + 0.5
-                } ?? false
-                if !shown {
-                    engine.ensureSelectionVisible(node: window, context: context, state: &state)
-                }
+                selectRestoredWindow(window, engine: engine, context: context, state: &state)
             }
             let anchor = state.selectedNodeId.flatMap { engine.findNode(by: $0, in: wsId) as? NiriWindow }
                 ?? engine.root(for: wsId)?.allWindows.first
@@ -212,22 +224,7 @@ extension NiriLayoutHandler {
                     workingFrame: workingFrame,
                     gaps: gaps
                 )
-                let now = engine.animationClock?.now() ?? CACurrentMediaTime()
-                engine.stopWindowMoveAnimations(in: wsId)
-                let settled = operation.settledFrames(state: state)
-                engine.animateRestoredWidths(from: drawn, settled: settled, context: context)
-                var drawnView = state
-                drawnView.viewOffset = controller.workspaceManager.animationDriver.plannedRenderOffset(
-                    in: wsId,
-                    localState: state,
-                    storeOffset: controller.workspaceManager.niriViewportState(for: wsId).viewOffset,
-                    at: now
-                )
-                engine.animateRestoredWindows(
-                    from: drawn,
-                    start: operation.predictedFrames(state: drawnView, at: now),
-                    context: context
-                )
+                animateRestoredLayout(from: drawn, operation: operation, context: context, state: state)
             }
             recordLayoutOperation(.columnMoved, in: wsId)
             requestLayoutCommandRelayout(in: wsId)
@@ -235,14 +232,50 @@ extension NiriLayoutHandler {
             stepped = true
         }
         if frontsRestoredWindow, let fronted {
-            _ = controller.workspaceManager.commitWorkspaceSelection(
-                nodeId: fronted.id,
-                focusedToken: fronted.token,
-                in: workspaceId,
-                onMonitor: controller.workspaceManager.monitorId(for: workspaceId)
-            )
-            controller.focusWindow(fronted.token)
+            frontRestoredWindow(fronted, in: workspaceId, controller: controller)
         }
         return stepped
+    }
+
+    private func selectRestoredWindow(
+        _ window: NiriWindow,
+        engine: NiriLayoutEngine,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) {
+        state.selectedNodeId = window.id
+        let span = engine.findColumn(containing: window, in: context.workspaceId)
+            .flatMap { engine.columnScreenSpan($0, context: context, state: state) }
+        let shown = span.map {
+            $0.lowerBound >= context.workingFrame.minX - 0.5 && $0.upperBound <= context.workingFrame.maxX + 0.5
+        } ?? false
+        if !shown {
+            engine.ensureSelectionVisible(node: window, context: context, state: &state)
+        }
+    }
+
+    private func animateRestoredLayout(
+        from drawn: NiriDrawnLayout,
+        operation: NiriOperationContext,
+        context: NiriInteractionContext,
+        state: ViewportState
+    ) {
+        let now = operation.engine.animationClock?.now() ?? CACurrentMediaTime()
+        operation.engine.stopWindowMoveAnimations(in: operation.wsId)
+        let settled = operation.settledFrames(state: state)
+        operation.engine.animateRestoredWidths(from: drawn, settled: settled, context: context)
+        var drawnView = state
+        let manager = operation.controller.workspaceManager
+        drawnView.viewOffset = manager.animationDriver.plannedRenderOffset(
+            in: operation.wsId,
+            localState: state,
+            storeOffset: manager.niriViewportState(for: operation.wsId).viewOffset,
+            at: now
+        )
+        operation.engine.animateRestoredWindows(
+            from: drawn,
+            start: operation.predictedFrames(state: drawnView, at: now),
+            context: context
+        )
     }
 }

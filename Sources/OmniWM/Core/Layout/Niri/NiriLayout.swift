@@ -232,12 +232,7 @@ extension NiriLayoutEngine {
         let resolvedSpans = resolveWindowSpans(
             container: container,
             windows: windows,
-            axis: NiriAxisLayout(
-                availableSpace: containerFrames.secondarySpan(),
-                gap: secondaryGap,
-                isTabbed: isTabbed,
-                orientation: layoutFrames.orientation
-            ),
+            axis: containerFrames.secondaryAxis(gap: secondaryGap, isTabbed: isTabbed),
             secondarySpanOverride: placement.secondarySpanOverride
         )
 
