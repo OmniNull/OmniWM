@@ -116,6 +116,24 @@ final class WallpaperLibraryTests: XCTestCase {
         XCTAssertEqual(WallpaperFileStamp(url), WallpaperFileStamp(url))
     }
 
+    func testAStampOfASymbolicLinkChangesWhenTheWallpaperItPointsAtChanges() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let target = root.appendingPathComponent("target.jpg")
+        try Data("first".utf8).write(to: target)
+        let link = root.appendingPathComponent("link.jpg")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        let before = WallpaperFileStamp(link)
+
+        let changed = Data("a longer second version".utf8)
+        try changed.write(to: target)
+        let after = WallpaperFileStamp(link)
+        XCTAssertNotEqual(after, before, "a new image behind the same link gets a new stamp")
+        XCTAssertEqual(after.bytes, Int64(changed.count))
+        XCTAssertEqual(after.path, link.standardizedFileURL.path, "the stamp keeps the link's own path")
+    }
+
     func testPreviewsAreCroppedToTheDisplayShape() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

@@ -11,7 +11,7 @@ struct WallpaperFileStamp: Hashable, Sendable {
     let bytes: Int64
 
     init(_ url: URL) {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.resolvingSymlinksInPath().path)
         path = url.standardizedFileURL.path
         modified = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
         bytes = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
