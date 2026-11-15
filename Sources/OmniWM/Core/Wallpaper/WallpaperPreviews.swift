@@ -38,7 +38,6 @@ final class WallpaperPreviews {
     nonisolated static let prefix = "wallpaper/"
     nonisolated static let cardWidth = 800
     nonisolated static let gridWidth = 400
-    nonisolated static let limit = 64
     nonisolated static let defaultWindow = 6
     nonisolated static let pageLimit = 24
 
@@ -51,7 +50,6 @@ final class WallpaperPreviews {
     private let render: @Sendable (WallpaperPreviewKey) async -> CGImage?
     private var images: [String: CGImage] = [:]
     private var ids: [String: String] = [:]
-    private var recent: [String] = []
     private var wanted: [WallpaperPreviewKey] = []
     private var queue: [WallpaperPreviewKey] = []
     private var working: Task<Void, Never>?
@@ -144,7 +142,6 @@ final class WallpaperPreviews {
         for id in removed {
             images.removeValue(forKey: id)
         }
-        recent.removeAll { !ids.contains($0) }
         queue = keys.filter { images[$0.id] == nil }
         if !removed.isEmpty { onChange?() }
         work()
@@ -156,7 +153,6 @@ final class WallpaperPreviews {
         working = nil
         images = [:]
         ids = [:]
-        recent = []
         wanted = []
         queue = []
     }
@@ -180,20 +176,11 @@ final class WallpaperPreviews {
                 let image = await render(key)
                 guard generation == self.generation, self.wanted.contains(key) else { continue }
                 if let image {
-                    self.store(image, id: key.id)
+                    self.images[key.id] = image
                     self.onChange?()
                 }
             }
             if let self, generation == self.generation { self.working = nil }
-        }
-    }
-
-    private func store(_ image: CGImage, id: String) {
-        images[id] = image
-        recent.removeAll { $0 == id }
-        recent.append(id)
-        while recent.count > Self.limit {
-            images.removeValue(forKey: recent.removeFirst())
         }
     }
 }

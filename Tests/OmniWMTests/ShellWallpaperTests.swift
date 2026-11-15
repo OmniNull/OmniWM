@@ -203,7 +203,7 @@ final class ShellWallpaperTests: XCTestCase {
     func testPreviewsFollowTheDisplayShapePlacementAndFolderAndStayBounded() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let count = WallpaperPreviews.limit * 2
+        let count = 2 * WallpaperPreviews.pageLimit + 1
         let folder = try WallpaperFixtures.makeFolder(root, "w", files: (0 ..< count).map { "w\($0).jpg" })
         let rendered = RenderedKeys()
         let previews = WallpaperPreviews { key in
@@ -259,7 +259,7 @@ final class ShellWallpaperTests: XCTestCase {
             previews.retain(entries: [entry], stamps: stamps, placement: .fit)
             await previews.settle()
             XCTAssertEqual(previews.count, 1 + min(WallpaperPreviews.pageLimit, entry.files.count - offset))
-            XCTAssertLessThanOrEqual(previews.count, WallpaperPreviews.limit)
+            XCTAssertLessThanOrEqual(previews.count, 1 + WallpaperPreviews.pageLimit, "one card and one page")
         }
         entry.files = []
         entry.display.current = nil
@@ -267,6 +267,52 @@ final class ShellWallpaperTests: XCTestCase {
         XCTAssertEqual(previews.count, 0, "a folder change drops previews of wallpapers no longer shown")
         previews.demanded = false
         XCTAssertEqual(previews.count, 0)
+    }
+
+    func testEveryPreviewOnThreeFullPagesStaysReady() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let previews = WallpaperPreviews { _ in Self.image }
+        previews.demanded = true
+        let displays = [
+            WallpaperFixtures.macBook,
+            WallpaperFixtures.secondary(WallpaperFixtures.studio),
+            WallpaperFixtures.twinRight
+        ]
+        var entries: [WallpaperManager.Entry] = []
+        var stamps: [String: WallpaperFileStamp] = [:]
+        for (index, screen) in displays.enumerated() {
+            let names = (0 ..< WallpaperPreviews.pageLimit).map { "w\(index)-\($0).jpg" }
+            let folder = try WallpaperFixtures.makeFolder(root, "w\(index)", files: names)
+            var display = screen
+            display.current = folder.appendingPathComponent(names[0])
+            let entry = WallpaperManager.Entry(display: display, folder: folder, custom: false, files: names)
+            for name in names {
+                let url = folder.appendingPathComponent(name)
+                stamps[url.standardizedFileURL.path] = WallpaperFileStamp(url)
+            }
+            previews.setWindow(.init(offset: 0, count: WallpaperPreviews.pageLimit), for: entry)
+            entries.append(entry)
+        }
+        previews.retain(entries: entries, stamps: stamps, placement: .fill)
+        await previews.settle()
+
+        XCTAssertEqual(previews.count, displays.count * (1 + WallpaperPreviews.pageLimit))
+        for entry in entries {
+            let current = try XCTUnwrap(entry.display.current)
+            XCTAssertNotNil(previews.ready(
+                current, width: WallpaperPreviews.cardWidth, display: entry.display, placement: .fill
+            ))
+            for name in entry.files {
+                XCTAssertNotNil(
+                    previews.ready(
+                        entry.folder.appendingPathComponent(name), width: WallpaperPreviews.gridWidth,
+                        display: entry.display, placement: .fill
+                    ),
+                    "\(name) is on screen, so its preview stays"
+                )
+            }
+        }
     }
 
     private nonisolated static let image: CGImage = {
