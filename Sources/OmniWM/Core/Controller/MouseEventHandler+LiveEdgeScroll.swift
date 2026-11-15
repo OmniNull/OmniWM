@@ -317,7 +317,7 @@ extension MouseEventHandler {
     private func liveEdgeZone(
         containing location: CGPoint,
         monitorFrame: CGRect
-    ) -> MouseInputState.LiveEdgeScroll.Edge? {
+    ) -> MouseInputState.LiveEdge? {
         guard controller?.niriEngine != nil else { return nil }
         let width = MoveConfiguration.liveEdgeZoneWidth(forDisplayWidth: monitorFrame.width)
         if location.x < monitorFrame.minX + width { return .leading }

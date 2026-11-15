@@ -54,7 +54,7 @@ extension LayoutRefreshController {
         var visible: [Int] = []
         var parkedCount = 0
         var appHiddenCount = 0
-        var audited: [(entry: WindowState, windowId: UInt32, hidden: HiddenState?)] = []
+        var audited: [(entry: WindowState, windowId: UInt32)] = []
         for entry in controller.workspaceManager.allEntries() {
             if controller.workspaceManager.isAppHidden(pid: entry.pid)
                 || controller.axManager.macOSHiddenAppPIDs.contains(entry.pid)
@@ -63,15 +63,15 @@ extension LayoutRefreshController {
                 continue
             }
             guard let windowId = UInt32(exactly: entry.windowId) else { continue }
-            audited.append((entry, windowId, controller.workspaceManager.hiddenState(for: entry.token)))
+            audited.append((entry, windowId))
         }
         let readStartNs = DispatchTime.now().uptimeNanoseconds
         let bounds = windowBoundsProvider(
-            audited.filter { $0.hidden != nil || $0.entry.mode == .tiling }.map(\.windowId)
+            audited.filter { $0.entry.hiddenState != nil || $0.entry.mode == .tiling }.map(\.windowId)
         )
         let readEndNs = DispatchTime.now().uptimeNanoseconds
-        for (entry, windowId, hidden) in audited {
-            guard let hidden else {
+        for (entry, windowId) in audited {
+            guard let hidden = entry.hiddenState else {
                 visible.append(entry.windowId)
                 appendVisibleWindowAudit(entry, bounds: bounds[windowId], controller: controller, strays: &strays)
                 continue

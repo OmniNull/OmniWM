@@ -69,13 +69,13 @@ struct MouseInputState {
         var pointerWasDragged = false
     }
 
-    struct LiveEdgeScroll {
-        enum Edge: Equatable {
-            case leading
-            case trailing
-        }
+    enum LiveEdge: Equatable {
+        case leading
+        case trailing
+    }
 
-        let edge: Edge
+    struct LiveEdgeScroll {
+        let edge: LiveEdge
         let workspaceId: WorkspaceDescriptor.ID
         let enteredAt: TimeInterval
         var delayTimer: Timer?
@@ -87,7 +87,7 @@ struct MouseInputState {
     }
 
     struct LiveEdgeZoneHold {
-        let edge: LiveEdgeScroll.Edge
+        let edge: LiveEdge
         let x: CGFloat
 
         func isPassed(by location: CGPoint) -> Bool {

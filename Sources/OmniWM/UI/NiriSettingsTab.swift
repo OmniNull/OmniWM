@@ -320,8 +320,8 @@ private struct GlobalNiriSettingsSection: View {
     }
 }
 
-private extension GlobalNiriSettingsSection {
-    var windowTilingNote: some View {
+extension GlobalNiriSettingsSection {
+    private var windowTilingNote: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(
                 "macOS window tiling interferes with dragging. Turn off these settings in Desktop & Dock:",

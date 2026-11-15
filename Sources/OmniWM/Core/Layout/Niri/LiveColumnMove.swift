@@ -62,6 +62,12 @@ struct LiveColumnMove {
         case after
     }
 
+    struct SlotSpan {
+        let minX: CGFloat
+        let width: CGFloat
+        let closedToward: Side?
+    }
+
     struct SlotResize {
         let home: NiriContainer
         let placed: StripColumn
@@ -69,17 +75,17 @@ struct LiveColumnMove {
         let width: CGFloat
     }
 
-    struct Reorder {
-        enum Kind {
-            case closeDropSpace(NiriContainer, revealsHome: Bool)
-            case openDropSpace(existing: NiriContainer?, beside: NiriContainer)
-        }
+    enum ReorderKind {
+        case closeDropSpace(NiriContainer, revealsHome: Bool)
+        case openDropSpace(existing: NiriContainer?, beside: NiriContainer)
+    }
 
+    struct Reorder {
         let dragged: NiriContainer
         let target: NiriContainer
         let side: Side
         let pinned: NiriContainer
-        let kind: Kind
+        let kind: ReorderKind
     }
 
     enum Action {
@@ -119,17 +125,17 @@ struct LiveColumnMove {
         }
     }
 
-    struct Dwell: Equatable {
-        enum Region: Equatable {
-            case side(Side)
-            case centre
-        }
+    enum DwellRegion: Equatable {
+        case side(Side)
+        case centre
+    }
 
+    struct Dwell: Equatable {
         let columnId: NodeId
-        let region: Region
+        let region: DwellRegion
         let since: TimeInterval
 
-        func start(on columnId: NodeId, in region: Region) -> TimeInterval? {
+        func start(on columnId: NodeId, in region: DwellRegion) -> TimeInterval? {
             self.columnId == columnId && self.region == region ? since : nil
         }
     }

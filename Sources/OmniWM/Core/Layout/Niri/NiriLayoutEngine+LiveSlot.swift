@@ -45,21 +45,27 @@ extension NiriLayoutEngine {
         closedToward: LiveColumnMove.Side?,
         strip: [LiveColumnMove.StripColumn],
         context: NiriInteractionContext
-    ) -> (minX: CGFloat, width: CGFloat, closedToward: LiveColumnMove.Side?) {
+    ) -> LiveColumnMove.SlotSpan {
         let fullWidth = slot?.fullWidth ?? placed.width
         let originMinX = placed.minX - (slot?.leftCut ?? 0)
         let closedCut = max(0, fullWidth + context.gaps)
         if let closedToward {
-            return (closedToward == .after ? originMinX + closedCut : originMinX, fullWidth - closedCut, closedToward)
+            return .init(
+                minX: closedToward == .after ? originMinX + closedCut : originMinX,
+                width: fullWidth - closedCut,
+                closedToward: closedToward
+            )
         }
         let shift = windowMidX - (originMinX + fullWidth / 2)
         if let index = strip.firstIndex(where: { $0.column === placed.column }) {
             let ahead = shift < 0 ? strip[..<index] : strip[(index + 1)...]
-            guard ahead.contains(where: { !$0.column.isLiveDropSpace }) else { return (originMinX, fullWidth, nil) }
+            guard ahead.contains(where: { !$0.column.isLiveDropSpace }) else {
+                return .init(minX: originMinX, width: fullWidth, closedToward: nil)
+            }
         }
         let cut = min(abs(shift), closedCut)
         let closed: LiveColumnMove.Side? = cut >= closedCut - 0.5 ? (shift > 0 ? .after : .before) : nil
-        return (shift > 0 ? originMinX + cut : originMinX, fullWidth - cut, closed)
+        return .init(minX: shift > 0 ? originMinX + cut : originMinX, width: fullWidth - cut, closedToward: closed)
     }
 
     private func liveSlotResize(

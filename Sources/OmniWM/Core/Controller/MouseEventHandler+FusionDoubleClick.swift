@@ -8,7 +8,7 @@ extension MouseEventHandler {
     nonisolated static let fusionDoubleClickArmRadius: CGFloat = 8
 
     nonisolated static func takesFusionDoubleClick(_ flags: CGEventFlags) -> Bool {
-        flags.intersection(relevantModifierFlags).isEmpty
+        flags.isDisjoint(with: relevantModifierFlags)
     }
 
     nonisolated static func asksAboutFusionDoubleClick(

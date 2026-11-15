@@ -240,7 +240,7 @@ extension NiriLayoutEngine {
             cursor: cursor
         )
         let besideHome = liveNeighbour(of: target, on: side) === dragged
-        let kind: LiveColumnMove.Reorder.Kind
+        let kind: LiveColumnMove.ReorderKind
         if target === dragged, let dropSpace {
             kind = .closeDropSpace(dropSpace, revealsHome: false)
         } else if let dropSpace, besideHome, !homeClosed {

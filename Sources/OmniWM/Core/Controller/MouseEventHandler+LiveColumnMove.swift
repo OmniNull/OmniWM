@@ -96,7 +96,7 @@ extension MouseEventHandler {
                     + "resize=\(drag.dwindleResizeWorkspaceId != nil) "
                     + "start=\(TraceFormat.rect(drag.adoptionStartFrame)) live-start=\(TraceFormat.rect(drag.liveStartFrame)) "
                     + "observed=\(TraceFormat.rect(observed)) "
-                    + "moved=\(start.flatMap { s in observed.map { Self.isNativeMove(from: s, to: $0) } } ?? false)"
+                    + "moved=\(start.flatMap { old in observed.map { Self.isNativeMove(from: old, to: $0) } } ?? false)"
             )
         }
         guard !drag.liveDrag, !drag.liveDragDeclined,

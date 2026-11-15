@@ -151,7 +151,11 @@ struct NiriLayoutHistory {
     }
 
     mutating func pushOpposite(of direction: NiriLayoutHistoryDirection, _ snapshot: NiriLayoutSnapshot) {
-        direction == .undo ? pushRedo(snapshot) : pushUndo(snapshot)
+        if direction == .undo {
+            pushRedo(snapshot)
+        } else {
+            pushUndo(snapshot)
+        }
     }
 
     mutating func popUndo() -> NiriLayoutSnapshot? {

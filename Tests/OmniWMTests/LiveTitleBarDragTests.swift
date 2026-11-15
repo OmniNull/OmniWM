@@ -1074,7 +1074,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     }
 
     func testHoldingAtAnEdgeHopsTheDropSpacePastEachWindowUntilTheStripEnd() throws {
-        for edge in [MouseInputState.LiveEdgeScroll.Edge.trailing, .leading] {
+        for edge in [MouseInputState.LiveEdge.trailing, .leading] {
             let fixture = try makeFixture(pid: edge == .trailing ? 938_091 : 938_092, windowCount: 6)
             let dragged = fixture.tokens[edge == .trailing ? 1 : 4]
             try startEdgeScroll(edge, dragging: dragged, in: fixture)
@@ -2279,13 +2279,13 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         return clock
     }
 
-    private func edgePoint(_ edge: MouseInputState.LiveEdgeScroll.Edge, _ fixture: Fixture) -> CGPoint {
+    private func edgePoint(_ edge: MouseInputState.LiveEdge, _ fixture: Fixture) -> CGPoint {
         let frame = fixture.monitor.frame
         return CGPoint(x: edge == .trailing ? frame.maxX - 10 : frame.minX + 10, y: frame.midY)
     }
 
     private func startLiveDragInsideTheEdgeZone(
-        _ edge: MouseInputState.LiveEdgeScroll.Edge,
+        _ edge: MouseInputState.LiveEdge,
         dragging token: WindowToken,
         in fixture: Fixture
     ) throws -> CGPoint {
@@ -2299,7 +2299,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     }
 
     private func startEdgeScroll(
-        _ edge: MouseInputState.LiveEdgeScroll.Edge,
+        _ edge: MouseInputState.LiveEdge,
         dragging token: WindowToken,
         in fixture: Fixture,
         started: Bool = false
