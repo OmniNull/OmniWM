@@ -112,7 +112,7 @@ class NiriContainer: NiriNode {
         }
         if result < bounds.min { result = bounds.min }
         result = packedWithinMaximum(result)
-        if orientation == .horizontal, let edgePeekCap {
+        if let edgePeekCap {
             let stripEndCap = stripEndPeekRoom?.cappedSpan(result) ?? edgePeekCap
             let capped = max(min(edgePeekCap, stripEndCap), bounds.min)
             if capped < result {

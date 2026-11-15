@@ -7,24 +7,24 @@ import Foundation
 extension ViewportFittingAreas {
     func fittingArea(for target: ViewportColumnTarget) -> CGRect {
         let area = area(for: target.mode)
-        guard let edgePeeks, orientation == .horizontal, target.mode == .normal else { return area }
+        guard let edgePeeks, target.mode == .normal else { return area }
         let leading = target.index > 0 && edgePeeks.leading > 0
-            ? max(0, parent.minX + edgePeeks.leading - area.minX)
+            ? max(0, origin(of: parent) + edgePeeks.leading - origin(of: area))
             : 0
         let trailing = target.index < target.columnCount - 1 && edgePeeks.trailing > 0
-            ? max(0, area.maxX - (parent.maxX - edgePeeks.trailing))
+            ? max(0, origin(of: area) + span(of: area) - (origin(of: parent) + span(of: parent) - edgePeeks.trailing))
             : 0
-        guard area.width - leading - trailing > target.span else { return area }
-        return CGRect(
-            x: area.minX + leading,
-            y: area.minY,
-            width: area.width - leading - trailing,
-            height: area.height
-        )
+        guard span(of: area) - leading - trailing > target.span else { return area }
+        return switch orientation {
+        case .horizontal:
+            CGRect(x: area.minX + leading, y: area.minY, width: area.width - leading - trailing, height: area.height)
+        case .vertical:
+            CGRect(x: area.minX, y: area.minY + leading, width: area.width, height: area.height - leading - trailing)
+        }
     }
 
     func viewStartShowingEdgePeeks(_ viewStart: CGFloat, spans: [CGFloat], gap: CGFloat) -> CGFloat? {
-        guard let edgePeeks, orientation == .horizontal, spans.count > 1 else { return viewStart }
+        guard let edgePeeks, spans.count > 1 else { return viewStart }
         let pixel = 1.0 / max(scale, 1.0)
         let missing = missingEdgePeeks(at: viewStart, spans: spans, gap: gap, peeks: edgePeeks)
         let needsLeading = missing.leading > pixel
@@ -41,11 +41,11 @@ extension ViewportFittingAreas {
         at viewStart: CGFloat,
         spans: [CGFloat],
         gap: CGFloat,
-        peeks: EdgePeekWidths
+        peeks: EdgePeekSpans
     ) -> (leading: CGFloat, trailing: CGFloat) {
         let pixel = 1.0 / max(scale, 1.0)
-        let leadingEdge = viewStart + parent.minX
-        let trailingEdge = viewStart + parent.maxX
+        let leadingEdge = viewStart + origin(of: parent)
+        let trailingEdge = leadingEdge + span(of: parent)
         var leading: CGFloat = 0
         var trailing: CGFloat?
         var start: CGFloat = 0

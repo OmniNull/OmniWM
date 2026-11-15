@@ -149,7 +149,7 @@ struct MonitorNiriSettingsSection: View {
             )
 
             SettingsCaption(
-                localized: "On a landscape display, keeps part of the next window in view at each screen edge that has more windows. Columns and resizes leave room for it unless a window needs the width. A share of the display’s width; at 0%, peeking is off."
+                localized: "Keeps part of the next window in view at each strip edge that has more windows. Columns and resizes leave room for it unless a window needs more space. A share of the display’s width for horizontal strips or height for vertical strips; at 0%, peeking is off."
             )
         }
         .id("Niri Layout")

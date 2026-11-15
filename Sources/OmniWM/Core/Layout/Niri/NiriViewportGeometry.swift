@@ -11,7 +11,7 @@ struct NiriViewportGeometry {
     let viewFrame: CGRect?
     let scale: CGFloat
     let edgeOverscroll: NiriEdgeOverscroll
-    let edgePeeks: EdgePeekWidths?
+    let edgePeeks: EdgePeekSpans?
 
     init(
         gap: CGFloat,
@@ -21,7 +21,7 @@ struct NiriViewportGeometry {
         viewFrame: CGRect? = nil,
         scale: CGFloat = 2.0,
         edgeOverscroll: NiriEdgeOverscroll = .disabled,
-        edgePeeks: EdgePeekWidths? = nil
+        edgePeeks: EdgePeekSpans? = nil
     ) {
         self.gap = gap
         self.viewportSpan = viewportSpan
@@ -30,7 +30,7 @@ struct NiriViewportGeometry {
         self.viewFrame = viewFrame
         self.scale = scale
         self.edgeOverscroll = edgeOverscroll
-        self.edgePeeks = orientation == .horizontal ? edgePeeks : nil
+        self.edgePeeks = edgePeeks
     }
 
     func overscrollBounds(columns: [NiriContainer]) -> ClosedRange<CGFloat>? {

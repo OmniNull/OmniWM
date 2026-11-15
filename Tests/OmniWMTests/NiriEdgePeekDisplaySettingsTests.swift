@@ -22,9 +22,9 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
         return settings
     }
 
-    private func peekWidths(_ percent: Double, on monitor: Monitor) -> EdgePeekWidths {
+    private func peekWidths(_ percent: Double, on monitor: Monitor) -> EdgePeekSpans {
         let width = (monitor.frame.width * CGFloat(percent) / 100).rounded()
-        return EdgePeekWidths(leading: width, trailing: width)
+        return EdgePeekSpans(leading: width, trailing: width)
     }
 
     func testADisplaysPeekSettingsRoundTripAndThePercentIsClamped() throws {
@@ -91,7 +91,10 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
         settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: own), for: right)
         engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
         XCTAssertTrue(engine.edgePeeksPossible)
-        XCTAssertEqual(engine.edgePeekWidths(viewFrame: right.frame), peekWidths(own, on: right))
+        XCTAssertEqual(
+            engine.edgePeekSpans(viewFrame: right.frame, orientation: .horizontal),
+            peekWidths(own, on: right)
+        )
 
         settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: 0), for: right)
         engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
@@ -120,13 +123,102 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
         engine.updateMonitorSettings(settings.resolved(for: left), for: left.id)
         engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
 
-        XCTAssertEqual(engine.edgePeekWidths(viewFrame: left.frame), peekWidths(allDisplays, on: left))
-        XCTAssertEqual(engine.edgePeekWidths(viewFrame: right.frame), peekWidths(own, on: right))
+        XCTAssertEqual(
+            engine.edgePeekSpans(viewFrame: left.frame, orientation: .horizontal),
+            peekWidths(allDisplays, on: left)
+        )
+        XCTAssertEqual(
+            engine.edgePeekSpans(viewFrame: right.frame, orientation: .horizontal),
+            peekWidths(own, on: right)
+        )
 
         settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: 0), for: right)
         engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
 
-        XCTAssertNil(engine.edgePeekWidths(viewFrame: right.frame))
-        XCTAssertEqual(engine.edgePeekWidths(viewFrame: left.frame), peekWidths(allDisplays, on: left))
+        XCTAssertNil(engine.edgePeekSpans(viewFrame: right.frame, orientation: .horizontal))
+        XCTAssertEqual(
+            engine.edgePeekSpans(viewFrame: left.frame, orientation: .horizontal),
+            peekWidths(allDisplays, on: left)
+        )
+    }
+
+    func testVerticalPeeksUseEachDisplaysHeightAndOverride() {
+        let first = display(7, x: 0, width: 1_500, name: "Global portrait peeks")
+        let frame = CGRect(x: first.frame.maxX + 100, y: -213, width: 800, height: 1_600)
+        let second = Monitor(
+            id: .init(displayId: 8), displayId: 8, frame: frame, visibleFrame: frame,
+            hasNotch: false, name: "Own portrait peeks"
+        )
+        let global: Double = 3
+        let own: Double = 6
+        let settings = peekSettings(percent: global)
+        settings.update(MonitorNiriSettings(monitorName: second.name, edgePeekPercent: own), for: second)
+        let engine = NiriLayoutEngine()
+        engine.edgePeekShare = CGFloat(global) / 100
+        let firstWorkspace = WorkspaceDescriptor.ID()
+        let secondWorkspace = WorkspaceDescriptor.ID()
+        engine.syncWorkspaceAssignments(
+            [(workspaceId: firstWorkspace, monitor: first), (workspaceId: secondWorkspace, monitor: second)],
+            orientations: [first.id: .vertical, second.id: .vertical]
+        )
+        for monitor in [first, second] {
+            engine.updateMonitorSettings(settings.resolved(for: monitor), for: monitor.id)
+        }
+        let globalSpan = (first.frame.height * CGFloat(global) / 100).rounded()
+        let ownSpan = (second.frame.height * CGFloat(own) / 100).rounded()
+        XCTAssertEqual(
+            engine.edgePeekSpans(in: firstWorkspace),
+            EdgePeekSpans(leading: globalSpan, trailing: globalSpan)
+        )
+        XCTAssertEqual(engine.edgePeekSpans(in: secondWorkspace), EdgePeekSpans(leading: ownSpan, trailing: ownSpan))
+        settings.update(MonitorNiriSettings(monitorName: second.name, edgePeekPercent: 0), for: second)
+        engine.updateMonitorSettings(settings.resolved(for: second), for: second.id)
+        XCTAssertNil(engine.edgePeekSpans(in: secondWorkspace))
+        XCTAssertEqual(
+            engine.edgePeekSpans(in: firstWorkspace),
+            EdgePeekSpans(leading: globalSpan, trailing: globalSpan)
+        )
+    }
+
+    func testSharedPrimaryEdgesSuppressPeeksButDiagonalCornersDoNot() {
+        let frame = CGRect(x: 137, y: -219, width: 1500, height: 1700)
+        let share: CGFloat = 0.05
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            let horizontal = orientation == .horizontal
+            let span = horizontal ? frame.width : frame.height
+            let crossSpan = horizontal ? frame.height : frame.width
+            let peek = (span * share).rounded()
+            for leading in [false, true] {
+                for cornerOnly in [false, true] {
+                    let primaryDelta = leading ? -span : span
+                    let crossDelta = cornerOnly ? crossSpan : 0
+                    let neighborFrame = frame.offsetBy(
+                        dx: horizontal ? primaryDelta : crossDelta, dy: horizontal ? crossDelta : primaryDelta
+                    )
+                    let main = Monitor(
+                        id: .init(displayId: 7), displayId: 7, frame: frame, visibleFrame: frame,
+                        hasNotch: false, name: "Shared peek edge"
+                    )
+                    let neighbor = Monitor(
+                        id: .init(displayId: 8), displayId: 8, frame: neighborFrame, visibleFrame: neighborFrame,
+                        hasNotch: false, name: "Peek neighbor"
+                    )
+                    let engine = NiriLayoutEngine()
+                    engine.edgePeekShare = share
+                    let workspace = WorkspaceDescriptor.ID()
+                    engine.syncWorkspaceAssignments(
+                        [
+                            (workspaceId: workspace, monitor: main),
+                            (workspaceId: WorkspaceDescriptor.ID(), monitor: neighbor)
+                        ],
+                        orientations: [main.id: orientation, neighbor.id: orientation]
+                    )
+                    XCTAssertEqual(engine.edgePeekSpans(in: workspace), EdgePeekSpans(
+                        leading: leading && !cornerOnly ? 0 : peek,
+                        trailing: !leading && !cornerOnly ? 0 : peek
+                    ))
+                }
+            }
+        }
     }
 }

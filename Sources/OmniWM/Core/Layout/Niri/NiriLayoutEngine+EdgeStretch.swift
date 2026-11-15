@@ -209,7 +209,7 @@ extension NiriLayoutEngine {
         ViewportEdgeRules(
             keepsStripEndsOnScreen: policies.keepsStripEndsOnScreen,
             centersFittingStrip: centresFittingStrip(in: workspaceId),
-            peeks: edgePeekWidths(in: workspaceId)
+            peeks: edgePeekSpans(in: workspaceId)
         )
     }
 }

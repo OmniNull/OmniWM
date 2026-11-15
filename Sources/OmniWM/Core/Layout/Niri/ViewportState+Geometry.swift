@@ -17,7 +17,7 @@ struct ViewportFittingAreas {
     let parent: CGRect
     let orientation: Monitor.Orientation
     let scale: CGFloat
-    var edgePeeks: EdgePeekWidths?
+    var edgePeeks: EdgePeekSpans?
 
     var viewSpan: CGFloat {
         span(of: parent)
@@ -469,5 +469,5 @@ extension ViewportState {
 struct ViewportEdgeRules: Equatable {
     var keepsStripEndsOnScreen = false
     var centersFittingStrip = false
-    var peeks: EdgePeekWidths?
+    var peeks: EdgePeekSpans?
 }

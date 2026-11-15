@@ -1238,7 +1238,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         let frame = fixture.controller.niriWorkingFrame(for: fixture.monitor)
         let display = fixture.monitor.frame
         let gap = fixture.controller.innerGap(for: fixture.monitor)
-        let peek = fixture.engine.edgePeekWidths(in: fixture.workspaceId)?.trailing ?? 0
+        let peek = fixture.engine.edgePeekSpans(in: fixture.workspaceId)?.trailing ?? 0
         return (frame.minX + gap, frame.maxX - gap, display.minX + peek + gap, display.maxX - peek - gap, peek)
     }
 
