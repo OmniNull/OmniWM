@@ -339,16 +339,21 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.engine.policies.keepsStripEndsOnScreen)
     }
 
-    func testPeeksNeedMacOSFusion() throws {
+    func testPeeksFollowTheirPercentageWhetherOrNotMacOSFusionIsOn() throws {
         let fixture = try makeFixture(pid: 938_191)
         let settings = fixture.controller.settings
         settings.quakeTerminal.enabled = false
-        settings.niri.edgePeekPercent = 3
+        let percent: Double = 3
+        settings.niri.edgePeekPercent = percent
 
         fixture.controller.applyPersistedSettings(settings, startServices: false)
-        XCTAssertEqual(fixture.engine.edgePeekShare, 0.03)
+        XCTAssertEqual(fixture.engine.edgePeekShare, CGFloat(percent / 100))
 
         settings.niri.macOSFusion = false
+        fixture.controller.applyPersistedSettings(settings, startServices: false)
+        XCTAssertEqual(fixture.engine.edgePeekShare, CGFloat(percent / 100))
+
+        settings.niri.edgePeekPercent = 0
         fixture.controller.applyPersistedSettings(settings, startServices: false)
         XCTAssertNil(fixture.engine.edgePeekShare)
     }

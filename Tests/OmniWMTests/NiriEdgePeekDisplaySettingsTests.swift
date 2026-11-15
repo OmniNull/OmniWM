@@ -16,11 +16,15 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
         )
     }
 
-    private func fusionSettings(percent: Double = 3) -> NiriSettings {
+    private func peekSettings(percent: Double) -> NiriSettings {
         let settings = NiriSettings()
-        settings.macOSFusion = true
         settings.edgePeekPercent = percent
         return settings
+    }
+
+    private func peekWidths(_ percent: Double, on monitor: Monitor) -> EdgePeekWidths {
+        let width = (monitor.frame.width * CGFloat(percent) / 100).rounded()
+        return EdgePeekWidths(leading: width, trailing: width)
     }
 
     func testADisplaysPeekSettingsRoundTripAndThePercentIsClamped() throws {
@@ -39,47 +43,52 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
         XCTAssertEqual(MonitorNiriSettings(monitorName: "Wide", edgePeekPercent: -1).edgePeekPercent, 0)
     }
 
-    func testADisplayUsesItsOwnPeekWidthOrFollowsAllDisplays() throws {
+    func testADisplayUsesItsOwnPeekWidthOrFollowsAllDisplays() {
         let monitor = display(7, x: 0, width: 1_500, name: "Peek display")
-        let settings = fusionSettings(percent: 3)
+        let allDisplays: Double = 3
+        let own: Double = 6
+        let settings = peekSettings(percent: allDisplays)
 
-        XCTAssertEqual(try XCTUnwrap(settings.resolved(for: monitor).edgePeekShare), 0.03, accuracy: 0.0001)
+        XCTAssertEqual(settings.resolved(for: monitor).edgePeekShare, CGFloat(allDisplays) / 100)
 
-        settings.update(MonitorNiriSettings(monitorName: monitor.name, edgePeekPercent: 6), for: monitor)
-        XCTAssertEqual(try XCTUnwrap(settings.resolved(for: monitor).edgePeekShare), 0.06, accuracy: 0.0001)
+        settings.update(MonitorNiriSettings(monitorName: monitor.name, edgePeekPercent: own), for: monitor)
+        XCTAssertEqual(settings.resolved(for: monitor).edgePeekShare, CGFloat(own) / 100)
 
         settings.remove(for: monitor)
-        XCTAssertEqual(try XCTUnwrap(settings.resolved(for: monitor).edgePeekShare), 0.03, accuracy: 0.0001)
+        XCTAssertEqual(settings.resolved(for: monitor).edgePeekShare, CGFloat(allDisplays) / 100)
     }
 
-    func testPeekingCanBeTurnedOnOrOffForOneDisplay() throws {
+    func testPeekingCanBeTurnedOnOrOffForOneDisplay() {
         let monitor = display(7, x: 0, width: 1_500, name: "Peek display")
-        let off = fusionSettings(percent: 0)
+        let own: Double = 5
+        let off = peekSettings(percent: 0)
         XCTAssertNil(off.resolved(for: monitor).edgePeekShare)
-        off.update(MonitorNiriSettings(monitorName: monitor.name, edgePeekPercent: 5), for: monitor)
-        XCTAssertEqual(try XCTUnwrap(off.resolved(for: monitor).edgePeekShare), 0.05, accuracy: 0.0001)
+        off.update(MonitorNiriSettings(monitorName: monitor.name, edgePeekPercent: own), for: monitor)
+        XCTAssertEqual(off.resolved(for: monitor).edgePeekShare, CGFloat(own) / 100)
 
-        let on = fusionSettings(percent: 3)
+        let on = peekSettings(percent: 3)
         on.update(MonitorNiriSettings(monitorName: monitor.name, edgePeekPercent: 0), for: monitor)
         XCTAssertNil(on.resolved(for: monitor).edgePeekShare)
     }
 
-    func testWithMacOSFusionOffNoDisplayPeeks() {
+    func testADisplaysPeekDoesNotDependOnMacOSFusion() {
         let monitor = display(7, x: 0, width: 1_500, name: "Peek display")
-        let settings = fusionSettings()
-        settings.update(
-            MonitorNiriSettings(monitorName: monitor.name, edgePeekPercent: 5),
-            for: monitor
-        )
-        settings.macOSFusion = false
+        let percent: Double = 5
+        for fusion in [false, true] {
+            let settings = peekSettings(percent: 0)
+            settings.macOSFusion = fusion
+            XCTAssertNil(settings.resolved(for: monitor).edgePeekShare, "\(fusion)")
 
-        XCTAssertNil(settings.resolved(for: monitor).edgePeekShare)
+            settings.update(MonitorNiriSettings(monitorName: monitor.name, edgePeekPercent: percent), for: monitor)
+            XCTAssertEqual(settings.resolved(for: monitor).edgePeekShare, CGFloat(percent) / 100, "\(fusion)")
+        }
     }
 
     func testThePeekCheckIsSkippedOnlyWhileNoDisplayCanPeek() {
         let left = display(9, x: 0, width: 1_500, name: "No peeks")
         let right = display(10, x: 3_000, width: 2_000, name: "Own peeks")
-        let settings = fusionSettings(percent: 0)
+        let own: Double = 5
+        let settings = peekSettings(percent: 0)
         let engine = NiriLayoutEngine()
         engine.syncWorkspaceAssignments(
             [
@@ -92,26 +101,28 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
         engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
         XCTAssertFalse(engine.edgePeeksPossible)
 
-        settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: 5), for: right)
+        settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: own), for: right)
         engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
         XCTAssertTrue(engine.edgePeeksPossible)
-        XCTAssertEqual(engine.edgePeekWidths(viewFrame: right.frame), EdgePeekWidths(leading: 100, trailing: 100))
+        XCTAssertEqual(engine.edgePeekWidths(viewFrame: right.frame), peekWidths(own, on: right))
 
         settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: 0), for: right)
         engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
         XCTAssertFalse(engine.edgePeeksPossible)
 
-        engine.edgePeekShare = 0.03
+        engine.edgePeekShare = CGFloat(own) / 100
         XCTAssertTrue(engine.edgePeeksPossible)
     }
 
     func testEachDisplayGetsPeeksOfItsOwnWidth() {
         let left = display(7, x: 0, width: 1_500, name: "Left peeks")
         let right = display(8, x: 3_000, width: 2_000, name: "Right peeks")
-        let settings = fusionSettings(percent: 3)
-        settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: 5), for: right)
+        let allDisplays: Double = 3
+        let own: Double = 5
+        let settings = peekSettings(percent: allDisplays)
+        settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: own), for: right)
         let engine = NiriLayoutEngine()
-        engine.edgePeekShare = 0.03
+        engine.edgePeekShare = CGFloat(allDisplays) / 100
         engine.syncWorkspaceAssignments(
             [
                 (workspaceId: WorkspaceDescriptor.ID(), monitor: left),
@@ -122,13 +133,13 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
         engine.updateMonitorSettings(settings.resolved(for: left), for: left.id)
         engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
 
-        XCTAssertEqual(engine.edgePeekWidths(viewFrame: left.frame), EdgePeekWidths(leading: 45, trailing: 45))
-        XCTAssertEqual(engine.edgePeekWidths(viewFrame: right.frame), EdgePeekWidths(leading: 100, trailing: 100))
+        XCTAssertEqual(engine.edgePeekWidths(viewFrame: left.frame), peekWidths(allDisplays, on: left))
+        XCTAssertEqual(engine.edgePeekWidths(viewFrame: right.frame), peekWidths(own, on: right))
 
         settings.update(MonitorNiriSettings(monitorName: right.name, edgePeekPercent: 0), for: right)
         engine.updateMonitorSettings(settings.resolved(for: right), for: right.id)
 
         XCTAssertNil(engine.edgePeekWidths(viewFrame: right.frame))
-        XCTAssertEqual(engine.edgePeekWidths(viewFrame: left.frame), EdgePeekWidths(leading: 45, trailing: 45))
+        XCTAssertEqual(engine.edgePeekWidths(viewFrame: left.frame), peekWidths(allDisplays, on: left))
     }
 }

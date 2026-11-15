@@ -255,7 +255,7 @@ final class NiriSettings {
 
     private func edgePeekShare(override: MonitorNiriSettings?) -> CGFloat? {
         let percent = override?.edgePeekPercent ?? edgePeekPercent
-        guard macOSFusion, percent > 0 else { return nil }
+        guard percent > 0 else { return nil }
         return CGFloat(percent) / 100
     }
 

@@ -135,6 +135,23 @@ private struct GlobalNiriSettingsSection: View {
                 localized: "Focusing or closing the first or last column leaves no empty space past the end of the strip."
             )
 
+            SettingsSliderRow(
+                label: String(localized: "Peripheral Vision"),
+                value: Bindable(settings.niri).edgePeekPercent,
+                range: 0 ... 10,
+                step: 0.5,
+                valueText: settings.niri.edgePeekPercent.formatted(.number.precision(.fractionLength(0 ... 1))) + "%",
+                valueWidth: 56
+            )
+            .id("Peripheral Vision")
+            .onChange(of: settings.niri.edgePeekPercent) {
+                controller.updateNiriConfig(macOSFusion: controller.macOSFusionConfiguration)
+            }
+
+            SettingsCaption(
+                localized: "On a landscape display, keeps part of the next window in view at each screen edge that has more windows. Columns and resizes leave room for it unless a window needs the width. A share of the display’s width; at 0%, peeking is off."
+            )
+
             Toggle("Focus Clicked Windows Without Scrolling", isOn: Bindable(settings.focus).clickFocusWithoutScrolling)
                 .id("Focus Clicked Windows Without Scrolling")
 
@@ -235,26 +252,6 @@ private struct GlobalNiriSettingsSection: View {
             if settings.niri.macOSFusion, !windowTilingSettingsProbe.enabledSettings.isEmpty {
                 windowTilingNote
             }
-
-            SettingsSliderRow(
-                label: String(localized: "Peripheral Vision"),
-                value: Bindable(settings.niri).edgePeekPercent,
-                range: 0 ... 10,
-                step: 0.5,
-                valueText: settings.niri.edgePeekPercent.formatted(.number.precision(.fractionLength(0 ... 1))) + "%",
-                valueWidth: 56
-            )
-            .id("Peripheral Vision")
-            .disabled(!settings.niri.macOSFusion)
-            .onChange(of: settings.niri.edgePeekPercent) {
-                if settings.niri.macOSFusion {
-                    controller.applyMacOSFusionSettings()
-                }
-            }
-
-            SettingsCaption(
-                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. A share of each display’s width; at 0%, peeking is off."
-            )
 
             LayoutHistoryHotkeyRow(actionId: "undo", anchor: "Undo", settings: settings, controller: controller)
                 .disabled(!settings.niri.macOSFusion)
@@ -494,10 +491,7 @@ private struct MonitorNiriSettingsSection: View {
                 onChange: { newValue in updateSetting { $0.singleWindowFit = newValue } },
                 onReset: { updateSetting { $0.singleWindowFit = nil } }
             )
-        }
-        .id("Niri Layout")
 
-        Section("macOS Fusion") {
             OverridableSlider(
                 label: String(localized: "Peripheral Vision"),
                 value: ms.edgePeekPercent,
@@ -508,13 +502,12 @@ private struct MonitorNiriSettingsSection: View {
                 onChange: { newValue in updateSetting { $0.edgePeekPercent = newValue } },
                 onReset: { updateSetting { $0.edgePeekPercent = nil } }
             )
-            .disabled(!settings.niri.macOSFusion)
 
             SettingsCaption(
-                localized: "Keeps part of the next window in view at each screen edge that has more windows, so columns and resizing never cover it. A share of each display’s width; at 0%, peeking is off."
+                localized: "On a landscape display, keeps part of the next window in view at each screen edge that has more windows. Columns and resizes leave room for it unless a window needs the width. A share of the display’s width; at 0%, peeking is off."
             )
         }
-        .id("macOS Fusion")
+        .id("Niri Layout")
 
         NiriDefaultSpanSettingsSection(allowsGlobal: true, mode: spanMode, percent: spanPercent)
     }
