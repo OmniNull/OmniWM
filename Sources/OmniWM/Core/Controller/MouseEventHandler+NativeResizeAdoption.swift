@@ -52,12 +52,16 @@ extension MouseEventHandler {
                   let observedFrame
             else { return false }
             let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: landscape)
-            guard !edges.isEmpty,
-                  adoptNiriNativeResize(entry, edges: edges, from: start, to: observedFrame)
+            guard !edges.isEmpty else { return false }
+            let completed = landscape
+                ? completedNativeResize(of: drag, edges: edges, from: start, observed: observedFrame, entry: entry)
+                : observedFrame
+            guard adoptNiriNativeResize(entry, edges: edges, from: start, to: completed, shownAt: observedFrame)
             else { return false }
         }
         drag.adoptionStartFrame = nil
         drag.pendingWriteStartFrame = nil
+        drag.liveStartFrame = nil
         drag.phase = .awaitingCorrection
         drag.receivedFrameChange = false
         return true
@@ -73,7 +77,7 @@ extension MouseEventHandler {
         let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: landscape)
         guard !edges.isEmpty else { return false }
         if controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri {
-            return adoptNiriNativeResize(entry, edges: edges, from: start, to: observed)
+            return adoptNiriNativeResize(entry, edges: edges, from: start, to: observed, shownAt: observed)
         }
         var drag = MouseInputState.NativeTitleBarDrag(token: entry.token)
         drag.adoptionStartFrame = start
@@ -146,7 +150,8 @@ extension MouseEventHandler {
         _ entry: WindowState,
         edges: ResizeEdge,
         from start: CGRect,
-        to observed: CGRect
+        to observed: CGRect,
+        shownAt shown: CGRect
     ) -> Bool {
         let workspaceId = entry.workspaceId
         guard let controller,
@@ -194,7 +199,7 @@ extension MouseEventHandler {
             }
         }
         guard changed else { return false }
-        confirmAdoptedNiriFrame(observed, for: entry, horizontal: horizontal, controller: controller)
+        confirmAdoptedNiriFrame(shown, for: entry, horizontal: horizontal, controller: controller)
         settleAdoptedNiriResize(window, sliding: slide, monitor: monitor, context: context)
         controller.niriLayoutHandler.recordLayoutChange(since: changeStart)
         return true
@@ -374,11 +379,16 @@ extension MouseEventHandler {
         finishDwindleResize()
     }
 
-    func nativeResizeTarget(from start: CGRect, observed: CGRect, entry: WindowState) -> CGSize? {
+    func nativeResizeTarget(
+        of drag: MouseInputState.NativeTitleBarDrag,
+        from start: CGRect,
+        observed: CGRect,
+        entry: WindowState
+    ) -> CGSize? {
         guard let controller,
-              let press = state.leftPressLocation,
-              let release = state.leftReleaseLocation,
-              let axRef = entry.axRef
+              let press = drag.pressLocation,
+              let release = drag.releaseLocation,
+              entry.axRef != nil
         else { return nil }
         let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: true)
         guard !edges.isEmpty else { return nil }
@@ -392,7 +402,8 @@ extension MouseEventHandler {
             case (false, false): length
             }
         }
-        let reported = controller.evaluateSizeConstraints(for: entry.token, axRef: axRef).normalized()
+        let reported = controller.workspaceManager.cachedConstraints(for: entry.token, maxAge: .greatestFiniteMagnitude)
+            ?? .unconstrained
         let constraints = reported.isFixed ? WindowSizeConstraints.unconstrained : reported
         let learned = controller.workspaceManager.observedSizeEvidence(for: entry.token)?.minSize ?? .zero
         func clamped(_ value: CGFloat, min minimum: CGFloat, max maximum: CGFloat) -> CGFloat {
@@ -423,18 +434,5 @@ extension MouseEventHandler {
                 max: constraints.maxSize.height
             )
         )
-    }
-
-    nonisolated static func nativeResize(_ size: CGSize, reaches target: CGSize) -> Bool {
-        abs(size.width - target.width) <= AXRecentFrameWriteFailure.maxAcceptedSizeSnap
-            && abs(size.height - target.height) <= AXRecentFrameWriteFailure.maxAcceptedSizeSnap
-    }
-
-    func settleNativeResizeIfReached(_ entry: WindowState) {
-        guard let settling = state.nativeResizeSettling,
-              let observed = terminalNativeWindowFrame(for: entry),
-              Self.nativeResize(observed.size, reaches: settling.target)
-        else { return }
-        finishNativeResizeSettling()
     }
 }

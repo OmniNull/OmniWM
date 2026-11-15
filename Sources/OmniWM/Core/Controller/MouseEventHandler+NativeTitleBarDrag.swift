@@ -303,12 +303,12 @@ extension MouseEventHandler {
             break
         case .awaitingFrameChange,
              .awaitingFrameWrite,
-             .awaitingCorrection,
-             .settlingResize:
+             .awaitingCorrection:
             return
         }
         drag.pointerWasDragged = state.leftPressWasDragged
-        if beginNativeResizeSettlingIfNeeded(drag) { return }
+        drag.pressLocation = state.leftPressLocation
+        drag.releaseLocation = state.leftReleaseLocation
         completeNativeTitleBarRelease(drag)
     }
 
@@ -348,46 +348,6 @@ extension MouseEventHandler {
             observedFrame: observedFrame,
             needsCorrection: finishedLiveDrag || excludedFrameWrite || observedDisplacement
         )
-    }
-
-    private func beginNativeResizeSettlingIfNeeded(_ drag: MouseInputState.NativeTitleBarDrag) -> Bool {
-        guard let controller,
-              settlesNativeResizes,
-              drag.phase == .dragging,
-              !drag.liveDrag,
-              drag.receivedFrameChange,
-              let entry = controller.workspaceManager.entry(for: drag.token),
-              entry.mode == .tiling,
-              controller.isLandscapeNiriStrip(entry.workspaceId),
-              let start = drag.adoptionStartFrame ?? drag.pendingWriteStartFrame ?? drag.liveStartFrame,
-              let observed = terminalNativeWindowFrame(for: entry),
-              abs(observed.width - start.width) > FrameTolerance.screenMatch
-              || abs(observed.height - start.height) > FrameTolerance.screenMatch,
-              let target = nativeResizeTarget(from: start, observed: observed, entry: entry),
-              !Self.nativeResize(observed.size, reaches: target)
-        else { return false }
-        var settling = drag
-        settling.phase = .settlingResize
-        state.nativeTitleBarDrag = settling
-        state.nativeResizeSettling = .init(releasedAt: liveDragClock(), target: target)
-        MouseTrace.record(
-            "title-bar drag settling token=\(TraceFormat.token(drag.token)) observed=\(TraceFormat.rect(observed)) "
-                + "target=\(Int(target.width.rounded()))x\(Int(target.height.rounded()))"
-        )
-        return true
-    }
-
-    func finishNativeResizeSettling() {
-        guard let settling = state.nativeResizeSettling else { return }
-        state.nativeResizeSettling = nil
-        guard var drag = state.nativeTitleBarDrag, drag.phase == .settlingResize else { return }
-        drag.phase = .dragging
-        state.nativeTitleBarDrag = drag
-        MouseTrace.record(
-            "title-bar drag settled token=\(TraceFormat.token(drag.token)) "
-                + "after=\(Int(((liveDragClock() - settling.releasedAt) * 1000).rounded()))ms"
-        )
-        completeNativeTitleBarRelease(drag)
     }
 
     private func settleReleasedNativeTitleBarDrag(

@@ -29,6 +29,71 @@ extension MouseEventHandler {
         return low * high < 0 && min(abs(low), abs(high)) > FrameTolerance.screenMatch
     }
 
+    nonisolated static func completedNativeResizeLength(
+        from start: CGFloat,
+        observed: CGFloat,
+        asked: CGFloat
+    ) -> CGFloat {
+        let done = observed - start
+        let wanted = asked - start
+        guard done * wanted > 0,
+              abs(wanted) - abs(done) > AXRecentFrameWriteFailure.maxAcceptedSizeSnap
+        else { return observed }
+        return asked
+    }
+
+    nonisolated static func nativeResizeFrame(_ observed: CGRect, edges: ResizeEdge, size: CGSize) -> CGRect {
+        func low(_ origin: CGFloat, growth: CGFloat, lowMoved: Bool, highMoved: Bool) -> CGFloat {
+            switch (lowMoved, highMoved) {
+            case (true, true): origin - growth / 2
+            case (true, false): origin - growth
+            case (false, _): origin
+            }
+        }
+        return CGRect(
+            x: low(
+                observed.minX,
+                growth: size.width - observed.width,
+                lowMoved: edges.contains(.left),
+                highMoved: edges.contains(.right)
+            ),
+            y: low(
+                observed.minY,
+                growth: size.height - observed.height,
+                lowMoved: edges.contains(.bottom),
+                highMoved: edges.contains(.top)
+            ),
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    func completedNativeResize(
+        of drag: MouseInputState.NativeTitleBarDrag,
+        edges: ResizeEdge,
+        from start: CGRect,
+        observed: CGRect,
+        entry: WindowState
+    ) -> CGRect {
+        guard let asked = nativeResizeTarget(of: drag, from: start, observed: observed, entry: entry) else {
+            return observed
+        }
+        let size = CGSize(
+            width: Self.completedNativeResizeLength(from: start.width, observed: observed.width, asked: asked.width),
+            height: Self.completedNativeResizeLength(
+                from: start.height,
+                observed: observed.height,
+                asked: asked.height
+            )
+        )
+        guard size != observed.size else { return observed }
+        MouseTrace.record(
+            "title-bar drag completing token=\(TraceFormat.token(entry.token)) observed=\(TraceFormat.rect(observed)) "
+                + "asked=\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
+        )
+        return Self.nativeResizeFrame(observed, edges: edges, size: size)
+    }
+
     func centredPrimaryResize(_ edges: ResizeEdge, from start: CGRect, to observed: CGRect) -> CentredPrimaryResize {
         guard edges == [.left, .right] else {
             return CentredPrimaryResize(edges: edges, observed: observed, centre: nil)

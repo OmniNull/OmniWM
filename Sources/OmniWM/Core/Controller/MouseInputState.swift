@@ -41,12 +41,6 @@ struct MouseInputState {
         case awaitingFrameChange
         case awaitingFrameWrite
         case awaitingCorrection
-        case settlingResize
-    }
-
-    struct NativeResizeSettling {
-        let releasedAt: TimeInterval
-        let target: CGSize
     }
 
     struct NativeTitleBarDrag: Equatable {
@@ -67,6 +61,8 @@ struct MouseInputState {
         var liveDragHandedOver = false
         var startedOnLandscapeNiriStrip = false
         var pointerWasDragged = false
+        var pressLocation: CGPoint?
+        var releaseLocation: CGPoint?
     }
 
     enum LiveEdge: Equatable {
@@ -172,7 +168,6 @@ struct MouseInputState {
     var nativeTitleBarDragFallbackToken: WindowToken?
     var nativeTitleBarDragFallbackReleased = false
     var nativeTitleBarDrag: NativeTitleBarDrag?
-    var nativeResizeSettling: NativeResizeSettling?
     var leftPressLocation: CGPoint?
     var leftPressWasDragged = false
     var leftReleaseLocation: CGPoint?

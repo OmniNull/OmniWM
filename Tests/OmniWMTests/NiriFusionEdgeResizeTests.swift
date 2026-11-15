@@ -1049,7 +1049,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             hasNotch: false,
             name: "Niri Live Edge Resize"
         )
-        controller.mouseEventHandler.settlesNativeResizes = false
         controller.settings.niri.edgePeekPercent = 0
         controller.settings.gestures.adoptNativeResize = false
         controller.settings.workspaces.configurations = [

@@ -6,13 +6,6 @@ import Foundation
 
 extension MouseEventHandler {
     func retireNativeTitleBarDragAtInputBoundary() {
-        if state.nativeTitleBarDrag?.phase == .settlingResize {
-            finishNativeResizeSettling()
-            if state.nativeTitleBarDrag?.phase == .awaitingCorrection {
-                discardNativeTitleBarDragState()
-                return
-            }
-        }
         guard let drag = state.nativeTitleBarDrag else {
             discardNativeTitleBarDragState()
             return
@@ -71,7 +64,6 @@ extension MouseEventHandler {
     }
 
     func discardNativeTitleBarDragState() {
-        state.nativeResizeSettling = nil
         correctDeferredNativeResizeFrameIfNeeded()
         state.nativeResizeStart = nil
         state.nativeCrossDisplayMove = nil

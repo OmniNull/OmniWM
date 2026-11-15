@@ -262,25 +262,154 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         )
     }
 
-    func testAResizeIsAdoptedOnceTheWindowHasCaughtUpAfterTheRelease() throws {
+    func testAResizeReleasedWhileTheWindowIsBehindEndsAtThePointersSize() throws {
         let fixture = try makeFixture(.niri, pid: 834_013)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.handler.settlesNativeResizes = true
-        let resized = fixture.tokens[0]
-        let start = try fixture.frame(resized)
-        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
-        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
-        try fixture.beginDrag(resized)
-        reported.frame = grown(start, right: 20)
-        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
+        let drag = try beginEdgeDrag(fixture, of: fixture.tokens[0])
+        let asked: CGFloat = 240
+        let arrived: CGFloat = 20
+        XCTAssertGreaterThan(asked - arrived, AXRecentFrameWriteFailure.maxAcceptedSizeSnap)
+        let shown = grown(drag.start, right: arrived)
+        XCTAssertTrue(try report(shown, for: drag, in: fixture))
 
-        fixture.handler.state.leftPressLocation = CGPoint(x: start.center.x - 240, y: start.center.y)
-        fixture.handler.dispatchMouseUp(at: start.center)
-        XCTAssertEqual(fixture.phase, .settlingResize)
+        letGo(fixture, of: drag, afterMovingRight: asked)
 
-        let ownedFrame = CGRect(x: -800, y: -800, width: 40, height: 40)
-        let surfaceId = "press-while-settling-\(resized.windowId)"
+        XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        XCTAssertEqual(try fixture.frame(drag.token).width, drag.start.width + asked)
+        XCTAssertEqual(fixture.controller.axManager.lastAppliedFrame(for: drag.token.windowId), shown)
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.liveStartFrame)
+        XCTAssertNil(fixture.manager.cachedConstraints(for: drag.token, maxAge: .greatestFiniteMagnitude))
+    }
+
+    func testTheAppsLaterReportsOfAFinishedResizeChangeNothing() throws {
+        let fixture = try makeFixture(.niri, pid: 834_014)
+        fixture.controller.motionPolicy.animationsEnabled = false
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let before = try fixture.frames()
+        let drag = try beginEdgeDrag(fixture, of: fixture.tokens[0])
+        let asked: CGFloat = 240
+        let arrived: CGFloat = 20
+        XCTAssertGreaterThan(asked - arrived, AXRecentFrameWriteFailure.maxAcceptedSizeSnap)
+        XCTAssertTrue(try report(grown(drag.start, right: arrived), for: drag, in: fixture))
+        letGo(fixture, of: drag, afterMovingRight: asked)
+        let finished = try fixture.frames()
+        XCTAssertNotEqual(finished, before)
+
+        for later in [arrived + (asked - arrived) / 2, asked] {
+            XCTAssertTrue(try report(grown(drag.start, right: later), for: drag, in: fixture))
+            XCTAssertEqual(fixture.phase, .awaitingCorrection)
+            XCTAssertEqual(try fixture.frames(), finished)
+        }
+
+        XCTAssertTrue(undo(fixture))
+        XCTAssertEqual(try fixture.frames(), before)
+        XCTAssertFalse(undo(fixture))
+    }
+
+    func testAWindowAlreadyAtThePointersSizeKeepsItsOwnSize() throws {
+        let fixture = try makeFixture(.niri, pid: 834_016)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let drag = try beginEdgeDrag(fixture, of: fixture.tokens[0])
+        let asked: CGFloat = 180
+        let shown = grown(drag.start, right: asked - AXRecentFrameWriteFailure.maxAcceptedSizeSnap)
+        XCTAssertTrue(try report(shown, for: drag, in: fixture))
+
+        letGo(fixture, of: drag, afterMovingRight: asked)
+
+        XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        XCTAssertEqual(try fixture.frame(drag.token).width, shown.width)
+    }
+
+    func testAWindowThatMovedFurtherThanThePointerKeepsItsOwnSize() throws {
+        let moved: CGFloat = 200
+        for (index, travel) in [0, moved / 2, -moved].enumerated() {
+            let fixture = try makeFixture(.niri, pid: pid_t(834_101 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let drag = try beginEdgeDrag(fixture, of: fixture.tokens[0])
+            let shown = grown(drag.start, right: moved)
+            XCTAssertTrue(try report(shown, for: drag, in: fixture), "\(travel)")
+
+            letGo(fixture, of: drag, afterMovingRight: travel)
+
+            XCTAssertEqual(fixture.phase, .awaitingCorrection, "\(travel)")
+            XCTAssertEqual(try fixture.frame(drag.token).width, shown.width, "\(travel)")
+        }
+    }
+
+    func testAResizeReleasedPastAMinimumOmniWMHoldsEndsAtTheMinimum() throws {
+        let room: CGFloat = 100
+        let arrived: CGFloat = 20
+        XCTAssertGreaterThan(room - arrived, AXRecentFrameWriteFailure.maxAcceptedSizeSnap)
+        for (index, learned) in [true, false].enumerated() {
+            let fixture = try makeFixture(.niri, pid: pid_t(834_121 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            let minimum = try fixture.frame(token).width - room
+            if learned {
+                var evidence = ObservedSizeEvidence()
+                evidence.minSize.width = minimum
+                XCTAssertTrue(fixture.manager.setObservedSizeEvidence(evidence, for: token))
+            } else {
+                var limits = WindowSizeConstraints.unconstrained
+                limits.minSize.width = minimum
+                fixture.manager.setCachedConstraints(limits, for: token)
+            }
+            let drag = try beginEdgeDrag(fixture, of: token)
+            XCTAssertTrue(try report(grown(drag.start, right: -arrived), for: drag, in: fixture), "\(learned)")
+
+            letGo(fixture, of: drag, afterMovingRight: -(room + room))
+
+            XCTAssertEqual(fixture.phase, .awaitingCorrection, "\(learned)")
+            XCTAssertEqual(try fixture.frame(token).width, minimum, "\(learned)")
+        }
+    }
+
+    func testAResizeFirstShownAfterTheReleaseIsTakenAtOnceOverAPendingLayoutWrite() throws {
+        let asked: CGFloat = 240
+        let arrived: CGFloat = 20
+        XCTAssertGreaterThan(asked - arrived, AXRecentFrameWriteFailure.maxAcceptedSizeSnap)
+        for (index, firstShown) in [arrived, asked].enumerated() {
+            let fixture = try makeFixture(.niri, pid: pid_t(834_111 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let drag = try beginEdgeDrag(fixture, of: fixture.tokens[0])
+            letGo(fixture, of: drag, afterMovingRight: asked)
+            XCTAssertEqual(fixture.phase, .awaitingFrameChange, "\(firstShown)")
+            let reference = try XCTUnwrap(fixture.entry(drag.token).axRef)
+            fixture.controller.axManager.applyFramesParallel([
+                AXFrameApplicationTarget(
+                    pid: drag.token.pid,
+                    window: reference,
+                    frame: drag.start.offsetBy(dx: arrived, dy: 0)
+                )
+            ])
+            XCTAssertTrue(fixture.controller.axManager.isAwaitingFrameWrite(drag.token.windowId), "\(firstShown)")
+
+            XCTAssertTrue(try report(grown(drag.start, right: firstShown), for: drag, in: fixture), "\(firstShown)")
+
+            XCTAssertEqual(fixture.phase, .awaitingCorrection, "\(firstShown)")
+            XCTAssertEqual(try fixture.frame(drag.token).width, drag.start.width + asked, "\(firstShown)")
+        }
+    }
+
+    func testALateResizeIsSizedByItsOwnDragAfterAPressOnAnOmniWMSurface() throws {
+        let fixture = try makeFixture(.niri, pid: 834_018)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let drag = try beginEdgeDrag(fixture, of: fixture.tokens[0])
+        let asked: CGFloat = 240
+        let arrived: CGFloat = 20
+        XCTAssertGreaterThan(asked - arrived, AXRecentFrameWriteFailure.maxAcceptedSizeSnap)
+        letGo(fixture, of: drag, afterMovingRight: asked)
+        XCTAssertEqual(fixture.phase, .awaitingFrameChange)
+
+        let surface = fixture.monitor.frame.offsetBy(dx: -fixture.monitor.frame.width, dy: 0)
+        let surfaceId = "press-after-release-\(drag.token.windowId)"
         fixture.controller.ownedWindowRegistry.registerWindowNumber(
             surfaceId: surfaceId,
             policy: SurfacePolicy(
@@ -289,112 +418,114 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 capturePolicy: .included,
                 suppressesManagedFocusRecovery: true
             ),
-            windowNumber: resized.windowId + 10_000,
-            frameProvider: { ownedFrame },
+            windowNumber: drag.token.windowId + fixture.tokens.count,
+            frameProvider: { surface },
             visibilityProvider: { true }
         )
         defer { fixture.controller.ownedWindowRegistry.unregister(surfaceId: surfaceId) }
-        XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: ownedFrame.center, modifiers: []))
-        XCTAssertFalse(fixture.handler.state.leftPressWasDragged)
-        XCTAssertEqual(fixture.phase, .settlingResize)
-
-        reported.frame = grown(start, right: 120)
-        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
-        XCTAssertEqual(fixture.phase, .settlingResize)
-        reported.frame = grown(start, right: 240)
-        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
-
-        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
-        XCTAssertEqual(try fixture.frame(resized).width, start.width + 240, accuracy: FrameTolerance.frameWrite)
-    }
-
-    func testAResizeThatReachesItsSizeAtTheReleaseIsAdoptedWithoutSettling() throws {
-        let fixture = try makeFixture(.niri, pid: 834_016)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.handler.settlesNativeResizes = true
-        let resized = fixture.tokens[0]
-        let start = try fixture.frame(resized)
-        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
-        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
-        try fixture.beginDrag(resized)
-        reported.frame = grown(start, right: 180)
-        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
-
-        fixture.handler.state.leftPressLocation = CGPoint(x: start.center.x - 180, y: start.center.y)
-        fixture.handler.dispatchMouseUp(at: start.center)
-
-        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
-        XCTAssertNotEqual(fixture.phase, .settlingResize)
-    }
-
-    func testAResizeStoppedByTheWindowsMinimumSettlesThereWithoutWaitingForInput() throws {
-        let fixture = try makeFixture(.niri, pid: 834_017)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.handler.settlesNativeResizes = true
-        let resized = fixture.tokens[0]
-        let start = try fixture.frame(resized)
-        var evidence = ObservedSizeEvidence()
-        evidence.minSize = CGSize(width: start.width - 100, height: 1)
-        _ = fixture.manager.setObservedSizeEvidence(evidence, for: resized)
-        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
-        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
-        try fixture.beginDrag(resized)
-        reported.frame = grown(start, right: -20)
-        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
-
-        fixture.handler.state.leftPressLocation = CGPoint(x: start.center.x + 300, y: start.center.y)
-        fixture.handler.dispatchMouseUp(at: start.center)
-        XCTAssertEqual(fixture.phase, .settlingResize)
-        reported.frame = grown(start, right: -100)
-        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
-
-        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
-        XCTAssertEqual(try fixture.frame(resized).width, start.width - 100, accuracy: FrameTolerance.frameWrite)
-    }
-
-    func testAResizeThatArrivesAfterTheReleaseIsKeptOverAPendingLayoutWrite() throws {
-        let fixture = try makeFixture(.niri, pid: 834_015)
-        let blocker = blockRefreshes(fixture)
-        defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.handler.settlesNativeResizes = true
-        let resized = fixture.tokens[0]
-        let start = try fixture.frame(resized)
-        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: resized.windowId))
-        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
-        try fixture.beginDrag(resized)
-        fixture.handler.dispatchMouseUp(at: start.center)
+        XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: surface.center, modifiers: []))
+        XCTAssertEqual(fixture.handler.state.leftPressLocation, surface.center)
         XCTAssertEqual(fixture.phase, .awaitingFrameChange)
 
-        let reference = try XCTUnwrap(fixture.entry(resized).axRef)
-        fixture.controller.axManager.applyFramesParallel([
-            AXFrameApplicationTarget(pid: resized.pid, window: reference, frame: start.offsetBy(dx: 30, dy: 0))
-        ])
-        XCTAssertTrue(fixture.controller.axManager.isAwaitingFrameWrite(resized.windowId))
-        reported.frame = grown(start, right: 200)
-        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(resized)))
-        XCTAssertEqual(fixture.phase, .settlingResize)
-        fixture.handler.finishNativeResizeSettling()
+        XCTAssertTrue(try report(grown(drag.start, right: arrived), for: drag, in: fixture))
 
-        XCTAssertEqual(try fixture.frame(resized).width, start.width + 200, accuracy: FrameTolerance.frameWrite)
+        XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        XCTAssertEqual(try fixture.frame(drag.token).width, drag.start.width + asked)
     }
 
-    func testAPressWhileAResizeSettlesAdoptsItFirst() throws {
-        let fixture = try makeFixture(.niri, pid: 834_014)
+    func testAReportAfterAFinishedResizeWasWrittenDoesNotResizeAgain() throws {
+        let fixture = try makeFixture(.niri, pid: 834_019)
+        fixture.wireFrameApplyCallbacks()
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.handler.settlesNativeResizes = true
-        let resized = fixture.tokens[0]
-        let start = try fixture.frame(resized)
+        let drag = try beginEdgeDrag(fixture, of: fixture.tokens[0])
+        let asked: CGFloat = 200
+        let fallenBack = asked - (AXRecentFrameWriteFailure.maxAcceptedSizeSnap + FrameTolerance.frameWrite).nextUp
+        XCTAssertTrue(try report(grown(drag.start, right: asked), for: drag, in: fixture))
+        letGo(fixture, of: drag, afterMovingRight: asked)
+        let finished = try fixture.frame(drag.token)
+        XCTAssertEqual(finished.width, drag.start.width + asked)
+        drag.reported.frame = finished
+        fixture.controller.axManager.forceApplyNextFrame(for: drag.token.windowId)
+        try fixture.confirmWrite(of: drag.token)
+        XCTAssertEqual(fixture.phase, .awaitingFrameChange)
+        fixture.controller.layoutRefreshController.stopScrollAnimation(for: fixture.monitor.displayId)
 
-        try fixture.release(resized, at: grown(start, right: 120))
-        XCTAssertEqual(fixture.phase, .settlingResize)
+        XCTAssertTrue(try report(grown(drag.start, right: fallenBack), for: drag, in: fixture))
+        XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        XCTAssertEqual(try fixture.frame(drag.token), finished)
 
-        try fixture.beginDrag(fixture.tokens[1])
+        fixture.handler.retireNativeTitleBarDragAtInputBoundary()
 
-        XCTAssertEqual(try fixture.frame(resized).width, start.width + 120, accuracy: FrameTolerance.frameWrite)
-        XCTAssertNil(fixture.handler.state.nativeResizeSettling)
+        XCTAssertNil(fixture.phase)
+        XCTAssertEqual(try fixture.frame(drag.token), finished)
+    }
+
+    func testAnAppThatWillNotGrowAsFarAsAskedLeavesTheColumnAtTheAskedWidth() throws {
+        let fixture = try makeFixture(.niri, pid: 834_020)
+        fixture.controller.serviceLifecycleManager.connectAXFrameCallbacks(fixture.controller)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let drag = try beginEdgeDrag(fixture, of: fixture.tokens[0])
+        let asked: CGFloat = 240
+        let arrived: CGFloat = 20
+        XCTAssertGreaterThan(asked - arrived, AXRecentFrameWriteFailure.maxAcceptedSizeSnap)
+        XCTAssertTrue(try report(grown(drag.start, right: arrived), for: drag, in: fixture))
+        letGo(fixture, of: drag, afterMovingRight: asked)
+        let finished = try fixture.frame(drag.token)
+
+        try fixture.refuseWrite(of: drag.token, growingWidthBy: arrived - asked)
+
+        XCTAssertEqual(fixture.phase, .awaitingCorrection)
+        XCTAssertNotNil(fixture.handler.state.nativeTitleBarDrag?.terminalFailureRetryRequestId)
+        XCTAssertEqual(try fixture.frame(drag.token), finished)
+
+        try fixture.refuseWrite(of: drag.token, growingWidthBy: arrived - asked)
+
+        XCTAssertNil(fixture.phase)
+        XCTAssertEqual(try fixture.frame(drag.token), finished)
+        let unlearned = ObservedSizeEvidence().minSize.width
+        XCTAssertEqual(fixture.manager.observedSizeEvidence(for: drag.token)?.minSize.width ?? unlearned, unlearned)
+    }
+
+    func testAResizeIsCompletedOnAnAxisOnlyWhereTheWindowIsBehindThePointer() {
+        let start: CGFloat = 800
+        let snap = AXRecentFrameWriteFailure.maxAcceptedSizeSnap
+        func completed(observed: CGFloat, asked: CGFloat) -> CGFloat {
+            MouseEventHandler.completedNativeResizeLength(from: start, observed: observed, asked: asked)
+        }
+        for direction: CGFloat in [1, -1] {
+            let asked = start + direction * 10 * snap
+            let behind = start + direction * snap
+            XCTAssertEqual(completed(observed: behind, asked: asked), asked, "\(direction)")
+            let within = asked - direction * snap
+            XCTAssertEqual(completed(observed: within, asked: asked), within, "\(direction)")
+            let justBehind = direction > 0 ? within.nextDown : within.nextUp
+            XCTAssertEqual(completed(observed: justBehind, asked: asked), asked, "\(direction)")
+            let beyond = asked + direction * 2 * snap
+            XCTAssertEqual(completed(observed: beyond, asked: asked), beyond, "\(direction)")
+            let opposite = start - direction * 2 * snap
+            XCTAssertEqual(completed(observed: opposite, asked: asked), opposite, "\(direction)")
+            XCTAssertEqual(completed(observed: start, asked: asked), start, "\(direction)")
+            XCTAssertEqual(completed(observed: behind, asked: start), behind, "\(direction)")
+        }
+    }
+
+    func testACompletedFrameKeepsTheEdgesThatDidNotMove() {
+        let observed = CGRect(x: 100, y: 50, width: 400, height: 300)
+        let size = CGSize(width: 520, height: 360)
+        func frame(_ edges: ResizeEdge) -> CGRect {
+            MouseEventHandler.nativeResizeFrame(observed, edges: edges, size: size)
+        }
+        XCTAssertEqual(frame(.right).minX, observed.minX)
+        XCTAssertEqual(frame(.left).maxX, observed.maxX)
+        XCTAssertEqual(frame([.left, .right]).midX, observed.midX)
+        XCTAssertEqual(frame(.top).minY, observed.minY)
+        XCTAssertEqual(frame(.bottom).maxY, observed.maxY)
+        XCTAssertEqual(frame([.bottom, .top]).midY, observed.midY)
+        for edges: ResizeEdge in [.right, .left, [.left, .right], .top, .bottom, [.bottom, .top], [.left, .top]] {
+            XCTAssertEqual(frame(edges).size, size)
+        }
     }
 
     func testNiriLeftEdgeKeepsTheRightEdgeInPlace() throws {
@@ -1410,7 +1541,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
     func testAnUnannotatedDragBegunDuringASlideEndsTheSlideAndItsResizeIsAdopted() async throws {
         let fixture = try makeFixture(.niri, pid: 834_109)
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        fixture.controller.mouseEventHandler.settlesNativeResizes = false
         let token = fixture.tokens[0]
         let pressedFrame = try fixture.frame(token)
         let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: token.windowId))
@@ -1459,7 +1589,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
     func testAResizeReportedBeforeTheSlideSettlesIsAdoptedWhenItDoes() async throws {
         let fixture = try makeFixture(.niri, pid: 834_110)
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        fixture.controller.mouseEventHandler.settlesNativeResizes = false
         let token = fixture.tokens[0]
         let pressedFrame = try fixture.frame(token)
         let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: token.windowId))
@@ -3531,7 +3660,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         for (index, slides) in [false, true].enumerated() {
             let fixture = try makeFixture(.niri, pid: pid_t(835_262 + index))
             let engine = try XCTUnwrap(fixture.controller.niriEngine)
-            fixture.controller.mouseEventHandler.settlesNativeResizes = false
             let token = fixture.tokens[0]
             let pressedFrame = try fixture.frame(token)
             if slides {
@@ -3648,6 +3776,29 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             .compactMap { Double($0) }
         guard numbers.count == 4 else { return nil }
         return CGRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3])
+    }
+
+    private struct EdgeDrag {
+        let token: WindowToken
+        let start: CGRect
+        let reported: ReportedFrame
+    }
+
+    private func beginEdgeDrag(_ fixture: Fixture, of token: WindowToken) throws -> EdgeDrag {
+        let start = try fixture.frame(token)
+        let reported = ReportedFrame(fixture.controller.axManager.lastAppliedFrame(for: token.windowId))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        try fixture.beginDrag(token)
+        return EdgeDrag(token: token, start: start, reported: reported)
+    }
+
+    private func report(_ frame: CGRect, for drag: EdgeDrag, in fixture: Fixture) throws -> Bool {
+        drag.reported.frame = frame
+        return fixture.handler.handleNativeTitleBarDragFrameChanged(for: try fixture.entry(drag.token))
+    }
+
+    private func letGo(_ fixture: Fixture, of drag: EdgeDrag, afterMovingRight travel: CGFloat) {
+        fixture.handler.dispatchMouseUp(at: CGPoint(x: drag.start.center.x + travel, y: drag.start.center.y))
     }
 
     private func grown(
@@ -3813,7 +3964,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let frames = try fixture.frames()
         try fixture.confirmLayout()
         controller.mouseEventHandler.nativeWindowFrameProvider = { nativeFrames[$0.windowId]?.frame }
-        controller.mouseEventHandler.settlesNativeResizes = false
         controller.axEventHandler.windowInfoProvider = { windowId in
             guard let token = tokens.first(where: { $0.windowId == Int(windowId) }) else { return nil }
             return WindowServerInfo(id: windowId, pid: token.pid, level: 0, frame: frames[token] ?? .zero)
