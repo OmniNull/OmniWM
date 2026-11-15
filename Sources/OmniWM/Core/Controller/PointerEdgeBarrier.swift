@@ -160,10 +160,6 @@ final class PointerEdgeBarrier: Sendable {
         state.withLock { $0.recognizer.reset() }
     }
 
-    var liveDragHold: LiveDragHold? {
-        state.withLock { $0.liveDragHold }
-    }
-
     var resizeHold: ResizeHold? {
         state.withLock { $0.resizeHold }
     }
@@ -177,19 +173,6 @@ final class PointerEdgeBarrier: Sendable {
         MouseTrace.record(
             "edge-resize-hold publish min=\(hold?.minX.map { "\(Int($0))" } ?? "-") "
                 + "max=\(hold?.maxX.map { "\(Int($0))" } ?? "-")"
-        )
-    }
-
-    func publishLiveDragHold(_ hold: LiveDragHold?) {
-        let changed = state.withLock { current -> Bool in
-            if hold?.monitorId != current.liveDragHold?.monitorId { current.liveDragPush = .init() }
-            defer { current.liveDragHold = hold }
-            return hold != current.liveDragHold
-        }
-        guard changed else { return }
-        MouseTrace.record(
-            "live-drag-hold publish monitor=\(hold.map { "\($0.monitorId)" } ?? "nil") "
-                + "held=\(hold.map { "\($0.heldDirections.sorted { "\($0)" < "\($1)" })" } ?? "-")"
         )
     }
 
@@ -365,6 +348,43 @@ final class PointerEdgeBarrier: Sendable {
         return holdsLiveDrag ? handleLiveDragEvent(event) : Unmanaged.passUnretained(event)
     }
 
+    private static func traceRoute(_ crossing: PointerEdgeRecognizer.Crossing, _ warpPoint: CGPoint) -> String {
+        "from=\(crossing.source) to=\(crossing.target.id) dir=\(crossing.direction) "
+            + "dest=\(TraceFormat.point(crossing.destination)) warp=\(TraceFormat.point(warpPoint))"
+    }
+
+    static func activeDisplayBounds(_ displayId: CGDirectDisplayID) -> CGRect? {
+        guard CGDisplayIsActive(displayId) != 0 else { return nil }
+        let bounds = CGDisplayBounds(displayId)
+        return bounds.isNull || bounds.isEmpty ? nil : bounds
+    }
+
+    static func postSyntheticMove(_ point: CGPoint) {
+        DispatchQueue.global(qos: .userInteractive).async {
+            CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)?
+                .post(tap: .cghidEventTap)
+        }
+    }
+}
+
+extension PointerEdgeBarrier {
+    var liveDragHold: LiveDragHold? {
+        state.withLock { $0.liveDragHold }
+    }
+
+    func publishLiveDragHold(_ hold: LiveDragHold?) {
+        let changed = state.withLock { current -> Bool in
+            if hold?.monitorId != current.liveDragHold?.monitorId { current.liveDragPush = .init() }
+            defer { current.liveDragHold = hold }
+            return hold != current.liveDragHold
+        }
+        guard changed else { return }
+        MouseTrace.record(
+            "live-drag-hold publish monitor=\(hold.map { "\($0.monitorId)" } ?? "nil") "
+                + "held=\(hold.map { "\($0.heldDirections.sorted { "\($0)" < "\($1)" })" } ?? "-")"
+        )
+    }
+
     private func handleLiveDragEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {
         let cgLocation = event.location
         let motionX = event.getDoubleValueField(.mouseEventDeltaX)
@@ -401,6 +421,14 @@ final class PointerEdgeBarrier: Sendable {
             }
             return (decision, flipY)
         }
+        return applyLiveDragDecision(decision, to: event, flipY: flipY)
+    }
+
+    private func applyLiveDragDecision(
+        _ decision: LiveDragHold.Decision,
+        to event: CGEvent,
+        flipY: CGFloat
+    ) -> Unmanaged<CGEvent>? {
         switch decision {
         case .pass:
             return Unmanaged.passUnretained(event)
@@ -424,24 +452,6 @@ final class PointerEdgeBarrier: Sendable {
             EventIntake.post(.pointerEdgeCrossed(target: target))
             event.location = warpPoint
             return Unmanaged.passUnretained(event)
-        }
-    }
-
-    private static func traceRoute(_ crossing: PointerEdgeRecognizer.Crossing, _ warpPoint: CGPoint) -> String {
-        "from=\(crossing.source) to=\(crossing.target.id) dir=\(crossing.direction) "
-            + "dest=\(TraceFormat.point(crossing.destination)) warp=\(TraceFormat.point(warpPoint))"
-    }
-
-    static func activeDisplayBounds(_ displayId: CGDirectDisplayID) -> CGRect? {
-        guard CGDisplayIsActive(displayId) != 0 else { return nil }
-        let bounds = CGDisplayBounds(displayId)
-        return bounds.isNull || bounds.isEmpty ? nil : bounds
-    }
-
-    static func postSyntheticMove(_ point: CGPoint) {
-        DispatchQueue.global(qos: .userInteractive).async {
-            CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)?
-                .post(tap: .cghidEventTap)
         }
     }
 }

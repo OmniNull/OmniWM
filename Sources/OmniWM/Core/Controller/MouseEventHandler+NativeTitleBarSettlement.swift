@@ -36,6 +36,13 @@ extension MouseEventHandler {
             )
             return false
         }
+        return advanceNativeTitleBarDrag(&drag, on: entry)
+    }
+
+    private func advanceNativeTitleBarDrag(
+        _ drag: inout MouseInputState.NativeTitleBarDrag,
+        on entry: WindowState
+    ) -> Bool {
         switch drag.phase {
         case .armed:
             traceLiveDragDecline("armed token=\(TraceFormat.token(entry.token))")

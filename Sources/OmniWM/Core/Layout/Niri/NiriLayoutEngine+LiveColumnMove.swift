@@ -75,11 +75,8 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) -> LiveColumnMove.Step {
         guard let decision = liveColumnMoveDecision(
-            cursor: cursor,
+            .init(cursor: cursor, time: immediate ? nil : time, slowed: slowed),
             windowMidX: windowMidX,
-            at: time,
-            immediate: immediate,
-            slowed: slowed,
             context: context,
             strip: liveColumnStrip(context: context, state: state)
         ) else { return .unchanged }
@@ -87,11 +84,8 @@ extension NiriLayoutEngine {
     }
 
     func liveColumnMoveDecision(
-        cursor: CGPoint,
-        windowMidX: CGFloat? = nil,
-        at time: TimeInterval,
-        immediate: Bool = false,
-        slowed: Bool = false,
+        _ pointer: LiveColumnMove.Pointer,
+        windowMidX: CGFloat?,
         context: NiriInteractionContext,
         strip: [LiveColumnMove.StripColumn]
     ) -> LiveColumnMove.Decision? {
@@ -99,13 +93,9 @@ extension NiriLayoutEngine {
               move.workspaceId == context.workspaceId,
               liveDraggedColumn(for: move) != nil
         else { return nil }
-        var decision = LiveColumnMove.Decision(
-            move: move,
-            pointer: .init(cursor: cursor, time: immediate ? nil : time, slowed: slowed),
-            strip: strip
-        )
+        var decision = LiveColumnMove.Decision(move: move, pointer: pointer, strip: strip)
         decision.closing = liveClosingSlotDecision(
-            windowMidX: windowMidX ?? cursor.x,
+            windowMidX: windowMidX ?? pointer.cursor.x,
             strip: decision.strip,
             move: &decision.move,
             context: context

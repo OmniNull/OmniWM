@@ -10,99 +10,102 @@ final class EdgeResizeHoldTests: XCTestCase {
     private let screen: ClosedRange<CGFloat> = 12 ... 1488
     private let peeked: ClosedRange<CGFloat> = 100 ... 1400
     private let frame = CGRect(x: 300, y: 0, width: 800, height: 900)
+    private let grabInset: CGFloat = 3
 
-    func testARightEdgeWithAPeekBeyondStopsThePointerWhereTheEdgeMeetsThePeek() throws {
-        let hold = try XCTUnwrap(MouseEventHandler.edgeResizeHold(
-            at: CGPoint(x: 1097, y: 400),
-            frame: frame,
-            edges: .right,
-            centred: false,
-            bounds: peeked,
-            screenBounds: screen
-        ))
-        XCTAssertNil(hold.minX)
-        XCTAssertEqual(try XCTUnwrap(hold.maxX), 1097 + (1400 - 1100), accuracy: 0.001)
+    private var holdAtThePeek: PointerEdgeBarrier.ResizeHold {
+        .init(minX: nil, maxX: peeked.upperBound)
     }
 
-    func testALeftEdgeWithAPeekBeyondStopsThePointerWhereTheEdgeMeetsThePeek() throws {
-        let hold = try XCTUnwrap(MouseEventHandler.edgeResizeHold(
-            at: CGPoint(x: 303, y: 400),
-            frame: frame,
-            edges: .left,
-            centred: false,
-            bounds: peeked,
-            screenBounds: screen
+    private func rightGrab(of frame: CGRect) -> CGPoint {
+        CGPoint(x: frame.maxX - grabInset, y: frame.midY)
+    }
+
+    private func leftGrab(of frame: CGRect) -> CGPoint {
+        CGPoint(x: frame.minX + grabInset, y: frame.midY)
+    }
+
+    private func leftDrag(at point: CGPoint) throws -> CGEvent {
+        try XCTUnwrap(CGEvent(
+            mouseEventSource: nil,
+            mouseType: .leftMouseDragged,
+            mouseCursorPosition: point,
+            mouseButton: .left
         ))
-        XCTAssertNil(hold.maxX)
-        XCTAssertEqual(try XCTUnwrap(hold.minX), 303 - (300 - 100), accuracy: 0.001)
+    }
+
+    private func resizeHold(
+        at location: CGPoint,
+        frame: CGRect,
+        edges: ResizeEdge,
+        centred: Bool,
+        bounds: ClosedRange<CGFloat>
+    ) -> PointerEdgeBarrier.ResizeHold? {
+        let room = MouseEventHandler.edgeResizeRoom(of: frame, in: bounds, screenBounds: screen)
+        return MouseEventHandler.edgeResizeHold(
+            at: location,
+            edges: edges,
+            centred: centred,
+            leftRoom: room.left,
+            rightRoom: room.right
+        )
+    }
+
+    func testARightEdgeWithAPeekBeyondStopsThePointerWhereTheEdgeMeetsThePeek() {
+        let press = rightGrab(of: frame)
+        let hold = resizeHold(at: press, frame: frame, edges: .right, centred: false, bounds: peeked)
+        let roomToThePeek = peeked.upperBound - frame.maxX
+        XCTAssertEqual(hold, .init(minX: nil, maxX: press.x + roomToThePeek))
+    }
+
+    func testALeftEdgeWithAPeekBeyondStopsThePointerWhereTheEdgeMeetsThePeek() {
+        let press = leftGrab(of: frame)
+        let hold = resizeHold(at: press, frame: frame, edges: .left, centred: false, bounds: peeked)
+        let roomToThePeek = frame.minX - peeked.lowerBound
+        XCTAssertEqual(hold, .init(minX: press.x - roomToThePeek, maxX: nil))
     }
 
     func testAnEdgeWithNothingBeyondItIsNotHeld() {
-        let atTheEnd: ClosedRange<CGFloat> = 100 ... 1488
-        XCTAssertNil(MouseEventHandler.edgeResizeHold(
-            at: CGPoint(x: 1097, y: 400),
-            frame: frame,
-            edges: .right,
-            centred: false,
-            bounds: atTheEnd,
-            screenBounds: screen
-        ))
-        XCTAssertNil(MouseEventHandler.edgeResizeHold(
-            at: CGPoint(x: 1097, y: 400),
-            frame: frame,
-            edges: .right,
-            centred: false,
-            bounds: screen,
-            screenBounds: screen
-        ))
+        let press = rightGrab(of: frame)
+        let endingAtTheScreen = peeked.lowerBound ... screen.upperBound
+        XCTAssertNil(resizeHold(at: press, frame: frame, edges: .right, centred: false, bounds: endingAtTheScreen))
+        XCTAssertNil(resizeHold(at: press, frame: frame, edges: .right, centred: false, bounds: screen))
     }
 
-    func testAnEdgeAlreadyAtThePeekCannotGoFurther() throws {
-        let wide = CGRect(x: 100, y: 0, width: 1300, height: 900)
-        let hold = try XCTUnwrap(MouseEventHandler.edgeResizeHold(
-            at: CGPoint(x: 1398, y: 400),
-            frame: wide,
-            edges: .right,
-            centred: false,
-            bounds: peeked,
-            screenBounds: screen
-        ))
-        XCTAssertEqual(try XCTUnwrap(hold.maxX), 1398, accuracy: 0.001)
+    func testAnEdgeAlreadyAtThePeekCannotGoFurther() {
+        let reachingThePeeks = CGRect(
+            x: peeked.lowerBound,
+            y: frame.minY,
+            width: peeked.upperBound - peeked.lowerBound,
+            height: frame.height
+        )
+        let press = rightGrab(of: reachingThePeeks)
+        let hold = resizeHold(at: press, frame: reachingThePeeks, edges: .right, centred: false, bounds: peeked)
+        XCTAssertEqual(hold, .init(minX: nil, maxX: press.x))
     }
 
-    func testAnOptionResizeAroundTheCentreStopsAtTheNearerPeek() throws {
-        let hold = try XCTUnwrap(MouseEventHandler.edgeResizeHold(
-            at: CGPoint(x: 1097, y: 400),
-            frame: frame,
-            edges: .right,
-            centred: true,
-            bounds: peeked,
-            screenBounds: screen
-        ))
-        XCTAssertEqual(try XCTUnwrap(hold.maxX), 1097 + (300 - 100), accuracy: 0.001)
+    func testAnOptionResizeAroundTheCentreStopsAtTheNearerPeek() {
+        let press = rightGrab(of: frame)
+        let hold = resizeHold(at: press, frame: frame, edges: .right, centred: true, bounds: peeked)
+        let leftRoom = frame.minX - peeked.lowerBound
+        let rightRoom = peeked.upperBound - frame.maxX
+        XCTAssertLessThan(leftRoom, rightRoom)
+        XCTAssertEqual(hold, .init(minX: nil, maxX: press.x + leftRoom))
     }
 
     func testTheBarrierClampsADragPastTheLineAndLetsADragBackThrough() throws {
         let barrier = PointerEdgeBarrier(installsTap: false)
-        barrier.publishResizeHold(.init(minX: nil, maxX: 1200))
-        let past = try XCTUnwrap(CGEvent(
-            mouseEventSource: nil,
-            mouseType: .leftMouseDragged,
-            mouseCursorPosition: CGPoint(x: 1300, y: 400),
-            mouseButton: .left
-        ))
-        _ = barrier.handleTapEvent(.leftMouseDragged, past)
-        XCTAssertEqual(past.location.x, 1200, accuracy: 0.001)
-        XCTAssertEqual(past.location.y, 400, accuracy: 0.001)
+        barrier.publishResizeHold(holdAtThePeek)
+        let line = try XCTUnwrap(holdAtThePeek.maxX)
+        let pastTheLine = CGPoint(x: screen.upperBound, y: frame.midY)
+        let insideTheLine = CGPoint(x: frame.maxX, y: frame.midY)
 
-        let back = try XCTUnwrap(CGEvent(
-            mouseEventSource: nil,
-            mouseType: .leftMouseDragged,
-            mouseCursorPosition: CGPoint(x: 1100, y: 400),
-            mouseButton: .left
-        ))
+        let past = try leftDrag(at: pastTheLine)
+        _ = barrier.handleTapEvent(.leftMouseDragged, past)
+        XCTAssertEqual(past.location, CGPoint(x: line, y: pastTheLine.y))
+
+        let back = try leftDrag(at: insideTheLine)
         _ = barrier.handleTapEvent(.leftMouseDragged, back)
-        XCTAssertEqual(back.location.x, 1100, accuracy: 0.001)
+        XCTAssertEqual(back.location, insideTheLine)
 
         barrier.publishResizeHold(nil)
         XCTAssertNil(barrier.resizeHold)
@@ -111,9 +114,7 @@ final class EdgeResizeHoldTests: XCTestCase {
     @MainActor
     func testStoppingTheMouseHandlerLetsGoOfTheResizeHold() {
         let controller = WindowAdmissionTestSupport.controller()
-        var hold = PointerEdgeBarrier.ResizeHold()
-        hold.maxX = 1200
-        controller.holdPointerForEdgeResize(hold)
+        controller.holdPointerForEdgeResize(holdAtThePeek)
         XCTAssertNotNil(controller.pointerEdgeBarrier.resizeHold)
 
         controller.mouseEventHandler.cleanup()
