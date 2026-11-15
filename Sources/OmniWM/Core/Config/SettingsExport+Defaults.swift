@@ -126,13 +126,14 @@ extension SettingsExport.Niri {
             allowOverscroll: false,
             overscrollVisibleStripPercent: 5,
             shrinkToFit: false,
+            edgePeekPercent: BuiltInSettingsDefaults.niriEdgePeekPercent,
             fitToVisibleContainerCount: false,
             keepExistingWindowWidth: false,
             keepSizeOnUnstack: false,
             keepSizesOnDisplayMove: false,
             keepSizesOnSettingsChange: false,
             keepStripEndsOnScreen: false
-        ).withMacOSFusionDefaults(edgePeekPercent: BuiltInSettingsDefaults.niriEdgePeekPercent)
+        )
     }
 }
 

@@ -266,7 +266,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let fixture = try makeFixture(.niri, pid: 834_013)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.settlesNativeResizes = true
         let resized = fixture.tokens[0]
         let start = try fixture.frame(resized)
@@ -313,7 +312,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let fixture = try makeFixture(.niri, pid: 834_016)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.settlesNativeResizes = true
         let resized = fixture.tokens[0]
         let start = try fixture.frame(resized)
@@ -334,7 +332,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let fixture = try makeFixture(.niri, pid: 834_017)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.settlesNativeResizes = true
         let resized = fixture.tokens[0]
         let start = try fixture.frame(resized)
@@ -361,7 +358,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let fixture = try makeFixture(.niri, pid: 834_015)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.settlesNativeResizes = true
         let resized = fixture.tokens[0]
         let start = try fixture.frame(resized)
@@ -388,7 +384,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         let fixture = try makeFixture(.niri, pid: 834_014)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.handler.settlesNativeResizes = true
         let resized = fixture.tokens[0]
         let start = try fixture.frame(resized)
@@ -1320,7 +1315,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testAnEdgeDragDuringAPendingWriteStartsFromThePendingFrame() throws {
         let fixture = try makeFixture(.niri, pid: 834_047)
-        fixture.controller.settings.niri.macOSFusion = true
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         let token = fixture.tokens[0]
@@ -1343,9 +1337,8 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.pendingWriteStartFrame)
     }
 
-    func testWithMacOSFusionOffAnEdgeDragDuringAPendingWriteIsPutBack() throws {
+    func testOnAPortraitStripAnEdgeDragDuringAPendingWriteIsPutBack() throws {
         let fixture = try makeFixture(.niri, portrait: true, pid: 834_048)
-        XCTAssertFalse(fixture.controller.settings.niri.macOSFusion)
         XCTAssertTrue(fixture.controller.settings.gestures.adoptNativeResize)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -1414,10 +1407,9 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         }
     }
 
-    func testWithMacOSFusionAnUnannotatedDragBegunDuringASlideEndsTheSlideAndItsResizeIsAdopted() async throws {
+    func testAnUnannotatedDragBegunDuringASlideEndsTheSlideAndItsResizeIsAdopted() async throws {
         let fixture = try makeFixture(.niri, pid: 834_109)
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.mouseEventHandler.settlesNativeResizes = false
         let token = fixture.tokens[0]
         let pressedFrame = try fixture.frame(token)
@@ -1464,10 +1456,9 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: FrameTolerance.frameWrite)
     }
 
-    func testWithMacOSFusionAResizeReportedBeforeTheSlideSettlesIsAdoptedWhenItDoes() async throws {
+    func testAResizeReportedBeforeTheSlideSettlesIsAdoptedWhenItDoes() async throws {
         let fixture = try makeFixture(.niri, pid: 834_110)
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.mouseEventHandler.settlesNativeResizes = false
         let token = fixture.tokens[0]
         let pressedFrame = try fixture.frame(token)
@@ -3351,7 +3342,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
         let undo = try XCTUnwrap(controller.settings.hotkeyBindings.first { $0.id == "undo" })
 
-        controller.applyMacOSFusionSettings()
+        controller.updateHotkeyBindings(controller.settings.hotkeyBindings)
         XCTAssertTrue(controller.settings.isCommandFeatureEnabled(.sizing(.undo)))
         XCTAssertTrue(controller.settings.isCommandFeatureEnabled(.sizing(.redo)))
         XCTAssertEqual(
@@ -3379,7 +3370,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testUndoTakesBackTheLastResizeThenTheOneBeforeAndRedoPutsThemBack() throws {
         let fixture = try makeFixture(.niri, pid: 834_084)
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.motionPolicy.animationsEnabled = false
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -3407,7 +3397,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testUndoGivesAStackBothHeightsBack() throws {
         let fixture = try makeFixture(.niri, stacked: true, pid: 834_085)
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.motionPolicy.animationsEnabled = false
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -3423,7 +3412,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testUndoTakesBackAKeyboardSizeChangeBeforeTheResizeBeforeIt() throws {
         let fixture = try makeFixture(.niri, pid: 834_086)
-        fixture.controller.settings.niri.macOSFusion = true
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         let token = fixture.tokens[0]
@@ -3444,7 +3432,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testUndoAnimatesTheWidthBackAndTheNeighbourRidesAlong() throws {
         let fixture = try makeFixture(.niri, pid: 834_087)
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.motionPolicy.animationsEnabled = true
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -3465,7 +3452,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testUndoBringsTheWindowItRestoresToTheFront() throws {
         let fixture = try makeFixture(.niri, pid: 834_088)
-        fixture.controller.settings.niri.macOSFusion = true
         fixture.controller.motionPolicy.animationsEnabled = false
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
@@ -3485,9 +3471,8 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo)
     }
 
-    func testWithMacOSFusionAKeptResizeSendsTheWindowNoFrameItAlreadyHas() async throws {
+    func testAKeptResizeSendsTheWindowNoFrameItAlreadyHas() async throws {
         let fixture = try makeFixture(.niri, pid: 834_078)
-        fixture.controller.settings.niri.macOSFusion = true
         let token = fixture.tokens[0]
         let observed = grown(try fixture.frame(token), right: 200)
         FrameApplyTrace.shared.beginCapture()
@@ -3509,7 +3494,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
     func testAPressLeavesTheStripsSlideRunningAndTheFirstDragMovementEndsIt() throws {
         let fixture = try makeFixture(.niri, pid: 834_079)
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        fixture.controller.settings.niri.macOSFusion = true
         let token = fixture.tokens[1]
         fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
             state.animateToOffset(state.viewOffset + 300, motion: .enabled, scale: 2)
@@ -3547,7 +3531,6 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         for (index, slides) in [false, true].enumerated() {
             let fixture = try makeFixture(.niri, pid: pid_t(835_262 + index))
             let engine = try XCTUnwrap(fixture.controller.niriEngine)
-            fixture.controller.settings.niri.macOSFusion = true
             fixture.controller.mouseEventHandler.settlesNativeResizes = false
             let token = fixture.tokens[0]
             let pressedFrame = try fixture.frame(token)

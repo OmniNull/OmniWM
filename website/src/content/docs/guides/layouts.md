@@ -17,7 +17,7 @@ When **Visible Containers** is set to a number and fewer containers are open, th
 
 Mouse and command resizing use the usual Niri behavior and keep your chosen size, even if that leaves empty space. Automatic filling resumes when the number of containers changes.
 
-Turn on [macOS Fusion](/features/macos-fusion/) to move, stack and resize Niri windows with the mouse, the way macOS does it: windows make room live as you drag.
+On a landscape display you can move, stack and resize Niri windows with the mouse, the way macOS does it: windows make room live as you drag. See [macOS Fusion](/features/macos-fusion/).
 
 Niri columns can extend into outer gaps. The gaps define the layout area; they do not crop windows.
 

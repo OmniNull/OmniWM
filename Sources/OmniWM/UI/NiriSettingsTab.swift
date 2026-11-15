@@ -145,7 +145,7 @@ private struct GlobalNiriSettingsSection: View {
             )
             .id("Peripheral Vision")
             .onChange(of: settings.niri.edgePeekPercent) {
-                controller.updateNiriConfig(macOSFusion: controller.macOSFusionConfiguration)
+                controller.updateNiriConfig(edgePeekShare: controller.edgePeekShare)
             }
 
             SettingsCaption(
@@ -234,36 +234,23 @@ private struct GlobalNiriSettingsSection: View {
         }
         .id("Niri Layout")
 
-        Section("macOS Fusion") {
-            Toggle("macOS Fusion", isOn: Bindable(settings.niri).macOSFusion)
-                .onChange(of: settings.niri.macOSFusion) {
-                    controller.applyMacOSFusionSettings()
-                    refreshWindowTilingProbe()
-                }
-                .onAppear(perform: refreshWindowTilingProbe)
-                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-                    refreshWindowTilingProbe()
-                }
-
-            SettingsCaption(
-                localized: "Drag a tiled window by its title bar to move its Niri column. Rest on another window and the windows slide over to make room; near a screen edge, a narrow gap shows where it will land, and holding the pointer at the edge scrolls. Release to drop it. Off: title-bar drags snap back."
-            )
-
-            if settings.niri.macOSFusion, !windowTilingSettingsProbe.enabledSettings.isEmpty {
+        Section("Undo and Redo") {
+            if !windowTilingSettingsProbe.enabledSettings.isEmpty {
                 windowTilingNote
             }
 
             LayoutHistoryHotkeyRow(actionId: "undo", anchor: "Undo", settings: settings, controller: controller)
-                .disabled(!settings.niri.macOSFusion)
+                .onAppear { windowTilingSettingsProbe.refresh() }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    windowTilingSettingsProbe.refresh()
+                }
 
             LayoutHistoryHotkeyRow(actionId: "redo", anchor: "Redo", settings: settings, controller: controller)
-                .disabled(!settings.niri.macOSFusion)
 
             SettingsCaption(
                 localized: "Undo takes back the last change to the windows in this workspace, such as a move, a stack, a resize or tabs, up to 20 changes. Redo puts it back."
             )
         }
-        .id("macOS Fusion")
 
         NiriDefaultSpanSettingsSection(
             allowsGlobal: false,
@@ -334,11 +321,6 @@ private struct GlobalNiriSettingsSection: View {
 }
 
 private extension GlobalNiriSettingsSection {
-    func refreshWindowTilingProbe() {
-        guard settings.niri.macOSFusion else { return }
-        windowTilingSettingsProbe.refresh()
-    }
-
     var windowTilingNote: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(

@@ -298,14 +298,14 @@ final class NiriLayoutEngine {
         presetContainerPrimarySpans: [PresetSize]? = nil,
         defaultContainerPrimarySpan: CGFloat?? = nil,
         shrinkToFit: Bool? = nil,
-        macOSFusion: MacOSFusionConfiguration? = nil
+        edgePeekShare: CGFloat?? = nil
     ) {
         assertSanctionedMutation()
         if let shrinkToFit {
             self.shrinkToFit = shrinkToFit
         }
-        if let macOSFusion {
-            applyMacOSFusion(macOSFusion)
+        if let edgePeekShare {
+            self.edgePeekShare = edgePeekShare
         }
         if let max = visibleContainerCount {
             self.visibleContainerCount = max.clamped(to: 1 ... 5)

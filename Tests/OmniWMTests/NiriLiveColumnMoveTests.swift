@@ -199,7 +199,6 @@ final class NiriLiveColumnMoveTests: XCTestCase {
     ) -> Fixture {
         let engine = NiriLayoutEngine()
         engine.liveHoverDelay = 0
-        engine.applyMacOSFusion(.init(enabled: true, edgePeekShare: nil))
         let workspaceId = WorkspaceDescriptor.ID()
         let frame = CGRect(x: 0, y: 0, width: screenWidth, height: 900)
         let monitor = Monitor(

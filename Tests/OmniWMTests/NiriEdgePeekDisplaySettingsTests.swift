@@ -71,19 +71,6 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
         XCTAssertNil(on.resolved(for: monitor).edgePeekShare)
     }
 
-    func testADisplaysPeekDoesNotDependOnMacOSFusion() {
-        let monitor = display(7, x: 0, width: 1_500, name: "Peek display")
-        let percent: Double = 5
-        for fusion in [false, true] {
-            let settings = peekSettings(percent: 0)
-            settings.macOSFusion = fusion
-            XCTAssertNil(settings.resolved(for: monitor).edgePeekShare, "\(fusion)")
-
-            settings.update(MonitorNiriSettings(monitorName: monitor.name, edgePeekPercent: percent), for: monitor)
-            XCTAssertEqual(settings.resolved(for: monitor).edgePeekShare, CGFloat(percent) / 100, "\(fusion)")
-        }
-    }
-
     func testThePeekCheckIsSkippedOnlyWhileNoDisplayCanPeek() {
         let left = display(9, x: 0, width: 1_500, name: "No peeks")
         let right = display(10, x: 3_000, width: 2_000, name: "Own peeks")

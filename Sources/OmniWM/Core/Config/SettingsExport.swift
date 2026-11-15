@@ -121,7 +121,6 @@ struct SettingsExport: Equatable {
         var allowOverscroll: Bool?
         var overscrollVisibleStripPercent: Int?
         var shrinkToFit: Bool?
-        var macOSFusion: Bool?
         var edgePeekPercent: Double?
         var fitToVisibleContainerCount: Bool?
         var keepExistingWindowWidth: Bool?

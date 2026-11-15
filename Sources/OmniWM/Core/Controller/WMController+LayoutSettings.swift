@@ -96,7 +96,7 @@ extension WMController {
         containerPrimarySpanPresets: [Double]? = nil,
         defaultContainerPrimarySpan: Double?? = nil,
         shrinkToFit: Bool? = nil,
-        macOSFusion: MacOSFusionConfiguration? = nil
+        edgePeekShare: CGFloat?? = nil
     ) {
         niriLayoutHandler.updateNiriConfig(
             visibleContainerCount: visibleContainerCount,
@@ -108,7 +108,7 @@ extension WMController {
             containerPrimarySpanPresets: containerPrimarySpanPresets,
             defaultContainerPrimarySpan: defaultContainerPrimarySpan,
             shrinkToFit: shrinkToFit,
-            macOSFusion: macOSFusion
+            edgePeekShare: edgePeekShare
         )
     }
 

@@ -7,7 +7,7 @@ sidebar:
 
 With **macOS Fusion**, you arrange the Niri (scrolling) layout with the mouse, the same way you move windows anywhere else in macOS. Drag a window by its title bar and the other windows make room for it as you go, so you always see where it will land. Let go and it drops into place. You can also put windows into stacks and take them out again, resize them by their edges, and carry a window to another display.
 
-Turn it on in **Settings → Layouts → Niri**, in the **macOS Fusion** section. It is off by default; while it is off, a window dragged by its title bar snaps back when you let go, as before.
+There is nothing to turn on: it is how the Niri layout works on a landscape display. On a portrait display and in Dwindle, a window dragged by its title bar snaps back when you let go, as before.
 
 :::tip
 macOS has its own tiling, which starts when you drag a window to a screen edge or hold `Option`. It gets in the way of dragging. If any of it is on, the Niri settings list the macOS settings to turn off and give you a button that opens **Desktop & Dock**.
@@ -29,7 +29,7 @@ Drag the window by its title bar. It lifts off the strip and follows the pointer
 - **Crossing is safe:** nothing moves until you pause, so you can sweep across several windows to reach the one you want. Letting go over a window before anything opened still lands yours on its far side.
 - **Changing your mind:** move back over the home spot, or over the half of a window that faces it, and the window goes back to its old place. Esc doesn't cancel a drag; drag the window back, or use Undo afterwards.
 - **The view stays:** after a drop, the strip goes back to where it was before the drag if the dropped window is visible there.
-- **Keys don't change a drag:** holding `Option`, `Command`, `Control` or `Shift` while dragging a title bar makes no difference. While macOS Fusion is on, the **Left Mouse Move Modifier** move (`Option`-drag from anywhere in a window) is off in the Niri layout; other layouts keep it.
+- **Keys don't change a drag:** holding `Option`, `Command`, `Control` or `Shift` while dragging a title bar makes no difference. On a landscape Niri display the **Left Mouse Move Modifier** move (`Option`-drag from anywhere in a window) is off, because the title-bar drag replaces it; portrait displays and Dwindle keep it.
 - **Clicking doesn't scroll:** pressing on a window that is only partly on screen doesn't move the strip. A plain click scrolls it into view when you let go.
 
 ## Reaching windows off screen
@@ -65,24 +65,24 @@ In a **tabbed column**, drag the title bar to move the column with all its tabs,
 
 ## Resizing
 
-With macOS Fusion on, the usual macOS ways to resize a window work in the Niri layout, and the result stays.
+The usual macOS ways to resize a window work in the Niri layout on a landscape display, and the result stays.
 
 ![What a double-click does on a window's edges and title bar.](../../../assets/macos-fusion/double-click.svg)
 
 | Double-click | Window alone in its column | Window in a stack | Tabbed column |
 | --- | --- | --- | --- |
-| Top or bottom edge | Nothing: it always has the column's full height | The stack becomes tabbed | The tabs become a stack again |
+| Top or bottom edge | Nothing | The stack becomes tabbed | The tabs become a stack again |
 | Left or right edge | That side stretches to the screen edge; again, the earlier width | Same, for the whole column | Same, for the whole column |
 | Title bar | The column goes to full width; again, back to how it was | Same, for the whole column | Same, for the whole column |
 
 - With **Center Focused Column** set to **Always**, a left or right edge double-click widens the column by the same amount and keeps it centred, so it doesn't reach the screen edge.
 - A title-bar double-click puts the column back at its earlier width and place. If you resize it while it's at full width, the next double-click goes to full width again.
 - Double-clicks on buttons, text fields and tabs in a title bar still go to the app.
-- **Cycle Size Forward** (`Option + .`) and **Cycle Size Backward** (`Option + ,`) step through the preset widths. The cycle starts from the window's width: if that is visually a preset, the first step goes to the next one. A full cycle from a preset brings the window back to the width and place it started at.
+- **Cycle Size Forward** (`Option + .`) and **Cycle Size Backward** (`Option + ,`) step through the preset widths around the column's centre. The cycle starts from the window's width: if that is visually a preset, the first step goes to the next one. A full cycle from a preset brings the window back to the width and place it started at.
 
 ![Widening Editor by its right edge: on release, the windows to its right slide over.](../../../assets/macos-fusion/edge-drag.svg)
 
-Drag a window's edge or corner to resize it as anywhere in macOS. When you let go, the windows around it slide to make room, and the side you didn't drag stays where it is. In a stack, dragging the edge between two windows changes their share of the column; the stack's outer top and bottom edges don't resize. A window alone in its column always fills the column's height.
+Drag a window's edge or corner to resize it as anywhere in macOS. When you let go, the windows around it slide to make room. After a left or right edge drag, the side you didn't drag stays where it is. In a stack, dragging the edge between two windows changes their share of the column; the stack's outer top and bottom edges don't resize, and a stack or a tabbed column always fills its column's height. A window alone in its column can be dragged shorter from its top or bottom edge; it then rests at the bottom of its column.
 
 ## Peripheral Vision
 
@@ -90,7 +90,7 @@ Drag a window's edge or corner to resize it as anywhere in macOS. When you let g
 
 ![A narrow strip of the next window shows at each screen edge with more windows beyond.](../../../assets/macos-fusion/edge-peek.svg)
 
-It is set as a share of the display's width, from 0% to 10%. It starts at 0%, which turns it off. Each display can have its own value: pick the display at the top of the Niri settings and set **Peripheral Vision** in its **macOS Fusion** section. An edge shared with another display shows no peek.
+It is set as a share of the display's width, from 0% to 10%. It starts at 0%, which turns it off. Each display can have its own value: pick the display at the top of the Niri settings and set **Peripheral Vision** in its **Niri Layout** section. An edge shared with another display shows no peek.
 
 ## More than one display
 
@@ -102,28 +102,34 @@ At the edge between two displays, the pointer holds for a moment while the strip
 
 ## Undo and Redo
 
-**Undo** (`Option + Command + Z`) takes back the last change to the windows in the workspace in front: a move, a stack, a resize or a column turned into tabs, from the mouse or the keyboard. Press it again to go further back, up to 20 changes. **Redo** (`Option + Shift + Command + Z`) puts back what Undo took back. Both keys can be changed in the **macOS Fusion** section of the Niri settings.
+**Undo** (`Option + Command + Z`) takes back the last change to the windows in the workspace in front: a move, a stack, a resize or a column turned into tabs, from the mouse or the keyboard. Press it again to go further back, up to 20 changes. **Redo** (`Option + Shift + Command + Z`) puts back what Undo took back. Both keys can be changed in the **Undo and Redo** section of the Niri settings. They work on every Niri workspace, on portrait displays too.
 
-- Each workspace keeps its own history, so Undo never changes a workspace you can't see.
-- A move to another workspace or display can be undone on either side. A swap between two displays is undone on both.
+- Each workspace keeps its own history.
+- A move to another workspace or display can be undone on either side, and undoing it changes the other workspace too, even one that isn't on screen. A swap between two displays is undone on both.
 - Windows that closed since are left out, and windows that opened since stay where they are.
 - The history lasts until OmniWM quits. A workspace switched to Dwindle keeps its Niri arrangement and its history for when it switches back.
 
 ## Good to know
 
-- **Niri on landscape displays only.** Dwindle, portrait displays and floating windows keep their usual behaviour.
-- **Windows keep their width.** A window that moves into the strip keeps the width it has on screen. A new window takes the width from an app rule or a default column width other than Auto; otherwise the size its app opens it at.
-- **Visible Containers doesn't apply.** With macOS Fusion on, each window keeps its own width, so **Visible Containers** is greyed out, and **Balance Sizes** shares the screen equally among the windows on screen.
+- **The mouse gestures are for Niri on landscape displays.** Dwindle, portrait displays and floating windows keep their usual mouse behaviour. Undo and Redo, and the slide when a window is minimized or hidden, work on every Niri workspace.
+- **Widths are yours to set.** On a landscape display **Visible Containers** starts at **Off**, which leaves every column at its own width; set a number and columns grow to fill the display when fewer are open. A new window opens at the span set in **Span Mode**, or as wide as its app makes it when that is **App's Own Width**. The **Kept Sizes** settings decide what keeps its size when a window is already open, is pulled out of a stack, moves with its workspace to another display, or when the layout settings change.
+- **The ends of the strip** can stay on screen: with **Keep Strip Ends on Screen**, focusing or closing the first or last column leaves no empty space past the end. With **Center Focused Column** set to **Always**, the focused column is still centred.
 - **A strip that fits is centred** as a whole when **Always Center Single Column** is on.
 - **Drags cut short** put the layout back as it was before the drag.
 
 ## Settings
 
-All in **Settings → Layouts → Niri**, in the **macOS Fusion** section. The config file keys are in the [settings reference](/config/settings-reference/).
+All in **Settings → Layouts → Niri**. The config file keys are in the [settings reference](/config/settings-reference/).
 
 | Setting | What it does | Default |
 | --- | --- | --- |
-| **macOS Fusion** (`macOSFusion`) | Move, stack and resize windows with the mouse as described here | Off |
+| **Visible Containers** (`fitToVisibleContainerCount`, `visibleContainerCount`) | With fewer columns than this number, columns grow to fill a landscape display; Off leaves every column at its own width | Off |
+| **Keep Strip Ends on Screen** (`keepStripEndsOnScreen`) | Focusing or closing the first or last column leaves no empty space past the end of the strip, except that **Center Focused Column** set to **Always** still centres the focused column | Off |
 | **Peripheral Vision** (`edgePeekPercent`) | How much of the next window stays in view at each screen edge with more windows, as a share of the display's width | 0% (off) |
+| **Span Mode** (`defaultContainerPrimarySpan`) | The span a new column starts at. **App's Own Width** (`"app"`) opens a new window on a landscape display as wide as its app makes it | 50% |
+| **Keep Existing Window Widths** (`keepExistingWindowWidth`) | A window that is already open when OmniWM first tiles it keeps the width it has | Off |
+| **Keep Size When Pulling Out or Gathering** (`keepSizeOnUnstack`) | A window moved out of a stack, or gathered into a new column, takes the size of the column it came from | Off |
+| **Keep Sizes When Moving a Workspace to Another Display** (`keepSizesOnDisplayMove`) | A workspace moved to another display keeps its automatically sized columns as they are | Off |
+| **Keep Sizes When Layout Settings Change** (`keepSizesOnSettingsChange`) | Changing Visible Containers or the default span leaves open columns as they are | Off |
 | **Undo** | Take back the last change to the windows in this workspace | `Option + Command + Z` |
 | **Redo** | Put back what Undo took back | `Option + Shift + Command + Z` |

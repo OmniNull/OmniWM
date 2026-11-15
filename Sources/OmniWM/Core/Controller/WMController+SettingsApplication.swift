@@ -138,10 +138,6 @@ extension WMController {
         return CGFloat(settings.niri.edgePeekPercent / 100)
     }
 
-    var macOSFusionConfiguration: MacOSFusionConfiguration {
-        MacOSFusionConfiguration(enabled: settings.niri.macOSFusion, edgePeekShare: edgePeekShare)
-    }
-
     var niriStripPolicies: NiriStripPolicies {
         NiriStripPolicies(
             fitsVisibleContainerCount: settings.niri.fitToVisibleContainerCount,
@@ -169,11 +165,6 @@ extension WMController {
         }
     }
 
-    func applyMacOSFusionSettings() {
-        updateNiriConfig(macOSFusion: macOSFusionConfiguration)
-        updateHotkeyBindings(settings.hotkeyBindings)
-    }
-
     private func applyPersistedLayoutSettings(_ settings: SettingsStore) {
         if niriEngine == nil {
             enableNiriLayout(
@@ -191,7 +182,7 @@ extension WMController {
             containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets,
             defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan,
             shrinkToFit: settings.niri.shrinkToFit,
-            macOSFusion: macOSFusionConfiguration
+            edgePeekShare: edgePeekShare
         )
         applyNiriStripPolicies()
 

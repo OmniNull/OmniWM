@@ -590,17 +590,3 @@ extension NiriLayoutEngine {
         }
     }
 }
-
-struct MacOSFusionConfiguration: Equatable {
-    var enabled: Bool
-    var edgePeekShare: CGFloat?
-}
-
-extension NiriLayoutEngine {
-    func applyMacOSFusion(_ configuration: MacOSFusionConfiguration) {
-        if !configuration.enabled {
-            stripGlides.removeAll()
-        }
-        edgePeekShare = configuration.edgePeekShare
-    }
-}

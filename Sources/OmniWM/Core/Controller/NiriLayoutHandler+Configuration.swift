@@ -88,7 +88,7 @@ extension NiriLayoutHandler {
         containerPrimarySpanPresets: [Double]? = nil,
         defaultContainerPrimarySpan: Double?? = nil,
         shrinkToFit: Bool? = nil,
-        macOSFusion: MacOSFusionConfiguration? = nil
+        edgePeekShare: CGFloat?? = nil
     ) {
         guard let controller else { return }
         controller.workspaceManager.withEngineMutationScope {
@@ -102,7 +102,7 @@ extension NiriLayoutHandler {
                 presetContainerPrimarySpans: containerPrimarySpanPresets?.map { .proportion($0) },
                 defaultContainerPrimarySpan: defaultContainerPrimarySpan.map { $0.map { CGFloat($0) } },
                 shrinkToFit: shrinkToFit,
-                macOSFusion: macOSFusion
+                edgePeekShare: edgePeekShare
             )
         }
         refreshResolvedMonitorSettings(rebalanceChangedSpans: defaultContainerPrimarySpan != nil)

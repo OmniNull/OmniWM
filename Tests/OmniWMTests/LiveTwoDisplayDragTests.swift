@@ -151,7 +151,7 @@ extension CrossDisplayDragTests {
         XCTAssertEqual(try minX(drag.residents[1], settleStart), shown, accuracy: 0.5)
     }
 
-    func testMacOSFusionAloneCarriesTheDragAndLandsItOnTheOtherDisplay() throws {
+    func testATitleBarDragAloneCarriesTheWindowAndLandsItOnTheOtherDisplay() throws {
         let drag = try startLiveTwoDisplayDrag(keepsNativeMovesAcrossDisplays: false)
         let fixture = drag.fixture
         XCTAssertFalse(fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays)
@@ -634,8 +634,7 @@ extension CrossDisplayDragTests {
 
     func testBackFromAHandOverTheLiveDragResumesOnItsOwnDisplay() throws {
         let fixture = try makeNativeFixture([.niri, .dwindle])
-        fixture.controller.settings.niri.macOSFusion = true
-        fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         fixture.niri.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.source, fixture)
         let neighbour = addWindow(2, to: fixture.source, fixture)
@@ -661,8 +660,7 @@ extension CrossDisplayDragTests {
 
     func testFromAHandOverOntoAnotherLiveStripTheDragIsCarried() throws {
         let fixture = try makeNativeFixture([.niri, .dwindle, .niri])
-        fixture.controller.settings.niri.macOSFusion = true
-        fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         fixture.niri.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.workspaces[0], fixture)
         let neighbour = addWindow(2, to: fixture.workspaces[0], fixture)
@@ -800,8 +798,7 @@ extension CrossDisplayDragTests {
 
     private func makeLiveFixture(_ layouts: [LayoutType]) throws -> Fixture {
         let fixture = try makeNativeFixture(layouts)
-        fixture.controller.settings.niri.macOSFusion = true
-        fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         fixture.niri.liveHoverDelay = 0
         return fixture
     }
@@ -829,8 +826,7 @@ extension CrossDisplayDragTests {
 
     private func startLiveTabbedColumnDrag() throws -> LiveTabbedColumnDrag {
         let fixture = try makeNativeFixture([.niri, .niri])
-        fixture.controller.settings.niri.macOSFusion = true
-        fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         fixture.niri.liveHoverDelay = 0
         let first = addWindow(1, to: fixture.source, fixture)
         let moved = addWindow(2, to: fixture.source, fixture)
@@ -877,12 +873,11 @@ extension CrossDisplayDragTests {
         edgePeekPercent: Double? = nil
     ) throws -> LiveTwoDisplayDrag {
         let fixture = try makeNativeFixture([.niri, .niri], enabled: keepsNativeMovesAcrossDisplays)
-        fixture.controller.settings.niri.macOSFusion = true
         if let edgePeekPercent {
             fixture.controller.settings.niri.edgePeekPercent = edgePeekPercent
         }
         if fusion {
-            fixture.controller.updateNiriConfig(macOSFusion: fixture.controller.macOSFusionConfiguration)
+            fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         }
         fixture.niri.liveHoverDelay = 0
         let neighbour = addWindow(1, to: fixture.source, fixture)

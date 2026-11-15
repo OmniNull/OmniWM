@@ -195,7 +195,6 @@ final class WindowMinimizationTests: XCTestCase {
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         controller.niriLayoutHandler.enableNiriLayout()
-        controller.applyMacOSFusionSettings()
         let tokens = (0 ..< 4).map { WindowToken(pid: 688_031, windowId: 688_600 + $0) }
         for token in tokens {
             _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
@@ -366,7 +365,6 @@ final class WindowMinimizationTests: XCTestCase {
             )
             _ = controller.workspaceManager.focusWorkspace(named: "1")
             controller.niriLayoutHandler.enableNiriLayout()
-            controller.applyMacOSFusionSettings()
             let tokens = (0 ..< 2).map { WindowToken(pid: 688_070, windowId: 688_950 + $0) }
             for token in tokens {
                 _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
@@ -420,7 +418,6 @@ final class WindowMinimizationTests: XCTestCase {
             let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
             _ = controller.workspaceManager.focusWorkspace(named: "1")
             controller.niriLayoutHandler.enableNiriLayout()
-            controller.applyMacOSFusionSettings()
             for index in 0 ..< 6 {
                 let token = WindowToken(pid: 688_090, windowId: 689_000 + index)
                 _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
@@ -484,7 +481,6 @@ final class WindowMinimizationTests: XCTestCase {
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         controller.niriLayoutHandler.enableNiriLayout()
-        controller.applyMacOSFusionSettings()
         let tokens = (0 ..< 3).map { WindowToken(pid: 688_100, windowId: 689_100 + $0) }
         for token in tokens {
             _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
@@ -525,7 +521,6 @@ final class WindowMinimizationTests: XCTestCase {
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         controller.niriLayoutHandler.enableNiriLayout()
-        controller.applyMacOSFusionSettings()
         for index in 0 ..< 4 {
             let token = WindowToken(pid: 688_110, windowId: 689_200 + index)
             _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
@@ -603,7 +598,6 @@ final class WindowMinimizationTests: XCTestCase {
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         controller.niriLayoutHandler.enableNiriLayout()
-        controller.applyMacOSFusionSettings()
         controller.applyNiriStripPolicies()
         XCTAssertEqual(try XCTUnwrap(controller.niriEngine).policies.keepsStripEndsOnScreen, keepsStripEnds, label)
         for index in 0 ..< count {

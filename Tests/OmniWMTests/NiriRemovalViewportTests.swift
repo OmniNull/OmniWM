@@ -251,7 +251,7 @@ final class NiriRemovalViewportTests: XCTestCase {
         XCTAssertEqual(viewOrigin(fixture), 550)
     }
 
-    func testWithMacOSFusionATrailingRemovalLeavesNoEmptyScreen() {
+    func testWithStripEndsKeptATrailingRemovalLeavesNoEmptyScreen() {
         var fixture = makeFixture(
             spans: [700, 700, 700],
             orientation: .horizontal,

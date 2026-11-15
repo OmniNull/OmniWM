@@ -547,7 +547,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
     func testAnEdgeDragReleasedPastThePeekStopsAtIt() throws {
         let fixture = try makeFixture(pid: 871_190)
         fixture.controller.settings.niri.edgePeekPercent = 3
-        fixture.controller.applyMacOSFusionSettings()
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         let resized = fixture.tokens[1]
@@ -580,7 +580,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 871_015)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.niri.macOSFusion = false
         fixture.controller.settings.gestures.adoptNativeResize = true
         let resized = fixture.tokens[1]
         let start = try fixture.frame(resized)
@@ -895,7 +894,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.settledFrame(lower), lowerStart)
     }
 
-    func testAnOptionPressOnAFixedSizeWindowsEdgeStartsNoMoveWithMacOSFusionOn() throws {
+    func testAnOptionPressOnAFixedSizeWindowsEdgeStartsNoMove() throws {
         let fixture = try makeFixture(pid: 871_054)
         fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         let pressed = fixture.tokens[1]
@@ -1050,7 +1049,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             hasNotch: false,
             name: "Niri Live Edge Resize"
         )
-        controller.settings.niri.macOSFusion = true
         controller.mouseEventHandler.settlesNativeResizes = false
         controller.settings.niri.edgePeekPercent = 0
         controller.settings.gestures.adoptNativeResize = false
@@ -1070,7 +1068,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
         }
         controller.enableNiriLayout()
-        controller.applyMacOSFusionSettings()
+        controller.updateNiriConfig(edgePeekShare: controller.edgePeekShare)
         controller.mouseEventHandler.topmostWindowIdProvider = { _ in nil }
         let engine = try XCTUnwrap(controller.niriEngine)
         let first = engine.addWindow(token: tokens[0], to: workspaceId, afterSelection: nil)

@@ -130,10 +130,6 @@ final class NiriSettings {
         min(100, max(1, percent))
     }
 
-    var macOSFusion = NiriSettings.defaults.macOSFusion ?? false {
-        didSet { onChange?() }
-    }
-
     var edgePeekPercent = NiriSettings.defaults.edgePeekPercent ?? BuiltInSettingsDefaults.niriEdgePeekPercent {
         didSet {
             let validated = NiriSettings.validatedEdgePeekPercent(edgePeekPercent)
@@ -169,7 +165,6 @@ final class NiriSettings {
             allowOverscroll: allowOverscroll,
             overscrollVisibleStripPercent: overscrollVisibleStripPercent,
             shrinkToFit: shrinkToFit,
-            macOSFusion: macOSFusion,
             edgePeekPercent: edgePeekPercent,
             fitToVisibleContainerCount: fitToVisibleContainerCount,
             keepExistingWindowWidth: keepExistingWindowWidth,
@@ -192,7 +187,6 @@ final class NiriSettings {
         edgeGaps = niri.edgeGaps ?? baseline.edgeGaps ?? true
         moveWindowStacksIntoColumn = niri.moveWindowStacksIntoColumn ?? baseline.moveWindowStacksIntoColumn ?? true
         shrinkToFit = niri.shrinkToFit ?? baseline.shrinkToFit ?? false
-        macOSFusion = niri.macOSFusion ?? baseline.macOSFusion ?? false
         edgePeekPercent = NiriSettings.validatedEdgePeekPercent(
             niri.edgePeekPercent ?? baseline.edgePeekPercent ?? BuiltInSettingsDefaults.niriEdgePeekPercent
         )

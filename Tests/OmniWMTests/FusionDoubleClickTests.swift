@@ -391,7 +391,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(other.height, stacked[0].height, accuracy: 4)
     }
 
-    func testTheTabbedCommandAlsoSnapsTheOtherWindowsInWithMacOSFusionOn() throws {
+    func testTheTabbedCommandAlsoSnapsTheOtherWindowsIn() throws {
         let fixture = try makeFixture(pid: 941_026, stackFirstTwo: true)
         let column = try fixture.column(fixture.tokens[0])
         let stacked = try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }
@@ -651,7 +651,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
-    func testWithMacOSFusionTheCycleSizeKeysOnlyCycleAfterAKeptEdgeResize() throws {
+    func testTheCycleSizeKeysOnlyCycleAfterAKeptEdgeResize() throws {
         for forward in [true, false] {
             let fixture = try makeFixture(pid: forward ? 941_127 : 941_128)
             let token = fixture.tokens[1]
@@ -744,7 +744,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(column.width, .proportion(1))
     }
 
-    func testWithMacOSFusionOnAModifierTitleBarPressPassesOnAsARegularDragWithItsModifier() throws {
+    func testAModifierTitleBarPressPassesOnAsARegularDragWithItsModifier() throws {
         let fixture = try makeFixture(pid: 941_132)
         fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         MouseEventHandler._instance = fixture.handler
@@ -777,7 +777,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
-    func testWithMacOSFusionTheCycleSizeKeysResizeAroundTheCentre() throws {
+    func testOnALandscapeStripTheCycleSizeKeysResizeAroundTheCentre() throws {
         let fixture = try makeFixture(pid: 941_123)
         let token = fixture.tokens[1]
         let sides = fixture.screenSides
@@ -903,27 +903,21 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
     }
 
     func testTheCycleSizeKeysFollowThePresetsInTheUsersOrder() throws {
-        for macOSFusion in [true, false] {
-            let fixture = try makeFixture(pid: macOSFusion ? 941_134 : 941_135)
-            fixture.controller.settings.niri.macOSFusion = macOSFusion
-            fixture.engine.presetContainerPrimarySpans = [
-                .proportion(2.0 / 3.0),
-                .proportion(0.5),
-                .proportion(1.0 / 3.0)
-            ]
-            let token = fixture.tokens[1]
-            let column = try fixture.column(token)
-            column.width = .proportion(2.0 / 3.0)
-            column.presetWidthIdx = 0
-            column.cachedWidth = 0
-            fixture.relayout()
-            try fixture.select(token)
+        let fixture = try makeFixture(pid: 941_134)
+        let presets: [CGFloat] = [2.0 / 3.0, 0.5, 1.0 / 3.0]
+        fixture.engine.presetContainerPrimarySpans = presets.map { .proportion($0) }
+        let token = fixture.tokens[1]
+        let column = try fixture.column(token)
+        column.width = .proportion(presets[0])
+        column.presetWidthIdx = 0
+        column.cachedWidth = 0
+        fixture.relayout()
+        try fixture.select(token)
 
-            fixture.controller.niriLayoutHandler.cycleSize(forward: true)
-            fixture.relayout()
+        fixture.controller.niriLayoutHandler.cycleSize(forward: true)
+        fixture.relayout()
 
-            XCTAssertEqual(column.width, .proportion(0.5), "\(macOSFusion)")
-        }
+        XCTAssertEqual(column.width, .proportion(presets[1]))
     }
 
     func testBackwardsAWidthApartFromThePresetsGoesToTheWidestNarrowerPreset() throws {
@@ -1230,7 +1224,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         settings.niri.edgePeekPercent = 2
         settings.niri.keepStripEndsOnScreen = keepsStripEnds
         fixture.controller.workspaceManager.applySettings()
-        fixture.controller.applyMacOSFusionSettings()
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         fixture.controller.applyNiriStripPolicies()
         try fixture.select(fixture.tokens[index])
         fixture.controller.layoutRefreshController.requestRelayout(reason: .workspaceConfigChanged)
@@ -1271,7 +1265,6 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
             hasNotch: false,
             name: "Fusion Double Click"
         )
-        controller.settings.niri.macOSFusion = true
         controller.settings.niri.edgePeekPercent = 0
         if portrait {
             controller.settings.monitors.updateOrientationSettings(
@@ -1299,7 +1292,7 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
             _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)
         }
         controller.enableNiriLayout()
-        controller.updateNiriConfig(macOSFusion: controller.macOSFusionConfiguration)
+        controller.updateNiriConfig(edgePeekShare: controller.edgePeekShare)
         let engine = try XCTUnwrap(controller.niriEngine)
         var previous: NiriWindow?
         for (index, token) in tokens.enumerated() {

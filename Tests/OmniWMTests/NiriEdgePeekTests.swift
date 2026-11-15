@@ -8,6 +8,42 @@ import XCTest
 
 @MainActor
 final class NiriEdgePeekTests: XCTestCase {
+    func testAnEngineThatNeverHadPeeksNeverSetsACap() {
+        let engine = NiriLayoutEngine()
+        let workspaceId = WorkspaceDescriptor.ID()
+        let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
+        let monitor = Monitor(
+            id: Monitor.ID(displayId: 99), displayId: 99, frame: frame, visibleFrame: frame,
+            hasNotch: false, name: "No peeks yet"
+        )
+        engine.syncWorkspaceAssignments(
+            [(workspaceId: workspaceId, monitor: monitor)],
+            orientations: [monitor.id: .horizontal]
+        )
+        var previous: NiriWindow?
+        for index in 0 ..< 4 {
+            previous = engine.addWindow(
+                token: WindowToken(pid: 991, windowId: index + 1),
+                to: workspaceId,
+                afterSelection: previous?.id
+            )
+        }
+
+        engine.applyEdgePeekCaps(in: workspaceId, workingFrame: frame, gap: 12)
+
+        XCTAssertFalse(engine.hasSetEdgePeekCaps)
+        XCTAssertTrue(engine.columns(in: workspaceId).allSatisfy { $0.edgePeekCap == nil })
+
+        engine.edgePeekShare = 0.05
+        engine.applyEdgePeekCaps(in: workspaceId, workingFrame: frame, gap: 12)
+        XCTAssertTrue(engine.hasSetEdgePeekCaps)
+        XCTAssertTrue(engine.columns(in: workspaceId).contains { $0.edgePeekCap != nil })
+
+        engine.edgePeekShare = nil
+        engine.applyEdgePeekCaps(in: workspaceId, workingFrame: frame, gap: 12)
+        XCTAssertTrue(engine.columns(in: workspaceId).allSatisfy { $0.edgePeekCap == nil })
+    }
+
     private let peek: CGFloat = 76
 
     private struct Fixture {

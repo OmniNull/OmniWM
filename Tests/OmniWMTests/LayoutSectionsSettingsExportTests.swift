@@ -31,7 +31,6 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
             "allowOverscroll": .boolean(false),
             "overscrollVisibleStripPercent": .integer(5),
             "shrinkToFit": .boolean(false),
-            "macOSFusion": .boolean(false),
             "edgePeekPercent": .float(BuiltInSettingsDefaults.niriEdgePeekPercent),
             "fitToVisibleContainerCount": .boolean(false),
             "keepExistingWindowWidth": .boolean(false),
@@ -147,33 +146,6 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
     }
 
     @MainActor
-    func testMacOSFusionDefaultsOffRoundTripsAndLoadsWhenOmitted() throws {
-        XCTAssertEqual(SettingsExport.defaults().niri.macOSFusion, false)
-        XCTAssertFalse(NiriSettings().macOSFusion)
-        for enabled in [false, true] {
-            var export = SettingsExport.defaults()
-            export.niri.macOSFusion = enabled
-            let encoded = try SettingsTOMLCodec.encode(export)
-            XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("macOSFusion = \(enabled)"))
-            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
-            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
-        }
-
-        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let omitted = try removing(key: "macOSFusion", from: "niri", in: source)
-        let result = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8))
-        XCTAssertNil(result.migration)
-        XCTAssertEqual(result.export.niri.macOSFusion, false)
-
-        let settings = NiriSettings()
-        var enabled = SettingsExport.Niri.defaults()
-        enabled.macOSFusion = true
-        settings.apply(enabled, baseline: .defaults())
-        XCTAssertTrue(settings.macOSFusion)
-        XCTAssertEqual(settings.export().macOSFusion, true)
-    }
-
-    @MainActor
     func testStripControlsDefaultOffRoundTripAndLoadWhenOmitted() throws {
         let controls: [(
             key: String,
@@ -274,17 +246,22 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
     }
 
     @MainActor
-    func testASettingsFileThatStillHoldsTheRemovedDropModifierLoads() throws {
+    func testASettingsFileThatStillHoldsTheRemovedSwitchAndDropModifierLoads() throws {
         let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let withOldKey = source.replacingOccurrences(
-            of: "macOSFusion = false\n",
-            with: "macOSFusion = false\nmacOSFusionModifier = \"option\"\n"
+        let kept = "shrinkToFit = false\n"
+        let removed = ["macOSFusion", "macOSFusionModifier"]
+        let withOldKeys = source.replacingOccurrences(
+            of: kept,
+            with: kept + "\(removed[0]) = true\n\(removed[1]) = \"option\"\n"
         )
-        XCTAssertNotEqual(withOldKey, source)
-        let result = try SettingsTOMLCodec.decodeForLoad(Data(withOldKey.utf8))
+        XCTAssertNotEqual(withOldKeys, source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(withOldKeys.utf8))
         XCTAssertNil(result.migration)
         XCTAssertEqual(result.export, SettingsExport.defaults())
-        XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: Data(withOldKey.utf8)), ["niri.macOSFusionModifier"])
+        XCTAssertEqual(
+            Set(SettingsTOMLCodec.unknownKeyPaths(in: Data(withOldKeys.utf8))),
+            Set(removed.map { "niri.\($0)" })
+        )
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {

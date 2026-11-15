@@ -53,7 +53,6 @@ final class NiriShrinkToFitTests: XCTestCase {
 
     func testTheCycleSizeKeyStillFitsTheNeighbour() throws {
         let fixture = try makeFixture(shrinkToFit: true)
-        fixture.controller.applyMacOSFusionSettings()
         fixture.settle()
         let neighbour = fixture.columns[1]
         let before = fixture.columns[0].cachedWidth

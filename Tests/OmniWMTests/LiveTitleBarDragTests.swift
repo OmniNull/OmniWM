@@ -246,17 +246,13 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.engine.policies.keepsStripEndsOnScreen)
     }
 
-    func testPeeksFollowTheirPercentageWhetherOrNotMacOSFusionIsOn() throws {
+    func testPeeksFollowTheirPercentage() throws {
         let fixture = try makeFixture(pid: 938_191)
         let settings = fixture.controller.settings
         settings.quakeTerminal.enabled = false
         let percent: Double = 3
         settings.niri.edgePeekPercent = percent
 
-        fixture.controller.applyPersistedSettings(settings, startServices: false)
-        XCTAssertEqual(fixture.engine.edgePeekShare, CGFloat(percent / 100))
-
-        settings.niri.macOSFusion = false
         fixture.controller.applyPersistedSettings(settings, startServices: false)
         XCTAssertEqual(fixture.engine.edgePeekShare, CGFloat(percent / 100))
 
@@ -269,22 +265,19 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let fixture = try makeFixture(pid: 938_192)
         let settings = fixture.controller.settings
 
-        settings.niri.edgePeekPercent = 3
-        fixture.controller.applyMacOSFusionSettings()
-        XCTAssertEqual(fixture.engine.edgePeekShare, 0.03)
-
-        settings.niri.edgePeekPercent = 2.5
-        fixture.controller.applyMacOSFusionSettings()
-        XCTAssertEqual(fixture.engine.edgePeekShare, 0.025)
+        for percent: Double in [3, 2.5] {
+            settings.niri.edgePeekPercent = percent
+            fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
+            XCTAssertEqual(fixture.engine.edgePeekShare, CGFloat(percent / 100), "\(percent)%")
+        }
 
         settings.niri.edgePeekPercent = 0
-        fixture.controller.applyMacOSFusionSettings()
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         XCTAssertNil(fixture.engine.edgePeekShare)
     }
 
     func testDwindleTitleBarDragsStartNoLiveDragAndStillSnapBack() throws {
         let fixture = try makeFixture(pid: 938_050, windowCount: 3, layout: .dwindle)
-        XCTAssertTrue(fixture.controller.settings.niri.macOSFusion)
         XCTAssertEqual(fixture.manager.activeLayoutKind(for: fixture.workspaceId), .dwindle)
         XCTAssertNotNil(fixture.controller.niriEngine?.findNode(for: fixture.tokens[0], in: fixture.workspaceId))
         let (dragged, other) = (fixture.tokens[0], fixture.tokens[1])
@@ -819,7 +812,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     func testClickingAPeekFocusesItsColumnAndScrollsItIntoViewOnRelease() async throws {
         let fixture = try makeFixture(pid: 938_190, windowCount: 5)
         fixture.controller.settings.niri.edgePeekPercent = 3
-        fixture.controller.applyMacOSFusionSettings()
+        fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         let target = fixture.tokens[3]
         try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
         let before = try fixture.settledFrame(target)
@@ -2487,7 +2480,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             hasNotch: false,
             name: "Live Title Bar Drag"
         )
-        controller.settings.niri.macOSFusion = true
         if portrait {
             controller.settings.monitors.updateOrientationSettings(
                 MonitorOrientationSettings(
@@ -2522,7 +2514,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             )
         }
         controller.enableNiriLayout()
-        controller.updateNiriConfig(macOSFusion: controller.macOSFusionConfiguration)
+        controller.updateNiriConfig(edgePeekShare: controller.edgePeekShare)
         let engine = try XCTUnwrap(controller.niriEngine)
         engine.liveHoverDelay = hoverDelay
         var previous: NiriWindow?
@@ -2580,7 +2572,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         }
         engine.cancelAnimations(in: workspaceId)
         controller.enableNiriLayout()
-        controller.updateNiriConfig(macOSFusion: controller.macOSFusionConfiguration)
+        controller.updateNiriConfig(edgePeekShare: controller.edgePeekShare)
         let niri = try XCTUnwrap(controller.niriEngine)
         var previous: NiriWindow?
         for token in tokens {
@@ -2891,7 +2883,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         }
     }
 
-    func testWithMacOSFusionOnATitleBarDragStartedWithAModifierIsARegularLiveDrag() throws {
+    func testATitleBarDragStartedWithAModifierIsARegularLiveDrag() throws {
         for modifier in [CGEventFlags.maskAlternate, .maskCommand, .maskControl, .maskShift] {
             let fixture = try makeFixture(pid: 938_079)
             fixture.controller.settings.gestures.mouseMoveModifierKey = .option
