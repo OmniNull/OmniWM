@@ -52,13 +52,16 @@ private struct GlobalNiriSettingsSection: View {
 
     var body: some View {
         let spanMode = Binding<NiriDefaultSpanSettingsSection.Mode>(
-            get: { settings.niri.defaultContainerPrimarySpan == nil ? .auto : .custom },
+            get: {
+                if settings.niri.defaultContainerPrimarySpan != nil { return .custom }
+                return settings.niri.opensNewWindowsAtAppWidth ? .app : .auto
+            },
             set: { mode in
-                settings
-                    .niri
-                    .defaultContainerPrimarySpan = mode == .auto ? nil :
-                    (settings.niri.defaultContainerPrimarySpan ?? 0.5)
-                controller.updateNiriConfig(defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan)
+                settings.niri.opensNewWindowsAtAppWidth = mode == .app
+                settings.niri.defaultContainerPrimarySpan = mode == .custom
+                    ? (settings.niri.defaultContainerPrimarySpan ?? 0.5)
+                    : nil
+                controller.applyNiriDefaultSpanSettings()
             }
         )
         let defaultContainerPrimarySpanPercent = Binding(
@@ -74,26 +77,29 @@ private struct GlobalNiriSettingsSection: View {
             SettingsSliderRow(
                 label: String(localized: "Visible Containers"),
                 value: Binding(
-                    get: { Double(settings.niri.visibleContainerCount) },
-                    set: { settings.niri.visibleContainerCount = Int($0) }
+                    get: { settings.niri.fitToVisibleContainerCount ? Double(settings.niri.visibleContainerCount) : 0 },
+                    set: { newValue in
+                        settings.niri.fitToVisibleContainerCount = newValue > 0
+                        if newValue > 0 {
+                            settings.niri.visibleContainerCount = Int(newValue)
+                        }
+                    }
                 ),
-                range: 1 ... 5,
+                range: 0 ... 5,
                 step: 1,
-                valueText: "\(settings.niri.visibleContainerCount)",
+                valueText: settings.niri.fitToVisibleContainerCount
+                    ? "\(settings.niri.visibleContainerCount)"
+                    : String(localized: "Off"),
                 valueWidth: 32
             )
             .id("Visible Containers")
-            .disabled(settings.niri.macOSFusion)
-            .onChange(of: settings.niri.visibleContainerCount) { _, newValue in
-                controller.updateNiriConfig(visibleContainerCount: newValue)
-                controller.rebalanceNiriSizesForVisibleContainerCountChange()
+            .onChange(of: settings.niri.fitToVisibleContainerCount ? settings.niri.visibleContainerCount : 0) {
+                controller.applyNiriVisibleContainerSettings()
             }
 
-            if settings.niri.macOSFusion {
-                SettingsCaption(
-                    localized: "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off."
-                )
-            }
+            SettingsCaption(
+                localized: "With fewer columns than this number, columns grow to fill a landscape display. Off leaves every column at its own width."
+            )
 
             Toggle("Infinite Loop Navigation", isOn: Bindable(settings.niri).infiniteLoop)
                 .id("Infinite Loop Navigation")
@@ -116,6 +122,18 @@ private struct GlobalNiriSettingsSection: View {
                 .onChange(of: settings.niri.alwaysCenterSingleColumn) { _, newValue in
                     controller.updateNiriConfig(alwaysCenterSingleColumn: newValue)
                 }
+
+            SettingsCaption(localized: "Also centers a strip whose columns all fit on the display.")
+
+            Toggle("Keep Strip Ends on Screen", isOn: Bindable(settings.niri).keepStripEndsOnScreen)
+                .id("Keep Strip Ends on Screen")
+                .onChange(of: settings.niri.keepStripEndsOnScreen) {
+                    controller.applyNiriStripPolicies()
+                }
+
+            SettingsCaption(
+                localized: "Focusing or closing the first or last column leaves no empty space past the end of the strip."
+            )
 
             Toggle("Focus Clicked Windows Without Scrolling", isOn: Bindable(settings.focus).clickFocusWithoutScrolling)
                 .id("Focus Clicked Windows Without Scrolling")
@@ -256,6 +274,8 @@ private struct GlobalNiriSettingsSection: View {
             percent: defaultContainerPrimarySpanPercent
         )
 
+        NiriKeptSizesSettingsSection(settings: settings, controller: controller)
+
         Section("Container Primary Span Presets") {
             ForEach(presets.indices, id: \.self) { index in
                 LabeledContent("Preset \(index + 1)") {
@@ -368,6 +388,7 @@ private struct MonitorNiriSettingsSection: View {
                 switch monitorSettings.defaultContainerPrimarySpan {
                 case nil: .useGlobal
                 case .auto: .auto
+                case .app: .app
                 case .custom: .custom
                 }
             },
@@ -375,6 +396,7 @@ private struct MonitorNiriSettingsSection: View {
                 let span: NiriContainerPrimarySpanOverride? = switch mode {
                 case .useGlobal: nil
                 case .auto: .auto
+                case .app: .app
                 case .custom: .custom(effectiveSpan)
                 }
                 updateSetting { $0.defaultContainerPrimarySpan = span }
@@ -392,24 +414,31 @@ private struct MonitorNiriSettingsSection: View {
         Section("Niri Layout") {
             OverridableSlider(
                 label: String(localized: "Visible Containers"),
-                value: ms.visibleContainerCount.map { Double($0) },
-                globalValue: Double(settings.niri.visibleContainerCount),
-                range: 1 ... 5,
+                value: ms.visibleContainerCount == nil && ms.fitToVisibleContainerCount == nil
+                    ? nil
+                    : resolved.fitsVisibleContainerCount ? Double(resolved.visibleContainerCount) : 0,
+                globalValue: settings.niri.fitToVisibleContainerCount ? Double(settings.niri.visibleContainerCount) : 0,
+                range: 0 ... 5,
                 step: 1,
-                formatter: { "\(Int($0))" },
+                formatter: { $0 > 0 ? "\(Int($0))" : String(localized: "Off") },
                 onChange: { newValue in
-                    updateSetting { $0.visibleContainerCount = Int(newValue) }
-                    controller.rebalanceNiriSizesForVisibleContainerCountChange(on: monitor.id)
+                    updateSetting {
+                        $0.fitToVisibleContainerCount = newValue > 0
+                        if newValue > 0 {
+                            $0.visibleContainerCount = Int(newValue)
+                        }
+                    }
+                    if newValue > 0 {
+                        controller.rebalanceNiriSizesForVisibleContainerCountChange(on: monitor.id)
+                    }
                 },
-                onReset: { updateSetting { $0.visibleContainerCount = nil } }
+                onReset: {
+                    updateSetting {
+                        $0.visibleContainerCount = nil
+                        $0.fitToVisibleContainerCount = nil
+                    }
+                }
             )
-            .disabled(settings.niri.macOSFusion)
-
-            if settings.niri.macOSFusion {
-                SettingsCaption(
-                    localized: "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off."
-                )
-            }
 
             OverridableToggle(
                 label: String(localized: "Infinite Loop Navigation"),
@@ -495,6 +524,7 @@ private struct NiriDefaultSpanSettingsSection: View {
     enum Mode {
         case useGlobal
         case auto
+        case app
         case custom
     }
 
@@ -509,11 +539,12 @@ private struct NiriDefaultSpanSettingsSection: View {
                     Text("Use Global").tag(Mode.useGlobal)
                 }
                 Text("Auto").tag(Mode.auto)
+                Text("App’s Own Width").tag(Mode.app)
                 Text("Custom").tag(Mode.custom)
             }
             .id("Span Mode")
             .pickerStyle(.segmented)
-            .frame(maxWidth: allowsGlobal ? 320 : 220)
+            .frame(maxWidth: allowsGlobal ? 460 : 360)
 
             if mode == .custom {
                 LabeledContent("Custom Span") {
@@ -534,7 +565,13 @@ private struct NiriDefaultSpanSettingsSection: View {
             case .useGlobal:
                 SettingsCaption(localized: "Follows the span setting for All Displays.")
             case .auto:
-                SettingsCaption(localized: "Auto divides the primary axis by the Visible Containers setting.")
+                SettingsCaption(
+                    localized: "Auto divides the primary axis by the Visible Containers setting, or uses Preset 1 when that is Off."
+                )
+            case .app:
+                SettingsCaption(
+                    localized: "On a landscape display a new window opens as wide as its app makes it. A window with an opening-width rule keeps its rule."
+                )
             case .custom:
                 SettingsCaption(
                     localized: "New or claimed containers start at this primary span until you resize them."
@@ -542,5 +579,48 @@ private struct NiriDefaultSpanSettingsSection: View {
             }
         }
         .id("Default New Container Primary Span")
+    }
+}
+
+private struct NiriKeptSizesSettingsSection: View {
+    @Bindable var settings: SettingsStore
+    @Bindable var controller: WMController
+
+    var body: some View {
+        Section("Kept Sizes") {
+            Toggle("Keep Existing Window Widths", isOn: Bindable(settings.niri).keepExistingWindowWidth)
+                .id("Keep Existing Window Widths")
+
+            SettingsCaption(
+                localized: "On a landscape display, a window that is already open when OmniWM first tiles it keeps the width it has."
+            )
+
+            Toggle("Keep Size When Pulling Out or Gathering", isOn: Bindable(settings.niri).keepSizeOnUnstack)
+                .id("Keep Size When Pulling Out or Gathering")
+                .onChange(of: settings.niri.keepSizeOnUnstack) {
+                    controller.applyNiriStripPolicies()
+                }
+
+            SettingsCaption(
+                localized: "A window moved out of a stack, or gathered into a new column, takes the size of the column it came from."
+            )
+
+            Toggle(
+                "Keep Sizes When Moving a Workspace to Another Display",
+                isOn: Bindable(settings.niri).keepSizesOnDisplayMove
+            )
+            .id("Keep Sizes When Moving a Workspace to Another Display")
+            .onChange(of: settings.niri.keepSizesOnDisplayMove) {
+                controller.applyNiriStripPolicies()
+            }
+
+            Toggle("Keep Sizes When Layout Settings Change", isOn: Bindable(settings.niri).keepSizesOnSettingsChange)
+                .id("Keep Sizes When Layout Settings Change")
+
+            SettingsCaption(
+                localized: "Changing Visible Containers or the default span leaves open columns as they are."
+            )
+        }
+        .id("Kept Sizes")
     }
 }

@@ -143,6 +143,33 @@ extension WMController {
         MacOSFusionConfiguration(enabled: settings.niri.macOSFusion, edgePeekShare: edgePeekShare)
     }
 
+    var niriStripPolicies: NiriStripPolicies {
+        NiriStripPolicies(
+            fitsVisibleContainerCount: settings.niri.fitToVisibleContainerCount,
+            opensNewWindowsAtAppWidth: settings.niri.opensNewWindowsAtAppWidth,
+            keepsSizeOnUnstack: settings.niri.keepSizeOnUnstack,
+            keepsSizesOnDisplayMove: settings.niri.keepSizesOnDisplayMove,
+            keepsStripEndsOnScreen: settings.niri.keepStripEndsOnScreen
+        )
+    }
+
+    func applyNiriStripPolicies() {
+        niriLayoutHandler.updateNiriStripPolicies(niriStripPolicies)
+    }
+
+    func applyNiriDefaultSpanSettings() {
+        updateNiriConfig(defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan)
+        applyNiriStripPolicies()
+    }
+
+    func applyNiriVisibleContainerSettings() {
+        updateNiriConfig(visibleContainerCount: settings.niri.visibleContainerCount)
+        applyNiriStripPolicies()
+        if settings.niri.fitToVisibleContainerCount {
+            rebalanceNiriSizesForVisibleContainerCountChange()
+        }
+    }
+
     func applyMacOSFusionSettings() {
         updateNiriConfig(macOSFusion: macOSFusionConfiguration)
         mouseEventHandler.syncTapFilterSnapshot()
@@ -169,6 +196,7 @@ extension WMController {
             shrinkToFit: settings.niri.shrinkToFit,
             macOSFusion: macOSFusionConfiguration
         )
+        applyNiriStripPolicies()
 
         if dwindleEngine == nil {
             enableDwindleLayout()

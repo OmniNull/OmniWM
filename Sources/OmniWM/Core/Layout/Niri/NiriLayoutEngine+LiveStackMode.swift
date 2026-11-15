@@ -601,8 +601,6 @@ extension NiriLayoutEngine {
         if !configuration.enabled {
             stripGlides.removeAll()
         }
-        keepsStripEndsOnScreen = configuration.enabled
-        keepsWindowWidths = configuration.enabled
         edgePeekShare = configuration.edgePeekShare
     }
 }

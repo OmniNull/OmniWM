@@ -313,17 +313,30 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertTrue(snapshot())
     }
 
-    func testMacOSFusionSettingReachesTheEngine() throws {
+    func testStripPolicySettingsReachTheEngine() throws {
         let fixture = try makeFixture(pid: 938_091)
         let settings = fixture.controller.settings
         settings.quakeTerminal.enabled = false
-
         fixture.controller.applyPersistedSettings(settings, startServices: false)
-        XCTAssertTrue(fixture.engine.keepsStripEndsOnScreen)
+        XCTAssertEqual(fixture.engine.policies, NiriStripPolicies(fitsVisibleContainerCount: false))
 
-        settings.niri.macOSFusion = false
+        settings.niri.fitToVisibleContainerCount = true
+        settings.niri.opensNewWindowsAtAppWidth = true
+        settings.niri.keepSizeOnUnstack = true
+        settings.niri.keepSizesOnDisplayMove = true
+        settings.niri.keepStripEndsOnScreen = true
         fixture.controller.applyPersistedSettings(settings, startServices: false)
-        XCTAssertFalse(fixture.engine.keepsStripEndsOnScreen)
+        XCTAssertEqual(fixture.engine.policies, NiriStripPolicies(
+            fitsVisibleContainerCount: true,
+            opensNewWindowsAtAppWidth: true,
+            keepsSizeOnUnstack: true,
+            keepsSizesOnDisplayMove: true,
+            keepsStripEndsOnScreen: true
+        ))
+
+        settings.niri.keepStripEndsOnScreen = false
+        fixture.controller.applyNiriStripPolicies()
+        XCTAssertFalse(fixture.engine.policies.keepsStripEndsOnScreen)
     }
 
     func testPeeksNeedMacOSFusion() throws {

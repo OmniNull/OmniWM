@@ -39,8 +39,8 @@ extension NiriLayoutHandler {
         var states: [WindowToken: NiriContainerSizingState]?
         for token in pass.windowTokens where pass.engine.findNode(for: token, in: pass.wsId) == nil {
             let state: NiriContainerSizingState?
-            if let fusion = macOSFusionContainerSizingState(for: token, pass: pass) {
-                state = fusion
+            if let kept = keptWidthSizingState(for: token, pass: pass) {
+                state = kept
             } else if let detached = controller.workspaceManager.restoreIntent(for: token)?
                 .detachedNiriContainerSizingState
             {
@@ -62,23 +62,25 @@ extension NiriLayoutHandler {
         return states
     }
 
-    private func macOSFusionContainerSizingState(
+    private func keptWidthSizingState(
         for token: WindowToken,
         pass: NiriLayoutPass
     ) -> NiriContainerSizingState? {
-        guard let controller,
-              controller.settings.niri.macOSFusion,
-              pass.orientation == .horizontal
-        else { return nil }
+        guard let controller, controller.settings.niri.readsObservedWindowWidths else { return nil }
         let opening = pass.engine.takeOpeningWindow(token)
-        guard let entry = controller.workspaceManager.entry(for: token),
+        guard pass.orientation == .horizontal,
+              pass.engine.keepsEnteringWindowWidth(
+                  opening: opening,
+                  hasRuleWidth: controller.workspaceManager.admissionHints(for: token)?
+                      .initialNiriContainerPrimarySpan != nil,
+                  keepsExistingWidth: controller.settings.niri.keepExistingWindowWidth,
+                  in: pass.wsId
+              ),
+              let entry = controller.workspaceManager.entry(for: token),
               let frame = controller.axEventHandler.observedFrame(for: entry)
         else { return nil }
-        return pass.engine.enteringContainerSizingState(
+        return pass.engine.keptContainerSizingState(
             width: frame.width,
-            opening: opening,
-            hasRuleWidth: controller.workspaceManager.admissionHints(for: token)?
-                .initialNiriContainerPrimarySpan != nil,
             in: pass.wsId,
             workingWidth: pass.insetFrame.width,
             gaps: pass.gap

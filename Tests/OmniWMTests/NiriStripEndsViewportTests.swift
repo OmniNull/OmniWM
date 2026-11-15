@@ -109,7 +109,7 @@ final class NiriStripEndsViewportTests: XCTestCase {
     ) -> Fixture {
         let engine = NiriLayoutEngine()
         engine.centerFocusedColumn = centering
-        engine.keepsStripEndsOnScreen = keepsStripEndsOnScreen
+        engine.policies.keepsStripEndsOnScreen = keepsStripEndsOnScreen
         let workspaceId = WorkspaceDescriptor.ID()
         let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
         let monitor = Monitor(

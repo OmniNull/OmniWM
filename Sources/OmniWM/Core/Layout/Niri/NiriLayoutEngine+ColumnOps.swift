@@ -174,7 +174,7 @@ extension NiriLayoutEngine {
 
         let newColumn = NiriContainer()
         switch sizingPolicy {
-        case .workspaceDefault where keepsWindowWidths:
+        case .workspaceDefault where policies.keepsSizeOnUnstack:
             copyContainerSizingState(from: sourceColumn, to: newColumn)
         case .workspaceDefault:
             initializeNewContainerSizing(newColumn, in: context.workspaceId)

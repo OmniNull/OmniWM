@@ -114,7 +114,7 @@ struct SettingsExport: Equatable {
         var alwaysCenterSingleColumn: Bool
         var singleWindowFit: SingleWindowFit
         var containerPrimarySpanPresets: [Double]?
-        var defaultContainerPrimarySpan: Double?
+        var defaultContainerPrimarySpan: NiriContainerPrimarySpanOverride?
         var edgeGaps: Bool?
         var resizeStepPercent: Int?
         var moveWindowStacksIntoColumn: Bool?
@@ -123,6 +123,12 @@ struct SettingsExport: Equatable {
         var shrinkToFit: Bool?
         var macOSFusion: Bool?
         var edgePeekPercent: Double?
+        var fitToVisibleContainerCount: Bool?
+        var keepExistingWindowWidth: Bool?
+        var keepSizeOnUnstack: Bool?
+        var keepSizesOnDisplayMove: Bool?
+        var keepSizesOnSettingsChange: Bool?
+        var keepStripEndsOnScreen: Bool?
     }
 
     struct Dwindle: Codable, Equatable {

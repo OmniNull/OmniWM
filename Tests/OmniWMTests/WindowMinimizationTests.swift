@@ -347,8 +347,21 @@ final class WindowMinimizationTests: XCTestCase {
         for count in [5, 6, 7] {
             for focusedFirst in 0 ..< count {
                 for minimized in 0 ..< count {
-                    try checkMinimizeAndRestore(count: count, focusedFirst: focusedFirst, minimized: minimized)
+                    try checkMinimizeAndRestore(
+                        count: count, focusedFirst: focusedFirst, minimized: minimized, keepsStripEnds: true
+                    )
                 }
+            }
+        }
+    }
+
+    func testMinimizingAndRestoringGivesTheScreenBackWithStripEndsNotKeptOnScreen() throws {
+        let count = 5
+        for focusedFirst in 0 ..< count {
+            for minimized in 0 ..< count {
+                try checkMinimizeAndRestore(
+                    count: count, focusedFirst: focusedFirst, minimized: minimized, keepsStripEnds: false
+                )
             }
         }
     }
@@ -559,16 +572,23 @@ final class WindowMinimizationTests: XCTestCase {
         }
     }
 
-    private func checkMinimizeAndRestore(count: Int, focusedFirst: Int, minimized: Int) throws {
-        let label = "count \(count) focused first \(focusedFirst) minimized \(minimized)"
+    private func checkMinimizeAndRestore(
+        count: Int,
+        focusedFirst: Int,
+        minimized: Int,
+        keepsStripEnds: Bool
+    ) throws {
+        let label = "count \(count) focused first \(focusedFirst) minimized \(minimized) strip ends \(keepsStripEnds)"
         let controller = WindowAdmissionTestSupport.controller()
         controller.settings.niri.macOSFusion = true
+        controller.settings.niri.keepStripEndsOnScreen = keepsStripEnds
         controller.motionPolicy.animationsEnabled = true
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         controller.niriLayoutHandler.enableNiriLayout()
         controller.applyMacOSFusionSettings()
-        XCTAssertTrue(try XCTUnwrap(controller.niriEngine).keepsStripEndsOnScreen, label)
+        controller.applyNiriStripPolicies()
+        XCTAssertEqual(try XCTUnwrap(controller.niriEngine).policies.keepsStripEndsOnScreen, keepsStripEnds, label)
         for index in 0 ..< count {
             let token = WindowToken(pid: 688_060, windowId: 688_900 + index)
             _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)

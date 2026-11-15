@@ -260,7 +260,7 @@ final class NiriRemovalViewportTests: XCTestCase {
             crossSpan: 800,
             centerMode: .onOverflow
         )
-        fixture.engine.keepsStripEndsOnScreen = true
+        fixture.engine.policies.keepsStripEndsOnScreen = true
         focusColumn(at: 1, in: &fixture)
         XCTAssertEqual(viewOrigin(fixture), 550, accuracy: 0.5)
 

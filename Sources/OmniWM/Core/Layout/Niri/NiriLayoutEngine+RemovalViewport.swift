@@ -126,7 +126,7 @@ extension NiriLayoutEngine {
         ))
         guard abs(clampedStart - viewport.viewStart) > 0.5 else { return false }
 
-        if !keepsStripEndsOnScreen,
+        if !policies.keepsStripEndsOnScreen,
            preservesCenteredView || (centerMode == .onOverflow && adjacentPairOverflows(viewport, context: context)),
            isCenteredOnActiveColumn(viewport, context: context, state: state)
         {

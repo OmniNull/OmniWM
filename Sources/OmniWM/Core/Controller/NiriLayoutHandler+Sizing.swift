@@ -240,7 +240,9 @@ extension NiriLayoutHandler {
     }
 
     func balanceSizesAllWorkspaces(on monitorId: Monitor.ID? = nil, onlyAutomaticSpans: Bool = false) {
-        guard let controller, let engine = controller.niriEngine, !engine.keepsWindowWidths else { return }
+        guard let controller, let engine = controller.niriEngine,
+              !controller.settings.niri.keepSizesOnSettingsChange
+        else { return }
         var changed: Set<WorkspaceDescriptor.ID> = []
         for descriptor in controller.workspaceManager.workspaces {
             guard controller.settings.workspaces.layoutType(for: descriptor.name) != .dwindle else { continue }

@@ -1148,7 +1148,15 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
     }
 
     func testARightEdgeStretchFromACentredRowStillReachesThePeek() async throws {
-        let fixture = try await makeCentredRowFixture(pid: 941_160)
+        for keepsStripEnds in [false, true] {
+            try await checkARightEdgeStretchFromACentredRow(keepsStripEnds: keepsStripEnds)
+        }
+    }
+
+    private func checkARightEdgeStretchFromACentredRow(keepsStripEnds: Bool) async throws {
+        let fixture = try await makeCentredRowFixture(
+            pid: keepsStripEnds ? 941_162 : 941_160, keepsStripEnds: keepsStripEnds
+        )
         let (first, last) = (fixture.tokens[0], fixture.tokens[1])
         let start = try fixture.frame(first)
         let sides = centredRowSides(fixture)
@@ -1169,7 +1177,15 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
     }
 
     func testALeftEdgeStretchFromACentredRowStillReachesThePeek() async throws {
-        let fixture = try await makeCentredRowFixture(pid: 941_161, selecting: 1)
+        for keepsStripEnds in [false, true] {
+            try await checkALeftEdgeStretchFromACentredRow(keepsStripEnds: keepsStripEnds)
+        }
+    }
+
+    private func checkALeftEdgeStretchFromACentredRow(keepsStripEnds: Bool) async throws {
+        let fixture = try await makeCentredRowFixture(
+            pid: keepsStripEnds ? 941_163 : 941_161, selecting: 1, keepsStripEnds: keepsStripEnds
+        )
         let (first, last) = (fixture.tokens[0], fixture.tokens[1])
         let start = try fixture.frame(last)
         let sides = centredRowSides(fixture)
@@ -1189,15 +1205,21 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.frame(last).width, start.width, accuracy: 1)
     }
 
-    private func makeCentredRowFixture(pid: pid_t, selecting index: Int = 0) async throws -> Fixture {
+    private func makeCentredRowFixture(
+        pid: pid_t,
+        selecting index: Int = 0,
+        keepsStripEnds: Bool
+    ) async throws -> Fixture {
         let fixture = try makeFixture(pid: pid, windowCount: 2)
         let settings = fixture.controller.settings
         settings.niri.alwaysCenterSingleColumn = true
         settings.niri.centerFocusedColumn = .onOverflow
         settings.niri.edgeGaps = false
         settings.niri.edgePeekPercent = 2
+        settings.niri.keepStripEndsOnScreen = keepsStripEnds
         fixture.controller.workspaceManager.applySettings()
         fixture.controller.applyMacOSFusionSettings()
+        fixture.controller.applyNiriStripPolicies()
         try fixture.select(fixture.tokens[index])
         fixture.controller.layoutRefreshController.requestRelayout(reason: .workspaceConfigChanged)
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)

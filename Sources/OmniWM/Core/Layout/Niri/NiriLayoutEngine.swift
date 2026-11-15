@@ -124,9 +124,7 @@ final class NiriLayoutEngine {
         }
     }
 
-    var keepsStripEndsOnScreen = false
-
-    var keepsWindowWidths = false
+    var policies = NiriStripPolicies()
 
     var hasSetEdgePeekCaps = false
     var edgePeeksPossible = false
@@ -360,7 +358,7 @@ extension NiriLayoutEngine {
         for monitorId: Monitor.ID?
     ) -> (proportion: CGFloat, presetWidthIdx: Int?) {
         let settings = monitorId.map(effectiveSettings(for:)) ?? globalResolvedSettings()
-        if settings.defaultContainerPrimarySpan == nil, keepsWindowWidths,
+        if settings.defaultContainerPrimarySpan == nil, !settings.fitsVisibleContainerCount,
            case let .proportion(span)? = presetContainerPrimarySpans.first?.kind
         {
             return (span, 0)

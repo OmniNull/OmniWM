@@ -125,7 +125,13 @@ extension SettingsExport.Niri {
             moveWindowStacksIntoColumn: true,
             allowOverscroll: false,
             overscrollVisibleStripPercent: 5,
-            shrinkToFit: false
+            shrinkToFit: false,
+            fitToVisibleContainerCount: false,
+            keepExistingWindowWidth: false,
+            keepSizeOnUnstack: false,
+            keepSizesOnDisplayMove: false,
+            keepSizesOnSettingsChange: false,
+            keepStripEndsOnScreen: false
         ).withMacOSFusionDefaults(edgePeekPercent: BuiltInSettingsDefaults.niriEdgePeekPercent)
     }
 }

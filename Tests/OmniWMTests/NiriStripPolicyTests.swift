@@ -7,7 +7,7 @@ import Foundation
 import XCTest
 
 @MainActor
-final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
+final class NiriStripPolicyTests: XCTestCase {
     private let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
     private let gap: CGFloat = 12
 
@@ -27,18 +27,18 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
         let frame = CGRect(x: x, y: 0, width: width, height: 900)
         return Monitor(
             id: Monitor.ID(displayId: displayId), displayId: displayId, frame: frame, visibleFrame: frame,
-            hasNotch: false, name: "Keeps widths \(displayId)"
+            hasNotch: false, name: "Strip policy \(displayId)"
         )
     }
 
     private func makeFixture(
         widths: [CGFloat],
-        keepsWindowWidths: Bool,
+        policies: NiriStripPolicies = NiriStripPolicies(),
         visibleCount: Int = 3
     ) -> Fixture {
         let engine = NiriLayoutEngine(visibleContainerCount: visibleCount)
         engine.defaultContainerPrimarySpan = nil
-        engine.keepsWindowWidths = keepsWindowWidths
+        engine.policies = policies
         let workspaceId = WorkspaceDescriptor.ID()
         let monitor = display(97)
         engine.syncWorkspaceAssignments(
@@ -68,9 +68,9 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
         return Fixture(engine: engine, workspaceId: workspaceId, tokens: tokens, state: state, context: context)
     }
 
-    func testAWindowExpelledIntoANewColumnKeepsItsWidth() {
+    func testAWindowExpelledIntoANewColumnKeepsItsWidthWithKeepSizeOnUnstack() {
         for keeps in [true, false] {
-            var fixture = makeFixture(widths: [640, 400], keepsWindowWidths: keeps)
+            var fixture = makeFixture(widths: [640, 400], policies: NiriStripPolicies(keepsSizeOnUnstack: keeps))
             let moved = fixture.engine.findNode(for: fixture.tokens[1], in: fixture.workspaceId)!
             let first = fixture.column(0)
             first.appendChild(moved)
@@ -83,15 +83,18 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
                 state: &fixture.state
             ))
 
-            let expected: ProportionalSize = keeps ? .fixed(640) : .proportion(1.0 / 3.0)
+            let expected: ProportionalSize = keeps
+                ? .fixed(640)
+                : .proportion(1.0 / CGFloat(fixture.engine.visibleContainerCount))
             XCTAssertEqual(fixture.column(1).width, expected, "\(keeps)")
         }
     }
 
-    func testAWindowWithNoWidthToKeepGetsTheFirstPreset() {
-        for keeps in [true, false] {
-            let fixture = makeFixture(widths: [640], keepsWindowWidths: keeps)
-            fixture.engine.presetContainerPrimarySpans = [.proportion(0.4), .proportion(0.6)]
+    func testANewColumnOnAutoGetsTheFirstPresetOnlyWithVisibleContainersOff() {
+        let firstPreset: CGFloat = 0.4
+        for fits in [true, false] {
+            let fixture = makeFixture(widths: [640], policies: NiriStripPolicies(fitsVisibleContainerCount: fits))
+            fixture.engine.presetContainerPrimarySpans = [.proportion(firstPreset), .proportion(0.6)]
             let token = WindowToken(pid: 971, windowId: 99)
 
             _ = fixture.engine.addWindow(token: token, to: fixture.workspaceId, afterSelection: nil)
@@ -100,13 +103,20 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
                 containing: fixture.engine.findNode(for: token, in: fixture.workspaceId)!,
                 in: fixture.workspaceId
             )!
-            XCTAssertEqual(column.width, .proportion(keeps ? 0.4 : 1.0 / 3.0), "\(keeps)")
+            XCTAssertEqual(
+                column.width,
+                .proportion(fits ? 1.0 / CGFloat(fixture.engine.visibleContainerCount) : firstPreset),
+                "\(fits)"
+            )
         }
     }
 
-    func testAWorkspaceMovedToAnotherDisplayKeepsItsColumnWidths() {
+    func testAWorkspaceMovedToAnotherDisplayKeepsItsColumnWidthsWithKeepSizesOnDisplayMove() {
         for keeps in [true, false] {
-            let fixture = makeFixture(widths: [640, 400], keepsWindowWidths: keeps)
+            let fixture = makeFixture(
+                widths: [640, 400],
+                policies: NiriStripPolicies(keepsSizesOnDisplayMove: keeps)
+            )
             let other = display(98, x: 1_500, width: 2_000)
 
             fixture.engine.syncWorkspaceAssignments(
@@ -114,13 +124,20 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
                 orientations: [other.id: .horizontal]
             )
 
-            XCTAssertEqual(fixture.column(1).width, keeps ? .fixed(400) : .proportion(1.0 / 3.0), "\(keeps)")
+            XCTAssertEqual(
+                fixture.column(1).width,
+                keeps ? .fixed(400) : .proportion(1.0 / CGFloat(fixture.engine.visibleContainerCount)),
+                "\(keeps)"
+            )
         }
     }
 
-    func testFewerColumnsThanVisibleContainersArentWidenedToFillTheScreen() {
-        for keeps in [true, false] {
-            let fixture = makeFixture(widths: [400, 400], keepsWindowWidths: keeps)
+    func testFewerColumnsThanVisibleContainersAreWidenedOnlyWhileFittingIsOn() {
+        for fits in [true, false] {
+            let fixture = makeFixture(
+                widths: [400, 400],
+                policies: NiriStripPolicies(fitsVisibleContainerCount: fits)
+            )
             for column in fixture.engine.columns(in: fixture.workspaceId) {
                 column.width = .proportion(1.0 / 3.0)
                 column.cachedWidth = 0
@@ -135,12 +152,12 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
             )
 
             let fitted = fixture.engine.columns(in: fixture.workspaceId).contains { $0.fittedWidth != nil }
-            XCTAssertEqual(fitted, !keeps, "\(keeps)")
+            XCTAssertEqual(fitted, fits, "\(fits)")
         }
     }
 
-    func testAPortraitStripStillFillsItsHeightWithFewerRowsThanVisibleContainers() {
-        let fixture = makeFixture(widths: [400, 400], keepsWindowWidths: true)
+    func testAPortraitStripStillFillsItsHeightWithVisibleContainersOff() {
+        let fixture = makeFixture(widths: [400, 400], policies: NiriStripPolicies(fitsVisibleContainerCount: false))
         let portrait = CGRect(x: 0, y: 0, width: 900, height: 1_500)
         for column in fixture.engine.columns(in: fixture.workspaceId) {
             column.height = .proportion(1.0 / 3.0)
@@ -160,10 +177,10 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
 
     func testBalanceSizesResetsEveryColumnToOneOverVisibleContainersOnAuto() {
         let visibleCount = 4
-        for keepsWindowWidths in [false, true] {
+        for fits in [false, true] {
             let fixture = makeFixture(
                 widths: [500, 900, 700, 600],
-                keepsWindowWidths: keepsWindowWidths,
+                policies: NiriStripPolicies(fitsVisibleContainerCount: fits),
                 visibleCount: visibleCount
             )
             XCTAssertNotEqual(
@@ -183,7 +200,7 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
                 XCTAssertEqual(
                     fixture.column(index).width,
                     .proportion(1.0 / CGFloat(visibleCount)),
-                    "keepsWindowWidths=\(keepsWindowWidths) column=\(index)"
+                    "fits=\(fits) column=\(index)"
                 )
                 XCTAssertNil(fixture.column(index).presetWidthIdx)
             }
@@ -192,8 +209,11 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
 
     func testBalanceSizesResetsEveryColumnToACustomDefaultWidth() {
         let customDefault = 0.5
-        for keepsWindowWidths in [false, true] {
-            let fixture = makeFixture(widths: [500, 900, 700, 600], keepsWindowWidths: keepsWindowWidths)
+        for fits in [false, true] {
+            let fixture = makeFixture(
+                widths: [500, 900, 700, 600],
+                policies: NiriStripPolicies(fitsVisibleContainerCount: fits)
+            )
             fixture.engine.defaultContainerPrimarySpan = customDefault
 
             XCTAssertTrue(fixture.engine.balanceSizes(
@@ -208,7 +228,7 @@ final class NiriFusionKeepsWindowWidthsTests: XCTestCase {
                 XCTAssertEqual(
                     fixture.column(index).width,
                     .proportion(CGFloat(customDefault)),
-                    "keepsWindowWidths=\(keepsWindowWidths) column=\(index)"
+                    "fits=\(fits) column=\(index)"
                 )
             }
         }

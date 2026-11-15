@@ -138,7 +138,7 @@ extension NiriLayoutEngine {
         }
         let destinationState = ensureState(for: destinationId)
         let reusedColumn = plan.placement.reusedColumnId.map { liveGatherColumn($0, in: destinationId) }
-        let keptSizing = keepsWindowWidths
+        let keptSizing = policies.keepsSizeOnUnstack
             ? nodes.first.flatMap { containerSizingState(for: $0.0.token, in: $0.1) }
             : nil
 

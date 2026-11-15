@@ -744,7 +744,7 @@ final class NiriEdgePeekTests: XCTestCase {
     private func makeFixture(widths: [CGFloat], centering: CenterFocusedColumn = .onOverflow) -> Fixture {
         let engine = NiriLayoutEngine()
         engine.centerFocusedColumn = centering
-        engine.keepsStripEndsOnScreen = true
+        engine.policies.keepsStripEndsOnScreen = true
         engine.edgePeekShare = 76.0 / 1_500
         let workspaceId = WorkspaceDescriptor.ID()
         let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)

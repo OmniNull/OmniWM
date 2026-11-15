@@ -13,29 +13,14 @@ extension NiriLayoutEngine {
         openingWindows.remove(token) != nil
     }
 
-    func enteringContainerSizingState(
-        width: CGFloat,
+    func keepsEnteringWindowWidth(
         opening: Bool,
-        hasRuleWidth: Bool,
-        in workspaceId: WorkspaceDescriptor.ID,
-        workingWidth: CGFloat,
-        gaps: CGFloat
-    ) -> NiriContainerSizingState? {
-        guard opening else {
-            return keptContainerSizingState(width: width, in: workspaceId, workingWidth: workingWidth, gaps: gaps)
-        }
-        guard !hasRuleWidth else { return nil }
-        return openingContainerSizingState(width: width, in: workspaceId, workingWidth: workingWidth, gaps: gaps)
-    }
-
-    func openingContainerSizingState(
-        width: CGFloat,
-        in workspaceId: WorkspaceDescriptor.ID,
-        workingWidth: CGFloat,
-        gaps: CGFloat
-    ) -> NiriContainerSizingState? {
-        guard effectiveSettings(in: workspaceId).defaultContainerPrimarySpan == nil else { return nil }
-        return keptContainerSizingState(width: width, in: workspaceId, workingWidth: workingWidth, gaps: gaps)
+        hasRuleWidth: @autoclosure () -> Bool,
+        keepsExistingWidth: Bool,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        guard opening else { return keepsExistingWidth }
+        return effectiveSettings(in: workspaceId).opensNewWindowsAtAppWidth && !hasRuleWidth()
     }
 
     func keptContainerSizingState(

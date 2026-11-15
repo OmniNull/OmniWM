@@ -1,6 +1,51 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "A window moved out of a stack, or gathered into a new column, takes the size of the column it came from." : {
+
+    },
+    "Also centers a strip whose columns all fit on the display." : {
+
+    },
+    "App’s Own Width" : {
+
+    },
+    "Auto divides the primary axis by the Visible Containers setting, or uses Preset 1 when that is Off." : {
+
+    },
+    "Changing Visible Containers or the default span leaves open columns as they are." : {
+
+    },
+    "Focusing or closing the first or last column leaves no empty space past the end of the strip." : {
+
+    },
+    "Keep Existing Window Widths" : {
+
+    },
+    "Keep Size When Pulling Out or Gathering" : {
+
+    },
+    "Keep Sizes When Layout Settings Change" : {
+
+    },
+    "Keep Sizes When Moving a Workspace to Another Display" : {
+
+    },
+    "Keep Strip Ends on Screen" : {
+
+    },
+    "Kept Sizes" : {
+
+    },
+    "On a landscape display a new window opens as wide as its app makes it. A window with an opening-width rule keeps its rule." : {
+
+    },
+    "On a landscape display, a window that is already open when OmniWM first tiles it keeps the width it has." : {
+
+    },
+    "With fewer columns than this number, columns grow to fill a landscape display. Off leaves every column at its own width." : {
+
+    },
     "This removes the saved launcher entry and clears its keyboard shortcut. Your apps and script files stay on disk." : {
 
     },
@@ -1280,130 +1325,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "撤销会撤回此工作区中窗口的最后一次更改，例如移动、堆叠、调整大小或标签页，最多 20 次。重做会重新应用该更改。"
-          }
-        }
-      }
-    },
-    "macOS Fusion keeps each window’s own width, so Visible Containers applies only with macOS Fusion off." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يحافظ macOS Fusion على العرض الخاص بكل نافذة، لذا لا تُطبَّق الحاويات المرئية إلا عند إيقاف macOS Fusion."
-          }
-        },
-        "da" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion bevarer hvert vindues egen bredde, så Synlige beholdere gælder kun, når macOS Fusion er slået fra."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion behält die eigene Breite jedes Fensters bei, daher gilt „Sichtbare Container“ nur, wenn macOS Fusion aus ist."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Το macOS Fusion διατηρεί το πλάτος κάθε παραθύρου, οπότε τα Ορατά κοντέινερ ισχύουν μόνο όταν το macOS Fusion είναι απενεργοποιημένο."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion mantiene el ancho propio de cada ventana, así que Contenedores visibles solo se aplica con macOS Fusion desactivado."
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion säilyttää jokaisen ikkunan oman leveyden, joten Näkyvät kontit on käytössä vain, kun macOS Fusion on pois päältä."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion conserve la largeur propre de chaque fenêtre ; Conteneurs visibles ne s’applique donc que lorsque macOS Fusion est désactivé."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion שומר על הרוחב של כל חלון, ולכן מכלים גלויים חלים רק כש־macOS Fusion כבוי."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion हर विंडो की अपनी चौड़ाई बनाए रखता है, इसलिए दृश्य कंटेनर केवल macOS Fusion बंद होने पर लागू होते हैं।"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion mantiene la larghezza propria di ogni finestra, quindi Contenitori visibili si applica solo con macOS Fusion disattivato."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion は各ウインドウ自身の幅を保つため、可視コンテナは macOS Fusion がオフのときだけ適用されます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion은 각 창의 고유 너비를 유지하므로 표시된 컨테이너는 macOS Fusion이 꺼져 있을 때만 적용됩니다."
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion beholder hvert vindus egen bredde, så Synlige beholdere gjelder bare når macOS Fusion er av."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion behoudt de eigen breedte van elk venster, dus Zichtbare containers geldt alleen als macOS Fusion uit staat."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion zachowuje własną szerokość każdego okna, więc Widoczne kontenery działają tylko przy wyłączonym macOS Fusion."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion сохраняет собственную ширину каждого окна, поэтому «Видимые контейнеры» действуют только при выключенном macOS Fusion."
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion zadržava sopstvenu širinu svakog prozora, pa Vidljivi kontejneri važe samo kada je macOS Fusion isključen."
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion behåller varje fönsters egen bredd, så Synliga behållare gäller bara när macOS Fusion är av."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion зберігає власну ширину кожного вікна, тож «Видимі контейнери» діють лише з вимкненим macOS Fusion."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS Fusion 会保留每个窗口自身的宽度，因此可见容器仅在关闭 macOS Fusion 时生效。"
           }
         }
       }
@@ -25062,130 +24983,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "자동"
-          }
-        }
-      }
-    },
-    "Auto divides the primary axis by the Visible Containers setting." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「オート」では、主軸を「可視コンテナ」の設定で分割します。"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto teilt die Hauptachse durch die Einstellung „Sichtbare Container“ auf."
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternativet Automatisk deler hovedaksen etter innstillingen Synlige beholdere."
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternativet Automatiskt delar den primära axeln med inställningen Synliga behållare."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto divide el eje principal por la configuración de Contenedores visibles."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“自动”会按照“可见容器”设置的数量平分主轴。"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ऑटो दृश्य कंटेनर सेटिंग के द्वारा प्राथमिक अक्ष को विभाजित करता है।"
-          }
-        },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يقسم الخيار «تلقائي» المحور الرئيسي حسب إعداد «الحاويات المرئية»."
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatski deli primarnu osu prema podešavanju Vidljivi kontejneri."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Η αυτόματη λειτουργία διαιρεί τον κύριο άξονα με την τιμή της ρύθμισης «Ορατά κοντέινερ»."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "במצב אוטומטי, הציר הראשי מחולק לפי ההגדרה \"מכלים גלויים\"."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Автоматически разделяет основную ось по настройке видимых контейнеров."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatycznie dzieli główną oś według ustawień widocznych kontenerów."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Автоматичний режим ділить основну вісь згідно з параметром «Видимі контейнери»."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto divise l'axe primaire par le réglage des conteneurs visibles."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto verdeelt de primaire as volgens de instelling 'Zichtbare containers'."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto divide l'asse primario per il valore dell'impostazione Contenitori visibili."
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automaattinen jakaa pääakselin Näkyvät kontit -asetuksen mukaan."
-          }
-        },
-        "da" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto deler den primære akse med indstillingen Synlige beholdere."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "자동 모드는 표시된 컨테이너 설정에 따라 기본 축을 나눕니다."
           }
         }
       }

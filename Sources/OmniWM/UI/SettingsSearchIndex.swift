@@ -93,6 +93,21 @@ enum SettingsSearchIndex {
         setting("Infinite Loop Navigation", section: .layouts, tab: "niri", anchor: "Infinite Loop Navigation"),
         setting("Center Focused Column", section: .layouts, tab: "niri", anchor: "Center Focused Column"),
         setting("Always Center Single Column", section: .layouts, tab: "niri", anchor: "Always Center Single Column"),
+        setting("Keep Strip Ends on Screen", section: .layouts, tab: "niri", anchor: "Keep Strip Ends on Screen"),
+        setting("Kept Sizes", section: .layouts, tab: "niri", anchor: "Kept Sizes"),
+        setting("Keep Existing Window Widths", section: .layouts, tab: "niri", anchor: "Keep Existing Window Widths"),
+        setting(
+            "Keep Size When Pulling Out or Gathering", section: .layouts, tab: "niri",
+            anchor: "Keep Size When Pulling Out or Gathering"
+        ),
+        setting(
+            "Keep Sizes When Moving a Workspace to Another Display", section: .layouts, tab: "niri",
+            anchor: "Keep Sizes When Moving a Workspace to Another Display"
+        ),
+        setting(
+            "Keep Sizes When Layout Settings Change", section: .layouts, tab: "niri",
+            anchor: "Keep Sizes When Layout Settings Change"
+        ),
         setting(
             "Focus Clicked Windows Without Scrolling", section: .layouts, tab: "niri",
             anchor: "Focus Clicked Windows Without Scrolling"

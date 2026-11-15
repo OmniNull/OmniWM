@@ -116,8 +116,7 @@ extension NiriLayoutEngine {
            )
         {
             start = frame.minX - offset
-        } else if keepsStripEndsOnScreen,
-                  !centresFocusedColumn(in: context.workspaceId),
+        } else if !centresFocusedColumn(in: context.workspaceId),
                   ViewportState.stripEndOffsets(stripSpan: span, viewSpan: frame.width, gap: context.gaps) != nil
         {
             start = min(max(start, frame.maxX - context.gaps - span), frame.minX + context.gaps)
@@ -208,7 +207,7 @@ extension NiriLayoutEngine {
 extension NiriLayoutEngine {
     func viewportEdgeRules(in workspaceId: WorkspaceDescriptor.ID) -> ViewportEdgeRules {
         ViewportEdgeRules(
-            keepsStripEndsOnScreen: keepsStripEndsOnScreen,
+            keepsStripEndsOnScreen: policies.keepsStripEndsOnScreen,
             centersFittingStrip: centresFittingStrip(in: workspaceId),
             peeks: edgePeekWidths(in: workspaceId)
         )

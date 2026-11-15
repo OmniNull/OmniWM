@@ -65,7 +65,9 @@ extension NiriLayoutEngine {
             singleWindowFit: singleWindowFit,
             infiniteLoop: infiniteLoop,
             edgeOverscroll: edgeOverscroll,
-            edgePeekShare: edgePeekShare
+            edgePeekShare: edgePeekShare,
+            fitsVisibleContainerCount: policies.fitsVisibleContainerCount,
+            opensNewWindowsAtAppWidth: policies.opensNewWindowsAtAppWidth
         )
     }
 
@@ -184,7 +186,9 @@ extension NiriLayoutEngine {
     }
 
     private func rederiveAutomaticContainerSpans(in root: NiriRoot, for monitor: NiriMonitor) {
-        guard !keepsWindowWidths, effectiveSettings(for: monitor.id).defaultContainerPrimarySpan == nil else { return }
+        guard !policies.keepsSizesOnDisplayMove,
+              effectiveSettings(for: monitor.id).defaultContainerPrimarySpan == nil
+        else { return }
         let reset = resolvedContainerResetPrimarySpan(for: monitor.id)
         switch monitor.orientation {
         case .horizontal:
