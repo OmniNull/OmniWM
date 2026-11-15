@@ -303,7 +303,11 @@ extension WallpaperManager {
         }
         let started = sampleEpoch
         fetch(key) { [weak self] pixels in
-            guard let self, let pixels, running, started == sampleEpoch, sampled == key else { return }
+            guard let self, running, started == sampleEpoch, sampled == key else { return }
+            guard let pixels else {
+                sampled = nil
+                return
+            }
             setPaletteSample(pixels)
         }
     }

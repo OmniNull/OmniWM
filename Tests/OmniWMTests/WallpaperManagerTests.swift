@@ -635,4 +635,28 @@ final class WallpaperManagerTests: XCTestCase {
             "the slow sample of the wallpaper shown before does not replace the newer one"
         )
     }
+
+    func testASchemePreviewSampleThatFailsIsTakenAgainOnTheNextPass() async {
+        var display = WallpaperFixtures.studio
+        display.current = root.appendingPathComponent("Pictures/Wallpapers/a.jpg")
+        let desktop = FakeWallpaperDesktop([display])
+        let attempts = WallpaperCounter()
+        let pixels = WallpaperSampleGate.pixels("a.jpg")
+        let manager = makeManager(desktop, environment: { environment in
+            environment.sample = { key in
+                attempts.add(key.file.path)
+                return attempts.values.count == 1 ? nil : pixels
+            }
+        })
+        manager.showSwatches(true, for: .widget)
+        await manager.idle()
+        XCTAssertEqual(attempts.values.count, 1)
+        XCTAssertNil(manager.paletteSample)
+
+        desktop.onChange?()
+        await manager.idle()
+        XCTAssertEqual(attempts.values.count, 2, "a failed sample is tried again")
+        XCTAssertEqual(manager.paletteSample, pixels)
+        XCTAssertEqual(manager.paletteSwatches, ShellWallpaperPalette.swatches(pixels: pixels))
+    }
 }
