@@ -72,7 +72,8 @@ extension MouseEventHandler {
         modifiers: CGEventFlags,
         button: MouseButton = .left,
         windowIdUnderPointer: Int? = nil,
-        windowServerFramesAtMouseDown: [WindowToken: CGRect]? = nil
+        windowServerFramesAtMouseDown: [WindowToken: CGRect]? = nil,
+        strip: PressedStrip? = nil
     ) -> Bool {
         guard !isInputSuppressed else {
             handleInputSuppressionBegan()
@@ -80,7 +81,10 @@ extension MouseEventHandler {
         }
         guard controller != nil else { return false }
         controller?.noteUserAction()
-        if button == .left { state.leftPressLocation = location }
+        if button == .left {
+            state.leftPressLocation = location
+            state.leftPressWasDragged = false
+        }
         let blocked = shouldBlockOwnWindowInput(at: location, windowIdUnderPointer: windowIdUnderPointer)
         if MouseTrace.shared.isActive {
             let geometric = controller?.ownedWindowRegistry.containsGeometric(point: location) ?? false
@@ -104,7 +108,8 @@ extension MouseEventHandler {
             modifiers: modifiers,
             button: button,
             windowIdUnderPointer: windowIdUnderPointer,
-            windowServerFramesAtMouseDown: windowServerFramesAtMouseDown
+            windowServerFramesAtMouseDown: windowServerFramesAtMouseDown,
+            strip: strip
         )
     }
 
@@ -220,9 +225,6 @@ extension MouseEventHandler {
         queuedLeftPress: LeftMouseDownIntake? = nil,
         authoritative: Bool = false
     ) -> Bool {
-        if button == .left {
-            armFusionDoubleClick(at: location, modifiers: modifiers, clickCount: clickCount)
-        }
         if let latched = state.parkingEdgePressButton,
            latched == button || pressedMouseButtonsProvider() & latched.pressedMask == 0
         {
@@ -245,6 +247,10 @@ extension MouseEventHandler {
                 retireNativeTitleBarDragAtInputBoundary()
             }
         }
+        var strip = button == .left ? pressedStrip(at: location) : nil
+        if button == .left {
+            armFusionDoubleClick(at: location, modifiers: modifiers, clickCount: clickCount, in: &strip)
+        }
         if authoritative, button == .left, clickCount == 2,
            handleFusionDoubleClick(at: location, modifiers: modifiers)
         {
@@ -254,7 +260,8 @@ extension MouseEventHandler {
             at: location,
             modifiers: modifiers,
             button: button,
-            windowServerFramesAtMouseDown: queuedLeftPress?.windowServerFrames
+            windowServerFramesAtMouseDown: queuedLeftPress?.windowServerFrames,
+            strip: strip
         )
         if !blocked, let queuedLeftPress, state.awaitsNativeTitleBarDragTarget {
             state.nativeTitleBarDragPressTimestamp = queuedLeftPress.timestamp

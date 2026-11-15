@@ -73,8 +73,8 @@ extension MouseEventHandler {
         switch engine.stackPlace(of: window, frame: start, in: column, workspaceId: workspaceId) {
         case .top: return start.height + start.minY - observed.minY
         case .bottom: return start.height + observed.maxY - start.maxY
-        case .alone: return controller?.settings.niri.macOSFusion == true ? nil : observed.height
-        case .middle: return observed.height
+        case .alone,
+             .middle: return observed.height
         }
     }
 
@@ -147,9 +147,7 @@ extension MouseEventHandler {
         resizedFrom start: CGRect,
         to observed: CGRect
     ) -> FusionEdgeResizeSlide? {
-        guard let controller,
-              controller.settings.niri.macOSFusion,
-              let engine = controller.niriEngine,
+        guard let engine = controller?.niriEngine,
               let column = engine.findColumn(containing: window, in: workspaceId)
         else { return nil }
         let stack = column.windowNodes
@@ -206,9 +204,7 @@ extension MouseEventHandler {
         of window: NiriWindow,
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
-        guard let controller,
-              controller.settings.niri.macOSFusion,
-              let engine = controller.niriEngine,
+        guard let engine = controller?.niriEngine,
               let column = engine.findColumn(containing: window, in: workspaceId),
               let frame = window.renderedFrame ?? window.frame
         else { return false }
@@ -216,10 +212,10 @@ extension MouseEventHandler {
             return !edges.isDisjoint(with: [.top, .bottom])
         }
         switch engine.stackPlace(of: window, frame: frame, in: column, workspaceId: workspaceId) {
-        case .alone: return !edges.isDisjoint(with: [.top, .bottom])
         case .top: return edges.contains(.top)
         case .bottom: return edges.contains(.bottom)
-        case .middle: return false
+        case .alone,
+             .middle: return false
         }
     }
 }

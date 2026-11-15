@@ -23,7 +23,7 @@ class TabRailWindow: NSPanel {
     var onSelect: ((TabRailInfo, Int, WindowToken?) -> Void)?
     var ringOrderedAbove: (@MainActor (UInt32) -> UInt32?)?
     var onDrag: ((TabRailDrag) -> Void)?
-    var acceptsDrags: () -> Bool = { false }
+    var acceptsDrags: (TabRailInfo) -> Bool = { _ in false }
 
     init(
         owner: TabRailOwner, workspaceId: WorkspaceDescriptor.ID, motionPolicy: MotionPolicy,
@@ -63,7 +63,10 @@ class TabRailWindow: NSPanel {
         railView.onDrag = { [weak self] event, location in
             self?.forwardDrag(event, at: location)
         }
-        railView.acceptsDrags = { [weak self] in self?.acceptsDrags() ?? false }
+        railView.acceptsDrags = { [weak self] in
+            guard let self, let currentInfo else { return false }
+            return acceptsDrags(currentInfo)
+        }
         railView.onHoverChange = { [weak self] tab, itemRect in
             self?.updateHoverCard(tab: tab, itemRect: itemRect)
         }

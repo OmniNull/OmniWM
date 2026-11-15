@@ -15,24 +15,20 @@ extension MouseEventHandler {
         return entry.token
     }
 
-    func geometricFocusIntentCandidate(
-        at location: CGPoint,
-        workspaceId: WorkspaceDescriptor.ID
-    ) -> WindowToken? {
+    func geometricFocusIntentCandidate(at location: CGPoint, in strip: PressedStrip) -> WindowToken? {
         guard let controller else { return nil }
-        let layoutType = controller.workspaceManager.descriptor(for: workspaceId)
-            .map { controller.settings.workspaces.layoutType(for: $0.name) }
         let token: WindowToken?
-        if layoutType == .dwindle {
+        switch strip.layoutKind {
+        case .dwindle:
             token = controller.dwindleEngine?.hitTestFocusableWindow(
                 point: location,
-                in: workspaceId,
+                in: strip.workspaceId,
                 at: controller.animationClock.now()
             )
-        } else {
+        case .niri:
             token = controller.niriEngine?.hitTestFocusableWindow(
                 point: location,
-                in: workspaceId
+                in: strip.workspaceId
             )?.token
         }
         guard let token,
@@ -59,6 +55,12 @@ extension MouseEventHandler {
     func confirmNativeMouseDrag(at location: CGPoint, button: MouseButton) {
         guard button == .left else { return }
         state.nativeCrossDisplayMove?.wasDragged = true
+        if !state.leftPressWasDragged, let press = state.leftPressLocation,
+           abs(location.x - press.x) > FrameTolerance.frameWrite
+           || abs(location.y - press.y) > FrameTolerance.frameWrite
+        {
+            state.leftPressWasDragged = true
+        }
         if let start = state.nativeResizeStart, !start.wasDragged,
            abs(location.x - start.location.x) <= FrameTolerance.frameWrite,
            abs(location.y - start.location.y) <= FrameTolerance.frameWrite
@@ -88,9 +90,7 @@ extension MouseEventHandler {
     func recheckUnannotatedDragAfterSlide(in workspaceId: WorkspaceDescriptor.ID) {
         guard state.nativeTitleBarDrag == nil,
               let token = state.nativeTitleBarDragFallbackToken,
-              let controller,
-              controller.settings.niri.macOSFusion,
-              let pressed = controller.workspaceManager.entry(for: token),
+              let pressed = controller?.workspaceManager.entry(for: token),
               pressed.workspaceId == workspaceId
         else { return }
         _ = handleNativeTitleBarDragFrameChanged(for: pressed)
@@ -219,16 +219,16 @@ extension MouseEventHandler {
         } ?? true
         state.nativeResizeStart = nil
         drag.phase = .dragging
-        let fusionStartFrame = controller.settings.niri.macOSFusion
-            ? controller.axManager.lastAppliedFrame(for: drag.token.windowId)
+        let onLandscapeStrip = controller.isLandscapeNiriStrip(dragged.workspaceId)
+        drag.startedOnLandscapeNiriStrip = onLandscapeStrip
+        let stripStartFrame = onLandscapeStrip ? controller.axManager.lastAppliedFrame(for: drag.token.windowId) : nil
+        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? stripStartFrame
+        drag.pendingWriteStartFrame = hadUnsettledFrameWrite && onLandscapeStrip
+            ? controller.axManager.awaitedFrameWrite(for: drag.token.windowId) ?? stripStartFrame
             : nil
-        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? fusionStartFrame
-        drag.pendingWriteStartFrame = hadUnsettledFrameWrite && controller.settings.niri.macOSFusion
-            ? controller.axManager.awaitedFrameWrite(for: drag.token.windowId) ?? fusionStartFrame
-            : nil
-        if controller.settings.niri.macOSFusion {
+        if onLandscapeStrip {
             let entry = controller.workspaceManager.entry(for: drag.token)
-            drag.liveStartFrame = entry.flatMap(fastNativeWindowFrame) ?? fusionStartFrame ?? startFrame
+            drag.liveStartFrame = entry.flatMap(fastNativeWindowFrame) ?? stripStartFrame ?? startFrame
                 ?? entry.flatMap { entry in
                     controller.niriEngine?.findNode(for: drag.token, in: entry.workspaceId)?.frame
                 }
@@ -261,8 +261,7 @@ extension MouseEventHandler {
     }
 
     private func finishNiriSlideBeforeDrag(in workspaceId: WorkspaceDescriptor.ID, controller: WMController) {
-        guard controller.settings.niri.macOSFusion,
-              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
+        guard controller.isNiriStrip(workspaceId),
               let engine = controller.niriEngine,
               !engine.isLiveColumnMoveActive(in: workspaceId),
               !engine.isLiveStackDropPending(in: workspaceId),
@@ -296,7 +295,7 @@ extension MouseEventHandler {
     }
 
     func finishNativeTitleBarDragIfNeeded(button: MouseButton) {
-        guard button == .left, let drag = prepareNativeTitleBarDragForSettlement(button: button) else { return }
+        guard button == .left, var drag = prepareNativeTitleBarDragForSettlement(button: button) else { return }
         switch drag.phase {
         case .armed,
              .dragging:
@@ -307,6 +306,7 @@ extension MouseEventHandler {
              .settlingResize:
             return
         }
+        drag.pointerWasDragged = state.leftPressWasDragged
         if beginNativeResizeSettlingIfNeeded(drag) { return }
         completeNativeTitleBarRelease(drag)
     }
@@ -352,13 +352,12 @@ extension MouseEventHandler {
     private func beginNativeResizeSettlingIfNeeded(_ drag: MouseInputState.NativeTitleBarDrag) -> Bool {
         guard let controller,
               settlesNativeResizes,
-              controller.settings.niri.macOSFusion,
               drag.phase == .dragging,
               !drag.liveDrag,
               drag.receivedFrameChange,
               let entry = controller.workspaceManager.entry(for: drag.token),
               entry.mode == .tiling,
-              controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
+              controller.isLandscapeNiriStrip(entry.workspaceId),
               let start = drag.adoptionStartFrame ?? drag.pendingWriteStartFrame ?? drag.liveStartFrame,
               let observed = terminalNativeWindowFrame(for: entry),
               abs(observed.width - start.width) > FrameTolerance.screenMatch

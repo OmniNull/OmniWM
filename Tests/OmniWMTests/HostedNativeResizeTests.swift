@@ -39,9 +39,34 @@ final class HostedNativeResizeTests: XCTestCase {
         }
     }
 
+    func testOnALandscapeStripANativeLiveResizeIsAdoptedWithKeepNativeEdgeResizesOff() throws {
+        for centred in [false, true] {
+            let fixture = try fixture(.niri)
+            defer { fixture.close() }
+            fixture.controller.settings.gestures.adoptNativeResize = false
+            let token = fixture.tokens[0]
+            let window = fixture.windows[0]
+            let start = try XCTUnwrap(fixture.frames()[token])
+            XCTAssertTrue(fixture.controller.shellAppWindowManager.setFrame(start, for: token))
+            let callback = Notification(name: NSWindow.didEndLiveResizeNotification, object: window)
+            fixture.controller.shellAppWindowManager.windowWillStartLiveResize(callback)
+            let growth = initialContentSize.width
+            let observed = centred
+                ? start.insetBy(dx: -growth / 2, dy: 0)
+                : CGRect(x: start.minX, y: start.minY, width: start.width + growth, height: start.height)
+
+            window.setFrame(observed, display: false)
+            fixture.controller.shellAppWindowManager.windowDidResize(callback)
+            fixture.controller.shellAppWindowManager.windowDidEndLiveResize(callback)
+
+            let adopted = try XCTUnwrap(fixture.frames()[token])
+            XCTAssertEqual(adopted.width, observed.width, accuracy: FrameTolerance.frameWrite, "\(centred)")
+        }
+    }
+
     func testDisabledNativeResizeKeepsTheExistingLayoutAndRequestsCorrection() throws {
         for layout in [LayoutType.niri, .dwindle] {
-            let fixture = try fixture(layout)
+            let fixture = try fixture(layout, portrait: layout == .niri)
             defer { fixture.close() }
             fixture.controller.settings.gestures.adoptNativeResize = false
             let token = fixture.tokens[0]
@@ -106,7 +131,7 @@ final class HostedNativeResizeTests: XCTestCase {
         }
     }
 
-    private func fixture(_ layout: LayoutType) throws -> Fixture {
+    private func fixture(_ layout: LayoutType, portrait: Bool = false) throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "HostedNativeResize")
         controller.hasStartedServices = true
         controller.shellAppWindowManager.activateApplication = {}
@@ -116,6 +141,16 @@ final class HostedNativeResizeTests: XCTestCase {
             id: .init(displayId: display), displayId: display, frame: displayFrame, visibleFrame: displayFrame,
             hasNotch: false, name: "Hosted Native Resize"
         )
+        if portrait {
+            controller.settings.monitors.updateOrientationSettings(
+                MonitorOrientationSettings(
+                    monitorName: monitor.name,
+                    monitorDisplayId: monitor.displayId,
+                    orientation: .vertical
+                ),
+                for: monitor
+            )
+        }
         controller.settings.workspaces.configurations = [WorkspaceConfiguration(
             name: "1", monitorAssignment: .specificDisplay(OutputId(from: monitor)), layoutType: layout
         )]

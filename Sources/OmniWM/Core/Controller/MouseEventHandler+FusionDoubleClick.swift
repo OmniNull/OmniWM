@@ -14,12 +14,10 @@ extension MouseEventHandler {
     nonisolated static func asksAboutFusionDoubleClick(
         clickCount: Int64,
         flags: CGEventFlags,
-        macOSFusion: Bool,
         armedAt: CGPoint?,
         location: CGPoint
     ) -> Bool {
-        guard clickCount == 2, macOSFusion, takesFusionDoubleClick(flags), let armedAt
-        else { return false }
+        guard clickCount == 2, takesFusionDoubleClick(flags), let armedAt else { return false }
         return hypot(location.x - armedAt.x, location.y - armedAt.y) <= fusionDoubleClickArmRadius
     }
 
@@ -51,10 +49,20 @@ extension MouseEventHandler {
         return nil
     }
 
-    func armFusionDoubleClick(at location: CGPoint, modifiers: CGEventFlags, clickCount: Int64) {
-        let armed = clickCount == 1
-            && Self.takesFusionDoubleClick(modifiers)
-            && fusionDoubleClickCandidate(at: location) != nil
+    func armFusionDoubleClick(
+        at location: CGPoint,
+        modifiers: CGEventFlags,
+        clickCount: Int64,
+        in strip: inout PressedStrip?
+    ) {
+        var armed = false
+        if clickCount == 1, Self.takesFusionDoubleClick(modifiers), let pressed = strip {
+            let candidate = lookUpFusionDoubleClickCandidate(at: location, in: pressed)
+            armed = candidate != nil
+            if pressed.hasEdgePeeks {
+                strip?.doubleClick = .done(candidate)
+            }
+        }
         let armedAt: CGPoint? = armed ? location : nil
         guard armedAt != inputTapThread.filterSnapshot.fusionDoubleClickArmedAt else { return }
         inputTapThread.updateFilterSnapshot { $0.fusionDoubleClickArmedAt = armedAt }
@@ -75,7 +83,6 @@ extension MouseEventHandler {
 
     struct FusionDoubleClickCandidate {
         let hit: FusionDoubleClickHit
-        let entry: WindowState
         let engine: NiriLayoutEngine
         let workspaceId: WorkspaceDescriptor.ID
     }
@@ -89,36 +96,43 @@ extension MouseEventHandler {
         let projectedWindowCount: Int
     }
 
-    func fusionDoubleClickCandidate(at location: CGPoint) -> FusionDoubleClickCandidate? {
-        guard let controller,
-              controller.settings.niri.macOSFusion,
+    func fusionDoubleClickCandidate(at location: CGPoint, in strip: PressedStrip) -> FusionDoubleClickCandidate? {
+        if case let .done(candidate) = strip.doubleClick { return candidate }
+        return lookUpFusionDoubleClickCandidate(at: location, in: strip)
+    }
+
+    private func lookUpFusionDoubleClickCandidate(
+        at location: CGPoint,
+        in strip: PressedStrip
+    ) -> FusionDoubleClickCandidate? {
+        guard strip.layoutKind == .niri,
+              let controller,
               canHandleManagedMouseInteraction(controller: controller),
               let engine = controller.niriEngine,
-              let workspaceId = workspaceIdForPointer(at: location),
-              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri,
-              let monitor = controller.workspaceManager.monitor(for: workspaceId),
-              resolvedNiriOrientation(engine: engine, workspaceId: workspaceId, monitor: monitor) == .horizontal,
+              let monitor = controller.workspaceManager.monitor(for: strip.workspaceId),
+              resolvedNiriOrientation(engine: engine, workspaceId: strip.workspaceId, monitor: monitor) == .horizontal,
               let hit = engine.fusionDoubleClickHit(
                   at: location,
-                  in: workspaceId,
-                  gap: controller.niriInteractionGeometry(for: monitor).innerGap,
+                  in: strip.workspaceId,
+                  gap: controller.innerGap(for: monitor),
                   bounds: monitor.visibleFrame
               ),
-              let entry = controller.workspaceManager.entry(for: hit.window.token),
-              entry.mode == .tiling
+              controller.workspaceManager.entry(for: hit.window.token)?.mode == .tiling
         else { return nil }
-        return FusionDoubleClickCandidate(hit: hit, entry: entry, engine: engine, workspaceId: workspaceId)
+        return FusionDoubleClickCandidate(hit: hit, engine: engine, workspaceId: strip.workspaceId)
     }
 
     private func fusionDoubleClickTarget(at location: CGPoint) -> FusionDoubleClickTarget? {
         guard !state.isMoving, !state.isResizing,
               tapInputs.capturedInteractionButton == nil,
               liveDragSession?.tabPull == nil,
-              let candidate = fusionDoubleClickCandidate(at: location),
+              let strip = pressedStrip(at: location),
+              let candidate = lookUpFusionDoubleClickCandidate(at: location, in: strip),
               let handle = controller?.workspaceManager.handle(for: candidate.hit.window.token),
               let column = candidate.engine.column(of: candidate.hit.window)
         else { return nil }
-        let titleBarHit = candidate.hit.zone == .titleBar ? titleBarHitProvider(candidate.entry.pid, location) : nil
+        let pid = candidate.hit.window.token.pid
+        let titleBarHit = candidate.hit.zone == .titleBar ? titleBarHitProvider(pid, location) : nil
         if candidate.hit.zone == .titleBar, !TitleBarHitTest.isTitleBar(titleBarHit) {
             return nil
         }

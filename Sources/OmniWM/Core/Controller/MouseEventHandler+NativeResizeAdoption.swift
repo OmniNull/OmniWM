@@ -46,16 +46,12 @@ extension MouseEventHandler {
             finishNativeDwindleResize(&drag)
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
-            let fusionResize = fusionResizeApplies(liveColumnContext(for: entry.workspaceId)?.orientation)
-            guard controller.settings.gestures.adoptNativeResize || fusionResize,
+            let landscape = controller.isLandscapeNiriStrip(entry.workspaceId)
+            guard landscape ? drag.pointerWasDragged : controller.settings.gestures.adoptNativeResize,
                   let start = nativeResizeStartFrame(drag, entry: entry),
                   let observedFrame
             else { return false }
-            let edges = Self.nativeResizeEdges(
-                from: start,
-                to: observedFrame,
-                allowsCentred: fusionResize
-            )
+            let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: landscape)
             guard !edges.isEmpty,
                   adoptNiriNativeResize(entry, edges: edges, from: start, to: observedFrame)
             else { return false }
@@ -69,10 +65,12 @@ extension MouseEventHandler {
 
     @discardableResult
     func adoptHostedNativeResize(_ entry: WindowState, from start: CGRect, to observed: CGRect) -> Bool {
-        guard let controller, controller.settings.gestures.adoptNativeResize,
+        guard let controller,
               entry.target.hostedMetadata != nil, entry.mode == .tiling, entry.layoutReason == .standard,
               entry.hiddenState == nil else { return false }
-        let edges = Self.nativeResizeEdges(from: start, to: observed)
+        let landscape = controller.isLandscapeNiriStrip(entry.workspaceId)
+        guard controller.settings.gestures.adoptNativeResize || landscape else { return false }
+        let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: landscape)
         guard !edges.isEmpty else { return false }
         if controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri {
             return adoptNiriNativeResize(entry, edges: edges, from: start, to: observed)
@@ -144,10 +142,6 @@ extension MouseEventHandler {
         return CGPoint(x: start.minX + dx, y: start.minY + dy)
     }
 
-    private func fusionResizeApplies(_ orientation: Monitor.Orientation?) -> Bool {
-        controller?.settings.niri.macOSFusion == true && orientation == .horizontal
-    }
-
     private func adoptNiriNativeResize(
         _ entry: WindowState,
         edges: ResizeEdge,
@@ -172,7 +166,7 @@ extension MouseEventHandler {
         guard !primaryEdges.isEmpty || secondarySpan != nil else { return false }
         let primary = centredPrimaryResize(primaryEdges, from: start, to: observed)
 
-        let slide = fusionResizeApplies(context.orientation)
+        let slide = horizontal
             ? fusionEdgeResizeSlide(around: window, in: workspaceId, resizedFrom: start, to: observed)
             : nil
         let changeStart = controller.niriLayoutHandler.layoutChangeStart(in: workspaceId)
@@ -201,7 +195,7 @@ extension MouseEventHandler {
         }
         guard changed else { return false }
         if entry.axRef != nil {
-            if fusionResizeApplies(context.orientation) {
+            if horizontal {
                 controller.axManager.confirmFrameWrite(for: entry.windowId, frame: observed)
             } else {
                 controller.axManager.forceApplyNextFrame(for: entry.windowId)
@@ -242,7 +236,7 @@ extension MouseEventHandler {
         let applied = horizontal ? window.height : window.windowWidth
         guard case let .fixed(value) = applied else { return true }
         if abs(value - renderedSpan) > FrameTolerance.frameWrite,
-           !fusionResizeApplies(context.orientation)
+           !horizontal
            || neighboursGiveWay(to: window, from: frames.start, to: frames.observed, context: context)
         {
             return true
@@ -284,7 +278,7 @@ extension MouseEventHandler {
             engine.clearInteractiveResize()
             return false
         }
-        if fusionResizeApplies(context.orientation) {
+        if context.orientation == .horizontal {
             engine.clearInteractiveResize()
         } else {
             engine.interactiveResizeEnd(

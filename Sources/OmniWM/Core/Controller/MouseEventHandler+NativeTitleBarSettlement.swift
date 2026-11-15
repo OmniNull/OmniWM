@@ -98,6 +98,8 @@ extension MouseEventHandler {
         let released = state.nativeTitleBarDragFallbackReleased
         let hasResizeStart = state.nativeResizeStart?.token == entry.token
             && state.nativeResizeStart?.wasDragged == true
+        let landscape = controller.isLandscapeNiriStrip(entry.workspaceId)
+        let keepsBaseline = hasResizeStart || landscape
         if !released || state.moveTap != nil,
            state.nativeResizeStart?.token == entry.token,
            state.nativeResizeStart?.wasDragged == false || state.moveTap != nil
@@ -113,7 +115,7 @@ extension MouseEventHandler {
         if released {
             if settleNativeCrossDisplayMoveIfNeeded(entry, observedFrame: observedFrame) { return true }
             if let pendingFrame = controller.axManager.pendingFrameWrite(for: entry.windowId),
-               !hasResizeStart || !controller.settings.gestures.adoptNativeResize
+               !keepsBaseline || !(controller.settings.gestures.adoptNativeResize || landscape)
                || controller.axManager.hasInFlightFrameWrite(for: entry.token)
             {
                 awaitNativeTitleBarDragFrameWrite(
@@ -126,7 +128,7 @@ extension MouseEventHandler {
         }
         state.nativeTitleBarDrag = drag
         beginNativeTitleBarDragIfNeeded(button: .left)
-        if !hasResizeStart {
+        if !keepsBaseline {
             state.nativeTitleBarDrag?.adoptionStartFrame = nil
         }
         if released {
@@ -190,8 +192,7 @@ extension MouseEventHandler {
     ) -> Bool {
         guard let controller,
               settlesNativeResizes,
-              controller.settings.niri.macOSFusion,
-              controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
+              controller.isLandscapeNiriStrip(entry.workspaceId),
               let observedFrame,
               let start = drag.adoptionStartFrame ?? drag.pendingWriteStartFrame ?? drag.liveStartFrame,
               abs(observedFrame.width - start.width) > FrameTolerance.screenMatch

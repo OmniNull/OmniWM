@@ -24,7 +24,6 @@ extension WMController {
         setGapSize(settings.gaps.size, publishChange: false)
 
         applyPersistedLayoutSettings(settings)
-        mouseEventHandler.syncMacOSFusionTapFilter()
         setTabRailAppIcons(settings.tabRailAppIcons, persist: false)
 
         updateWorkspaceConfig()
@@ -172,8 +171,6 @@ extension WMController {
 
     func applyMacOSFusionSettings() {
         updateNiriConfig(macOSFusion: macOSFusionConfiguration)
-        mouseEventHandler.syncTapFilterSnapshot()
-        pointerEdgeBarrier.setTracksLiveDrags(settings.niri.macOSFusion)
         updateHotkeyBindings(settings.hotkeyBindings)
     }
 

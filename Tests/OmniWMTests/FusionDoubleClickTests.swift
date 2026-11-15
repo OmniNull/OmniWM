@@ -175,19 +175,13 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertNil(zone(250))
     }
 
-    func testTheTapAsksAboutPlainDoubleClicksOnlyWithMacOSFusionOn() {
+    func testTheTapAsksAboutPlainDoubleClicksArmedNearby() {
         let option = CGEventFlags.maskAlternate
         let point = CGPoint(x: 400, y: 300)
-        func asks(
-            _ clickCount: Int64,
-            _ flags: CGEventFlags = [],
-            macOSFusion: Bool = true,
-            armedAt: CGPoint? = point
-        ) -> Bool {
+        func asks(_ clickCount: Int64, _ flags: CGEventFlags = [], armedAt: CGPoint? = point) -> Bool {
             MouseEventHandler.asksAboutFusionDoubleClick(
                 clickCount: clickCount,
                 flags: flags,
-                macOSFusion: macOSFusion,
                 armedAt: armedAt,
                 location: point
             )
@@ -203,7 +197,6 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(asks(2, [.maskShift, .maskCommand]))
         XCTAssertFalse(asks(2, [.maskShift, option]))
         XCTAssertFalse(asks(2, .maskControl))
-        XCTAssertFalse(asks(2, macOSFusion: false))
         XCTAssertFalse(asks(2, armedAt: nil))
         XCTAssertFalse(asks(2, armedAt: CGPoint(x: 420, y: 300)))
         XCTAssertTrue(asks(2, armedAt: CGPoint(x: 404, y: 303)))
@@ -1107,16 +1100,34 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertEqual(column.width, width)
     }
 
-    func testDoubleClicksAreIgnoredWithTheSettingOffAndInDwindle() throws {
+    func testDoubleClicksAreIgnoredOnAPortraitStripAndInDwindle() throws {
         let fixture = try makeFixture(pid: 941_011)
         let column = try fixture.column(fixture.tokens[1])
         let width = column.width
+        let titleBar = try fixture.titleBar(fixture.tokens[1])
+        let rightEdge = try fixture.rightEdge(fixture.tokens[1])
 
-        fixture.controller.settings.niri.macOSFusion = false
-        XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(fixture.tokens[1])))
-        XCTAssertFalse(fixture.doubleClick(at: try fixture.rightEdge(fixture.tokens[1])))
+        fixture.controller.settings.monitors.updateOrientationSettings(
+            MonitorOrientationSettings(
+                monitorName: fixture.monitor.name,
+                monitorDisplayId: fixture.monitor.displayId,
+                orientation: .vertical
+            ),
+            for: fixture.monitor
+        )
+        XCTAssertEqual(fixture.handler.liveColumnContext(for: fixture.workspaceId)?.orientation, .vertical)
+        XCTAssertFalse(fixture.doubleClick(at: titleBar))
+        XCTAssertFalse(fixture.doubleClick(at: rightEdge))
+        XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionDoubleClickArmedAt)
 
-        fixture.controller.settings.niri.macOSFusion = true
+        fixture.controller.settings.monitors.updateOrientationSettings(
+            MonitorOrientationSettings(
+                monitorName: fixture.monitor.name,
+                monitorDisplayId: fixture.monitor.displayId,
+                orientation: .horizontal
+            ),
+            for: fixture.monitor
+        )
         fixture.controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(
                 name: "1",

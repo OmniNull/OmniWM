@@ -5,12 +5,37 @@ import AppKit
 import Foundation
 
 extension MouseEventHandler {
+    enum FusionDoubleClickLookup {
+        case pending
+        case done(FusionDoubleClickCandidate?)
+    }
+
+    struct PressedStrip {
+        let workspaceId: WorkspaceDescriptor.ID
+        let layoutKind: ActiveLayoutKind
+        let hasEdgePeeks: Bool
+        var doubleClick = FusionDoubleClickLookup.pending
+    }
+
+    func pressedStrip(at location: CGPoint) -> PressedStrip? {
+        guard let controller,
+              let workspaceId = workspaceIdForPointer(at: location) ?? controller.activeWorkspace()?.id
+        else { return nil }
+        let layoutKind = controller.workspaceManager.activeLayoutKind(for: workspaceId)
+        return PressedStrip(
+            workspaceId: workspaceId,
+            layoutKind: layoutKind,
+            hasEdgePeeks: layoutKind == .niri && controller.niriEngine?.edgePeeksPossible == true
+        )
+    }
+
     func handleMouseDownFromTap(
         at location: CGPoint,
         modifiers: CGEventFlags,
         button: MouseButton,
         windowIdUnderPointer: Int?,
-        windowServerFramesAtMouseDown: [WindowToken: CGRect]?
+        windowServerFramesAtMouseDown: [WindowToken: CGRect]?,
+        strip: PressedStrip? = nil
     ) -> Bool {
         guard let controller else { return false }
         guard canHandleManagedMouseInteraction(controller: controller) else { return false }
@@ -20,37 +45,35 @@ extension MouseEventHandler {
         }
         guard !state.isMoving, !state.isResizing else { return false }
 
-        guard let wsId = workspaceIdForPointer(at: location) ?? controller.activeWorkspace()?.id else {
-            return false
-        }
+        guard let strip = strip ?? pressedStrip(at: location) else { return false }
+        let wsId = strip.workspaceId
+        let onNiriStrip = strip.layoutKind == .niri
 
+        let startsModifierMove = button == .left
+            && Self.mouseMoveModifiersMatch(
+                modifiers,
+                required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
+            )
+            && !(onNiriStrip && controller.isOnLandscapeDisplay(wsId))
         if button == .left,
-           modifiers.isDisjoint(with: Self.relevantModifierFlags) || macOSFusionDrags(in: wsId)
+           modifiers.isDisjoint(with: Self.relevantModifierFlags) || onNiriStrip && !startsModifierMove
         {
-            holdEdgeResizeAtThePeek(at: location, modifiers: modifiers)
+            holdEdgeResizeAtThePeek(at: location, modifiers: modifiers, in: strip)
             recordPointerFocusIntent(
                 at: location,
-                workspaceId: wsId,
+                strip: strip,
                 windowIdUnderPointer: windowIdUnderPointer,
                 windowServerFramesAtMouseDown: windowServerFramesAtMouseDown
             )
         }
 
-        let layoutType = controller.workspaceManager.descriptor(for: wsId)
-            .map { controller.settings.workspaces.layoutType(for: $0.name) }
-        if layoutType == .dwindle {
+        if !onNiriStrip {
             return handleDwindleMouseDown(at: location, modifiers: modifiers, button: button, wsId: wsId)
         }
 
         guard let engine = controller.niriEngine else { return false }
 
-        if button == .left,
-           !controller.settings.niri.macOSFusion,
-           Self.mouseMoveModifiersMatch(
-               modifiers,
-               required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
-           )
-        {
+        if startsModifierMove {
             beginNiriMouseMove(at: location, engine: engine, workspaceId: wsId, button: button)
             return false
         }
@@ -63,12 +86,6 @@ extension MouseEventHandler {
         else { return false }
 
         return beginNiriMouseResize(at: location, engine: engine, workspaceId: wsId, button: button)
-    }
-
-    private func macOSFusionDrags(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
-        guard let controller else { return false }
-        return controller.settings.niri.macOSFusion
-            && controller.workspaceManager.activeLayoutKind(for: workspaceId) == .niri
     }
 
     private func beginNiriMouseMove(
@@ -98,7 +115,7 @@ extension MouseEventHandler {
 
     private func recordPointerFocusIntent(
         at location: CGPoint,
-        workspaceId wsId: WorkspaceDescriptor.ID,
+        strip: PressedStrip,
         windowIdUnderPointer: Int?,
         windowServerFramesAtMouseDown: [WindowToken: CGRect]?
     ) {
@@ -107,7 +124,7 @@ extension MouseEventHandler {
         state.nativeTitleBarDragFallbackReleased = false
         let exactToken = nativeTitleBarDragCandidate(windowIdUnderPointer: windowIdUnderPointer)
         let focusIntentToken = exactToken ?? (windowIdUnderPointer == nil
-            ? geometricFocusIntentCandidate(at: location, workspaceId: wsId)
+            ? geometricFocusIntentCandidate(at: location, in: strip)
             : nil)
         captureNativeCrossDisplayMove(for: focusIntentToken)
         captureNativeResizeStart(

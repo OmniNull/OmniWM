@@ -10,7 +10,6 @@ struct TapFilterSnapshot: Sendable {
     var claimedOtherButtonMask: UInt32 = 0
     var moveModifier: CGEventFlags?
     var adoptNativeResize = false
-    var macOSFusion = false
     var resizeModifier: CGEventFlags = []
     var scrollModifier: CGEventFlags = []
     var minGestureFingers: Int = 3
@@ -381,7 +380,6 @@ extension InputTapThread {
         if MouseEventHandler.asksAboutFusionDoubleClick(
             clickCount: clickCount,
             flags: flags,
-            macOSFusion: snap.macOSFusion,
             armedAt: snap.fusionDoubleClickArmedAt,
             location: location
         ) {

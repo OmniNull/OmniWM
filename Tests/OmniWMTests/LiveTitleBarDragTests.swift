@@ -165,13 +165,17 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         }
     }
 
-    func testSettingOffKeepsSnappingTitleBarDragsBack() throws {
-        let fixture = try makeFixture(pid: 938_001)
-        fixture.controller.settings.niri.macOSFusion = false
+    func testPortraitStripTitleBarDragsStartNoLiveDragAndStillSnapBack() throws {
+        let fixture = try makeFixture(pid: 938_001, portrait: true)
+        XCTAssertEqual(fixture.handler.liveColumnContext(for: fixture.workspaceId)?.orientation, .vertical)
         let order = fixture.order()
 
         try fixture.startLiveDrag(fixture.tokens[1])
         fixture.drag(to: try fixture.farHalf(of: fixture.tokens[2]))
+
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertNil(fixture.engine.liveColumnMove)
+
         fixture.handler.dispatchMouseUp(at: try fixture.centre(of: fixture.tokens[2]))
 
         XCTAssertNil(fixture.engine.liveColumnMove)
@@ -179,138 +183,41 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
     }
 
-    func testTurningMacOSFusionOffHandsALiveDragOverToTheNativeMoveFromSettingsOrAReload() throws {
-        for reloads in [false, true] {
-            let fixture = try makeFixture(pid: reloads ? 938_401 : 938_404)
-            let settings = fixture.controller.settings
-            settings.quakeTerminal.enabled = false
-            let order = fixture.order()
-            try fixture.startLiveDrag(fixture.tokens[1])
-            fixture.drag(to: try fixture.farHalf(of: fixture.tokens[2]))
-            XCTAssertNotEqual(fixture.landingOrder(), order)
-
-            settings.niri.macOSFusion = false
-            if reloads {
-                fixture.controller.applyPersistedSettings(settings, startServices: false)
-            } else {
-                fixture.controller.applyMacOSFusionSettings()
-            }
-
-            XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-            XCTAssertNil(fixture.engine.liveColumnMove)
-            XCTAssertEqual(fixture.order(), order)
-            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveDragHandedOver, true)
-
-            fixture.drag(to: try fixture.farHalf(of: fixture.tokens[2]))
-            XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-            fixture.handler.dispatchMouseUp(at: try fixture.centre(of: fixture.tokens[2]))
-
-            XCTAssertNil(fixture.engine.liveColumnMove)
-            XCTAssertEqual(fixture.order(), order)
-            XCTAssertEqual(fixture.phase, .awaitingCorrection)
-        }
-    }
-
-    func testTurningMacOSFusionOffPutsAPulledTabBack() throws {
-        let fixture = try makeFixture(pid: 938_402, windowCount: 4, tabbedRuns: [1 ... 2])
-        let pulled = fixture.tokens[2]
-        let tabbed = try column(holding: pulled, in: fixture)
-        let tabs = tabbed.windowNodes.map(\.token)
-        let rail = try railInfo(holding: pulled, in: fixture)
-        let start = try fixture.frame(pulled)
-        fixture.handler.nativeWindowFrameProvider = { _ in start }
-        tabPull(pulled, at: CGPoint(x: start.minX - 10, y: start.midY), rail: rail, in: fixture)
-        fixture.drag(to: try fixture.farHalf(of: fixture.tokens[3]))
-        XCTAssertEqual(tabbed.windowNodes.count, 1)
-
-        fixture.controller.settings.niri.macOSFusion = false
-        fixture.controller.applyMacOSFusionSettings()
-
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        XCTAssertNil(fixture.handler.liveDragSession?.tabPull)
-        XCTAssertNil(fixture.engine.liveColumnMove)
-        XCTAssertEqual(tabbed.windowNodes.map(\.token), tabs)
-        XCTAssertTrue(tabbed.isTabbed)
-
-        let away = try fixture.centre(of: fixture.tokens[3])
-        fixture.drag(to: away)
-        fixture.handler.dispatchMouseUp(at: away)
-
-        XCTAssertNil(fixture.engine.liveColumnMove)
-        XCTAssertEqual(tabbed.windowNodes.map(\.token), tabs)
-        XCTAssertEqual(tabbed.windowNodes[tabbed.activeTileIdx].token, pulled)
-    }
-
-    func testTurningMacOSFusionOffWithoutALiveDragLeavesTheDragAlone() throws {
-        let fixture = try makeFixture(pid: 938_403)
-        let order = fixture.order()
-        try fixture.beginDrag(fixture.tokens[1])
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-
-        fixture.controller.settings.niri.macOSFusion = false
-        fixture.controller.applyMacOSFusionSettings()
-
-        XCTAssertEqual(fixture.phase, .dragging)
-        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveDragHandedOver, false)
-        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveDragDeclined, false)
-        XCTAssertEqual(fixture.order(), order)
-    }
-
-    func testWithMacOSFusionOffAnOrdinaryDragKeepsNoLivePointerState() throws {
-        for fusion in [false, true] {
-            let fixture = try makeFixture(pid: fusion ? 938_405 : 938_404)
-            fixture.controller.settings.niri.macOSFusion = fusion
-            fixture.controller.applyMacOSFusionSettings()
+    func testOnlyATitleBarDragOnALandscapeStripKeepsLivePointerState() throws {
+        let strips: [(pid: pid_t, layout: LayoutType, portrait: Bool)] = [
+            (938_404, .niri, false), (938_405, .niri, true), (938_406, .dwindle, false)
+        ]
+        for strip in strips {
+            let fixture = try makeFixture(pid: strip.pid, layout: strip.layout, portrait: strip.portrait)
+            let landscapeNiri = strip.layout == .niri && !strip.portrait
             try fixture.beginDrag(fixture.tokens[1])
-            XCTAssertNotNil(fixture.handler.state.nativeTitleBarDrag, "\(fusion)")
+            XCTAssertEqual(
+                fixture.handler.state.nativeTitleBarDrag?.startedOnLandscapeNiriStrip, landscapeNiri, "\(strip)"
+            )
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveStartFrame != nil, landscapeNiri, "\(strip)")
 
-            for step in 1 ... 3 {
-                _ = fixture.handler.trackLiveColumnDrag(at: CGPoint(x: 400 + CGFloat(step) * 10, y: 300), button: .left)
-            }
+            let pointer = CGPoint(x: 430, y: 300)
+            _ = fixture.handler.trackLiveColumnDrag(at: pointer, button: .left)
 
-            XCTAssertEqual(fixture.handler.livePointer.location != nil, fusion, "\(fusion)")
-            XCTAssertEqual(fixture.handler.livePointer.samples.isEmpty, !fusion, "\(fusion)")
+            XCTAssertEqual(fixture.handler.livePointer.location, landscapeNiri ? pointer : nil, "\(strip)")
+            XCTAssertEqual(fixture.handler.livePointer.samples.isEmpty, !landscapeNiri, "\(strip)")
         }
     }
 
-    func testReloadedSettingsLeaveTheTapFilterAloneWhileMacOSFusionIsOff() throws {
-        let fixture = try makeFixture(pid: 938_070)
-        let controller = fixture.controller
-        let tap = fixture.handler.inputTapThread
-        controller.settings.niri.macOSFusion = false
-        fixture.handler.syncTapFilterSnapshot()
-        let before = tap.filterSnapshot.moveModifier
-        controller.settings.gestures.mouseMoveModifierKey = controller.settings.gestures.mouseMoveModifierKey == .option
-            ? .command
-            : .option
+    func testAHandedOverLiveDragKeepsItsLivePointerState() throws {
+        let fixture = try makeFixture(pid: 938_407)
+        try fixture.startLiveDrag(fixture.tokens[1])
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
 
-        fixture.handler.syncMacOSFusionTapFilter()
-        XCTAssertEqual(tap.filterSnapshot.moveModifier, before)
-        XCTAssertFalse(tap.filterSnapshot.macOSFusion)
+        fixture.handler.handOverLiveColumnDrag()
+        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveDragHandedOver, true)
 
-        controller.settings.niri.macOSFusion = true
-        fixture.handler.syncMacOSFusionTapFilter()
-        XCTAssertTrue(tap.filterSnapshot.macOSFusion)
-        controller.settings.niri.macOSFusion = false
-        fixture.handler.syncMacOSFusionTapFilter()
-        XCTAssertFalse(tap.filterSnapshot.macOSFusion)
-    }
+        let pointer = CGPoint(x: fixture.monitor.frame.maxX + 40, y: 300)
+        _ = fixture.handler.trackLiveColumnDrag(at: pointer, button: .left)
 
-    func testMacOSFusionSettingChangesReachTheTapAtOnce() throws {
-        let fixture = try makeFixture(pid: 938_092)
-        let settings = fixture.controller.settings
-        let snapshot = { fixture.handler.inputTapThread.filterSnapshot.macOSFusion }
-        fixture.controller.applyMacOSFusionSettings()
-        XCTAssertTrue(snapshot())
-
-        settings.niri.macOSFusion = false
-        fixture.controller.applyMacOSFusionSettings()
-        XCTAssertFalse(snapshot())
-
-        settings.niri.macOSFusion = true
-        settings.quakeTerminal.enabled = false
-        fixture.controller.applyPersistedSettings(settings, startServices: false)
-        XCTAssertTrue(snapshot())
+        XCTAssertEqual(fixture.handler.livePointer.location, pointer)
+        XCTAssertFalse(fixture.handler.livePointer.samples.isEmpty)
     }
 
     func testStripPolicySettingsReachTheEngine() throws {
@@ -946,22 +853,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         fixture.handler.pressedMouseButtonsProvider = { 0 }
 
         XCTAssertFalse(fixture.handler.holdsSelectionScroll(in: fixture.workspaceId))
-    }
-
-    func testWithTheSettingOffAClickStillScrollsAtOnce() throws {
-        let fixture = try makeFixture(pid: 938_015, windowCount: 5)
-        fixture.controller.settings.niri.macOSFusion = false
-        let target = fixture.tokens[3]
-        try scroll(fixture, so: target, isHalfOffTheRightEdge: ())
-        let before = try fixture.settledFrame(target)
-
-        _ = try fixture.press(target)
-        fixture.controller.axEventHandler.handleManagedAppActivation(
-            entry: try fixture.entry(target), isWorkspaceActive: true, appFullscreen: false
-        )
-
-        XCTAssertNotEqual(try fixture.settledFrame(target).minX, before.minX)
-        XCTAssertNil(fixture.handler.state.deferredClickScroll)
     }
 
     func testAWindowFocusedWhileOmniWMsOwnScrollRunsIsScrolledIntoViewOnlyWithMacOSFusion() async throws {
@@ -2551,7 +2442,8 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         animated: Bool = false,
         hoverDelay: TimeInterval = 0,
         layout: LayoutType = .niri,
-        displayWidth: CGFloat? = nil
+        displayWidth: CGFloat? = nil,
+        portrait: Bool = false
     ) throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "LiveTitleBarDragTests")
         addTeardownBlock { @MainActor [controller] in
@@ -2573,6 +2465,16 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             name: "Live Title Bar Drag"
         )
         controller.settings.niri.macOSFusion = true
+        if portrait {
+            controller.settings.monitors.updateOrientationSettings(
+                MonitorOrientationSettings(
+                    monitorName: monitor.name,
+                    monitorDisplayId: monitor.displayId,
+                    orientation: .vertical
+                ),
+                for: monitor
+            )
+        }
         controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(
                 name: "1",
@@ -2939,10 +2841,14 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
     }
 
-    func testAnOptionDragOnANiriWindowStartsOmniWMsOwnMoveOnlyWithMacOSFusionOff() throws {
-        for macOSFusion in [true, false] {
-            let fixture = try makeFixture(pid: 938_073)
-            fixture.controller.settings.niri.macOSFusion = macOSFusion
+    func testAnOptionDragStartsOmniWMsOwnMoveOnAPortraitStripAndNotOnALandscapeOne() throws {
+        let presses: [(pid: pid_t, portrait: Bool, modifier: CGEventFlags, moves: Bool)] = [
+            (938_073, false, .maskAlternate, false),
+            (938_074, true, .maskAlternate, true),
+            (938_075, true, .maskCommand, false)
+        ]
+        for press in presses {
+            let fixture = try makeFixture(pid: press.pid, portrait: press.portrait)
             fixture.controller.settings.gestures.mouseMoveModifierKey = .option
             let token = fixture.tokens[1]
             let start = try fixture.frame(token)
@@ -2950,13 +2856,14 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
 
             XCTAssertFalse(fixture.handler.dispatchMouseDown(
                 at: CGPoint(x: start.midX, y: start.midY),
-                modifiers: .maskAlternate,
+                modifiers: press.modifier,
                 windowIdUnderPointer: token.windowId
             ))
 
-            XCTAssertEqual(fixture.handler.state.isMoving, !macOSFusion)
-            XCTAssertEqual(fixture.engine.interactiveMove != nil, !macOSFusion)
-            XCTAssertEqual(fixture.handler.tapInputs.capturedInteractionButton != nil, !macOSFusion)
+            XCTAssertEqual(fixture.handler.state.isMoving, press.moves, "\(press)")
+            XCTAssertEqual(fixture.engine.interactiveMove != nil, press.moves, "\(press)")
+            XCTAssertEqual(fixture.handler.tapInputs.capturedInteractionButton != nil, press.moves, "\(press)")
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, press.moves ? nil : token, "\(press)")
             fixture.handler.cancelActiveMouseInteraction()
         }
     }
@@ -3175,18 +3082,35 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(try minX(springStart), shown, accuracy: 0.5)
     }
 
-    func testATabPullNeedsTheSetting() throws {
-        let fixture = try makeFixture(pid: 938_083, windowCount: 4, tabbedRuns: [1 ... 2])
-        fixture.controller.settings.niri.macOSFusion = false
-        let pulled = fixture.tokens[2]
-        let rail = try railInfo(holding: pulled, in: fixture)
-        let start = try fixture.frame(pulled)
-        fixture.handler.nativeWindowFrameProvider = { _ in start }
+    func testOnlyALandscapeNiriColumnsRailTakesDrags() throws {
+        let landscape = try makeFixture(pid: 938_083, windowCount: 4, tabbedRuns: [1 ... 2])
+        let landscapeRail = try railInfo(holding: landscape.tokens[2], in: landscape)
+        XCTAssertTrue(landscape.controller.tabRailManager.acceptsDrags(landscapeRail))
+        XCTAssertFalse(landscape.controller.tabRailManager.acceptsDrags(TabRailInfo(
+            workspaceId: landscapeRail.workspaceId,
+            owner: .dwindleTile(DwindleTileId()),
+            plannedSeq: landscapeRail.plannedSeq,
+            tileFrame: landscapeRail.tileFrame,
+            visibleTileFrame: landscapeRail.visibleTileFrame,
+            tabCount: landscapeRail.tabCount,
+            activeVisualIndex: landscapeRail.activeVisualIndex,
+            activeWindowId: landscapeRail.activeWindowId,
+            tabs: landscapeRail.tabs,
+            orderingWindowId: landscapeRail.orderingWindowId,
+            displayFrame: landscapeRail.displayFrame
+        )))
 
-        tabPull(pulled, at: CGPoint(x: start.minX - 10, y: start.midY), rail: rail, in: fixture)
+        let portrait = try makeFixture(pid: 938_085, windowCount: 4, tabbedRuns: [1 ... 2], portrait: true)
+        let pulled = portrait.tokens[2]
+        let portraitRail = try railInfo(holding: pulled, in: portrait)
+        XCTAssertFalse(portrait.controller.tabRailManager.acceptsDrags(portraitRail))
+        let start = try portrait.frame(pulled)
+        portrait.handler.nativeWindowFrameProvider = { _ in start }
 
-        XCTAssertNil(fixture.engine.liveColumnMove)
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        tabPull(pulled, at: CGPoint(x: start.minX - 10, y: start.midY), rail: portraitRail, in: portrait)
+
+        XCTAssertNil(portrait.engine.liveColumnMove)
+        XCTAssertFalse(portrait.handler.isLiveColumnDragActive)
     }
 
     func testATabPullCarriesOnThroughTheMouseTapOnceTheRailIsGone() throws {

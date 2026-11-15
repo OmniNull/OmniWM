@@ -18,12 +18,6 @@ extension MouseEventHandler {
         return relevantModifiers == required || relevantModifiers == required.union(.maskShift)
     }
 
-    func syncMacOSFusionTapFilter() {
-        guard controller?.settings.niri.macOSFusion == true || inputTapThread.filterSnapshot.macOSFusion
-        else { return }
-        syncTapFilterSnapshot()
-    }
-
     nonisolated static func modifierFlagsMatch(_ modifiers: CGEventFlags, required: CGEventFlags) -> Bool {
         modifiers.intersection(Self.relevantModifierFlags) == required
     }

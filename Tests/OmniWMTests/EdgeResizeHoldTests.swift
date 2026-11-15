@@ -91,7 +91,7 @@ final class EdgeResizeHoldTests: XCTestCase {
             mouseCursorPosition: CGPoint(x: 1300, y: 400),
             mouseButton: .left
         ))
-        barrier.applyResizeHold(to: past)
+        _ = barrier.handleTapEvent(.leftMouseDragged, past)
         XCTAssertEqual(past.location.x, 1200, accuracy: 0.001)
         XCTAssertEqual(past.location.y, 400, accuracy: 0.001)
 
@@ -101,7 +101,7 @@ final class EdgeResizeHoldTests: XCTestCase {
             mouseCursorPosition: CGPoint(x: 1100, y: 400),
             mouseButton: .left
         ))
-        barrier.applyResizeHold(to: back)
+        _ = barrier.handleTapEvent(.leftMouseDragged, back)
         XCTAssertEqual(back.location.x, 1100, accuracy: 0.001)
 
         barrier.publishResizeHold(nil)

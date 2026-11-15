@@ -289,7 +289,6 @@ final class MouseEventHandler {
         let otherButtonMask = resolvedOtherButtonMask
         let moveFlags = controller?.settings.gestures.mouseMoveModifierKey.cgEventFlags
         let adoptNativeResize = controller?.settings.gestures.adoptNativeResize == true
-        let macOSFusion = controller?.settings.niri.macOSFusion ?? false
         let resizeFlags = controller?.settings.gestures.mouseResizeModifierKey.cgEventFlag ?? []
         let scrollFlags = controller?.settings.gestures.scrollModifierKey.cgEventFlag ?? []
         let minFingers: Int
@@ -309,7 +308,6 @@ final class MouseEventHandler {
             snapshot.claimedOtherButtonMask = otherButtonMask
             snapshot.moveModifier = moveFlags
             snapshot.adoptNativeResize = adoptNativeResize
-            snapshot.macOSFusion = macOSFusion
             snapshot.resizeModifier = resizeFlags
             snapshot.scrollModifier = scrollFlags
             snapshot.minGestureFingers = minFingers

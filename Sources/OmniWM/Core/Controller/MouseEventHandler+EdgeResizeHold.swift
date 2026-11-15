@@ -5,9 +5,10 @@ import CoreGraphics
 import Foundation
 
 extension MouseEventHandler {
-    func holdEdgeResizeAtThePeek(at location: CGPoint, modifiers: CGEventFlags) {
+    func holdEdgeResizeAtThePeek(at location: CGPoint, modifiers: CGEventFlags, in strip: PressedStrip) {
         guard let controller,
-              let candidate = fusionDoubleClickCandidate(at: location),
+              strip.hasEdgePeeks,
+              let candidate = fusionDoubleClickCandidate(at: location, in: strip),
               case let .edge(edges) = candidate.hit.zone,
               edges.contains(.left) || edges.contains(.right),
               let frame = candidate.hit.window.renderedFrame ?? candidate.hit.window.frame,

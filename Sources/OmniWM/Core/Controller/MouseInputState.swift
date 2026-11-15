@@ -65,6 +65,8 @@ struct MouseInputState {
         var liveDrag = false
         var liveDragDeclined = false
         var liveDragHandedOver = false
+        var startedOnLandscapeNiriStrip = false
+        var pointerWasDragged = false
     }
 
     struct LiveEdgeScroll {
@@ -172,6 +174,7 @@ struct MouseInputState {
     var nativeTitleBarDrag: NativeTitleBarDrag?
     var nativeResizeSettling: NativeResizeSettling?
     var leftPressLocation: CGPoint?
+    var leftPressWasDragged = false
     var leftReleaseLocation: CGPoint?
     var nativeResizeStart: NativeResizeStart?
     var nativeResizeCorrectionsByWindowId: [Int: NativeResizeCorrection] = [:]

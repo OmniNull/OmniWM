@@ -17,6 +17,19 @@ extension WMController {
         layoutRefreshController.requestRelayout(reason: .monitorSettingsChanged)
     }
 
+    func isNiriStrip(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        workspaceManager.activeLayoutKind(for: workspaceId) == .niri
+    }
+
+    func isLandscapeNiriStrip(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        isNiriStrip(workspaceId) && isOnLandscapeDisplay(workspaceId)
+    }
+
+    func isOnLandscapeDisplay(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let monitor = workspaceManager.monitor(for: workspaceId) else { return false }
+        return settings.monitors.effectiveOrientation(for: monitor) == .horizontal
+    }
+
     func updateMonitorNiriSettings() {
         guard niriEngine != nil else { return }
         niriLayoutHandler.refreshResolvedMonitorSettings(rebalanceChangedSpans: true)

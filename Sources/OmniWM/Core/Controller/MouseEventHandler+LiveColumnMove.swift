@@ -18,9 +18,8 @@ extension MouseEventHandler {
     }
 
     func deferClickScrollIfPressed(on token: WindowToken) -> Bool {
-        guard controller?.settings.niri.macOSFusion == true,
-              pressedMouseButtonsProvider() & MouseButton.left.pressedMask != 0,
-              tracksNativeTitleBarDrag(windowId: token.windowId)
+        guard tracksNativeTitleBarDrag(windowId: token.windowId),
+              pressedMouseButtonsProvider() & MouseButton.left.pressedMask != 0
         else { return false }
         if !isLiveColumnDragActive {
             state.deferredClickScroll = token
@@ -46,8 +45,8 @@ extension MouseEventHandler {
             return true
         }
         guard button == .left,
-              state.nativeTitleBarDrag != nil,
-              controller?.settings.niri.macOSFusion == true
+              let drag = state.nativeTitleBarDrag,
+              drag.startedOnLandscapeNiriStrip || drag.liveDrag || drag.liveDragHandedOver
         else { return false }
         livePointer.location = location
         recordLivePointerSample(location)
@@ -102,9 +101,9 @@ extension MouseEventHandler {
         }
         guard !drag.liveDrag, !drag.liveDragDeclined,
               drag.dwindleResizeWorkspaceId == nil,
+              drag.startedOnLandscapeNiriStrip,
               let controller,
-              controller.settings.niri.macOSFusion,
-              controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri,
+              controller.isNiriStrip(entry.workspaceId),
               let start = drag.liveStartFrame ?? drag.adoptionStartFrame,
               let observed = entry.axRef.flatMap(nativeWindowFrameProvider),
               Self.isNativeMove(from: start, to: observed),

@@ -64,7 +64,7 @@ final class CrossDisplayDragTests: XCTestCase {
                         workspaceId: workspaceId,
                         monitorFrame: workingFrame,
                         gaps: (horizontal: gap, vertical: gap),
-                        orientation: .horizontal
+                        orientation: controller.settings.monitors.effectiveOrientation(for: monitor)
                     )
                 case .dwindle:
                     _ = dwindle.calculateLayout(for: workspaceId, screen: workingFrame)
@@ -185,7 +185,7 @@ final class CrossDisplayDragTests: XCTestCase {
         let sourceSibling = addWindow(2, to: fixture.source, fixture)
         let partner = addWindow(3, to: fixture.target, fixture)
         try stack(sourceSibling, onto: moved, in: fixture.source, fixture)
-        fixture.manager.setCachedConstraints(constraints(minHeight: 2_000), for: partner)
+        fixture.manager.setCachedConstraints(constraints(minWidth: 2_000, minHeight: 0), for: partner)
         fixture.layout()
         let partnerCenter = try XCTUnwrap(fixture.frame(partner)).center
         try fixture.beginDrag(moved)
@@ -394,7 +394,7 @@ final class CrossDisplayDragTests: XCTestCase {
         let stays = addWindow(2, to: fixture.source, fixture)
         let target = addWindow(3, to: fixture.target, fixture)
         let column = try XCTUnwrap(fixture.niri.columns(in: fixture.source).first)
-        column.width = .proportion(0.7)
+        column.height = .proportion(0.7)
         fixture.layout()
 
         try fixture.drag(moved, to: dropPoint(in: XCTUnwrap(fixture.frame(target)), .right))
@@ -402,15 +402,15 @@ final class CrossDisplayDragTests: XCTestCase {
         XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
         XCTAssertEqual(fixture.dwindleTile(moved), [moved])
         XCTAssertEqual(
-            fixture.manager.restoreIntent(for: moved)?.detachedNiriContainerSizingState?.width,
+            fixture.manager.restoreIntent(for: moved)?.detachedNiriContainerSizingState?.height,
             .proportion(0.7)
         )
 
         fixture.layout()
-        try fixture.drag(moved, to: dropPoint(in: XCTUnwrap(fixture.frame(stays)), .right))
+        try fixture.drag(moved, to: dropPoint(in: XCTUnwrap(fixture.frame(stays)), .up))
 
         XCTAssertEqual(fixture.columns(fixture.source), [[stays], [moved]])
-        XCTAssertEqual(fixture.niri.columns(in: fixture.source).last?.width, .proportion(0.7))
+        XCTAssertEqual(fixture.niri.columns(in: fixture.source).last?.height, .proportion(0.7))
         XCTAssertNil(fixture.dwindle.tile(containing: moved, in: fixture.target))
     }
 
@@ -516,10 +516,15 @@ final class CrossDisplayDragTests: XCTestCase {
     }
 
     func testCancelZoneOnAThirdDisplayLeavesTheSourceUnchanged() throws {
-        let fixture = try makeFixture([.niri, .niri, .dwindle])
+        let display = CGSize(width: 1600, height: 900)
+        let fixture = try makeFixture(
+            [.niri, .niri, .dwindle],
+            origins: [.zero, CGPoint(x: display.width, y: 0), CGPoint(x: 0, y: display.height)],
+            size: display
+        )
         let tokens = (1 ... 6).map { addWindow($0, to: fixture.source, fixture) }
         for column in fixture.niri.columns(in: fixture.source) {
-            column.width = .proportion(1)
+            column.height = .proportion(1)
         }
         let resident = addWindow(7, to: fixture.workspaces[2], fixture)
         fixture.manager.withEngineMutationScope(in: fixture.workspaces[2]) {
@@ -804,43 +809,6 @@ final class CrossDisplayDragTests: XCTestCase {
         XCTAssertEqual(fixture.manager.workspace(for: neighbour), fixture.source)
         XCTAssertEqual(fixture.dwindleTile(moved), [moved])
         XCTAssertEqual(fixture.manager.workspace(for: resident), fixture.target)
-        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
-    }
-
-    func testTurningMacOSFusionOffHandsALiveDragOverToTheNativeMove() throws {
-        let fixture = try makeNativeFixture([.niri, .niri])
-        fixture.controller.settings.niri.macOSFusion = true
-        fixture.controller.applyMacOSFusionSettings()
-        let moved = addWindow(1, to: fixture.source, fixture)
-        let neighbour = addWindow(2, to: fixture.source, fixture)
-        let resident = addWindow(3, to: fixture.target, fixture)
-        let sourceColumns = fixture.columns(fixture.source)
-        let start = try beginNativeDrag(moved, fixture)
-        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 30, dy: 0) }
-        XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(
-            for: try XCTUnwrap(fixture.manager.entry(for: moved))
-        ))
-        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
-        XCTAssertNotNil(fixture.niri.liveColumnMove)
-
-        fixture.controller.settings.niri.macOSFusion = false
-        fixture.controller.applyMacOSFusionSettings()
-
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        XCTAssertNil(fixture.niri.liveColumnMove)
-        XCTAssertEqual(fixture.columns(fixture.source), sourceColumns)
-        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveDragHandedOver, true)
-
-        let point = try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right)
-        fixture.handler.dispatchMouseDragged(at: point)
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
-        fixture.handler.dispatchMouseUp(at: point)
-
-        XCTAssertNil(fixture.niri.liveColumnMove)
-        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
-        XCTAssertEqual(fixture.columns(fixture.source), [[neighbour]])
-        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved]])
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
     }
 
@@ -1300,7 +1268,7 @@ final class CrossDisplayDragTests: XCTestCase {
     }
 
     func makeNativeFixture(_ layouts: [LayoutType], enabled: Bool = true) throws -> Fixture {
-        let fixture = try makeFixture(layouts)
+        let fixture = try makeFixture(layouts, sourceOrientation: .horizontal)
         fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays = enabled
         addTeardownBlock { @MainActor [controller = fixture.controller] in
             controller.hasStartedServices = false
@@ -1328,12 +1296,17 @@ final class CrossDisplayDragTests: XCTestCase {
         return frame
     }
 
-    func makeFixture(_ layouts: [LayoutType]) throws -> Fixture {
+    func makeFixture(
+        _ layouts: [LayoutType],
+        sourceOrientation: Monitor.Orientation = .vertical,
+        origins: [CGPoint]? = nil,
+        size: CGSize = CGSize(width: 1600, height: 900)
+    ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("CrossDisplayDragTests-\(UUID().uuidString)", isDirectory: true)
         let monitors = layouts.indices.map { index in
             let displayId = CGDirectDisplayID(720_000 + index)
-            let frame = CGRect(x: CGFloat(index) * 1600, y: 0, width: 1600, height: 900)
+            let frame = CGRect(origin: origins?[index] ?? CGPoint(x: CGFloat(index) * size.width, y: 0), size: size)
             return Monitor(
                 id: .init(displayId: displayId), displayId: displayId,
                 frame: frame, visibleFrame: frame, hasNotch: false, name: "Display \(index + 1)"
@@ -1353,6 +1326,14 @@ final class CrossDisplayDragTests: XCTestCase {
         )
         settings.animationsEnabled = false
         settings.gestures.mouseMoveModifierKey = .control
+        settings.monitors.updateOrientationSettings(
+            MonitorOrientationSettings(
+                monitorName: monitors[0].name,
+                monitorDisplayId: monitors[0].displayId,
+                orientation: sourceOrientation
+            ),
+            for: monitors[0]
+        )
         settings.workspaces.configurations = zip(monitors, layouts).enumerated().map { index, pair in
             WorkspaceConfiguration(
                 name: "\(index + 1)",
