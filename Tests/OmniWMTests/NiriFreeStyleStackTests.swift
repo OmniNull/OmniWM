@@ -320,16 +320,17 @@ final class NiriFreeStyleStackTests: XCTestCase {
             gaps: fixture.gap,
             orientation: .horizontal
         )
-        var targetState = ViewportState()
+        var viewports = [fixture.workspaceId: fixture.state, otherWorkspaceId: ViewportState()]
 
         let carried = fixture.engine.liveColumnMoveCarry(
             cursor: CGPoint(x: otherFrame.maxX - 100, y: otherFrame.midY),
             windowWidth: nil,
             from: fixture.context,
-            sourceState: &fixture.state,
             to: target,
-            targetState: &targetState
+            viewports: &viewports
         )
+        fixture.state = try XCTUnwrap(viewports[fixture.workspaceId])
+        let targetState = try XCTUnwrap(viewports[otherWorkspaceId])
 
         XCTAssertEqual(Set(carried), [fixture.tokens[1], fixture.tokens[0]])
         let arrived = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[1], in: otherWorkspaceId))
@@ -374,15 +375,16 @@ final class NiriFreeStyleStackTests: XCTestCase {
             gaps: fixture.gap,
             orientation: .horizontal
         )
-        var targetState = ViewportState()
+        var viewports = [fixture.workspaceId: fixture.state, otherWorkspaceId: ViewportState()]
         _ = fixture.engine.liveColumnMoveCarry(
             cursor: CGPoint(x: otherFrame.maxX - 100, y: otherFrame.midY),
             windowWidth: nil,
             from: fixture.context,
-            sourceState: &fixture.state,
             to: target,
-            targetState: &targetState
+            viewports: &viewports
         )
+        fixture.state = try XCTUnwrap(viewports[fixture.workspaceId])
+        var targetState = try XCTUnwrap(viewports[otherWorkspaceId])
         fixture.engine.liveColumnMoveSettled()
 
         let resident = try XCTUnwrap(fixture.engine.findNode(for: residents[0], in: otherWorkspaceId))
@@ -405,7 +407,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         XCTAssertNotNil(fixture.move?.landing)
         XCTAssertTrue(fixture.engine.findNode(for: fixture.tokens[1], in: otherWorkspaceId)?.parent === residentColumn)
 
-        var viewports = [fixture.workspaceId: fixture.state, otherWorkspaceId: targetState]
+        viewports = [fixture.workspaceId: fixture.state, otherWorkspaceId: targetState]
         let returned = fixture.engine.liveColumnMoveReturnHome(
             contexts: [fixture.workspaceId: fixture.context, otherWorkspaceId: target],
             viewports: &viewports

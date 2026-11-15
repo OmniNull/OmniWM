@@ -28,9 +28,8 @@ extension NiriLayoutEngine {
         guard let placement = liveHomePlacement(of: move, in: strip, context: context) else { return nil }
         let span = originLiveSlotSpan(
             placement.placed,
-            slot: move.narrowedSlot,
+            of: move,
             windowMidX: windowMidX,
-            closedToward: move.originClosedToward,
             strip: strip,
             context: context
         )
@@ -40,16 +39,16 @@ extension NiriLayoutEngine {
 
     private func originLiveSlotSpan(
         _ placed: LiveColumnMove.StripColumn,
-        slot: LiveColumnMove.NarrowedSlot?,
+        of move: LiveColumnMove,
         windowMidX: CGFloat,
-        closedToward: LiveColumnMove.Side?,
         strip: [LiveColumnMove.StripColumn],
         context: NiriInteractionContext
     ) -> LiveColumnMove.SlotSpan {
+        let slot = move.narrowedSlot
         let fullWidth = slot?.fullWidth ?? placed.width
         let originMinX = placed.minX - (slot?.leftCut ?? 0)
         let closedCut = max(0, fullWidth + context.gaps)
-        if let closedToward {
+        if let closedToward = move.originClosedToward {
             return .init(
                 minX: closedToward == .after ? originMinX + closedCut : originMinX,
                 width: fullWidth - closedCut,

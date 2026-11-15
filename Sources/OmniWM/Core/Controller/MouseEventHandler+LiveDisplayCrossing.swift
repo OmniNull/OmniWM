@@ -24,18 +24,13 @@ extension MouseEventHandler {
             into: targetWorkspaceId,
             niriWorkspaceIds: [sourceWorkspaceId, targetWorkspaceId]
         ) { viewports in
-            var sourceState = viewports[sourceWorkspaceId] ?? ViewportState()
-            var targetState = viewports[targetWorkspaceId] ?? ViewportState()
             carried = engine.liveColumnMoveCarry(
                 cursor: location,
                 windowWidth: windowWidth,
                 from: source,
-                sourceState: &sourceState,
                 to: target,
-                targetState: &targetState
+                viewports: &viewports
             )
-            viewports[sourceWorkspaceId] = sourceState
-            viewports[targetWorkspaceId] = targetState
             return carried.map { .init(token: $0, workspaceId: targetWorkspaceId) }
         }
         guard !carried.isEmpty else { return false }

@@ -440,18 +440,13 @@ extension CrossDisplayDragTests {
             into: fixture.target,
             niriWorkspaceIds: [fixture.source, fixture.target]
         ) { viewports in
-            var sourceState = viewports[fixture.source] ?? ViewportState()
-            var targetState = viewports[fixture.target] ?? ViewportState()
             carried = fixture.niri.liveColumnMoveCarry(
                 cursor: nearerTheFirst,
                 windowWidth: nil,
                 from: source,
-                sourceState: &sourceState,
                 to: target,
-                targetState: &targetState
+                viewports: &viewports
             )
-            viewports[fixture.source] = sourceState
-            viewports[fixture.target] = targetState
             return carried.map { .init(token: $0, workspaceId: fixture.target) }
         }
 

@@ -172,15 +172,28 @@ extension NiriLayoutEngine {
         keepLiveColumnStill(home, screenBefore: screenBefore, context: context, state: &state)
         animateLiveColumns(from: screenBefore, skipping: column, context: context, state: state)
         move.endSideDwell()
-        openLiveDropSpace(
+        let strip = liveColumnStrip(context: context, state: state)
+        let pin = liveDropSpacePin(
             leaving: column,
             beside: home,
-            side: side,
+            heading: move.heading,
+            strip: strip,
+            cursor: cursor
+        )
+        _ = applyLiveReorder(
+            .init(
+                dragged: column,
+                target: home,
+                side: side,
+                pinned: pin.pinned,
+                kind: .openDropSpace(existing: nil, beside: column)
+            ),
             cursor: cursor,
             move: &move,
             context: context,
             state: &state
         )
+        move.lockedTarget = liveTargetLock(under: pin.under, cursor: cursor, strip: strip, context: context)
         return true
     }
 

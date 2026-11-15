@@ -307,3 +307,15 @@ struct LiveColumnMove {
         home = inStack ? .stackSlot : .origin
     }
 }
+
+extension LiveColumnMove.OriginalSlot {
+    init(of column: NiriContainer, at index: Int, windowSizing: LiveColumnMove.WindowSizing) {
+        self.init(
+            columnId: column.id,
+            index: index,
+            displayMode: column.displayMode,
+            activeTileIdx: column.activeTileIdx,
+            windowSizing: windowSizing
+        )
+    }
+}
