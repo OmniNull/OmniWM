@@ -64,52 +64,15 @@ final class CommandHandler {
         }
     }
 
-    static func recordsLayoutChange(_ command: HotkeyCommand) -> Bool {
-        switch command {
-        case .move,
-             .moveColumn,
-             .windowMovement:
-            true
-        case let .column(action):
-            switch action {
-            case .moveToFirst,
-                 .moveToLast,
-                 .moveToIndex,
-                 .toggleTabbed,
-                 .moveToWorkspace,
-                 .moveToWorkspaceUp,
-                 .moveToWorkspaceDown: true
-            }
-        case let .workspace(action):
-            switch action {
-            case .moveTo,
-                 .moveUp,
-                 .moveDown,
-                 .moveToMonitor,
-                 .moveToSlot: true
-            default: false
-            }
-        case let .sizing(action):
-            action != .undo && action != .redo
-        default:
-            false
-        }
-    }
-
     private func performAllowedCommand(_ command: HotkeyCommand, controller: WMController) -> ExternalCommandResult {
-        let changeStart = Self.recordsLayoutChange(command)
-            ? controller.niriLayoutHandler.activeLayoutChangeStart()
-            : nil
+        let changeStart = layoutChangeStart(recording: command, controller: controller)
         defer { controller.niriLayoutHandler.recordLayoutChange(since: changeStart) }
         switch command {
         case let .focus(direction):
             focusWindow(direction: direction)
         case let .focusNavigation(action): return perform(action, controller: controller)
         case let .move(direction):
-            let outcome = moveWindow(direction: direction)
-            if outcome == .atWorkspaceEdge, controller.settings.focus.moveCrossesMonitorAtEdge {
-                controller.workspaceNavigationHandler.moveWindowAcrossMonitorAtEdge(direction: direction)
-            }
+            moveWindowCrossingMonitors(direction: direction, controller: controller)
         case let .workspace(action): return perform(action, controller: controller)
         case let .windowMovement(action): return perform(action, controller: controller)
         case let .column(action): return perform(action, controller: controller)
@@ -366,6 +329,52 @@ final class CommandHandler {
 }
 
 extension CommandHandler {
+    static func recordsLayoutChange(_ command: HotkeyCommand) -> Bool {
+        switch command {
+        case .move,
+             .moveColumn,
+             .windowMovement:
+            true
+        case let .column(action):
+            switch action {
+            case .moveToFirst,
+                 .moveToLast,
+                 .moveToIndex,
+                 .toggleTabbed,
+                 .moveToWorkspace,
+                 .moveToWorkspaceUp,
+                 .moveToWorkspaceDown: true
+            }
+        case let .workspace(action):
+            switch action {
+            case .moveTo,
+                 .moveUp,
+                 .moveDown,
+                 .moveToMonitor,
+                 .moveToSlot: true
+            default: false
+            }
+        case let .sizing(action):
+            action != .undo && action != .redo
+        default:
+            false
+        }
+    }
+
+    private func layoutChangeStart(
+        recording command: HotkeyCommand,
+        controller: WMController
+    ) -> NiriLayoutChangeStart? {
+        Self.recordsLayoutChange(command) ? controller.niriLayoutHandler.activeLayoutChangeStart() : nil
+    }
+
+    private func moveWindowCrossingMonitors(direction: Direction, controller: WMController) {
+        let outcome = moveWindow(direction: direction)
+        if outcome == .atWorkspaceEdge, controller.settings.focus.moveCrossesMonitorAtEdge {
+            controller.workspaceNavigationHandler.moveWindowAcrossMonitorAtEdge(direction: direction)
+        }
+    }
+
     func performWindowMarkAction(_ action: WindowMarkHotkeyAction, for token: WindowToken?) -> ExternalCommandResult {
         guard let controller else { return .notFound }
         let expectedHandle = token.flatMap { controller.workspaceManager.handle(for: $0) }

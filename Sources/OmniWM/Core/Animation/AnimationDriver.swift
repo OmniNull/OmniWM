@@ -173,123 +173,6 @@ final class AnimationDriver {
         )
     }
 
-    func reconcileViewportCommit(
-        workspaceId: WorkspaceDescriptor.ID,
-        previous: ViewportState?,
-        next: ViewportState,
-        transition: OffsetTransition,
-        at time: TimeInterval = CACurrentMediaTime()
-    ) {
-        recordViewportCommitTrace(
-            workspaceId: workspaceId,
-            previous: previous,
-            next: next,
-            transition: transition
-        )
-        let rebaseDelta = Double(transition.rebaseDelta)
-        if rebaseDelta != 0 {
-            switch motions[workspaceId] {
-            case let .spring(animation):
-                animation.offsetBy(rebaseDelta)
-            case let .deceleration(animation):
-                animation.offsetBy(rebaseDelta)
-            case let .edgeScroll(animation):
-                animation.offsetBy(rebaseDelta)
-            default:
-                break
-            }
-        }
-
-        let origin = gestureCommitOrigin(
-            workspaceId: workspaceId,
-            previous: previous,
-            next: next,
-            rebaseDelta: rebaseDelta,
-            at: time
-        )
-
-        switch transition.kind {
-        case nil:
-            break
-
-        case .jump:
-            motions.removeValue(forKey: workspaceId)
-
-        case let .spring(config):
-            motions[workspaceId] = .spring(
-                SpringAnimation(
-                    from: origin.from,
-                    to: Double(next.viewOffset),
-                    initialVelocity: origin.velocity,
-                    startTime: time,
-                    config: config,
-                    displayRefreshRate: next.displayRefreshRate
-                )
-            )
-
-        case .deceleration:
-            motions[workspaceId] = .deceleration(
-                DecelerationAnimation(
-                    from: origin.from,
-                    velocity: origin.velocity,
-                    startTime: time
-                )
-            )
-
-        case let .edgeScroll(speed):
-            motions[workspaceId] = .edgeScroll(
-                EdgeScrollAnimation(
-                    from: origin.from,
-                    to: Double(next.viewOffset),
-                    speed: Double(speed),
-                    startTime: time
-                )
-            )
-        }
-    }
-
-    private func recordViewportCommitTrace(
-        workspaceId: WorkspaceDescriptor.ID,
-        previous: ViewportState?,
-        next: ViewportState,
-        transition: OffsetTransition
-    ) {
-        guard transition.kind != nil || transition.rebaseDelta != 0 else { return }
-        let kind = switch transition.kind {
-        case .jump: "jump"
-        case .spring: "spring"
-        case .deceleration: "decelerate"
-        case .edgeScroll: "edge-scroll"
-        case nil: "rebase"
-        }
-        NiriLayoutTrace.record(
-            .viewport,
-            workspaceId: workspaceId,
-            "\(kind) \(Int(previous?.viewOffset ?? next.viewOffset))→\(Int(next.viewOffset)) col=\(next.activeColumnIndex) rebase=\(Int(transition.rebaseDelta))"
-        )
-    }
-
-    private func gestureCommitOrigin(
-        workspaceId: WorkspaceDescriptor.ID,
-        previous: ViewportState?,
-        next: ViewportState,
-        rebaseDelta: Double,
-        at time: TimeInterval
-    ) -> (from: Double, velocity: Double) {
-        switch motions[workspaceId] {
-        case let .gesture(gesture):
-            (Double(previous?.viewOffset ?? next.viewOffset) + rebaseDelta + gesture.relativeOffset, gesture.velocity)
-        case let .spring(animation):
-            (animation.value(at: time), animation.velocity(at: time))
-        case let .deceleration(animation):
-            (animation.value(at: time), animation.velocity(at: time))
-        case let .edgeScroll(animation):
-            (animation.value(at: time), animation.velocity(at: time))
-        case nil:
-            (Double(previous?.viewOffset ?? next.viewOffset) + rebaseDelta, 0)
-        }
-    }
-
     func tickResult(in workspaceId: WorkspaceDescriptor.ID, at time: TimeInterval) -> TickResult {
         switch motions[workspaceId] {
         case let .gesture(gesture):
@@ -430,6 +313,140 @@ extension AnimationDriver {
              .edgeScroll: true
         case .spring,
              nil: false
+        }
+    }
+}
+
+extension AnimationDriver {
+    func reconcileViewportCommit(
+        workspaceId: WorkspaceDescriptor.ID,
+        previous: ViewportState?,
+        next: ViewportState,
+        transition: OffsetTransition,
+        at time: TimeInterval = CACurrentMediaTime()
+    ) {
+        recordViewportCommitTrace(
+            workspaceId: workspaceId,
+            previous: previous,
+            next: next,
+            transition: transition
+        )
+        let rebaseDelta = Double(transition.rebaseDelta)
+        if rebaseDelta != 0 {
+            rebaseMotion(in: workspaceId, by: rebaseDelta)
+        }
+
+        let origin = gestureCommitOrigin(
+            workspaceId: workspaceId,
+            previous: previous,
+            next: next,
+            rebaseDelta: rebaseDelta,
+            at: time
+        )
+
+        startMotion(transition.kind, from: origin, to: next, at: time, in: workspaceId)
+    }
+
+    @inline(__always)
+    private func rebaseMotion(in workspaceId: WorkspaceDescriptor.ID, by rebaseDelta: Double) {
+        switch motions[workspaceId] {
+        case let .spring(animation):
+            animation.offsetBy(rebaseDelta)
+        case let .deceleration(animation):
+            animation.offsetBy(rebaseDelta)
+        case let .edgeScroll(animation):
+            animation.offsetBy(rebaseDelta)
+        default:
+            break
+        }
+    }
+
+    private func startMotion(
+        _ kind: OffsetTransition.Kind?,
+        from origin: (from: Double, velocity: Double),
+        to next: ViewportState,
+        at time: TimeInterval,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) {
+        switch kind {
+        case nil:
+            break
+
+        case .jump:
+            motions.removeValue(forKey: workspaceId)
+
+        case let .spring(config):
+            motions[workspaceId] = .spring(
+                SpringAnimation(
+                    from: origin.from,
+                    to: Double(next.viewOffset),
+                    initialVelocity: origin.velocity,
+                    startTime: time,
+                    config: config,
+                    displayRefreshRate: next.displayRefreshRate
+                )
+            )
+
+        case .deceleration:
+            motions[workspaceId] = .deceleration(
+                DecelerationAnimation(
+                    from: origin.from,
+                    velocity: origin.velocity,
+                    startTime: time
+                )
+            )
+
+        case let .edgeScroll(speed):
+            motions[workspaceId] = .edgeScroll(
+                EdgeScrollAnimation(
+                    from: origin.from,
+                    to: Double(next.viewOffset),
+                    speed: Double(speed),
+                    startTime: time
+                )
+            )
+        }
+    }
+
+    private func recordViewportCommitTrace(
+        workspaceId: WorkspaceDescriptor.ID,
+        previous: ViewportState?,
+        next: ViewportState,
+        transition: OffsetTransition
+    ) {
+        guard transition.kind != nil || transition.rebaseDelta != 0 else { return }
+        let kind = switch transition.kind {
+        case .jump: "jump"
+        case .spring: "spring"
+        case .deceleration: "decelerate"
+        case .edgeScroll: "edge-scroll"
+        case nil: "rebase"
+        }
+        NiriLayoutTrace.record(
+            .viewport,
+            workspaceId: workspaceId,
+            "\(kind) \(Int(previous?.viewOffset ?? next.viewOffset))→\(Int(next.viewOffset)) col=\(next.activeColumnIndex) rebase=\(Int(transition.rebaseDelta))"
+        )
+    }
+
+    private func gestureCommitOrigin(
+        workspaceId: WorkspaceDescriptor.ID,
+        previous: ViewportState?,
+        next: ViewportState,
+        rebaseDelta: Double,
+        at time: TimeInterval
+    ) -> (from: Double, velocity: Double) {
+        switch motions[workspaceId] {
+        case let .gesture(gesture):
+            (Double(previous?.viewOffset ?? next.viewOffset) + rebaseDelta + gesture.relativeOffset, gesture.velocity)
+        case let .spring(animation):
+            (animation.value(at: time), animation.velocity(at: time))
+        case let .deceleration(animation):
+            (animation.value(at: time), animation.velocity(at: time))
+        case let .edgeScroll(animation):
+            (animation.value(at: time), animation.velocity(at: time))
+        case nil:
+            (Double(previous?.viewOffset ?? next.viewOffset) + rebaseDelta, 0)
         }
     }
 }

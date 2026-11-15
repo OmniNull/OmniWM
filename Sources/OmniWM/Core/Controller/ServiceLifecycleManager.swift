@@ -161,52 +161,6 @@ final class ServiceLifecycleManager {
         startSecureInputMonitor()
     }
 
-    func connectAXFrameCallbacks(_ controller: WMController) {
-        controller.axManager.onTerminalFrameRefusal = { [weak controller] refusal in
-            controller?.niriEdgePictures.frameApplicationEnded(
-                token: WindowToken(pid: refusal.pid, windowId: refusal.windowId),
-                targetFrame: refusal.targetFrame, applied: false
-            )
-            controller?.axEventHandler.handleTerminalFrameRefusal(refusal)
-            controller?.niriLayoutHandler.reportSizeTaken(
-                pid: refusal.pid,
-                windowId: refusal.windowId,
-                asked: refusal.targetFrame,
-                taken: refusal.observedFrame
-            )
-            controller?.axEventHandler.releaseFocusLossRescan(windowId: refusal.windowId)
-        }
-        controller.axManager.onFrameApplyTerminated = { [weak controller] result in
-            controller?.niriEdgePictures.frameApplicationEnded(
-                token: WindowToken(pid: result.pid, windowId: result.windowId),
-                targetFrame: result.targetFrame, applied: false
-            )
-            controller?.mouseEventHandler.handleNativeTitleBarDragFrameApplyTerminated(result)
-            controller?.axEventHandler.releaseFocusLossRescan(windowId: result.windowId)
-        }
-        controller.axManager.onFrameApplySucceeded = { [weak self] result in
-            self?.handleFrameApplySucceeded(result)
-        }
-        controller.axManager.onStableSizeClamp = { [weak controller] result in
-            controller?.adoptObservedMinimumAfterStableSizeClamp(result)
-            if let taken = result.writeResult.observedFrame {
-                controller?.niriLayoutHandler.reportSizeTaken(
-                    pid: result.pid,
-                    windowId: result.windowId,
-                    asked: result.targetFrame,
-                    taken: taken,
-                    expectedWindow: result.expectedWindow
-                )
-            }
-        }
-        controller.axManager.onManagedWindowBindingFailed = { [weak controller] pid in
-            controller?.layoutRefreshController.requestFullRescan(
-                reason: .staleFullRescan,
-                scope: .targeted(appPIDs: [pid], nativeSpaceIds: [])
-            )
-        }
-    }
-
     private func disconnectAXCallbacks(_ controller: WMController) {
         controller.axManager.onAppLaunched = nil
         controller.axManager.onTerminalFrameRefusal = nil
@@ -394,6 +348,52 @@ extension ServiceLifecycleManager {
 }
 
 extension ServiceLifecycleManager {
+    func connectAXFrameCallbacks(_ controller: WMController) {
+        controller.axManager.onTerminalFrameRefusal = { [weak controller] refusal in
+            controller?.niriEdgePictures.frameApplicationEnded(
+                token: WindowToken(pid: refusal.pid, windowId: refusal.windowId),
+                targetFrame: refusal.targetFrame, applied: false
+            )
+            controller?.axEventHandler.handleTerminalFrameRefusal(refusal)
+            controller?.niriLayoutHandler.reportSizeTaken(
+                pid: refusal.pid,
+                windowId: refusal.windowId,
+                asked: refusal.targetFrame,
+                taken: refusal.observedFrame
+            )
+            controller?.axEventHandler.releaseFocusLossRescan(windowId: refusal.windowId)
+        }
+        controller.axManager.onFrameApplyTerminated = { [weak controller] result in
+            controller?.niriEdgePictures.frameApplicationEnded(
+                token: WindowToken(pid: result.pid, windowId: result.windowId),
+                targetFrame: result.targetFrame, applied: false
+            )
+            controller?.mouseEventHandler.handleNativeTitleBarDragFrameApplyTerminated(result)
+            controller?.axEventHandler.releaseFocusLossRescan(windowId: result.windowId)
+        }
+        controller.axManager.onFrameApplySucceeded = { [weak self] result in
+            self?.handleFrameApplySucceeded(result)
+        }
+        controller.axManager.onStableSizeClamp = { [weak controller] result in
+            controller?.adoptObservedMinimumAfterStableSizeClamp(result)
+            if let taken = result.writeResult.observedFrame {
+                controller?.niriLayoutHandler.reportSizeTaken(
+                    pid: result.pid,
+                    windowId: result.windowId,
+                    asked: result.targetFrame,
+                    taken: taken,
+                    expectedWindow: result.expectedWindow
+                )
+            }
+        }
+        controller.axManager.onManagedWindowBindingFailed = { [weak controller] pid in
+            controller?.layoutRefreshController.requestFullRescan(
+                reason: .staleFullRescan,
+                scope: .targeted(appPIDs: [pid], nativeSpaceIds: [])
+            )
+        }
+    }
+
     func handleFrameApplySucceeded(_ result: AXFrameApplyResult) {
         guard let controller else { return }
         controller.resizeOverlay.frameApplied(windowId: result.windowId)

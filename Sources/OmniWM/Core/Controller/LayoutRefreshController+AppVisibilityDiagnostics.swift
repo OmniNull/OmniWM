@@ -53,18 +53,8 @@ extension LayoutRefreshController {
         var strays: [String] = []
         var visible: [Int] = []
         var parkedCount = 0
-        var appHiddenCount = 0
         var audited: [(entry: WindowState, windowId: UInt32)] = []
-        for entry in controller.workspaceManager.allEntries() {
-            if controller.workspaceManager.isAppHidden(pid: entry.pid)
-                || controller.axManager.macOSHiddenAppPIDs.contains(entry.pid)
-            {
-                appHiddenCount += 1
-                continue
-            }
-            guard let windowId = UInt32(exactly: entry.windowId) else { continue }
-            audited.append((entry, windowId))
-        }
+        let appHiddenCount = collectParkAuditedWindows(into: &audited, controller: controller)
         let readStartNs = DispatchTime.now().uptimeNanoseconds
         let bounds = windowBoundsProvider(
             audited.filter { $0.entry.hiddenState != nil || $0.entry.mode == .tiling }.map(\.windowId)
@@ -84,15 +74,8 @@ extension LayoutRefreshController {
                 readNs: (readStartNs, readEndNs)
             )
             else { continue }
-            let overlap = monitorFrames
-                .map { $0.intersection(frame) }
-                .filter { !$0.isNull && !$0.isEmpty }
-                .max { $0.width * $0.height < $1.width * $1.height }
-            if let overlap, overlap.width > 16, overlap.height > 16 {
-                laggards.append(
-                    "\(entry.windowId):\(Int(overlap.width))x\(Int(overlap.height))"
-                        + "@\(TraceFormat.point(frame.origin))"
-                )
+            if let laggard = Self.parkLaggard(entry.windowId, at: frame, on: monitorFrames) {
+                laggards.append(laggard)
             } else {
                 parkedCount += 1
             }
@@ -112,6 +95,36 @@ extension LayoutRefreshController {
 }
 
 extension LayoutRefreshController {
+    @inline(__always)
+    private func collectParkAuditedWindows(
+        into audited: inout [(entry: WindowState, windowId: UInt32)],
+        controller: WMController
+    ) -> Int {
+        var appHiddenCount = 0
+        for entry in controller.workspaceManager.allEntries() {
+            if controller.workspaceManager.isAppHidden(pid: entry.pid)
+                || controller.axManager.macOSHiddenAppPIDs.contains(entry.pid)
+            {
+                appHiddenCount += 1
+                continue
+            }
+            guard let windowId = UInt32(exactly: entry.windowId) else { continue }
+            audited.append((entry, windowId))
+        }
+        return appHiddenCount
+    }
+
+    @inline(__always)
+    private static func parkLaggard(_ windowId: Int, at frame: CGRect, on monitorFrames: [CGRect]) -> String? {
+        let overlap = monitorFrames
+            .map { $0.intersection(frame) }
+            .filter { !$0.isNull && !$0.isEmpty }
+            .max { $0.width * $0.height < $1.width * $1.height }
+        guard let overlap, overlap.width > 16, overlap.height > 16 else { return nil }
+        return "\(windowId):\(Int(overlap.width))x\(Int(overlap.height))"
+            + "@\(TraceFormat.point(frame.origin))"
+    }
+
     private func readHiddenWindowAudit(
         _ entry: WindowState,
         bounds: CGRect?,
