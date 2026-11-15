@@ -135,6 +135,7 @@ import XCTest
                 let host = NSHostingController(rootView: AppRulesView(
                     settings: settings, controller: controller, editorState: editorState
                 )
+                .environment(\.locale, Locale(identifier: "en"))
                 .environment(\.layoutDirection, layoutDirection)
                 .transaction { $0.animation = nil })
                 host.sizingOptions = []
