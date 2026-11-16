@@ -222,6 +222,75 @@ final class HostedNativeResizeTests: XCTestCase {
         }
     }
 
+    func testDwindleHostedCenteredResizeUsesTheNativeLifecycleWithoutPointerState() throws {
+        let fixture = try fixture(.dwindle)
+        defer { fixture.close() }
+        fixture.controller.settings.gestures.adoptNativeResize = false
+        fixture.controller.motionPolicy.animationsEnabled = false
+        let extra = makeWindow()
+        defer { extra.close() }
+        let right = try XCTUnwrap(fixture.controller.shellAppWindowManager.admit(
+            extra,
+            metadata: HostedWindowMetadata(appId: "resize", title: "Right", minimumSize: initialContentSize),
+            to: fixture.workspace
+        ))
+        let engine = try XCTUnwrap(fixture.controller.dwindleEngine)
+        let token = fixture.tokens[1]
+        fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.workspace) {
+            engine.setSelectedNode(engine.findNode(for: token, in: fixture.workspace), in: fixture.workspace)
+            _ = engine.setPreselection(.right, in: fixture.workspace)
+            _ = engine.addWindow(token: right, to: fixture.workspace, activeWindowFrame: nil)
+        }
+        engine.cancelAnimations(in: fixture.workspace)
+        let area = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+        let settings = fixture.controller.dwindleLayoutHandler.calculationSettings(
+            fixture.controller.resolvedDwindleSettings(for: fixture.monitor), from: engine
+        )
+        let fraction = settings.ratioToFraction(settings.defaultSplitRatio)
+        let leftWidth = area.width * fraction
+        let middleWidth = (area.width - leftWidth) * fraction
+        let growth = area.width / 32
+        func frames(halfGrowth: CGFloat) -> [WindowToken: CGRect] {
+            let branchWidth = area.width - leftWidth + halfGrowth
+            let targetWidth = middleWidth + 2 * halfGrowth
+            let outer = engine.splitRect(
+                area, orientation: .horizontal, ratio: 2 * (1 - branchWidth / area.width),
+                minimums: (.zero, .zero), settings: settings
+            )
+            let inner = engine.splitRect(
+                outer.1, orientation: .horizontal, ratio: 2 * targetWidth / branchWidth,
+                minimums: (.zero, .zero), settings: settings
+            )
+            return Dictionary(uniqueKeysWithValues: zip([fixture.tokens[0], token, right], [outer.0, inner.0, inner.1])
+                .map {
+                    ($0, DwindleGapCalculator.applyGaps(nodeRect: $1, tilingArea: area, settings: settings))
+                })
+        }
+        let original = frames(halfGrowth: 0)
+        XCTAssertEqual(try fixture.frames(), original)
+        let start = try XCTUnwrap(original[token])
+        let window = fixture.windows[1]
+        XCTAssertTrue(fixture.controller.shellAppWindowManager.setFrame(start, for: token))
+        let nativeStart = window.frame
+        let notification = Notification(name: NSWindow.didEndLiveResizeNotification, object: window)
+        fixture.controller.shellAppWindowManager.windowWillStartLiveResize(notification)
+        window.setFrame(start.insetBy(dx: -growth, dy: 0), display: false)
+        let nativeObserved = window.frame
+        XCTAssertGreaterThan(nativeObserved.width, nativeStart.width)
+        fixture.controller.shellAppWindowManager.windowDidResize(notification)
+        fixture.controller.shellAppWindowManager.windowDidEndLiveResize(notification)
+
+        let actual = try fixture.frames()
+        XCTAssertEqual(actual, frames(halfGrowth: nativeStart.minX - nativeObserved.minX))
+        XCTAssertEqual(actual[token]?.midX, start.midX)
+        XCTAssertEqual(fixture.controller.workspaceManager.entry(for: token)?.observedState.frame, nativeObserved)
+        XCTAssertNil(fixture.controller.mouseEventHandler.state.leftPressLocation)
+        XCTAssertNil(fixture.controller.mouseEventHandler.state.nativeTitleBarDrag)
+        XCTAssertNil(fixture.controller.shellAppWindowManager.liveResizeStarts[token])
+        XCTAssertNil(engine.interactiveResize)
+        XCTAssertNil(fixture.controller.axManager.lastAppliedFrame(for: token.windowId))
+    }
+
     @MainActor
     private struct Fixture {
         let controller: WMController

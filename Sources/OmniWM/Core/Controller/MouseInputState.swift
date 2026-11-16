@@ -169,6 +169,7 @@ struct MouseInputState {
     var nativeTitleBarDragFallbackReleased = false
     var nativeTitleBarDrag: NativeTitleBarDrag?
     var leftPressLocation: CGPoint?
+    var leftPressModifiers: CGEventFlags = []
     var leftPressWasDragged = false
     var leftReleaseLocation: CGPoint?
     var nativeResizeStart: NativeResizeStart?

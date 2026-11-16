@@ -80,11 +80,8 @@ extension MouseEventHandler {
         guard let controller,
               entry.target.hostedMetadata != nil, entry.mode == .tiling, entry.layoutReason == .standard,
               entry.hiddenState == nil else { return false }
-        let niri = controller.isNiriStrip(entry.workspaceId)
         let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: true)
-        guard !edges.isEmpty,
-              niri || !edges.contains([.left, .right]) && !edges.contains([.top, .bottom])
-        else { return false }
+        guard !edges.isEmpty else { return false }
         if controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri {
             return adoptNiriNativeResize(entry, edges: edges, from: start, to: observed, shownAt: observed)
         }
@@ -122,9 +119,11 @@ extension MouseEventHandler {
         let right = moved(start.maxX, observed.maxX)
         let bottom = moved(start.minY, observed.minY)
         let top = moved(start.maxY, observed.maxY)
-        let centredX = allowsCentred && isCentredResize(start.minX ... start.maxX, observed.minX ... observed.maxX)
-        let centredY = allowsCentred && isCentredResize(start.minY ... start.maxY, observed.minY ... observed.maxY)
-        guard !(left && right) || centredX, !(bottom && top) || centredY else { return [] }
+        guard !(left && right)
+            || allowsCentred && isCentredResize(start.minX ... start.maxX, observed.minX ... observed.maxX),
+            !(bottom && top)
+            || allowsCentred && isCentredResize(start.minY ... start.maxY, observed.minY ... observed.maxY)
+        else { return [] }
         var edges: ResizeEdge = []
         if left { edges.insert(.left) }
         if right { edges.insert(.right) }
@@ -337,7 +336,8 @@ extension MouseEventHandler {
             return
         }
         guard let observedFrame else { return }
-        let edges = Self.nativeResizeEdges(from: start, to: observedFrame)
+        let allowsCentered = allowsCenteredNativeDwindleResize(entry, from: start)
+        let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: allowsCentered)
         guard !edges.isEmpty || observedFrame.approximatelyEqual(to: start, tolerance: FrameTolerance.screenMatch)
         else { return }
         if drag.dwindleResizeWorkspaceId == nil {
@@ -348,7 +348,8 @@ extension MouseEventHandler {
                 startLocation: start.origin,
                 in: workspaceId,
                 innerGap: controller.resolvedDwindleSettings(for: monitor).innerGap,
-                edgePolicy: .exact
+                edgePolicy: .exact,
+                allowsCentered: allowsCentered
             ) else { return }
             controller.dwindleLayoutHandler.refreshEngineConstraints(workspaceId: workspaceId, monitor: monitor)
             drag.dwindleResizeWorkspaceId = workspaceId
@@ -362,9 +363,6 @@ extension MouseEventHandler {
             return
         }
         let combinedEdges = resize.edges.union(edges)
-        guard !combinedEdges.isSuperset(of: [.left, .right]),
-              !combinedEdges.isSuperset(of: [.top, .bottom])
-        else { return }
         if entry.axRef != nil { state.nativeTitleBarDrag = drag }
         if engine.interactiveResizeUpdate(
             currentLocation: Self.nativeResizeLocation(combinedEdges, from: start, to: observedFrame),
@@ -372,6 +370,13 @@ extension MouseEventHandler {
         ), renderOnChange {
             controller.layoutRefreshController.renderDwindleInteractiveResize(for: workspaceId)
         }
+    }
+
+    private func allowsCenteredNativeDwindleResize(_ entry: borrowing WindowState, from start: CGRect) -> Bool {
+        if entry.target.hostedMetadata != nil { return true }
+        guard Self.modifierFlagsMatch(state.leftPressModifiers, required: .maskAlternate),
+              let press = state.leftPressLocation else { return false }
+        return Self.isNativeResizePress(at: press, in: start)
     }
 
     func finishNativeDwindleResize(_ drag: inout MouseInputState.NativeTitleBarDrag) {

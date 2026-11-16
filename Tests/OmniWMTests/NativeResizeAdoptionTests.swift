@@ -1357,6 +1357,88 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.handler.state.nativeResizeStart?.token, left)
     }
 
+    func testDwindleNativeCenteredResizeCrossesNestedMinimumClampAndReturns() throws {
+        for (index, moveModifier) in [MouseMoveModifierKey.option, .control].enumerated() {
+            let fixture = try makeNestedCenteredNativeResizeFixture(pid: pid_t(835_401 + index))
+            fixture.controller.settings.gestures.mouseMoveModifierKey = moveModifier
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let area = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+            let span = area.width / 2
+            let initial = centeredNativeHorizontalFrames(
+                fixture, rawWidths: [span, 7 * span / 64, 21 * span / 64, 9 * span / 16]
+            )
+            XCTAssertEqual(try fixture.frames(), initial)
+            let token = fixture.tokens[1]
+            let start = try XCTUnwrap(initial[token])
+            let press = CGPoint(x: start.maxX - FrameTolerance.frameWrite, y: start.midY)
+            let breakpointGrowth = span / 8
+            let requestedGrowth = 3 * span / 16
+            let breakpointFrame = start.insetBy(dx: -breakpointGrowth, dy: 0)
+            let reported = try XCTUnwrap(fixture.nativeFrames[token.windowId])
+            var nativeFrameReads = 0
+            fixture.handler.nativeWindowFrameProvider = { _ in
+                nativeFrameReads += 1
+                return reported.frame
+            }
+            fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+            MouseEventHandler._instance = fixture.handler
+            fixture.handler.syncTapFilterSnapshot()
+            let tap = fixture.handler.inputTapThread
+            let intake = fixture.controller.eventIntake
+            intake.open(sink: fixture.controller.eventInterpreter)
+            defer { intake.close() }
+            var baselineCollections = 0
+            tap.evaluateLeftMouseDown(
+                at: press, modifiers: .maskAlternate, timestamp: 0, snapshot: tap.filterSnapshot
+            ) {
+                baselineCollections += 1
+                return [token: ScreenCoordinateSpace.toWindowServer(rect: start)]
+            }
+            reported.frame = breakpointFrame
+            intake.drainNow()
+            XCTAssertEqual(baselineCollections, moveModifier == .control ? 1 : 0)
+            XCTAssertEqual(nativeFrameReads, moveModifier == .option ? 1 : 0)
+            XCTAssertEqual(fixture.handler.state.nativeResizeStart?.frame, start)
+            XCTAssertEqual(fixture.handler.state.nativeResizeStart?.location, press)
+            XCTAssertEqual(fixture.handler.state.leftPressModifiers, .maskAlternate)
+            XCTAssertFalse(fixture.handler.state.isMoving)
+
+            fixture.handler.receiveAnnotatedNativeMouseDragged(
+                at: CGPoint(x: press.x + breakpointGrowth, y: press.y), windowIdUnderPointer: token.windowId
+            )
+            fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+            XCTAssertEqual(try fixture.frames(), centeredNativeHorizontalFrames(
+                fixture, rawWidths: [7 * span / 8, 23 * span / 64, 13 * span / 64, 9 * span / 16]
+            ))
+            XCTAssertNotNil(fixture.controller.dwindleEngine?.interactiveResize)
+            XCTAssertTrue(fixture.handler.isInteractiveGestureActive)
+
+            reported.frame = start.insetBy(dx: -requestedGrowth, dy: 0)
+            fixture.handler.dispatchMouseDragged(at: CGPoint(x: press.x + requestedGrowth, y: press.y))
+            fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+            let expanded = try fixture.frames()
+            XCTAssertEqual(expanded, centeredNativeHorizontalFrames(
+                fixture, rawWidths: [13 * span / 16, 31 * span / 64, 7 * span / 64, 19 * span / 32]
+            ))
+            XCTAssertEqual(expanded[token]?.midX, start.midX)
+            XCTAssertEqual(expanded[token]?.minY, start.minY)
+            XCTAssertEqual(expanded[token]?.maxY, start.maxY)
+            XCTAssertEqual(expanded[fixture.tokens[0]]?.minX, area.minX)
+            XCTAssertEqual(expanded[fixture.tokens[3]]?.maxX, area.maxX)
+
+            reported.frame = start
+            fixture.handler.dispatchMouseDragged(at: press)
+            fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+            XCTAssertEqual(try fixture.frames(), initial)
+            fixture.handler.pressedMouseButtonsProvider = { 0 }
+            fixture.handler.dispatchMouseUp(at: press)
+            XCTAssertEqual(try fixture.frames(), initial)
+            XCTAssertNil(fixture.controller.dwindleEngine?.interactiveResize)
+            XCTAssertFalse(fixture.handler.isInteractiveGestureActive)
+        }
+    }
+
     func testDwindleNativeResizeReturningToStartRestoresTheSplit() throws {
         let fixture = try makeFixture(.dwindle, pid: 834_082)
         let blocker = blockRefreshes(fixture)
@@ -4449,6 +4531,89 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         fixture.controller.layoutRefreshController.layoutState.activeRefreshTask = nil
         fixture.controller.layoutRefreshController.layoutState.activeRefresh = nil
         fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
+    }
+
+    private func centeredNativeHorizontalFrames(
+        _ fixture: Fixture,
+        rawWidths: [CGFloat]
+    ) -> [WindowToken: CGRect] {
+        let area = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+        let gap = fixture.controller.resolvedDwindleSettings(for: fixture.monitor).innerGap
+        XCTAssertEqual(rawWidths.count, fixture.tokens.count)
+        XCTAssertEqual(rawWidths.reduce(0, +), area.width)
+        var result: [WindowToken: CGRect] = [:]
+        var x = area.minX
+        for (index, width) in rawWidths.enumerated() {
+            let leftInset = index == rawWidths.startIndex ? 0 : gap / 2
+            let rightInset = index == rawWidths.index(before: rawWidths.endIndex) ? 0 : gap / 2
+            result[fixture.tokens[index]] = CGRect(
+                x: x + leftInset, y: area.minY, width: width - leftInset - rightInset, height: area.height
+            )
+            x += width
+        }
+        return result
+    }
+
+    private func makeNestedCenteredNativeResizeFixture(pid: pid_t) throws -> Fixture {
+        let original = try makeFixture(.dwindle, windowCount: 4, pid: pid)
+        let controller = original.controller
+        let translatedFrame = original.monitor.frame.offsetBy(
+            dx: original.monitor.frame.width / 8, dy: original.monitor.frame.height / 8
+        )
+        let monitor = Monitor(
+            id: original.monitor.id,
+            displayId: original.monitor.displayId,
+            frame: translatedFrame,
+            visibleFrame: translatedFrame,
+            hasNotch: false,
+            name: original.monitor.name
+        )
+        original.manager.applyMonitorConfigurationChange([monitor])
+        original.manager.applySettings()
+        let fixture = Fixture(
+            controller: controller, workspaceId: original.workspaceId, monitor: monitor,
+            tokens: original.tokens, nativeFrames: original.nativeFrames
+        )
+        controller.settings.gestures.adoptNativeResize = false
+        let engine = try XCTUnwrap(controller.dwindleEngine)
+        let settings = controller.resolvedDwindleSettings(for: monitor)
+        controller.dwindleLayoutHandler.applyResolvedSettings(settings, to: engine)
+        fixture.manager.withEngineMutationScope(in: fixture.workspaceId) {
+            engine.removeLayout(for: fixture.workspaceId)
+            for token in [fixture.tokens[0], fixture.tokens[1], fixture.tokens[3]] {
+                _ = engine.setPreselection(.right, in: fixture.workspaceId)
+                _ = engine.addWindow(token: token, to: fixture.workspaceId, activeWindowFrame: nil)
+            }
+            engine.setSelectedNode(
+                engine.findNode(for: fixture.tokens[1], in: fixture.workspaceId), in: fixture.workspaceId
+            )
+            _ = engine.setPreselection(.right, in: fixture.workspaceId)
+            _ = engine.addWindow(token: fixture.tokens[2], to: fixture.workspaceId, activeWindowFrame: nil)
+        }
+        let inner = try XCTUnwrap(engine.findNode(for: fixture.tokens[1], in: fixture.workspaceId)?.parent)
+        fixture.manager.withEngineMutationScope(in: fixture.workspaceId) {
+            inner.kind = .split(orientation: .horizontal, ratio: 1 / 2)
+        }
+        let span = controller.insetWorkingFrame(for: monitor).width / 2
+        let farMinimum = 9 * span / 16 - settings.innerGap / 2
+        fixture.manager.setCachedConstraints(
+            WindowSizeConstraints(minSize: CGSize(width: farMinimum, height: 1), maxSize: .zero, isFixed: false),
+            for: fixture.tokens[3]
+        )
+        controller.dwindleLayoutHandler.refreshEngineConstraints(workspaceId: fixture.workspaceId, monitor: monitor)
+        engine.cancelAnimations(in: fixture.workspaceId)
+        try fixture.confirmLayout()
+        let initial = centeredNativeHorizontalFrames(
+            fixture, rawWidths: [span, 7 * span / 64, 21 * span / 64, 9 * span / 16]
+        )
+        XCTAssertEqual(try fixture.frames(), initial)
+        let tokens = fixture.tokens
+        controller.axEventHandler.windowInfoProvider = { windowId in
+            guard let token = tokens.first(where: { $0.windowId == Int(windowId) }) else { return nil }
+            return WindowServerInfo(id: windowId, pid: token.pid, level: 0, frame: initial[token] ?? .zero)
+        }
+        controller.layoutRefreshController.resetState()
+        return fixture
     }
 
     private func makeFixture(

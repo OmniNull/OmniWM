@@ -49,8 +49,12 @@ extension MouseEventHandler {
         guard var strip = strip ?? pressedStrip(at: location) else { return false }
         let wsId = strip.workspaceId
         let onNiriStrip = strip.layoutKind == .niri
+        let nativeDwindleResize = keepsNativeDwindleResizePress(
+            at: location, modifiers: modifiers, button: button, in: &strip, windowId: windowIdUnderPointer
+        )
 
         let startsModifierMove = button == .left
+            && !nativeDwindleResize
             && Self.mouseMoveModifiersMatch(
                 modifiers,
                 required: controller.settings.gestures.mouseMoveModifierKey.cgEventFlags
@@ -59,7 +63,8 @@ extension MouseEventHandler {
                 at: location, in: &strip, windowId: windowIdUnderPointer, controller: controller
             )
         if button == .left,
-           modifiers.isDisjoint(with: Self.relevantModifierFlags) || onNiriStrip && !startsModifierMove
+           modifiers.isDisjoint(with: Self.relevantModifierFlags) || nativeDwindleResize
+           || onNiriStrip && !startsModifierMove
         {
             holdEdgeResizeAtThePeek(at: location, modifiers: modifiers, in: strip)
             recordPointerFocusIntent(
@@ -71,7 +76,8 @@ extension MouseEventHandler {
         }
 
         if !onNiriStrip {
-            return handleDwindleMouseDown(at: location, modifiers: modifiers, button: button, wsId: wsId)
+            return !nativeDwindleResize
+                && handleDwindleMouseDown(at: location, modifiers: modifiers, button: button, wsId: wsId)
         }
 
         guard let engine = controller.niriEngine else { return false }
@@ -116,6 +122,22 @@ extension MouseEventHandler {
               let frame = window.renderedFrame ?? window.frame
         else { return false }
         return Self.isNativeResizePress(at: location, in: frame)
+    }
+
+    private func keepsNativeDwindleResizePress(
+        at location: CGPoint, modifiers: CGEventFlags, button: MouseButton,
+        in strip: inout PressedStrip, windowId: Int?
+    ) -> Bool {
+        guard button == .left, Self.modifierFlagsMatch(modifiers, required: .maskAlternate),
+              strip.layoutKind == .dwindle, let controller, let engine = controller.dwindleEngine else { return false }
+        let now = controller.animationClock.now()
+        guard let token = engine.hitTestFocusableWindow(point: location, in: strip.workspaceId, at: now),
+              windowId == nil || windowId == token.windowId,
+              let frame = engine.presentedFrame(for: token, in: strip.workspaceId, at: now),
+              Self.isNativeResizePress(at: location, in: frame)
+        else { return false }
+        strip.doubleClick = .dwindle(DwindlePressHit(token: token, zone: nil))
+        return true
     }
 
     private func beginNiriMouseMove(

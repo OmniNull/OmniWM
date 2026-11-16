@@ -342,7 +342,7 @@ extension InputTapThread {
             return
         }
         let needsNativeResizeBaseline = snapshot.adoptNativeResize
-            && modifiers.isDisjoint(with: MouseEventHandler.relevantModifierFlags)
+            && modifiers.isDisjoint(with: MouseEventHandler.relevantModifierFlags.subtracting(.maskAlternate))
         let windowServerFrames = needsNativeResizeBaseline ? captureWindowFrames() : [:]
         EventIntake.post(.leftMouseDown(.init(
             location: location,

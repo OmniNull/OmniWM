@@ -83,6 +83,7 @@ extension MouseEventHandler {
         controller?.noteUserAction()
         if button == .left {
             state.leftPressLocation = location
+            state.leftPressModifiers = modifiers
             state.leftPressWasDragged = false
         }
         let blocked = shouldBlockOwnWindowInput(at: location, windowIdUnderPointer: windowIdUnderPointer)
