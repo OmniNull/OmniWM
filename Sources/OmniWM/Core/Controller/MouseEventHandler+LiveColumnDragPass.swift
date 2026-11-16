@@ -41,7 +41,6 @@ extension MouseEventHandler {
             return false
         }
         let workspaceId = move.workspaceId
-        let reference = liveDragReference(location)
         let slowed = livePointerHasSlowed(at: liveDragClock())
         let updateLabel = slowed ? "update slowed=1" : "update slowed=0"
         guard let monitor = liveDragMonitor(in: workspaceId, at: location, label: updateLabel, controller: controller)
@@ -51,6 +50,8 @@ extension MouseEventHandler {
             controller.pointerEdgeBarrier.publishLiveDragHold(nil)
             return false
         }
+        trackLiveEdgeZone(at: location, monitorFrame: monitor.frame, orientation: context.orientation)
+        let reference = liveDragReference(location, orientation: context.orientation)
         let manager = controller.workspaceManager
         let viewport = manager.niriViewportState(for: workspaceId)
         var strip = engine.liveColumnStrip(context: context, state: viewport)
@@ -69,7 +70,7 @@ extension MouseEventHandler {
         let now = liveDragClock()
         let step = runLiveColumnMoveUpdate(
             .init(cursor: reference, time: immediate ? nil : now, slowed: slowed),
-            windowMidX: liveDragWindowMidX(location),
+            windowMidX: liveDragWindowMidX(location, orientation: context.orientation),
             engine: engine,
             context: context,
             strip: strip
@@ -103,7 +104,6 @@ extension MouseEventHandler {
             }
             return nil
         }
-        trackLiveEdgeZone(at: location, monitorFrame: monitor.frame)
         return monitor
     }
 

@@ -16,10 +16,10 @@ extension NiriLayoutEngine {
               let placed = strip.first(where: { $0.column === home })
         else { return .nothing }
 
-        if let leaving = liveStackLeaveSide(placed, at: cursor.x, move: move) {
+        if let leaving = liveStackLeaveSide(placed, at: context.primaryCoordinate(of: cursor), move: move) {
             return .leaveStack(towardTrailingSide: leaving == .after)
         }
-        guard !holdsLiveStackSuppression(&move, at: cursor, strip: strip) else { return .nothing }
+        guard !holdsLiveStackSuppression(&move, at: cursor, strip: strip, context: context) else { return .nothing }
         guard let index = liveSlotTarget(at: cursor, in: home, window: window, context: context) else {
             return .nothing
         }
@@ -54,7 +54,7 @@ extension NiriLayoutEngine {
         return true
     }
 
-    func restoreLiveOriginalSlot(_ move: inout LiveColumnMove) {
+    func restoreLiveOriginalSlot(_ move: inout LiveColumnMove, context: NiriInteractionContext) {
         let original = move.originalSlot
         guard let column = liveColumn(withId: original.columnId, in: move.workspaceId),
               let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow
@@ -62,12 +62,12 @@ extension NiriLayoutEngine {
         let current = liveDraggedColumn(for: move)
         if window.parent !== column || column.windowNodes.firstIndex(where: { $0 === window }) != original.index {
             column.insertChild(window, at: original.index)
-            column.cachedWidth = 0
+            column.setCachedPrimarySpan(0, orientation: context.orientation)
         }
         original.windowSizing.apply(to: window)
         if column.displayMode != original.displayMode {
             column.displayMode = original.displayMode
-            column.cachedWidth = 0
+            column.setCachedPrimarySpan(0, orientation: context.orientation)
         }
         column.setActiveTileIdx(original.activeTileIdx)
         updateTabbedColumnVisibility(column: column)
@@ -121,8 +121,9 @@ extension NiriLayoutEngine {
     ) -> Int? {
         guard !home.isTabbed else { return nil }
         let spans = liveWindowSpans(in: home, context: context)
-        guard !spans.contains(where: { $0.window === window && $0.contains(y: cursor.y) }),
-              let mate = spans.first(where: { $0.window !== window && $0.contains(y: cursor.y) })
+        let secondary = context.secondaryCoordinate(of: cursor)
+        guard !spans.contains(where: { $0.window === window && $0.contains(y: secondary) }),
+              let mate = spans.first(where: { $0.window !== window && $0.contains(y: secondary) })
         else { return nil }
         return home.windowNodes.firstIndex { $0 === mate.window }
     }
@@ -165,7 +166,7 @@ extension NiriLayoutEngine {
         let side: LiveColumnMove.Side = towardTrailingSide ? .after : .before
         move.setHome(columnId: column.id, inStack: false)
         move.homeSlotIndex = 0
-        move.ownWindowSizing = .init(size: 1.0, height: .default)
+        move.ownWindowSizing = .init(height: .default, windowWidth: .default)
         closeLivePlace(column, toward: side, move: &move, context: context)
 
         rebaseLiveView(from: positionsBefore, anchoredOn: column, context: context, state: &state)
@@ -178,7 +179,7 @@ extension NiriLayoutEngine {
             beside: home,
             heading: move.heading,
             strip: strip,
-            cursor: cursor
+            at: context.primaryCoordinate(of: cursor)
         )
         _ = applyLiveReorder(
             .init(
@@ -212,7 +213,7 @@ extension NiriLayoutEngine {
             home.displayMode = .normal
             updateTabbedColumnVisibility(column: home)
         }
-        home.cachedWidth = 0
+        home.setCachedPrimarySpan(0, orientation: context.orientation)
         return column
     }
 

@@ -20,24 +20,24 @@ extension NiriLayoutEngine {
         let affected = [source, target ?? home]
         retargetActiveColumn(to: home, context: context, state: &state)
         let columnsBefore = primaryPositions(context: context, state: state)
-        let wasDeferred = window.defersMinimumWidth
+        let wasDeferred = window.deferredMinimumOrientation
         let placed = slideLiveWindows(in: affected, skipping: window, context: context) {
             clearLiveSpanOverrides(in: affected)
-            window.defersMinimumWidth = target != nil && target !== home
+            window.deferredMinimumOrientation = target != nil && target !== home ? context.orientation : nil
             let hintBase = target.map { liveHintBaseSpans(in: $0, without: window, context: context) }
             restoreLiveMateHeight(&move)
             guard relocateLiveWindow(window, to: landing, from: source, move: &move, context: context) else {
                 return false
             }
-            shareLiveColumn(target, with: window, move: &move)
-            keepLiveColumnWidths(landing: landing != nil, move: &move)
+            shareLiveColumn(target, with: window, move: &move, context: context)
+            keepLiveColumnWidths(landing: landing != nil, move: &move, context: context)
             if let hintBase, let target {
                 applyLiveLandingHint(window, in: target, base: hintBase, context: context)
             }
             return true
         }
         guard placed else {
-            window.defersMinimumWidth = wasDeferred
+            window.deferredMinimumOrientation = wasDeferred
             return false
         }
         move.landing = landing
@@ -45,27 +45,43 @@ extension NiriLayoutEngine {
         return true
     }
 
-    private func shareLiveColumn(_ column: NiriContainer?, with window: NiriWindow, move: inout LiveColumnMove) {
+    private func shareLiveColumn(
+        _ column: NiriContainer?,
+        with window: NiriWindow,
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext
+    ) {
         guard let column, !column.isTabbed else { return }
         let mates = column.windowNodes.filter { $0 !== window }
-        guard mates.count == 1, let mate = mates.first, mate.height != .default else { return }
-        move.mateHeight = .init(windowId: mate.id, height: mate.height)
-        mate.height = .default
+        guard mates.count == 1, let mate = mates.first,
+              mate.secondarySizing(orientation: context.orientation) != .default else { return }
+        move.mateHeight = .init(
+            windowId: mate.id,
+            height: mate.secondarySizing(orientation: context.orientation),
+            orientation: context.orientation
+        )
+        mate.setSecondarySizing(.default, orientation: context.orientation)
     }
 
-    private func keepLiveColumnWidths(landing: Bool, move: inout LiveColumnMove) {
+    private func keepLiveColumnWidths(landing: Bool, move: inout LiveColumnMove, context: NiriInteractionContext) {
         let workspace = ensureState(for: move.workspaceId)
         guard landing else {
             if let kept = move.keptWidths {
-                workspace.manualWidthColumnCount = kept.manualColumnCount
+                kept.restore(in: workspace)
                 move.keptWidths = nil
             }
             return
         }
         if move.keptWidths == nil {
-            move.keptWidths = .init(manualColumnCount: workspace.manualWidthColumnCount)
+            move.keptWidths = .init(
+                manualColumnCount: context.orientation == .horizontal ? workspace.manualWidthColumnCount : workspace
+                    .manualHeightColumnCount,
+                orientation: context.orientation
+            )
         }
-        workspace.manualWidthColumnCount = projectedColumns(in: move.workspaceId).filter { !$0.windows.isEmpty }.count
+        let count = projectedColumns(in: move.workspaceId).filter { !$0.windows.isEmpty }.count
+        if context.orientation == .horizontal { workspace.manualWidthColumnCount = count }
+        else { workspace.manualHeightColumnCount = count }
     }
 
     private func restoreLiveMateHeight(_ move: inout LiveColumnMove) {
@@ -99,12 +115,12 @@ extension NiriLayoutEngine {
                 move.ownWindowSizing.apply(to: window)
             }
         } else {
-            returnLiveWindowHome(window, to: home, move: move)
-            restoreHeldLiveTabs(to: home, around: window, move: &move)
+            returnLiveWindowHome(window, to: home, move: move, context: context)
+            restoreHeldLiveTabs(to: home, around: window, move: &move, context: context)
         }
         if let sourceActive, source !== target, sourceActive.parent === source {
             activateWindow(sourceActive.id, in: move.workspaceId)
-            source.cachedWidth = 0
+            source.setCachedPrimarySpan(0, orientation: context.orientation)
         }
         return true
     }
@@ -118,7 +134,7 @@ extension NiriLayoutEngine {
     ) -> Bool {
         guard let targetWindow = findNode(by: landing.targetWindowId, in: context.workspaceId) as? NiriWindow
         else { return false }
-        let homeWidth = home.cachedWidth
+        let homeWidth = home.cachedPrimarySpan(orientation: context.orientation)
         let shownTab = column.isTabbed ? projectedActiveWindow(in: column, workspaceId: context.workspaceId) : nil
         guard stackWindow(
             window,
@@ -127,17 +143,19 @@ extension NiriLayoutEngine {
             removingEmptySource: false,
             in: context.workspaceId
         ) else { return false }
+        if context.orientation == .vertical { window.windowWidth = .default }
 
         if let shownTab, shownTab.parent === column {
             activateWindow(shownTab.id, in: context.workspaceId)
-            column.cachedWidth = 0
+            column.setCachedPrimarySpan(0, orientation: context.orientation)
         } else {
             window.isHiddenInTabbedMode = false
         }
         if projectedWindows(in: home, workspaceId: context.workspaceId).isEmpty, !home.isLiveHomeSpot {
             home.isLiveHomeSpot = true
-            home.width = .fixed(homeWidth)
-            home.cachedWidth = 0
+            if context.orientation == .horizontal { home.width = .fixed(homeWidth) }
+            else { home.height = .fixed(homeWidth) }
+            home.setCachedPrimarySpan(0, orientation: context.orientation)
         }
         return true
     }
@@ -149,25 +167,35 @@ extension NiriLayoutEngine {
         home.invalidateAxisSolveInputs()
     }
 
-    private func restoreHeldLiveTabs(to home: NiriContainer, around window: NiriWindow, move: inout LiveColumnMove) {
+    private func restoreHeldLiveTabs(
+        to home: NiriContainer,
+        around window: NiriWindow,
+        move: inout LiveColumnMove,
+        context: NiriInteractionContext
+    ) {
         guard !move.heldTabs.isEmpty else { return }
         move.heldTabs = []
         liveColumnMove?.heldTabs = []
         activateWindow(window.id, in: move.workspaceId)
         home.invalidateAxisSolveInputs()
-        home.cachedWidth = 0
+        home.setCachedPrimarySpan(0, orientation: context.orientation)
     }
 
-    private func returnLiveWindowHome(_ window: NiriWindow, to home: NiriContainer, move: LiveColumnMove) {
+    private func returnLiveWindowHome(
+        _ window: NiriWindow,
+        to home: NiriContainer,
+        move: LiveColumnMove,
+        context: NiriInteractionContext
+    ) {
         if let source = window.parent as? NiriContainer, source.isTabbed {
-            source.cachedWidth = 0
+            source.setCachedPrimarySpan(0, orientation: context.orientation)
         }
         home.insertChild(window, at: min(move.homeSlotIndex, home.windowNodes.count))
         move.ownWindowSizing.apply(to: window)
         window.isHiddenInTabbedMode = false
         if move.home == .stackSlot {
             activateWindow(window.id, in: move.workspaceId)
-            home.cachedWidth = 0
+            home.setCachedPrimarySpan(0, orientation: context.orientation)
             return
         }
         home.isLiveHomeSpot = false

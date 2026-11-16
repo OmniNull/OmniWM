@@ -52,7 +52,7 @@ final class NiriWindow: NiriNode {
         }
     }
 
-    var defersMinimumWidth = false
+    var deferredMinimumOrientation: Monitor.Orientation?
 
     var resolvedHeight: CGFloat?
 
@@ -133,7 +133,7 @@ final class NiriWindow: NiriNode {
     }
 
     private(set) var moveYContainmentFrame: CGRect?
-    private(set) var moveYLeavesColumn = false
+    private(set) var columnExitOrientation: Monitor.Orientation?
 
     init(token: WindowToken) {
         self.token = token
@@ -150,22 +150,6 @@ final class NiriWindow: NiriNode {
         }
         set {
             height = .auto(weight: newValue)
-        }
-    }
-
-    var heightWeight: CGFloat {
-        switch height {
-        case let .auto(weight): weight
-        case .fixed,
-             .preset: 1.0
-        }
-    }
-
-    var widthWeight: CGFloat {
-        switch windowWidth {
-        case let .auto(weight): weight
-        case .fixed,
-             .preset: 1.0
         }
     }
 
@@ -191,7 +175,7 @@ final class NiriWindow: NiriNode {
     func animateMoveFrom(
         displacement: CGPoint,
         yContainmentFrame: CGRect? = nil,
-        leavingColumnVertically: Bool = false,
+        leavingColumnIn orientation: Monitor.Orientation? = nil,
         clock: AnimationClock?,
         config: SpringConfig = .default,
         displayRefreshRate: Double = 60.0,
@@ -217,7 +201,8 @@ final class NiriWindow: NiriNode {
                 config: config,
                 displayRefreshRate: displayRefreshRate
             )
-            moveXAnimation = MoveAnimation(animation: anim, fromOffset: totalOffsetX)
+            moveXAnimation = MoveAnimation(animation: consume anim, fromOffset: totalOffsetX)
+            if orientation == .vertical || columnExitOrientation == .vertical { columnExitOrientation = orientation }
         }
         if displacement.y != 0 {
             let totalOffsetY = displacement.y + currentOffset.y
@@ -229,9 +214,10 @@ final class NiriWindow: NiriNode {
                 config: config,
                 displayRefreshRate: displayRefreshRate
             )
-            moveYAnimation = MoveAnimation(animation: anim, fromOffset: totalOffsetY)
+            moveYAnimation = MoveAnimation(animation: consume anim, fromOffset: totalOffsetY)
             moveYContainmentFrame = yContainmentFrame
-            moveYLeavesColumn = leavingColumnVertically
+            if orientation == .horizontal || columnExitOrientation ==
+                .horizontal { columnExitOrientation = orientation }
         }
     }
 
@@ -311,6 +297,7 @@ final class NiriWindow: NiriNode {
         if let moveX = moveXAnimation {
             if moveX.isComplete(at: time) {
                 moveXAnimation = nil
+                if columnExitOrientation == .vertical { columnExitOrientation = nil }
             } else {
                 running = true
             }
@@ -319,7 +306,7 @@ final class NiriWindow: NiriNode {
             if moveY.isComplete(at: time) {
                 moveYAnimation = nil
                 moveYContainmentFrame = nil
-                moveYLeavesColumn = false
+                if columnExitOrientation == .horizontal { columnExitOrientation = nil }
             } else {
                 running = true
             }
@@ -336,7 +323,7 @@ final class NiriWindow: NiriNode {
         }
         sizeAnimations = nil
         moveYContainmentFrame = nil
-        moveYLeavesColumn = false
+        columnExitOrientation = nil
     }
 
     var hasMoveAnimationsRunning: Bool {

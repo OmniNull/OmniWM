@@ -13,37 +13,58 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) {
         let before = columnScreenSpan(column, context: context, state: state)
-        window.defersMinimumWidth = false
-        guard context.orientation == .horizontal, let before else { return }
+        window.deferredMinimumOrientation = nil
+        guard let before else { return }
         let startWidth = before.upperBound - before.lowerBound
-        let wanted = projectedWidthBounds(for: column, workspaceId: context.workspaceId).min
+        let wanted = context.orientation == .horizontal
+            ? projectedWidthBounds(for: column, workspaceId: context.workspaceId).min
+            : projectedHeightBounds(for: column, workspaceId: context.workspaceId).min
         guard wanted > startWidth + 0.5 else { return }
-        beginManualPrimarySpanResize(column, in: context.workspaceId, orientation: .horizontal)
-        applyPrimarySpanResize(wanted, to: column, orientation: .horizontal)
-        let finalWidth = column.cachedWidth
+        beginManualPrimarySpanResize(column, in: context.workspaceId, orientation: context.orientation)
+        applyPrimarySpanResize(wanted, to: column, orientation: context.orientation)
+        let finalWidth = column.cachedPrimarySpan(orientation: context.orientation)
         let after = columnScreenSpan(column, context: context, state: state)
-        column.cachedWidth = startWidth
-        column.animateWidthTo(
-            newWidth: finalWidth,
-            clock: animationClock,
-            config: context.motion.scaled(windowMovementAnimationConfig),
-            displayRefreshRate: displayRefreshRate(in: context.workspaceId),
-            animated: context.motion.animationsEnabled
-        )
+        column.setCachedPrimarySpan(startWidth, orientation: context.orientation)
+        if context.orientation == .horizontal {
+            column.animateWidthTo(
+                newWidth: finalWidth,
+                clock: animationClock,
+                config: context.motion.scaled(windowMovementAnimationConfig),
+                displayRefreshRate: displayRefreshRate(in: context.workspaceId),
+                animated: context.motion.animationsEnabled
+            )
+        } else {
+            column.animateHeightTo(
+                newHeight: finalWidth,
+                clock: animationClock,
+                config: context.motion.scaled(windowMovementAnimationConfig),
+                displayRefreshRate: displayRefreshRate(in: context.workspaceId),
+                animated: context.motion.animationsEnabled
+            )
+        }
         column.growsTowardLeadingEdge = liveStackGrowsTowardHome(column, home: home, in: context.workspaceId)
         guard let after, column.growsTowardLeadingEdge else { return }
         animateLiveViewShift(after.upperBound - before.upperBound, context: context, state: &state)
     }
 
-    func anchoredToTrailingEdge(_ frame: CGRect, of window: NiriWindow, in column: NiriContainer) -> CGRect {
+    func anchoredToTrailingEdge(
+        _ frame: CGRect,
+        of window: NiriWindow,
+        in column: NiriContainer,
+        orientation: Monitor.Orientation
+    ) -> CGRect {
         guard column.growsTowardLeadingEdge else { return frame }
-        guard column.hasWidthAnimationRunning else {
+        guard column.hasPrimarySpanAnimation(orientation: orientation) else {
             column.growsTowardLeadingEdge = false
             return frame
         }
-        let minimum = window.constraints.normalized().minSize.width
-        guard minimum > frame.width + 0.5 else { return frame }
-        return CGRect(x: frame.maxX - minimum, y: frame.minY, width: minimum, height: frame.height)
+        let minimum = window.constraints.normalized().minSize
+        if orientation == .horizontal {
+            guard minimum.width > frame.width + 0.5 else { return frame }
+            return CGRect(x: frame.maxX - minimum.width, y: frame.minY, width: minimum.width, height: frame.height)
+        }
+        guard minimum.height > frame.height + 0.5 else { return frame }
+        return CGRect(x: frame.minX, y: frame.maxY - minimum.height, width: frame.width, height: minimum.height)
     }
 
     private func liveStackGrowsTowardHome(

@@ -28,36 +28,39 @@ struct LiveDragHold: Equatable, Sendable {
     func decide(
         location: CGPoint,
         motionX: CGFloat,
+        motionY: CGFloat = 0,
         now: UInt64,
         push: inout Push,
         topology: PointerEdgeTopology
     ) -> Decision {
-        guard let source = topology.monitor(monitorId) else {
-            push = Push()
-            return .pass
-        }
-        let frame = source.frame
         let inset = topology.margin + 1
-        let direction: Direction? = if location.x >= frame.maxX - inset {
-            .right
-        } else if location.x <= frame.minX + inset {
-            .left
-        } else {
-            nil
-        }
-        let overshoot = direction == .right ? location.x - frame.maxX : frame.minX - location.x
-        guard let direction,
-              heldDirections.contains(direction),
-              overshoot <= abs(motionX) + inset,
-              location.y >= frame.minY, location.y <= frame.maxY,
-              let target = topology.edges[.init(monitorId: source.id, direction: direction)]?.target,
-              topology.warpsPointer || Self.shares(target.frame, frame, direction, at: location.y)
+        guard let source = topology.monitor(monitorId),
+              let direction = heldDirection(at: location, in: source.frame, inset: inset)
         else {
             push = Push()
             return .pass
         }
-        let held = CGPoint(x: direction == .right ? frame.maxX - inset : frame.minX + inset, y: location.y)
-        let outward = PointerEdgeRecognizer.outward(CGVector(dx: motionX, dy: 0), direction)
+        let frame = source.frame
+        let horizontal = direction == .left || direction == .right
+        let positive = direction == .right || direction == .up
+        let primary = horizontal ? location.x : location.y
+        let secondary = horizontal ? location.y : location.x
+        let minimum = horizontal ? frame.minX : frame.minY
+        let maximum = horizontal ? frame.maxX : frame.maxY
+        let motion = horizontal ? motionX : motionY
+        let overshoot = positive ? primary - maximum : minimum - primary
+        guard overshoot <= abs(motion) + inset,
+              secondary >= (horizontal ? frame.minY : frame.minX),
+              secondary <= (horizontal ? frame.maxY : frame.maxX),
+              let target = topology.edges[.init(monitorId: source.id, direction: direction)]?.target,
+              topology.warpsPointer || Self.shares(target.frame, frame, direction, at: secondary)
+        else {
+            push = Push()
+            return .pass
+        }
+        let heldPrimary = positive ? maximum - inset : minimum + inset
+        let held = horizontal ? CGPoint(x: heldPrimary, y: secondary) : CGPoint(x: secondary, y: heldPrimary)
+        let outward = positive ? motion : -motion
         if let since = push.heldSince {
             if now >= since + Self.settleNs { push.distance = max(0, push.distance + outward) }
         } else {
@@ -67,8 +70,8 @@ struct LiveDragHold: Equatable, Sendable {
         guard push.distance >= PointerEdgeTopology.pushDistance else { return .hold(held) }
         push = Push()
         guard topology.warpsPointer else {
-            let past = direction == .right ? max(location.x, frame.maxX) : min(location.x, frame.minX - 1)
-            return .letThrough(CGPoint(x: past, y: location.y))
+            let past = positive ? max(primary, maximum) : min(primary, minimum - 1)
+            return .letThrough(horizontal ? CGPoint(x: past, y: secondary) : CGPoint(x: secondary, y: past))
         }
         let zone = MouseWarpGeometry.crossing(toward: direction, location: held, frame: frame)
         return .cross(
@@ -79,10 +82,30 @@ struct LiveDragHold: Equatable, Sendable {
         )
     }
 
-    private static func shares(_ target: CGRect, _ frame: CGRect, _ direction: Direction, at y: CGFloat) -> Bool {
-        let seam = direction == .right ? target.minX - frame.maxX : frame.minX - target.maxX
+    private func heldDirection(at location: CGPoint, in frame: CGRect, inset: CGFloat) -> Direction? {
+        if location.x >= frame.maxX - inset, heldDirections.contains(.right) { return .right }
+        if location.x <= frame.minX + inset, heldDirections.contains(.left) { return .left }
+        if location.y >= frame.maxY - inset, heldDirections.contains(.up) { return .up }
+        if location.y <= frame.minY + inset, heldDirections.contains(.down) { return .down }
+        return nil
+    }
+
+    private static func shares(
+        _ target: CGRect,
+        _ frame: CGRect,
+        _ direction: Direction,
+        at secondary: CGFloat
+    ) -> Bool {
+        let horizontal = direction == .left || direction == .right
+        let seam = switch direction {
+        case .right: target.minX - frame.maxX
+        case .left: frame.minX - target.maxX
+        case .up: target.minY - frame.maxY
+        case .down: frame.minY - target.maxY
+        }
         return abs(seam) <= FrameTolerance.screenMatch
-            && y >= max(frame.minY, target.minY) && y <= min(frame.maxY, target.maxY)
+            && secondary >= (horizontal ? max(frame.minY, target.minY) : max(frame.minX, target.minX))
+            && secondary <= (horizontal ? min(frame.maxY, target.maxY) : min(frame.maxX, target.maxX))
     }
 }
 
@@ -399,9 +422,13 @@ extension PointerEdgeBarrier {
                 current.liveDragPush = .init()
                 return (.pass, flipY)
             }
+            let motionY = hold.heldDirections.contains(.up) || hold.heldDirections.contains(.down)
+                ? -event.getDoubleValueField(.mouseEventDeltaY)
+                : 0
             let decision = hold.decide(
                 location: CGPoint(x: cgLocation.x, y: flipY - cgLocation.y),
                 motionX: motionX,
+                motionY: motionY,
                 now: now,
                 push: &current.liveDragPush,
                 topology: current.topology

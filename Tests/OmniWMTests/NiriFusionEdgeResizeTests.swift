@@ -903,7 +903,9 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
                     y: index < 2 || index >= 6 ? (point.y + FrameTolerance.frameWrite).nextUp : point.y
                 ))
                 XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.startedOnLandscapeNiriStrip, false)
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.canStartLiveNiriDrag, false)
+                XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.liveStartFrame)
+                XCTAssertTrue(fixture.handler.livePointer.samples.isEmpty)
             }
         }
     }

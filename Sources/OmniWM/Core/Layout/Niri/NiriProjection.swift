@@ -231,8 +231,8 @@ extension NiriLayoutEngine {
     ) -> CGFloat {
         let column = projectedColumn.column
         let windows = projectedColumn.windows
-        if orientation == .horizontal, let liveSlotWidth = column.liveSlotWidth {
-            return liveSlotWidth
+        if let liveSlot = column.liveSlotSpan, liveSlot.orientation == orientation {
+            return liveSlot.span
         }
         let usesFittedSpan = orientation == .horizontal
             ? column.fittedWidth != nil
@@ -265,14 +265,16 @@ extension NiriLayoutEngine {
             let constraints = window.constraints.normalized()
             switch orientation {
             case .horizontal:
-                if !window.defersMinimumWidth {
+                if window.deferredMinimumOrientation != .horizontal {
                     minimum = max(minimum, constraints.minSize.width)
                 }
                 if constraints.hasMaxWidth {
                     maximum = min(maximum ?? constraints.maxSize.width, constraints.maxSize.width)
                 }
             case .vertical:
-                minimum = max(minimum, constraints.minSize.height)
+                if window.deferredMinimumOrientation != .vertical {
+                    minimum = max(minimum, constraints.minSize.height)
+                }
                 if constraints.hasMaxHeight {
                     maximum = min(maximum ?? constraints.maxSize.height, constraints.maxSize.height)
                 }

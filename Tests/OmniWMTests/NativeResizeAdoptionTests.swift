@@ -155,10 +155,10 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             _ = MouseEventHandler.annotatedMoveTapCallback(OpaquePointer(bitPattern: 1)!, .leftMouseDragged, event, nil)
         }
 
-        func release(_ token: WindowToken, at observed: CGRect) throws {
+        func release(_ token: WindowToken, at observed: CGRect, press: CGPoint? = nil) throws {
             let reported = ReportedFrame(controller.axManager.lastAppliedFrame(for: token.windowId))
             handler.nativeWindowFrameProvider = { _ in reported.frame }
-            try beginDrag(token)
+            try beginDrag(token, at: press)
             reported.frame = observed
             let entry = try entry(token)
             XCTAssertTrue(handler.handleNativeTitleBarDragFrameChanged(for: entry))
@@ -1695,14 +1695,15 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         XCTAssertEqual(adopted.height, start.height, accuracy: FrameTolerance.frameWrite)
     }
 
-    func testPlainMovesAndTwoSidedResizesAreStillCorrected() throws {
+    func testEdgeJitterAndTwoSidedResizesAreStillCorrected() throws {
+        let changes: [(isMove: Bool, change: (CGRect) -> CGRect)] = [
+            (true, { $0.offsetBy(dx: 40, dy: 0) }),
+            (true, { $0.offsetBy(dx: 0, dy: -30) }),
+            (false, { $0.insetBy(dx: -20, dy: 0) })
+        ]
         var pid: pid_t = 834_031
         for layout in [LayoutType.niri, .dwindle] {
-            for change in [
-                { (frame: CGRect) in frame.offsetBy(dx: 40, dy: 0) },
-                { (frame: CGRect) in frame.offsetBy(dx: 0, dy: -30) },
-                { (frame: CGRect) in frame.insetBy(dx: -20, dy: 0) }
-            ] {
+            for (isMove, change) in changes {
                 let fixture = try makeFixture(layout, portrait: layout == .niri, pid: pid)
                 pid += 1
                 let blocker = blockRefreshes(fixture)
@@ -1710,8 +1711,15 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 let before = try fixture.frames()
                 let worldSeq = fixture.manager.worldSeq
 
-                try fixture.release(fixture.tokens[0], at: change(try fixture.frame(fixture.tokens[0])))
+                let start = try fixture.frame(fixture.tokens[0])
+                let press = layout == .niri && isMove
+                    ? CGPoint(x: start.maxX - FrameTolerance.frameWrite, y: start.midY)
+                    : nil
+                try fixture.release(fixture.tokens[0], at: change(start), press: press)
 
+                if press != nil {
+                    XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.canStartLiveNiriDrag, false)
+                }
                 XCTAssertEqual(fixture.phase, .awaitingCorrection, "\(layout)")
                 XCTAssertEqual(try fixture.frames(), before, "\(layout)")
                 XCTAssertEqual(fixture.manager.worldSeq, worldSeq, "\(layout)")
@@ -1749,7 +1757,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         defer { unblockRefreshes(fixture, blocker: blocker) }
         let token = fixture.tokens[0]
         let start = try fixture.frame(token)
-        try fixture.release(token, at: start.offsetBy(dx: 40, dy: 0))
+        try fixture.release(token, at: start.insetBy(dx: -20, dy: 0))
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
         fixture.handler.nativeWindowFrameProvider = { _ in start }
         fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(

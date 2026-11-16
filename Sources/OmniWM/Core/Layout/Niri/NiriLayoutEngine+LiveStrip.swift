@@ -40,9 +40,11 @@ extension NiriLayoutEngine {
     func liveColumn(
         in strip: [LiveColumnMove.StripColumn],
         at cursor: CGPoint,
-        ignoring dropSpace: NiriContainer?
+        ignoring dropSpace: NiriContainer?,
+        context: NiriInteractionContext
     ) -> NiriContainer? {
-        strip.first { $0.column !== dropSpace && $0.contains(x: cursor.x) }?.column
+        let primary = context.primaryCoordinate(of: cursor)
+        return strip.first { $0.column !== dropSpace && $0.contains(x: primary) }?.column
     }
 
     func liveTargetSide(
@@ -56,10 +58,10 @@ extension NiriLayoutEngine {
         if awayFromHome, let ahead = liveColumnMove?.edgeScrollSide {
             return ahead
         }
-        let visibleMinX = max(placed.minX, context.workingFrame.minX)
-        let visibleMaxX = min(placed.maxX, context.workingFrame.maxX)
+        let visibleMinX = max(placed.minX, context.primaryOrigin)
+        let visibleMaxX = min(placed.maxX, context.primaryEnd)
         let middle = visibleMaxX > visibleMinX ? (visibleMinX + visibleMaxX) / 2 : placed.midX
-        return cursor.x < middle ? .before : .after
+        return context.primaryCoordinate(of: cursor) < middle ? .before : .after
     }
 
     func liveDraggedColumn(for move: LiveColumnMove) -> NiriContainer? {
@@ -171,12 +173,12 @@ extension NiriLayoutEngine {
         for edge in edges {
             switch edge {
             case .before:
-                let overshoot = placed.minX - (context.workingFrame.minX + context.gaps)
+                let overshoot = placed.minX - (context.primaryOrigin + context.gaps)
                 if overshoot < -slack {
                     return overshoot.clamped(to: range)
                 }
             case .after:
-                let overshoot = placed.maxX - (context.workingFrame.maxX - context.gaps)
+                let overshoot = placed.maxX - (context.primaryEnd - context.gaps)
                 if overshoot > slack {
                     return overshoot.clamped(to: range)
                 }

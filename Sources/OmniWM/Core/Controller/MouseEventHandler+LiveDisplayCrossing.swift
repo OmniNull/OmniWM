@@ -13,7 +13,7 @@ extension MouseEventHandler {
               targetWorkspaceId != sourceWorkspaceId,
               let source = liveColumnContext(for: sourceWorkspaceId),
               let target = liveColumnContext(for: targetWorkspaceId),
-              engine.liveColumnMoveCanCarry(from: sourceWorkspaceId, to: target)
+              engine.liveColumnMoveCanCarry(from: source, to: target)
         else { return false }
         let entry = controller.workspaceManager.entry(for: move.windowToken)
         let windowWidth = entry.flatMap { $0.axRef.flatMap(nativeWindowFrameProvider)?.width }
@@ -147,11 +147,11 @@ extension MouseEventHandler {
         }
     }
 
-    func hasOtherLiveStrip(than workspaceId: WorkspaceDescriptor.ID) -> Bool {
-        guard let controller else { return false }
+    func hasOtherLiveStrip(than context: NiriInteractionContext) -> Bool {
+        guard context.orientation == .horizontal, let controller else { return false }
         let manager = controller.workspaceManager
         return manager.monitors.contains { monitor in
-            guard let other = manager.activeWorkspaceOrFirst(on: monitor.id)?.id, other != workspaceId else {
+            guard let other = manager.activeWorkspaceOrFirst(on: monitor.id)?.id, other != context.workspaceId else {
                 return false
             }
             return controller.isLandscapeNiriStrip(other)

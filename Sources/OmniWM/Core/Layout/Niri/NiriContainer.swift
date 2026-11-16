@@ -22,7 +22,12 @@ class NiriContainer: NiriNode {
 
     var hasManualSingleWindowWidthOverride: Bool = false
     var isLiveDropSpace = false
-    var liveSlotWidth: CGFloat?
+    struct LiveSlotSpan: Equatable {
+        let span: CGFloat
+        let orientation: Monitor.Orientation
+    }
+
+    var liveSlotSpan: LiveSlotSpan?
     var isLiveHomeSpot = false
     var growsTowardLeadingEdge = false
     var centreCycle: ColumnCentreCycle?
@@ -151,7 +156,7 @@ class NiriContainer: NiriNode {
 
         for window in windowNodes {
             let constraints = window.constraints.normalized()
-            if !window.defersMinimumWidth {
+            if window.deferredMinimumOrientation != .horizontal {
                 minWidth = max(minWidth, constraints.minSize.width)
             }
             if constraints.hasMaxWidth {
@@ -169,10 +174,13 @@ class NiriContainer: NiriNode {
     func heightBounds() -> (min: CGFloat, max: CGFloat?) {
         var minHeight: CGFloat = 1
         var maxHeight: CGFloat?
+        guard !isLiveHomeSpot else { return (minHeight, nil) }
 
         for window in windowNodes {
             let constraints = window.constraints.normalized()
-            minHeight = max(minHeight, constraints.minSize.height)
+            if window.deferredMinimumOrientation != .vertical {
+                minHeight = max(minHeight, constraints.minSize.height)
+            }
             if constraints.hasMaxHeight {
                 let candidateMax = constraints.maxSize.height
                 maxHeight = min(maxHeight ?? candidateMax, candidateMax)
@@ -201,7 +209,11 @@ class NiriContainer: NiriNode {
         gaps: CGFloat,
         contentInset: CGFloat = 0
     ) {
-        cachedWidth = liveSlotWidth ?? resolvedWidthPixels(
+        if let liveSlotSpan, liveSlotSpan.orientation == .horizontal {
+            cachedWidth = liveSlotSpan.span
+            return
+        }
+        cachedWidth = resolvedWidthPixels(
             isFullWidth ? .proportion(1) : width,
             availableSpan: workingAreaWidth,
             gaps: gaps,
@@ -210,6 +222,10 @@ class NiriContainer: NiriNode {
     }
 
     func resolveAndCacheHeight(workingAreaHeight: CGFloat, gaps: CGFloat) {
+        if let liveSlotSpan, liveSlotSpan.orientation == .vertical {
+            cachedHeight = liveSlotSpan.span
+            return
+        }
         cachedHeight = resolvedHeightPixels(
             isFullHeight ? .proportion(1) : height,
             availableSpan: workingAreaHeight,

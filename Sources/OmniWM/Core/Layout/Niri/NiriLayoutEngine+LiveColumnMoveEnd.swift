@@ -114,7 +114,11 @@ extension NiriLayoutEngine {
             visibleWindowCount: projectedWindows(in: dragged, workspaceId: context.workspaceId).count
         )
         return viewBefore.flatMap { view in
-            releasedFrame.map { $0.minX - tilesOrigin.x - context.workingFrame.minX + view }
+            releasedFrame
+                .map {
+                    context.primaryStart(of: $0) - (context.orientation == .horizontal ? tilesOrigin.x : 0) - context
+                        .primaryOrigin + view
+                }
         }
     }
 
@@ -181,7 +185,9 @@ extension NiriLayoutEngine {
               let window = findNode(by: windowId, in: context.workspaceId) as? NiriWindow,
               let landed = liveWindowFrame(of: window, in: column, context: context, state: state)
         else { return }
-        let start = CGRect(x: landed.minX, y: release.minY, width: landed.width, height: release.height)
+        let start = context.orientation == .horizontal
+            ? CGRect(x: landed.minX, y: release.minY, width: landed.width, height: release.height)
+            : CGRect(x: release.minX, y: landed.minY, width: release.width, height: landed.height)
         animateLiveWindow(window, from: start, to: landed, leavingColumnVertically: true, context: context)
     }
 
@@ -212,7 +218,7 @@ extension NiriLayoutEngine {
         probe.viewOffset = offset
         guard let placed = liveColumnStrip(context: context, state: probe).first(where: { $0.column === column })
         else { return false }
-        return placed.isFullyVisible(in: context.workingFrame)
+        return placed.isFullyVisible(in: context)
     }
 
     func liveColumnMoveCancel(
@@ -231,7 +237,7 @@ extension NiriLayoutEngine {
         if let original = liveColumn(withId: move.originalSlot.columnId, in: context.workspaceId) {
             retargetActiveColumn(to: original, context: context, state: &state)
         }
-        restoreLiveOriginalSlot(&move)
+        restoreLiveOriginalSlot(&move, context: context)
         liveColumnMove = move
         guard let dragged = liveDraggedColumn(for: move) else {
             endLiveColumnMove()

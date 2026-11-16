@@ -27,8 +27,8 @@ struct LiveColumnMove {
             minX <= x && x < maxX
         }
 
-        func isFullyVisible(in frame: CGRect) -> Bool {
-            minX >= frame.minX - 0.5 && maxX <= frame.maxX + 0.5
+        func isFullyVisible(in context: NiriInteractionContext) -> Bool {
+            minX >= context.primaryOrigin - 0.5 && maxX <= context.primaryEnd + 0.5
         }
     }
 
@@ -148,11 +148,21 @@ struct LiveColumnMove {
     struct NarrowedSlot: Equatable {
         let columnId: NodeId
         let fullWidth: CGFloat
+        let orientation: Monitor.Orientation
         var leftCut: CGFloat
     }
 
     struct KeptWidths: Equatable {
         let manualColumnCount: Int?
+        let orientation: Monitor.Orientation
+
+        func restore(in workspace: NiriWorkspaceState) {
+            if orientation == .horizontal {
+                workspace.manualWidthColumnCount = manualColumnCount
+            } else {
+                workspace.manualHeightColumnCount = manualColumnCount
+            }
+        }
     }
 
     struct LandingSlot: Equatable {
@@ -200,9 +210,14 @@ struct LiveColumnMove {
     struct MateHeight: Equatable {
         let windowId: NodeId
         let height: WeightedSize
+        let orientation: Monitor.Orientation
 
         func apply(to window: NiriWindow) {
-            window.height = height
+            if orientation == .horizontal {
+                window.height = height
+            } else {
+                window.windowWidth = height
+            }
         }
     }
 
@@ -219,12 +234,12 @@ struct LiveColumnMove {
     }
 
     struct WindowSizing: Equatable {
-        let size: CGFloat
         let height: WeightedSize
+        let windowWidth: WeightedSize
 
         func apply(to window: NiriWindow) {
-            window.size = size
             window.height = height
+            window.windowWidth = windowWidth
         }
     }
 

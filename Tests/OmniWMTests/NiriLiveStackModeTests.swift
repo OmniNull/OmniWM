@@ -8,17 +8,23 @@ import XCTest
 
 @MainActor
 final class NiriLiveStackModeTests: XCTestCase {
+    private let axisFrames: [(Monitor.Orientation, CGRect)] = [
+        (.horizontal, CGRect(x: 137, y: -241, width: 1_512, height: 912)),
+        (.vertical, CGRect(x: -317, y: 89, width: 912, height: 1_512))
+    ]
+
     private struct Fixture {
         let engine: NiriLayoutEngine
         let workspaceId: WorkspaceDescriptor.ID
         let frame: CGRect
         let gap: CGFloat
         let tokens: [WindowToken]
+        let orientation: Monitor.Orientation
         var state: ViewportState
         var motion = MotionSnapshot.disabled
 
         var context: NiriInteractionContext {
-            .init(workspaceId: workspaceId, motion: motion, workingFrame: frame, gaps: gap, orientation: .horizontal)
+            .init(workspaceId: workspaceId, motion: motion, workingFrame: frame, gaps: gap, orientation: orientation)
         }
 
         func window(_ index: Int) -> NiriWindow {
@@ -50,12 +56,12 @@ final class NiriLiveStackModeTests: XCTestCase {
         }
 
         func point(inColumnOf index: Int, y: CGFloat) -> CGPoint {
-            CGPoint(x: stripColumn(column(index)).midX, y: y)
+            context.point(primary: stripColumn(column(index)).midX, secondary: y)
         }
 
         func point(inTrailingThirdOf index: Int, y: CGFloat) -> CGPoint {
             let placed = stripColumn(column(index))
-            return CGPoint(x: placed.maxX - placed.width / 6, y: y)
+            return context.point(primary: placed.maxX - placed.width / 6, secondary: y)
         }
 
         func frames() -> [WindowToken: CGRect] {
@@ -64,7 +70,7 @@ final class NiriLiveStackModeTests: XCTestCase {
                 workspaceId: workspaceId,
                 monitorFrame: frame,
                 gaps: (gap, gap),
-                orientation: .horizontal
+                orientation: orientation
             )
         }
 
@@ -74,7 +80,7 @@ final class NiriLiveStackModeTests: XCTestCase {
                 workspaceId: workspaceId,
                 monitorFrame: frame,
                 gaps: (gap, gap),
-                orientation: .horizontal,
+                orientation: orientation,
                 animationTime: time
             ).frames
         }
@@ -112,7 +118,7 @@ final class NiriLiveStackModeTests: XCTestCase {
                 in: workspaceId,
                 workingFrame: frame,
                 gaps: gap,
-                orientation: .horizontal
+                orientation: orientation
             )
         }
 
@@ -134,12 +140,16 @@ final class NiriLiveStackModeTests: XCTestCase {
             column.setActiveTileIdx(activeTab)
             engine.updateTabbedColumnVisibility(column: column)
             engine.renderStyle.tabIndicatorWidth = 24
-            column.cachedWidth = 0
+            if orientation == .horizontal {
+                column.cachedWidth = 0
+            } else {
+                column.cachedHeight = 0
+            }
             engine.resolvePrimaryContainerSpans(
                 in: workspaceId,
                 workingFrame: frame,
                 gaps: gap,
-                orientation: .horizontal
+                orientation: orientation
             )
             return column
         }
@@ -170,34 +180,48 @@ final class NiriLiveStackModeTests: XCTestCase {
 
     private func makeFixture(
         widths: [CGFloat] = Array(repeating: 1.0 / 3.0, count: 5),
-        activeIndex: Int = 1
+        activeIndex: Int = 1,
+        orientation: Monitor.Orientation = .horizontal,
+        frame: CGRect? = nil
     ) -> Fixture {
         let engine = NiriLayoutEngine()
         engine.liveHoverDelay = 0
         let workspaceId = WorkspaceDescriptor.ID()
-        let frame = CGRect(x: 0, y: 0, width: 1_500, height: 900)
+        let frame = frame ?? CGRect(x: 0, y: 0, width: 1_500, height: 900)
         let monitor = Monitor(
             id: Monitor.ID(displayId: 94), displayId: 94, frame: frame, visibleFrame: frame,
             hasNotch: false, name: "Live stack mode"
         )
         engine.syncWorkspaceAssignments(
             [(workspaceId: workspaceId, monitor: monitor)],
-            orientations: [monitor.id: .horizontal]
+            orientations: [monitor.id: orientation]
         )
         let tokens = widths.indices.map { WindowToken(pid: 941, windowId: $0 + 1) }
         for token in tokens {
             _ = engine.addWindow(token: token, to: workspaceId, afterSelection: nil)
         }
         for (column, width) in zip(engine.columns(in: workspaceId), widths) {
-            column.width = .proportion(width)
+            if orientation == .horizontal {
+                column.width = .proportion(width)
+            } else {
+                column.height = .proportion(width)
+            }
         }
         let gap: CGFloat = 12
-        engine.resolvePrimaryContainerSpans(in: workspaceId, workingFrame: frame, gaps: gap, orientation: .horizontal)
+        engine.resolvePrimaryContainerSpans(in: workspaceId, workingFrame: frame, gaps: gap, orientation: orientation)
         let active = engine.findNode(for: tokens[activeIndex], in: workspaceId)!
         var state = ViewportState(selectedNodeId: active.id)
         state.activeColumnIndex = activeIndex
         state.jumpOffset(to: -gap)
-        return Fixture(engine: engine, workspaceId: workspaceId, frame: frame, gap: gap, tokens: tokens, state: state)
+        return Fixture(
+            engine: engine,
+            workspaceId: workspaceId,
+            frame: frame,
+            gap: gap,
+            tokens: tokens,
+            orientation: orientation,
+            state: state
+        )
     }
 
     func testAWindowLeftAloneInAStackKeepsTheHeightItWasGiven() {
@@ -227,7 +251,7 @@ final class NiriLiveStackModeTests: XCTestCase {
             let stack = fixture.column(3)
             let neighbour = fixture.column(towardTrailingSide ? 5 : 1)
             fixture.scrollSoThat(stack, startsAt: towardTrailingSide ? 400 : 600)
-            XCTAssertTrue(fixture.stripColumn(neighbour).isFullyVisible(in: fixture.frame), "\(towardTrailingSide)")
+            XCTAssertTrue(fixture.stripColumn(neighbour).isFullyVisible(in: fixture.context), "\(towardTrailingSide)")
             XCTAssertTrue(fixture.begin(pulled), "\(towardTrailingSide)")
             let leave = towardTrailingSide
                 ? CGPoint(x: fixture.stripColumn(stack).maxX + 20, y: 450)
@@ -283,7 +307,7 @@ final class NiriLiveStackModeTests: XCTestCase {
                     : CGPoint(x: fixture.stripColumn(stack).minX - 20, y: 450)
                 XCTAssertEqual(fixture.move(to: leave), .changed)
                 let placed = fixture.stripColumn(neighbour)
-                XCTAssertTrue(placed.isFullyVisible(in: fixture.frame), "\(towardTrailingSide) \(nearHalf)")
+                XCTAssertTrue(placed.isFullyVisible(in: fixture.context), "\(towardTrailingSide) \(nearHalf)")
                 let near = towardTrailingSide ? placed.minX + 40 : placed.maxX - 40
                 let far = towardTrailingSide ? placed.maxX - 40 : placed.minX + 40
                 let release = CGPoint(x: nearHalf ? near : far, y: 450)
@@ -585,7 +609,7 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertTrue(columns[neighbourIndex + 1].isLiveDropSpace)
         let dropSpace = fixture.stripColumn(columns[neighbourIndex + 1])
         XCTAssertEqual(dropSpace.maxX, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
-        XCTAssertTrue(fixture.stripColumn(neighbour).isFullyVisible(in: fixture.frame))
+        XCTAssertTrue(fixture.stripColumn(neighbour).isFullyVisible(in: fixture.context))
 
         let tabs = fixture.storage(tabbed)
         XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
@@ -603,7 +627,7 @@ final class NiriLiveStackModeTests: XCTestCase {
         let stack = fixture.column(2)
         let neighbour = fixture.column(4)
         XCTAssertEqual(fixture.stripColumn(neighbour).maxX, fixture.frame.maxX - fixture.gap, accuracy: 0.5)
-        XCTAssertFalse(fixture.stripColumn(fixture.column(5)).isFullyVisible(in: fixture.frame))
+        XCTAssertFalse(fixture.stripColumn(fixture.column(5)).isFullyVisible(in: fixture.context))
         XCTAssertTrue(fixture.begin(3))
         let placedStack = fixture.stripColumn(stack)
         let leave = CGPoint(x: placedStack.maxX - placedStack.width * 0.05, y: 450)
@@ -623,8 +647,8 @@ final class NiriLiveStackModeTests: XCTestCase {
             fixture.frame.maxX - fixture.gap,
             accuracy: 0.5
         )
-        XCTAssertTrue(fixture.stripColumn(neighbour).isFullyVisible(in: fixture.frame))
-        XCTAssertTrue(fixture.stripColumn(stack).isFullyVisible(in: fixture.frame))
+        XCTAssertTrue(fixture.stripColumn(neighbour).isFullyVisible(in: fixture.context))
+        XCTAssertTrue(fixture.stripColumn(stack).isFullyVisible(in: fixture.context))
     }
 
     func testCancellingATabPullRestoresTheTabsAndTheShownTab() {
@@ -1087,5 +1111,173 @@ final class NiriLiveStackModeTests: XCTestCase {
 
         XCTAssertEqual(fixture.storage(stack), [2, 3, 4].map { fixture.tokens[$0] })
         XCTAssertEqual(stack.activeTileIdx, 2)
+    }
+
+    func testBothAxesReorderSecondarySlotsWithoutMovingTheStrip() {
+        for (orientation, frame) in axisFrames {
+            var fixture = makeFixture(orientation: orientation, frame: frame)
+            fixture.stack(3, onto: 2)
+            fixture.stack(4, onto: 3)
+            let stack = fixture.column(2)
+            let stripBefore = fixture.strip().map(\.minX)
+            let frames = fixture.frames()
+            let secondaryOrigin = orientation == .horizontal ? frame.minY : frame.minX
+            let secondarySpan = (fixture.context.secondarySpan - 4 * fixture.gap) / 3
+            for (slot, index) in [2, 3, 4].enumerated() {
+                let start = secondaryOrigin + fixture.gap + CGFloat(slot) * (secondarySpan + fixture.gap)
+                let span = fixture.span(of: index)
+                let physical = frames[fixture.tokens[index]]
+                XCTAssertEqual(span.minY, start)
+                XCTAssertEqual(span.maxY, start + secondarySpan)
+                XCTAssertEqual(orientation == .horizontal ? physical?.minY : physical?.minX, start)
+                XCTAssertEqual(orientation == .horizontal ? physical?.maxY : physical?.maxX, start + secondarySpan)
+            }
+            XCTAssertTrue(fixture.begin(2))
+            XCTAssertEqual(fixture.engine.liveColumnMove?.home, .stackSlot)
+
+            XCTAssertEqual(fixture.move(to: fixture.middle(of: 3)), .changed)
+            XCTAssertEqual(fixture.storage(stack), [3, 2, 4].map { fixture.tokens[$0] })
+            XCTAssertEqual(fixture.move(to: fixture.middle(of: 2)), .unchanged)
+            XCTAssertEqual(fixture.move(to: fixture.middle(of: 4)), .changed)
+            XCTAssertEqual(fixture.storage(stack), [3, 4, 2].map { fixture.tokens[$0] })
+            XCTAssertEqual(fixture.strip().map(\.minX), stripBefore)
+
+            XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+            XCTAssertEqual(fixture.storage(stack), [3, 4, 2].map { fixture.tokens[$0] })
+            XCTAssertEqual(fixture.state.selectedNodeId, fixture.window(2).id)
+            XCTAssertEqual(fixture.engine.columns(in: fixture.workspaceId).count, 3)
+        }
+    }
+
+    func testBothAxesCancelSecondaryReorderAndDetachRestoresBothFixedSpecs() {
+        for (orientation, frame) in axisFrames {
+            for detaches in [false, true] {
+                var fixture = makeFixture(orientation: orientation, frame: frame)
+                fixture.stack(3, onto: 2)
+                fixture.stack(4, onto: 3)
+                let stack = fixture.column(2)
+                stack.setActiveTileIdx(2)
+                for index in [2, 3, 4] {
+                    fixture.window(index).height = .fixed(CGFloat(index + 1) * fixture.gap * 3)
+                    fixture.window(index).windowWidth = .fixed(CGFloat(index + 2) * fixture.gap * 3)
+                }
+                let state = fixture.state
+                let order = fixture.columnOrder()
+                let sizing = fixture.engine.containerSizingState(for: stack)
+                XCTAssertTrue(fixture.begin(2))
+                XCTAssertEqual(fixture.move(to: fixture.middle(of: 3)), .changed)
+                if detaches {
+                    let cursor = fixture.context.point(
+                        primary: fixture.stripColumn(stack).maxX + fixture.gap,
+                        secondary: fixture.context.secondaryCoordinate(of: fixture.middle(of: 2))
+                    )
+                    XCTAssertEqual(fixture.move(to: cursor), .changed)
+                    XCTAssertFalse(fixture.column(2) === stack)
+                    XCTAssertEqual(fixture.engine.liveColumnMove?.home, .origin)
+                }
+
+                XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
+
+                XCTAssertTrue(fixture.column(2) === stack)
+                XCTAssertEqual(fixture.columnOrder(), order)
+                XCTAssertEqual(stack.activeTileIdx, 2)
+                XCTAssertEqual(fixture.state.selectedNodeId, state.selectedNodeId)
+                XCTAssertEqual(fixture.state.activeColumnIndex, state.activeColumnIndex)
+                XCTAssertEqual(fixture.state.viewOffset, state.viewOffset)
+                XCTAssertEqual(fixture.engine.containerSizingState(for: stack), sizing)
+                for index in [2, 3, 4] {
+                    XCTAssertEqual(fixture.window(index).height, .fixed(CGFloat(index + 1) * fixture.gap * 3))
+                    XCTAssertEqual(fixture.window(index).windowWidth, .fixed(CGFloat(index + 2) * fixture.gap * 3))
+                    XCTAssertNil(fixture.window(index).liveSpanOverride)
+                    XCTAssertNil(fixture.window(index).deferredMinimumOrientation)
+                }
+                XCTAssertFalse(fixture.strip().contains { $0.column.isLiveDropSpace || $0.column.isLiveHomeSpot })
+            }
+        }
+    }
+
+    func testBothAxesDetachedWindowReleaseUsesPhysicalSizeAndSecondaryMotion() throws {
+        for (orientation, frame) in axisFrames {
+            for animated in [false, true] {
+                var fixture = makeFixture(orientation: orientation, frame: frame)
+                fixture.engine.animationClock = AnimationClock(time: 0)
+                fixture.stack(3, onto: 2)
+                let stack = fixture.column(2)
+                let primarySpan = fixture.stripColumn(stack).width
+                let secondarySpan = (fixture.context.secondarySpan - 3 * fixture.gap) / 2
+                let secondaryOrigin = orientation == .horizontal ? frame.minY : frame.minX
+                let primary = fixture.stripColumn(stack).maxX + fixture.gap
+                XCTAssertTrue(fixture.begin(3))
+                let cursor = fixture.context.point(primary: primary, secondary: secondaryOrigin + secondarySpan / 2)
+                XCTAssertEqual(fixture.move(to: cursor), .changed)
+                XCTAssertFalse(fixture.column(3) === stack)
+                let releaseOrigin = fixture.context.point(
+                    primary: primary,
+                    secondary: secondaryOrigin + 2 * fixture.gap
+                )
+                let release = CGRect(
+                    origin: releaseOrigin,
+                    size: orientation == .horizontal
+                        ? CGSize(width: primarySpan, height: secondarySpan)
+                        : CGSize(width: secondarySpan, height: primarySpan)
+                )
+                fixture.motion = animated ? .enabled : .disabled
+                fixture.state.clearOffsetTransition()
+                let previousViewport = fixture.state
+                let driver = AnimationDriver()
+
+                XCTAssertTrue(fixture.engine.liveColumnMoveEnd(
+                    releasedFrame: release,
+                    context: fixture.context,
+                    state: &fixture.state
+                ))
+
+                driver.reconcileViewportCommit(
+                    workspaceId: fixture.workspaceId,
+                    previous: previousViewport,
+                    next: fixture.state,
+                    transition: fixture.state.offsetTransition,
+                    at: 0
+                )
+                let window = fixture.window(3)
+                if animated {
+                    XCTAssertTrue(driver.hasMotion(in: fixture.workspaceId))
+                    let offsets = driver.renderOffsets(
+                        in: fixture.workspaceId,
+                        semanticOffset: fixture.state.viewOffset,
+                        at: 0
+                    )
+                    let releasedLayout = fixture.engine.calculateLayoutWithVisibility(
+                        state: fixture.state,
+                        workspaceId: fixture.workspaceId,
+                        monitorFrame: fixture.frame,
+                        gaps: (fixture.gap, fixture.gap),
+                        orientation: orientation,
+                        animationTime: 0,
+                        viewOffsetOverride: offsets.liveOffset,
+                        settledVisibilityOffset: offsets.settledVisibilityOffset
+                    )
+                    XCTAssertEqual(releasedLayout.frames[fixture.tokens[3]], release)
+                    if orientation == .horizontal {
+                        XCTAssertNotNil(window.heightAnimation)
+                        XCTAssertNil(window.widthAnimation)
+                    } else {
+                        XCTAssertNotNil(window.widthAnimation)
+                        XCTAssertNil(window.heightAnimation)
+                    }
+                } else {
+                    XCTAssertFalse(window.hasMoveAnimationsRunning)
+                }
+                let settled = try XCTUnwrap(fixture.frames(at: .infinity)[fixture.tokens[3]])
+                XCTAssertEqual(
+                    orientation == .horizontal ? settled.height : settled.width,
+                    fixture.context.secondarySpan - 2 * fixture.gap
+                )
+                XCTAssertEqual(orientation == .horizontal ? settled.width : settled.height, primarySpan)
+                XCTAssertEqual(orientation == .horizontal ? settled.minY : settled.minX, secondaryOrigin + fixture.gap)
+                XCTAssertEqual(fixture.state.selectedNodeId, window.id)
+                XCTAssertFalse(fixture.strip().contains { $0.column.isLiveDropSpace || $0.column.isLiveHomeSpot })
+            }
+        }
     }
 }

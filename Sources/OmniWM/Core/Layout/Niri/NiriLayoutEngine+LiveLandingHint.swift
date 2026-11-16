@@ -10,10 +10,14 @@ struct LiveSpanOverride: Equatable {
 }
 
 extension NiriLayoutEngine {
-    func liveSpanOverrideInput(_ override: LiveSpanOverride, for window: NiriWindow) -> NiriAxisSolver.Input {
+    func liveSpanOverrideInput(
+        _ override: LiveSpanOverride,
+        weight: CGFloat,
+        minimum: CGFloat
+    ) -> NiriAxisSolver.Input {
         NiriAxisSolver.Input(
-            weight: max(0.1, window.heightWeight),
-            minConstraint: override.ignoresMinimum ? 0 : window.constraints.normalized().minSize.height,
+            weight: max(0.1, weight),
+            minConstraint: minimum,
             maxConstraint: 0,
             hasMaxConstraint: false,
             isConstraintFixed: false,
@@ -61,7 +65,7 @@ extension NiriLayoutEngine {
     ) -> LiveColumnMove.StackChoice {
         guard move.home != .stackSlot,
               !move.pointerInEdgeZone,
-              let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move)),
+              let column = liveColumn(in: strip, at: cursor, ignoring: liveDropSpace(for: move), context: context),
               column.id != move.homeColumnId,
               let placed = strip.first(where: { $0.column === column }),
               let centre = liveCentreThird(
@@ -69,7 +73,7 @@ extension NiriLayoutEngine {
                   margin: move.landing?.columnId == column.id ? MoveConfiguration.liveCentreExitMargin : 0,
                   context: context
               ),
-              centre.contains(cursor.x)
+              centre.contains(context.primaryCoordinate(of: cursor))
         else { return .home }
         return liveStackChoice(cursor: cursor, strip: strip, move: move, context: context)
     }
@@ -80,8 +84,8 @@ extension NiriLayoutEngine {
         margin: CGFloat = 0,
         context: NiriInteractionContext
     ) -> Range<CGFloat>? {
-        let minX = max(placed.minX, context.workingFrame.minX + shift)
-        let maxX = min(placed.maxX, context.workingFrame.maxX + shift)
+        let minX = max(placed.minX, context.primaryOrigin + shift)
+        let maxX = min(placed.maxX, context.primaryEnd + shift)
         guard maxX - minX >= MoveConfiguration.liveCentreMinimumWidth - 0.5 else { return nil }
         let third = (maxX - minX) / 3
         return (minX + third - margin) ..< (maxX - third + margin)
@@ -122,7 +126,7 @@ extension NiriLayoutEngine {
         let share = count == 1
             ? MoveConfiguration.liveLandingHintSingleWindowShare
             : MoveConfiguration.liveLandingHintShare
-        return max(context.workingFrame.height * share, MoveConfiguration.liveLandingHintMinimumHeight)
+        return max(context.secondarySpan * share, MoveConfiguration.liveLandingHintMinimumHeight)
     }
 
     func liveHintBaseSpans(
@@ -167,12 +171,16 @@ extension NiriLayoutEngine {
 
     func releaseLiveLandingState(of move: LiveColumnMove) {
         guard let window = findNode(by: move.windowId, in: move.workspaceId) as? NiriWindow else { return }
-        let wasDeferred = window.defersMinimumWidth
-        window.defersMinimumWidth = false
+        let wasDeferred = window.deferredMinimumOrientation
+        window.deferredMinimumOrientation = nil
         guard let column = window.parent as? NiriContainer else { return }
         clearLiveSpanOverrides(in: [column])
-        if wasDeferred {
-            clampColumnWidthToBounds(column, in: move.workspaceId, motion: .disabled)
+        if let orientation = wasDeferred {
+            if orientation == .horizontal {
+                clampColumnWidthToBounds(column, in: move.workspaceId, motion: .disabled)
+            } else {
+                clampColumnHeightToBounds(column, in: move.workspaceId, motion: .disabled)
+            }
         }
     }
 

@@ -8,21 +8,31 @@ import XCTest
 
 @MainActor
 final class NiriLiveColumnMoveTests: XCTestCase {
+    private let axisFrames: [(Monitor.Orientation, CGRect)] = [
+        (.horizontal, CGRect(x: 137, y: -241, width: 1_512, height: 912)),
+        (.vertical, CGRect(x: -317, y: 89, width: 912, height: 1_512))
+    ]
+
     private struct Fixture {
         let engine: NiriLayoutEngine
         let workspaceId: WorkspaceDescriptor.ID
         let frame: CGRect
         let gap: CGFloat
         let tokens: [WindowToken]
+        let orientation: Monitor.Orientation
         var state: ViewportState
         var changes = 0
 
         var context: NiriInteractionContext {
-            .init(workspaceId: workspaceId, motion: .disabled, workingFrame: frame, gaps: gap, orientation: .horizontal)
+            .init(workspaceId: workspaceId, motion: .disabled, workingFrame: frame, gaps: gap, orientation: orientation)
         }
 
         var midY: CGFloat {
             frame.midY
+        }
+
+        var secondaryMiddle: CGFloat {
+            orientation == .horizontal ? frame.midY : frame.midX
         }
 
         func window(_ index: Int) -> NiriWindow {
@@ -62,8 +72,8 @@ final class NiriLiveColumnMoveTests: XCTestCase {
 
         func point(on index: Int, half: LiveColumnMove.Side) -> CGPoint {
             let placed = stripColumn(holding: index)
-            let minX = max(placed.minX, frame.minX)
-            let maxX = min(placed.maxX, frame.maxX)
+            let minX = max(placed.minX, context.primaryOrigin)
+            let maxX = min(placed.maxX, context.primaryEnd)
             let middle = (minX + maxX) / 2
             let quarter = (maxX - minX) / 4
             return half == .before
@@ -77,14 +87,14 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             within range: ClosedRange<CGFloat>
         ) -> CGPoint {
             guard let centre = engine.liveCentreThird(of: placed, context: context), centre.contains(x) else {
-                return CGPoint(x: x, y: midY)
+                return context.point(primary: x, secondary: secondaryMiddle)
             }
             let pieces = [
                 (range.lowerBound, min(range.upperBound, centre.lowerBound)),
                 (max(range.lowerBound, centre.upperBound), range.upperBound)
             ].filter { $0.1 - $0.0 > 1 }
             let widest = pieces.max { $0.1 - $0.0 < $1.1 - $1.0 }
-            return CGPoint(x: widest.map { ($0.0 + $0.1) / 2 } ?? x, y: midY)
+            return context.point(primary: widest.map { ($0.0 + $0.1) / 2 } ?? x, secondary: secondaryMiddle)
         }
 
         func farHalf(of index: Int) -> CGPoint {
@@ -94,9 +104,9 @@ final class NiriLiveColumnMoveTests: XCTestCase {
                   let home = columns.firstIndex(where: { $0.id == move.homeColumnId }),
                   let target = columns.firstIndex(where: { $0 === placed.column }),
                   home != target
-            else { return CGPoint(x: placed.midX, y: midY) }
-            let clippedMinX = max(placed.minX, frame.minX)
-            let clippedMaxX = min(placed.maxX, frame.maxX)
+            else { return context.point(primary: placed.midX, secondary: secondaryMiddle) }
+            let clippedMinX = max(placed.minX, context.primaryOrigin)
+            let clippedMaxX = min(placed.maxX, context.primaryEnd)
             let isVisible = clippedMaxX > clippedMinX
             let minX = isVisible ? clippedMinX : placed.minX
             let maxX = isVisible ? clippedMaxX : placed.maxX
@@ -113,7 +123,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
                 workspaceId: workspaceId,
                 monitorFrame: frame,
                 gaps: (gap, gap),
-                orientation: .horizontal
+                orientation: orientation
             )
         }
 
@@ -171,12 +181,16 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             column.setActiveTileIdx(activeTab)
             engine.updateTabbedColumnVisibility(column: column)
             engine.renderStyle.tabIndicatorWidth = 24
-            column.cachedWidth = 0
+            if orientation == .horizontal {
+                column.cachedWidth = 0
+            } else {
+                column.cachedHeight = 0
+            }
             engine.resolvePrimaryContainerSpans(
                 in: workspaceId,
                 workingFrame: frame,
                 gaps: gap,
-                orientation: .horizontal
+                orientation: orientation
             )
             return column
         }
@@ -188,41 +202,58 @@ final class NiriLiveColumnMoveTests: XCTestCase {
 
         mutating func pushHalfOffScreen(_ index: Int, awayFrom target: Int) {
             let span = stripColumn(holding: index).maxX - stripColumn(holding: index).minX
-            scrollSoThat(index, startsAt: target > index ? frame.minX - span / 2 : frame.maxX - span / 2)
+            scrollSoThat(
+                index,
+                startsAt: target > index ? context.primaryOrigin - span / 2 : context.primaryEnd - span / 2
+            )
         }
     }
 
     private func makeFixture(
         widths: [CGFloat] = Array(repeating: 1.0 / 3.0, count: 5),
         activeIndex: Int = 2,
-        screenWidth: CGFloat = 1_500
+        screenWidth: CGFloat = 1_500,
+        orientation: Monitor.Orientation = .horizontal,
+        frame: CGRect? = nil
     ) -> Fixture {
         let engine = NiriLayoutEngine()
         engine.liveHoverDelay = 0
         let workspaceId = WorkspaceDescriptor.ID()
-        let frame = CGRect(x: 0, y: 0, width: screenWidth, height: 900)
+        let frame = frame ?? CGRect(x: 0, y: 0, width: screenWidth, height: 900)
         let monitor = Monitor(
             id: Monitor.ID(displayId: 93), displayId: 93, frame: frame, visibleFrame: frame,
             hasNotch: false, name: "Live column move"
         )
         engine.syncWorkspaceAssignments(
             [(workspaceId: workspaceId, monitor: monitor)],
-            orientations: [monitor.id: .horizontal]
+            orientations: [monitor.id: orientation]
         )
         let tokens = widths.indices.map { WindowToken(pid: 931, windowId: $0 + 1) }
         for token in tokens {
             _ = engine.addWindow(token: token, to: workspaceId, afterSelection: nil)
         }
         for (column, width) in zip(engine.columns(in: workspaceId), widths) {
-            column.width = .proportion(width)
+            if orientation == .horizontal {
+                column.width = .proportion(width)
+            } else {
+                column.height = .proportion(width)
+            }
         }
         let gap: CGFloat = 12
-        engine.resolvePrimaryContainerSpans(in: workspaceId, workingFrame: frame, gaps: gap, orientation: .horizontal)
+        engine.resolvePrimaryContainerSpans(in: workspaceId, workingFrame: frame, gaps: gap, orientation: orientation)
         let active = engine.findNode(for: tokens[activeIndex], in: workspaceId)!
         var state = ViewportState(selectedNodeId: active.id)
         state.activeColumnIndex = activeIndex
         state.jumpOffset(to: -gap)
-        return Fixture(engine: engine, workspaceId: workspaceId, frame: frame, gap: gap, tokens: tokens, state: state)
+        return Fixture(
+            engine: engine,
+            workspaceId: workspaceId,
+            frame: frame,
+            gap: gap,
+            tokens: tokens,
+            orientation: orientation,
+            state: state
+        )
     }
 
     private func assertTheDropSpaceIsFullyOnScreen(
@@ -234,8 +265,13 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             XCTFail("No drop space", file: file, line: line)
             return
         }
-        XCTAssertGreaterThanOrEqual(dropSpace.minX, fixture.frame.minX + fixture.gap - 0.5, file: file, line: line)
-        XCTAssertLessThanOrEqual(dropSpace.maxX, fixture.frame.maxX - fixture.gap + 0.5, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(
+            dropSpace.minX,
+            fixture.context.primaryOrigin + fixture.gap - 0.5,
+            file: file,
+            line: line
+        )
+        XCTAssertLessThanOrEqual(dropSpace.maxX, fixture.context.primaryEnd - fixture.gap + 0.5, file: file, line: line)
     }
 
     func testTheHomeSlotOfALoneTabbedWindowClosesAndThenSettles() {
@@ -282,7 +318,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertEqual(fixture.state.activeColumnIndex, 1)
     }
 
-    func testBeginRefusesSingleColumnsThatCantBeCarriedAndVerticalStrips() {
+    func testBeginRefusesSingleColumnsThatCantBeCarriedAndAcceptsPortraitStrips() {
         var single = makeFixture(widths: [0.5], activeIndex: 0)
         XCTAssertFalse(single.begin(0))
         XCTAssertTrue(single.engine.liveColumnMoveBegin(
@@ -293,15 +329,15 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             state: &single.state
         ))
 
-        var vertical = makeFixture()
-        let context = vertical.context.oriented(.vertical)
-        XCTAssertFalse(vertical.engine.liveColumnMoveBegin(
+        var vertical = makeFixture(orientation: .vertical)
+        let context = vertical.context
+        XCTAssertTrue(vertical.engine.liveColumnMoveBegin(
             windowId: vertical.window(1).id,
             windowToken: vertical.tokens[1],
             context: context,
             state: &vertical.state
         ))
-        XCTAssertNil(vertical.engine.liveColumnMove)
+        XCTAssertNotNil(vertical.engine.liveColumnMove)
     }
 
     func testRestingOnTheFarThirdOfANeighbourOpensADropSpaceOnItsFarSide() {
@@ -1180,7 +1216,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
         XCTAssertEqual(fixture.moveAndSettle(to: start), .changed)
 
         XCTAssertEqual(fixture.landingOrder(), fixture.tokens)
-        XCTAssertTrue(fixture.stripColumn(holding: 1).isFullyVisible(in: fixture.frame))
+        XCTAssertTrue(fixture.stripColumn(holding: 1).isFullyVisible(in: fixture.context))
         XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
         XCTAssertEqual(fixture.order(), fixture.tokens)
     }
@@ -1265,7 +1301,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             XCTAssertTrue(fixture.begin(3))
             let home = fixture.stripColumn(holding: 3)
             XCTAssertEqual(fixture.move(to: CGPoint(x: home.midX + 100, y: fixture.midY)), .changed)
-            XCTAssertNotNil(fixture.column(3).liveSlotWidth)
+            XCTAssertNotNil(fixture.column(3).liveSlotSpan)
 
             if cancels {
                 XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
@@ -1274,7 +1310,7 @@ final class NiriLiveColumnMoveTests: XCTestCase {
             }
 
             XCTAssertEqual(fixture.column(3).cachedWidth, fullWidth, accuracy: 0.001, "cancel: \(cancels)")
-            XCTAssertNil(fixture.column(3).liveSlotWidth)
+            XCTAssertNil(fixture.column(3).liveSlotSpan)
             XCTAssertEqual(fixture.order(), fixture.tokens)
             fixture.column(3).cachedWidth = 0
             fixture.engine.resolvePrimaryContainerSpans(
@@ -1712,6 +1748,119 @@ final class NiriLiveColumnMoveTests: XCTestCase {
                 XCTAssertLessThanOrEqual(reveal.shift, 0)
             } else {
                 XCTAssertGreaterThanOrEqual(reveal.shift, 0)
+            }
+        }
+    }
+
+    func testBothAxesKeepNeighboursStillWhileTheHomeSlotNarrowsAndRestores() throws {
+        for (orientation, frame) in axisFrames {
+            for cancels in [false, true] {
+                var fixture = makeFixture(activeIndex: 2, orientation: orientation, frame: frame)
+                let originalState = fixture.state
+                let originalFrames = fixture.frames()
+                let originalStarts = fixture.strip().map(\.minX)
+                let column = fixture.column(2)
+                let sizing = fixture.engine.containerSizingState(for: column)
+                XCTAssertTrue(fixture.begin(2))
+                XCTAssertEqual(fixture.frames(), originalFrames)
+                XCTAssertEqual(fixture.strip().map(\.minX), originalStarts)
+                let home = fixture.stripColumn(holding: 2)
+                let ahead = fixture.stripColumn(holding: 3)
+                let pickup = fixture.context.point(primary: home.midX, secondary: fixture.secondaryMiddle)
+                XCTAssertEqual(fixture.move(to: pickup), .unchanged)
+                let distance = home.width / 4
+                let cursor = fixture.context.point(primary: home.midX + distance, secondary: fixture.secondaryMiddle)
+
+                XCTAssertEqual(fixture.move(to: cursor), .changed)
+
+                let narrowed = try XCTUnwrap(column.liveSlotSpan)
+                XCTAssertEqual(narrowed.orientation, orientation)
+                XCTAssertEqual(narrowed.span, home.width - distance)
+                XCTAssertEqual(fixture.stripColumn(holding: 3).minX, ahead.minX)
+                XCTAssertEqual(fixture.stripColumn(holding: 2).minX, home.minX + distance)
+                if cancels {
+                    XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
+                    XCTAssertEqual(fixture.state.viewOffset, originalState.viewOffset)
+                    XCTAssertEqual(fixture.state.activeColumnIndex, originalState.activeColumnIndex)
+                    XCTAssertEqual(fixture.state.selectedNodeId, originalState.selectedNodeId)
+                } else {
+                    XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+                    XCTAssertEqual(fixture.state.selectedNodeId, fixture.window(2).id)
+                }
+                XCTAssertNil(column.liveSlotSpan)
+                XCTAssertEqual(fixture.stripColumn(holding: 2).width, home.width)
+                XCTAssertEqual(fixture.engine.containerSizingState(for: column), sizing)
+                XCTAssertEqual(fixture.order(), fixture.tokens)
+                XCTAssertNil(fixture.dropSpace())
+            }
+        }
+    }
+
+    func testBothAxesReorderReverseAndKeepOneLandingWithAStillPointer() throws {
+        for (orientation, frame) in axisFrames {
+            var fixture = makeFixture(orientation: orientation, frame: frame)
+            XCTAssertTrue(fixture.begin(2))
+            let forward = fixture.farHalf(of: 3)
+
+            XCTAssertEqual(fixture.moveAndSettle(to: forward), .changed)
+
+            XCTAssertEqual(fixture.landingOrder(), [0, 1, 3, 2, 4].map { fixture.tokens[$0] })
+            XCTAssertEqual(fixture.strip().filter { $0.column.isLiveDropSpace }.count, 1)
+            XCTAssertEqual(fixture.move(to: forward), .unchanged)
+            let reverse = fixture.farHalf(of: 1)
+            XCTAssertEqual(fixture.moveAndSettle(to: reverse), .changed)
+            XCTAssertEqual(fixture.landingOrder(), [0, 2, 1, 3, 4].map { fixture.tokens[$0] })
+            XCTAssertEqual(fixture.strip().filter { $0.column.isLiveDropSpace }.count, 1)
+            let gap = try XCTUnwrap(fixture.dropSpace())
+            let expectedSpan = min(
+                fixture.context.primarySpan * MoveConfiguration.liveDropSpaceShare,
+                MoveConfiguration.liveDropSpaceMaximumWidth
+            )
+            XCTAssertEqual(gap.column.cachedPrimarySpan(orientation: orientation), expectedSpan)
+            XCTAssertEqual(gap.maxX, gap.minX + expectedSpan)
+            XCTAssertEqual(fixture.move(to: reverse), .unchanged)
+            XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+            XCTAssertEqual(fixture.order(), [0, 2, 1, 3, 4].map { fixture.tokens[$0] })
+            XCTAssertNil(fixture.dropSpace())
+            XCTAssertEqual(fixture.state.selectedNodeId, fixture.window(2).id)
+        }
+    }
+
+    func testBothAxesMoveWholeTabbedRowsWithoutChangingIdentityOrSelection() {
+        for (orientation, frame) in axisFrames {
+            for cancels in [false, true] {
+                var fixture = makeFixture(activeIndex: 4, orientation: orientation, frame: frame)
+                let column = fixture.makeTabbed(2)
+                let windows = column.windowNodes
+                for (index, window) in windows.enumerated() {
+                    window.height = .fixed(CGFloat(index + 1) * fixture.gap)
+                    window.windowWidth = .fixed(CGFloat(index + 2) * fixture.gap)
+                }
+                let tabs = tabbedSnapshot(column, in: fixture)
+                let originalState = fixture.state
+                XCTAssertTrue(fixture.beginActiveTab(2))
+                XCTAssertEqual(fixture.engine.liveColumnMove?.isWholeColumn, true)
+                XCTAssertEqual(fixture.moveAndSettle(to: fixture.farHalf(of: 3)), .changed)
+
+                if cancels {
+                    XCTAssertTrue(fixture.engine.liveColumnMoveCancel(context: fixture.context, state: &fixture.state))
+                    XCTAssertEqual(fixture.order(), fixture.tokens)
+                    XCTAssertEqual(fixture.state.viewOffset, originalState.viewOffset)
+                    XCTAssertEqual(fixture.state.activeColumnIndex, originalState.activeColumnIndex)
+                    XCTAssertEqual(fixture.state.selectedNodeId, originalState.selectedNodeId)
+                } else {
+                    XCTAssertTrue(fixture.engine.liveColumnMoveEnd(context: fixture.context, state: &fixture.state))
+                    XCTAssertEqual(fixture.order(), [0, 1, 3, 2, 4].map { fixture.tokens[$0] })
+                    XCTAssertEqual(fixture.state.selectedNodeId, column.activeWindow?.id)
+                }
+                XCTAssertTrue(fixture.column(2) === column)
+                XCTAssertEqual(tabbedSnapshot(column, in: fixture), tabs)
+                for (index, window) in windows.enumerated() {
+                    XCTAssertTrue(column.windowNodes[index] === window)
+                    XCTAssertEqual(window.height, .fixed(CGFloat(index + 1) * fixture.gap))
+                    XCTAssertEqual(window.windowWidth, .fixed(CGFloat(index + 2) * fixture.gap))
+                }
+                XCTAssertNil(fixture.dropSpace())
             }
         }
     }

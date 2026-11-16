@@ -6,15 +6,16 @@ import Foundation
 
 extension NiriLayoutEngine {
     func liveColumnMoveCanCarry(
-        from sourceWorkspaceId: WorkspaceDescriptor.ID,
+        from source: NiriInteractionContext,
         to target: NiriInteractionContext
     ) -> Bool {
         guard let move = liveColumnMove,
-              move.workspaceId == sourceWorkspaceId,
-              target.workspaceId != sourceWorkspaceId,
+              move.workspaceId == source.workspaceId,
+              source.orientation == .horizontal,
+              target.workspaceId != source.workspaceId,
               target.orientation == .horizontal
         else { return false }
-        return findNode(by: move.windowId, in: sourceWorkspaceId) is NiriWindow
+        return findNode(by: move.windowId, in: source.workspaceId) is NiriWindow
     }
 
     func liveColumnMoveCarry(
@@ -31,7 +32,7 @@ extension NiriLayoutEngine {
             viewports[source.workspaceId] = sourceState
             viewports[target.workspaceId] = targetState
         }
-        guard liveColumnMoveCanCarry(from: source.workspaceId, to: target),
+        guard liveColumnMoveCanCarry(from: source, to: target),
               var move = liveColumnMove,
               let window = findNode(by: move.windowId, in: source.workspaceId) as? NiriWindow
         else { return [] }
@@ -63,7 +64,7 @@ extension NiriLayoutEngine {
         move.workspaceId = target.workspaceId
         move.homeSlotIndex = 0
         move.lockedTarget = nil
-        move.ownWindowSizing = .init(size: 1.0, height: .default)
+        move.ownWindowSizing = .init(height: .default, windowWidth: .default)
         move.ownSizing = sizing
         enterLiveStrip(carried, cursor: cursor, move: &move, context: target, state: &targetState)
         move.phase = .settling
@@ -329,7 +330,7 @@ extension NiriLayoutEngine {
             beside: under,
             heading: move.heading,
             strip: entered,
-            cursor: cursor
+            at: context.primaryCoordinate(of: cursor)
         )
         _ = applyLiveReorder(
             .init(

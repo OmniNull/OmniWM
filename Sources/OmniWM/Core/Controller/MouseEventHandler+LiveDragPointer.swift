@@ -5,22 +5,28 @@ import CoreGraphics
 import Foundation
 
 extension MouseEventHandler {
-    func liveDragReference(_ location: CGPoint) -> CGPoint {
+    func liveDragReference(_ location: CGPoint, orientation: Monitor.Orientation = .horizontal) -> CGPoint {
         guard liveDragSession?.tabPull == nil,
               liveDragSession?.edgeScroll == nil,
               let offset = liveDragSession?.referenceOffset
         else { return location }
-        guard let display = controller?.workspaceManager.monitors.first(where: { $0.frame.contains(location) })?.frame
-        else { return CGPoint(x: location.x + offset, y: location.y) }
-        let toEdge = max(0, min(location.x - display.minX, display.maxX - location.x))
-        let ease = abs(offset) > 0 ? min(1, toEdge / abs(offset)) : 1
-        let x = location.x + offset * ease
-        return CGPoint(x: min(max(x, display.minX), display.maxX - 1), y: location.y)
+        let primary = orientation == .horizontal ? location.x : location.y
+        var adjusted = primary + offset
+        if let display = controller?.workspaceManager.monitors.first(where: { $0.frame.contains(location) })?.frame {
+            let start = orientation == .horizontal ? display.minX : display.minY
+            let end = orientation == .horizontal ? display.maxX : display.maxY
+            let toEdge = max(0, min(primary - start, end - primary))
+            let ease = abs(offset) > 0 ? min(1, toEdge / abs(offset)) : 1
+            adjusted = min(max(primary + offset * ease, start), end - 1)
+        }
+        return orientation == .horizontal
+            ? CGPoint(x: adjusted, y: location.y)
+            : CGPoint(x: location.x, y: adjusted)
     }
 
-    func liveDragWindowMidX(_ location: CGPoint) -> CGFloat? {
+    func liveDragWindowMidX(_ location: CGPoint, orientation: Monitor.Orientation = .horizontal) -> CGFloat? {
         guard liveDragSession?.tabPull == nil, let offset = liveDragSession?.referenceOffset else { return nil }
-        return location.x + offset
+        return (orientation == .horizontal ? location.x : location.y) + offset
     }
 
     func recordLivePointerSample(_ location: CGPoint) {

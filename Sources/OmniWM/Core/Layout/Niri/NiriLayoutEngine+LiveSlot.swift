@@ -13,7 +13,7 @@ extension NiriLayoutEngine {
         guard move.workspaceId == context.workspaceId,
               move.home != .stackSlot,
               let home = liveDraggedColumn(for: move),
-              !home.hasWidthAnimationRunning,
+              !home.hasPrimarySpanAnimation(orientation: context.orientation),
               let placed = strip.first(where: { $0.column === home })
         else { return nil }
         return (home, placed)
@@ -82,20 +82,25 @@ extension NiriLayoutEngine {
         move: inout LiveColumnMove,
         context: NiriInteractionContext
     ) {
-        column.liveSlotWidth = nil
-        column.cachedWidth = 0
+        column.liveSlotSpan = nil
+        column.setCachedPrimarySpan(0, orientation: context.orientation)
         resolvePrimaryContainerSpans(
             in: context.workspaceId,
             workingFrame: context.workingFrame,
             gaps: context.gaps,
             orientation: context.orientation
         )
-        let fullWidth = column.cachedWidth
+        let fullWidth = column.cachedPrimarySpan(orientation: context.orientation)
         let closedCut = max(0, fullWidth + context.gaps)
-        move.narrowedSlot = .init(columnId: column.id, fullWidth: fullWidth, leftCut: side == .after ? closedCut : 0)
+        move.narrowedSlot = .init(
+            columnId: column.id,
+            fullWidth: fullWidth,
+            orientation: context.orientation,
+            leftCut: side == .after ? closedCut : 0
+        )
         move.originClosedToward = side
-        column.liveSlotWidth = fullWidth - closedCut
-        column.cachedWidth = fullWidth - closedCut
+        column.liveSlotSpan = .init(span: fullWidth - closedCut, orientation: context.orientation)
+        column.setCachedPrimarySpan(fullWidth - closedCut, orientation: context.orientation)
     }
 
     func placeLiveSlot(
@@ -106,9 +111,19 @@ extension NiriLayoutEngine {
     ) -> [LiveColumnMove.StripColumn]? {
         let home = resize.home
         guard var move = liveColumnMove else { return nil }
-        let unchanged = (move: move, slotWidth: home.liveSlotWidth, cachedWidth: home.cachedWidth, state: state)
+        let unchanged = (
+            move: move,
+            slotSpan: home.liveSlotSpan,
+            cachedSpan: home.cachedPrimarySpan(orientation: context.orientation),
+            state: state
+        )
         let leftCut = resize.minX - resize.placed.minX
-        var slot = move.narrowedSlot ?? .init(columnId: home.id, fullWidth: home.cachedWidth, leftCut: 0)
+        var slot = move.narrowedSlot ?? .init(
+            columnId: home.id,
+            fullWidth: home.cachedPrimarySpan(orientation: context.orientation),
+            orientation: context.orientation,
+            leftCut: 0
+        )
         slot.leftCut += leftCut
         move.narrowedSlot = slot
         move.phase = .settling
@@ -117,15 +132,15 @@ extension NiriLayoutEngine {
         let columns = columns(in: context.workspaceId)
         let active = columns.indices.contains(state.activeColumnIndex) ? columns[state.activeColumnIndex] : home
         let before = primaryPositions(context: context, state: state)
-        home.liveSlotWidth = resize.width
-        home.cachedWidth = resize.width
+        home.liveSlotSpan = .init(span: resize.width, orientation: context.orientation)
+        home.setCachedPrimarySpan(resize.width, orientation: context.orientation)
         let after = primaryPositions(context: context, state: state)
         state.rebaseOffset(by: -((after[active.id] ?? 0) - (before[active.id] ?? 0)) - leftCut)
         let stripAfter = liveColumnStrip(context: context, state: state)
         guard stripAfter.contains(where: { $0.column === home }) else {
             liveColumnMove = unchanged.move
-            home.liveSlotWidth = unchanged.slotWidth
-            home.cachedWidth = unchanged.cachedWidth
+            home.liveSlotSpan = unchanged.slotSpan
+            home.setCachedPrimarySpan(unchanged.cachedSpan, orientation: context.orientation)
             state = unchanged.state
             return nil
         }
@@ -141,17 +156,17 @@ extension NiriLayoutEngine {
     func widenLiveSlot(_ slot: LiveColumnMove.NarrowedSlot, in workspaceId: WorkspaceDescriptor.ID?) {
         guard let workspaceId,
               let column = columns(in: workspaceId).first(where: { $0.id == slot.columnId }),
-              column.liveSlotWidth != nil
+              column.liveSlotSpan != nil
         else { return }
         if column.windowNodes.isEmpty {
-            column.liveSlotWidth = nil
+            column.liveSlotSpan = nil
         } else {
             restoreLiveSlotWidth(slot, of: column)
         }
     }
 
     func restoreLiveSlotWidth(_ slot: LiveColumnMove.NarrowedSlot, of column: NiriContainer) {
-        column.liveSlotWidth = nil
-        column.cachedWidth = slot.fullWidth
+        column.liveSlotSpan = nil
+        column.setCachedPrimarySpan(slot.fullWidth, orientation: slot.orientation)
     }
 }

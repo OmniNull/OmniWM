@@ -59,7 +59,7 @@ struct MouseInputState {
         var liveDrag = false
         var liveDragDeclined = false
         var liveDragHandedOver = false
-        var startedOnLandscapeNiriStrip = false
+        var canStartLiveNiriDrag = false
         var pointerWasDragged = false
         var pressLocation: CGPoint?
         var releaseLocation: CGPoint?
@@ -84,10 +84,10 @@ struct MouseInputState {
 
     struct LiveEdgeZoneHold {
         let edge: LiveEdge
-        let x: CGFloat
+        let primaryPosition: CGFloat
 
-        func isPassed(by location: CGPoint) -> Bool {
-            edge == .leading ? location.x < x : location.x > x
+        func isPassed(by primaryPosition: CGFloat) -> Bool {
+            edge == .leading ? primaryPosition < self.primaryPosition : primaryPosition > self.primaryPosition
         }
     }
 

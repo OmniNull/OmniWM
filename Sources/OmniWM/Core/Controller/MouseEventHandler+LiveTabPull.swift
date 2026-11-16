@@ -13,6 +13,7 @@ extension MouseEventHandler {
               controller.isNiriStrip(entry.workspaceId),
               let engine = controller.niriEngine,
               let context = liveColumnContext(for: entry.workspaceId),
+              context.orientation == .horizontal,
               let window = engine.findNode(for: token, in: entry.workspaceId),
               let column = engine.findColumn(containing: window, in: entry.workspaceId)
         else { return }

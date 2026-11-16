@@ -11,7 +11,7 @@ extension NiriLayoutEngine {
         ignoring dropSpace: NiriContainer?,
         context: NiriInteractionContext
     ) -> NiriContainer? {
-        liveColumn(in: strip, at: cursor, ignoring: dropSpace)
+        liveColumn(in: strip, at: cursor, ignoring: dropSpace, context: context)
             ?? liveColumnPastStripEnd(in: strip, at: cursor, ignoring: dropSpace, context: context)
     }
 
@@ -23,10 +23,11 @@ extension NiriLayoutEngine {
     ) -> NiriContainer? {
         let placed = strip.filter { $0.column !== dropSpace }
         guard let first = placed.first, let last = placed.last,
-              cursor.x >= context.workingFrame.minX, cursor.x <= context.workingFrame.maxX
+              context.primaryCoordinate(of: cursor) >= context.primaryOrigin,
+              context.primaryCoordinate(of: cursor) <= context.primaryEnd
         else { return nil }
-        if cursor.x >= last.maxX { return last.column }
-        if cursor.x < first.minX { return first.column }
+        if context.primaryCoordinate(of: cursor) >= last.maxX { return last.column }
+        if context.primaryCoordinate(of: cursor) < first.minX { return first.column }
         return nil
     }
 }

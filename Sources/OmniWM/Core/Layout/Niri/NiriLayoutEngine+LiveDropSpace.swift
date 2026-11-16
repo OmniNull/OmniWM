@@ -99,8 +99,8 @@ extension NiriLayoutEngine {
         guard let landing = strip.first(where: { $0.column === column }),
               let target = strip.first(where: { $0.column === pointer.target })
         else { return (0, pulledEnd) }
-        let leadingEdge = context.workingFrame.minX + context.gaps
-        let trailingEdge = context.workingFrame.maxX - context.gaps
+        let leadingEdge = context.primaryOrigin + context.gaps
+        let trailingEdge = context.primaryEnd - context.gaps
         let pull = landing.width + context.gaps
         let opensStripStart = strip.first?.column === column
         let opensStripEnd = strip.last?.column === column
@@ -112,14 +112,14 @@ extension NiriLayoutEngine {
             wanted = min(-pull, landing.minX - leadingEdge)
         } else if pullsEnd {
             wanted = max(pull, landing.maxX - trailingEdge)
-        } else if landing.maxX <= context.workingFrame.minX || opensStripStart && landing.minX < leadingEdge - 0.5 {
+        } else if landing.maxX <= context.primaryOrigin || opensStripStart && landing.minX < leadingEdge - 0.5 {
             wanted = landing.minX - leadingEdge
-        } else if landing.minX >= context.workingFrame.maxX || opensStripEnd && landing.maxX > trailingEdge + 0.5 {
+        } else if landing.minX >= context.primaryEnd || opensStripEnd && landing.maxX > trailingEdge + 0.5 {
             wanted = landing.maxX - trailingEdge
         } else {
             return (0, pulledEnd)
         }
-        let pointerX = pointer.cursor.x
+        let pointerX = context.primaryCoordinate(of: pointer.cursor)
         let lowest = min(0, min(landing.minX, target.minX) - pointerX)
         let highest = max(0, max(landing.maxX, target.maxX) - pointerX - 1)
         var shift = wanted.clamped(to: lowest ... highest)
@@ -157,7 +157,7 @@ extension NiriLayoutEngine {
 
     func liveDropSpaceWidth(context: NiriInteractionContext) -> CGFloat {
         min(
-            context.workingFrame.width * MoveConfiguration.liveDropSpaceShare,
+            context.primarySpan * MoveConfiguration.liveDropSpaceShare,
             MoveConfiguration.liveDropSpaceMaximumWidth
         )
     }
@@ -193,13 +193,17 @@ extension NiriLayoutEngine {
         let dropSpace = existing ?? {
             let column = NiriContainer()
             column.isLiveDropSpace = true
-            column.width = .fixed(liveDropSpaceWidth(context: context))
+            if context.orientation == .horizontal {
+                column.width = .fixed(liveDropSpaceWidth(context: context))
+            } else {
+                column.height = .fixed(liveDropSpaceWidth(context: context))
+            }
             return column
         }()
         dropSpace.detach()
         guard let targetIndex = root.children.firstIndex(where: { $0 === target }) else { return nil }
         root.insertChild(dropSpace, at: reorder.side == .before ? targetIndex : targetIndex + 1)
-        dropSpace.cachedWidth = 0
+        dropSpace.setCachedPrimarySpan(0, orientation: context.orientation)
         animateLivePinnedChange(from: before, pinning: reorder.pinned, context: context, state: &state)
         return dropSpace
     }
@@ -255,21 +259,22 @@ extension NiriLayoutEngine {
         let side: LiveColumnMove.Side = towardTrailingEdge ? .after : .before
         let columns = root.children.compactMap { $0 as? NiriContainer }
         guard let anchorIndex = columns.firstIndex(where: { $0 === (dropSpace ?? dragged) }) else { return nil }
-        let frame = context.workingFrame
+        let primaryOrigin = context.primaryOrigin
+        let primaryEnd = context.primaryEnd
         let placedById = liveColumnsByIdentity(context: context, state: state)
         let placedColumn: (NiriContainer) -> LiveColumnMove.StripColumn? = { placedById[ObjectIdentifier($0)] }
         let isWindow: (NiriContainer) -> Bool = {
             $0 !== dragged && !$0.isLiveDropSpace && placedColumn($0) != nil
         }
         let homeBeyondView = dropSpace == nil && hinted == nil && placedColumn(dragged).map { home in
-            towardTrailingEdge ? home.minX >= frame.maxX - 0.5 : home.maxX <= frame.minX + 0.5
+            towardTrailingEdge ? home.minX >= primaryEnd - 0.5 : home.maxX <= primaryOrigin + 0.5
         } == true
         let ahead = liveColumnsAhead(of: anchorIndex, in: columns, wholeStrip: homeBeyondView, toward: side)
         let behindView: (LiveColumnMove.StripColumn) -> Bool = towardTrailingEdge
-            ? { $0.maxX <= frame.minX + 0.5 }
-            : { $0.minX >= frame.maxX - 0.5 }
+            ? { $0.maxX <= primaryOrigin + 0.5 }
+            : { $0.minX >= primaryEnd - 0.5 }
         let onScreen: (LiveColumnMove.StripColumn) -> Bool = {
-            $0.maxX > frame.minX + 0.5 && $0.minX < frame.maxX - 0.5
+            $0.maxX > primaryOrigin + 0.5 && $0.minX < primaryEnd - 0.5
         }
         let windowsAhead = ahead.filter(isWindow).drop { placedColumn($0).map(behindView) ?? false }
         let reachable = windowsAhead.prefix { placedColumn($0).map(onScreen) ?? false }

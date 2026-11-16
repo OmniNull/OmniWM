@@ -15,7 +15,6 @@ extension NiriLayoutEngine {
     ) -> Bool {
         assertSanctionedMutation()
         guard liveColumnMove == nil, interactiveMove == nil, interactiveResize == nil,
-              context.orientation == .horizontal,
               let window = findNode(by: windowId, in: context.workspaceId) as? NiriWindow,
               !window.isFullscreen,
               !isExcludedFromProjection(windowToken, in: context.workspaceId),
@@ -42,7 +41,7 @@ extension NiriLayoutEngine {
         let columns = columns(in: context.workspaceId)
         let positions = primaryPositions(context: context, state: state)
         let activeColumn = columns.indices.contains(state.activeColumnIndex) ? columns[state.activeColumnIndex] : column
-        let windowSizing = LiveColumnMove.WindowSizing(size: window.size, height: window.height)
+        let windowSizing = LiveColumnMove.WindowSizing(height: window.height, windowWidth: window.windowWidth)
         liveColumnMove = LiveColumnMove(
             windowId: windowId,
             windowToken: windowToken,
@@ -95,7 +94,7 @@ extension NiriLayoutEngine {
         else { return nil }
         var decision = LiveColumnMove.Decision(move: move, pointer: pointer, strip: strip)
         decision.closing = liveClosingSlotDecision(
-            windowMidX: windowMidX ?? pointer.cursor.x,
+            windowMidX: windowMidX ?? context.primaryCoordinate(of: pointer.cursor),
             strip: decision.strip,
             move: &decision.move,
             context: context
@@ -168,7 +167,7 @@ extension NiriLayoutEngine {
         let cursor = pointer.cursor
 
         let dropSpace = liveDropSpace(for: move)
-        noteLiveHeading(&move, at: cursor.x)
+        noteLiveHeading(&move, at: context.primaryCoordinate(of: cursor))
         if let action = liveSpecialModeDecision(pointer: pointer, strip: strip, move: &move, context: context) {
             return action
         }
@@ -199,16 +198,20 @@ extension NiriLayoutEngine {
         if let until = liveHoverUntil(on: target.id, side: side, since: previousDwell, pointer: pointer, move: &move) {
             return .hovering(until: until)
         }
-        let windows = liveWindowColumns(in: strip, besides: dragged, dropSpace)
-        let pinned = livePinnedColumn(underPointer, target: target, in: windows, heading: move.heading, cursor: cursor)
+        let pinned = livePinnedColumn(
+            underPointer,
+            target: target,
+            in: liveWindowColumns(in: strip, besides: dragged, dropSpace),
+            heading: move.heading,
+            at: context.primaryCoordinate(of: cursor)
+        )
         let besideHome = liveNeighbour(of: target, on: side) === dragged
-        let kind: LiveColumnMove.ReorderKind
-        if target === dragged, let dropSpace {
-            kind = .closeDropSpace(dropSpace, revealsHome: false)
+        let kind: LiveColumnMove.ReorderKind = if target === dragged, let dropSpace {
+            .closeDropSpace(dropSpace, revealsHome: false)
         } else if let dropSpace, besideHome, !homeClosed {
-            kind = .closeDropSpace(dropSpace, revealsHome: true)
+            .closeDropSpace(dropSpace, revealsHome: true)
         } else {
-            kind = .openDropSpace(existing: dropSpace, beside: besideHome && homeClosed ? dragged : target)
+            .openDropSpace(existing: dropSpace, beside: besideHome && homeClosed ? dragged : target)
         }
         return .reorder(.init(dragged: dragged, target: target, side: side, pinned: pinned, kind: kind))
     }
@@ -298,14 +301,16 @@ extension NiriLayoutEngine {
         target: NiriContainer,
         in windows: [LiveColumnMove.StripColumn],
         heading: LiveColumnMove.Side?,
-        cursor: CGPoint
+        at primary: CGFloat
     ) -> NiriContainer {
-        if let underPointer, windows.contains(where: { $0.column === underPointer && $0.contains(x: cursor.x) }) {
+        if let underPointer,
+           windows.contains(where: { $0.column === underPointer && $0.contains(x: primary) })
+        {
             return underPointer
         }
         let ahead = heading == .before
-            ? windows.last { $0.maxX <= cursor.x }
-            : windows.first { $0.minX >= cursor.x }
+            ? windows.last { $0.maxX <= primary }
+            : windows.first { $0.minX >= primary }
         return ahead?.column ?? target
     }
 
@@ -322,11 +327,14 @@ extension NiriLayoutEngine {
         beside target: NiriContainer,
         heading: LiveColumnMove.Side?,
         strip: [LiveColumnMove.StripColumn],
-        cursor: CGPoint
+        at primary: CGFloat
     ) -> (under: NiriContainer?, pinned: NiriContainer) {
-        let under = liveColumn(in: strip.filter { $0.column !== dragged }, at: cursor, ignoring: nil)
+        let under = strip.first { $0.column !== dragged && $0.contains(x: primary) }?.column
         let windows = liveWindowColumns(in: strip, besides: dragged, nil)
-        return (under, livePinnedColumn(under, target: target, in: windows, heading: heading, cursor: cursor))
+        return (
+            under,
+            livePinnedColumn(under, target: target, in: windows, heading: heading, at: primary)
+        )
     }
 
     private func applyLiveAction(

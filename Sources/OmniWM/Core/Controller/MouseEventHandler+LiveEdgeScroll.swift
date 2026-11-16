@@ -9,15 +9,20 @@ extension MouseEventHandler {
         liveDragSession?.edgeScroll?.isScrolling == true
     }
 
-    func trackLiveEdgeZone(at location: CGPoint, monitorFrame: CGRect) {
-        guard let edge = liveEdgeZone(containing: location, monitorFrame: monitorFrame) else {
+    func trackLiveEdgeZone(
+        at location: CGPoint,
+        monitorFrame: CGRect,
+        orientation: Monitor.Orientation = .horizontal
+    ) {
+        guard let edge = liveEdgeZone(containing: location, monitorFrame: monitorFrame, orientation: orientation) else {
             controller?.niriEngine?.liveColumnMovePointerInEdgeZone(false)
             controller?.niriEngine?.liveColumnMoveEdgeScrolls(toward: nil)
             clearLiveEdgeZone()
             return
         }
         controller?.niriEngine?.liveColumnMovePointerInEdgeZone(true)
-        if let hold = liveDragSession?.edgeZoneHold, hold.edge == edge, !hold.isPassed(by: location) { return }
+        let primary = orientation == .horizontal ? location.x : location.y
+        if let hold = liveDragSession?.edgeZoneHold, hold.edge == edge, !hold.isPassed(by: primary) { return }
         liveDragSession?.edgeZoneHold = nil
         guard liveDragSession?.edgeScroll?.edge != edge else { return }
         endLiveEdgeScroll()
@@ -34,9 +39,17 @@ extension MouseEventHandler {
         )
     }
 
-    func holdLiveEdgeZone(startingAt location: CGPoint, monitorFrame: CGRect) {
-        liveDragSession?.edgeZoneHold = liveEdgeZone(containing: location, monitorFrame: monitorFrame)
-            .map { .init(edge: $0, x: location.x) }
+    func holdLiveEdgeZone(
+        startingAt location: CGPoint,
+        monitorFrame: CGRect,
+        orientation: Monitor.Orientation = .horizontal
+    ) {
+        liveDragSession?.edgeZoneHold = liveEdgeZone(
+            containing: location,
+            monitorFrame: monitorFrame,
+            orientation: orientation
+        )
+        .map { .init(edge: $0, primaryPosition: orientation == .horizontal ? location.x : location.y) }
     }
 
     func startLiveEdgeScrollIfDue() {
@@ -163,10 +176,13 @@ extension MouseEventHandler {
         let strip = engine.liveColumnStrip(context: context, state: probe)
             .filter { $0.maxX > $0.minX || $0.column === gap }
         guard let index = strip.firstIndex(where: { $0.column === gap }) else { return false }
-        let shift: (LiveColumnMove.StripColumn) -> CGFloat = { $0.column.renderOffset(at: time).x }
+        let shift: (LiveColumnMove.StripColumn) -> CGFloat = {
+            context.primaryCoordinate(of: $0.column.renderOffset(at: time))
+        }
         let before = strip[..<index].last.map { $0.maxX + shift($0) } ?? -.infinity
         let after = strip[(index + 1)...].first.map { $0.minX + shift($0) } ?? .infinity
-        return before <= pointer.x && pointer.x < after
+        let primary = context.primaryCoordinate(of: pointer)
+        return before <= primary && primary < after
     }
 
     private func hiddenColumnIds(in workspaceId: WorkspaceDescriptor.ID, engine: NiriLayoutEngine) -> String {
@@ -203,7 +219,7 @@ extension MouseEventHandler {
 
         guard !controller.workspaceManager.animationDriver.hasEdgeScroll(in: workspaceId)
             || liveEdgeScrollReachesColumn(
-                at: liveDragReference(location),
+                at: location,
                 time: time,
                 engine: engine,
                 workspaceId: workspaceId
@@ -300,10 +316,10 @@ extension MouseEventHandler {
         let limits = engine.liveEdgeScrollLimits(strip: strip, context: context, state: viewportState)
         var held: Set<Direction> = []
         if scrollingEdge == .trailing || limits.trailing != nil {
-            held.insert(.right)
+            held.insert(context.orientation == .horizontal ? .right : .up)
         }
         if scrollingEdge == .leading || limits.leading != nil {
-            held.insert(.left)
+            held.insert(context.orientation == .horizontal ? .left : .down)
         }
         controller.pointerEdgeBarrier.publishLiveDragHold(.init(monitorId: monitor.id, heldDirections: held))
     }
@@ -316,12 +332,17 @@ extension MouseEventHandler {
 
     private func liveEdgeZone(
         containing location: CGPoint,
-        monitorFrame: CGRect
+        monitorFrame: CGRect,
+        orientation: Monitor.Orientation
     ) -> MouseInputState.LiveEdge? {
         guard controller?.niriEngine != nil else { return nil }
-        let width = MoveConfiguration.liveEdgeZoneWidth(forDisplayWidth: monitorFrame.width)
-        if location.x < monitorFrame.minX + width { return .leading }
-        if location.x >= monitorFrame.maxX - width { return .trailing }
+        let span = orientation == .horizontal ? monitorFrame.width : monitorFrame.height
+        let start = orientation == .horizontal ? monitorFrame.minX : monitorFrame.minY
+        let end = orientation == .horizontal ? monitorFrame.maxX : monitorFrame.maxY
+        let primary = orientation == .horizontal ? location.x : location.y
+        let width = MoveConfiguration.liveEdgeZoneWidth(forDisplayWidth: span)
+        if primary < start + width { return .leading }
+        if primary >= end - width { return .trailing }
         return nil
     }
 }

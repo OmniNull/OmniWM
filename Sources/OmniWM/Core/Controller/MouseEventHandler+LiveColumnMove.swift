@@ -46,7 +46,7 @@ extension MouseEventHandler {
         }
         guard button == .left,
               let drag = state.nativeTitleBarDrag,
-              drag.startedOnLandscapeNiriStrip || drag.liveDrag || drag.liveDragHandedOver
+              drag.canStartLiveNiriDrag || drag.liveDrag || drag.liveDragHandedOver
         else { return false }
         livePointer.location = location
         recordLivePointerSample(location)
@@ -91,7 +91,7 @@ extension MouseEventHandler {
         }
         guard !drag.liveDrag, !drag.liveDragDeclined,
               drag.dwindleResizeWorkspaceId == nil,
-              drag.startedOnLandscapeNiriStrip,
+              drag.canStartLiveNiriDrag,
               let controller,
               controller.isNiriStrip(entry.workspaceId),
               let start = drag.liveStartFrame ?? drag.adoptionStartFrame,
@@ -109,7 +109,7 @@ extension MouseEventHandler {
             engine.liveColumnMoveBegin(
                 windowId: window.id,
                 windowToken: entry.token,
-                canCarry: hasOtherLiveStrip(than: entry.workspaceId),
+                canCarry: hasOtherLiveStrip(than: context),
                 context: context,
                 state: &viewportState
             )
@@ -120,14 +120,17 @@ extension MouseEventHandler {
             return false
         }
         state.liveDragLayoutStart = layoutStart
-        liveDragSession = .init(referenceOffset: livePointer.location.map { observed.midX - $0.x })
+        liveDragSession = .init(referenceOffset: livePointer.location.map {
+            context.primaryStart(of: observed) + context.primarySpan(of: observed) / 2 - context
+                .primaryCoordinate(of: $0)
+        })
         drag.liveDrag = true
         drag.adoptionStartFrame = start
         state.deferredClickScroll = nil
         if let location = livePointer.location,
            let monitor = controller.workspaceManager.monitor(for: entry.workspaceId)
         {
-            holdLiveEdgeZone(startingAt: location, monitorFrame: monitor.frame)
+            holdLiveEdgeZone(startingAt: location, monitorFrame: monitor.frame, orientation: context.orientation)
         }
         controller.syncLiveDragPointerHold(active: true)
         return true
@@ -187,14 +190,15 @@ extension MouseEventHandler {
         releaseFrame releasedFrame: CGRect? = nil,
         startSize: CGSize? = nil
     ) -> Bool {
-        let releasedAt = livePointer.location.map(liveDragReference)
-        endLiveDragSession()
         guard let controller,
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
               move.windowToken == token
-        else { return false }
-        guard let context = liveColumnContext(for: move.workspaceId) else {
+        else {
+            endLiveDragSession()
+            return false
+        }
+        guard let (context, releasedAt) = endLiveDragSession(in: move.workspaceId) else {
             MouseTrace.record("live-drag release without context ws=\(move.workspaceId), cancelling")
             state.liveDragLayoutStart = nil
             cancelLiveColumnMove()
@@ -237,6 +241,15 @@ extension MouseEventHandler {
         }
         settleLiveDrop(of: token, in: workspaceId, engine: engine)
         return true
+    }
+
+    private func endLiveDragSession(
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> (NiriInteractionContext, CGPoint?)? {
+        defer { endLiveDragSession() }
+        guard let context = liveColumnContext(for: workspaceId) else { return nil }
+        let releasedAt = livePointer.location.map { liveDragReference($0, orientation: context.orientation) }
+        return (context, releasedAt)
     }
 
     @inline(__always)

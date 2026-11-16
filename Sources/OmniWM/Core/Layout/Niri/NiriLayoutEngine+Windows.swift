@@ -23,6 +23,15 @@ extension NiriLayoutEngine {
         guard node.constraints != normalized else { return }
         node.constraints = normalized
         guard let column else { return }
+        clampColumnHeightToBounds(column, in: workspaceId, motion: motion)
+        clampColumnWidthToBounds(column, in: workspaceId, motion: motion)
+    }
+
+    func clampColumnHeightToBounds(
+        _ column: NiriContainer,
+        in workspaceId: WorkspaceDescriptor.ID,
+        motion: MotionSnapshot
+    ) {
         if let target = column.targetHeight {
             let clampedTarget = column.clampedToHeightBounds(target)
             if clampedTarget != target {
@@ -37,7 +46,6 @@ extension NiriLayoutEngine {
         } else if column.cachedHeight > 0 {
             column.cachedHeight = column.clampedToHeightBounds(column.cachedHeight)
         }
-        clampColumnWidthToBounds(column, in: workspaceId, motion: motion)
     }
 
     func clampColumnWidthToBounds(
