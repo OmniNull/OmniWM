@@ -73,7 +73,8 @@ extension NiriLayoutHandler {
         controller: WMController
     ) {
         for other in controller.workspaceManager.workspaces.map(\.id)
-            where snapshots[other] == nil && controller.workspaceManager.activeLayoutKind(for: other) == .niri
+            where snapshots.index(forKey: other) == nil && controller.workspaceManager
+            .activeLayoutKind(for: other) == .niri
         {
             snapshots[other] = engine.layoutSnapshot(in: other, focused: focusedToken(in: other))
             sizes.merge(engine.windowSizes(in: other)) { here, _ in here }
