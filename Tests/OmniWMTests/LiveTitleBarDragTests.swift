@@ -3026,15 +3026,14 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.engine.columns(in: fixture.workspaceId).contains { $0.windowNodes.isEmpty })
     }
 
-    func testAnOptionDragStartsOmniWMsOwnMoveOnAPortraitStripAndNotOnALandscapeOne() throws {
+    func testModifiedBodyPressesDoNotStartManagedMovesOnEitherStripAxis() throws {
         let presses: [(pid: pid_t, portrait: Bool, modifier: CGEventFlags, moves: Bool)] = [
             (938_073, false, .maskAlternate, false),
-            (938_074, true, .maskAlternate, true),
+            (938_074, true, .maskAlternate, false),
             (938_075, true, .maskCommand, false)
         ]
         for press in presses {
             let fixture = try makeFixture(pid: press.pid, portrait: press.portrait)
-            fixture.controller.settings.gestures.mouseMoveModifierKey = .option
             let token = fixture.tokens[1]
             let start = try fixture.frame(token)
             fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
@@ -3056,7 +3055,6 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
     func testATitleBarDragStartedWithAModifierIsARegularLiveDrag() throws {
         for modifier in [CGEventFlags.maskAlternate, .maskCommand, .maskControl, .maskShift] {
             let fixture = try makeFixture(pid: 938_079)
-            fixture.controller.settings.gestures.mouseMoveModifierKey = .option
             let token = fixture.tokens[1]
             let start = try fixture.frame(token)
             fixture.handler.retireNativeTitleBarDragAtInputBoundary()

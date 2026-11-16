@@ -9,6 +9,7 @@ extension NiriLayoutEngine {
         windowId: NodeId,
         windowToken: WindowToken,
         startLocation: CGPoint,
+        startFrame: CGRect? = nil,
         allowsInsertion: Bool = false,
         context: NiriInteractionContext,
         state: inout ViewportState
@@ -30,6 +31,8 @@ extension NiriLayoutEngine {
             windowToken: windowToken,
             workspaceId: context.workspaceId,
             startMouseLocation: startLocation,
+            startFrame: startFrame,
+            floatingFrame: startFrame,
             allowsInsertion: allowsInsertion,
             orientation: context.orientation,
             currentHoverTarget: nil

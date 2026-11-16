@@ -107,9 +107,14 @@ extension MouseEventHandler {
         let wasActive = state.isMoving || state.isResizing
 
         if state.isMoving {
+            let workspaceId = state.moveLayout == .dwindle
+                ? controller.dwindleEngine?.interactiveMove?.workspaceId
+                : controller.niriEngine?.interactiveMove?.workspaceId
             controller.niriEngine?.interactiveMoveCancel()
             controller.dwindleEngine?.interactiveMoveCancel()
+            let restoredWorkspace = workspaceId ?? state.lockedGestureContext?.workspaceId
             clearMoveInteractionState()
+            restoreManagedMove(in: restoredWorkspace)
         }
 
         if state.isResizing {
@@ -222,7 +227,6 @@ extension MouseEventHandler {
     }
 
     func clearMoveInteractionState() {
-        state.dragGhostController?.endDrag()
         state.isMoving = false
         state.moveLayout = nil
         state.activeInteractionSource = nil
@@ -236,18 +240,10 @@ extension MouseEventHandler {
     }
 
     func completeActiveMove(at location: CGPoint) {
-        switch classifyMoveLocation(location) {
-        case .sourceDisplay:
-            if state.moveLayout == .dwindle {
-                finishDwindleMove(at: location)
-            } else {
-                finishNiriMove(at: location)
-            }
-        case let .crossDisplay(drop):
-            cancelActiveEngineMove()
-            controller?.performCrossDisplayDrop(drop)
-        case .cancel:
-            cancelActiveEngineMove()
+        if state.moveLayout == .dwindle {
+            finishDwindleMove(at: location)
+        } else {
+            finishNiriMove(at: location)
         }
         clearMoveInteractionState()
         NSCursor.arrow.set()

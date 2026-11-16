@@ -8,14 +8,18 @@ extension MouseEventHandler {
     private func handleDwindleMoveDrag(at location: CGPoint) {
         guard let controller, let engine = controller.dwindleEngine,
               let move = engine.interactiveMove,
+              let startFrame = move.startFrame,
               let monitor = controller.workspaceManager.monitor(for: move.workspaceId)
         else {
             cancelActiveMouseInteraction()
             return
         }
-        guard !updateCrossDisplayHover(at: location) else { return }
+        let frame = startFrame.offsetBy(
+            dx: location.x - move.startLocation.x, dy: location.y - move.startLocation.y
+        )
+        guard frame != move.floatingFrame else { return }
+        engine.interactiveMove?.floatingFrame = frame
         let now = controller.animationClock.now()
-        state.dragGhostController?.updatePosition(cursorLocation: location)
         _ = engine.interactiveMoveUpdate(
             currentLocation: location, at: now,
             workspaceFrame: controller.insetWorkingFrame(for: monitor)
@@ -24,19 +28,18 @@ extension MouseEventHandler {
             cancelActiveMouseInteraction()
             return
         }
-        if let frame = engine.interactiveMoveTargetFrame(at: now) {
-            state.dragGhostController?.showSwapTarget(frame: frame)
-        } else {
-            state.dragGhostController?.hideSwapTarget()
-        }
+        _ = controller.dwindleLayoutHandler.applyFramesOnDemand(workspaceId: move.workspaceId, monitor: monitor)
     }
 
     func finishDwindleMove(at location: CGPoint) {
-        guard let controller, let engine = controller.dwindleEngine,
-              let wsId = engine.interactiveMove?.workspaceId
-        else { return }
+        guard let controller, let engine = controller.dwindleEngine else { return }
+        guard let wsId = engine.interactiveMove?.workspaceId else {
+            restoreManagedMove(in: state.lockedGestureContext?.workspaceId)
+            return
+        }
         guard let monitor = controller.workspaceManager.monitor(for: wsId) else {
             engine.interactiveMoveCancel()
+            restoreManagedMove(in: wsId)
             return
         }
         _ = engine.interactiveMoveUpdate(
@@ -45,6 +48,7 @@ extension MouseEventHandler {
         )
         guard let move = engine.interactiveMove, move.target != nil else {
             engine.interactiveMoveCancel()
+            restoreManagedMove(in: wsId)
             return
         }
         let changed = controller.workspaceManager.withEngineMutationScope(
@@ -54,14 +58,19 @@ extension MouseEventHandler {
         ) {
             engine.interactiveMoveEnd() != nil
         }
-        guard changed else { return }
+        guard changed else {
+            restoreManagedMove(in: wsId)
+            return
+        }
         controller.workspaceManager.recordLayoutOperation(
             move.isInsertion ? .interactiveMoveEnded(token: move.token) : .windowsSwapped,
             in: wsId,
             source: .mouse
         )
         if controller.hasStartedServices {
-            controller.layoutRefreshController.requestImmediateRelayout(reason: .interactiveGesture)
+            controller.layoutRefreshController.requestImmediateRelayout(
+                reason: .interactiveGesture, affectedWorkspaceIds: [wsId]
+            )
         }
     }
 
@@ -69,11 +78,13 @@ extension MouseEventHandler {
         guard let controller else { return }
         guard let engine = controller.niriEngine, let move = engine.interactiveMove else {
             controller.niriEngine?.interactiveMoveCancel()
+            restoreManagedMove(in: state.lockedGestureContext?.workspaceId)
             return
         }
         let wsId = move.workspaceId
         guard let monitor = controller.workspaceManager.monitor(for: wsId) else {
             engine.interactiveMoveCancel()
+            restoreManagedMove(in: wsId)
             return
         }
         let geometry = controller.niriInteractionGeometry(for: monitor)
@@ -88,13 +99,18 @@ extension MouseEventHandler {
                 gaps: geometry.innerGap
             )
         }
-        guard didEnd else { return }
+        guard didEnd else {
+            restoreManagedMove(in: wsId)
+            return
+        }
         controller.workspaceManager.recordLayoutOperation(
             .interactiveMoveEnded(token: movedToken),
             in: wsId,
             source: .mouse
         )
-        controller.layoutRefreshController.requestImmediateRelayout(reason: .interactiveGesture)
+        controller.layoutRefreshController.requestImmediateRelayout(
+            reason: .interactiveGesture, affectedWorkspaceIds: [wsId]
+        )
     }
 
     func handleMouseDraggedFromTap(
@@ -149,20 +165,32 @@ extension MouseEventHandler {
 
     private func updateNiriMove(at location: CGPoint) {
         guard let controller else { return }
-        guard let engine = controller.niriEngine, engine.interactiveMove != nil else {
+        guard let engine = controller.niriEngine, let move = engine.interactiveMove,
+              let startFrame = move.startFrame
+        else {
             cancelActiveMouseInteraction()
             return
         }
-        guard !updateCrossDisplayHover(at: location) else { return }
-
+        let frame = startFrame.offsetBy(
+            dx: location.x - move.startMouseLocation.x, dy: location.y - move.startMouseLocation.y
+        )
+        guard frame != move.floatingFrame else { return }
+        engine.interactiveMove?.floatingFrame = frame
         _ = engine.interactiveMoveUpdate(currentLocation: location)
-        state.dragGhostController?.updatePosition(cursorLocation: location)
-
-        if let frame = engine.interactiveMoveTargetFrame() {
-            state.dragGhostController?.showSwapTarget(frame: frame)
-        } else {
-            state.dragGhostController?.hideSwapTarget()
+        guard engine.interactiveMove != nil else {
+            cancelActiveMouseInteraction()
+            return
         }
+        controller.layoutRefreshController.renderInteractiveResize(for: move.workspaceId)
+    }
+
+    func restoreManagedMove(in workspaceId: WorkspaceDescriptor.ID?) {
+        guard let workspaceId, let controller,
+              controller.workspaceManager.descriptor(for: workspaceId) != nil
+        else { return }
+        controller.layoutRefreshController.requestImmediateRelayout(
+            reason: .interactiveGesture, affectedWorkspaceIds: [workspaceId]
+        )
     }
 
     func updateManagedResize(at location: CGPoint) {

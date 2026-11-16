@@ -62,10 +62,6 @@ final class GestureSettings {
         }
     }
 
-    var mouseMoveModifierKey = GestureSettings.defaults.mouseMoveModifierKey {
-        didSet { notifyChange() }
-    }
-
     var fingerCount = GestureSettings.defaults.fingerCount {
         didSet { notifyChange() }
     }
@@ -162,7 +158,6 @@ final class GestureSettings {
             scrollEnabled: scrollEnabled,
             scrollSensitivity: scrollSensitivity,
             scrollModifierKey: scrollModifierKey,
-            mouseMoveModifierKey: mouseMoveModifierKey,
             fingerCount: fingerCount,
             invertDirection: invertDirection,
             trackpadScrollStyle: trackpadScrollStyle,
@@ -194,7 +189,6 @@ final class GestureSettings {
         scrollSensitivity = gestures.scrollSensitivity
         mouseWheelSensitivity = gestures.mouseWheelSensitivity ?? 1.0
         scrollModifierKey = gestures.scrollModifierKey
-        mouseMoveModifierKey = gestures.mouseMoveModifierKey
         fingerCount = gestures.fingerCount
         invertDirection = gestures.invertDirection
         trackpadScrollStyle = gestures.trackpadScrollStyle

@@ -207,7 +207,6 @@ enum SettingsSearchIndex {
         setting("macOS Gestures", section: .mouseTrackpad, tab: "trackpad", anchor: "macOS Gestures"),
         setting("Open Trackpad Settings", section: .mouseTrackpad, tab: "trackpad", anchor: "Open Trackpad Settings"),
         setting("Mouse Move & Resize", section: .mouseTrackpad, tab: "mouse", anchor: "Mouse Move & Resize"),
-        setting("Left Mouse Move Modifier", section: .mouseTrackpad, tab: "mouse", anchor: "Left Mouse Move Modifier"),
         setting(
             "Dwindle Group Across Displays",
             section: .mouseTrackpad,

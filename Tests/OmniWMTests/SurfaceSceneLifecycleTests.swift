@@ -33,39 +33,6 @@ final class SurfaceSceneLifecycleTests: XCTestCase {
         secondWindow.close()
     }
 
-    func testRepeatedDragControllerLifecyclesReturnAllIndexesToBaseline() {
-        let scene = SurfaceScene()
-        let coordinator = SurfaceCoordinator(scene: scene)
-        scene.beginRuntimeCapture()
-
-        for index in 0 ..< 100 {
-            let ghostWindow = DragGhostWindow(surfaceCoordinator: coordinator)
-            ghostWindow.destroy()
-            let controller = DragGhostController(
-                surfaceCoordinator: coordinator,
-                previews: PreviewCaptureCoordinator(ownedWindowRegistry: OwnedWindowRegistry()),
-                captureAccessAllowed: { false }
-            )
-            controller.beginDrag(
-                token: WindowToken(pid: 1, windowId: 800_000 + index),
-                originalFrame: CGRect(x: 0, y: 0, width: 800, height: 600),
-                cursorLocation: CGPoint(x: 400, y: 300)
-            )
-            controller.showSwapTarget(frame: CGRect(x: 10, y: 20, width: 300, height: 200))
-            XCTAssertEqual(coordinator.visibleSurfaceIDs(kind: .dragGhost).count, 1)
-            controller.destroy()
-            controller.destroy()
-            XCTAssertTrue(coordinator.visibleSurfaceIDs(kind: .dragGhost).isEmpty)
-
-            let snapshot = coordinator.runtimeSnapshot()
-            XCTAssertEqual(snapshot.total, 0)
-            XCTAssertEqual(snapshot.reverseEntries, 0)
-            XCTAssertEqual(snapshot.orphanReverseEntries, 0)
-        }
-
-        XCTAssertGreaterThanOrEqual(coordinator.runtimeSnapshot().highWater, 1)
-    }
-
     func testNumberBackedSurfacesAreNotReportedAsLiveWindows() {
         let scene = SurfaceScene()
         scene.registerWindowNumber(node: SurfaceScene.SurfaceNode(

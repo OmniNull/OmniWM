@@ -12,7 +12,7 @@ final class ContiguousSectionsSettingsExportTests: XCTestCase {
             "borders": ["enabled", "width"],
             "borders.color": ["red", "green", "blue", "alpha"],
             "gestures": [
-                "scrollEnabled", "scrollSensitivity", "scrollModifierKey", "mouseMoveModifierKey",
+                "scrollEnabled", "scrollSensitivity", "scrollModifierKey",
                 "fingerCount", "invertDirection", "trackpadScrollStyle",
                 "workspaceSwipeEnabled", "workspaceSwipeFingerCount", "workspaceSwipeAxis"
             ],

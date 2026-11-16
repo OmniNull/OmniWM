@@ -121,7 +121,6 @@ final class InputTapThreadTests: XCTestCase {
     @MainActor
     func testNativeResizeCapturesUnmodifiedAndOptionClicks() {
         let controller = makeController()
-        controller.settings.gestures.mouseMoveModifierKey = .control
         let handler = controller.mouseEventHandler
         handler.setup()
         defer { handler.cleanup() }

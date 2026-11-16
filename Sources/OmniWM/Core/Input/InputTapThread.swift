@@ -8,7 +8,6 @@ import os
 struct TapFilterSnapshot: Sendable {
     var activeCapture: MouseEventHandler.MouseButton?
     var claimedOtherButtonMask: UInt32 = 0
-    var moveModifier: CGEventFlags?
     var capturesNativeResizeBaseline = false
     var scrollModifier: CGEventFlags = []
     var minGestureFingers: Int = 3
@@ -314,14 +313,6 @@ extension InputTapThread {
         snapshot: TapFilterSnapshot,
         captureWindowFrames: () -> [WindowToken: CGRect]
     ) {
-        let isMoveCandidate = MouseEventHandler.mouseMoveModifiersMatch(modifiers, required: snapshot.moveModifier)
-        if isMoveCandidate {
-            _ = evaluateAuthoritativeTapOnMain(
-                type: .leftMouseDown, location: location, modifiers: modifiers, buttonNumber: 0, scrollPayload: nil,
-                clickCount: clickCount
-            )
-            return
-        }
         let needsNativeResizeBaseline = snapshot.capturesNativeResizeBaseline
             && modifiers.isDisjoint(with: MouseEventHandler.relevantModifierFlags.subtracting(.maskAlternate))
         let windowServerFrames = needsNativeResizeBaseline ? captureWindowFrames() : [:]

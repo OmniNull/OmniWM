@@ -318,7 +318,7 @@ import XCTest
                             .first { $0.isVisible && $0.title == "OmniWM Settings" })
                         navigation.selectTab("mouse")
                         await self.display(window, appearance: window.effectiveAppearance)
-                        gestures.mouseMoveModifierKey = .control
+                        gestures.dwindleGroupDrag = .window
                         await self.display(window, appearance: window.effectiveAppearance)
                         navigation.selectTab("trackpad")
                         await self.display(window, appearance: window.effectiveAppearance)

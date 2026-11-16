@@ -32,9 +32,11 @@ extension DwindleLayoutHandler {
         var diff = WorkspaceLayoutDiff()
         let effectiveScale = max(context.scale, 1.0)
         let excludedTokens = context.engine.excludedTokens(in: context.workspaceId)
-        let floatingFrame = context.engine.liveMoveWorkspaceId == context.workspaceId
+        let liveFloatingFrame = context.engine.liveMoveWorkspaceId == context.workspaceId
             ? context.engine.liveTabMoveFloatingFrame : nil
-        let floatingToken = context.engine.liveTabMoveToken
+        let move = context.engine.interactiveMove
+        let floatingFrame = liveFloatingFrame ?? (move?.workspaceId == context.workspaceId ? move?.floatingFrame : nil)
+        let floatingToken = liveFloatingFrame != nil ? context.engine.liveTabMoveToken : move?.token
         for window in windows {
             let token = window.token
             let targetFrame = frames[token]

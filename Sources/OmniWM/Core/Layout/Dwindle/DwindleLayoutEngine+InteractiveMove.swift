@@ -14,6 +14,8 @@ struct DwindleInteractiveMove {
     let token: WindowToken
     let workspaceId: WorkspaceDescriptor.ID
     let startLocation: CGPoint
+    let startFrame: CGRect?
+    var floatingFrame: CGRect?
     let allowsInsertion: Bool
     var target: DwindleMoveTarget?
 
@@ -41,6 +43,7 @@ extension DwindleLayoutEngine {
     func interactiveMoveBegin(
         token: WindowToken,
         startLocation: CGPoint,
+        startFrame: CGRect? = nil,
         allowsInsertion: Bool = false,
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
@@ -52,7 +55,8 @@ extension DwindleLayoutEngine {
               !isWindowFullscreen(token, in: workspaceId)
         else { return false }
         interactiveMove = DwindleInteractiveMove(
-            token: token, workspaceId: workspaceId, startLocation: startLocation, allowsInsertion: allowsInsertion
+            token: token, workspaceId: workspaceId, startLocation: startLocation,
+            startFrame: startFrame, floatingFrame: startFrame, allowsInsertion: allowsInsertion
         )
         return true
     }

@@ -9,6 +9,8 @@ struct InteractiveMove {
     var windowToken: WindowToken
     let workspaceId: WorkspaceDescriptor.ID
     let startMouseLocation: CGPoint
+    let startFrame: CGRect?
+    var floatingFrame: CGRect?
     let allowsInsertion: Bool
     let orientation: Monitor.Orientation
 

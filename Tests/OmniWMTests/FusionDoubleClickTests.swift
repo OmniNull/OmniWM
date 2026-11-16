@@ -858,7 +858,6 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
 
     func testAModifierTitleBarPressPassesOnAsARegularDragWithItsModifier() throws {
         let fixture = try makeFixture(pid: 941_132)
-        fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         MouseEventHandler._instance = fixture.handler
         addTeardownBlock { @MainActor in MouseEventHandler._instance = nil }
         fixture.handler.syncTapFilterSnapshot()

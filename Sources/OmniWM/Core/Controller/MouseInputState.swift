@@ -182,7 +182,6 @@ struct MouseInputState {
     var lastFocusFollowsMouseTime: Date = .distantPast
     var latestFocusFollowsMouseSample: FocusFollowsMouseSample?
     let focusFollowsMouseDebounce: TimeInterval = 0.1
-    var dragGhostController: DragGhostController?
 
     var gestureStartX: CGFloat = 0.0
     var gestureStartY: CGFloat = 0.0

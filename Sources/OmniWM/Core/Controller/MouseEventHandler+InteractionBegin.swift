@@ -12,7 +12,9 @@ extension MouseEventHandler {
         at location: CGPoint,
         source: MouseInputState.InteractionSource
     ) -> Bool {
-        guard let controller, let monitor = controller.workspaceManager.monitor(for: wsId) else { return false }
+        guard let controller, let monitor = controller.workspaceManager.monitor(for: wsId),
+              let frame = tiledWindow.renderedFrame ?? tiledWindow.frame
+        else { return false }
         let geometry = controller.niriInteractionGeometry(for: monitor)
         let orientation = resolvedNiriOrientation(
             engine: engine,
@@ -26,6 +28,7 @@ extension MouseEventHandler {
                 windowId: tiledWindow.id,
                 windowToken: tiledWindow.token,
                 startLocation: location,
+                startFrame: frame,
                 allowsInsertion: source.mouseButton != nil,
                 context: .init(
                     workspaceId: wsId,
@@ -47,19 +50,6 @@ extension MouseEventHandler {
         tapInputs.capturedInteractionButton = source.mouseButton
         NSCursor.closedHand.set()
 
-        if let entry = controller.workspaceManager.entry(for: tiledWindow.token),
-           let frame = entry.axRef.flatMap(AXWindowService.framePreferFast)
-           ?? controller.shellAppWindowManager.frame(for: entry.token)
-        {
-            if state.dragGhostController == nil {
-                state.dragGhostController = DragGhostController()
-            }
-            state.dragGhostController?.beginDrag(
-                token: entry.token,
-                originalFrame: frame,
-                cursorLocation: location
-            )
-        }
         return true
     }
 
@@ -114,7 +104,8 @@ extension MouseEventHandler {
         let now = controller.animationClock.now()
         guard let frame = engine.presentedFrame(for: token, in: wsId, at: now),
               engine.interactiveMoveBegin(
-                  token: token, startLocation: location, allowsInsertion: source.mouseButton != nil, in: wsId
+                  token: token, startLocation: location, startFrame: frame,
+                  allowsInsertion: source.mouseButton != nil, in: wsId
               )
         else { return false }
 
@@ -123,10 +114,6 @@ extension MouseEventHandler {
         state.activeInteractionSource = source
         tapInputs.capturedInteractionButton = source.mouseButton
         NSCursor.closedHand.set()
-        if state.dragGhostController == nil {
-            state.dragGhostController = DragGhostController()
-        }
-        state.dragGhostController?.beginDrag(token: token, originalFrame: frame, cursorLocation: location)
         return true
     }
 

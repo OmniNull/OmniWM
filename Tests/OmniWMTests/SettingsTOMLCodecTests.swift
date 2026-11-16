@@ -605,34 +605,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertEqual(try SettingsTOMLCodec.decode(data).gestures.trackpadScrollStyle, .momentum)
     }
 
-    func testMouseMoveModifierRoundTrips() throws {
-        XCTAssertEqual(SettingsExport.defaults().gestures.mouseMoveModifierKey, .option)
-        XCTAssertTrue(
-            String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-                .contains("mouseMoveModifierKey = \"option\"")
-        )
-
-        for modifier in [MouseMoveModifierKey.off, .controlOption] {
-            var export = SettingsExport.defaults()
-            export.gestures.mouseMoveModifierKey = modifier
-            let data = try SettingsTOMLCodec.encode(export)
-
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data).gestures.mouseMoveModifierKey, modifier)
-        }
-    }
-
-    @MainActor
-    func testMouseMoveModifierStoreMappingRoundTrips() {
-        let source = makeSettingsStore()
-        source.gestures.mouseMoveModifierKey = .controlCommand
-        let destination = makeSettingsStore()
-
-        destination.applyExport(source.toExport())
-
-        XCTAssertEqual(destination.gestures.mouseMoveModifierKey, .controlCommand)
-        XCTAssertEqual(destination.toExport().gestures.mouseMoveModifierKey, .controlCommand)
-    }
-
     @MainActor
     func testRaiseOnMouseFocusStoreMappingSurvivesDisabledFocusFollowsMouse() {
         let source = makeSettingsStore()
@@ -782,7 +754,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
             ("workspaceSwipeEnabled = false\n", "workspaceSwipeEnabled = \"false\"\n"),
             ("workspaceSwipeFingerCount = 3\n", "workspaceSwipeFingerCount = \"three\"\n"),
             ("workspaceSwipeAxis = \"vertical\"\n", "workspaceSwipeAxis = 3\n"),
-            ("mouseMoveModifierKey = \"option\"\n", "mouseMoveModifierKey = 3\n"),
             ("overviewGestureFingerCount = 4", "overviewGestureFingerCount = 2"),
             ("\nfingerCount = 3", "\nfingerCount = 2")
         ]
@@ -924,11 +895,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
                 "scrollModifierKey = \"\(ScrollModifierKey.optionShift.rawValue)\"",
                 "scrollModifierKey = \"fn\"",
                 "scrollModifierKey"
-            ),
-            (
-                "mouseMoveModifierKey = \"\(MouseMoveModifierKey.option.rawValue)\"",
-                "mouseMoveModifierKey = \"shift\"",
-                "gestures.mouseMoveModifierKey"
             ),
             ("fingerCount = \(GestureFingerCount.three.rawValue)\n", "fingerCount = 7\n", "fingerCount"),
             (

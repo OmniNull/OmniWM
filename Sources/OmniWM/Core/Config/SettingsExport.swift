@@ -185,7 +185,6 @@ struct SettingsExport: Equatable {
         var scrollEnabled: Bool
         var scrollSensitivity: Double
         var scrollModifierKey: ScrollModifierKey
-        var mouseMoveModifierKey: MouseMoveModifierKey
         var fingerCount: ThreeOrFourFingerCount
         var invertDirection: Bool
         var trackpadScrollStyle: TrackpadScrollStyle

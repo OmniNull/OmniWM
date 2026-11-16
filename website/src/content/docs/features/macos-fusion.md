@@ -7,7 +7,7 @@ sidebar:
 
 With **macOS Fusion**, you arrange the Niri (scrolling) layout with the mouse, the same way you move windows anywhere else in macOS. Drag a window by its title bar and the other windows make room for it as you go, so you always see where it will land. Let go and it drops into place. You can also put windows into stacks and take them out again, resize them by their edges, and carry a window to another display.
 
-There is nothing to turn on: it is how the Niri layout works on a landscape display. On a portrait display and in Dwindle, a window dragged by its title bar snaps back when you let go, as before.
+There is nothing to turn on. Native title-bar movement works on landscape and portrait Niri strips and in Dwindle. The examples below show horizontal Niri; vertical strips use the corresponding vertical and horizontal directions. Dwindle uses its own tile and group placement rules; see [drag guidance](/guides/tips/#swap-windows-by-dragging).
 
 :::tip
 macOS has its own tiling, which starts when you drag a window to a screen edge or hold `Option`. It gets in the way of dragging. If any of it is on, the Niri settings list the macOS settings to turn off and give you a button that opens **Desktop & Dock**.
@@ -29,7 +29,7 @@ Drag the window by its title bar. It lifts off the strip and follows the pointer
 - **Crossing is safe:** nothing moves until you pause, so you can sweep across several windows to reach the one you want. Letting go over a window before anything opened still lands yours on its far side.
 - **Changing your mind:** move back over the home spot, or over the half of a window that faces it, and the window goes back to its old place. Esc doesn't cancel a drag; drag the window back, or use Undo afterwards.
 - **The view stays:** after a drop, the strip goes back to where it was before the drag if the dropped window is visible there.
-- **Keys don't change a drag:** holding `Option`, `Command`, `Control` or `Shift` while dragging a title bar makes no difference. On a landscape Niri display the **Left Mouse Move Modifier** move (`Option`-drag from anywhere in a window) is off, because the title-bar drag replaces it; portrait displays and Dwindle keep it.
+- **Keys don't change a drag:** holding `Option`, `Command`, `Control` or `Shift` while dragging a title bar makes no difference. Use the title bar to move a window. Modified drags inside window content are left to the app.
 - **Clicking doesn't scroll:** pressing on a window that is only partly on screen doesn't move the strip. A plain click scrolls it into view when you let go.
 
 ## Reaching windows off screen

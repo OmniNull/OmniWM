@@ -128,12 +128,6 @@ extension QuakeTerminalBackgroundEffect {
     }
 }
 
-extension MouseMoveModifierKey {
-    var localizedDisplayName: String {
-        localizedModifierName(displayName)
-    }
-}
-
 extension FocusLockModifier {
     var localizedDisplayName: String {
         localizedModifierName(displayName)

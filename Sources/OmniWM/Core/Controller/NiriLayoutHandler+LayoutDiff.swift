@@ -114,7 +114,7 @@ extension NiriLayoutHandler {
         var diff = WorkspaceLayoutDiff()
         diff.frameChanges.reserveCapacity(windows.count)
         let workspace = context.engine.states[context.workspaceId]
-        let liveDrag = context.engine.liveDraggedWindow(in: context.workspaceId)
+        let liveDrag = projectedFloatingWindow(engine: context.engine, in: context.workspaceId)
         for window in windows {
             let token = window.token
             if window.isNativeFullscreenSuspended {
@@ -158,6 +158,17 @@ extension NiriLayoutHandler {
             ))
         }
         return diff
+    }
+
+    private func projectedFloatingWindow(
+        engine: NiriLayoutEngine,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> (token: WindowToken, floatingFrame: CGRect?)? {
+        if let liveDrag = engine.liveDraggedWindow(in: workspaceId) { return liveDrag }
+        guard let move = engine.interactiveMove, move.workspaceId == workspaceId,
+              let frame = move.floatingFrame
+        else { return nil }
+        return (move.windowToken, frame)
     }
 
     private func appendLiveFloatingFrame(

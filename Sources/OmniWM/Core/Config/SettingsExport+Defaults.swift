@@ -212,7 +212,6 @@ extension SettingsExport.Gestures {
             scrollEnabled: true,
             scrollSensitivity: 5.0,
             scrollModifierKey: .optionShift,
-            mouseMoveModifierKey: .option,
             fingerCount: .three,
             invertDirection: true,
             trackpadScrollStyle: .snap,

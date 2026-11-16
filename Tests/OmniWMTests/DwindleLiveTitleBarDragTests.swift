@@ -211,7 +211,6 @@ final class DwindleLiveTitleBarDragTests: NiriInteractionTestCase {
         let controller = WindowAdmissionTestSupport.controller(prefix: "DwindleLiveTitleBarDragTests")
         controller.settings.animationsEnabled = false
         controller.motionPolicy.animationsEnabled = false
-        controller.settings.gestures.mouseMoveModifierKey = .control
         let frame = CGRect(x: 137, y: -241, width: horizontal ? 1512 : 912, height: horizontal ? 912 : 1512)
         let monitor = Monitor(
             id: .init(displayId: 938_701), displayId: 938_701, frame: frame,

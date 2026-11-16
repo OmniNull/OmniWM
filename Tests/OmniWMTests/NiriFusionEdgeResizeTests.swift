@@ -873,10 +873,9 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.settledFrame(resized).height, minimum, accuracy: fixture.pixel)
     }
 
-    func testPortraitOptionEdgesAndCornersStayNativeWhileBodyAndTitleMovesRemain() throws {
+    func testPortraitOptionPressesStayNativeAndOnlyResizeEdgesExcludeLiveMovement() throws {
         for index in 0 ..< 10 {
             let fixture = try makeFixture(portrait: true, pid: pid_t(871_200 + index))
-            fixture.controller.settings.gestures.mouseMoveModifierKey = .option
             let token = fixture.tokens[1]
             let frame = try fixture.frame(token)
             let edgeInset = NiriLayoutEngine.doubleClickEdgeInset / 2
@@ -895,9 +894,12 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             XCTAssertFalse(fixture.handler.dispatchMouseDown(
                 at: point, modifiers: .maskAlternate, windowIdUnderPointer: token.windowId
             ))
-            let moves = index == 2 || index == 3
-            XCTAssertEqual(fixture.handler.state.isMoving, moves)
-            if !moves {
+            let isResizePress = index != 2 && index != 3
+            XCTAssertFalse(fixture.handler.state.isMoving)
+            XCTAssertNil(fixture.engine.interactiveMove)
+            XCTAssertNil(fixture.handler.tapInputs.capturedInteractionButton)
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.token, token)
+            if isResizePress {
                 fixture.handler.dispatchMouseDragged(at: CGPoint(
                     x: index >= 4 ? (point.x + FrameTolerance.frameWrite).nextUp : point.x,
                     y: index < 2 || index >= 6 ? (point.y + FrameTolerance.frameWrite).nextUp : point.y
@@ -906,6 +908,12 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
                 XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.canStartLiveNiriDrag, false)
                 XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.liveStartFrame)
                 XCTAssertTrue(fixture.handler.livePointer.samples.isEmpty)
+            } else {
+                fixture.handler.dispatchMouseDragged(at: CGPoint(
+                    x: (point.x + FrameTolerance.frameWrite).nextUp, y: point.y
+                ))
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.canStartLiveNiriDrag, true)
+                XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveStartFrame, frame)
             }
         }
     }
@@ -1247,7 +1255,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
 
     func testAnOptionPressOnAFixedSizeWindowsEdgeStartsNoMove() throws {
         let fixture = try makeFixture(pid: 871_054)
-        fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         let pressed = fixture.tokens[1]
         let frame = try fixture.frame(pressed)
         let size = CGSize(width: frame.width, height: frame.height)
@@ -1298,7 +1305,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
 
     func testAnOptionPressOnAWindowEdgeIsLeftToMacOS() throws {
         let fixture = try makeFixture(pid: 871_045)
-        fixture.controller.settings.gestures.mouseMoveModifierKey = .option
         let pressed = fixture.tokens[1]
         let frame = try fixture.frame(pressed)
 

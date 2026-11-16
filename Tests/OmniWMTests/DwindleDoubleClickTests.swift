@@ -89,10 +89,11 @@ extension CrossDisplayDragTests {
                 buttonNumber: 0, scrollPayload: nil, clickCount: clickCount
             ))
             XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionDoubleClickArmedAt)
-            XCTAssertTrue(fixture.handler.state.isMoving)
-            XCTAssertEqual(fixture.handler.tapInputs.capturedInteractionButton, .left)
+            XCTAssertFalse(fixture.handler.state.isMoving)
+            XCTAssertNil(fixture.handler.tapInputs.capturedInteractionButton)
+            XCTAssertNil(fixture.dwindle.interactiveMove)
             XCTAssertEqual(fixture.dwindle.fullscreenTokens(in: fixture.source), [])
-            XCTAssertTrue(fixture.handler.dispatchAuthoritativeTap(
+            XCTAssertFalse(fixture.handler.dispatchAuthoritativeTap(
                 type: .leftMouseUp, location: title, modifiers: .maskControl,
                 buttonNumber: 0, scrollPayload: nil
             ))
@@ -400,7 +401,7 @@ extension CrossDisplayDragTests {
         XCTAssertEqual(fixture.controller.userActionCount, userActions + UInt64(firstPresses + secondPresses))
     }
 
-    func testDwindleEdgeKeepsConfiguredMoveModifierAndExistingCapture() throws {
+    func testDwindleEdgePassesModifiedClicksThroughAndKeepsExistingCapture() throws {
         let fixture = try makeNativeFixture([.dwindle])
         let token = addWindow(1, to: fixture.source, fixture)
         _ = addWindow(2, to: fixture.source, fixture)
@@ -421,9 +422,10 @@ extension CrossDisplayDragTests {
                 buttonNumber: 0, scrollPayload: nil, clickCount: clickCount
             ))
             XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionDoubleClickArmedAt)
-            XCTAssertTrue(fixture.handler.state.isMoving)
-            XCTAssertEqual(fixture.handler.tapInputs.capturedInteractionButton, .left)
-            XCTAssertTrue(fixture.handler.dispatchAuthoritativeTap(
+            XCTAssertFalse(fixture.handler.state.isMoving)
+            XCTAssertNil(fixture.handler.tapInputs.capturedInteractionButton)
+            XCTAssertNil(fixture.dwindle.interactiveMove)
+            XCTAssertFalse(fixture.handler.dispatchAuthoritativeTap(
                 type: .leftMouseUp, location: point, modifiers: .maskControl,
                 buttonNumber: 0, scrollPayload: nil
             ))
