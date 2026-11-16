@@ -59,6 +59,7 @@ private struct DwindleResizeBoundary {
     let originalRatio: CGFloat
     let first: Bool
     let minimums: (child: CGFloat, sibling: CGFloat)
+    let fractions: (minimum: CGFloat, maximum: CGFloat)
 
     func change(fraction: CGFloat, displacement: CGFloat, orientation: DwindleOrientation) -> DwindleResizeChange {
         DwindleResizeChange(
@@ -74,7 +75,6 @@ private struct DwindleResizeGeometry {
     let outerLength: CGFloat
     let targetSpan: DwindleResizeAffine
     let projection: DwindleResizeProjection
-    let fractions: (minimum: CGFloat, maximum: CGFloat)
 
     func constrainOuter(_ segment: inout DwindleResizeSegment) {
         segment.requireNonnegative(projection.extent.subtracting(.init(origin: outer.minimums.child, slope: 0)))
@@ -82,10 +82,10 @@ private struct DwindleResizeGeometry {
             origin: outerLength - outer.minimums.sibling, slope: 0
         ).subtracting(projection.extent))
         segment.requireNonnegative(projection.extent.subtracting(.init(
-            origin: outerLength * fractions.minimum, slope: 0
+            origin: outerLength * outer.fractions.minimum, slope: 0
         )))
         segment.requireNonnegative(DwindleResizeAffine(
-            origin: outerLength * fractions.maximum, slope: 0
+            origin: outerLength * outer.fractions.maximum, slope: 0
         ).subtracting(projection.extent))
     }
 }
@@ -320,7 +320,7 @@ extension DwindleLayoutEngine {
             splitId: axis.splitId, orientation: axis.orientation,
             ratio: clampedRatioRespectingMinimums(
                 ratio + 2 * delta / axis.length, for: match.split, innerGap: resize.innerGap,
-                excludedTokens: excludedTokens(in: resize.workspaceId)
+                excludedTokens: excludedTokens(in: resize.workspaceId), referenceRatio: ratio
             )
         )
     }
@@ -384,9 +384,11 @@ extension DwindleLayoutEngine {
         let siblingMinimum = horizontal
             ? (first ? minimums.second.width : minimums.first.width)
             : (first ? minimums.second.height : minimums.first.height)
+        let range = settings.resizeRatioRange(from: first ? ratio : 2 - ratio)
         return DwindleResizeBoundary(
             splitId: match.split.id, originalRatio: ratio, first: first,
-            minimums: (childMinimum, siblingMinimum)
+            minimums: (childMinimum, siblingMinimum),
+            fractions: (settings.ratioToFraction(range.lowerBound), settings.ratioToFraction(range.upperBound))
         )
     }
 
@@ -415,8 +417,7 @@ extension DwindleLayoutEngine {
         return DwindleResizeGeometry(
             outer: outerBoundary, inner: innerBoundary, outerLength: outerAxis.length,
             targetSpan: DwindleResizeAffine(origin: axis.innerChildLength, slope: 2),
-            projection: projection,
-            fractions: (settings.ratioToFraction(-.infinity), settings.ratioToFraction(.infinity))
+            projection: projection
         )
     }
 
@@ -438,7 +439,7 @@ extension DwindleLayoutEngine {
             ) else { return nil }
             segment.constrain(
                 geometry.targetSpan, within: innerSpan,
-                minimums: geometry.inner.minimums, fractions: geometry.fractions
+                minimums: geometry.inner.minimums, fractions: geometry.inner.fractions
             )
             let blocked = direction * (segment.limit - segment.breakpoint) < 0 || segment.limit == position
             let next = blocked ? segment.limit : segment.breakpoint

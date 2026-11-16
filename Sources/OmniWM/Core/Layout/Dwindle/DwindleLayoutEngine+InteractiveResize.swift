@@ -176,7 +176,8 @@ extension DwindleLayoutEngine {
             originRatio + 2 * delta / axis.length,
             for: match.split,
             innerGap: resize.innerGap,
-            excludedTokens: excludedTokens(in: resize.workspaceId)
+            excludedTokens: excludedTokens(in: resize.workspaceId),
+            referenceRatio: originRatio
         )
         guard newRatio != match.split.splitRatio else { return false }
         match.split.kind = .split(orientation: axis.orientation, ratio: newRatio)

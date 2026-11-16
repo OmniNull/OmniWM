@@ -60,7 +60,7 @@ extension MouseEventHandler {
             if pressed.layoutKind == .dwindle {
                 let hit = dwindlePressHit(at: location, in: pressed.workspaceId)
                 strip?.doubleClick = .dwindle(hit)
-                armed = hit?.zone == .titleBar
+                armed = hit?.zone != nil
             } else {
                 let candidate = lookUpFusionDoubleClickCandidate(at: location, in: pressed)
                 armed = candidate != nil

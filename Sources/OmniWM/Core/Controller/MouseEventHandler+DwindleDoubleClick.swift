@@ -19,9 +19,9 @@ extension MouseEventHandler {
         else { return nil }
         guard let monitor = controller.workspaceManager.monitor(for: workspaceId),
               let frame = engine.presentedFrame(for: token, in: workspaceId, at: now),
-              NiriLayoutEngine.fusionDoubleClickZone(
+              let zone = NiriLayoutEngine.fusionDoubleClickZone(
                   at: location, in: frame, gap: 0, bounds: monitor.visibleFrame
-              ) == .titleBar,
+              ),
               canHandleManagedMouseInteraction(controller: controller),
               controller.workspaceManager.activeLayoutKind(for: workspaceId) == .dwindle,
               entry.layoutReason == .standard, entry.hiddenState == nil,
@@ -31,18 +31,25 @@ extension MouseEventHandler {
               !hasPendingNativeFullscreenTransition(at: location),
               !isPointerDisplayShowingFullscreenSpace(at: location)
         else { return DwindlePressHit(token: token, zone: nil) }
-        return DwindlePressHit(token: token, zone: .titleBar)
+        return DwindlePressHit(token: token, zone: zone)
     }
 
     func handleDwindleDoubleClick(at location: CGPoint, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         guard let controller,
-              let hit = dwindlePressHit(at: location, in: workspaceId), hit.zone == .titleBar,
-              TitleBarHitTest.isTitleBar(titleBarHitProvider(hit.token.pid, location)),
+              let hit = dwindlePressHit(at: location, in: workspaceId), let zone = hit.zone,
               topmostWindowIdProvider(location) == hit.token.windowId
         else { return false }
+        switch zone {
+        case .titleBar:
+            guard TitleBarHitTest.isTitleBar(titleBarHitProvider(hit.token.pid, location)),
+                  controller.dwindleLayoutHandler.toggleFullscreen(for: hit.token, in: workspaceId)
+            else { return false }
+        case let .edge(edge):
+            guard controller.dwindleLayoutHandler.toggleEdgeExpansion(for: hit.token, edge: edge, in: workspaceId)
+            else { return false }
+        }
         clearNativeTitleBarDrag()
         controller.noteUserAction()
-        guard controller.dwindleLayoutHandler.toggleFullscreen(for: hit.token, in: workspaceId) else { return false }
         tapInputs.capturedInteractionButton = .left
         return true
     }

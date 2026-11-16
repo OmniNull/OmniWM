@@ -183,6 +183,7 @@ final class DwindleNode {
     weak var parent: DwindleNode?
     var children: [DwindleNode] = []
     var kind: DwindleNodeKind
+    var edgeExpansion: DwindleEdgeExpansion?
     var cachedFrame: CGRect?
     var cachedContentFrame: CGRect?
 

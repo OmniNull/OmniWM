@@ -75,6 +75,20 @@ extension DwindleLayoutHandler {
         }
     }
 
+    func toggleEdgeExpansion(for token: WindowToken, edge: ResizeEdge, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let controller, let engine = controller.dwindleEngine,
+              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .dwindle,
+              let monitor = controller.workspaceManager.monitor(for: workspaceId)
+        else { return false }
+        return controller.workspaceManager.withEngineMutationScope(in: workspaceId, source: .mouse) {
+            applyResolvedSettings(controller.resolvedDwindleSettings(for: monitor), to: engine)
+            guard engine.toggleEdgeExpansion(for: token, edge: edge, in: workspaceId) else { return false }
+            recordLayoutOperation(.splitRatioChanged, in: workspaceId, source: .mouse)
+            controller.layoutRefreshController.requestLayoutCommandRelayout(affectedWorkspaceIds: [workspaceId])
+            return true
+        }
+    }
+
     func balanceSizes() {
         guard let controller else { return }
         withDwindleContext { engine, wsId in
