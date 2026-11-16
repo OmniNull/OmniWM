@@ -132,9 +132,10 @@ extension DwindleLayoutEngine {
 
     @discardableResult
     func interactiveResizeEnd() -> Bool {
-        let didChange = interactiveResize?.didChange ?? false
+        guard let resize = interactiveResize else { return false }
         interactiveResize = nil
-        return didChange
+        if resize.didChange { recordNativeResizeHistory(resize) }
+        return resize.didChange
     }
 
     func clearInteractiveResize() {

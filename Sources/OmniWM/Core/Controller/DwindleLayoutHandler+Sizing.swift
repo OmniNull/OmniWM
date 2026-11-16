@@ -9,7 +9,7 @@ extension DwindleLayoutHandler {
     func swapWindow(direction: Direction) -> WindowMoveOutcome {
         guard let controller else { return .blocked }
         var outcome = WindowMoveOutcome.blocked
-        withDwindleContext { engine, wsId in
+        withDwindleContext(recordingHistory: true) { engine, wsId in
             outcome = engine.swapWindowOutcome(direction: direction, in: wsId)
             guard outcome == .movedWithinWorkspace else { return }
             recordLayoutOperation(.windowsSwapped, in: wsId)
@@ -22,7 +22,7 @@ extension DwindleLayoutHandler {
 
     func toggleFullscreen() {
         guard let controller else { return }
-        withDwindleContext { engine, wsId in
+        withDwindleContext(recordingHistory: true) { engine, wsId in
             if let token = engine.toggleFullscreen(in: wsId) {
                 completeFullscreenToggle(for: token, in: wsId, controller: controller)
             }
@@ -37,6 +37,8 @@ extension DwindleLayoutHandler {
         else { return false }
         return controller.workspaceManager.withEngineMutationScope(in: workspaceId, source: .mouse) {
             applyResolvedSettings(controller.resolvedDwindleSettings(for: monitor), to: engine)
+            let before = engine.layoutSnapshot(in: workspaceId)
+            defer { engine.recordLayoutChange(in: workspaceId, since: before) }
             guard engine.toggleFullscreen(for: token, in: workspaceId) else { return false }
             completeFullscreenToggle(for: token, in: workspaceId, controller: controller)
             return true
@@ -65,7 +67,7 @@ extension DwindleLayoutHandler {
 
     func cycleSize(forward: Bool) {
         guard let controller else { return }
-        withDwindleContext { engine, wsId in
+        withDwindleContext(recordingHistory: true) { engine, wsId in
             if engine.cycleSplitRatio(forward: forward, in: wsId) {
                 recordLayoutOperation(.splitRatioChanged, in: wsId)
             }
@@ -82,6 +84,8 @@ extension DwindleLayoutHandler {
         else { return false }
         return controller.workspaceManager.withEngineMutationScope(in: workspaceId, source: .mouse) {
             applyResolvedSettings(controller.resolvedDwindleSettings(for: monitor), to: engine)
+            let before = engine.layoutSnapshot(in: workspaceId)
+            defer { engine.recordLayoutChange(in: workspaceId, since: before) }
             guard engine.toggleEdgeExpansion(for: token, edge: edge, in: workspaceId) else { return false }
             recordLayoutOperation(.splitRatioChanged, in: workspaceId, source: .mouse)
             controller.layoutRefreshController.requestLayoutCommandRelayout(affectedWorkspaceIds: [workspaceId])
@@ -91,7 +95,7 @@ extension DwindleLayoutHandler {
 
     func balanceSizes() {
         guard let controller else { return }
-        withDwindleContext { engine, wsId in
+        withDwindleContext(recordingHistory: true) { engine, wsId in
             if engine.balanceSizes(in: wsId) {
                 recordLayoutOperation(.sizesBalanced, in: wsId)
             }
@@ -130,6 +134,7 @@ extension DwindleLayoutHandler {
     }
 
     func withDwindleContext(
+        recordingHistory: Bool = false,
         perform: (DwindleLayoutEngine, WorkspaceDescriptor.ID) -> Void
     ) {
         guard let controller,
@@ -139,7 +144,11 @@ extension DwindleLayoutHandler {
         else { return }
         controller.workspaceManager.withEngineMutationScope {
             applyResolvedSettings(controller.resolvedDwindleSettings(for: monitor), to: engine)
+            let before = recordingHistory ? engine.layoutSnapshot(in: wsId) : nil
             perform(engine, wsId)
+            if recordingHistory {
+                engine.recordLayoutChange(in: wsId, since: before)
+            }
         }
     }
 }

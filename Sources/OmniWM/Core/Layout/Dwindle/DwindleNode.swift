@@ -18,10 +18,35 @@ final class DwindleTile {
     private(set) var members: [DwindleTileMember]
     private(set) var activeIndex: Int
 
-    init(token: WindowToken, fullscreen: Bool = false) {
-        id = UUID()
+    init(token: WindowToken, fullscreen: Bool = false, id: DwindleTileId = UUID()) {
+        self.id = id
         members = [DwindleTileMember(token: token, isFullscreen: fullscreen)]
         activeIndex = 0
+    }
+
+    func restoreMembers(_ restored: consuming [DwindleTileMember], activeToken: WindowToken?) {
+        precondition(!restored.isEmpty)
+        var restoredActive = 0
+        for index in restored.indices where restored[index].token == activeToken {
+            restoredActive = index
+            break
+        }
+        if members != restored { members = restored }
+        activeIndex = restoredActive
+    }
+
+    func restoreMemberStates(
+        from restored: borrowing [DwindleTileMember],
+        range: Range<Int>,
+        activeToken: WindowToken?
+    ) {
+        for index in members.indices {
+            let member = restored[range.lowerBound + index]
+            if members[index].isFullscreen != member.isFullscreen {
+                members[index].isFullscreen = member.isFullscreen
+            }
+            if member.token == activeToken { activeIndex = index }
+        }
     }
 
     var activeMember: DwindleTileMember {
@@ -192,8 +217,8 @@ final class DwindleNode {
 
     var frameAnimation: CubicRectAnimation?
 
-    init(kind: DwindleNodeKind) {
-        id = UUID()
+    init(kind: DwindleNodeKind, id: DwindleNodeId = UUID()) {
+        self.id = id
         self.kind = kind
     }
 

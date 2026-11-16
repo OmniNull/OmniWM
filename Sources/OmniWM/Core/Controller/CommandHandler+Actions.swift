@@ -227,11 +227,21 @@ extension CommandHandler {
         case .balanceSizes:
             layoutHandler(as: LayoutSizable.self)?.balanceSizes()
         case .undo:
-            controller.niriLayoutHandler.stepLayoutHistory(.undo)
+            stepLayoutHistory(undo: true, controller: controller)
         case .redo:
-            controller.niriLayoutHandler.stepLayoutHistory(.redo)
+            stepLayoutHistory(undo: false, controller: controller)
         }
         return .executed
+    }
+
+    private func stepLayoutHistory(undo: Bool, controller: WMController) {
+        let niri = controller.niriLayoutHandler
+        guard let workspaceId = niri.layoutHistoryWorkspaceId() else { return }
+        if controller.workspaceManager.activeLayoutKind(for: workspaceId) == .dwindle {
+            controller.dwindleLayoutHandler.stepLayoutHistory(undo ? .undo : .redo, in: workspaceId)
+        } else {
+            niri.stepLayoutHistory(undo ? .undo : .redo, in: workspaceId)
+        }
     }
 
     private func niriResizeChange(grow: Bool, controller: WMController) -> NiriSizeChange {

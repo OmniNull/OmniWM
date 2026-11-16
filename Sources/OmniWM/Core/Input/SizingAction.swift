@@ -204,7 +204,9 @@ extension SizingAction {
         switch self {
         case .cycleSizeForward,
              .cycleSizeBackward,
-             .balanceSizes:
+             .balanceSizes,
+             .undo,
+             .redo:
             .shared
         case .cycleWindowPrimarySpanForward,
              .cycleWindowPrimarySpanBackward,
@@ -218,9 +220,7 @@ extension SizingAction {
              .resizeWindowSecondarySpan,
              .setContainerPrimarySpan,
              .setWindowPrimarySpan,
-             .setWindowSecondarySpan,
-             .undo,
-             .redo:
+             .setWindowSecondarySpan:
             .niri
         }
     }
