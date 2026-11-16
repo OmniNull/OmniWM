@@ -78,7 +78,7 @@ extension WMController {
         }
         tabRailManager.acceptsDrags = { [weak self] info in
             guard let self, case .niriColumn = info.owner else { return false }
-            return isLandscapeNiriStrip(info.workspaceId)
+            return isNiriStrip(info.workspaceId)
         }
         tabRailManager.onSelect = { [weak self] info, visualIndex, token in
             guard let self else { return }

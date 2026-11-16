@@ -355,7 +355,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
 
         let carried = fixture.engine.liveColumnMoveCarry(
             cursor: CGPoint(x: otherFrame.maxX - 100, y: otherFrame.midY),
-            windowWidth: nil,
+            windowPrimarySpan: nil,
             from: fixture.context,
             to: target,
             viewports: &viewports
@@ -409,7 +409,7 @@ final class NiriFreeStyleStackTests: XCTestCase {
         var viewports = [fixture.workspaceId: fixture.state, otherWorkspaceId: ViewportState()]
         _ = fixture.engine.liveColumnMoveCarry(
             cursor: CGPoint(x: otherFrame.maxX - 100, y: otherFrame.midY),
-            windowWidth: nil,
+            windowPrimarySpan: nil,
             from: fixture.context,
             to: target,
             viewports: &viewports

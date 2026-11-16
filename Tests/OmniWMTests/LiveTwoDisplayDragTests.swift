@@ -332,7 +332,7 @@ extension CrossDisplayDragTests {
         let column = try XCTUnwrap(fixture.niri.columns(in: fixture.target).last)
         XCTAssertFalse(column.isLiveHomeSpot)
         let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
-        XCTAssertEqual(column.width, fixture.niri.liveCarriedSizing(windowWidth: width, context: context).width)
+        XCTAssertEqual(column.width, fixture.niri.liveCarriedSizing(windowPrimarySpan: width, context: context).width)
         XCTAssertEqual(
             column.resolvedPrimarySpan(
                 column.width,
@@ -442,7 +442,7 @@ extension CrossDisplayDragTests {
         ) { viewports in
             carried = fixture.niri.liveColumnMoveCarry(
                 cursor: nearerTheFirst,
-                windowWidth: nil,
+                windowPrimarySpan: nil,
                 from: source,
                 to: target,
                 viewports: &viewports
@@ -821,8 +821,345 @@ extension CrossDisplayDragTests {
         XCTAssertNil(fixture.niri.peekLayoutHistory(.redo, in: fixture.target))
     }
 
-    private func makeLiveFixture(_ layouts: [LayoutType]) throws -> Fixture {
-        let fixture = try makeNativeFixture(layouts)
+    func testAllCarryAxesInsertOnEitherSideAndKeepOneGapAtAStillPointer() throws {
+        for axes in carryAxisPairs {
+            for after in [false, true] {
+                let drag = try startLiveTwoDisplayDrag(
+                    residents: 2, orientations: axes, frames: carryDisplayFrames(axes)
+                )
+                let fixture = drag.fixture
+                let direction: Direction = axes[1] == .horizontal
+                    ? (after ? .right : .left) : (after ? .up : .down)
+                let point = try carryOnto(drag.residents[0], direction, fixture)
+                let expected = after
+                    ? [[drag.residents[0]], [drag.moved], [], [drag.residents[1]]]
+                    : [[], [drag.moved], [drag.residents[0]], [drag.residents[1]]]
+                XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+                XCTAssertEqual(fixture.columns(fixture.source), [[drag.neighbour]])
+                XCTAssertEqual(fixture.columns(fixture.target), expected)
+                XCTAssertEqual(fixture.niri.columns(in: fixture.target).filter(\.isLiveDropSpace).count, 1)
+
+                fixture.handler.dispatchMouseDragged(at: point)
+
+                XCTAssertEqual(fixture.columns(fixture.target), expected)
+                fixture.handler.dispatchMouseUp(at: point)
+                XCTAssertNil(fixture.niri.liveColumnMove)
+                XCTAssertEqual(fixture.columns(fixture.target), expected.filter { !$0.isEmpty })
+                XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.target)
+            }
+        }
+    }
+
+    func testAllCarryAxesUseTheObservedTargetPrimarySpanAndCapOversizedWindows() throws {
+        for axes in carryAxisPairs {
+            for oversized in [false, true] {
+                let drag = try startLiveTwoDisplayDrag(
+                    residents: 2, orientations: axes, frames: carryDisplayFrames(axes)
+                )
+                let fixture = drag.fixture
+                let target = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
+                let point = try dropPoint(
+                    in: XCTUnwrap(fixture.frame(drag.residents[0])), axes[1] == .horizontal ? .right : .up
+                )
+                let extent = oversized ? target.primarySpan * 2 : target.primarySpan / 3
+                let otherExtent = target.secondarySpan / 4
+                let size = axes[1] == .horizontal
+                    ? CGSize(width: extent, height: otherExtent) : CGSize(width: otherExtent, height: extent)
+                let observed = CGRect(
+                    x: point.x - size.width / 2, y: point.y - size.height / 2,
+                    width: size.width, height: size.height
+                )
+                fixture.handler.nativeWindowFrameProvider = { _ in observed }
+
+                fixture.handler.dispatchMouseDragged(at: point)
+                fixture.handler.dispatchMouseUp(at: point)
+
+                let column = try XCTUnwrap(fixture.niriNode(drag.moved)?.parent as? NiriContainer)
+                let expected = ProportionalSize.proportion(
+                    min(1, (extent + target.gaps) / (target.primarySpan - target.gaps))
+                )
+                XCTAssertEqual(axes[1] == .horizontal ? column.width : column.height, expected)
+                XCTAssertEqual(
+                    fixture.columns(fixture.target),
+                    [[drag.residents[0]], [drag.moved], [drag.residents[1]]]
+                )
+                XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.target)
+                XCTAssertNil(fixture.niri.liveColumnMove)
+            }
+        }
+    }
+
+    func testAllCarryAxesRebaseOnlyCrossAxisGripAndClearItWhenTheFrameIsMissing() throws {
+        for axes in carryAxisPairs {
+            for missing in [false, true] {
+                let drag = try startLiveTwoDisplayDrag(
+                    orientations: axes, frames: carryDisplayFrames(axes)
+                )
+                let fixture = drag.fixture
+                let point = fixture.monitors[1].frame.center
+                let priorOffset: CGFloat = 37
+                let grip = CGPoint(x: 19, y: -31)
+                let size = CGSize(width: 420, height: 310)
+                let observed = CGRect(
+                    x: point.x + grip.x - size.width / 2,
+                    y: point.y + grip.y - size.height / 2,
+                    width: size.width, height: size.height
+                )
+                fixture.handler.liveDragSession?.referenceOffset = priorOffset
+                fixture.handler.nativeWindowFrameProvider = { _ in missing ? nil : observed }
+
+                fixture.handler.dispatchMouseDragged(at: point)
+
+                XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.target)
+                if axes[0] == axes[1] {
+                    XCTAssertEqual(fixture.handler.liveDragSession?.referenceOffset, priorOffset)
+                    XCTAssertEqual(
+                        fixture.handler.liveDragWindowMidX(point, orientation: axes[1]),
+                        (axes[1] == .horizontal ? point.x : point.y) + priorOffset
+                    )
+                } else if missing {
+                    XCTAssertNil(fixture.handler.liveDragSession?.referenceOffset)
+                    XCTAssertEqual(fixture.handler.liveDragReference(point, orientation: axes[1]), point)
+                } else {
+                    XCTAssertEqual(
+                        fixture.handler.liveDragSession?.referenceOffset, axes[1] == .horizontal ? grip.x : grip.y
+                    )
+                    XCTAssertEqual(
+                        fixture.handler.liveDragWindowMidX(point, orientation: axes[1]),
+                        axes[1] == .horizontal ? observed.midX : observed.midY
+                    )
+                }
+                fixture.handler.cancelLiveColumnDrag()
+                XCTAssertEqual(fixture.columns(fixture.source), [[drag.neighbour], [drag.moved]])
+            }
+        }
+    }
+
+    func testAllCarryAxesHoldTheDestinationEdgeUntilRealOutwardMotion() throws {
+        for axes in carryAxisPairs {
+            let drag = try startLiveTwoDisplayDrag(
+                residents: 4, orientations: axes, frames: carryDisplayFrames(axes)
+            )
+            let fixture = drag.fixture
+            let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.target))
+            let display = fixture.monitors[1].frame
+            let zone = MoveConfiguration.liveEdgeZoneWidth(forDisplayWidth: context.primarySpan(of: display))
+            let primary = context.primaryEnd(of: display) - zone / 2
+            let secondary = context.secondaryCoordinate(of: display.center)
+            let point = context.point(primary: primary, secondary: secondary)
+
+            fixture.handler.dispatchMouseDragged(at: point)
+
+            XCTAssertEqual(fixture.manager.workspace(for: drag.moved), fixture.target)
+            XCTAssertEqual(fixture.handler.liveDragSession?.edgeZoneHold?.edge, .trailing)
+            XCTAssertEqual(fixture.handler.liveDragSession?.edgeZoneHold?.primaryPosition, primary)
+            fixture.handler.trackLiveEdgeZone(
+                at: context.point(primary: primary, secondary: secondary + zone),
+                monitorFrame: display, orientation: axes[1]
+            )
+            XCTAssertNil(fixture.handler.liveDragSession?.edgeScroll)
+            fixture.handler.trackLiveEdgeZone(
+                at: context.point(primary: primary - zone / 4, secondary: secondary),
+                monitorFrame: display, orientation: axes[1]
+            )
+            XCTAssertNil(fixture.handler.liveDragSession?.edgeScroll)
+            fixture.handler.trackLiveEdgeZone(
+                at: context.point(primary: primary + zone / 4, secondary: secondary),
+                monitorFrame: display, orientation: axes[1]
+            )
+            XCTAssertEqual(fixture.handler.liveDragSession?.edgeScroll?.edge, .trailing)
+            XCTAssertNil(fixture.handler.liveDragSession?.edgeZoneHold)
+            fixture.handler.cancelLiveColumnDrag()
+        }
+    }
+
+    func testAllCarryAxesCancelRepeatedCrossingsWithBothWindowSpecificationsAndSelections() throws {
+        for axes in carryAxisPairs {
+            let fixture = try makeLiveFixture(
+                [.niri, .niri], orientations: axes, frames: carryDisplayFrames(axes)
+            )
+            let neighbour = addWindow(1, to: fixture.source, fixture)
+            let moved = addWindow(2, to: fixture.source, fixture)
+            let resident = addWindow(10, to: fixture.target, fixture)
+            try stack(moved, onto: neighbour, in: fixture.source, fixture)
+            let window = try XCTUnwrap(fixture.niriNode(moved))
+            let height = WeightedSize.fixed(310)
+            let width = WeightedSize.fixed(470)
+            window.height = height
+            window.windowWidth = width
+            fixture.layout()
+            let sourceViewport = fixture.manager.niriViewportState(for: fixture.source)
+            let targetViewport = fixture.manager.niriViewportState(for: fixture.target)
+            try startLiveDrag(moved, fixture)
+            try carryOnto(resident, axes[1] == .horizontal ? .right : .up, fixture)
+            try carryOnto(neighbour, axes[0] == .horizontal ? .right : .up, fixture)
+            try carryOnto(resident, axes[1] == .horizontal ? .right : .up, fixture)
+
+            fixture.handler.cancelLiveColumnDrag()
+
+            XCTAssertEqual(fixture.columns(fixture.source), [[neighbour, moved]])
+            XCTAssertEqual(fixture.columns(fixture.target), [[resident]])
+            XCTAssertTrue(fixture.niriNode(moved) === window)
+            XCTAssertEqual(window.height, height)
+            XCTAssertEqual(window.windowWidth, width)
+            XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+            XCTAssertEqual(
+                fixture.manager.niriViewportState(for: fixture.source).selectedNodeId,
+                sourceViewport.selectedNodeId
+            )
+            XCTAssertEqual(
+                fixture.manager.niriViewportState(for: fixture.target).selectedNodeId,
+                targetViewport.selectedNodeId
+            )
+            XCTAssertEqual(fixture.manager.niriViewportState(for: fixture.source).viewOffset, sourceViewport.viewOffset)
+            XCTAssertEqual(fixture.manager.niriViewportState(for: fixture.target).viewOffset, targetViewport.viewOffset)
+            XCTAssertNil(fixture.niri.liveColumnMove)
+        }
+    }
+
+    func testAllCarryAxesPreserveWholeTabbedIdentityThroughReleaseAndHistory() throws {
+        for axes in carryAxisPairs {
+            let drag = try startLiveTabbedColumnDrag(orientations: axes, frames: carryDisplayFrames(axes))
+            let fixture = drag.fixture
+            fixture.niri.clearLayoutHistory(in: fixture.source)
+            fixture.niri.clearLayoutHistory(in: fixture.target)
+            XCTAssertNil(fixture.niri.peekLayoutHistory(.undo, in: fixture.source))
+            let column = try XCTUnwrap(fixture.niri.columns(in: fixture.source).first)
+            let tabs = column.windowNodes.map(\.token)
+            let active = try XCTUnwrap(column.activeWindow).token
+            let columnId = column.id
+            let point = try carryOnto(drag.resident, axes[1] == .horizontal ? .right : .up, fixture)
+            XCTAssertTrue(fixture.niriNode(active)?.parent === column)
+            XCTAssertEqual(column.activeWindow?.token, active)
+            XCTAssertEqual(fixture.columns(fixture.source), [[drag.other]])
+            XCTAssertEqual(fixture.columns(fixture.target), [[drag.resident], tabs, []])
+
+            fixture.handler.dispatchMouseUp(at: point)
+            fixture.layout()
+
+            XCTAssertEqual(fixture.columns(fixture.target), [[drag.resident], tabs])
+            XCTAssertTrue(column.isTabbed)
+            XCTAssertEqual(column.id, columnId)
+            XCTAssertTrue(fixture.niriNode(active)?.parent === column)
+            XCTAssertEqual(column.activeWindow?.token, active)
+            XCTAssertNotNil(fixture.niri.peekLayoutHistory(.undo, in: fixture.source))
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: fixture.source))
+            XCTAssertNil(fixture.niri.peekLayoutHistory(.undo, in: fixture.source))
+            XCTAssertNotNil(fixture.niri.peekLayoutHistory(.redo, in: fixture.source))
+            XCTAssertEqual(fixture.columns(fixture.source), [tabs, [drag.other]])
+            XCTAssertEqual(fixture.columns(fixture.target), [[drag.resident]])
+            for tab in tabs { XCTAssertEqual(fixture.manager.workspace(for: tab), fixture.source) }
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.redo, in: fixture.source))
+            XCTAssertNil(fixture.niri.peekLayoutHistory(.redo, in: fixture.source))
+            XCTAssertNotNil(fixture.niri.peekLayoutHistory(.undo, in: fixture.source))
+            XCTAssertEqual(fixture.columns(fixture.source), [[drag.other]])
+            XCTAssertEqual(fixture.columns(fixture.target), [[drag.resident], tabs])
+            let restored = try XCTUnwrap(fixture.niriNode(active)?.parent as? NiriContainer)
+            XCTAssertTrue(restored.isTabbed)
+            XCTAssertEqual(restored.windowNodes.map(\.token), tabs)
+            XCTAssertEqual(restored.activeWindow?.token, active)
+            for tab in tabs { XCTAssertEqual(fixture.manager.workspace(for: tab), fixture.target) }
+        }
+    }
+
+    func testAllCarryAxesCancelWholeTabbedCarryWithBothContainerSpecifications() throws {
+        for axes in carryAxisPairs {
+            let drag = try startLiveTabbedColumnDrag(orientations: axes, frames: carryDisplayFrames(axes))
+            let fixture = drag.fixture
+            let column = try XCTUnwrap(fixture.niri.columns(in: fixture.source).first)
+            let tabs = column.windowNodes.map(\.token)
+            let active = column.activeWindow?.token
+            let width = column.width
+            let height = column.height
+            try carryOnto(drag.resident, axes[1] == .horizontal ? .right : .up, fixture)
+
+            fixture.handler.cancelLiveColumnDrag()
+
+            XCTAssertTrue(fixture.niri.columns(in: fixture.source).first === column)
+            XCTAssertEqual(fixture.columns(fixture.source), [tabs, [drag.other]])
+            XCTAssertEqual(fixture.columns(fixture.target), [[drag.resident]])
+            XCTAssertEqual(column.activeWindow?.token, active)
+            XCTAssertEqual(column.width, width)
+            XCTAssertEqual(column.height, height)
+            XCTAssertTrue(column.isTabbed)
+            XCTAssertNil(fixture.niri.liveColumnMove)
+        }
+    }
+
+    func testAllCarryAxesAdmitALoneSourceAndReleaseIntoAnEmptyTarget() throws {
+        for axes in carryAxisPairs {
+            let fixture = try makeLiveFixture(
+                [.niri, .niri], orientations: axes, frames: carryDisplayFrames(axes)
+            )
+            let moved = addWindow(1, to: fixture.source, fixture)
+            try startLiveDrag(moved, fixture)
+            XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+            let point = fixture.monitors[1].frame.center
+
+            fixture.handler.dispatchMouseDragged(at: point)
+
+            XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+            XCTAssertEqual(fixture.columns(fixture.source), [])
+            XCTAssertEqual(fixture.columns(fixture.target), [[moved]])
+            fixture.handler.dispatchMouseUp(at: point)
+            XCTAssertEqual(fixture.columns(fixture.target), [[moved]])
+            XCTAssertNil(fixture.niri.liveColumnMove)
+        }
+    }
+
+    func testBothSourceAxesRefuseALoneSourceWithoutAnotherNiriStrip() throws {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            for layouts: [LayoutType] in [[.niri], [.niri, .dwindle]] {
+                let axes = layouts.map { _ in orientation }
+                let fixture = try makeLiveFixture(layouts, orientations: axes, frames: carryDisplayFrames(axes))
+                let moved = addWindow(1, to: fixture.source, fixture)
+                if layouts.count > 1 { _ = addWindow(10, to: fixture.target, fixture) }
+
+                try startLiveDrag(moved, fixture)
+
+                XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+                XCTAssertNil(fixture.niri.liveColumnMove)
+                XCTAssertEqual(fixture.columns(fixture.source), [[moved]])
+                XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+            }
+        }
+    }
+
+    private var carryAxisPairs: [[Monitor.Orientation]] {
+        [[.horizontal, .horizontal], [.horizontal, .vertical], [.vertical, .horizontal], [.vertical, .vertical]]
+    }
+
+    private func carryDisplayFrames(_ axes: [Monitor.Orientation]) -> [CGRect] {
+        axes.enumerated().map { index, orientation in
+            CGRect(
+                x: index == 0 ? 137 : 1901,
+                y: index == 0 ? -241 : 89,
+                width: orientation == .horizontal ? 1512 : 912,
+                height: orientation == .horizontal ? 912 : 1512
+            )
+        }
+    }
+
+    @discardableResult
+    private func carryOnto(_ token: WindowToken, _ direction: Direction, _ fixture: Fixture) throws -> CGPoint {
+        fixture.layout()
+        let point = try dropPoint(in: XCTUnwrap(fixture.frame(token)), direction)
+        let start = try XCTUnwrap(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
+        let observed = CGRect(
+            x: point.x - start.width / 2, y: point.y - start.height / 2,
+            width: start.width, height: start.height
+        )
+        fixture.handler.nativeWindowFrameProvider = { _ in observed }
+        fixture.handler.dispatchMouseDragged(at: point)
+        return point
+    }
+
+    private func makeLiveFixture(
+        _ layouts: [LayoutType],
+        orientations: [Monitor.Orientation]? = nil,
+        frames: [CGRect]? = nil
+    ) throws -> Fixture {
+        let fixture = try makeNativeFixture(layouts, orientations: orientations, frames: frames)
         fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         fixture.niri.liveHoverDelay = 0
         return fixture
@@ -849,8 +1186,11 @@ extension CrossDisplayDragTests {
         let resident: WindowToken
     }
 
-    private func startLiveTabbedColumnDrag() throws -> LiveTabbedColumnDrag {
-        let fixture = try makeNativeFixture([.niri, .niri])
+    private func startLiveTabbedColumnDrag(
+        orientations: [Monitor.Orientation]? = nil,
+        frames: [CGRect]? = nil
+    ) throws -> LiveTabbedColumnDrag {
+        let fixture = try makeNativeFixture([.niri, .niri], orientations: orientations, frames: frames)
         fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         fixture.niri.liveHoverDelay = 0
         let first = addWindow(1, to: fixture.source, fixture)
@@ -895,9 +1235,13 @@ extension CrossDisplayDragTests {
         movedHeight: WeightedSize? = nil,
         fusion: Bool = true,
         keepsNativeMovesAcrossDisplays: Bool = true,
-        edgePeekPercent: Double? = nil
+        edgePeekPercent: Double? = nil,
+        orientations: [Monitor.Orientation]? = nil,
+        frames: [CGRect]? = nil
     ) throws -> LiveTwoDisplayDrag {
-        let fixture = try makeNativeFixture([.niri, .niri], enabled: keepsNativeMovesAcrossDisplays)
+        let fixture = try makeNativeFixture(
+            [.niri, .niri], enabled: keepsNativeMovesAcrossDisplays, orientations: orientations, frames: frames
+        )
         if let edgePeekPercent {
             fixture.controller.settings.niri.edgePeekPercent = edgePeekPercent
         }

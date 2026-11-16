@@ -11,16 +11,14 @@ extension NiriLayoutEngine {
     ) -> Bool {
         guard let move = liveColumnMove,
               move.workspaceId == source.workspaceId,
-              source.orientation == .horizontal,
-              target.workspaceId != source.workspaceId,
-              target.orientation == .horizontal
+              target.workspaceId != source.workspaceId
         else { return false }
         return findNode(by: move.windowId, in: source.workspaceId) is NiriWindow
     }
 
     func liveColumnMoveCarry(
         cursor: CGPoint,
-        windowWidth: CGFloat?,
+        windowPrimarySpan: CGFloat?,
         from source: NiriInteractionContext,
         to target: NiriInteractionContext,
         viewports: inout [WorkspaceDescriptor.ID: ViewportState]
@@ -56,11 +54,16 @@ extension NiriLayoutEngine {
         }
         carry.widenedColumn = widenLoneLiveColumn(context: target, state: &targetState)
         let carried = liveCarriedColumn(for: window, from: column, wholeColumn: move.isWholeColumn)
-        let inset = move.isWholeColumn ? tabContentInset(for: column) : 0
-        let sizing = windowWidth.map { liveCarriedSizing(windowWidth: $0 + inset, context: target) } ?? move.ownSizing
+        let inset = move.isWholeColumn && target.orientation == .horizontal ? tabContentInset(for: column) : 0
+        let sizing = windowPrimarySpan.map { liveCarriedSizing(windowPrimarySpan: $0 + inset, context: target) }
+            ?? move.ownSizing
 
         move.carry = carry
         move.forgetStrip()
+        if source.orientation != target.orientation {
+            move.heading = nil
+            move.headingFromX = target.primaryCoordinate(of: cursor)
+        }
         move.workspaceId = target.workspaceId
         move.homeSlotIndex = 0
         move.lockedTarget = nil
@@ -94,9 +97,8 @@ extension NiriLayoutEngine {
     ) -> NiriContainer {
         guard !wholeColumn else { return column }
         let carried = NiriContainer()
+        resetMovedWindowColumnLocalSizing(window)
         carried.appendChild(window)
-        window.size = 1.0
-        window.height = .default
         return carried
     }
 
@@ -192,9 +194,9 @@ extension NiriLayoutEngine {
         return home
     }
 
-    func liveCarriedSizing(windowWidth: CGFloat, context: NiriInteractionContext) -> NiriContainerSizingState {
-        let available = context.workingFrame.width - context.gaps
-        let proportion = available > 0 ? (windowWidth + context.gaps) / available : 1
+    func liveCarriedSizing(windowPrimarySpan: CGFloat, context: NiriInteractionContext) -> NiriContainerSizingState {
+        let available = context.primarySpan - context.gaps
+        let proportion = available > 0 ? (windowPrimarySpan + context.gaps) / available : 1
         return initialContainerSizingState(for: proportion.clamped(to: 0.05 ... 1.0))
     }
 
@@ -216,13 +218,22 @@ extension NiriLayoutEngine {
             columnId: column.id,
             sizing: containerSizingState(for: column)
         )
-        column.width = .fixed(shown.width)
-        column.isFullWidth = false
-        column.cachedWidth = 0
-        column.widthAnimation = nil
-        column.targetWidth = nil
+        if context.orientation == .horizontal {
+            column.width = .fixed(shown.width)
+            column.isFullWidth = false
+            column.cachedWidth = 0
+            column.widthAnimation = nil
+            column.targetWidth = nil
+        } else {
+            column.height = .fixed(shown.height)
+            column.isFullHeight = false
+            column.cachedHeight = 0
+            column.heightAnimation = nil
+            column.targetHeight = nil
+        }
+        let shownStart = context.primaryStart(of: shown)
         if let placed = liveColumnStrip(context: context, state: state).first(where: { $0.column === column }) {
-            state.rebaseOffset(by: placed.minX - shown.minX)
+            state.rebaseOffset(by: placed.minX - shownStart)
         }
         return widened
     }
@@ -281,7 +292,7 @@ extension NiriLayoutEngine {
             }
             column.setActiveTileIdx(min(column.activeTileIdx, column.windowNodes.count - 1))
             updateTabbedColumnVisibility(column: column)
-            column.cachedWidth = 0
+            column.setCachedPrimarySpan(0, orientation: context.orientation)
         }
         if let anchor {
             animateLiveColumnChange(from: before, anchoredOn: anchor, context: context, state: &state)
@@ -305,8 +316,9 @@ extension NiriLayoutEngine {
     ) {
         let workspaceState = ensureState(for: context.workspaceId)
         let strip = liveColumnStrip(context: context, state: state).filter { !$0.column.windowNodes.isEmpty }
-        let under = strip.first { $0.contains(x: cursor.x) }?.column
-            ?? strip.min { abs($0.midX - cursor.x) < abs($1.midX - cursor.x) }?.column
+        let primary = context.primaryCoordinate(of: cursor)
+        let under = strip.first { $0.contains(x: primary) }?.column
+            ?? strip.min { abs($0.midX - primary) < abs($1.midX - primary) }?.column
         let side = under.map {
             liveTargetSide($0, cursor: cursor, strip: strip, awayFromHome: false, context: context)
         } ?? .after
@@ -318,6 +330,8 @@ extension NiriLayoutEngine {
             ?? state.viewOffset
 
         placeLiveColumn(column, beside: under, side: side, sizing: move.ownSizing, in: workspaceState)
+        if context.orientation == .horizontal { column.fittedWidth = nil }
+        else { column.fittedHeight = nil }
         move.setHome(columnId: column.id, inStack: false)
         closeLivePlace(column, toward: side, move: &move, context: context)
         guard let under else {
@@ -330,7 +344,7 @@ extension NiriLayoutEngine {
             beside: under,
             heading: move.heading,
             strip: entered,
-            at: context.primaryCoordinate(of: cursor)
+            at: primary
         )
         _ = applyLiveReorder(
             .init(
@@ -367,7 +381,6 @@ extension NiriLayoutEngine {
             root.appendChild(column)
         }
         applyContainerSizingState(sizing, to: column)
-        column.fittedWidth = nil
         for node in column.windowNodes {
             workspaceState.index(node)
         }

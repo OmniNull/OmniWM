@@ -14,6 +14,7 @@ final class CrossDisplayDragTests: XCTestCase {
         let dwindle: DwindleLayoutEngine
         let monitors: [Monitor]
         let workspaces: [WorkspaceDescriptor.ID]
+        let usesPhysicalFrames: Bool
 
         var manager: WorkspaceManager {
             controller.workspaceManager
@@ -48,7 +49,14 @@ final class CrossDisplayDragTests: XCTestCase {
         func frame(_ token: WindowToken) -> CGRect? {
             guard let workspaceId = manager.workspace(for: token) else { return nil }
             return switch manager.activeLayoutKind(for: workspaceId) {
-            case .niri: niri.findNode(for: token, in: workspaceId)?.frame
+            case .niri:
+                if usesPhysicalFrames, let monitor = manager.monitor(for: workspaceId),
+                   controller.settings.monitors.effectiveOrientation(for: monitor) == .vertical
+                {
+                    niri.findNode(for: token, in: workspaceId)?.renderedFrame
+                } else {
+                    niri.findNode(for: token, in: workspaceId)?.frame
+                }
             case .dwindle: dwindle.presentedFrame(for: token, in: workspaceId, at: 0)
             }
         }
@@ -811,39 +819,34 @@ final class CrossDisplayDragTests: XCTestCase {
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
     }
 
-    func testAPortraitNiriDisplayGetsTheHandOverWithoutRestartingTheLiveDrag() throws {
-        let fixture = try makeNativeFixture([.niri, .niri])
+    func testAPortraitNiriDisplayContinuesTheLiveDrag() throws {
+        let fixture = try makeNativeFixture([.niri, .niri], orientations: [.horizontal, .vertical])
         fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
-        let portrait = fixture.monitors[1]
-        fixture.controller.settings.monitors.updateOrientationSettings(
-            MonitorOrientationSettings(
-                monitorName: portrait.name,
-                monitorDisplayId: portrait.displayId,
-                orientation: .vertical
-            ),
-            for: portrait
-        )
         let moved = addWindow(1, to: fixture.source, fixture)
-        _ = addWindow(2, to: fixture.source, fixture)
+        let neighbour = addWindow(2, to: fixture.source, fixture)
         let resident = addWindow(3, to: fixture.target, fixture)
-        let sourceColumns = fixture.columns(fixture.source)
         let start = try beginNativeDrag(moved, fixture)
         fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 30, dy: 0) }
         XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(
             for: try XCTUnwrap(fixture.manager.entry(for: moved))
         ))
-        let point = try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right)
+        let point = try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .up)
+        let observed = CGRect(
+            x: point.x - start.width / 2, y: point.y - start.height / 2,
+            width: start.width, height: start.height
+        )
+        fixture.handler.nativeWindowFrameProvider = { _ in observed }
         fixture.handler.dispatchMouseDragged(at: point)
-        XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        let worldSeq = fixture.manager.worldSeq
 
-        fixture.handler.dispatchMouseDragged(at: CGPoint(x: point.x + 5, y: point.y))
-        fixture.handler.dispatchMouseDragged(at: CGPoint(x: point.x + 10, y: point.y))
-
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.target)
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+        XCTAssertEqual(fixture.columns(fixture.source), [[neighbour]])
+        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved], []])
+        fixture.handler.dispatchMouseUp(at: point)
         XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
         XCTAssertNil(fixture.niri.liveColumnMove)
-        XCTAssertEqual(fixture.manager.worldSeq, worldSeq)
-        XCTAssertEqual(fixture.columns(fixture.source), sourceColumns)
+        XCTAssertEqual(fixture.columns(fixture.target), [[resident], [moved]])
     }
 
     func testALiveDragReleasedOnAnotherDisplayBeforeADragEventThereDoesNotStayLive() throws {
@@ -1263,8 +1266,15 @@ final class CrossDisplayDragTests: XCTestCase {
         }
     }
 
-    func makeNativeFixture(_ layouts: [LayoutType], enabled: Bool = true) throws -> Fixture {
-        let fixture = try makeFixture(layouts, sourceOrientation: .horizontal)
+    func makeNativeFixture(
+        _ layouts: [LayoutType],
+        enabled: Bool = true,
+        orientations: [Monitor.Orientation]? = nil,
+        frames: [CGRect]? = nil
+    ) throws -> Fixture {
+        let fixture = try makeFixture(
+            layouts, sourceOrientation: .horizontal, orientations: orientations, frames: frames
+        )
         fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays = enabled
         addTeardownBlock { @MainActor [controller = fixture.controller] in
             controller.hasStartedServices = false
@@ -1296,13 +1306,16 @@ final class CrossDisplayDragTests: XCTestCase {
         _ layouts: [LayoutType],
         sourceOrientation: Monitor.Orientation = .vertical,
         origins: [CGPoint]? = nil,
-        size: CGSize = CGSize(width: 1600, height: 900)
+        size: CGSize = CGSize(width: 1600, height: 900),
+        orientations: [Monitor.Orientation]? = nil,
+        frames: [CGRect]? = nil
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("CrossDisplayDragTests-\(UUID().uuidString)", isDirectory: true)
         let monitors = layouts.indices.map { index in
             let displayId = CGDirectDisplayID(720_000 + index)
-            let frame = CGRect(origin: origins?[index] ?? CGPoint(x: CGFloat(index) * size.width, y: 0), size: size)
+            let frame = frames?[index]
+                ?? CGRect(origin: origins?[index] ?? CGPoint(x: CGFloat(index) * size.width, y: 0), size: size)
             return Monitor(
                 id: .init(displayId: displayId), displayId: displayId,
                 frame: frame, visibleFrame: frame, hasNotch: false, name: "Display \(index + 1)"
@@ -1322,14 +1335,16 @@ final class CrossDisplayDragTests: XCTestCase {
         )
         settings.animationsEnabled = false
         settings.gestures.mouseMoveModifierKey = .control
-        settings.monitors.updateOrientationSettings(
-            MonitorOrientationSettings(
-                monitorName: monitors[0].name,
-                monitorDisplayId: monitors[0].displayId,
-                orientation: sourceOrientation
-            ),
-            for: monitors[0]
-        )
+        for index in monitors.indices where index == 0 || orientations != nil {
+            settings.monitors.updateOrientationSettings(
+                MonitorOrientationSettings(
+                    monitorName: monitors[index].name,
+                    monitorDisplayId: monitors[index].displayId,
+                    orientation: orientations?[index] ?? sourceOrientation
+                ),
+                for: monitors[index]
+            )
+        }
         settings.workspaces.configurations = zip(monitors, layouts).enumerated().map { index, pair in
             WorkspaceConfiguration(
                 name: "\(index + 1)",
@@ -1368,7 +1383,8 @@ final class CrossDisplayDragTests: XCTestCase {
             niri: niri,
             dwindle: dwindle,
             monitors: monitors,
-            workspaces: workspaces
+            workspaces: workspaces,
+            usesPhysicalFrames: orientations != nil || frames != nil
         )
     }
 

@@ -13,7 +13,6 @@ extension MouseEventHandler {
               controller.isNiriStrip(entry.workspaceId),
               let engine = controller.niriEngine,
               let context = liveColumnContext(for: entry.workspaceId),
-              context.orientation == .horizontal,
               let window = engine.findNode(for: token, in: entry.workspaceId),
               let column = engine.findColumn(containing: window, in: entry.workspaceId)
         else { return }
@@ -38,13 +37,14 @@ extension MouseEventHandler {
         state.liveDragLayoutStart = layoutStart
         liveDragSession = .init(tabPull: .init(token: token, anchorLocation: drag.location, startFrame: startFrame))
         if let monitor = controller.workspaceManager.monitor(for: entry.workspaceId) {
-            holdLiveEdgeZone(startingAt: drag.location, monitorFrame: monitor.frame)
+            holdLiveEdgeZone(startingAt: drag.location, monitorFrame: monitor.frame, orientation: context.orientation)
         }
         state.deferredClickScroll = nil
         controller.syncLiveDragPointerHold(active: true)
         let detached = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveDetachTab(
-                towardTrailingSide: drag.location.x >= drag.pressLocation.x,
+                towardTrailingSide: context.primaryCoordinate(of: drag.location)
+                    >= context.primaryCoordinate(of: drag.pressLocation),
                 cursor: drag.location,
                 context: context,
                 state: &viewportState

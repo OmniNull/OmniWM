@@ -15,8 +15,9 @@ extension MouseEventHandler {
               let target = liveColumnContext(for: targetWorkspaceId),
               engine.liveColumnMoveCanCarry(from: source, to: target)
         else { return false }
-        let entry = controller.workspaceManager.entry(for: move.windowToken)
-        let windowWidth = entry.flatMap { $0.axRef.flatMap(nativeWindowFrameProvider)?.width }
+        let observed = move.floatingFrame ?? controller.workspaceManager.entry(for: move.windowToken)
+            .flatMap { $0.axRef.flatMap(nativeWindowFrameProvider) }
+        let windowPrimarySpan: CGFloat? = if let observed { target.primarySpan(of: observed) } else { nil }
         endLiveEdgeScroll()
         cancelLiveHoverCheck()
         var carried: [WindowToken] = []
@@ -26,7 +27,7 @@ extension MouseEventHandler {
         ) { viewports in
             carried = engine.liveColumnMoveCarry(
                 cursor: location,
-                windowWidth: windowWidth,
+                windowPrimarySpan: windowPrimarySpan,
                 from: source,
                 to: target,
                 viewports: &viewports
@@ -34,9 +35,16 @@ extension MouseEventHandler {
             return carried.map { .init(token: $0, workspaceId: targetWorkspaceId) }
         }
         guard !carried.isEmpty else { return false }
+        if source.orientation != target.orientation, liveDragSession?.tabPull == nil {
+            liveDragSession?.referenceOffset = if let observed {
+                target.primaryStart(of: observed) + target.primarySpan(of: observed) / 2
+                    - target.primaryCoordinate(of: location)
+            } else { nil }
+        }
         refreshLiveColumnLayout(in: sourceWorkspaceId, engine: engine)
         refreshLiveColumnLayout(in: targetWorkspaceId, engine: engine)
         if let monitor = controller.workspaceManager.monitor(for: targetWorkspaceId) {
+            holdLiveEdgeZone(startingAt: location, monitorFrame: monitor.frame, orientation: target.orientation)
             publishLiveDragHold(on: monitor, workspaceId: targetWorkspaceId)
         }
         traceLiveDrag("carried from=\(sourceWorkspaceId)", at: location)
@@ -148,13 +156,13 @@ extension MouseEventHandler {
     }
 
     func hasOtherLiveStrip(than context: NiriInteractionContext) -> Bool {
-        guard context.orientation == .horizontal, let controller else { return false }
+        guard let controller else { return false }
         let manager = controller.workspaceManager
         return manager.monitors.contains { monitor in
             guard let other = manager.activeWorkspaceOrFirst(on: monitor.id)?.id, other != context.workspaceId else {
                 return false
             }
-            return controller.isLandscapeNiriStrip(other)
+            return controller.isNiriStrip(other)
         }
     }
 
@@ -162,7 +170,7 @@ extension MouseEventHandler {
         guard let controller,
               let monitor = controller.workspaceManager.monitors.first(where: { $0.frame.contains(location) }),
               let workspaceId = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id,
-              controller.isLandscapeNiriStrip(workspaceId),
+              controller.isNiriStrip(workspaceId),
               !hasPendingNativeFullscreenTransition(at: location),
               !isPointerDisplayShowingFullscreenSpace(at: location)
         else { return nil }
