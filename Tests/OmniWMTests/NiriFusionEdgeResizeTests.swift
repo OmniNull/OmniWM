@@ -924,11 +924,10 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.engine.interactiveResize)
     }
 
-    func testKeepNativeEdgeResizesAloneStillAdopts() throws {
+    func testNativeEdgeResizesAdopt() throws {
         let fixture = try makeFixture(pid: 871_015)
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
-        fixture.controller.settings.gestures.adoptNativeResize = true
         let resized = fixture.tokens[1]
         let start = try fixture.frame(resized)
         try fixture.beginDrag(resized)
@@ -1402,7 +1401,6 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             name: "Niri Live Edge Resize"
         )
         controller.settings.niri.edgePeekPercent = 0
-        controller.settings.gestures.adoptNativeResize = false
         controller.settings.workspaces.configurations = [
             WorkspaceConfiguration(
                 name: "1",

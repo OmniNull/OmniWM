@@ -2334,6 +2334,7 @@
       }
     },
     "Applies to modifier-based mouse resizing, trackpad resize gestures, and Niri keyboard resizing. Native edge or corner drags bypass previews; Dwindle neighbours always resize live. Window Snapshot stretches a still image and needs Screen Recording. Glass Placeholder shows app icons without capture. With either preview, windows get their final size when resizing ends." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -2342,18 +2343,6 @@
           }
         }
       }
-    },
-    "Glass Placeholder" : {
-
-    },
-    "Live Resize" : {
-
-    },
-    "Resize Preview" : {
-
-    },
-    "Window Snapshot" : {
-
     },
     "Dynamic Island" : {
 
@@ -62989,6 +62978,7 @@
       }
     },
     "Hold this modifier combo + right mouse drag to resize tiled windows" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -113917,6 +113907,7 @@
       }
     },
     "Right Mouse Resize Modifier" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -164292,6 +164283,7 @@
       }
     },
     "Keep Native Edge Resizes" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -164552,6 +164544,7 @@
       }
     },
     "Drag a tiled window by its title bar onto another display without a modifier. Drops use the same placement rules as modifier drags. Moving within one display still snaps the window back." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -164676,6 +164669,7 @@
       }
     },
     "Drag a tiled window's edge or corner without a modifier. Dwindle resizes neighbouring windows while you drag; Niri refits them after you release." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -164800,6 +164794,7 @@
       }
     },
     "Keep Native Moves Across Displays" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {

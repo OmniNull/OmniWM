@@ -106,40 +106,6 @@ struct MouseTrackpadSettingsTab: View {
             SettingsCaption(
                 localized: "Choose what a modifier drag of a Dwindle tab group moves when you drop it on another display. A whole group dropped into Niri becomes one tabbed column."
             )
-
-            Picker("Right Mouse Resize Modifier", selection: Bindable(settings.gestures).mouseResizeModifierKey) {
-                ForEach(MouseResizeModifierKey.allCases, id: \.self) { key in
-                    Text(key.localizedDisplayName).tag(key)
-                }
-            }
-            .id("Right Mouse Resize Modifier")
-
-            SettingsCaption(localized: "Hold this modifier combo + right mouse drag to resize tiled windows")
-
-            Toggle("Keep Native Moves Across Displays", isOn: Bindable(settings.gestures).adoptNativeMoveAcrossDisplays)
-                .id("Keep Native Moves Across Displays")
-
-            SettingsCaption(
-                localized: "Drag a tiled window by its title bar onto another display without a modifier. Drops use the same placement rules as modifier drags. Moving within one display still snaps the window back."
-            )
-
-            Toggle("Keep Native Edge Resizes", isOn: Bindable(settings.gestures).adoptNativeResize)
-                .id("Keep Native Edge Resizes")
-
-            SettingsCaption(
-                localized: "Drag a tiled window's edge or corner without a modifier. Dwindle resizes neighbouring windows while you drag; Niri refits them after you release."
-            )
-
-            Picker("Resize Preview", selection: Bindable(settings.gestures).resizePreviewStyle) {
-                ForEach(ResizePreviewStyle.allCases) { style in
-                    Text(style.localizedDisplayName).tag(style)
-                }
-            }
-            .id("Resize Preview")
-
-            SettingsCaption(
-                localized: "Applies to modifier-based mouse resizing, trackpad resize gestures, and Niri keyboard resizing. Native edge or corner drags bypass previews; Dwindle neighbours always resize live. Window Snapshot stretches a still image and needs Screen Recording. Glass Placeholder shows app icons without capture. With either preview, windows get their final size when resizing ends."
-            )
         }
         .id("Mouse Move & Resize")
     }

@@ -891,7 +891,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
 
     func testUnknownEnumValueRejectsWholeFile() throws {
         let cases: [(line: String, invalid: String, key: String)] = [
-            ("resizePreviewStyle = \"live\"", "resizePreviewStyle = \"unsupported\"", "gestures.resizePreviewStyle"),
             ("defaultLayoutType = \"\(LayoutType.niri.rawValue)\"", "defaultLayoutType = \"bsp\"", "defaultLayoutType"),
             ("lockModifier = \"\(FocusLockModifier.off.rawValue)\"", "lockModifier = \"hyper\"", "lockModifier"),
             ("mode = \"\(MonitorRoutingMode.macOS.rawValue)\"", "mode = \"sideways\"", "routing.mode"),
@@ -930,11 +929,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
                 "mouseMoveModifierKey = \"\(MouseMoveModifierKey.option.rawValue)\"",
                 "mouseMoveModifierKey = \"shift\"",
                 "gestures.mouseMoveModifierKey"
-            ),
-            (
-                "mouseResizeModifierKey = \"\(MouseResizeModifierKey.option.rawValue)\"",
-                "mouseResizeModifierKey = \"hyperspace\"",
-                "mouseResizeModifierKey"
             ),
             ("fingerCount = \(GestureFingerCount.three.rawValue)\n", "fingerCount = 7\n", "fingerCount"),
             (

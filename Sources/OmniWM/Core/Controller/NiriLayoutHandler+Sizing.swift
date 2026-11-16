@@ -286,7 +286,6 @@ extension NiriLayoutHandler {
             let workspaceId = context.workspaceId
             recordLayoutOperation(layoutOperation, in: workspaceId)
             startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
-            beginResizePreview(in: workspaceId)
             sized = (workspaceId, windowNode.token)
         }
         guard let sized else { return false }
@@ -297,14 +296,5 @@ extension NiriLayoutHandler {
                 : nil
         )
         return true
-    }
-
-    private func beginResizePreview(in workspaceId: WorkspaceDescriptor.ID) {
-        guard let controller, hasScrollAnimation(for: workspaceId) else { return }
-        controller.resizeOverlay.begin(
-            workspaceId: workspaceId,
-            style: controller.settings.gestures.resizePreviewStyle,
-            pointerDriven: false
-        )
     }
 }

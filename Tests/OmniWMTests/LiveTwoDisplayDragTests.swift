@@ -152,9 +152,8 @@ extension CrossDisplayDragTests {
     }
 
     func testATitleBarDragAloneCarriesTheWindowAndLandsItOnTheOtherDisplay() throws {
-        let drag = try startLiveTwoDisplayDrag(keepsNativeMovesAcrossDisplays: false)
+        let drag = try startLiveTwoDisplayDrag()
         let fixture = drag.fixture
-        XCTAssertFalse(fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays)
 
         let point = try dragOnto(drag.residents[0], .right, drag)
 
@@ -1272,13 +1271,12 @@ extension CrossDisplayDragTests {
         stacked: Bool = false,
         movedHeight: WeightedSize? = nil,
         fusion: Bool = true,
-        keepsNativeMovesAcrossDisplays: Bool = true,
         edgePeekPercent: Double? = nil,
         orientations: [Monitor.Orientation]? = nil,
         frames: [CGRect]? = nil
     ) throws -> LiveTwoDisplayDrag {
         let fixture = try makeNativeFixture(
-            [.niri, .niri], enabled: keepsNativeMovesAcrossDisplays, orientations: orientations, frames: frames
+            [.niri, .niri], orientations: orientations, frames: frames
         )
         if let edgePeekPercent {
             fixture.controller.settings.niri.edgePeekPercent = edgePeekPercent

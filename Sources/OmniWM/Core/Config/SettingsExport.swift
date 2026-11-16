@@ -186,7 +186,6 @@ struct SettingsExport: Equatable {
         var scrollSensitivity: Double
         var scrollModifierKey: ScrollModifierKey
         var mouseMoveModifierKey: MouseMoveModifierKey
-        var mouseResizeModifierKey: MouseResizeModifierKey
         var fingerCount: ThreeOrFourFingerCount
         var invertDirection: Bool
         var trackpadScrollStyle: TrackpadScrollStyle
@@ -201,10 +200,7 @@ struct SettingsExport: Equatable {
         var windowResizeEnabled: Bool? = false
         var windowResizeFingerCount: GestureFingerCount? = .three
         var windowGestureSensitivity: Double? = 1.0
-        var resizePreviewStyle: ResizePreviewStyle? = .live
         var dwindleGroupDragAcrossDisplays: DwindleGroupDrag? = .group
-        var adoptNativeResize: Bool? = false
-        var adoptNativeMoveAcrossDisplays: Bool? = false
         var mouseWheelSensitivity: Double? = 1.0
     }
 

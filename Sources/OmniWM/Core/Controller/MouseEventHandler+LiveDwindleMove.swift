@@ -99,7 +99,7 @@ extension MouseEventHandler {
               engine.liveMoveToken == token, let workspaceId = engine.liveMoveWorkspaceId
         else { return false }
         var crossesDisplay = false
-        if controller.settings.gestures.adoptNativeMoveAcrossDisplays, let location {
+        if let location {
             switch classifyMoveLocation(location, sourceToken: token, sourceWorkspaceId: workspaceId) {
             case .crossDisplay,
                  .cancel: crossesDisplay = true

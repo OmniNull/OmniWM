@@ -9,8 +9,7 @@ struct TapFilterSnapshot: Sendable {
     var activeCapture: MouseEventHandler.MouseButton?
     var claimedOtherButtonMask: UInt32 = 0
     var moveModifier: CGEventFlags?
-    var adoptNativeResize = false
-    var resizeModifier: CGEventFlags = []
+    var capturesNativeResizeBaseline = false
     var scrollModifier: CGEventFlags = []
     var minGestureFingers: Int = 3
     var gestureActiveOrLatched: Bool = false
@@ -138,7 +137,7 @@ final class InputTapThread: @unchecked Sendable {
         case .rightMouseDown,
              .rightMouseDragged,
              .rightMouseUp:
-            return evaluateRightMouse(type: type, event: event, snap: snap)
+            return evaluateRightMouse(type: type, event: event)
 
         case .otherMouseDown,
              .otherMouseDragged,
@@ -184,50 +183,32 @@ final class InputTapThread: @unchecked Sendable {
 
     private nonisolated func evaluateRightMouse(
         type: CGEventType,
-        event: CGEvent,
-        snap: TapFilterSnapshot
+        event: CGEvent
     ) -> CGEvent? {
         let location = ScreenCoordinateSpace.toAppKit(point: event.location)
         let flags = event.flags
         switch type {
         case .rightMouseDown:
-            let isResizeCandidate = !snap.resizeModifier.isEmpty
-                && MouseEventHandler.modifierFlagsMatch(flags, required: snap.resizeModifier)
-            guard isResizeCandidate else {
-                DispatchQueue.main.async {
-                    MainActor.assumeIsolated {
-                        _ = MouseEventHandler._instance?.receiveTapMouseDown(
-                            at: location,
-                            modifiers: flags,
-                            button: .right
-                        )
-                    }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    _ = MouseEventHandler._instance?.receiveTapMouseDown(
+                        at: location,
+                        modifiers: flags,
+                        button: .right
+                    )
                 }
-                return event
             }
-            let suppress = evaluateAuthoritativeTapOnMain(
-                type: type, location: location, modifiers: flags, buttonNumber: 1, scrollPayload: nil
-            )
-            return suppress ? nil : event
+            return event
         case .rightMouseDragged:
-            guard snap.activeCapture == .right else {
-                EventIntake.post(.mouseDragged(button: .right, location: location))
-                return event
-            }
-            return forwardCapturedDrag(event, type: type, location: location, buttonNumber: 1)
+            EventIntake.post(.mouseDragged(button: .right, location: location))
+            return event
         case .rightMouseUp:
-            guard snap.activeCapture == .right else {
-                DispatchQueue.main.async {
-                    MainActor.assumeIsolated {
-                        MouseEventHandler._instance?.receiveTapMouseUp(at: location, button: .right)
-                    }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    MouseEventHandler._instance?.receiveTapMouseUp(at: location, button: .right)
                 }
-                return event
             }
-            let suppress = evaluateAuthoritativeTapOnMain(
-                type: type, location: location, modifiers: flags, buttonNumber: 1, scrollPayload: nil
-            )
-            return suppress ? nil : event
+            return event
         default:
             return event
         }
@@ -341,7 +322,7 @@ extension InputTapThread {
             )
             return
         }
-        let needsNativeResizeBaseline = snapshot.adoptNativeResize
+        let needsNativeResizeBaseline = snapshot.capturesNativeResizeBaseline
             && modifiers.isDisjoint(with: MouseEventHandler.relevantModifierFlags.subtracting(.maskAlternate))
         let windowServerFrames = needsNativeResizeBaseline ? captureWindowFrames() : [:]
         EventIntake.post(.leftMouseDown(.init(

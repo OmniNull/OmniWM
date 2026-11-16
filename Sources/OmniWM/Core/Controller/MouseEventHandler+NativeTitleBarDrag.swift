@@ -222,8 +222,6 @@ extension MouseEventHandler {
         controller.axManager.beginNativeTitleBarDrag(for: drag.token)
 
         guard hadUnsettledFrameWrite,
-              controller.settings.gestures.adoptNativeResize
-              || controller.workspaceManager.activeLayoutKind(for: dragged.workspaceId) == .dwindle,
               !pendingFrameChangesSize,
               let startFrame,
               let entry = controller.workspaceManager.entry(for: drag.token),

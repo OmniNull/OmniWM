@@ -25,11 +25,11 @@ In Dwindle, dropping between existing splits inserts at their internal divider. 
 
 You can also drop on another display. The same targets apply to the workspace shown there, and dropping where no window is moves the window or group into that workspace. Moves work between Niri and Dwindle in any combination. A Dwindle tab group moves as a whole and becomes one tabbed column in Niri, in a column of its own even on a stacking edge; set **Dwindle Group Across Displays** in **Settings → Mouse & Trackpad** to move only the dragged window. A swap that would not fit the other slot is refused, and dropping on a fullscreen space cancels.
 
-Enable **Keep Native Moves Across Displays** in **Settings → Mouse & Trackpad** (`gestures.adoptNativeMoveAcrossDisplays = true`) to drag a tiled window by its title bar onto another display without holding a modifier. The real window follows the native drag, and release uses the same cross-display placement, group and focus rules described above. The setting defaults to off. Title-bar moves within one display still snap back, and native edge resizing keeps its separate setting.
+Drag a tiled window by its title bar to rearrange it within a display or move it onto another display. Native title-bar movement is always available. A Dwindle group follows **Dwindle Group Across Displays**; dragging an individual group tab moves only that tab.
 
-## Resize with a right-drag
+## Resize a window
 
-Hold the configured right-mouse resize modifier (`Option` by default) and right-drag a tiled window to resize it in either layout.
+Drag a tiled window's edge or corner to resize it. Niri and Dwindle adjust the layout while you drag, and the change finishes when you release. Hold `Option` during an edge drag to resize around the center. Trackpad and keyboard resizing also update the real windows directly.
 
 ## Scroll the strip with a mouse wheel
 

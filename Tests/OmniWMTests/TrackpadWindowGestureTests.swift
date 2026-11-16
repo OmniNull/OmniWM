@@ -479,11 +479,22 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertGreaterThan(widthAfter, fixture.firstFrame.width + 100)
     }
 
-    func testMouseResizeKeepsExactEdgesAndRefusesAnImmovableOne() throws {
+    func testModifiedRightDragDoesNotStartDwindleResizeAtEitherEdge() throws {
         let fixture = try makeDwindleFixture(pid: 9_204)
-        let leftGrip = CGPoint(x: fixture.firstFrame.minX + 20, y: fixture.firstFrame.midY)
-        XCTAssertFalse(fixture.handler.dispatchMouseDown(at: leftGrip, modifiers: .maskAlternate, button: .right))
-        XCTAssertNil(fixture.engine.interactiveResize)
+        for x in [
+            fixture.firstFrame.minX + FrameTolerance.frameWrite,
+            fixture.firstFrame.maxX - FrameTolerance.frameWrite
+        ] {
+            let point = CGPoint(x: x, y: fixture.firstFrame.midY)
+            XCTAssertFalse(fixture.handler.dispatchMouseDown(at: point, modifiers: .maskAlternate, button: .right))
+            fixture.handler.dispatchMouseDragged(
+                at: CGPoint(x: x + fixture.firstFrame.width / 8, y: point.y), button: .right
+            )
+            XCTAssertNil(fixture.engine.interactiveResize)
+            XCTAssertFalse(fixture.handler.state.isResizing)
+            XCTAssertNil(fixture.handler.tapInputs.capturedInteractionButton)
+            fixture.handler.dispatchMouseUp(at: point, button: .right)
+        }
     }
 
     func testRearmingPreservesContactConsumptionUntilFreshContact() throws {

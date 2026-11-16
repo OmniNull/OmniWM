@@ -541,7 +541,6 @@ extension CrossDisplayDragTests {
             _ = fixture.dwindle.setPreselection(horizontal ? .right : .up, in: fixture.source)
         }
         let second = addWindow(2, to: fixture.source, fixture)
-        fixture.controller.settings.gestures.adoptNativeResize = false
         fixture.controller.settings.gestures.mouseMoveModifierKey = .control
         fixture.controller.motionPolicy.animationsEnabled = false
         fixture.manager.withEngineMutationScope(in: fixture.source) {

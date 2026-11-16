@@ -39,11 +39,10 @@ final class HostedNativeResizeTests: XCTestCase {
         }
     }
 
-    func testOnALandscapeStripANativeLiveResizeIsAdoptedWithKeepNativeEdgeResizesOff() throws {
+    func testOnALandscapeStripANativeLiveResizeIsAdopted() throws {
         for centred in [false, true] {
             let fixture = try fixture(.niri)
             defer { fixture.close() }
-            fixture.controller.settings.gestures.adoptNativeResize = false
             let token = fixture.tokens[0]
             let window = fixture.windows[0]
             let start = try XCTUnwrap(fixture.frames()[token])
@@ -64,14 +63,13 @@ final class HostedNativeResizeTests: XCTestCase {
         }
     }
 
-    func testPortraitPrimaryNativeLiveResizesAdoptWithoutKeepNativeEdgeResizes() throws {
+    func testPortraitPrimaryNativeLiveResizesAdopt() throws {
         let changes: [(top: Bool, centred: Bool, direction: CGFloat)] = [
             (false, false, 1), (true, false, 1), (true, true, 1), (true, true, -1)
         ]
         for change in changes {
             let fixture = try fixture(.niri, portrait: true)
             defer { fixture.close() }
-            fixture.controller.settings.gestures.adoptNativeResize = false
             fixture.controller.motionPolicy.animationsEnabled = false
             let engine = try XCTUnwrap(fixture.controller.niriEngine)
             fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspace) { _ in
@@ -126,7 +124,6 @@ final class HostedNativeResizeTests: XCTestCase {
         for change in changes {
             let fixture = try fixture(.niri, portrait: true)
             defer { fixture.close() }
-            fixture.controller.settings.gestures.adoptNativeResize = false
             fixture.controller.motionPolicy.animationsEnabled = false
             let engine = try XCTUnwrap(fixture.controller.niriEngine)
             let token = fixture.tokens[1]
@@ -186,46 +183,42 @@ final class HostedNativeResizeTests: XCTestCase {
         }
     }
 
-    func testDwindleNativeResizeAdoptsTheSharedSplitWithEitherLegacySetting() throws {
-        for enabled in [false, true] {
-            let fixture = try fixture(.dwindle)
-            defer { fixture.close() }
-            fixture.controller.settings.gestures.adoptNativeResize = enabled
-            let token = fixture.tokens[0]
-            let window = fixture.windows[0]
-            let before = try fixture.frames()
-            let start = try XCTUnwrap(before[token])
-            XCTAssertTrue(fixture.controller.shellAppWindowManager.setFrame(start, for: token))
-            let callback = Notification(name: NSWindow.didEndLiveResizeNotification, object: window)
-            fixture.controller.shellAppWindowManager.windowWillStartLiveResize(callback)
-            var observed = start
-            observed.size.width += initialContentSize.width
-            var expectedFrames = before
-            expectedFrames[token] = observed
-            let neighbor = fixture.tokens[1]
-            var neighborFrame = try XCTUnwrap(before[neighbor])
-            neighborFrame.origin.x += initialContentSize.width
-            neighborFrame.size.width -= initialContentSize.width
-            expectedFrames[neighbor] = neighborFrame
-            window.setFrame(observed, display: false)
-            fixture.controller.shellAppWindowManager.windowDidResize(callback)
+    func testDwindleNativeResizeAdoptsTheSharedSplit() throws {
+        let fixture = try fixture(.dwindle)
+        defer { fixture.close() }
+        let token = fixture.tokens[0]
+        let window = fixture.windows[0]
+        let before = try fixture.frames()
+        let start = try XCTUnwrap(before[token])
+        XCTAssertTrue(fixture.controller.shellAppWindowManager.setFrame(start, for: token))
+        let callback = Notification(name: NSWindow.didEndLiveResizeNotification, object: window)
+        fixture.controller.shellAppWindowManager.windowWillStartLiveResize(callback)
+        var observed = start
+        observed.size.width += initialContentSize.width
+        var expectedFrames = before
+        expectedFrames[token] = observed
+        let neighbor = fixture.tokens[1]
+        var neighborFrame = try XCTUnwrap(before[neighbor])
+        neighborFrame.origin.x += initialContentSize.width
+        neighborFrame.size.width -= initialContentSize.width
+        expectedFrames[neighbor] = neighborFrame
+        window.setFrame(observed, display: false)
+        fixture.controller.shellAppWindowManager.windowDidResize(callback)
 
-            fixture.controller.shellAppWindowManager.windowDidEndLiveResize(callback)
+        fixture.controller.shellAppWindowManager.windowDidEndLiveResize(callback)
 
-            XCTAssertEqual(try fixture.frames(), expectedFrames, "\(enabled)")
-            XCTAssertEqual(
-                (fixture.controller.layoutRefreshController.layoutState.pendingRefresh
-                    ?? fixture.controller.layoutRefreshController.layoutState.activeRefresh)?.affectedWorkspaceIds,
-                []
-            )
-            XCTAssertNil(fixture.controller.shellAppWindowManager.liveResizeStarts[token])
-        }
+        XCTAssertEqual(try fixture.frames(), expectedFrames)
+        XCTAssertEqual(
+            (fixture.controller.layoutRefreshController.layoutState.pendingRefresh
+                ?? fixture.controller.layoutRefreshController.layoutState.activeRefresh)?.affectedWorkspaceIds,
+            []
+        )
+        XCTAssertNil(fixture.controller.shellAppWindowManager.liveResizeStarts[token])
     }
 
     func testDwindleHostedCenteredResizeUsesTheNativeLifecycleWithoutPointerState() throws {
         let fixture = try fixture(.dwindle)
         defer { fixture.close() }
-        fixture.controller.settings.gestures.adoptNativeResize = false
         fixture.controller.motionPolicy.animationsEnabled = false
         let extra = makeWindow()
         defer { extra.close() }
@@ -333,7 +326,6 @@ final class HostedNativeResizeTests: XCTestCase {
         let controller = WindowAdmissionTestSupport.controller(prefix: "HostedNativeResize")
         controller.hasStartedServices = true
         controller.shellAppWindowManager.activateApplication = {}
-        controller.settings.gestures.adoptNativeResize = true
         let display = CGDirectDisplayID.max
         let monitor = Monitor(
             id: .init(displayId: display), displayId: display, frame: displayFrame, visibleFrame: displayFrame,

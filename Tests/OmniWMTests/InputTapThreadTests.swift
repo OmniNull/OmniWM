@@ -8,6 +8,28 @@ import Synchronization
 import XCTest
 
 final class InputTapThreadTests: XCTestCase {
+    @MainActor
+    private final class CapturedDragSink: EventIntakeSink {
+        let interpreter: EventInterpreter
+        let location: CGPoint
+        let delivered: XCTestExpectation
+
+        init(interpreter: EventInterpreter, location: CGPoint, delivered: XCTestExpectation) {
+            self.interpreter = interpreter
+            self.location = location
+            self.delivered = delivered
+        }
+
+        func handleIntakeEvent(_ stamped: StampedIntakeEvent) {
+            interpreter.handleIntakeEvent(stamped)
+            if case let .mouseDragged(button, received) = stamped.event {
+                XCTAssertEqual(button, .left)
+                XCTAssertEqual(received, location)
+                delivered.fulfill()
+            }
+        }
+    }
+
     func testInputTapThreadLifecycleRestart() {
         let thread = InputTapThread()
         let loop1 = thread.startAndGetRunLoop()
@@ -97,7 +119,7 @@ final class InputTapThreadTests: XCTestCase {
     }
 
     @MainActor
-    func testNativeResizeCapturesUnmodifiedAndOptionClicksRegardlessOfLegacySetting() {
+    func testNativeResizeCapturesUnmodifiedAndOptionClicks() {
         let controller = makeController()
         controller.settings.gestures.mouseMoveModifierKey = .control
         let handler = controller.mouseEventHandler
@@ -114,25 +136,22 @@ final class InputTapThreadTests: XCTestCase {
             }
         }
 
-        for enabled in [false, true, false] {
-            controller.settings.gestures.adoptNativeResize = enabled
-            XCTAssertTrue(tap.filterSnapshot.adoptNativeResize)
-            let before = captures
-            let excludedModifiers: [CGEventFlags] = [
-                .maskCommand,
-                .maskShift,
-                [.maskAlternate, .maskCommand],
-                [.maskAlternate, .maskShift]
-            ]
-            for modifiers in excludedModifiers {
-                click(modifiers: modifiers)
-                XCTAssertEqual(captures, before)
-            }
-            let nativeModifiers: [CGEventFlags] = [[], .maskAlternate]
-            for (index, modifiers) in nativeModifiers.enumerated() {
-                click(modifiers: modifiers)
-                XCTAssertEqual(captures, before + index + 1)
-            }
+        XCTAssertTrue(tap.filterSnapshot.capturesNativeResizeBaseline)
+        let before = captures
+        let excludedModifiers: [CGEventFlags] = [
+            .maskCommand,
+            .maskShift,
+            [.maskAlternate, .maskCommand],
+            [.maskAlternate, .maskShift]
+        ]
+        for modifiers in excludedModifiers {
+            click(modifiers: modifiers)
+            XCTAssertEqual(captures, before)
+        }
+        let nativeModifiers: [CGEventFlags] = [[], .maskAlternate]
+        for (index, modifiers) in nativeModifiers.enumerated() {
+            click(modifiers: modifiers)
+            XCTAssertEqual(captures, before + index + 1)
         }
     }
 
@@ -209,38 +228,42 @@ final class InputTapThreadTests: XCTestCase {
     }
 
     @MainActor
-    func testCapturedDragOffMainDoesNotWaitForMainThread() throws {
+    func testCapturedDragOffMainDoesNotWaitForMainThread() async throws {
         let controller = makeController()
         let handler = controller.mouseEventHandler
         handler.setup()
         handler.beginPerformanceCapture()
+        let location = CGPoint(x: 100, y: 100)
+        let delivered = expectation(description: "Captured left drag handled by the intake owner")
+        let sink = CapturedDragSink(interpreter: controller.eventInterpreter, location: location, delivered: delivered)
+        controller.eventIntake.open(sink: sink)
         defer {
+            controller.eventIntake.close()
             _ = handler.endPerformanceCapture()
             handler.cleanup()
         }
-        handler.tapInputs.capturedInteractionButton = .right
-
-        let source = try XCTUnwrap(CGEventSource(stateID: .combinedSessionState))
-        let drag = try XCTUnwrap(CGEvent(
-            mouseEventSource: source,
-            mouseType: .rightMouseDragged,
-            mouseCursorPosition: CGPoint(x: 100, y: 100),
-            mouseButton: .right
-        ))
+        handler.tapInputs.capturedInteractionButton = .left
+        let windowServerLocation = ScreenCoordinateSpace.toWindowServer(point: location)
         let suppressed = Mutex(false)
         let done = DispatchSemaphore(value: 0)
-        nonisolated(unsafe) let event = drag
         Thread.detachNewThread {
-            let result = MouseEventHandler.processTapCallback(type: .rightMouseDragged, event: event)
+            defer { done.signal() }
+            guard let event = CGEvent(
+                mouseEventSource: nil,
+                mouseType: .leftMouseDragged,
+                mouseCursorPosition: windowServerLocation,
+                mouseButton: .left
+            ) else { return }
+            let result = MouseEventHandler.processTapCallback(type: .leftMouseDragged, event: event)
             suppressed.withLock { $0 = result }
-            done.signal()
         }
-        XCTAssertEqual(done.wait(timeout: .now() + 1), .success)
+        XCTAssertEqual(done.wait(timeout: .now() + failureBound), .success)
         XCTAssertTrue(suppressed.withLock { $0 })
+        XCTAssertEqual(handler.performanceSnapshot()?.cgEvents, 0)
 
-        let drained = expectation(description: "main drained")
-        DispatchQueue.main.async { drained.fulfill() }
-        wait(for: [drained], timeout: failureBound)
+        let delivery = await XCTWaiter.fulfillment(of: [delivered], timeout: failureBound)
+        XCTAssertEqual(delivery, .completed)
+        withExtendedLifetime(sink) {}
         XCTAssertEqual(handler.performanceSnapshot()?.cgEvents, 1)
     }
 

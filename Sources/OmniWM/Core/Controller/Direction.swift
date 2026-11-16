@@ -88,25 +88,3 @@ extension MouseMoveModifierKey {
         }
     }
 }
-
-extension MouseResizeModifierKey {
-    var cgEventFlag: CGEventFlags {
-        switch self {
-        case .option: .maskAlternate
-        case .control: .maskControl
-        case .command: .maskCommand
-        case .shift: .maskShift
-        case .controlOption: [.maskControl, .maskAlternate]
-        case .optionCommand: [.maskAlternate, .maskCommand]
-        case .optionShift: [.maskAlternate, .maskShift]
-        case .controlCommand: [.maskControl, .maskCommand]
-        case .controlShift: [.maskControl, .maskShift]
-        case .commandShift: [.maskCommand, .maskShift]
-        case .controlOptionCommand: [.maskControl, .maskAlternate, .maskCommand]
-        case .controlOptionShift: [.maskControl, .maskAlternate, .maskShift]
-        case .optionCommandShift: [.maskAlternate, .maskCommand, .maskShift]
-        case .controlCommandShift: [.maskControl, .maskCommand, .maskShift]
-        case .controlOptionCommandShift: [.maskControl, .maskAlternate, .maskCommand, .maskShift]
-        }
-    }
-}

@@ -396,7 +396,6 @@ extension ServiceLifecycleManager {
 
     func handleFrameApplySucceeded(_ result: AXFrameApplyResult) {
         guard let controller else { return }
-        controller.resizeOverlay.frameApplied(windowId: result.windowId)
         controller.niriEdgePictures.frameApplicationEnded(
             token: WindowToken(pid: result.pid, windowId: result.windowId),
             targetFrame: result.targetFrame

@@ -10,7 +10,6 @@ extension CrossDisplayDragTests {
         let (fixture, tokens) = try mixedHistoryMakeFixture(sourceNiri: false)
         let blocker = blockMixedHistoryRefreshes(fixture)
         defer { finishMixedHistoryRefreshes(fixture, blocker) }
-        fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays = true
         fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }
         mixedHistoryCompleteLayout(fixture)
         let moved = tokens[0]

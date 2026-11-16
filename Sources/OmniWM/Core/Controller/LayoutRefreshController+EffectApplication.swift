@@ -158,13 +158,6 @@ extension LayoutRefreshController {
             return nil
         }
         controller.workspaceManager.quietArrivalTokens.subtract(plan.quietArrivalTokens)
-        if let intercepted = controller.resizeOverlay.intercept(plan) {
-            return acceptLayoutPlan(
-                intercepted,
-                suppressWindowActivation: suppressWindowActivation,
-                controller: controller
-            )
-        }
         return acceptLayoutPlan(plan, suppressWindowActivation: suppressWindowActivation, controller: controller)
     }
 

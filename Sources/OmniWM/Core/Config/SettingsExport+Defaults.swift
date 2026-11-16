@@ -213,17 +213,13 @@ extension SettingsExport.Gestures {
             scrollSensitivity: 5.0,
             scrollModifierKey: .optionShift,
             mouseMoveModifierKey: .option,
-            mouseResizeModifierKey: .option,
             fingerCount: .three,
             invertDirection: true,
             trackpadScrollStyle: .snap,
             workspaceSwipeEnabled: false,
             workspaceSwipeFingerCount: .three,
             workspaceSwipeAxis: .vertical,
-            resizePreviewStyle: .live,
             dwindleGroupDragAcrossDisplays: .group,
-            adoptNativeResize: false,
-            adoptNativeMoveAcrossDisplays: false,
             mouseWheelSensitivity: 1.0
         )
     }

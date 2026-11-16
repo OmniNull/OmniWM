@@ -87,14 +87,7 @@ extension MouseEventHandler {
             return false
         }
 
-        guard button == .right,
-              Self.modifierFlagsMatch(
-                  modifiers,
-                  required: controller.settings.gestures.mouseResizeModifierKey.cgEventFlag
-              )
-        else { return false }
-
-        return beginNiriMouseResize(at: location, engine: engine, workspaceId: wsId, button: button)
+        return false
     }
 
     private func keepsNativeNiriPress(
@@ -148,23 +141,6 @@ extension MouseEventHandler {
         _ = beginNiriMove(window: window, engine: engine, wsId: workspaceId, at: location, source: .mouse(button))
     }
 
-    private func beginNiriMouseResize(
-        at location: CGPoint, engine: NiriLayoutEngine, workspaceId wsId: WorkspaceDescriptor.ID, button: MouseButton
-    ) -> Bool {
-        guard let controller else { return false }
-        guard let monitor = controller.workspaceManager.monitor(for: wsId) else { return false }
-        let window = engine.hitTestTiled(point: location, in: wsId)
-            ?? focusedBorderResizeToken(
-                at: location,
-                in: wsId,
-                scale: controller.backingScaleFactor(for: monitor),
-                appliedBorder: controller.surfaceReconciler.appliedScene.border
-            )
-            .flatMap { engine.findNode(for: $0, in: wsId) }
-        guard let window else { return false }
-        return beginNiriResize(window: window, engine: engine, wsId: wsId, at: location, source: .mouse(button))
-    }
-
     private func recordPointerFocusIntent(
         at location: CGPoint,
         strip: PressedStrip,
@@ -179,16 +155,10 @@ extension MouseEventHandler {
         let focusIntentToken = exactToken ?? (windowIdUnderPointer == nil
             ? geometricFocusIntentCandidate(at: location, in: strip)
             : nil)
-        let layoutKind = if let exact, exact.workspaceId != strip.workspaceId {
-            controller.workspaceManager.activeLayoutKind(for: exact.workspaceId)
-        } else {
-            strip.layoutKind
-        }
         captureNativeCrossDisplayMove(for: focusIntentToken)
         captureNativeResizeStart(
             for: focusIntentToken,
             at: location,
-            layoutKind: layoutKind,
             windowServerFramesAtMouseDown: windowServerFramesAtMouseDown
         )
         if let token = focusIntentToken {
@@ -233,48 +203,7 @@ extension MouseEventHandler {
             )
             return false
         }
-        guard button == .right,
-              Self.modifierFlagsMatch(
-                  modifiers,
-                  required: controller.settings.gestures.mouseResizeModifierKey.cgEventFlag
-              )
-        else { return false }
-
-        guard let monitor = controller.workspaceManager.monitor(for: wsId) else { return false }
-        let token = engine.hitTestFocusableWindow(point: location, in: wsId, at: controller.animationClock.now())
-            ?? focusedBorderResizeToken(
-                at: location,
-                in: wsId,
-                scale: controller.backingScaleFactor(for: monitor),
-                appliedBorder: controller.surfaceReconciler.appliedScene.border
-            )
-        guard let token else { return false }
-        return beginDwindleResize(token: token, engine: engine, wsId: wsId, at: location, source: .mouse(button))
-    }
-
-    func focusedBorderResizeToken(
-        at location: CGPoint,
-        in workspaceId: WorkspaceDescriptor.ID,
-        scale: CGFloat,
-        appliedBorder: DesiredBorderSurface?
-    ) -> WindowToken? {
-        guard let controller,
-              let appliedBorder,
-              appliedBorder.token == controller.workspaceManager.borderFocusToken,
-              let entry = controller.workspaceManager.entry(for: appliedBorder.token),
-              entry.workspaceId == workspaceId,
-              entry.mode == .tiling
-        else {
-            return nil
-        }
-        let geometry = appliedBorder.config.resolvedGeometry(for: appliedBorder.frame, scale: scale)
-        guard geometry.width > 0,
-              geometry.targetFrame.insetBy(dx: -geometry.width, dy: -geometry.width).contains(location),
-              !geometry.targetFrame.contains(location)
-        else {
-            return nil
-        }
-        return appliedBorder.token
+        return false
     }
 
     func resizeEdges(for location: CGPoint, in frame: CGRect) -> ResizeEdge {

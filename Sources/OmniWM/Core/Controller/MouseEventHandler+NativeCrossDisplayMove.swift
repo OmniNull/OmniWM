@@ -7,7 +7,6 @@ import Foundation
 extension MouseEventHandler {
     func captureNativeCrossDisplayMove(for token: WindowToken?) {
         guard let controller,
-              controller.settings.gestures.adoptNativeMoveAcrossDisplays,
               let token,
               let entry = controller.workspaceManager.entry(for: token),
               entry.mode == .tiling,
@@ -23,7 +22,6 @@ extension MouseEventHandler {
     func settleNativeCrossDisplayMoveIfNeeded(_ entry: WindowState, observedFrame: CGRect?) -> Bool {
         guard let controller,
               controller.hasStartedServices,
-              controller.settings.gestures.adoptNativeMoveAcrossDisplays,
               let move = state.nativeCrossDisplayMove,
               move.wasDragged,
               let point = move.releaseLocation,

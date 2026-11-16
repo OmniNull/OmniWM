@@ -288,8 +288,7 @@ final class MouseEventHandler {
         }
         let otherButtonMask = resolvedOtherButtonMask
         let moveFlags = controller?.settings.gestures.mouseMoveModifierKey.cgEventFlags
-        let adoptNativeResize = controller != nil
-        let resizeFlags = controller?.settings.gestures.mouseResizeModifierKey.cgEventFlag ?? []
+        let capturesNativeResizeBaseline = controller != nil
         let scrollFlags = controller?.settings.gestures.scrollModifierKey.cgEventFlag ?? []
         let minFingers: Int
         if let controller, controller.settings.effectiveTrackpadGesturesEnabled {
@@ -307,8 +306,7 @@ final class MouseEventHandler {
             snapshot.activeCapture = capturedButton
             snapshot.claimedOtherButtonMask = otherButtonMask
             snapshot.moveModifier = moveFlags
-            snapshot.adoptNativeResize = adoptNativeResize
-            snapshot.resizeModifier = resizeFlags
+            snapshot.capturesNativeResizeBaseline = capturesNativeResizeBaseline
             snapshot.scrollModifier = scrollFlags
             snapshot.minGestureFingers = minFingers
             snapshot.gestureActiveOrLatched = latched
