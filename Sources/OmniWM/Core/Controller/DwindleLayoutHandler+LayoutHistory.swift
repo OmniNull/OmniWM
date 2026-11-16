@@ -18,7 +18,9 @@ extension DwindleLayoutHandler {
         return controller.workspaceManager.withEngineMutationScope(in: workspaceId) {
             applyResolvedSettings(controller.resolvedDwindleSettings(for: monitor), to: engine)
             let focusedBefore = engine.projectedActiveToken(in: workspaceId)
-            guard let step = engine.stepLayoutHistory(direction, in: workspaceId) else { return false }
+            guard let step = engine.stepLayoutHistory(direction, in: workspaceId)
+                ?? stepLayoutHistoryAcrossWorkspaces(direction, in: workspaceId, engine: engine, controller: controller)
+            else { return false }
             recordLayoutOperation(.windowsSwapped, in: workspaceId)
             if let token = step.focused, token != focusedBefore,
                groupMemberActivationIsAllowed(token, workspaceId: workspaceId)

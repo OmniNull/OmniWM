@@ -12,8 +12,47 @@ struct DwindleLayoutHistoryStep {
     let focused: WindowToken?
 }
 
+struct DwindleLayoutAway {
+    let workspaceId: WorkspaceDescriptor.ID
+    let tokens: [WindowToken]
+    let snapshot: DwindleLayoutSnapshot
+
+    init(workspaceId: WorkspaceDescriptor.ID, tokens: [WindowToken], snapshot: consuming DwindleLayoutSnapshot) {
+        self.workspaceId = workspaceId
+        self.tokens = tokens
+        self.snapshot = snapshot
+    }
+}
+
+struct DwindleLayoutTransfer {
+    let departed: [WindowToken]
+    let away: [DwindleLayoutAway]
+}
+
+struct DwindleLayoutHistoryEntry {
+    let snapshot: DwindleLayoutSnapshot
+    let transfer: DwindleLayoutTransfer?
+
+    init(
+        snapshot: consuming DwindleLayoutSnapshot,
+        departed: consuming[WindowToken] = [],
+        away: consuming[DwindleLayoutAway] = []
+    ) {
+        self.snapshot = snapshot
+        if departed.isEmpty, away.isEmpty {
+            transfer = nil
+        } else {
+            transfer = DwindleLayoutTransfer(departed: departed, away: away)
+        }
+    }
+
+    var hasTransfers: Bool {
+        transfer != nil
+    }
+}
+
 struct DwindleLayoutHistoryStack: ~Copyable {
-    private var entries: [DwindleLayoutSnapshot?] = []
+    private var entries: [DwindleLayoutHistoryEntry?] = []
     private var start = 0
     private(set) var size = 0
 
@@ -21,13 +60,23 @@ struct DwindleLayoutHistoryStack: ~Copyable {
         size == 0
     }
 
-    mutating func push(_ snapshot: consuming DwindleLayoutSnapshot) {
+    var hasTransfers: Bool {
+        guard !isEmpty else { return false }
+        return entries[(start + size - 1) % DwindleLayoutHistory.limit]?.hasTransfers == true
+    }
+
+    func withTransferEntry<Result>(_ body: (borrowing DwindleLayoutHistoryEntry) -> Result) -> Result? {
+        guard hasTransfers else { return nil }
+        return body(entries[(start + size - 1) % DwindleLayoutHistory.limit]!)
+    }
+
+    mutating func push(_ entry: consuming DwindleLayoutHistoryEntry) {
         if entries.isEmpty { entries.reserveCapacity(DwindleLayoutHistory.limit) }
         let index = (start + size) % DwindleLayoutHistory.limit
         if index == entries.count {
-            entries.append(snapshot)
+            entries.append(entry)
         } else {
-            entries[index] = snapshot
+            entries[index] = entry
         }
         if size == DwindleLayoutHistory.limit {
             start = (start + 1) % DwindleLayoutHistory.limit
@@ -36,11 +85,11 @@ struct DwindleLayoutHistoryStack: ~Copyable {
         }
     }
 
-    mutating func pop() -> DwindleLayoutSnapshot? {
+    mutating func pop() -> DwindleLayoutHistoryEntry? {
         guard !isEmpty else { return nil }
         size -= 1
         let index = (start + size) % DwindleLayoutHistory.limit
-        var result: DwindleLayoutSnapshot?
+        var result: DwindleLayoutHistoryEntry?
         swap(&result, &entries[index])
         return result
     }
@@ -64,11 +113,32 @@ struct DwindleLayoutHistory: ~Copyable {
     }
 
     mutating func record(_ snapshot: consuming DwindleLayoutSnapshot) {
-        undo.push(snapshot)
+        record(DwindleLayoutHistoryEntry(snapshot: snapshot))
+    }
+
+    mutating func record(_ entry: consuming DwindleLayoutHistoryEntry) {
+        undo.push(entry)
         redo.clear()
     }
 
-    mutating func pop(_ direction: DwindleLayoutHistoryDirection) -> DwindleLayoutSnapshot? {
+    func hasTransfers(_ direction: DwindleLayoutHistoryDirection) -> Bool {
+        switch direction {
+        case .undo: undo.hasTransfers
+        case .redo: redo.hasTransfers
+        }
+    }
+
+    func withTransferEntry<Result>(
+        _ direction: DwindleLayoutHistoryDirection,
+        _ body: (borrowing DwindleLayoutHistoryEntry) -> Result
+    ) -> Result? {
+        switch direction {
+        case .undo: undo.withTransferEntry(body)
+        case .redo: redo.withTransferEntry(body)
+        }
+    }
+
+    mutating func pop(_ direction: DwindleLayoutHistoryDirection) -> DwindleLayoutHistoryEntry? {
         switch direction {
         case .undo: undo.pop()
         case .redo: redo.pop()
@@ -79,9 +149,16 @@ struct DwindleLayoutHistory: ~Copyable {
         of direction: DwindleLayoutHistoryDirection,
         _ snapshot: consuming DwindleLayoutSnapshot
     ) {
+        pushOpposite(of: direction, DwindleLayoutHistoryEntry(snapshot: snapshot))
+    }
+
+    mutating func pushOpposite(
+        of direction: DwindleLayoutHistoryDirection,
+        _ entry: consuming DwindleLayoutHistoryEntry
+    ) {
         switch direction {
-        case .undo: redo.push(snapshot)
-        case .redo: undo.push(snapshot)
+        case .undo: redo.push(entry)
+        case .redo: undo.push(entry)
         }
     }
 
@@ -121,13 +198,13 @@ extension DwindleLayoutEngine {
         guard interactiveResize == nil, interactiveMove == nil,
               let state = existingState(for: workspaceId)
         else { return nil }
-        while let entry = state.layoutHistory.pop(direction) {
+        while !state.layoutHistory.hasTransfers(direction), let entry = state.layoutHistory.pop(direction) {
             guard let current = layoutSnapshot(in: workspaceId, focused: focused) else { return nil }
-            restoreLayoutSnapshot(entry, in: workspaceId, at: time)
+            restoreLayoutSnapshot(entry.snapshot, in: workspaceId, at: time)
             guard state.preselection != current.preselection || !current.matches(state.root) else { continue }
             state.layoutHistory.pushOpposite(of: direction, current)
             var focus: WindowToken?
-            if let token = entry.focused, state.leafByToken[token] != nil { focus = token }
+            if let token = entry.snapshot.focused, state.leafByToken[token] != nil { focus = token }
             return DwindleLayoutHistoryStep(focused: focus)
         }
         return nil

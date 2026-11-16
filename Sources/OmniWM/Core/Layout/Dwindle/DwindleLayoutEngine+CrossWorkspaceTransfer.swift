@@ -72,13 +72,48 @@ extension DwindleLayoutEngine {
 
         seedMovementFramesFromPresentedLeaves(in: state)
         guard wholeTile || tile.members.count == 1 else {
-            _ = tile.remove(at: memberIndex)
-            state.leafByToken.removeValue(forKey: token)
-            state.pendingMovementFrameSeeds.removeValue(forKey: token)
-            let excluded = state.excludedTokens.remove(token) != nil
-            return DwindleTransferredTile(token: token, excluded: excluded)
+            let detached = detachTransferredMember(token, at: memberIndex, in: tile, state: state)
+            return DwindleTransferredTile(token: detached.member.token, excluded: detached.excluded)
         }
+        return detachTransferredTile(leaf, tile: consume tile, token: token, in: workspaceId, state: state)
+    }
 
+    func detachForHistoryTransfer(
+        token: WindowToken,
+        wholeTile: Bool,
+        from workspaceId: WorkspaceDescriptor.ID
+    ) -> DwindleHistoryArrival? {
+        assertSanctionedMutation()
+        guard let state = existingState(for: workspaceId), let leaf = state.leafByToken[token],
+              let tile = leaf.tile, let memberIndex = tile.memberIndex(for: token)
+        else { return nil }
+        seedMovementFramesFromPresentedLeaves(in: state)
+        guard wholeTile || tile.members.count == 1 else {
+            let detached = detachTransferredMember(token, at: memberIndex, in: tile, state: state)
+            return .member(detached.member, excluded: detached.excluded)
+        }
+        return .tile(detachTransferredTile(leaf, tile: consume tile, token: token, in: workspaceId, state: state))
+    }
+
+    private func detachTransferredMember(
+        _ token: WindowToken,
+        at index: Int,
+        in tile: DwindleTile,
+        state: DwindleWorkspaceState
+    ) -> (member: DwindleTileMember, excluded: Bool) {
+        let member = tile.remove(at: index)
+        state.leafByToken.removeValue(forKey: token)
+        state.pendingMovementFrameSeeds.removeValue(forKey: token)
+        return (member, state.excludedTokens.remove(token) != nil)
+    }
+
+    private func detachTransferredTile(
+        _ leaf: DwindleNode,
+        tile: consuming DwindleTile,
+        token: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID,
+        state: DwindleWorkspaceState
+    ) -> DwindleTransferredTile {
         let successorToken = state.selectedNodeId == leaf.id
             ? removalSuccessorToken(for: token, in: workspaceId)
             : nil
@@ -102,7 +137,8 @@ extension DwindleLayoutEngine {
     func attachTransferredTile(
         _ transferred: DwindleTransferredTile,
         placement: DwindleTransferPlacement,
-        in workspaceId: WorkspaceDescriptor.ID
+        in workspaceId: WorkspaceDescriptor.ID,
+        activeWindowFrame: CGRect? = nil
     ) {
         assertSanctionedMutation()
         let state = ensureState(for: workspaceId)
@@ -120,15 +156,15 @@ extension DwindleLayoutEngine {
                     preselectedDirection: direction,
                     splitRatio: 1
                 )
-            } ?? attachAtDefaultPlacement(tile, state: state, in: workspaceId)
+            } ?? attachAtDefaultPlacement(tile, state: state, in: workspaceId, activeWindowFrame: activeWindowFrame)
         case let .workspaceEdge(direction) where state.tileCount > 0:
             attachAtWorkspaceEdge(tile, direction: direction, state: state)
         case let .splitBoundary(splitId):
             attachAtSplitBoundary(tile, splitId: splitId, state: state)
-                ?? attachAtDefaultPlacement(tile, state: state, in: workspaceId)
+                ?? attachAtDefaultPlacement(tile, state: state, in: workspaceId, activeWindowFrame: activeWindowFrame)
         case .workspaceEdge,
              .defaultPlacement:
-            attachAtDefaultPlacement(tile, state: state, in: workspaceId)
+            attachAtDefaultPlacement(tile, state: state, in: workspaceId, activeWindowFrame: activeWindowFrame)
         }
         for member in tile.members {
             state.leafByToken[member.token] = leaf
@@ -218,7 +254,8 @@ extension DwindleLayoutEngine {
     private func attachAtDefaultPlacement(
         _ tile: DwindleTile,
         state: DwindleWorkspaceState,
-        in workspaceId: WorkspaceDescriptor.ID
+        in workspaceId: WorkspaceDescriptor.ID,
+        activeWindowFrame: CGRect?
     ) -> DwindleNode {
         if case .leaf(nil) = state.root.kind {
             state.root.kind = .leaf(tile: tile)
@@ -231,7 +268,7 @@ extension DwindleLayoutEngine {
             target,
             tiles: (new: tile, existing: target.tile),
             state: state,
-            activeWindowFrame: nil,
+            activeWindowFrame: activeWindowFrame,
             preselectedDirection: state.preselection
         )
         state.preselection = nil

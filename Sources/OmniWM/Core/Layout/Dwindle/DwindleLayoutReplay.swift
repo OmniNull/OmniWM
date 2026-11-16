@@ -31,6 +31,25 @@ struct DwindleLayoutReplay: ~Copyable {
         collect(root)
     }
 
+    init(
+        root: DwindleNode,
+        snapshot: borrowing DwindleLayoutSnapshot,
+        arrivals: borrowing[DwindleHistoryArrival]
+    ) {
+        self.init(root: root, snapshot: snapshot)
+        for index in arrivals.indices {
+            switch arrivals[index] {
+            case let .member(member, _):
+                present.insert(member.token)
+            case let .tile(transferred):
+                let tile = transferred.tile
+                if tiles[tile.id] == nil { tileOrder.append(tile.id) }
+                tiles[tile.id] = tile
+                for member in tile.members { present.insert(member.token) }
+            }
+        }
+    }
+
     private mutating func collect(_ node: DwindleNode) {
         nodes[node.id] = node
         if let tile = node.tile {
@@ -121,6 +140,32 @@ extension DwindleLayoutEngine {
         }
         seedMovementFramesFromPresentedLeaves(in: state, at: time)
         var replay = DwindleLayoutReplay(root: state.root, snapshot: snapshot)
+        restoreLayoutSnapshot(snapshot, replay: &replay, in: workspaceId, state: state)
+    }
+
+    func restoreLayoutSnapshot(
+        _ snapshot: borrowing DwindleLayoutSnapshot,
+        in workspaceId: WorkspaceDescriptor.ID,
+        arrivals: borrowing [DwindleHistoryArrival],
+        at time: TimeInterval? = nil
+    ) {
+        guard !arrivals.isEmpty else {
+            restoreLayoutSnapshot(snapshot, in: workspaceId, at: time)
+            return
+        }
+        let state = ensureState(for: workspaceId)
+        seedMovementFramesFromPresentedLeaves(in: state, at: time)
+        for index in arrivals.indices { arrivals[index].restoreExclusions(into: &state.excludedTokens) }
+        var replay = DwindleLayoutReplay(root: state.root, snapshot: snapshot, arrivals: arrivals)
+        restoreLayoutSnapshot(snapshot, replay: &replay, in: workspaceId, state: state)
+    }
+
+    private func restoreLayoutSnapshot(
+        _ snapshot: borrowing DwindleLayoutSnapshot,
+        replay: inout DwindleLayoutReplay,
+        in workspaceId: WorkspaceDescriptor.ID,
+        state: DwindleWorkspaceState
+    ) {
         let restored = replay.restore(0, from: snapshot)
         installHistoryRoot(restored, in: state)
         while let tile = replay.nextPreservedTile() {

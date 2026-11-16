@@ -18,18 +18,29 @@ extension WMController {
             into: drop.workspaceId,
             niriWorkspaceIds: plan.niriWorkspaceIds
         ) { states in
+            let recordsDwindle = plan.sourceLayout == .dwindle && plan.targetLayout == .dwindle
+            let sourceBefore = recordsDwindle ? dwindleEngine?.layoutSnapshot(in: drop.sourceWorkspaceId) : nil
+            let targetBefore = recordsDwindle ? dwindleEngine?.layoutSnapshot(in: drop.workspaceId) : nil
             let arrivals = plan.unit.tokens
                 .map { CrossWorkspaceDropAssignment(token: $0, workspaceId: drop.workspaceId) }
+            let assignments: [CrossWorkspaceDropAssignment]
             switch plan.operation {
             case let .move(placement):
                 applyCrossDisplayMove(plan, placement: placement, states: &states)
-                return arrivals
+                assignments = arrivals
             case let .swap(partner):
                 applyCrossDisplaySwap(plan, partner: partner, states: &states)
-                return arrivals + partner.tokens.map {
+                assignments = arrivals + partner.tokens.map {
                     CrossWorkspaceDropAssignment(token: $0, workspaceId: drop.sourceWorkspaceId)
                 }
             }
+            if recordsDwindle {
+                dwindleEngine?.recordLayoutTransfer(
+                    from: drop.sourceWorkspaceId, to: drop.workspaceId,
+                    sourceBefore: consume sourceBefore, targetBefore: consume targetBefore
+                )
+            }
+            return assignments
         }
         finishCrossDisplayDrop(plan, heldSelection: heldSelection)
     }
