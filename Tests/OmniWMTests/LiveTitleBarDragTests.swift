@@ -197,7 +197,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.order(), expected)
     }
 
-    func testATitleBarDragOnEitherNiriAxisKeepsLivePointerState() throws {
+    func testATitleBarDragKeepsLivePointerStateForEachLayout() throws {
         let strips: [(pid: pid_t, layout: LayoutType, portrait: Bool)] = [
             (938_404, .niri, false), (938_405, .niri, true), (938_406, .dwindle, false)
         ]
@@ -206,10 +206,11 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             let niri = strip.layout == .niri
             try fixture.beginDrag(fixture.tokens[1])
             XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.canStartLiveNiriDrag, niri, "\(strip)")
-            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.liveStartFrame != nil, niri, "\(strip)")
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.canStartLiveDwindleDrag, !niri, "\(strip)")
+            XCTAssertNotNil(fixture.handler.state.nativeTitleBarDrag?.liveStartFrame, "\(strip)")
             let pointer = CGPoint(x: 430, y: 300)
             _ = fixture.handler.trackLiveColumnDrag(at: pointer, button: .left)
-            XCTAssertEqual(fixture.handler.livePointer.location, niri ? pointer : nil, "\(strip)")
+            XCTAssertEqual(fixture.handler.livePointer.location, pointer, "\(strip)")
             XCTAssertEqual(fixture.handler.livePointer.samples.isEmpty, !niri, "\(strip)")
         }
     }
@@ -286,7 +287,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.engine.edgePeekShare)
     }
 
-    func testDwindleTitleBarDragsStartNoLiveDragAndStillSnapBack() throws {
+    func testDwindleTitleBarDragsReorderWithoutStartingNiriMovement() throws {
         let fixture = try makeFixture(pid: 938_050, windowCount: 3, layout: .dwindle)
         XCTAssertEqual(fixture.manager.activeLayoutKind(for: fixture.workspaceId), .dwindle)
         XCTAssertNotNil(fixture.controller.niriEngine?.findNode(for: fixture.tokens[0], in: fixture.workspaceId))
@@ -297,13 +298,18 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         fixture.drag(to: try fixture.farHalf(of: other))
 
         XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertTrue(fixture.handler.state.nativeTitleBarDrag?.dwindleLiveDrag == true)
         XCTAssertNil(fixture.controller.niriEngine?.liveColumnMove)
         XCTAssertNil(fixture.handler.state.deferredClickScroll)
 
         fixture.handler.dispatchMouseUp(at: try fixture.centre(of: other))
 
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
-        XCTAssertEqual(try fixture.frames(), frames)
+        var expected = frames
+        expected[dragged] = frames[other]
+        expected[other] = frames[dragged]
+        XCTAssertEqual(try fixture.frames(), expected)
+        XCTAssertEqual(fixture.controller.dwindleEngine?.layoutHistoryCounts(in: fixture.workspaceId).undo, 1)
     }
 
     func testMacOSMovingTheWindowStartsALiveDragThatSwapsColumns() throws {

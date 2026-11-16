@@ -67,6 +67,7 @@ extension MouseEventHandler {
         correctDeferredNativeResizeFrameIfNeeded()
         state.nativeResizeStart = nil
         state.nativeCrossDisplayMove = nil
+        cancelLiveDwindleDrag()
         cancelLiveColumnDrag()
         livePointer.location = nil
         livePointer.samples = []

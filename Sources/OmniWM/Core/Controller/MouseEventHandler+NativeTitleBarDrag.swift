@@ -262,6 +262,13 @@ extension MouseEventHandler {
         drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? (hasResizePress ? stripStartFrame : nil)
         drag.pendingWriteStartFrame = hadUnsettledFrameWrite && hasResizePress
             && (onLandscapeStrip || !pendingChangesSize) ? pending ?? stripStartFrame : nil
+        if !onNiriStrip {
+            let frame = startFrame ?? controller.axManager.lastAppliedFrame(for: drag.token.windowId)
+            if !isPortraitResizePress(in: frame) {
+                drag.liveStartFrame = frame
+                drag.canStartLiveDwindleDrag = true
+            }
+        }
         if drag.canStartLiveNiriDrag {
             let entry = controller.workspaceManager.entry(for: drag.token)
             drag.liveStartFrame = entry.flatMap(fastNativeWindowFrame) ?? stripStartFrame ?? startFrame
@@ -357,9 +364,14 @@ extension MouseEventHandler {
             discardNativeTitleBarDragState()
             return
         }
-        let finishedLiveDrag = drag.liveDrag
-            && finishLiveColumnDrag(token: drag.token, startSize: drag.adoptionStartFrame?.size)
+        let finishedLiveDrag = if drag.dwindleLiveDrag {
+            finishLiveDwindleDrag(token: drag.token, at: drag.releaseLocation)
+        } else {
+            drag.liveDrag && finishLiveColumnDrag(token: drag.token, startSize: drag.adoptionStartFrame?.size)
+        }
         drag.liveDrag = false
+        drag.dwindleLiveDrag = false
+        drag.canStartLiveDwindleDrag = false
         drag.pendingExcludedCorrection = excludedFrameWrite
         state.nativeTitleBarDrag = drag
         let observedFrame = terminalNativeWindowFrame(for: entry)

@@ -40,6 +40,9 @@ extension MouseEventHandler {
     }
 
     func trackLiveColumnDrag(at location: CGPoint, button: MouseButton) -> Bool {
+        if state.nativeTitleBarDrag?.canStartLiveDwindleDrag == true {
+            return trackLiveDwindleDrag(at: location, button: button)
+        }
         if button == .left, liveDragSession?.tabPull != nil {
             moveLiveTabPull(to: location)
             return true

@@ -6,6 +6,47 @@ import CoreGraphics
 import XCTest
 
 extension CrossDisplayDragTests {
+    func testNativeDwindleReorderBeforeCrossDisplayDropRecordsOnlyTheTransfer() throws {
+        let (fixture, tokens) = try mixedHistoryMakeFixture(sourceNiri: false)
+        let blocker = blockMixedHistoryRefreshes(fixture)
+        defer { finishMixedHistoryRefreshes(fixture, blocker) }
+        fixture.controller.settings.gestures.adoptNativeMoveAcrossDisplays = true
+        fixture.handler.titleBarHitProvider = { _, _ in TitleBarHit(role: "AXWindow") }
+        mixedHistoryCompleteLayout(fixture)
+        let moved = tokens[0]
+        let neighbor = tokens[1]
+        let localTarget = try XCTUnwrap(fixture.frame(neighbor)).center
+        let start = try beginNativeDrag(moved, fixture)
+        let offset = start.width / 8
+        fixture.handler.dispatchMouseDragged(at: CGPoint(x: start.midX + offset, y: start.midY))
+        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: offset, dy: 0) }
+        XCTAssertTrue(fixture.handler
+            .handleNativeTitleBarDragFrameChanged(for: try XCTUnwrap(fixture.manager.entry(for: moved))))
+        XCTAssertEqual(fixture.dwindle.liveMoveToken, moved)
+        fixture.handler.dispatchMouseDragged(at: localTarget)
+        mixedHistoryCompleteLayout(fixture)
+        mixedHistoryAssertGroups(fixture, index: 0, groups: [[neighbor], [moved]])
+        mixedHistoryAssertCounts(fixture, index: 0, undo: 0, redo: 0)
+        let target = try XCTUnwrap(fixture.frame(tokens[2])).center
+        fixture.handler.dispatchMouseDragged(at: target)
+        let displacement = fixture.monitors[1].frame.minX - fixture.monitors[0].frame.minX
+        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: displacement, dy: 0) }
+
+        fixture.handler.dispatchMouseUp(at: target)
+        mixedHistoryCompleteLayout(fixture)
+
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+        XCTAssertNil(fixture.dwindle.liveMoveWorkspaceId)
+        XCTAssertNil(fixture.dwindle.interactiveMove)
+        mixedHistoryAssertCounts(fixture, index: 0, undo: 1, redo: 0)
+        mixedHistoryFocus(neighbor, index: 0, fixture)
+        XCTAssertEqual(fixture.controller.commandHandler.performCommand(.sizing(.undo)), .executed)
+        mixedHistoryCompleteLayout(fixture)
+        mixedHistoryAssertWorkspace(fixture, index: 0, tokens: [moved, neighbor], ratio: 1)
+        mixedHistoryAssertWorkspace(fixture, index: 1, tokens: [tokens[2]])
+        mixedHistoryAssertCounts(fixture, index: 0, undo: 0, redo: 1)
+    }
+
     func testNiriToDwindleCommandTransferUndoRedoFromSourceRestoresDeclaredPlacement() throws {
         let (fixture, tokens) = try mixedHistoryMakeFixture(sourceNiri: true)
         let blocker = blockMixedHistoryRefreshes(fixture)

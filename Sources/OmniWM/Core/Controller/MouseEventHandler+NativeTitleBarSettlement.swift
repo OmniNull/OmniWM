@@ -49,6 +49,11 @@ extension MouseEventHandler {
             return false
         case .dragging:
             drag.receivedFrameChange = true
+            if drag.canStartLiveDwindleDrag,
+               handleLiveDwindleDragFrameChange(&drag, entry: entry)
+            {
+                return true
+            }
             if handleLiveColumnDragFrameChange(&drag, entry: entry) {
                 return true
             }

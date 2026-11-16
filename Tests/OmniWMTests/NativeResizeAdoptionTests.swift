@@ -1770,13 +1770,13 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
     }
 
     func testNativeResizeRequiresAMovableDwindleEdgeRegardlessOfLegacySetting() throws {
-        let cases: [(LayoutType, Bool, (CGRect, CGFloat) -> CGRect)] = [
-            (.niri, true, { self.grown($0, right: $1) }),
-            (.dwindle, false, { self.grown($0, right: $1) }),
-            (.dwindle, true, { $0.offsetBy(dx: $1, dy: 0) }),
-            (.dwindle, true, { self.grown($0, left: $1) })
+        let cases: [(LayoutType, Bool, ResizeEdge, (CGRect, CGFloat) -> CGRect)] = [
+            (.niri, true, [], { self.grown($0, right: $1) }),
+            (.dwindle, false, .right, { self.grown($0, right: $1) }),
+            (.dwindle, true, .right, { $0.offsetBy(dx: $1, dy: 0) }),
+            (.dwindle, true, .left, { self.grown($0, left: $1) })
         ]
-        for (index, (layout, enabled, change)) in cases.enumerated() {
+        for (index, (layout, enabled, edge, change)) in cases.enumerated() {
             let fixture = try makeFixture(layout, pid: pid_t(834_091 + index))
             fixture.controller.settings.gestures.adoptNativeResize = enabled
             let blocker = blockRefreshes(fixture)
@@ -1784,10 +1784,11 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             let token = fixture.tokens[0]
             let before = try fixture.frames()
             let start = try fixture.frame(token)
-            try fixture.beginDrag(
-                token, at: layout == .dwindle && !enabled
-                    ? CGPoint(x: start.maxX - FrameTolerance.frameWrite, y: start.midY) : nil
+            let press = edge.isEmpty ? nil : CGPoint(
+                x: edge == .right ? start.maxX - FrameTolerance.frameWrite : start.minX + FrameTolerance.frameWrite,
+                y: start.midY
             )
+            try fixture.beginDrag(token, at: press)
             let worldSeq = fixture.manager.worldSeq
             let constraintRefreshEventCount: UInt64 = 1
 
@@ -1859,7 +1860,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
                 let worldSeq = fixture.manager.worldSeq
 
                 let start = try fixture.frame(fixture.tokens[0])
-                let press = layout == .niri && isMove
+                let press = isMove
                     ? CGPoint(x: start.maxX - FrameTolerance.frameWrite, y: start.midY)
                     : nil
                 try fixture.release(fixture.tokens[0], at: change(start), press: press)

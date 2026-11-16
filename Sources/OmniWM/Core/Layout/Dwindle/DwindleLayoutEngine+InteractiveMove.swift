@@ -70,27 +70,39 @@ extension DwindleLayoutEngine {
             interactiveMoveCancel()
             return nil
         }
+        return updateInteractiveMoveTarget(
+            move, source: source, currentLocation: currentLocation, at: time, workspaceFrame: workspaceFrame
+        ).token
+    }
+
+    func updateInteractiveMoveTarget(
+        _ move: DwindleInteractiveMove,
+        source: DwindleNode,
+        currentLocation: CGPoint,
+        at time: TimeInterval,
+        workspaceFrame: CGRect?
+    ) -> (token: WindowToken?, region: CGRect?) {
         guard isInteractiveMoveTargetValid(move) else {
             interactiveMoveCancel()
-            return nil
+            return (nil, nil)
         }
         if let workspaceFrame, !workspaceFrame.contains(currentLocation) {
             interactiveMove?.target = nil
-            return nil
+            return (nil, nil)
         }
         if move.allowsInsertion, let workspaceFrame,
            let direction = workspaceEdgeDirection(at: currentLocation, in: workspaceFrame, from: move.startLocation),
            canInsertAtWorkspaceEdge(token: move.token, in: move.workspaceId)
         {
             interactiveMove?.target = .workspaceEdge(direction, frame: workspaceFrame)
-            return nil
+            return (nil, nil)
         }
         if move.allowsInsertion,
            hypot(currentLocation.x - move.startLocation.x, currentLocation.y - move.startLocation.y) >= 10,
-           let target = splitBoundaryMoveTarget(at: currentLocation, for: move.token, in: move.workspaceId, time: time)
+           let hit = splitBoundaryMoveHit(at: currentLocation, for: move.token, in: move.workspaceId, time: time)
         {
-            interactiveMove?.target = target
-            return nil
+            interactiveMove?.target = hit.target
+            return (nil, hit.region)
         }
         let target = hitTestFocusableWindow(point: currentLocation, in: move.workspaceId, at: time)
             .flatMap { candidate -> WindowToken? in
@@ -105,7 +117,7 @@ extension DwindleLayoutEngine {
             direction = WindowMoveGeometry.insertionDirection(at: currentLocation, in: frame)
         }
         interactiveMove?.target = target.map { .tile($0, direction: direction) }
-        return target
+        return (target, nil)
     }
 
     func interactiveMoveTargetFrame(at time: TimeInterval) -> CGRect? {
@@ -127,6 +139,10 @@ extension DwindleLayoutEngine {
     func interactiveMoveEnd() -> WindowToken? {
         guard let move = interactiveMove else { return nil }
         interactiveMove = nil
+        return applyInteractiveMoveTarget(move)
+    }
+
+    func applyInteractiveMoveTarget(_ move: DwindleInteractiveMove) -> WindowToken? {
         if case let .workspaceEdge(direction, _) = move.target {
             return insertLeafTile(of: move.token, atWorkspaceEdge: direction, in: move.workspaceId) ? move.token : nil
         }

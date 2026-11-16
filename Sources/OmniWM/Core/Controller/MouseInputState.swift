@@ -60,6 +60,8 @@ struct MouseInputState {
         var liveDragDeclined = false
         var liveDragHandedOver = false
         var canStartLiveNiriDrag = false
+        var canStartLiveDwindleDrag = false
+        var dwindleLiveDrag = false
         var pointerWasDragged = false
         var pressLocation: CGPoint?
         var releaseLocation: CGPoint?
