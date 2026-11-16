@@ -8,6 +8,7 @@ extension MouseEventHandler {
     enum FusionDoubleClickLookup {
         case pending
         case done(FusionDoubleClickCandidate?)
+        case dwindle(DwindlePressHit?)
     }
 
     struct PressedStrip {
@@ -151,14 +152,21 @@ extension MouseEventHandler {
         guard let controller else { return }
         state.awaitsNativeTitleBarDragTarget = windowIdUnderPointer == nil
         state.nativeTitleBarDragFallbackReleased = false
-        let exactToken = nativeTitleBarDragCandidate(windowIdUnderPointer: windowIdUnderPointer)
+        let exact = nativeTitleBarDragCandidate(windowIdUnderPointer: windowIdUnderPointer)
+        let exactToken = exact?.token
         let focusIntentToken = exactToken ?? (windowIdUnderPointer == nil
             ? geometricFocusIntentCandidate(at: location, in: strip)
             : nil)
+        let layoutKind = if let exact, exact.workspaceId != strip.workspaceId {
+            controller.workspaceManager.activeLayoutKind(for: exact.workspaceId)
+        } else {
+            strip.layoutKind
+        }
         captureNativeCrossDisplayMove(for: focusIntentToken)
         captureNativeResizeStart(
             for: focusIntentToken,
             at: location,
+            layoutKind: layoutKind,
             windowServerFramesAtMouseDown: windowServerFramesAtMouseDown
         )
         if let token = focusIntentToken {

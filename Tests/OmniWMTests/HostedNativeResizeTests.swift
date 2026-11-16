@@ -186,11 +186,11 @@ final class HostedNativeResizeTests: XCTestCase {
         }
     }
 
-    func testDisabledDwindleNativeResizeKeepsTheExistingLayoutAndRequestsCorrection() throws {
-        for layout in [LayoutType.dwindle] {
-            let fixture = try fixture(layout, portrait: layout == .niri)
+    func testDwindleNativeResizeAdoptsTheSharedSplitWithEitherLegacySetting() throws {
+        for enabled in [false, true] {
+            let fixture = try fixture(.dwindle)
             defer { fixture.close() }
-            fixture.controller.settings.gestures.adoptNativeResize = false
+            fixture.controller.settings.gestures.adoptNativeResize = enabled
             let token = fixture.tokens[0]
             let window = fixture.windows[0]
             let before = try fixture.frames()
@@ -200,16 +200,23 @@ final class HostedNativeResizeTests: XCTestCase {
             fixture.controller.shellAppWindowManager.windowWillStartLiveResize(callback)
             var observed = start
             observed.size.width += initialContentSize.width
+            var expectedFrames = before
+            expectedFrames[token] = observed
+            let neighbor = fixture.tokens[1]
+            var neighborFrame = try XCTUnwrap(before[neighbor])
+            neighborFrame.origin.x += initialContentSize.width
+            neighborFrame.size.width -= initialContentSize.width
+            expectedFrames[neighbor] = neighborFrame
             window.setFrame(observed, display: false)
             fixture.controller.shellAppWindowManager.windowDidResize(callback)
 
             fixture.controller.shellAppWindowManager.windowDidEndLiveResize(callback)
 
-            XCTAssertEqual(try fixture.frames(), before)
+            XCTAssertEqual(try fixture.frames(), expectedFrames, "\(enabled)")
             XCTAssertEqual(
                 (fixture.controller.layoutRefreshController.layoutState.pendingRefresh
                     ?? fixture.controller.layoutRefreshController.layoutState.activeRefresh)?.affectedWorkspaceIds,
-                [fixture.workspace]
+                []
             )
             XCTAssertNil(fixture.controller.shellAppWindowManager.liveResizeStarts[token])
         }

@@ -7,12 +7,12 @@ import Foundation
 extension MouseEventHandler {
     func nativeTitleBarDragCandidate(
         windowIdUnderPointer: Int?
-    ) -> WindowToken? {
+    ) -> (token: WindowToken, workspaceId: WorkspaceDescriptor.ID)? {
         guard let windowIdUnderPointer,
               let entry = controller?.workspaceManager.entry(forWindowId: windowIdUnderPointer),
               entry.mode == .tiling, entry.axRef != nil
         else { return nil }
-        return entry.token
+        return (entry.token, entry.workspaceId)
     }
 
     func geometricFocusIntentCandidate(at location: CGPoint, in strip: PressedStrip) -> WindowToken? {
@@ -20,11 +20,15 @@ extension MouseEventHandler {
         let token: WindowToken?
         switch strip.layoutKind {
         case .dwindle:
-            token = controller.dwindleEngine?.hitTestFocusableWindow(
-                point: location,
-                in: strip.workspaceId,
-                at: controller.animationClock.now()
-            )
+            if case let .dwindle(hit) = strip.doubleClick {
+                token = hit?.token
+            } else {
+                token = controller.dwindleEngine?.hitTestFocusableWindow(
+                    point: location,
+                    in: strip.workspaceId,
+                    at: controller.animationClock.now()
+                )
+            }
         case .niri:
             token = controller.niriEngine?.hitTestFocusableWindow(
                 point: location,
@@ -218,7 +222,8 @@ extension MouseEventHandler {
         controller.axManager.beginNativeTitleBarDrag(for: drag.token)
 
         guard hadUnsettledFrameWrite,
-              controller.settings.gestures.adoptNativeResize,
+              controller.settings.gestures.adoptNativeResize
+              || controller.workspaceManager.activeLayoutKind(for: dragged.workspaceId) == .dwindle,
               !pendingFrameChangesSize,
               let startFrame,
               let entry = controller.workspaceManager.entry(for: drag.token),

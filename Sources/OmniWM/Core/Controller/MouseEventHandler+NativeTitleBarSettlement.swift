@@ -77,8 +77,7 @@ extension MouseEventHandler {
     ) -> Bool {
         drag.receivedFrameChange = true
         if drag.dwindleResizeWorkspaceId != nil
-            || (controller?.settings.gestures.adoptNativeResize == true
-                && controller?.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .dwindle)
+            || controller?.isNiriStrip(entry.workspaceId) == false
         {
             updateNativeDwindleResize(
                 &drag,
@@ -117,8 +116,7 @@ extension MouseEventHandler {
         if released {
             if settleNativeCrossDisplayMoveIfNeeded(entry, observedFrame: observedFrame) { return true }
             if let pendingFrame = controller.axManager.pendingFrameWrite(for: entry.windowId),
-               !keepsBaseline || !(controller.settings.gestures.adoptNativeResize || onNiriStrip)
-               || controller.axManager.hasInFlightFrameWrite(for: entry.token)
+               !keepsBaseline || controller.axManager.hasInFlightFrameWrite(for: entry.token)
             {
                 awaitNativeTitleBarDragFrameWrite(
                     pendingFrame,

@@ -57,10 +57,16 @@ extension MouseEventHandler {
     ) {
         var armed = false
         if clickCount == 1, Self.takesFusionDoubleClick(modifiers), let pressed = strip {
-            let candidate = lookUpFusionDoubleClickCandidate(at: location, in: pressed)
-            armed = candidate != nil
-            if pressed.hasEdgePeeks {
-                strip?.doubleClick = .done(candidate)
+            if pressed.layoutKind == .dwindle {
+                let hit = dwindlePressHit(at: location, in: pressed.workspaceId)
+                strip?.doubleClick = .dwindle(hit)
+                armed = hit?.zone == .titleBar
+            } else {
+                let candidate = lookUpFusionDoubleClickCandidate(at: location, in: pressed)
+                armed = candidate != nil
+                if pressed.hasEdgePeeks {
+                    strip?.doubleClick = .done(candidate)
+                }
             }
         }
         let armedAt: CGPoint? = armed ? location : nil
@@ -72,8 +78,15 @@ extension MouseEventHandler {
         guard Self.takesFusionDoubleClick(modifiers),
               !isInputSuppressed,
               !shouldBlockOwnWindowInput(at: location),
-              let target = fusionDoubleClickTarget(at: location)
+              !state.isMoving, !state.isResizing,
+              tapInputs.capturedInteractionButton == nil,
+              liveDragSession?.tabPull == nil,
+              let strip = pressedStrip(at: location)
         else { return false }
+        if strip.layoutKind == .dwindle {
+            return handleDwindleDoubleClick(at: location, in: strip.workspaceId)
+        }
+        guard let target = fusionDoubleClickTarget(at: location, in: strip) else { return false }
         clearNativeTitleBarDrag()
         controller?.noteUserAction()
         performFusionDoubleClick(on: target)
@@ -126,12 +139,8 @@ extension MouseEventHandler {
         )
     }
 
-    private func fusionDoubleClickTarget(at location: CGPoint) -> FusionDoubleClickTarget? {
-        guard !state.isMoving, !state.isResizing,
-              tapInputs.capturedInteractionButton == nil,
-              liveDragSession?.tabPull == nil,
-              let strip = pressedStrip(at: location),
-              let candidate = lookUpFusionDoubleClickCandidate(at: location, in: strip),
+    private func fusionDoubleClickTarget(at location: CGPoint, in strip: PressedStrip) -> FusionDoubleClickTarget? {
+        guard let candidate = lookUpFusionDoubleClickCandidate(at: location, in: strip),
               let handle = controller?.workspaceManager.handle(for: candidate.hit.window.token),
               let column = candidate.engine.column(of: candidate.hit.window)
         else { return nil }

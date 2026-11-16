@@ -97,7 +97,7 @@ final class InputTapThreadTests: XCTestCase {
     }
 
     @MainActor
-    func testNativeResizeCapturesWindowFramesOnlyForEnabledUnmodifiedClicks() {
+    func testNativeResizeCapturesEachUnmodifiedClickRegardlessOfLegacySetting() {
         let controller = makeController()
         controller.settings.gestures.mouseMoveModifierKey = .option
         let handler = controller.mouseEventHandler
@@ -114,19 +114,15 @@ final class InputTapThreadTests: XCTestCase {
             }
         }
 
-        click()
-        XCTAssertEqual(captures, 0)
-
-        controller.settings.gestures.adoptNativeResize = true
-        click(modifiers: .maskCommand)
-        XCTAssertEqual(captures, 0)
-
-        click()
-        XCTAssertEqual(captures, 1)
-
-        controller.settings.gestures.adoptNativeResize = false
-        click()
-        XCTAssertEqual(captures, 1)
+        for enabled in [false, true, false] {
+            controller.settings.gestures.adoptNativeResize = enabled
+            XCTAssertTrue(tap.filterSnapshot.adoptNativeResize)
+            let before = captures
+            click(modifiers: .maskCommand)
+            XCTAssertEqual(captures, before)
+            click()
+            XCTAssertEqual(captures, before + 1)
+        }
     }
 
     @MainActor

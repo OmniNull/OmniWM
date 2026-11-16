@@ -6,17 +6,20 @@ import Foundation
 
 extension MouseEventHandler {
     func captureNativeResizeStart(
-        for token: WindowToken?, at location: CGPoint, windowServerFramesAtMouseDown: [WindowToken: CGRect]?
+        for token: WindowToken?, at location: CGPoint, layoutKind: ActiveLayoutKind,
+        windowServerFramesAtMouseDown: [WindowToken: CGRect]?
     ) {
         state.nativeResizeStart = nil
-        guard let controller,
-              controller.settings.gestures.adoptNativeResize,
-              let token,
+        guard let controller else { return }
+        let keepsNativeResize = controller.settings.gestures.adoptNativeResize
+        if !keepsNativeResize, layoutKind == .niri { return }
+        guard let token,
               let entry = controller.workspaceManager.entry(for: token),
               let axRef = entry.axRef,
               entry.layoutReason == .standard,
               !controller.axManager.hasInFlightFrameWrite(for: token),
-              let frame = controller.axManager.lastAppliedFrame(for: token.windowId)
+              let frame = controller.axManager.lastAppliedFrame(for: token.windowId),
+              keepsNativeResize || Self.isNativeResizePress(at: location, in: frame)
         else { return }
         let observedFrame = if let windowServerFramesAtMouseDown {
             windowServerFramesAtMouseDown[token].map(ScreenCoordinateSpace.toAppKit(rect:))
@@ -79,7 +82,7 @@ extension MouseEventHandler {
               entry.hiddenState == nil else { return false }
         let niri = controller.isNiriStrip(entry.workspaceId)
         let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: true)
-        guard !edges.isEmpty, controller.settings.gestures.adoptNativeResize || niri,
+        guard !edges.isEmpty,
               niri || !edges.contains([.left, .right]) && !edges.contains([.top, .bottom])
         else { return false }
         if controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri {
@@ -328,7 +331,6 @@ extension MouseEventHandler {
               controller.workspaceManager.activeLayoutKind(for: workspaceId) == .dwindle,
               drag.dwindleResizeWorkspaceId == nil || drag.dwindleResizeWorkspaceId == workspaceId,
               let monitor = controller.workspaceManager.monitor(for: workspaceId),
-              controller.settings.gestures.adoptNativeResize,
               let start = nativeResizeStartFrame(drag, entry: entry)
         else {
             finishNativeDwindleResize(&drag)

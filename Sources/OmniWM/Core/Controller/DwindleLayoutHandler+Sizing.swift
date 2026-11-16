@@ -24,21 +24,43 @@ extension DwindleLayoutHandler {
         guard let controller else { return }
         withDwindleContext { engine, wsId in
             if let token = engine.toggleFullscreen(in: wsId) {
-                recordLayoutOperation(.fullscreenToggled(token: token), in: wsId)
-                _ = controller.workspaceManager.applySessionPatch(
-                    .init(
-                        workspaceId: wsId,
-                        viewportState: nil,
-                        rememberedFocusToken: token,
-                        plannedSeq: controller.workspaceManager.worldSeq
-                    )
-                )
-                controller.layoutRefreshController.requestLayoutCommandRelayout(
-                    affectedWorkspaceIds: [wsId],
-                    postLayout: controller.focusWindowAfterLayout(token, in: wsId)
-                )
+                completeFullscreenToggle(for: token, in: wsId, controller: controller)
             }
         }
+    }
+
+    @discardableResult
+    func toggleFullscreen(for token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let controller, let engine = controller.dwindleEngine,
+              controller.workspaceManager.activeLayoutKind(for: workspaceId) == .dwindle,
+              let monitor = controller.workspaceManager.monitor(for: workspaceId)
+        else { return false }
+        return controller.workspaceManager.withEngineMutationScope(in: workspaceId, source: .mouse) {
+            applyResolvedSettings(controller.resolvedDwindleSettings(for: monitor), to: engine)
+            guard engine.toggleFullscreen(for: token, in: workspaceId) else { return false }
+            completeFullscreenToggle(for: token, in: workspaceId, controller: controller)
+            return true
+        }
+    }
+
+    private func completeFullscreenToggle(
+        for token: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID,
+        controller: WMController
+    ) {
+        recordLayoutOperation(.fullscreenToggled(token: token), in: workspaceId)
+        _ = controller.workspaceManager.applySessionPatch(
+            .init(
+                workspaceId: workspaceId,
+                viewportState: nil,
+                rememberedFocusToken: token,
+                plannedSeq: controller.workspaceManager.worldSeq
+            )
+        )
+        controller.layoutRefreshController.requestLayoutCommandRelayout(
+            affectedWorkspaceIds: [workspaceId],
+            postLayout: controller.focusWindowAfterLayout(token, in: workspaceId)
+        )
     }
 
     func cycleSize(forward: Bool) {

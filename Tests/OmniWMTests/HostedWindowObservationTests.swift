@@ -204,9 +204,11 @@ final class HostedWindowObservationTests: XCTestCase {
         XCTAssertNil(controller.mouseEventHandler.nativeTitleBarDragCandidate(
             windowIdUnderPointer: hostedToken.windowId
         ))
-        XCTAssertEqual(controller.mouseEventHandler.nativeTitleBarDragCandidate(
+        let candidate = try XCTUnwrap(controller.mouseEventHandler.nativeTitleBarDragCandidate(
             windowIdUnderPointer: externalToken.windowId
-        ), externalToken)
+        ))
+        XCTAssertEqual(candidate.token, externalToken)
+        XCTAssertEqual(candidate.workspaceId, workspace)
     }
 
     private func makeController(operations: @escaping (String) -> Void = { _ in }) -> WMController {
