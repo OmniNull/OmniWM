@@ -676,42 +676,172 @@ final class NiriLiveStackModeTests: XCTestCase {
         XCTAssertTrue(fixture.engine.isLiveDraggedColumn(tabbed))
     }
 
-    func testAHeightSpringStartsAtTheOldHeightAndSettlesAtTheNewOne() {
+    func testAHeightSpringStartsAtTheOldHeightAndSettlesAtTheNewOne() throws {
         let window = NiriWindow(token: WindowToken(pid: 943, windowId: 1))
-        window.animateHeightFrom(delta: 120, clock: nil, animated: true)
-        let now = CACurrentMediaTime()
+        let delta: CGFloat = 120
+        window.animateHeightFrom(delta: delta, clock: nil, animated: true)
+        let spring = try XCTUnwrap(window.heightAnimation).animation
 
-        XCTAssertEqual(window.renderHeightOffset(at: now), 120, accuracy: 1)
+        XCTAssertEqual(window.renderHeightOffset(at: spring.startTime), delta)
         XCTAssertTrue(window.hasMoveAnimationsRunning)
-        XCTAssertEqual(window.renderHeightOffset(at: now + 10), 0, accuracy: 0.5)
-        XCTAssertFalse(window.tickMoveAnimations(at: now + 10))
+        XCTAssertEqual(window.renderHeightOffset(at: .infinity), 0)
+        XCTAssertFalse(window.tickMoveAnimations(at: .infinity))
         XCTAssertNil(window.heightAnimation)
 
-        window.animateHeightFrom(delta: 120, clock: nil, animated: false)
+        window.animateHeightFrom(delta: delta, clock: nil, animated: false)
         XCTAssertNil(window.heightAnimation)
-        XCTAssertEqual(window.renderHeightOffset(at: now), 0)
+        XCTAssertEqual(window.renderHeightOffset(at: spring.startTime), 0)
     }
 
-    func testAHeightSpringRestartedFromAPredictedLayoutStartsFromTheDrawnHeight() {
+    func testAHeightSpringRestartedFromAPredictedLayoutStartsFromTheDrawnHeight() throws {
         let fixture = makeFixture(widths: [0.5], activeIndex: 0)
         let window = fixture.window(0)
         let token = fixture.tokens[0]
-        window.animateHeightFrom(delta: 120, clock: nil, animated: true)
-        let now = CACurrentMediaTime()
-        let drawn = CGRect(x: 0, y: 0, width: 400, height: 500 + window.renderHeightOffset(at: now))
+        let delta: CGFloat = 120
+        window.animateHeightFrom(delta: delta, clock: nil, animated: true)
+        let previous = try XCTUnwrap(window.heightAnimation)
+        let now = previous.animation.startTime
+        let drawn = CGRect(x: 0, y: 0, width: 400, height: 500 + delta)
         let predicted = CGRect(x: 0, y: 0, width: 400, height: 400)
 
-        let newFrames = fixture.engine.framesIncludingHeightAnimations(
+        let newFrames = fixture.engine.framesIncludingSizeAnimations(
             [token: predicted], in: fixture.workspaceId, at: now
         )
-        XCTAssertTrue(fixture.engine.animateFilledHeightChanges(
+        XCTAssertEqual(newFrames, [token: CGRect(
+            x: predicted.minX, y: predicted.minY, width: predicted.width, height: predicted.height + delta
+        )])
+        XCTAssertTrue(fixture.engine.animateFilledSizeChanges(
             in: fixture.workspaceId,
             oldFrames: [token: drawn],
             newFrames: newFrames,
-            motion: .enabled
+            motion: .enabled,
+            orientation: .horizontal
         ))
 
-        XCTAssertEqual(window.renderHeightOffset(at: now), drawn.height - predicted.height, accuracy: 3)
+        let restarted = try XCTUnwrap(window.heightAnimation)
+        let expected = drawn.height - (predicted.height + delta)
+            + previous.currentOffset(at: restarted.animation.startTime)
+        XCTAssertEqual(window.renderHeightOffset(at: restarted.animation.startTime), expected)
+        XCTAssertEqual(window.renderHeightOffset(at: .infinity), 0)
+    }
+
+    func testWidthRetargetKeepsTheDrawnWidthAndPreservesTheHeightSpring() throws {
+        let window = NiriWindow(token: WindowToken(pid: 943, windowId: 2))
+        let heightDelta: CGFloat = 80
+        let widthDelta: CGFloat = 120
+        let nextDelta: CGFloat = -40
+        window.animateHeightFrom(delta: heightDelta, clock: nil, animated: true)
+        let height = try XCTUnwrap(window.heightAnimation)
+        window.animateWidthFrom(delta: widthDelta, clock: nil, animated: true)
+        let previous = try XCTUnwrap(window.widthAnimation)
+        XCTAssertEqual(window.renderWidthOffset(at: previous.animation.startTime), widthDelta)
+        XCTAssertTrue(window.tickMoveAnimations(at: previous.animation.startTime))
+
+        window.animateWidthFrom(delta: nextDelta, clock: nil, animated: true)
+
+        let retargeted = try XCTUnwrap(window.widthAnimation)
+        let start = retargeted.animation.startTime
+        XCTAssertEqual(window.renderWidthOffset(at: start), nextDelta + previous.currentOffset(at: start))
+        let expectedVelocity = previous.currentVelocity(at: start)
+        let expectedSpring = SpringAnimation(
+            from: 1, to: 0, initialVelocity: expectedVelocity, startTime: start, config: .default
+        )
+        XCTAssertEqual(retargeted.currentVelocity(at: start), expectedSpring.velocity(at: start))
+        XCTAssertTrue(try XCTUnwrap(window.heightAnimation).animation === height.animation)
+        XCTAssertEqual(window.renderHeightOffset(at: start), height.currentOffset(at: start))
+        XCTAssertTrue(window.hasAnyAnimationRunning)
+        XCTAssertEqual(window.renderWidthOffset(at: .infinity), 0)
+        XCTAssertEqual(window.renderHeightOffset(at: .infinity), 0)
+        XCTAssertFalse(window.tickMoveAnimations(at: .infinity))
+        XCTAssertFalse(window.hasMoveAnimationsRunning)
+        XCTAssertNil(window.widthAnimation)
+        XCTAssertNil(window.heightAnimation)
+    }
+
+    func testSizeSpringsCanStopIndependentlyAndRestartAfterBothStop() throws {
+        let fixture = makeFixture(widths: [0.5], activeIndex: 0)
+        let window = fixture.window(0)
+        let delta = fixture.gap
+        window.animateHeightFrom(delta: delta, clock: nil, animated: true)
+        window.animateWidthFrom(delta: delta, clock: nil, animated: true)
+        let height = try XCTUnwrap(window.heightAnimation)
+
+        window.animateWidthFrom(delta: delta, clock: nil, animated: false)
+
+        XCTAssertNil(window.widthAnimation)
+        XCTAssertTrue(try XCTUnwrap(window.heightAnimation).animation === height.animation)
+        XCTAssertEqual(window.renderHeightOffset(at: height.animation.startTime), delta)
+        XCTAssertTrue(window.hasAnyAnimationRunning)
+        window.animateWidthFrom(delta: delta, clock: nil, animated: true)
+        let width = try XCTUnwrap(window.widthAnimation)
+
+        window.animateHeightFrom(delta: delta, clock: nil, animated: false)
+
+        XCTAssertNil(window.heightAnimation)
+        XCTAssertTrue(try XCTUnwrap(window.widthAnimation).animation === width.animation)
+        XCTAssertEqual(window.renderWidthOffset(at: width.animation.startTime), delta)
+        XCTAssertTrue(window.hasAnyAnimationRunning)
+        XCTAssertFalse(window.tickMoveAnimations(at: .infinity))
+        XCTAssertNil(window.heightAnimation)
+        XCTAssertNil(window.widthAnimation)
+        window.animateHeightFrom(delta: delta, clock: nil, animated: true)
+        let restarted = try XCTUnwrap(window.heightAnimation)
+        XCTAssertEqual(window.renderHeightOffset(at: restarted.animation.startTime), delta)
+        XCTAssertNil(window.widthAnimation)
+        window.stopMoveAnimations()
+        XCTAssertFalse(window.hasAnyAnimationRunning)
+    }
+
+    func testWidthAnimationRendersActualWidthAndStopsWithWindowMotion() throws {
+        let window = NiriWindow(token: WindowToken(pid: 943, windowId: 3))
+        let settled = CGRect(x: 20, y: 30, width: 400, height: 500)
+        let oldWidth = settled.width / 2
+        let bounds = CGRect(x: 0, y: 0, width: 900, height: 1600)
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            window.animateWidthFrom(delta: oldWidth - settled.width, clock: nil, animated: true)
+            let spring = try XCTUnwrap(window.widthAnimation).animation
+            let start = window.animatedFrame(
+                from: settled, within: bounds, at: spring.startTime, orientation: orientation
+            )
+            XCTAssertEqual(start, CGRect(x: settled.minX, y: settled.minY, width: oldWidth, height: settled.height))
+            XCTAssertEqual(
+                window.animatedFrame(from: settled, within: bounds, at: .infinity, orientation: orientation),
+                settled
+            )
+            window.stopMoveAnimations()
+            XCTAssertFalse(window.hasAnyAnimationRunning)
+            XCTAssertNil(window.widthAnimation)
+        }
+        window.animateWidthFrom(delta: oldWidth - settled.width, clock: nil, animated: true)
+        window.animateWidthFrom(delta: oldWidth - settled.width, clock: nil, animated: false)
+        XCTAssertNil(window.widthAnimation)
+        XCTAssertFalse(window.hasAnyAnimationRunning)
+    }
+
+    func testDisablingTabMotionClearsSpringsEvenWhenTheTabHasNoDisplacement() {
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            let fixture = makeFixture(widths: [0.5], activeIndex: 0)
+            let window = fixture.window(0)
+            let delta = fixture.gap
+            window.animateMoveFrom(displacement: CGPoint(x: delta, y: delta), clock: nil, animated: true)
+            window.animateHeightFrom(delta: delta, clock: nil, animated: true)
+            window.animateWidthFrom(delta: delta, clock: nil, animated: true)
+            XCTAssertTrue(window.hasAnyAnimationRunning)
+
+            XCTAssertTrue(fixture.engine.setColumnDisplay(
+                .tabbed,
+                for: fixture.column(0),
+                in: fixture.workspaceId,
+                motion: .disabled,
+                orientation: orientation
+            ))
+
+            XCTAssertFalse(window.hasAnyAnimationRunning)
+            XCTAssertNil(window.moveXAnimation)
+            XCTAssertNil(window.moveYAnimation)
+            XCTAssertNil(window.heightAnimation)
+            XCTAssertNil(window.widthAnimation)
+        }
     }
 
     func testAWindowThatBecomesTiledGlidesFromWhereItWasIntoItsSlot() {

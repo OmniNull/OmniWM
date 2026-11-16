@@ -77,6 +77,9 @@ extension NiriWindow {
         if heightAnimation != nil {
             offsetFrame.size.height = max(1, offsetFrame.height + renderHeightOffset(at: time))
         }
+        if widthAnimation != nil {
+            offsetFrame.size.width = max(1, offsetFrame.width + renderWidthOffset(at: time))
+        }
         switch orientation {
         case .horizontal:
             let minY = containerRect.minY

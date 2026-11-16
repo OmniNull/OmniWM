@@ -345,13 +345,14 @@ extension NiriLayoutHandler {
             newFrames: newFrames,
             motion: pass.motion
         )
-        let heightsTriggered = pass.engine.animateFilledHeightChanges(
+        let sizesTriggered = pass.engine.animateFilledSizeChanges(
             in: pass.wsId,
             oldFrames: oldFrames,
             newFrames: newFrames,
-            motion: pass.motion
+            motion: pass.motion,
+            orientation: pass.orientation
         )
-        let animationsTriggered = movesTriggered || heightsTriggered
+        let animationsTriggered = movesTriggered || sizesTriggered
         let hasWindowAnimations = pass.engine.hasAnyWindowAnimationsRunning(in: pass.wsId)
         let hasColumnAnimations = pass.engine.hasAnyColumnAnimationsRunning(in: pass.wsId)
         return animationsTriggered || hasWindowAnimations || hasColumnAnimations
@@ -365,12 +366,12 @@ extension NiriLayoutHandler {
         let newFrames = pass.engine.captureWindowFrames(in: pass.wsId, excluding: excludedTokens)
         var moved = false
         for (token, oldFrame) in oldFrames {
-            guard let newFrame = newFrames[token],
-                  abs(oldFrame.minY - newFrame.minY) > 1,
-                  let window = pass.engine.findNode(for: token, in: pass.wsId)
-            else { continue }
+            guard let newFrame = newFrames[token] else { continue }
+            let shift = pass.orientation == .horizontal
+                ? oldFrame.minY - newFrame.minY : oldFrame.minX - newFrame.minX
+            guard abs(shift) > 1, let window = pass.engine.findNode(for: token, in: pass.wsId) else { continue }
             window.animateMoveFrom(
-                displacement: CGPoint(x: 0, y: oldFrame.minY - newFrame.minY),
+                displacement: pass.orientation == .horizontal ? CGPoint(x: 0, y: shift) : CGPoint(x: shift, y: 0),
                 clock: pass.engine.animationClock,
                 config: pass.motion.scaled(pass.engine.windowMovementAnimationConfig),
                 displayRefreshRate: pass.engine.displayRefreshRate(in: pass.wsId),
@@ -378,11 +379,12 @@ extension NiriLayoutHandler {
             )
             moved = true
         }
-        let resized = pass.engine.animateFilledHeightChanges(
+        let resized = pass.engine.animateFilledSizeChanges(
             in: pass.wsId,
             oldFrames: oldFrames,
             newFrames: newFrames,
-            motion: pass.motion
+            motion: pass.motion,
+            orientation: pass.orientation
         )
         return moved || resized
     }

@@ -405,7 +405,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         }
     }
 
-    func testPortraitMixedCornerResizesStillRequireKeepNativeEdgeResizes() throws {
+    func testPortraitMixedCornerResizesAdoptWithEitherLegacySetting() throws {
         for (index, enabled) in [false, true].enumerated() {
             let fixture = try makeFixture(.niri, stacked: true, portrait: true, pid: pid_t(836_431 + index))
             fixture.controller.settings.gestures.adoptNativeResize = enabled
@@ -418,32 +418,195 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
             let widthGrowth = start.width / 8
             let heightGrowth = start.height / 8
 
-            try fixture.release(left, at: grown(start, right: widthGrowth, top: heightGrowth))
+            let press = CGPoint(x: start.maxX - FrameTolerance.frameWrite, y: start.maxY - FrameTolerance.frameWrite)
+            let drag = try beginEdgeDrag(
+                fixture, of: left, at: press,
+                draggedTo: CGPoint(
+                    x: (press.x + FrameTolerance.frameWrite).nextUp,
+                    y: (press.y + FrameTolerance.frameWrite).nextUp
+                )
+            )
+            XCTAssertTrue(try report(grown(start, right: widthGrowth, top: heightGrowth), for: drag, in: fixture))
+            XCTAssertEqual(try fixture.frames(), before)
+            fixture.handler.dispatchMouseUp(at: CGPoint(x: press.x + widthGrowth, y: press.y + heightGrowth))
 
-            if enabled {
-                XCTAssertEqual(
-                    try fixture.frame(left).width,
-                    start.width + widthGrowth,
-                    accuracy: FrameTolerance.frameWrite
-                )
-                XCTAssertEqual(
-                    try fixture.frame(right).width,
-                    try XCTUnwrap(before[right]).width - widthGrowth,
-                    accuracy: FrameTolerance.frameWrite
-                )
-            } else {
-                XCTAssertEqual(try fixture.frames(), before)
-            }
+            XCTAssertEqual(
+                try fixture.frame(left).width,
+                start.width + widthGrowth,
+                accuracy: FrameTolerance.frameWrite
+            )
+            XCTAssertEqual(
+                try fixture.frame(left).height,
+                start.height + heightGrowth,
+                accuracy: FrameTolerance.frameWrite
+            )
+            XCTAssertEqual(try fixture.frame(left).minY, start.minY, accuracy: FrameTolerance.frameWrite)
+            XCTAssertEqual(
+                try fixture.frame(right).width,
+                try XCTUnwrap(before[right]).width - widthGrowth,
+                accuracy: FrameTolerance.frameWrite
+            )
             XCTAssertEqual(fixture.phase, .awaitingCorrection)
+            fixture.handler.retireNativeTitleBarDragAtInputBoundary()
+            fixture.manager.withNiriViewportState(for: fixture.workspaceId) { state in
+                state.jumpOffset(to: state.viewOffset - 2 * heightGrowth)
+            }
             let beforeCentred = try fixture.frames()
             try fixture.confirmLayout()
-
-            try fixture.release(
-                left,
-                at: try XCTUnwrap(beforeCentred[left]).insetBy(dx: -widthGrowth, dy: -heightGrowth)
+            let centredStart = try XCTUnwrap(beforeCentred[left])
+            let workingFrame = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+            let gap = fixture.controller.innerGap(for: fixture.monitor)
+            XCTAssertGreaterThanOrEqual(centredStart.minY - heightGrowth, workingFrame.minY + gap)
+            XCTAssertLessThanOrEqual(centredStart.maxY + heightGrowth, workingFrame.maxY - gap)
+            let centredPress = CGPoint(
+                x: centredStart.maxX - FrameTolerance.frameWrite,
+                y: centredStart.maxY - FrameTolerance.frameWrite
             )
+            let centredDrag = try beginEdgeDrag(
+                fixture, of: left, at: centredPress,
+                draggedTo: CGPoint(
+                    x: (centredPress.x + FrameTolerance.frameWrite).nextUp,
+                    y: (centredPress.y + FrameTolerance.frameWrite).nextUp
+                )
+            )
+            XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame, centredStart)
+            XCTAssertTrue(try report(
+                centredStart.insetBy(dx: -widthGrowth, dy: -heightGrowth), for: centredDrag, in: fixture
+            ))
+            fixture.handler.dispatchMouseUp(at: CGPoint(
+                x: centredPress.x + widthGrowth, y: centredPress.y + heightGrowth
+            ))
 
-            XCTAssertEqual(try fixture.frames(), beforeCentred)
+            XCTAssertEqual(
+                try fixture.frame(left).width, centredStart.width + widthGrowth, accuracy: FrameTolerance.frameWrite
+            )
+            XCTAssertEqual(
+                try fixture.frame(left).height, centredStart.height + 2 * heightGrowth,
+                accuracy: FrameTolerance.frameWrite
+            )
+            XCTAssertEqual(try fixture.frame(left).midY, centredStart.midY, accuracy: FrameTolerance.frameWrite)
+            XCTAssertEqual(
+                try fixture.frame(right).width,
+                try XCTUnwrap(beforeCentred[right]).width - widthGrowth,
+                accuracy: FrameTolerance.frameWrite
+            )
+        }
+    }
+
+    func testPortraitSecondaryEdgesAdoptWithoutTheLegacySettingAndPreserveTheirOuterEdges() throws {
+        for (index, leading) in [false, true].enumerated() {
+            let fixture = try makeFixture(.niri, stacked: true, portrait: true, pid: pid_t(836_451 + index))
+            fixture.controller.settings.gestures.adoptNativeResize = false
+            fixture.controller.motionPolicy.animationsEnabled = false
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let (left, right) = try stackedLeftAndRight(fixture)
+            let token = leading ? right : left
+            let mate = leading ? left : right
+            let before = try fixture.frames()
+            let start = try XCTUnwrap(before[token])
+            let mateStart = try XCTUnwrap(before[mate])
+            let growth = min(start.width, mateStart.width) / 8
+            let direction: CGFloat = leading ? -1 : 1
+            let press = CGPoint(
+                x: leading ? start.minX + FrameTolerance.frameWrite : start.maxX - FrameTolerance.frameWrite,
+                y: start.midY
+            )
+            let drag = try beginEdgeDrag(
+                fixture, of: token, at: press,
+                draggedTo: CGPoint(
+                    x: leading ? (press.x - FrameTolerance.frameWrite).nextDown
+                        : (press.x + FrameTolerance.frameWrite).nextUp,
+                    y: press.y
+                )
+            )
+            let observed = leading ? grown(start, left: growth) : grown(start, right: growth)
+            XCTAssertTrue(try report(observed, for: drag, in: fixture))
+            XCTAssertEqual(try fixture.frames(), before)
+
+            fixture.handler.dispatchMouseUp(at: CGPoint(x: press.x + direction * growth, y: press.y))
+
+            let adopted = try fixture.frame(token)
+            let neighbor = try fixture.frame(mate)
+            XCTAssertEqual(adopted.width, start.width + growth, accuracy: FrameTolerance.frameWrite)
+            XCTAssertEqual(neighbor.width, mateStart.width - growth, accuracy: FrameTolerance.frameWrite)
+            XCTAssertEqual(
+                leading ? adopted.maxX : adopted.minX,
+                leading ? start.maxX : start.minX,
+                accuracy: FrameTolerance.frameWrite
+            )
+            XCTAssertEqual(
+                leading ? neighbor.minX : neighbor.maxX,
+                leading ? mateStart.minX : mateStart.maxX,
+                accuracy: FrameTolerance.frameWrite
+            )
+            XCTAssertEqual(adopted.height, start.height, accuracy: FrameTolerance.frameWrite)
+            XCTAssertEqual(fixture.phase, .awaitingCorrection)
+            XCTAssertEqual(fixture.controller.axManager.lastAppliedFrame(for: token.windowId), start)
+        }
+    }
+
+    func testPortraitSecondaryPartialAndLateReportsCompleteAtReleaseAndUndoBothWidths() throws {
+        for (index, reportBeforeRelease) in [false, true].enumerated() {
+            let fixture = try makeFixture(.niri, stacked: true, portrait: true, pid: pid_t(836_461 + index))
+            fixture.controller.settings.gestures.adoptNativeResize = false
+            fixture.controller.motionPolicy.animationsEnabled = false
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let (token, mate) = try stackedLeftAndRight(fixture)
+            let before = try fixture.frames()
+            let start = try XCTUnwrap(before[token])
+            let mateStart = try XCTUnwrap(before[mate])
+            let oldWidth = try fixture.niriNode(token).windowWidth
+            let oldMateWidth = try fixture.niriNode(mate).windowWidth
+            let asked = min(start.width, mateStart.width) / 4
+            let arrived = AXRecentFrameWriteFailure.maxAcceptedSizeSnap
+            XCTAssertGreaterThan(asked - arrived, AXRecentFrameWriteFailure.maxAcceptedSizeSnap)
+            let press = CGPoint(x: start.maxX - FrameTolerance.frameWrite, y: start.midY)
+            let drag = try beginEdgeDrag(
+                fixture, of: token, at: press,
+                draggedTo: CGPoint(x: (press.x + FrameTolerance.frameWrite).nextUp, y: press.y)
+            )
+            let shown = grown(start, right: arrived)
+            if reportBeforeRelease {
+                XCTAssertTrue(try report(shown, for: drag, in: fixture))
+                XCTAssertEqual(try fixture.frames(), before)
+            }
+            fixture.handler.dispatchMouseUp(at: CGPoint(x: press.x + asked, y: press.y))
+            if !reportBeforeRelease {
+                XCTAssertEqual(fixture.phase, .awaitingFrameChange)
+                fixture.controller.axManager.applyFramesParallel([
+                    AXFrameApplicationTarget(
+                        pid: token.pid, window: try XCTUnwrap(fixture.entry(token).axRef),
+                        frame: start.offsetBy(dx: arrived, dy: 0)
+                    )
+                ])
+                XCTAssertTrue(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
+                XCTAssertTrue(try report(shown, for: drag, in: fixture))
+            }
+            let finished = try fixture.frames()
+            XCTAssertEqual(
+                try XCTUnwrap(finished[token]).width,
+                start.width + asked,
+                accuracy: FrameTolerance.frameWrite
+            )
+            XCTAssertEqual(
+                try XCTUnwrap(finished[mate]).width,
+                mateStart.width - asked,
+                accuracy: FrameTolerance.frameWrite
+            )
+            XCTAssertEqual(try XCTUnwrap(finished[token]).height, start.height, accuracy: FrameTolerance.frameWrite)
+            XCTAssertEqual(fixture.phase, .awaitingCorrection)
+            XCTAssertEqual(fixture.controller.axManager.lastAppliedFrame(for: token.windowId), start)
+            for later in [arrived + (asked - arrived) / 2, asked] {
+                XCTAssertTrue(try report(grown(start, right: later), for: drag, in: fixture))
+                XCTAssertEqual(try fixture.frames(), finished)
+            }
+            XCTAssertTrue(undo(fixture))
+            XCTAssertEqual(try fixture.frames(), before)
+            XCTAssertEqual(try fixture.niriNode(token).windowWidth, oldWidth)
+            XCTAssertEqual(try fixture.niriNode(mate).windowWidth, oldMateWidth)
+            XCTAssertFalse(undo(fixture))
         }
     }
 
@@ -729,6 +892,7 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
 
     func testOnAPortraitStripAStackedEdgeSetsTheExactWidth() throws {
         let fixture = try makeFixture(.niri, stacked: true, portrait: true, pid: 834_013)
+        fixture.controller.motionPolicy.animationsEnabled = false
         let blocker = blockRefreshes(fixture)
         defer { unblockRefreshes(fixture, blocker: blocker) }
         let (left, right) = try stackedLeftAndRight(fixture)
@@ -1709,6 +1873,60 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.pendingWriteStartFrame)
         XCTAssertEqual(fixture.phase, .awaitingCorrection)
+    }
+
+    func testPortraitSecondaryPendingPositionBaselineDoesNotAdoptAPendingSizeChange() throws {
+        for (index, changesSize) in [false, true].enumerated() {
+            let fixture = try makeFixture(.niri, stacked: true, portrait: true, pid: pid_t(836_471 + index))
+            fixture.controller.settings.gestures.adoptNativeResize = false
+            fixture.controller.motionPolicy.animationsEnabled = false
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let (token, _) = try stackedLeftAndRight(fixture)
+            let before = try fixture.frames()
+            let start = try XCTUnwrap(before[token])
+            let displacement = start.width / 16
+            let growth = start.width / 8
+            let travel = 2 * growth
+            var pending = start.offsetBy(dx: -displacement, dy: 0)
+            if changesSize { pending.size.width -= growth }
+            fixture.controller.axManager.applyFramesParallel([
+                AXFrameApplicationTarget(
+                    pid: token.pid, window: try XCTUnwrap(fixture.entry(token).axRef), frame: pending
+                )
+            ])
+            XCTAssertTrue(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
+            let observed = grown(pending, right: travel)
+            fixture.handler.nativeWindowFrameProvider = { _ in observed }
+            let press = CGPoint(x: pending.maxX - FrameTolerance.frameWrite, y: pending.midY)
+            XCTAssertEqual(
+                NiriLayoutEngine.fusionDoubleClickZone(
+                    at: press, in: pending, gap: fixture.controller.innerGap(for: fixture.monitor),
+                    bounds: fixture.monitor.visibleFrame
+                ),
+                .edge(.right)
+            )
+
+            try fixture.beginDrag(
+                token, at: press,
+                draggedTo: CGPoint(x: (press.x + FrameTolerance.frameWrite).nextUp, y: press.y)
+            )
+            XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
+            XCTAssertEqual(
+                fixture.handler.state.nativeTitleBarDrag?.pendingWriteStartFrame,
+                changesSize ? nil : pending
+            )
+            fixture.handler.dispatchMouseUp(at: CGPoint(x: press.x + travel, y: press.y))
+
+            if changesSize {
+                XCTAssertEqual(try fixture.frames(), before)
+            } else {
+                XCTAssertEqual(try fixture.frame(token).width, observed.width, accuracy: FrameTolerance.frameWrite)
+                XCTAssertEqual(try fixture.frame(token).height, start.height, accuracy: FrameTolerance.frameWrite)
+            }
+            XCTAssertEqual(fixture.phase, .awaitingCorrection)
+            XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.pendingWriteStartFrame)
+        }
     }
 
     func testFrameFallbackAdoptsNativeResizeThroughTheNormalDragLifecycle() throws {

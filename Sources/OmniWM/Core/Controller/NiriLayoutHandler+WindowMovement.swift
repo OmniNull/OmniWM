@@ -101,7 +101,7 @@ extension NiriLayoutHandler {
                     : nil
             )
         } else {
-            ctx.preparePredictedHeightAnimation(state: state, oldFrames: oldFrames)
+            ctx.preparePredictedSizeAnimation(state: state, oldFrames: oldFrames)
         }
         return NiriStructuralMutation(
             operation: movesAcrossContainers

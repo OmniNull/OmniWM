@@ -118,8 +118,76 @@ final class HostedNativeResizeTests: XCTestCase {
         }
     }
 
-    func testDisabledNativeResizeKeepsTheExistingLayoutAndRequestsCorrection() throws {
-        for layout in [LayoutType.niri, .dwindle] {
+    func testPortraitSecondaryAndMixedNativeLiveResizesAdoptWithoutTheLegacySetting() throws {
+        let changes: [(leading: Bool, centred: Bool, corner: Bool)] = [
+            (false, false, false), (true, false, false), (false, true, false),
+            (false, false, true), (false, true, true)
+        ]
+        for change in changes {
+            let fixture = try fixture(.niri, portrait: true)
+            defer { fixture.close() }
+            fixture.controller.settings.gestures.adoptNativeResize = false
+            fixture.controller.motionPolicy.animationsEnabled = false
+            let engine = try XCTUnwrap(fixture.controller.niriEngine)
+            let token = fixture.tokens[1]
+            let node = try XCTUnwrap(engine.findNode(for: token, in: fixture.workspace))
+            let workingFrame = fixture.controller.insetWorkingFrame(for: fixture.monitor)
+            fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspace) { _ in
+                for column in engine.columns(in: fixture.workspace) {
+                    column.height = .proportion(1.0 / 3.0)
+                    column.cachedHeight = 0
+                }
+                engine.setWindowSecondarySpan(
+                    node, change: .setFixed(workingFrame.width / 2), in: fixture.workspace,
+                    geometry: .init(
+                        workingFrame: workingFrame,
+                        gaps: fixture.controller.innerGap(for: fixture.monitor),
+                        orientation: .vertical
+                    )
+                )
+            }
+            let window = fixture.windows[1]
+            let start = try XCTUnwrap(fixture.frames()[token])
+            XCTAssertTrue(fixture.controller.shellAppWindowManager.setFrame(start, for: token))
+            let callback = Notification(name: NSWindow.didEndLiveResizeNotification, object: window)
+            fixture.controller.shellAppWindowManager.windowWillStartLiveResize(callback)
+            let growth = initialContentSize.width / 4
+            let heightGrowth = change.corner ? initialContentSize.height / 4 : 0
+            let observed = CGRect(
+                x: start.minX - (change.centred ? growth / 2 : change.leading ? growth : 0),
+                y: start.minY - (change.centred ? heightGrowth / 2 : 0),
+                width: start.width + growth,
+                height: start.height + heightGrowth
+            )
+            window.setFrame(observed, display: false)
+            fixture.controller.shellAppWindowManager.windowDidResize(callback)
+            fixture.controller.shellAppWindowManager.windowDidEndLiveResize(callback)
+
+            let adopted = try XCTUnwrap(fixture.frames()[token])
+            XCTAssertEqual(adopted.width, start.width + growth, accuracy: FrameTolerance.frameWrite, "\(change)")
+            XCTAssertEqual(
+                adopted.height,
+                start.height + heightGrowth,
+                accuracy: FrameTolerance.frameWrite,
+                "\(change)"
+            )
+            if change.corner {
+                XCTAssertEqual(
+                    change.centred ? adopted.midY : adopted.minY,
+                    change.centred ? start.midY : start.minY,
+                    accuracy: FrameTolerance.frameWrite,
+                    "\(change)"
+                )
+            }
+            XCTAssertEqual(fixture.controller.workspaceManager.entry(for: token)?.observedState.frame, observed)
+            XCTAssertNil(fixture.controller.axManager.lastAppliedFrame(for: token.windowId))
+            XCTAssertNil(fixture.controller.shellAppWindowManager.liveResizeStarts[token])
+            XCTAssertNil(fixture.controller.mouseEventHandler.state.nativeTitleBarDrag)
+        }
+    }
+
+    func testDisabledDwindleNativeResizeKeepsTheExistingLayoutAndRequestsCorrection() throws {
+        for layout in [LayoutType.dwindle] {
             let fixture = try fixture(layout, portrait: layout == .niri)
             defer { fixture.close() }
             fixture.controller.settings.gestures.adoptNativeResize = false

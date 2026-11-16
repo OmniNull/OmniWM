@@ -84,7 +84,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             }
         }
 
-        func beginDrag(_ token: WindowToken, at press: CGPoint? = nil) throws {
+        func beginDrag(_ token: WindowToken, at press: CGPoint? = nil, draggedTo: CGPoint? = nil) throws {
             handler.retireNativeTitleBarDragAtInputBoundary()
             applyPendingFrames()
             handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
@@ -99,7 +99,7 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             let dragged = orientation == .horizontal
                 ? CGPoint(x: (pressed.x + FrameTolerance.frameWrite).nextUp, y: pressed.y)
                 : CGPoint(x: pressed.x, y: (pressed.y + FrameTolerance.frameWrite).nextUp)
-            handler.dispatchMouseDragged(at: dragged)
+            handler.dispatchMouseDragged(at: draggedTo ?? dragged)
             XCTAssertEqual(phase, .dragging)
         }
 
@@ -142,6 +142,32 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
                         ? observed.maxY - start.maxY : observed.minY - start.minY))
             }
             release(at: observed, cursor: cursor)
+            applyPendingFrames()
+        }
+
+        func resizeFromEdge(_ token: WindowToken, edges: ResizeEdge, to observed: CGRect) throws {
+            let start = try frame(token)
+            let press = CGPoint(
+                x: edges.contains(.right) ? start.maxX - pixel
+                    : edges.contains(.left) ? start.minX + pixel : start.midX,
+                y: edges.contains(.top) ? start.maxY - pixel
+                    : edges.contains(.bottom) ? start.minY + pixel : start.midY
+            )
+            let travel = CGPoint(
+                x: edges.contains(.right) ? observed.maxX - start.maxX
+                    : edges.contains(.left) ? observed.minX - start.minX : 0,
+                y: edges.contains(.top) ? observed.maxY - start.maxY
+                    : edges.contains(.bottom) ? observed.minY - start.minY : 0
+            )
+            let dragged = CGPoint(
+                x: travel.x > 0 ? (press.x + FrameTolerance.frameWrite).nextUp
+                    : travel.x < 0 ? (press.x - FrameTolerance.frameWrite).nextDown : press.x,
+                y: travel.y > 0 ? (press.y + FrameTolerance.frameWrite).nextUp
+                    : travel.y < 0 ? (press.y - FrameTolerance.frameWrite).nextDown : press.y
+            )
+            try beginDrag(token, at: press, draggedTo: dragged)
+            drag(token, to: observed)
+            release(at: observed, cursor: CGPoint(x: press.x + travel.x, y: press.y + travel.y))
             applyPendingFrames()
         }
 
@@ -298,6 +324,222 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         for token in moved {
             let animation = try XCTUnwrap(fixture.node(token).moveYAnimation).animation
             XCTAssertEqual(try fixture.frame(token, at: animation.startTime), try XCTUnwrap(before[token]))
+        }
+    }
+
+    func testPortraitSecondaryReleaseAnimatesTheNeighborsNearEdgeAndKeepsItsFarEdge() throws {
+        for (index, leading) in [false, true].enumerated() {
+            let fixture = try makeFixture(stacked: true, portrait: true, pid: pid_t(872_001 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let ordered = try fixture.tokens.prefix(2).sorted { try fixture.frame($0).midX < fixture.frame($1).midX }
+            let resized = ordered[leading ? 1 : 0]
+            let neighbor = ordered[leading ? 0 : 1]
+            let start = try fixture.frame(resized)
+            let neighborStart = try fixture.frame(neighbor)
+            let growth = min(start.width, neighborStart.width) / 8
+            let press = CGPoint(x: leading ? start.minX + fixture.pixel : start.maxX - fixture.pixel, y: start.midY)
+            let cursor = CGPoint(x: press.x + (leading ? -growth : growth), y: press.y)
+            let observed = leading ? grown(start, left: growth) : grown(start, right: growth)
+            try fixture.beginDrag(
+                resized, at: press,
+                draggedTo: CGPoint(
+                    x: leading ? (press.x - FrameTolerance.frameWrite).nextDown
+                        : (press.x + FrameTolerance.frameWrite).nextUp,
+                    y: press.y
+                )
+            )
+            fixture.drag(resized, to: observed)
+            XCTAssertEqual(try fixture.frame(neighbor), neighborStart)
+            XCTAssertFalse(try fixture.node(neighbor).hasMoveAnimationsRunning)
+
+            fixture.release(at: observed, cursor: cursor)
+
+            XCTAssertFalse(try fixture.node(resized).hasMoveAnimationsRunning)
+            XCTAssertEqual(try fixture.frame(resized).width, start.width + growth, accuracy: fixture.pixel)
+            let spring = try XCTUnwrap(fixture.node(neighbor).widthAnimation).animation
+            let initial = try fixture.frame(neighbor, at: spring.startTime)
+            XCTAssertEqual(initial.minX, neighborStart.minX, accuracy: fixture.pixel)
+            XCTAssertEqual(initial.width, neighborStart.width, accuracy: fixture.pixel)
+            let nextFrame = min(spring.duration / 2, 1 / fixture.engine.displayRefreshRate(in: fixture.workspaceId))
+            let midway = try fixture.frame(neighbor, at: spring.startTime + nextFrame)
+            XCTAssertEqual(
+                leading ? midway.minX : midway.maxX,
+                leading ? neighborStart.minX : neighborStart.maxX,
+                accuracy: fixture.pixel
+            )
+            XCTAssertEqual(midway.minY, neighborStart.minY, accuracy: fixture.pixel)
+            XCTAssertEqual(midway.height, neighborStart.height, accuracy: fixture.pixel)
+            XCTAssertLessThan(midway.width, neighborStart.width - fixture.pixel)
+            XCTAssertGreaterThan(midway.width, neighborStart.width - growth + fixture.pixel)
+            let settled = try fixture.settledFrame(neighbor)
+            XCTAssertEqual(settled.width, neighborStart.width - growth, accuracy: fixture.pixel)
+            XCTAssertEqual(
+                leading ? settled.minX : settled.maxX,
+                leading ? neighborStart.minX : neighborStart.maxX,
+                accuracy: fixture.pixel
+            )
+        }
+    }
+
+    func testPortraitOuterSecondaryEdgesKeepTheRowFullWhileCornersChangeOnlyItsPrimarySpan() throws {
+        var scenario = 0
+        for leading in [false, true] {
+            for corner in [false, true] {
+                let fixture = try makeFixture(stacked: true, portrait: true, pid: pid_t(872_011 + scenario))
+                scenario += 1
+                let blocker = blockRefreshes(fixture)
+                defer { unblockRefreshes(fixture, blocker: blocker) }
+                let ordered = try fixture.tokens.prefix(2)
+                    .sorted { try fixture.frame($0).midX < fixture.frame($1).midX }
+                let resized = ordered[leading ? 0 : 1]
+                let neighbor = ordered[leading ? 1 : 0]
+                let start = try fixture.frame(resized)
+                let neighborStart = try fixture.frame(neighbor)
+                let reduction = start.width / 8
+                let primaryGrowth = corner ? start.height / 8 : 0
+                let edges: ResizeEdge = leading ? .left : .right
+                let observed = leading
+                    ? grown(start, left: -reduction, top: primaryGrowth)
+                    : grown(start, right: -reduction, top: primaryGrowth)
+
+                try fixture.resizeFromEdge(resized, edges: corner ? edges.union(.top) : edges, to: observed)
+
+                let settled = try fixture.settledFrame(resized)
+                XCTAssertEqual(settled.width, start.width, accuracy: fixture.pixel)
+                XCTAssertEqual(settled.minX, start.minX, accuracy: fixture.pixel)
+                XCTAssertEqual(settled.height, start.height + primaryGrowth, accuracy: fixture.pixel)
+                XCTAssertEqual(settled.minY, start.minY, accuracy: fixture.pixel)
+                XCTAssertEqual(try fixture.settledFrame(neighbor).width, neighborStart.width, accuracy: fixture.pixel)
+                XCTAssertTrue(try fixture.node(resized).windowWidth.isAuto)
+            }
+        }
+    }
+
+    func testPortraitCenteredSecondaryResizesUseOnlyAvailableInnerEdges() throws {
+        var scenario = 0
+        for index in 0 ..< 3 {
+            for direction in [CGFloat(-1), 1] {
+                let fixture = try makeFixture(stackedThree: true, portrait: true, pid: pid_t(872_021 + scenario))
+                scenario += 1
+                let blocker = blockRefreshes(fixture)
+                defer { unblockRefreshes(fixture, blocker: blocker) }
+                let before = fixture.frames()
+                let ordered = try fixture.tokens.sorted {
+                    try XCTUnwrap(before[$0]).midX < XCTUnwrap(before[$1]).midX
+                }
+                let resized = ordered[index]
+                let start = try XCTUnwrap(before[resized])
+                let travel = direction * start.width / 8
+
+                try fixture.resizeFromEdge(resized, edges: [.left, .right], to: start.insetBy(dx: -travel, dy: 0))
+
+                for (position, token) in ordered.enumerated() {
+                    let original = try XCTUnwrap(before[token])
+                    let change: CGFloat = position == index ? (index == 1 ? 2 : 1) * travel
+                        : abs(position - index) == 1 ? -travel : 0
+                    let settled = try fixture.settledFrame(token)
+                    XCTAssertEqual(settled.width, original.width + change, accuracy: fixture.pixel)
+                    XCTAssertEqual(settled.height, original.height, accuracy: fixture.pixel)
+                }
+                XCTAssertEqual(
+                    try fixture.settledFrame(ordered[0]).minX,
+                    try XCTUnwrap(before[ordered[0]]).minX,
+                    accuracy: fixture.pixel
+                )
+                XCTAssertEqual(
+                    try fixture.settledFrame(ordered[2]).maxX,
+                    try XCTUnwrap(before[ordered[2]]).maxX,
+                    accuracy: fixture.pixel
+                )
+            }
+        }
+    }
+
+    func testPortraitMiddleSecondaryEdgesChangeOnlyTheNearestNeighborAndKeepFixedWidths() throws {
+        var scenario = 0
+        for leading in [false, true] {
+            for direction in [CGFloat(-1), 1] {
+                let fixture = try makeFixture(stackedThree: true, portrait: true, pid: pid_t(872_031 + scenario))
+                scenario += 1
+                let blocker = blockRefreshes(fixture)
+                defer { unblockRefreshes(fixture, blocker: blocker) }
+                let before = fixture.frames()
+                let ordered = try fixture.tokens.sorted { try XCTUnwrap(before[$0]).midX < XCTUnwrap(before[$1]).midX }
+                let resized = ordered[1]
+                let neighbor = ordered[leading ? 0 : 2]
+                let untouched = ordered[leading ? 2 : 0]
+                let start = try XCTUnwrap(before[resized])
+                let neighborStart = try XCTUnwrap(before[neighbor])
+                let growth = direction * min(start.width, neighborStart.width) / 8
+                let neighborNode = try fixture.node(neighbor)
+                fixture.manager.withNiriViewportState(for: fixture.workspaceId) { _ in
+                    neighborNode.windowWidth = .fixed(neighborStart.width)
+                }
+                fixture.applyPendingFrames()
+
+                try fixture.resizeFromEdge(
+                    resized, edges: leading ? .left : .right,
+                    to: leading ? grown(start, left: growth) : grown(start, right: growth)
+                )
+
+                XCTAssertEqual(try fixture.settledFrame(resized).width, start.width + growth, accuracy: fixture.pixel)
+                XCTAssertEqual(
+                    try fixture.settledFrame(neighbor).width,
+                    neighborStart.width - growth,
+                    accuracy: fixture.pixel
+                )
+                XCTAssertEqual(neighborNode.windowWidth, .fixed(neighborStart.width - growth))
+                XCTAssertEqual(try fixture.settledFrame(untouched), try XCTUnwrap(before[untouched]))
+            }
+        }
+    }
+
+    func testPortraitSecondaryRefusalRestoresAllWidthSpecificationsAndFrames() throws {
+        for (index, refusesGrowth) in [false, true].enumerated() {
+            let fixture = try makeFixture(stackedThree: true, portrait: true, pid: pid_t(872_041 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let before = fixture.frames()
+            let ordered = try fixture.tokens.sorted { try XCTUnwrap(before[$0]).midX < XCTUnwrap(before[$1]).midX }
+            let resized = ordered[1]
+            let neighbor = ordered[0]
+            let start = try XCTUnwrap(before[resized])
+            let neighborStart = try XCTUnwrap(before[neighbor])
+            let allowance = min(start.width, neighborStart.width) / 16
+            let growth = refusesGrowth ? -2 * allowance : 2 * allowance
+            let widths = try ordered.map { try fixture.node($0).windowWidth }
+            try fixture.node(neighbor).constraints = WindowSizeConstraints(
+                minSize: CGSize(width: refusesGrowth ? 1 : neighborStart.width - allowance, height: 1),
+                maxSize: CGSize(width: refusesGrowth ? neighborStart.width + allowance : 0, height: 0),
+                isFixed: false
+            )
+
+            try fixture.resizeFromEdge(resized, edges: .left, to: grown(start, left: growth))
+
+            for (position, token) in ordered.enumerated() {
+                XCTAssertEqual(try fixture.settledFrame(token), try XCTUnwrap(before[token]))
+                XCTAssertEqual(try fixture.node(token).windowWidth, widths[position])
+            }
+        }
+    }
+
+    func testPortraitLoneSecondaryShrinkIsKeptButTabbedSecondaryEdgesKeepFilling() throws {
+        for (index, tabbed) in [false, true].enumerated() {
+            let fixture = try makeFixture(stacked: tabbed, portrait: true, pid: pid_t(872_051 + index))
+            let blocker = blockRefreshes(fixture)
+            defer { unblockRefreshes(fixture, blocker: blocker) }
+            let token = fixture.tokens[0]
+            if tabbed { try makeTabbed(fixture, showing: token) }
+            let start = try fixture.frame(token)
+            let reduction = start.width / 8
+
+            try fixture.resizeFromEdge(token, edges: [.left, .right], to: start.insetBy(dx: reduction / 2, dy: 0))
+
+            let settled = try fixture.settledFrame(token)
+            XCTAssertEqual(settled.width, tabbed ? start.width : start.width - reduction, accuracy: fixture.pixel)
+            XCTAssertEqual(settled.minX, start.minX, accuracy: fixture.pixel)
+            XCTAssertEqual(settled.height, start.height, accuracy: fixture.pixel)
         }
     }
 
@@ -631,8 +873,8 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.settledFrame(resized).height, minimum, accuracy: fixture.pixel)
     }
 
-    func testPortraitOptionPrimaryEdgesStayNativeWhileBodyTitleAndSecondaryMovesRemain() throws {
-        for index in 0 ..< 5 {
+    func testPortraitOptionEdgesAndCornersStayNativeWhileBodyAndTitleMovesRemain() throws {
+        for index in 0 ..< 10 {
             let fixture = try makeFixture(portrait: true, pid: pid_t(871_200 + index))
             fixture.controller.settings.gestures.mouseMoveModifierKey = .option
             let token = fixture.tokens[1]
@@ -643,15 +885,22 @@ final class NiriFusionEdgeResizeTests: NiriInteractionTestCase {
             case 1: CGPoint(x: frame.midX, y: frame.maxY - edgeInset)
             case 2: frame.center
             case 3: CGPoint(x: frame.midX, y: frame.maxY - NiriLayoutEngine.doubleClickTitleBarDepth / 2)
-            default: CGPoint(x: frame.minX + edgeInset, y: frame.midY)
+            case 4: CGPoint(x: frame.minX + edgeInset, y: frame.midY)
+            case 5: CGPoint(x: frame.maxX - edgeInset, y: frame.midY)
+            case 6: CGPoint(x: frame.minX + edgeInset, y: frame.minY + edgeInset)
+            case 7: CGPoint(x: frame.maxX - edgeInset, y: frame.minY + edgeInset)
+            case 8: CGPoint(x: frame.minX + edgeInset, y: frame.maxY - edgeInset)
+            default: CGPoint(x: frame.maxX - edgeInset, y: frame.maxY - edgeInset)
             }
             XCTAssertFalse(fixture.handler.dispatchMouseDown(
                 at: point, modifiers: .maskAlternate, windowIdUnderPointer: token.windowId
             ))
-            XCTAssertEqual(fixture.handler.state.isMoving, index >= 2)
-            if index < 2 {
+            let moves = index == 2 || index == 3
+            XCTAssertEqual(fixture.handler.state.isMoving, moves)
+            if !moves {
                 fixture.handler.dispatchMouseDragged(at: CGPoint(
-                    x: point.x, y: (point.y + FrameTolerance.frameWrite).nextUp
+                    x: index >= 4 ? (point.x + FrameTolerance.frameWrite).nextUp : point.x,
+                    y: index < 2 || index >= 6 ? (point.y + FrameTolerance.frameWrite).nextUp : point.y
                 ))
                 XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
                 XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.startedOnLandscapeNiriStrip, false)

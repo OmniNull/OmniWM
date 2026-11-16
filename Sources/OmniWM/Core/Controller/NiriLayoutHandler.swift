@@ -317,13 +317,14 @@ struct NodeActivationOptions {
         predictedFrames(state: state, at: .infinity)
     }
 
-    func preparePredictedHeightAnimation(state: ViewportState, oldFrames: [WindowToken: CGRect]) {
+    func preparePredictedSizeAnimation(state: ViewportState, oldFrames: [WindowToken: CGRect]) {
         let now = engine.animationClock?.now() ?? CACurrentMediaTime()
-        engine.animateFilledHeightChanges(
+        engine.animateFilledSizeChanges(
             in: wsId,
             oldFrames: oldFrames,
-            newFrames: engine.framesIncludingHeightAnimations(settledFrames(state: state), in: wsId, at: now),
-            motion: motion
+            newFrames: engine.framesIncludingSizeAnimations(settledFrames(state: state), in: wsId, at: now),
+            motion: motion,
+            orientation: orientation
         )
     }
 

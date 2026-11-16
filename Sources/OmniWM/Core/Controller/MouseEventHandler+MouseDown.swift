@@ -97,12 +97,24 @@ extension MouseEventHandler {
         if controller.isOnLandscapeDisplay(strip.workspaceId) { return true }
         let candidate = fusionDoubleClickCandidate(at: location, in: strip)
         strip.doubleClick = .done(candidate)
-        guard let candidate,
-              case let .edge(edges) = candidate.hit.zone,
-              edges.hasVertical,
-              windowId == nil || windowId == candidate.hit.window.token.windowId
+        if let candidate, case .edge = candidate.hit.zone {
+            return windowId == nil || windowId == candidate.hit.window.token.windowId
+        }
+        guard candidate == nil, let engine = controller.niriEngine else { return false }
+        let window: NiriWindow?
+        if let windowId {
+            guard let entry = controller.workspaceManager.entry(forWindowId: windowId),
+                  entry.workspaceId == strip.workspaceId, entry.mode == .tiling
+            else { return false }
+            window = engine.findNode(for: entry.token, in: strip.workspaceId)
+        } else {
+            window = engine.hitTestTiled(point: location, in: strip.workspaceId)
+        }
+        guard let window, !window.isFullscreen,
+              engine.isProjectedFocusableWindow(window, in: strip.workspaceId),
+              let frame = window.renderedFrame ?? window.frame
         else { return false }
-        return true
+        return Self.isNativeResizePress(at: location, in: frame)
     }
 
     private func beginNiriMouseMove(

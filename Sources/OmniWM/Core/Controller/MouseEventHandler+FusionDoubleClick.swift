@@ -121,7 +121,6 @@ extension MouseEventHandler {
               ),
               controller.workspaceManager.entry(for: hit.window.token)?.mode == .tiling
         else { return nil }
-        if orientation == .vertical, hit.zone == .edge(.left) || hit.zone == .edge(.right) { return nil }
         return FusionDoubleClickCandidate(
             hit: hit, engine: engine, workspaceId: strip.workspaceId, orientation: orientation
         )

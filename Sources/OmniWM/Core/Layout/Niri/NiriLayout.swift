@@ -373,7 +373,7 @@ extension NiriLayoutEngine {
         inputs: [NiriAxisSolver.Input],
         axis: NiriAxisLayout
     ) -> [NiriAxisSolver.Output] {
-        guard outputs.count > 1, !axis.isTabbed, axis.orientation == .horizontal else { return outputs }
+        guard outputs.count > 1, !axis.isTabbed else { return outputs }
         let usableSpace = axis.availableSpace - axis.gap * CGFloat(outputs.count + 1)
         let total = outputs.reduce(0) { $0 + $1.value }
         guard total > 0, total < usableSpace - 0.5 else { return outputs }

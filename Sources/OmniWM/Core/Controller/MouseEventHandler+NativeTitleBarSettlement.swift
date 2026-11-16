@@ -201,9 +201,7 @@ extension MouseEventHandler {
               drag.pressLocation != nil, drag.releaseLocation != nil, entry.axRef != nil
         else { return false }
         let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: true)
-        guard !edges.isEmpty,
-              controller.isOnLandscapeDisplay(entry.workspaceId) || edges.hasVertical && !edges.hasHorizontal
-        else { return false }
+        guard !edges.isEmpty else { return false }
         var late = drag
         late.lateResize = true
         late.adoptionStartFrame = start

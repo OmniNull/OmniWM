@@ -252,10 +252,10 @@ extension MouseEventHandler {
             ? (startFrame ?? (onLandscapeStrip ? nil : stripStartFrame)).map {
                 controller.axManager.hasPendingFrameSizeChange(for: drag.token.windowId, comparedTo: $0.size)
             } ?? true : false
-        let hasPrimaryPress = onLandscapeStrip || onNiriStrip &&
-            isPortraitPrimaryResizePress(in: pending ?? stripStartFrame)
-        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? (hasPrimaryPress ? stripStartFrame : nil)
-        drag.pendingWriteStartFrame = hadUnsettledFrameWrite && hasPrimaryPress
+        let hasResizePress = onLandscapeStrip || onNiriStrip &&
+            isPortraitResizePress(in: pending ?? stripStartFrame)
+        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? (hasResizePress ? stripStartFrame : nil)
+        drag.pendingWriteStartFrame = hadUnsettledFrameWrite && hasResizePress
             && (onLandscapeStrip || !pendingChangesSize) ? pending ?? stripStartFrame : nil
         if onLandscapeStrip {
             let entry = controller.workspaceManager.entry(for: drag.token)
@@ -267,16 +267,17 @@ extension MouseEventHandler {
         return pendingChangesSize
     }
 
-    private func isPortraitPrimaryResizePress(in frame: CGRect?) -> Bool {
+    private func isPortraitResizePress(in frame: CGRect?) -> Bool {
         guard let frame, let press = state.leftPressLocation else { return false }
+        return Self.isNativeResizePress(at: press, in: frame)
+    }
+
+    static func isNativeResizePress(at point: CGPoint, in frame: CGRect) -> Bool {
         let outset = NiriLayoutEngine.doubleClickEdgeOutset
-        let zone = NiriLayoutEngine.fusionDoubleClickZone(
-            at: press,
-            in: frame,
-            gap: outset * 2,
-            bounds: frame.insetBy(dx: -outset, dy: -outset)
-        )
-        return zone == .edge(.top) || zone == .edge(.bottom)
+        let inset = NiriLayoutEngine.doubleClickEdgeInset
+        return frame.insetBy(dx: -outset, dy: -outset).contains(point)
+            && (point.x < frame.minX + inset || point.x >= frame.maxX - inset
+                || point.y < frame.minY + inset || point.y >= frame.maxY - inset)
     }
 
     private func finishNiriSlideBeforeDrag(in workspaceId: WorkspaceDescriptor.ID, controller: WMController) {

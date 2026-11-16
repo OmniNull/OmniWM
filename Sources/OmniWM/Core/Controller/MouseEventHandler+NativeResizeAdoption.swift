@@ -46,21 +46,21 @@ extension MouseEventHandler {
             finishNativeDwindleResize(&drag)
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
-            let landscape = controller.isLandscapeNiriStrip(entry.workspaceId)
-            guard landscape ? drag.pointerWasDragged
-                : drag.pointerWasDragged || controller.settings.gestures.adoptNativeResize,
-                let start = nativeResizeStartFrame(drag, entry: entry),
-                let observedFrame
+            guard drag.pointerWasDragged,
+                  let start = nativeResizeStartFrame(drag, entry: entry),
+                  let observedFrame
             else { return false }
             let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: true)
-            let primary = landscape || edges.hasVertical && !edges.hasHorizontal
-            guard !edges.isEmpty,
-                  primary ? drag.pointerWasDragged : controller.settings.gestures.adoptNativeResize,
-                  primary || !edges.contains([.left, .right]) && !edges.contains([.top, .bottom])
-            else { return false }
-            let completed = primary
-                ? completedNativeResize(of: drag, edges: edges, from: start, observed: observedFrame, entry: entry)
-                : observedFrame
+            guard !edges.isEmpty else { return false }
+            if edges.contains([.left, .right]) || edges.contains([.top, .bottom]),
+               !controller.isOnLandscapeDisplay(entry.workspaceId),
+               drag.pressLocation.map({ Self.isNativeResizePress(at: $0, in: start) }) != true
+            {
+                return false
+            }
+            let completed = completedNativeResize(
+                of: drag, edges: edges, from: start, observed: observedFrame, entry: entry
+            )
             guard adoptNiriNativeResize(entry, edges: edges, from: start, to: completed, shownAt: observedFrame)
             else { return false }
         }
@@ -77,12 +77,10 @@ extension MouseEventHandler {
         guard let controller,
               entry.target.hostedMetadata != nil, entry.mode == .tiling, entry.layoutReason == .standard,
               entry.hiddenState == nil else { return false }
-        let landscape = controller.isLandscapeNiriStrip(entry.workspaceId)
+        let niri = controller.isNiriStrip(entry.workspaceId)
         let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: true)
-        let primary = landscape || controller.isNiriStrip(entry.workspaceId) && edges.hasVertical && !edges
-            .hasHorizontal
-        guard !edges.isEmpty, controller.settings.gestures.adoptNativeResize || primary,
-              primary || !edges.contains([.left, .right]) && !edges.contains([.top, .bottom])
+        guard !edges.isEmpty, controller.settings.gestures.adoptNativeResize || niri,
+              niri || !edges.contains([.left, .right]) && !edges.contains([.top, .bottom])
         else { return false }
         if controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri {
             return adoptNiriNativeResize(entry, edges: edges, from: start, to: observed, shownAt: observed)
@@ -175,14 +173,15 @@ extension MouseEventHandler {
         let horizontal = context.orientation == .horizontal
         let primaryEdges = edges.intersection(horizontal ? [.left, .right] : [.top, .bottom])
         let secondary = edges.subtracting(primaryEdges)
-        let secondarySpan = adoptedSecondarySpan(secondary, of: window, in: workspaceId, from: start, to: observed)
+        let secondarySpan = adoptedSecondarySpan(
+            secondary, of: window, in: workspaceId, frames: (start, observed), orientation: context.orientation
+        )
         guard !primaryEdges.isEmpty || secondarySpan != nil else { return false }
 
-        let slide = horizontal || secondary.isEmpty
-            ? fusionEdgeResizeSlide(
-                around: window, in: workspaceId, resizedFrom: start, to: observed, includeStackMates: horizontal
-            )
-            : nil
+        let slide = fusionEdgeResizeSlide(
+            around: window, in: workspaceId, resizedFrom: start, to: observed,
+            includeStackMates: horizontal || !secondary.isEmpty
+        )
         let changeStart = controller.niriLayoutHandler.layoutChangeStart(in: workspaceId)
         var changed = false
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
@@ -266,8 +265,7 @@ extension MouseEventHandler {
         let applied = horizontal ? window.height : window.windowWidth
         guard case let .fixed(value) = applied else { return true }
         if abs(value - renderedSpan) > FrameTolerance.frameWrite,
-           !horizontal
-           || neighboursGiveWay(to: window, from: frames.start, to: frames.observed, context: context)
+           neighboursGiveWay(to: window, from: frames.start, to: frames.observed, context: context)
         {
             return true
         }
@@ -313,16 +311,7 @@ extension MouseEventHandler {
             engine.clearInteractiveResize()
             return false
         }
-        if horizontal || edges == primaryEdges {
-            engine.clearInteractiveResize()
-        } else {
-            engine.interactiveResizeEnd(
-                motion: context.motion,
-                state: &state,
-                workingFrame: context.workingFrame,
-                gaps: context.gaps
-            )
-        }
+        engine.clearInteractiveResize()
         keepCentredResizeInPlace(window, primary, context: context, state: &state)
         return true
     }

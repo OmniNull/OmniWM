@@ -30,7 +30,7 @@ extension NiriWindow {
         let widths = windows.map { max(1, $0.resolvedWidth ?? $0.frame?.width ?? $0.widthWeight) }
         let median = max(1, widths.sorted()[widths.count / 2])
 
-        for (window, width) in zip(windows, widths) {
+        for (window, width) in zip(windows, widths) where window.windowWidth.isAuto {
             window.windowWidth = .auto(weight: width / median)
         }
     }

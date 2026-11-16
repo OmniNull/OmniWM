@@ -360,42 +360,56 @@ extension NiriLayoutEngine {
     }
 
     @discardableResult
-    func animateFilledHeightChanges(
+    func animateFilledSizeChanges(
         in workspaceId: WorkspaceDescriptor.ID,
         oldFrames: [WindowToken: CGRect],
         newFrames: [WindowToken: CGRect],
         motion: MotionSnapshot,
+        orientation: Monitor.Orientation,
         threshold: CGFloat = 1.0
     ) -> Bool {
         guard let root = root(for: workspaceId) else { return false }
         var anyAnimationStarted = false
         for window in root.allWindows {
-            guard let oldFrame = oldFrames[window.token],
-                  let newFrame = newFrames[window.token],
-                  oldFrame.height > 0,
-                  abs(oldFrame.height - newFrame.height) > threshold
-            else { continue }
-            window.animateHeightFrom(
-                delta: oldFrame.height - newFrame.height,
-                clock: animationClock,
-                config: motion.scaled(windowMovementAnimationConfig),
-                displayRefreshRate: displayRefreshRate(in: workspaceId),
-                animated: motion.animationsEnabled
-            )
-            anyAnimationStarted = true
+            guard let oldFrame = oldFrames[window.token], let newFrame = newFrames[window.token] else { continue }
+            if oldFrame.height > 0, abs(oldFrame.height - newFrame.height) > threshold {
+                window.animateHeightFrom(
+                    delta: oldFrame.height - newFrame.height,
+                    clock: animationClock,
+                    config: motion.scaled(windowMovementAnimationConfig),
+                    displayRefreshRate: displayRefreshRate(in: workspaceId),
+                    animated: motion.animationsEnabled
+                )
+                anyAnimationStarted = true
+            }
+            if orientation == .vertical, oldFrame.width > 0, abs(oldFrame.width - newFrame.width) > threshold {
+                window.animateWidthFrom(
+                    delta: oldFrame.width - newFrame.width,
+                    clock: animationClock,
+                    config: motion.scaled(windowMovementAnimationConfig),
+                    displayRefreshRate: displayRefreshRate(in: workspaceId),
+                    animated: motion.animationsEnabled
+                )
+                anyAnimationStarted = true
+            }
         }
         return anyAnimationStarted
     }
 
-    func framesIncludingHeightAnimations(
+    func framesIncludingSizeAnimations(
         _ frames: [WindowToken: CGRect],
         in workspaceId: WorkspaceDescriptor.ID,
         at time: TimeInterval
     ) -> [WindowToken: CGRect] {
         var drawn = frames
         for (token, frame) in frames {
-            guard let window = findNode(for: token, in: workspaceId), window.heightAnimation != nil else { continue }
-            drawn[token]?.size.height = max(1, frame.height + window.renderHeightOffset(at: time))
+            guard let window = findNode(for: token, in: workspaceId) else { continue }
+            if window.heightAnimation != nil {
+                drawn[token]?.size.height = max(1, frame.height + window.renderHeightOffset(at: time))
+            }
+            if window.widthAnimation != nil {
+                drawn[token]?.size.width = max(1, frame.width + window.renderWidthOffset(at: time))
+            }
         }
         return drawn
     }

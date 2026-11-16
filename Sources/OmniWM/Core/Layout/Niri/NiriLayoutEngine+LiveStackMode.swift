@@ -18,21 +18,38 @@ extension NiriLayoutEngine {
     }
 
     func liveWindowSpans(in column: NiriContainer, context: NiriInteractionContext) -> [LiveColumnMove.WindowSpan] {
-        let windows = projectedWindows(in: column, workspaceId: context.workspaceId)
+        liveWindowSpans(
+            in: column,
+            windows: projectedWindows(in: column, workspaceId: context.workspaceId),
+            context: context
+        )
+    }
+
+    private func liveWindowSpans(
+        in column: NiriContainer,
+        windows: borrowing [NiriWindow],
+        context: NiriInteractionContext
+    ) -> [LiveColumnMove.WindowSpan] {
         guard !windows.isEmpty else { return [] }
         let isTabbed = column.isTabbed && windows.count > 1
+        let horizontal = context.orientation == .horizontal
+        let available = horizontal ? context.workingFrame.height : availableWindowWidth(
+            in: column, projectedWindowCount: windows.count, workingFrame: context.workingFrame
+        )
         let spans = resolveWindowSpans(
             container: column,
             windows: windows,
             axis: NiriAxisLayout(
-                availableSpace: context.workingFrame.height,
+                availableSpace: available,
                 gap: context.gaps,
                 isTabbed: isTabbed,
-                orientation: .horizontal
+                orientation: context.orientation
             ),
             secondarySpanOverride: nil
         )
-        var position = context.workingFrame.minY + context.gaps
+        var position = context.gaps + (horizontal
+            ? context.workingFrame.minY
+            : context.workingFrame.maxX - available)
         var result: [LiveColumnMove.WindowSpan] = []
         for (window, span) in zip(windows, spans) {
             result.append(.init(window: window, minY: position, maxY: position + span.value))
@@ -353,8 +370,10 @@ extension NiriLayoutEngine {
         for column in columns {
             let windows = projectedWindows(in: column, workspaceId: context.workspaceId)
             let tilesX = projectedTilesOrigin(displayMode: column.displayMode, visibleWindowCount: windows.count).x
-            for span in liveWindowSpans(in: column, context: context) {
-                places[span.window.id] = CGRect(x: tilesX, y: span.minY, width: 0, height: span.maxY - span.minY)
+            for span in liveWindowSpans(in: column, windows: windows, context: context) {
+                places[span.window.id] = context.orientation == .horizontal
+                    ? CGRect(x: tilesX, y: span.minY, width: 0, height: span.maxY - span.minY)
+                    : CGRect(x: span.minY, y: 0, width: span.maxY - span.minY, height: 0)
             }
         }
         return places
@@ -396,8 +415,10 @@ extension NiriLayoutEngine {
         let displacement = CGPoint(x: previous.minX - current.minX, y: previous.minY - current.minY)
         let heightDelta = previous.height - current.height
         let moves = abs(displacement.x) > 0.001 || abs(displacement.y) > 0.001
-        let resizes = previous.height > 0 && abs(heightDelta) > 0.5
-        guard moves || resizes else { return }
+        let resizesHeight = previous.height > 0 && abs(heightDelta) > 0.5
+        let widthDelta = previous.width - current.width
+        let resizesWidth = context.orientation == .vertical && previous.width > 0 && abs(widthDelta) > 0.5
+        guard moves || resizesHeight || resizesWidth else { return }
         let config = context.motion.scaled(windowMovementAnimationConfig)
         let refreshRate = displayRefreshRate(in: context.workspaceId)
         if moves {
@@ -410,9 +431,18 @@ extension NiriLayoutEngine {
                 animated: context.motion.animationsEnabled
             )
         }
-        if resizes {
+        if resizesHeight {
             window.animateHeightFrom(
                 delta: heightDelta,
+                clock: animationClock,
+                config: config,
+                displayRefreshRate: refreshRate,
+                animated: context.motion.animationsEnabled
+            )
+        }
+        if resizesWidth {
+            window.animateWidthFrom(
+                delta: widthDelta,
                 clock: animationClock,
                 config: config,
                 displayRefreshRate: refreshRate,

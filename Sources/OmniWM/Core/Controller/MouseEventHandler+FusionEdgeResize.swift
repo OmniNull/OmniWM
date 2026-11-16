@@ -130,24 +130,33 @@ extension MouseEventHandler {
         _ edges: ResizeEdge,
         of window: NiriWindow,
         in workspaceId: WorkspaceDescriptor.ID,
-        from start: CGRect,
-        to observed: CGRect
+        frames: (start: CGRect, observed: CGRect),
+        orientation: Monitor.Orientation
     ) -> CGFloat? {
+        let (start, observed) = frames
         guard !edges.isEmpty, let engine = controller?.niriEngine else { return nil }
-        let vertical = !edges.isDisjoint(with: [.top, .bottom])
-        guard !vertical || engine.singleWindowLayoutContext(in: workspaceId) == nil else { return nil }
-        guard edges == [.top, .bottom] else {
-            guard !isColumnEndEdge(edges, of: window, in: workspaceId) else { return nil }
-            return vertical ? observed.height : observed.width
+        let horizontal = orientation == .horizontal
+        guard !horizontal || engine.singleWindowLayoutContext(in: workspaceId) == nil else { return nil }
+        guard edges == (horizontal ? [.top, .bottom] : [.left, .right]) else {
+            guard !isColumnEndEdge(edges, of: window, in: workspaceId, orientation: orientation) else { return nil }
+            return horizontal ? observed.height : observed.width
         }
         guard let column = engine.findColumn(containing: window, in: workspaceId),
               !column.isTabbed
         else { return nil }
-        switch engine.stackPlace(of: window, frame: start, in: column, workspaceId: workspaceId) {
-        case .top: return start.height + start.minY - observed.minY
-        case .bottom: return start.height + observed.maxY - start.maxY
+        switch engine.stackPlace(
+            of: window,
+            frame: start,
+            in: column,
+            workspaceId: workspaceId,
+            orientation: orientation
+        ) {
+        case .top: return horizontal ? start.height + start.minY - observed.minY : start.width + start.minX - observed
+            .minX
+        case .bottom: return horizontal ? start.height + observed.maxY - start.maxY : start.width + observed
+            .maxX - start.maxX
         case .alone,
-             .middle: return observed.height
+             .middle: return horizontal ? observed.height : observed.width
         }
     }
 
@@ -157,56 +166,91 @@ extension MouseEventHandler {
         to observed: CGRect,
         context: NiriInteractionContext
     ) -> Bool {
+        let horizontal = context.orientation == .horizontal
         guard let engine = controller?.niriEngine,
               let column = engine.findColumn(containing: window, in: context.workspaceId),
               !column.isTabbed,
-              case let .fixed(height) = window.height
+              case let .fixed(span) = horizontal ? window.height : window.windowWidth
         else { return true }
         let others = engine.projectedWindows(in: column, workspaceId: context.workspaceId).filter { $0 !== window }
-        let placed = others
-            .compactMap { other in (other.renderedFrame ?? other.frame).map { (window: other, frame: $0) } }
-        let above = placed.filter { $0.frame.minY >= start.maxY - FrameTolerance.screenMatch }
-            .min { $0.frame.minY < $1.frame.minY }
-        let below = placed.filter { $0.frame.maxY <= start.minY + FrameTolerance.screenMatch }
-            .max { $0.frame.maxY < $1.frame.maxY }
-        let (up, down) = heightChangeSides(
-            height - start.height,
-            from: start,
-            to: observed,
+        let (above, below) = secondaryNeighbours(among: others, from: start, horizontal: horizontal)
+        let (up, down) = secondaryChangeSides(
+            span - (horizontal ? start.height : start.width),
+            frames: (start, observed),
             hasAbove: above != nil,
-            hasBelow: below != nil
+            hasBelow: below != nil,
+            horizontal: horizontal
         )
-        var heights = Dictionary(uniqueKeysWithValues: others
-            .map { (ObjectIdentifier($0), $0.currentHeightForSizing()) })
+        var spans = Dictionary(uniqueKeysWithValues: others
+            .map { (ObjectIdentifier($0), horizontal ? $0.currentHeightForSizing() : $0.currentWidthForSizing()) })
         for (neighbour, change) in [(above, up), (below, down)] {
             guard let neighbour else { continue }
-            let resized = neighbour.frame.height - change
-            guard resized >= 1,
-                  abs(neighbour.window.constraints.clampHeight(resized) - resized) <= FrameTolerance.screenMatch
-            else { return false }
-            heights[ObjectIdentifier(neighbour.window)] = resized
-            if !neighbour.window.height.isAuto {
+            let resized = (horizontal ? neighbour.frame.height : neighbour.frame.width) - change
+            let clamped = horizontal ? neighbour.window.constraints.clampHeight(resized)
+                : neighbour.window.constraints.clampWidth(resized)
+            guard resized >= 1, abs(clamped - resized) <= FrameTolerance.screenMatch else { return false }
+            spans[ObjectIdentifier(neighbour.window)] = resized
+            if horizontal, !neighbour.window.height.isAuto {
                 neighbour.window.height = .fixed(resized)
+            } else if !horizontal, !neighbour.window.windowWidth.isAuto {
+                neighbour.window.windowWidth = .fixed(resized)
             }
         }
-        let flexible = others.filter(\.height.isAuto)
-        let median = flexible.compactMap { heights[ObjectIdentifier($0)] }.sorted().dropFirst(flexible.count / 2).first
+        let flexible = others.filter { horizontal ? $0.height.isAuto : $0.windowWidth.isAuto }
+        let median = flexible.compactMap { spans[ObjectIdentifier($0)] }.sorted().dropFirst(flexible.count / 2).first
         for other in flexible {
-            guard let median, let pixels = heights[ObjectIdentifier(other)] else { continue }
-            other.height = .auto(weight: pixels / max(1, median))
+            guard let median, let pixels = spans[ObjectIdentifier(other)] else { continue }
+            let specification = WeightedSize.auto(weight: pixels / max(1, median))
+            if horizontal {
+                other.height = specification
+            } else {
+                other.windowWidth = specification
+            }
         }
         return true
     }
 
-    private func heightChangeSides(
-        _ growth: CGFloat,
+    private func secondaryNeighbours(
+        among windows: [NiriWindow],
         from start: CGRect,
-        to observed: CGRect,
+        horizontal: Bool
+    ) -> (above: (window: NiriWindow, frame: CGRect)?, below: (window: NiriWindow, frame: CGRect)?) {
+        var above: (window: NiriWindow, frame: CGRect)?
+        var below: (window: NiriWindow, frame: CGRect)?
+        let low = horizontal ? start.minY : start.minX
+        let high = horizontal ? start.maxY : start.maxX
+        var nearestAbove = CGFloat.infinity
+        var nearestBelow = -CGFloat.infinity
+        for window in windows {
+            guard let frame = window.renderedFrame ?? window.frame else { continue }
+            let near = horizontal ? frame.minY : frame.minX
+            let far = horizontal ? frame.maxY : frame.maxX
+            if near >= high - FrameTolerance.screenMatch,
+               near < nearestAbove
+            {
+                above = (window, frame)
+                nearestAbove = near
+            }
+            if far <= low + FrameTolerance.screenMatch,
+               far > nearestBelow
+            {
+                below = (window, frame)
+                nearestBelow = far
+            }
+        }
+        return (above, below)
+    }
+
+    private func secondaryChangeSides(
+        _ growth: CGFloat,
+        frames: (start: CGRect, observed: CGRect),
         hasAbove: Bool,
-        hasBelow: Bool
+        hasBelow: Bool,
+        horizontal: Bool
     ) -> (up: CGFloat, down: CGFloat) {
-        let raisedTop = observed.maxY - start.maxY
-        let loweredBottom = start.minY - observed.minY
+        let raisedTop = horizontal ? frames.observed.maxY - frames.start.maxY : frames.observed.maxX - frames.start.maxX
+        let loweredBottom = horizontal ? frames.start.minY - frames.observed.minY : frames.start.minX - frames.observed
+            .minX
         let moved = raisedTop + loweredBottom
         var up = abs(moved) > FrameTolerance.screenMatch ? growth * raisedTop / moved : 0
         if !hasBelow { up = growth }
@@ -261,13 +305,14 @@ extension MouseEventHandler {
         )
         for mate in slide.stackMates {
             guard let settled = mate.window.frame else { continue }
-            let verticalOnly = CGRect(
-                x: settled.minX,
-                y: mate.frame.minY,
-                width: settled.width,
-                height: mate.frame.height
+            let horizontal = context.orientation == .horizontal
+            let secondaryOnly = CGRect(
+                x: horizontal ? settled.minX : mate.frame.minX,
+                y: horizontal ? mate.frame.minY : settled.minY,
+                width: horizontal ? settled.width : mate.frame.width,
+                height: horizontal ? mate.frame.height : settled.height
             )
-            engine.animateLiveWindow(mate.window, from: verticalOnly, to: settled, context: context)
+            engine.animateLiveWindow(mate.window, from: secondaryOnly, to: settled, context: context)
         }
         settleNiriResize(window.token, in: workspaceId)
         controller.niriLayoutHandler.startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
@@ -276,18 +321,26 @@ extension MouseEventHandler {
     func isColumnEndEdge(
         _ edges: ResizeEdge,
         of window: NiriWindow,
-        in workspaceId: WorkspaceDescriptor.ID
+        in workspaceId: WorkspaceDescriptor.ID,
+        orientation: Monitor.Orientation
     ) -> Bool {
         guard let engine = controller?.niriEngine,
               let column = engine.findColumn(containing: window, in: workspaceId),
               let frame = window.renderedFrame ?? window.frame
         else { return false }
+        let horizontal = orientation == .horizontal
         if column.isTabbed {
-            return !edges.isDisjoint(with: [.top, .bottom])
+            return !edges.isDisjoint(with: horizontal ? [.top, .bottom] : [.left, .right])
         }
-        switch engine.stackPlace(of: window, frame: frame, in: column, workspaceId: workspaceId) {
-        case .top: return edges.contains(.top)
-        case .bottom: return edges.contains(.bottom)
+        switch engine.stackPlace(
+            of: window,
+            frame: frame,
+            in: column,
+            workspaceId: workspaceId,
+            orientation: orientation
+        ) {
+        case .top: return edges.contains(horizontal ? .top : .right)
+        case .bottom: return edges.contains(horizontal ? .bottom : .left)
         case .alone,
              .middle: return false
         }

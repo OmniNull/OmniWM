@@ -72,6 +72,28 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
             )
         }
 
+        func sampleLayout(at time: TimeInterval) {
+            let gap = controller.innerGap(for: monitor)
+            _ = engine.calculateLayoutWithVisibility(
+                state: controller.workspaceManager.niriViewportState(for: workspaceId),
+                workspaceId: workspaceId,
+                monitorFrame: controller.insetWorkingFrame(for: monitor),
+                gaps: (horizontal: gap, vertical: gap),
+                orientation: orientation,
+                animationTime: time
+            )
+        }
+
+        func secondaryEdge(_ token: WindowToken, trailing: Bool = true) throws -> CGPoint {
+            if orientation == .horizontal { return try trailing ? topEdge(token) : bottomEdge(token) }
+            return try trailing ? rightEdge(token) : leftEdge(token)
+        }
+
+        func secondarySpring(_ token: WindowToken) throws -> SpringAnimation {
+            let window = try window(token)
+            return try XCTUnwrap(orientation == .horizontal ? window.heightAnimation : window.widthAnimation).animation
+        }
+
         @discardableResult
         func doubleClick(at point: CGPoint, modifiers: CGEventFlags = [], clickCount: Int64 = 2) -> Bool {
             let pressTaken = handler.dispatchAuthoritativeTap(
@@ -398,57 +420,121 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
     }
 
     func testATabbedColumnTurnedBackIntoAStackShrinksTheShownWindowAndSnapsTheOthersIn() throws {
-        let fixture = try makeFixture(pid: 941_018, stackFirstTwo: true)
-        let column = try fixture.column(fixture.tokens[0])
-        let stacked = try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }
-        fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[1]))
-        XCTAssertTrue(column.isTabbed)
-        let tabbed = try fixture.frame(fixture.tokens[1])
+        for (index, portrait) in [false, true].enumerated() {
+            let fixture = try makeFixture(pid: pid_t(941_018 + index), stackFirstTwo: true, portrait: portrait)
+            let column = try fixture.column(fixture.tokens[0])
+            let stacked = try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.secondaryEdge(fixture.tokens[1])))
+            XCTAssertTrue(column.isTabbed)
+            let tabbed = try fixture.frame(fixture.tokens[1])
 
-        fixture.controller.motionPolicy.animationsEnabled = true
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[1])))
+            fixture.controller.motionPolicy.animationsEnabled = true
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.secondaryEdge(fixture.tokens[1])))
+            let spring = try fixture.secondarySpring(fixture.tokens[1])
+            fixture.sampleLayout(at: spring.startTime)
 
-        XCTAssertFalse(column.isTabbed)
-        let shown = try fixture.frame(fixture.tokens[1])
-        XCTAssertEqual(shown.minY, tabbed.minY, accuracy: 4)
-        XCTAssertEqual(shown.height, tabbed.height, accuracy: 4)
-        let other = try fixture.frame(fixture.tokens[0])
-        XCTAssertEqual(other.minY, stacked[0].minY, accuracy: 4)
-        XCTAssertEqual(other.height, stacked[0].height, accuracy: 4)
+            XCTAssertFalse(column.isTabbed)
+            let shown = try fixture.frame(fixture.tokens[1])
+            XCTAssertEqual(
+                portrait ? shown.minX : shown.minY,
+                portrait ? tabbed.minX : tabbed.minY,
+                accuracy: fixture.tolerance
+            )
+            XCTAssertEqual(
+                portrait ? shown.width : shown.height,
+                portrait ? tabbed.width : tabbed.height,
+                accuracy: fixture.tolerance
+            )
+            let other = try fixture.frame(fixture.tokens[0])
+            XCTAssertEqual(
+                portrait ? other.minX : other.minY,
+                portrait ? stacked[0].minX : stacked[0].minY,
+                accuracy: fixture.tolerance
+            )
+            XCTAssertEqual(
+                portrait ? other.width : other.height,
+                portrait ? stacked[0].width : stacked[0].height,
+                accuracy: fixture.tolerance
+            )
+            XCTAssertFalse(try fixture.window(fixture.tokens[0]).hasAnyAnimationRunning)
+            fixture.sampleLayout(at: .infinity)
+            for (token, expected) in zip(fixture.tokens[0 ..< 2], stacked) {
+                let frame = try fixture.frame(token)
+                XCTAssertEqual(
+                    portrait ? frame.minX : frame.minY,
+                    portrait ? expected.minX : expected.minY,
+                    accuracy: fixture.tolerance
+                )
+                XCTAssertEqual(
+                    portrait ? frame.width : frame.height,
+                    portrait ? expected.width : expected.height,
+                    accuracy: fixture.tolerance
+                )
+            }
+        }
     }
 
     func testTheTabbedCommandAlsoSnapsTheOtherWindowsIn() throws {
-        let fixture = try makeFixture(pid: 941_026, stackFirstTwo: true)
-        let column = try fixture.column(fixture.tokens[0])
-        let stacked = try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }
-        fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[1]))
-        XCTAssertTrue(column.isTabbed)
-        let tabbed = try fixture.frame(fixture.tokens[1])
+        for (index, portrait) in [false, true].enumerated() {
+            let fixture = try makeFixture(pid: pid_t(941_026 + index), stackFirstTwo: true, portrait: portrait)
+            let column = try fixture.column(fixture.tokens[0])
+            let stacked = try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.secondaryEdge(fixture.tokens[1])))
+            XCTAssertTrue(column.isTabbed)
+            let tabbed = try fixture.frame(fixture.tokens[1])
 
-        fixture.controller.motionPolicy.animationsEnabled = true
-        let handle = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: fixture.tokens[1]))
-        XCTAssertTrue(fixture.controller.niriLayoutHandler.toggleColumnTabbed(target: .window(handle)))
-        fixture.relayout()
+            fixture.controller.motionPolicy.animationsEnabled = true
+            let handle = try XCTUnwrap(fixture.controller.workspaceManager.handle(for: fixture.tokens[1]))
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.toggleColumnTabbed(target: .window(handle)))
+            fixture.sampleLayout(at: try fixture.secondarySpring(fixture.tokens[1]).startTime)
 
-        XCTAssertFalse(column.isTabbed)
-        XCTAssertEqual(try fixture.frame(fixture.tokens[1]).height, tabbed.height, accuracy: 4)
-        let other = try fixture.frame(fixture.tokens[0])
-        XCTAssertEqual(other.minY, stacked[0].minY, accuracy: 4)
-        XCTAssertEqual(other.height, stacked[0].height, accuracy: 4)
+            XCTAssertFalse(column.isTabbed)
+            let shown = try fixture.frame(fixture.tokens[1])
+            XCTAssertEqual(
+                portrait ? shown.width : shown.height,
+                portrait ? tabbed.width : tabbed.height,
+                accuracy: fixture.tolerance
+            )
+            let other = try fixture.frame(fixture.tokens[0])
+            XCTAssertEqual(
+                portrait ? other.minX : other.minY,
+                portrait ? stacked[0].minX : stacked[0].minY,
+                accuracy: fixture.tolerance
+            )
+            XCTAssertEqual(
+                portrait ? other.width : other.height,
+                portrait ? stacked[0].width : stacked[0].height,
+                accuracy: fixture.tolerance
+            )
+            XCTAssertFalse(try fixture.window(fixture.tokens[0]).hasAnyAnimationRunning)
+        }
     }
 
     func testAStackTurnedTabbedStillMovesEachWindowFromItsStackedPlace() throws {
-        let fixture = try makeFixture(pid: 941_019, stackFirstTwo: true)
-        let stacked = try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }
+        for (index, portrait) in [false, true].enumerated() {
+            let fixture = try makeFixture(pid: pid_t(941_019 + index), stackFirstTwo: true, portrait: portrait)
+            let stacked = try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }
 
-        fixture.controller.motionPolicy.animationsEnabled = true
-        XCTAssertTrue(fixture.doubleClick(at: try fixture.topEdge(fixture.tokens[1])))
+            fixture.controller.motionPolicy.animationsEnabled = true
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.secondaryEdge(fixture.tokens[1])))
+            let startTime = try XCTUnwrap(fixture.tokens[0 ..< 2].map { try fixture.secondarySpring($0).startTime }
+                .min())
+            fixture.sampleLayout(at: startTime)
 
-        XCTAssertTrue(try fixture.column(fixture.tokens[0]).isTabbed)
-        for (token, start) in zip(fixture.tokens[0 ..< 2], stacked) {
-            let frame = try fixture.frame(token)
-            XCTAssertEqual(frame.minY, start.minY, accuracy: 4, "\(token)")
-            XCTAssertEqual(frame.height, start.height, accuracy: 4, "\(token)")
+            XCTAssertTrue(try fixture.column(fixture.tokens[0]).isTabbed)
+            for (token, start) in zip(fixture.tokens[0 ..< 2], stacked) {
+                let frame = try fixture.frame(token)
+                XCTAssertEqual(
+                    portrait ? frame.minX : frame.minY,
+                    portrait ? start.minX : start.minY,
+                    accuracy: fixture.tolerance
+                )
+                XCTAssertEqual(
+                    portrait ? frame.width : frame.height,
+                    portrait ? start.width : start.height,
+                    accuracy: fixture.tolerance
+                )
+            }
         }
     }
 
@@ -1272,13 +1358,16 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         }
     }
 
-    func testPortraitSecondaryEdgesAndProtectedHitRegionsPassThrough() throws {
+    func testPortraitSecondaryEdgesToggleTabsAndProtectedHitRegionsPassThrough() throws {
         let fixture = try makeFixture(pid: 941_220, stackFirstTwo: true, portrait: true)
         let token = fixture.tokens[1]
         let column = try fixture.column(token)
         let height = column.height
-        XCTAssertFalse(fixture.doubleClick(at: try fixture.leftEdge(token)))
-        XCTAssertFalse(fixture.doubleClick(at: try fixture.rightEdge(token)))
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.leftEdge(token)))
+        XCTAssertTrue(column.isTabbed)
+        XCTAssertTrue(fixture.engine
+            .projectedActiveWindow(in: column, workspaceId: fixture.workspaceId) === (try fixture.window(token)))
+        XCTAssertTrue(fixture.doubleClick(at: try fixture.rightEdge(token)))
         XCTAssertFalse(column.isTabbed)
         XCTAssertFalse(fixture.doubleClick(at: try fixture.titleBar(token), modifiers: .maskShift))
         let frame = try fixture.frame(token)
@@ -1291,6 +1380,39 @@ final class FusionDoubleClickTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.doubleClick(at: try fixture.topEdge(token)))
         XCTAssertEqual(column.height, height)
         XCTAssertNil(fixture.handler.inputTapThread.filterSnapshot.fusionDoubleClickArmedAt)
+    }
+
+    func testPortraitTabEdgesPreserveUnequalWidthsAndEachToggleHasOneUndo() throws {
+        for (index, trailing) in [false, true].enumerated() {
+            let fixture = try makeFixture(pid: pid_t(941_240 + index), stackFirstTwo: true, portrait: true)
+            let token = fixture.tokens[1]
+            let column = try fixture.column(token)
+            let windows = try fixture.tokens[0 ..< 2].map { try fixture.window($0) }
+            let total = try fixture.tokens[0 ..< 2].reduce(CGFloat.zero) { try $0 + fixture.frame($1).width }
+            windows[0].windowWidth = .fixed(total / 3)
+            windows[1].windowWidth = .fixed(total * 2 / 3)
+            fixture.relayout()
+            let frames = try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }
+            let widths = windows.map(\.windowWidth)
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.secondaryEdge(token, trailing: trailing)))
+            XCTAssertTrue(column.isTabbed)
+            XCTAssertTrue(fixture.engine
+                .projectedActiveWindow(in: column, workspaceId: fixture.workspaceId) === windows[1])
+            XCTAssertEqual(windows.map(\.windowWidth), widths)
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
+            fixture.relayout()
+            XCTAssertFalse(column.isTabbed)
+            XCTAssertEqual(windows.map(\.windowWidth), widths)
+            XCTAssertEqual(try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }, frames)
+            XCTAssertFalse(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo))
+            XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.redo))
+            fixture.relayout()
+            XCTAssertTrue(column.isTabbed)
+            XCTAssertTrue(fixture.doubleClick(at: try fixture.secondaryEdge(token, trailing: trailing)))
+            XCTAssertFalse(column.isTabbed)
+            XCTAssertEqual(windows.map(\.windowWidth), widths)
+            XCTAssertEqual(try fixture.tokens[0 ..< 2].map { try fixture.frame($0) }, frames)
+        }
     }
 
     func testPortraitTitleBarRespectsThePeekAndHeightConstraints() throws {
