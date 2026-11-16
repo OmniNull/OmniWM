@@ -64,6 +64,7 @@ extension MouseEventHandler {
     }
 
     func discardNativeTitleBarDragState() {
+        cancelLiveCrossDisplayMove()
         correctDeferredNativeResizeFrameIfNeeded()
         state.nativeResizeStart = nil
         state.nativeCrossDisplayMove = nil

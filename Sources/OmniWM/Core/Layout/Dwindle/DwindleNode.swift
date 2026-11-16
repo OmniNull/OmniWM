@@ -24,6 +24,13 @@ final class DwindleTile {
         activeIndex = 0
     }
 
+    init(members: consuming[DwindleTileMember], activeIndex: Int, id: DwindleTileId = UUID()) {
+        precondition(members.indices.contains(activeIndex))
+        self.id = id
+        self.members = members
+        self.activeIndex = activeIndex
+    }
+
     func restoreMembers(_ restored: consuming [DwindleTileMember], activeToken: WindowToken?) {
         precondition(!restored.isEmpty)
         var restoredActive = 0

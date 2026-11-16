@@ -13,6 +13,7 @@ final class MouseEventHandler {
     let inputTapThread = InputTapThread()
     var livePointer = LiveDragPointer()
     var liveDragSession: LiveDragSession?
+    var liveCrossDisplayMove: LiveCrossDisplayMove?
     var state = MouseInputState()
     var tapInputs = TapFilterInputs() {
         didSet {

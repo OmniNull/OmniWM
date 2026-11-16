@@ -364,7 +364,9 @@ extension MouseEventHandler {
             discardNativeTitleBarDragState()
             return
         }
-        let finishedLiveDrag = if drag.dwindleLiveDrag {
+        let finishedLiveDrag = if liveCrossDisplayMove != nil {
+            finishLiveCrossDisplayMove(token: drag.token)
+        } else if drag.dwindleLiveDrag {
             finishLiveDwindleDrag(token: drag.token, at: drag.releaseLocation)
         } else {
             drag.liveDrag && finishLiveColumnDrag(token: drag.token, startSize: drag.adoptionStartFrame?.size)

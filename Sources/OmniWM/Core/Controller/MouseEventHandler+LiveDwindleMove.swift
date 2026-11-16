@@ -68,6 +68,10 @@ extension MouseEventHandler {
             cancelLiveDwindleDrag()
             return
         }
+        if !monitor.frame.contains(location) {
+            _ = carryLiveDragAcrossDisplays(at: location)
+            return
+        }
         if engine.liveMoveHoldsTarget(at: location) { return }
         let changed = controller.workspaceManager.withEngineMutationScope(in: workspaceId, source: .mouse) {
             engine.liveMoveUpdate(
@@ -111,8 +115,12 @@ extension MouseEventHandler {
         }
     }
 
-    func cancelLiveDwindleDrag() {
+    func cancelLiveDwindleDrag(withinCrossDisplayMove: Bool = false) {
         guard state.nativeTitleBarDrag?.dwindleLiveDrag == true else { return }
+        if !withinCrossDisplayMove, liveCrossDisplayMove != nil {
+            cancelLiveCrossDisplayMove()
+            return
+        }
         state.nativeTitleBarDrag?.dwindleLiveDrag = false
         state.nativeTitleBarDrag?.canStartLiveDwindleDrag = false
         guard let controller, let engine = controller.dwindleEngine,
@@ -121,7 +129,7 @@ extension MouseEventHandler {
         let restored = controller.workspaceManager.withEngineMutationScope(in: workspaceId, source: .mouse) {
             engine.liveMoveCancel(at: controller.animationClock.now())
         }
-        if restored != nil, controller.hasStartedServices {
+        if restored != nil, !withinCrossDisplayMove, controller.hasStartedServices {
             controller.layoutRefreshController.requestImmediateRelayout(
                 reason: .interactiveGesture, affectedWorkspaceIds: [workspaceId]
             )

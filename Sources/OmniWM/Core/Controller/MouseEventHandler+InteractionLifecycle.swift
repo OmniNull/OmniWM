@@ -99,6 +99,7 @@ extension MouseEventHandler {
 
     func cancelActiveMouseInteraction() {
         guard let controller else { return }
+        cancelLiveCrossDisplayMove()
         cancelLiveDwindleDrag()
         cancelLiveColumnDrag()
         let wasActive = state.isMoving || state.isResizing

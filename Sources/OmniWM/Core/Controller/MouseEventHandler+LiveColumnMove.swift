@@ -106,13 +106,13 @@ extension MouseEventHandler {
         else { return false }
 
         finishPendingLiveStackDrop()
-        let layoutStart = controller.niriLayoutHandler
-            .layoutChangeStartCoveringEveryNiriWorkspace(in: entry.workspaceId)
+        let layoutStart = liveCrossDisplayMove == nil ? controller.niriLayoutHandler
+            .layoutChangeStartCoveringEveryNiriWorkspace(in: entry.workspaceId) : nil
         let began = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveBegin(
                 windowId: window.id,
                 windowToken: entry.token,
-                canCarry: hasOtherLiveStrip(than: context),
+                canCarry: liveCrossDisplayMove != nil || hasOtherLiveDisplay(than: context),
                 context: context,
                 state: &viewportState
             )
@@ -308,6 +308,9 @@ extension MouseEventHandler {
     }
 
     func recordLiveDragLayoutChange() {
+        if liveCrossDisplayMove?.released == true {
+            recordLiveCrossDisplayMove()
+        }
         controller?.niriLayoutHandler.recordLayoutChange(since: state.liveDragLayoutStart)
         state.liveDragLayoutStart = nil
     }

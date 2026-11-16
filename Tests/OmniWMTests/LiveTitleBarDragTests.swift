@@ -2606,7 +2606,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             fixture.manager.applySettings()
             _ = fixture.manager.focusWorkspace(named: "2")
             let context = try XCTUnwrap(fixture.handler.liveColumnContext(for: fixture.workspaceId))
-            XCTAssertTrue(fixture.handler.hasOtherLiveStrip(than: context))
+            XCTAssertTrue(fixture.handler.hasOtherLiveDisplay(than: context))
             try fixture.startLiveDrag(fixture.tokens[0])
             XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
             XCTAssertNotNil(fixture.engine.liveColumnMove)

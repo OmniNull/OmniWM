@@ -627,22 +627,23 @@ extension CrossDisplayDragTests {
         }
     }
 
-    func testBackFromAHandOverTheLiveDragResumesOnItsOwnDisplay() throws {
+    func testALiveDragReturnsFromDwindleAfterACrossDisplaySwap() throws {
         let fixture = try makeNativeFixture([.niri, .dwindle])
         fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         fixture.niri.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.source, fixture)
         let neighbour = addWindow(2, to: fixture.source, fixture)
-        _ = addWindow(3, to: fixture.target, fixture)
-        let sourceColumns = fixture.columns(fixture.source)
+        let resident = addWindow(3, to: fixture.target, fixture)
         let start = try beginNativeDrag(moved, fixture)
-        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 30, dy: 0) }
+        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: start.width / 8, dy: 0) }
         XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(
             for: try XCTUnwrap(fixture.manager.entry(for: moved))
         ))
         fixture.handler.dispatchMouseDragged(at: fixture.monitors[1].frame.center)
         XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
-        XCTAssertEqual(fixture.columns(fixture.source), sourceColumns)
+        XCTAssertEqual(fixture.columns(fixture.source), [[resident], [neighbour]])
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+        XCTAssertEqual(fixture.dwindle.liveMoveWorkspaceId, fixture.target)
 
         fixture.layout()
         let back = try dropPoint(in: XCTUnwrap(fixture.frame(neighbour)), .right)
@@ -650,24 +651,37 @@ extension CrossDisplayDragTests {
 
         XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
         XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.source)
-        XCTAssertEqual(fixture.columns(fixture.source), [[moved], [neighbour], []])
+        XCTAssertEqual(fixture.columns(fixture.source), [[resident], [neighbour], [moved]])
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
+        XCTAssertEqual(fixture.dwindle.existingState(for: fixture.target)?.tileCount, 0)
+        XCTAssertEqual(fixture.manager.entries(in: fixture.target).map(\.token), [])
+        fixture.handler.handleInputSuppressionBegan()
+        XCTAssertEqual(fixture.columns(fixture.source), [[moved], [neighbour]])
+        XCTAssertEqual(fixture.dwindleTile(resident), [resident])
+        XCTAssertEqual(fixture.manager.workspace(for: resident), fixture.target)
+        XCTAssertNil(fixture.niri.liveColumnMove)
+        XCTAssertTrue(fixture.handler.liveCrossDisplayMove == nil)
+        XCTAssertEqual(fixture.niri.states[fixture.source]?.layoutHistory.undoSnapshots.count, 0)
+        XCTAssertEqual(fixture.dwindle.layoutHistoryCounts(in: fixture.target).undo, 0)
     }
 
-    func testFromAHandOverOntoAnotherLiveStripTheDragIsCarried() throws {
+    func testALiveDragContinuesFromADwindleSwapOntoAThirdNiriDisplay() throws {
         let fixture = try makeNativeFixture([.niri, .dwindle, .niri])
         fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         fixture.niri.liveHoverDelay = 0
         let moved = addWindow(1, to: fixture.workspaces[0], fixture)
         let neighbour = addWindow(2, to: fixture.workspaces[0], fixture)
-        _ = addWindow(3, to: fixture.workspaces[1], fixture)
+        let swapped = addWindow(3, to: fixture.workspaces[1], fixture)
         let resident = addWindow(4, to: fixture.workspaces[2], fixture)
         let start = try beginNativeDrag(moved, fixture)
-        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 30, dy: 0) }
+        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: start.width / 8, dy: 0) }
         XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(
             for: try XCTUnwrap(fixture.manager.entry(for: moved))
         ))
         fixture.handler.dispatchMouseDragged(at: fixture.monitors[1].frame.center)
         XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+        XCTAssertEqual(fixture.dwindle.liveMoveWorkspaceId, fixture.workspaces[1])
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.workspaces[1])
 
         fixture.layout()
         let over = try dropPoint(in: XCTUnwrap(fixture.frame(resident)), .right)
@@ -676,8 +690,20 @@ extension CrossDisplayDragTests {
         XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
         XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.workspaces[2])
         XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.workspaces[2])
-        XCTAssertEqual(fixture.columns(fixture.workspaces[0]), [[neighbour]])
-        XCTAssertEqual(fixture.columns(fixture.workspaces[2]), [[resident], [moved], []])
+        XCTAssertEqual(fixture.columns(fixture.workspaces[0]), [[swapped], [neighbour]])
+        XCTAssertEqual(fixture.columns(fixture.workspaces[2]), [[resident], [moved]])
+        XCTAssertEqual(fixture.dwindle.existingState(for: fixture.workspaces[1])?.tileCount, 0)
+        XCTAssertEqual(fixture.manager.entries(in: fixture.workspaces[1]).map(\.token), [])
+        fixture.handler.handleInputSuppressionBegan()
+        XCTAssertEqual(fixture.columns(fixture.workspaces[0]), [[moved], [neighbour]])
+        XCTAssertEqual(fixture.dwindleTile(swapped), [swapped])
+        XCTAssertEqual(fixture.manager.workspace(for: swapped), fixture.workspaces[1])
+        XCTAssertEqual(fixture.columns(fixture.workspaces[2]), [[resident]])
+        XCTAssertNil(fixture.niri.liveColumnMove)
+        XCTAssertTrue(fixture.handler.liveCrossDisplayMove == nil)
+        XCTAssertEqual(fixture.niri.states[fixture.workspaces[0]]?.layoutHistory.undoSnapshots.count, 0)
+        XCTAssertEqual(fixture.dwindle.layoutHistoryCounts(in: fixture.workspaces[1]).undo, 0)
+        XCTAssertEqual(fixture.niri.states[fixture.workspaces[2]]?.layoutHistory.undoSnapshots.count, 0)
     }
 
     func testAWindowAloneOnItsDisplayCarriesALiveDragOntoTheOtherDisplay() throws {
@@ -736,7 +762,7 @@ extension CrossDisplayDragTests {
         XCTAssertFalse(home.hasManualSingleWindowWidthOverride)
     }
 
-    func testAWindowAloneOnTheOnlyNiriStripGetsNoLiveDrag() throws {
+    func testALoneNiriWindowStartsLiveDragOnlyWhenAnotherDisplayExists() throws {
         for layouts: [LayoutType] in [[.niri], [.niri, .dwindle]] {
             let fixture = try makeLiveFixture(layouts)
             let moved = addWindow(2, to: fixture.source, fixture)
@@ -746,8 +772,15 @@ extension CrossDisplayDragTests {
 
             try startLiveDrag(moved, fixture)
 
-            XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+            XCTAssertEqual(fixture.handler.isLiveColumnDragActive, layouts.count > 1)
+            if layouts.count > 1 {
+                XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.source)
+                XCTAssertEqual(fixture.niri.liveColumnMove?.windowToken, moved)
+                fixture.handler.handleInputSuppressionBegan()
+            }
             XCTAssertNil(fixture.niri.liveColumnMove)
+            XCTAssertEqual(fixture.columns(fixture.source), [[moved]])
+            XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)
         }
     }
 
@@ -1107,7 +1140,7 @@ extension CrossDisplayDragTests {
         }
     }
 
-    func testBothSourceAxesRefuseALoneSourceWithoutAnotherNiriStrip() throws {
+    func testBothSourceAxesAllowALoneLiveDragOnlyWhenAnotherDisplayExists() throws {
         for orientation in [Monitor.Orientation.horizontal, .vertical] {
             for layouts: [LayoutType] in [[.niri], [.niri, .dwindle]] {
                 let axes = layouts.map { _ in orientation }
@@ -1117,7 +1150,12 @@ extension CrossDisplayDragTests {
 
                 try startLiveDrag(moved, fixture)
 
-                XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
+                XCTAssertEqual(fixture.handler.isLiveColumnDragActive, layouts.count > 1)
+                if layouts.count > 1 {
+                    XCTAssertEqual(fixture.niri.liveColumnMove?.workspaceId, fixture.source)
+                    XCTAssertEqual(fixture.niri.liveColumnMove?.windowToken, moved)
+                    fixture.handler.handleInputSuppressionBegan()
+                }
                 XCTAssertNil(fixture.niri.liveColumnMove)
                 XCTAssertEqual(fixture.columns(fixture.source), [[moved]])
                 XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.source)

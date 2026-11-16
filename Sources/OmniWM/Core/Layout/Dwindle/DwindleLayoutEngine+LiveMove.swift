@@ -10,10 +10,16 @@ struct DwindleLiveMove: ~Copyable {
     var before: DwindleLayoutSnapshot?
     var acceptedRegion: CGRect?
 
-    init(token: WindowToken, workspaceId: WorkspaceDescriptor.ID, before: consuming DwindleLayoutSnapshot) {
+    init(
+        token: WindowToken,
+        workspaceId: WorkspaceDescriptor.ID,
+        before: consuming DwindleLayoutSnapshot,
+        acceptedRegion: CGRect?
+    ) {
         self.token = token
         self.workspaceId = workspaceId
         self.before = consume before
+        self.acceptedRegion = acceptedRegion
     }
 }
 
@@ -29,6 +35,7 @@ extension DwindleLayoutEngine {
     func liveMoveBegin(
         token: WindowToken,
         startLocation: CGPoint,
+        holding region: CGRect? = nil,
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
         assertSanctionedMutation()
@@ -39,7 +46,9 @@ extension DwindleLayoutEngine {
             interactiveMoveCancel()
             return false
         }
-        liveMove = DwindleLiveMove(token: token, workspaceId: workspaceId, before: consume before)
+        liveMove = DwindleLiveMove(
+            token: token, workspaceId: workspaceId, before: consume before, acceptedRegion: region
+        )
         return true
     }
 
@@ -78,13 +87,13 @@ extension DwindleLayoutEngine {
         return changed
     }
 
-    func liveMoveEnd() -> WorkspaceDescriptor.ID? {
+    func liveMoveEnd(recordingHistory: Bool = true) -> WorkspaceDescriptor.ID? {
         assertSanctionedMutation()
         guard var move = liveMove.take() else { return nil }
         interactiveMoveCancel()
         let workspaceId = move.workspaceId
         let before = move.before.take()
-        recordLayoutChange(in: workspaceId, since: consume before)
+        if recordingHistory { recordLayoutChange(in: workspaceId, since: consume before) }
         return workspaceId
     }
 

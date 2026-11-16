@@ -7,10 +7,16 @@ import Foundation
 extension MouseEventHandler {
     func carryLiveColumnDrag(from sourceWorkspaceId: WorkspaceDescriptor.ID, at location: CGPoint) -> Bool {
         guard let controller,
+              let targetWorkspaceId = liveStripWorkspace(at: location, requiringNiriEligibility: false),
+              targetWorkspaceId != sourceWorkspaceId
+        else { return liveCrossDisplayMove != nil }
+        if liveCrossDisplayMove != nil || !controller.isNiriStrip(targetWorkspaceId) {
+            return carryLiveDragAcrossDisplays(at: location, crossingTo: targetWorkspaceId)
+        }
+        guard !hasPendingNativeFullscreenTransition(at: location),
+              !isPointerDisplayShowingFullscreenSpace(at: location),
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
-              let targetWorkspaceId = liveStripWorkspace(at: location),
-              targetWorkspaceId != sourceWorkspaceId,
               let source = liveColumnContext(for: sourceWorkspaceId),
               let target = liveColumnContext(for: targetWorkspaceId),
               engine.liveColumnMoveCanCarry(from: source, to: target)
@@ -155,24 +161,27 @@ extension MouseEventHandler {
         }
     }
 
-    func hasOtherLiveStrip(than context: NiriInteractionContext) -> Bool {
+    func hasOtherLiveDisplay(than context: NiriInteractionContext) -> Bool {
         guard let controller else { return false }
         let manager = controller.workspaceManager
         return manager.monitors.contains { monitor in
             guard let other = manager.activeWorkspaceOrFirst(on: monitor.id)?.id, other != context.workspaceId else {
                 return false
             }
-            return controller.isNiriStrip(other)
+            return true
         }
     }
 
-    private func liveStripWorkspace(at location: CGPoint) -> WorkspaceDescriptor.ID? {
+    private func liveStripWorkspace(
+        at location: CGPoint,
+        requiringNiriEligibility: Bool = true
+    ) -> WorkspaceDescriptor.ID? {
         guard let controller,
               let monitor = controller.workspaceManager.monitors.first(where: { $0.frame.contains(location) }),
               let workspaceId = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id,
-              controller.isNiriStrip(workspaceId),
-              !hasPendingNativeFullscreenTransition(at: location),
-              !isPointerDisplayShowingFullscreenSpace(at: location)
+              !requiringNiriEligibility || controller.isNiriStrip(workspaceId),
+              !requiringNiriEligibility || !hasPendingNativeFullscreenTransition(at: location),
+              !requiringNiriEligibility || !isPointerDisplayShowingFullscreenSpace(at: location)
         else { return nil }
         return workspaceId
     }

@@ -55,6 +55,51 @@ extension WMController {
         finishCrossDisplayDrop(plan, heldSelection: heldSelection)
     }
 
+    func performLiveCrossDisplayDrop(_ plan: CrossDisplayDropPlan) -> Bool {
+        if case .swap = plan.operation, plan.sourceLayout == .niri, plan.unit.isGroup { return false }
+        var applied = false
+        workspaceManager.withBatchedCrossWorkspaceDrop(
+            into: plan.drop.workspaceId, niriWorkspaceIds: plan.niriWorkspaceIds
+        ) { states in
+            var assignments: [CrossWorkspaceDropAssignment] = []
+            switch plan.operation {
+            case let .move(placement):
+                applyCrossDisplayMove(plan, placement: placement, states: &states)
+            case let .swap(partner):
+                applyCrossDisplaySwap(plan, partner: partner, states: &states)
+                assignments = partner.tokens.map {
+                    CrossWorkspaceDropAssignment(token: $0, workspaceId: plan.drop.sourceWorkspaceId)
+                }
+            }
+            for token in plan.unit.tokens {
+                let present = plan.targetLayout == .niri
+                    ? niriEngine?.findNode(for: token, in: plan.drop.workspaceId) != nil
+                    : dwindleEngine?.findNode(for: token, in: plan.drop.workspaceId) != nil
+                guard present else { return [] }
+                assignments.append(CrossWorkspaceDropAssignment(token: token, workspaceId: plan.drop.workspaceId))
+            }
+            applied = true
+            return assignments
+        }
+        guard applied else { return false }
+        switch plan.operation {
+        case .move:
+            workspaceManager.recordLayoutOperation(
+                .windowMovedToWorkspace(token: plan.unit.activeToken, to: plan.drop.workspaceId),
+                in: plan.drop.sourceWorkspaceId, source: .mouse
+            )
+            workspaceManager.recordLayoutOperation(
+                .windowInserted(token: plan.unit.activeToken),
+                in: plan.drop.workspaceId,
+                source: .mouse
+            )
+        case .swap:
+            workspaceManager.recordLayoutOperation(.windowsSwapped, in: plan.drop.sourceWorkspaceId, source: .mouse)
+            workspaceManager.recordLayoutOperation(.windowsSwapped, in: plan.drop.workspaceId, source: .mouse)
+        }
+        return true
+    }
+
     private enum DetachedCrossDisplayUnit {
         case niri(NiriTransferredColumn)
         case dwindle(DwindleTransferredTile)
@@ -94,6 +139,7 @@ extension WMController {
         switch plan.sourceLayout {
         case .niri:
             guard let engine = niriEngine, let node = engine.findNode(for: token, in: source) else { return nil }
+            if plan.unit.isGroup { return detachCrossDisplayNiriGroup(plan, node: node, states: &states) }
             if plan.targetLayout == .dwindle {
                 workspaceManager.captureDetachedNiriPlacement(for: token, in: source)
             }
@@ -116,6 +162,36 @@ extension WMController {
             guard plan.targetLayout == .niri else { return .dwindle(tile) }
             return .niri(niriColumn(for: plan.unit, sizing: admittedNiriContainerSizing(for: token)))
         }
+    }
+
+    private func detachCrossDisplayNiriGroup(
+        _ plan: CrossDisplayDropPlan,
+        node: NiriWindow,
+        states: inout [WorkspaceDescriptor.ID: ViewportState]
+    ) -> DetachedCrossDisplayUnit? {
+        guard let engine = niriEngine,
+              let column = engine.findColumn(containing: node, in: plan.drop.sourceWorkspaceId)
+        else { return nil }
+        if plan.targetLayout == .dwindle {
+            for token in plan.unit.tokens {
+                workspaceManager.captureDetachedNiriPlacement(for: token, in: plan.drop.sourceWorkspaceId)
+            }
+        }
+        guard let transferred = engine.detachColumnForTransfer(
+            column, from: plan.drop.sourceWorkspaceId,
+            sourceState: &states[
+                plan.drop.sourceWorkspaceId,
+                default: niriViewportState(for: plan.drop.sourceWorkspaceId)
+            ]
+        ) else { return nil }
+        guard plan.targetLayout == .dwindle else { return .niri(transferred) }
+        for window in transferred.windows {
+            dwindleEngine?.updateWindowConstraints(for: window.token, constraints: window.constraints)
+        }
+        let members = plan.unit.tokens.map { DwindleTileMember(token: $0, isFullscreen: false) }
+        return .dwindle(DwindleTransferredTile(
+            tile: DwindleTile(members: consume members, activeIndex: plan.unit.activeIndex)
+        ))
     }
 
     private func attachCrossDisplayColumn(

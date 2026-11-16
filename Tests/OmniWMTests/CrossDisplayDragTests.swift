@@ -788,15 +788,14 @@ final class CrossDisplayDragTests: XCTestCase {
         }
     }
 
-    func testALiveFusionDragHandsOverToTheNativeMoveOnADwindleDisplay() throws {
+    func testALiveNiriDragContinuesOnDwindleAndCompletesItsNativeRelease() throws {
         let fixture = try makeNativeFixture([.niri, .dwindle])
         fixture.controller.updateNiriConfig(edgePeekShare: fixture.controller.edgePeekShare)
         let moved = addWindow(1, to: fixture.source, fixture)
         let neighbour = addWindow(2, to: fixture.source, fixture)
         let resident = addWindow(3, to: fixture.target, fixture)
-        let sourceColumns = fixture.columns(fixture.source)
         let start = try beginNativeDrag(moved, fixture)
-        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 30, dy: 0) }
+        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: start.width / 8, dy: 0) }
         XCTAssertTrue(fixture.handler.handleNativeTitleBarDragFrameChanged(
             for: try XCTUnwrap(fixture.manager.entry(for: moved))
         ))
@@ -807,16 +806,47 @@ final class CrossDisplayDragTests: XCTestCase {
 
         XCTAssertFalse(fixture.handler.isLiveColumnDragActive)
         XCTAssertNil(fixture.niri.liveColumnMove)
-        XCTAssertEqual(fixture.columns(fixture.source), sourceColumns)
+        XCTAssertEqual(fixture.columns(fixture.source), [[neighbour]])
+        XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
+        XCTAssertEqual(fixture.dwindle.liveMoveWorkspaceId, fixture.target)
+        XCTAssertEqual(fixture.dwindle.liveMoveToken, moved)
+        XCTAssertEqual(fixture.dwindle.layoutHistoryCounts(in: fixture.target).undo, 0)
 
-        fixture.handler.nativeWindowFrameProvider = { _ in start.offsetBy(dx: 1600, dy: 0) }
+        fixture.handler.nativeWindowFrameProvider = { _ in
+            start.offsetBy(dx: point.x - start.midX, dy: point.y - start.midY)
+        }
         fixture.handler.dispatchMouseUp(at: point)
 
         XCTAssertEqual(fixture.manager.workspace(for: moved), fixture.target)
         XCTAssertEqual(fixture.manager.workspace(for: neighbour), fixture.source)
         XCTAssertEqual(fixture.dwindleTile(moved), [moved])
         XCTAssertEqual(fixture.manager.workspace(for: resident), fixture.target)
+        XCTAssertNil(fixture.dwindle.liveMoveWorkspaceId)
+        XCTAssertNil(fixture.dwindle.interactiveMove)
+        XCTAssertEqual(fixture.dwindle.layoutHistoryCounts(in: fixture.target).undo, 1)
+        XCTAssertEqual(fixture.niri.states[fixture.source]?.layoutHistory.undoSnapshots.count, 1)
+        XCTAssertEqual(fixture.handler.state.nativeTitleBarDrag?.phase, .awaitingCorrection)
+        fixture.layout()
+        let area = fixture.controller.insetWorkingFrame(for: fixture.monitors[1])
+        let frame = DwindleGapCalculator.applyGaps(
+            nodeRect: WindowMoveGeometry.targetFrame(in: area, direction: .right),
+            tilingArea: area, settings: fixture.dwindle.settings
+        )
+        XCTAssertEqual(fixture.frame(moved), frame)
+        let reference = try XCTUnwrap(fixture.manager.entry(for: moved)?.axRef)
+        fixture.handler.nativeWindowFrameProvider = { _ in frame }
+        fixture.controller.axManager.confirmFrameWrite(for: moved.windowId, frame: frame)
+        fixture.handler.handleNativeTitleBarDragFrameApplySucceeded(AXFrameApplyResult(
+            pid: moved.pid, windowId: moved.windowId, expectedWindow: reference,
+            targetFrame: frame, currentFrameHint: frame,
+            writeResult: AXFrameWriteResult(
+                observedFrame: frame, writeOrder: .sizeThenPosition,
+                sizeError: .success, positionError: .success, failureReason: nil
+            )
+        ))
+        fixture.handler.retireNativeTitleBarDragAtInputBoundary()
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
+        XCTAssertTrue(fixture.handler.liveCrossDisplayMove == nil)
     }
 
     func testAPortraitNiriDisplayContinuesTheLiveDrag() throws {
