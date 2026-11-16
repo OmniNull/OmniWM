@@ -124,6 +124,9 @@ extension NiriLayoutHandler {
         ) {
             return true
         }
+        if let result = stepMixedLayoutHistory(
+            direction, in: workspaceId, keepingFocus: keepingFocus, engine: engine, controller: controller
+        ) { return result }
         return stepLayoutHistoryAcrossWorkspaces(
             direction, in: workspaceId, keepingFocus: keepingFocus, engine: engine, controller: controller
         )
@@ -181,7 +184,7 @@ extension NiriLayoutHandler {
         return stepped
     }
 
-    private func frontRestoredWindow(
+    func frontRestoredWindow(
         _ window: NiriWindow,
         in workspaceId: WorkspaceDescriptor.ID,
         controller: WMController
@@ -213,7 +216,7 @@ extension NiriLayoutHandler {
         return controller.activeWorkspace()?.id
     }
 
-    private func focusedToken(in workspaceId: WorkspaceDescriptor.ID) -> WindowToken? {
+    func focusedToken(in workspaceId: WorkspaceDescriptor.ID) -> WindowToken? {
         guard let controller, let engine = controller.niriEngine else { return nil }
         let selected = controller.workspaceManager.niriViewportState(for: workspaceId).selectedNodeId
         return selected.flatMap { engine.findNode(by: $0, in: workspaceId) as? NiriWindow }?.token
@@ -226,7 +229,7 @@ extension NiriLayoutHandler {
         navigation.finishWorkspaceMove(mutation, focusPolicy: .retainCurrent)
     }
 
-    private func applyLayoutHistoryStep(
+    func applyLayoutHistoryStep(
         in workspaceId: WorkspaceDescriptor.ID,
         drawn earlierDrawn: NiriDrawnLayout? = nil,
         focusedBefore: WindowToken? = nil,

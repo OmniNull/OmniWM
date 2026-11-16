@@ -66,7 +66,8 @@ final class CommandHandler {
 
     private func performAllowedCommand(_ command: HotkeyCommand, controller: WMController) -> ExternalCommandResult {
         var changeStart = layoutChangeStart(recording: command, controller: controller)
-        defer { controller.niriLayoutHandler.recordLayoutChange(since: changeStart) }
+        let mixedTransferSource = mixedTransferSelection(for: command, controller: controller)
+        defer { finishLayoutChange(changeStart, transfer: mixedTransferSource, controller: controller) }
         switch command {
         case let .focus(direction):
             focusWindow(direction: direction)

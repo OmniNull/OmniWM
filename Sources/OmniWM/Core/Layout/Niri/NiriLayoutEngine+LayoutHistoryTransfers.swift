@@ -88,13 +88,38 @@ extension NiriLayoutEngine {
 
     func restoreAwayColumns(_ away: NiriLayoutAway, in workspaceId: WorkspaceDescriptor.ID) {
         guard let root = root(for: workspaceId) else { return }
-        let moved = Set(away.tokens)
         let windows = Dictionary(root.allWindows.map { ($0.token, $0) }, uniquingKeysWith: { first, _ in first })
+        restoreAwayColumns(away, in: root, windows: windows)
+    }
+
+    func restoreAwayColumns(
+        _ away: NiriLayoutAway,
+        in workspaceId: WorkspaceDescriptor.ID,
+        arrivals: borrowing [NiriWindow]
+    ) {
+        let workspace = ensureState(for: workspaceId)
+        guard !arrivals.isEmpty else { return restoreAwayColumns(away, in: workspaceId) }
+        let root = workspace.root
+        var windows = Dictionary(root.allWindows.map { ($0.token, $0) }, uniquingKeysWith: { first, _ in first })
+        for index in arrivals.indices { windows[arrivals[index].token] = arrivals[index] }
+        restoreAwayColumns(away, in: root, windows: consume windows)
+        for index in arrivals.indices where arrivals[index].parent?.parent === root {
+            workspace.index(arrivals[index])
+        }
+    }
+
+    private func restoreAwayColumns(
+        _ away: NiriLayoutAway,
+        in root: NiriRoot,
+        windows: consuming [WindowToken: NiriWindow]
+    ) {
+        let availableWindows = consume windows
+        let moved = Set(away.tokens)
         let saved = away.snapshot.columns
         for (index, column) in saved.enumerated() {
-            let returning = column.windows.filter(moved.contains).compactMap { windows[$0] }
+            let returning = column.windows.filter(moved.contains).compactMap { availableWindows[$0] }
             guard !returning.isEmpty else { continue }
-            let stayed = column.windows.lazy.filter { !moved.contains($0) }.compactMap { windows[$0] }
+            let stayed = column.windows.lazy.filter { !moved.contains($0) }.compactMap { availableWindows[$0] }
             let container: NiriContainer
             let comesBackWhole: Bool
             if let host = stayed.first?.parent as? NiriContainer {
@@ -104,7 +129,7 @@ extension NiriLayoutEngine {
                 container = NiriContainer()
                 comesBackWhole = true
             }
-            let wanted = column.windows.compactMap { windows[$0] }
+            let wanted = column.windows.compactMap { availableWindows[$0] }
                 .filter { moved.contains($0.token) || $0.parent === container }
             for (position, window) in wanted.enumerated()
                 where window.parent !== container || container.children.firstIndex(where: { $0 === window }) != position
@@ -117,7 +142,7 @@ extension NiriLayoutEngine {
                 }
                 root.insertChild(
                     container,
-                    at: awayColumnIndex(index, in: root, saved: saved, moved: moved, windows: windows)
+                    at: awayColumnIndex(index, in: root, saved: saved, moved: moved, windows: availableWindows)
                 )
                 column.sizing.restore(to: container, engine: self)
                 container.displayMode = column.displayMode

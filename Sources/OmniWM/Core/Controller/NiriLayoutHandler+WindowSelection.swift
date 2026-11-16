@@ -66,24 +66,40 @@ extension NiriLayoutHandler {
         for token: WindowToken,
         pass: NiriLayoutPass
     ) -> NiriContainerSizingState? {
-        guard let controller, controller.settings.niri.readsObservedWindowWidths else { return nil }
-        let opening = pass.engine.takeOpeningWindow(token)
-        guard pass.engine.keepsEnteringWindowWidth(
+        guard let controller else { return nil }
+        return keptPrimarySpanSizingState(
+            for: token, engine: pass.engine, in: pass.wsId,
+            geometry: NiriSizingGeometry(workingFrame: pass.insetFrame, gaps: pass.gap, orientation: pass.orientation),
+            controller: controller
+        )
+    }
+
+    func keptPrimarySpanSizingState(
+        for token: WindowToken,
+        engine: NiriLayoutEngine,
+        in workspaceId: WorkspaceDescriptor.ID,
+        geometry: NiriSizingGeometry,
+        controller: WMController
+    ) -> NiriContainerSizingState? {
+        guard controller.settings.niri.readsObservedWindowWidths else { return nil }
+        let opening = engine.takeOpeningWindow(token)
+        guard engine.keepsEnteringWindowWidth(
                   opening: opening,
                   hasRuleWidth: controller.workspaceManager.admissionHints(for: token)?
                       .initialNiriContainerPrimarySpan != nil,
                   keepsExistingWidth: controller.settings.niri.keepExistingWindowWidth,
-                  in: pass.wsId
+                  in: workspaceId
               ),
               let entry = controller.workspaceManager.entry(for: token),
               let frame = controller.axEventHandler.observedFrame(for: entry)
         else { return nil }
-        return pass.engine.keptContainerSizingState(
-            primarySpan: pass.orientation == .horizontal ? frame.width : frame.height,
-            in: pass.wsId,
-            workingSpan: pass.orientation == .horizontal ? pass.insetFrame.width : pass.insetFrame.height,
-            gaps: pass.gap,
-            orientation: pass.orientation
+        return engine.keptContainerSizingState(
+            primarySpan: geometry.orientation == .horizontal ? frame.width : frame.height,
+            in: workspaceId,
+            workingSpan: geometry.orientation == .horizontal ? geometry.workingFrame.width : geometry.workingFrame
+                .height,
+            gaps: geometry.gaps,
+            orientation: geometry.orientation
         )
     }
 

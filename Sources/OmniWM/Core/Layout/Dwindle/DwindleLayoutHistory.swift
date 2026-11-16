@@ -25,8 +25,46 @@ struct DwindleLayoutAway {
 }
 
 struct DwindleLayoutTransfer {
+    private enum Peers {
+        case dwindle([DwindleLayoutAway])
+        case mixed([DwindleLayoutAway], [NiriLayoutAway])
+    }
+
     let departed: [WindowToken]
-    let away: [DwindleLayoutAway]
+    private let peers: Peers
+
+    init(
+        departed: consuming[WindowToken],
+        away: consuming[DwindleLayoutAway],
+        niriAway: consuming[NiriLayoutAway]?
+    ) {
+        self.departed = departed
+        if let niriAway = consume niriAway {
+            peers = .mixed(away, niriAway)
+        } else {
+            peers = .dwindle(away)
+        }
+    }
+
+    var away: [DwindleLayoutAway] {
+        _read {
+            switch peers {
+            case let .dwindle(away),
+                 let .mixed(away, _): yield away
+            }
+        }
+    }
+
+    var niriAway: [NiriLayoutAway]? {
+        switch peers {
+        case .dwindle: nil
+        case let .mixed(_, away): away
+        }
+    }
+
+    var hasNiriAway: Bool {
+        if case .mixed = peers { true } else { false }
+    }
 }
 
 struct DwindleLayoutHistoryEntry {
@@ -36,13 +74,14 @@ struct DwindleLayoutHistoryEntry {
     init(
         snapshot: consuming DwindleLayoutSnapshot,
         departed: consuming[WindowToken] = [],
-        away: consuming[DwindleLayoutAway] = []
+        away: consuming[DwindleLayoutAway] = [],
+        niriAway: consuming[NiriLayoutAway]? = nil
     ) {
         self.snapshot = snapshot
-        if departed.isEmpty, away.isEmpty {
+        if departed.isEmpty, away.isEmpty, niriAway == nil {
             transfer = nil
         } else {
-            transfer = DwindleLayoutTransfer(departed: departed, away: away)
+            transfer = DwindleLayoutTransfer(departed: departed, away: away, niriAway: niriAway)
         }
     }
 
@@ -169,6 +208,14 @@ struct DwindleLayoutHistory: ~Copyable {
 }
 
 extension DwindleLayoutEngine {
+    func recordForeignLayoutHistory(
+        entry: consuming DwindleLayoutHistoryEntry,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) {
+        assertSanctionedMutation()
+        ensureState(for: workspaceId).layoutHistory.record(entry)
+    }
+
     func recordLayoutChange(
         in workspaceId: WorkspaceDescriptor.ID,
         since before: consuming DwindleLayoutSnapshot?

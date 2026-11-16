@@ -11,6 +11,7 @@ extension WorkspaceNavigationHandler {
     ) -> Bool {
         guard let controller else { return false }
         if let moved = moveDwindleWindowsFromBar(tokens, to: targetWorkspaceId, controller: controller) { return moved }
+        if let moved = moveMixedWindowsFromBar(tokens, to: targetWorkspaceId, controller: controller) { return moved }
         let selectedToken = controller.workspaceManager.selectedManagedToken
         var mutations: [StructuralMutation] = []
         for token in tokens {

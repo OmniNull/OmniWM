@@ -3,7 +3,7 @@
 
 import Foundation
 
-private struct DwindleHistoryWindowMove {
+struct LayoutHistoryWindowMove {
     let token: WindowToken
     let source: WorkspaceDescriptor.ID
     let target: WorkspaceDescriptor.ID
@@ -18,24 +18,26 @@ extension DwindleLayoutHandler {
     ) -> DwindleLayoutHistoryStep? {
         repeat {
             while engine.hasLayoutTransferHistory(direction, in: workspaceId) {
-                guard let moves = engine.withLayoutTransferHistory(direction, in: workspaceId, { entry in
-                          historyWindowMoves(entry.transfer!, in: workspaceId, engine: engine, controller: controller)
-                      }) ?? nil,
-                      let current = engine.layoutSnapshot(in: workspaceId),
+                guard let prepared = engine.withLayoutTransferHistory(direction, in: workspaceId, { entry in
+                    historyWindowMoves(entry.transfer!, in: workspaceId, engine: engine, controller: controller)
+                }) ?? nil
+                else { return nil }
+                if prepared.mixed {
+                    guard let result = controller.stepMixedLayoutHistory(
+                        direction, in: workspaceId, preparedMoves: prepared.moves
+                    ) else { return nil }
+                    guard result.changed else { continue }
+                    return DwindleLayoutHistoryStep(focused: result.followed ? nil : result.focused)
+                }
+                let moves = prepared.moves
+                guard let current = engine.layoutSnapshot(in: workspaceId),
                       let entry = engine.takeLayoutTransferHistory(direction, in: workspaceId)
                 else { return nil }
                 let inverse = inverseTransferHistory(
                     snapshot: consume current, moves: moves, in: workspaceId, engine: engine
                 )
                 let arrivals = detachHistoryArrivals(moves, into: workspaceId, engine: engine)
-                for index in entry.transfer!.away.indices {
-                    let target = entry.transfer!.away[index].workspaceId
-                    let returning = detachHistoryArrivals(moves, into: target, engine: engine)
-                    if !returning.isEmpty { engine.restoreLayoutAway(
-                        entry.transfer!.away[index],
-                        arrivals: consume returning
-                    ) }
-                }
+                restoreTransferHistoryPeers(entry.transfer!.away, moves: moves, engine: engine)
                 for move in moves {
                     controller.workspaceManager.setWorkspace(for: move.token, to: move.target)
                 }
@@ -57,66 +59,121 @@ extension DwindleLayoutHandler {
         return nil
     }
 
+    private func restoreTransferHistoryPeers(
+        _ away: borrowing [DwindleLayoutAway],
+        moves: borrowing [LayoutHistoryWindowMove],
+        engine: DwindleLayoutEngine
+    ) {
+        for index in away.indices {
+            let target = away[index].workspaceId
+            let returning = detachHistoryArrivals(moves, into: target, engine: engine)
+            if !returning.isEmpty { engine.restoreLayoutAway(away[index], arrivals: consume returning) }
+        }
+    }
+
     private func historyWindowMoves(
         _ transfer: borrowing DwindleLayoutTransfer,
         in workspaceId: WorkspaceDescriptor.ID,
         engine: DwindleLayoutEngine,
         controller: WMController
-    ) -> [DwindleHistoryWindowMove]? {
+    ) -> (moves: [LayoutHistoryWindowMove], mixed: Bool)? {
         let manager = controller.workspaceManager
-        var moves: [DwindleHistoryWindowMove] = []
+        var moves: [LayoutHistoryWindowMove] = []
+        var mixed = transfer.hasNiriAway
         for index in transfer.departed.indices {
             let token = transfer.departed[index]
             guard let current = manager.entry(for: token), current.workspaceId != workspaceId else { continue }
-            guard historyTransferIsAllowed(
-                token,
-                from: current.workspaceId,
-                to: workspaceId,
-                engine: engine,
-                controller: controller
+            let move = LayoutHistoryWindowMove(token: token, source: current.workspaceId, target: workspaceId)
+            guard let sourceLayout = historyTransferSourceLayout(
+                move, targetLayout: .dwindle, engine: engine, controller: controller
             )
             else { return nil }
-            moves.append(DwindleHistoryWindowMove(token: token, source: current.workspaceId, target: workspaceId))
+            mixed = mixed || sourceLayout == .niri
+            moves.append(move)
         }
         for index in transfer.away.indices {
             let target = transfer.away[index].workspaceId
             for tokenIndex in transfer.away[index].tokens.indices {
                 let token = transfer.away[index].tokens[tokenIndex]
                 guard manager.workspace(for: token) == workspaceId else { continue }
-                guard historyTransferIsAllowed(
-                    token,
-                    from: workspaceId,
-                    to: target,
-                    engine: engine,
-                    controller: controller
+                let move = LayoutHistoryWindowMove(token: token, source: workspaceId, target: target)
+                guard let sourceLayout = historyTransferSourceLayout(
+                    move, targetLayout: .dwindle, engine: engine, controller: controller
                 )
                 else { return nil }
-                moves.append(DwindleHistoryWindowMove(token: token, source: workspaceId, target: target))
+                mixed = mixed || sourceLayout == .niri
+                moves.append(move)
             }
         }
-        return moves
+        if let away = transfer.niriAway {
+            guard appendNiriHistoryMoves(away, in: workspaceId, moves: &moves, engine: engine, controller: controller)
+            else { return nil }
+        }
+        return (moves, mixed)
     }
 
-    private func historyTransferIsAllowed(
-        _ token: WindowToken,
-        from source: WorkspaceDescriptor.ID,
-        to target: WorkspaceDescriptor.ID,
+    private func appendNiriHistoryMoves(
+        _ away: borrowing [NiriLayoutAway],
+        in workspaceId: WorkspaceDescriptor.ID,
+        moves: inout [LayoutHistoryWindowMove],
         engine: DwindleLayoutEngine,
         controller: WMController
     ) -> Bool {
         let manager = controller.workspaceManager
-        return manager.descriptor(for: source) != nil && manager.descriptor(for: target) != nil
-            && manager.monitor(for: source) != nil && manager.monitor(for: target) != nil
-            && manager.activeLayoutKind(for: source) == .dwindle
-            && manager.activeLayoutKind(for: target) == .dwindle
-            && manager.entry(for: token)?.target.hostedMetadata?.role.parent == nil
-            && groupMemberActivationIsAllowed(token, workspaceId: source)
-            && engine.findNode(for: token, in: source) != nil
+        for index in away.indices {
+            let target = away[index].workspaceId
+            for tokenIndex in away[index].tokens.indices {
+                let token = away[index].tokens[tokenIndex]
+                guard manager.workspace(for: token) == workspaceId else { continue }
+                let move = LayoutHistoryWindowMove(token: token, source: workspaceId, target: target)
+                guard historyTransferSourceLayout(
+                    move, targetLayout: .niri, engine: engine, controller: controller
+                ) != nil else { return false }
+                moves.append(move)
+            }
+        }
+        return true
+    }
+
+    private func historyTransferSourceLayout(
+        _ move: LayoutHistoryWindowMove,
+        targetLayout: ActiveLayoutKind,
+        engine: DwindleLayoutEngine,
+        controller: WMController
+    ) -> ActiveLayoutKind? {
+        let manager = controller.workspaceManager
+        guard manager.descriptor(for: move.source) != nil, manager.descriptor(for: move.target) != nil,
+              manager.monitor(for: move.source) != nil, manager.monitor(for: move.target) != nil
+        else { return nil }
+        let sourceLayout = manager.activeLayoutKind(for: move.source)
+        guard manager.activeLayoutKind(for: move.target) == targetLayout,
+              manager.entry(for: move.token)?.target.hostedMetadata?.role.parent == nil,
+              groupMemberActivationIsAllowed(move.token, workspaceId: move.source)
+        else { return nil }
+        if sourceLayout == .dwindle {
+            guard engine.findNode(for: move.token, in: move.source) != nil else { return nil }
+        } else if !niriHistoryParticipantIsAllowed(move.source, token: move.token, controller: controller) {
+            return nil
+        }
+        if targetLayout == .niri, !niriHistoryParticipantIsAllowed(move.target, controller: controller) { return nil }
+        return sourceLayout
+    }
+
+    private func niriHistoryParticipantIsAllowed(
+        _ workspaceId: WorkspaceDescriptor.ID,
+        token: WindowToken? = nil,
+        controller: WMController
+    ) -> Bool {
+        guard let engine = controller.niriEngine else { return false }
+        if let token, engine.findNode(for: token, in: workspaceId) == nil { return false }
+        return !engine.isLiveColumnMoveActive(in: workspaceId)
+            && !engine.isLiveStackDropPending(in: workspaceId)
+            && !controller.niriLayoutHandler.isMouseResizeUnderway(engine: engine)
     }
 
     private func inverseTransferHistory(
         snapshot: consuming DwindleLayoutSnapshot,
-        moves: borrowing [DwindleHistoryWindowMove],
+        moves: borrowing [LayoutHistoryWindowMove],
         in workspaceId: WorkspaceDescriptor.ID,
         engine: DwindleLayoutEngine
     ) -> DwindleLayoutHistoryEntry {
@@ -138,7 +195,7 @@ extension DwindleLayoutHandler {
     }
 
     private func detachHistoryArrivals(
-        _ moves: borrowing [DwindleHistoryWindowMove],
+        _ moves: borrowing [LayoutHistoryWindowMove],
         into target: WorkspaceDescriptor.ID,
         engine: DwindleLayoutEngine
     ) -> [DwindleHistoryArrival] {
@@ -161,7 +218,7 @@ extension DwindleLayoutHandler {
     }
 
     private func finishTransferHistory(
-        _ moves: borrowing [DwindleHistoryWindowMove],
+        _ moves: borrowing [LayoutHistoryWindowMove],
         in workspaceId: WorkspaceDescriptor.ID,
         broughtBack: WindowToken?,
         controller: WMController

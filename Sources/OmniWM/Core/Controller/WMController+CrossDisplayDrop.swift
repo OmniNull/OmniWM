@@ -11,14 +11,19 @@ extension WMController {
 
     func performCrossDisplayDrop(_ plan: CrossDisplayDropPlan) {
         let drop = plan.drop
-        let layoutStart = niriLayoutHandler.layoutChangeStartCoveringEveryNiriWorkspace(in: drop.sourceWorkspaceId)
+        let layoutStart = plan.sourceLayout == plan.targetLayout
+            ? niriLayoutHandler.layoutChangeStartCoveringEveryNiriWorkspace(in: drop.sourceWorkspaceId) : nil
         defer { niriLayoutHandler.recordLayoutChange(since: layoutStart) }
         let heldSelection = workspaceManager.selectedManagedToken.map(plan.unit.tokens.contains) == true
+        var applied = plan.sourceLayout == plan.targetLayout
         workspaceManager.withBatchedCrossWorkspaceDrop(
             into: drop.workspaceId,
             niriWorkspaceIds: plan.niriWorkspaceIds
         ) { states in
             let recordsDwindle = plan.sourceLayout == .dwindle && plan.targetLayout == .dwindle
+            let mixedBefore = plan.sourceLayout != plan.targetLayout
+                ? mixedLayoutHistoryStart(from: drop.sourceWorkspaceId, to: drop.workspaceId) : nil
+            if plan.sourceLayout != plan.targetLayout, mixedBefore == nil { return [] }
             let sourceBefore = recordsDwindle ? dwindleEngine?.layoutSnapshot(in: drop.sourceWorkspaceId) : nil
             let targetBefore = recordsDwindle ? dwindleEngine?.layoutSnapshot(in: drop.workspaceId) : nil
             let arrivals = plan.unit.tokens
@@ -40,8 +45,13 @@ extension WMController {
                     sourceBefore: consume sourceBefore, targetBefore: consume targetBefore
                 )
             }
+            if let mixedBefore = consume mixedBefore {
+                recordMixedLayoutTransfer(consume mixedBefore)
+                applied = true
+            }
             return assignments
         }
+        guard applied else { return }
         finishCrossDisplayDrop(plan, heldSelection: heldSelection)
     }
 
@@ -322,7 +332,7 @@ extension WMController {
         }
     }
 
-    private func admittedNiriContainerSizing(for token: WindowToken) -> NiriContainerSizingState? {
+    func admittedNiriContainerSizing(for token: WindowToken) -> NiriContainerSizingState? {
         if let detached = workspaceManager.restoreIntent(for: token)?.detachedNiriContainerSizingState {
             return detached
         }

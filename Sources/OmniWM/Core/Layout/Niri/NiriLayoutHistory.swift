@@ -75,6 +75,7 @@ struct NiriLayoutSnapshot {
     let manualHeightColumnCount: Int?
     let focused: WindowToken?
     var away: [NiriLayoutAway] = []
+    var foreignTransfer: NiriForeignTransfer?
 
     static var empty: NiriLayoutSnapshot {
         NiriLayoutSnapshot(columns: [], manualWidthColumnCount: nil, manualHeightColumnCount: nil, focused: nil)
@@ -96,6 +97,11 @@ struct NiriLayoutAway {
     let workspaceId: WorkspaceDescriptor.ID
     let tokens: [WindowToken]
     let snapshot: NiriLayoutSnapshot
+}
+
+struct NiriForeignTransfer {
+    let departed: [WindowToken]
+    let away: [DwindleLayoutAway]
 }
 
 struct NiriLayoutTransfers {
@@ -137,13 +143,56 @@ struct NiriLayoutHistory {
         after: NiriLayoutSnapshot? = nil,
         timing: NiriLayoutStepTiming? = nil
     ) {
-        push(before, onto: &undoSnapshots)
+        Self.push(before, onto: &undoSnapshots)
         redoSnapshots.removeAll()
         newest = timing.flatMap { timing in after.map { (timing, $0) } }
     }
 
     func last(_ direction: NiriLayoutHistoryDirection) -> NiriLayoutSnapshot? {
         direction == .undo ? undoSnapshots.last : redoSnapshots.last
+    }
+
+    func hasForeignEntry(_ direction: NiriLayoutHistoryDirection) -> Bool {
+        switch direction {
+        case .undo:
+            guard !undoSnapshots.isEmpty else { return false }
+            return undoSnapshots[undoSnapshots.count - 1].foreignTransfer != nil
+        case .redo:
+            guard !redoSnapshots.isEmpty else { return false }
+            return redoSnapshots[redoSnapshots.count - 1].foreignTransfer != nil
+        }
+    }
+
+    func withForeignEntry<Result>(
+        _ direction: NiriLayoutHistoryDirection,
+        _ body: (borrowing NiriLayoutSnapshot) -> Result
+    ) -> Result? {
+        guard hasForeignEntry(direction) else { return nil }
+        switch direction {
+        case .undo: return body(undoSnapshots[undoSnapshots.count - 1])
+        case .redo: return body(redoSnapshots[redoSnapshots.count - 1])
+        }
+    }
+
+    mutating func recordForeign(_ snapshot: consuming NiriLayoutSnapshot) {
+        Self.pushOwned(snapshot, onto: &undoSnapshots)
+        redoSnapshots.removeAll()
+        newest = nil
+    }
+
+    mutating func pushForeign(
+        _ snapshot: consuming NiriLayoutSnapshot,
+        onto direction: NiriLayoutHistoryDirection
+    ) {
+        switch direction {
+        case .undo: Self.pushOwned(snapshot, onto: &undoSnapshots)
+        case .redo: Self.pushOwned(snapshot, onto: &redoSnapshots)
+        }
+    }
+
+    private static func pushOwned(_ snapshot: consuming NiriLayoutSnapshot, onto list: inout [NiriLayoutSnapshot]) {
+        list.append(snapshot)
+        if list.count > Self.limit { list.removeFirst(list.count - Self.limit) }
     }
 
     mutating func pop(_ direction: NiriLayoutHistoryDirection) -> NiriLayoutSnapshot? {
@@ -169,14 +218,14 @@ struct NiriLayoutHistory {
     }
 
     mutating func pushUndo(_ snapshot: NiriLayoutSnapshot) {
-        push(snapshot, onto: &undoSnapshots)
+        Self.push(snapshot, onto: &undoSnapshots)
     }
 
     mutating func pushRedo(_ snapshot: NiriLayoutSnapshot) {
-        push(snapshot, onto: &redoSnapshots)
+        Self.push(snapshot, onto: &redoSnapshots)
     }
 
-    private func push(_ snapshot: NiriLayoutSnapshot, onto list: inout [NiriLayoutSnapshot]) {
+    private static func push(_ snapshot: NiriLayoutSnapshot, onto list: inout [NiriLayoutSnapshot]) {
         list.append(snapshot)
         if list.count > Self.limit {
             list.removeFirst(list.count - Self.limit)
@@ -252,6 +301,7 @@ extension NiriLayoutEngine {
         var history = workspace.layoutHistory
         defer { workspace.layoutHistory = history }
         while let entry = history.last(direction) {
+            guard entry.foreignTransfer == nil else { return nil }
             guard layoutHistoryTransfers(entry, in: workspaceId).isEmpty else { return nil }
             _ = history.pop(direction)
             guard let current = layoutSnapshot(in: workspaceId, focused: focused) else { return nil }
@@ -273,6 +323,31 @@ extension NiriLayoutEngine {
     func restoreLayoutSnapshot(_ snapshot: NiriLayoutSnapshot, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
         guard let root = root(for: workspaceId) else { return false }
         let windows = Dictionary(root.allWindows.map { ($0.token, $0) }, uniquingKeysWith: { first, _ in first })
+        return restoreLayoutSnapshot(snapshot, in: workspaceId, root: root, windows: windows)
+    }
+
+    @discardableResult
+    func restoreLayoutSnapshot(
+        _ snapshot: NiriLayoutSnapshot,
+        in workspaceId: WorkspaceDescriptor.ID,
+        arrivals: borrowing [NiriWindow]
+    ) -> Bool {
+        let workspace = ensureState(for: workspaceId)
+        let root = workspace.root
+        guard !arrivals.isEmpty else { return restoreLayoutSnapshot(snapshot, in: workspaceId) }
+        var windows = Dictionary(root.allWindows.map { ($0.token, $0) }, uniquingKeysWith: { first, _ in first })
+        for index in arrivals.indices { windows[arrivals[index].token] = arrivals[index] }
+        let restored = restoreLayoutSnapshot(snapshot, in: workspaceId, root: root, windows: consume windows)
+        for index in arrivals.indices where arrivals[index].parent?.parent === root { workspace.index(arrivals[index]) }
+        return restored
+    }
+
+    private func restoreLayoutSnapshot(
+        _ snapshot: NiriLayoutSnapshot,
+        in workspaceId: WorkspaceDescriptor.ID,
+        root: NiriRoot,
+        windows: consuming [WindowToken: NiriWindow]
+    ) -> Bool {
         let wanted = snapshot.columns.compactMap { column -> (NiriLayoutSnapshot.Column, [NiriWindow])? in
             let present = column.windows.compactMap { windows[$0] }
             return present.isEmpty ? nil : (column, present)
