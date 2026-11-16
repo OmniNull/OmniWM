@@ -9,6 +9,7 @@ struct DwindleLiveMove: ~Copyable {
     let workspaceId: WorkspaceDescriptor.ID
     var before: DwindleLayoutSnapshot?
     var acceptedRegion: CGRect?
+    var floatingFrame: CGRect?
 
     init(
         token: WindowToken,
@@ -92,6 +93,9 @@ extension DwindleLayoutEngine {
         guard var move = liveMove.take() else { return nil }
         interactiveMoveCancel()
         let workspaceId = move.workspaceId
+        if move.floatingFrame != nil {
+            _ = activateWindow(move.token, in: workspaceId)
+        }
         let before = move.before.take()
         if recordingHistory { recordLayoutChange(in: workspaceId, since: consume before) }
         return workspaceId
@@ -105,7 +109,7 @@ extension DwindleLayoutEngine {
         return move.workspaceId
     }
 
-    private func withLiveMoveSource<Result>(_ body: (borrowing DwindleNode) -> Result) -> Result? {
+    func withLiveMoveSource<Result>(_ body: (borrowing DwindleNode) -> Result) -> Result? {
         guard let move = interactiveMove,
               liveMoveWorkspaceId == move.workspaceId,
               liveMoveToken == move.token,

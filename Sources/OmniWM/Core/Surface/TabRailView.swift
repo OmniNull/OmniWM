@@ -202,6 +202,18 @@ final class TabRailView: NSView {
         }
     }
 
+    func dragTarget(at point: CGPoint) -> (token: WindowToken, visualIndex: Int)? {
+        let visualIndex = style == .appIcons
+            ? iconView?.visualIndex(at: point, in: self)
+            : trackView.visualIndex(at: point)
+        guard let visualIndex else { return nil }
+        for index in tabs.indices where tabs[index].visualIndex == visualIndex {
+            guard let token = tabs[index].token else { return nil }
+            return (token, visualIndex)
+        }
+        return nil
+    }
+
     func item(at point: CGPoint) -> TabRailLayout.Item? {
         if style == .appIcons {
             return currentLayout().items.first { !$0.hitRect.isEmpty && $0.hitRect.contains(point) }

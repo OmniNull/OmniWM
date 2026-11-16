@@ -92,6 +92,27 @@ final class TabRailTrackOverlayView: NSView {
         return rects
     }
 
+    func visualIndex(at point: CGPoint) -> Int? {
+        guard railLayout.railRect.contains(point) else { return nil }
+        var previous: (visualIndex: Int, midY: CGFloat)?
+        for index in railLayout.items.indices {
+            let item = railLayout.items[index]
+            let marker: CGRect
+            if let path = segmentLayers[item.visualIndex]?.presentation()?.path {
+                marker = path.boundingBoxOfPath.offsetBy(
+                    dx: railLayout.barRect.minX, dy: railLayout.barRect.minY
+                )
+            } else {
+                marker = item.pillRect
+            }
+            if let previous, point.y >= (previous.midY + marker.midY) / 2 {
+                return previous.visualIndex
+            }
+            previous = (item.visualIndex, marker.midY)
+        }
+        return previous?.visualIndex
+    }
+
     func refreshAppearance() {
         updateSegmentLayers(
             animateSelectionChange: false,

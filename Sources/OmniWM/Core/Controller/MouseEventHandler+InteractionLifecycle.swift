@@ -24,6 +24,7 @@ extension MouseEventHandler {
         state.isMoving || state.isResizing || isViewportGestureActive
             || state.nativeTitleBarDrag?.dwindleResizeWorkspaceId != nil
             || state.nativeTitleBarDrag?.dwindleLiveDrag == true
+            || liveDragSession?.tabPull?.layout == .dwindle
             || isLiveColumnDragActive
     }
 
@@ -100,6 +101,7 @@ extension MouseEventHandler {
     func cancelActiveMouseInteraction() {
         guard let controller else { return }
         cancelLiveCrossDisplayMove()
+        cancelLiveDwindleTabPull()
         cancelLiveDwindleDrag()
         cancelLiveColumnDrag()
         let wasActive = state.isMoving || state.isResizing

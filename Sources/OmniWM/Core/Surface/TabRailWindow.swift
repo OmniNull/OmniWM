@@ -341,3 +341,12 @@ class TabRailWindow: NSPanel {
         "tab-rail-\(workspaceId.uuidString)-\(owner.surfaceIdentifier)"
     }
 }
+
+extension TabRailWindow {
+    func dragTarget(at point: CGPoint) -> (token: WindowToken, visualIndex: Int)? {
+        guard isOrderedIn else { return nil }
+        let frame = appliedFrame
+        guard frame.contains(point) else { return nil }
+        return railView.dragTarget(at: CGPoint(x: point.x - frame.minX, y: point.y - frame.minY))
+    }
+}

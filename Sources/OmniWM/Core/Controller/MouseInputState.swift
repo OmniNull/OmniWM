@@ -102,6 +102,7 @@ struct MouseInputState {
         let token: WindowToken
         let anchorLocation: CGPoint
         let startFrame: CGRect
+        var layout: ActiveLayoutKind = .niri
     }
 
     struct LiveDropScroll {

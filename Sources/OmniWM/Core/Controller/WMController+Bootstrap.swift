@@ -73,12 +73,14 @@ extension WMController {
         }
         tabRailManager.ringOrderedAbove = { [weak self] in self?.surfaceReconciler.ringWindowId(orderedAbove: $0) }
         tabRailManager.onDrag = { [weak self] drag in
-            guard case .niriColumn = drag.info.owner else { return }
             self?.mouseEventHandler.handleTabRailDrag(drag)
         }
         tabRailManager.acceptsDrags = { [weak self] info in
-            guard let self, case .niriColumn = info.owner else { return false }
-            return isNiriStrip(info.workspaceId)
+            guard let self else { return false }
+            switch info.owner {
+            case .niriColumn: return isNiriStrip(info.workspaceId)
+            case .dwindleTile: return workspaceManager.activeLayoutKind(for: info.workspaceId) == .dwindle
+            }
         }
         tabRailManager.onSelect = { [weak self] info, visualIndex, token in
             guard let self else { return }

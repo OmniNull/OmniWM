@@ -84,6 +84,17 @@ final class TabRailManager {
         railWindows[key]
     }
 
+    func dragTarget(at point: CGPoint) -> TabRailDropTarget? {
+        for index in railWindows.indices {
+            guard let hit = railWindows[index].value.dragTarget(at: point) else { continue }
+            let key = railWindows[index].key
+            return TabRailDropTarget(
+                workspaceId: key.workspaceId, owner: key.owner, token: hit.token, visualIndex: hit.visualIndex
+            )
+        }
+        return nil
+    }
+
     private func updateRail(_ info: TabRailInfo, forceOrdering: Bool) {
         let key = info.key
         let window = railWindows[key] ?? {

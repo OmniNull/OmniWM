@@ -173,6 +173,38 @@ extension DwindleLayoutEngine {
         state.selectedNodeId = leaf.id
     }
 
+    func attachTransferredMember(
+        _ arrival: consuming DwindleHistoryArrival,
+        to target: WindowToken,
+        at index: Int,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        assertSanctionedMutation()
+        guard let state = existingState(for: workspaceId),
+              let leaf = state.leafByToken[target], let tile = leaf.tile,
+              !state.excludedTokens.contains(target),
+              tile.member(for: target)?.isFullscreen == false
+        else { return false }
+        let member: DwindleTileMember
+        let excluded: Bool
+        switch consume arrival {
+        case let .member(incoming, incomingExcluded):
+            member = incoming
+            excluded = incomingExcluded
+        case let .tile(transferred):
+            guard transferred.tile.members.count == 1 else { return false }
+            member = transferred.tile.activeMember
+            excluded = transferred.excludedTokens.contains(member.token)
+        }
+        guard state.leafByToken[member.token] == nil else { return false }
+        seedMovementFramesFromPresentedLeaves(in: state)
+        tile.insert(member, at: index)
+        state.leafByToken[member.token] = leaf
+        if excluded { state.excludedTokens.insert(member.token) }
+        state.selectedNodeId = leaf.id
+        return true
+    }
+
     func replaceSlot(
         of partnerToken: WindowToken,
         wholeTile: Bool,

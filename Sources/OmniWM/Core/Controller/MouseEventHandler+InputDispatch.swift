@@ -414,7 +414,8 @@ extension MouseEventHandler {
     }
 
     private func ownWindowInterruptsDrag(_ button: MouseButton, at location: CGPoint) -> Bool {
-        !isCapturedInteraction(button) && !isLiveColumnDragActive && shouldBlockOwnWindowInput(at: location)
+        !isCapturedInteraction(button) && !isLiveColumnDragActive && liveDragSession?.tabPull == nil
+            && shouldBlockOwnWindowInput(at: location)
     }
 
     private func warpDraggedPointer(at location: CGPoint) {

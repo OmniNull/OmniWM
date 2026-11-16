@@ -6,8 +6,17 @@ import Foundation
 
 extension MouseEventHandler {
     func handleTabRailDrag(_ drag: TabRailDrag) {
+        if case .dwindleTile = drag.info.owner {
+            beginLiveDwindleTabPull(drag)
+        } else {
+            beginLiveNiriTabPull(drag)
+        }
+    }
+
+    private func beginLiveNiriTabPull(_ drag: borrowing TabRailDrag) {
         guard let token = drag.token,
               !isLiveColumnDragActive,
+              liveDragSession?.tabPull == nil,
               let controller,
               let entry = controller.workspaceManager.entry(for: token),
               controller.isNiriStrip(entry.workspaceId),
@@ -41,11 +50,13 @@ extension MouseEventHandler {
         }
         state.deferredClickScroll = nil
         controller.syncLiveDragPointerHold(active: true)
+        let location = drag.location
+        let towardTrailingSide = context.primaryCoordinate(of: location)
+            >= context.primaryCoordinate(of: drag.pressLocation)
         let detached = controller.workspaceManager.withNiriViewportState(for: entry.workspaceId) { viewportState in
             engine.liveColumnMoveDetachTab(
-                towardTrailingSide: context.primaryCoordinate(of: drag.location)
-                    >= context.primaryCoordinate(of: drag.pressLocation),
-                cursor: drag.location,
+                towardTrailingSide: towardTrailingSide,
+                cursor: location,
                 context: context,
                 state: &viewportState
             )
@@ -57,18 +68,25 @@ extension MouseEventHandler {
     }
 
     func moveLiveTabPull(to location: CGPoint) {
+        if liveDragSession?.tabPull?.layout == .dwindle {
+            moveLiveDwindleTabPull(to: location)
+            return
+        }
         guard let pull = liveDragSession?.tabPull,
               let controller,
               let engine = controller.niriEngine,
               engine.liveColumnMove?.windowToken == pull.token
         else { return }
-        engine.liveColumnMove?.floatingFrame = pull.startFrame.offsetBy(
+        let frame = pull.startFrame.offsetBy(
             dx: location.x - pull.anchorLocation.x,
             dy: location.y - pull.anchorLocation.y
         )
+        guard engine.liveColumnMove?.floatingFrame != frame else { return }
+        engine.liveColumnMove?.floatingFrame = frame
         livePointer.location = location
         recordLivePointerSample(location)
         updateLiveColumnDrag(at: location)
+        guard liveDragSession?.tabPull?.layout == .niri else { return }
         controller.layoutRefreshController.requestImmediateRelayout(
             reason: .interactiveGesture,
             affectedWorkspaceIds: Set([engine.liveColumnMove?.workspaceId].compactMap(\.self))
@@ -76,8 +94,21 @@ extension MouseEventHandler {
     }
 
     func endLiveTabPull(at location: CGPoint) {
-        guard let pull = liveDragSession?.tabPull, let controller, let engine = controller.niriEngine else { return }
+        guard liveDragSession?.tabPull != nil else { return }
         moveLiveTabPull(to: location)
+        guard let pull = liveDragSession?.tabPull, let controller else { return }
+        if liveCrossDisplayMove != nil {
+            let frame = pull.layout == .dwindle ? controller.dwindleEngine?.liveTabMoveFloatingFrame
+                : controller.niriEngine?.liveColumnMove?.floatingFrame
+            _ = finishLiveCrossDisplayMove(token: pull.token, releaseFrame: frame)
+            if pull.layout == .dwindle { endLiveDragSession() }
+            return
+        }
+        if pull.layout == .dwindle {
+            finishLiveDwindleTabPull()
+            return
+        }
+        guard let engine = controller.niriEngine else { return }
         let released = engine.liveColumnMove?.floatingFrame
         _ = finishLiveColumnDrag(token: pull.token, releaseFrame: released)
     }

@@ -89,6 +89,12 @@ final class DwindleTile {
         activeIndex = insertionIndex
     }
 
+    func insert(_ member: DwindleTileMember, at index: Int) {
+        let insertionIndex = min(max(0, index), members.count)
+        members.insert(member, at: insertionIndex)
+        if insertionIndex <= activeIndex { activeIndex += 1 }
+    }
+
     func remove(at index: Int) -> DwindleTileMember {
         precondition(members.count > 1 && members.indices.contains(index))
         let member = members.remove(at: index)
@@ -117,6 +123,26 @@ final class DwindleTile {
     func setFullscreen(_ fullscreen: Bool, for token: WindowToken) {
         guard let index = memberIndex(for: token) else { return }
         members[index].isFullscreen = fullscreen
+    }
+
+    @discardableResult
+    func reorder(_ token: WindowToken, to destination: Int) -> Bool {
+        guard let source = memberIndex(for: token), members.indices.contains(destination), source != destination else {
+            return false
+        }
+        let selected = activeToken
+        do {
+            var span = members.mutableSpan
+            let member = span[source]
+            if source < destination {
+                for index in source ..< destination { span[index] = span[index + 1] }
+            } else {
+                for index in stride(from: source, to: destination, by: -1) { span[index] = span[index - 1] }
+            }
+            span[destination] = member
+        }
+        activeIndex = memberIndex(for: selected) ?? destination
+        return true
     }
 
     @discardableResult

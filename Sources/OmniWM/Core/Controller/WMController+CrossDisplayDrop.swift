@@ -111,6 +111,10 @@ extension WMController {
         states: inout [WorkspaceDescriptor.ID: ViewportState]
     ) {
         let drop = plan.drop
+        if case let .dwindleGroup(target, index) = placement {
+            applyCrossDisplayTabJoin(plan, target: target, index: index, states: &states)
+            return
+        }
         switch detachCrossDisplayUnit(plan, states: &states) {
         case let .niri(column):
             var state = states[drop.workspaceId, default: niriViewportState(for: drop.workspaceId)]
@@ -431,6 +435,7 @@ extension WMController {
             .splitBoundary(splitId)
         case .niriNewColumn,
              .niriStack,
+             .dwindleGroup,
              .swap,
              .workspace:
             .defaultPlacement

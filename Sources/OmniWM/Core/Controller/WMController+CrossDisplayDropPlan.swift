@@ -206,6 +206,9 @@ extension WMController {
                 return .workspace
             }
             return drop.placement
+        case let .dwindleGroup(target, _):
+            guard !unit.isGroup, isCrossDisplayTransferable(target, in: workspaceId) else { return .workspace }
+            return drop.placement
         case let .dwindleBeside(target, _):
             guard let engine = dwindleEngine,
                   engine.tile(containing: target, in: workspaceId) != nil,

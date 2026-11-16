@@ -122,6 +122,16 @@ final class TabRailIconView: NSVisualEffectView {
         return TabRailLayout(railRect: viewport, barRect: viewport, items: items)
     }
 
+    func visualIndex(at point: CGPoint, in view: NSView) -> Int? {
+        let viewport = convert(bounds, to: view)
+        guard viewport.contains(point) else { return nil }
+        for index in rows.indices {
+            let hit = document.convert(rows[index].frame, to: view).intersection(viewport)
+            if !hit.isEmpty, hit.contains(point) { return index }
+        }
+        return nil
+    }
+
     func refreshAppearance() {
         let reduceTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
         material = reduceTransparency ? .windowBackground : .hudWindow

@@ -6,7 +6,7 @@ import Foundation
 
 extension MouseEventHandler {
     var isLiveColumnDragActive: Bool {
-        state.nativeTitleBarDrag?.liveDrag == true || liveDragSession?.tabPull != nil
+        state.nativeTitleBarDrag?.liveDrag == true || liveDragSession?.tabPull?.layout == .niri
     }
 
     func holdsSelectionScroll(in workspaceId: WorkspaceDescriptor.ID) -> Bool {

@@ -68,7 +68,8 @@ extension MouseEventHandler {
         }
         if controller.isOverviewOpen() { return .overview }
         if shouldBlockOwnWindowGestureInput(at: location) { return .ownWindow }
-        guard !state.isResizing, !state.isMoving, !isLiveColumnDragActive else { return .windowInteraction }
+        guard !state.isResizing, !state.isMoving, !isLiveColumnDragActive, liveDragSession?.tabPull == nil
+        else { return .windowInteraction }
         guard controller.settings.gestures.scrollEnabled else { return .wheelDisabled }
         let requiredModifiers = controller.settings.gestures.scrollModifierKey.cgEventFlag
         guard Self.mouseWheelModifiersMatch(modifiers, required: requiredModifiers) else { return .modifierMismatch }

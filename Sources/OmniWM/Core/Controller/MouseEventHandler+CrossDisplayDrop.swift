@@ -9,6 +9,7 @@ struct CrossDisplayDrop: Equatable {
         case niriNewColumn(durableIndex: Int)
         case niriStack(target: WindowToken, after: Bool)
         case dwindleBeside(target: WindowToken, direction: Direction)
+        case dwindleGroup(target: WindowToken, index: Int)
         case dwindleEdge(Direction)
         case dwindleSplitBoundary(DwindleNodeId)
         case swap(target: WindowToken)

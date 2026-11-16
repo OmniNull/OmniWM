@@ -4,6 +4,13 @@
 import CoreGraphics
 import Foundation
 
+struct TabRailDropTarget {
+    let workspaceId: WorkspaceDescriptor.ID
+    let owner: TabRailOwner
+    let token: WindowToken
+    let visualIndex: Int
+}
+
 struct TabRailDrag {
     let info: TabRailInfo
     let visualIndex: Int
