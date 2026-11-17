@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 import textwrap
 import unittest
 
@@ -39,33 +40,82 @@ class CIWorkflowTests(unittest.TestCase):
             self.assertIn("permissions:\n  contents: read\n", workflow)
         self.assertNotIn("website", self.jobs)
 
-    def test_manual_pr_number_is_validated_before_checkout(self):
-        ref = "ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}"
-        jobs = {name: job for name, job in self.jobs.items() if "refs/pull/" in job}
-        self.assertEqual(set(jobs), {"tooling", "verify", "test-group"})
-        for name, job in jobs.items():
+    def test_every_checkout_uses_the_resolved_immutable_sha(self):
+        refs = {"cache-dependencies": "github.sha", "changes": "steps.source.outputs.sha",
+                **dict.fromkeys(("tooling", "verify", "test-group"), "needs.changes.outputs.source-sha")}
+        self.assertEqual(set(self.jobs), {*refs, "tests"})
+        for name, job in self.jobs.items():
             with self.subTest(job=name):
-                self.assertIn(ref, job)
-                before_checkout = job.split("      - uses: actions/checkout@", 1)[0]
-                self.assertIn("PR_NUMBER: ${{ inputs.pr_number }}", before_checkout)
-                script = textwrap.dedent(before_checkout.split("        run: |\n", 1)[1])
-                for number in ("", "1", "1254", "0", "-1", "01", "1/../head", "1\n2", "$(exit 0)"):
-                    with self.subTest(number=number):
-                        result = subprocess.run(["/bin/bash", "-c", script], capture_output=True, text=True,
-                                                env={**os.environ, "PR_NUMBER": number})
-                        valid = number in ("", "1", "1254")
-                        self.assertEqual(result.returncode == 0, valid, result.stdout + result.stderr)
-                        if not valid:
-                            self.assertIn("pr_number must be a positive integer", result.stdout)
+                checkouts = re.findall(r"      - uses: actions/checkout@[^\n]+\n(.*?)(?=      - |\Z)",
+                                       job, re.DOTALL)
+                self.assertEqual(len(checkouts), int(name in refs))
+                for checkout in checkouts:
+                    self.assertEqual(re.findall(r"^          ref: (.+)$", checkout, re.MULTILINE),
+                                     [f"${{{{ {refs[name]} }}}}"])
+                    self.assertIn("persist-credentials: false", checkout)
+                if name in ("tooling", "verify", "test-group"):
+                    self.assertRegex(job, r"(?m)^    needs: (changes|\[changes, verify\])$")
+                if name != "changes":
+                    self.assertNotIn("inputs.pr_number", job)
+                    self.assertNotRegex(job, r"\b(?:gh|git)\s+(?:api|ls-remote|fetch)\b")
+        self.assertIn("      source-sha: ${{ steps.source.outputs.sha }}", self.jobs["changes"])
+        self.assertEqual(self.ci.count("gh api "), 1)
+        self.assertIn("    permissions:\n      contents: read\n      pull-requests: read", self.jobs["changes"])
+        self.assertEqual(self.ci.count("pull-requests: read"), 1)
+        self.assertNotRegex(self.ci, r"(?:contents|actions|checks|pull-requests): write")
+
+    def test_source_resolver_queries_once_and_fails_closed(self):
+        before_checkout = self.jobs["changes"].split("      - uses: actions/checkout@", 1)[0]
+        for value in ("id: source", "PR_NUMBER: ${{ inputs.pr_number }}", "EVENT_SHA: ${{ github.sha }}",
+                      "GH_TOKEN: ${{ github.token }}", "GH_REPO: ${{ github.repository }}", "shell: bash"):
+            self.assertIn(value, before_checkout)
+        script = textwrap.dedent(before_checkout.split("        run: |\n", 1)[1])
+        event_sha, merge_sha = "a" * 40, "b" * 40
+        cases = [(event, "", merge_sha, 0, event_sha, 0, "")
+                 for event in ("push", "pull_request", "workflow_dispatch")]
+        cases += [("workflow_dispatch", number, merge_sha, 0, merge_sha, 1, "") for number in ("1", "1254")]
+        cases += [("workflow_dispatch", number, merge_sha, 0, None, 0, "pr_number must be a positive integer")
+                  for number in ("0", "-1", "01", "1/../head", "1\n2", "$(exit 0)", " 1")]
+        cases += [("workflow_dispatch", "1254", sha, 0, None, 1, "Source commit must be a full 40-character")
+                  for sha in ("", "null", "b" * 39, "b" * 41, "g" * 40, merge_sha + "\n" + event_sha)]
+        cases.append(("workflow_dispatch", "1254", merge_sha, 1, None, 1, "Could not resolve"))
+        for event, number, answer, status, expected, queries, error in cases:
+            with self.subTest(event=event, number=number, answer=answer, status=status), tempfile.TemporaryDirectory() as tmp:
+                directory = Path(tmp)
+                calls, output = directory / "calls", directory / "output"
+                stub = textwrap.dedent('''\
+                    #!/bin/bash
+                    echo "${0##*/} $*" >> "$CALLS"
+                    if [[ $(wc -l < "$CALLS") -eq 1 ]]; then
+                      printf '%s\\n' "$MERGE_SHA"
+                    else
+                      printf '%s\\n' "$NEXT_SHA"
+                    fi
+                    exit "$QUERY_STATUS"
+                    ''')
+                for command in ("gh", "git"):
+                    (directory / command).write_text(stub)
+                    (directory / command).chmod(0o755)
+                result = subprocess.run(["/bin/bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", script],
+                                        capture_output=True, text=True, env={**os.environ, "PATH": f"{tmp}:{os.environ['PATH']}",
+                                        "PR_NUMBER": number, "EVENT_SHA": event_sha, "GITHUB_EVENT_NAME": event,
+                                        "GH_REPO": "OmniNull/OmniWM", "GH_TOKEN": "fixture", "GITHUB_OUTPUT": str(output),
+                                        "CALLS": str(calls), "MERGE_SHA": answer, "NEXT_SHA": "c" * 40, "QUERY_STATUS": str(status)})
+                self.assertEqual(result.returncode == 0, expected is not None, result.stdout + result.stderr)
+                self.assertEqual(output.read_text() if output.exists() else "", f"sha={expected}\n" if expected else "")
+                self.assertEqual(calls.read_text().splitlines() if calls.exists() else [],
+                                 [f"gh api repos/OmniNull/OmniWM/pulls/{number} --jq .merge_commit_sha"] * queries)
+                if error:
+                    self.assertIn(error, result.stdout)
 
     def test_planner_uses_event_base_and_head(self):
         changes = self.jobs["changes"]
-        self.assertIn("ref: ${{ github.ref }}", changes)
+        plan = changes.split("      - name: Plan the Swift test groups\n", 1)[1]
         self.assertIn("fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}", changes)
         for name, value in (("EVENT", "github.event_name"), ("BASE", "github.event.pull_request.base.sha"),
                             ("HEAD", "github.event.pull_request.head.sha")):
             self.assertIn(f"{name}: ${{{{ {value} }}}}", changes)
-        self.assertNotIn("inputs.pr_number", changes)
+        self.assertNotIn("inputs.pr_number", plan)
         self.assertIn('if [[ "$EVENT" == pull_request ]]; then\n            git diff --name-only "$BASE...$HEAD"', changes)
         self.assertIn('python3 Scripts/ci_test_plan.py "$EVENT" >> "$GITHUB_OUTPUT"', changes)
 
