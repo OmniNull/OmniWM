@@ -7,6 +7,10 @@
 #include <CoreAudio/CoreAudio.h>
 #include <stdbool.h>
 
+#ifdef __OBJC__
+#include "OmniWMPropertyListener.h"
+#endif
+
 CF_ASSUME_NONNULL_BEGIN
 
 typedef struct omni_audio_gain omni_audio_gain;

@@ -83,22 +83,6 @@ struct ShellAudioOutputAccess {
         AudioObjectPropertyAddress,
         @escaping AudioObjectPropertyListenerBlock
     ) -> OSStatus
-
-    static let live = ShellAudioOutputAccess(
-        defaultDevice: ShellAudio.defaultOutput,
-        volume: { ShellAudio.volume(of: $0) },
-        muted: { ShellAudio.muted(of: $0) },
-        outputs: { ShellAudio.outputs(default: $0) },
-        addListener: { object, address, block in
-            var address = address
-            guard AudioObjectHasProperty(object, &address) else { return kAudioHardwareUnknownPropertyError }
-            return AudioObjectAddPropertyListenerBlock(object, &address, .main, block)
-        },
-        removeListener: { object, address, block in
-            var address = address
-            return AudioObjectRemovePropertyListenerBlock(object, &address, .main, block)
-        }
-    )
 }
 
 extension ShellDataFeed {
@@ -158,11 +142,10 @@ extension ShellDataFeed {
     }
 
     private func listenToAudio() {
-        removeAudioListeners()
         let system = AudioObjectID(kAudioObjectSystemObject)
         listen(to: system, ShellAudio.defaultOutputAddress, outputs: true)
         listen(to: system, ShellAudio.devicesAddress, outputs: true)
-        listenToOutputDevice(audioOutput.defaultDevice())
+        listenToOutputDevice(defaultAudioOutput())
         sampleAudio()
         sampleOutputs()
     }
@@ -170,7 +153,7 @@ extension ShellDataFeed {
     private func listenToOutputDevice(_ device: AudioObjectID?) {
         let system = AudioObjectID(kAudioObjectSystemObject)
         for listener in audioListeners where listener.object != system {
-            _ = audioOutput.removeListener(listener.object, listener.address, listener.block)
+            removeAudioListener(listener)
         }
         audioListeners.removeAll { $0.object != system }
         listenedOutputDevice = device
@@ -186,14 +169,29 @@ extension ShellDataFeed {
                 self?.audioChanged(outputs: outputs)
             }
         }
-        if audioOutput.addListener(object, address, block) == noErr {
-            audioListeners.append(AudioListener(object: object, address: address, block: block))
+        if let audioOutput {
+            if audioOutput.addListener(object, address, block) == noErr {
+                audioListeners.append(AudioPropertyListener(object: object, address: address, block: block))
+            }
+        } else if let listener = AudioPropertyListener
+            .listen(to: object, address: address, queue: .main, block: block)
+        {
+            audioListeners.append(listener)
+        }
+    }
+
+    private func removeAudioListener(_ listener: borrowing AudioPropertyListener) {
+        if let block = listener.block, let audioOutput {
+            let status = audioOutput.removeListener(listener.object, listener.address, block)
+            if status != noErr { Log.shell.error("Removing an audio listener failed with status \(status)") }
+        } else {
+            listener.remove(on: .main)
         }
     }
 
     func removeAudioListeners() {
         for listener in audioListeners {
-            _ = audioOutput.removeListener(listener.object, listener.address, listener.block)
+            removeAudioListener(listener)
         }
         audioListeners.removeAll()
         listenedOutputDevice = nil
@@ -202,7 +200,7 @@ extension ShellDataFeed {
     private func audioChanged(outputs: Bool) {
         guard !audioListeners.isEmpty else { return }
         let previous = (data.volume, data.muted, data.outputs)
-        let device = audioOutput.defaultDevice()
+        let device = defaultAudioOutput()
         let switched = device != listenedOutputDevice
         if switched {
             listenToOutputDevice(device)
@@ -217,12 +215,31 @@ extension ShellDataFeed {
     }
 
     private func sampleAudio() {
-        let device = audioOutput.defaultDevice()
-        data.volume = device.flatMap { audioOutput.volume($0) }
-        data.muted = device.flatMap { audioOutput.muted($0) }
+        if let audioOutput {
+            let device = audioOutput.defaultDevice()
+            data.volume = device.flatMap { audioOutput.volume($0) }
+            data.muted = device.flatMap { audioOutput.muted($0) }
+        } else {
+            let device = ShellAudio.defaultOutput()
+            data.volume = device.flatMap(ShellAudio.volume(of:))
+            data.muted = device.flatMap(ShellAudio.muted(of:))
+        }
+    }
+
+    private func defaultAudioOutput() -> AudioObjectID? {
+        if let audioOutput { return audioOutput.defaultDevice() }
+        return ShellAudio.defaultOutput()
     }
 
     private func sampleOutputs() {
-        data.outputs = !paused && demands(.outputs) ? audioOutput.outputs(audioOutput.defaultDevice()) : nil
+        guard !paused, demands(.outputs) else {
+            data.outputs = nil
+            return
+        }
+        if let audioOutput {
+            data.outputs = audioOutput.outputs(audioOutput.defaultDevice())
+        } else {
+            data.outputs = ShellAudio.outputs(default: ShellAudio.defaultOutput())
+        }
     }
 }
