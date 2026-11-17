@@ -173,10 +173,9 @@ extension WMController {
         for entry in scratchpadEntries(in: index) where entry.workspaceId != workspaceId {
             reassignManagedWindow(entry.token, to: workspaceId)
         }
-        let resolvedEntries = entries.compactMap { workspaceManager.entry(for: $0.token) }
-        let preferredToken = preferredToken ?? workspaceManager.lastFocusedToken(in: workspaceId)
-        let ordered = resolvedEntries.filter { $0.token != preferredToken }
-            + resolvedEntries.filter { $0.token == preferredToken }
+        let ordered = workspaceManager
+            .scratchpadStackingOrder(entries.map(\.token), preferring: preferredToken)
+            .compactMap { workspaceManager.entry(for: $0) }
         let orderedHandles = ordered.compactMap { workspaceManager.handle(for: $0.token) }
         var revealed = false
         let groupId = layoutRefreshController.revealGroups.begin(index: index) { [weak self] outcome in

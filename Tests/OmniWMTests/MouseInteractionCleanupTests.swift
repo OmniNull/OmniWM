@@ -22,7 +22,7 @@ final class MouseInteractionCleanupTests: NiriInteractionTestCase {
         XCTAssertTrue(beganMove)
         let handler = fixture.controller.mouseEventHandler
         handler.state.isMoving = true
-        handler.state.activeInteractionButton = .left
+        handler.state.activeInteractionSource = .trackpadGesture
 
         handler.cleanup()
 
@@ -39,7 +39,7 @@ final class MouseInteractionCleanupTests: NiriInteractionTestCase {
         let handler = fixture.controller.mouseEventHandler
         handler.state.isResizing = true
         handler.state.resizeLayout = .niri
-        handler.state.activeInteractionButton = .right
+        handler.state.activeInteractionSource = .trackpadGesture
         handler.state.currentHoveredEdges = .right
         let resize = try XCTUnwrap(fixture.engine.interactiveResize)
         XCTAssertTrue(
@@ -72,7 +72,7 @@ final class MouseInteractionCleanupTests: NiriInteractionTestCase {
         let handler = fixture.controller.mouseEventHandler
         handler.state.isResizing = true
         handler.state.resizeLayout = .niri
-        handler.state.activeInteractionButton = .right
+        handler.state.activeInteractionSource = .trackpadGesture
         fixture.controller.layoutRefreshController.resetState()
 
         handler.cleanup()
@@ -82,35 +82,6 @@ final class MouseInteractionCleanupTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.activeRefreshTask)
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.activeRefresh)
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
-    }
-
-    @MainActor
-    func testChordedBeginIsRejectedAndMissingPressedButtonCancelsMove() throws {
-        let fixture = try makeFixture(pid: 1_024)
-        let beganMove = fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.workspace) {
-            beginMove(fixture.engine, window: fixture.window, in: fixture.workspace)
-        }
-        XCTAssertTrue(beganMove)
-        let handler = fixture.controller.mouseEventHandler
-        handler.state.isMoving = true
-        handler.state.activeInteractionButton = .left
-
-        XCTAssertFalse(
-            handler.dispatchMouseDown(
-                at: .zero,
-                modifiers: .maskAlternate,
-                button: .right
-            )
-        )
-        XCTAssertNil(fixture.engine.interactiveResize)
-        XCTAssertNotNil(fixture.engine.interactiveMove)
-
-        handler.pressedMouseButtonsProvider = { 0 }
-        handler.dispatchMouseDragged(at: .zero, button: .left)
-
-        XCTAssertNil(fixture.engine.interactiveMove)
-        XCTAssertFalse(handler.state.isMoving)
-        XCTAssertNil(handler.state.activeInteractionButton)
     }
 
     @MainActor

@@ -41,6 +41,7 @@ struct LeftMouseDownIntake: Sendable {
     let timestamp: CGEventTimestamp
     let windowServerFrames: [WindowToken: CGRect]
     var dragTarget: (location: CGPoint, windowId: Int)?
+    var clickCount: Int64 = 1
 }
 
 struct MouseScrollIntake: Sendable {

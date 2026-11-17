@@ -8,11 +8,11 @@ extension MouseEventHandler {
         let locked = state.lockedGestureContext?.contactSession
         let retained = senderId.flatMap { state.consumedTrackpadSessions[$0] }
         return TrackpadScrollTrace.GestureState(
-            phase: state.gesturePhase,
+            phase: tapInputs.gesturePhase,
             mode: state.activeGestureMode,
             suppressStart: state.suppressGestureStartUntilAllTouchesLift,
-            consumeUntilLift: state.consumeTrackpadScrollUntilAllTouchesLift,
-            suppressMomentum: state.suppressTrackpadMomentumScroll,
+            consumeUntilLift: tapInputs.consumeTrackpadScrollUntilAllTouchesLift,
+            suppressMomentum: tapInputs.suppressTrackpadMomentumScroll,
             generation: state.contactSessions.generation,
             lockedContact: locked,
             lockedCurrentSession: currentTrackpadSession(for: locked),

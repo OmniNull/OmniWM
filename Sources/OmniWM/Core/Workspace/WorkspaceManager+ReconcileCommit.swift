@@ -7,7 +7,7 @@ import QuartzCore
 
 extension WorkspaceManager {
     @discardableResult
-    func recordReconcileEvent(_ event: WMEvent) -> ReconcileTxn {
+    func recordReconcileEvent(_ event: WMEvent, preMutate: () -> Void = {}) -> ReconcileTxn {
         if case let .viewportForgotten(workspaceIds, _) = event {
             removeAnimationMotions(for: workspaceIds)
         }
@@ -17,6 +17,7 @@ extension WorkspaceManager {
         let txn = commitWorldEvent(
             event,
             monitors: monitors,
+            preMutate: preMutate,
             resolvePlan: { plan, token, snapshot in
                 let plan = self.resolvedRestorePlan(plan, for: token, event: event, snapshot: snapshot)
                 return self.applyActionPlan(plan, to: token)

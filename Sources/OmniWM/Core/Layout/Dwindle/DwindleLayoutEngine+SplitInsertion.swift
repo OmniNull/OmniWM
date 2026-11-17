@@ -10,6 +10,7 @@ extension DwindleLayoutEngine {
         let frame: CGRect?
         let hasPeer: Bool
         var target: DwindleMoveTarget?
+        var targetRegion: CGRect?
     }
 
     func canInsertAtSplitBoundary(
@@ -23,11 +24,11 @@ extension DwindleLayoutEngine {
               let split = findNodeById(splitId, in: state.root),
               split.children.count == 2
         else { return false }
-        return split.children.allSatisfy { branch in
-            branch.collectAllLeaves().contains { leaf in
-                leaf !== source && leaf.tile.flatMap { visibleMember(in: $0, excluding: state.excludedTokens) } != nil
-            }
+        for branch in split.children {
+            let status = insertionPeerStatus(in: branch, source: source, excluding: state.excludedTokens)
+            if !status.hasPeer { return false }
         }
+        return true
     }
 
     @discardableResult
@@ -86,12 +87,23 @@ extension DwindleLayoutEngine {
         in workspaceId: WorkspaceDescriptor.ID,
         time: TimeInterval
     ) -> DwindleMoveTarget? {
+        splitBoundaryMoveHit(at: point, for: token, in: workspaceId, time: time)?.target
+    }
+
+    func splitBoundaryMoveHit(
+        at point: CGPoint,
+        for token: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID,
+        time: TimeInterval
+    ) -> (target: DwindleMoveTarget, region: CGRect)? {
         guard canInsertAtWorkspaceEdge(token: token, in: workspaceId),
               let state = existingState(for: workspaceId), let source = state.leafByToken[token]
         else { return nil }
-        return splitMoveGeometry(
+        let geometry = splitMoveGeometry(
             at: point, in: state.root, source: source, excludedTokens: state.excludedTokens, time: time
-        ).target
+        )
+        guard let target = geometry.target, let region = geometry.targetRegion else { return nil }
+        return (target, region)
     }
 
     func transferSplitBoundaryTarget(
@@ -139,7 +151,8 @@ extension DwindleLayoutEngine {
         var result = SplitMoveGeometry(
             frame: frame,
             hasPeer: firstGeometry.hasPeer || secondGeometry.hasPeer,
-            target: firstGeometry.target ?? secondGeometry.target
+            target: firstGeometry.target ?? secondGeometry.target,
+            targetRegion: firstGeometry.targetRegion ?? secondGeometry.targetRegion
         )
         guard result.target == nil, firstGeometry.hasPeer, secondGeometry.hasPeer,
               let firstFrame = firstGeometry.frame, let secondFrame = secondGeometry.frame
@@ -150,6 +163,7 @@ extension DwindleLayoutEngine {
             result.target = .splitBoundary(
                 node.id, frame: WindowMoveGeometry.targetFrame(in: secondFrame, direction: horizontal ? .left : .down)
             )
+            result.targetRegion = band
         }
         return result
     }

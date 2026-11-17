@@ -93,6 +93,21 @@ enum SettingsSearchIndex {
         setting("Infinite Loop Navigation", section: .layouts, tab: "niri", anchor: "Infinite Loop Navigation"),
         setting("Center Focused Column", section: .layouts, tab: "niri", anchor: "Center Focused Column"),
         setting("Always Center Single Column", section: .layouts, tab: "niri", anchor: "Always Center Single Column"),
+        setting("Keep Strip Ends on Screen", section: .layouts, tab: "niri", anchor: "Keep Strip Ends on Screen"),
+        setting("Kept Sizes", section: .layouts, tab: "niri", anchor: "Kept Sizes"),
+        setting("Keep Existing Window Sizes", section: .layouts, tab: "niri", anchor: "Keep Existing Window Sizes"),
+        setting(
+            "Keep Size When Pulling Out or Gathering", section: .layouts, tab: "niri",
+            anchor: "Keep Size When Pulling Out or Gathering"
+        ),
+        setting(
+            "Keep Sizes When Moving a Workspace to Another Display", section: .layouts, tab: "niri",
+            anchor: "Keep Sizes When Moving a Workspace to Another Display"
+        ),
+        setting(
+            "Keep Sizes When Layout Settings Change", section: .layouts, tab: "niri",
+            anchor: "Keep Sizes When Layout Settings Change"
+        ),
         setting(
             "Focus Clicked Windows Without Scrolling", section: .layouts, tab: "niri",
             anchor: "Focus Clicked Windows Without Scrolling"
@@ -109,6 +124,9 @@ enum SettingsSearchIndex {
         setting("Shrink Columns to Fit", section: .layouts, tab: "niri", anchor: "Shrink Columns to Fit"),
         setting("Single Window", section: .layouts, tab: "niri", anchor: "Niri Layout"),
         setting("Resize Increment", section: .layouts, tab: "niri", anchor: "Resize Increment"),
+        setting("Peripheral Vision", section: .layouts, tab: "niri", anchor: "Peripheral Vision"),
+        setting("Undo", section: .layouts, tab: "niri", anchor: "Undo"),
+        setting("Redo", section: .layouts, tab: "niri", anchor: "Redo"),
         setting(
             "Default New Container Primary Span",
             section: .layouts,
@@ -189,27 +207,12 @@ enum SettingsSearchIndex {
         setting("macOS Gestures", section: .mouseTrackpad, tab: "trackpad", anchor: "macOS Gestures"),
         setting("Open Trackpad Settings", section: .mouseTrackpad, tab: "trackpad", anchor: "Open Trackpad Settings"),
         setting("Mouse Move & Resize", section: .mouseTrackpad, tab: "mouse", anchor: "Mouse Move & Resize"),
-        setting("Left Mouse Move Modifier", section: .mouseTrackpad, tab: "mouse", anchor: "Left Mouse Move Modifier"),
         setting(
             "Dwindle Group Across Displays",
             section: .mouseTrackpad,
             tab: "mouse",
             anchor: "Dwindle Group Across Displays"
         ),
-        setting(
-            "Right Mouse Resize Modifier",
-            section: .mouseTrackpad,
-            tab: "mouse",
-            anchor: "Right Mouse Resize Modifier"
-        ),
-        setting("Resize Preview", section: .mouseTrackpad, tab: "mouse", anchor: "Resize Preview"),
-        setting(
-            "Keep Native Moves Across Displays",
-            section: .mouseTrackpad,
-            tab: "mouse",
-            anchor: "Keep Native Moves Across Displays"
-        ),
-        setting("Keep Native Edge Resizes", section: .mouseTrackpad, tab: "mouse", anchor: "Keep Native Edge Resizes"),
         setting("Focus Follows Mouse", section: .mouseTrackpad, tab: "mouse", anchor: "Focus Follows Mouse"),
         setting(
             "Enable Focus Follows Mouse",

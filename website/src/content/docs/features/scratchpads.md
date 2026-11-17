@@ -18,6 +18,8 @@ Hotkey and CLI toggles leave macOS-hidden apps hidden and skip windows suspended
 
 A revealed scratchpad follows you across workspace switches and stays up until you toggle it off. If it is showing on another monitor, its shortcut summons it to the one you are on. Parked windows slide off the screen edge, leaving a 1-pixel sliver on-screen.
 
+**Unreleased:** available when building from `main`. When a slot holds several windows, the one you used last comes back on top with focus and the others stack below it in the order you last used them, both when you reveal the slot and when it follows you to another workspace.
+
 Revealed windows are ordinary floating windows: whether clicking something underneath pushes them behind it is governed by the usual focus and raise behaviour, including **Raise Window When Focus Follows Mouse**.
 
 ## Joining by App Rule

@@ -21,17 +21,11 @@ struct WorkspaceBarSurfaceFill<Surface: Shape>: View {
             if reduceTransparency {
                 shape.fill(Color(NSColor.windowBackgroundColor).opacity(0.96))
             } else {
-                shape.fill(tint).background(.ultraThinMaterial, in: shape)
+                shape.fill(Color.white.opacity(backgroundOpacity)).background(.ultraThinMaterial, in: shape)
             }
         case let .palette(fill, _):
             shape.fill(Color(nsColor: fill.color(dark: colorScheme == .dark)).opacity(backgroundOpacity))
         }
-    }
-
-    private var tint: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(backgroundOpacity)
-            : Color.black.opacity(backgroundOpacity * 0.5)
     }
 }
 

@@ -12,12 +12,6 @@ extension MouseEventHandler {
         .maskCommand
     ]
 
-    nonisolated static func mouseMoveModifiersMatch(_ modifiers: CGEventFlags, required: CGEventFlags?) -> Bool {
-        guard let required, !required.isEmpty else { return false }
-        let relevantModifiers = modifiers.intersection(Self.relevantModifierFlags)
-        return relevantModifiers == required || relevantModifiers == required.union(.maskShift)
-    }
-
     nonisolated static func modifierFlagsMatch(_ modifiers: CGEventFlags, required: CGEventFlags) -> Bool {
         modifiers.intersection(Self.relevantModifierFlags) == required
     }

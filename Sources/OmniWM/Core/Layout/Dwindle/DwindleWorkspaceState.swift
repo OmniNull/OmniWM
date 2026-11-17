@@ -13,4 +13,5 @@ final class DwindleWorkspaceState {
     var selectedNodeId: DwindleNodeId?
     var preselection: Direction?
     var pendingMovementFrameSeeds: [WindowToken: CGRect] = [:]
+    var layoutHistory = DwindleLayoutHistory()
 }

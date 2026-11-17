@@ -29,9 +29,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr_number || github.ref }}
   cancel-in-progress: true
 
-env:
-  DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-
 jobs:
   approval:
     name: Authorize exact source
@@ -70,6 +67,7 @@ jobs:
           filter: blob:none
           persist-credentials: false
       - uses: ./.github/actions/setup-swift
+        id: swift
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup
@@ -78,8 +76,8 @@ jobs:
         id: build-cache
         with:
           path: .build/localization
-          key: swift-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
-          restore-keys: swift-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-
+          key: swift-build-v4-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.build-environment }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
+          restore-keys: swift-build-v4-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.build-environment }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-
       - name: Date sources by their last commit
         env:
           CACHED_BUILD_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
@@ -89,7 +87,7 @@ jobs:
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build/localization
-          key: swift-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
+          key: swift-build-v4-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.build-environment }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
   changes:
     needs: approval
     name: Changes
@@ -173,6 +171,7 @@ jobs:
           filter: blob:none
           persist-credentials: false
       - uses: ./.github/actions/setup-swift
+        id: swift
       - uses: ./.github/actions/setup-lix
         with:
           make-target: setup
@@ -181,8 +180,8 @@ jobs:
         id: build-cache
         with:
           path: .build/localization
-          key: swift-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
-          restore-keys: swift-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-
+          key: swift-build-v4-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.build-environment }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
+          restore-keys: swift-build-v4-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.build-environment }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-
       - name: Date sources by their last commit
         if: needs.changes.outputs.tests == 'true'
         env:

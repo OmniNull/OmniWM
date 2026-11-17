@@ -107,7 +107,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
                 if committed {
                     sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.5 + direction * 0.04, at: 100.1)
                 }
-                XCTAssertEqual(handler.state.gesturePhase, committed ? .committed : .armed)
+                XCTAssertEqual(handler.tapInputs.gesturePhase, committed ? .committed : .armed)
 
                 controller.windowActionHandler.toggleOverview()
                 sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.5 + direction * 0.2, at: 100.2)
@@ -135,11 +135,11 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             if committed {
                 sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5, y: 0.24, at: 100.1)
             }
-            XCTAssertEqual(handler.state.gesturePhase, committed ? .committed : .armed)
+            XCTAssertEqual(handler.tapInputs.gesturePhase, committed ? .committed : .armed)
 
             controller.windowActionHandler.toggleOverview()
             sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5, y: 0.6, at: 100.2)
-            XCTAssertEqual(handler.state.gesturePhase, .idle)
+            XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
             XCTAssertTrue(handler.state.suppressGestureStartUntilAllTouchesLift)
             XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
             controller.windowActionHandler.dismissOverview()
@@ -251,13 +251,13 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
             sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.2)
             XCTAssertFalse(handler.state.suppressGestureStartUntilAllTouchesLift)
-            XCTAssertFalse(handler.state.consumeTrackpadScrollUntilAllTouchesLift)
+            XCTAssertFalse(handler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift)
             XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 2, phase: 0))
             XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
             sendFrame(fixture, phase: .began, fingers: 2, x: 0.5, y: 0.5, at: 101)
             XCTAssertFalse(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
             XCTAssertFalse(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.began.rawValue))
-            XCTAssertFalse(handler.state.suppressTrackpadMomentumScroll)
+            XCTAssertFalse(handler.tapInputs.suppressTrackpadMomentumScroll)
         }
     }
 
@@ -268,10 +268,10 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         defer { dismissInteractiveOverview(fixture) }
 
         sendFrame(fixture, phase: .began, fingers: 4, x: 0.5, y: 0.2, at: 100)
-        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .armed)
         XCTAssertFalse(actions.isOverviewGestureActive)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.24, at: 100.1)
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
         guard case .opening = actions.overviewState
         else { return XCTFail("Expected the commit frame to begin tracking") }
         XCTAssertTrue(actions.isOverviewGestureActive)
@@ -280,14 +280,14 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertEqual(actions.overviewTransitionProgress, 0.5)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.64, at: 100.3)
         XCTAssertEqual(actions.overviewTransitionProgress, 2.0 / 3.0)
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
 
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.4)
 
         XCTAssertFalse(actions.isOverviewGestureActive)
         guard case .opening = actions.overviewState else { return XCTFail("Expected release above half to commit") }
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
-        XCTAssertTrue(handler.state.suppressTrackpadMomentumScroll)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
+        XCTAssertTrue(handler.tapInputs.suppressTrackpadMomentumScroll)
         XCTAssertFalse(handler.state.suppressGestureStartUntilAllTouchesLift)
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
     }
@@ -425,7 +425,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertFalse(actions.isOverviewGestureActive)
         guard case .closing = actions.overviewState else { return XCTFail("Expected the hotkey above half to close") }
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.7, at: 100.3)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertTrue(handler.state.suppressGestureStartUntilAllTouchesLift)
         guard case .closing = actions.overviewState
         else { return XCTFail("Expected residual frames to leave the flight alone") }
@@ -444,7 +444,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
 
         sendFrame(fixture, phase: .began, fingers: 4, x: 0.5, y: 0.2, at: 100)
 
-        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .armed)
         XCTAssertTrue(actions.isOverviewGestureActive)
         guard case .opening = actions.overviewState
         else { return XCTFail("Expected the caught flight to stay in .opening") }
@@ -452,7 +452,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertLessThan(caught, 1)
 
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.24, at: 100.1)
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
         XCTAssertEqual(actions.overviewTransitionProgress, caught)
         sendFrame(fixture, phase: .changed, fingers: 4, x: 0.5, y: 0.9, at: 100.2)
         XCTAssertGreaterThan(actions.overviewTransitionProgress, 1)
@@ -461,7 +461,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.3)
 
         XCTAssertFalse(actions.isOverviewGestureActive)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         guard case .opening = actions.overviewState
         else { return XCTFail("Expected an overscroll release to reopen") }
     }
@@ -481,7 +481,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         for step in 1 ... 8 {
             time += 0.01
             sendFrame(fixture, phase: .changed, fingers: 4, x: 0.8 - 0.055 * CGFloat(step), y: 0.5, at: time)
-            XCTAssertEqual(handler.state.gesturePhase, .committed, "step \(step)")
+            XCTAssertEqual(handler.tapInputs.gesturePhase, .committed, "step \(step)")
             XCTAssertEqual(handler.state.activeGestureMode, .workspaceSwitch(axis: .horizontal), "step \(step)")
         }
         time += 0.01
@@ -521,13 +521,13 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
 
         guard case .closing = actions.overviewState else { return XCTFail("Expected release below half to close") }
         XCTAssertFalse(handler.state.suppressGestureStartUntilAllTouchesLift)
-        XCTAssertFalse(handler.state.consumeTrackpadScrollUntilAllTouchesLift)
+        XCTAssertFalse(handler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift)
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 2, phase: 0))
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
         sendFrame(fixture, phase: .began, fingers: 2, x: 0.5, y: 0.5, at: 101)
         XCTAssertFalse(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
         XCTAssertFalse(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.began.rawValue))
-        XCTAssertFalse(handler.state.suppressTrackpadMomentumScroll)
+        XCTAssertFalse(handler.tapInputs.suppressTrackpadMomentumScroll)
     }
 
     private func makeInteractiveOverviewFixture() throws -> Fixture {
@@ -659,7 +659,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             sendFrame(fixture, phase: .began, fingers: 3, x: 0.8, y: 0.5, at: 100, location: location)
             let allowsGesture = kind == .parkingEdgeMask
             XCTAssertEqual(handler.state.latestFocusFollowsMouseSample?.location, allowsGesture ? location : nil)
-            XCTAssertEqual(handler.state.gesturePhase, allowsGesture ? .armed : .idle)
+            XCTAssertEqual(handler.tapInputs.gesturePhase, allowsGesture ? .armed : .idle)
             sendFrame(fixture, phase: .changed, fingers: 3, x: 0.74, y: 0.5, at: 100.1, location: location)
             XCTAssertEqual(handler.isViewportGestureActive, allowsGesture)
             sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.2, location: location)
@@ -1083,10 +1083,10 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             time += 0.01
             sendFrame(fixture, phase: .changed, fingers: 3, x: x, y: y, at: time)
         }
-        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .armed)
         time += 0.01
         sendFrame(fixture, phase: .changed, fingers: 3, x: 0.532, y: 0.25, at: time)
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time + 0.01)
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
     }
@@ -1174,22 +1174,22 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
         time += 0.01
         sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5, y: 0.24, at: time)
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .committed)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .committed)
 
         fixture.controller.isEnabled = false
         time += 0.01
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time)
 
         let handler = fixture.controller.mouseEventHandler
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.state.suppressGestureStartUntilAllTouchesLift)
-        XCTAssertFalse(handler.state.consumeTrackpadScrollUntilAllTouchesLift)
+        XCTAssertFalse(handler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift)
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
 
         fixture.controller.isEnabled = true
         time += 0.01
         sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
-        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .armed)
         time += 0.01
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time)
     }
@@ -1211,8 +1211,8 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         let handler = fixture.controller.mouseEventHandler
         XCTAssertFalse(handler.isTrackpadSwipeSessionActive)
         XCTAssertFalse(handler.state.suppressGestureStartUntilAllTouchesLift)
-        XCTAssertFalse(handler.state.consumeTrackpadScrollUntilAllTouchesLift)
-        XCTAssertTrue(handler.state.suppressTrackpadMomentumScroll)
+        XCTAssertFalse(handler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift)
+        XCTAssertTrue(handler.tapInputs.suppressTrackpadMomentumScroll)
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 2, phase: 0))
     }
 
@@ -1432,7 +1432,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time)
             XCTAssertFalse(driver.hasGesture(in: fixture.ws1))
             XCTAssertTrue(driver.hasMotion(in: fixture.ws1))
-            XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+            XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
             XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
             let finalState = manager.niriViewportState(for: fixture.ws1)
             finalOffsets[style] = finalState.viewOffset
@@ -1618,7 +1618,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         let expectedOffset = try XCTUnwrap(
             driver.liveViewOffset(in: fixture.ws1, semanticOffset: semanticOffset)
         )
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
         XCTAssertTrue(handler.isTrackpadSwipeSessionActive)
         XCTAssertEqual(
             fixture.controller.niriLayoutHandler.scrollAnimationByDisplay[fixture.monitor.displayId],
@@ -1636,7 +1636,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             manager.niriViewportState(for: fixture.ws1).viewOffset,
             expectedOffset
         )
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.isTrackpadSwipeSessionActive)
         XCTAssertFalse(
             scrollVerdict(
@@ -1678,7 +1678,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         sendFrame(fixture, phase: .began, fingers: 3, x: 0.8, y: 0.5, at: 100)
         sendFrame(fixture, phase: .changed, fingers: 3, x: 0.74, y: 0.5, at: 100.01)
 
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.isTrackpadSwipeSessionActive)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
@@ -1688,7 +1688,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertTrue(handler.state.suppressGestureStartUntilAllTouchesLift)
 
         sendFrame(fixture, phase: .changed, fingers: 3, x: 0.7, y: 0.5, at: 100.02)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.03)
     }
 
@@ -1720,7 +1720,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             manager.niriViewportState(for: fixture.ws1).viewOffset,
             expectedOffset
         )
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
         XCTAssertEqual(focusOperationCount, 0)
@@ -1753,7 +1753,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         )
 
         XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset)
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
         XCTAssertEqual(focusOperationCount, 0)
@@ -1784,7 +1784,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         fixture.controller.layoutRefreshController.resetState()
 
         XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset)
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
@@ -1813,7 +1813,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         XCTAssertNotNil(outcome)
         XCTAssertEqual(manager.monitorForWorkspace(fixture.ws1)?.id, target.monitor.id)
         XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset)
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
     }
@@ -1841,7 +1841,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
 
         XCTAssertEqual(manager.monitorForWorkspace(fixture.ws1)?.id, fixture.monitor.id)
         XCTAssertEqual(manager.niriViewportState(for: fixture.ws1).viewOffset, expectedOffset)
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
     }
@@ -1860,7 +1860,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         )
 
         XCTAssertNil(manager.reconcileSnapshot().viewports[fixture.ws1])
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(manager.animationDriver.hasMotion(in: fixture.ws1))
         XCTAssertFalse(fixture.controller.niriLayoutHandler.hasScrollAnimation(for: fixture.ws1))
     }
@@ -1898,7 +1898,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             disposition: .settleLiveOffset
         ))
 
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
         XCTAssertTrue(handler.isTrackpadSwipeSessionActive)
         XCTAssertEqual(handler.state.viewportGestureSessionID, newerSessionID)
         XCTAssertTrue(driver.hasGesture(in: fixture.ws1))
@@ -1962,7 +1962,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         sendFrame(fixture, phase: .began, fingers: 3, x: 0.2, y: 0.5, at: time)
         time += 0.01
         sendFrame(fixture, phase: .changed, fingers: 3, x: 0.26, y: 0.5, at: time)
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertTrue(fixture.controller.mouseEventHandler.state.suppressGestureStartUntilAllTouchesLift)
         XCTAssertFalse(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.changed.rawValue))
         for step in 1 ... 8 {
@@ -2050,7 +2050,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
                 y: 0.5,
                 at: 100.01
             )
-            XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+            XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
             sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.02)
             XCTAssertFalse(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
         }
@@ -2123,7 +2123,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             touches: Array(repeating: (x: 0.5, y: 0.2), count: 3),
             timestamp: 100
         )
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
         harness.backend.emitFrame(registryId: 303, touches: [], timestamp: 100.01)
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
@@ -2302,13 +2302,13 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         sendFrame(fixture, phase: .began, fingers: 2, x: 0.2, y: 0.5, at: 100)
         sendFrame(fixture, phase: .changed, fingers: 2, x: 0.3, y: 0.5, at: 100.01)
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: 100.02)
-        XCTAssertTrue(handler.state.suppressTrackpadMomentumScroll)
+        XCTAssertTrue(handler.tapInputs.suppressTrackpadMomentumScroll)
 
         sendFrame(fixture, phase: .began, fingers: 2, x: 0.5, y: 0.5, at: 101)
-        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .armed)
         try assertTracedScroll(fixture, phase: CGScrollPhase.began.rawValue, decision: .activeGesture)
         sendFrame(fixture, phase: .changed, fingers: 2, x: 0.5, y: 0.6, at: 101.01)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
 
         try assertTracedScroll(fixture, phase: CGScrollPhase.changed.rawValue, decision: .trackpadUnclaimed)
         try assertTracedScroll(fixture, momentumPhase: 2, decision: .trackpadUnclaimed)
@@ -2353,22 +2353,22 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         var time = driveCommittedPartialLift(fixture)
 
         let handler = fixture.controller.mouseEventHandler
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertTrue(handler.state.suppressGestureStartUntilAllTouchesLift)
-        XCTAssertTrue(handler.state.consumeTrackpadScrollUntilAllTouchesLift)
-        XCTAssertTrue(handler.state.suppressTrackpadMomentumScroll)
+        XCTAssertTrue(handler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift)
+        XCTAssertTrue(handler.tapInputs.suppressTrackpadMomentumScroll)
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
 
         for step in 1 ... 6 {
             time += 0.01
             sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5 + 0.03 * CGFloat(step), y: 0.24, at: time)
         }
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
 
         time += 0.01
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time)
         XCTAssertFalse(handler.state.suppressGestureStartUntilAllTouchesLift)
-        XCTAssertFalse(handler.state.consumeTrackpadScrollUntilAllTouchesLift)
+        XCTAssertFalse(handler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift)
     }
 
     func testCommittedPartialLiftConsumesScrollAndMomentumTail() throws {
@@ -2383,22 +2383,22 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         fixture.controller.isEnabled = false
 
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.changed.rawValue))
-        XCTAssertTrue(handler.state.suppressTrackpadMomentumScroll)
+        XCTAssertTrue(handler.tapInputs.suppressTrackpadMomentumScroll)
 
         time += 0.01
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time)
-        XCTAssertFalse(handler.state.consumeTrackpadScrollUntilAllTouchesLift)
+        XCTAssertFalse(handler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift)
 
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.ended.rawValue))
-        XCTAssertTrue(handler.state.suppressTrackpadMomentumScroll)
+        XCTAssertTrue(handler.tapInputs.suppressTrackpadMomentumScroll)
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 1, phase: 0))
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.mayBegin.rawValue))
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 2, phase: 0))
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.changed.rawValue))
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 3, phase: 0))
-        XCTAssertTrue(handler.state.suppressTrackpadMomentumScroll)
+        XCTAssertTrue(handler.tapInputs.suppressTrackpadMomentumScroll)
         XCTAssertFalse(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.began.rawValue))
-        XCTAssertFalse(handler.state.suppressTrackpadMomentumScroll)
+        XCTAssertFalse(handler.tapInputs.suppressTrackpadMomentumScroll)
         XCTAssertFalse(scrollVerdict(fixture, momentumPhase: 0, phase: CGScrollPhase.changed.rawValue))
     }
 
@@ -2494,7 +2494,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             time += 0.01
             sendFrame(fixture, phase: .changed, fingers: 3, x: 0.2 + 0.05 * CGFloat(step), y: 0.5, at: time)
         }
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(fixture.controller.mouseEventHandler.isTrackpadSwipeSessionActive)
         time += 0.01
         sendFrame(fixture, phase: .ended, fingers: 0, x: 0, y: 0, at: time)
@@ -2542,10 +2542,10 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             at: 100.01,
             location: location
         )
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .committed)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .committed)
         fixture.controller.mouseEventHandler.state.suppressGestureStartUntilAllTouchesLift = true
-        fixture.controller.mouseEventHandler.state.consumeTrackpadScrollUntilAllTouchesLift = true
-        fixture.controller.mouseEventHandler.state.suppressTrackpadMomentumScroll = true
+        fixture.controller.mouseEventHandler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift = true
+        fixture.controller.mouseEventHandler.tapInputs.suppressTrackpadMomentumScroll = true
 
         harness.source.requestRevalidation(.wake)
         try await harness.sleeper.waitForScheduledSleep(of: harness.source)
@@ -2553,10 +2553,10 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         let recoveredGeneration = try XCTUnwrap(harness.source.diagnosticsSnapshot().activeGeneration)
 
         XCTAssertNotEqual(recoveredGeneration, firstGeneration)
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(fixture.controller.mouseEventHandler.state.suppressGestureStartUntilAllTouchesLift)
-        XCTAssertFalse(fixture.controller.mouseEventHandler.state.consumeTrackpadScrollUntilAllTouchesLift)
-        XCTAssertFalse(fixture.controller.mouseEventHandler.state.suppressTrackpadMomentumScroll)
+        XCTAssertFalse(fixture.controller.mouseEventHandler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift)
+        XCTAssertFalse(fixture.controller.mouseEventHandler.tapInputs.suppressTrackpadMomentumScroll)
 
         var timestamp = 101.0
         sendRawFrame(
@@ -2635,8 +2635,8 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         )
         XCTAssertTrue(fixture.controller.workspaceManager.animationDriver.hasGesture(in: fixture.ws1))
         fixture.controller.mouseEventHandler.state.suppressGestureStartUntilAllTouchesLift = true
-        fixture.controller.mouseEventHandler.state.consumeTrackpadScrollUntilAllTouchesLift = true
-        fixture.controller.mouseEventHandler.state.suppressTrackpadMomentumScroll = true
+        fixture.controller.mouseEventHandler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift = true
+        fixture.controller.mouseEventHandler.tapInputs.suppressTrackpadMomentumScroll = true
 
         harness.source.requestRevalidation(.wake)
         try await harness.sleeper.waitForScheduledSleep(of: harness.source)
@@ -2645,10 +2645,10 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
 
         XCTAssertNotEqual(recoveredGeneration, firstGeneration)
         XCTAssertFalse(fixture.controller.workspaceManager.animationDriver.hasGesture(in: fixture.ws1))
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(fixture.controller.mouseEventHandler.state.suppressGestureStartUntilAllTouchesLift)
-        XCTAssertFalse(fixture.controller.mouseEventHandler.state.consumeTrackpadScrollUntilAllTouchesLift)
-        XCTAssertFalse(fixture.controller.mouseEventHandler.state.suppressTrackpadMomentumScroll)
+        XCTAssertFalse(fixture.controller.mouseEventHandler.tapInputs.consumeTrackpadScrollUntilAllTouchesLift)
+        XCTAssertFalse(fixture.controller.mouseEventHandler.tapInputs.suppressTrackpadMomentumScroll)
 
         var timestamp = 201.0
         sendRawFrame(
@@ -2730,7 +2730,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         )
 
         XCTAssertFalse(fixture.controller.workspaceManager.animationDriver.hasGesture(in: fixture.ws1))
-        XCTAssertEqual(fixture.controller.mouseEventHandler.state.gesturePhase, .idle)
+        XCTAssertEqual(fixture.controller.mouseEventHandler.tapInputs.gesturePhase, .idle)
         XCTAssertEqual(activeWorkspace(fixture), fixture.ws1)
 
         sendRawFrame(harness.source, generation: generation, fingers: 0, x: 0, y: 0, at: 300.5, location: location)
@@ -2816,14 +2816,14 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             timestamp: 100.01
         )
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
         XCTAssertTrue(handler.state.consumedTrackpadSessions.isEmpty)
         controller.eventIntake.open(sink: controller.eventInterpreter)
         controller.eventIntake.beginPerformanceCapture()
 
         handler.handleAppVisibilityChanged()
 
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
         XCTAssertEqual(controller.eventIntake.performanceSnapshot()?.acceptedEvents, 0)
         harness.backend.emitFrame(registryId: 303, touches: [], timestamp: 100.02)
@@ -2857,7 +2857,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             )
             XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
         }
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
         XCTAssertEqual(handler.state.activeGestureMode, .columnScroll)
         XCTAssertTrue(handler.state.consumedTrackpadSessions.isEmpty)
         let sessionID = try XCTUnwrap(controller.workspaceManager.animationDriver.gestureSessionID(in: fixture.ws1))
@@ -2871,7 +2871,7 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
             disposition: .settleLiveOffsetWithoutRelayout
         ))
 
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertNil(handler.state.lockedGestureContext)
         XCTAssertTrue(scrollVerdict(fixture, momentumPhase: 0, phase: 0))
         XCTAssertEqual(controller.eventIntake.performanceSnapshot()?.acceptedEvents, 0)

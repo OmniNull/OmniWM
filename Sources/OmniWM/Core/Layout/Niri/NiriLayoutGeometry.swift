@@ -318,6 +318,10 @@ struct NiriContainerLayoutFrames {
         orientation = layoutFrames.orientation
     }
 
+    func secondaryAxis(gap: CGFloat, isTabbed: Bool) -> NiriAxisLayout {
+        NiriAxisLayout(availableSpace: secondarySpan(), gap: gap, isTabbed: isTabbed, orientation: orientation)
+    }
+
     func secondarySpan() -> CGFloat {
         switch orientation {
         case .horizontal: contentRect.height

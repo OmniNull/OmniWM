@@ -504,6 +504,27 @@ extension NiriDirectionalOrientationTests {
         try assertOrder(fixture.secondToken, fixture.firstToken, in: rendered, by: \.midX)
     }
 
+    func testAMoveAcrossTheMonitorEdgeIsUndoneFromTheOtherMonitorsWorkspace() throws {
+        let fixture = try makeMixedMonitorFixture()
+        XCTAssertEqual(CommandHandler.layoutChangeCoverage(of: .move(.right)), .ownWorkspace)
+        execute(.move(.right), on: fixture.controller)
+        XCTAssertEqual(
+            fixture.controller.workspaceManager.workspace(for: fixture.token),
+            fixture.targetWorkspaceId
+        )
+
+        XCTAssertTrue(
+            fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: fixture.targetWorkspaceId)
+        )
+
+        XCTAssertEqual(
+            fixture.controller.workspaceManager.workspace(for: fixture.token),
+            fixture.sourceWorkspaceId
+        )
+        XCTAssertNotNil(fixture.engine.findNode(for: fixture.token, in: fixture.sourceWorkspaceId))
+        XCTAssertNil(fixture.engine.findNode(for: fixture.token, in: fixture.targetWorkspaceId))
+    }
+
     func testVerticalRightEdgeMoveCrossesToRightHorizontalMonitor() throws {
         let fixture = try makeMixedMonitorFixture()
 

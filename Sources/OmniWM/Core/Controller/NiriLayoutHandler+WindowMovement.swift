@@ -78,9 +78,7 @@ extension NiriLayoutHandler {
             }
             return NiriStructuralMutation(operation: .columnMoved)
         }
-        let oldFrames = usesPredictedAnimation
-            ? ctx.engine.captureWindowFrames(in: ctx.wsId)
-            : [:]
+        let oldFrames = ctx.engine.captureWindowFrames(in: ctx.wsId)
         let motion = ctx.orientation == .vertical && movesAcrossContainers
             ? MotionSnapshot.disabled
             : ctx.motion
@@ -102,6 +100,8 @@ extension NiriLayoutHandler {
                     ? ctx.monitor.frame
                     : nil
             )
+        } else {
+            ctx.preparePredictedSizeAnimation(state: state, oldFrames: oldFrames)
         }
         return NiriStructuralMutation(
             operation: movesAcrossContainers
@@ -170,9 +170,13 @@ extension NiriLayoutHandler {
         return outcome
     }
 
-    func moveWindowOrToAdjacentWorkspace(direction: Direction) {
+    func moveWindowOrToAdjacentWorkspace(
+        direction: Direction,
+        widening changeStart: inout NiriLayoutChangeStart?
+    ) {
         guard direction == .down || direction == .up else { return }
         guard moveWindowWithinContainer(direction: direction) == .atWorkspaceEdge else { return }
+        changeStart = coveringEveryNiriWorkspace(changeStart)
         controller?.workspaceNavigationHandler.moveWindowToAdjacentWorkspace(direction: direction)
     }
 

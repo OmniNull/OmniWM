@@ -64,16 +64,6 @@ extension CenterFocusedColumn {
     }
 }
 
-extension ResizePreviewStyle {
-    var localizedDisplayName: String {
-        switch self {
-        case .live: String(localized: "Live Resize")
-        case .glass: String(localized: "Glass Placeholder")
-        case .snapshot: String(localized: "Window Snapshot")
-        }
-    }
-}
-
 extension DwindleGroupDrag {
     var localizedDisplayName: String {
         switch self {
@@ -135,18 +125,6 @@ extension QuakeTerminalBackgroundEffect {
         case .glassRegular: String(localized: "Regular Glass")
         case .glassClear: String(localized: "Clear Glass")
         }
-    }
-}
-
-extension MouseMoveModifierKey {
-    var localizedDisplayName: String {
-        localizedModifierName(displayName)
-    }
-}
-
-extension MouseResizeModifierKey {
-    var localizedDisplayName: String {
-        localizedModifierName(displayName)
     }
 }
 

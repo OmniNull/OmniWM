@@ -104,15 +104,16 @@ final class NiriOverscrollTests: XCTestCase {
         XCTAssertEqual(bounds.upperBound, 1_740)
     }
 
-    func testDisabledOverscrollKeepsExistingContentLimits() {
+    func testDisabledOverscrollStopsAGapBeforeTheFirstColumn() {
+        let gap: CGFloat = 10
         var state = ViewportState()
         state.endGesture(
             currentOffset: 0, projectedOffset: -10_000,
             columns: columns([100, 100, 100], orientation: .horizontal),
-            geometry: NiriViewportGeometry(gap: 10, viewportSpan: 150, orientation: .horizontal),
+            geometry: NiriViewportGeometry(gap: gap, viewportSpan: 150, orientation: .horizontal),
             motion: .disabled, snapToColumn: false
         )
-        XCTAssertEqual(state.viewOffset, 0)
+        XCTAssertEqual(state.viewOffset, -gap)
     }
 
     func testExplicitFocusNavigationReleasesGestureOffset() {
