@@ -378,6 +378,13 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         await handler.lifecycleQueries.task?.value
         let lookup = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
         await fulfillment(of: [started], timeout: failureBound)
+        XCTAssertFalse(handler.scheduleFocusedAdmissionReadmit(
+            continuation: .init(
+                token: token, source: .focusedWindowChanged, observationGeneration: 0, callbackGeneration: nil
+            ),
+            axRef: axRef,
+            reason: .degenerateGeometry
+        ))
         gate.resume(axRef)
         await lookup.value
 
