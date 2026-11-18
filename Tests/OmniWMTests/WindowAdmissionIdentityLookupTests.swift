@@ -9,15 +9,34 @@ import XCTest
 
 @MainActor
 private final class CreatedWindowLookupGate {
-    var continuation: CheckedContinuation<AXWindowRef?, Never>?
+    private enum State {
+        case idle
+        case waiting(CheckedContinuation<AXWindowRef?, Never>)
+        case ready(AXWindowRef?)
+    }
+
+    private var state = State.idle
 
     func wait() async -> AXWindowRef? {
-        await withCheckedContinuation { continuation = $0 }
+        switch state {
+        case .idle:
+            return await withCheckedContinuation { state = .waiting($0) }
+        case let .ready(axRef):
+            state = .idle
+            return axRef
+        case .waiting:
+            XCTFail("Only one AX lookup can wait on this gate")
+            return nil
+        }
     }
 
     func resume(_ axRef: AXWindowRef? = nil) {
-        continuation?.resume(returning: axRef)
-        continuation = nil
+        if case let .waiting(continuation) = state {
+            state = .idle
+            continuation.resume(returning: axRef)
+        } else {
+            state = .ready(axRef)
+        }
     }
 }
 
@@ -377,7 +396,9 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         XCTAssertEqual(focusReads, 0)
         await handler.lifecycleQueries.task?.value
         let lookup = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
-        await fulfillment(of: [started], timeout: failureBound)
+        guard await XCTWaiter.fulfillment(of: [started], timeout: failureBound) == .completed else {
+            return XCTFail("The new create AX lookup did not start")
+        }
         XCTAssertFalse(handler.scheduleFocusedAdmissionReadmit(
             continuation: .init(
                 token: token, source: .focusedWindowChanged, observationGeneration: 0, callbackGeneration: nil
