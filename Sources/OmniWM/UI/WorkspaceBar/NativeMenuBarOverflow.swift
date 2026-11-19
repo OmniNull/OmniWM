@@ -72,6 +72,7 @@ final class NativeMenuBarOverflowWatcher {
 
     private func observeAgent() {
         removeObserver()
+        reads &+= 1
         let previous = agent
         agent = NSRunningApplication.runningApplications(withBundleIdentifier: Self.agentBundleID).first
         searched = agent != nil || previous == nil
