@@ -94,6 +94,7 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `volume`, `muted`, `outputs` | Output volume and the audio outputs, each with a device `kind` such as `airpodspro`, `headphones` or `display` |
 | `brightness` | Main display brightness and per-display brightness controls (0–100) |
 | `nightShift` | Whether macOS Night Shift is available and enabled |
+| `betterDisplay` | BetterDisplay running state, per-display brightness and Night Shift availability |
 | `microphone` | Default input device volume (0–100) and mute state; either control is absent when unsupported |
 | `awake` | OmniWM's Prevent Sleep state and its optional Unix expiry time |
 | `audioApps` | Apps with audio and their own volume |
@@ -151,6 +152,10 @@ An unavailable brightness control reports `value=0` and `available=false`. Each 
 
 `night-shift on` and `night-shift off` control the macOS Night Shift switch. Only show a working toggle when `ctx.data.nightShift.available` is true, and use the `enabled` Boolean for its state. Night Shift refreshes when demand starts or resumes and after a Night Shift command. Settings and schedule changes appear at the next refresh.
 
+When BetterDisplay is running, `ctx.data.betterDisplay.running` is true. Its `available` field is true when the integration reports at least one usable brightness or Night Shift control. Use the UUID and `available` flag on each entry in `displays` to address a brightness slider. Read `nightShift.available` and `nightShift.enabled` for the toggle. The bundled Displays tab uses this data while the integration is available and falls back to the native controls otherwise.
+
+BetterDisplay receives these commands through its local notification integration, enabled by default. To restore access for the controls and menu shortcut, open **Settings → Application → Integration** in BetterDisplay and turn on **Enable CLI access and notification based integration**. [BetterDisplay integration guide](https://betterdisplay.pro/guide/integration/third-party-apps/)
+
 Wi-Fi and Bluetooth power switches open System Settings through `wifi settings` and `bluetooth settings`. Reading these controls never requests access.
 
 <LuauDeclaration name="DisplayBrightness" />
@@ -158,6 +163,8 @@ Wi-Fi and Bluetooth power switches open System Settings through `wifi settings` 
 <LuauDeclaration name="Brightness" />
 
 <LuauDeclaration name="NightShift" />
+
+<LuauDeclaration name="BetterDisplay" />
 
 ## Keep awake and microphone
 
@@ -201,6 +208,9 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 | `brightness set <0-100>`, `brightness up`, `brightness down`, `brightness settings` | Adjust a supported main display or open Displays settings |
 | `brightness display <UUID> set <0-100>` | Set brightness for a supported display |
 | `night-shift on\|off` | Turn macOS Night Shift on or off when available |
+| `betterdisplay brightness <UUID> set <0-100>` | Set a display’s brightness through BetterDisplay |
+| `betterdisplay night-shift on\|off` | Turn Night Shift on or off through BetterDisplay |
+| `betterdisplay menu` | Ask the running BetterDisplay app to show its menu |
 | `microphone set <0-100>`, `microphone mute` | Default input volume and mute, when supported |
 | `session awake on\|off\|<minutes>` | OmniWM's Prevent Sleep, on until off or for a number of minutes |
 | `volume output <id>` | Switch the output |

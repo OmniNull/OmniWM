@@ -43,7 +43,7 @@ Select a widget to change supported choices visually. Options follow the actual 
 | `battery-details` | `percent`: `"beside"`, `"inside"` or `"off"` |
 | `control-center` | `tab`: `"overview"`, `"audio"`, `"displays"`, `"media"`, `"calendar"`, `"weather"` or `"system"` |
 
-The Control Center’s **Displays** tab adjusts brightness for each display where macOS exposes that control, toggles Night Shift when available, and links to Displays in System Settings.
+In Control Center’s **Displays** tab, you can adjust brightness for each supported display, toggle Night Shift, and open Displays in System Settings. When BetterDisplay is running, a button beside the Displays heading opens its menu through its local notification integration. If that integration supplies any controls, the tab uses BetterDisplay for brightness and Night Shift. Otherwise it uses macOS controls.
 
 `hiddenBarWidget` and `systemStatsWidget` name the widgets that draw the Hidden Bar drawer and the System Stats popout. The profile supplies defaults; GUI changes are saved as that profile’s overrides. Workspace Bar’s master enable switch, excluded apps and icon overrides stay global. Enabling **System Stats Button** also places the configured stats widget on the bar if it was removed.
 

@@ -380,6 +380,13 @@ export type NightShift = {
     enabled: boolean,
 }
 
+export type BetterDisplay = {
+    running: boolean,
+    available: boolean,
+    displays: { DisplayBrightness },
+    nightShift: NightShift,
+}
+
 export type NotificationAction = {
     id: string,
     title: string,
@@ -677,6 +684,7 @@ export type Data = {
     microphone: Microphone?,
     brightness: Brightness?,
     nightShift: NightShift?,
+    betterDisplay: BetterDisplay?,
     connection: Connection?,
     commandPalette: CommandPalette?,
 }
