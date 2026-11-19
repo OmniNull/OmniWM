@@ -57,10 +57,13 @@ extension ShellLayerScene {
                 snappedContent.removeValue(forKey: slot)
                 continue
             }
-            guard let parent = layer.superlayer, rotations[slot] ?? 0 == 0, !quarters.contains(slot),
-                  isAxisAligned(parent) else { continue }
             let zoom = scales[slot] ?? 1
-            guard zoom > 0 else { continue }
+            guard let parent = layer.superlayer, rotations[slot] ?? 0 == 0, !quarters.contains(slot), zoom > 0,
+                  isAxisAligned(parent)
+            else {
+                place(slot, layer, at: entry.frame)
+                continue
+            }
             let frame = entry.frame
             let shown = CGRect(
                 x: frame.minX + frame.width * (1 - zoom) / 2,
@@ -73,21 +76,24 @@ extension ShellLayerScene {
                 from: container
             )
             let size = CGSize(width: aligned.width / zoom, height: aligned.height / zoom)
-            layer.position = CGPoint(
+            let origin = CGPoint(
                 x: aligned.minX - size.width * (1 - zoom) / 2,
                 y: aligned.minY - size.height * (1 - zoom) / 2
             )
-            guard layer.bounds.size != size else { continue }
-            layer.bounds.size = size
-            applyScale(slot, to: layer)
+            place(slot, layer, at: CGRect(origin: origin, size: size))
         }
+    }
+
+    private func place(_ slot: Int32, _ layer: CALayer, at frame: CGRect) {
+        layer.position = frame.origin
+        guard layer.bounds.size != frame.size else { return }
+        layer.bounds.size = frame.size
+        applyScale(slot, to: layer)
     }
 
     func restoreLayoutFrames() {
         for (slot, entry) in snappedContent where layers[slot] === entry.layer {
-            entry.layer.position = entry.frame.origin
-            entry.layer.bounds.size = entry.frame.size
-            applyScale(slot, to: entry.layer)
+            place(slot, entry.layer, at: entry.frame)
         }
         snappedContent.removeAll()
     }
