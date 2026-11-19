@@ -25,6 +25,7 @@ extension ShellLayerScene {
         }
         layer.position = rect.origin
         layer.bounds = bounds
+        recordContentFrame(slot, rect)
         updateGlassFrame(slot, rect: rect, animation: animation, entering: entering)
         updateGestureCenter(slot)
         applyLoop(slot, loops[slot]?.loop, to: layer)
