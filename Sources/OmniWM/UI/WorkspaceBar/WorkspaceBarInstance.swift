@@ -89,8 +89,7 @@ final class WorkspaceBarInstance {
         return length
     }
 
-    func applyCurrentAppearance() {
-        let appearance = NSApplication.shared.appearance
+    func applyAppearance(_ appearance: NSAppearance?) {
         primary.panel.appearance = appearance
         primary.hostingView.appearance = appearance
         secondary?.panel.appearance = appearance

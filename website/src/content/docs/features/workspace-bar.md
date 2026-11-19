@@ -114,7 +114,7 @@ autoHide = true
 
 ### Additional appearance controls
 
-- **Fill Left of Notch** — an additional notch mode that fills the menu-bar area left of the notch, covering application menus. Without a notch it uses the left half of the menu bar. When effective at a top position, this mode always hides in native fullscreen, regardless of **Hide in Native Fullscreen**.
+- **Fill Left of Notch** — an additional notch mode that fills the menu-bar area left of the notch, covering application menus. Without a notch it uses the left half of the menu bar. When effective at a top position, this mode always hides in native fullscreen, regardless of **Hide in Native Fullscreen**. Widgets span the whole area, with trailing widgets at the notch edge; when they do not fit, they give way in **Priority** order instead of running under the notch. The bar draws dark while the menu bar is dark, even when OmniWM is light. When macOS expands its menu bar overflow over the bar, the bar hides until the overflow collapses.
 - **Inactive Icon Opacity** — adjust unfocused app icons from 0–100%; **Reset to Style Defaults** clears the override.
 - **Transparent Background** — hide the bar material, tint, and border while keeping its contents interactive.
 - **Solid Black Background** — use an opaque black bar; it takes precedence over **Transparent Background** when both are enabled.

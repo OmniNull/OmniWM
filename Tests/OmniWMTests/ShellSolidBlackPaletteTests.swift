@@ -40,6 +40,24 @@ final class ShellSolidBlackPaletteTests: XCTestCase {
         XCTAssertTrue(surface.palette === resources.darkPalette)
     }
 
+    func testBarsUnderADarkMenuBarDrawWithTheDarkPalette() {
+        let host = ShellWidgetHost(
+            configDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),
+            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
+            world: { ShellWorldData() }, vars: { [:] }, bars: { [:] }, onLayoutChange: {},
+            onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
+            onPopoutChange: {}, onTitleDemandChange: { _ in }
+        )
+        let key = ShellBarKey(monitor: Monitor.ID(displayId: 92203))
+        var data = ShellBarData()
+        host.bars = [key: data]
+        XCTAssertTrue(host.palette(for: key) === host.resources.palette)
+
+        data.style.dark = true
+        host.bars = [key: data]
+        XCTAssertTrue(host.palette(for: key) === host.resources.darkPalette)
+    }
+
     func testIslandPlacementKeepsTheAppPaletteUnderASolidBlackBar() {
         let host = ShellWidgetHost(
             configDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),
