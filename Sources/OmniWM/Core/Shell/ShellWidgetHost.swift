@@ -199,6 +199,7 @@ final class ShellWidgetHost {
         var nodes: [UInt8] = []
         private(set) var unmountedLayout: ShellWidgetLayout?
         var size: CGSize = .zero
+        var parts = ShellWidgetParts()
         var sequences = InlineArray<2, Int>(repeating: 0)
         var deps: UInt64 = 0
         var popoutDeps: UInt64 = 0
@@ -213,21 +214,21 @@ final class ShellWidgetHost {
         func apply(_ tree: ShellWidgetDelivery.Tree, text: ShellTextStore, gestureAcknowledgement: UInt64 = 0) -> Bool {
             nodes = tree.nodes
             deps = tree.demand
-            let nextSize: CGSize
+            let layout: ShellWidgetLayout
             if let surface {
                 surface.sequence = tree.sequence
                 guard surface.apply(tree.nodes, text: text, gestureAcknowledgement: gestureAcknowledgement)
                 else { return false }
-                nextSize = surface.naturalSize
+                layout = surface.layout
             } else {
-                let layout = unmountedLayout ?? ShellWidgetLayout()
+                layout = unmountedLayout ?? ShellWidgetLayout()
                 unmountedLayout = layout
                 guard layout.apply(tree.nodes, text: text) else { return false }
-                nextSize = layout.naturalSize
             }
             sequences[ShellWidgetView.bar.rawValue] = tree.sequence
-            guard nextSize != size else { return false }
-            size = nextSize
+            let next = (size: layout.naturalSize, parts: layout.parts)
+            guard next != (size, parts) else { return false }
+            (size, parts) = next
             return true
         }
 

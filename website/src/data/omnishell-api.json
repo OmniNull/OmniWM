@@ -705,7 +705,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-bar",
-      "declaration": "export type Bar = {\n    monitor: string,\n    monitorId: string,\n    island: \"all\" | \"active\" | \"secondary\",\n    drag: BarDrag?,\n    badges: \"off\" | \"dot\" | \"text\",\n    layout: (\"niri\" | \"dwindle\")?,\n    style: BarStyle?,\n    workspaces: { BarWorkspace },\n    scratchpads: { BarScratchpad },\n}",
+      "declaration": "export type Bar = {\n    monitor: string,\n    monitorId: string,\n    island: \"all\" | \"active\" | \"secondary\",\n    drag: BarDrag?,\n    badges: \"off\" | \"dot\" | \"text\",\n    layout: (\"niri\" | \"dwindle\")?,\n    workspacesRoom: number?,\n    style: BarStyle?,\n    workspaces: { BarWorkspace },\n    scratchpads: { BarScratchpad },\n}",
       "fields": [
         "monitor",
         "monitorId",
@@ -713,6 +713,7 @@
         "drag",
         "badges",
         "layout",
+        "workspacesRoom",
         "style",
         "workspaces",
         "scratchpads"

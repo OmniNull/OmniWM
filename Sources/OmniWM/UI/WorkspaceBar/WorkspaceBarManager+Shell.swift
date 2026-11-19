@@ -313,6 +313,9 @@ extension WorkspaceBarManager {
                 if island != .active {
                     compactScratchpads(in: &data, bar: bar, geometry: geometry, resolved: resolved)
                 }
+                data.workspacesRoom = island == .all
+                    ? workspacesRoom(for: bar, geometry: geometry, resolved: resolved)
+                    : nil
                 result[ShellBarKey(monitor: bar.monitor.id, island: island)] = data
             }
         }
@@ -342,6 +345,49 @@ extension WorkspaceBarManager {
             data.scratchpads[index].compact = compact.contains(data.scratchpads[index].id)
         }
         shellCompactedScratchpads[bar.monitor.id] = compact
+    }
+
+    private func workspacesRoom(
+        for bar: DesiredBarSurface,
+        geometry: WorkspaceBarGeometry,
+        resolved: ResolvedBarSettings
+    ) -> Double? {
+        guard !bar.snapshot.orientation.isVertical, let shellHost else { return nil }
+        let frame = geometry.frame(fittingLength: 0, monitor: bar.monitor, resolved: resolved)
+        guard let zones = geometry.zones(frame: frame, monitor: bar.monitor, resolved: resolved) else { return nil }
+        let compact = shellCompactedScratchpads[bar.monitor.id]
+        return Self.workspacesRoom(
+            beside: shellHost.slots(for: bar.monitor.id).filter { $0.island == .all },
+            length: frame.width,
+            zones: zones,
+            scratchpads: compact.map { compact in
+                WorkspaceBarScratchpadLayout.estimatedWidth(
+                    of: bar.snapshot.scratchpads.map {
+                        $0.presented(as: compact.contains($0.index) ? .compact : .expanded)
+                    },
+                    barHeight: bar.snapshot.barHeight,
+                    icons: shellHost.config.scratchpadIcons
+                )
+            }
+        )
+    }
+
+    static func workspacesRoom(
+        beside slots: [WorkspaceBarShellWidget],
+        length: CGFloat,
+        zones: WorkspaceBarZones,
+        scratchpads: CGFloat? = nil
+    ) -> Double? {
+        guard let index = slots.firstIndex(where: { $0.id == ShellConfig.bundledWorkspaces }) else { return nil }
+        return Double(WorkspaceBarZoneLayout.room(
+            for: index,
+            among: slots.map { slot in
+                let chosen = slot.id == ShellConfig.bundledScratchpads ? scratchpads : nil
+                return .init(lane: slot.lane, length: chosen ?? slot.size.width, priority: slot.priority)
+            },
+            length: length,
+            zones: zones
+        ))
     }
 
     static func compactScratchpads(

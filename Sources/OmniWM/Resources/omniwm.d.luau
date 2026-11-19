@@ -266,6 +266,7 @@ export type Bar = {
     drag: BarDrag?,
     badges: "off" | "dot" | "text",
     layout: ("niri" | "dwindle")?,
+    workspacesRoom: number?,
     style: BarStyle?,
     workspaces: { BarWorkspace },
     scratchpads: { BarScratchpad },
