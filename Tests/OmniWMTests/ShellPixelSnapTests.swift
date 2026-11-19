@@ -14,7 +14,7 @@ final class ShellPixelSnapTests: XCTestCase {
         bar.workspaces = (1 ... 7).map { index in
             let window = ShellBarWindow(id: "ow_\(index)", title: "App", focused: false, hidden: false)
             let item = ShellBarItem(
-                id: "ow_\(index)", bundle: "com.apple.finder", name: "Finder", focused: false, count: 1,
+                id: "ow_\(index)", bundle: "com.apple.finder", name: "Finder", focused: index == 4, count: 1,
                 hidden: 0, windows: [window]
             )
             return ShellBarWorkspace(id: "\(index)", name: "\(index)", focused: index == 4, windows: [item])

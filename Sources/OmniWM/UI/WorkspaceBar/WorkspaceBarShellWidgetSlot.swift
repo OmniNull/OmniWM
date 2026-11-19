@@ -197,7 +197,7 @@ final class ShellWidgetClipView: NSView {
     }
 
     private func pixelAligned(_ origin: CGPoint) -> CGPoint {
-        guard window != nil else { return origin }
+        guard let window, window.backingScaleFactor < 2 else { return origin }
         return backingAlignedRect(CGRect(origin: origin, size: .zero), options: .alignAllEdgesNearest).origin
     }
 }

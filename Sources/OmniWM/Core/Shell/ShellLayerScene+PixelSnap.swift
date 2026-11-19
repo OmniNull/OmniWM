@@ -26,7 +26,7 @@ extension ShellLayerScene {
     }
 
     func trackPixelSnap(_ slot: Int32, _ layer: CALayer) {
-        guard snappedContent[slot]?.layer !== layer else { return }
+        guard snapsToPixels, snappedContent[slot]?.layer !== layer else { return }
         snappedContent[slot] = (layer, CGRect(origin: layer.position, size: layer.bounds.size))
     }
 
@@ -43,13 +43,37 @@ extension ShellLayerScene {
                 snappedContent.removeValue(forKey: slot)
                 continue
             }
-            guard let parent = layer.superlayer else { continue }
-            let absolute = parent.convert(entry.frame, to: container)
-            let aligned = Self.pixelAligned(absolute, scale: scale)
-            layer.position = parent.convert(aligned.origin, from: container)
-            if !quarters.contains(slot), absolute.size == entry.frame.size {
-                layer.bounds.size = aligned.size
-            }
+            guard let parent = layer.superlayer, rotations[slot] ?? 0 == 0, !quarters.contains(slot) else { continue }
+            let zoom = scales[slot] ?? 1
+            guard zoom > 0 else { continue }
+            let frame = entry.frame
+            let shown = CGRect(
+                x: frame.minX + frame.width * (1 - zoom) / 2,
+                y: frame.minY + frame.height * (1 - zoom) / 2,
+                width: frame.width * zoom,
+                height: frame.height * zoom
+            )
+            let aligned = parent.convert(
+                Self.pixelAligned(parent.convert(shown, to: container), scale: scale),
+                from: container
+            )
+            let size = CGSize(width: aligned.width / zoom, height: aligned.height / zoom)
+            layer.position = CGPoint(
+                x: aligned.minX - size.width * (1 - zoom) / 2,
+                y: aligned.minY - size.height * (1 - zoom) / 2
+            )
+            guard layer.bounds.size != size else { continue }
+            layer.bounds.size = size
+            applyScale(slot, to: layer)
         }
+    }
+
+    func restoreLayoutFrames() {
+        for (slot, entry) in snappedContent where layers[slot] === entry.layer {
+            entry.layer.position = entry.frame.origin
+            entry.layer.bounds.size = entry.frame.size
+            applyScale(slot, to: entry.layer)
+        }
+        snappedContent.removeAll()
     }
 }
