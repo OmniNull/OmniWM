@@ -139,6 +139,11 @@ extension ShellWidgetPackage {
                 next.brightness.map { $0.write(into: &writer) } ?? writer.null()
             }
         }
+        if changed & ShellDataKey.nightShift.bit != 0 {
+            setValue(instance, .nightShift) { writer in
+                next.nightShift.map { $0.write(into: &writer) } ?? writer.null()
+            }
+        }
         if changed & ShellDataKey.awake.bit != 0 {
             setValue(instance, .awake) { writer in
                 next.awake.map { $0.write(into: &writer) } ?? writer.null()

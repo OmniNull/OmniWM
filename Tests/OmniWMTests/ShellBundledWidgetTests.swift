@@ -778,8 +778,8 @@ final class ShellBundledWidgetTests: XCTestCase {
         let full = try fullData { $0.style.height = 32 }
         let variants = [full, full.filter { Self.essentials.contains($0.0) }]
         let tabs = [
-            ("overview", "Control Center"), ("audio", "Audio"), ("media", "Media"), ("calendar", "Calendar"),
-            ("weather", "Weather"), ("system", "System"), ("unknown", "Control Center")
+            ("overview", "Control Center"), ("audio", "Audio"), ("displays", "Displays"), ("media", "Media"),
+            ("calendar", "Calendar"), ("weather", "Weather"), ("system", "System"), ("unknown", "Control Center")
         ]
         for (index, data) in variants.enumerated() {
             for (tab, title) in tabs {
