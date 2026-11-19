@@ -149,6 +149,11 @@ final class ShellWidgetClipView: NSView {
         applyCut()
     }
 
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        applyCut()
+    }
+
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
