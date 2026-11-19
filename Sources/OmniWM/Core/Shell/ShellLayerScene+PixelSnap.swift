@@ -35,6 +35,20 @@ extension ShellLayerScene {
         snappedContent[slot] = (entry.layer, rect)
     }
 
+    func turnQuarter(_ slot: Int32, _ layer: CALayer) {
+        layer.bounds.size = CGSize(width: layer.bounds.height, height: layer.bounds.width)
+        guard let entry = snappedContent[slot], entry.layer === layer else { return }
+        let size = CGSize(width: entry.frame.height, height: entry.frame.width)
+        snappedContent[slot] = (entry.layer, CGRect(origin: entry.frame.origin, size: size))
+    }
+
+    private func isAxisAligned(_ parent: CALayer) -> Bool {
+        let origin = parent.convert(CGPoint.zero, to: container)
+        let across = parent.convert(CGPoint(x: 1, y: 0), to: container)
+        let down = parent.convert(CGPoint(x: 0, y: 1), to: container)
+        return abs(across.y - origin.y) < 0.0001 && abs(down.x - origin.x) < 0.0001
+    }
+
     func flushPixelSnap() {
         guard snapsToPixels else { return }
         for (slot, entry) in snappedContent {
@@ -43,7 +57,8 @@ extension ShellLayerScene {
                 snappedContent.removeValue(forKey: slot)
                 continue
             }
-            guard let parent = layer.superlayer, rotations[slot] ?? 0 == 0, !quarters.contains(slot) else { continue }
+            guard let parent = layer.superlayer, rotations[slot] ?? 0 == 0, !quarters.contains(slot),
+                  isAxisAligned(parent) else { continue }
             let zoom = scales[slot] ?? 1
             guard zoom > 0 else { continue }
             let frame = entry.frame

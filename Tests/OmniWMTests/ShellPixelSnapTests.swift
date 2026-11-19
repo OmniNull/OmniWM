@@ -40,6 +40,19 @@ final class ShellPixelSnapTests: XCTestCase {
         XCTAssertEqual(try offGridContent(widget, scale: 1), [])
     }
 
+    func testTextUnderARotatedGroupKeepsItsSize() throws {
+        func labelSize(rotate: Int) throws -> CGSize {
+            let widget = try ShellRenderedWidget(name: "rotated", source: """
+            function render(ctx)
+                return ui.box{ w = 40, h = 40, rotate = \(rotate), ui.text{ text = "7" } }
+            end
+            """, scale: 1)
+            widget.render(ShellBarData())
+            return try XCTUnwrap(widget.layers().first { $0.contents != nil }).bounds.size
+        }
+        XCTAssertEqual(try labelSize(rotate: 45), try labelSize(rotate: 0))
+    }
+
     func testPixelAlignmentKeepsEqualSizesAndHairlines() {
         let first = ShellLayerScene.pixelAligned(CGRect(x: 33.875, y: 4.5625, width: 16.875, height: 16.875), scale: 1)
         let second = ShellLayerScene.pixelAligned(CGRect(x: 100.5, y: 4.5625, width: 16.875, height: 16.875), scale: 1)
