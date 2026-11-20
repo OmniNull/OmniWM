@@ -345,6 +345,30 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
     }
 
+    func testADragEventThatShiftsTheStripStoresItsViewportInTheSameWorldEvent() throws {
+        let fixture = try makeFixture(pid: 938_411)
+        let dragged = fixture.tokens[1]
+        try fixture.startLiveDrag(dragged)
+        let frame = try fixture.frame(dragged)
+        let travel: CGFloat = 1
+        let from = CGPoint(x: frame.midX, y: frame.maxY - Fixture.titleBarInset)
+        fixture.drag(to: from)
+        let viewport = fixture.manager.niriViewportState(for: fixture.workspaceId)
+        let traced = fixture.manager.reconcileTraceDump().split(separator: "\n").count
+
+        fixture.drag(to: CGPoint(x: from.x + travel, y: from.y))
+
+        let recorded = ["event=", "label=", "workspace="]
+        let events = fixture.manager.reconcileTraceDump().split(separator: "\n").dropFirst(traced).map { line in
+            let fields = line.split(separator: " ").filter { field in recorded.contains { field.hasPrefix($0) } }
+            return fields.joined(separator: " ")
+        }
+        let move = "event=user_command label=viewport_mutation workspace=\(fixture.workspaceId.uuidString)"
+        XCTAssertNotEqual(fixture.manager.niriViewportState(for: fixture.workspaceId), viewport)
+        XCTAssertEqual(events, [move])
+        XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
+    }
+
     func testTheDraggedWindowsCentreNotThePointerOpensTheHint() throws {
         let fixture = try makeFixture(pid: 938_090)
         let clock = DragClock()

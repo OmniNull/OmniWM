@@ -176,7 +176,7 @@ extension MouseEventHandler {
         if let step = engine.keepLiveColumnMoveDecision(decision) {
             return step
         }
-        return manager.withNiriViewportState(
+        return manager.withBatchedNiriViewportState(
             for: context.workspaceId,
             committingIf: { $0.changesLayout },
             { engine.applyLiveColumnMoveDecision(decision, context: context, state: &$0) }

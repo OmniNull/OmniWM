@@ -74,4 +74,21 @@ extension WorkspaceManager {
         }
         return result
     }
+
+    @discardableResult
+    func withBatchedNiriViewportState<Result>(
+        for workspaceId: WorkspaceDescriptor.ID,
+        committingIf shouldCommit: (Result) -> Bool,
+        _ mutate: (inout ViewportState) -> Result
+    ) -> Result {
+        var state = niriViewportState(for: workspaceId)
+        return withEngineMutationScope(in: workspaceId, label: "viewport_mutation") {
+            let result = mutate(&state)
+            if shouldCommit(result) {
+                self.normalizeNiriRefreshRate(&state, for: workspaceId)
+                self.applyViewportInBatch(state, for: workspaceId)
+            }
+            return result
+        }
+    }
 }
