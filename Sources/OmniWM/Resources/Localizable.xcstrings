@@ -166056,6 +166056,27 @@
     },
     "Choose what dragging a Dwindle group by its title bar moves onto another display. A whole group moved into Niri becomes one tabbed column. Dragging an individual group tab moves only that tab." : {
 
+    },
+    "Could not join the network" : {
+
+    },
+    "Join this network in Wi-Fi Settings" : {
+
+    },
+    "Joining from OmniWM isn’t supported on this version of macOS" : {
+
+    },
+    "Network is no longer in range" : {
+
+    },
+    "Wi-Fi Networks" : {
+
+    },
+    "Wi-Fi is unavailable" : {
+
+    },
+    "Wi-Fi status and nearby networks you can join." : {
+
     }
   },
   "version" : "1.0"

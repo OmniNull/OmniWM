@@ -123,6 +123,7 @@ enum ShellWidgetSettingsModel {
         case "apple-menu": String(localized: "Native Apple menu commands.")
         case "app-menu": String(localized: "Menus for the focused app.")
         case "scratchpads": String(localized: "Your scratchpad windows.")
+        case "wifi-networks": String(localized: "Wi-Fi status and nearby networks you can join.")
         case "hidden-bar",
              "hidden-bar-menu": String(localized: "Show the menu-bar items you have hidden.")
         default: String(localized: "A widget from the selected style or your shell folder.")

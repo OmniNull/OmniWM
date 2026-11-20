@@ -571,6 +571,24 @@ export type WiFi = {
     location: "authorized" | "denied" | "restricted" | "notDetermined",
 }
 
+export type WiFiNetwork = {
+    id: string,
+    ssid: string,
+    rssi: number,
+    security: string?,
+    secured: boolean,
+    enterprise: boolean,
+    known: boolean,
+}
+
+export type WiFiNetworks = {
+    known: { WiFiNetwork },
+    other: { WiFiNetwork },
+    scanning: boolean,
+    joining: string?,
+    failure: { id: string, message: string }?,
+}
+
 export type Connection = {
     kind: "wifi" | "ethernet" | "cellular" | "other" | "none",
     interface: string?,
@@ -679,6 +697,7 @@ export type Data = {
     nightShift: NightShift?,
     connection: Connection?,
     commandPalette: CommandPalette?,
+    wifiNetworks: WiFiNetworks?,
 }
 
 export type Format = {

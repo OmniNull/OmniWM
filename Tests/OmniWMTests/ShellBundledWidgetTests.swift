@@ -26,8 +26,8 @@ final class ShellBundledWidgetTests: XCTestCase {
 
     private static let names = [
         "clock", "battery", "volume", "weather", "stats", "workspaces", "scratchpads", "omniwm", "system-stats",
-        "hidden-bar", "media", "calendar", "launcher", "active-window", "input-source", "wifi", "bluetooth",
-        "battery-details", "world-clock", "privacy", "control-center"
+        "hidden-bar", "media", "calendar", "launcher", "active-window", "input-source", "wifi", "wifi-networks",
+        "bluetooth", "battery-details", "world-clock", "privacy", "control-center"
     ]
 
     private static let essentials = [
@@ -183,6 +183,32 @@ final class ShellBundledWidgetTests: XCTestCase {
                 ShellWiFi(
                     power: true, connected: true, ssid: "Harbourfront", rssi: -58, band: "5 GHz", channel: 149,
                     security: "WPA3 Personal", location: "authorized"
+                ).write(into: &$0)
+            }),
+            ("wifiNetworks", value {
+                let id = { (ssid: String) in ShellWiFiNetwork.id(Data(ssid.utf8)) }
+                ShellWiFiNetworks(
+                    known: [ShellWiFiNetwork(
+                        id: id("Office"),
+                        ssid: "Office",
+                        rssi: -64,
+                        security: "WPA2 Personal",
+                        secured: true,
+                        known: true
+                    )],
+                    other: [
+                        ShellWiFiNetwork(id: id("Café"), ssid: "Café", rssi: -77, security: "Open"),
+                        ShellWiFiNetwork(
+                            id: id("Corp"),
+                            ssid: "Corp",
+                            rssi: -70,
+                            security: "WPA2 Enterprise",
+                            secured: true,
+                            enterprise: true
+                        )
+                    ],
+                    joining: id("Office"),
+                    failure: ShellWiFiFailure(id: id("Café"), message: "The operation couldn’t be completed.")
                 ).write(into: &$0)
             }),
             ("bluetooth", value { writer in
@@ -739,7 +765,8 @@ final class ShellBundledWidgetTests: XCTestCase {
         let variants = [full, full.filter { (Self.essentials + ["hiddenBar"]).contains($0.0) }]
         let widgets = [
             "battery-details", "bluetooth", "calendar", "control-center", "hidden-bar-menu",
-            "input-source", "media", "stats", "system-stats", "volume", "weather", "world-clock", "wifi"
+            "input-source", "media", "stats", "system-stats", "volume", "weather", "world-clock", "wifi",
+            "wifi-networks"
         ]
         for widget in widgets {
             for data in variants {
@@ -748,7 +775,9 @@ final class ShellBundledWidgetTests: XCTestCase {
                     let empty = nodes.isEmpty || nodes.count == 1 && nodes[0].width == 0 && nodes[0].height == 0
                     if empty {
                         XCTAssertTrue([
-                            "battery-details", "bluetooth", "calendar", "input-source", "weather", "wifi", "world-clock"
+                            "battery-details", "bluetooth", "calendar", "input-source", "weather", "wifi",
+                            "wifi-networks",
+                            "world-clock"
                         ].contains(widget), widget)
                         for node in nodes {
                             XCTAssertEqual(node.text, 0, widget)

@@ -89,6 +89,7 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `inputSource` | The keyboard input source and the enabled ones, each with a short label |
 | `privacy` | Whether any app is using a microphone or a camera |
 | `wifi` | Wi-Fi power, signal, band, channel and security, and the network name once Location access is allowed |
+| `wifiNetworks` | Known Networks (saved and in range, in macOS auto-join order) and Other Networks (in range, by signal), plus scan, join and failure state. Reading it starts a scan every 10 seconds, so read it only in a popout; it stays empty until Location access is allowed |
 | `connection` | How the Mac reaches the network (`wifi`, `ethernet`, `cellular`, `other` or `none`) and the interface name; a VPN reports the Wi-Fi or Ethernet link beneath it |
 | `bluetooth` | Bluetooth power and paired devices with their battery levels, once Bluetooth access is allowed |
 | `volume`, `muted`, `outputs` | Output volume and the audio outputs, each with a device `kind` such as `airpodspro`, `headphones` or `display` |

@@ -123,7 +123,82 @@ local function detail(entry, width: number)
         look.text{ text = entry.value, size = 12, maxWidth = width - 152 } }
 end
 
-function wifi.content(ctx, width: number?, m)
+local function header(text: string, width: number, trailing)
+    local row = { w = width - 24,
+        look.text{ text = text, size = 11, weight = "medium", color = "secondaryForeground", grow = 1 } }
+    row[#row + 1] = trailing
+    return ui.row(row)
+end
+
+local function network(entry, data, width: number)
+    local failed = data.failure ~= nil and data.failure.id == entry.id
+    local status = if data.joining == entry.id then omniwm.l10n("Joining…")
+        elseif failed then data.failure.message
+        elseif entry.enterprise or (entry.secured and not entry.known) then omniwm.l10n("Opens Wi-Fi Settings")
+        else entry.security
+    local labels = { gap = 2, center = false, grow = 1,
+        look.text{ text = entry.ssid, size = 13, maxWidth = width - 96 } }
+    if status then
+        labels[#labels + 1] = look.text{ text = status, size = 11, maxWidth = width - 96, lines = 2,
+            color = if failed then "error" else "secondaryForeground" }
+    end
+    local row = { w = width - 24, gap = 8, pad = 4, radius = look.radius(8), hover = look.hover,
+        onClick = if data.joining then nil else "wifi join " .. entry.id,
+        wifi.fan(bars(entry.rssi), 18, "foreground"), ui.column(labels) }
+    if entry.secured then
+        row[#row + 1] = look.glyph{ name = "lock.fill", w = 12, h = 12, color = "secondaryForeground" }
+    end
+    return ui.row(row)
+end
+
+--- Known Networks and Other Networks for the `wifi-networks` popout. Reads `ctx.data.wifiNetworks` only when Wi-Fi
+--- is on and the network names are visible, so the radio scans only then.
+function wifi.networkSections(ctx, width: number)
+    local status = ctx.data.wifi
+    if not status or not status.power or status.location ~= "authorized" then
+        return {}
+    end
+    local data = ctx.data.wifiNetworks
+    if not data then
+        return {}
+    end
+    local sections = {}
+    if #data.known > 0 then
+        local group = { w = width, header(omniwm.l10n("Known Networks"), width) }
+        for _, entry in data.known do
+            group[#group + 1] = network(entry, data, width)
+        end
+        sections[#sections + 1] = look.group(group)
+    end
+    local refresh = if data.scanning
+        then look.text{ text = omniwm.l10n("Scanning…"), size = 11, color = "secondaryForeground" }
+        else ui.row{ pad = 2, radius = look.radius(6), hover = look.hover, onClick = "wifi scan",
+            help = omniwm.l10n("Scan for Networks"),
+            look.glyph{ name = "arrow.clockwise", w = 12, h = 12, color = "secondaryForeground" } }
+    local group = { w = width, header(omniwm.l10n("Other Networks"), width, refresh) }
+    for _, entry in data.other do
+        group[#group + 1] = network(entry, data, width)
+    end
+    if #data.other == 0 and not data.scanning then
+        group[#group + 1] = look.text{ text = omniwm.l10n("No Networks Found"), size = 13,
+            color = "secondaryForeground" }
+    end
+    sections[#sections + 1] = look.group(group)
+    local failure = data.failure
+    if failure then
+        for _, list in { data.known, data.other } do
+            for _, entry in list do
+                if entry.id == failure.id then
+                    return sections
+                end
+            end
+        end
+        sections[#sections + 1] = actions.notice(failure.message, width)
+    end
+    return sections
+end
+
+function wifi.content(ctx, width: number?, m, sections: { any }?)
     width = width or look.width
     m = m or wifi.model(ctx)
     if not m then
@@ -159,6 +234,9 @@ function wifi.content(ctx, width: number?, m)
         rows[#rows + 1] = look.group{ w = width,
             look.text{ text = omniwm.l10n("Not Connected"), size = 13, color = "secondaryForeground" } }
     end
+    for _, section in sections or {} do
+        rows[#rows + 1] = section
+    end
     for _, action in m.actions do
         rows[#rows + 1] = actions.row(action.symbol, action.text, action.command, width, action.wrap)
     end
@@ -169,6 +247,14 @@ function wifi.popout(ctx)
     local m = wifi.model(ctx)
     return look.wifiPanel and look.wifiPanel(ctx, m)
         or look.panel(ctx, { w = look.width + 28, wifi.content(ctx, nil, m) })
+end
+
+--- The `wifi-networks` popout: the default panel plus the network lists. It ignores `look.wifiPanel`, because a
+--- style's own panel has no place for the lists.
+function wifi.networksPopout(ctx)
+    local width = look.width
+    local m = wifi.model(ctx)
+    return look.panel(ctx, { w = width + 28, wifi.content(ctx, width, m, m and wifi.networkSections(ctx, width)) })
 end
 
 return table.freeze(wifi)

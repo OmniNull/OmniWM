@@ -29,7 +29,7 @@ Use the active profile’s name instead of `default`. In that profile folder’s
 
 ## Widget options
 
-**Add Widget…** also offers `launcher`, `active-window`, `input-source`, `wifi`, `bluetooth`, `battery-details`, `world-clock`, `privacy` and `control-center`. With **Transparent Background** and **Show Item Backgrounds** both on, the default widgets draw their own capsules and palette popouts.
+**Add Widget…** also offers `launcher`, `active-window`, `input-source`, `wifi`, `wifi-networks`, `bluetooth`, `battery-details`, `world-clock`, `privacy` and `control-center`. `wifi-networks` is `wifi` with a list of nearby networks in its popout: click a Known Network or an open network to join it, or any other network to finish in Wi-Fi Settings. With **Transparent Background** and **Show Item Backgrounds** both on, the default widgets draw their own capsules and palette popouts.
 
 Select a widget to change supported choices visually. Options follow the actual widget implementation in the selected style; a style that does not use an option does not show it. World Clock provides a location list, and Weather provides city or coordinates, units, and refresh interval. The default widgets also read these values from `profiles.<profile>.widgets.<name>` in `shell.toml`:
 

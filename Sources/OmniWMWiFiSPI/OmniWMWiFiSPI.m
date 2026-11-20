@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+#import "OmniWMWiFiSPI.h"
+
+#import <CoreWLAN/CoreWLAN.h>
+#import <dlfcn.h>
+
+// Private CoreWiFi surface, observed on macOS 26/27. See docs/spikes/private-wifi-join.md.
+// Every selector is checked with respondsToSelector: before use; a missing one fails closed.
+@interface NSObject (OmniWMWiFiSPI)
+- (NSInteger)serviceType;
+- (id)coreWiFiScanResult;
+- (id)coreWiFiNetworkProfile;
+- (id)scanRecord;
+- (NSData *)SSID;
+- (BOOL)isSystemMode;
+- (BOOL)isPSK;
+- (void)setScanResult:(id)scanResult;
+- (void)setKnownNetworkProfile:(id)profile;
+- (BOOL)associateWithParameters:(id)parameters error:(NSError **)error;
+@end
+
+NSString *const OmniWMWiFiErrorDomain = @"com.barut.OmniWM.wifi";
+
+/// CoreWLAN's own CoreWiFi connection to com.apple.corewlan-xpc, which serves association without an entitlement.
+static const NSInteger OmniWMWiFiCoreWLANService = 5;
+
+static BOOL fail(NSError **error, OmniWMWiFiError code) {
+    if (error) {
+        *error = [NSError errorWithDomain:OmniWMWiFiErrorDomain code:code userInfo:nil];
+    }
+    return NO;
+}
+
+static BOOL responds(id object, SEL selector) {
+    return object != nil && [object respondsToSelector:selector];
+}
+
+static BOOL loadCoreWiFi(void) {
+    static BOOL loaded;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        loaded = dlopen("/System/Library/PrivateFrameworks/CoreWiFi.framework/CoreWiFi", RTLD_NOW) != NULL;
+    });
+    return loaded;
+}
+
+/// The one saved profile for the SSID, or nil when there is none or several with different security.
+static CWNetworkProfile *savedProfile(CWConfiguration *configuration, NSData *ssid) {
+    CWNetworkProfile *match = nil;
+    for (CWNetworkProfile *profile in configuration.networkProfiles) {
+        if (![profile.ssidData isEqualToData:ssid]) {
+            continue;
+        }
+        if (match && match.security != profile.security) {
+            return nil;
+        }
+        match = profile;
+    }
+    return match;
+}
+
+static NSArray<CWNetwork *> *inRange(CWInterface *interface, NSData *ssid) {
+    NSPredicate *named = [NSPredicate predicateWithBlock:^BOOL(CWNetwork *network, NSDictionary *bindings) {
+        (void)bindings;
+        return [network.ssidData isEqualToData:ssid];
+    }];
+    NSArray<CWNetwork *> *cached = [interface.cachedScanResults.allObjects filteredArrayUsingPredicate:named];
+    NSArray<CWNetwork *> *networks = cached.count > 0
+        ? cached
+        : [[interface scanForNetworksWithSSID:ssid error:nil].allObjects filteredArrayUsingPredicate:named];
+    return [networks sortedArrayUsingComparator:^NSComparisonResult(CWNetwork *a, CWNetwork *b) {
+        return a.rssiValue > b.rssiValue ? NSOrderedAscending
+            : a.rssiValue < b.rssiValue ? NSOrderedDescending : NSOrderedSame;
+    }];
+}
+
+static BOOL join(NSData *ssid, NSError **error) {
+    if (!loadCoreWiFi()) {
+        return fail(error, OmniWMWiFiErrorUnavailable);
+    }
+    CWInterface *interface = [CWWiFiClient sharedWiFiClient].interface;
+    Class parametersClass = NSClassFromString(@"CWFAssocParameters");
+    if (!interface || !parametersClass) {
+        return fail(error, OmniWMWiFiErrorUnavailable);
+    }
+    // Reuse CoreWLAN's configured connection: it is already activated, and invalidating it would break CoreWLAN.
+    id corewifi = [interface valueForKey:@"corewifi"];
+    if (!responds(corewifi, @selector(serviceType)) || [corewifi serviceType] != OmniWMWiFiCoreWLANService ||
+        !responds(corewifi, @selector(associateWithParameters:error:))) {
+        return fail(error, OmniWMWiFiErrorUnavailable);
+    }
+    CWNetworkProfile *saved = savedProfile(interface.configuration, ssid);
+    if (!saved || !responds(saved, @selector(coreWiFiNetworkProfile))) {
+        return fail(error, OmniWMWiFiErrorNotEligible);
+    }
+    id profile = [saved coreWiFiNetworkProfile];
+    // airportd only reads the System keychain for system-mode PSK profiles; never fabricate either flag.
+    if (!responds(profile, @selector(isSystemMode)) || !responds(profile, @selector(isPSK)) ||
+        !responds(profile, @selector(SSID)) || ![profile isSystemMode] || ![profile isPSK] ||
+        ![[profile SSID] isEqualToData:ssid]) {
+        return fail(error, OmniWMWiFiErrorNotEligible);
+    }
+    NSArray<CWNetwork *> *networks = inRange(interface, ssid);
+    if (networks.count == 0) {
+        return fail(error, OmniWMWiFiErrorNotInRange);
+    }
+    for (CWNetwork *network in networks) {
+        if (![network supportsSecurity:saved.security] || !responds(network, @selector(coreWiFiScanResult))) {
+            continue;
+        }
+        id scan = [network coreWiFiScanResult];
+        if (!responds(scan, @selector(scanRecord)) || !responds(scan, @selector(isPSK)) ||
+            !responds(scan, @selector(SSID)) || ![scan scanRecord] || ![scan isPSK] ||
+            ![[scan SSID] isEqualToData:ssid]) {
+            continue;
+        }
+        id parameters = [[parametersClass alloc] init];
+        if (!responds(parameters, @selector(setScanResult:)) ||
+            !responds(parameters, @selector(setKnownNetworkProfile:))) {
+            return fail(error, OmniWMWiFiErrorUnavailable);
+        }
+        [parameters setScanResult:scan];
+        [parameters setKnownNetworkProfile:profile];
+        return [corewifi associateWithParameters:parameters error:error];
+    }
+    return fail(error, OmniWMWiFiErrorNotEligible);
+}
+
+BOOL omniwm_wifi_join_known_network(NSData *ssid, NSError **error) {
+    @try {
+        return join(ssid, error);
+    } @catch (NSException *exception) {
+        // valueForKey: throws when Apple renames the private property.
+        (void)exception;
+        return fail(error, OmniWMWiFiErrorUnavailable);
+    }
+}
