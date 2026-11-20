@@ -95,6 +95,17 @@ extension ShellDevicesTests {
         XCTAssertFalse(lists.other.contains(where: \.known))
     }
 
+    func testASecuredNetworkIsNeverShadowedByAnOpenOneWithTheSameName() {
+        let id = ShellWiFiNetwork.id(Data("Home".utf8))
+        let open = ShellWiFiNetwork(id: id, ssid: "Home", rssi: -40, security: "Open")
+        let secured = ShellWiFiNetwork(id: id, ssid: "Home", rssi: -75, security: "WPA2 Personal", secured: true)
+        for candidates in [[open, secured], [secured, open]] {
+            let lists = ShellWiFiNetworks.grouped(candidates, priority: [id], current: nil)
+            XCTAssertEqual(lists.known.map(\.secured), [true])
+            XCTAssertEqual(lists.known.first?.rssi, -75)
+        }
+    }
+
     func testWiFiNetworksScanOnlyWhileReadAndJoinRevalidatesTheTarget() async throws {
         let targets = WiFiJoinTargets()
         let office = targets.office

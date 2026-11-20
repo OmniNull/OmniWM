@@ -61,7 +61,6 @@ actor WiFiSettingsJoiner {
 
     private func attempt(pid: pid_t, ssid: String, deadline: TimeInterval) -> Attempt {
         let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(app, Self.messagingTimeout)
         do {
             let search = SSIDSearch(ssid: ssid, deadline: deadline)
             let windows = try search.attribute(kAXWindowsAttribute, of: app) as? [AXUIElement] ?? []
@@ -108,6 +107,7 @@ actor WiFiSettingsJoiner {
 
         func attribute(_ name: String, of element: AXUIElement) throws -> CFTypeRef? {
             try requireTimeLeft()
+            AXUIElementSetMessagingTimeout(element, WiFiSettingsJoiner.messagingTimeout)
             var value: CFTypeRef?
             switch AXUIElementCopyAttributeValue(element, name as CFString, &value) {
             case .success: return value

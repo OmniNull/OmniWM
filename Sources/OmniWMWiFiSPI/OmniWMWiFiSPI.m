@@ -57,19 +57,31 @@ static CWNetworkProfile *savedProfile(CWConfiguration *configuration, NSData *ss
     return match;
 }
 
-static NSArray<CWNetwork *> *inRange(CWInterface *interface, NSData *ssid) {
-    NSPredicate *named = [NSPredicate predicateWithBlock:^BOOL(CWNetwork *network, NSDictionary *bindings) {
+static NSArray<CWNetwork *> *named(NSSet<CWNetwork *> *networks, NSData *ssid) {
+    NSPredicate *matching = [NSPredicate predicateWithBlock:^BOOL(CWNetwork *network, NSDictionary *bindings) {
         (void)bindings;
         return [network.ssidData isEqualToData:ssid];
     }];
-    NSArray<CWNetwork *> *cached = [interface.cachedScanResults.allObjects filteredArrayUsingPredicate:named];
-    NSArray<CWNetwork *> *networks = cached.count > 0
-        ? cached
-        : [[interface scanForNetworksWithSSID:ssid error:nil].allObjects filteredArrayUsingPredicate:named];
-    return [networks sortedArrayUsingComparator:^NSComparisonResult(CWNetwork *a, CWNetwork *b) {
-        return a.rssiValue > b.rssiValue ? NSOrderedAscending
-            : a.rssiValue < b.rssiValue ? NSOrderedDescending : NSOrderedSame;
-    }];
+    return [[networks.allObjects filteredArrayUsingPredicate:matching]
+        sortedArrayUsingComparator:^NSComparisonResult(CWNetwork *a, CWNetwork *b) {
+            return a.rssiValue > b.rssiValue ? NSOrderedAscending
+                : a.rssiValue < b.rssiValue ? NSOrderedDescending : NSOrderedSame;
+        }];
+}
+
+static id eligibleScan(NSArray<CWNetwork *> *networks, CWNetworkProfile *saved, NSData *ssid) {
+    for (CWNetwork *network in networks) {
+        if (![network supportsSecurity:saved.security] || !responds(network, @selector(coreWiFiScanResult))) {
+            continue;
+        }
+        id scan = [network coreWiFiScanResult];
+        if (responds(scan, @selector(scanRecord)) && responds(scan, @selector(isPSK)) &&
+            responds(scan, @selector(SSID)) && [scan scanRecord] && [scan isPSK] &&
+            [[scan SSID] isEqualToData:ssid]) {
+            return scan;
+        }
+    }
+    return nil;
 }
 
 static BOOL join(NSData *ssid, NSError **error) {
@@ -96,30 +108,25 @@ static BOOL join(NSData *ssid, NSError **error) {
         ![[profile SSID] isEqualToData:ssid]) {
         return fail(error, OmniWMWiFiErrorNotEligible);
     }
-    NSArray<CWNetwork *> *networks = inRange(interface, ssid);
+    NSArray<CWNetwork *> *networks = named(interface.cachedScanResults, ssid);
+    id scan = eligibleScan(networks, saved, ssid);
+    if (!scan) {
+        networks = named([interface scanForNetworksWithSSID:ssid error:nil], ssid);
+        scan = eligibleScan(networks, saved, ssid);
+    }
     if (networks.count == 0) {
         return fail(error, OmniWMWiFiErrorNotInRange);
     }
-    for (CWNetwork *network in networks) {
-        if (![network supportsSecurity:saved.security] || !responds(network, @selector(coreWiFiScanResult))) {
-            continue;
-        }
-        id scan = [network coreWiFiScanResult];
-        if (!responds(scan, @selector(scanRecord)) || !responds(scan, @selector(isPSK)) ||
-            !responds(scan, @selector(SSID)) || ![scan scanRecord] || ![scan isPSK] ||
-            ![[scan SSID] isEqualToData:ssid]) {
-            continue;
-        }
-        id parameters = [[parametersClass alloc] init];
-        if (!responds(parameters, @selector(setScanResult:)) ||
-            !responds(parameters, @selector(setKnownNetworkProfile:))) {
-            return fail(error, OmniWMWiFiErrorUnavailable);
-        }
-        [parameters setScanResult:scan];
-        [parameters setKnownNetworkProfile:profile];
-        return [corewifi associateWithParameters:parameters error:error];
+    if (!scan) {
+        return fail(error, OmniWMWiFiErrorNotEligible);
     }
-    return fail(error, OmniWMWiFiErrorNotEligible);
+    id parameters = [[parametersClass alloc] init];
+    if (!responds(parameters, @selector(setScanResult:)) || !responds(parameters, @selector(setKnownNetworkProfile:))) {
+        return fail(error, OmniWMWiFiErrorUnavailable);
+    }
+    [parameters setScanResult:scan];
+    [parameters setKnownNetworkProfile:profile];
+    return [corewifi associateWithParameters:parameters error:error];
 }
 
 BOOL omniwm_wifi_join_known_network(NSData *ssid, NSError **error) {

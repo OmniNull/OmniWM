@@ -142,7 +142,9 @@ struct ShellWiFiNetworks: Equatable, Sendable, ShellValueWritable {
         }
         var strongest: [String: ShellWiFiNetwork] = [:]
         for candidate in candidates where candidate.id != current {
-            if let existing = strongest[candidate.id], existing.rssi >= candidate.rssi { continue }
+            if let existing = strongest[candidate.id],
+               existing.secured != candidate.secured ? existing.secured : existing.rssi >= candidate.rssi
+            { continue }
             strongest[candidate.id] = candidate
         }
         var known: [(rank: Int, network: ShellWiFiNetwork)] = []
@@ -438,7 +440,8 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
         guard let interface = CWWiFiClient.shared().interface() else {
             return .failed(String(localized: "Wi-Fi is unavailable"))
         }
-        let candidates = interface.cachedScanResults()?.filter { $0.ssidData == ssid } ?? []
+        let candidates = interface.cachedScanResults()?
+            .filter { $0.ssidData == ssid && ShellWiFiNetwork($0)?.secured == false } ?? []
         guard let target = candidates.max(by: { $0.rssiValue < $1.rssiValue }) else { return .failed(outOfRange) }
         do {
             try interface.associate(to: target, password: nil)
