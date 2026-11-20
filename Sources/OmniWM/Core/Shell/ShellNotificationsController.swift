@@ -67,6 +67,7 @@ final class ShellNotificationsController {
         dismissAll: DismissAllPerformer? = nil,
         showCenter: CenterPerformer? = nil,
         resolveName: AppNameResolver? = nil,
+        menuBarAccess: @escaping ShellNotificationAccessibility.MenuBarAccess = { _ in false },
         revision: (@MainActor @Sendable () -> StorageRevision)? = nil,
         now: @escaping @MainActor @Sendable () -> SuspendingClock.Instant = { SuspendingClock.now },
         sleepUntil: @escaping @MainActor @Sendable (SuspendingClock.Instant) async throws -> Void = {
@@ -86,7 +87,7 @@ final class ShellNotificationsController {
             let name = FileManager.default.displayName(atPath: url.path)
             return name.hasSuffix(".app") ? String(name.dropLast(4)) : name
         }
-        let accessibility = ShellNotificationAccessibility()
+        let accessibility = ShellNotificationAccessibility(menuBarAccess: menuBarAccess)
         performAction = perform ?? { request in
             guard let (notificationPID, menuPID) = Self.nativeProcesses() else {
                 ShellNotificationTrace.record("native.processes.missing", target: request.id)

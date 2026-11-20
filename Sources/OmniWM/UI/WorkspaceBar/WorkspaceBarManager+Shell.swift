@@ -209,6 +209,9 @@ extension WorkspaceBarManager {
             appVolumes: controller?.appVolumeMixer,
             media: controller?.mediaController,
             calendar: controller?.calendarController,
+            notifications: ShellNotificationsController(menuBarAccess: { [weak self] active in
+                self?.menuBarHold?.setMenuAccess(active, for: .notifications) ?? false
+            }),
             windowIcon: { [weak self] id in self?.shellItemIcons[id] },
             iconOverride: { [weak self] bundleId in
                 self?.controller?.workspaceBarIconResolver.image(for: bundleId)

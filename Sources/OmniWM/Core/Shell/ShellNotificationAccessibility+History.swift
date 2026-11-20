@@ -8,7 +8,10 @@ import Foundation
 
 extension ShellNotificationAccessibility.Session {
     func showCenter() -> ShellNotificationActionOutcome {
-        defer { stopObserving() }
+        defer {
+            stopObserving()
+            releaseMenuBar()
+        }
         do {
             enter("center")
             if #available(macOS 27.2, *) {
@@ -82,7 +85,9 @@ extension ShellNotificationAccessibility.Session {
                 DispatchQueue.main.sync { coveringPanels.forEach { $0.setClockClickPassThrough(false) } }
             }
         }
-        guard try waitForClock(clock, at: point, mayBeCovered: !coveringPanels.isEmpty),
+        let clockReady = try waitForClock(clock, at: point, within: coveringPanels.isEmpty ? 0 : 0.25)
+            || revealMenuBar(clock, at: point)
+        guard clockReady,
               !CGEventSource.buttonState(.combinedSessionState, button: .left),
               let source = CGEventSource(stateID: .hidSystemState),
               let down = CGEvent(
@@ -122,13 +127,31 @@ extension ShellNotificationAccessibility.Session {
         }
     }
 
-    private func waitForClock(_ clock: AXUIElement, at point: CGPoint, mayBeCovered: Bool) throws -> Bool {
+    private func waitForClock(_ clock: AXUIElement, at point: CGPoint, within duration: TimeInterval) throws -> Bool {
         // WindowServer can take a moment to update the hit target after changing a panel's mouse routing.
-        let hitDeadline = ProcessInfo.processInfo.systemUptime + (mayBeCovered ? 0.25 : 0)
+        let hitDeadline = ProcessInfo.processInfo.systemUptime + duration
         return try waitUntil {
             if self.clockIsAtPoint(clock, point: point) { return true }
             return ProcessInfo.processInfo.systemUptime >= hitDeadline ? false : nil
         }
+    }
+
+    /// An auto-hidden menu bar keeps the clock off screen, so a click would land on whatever is below it.
+    private func revealMenuBar(_ clock: AXUIElement, at point: CGPoint) throws -> Bool {
+        guard !holdsMenuBarAccess else { return false }
+        let access = menuBarAccess
+        holdsMenuBarAccess = DispatchQueue.main.sync { access(true) }
+        trace("native.menuBar.reveal", fields: "held=\(holdsMenuBarAccess)")
+        guard holdsMenuBarAccess else { return false }
+        return try waitForClock(clock, at: point, within: 1)
+    }
+
+    func releaseMenuBar() {
+        guard holdsMenuBarAccess else { return }
+        holdsMenuBarAccess = false
+        let access = menuBarAccess
+        let restored = DispatchQueue.main.sync { access(false) }
+        trace("native.menuBar.release", fields: "restored=\(restored)")
     }
 
     private func clockIsAtPoint(_ clock: AXUIElement, point: CGPoint) -> Bool {

@@ -5,7 +5,14 @@ import ApplicationServices
 import Foundation
 
 actor ShellNotificationAccessibility {
+    typealias MenuBarAccess = @MainActor @Sendable (Bool) -> Bool
+
     private static let queue = DispatchSerialQueue(label: "com.barut.OmniWM.shell.notification-actions", qos: .utility)
+    private let menuBarAccess: MenuBarAccess
+
+    init(menuBarAccess: @escaping MenuBarAccess = { _ in false }) {
+        self.menuBarAccess = menuBarAccess
+    }
 
     nonisolated var unownedExecutor: UnownedSerialExecutor {
         Self.queue.asUnownedSerialExecutor()
@@ -22,7 +29,9 @@ actor ShellNotificationAccessibility {
             fields: "trusted=\(trusted) notificationPID=\(notificationPID) menuPID=\(menuPID)"
         )
         guard trusted else { return .denied }
-        let session = Session(request: request, notificationPID: notificationPID, menuPID: menuPID)
+        let session = Session(
+            request: request, notificationPID: notificationPID, menuPID: menuPID, menuBarAccess: menuBarAccess
+        )
         return session.perform()
     }
 
@@ -34,14 +43,16 @@ actor ShellNotificationAccessibility {
     ) -> ShellNotificationActionOutcome {
         guard let first = requests.first else { return .dispatched }
         guard AXIsProcessTrusted() else { return .denied }
-        let session = Session(request: first, notificationPID: notificationPID, menuPID: menuPID)
+        let session = Session(
+            request: first, notificationPID: notificationPID, menuPID: menuPID, menuBarAccess: menuBarAccess
+        )
         return ShellNotificationDismissAll.perform(
             requests,
             begin: { session.prepare() },
             dismiss: { request in
                 session.request = request
                 session.deadline = ProcessInfo.processInfo.systemUptime + 6
-                return session.execute()
+                return session.clearBatchItem()
             },
             finish: { session.finish($0) },
             progress: progress
@@ -50,7 +61,7 @@ actor ShellNotificationAccessibility {
 
     func showCenter(notificationPID: pid_t, menuPID: pid_t) -> ShellNotificationActionOutcome {
         guard AXIsProcessTrusted() else { return .denied }
-        return Session(notificationPID: notificationPID, menuPID: menuPID).showCenter()
+        return Session(notificationPID: notificationPID, menuPID: menuPID, menuBarAccess: menuBarAccess).showCenter()
     }
 }
 
@@ -59,7 +70,7 @@ extension ShellNotificationAccessibility {
         let outcome: ShellNotificationActionOutcome
     }
 
-    fileprivate struct ExpiredElement: Error {}
+    struct ExpiredElement: Error {}
     struct CannotCompleteAXRequest: Error {}
 
     struct Snapshot {
@@ -76,15 +87,25 @@ extension ShellNotificationAccessibility {
         let app: AXUIElement
         let menu: AXUIElement
         let notificationPID: pid_t
+        let menuBarAccess: MenuBarAccess
+        var holdsMenuBarAccess = false
+        var clearedBundles = Set<String>()
+        var unclearableStacks = Set<UUID>()
         var observer: AXObserver?
         var didDispatchHistoryOpen = false
         var openedWindow: AXUIElement?
         var deadline = ProcessInfo.processInfo.systemUptime + 6
         var stage = "initial"
 
-        init(request: ShellNotificationActionRequest? = nil, notificationPID: pid_t, menuPID: pid_t) {
+        init(
+            request: ShellNotificationActionRequest? = nil,
+            notificationPID: pid_t,
+            menuPID: pid_t,
+            menuBarAccess: @escaping MenuBarAccess = { _ in false }
+        ) {
             self.request = request
             self.notificationPID = notificationPID
+            self.menuBarAccess = menuBarAccess
             app = AXUIElementCreateApplication(notificationPID)
             menu = AXUIElementCreateApplication(menuPID)
             AXUIElementSetMessagingTimeout(app, 0.25)
@@ -146,7 +167,10 @@ extension ShellNotificationAccessibility {
         }
 
         func finish(_ result: ShellNotificationActionOutcome) -> ShellNotificationActionOutcome {
-            defer { stopObserving() }
+            defer {
+                stopObserving()
+                releaseMenuBar()
+            }
             var outcome = result
             trace("native.effect.end", fields: "outcome=\(outcome.rawValue) openedHistory=\(didDispatchHistoryOpen)")
             if didDispatchHistoryOpen {
