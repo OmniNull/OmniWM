@@ -73,7 +73,7 @@ final class ShellBarShaderView: NSView {
     private(set) var visible = false
     private var renderedSize = CGSize.zero
     private var program: ShellShaderProgram?
-    private var input: ShellShaderInput?
+    private(set) var input: ShellShaderInput?
     private var paused = false
 
     override var isFlipped: Bool {

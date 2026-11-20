@@ -8,7 +8,13 @@ on:
       - website/**
       - Sources/OmniWM/Resources/omniwm.d.luau
       - .do/app.yaml
-      - .github/workflows/approved-website.yml
+      - .github/workflows/website.yml
+  pull_request:
+    paths:
+      - website/**
+      - Sources/OmniWM/Resources/omniwm.d.luau
+      - .do/app.yaml
+      - .github/workflows/website.yml
 
 permissions:
   contents: read

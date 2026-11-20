@@ -19,7 +19,7 @@ import XCTest
             entry.command = "printf original"
             let fixture = Fixture(entry: entry, runOnly: false)
             defer { fixture.close() }
-            await fixture.present()
+            try await fixture.present()
             await fulfillment(of: [fixture.appeared, fixture.beganSheet], timeout: failureBound)
             let sheet = try XCTUnwrap(fixture.window.attachedSheet)
             try await fixture.enter("Edited command", replacing: "Original command", in: sheet)
@@ -54,7 +54,7 @@ import XCTest
             entry.path = "/usr/bin/true"
             let fixture = Fixture(entry: entry, runOnly: true)
             defer { fixture.close() }
-            await fixture.present()
+            try await fixture.present()
             await fulfillment(of: [fixture.appeared, fixture.beganSheet], timeout: failureBound)
             let sheet = try XCTUnwrap(fixture.window.attachedSheet)
 
@@ -89,9 +89,9 @@ import XCTest
                 originalActivationPolicy = NSApp.activationPolicy()
                 originalOutcome = LauncherExecution.shared.outcome
                 XCTAssertTrue(NSApp.setActivationPolicy(.accessory))
-                window = NSWindow(
+                window = KeyPanel(
                     contentRect: NSRect(x: 0, y: 0, width: 760, height: 680),
-                    styleMask: [.titled, .closable], backing: .buffered, defer: false
+                    styleMask: [.titled, .closable, .nonactivatingPanel], backing: .buffered, defer: false
                 )
                 window.animationBehavior = .none
                 window.hasShadow = false
@@ -123,9 +123,13 @@ import XCTest
                 ) { _ in beganSheet.fulfill() }
             }
 
-            func present() async {
+            func present() async throws {
                 window.center()
-                window.orderBack(nil)
+                window.makeKeyAndOrderFront(nil)
+                _ = try XCTUnwrap(
+                    window.isKeyWindow ? window : nil,
+                    "The test window must become key; run launcher interaction checks in an unlocked session"
+                )
                 await display()
             }
 
@@ -177,7 +181,20 @@ import XCTest
                 request.recognitionLevel = .accurate
                 request.recognitionLanguages = ["en-US"]
                 request.customWords = [title]
-                try VNImageRequestHandler(cgImage: XCTUnwrap(bitmap.cgImage)).perform([request])
+                let image = try XCTUnwrap(bitmap.cgImage)
+                let bounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
+                let context = try XCTUnwrap(CGContext(
+                    data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+                ))
+                var background = NSColor.windowBackgroundColor.cgColor
+                sheet.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    background = NSColor.windowBackgroundColor.cgColor
+                }
+                context.setFillColor(background)
+                context.fill(bounds)
+                context.draw(image, in: bounds)
+                try VNImageRequestHandler(cgImage: XCTUnwrap(context.makeImage())).perform([request])
                 return try XCTUnwrap((request.results ?? []).compactMap { observation -> CGRect? in
                     guard let text = observation.topCandidates(1).first,
                           let range = text.string.range(of: title, options: [.caseInsensitive]) else { return nil }
@@ -192,6 +209,12 @@ import XCTest
                 window.close()
                 _ = NSApp.setActivationPolicy(originalActivationPolicy)
                 LauncherExecution.shared.outcome = originalOutcome
+            }
+        }
+
+        private final class KeyPanel: NSPanel {
+            override var canBecomeKey: Bool {
+                true
             }
         }
 
