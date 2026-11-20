@@ -362,9 +362,23 @@ export type Microphone = {
     muted: boolean?,
 }
 
+export type DisplayBrightness = {
+    id: string,
+    name: string,
+    value: number,
+    available: boolean,
+}
+
 export type Brightness = {
     value: number,
     available: boolean,
+    mainDisplayId: string?,
+    displays: { DisplayBrightness },
+}
+
+export type NightShift = {
+    available: boolean,
+    enabled: boolean,
 }
 
 export type NotificationAction = {
@@ -663,6 +677,7 @@ export type Data = {
     awake: Awake?,
     microphone: Microphone?,
     brightness: Brightness?,
+    nightShift: NightShift?,
     connection: Connection?,
     commandPalette: CommandPalette?,
 }

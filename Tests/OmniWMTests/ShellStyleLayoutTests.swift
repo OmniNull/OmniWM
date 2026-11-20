@@ -3046,6 +3046,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                 [label("Wi-Fi"), label("Bluetooth"), label("Sound"), title, label("Dark Mode"), label("Battery")]
             ),
             ("audio", [label("Sound"), label("Output"), label("Applications")]),
+            ("displays", [label("Brightness"), label("Night Shift"), label("Displays Settings…")]),
             ("media", [title, label("Lyrics")]),
             ("calendar", [XCTUnwrap(calendar.events.first).title, String(XCTUnwrap(calendar.month).days)]),
             (
@@ -3130,6 +3131,7 @@ final class ShellStyleLayoutTests: XCTestCase {
             for tabIcon in [
                 "dashboard",
                 "volume_up",
+                "desktop_windows",
                 "music_note",
                 "calendar_month",
                 "partly_cloudy_day",

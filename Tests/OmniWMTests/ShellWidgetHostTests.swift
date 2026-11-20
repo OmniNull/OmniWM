@@ -1553,6 +1553,55 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 2)))])
     }
 
+    func testClosingPopoutAndDrawerCancelsActiveSliderOnce() async throws {
+        executionTimeAllowance = failureBound
+        let screen = try XCTUnwrap(NSScreen.screens.first { $0.displayId == CGMainDisplayID() })
+        let main = Monitor.ID(displayId: try XCTUnwrap(screen.displayId))
+        let harness = try harness("""
+        function render(ctx)
+            return ui.box{ w = 30 + (ctx.state.cancellations or 0), h = 16, onClick = ui.popout }
+        end
+        function popout(ctx)
+            return ui.slider{ w = 116, h = 16, value = 0.5, onChange = function(owner, event)
+                if event.phase == "cancelled" then
+                    owner.state.cancellations = (owner.state.cancellations or 0) + 1
+                end
+            end }
+        end
+        """, bars: [ShellBarKey(monitor: main): ShellBarData()], files: [
+            "shell.toml": """
+            profiles.default.trailing = ["test"]
+            [profiles.default.drawer.test-controls]
+            edge = "right"
+            widgets = ["test"]
+            """
+        ])
+        defer { harness.close() }
+        func width() -> CGFloat? {
+            harness.host.slots(for: main).first { $0.id == "test" }?.size.width
+        }
+        func pressSlider(in surface: ShellWidgetSurface) async throws {
+            await waitForApply(to: [surface]) {
+                !surface.layout.core.elements { $0.action & OMNI_ACTION_HANDLER != 0 }.isEmpty
+            }
+            let slider = try XCTUnwrap(surface.layout.core.elements { $0.action & OMNI_ACTION_HANDLER != 0 }.first)
+            let frame = CGRect(surface.layout.core.absoluteFrame(of: slider))
+            surface.press(at: CGPoint(x: frame.midX, y: frame.midY))
+        }
+        await harness.layoutChanges.wait { width() == 30 }
+        XCTAssertTrue(harness.host.togglePopout(of: "test", on: main))
+        try await pressSlider(in: XCTUnwrap(harness.host.popout?.surface))
+        harness.host.closePopout(animated: false)
+        await harness.layoutChanges.wait { width() == 31 }
+        XCTAssertNil(harness.host.popout)
+
+        XCTAssertTrue(harness.host.toggleDrawer("test-controls", on: main))
+        try await pressSlider(in: XCTUnwrap(harness.host.drawer?.sections.first?.surface))
+        harness.host.closeDrawer(animated: false)
+        await harness.layoutChanges.wait { width() == 32 }
+        XCTAssertNil(harness.host.drawer)
+    }
+
     func testMaterialsDrawABlurredBackdropUnderTheirTint() async throws {
         executionTimeAllowance = failureBound
         ShellWidgetSurface.reducesTransparencyOverride = false
