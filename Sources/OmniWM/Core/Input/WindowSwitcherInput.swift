@@ -15,39 +15,55 @@ enum WindowSwitcherAction: Equatable, Sendable {
 }
 
 struct WindowSwitcherInput {
+    enum Source {
+        case shortcut
+        case external
+    }
+
     struct Decision: Equatable {
         var consumed = false
         var action: WindowSwitcherAction?
     }
 
-    private(set) var isActive = false
+    private(set) var activeSource: Source?
     private(set) var generation: UInt64 = 0
-    private var suppressedKeys: Set<Int> = []
+    private var suppressedKeys: [Int: Source] = [:]
     var shortcuts = WindowSwitcherShortcuts()
     private var heldModifiers = CGEventFlags.maskCommand
-    private var passesUnhandledKeys = false
 
     static let releaseModifiers: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl]
 
-    var holdsKeyboard: Bool {
-        isActive || !suppressedKeys.isEmpty
+    var isActive: Bool {
+        activeSource != nil
+    }
+
+    func holdsKeyboard(for source: Source) -> Bool {
+        activeSource == source || suppressedKeys.values.contains(source)
+    }
+
+    func ownsKeyUp(_ keyCode: Int, source: Source) -> Bool {
+        suppressedKeys[keyCode] == source
     }
 
     mutating func beginExternalSession(holding flags: CGEventFlags) {
         heldModifiers = flags.intersection(Self.releaseModifiers)
-        passesUnhandledKeys = true
-        isActive = true
+        activeSource = .external
         generation &+= 1
     }
 
     mutating func cancel(generation: UInt64) {
         guard generation == self.generation else { return }
-        isActive = false
+        activeSource = nil
     }
 
     mutating func reset() {
-        isActive = false
+        activeSource = nil
         suppressedKeys.removeAll()
+    }
+
+    mutating func reset(_ source: Source) {
+        if activeSource == source { activeSource = nil }
+        suppressedKeys = suppressedKeys.filter { $0.value != source }
     }
 
     mutating func handle(
@@ -55,35 +71,46 @@ struct WindowSwitcherInput {
         keyCode: Int,
         flags: CGEventFlags,
         isRepeat: Bool,
-        canBegin: Bool
+        canBegin: Bool,
+        source: Source = .shortcut
     ) -> Decision {
-        if type == .keyUp {
-            return Decision(consumed: suppressedKeys.remove(keyCode) != nil)
-        }
-        if type == .flagsChanged {
-            guard isActive, !flags.contains(heldModifiers) else { return Decision() }
-            isActive = false
+        switch type {
+        case .keyUp:
+            guard suppressedKeys[keyCode] == source else { return Decision() }
+            suppressedKeys.removeValue(forKey: keyCode)
+            return Decision(consumed: true)
+        case .flagsChanged:
+            guard activeSource == source, !flags.contains(heldModifiers) else { return Decision() }
+            activeSource = nil
             return Decision(action: .commit)
+        case .keyDown:
+            return handleKeyDown(keyCode: keyCode, flags: flags, isRepeat: isRepeat, canBegin: canBegin, source: source)
+        default:
+            return Decision()
         }
-        guard type == .keyDown else { return Decision() }
-        if !isActive {
-            if suppressedKeys.contains(keyCode) { return Decision(consumed: true) }
-            guard canBegin, keyCode == kVK_Tab, !isRepeat,
-                  let shortcut = shortcut(for: flags)
-            else { return Decision() }
-            heldModifiers = flags.contains(.maskCommand) ? .maskCommand : .maskAlternate
-            passesUnhandledKeys = false
-            isActive = true
-            generation &+= 1
-            suppressedKeys.insert(keyCode)
-            return Decision(
-                consumed: true,
-                action: .begin(reverse: flags.contains(.maskShift), scope: shortcut.initialScope)
-            )
+    }
+
+    private mutating func handleKeyDown(
+        keyCode: Int, flags: CGEventFlags, isRepeat: Bool, canBegin: Bool, source: Source
+    ) -> Decision {
+        if let owner = suppressedKeys[keyCode], owner != source { return Decision() }
+        if activeSource == source {
+            let decision = activeDecision(keyCode: keyCode, flags: flags, isRepeat: isRepeat)
+            if decision.consumed { suppressedKeys[keyCode] = source }
+            return decision
         }
-        let decision = activeDecision(keyCode: keyCode, flags: flags, isRepeat: isRepeat)
-        if decision.consumed { suppressedKeys.insert(keyCode) }
-        return decision
+        if suppressedKeys[keyCode] == source { return Decision(consumed: true) }
+        guard activeSource == nil, source == .shortcut, canBegin, keyCode == kVK_Tab, !isRepeat,
+              let shortcut = shortcut(for: flags)
+        else { return Decision() }
+        heldModifiers = flags.contains(.maskCommand) ? .maskCommand : .maskAlternate
+        activeSource = .shortcut
+        generation &+= 1
+        suppressedKeys[keyCode] = source
+        return Decision(
+            consumed: true,
+            action: .begin(reverse: flags.contains(.maskShift), scope: shortcut.initialScope)
+        )
     }
 
     private mutating func activeDecision(keyCode: Int, flags: CGEventFlags, isRepeat: Bool) -> Decision {
@@ -104,13 +131,13 @@ struct WindowSwitcherInput {
             return Decision(consumed: true, action: isRepeat ? nil : .cycleScope)
         case kVK_Return,
              kVK_ANSI_KeypadEnter:
-            isActive = false
+            activeSource = nil
             return Decision(consumed: true, action: .commit)
         case kVK_Escape:
-            isActive = false
+            activeSource = nil
             return Decision(consumed: true, action: .cancel)
         default:
-            return Decision(consumed: !passesUnhandledKeys)
+            return Decision(consumed: activeSource == .shortcut)
         }
     }
 

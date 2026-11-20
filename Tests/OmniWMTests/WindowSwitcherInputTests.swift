@@ -171,9 +171,10 @@ final class WindowSwitcherInputTests: XCTestCase {
         input.beginExternalSession(holding: hyper)
         XCTAssertTrue(input.isActive)
         let withoutShift: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl]
-        XCTAssertNil(key(&input, kVK_Shift, type: .flagsChanged, flags: withoutShift).action)
+        XCTAssertNil(key(&input, kVK_Shift, type: .flagsChanged, flags: withoutShift, source: .external).action)
         XCTAssertEqual(
-            key(&input, kVK_Control, type: .flagsChanged, flags: [.maskCommand, .maskAlternate]).action,
+            key(&input, kVK_Control, type: .flagsChanged, flags: [.maskCommand, .maskAlternate], source: .external)
+                .action,
             .commit
         )
         XCTAssertFalse(input.isActive)
@@ -182,20 +183,20 @@ final class WindowSwitcherInputTests: XCTestCase {
     func testExternalSessionPassesUnknownKeysToTheHotkeyManager() {
         var input = WindowSwitcherInput()
         input.beginExternalSession(holding: [.maskControl])
-        let trigger = key(&input, kVK_ANSI_J, flags: [.maskControl])
+        let trigger = key(&input, kVK_ANSI_J, flags: [.maskControl], source: .external)
         XCTAssertFalse(trigger.consumed)
         XCTAssertNil(trigger.action)
-        XCTAssertFalse(key(&input, kVK_ANSI_J, type: .keyUp, flags: [.maskControl]).consumed)
-        XCTAssertEqual(key(&input, kVK_Tab, flags: [.maskControl]).action, .cycle(reverse: false))
-        XCTAssertEqual(key(&input, kVK_ANSI_S, flags: [.maskControl]).action, .cycleScope)
-        XCTAssertEqual(key(&input, kVK_Escape, flags: [.maskControl]).action, .cancel)
-        XCTAssertTrue(key(&input, kVK_Escape, type: .keyUp, flags: [.maskControl]).consumed)
+        XCTAssertFalse(key(&input, kVK_ANSI_J, type: .keyUp, flags: [.maskControl], source: .external).consumed)
+        XCTAssertEqual(key(&input, kVK_Tab, flags: [.maskControl], source: .external).action, .cycle(reverse: false))
+        XCTAssertEqual(key(&input, kVK_ANSI_S, flags: [.maskControl], source: .external).action, .cycleScope)
+        XCTAssertEqual(key(&input, kVK_Escape, flags: [.maskControl], source: .external).action, .cancel)
+        XCTAssertTrue(key(&input, kVK_Escape, type: .keyUp, flags: [.maskControl], source: .external).consumed)
     }
 
     func testKeyboardSessionAfterExternalSessionSwallowsUnknownKeysAgain() {
         var input = WindowSwitcherInput()
         input.beginExternalSession(holding: [.maskAlternate])
-        _ = key(&input, kVK_Option, type: .flagsChanged, flags: [])
+        _ = key(&input, kVK_Option, type: .flagsChanged, flags: [], source: .external)
         _ = key(&input, kVK_Tab)
         XCTAssertTrue(key(&input, kVK_ANSI_Q).consumed)
         XCTAssertNil(key(&input, kVK_Option, type: .flagsChanged, flags: [.maskCommand]).action)
@@ -205,12 +206,13 @@ final class WindowSwitcherInputTests: XCTestCase {
     func testSessionKeepsTheKeyboardUntilConsumedKeysAreReleased() {
         var input = WindowSwitcherInput()
         input.beginExternalSession(holding: [.maskControl])
-        XCTAssertEqual(key(&input, kVK_Return, flags: [.maskControl]).action, .commit)
+        XCTAssertEqual(key(&input, kVK_Return, flags: [.maskControl], source: .external).action, .commit)
         XCTAssertFalse(input.isActive)
-        XCTAssertTrue(input.holdsKeyboard)
-        XCTAssertTrue(key(&input, kVK_Return, type: .keyUp, flags: [.maskControl]).consumed)
-        XCTAssertFalse(input.holdsKeyboard)
-        XCTAssertFalse(key(&input, kVK_Return, flags: []).consumed)
+        XCTAssertTrue(input.holdsKeyboard(for: .external))
+        XCTAssertFalse(key(&input, kVK_Return, type: .keyUp, flags: [.maskControl]).consumed)
+        XCTAssertTrue(key(&input, kVK_Return, type: .keyUp, flags: [.maskControl], source: .external).consumed)
+        XCTAssertFalse(input.holdsKeyboard(for: .external))
+        XCTAssertFalse(key(&input, kVK_Return, flags: [], source: .external).consumed)
     }
 
     private func key(
@@ -219,8 +221,9 @@ final class WindowSwitcherInputTests: XCTestCase {
         type: CGEventType = .keyDown,
         flags: CGEventFlags = [.maskCommand],
         isRepeat: Bool = false,
-        canBegin: Bool = true
+        canBegin: Bool = true,
+        source: WindowSwitcherInput.Source = .shortcut
     ) -> WindowSwitcherInput.Decision {
-        input.handle(type: type, keyCode: keyCode, flags: flags, isRepeat: isRepeat, canBegin: canBegin)
+        input.handle(type: type, keyCode: keyCode, flags: flags, isRepeat: isRepeat, canBegin: canBegin, source: source)
     }
 }
