@@ -247,21 +247,19 @@ extension MouseEventHandler {
     ) -> Bool {
         let onNiriStrip = controller.isNiriStrip(workspaceId)
         let onLandscapeStrip = onNiriStrip && controller.isOnLandscapeDisplay(workspaceId)
-        let stripStartFrame = onNiriStrip ? controller.axManager.lastAppliedFrame(for: drag.token.windowId) : nil
-        let pending = hadUnsettledFrameWrite && onNiriStrip
-            ? controller.axManager.awaitedFrameWrite(for: drag.token.windowId) : nil
+        let layoutStartFrame = controller.axManager.lastAppliedFrame(for: drag.token.windowId)
+        let pending = hadUnsettledFrameWrite ? controller.axManager.awaitedFrameWrite(for: drag.token.windowId) : nil
         let pendingChangesSize = hadUnsettledFrameWrite
-            ? (startFrame ?? (onLandscapeStrip ? nil : stripStartFrame)).map {
+            ? (startFrame ?? (onLandscapeStrip ? nil : layoutStartFrame)).map {
                 controller.axManager.hasPendingFrameSizeChange(for: drag.token.windowId, comparedTo: $0.size)
             } ?? true : false
-        let hasResizePress = onLandscapeStrip || onNiriStrip &&
-            isPortraitResizePress(in: pending ?? stripStartFrame)
+        let hasResizePress = onLandscapeStrip || isPortraitResizePress(in: pending ?? layoutStartFrame)
         drag.canStartLiveNiriDrag = onNiriStrip && (onLandscapeStrip || !hasResizePress)
-        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? (hasResizePress ? stripStartFrame : nil)
+        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? (hasResizePress ? layoutStartFrame : nil)
         drag.pendingWriteStartFrame = hadUnsettledFrameWrite && hasResizePress
-            && (onLandscapeStrip || !pendingChangesSize) ? pending ?? stripStartFrame : nil
+            && (onLandscapeStrip || !pendingChangesSize) ? pending ?? layoutStartFrame : nil
         if !onNiriStrip {
-            let frame = startFrame ?? controller.axManager.lastAppliedFrame(for: drag.token.windowId)
+            let frame = startFrame ?? layoutStartFrame
             if !isPortraitResizePress(in: frame) {
                 drag.liveStartFrame = frame
                 drag.canStartLiveDwindleDrag = true
@@ -269,7 +267,7 @@ extension MouseEventHandler {
         }
         if drag.canStartLiveNiriDrag {
             let entry = controller.workspaceManager.entry(for: drag.token)
-            drag.liveStartFrame = entry.flatMap(fastNativeWindowFrame) ?? stripStartFrame ?? startFrame
+            drag.liveStartFrame = entry.flatMap(fastNativeWindowFrame) ?? layoutStartFrame ?? startFrame
                 ?? entry.flatMap { entry in
                     guard let window = controller.niriEngine?.findNode(for: drag.token, in: entry.workspaceId)
                     else { return nil }
