@@ -323,7 +323,9 @@ final class WorkspaceBarManager {
             closeShellSystemStats(on: instance.monitorId)
         }
     }
+}
 
+extension WorkspaceBarManager {
     private func updateIslandView(
         _ island: WorkspaceBarIslandPanel,
         model: WorkspaceBarModel,
@@ -335,9 +337,7 @@ final class WorkspaceBarManager {
         island.slice = slice
         island.hostingView.rootView = makeBarView(model: model, slice: slice, monitorId: monitorId)
     }
-}
 
-extension WorkspaceBarManager {
     func topBarBottom(on monitorId: Monitor.ID) -> CGFloat? {
         guard let instance = barsByMonitor[monitorId], let settings, let controller else { return nil }
         let resolved = settings.workspaceBar.resolved(for: instance.monitor)
