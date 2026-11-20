@@ -13,6 +13,9 @@ the initial default whenever the matching app currently has no tracked windows. 
 workspace active when creation began. Automatic reevaluation preserves existing managed windows' workspaces, while
 readmission, structural replacements, and unique persisted boot-restore matches
 preserve placement continuity. `rule apply` is the explicit path that may move existing managed windows.
+With `--assign-to-workspace-for-all-windows`, the workspace assignment applies to every new matching window
+(**Unreleased:** available when building from `main`). `omniwmctl query rules --format json` shows the option
+as `assignToWorkspaceForAllWindows`.
 Initial container primary span is a one-shot Niri admission hint and never resizes an existing container.
 A scratchpad destination doesn't have the no-tracked-windows limit: it applies to every matching window when OmniWM
 starts managing it (**Unreleased:** available when building from `main`).
@@ -33,6 +36,7 @@ omniwmctl rule <action> [arguments...] [options...]
 | `--ax-subrole` | `<subrole>` | Match accessibility subrole |
 | `--layout` | `<auto\|tile\|float>` | Layout action (`auto` = default behavior) |
 | `--assign-to-workspace` | `<raw-name>` | Use this workspace as the initial default whenever the matching app currently has no tracked windows |
+| `--assign-to-workspace-for-all-windows` | — | **Unreleased:** available when building from `main`. Apply the workspace assignment to every new matching window. Requires `--assign-to-workspace` |
 | `--initial-container-primary-span` | `<proportion>` | Initial Niri container primary span for a resizable window, from `0.05` through `1.0` inclusive |
 | `--min-width` | `<points>` | Minimum window width in points |
 | `--min-height` | `<points>` | Minimum window height in points |
@@ -81,7 +85,9 @@ the stored `initialContainerPrimarySpan` proportion.
 omniwmctl rule add [options...]
 ```
 
-Supply `--bundle-id` and/or at least one matcher (`--app-name-substring`, `--title-substring`, `--title-regex`). Appends a new rule to the end of the rule list. Its workspace placement defaults apply whenever the matching app currently has no tracked windows, and (**Unreleased:** available when building from `main`) its scratchpad destination applies to every new matching window; already managed windows are not moved.
+Supply `--bundle-id` and/or at least one matcher (`--app-name-substring`, `--title-substring`, `--title-regex`).
+This appends a rule to the end of the list and uses the chosen destination when admitting matching windows.
+Already managed windows stay in place.
 
 **Replace a rule:**
 
@@ -134,6 +140,9 @@ omniwmctl rule add --bundle-id com.apple.finder --layout float
 
 # Tile Safari's first newly admitted window on workspace 2 when Safari has no tracked windows
 omniwmctl rule add --bundle-id com.apple.Safari --layout tile --assign-to-workspace 2
+
+# Route every new VS Code window to workspace 32 (Unreleased: available when building from main)
+omniwmctl rule add --bundle-id com.microsoft.VSCode --assign-to-workspace 32 --assign-to-workspace-for-all-windows
 
 # Start new Kitty containers at 50% of the primary axis in Niri
 omniwmctl rule add --bundle-id net.kovidgoyal.kitty --initial-container-primary-span 0.5

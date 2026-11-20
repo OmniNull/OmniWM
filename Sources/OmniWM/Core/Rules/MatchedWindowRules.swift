@@ -133,11 +133,14 @@ struct MatchedWindowRules {
     ) -> WindowDecision {
         let destinationRule = userRules.destination?.rule
         let scratchpad = destinationRule?.validScratchpad
+        let workspaceName = scratchpad == nil ? destinationRule?.assignedWorkspaceName : nil
         return WindowDecision(
             disposition: disposition,
             source: source,
             layoutDecisionKind: layoutDecisionKind,
-            workspaceName: scratchpad == nil ? destinationRule?.assignedWorkspaceName : nil,
+            workspaceName: workspaceName,
+            assignToWorkspaceForAllWindows: workspaceName != nil && destinationRule?
+                .assignToWorkspaceForAllWindows == true,
             ruleEffects: ManagedWindowRuleEffects(
                 minWidth: userRules.minWidth?.rule.minWidth,
                 minHeight: userRules.minHeight?.rule.minHeight
