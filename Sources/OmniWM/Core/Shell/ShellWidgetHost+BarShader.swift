@@ -9,7 +9,7 @@ extension ShellWidgetHost {
         if let view = barShaderViews[key] { return view }
         let view = ShellBarShaderView()
         barShaderViews[key] = view
-        applyBarShader(shader, to: view)
+        applyBarShader(shader, to: view, key: key)
         watchFiles()
         return view
     }
@@ -19,8 +19,8 @@ extension ShellWidgetHost {
             removeBarShaders()
             return
         }
-        for view in barShaderViews.values {
-            applyBarShader(shader, to: view)
+        for (key, view) in barShaderViews {
+            applyBarShader(shader, to: view, key: key)
         }
     }
 
@@ -39,7 +39,7 @@ extension ShellWidgetHost {
         }
     }
 
-    private func applyBarShader(_ shader: ShellBarShader, to view: ShellBarShaderView) {
+    private func applyBarShader(_ shader: ShellBarShader, to view: ShellBarShaderView, key: ShellBarKey) {
         let program = resources.shaders.program(
             source: shader.source,
             directories: config.directories.map { $0.appendingPathComponent("shaders", isDirectory: true) }
@@ -50,7 +50,7 @@ extension ShellWidgetHost {
             input: ShellShaderInput(
                 values: shader.values,
                 rate: animated ? shader.fps : 0,
-                colors: resources.palette.shaderColors
+                colors: palette(for: key).shaderColors
             ),
             paused: isPaused
         )

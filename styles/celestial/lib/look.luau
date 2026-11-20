@@ -28,6 +28,7 @@ local SYMBOLS = {
 local CONTROL_CENTER_SYMBOLS = {
     ["square.grid.2x2"] = "dashboard",
     ["speaker.wave.2.fill"] = "volume_up",
+    display = "desktop_windows",
     ["music.note"] = "music_note",
     calendar = "calendar_month",
     ["cloud.sun.fill"] = "partly_cloudy_day",

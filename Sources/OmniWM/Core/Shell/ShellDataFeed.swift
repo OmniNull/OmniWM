@@ -66,13 +66,8 @@ final class ShellDataFeed {
     private var sampledTick = 0
     private var demand: UInt64 = 0
     private var cadence = Cadence()
-    struct AudioListener {
-        let object: AudioObjectID
-        let address: AudioObjectPropertyAddress
-        let block: AudioObjectPropertyListenerBlock
-    }
-
-    var audioListeners: [AudioListener] = []
+    var audioListeners: [AudioPropertyListener] = []
+    var listenedOutputDevice: AudioObjectID?
     var previousNetwork: (bytes: (received: UInt64, sent: UInt64), time: TimeInterval)?
     var diskBytes: (used: Int64, total: Int64)?
     var slowSampling = false
@@ -91,6 +86,7 @@ final class ShellDataFeed {
     let notifications: ShellNotificationsController?
     let awakeManager: SleepPreventionManager
     let microphone: ShellMicrophoneMonitor
+    let audioOutput: ShellAudioOutputAccess?
     var awakeSubscription: UUID?
 
     init(
@@ -104,6 +100,7 @@ final class ShellDataFeed {
         notifications: ShellNotificationsController? = nil,
         awakeManager: SleepPreventionManager = .shared,
         microphone: ShellMicrophoneMonitor = ShellMicrophoneMonitor(),
+        audioOutput: ShellAudioOutputAccess? = nil,
         onBadgesDemandChange: @escaping @MainActor (Bool) -> Void = { _ in },
         deliver: @escaping @MainActor (ShellWidgetData) -> Void
     ) {
@@ -120,6 +117,7 @@ final class ShellDataFeed {
         self.notifications = notifications
         self.awakeManager = awakeManager
         self.microphone = microphone
+        self.audioOutput = audioOutput
         clockFormatter = DateFormatter()
         clockFormatter.timeStyle = .short
         clockFormatter.dateStyle = .none

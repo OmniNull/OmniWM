@@ -4,6 +4,30 @@
 import Foundation
 
 extension NiriWindow {
+    var heightWeight: CGFloat {
+        switch height {
+        case let .auto(weight): weight
+        case .fixed,
+             .preset: 1.0
+        }
+    }
+
+    var widthWeight: CGFloat {
+        switch windowWidth {
+        case let .auto(weight): weight
+        case .fixed,
+             .preset: 1.0
+        }
+    }
+
+    func secondarySizing(orientation: Monitor.Orientation) -> WeightedSize {
+        orientation == .horizontal ? height : windowWidth
+    }
+
+    func setSecondarySizing(_ specification: WeightedSize, orientation: Monitor.Orientation) {
+        if orientation == .horizontal { height = specification } else { windowWidth = specification }
+    }
+
     func currentWidthForSizing() -> CGFloat {
         switch windowWidth {
         case let .fixed(width):
@@ -30,7 +54,7 @@ extension NiriWindow {
         let widths = windows.map { max(1, $0.resolvedWidth ?? $0.frame?.width ?? $0.widthWeight) }
         let median = max(1, widths.sorted()[widths.count / 2])
 
-        for (window, width) in zip(windows, widths) {
+        for (window, width) in zip(windows, widths) where window.windowWidth.isAuto {
             window.windowWidth = .auto(weight: width / median)
         }
     }

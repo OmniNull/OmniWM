@@ -39,6 +39,60 @@ final class WorkspaceBarManagerTests: XCTestCase {
         try await super.tearDown()
     }
 
+    func testFillBarTakesTheMenuBarAppearanceInsteadOfTheAppAppearance() throws {
+        try Data(
+            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = []\n[profiles.default.workspaceBar]\nfullWidth = false\nnotchMode = \"fillLeftOfNotch\"\n"
+                .utf8
+        )
+        .write(to: controller.settings.settingsFileURL.deletingLastPathComponent()
+            .appendingPathComponent("shell/shell.toml"))
+        let manager = makeManager()
+        defer { manager.cleanup() }
+
+        manager.menuBarIsDark = { true }
+        manager.apply([barSurface(itemCount: 1)])
+        let fill = controller.settings.workspaceBar.resolved(for: monitor)
+        XCTAssertEqual(fill.notchMode, .fillLeftOfNotch)
+        let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
+        XCTAssertEqual(panel.appearance?.name, .darkAqua)
+        XCTAssertTrue(manager.usesDarkPalette(fill))
+
+        manager.menuBarIsDark = { false }
+        manager.refreshMenuBarAppearance()
+        XCTAssertEqual(panel.appearance, NSApplication.shared.appearance)
+        XCTAssertFalse(manager.usesDarkPalette(fill))
+
+        let island = WorkspaceBarSettings().resolved(for: monitor)
+        XCTAssertNotEqual(island.notchMode, .fillLeftOfNotch)
+        manager.menuBarIsDark = { true }
+        XCTAssertEqual(manager.barAppearance(for: island), NSApplication.shared.appearance)
+        XCTAssertFalse(manager.usesDarkPalette(island))
+    }
+
+    func testFillBarStepsAsideWhileNativeMenuBarItemsExpandOverIt() {
+        controller.settings.workspaceBar.notchMode = .fillLeftOfNotch
+        let watcher = NativeMenuBarOverflowWatcher()
+        controller.workspaceBarManager.menuBarOverflow = watcher
+        let fill = controller.settings.workspaceBar.resolved(for: monitor)
+        let bar = ScreenCoordinateSpace.toWindowServer(
+            rect: WorkspaceBarGeometry.resolve(monitor: monitor, resolved: fill, isVisible: true)
+                .frame(fittingLength: 0, monitor: monitor, resolved: fill)
+        )
+        XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+
+        watcher.overflow = NativeMenuBarOverflow(itemFrames: [bar.offsetBy(dx: bar.width + 40, dy: 0)])
+        XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+
+        watcher.overflow = NativeMenuBarOverflow(
+            itemFrames: [CGRect(x: bar.maxX - 60, y: bar.minY, width: 32, height: bar.height)]
+        )
+        XCTAssertFalse(controller.isWorkspaceBarVisible(on: monitor))
+        XCTAssertTrue(controller.isWorkspaceBarConfiguredVisible(on: monitor, resolved: fill))
+
+        controller.settings.workspaceBar.notchMode = .off
+        XCTAssertTrue(controller.isWorkspaceBarVisible(on: monitor))
+    }
+
     func testPrimaryBarFrameChangesWithContent() async throws {
         executionTimeAllowance = failureBound
         let widget = controller.settings.settingsFileURL.deletingLastPathComponent()
@@ -246,6 +300,70 @@ final class WorkspaceBarManagerTests: XCTestCase {
         zonesAtWrite.removeAll()
         manager.apply([shown])
         XCTAssertEqual(zonesAtWrite, [zones])
+    }
+
+    func testBarProjectedForAnotherOrientationKeepsItsFrameUntilItsProjectionMatches() async throws {
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        var writes: [NSRect] = []
+        manager.frameApplier = { panel, frame in
+            writes.append(frame)
+            panel.setFrame(frame, display: false)
+        }
+        try await manager.shellConfiguration.set(true, key: "fullWidth")
+        let horizontal = barSurface(itemCount: 1)
+        manager.apply([horizontal])
+        let instance = try XCTUnwrap(manager.barsByMonitor[monitor.id])
+        let horizontalWrites = writes
+
+        try await manager.shellConfiguration.set(WorkspaceBarPosition.left, key: "position")
+        manager.apply([horizontal])
+        XCTAssertTrue(manager.barsByMonitor[monitor.id] === instance)
+        XCTAssertEqual(writes, horizontalWrites)
+
+        let resolved = controller.settings.workspaceBar.resolved(for: monitor)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        manager.apply([barSurface(itemCount: 1, orientation: resolved.position.orientation)])
+        XCTAssertTrue(manager.barsByMonitor[monitor.id] === instance)
+        XCTAssertEqual(
+            writes,
+            horizontalWrites + [geometry.frame(fittingLength: 0, monitor: monitor, resolved: resolved)]
+        )
+    }
+
+    func testFirstApplyAfterTheShellStartsWaitsForBarsProjectedFromItsProfile() throws {
+        let shell = controller.settings.settingsFileURL.deletingLastPathComponent()
+            .appendingPathComponent("shell/shell.toml")
+        let profilePosition = WorkspaceBarPosition.left
+        try Data("""
+        profiles.default.leading = []
+        profiles.default.center = []
+        profiles.default.trailing = []
+        profiles.default.workspaceBar.position = "\(profilePosition.rawValue)"
+        profiles.default.workspaceBar.fullWidth = true
+        """.utf8).write(to: shell)
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        var writes: [NSRect] = []
+        manager.frameApplier = { panel, frame in
+            writes.append(frame)
+            panel.setFrame(frame, display: false)
+        }
+        let projectedBeforeTheShellStarted = barSurface(itemCount: 1)
+        XCTAssertNotEqual(
+            controller.settings.workspaceBar.resolved(for: monitor).position.orientation,
+            profilePosition.orientation
+        )
+
+        manager.apply([projectedBeforeTheShellStarted])
+        let resolved = controller.settings.workspaceBar.resolved(for: monitor)
+        XCTAssertEqual(resolved.position, profilePosition)
+        XCTAssertNil(manager.barsByMonitor[monitor.id])
+        XCTAssertEqual(writes, [])
+
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        manager.apply([barSurface(itemCount: 1, orientation: profilePosition.orientation)])
+        XCTAssertEqual(writes, [geometry.frame(fittingLength: 0, monitor: monitor, resolved: resolved)])
     }
 
     func testACancelledShellDragEndsTheSessionWithoutADrop() {
@@ -1024,8 +1142,15 @@ final class WorkspaceBarManagerTests: XCTestCase {
         return manager
     }
 
-    private func barSurface(itemCount: Int) -> DesiredBarSurface {
-        DesiredBarSurface(monitor: monitor, visible: true, snapshot: snapshot(itemCount: itemCount))
+    private func barSurface(
+        itemCount: Int,
+        orientation: WorkspaceBarOrientation = .horizontal
+    ) -> DesiredBarSurface {
+        DesiredBarSurface(
+            monitor: monitor,
+            visible: true,
+            snapshot: snapshot(itemCount: itemCount, orientation: orientation)
+        )
     }
 
     private var monitor: Monitor {
@@ -1037,7 +1162,11 @@ final class WorkspaceBarManagerTests: XCTestCase {
         )
     }
 
-    private func snapshot(itemCount: Int, barHeight: CGFloat = 24) -> WorkspaceBarSnapshot {
+    private func snapshot(
+        itemCount: Int,
+        barHeight: CGFloat = 24,
+        orientation: WorkspaceBarOrientation = .horizontal
+    ) -> WorkspaceBarSnapshot {
         let items = (0 ..< itemCount).map { index in
             WorkspaceBarItem(
                 id: WorkspaceDescriptor.ID(),
@@ -1051,7 +1180,8 @@ final class WorkspaceBarManagerTests: XCTestCase {
         return WorkspaceBarSnapshot(
             projection: WorkspaceBarProjection(items: items, scratchpads: []),
             backgroundOpacity: 0.6,
-            barHeight: barHeight
+            barHeight: barHeight,
+            orientation: orientation
         )
     }
 }

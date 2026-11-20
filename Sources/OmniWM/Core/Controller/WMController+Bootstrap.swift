@@ -18,7 +18,7 @@ extension WMController {
         focusPolicyEngine.intentLedger = intentLedger
         focusPolicyEngine.deadlineWheel = deadlineWheel
         hotkeys.isMouseButtonCaptured = { [weak self] button in
-            self?.mouseEventHandler.state.capturedOtherMouseButton == button
+            self?.mouseEventHandler.tapInputs.capturedOtherMouseButton == button
         }
         hotkeys.onCommand = { [weak self] invocation in
             guard let self else { return }
@@ -69,6 +69,16 @@ extension WMController {
             self?.statusBarController?.openSettings(section: .hotkeys)
         }
         tabRailManager.ringOrderedAbove = { [weak self] in self?.surfaceReconciler.ringWindowId(orderedAbove: $0) }
+        tabRailManager.onDrag = { [weak self] drag in
+            self?.mouseEventHandler.handleTabRailDrag(drag)
+        }
+        tabRailManager.acceptsDrags = { [weak self] info in
+            guard let self else { return false }
+            switch info.owner {
+            case .niriColumn: return isNiriStrip(info.workspaceId)
+            case .dwindleTile: return workspaceManager.activeLayoutKind(for: info.workspaceId) == .dwindle
+            }
+        }
         tabRailManager.onSelect = { [weak self] info, visualIndex, token in
             guard let self else { return }
             switch info.owner {

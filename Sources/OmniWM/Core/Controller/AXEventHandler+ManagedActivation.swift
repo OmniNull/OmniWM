@@ -262,7 +262,8 @@ extension AXEventHandler {
             intent.origin.preservesViewportOnActivation
         case .external: false
         }
-        let preserveViewport = controller.workspaceManager.animationDriver.hasMotion(in: wsId)
+        let animationDriver = controller.workspaceManager.animationDriver
+        let preserveViewport = animationDriver.hasUserMotion(in: wsId)
             || preservesPointerViewport
             || preservesAppTerminationRecoveryViewport(for: entry.token)
         let clickFocusWithoutScrolling = controller.settings.focus.clickFocusWithoutScrolling
@@ -272,12 +273,14 @@ extension AXEventHandler {
             token: entry.token,
             workspaceId: wsId
         )
+        let defersClickScroll = !clickFocusWithoutScrolling
+            && controller.mouseEventHandler.deferClickScrollIfPressed(on: entry.token)
         controller.niriLayoutHandler.activateNode(
             node, in: wsId, state: &state,
             options: managedActivationOptions(
                 isWorkspaceActive: observation.isWorkspaceActive,
                 preserveViewport: preserveViewport,
-                preserveReplacementViewport: preserveReplacementViewport,
+                preserveReplacementViewport: preserveReplacementViewport || defersClickScroll,
                 clickFocusWithoutScrolling: clickFocusWithoutScrolling
             )
         )

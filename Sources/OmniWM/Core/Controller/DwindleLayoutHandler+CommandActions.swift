@@ -17,7 +17,10 @@ extension DwindleLayoutHandler {
             label: "dwindle_bar_swap",
             source: .mouse
         ) {
-            engine.swapLeafTiles(of: token, and: otherToken, in: workspaceId)
+            let before = engine.layoutSnapshot(in: workspaceId)
+            let changed = engine.swapLeafTiles(of: token, and: otherToken, in: workspaceId)
+            engine.recordLayoutChange(in: workspaceId, since: before)
+            return changed
         }
         guard swapped else { return false }
         recordLayoutOperation(.windowsSwapped, in: workspaceId, source: .mouse)
@@ -28,7 +31,7 @@ extension DwindleLayoutHandler {
     func moveToRootInDwindle() -> Bool {
         guard let controller else { return false }
         var changed = false
-        controller.dwindleLayoutHandler.withDwindleContext { engine, wsId in
+        controller.dwindleLayoutHandler.withDwindleContext(recordingHistory: true) { engine, wsId in
             let stable = controller.settings.dwindle.moveToRootStable
             changed = engine.moveSelectionToRoot(stable: stable, in: wsId)
             guard changed else { return }
@@ -43,7 +46,7 @@ extension DwindleLayoutHandler {
     func toggleSplitInDwindle() -> Bool {
         guard let controller else { return false }
         var changed = false
-        controller.dwindleLayoutHandler.withDwindleContext { engine, wsId in
+        controller.dwindleLayoutHandler.withDwindleContext(recordingHistory: true) { engine, wsId in
             changed = engine.toggleOrientation(in: wsId)
             guard changed else { return }
             controller.dwindleLayoutHandler.recordLayoutOperation(.splitOrientationToggled, in: wsId)
@@ -57,7 +60,7 @@ extension DwindleLayoutHandler {
     func swapSplitInDwindle() -> Bool {
         guard let controller else { return false }
         var changed = false
-        controller.dwindleLayoutHandler.withDwindleContext { engine, wsId in
+        controller.dwindleLayoutHandler.withDwindleContext(recordingHistory: true) { engine, wsId in
             changed = engine.swapSplit(in: wsId)
             guard changed else { return }
             controller.dwindleLayoutHandler.recordLayoutOperation(.splitSwapped, in: wsId)
@@ -71,7 +74,7 @@ extension DwindleLayoutHandler {
     func resizeAlongAxisInDwindle(orientation: DwindleOrientation, grow: Bool) -> Bool {
         guard let controller else { return false }
         var changed = false
-        controller.dwindleLayoutHandler.withDwindleContext { engine, wsId in
+        controller.dwindleLayoutHandler.withDwindleContext(recordingHistory: true) { engine, wsId in
             let delta = grow ? engine.settings.resizeStep : -engine.settings.resizeStep
             changed = engine.resizeSelected(by: delta, orientation: orientation, in: wsId)
             guard changed else { return }
@@ -86,7 +89,7 @@ extension DwindleLayoutHandler {
     func resizeFocusedWindowInDwindle(grow: Bool) -> Bool {
         guard let controller else { return false }
         var changed = false
-        controller.dwindleLayoutHandler.withDwindleContext { engine, wsId in
+        controller.dwindleLayoutHandler.withDwindleContext(recordingHistory: true) { engine, wsId in
             let delta = grow ? engine.settings.resizeStep : -engine.settings.resizeStep
             changed = engine.resizeFocusedWindow(by: delta, in: wsId)
             guard changed else { return }
@@ -101,7 +104,7 @@ extension DwindleLayoutHandler {
     func preselectInDwindle(direction: Direction) -> Bool {
         guard let controller else { return false }
         var changed = false
-        controller.dwindleLayoutHandler.withDwindleContext { engine, wsId in
+        controller.dwindleLayoutHandler.withDwindleContext(recordingHistory: true) { engine, wsId in
             changed = engine.setPreselection(direction, in: wsId)
             guard changed else { return }
             controller.dwindleLayoutHandler.recordLayoutOperation(.preselectionChanged, in: wsId)
@@ -112,7 +115,7 @@ extension DwindleLayoutHandler {
     func clearPreselectInDwindle() -> Bool {
         guard let controller else { return false }
         var changed = false
-        controller.dwindleLayoutHandler.withDwindleContext { engine, wsId in
+        controller.dwindleLayoutHandler.withDwindleContext(recordingHistory: true) { engine, wsId in
             changed = engine.setPreselection(nil, in: wsId)
             guard changed else { return }
             controller.dwindleLayoutHandler.recordLayoutOperation(.preselectionChanged, in: wsId)

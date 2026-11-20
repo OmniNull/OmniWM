@@ -65,28 +65,38 @@ extension NiriLayoutEngine {
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
         excludedTokensByWorkspace[workspaceId]?.contains(token) == true
+            || isLiveHeldTab(token, in: workspaceId)
+    }
+
+    private func layoutExclusions(in workspaceId: WorkspaceDescriptor.ID) -> Set<WindowToken> {
+        let held = liveHeldTabTokens(in: workspaceId)
+        guard let excluded = excludedTokensByWorkspace[workspaceId] else { return held }
+        return held.isEmpty ? excluded : excluded.union(held)
     }
 
     func projectedWindows(
         in column: NiriContainer,
         workspaceId: WorkspaceDescriptor.ID
     ) -> [NiriWindow] {
-        guard let excludedTokens = excludedTokensByWorkspace[workspaceId], !excludedTokens.isEmpty else {
+        let excludedTokens = layoutExclusions(in: workspaceId)
+        guard !excludedTokens.isEmpty else {
             return column.windowNodes
         }
         return column.windowNodes.filter { !excludedTokens.contains($0.token) }
     }
 
     func projectedColumns(in workspaceId: WorkspaceDescriptor.ID) -> [NiriProjectedColumn] {
-        guard let excludedTokens = excludedTokensByWorkspace[workspaceId], !excludedTokens.isEmpty else {
+        let excludedTokens = layoutExclusions(in: workspaceId)
+        guard !excludedTokens.isEmpty else {
             return root(for: workspaceId)?.projectedColumns ?? []
         }
         let columns = columns(in: workspaceId)
+        let liveHomeColumnId = liveColumnMove?.homeColumnId ?? liveStackDrop?.homeColumnId
         var projected: [NiriProjectedColumn] = []
         projected.reserveCapacity(columns.count)
         for (durableIndex, column) in columns.enumerated() {
             let windows = column.windowNodes.filter { !excludedTokens.contains($0.token) }
-            if !windows.isEmpty {
+            if !windows.isEmpty || column.isLiveDropSpace || column.isLiveHomeSpot || column.id == liveHomeColumnId {
                 projected.append(
                     NiriProjectedColumn(column: column, windows: windows, durableIndex: durableIndex)
                 )
@@ -221,6 +231,9 @@ extension NiriLayoutEngine {
     ) -> CGFloat {
         let column = projectedColumn.column
         let windows = projectedColumn.windows
+        if let liveSlot = column.liveSlotSpan, liveSlot.orientation == orientation {
+            return liveSlot.span
+        }
         let usesFittedSpan = orientation == .horizontal
             ? column.fittedWidth != nil
             : column.fittedHeight != nil
@@ -252,12 +265,16 @@ extension NiriLayoutEngine {
             let constraints = window.constraints.normalized()
             switch orientation {
             case .horizontal:
-                minimum = max(minimum, constraints.minSize.width)
+                if window.deferredMinimumOrientation != .horizontal {
+                    minimum = max(minimum, constraints.minSize.width)
+                }
                 if constraints.hasMaxWidth {
                     maximum = min(maximum ?? constraints.maxSize.width, constraints.maxSize.width)
                 }
             case .vertical:
-                minimum = max(minimum, constraints.minSize.height)
+                if window.deferredMinimumOrientation != .vertical {
+                    minimum = max(minimum, constraints.minSize.height)
+                }
                 if constraints.hasMaxHeight {
                     maximum = min(maximum ?? constraints.maxSize.height, constraints.maxSize.height)
                 }
@@ -275,7 +292,8 @@ extension NiriLayoutEngine {
         previousProjectedAnchor: NiriProjectedViewportAnchor? = nil
     ) {
         let projectedColumns = projectedColumns(in: context.workspaceId)
-        guard !projectedColumns.isEmpty,
+        guard !isLiveColumnMoveActive(in: context.workspaceId),
+              !projectedColumns.isEmpty,
               let targetColumn = column(of: node),
               let targetProjectedIndex = projectedColumns.firstIndex(where: { $0.column === targetColumn })
         else {
@@ -316,6 +334,7 @@ extension NiriLayoutEngine {
                 alwaysCenterSingleColumn: settings.alwaysCenterSingleColumn,
                 animationConfig: animationConfig,
                 fromContainerIndex: projectedFromIndex,
+                edges: viewportEdgeRules(in: context.workspaceId),
                 scale: displayScale(in: context.workspaceId),
                 viewFrame: monitorForWorkspace(context.workspaceId)?.frame
             )
@@ -366,7 +385,8 @@ extension NiriLayoutEngine {
                     workingArea: context.workingFrame,
                     viewFrame: viewFrame,
                     scale: scale,
-                    edgeOverscroll: effectiveSettings(in: context.workspaceId).edgeOverscroll
+                    edgeOverscroll: effectiveSettings(in: context.workspaceId).edgeOverscroll,
+                    edgePeeks: edgePeekSpans(in: context.workspaceId)
                 ),
                 motion: context.motion,
                 snapToColumn: snapToColumn,

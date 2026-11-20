@@ -21,6 +21,7 @@ struct IPCWindowGatherRequestExecutor {
     }
 
     func response(for request: IPCWindowGatherRequest, id: String) -> IPCResponse {
+        controller.noteUserAction()
         if let guardResult = IPCCommandValidation.controllerState(controller) {
             return IPCApplicationBridge.response(for: guardResult, id: id, kind: .windowGather)
         }

@@ -46,6 +46,10 @@ enum WorkspaceBarPosition: String, CaseIterable, Codable, Identifiable {
         self == .left || self == .right
     }
 
+    var orientation: WorkspaceBarOrientation {
+        isVertical ? .vertical : .horizontal
+    }
+
     var usesNotch: Bool {
         self == .overlappingMenuBar || self == .belowMenuBar
     }

@@ -206,6 +206,7 @@ extension NiriLayoutEngine {
         previousProjectedAnchor: NiriProjectedViewportAnchor? = nil
     ) {
         assertSanctionedMutation()
+        guard !isLiveColumnMoveActive(in: context.workspaceId) else { return }
         if !projectionExclusions(in: context.workspaceId).isEmpty {
             ensureProjectedSelectionVisible(
                 node: node,
@@ -250,11 +251,11 @@ extension NiriLayoutEngine {
             containerIndex: targetIdx,
             containers: containers,
             context: context,
-            animate: true,
             centerMode: settings.centerFocusedColumn,
             alwaysCenterSingleColumn: settings.alwaysCenterSingleColumn,
             animationConfig: animationConfig,
             fromContainerIndex: prevIdx,
+            edges: viewportEdgeRules(in: context.workspaceId),
             scale: scale,
             viewFrame: viewFrame
         )
@@ -274,6 +275,7 @@ extension NiriLayoutEngine {
             orientation: orientation,
             motion: motion
         )
+        applyEdgePeekCaps(in: workspaceId, workingFrame: workingFrame, gap: gaps)
         for container in columns(in: workspaceId) {
             switch orientation {
             case .horizontal where container.cachedWidth <= 0:

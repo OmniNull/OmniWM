@@ -114,8 +114,8 @@ extension DwindleLayoutEngine {
         return true
     }
 
-    func seedMovementFramesFromPresentedLeaves(in state: DwindleWorkspaceState) {
-        let now = animationClock?.now() ?? CACurrentMediaTime()
+    func seedMovementFramesFromPresentedLeaves(in state: DwindleWorkspaceState, at time: TimeInterval? = nil) {
+        let now = time ?? animationClock?.now() ?? CACurrentMediaTime()
         for leaf in state.root.collectAllLeaves() {
             guard let tile = leaf.tile, let frame = leaf.presentedFrame(at: now) else { continue }
             for member in tile.members where state.pendingMovementFrameSeeds[member.token] == nil {

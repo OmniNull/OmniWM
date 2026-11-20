@@ -264,7 +264,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
             motion: .enabled
         )
 
-        XCTAssertEqual(column.cachedWidth, 630)
+        XCTAssertEqual(column.settledWidth, 630)
     }
 
     func testOversizedMinWidthIsKeptBeyondWorkArea() {
@@ -318,7 +318,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
         XCTAssertEqual(column.cachedWidth, 800)
     }
 
-    func testConstraintArrivalRetargetsActiveAnimationWithoutSnapping() {
+    func testConstraintArrivalRetargetsActiveAnimationWithoutSnapping() throws {
         let (engine, workspaceId, token, column) = makeSingleWindowEngine()
         column.resolveAndCacheWidth(workingAreaWidth: workingFrame.width, gaps: gaps)
         let widthBeforeConstraint = column.cachedWidth
@@ -342,11 +342,33 @@ final class NiriColumnMinWidthTests: XCTestCase {
         XCTAssertEqual(column.targetWidth, 800)
         XCTAssertEqual(column.cachedWidth, widthBeforeConstraint)
 
-        _ = column.tickWidthAnimation(at: CACurrentMediaTime() + 30)
+        let spring = try XCTUnwrap(column.widthAnimation)
+        _ = column.tickWidthAnimation(at: (spring.startTime + spring.duration).nextUp)
         XCTAssertEqual(column.cachedWidth, 800)
     }
 
-    func testConstraintArrivalWithoutAnimationReclampsImmediately() {
+    func testConstraintArrivalGrowsTheColumnWithAnAnimationWhileMotionIsOn() throws {
+        let (engine, workspaceId, token, column) = makeSingleWindowEngine()
+        column.resolveAndCacheWidth(workingAreaWidth: workingFrame.width, gaps: gaps)
+        let widthBeforeConstraint = column.cachedWidth
+        XCTAssertLessThan(widthBeforeConstraint, 800)
+
+        engine.updateWindowConstraints(
+            for: token,
+            constraints: minConstraints(width: 800),
+            in: workspaceId,
+            motion: .enabled
+        )
+
+        XCTAssertEqual(column.targetWidth, 800)
+        XCTAssertEqual(column.cachedWidth, widthBeforeConstraint)
+
+        let spring = try XCTUnwrap(column.widthAnimation)
+        _ = column.tickWidthAnimation(at: (spring.startTime + spring.duration).nextUp)
+        XCTAssertEqual(column.cachedWidth, 800)
+    }
+
+    func testConstraintArrivalWithMotionOffReclampsImmediately() {
         let (engine, workspaceId, token, column) = makeSingleWindowEngine()
         column.resolveAndCacheWidth(workingAreaWidth: workingFrame.width, gaps: gaps)
         XCTAssertLessThan(column.cachedWidth, 800)
@@ -355,7 +377,7 @@ final class NiriColumnMinWidthTests: XCTestCase {
             for: token,
             constraints: minConstraints(width: 800),
             in: workspaceId,
-            motion: .enabled
+            motion: .disabled
         )
 
         XCTAssertNil(column.targetWidth)

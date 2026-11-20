@@ -11,9 +11,27 @@ final class ColumnModeToastController {
         let monitorId: Monitor.ID
     }
 
+    enum Message: Equatable {
+        case columnMode(isTabbed: Bool)
+        case overflowUndone(columnId: NodeId, window: WindowToken?)
+
+        var displayDuration: Duration {
+            switch self {
+            case .columnMode: .milliseconds(1500)
+            case .overflowUndone: .milliseconds(4000)
+            }
+        }
+
+        var followed: (columnId: NodeId, window: WindowToken?)? {
+            switch self {
+            case .columnMode: nil
+            case let .overflowUndone(columnId, window): (columnId, window)
+            }
+        }
+    }
+
     static let surfaceId = "column-mode-toast"
     static let topInset: CGFloat = 16
-    private static let displayDuration: Duration = .milliseconds(1500)
     private static let fadeDuration: TimeInterval = 0.2
 
     private let ownedWindowRegistry: OwnedWindowRegistry
@@ -22,6 +40,8 @@ final class ColumnModeToastController {
     private(set) var dismissalTask: Task<Void, Never>?
     private(set) var generation = 0
     private(set) var source: Source?
+    private(set) var message: Message?
+    private var pillSize: CGSize = .zero
 
     init(
         ownedWindowRegistry: OwnedWindowRegistry = .shared,
@@ -36,7 +56,7 @@ final class ColumnModeToastController {
     }
 
     func show(
-        isTabbed: Bool,
+        _ message: Message,
         columnFrame: CGRect,
         visibleFrame: CGRect,
         motion: MotionSnapshot,
@@ -50,9 +70,11 @@ final class ColumnModeToastController {
         dismissalTask?.cancel()
         generation += 1
         self.source = source
-        hostingView.rootView = ColumnModeToastView(isTabbed: isTabbed)
+        self.message = message
+        hostingView.rootView = ColumnModeToastView(message: message)
+        pillSize = hostingView.fittingSize
         panel.setFrame(
-            Self.pillFrame(size: hostingView.fittingSize, columnFrame: columnFrame, visibleFrame: visibleFrame),
+            Self.pillFrame(size: pillSize, columnFrame: columnFrame, visibleFrame: visibleFrame),
             display: true
         )
         NSAnimationContext.runAnimationGroup { context in
@@ -65,7 +87,7 @@ final class ColumnModeToastController {
         let sleep = sleep
         dismissalTask = Task { @MainActor [weak self] in
             do {
-                try await sleep(Self.displayDuration)
+                try await sleep(message.displayDuration)
             } catch {
                 return
             }
@@ -74,10 +96,19 @@ final class ColumnModeToastController {
         }
     }
 
+    func move(columnFrame: CGRect, visibleFrame: CGRect) {
+        guard let panel = surface?.panel, panel.isVisible else { return }
+        let origin = Self.pillFrame(size: pillSize, columnFrame: columnFrame, visibleFrame: visibleFrame).origin
+        if panel.frame.origin != origin {
+            panel.setFrameOrigin(origin)
+        }
+    }
+
     func hide() {
         dismissalTask?.cancel()
         dismissalTask = nil
         source = nil
+        message = nil
         surface?.panel.orderOut(nil)
     }
 
@@ -135,7 +166,7 @@ final class ColumnModeToastController {
         panel.level = .floating
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
-        let hostingView = NSHostingView(rootView: ColumnModeToastView(isTabbed: false))
+        let hostingView = NSHostingView(rootView: ColumnModeToastView(message: .columnMode(isTabbed: false)))
         panel.contentView = hostingView
 
         ownedWindowRegistry.register(
@@ -154,10 +185,17 @@ final class ColumnModeToastController {
 }
 
 struct ColumnModeToastView: View {
-    let isTabbed: Bool
+    let message: ColumnModeToastController.Message
+
+    private var text: LocalizedStringKey {
+        switch message {
+        case let .columnMode(isTabbed): isTabbed ? "Tabbed mode on" : "Tabbed mode off"
+        case .overflowUndone: "Not enough room for these windows, so the change was undone."
+        }
+    }
 
     var body: some View {
-        Text(isTabbed ? "Tabbed mode on" : "Tabbed mode off")
+        Text(text)
             .font(.system(size: 13, weight: .semibold))
             .padding(.horizontal, 14)
             .frame(height: 30)

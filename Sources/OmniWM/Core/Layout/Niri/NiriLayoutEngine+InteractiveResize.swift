@@ -279,7 +279,9 @@ extension NiriLayoutEngine {
         var maximum: CGFloat?
         for window in windows {
             let constraints = window.constraints.normalized()
-            minimum = max(minimum, constraints.minSize.width)
+            if window.deferredMinimumOrientation != .horizontal {
+                minimum = max(minimum, constraints.minSize.width)
+            }
             if constraints.hasMaxWidth {
                 maximum = min(maximum ?? constraints.maxSize.width, constraints.maxSize.width)
             }
@@ -300,7 +302,9 @@ extension NiriLayoutEngine {
         var maximum: CGFloat?
         for window in windows {
             let constraints = window.constraints.normalized()
-            minimum = max(minimum, constraints.minSize.height)
+            if window.deferredMinimumOrientation != .vertical {
+                minimum = max(minimum, constraints.minSize.height)
+            }
             if constraints.hasMaxHeight {
                 maximum = min(maximum ?? constraints.maxSize.height, constraints.maxSize.height)
             }

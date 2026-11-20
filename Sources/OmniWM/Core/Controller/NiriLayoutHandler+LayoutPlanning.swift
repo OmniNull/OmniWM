@@ -184,6 +184,8 @@ extension NiriLayoutHandler {
         let pass = makeLayoutPass(snapshot: snapshot, engine: engine, monitor: monitor, motion: motion)
         let currentSelection = state.selectedNodeId
         pass.engine.setProjectionExclusions(snapshot.excludedTokens, in: pass.wsId)
+        let previousExclusions = laidOutExclusions.updateValue(snapshot.excludedTokens, forKey: pass.wsId)
+        slideAroundExclusionChanges(from: previousExclusions, pass: pass, state: &state, snapshot: snapshot)
 
         let removal = processWindowRemovals(
             pass: pass,
@@ -328,6 +330,7 @@ extension NiriLayoutHandler {
                 )
             }
         }
+        pass.engine.glideIntoStrip(visibleNewTokens, context: pass.interactionContext, state: state)
 
         return InsertionContext(
             newTokens: visibleNewTokens,
