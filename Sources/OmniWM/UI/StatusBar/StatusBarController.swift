@@ -8,6 +8,7 @@ import QuartzCore
 final class StatusBarController: NSObject {
     private var statusItem: NSStatusItem?
     private var menuHost: StatusMenuHost?
+    private var menuBarAppearanceObservation: NSKeyValueObservation?
 
     private let hiddenBarController: HiddenBarController
     private let settings: SettingsStore
@@ -70,6 +71,12 @@ final class StatusBarController: NSObject {
         button.action = #selector(handleClick(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         button.setAccessibilityElement(true)
+        controller.workspaceBarManager.menuBarIsDark = { [weak button] in
+            button.map { WorkspaceBarManager.isDark($0.effectiveAppearance) } ?? false
+        }
+        menuBarAppearanceObservation = button.observe(\.effectiveAppearance) { [weak controller] _, _ in
+            Task { @MainActor in controller?.workspaceBarManager.refreshMenuBarAppearance() }
+        }
 
         let model = StatusMenuModel(settings: settings, controller: controller)
         model.ipcMenuEnabled = cliManager != nil
@@ -310,6 +317,7 @@ final class StatusBarController: NSObject {
         dismissPanel()
         menuHost = nil
         hiddenBarController.cleanup()
+        menuBarAppearanceObservation = nil
         if let item = statusItem {
             NSStatusBar.system.removeStatusItem(item)
             statusItem = nil
