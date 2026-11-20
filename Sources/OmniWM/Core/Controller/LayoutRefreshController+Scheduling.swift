@@ -130,6 +130,7 @@ extension LayoutRefreshController {
             collectUnusedWorkspacesIfIdle()
         }
 
+        controller?.niriLayoutHandler.scheduleOverflowCheck()
         startNextRefreshIfNeeded()
     }
 

@@ -40,6 +40,9 @@ final class TabRailView: NSView {
     private var activeVisualIndex = 0
 
     var onSelect: ((Int) -> Void)?
+    var onDrag: ((TabRailDragGesture.Event, CGPoint) -> Void)?
+    var acceptsDrags: () -> Bool = { false }
+    private var dragGesture = TabRailDragGesture()
     var onHoverChange: ((TabRailTabInfo?, CGRect?) -> Void)?
 
     init(frame frameRect: NSRect, motionPolicy: MotionPolicy, appInfoCache: AppInfoCache = AppInfoCache()) {
@@ -169,7 +172,26 @@ final class TabRailView: NSView {
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         guard let item = item(at: point) else { return }
+        if acceptsDrags() {
+            dragGesture.press(
+                visualIndex: item.visualIndex,
+                token: tabs.first { $0.visualIndex == item.visualIndex }?.token,
+                at: NSEvent.mouseLocation
+            )
+        }
         onSelect?(item.visualIndex)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard acceptsDrags() else { return super.mouseDragged(with: event) }
+        let location = NSEvent.mouseLocation
+        guard let gestureEvent = dragGesture.drag(to: location) else { return }
+        onDrag?(gestureEvent, location)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        dragGesture.release()
+        guard acceptsDrags() else { return super.mouseUp(with: event) }
     }
 
     override func scrollWheel(with event: NSEvent) {
@@ -178,6 +200,18 @@ final class TabRailView: NSView {
         } else {
             super.scrollWheel(with: event)
         }
+    }
+
+    func dragTarget(at point: CGPoint) -> (token: WindowToken, visualIndex: Int)? {
+        let visualIndex = style == .appIcons
+            ? iconView?.visualIndex(at: point, in: self)
+            : trackView.visualIndex(at: point)
+        guard let visualIndex else { return nil }
+        for index in tabs.indices where tabs[index].visualIndex == visualIndex {
+            guard let token = tabs[index].token else { return nil }
+            return (token, visualIndex)
+        }
+        return nil
     }
 
     func item(at point: CGPoint) -> TabRailLayout.Item? {

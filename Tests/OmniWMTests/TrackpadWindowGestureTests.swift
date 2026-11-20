@@ -132,12 +132,12 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         var gesture = fixture.driver(at: fixture.firstFrame.center)
         gesture.begin(fingers: 4, x: 0.2)
-        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .armed)
         XCTAssertFalse(handler.state.isMoving)
 
         gesture.drag(fingers: 4, fromX: 0.2, toX: 0.2 + fixture.travelToSecond)
 
-        XCTAssertEqual(handler.state.gesturePhase, .committed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .committed)
         XCTAssertEqual(handler.state.activeGestureMode, .windowMove)
         XCTAssertTrue(handler.state.isMoving)
         XCTAssertTrue(handler.state.gestureOwnsWindowInteraction)
@@ -156,7 +156,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         gesture.end()
 
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
         XCTAssertNil(fixture.engine.interactiveMove)
@@ -189,7 +189,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
             XCTAssertFalse(handler.state.isResizing)
             XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
             XCTAssertNil(fixture.engine.interactiveResize)
-            XCTAssertEqual(handler.state.gesturePhase, .idle)
+            XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
             let widthAfter = try XCTUnwrap(fixture.frames()[fixture.first.token]).width
             XCTAssertEqual(widthAfter, widthBefore + delta)
         }
@@ -201,13 +201,13 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         var gesture = fixture.driver(at: CGPoint(x: workingFrame.maxX + 400, y: workingFrame.midY))
         gesture.begin(fingers: 4, x: 0.2)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertTrue(
             handler.state.suppressGestureStartUntilAllTouchesLift,
             "The cursor cannot move while fingers rest, so retrying every frame is pointless"
         )
         gesture.drag(fingers: 4, fromX: 0.2, toX: 0.45, steps: 5)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertNil(fixture.engine.interactiveMove)
         gesture.end()
@@ -259,7 +259,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertNil(fixture.engine.interactiveMove)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertEqual(fixture.windowOrder(), [fixture.first.token, fixture.second.token])
     }
 
@@ -336,7 +336,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         var gesture = fixture.driver(at: fixture.firstFrame.center)
         gesture.begin(fingers: 3, x: 0.2)
         gesture.frame(fingers: 3, x: 0.21)
-        XCTAssertEqual(handler.state.gesturePhase, .armed)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .armed)
         XCTAssertEqual(handler.state.lockedGestureContext?.fingerCount, 3)
 
         gesture.frame(fingers: 4, x: 0.21)
@@ -389,7 +389,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
         XCTAssertNil(fixture.engine.interactiveMove)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertEqual(fixture.windowOrder(), [fixture.first.token, fixture.second.token])
 
         gesture.end()
@@ -410,14 +410,14 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
         XCTAssertNil(fixture.engine.interactiveMove)
-        XCTAssertEqual(handler.state.gesturePhase, .idle)
+        XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.isInteractiveGestureActive)
     }
 
     func testFourFingerDragSwapsDwindleTilesOnRelease() throws {
         let fixture = try makeDwindleFixture(pid: 9_201)
         let handler = fixture.handler
-        let travel = (fixture.secondFrame.minX + 32 - fixture.firstFrame.center.x) / fixture.screen.width
+        let travel = (fixture.secondFrame.midX - fixture.firstFrame.midX) / fixture.screen.width
 
         var gesture = fixture.driver(at: fixture.firstFrame.center)
         gesture.begin(fingers: 4, x: 0.2)
@@ -479,11 +479,22 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertGreaterThan(widthAfter, fixture.firstFrame.width + 100)
     }
 
-    func testMouseResizeKeepsExactEdgesAndRefusesAnImmovableOne() throws {
+    func testModifiedRightDragDoesNotStartDwindleResizeAtEitherEdge() throws {
         let fixture = try makeDwindleFixture(pid: 9_204)
-        let leftGrip = CGPoint(x: fixture.firstFrame.minX + 20, y: fixture.firstFrame.midY)
-        XCTAssertFalse(fixture.handler.dispatchMouseDown(at: leftGrip, modifiers: .maskAlternate, button: .right))
-        XCTAssertNil(fixture.engine.interactiveResize)
+        for x in [
+            fixture.firstFrame.minX + FrameTolerance.frameWrite,
+            fixture.firstFrame.maxX - FrameTolerance.frameWrite
+        ] {
+            let point = CGPoint(x: x, y: fixture.firstFrame.midY)
+            XCTAssertFalse(fixture.handler.dispatchMouseDown(at: point, modifiers: .maskAlternate, button: .right))
+            fixture.handler.dispatchMouseDragged(
+                at: CGPoint(x: x + fixture.firstFrame.width / 8, y: point.y), button: .right
+            )
+            XCTAssertNil(fixture.engine.interactiveResize)
+            XCTAssertFalse(fixture.handler.state.isResizing)
+            XCTAssertNil(fixture.handler.tapInputs.capturedInteractionButton)
+            fixture.handler.dispatchMouseUp(at: point, button: .right)
+        }
     }
 
     func testRearmingPreservesContactConsumptionUntilFreshContact() throws {
@@ -540,7 +551,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
             XCTAssertNil(fixture.engine.interactiveMove)
             XCTAssertNil(fixture.engine.interactiveResize)
             XCTAssertNil(handler.state.activeInteractionSource)
-            XCTAssertEqual(handler.state.gesturePhase, .idle)
+            XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
             XCTAssertFalse(handler.state.isMoving)
             XCTAssertFalse(handler.state.isResizing)
             gesture.begin(fingers: fingers, x: 0.2)
@@ -629,9 +640,33 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
     func testMoveOvershootKeepsEdgeWindowAsDropTarget() throws {
         let fixture = try makeNiriFixture(pid: 9_120)
-        fixture.second.renderedFrame = CGRect(x: 800, y: 0, width: 800, height: 900)
-        fixture.controller.settings.gestures.windowGestureSensitivity = 5
-        var gesture = fixture.driver(at: fixture.firstFrame.center)
+        let controller = fixture.controller
+        controller.settings.gaps.size = 0
+        controller.workspaceManager.setGaps(to: 0)
+        controller.settings.gaps.outerGapLeft = 0
+        controller.settings.gaps.outerGapRight = 0
+        controller.settings.gaps.outerGapTop = 0
+        controller.settings.gaps.outerGapBottom = 0
+        controller.settings.borders.enabled = false
+        controller.workspaceManager.applySettings()
+        let frame = fixture.monitor.frame
+        let width = frame.width / 2
+        for column in fixture.engine.columns(in: fixture.workspaceId) {
+            column.width = .fixed(width)
+            column.cachedWidth = width
+        }
+        controller.workspaceManager.withNiriViewportState(for: fixture.workspaceId) { state in
+            state.activeColumnIndex = 0
+            state.selectedNodeId = fixture.first.id
+            state.viewOffset = 0
+        }
+        let first = CGRect(x: frame.minX, y: frame.minY, width: width, height: frame.height)
+        let second = first.offsetBy(dx: width, dy: 0)
+        XCTAssertEqual(controller.innerGap(for: fixture.monitor), 0)
+        XCTAssertEqual(controller.insetWorkingFrame(for: fixture.monitor), frame)
+        XCTAssertEqual(fixture.frames(), [fixture.first.token: first, fixture.second.token: second])
+        controller.settings.gestures.windowGestureSensitivity = 5
+        var gesture = fixture.driver(at: first.center)
         gesture.begin(fingers: 4, x: 0.2)
         gesture.drag(fingers: 4, fromX: 0.2, toX: 1)
         let hoverTarget = try XCTUnwrap(
@@ -640,6 +675,14 @@ final class TrackpadWindowGestureTests: XCTestCase {
         )
         XCTAssertEqual(hoverTarget.token, fixture.second.token)
         XCTAssertNil(hoverTarget.direction)
+        let context = try XCTUnwrap(fixture.handler.state.lockedGestureContext)
+        let point = fixture.handler.gestureWindowLocation(for: context)
+        XCTAssertEqual(point, TrackpadGestureIntent.windowGestureLocation(
+            start: first.center, startTouch: CGPoint(x: 0.2, y: 0.5),
+            currentTouch: CGPoint(x: 1, y: 0.5), monitorFrame: frame,
+            sensitivity: CGFloat(controller.settings.gestures.windowGestureSensitivity)
+        ))
+        XCTAssertTrue(second.contains(point))
         gesture.end()
         XCTAssertEqual(fixture.windowOrder(), [fixture.second.token, fixture.first.token])
     }
@@ -745,6 +788,11 @@ final class TrackpadWindowGestureTests: XCTestCase {
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         controller.enableDwindleLayout()
         let engine = try XCTUnwrap(controller.dwindleEngine)
+        controller.workspaceManager.withEngineMutationScope(in: workspaceId) {
+            controller.dwindleLayoutHandler.applyResolvedSettings(
+                controller.resolvedDwindleSettings(for: monitor), to: engine
+            )
+        }
         var tokens: [WindowToken] = []
         for windowId in 1 ... 2 {
             let token = controller.workspaceManager.addWindow(

@@ -94,9 +94,7 @@ extension ShellSettingsPreview {
         let fill: NSColor? = switch backgroundStyle {
         case .transparent: nil
         case .solidBlack: .black
-        case .material: (request.dark ? NSColor.white : .black).withAlphaComponent(
-                CGFloat(request.style.opacity) * (request.dark ? 1 : 0.5)
-            )
+        case .material: NSColor.white.withAlphaComponent(CGFloat(request.style.opacity))
         case let .palette(color, _): color.color(dark: request.dark).withAlphaComponent(CGFloat(request.style.opacity))
         }
         if let fill {

@@ -23,6 +23,12 @@ final class ViewportGestureTests: XCTestCase {
         }
     }
 
+    private func restingOffsetAGapPastTheEnd(widths: [CGFloat], gap: CGFloat, viewportSpan: CGFloat) -> CGFloat {
+        let contentSpan = widths.reduce(0, +) + gap * CGFloat(widths.count - 1)
+        let lastColumnStart = contentSpan - widths[widths.count - 1]
+        return contentSpan + gap - viewportSpan - lastColumnStart
+    }
+
     private func makeState(activeColumnIndex: Int = 0, viewOffset: CGFloat = 0) -> ViewportState {
         var state = ViewportState()
         state.activeColumnIndex = activeColumnIndex
@@ -76,28 +82,49 @@ final class ViewportGestureTests: XCTestCase {
         }
     }
 
-    func testMomentumSpringsBackAtContentEdge() {
+    func testMomentumSpringsBackToAGapPastTheContentEdge() {
+        let widths: [CGFloat] = [100, 100, 100]
+        let gap: CGFloat = 10
+        let viewportSpan: CGFloat = 150
         var state = makeState()
         state.endGesture(
             currentOffset: 30,
             projectedOffset: 500,
-            columns: columns([100, 100, 100]),
+            columns: columns(widths),
             geometry: NiriViewportGeometry(
-                gap: 10,
-                viewportSpan: 150,
+                gap: gap,
+                viewportSpan: viewportSpan,
                 orientation: .horizontal
             ),
             motion: .enabled,
             snapToColumn: false
         )
 
-        XCTAssertEqual(state.activeColumnIndex, 2)
-        XCTAssertEqual(state.viewOffset, -50)
+        XCTAssertEqual(state.activeColumnIndex, widths.count - 1)
+        XCTAssertEqual(
+            state.viewOffset,
+            restingOffsetAGapPastTheEnd(widths: widths, gap: gap, viewportSpan: viewportSpan)
+        )
         XCTAssertEqual(state.offsetTransition.kind, .spring(.niriHorizontalViewMovement))
-        XCTAssertEqual(220 + state.viewOffset, 170)
     }
 
-    func testDisabledAnimationsJumpToClampedLandingWithoutDeceleration() {
+    func testAFlingPastTheEndRestsAGapBeyondTheLastColumn() {
+        var state = makeState()
+        state.endGesture(
+            currentOffset: 30,
+            projectedOffset: 500,
+            columns: columns([100, 100, 100]),
+            geometry: NiriViewportGeometry(gap: 10, viewportSpan: 150, orientation: .horizontal),
+            motion: .disabled,
+            snapToColumn: false
+        )
+
+        let viewStart = 220 + state.viewOffset
+        XCTAssertEqual(state.activeColumnIndex, 2)
+        XCTAssertEqual(viewStart, 180)
+    }
+
+    func testWithAllowOverscrollOnAFlingPastTheEndRestsAtTheOverscrollBoundInsteadOfTheGap() {
         var state = makeState()
         state.endGesture(
             currentOffset: 30,
@@ -106,14 +133,55 @@ final class ViewportGestureTests: XCTestCase {
             geometry: NiriViewportGeometry(
                 gap: 10,
                 viewportSpan: 150,
-                orientation: .horizontal
+                orientation: .horizontal,
+                edgeOverscroll: .enabled(visibleFraction: 0.5)
             ),
             motion: .disabled,
             snapToColumn: false
         )
 
         XCTAssertEqual(state.activeColumnIndex, 2)
-        XCTAssertEqual(state.viewOffset, -50)
+        XCTAssertEqual(220 + state.viewOffset, 260)
+    }
+
+    func testAFlingPastTheStartRestsAGapBeforeTheFirstColumn() {
+        var state = makeState(activeColumnIndex: 1, viewOffset: 0)
+        state.endGesture(
+            currentOffset: -30,
+            projectedOffset: -500,
+            columns: columns([100, 100, 100]),
+            geometry: NiriViewportGeometry(gap: 10, viewportSpan: 150, orientation: .horizontal),
+            motion: .disabled,
+            snapToColumn: false
+        )
+
+        XCTAssertEqual(state.activeColumnIndex, 0)
+        XCTAssertEqual(state.viewOffset, -10)
+    }
+
+    func testDisabledAnimationsJumpToClampedLandingWithoutDeceleration() {
+        let widths: [CGFloat] = [100, 100, 100]
+        let gap: CGFloat = 10
+        let viewportSpan: CGFloat = 150
+        var state = makeState()
+        state.endGesture(
+            currentOffset: 30,
+            projectedOffset: 500,
+            columns: columns(widths),
+            geometry: NiriViewportGeometry(
+                gap: gap,
+                viewportSpan: viewportSpan,
+                orientation: .horizontal
+            ),
+            motion: .disabled,
+            snapToColumn: false
+        )
+
+        XCTAssertEqual(state.activeColumnIndex, widths.count - 1)
+        XCTAssertEqual(
+            state.viewOffset,
+            restingOffsetAGapPastTheEnd(widths: widths, gap: gap, viewportSpan: viewportSpan)
+        )
         XCTAssertEqual(state.offsetTransition.kind, .jump)
     }
 

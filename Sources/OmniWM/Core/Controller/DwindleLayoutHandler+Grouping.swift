@@ -36,7 +36,7 @@ extension DwindleLayoutHandler {
 
     func moveWindow(direction: Direction) -> WindowMoveOutcome {
         var outcome = WindowMoveOutcome.blocked
-        withDwindleContext { engine, workspaceId in
+        withDwindleContext(recordingHistory: true) { engine, workspaceId in
             guard let token = engine.projectedActiveToken(in: workspaceId) else { return }
             let sourceIsGrouped: Bool
             if let snapshot = engine.tileSnapshot(for: token, in: workspaceId) {
@@ -81,7 +81,7 @@ extension DwindleLayoutHandler {
     @discardableResult
     func moveGroupMember(direction: Direction) -> Bool {
         var didMove = false
-        withDwindleContext { engine, workspaceId in
+        withDwindleContext(recordingHistory: true) { engine, workspaceId in
             guard let token = engine.projectedActiveToken(in: workspaceId),
                   let destinationToken = groupMemberReorderDestination(
                       direction: direction,

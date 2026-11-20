@@ -232,7 +232,9 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
             fixture.handler.dispatchMouseDown(
                 at: fixture.frame.center,
                 modifiers: [],
-                windowIdUnderPointer: fixture.token.windowId
+                windowIdUnderPointer: fixture.token.windowId,
+                windowServerFramesAtMouseDown: [fixture.token: ScreenCoordinateSpace
+                    .toWindowServer(rect: fixture.frame)]
             )
         )
         fixture.handler.dispatchMouseUp(at: fixture.frame.center)
@@ -261,7 +263,13 @@ final class NativeTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertFalse(
             fixture.handler.receiveTapMouseDown(
                 at: fixture.frame.center,
-                modifiers: []
+                modifiers: [],
+                queuedLeftPress: LeftMouseDownIntake(
+                    location: fixture.frame.center,
+                    modifiers: [],
+                    timestamp: 0,
+                    windowServerFrames: [fixture.token: ScreenCoordinateSpace.toWindowServer(rect: fixture.frame)]
+                )
             )
         )
 

@@ -21,6 +21,19 @@ class NiriContainer: NiriNode {
     var savedWidth: ProportionalSize?
 
     var hasManualSingleWindowWidthOverride: Bool = false
+    var isLiveDropSpace = false
+    struct LiveSlotSpan: Equatable {
+        let span: CGFloat
+        let orientation: Monitor.Orientation
+    }
+
+    var liveSlotSpan: LiveSlotSpan?
+    var isLiveHomeSpot = false
+    var growsTowardLeadingEdge = false
+    var centreCycle: ColumnCentreCycle?
+    var spanBeforeFull: ColumnSpanBeforeFull?
+    var edgePeekCap: CGFloat?
+    var stripEndPeekRoom: StripEndPeekRoom?
 
     var height: ProportionalSize = .default
 
@@ -36,6 +49,7 @@ class NiriContainer: NiriNode {
     private var moveAnimationOrientation: Monitor.Orientation?
 
     var widthAnimation: SpringAnimation?
+    var isParked = false
     var targetWidth: CGFloat?
     var heightAnimation: SpringAnimation?
     var targetHeight: CGFloat?
@@ -78,6 +92,9 @@ class NiriContainer: NiriNode {
         contentInset: CGFloat = 0,
         applyingPackingHints: Bool = true
     ) -> CGFloat {
+        if isLiveHomeSpot, orientation == .horizontal, case let .fixed(size) = spec {
+            return size
+        }
         let bounds = orientation == .horizontal ? widthBounds(contentInset: contentInset) : heightBounds()
         var result: CGFloat = switch spec {
         case let .proportion(proportion):
@@ -86,32 +103,28 @@ class NiriContainer: NiriNode {
             size
         }
         let effectiveMaxConstraint = bounds.max.map { max($0, bounds.min) }
-        if result < bounds.min { result = bounds.min }
-        if applyingPackingHints {
-            result = packedPrimarySpan(
-                result,
+        let packedWindows = applyingPackingHints ? windowNodes : []
+        func packedWithinMaximum(_ span: CGFloat) -> CGFloat {
+            let packed = Self.packedPrimarySpan(
+                span,
+                windows: packedWindows,
                 orientation: orientation,
                 limit: availableSpace - gaps * 2,
                 contentInset: contentInset
             )
+            guard let effectiveMaxConstraint, packed > effectiveMaxConstraint else { return packed }
+            return effectiveMaxConstraint
         }
-        if let effectiveMaxConstraint, result > effectiveMaxConstraint { result = effectiveMaxConstraint }
+        if result < bounds.min { result = bounds.min }
+        result = packedWithinMaximum(result)
+        if let edgePeekCap {
+            let stripEndCap = stripEndPeekRoom?.cappedSpan(result) ?? edgePeekCap
+            let capped = max(min(edgePeekCap, stripEndCap), bounds.min)
+            if capped < result {
+                result = min(result, packedWithinMaximum(capped))
+            }
+        }
         return result
-    }
-
-    func packedPrimarySpan(
-        _ span: CGFloat,
-        orientation: Monitor.Orientation,
-        limit: CGFloat,
-        contentInset: CGFloat = 0
-    ) -> CGFloat {
-        Self.packedPrimarySpan(
-            span,
-            windows: windowNodes,
-            orientation: orientation,
-            limit: limit,
-            contentInset: contentInset
-        )
     }
 
     static func packedPrimarySpan(
@@ -139,10 +152,13 @@ class NiriContainer: NiriNode {
     func widthBounds(contentInset: CGFloat = 0) -> (min: CGFloat, max: CGFloat?) {
         var minWidth: CGFloat = 1
         var maxWidth: CGFloat?
+        guard !isLiveHomeSpot else { return (minWidth + contentInset, nil) }
 
         for window in windowNodes {
             let constraints = window.constraints.normalized()
-            minWidth = max(minWidth, constraints.minSize.width)
+            if window.deferredMinimumOrientation != .horizontal {
+                minWidth = max(minWidth, constraints.minSize.width)
+            }
             if constraints.hasMaxWidth {
                 let candidateMax = constraints.maxSize.width
                 maxWidth = min(maxWidth ?? candidateMax, candidateMax)
@@ -158,10 +174,13 @@ class NiriContainer: NiriNode {
     func heightBounds() -> (min: CGFloat, max: CGFloat?) {
         var minHeight: CGFloat = 1
         var maxHeight: CGFloat?
+        guard !isLiveHomeSpot else { return (minHeight, nil) }
 
         for window in windowNodes {
             let constraints = window.constraints.normalized()
-            minHeight = max(minHeight, constraints.minSize.height)
+            if window.deferredMinimumOrientation != .vertical {
+                minHeight = max(minHeight, constraints.minSize.height)
+            }
             if constraints.hasMaxHeight {
                 let candidateMax = constraints.maxSize.height
                 maxHeight = min(maxHeight ?? candidateMax, candidateMax)
@@ -190,6 +209,10 @@ class NiriContainer: NiriNode {
         gaps: CGFloat,
         contentInset: CGFloat = 0
     ) {
+        if let liveSlotSpan, liveSlotSpan.orientation == .horizontal {
+            cachedWidth = liveSlotSpan.span
+            return
+        }
         cachedWidth = resolvedWidthPixels(
             isFullWidth ? .proportion(1) : width,
             availableSpan: workingAreaWidth,
@@ -199,6 +222,10 @@ class NiriContainer: NiriNode {
     }
 
     func resolveAndCacheHeight(workingAreaHeight: CGFloat, gaps: CGFloat) {
+        if let liveSlotSpan, liveSlotSpan.orientation == .vertical {
+            cachedHeight = liveSlotSpan.span
+            return
+        }
         cachedHeight = resolvedHeightPixels(
             isFullHeight ? .proportion(1) : height,
             availableSpan: workingAreaHeight,
@@ -272,6 +299,19 @@ class NiriContainer: NiriNode {
         } else if idx < activeTileIdx {
             activeTileIdx = max(0, activeTileIdx - 1)
         }
+    }
+}
+
+extension NiriContainer {
+    func shownWindow(excluding excludedTokens: Set<WindowToken>) -> NiriWindow? {
+        if let active = activeWindow, !excludedTokens.contains(active.token) {
+            return active
+        }
+        return windowNodes.first { !excludedTokens.contains($0.token) }
+    }
+
+    var traceWindowIds: String {
+        windowNodes.map { String($0.token.windowId) }.joined(separator: "+")
     }
 }
 

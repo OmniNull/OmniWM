@@ -37,7 +37,10 @@ struct CrossDisplayDropPlan {
 }
 
 extension WMController {
-    func crossDisplayDropPlan(for drop: CrossDisplayDrop) -> CrossDisplayDropPlan? {
+    func crossDisplayDropPlan(
+        for drop: CrossDisplayDrop,
+        unit override: CrossDisplayDragUnit? = nil
+    ) -> CrossDisplayDropPlan? {
         let manager = workspaceManager
         guard drop.sourceWorkspaceId != drop.workspaceId,
               isCrossDisplayTransferable(drop.sourceToken, in: drop.sourceWorkspaceId),
@@ -45,7 +48,12 @@ extension WMController {
         else {
             return nil
         }
-        let unit = crossDisplayDragUnit(for: drop.sourceToken, in: drop.sourceWorkspaceId)
+        let unit = override ?? crossDisplayDragUnit(for: drop.sourceToken, in: drop.sourceWorkspaceId)
+        if case .some = override {
+            guard unit.tokens.indices.contains(unit.activeIndex), unit.activeToken == drop.sourceToken,
+                  liveCrossDisplayUnitIsCurrent(unit, in: drop.sourceWorkspaceId)
+            else { return nil }
+        }
         var constraints = niriConstraints(for: unit, entering: drop.workspaceId, on: drop.monitor)
 
         let operation: CrossDisplayDropPlan.Operation
@@ -72,6 +80,32 @@ extension WMController {
             operation: operation,
             constraints: constraints
         )
+    }
+
+    private func liveCrossDisplayUnitIsCurrent(
+        _ unit: CrossDisplayDragUnit,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        for token in unit.tokens where workspaceManager.workspace(for: token) != workspaceId { return false }
+        guard unit.isGroup else { return true }
+        switch workspaceManager.activeLayoutKind(for: workspaceId) {
+        case .niri:
+            guard let engine = niriEngine,
+                  let active = engine.findNode(for: unit.activeToken, in: workspaceId),
+                  let column = engine.findColumn(containing: active, in: workspaceId),
+                  column.windowNodes.count == unit.tokens.count
+            else { return false }
+            for token in unit.tokens where engine.findNode(for: token, in: workspaceId)?.parent !== column {
+                return false
+            }
+        case .dwindle:
+            guard let engine = dwindleEngine,
+                  let tile = engine.tile(containing: unit.activeToken, in: workspaceId),
+                  tile.members.count == unit.tokens.count
+            else { return false }
+            for token in unit.tokens where engine.tile(containing: token, in: workspaceId) !== tile { return false }
+        }
+        return true
     }
 
     func crossDisplayDragUnit(for token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> CrossDisplayDragUnit {
@@ -171,6 +205,9 @@ extension WMController {
             else {
                 return .workspace
             }
+            return drop.placement
+        case let .dwindleGroup(target, _):
+            guard !unit.isGroup, isCrossDisplayTransferable(target, in: workspaceId) else { return .workspace }
             return drop.placement
         case let .dwindleBeside(target, _):
             guard let engine = dwindleEngine,

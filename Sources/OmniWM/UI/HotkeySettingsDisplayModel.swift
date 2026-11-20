@@ -11,6 +11,23 @@ enum HotkeyCaptureResult {
 }
 
 @MainActor enum HotkeyBindingEditor {
+    static func triggerKeepingSide(
+        _ newTrigger: HotkeyTrigger,
+        for actionId: String,
+        settings: SettingsStore
+    ) -> HotkeyTrigger {
+        guard let chord = newTrigger.chordBinding else { return newTrigger }
+        let previousSide = settings.hotkeyBindings
+            .first { $0.id == actionId }?.binding.chordBinding?.side ?? .either
+        return .chord(chord.settingSide(previousSide))
+    }
+
+    static func trigger(for actionId: String, side: ModifierSide, settings: SettingsStore) -> HotkeyTrigger? {
+        guard let chord = settings.hotkeyBindings.first(where: { $0.id == actionId })?.binding.chordBinding
+        else { return nil }
+        return .chord(chord.settingSide(side))
+    }
+
     static func capture(
         _ newBinding: KeyBinding,
         for actionId: String,
@@ -108,8 +125,9 @@ enum HotkeySettingsDisplayModel {
         let normalizedQuery = ActionCatalog.normalizedSearchTerm(query)
         var bindingsByCategory: [HotkeyCategory: [HotkeyBinding]] = [:]
         for binding in bindings {
-            guard ActionCatalog.visibility(for: binding.id) != .unassignable,
-                  matchesSearch(normalizedQuery, binding: binding)
+            guard ActionCatalog.visibility(for: binding.id).map({ ![.unassignable, .niriSettings].contains($0) })
+                ?? true,
+                matchesSearch(normalizedQuery, binding: binding)
             else { continue }
             bindingsByCategory[binding.category, default: []].append(binding)
         }

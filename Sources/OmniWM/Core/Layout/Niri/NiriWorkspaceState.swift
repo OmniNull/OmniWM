@@ -119,6 +119,7 @@ final class NiriWorkspaceState {
     var autoFitSkipsMouseResize = false
     var autoFitChangePending = false
     var autoFitActiveColumnId: NodeId?
+    var layoutHistory = NiriLayoutHistory()
 
     init(workspaceId: WorkspaceDescriptor.ID) {
         root = NiriRoot(workspaceId: workspaceId)

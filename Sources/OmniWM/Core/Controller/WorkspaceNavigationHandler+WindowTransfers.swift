@@ -45,6 +45,12 @@ extension WorkspaceNavigationHandler {
             }
             return WindowTransferResult(succeeded: true, newSourceFocusToken: nil)
         }
+        if transfer.sourceIsDwindle, transfer.targetIsDwindle, let sourceWsId {
+            return transferDwindleWindow(token, from: sourceWsId, to: targetWsId, controller: controller)
+        }
+        if transfer.sourceIsDwindle != transfer.targetIsDwindle, let sourceWsId {
+            return transferMixedWindow(token, from: sourceWsId, to: targetWsId, controller: controller)
+        }
         transferNiriWindow(transfer, controller: controller, progress: &progress)
         detachTransferredWindow(transfer, controller: controller, progress: &progress)
         let succeeded = progress.movedWithNiri || sourceWsId == nil || transfer.sourceIsDwindle || transfer

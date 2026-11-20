@@ -34,6 +34,7 @@ final class DwindleLayoutEngine {
 
     var interactiveResize: DwindleInteractiveResize?
     var interactiveMove: DwindleInteractiveMove?
+    var liveMove: DwindleLiveMove?
 
     func assertSanctionedMutation(_ operation: StaticString = #function) {
         assert(
@@ -72,6 +73,9 @@ final class DwindleLayoutEngine {
 
     func removeLayout(for workspaceId: WorkspaceDescriptor.ID) {
         assertSanctionedMutation()
+        if liveMove?.workspaceId == workspaceId {
+            liveMove = nil
+        }
         guard let state = states.removeValue(forKey: workspaceId) else { return }
         if interactiveResize?.workspaceId == workspaceId {
             clearInteractiveResize()

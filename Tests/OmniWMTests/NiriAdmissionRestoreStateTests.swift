@@ -1124,6 +1124,7 @@ final class NiriAdmissionRestoreStateTests: XCTestCase {
         configurations[targetIndex] = configurations[targetIndex].with(layoutType: .dwindle)
         controller.settings.workspaces.configurations = configurations
         controller.niriLayoutHandler.enableNiriLayout()
+        controller.dwindleLayoutHandler.enableDwindleLayout()
 
         let token = controller.workspaceManager.addWindow(
             AXWindowRef(element: AXUIElementCreateApplication(806), windowId: 96),

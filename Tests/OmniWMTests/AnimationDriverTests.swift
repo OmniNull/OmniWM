@@ -57,6 +57,22 @@ final class AnimationDriverTests: XCTestCase {
         XCTAssertEqual(state.offsetTransition, OffsetTransition())
     }
 
+    func testOnlyAGestureMomentumOrEdgeScrollCountsAsUserMotion() {
+        let driver = AnimationDriver()
+        XCTAssertFalse(driver.hasUserMotion(in: workspaceId))
+
+        _ = commit(driver, previous: 0) { $0.springOffset(to: 200) }
+        XCTAssertTrue(driver.hasMotion(in: workspaceId))
+        XCTAssertFalse(driver.hasUserMotion(in: workspaceId))
+
+        driver.beginGesture(in: workspaceId, isTrackpad: true)
+        XCTAssertTrue(driver.hasUserMotion(in: workspaceId))
+
+        driver.removeMotions(for: [workspaceId])
+        _ = commit(driver, previous: 0) { $0.edgeScrollOffset(to: 500, speed: 1_000) }
+        XCTAssertTrue(driver.hasUserMotion(in: workspaceId))
+    }
+
     func testJumpCommitClearsMotion() {
         let driver = AnimationDriver()
         _ = commit(driver, previous: 0) { $0.springOffset(to: 200) }

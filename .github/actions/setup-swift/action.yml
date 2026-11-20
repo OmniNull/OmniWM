@@ -1,5 +1,9 @@
 name: Set up Swift
 description: Restore the cached pinned Swift toolchain, or install it from scratch when the cache did not restore cleanly.
+outputs:
+  build-environment:
+    description: Fingerprint of the Xcode, macOS SDK and operating system used for build caches.
+    value: ${{ steps.build-environment.outputs.fingerprint }}
 runs:
   using: composite
   steps:
@@ -17,3 +21,15 @@ runs:
     - name: Install the pinned Swift toolchain
       shell: bash
       run: ./Scripts/swift-toolchain.sh
+    - name: Identify the build environment
+      id: build-environment
+      shell: bash
+      run: |
+        set -euo pipefail
+        xcode_version="$(xcodebuild -version)"
+        sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+        sdk_build="$(xcrun --sdk macosx --show-sdk-build-version)"
+        os_build="$(sw_vers -buildVersion)"
+        printf '%s\n' "$xcode_version" "$sdk_path" "$sdk_build" "$os_build"
+        fingerprint="$(printf '%s\n' "$xcode_version" "$sdk_path" "$sdk_build" "$os_build" | shasum -a 256 | cut -d ' ' -f 1)"
+        echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"

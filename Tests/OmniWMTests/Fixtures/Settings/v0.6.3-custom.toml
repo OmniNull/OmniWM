@@ -65,8 +65,6 @@ updateChecksEnabled = true
 [gestures]
 fingerCount = 3
 invertDirection = true
-mouseMoveModifierKey = "option"
-mouseResizeModifierKey = "option"
 scrollEnabled = true
 scrollModifierKey = "optionShift"
 scrollSensitivity = 5.0

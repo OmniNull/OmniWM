@@ -112,6 +112,25 @@ extension WorkspaceManager {
         scratchpadState.membersBySlot[index] ?? []
     }
 
+    func scratchpadStackingOrder(
+        _ members: [WindowToken],
+        preferring preferredToken: WindowToken?
+    ) -> [WindowToken] {
+        let history = focusSessionSnapshot.windowFocusHistory
+        var ordered: [WindowToken] = []
+        ordered.reserveCapacity(members.count)
+        for token in members where token != preferredToken && !history.contains(token) {
+            ordered.append(token)
+        }
+        for token in history.reversed() where token != preferredToken && members.contains(token) {
+            ordered.append(token)
+        }
+        if let preferredToken, members.contains(preferredToken) {
+            ordered.append(preferredToken)
+        }
+        return ordered
+    }
+
     func occupiedScratchpadIndices() -> [ScratchpadIndex] {
         scratchpadState.membersBySlot.keys.sorted()
     }
