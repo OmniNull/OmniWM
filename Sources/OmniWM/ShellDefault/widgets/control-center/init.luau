@@ -34,14 +34,37 @@ local function card(props)
     return look.group(props)
 end
 
-local function betterDisplayControls(data)
+local function brightnessControls(data)
+    local controls, order = {}, {}
+    local function add(id, display, command)
+        if not controls[id] then
+            table.insert(order, id)
+        elseif not display.available then
+            return
+        end
+        controls[id] = { display = display, command = if display.available then command else nil }
+    end
+
+    local native = data.brightness
+    if native then
+        if native.available and not native.mainDisplayId then
+            add("main", { name = omniwm.l10n("Main Display"), value = native.value, available = true }, "brightness")
+        end
+        for _, display in native.displays or {} do
+            add(display.id, display, "brightness display " .. display.id)
+        end
+    end
     local integration = data.betterDisplay
-    return if integration and integration.running and integration.available then integration else nil
+    if integration and integration.running then
+        for _, display in integration.displays or {} do
+            add(display.id, display, "betterdisplay brightness " .. display.id)
+        end
+    end
+    return controls, order
 end
 
-local function brightnessSlider(ctx, display, useBetterDisplay)
-    local command = if useBetterDisplay then "betterdisplay brightness " .. display.id
-        elseif display.id then "brightness display " .. display.id else "brightness"
+local function brightnessSlider(ctx, id, control)
+    local display, command = control.display, control.command
     local drag = ctx.state.brightnessDrag
     local level = if drag and drag.command == command then drag.level else display.value / 100
     return ui.row{ w = INNER, gap = 8,
@@ -49,15 +72,15 @@ local function brightnessSlider(ctx, display, useBetterDisplay)
         ui.slider{ key = command, value = level, w = INNER - 76, h = 16, color = "accent",
             help = display.name, onChange = function(owner, event)
                 local active = owner.state.brightnessDrag
-                local current = betterDisplayControls(owner.data) ~= nil
-                if active and active.useBetterDisplay ~= current then
+                local controls = brightnessControls(owner.data)
+                if active and (not controls[active.id] or controls[active.id].command ~= active.command) then
                     owner.state.brightnessDrag = nil
                     active = nil
                 end
-                if current ~= useBetterDisplay then return end
+                if not controls[id] or controls[id].command ~= command then return end
                 local value = event.value and math.clamp(event.value, 0, 1)
                 if event.phase == "began" and value then
-                    owner.state.brightnessDrag = { command = command, useBetterDisplay = current, level = value }
+                    owner.state.brightnessDrag = { id = id, command = command, level = value }
                 elseif active and active.command == command then
                     if event.phase == "ended" or event.phase == "cancelled" then
                         owner.state.brightnessDrag = nil
@@ -72,22 +95,19 @@ local function brightnessSlider(ctx, display, useBetterDisplay)
         look.text{ text = ctx.format.percent(level), size = 12, w = 42, reserve = ctx.format.percent(1) } }
 end
 
-local function brightnessCard(ctx, provider, useBetterDisplay, unavailable: string)
-    local displays = provider and provider.displays or {}
-    if not useBetterDisplay and provider and provider.available and not provider.mainDisplayId then
-        displays = table.clone(displays)
-        table.insert(displays, 1, { name = omniwm.l10n("Main Display"), value = provider.value, available = true })
-    end
+local function brightnessCard(ctx, unavailable: string)
+    local controls, order = brightnessControls(ctx.data)
     local rows = { w = INNER, gap = 8, center = false }
-    for _, display in displays do
-        local control = if display.available then brightnessSlider(ctx, display, useBetterDisplay) else
+    for _, id in order do
+        local control = controls[id]
+        local slider = if control.command then brightnessSlider(ctx, id, control) else
             look.text{ text = unavailable, size = 13, color = "secondaryForeground" }
         rows[#rows + 1] = ui.column{ w = INNER, gap = 4, center = false,
-            look.text{ text = display.name, size = 13, maxWidth = INNER }, control }
+            look.text{ text = control.display.name, size = 13, maxWidth = INNER }, slider }
     end
-    if #displays == 0 then
+    if #order == 0 then
         rows[#rows + 1] = look.text{ text = unavailable, size = 13, color = "secondaryForeground" }
-    elseif #displays > 5 then
+    elseif #order > 5 then
         rows.h = 240
         rows.scroll = true
     end
@@ -96,16 +116,17 @@ end
 
 local function displaysTab(ctx)
     local unavailable = omniwm.l10n("Unavailable")
-    local integration = betterDisplayControls(ctx.data)
-    local brightness = integration or ctx.data.brightness
-    local nightShift = if integration then integration.nightShift else ctx.data.nightShift
+    local integration = ctx.data.betterDisplay
+    local managed = integration and integration.running and integration.nightShift
+    local useBetterDisplay = managed and managed.available
+    local nightShift = if useBetterDisplay then managed else ctx.data.nightShift
     local available = nightShift and nightShift.available
     local enabled = available and nightShift.enabled
     local nightShiftStatus = if not available then unavailable elseif enabled then omniwm.l10n("On") else omniwm.l10n("Off")
-    local prefix = if integration then "betterdisplay night-shift " else "night-shift "
+    local prefix = if useBetterDisplay then "betterdisplay night-shift " else "night-shift "
     local nightShiftCommand = if available then prefix .. (if enabled then "off" else "on") else nil
     return ui.column{ w = CONTENT, gap = 8, center = false,
-        brightnessCard(ctx, brightness, integration ~= nil, unavailable),
+        brightnessCard(ctx, unavailable),
         card{ key = nightShiftCommand or "night-shift-unavailable", hover = if available then look.hover else nil,
             onClick = nightShiftCommand,
             ui.row{ w = INNER, gap = 8,
