@@ -25,22 +25,31 @@ final class ShellDevicesTests: XCTestCase {
     }
 
     func testTheInputSourceIsReadOnlyWhileAWidgetReadsIt() throws {
-        let devices = ShellDevices()
+        let abc = ShellInputSourceEntry(id: "com.apple.keylayout.ABC", name: "ABC", short: "ABC")
+        let fixture = ShellInputSource(current: abc, sources: [abc])
+        var reads = 0
+        let devices = ShellDevices(inputSource: InputSourceController(notificationCenter: NotificationCenter()) {
+            reads += 1
+            return fixture
+        })
         let feed = ShellDataFeed(devices: devices, deliver: { _ in })
         defer { feed.stop() }
         feed.start()
         XCTAssertNil(feed.current.inputSource)
+        XCTAssertEqual(reads, 0)
         let reading = read([.inputSource])
         feed.setDemand(reading.deps, cadence: reading.cadence)
         let source = try XCTUnwrap(feed.current.inputSource)
+        XCTAssertEqual(source, fixture)
         XCTAssertEqual(source, devices.inputSource.value)
-        XCTAssertTrue(source.sources.contains(source.current))
+        XCTAssertEqual(reads, 1)
         XCTAssertNotNil(devices.inputSource.onChange)
         let other = read([.clock])
         feed.setDemand(other.deps, cadence: other.cadence)
         XCTAssertNil(feed.current.inputSource)
         XCTAssertNil(devices.inputSource.value)
         XCTAssertNil(devices.inputSource.onChange)
+        XCTAssertEqual(reads, 1)
     }
 
     func testInputSourceCommandsParse() {
