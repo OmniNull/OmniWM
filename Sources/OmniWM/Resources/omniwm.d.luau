@@ -695,9 +695,9 @@ export type Data = {
     awake: Awake?,
     microphone: Microphone?,
     brightness: Brightness?,
-    nightShift: NightShift?,
     connection: Connection?,
     commandPalette: CommandPalette?,
+    nightShift: NightShift?,
     wifiNetworks: WiFiNetworks?,
 }
 
