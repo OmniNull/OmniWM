@@ -108,7 +108,7 @@ extension ShellDevicesTests {
             scan: { scans.withLock { $0 += 1 } },
             join: { network in
                 joins.withLock { $0.append(network.ssid) }
-                return network.ssid == "Lobby" ? "Refused" : nil
+                return network.ssid == "Lobby" ? .failed("Refused") : .joined
             },
             joinInSettings: { network in
                 settingsTargets.append(network)
@@ -164,7 +164,7 @@ extension ShellDevicesTests {
         let monitor = WiFiNetworksMonitor(
             read: { ([target], []) }, scan: {},
             join: { _ in XCTFail("Enterprise credentials must remain in System Settings")
-                return nil
+                return .joined
             },
             joinInSettings: { _ in
                 attempts += 1
@@ -198,6 +198,29 @@ extension ShellDevicesTests {
         XCTAssertNil(monitor.value?.joining)
         XCTAssertEqual(monitor.value?.failure?.id, target.id)
         XCTAssertEqual(monitor.value?.failure?.message, "Join this network in Wi-Fi Settings")
+    }
+
+    func testAFailedDirectJoinHandsOffToSettings() async throws {
+        let office = WiFiJoinTargets().office
+        let (changes, changed) = boundedChanges()
+        var handedOff: [ShellWiFiNetwork] = []
+        let monitor = WiFiNetworksMonitor(
+            read: { ([office], []) }, scan: {},
+            join: { _ in .needsSettings },
+            joinInSettings: { network in
+                handedOff.append(network)
+                return nil
+            }
+        )
+        monitor.onChange = { _ in changed.yield() }
+        defer { monitor.setListening(false) }
+        monitor.setListening(true)
+        await changes.wait { monitor.value?.known == [office] && monitor.value?.scanning == false }
+        XCTAssertFalse(office.opensSettings)
+        monitor.join(office.id)
+        await changes.wait { monitor.value?.joining == nil }
+        XCTAssertEqual(handedOff, [office])
+        XCTAssertNil(monitor.value?.failure)
     }
 
     func testWiFiSettingsConnectActionPreservesOpaqueNamesAndRejectsAmbiguity() {

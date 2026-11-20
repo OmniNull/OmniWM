@@ -579,6 +579,7 @@ export type WiFiNetwork = {
     secured: boolean,
     enterprise: boolean,
     known: boolean,
+    opensSettings: boolean,
 }
 
 export type WiFiNetworks = {

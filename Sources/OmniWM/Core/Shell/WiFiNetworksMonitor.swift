@@ -80,8 +80,12 @@ struct ShellWiFiNetwork: Equatable, Sendable {
         }
     }
 
+    var opensSettings: Bool {
+        enterprise || secured && !known
+    }
+
     func write(into writer: inout ShellValueWriter) {
-        writer.map(7)
+        writer.map(8)
         writer.key("id")
         writer.string(id)
         writer.key("ssid")
@@ -96,15 +100,30 @@ struct ShellWiFiNetwork: Equatable, Sendable {
         writer.bool(enterprise)
         writer.key("known")
         writer.bool(known)
+        writer.key("opensSettings")
+        writer.bool(opensSettings)
     }
 }
 
 struct ShellWiFiFailure: Equatable, Sendable {
     var id: String
     var message: String
+
+    func write(into writer: inout ShellValueWriter) {
+        writer.map(2)
+        writer.key("id")
+        writer.string(id)
+        writer.key("message")
+        writer.string(message)
+    }
 }
 
-// The current network is in neither list: the popout shows it in its own card.
+enum ShellWiFiJoinOutcome: Equatable, Sendable {
+    case joined
+    case failed(String)
+    case needsSettings
+}
+
 struct ShellWiFiNetworks: Equatable, Sendable, ShellValueWritable {
     var known: [ShellWiFiNetwork] = []
     var other: [ShellWiFiNetwork] = []
@@ -112,8 +131,6 @@ struct ShellWiFiNetworks: Equatable, Sendable, ShellValueWritable {
     var joining: String?
     var failure: ShellWiFiFailure?
 
-    // One entry per SSID (strongest BSS wins). Known Networks follow `priority`, the macOS auto-join order;
-    // Other Networks follow signal, then name.
     static func grouped(
         _ candidates: [ShellWiFiNetwork],
         priority: [String],
@@ -158,15 +175,7 @@ struct ShellWiFiNetworks: Equatable, Sendable, ShellValueWritable {
         writer.key("joining")
         joining.map { writer.string($0) } ?? writer.null()
         writer.key("failure")
-        if let failure {
-            writer.map(2)
-            writer.key("id")
-            writer.string(failure.id)
-            writer.key("message")
-            writer.string(failure.message)
-        } else {
-            writer.null()
-        }
+        failure.map { $0.write(into: &writer) } ?? writer.null()
     }
 }
 
@@ -190,12 +199,10 @@ private final class WiFiNetworkEvents: NSObject, CWEventDelegate, Sendable {
     }
 }
 
-// Listens only while a popout reads `wifiNetworks`, so the radio scans only while someone looks at the list.
 @MainActor
 final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
     static let rescan = DispatchTimeInterval.seconds(10)
     private static let reader = DispatchQueue(label: "com.barut.OmniWM.shell.wifi.networks", qos: .utility)
-    // Scans and joins block for seconds; they share one queue so they never overlap on the radio.
     private static let radio = DispatchQueue(label: "com.barut.OmniWM.shell.wifi.radio", qos: .userInitiated)
     private static let events: [CWEventType] = [.powerDidChange, .ssidDidChange, .scanCacheUpdated]
 
@@ -213,14 +220,14 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
     private var failure: ShellWiFiFailure?
     private let read: @Sendable () -> Lists
     private let scanner: @Sendable () -> Void
-    private let joiner: @Sendable (ShellWiFiNetwork) -> String?
+    private let joiner: @Sendable (ShellWiFiNetwork) -> ShellWiFiJoinOutcome
     private let joinInSettings: @MainActor (ShellWiFiNetwork) async -> String?
     private var settingsJoinTask: Task<Void, Never>?
 
     init(
         read: @escaping @Sendable () -> Lists = WiFiNetworksMonitor.readLists,
         scan: @escaping @Sendable () -> Void = WiFiNetworksMonitor.scanRadio,
-        join: @escaping @Sendable (ShellWiFiNetwork) -> String? = WiFiNetworksMonitor.associate,
+        join: @escaping @Sendable (ShellWiFiNetwork) -> ShellWiFiJoinOutcome = WiFiNetworksMonitor.associate,
         joinInSettings: @escaping @MainActor (ShellWiFiNetwork) async -> String? = WiFiSettingsJoiner.join
     ) {
         self.read = read
@@ -315,44 +322,47 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
     func join(_ id: String) {
         guard isListening, joining == nil else { return }
         guard let target = (lists.known + lists.other).first(where: { $0.id == id }) else {
-            failure = ShellWiFiFailure(id: id, message: String(localized: "Network is no longer in range"))
+            failure = ShellWiFiFailure(id: id, message: Self.outOfRange)
             compose()
             return
         }
         joining = id
         failure = nil
         compose()
-        if target.enterprise || target.secured && !target.known {
-            // Opening Settings closes the popout. This user-requested handoff must outlive its data demand.
-            settingsJoinTask = Task { [weak self, joinInSettings] in
-                let message = await joinInSettings(target)
-                self?.finishSettingsJoin(id, failure: message)
-            }
+        if target.opensSettings {
+            handOff(target)
             return
         }
         let generation = generation
         let joiner = joiner
         Self.radio.async { [weak self] in
-            let message = joiner(target)
+            let outcome = joiner(target)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    self?.finishJoin(id, failure: message, generation: generation)
+                    self?.finishJoin(target, outcome: outcome, generation: generation)
                 }
             }
         }
     }
 
-    private func finishSettingsJoin(_ id: String, failure message: String?) {
-        settingsJoinTask = nil
-        joining = nil
-        failure = message.map { ShellWiFiFailure(id: id, message: $0) }
-        guard isListening else { return }
-        compose()
-        refresh()
+    private func finishJoin(_ target: ShellWiFiNetwork, outcome: ShellWiFiJoinOutcome, generation: Int) {
+        guard generation == self.generation else { return }
+        switch outcome {
+        case .joined: finish(target.id, failure: nil)
+        case let .failed(message): finish(target.id, failure: message)
+        case .needsSettings: handOff(target)
+        }
     }
 
-    private func finishJoin(_ id: String, failure message: String?, generation: Int) {
-        guard generation == self.generation else { return }
+    private func handOff(_ target: ShellWiFiNetwork) {
+        settingsJoinTask = Task { [weak self, joinInSettings] in
+            let message = await joinInSettings(target)
+            self?.settingsJoinTask = nil
+            self?.finish(target.id, failure: message)
+        }
+    }
+
+    private func finish(_ id: String, failure message: String?) {
         joining = nil
         failure = message.map { ShellWiFiFailure(id: id, message: $0) }
         compose()
@@ -412,36 +422,29 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
         }
     }
 
-    private nonisolated static func associate(_ network: ShellWiFiNetwork) -> String? {
-        guard let ssid = ShellWiFiNetwork.ssidData(id: network.id) else {
-            return String(localized: "Network is no longer in range")
-        }
-        if network.secured {
-            var error: NSError?
-            return omniwm_wifi_join_known_network(ssid, &error) ? nil : message(for: error)
-        }
-        guard let interface = CWWiFiClient.shared().interface() else {
-            return String(localized: "Wi-Fi is unavailable")
-        }
-        let candidates = interface.cachedScanResults()?.filter { $0.ssidData == ssid } ?? []
-        guard let target = candidates.max(by: { $0.rssiValue < $1.rssiValue }) else {
-            return String(localized: "Network is no longer in range")
-        }
-        do {
-            try interface.associate(to: target, password: nil)
-            return nil
-        } catch {
-            return error.localizedDescription
-        }
+    private nonisolated static var outOfRange: String {
+        String(localized: "Network is no longer in range")
     }
 
-    private nonisolated static func message(for error: NSError?) -> String {
-        guard let error else { return String(localized: "Could not join the network") }
-        guard error.domain == OmniWMWiFiErrorDomain else { return error.localizedDescription }
-        return switch OmniWMWiFiError(rawValue: error.code) {
-        case .notInRange: String(localized: "Network is no longer in range")
-        case .notEligible: String(localized: "Join this network in Wi-Fi Settings")
-        default: String(localized: "Joining from OmniWM isn’t supported on this version of macOS")
+    private nonisolated static func associate(_ network: ShellWiFiNetwork) -> ShellWiFiJoinOutcome {
+        guard let ssid = ShellWiFiNetwork.ssidData(id: network.id) else { return .failed(outOfRange) }
+        if network.secured {
+            var error: NSError?
+            if omniwm_wifi_join_known_network(ssid, &error) { return .joined }
+            let notInRange = error?.domain == OmniWMWiFiErrorDomain
+                && error?.code == OmniWMWiFiError.notInRange.rawValue
+            return notInRange ? .failed(outOfRange) : .needsSettings
+        }
+        guard let interface = CWWiFiClient.shared().interface() else {
+            return .failed(String(localized: "Wi-Fi is unavailable"))
+        }
+        let candidates = interface.cachedScanResults()?.filter { $0.ssidData == ssid } ?? []
+        guard let target = candidates.max(by: { $0.rssiValue < $1.rssiValue }) else { return .failed(outOfRange) }
+        do {
+            try interface.associate(to: target, password: nil)
+            return .joined
+        } catch {
+            return .needsSettings
         }
     }
 }

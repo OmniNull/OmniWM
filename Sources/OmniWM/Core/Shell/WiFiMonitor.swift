@@ -8,7 +8,6 @@ import CoreWLAN
 enum ShellWiFiCommand: Equatable, Sendable {
     case authorize
     case scan
-    // Hex SSID bytes (`ShellWiFiNetwork.id`), so the command survives whitespace and non-UTF-8 names.
     case join(String)
 
     init?(words: [String]) {

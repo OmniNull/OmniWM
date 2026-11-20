@@ -89,7 +89,7 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `inputSource` | The keyboard input source and the enabled ones, each with a short label |
 | `privacy` | Whether any app is using a microphone or a camera |
 | `wifi` | Wi-Fi power, signal, band, channel and security, and the network name once Location access is allowed |
-| `wifiNetworks` | Known Networks (saved and in range, in macOS auto-join order) and Other Networks (in range, by signal), plus scan, join and failure state. Reading it starts a scan every 10 seconds, so read it only in a popout; it stays empty until Location access is allowed |
+| `wifiNetworks` | **Unreleased:** available when building from `main`. Known Networks (saved and in range, in macOS auto-join order) and Other Networks (in range, by signal), up to 12 each, plus scan, join and failure state. Each network's `opensSettings` is true when clicking it hands off to Wi-Fi Settings. Reading it starts a scan every 10 seconds, so read it only in a popout; it stays empty until Location access is allowed |
 | `connection` | How the Mac reaches the network (`wifi`, `ethernet`, `cellular`, `other` or `none`) and the interface name; a VPN reports the Wi-Fi or Ethernet link beneath it |
 | `bluetooth` | Bluetooth power and paired devices with their battery levels, once Bluetooth access is allowed |
 | `volume`, `muted`, `outputs` | Output volume and the audio outputs, each with a device `kind` such as `airpodspro`, `headphones` or `display` |
@@ -219,6 +219,7 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 | `battery settings`, `focus settings`, `screenshot settings` | Open Battery or Focus settings, or the Screenshot app |
 | `input-source select <id>`, `input-source settings` | Switch the keyboard input source; open the Keyboard settings |
 | `wifi authorize`, `wifi settings` | Ask for Location access, or open its privacy settings once asked; open the Wi-Fi settings |
+| `wifi scan`, `wifi join <id>` | **Unreleased:** available when building from `main`. Scan for networks, or join the network whose `ctx.data.wifiNetworks` entry has that `id`, falling back to Apple's join flow in Wi-Fi Settings |
 | `bluetooth authorize`, `bluetooth settings` | Ask for Bluetooth access, or open its privacy settings once asked; open the Bluetooth settings |
 | `shell toggle <name>` | Open or close a drawer or a widget's popout, or send the island root a `toggle` trigger |
 | `shell trigger <widget> <name> [value]` | Call that widget's `trigger(ctx, event)` on each of its instances, as `omniwmctl shell trigger` does |
@@ -363,6 +364,10 @@ Weather supplies current conditions, 24 hourly entries, and seven daily entries;
 <LuauDeclaration name="InputSourceEntry" />
 
 <LuauDeclaration name="WiFi" />
+
+<LuauDeclaration name="WiFiNetworks" />
+
+<LuauDeclaration name="WiFiNetwork" />
 
 <LuauDeclaration name="Connection" />
 

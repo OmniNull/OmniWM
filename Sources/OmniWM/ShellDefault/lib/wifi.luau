@@ -134,7 +134,7 @@ local function network(entry, data, width: number)
     local failed = data.failure ~= nil and data.failure.id == entry.id
     local status = if data.joining == entry.id then omniwm.l10n("Joining…")
         elseif failed then data.failure.message
-        elseif entry.enterprise or (entry.secured and not entry.known) then omniwm.l10n("Opens Wi-Fi Settings")
+        elseif entry.opensSettings then omniwm.l10n("Opens Wi-Fi Settings")
         else entry.security
     local labels = { gap = 2, center = false, grow = 1,
         look.text{ text = entry.ssid, size = 13, maxWidth = width - 96 } }
@@ -151,8 +151,6 @@ local function network(entry, data, width: number)
     return ui.row(row)
 end
 
---- Known Networks and Other Networks for the `wifi-networks` popout. Reads `ctx.data.wifiNetworks` only when Wi-Fi
---- is on and the network names are visible, so the radio scans only then.
 function wifi.networkSections(ctx, width: number)
     local status = ctx.data.wifi
     if not status or not status.power or status.location ~= "authorized" then
@@ -243,14 +241,30 @@ function wifi.content(ctx, width: number?, m, sections: { any }?)
     return ui.column(rows)
 end
 
+function wifi.bar(ctx)
+    local state = wifi.state(ctx)
+    if not state then
+        return ui.box{ w = 0, h = 0 }
+    end
+    local behaviour = { onClick = ui.popout, help = state.help }
+    local button = look.wifiBar and look.wifiBar(ctx, state)
+    if not button then
+        local props = table.clone(behaviour)
+        props[1] = wifi.glyph(state, look.px(ctx, "barSymbol"))
+        button = look.bar(ctx, props)
+    end
+    for key, value in behaviour do
+        button[key] = value
+    end
+    return button
+end
+
 function wifi.popout(ctx)
     local m = wifi.model(ctx)
     return look.wifiPanel and look.wifiPanel(ctx, m)
         or look.panel(ctx, { w = look.width + 28, wifi.content(ctx, nil, m) })
 end
 
---- The `wifi-networks` popout: the default panel plus the network lists. It ignores `look.wifiPanel`, because a
---- style's own panel has no place for the lists.
 function wifi.networksPopout(ctx)
     local width = look.width
     local m = wifi.model(ctx)

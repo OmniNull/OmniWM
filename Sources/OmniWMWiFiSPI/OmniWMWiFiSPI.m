@@ -6,8 +6,6 @@
 #import <CoreWLAN/CoreWLAN.h>
 #import <dlfcn.h>
 
-// Private CoreWiFi surface, observed on macOS 26/27. See docs/spikes/private-wifi-join.md.
-// Every selector is checked with respondsToSelector: before use; a missing one fails closed.
 @interface NSObject (OmniWMWiFiSPI)
 - (NSInteger)serviceType;
 - (id)coreWiFiScanResult;
@@ -23,8 +21,7 @@
 
 NSString *const OmniWMWiFiErrorDomain = @"com.barut.OmniWM.wifi";
 
-/// CoreWLAN's own CoreWiFi connection to com.apple.corewlan-xpc, which serves association without an entitlement.
-static const NSInteger OmniWMWiFiCoreWLANService = 5;
+static const NSInteger OmniWMWiFiCoreWLANXPCService = 5;
 
 static BOOL fail(NSError **error, OmniWMWiFiError code) {
     if (error) {
@@ -46,7 +43,6 @@ static BOOL loadCoreWiFi(void) {
     return loaded;
 }
 
-/// The one saved profile for the SSID, or nil when there is none or several with different security.
 static CWNetworkProfile *savedProfile(CWConfiguration *configuration, NSData *ssid) {
     CWNetworkProfile *match = nil;
     for (CWNetworkProfile *profile in configuration.networkProfiles) {
@@ -85,9 +81,8 @@ static BOOL join(NSData *ssid, NSError **error) {
     if (!interface || !parametersClass) {
         return fail(error, OmniWMWiFiErrorUnavailable);
     }
-    // Reuse CoreWLAN's configured connection: it is already activated, and invalidating it would break CoreWLAN.
     id corewifi = [interface valueForKey:@"corewifi"];
-    if (!responds(corewifi, @selector(serviceType)) || [corewifi serviceType] != OmniWMWiFiCoreWLANService ||
+    if (!responds(corewifi, @selector(serviceType)) || [corewifi serviceType] != OmniWMWiFiCoreWLANXPCService ||
         !responds(corewifi, @selector(associateWithParameters:error:))) {
         return fail(error, OmniWMWiFiErrorUnavailable);
     }
@@ -96,7 +91,6 @@ static BOOL join(NSData *ssid, NSError **error) {
         return fail(error, OmniWMWiFiErrorNotEligible);
     }
     id profile = [saved coreWiFiNetworkProfile];
-    // airportd only reads the System keychain for system-mode PSK profiles; never fabricate either flag.
     if (!responds(profile, @selector(isSystemMode)) || !responds(profile, @selector(isPSK)) ||
         !responds(profile, @selector(SSID)) || ![profile isSystemMode] || ![profile isPSK] ||
         ![[profile SSID] isEqualToData:ssid]) {
@@ -132,7 +126,6 @@ BOOL omniwm_wifi_join_known_network(NSData *ssid, NSError **error) {
     @try {
         return join(ssid, error);
     } @catch (NSException *exception) {
-        // valueForKey: throws when Apple renames the private property.
         (void)exception;
         return fail(error, OmniWMWiFiErrorUnavailable);
     }
