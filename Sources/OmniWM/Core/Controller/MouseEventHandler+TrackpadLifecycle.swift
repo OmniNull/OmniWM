@@ -269,14 +269,13 @@ extension MouseEventHandler {
             ))
         }
         guard allowFlick, !state.workspaceSwipeFired else { return }
-        state.workspaceSwipeTracker.push(delta: 0, timestamp: timestamp)
         let cumulative = (axis == .horizontal
             ? state.gestureLastAverageX - state.gestureStartX
             : state.gestureLastAverageY - state.gestureStartY)
             * GestureEventSnapshot.normalizedPositionToGestureUnits
         guard let displacement = TrackpadGestureIntent.releaseFlickDisplacement(
                   cumulativeAxisUnits: cumulative,
-                  velocity: state.workspaceSwipeTracker.velocity()
+                  velocity: state.workspaceSwipeTracker.velocity(atRelease: timestamp)
               ),
               let isNext = TrackpadGestureIntent.isNextWorkspace(
                   axis: axis,

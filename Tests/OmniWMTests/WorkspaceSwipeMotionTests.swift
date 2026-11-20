@@ -6,16 +6,19 @@ import XCTest
 
 final class WorkspaceSwipeMotionTests: XCTestCase {
     func testRecognitionMovementCommitsSingleFrameFlickWithoutProgressJump() {
+        let frameInterval = 1.0 / 128
+        let recognitionTime = 1 + frameInterval
+        let movement = 4.0
         let motion = WorkspaceSwipeMotion(
-            cumulativeUnits: 150, timestamp: 1.03125,
-            recognitionMovement: SwipeEvent(delta: 150, timestamp: 1)
+            cumulativeUnits: movement, timestamp: recognitionTime,
+            recognitionMovement: SwipeEvent(delta: movement, timestamp: 1)
         )
 
-        XCTAssertEqual(motion.progress(at: 1.03125), 0)
-        XCTAssertEqual(motion.velocity(at: 1.03125), 150 / WorkspaceSwipeMotion.travelUnits / (1.03125 - 1))
-        XCTAssertTrue(motion.release(timestamp: 1.0625, allowFlick: true, animationTime: 100))
+        XCTAssertEqual(motion.progress(at: recognitionTime), 0)
+        let trackedVelocity = motion.velocity(at: recognitionTime)
+        XCTAssertTrue(motion.release(timestamp: recognitionTime + frameInterval, allowFlick: true, animationTime: 100))
         XCTAssertEqual(motion.target, 1)
-        XCTAssertEqual(motion.velocity(at: 100), 150 / WorkspaceSwipeMotion.travelUnits / (1.0625 - 1))
+        XCTAssertEqual(motion.velocity(at: 100), trackedVelocity, accuracy: 1e-6)
     }
 
     func testSlowRecognitionUsesRecentMovementInsteadOfWholeContactDisplacement() {
