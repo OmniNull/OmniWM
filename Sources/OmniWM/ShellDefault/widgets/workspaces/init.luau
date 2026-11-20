@@ -427,7 +427,7 @@ function render(ctx: Context)
     if look.workspaceGroup then
         local custom = look.workspaceGroup(ctx, pills, cells, bar.style, m)
         if custom then
-            return custom
+            return if m.vertical then custom else ui.row{ scroll = true, custom }
         end
     end
     if capsule then
