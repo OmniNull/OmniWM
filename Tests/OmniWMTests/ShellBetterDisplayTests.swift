@@ -37,7 +37,11 @@ final class ShellBetterDisplayTests: XCTestCase {
             )
             return ShellBetterDisplayMonitor(
                 client: client, monitors: {
-                    [self.display(self.id, number: 1), self.display(self.other, number: 2), self.display(self.virtual, number: 3)]
+                    [
+                        self.display(self.id, number: 1),
+                        self.display(self.other, number: 2),
+                        self.display(self.virtual, number: 3)
+                    ]
                 }, center: center, observeApplications: { changed in
                     self.applicationsChanged = changed
                     return { self.applicationsChanged = nil }
@@ -219,7 +223,7 @@ final class ShellBetterDisplayTests: XCTestCase {
         let key = ShellBarKey(monitor: .init(displayId: 96701))
         await package.receive(.bars([key: ShellBarData()]))
         let demand = ShellDataKey.betterDisplay.bit
-        XCTAssertEqual(demand, 1 << 53)
+        XCTAssertEqual(demand, 1 << 54)
         var data = ShellWidgetData()
         let display = ShellBrightness.Display(
             id: "97CD864A-7BC1-406A-8495-BDF9CC5250E4",

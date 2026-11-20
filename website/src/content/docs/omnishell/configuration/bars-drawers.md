@@ -29,7 +29,9 @@ Use the active profile’s name instead of `default`. In that profile folder’s
 
 ## Widget options
 
-**Add Widget…** also offers `launcher`, `active-window`, `input-source`, `wifi`, `bluetooth`, `battery-details`, `world-clock`, `privacy` and `control-center`. With **Transparent Background** and **Show Item Backgrounds** both on, the default widgets draw their own capsules and palette popouts.
+**Add Widget…** also offers `launcher`, `active-window`, `input-source`, `wifi`, `wifi-networks`, `bluetooth`, `battery-details`, `world-clock`, `privacy` and `control-center`. **Unreleased:** `wifi-networks` is available when building from `main`. It is `wifi` with a list of nearby networks in its popout: click a Known Network or an open network to join it. Long lists scroll. Unsaved secured and enterprise networks, and any network OmniWM cannot join directly, open Wi-Fi Settings, where OmniWM uses Accessibility to select the exact network and start Apple's join flow. It only does so when the row's security in Settings matches the network you clicked. Any password or identity is entered only in macOS; OmniWM does not read credential fields. If the network cannot be selected safely within eight seconds, Settings stays open for a manual join and the widget reports the failed handoff. The handoff continues if its popout closes.
+
+With **Transparent Background** and **Show Item Backgrounds** both on, the default widgets draw their own capsules and palette popouts.
 
 Select a widget to change supported choices visually. Options follow the actual widget implementation in the selected style; a style that does not use an option does not show it. World Clock provides a location list, and Weather provides city or coordinates, units, and refresh interval. The default widgets also read these values from `profiles.<profile>.widgets.<name>` in `shell.toml`:
 

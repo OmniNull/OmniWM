@@ -5,10 +5,20 @@ import AppKit
 
 @MainActor
 class ShellFocusPanel: NSPanel {
+    private var temporarilyPassesMouseEvents = false
+    private var ignoresMouseEventsWhenInteractive = false
     var acceptsDeclaredFocus = false
     private(set) var isResigningKey = false
     var onBlur: (() -> Void)?
     var hasOwnedChildPresentation: (() -> Bool)?
+
+    override var ignoresMouseEvents: Bool {
+        get { super.ignoresMouseEvents }
+        set {
+            ignoresMouseEventsWhenInteractive = newValue
+            super.ignoresMouseEvents = newValue || temporarilyPassesMouseEvents
+        }
+    }
 
     override var canBecomeKey: Bool {
         acceptsDeclaredFocus
@@ -16,6 +26,11 @@ class ShellFocusPanel: NSPanel {
 
     override var canBecomeMain: Bool {
         false
+    }
+
+    func setClockClickPassThrough(_ enabled: Bool) {
+        temporarilyPassesMouseEvents = enabled
+        super.ignoresMouseEvents = ignoresMouseEventsWhenInteractive || enabled
     }
 
     override func resignKey() {

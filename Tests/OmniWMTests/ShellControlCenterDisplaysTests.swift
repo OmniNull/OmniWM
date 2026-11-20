@@ -133,7 +133,12 @@ final class ShellControlCenterDisplaysTests: XCTestCase {
         let studio = ShellBrightness.Display(id: UUID().uuidString, name: "Studio", value: 12, available: true)
         let builtIn = ShellBrightness.Display(id: UUID().uuidString, name: "Built-in", value: 60, available: true)
         let nativeOnly = ShellBrightness.Display(id: UUID().uuidString, name: "Native only", value: 30, available: true)
-        let managedOnly = ShellBrightness.Display(id: UUID().uuidString, name: "Managed only", value: 40, available: true)
+        let managedOnly = ShellBrightness.Display(
+            id: UUID().uuidString,
+            name: "Managed only",
+            value: 40,
+            available: true
+        )
         let projector = ShellBrightness.Display(id: UUID().uuidString, name: "Projector", value: 0, available: false)
         let managedStudio = ShellBrightness.Display(id: studio.id, name: studio.name, value: 75, available: true)
         let unsupportedBuiltIn = ShellBrightness.Display(id: builtIn.id, name: builtIn.name, value: 0, available: false)

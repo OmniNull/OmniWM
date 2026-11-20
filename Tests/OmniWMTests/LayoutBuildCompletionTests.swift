@@ -52,6 +52,34 @@ final class LayoutBuildCompletionTests: XCTestCase {
         XCTAssertEqual(invalidations, 1)
     }
 
+    func testAViewportMutationStoresItsViewportInItsOwnWorldEvent() throws {
+        let (controller, workspaceId) = try fixture()
+        let manager = controller.workspaceManager
+        let shifted = manager.niriViewportState(for: workspaceId).viewOffset + 1
+        let recorded = manager.recordedWorldEventCount
+
+        manager.withNiriViewportState(for: workspaceId) { $0.jumpOffset(to: shifted) }
+
+        XCTAssertEqual(manager.niriViewportState(for: workspaceId).viewOffset, shifted)
+        XCTAssertEqual(manager.worldEvents(after: recorded), [manager.viewportMutationEvent(in: workspaceId)])
+    }
+
+    func testAViewportMutationThatDeclinesStoresNoViewport() throws {
+        let (controller, workspaceId) = try fixture()
+        let manager = controller.workspaceManager
+        let viewport = manager.niriViewportState(for: workspaceId)
+        let recorded = manager.recordedWorldEventCount
+
+        let stored = manager.withNiriViewportState(for: workspaceId, committingIf: { $0 }) { state in
+            state.jumpOffset(to: state.viewOffset + 1)
+            return false
+        }
+
+        XCTAssertFalse(stored)
+        XCTAssertEqual(manager.niriViewportState(for: workspaceId), viewport)
+        XCTAssertEqual(manager.worldEvents(after: recorded), [manager.viewportMutationEvent(in: workspaceId)])
+    }
+
     private func executeRelayout(
         _ controller: WMController,
         workspaceId: WorkspaceDescriptor.ID,

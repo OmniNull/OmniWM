@@ -42,7 +42,7 @@ final class ShellBetterDisplayClientTests: XCTestCase {
         let invalid = UUID()
         let elsewhere = UUID()
         let ids = [connected, disconnected, invalid, elsewhere]
-        let client = ShellBetterDisplayClient.client(runningPID: { 42 }) { _, command, params in
+        let client = ShellBetterDisplayClient.client(runningPID: { 42 }, request: { _, command, params in
             XCTAssertEqual(command, "get")
             if params.keys.contains("identifiers") {
                 return ids.map { #"{"deviceType":"Display","UUID":"\#($0)"}"# }.joined(separator: ",")
@@ -52,7 +52,7 @@ final class ShellBetterDisplayClientTests: XCTestCase {
             if params.keys.contains("connected") { return id == disconnected.uuidString ? "off" : "on" }
             XCTAssertNotEqual(id, disconnected.uuidString)
             return id == invalid.uuidString ? "nan" : "0.75"
-        }
+        })
         let values = await client.brightness([connected, disconnected, invalid, UUID()])
         XCTAssertEqual(values, [connected: .init(value: 0.75), invalid: .init(value: nil)])
     }
@@ -60,7 +60,7 @@ final class ShellBetterDisplayClientTests: XCTestCase {
     func testWritesValidateTargetsAndKeepActionsPreciselyScoped() async {
         let display = UUID()
         let recorder = Recorder()
-        let client = ShellBetterDisplayClient.client(runningPID: { 42 }) { pid, command, params in
+        let client = ShellBetterDisplayClient.client(runningPID: { 42 }, request: { pid, command, params in
             XCTAssertEqual(pid, 42)
             if command == "set" {
                 await recorder.record(Call(command: command, parameters: params))
@@ -71,7 +71,7 @@ final class ShellBetterDisplayClientTests: XCTestCase {
             if params.keys.contains("brightness") { return "0.3" }
             if params.keys.contains("nightShift") { return "off" }
             return nil
-        }
+        })
 
         let stalePID = await client.setBrightness(41, display, 0.7)
         let missingDisplay = await client.setBrightness(42, UUID(), 0.3)
@@ -95,14 +95,14 @@ final class ShellBetterDisplayClientTests: XCTestCase {
     }
 
     func testUnavailableAppAndFailedRequestsLeaveControlsUnavailable() async {
-        let absent = ShellBetterDisplayClient.client(runningPID: { nil }) { _, _, _ in
+        let absent = ShellBetterDisplayClient.client(runningPID: { nil }, request: { _, _, _ in
             XCTFail("Sent a request while BetterDisplay was absent")
             return nil
-        }
-        let failing = ShellBetterDisplayClient.client(runningPID: { 42 }) { _, command, _ in
+        })
+        let failing = ShellBetterDisplayClient.client(runningPID: { 42 }, request: { _, command, _ in
             XCTAssertEqual(command, "get")
             return nil
-        }
+        })
         for client in [absent, failing] {
             let levels = await client.brightness([UUID()])
             let night = await client.nightShift()
