@@ -317,7 +317,7 @@ class CanaryCITests(unittest.TestCase):
             "head_sha": self.head,
             "head_branch": "main",
             "event": "push",
-            "path": ".github/workflows/approved-ci.yml",
+            "path": ".github/workflows/ci.yml",
             "status": "completed",
             "conclusion": "success",
             "html_url": "https://github.com/OmniNull/OmniWM/actions/runs/100",
@@ -327,7 +327,7 @@ class CanaryCITests(unittest.TestCase):
             for name in ("Verify", "Tests")
         ]
         self.runs_path = (
-            f"repos/{self.repository}/actions/workflows/approved-ci.yml/runs"
+            f"repos/{self.repository}/actions/workflows/ci.yml/runs"
             f"?branch=main&event=push&head_sha={self.head}&per_page=100"
         )
         self.jobs_path = f"repos/{self.repository}/actions/runs/100/jobs?filter=latest&per_page=100"
@@ -368,6 +368,7 @@ class CanaryCITests(unittest.TestCase):
             ("head_branch", "feature"),
             ("event", "pull_request"),
             ("path", ".github/workflows/website.yml"),
+            ("path", ".github/workflows/approved-ci.yml"),
         ):
             with self.subTest(field=field):
                 original = self.run[field]

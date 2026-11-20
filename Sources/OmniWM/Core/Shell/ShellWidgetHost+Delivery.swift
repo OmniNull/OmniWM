@@ -107,8 +107,10 @@ extension ShellWidgetHost {
         guard !widgets.isEmpty else { return }
         let next = barData()
         guard next != bars else { return }
+        let dark = darkBarKeys()
         bars = next
         syncBarPalettes()
+        if darkBarKeys() != dark { refreshBarShaders() }
         refreshIslandData()
         if let popout, popout.key.placement == .bar, headless == nil, next[popout.key] == nil {
             closePopout()
@@ -133,7 +135,7 @@ extension ShellWidgetHost {
 
     private func darkBarKeys() -> Set<ShellBarKey> {
         var keys: Set<ShellBarKey> = []
-        for (key, data) in bars where key.placement == .bar && data.style.solidBlack {
+        for (key, data) in bars where key.placement == .bar && (data.style.solidBlack || data.style.dark) {
             keys.insert(key)
         }
         return keys

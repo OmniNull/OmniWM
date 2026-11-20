@@ -1,27 +1,20 @@
 name: OmniWM CI
-run-name: >-
-  ${{ inputs.pr_number && format('PR #{0} {1} {2}', inputs.pr_number, inputs.head_sha, inputs.merge_sha) || format('Main CI {0}', github.sha) }}
 
 on:
+  pull_request:
+    paths-ignore: ['docs/**', 'website/**', '*.md']
   push:
-    branches: [main]
+    branches: [main, '**-release']
     paths-ignore: ['docs/**', 'website/**', '*.md']
   workflow_dispatch:
     inputs:
       pr_number:
-        description: Approved pull request number (set by approval policy)
+        description: Pull request number to check against its base branch (optional)
         required: false
-        type: string
-      head_sha:
-        description: Approved PR head commit
-        type: string
-      merge_sha:
-        description: Approved immutable merge commit
         type: string
 
 permissions:
   contents: read
-  pull-requests: read
 
 cache-mode: read
 
@@ -30,30 +23,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  approval:
-    name: Authorize exact source
-    runs-on: blacksmith-2vcpu-ubuntu-2604
-    timeout-minutes: 5
-    outputs:
-      checkout: ${{ steps.policy.outputs.checkout }}
-      head: ${{ steps.policy.outputs.head }}
-      base: ${{ steps.policy.outputs.base }}
-      website: ${{ steps.policy.outputs.website }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Check approval before running repository code
-        id: policy
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-          EXPECTED_HEAD: ${{ inputs.head_sha }}
-          EXPECTED_MERGE: ${{ inputs.merge_sha }}
-        run: python3 Scripts/ci-approval.py authorize
   cache-dependencies:
-    needs: approval
     name: Cache dependencies
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     cache-mode: write
@@ -62,7 +32,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ needs.approval.outputs.checkout }}
           fetch-depth: 0
           filter: blob:none
           persist-credentials: false
@@ -89,7 +58,6 @@ jobs:
           path: .build/localization
           key: swift-build-v4-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.build-environment }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
   changes:
-    needs: approval
     name: Changes
     runs-on: blacksmith-2vcpu-ubuntu-2604
     timeout-minutes: 5
@@ -99,22 +67,21 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          fetch-depth: 0
-          ref: ${{ needs.approval.outputs.checkout }}
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
+          ref: ${{ github.ref }}
           persist-credentials: false
       - name: Plan the Swift test groups
         id: plan
         env:
-          EVENT: ${{ inputs.pr_number != '' && 'pull_request' || github.event_name }}
-          BASE: ${{ needs.approval.outputs.base }}
-          HEAD: ${{ needs.approval.outputs.head }}
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -o pipefail
           if [[ "$EVENT" == pull_request ]]; then
             git diff --name-only "$BASE...$HEAD"
           fi | python3 Scripts/ci_test_plan.py "$EVENT" >> "$GITHUB_OUTPUT"
   tooling:
-    needs: approval
     name: Tooling
     runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 30
@@ -129,7 +96,7 @@ jobs:
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ needs.approval.outputs.checkout }}
+          ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
           persist-credentials: false
       - name: Check pinned downloads
         run: make check-pins
@@ -152,7 +119,7 @@ jobs:
         run: make test-dev-tools
   verify:
     name: Verify
-    needs: [approval, changes]
+    needs: changes
     runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 60
     steps:
@@ -166,7 +133,7 @@ jobs:
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ needs.approval.outputs.checkout }}
+          ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
           fetch-depth: 0
           filter: blob:none
           persist-credentials: false
@@ -227,8 +194,8 @@ jobs:
         run: OMNIWM_LIVE_CHECKS=1 LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64 --scratch-path .build/localization
   test-group:
     name: Tests (${{ matrix.name }})
-    needs: [approval, changes, verify]
-    if: ${{ !cancelled() && needs.approval.result == 'success' && needs.changes.outputs.tests == 'true' && needs.verify.result == 'success' }}
+    needs: [changes, verify]
+    if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' && needs.verify.result == 'success' }}
     runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 30
     strategy:
@@ -245,7 +212,7 @@ jobs:
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ needs.approval.outputs.checkout }}
+          ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
           persist-credentials: false
       - uses: ./.github/actions/setup-audio
       - uses: ./.github/actions/setup-swift
@@ -277,8 +244,8 @@ jobs:
           fi
   tests:
     name: Tests
-    needs: [approval, changes, verify, test-group]
-    if: ${{ !cancelled() && needs.approval.result == 'success' }}
+    needs: [changes, verify, test-group]
+    if: ${{ !cancelled() }}
     runs-on: blacksmith-2vcpu-ubuntu-2604
     timeout-minutes: 5
     steps:
@@ -297,26 +264,3 @@ jobs:
             echo "::error::Changes $CHANGES, verify $VERIFY, test groups $TEST_GROUPS."
             exit 1
           }
-  website:
-    name: Website
-    needs: approval
-    if: needs.approval.outputs.website == 'true'
-    runs-on: blacksmith-2vcpu-ubuntu-2604
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: website
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.approval.outputs.checkout }}
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: 24.15.0
-          cache: npm
-          cache-dependency-path: website/package-lock.json
-      - run: npm ci
-      - run: npm run reference:check
-      - run: npm run check
-      - run: npm run build

@@ -42,13 +42,34 @@ final class ShellMenuAppTests: XCTestCase {
         }
 
         XCTAssertNil(controller.workspaceManager.selectedManagedToken)
-        XCTAssertEqual(controller.shellMenuApp(frontmost: frontmost()), ShellMenuApp(
+        XCTAssertEqual(controller.shellMenuApp(frontmost: frontmost(), menuBarOwner: nil), ShellMenuApp(
             pid: app.processIdentifier,
             name: app.localizedName ?? "",
             bundle: app.bundleIdentifier ?? ""
         ))
         XCTAssertEqual(frontmostReads, 1)
         XCTAssertNil(controller.shellMenuApp(frontmost: nil))
+    }
+
+    func testFocusedManagedAccessoryUsesMenuBarOwner() throws {
+        let helper = ShellMenuApp(pid: 910_003, name: "Window Helper", bundle: "com.example.app.helper")
+        let controller = try selectedController(pid: helper.pid)
+        _ = controller.appInfoCache.info(for: helper.pid) { _ in
+            .init(name: helper.name, bundleId: helper.bundle, icon: nil, activationPolicy: .accessory)
+        }
+        XCTAssertEqual(controller.workspaceManager.nativeManagedFocusToken?.pid, helper.pid)
+
+        let owner = NSRunningApplication.current
+        let expected = ShellMenuApp(
+            pid: owner.processIdentifier,
+            name: owner.localizedName ?? "",
+            bundle: owner.bundleIdentifier ?? ""
+        )
+        XCTAssertEqual(controller.shellMenuApp(frontmost: nil, menuBarOwner: owner), expected)
+        XCTAssertEqual(controller.shellMenuApp(frontmost: nil, menuBarOwner: nil), helper)
+
+        XCTAssertTrue(controller.workspaceManager.recordExternalFocus(pid: owner.processIdentifier))
+        XCTAssertEqual(controller.shellMenuApp(frontmost: owner, menuBarOwner: owner), helper)
     }
 
     func testMissingManagedMetadataDoesNotBorrowFrontmostIdentity() throws {
