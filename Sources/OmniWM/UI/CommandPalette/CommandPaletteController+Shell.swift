@@ -44,6 +44,7 @@ extension CommandPaletteController {
     func prewarmShell(from source: WorkspaceBarManager?) {
         guard !isVisible else {
             deferredShellSource = source
+            source?.refreshCommandPaletteAppearance(ifThemeChanged: true)
             return
         }
         deferredShellSource = nil
