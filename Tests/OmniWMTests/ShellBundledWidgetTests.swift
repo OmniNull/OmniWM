@@ -802,6 +802,34 @@ final class ShellBundledWidgetTests: XCTestCase {
         }
     }
 
+    func testWiFiNetworksPopoutScrollsInsteadOfOutgrowingAShortDisplay() throws {
+        let networks = { (prefix: String, known: Bool) in
+            (1 ... 12).map { index in
+                ShellWiFiNetwork(
+                    id: ShellWiFiNetwork.id(Data("\(prefix) \(index)".utf8)), ssid: "\(prefix) \(index)",
+                    rssi: -40 - index, security: "WPA2 Personal", secured: true, known: known
+                )
+            }
+        }
+        let data = try fullData { $0.style.height = 32 }.map { key, bytes in
+            key == "wifiNetworks"
+                ? (key, value {
+                    ShellWiFiNetworks(known: networks("Known", true), other: networks("Other", false))
+                        .write(into: &$0)
+                })
+                : (key, bytes)
+        }
+        var rendered = false
+        try renderStyle("default", widget: "wifi-networks", data: data, inspect: { view, nodes, _ in
+            guard view == OMNI_VIEW_POPOUT else { return }
+            let root = try XCTUnwrap(nodes.first)
+            XCTAssertLessThanOrEqual(root.height, 700)
+            XCTAssertTrue(nodes.contains { UInt32($0.flags) & OMNI_NODE_SCROLL != 0 })
+            rendered = true
+        })
+        XCTAssertTrue(rendered)
+    }
+
     func testDefaultControlCenterTabsRenderWithFullAndMissingDataAndUnknownTabsShowOverview() throws {
         let full = try fullData { $0.style.height = 32 }
         let variants = [full, full.filter { Self.essentials.contains($0.0) }]

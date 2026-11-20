@@ -32,7 +32,7 @@ actor WiFiSettingsJoiner {
             if let app = NSRunningApplication.runningApplications(withBundleIdentifier: settingsBundle)
                 .first(where: { !$0.isTerminated })
             {
-                switch await shared.attempt(pid: app.processIdentifier, ssid: network.ssid, deadline: deadline) {
+                switch await shared.attempt(pid: app.processIdentifier, network: network, deadline: deadline) {
                 case .dispatched: return nil
                 case .blocked: return failure
                 case .waiting: break
@@ -55,17 +55,33 @@ actor WiFiSettingsJoiner {
         return match
     }
 
+    enum RowSecurity: Equatable {
+        case unknown, matches, conflicts
+    }
+
+    static func rowSecurity(in identifiers: Set<String>, ssid: String, secured: Bool) -> RowSecurity {
+        let row = "wifi-network-\(ssid)"
+        guard identifiers.contains("\(row)-signal") else { return .unknown }
+        return identifiers.contains("\(row)-secure") == secured ? .matches : .conflicts
+    }
+
     private enum Attempt {
         case waiting, dispatched, blocked
     }
 
-    private func attempt(pid: pid_t, ssid: String, deadline: TimeInterval) -> Attempt {
+    private func attempt(pid: pid_t, network: ShellWiFiNetwork, deadline: TimeInterval) -> Attempt {
+        let ssid = network.ssid
         let app = AXUIElementCreateApplication(pid)
         do {
             let search = SSIDSearch(ssid: ssid, deadline: deadline)
             let windows = try search.attribute(kAXWindowsAttribute, of: app) as? [AXUIElement] ?? []
             for window in windows { try search.visit(window, depth: 0) }
             guard let label = search.match else { return .waiting }
+            switch Self.rowSecurity(in: search.identifiers, ssid: ssid, secured: network.secured) {
+            case .unknown: return .waiting
+            case .conflicts: return .blocked
+            case .matches: break
+            }
             guard let value = try search.attribute(kAXValueAttribute, of: label) as? String,
                   value.utf8.elementsEqual(ssid.utf8)
             else { return .waiting }
@@ -94,6 +110,7 @@ actor WiFiSettingsJoiner {
         let ssid: String
         let deadline: TimeInterval
         private(set) var match: AXUIElement?
+        private(set) var identifiers: Set<String> = []
         private var nodesLeft = nodeBudget
 
         init(ssid: String, deadline: TimeInterval) {
@@ -129,6 +146,9 @@ actor WiFiSettingsJoiner {
                subrole == kAXDialogSubrole || subrole == kAXSystemDialogSubrole
             { throw SearchStop.abort }
             if role == kAXTextFieldRole || role == kAXTextAreaRole { return }
+            if role == kAXUnknownRole, let identifier = try attribute(kAXIdentifierAttribute, of: element) as? String {
+                identifiers.insert(identifier)
+            }
             if role == kAXStaticTextRole,
                let value = try attribute(kAXValueAttribute, of: element) as? String,
                value.utf8.elementsEqual(ssid.utf8)

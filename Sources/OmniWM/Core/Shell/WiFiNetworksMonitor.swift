@@ -205,7 +205,7 @@ private final class WiFiNetworkEvents: NSObject, CWEventDelegate, Sendable {
 final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
     static let rescan = DispatchTimeInterval.seconds(10)
     private static let reader = DispatchQueue(label: "com.barut.OmniWM.shell.wifi.networks", qos: .utility)
-    private static let radio = DispatchQueue(label: "com.barut.OmniWM.shell.wifi.radio", qos: .userInitiated)
+    static let radio = DispatchQueue(label: "com.barut.OmniWM.shell.wifi.radio", qos: .userInitiated)
     private static let events: [CWEventType] = [.powerDidChange, .ssidDidChange, .scanCacheUpdated]
 
     typealias Lists = (known: [ShellWiFiNetwork], other: [ShellWiFiNetwork])

@@ -214,12 +214,12 @@ extension ShellDevicesTests {
     func testADirectJoinSurvivesThePopoutClosing() async throws {
         let office = WiFiJoinTargets().office
         let (changes, changed) = boundedChanges()
-        let release = DispatchSemaphore(value: 0)
+        let joins = OSAllocatedUnfairLock(initialState: 0)
         var handedOff: [ShellWiFiNetwork] = []
         let monitor = WiFiNetworksMonitor(
             read: { ([office], []) }, scan: {},
             join: { _ in
-                if release.wait(timeout: .now() + 5) == .timedOut { XCTFail("A second join reached the radio") }
+                joins.withLock { $0 += 1 }
                 return .needsSettings
             },
             joinInSettings: { network in
@@ -237,9 +237,19 @@ extension ShellDevicesTests {
         monitor.setListening(true)
         XCTAssertEqual(monitor.value?.joining, office.id)
         monitor.join(office.id)
-        release.signal()
         await changes.wait { !handedOff.isEmpty && monitor.value?.joining == nil }
+        WiFiNetworksMonitor.radio.sync {}
+        XCTAssertEqual(joins.withLock { $0 }, 1)
         XCTAssertEqual(handedOff, [office])
+    }
+
+    func testTheSettingsHandoffOnlyClicksARowWhoseSecurityMatches() {
+        let ids: Set = ["wifi-network-Home-signal", "wifi-network-Home-secure", "wifi-network-Cafe-signal"]
+        XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Home", secured: true), .matches)
+        XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Home", secured: false), .conflicts)
+        XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Cafe", secured: false), .matches)
+        XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Cafe", secured: true), .conflicts)
+        XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Office", secured: true), .unknown)
     }
 
     func testAFailedDirectJoinHandsOffToSettings() async throws {

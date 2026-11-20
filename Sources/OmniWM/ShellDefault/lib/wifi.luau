@@ -7,6 +7,8 @@ local actions = require("./actions")
 local wifi = { settings = "wifi settings" }
 local SPREAD = math.rad(45)
 local BANDS = { { 0, 2.8 }, { 5.2, 7.8 }, { 10, 12.6 }, { 14.8, 17.4 } }
+local SCROLL_AFTER = 7
+local LIST_HEIGHT = 360
 wifi.bandCount = #BANDS
 
 local function bars(rssi: number?): number
@@ -171,13 +173,13 @@ function wifi.networkSections(ctx, width: number)
     if not data then
         return {}
     end
-    local sections = {}
+    local lists = { w = width, gap = 12, center = false }
     if #data.known > 0 then
         local group = { w = width, header(omniwm.l10n("Known Networks"), width) }
         for _, entry in data.known do
             group[#group + 1] = network(entry, data, width)
         end
-        sections[#sections + 1] = look.group(group)
+        lists[#lists + 1] = look.group(group)
     end
     local refresh = if data.scanning
         then look.text{ text = omniwm.l10n("Scanning…"), size = 11, color = "secondaryForeground" }
@@ -192,7 +194,12 @@ function wifi.networkSections(ctx, width: number)
         group[#group + 1] = look.text{ text = omniwm.l10n("No Networks Found"), size = 13,
             color = "secondaryForeground" }
     end
-    sections[#sections + 1] = look.group(group)
+    lists[#lists + 1] = look.group(group)
+    if #data.known + #data.other > SCROLL_AFTER then
+        lists.h = LIST_HEIGHT
+        lists.scroll = true
+    end
+    local sections = { ui.column(lists) }
     local failure = data.failure
     if failure and not listed(data, failure.id) then
         sections[#sections + 1] = actions.notice(failure.message, width)
