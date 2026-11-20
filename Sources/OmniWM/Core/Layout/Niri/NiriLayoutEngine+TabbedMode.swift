@@ -38,7 +38,8 @@ extension NiriLayoutEngine {
         _ column: NiriContainer,
         in workspaceId: WorkspaceDescriptor.ID,
         motion: MotionSnapshot,
-        orientation: Monitor.Orientation
+        orientation: Monitor.Orientation,
+        animateWindowMovement: Bool = true
     ) -> Bool {
         assertSanctionedMutation()
         let newMode: ColumnDisplay = column.displayMode == .normal ? .tabbed : .normal
@@ -47,7 +48,8 @@ extension NiriLayoutEngine {
             for: column,
             in: workspaceId,
             motion: motion,
-            orientation: orientation
+            orientation: orientation,
+            animateWindowMovement: animateWindowMovement
         )
     }
 
@@ -58,7 +60,8 @@ extension NiriLayoutEngine {
         in workspaceId: WorkspaceDescriptor.ID,
         motion: MotionSnapshot,
         orientation: Monitor.Orientation,
-        gaps: CGFloat = 0
+        gaps: CGFloat = 0,
+        animateWindowMovement: Bool = true
     ) -> Bool {
         guard column.displayMode != mode else { return false }
 
@@ -82,7 +85,7 @@ extension NiriLayoutEngine {
         )
         let originDelta = CGPoint(x: prevOrigin.x - newOrigin.x, y: prevOrigin.y - newOrigin.y)
 
-        if windows.count > 1 {
+        if windows.count > 1, motion.animationsEnabled, animateWindowMovement {
             let tileOffsets = projectedSecondaryOffsets(
                 for: windows,
                 effectiveTabbed: false,
@@ -104,6 +107,10 @@ extension NiriLayoutEngine {
                         animated: motion.animationsEnabled
                     )
                 }
+            }
+        } else if !motion.animationsEnabled {
+            for window in windows where window.hasMoveAnimationsRunning {
+                window.stopMoveAnimations()
             }
         }
 

@@ -38,15 +38,30 @@ struct ShellWorldData: Equatable, Sendable {
 
 extension WMController {
     func shellMenuApp(
-        frontmost: @autoclosure () -> NSRunningApplication? = NSWorkspace.shared.frontmostApplication
+        frontmost: @autoclosure () -> NSRunningApplication? = NSWorkspace.shared.frontmostApplication,
+        menuBarOwner: @autoclosure () -> NSRunningApplication? = NSWorkspace.shared.menuBarOwningApplication
     ) -> ShellMenuApp? {
+        func runningMenuBarOwner() -> NSRunningApplication? {
+            guard let owner = menuBarOwner(), !owner.isTerminated else { return nil }
+            return owner
+        }
+
+        let app: NSRunningApplication
         if let token = workspaceManager.selectedManagedToken,
            let pid = workspaceManager.withEntry(token, { $0.pid })
         {
             let info = appInfoCache.info(for: pid)
-            return ShellMenuApp(pid: pid, name: info?.name ?? "", bundle: info?.bundleId ?? "")
+            guard info?.activationPolicy == .accessory,
+                  workspaceManager.nativeManagedFocusToken?.pid == pid,
+                  let owner = runningMenuBarOwner()
+            else {
+                return ShellMenuApp(pid: pid, name: info?.name ?? "", bundle: info?.bundleId ?? "")
+            }
+            app = owner
+        } else {
+            guard let frontmostApp = frontmost(), !frontmostApp.isTerminated else { return nil }
+            app = frontmostApp.activationPolicy == .accessory ? runningMenuBarOwner() ?? frontmostApp : frontmostApp
         }
-        guard let app = frontmost(), !app.isTerminated else { return nil }
         return ShellMenuApp(
             pid: app.processIdentifier,
             name: app.localizedName ?? "",

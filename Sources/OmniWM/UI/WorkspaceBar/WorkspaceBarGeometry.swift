@@ -124,6 +124,9 @@ struct WorkspaceBarGeometry: Equatable {
     }
 
     func zones(frame: CGRect, monitor: Monitor, resolved: ResolvedBarSettings) -> WorkspaceBarZones? {
+        if resolved.notchMode == .fillLeftOfNotch {
+            return WorkspaceBarZones(notch: nil, mode: .off)
+        }
         guard resolved.fullWidth else { return nil }
         let notch = effectivePosition == .overlappingMenuBar && monitor.hasNotch ? monitor.notchRange : nil
         return WorkspaceBarZones(

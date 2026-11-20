@@ -39,13 +39,13 @@ struct ShellMicrophoneAccess {
     var read: @MainActor (AudioObjectID) -> ShellMicrophone
     var setVolume: @MainActor (AudioObjectID, Double) -> Bool
     var setMuted: @MainActor (AudioObjectID, Bool) -> Bool
-    var addListener: @MainActor (AudioObjectID, AudioObjectPropertyAddress, @escaping AudioObjectPropertyListenerBlock)
-        -> OSStatus
-    var removeListener: @MainActor (
+    var addListener: (@MainActor (AudioObjectID, AudioObjectPropertyAddress, @escaping AudioObjectPropertyListenerBlock)
+        -> OSStatus)?
+    var removeListener: (@MainActor (
         AudioObjectID,
         AudioObjectPropertyAddress,
         @escaping AudioObjectPropertyListenerBlock
-    ) -> OSStatus
+    ) -> OSStatus)?
 
     static let live = ShellMicrophoneAccess(
         defaultDevice: ShellAudio.defaultInput,
@@ -73,15 +73,6 @@ struct ShellMicrophoneAccess {
                 on: device,
                 address: ShellAudio.muteAddress(scope: kAudioDevicePropertyScopeInput)
             )
-        },
-        addListener: { device, address, block in
-            var address = address
-            guard AudioObjectHasProperty(device, &address) else { return kAudioHardwareUnknownPropertyError }
-            return AudioObjectAddPropertyListenerBlock(device, &address, .main, block)
-        },
-        removeListener: { device, address, block in
-            var address = address
-            return AudioObjectRemovePropertyListenerBlock(device, &address, .main, block)
         }
     )
 
@@ -131,18 +122,12 @@ extension ShellAudio {
 
 @MainActor
 final class ShellMicrophoneMonitor {
-    private struct Listener {
-        let object: AudioObjectID
-        let address: AudioObjectPropertyAddress
-        let block: AudioObjectPropertyListenerBlock
-    }
-
     private(set) var value = ShellMicrophone()
     var onChange: ((ShellMicrophone) -> Void)?
     private let access: ShellMicrophoneAccess
     private var listening = false
     private var device: AudioObjectID?
-    private var listeners: [Listener] = []
+    private var listeners: [AudioPropertyListener] = []
 
     init(access: ShellMicrophoneAccess = .live) {
         self.access = access
@@ -197,15 +182,26 @@ final class ShellMicrophoneMonitor {
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             MainActor.assumeIsolated { self?.refresh() }
         }
-        if access.addListener(object, address, block) == noErr {
-            listeners.append(Listener(object: object, address: address, block: block))
+        if let add = access.addListener {
+            if add(object, address, block) == noErr {
+                listeners.append(AudioPropertyListener(object: object, address: address, block: block))
+            }
+        } else if let listener = AudioPropertyListener
+            .listen(to: object, address: address, queue: .main, block: block)
+        {
+            listeners.append(listener)
         }
     }
 
     private func removeListeners(keepingSystem: Bool = false) {
         let system = AudioObjectID(kAudioObjectSystemObject)
         for listener in listeners where !keepingSystem || listener.object != system {
-            _ = access.removeListener(listener.object, listener.address, listener.block)
+            if let block = listener.block, let remove = access.removeListener {
+                let status = remove(listener.object, listener.address, block)
+                if status != noErr { Log.shell.error("Removing a microphone listener failed with status \(status)") }
+            } else {
+                listener.remove(on: .main)
+            }
         }
         if keepingSystem { listeners.removeAll { $0.object != system } }
         else { listeners.removeAll() }

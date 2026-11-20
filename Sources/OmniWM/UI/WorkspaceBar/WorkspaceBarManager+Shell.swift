@@ -297,10 +297,12 @@ extension WorkspaceBarManager {
         let showsLayout = controller.settings.statusBar.showLayout
         for bar in lastBars where keepsShellInstance(bar) {
             let resolved = settings.resolved(for: bar.monitor)
+            var style = ShellBarStyle(resolved, settings: settings, snapshot: bar.snapshot)
+            style.dark = usesDarkPalette(resolved)
             var data = ShellBarData(
                 monitor: bar.monitor,
                 snapshot: bar.snapshot,
-                style: ShellBarStyle(resolved, settings: settings, snapshot: bar.snapshot),
+                style: style,
                 sessionToken: shellSessionToken,
                 badges: notificationBadges,
                 icons: &icons

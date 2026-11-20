@@ -6,17 +6,18 @@ import Foundation
 import QuartzCore
 
 extension DwindleLayoutEngine {
-    private func feasibleRatioRange(
+    func feasibleRatioRange(
         for split: DwindleNode,
         innerGap: CGFloat,
-        excludedTokens: Set<WindowToken>
+        excludedTokens: Set<WindowToken>,
+        bounds: ClosedRange<CGFloat>
     ) -> ClosedRange<CGFloat>? {
         guard case let .split(orientation, _) = split.kind,
               let rect = split.cachedFrame,
               let first = split.firstChild(),
               let second = split.secondChild()
         else {
-            return 0.1 ... 1.9
+            return bounds
         }
 
         let boundaryEdges = tilingBoundaryEdges(of: split, excluding: excludedTokens)
@@ -48,13 +49,14 @@ extension DwindleLayoutEngine {
             axisLength = rect.height
         }
 
-        guard axisLength > 0 else { return 0.1 ... 1.9 }
+        guard axisLength > 0 else { return bounds }
         guard firstMin + secondMin <= axisLength else { return nil }
 
-        let lower = max(0.1, 2 * firstMin / axisLength)
-        let upper = min(1.9, 2 * (axisLength - secondMin) / axisLength)
+        let lower = max(bounds.lowerBound, 2 * firstMin / axisLength)
+        let upper = min(bounds.upperBound, 2 * (axisLength - secondMin) / axisLength)
         guard lower <= upper else {
-            return 2 * firstMin / axisLength > 1.9 ? 1.9 ... 1.9 : 0.1 ... 0.1
+            let limit = 2 * firstMin / axisLength > bounds.upperBound ? bounds.upperBound : bounds.lowerBound
+            return limit ... limit
         }
         return lower ... upper
     }
@@ -63,12 +65,14 @@ extension DwindleLayoutEngine {
         _ ratio: CGFloat,
         for split: DwindleNode,
         innerGap: CGFloat,
-        excludedTokens: Set<WindowToken> = []
+        excludedTokens: Set<WindowToken> = [],
+        referenceRatio: CGFloat? = nil
     ) -> CGFloat {
         guard let range = feasibleRatioRange(
             for: split,
             innerGap: innerGap,
-            excludedTokens: excludedTokens
+            excludedTokens: excludedTokens,
+            bounds: settings.resizeRatioRange(from: referenceRatio ?? split.splitRatio ?? settings.defaultSplitRatio)
         ) else {
             return split.splitRatio ?? settings.clampedRatio(ratio)
         }

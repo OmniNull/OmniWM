@@ -30,6 +30,8 @@ final class WMController {
     private(set) var systemHyperTriggerFailure: SystemHyperTriggerFailure?
     private(set) var windowSwitcherInputAvailable = false
     var keyboardModeKind = KeyboardModeKind.normal
+    @ObservationIgnored
+    var userActionCount: UInt64 = 0
     let secureInputMonitor = SecureInputMonitor()
     let secureInputIndicator = SecureInputIndicatorController()
     let lockScreenObserver = LockScreenObserver()
@@ -59,15 +61,6 @@ final class WMController {
     )
     let traceCaptureCoordinator: RuntimeTraceCaptureCoordinator
     let appInfoCache = AppInfoCache()
-    @ObservationIgnored
-    private(set) lazy var resizeOverlay = ResizeOverlayController(
-        currentFrame: { [weak self] in self?.axManager.lastAppliedFrame(for: $0.windowId) },
-        monitorFrame: { [weak self] in self?.workspaceManager.monitor(for: $0)?.frame },
-        icon: { [weak self] in self?.appInfoCache.info(for: $0.pid)?.icon },
-        requestRelayout: { [weak self] in
-            self?.layoutRefreshController.requestRelayout(reason: .staleLayoutPlan, affectedWorkspaceIds: [$0])
-        }
-    )
     @ObservationIgnored
     private(set) lazy var niriEdgePictures = makeEdgePictures()
 

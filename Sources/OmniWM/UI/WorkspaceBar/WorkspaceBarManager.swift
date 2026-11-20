@@ -19,6 +19,8 @@ final class WorkspaceBarManager {
         panel.setFrame(frame, display: true)
     }
 
+    var menuBarIsDark: @MainActor () -> Bool = { false }
+
     private(set) var barsByMonitor: [Monitor.ID: WorkspaceBarInstance] = [:]
     weak var controller: WMController?
     private weak var settings: SettingsStore?
@@ -73,6 +75,14 @@ final class WorkspaceBarManager {
     var shellHiddenBarBitmaps: Set<String> = []
     var retiredShellHiddenBarBitmaps: Set<String> = []
     var menuBarHold: MenuBarAutohideHold?
+    var menuBarOverflow: NativeMenuBarOverflowWatcher? {
+        didSet {
+            oldValue?.setActive(false)
+            menuBarOverflow?.onChange = { [weak self] in
+                self?.controller?.requestWorkspaceBarRefresh()
+            }
+        }
+    }
 
     isolated deinit {
         if let commandPaletteColorsObserver {
@@ -119,14 +129,16 @@ final class WorkspaceBarManager {
         var staleMonitorIds = Set(barsByMonitor.keys)
         for bar in bars where bar.isRetained {
             staleMonitorIds.remove(bar.monitor.id)
+            let resolved = settings.workspaceBar.resolved(for: bar.monitor)
+            guard bar.snapshot.orientation == resolved.position.orientation else { continue }
             let snapshot = shellSnapshot(for: bar)
             if let existing = barsByMonitor[bar.monitor.id] {
-                if !updateBarForMonitor(bar.monitor, snapshot: snapshot, instance: existing) {
+                if !updateBarForMonitor(bar.monitor, snapshot: snapshot, resolved: resolved, instance: existing) {
                     removeBarForMonitor(bar.monitor.id)
-                    createBarForMonitor(bar.monitor, snapshot: snapshot)
+                    createBarForMonitor(bar.monitor, snapshot: snapshot, resolved: resolved)
                 }
             } else {
-                createBarForMonitor(bar.monitor, snapshot: snapshot)
+                createBarForMonitor(bar.monitor, snapshot: snapshot, resolved: resolved)
             }
             applyVisibility(bar.visible, on: bar.monitor.id)
         }
@@ -142,6 +154,9 @@ final class WorkspaceBarManager {
         }
         updateShellHiddenBarPlacement()
         rebuildAutoHideTargets()
+        menuBarOverflow?.setActive(bars.contains {
+            settings.workspaceBar.resolved(for: $0.monitor).notchMode == .fillLeftOfNotch
+        })
         if let menuBarHold, let controller {
             menuBarHold.update(hiding: bars.contains { bar in
                 let resolved = settings.workspaceBar.resolved(for: bar.monitor)
@@ -156,10 +171,13 @@ final class WorkspaceBarManager {
         refreshShellBarColors(settings)
     }
 
-    private func createBarForMonitor(_ monitor: Monitor, snapshot: WorkspaceBarSnapshot) {
-        guard controller != nil, let settings else { return }
+    private func createBarForMonitor(
+        _ monitor: Monitor,
+        snapshot: WorkspaceBarSnapshot,
+        resolved: ResolvedBarSettings
+    ) {
+        guard controller != nil else { return }
 
-        let resolved = settings.workspaceBar.resolved(for: monitor)
         let model = WorkspaceBarModel(snapshot: snapshot)
         model.hiddenBarJoinEdge = hiddenBarJoinEdge(on: monitor.id)
         let measurementView = NSHostingView(rootView: WorkspaceBarMeasurementView(snapshot: snapshot))
@@ -181,7 +199,7 @@ final class WorkspaceBarManager {
         )
         barsByMonitor[monitor.id] = instance
 
-        instance.applyCurrentAppearance()
+        instance.applyAppearance(barAppearance(for: resolved))
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         surfaceCoordinator.register(
             window: primary.panel,
@@ -193,16 +211,14 @@ final class WorkspaceBarManager {
     private func updateBarForMonitor(
         _ monitor: Monitor,
         snapshot: WorkspaceBarSnapshot,
+        resolved: ResolvedBarSettings,
         instance: WorkspaceBarInstance
     ) -> Bool {
-        guard let settings else { return false }
-
         let screen = screenProvider(monitor.displayId)
         guard instance.updateMonitor(monitor, screen: screen) else { return false }
 
-        let resolved = settings.workspaceBar.resolved(for: monitor)
         instance.updateSnapshot(snapshot)
-        instance.applyCurrentAppearance()
+        instance.applyAppearance(barAppearance(for: resolved))
         instance.applyPanelSettings(resolved: resolved)
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         return true
@@ -271,6 +287,7 @@ final class WorkspaceBarManager {
             stopShellHost()
         }
         syncNotificationBadges()
+        menuBarOverflow?.setActive(false)
         menuBarHold?.update(hiding: false)
     }
 

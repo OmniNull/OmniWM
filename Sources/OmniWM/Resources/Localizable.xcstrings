@@ -1,6 +1,57 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "App’s Own Size" : {
+
+    },
+    "Keep Existing Window Sizes" : {
+
+    },
+    "With fewer columns than this number, columns grow to fill the display. Off keeps their own widths in horizontal strips and heights in vertical strips." : {
+
+    },
+    "A new window keeps its app’s width in a horizontal strip or height in a vertical strip. A window with an opening-size rule keeps its rule." : {
+
+    },
+    "A window already open when OmniWM first tiles it keeps its width in a horizontal strip or height in a vertical strip." : {
+
+    },
+    "Undo and Redo" : {
+
+    },
+    "Keeps part of the next window in view at each strip edge that has more windows. Columns and resizes leave room for it unless a window needs more space. A share of the display’s width for horizontal strips or height for vertical strips; at 0%, peeking is off." : {
+
+    },
+    "A window moved out of a stack, or gathered into a new column, takes the size of the column it came from." : {
+
+    },
+    "Also centers a strip whose columns all fit on the display." : {
+
+    },
+    "Auto divides the primary axis by the Visible Containers setting, or uses Preset 1 when that is Off." : {
+
+    },
+    "Changing Visible Containers or the default span leaves open columns as they are." : {
+
+    },
+    "Focusing or closing the first or last column leaves no empty space past the end of the strip." : {
+
+    },
+    "Keep Size When Pulling Out or Gathering" : {
+
+    },
+    "Keep Sizes When Layout Settings Change" : {
+
+    },
+    "Keep Sizes When Moving a Workspace to Another Display" : {
+
+    },
+    "Keep Strip Ends on Screen" : {
+
+    },
+    "Kept Sizes" : {
+
+    },
     "This removes the saved launcher entry and clears its keyboard shortcut. Your apps and script files stay on disk." : {
 
     },
@@ -664,6 +715,998 @@
         }
       }
     },
+    "Peripheral Vision" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الرؤية المحيطية"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perifert syn"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peripheres Sehen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Περιφερειακή όραση"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visión periférica"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ääreisnäkö"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vision périphérique"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ראייה היקפית"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "परिधीय दृष्टि"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visione periferica"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周辺視野"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "주변 시야"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perifert syn"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perifeer zicht"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Widzenie peryferyjne"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Периферическое зрение"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periferni vid"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perifert seende"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Периферійний зір"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "余光"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تراجع"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fortryd"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Widerrufen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αναίρεση"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kumoa"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "पूर्ववत करें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取り消す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실행 취소"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Angre"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herstel"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cofnij"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отменить"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opozovi"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ångra"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Відмінити"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销"
+          }
+        }
+      }
+    },
+    "Redo" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إعادة"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gentag"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiederholen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Επανάληψη"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rehacer"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tee uudelleen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rétablir"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביצוע חוזר"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "फिर से करें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "やり直す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실행 복귀"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gjør om"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opnieuw"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przywróć"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Повторить"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ponovi"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gör om"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Повторити"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重做"
+          }
+        }
+      }
+    },
+    "Undo takes back the last change to the windows in this workspace, such as a move, a stack, a resize or tabs, up to 20 changes. Redo puts it back." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يتراجع «تراجع» عن آخر تغيير على النوافذ في مساحة العمل هذه، مثل نقل أو تكديس أو تغيير حجم أو علامات تبويب، حتى 20 تغييرًا. ويعيده «إعادة»."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fortryd tager den seneste ændring af vinduerne i dette arbejdsområde tilbage, f.eks. en flytning, en stak, en størrelsesændring eller faner, op til 20 ændringer. Gentag sætter den på plads igen."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Widerrufen nimmt die letzte Änderung an den Fenstern in diesem Arbeitsbereich zurück, etwa ein Verschieben, Stapeln, eine Größenänderung oder Tabs, bis zu 20 Änderungen. Wiederholen stellt sie wieder her."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η Αναίρεση αναιρεί την τελευταία αλλαγή στα παράθυρα αυτού του χώρου εργασίας, όπως μετακίνηση, στοίβαξη, αλλαγή μεγέθους ή καρτέλες, έως 20 αλλαγές. Η Επανάληψη την επαναφέρει."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer revierte el último cambio en las ventanas de este espacio de trabajo, como mover, apilar, redimensionar o pestañas, hasta 20 cambios. Rehacer lo vuelve a aplicar."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kumoa peruu viimeisimmän muutoksen tämän työtilan ikkunoihin, kuten siirron, pinoamisen, koon muutoksen tai välilehdet, enintään 20 muutosta. Tee uudelleen palauttaa sen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler revient sur la dernière modification des fenêtres de cet espace de travail, comme un déplacement, un empilement, un redimensionnement ou des onglets, jusqu’à 20 modifications. Rétablir la réapplique."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ביטול מבטל את השינוי האחרון בחלונות במרחב העבודה הזה, כמו הזזה, ערימה, שינוי גודל או כרטיסיות, עד 20 שינויים. ביצוע חוזר מחזיר אותו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "पूर्ववत करें इस वर्कस्पेस की विंडो में किया गया अंतिम बदलाव वापस लेता है, जैसे खिसकाना, स्टैक करना, आकार बदलना या टैब, 20 बदलावों तक। फिर से करें उसे दोबारा लागू करता है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla annulla l’ultima modifica alle finestre di questo spazio di lavoro, come uno spostamento, un impilamento, un ridimensionamento o le schede, fino a 20 modifiche. Ripristina la riapplica."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取り消すと、このワークスペースのウインドウに対する最後の変更（移動、スタック、サイズ変更、タブなど）が元に戻ります。最大20件まで戻せます。やり直すと再適用されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실행 취소는 이 작업 공간의 윈도우에 대한 마지막 변경(이동, 쌓기, 크기 조절, 탭 등)을 되돌리며, 최대 20개까지 되돌릴 수 있습니다. 실행 복귀는 이를 다시 적용합니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Angre tar tilbake den siste endringen av vinduene i dette arbeidsområdet, for eksempel en flytting, en stabling, en størrelsesendring eller faner, opptil 20 endringer. Gjør om setter den tilbake."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herstel draait de laatste wijziging aan de vensters in deze werkruimte terug, zoals verplaatsen, stapelen, het formaat wijzigen of tabbladen, tot 20 wijzigingen. Opnieuw voert die weer uit."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cofnij wycofuje ostatnią zmianę okien w tym obszarze roboczym, np. przeniesienie, ułożenie w stos, zmianę rozmiaru lub karty, do 20 zmian. Przywróć przywraca ją ponownie."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Отменить» отменяет последнее изменение окон в этом рабочем пространстве, например перемещение, стопку, изменение размера или вкладки, до 20 изменений. «Повторить» возвращает его."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opozovi poništava poslednju promenu prozora u ovom radnom prostoru, poput premeštanja, slaganja, promene veličine ili kartica, do 20 promena. Ponovi je vraća."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ångra tar tillbaka den senaste ändringen av fönstren i den här arbetsytan, till exempel en flytt, en stapling, en storleksändring eller flikar, upp till 20 ändringar. Gör om sätter tillbaka den."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Відмінити» скасовує останню зміну вікон у цьому робочому просторі, як-от переміщення, стос, зміну розміру чи вкладки, до 20 змін. «Повторити» повертає її."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销会撤回此工作区中窗口的最后一次更改，例如移动、堆叠、调整大小或标签页，最多 20 次。重做会重新应用该更改。"
+          }
+        }
+      }
+    },
+    "Drag windows to menu bar to fill screen" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسحب النوافذ إلى شريط القوائم لملء الشاشة"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Træk vinduer til menulinjen for at udfylde skærmen"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fenster in die Menüleiste ziehen, um den Bildschirm zu füllen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σύρετε παράθυρα στη γραμμή μενού για γέμισμα της οθόνης"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastrar ventanas a la barra de menús para llenar la pantalla"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vedä ikkunat valikkoriville täyttääksesi näytön"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faire glisser les fenêtres vers la barre des menus pour remplir l’écran"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גרירת חלונות לשורת התפריטים כדי למלא את המסך"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "स्क्रीन भरने के लिए विंडो को मेनू बार पर खींचें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trascina le finestre sulla barra dei menu per riempire lo schermo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウインドウをメニューバーにドラッグして画面いっぱいに表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "윈도우를 메뉴 막대로 드래그하여 화면 채우기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra vinduer til menylinjen for å fylle skjermen"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep vensters naar de menubalk om het scherm te vullen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przeciągaj okna na pasek menu, aby wypełnić ekran"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетаскивать окна в строку меню для заполнения экрана"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prevucite prozore na traku menija da popune ekran"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra fönster till menyraden för att fylla skärmen"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетягувати вікна на смугу меню, щоб заповнити екран"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将窗口拖移到菜单栏以填充屏幕"
+          }
+        }
+      }
+    },
+    "Drag windows to screen edges to tile" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسحب النوافذ إلى حواف الشاشة لتبليطها"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Træk vinduer til skærmens kanter for at flisebelægge"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fenster an Bildschirmränder ziehen, um sie anzuordnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σύρετε παράθυρα στις άκρες της οθόνης για παράθεση"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastrar ventanas a los bordes de la pantalla para organizarlas en mosaico"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vedä ikkunat näytön reunoille ruudutettaviksi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faire glisser les fenêtres vers les bords de l’écran pour les disposer en mosaïque"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "גרירת חלונות לקצוות המסך כדי לסדר אותם באריחים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "टाइल करने के लिए विंडो को स्क्रीन के किनारों पर खींचें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trascina le finestre sui bordi dello schermo per affiancarle"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウインドウを画面の端にドラッグしてタイル表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "윈도우를 화면 가장자리로 드래그하여 타일 배치"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra vinduer til skjermkantene for å flislegge"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep vensters naar de schermranden om te tegelen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przeciągaj okna do krawędzi ekranu, aby je rozmieścić"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетаскивать окна к краям экрана для размещения мозаикой"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prevucite prozore na ivice ekrana da ih rasporedite u mozaik"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dra fönster till skärmkanterna för att ordna dem sida vid sida"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перетягувати вікна до країв екрана для розміщення мозаїкою"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将窗口拖移到屏幕边缘以平铺"
+          }
+        }
+      }
+    },
+    "Hold ⌥ key while dragging windows to tile" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اضغط مع الاستمرار على مفتاح ⌥ أثناء سحب النوافذ لتبليطها"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold ⌥-tasten nede, mens du trækker vinduer, for at flisebelægge"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌥-Taste beim Ziehen von Fenstern gedrückt halten, um sie anzuordnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Κρατήστε πατημένο το πλήκτρο ⌥ ενώ σύρετε παράθυρα για παράθεση"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantener pulsada la tecla ⌥ al arrastrar ventanas para organizarlas en mosaico"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pidä ⌥-näppäintä painettuna ikkunoita vetäessäsi ruudutusta varten"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenir la touche ⌥ enfoncée en faisant glisser les fenêtres pour les disposer en mosaïque"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "החזקת מקש ⌥ בזמן גרירת חלונות כדי לסדר אותם באריחים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "टाइल करने के लिए विंडो खींचते समय ⌥ कुंजी दबाए रखें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tieni premuto il tasto ⌥ mentre trascini le finestre per affiancarle"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウインドウをドラッグ中に ⌥ キーを押したままにしてタイル表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "윈도우를 드래그하는 동안 ⌥ 키를 눌러 타일 배치"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold inne ⌥-tasten mens du drar vinduer for å flislegge"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Houd de ⌥-toets ingedrukt tijdens het slepen van vensters om te tegelen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Przytrzymaj klawisz ⌥ podczas przeciągania okien, aby je rozmieścić"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удерживать клавишу ⌥ при перетаскивании окон для размещения мозаикой"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Držite taster ⌥ dok prevlačite prozore da ih rasporedite u mozaik"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Håll ned ⌥-tangenten medan du drar fönster för att ordna dem sida vid sida"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Утримувати клавішу ⌥ під час перетягування вікон для розміщення мозаїкою"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖移窗口时按住 ⌥ 键以平铺"
+          }
+        }
+      }
+    },
+    "Open Desktop & Dock Settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فتح إعدادات سطح المكتب وشريط الأيقونات"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åbn indstillinger for Skrivebord og Dock"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einstellungen für „Schreibtisch & Dock“ öffnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Άνοιγμα ρυθμίσεων «Γραφείο εργασίας και Dock»"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir los ajustes de Escritorio y Dock"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avaa Työpöytä ja Dock -asetukset"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir les réglages Bureau et Dock"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פתיחת ההגדרות של שולחן העבודה ו-Dock"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "डेस्कटॉप और Dock सेटिंग्ज़ खोलें"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri le impostazioni Scrivania e Dock"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「デスクトップとDock」設定を開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "데스크탑 및 Dock 설정 열기"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åpne innstillinger for Skrivebord og Dock"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open instellingen voor Bureaublad en Dock"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otwórz ustawienia Biurka i Docka"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть настройки «Рабочий стол и Dock»"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otvori podešavanja za Radnu površinu i Dock"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öppna inställningar för Skrivbord och Dock"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Відкрити параметри «Робочий стіл і Dock»"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开“桌面与程序坞”设置"
+          }
+        }
+      }
+    },
     "Open One Empty Workspace" : {
       "localizations" : {
         "ar" : {
@@ -784,6 +1827,130 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开一个空工作区"
+          }
+        }
+      }
+    },
+    "Opens macOS Desktop & Dock settings, where window tiling can be turned off." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يفتح إعدادات سطح المكتب وشريط الأيقونات في macOS، حيث يمكن إيقاف تبليط النوافذ."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åbner macOS-indstillingerne for Skrivebord og Dock, hvor vinduesfliser kan slås fra."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnet die macOS-Einstellungen für „Schreibtisch & Dock“, in denen sich das Anordnen von Fenstern ausschalten lässt."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ανοίγει τις ρυθμίσεις «Γραφείο εργασίας και Dock» του macOS, όπου μπορεί να απενεργοποιηθεί η παράθεση παραθύρων."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre los ajustes de Escritorio y Dock de macOS, donde se puede desactivar el mosaico de ventanas."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avaa macOS:n Työpöytä ja Dock -asetukset, joissa ikkunoiden ruudutuksen voi laittaa pois päältä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvre les réglages Bureau et Dock de macOS, où la mise en mosaïque des fenêtres peut être désactivée."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "פותח את ההגדרות של שולחן העבודה ו-Dock ב-macOS, שבהן אפשר לכבות את סידור החלונות באריחים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS की डेस्कटॉप और Dock सेटिंग्ज़ खोलता है, जहाँ विंडो टाइलिंग बंद की जा सकती है।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apre le impostazioni Scrivania e Dock di macOS, dove si può disattivare l’affiancamento delle finestre."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS の「デスクトップとDock」設定を開きます。ここでウインドウのタイル表示をオフにできます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS의 데스크탑 및 Dock 설정을 엽니다. 여기에서 윈도우 타일 배치를 끌 수 있습니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Åpner macOS-innstillingene for Skrivebord og Dock, der flislegging av vinduer kan slås av."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opent de macOS-instellingen voor Bureaublad en Dock, waar het tegelen van vensters kan worden uitgeschakeld."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otwiera ustawienia Biurka i Docka w macOS, gdzie można wyłączyć kafelkowanie okien."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открывает настройки macOS «Рабочий стол и Dock», где можно отключить размещение окон мозаикой."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otvara macOS podešavanja za Radnu površinu i Dock, gde se raspoređivanje prozora u mozaik može isključiti."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öppnar macOS-inställningarna för Skrivbord och Dock, där fönsterplacering sida vid sida kan stängas av."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Відкриває параметри macOS «Робочий стіл і Dock», де можна вимкнути розміщення вікон мозаїкою."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 macOS 的“桌面与程序坞”设置，可在其中关闭窗口平铺。"
           }
         }
       }
@@ -1167,6 +2334,7 @@
       }
     },
     "Applies to modifier-based mouse resizing, trackpad resize gestures, and Niri keyboard resizing. Native edge or corner drags bypass previews; Dwindle neighbours always resize live. Window Snapshot stretches a still image and needs Screen Recording. Glass Placeholder shows app icons without capture. With either preview, windows get their final size when resizing ends." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1175,18 +2343,6 @@
           }
         }
       }
-    },
-    "Glass Placeholder" : {
-
-    },
-    "Live Resize" : {
-
-    },
-    "Resize Preview" : {
-
-    },
-    "Window Snapshot" : {
-
     },
     "Dynamic Island" : {
 
@@ -3180,6 +4336,130 @@
         }
       }
     },
+    "Not enough room for these windows, so the change was undone." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد مساحة كافية لهذه النوافذ، لذا تم التراجع عن التغيير."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der er ikke plads nok til disse vinduer, så ændringen blev fortrudt."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht genug Platz für diese Fenster, daher wurde die Änderung rückgängig gemacht."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δεν υπάρχει αρκετός χώρος για αυτά τα παράθυρα, οπότε η αλλαγή αναιρέθηκε."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay espacio suficiente para estas ventanas, así que se ha deshecho el cambio."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Näille ikkunoille ei ole tarpeeksi tilaa, joten muutos peruttiin."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas assez de place pour ces fenêtres, la modification a donc été annulée."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "אין מספיק מקום לחלונות האלה, ולכן השינוי בוטל."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इन विंडो के लिए पर्याप्त जगह नहीं है, इसलिए बदलाव पूर्ववत कर दिया गया।"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spazio insufficiente per queste finestre, quindi la modifica è stata annullata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これらのウインドウを収める余地がないため、変更を取り消しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 창들을 위한 공간이 부족하여 변경 사항을 취소했습니다."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Det er ikke nok plass til disse vinduene, så endringen ble angret."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet genoeg ruimte voor deze vensters, dus de wijziging is ongedaan gemaakt."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Za mało miejsca na te okna, więc zmiana została cofnięta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недостаточно места для этих окон, поэтому изменение отменено."
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nema dovoljno mesta za ove prozore, pa je promena poništena."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Det finns inte tillräckligt med plats för de här fönstren, så ändringen ångrades."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недостатньо місця для цих вікон, тож зміну скасовано."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些窗口没有足够的空间，因此已撤销该更改。"
+          }
+        }
+      }
+    },
     "Not found" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4175,6 +5455,130 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的小组件"
+          }
+        }
+      }
+    },
+    "macOS window tiling interferes with dragging. Turn off these settings in Desktop & Dock:" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يتعارض تبليط النوافذ في macOS مع السحب. أوقف هذه الإعدادات في سطح المكتب وشريط الأيقونات:"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS' vinduesfliser forstyrrer trækning. Slå disse indstillinger fra i Skrivebord og Dock:"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Anordnen von Fenstern in macOS stört das Ziehen. Schalten Sie diese Einstellungen unter „Schreibtisch & Dock“ aus:"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η παράθεση παραθύρων του macOS παρεμβαίνει στη μεταφορά. Απενεργοποιήστε αυτές τις ρυθμίσεις στο «Γραφείο εργασίας και Dock»:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El mosaico de ventanas de macOS interfiere con el arrastre. Desactiva estos ajustes en Escritorio y Dock:"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS:n ikkunoiden ruudutus häiritsee vetämistä. Laita nämä asetukset pois päältä kohdassa Työpöytä ja Dock:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mise en mosaïque des fenêtres de macOS gêne le glissement. Désactivez ces réglages dans Bureau et Dock :"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "סידור החלונות באריחים של macOS מפריע לגרירה. כבו את ההגדרות האלה בשולחן העבודה ו-Dock:"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS की विंडो टाइलिंग खींचने में बाधा डालती है। डेस्कटॉप और Dock में ये सेटिंग्ज़ बंद करें:"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’affiancamento delle finestre di macOS interferisce con il trascinamento. Disattiva queste impostazioni in Scrivania e Dock:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS のウインドウのタイル表示はドラッグを妨げます。「デスクトップとDock」で次の設定をオフにしてください："
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS의 윈도우 타일 배치가 드래그를 방해합니다. 데스크탑 및 Dock에서 다음 설정을 끄십시오:"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flislegging av vinduer i macOS forstyrrer draing. Slå av disse innstillingene i Skrivebord og Dock:"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Het tegelen van vensters in macOS hindert het slepen. Schakel deze instellingen uit in Bureaublad en Dock:"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kafelkowanie okien w macOS przeszkadza w przeciąganiu. Wyłącz te ustawienia w sekcji Biurko i Dock:"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Размещение окон мозаикой в macOS мешает перетаскиванию. Отключите эти настройки в разделе «Рабочий стол и Dock»:"
+          }
+        },
+        "sr-Latn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raspoređivanje prozora u mozaik u macOS-u ometa prevlačenje. Isključite ova podešavanja u Radnoj površini i Docku:"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fönsterplacering sida vid sida i macOS stör dragningen. Stäng av de här inställningarna i Skrivbord och Dock:"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Розміщення вікон мозаїкою в macOS заважає перетягуванню. Вимкніть ці параметри в розділі «Робочий стіл і Dock»:"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 的窗口平铺会干扰拖动。请在“桌面与程序坞”中关闭以下设置："
           }
         }
       }
@@ -23202,130 +24606,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "자동"
-          }
-        }
-      }
-    },
-    "Auto divides the primary axis by the Visible Containers setting." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「オート」では、主軸を「可視コンテナ」の設定で分割します。"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto teilt die Hauptachse durch die Einstellung „Sichtbare Container“ auf."
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternativet Automatisk deler hovedaksen etter innstillingen Synlige beholdere."
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternativet Automatiskt delar den primära axeln med inställningen Synliga behållare."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto divide el eje principal por la configuración de Contenedores visibles."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“自动”会按照“可见容器”设置的数量平分主轴。"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ऑटो दृश्य कंटेनर सेटिंग के द्वारा प्राथमिक अक्ष को विभाजित करता है।"
-          }
-        },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يقسم الخيار «تلقائي» المحور الرئيسي حسب إعداد «الحاويات المرئية»."
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatski deli primarnu osu prema podešavanju Vidljivi kontejneri."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Η αυτόματη λειτουργία διαιρεί τον κύριο άξονα με την τιμή της ρύθμισης «Ορατά κοντέινερ»."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "במצב אוטומטי, הציר הראשי מחולק לפי ההגדרה \"מכלים גלויים\"."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Автоматически разделяет основную ось по настройке видимых контейнеров."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatycznie dzieli główną oś według ustawień widocznych kontenerów."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Автоматичний режим ділить основну вісь згідно з параметром «Видимі контейнери»."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto divise l'axe primaire par le réglage des conteneurs visibles."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto verdeelt de primaire as volgens de instelling 'Zichtbare containers'."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto divide l'asse primario per il valore dell'impostazione Contenitori visibili."
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automaattinen jakaa pääakselin Näkyvät kontit -asetuksen mukaan."
-          }
-        },
-        "da" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto deler den primære akse med indstillingen Synlige beholdere."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "자동 모드는 표시된 컨테이너 설정에 따라 기본 축을 나눕니다."
           }
         }
       }
@@ -61570,9 +62850,6 @@
         }
       }
     },
-    "Hold this modifier and left-drag tiled windows. Drop at another tile's center to swap, or near one of its edges to insert on that side. In Dwindle, you can also insert between existing splits or at a workspace edge. Choose Off to leave modified drags to apps." : {
-
-    },
     "Hold this modifier and scroll the mouse wheel to scroll columns. Turning off Scroll columns disables both trackpad and modified mouse-wheel column scrolling." : {
       "localizations" : {
         "ja" : {
@@ -61698,6 +62975,7 @@
       }
     },
     "Hold this modifier combo + right mouse drag to resize tiled windows" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -71259,6 +72537,7 @@
       }
     },
     "Left Mouse Move Modifier" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -112626,6 +113905,7 @@
       }
     },
     "Right Mouse Resize Modifier" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -162877,6 +164157,7 @@
       }
     },
     "Choose what a modifier drag of a Dwindle tab group moves when you drop it on another display. A whole group dropped into Niri becomes one tabbed column." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -163001,6 +164282,7 @@
       }
     },
     "Keep Native Edge Resizes" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -163261,6 +164543,7 @@
       }
     },
     "Drag a tiled window by its title bar onto another display without a modifier. Drops use the same placement rules as modifier drags. Moving within one display still snaps the window back." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -163385,6 +164668,7 @@
       }
     },
     "Drag a tiled window's edge or corner without a modifier. Dwindle resizes neighbouring windows while you drag; Niri refits them after you release." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -163509,6 +164793,7 @@
       }
     },
     "Keep Native Moves Across Displays" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -164768,6 +166053,9 @@
           }
         }
       }
+    },
+    "Choose what dragging a Dwindle group by its title bar moves onto another display. A whole group moved into Niri becomes one tabbed column. Dragging an individual group tab moves only that tab." : {
+
     }
   },
   "version" : "1.0"

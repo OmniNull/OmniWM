@@ -62,14 +62,6 @@ final class GestureSettings {
         }
     }
 
-    var mouseMoveModifierKey = GestureSettings.defaults.mouseMoveModifierKey {
-        didSet { notifyChange() }
-    }
-
-    var mouseResizeModifierKey = GestureSettings.defaults.mouseResizeModifierKey {
-        didSet { notifyChange() }
-    }
-
     var fingerCount = GestureSettings.defaults.fingerCount {
         didSet { notifyChange() }
     }
@@ -149,26 +141,8 @@ final class GestureSettings {
         }
     }
 
-    var resizePreviewStyle = GestureSettings.defaults.resizePreviewStyle ?? .live {
-        didSet { notifyChange() }
-    }
-
     var dwindleGroupDragAcrossDisplays = GestureSettings.defaults.dwindleGroupDragAcrossDisplays ?? .group {
         didSet { notifyChange() }
-    }
-
-    var adoptNativeResize = GestureSettings.defaults.adoptNativeResize ?? false {
-        didSet {
-            guard oldValue != adoptNativeResize else { return }
-            notifyChange()
-        }
-    }
-
-    var adoptNativeMoveAcrossDisplays = GestureSettings.defaults.adoptNativeMoveAcrossDisplays ?? false {
-        didSet {
-            guard oldValue != adoptNativeMoveAcrossDisplays else { return }
-            notifyChange()
-        }
     }
 
     var workspaceSwipeAxisLockedToVertical: Bool {
@@ -184,8 +158,6 @@ final class GestureSettings {
             scrollEnabled: scrollEnabled,
             scrollSensitivity: scrollSensitivity,
             scrollModifierKey: scrollModifierKey,
-            mouseMoveModifierKey: mouseMoveModifierKey,
-            mouseResizeModifierKey: mouseResizeModifierKey,
             fingerCount: fingerCount,
             invertDirection: invertDirection,
             trackpadScrollStyle: trackpadScrollStyle,
@@ -200,10 +172,7 @@ final class GestureSettings {
             windowResizeEnabled: windowResizeEnabled,
             windowResizeFingerCount: windowResizeFingerCount,
             windowGestureSensitivity: windowGestureSensitivity,
-            resizePreviewStyle: resizePreviewStyle,
             dwindleGroupDragAcrossDisplays: dwindleGroupDragAcrossDisplays,
-            adoptNativeResize: adoptNativeResize,
-            adoptNativeMoveAcrossDisplays: adoptNativeMoveAcrossDisplays,
             mouseWheelSensitivity: mouseWheelSensitivity
         )
     }
@@ -220,8 +189,6 @@ final class GestureSettings {
         scrollSensitivity = gestures.scrollSensitivity
         mouseWheelSensitivity = gestures.mouseWheelSensitivity ?? 1.0
         scrollModifierKey = gestures.scrollModifierKey
-        mouseMoveModifierKey = gestures.mouseMoveModifierKey
-        mouseResizeModifierKey = gestures.mouseResizeModifierKey
         fingerCount = gestures.fingerCount
         invertDirection = gestures.invertDirection
         trackpadScrollStyle = gestures.trackpadScrollStyle
@@ -236,10 +203,7 @@ final class GestureSettings {
         windowResizeEnabled = gestures.windowResizeEnabled ?? false
         windowResizeFingerCount = gestures.windowResizeFingerCount ?? .three
         windowGestureSensitivity = gestures.windowGestureSensitivity ?? 1.0
-        resizePreviewStyle = gestures.resizePreviewStyle ?? .live
         dwindleGroupDragAcrossDisplays = gestures.dwindleGroupDragAcrossDisplays ?? .group
-        adoptNativeResize = gestures.adoptNativeResize ?? false
-        adoptNativeMoveAcrossDisplays = gestures.adoptNativeMoveAcrossDisplays ?? false
         isApplying = false
         if export() != previous {
             notifyChange()

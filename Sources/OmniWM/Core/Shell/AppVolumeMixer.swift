@@ -179,18 +179,12 @@ actor AppVolumeEngine {
         let listing: Bool
     }
 
-    private struct Listener {
-        let object: AudioObjectID
-        let address: AudioObjectPropertyAddress
-        let block: AudioObjectPropertyListenerBlock
-    }
-
     private let queue = DispatchSerialQueue(label: "com.barut.OmniWM.app-volume")
     private let deliver: @Sendable (AppVolumeReport) -> Void
     private var request = Request(version: 0, volumes: [:], listing: false)
     private var taps: [String: AppVolumeTap] = [:]
-    private var systemListeners: [Listener] = []
-    private var processListeners: [AudioObjectID: Listener] = [:]
+    private var systemListeners: [AudioPropertyListener] = []
+    private var processListeners: [AudioObjectID: AudioPropertyListener] = [:]
     private var access = AppVolumeAccess.unknown
     private var requestingAccess = false
     private var answeredAccess = false
@@ -310,23 +304,22 @@ actor AppVolumeEngine {
         }
     }
 
-    private func listen(to object: AudioObjectID, _ address: AudioObjectPropertyAddress) -> Listener? {
-        var address = address
-        guard AudioObjectHasProperty(object, &address) else { return nil }
+    private func listen(to object: AudioObjectID, _ address: AudioObjectPropertyAddress) -> AudioPropertyListener? {
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             self?.assumeIsolated { $0.reconcile() }
         }
-        guard AudioObjectAddPropertyListenerBlock(object, &address, queue, block) == noErr else { return nil }
-        return Listener(object: object, address: address, block: block)
+        return AudioPropertyListener.listen(to: object, address: address, queue: queue, block: block)
     }
 
-    private func remove(_ listener: Listener) {
-        var address = listener.address
-        AudioObjectRemovePropertyListenerBlock(listener.object, &address, queue, listener.block)
+    private func remove(_ listener: borrowing AudioPropertyListener) {
+        listener.remove(on: queue)
     }
 
     private func removeListeners() {
-        for listener in systemListeners + processListeners.values {
+        for listener in systemListeners {
+            remove(listener)
+        }
+        for listener in processListeners.values {
             remove(listener)
         }
         systemListeners = []

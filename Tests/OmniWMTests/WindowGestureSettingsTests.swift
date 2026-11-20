@@ -158,13 +158,11 @@ final class WindowGestureSettingsTests: XCTestCase {
             export.gestures.windowResizeEnabled = nil
             export.gestures.windowResizeFingerCount = nil
             export.gestures.windowGestureSensitivity = nil
-            export.gestures.resizePreviewStyle = nil
             settings.gestures.windowMoveEnabled = true
             settings.gestures.windowResizeEnabled = true
             settings.gestures.windowMoveFingerCount = .two
             settings.gestures.windowResizeFingerCount = .four
             settings.gestures.windowGestureSensitivity = 4
-            settings.gestures.resizePreviewStyle = .glass
 
             settings.applyExport(export)
 
@@ -173,8 +171,6 @@ final class WindowGestureSettingsTests: XCTestCase {
             XCTAssertEqual(settings.gestures.windowMoveFingerCount, .four)
             XCTAssertEqual(settings.gestures.windowResizeFingerCount, .three)
             XCTAssertEqual(settings.gestures.windowGestureSensitivity, 1)
-            XCTAssertEqual(settings.gestures.resizePreviewStyle, .live)
-            XCTAssertEqual(settings.toExport().gestures.resizePreviewStyle, .live)
         }
     }
 

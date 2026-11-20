@@ -7021,6 +7021,7 @@ final class RuntimeArchitectureTests: XCTestCase {
         let leftWs = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         let rightWs = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "6", createIfMissing: true))
         _ = controller.workspaceManager.focusWorkspace(named: "1")
+        controller.settings.niri.fitToVisibleContainerCount = true
         controller.niriLayoutHandler.enableNiriLayout()
         controller.settings.focus.moveCrossesMonitorAtEdge = true
 

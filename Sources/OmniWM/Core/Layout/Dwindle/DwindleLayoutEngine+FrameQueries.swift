@@ -6,6 +6,18 @@ import Foundation
 import QuartzCore
 
 extension DwindleLayoutEngine {
+    func hasCurrentFrames(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let state = existingState(for: workspaceId) else { return false }
+        for leaf in state.leafByToken.values {
+            if leaf.cachedContentFrame != nil || leaf.cachedFrame != nil,
+               visibleMember(in: leaf.tile, excluding: state.excludedTokens) != nil
+            {
+                return true
+            }
+        }
+        return false
+    }
+
     func currentFrames(in workspaceId: WorkspaceDescriptor.ID) -> [WindowToken: CGRect] {
         guard let state = existingState(for: workspaceId) else { return [:] }
         var frames: [WindowToken: CGRect] = [:]
