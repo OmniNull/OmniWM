@@ -223,6 +223,43 @@ extension ShellDevicesTests {
         XCTAssertNil(monitor.value?.failure)
     }
 
+    func testListsHoldStillWhileAJoinIsInFlight() async throws {
+        let targets = WiFiJoinTargets()
+        let lists = OSAllocatedUnfairLock(initialState: (known: [targets.office], other: [targets.cafe]))
+        let (changes, changed) = boundedChanges()
+        var pending: CheckedContinuation<String?, Never>?
+        let monitor = WiFiNetworksMonitor(
+            read: { lists.withLock { $0 } }, scan: {},
+            join: { _ in .needsSettings },
+            joinInSettings: { _ in
+                await withCheckedContinuation {
+                    pending = $0
+                    changed.yield()
+                }
+            }
+        )
+        monitor.onChange = { _ in changed.yield() }
+        defer {
+            pending?.resume(returning: nil)
+            monitor.setListening(false)
+        }
+        monitor.setListening(true)
+        await changes.wait { monitor.value?.known == [targets.office] && monitor.value?.scanning == false }
+        monitor.join(targets.office.id)
+        await changes.wait { pending != nil }
+
+        lists.withLock { $0 = (known: [], other: [targets.cafe]) }
+        monitor.setListening(false)
+        monitor.setListening(true)
+        XCTAssertEqual(monitor.value?.known, [targets.office])
+        XCTAssertEqual(monitor.value?.joining, targets.office.id)
+
+        pending?.resume(returning: nil)
+        pending = nil
+        await changes.wait { monitor.value?.joining == nil && monitor.value?.known == [] }
+        XCTAssertEqual(monitor.value?.other, [targets.cafe])
+    }
+
     func testWiFiSettingsConnectActionPreservesOpaqueNamesAndRejectsAmbiguity() {
         let action = "Name:Connect\nTarget:0x0\nSelector:(null)"
         XCTAssertEqual(WiFiSettingsJoiner.connectAction(in: [action], title: "Connect"), action)

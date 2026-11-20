@@ -151,6 +151,17 @@ local function network(entry, data, width: number)
     return ui.row(row)
 end
 
+local function listed(data, id: string?)
+    for _, list in { data.known, data.other } do
+        for _, entry in list do
+            if entry.id == id then
+                return entry
+            end
+        end
+    end
+    return nil
+end
+
 function wifi.networkSections(ctx, width: number)
     local status = ctx.data.wifi
     if not status or not status.power or status.location ~= "authorized" then
@@ -183,17 +194,10 @@ function wifi.networkSections(ctx, width: number)
     end
     sections[#sections + 1] = look.group(group)
     local failure = data.failure
-    if failure then
-        for _, list in { data.known, data.other } do
-            for _, entry in list do
-                if entry.id == failure.id then
-                    return sections
-                end
-            end
-        end
+    if failure and not listed(data, failure.id) then
         sections[#sections + 1] = actions.notice(failure.message, width)
     end
-    return sections
+    return sections, listed(data, data.joining)
 end
 
 function wifi.content(ctx, width: number?, m, sections: { any }?)
@@ -223,7 +227,7 @@ function wifi.content(ctx, width: number?, m, sections: { any }?)
                 ui.stack{ w = 36, h = 36, radius = look.radius(18), fill = "accent", wifi.fan(m.level, 20, "accentForeground") },
                 ui.column{ gap = 3, center = false,
                     look.text{ text = m.name, size = 13, weight = "medium", maxWidth = width - 72 },
-                    look.text{ text = omniwm.l10n("Connected"), size = 11, color = "secondaryForeground" } } } }
+                    look.text{ text = m.connectionStatus, size = 11, color = "secondaryForeground" } } } }
         for _, entry in m.details do
             card[#card + 1] = detail(entry, width)
         end
@@ -268,7 +272,15 @@ end
 function wifi.networksPopout(ctx)
     local width = look.width
     local m = wifi.model(ctx)
-    return look.panel(ctx, { w = width + 28, wifi.content(ctx, width, m, m and wifi.networkSections(ctx, width)) })
+    local sections, joining
+    if m then
+        sections, joining = wifi.networkSections(ctx, width)
+    end
+    if joining then
+        m.connected, m.name, m.level, m.details = true, joining.ssid, -1, {}
+        m.connectionStatus = omniwm.l10n("Joining…")
+    end
+    return look.panel(ctx, { w = width + 28, wifi.content(ctx, width, m, sections) })
 end
 
 return table.freeze(wifi)

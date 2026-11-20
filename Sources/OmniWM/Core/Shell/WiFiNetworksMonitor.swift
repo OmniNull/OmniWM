@@ -258,9 +258,9 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
             client?.delegate = nil
             client = nil
             delegate = nil
-            lists = ([], [])
             scanning = false
             if settingsJoinTask == nil {
+                lists = ([], [])
                 joining = nil
                 failure = nil
             }
@@ -370,7 +370,7 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
     }
 
     private func refresh() {
-        guard isListening else { return }
+        guard isListening, joining == nil else { return }
         let generation = generation
         let read = read
         Self.reader.async { [weak self] in
@@ -384,7 +384,7 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
     }
 
     private func publish(_ lists: Lists, generation: Int) {
-        guard generation == self.generation else { return }
+        guard generation == self.generation, joining == nil else { return }
         self.lists = lists
         compose()
     }
