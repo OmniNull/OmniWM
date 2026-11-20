@@ -94,6 +94,12 @@ final class PointerEdgeBarrierTests: XCTestCase {
         return event
     }
 
+    func testTheTapTakesMovesAndLeftDrags() {
+        let moved: CGEventMask = 1 << CGEventType.mouseMoved.rawValue
+        let dragged: CGEventMask = 1 << CGEventType.leftMouseDragged.rawValue
+        XCTAssertEqual(PointerEdgeBarrier.eventsOfInterest, moved | dragged)
+    }
+
     func testPinnedEdgeExcludesArrivalAndCrossesOnceAtNetPressure() throws {
         let topology = topology(staircase)
         var recognizer = PointerEdgeRecognizer()
@@ -225,6 +231,493 @@ final class PointerEdgeBarrierTests: XCTestCase {
         XCTAssertNil(recognizer.hold)
         XCTAssertEqual(move(&recognizer, 2559.5, 700, dx: 5, after: 10_000_000, topology), .pass)
         XCTAssertNil(recognizer.hold)
+    }
+
+    private func dragEvent(_ cgPoint: CGPoint, dx: CGFloat) throws -> CGEvent {
+        let event = try XCTUnwrap(CGEvent(
+            mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: cgPoint, mouseButton: .left
+        ))
+        event.setDoubleValueField(.mouseEventDeltaX, value: dx)
+        return event
+    }
+
+    private final class StepClock: Sendable {
+        private let now = Mutex<UInt64>(1_000_000_000)
+
+        func read() -> UInt64 {
+            now.withLock { $0 }
+        }
+
+        func advance(_ nanoseconds: UInt64 = LiveDragHold.settleNs) {
+            now.withLock { $0 += nanoseconds }
+        }
+    }
+
+    private func liveDragBarrier(
+        _ other: Monitor,
+        holding directions: Set<Direction> = [.right],
+        warps: PointRecorder,
+        warpsPointer: Bool = true,
+        clock: StepClock = StepClock()
+    ) -> PointerEdgeBarrier {
+        let barrier = PointerEdgeBarrier(
+            installsTap: false,
+            displayBounds: { _ in .infinite },
+            warpCursor: { warps.record($0)
+                return .success
+            },
+            postMove: { _ in },
+            clock: { clock.read() }
+        )
+        var topology = topology(other, fin: false)
+        topology.warpsPointer = warpsPointer
+        barrier.publish(topology)
+        barrier.publishLiveDragHold(.init(monitorId: main.id, heldDirections: directions))
+        return barrier
+    }
+
+    private func drag(_ barrier: PointerEdgeBarrier, _ cgPoint: CGPoint, dx: CGFloat) throws -> CGPoint {
+        let event = try dragEvent(cgPoint, dx: dx)
+        XCTAssertNotNil(barrier.handleTapEvent(.leftMouseDragged, event))
+        return event.location
+    }
+
+    func testALiveDragIsHeldAtASharedEdgeWhileTheStripCanScroll() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+
+        let held = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(held, CGPoint(x: 2558, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+        let inside = try drag(barrier, CGPoint(x: 2400, y: 700), dx: -8)
+        XCTAssertEqual(inside, CGPoint(x: 2400, y: 700))
+    }
+
+    @MainActor
+    private struct AxisHoldFixture {
+        static let pixel: CGFloat = 1
+        let direction: Direction
+        let source: Monitor
+        let target: Monitor
+        var topology: PointerEdgeTopology
+
+        var horizontal: Bool {
+            direction == .left || direction == .right
+        }
+
+        var positive: Bool {
+            direction == .right || direction == .up
+        }
+
+        var primaryStart: CGFloat {
+            horizontal ? source.frame.minX : source.frame.minY
+        }
+
+        var primaryEnd: CGFloat {
+            horizontal ? source.frame.maxX : source.frame.maxY
+        }
+
+        var secondaryMiddle: CGFloat {
+            horizontal ? source.frame.midY : source.frame.midX
+        }
+
+        var inset: CGFloat {
+            topology.margin + Self.pixel
+        }
+
+        var boundary: CGFloat {
+            positive ? primaryEnd : primaryStart
+        }
+
+        var near: CGPoint {
+            point(primary: boundary + (positive ? -topology.margin : topology.margin))
+        }
+
+        var past: CGPoint {
+            point(primary: boundary + (positive ? topology.margin : -topology.margin))
+        }
+
+        var held: CGPoint {
+            point(primary: boundary + (positive ? -inset : inset))
+        }
+
+        var through: CGPoint {
+            point(primary: positive ? primaryEnd : primaryStart - Self.pixel)
+        }
+
+        var hold: LiveDragHold {
+            .init(monitorId: source.id, heldDirections: [direction])
+        }
+
+        var destination: CGPoint {
+            let crossing = MouseWarpGeometry.crossing(toward: direction, location: held, frame: source.frame)
+            return MouseWarpGeometry.destinationPoint(
+                on: target.frame, entryEdge: crossing.entryEdge, ratio: crossing.ratio, margin: topology.margin
+            )
+        }
+
+        init(direction: Direction, warpsPointer: Bool) {
+            self.direction = direction
+            let sourceFrame = CGRect(x: 180, y: -260, width: 900, height: 1_500)
+            source = PointerEdgeBarrierTests.monitor(96, sourceFrame)
+            let targetFrame = switch direction {
+            case .left: sourceFrame.offsetBy(dx: -sourceFrame.width, dy: 0)
+            case .right: sourceFrame.offsetBy(dx: sourceFrame.width, dy: 0)
+            case .up: sourceFrame.offsetBy(dx: 0, dy: sourceFrame.height)
+            case .down: sourceFrame.offsetBy(dx: 0, dy: -sourceFrame.height)
+            }
+            target = PointerEdgeBarrierTests.monitor(97, targetFrame)
+            topology = PointerEdgeTopology()
+            topology.isEnabled = true
+            topology.warpsPointer = warpsPointer
+            topology.flipY = sourceFrame.maxY
+            topology.monitors = [source, target]
+            topology.edges[.init(monitorId: source.id, direction: direction)] = .init(target: target, finSpan: nil)
+        }
+
+        func point(primary: CGFloat) -> CGPoint {
+            horizontal
+                ? CGPoint(x: primary, y: secondaryMiddle)
+                : CGPoint(x: secondaryMiddle, y: primary)
+        }
+
+        func cgPoint(_ point: CGPoint) -> CGPoint {
+            CGPoint(x: point.x, y: topology.flipY - point.y)
+        }
+
+        func motion(outward: CGFloat) -> CGVector {
+            let signed = positive ? outward : -outward
+            return horizontal ? CGVector(dx: signed, dy: 0) : CGVector(dx: 0, dy: signed)
+        }
+
+        func decide(_ point: CGPoint, outward: CGFloat, at time: UInt64, push: inout LiveDragHold.Push) -> LiveDragHold
+            .Decision
+        {
+            let delta = motion(outward: outward)
+            return hold.decide(
+                location: point, motionX: delta.dx, motionY: delta.dy, now: time, push: &push, topology: topology
+            )
+        }
+    }
+
+    func testLiveDragHoldsAndAccumulatesOnlySettledOutwardMotionOnEveryAxis() {
+        for direction in [Direction.left, .right, .up, .down] {
+            for warpsPointer in [false, true] {
+                let fixture = AxisHoldFixture(direction: direction, warpsPointer: warpsPointer)
+                var push = LiveDragHold.Push()
+                let startedAt = LiveDragHold.settleNs
+                let settledAt = startedAt + LiveDragHold.settleNs
+                let slow = LiveDragHold.flickDistance / 2
+                let halfPush = PointerEdgeTopology.pushDistance / 2
+                XCTAssertEqual(
+                    fixture.decide(fixture.near, outward: slow, at: startedAt, push: &push),
+                    .hold(fixture.held)
+                )
+                XCTAssertEqual(push.heldSince, startedAt)
+                XCTAssertEqual(push.distance, 0)
+                XCTAssertEqual(
+                    fixture.decide(
+                        fixture.near,
+                        outward: PointerEdgeTopology.pushDistance,
+                        at: settledAt - 1,
+                        push: &push
+                    ),
+                    .hold(fixture.held)
+                )
+                XCTAssertEqual(push.distance, 0)
+                XCTAssertEqual(
+                    fixture.decide(fixture.near, outward: halfPush, at: settledAt, push: &push),
+                    .hold(fixture.held)
+                )
+                XCTAssertEqual(push.distance, halfPush)
+                XCTAssertEqual(
+                    fixture.decide(fixture.near, outward: -halfPush, at: settledAt, push: &push),
+                    .hold(fixture.held)
+                )
+                XCTAssertEqual(push.distance, 0)
+                let expected: LiveDragHold.Decision = warpsPointer
+                    ? .cross(destination: fixture.destination, target: fixture.target.id)
+                    : .letThrough(fixture.through)
+                XCTAssertEqual(
+                    fixture.decide(fixture.near, outward: PointerEdgeTopology.pushDistance, at: settledAt, push: &push),
+                    expected
+                )
+                XCTAssertEqual(push, LiveDragHold.Push())
+            }
+        }
+    }
+
+    func testLiveDragFlicksAndRejectsDistantOrUnsharedEdgesOnEveryAxis() {
+        for direction in [Direction.left, .right, .up, .down] {
+            var fixture = AxisHoldFixture(direction: direction, warpsPointer: false)
+            var push = LiveDragHold.Push()
+            let now = LiveDragHold.settleNs
+            XCTAssertEqual(
+                fixture.decide(fixture.near, outward: LiveDragHold.flickDistance, at: now, push: &push),
+                .letThrough(fixture.through)
+            )
+            XCTAssertEqual(push, LiveDragHold.Push())
+            let slow = LiveDragHold.flickDistance / 2
+            let beyondMotion = slow + fixture.inset + AxisHoldFixture.pixel
+            let distant = fixture.point(primary: fixture.boundary + (fixture.positive ? beyondMotion : -beyondMotion))
+            XCTAssertEqual(fixture.decide(distant, outward: slow, at: now, push: &push), .pass)
+            let seamGap = FrameTolerance.screenMatch + AxisHoldFixture.pixel
+            for offset in [
+                fixture.horizontal ? CGVector(dx: seamGap, dy: 0) : CGVector(dx: 0, dy: seamGap),
+                fixture.horizontal ? CGVector(dx: 0, dy: fixture.source.frame.height) : CGVector(
+                    dx: fixture.source.frame.width,
+                    dy: 0
+                )
+            ] {
+                let separate = Self.monitor(98, fixture.target.frame.offsetBy(dx: offset.dx, dy: offset.dy))
+                fixture.topology.edges[.init(monitorId: fixture.source.id, direction: direction)] = .init(
+                    target: separate,
+                    finSpan: nil
+                )
+                XCTAssertEqual(fixture.decide(fixture.past, outward: slow, at: now, push: &push), .pass)
+                XCTAssertEqual(push, LiveDragHold.Push())
+                fixture.topology.warpsPointer = true
+                XCTAssertEqual(fixture.decide(fixture.past, outward: slow, at: now, push: &push), .hold(fixture.held))
+                fixture.topology.warpsPointer = false
+            }
+        }
+    }
+
+    func testLiveDragCornersPreferHeldHorizontalEdgesAndOtherwiseHoldVerticalEdges() {
+        for direction in [Direction.up, .down] {
+            var fixture = AxisHoldFixture(direction: .right, warpsPointer: true)
+            let frame = fixture.source.frame
+            let upper = direction == .up
+            let verticalTarget = Self.monitor(98, frame.offsetBy(dx: 0, dy: upper ? frame.height : -frame.height))
+            fixture.topology.edges[.init(monitorId: fixture.source.id, direction: direction)] = .init(
+                target: verticalTarget, finSpan: nil
+            )
+            let corner = CGPoint(
+                x: frame.maxX - fixture.topology.margin,
+                y: upper ? frame.maxY - fixture.topology.margin : frame.minY + fixture.topology.margin
+            )
+            let horizontalPoint = CGPoint(x: frame.maxX - fixture.inset, y: corner.y)
+            let verticalPoint = CGPoint(x: corner.x, y: upper ? frame.maxY - fixture.inset : frame.minY + fixture.inset)
+            let slow = LiveDragHold.flickDistance / 2
+            let motionY = upper ? slow : -slow
+            for horizontalHeld in [false, true] {
+                var push = LiveDragHold.Push()
+                let hold = LiveDragHold(
+                    monitorId: fixture.source.id,
+                    heldDirections: horizontalHeld ? [.right, direction] : [.up, .down]
+                )
+                XCTAssertEqual(
+                    hold.decide(
+                        location: corner, motionX: slow, motionY: motionY,
+                        now: LiveDragHold.settleNs, push: &push, topology: fixture.topology
+                    ),
+                    .hold(horizontalHeld ? horizontalPoint : verticalPoint)
+                )
+                XCTAssertEqual(push, LiveDragHold.Push(distance: 0, heldSince: LiveDragHold.settleNs))
+            }
+        }
+    }
+
+    func testLiveDragEventsConvertVerticalMotionAndCoordinatesBeforeHoldingAndCrossing() throws {
+        for direction in [Direction.left, .right, .up, .down] {
+            for warpsPointer in [false, true] {
+                let fixture = AxisHoldFixture(direction: direction, warpsPointer: warpsPointer)
+                let warps = PointRecorder()
+                let clock = StepClock()
+                let barrier = PointerEdgeBarrier(
+                    installsTap: false,
+                    warpCursor: { warps.record($0)
+                        return .success
+                    },
+                    postMove: { _ in },
+                    clock: { clock.read() }
+                )
+                barrier.publish(fixture.topology)
+                barrier.publishLiveDragHold(fixture.hold)
+                let slow = fixture.motion(outward: LiveDragHold.flickDistance / 2)
+                let heldEvent = try dragEvent(fixture.cgPoint(fixture.near), dx: slow.dx)
+                heldEvent.setDoubleValueField(.mouseEventDeltaY, value: -slow.dy)
+                XCTAssertNotNil(barrier.handleTapEvent(.leftMouseDragged, heldEvent))
+                XCTAssertEqual(heldEvent.location, fixture.cgPoint(fixture.held))
+                XCTAssertTrue(warps.all.isEmpty)
+                clock.advance()
+                let crossing = fixture.motion(outward: PointerEdgeTopology.pushDistance)
+                let crossingEvent = try dragEvent(fixture.cgPoint(fixture.near), dx: crossing.dx)
+                crossingEvent.setDoubleValueField(.mouseEventDeltaY, value: -crossing.dy)
+                XCTAssertNotNil(barrier.handleTapEvent(.leftMouseDragged, crossingEvent))
+                XCTAssertEqual(
+                    crossingEvent.location,
+                    fixture.cgPoint(warpsPointer ? fixture.destination : fixture.through)
+                )
+                XCTAssertEqual(warps.all, warpsPointer ? [fixture.cgPoint(fixture.destination)] : [])
+                XCTAssertNil(barrier.liveDragHold)
+            }
+        }
+    }
+
+    func testPushingOnCrossesASharedEdgeOnceTheHoldHasSettled() throws {
+        let warps = PointRecorder()
+        let clock = StepClock()
+        let barrier = liveDragBarrier(adjoining, warps: warps, clock: clock)
+
+        for _ in 0 ..< 30 {
+            _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        }
+        XCTAssertTrue(warps.all.isEmpty)
+        clock.advance()
+        for _ in 0 ..< 11 {
+            _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        }
+        XCTAssertTrue(warps.all.isEmpty)
+        let crossed = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(warps.all.count, 1)
+        XCTAssertEqual(crossed, warps.all.first)
+        XCTAssertGreaterThanOrEqual(crossed.x, adjoining.frame.minX)
+    }
+
+    func testAFastApproachIsHeldUnlessItIsAFlick() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+
+        let held = try drag(barrier, CGPoint(x: 2570, y: 700), dx: 30)
+        _ = try drag(barrier, CGPoint(x: 2600, y: 700), dx: 60)
+
+        XCTAssertEqual(held, CGPoint(x: 2558, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testAQuickFlickCrossesASharedEdgeAtOnce() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+
+        let crossed = try drag(barrier, CGPoint(x: 2600, y: 700), dx: 120)
+
+        XCTAssertEqual(warps.all.count, 1)
+        XCTAssertGreaterThanOrEqual(crossed.x, adjoining.frame.minX)
+    }
+
+    func testAtTheStripsEndASharedEdgeLetsThePointerThrough() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, holding: [.left], warps: warps)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOnTheWholeRoutedEdgeIsHeldWhereverMacOSPutsTheDisplay() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(staircase, warps: warps)
+
+        let held = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(held, CGPoint(x: 2558, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOffOutsideTheSpanMacOSSharesTheEdgeIsNotHeld() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(staircase, warps: warps, warpsPointer: false)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOffTheHoldStillWorksAndMacOSCrosses() throws {
+        let warps = PointRecorder()
+        let clock = StepClock()
+        let barrier = liveDragBarrier(adjoining, warps: warps, warpsPointer: false, clock: clock)
+
+        let held = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        XCTAssertEqual(held, CGPoint(x: 2558, y: 700))
+        clock.advance()
+        for _ in 0 ..< 11 {
+            _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        }
+        let through = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(through, CGPoint(x: 2562, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOffASlowPushIsLetThroughOntoTheOtherDisplay() throws {
+        let warps = PointRecorder()
+        let clock = StepClock()
+        let barrier = liveDragBarrier(adjoining, warps: warps, warpsPointer: false, clock: clock)
+
+        XCTAssertEqual(try drag(barrier, CGPoint(x: 2559, y: 700), dx: 1), CGPoint(x: 2558, y: 700))
+        clock.advance()
+        var point = CGPoint(x: 2558, y: 700)
+        for _ in 0 ..< 200 where point.x == 2558 {
+            point = try drag(barrier, CGPoint(x: 2559, y: 700), dx: 1)
+        }
+
+        XCTAssertEqual(point, CGPoint(x: 2560, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOffAnEdgeMacOSDoesNotShareIsNotHeld() throws {
+        let warps = PointRecorder()
+        let apart = Self.monitor(7, CGRect(x: 3000, y: 0, width: 1920, height: 1440))
+        let barrier = liveDragBarrier(apart, warps: warps, warpsPointer: false)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+    }
+
+    func testAfterCrossingTheOldDisplaysHoldNoLongerApplies() throws {
+        let warps = PointRecorder()
+        let clock = StepClock()
+        let barrier = liveDragBarrier(adjoining, warps: warps, clock: clock)
+        _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        clock.advance()
+        for _ in 0 ..< 12 {
+            _ = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+        }
+        XCTAssertEqual(warps.all.count, 1)
+        XCTAssertNil(barrier.liveDragHold)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+    }
+
+    func testAPointerWarpedWellPastTheHeldEdgeIsNotPulledBack() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+        barrier.publishLiveDragHold(.init(monitorId: adjoining.id, heldDirections: [.left]))
+
+        let point = try drag(barrier, CGPoint(x: 2540, y: 700), dx: -4)
+
+        XCTAssertEqual(point, CGPoint(x: 2540, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testDragsThatArentLiveAreNotHeld() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(adjoining, warps: warps)
+        barrier.publishLiveDragHold(nil)
+
+        let point = try drag(barrier, CGPoint(x: 2562, y: 700), dx: 8)
+
+        XCTAssertEqual(point, CGPoint(x: 2562, y: 700))
+        XCTAssertTrue(warps.all.isEmpty)
+    }
+
+    func testWithWarpOffPlainMouseMovesAreLeftAlone() throws {
+        let warps = PointRecorder()
+        let barrier = liveDragBarrier(staircase, warps: warps, warpsPointer: false)
+        barrier.publishLiveDragHold(nil)
+
+        let event = try moveEvent(CGPoint(x: 2559.5, y: 740))
+        XCTAssertTrue(barrier.handleTapEvent(.mouseMoved, event) != nil)
+        XCTAssertTrue(warps.all.isEmpty)
     }
 
     func testHostCrossingWarpsSuppressesTriggerAndPostsMove() throws {

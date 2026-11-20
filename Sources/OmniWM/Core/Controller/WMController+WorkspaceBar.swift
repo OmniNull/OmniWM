@@ -300,6 +300,7 @@ extension WMController {
         let effective = resolved ?? settings.workspaceBar.resolved(for: monitor)
         guard isWorkspaceBarConfiguredVisible(on: monitor, resolved: effective) else { return false }
         return !isWorkspaceBarSuppressedByNativeFullscreen(on: monitor, resolved: effective)
+            && !workspaceBarManager.coversNativeMenuBarItems(on: monitor, resolved: effective)
     }
 
     func canAutoHideWorkspaceBar(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {

@@ -131,7 +131,7 @@ extension NiriLayoutEngine {
         return projectedColumns[targetProjectedIndex].durableIndex
     }
 
-    private func primaryPositions(
+    func primaryPositions(
         context: NiriInteractionContext,
         state: ViewportState
     ) -> [NodeId: CGFloat] {
@@ -317,7 +317,7 @@ extension NiriLayoutEngine {
         }
     }
 
-    private func animateReorderedColumn(
+    func animateReorderedColumn(
         _ column: NiriContainer,
         displacement: CGFloat,
         context: NiriInteractionContext

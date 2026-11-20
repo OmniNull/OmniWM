@@ -64,6 +64,7 @@ struct ShellBarStyle: Equatable, Sendable {
     var previews = true
     var hideInFullscreen = true
     var hidesMenuBar = false
+    var dark = false
 
     func write(to writer: inout ShellValueWriter) {
         let optional = { (value: String?) -> (inout ShellValueWriter) -> Void in

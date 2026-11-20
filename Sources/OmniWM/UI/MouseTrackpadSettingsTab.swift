@@ -82,17 +82,6 @@ struct MouseTrackpadSettingsTab: View {
 
     private var mouseMoveAndResizeSection: some View {
         Section("Mouse Move & Resize") {
-            Picker("Left Mouse Move Modifier", selection: Bindable(settings.gestures).mouseMoveModifierKey) {
-                ForEach(MouseMoveModifierKey.allCases, id: \.self) { key in
-                    Text(key.localizedDisplayName).tag(key)
-                }
-            }
-            .id("Left Mouse Move Modifier")
-
-            SettingsCaption(
-                localized: "Hold this modifier and left-drag tiled windows. Drop at another tile's center to swap, or near one of its edges to insert on that side. In Dwindle, you can also insert between existing splits or at a workspace edge. Choose Off to leave modified drags to apps."
-            )
-
             Picker(
                 "Dwindle Group Across Displays",
                 selection: Bindable(settings.gestures).dwindleGroupDragAcrossDisplays
@@ -104,41 +93,7 @@ struct MouseTrackpadSettingsTab: View {
             .id("Dwindle Group Across Displays")
 
             SettingsCaption(
-                localized: "Choose what a modifier drag of a Dwindle tab group moves when you drop it on another display. A whole group dropped into Niri becomes one tabbed column."
-            )
-
-            Picker("Right Mouse Resize Modifier", selection: Bindable(settings.gestures).mouseResizeModifierKey) {
-                ForEach(MouseResizeModifierKey.allCases, id: \.self) { key in
-                    Text(key.localizedDisplayName).tag(key)
-                }
-            }
-            .id("Right Mouse Resize Modifier")
-
-            SettingsCaption(localized: "Hold this modifier combo + right mouse drag to resize tiled windows")
-
-            Toggle("Keep Native Moves Across Displays", isOn: Bindable(settings.gestures).adoptNativeMoveAcrossDisplays)
-                .id("Keep Native Moves Across Displays")
-
-            SettingsCaption(
-                localized: "Drag a tiled window by its title bar onto another display without a modifier. Drops use the same placement rules as modifier drags. Moving within one display still snaps the window back."
-            )
-
-            Toggle("Keep Native Edge Resizes", isOn: Bindable(settings.gestures).adoptNativeResize)
-                .id("Keep Native Edge Resizes")
-
-            SettingsCaption(
-                localized: "Drag a tiled window's edge or corner without a modifier. Dwindle resizes neighbouring windows while you drag; Niri refits them after you release."
-            )
-
-            Picker("Resize Preview", selection: Bindable(settings.gestures).resizePreviewStyle) {
-                ForEach(ResizePreviewStyle.allCases) { style in
-                    Text(style.localizedDisplayName).tag(style)
-                }
-            }
-            .id("Resize Preview")
-
-            SettingsCaption(
-                localized: "Applies to modifier-based mouse resizing, trackpad resize gestures, and Niri keyboard resizing. Native edge or corner drags bypass previews; Dwindle neighbours always resize live. Window Snapshot stretches a still image and needs Screen Recording. Glass Placeholder shows app icons without capture. With either preview, windows get their final size when resizing ends."
+                localized: "Choose what dragging a Dwindle group by its title bar moves onto another display. A whole group moved into Niri becomes one tabbed column. Dragging an individual group tab moves only that tab."
             )
         }
         .id("Mouse Move & Resize")

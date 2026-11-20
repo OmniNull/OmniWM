@@ -41,6 +41,35 @@ final class NiriAxisSolverTests: XCTestCase {
         XCTAssertEqual(outputs[1].value, 400)
     }
 
+    func testWeightedMaximumRedistributesSpaceToAnUncappedNeighbor() {
+        let space: CGFloat = 900
+        let maximum = space / 3
+        let outputs = NiriAxisSolver.solve(
+            windows: [auto(max: maximum), auto()], availableSpace: space, gapSize: 0
+        )
+
+        XCTAssertEqual(outputs[0].value, maximum)
+        XCTAssertEqual(outputs[1].value, space - maximum)
+        XCTAssertTrue(outputs[0].wasConstrained)
+        XCTAssertFalse(outputs[1].wasConstrained)
+    }
+
+    func testWeightedMaximumRecomputesMinimumPinsBeforeRedistributing() {
+        let space: CGFloat = 1000
+        let minimum = space / 5
+        let maximum = space / 20
+        let inputs = [auto(min: minimum), auto(max: maximum), auto(weight: 8)]
+
+        let outputs = NiriAxisSolver.solve(windows: inputs, availableSpace: space, gapSize: 0)
+
+        XCTAssertEqual(outputs[0].value, minimum)
+        XCTAssertEqual(outputs[1].value, maximum)
+        XCTAssertEqual(outputs[2].value, space - minimum - maximum)
+        XCTAssertTrue(outputs[0].wasConstrained)
+        XCTAssertTrue(outputs[1].wasConstrained)
+        XCTAssertFalse(outputs[2].wasConstrained)
+    }
+
     func testInfeasibleInputsPreserveMinimumRatiosAndBackstop() {
         let cases: [(String, [NiriAxisSolver.Input], CGFloat, [CGFloat])] = [
             ("equalMinima", [auto(min: 800), auto(min: 800)], 1000, [500, 500]),

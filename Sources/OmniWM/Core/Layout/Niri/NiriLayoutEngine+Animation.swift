@@ -190,6 +190,7 @@ extension NiriLayoutEngine {
         var anyRunning = false
         for column in columns {
             if column.tickMoveAnimation(at: time) { anyRunning = true }
+            if column.isParked { column.finishWidthAnimation() }
             if column.tickWidthAnimation(at: time) { anyRunning = true }
             if column.tickHeightAnimation(at: time) { anyRunning = true }
         }
@@ -356,6 +357,61 @@ extension NiriLayoutEngine {
         }
 
         return anyAnimationStarted
+    }
+
+    @discardableResult
+    func animateFilledSizeChanges(
+        in workspaceId: WorkspaceDescriptor.ID,
+        oldFrames: [WindowToken: CGRect],
+        newFrames: [WindowToken: CGRect],
+        motion: MotionSnapshot,
+        orientation: Monitor.Orientation,
+        threshold: CGFloat = 1.0
+    ) -> Bool {
+        guard let root = root(for: workspaceId) else { return false }
+        var anyAnimationStarted = false
+        for window in root.allWindows {
+            guard let oldFrame = oldFrames[window.token], let newFrame = newFrames[window.token] else { continue }
+            if oldFrame.height > 0, abs(oldFrame.height - newFrame.height) > threshold {
+                window.animateHeightFrom(
+                    delta: oldFrame.height - newFrame.height,
+                    clock: animationClock,
+                    config: motion.scaled(windowMovementAnimationConfig),
+                    displayRefreshRate: displayRefreshRate(in: workspaceId),
+                    animated: motion.animationsEnabled
+                )
+                anyAnimationStarted = true
+            }
+            if orientation == .vertical, oldFrame.width > 0, abs(oldFrame.width - newFrame.width) > threshold {
+                window.animateWidthFrom(
+                    delta: oldFrame.width - newFrame.width,
+                    clock: animationClock,
+                    config: motion.scaled(windowMovementAnimationConfig),
+                    displayRefreshRate: displayRefreshRate(in: workspaceId),
+                    animated: motion.animationsEnabled
+                )
+                anyAnimationStarted = true
+            }
+        }
+        return anyAnimationStarted
+    }
+
+    func framesIncludingSizeAnimations(
+        _ frames: [WindowToken: CGRect],
+        in workspaceId: WorkspaceDescriptor.ID,
+        at time: TimeInterval
+    ) -> [WindowToken: CGRect] {
+        var drawn = frames
+        for (token, frame) in frames {
+            guard let window = findNode(for: token, in: workspaceId) else { continue }
+            if window.heightAnimation != nil {
+                drawn[token]?.size.height = max(1, frame.height + window.renderHeightOffset(at: time))
+            }
+            if window.widthAnimation != nil {
+                drawn[token]?.size.width = max(1, frame.width + window.renderWidthOffset(at: time))
+            }
+        }
+        return drawn
     }
 
     func hasAnyWindowAnimationsRunning(in workspaceId: WorkspaceDescriptor.ID) -> Bool {

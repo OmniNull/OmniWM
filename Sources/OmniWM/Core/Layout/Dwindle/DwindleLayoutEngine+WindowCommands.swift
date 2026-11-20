@@ -156,4 +156,14 @@ extension DwindleLayoutEngine {
         _ = tile.toggleFullscreen(for: handle)
         return handle
     }
+
+    func toggleFullscreen(for token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        assertSanctionedMutation()
+        guard let state = existingState(for: workspaceId),
+              let tile = state.leafByToken[token]?.tile,
+              visibleMember(in: tile, excluding: state.excludedTokens)?.token == token
+        else { return false }
+        _ = tile.toggleFullscreen(for: token)
+        return true
+    }
 }

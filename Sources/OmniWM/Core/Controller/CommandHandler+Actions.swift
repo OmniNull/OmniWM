@@ -113,16 +113,20 @@ extension CommandHandler {
         _ = controller.workspaceNavigationHandler.moveWorkspaceToMonitor(workspaceId, direction: direction, force: true)
     }
 
-    func perform(_ action: WindowMovementAction, controller: WMController) -> ExternalCommandResult {
+    func perform(
+        _ action: WindowMovementAction,
+        controller: WMController,
+        widening changeStart: inout NiriLayoutChangeStart?
+    ) -> ExternalCommandResult {
         switch action {
         case .down:
             moveWindowWithinContainer(direction: .down)
         case .up:
             moveWindowWithinContainer(direction: .up)
         case .downOrToWorkspaceDown:
-            controller.niriLayoutHandler.moveWindowOrToAdjacentWorkspace(direction: .down)
+            controller.niriLayoutHandler.moveWindowOrToAdjacentWorkspace(direction: .down, widening: &changeStart)
         case .upOrToWorkspaceUp:
-            controller.niriLayoutHandler.moveWindowOrToAdjacentWorkspace(direction: .up)
+            controller.niriLayoutHandler.moveWindowOrToAdjacentWorkspace(direction: .up, widening: &changeStart)
         case .consumeOrExpelLeft:
             controller.niriLayoutHandler.consumeOrExpelWindow(direction: .left)
         case .consumeOrExpelRight:
@@ -222,8 +226,22 @@ extension CommandHandler {
             controller.niriLayoutHandler.setWindowSecondarySpan(change)
         case .balanceSizes:
             layoutHandler(as: LayoutSizable.self)?.balanceSizes()
+        case .undo:
+            stepLayoutHistory(undo: true, controller: controller)
+        case .redo:
+            stepLayoutHistory(undo: false, controller: controller)
         }
         return .executed
+    }
+
+    private func stepLayoutHistory(undo: Bool, controller: WMController) {
+        let niri = controller.niriLayoutHandler
+        guard let workspaceId = niri.layoutHistoryWorkspaceId() else { return }
+        if controller.workspaceManager.activeLayoutKind(for: workspaceId) == .dwindle {
+            controller.dwindleLayoutHandler.stepLayoutHistory(undo ? .undo : .redo, in: workspaceId)
+        } else {
+            niri.stepLayoutHistory(undo ? .undo : .redo, in: workspaceId)
+        }
     }
 
     private func niriResizeChange(grow: Bool, controller: WMController) -> NiriSizeChange {

@@ -133,6 +133,38 @@ extension WMController {
         }
     }
 
+    var edgePeekShare: CGFloat? {
+        guard settings.niri.edgePeekPercent > 0 else { return nil }
+        return CGFloat(settings.niri.edgePeekPercent / 100)
+    }
+
+    var niriStripPolicies: NiriStripPolicies {
+        NiriStripPolicies(
+            fitsVisibleContainerCount: settings.niri.fitToVisibleContainerCount,
+            opensNewWindowsAtAppWidth: settings.niri.opensNewWindowsAtAppWidth,
+            keepsSizeOnUnstack: settings.niri.keepSizeOnUnstack,
+            keepsSizesOnDisplayMove: settings.niri.keepSizesOnDisplayMove,
+            keepsStripEndsOnScreen: settings.niri.keepStripEndsOnScreen
+        )
+    }
+
+    func applyNiriStripPolicies() {
+        niriLayoutHandler.updateNiriStripPolicies(niriStripPolicies)
+    }
+
+    func applyNiriDefaultSpanSettings() {
+        updateNiriConfig(defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan)
+        applyNiriStripPolicies()
+    }
+
+    func applyNiriVisibleContainerSettings() {
+        updateNiriConfig(visibleContainerCount: settings.niri.visibleContainerCount)
+        applyNiriStripPolicies()
+        if settings.niri.fitToVisibleContainerCount {
+            rebalanceNiriSizesForVisibleContainerCountChange()
+        }
+    }
+
     private func applyPersistedLayoutSettings(_ settings: SettingsStore) {
         if niriEngine == nil {
             enableNiriLayout(
@@ -149,8 +181,10 @@ extension WMController {
             edgeOverscroll: settings.niri.edgeOverscroll,
             containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets,
             defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan,
-            shrinkToFit: settings.niri.shrinkToFit
+            shrinkToFit: settings.niri.shrinkToFit,
+            edgePeekShare: edgePeekShare
         )
+        applyNiriStripPolicies()
 
         if dwindleEngine == nil {
             enableDwindleLayout()

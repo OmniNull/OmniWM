@@ -195,7 +195,7 @@ final class AudioSpectrumTap: AudioSpectrumSource {
 
     private let session: AudioTapSession
     private let queue: DispatchSerialQueue
-    private let listener: AudioObjectPropertyListenerBlock
+    private var listener: AudioPropertyListener?
 
     var sampleRate: Double {
         session.sampleRate
@@ -220,9 +220,10 @@ final class AudioSpectrumTap: AudioSpectrumSource {
             destroy: omni_audio_ring_destroy
         )
         self.queue = queue
-        listener = { _, _ in changed() }
-        var address = ShellAudio.defaultOutputAddress
-        AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &address, queue, listener)
+        listener = AudioPropertyListener.listen(
+            to: AudioObjectID(kAudioObjectSystemObject), address: ShellAudio.defaultOutputAddress, queue: queue,
+            block: { _, _ in changed() }
+        )
     }
 
     func read(from start: UInt64, into samples: UnsafeMutableBufferPointer<Float>) -> Bool {
@@ -231,8 +232,8 @@ final class AudioSpectrumTap: AudioSpectrumSource {
     }
 
     func stop() {
-        var address = ShellAudio.defaultOutputAddress
-        AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &address, queue, listener)
+        listener?.remove(on: queue)
+        listener = nil
         session.stop()
     }
 }

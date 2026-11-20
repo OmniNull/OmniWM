@@ -9,10 +9,12 @@ extension WorkspaceManager {
     func recordLayoutOperation(
         _ operation: LayoutOperation,
         in workspaceId: WorkspaceDescriptor.ID,
-        source: WMEventSource = .command
+        source: WMEventSource = .command,
+        preMutate: () -> Void = {}
     ) {
         recordReconcileEvent(
-            .layoutOperationPerformed(workspaceId: workspaceId, operation: operation, source: source)
+            .layoutOperationPerformed(workspaceId: workspaceId, operation: operation, source: source),
+            preMutate: preMutate
         )
     }
 

@@ -59,14 +59,19 @@ extension WorkspaceManager {
         return false
     }
 
-    func withNiriViewportState(
+    @discardableResult
+    func withNiriViewportState<Result>(
         for workspaceId: WorkspaceDescriptor.ID,
-        _ mutate: (inout ViewportState) -> Void
-    ) {
+        committingIf shouldCommit: (Result) -> Bool = { _ in true },
+        _ mutate: (inout ViewportState) -> Result
+    ) -> Result {
         var state = niriViewportState(for: workspaceId)
-        withEngineMutationScope(in: workspaceId, label: "viewport_mutation") {
+        let result = withEngineMutationScope(in: workspaceId, label: "viewport_mutation") {
             mutate(&state)
         }
-        updateNiriViewportState(state, for: workspaceId)
+        if shouldCommit(result) {
+            updateNiriViewportState(state, for: workspaceId)
+        }
+        return result
     }
 }

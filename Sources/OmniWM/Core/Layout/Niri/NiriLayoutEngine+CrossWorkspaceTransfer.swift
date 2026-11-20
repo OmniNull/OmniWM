@@ -15,6 +15,34 @@ struct NiriTransferredColumn {
 }
 
 extension NiriLayoutEngine {
+    func detachColumnForTransfer(
+        _ column: NiriContainer,
+        from workspaceId: WorkspaceDescriptor.ID,
+        sourceState: inout ViewportState
+    ) -> NiriTransferredColumn? {
+        assertSanctionedMutation()
+        guard let workspace = states[workspaceId] else { return nil }
+        let allColumns = columns(in: workspaceId)
+        guard let index = allColumns.firstIndex(where: { $0 === column }) else { return nil }
+        let windows = column.windowNodes
+        guard !windows.isEmpty else { return nil }
+        let sizing = containerSizingState(for: column)
+        let activeIndex = min(column.activeTileIdx, windows.count - 1)
+        let wasSingleWindow = singleWindowLayoutContext(in: workspaceId) != nil
+        let fallback = index > 0 ? allColumns[index - 1].firstChild()?.id
+            : (allColumns.count > 1 ? allColumns[1].firstChild()?.id : nil)
+        var ids: Set<NodeId> = []
+        for window in windows { ids.insert(window.id) }
+        let retained = sourceState.selectedNodeId.flatMap { ids.contains($0) ? nil : $0 }
+        cancelInteractions(for: ids, in: workspaceId)
+        column.detach()
+        for window in windows { workspace.unindex(window) }
+        if index < sourceState.activeColumnIndex { sourceState.activeColumnIndex -= 1 }
+        clearManualSpanOverridesOnSingleWindowEntry(in: workspaceId, wasSingleWindow: wasSingleWindow)
+        sourceState.selectedNodeId = retained ?? fallback
+        return NiriTransferredColumn(windows: windows, activeIndex: activeIndex, sizing: sizing)
+    }
+
     func detachWindowForTransfer(
         _ window: NiriWindow,
         from sourceWorkspaceId: WorkspaceDescriptor.ID,

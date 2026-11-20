@@ -114,13 +114,20 @@ struct SettingsExport: Equatable {
         var alwaysCenterSingleColumn: Bool
         var singleWindowFit: SingleWindowFit
         var containerPrimarySpanPresets: [Double]?
-        var defaultContainerPrimarySpan: Double?
+        var defaultContainerPrimarySpan: NiriContainerPrimarySpanOverride?
         var edgeGaps: Bool?
         var resizeStepPercent: Int?
         var moveWindowStacksIntoColumn: Bool?
         var allowOverscroll: Bool?
         var overscrollVisibleStripPercent: Int?
         var shrinkToFit: Bool?
+        var edgePeekPercent: Double?
+        var fitToVisibleContainerCount: Bool?
+        var keepExistingWindowWidth: Bool?
+        var keepSizeOnUnstack: Bool?
+        var keepSizesOnDisplayMove: Bool?
+        var keepSizesOnSettingsChange: Bool?
+        var keepStripEndsOnScreen: Bool?
     }
 
     struct Dwindle: Codable, Equatable {
@@ -178,8 +185,6 @@ struct SettingsExport: Equatable {
         var scrollEnabled: Bool
         var scrollSensitivity: Double
         var scrollModifierKey: ScrollModifierKey
-        var mouseMoveModifierKey: MouseMoveModifierKey
-        var mouseResizeModifierKey: MouseResizeModifierKey
         var fingerCount: ThreeOrFourFingerCount
         var invertDirection: Bool
         var trackpadScrollStyle: TrackpadScrollStyle
@@ -194,10 +199,7 @@ struct SettingsExport: Equatable {
         var windowResizeEnabled: Bool? = false
         var windowResizeFingerCount: GestureFingerCount? = .three
         var windowGestureSensitivity: Double? = 1.0
-        var resizePreviewStyle: ResizePreviewStyle? = .live
         var dwindleGroupDragAcrossDisplays: DwindleGroupDrag? = .group
-        var adoptNativeResize: Bool? = false
-        var adoptNativeMoveAcrossDisplays: Bool? = false
         var mouseWheelSensitivity: Double? = 1.0
     }
 

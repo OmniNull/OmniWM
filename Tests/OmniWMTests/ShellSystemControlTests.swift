@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import AppKit
 import CoreGraphics
 @testable import OmniWM
 import OmniWMScriptHost
 import XCTest
 
 extension ShellWidgetPackage {
-    fileprivate func systemControlOutput(_ key: ShellBarKey) -> (width: Float, demand: UInt64)? {
+    func systemControlOutput(_ key: ShellBarKey) -> (width: Float, demand: UInt64)? {
         guard let instance = script?.instances[.bar(key)] else { return nil }
         var count = 0
         guard let bytes = omni_instance_output(instance, OMNI_VIEW_BAR, &count),
@@ -32,6 +33,8 @@ final class ShellSystemControlTests: XCTestCase {
     private final class Display {
         var id: CGDirectDisplayID = 42
         var level: Double? = 0.5
+        var monitors: [Monitor] = []
+        var otherLevels: [CGDirectDisplayID: Double] = [:]
         var reads: [CGDirectDisplayID] = []
         var writes: [Write] = []
         var succeeds = true
@@ -42,13 +45,17 @@ final class ShellSystemControlTests: XCTestCase {
                 display: { self.id },
                 read: { [self] display in
                     reads.append(display)
-                    return level
+                    return display == id ? level : otherLevels[display]
                 },
                 set: setterAvailable ? { [self] display, value in
                     writes.append(Write(display: display, value: value))
-                    if succeeds { level = value }
+                    if succeeds {
+                        if display == id { level = value }
+                        else { otherLevels[display] = value }
+                    }
                     return succeeds
-                } : nil
+                } : nil,
+                monitors: { self.monitors }
             )
         }
     }
@@ -60,6 +67,11 @@ final class ShellSystemControlTests: XCTestCase {
         XCTAssertEqual(ShellAction("brightness up"), .brightness(.change(percent: 6.25)))
         XCTAssertEqual(ShellAction("brightness down"), .brightness(.change(percent: -6.25)))
         XCTAssertEqual(ShellAction("brightness settings"), .settings(.brightness))
+        let id = UUID()
+        XCTAssertEqual(
+            ShellAction("brightness display \(id.uuidString.lowercased()) set 42.5"),
+            .brightness(.setDisplay(id: id, percent: 42.5))
+        )
         for command in [
             "brightness",
             "brightness set",
@@ -68,7 +80,16 @@ final class ShellSystemControlTests: XCTestCase {
             "brightness set -1",
             "brightness set 101",
             "brightness up 5",
-            "brightness toggle"
+            "brightness toggle",
+            "brightness display all set 50",
+            "brightness display 0 set 50",
+            "brightness display \(id) down",
+            "brightness display \(id) set",
+            "brightness display \(id) set nan",
+            "brightness display \(id) set inf",
+            "brightness display \(id) set -1",
+            "brightness display \(id) set 101",
+            "brightness display \(id) set 50 extra"
         ] {
             XCTAssertNil(ShellAction(command), command)
         }
@@ -205,6 +226,13 @@ final class ShellSystemControlTests: XCTestCase {
         function render(ctx)
             local brightness = ctx.data.brightness
             if brightness then assert(type(brightness.available) == 'boolean') end
+            local display = brightness and brightness.displays[1]
+            if display then
+                assert(display.id == 'B0EC7159-51FE-4076-84D8-05448F6EB8FA')
+                assert(display.name == 'Built-in Retina Display' and display.available == true)
+                assert(brightness.mainDisplayId == display.id)
+                return ui.box{w=display.value,h=10}
+            end
             return ui.box{w=brightness and (brightness.available and brightness.value or 2) or 1,h=10}
         end
         """)
@@ -213,7 +241,14 @@ final class ShellSystemControlTests: XCTestCase {
         await package.receive(.bars([key: ShellBarData()]))
         var data = ShellWidgetData()
         for (value, expected): (ShellBrightness?, Float) in [
-            (ShellBrightness(value: 36, available: true), 36), (ShellBrightness(), 2), (nil, 1)
+            (ShellBrightness(value: 36, available: true), 36), (ShellBrightness(), 2), (nil, 1),
+            (ShellBrightness(
+                value: 64, available: true, mainDisplayId: "B0EC7159-51FE-4076-84D8-05448F6EB8FA",
+                displays: [.init(
+                    id: "B0EC7159-51FE-4076-84D8-05448F6EB8FA", name: "Built-in Retina Display", value: 64,
+                    available: true
+                )]
+            ), 64)
         ] {
             data.brightness = value
             await package.receive(.update(data))
@@ -234,5 +269,103 @@ final class ShellSystemControlTests: XCTestCase {
         for command in ["wifi power on", "wifi power off", "bluetooth power on", "bluetooth power off"] {
             XCTAssertNil(ShellAction(command), command)
         }
+    }
+}
+
+extension ShellSystemControlTests {
+    func testPerDisplayBrightnessWorksWhenMainDisplayIsUnsupported() {
+        let dell = UUID()
+        let retina = UUID()
+        let display = Display()
+        display.level = nil
+        display.monitors = [
+            makeMonitor(id: 42, name: "DELL U2723QE", uuid: dell),
+            makeMonitor(id: 7, name: "Built-in Retina Display", uuid: retina)
+        ]
+        display.otherLevels[7] = 0.5
+        let source = ShellDisplayBrightness(access: display.access)
+        source.setListening(true)
+        XCTAssertEqual(display.reads, [42, 7])
+        XCTAssertEqual(
+            source.value,
+            ShellBrightness(mainDisplayId: dell.uuidString, displays: [
+                .init(id: dell.uuidString, name: "DELL U2723QE", value: 0, available: false),
+                .init(id: retina.uuidString, name: "Built-in Retina Display", value: 50, available: true)
+            ])
+        )
+
+        XCTAssertFalse(source.perform(.set(percent: 25)))
+        XCTAssertFalse(source.perform(.setDisplay(id: dell, percent: 25)))
+        XCTAssertTrue(source.perform(.setDisplay(id: retina, percent: 25)))
+        XCTAssertEqual(display.writes, [Write(display: 7, value: 0.25)])
+        XCTAssertEqual(source.value?.value, 0)
+        XCTAssertEqual(source.value?.available, false)
+        XCTAssertEqual(source.value?.displays.last?.value, 25)
+    }
+
+    func testTargetedBrightnessResolvesLiveDisplayUUIDAndRejectsUnsafeTargets() {
+        let retina = UUID()
+        let zero = UUID()
+        let other = UUID()
+        let display = Display()
+        display.monitors = [makeMonitor(id: 7, name: "Retina", uuid: retina)]
+        display.otherLevels = [0: 0.5, 7: 0.5, 8: 0.5]
+        let source = ShellDisplayBrightness(access: display.access)
+        source.setListening(true)
+        XCTAssertEqual(source.value?.available, true)
+        XCTAssertNil(source.value?.mainDisplayId)
+        XCTAssertEqual(source.value?.displays.first?.id, retina.uuidString)
+
+        display.monitors = [
+            makeMonitor(id: 7, name: "Other", uuid: other),
+            makeMonitor(id: 8, name: "Retina", uuid: retina),
+            makeMonitor(id: 0, name: "Invalid", uuid: zero)
+        ]
+        XCTAssertFalse(source.perform(.setDisplay(id: zero, percent: 50)))
+        XCTAssertFalse(source.perform(.setDisplay(id: retina, percent: .nan)))
+        XCTAssertTrue(source.perform(.setDisplay(id: retina, percent: 25)))
+        XCTAssertEqual(display.writes, [Write(display: 8, value: 0.25)])
+        XCTAssertFalse(display.reads.contains(0))
+
+        display.monitors = [makeMonitor(id: 8, name: "Other", uuid: other)]
+        XCTAssertFalse(source.perform(.setDisplay(id: retina, percent: 80)))
+        display.monitors = [
+            makeMonitor(id: 7, name: "Retina", uuid: retina),
+            makeMonitor(id: 8, name: "Duplicated UUID", uuid: retina)
+        ]
+        XCTAssertFalse(source.perform(.setDisplay(id: retina, percent: 80)))
+        display.id = 0
+        XCTAssertFalse(source.perform(.set(percent: 80)))
+        XCTAssertFalse(display.reads.contains(0))
+        XCTAssertEqual(display.writes.count, 1)
+    }
+
+    func testDisplayChangesRefreshBrightnessOnlyWhileDemanded() {
+        let center = NotificationCenter()
+        let display = Display()
+        let source = ShellDisplayBrightness(access: display.access, notificationCenter: center)
+        let id = UUID()
+        display.otherLevels[7] = 0.5
+        source.setListening(true)
+        XCTAssertEqual(source.value?.displays, [])
+        display.monitors = [makeMonitor(id: 7, name: "Retina", uuid: id)]
+        center.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        XCTAssertEqual(source.value?.displays.map(\.id), [id.uuidString])
+        display.monitors = []
+        center.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        XCTAssertEqual(source.value?.displays, [])
+
+        source.setListening(false)
+        display.reads = []
+        center.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        XCTAssertTrue(display.reads.isEmpty)
+        XCTAssertNil(source.value)
+    }
+
+    private func makeMonitor(id: CGDirectDisplayID, name: String, uuid: UUID) -> Monitor {
+        Monitor(
+            id: .init(displayId: id), displayId: id, frame: .zero, visibleFrame: .zero,
+            hasNotch: false, name: name, displayUUID: uuid.uuidString, isMain: id == 42
+        )
     }
 }
