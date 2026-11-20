@@ -244,12 +244,47 @@ extension ShellDevicesTests {
     }
 
     func testTheSettingsHandoffOnlyClicksARowWhoseSecurityMatches() {
-        let ids: Set = ["wifi-network-Home-signal", "wifi-network-Home-secure", "wifi-network-Cafe-signal"]
+        let identifiers = { (names: [String]) in Set(names.map { Data($0.utf8) }) }
+        let ids = identifiers(["wifi-network-Home-signal", "wifi-network-Home-secure", "wifi-network-Cafe-signal"])
         XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Home", secured: true), .matches)
         XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Home", secured: false), .conflicts)
         XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Cafe", secured: false), .matches)
         XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Cafe", secured: true), .conflicts)
         XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: ids, ssid: "Office", secured: true), .unknown)
+
+        let composed = "Caf\u{00E9}"
+        let decomposed = "Cafe\u{0301}"
+        XCTAssertEqual(composed, decomposed)
+        let lookalikes = identifiers([
+            "wifi-network-\(composed)-signal",
+            "wifi-network-\(decomposed)-signal", "wifi-network-\(decomposed)-secure"
+        ])
+        XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: lookalikes, ssid: composed, secured: true), .conflicts)
+        XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: lookalikes, ssid: composed, secured: false), .matches)
+        XCTAssertEqual(WiFiSettingsJoiner.rowSecurity(in: lookalikes, ssid: decomposed, secured: true), .matches)
+    }
+
+    func testTheRecheckReadsOnlyTheTargetRowAndRejectsALateDuplicate() {
+        typealias Child = WiFiSettingsJoiner.RowChild
+        let label = { (text: String, target: Bool) in Child(text: text, isLabel: true, isTarget: target) }
+        let marker = { (identifier: String) in Child(identifier: identifier) }
+        let markers = { (names: [String]) in Set(names.map { Data($0.utf8) }) }
+        let rows = [
+            label("Home", false), marker("wifi-network-Home-secure"), marker("wifi-network-Home-signal"),
+            label("Cafe", true), marker("wifi-network-Cafe-signal"),
+            label("Office", false), marker("wifi-network-Office-secure"), marker("wifi-network-Office-signal")
+        ]
+        XCTAssertEqual(
+            WiFiSettingsJoiner.rowMarkers(in: rows, ssid: "Cafe"),
+            markers(["wifi-network-Cafe-signal"])
+        )
+        let duplicate = rows + [
+            label("Cafe", false), marker("wifi-network-Cafe-secure"), marker("wifi-network-Cafe-signal")
+        ]
+        XCTAssertNil(WiFiSettingsJoiner.rowMarkers(in: duplicate, ssid: "Cafe"))
+        XCTAssertNil(WiFiSettingsJoiner.rowMarkers(in: rows.map { Child(
+            text: $0.text, identifier: $0.identifier, isLabel: $0.isLabel, isTarget: false
+        ) }, ssid: "Cafe"))
     }
 
     func testAFailedDirectJoinHandsOffToSettings() async throws {

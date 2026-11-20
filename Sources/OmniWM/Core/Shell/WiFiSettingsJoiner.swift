@@ -59,10 +59,34 @@ actor WiFiSettingsJoiner {
         case unknown, matches, conflicts
     }
 
-    static func rowSecurity(in identifiers: Set<String>, ssid: String, secured: Bool) -> RowSecurity {
+    static func rowSecurity(in identifiers: Set<Data>, ssid: String, secured: Bool) -> RowSecurity {
         let row = "wifi-network-\(ssid)"
-        guard identifiers.contains("\(row)-signal") else { return .unknown }
-        return identifiers.contains("\(row)-secure") == secured ? .matches : .conflicts
+        guard identifiers.contains(Data("\(row)-signal".utf8)) else { return .unknown }
+        return identifiers.contains(Data("\(row)-secure".utf8)) == secured ? .matches : .conflicts
+    }
+
+    struct RowChild: Equatable {
+        var text: String?
+        var identifier: String?
+        var isLabel = false
+        var isTarget = false
+    }
+
+    static func rowMarkers(in children: [RowChild], ssid: String) -> Set<Data>? {
+        var markers: Set<Data>?
+        var inTargetRow = false
+        for child in children {
+            if child.isLabel {
+                inTargetRow = false
+                guard let text = child.text, text.utf8.elementsEqual(ssid.utf8) else { continue }
+                guard child.isTarget, markers == nil else { return nil }
+                markers = []
+                inTargetRow = true
+            } else if inTargetRow, let identifier = child.identifier {
+                markers?.insert(Data(identifier.utf8))
+            }
+        }
+        return markers
     }
 
     private enum Attempt {
@@ -90,6 +114,9 @@ actor WiFiSettingsJoiner {
                   let actions = names as? [String],
                   let action = Self.connectAction(in: actions, title: connectTitle)
             else { return .blocked }
+            guard try Self.rowSecurity(in: search.recheck(label, app: app), ssid: ssid, secured: network.secured)
+                == .matches
+            else { return .blocked }
             try search.requireTimeLeft()
             return AXUIElementPerformAction(label, action as CFString) == .success ? .dispatched : .blocked
         } catch SearchStop.retry {
@@ -110,7 +137,7 @@ actor WiFiSettingsJoiner {
         let ssid: String
         let deadline: TimeInterval
         private(set) var match: AXUIElement?
-        private(set) var identifiers: Set<String> = []
+        private(set) var identifiers: Set<Data> = []
         private var nodesLeft = nodeBudget
 
         init(ssid: String, deadline: TimeInterval) {
@@ -147,7 +174,7 @@ actor WiFiSettingsJoiner {
             { throw SearchStop.abort }
             if role == kAXTextFieldRole || role == kAXTextAreaRole { return }
             if role == kAXUnknownRole, let identifier = try attribute(kAXIdentifierAttribute, of: element) as? String {
-                identifiers.insert(identifier)
+                identifiers.insert(Data(identifier.utf8))
             }
             if role == kAXStaticTextRole,
                let value = try attribute(kAXValueAttribute, of: element) as? String,
@@ -159,6 +186,39 @@ actor WiFiSettingsJoiner {
             for child in try attribute(kAXChildrenAttribute, of: element) as? [AXUIElement] ?? [] {
                 try visit(child, depth: depth + 1)
             }
+        }
+
+        func recheck(_ label: AXUIElement, app: AXUIElement) throws -> Set<Data> {
+            for window in try attribute(kAXWindowsAttribute, of: app) as? [AXUIElement] ?? [] {
+                if try blocksInput(window) { throw SearchStop.abort }
+                for child in try attribute(kAXChildrenAttribute, of: window) as? [AXUIElement] ?? []
+                    where try blocksInput(child)
+                {
+                    throw SearchStop.abort
+                }
+            }
+            guard let row = try AXUIElement.from(attribute(kAXParentAttribute, of: label)) else {
+                throw SearchStop.abort
+            }
+            var children: [RowChild] = []
+            for child in try attribute(kAXChildrenAttribute, of: row) as? [AXUIElement] ?? [] {
+                switch try attribute(kAXRoleAttribute, of: child) as? String {
+                case kAXStaticTextRole:
+                    let text = try attribute(kAXValueAttribute, of: child) as? String
+                    children.append(RowChild(text: text, isLabel: true, isTarget: CFEqual(child, label)))
+                case kAXUnknownRole:
+                    children.append(RowChild(identifier: try attribute(kAXIdentifierAttribute, of: child) as? String))
+                default: continue
+                }
+            }
+            guard let markers = WiFiSettingsJoiner.rowMarkers(in: children, ssid: ssid) else { throw SearchStop.abort }
+            return markers
+        }
+
+        private func blocksInput(_ element: AXUIElement) throws -> Bool {
+            if try attribute(kAXRoleAttribute, of: element) as? String == kAXSheetRole { return true }
+            let subrole = try attribute(kAXSubroleAttribute, of: element) as? String
+            return subrole == kAXDialogSubrole || subrole == kAXSystemDialogSubrole
         }
     }
 }
