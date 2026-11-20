@@ -212,6 +212,11 @@ extension WMController {
         traceCaptureCoordinator.status
     }
 
+    func syncScopeValidationWithRecording() {
+        let status = traceCaptureCoordinator.status
+        workspaceManager.scopeValidationRequested = status.isActive && status.profile == .problem
+    }
+
     @discardableResult
     func toggleTraceCapture(
         desiredState: TraceCaptureDesiredState = .toggle,
