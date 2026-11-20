@@ -121,6 +121,38 @@ final class ShellBarShaderTests: XCTestCase {
         host.stop()
     }
 
+    func testBackgroundTakesTheDarkPaletteOfABarUnderADarkMenuBar() throws {
+        let previous = NSApplication.shared.appearance
+        NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        defer { NSApplication.shared.appearance = previous }
+        let source = BarSource()
+        let resources = ShellResources(motion: MotionPolicy())
+        let host = ShellWidgetHost(
+            configDirectory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),
+            resources: resources,
+            world: { ShellWorldData() }, vars: { [:] }, bars: { source.bars },
+            onLayoutChange: {}, onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in },
+            onDrag: { _ in }, onPopoutChange: {}, onTitleDemandChange: { _ in }
+        )
+        host.started = true
+        host.config.barShader = ShellBarShader(source: "missing.metal")
+        let key = ShellBarKey(monitor: .init(displayId: 9))
+        let clock = ShellWidgetHost.WidgetState(name: "clock", sourceURL: URL(fileURLWithPath: "/tmp/clock/init.luau"))
+        clock.instances = [key: ShellWidgetHost.InstanceState()]
+        host.widgets = [clock.name: clock]
+        let view = try XCTUnwrap(host.barShaderView(key: key) as? ShellBarShaderView)
+        let foreground = ShellRole.foreground.rawValue
+        XCTAssertNotEqual(resources.palette.shaderColors[foreground], resources.darkPalette.shaderColors[foreground])
+        XCTAssertEqual(view.input?.colors[foreground], resources.palette.shaderColors[foreground])
+
+        var bar = ShellBarData()
+        bar.style.dark = true
+        source.bars = [key: bar]
+        host.updateBars()
+        XCTAssertEqual(view.input?.colors[foreground], resources.darkPalette.shaderColors[foreground])
+        host.stop()
+    }
+
     func testConstructedProgramBackgroundStaysAttachedAcrossFullWidthChanges() throws {
         let source = "sakura-petals.metal"
         let model = WorkspaceBarModel(snapshot: WorkspaceBarSnapshot(
@@ -184,4 +216,9 @@ final class ShellBarShaderTests: XCTestCase {
         XCTAssertFalse(first.isDescendant(of: view))
         XCTAssertEqual(second.frame.size, CGSize(width: 1000, height: 40))
     }
+}
+
+@MainActor
+private final class BarSource {
+    var bars: [ShellBarKey: ShellBarData] = [:]
 }

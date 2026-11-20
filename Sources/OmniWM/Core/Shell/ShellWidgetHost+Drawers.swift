@@ -180,7 +180,10 @@ extension ShellWidgetHost {
             onPopoutChange()
         }
         guard let drawer else { return }
-        for section in drawer.sections { releaseShellFocus(from: section.surface, restore: true) }
+        for section in drawer.sections {
+            releaseShellFocus(from: section.surface, restore: true)
+            section.surface.cancelInput()
+        }
         self.drawer = nil
         finishClosingDrawer()
         let finished = drawer.close(animated: animated) { [weak self, weak drawer] in
@@ -214,6 +217,7 @@ extension ShellWidgetHost {
         closeHiddenBarMenu()
         guard let popout else { return }
         releaseShellFocus(from: popout.surface, restore: true)
+        popout.surface.cancelInput()
         self.popout = nil
         finishClosing()
         let finished = popout.close(animated: animated) { [weak self, weak popout] in
