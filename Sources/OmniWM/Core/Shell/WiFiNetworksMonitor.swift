@@ -214,20 +214,23 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
     private let read: @Sendable () -> Lists
     private let scanner: @Sendable () -> Void
     private let joiner: @Sendable (ShellWiFiNetwork) -> String?
-    private let openSettings: @MainActor () -> Void
+    private let joinInSettings: @MainActor (ShellWiFiNetwork) async -> String?
+    private var settingsJoinTask: Task<Void, Never>?
 
     init(
         read: @escaping @Sendable () -> Lists = WiFiNetworksMonitor.readLists,
         scan: @escaping @Sendable () -> Void = WiFiNetworksMonitor.scanRadio,
         join: @escaping @Sendable (ShellWiFiNetwork) -> String? = WiFiNetworksMonitor.associate,
-        openSettings: @escaping @MainActor () -> Void = {
-            if let url = ShellSettingsPane.wifi.url { NSWorkspace.shared.open(url) }
-        }
+        joinInSettings: @escaping @MainActor (ShellWiFiNetwork) async -> String? = WiFiSettingsJoiner.join
     ) {
         self.read = read
         scanner = scan
         joiner = join
-        self.openSettings = openSettings
+        self.joinInSettings = joinInSettings
+    }
+
+    deinit {
+        settingsJoinTask?.cancel()
     }
 
     var isListening: Bool {
@@ -250,8 +253,10 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
             delegate = nil
             lists = ([], [])
             scanning = false
-            joining = nil
-            failure = nil
+            if settingsJoinTask == nil {
+                joining = nil
+                failure = nil
+            }
             value = nil
             return
         }
@@ -314,14 +319,17 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
             compose()
             return
         }
-        // 802.1X needs an identity, and an unsaved secured network needs a password: System Settings owns both.
-        if target.enterprise || target.secured && !target.known {
-            openSettings()
-            return
-        }
         joining = id
         failure = nil
         compose()
+        if target.enterprise || target.secured && !target.known {
+            // Opening Settings closes the popout. This user-requested handoff must outlive its data demand.
+            settingsJoinTask = Task { [weak self, joinInSettings] in
+                let message = await joinInSettings(target)
+                self?.finishSettingsJoin(id, failure: message)
+            }
+            return
+        }
         let generation = generation
         let joiner = joiner
         Self.radio.async { [weak self] in
@@ -332,6 +340,15 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
                 }
             }
         }
+    }
+
+    private func finishSettingsJoin(_ id: String, failure message: String?) {
+        settingsJoinTask = nil
+        joining = nil
+        failure = message.map { ShellWiFiFailure(id: id, message: $0) }
+        guard isListening else { return }
+        compose()
+        refresh()
     }
 
     private func finishJoin(_ id: String, failure message: String?, generation: Int) {

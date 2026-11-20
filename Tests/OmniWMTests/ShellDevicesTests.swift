@@ -3,14 +3,12 @@
 
 import CoreBluetooth
 import CoreLocation
-import CoreWLAN
 @testable import OmniWM
-import os
 import XCTest
 
 @MainActor
 final class ShellDevicesTests: XCTestCase {
-    private func read(_ keys: [ShellDataKey]) -> (deps: UInt64, cadence: ShellDataFeed.Cadence) {
+    func read(_ keys: [ShellDataKey]) -> (deps: UInt64, cadence: ShellDataFeed.Cadence) {
         let deps = keys.reduce(UInt64(0)) { $0 | $1.bit }
         return (deps, .of([(deps, nil)]))
     }
@@ -110,140 +108,6 @@ final class ShellDevicesTests: XCTestCase {
         widget.set("privacy") { ShellPrivacy(microphone: false, camera: true).write(into: &$0) }
         widget.render(ShellBarData())
         XCTAssertTrue(widget.strings().contains("false true"))
-    }
-
-    func testWiFiDescribesItsLinkAndCommandsParse() throws {
-        XCTAssertEqual(ShellWiFi.band(.band6GHz), "6 GHz")
-        XCTAssertNil(ShellWiFi.band(.bandUnknown))
-        XCTAssertEqual(ShellWiFi.security(.wpa3Personal), "WPA3 Personal")
-        XCTAssertEqual(ShellWiFi.location(.authorizedAlways), "authorized")
-        XCTAssertEqual(ShellWiFi.location(.denied), "denied")
-        XCTAssertEqual(ShellWiFi.location(.notDetermined), "notDetermined")
-        XCTAssertEqual(ShellAction("wifi authorize"), .wifi(.authorize))
-        XCTAssertEqual(ShellAction("wifi settings"), .settings(.wifi))
-        XCTAssertNil(ShellAction("wifi on"))
-
-        let widget = try ShellRenderedWidget(name: "wifi", source: """
-        function render(ctx)
-            local wifi = ctx.data.wifi
-            return ui.text{ text = tostring(wifi.ssid) .. " " .. wifi.rssi .. " " .. wifi.band .. " " .. wifi.location }
-        end
-        """)
-        widget.set("wifi") {
-            ShellWiFi(power: true, connected: true, rssi: -61, band: "5 GHz", channel: 149, location: "denied")
-                .write(into: &$0)
-        }
-        widget.render(ShellBarData())
-        XCTAssertTrue(widget.strings().contains("nil -61 5 GHz denied"))
-    }
-
-    func testWiFiIsReadOffTheMainThreadOnlyWhileAWidgetReadsIt() async throws {
-        let devices = ShellDevices(wifi: WiFiMonitor(read: { _ in ShellWiFi(power: true, location: "denied") }))
-        let (changes, changed) = boundedChanges()
-        let feed = ShellDataFeed(devices: devices, deliver: { _ in changed.yield() })
-        defer { feed.stop() }
-        feed.start()
-        let reading = read([.wifi])
-        feed.setDemand(reading.deps, cadence: reading.cadence)
-        XCTAssertTrue(devices.wifi.isListening)
-        await changes.wait { feed.current.wifi != nil }
-        XCTAssertEqual(feed.current.wifi, devices.wifi.value)
-        XCTAssertEqual(feed.current.wifi?.location, "denied")
-        let other = read([.clock])
-        feed.setDemand(other.deps, cadence: other.cadence)
-        XCTAssertFalse(devices.wifi.isListening)
-        XCTAssertNil(feed.current.wifi)
-        XCTAssertNil(devices.wifi.onChange)
-    }
-
-    func testWiFiJoinCommandsCarryHexSSIDs() {
-        let id = ShellWiFiNetwork.id(Data("Café  Wi-Fi".utf8))
-        XCTAssertEqual(ShellWiFiNetwork.ssidData(id: id), Data("Café  Wi-Fi".utf8))
-        XCTAssertNotEqual(id, ShellWiFiNetwork.id(Data("Café Wi-Fi".utf8)))
-        XCTAssertEqual(ShellAction("wifi join \(id)"), .wifi(.join(id)))
-        XCTAssertEqual(ShellAction("wifi scan"), .wifi(.scan))
-        XCTAssertNil(ShellAction("wifi join Café"))
-        XCTAssertNil(ShellAction("wifi join abc"))
-        XCTAssertNil(ShellAction("wifi join \(String(repeating: "ab", count: 33))"))
-    }
-
-    func testKnownNetworksFollowAutoJoinPriorityAndOtherNetworksFollowSignal() {
-        func network(_ ssid: String, _ rssi: Int) -> ShellWiFiNetwork {
-            ShellWiFiNetwork(id: ShellWiFiNetwork.id(Data(ssid.utf8)), ssid: ssid, rssi: rssi)
-        }
-        let id = { (ssid: String) in ShellWiFiNetwork.id(Data(ssid.utf8)) }
-        let lists = ShellWiFiNetworks.grouped(
-            [
-                network("Home", -70), network("Office", -50), network("Cafe", -60), network("Cafe", -40),
-                network("Lobby", -60), network("Atrium", -60), network("Current", -30)
-            ],
-            priority: [id("Office"), id("Current"), id("Gone"), id("Home")],
-            current: id("Current")
-        )
-        XCTAssertEqual(lists.known.map(\.ssid), ["Office", "Home"])
-        XCTAssertTrue(lists.known.allSatisfy(\.known))
-        XCTAssertEqual(lists.other.map(\.ssid), ["Cafe", "Atrium", "Lobby"])
-        XCTAssertEqual(lists.other.first?.rssi, -40)
-        XCTAssertFalse(lists.other.contains(where: \.known))
-    }
-
-    func testWiFiNetworksScanOnlyWhileReadAndJoinRevalidatesTheTarget() async throws {
-        let office = ShellWiFiNetwork(
-            id: ShellWiFiNetwork.id(Data("Office".utf8)), ssid: "Office", rssi: -50, security: "WPA2 Personal",
-            secured: true, known: true
-        )
-        let cafe = ShellWiFiNetwork(
-            id: ShellWiFiNetwork.id(Data("Cafe".utf8)), ssid: "Cafe", rssi: -60, security: "WPA2 Personal",
-            secured: true
-        )
-        let lobby = ShellWiFiNetwork(id: ShellWiFiNetwork.id(Data("Lobby".utf8)), ssid: "Lobby", rssi: -70)
-        let scans = OSAllocatedUnfairLock(initialState: 0)
-        let joins = OSAllocatedUnfairLock(initialState: [String]())
-        var settings = 0
-        let monitor = WiFiNetworksMonitor(
-            read: { ([office], [cafe, lobby]) },
-            scan: { scans.withLock { $0 += 1 } },
-            join: { network in
-                joins.withLock { $0.append(network.ssid) }
-                return network.ssid == "Lobby" ? "Refused" : nil
-            },
-            openSettings: { settings += 1 }
-        )
-        let devices = ShellDevices(wifiNetworks: monitor)
-        let (changes, changed) = boundedChanges()
-        let feed = ShellDataFeed(devices: devices, deliver: { _ in changed.yield() })
-        defer { feed.stop() }
-        feed.start()
-        XCTAssertFalse(monitor.isListening)
-
-        let reading = read([.wifiNetworks])
-        feed.setDemand(reading.deps, cadence: reading.cadence)
-        XCTAssertTrue(monitor.isListening)
-        await changes
-            .wait { feed.current.wifiNetworks?.known == [office] && feed.current.wifiNetworks?.scanning == false }
-        XCTAssertEqual(scans.withLock { $0 }, 1)
-        XCTAssertEqual(feed.current.wifiNetworks?.other, [cafe, lobby])
-
-        devices.perform(.join(ShellWiFiNetwork.id(Data("Gone".utf8))))
-        XCTAssertEqual(feed.current.wifiNetworks?.failure?.message, "Network is no longer in range")
-        devices.perform(.join(cafe.id))
-        XCTAssertEqual(settings, 1)
-
-        devices.perform(.join(office.id))
-        XCTAssertEqual(feed.current.wifiNetworks?.joining, office.id)
-        XCTAssertNil(feed.current.wifiNetworks?.failure)
-        await changes.wait { feed.current.wifiNetworks?.joining == nil }
-        XCTAssertNil(feed.current.wifiNetworks?.failure)
-
-        devices.perform(.join(lobby.id))
-        await changes.wait { feed.current.wifiNetworks?.joining == nil && feed.current.wifiNetworks?.failure != nil }
-        XCTAssertEqual(feed.current.wifiNetworks?.failure, ShellWiFiFailure(id: lobby.id, message: "Refused"))
-        XCTAssertEqual(joins.withLock { $0 }, ["Office", "Lobby"])
-
-        let other = read([.clock])
-        feed.setDemand(other.deps, cadence: other.cadence)
-        XCTAssertFalse(monitor.isListening)
-        XCTAssertNil(feed.current.wifiNetworks)
     }
 
     func testBluetoothDescribesDevicesAndWaitsForAccess() throws {
