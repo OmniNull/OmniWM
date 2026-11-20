@@ -211,6 +211,37 @@ extension ShellDevicesTests {
         XCTAssertEqual(monitor.value?.failure?.message, "Join this network in Wi-Fi Settings")
     }
 
+    func testADirectJoinSurvivesThePopoutClosing() async throws {
+        let office = WiFiJoinTargets().office
+        let (changes, changed) = boundedChanges()
+        let release = DispatchSemaphore(value: 0)
+        var handedOff: [ShellWiFiNetwork] = []
+        let monitor = WiFiNetworksMonitor(
+            read: { ([office], []) }, scan: {},
+            join: { _ in
+                release.wait()
+                return .needsSettings
+            },
+            joinInSettings: { network in
+                handedOff.append(network)
+                changed.yield()
+                return nil
+            }
+        )
+        monitor.onChange = { _ in changed.yield() }
+        defer { monitor.setListening(false) }
+        monitor.setListening(true)
+        await changes.wait { monitor.value?.known == [office] && monitor.value?.scanning == false }
+        monitor.join(office.id)
+        monitor.setListening(false)
+        monitor.setListening(true)
+        XCTAssertEqual(monitor.value?.joining, office.id)
+        monitor.join(office.id)
+        release.signal()
+        await changes.wait { !handedOff.isEmpty && monitor.value?.joining == nil }
+        XCTAssertEqual(handedOff, [office])
+    }
+
     func testAFailedDirectJoinHandsOffToSettings() async throws {
         let office = WiFiJoinTargets().office
         let (changes, changed) = boundedChanges()

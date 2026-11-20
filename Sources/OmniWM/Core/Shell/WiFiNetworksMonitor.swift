@@ -261,9 +261,8 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
             client = nil
             delegate = nil
             scanning = false
-            if settingsJoinTask == nil {
+            if joining == nil {
                 lists = ([], [])
-                joining = nil
                 failure = nil
             }
             value = nil
@@ -335,20 +334,18 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
             handOff(target)
             return
         }
-        let generation = generation
         let joiner = joiner
         Self.radio.async { [weak self] in
             let outcome = joiner(target)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    self?.finishJoin(target, outcome: outcome, generation: generation)
+                    self?.finishJoin(target, outcome: outcome)
                 }
             }
         }
     }
 
-    private func finishJoin(_ target: ShellWiFiNetwork, outcome: ShellWiFiJoinOutcome, generation: Int) {
-        guard generation == self.generation else { return }
+    private func finishJoin(_ target: ShellWiFiNetwork, outcome: ShellWiFiJoinOutcome) {
         switch outcome {
         case .joined: finish(target.id, failure: nil)
         case let .failed(message): finish(target.id, failure: message)
@@ -408,8 +405,13 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
             return ([], [])
         }
         let profiles = interface.configuration()?.networkProfiles.array as? [CWNetworkProfile] ?? []
+        let saved = Dictionary(grouping: profiles) { $0.ssidData.map(ShellWiFiNetwork.id) }
+        let candidates = scan.filter { network in
+            guard let profiles = saved[network.ssidData.map(ShellWiFiNetwork.id)] else { return true }
+            return profiles.contains { network.supportsSecurity($0.security) }
+        }
         return ShellWiFiNetworks.grouped(
-            scan.compactMap(ShellWiFiNetwork.init),
+            candidates.compactMap(ShellWiFiNetwork.init),
             priority: profiles.compactMap { $0.ssidData.map(ShellWiFiNetwork.id) },
             current: interface.ssidData().map(ShellWiFiNetwork.id)
         )
@@ -437,9 +439,7 @@ final class WiFiNetworksMonitor: NSObject, ShellDeviceSource {
                 && error?.code == OmniWMWiFiError.notInRange.rawValue
             return notInRange ? .failed(outOfRange) : .needsSettings
         }
-        guard let interface = CWWiFiClient.shared().interface() else {
-            return .failed(String(localized: "Wi-Fi is unavailable"))
-        }
+        guard let interface = CWWiFiClient.shared().interface() else { return .needsSettings }
         let candidates = interface.cachedScanResults()?
             .filter { $0.ssidData == ssid && ShellWiFiNetwork($0)?.secured == false } ?? []
         guard let target = candidates.max(by: { $0.rssiValue < $1.rssiValue }) else { return .failed(outOfRange) }

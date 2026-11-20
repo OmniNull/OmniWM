@@ -111,7 +111,12 @@ static BOOL join(NSData *ssid, NSError **error) {
     NSArray<CWNetwork *> *networks = named(interface.cachedScanResults, ssid);
     id scan = eligibleScan(networks, saved, ssid);
     if (!scan) {
-        networks = named([interface scanForNetworksWithSSID:ssid error:nil], ssid);
+        NSError *scanError = nil;
+        NSSet<CWNetwork *> *fresh = [interface scanForNetworksWithSSID:ssid error:&scanError];
+        if (!fresh) {
+            return fail(error, OmniWMWiFiErrorUnavailable);
+        }
+        networks = named(fresh, ssid);
         scan = eligibleScan(networks, saved, ssid);
     }
     if (networks.count == 0) {

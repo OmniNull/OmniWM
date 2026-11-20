@@ -769,16 +769,15 @@ final class ShellBundledWidgetTests: XCTestCase {
             "wifi-networks"
         ]
         for widget in widgets {
-            for data in variants {
+            for (index, data) in variants.enumerated() {
                 try renderStyle("default", widget: widget, data: data, inspect: { view, nodes, _ in
                     guard view == OMNI_VIEW_POPOUT else { return }
                     let empty = nodes.isEmpty || nodes.count == 1 && nodes[0].width == 0 && nodes[0].height == 0
                     if empty {
                         XCTAssertTrue([
                             "battery-details", "bluetooth", "calendar", "input-source", "weather", "wifi",
-                            "wifi-networks",
                             "world-clock"
-                        ].contains(widget), widget)
+                        ].contains(widget) || widget == "wifi-networks" && index == 1, widget)
                         for node in nodes {
                             XCTAssertEqual(node.text, 0, widget)
                             XCTAssertEqual(node.action, 0, widget)
