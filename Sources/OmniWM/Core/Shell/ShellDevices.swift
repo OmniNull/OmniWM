@@ -26,17 +26,20 @@ final class ShellDevices {
     let thermal = ThermalMonitor()
     let appearance = AppearanceMonitor()
     let brightness: ShellDisplayBrightness
+    let nightShift: ShellNightShiftMonitor
     let spectrum: AudioSpectrumMonitor
 
     init(
         inputSource: InputSourceController = InputSourceController(),
         wifi: WiFiMonitor = WiFiMonitor(),
         brightness: ShellDisplayBrightness = ShellDisplayBrightness(),
+        nightShift: ShellNightShiftMonitor = ShellNightShiftMonitor(),
         spectrum: AudioSpectrumMonitor = AudioSpectrumMonitor()
     ) {
         self.inputSource = inputSource
         self.wifi = wifi
         self.brightness = brightness
+        self.nightShift = nightShift
         self.spectrum = spectrum
     }
 }
@@ -52,6 +55,7 @@ extension ShellDataFeed {
         listen(devices.thermal, !paused && demands(.thermal), into: \.thermal)
         listen(devices.appearance, !paused && demands(.appearance), into: \.appearance)
         listen(devices.brightness, !paused && demands(.brightness), into: \.brightness)
+        listen(devices.nightShift, !paused && demands(.nightShift), into: \.nightShift)
         listen(devices.spectrum, !paused && (demands(.spectrum) || demands(.tempo)), into: \.spectrum)
     }
 
@@ -65,6 +69,7 @@ extension ShellDataFeed {
         listen(devices.thermal, false, into: \.thermal)
         listen(devices.appearance, false, into: \.appearance)
         listen(devices.brightness, false, into: \.brightness)
+        listen(devices.nightShift, false, into: \.nightShift)
         listen(devices.spectrum, false, into: \.spectrum)
     }
 

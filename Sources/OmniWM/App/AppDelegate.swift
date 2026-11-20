@@ -159,6 +159,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             clipboardHistoryDirectory: storagePaths.stateDirectory
         )
         controller.workspaceBarManager.menuBarHold = menuBarHold
+        controller.workspaceBarManager.menuBarOverflow = NativeMenuBarOverflowWatcher()
         controller.applyPersistedSettings(settings)
         controller.shellAppCatalog.startObserving()
         startSystemPreferenceObservation(controller)
