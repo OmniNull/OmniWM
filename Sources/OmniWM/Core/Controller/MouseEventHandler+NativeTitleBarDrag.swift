@@ -203,11 +203,14 @@ extension MouseEventHandler {
         let hadUnsettledFrameWrite = controller.axManager.isAwaitingFrameWrite(drag.token.windowId)
             || controller.axManager.hasInFlightFrameWrite(for: drag.token)
         let startFrame = state.nativeResizeStart.flatMap { $0.token == drag.token ? $0.frame : nil }
+        let startWasStale = state.staleNativeResizeStartToken == drag.token
         state.nativeResizeStart = nil
+        state.staleNativeResizeStartToken = nil
         drag.phase = .dragging
         let pendingFrameChangesSize = recordNativeDragStartFrames(
             &drag,
             from: startFrame,
+            startWasStale: startWasStale,
             awaitingWrite: hadUnsettledFrameWrite,
             in: dragged.workspaceId,
             controller: controller
@@ -241,6 +244,7 @@ extension MouseEventHandler {
     private func recordNativeDragStartFrames(
         _ drag: inout MouseInputState.NativeTitleBarDrag,
         from startFrame: CGRect?,
+        startWasStale: Bool,
         awaitingWrite hadUnsettledFrameWrite: Bool,
         in workspaceId: WorkspaceDescriptor.ID,
         controller: WMController
@@ -255,7 +259,10 @@ extension MouseEventHandler {
             } ?? true : false
         let hasResizePress = onLandscapeStrip || isPortraitResizePress(in: pending ?? layoutStartFrame)
         drag.canStartLiveNiriDrag = onNiriStrip && (onLandscapeStrip || !hasResizePress)
-        drag.adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ?? (hasResizePress ? layoutStartFrame : nil)
+        let resizeFallbackFrame = onNiriStrip || !startWasStale ? layoutStartFrame : nil
+        drag
+            .adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ??
+            (hasResizePress ? resizeFallbackFrame : nil)
         drag.pendingWriteStartFrame = hadUnsettledFrameWrite && hasResizePress
             && (onLandscapeStrip || !pendingChangesSize) ? pending ?? layoutStartFrame : nil
         if !onNiriStrip {

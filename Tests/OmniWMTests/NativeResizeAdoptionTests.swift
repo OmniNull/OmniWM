@@ -2533,6 +2533,33 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         XCTAssertEqual(try fixture.frame(resized).width, observed.width, accuracy: FrameTolerance.frameWrite)
     }
 
+    func testADwindleEdgeDragOnATileThatAlreadyChangedSizeIsPutBack() throws {
+        let fixture = try makeFixture(.dwindle, pid: 835_307)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let token = fixture.tokens[0]
+        let start = try fixture.frame(token)
+        let reported = ReportedFrame(grown(start, right: 100))
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        XCTAssertFalse(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
+        let press = CGPoint(x: start.maxX - FrameTolerance.frameWrite, y: start.midY)
+
+        XCTAssertFalse(fixture.handler.receiveTapMouseDown(at: press, modifiers: []))
+        XCTAssertNil(fixture.handler.state.nativeResizeStart)
+        let drag = CGPoint(x: press.x + 40, y: press.y)
+        fixture.handler.receiveAnnotatedNativeMouseDragged(at: drag, windowIdUnderPointer: token.windowId)
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
+
+        reported.frame = grown(start, right: 140)
+        fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+        fixture.handler.pressedMouseButtonsProvider = { 0 }
+        fixture.handler.receiveTapMouseUp(at: drag)
+
+        XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
+        XCTAssertNil(fixture.controller.dwindleEngine?.interactiveResize)
+    }
+
     func testADwindleEdgeDragDuringAPendingPositionWriteStartsFromThePendingFrame() throws {
         let fixture = try makeFixture(.dwindle, pid: 835_305)
         let blocker = blockRefreshes(fixture)
