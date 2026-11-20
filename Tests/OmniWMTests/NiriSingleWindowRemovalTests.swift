@@ -158,7 +158,10 @@ final class NiriSingleWindowRemovalTests: XCTestCase {
         XCTAssertEqual(plan.sessionPatch.viewportState?.viewOffset, 0)
 
         let frameChange = try XCTUnwrap(plan.diff.frameChanges.first { $0.token == firstToken })
-        XCTAssertEqual(frameChange.frame, fillFrame)
+        XCTAssertEqual(remainingNode.frame, fillFrame)
+        XCTAssertEqual(frameChange.frame, remainingNode.renderedFrame)
+        XCTAssertEqual(frameChange.frame.width, fillFrame.width)
+        XCTAssertLessThan(frameChange.frame.minX, fillFrame.minX)
         XCTAssertTrue(remainingNode.hasMoveAnimationsRunning)
         XCTAssertLessThan(remainingNode.renderOffset(at: controller.animationClock.now()).x, 0)
         XCTAssertTrue(plan.animationDirectives.contains { directive in

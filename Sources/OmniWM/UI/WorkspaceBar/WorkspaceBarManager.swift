@@ -19,6 +19,8 @@ final class WorkspaceBarManager {
         panel.setFrame(frame, display: true)
     }
 
+    var menuBarIsDark: @MainActor () -> Bool = { false }
+
     private(set) var barsByMonitor: [Monitor.ID: WorkspaceBarInstance] = [:]
     weak var controller: WMController?
     private weak var settings: SettingsStore?
@@ -64,6 +66,14 @@ final class WorkspaceBarManager {
     var shellHiddenBarBitmaps: Set<String> = []
     var retiredShellHiddenBarBitmaps: Set<String> = []
     var menuBarHold: MenuBarAutohideHold?
+    var menuBarOverflow: NativeMenuBarOverflowWatcher? {
+        didSet {
+            oldValue?.setActive(false)
+            menuBarOverflow?.onChange = { [weak self] in
+                self?.controller?.requestWorkspaceBarRefresh()
+            }
+        }
+    }
 
     isolated deinit {
         if let commandPaletteColorsObserver {
@@ -135,6 +145,9 @@ final class WorkspaceBarManager {
         }
         updateShellHiddenBarPlacement()
         rebuildAutoHideTargets()
+        menuBarOverflow?.setActive(bars.contains {
+            settings.workspaceBar.resolved(for: $0.monitor).notchMode == .fillLeftOfNotch
+        })
         if let menuBarHold, let controller {
             menuBarHold.update(hiding: bars.contains { bar in
                 let resolved = settings.workspaceBar.resolved(for: bar.monitor)
@@ -177,7 +190,7 @@ final class WorkspaceBarManager {
         )
         barsByMonitor[monitor.id] = instance
 
-        instance.applyCurrentAppearance()
+        instance.applyAppearance(barAppearance(for: resolved))
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         surfaceCoordinator.register(
             window: primary.panel,
@@ -196,7 +209,7 @@ final class WorkspaceBarManager {
         guard instance.updateMonitor(monitor, screen: screen) else { return false }
 
         instance.updateSnapshot(snapshot)
-        instance.applyCurrentAppearance()
+        instance.applyAppearance(barAppearance(for: resolved))
         instance.applyPanelSettings(resolved: resolved)
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         return true
@@ -265,6 +278,7 @@ final class WorkspaceBarManager {
             stopShellHost()
         }
         syncNotificationBadges()
+        menuBarOverflow?.setActive(false)
         menuBarHold?.update(hiding: false)
     }
 

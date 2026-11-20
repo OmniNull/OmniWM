@@ -21,7 +21,11 @@ struct DwindleSettings {
     }
 
     func ratioToFraction(_ ratio: CGFloat) -> CGFloat {
-        let clamped = clampedRatio(ratio)
-        return min(max(clamped / 2.0, 0.05), 0.95)
+        min(max(ratio / 2.0, 0), 1)
+    }
+
+    func resizeRatioRange(from ratio: CGFloat) -> ClosedRange<CGFloat> {
+        let physicalRatio = 2 * ratioToFraction(ratio)
+        return min(clampedRatio(-.infinity), physicalRatio) ... max(clampedRatio(.infinity), physicalRatio)
     }
 }

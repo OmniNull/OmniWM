@@ -53,6 +53,7 @@ extension MouseEventHandler {
             ticks = state.verticalWheelTracker.accumulate(delta)
         }
         guard ticks != 0 else { return }
+        controller.noteUserAction()
 
         applyMouseWheelColumnTicks(
             ticks,
@@ -73,7 +74,7 @@ extension MouseEventHandler {
             return false
         }
         if shouldBlockOwnWindowGestureInput(at: location) { return false }
-        guard !state.isResizing, !state.isMoving else { return false }
+        guard !state.isResizing, !state.isMoving, !isLiveColumnDragActive else { return false }
 
         return true
     }

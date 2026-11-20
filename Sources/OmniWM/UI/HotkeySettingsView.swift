@@ -195,30 +195,16 @@ struct HotkeySettingsView: View {
             cancelRecording()
             controller.setHotkeysEnabled(settings.hotkeysEnabled)
         }
-        .alert(item: $conflictAlert) { alert in
-            Alert(
-                title: Text("Hotkey Conflict"),
-                message: Text(alert.message),
-                primaryButton: .destructive(Text("Replace")) {
-                    HotkeyBindingEditor.applyConflictResolution(alert, settings: settings)
-                    controller.updateHotkeyBindings(settings.hotkeyBindings)
-                    cancelRecording()
-                },
-                secondaryButton: .cancel {
-                    cancelRecording()
-                }
-            )
-        }
-        .alert(
-            "Hotkey Conflict",
-            isPresented: Binding(get: { captureRejection != nil }, set: { if !$0 { captureRejection = nil } }),
-            presenting: captureRejection
-        ) { _ in
-            Button("OK", role: .cancel) {}
-                .id("OK")
-        } message: { message in
-            Text(message)
-        }
+        .modifier(HotkeyConflictAlerts(
+            conflictAlert: $conflictAlert,
+            captureRejection: $captureRejection,
+            settings: settings,
+            onReplaced: {
+                controller.updateHotkeyBindings(settings.hotkeyBindings)
+                cancelRecording()
+            },
+            onCancelled: cancelRecording
+        ))
         .confirmationDialog("Reset all hotkeys?", isPresented: $confirmsResetToDefaults) {
             Button("Reset Hotkeys", role: .destructive) {
                 settings.resetHotkeysToDefaults()
@@ -251,13 +237,10 @@ struct HotkeySettingsView: View {
     }
 
     private func handleChordCaptured(actionId: String, newTrigger: HotkeyTrigger) {
-        guard let chord = newTrigger.chordBinding else {
-            handleTriggerCaptured(actionId: actionId, newTrigger: newTrigger)
-            return
-        }
-        let previousSide = settings.hotkeyBindings
-            .first { $0.id == actionId }?.binding.chordBinding?.side ?? .either
-        handleTriggerCaptured(actionId: actionId, newTrigger: .chord(chord.settingSide(previousSide)))
+        handleTriggerCaptured(
+            actionId: actionId,
+            newTrigger: HotkeyBindingEditor.triggerKeepingSide(newTrigger, for: actionId, settings: settings)
+        )
     }
 
     private func handleTriggerCaptured(actionId: String, newTrigger: HotkeyTrigger) {
@@ -287,10 +270,8 @@ struct HotkeySettingsView: View {
     }
 
     private func setSide(actionId: String, side: ModifierSide) {
-        guard let binding = settings.hotkeyBindings.first(where: { $0.id == actionId }),
-              let chord = binding.binding.chordBinding
-        else { return }
-        handleTriggerCaptured(actionId: actionId, newTrigger: .chord(chord.settingSide(side)))
+        guard let trigger = HotkeyBindingEditor.trigger(for: actionId, side: side, settings: settings) else { return }
+        handleTriggerCaptured(actionId: actionId, newTrigger: trigger)
     }
 
     private func cancelRecording() {

@@ -55,6 +55,7 @@ final class EventInterpreter: EventIntakeSink {
             )
 
         case let .ipcCommand(intake):
+            controller.noteUserAction()
             intake.completion(intake.perform(controller))
 
         case .leftMouseDown,
@@ -78,7 +79,12 @@ final class EventInterpreter: EventIntakeSink {
     private func handleMouseIntakeEvent(_ event: IntakeEvent, handler: MouseEventHandler) {
         switch event {
         case let .leftMouseDown(press):
-            handler.receiveTapMouseDown(at: press.location, modifiers: press.modifiers, queuedLeftPress: press)
+            handler.receiveTapMouseDown(
+                at: press.location,
+                modifiers: press.modifiers,
+                clickCount: press.clickCount,
+                queuedLeftPress: press
+            )
 
         case let .leftMouseUp(location, receivedDragWithoutWindow):
             handler.receiveTapMouseUp(at: location, drainPendingEvents: false)

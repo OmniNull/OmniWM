@@ -183,6 +183,7 @@ extension LayoutRefreshController {
                 for: workspaceId,
                 disposition: .settleLiveOffset
             )
+            controller?.mouseEventHandler.finishInterruptedLiveStackDrop(in: workspaceId, whileSettling: true)
         }
         niriHandler.scrollAnimationByDisplay.removeValue(forKey: displayId)
         stopDisplayLinkIfIdle(for: displayId)

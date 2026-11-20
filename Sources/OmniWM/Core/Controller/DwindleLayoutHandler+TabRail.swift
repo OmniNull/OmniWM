@@ -10,6 +10,7 @@ extension DwindleLayoutHandler {
         guard let controller, let engine = controller.dwindleEngine else { return [] }
 
         var infos: [TabRailInfo] = []
+        let draggedToken = engine.liveTabMoveToken
         for monitor in controller.workspaceManager.monitors {
             guard let workspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id),
                   controller.workspaceManager.activeLayoutKind(for: workspace.id) == .dwindle
@@ -35,7 +36,7 @@ extension DwindleLayoutHandler {
                 let frame = presentedFrame ?? snapshot.tileFrame ?? .zero
                 let visibleFrame = presentedFrame?.intersection(monitor.visibleFrame) ?? .null
 
-                let tabs = tabInfos(for: snapshot, controller: controller)
+                let tabs = tabInfos(for: snapshot, draggedToken: draggedToken, controller: controller)
 
                 infos.append(
                     TabRailInfo(
@@ -55,10 +56,21 @@ extension DwindleLayoutHandler {
         return infos
     }
 
-    private func tabInfos(for snapshot: DwindleTileSnapshot, controller: WMController) -> [TabRailTabInfo] {
+    private func tabInfos(
+        for snapshot: DwindleTileSnapshot,
+        draggedToken: WindowToken?,
+        controller: WMController
+    ) -> [TabRailTabInfo] {
         var tabs: [TabRailTabInfo] = []
         tabs.reserveCapacity(snapshot.members.count)
         for (index, member) in snapshot.members.enumerated() {
+            if member.token == draggedToken {
+                tabs.append(TabRailTabInfo(
+                    visualIndex: index, token: nil, windowId: nil, appName: nil, title: nil,
+                    isActive: index == snapshot.activeIndex
+                ))
+                continue
+            }
             let entry = controller.workspaceManager.entry(for: member.token)
             let presentation = entry.map { entry in
                 controller.appInfoCache.presentation(

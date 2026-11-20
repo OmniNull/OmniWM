@@ -6,11 +6,11 @@ import Foundation
 
 extension MouseEventHandler {
     var isTrackpadSwipeSessionActive: Bool {
-        state.gesturePhase != .idle
+        tapInputs.gesturePhase != .idle
     }
 
     var isViewportGestureActive: Bool {
-        switch state.gesturePhase {
+        switch tapInputs.gesturePhase {
         case .idle:
             false
         case .armed:
@@ -23,6 +23,9 @@ extension MouseEventHandler {
     var isInteractiveGestureActive: Bool {
         state.isMoving || state.isResizing || isViewportGestureActive
             || state.nativeTitleBarDrag?.dwindleResizeWorkspaceId != nil
+            || state.nativeTitleBarDrag?.dwindleLiveDrag == true
+            || liveDragSession?.tabPull?.layout == .dwindle
+            || isLiveColumnDragActive
     }
 
     func handleExpiredViewportGesture(
@@ -42,7 +45,7 @@ extension MouseEventHandler {
         sessionID: AnimationDriver.GestureSessionID,
         disposition: ViewportGestureTerminationDisposition
     ) -> Bool {
-        guard state.gesturePhase == .committed,
+        guard tapInputs.gesturePhase == .committed,
               state.lockedGestureContext?.workspaceId == workspaceId,
               state.activeGestureMode == .columnScroll,
               state.viewportGestureSessionID == sessionID
@@ -62,8 +65,8 @@ extension MouseEventHandler {
         }
         if disposition != .viewportAlreadySettled {
             state.suppressGestureStartUntilAllTouchesLift = true
-            state.consumeTrackpadScrollUntilAllTouchesLift = true
-            state.suppressTrackpadMomentumScroll = true
+            tapInputs.consumeTrackpadScrollUntilAllTouchesLift = true
+            tapInputs.suppressTrackpadMomentumScroll = true
         }
         resetGestureState(settleViewportGesture: false)
         return true
@@ -97,12 +100,21 @@ extension MouseEventHandler {
 
     func cancelActiveMouseInteraction() {
         guard let controller else { return }
+        cancelLiveCrossDisplayMove()
+        cancelLiveDwindleTabPull()
+        cancelLiveDwindleDrag()
+        cancelLiveColumnDrag()
         let wasActive = state.isMoving || state.isResizing
 
         if state.isMoving {
+            let workspaceId = state.moveLayout == .dwindle
+                ? controller.dwindleEngine?.interactiveMove?.workspaceId
+                : controller.niriEngine?.interactiveMove?.workspaceId
             controller.niriEngine?.interactiveMoveCancel()
             controller.dwindleEngine?.interactiveMoveCancel()
+            let restoredWorkspace = workspaceId ?? state.lockedGestureContext?.workspaceId
             clearMoveInteractionState()
+            restoreManagedMove(in: restoredWorkspace)
         }
 
         if state.isResizing {
@@ -122,14 +134,14 @@ extension MouseEventHandler {
         if pressedButtons & MouseButton.left.pressedMask == 0 {
             finishNativeTitleBarDragIfNeeded(button: .left)
         }
-        if let button = state.capturedInteractionButton, pressedButtons & button.pressedMask == 0 {
-            state.capturedInteractionButton = nil
+        if let button = tapInputs.capturedInteractionButton, pressedButtons & button.pressedMask == 0 {
+            tapInputs.capturedInteractionButton = nil
         }
         if let button = state.parkingEdgePressButton, pressedButtons & button.pressedMask == 0 {
             state.parkingEdgePressButton = nil
         }
-        if let button = state.capturedOtherMouseButton, pressedButtons & (1 << Int(button)) == 0 {
-            state.capturedOtherMouseButton = nil
+        if let button = tapInputs.capturedOtherMouseButton, pressedButtons & (1 << Int(button)) == 0 {
+            tapInputs.capturedOtherMouseButton = nil
         }
     }
 
@@ -143,9 +155,14 @@ extension MouseEventHandler {
 
     func finishDwindleResize() {
         guard let controller, let engine = controller.dwindleEngine else { return }
-        let workspaceId = engine.interactiveResize?.workspaceId
-        guard engine.interactiveResizeEnd(), let workspaceId else { return }
-        controller.workspaceManager.recordLayoutOperation(.splitRatioChanged, in: workspaceId, source: .mouse)
+        guard let workspaceId = engine.interactiveResize?.workspaceId else { return }
+        guard engine.interactiveResize?.didChange == true else {
+            engine.clearInteractiveResize()
+            return
+        }
+        controller.workspaceManager.recordLayoutOperation(.splitRatioChanged, in: workspaceId, source: .mouse) {
+            _ = engine.interactiveResizeEnd()
+        }
         if controller.hasStartedServices {
             controller.layoutRefreshController.requestImmediateRelayout(reason: .interactiveGesture)
         }
@@ -210,14 +227,12 @@ extension MouseEventHandler {
     }
 
     func clearMoveInteractionState() {
-        state.dragGhostController?.endDrag()
         state.isMoving = false
         state.moveLayout = nil
         state.activeInteractionSource = nil
     }
 
     func clearResizeInteractionState() {
-        controller?.resizeOverlay.settleOnLayout()
         state.isResizing = false
         state.activeInteractionSource = nil
         state.resizeLayout = nil
@@ -225,18 +240,10 @@ extension MouseEventHandler {
     }
 
     func completeActiveMove(at location: CGPoint) {
-        switch classifyMoveLocation(location) {
-        case .sourceDisplay:
-            if state.moveLayout == .dwindle {
-                finishDwindleMove(at: location)
-            } else {
-                finishNiriMove(at: location)
-            }
-        case let .crossDisplay(drop):
-            cancelActiveEngineMove()
-            controller?.performCrossDisplayDrop(drop)
-        case .cancel:
-            cancelActiveEngineMove()
+        if state.moveLayout == .dwindle {
+            finishDwindleMove(at: location)
+        } else {
+            finishNiriMove(at: location)
         }
         clearMoveInteractionState()
         NSCursor.arrow.set()

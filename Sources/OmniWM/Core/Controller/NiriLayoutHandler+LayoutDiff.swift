@@ -33,7 +33,7 @@ extension NiriLayoutHandler {
                     workspaceId: pass.wsId
                 )
             } == true
-        let (frames, hiddenHandles) = calculateRelayoutFrames(
+        var (frames, hiddenHandles) = calculateRelayoutFrames(
             pass: pass, state: state, snapshot: snapshot, isSettled: isSettled
         )
 
@@ -42,22 +42,17 @@ extension NiriLayoutHandler {
             viewportNeedsRecalc: selection.viewportNeedsRecalc, arrival: arrival
         )
 
-        var diff = layoutDiff(
-            windows: snapshot.windows,
-            frames: frames,
-            hiddenHandles: hiddenHandles,
-            context: NiriLayoutDiffContext(
-                engine: pass.engine,
-                workspaceId: pass.wsId,
-                canRestoreHiddenWorkspaceWindows: snapshot.isActiveWorkspace,
-                reassertHidden: true,
-                excludedTokens: snapshot.excludedTokens,
-                settledContext: isSettled ? (snapshot.monitor, state) : nil
+        if pass.motion.animationsEnabled, pass.engine.hasAnyWindowAnimationsRunning(in: pass.wsId) {
+            (frames, hiddenHandles) = calculateRelayoutFrames(
+                pass: pass,
+                state: state,
+                snapshot: snapshot,
+                isSettled: false,
+                animationTime: pass.engine.animationClock?.now() ?? CACurrentMediaTime()
             )
-        )
-        diff.edgeHiddenFrames = edgeHiddenFrames(engine: pass.engine, snapshot: snapshot)
-        diff.picturePreparation = picturePreparation(
-            engine: pass.engine, snapshot: snapshot, state: state, isSettled: isSettled
+        }
+        let diff = relayoutDiff(
+            (frames, hiddenHandles), pass: pass, state: state, snapshot: snapshot, isSettled: isSettled
         )
         let hasPendingAnimationWork = completeAnimationDirectives(&directives, pass: pass, state: state)
         return WorkspaceLayoutPlan(
@@ -76,6 +71,33 @@ extension NiriLayoutHandler {
         )
     }
 
+    private func relayoutDiff(
+        _ layout: (frames: [WindowToken: CGRect], hiddenHandles: [WindowToken: HideSide]),
+        pass: NiriLayoutPass,
+        state: ViewportState,
+        snapshot: NiriWorkspaceSnapshot,
+        isSettled: Bool
+    ) -> WorkspaceLayoutDiff {
+        var diff = layoutDiff(
+            windows: snapshot.windows,
+            frames: layout.frames,
+            hiddenHandles: layout.hiddenHandles,
+            context: NiriLayoutDiffContext(
+                engine: pass.engine,
+                workspaceId: pass.wsId,
+                canRestoreHiddenWorkspaceWindows: snapshot.isActiveWorkspace,
+                reassertHidden: true,
+                excludedTokens: snapshot.excludedTokens,
+                settledContext: isSettled ? (snapshot.monitor, state) : nil
+            )
+        )
+        diff.edgeHiddenFrames = edgeHiddenFrames(engine: pass.engine, snapshot: snapshot)
+        diff.picturePreparation = picturePreparation(
+            engine: pass.engine, snapshot: snapshot, state: state, isSettled: isSettled
+        )
+        return diff
+    }
+
     func edgeHiddenFrames(engine: NiriLayoutEngine, snapshot: NiriWorkspaceSnapshot) -> [WindowToken: CGRect] {
         engine.layoutPool.edgeHiddenFrames.filter { token, _ in
             snapshot.windows.contains { $0.token == token && !$0.isNativeFullscreenSuspended }
@@ -92,6 +114,7 @@ extension NiriLayoutHandler {
         var diff = WorkspaceLayoutDiff()
         diff.frameChanges.reserveCapacity(windows.count)
         let workspace = context.engine.states[context.workspaceId]
+        let liveDrag = projectedFloatingWindow(engine: context.engine, in: context.workspaceId)
         for window in windows {
             let token = window.token
             if window.isNativeFullscreenSuspended {
@@ -101,6 +124,12 @@ extension NiriLayoutHandler {
                     hiddenHandles: hiddenHandles,
                     context: context,
                     diff: &diff
+                )
+                continue
+            }
+            if let liveDrag, liveDrag.token == token {
+                appendLiveFloatingFrame(
+                    liveDrag.floatingFrame, for: window, in: workspace, context: context, diff: &diff
                 )
                 continue
             }
@@ -129,6 +158,34 @@ extension NiriLayoutHandler {
             ))
         }
         return diff
+    }
+
+    private func projectedFloatingWindow(
+        engine: NiriLayoutEngine,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> (token: WindowToken, floatingFrame: CGRect?)? {
+        if let liveDrag = engine.liveDraggedWindow(in: workspaceId) { return liveDrag }
+        guard let move = engine.interactiveMove, move.workspaceId == workspaceId,
+              let frame = move.floatingFrame
+        else { return nil }
+        return (move.windowToken, frame)
+    }
+
+    private func appendLiveFloatingFrame(
+        _ floating: CGRect?,
+        for window: LayoutWindowSnapshot,
+        in workspace: NiriWorkspaceState?,
+        context: NiriLayoutDiffContext,
+        diff: inout WorkspaceLayoutDiff
+    ) {
+        let token = window.token
+        guard let floating, !context.excludedTokens.contains(token) else { return }
+        if window.hiddenState != nil {
+            diff.visibilityChanges.append(.show(token))
+        }
+        diff.frameChanges.append(layoutFrameChange(
+            token: token, frame: floating, node: workspace?.nodesByToken[token], context: context
+        ))
     }
 
     private func appendNativeFullscreenSlot(
@@ -204,7 +261,8 @@ extension NiriLayoutHandler {
         pass: NiriLayoutPass,
         state: ViewportState,
         snapshot: NiriWorkspaceSnapshot,
-        isSettled: Bool
+        isSettled: Bool,
+        animationTime: TimeInterval? = nil
     ) -> (frames: [WindowToken: CGRect], hiddenHandles: [WindowToken: HideSide]) {
         let gaps = LayoutGaps(
             horizontal: pass.gap,
@@ -226,7 +284,7 @@ extension NiriLayoutHandler {
             gaps: gaps,
             state: state,
             workingArea: area,
-            animationTime: nil,
+            animationTime: animationTime,
             viewOffsetOverride: controller.map {
                 $0.workspaceManager.animationDriver.plannedRenderOffset(
                     in: pass.wsId,
@@ -260,6 +318,8 @@ extension NiriLayoutHandler {
             directives.append(.startNiriScroll(workspaceId: pass.wsId))
         } else if !snapshot.useScrollAnimationPath, hasColumnAnimations {
             directives.append(.startNiriScroll(workspaceId: pass.wsId))
+        } else if state.hasPendingOffsetAnimation {
+            directives.append(.startNiriScroll(workspaceId: pass.wsId))
         }
 
         if let activateWindowToken {
@@ -269,25 +329,75 @@ extension NiriLayoutHandler {
             directives.append(.activateWindow(token: activateWindowToken))
         }
 
-        if let removalSeed = snapshot.removalSeed, !removalSeed.oldFrames.isEmpty {
-            let newFrames = pass.engine.captureWindowFrames(
-                in: pass.wsId,
-                excluding: snapshot.excludedTokens
-            )
-            let animationsTriggered = pass.engine.triggerMoveAnimations(
-                in: pass.wsId,
-                oldFrames: removalSeed.oldFrames,
-                newFrames: newFrames,
-                motion: pass.motion
-            )
-            let hasWindowAnimations = pass.engine.hasAnyWindowAnimationsRunning(in: pass.wsId)
-            let hasColumnAnimations = pass.engine.hasAnyColumnAnimationsRunning(in: pass.wsId)
-            if animationsTriggered || hasWindowAnimations || hasColumnAnimations {
-                directives.append(.startNiriScroll(workspaceId: pass.wsId))
-            }
+        if let removalSeed = snapshot.removalSeed, !removalSeed.oldFrames.isEmpty,
+           animateAfterRemoval(from: removalSeed.oldFrames, excluding: snapshot.excludedTokens, pass: pass)
+        {
+            directives.append(.startNiriScroll(workspaceId: pass.wsId))
+        }
+
+        if let oldFrames = stackFramesBeforeExclusion.removeValue(forKey: pass.wsId), !oldFrames.isEmpty,
+           animateStacksAfterExclusion(from: oldFrames, excluding: snapshot.excludedTokens, pass: pass)
+        {
+            directives.append(.startNiriScroll(workspaceId: pass.wsId))
         }
 
         return directives
+    }
+
+    private func animateAfterRemoval(
+        from oldFrames: [WindowToken: CGRect],
+        excluding excludedTokens: Set<WindowToken>,
+        pass: NiriLayoutPass
+    ) -> Bool {
+        let newFrames = pass.engine.captureWindowFrames(in: pass.wsId, excluding: excludedTokens)
+        let movesTriggered = pass.engine.triggerMoveAnimations(
+            in: pass.wsId,
+            oldFrames: oldFrames,
+            newFrames: newFrames,
+            motion: pass.motion
+        )
+        let sizesTriggered = pass.engine.animateFilledSizeChanges(
+            in: pass.wsId,
+            oldFrames: oldFrames,
+            newFrames: newFrames,
+            motion: pass.motion,
+            orientation: pass.orientation
+        )
+        let animationsTriggered = movesTriggered || sizesTriggered
+        let hasWindowAnimations = pass.engine.hasAnyWindowAnimationsRunning(in: pass.wsId)
+        let hasColumnAnimations = pass.engine.hasAnyColumnAnimationsRunning(in: pass.wsId)
+        return animationsTriggered || hasWindowAnimations || hasColumnAnimations
+    }
+
+    private func animateStacksAfterExclusion(
+        from oldFrames: [WindowToken: CGRect],
+        excluding excludedTokens: Set<WindowToken>,
+        pass: NiriLayoutPass
+    ) -> Bool {
+        let newFrames = pass.engine.captureWindowFrames(in: pass.wsId, excluding: excludedTokens)
+        var moved = false
+        for (token, oldFrame) in oldFrames {
+            guard let newFrame = newFrames[token] else { continue }
+            let shift = pass.orientation == .horizontal
+                ? oldFrame.minY - newFrame.minY : oldFrame.minX - newFrame.minX
+            guard abs(shift) > 1, let window = pass.engine.findNode(for: token, in: pass.wsId) else { continue }
+            window.animateMoveFrom(
+                displacement: pass.orientation == .horizontal ? CGPoint(x: 0, y: shift) : CGPoint(x: shift, y: 0),
+                clock: pass.engine.animationClock,
+                config: pass.motion.scaled(pass.engine.windowMovementAnimationConfig),
+                displayRefreshRate: pass.engine.displayRefreshRate(in: pass.wsId),
+                animated: pass.motion.animationsEnabled
+            )
+            moved = true
+        }
+        let resized = pass.engine.animateFilledSizeChanges(
+            in: pass.wsId,
+            oldFrames: oldFrames,
+            newFrames: newFrames,
+            motion: pass.motion,
+            orientation: pass.orientation
+        )
+        return moved || resized
     }
 
     private func completeAnimationDirectives(

@@ -174,7 +174,7 @@ extension DwindleLayoutEngine {
         node.kind = .leaf(tile: tile)
     }
 
-    private func indexLeaves(from node: DwindleNode, into state: DwindleWorkspaceState) {
+    func indexLeaves(from node: DwindleNode, into state: DwindleWorkspaceState) {
         if let tile = node.tile {
             state.tileCount += 1
             for member in tile.members {

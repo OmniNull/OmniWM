@@ -9,6 +9,7 @@ struct CrossDisplayDrop: Equatable {
         case niriNewColumn(durableIndex: Int)
         case niriStack(target: WindowToken, after: Bool)
         case dwindleBeside(target: WindowToken, direction: Direction)
+        case dwindleGroup(target: WindowToken, index: Int)
         case dwindleEdge(Direction)
         case dwindleSplitBoundary(DwindleNodeId)
         case swap(target: WindowToken)
@@ -30,15 +31,6 @@ enum MoveLocation: Equatable {
 }
 
 extension MouseEventHandler {
-    func classifyMoveLocation(_ point: CGPoint) -> MoveLocation {
-        guard state.activeInteractionSource?.mouseButton != nil,
-              let source = activeMoveSource()
-        else {
-            return .sourceDisplay
-        }
-        return classifyMoveLocation(point, sourceToken: source.token, sourceWorkspaceId: source.workspaceId)
-    }
-
     func classifyMoveLocation(
         _ point: CGPoint,
         sourceToken: WindowToken,
@@ -76,49 +68,6 @@ extension MouseEventHandler {
             placement: resolved.placement,
             previewFrame: resolved.previewFrame
         ))
-    }
-
-    func updateCrossDisplayHover(at location: CGPoint) -> Bool {
-        let preview: CGRect?
-        switch classifyMoveLocation(location) {
-        case .sourceDisplay:
-            return false
-        case let .crossDisplay(drop):
-            preview = drop.previewFrame
-        case .cancel:
-            preview = nil
-        }
-        state.dragGhostController?.updatePosition(cursorLocation: location)
-        clearActiveMoveTarget()
-        if let preview {
-            state.dragGhostController?.showSwapTarget(frame: preview)
-        } else {
-            state.dragGhostController?.hideSwapTarget()
-        }
-        return true
-    }
-
-    func cancelActiveEngineMove() {
-        if state.moveLayout == .dwindle {
-            controller?.dwindleEngine?.interactiveMoveCancel()
-        } else {
-            controller?.niriEngine?.interactiveMoveCancel()
-        }
-    }
-
-    private func activeMoveSource() -> (token: WindowToken, workspaceId: WorkspaceDescriptor.ID)? {
-        if state.moveLayout == .dwindle {
-            return controller?.dwindleEngine?.interactiveMove.map { ($0.token, $0.workspaceId) }
-        }
-        return controller?.niriEngine?.interactiveMove.map { ($0.windowToken, $0.workspaceId) }
-    }
-
-    private func clearActiveMoveTarget() {
-        if state.moveLayout == .dwindle {
-            controller?.dwindleEngine?.interactiveMoveClearTarget()
-        } else {
-            controller?.niriEngine?.interactiveMoveClearTarget()
-        }
     }
 
     private func resolveNiriDrop(

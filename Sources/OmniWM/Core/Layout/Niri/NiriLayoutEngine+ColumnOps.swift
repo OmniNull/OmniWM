@@ -174,6 +174,8 @@ extension NiriLayoutEngine {
 
         let newColumn = NiriContainer()
         switch sizingPolicy {
+        case .workspaceDefault where policies.keepsSizeOnUnstack:
+            copyContainerSizingState(from: sourceColumn, to: newColumn)
         case .workspaceDefault:
             initializeNewContainerSizing(newColumn, in: context.workspaceId)
         case .inheritSource:
@@ -251,7 +253,7 @@ extension NiriLayoutEngine {
             beginManualPrimarySpanResize(projectedColumn.column, in: workspaceId, orientation: orientation)
         }
 
-        let resolvedWidth = resolvedContainerResetPrimarySpan(in: workspaceId)
+        let resolvedWidth = configuredContainerResetPrimarySpan(in: workspaceId)
         switch orientation {
         case .horizontal:
             let targetPixels = (workingFrame.width - gaps) * resolvedWidth.proportion - gaps

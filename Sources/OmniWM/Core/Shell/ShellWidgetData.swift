@@ -56,6 +56,7 @@ enum ShellDataKey: String, CaseIterable, Sendable {
     case brightness
     case connection
     case commandPalette
+    case nightShift
 
     private static let order = allCases
     static let table = order.map(\.rawValue).joined(separator: "\n")
@@ -148,6 +149,7 @@ struct ShellWidgetData: Equatable, Sendable {
     var awake: ShellAwake?
     var microphone: ShellMicrophone?
     var brightness: ShellBrightness?
+    var nightShift: ShellNightShift?
     var outputs: [ShellAudioOutput]?
     var audioApps: ShellAudioApps?
     var media: ShellMedia?
@@ -192,6 +194,7 @@ extension ShellWidgetData {
             | Self.changed(.awake, when: awake != previous.awake)
             | Self.changed(.microphone, when: microphone != previous.microphone)
             | Self.changed(.brightness, when: brightness != previous.brightness)
+            | Self.changed(.nightShift, when: nightShift != previous.nightShift)
             | Self.changed(.outputs, when: outputs != previous.outputs)
             | Self.changed(.audioApps, when: audioApps != previous.audioApps)
             | Self.changed(.media, when: media != previous.media)

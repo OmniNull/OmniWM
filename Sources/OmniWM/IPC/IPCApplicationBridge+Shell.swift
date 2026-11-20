@@ -6,6 +6,7 @@ import OmniWMIPC
 extension IPCApplicationBridge {
     @MainActor
     static func shellResponse(for request: IPCShellRequest, id: String, controller: WMController) async -> IPCResponse {
+        controller.noteUserAction()
         let result: ExternalCommandResult = switch request {
         case let .toggle(widget) where request.isValid:
             controller.commandHandler.performCommand(.shellToggle(widget))
