@@ -87,7 +87,7 @@ final class WorkspaceBarWholeItemTests: XCTestCase {
         XCTAssertEqual(parts.frames.map(\.minX), [0, 36, 92])
         XCTAssertEqual(parts.stops(in: size, vertical: false, keepsEnd: false), [30, 86])
         XCTAssertEqual(parts.stops(in: size, vertical: false, keepsEnd: true), [20, 76])
-        XCTAssertEqual(parts.stops(in: size, vertical: true, keepsEnd: false), [])
+        XCTAssertNil(parts.stops(in: size, vertical: true, keepsEnd: false))
     }
 
     func testAButtonOrAPaintedGroupIsOnePieceAndAMarqueeTakesAnyCut() throws {

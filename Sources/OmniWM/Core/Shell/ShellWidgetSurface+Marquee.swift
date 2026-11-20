@@ -91,15 +91,14 @@ struct ShellWidgetParts: Equatable {
     var scroll: Axis?
 
     func stops(in size: CGSize, vertical: Bool, keepsEnd: Bool) -> [CGFloat]? {
-        guard scroll != (vertical ? .column : .row), !marquee || keepsEnd else { return nil }
-        let length = vertical ? size.height : size.width
-        let ranges = frames.map { vertical ? $0.minY ... $0.maxY : $0.minX ... $0.maxX }
+        guard !vertical, scroll != .row, !marquee || keepsEnd else { return nil }
+        let ranges = frames.map { $0.minX ... $0.maxX }
         return ranges.compactMap { range in
             let edge = keepsEnd ? range.lowerBound : range.upperBound
             guard !ranges.contains(where: { edge - $0.lowerBound > 0.5 && $0.upperBound - edge > 0.5 })
             else { return nil }
-            let stop = keepsEnd ? length - edge : edge
-            return stop > 0.5 && length - stop > 0.5 ? stop : nil
+            let stop = keepsEnd ? size.width - edge : edge
+            return stop > 0.5 && size.width - stop > 0.5 ? stop : nil
         }.sorted()
     }
 }
