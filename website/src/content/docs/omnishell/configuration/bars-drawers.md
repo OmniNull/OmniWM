@@ -41,7 +41,9 @@ Select a widget to change supported choices visually. Options follow the actual 
 | `launcher` | `mode`: a command palette mode such as `"windows"`; `symbol`: an SF Symbol |
 | `active-window` | `display`: `"icon_and_text"`, `"icon_only"` or `"text_only"`; `maxWidth` |
 | `battery-details` | `percent`: `"beside"`, `"inside"` or `"off"` |
-| `control-center` | `tab`: the tab it opens on |
+| `control-center` | `tab`: `"overview"`, `"audio"`, `"displays"`, `"media"`, `"calendar"`, `"weather"` or `"system"` |
+
+The Control Center’s **Displays** tab adjusts brightness for each display where macOS exposes that control, toggles Night Shift when available, and links to Displays in System Settings.
 
 `hiddenBarWidget` and `systemStatsWidget` name the widgets that draw the Hidden Bar drawer and the System Stats popout. The profile supplies defaults; GUI changes are saved as that profile’s overrides. Workspace Bar’s master enable switch, excluded apps and icon overrides stay global. Enabling **System Stats Button** also places the configured stats widget on the bar if it was removed.
 
