@@ -139,6 +139,21 @@ final class ShellWidgetClipView: NSView {
         applyCut()
     }
 
+    override func setFrameOrigin(_ newOrigin: NSPoint) {
+        super.setFrameOrigin(newOrigin)
+        applyCut()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyCut()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        applyCut()
+    }
+
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
@@ -153,6 +168,7 @@ final class ShellWidgetClipView: NSView {
     }
 
     @objc private func superviewMoved() {
+        applyCut()
         NotificationCenter.default.post(name: NSView.frameDidChangeNotification, object: self)
     }
 
@@ -178,7 +194,7 @@ final class ShellWidgetClipView: NSView {
             x += mark.width + Self.badgeGap
         }
         content?.frame = CGRect(
-            origin: CGPoint(x: x, y: origin.y + (natural.height - surface.height) / 2),
+            origin: pixelAligned(CGPoint(x: x, y: origin.y + (natural.height - surface.height) / 2)),
             size: surface
         )
         if let content, let shell {
@@ -212,5 +228,10 @@ final class ShellWidgetClipView: NSView {
         mask.locations = [0, start, 1 - end, 1].map { NSNumber(value: Double($0)) }
         CATransaction.commit()
         layer?.mask = mask
+    }
+
+    private func pixelAligned(_ origin: CGPoint) -> CGPoint {
+        guard let window, window.backingScaleFactor < 2 else { return origin }
+        return backingAlignedRect(CGRect(origin: origin, size: .zero), options: .alignAllEdgesNearest).origin
     }
 }
