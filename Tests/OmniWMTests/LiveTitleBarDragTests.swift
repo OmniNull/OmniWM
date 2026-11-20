@@ -354,18 +354,13 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         let from = CGPoint(x: frame.midX, y: frame.maxY - Fixture.titleBarInset)
         fixture.drag(to: from)
         let viewport = fixture.manager.niriViewportState(for: fixture.workspaceId)
-        let traced = fixture.manager.reconcileTraceDump().split(separator: "\n").count
+        let recorded = fixture.manager.recordedWorldEventCount
 
         fixture.drag(to: CGPoint(x: from.x + travel, y: from.y))
 
-        let recorded = ["event=", "label=", "workspace="]
-        let events = fixture.manager.reconcileTraceDump().split(separator: "\n").dropFirst(traced).map { line in
-            let fields = line.split(separator: " ").filter { field in recorded.contains { field.hasPrefix($0) } }
-            return fields.joined(separator: " ")
-        }
-        let move = "event=user_command label=viewport_mutation workspace=\(fixture.workspaceId.uuidString)"
+        let move = fixture.manager.viewportMutationEvent(in: fixture.workspaceId)
         XCTAssertNotEqual(fixture.manager.niriViewportState(for: fixture.workspaceId), viewport)
-        XCTAssertEqual(events, [move])
+        XCTAssertEqual(fixture.manager.worldEvents(after: recorded), [move])
         XCTAssertTrue(fixture.handler.isLiveColumnDragActive)
     }
 
