@@ -49,6 +49,25 @@ final class WorkspaceBarThemedStripTests: XCTestCase {
         }
     }
 
+    func testAScrollingColumnCutByAVerticalBarKeepsItsEndInTrailingWithoutScrolling() throws {
+        let widget = try ShellRenderedWidget(name: "workspaces", source: """
+        function render(ctx)
+            return ui.column{scroll=true, gap=4, ui.box{w=20,h=60}, ui.box{w=20,h=60}, ui.box{w=20,h=60}}
+        end
+        """)
+        widget.render(ShellBarData())
+        let natural = widget.surface.naturalSize.height
+        let host = try hostBar(widget, shown: natural - 40, vertical: true, lane: .trailing)
+        let clip = try XCTUnwrap(widget.surface.view.superview as? ShellWidgetClipView)
+
+        XCTAssertEqual(clip.frame.height, natural - 40, accuracy: 0.01)
+        XCTAssertEqual(widget.surface.view.frame.minY, -40, accuracy: 0.01)
+        XCTAssertNil(clip.layer?.mask)
+        XCTAssertEqual(widget.surface.rootScroll?.limit ?? 0, 0, accuracy: 0.01)
+        widget.surface.view.removeFromSuperview()
+        withExtendedLifetime(host) {}
+    }
+
     private func assertEveryWorkspaceComesIntoView(profile: String) throws {
         for shortage: CGFloat in [1, 160] {
             let label = "\(profile) \(shortage) pt short"
@@ -139,7 +158,9 @@ final class WorkspaceBarThemedStripTests: XCTestCase {
         return shown
     }
 
-    private func hostBar(_ widget: ShellRenderedWidget, shown: CGFloat, vertical: Bool) throws -> NSView {
+    private func hostBar(
+        _ widget: ShellRenderedWidget, shown: CGFloat, vertical: Bool, lane: ShellLane = .leading
+    ) throws -> NSView {
         let surface = widget.surface
         let natural = surface.naturalSize
         let neighbourSize = vertical
@@ -152,10 +173,12 @@ final class WorkspaceBarThemedStripTests: XCTestCase {
             orientation: vertical ? .vertical : .horizontal,
             shellWidgets: [
                 WorkspaceBarShellWidget(
-                    id: "workspaces", size: natural, lane: .leading, priority: 1,
-                    stops: surface.layout.parts.stops(in: natural, vertical: vertical, keepsEnd: false)
+                    id: "workspaces", size: natural, lane: lane, priority: 1,
+                    stops: surface.layout.parts.stops(in: natural, vertical: vertical, keepsEnd: lane == .trailing)
                 ),
-                WorkspaceBarShellWidget(id: "system-stats", size: neighbourSize, lane: .trailing, priority: 0)
+                WorkspaceBarShellWidget(
+                    id: "system-stats", size: neighbourSize, lane: lane == .trailing ? .leading : .trailing, priority: 0
+                )
             ]
         ))
         model.zones = WorkspaceBarZones(notch: nil, mode: .off)

@@ -56,11 +56,7 @@ extension ShellWidgetLayout {
     }
 
     func scrolls(cutTo size: CGSize) -> Bool {
-        switch rootScroll {
-        case .row: naturalSize.width - size.width >= 1
-        case .column: naturalSize.height - size.height >= 1
-        default: false
-        }
+        rootScroll == .row && naturalSize.width - size.width >= 1
     }
 
     var parts: ShellWidgetParts {
