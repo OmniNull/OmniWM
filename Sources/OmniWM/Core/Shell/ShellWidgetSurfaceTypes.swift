@@ -45,14 +45,17 @@ final class ShellWidgetLayout {
             into: &patches
         )
         if let visibleBounds {
-            let root = core.rootHandle
-            let marquee = core.content(of: root).marquee || core.firstDescendant(of: root) { $0.marquee } != .none
-            let size = visibleBounds.origin == .zero && marquee
-                ? Size2(width: Float(visibleBounds.width), height: Float(visibleBounds.height))
-                : Size2(width: .infinity, height: .infinity)
-            core.setRootLimit(size, into: &patches)
+            core.setRootLimit(
+                limit(showing: visibleBounds) ?? Size2(width: .infinity, height: .infinity),
+                into: &patches
+            )
         }
         return true
+    }
+
+    func limit(showing bounds: CGRect) -> Size2? {
+        guard bounds.origin == .zero, hasMarquee || scrolls(cutTo: bounds.size) else { return nil }
+        return Size2(width: Float(bounds.width), height: Float(bounds.height))
     }
 
     func scroll(_ handle: ElementHandle, by delta: Float) -> Float? {

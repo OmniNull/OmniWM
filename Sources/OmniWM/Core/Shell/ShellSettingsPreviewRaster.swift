@@ -105,6 +105,7 @@ enum ShellSettingsPreviewRaster {
         let image: CGImage
         let size: CGSize
         var scale: CGFloat = 1
+        var parts = ShellWidgetParts()
     }
 
     private struct Surface {
@@ -156,7 +157,7 @@ enum ShellSettingsPreviewRaster {
             images.append(Image(
                 name: entry.name,
                 image: try await raster(entry.surface.scene, size: entry.size, scale: rasterScale),
-                size: entry.size, scale: rasterScale
+                size: entry.size, scale: rasterScale, parts: entry.surface.layout.parts
             ))
         }
         return images

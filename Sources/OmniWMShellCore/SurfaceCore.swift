@@ -208,6 +208,10 @@ public struct SurfaceCore: ~Copyable {
         contains(handle) ? scrollOffset[Int(handle.slot)] : 0
     }
 
+    public func scrollLimit(of handle: ElementHandle) -> Float {
+        contains(handle) ? scrollLimit[Int(handle.slot)] : 0
+    }
+
     public func firstHandle(withKey key: UInt64) -> ElementHandle? {
         guard root >= 0 else { return nil }
         var slot = root

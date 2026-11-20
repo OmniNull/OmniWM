@@ -4973,4 +4973,24 @@ extension ShellWidgetClickTests {
         XCTAssertEqual(harness.host.slots(for: monitor).map(\.id), ["one", "test", "two"])
         XCTAssertEqual(harness.host.slots(for: monitor).map(\.lane), [.leading, .center, .trailing])
     }
+
+    func testBarSurfacesFollowTheFocusedWorkspace() throws {
+        func bar(focused: String) -> ShellBarData {
+            var bar = ShellBarData()
+            bar.workspaces = ["a", "b"].map { ShellBarWorkspace(id: $0, name: $0, focused: $0 == focused, windows: []) }
+            return bar
+        }
+        let harness = try harness(
+            "function render(ctx) return ui.box{ w = 10, h = 10 } end",
+            bars: [Harness.bar: bar(focused: "b")]
+        )
+        defer { harness.close() }
+        harness.host.updateBars()
+        let surface = try harness.barSurface()
+        XCTAssertEqual(surface.followedTarget, "workspace b")
+
+        harness.sink.bars = [Harness.bar: bar(focused: "a")]
+        harness.host.updateBars()
+        XCTAssertEqual(surface.followedTarget, "workspace a")
+    }
 }

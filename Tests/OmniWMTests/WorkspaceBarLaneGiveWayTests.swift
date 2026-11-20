@@ -9,6 +9,7 @@ import XCTest
 private let bar: CGFloat = 1000
 private let inset: CGFloat = 4
 private let spacing: CGFloat = 8
+private let tight = WorkspaceBarZoneLayout.tightSpacing
 private let notch: ClosedRange<CGFloat> = 400 ... 600
 private let gap = WorkspaceBarGeometry.notchGap
 
@@ -33,16 +34,16 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
         return spans
     }
 
-    private func run(_ lengths: [CGFloat], from start: CGFloat) -> [Span] {
+    private func run(_ lengths: [CGFloat], from start: CGFloat, gap: CGFloat = spacing) -> [Span] {
         var cursor = start
         return lengths.map { length in
-            defer { cursor += length + spacing }
+            defer { cursor += length + gap }
             return Span(start: cursor, length: length)
         }
     }
 
-    private func extent(_ lengths: [CGFloat]) -> CGFloat {
-        lengths.reduce(0, +) + spacing * CGFloat(lengths.count - 1)
+    private func extent(_ lengths: [CGFloat], gap: CGFloat = spacing) -> CGFloat {
+        lengths.reduce(0, +) + gap * CGFloat(lengths.count - 1)
     }
 
     private func assertSeparated(
@@ -53,7 +54,7 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
     ) {
         let visible = spans.filter { $0.length > 0 }.sorted { $0.start < $1.start }
         for (before, after) in zip(visible, visible.dropFirst()) {
-            XCTAssertGreaterThanOrEqual(after.start, before.start + before.length + spacing, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(after.start, before.start + before.length + tight, file: file, line: line)
         }
         for span in visible {
             XCTAssertGreaterThanOrEqual(span.start, inset, file: file, line: line)
@@ -125,10 +126,10 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
         )
 
         edge = sides(500, 400)
-        let overflow = 500 + 300 + 400 + spacing * 2 - (bar - inset * 2)
+        let overflow = 500 + 300 + 400 + tight * 2 - (bar - inset * 2)
         XCTAssertEqual(
             layout(500, 300, 400),
-            [edge.leading, Span(start: inset + 500 + spacing, length: 300 - overflow), edge.trailing]
+            [edge.leading, Span(start: inset + 500 + tight, length: 300 - overflow), edge.trailing]
         )
     }
 
@@ -136,7 +137,7 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
         let leading: CGFloat = 500
         let center: CGFloat = 300
         let trailing: CGFloat = 400
-        let cut = trailing - (leading + center + trailing + spacing * 2 - (bar - inset * 2))
+        let cut = trailing - (leading + center + trailing + tight * 2 - (bar - inset * 2))
         XCTAssertEqual(
             spans([
                 Item(lane: .leading, length: leading, priority: 0),
@@ -145,7 +146,7 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
             ], .off),
             [
                 Span(start: inset, length: leading),
-                Span(start: inset + leading + spacing, length: center),
+                Span(start: inset + leading + tight, length: center),
                 Span(start: bar - inset - cut, length: cut)
             ]
         )
@@ -159,15 +160,15 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
             Item(lane: .trailing, length: 400, priority: 2)
         ]
         let room = bar - inset * 2
-        let firstOverflow = items.reduce(0) { $0 + $1.length } + spacing * 3 - room
+        let firstOverflow = items.reduce(0) { $0 + $1.length } + tight * 3 - room
         XCTAssertGreaterThanOrEqual(firstOverflow, items[1].length)
-        let secondOverflow = items.reduce(0) { $0 + $1.length } - items[1].length + spacing * 2 - room
+        let secondOverflow = items.reduce(0) { $0 + $1.length } - items[1].length + tight * 2 - room
         let trailing = items[3].length - secondOverflow
         let result = spans(items, .off)
 
         XCTAssertEqual(result[1].length, 0)
         XCTAssertEqual(result[0], Span(start: inset, length: items[0].length))
-        XCTAssertEqual(result[2], Span(start: inset + items[0].length + spacing, length: items[2].length))
+        XCTAssertEqual(result[2], Span(start: inset + items[0].length + tight, length: items[2].length))
         XCTAssertEqual(result[3], Span(start: bar - inset - trailing, length: trailing))
         XCTAssertEqual(zip(result, items).filter { $0.length > 0 && $0.length < $1.length }.count, 1)
     }
@@ -176,7 +177,7 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
         let title: CGFloat = 200
         let trailing: [CGFloat] = [120, 150]
         let room = bar - inset - notch.upperBound - gap
-        let cut = title - (title + spacing + extent(trailing) - room)
+        let cut = title - (title + tight + extent(trailing, gap: tight) - room)
         let result = spans(
             [Item(lane: .leading, length: 100, priority: 0), Item(lane: .center, length: title, priority: 3)]
                 + trailing.enumerated().map { Item(lane: .trailing, length: $1, priority: $0 + 1) },
@@ -185,7 +186,10 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
         )
 
         XCTAssertEqual(result[1], Span(start: notch.upperBound + gap, length: cut))
-        XCTAssertEqual(Array(result.suffix(trailing.count)), run(trailing, from: bar - inset - extent(trailing)))
+        XCTAssertEqual(
+            Array(result.suffix(trailing.count)),
+            run(trailing, from: bar - inset - extent(trailing, gap: tight), gap: tight)
+        )
     }
 
     func testLeftOfNotchKeepsTheTitleBesideALongLeadingLane() {
@@ -198,17 +202,17 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
             Item(lane: .center, length: title, priority: 4),
             Item(lane: .trailing, length: 100, priority: 2)
         ]
-        let cut = title - (extent(leading) + spacing + title - room)
+        let cut = title - (extent(leading, gap: tight) + tight + title - room)
         var result = spans(items, .leftOfNotch, notch: notch)
-        XCTAssertEqual(Array(result.prefix(2)), run(leading, from: inset))
-        XCTAssertEqual(result[2], Span(start: inset + extent(leading) + spacing, length: cut))
+        XCTAssertEqual(Array(result.prefix(2)), run(leading, from: inset, gap: tight))
+        XCTAssertEqual(result[2], Span(start: inset + extent(leading, gap: tight) + tight, length: cut))
         XCTAssertEqual(result[2].start + result[2].length, notch.lowerBound - gap)
 
         var ranked = items
         ranked[1].priority = 5
         ranked[2].priority = 0
         result = spans(ranked, .leftOfNotch, notch: notch)
-        XCTAssertLessThanOrEqual(leading[1], extent(leading) + spacing + title - room)
+        XCTAssertLessThanOrEqual(leading[1], extent(leading, gap: tight) + tight + title - room)
         XCTAssertEqual(result[1].length, 0)
         XCTAssertEqual(result[0], Span(start: inset, length: leading[0]))
         XCTAssertEqual(result[2], Span(start: notch.lowerBound - gap - title, length: title))
@@ -217,13 +221,13 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
     func testSideLanesStopBeforeTheNotch() {
         let leading: [CGFloat] = [300, 200]
         let room = notch.lowerBound - gap - inset
-        let cut = leading[0] - (extent(leading) - room)
+        let cut = leading[0] - (extent(leading, gap: tight) - room)
         let result = spans([
             Item(lane: .leading, length: leading[0], priority: 1),
             Item(lane: .leading, length: leading[1], priority: 0)
         ], .rightOfNotch, notch: notch)
 
-        XCTAssertEqual(result, run([cut, leading[1]], from: inset))
+        XCTAssertEqual(result, run([cut, leading[1]], from: inset, gap: tight))
         XCTAssertEqual(result[1].start + result[1].length, notch.lowerBound - gap)
     }
 
@@ -238,7 +242,7 @@ final class WorkspaceBarLaneGiveWayTests: XCTestCase {
             notch: notch
         )
 
-        XCTAssertGreaterThan(center[2] + spacing + trailing, bar - inset - notch.upperBound - gap)
+        XCTAssertGreaterThan(center[2] + tight + trailing, bar - inset - notch.upperBound - gap)
         XCTAssertEqual(Array(result.prefix(near.count)), run(near, from: notch.lowerBound - gap - extent(near)))
         XCTAssertEqual(result[2].length, 0)
         XCTAssertEqual(result[3], Span(start: bar - inset - trailing, length: trailing))
@@ -359,7 +363,7 @@ final class WorkspaceBarLaneClipTests: XCTestCase {
     func testTheBarViewClipsTheWidgetThatGivesWayAndKeepsItsClicksInside() throws {
         let lengths: [CGFloat] = [500, 300, 400]
         let (host, views) = hostBar(lengths, priorities: [0, 2, 1])
-        let cut = lengths[1] - (lengths.reduce(0, +) + spacing * 2 - (bar - inset * 2))
+        let cut = lengths[1] - (lengths.reduce(0, +) + tight * 2 - (bar - inset * 2))
         let middle = try clip(views[1])
         XCTAssertEqual(middle.frame.width, cut)
         XCTAssertTrue(middle.clipsToBounds)
@@ -375,8 +379,8 @@ final class WorkspaceBarLaneClipTests: XCTestCase {
     }
 
     func testTheBarViewHidesAWidgetWithNoRoomLeft() throws {
-        let lengths: [CGFloat] = [500, 60, 480]
-        XCTAssertGreaterThanOrEqual(lengths.reduce(0, +) + spacing * 2 - (bar - inset * 2), lengths[1])
+        let lengths: [CGFloat] = [500, 60, 490]
+        XCTAssertGreaterThanOrEqual(lengths.reduce(0, +) + tight * 2 - (bar - inset * 2), lengths[1])
         let (host, views) = hostBar(lengths, priorities: [0, 2, 1])
         XCTAssertEqual(try clip(views[1]).frame.width, 0)
         XCTAssertTrue(try clip(views[1]).clipsToBounds)
@@ -387,7 +391,7 @@ final class WorkspaceBarLaneClipTests: XCTestCase {
         let lengths: [CGFloat] = [500, 400, 300]
         let (host, views) = hostBar(lengths, priorities: [0, 1, 2], vertical: true)
         let trailing = try clip(views[2])
-        let kept = lengths[2] - (lengths.reduce(0, +) + spacing * 2 - (bar - inset * 2))
+        let kept = lengths[2] - (lengths.reduce(0, +) + tight * 2 - (bar - inset * 2))
         XCTAssertEqual(trailing.frame.height, kept)
         XCTAssertEqual(views[2].frame.origin.y, kept - lengths[2])
         let placed = trailing.convert(trailing.bounds, to: host)
