@@ -219,7 +219,7 @@ extension ShellDevicesTests {
         let monitor = WiFiNetworksMonitor(
             read: { ([office], []) }, scan: {},
             join: { _ in
-                release.wait()
+                if release.wait(timeout: .now() + 5) == .timedOut { XCTFail("A second join reached the radio") }
                 return .needsSettings
             },
             joinInSettings: { network in
