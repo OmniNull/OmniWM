@@ -23,6 +23,7 @@ OmniWMApp                          (@main entry point)
     ├── OmniWMIPC                  (shared IPC models — zero dependencies)
     ├── OmniWMLayerCorners         (Objective-C native border-layer bridge)
     ├── OmniWMLauncherSPI          (Objective-C launcher integration bridge)
+    ├── OmniWMWiFiSPI              (Objective-C saved Wi-Fi network join bridge)
     ├── OmniWMAudioTap             (C gain renderer for per-app volume taps)
     ├── OmniWMScriptHost           (C++ Luau shell host)
     │   └── OmniWMLuau             (vendored Luau VM and compiler, MIT)
@@ -51,6 +52,7 @@ OmniWMTests                        (test target)
 | `OmniWMIPC` | Shared IPC data models and wire format | None |
 | `OmniWMLayerCorners` | Objective-C bridge for native CALayer corner radii and rim properties | None |
 | `OmniWMLauncherSPI` | Objective-C bridge for launcher integration | None |
+| `OmniWMWiFiSPI` | Objective-C bridge that joins a saved personal Wi-Fi network without reading its password | None |
 | `OmniWMAudioTap` | C gain renderer for per-app volume process taps | None |
 | `OmniWMNowPlaying` | Objective-C dynamic library the Now Playing adapter loads to read and control media | None |
 | `OmniWMLuau` | Vendored Luau VM and compiler (MIT) | None |
@@ -58,7 +60,7 @@ OmniWMTests                        (test target)
 | `OmniWMMaterialColor` | C++ Material Color Utilities bridge for wallpaper palettes | None |
 | `OmniWMShellCore` | Noncopyable layout and diff core for shell widget trees | None |
 | `OmniWMCtl` | CLI tool (`omniwmctl`) | OmniWMIPC |
-| `OmniWM` | Core window manager library | OmniWMIPC, OmniWMLayerCorners, OmniWMLauncherSPI, OmniWMAudioTap, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore, GhosttyKit, TOML, system frameworks |
+| `OmniWM` | Core window manager library | OmniWMIPC, OmniWMLayerCorners, OmniWMLauncherSPI, OmniWMWiFiSPI, OmniWMAudioTap, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore, GhosttyKit, TOML, system frameworks |
 | `OmniWMApp` | Executable wrapper with SwiftUI scene | OmniWM |
 | `OmniWMTests` | Test target (fixtures copied as a resource bundle) | OmniWM, OmniWMAudioTap, OmniWMCtl, OmniWMLayerCorners, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore |
 
@@ -116,6 +118,7 @@ Sources/
 ├── OmniWMIPC/                       models, wire format, socket path, automation manifest
 ├── OmniWMLayerCorners/              Objective-C native border-layer bridge (1 .m + 1 header)
 ├── OmniWMLauncherSPI/               Objective-C launcher integration bridge
+├── OmniWMWiFiSPI/                   Objective-C saved Wi-Fi network join bridge
 ├── OmniWMAudioTap/                  C per-app volume gain renderer
 ├── OmniWMNowPlaying/                Objective-C Now Playing library
 ├── OmniWMLuau/                      Vendored Luau VM and compiler

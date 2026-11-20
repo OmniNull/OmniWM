@@ -66,12 +66,13 @@ extension WorkspaceManager {
         _ mutate: (inout ViewportState) -> Result
     ) -> Result {
         var state = niriViewportState(for: workspaceId)
-        let result = withEngineMutationScope(in: workspaceId, label: "viewport_mutation") {
-            mutate(&state)
+        return withEngineMutationScope(in: workspaceId, label: "viewport_mutation") {
+            let result = mutate(&state)
+            if shouldCommit(result) {
+                self.normalizeNiriRefreshRate(&state, for: workspaceId)
+                self.applyViewportInBatch(state, for: workspaceId)
+            }
+            return result
         }
-        if shouldCommit(result) {
-            updateNiriViewportState(state, for: workspaceId)
-        }
-        return result
     }
 }

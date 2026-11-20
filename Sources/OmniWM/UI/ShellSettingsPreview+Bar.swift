@@ -178,10 +178,16 @@ extension ShellSettingsPreview {
         let priorities = request.config.priorityRanks()
         return WorkspaceBarZoneLayout.spans(
             of: zip(images, sizes).map { image, extent in
-                WorkspaceBarZoneLayout.Item(
-                    lane: request.config.lane(of: image.name).lane,
+                let lane = request.config.lane(of: image.name).lane
+                return WorkspaceBarZoneLayout.Item(
+                    lane: lane,
                     length: extent,
-                    priority: priorities[image.name] ?? .max
+                    priority: priorities[image.name] ?? .max,
+                    stops: image.parts.stops(
+                        in: image.size,
+                        vertical: request.style.vertical,
+                        keepsEnd: lane == .trailing
+                    )
                 )
             },
             length: length, zones: zones, spacing: 8, inset: 4
