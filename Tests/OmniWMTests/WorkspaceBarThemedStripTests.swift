@@ -32,20 +32,20 @@ final class WorkspaceBarThemedStripTests: XCTestCase {
         try assertEveryWorkspaceComesIntoView(profile: "celestial")
     }
 
-    func testThemedStripsOnAVerticalBarStillGiveWayWithoutScrolling() throws {
+    func testThemedStripsOnAVerticalBarAreCutByJustTheOverflow() throws {
         for profile in ["wayline", "celestial"] {
-            let widget = try makeWidget(profile)
-            widget.render(try bar(profile, vertical: true))
-            let natural = widget.surface.naturalSize.height
-            XCTAssertNil(widget.surface.layout.rootScroll, profile)
-            let host = try hostBar(widget, shown: natural - 1, vertical: true)
-            let clip = try XCTUnwrap(widget.surface.view.superview as? ShellWidgetClipView)
-            if profile == "wayline" {
-                let seventh = try pillFrame("7", in: widget)
-                XCTAssertEqual(clip.frame.height, seventh.maxY, accuracy: 0.01, profile)
+            for shortage: CGFloat in [1, 200] {
+                let label = "\(profile) \(shortage) pt short"
+                let widget = try makeWidget(profile)
+                widget.render(try bar(profile, vertical: true))
+                let natural = widget.surface.naturalSize.height
+                XCTAssertNil(widget.surface.layout.rootScroll, label)
+                let host = try hostBar(widget, shown: natural - shortage, vertical: true)
+                let clip = try XCTUnwrap(widget.surface.view.superview as? ShellWidgetClipView)
+                XCTAssertEqual(clip.frame.height, natural - shortage, accuracy: 0.01, label)
+                widget.surface.view.removeFromSuperview()
+                withExtendedLifetime(host) {}
             }
-            widget.surface.view.removeFromSuperview()
-            withExtendedLifetime(host) {}
         }
     }
 
