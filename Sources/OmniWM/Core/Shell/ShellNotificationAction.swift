@@ -45,4 +45,11 @@ enum ShellNotificationAction {
         guard let close else { return .unsupported }
         return try press(target, close) ? .dispatched : .failed
     }
+
+    static func clearStack(actions: () throws -> [String]?, press: (String) throws -> Bool) rethrows -> Bool {
+        guard let names = try actions() else { return false }
+        let clearAll = names.filter { $0.split(separator: "\n", maxSplits: 1).first == "Name:Clear All" }
+        guard clearAll.count == 1 else { return false }
+        return try press(clearAll[0])
+    }
 }
