@@ -15,6 +15,7 @@ Turn Overview off in Settings. Its shortcut, mouse button, gesture, and commands
 - Grouped windows share one preview card. Use its arrows or click the position indicator to choose a window by title. Small Dwindle cards use a compact count picker. Browsing changes the preview; the chosen window becomes active when you dismiss Overview to it.
 - `Arrow Keys` navigate spatially; `Left` / `Right` stay within the current workspace. `Tab` / `Shift + Tab` cycle forward or backward through matching windows, and keyboard navigation automatically scrolls the selected thumbnail into view.
 - `Enter` focuses the selected window; pressing and releasing a thumbnail without dragging it focuses that window. `Escape`, the configured Overview shortcut, and clicking the backdrop also dismiss Overview and focus the current selection; `Escape` does not clear search first.
+- With the pointer over a thumbnail, spread two fingers on the trackpad to zoom in. Lift at 1.5× or more with the pointer still over the same thumbnail to focus it. Lift below 1.5× to stay in Overview.
 - Mouse and trackpad scrolling follow the system Natural Scrolling setting. **Invert Scrolling Direction** under **Settings → Overview → Input** reverses it for both; **Mouse Wheel Speed** changes wheel scrolling without changing trackpad speed.
 - `Alt (Option) + Shift + Mouse Scroll` changes the zoom. Closing Overview saves that zoom for the next opening.
 - If another application takes focus, Overview dismisses without stealing focus back.

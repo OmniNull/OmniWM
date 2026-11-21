@@ -22,6 +22,7 @@ final class OverviewLayerRenderer {
     var reflowTransition: OverviewNativeTransition?
     private var reflowGeneration: UInt64 = 0
     var reflowArrivals: Set<WindowHandle> = []
+    let camera = OverviewPinchCamera()
     let content = CALayer()
     let workspaceChrome = CALayer()
     private let cards = CALayer()
@@ -51,7 +52,8 @@ final class OverviewLayerRenderer {
         root.addSublayer(backdropGroup)
         backdropGroup.addSublayer(backdrop)
         root.addSublayer(completionLayer)
-        root.addSublayer(content)
+        root.addSublayer(camera.layer)
+        camera.layer.addSublayer(content)
         content.addSublayer(workspaceChrome)
         content.addSublayer(cards)
         content.addSublayer(overflowPills)
