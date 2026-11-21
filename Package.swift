@@ -77,6 +77,16 @@ let package = Package(
             ]
         ),
         .target(
+            name: "OmniWMWiFiSPI",
+            path: "Sources/OmniWMWiFiSPI",
+            cSettings: [
+                .treatAllWarnings(as: .error)
+            ],
+            linkerSettings: [
+                .linkedFramework("CoreWLAN")
+            ]
+        ),
+        .target(
             name: "OmniWMLuau",
             path: "Sources/OmniWMLuau",
             exclude: ["LICENSE.txt", "lua_LICENSE.txt", "VERSION", "Bytecode/src/BytecodeGraph.cpp"],
@@ -127,6 +137,7 @@ let package = Package(
                 "OmniWMAudioTap",
                 "OmniWMLayerCorners",
                 "OmniWMLauncherSPI",
+                "OmniWMWiFiSPI",
                 "OmniWMMaterialColor",
                 "OmniWMScriptHost",
                 "OmniWMShellCore",

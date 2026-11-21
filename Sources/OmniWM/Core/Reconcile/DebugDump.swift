@@ -24,6 +24,17 @@ enum ReconcileDebugDump {
         return lines.joined(separator: "\n")
     }
 
+    static func invariantCheck(
+        _ snapshot: ReconcileSnapshot,
+        validatesEveryScope: Bool,
+        requested: Bool
+    ) -> String {
+        let violations = InvariantChecks.validate(snapshot: snapshot)
+        let setting = "scope-validation=\(validatesEveryScope ? "on" : "off") requested=\(requested ? "on" : "off")"
+        let lines = violations.isEmpty ? ["clean"] : violations.map { "\($0.code) \($0.message)" }
+        return ([setting] + lines).joined(separator: "\n")
+    }
+
     static func trace(_ records: [ReconcileTraceRecord], limit: Int? = nil) -> String {
         let truncated = limit.map { Array(records.suffix(max(0, $0))) } ?? records
         if truncated.isEmpty {

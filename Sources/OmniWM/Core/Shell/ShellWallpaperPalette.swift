@@ -92,7 +92,7 @@ extension ShellWallpaperPalette {
 
     enum DesktopChoice: Equatable, Sendable {
         case file(URL)
-        case aerial(asset: String, thumbnail: URL?)
+        case aerial(asset: String?, thumbnail: URL?)
         case shuffle
         case other
     }
@@ -104,7 +104,6 @@ extension ShellWallpaperPalette {
     }
 
     struct StillProbe: Sendable {
-        let url: URL?
         let showsWallpaperWindow: Bool
         let location: (display: String, space: String)?
     }
@@ -118,16 +117,12 @@ extension ShellWallpaperPalette {
     static func stillProbe(
         for displayId: CGDirectDisplayID,
         frame: CGRect? = nil,
-        desktopImageURL: (CGDirectDisplayID) -> URL? = { displayId in
-            NSScreen.screens.first { $0.displayId == displayId }.flatMap { NSWorkspace.shared.desktopImageURL(for: $0) }
-        },
         windows: () -> [[String: Any]] = {
             CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
         },
         location: (CGDirectDisplayID) -> (display: String, space: String)? = { ShellWallpaperPalette.location(of: $0) }
     ) -> StillProbe {
         StillProbe(
-            url: desktopImageURL(displayId),
             showsWallpaperWindow: showsWallpaperWindow(windows(), frame: frame ?? CGDisplayBounds(displayId)),
             location: location(displayId)
         )
@@ -144,8 +139,7 @@ extension ShellWallpaperPalette {
             }
             return .still(still, aerial: true)
         case let .file(chosen):
-            guard probe.showsWallpaperWindow, let url = probe.url, url.isFileURL,
-                  url.standardizedFileURL.path == chosen.path, isSingleImage(url), let still = stamp(url)
+            guard probe.showsWallpaperWindow, isSingleImage(chosen), let still = stamp(chosen)
             else { return .capture(aerial: false) }
             return .still(still, aerial: false)
         case .shuffle,
@@ -203,17 +197,19 @@ extension ShellWallpaperPalette {
         if let path = stillImagePath(of: content) {
             return .file(URL(fileURLWithPath: path))
         }
-        guard let choices = content["Choices"] as? [[String: Any]], choices.count == 1 else { return .other }
+        guard let choices = content["Choices"] as? [[String: Any]], let choice = choices.first else { return .other }
+        let isAerial = choices.allSatisfy { $0["Provider"] as? String == aerialProvider }
         if content["Shuffle"] as? String != "$null" {
-            return .shuffle
+            return isAerial ? .aerial(asset: nil, thumbnail: nil) : .shuffle
         }
-        guard choices[0]["Provider"] as? String == aerialProvider,
-              let data = choices[0]["Configuration"] as? Data,
+        guard isAerial else { return .other }
+        guard choices.count == 1,
+              let data = choice["Configuration"] as? Data,
               let configuration = try? PropertyListSerialization.propertyList(from: data, format: nil)
               as? [String: Any],
               let asset = configuration["assetID"] as? String,
               !asset.isEmpty, !asset.contains("/")
-        else { return .other }
+        else { return .aerial(asset: nil, thumbnail: nil) }
         let thumbnail = aerials.appendingPathComponent("thumbnails/\(asset).png").standardizedFileURL
         return .aerial(
             asset: asset,
@@ -258,8 +254,11 @@ extension ShellWallpaperPalette {
             index["AllSpacesAndDisplays"],
             index["SystemDefault"]
         ]
-        return entries.lazy.compactMap { (($0 as? [String: Any])?["Desktop"] as? [String: Any])?["Content"] }
-            .first as? [String: Any]
+        return entries.lazy.compactMap { candidate -> Any? in
+            guard let entry = candidate as? [String: Any] else { return nil }
+            let slot = entry["Type"] as? String == "linked" ? "Linked" : "Desktop"
+            return (entry[slot] as? [String: Any])?["Content"]
+        }.first as? [String: Any]
     }
 
     static func stillImagePath(of content: [String: Any]) -> String? {
@@ -274,223 +273,5 @@ extension ShellWallpaperPalette {
               let url = URL(string: relative), url.isFileURL
         else { return nil }
         return url.standardizedFileURL.path
-    }
-}
-
-@MainActor
-final class ShellWallpaperPaletteWriter {
-    typealias Lookup = @Sendable () -> ShellWallpaperPalette.Source
-    typealias Perform = @Sendable (@escaping @Sendable () -> Void) -> Void
-    typealias Deliver = @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
-
-    nonisolated static let store = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/com.apple.wallpaper/Store", isDirectory: true)
-    static let recheckInterval: TimeInterval = 60
-    private nonisolated static let queue = DispatchQueue(label: "com.barut.OmniWM.shell.wallpaper", qos: .utility)
-
-    private final class Record: @unchecked Sendable {
-        var generation: UInt64 = 0
-        var scheme: ShellWallpaperScheme?
-        var written: ShellWallpaperPalette.StillWallpaper?
-        var unreadable: ShellWallpaperPalette.StillWallpaper?
-        var pixels: [UInt32]?
-    }
-
-    private let destination: URL
-    private let source: @MainActor () -> Lookup
-    private let read: @Sendable (URL) -> CGImage?
-    private let image: @MainActor (_ aerial: Bool) -> CGImage?
-    private let perform: Perform
-    private let deliver: Deliver
-    private let onFailure: @MainActor (String) -> Void
-    private var observation: ShellDirectoryObservation?
-    private var observers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
-    private var scheme: ShellWallpaperScheme
-    private var recheck: DispatchSourceTimer?
-    private let record = Record()
-
-    var isRechecking: Bool {
-        recheck != nil
-    }
-
-    init(
-        destination: URL,
-        scheme: ShellWallpaperScheme,
-        source: @escaping @MainActor () -> Lookup = {
-            let probe = ShellWallpaperPalette.stillProbe(for: CGMainDisplayID())
-            return { ShellWallpaperPalette.source(probe, store: ShellWallpaperPalette.storeIndex()) }
-        },
-        read: @escaping @Sendable (URL) -> CGImage? = { ShellWallpaperPalette.read($0) },
-        image: @escaping @MainActor (_ aerial: Bool) -> CGImage? = {
-            ShellWallpaperPalette.screenImage(for: CGMainDisplayID(), aerial: $0)
-        },
-        perform: @escaping Perform = ShellWallpaperPaletteWriter.performOnWriterQueue,
-        deliver: @escaping Deliver = ShellWallpaperPaletteWriter.deliverOnMain,
-        onFailure: @escaping @MainActor (String) -> Void
-    ) {
-        self.destination = destination
-        self.scheme = scheme
-        self.source = source
-        self.read = read
-        self.image = image
-        self.perform = perform
-        self.deliver = deliver
-        self.onFailure = onFailure
-    }
-
-    isolated deinit {
-        stop()
-    }
-
-    nonisolated static func performOnWriterQueue(_ work: @escaping @Sendable () -> Void) {
-        queue.async(execute: work)
-    }
-
-    nonisolated static func deliverOnMain(_ work: @escaping @MainActor @Sendable () -> Void) {
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated(work)
-        }
-    }
-
-    func start() {
-        guard observation == nil else { return }
-        observation = ShellDirectoryObservation { [weak self] in
-            self?.watchStore()
-            self?.refresh()
-        }
-        watchStore()
-        observers = [
-            (NSWorkspace.shared.notificationCenter, NSWorkspace.activeSpaceDidChangeNotification),
-            (NotificationCenter.default, NSApplication.didChangeScreenParametersNotification)
-        ].map { center, name in
-            (center, center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refresh() }
-            })
-        }
-        let recheck = DispatchSource.makeTimerSource(queue: .main)
-        recheck.schedule(
-            deadline: .now() + Self.recheckInterval,
-            repeating: Self.recheckInterval,
-            leeway: .milliseconds(Int(Self.recheckInterval * 100))
-        )
-        recheck.setEventHandler { [weak self] in
-            MainActor.assumeIsolated { self?.refreshIfChanged() }
-        }
-        recheck.resume()
-        self.recheck = recheck
-        refresh()
-    }
-
-    func setScheme(_ next: ShellWallpaperScheme) {
-        guard next != scheme else { return }
-        scheme = next
-        refresh()
-    }
-
-    func stop() {
-        observation?.cancel()
-        observation = nil
-        for observer in observers {
-            observer.center.removeObserver(observer.token)
-        }
-        observers = []
-        recheck?.cancel()
-        recheck = nil
-    }
-
-    func refresh() {
-        refresh(onlyIfChanged: false)
-    }
-
-    func refreshIfChanged() {
-        refresh(onlyIfChanged: true)
-    }
-
-    private func refresh(onlyIfChanged: Bool) {
-        let lookup = source()
-        let read = read
-        let scheme = scheme
-        let destination = destination
-        let record = record
-        let deliver = deliver
-        perform { [weak self] in
-            record.generation &+= 1
-            let generation = record.generation
-            let capture = { (aerial: Bool) in
-                deliver {
-                    self?.refreshImage(onlyIfChanged: onlyIfChanged, aerial: aerial, generation: generation)
-                }
-            }
-            let looked = lookup()
-            guard case let .still(still, aerial) = looked else {
-                if case let .capture(aerial) = looked {
-                    capture(aerial)
-                }
-                return
-            }
-            guard !onlyIfChanged || still != record.unreadable else {
-                capture(aerial)
-                return
-            }
-            guard !onlyIfChanged || still != record.written || scheme != record.scheme || !Self.exists(destination)
-            else { return }
-            guard let image = read(still.url) else {
-                Log.shell.error("Failed to read the wallpaper file for the wallpaper palette")
-                record.unreadable = still
-                capture(aerial)
-                return
-            }
-            record.unreadable = nil
-            guard Self.write(pixels: ShellWallpaperPalette.pixels(of: image), scheme: scheme, to: destination) else {
-                return
-            }
-            record.scheme = scheme
-            record.written = still
-            record.pixels = nil
-        }
-    }
-
-    private func refreshImage(onlyIfChanged: Bool, aerial: Bool, generation: UInt64) {
-        guard !onlyIfChanged || recheck != nil else { return }
-        guard let image = image(aerial) else {
-            onFailure("The wallpaper palette keeps its last colors because the wallpaper image is unavailable")
-            return
-        }
-        let pixels = ShellWallpaperPalette.pixels(of: image)
-        let scheme = scheme
-        let destination = destination
-        let record = record
-        perform {
-            guard record.generation == generation,
-                  !onlyIfChanged || pixels != record.pixels || scheme != record.scheme || !Self.exists(destination),
-                  Self.write(pixels: pixels, scheme: scheme, to: destination)
-            else { return }
-            record.scheme = scheme
-            record.pixels = pixels
-            record.written = nil
-        }
-    }
-
-    private nonisolated static func write(pixels: [UInt32], scheme: ShellWallpaperScheme, to destination: URL) -> Bool {
-        do {
-            _ = try ShellWallpaperPalette.write(
-                ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme),
-                to: destination
-            )
-            return true
-        } catch {
-            Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
-            return false
-        }
-    }
-
-    private nonisolated static func exists(_ destination: URL) -> Bool {
-        FileManager.default.fileExists(atPath: destination.path)
-    }
-
-    private func watchStore() {
-        observation?.sync(
-            paths: [Self.store, Self.store.appendingPathComponent("Index.plist")], recursivePaths: [Self.store]
-        )
     }
 }

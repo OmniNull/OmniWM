@@ -274,6 +274,7 @@ final class ShellDefaultsTests: XCTestCase {
             "battery",
             "battery-details",
             "wifi",
+            "wifi-networks",
             "bluetooth",
             "input-source",
             "launcher",

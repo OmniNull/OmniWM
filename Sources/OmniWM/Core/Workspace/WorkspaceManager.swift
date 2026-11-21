@@ -34,7 +34,7 @@ final class WorkspaceManager {
     )
     var persistedRestoreBundleIdProvider: ((pid_t) -> String?)?
 
-    private lazy var projections = WorkspaceProjectionCache(manager: self)
+    private(set) lazy var projections = WorkspaceProjectionCache(manager: self)
 
     var onGapsChanged: (() -> Void)?
     var onSessionStateChanged: ((SessionSurfaceInvalidationScope) -> Void)?
@@ -103,6 +103,15 @@ final class WorkspaceManager {
 
     func invariantViolationCountsDump() -> String {
         world.invariantViolationCountsDump()
+    }
+
+    var scopeValidationRequested: Bool {
+        get { world.scopeValidationRequested }
+        set { world.scopeValidationRequested = newValue }
+    }
+
+    var validatesEveryScope: Bool {
+        world.validatesEveryScope
     }
 
     var worldSeq: UInt64 {
@@ -180,6 +189,15 @@ extension WorkspaceManager {
             preMutate: preMutate,
             resolvePlan: resolvePlan
         )
+    }
+
+    func commitWorldScope(
+        in workspaceId: WorkspaceDescriptor.ID?,
+        label: String,
+        source: WMEventSource,
+        _ body: () -> Void
+    ) {
+        world.commitScope(in: workspaceId, label: label, source: source, snapshot: { self.reconcileSnapshot() }, body)
     }
 
     func refreshRestoreIntentsForAllEntries() {
@@ -329,50 +347,6 @@ extension WorkspaceManager {
         projections.invalidateMonitorProjections()
         _monitorsById = Dictionary(uniqueKeysWithValues: monitors.map { ($0.id, $0) })
         invalidateWorkspaceProjectionCaches()
-    }
-
-    func invalidateSettingsProjectionCaches() {
-        projections.invalidateSettingsProjectionCaches()
-    }
-
-    func invalidateWorkspaceProjectionCaches() {
-        projections.invalidateWorkspaceProjectionCaches()
-    }
-
-    func sortedMonitors() -> [Monitor] {
-        projections.sortedMonitors()
-    }
-
-    func currentTopologyProfile() -> TopologyProfile {
-        projections.currentTopologyProfile()
-    }
-
-    func configuredWorkspaceNames() -> [String] {
-        projections.configuredWorkspaceNames()
-    }
-
-    func configuredWorkspaceNameSet() -> Set<String> {
-        projections.configuredWorkspaceNameSet()
-    }
-
-    func monitorDescriptionByWorkspaceName() -> [String: MonitorDescription] {
-        projections.monitorDescriptionByWorkspaceName()
-    }
-
-    func workspaceIdsByMonitor() -> [Monitor.ID: [WorkspaceDescriptor.ID]] {
-        projections.workspaceIdsByMonitor()
-    }
-
-    func monitorIdShowingWorkspace(_ workspaceId: WorkspaceDescriptor.ID) -> Monitor.ID? {
-        projections.monitorIdShowingWorkspace(workspaceId)
-    }
-
-    func visibleWorkspaceIds() -> Set<WorkspaceDescriptor.ID> {
-        projections.visibleWorkspaceIds()
-    }
-
-    func visibleWorkspaceMap() -> [Monitor.ID: WorkspaceDescriptor.ID] {
-        projections.visibleWorkspaceMap()
     }
 
     func setGaps(to size: Double) {

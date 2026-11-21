@@ -57,6 +57,7 @@ enum ShellDataKey: String, CaseIterable, Sendable {
     case connection
     case commandPalette
     case nightShift
+    case wifiNetworks
 
     private static let order = allCases
     static let table = order.map(\.rawValue).joined(separator: "\n")
@@ -161,6 +162,7 @@ struct ShellWidgetData: Equatable, Sendable {
     var inputSource: ShellInputSource?
     var privacy: ShellPrivacy?
     var wifi: ShellWiFi?
+    var wifiNetworks: ShellWiFiNetworks?
     var connection: ShellConnection?
     var bluetooth: ShellBluetooth?
     var user: ShellUser?
@@ -206,6 +208,7 @@ extension ShellWidgetData {
             | Self.changed(.inputSource, when: inputSource != previous.inputSource)
             | Self.changed(.privacy, when: privacy != previous.privacy)
             | Self.changed(.wifi, when: wifi != previous.wifi)
+            | Self.changed(.wifiNetworks, when: wifiNetworks != previous.wifiNetworks)
             | Self.changed(.connection, when: connection != previous.connection)
             | Self.changed(.bluetooth, when: bluetooth != previous.bluetooth)
             | Self.changed(.user, when: user != previous.user)

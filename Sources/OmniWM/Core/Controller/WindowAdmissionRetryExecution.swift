@@ -10,7 +10,7 @@ extension AXEventHandler {
 
     @discardableResult
     func dispatchAdmissionRetry(windowId: UInt32) -> Bool {
-        guard var state = admissionRetryStateByWindowId[windowId] else { return false }
+        guard var state = admissionRetryStateByWindowId[windowId], !state.exhausted else { return false }
         switch state.trigger {
         case .create,
              .candidate:
@@ -19,7 +19,7 @@ extension AXEventHandler {
         }
         if case .identityRebind = state.trigger {
             if case .running = state.executionPhase { return true }
-            guard !state.exhausted, !state.identityRebindTargetDestroyed,
+            guard !state.identityRebindTargetDestroyed,
                   let source = state.identityRebindSource
             else { return false }
             state.task?.cancel()
