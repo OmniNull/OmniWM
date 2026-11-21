@@ -21,7 +21,7 @@ Niri rearranges columns and windows while you drag. Dwindle swaps tiles at their
 
 Moves work between Niri and Dwindle in any combination. **Dwindle Group Across Displays** in **Settings → Mouse & Trackpad** chooses whether a title-bar drag carries the whole group or only the active window. A whole group moved into Niri becomes a tabbed column. A swap that would not fit the destination is refused, and a drop on a fullscreen space cancels.
 
-The **Move Window** trackpad gesture moves the actual window with your fingers. It stays on the starting display and swaps with the window under its final position when you release. A Niri gesture swaps the selected window; a Dwindle gesture swaps the tile, including its group. Releasing away from a target or cancelling the gesture restores the original position.
+The **Move Window** trackpad gesture moves the actual window with your fingers. It stays on the starting display, and where you release decides what happens. The middle of another window swaps the two. A part near one of its edges places the window on that side. Niri moves the window under the pointer. On a horizontal strip, top or bottom stacks it with the target, and left or right gives it a new column. On a vertical strip those pairs trade places. Dwindle moves the tile under the pointer, including its group, and places it beside the target tile; the edge of the tiled area and the line between two tiles are targets too. Releasing away from a target or cancelling the gesture restores the original position.
 
 ## Resize a window
 
@@ -48,7 +48,7 @@ All five gesture assignments appear together in **Trackpad Gestures**. You can s
 
 ## Move and resize with the trackpad (opt-in)
 
-Enable **Move windows** or **Resize windows** in **Settings → Mouse & Trackpad → Trackpad Gestures** to drag without clicking. The gesture targets the tiled window under the cursor in either layout; lift all fingers to finish. Move swaps with the window under the drop position and stays on the starting monitor. Resize adjusts the nearest movable edges. The pointer itself stays in place.
+Enable **Move windows** or **Resize windows** in **Settings → Mouse & Trackpad → Trackpad Gestures** to drag without clicking. The gesture targets the tiled window under the cursor in either layout; lift all fingers to finish. Move drops onto the window under the drop position (its middle swaps, a part near an edge places the window on that side) and stays on the starting monitor. Resize adjusts the nearest movable edges. The pointer itself stays in place.
 
 Choose two, three, or four fingers for each action. Defaults are four fingers to move and three to resize, with both actions disabled. Column scrolling is on by default with three fingers, so the Resize row first offers **Set Up…**; pick another finger count (two fingers can intercept normal scrolling in apps) or turn off **Scroll columns**. A window gesture needs a finger count unused by other enabled OmniWM gestures, including column scrolling, workspace switching, and Overview. **Set Up…** previews which conflicting gestures would turn off and lets you choose before applying the assignment. You can also reassign or disable those gestures yourself. At **1.0x** sensitivity, a full trackpad sweep travels across the starting screen.
 

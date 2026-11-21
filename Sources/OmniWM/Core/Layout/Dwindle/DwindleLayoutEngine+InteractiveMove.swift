@@ -16,7 +16,7 @@ struct DwindleInteractiveMove {
     let startLocation: CGPoint
     let startFrame: CGRect?
     var floatingFrame: CGRect?
-    let allowsInsertion: Bool
+    var allowsInsertion: Bool
     var target: DwindleMoveTarget?
 
     var targetToken: WindowToken? {

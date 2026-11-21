@@ -143,7 +143,12 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         }
     }
 
-    func makeMoveFixture(_ kind: MoveKind, grouped: Bool = false, windows: Int = 2) throws -> Fixture {
+    func makeMoveFixture(
+        _ kind: MoveKind,
+        grouped: Bool = false,
+        windows: Int = 2,
+        prepare: (CrossDisplayDragTests.Fixture, [WindowToken]) throws -> Void = { _, _ in }
+    ) throws -> Fixture {
         let host = CrossDisplayDragTests()
         let base = try host.makeFixture(
             [kind == .dwindle ? .dwindle : .niri],
@@ -178,6 +183,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             column.cachedWidth = 0
             column.cachedHeight = 0
         }
+        try prepare(base, tokens)
         base.layout()
         XCTAssertTrue(base.manager.confirmManagedFocus(tokens[0], in: base.source, activateWorkspaceOnMonitor: false))
         let plans = base.manager.withBatchedLayoutBuild {
@@ -604,7 +610,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         if fixture.kind == .dwindle {
             XCTAssertFalse(try XCTUnwrap(fixture.base.dwindle.interactiveMove).allowsInsertion)
         } else {
-            XCTAssertFalse(try XCTUnwrap(fixture.base.niri.interactiveMove).allowsInsertion)
+            XCTAssertTrue(try XCTUnwrap(fixture.base.niri.interactiveMove).allowsInsertion)
         }
     }
 }

@@ -44,6 +44,7 @@ extension MouseEventHandler {
             restoreManagedMove(in: wsId)
             return
         }
+        engine.interactiveMove?.allowsInsertion = true
         _ = engine.interactiveMoveUpdate(
             currentLocation: location, at: controller.animationClock.now(),
             workspaceFrame: controller.insetWorkingFrame(for: monitor)

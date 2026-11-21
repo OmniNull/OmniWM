@@ -186,7 +186,7 @@ struct TrackpadGesturesSettingsPanel: View {
             )
         case .move:
             SettingsCaption(
-                localized: "Point at a tiled window and drag without clicking. Drop over another window to swap. Movement stays on the starting display; lift your fingers to drop."
+                localized: "Point at a tiled window and drag without clicking. Drop on the middle of another window to swap, or near one of its edges to place the window on that side. Movement stays on the starting display; lift your fingers to drop."
             )
         case .resize:
             SettingsCaption(
@@ -272,7 +272,7 @@ struct TrackpadGesturesSettingsPanel: View {
         case .overview:
             String(localized: "Swipe up to open Overview and down to close it.")
         case .move:
-            String(localized: "Drag without clicking to swap tiled windows on the same display.")
+            String(localized: "Drag without clicking to rearrange tiled windows on the same display.")
         case .resize:
             String(localized: "Drag without clicking to resize the nearest movable window edges.")
         }

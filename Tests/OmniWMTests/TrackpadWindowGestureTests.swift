@@ -674,7 +674,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
             "Overshoot lost the edge drop target"
         )
         XCTAssertEqual(hoverTarget.token, fixture.second.token)
-        XCTAssertNil(hoverTarget.direction)
+        XCTAssertEqual(hoverTarget.direction, .right)
         let context = try XCTUnwrap(fixture.handler.state.lockedGestureContext)
         let point = fixture.handler.gestureWindowLocation(for: context)
         XCTAssertEqual(point, TrackpadGestureIntent.windowGestureLocation(

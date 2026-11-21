@@ -29,7 +29,7 @@ extension MouseEventHandler {
                 windowToken: tiledWindow.token,
                 startLocation: location,
                 startFrame: frame,
-                allowsInsertion: source.mouseButton != nil,
+                allowsInsertion: true,
                 context: .init(
                     workspaceId: wsId,
                     motion: controller.motionPolicy.snapshot(),
@@ -103,10 +103,7 @@ extension MouseEventHandler {
         guard let controller else { return false }
         let now = controller.animationClock.now()
         guard let frame = engine.presentedFrame(for: token, in: wsId, at: now),
-              engine.interactiveMoveBegin(
-                  token: token, startLocation: location, startFrame: frame,
-                  allowsInsertion: source.mouseButton != nil, in: wsId
-              )
+              engine.interactiveMoveBegin(token: token, startLocation: location, startFrame: frame, in: wsId)
         else { return false }
 
         state.isMoving = true
