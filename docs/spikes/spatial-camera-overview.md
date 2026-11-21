@@ -156,13 +156,13 @@ where $r \approx 0.35$ is the rubber-band resistance coefficient. The raw gestur
 ### Phase 1 Minimal Working Implementation (Spike)
 
 #### 1. Core Model (`SpatialCameraViewport`)
-- Implemented in `Sources/OmniWM/Core/Overview/SpatialCameraViewport.swift`.
+- The [prototype model](https://github.com/OmniNull/OmniWM/blob/aa407e4e05c3a4b88fe0026d532ceb78e603ab1e/Sources/OmniWM/Core/Overview/SpatialCameraViewport.swift) was archived before integration with Overview.
 - Encapsulates:
   - `SpatialCameraTransform`: `scale`, `translation`, `anchor`, and computed `affineTransform` / `caTransform3D`.
   - `project(rect:)` / `unproject(point:)`: forward and inverse coordinate mapping for hit-testing and layout.
   - `applyRubberBanding`: rational resistance curves below $0.20$ and above $1.00$.
   - `endGesture(velocity:)`: resolves settlement destination (`.focusedWindow` vs. `.overviewGrid`).
-- Verified with unit tests in `Tests/OmniWMTests/SpatialCameraViewportTests.swift`.
+- The [prototype tests](https://github.com/OmniNull/OmniWM/blob/aa407e4e05c3a4b88fe0026d532ceb78e603ab1e/Tests/OmniWMTests/SpatialCameraViewportTests.swift) cover gesture updates and settlement.
 
 #### 2. Overlay Scene Setup
 - Instantiate a dedicated camera root layer `cameraLayer = CALayer()` hosted inside the overview panel.
@@ -214,7 +214,7 @@ where $r \approx 0.35$ is the rubber-band resistance coefficient. The raw gestur
    - Inverse projection accuracy: `unproject(project(p)) == p`.
    - Rubber-banding boundary limits: verified damped behavior outside $[0.2, 1.0]$.
    - Velocity-assisted settlement: flick gestures correctly override position thresholds.
-   - Run via: `swift test --filter SpatialCameraViewportTests`.
+   - Run `swift test --filter SpatialCameraViewportTests` at the archived revision (`aa407e4e`).
 2. **Performance Budget**:
    - Gesture frame time budget: $\le 8.33\,\text{ms}$ (120fps on ProMotion displays).
    - AX call count during gesture: **strictly 0**.

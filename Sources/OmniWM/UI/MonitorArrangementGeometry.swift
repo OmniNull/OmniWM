@@ -29,23 +29,6 @@ enum MonitorArrangementGeometry {
         }
     }
 
-    static func logicalPointYUp(
-        forCanvasPoint point: CGPoint,
-        framesYUp: [CGRect],
-        in canvas: CGSize,
-        padding: CGFloat
-    ) -> CGPoint {
-        guard !framesYUp.isEmpty else { return .zero }
-        let transform = fitTransform(framesYUp: framesYUp, canvas: canvas, padding: padding)
-        guard transform.scale > 0 else { return CGPoint(x: transform.bounds.minX, y: transform.bounds.minY) }
-        let localX = (point.x - transform.offset.x) / transform.scale
-        let flippedY = (point.y - transform.offset.y) / transform.scale
-        return CGPoint(
-            x: transform.bounds.minX + localX,
-            y: transform.bounds.maxY - flippedY
-        )
-    }
-
     private static func canvasPoint(forLogicalPointYUp point: CGPoint, transform: FitTransform) -> CGPoint {
         let localX = point.x - transform.bounds.minX
         let flippedY = transform.bounds.maxY - point.y
