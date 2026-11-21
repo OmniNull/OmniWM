@@ -1046,6 +1046,76 @@ final class NiriEdgePeekTests: XCTestCase {
         XCTAssertEqual(column.cachedHeight, (fixture.frame.height - fixture.gap) * height - fixture.gap)
     }
 
+    func testAColumnLeftOutOfTheProjectionLosesItsCapAndTheOthersKeepTheirs() {
+        let fixture = makeFixture(widths: [0.5, 0.97, 0.5])
+        let endCap = fixture.frame.width - peek - 2 * fixture.gap
+        XCTAssertNotNil(fixture.column(1).edgePeekCap)
+        XCTAssertGreaterThan(fixture.column(1).cachedWidth, 0)
+        fixture.engine.setProjectionExclusions([fixture.tokens[1]], in: fixture.workspaceId)
+
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+
+        XCTAssertNil(fixture.column(1).edgePeekCap)
+        XCTAssertEqual(fixture.column(1).cachedWidth, 0)
+        XCTAssertEqual(fixture.column(0).edgePeekCap, endCap)
+        XCTAssertEqual(fixture.column(2).edgePeekCap, endCap)
+    }
+
+    func testAnEndColumnResolvesItsWidthAgainWhenTheColumnsBeyondItChange() throws {
+        let fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        let first = fixture.column(0)
+        let last = fixture.column(2)
+        let firstRoom = try XCTUnwrap(first.stripEndPeekRoom)
+        let lastRoom = try XCTUnwrap(last.stripEndPeekRoom)
+        let firstCap = first.edgePeekCap
+        let lastCap = last.edgePeekCap
+        fixture.column(1).width = .proportion(1.0 / 3.0)
+        XCTAssertGreaterThan(first.cachedWidth, 0)
+        XCTAssertGreaterThan(last.cachedWidth, 0)
+
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+
+        XCTAssertNotEqual(try XCTUnwrap(first.stripEndPeekRoom), firstRoom)
+        XCTAssertNotEqual(try XCTUnwrap(last.stripEndPeekRoom), lastRoom)
+        XCTAssertEqual(first.edgePeekCap, firstCap)
+        XCTAssertEqual(last.edgePeekCap, lastCap)
+        XCTAssertEqual(first.cachedWidth, 0)
+        XCTAssertEqual(last.cachedWidth, 0)
+    }
+
+    func testASecondPassWithNothingChangedKeepsTheEndColumnsResolvedWidths() {
+        let fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        let first = fixture.column(0)
+        let last = fixture.column(2)
+        let firstWidth = first.cachedWidth
+        let lastWidth = last.cachedWidth
+        XCTAssertGreaterThan(firstWidth, 0)
+        XCTAssertGreaterThan(lastWidth, 0)
+        XCTAssertNotNil(first.stripEndPeekRoom)
+        XCTAssertNotNil(last.stripEndPeekRoom)
+
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+
+        XCTAssertEqual(first.cachedWidth, firstWidth)
+        XCTAssertEqual(last.cachedWidth, lastWidth)
+    }
+
+    func testAMiddleColumnStillHoldingAnEndRoomGivesItUpAndResolvesItsWidthAgain() {
+        let fixture = makeFixture(widths: [0.5, 0.5, 0.5])
+        let middle = fixture.column(1)
+        let middleCap = middle.edgePeekCap
+        XCTAssertNil(middle.stripEndPeekRoom)
+        XCTAssertGreaterThan(middle.cachedWidth, 0)
+        middle.stripEndPeekRoom = fixture.column(0).stripEndPeekRoom
+        XCTAssertNotNil(middle.stripEndPeekRoom)
+
+        fixture.engine.applyEdgePeekCaps(in: fixture.workspaceId, workingFrame: fixture.frame, gap: fixture.gap)
+
+        XCTAssertNil(middle.stripEndPeekRoom)
+        XCTAssertEqual(middle.edgePeekCap, middleCap)
+        XCTAssertEqual(middle.cachedWidth, 0)
+    }
+
     private func landing(
         at viewStart: CGFloat, widths: [CGFloat], edgePeek: CGFloat? = 76,
         orientation: Monitor.Orientation = .horizontal
