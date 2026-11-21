@@ -27,6 +27,7 @@ final class ShellDevices {
     let thermal = ThermalMonitor()
     let appearance = AppearanceMonitor()
     let brightness: ShellDisplayBrightness
+    let betterDisplay: ShellBetterDisplayMonitor
     let nightShift: ShellNightShiftMonitor
     let spectrum: AudioSpectrumMonitor
 
@@ -35,6 +36,7 @@ final class ShellDevices {
         wifi: WiFiMonitor = WiFiMonitor(),
         wifiNetworks: WiFiNetworksMonitor = WiFiNetworksMonitor(),
         brightness: ShellDisplayBrightness = ShellDisplayBrightness(),
+        betterDisplay: ShellBetterDisplayMonitor = ShellBetterDisplayMonitor(),
         nightShift: ShellNightShiftMonitor = ShellNightShiftMonitor(),
         spectrum: AudioSpectrumMonitor = AudioSpectrumMonitor()
     ) {
@@ -42,6 +44,7 @@ final class ShellDevices {
         self.wifi = wifi
         self.wifiNetworks = wifiNetworks
         self.brightness = brightness
+        self.betterDisplay = betterDisplay
         self.nightShift = nightShift
         self.spectrum = spectrum
     }
@@ -67,6 +70,7 @@ extension ShellDataFeed {
         listen(devices.thermal, !paused && demands(.thermal), into: \.thermal)
         listen(devices.appearance, !paused && demands(.appearance), into: \.appearance)
         listen(devices.brightness, !paused && demands(.brightness), into: \.brightness)
+        listen(devices.betterDisplay, !paused && demands(.betterDisplay), into: \.betterDisplay)
         listen(devices.nightShift, !paused && demands(.nightShift), into: \.nightShift)
         listen(devices.spectrum, !paused && (demands(.spectrum) || demands(.tempo)), into: \.spectrum)
     }
@@ -82,6 +86,7 @@ extension ShellDataFeed {
         listen(devices.thermal, false, into: \.thermal)
         listen(devices.appearance, false, into: \.appearance)
         listen(devices.brightness, false, into: \.brightness)
+        listen(devices.betterDisplay, false, into: \.betterDisplay)
         listen(devices.nightShift, false, into: \.nightShift)
         listen(devices.spectrum, false, into: \.spectrum)
     }

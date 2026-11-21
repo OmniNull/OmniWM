@@ -932,6 +932,23 @@
       "related": []
     },
     {
+      "name": "BetterDisplay",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-betterdisplay",
+      "declaration": "export type BetterDisplay = {\n    running: boolean,\n    available: boolean,\n    displays: { DisplayBrightness },\n    nightShift: NightShift,\n}",
+      "fields": [
+        "running",
+        "available",
+        "displays",
+        "nightShift"
+      ],
+      "related": [
+        "DisplayBrightness",
+        "NightShift"
+      ]
+    },
+    {
       "name": "NotificationAction",
       "kind": "type",
       "topic": "context-data",
@@ -1364,7 +1381,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-data",
-      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    connection: Connection?,\n    commandPalette: CommandPalette?,\n    nightShift: NightShift?,\n    wifiNetworks: WiFiNetworks?,\n}",
+      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    connection: Connection?,\n    commandPalette: CommandPalette?,\n    nightShift: NightShift?,\n    wifiNetworks: WiFiNetworks?,\n    betterDisplay: BetterDisplay?,\n}",
       "fields": [
         "clock",
         "date",
@@ -1419,7 +1436,8 @@
         "connection",
         "commandPalette",
         "nightShift",
-        "wifiNetworks"
+        "wifiNetworks",
+        "betterDisplay"
       ],
       "related": [
         "Weather",
@@ -1448,7 +1466,8 @@
         "Connection",
         "CommandPalette",
         "NightShift",
-        "WiFiNetworks"
+        "WiFiNetworks",
+        "BetterDisplay"
       ]
     },
     {
