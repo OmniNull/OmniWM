@@ -461,6 +461,140 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         }
     }
 
+    private func offscreenFixture(_ kind: MoveKind) throws -> (fixture: Fixture, hidden: WindowToken) {
+        let fixture = try makeMoveFixture(
+            kind, grouped: kind == .dwindle, windows: Self.windowsWithAnOffscreenColumn
+        )
+        let hidden = try XCTUnwrap(fixture.tokens.last)
+        let controller = fixture.controller
+        let refresh = controller.layoutRefreshController
+        let relayout = try XCTUnwrap(fixture.base.manager.withBatchedLayoutBuild {
+            kind == .dwindle
+                ? controller.dwindleLayoutHandler.layoutWithDwindleEngine(activeWorkspaces: [fixture.workspace])
+                : controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [fixture.workspace])
+        }.first)
+        let side = try XCTUnwrap(hideSide(of: hidden, in: relayout.diff))
+        let seed = try XCTUnwrap(
+            kind == .dwindle ? fixture.initialFrames[fixture.moved] : fixture.base.niriNode(hidden)?.frame
+        )
+        let origin = try XCTUnwrap(
+            refresh.liveFrameHideOrigin(for: seed, monitor: fixture.monitor, side: side, reason: .layoutTransient)
+        )
+        let parked = CGRect(origin: origin, size: seed.size)
+        refresh.fastFrameProvider = { token, _ in token == hidden ? parked : nil }
+        XCTAssertTrue(refresh.executeLayoutPlan(relayout))
+        XCTAssertEqual(controller.workspaceManager.hiddenState(for: hidden)?.offscreenSide, side)
+        let entry = try XCTUnwrap(controller.workspaceManager.entry(for: hidden))
+        let request = try XCTUnwrap(controller.axManager.prepareParkFrameApplications([
+            .init(pid: hidden.pid, window: XCTUnwrap(entry.axRef), frame: parked)
+        ]).first)
+        XCTAssertTrue(controller.axManager.processParkFrameApplyResults([
+            WindowAdmissionTestSupport.successfulFrameResult(request: request)
+        ]).isEmpty)
+        XCTAssertEqual(controller.axManager.verifiedParkFrame(for: hidden.windowId), parked)
+        XCTAssertFalse(controller.axManager.pendingParkWindowIds.contains(hidden.windowId))
+        return (fixture, hidden)
+    }
+
+    private func hideSide(of token: WindowToken, in diff: WorkspaceLayoutDiff) -> HideSide? {
+        for change in diff.visibilityChanges {
+            if case let .hide(hidden, side) = change, hidden == token { return side }
+        }
+        return nil
+    }
+
+    private func tracedFrameEvents(for token: WindowToken) -> [Substring] {
+        FrameApplyTrace.shared.dump().split(separator: "\n").filter { $0.contains("win=\(token.windowId) ") }
+    }
+
+    private func settledParkWasSubmitted(for token: WindowToken) -> Bool {
+        tracedFrameEvents(for: token).contains { $0.contains("outcome=sls-park-intent/settled") }
+    }
+
+    func testChangedTrackpadPointDoesNotHideAnOffscreenWindowAgain() throws {
+        for kind in MoveKind.allCases {
+            let (fixture, hidden) = try offscreenFixture(kind)
+            fixture.begin()
+            fixture.move()
+            XCTAssertTrue(fixture.handler.state.isMoving)
+            FrameApplyTrace.shared.beginCapture()
+            defer { FrameApplyTrace.shared.endCapture() }
+
+            sendChangedPoint(fixture)
+
+            XCTAssertFalse(tracedFrameEvents(for: fixture.moved).isEmpty, "\(kind)")
+            XCTAssertEqual(tracedFrameEvents(for: hidden), [], "\(kind)")
+            XCTAssertNotNil(try hideSide(of: hidden, in: fixture.projection()), "\(kind)")
+            fixture.cancel()
+        }
+    }
+
+    func testChangedTrackpadPointStillHidesAWindowWhoseParkIsPending() throws {
+        for kind in MoveKind.allCases {
+            let (fixture, hidden) = try offscreenFixture(kind)
+            let manager = fixture.controller.axManager
+            fixture.begin()
+            fixture.move()
+            XCTAssertTrue(fixture.handler.state.isMoving)
+            manager.markParkPending(for: hidden.windowId, pid: hidden.pid)
+            XCTAssertTrue(manager.pendingParkWindowIdsAwaitingSkyLightMove.contains(hidden.windowId))
+            FrameApplyTrace.shared.beginCapture()
+            defer { FrameApplyTrace.shared.endCapture() }
+
+            sendChangedPoint(fixture)
+
+            XCTAssertTrue(settledParkWasSubmitted(for: hidden), "\(kind)")
+            fixture.cancel()
+        }
+    }
+
+    func testChangedTrackpadPointConfirmsAParkAnAnimationFrameMadeByPositionOnly() throws {
+        for kind in MoveKind.allCases {
+            let (fixture, hidden) = try offscreenFixture(kind)
+            let controller = fixture.controller
+            let manager = controller.axManager
+            let entry = try XCTUnwrap(controller.workspaceManager.entry(for: hidden))
+            let side = try XCTUnwrap(controller.workspaceManager.hiddenState(for: hidden)?.offscreenSide)
+            fixture.begin()
+            fixture.move()
+            XCTAssertTrue(fixture.handler.state.isMoving)
+            controller.layoutRefreshController.applyLayoutTransientHides(
+                [(entry, side)], monitor: fixture.monitor, isAnimationTick: true, preserveWorkspaceInactive: false
+            )
+            XCTAssertTrue(manager.pendingParkWindowIds.contains(hidden.windowId))
+            XCTAssertNotNil(manager.skyLightLivePosition(for: hidden.windowId))
+            XCTAssertFalse(manager.pendingParkWindowIdsAwaitingSkyLightMove.contains(hidden.windowId))
+            XCTAssertNil(manager.pendingParkFrameRequest(for: hidden.windowId))
+            FrameApplyTrace.shared.beginCapture()
+            defer { FrameApplyTrace.shared.endCapture() }
+
+            sendChangedPoint(fixture)
+
+            XCTAssertTrue(settledParkWasSubmitted(for: hidden), "\(kind)")
+            fixture.cancel()
+        }
+    }
+
+    func testOnDemandFramesThatAreNotAMovePointHideAnOffscreenWindowAgain() throws {
+        for kind in MoveKind.allCases {
+            for duringMove in [false, true] {
+                let (fixture, hidden) = try offscreenFixture(kind)
+                if duringMove {
+                    fixture.begin()
+                    fixture.move()
+                    XCTAssertTrue(fixture.handler.state.isMoving)
+                }
+                FrameApplyTrace.shared.beginCapture()
+                defer { FrameApplyTrace.shared.endCapture() }
+
+                renderOnDemandFramesWithoutAMovePoint(fixture)
+
+                XCTAssertTrue(settledParkWasSubmitted(for: hidden), "\(kind) during a move: \(duringMove)")
+                if duringMove { fixture.cancel() }
+            }
+        }
+    }
+
     private func assertFloating(_ fixture: Fixture, at touch: CGPoint) throws {
         let diff = try fixture.projection()
         XCTAssertEqual(

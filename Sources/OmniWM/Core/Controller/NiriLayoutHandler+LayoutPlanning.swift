@@ -139,9 +139,9 @@ extension NiriLayoutHandler {
                 engine: engine,
                 workspaceId: snapshot.workspaceId,
                 canRestoreHiddenWorkspaceWindows: snapshot.isActiveWorkspace,
-                reassertHidden: animationTime == nil || settlesAnimation,
+                reassertHidden: (animationTime == nil || settlesAnimation) && !isInteractiveMove,
                 excludedTokens: snapshot.excludedTokens,
-                pendingParkWindowIds: controller?.axManager.pendingParkWindowIdsAwaitingSkyLightMove ?? [],
+                pendingParkWindowIds: controller?.axManager.pendingParks(includingMoved: animationTime == nil) ?? [],
                 settledContext: isSettled ? (snapshot.monitor, snapshot.viewportState) : nil
             )
         )
