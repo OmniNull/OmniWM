@@ -72,6 +72,7 @@ struct WindowDecision: Equatable, Sendable {
     let source: WindowDecisionSource
     let layoutDecisionKind: WindowDecisionLayoutKind
     let workspaceName: String?
+    var assignToWorkspaceForAllWindows = false
     let ruleEffects: ManagedWindowRuleEffects
     let admissionHints: ManagedWindowAdmissionHints
     let ruleProvenance: WindowRuleProvenance

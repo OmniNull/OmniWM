@@ -251,6 +251,8 @@ IDs are host-issued identities. Use a current snapshot for actions; titles and l
 
 **Unreleased — available when building from `main`.** `bar.layout` is the layout of the workspace active on the bar's display, `"niri"` or `"dwindle"`, while **Show Layout** (`statusBar.showLayout`) is on, and `nil` otherwise. The bundled OmniWM button shows it as a glyph beside the logo.
 
+**Unreleased — available when building from `main`.** `bar.workspacesRoom` is the length in points left for the `workspaces` widget along a horizontal full-width or Fill Left of Notch bar once its neighbours have their space. It is `nil` on bars that grow with their content and when no widget named `workspaces` has a place on the bar. The bundled widget tightens its padding when its regular length exceeds it.
+
 <LuauDeclaration name="Workspace" />
 
 <LuauDeclaration name="Bar" />

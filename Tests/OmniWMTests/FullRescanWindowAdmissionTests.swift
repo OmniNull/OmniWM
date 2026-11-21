@@ -67,6 +67,77 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         XCTAssertNil(controller.axEventHandler.admissionRetryStateByWindowId[UInt32(token.windowId)])
     }
 
+    func testWorkspaceRuleRoutesLaterLiveAndDiscoveredWindowsWhenEnabled() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        defer { controller.layoutRefreshController.resetState() }
+        let manager = controller.workspaceManager
+        let ruleWorkspace = try XCTUnwrap(
+            WindowAdmissionTestSupport.workspace(named: "32", layoutType: .niri, controller: controller)
+        )
+        let focusedWorkspace = try XCTUnwrap(manager.workspaceId(for: "1", createIfMissing: true))
+        let focusedMonitor = try XCTUnwrap(manager.monitor(for: focusedWorkspace))
+        let bundleId = "com.microsoft.VSCode"
+        var settings = SettingsExport.defaults()
+        settings.appRules = [AppRule(bundleId: bundleId, assignToWorkspace: "32")]
+        let original = String(decoding: try SettingsTOMLCodec.encode(settings), as: UTF8.self)
+        let workspaceAssignment = #"assignToWorkspace = "32""#
+        let configured = original.replacingOccurrences(
+            of: workspaceAssignment,
+            with: workspaceAssignment + "\nassignToWorkspaceForAllWindows = true"
+        )
+        let rules = try SettingsTOMLCodec.decode(Data(configured.utf8)).appRules
+        controller.windowRuleEngine.rebuild(rules: rules)
+
+        let frame = CGRect(
+            x: focusedMonitor.frame.minX + 120,
+            y: focusedMonitor.frame.minY + 80,
+            width: 640,
+            height: 480
+        )
+        let windowServerFrame = ScreenCoordinateSpace.toWindowServer(rect: frame)
+        let geometry = WindowAdmissionGeometryEvidence(isSizeSettable: true, frame: frame)
+        let placementContext = WindowCreatePlacementContext(
+            nativeSpaceMonitorId: nil, pendingFocusedWorkspaceId: nil, pendingFocusedMonitorId: nil,
+            focusedWorkspaceId: nil, focusedMonitorId: nil,
+            interactionWorkspaceId: focusedWorkspace, interactionMonitorId: focusedMonitor.id, createdAt: Date()
+        )
+        let pid: pid_t = 467_352
+        let handler = controller.axEventHandler
+        for windowId in [467_353, 467_354] {
+            let token = WindowToken(pid: pid, windowId: windowId)
+            let facts = replacementFacts(token: token, bundleId: bundleId, frame: windowServerFrame)
+            let evaluation = controller.evaluateWindowDisposition(
+                token: token, evidence: .init(facts: facts.ax, sizeConstraints: .unconstrained),
+                appFullscreen: false, windowInfo: facts.windowServer, admissionGeometry: geometry
+            )
+            controller.windowDispositionEvaluationForTests = { _ in evaluation }
+            guard case let .prepared(prepared) = handler.prepareCreateCandidate(
+                windowId: UInt32(windowId), windowInfo: facts.windowServer,
+                fallbackAXRef: WindowAdmissionTestSupport.axRef(for: token), createPlacementContext: placementContext
+            ) else {
+                return XCTFail("Expected a prepared create")
+            }
+            handler.trackPreparedCreate(prepared)
+            XCTAssertEqual(manager.workspace(for: token), ruleWorkspace, "Live create for window \(windowId)")
+        }
+        controller.windowDispositionEvaluationForTests = nil
+
+        let discovered = WindowToken(pid: pid, windowId: 467_355)
+        let facts = replacementFacts(token: discovered, bundleId: bundleId, frame: windowServerFrame)
+        let captured = candidate(
+            pid: pid, windowId: discovered.windowId, decisionEvidence: .init(
+                facts: facts.ax,
+                sizeConstraints: .unconstrained
+            ),
+            admissionGeometry: geometry, fullscreenAttribute: false, windowServerInfo: facts.windowServer
+        )
+        _ = reconcileCapturedWindow(
+            captured, focusedWorkspace: focusedWorkspace, controller: controller,
+            exactWindowIds: [467_353, 467_354, discovered.windowId]
+        )
+        XCTAssertEqual(manager.workspace(for: discovered), ruleWorkspace, "Window discovered by full rescan")
+    }
+
     func testFullRescanStoresFloatingGeometryInAppKitCoordinates() throws {
         let cases: [(layout: WindowRuleLayoutAction, expectedMode: TrackedWindowMode)] = [
             (.float, .floating),

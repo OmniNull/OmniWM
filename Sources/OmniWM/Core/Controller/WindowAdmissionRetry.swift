@@ -268,6 +268,8 @@ extension AXEventHandler {
     ) -> Bool? {
         guard var state else { return nil }
         if state.exhausted {
+            // A fresh create lookup uses this record to validate its reply.
+            if case .running = state.executionPhase { return false }
             releasePreparedWindowSubscriptions(
                 windowId,
                 count: state.preparedSubscriptionRetainCount

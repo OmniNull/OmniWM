@@ -139,6 +139,21 @@ final class ShellWidgetClipView: NSView {
         applyCut()
     }
 
+    override func setFrameOrigin(_ newOrigin: NSPoint) {
+        super.setFrameOrigin(newOrigin)
+        applyCut()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyCut()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        applyCut()
+    }
+
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
@@ -153,14 +168,20 @@ final class ShellWidgetClipView: NSView {
     }
 
     @objc private func superviewMoved() {
+        applyCut()
         NotificationCenter.default.post(name: NSView.frameDidChangeNotification, object: self)
+    }
+
+    private var shell: ShellWidgetSurface? {
+        (content as? ShellSurfaceView)?.surface
     }
 
     private func applyCut() {
         if let content, content.superview !== self { return }
         let natural = natural
         clipsToBounds = isCut
-        let origin = keepsEnd
+        let scrolls = shell?.layout.scrolls(cutTo: bounds.size) == true
+        let origin = keepsEnd && !scrolls
             ? CGPoint(x: min(0, bounds.width - natural.width), y: min(0, bounds.height - natural.height))
             : .zero
         var x = origin.x
@@ -173,15 +194,44 @@ final class ShellWidgetClipView: NSView {
             x += mark.width + Self.badgeGap
         }
         content?.frame = CGRect(
-            origin: CGPoint(x: x, y: origin.y + (natural.height - surface.height) / 2),
+            origin: pixelAligned(CGPoint(x: x, y: origin.y + (natural.height - surface.height) / 2)),
             size: surface
         )
-        if let content = content as? ShellSurfaceView {
+        if let content, let shell {
             let shown = content.bounds.intersection(content.convert(bounds, from: self))
-            if let surface = content.surface {
-                surface.setRootLimit(isCut && !keepsEnd && surface.hasMarquee ? shown.size : nil)
-                surface.setVisibleBounds(isCut ? shown : nil)
-            }
+            shell.setRootLimit(isCut && shell.layout.limit(showing: shown) != nil ? shown.size : nil)
+            shell.setVisibleBounds(isCut ? shown : nil)
+            shell.onScroll = { [weak self] in self?.applyFade() }
         }
+        applyFade()
+    }
+
+    private func applyFade() {
+        guard isCut, let shell, let scroll = shell.rootScroll, scroll.limit > 0 else {
+            layer?.mask = nil
+            return
+        }
+        let vertical = shell.layout.rootScroll == .column
+        let length = vertical ? bounds.height : bounds.width
+        guard length > 0 else { return }
+        wantsLayer = true
+        let mask = layer?.mask as? CAGradientLayer ?? CAGradientLayer()
+        let fade = min(ShellWidgetSurface.scrollFade, length / 2)
+        let start = min(fade, scroll.offset) / length
+        let end = min(fade, scroll.limit - scroll.offset) / length
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        mask.frame = bounds
+        mask.startPoint = vertical ? CGPoint(x: 0.5, y: 0) : CGPoint(x: 0, y: 0.5)
+        mask.endPoint = vertical ? CGPoint(x: 0.5, y: 1) : CGPoint(x: 1, y: 0.5)
+        mask.colors = [CGColor.clear, CGColor.black, CGColor.black, CGColor.clear]
+        mask.locations = [0, start, 1 - end, 1].map { NSNumber(value: Double($0)) }
+        CATransaction.commit()
+        layer?.mask = mask
+    }
+
+    private func pixelAligned(_ origin: CGPoint) -> CGPoint {
+        guard let window, window.backingScaleFactor < 2 else { return origin }
+        return backingAlignedRect(CGRect(origin: origin, size: .zero), options: .alignAllEdgesNearest).origin
     }
 }

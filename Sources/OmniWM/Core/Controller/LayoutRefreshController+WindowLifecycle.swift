@@ -95,9 +95,12 @@ extension LayoutRefreshController {
         seenKeys: inout Set<WindowToken>
     ) {
         guard let controller else { return }
+        // An app can order its window out without destroying it, so the window server still
+        // lists it. Only windows OmniWM hid itself are kept.
         for entry in entries
             where eligibleKeys.contains(entry.token)
             && controller.workspaceManager.hiddenState(for: entry.token) != nil
+            && !entry.observedState.isNativeWithdrawn
             && windowServerInfoByWindowId[entry.windowId]?.pid == entry.pid
         {
             seenKeys.insert(entry.token)

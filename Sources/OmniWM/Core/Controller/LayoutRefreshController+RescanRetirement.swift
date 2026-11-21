@@ -184,7 +184,7 @@ extension LayoutRefreshController {
                       let entry = controller.workspaceManager.entry(for: token)
                 else { return false }
                 return (
-                    entry.layoutReason != .nativeFullscreen
+                    entry.lifetimeAuthority == .axTopLevelInventory && entry.layoutReason != .nativeFullscreen
                         || nativeFullscreenRetirementKeys.contains(token)
                 )
                     && !controller.workspaceManager.spaceTopology

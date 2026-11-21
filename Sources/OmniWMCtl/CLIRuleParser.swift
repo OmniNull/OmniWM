@@ -54,18 +54,20 @@ enum CLIRuleParser {
 
         while index < arguments.count {
             let flag = arguments[index]
-            guard ruleDefinitionOptionFlags.contains(flag),
-                  seenFlags.insert(flag).inserted,
-                  index + 1 < arguments.count,
-                  !arguments[index + 1].hasPrefix("--")
-            else {
+            guard ruleDefinitionOptionFlags.contains(flag), seenFlags.insert(flag).inserted else {
                 throw CLIParseError.usage(CLIParser.usageText)
             }
+            index += 1
 
-            let value = arguments[index + 1]
-            try parsed.set(flag: flag, value: value)
-
-            index += 2
+            if flag == "--assign-to-workspace-for-all-windows" {
+                parsed.assignToWorkspaceForAllWindows = true
+                continue
+            }
+            guard index < arguments.count, !arguments[index].hasPrefix("--") else {
+                throw CLIParseError.usage(CLIParser.usageText)
+            }
+            try parsed.set(flag: flag, value: arguments[index])
+            index += 1
         }
 
         return try parsed.build()
@@ -97,6 +99,8 @@ enum CLIRuleParser {
 }
 
 private struct CLIRuleDefinitionArguments {
+    var assignToWorkspaceForAllWindows: Bool?
+
     private var bundleId: String?
     private var appNameSubstring: String?
     private var titleSubstring: String?
@@ -154,6 +158,7 @@ private struct CLIRuleDefinitionArguments {
             axSubrole: axSubrole,
             layout: layout,
             assignToWorkspace: assignToWorkspace,
+            assignToWorkspaceForAllWindows: assignToWorkspaceForAllWindows,
             initialContainerPrimarySpan: initialContainerPrimarySpan,
             minWidth: minWidth,
             minHeight: minHeight,

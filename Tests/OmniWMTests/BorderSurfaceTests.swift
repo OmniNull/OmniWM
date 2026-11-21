@@ -89,6 +89,8 @@ final class BorderSurfaceTests: XCTestCase {
         var backingScale: CGFloat = 2
         var screenFrame = CGRect(x: 0, y: 0, width: 5000, height: 5000)
         var orderCalls: [OrderCall] = []
+        var reportsBorderBelowOnQuery: Int?
+        var orderQueries: [[CGWindowID]] = []
         var failsNextCreation = false
         var windowInfoProvider: @MainActor (UInt32) -> WindowServerInfo? = {
             WindowServerInfo(id: $0, pid: 1234, level: 0, frame: .zero)
@@ -458,6 +460,61 @@ final class BorderSurfaceTests: XCTestCase {
         XCTAssertEqual(recorder.layerPanels.first?.renderedCornerRadii, cornersAfterFirst)
         XCTAssertEqual(recorder.layerPanels.first?.borderUpdateCount, updatesAfterFirst)
         XCTAssertGreaterThan(recorder.orderCalls.count, moveAndOrdersAfterFirst)
+    }
+
+    @MainActor
+    func testMouseUpRestoresFocusBorderOnlyWhenWindowServerReportsItBelowTheTarget() async throws {
+        let (controller, entry) = try reconcileFixture()
+        let recorder = BorderOperationsRecorder()
+        let applier = makeApplier(recorder) { _ in self.sample(WindowCornerRadii(uniform: 13)) }
+        let reconciler = SurfaceReconciler(
+            controller: controller,
+            borderApplier: applier,
+            isWindowBelow: { ring, target in
+                recorder.orderQueries.append([ring, target])
+                return recorder.reportsBorderBelowOnQuery == recorder.orderQueries.count
+            }
+        )
+        defer {
+            controller.hasStartedServices = false
+            reconciler.cleanup()
+        }
+        reconciler.reconcileNow()
+        await applier.cornerQueryTask?.value
+        reconciler.reconcileNow()
+
+        let target = UInt32(entry.windowId)
+        let ring = try XCTUnwrap(reconciler.ringWindowId(orderedAbove: target))
+        let panel = try XCTUnwrap(recorder.layerPanels.first)
+        let updates = panel.borderUpdateCount
+        let previousOrders = recorder.orderCalls.count
+
+        reconciler.recheckBorderOrderingAfterMouseUp(at: CGPoint(x: frame.maxX + 20, y: frame.midY))
+        XCTAssertNil(reconciler.borderOrderCheckTask)
+
+        reconciler.recheckBorderOrderingAfterMouseUp(at: frame.center)
+        await reconciler.borderOrderCheckTask?.value
+        XCTAssertEqual(recorder.orderQueries, [[ring, target], [ring, target]])
+        XCTAssertEqual(recorder.orderCalls.count, previousOrders)
+
+        recorder.orderQueries = []
+        recorder.reportsBorderBelowOnQuery = 2
+        reconciler.recheckBorderOrderingAfterMouseUp(at: frame.center)
+        await reconciler.borderOrderCheckTask?.value
+        reconciler.reconcileNow()
+
+        XCTAssertEqual(recorder.orderQueries, [[ring, target], [ring, target]])
+        XCTAssertEqual(recorder.orderCalls.count, previousOrders + 1)
+        XCTAssertEqual(recorder.orderCalls.last?.targetWindowId, target)
+        XCTAssertEqual(recorder.orderCalls.last?.order, .above)
+        XCTAssertEqual(panel.borderUpdateCount, updates)
+
+        recorder.orderQueries = []
+        reconciler.recheckBorderOrderingAfterMouseUp(at: frame.center)
+        let pendingCheck = try XCTUnwrap(reconciler.borderOrderCheckTask)
+        _ = controller.workspaceManager.clearNativeFocusOwner()
+        await pendingCheck.value
+        XCTAssertTrue(recorder.orderQueries.isEmpty)
     }
 
     @MainActor

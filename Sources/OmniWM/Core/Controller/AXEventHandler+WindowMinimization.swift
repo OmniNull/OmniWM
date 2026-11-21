@@ -61,6 +61,11 @@ extension AXEventHandler {
                   && !observed.isMinimized && !observed.isNativeFullscreen),
               controller.workspaceManager.setWindowNativeWithdrawn(withdrawn, token: token, source: source)
         else { return false }
+        if withdrawn, controller.workspaceManager.hiddenState(for: token) != nil,
+           !focusLossRescans.heldByWindowId.values.contains(where: { $0.appPIDs.contains(token.pid) })
+        {
+            requestTargetedFullRescan(for: [token.pid])
+        }
         refreshWindowNativeSuppression(
             token: token,
             reason: withdrawn ? .windowWithdrawn : .windowReopened,

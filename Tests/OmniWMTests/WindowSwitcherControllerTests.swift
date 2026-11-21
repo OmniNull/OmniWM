@@ -5,6 +5,8 @@ import AppKit
 import ApplicationServices
 import Carbon
 @testable import OmniWM
+@testable import OmniWMCtl
+import OmniWMIPC
 import XCTest
 
 @MainActor
@@ -375,7 +377,8 @@ final class WindowSwitcherControllerTests: XCTestCase {
         XCTAssertEqual(fixture.controller.workspaceManager.nativeManagedFocusToken, fixture.tokens[0])
 
         let release = fixture.controller.hotkeys.windowSwitcherInput.handle(
-            type: .flagsChanged, keyCode: kVK_Control, flags: [.maskShift], isRepeat: false, canBegin: true
+            type: .flagsChanged, keyCode: kVK_Control, flags: [.maskShift], isRepeat: false, canBegin: false,
+            source: .external
         )
         fixture.switcher.handle(try XCTUnwrap(release.action), generation: generation)
 
@@ -416,6 +419,117 @@ final class WindowSwitcherControllerTests: XCTestCase {
             await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
             XCTAssertEqual(fixture.focusTarget, fixture.tokens[1], label)
         }
+    }
+
+    func testModifierReleaseCommitsBeforeAQueuedCommandCanAdvanceTheOldSession() async throws {
+        let fixture = try makePresentationFixture(windowCount: 3)
+        defer { fixture.close() }
+        let controller = fixture.controller
+        let hiddenWorkspace = try XCTUnwrap(WindowAdmissionTestSupport.workspace(
+            named: "2", layoutType: .niri, controller: controller
+        ))
+        let hiddenWindow = WindowToken(pid: 81_002, windowId: 81_201)
+        _ = WindowAdmissionTestSupport.track(hiddenWindow, in: hiddenWorkspace, controller: controller)
+        await fixture.enableFocusNavigation()
+        controller.eventIntake.open(sink: controller.eventInterpreter)
+        defer { controller.eventIntake.close() }
+        fixture.modifiers.flags = .maskControl
+        let router = IPCCommandRouter(controller: controller, sessionToken: "test")
+        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: .activeWorkspace)), .executed)
+        let committed = try XCTUnwrap(fixture.selectedTokens().first)
+        let generation = controller.hotkeys.windowSwitcherInput.generation
+
+        let release = try XCTUnwrap(CGEvent(source: nil))
+        release.type = .flagsChanged
+        release.setIntegerValueField(.keyboardEventKeycode, value: Int64(kVK_Control))
+        release.flags = []
+        fixture.modifiers.flags = []
+        XCTAssertFalse(controller.hotkeys.handleWindowSwitcherEvent(
+            type: .flagsChanged,
+            event: release,
+            source: .external
+        ))
+        XCTAssertTrue(fixture.switcher.isVisible)
+
+        let next = IPCCommandIntake(perform: { controller in
+            XCTAssertFalse(controller.windowSwitcherController.isVisible)
+            fixture.modifiers.flags = .maskAlternate
+            return IPCCommandRouter(controller: controller, sessionToken: "test")
+                .handle(.windowSwitcher(direction: .next, scope: .allWorkspaces))
+        }, completion: { XCTAssertEqual($0, .executed) })
+        XCTAssertTrue(controller.eventIntake.enqueue(.ipcCommand(next)))
+        controller.eventIntake.drainNow()
+
+        XCTAssertTrue(fixture.switcher.isVisible)
+        XCTAssertNotEqual(controller.hotkeys.windowSwitcherInput.generation, generation)
+        XCTAssertEqual(Set(try fixture.cardTokens()), Set(fixture.tokens + [hiddenWindow]))
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+        XCTAssertEqual(fixture.focusTarget, committed)
+    }
+
+    func testOneShotCommandInAnEmptyWorkspaceReturnsNotFoundThroughIPC() async throws {
+        let fixture = try makePresentationFixture(windowCount: 1)
+        defer { fixture.close() }
+        let controller = fixture.controller
+        let window = fixture.tokens[0]
+        _ = controller.workspaceManager.removeWindow(pid: window.pid, windowId: window.windowId)
+        let focusBefore = fixture.focusTarget
+        let bridge = IPCApplicationBridge(
+            controller: controller, sessionToken: "test", authorizationToken: "test"
+        )
+        let response = await bridge.response(for: IPCRequest(
+            id: "test", command: .windowSwitcher(direction: .next, scope: .activeWorkspace),
+            authorizationToken: "test"
+        ))
+
+        XCTAssertFalse(response.ok)
+        XCTAssertEqual(response.code, .notFound)
+        XCTAssertNotEqual(CLIRenderer.exitCode(for: response), .success)
+        XCTAssertFalse(fixture.switcher.isVisible)
+        XCTAssertTrue(fixture.registry.visibleWindows().isEmpty)
+        XCTAssertEqual(fixture.focusTarget, focusBefore)
+    }
+
+    func testOneShotCommandWithOnlyTheFocusedWindowReturnsNoChange() throws {
+        let fixture = try makePresentationFixture(windowCount: 1)
+        defer { fixture.close() }
+        let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
+
+        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: .activeWorkspace)), .noChange)
+        XCTAssertFalse(fixture.switcher.isVisible)
+        XCTAssertEqual(fixture.focusTarget, fixture.tokens[0])
+    }
+
+    func testCommandWhileLockedReturnsIgnoredDisabled() throws {
+        let fixture = try makePresentationFixture(windowCount: 2)
+        defer { fixture.close() }
+        fixture.controller.isLockScreenActive = true
+        fixture.modifiers.flags = .maskControl
+        let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
+
+        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: nil)), .ignoredDisabled)
+        XCTAssertFalse(fixture.controller.hotkeys.windowSwitcherInput.isActive)
+        XCTAssertFalse(fixture.switcher.isVisible)
+        XCTAssertEqual(fixture.focusTarget, fixture.tokens[0])
+    }
+
+    func testCommandWhileTheCommandPaletteIsOpenReturnsNoChange() throws {
+        let fixture = try makePresentationFixture(windowCount: 2)
+        defer { fixture.close() }
+        let controller = fixture.controller
+        let palette = CommandPaletteFocusFixture()
+        defer { palette.cleanup() }
+        controller.commandPaletteController = palette.palette
+        palette.palette.show(wmController: controller, mode: .windows)
+        defer { palette.palette.dismiss(reason: .cancel) }
+        XCTAssertTrue(palette.palette.isVisible)
+        fixture.modifiers.flags = .maskAlternate
+        let router = IPCCommandRouter(controller: controller, sessionToken: "test")
+
+        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: nil)), .noChange)
+        XCTAssertFalse(controller.hotkeys.windowSwitcherInput.isActive)
+        XCTAssertFalse(fixture.switcher.isVisible)
+        XCTAssertEqual(fixture.focusTarget, fixture.tokens[0])
     }
 
     private final class ModifierState {
