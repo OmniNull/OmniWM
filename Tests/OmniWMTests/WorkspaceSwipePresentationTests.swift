@@ -1068,6 +1068,28 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertFalse(swipe.hasPresentation)
     }
 
+    func testTitleChangeKeepsPresentation() throws {
+        let (controller, swipe, monitor, source) = try fixture()
+        defer { withExtendedLifetime(controller) {} }
+        let pid: pid_t = 764_951
+        let windowId = 764_952
+        let token = controller.workspaceManager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
+            pid: pid, windowId: windowId, to: source,
+            managedReplacementMetadata: .init(workspaceId: source, mode: .tiling, title: "Original title")
+        )
+        controller.axEventHandler.windowTitleProvider = { _ in "New title" }
+        _ = swipe.prepare(monitorId: monitor.id, timestamp: 1)
+        swipe.begin(axis: .vertical, cumulative: 20, timestamp: 1.01)
+        XCTAssertTrue(swipe.hasPresentation)
+
+        controller.axEventHandler.handleWindowTitleChanged(windowId: UInt32(windowId), pid: pid)
+
+        XCTAssertEqual(controller.workspaceManager.managedReplacementMetadata(for: token)?.title, "New title")
+        XCTAssertTrue(swipe.hasPresentation)
+        swipe.cancel(reason: "test-complete")
+    }
+
     func testReduceMotionDoesNotPrepare() throws {
         let (controller, swipe, monitor, _) = try fixture()
         controller.motionPolicy.systemReducesMotion = true
