@@ -9,7 +9,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TOOLS = ROOT / ".cache/flake-tools"
+TOOLS = Path(os.environ.get("OMNIWM_DEV_TOOLS") or ROOT / ".cache/flake-tools")
 GOOD_SWIFT = (ROOT / "Sources/OmniWMIPC/IPCSocketPath.swift").read_text()
 
 
@@ -36,6 +36,7 @@ class PreCommitHookTests(unittest.TestCase):
             (repo / ".cache").mkdir()
             (repo / ".cache/flake-tools").symlink_to(TOOLS.resolve())
         env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+        env.pop("OMNIWM_DEV_TOOLS", None)
 
         def git(*args):
             return subprocess.run(["git", *args], cwd=repo, env=env, capture_output=True, text=True, check=False)
@@ -47,6 +48,20 @@ class PreCommitHookTests(unittest.TestCase):
 
     def commit(self, git):
         return git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "change")
+
+    def test_rejects_staged_whitespace_errors_and_conflict_markers(self):
+        for content, error in (("word \n", "trailing whitespace"), ("<<<<<<< HEAD\n", "conflict marker")):
+            with self.subTest(error=error):
+                repo, git = self.make_repo()
+                path = repo / "notes.txt"
+                path.write_text(content)
+                git("add", "notes.txt")
+                path.write_text("clean\n")
+
+                result = self.commit(git)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(error, result.stdout + result.stderr)
 
     def test_unpublished_pin_warns_without_blocking_the_commit(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), MissingAsset)
@@ -88,6 +103,31 @@ class PreCommitHookTests(unittest.TestCase):
         result = self.commit(git)
 
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless((TOOLS / "bin/swiftformat").exists(), "needs make setup-tools")
+    def test_ipc_check_compares_the_staged_models_and_encoders(self):
+        repo, git = self.make_repo()
+        for script in ("generate_ipc_wire.py", "ipc_wire_models.py"):
+            shutil.copy2(ROOT / "Scripts" / script, repo / "Scripts")
+        models = repo / "Sources/OmniWMIPC"
+        shutil.copytree(ROOT / "Sources/OmniWMIPC", models)
+        git("add", "Scripts", "Sources")
+        baseline = git("-c", "core.hooksPath=/dev/null", "-c", "user.name=t", "-c", "user.email=t@t",
+                       "commit", "-q", "-m", "ipc baseline")
+        self.assertEqual(baseline.returncode, 0, baseline.stderr)
+
+        generated = models / "IPCJSONWriter+Models01.swift"
+        original = generated.read_text()
+        outdated = original.replace("begin(123)", "begin(124)", 1)
+        self.assertNotEqual(original, outdated)
+        generated.write_text(outdated)
+        git("add", str(generated))
+        generated.write_text(original)
+
+        result = self.commit(git)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Generated IPC wire files are stale: IPCJSONWriter+Models01.swift", result.stderr)
 
 
 if __name__ == "__main__":

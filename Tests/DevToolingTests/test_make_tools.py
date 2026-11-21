@@ -70,7 +70,7 @@ class MakeToolTests(unittest.TestCase):
                     result = subprocess.run(
                         ["/usr/bin/make", "format", "format-check", "lint", "lint-fix"],
                         cwd=root,
-                        env={**os.environ, "PATH": inherited_path},
+                        env={**os.environ, "PATH": inherited_path, "OMNIWM_DEV_TOOLS": ""},
                         text=True,
                         capture_output=True,
                         check=False,
@@ -84,3 +84,17 @@ class MakeToolTests(unittest.TestCase):
                         "pinned swiftlint: lint --fix",
                     ):
                         self.assertIn(invocation, result.stdout)
+
+            shell_tools = root / "shell tools"
+            tools.parent.rename(shell_tools)
+            result = subprocess.run(
+                ["/usr/bin/make", "format-check", "lint"],
+                cwd=root,
+                env={**os.environ, "PATH": "/usr/bin:/bin", "OMNIWM_DEV_TOOLS": str(shell_tools)},
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("pinned swiftformat: --lint .", result.stdout)
+            self.assertIn("pinned swiftlint: lint", result.stdout)

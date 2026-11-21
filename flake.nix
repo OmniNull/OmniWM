@@ -87,11 +87,18 @@
         }
       );
 
-      devShells = forAllSystems (system: {
-        default = nixpkgs.legacyPackages.${system}.mkShellNoCC {
-          packages = tools nixpkgs.legacyPackages.${system};
-        };
-      });
+      devShells = forAllSystems (
+        system:
+        let
+          devTools = self.packages.${system}.default;
+        in
+        {
+          default = nixpkgs.legacyPackages.${system}.mkShellNoCC {
+            packages = [ devTools ];
+            OMNIWM_DEV_TOOLS = "${devTools}";
+          };
+        }
+      );
 
       checks = forAllSystems (system: {
         tools = self.packages.${system}.default;
