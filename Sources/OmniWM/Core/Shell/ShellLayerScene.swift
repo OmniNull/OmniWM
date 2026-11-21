@@ -128,6 +128,7 @@ final class ShellLayerScene: @unchecked Sendable {
     var loops: [Int32: (loop: ShellLoop, size: CGSize)] = [:]
     var marqueeSlots: [Int32] = []
     var marquees: [Int32: ShellMarquee] = [:]
+    var snappedContent: [Int32: (layer: CALayer, frame: CGRect)] = [:]
     var pulseKeys: [Int32: UInt64] = [:]
     var imageFrames: [Int32: ShellImageFrames] = [:]
     var playbackSettings: [Int32: ShellPlayback] = [:]
@@ -190,6 +191,7 @@ final class ShellLayerScene: @unchecked Sendable {
             flushReveals(animated: animated)
             flushPulses()
             flushMarquees()
+            flushPixelSnap()
             CATransaction.commit()
             CATransaction.flush()
             if !effects.isEmpty { shaders?.redrawGroups() }

@@ -28,9 +28,7 @@ enum RuntimeDiagnosticsReport {
                 "Shell Notifications",
                 controller.workspaceBarManager.shellHost?.resources.notifications.diagnosticsSummary ?? "host=unavailable"
             ),
-            section("Reconcile Snapshot", controller.workspaceManager.reconcileSnapshotDump()),
-            section("Reconcile Trace", controller.workspaceManager.reconcileTraceDump(limit: traceLimit)),
-            section("Invariant Violations", controller.workspaceManager.invariantViolationCountsDump()),
+            reconcileSections(controller, traceLimit: traceLimit),
             section("AX Frame State", controller.axManager.frameStateDump()),
             section("Observed Sizing", observedSizingSection(controller)),
             section("macOS App Visibility State", appVisibilitySection(controller)),
@@ -218,6 +216,25 @@ enum RuntimeDiagnosticsReport {
         let pending = controller.axManager.pendingParkWindowIds.sorted()
         lines.append("pendingParks=\(pending.isEmpty ? "none" : pending.map(String.init).joined(separator: ","))")
         return lines.joined(separator: "\n")
+    }
+
+    private static func reconcileSections(_ controller: WMController, traceLimit: Int) -> String {
+        let manager = controller.workspaceManager
+        let snapshot = manager.reconcileSnapshot()
+        return [
+            section("Reconcile Snapshot", ReconcileDebugDump.snapshot(snapshot)),
+            section("Reconcile Trace", manager.reconcileTraceDump(limit: traceLimit)),
+            section("Invariant Violations", manager.invariantViolationCountsDump()),
+            section(
+                "Invariant Check",
+                ReconcileDebugDump.invariantCheck(
+                    snapshot,
+                    validatesEveryScope: manager.validatesEveryScope,
+                    requested: manager.scopeValidationRequested
+                )
+            )
+        ]
+        .joined(separator: "\n\n")
     }
 
     private static func section(_ title: String, _ body: String) -> String {

@@ -27,7 +27,7 @@ jobs:
     name: Cache dependencies
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     cache-mode: write
-    runs-on: blacksmith-6vcpu-macos-27
+    runs-on: &macos-runner ${{ vars.OMNIWM_CI_RUNNER_PROVIDER == 'blacksmith' && 'blacksmith-6vcpu-macos-27' || 'xcode-27' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -59,7 +59,7 @@ jobs:
           key: swift-build-v4-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.build-environment }}-${{ hashFiles('.swift-version', 'Package.resolved', 'Scripts/build-metadata.env') }}-${{ github.sha }}
   changes:
     name: Changes
-    runs-on: blacksmith-2vcpu-ubuntu-2604
+    runs-on: &linux-runner ${{ vars.OMNIWM_CI_RUNNER_PROVIDER == 'blacksmith' && 'blacksmith-2vcpu-ubuntu-2604' || 'ubuntu-latest' }}
     timeout-minutes: 5
     outputs:
       tests: ${{ steps.plan.outputs.tests }}
@@ -83,7 +83,7 @@ jobs:
           fi | python3 Scripts/ci_test_plan.py "$EVENT" >> "$GITHUB_OUTPUT"
   tooling:
     name: Tooling
-    runs-on: blacksmith-6vcpu-macos-27
+    runs-on: *macos-runner
     timeout-minutes: 30
     steps:
       - name: Validate requested pull request
@@ -120,7 +120,7 @@ jobs:
   verify:
     name: Verify
     needs: changes
-    runs-on: blacksmith-6vcpu-macos-27
+    runs-on: *macos-runner
     timeout-minutes: 60
     steps:
       - name: Validate requested pull request
@@ -196,7 +196,7 @@ jobs:
     name: Tests (${{ matrix.name }})
     needs: [changes, verify]
     if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' && needs.verify.result == 'success' }}
-    runs-on: blacksmith-6vcpu-macos-27
+    runs-on: *macos-runner
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -215,6 +215,7 @@ jobs:
           ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/merge', inputs.pr_number) || github.ref }}
           persist-credentials: false
       - uses: ./.github/actions/setup-audio
+        if: vars.OMNIWM_CI_RUNNER_PROVIDER == 'blacksmith'
       - uses: ./.github/actions/setup-swift
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
@@ -246,7 +247,7 @@ jobs:
     name: Tests
     needs: [changes, verify, test-group]
     if: ${{ !cancelled() }}
-    runs-on: blacksmith-2vcpu-ubuntu-2604
+    runs-on: *linux-runner
     timeout-minutes: 5
     steps:
       - name: Require every test group to pass

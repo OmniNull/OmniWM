@@ -73,11 +73,7 @@ final class WindowSwitcherController {
         case let .begin(reverse, initialScope):
             begin(reverse: reverse, initialScope: initialScope)
         case let .cycle(reverse):
-            guard isVisible else { return }
-            let previous = selection.selected
-            reconcileItems()
-            if selection.selected == previous { selection.cycle(reverse: reverse) }
-            render()
+            cycle(reverse: reverse)
         case .cycleScope:
             guard isVisible else { return }
             scope = scope.next(offeringVisibleWorkspaces: visibleScopeAddsWorkspaces)
@@ -98,16 +94,49 @@ final class WindowSwitcherController {
         }
     }
 
+    func shutdown() {
+        dismiss()
+        capture.releaseCache(reason: .shutdown)
+        panel.close()
+    }
+
+    func dismiss() {
+        controller?.hotkeys.cancelWindowSwitcherSession(generation: generation)
+        capture.clear()
+        if controller?.settings.windowSwitcher.enabled != true || controller?.isLockScreenActive == true {
+            capture.releaseCache()
+        }
+        items.removeAll()
+        previews.removeAll()
+        previewHandles.removeAll()
+        selection = WindowSwitcherSelection()
+        guard isVisible else { return }
+        isVisible = false
+        panel.hide()
+        controller?.focusPolicyEngine.endLease(owner: .windowSwitcher)
+        dismissalMonitor.stop()
+    }
+}
+
+extension WindowSwitcherController {
     private func begin(reverse: Bool, initialScope: WindowSwitcherScope?) {
         guard let controller, controller.settings.windowSwitcher.enabled,
-              !controller.isLockScreenActive,
-              !controller.isOverviewOpen(), !controller.commandPaletteController.isVisible,
+              !controller.isLockScreenActive, !controller.isOverviewOpen(),
+              !controller.commandPaletteController.isVisible,
               let monitor = controller.monitorForInteraction()
         else {
             dismiss()
             return
         }
-        workspaceId = controller.activeWorkspace()?.id
+        prepareSelection(reverse: reverse, initialScope: initialScope, controller: controller, monitor: monitor)
+        show(controller: controller)
+    }
+
+    @discardableResult
+    private func prepareSelection(
+        reverse: Bool, initialScope: WindowSwitcherScope?, controller: WMController, monitor: Monitor
+    ) -> WindowToken? {
+        workspaceId = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id
         visibleWorkspaceIds = controller.workspaceManager.visibleWorkspaceIds()
         scope = initialScope ?? controller.settings.windowSwitcher.scope
         screenFrame = monitor.visibleFrame
@@ -120,6 +149,10 @@ final class WindowSwitcherController {
             tokens: scopedItems().map { $0.handle.id }, current: current, reverse: reverse,
             recent: listedRecency(manager: controller.workspaceManager)
         )
+        return current
+    }
+
+    private func show(controller: WMController) {
         isVisible = true
         controller.focusPolicyEngine.beginLease(owner: .windowSwitcher, reason: "window_switcher", duration: nil)
         dismissalMonitor.start(
@@ -219,6 +252,17 @@ final class WindowSwitcherController {
         selection.reconcile(tokens: scopedItems().map { $0.handle.id })
     }
 
+    @discardableResult
+    private func cycle(reverse: Bool) -> ExternalCommandResult {
+        guard isVisible else { return .noChange }
+        let previous = selection.selected
+        reconcileItems()
+        if selection.selected == previous { selection.cycle(reverse: reverse) }
+        render()
+        guard selection.selected != nil else { return .notFound }
+        return selection.selected == previous ? .noChange : .executed
+    }
+
     private func render() {
         guard let controller else { return }
         let visibleItems = scopedItems()
@@ -292,44 +336,25 @@ final class WindowSwitcherController {
 
     private func commit(focusOrigin: ManagedFocusOrigin) {
         guard isVisible else { return }
-        let target = scopedItems().first { $0.handle.id == selection.selected }?.handle
+        let target = selectedHandle()
         dismiss()
         guard let target else { return }
         activate(target, focusOrigin: focusOrigin)
     }
 
-    private func activate(_ target: WindowHandle, focusOrigin: ManagedFocusOrigin) {
-        guard let controller else { return }
-        if !controller.windowActionHandler.focusWindowFromBar(handle: target, focusOrigin: focusOrigin) {
-            NSSound.beep()
-        }
+    private func selectedHandle() -> WindowHandle? {
+        scopedItems().first { $0.handle.id == selection.selected }?.handle
     }
 
-    func shutdown() {
-        dismiss()
-        capture.releaseCache(reason: .shutdown)
-        panel.close()
+    @discardableResult
+    private func activate(_ target: WindowHandle, focusOrigin: ManagedFocusOrigin) -> ExternalCommandResult {
+        guard let controller else { return .ignoredDisabled }
+        if controller.windowActionHandler
+            .focusWindowFromBar(handle: target, focusOrigin: focusOrigin) { return .executed }
+        NSSound.beep()
+        return .windowActionFailed
     }
 
-    func dismiss() {
-        controller?.hotkeys.cancelWindowSwitcherSession(generation: generation)
-        capture.clear()
-        if controller?.settings.windowSwitcher.enabled != true || controller?.isLockScreenActive == true {
-            capture.releaseCache()
-        }
-        items.removeAll()
-        previews.removeAll()
-        previewHandles.removeAll()
-        selection = WindowSwitcherSelection()
-        guard isVisible else { return }
-        isVisible = false
-        panel.hide()
-        controller?.focusPolicyEngine.endLease(owner: .windowSwitcher)
-        dismissalMonitor.stop()
-    }
-}
-
-extension WindowSwitcherController {
     private var visibleScopeAddsWorkspaces: Bool {
         if let workspaceId, visibleWorkspaceIds.contains(workspaceId) {
             return visibleWorkspaceIds.count > 1
@@ -337,16 +362,32 @@ extension WindowSwitcherController {
         return !visibleWorkspaceIds.isEmpty
     }
 
-    func advanceFromAutomation(reverse: Bool, scope: WindowSwitcherScope?) {
-        guard !isVisible else {
-            handle(.cycle(reverse: reverse))
-            return
-        }
-        guard let hotkeys = controller?.hotkeys else { return }
+    func advanceFromAutomation(reverse: Bool, scope: WindowSwitcherScope?) -> ExternalCommandResult {
+        guard let controller, !controller.isLockScreenActive else { return .ignoredDisabled }
+        guard !controller.commandPaletteController.isVisible else { return .noChange }
+        if isVisible { return cycle(reverse: reverse) }
+        guard let monitor = controller.monitorForInteraction() else { return .notFound }
+
         let held = modifierFlags().intersection(WindowSwitcherInput.releaseModifiers)
-        let sessionGeneration = held.isEmpty ? nil : armExternalSession(hotkeys, held)
-        handle(.begin(reverse: reverse, scope: scope), generation: sessionGeneration)
-        let releasedBeforeTapArmed = !modifierFlags().contains(held)
-        if sessionGeneration == nil || releasedBeforeTapArmed { handle(.commit) }
+        let current = prepareSelection(reverse: reverse, initialScope: scope, controller: controller, monitor: monitor)
+        if !held.isEmpty, modifierFlags().contains(held),
+           let sessionGeneration = armExternalSession(controller.hotkeys, held)
+        {
+            generation = sessionGeneration
+            if modifierFlags().contains(held) {
+                show(controller: controller)
+                return .executed
+            }
+        }
+
+        let target = selectedHandle()
+        dismiss()
+        guard let target else { return .notFound }
+        if target.id == current, controller.workspaceManager.nativeManagedFocusToken == target.id,
+           controller.workspaceManager.pendingFocusedToken == nil
+        {
+            return .noChange
+        }
+        return activate(target, focusOrigin: .keyboardOrProgrammatic)
     }
 }

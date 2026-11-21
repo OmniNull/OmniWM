@@ -68,6 +68,7 @@ extension MouseEventHandler {
         cancelLiveDwindleTabPull()
         correctDeferredNativeResizeFrameIfNeeded()
         state.nativeResizeStart = nil
+        state.staleNativeResizeStartToken = nil
         state.nativeCrossDisplayMove = nil
         cancelLiveDwindleDrag()
         cancelLiveColumnDrag()

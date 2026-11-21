@@ -252,13 +252,17 @@ extension ShellWidgetSurface {
               layout.core.content(of: container).scrolls,
               let item = layout.handle(forKey: key)
         else { return }
+        reveal(item, within: container)
+    }
+
+    func reveal(_ item: ElementHandle, within container: ElementHandle, margin: Float = 0) {
         let vertical = layout.core.layoutStyle(of: container).axis == .column
         let viewport = layout.core.absoluteFrame(of: container)
         let target = layout.core.absoluteFrame(of: item)
         let start = vertical ? viewport.y : viewport.x
         let length = vertical ? viewport.height : viewport.width
-        let itemStart = vertical ? target.y : target.x
-        let itemEnd = itemStart + (vertical ? target.height : target.width)
+        let itemStart = (vertical ? target.y : target.x) - margin
+        let itemEnd = itemStart + (vertical ? target.height : target.width) + margin * 2
         let delta = itemStart < start ? itemStart - start : max(itemEnd - (start + length), 0)
         guard delta != 0, let offset = layout.scroll(container, by: delta) else { return }
         submitScroll(container, offset: offset, vertical: vertical)
@@ -290,6 +294,7 @@ extension ShellWidgetSurface {
         scene.submit(commands, animated: false)
         layoutTextInputs()
         onMove?()
+        onScroll?()
     }
 
     func release(at point: CGPoint, event: ShellEvent = ShellEvent(), timestamp: TimeInterval = CACurrentMediaTime()) {

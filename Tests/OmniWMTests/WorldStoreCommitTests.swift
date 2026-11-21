@@ -258,7 +258,7 @@ final class WorldStoreCommitTests: XCTestCase {
         )
     }
 
-    private static func snapshot(
+    static func snapshot(
         focus: FocusSessionSnapshot,
         windows: [ReconcileWindowSnapshot] = []
     ) -> ReconcileSnapshot {

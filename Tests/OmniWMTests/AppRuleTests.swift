@@ -69,6 +69,31 @@ final class AppRuleTests: XCTestCase {
         XCTAssertEqual(try SettingsTOMLCodec.decode(data).appRules.first?.scratchpad, 3)
     }
 
+    @MainActor
+    func testWorkspaceAssignmentForAllWindowsRoundTripsThroughEditorAndTOML() throws {
+        let oldRule = AppRule(bundleId: "com.test.app", assignToWorkspace: "32")
+        var settings = SettingsExport.defaults()
+        settings.appRules = [oldRule]
+        let original = try SettingsTOMLCodec.encode(settings)
+        let loaded = try XCTUnwrap(SettingsTOMLCodec.decode(original).appRules.first)
+        var draft = AppRuleDraft(rule: loaded)
+        XCTAssertFalse(draft.assignToWorkspaceForAllWindows)
+
+        draft.assignToWorkspaceForAllWindows = true
+        XCTAssertFalse(draft.represents(loaded))
+        settings.appRules = [draft.makeRule()]
+        let enabled = try SettingsTOMLCodec.encode(settings, preservingUnknownKeysFrom: original)
+        let enabledRule = try XCTUnwrap(SettingsTOMLCodec.decode(enabled).appRules.first)
+        XCTAssertTrue(AppRuleDraft(rule: enabledRule).assignToWorkspaceForAllWindows)
+        XCTAssertEqual(IPCRuleProjection.definition(from: enabledRule).assignToWorkspaceForAllWindows, true)
+
+        draft.assignToWorkspaceForAllWindows = false
+        settings.appRules = [draft.makeRule()]
+        let disabled = try SettingsTOMLCodec.encode(settings, preservingUnknownKeysFrom: enabled)
+        XCTAssertFalse(String(decoding: disabled, as: UTF8.self).contains("assignToWorkspaceForAllWindows"))
+        XCTAssertEqual(try SettingsTOMLCodec.decode(disabled).appRules.first, loaded)
+    }
+
     func testValidScratchpadRequiresRangeAndNoConflict() {
         let slots = ScratchpadIndex.range
         for slot in [slots.lowerBound, slots.upperBound] {

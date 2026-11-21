@@ -4,6 +4,46 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func arguments(_ value: borrowing IPCColumnCommand, _ first: inout Bool) throws {
+        switch value {
+        case let .move(direction):
+            try argument("direction", direction, &first)
+        case let .moveToIndex(columnIndex):
+            try argument("columnIndex", columnIndex, &first)
+        case let .moveToWorkspace(workspaceNumber):
+            try argument("workspaceNumber", workspaceNumber, &first)
+        case .moveToFirst,
+             .moveToLast,
+             .moveToWorkspaceUp,
+             .moveToWorkspaceDown,
+             .toggleTabbed:
+            break
+        }
+    }
+
+    mutating func value(_ value: borrowing IPCSizeChangeKind) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func value(_ value: borrowing IPCSizeChange) throws {
+        begin(123)
+        var first = true
+        self.key("kind", &first)
+        try self.value(value.kind)
+        self.key("value", &first)
+        try self.value(value.value)
+        end(125)
+    }
+
+    mutating func argument(_ name: StaticString, _ value: borrowing IPCSizeChange, _ first: inout Bool) throws {
+        self.key("arguments", &first)
+        begin(123)
+        var argumentFirst = true
+        self.key(name, &argumentFirst)
+        try self.value(value)
+        end(125)
+    }
+
     mutating func arguments(_ value: borrowing IPCSizingCommand, _ first: inout Bool) throws {
         switch value {
         case let .setContainerPrimarySpan(change):
@@ -231,40 +271,5 @@ extension IPCJSONWriter {
             self.key("focused", &first)
             try self.value(fieldValue)
         }
-    }
-
-    mutating func fields1(_ value: borrowing IPCQuerySelectors, _ first: inout Bool) throws {
-        if let fieldValue = value.main {
-            self.key("main", &first)
-            try self.value(fieldValue)
-        }
-        if let fieldValue = value.scratchpad {
-            self.key("scratchpad", &first)
-            try self.value(fieldValue)
-        }
-        if let fieldValue = value.visible {
-            self.key("visible", &first)
-            try self.value(fieldValue)
-        }
-        if let fieldValue = value.window {
-            self.key("window", &first)
-            try self.value(fieldValue)
-        }
-        if let fieldValue = value.workspace {
-            self.key("workspace", &first)
-            try self.value(fieldValue)
-        }
-    }
-
-    mutating func value(_ value: borrowing IPCQuerySelectors) throws {
-        begin(123)
-        var first = true
-        try fields0(value, &first)
-        try fields1(value, &first)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCQuerySort) throws {
-        try self.value(value.rawValue)
     }
 }

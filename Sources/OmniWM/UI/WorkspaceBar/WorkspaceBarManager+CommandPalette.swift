@@ -29,9 +29,13 @@ extension WorkspaceBarManager {
 
     func commandPaletteSource(bundled: Bool = false) -> ShellCommandPaletteSource? {
         let resources = commandPaletteResources ?? makeCommandPaletteResources()
-        refreshCommandPaletteColors(resources)
+        let config = commandPaletteConfig
+        if shellHost == nil { updateShellTheme(config) }
+        let theme = resolvedCommandPaletteTheme(config)
+        commandPaletteTheme = theme
+        resources.refreshPalettes(theme: theme)
         return ShellCommandPaletteSource.make(
-            config: commandPaletteConfig,
+            config: config,
             shellDirectory: shellConfiguration.shellDirectory,
             resources: resources,
             permissions: shellPermissions,
@@ -39,9 +43,12 @@ extension WorkspaceBarManager {
         )
     }
 
-    func refreshCommandPaletteAppearance() {
+    func refreshCommandPaletteAppearance(ifThemeChanged: Bool = false) {
         guard let resources = commandPaletteResources else { return }
-        refreshCommandPaletteColors(resources)
+        let theme = resolvedCommandPaletteTheme(commandPaletteConfig)
+        if ifThemeChanged, commandPaletteTheme == theme { return }
+        commandPaletteTheme = theme
+        resources.refreshPalettes(theme: theme)
         controller?.commandPaletteController.presentation.shell?.redraw()
     }
 
@@ -60,12 +67,12 @@ extension WorkspaceBarManager {
         return resources
     }
 
-    private func refreshCommandPaletteColors(_ resources: ShellResources) {
+    private func resolvedCommandPaletteTheme(_ config: ShellConfig) -> ShellTheme {
         let bar = controller?.settings.workspaceBar
-        resources.refreshPalettes(theme: ShellWidgetHost.paletteTheme(
-            config: commandPaletteConfig,
+        return ShellWidgetHost.paletteTheme(
+            config: config,
             accent: bar?.accentColor,
             foreground: bar?.textColor
-        ))
+        )
     }
 }

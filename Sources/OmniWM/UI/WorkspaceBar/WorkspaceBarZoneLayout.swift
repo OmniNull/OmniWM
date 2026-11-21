@@ -12,10 +12,20 @@ struct WorkspaceBarZoneLayout: Layout {
         static let defaultValue = Int.max
     }
 
+    struct Stops: LayoutValueKey {
+        static let defaultValue: [CGFloat]? = nil
+    }
+
     struct Item: Equatable {
         let lane: ShellLane
         let length: CGFloat
         var priority = Int.max
+        var stops: [CGFloat]?
+
+        func fitting(_ length: CGFloat) -> CGFloat {
+            guard let stops else { return length }
+            return stops.last { $0 <= length } ?? 0
+        }
     }
 
     struct Span: Equatable {
@@ -27,6 +37,8 @@ struct WorkspaceBarZoneLayout: Layout {
     let vertical: Bool
     var spacing: CGFloat = 8
     var inset: CGFloat = 4
+
+    static let tightSpacing: CGFloat = 4
 
     static func spans(
         of items: [Item],
@@ -43,11 +55,29 @@ struct WorkspaceBarZoneLayout: Layout {
             inset: inset
         )
         var spans = items.map { Span(start: 0, length: $0.length) }
+        var gaps = InlineArray<2, CGFloat>(repeating: spacing)
         for side in 0 ..< bar.sides.count {
-            bar.giveWay(on: side, spans: &spans)
+            gaps[side] = bar.giveWay(on: side, spans: &spans)
         }
-        bar.place(&spans)
+        bar.place(&spans, gaps: gaps)
         return spans
+    }
+
+    static func room(
+        for index: Int,
+        among items: [Item],
+        length: CGFloat,
+        zones: WorkspaceBarZones,
+        spacing: CGFloat = 8,
+        inset: CGFloat = 4
+    ) -> CGFloat {
+        Bar(
+            items: items,
+            sides: Sides(items: items, zones: zones),
+            length: length,
+            spacing: spacing,
+            inset: inset
+        ).room(for: index)
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews _: Subviews, cache _: inout ()) -> CGSize {
@@ -61,7 +91,8 @@ struct WorkspaceBarZoneLayout: Layout {
                 Item(
                     lane: subviews[$0][Lane.self],
                     length: vertical ? sizes[$0].height : sizes[$0].width,
-                    priority: subviews[$0][Priority.self]
+                    priority: subviews[$0][Priority.self],
+                    stops: subviews[$0][Stops.self]
                 )
             },
             length: vertical ? bounds.height : bounds.width,
@@ -97,40 +128,63 @@ private struct Bar {
         return side == 0 ? notch.lowerBound - gap - inset : length - inset - notch.upperBound - gap
     }
 
-    func giveWay(on side: Int, spans: inout [WorkspaceBarZoneLayout.Span]) {
+    private var tight: CGFloat {
+        min(spacing, WorkspaceBarZoneLayout.tightSpacing)
+    }
+
+    func room(for target: Int) -> CGFloat {
+        var own = 0
+        sides.forEach(items) { index, side in
+            if index == target { own = side }
+        }
+        var room = room(on: own)
+        sides.forEach(items) { index, side in
+            guard side == own, index != target, items[index].length > 0 else { return }
+            room -= items[index].length + tight
+        }
+        return room
+    }
+
+    func giveWay(on side: Int, spans: inout [WorkspaceBarZoneLayout.Span]) -> CGFloat {
         let room = room(on: side)
         while true {
-            var demand: CGFloat?
+            var total: CGFloat = 0
+            var count = 0
             var victim: Int?
             sides.forEach(items) { index, itemSide in
                 guard itemSide == side, spans[index].length > 0 else { return }
-                demand = demand.map { $0 + spacing + spans[index].length } ?? spans[index].length
+                total += spans[index].length
+                count += 1
                 if victim.map({ (items[index].priority, index) > (items[$0].priority, $0) }) != false {
                     victim = index
                 }
             }
-            guard let demand, demand > room, let victim else { return }
-            let overflow = demand - room
-            guard spans[victim].length <= overflow else {
-                spans[victim].length -= overflow
-                return
+            let gaps = CGFloat(count - 1)
+            guard let victim, total + gaps * spacing > room else { return spacing }
+            let overflow = total + gaps * tight - room
+            guard overflow > 0 else { return (room - total) / gaps }
+            let kept = items[victim].fitting(spans[victim].length - overflow)
+            guard kept <= 0 else {
+                total -= spans[victim].length - kept
+                spans[victim].length = kept
+                return gaps > 0 ? min(spacing, (room - total) / gaps) : spacing
             }
             spans[victim].length = 0
         }
     }
 
-    func place(_ spans: inout [WorkspaceBarZoneLayout.Span]) {
+    func place(_ spans: inout [WorkspaceBarZoneLayout.Span], gaps: InlineArray<2, CGFloat>) {
         var runs = InlineArray<4, CGFloat?>(repeating: nil)
         sides.forEach(items) { index, side in
             guard spans[index].length > 0 else { return }
             let group = Group(items[index].lane, side: side).rawValue
-            runs[group] = runs[group].map { $0 + spacing + spans[index].length } ?? spans[index].length
+            runs[group] = runs[group].map { $0 + gaps[side] + spans[index].length } ?? spans[index].length
         }
         func extent(_ group: Group) -> CGFloat {
             runs[group.rawValue] ?? 0
         }
         func clearance(_ group: Group) -> CGFloat {
-            runs[group.rawValue].map { $0 + spacing } ?? 0
+            runs[group.rawValue].map { $0 + gaps[0] } ?? 0
         }
         var cursors = InlineArray<4, CGFloat>(repeating: 0)
         cursors[Group.leading.rawValue] = inset
@@ -149,7 +203,7 @@ private struct Bar {
             let group = Group(items[index].lane, side: side).rawValue
             spans[index].start = cursors[group]
             if spans[index].length > 0 {
-                cursors[group] += spans[index].length + spacing
+                cursors[group] += spans[index].length + gaps[side]
             }
         }
     }

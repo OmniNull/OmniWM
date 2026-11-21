@@ -98,8 +98,8 @@ extension AXEventHandler {
         )
         state.preparedSubscriptionRetainCount = 0
         finishDeferredReplacementAfterTracking(windowId: windowId)
-        guard let continuation = state.focusedAdmissionContinuation
-            ?? state.trigger.focusedAdmissionContinuation
+        guard !state.exhausted,
+              let continuation = state.focusedAdmissionContinuation ?? state.trigger.focusedAdmissionContinuation
         else {
             admissionRetryStateByWindowId.removeValue(forKey: windowId)
             return completedSubscriptionIdentityTransition
