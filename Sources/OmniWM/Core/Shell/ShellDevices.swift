@@ -17,24 +17,41 @@ protocol ShellDeviceSource: AnyObject {
 
 @MainActor
 final class ShellDevices {
-    let inputSource = InputSourceController()
+    let inputSource: InputSourceController
     let privacy = PrivacyMonitor()
     let wifi: WiFiMonitor
+    let wifiNetworks: WiFiNetworksMonitor
+    let connection = ConnectionMonitor()
     let bluetooth = BluetoothMonitor()
     let user = UserMonitor()
     let thermal = ThermalMonitor()
     let appearance = AppearanceMonitor()
     let brightness: ShellDisplayBrightness
+    let nightShift: ShellNightShiftMonitor
     let spectrum: AudioSpectrumMonitor
 
     init(
+        inputSource: InputSourceController = InputSourceController(),
         wifi: WiFiMonitor = WiFiMonitor(),
+        wifiNetworks: WiFiNetworksMonitor = WiFiNetworksMonitor(),
         brightness: ShellDisplayBrightness = ShellDisplayBrightness(),
+        nightShift: ShellNightShiftMonitor = ShellNightShiftMonitor(),
         spectrum: AudioSpectrumMonitor = AudioSpectrumMonitor()
     ) {
+        self.inputSource = inputSource
         self.wifi = wifi
+        self.wifiNetworks = wifiNetworks
         self.brightness = brightness
+        self.nightShift = nightShift
         self.spectrum = spectrum
+    }
+
+    func perform(_ command: ShellWiFiCommand) {
+        switch command {
+        case .authorize: wifi.authorize()
+        case .scan: wifiNetworks.scan()
+        case let .join(id): wifiNetworks.join(id)
+        }
     }
 }
 
@@ -43,11 +60,14 @@ extension ShellDataFeed {
         listen(devices.inputSource, !paused && demands(.inputSource), into: \.inputSource)
         listen(devices.privacy, !paused && demands(.privacy), into: \.privacy)
         listen(devices.wifi, !paused && demands(.wifi), into: \.wifi)
+        listen(devices.wifiNetworks, !paused && demands(.wifiNetworks), into: \.wifiNetworks)
+        listen(devices.connection, !paused && demands(.connection), into: \.connection)
         listen(devices.bluetooth, !paused && demands(.bluetooth), into: \.bluetooth)
         listen(devices.user, !paused && demands(.user), into: \.user)
         listen(devices.thermal, !paused && demands(.thermal), into: \.thermal)
         listen(devices.appearance, !paused && demands(.appearance), into: \.appearance)
         listen(devices.brightness, !paused && demands(.brightness), into: \.brightness)
+        listen(devices.nightShift, !paused && demands(.nightShift), into: \.nightShift)
         listen(devices.spectrum, !paused && (demands(.spectrum) || demands(.tempo)), into: \.spectrum)
     }
 
@@ -55,11 +75,14 @@ extension ShellDataFeed {
         listen(devices.inputSource, false, into: \.inputSource)
         listen(devices.privacy, false, into: \.privacy)
         listen(devices.wifi, false, into: \.wifi)
+        listen(devices.wifiNetworks, false, into: \.wifiNetworks)
+        listen(devices.connection, false, into: \.connection)
         listen(devices.bluetooth, false, into: \.bluetooth)
         listen(devices.user, false, into: \.user)
         listen(devices.thermal, false, into: \.thermal)
         listen(devices.appearance, false, into: \.appearance)
         listen(devices.brightness, false, into: \.brightness)
+        listen(devices.nightShift, false, into: \.nightShift)
         listen(devices.spectrum, false, into: \.spectrum)
     }
 

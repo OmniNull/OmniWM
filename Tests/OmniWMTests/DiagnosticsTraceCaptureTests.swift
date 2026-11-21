@@ -49,6 +49,7 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
             "== Space Topology ==",
             "== Native Fullscreen Placeholders ==",
             "== Shell Notifications ==",
+            "== Invariant Check ==",
             "== Multitouch Source ==",
             "== AX Frame State ==",
             "== Settings (TOML) =="
@@ -377,159 +378,6 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
     }
 
     @MainActor
-    func testDiagnosticAttachmentCombinesFreshReportWithExactCrashEvidence() async throws {
-        let directory = try makeDiagnosticsDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let crash = directory.appendingPathComponent("omniwm-crash-1.log", isDirectory: false)
-        let unrelated = directory.appendingPathComponent("omniwm-trace-1-2.log", isDirectory: false)
-        try "exact-crash-evidence".write(to: crash, atomically: true, encoding: .utf8)
-        try "unrelated-trace-evidence".write(to: unrelated, atomically: true, encoding: .utf8)
-        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
-
-        let result = try await controller.prepareDiagnosticAttachment(evidence: .crash(crash))
-        let body = try String(contentsOf: result.url, encoding: .utf8)
-
-        XCTAssertTrue(result.includedEvidence)
-        XCTAssertNotEqual(result.url, crash)
-        XCTAssertTrue(body.hasPrefix("== OmniWM Diagnostics =="))
-        XCTAssertTrue(body.contains("evidenceStatus=included"))
-        XCTAssertTrue(body.contains("evidenceType=crash"))
-        XCTAssertTrue(body.contains("exact-crash-evidence"))
-        XCTAssertFalse(body.contains("unrelated-trace-evidence"))
-    }
-
-    @MainActor
-    func testDiagnosticAttachmentIncludesOnlyExplicitTraceArtifact() async throws {
-        let directory = try makeDiagnosticsDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let selected = directory.appendingPathComponent("omniwm-trace-1-2.log", isDirectory: false)
-        let newer = directory.appendingPathComponent("omniwm-trace-3-4.log", isDirectory: false)
-        try "selected-trace-evidence".write(to: selected, atomically: true, encoding: .utf8)
-        try "newer-unselected-evidence".write(to: newer, atomically: true, encoding: .utf8)
-        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
-        let result = try await controller.prepareDiagnosticAttachment(evidence: .trace(selected))
-        let body = try String(contentsOf: result.url, encoding: .utf8)
-
-        XCTAssertTrue(result.includedEvidence)
-        XCTAssertTrue(body.contains("evidenceType=trace"))
-        XCTAssertTrue(body.contains("selected-trace-evidence"))
-        XCTAssertFalse(body.contains("newer-unselected-evidence"))
-    }
-
-    @MainActor
-    func testDiagnosticAttachmentPreservesMultichunkBinaryEvidence() async throws {
-        let directory = try makeDiagnosticsDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let selected = directory.appendingPathComponent("selected-binary.trace", isDirectory: false)
-        var payload = Data(repeating: 0, count: 2 * 64 * 1024 + 17)
-        payload[payload.startIndex] = 0xFF
-        payload[payload.index(before: payload.endIndex)] = 0xA5
-        try payload.write(to: selected)
-        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
-
-        let result = try await controller.prepareDiagnosticAttachment(evidence: .trace(selected))
-        let output = try Data(contentsOf: result.url)
-
-        XCTAssertTrue(result.includedEvidence)
-        XCTAssertEqual(Data(output.suffix(payload.count)), payload)
-        XCTAssertNil(output.range(of: selectedEvidenceTruncationMarker))
-    }
-
-    @MainActor
-    func testDiagnosticAttachmentIncludesExactlyEightMiBWithoutTruncationMarker() async throws {
-        let directory = try makeDiagnosticsDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let selected = directory.appendingPathComponent("selected-exact-limit.trace", isDirectory: false)
-        let payload = Data(repeating: 0xA5, count: selectedEvidenceLimit)
-        try payload.write(to: selected)
-        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
-
-        let result = try await controller.prepareDiagnosticAttachment(evidence: .trace(selected))
-        let output = try Data(contentsOf: result.url)
-
-        XCTAssertTrue(result.includedEvidence)
-        XCTAssertEqual(Data(output.suffix(payload.count)), payload)
-        XCTAssertNil(output.range(of: selectedEvidenceTruncationMarker))
-    }
-
-    @MainActor
-    func testDiagnosticAttachmentTruncatesEightMiBPlusOneWithOneMarker() async throws {
-        let directory = try makeDiagnosticsDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let selected = directory.appendingPathComponent("selected-over-limit.trace", isDirectory: false)
-        var payload = Data(repeating: 0xA5, count: selectedEvidenceLimit)
-        payload.append(0x5A)
-        try payload.write(to: selected)
-        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
-
-        let result = try await controller.prepareDiagnosticAttachment(evidence: .trace(selected))
-        let output = try Data(contentsOf: result.url)
-        let markerRange = try XCTUnwrap(output.range(of: selectedEvidenceTruncationMarker))
-        let evidenceStart = markerRange.lowerBound - selectedEvidenceLimit
-
-        XCTAssertTrue(result.includedEvidence)
-        XCTAssertEqual(
-            output.subdata(in: evidenceStart ..< markerRange.lowerBound),
-            Data(payload.prefix(selectedEvidenceLimit))
-        )
-        XCTAssertEqual(markerRange.upperBound, output.endIndex)
-    }
-
-    @MainActor
-    func testMissingSelectedEvidenceProducesFreshOnlyAttachment() async throws {
-        let directory = try makeDiagnosticsDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let unrelated = directory.appendingPathComponent("omniwm-crash-newer.log", isDirectory: false)
-        try "unrelated-crash-evidence".write(to: unrelated, atomically: true, encoding: .utf8)
-        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
-        let missing = directory.appendingPathComponent("missing.log", isDirectory: false)
-
-        let result = try await controller.prepareDiagnosticAttachment(evidence: .crash(missing))
-        let body = try String(contentsOf: result.url, encoding: .utf8)
-
-        XCTAssertFalse(result.includedEvidence)
-        XCTAssertTrue(result.url.lastPathComponent.hasPrefix("omniwm-diagnostics-"))
-        XCTAssertTrue(body.hasPrefix("== OmniWM Diagnostics =="))
-        XCTAssertTrue(body.contains("evidenceStatus=unavailable"))
-        XCTAssertFalse(body.contains("unrelated-crash-evidence"))
-        let contents = try FileManager.default.contentsOfDirectory(atPath: directory.path)
-        XCTAssertFalse(contents.contains { $0.hasSuffix(".zip") || $0.hasSuffix(".tmp") })
-    }
-
-    @MainActor
-    func testDiagnosticAttachmentWithoutEvidenceContainsFreshSnapshot() async throws {
-        let directory = try makeDiagnosticsDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
-
-        let result = try await controller.prepareDiagnosticAttachment(evidence: nil)
-        let body = try String(contentsOf: result.url, encoding: .utf8)
-
-        XCTAssertFalse(result.includedEvidence)
-        XCTAssertTrue(body.hasPrefix("== OmniWM Diagnostics =="))
-        XCTAssertTrue(body.contains("evidenceStatus=not_selected"))
-    }
-
-    @MainActor
-    func testDiagnosticAttachmentUsesSubmissionTimeSettingsBeforeSelectedEvidence() async throws {
-        let directory = try makeDiagnosticsDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let settings = makeSettingsStore()
-        let controller = WMController(settings: settings, diagnosticsDirectory: directory)
-        let trace = directory.appendingPathComponent("omniwm-trace-settings.log", isDirectory: false)
-        try "== Evidence Settings ==\nfollowsMouse = false".write(to: trace, atomically: true, encoding: .utf8)
-        settings.focus.followsMouse = true
-        let result = try await controller.prepareDiagnosticAttachment(evidence: .trace(trace))
-        let body = try String(contentsOf: result.url, encoding: .utf8)
-        let freshSettings = try XCTUnwrap(body.range(of: "followsMouse = true"))
-        let evidenceHeader = try XCTUnwrap(body.range(of: "== Selected Diagnostic Evidence =="))
-        let evidenceSettings = try XCTUnwrap(body.range(of: "followsMouse = false"))
-
-        XCTAssertLessThan(freshSettings.lowerBound, evidenceHeader.lowerBound)
-        XCTAssertLessThan(evidenceHeader.lowerBound, evidenceSettings.lowerBound)
-    }
-
-    @MainActor
     func testProblemCaptureReleasesRecorderStorageOnlyAfterTheFinalWrite() async throws {
         let directory = try makeDiagnosticsDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -668,6 +516,110 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
         XCTAssertFalse(diagnosticsEventRecorder.isVerboseStoragePrepared)
     }
 
+    @MainActor
+    func testProblemRecordingRequestsScopeValidationUntilItEnds() async throws {
+        let directory = try makeDiagnosticsDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
+        XCTAssertFalse(controller.workspaceManager.scopeValidationRequested)
+
+        guard case .started = await controller.toggleTraceCapture(desiredState: .active) else {
+            return XCTFail("expected the recording to start")
+        }
+        XCTAssertTrue(controller.workspaceManager.scopeValidationRequested)
+
+        guard case let .stopped(artifact) = await controller.toggleTraceCapture(desiredState: .inactive) else {
+            return XCTFail("expected the recording to stop")
+        }
+        XCTAssertFalse(controller.workspaceManager.scopeValidationRequested)
+        let contents = try String(contentsOf: artifact.url, encoding: .utf8)
+        let reports = ["== State At Start ==", "== State At End =="]
+        let settings = contents.components(separatedBy: "== Invariant Check ==\n").dropFirst()
+            .map { $0.components(separatedBy: "\n").first }
+        XCTAssertTrue(reports.allSatisfy(contents.contains))
+        XCTAssertEqual(settings.count, reports.count)
+        XCTAssertTrue(settings.allSatisfy { $0?.hasSuffix("requested=on") == true })
+    }
+
+    @MainActor
+    func testPerformanceCaptureDoesNotRequestScopeValidation() async throws {
+        let directory = try makeDiagnosticsDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
+
+        guard case .started = await controller.toggleTraceCapture(desiredState: .active, profile: .performance) else {
+            return XCTFail("expected the performance capture to start")
+        }
+        XCTAssertFalse(controller.workspaceManager.scopeValidationRequested)
+
+        guard case .stopped = await controller.toggleTraceCapture(desiredState: .inactive, profile: .performance)
+        else {
+            return XCTFail("expected the performance capture to stop")
+        }
+        XCTAssertFalse(controller.workspaceManager.scopeValidationRequested)
+    }
+
+    @MainActor
+    func testReportChecksTheSnapshotItPrints() throws {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "InvariantCheckReport")
+        let workspaceId = try XCTUnwrap(
+            WindowAdmissionTestSupport.workspace(named: "1", layoutType: .niri, controller: controller)
+        )
+        controller.enableNiriLayout()
+        let engine = try XCTUnwrap(controller.niriEngine)
+        let registered = WindowToken(pid: 874_301, windowId: 874_302)
+        _ = WindowAdmissionTestSupport.track(registered, in: workspaceId, controller: controller)
+        let registeredNode = engine.addWindow(token: registered, to: workspaceId, afterSelection: nil)
+        let setting = "scope-validation=\(WorldStore.validatesScopesByDefault ? "on" : "off") requested=off"
+        XCTAssertEqual(try invariantCheck(in: controller), "\(setting)\nclean")
+
+        let stray = WindowToken(pid: registered.pid, windowId: registered.windowId + 1)
+        _ = engine.addWindow(token: stray, to: workspaceId, afterSelection: registeredNode.id)
+        defer {
+            controller.workspaceManager.withEngineMutationScope(in: workspaceId) {
+                engine.removeWindow(token: stray, in: workspaceId)
+            }
+        }
+
+        let manager = controller.workspaceManager
+        let traceBefore = manager.reconcileTraceDump()
+        let countsBefore = manager.invariantViolationCountsDump()
+        let check = try invariantCheck(in: controller)
+        XCTAssertTrue(check.hasPrefix("\(setting)\nlayout_token_missing "))
+        XCTAssertTrue(check.contains(String(describing: stray)))
+        XCTAssertEqual(manager.reconcileTraceDump(), traceBefore)
+        XCTAssertEqual(manager.invariantViolationCountsDump(), countsBefore)
+    }
+
+    func testInvariantCheckNamesTheSettingAndEachViolation() {
+        var focus = FocusSessionSnapshot()
+        focus.pendingManagedFocus = PendingManagedFocusSnapshot(
+            token: nil, workspaceId: nil, monitorId: nil, requestId: 1
+        )
+        let snapshot = ReconcileSnapshot(
+            topologyProfile: TopologyProfile(sortedMonitors: []), focusSession: focus, windows: []
+        )
+        let violations = InvariantChecks.validate(snapshot: snapshot)
+        XCTAssertFalse(violations.isEmpty)
+
+        let unchecked = ReconcileDebugDump.invariantCheck(snapshot, validatesEveryScope: false, requested: false)
+        let requested = ReconcileDebugDump.invariantCheck(snapshot, validatesEveryScope: true, requested: true)
+
+        XCTAssertEqual(
+            unchecked.components(separatedBy: "\n"),
+            ["scope-validation=off requested=off"] + violations.map { "\($0.code) \($0.message)" }
+        )
+        XCTAssertEqual(requested.components(separatedBy: "\n").first, "scope-validation=on requested=on")
+    }
+
+    @MainActor
+    private func invariantCheck(in controller: WMController) throws -> String {
+        let report = RuntimeDiagnosticsReport.build(controller, traceLimit: 0)
+        let parts = report.components(separatedBy: "== Invariant Check ==\n")
+        XCTAssertEqual(parts.count, 2)
+        return try XCTUnwrap(parts.last?.components(separatedBy: "\n\n== ").first)
+    }
+
     private func makeDiagnosticsDirectory() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("OmniWMDiagnosticsCapture-\(UUID().uuidString)", isDirectory: true)
@@ -698,14 +650,6 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
             ),
             autosaveEnabled: false
         )
-    }
-
-    private var selectedEvidenceLimit: Int {
-        8 * 1024 * 1024
-    }
-
-    private var selectedEvidenceTruncationMarker: Data {
-        Data("\n\n== Selected Diagnostic Evidence Truncated ==\n".utf8)
     }
 }
 

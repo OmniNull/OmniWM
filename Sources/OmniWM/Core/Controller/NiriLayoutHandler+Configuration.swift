@@ -51,14 +51,19 @@ extension NiriLayoutHandler {
         guard let controller, let engine = controller.niriEngine else { return }
 
         var changedSpanMonitors: [Monitor.ID] = []
+        let keepsSizes = controller.settings.niri.keepSizesOnSettingsChange
         controller.workspaceManager.withEngineMutationScope {
             for monitor in controller.workspaceManager.monitors {
                 let resolved = controller.settings.niri.resolved(for: monitor)
-                if rebalanceChangedSpans,
-                   engine.effectiveSettings(for: monitor.id).defaultContainerPrimarySpan
-                   != resolved.defaultContainerPrimarySpan
-                {
+                let previous = engine.effectiveSettings(for: monitor.id)
+                if rebalanceChangedSpans, previous.defaultContainerPrimarySpan != resolved.defaultContainerPrimarySpan {
                     changedSpanMonitors.append(monitor.id)
+                }
+                if keepsSizes,
+                   previous.visibleContainerCount != resolved.visibleContainerCount
+                   || previous.fitsVisibleContainerCount != resolved.fitsVisibleContainerCount
+                {
+                    engine.holdPrimarySpans(on: monitor.id)
                 }
                 _ = engine.ensureMonitor(
                     for: monitor.id,
@@ -81,7 +86,9 @@ extension NiriLayoutHandler {
         singleWindowFit: SingleWindowFit? = nil,
         edgeOverscroll: NiriEdgeOverscroll? = nil,
         containerPrimarySpanPresets: [Double]? = nil,
-        defaultContainerPrimarySpan: Double?? = nil
+        defaultContainerPrimarySpan: Double?? = nil,
+        shrinkToFit: Bool? = nil,
+        edgePeekShare: CGFloat?? = nil
     ) {
         guard let controller else { return }
         controller.workspaceManager.withEngineMutationScope {
@@ -93,10 +100,21 @@ extension NiriLayoutHandler {
                 singleWindowFit: singleWindowFit,
                 edgeOverscroll: edgeOverscroll,
                 presetContainerPrimarySpans: containerPrimarySpanPresets?.map { .proportion($0) },
-                defaultContainerPrimarySpan: defaultContainerPrimarySpan.map { $0.map { CGFloat($0) } }
+                defaultContainerPrimarySpan: defaultContainerPrimarySpan.map { $0.map { CGFloat($0) } },
+                shrinkToFit: shrinkToFit,
+                edgePeekShare: edgePeekShare
             )
         }
         refreshResolvedMonitorSettings(rebalanceChangedSpans: defaultContainerPrimarySpan != nil)
+        controller.layoutRefreshController.requestRelayout(reason: .layoutConfigChanged)
+    }
+
+    func updateNiriStripPolicies(_ policies: NiriStripPolicies) {
+        guard let controller else { return }
+        controller.workspaceManager.withEngineMutationScope {
+            controller.niriEngine?.policies = policies
+        }
+        refreshResolvedMonitorSettings(rebalanceChangedSpans: true)
         controller.layoutRefreshController.requestRelayout(reason: .layoutConfigChanged)
     }
 }

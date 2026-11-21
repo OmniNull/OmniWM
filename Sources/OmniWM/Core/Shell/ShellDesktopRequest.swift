@@ -14,6 +14,7 @@ struct ShellDesktopRequest: Sendable {
         case clipboardCopy(ShellResourceID)
         case clipboardText(String)
         case clipboardRead
+        case convert([ShellResourceID], format: ShellImageConversionFormat)
     }
 
     let id: ShellServiceID

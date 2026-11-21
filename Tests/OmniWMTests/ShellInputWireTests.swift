@@ -116,7 +116,7 @@ final class ShellInputWireTests: XCTestCase {
 
     func testMalformedInputConfigurationIsRejectedExplicitly() throws {
         for properties in [
-            "onHover = 'media toggle'", "onPress = 1", "onGesture = true", "onKey = {}",
+            "onHover = true", "onPress = 1", "onGesture = true", "onKey = {}",
             "onOutsidePress = 'shell menu'", "hoverDelay = -1", "hoverGrace = 61", "pressScale = 0/0",
             "pressOpacity = 2", "focusRing = 0", "focusRing = 'false'", "focusRing = {}",
             "gesture = true", "gesture = { axis = 'diagonal' }", "gesture = { source = 'wheel' }",

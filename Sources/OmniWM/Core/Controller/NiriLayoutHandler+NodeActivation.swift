@@ -28,6 +28,7 @@ extension NiriLayoutHandler {
         guard let controller, let engine = controller.niriEngine else { return }
 
         state.selectedNodeId = node.id
+        state.clickFocusedNodeId = options.clickFocusWithoutScrolling ? node.id : nil
         let usesSingleWindowFit = engine.singleWindowLayoutContext(in: workspaceId) != nil
         if usesSingleWindowFit,
            engine.effectiveSettings(in: workspaceId).edgeOverscroll == .disabled

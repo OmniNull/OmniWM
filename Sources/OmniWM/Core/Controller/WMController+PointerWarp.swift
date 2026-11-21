@@ -17,11 +17,39 @@ extension WMController {
         publishPointerEdgeTopology()
     }
 
+    func syncLiveDragPointerHold(active: Bool) {
+        guard !settings.pointer.enabled, hasStartedServices, shouldUseMouseWarp() else { return }
+        if active {
+            pointerEdgeBarrier.start()
+            publishPointerEdgeTopology()
+        } else {
+            pointerEdgeBarrier.stop()
+        }
+    }
+
+    var mouseWarpOwnsPointerEdgeTap: Bool {
+        settings.pointer.enabled && shouldUseMouseWarp()
+    }
+
+    func holdPointerForEdgeResize(_ hold: PointerEdgeBarrier.ResizeHold?) {
+        pointerEdgeBarrier.publishResizeHold(hold)
+        guard !mouseWarpOwnsPointerEdgeTap, hasStartedServices, !mouseEventHandler.isLiveColumnDragActive else {
+            return
+        }
+        if hold != nil {
+            pointerEdgeBarrier.start()
+            publishPointerEdgeTopology()
+        } else {
+            pointerEdgeBarrier.stop()
+        }
+    }
+
     func publishPointerEdgeTopology() {
         let monitors = workspaceManager.monitors
         var topology = PointerEdgeTopology()
-        topology.isEnabled = isEnabled && settings.pointer.enabled && monitors.count > 1
-            && !mouseEventHandler.isInputSuppressed
+        topology.isEnabled = isEnabled && (settings.pointer.enabled || pointerEdgeBarrier.isStarted)
+            && monitors.count > 1 && !mouseEventHandler.isInputSuppressed
+        topology.warpsPointer = settings.pointer.enabled
         guard topology.isEnabled else {
             pointerEdgeBarrier.publish(topology)
             return
@@ -36,6 +64,7 @@ extension WMController {
             )
         }
         let fins = surfaceReconciler.pointerEdgeFinSpans()
+        let grid = workspaceManager.monitorRoutingGrid()
         for monitor in monitors {
             for direction in [Direction.left, .right, .up, .down] {
                 let side: ParkingEdgeMaskKey.Side = switch direction {
@@ -44,7 +73,7 @@ extension WMController {
                 case .up: .top
                 case .down: .bottom
                 }
-                let target = workspaceManager.adjacentMonitor(from: monitor.id, direction: direction)
+                let target = workspaceManager.adjacentMonitor(from: monitor.id, direction: direction, grid: grid)
                 let fin = fins[ParkingEdgeMaskKey(monitorId: monitor.id, side: side)]
                 guard target != nil || fin != nil else { continue }
                 topology.edges[.init(monitorId: monitor.id, direction: direction)] = .init(target: target, finSpan: fin)

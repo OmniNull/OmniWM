@@ -82,6 +82,12 @@ extension ShellWidgetPackage {
         if changed & ShellDataKey.hiddenBar.bit != 0 {
             setValue(instance, .hiddenBar) { next.hiddenBar.write(into: &$0) }
         }
+        if changed & ShellDataKey.commandPalette.bit != 0 {
+            setValue(instance, .commandPalette) { writer in
+                guard let palette = next.commandPalette else { return writer.null() }
+                palette.write(into: &writer)
+            }
+        }
     }
 
     private func updateAudio(
@@ -131,6 +137,11 @@ extension ShellWidgetPackage {
         if changed & ShellDataKey.brightness.bit != 0 {
             setValue(instance, .brightness) { writer in
                 next.brightness.map { $0.write(into: &writer) } ?? writer.null()
+            }
+        }
+        if changed & ShellDataKey.nightShift.bit != 0 {
+            setValue(instance, .nightShift) { writer in
+                next.nightShift.map { $0.write(into: &writer) } ?? writer.null()
             }
         }
         if changed & ShellDataKey.awake.bit != 0 {
@@ -213,6 +224,7 @@ extension ShellWidgetPackage {
         _ next: borrowing ShellWidgetData,
         _ changed: UInt64
     ) {
+        updateNetworkSources(instance, next, changed)
         if changed & ShellDataKey.inputSource.bit != 0 {
             setValue(instance, .inputSource) { writer in
                 next.inputSource.map { $0.write(into: &writer) } ?? writer.null()
@@ -220,12 +232,6 @@ extension ShellWidgetPackage {
         }
         if changed & ShellDataKey.privacy.bit != 0 {
             setValue(instance, .privacy) { writer in next.privacy.map { $0.write(into: &writer) } ?? writer.null() }
-        }
-        if changed & ShellDataKey.wifi.bit != 0 {
-            setValue(instance, .wifi) { writer in next.wifi.map { $0.write(into: &writer) } ?? writer.null() }
-        }
-        if changed & ShellDataKey.bluetooth.bit != 0 {
-            setValue(instance, .bluetooth) { writer in next.bluetooth.map { $0.write(into: &writer) } ?? writer.null() }
         }
         if changed & ShellDataKey.user.bit != 0 {
             setValue(instance, .user) { writer in next.user.map { $0.write(into: &writer) } ?? writer.null() }
@@ -248,6 +254,29 @@ extension ShellWidgetPackage {
         }
         if changed & ShellDataKey.spectrum.bit != 0 {
             setValue(instance, .spectrum) { writer in next.spectrum.map { $0.write(into: &writer) } ?? writer.null() }
+        }
+    }
+
+    private func updateNetworkSources(
+        _ instance: OpaquePointer,
+        _ next: borrowing ShellWidgetData,
+        _ changed: UInt64
+    ) {
+        if changed & ShellDataKey.wifi.bit != 0 {
+            setValue(instance, .wifi) { writer in next.wifi.map { $0.write(into: &writer) } ?? writer.null() }
+        }
+        if changed & ShellDataKey.wifiNetworks.bit != 0 {
+            setValue(instance, .wifiNetworks) { writer in
+                next.wifiNetworks.map { $0.write(into: &writer) } ?? writer.null()
+            }
+        }
+        if changed & ShellDataKey.connection.bit != 0 {
+            setValue(instance, .connection) { writer in
+                next.connection.map { $0.write(into: &writer) } ?? writer.null()
+            }
+        }
+        if changed & ShellDataKey.bluetooth.bit != 0 {
+            setValue(instance, .bluetooth) { writer in next.bluetooth.map { $0.write(into: &writer) } ?? writer.null() }
         }
     }
 

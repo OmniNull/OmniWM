@@ -903,6 +903,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
         let structural = resolvePlacement(
             fixture,
             workspaceName: "1",
+            assignToWorkspaceForAllWindows: true,
             pid: pid,
             structuralReplacementWorkspaceId: fixture.secondaryWorkspace,
             placementMode: .tiling,
@@ -914,6 +915,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
         let parent = resolvePlacement(
             fixture,
             workspaceName: "1",
+            assignToWorkspaceForAllWindows: true,
             pid: pid,
             parentWindowId: 580,
             inheritTrackedParentWorkspace: true,
@@ -944,6 +946,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
         let automatic = resolvePlacement(
             fixture,
             workspaceName: "6",
+            assignToWorkspaceForAllWindows: true,
             pid: pid,
             placementMode: .tiling,
             origin: .discovery,
@@ -1014,7 +1017,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
             pid: pid,
             placementMode: .tiling,
             createPlacementContext: synthesized,
-            windowFrame: CGRect(x: 200, y: 200, width: 600, height: 400),
+            appKitFrame: CGRect(x: 200, y: 200, width: 600, height: 400),
             fallbackWorkspaceId: nil
         )
 
@@ -1275,7 +1278,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
                 fallbackWorkspaceId: fixture.primaryWorkspace,
                 reevaluation: .automatic
             ),
-            windowFrame: capturedFrame
+            appKitFrame: capturedFrame
         )
 
         XCTAssertEqual(workspaceId, fixture.secondaryWorkspace)
@@ -1336,6 +1339,7 @@ final class FloatingCreatePlacementTests: XCTestCase {
     private func resolvePlacement(
         _ fixture: TwoMonitorFixture,
         workspaceName: String? = nil,
+        assignToWorkspaceForAllWindows: Bool = false,
         pid: pid_t,
         parentWindowId: UInt32? = nil,
         inheritTrackedParentWorkspace: Bool = false,
@@ -1355,11 +1359,12 @@ final class FloatingCreatePlacementTests: XCTestCase {
                 pid: pid,
                 parentWindowId: parentWindowId,
                 placementMode: placementMode,
-                windowFrame: windowFrame,
+                appKitFrame: windowFrame,
                 existingEntry: existingEntry
             ),
             rules: WorkspacePlacementRules(
                 workspaceName: workspaceName,
+                assignToWorkspaceForAllWindows: assignToWorkspaceForAllWindows,
                 inheritTrackedParentWorkspace: inheritTrackedParentWorkspace,
                 structuralReplacementWorkspaceId: structuralReplacementWorkspaceId,
                 allowsFloatingSpawnPlacement: allowsFloatingSpawnPlacement

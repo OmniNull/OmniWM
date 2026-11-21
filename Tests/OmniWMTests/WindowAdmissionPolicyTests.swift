@@ -267,25 +267,26 @@ final class WindowAdmissionPolicyTests: XCTestCase {
     }
 
     func testNewAdmissionRequiresManageableGeometry() {
-        let cases: [(pid_t, Int, TrackedWindowMode, WindowDecisionDisposition, Bool, CGRect, Bool)] = [
-            (467_101, 467_102, .tiling, .managed, true, CGRect(x: 0, y: 0, width: 1, height: 1), true),
-            (467_103, 467_104, .floating, .floating, false, CGRect(x: 0, y: 0, width: 1, height: 1), true),
-            (467_105, 467_106, .floating, .floating, false, CGRect(x: 0, y: 0, width: 420, height: 260), false)
+        let controller = WindowAdmissionTestSupport.controller()
+        let token = WindowToken(pid: 467_101, windowId: 467_102)
+        let axRef = WindowAdmissionTestSupport.axRef(for: token)
+        let proxyFrame = CGRect(x: 0, y: 0, width: 1, height: 1)
+        let validFrame = CGRect(x: 0, y: 0, width: 420, height: 260)
+        let cases: [(TrackedWindowMode, Bool?, CGRect, TrackedWindowMode?)] = [
+            (.tiling, true, proxyFrame, nil),
+            (.floating, false, proxyFrame, nil),
+            (.floating, false, validFrame, .floating),
+            (.tiling, false, proxyFrame, nil),
+            (.tiling, nil, validFrame, nil)
         ]
-        for (pid, windowId, mode, disposition, isSizeSettable, frame, expected) in cases {
-            let controller = WindowAdmissionTestSupport.controller()
-            let windowInfo = WindowServerInfo(id: UInt32(windowId), pid: pid, level: 0, frame: frame)
+        for (mode, isSizeSettable, frame, expected) in cases {
+            let windowInfo = WindowServerInfo(id: UInt32(token.windowId), pid: token.pid, level: 0, frame: frame)
             let evaluation = explicitProxyEvaluation(
-                pid: pid, windowId: windowId, windowInfo: windowInfo,
-                disposition: disposition, isSizeSettable: isSizeSettable
+                pid: token.pid, windowId: token.windowId, windowInfo: windowInfo,
+                disposition: mode == .floating ? .floating : .managed, isSizeSettable: isSizeSettable
             )
             XCTAssertEqual(
-                controller.shouldDeferAdmission(
-                    evaluation: evaluation,
-                    axRef: AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
-                    mode: mode,
-                    windowInfo: windowInfo
-                ),
+                controller.resolveWindowAdmission(evaluation: evaluation, axRef: axRef, requestedMode: mode)?.mode,
                 expected
             )
         }
@@ -319,57 +320,51 @@ final class WindowAdmissionPolicyTests: XCTestCase {
             isSizeSettable: false
         )
 
-        XCTAssertFalse(
-            controller.axEventHandler.deferAdmissionIfNeeded(
+        XCTAssertEqual(
+            controller.resolveWindowAdmission(
                 evaluation: evaluation,
                 axRef: axRef,
-                token: token,
-                mode: .floating,
-                existingEntry: controller.workspaceManager.entry(for: token)
-            )
+                requestedMode: .floating,
+                existingMode: controller.workspaceManager.entry(for: token)?.mode
+            )?.mode,
+            .floating
         )
         XCTAssertNil(controller.axEventHandler.admissionRetryStateByWindowId[UInt32(token.windowId)])
     }
 
-    func testNewDegenerateFloatingAdmissionUsesBoundedCandidateRetry() throws {
+    func testLiveCreateFloatsReadOnlyWindowAtItsAppKitFrame() {
         let controller = WindowAdmissionTestSupport.controller()
-        let token = WindowToken(pid: 467_109, windowId: 467_110)
-        let axRef = AXWindowRef(element: AXUIElementCreateApplication(token.pid), windowId: token.windowId)
+        let token = WindowToken(pid: 467_115, windowId: 467_116)
+        let windowId = UInt32(token.windowId)
         let windowInfo = WindowServerInfo(
-            id: UInt32(token.windowId),
+            id: windowId,
             pid: token.pid,
             level: 0,
-            frame: CGRect(x: 0, y: 0, width: 1, height: 1)
+            frame: CGRect(x: 120, y: 80, width: 420, height: 260)
         )
         let evaluation = explicitProxyEvaluation(
             pid: token.pid,
             windowId: token.windowId,
             windowInfo: windowInfo,
-            disposition: .floating,
             isSizeSettable: false
         )
+        controller.windowDispositionEvaluationForTests = { _ in evaluation }
 
-        XCTAssertTrue(
-            controller.axEventHandler.deferAdmissionIfNeeded(
-                evaluation: evaluation,
-                axRef: axRef,
-                token: token,
-                mode: .floating,
-                existingEntry: nil,
-                placementOrigin: .discovery
-            )
-        )
-        let state = try XCTUnwrap(
-            controller.axEventHandler.admissionRetryStateByWindowId[UInt32(token.windowId)]
-        )
-        XCTAssertEqual(state.reason, .degenerateGeometry)
-        XCTAssertEqual(state.attempt, 1)
-        guard case let .candidate(triggerToken, _, placementOrigin) = state.trigger else {
-            return XCTFail("Expected candidate retry")
+        guard case let .prepared(candidate) = controller.axEventHandler.prepareCreateCandidate(
+            windowId: windowId,
+            windowInfo: windowInfo,
+            fallbackToken: token,
+            fallbackAXRef: WindowAdmissionTestSupport.axRef(for: token)
+        ) else {
+            return XCTFail("Expected a prepared create")
         }
-        XCTAssertEqual(triggerToken, token)
-        XCTAssertEqual(placementOrigin, .discovery)
-        controller.axEventHandler.cancelCreatedWindowRetry(windowId: UInt32(token.windowId))
+        controller.axEventHandler.trackPreparedCreate(candidate)
+
+        XCTAssertEqual(controller.workspaceManager.entry(for: token)?.mode, .floating)
+        XCTAssertEqual(
+            controller.workspaceManager.floatingState(for: token)?.lastFrame,
+            ScreenCoordinateSpace.toAppKit(rect: windowInfo.frame)
+        )
     }
 
     func testTraceSequenceThirteenRejectsStructurallyExternalSurfaceBeforeGeometryRetry() throws {
@@ -559,13 +554,13 @@ final class WindowAdmissionPolicyTests: XCTestCase {
             )
         )
         XCTAssertEqual(tileableEvaluation.decision.trackedMode, .tiling)
-        XCTAssertFalse(
-            controller.shouldDeferAdmission(
+        XCTAssertEqual(
+            controller.resolveWindowAdmission(
                 evaluation: tileableEvaluation,
                 axRef: axRef,
-                mode: .tiling,
-                windowInfo: tileableEvaluation.facts.windowServer
-            )
+                requestedMode: .tiling
+            )?.mode,
+            .tiling
         )
 
         XCTAssertTrue(
@@ -585,7 +580,7 @@ private func explicitProxyEvaluation(
     windowId: Int,
     windowInfo: WindowServerInfo,
     disposition: WindowDecisionDisposition = .managed,
-    isSizeSettable: Bool = true
+    isSizeSettable: Bool? = true
 ) -> WMController.WindowDecisionEvaluation {
     let facts = WindowRuleFacts(
         appName: "Proxy",

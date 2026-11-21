@@ -136,7 +136,7 @@ Integrations live in `lib/lake/services/`. Keep a component's lifecycle and serv
 - Reminders asks for access only through an explicit action. Its data includes up to 100 incomplete reminders, the total count and read/action errors. The stock view shows the first four and lets the user complete writable reminders.
 - Badges shows raw Dock badge labels for apps with managed windows, even when the Workspace Bar is disabled. It supplies no notification contents or reply API.
 - Quick note uses native multiline text input, explicit save and clipboard copy. Each configured instance has its own saved note.
-- Shelf and converter views reuse the [file services](/omnishell/reference/resources-desktop/). Conversion also requires approval of its native program’s trust prompt; adding or enabling the component does not grant program trust.
+- Shelf and converter views reuse the [file services](/omnishell/reference/resources-desktop/). Conversion uses the native image resource operation with the `files` capability and does not run a provider or ask for program approval.
 - CI status requires a repository in its options. Its polling and request failures are handled by the component's service module.
 
 Unavailable data and denied permissions have explicit UI states. Notification replies, call control and camera capture are outside these integrations; microphone/camera indicators report activity only.

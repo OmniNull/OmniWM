@@ -26,44 +26,30 @@ final class PrivacyMonitor: ShellDeviceSource {
         var cameras: @MainActor () -> [CMIOObjectID] = PrivacyMonitor.cameras
         var inputRunning: @MainActor (AudioObjectID) -> Bool = ShellAudio.isRunningInput
         var cameraRunning: @MainActor (CMIOObjectID) -> Bool = PrivacyMonitor.isRunningSomewhere
-        var addAudioListener: @MainActor (
+        var addAudioListener: (@MainActor (
             AudioObjectID, AudioObjectPropertyAddress, @escaping AudioObjectPropertyListenerBlock
-        ) -> OSStatus = { object, address, block in
-            var address = address
-            return AudioObjectAddPropertyListenerBlock(object, &address, .main, block)
-        }
+        ) -> OSStatus)?
 
-        var removeAudioListener: @MainActor (
+        var removeAudioListener: (@MainActor (
             AudioObjectID, AudioObjectPropertyAddress, @escaping AudioObjectPropertyListenerBlock
-        ) -> OSStatus = { object, address, block in
-            var address = address
-            return AudioObjectRemovePropertyListenerBlock(object, &address, .main, block)
-        }
+        ) -> OSStatus)?
 
-        var addVideoListener: @MainActor (
+        var addVideoListener: (@MainActor (
             CMIOObjectID, CMIOObjectPropertyAddress, @escaping CMIOObjectPropertyListenerBlock
-        ) -> OSStatus = { object, address, block in
-            var address = address
-            return CMIOObjectAddPropertyListenerBlock(object, &address, .main, block)
-        }
+        ) -> OSStatus)?
 
-        var removeVideoListener: @MainActor (
+        var removeVideoListener: (@MainActor (
             CMIOObjectID, CMIOObjectPropertyAddress, @escaping CMIOObjectPropertyListenerBlock
-        ) -> OSStatus = { object, address, block in
-            var address = address
-            return CMIOObjectRemovePropertyListenerBlock(object, &address, .main, block)
-        }
+        ) -> OSStatus)?
     }
 
     private struct AudioListener {
-        let address: AudioObjectPropertyAddress
-        let block: AudioObjectPropertyListenerBlock
+        let registration: AudioPropertyListener
         var running = false
     }
 
     private struct VideoListener {
-        let address: CMIOObjectPropertyAddress
-        let block: CMIOObjectPropertyListenerBlock
+        let registration: VideoPropertyListener
         var running = false
     }
 
@@ -105,7 +91,7 @@ final class PrivacyMonitor: ShellDeviceSource {
         var changed = !removed.isEmpty
         for process in removed {
             if let listener = audio.removeValue(forKey: process) {
-                _ = hardware.removeAudioListener(process, listener.address, listener.block)
+                remove(listener.registration)
             }
         }
         for process in processes where audio[process] == nil {
@@ -124,7 +110,7 @@ final class PrivacyMonitor: ShellDeviceSource {
         var changed = !removed.isEmpty
         for camera in removed {
             if let listener = video.removeValue(forKey: camera) {
-                _ = hardware.removeVideoListener(camera, listener.address, listener.block)
+                remove(listener.registration)
             }
         }
         for camera in cameras where video[camera] == nil {
@@ -177,8 +163,18 @@ final class PrivacyMonitor: ShellDeviceSource {
                 self?.audioChanged(object, generation: generation)
             }
         }
-        if hardware.addAudioListener(object, address, block) == noErr {
-            audio[object] = AudioListener(address: address, block: block)
+        if let add = hardware.addAudioListener {
+            if add(object, address, block) == noErr {
+                audio[object] = AudioListener(registration: AudioPropertyListener(
+                    object: object,
+                    address: address,
+                    block: block
+                ))
+            }
+        } else if let listener = AudioPropertyListener
+            .listen(to: object, address: address, queue: .main, block: block)
+        {
+            audio[object] = AudioListener(registration: listener)
         }
     }
 
@@ -192,17 +188,45 @@ final class PrivacyMonitor: ShellDeviceSource {
                 self?.videoChanged(object, generation: generation)
             }
         }
-        if hardware.addVideoListener(object, address, block) == noErr {
-            video[object] = VideoListener(address: address, block: block)
+        if let add = hardware.addVideoListener {
+            if add(object, address, block) == noErr {
+                video[object] = VideoListener(registration: VideoPropertyListener(
+                    object: object,
+                    address: address,
+                    block: block
+                ))
+            }
+        } else if let listener = VideoPropertyListener
+            .listen(to: object, address: address, queue: .main, block: block)
+        {
+            video[object] = VideoListener(registration: listener)
+        }
+    }
+
+    private func remove(_ listener: borrowing AudioPropertyListener) {
+        if let block = listener.block, let remove = hardware.removeAudioListener {
+            let status = remove(listener.object, listener.address, block)
+            if status != noErr { Log.shell.error("Removing a privacy audio listener failed with status \(status)") }
+        } else {
+            listener.remove(on: .main)
+        }
+    }
+
+    private func remove(_ listener: borrowing VideoPropertyListener) {
+        if let block = listener.block, let remove = hardware.removeVideoListener {
+            let status = remove(listener.object, listener.address, block)
+            if status != noErr { Log.shell.error("Removing a privacy camera listener failed with status \(status)") }
+        } else {
+            listener.remove(on: .main)
         }
     }
 
     private func removeListeners() {
-        for (object, listener) in audio {
-            _ = hardware.removeAudioListener(object, listener.address, listener.block)
+        for listener in audio.values {
+            remove(listener.registration)
         }
-        for (object, listener) in video {
-            _ = hardware.removeVideoListener(object, listener.address, listener.block)
+        for listener in video.values {
+            remove(listener.registration)
         }
         audio.removeAll()
         video.removeAll()

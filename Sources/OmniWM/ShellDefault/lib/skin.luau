@@ -1,7 +1,7 @@
 -- SPDX-License-Identifier: GPL-2.0-only
 -- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
-local SIZES = { text = 13, small = 11, symbol = 14, icon = 18, slot = 22, time = 13, glyph = 18 }
+local SIZES = { text = 13, small = 11, symbol = 14, icon = 18, slot = 22, time = 13, glyph = 18, barSymbol = 16 }
 
 local function skin(look)
     look.base = look.base or 32
@@ -12,6 +12,7 @@ local function skin(look)
     look.verticalText = look.verticalText or "hide"
     look.symbols = look.symbols or {}
     look.notification = look.notification or {}
+    look.barWeight = look.barWeight or "semibold"
     local sizes = table.clone(SIZES)
     for role, value in look.size or {} do
         sizes[role] = value
@@ -41,11 +42,21 @@ local function skin(look)
         props.name = look.symbols[props.name] or props.name
         return ui.symbol(props)
     end
+    look.barSymbolProps = look.barSymbolProps or function(ctx, props)
+        if not ctx.data.bar.style.vertical then
+            props.size = look.px(ctx, "barSymbol")
+            props.weight = look.barWeight
+        end
+        return props
+    end
+    look.barGlyph = look.barGlyph or function(ctx, props)
+        return look.glyph(look.barSymbolProps(ctx, props))
+    end
     look.hue = look.hue or function()
         return nil
     end
-    look.batterySymbol = look.batterySymbol or function(level, charging)
-        if charging then
+    look.batterySymbol = look.batterySymbol or function(level, showsBolt)
+        if showsBolt then
             return "battery.100percent.bolt"
         end
         if level > 85 then
@@ -123,11 +134,13 @@ local function skin(look)
         local fit = math.min(1, m.scale)
         local inset = m.icon < 20 and 1 or 3
         local height = math.max(12 * fit, m.icon * 0.55)
-        return ui.row{ align = "topLeading", dx = dx, dy = dy, h = height, radius = height / 2, fill = "badge",
-            ui.box{ w = inset, h = 1 },
-            look.text{ text = item.badge, style = "mono", size = math.max(10 * fit, m.icon * 0.35), weight = "semibold",
-                color = "#FFFFFFFF", maxWidth = m.slot - inset * 2 },
-            ui.box{ w = inset, h = 1 } }
+        return ui.stack{ align = "topLeading", dx = dx, dy = dy, h = height, radius = height / 2, fill = "badge",
+            ui.box{ w = height, h = 1 },
+            ui.row{
+                ui.box{ w = inset, h = 1 },
+                look.text{ text = item.badge, style = "mono", size = math.max(10 * fit, m.icon * 0.35),
+                    weight = "semibold", color = "#FFFFFFFF", maxWidth = m.slot - inset * 2 },
+                ui.box{ w = inset, h = 1 } } }
     end
     look.panel = look.panel or function(ctx, props)
         props.pad = props.pad or 14

@@ -40,6 +40,70 @@ extension ShellDesktopEditorTests {
         XCTAssertEqual(config.leading, ["weather", "volume", "clock", "battery"])
     }
 
+    private func priorityFixture(listing listed: [String]) async throws -> Fixture {
+        let fixture = try await fixture()
+        fixture.editor.settings.hiddenBar.enabled = false
+        try await fixture.configuration.editBar(profile: "lake") {
+            $0.leading = ["clock", "weather"]
+            $0.center = ["volume"]
+            $0.trailing = ["omniwm", "battery"]
+        }
+        try await fixture.configuration.editPriority(profile: "lake") { _ in listed }
+        await fixture.editor.reload()
+        return fixture
+    }
+
+    func testPriorityListsTheStylesBarWidgetsMostImportantFirst() async throws {
+        let fixture = try await priorityFixture(listing: ["volume", "battery"])
+        XCTAssertEqual(fixture.editor.priorityOrder, ["volume", "battery", "clock", "weather", "omniwm"])
+
+        fixture.editor.settings.hiddenBar.enabled = true
+        let hidden = try XCTUnwrap(fixture.editor.snapshot?.config.hiddenBarWidget)
+        XCTAssertEqual(fixture.editor.priorityOrder, ["volume", "battery", "clock", "weather", "omniwm", hidden])
+    }
+
+    func testPriorityEditsRewriteTheOrderAndKeepListedWidgetsThatAreNotShown() async throws {
+        let fixture = try await priorityFixture(listing: ["volume", "ghost", "battery"])
+        XCTAssertEqual(fixture.editor.priorityOrder, ["volume", "battery", "clock", "weather", "omniwm"])
+
+        var nextSave = fixture.saves.count + 1
+        fixture.editor.shiftPriority("clock", by: -1)
+        await fixture.saves.wait(nextSave)
+        var config = try await fixture.configuration.previewConfig(profile: "lake")
+        XCTAssertEqual(config.priority, ["volume", "clock", "battery", "weather", "omniwm", "ghost"])
+
+        await fixture.editor.reload()
+        nextSave = fixture.saves.count + 1
+        XCTAssertTrue(fixture.editor.dropPriority(fixture.editor.priorityPayload(for: "omniwm"), at: 0))
+        await fixture.saves.wait(nextSave)
+        config = try await fixture.configuration.previewConfig(profile: "lake")
+        XCTAssertEqual(config.priority, ["omniwm", "volume", "clock", "battery", "weather", "ghost"])
+        XCTAssertEqual(config.leading, ["clock", "weather"])
+        XCTAssertEqual(config.trailing, ["omniwm", "battery"])
+    }
+
+    func testQuickPriorityMovesComposeBeforeTheEditorReloads() async throws {
+        let fixture = try await priorityFixture(listing: ["volume", "battery", "clock", "weather"])
+        XCTAssertEqual(fixture.editor.priorityOrder, ["volume", "battery", "clock", "weather", "omniwm"])
+        let nextSave = fixture.saves.count + 2
+        fixture.editor.shiftPriority("volume", by: 1)
+        fixture.editor.shiftPriority("omniwm", by: -1)
+        await fixture.saves.wait(nextSave)
+        let config = try await fixture.configuration.previewConfig(profile: "lake")
+        XCTAssertEqual(config.priority, ["battery", "volume", "clock", "omniwm", "weather"])
+    }
+
+    func testPriorityAndLaneDropsRejectEachOthersPayloads() async throws {
+        let fixture = try await fixture()
+        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let original = try Data(contentsOf: file)
+        let name = try XCTUnwrap(fixture.editor.priorityOrder.first)
+        XCTAssertFalse(fixture.editor.drop(fixture.editor.priorityPayload(for: name), into: .center, at: 0))
+        XCTAssertFalse(fixture.editor.dropPriority(fixture.editor.dragPayload(for: name), at: 0))
+        XCTAssertFalse(fixture.editor.dropPriority("some foreign text containing \(name)", at: 0))
+        XCTAssertEqual(try Data(contentsOf: file), original)
+    }
+
     func testDropsRejectForeignTextOtherEditorsAndStaleStylePayloads() async throws {
         let fixture = try await fixture()
         let other = ShellDesktopEditor(

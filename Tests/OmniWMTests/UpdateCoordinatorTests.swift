@@ -194,7 +194,12 @@ final class UpdateCoordinatorTests: XCTestCase {
                 install()
                 await fulfillment(of: [finished], timeout: failureBound)
                 XCTAssertEqual(installer.events, expectedEvents, mode)
-                XCTAssertEqual(window.alertTitle, mode == "quit cancelled" ? nil : "Could Not Install Update", mode)
+                let title: String? = switch mode {
+                case "install fails": "Could Not Install Update"
+                case "relaunch fails": "Could Not Relaunch OmniWM"
+                default: nil
+                }
+                XCTAssertEqual(window.alertTitle, title, mode)
             }
         }
     }

@@ -35,9 +35,6 @@ extension ShellWidgetHost {
             Log.shell.notice("Using theme \(next.themeName)")
             appearanceDidChange()
         }
-        if next.themeName != previous.themeName || next.wallpaperScheme != previous.wallpaperScheme {
-            updateWallpaperPalette()
-        }
         updateConfiguredWidgets(next, from: previous)
         updateConfiguredLayout(next, from: previous)
         publishToggleNames()
@@ -85,6 +82,9 @@ extension ShellWidgetHost {
         if lanesChanged || next.directories != previous.directories || next.island != previous.island {
             updateIslands(desiredIslands, level: islandLevel)
             rescan(reloadConfiguration: false)
+            onLayoutChange()
+        } else if next.priority != previous.priority {
+            refreshSlots()
             onLayoutChange()
         } else if next.barShader != previous.barShader {
             onLayoutChange()

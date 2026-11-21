@@ -32,7 +32,7 @@ extension MouseEventHandler {
                 resetGestureState()
             }
             guard gestureFramePreconditionsSatisfied(at: location) else { return }
-            if state.gesturePhase == .committed {
+            if tapInputs.gesturePhase == .committed {
                 finishCommittedGestureOnRelease(timestamp: snapshot.timestamp, allowFlick: phase == .ended)
             }
             return
@@ -40,7 +40,7 @@ extension MouseEventHandler {
 
         guard gestureFramePreconditionsSatisfied(at: location) else { return }
 
-        if phase == .began, state.gesturePhase != .idle {
+        if phase == .began, tapInputs.gesturePhase != .idle {
             abortActiveGestureIfNeeded()
         }
 
@@ -63,7 +63,7 @@ extension MouseEventHandler {
         }
         state.gestureFingerCountMismatchSince = nil
 
-        if state.gesturePhase == .idle {
+        if tapInputs.gesturePhase == .idle {
             armGestureIfPossible(
                 at: location,
                 activeTouchCount: activeTouchCount,
@@ -81,7 +81,7 @@ extension MouseEventHandler {
         requiredFingers: Int,
         snapshot: GestureEventSnapshot
     ) {
-        if state.gesturePhase == .committed {
+        if tapInputs.gesturePhase == .committed {
             let since = state.gestureFingerCountMismatchSince ?? snapshot.timestamp
             state.gestureFingerCountMismatchSince = since
             let held = snapshot.timestamp - since
@@ -96,7 +96,7 @@ extension MouseEventHandler {
                 finalizeCommittedGestureAfterTouchRelease(timestamp: snapshot.timestamp)
                 return
             }
-        } else if state.gesturePhase == .armed, activeTouchCount > requiredFingers,
+        } else if tapInputs.gesturePhase == .armed, activeTouchCount > requiredFingers,
                   state.lockedGestureContext?.overviewAction == nil,
                   let config = trackpadGestureConfig,
                   TrackpadGestureIntent.windowGestureMode(config, fingerCount: activeTouchCount) != nil,
@@ -117,7 +117,7 @@ extension MouseEventHandler {
             return
         }
         let wasOverviewCandidate = state.lockedGestureContext?.overviewAction != nil
-        if state.gesturePhase == .armed {
+        if tapInputs.gesturePhase == .armed {
             TrackpadScrollTrace.record(.termination(
                 reason: "uncommitted-finger-count", required: requiredFingers, fingers: activeTouchCount, held: 0
             ))
@@ -158,7 +158,7 @@ extension MouseEventHandler {
             abortActiveGestureIfNeeded()
             return false
         }
-        if state.isResizing || state.isMoving, !state.gestureOwnsWindowInteraction {
+        if isLiveColumnDragActive || state.isResizing || state.isMoving, !state.gestureOwnsWindowInteraction {
             abortActiveGestureIfNeeded()
             return false
         }
@@ -180,6 +180,7 @@ extension MouseEventHandler {
             return
         }
         MouseTrace.record("gesture: armed \(activeTouchCount) fingers at \(TraceFormat.point(location))")
+        controller?.noteUserAction()
         state.lockedGestureContext = context
         if context.workspaceAxis != nil {
             state.workspaceSwipeTracker.reset()
@@ -190,7 +191,7 @@ extension MouseEventHandler {
         state.gestureLastAverageX = average.x
         state.gestureLastAverageY = average.y
         state.gestureLastTimestamp = timestamp
-        state.gesturePhase = .armed
+        tapInputs.gesturePhase = .armed
         if context.overviewAction == .resume {
             _ = controller?.windowActionHandler.beginOverviewGesture()
         }
@@ -199,7 +200,7 @@ extension MouseEventHandler {
                monitorId: context.monitorId, timestamp: timestamp
            ) == true
         {
-            state.gesturePhase = .committed
+            tapInputs.gesturePhase = .committed
             state.activeGestureMode = .workspaceSwitch(axis: axis)
             state.workspaceSwipeFired = true
         }
@@ -214,13 +215,7 @@ extension MouseEventHandler {
               let workspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)
         else { return nil }
         let layoutType = controller.settings.workspaces.layoutType(for: workspace.name)
-        let supportsColumnScroll = switch layoutType {
-        case .niri,
-             .defaultLayout:
-            controller.niriEngine != nil
-        case .dwindle:
-            false
-        }
+        let supportsColumnScroll = supportsColumnScroll(layoutType, in: controller)
         let target = TrackpadGestureIntent.windowGestureMode(config, fingerCount: fingerCount) != nil
             ? windowGestureTarget(at: location, wsId: workspace.id, layoutType: layoutType) : nil
         guard TrackpadGestureIntent.hasCandidateMode(
@@ -280,7 +275,7 @@ extension MouseEventHandler {
         )
 
         if let axis = lockedContext.workspaceAxis,
-           state.gesturePhase == .armed || state.activeGestureMode == .workspaceSwitch(axis: axis)
+           tapInputs.gesturePhase == .armed || state.activeGestureMode == .workspaceSwitch(axis: axis)
         {
             state.workspaceSwipeTracker.push(
                 delta: Double(axis == .horizontal ? metrics.rawDeltaX : metrics.rawDeltaY),
@@ -288,7 +283,7 @@ extension MouseEventHandler {
             )
         }
 
-        if state.gesturePhase == .armed {
+        if tapInputs.gesturePhase == .armed {
             let distanceSquared = metrics.cumulativeX * metrics.cumulativeX
                 + metrics.cumulativeY * metrics.cumulativeY
             let threshold = TrackpadGestureIntent.recognitionThreshold
@@ -297,7 +292,7 @@ extension MouseEventHandler {
                 return
             }
             guard commitGestureMode(metrics: metrics, lockedContext: lockedContext, timestamp: timestamp) else {
-                if state.gesturePhase == .armed { rememberGestureSample(average, at: timestamp) }
+                if tapInputs.gesturePhase == .armed { rememberGestureSample(average, at: timestamp) }
                 return
             }
         }

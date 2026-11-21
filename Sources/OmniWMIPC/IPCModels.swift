@@ -4,7 +4,7 @@
 import Foundation
 
 public enum OmniWMIPCProtocol {
-    public static let version = 22
+    public static let version = 23
 }
 
 public struct IPCNoPayload: Codable, Equatable, Sendable {
@@ -129,6 +129,17 @@ public enum IPCWorkspaceLayout: String, Codable, Equatable, Sendable {
     case defaultLayout = "default"
     case niri
     case dwindle
+}
+
+public enum IPCWindowSwitcherDirection: String, Codable, CaseIterable, Equatable, Sendable {
+    case next
+    case previous
+}
+
+public enum IPCWindowSwitcherScope: String, Codable, CaseIterable, Equatable, Sendable {
+    case activeWorkspace = "active-workspace"
+    case visibleWorkspaces = "visible-workspaces"
+    case allWorkspaces = "all-workspaces"
 }
 
 public enum IPCCommandPaletteMode: String, Codable, CaseIterable, Equatable, Sendable {

@@ -17,7 +17,7 @@ export type Align =
     | "topTrailing"
     | "bottomLeading"
     | "bottomTrailing"
-export type Element = { kind: number }
+export type Element = { kind: number, [any]: any }
 export type Curve = "linear" | "easeIn" | "easeOut" | "easeInOut" | "back"
     | "standard" | "standardAccel" | "standardDecel" | "emphasized" | "emphasizedAccel" | "emphasizedDecel"
     | "fastSpatial" | "spatial" | "slowSpatial" | "fastEffects" | "effects" | "slowEffects" | { number }
@@ -168,6 +168,90 @@ export type HiddenBar = {
     menu: HiddenBarMenu?,
 }
 
+export type CommandPaletteBadge = {
+    text: string,
+    tone: "neutral" | "accent" | "danger" | "warning" | "shortcut" | "shortcutMuted",
+    symbol: string?,
+}
+
+export type CommandPaletteChoice = {
+    id: string,
+    title: string,
+    symbol: string,
+    shortcut: string,
+    selected: boolean,
+    enabled: boolean,
+}
+
+export type CommandPaletteAction = { id: string, title: string, symbol: string, shortcut: string }
+
+export type CommandPaletteRow = {
+    id: string,
+    kind: "window" | "command" | "heading" | "menu" | "clipboard" | "application" | "file" | "saved" | "showAll"
+        | "executable" | "gridRow",
+    title: string,
+    subtitle: string,
+    icon: { app: string?, pid: number?, symbol: string?, bitmap: string? },
+    badges: { CommandPaletteBadge },
+    marks: { CommandPaletteBadge },
+    hint: string?,
+    hintShortcut: string?,
+    selected: boolean,
+    enabled: boolean,
+    pinned: boolean,
+    actions: { CommandPaletteAction },
+    cells: { CommandPaletteRow },
+}
+
+export type CommandPalettePreview = {
+    id: string,
+    state: "loading" | "text" | "image" | "unavailable" | "file" | "blank",
+    text: string?,
+    image: string?,
+    width: number,
+    height: number,
+    title: string?,
+    symbol: string?,
+    details: { { label: string, value: string } },
+}
+
+export type CommandPaletteLauncher = {
+    filters: { CommandPaletteChoice },
+    chips: { CommandPaletteChoice },
+    views: { CommandPaletteChoice },
+    add: CommandPaletteAction?,
+    columns: number,
+    grid: boolean,
+}
+
+export type CommandPalette = {
+    open: boolean,
+    expanded: boolean,
+    width: number,
+    height: number,
+    mode: string,
+    modes: { CommandPaletteChoice },
+    placeholder: string,
+    query: string,
+    state: "results" | "empty" | "loading" | "disabled" | "blank",
+    emptyText: string,
+    emptySymbol: string,
+    feedback: string?,
+    actions: { CommandPaletteAction },
+    rows: { CommandPaletteRow },
+    selected: string,
+    first: number,
+    total: number,
+    before: number,
+    after: number,
+    unified: boolean,
+    browseModes: boolean,
+    error: string?,
+    preview: CommandPalettePreview?,
+    launcher: CommandPaletteLauncher?,
+    emptyAction: CommandPaletteAction?,
+}
+
 export type BarDrag = {
     sources: { string },
     workspaces: { string },
@@ -181,6 +265,8 @@ export type Bar = {
     island: "all" | "active" | "secondary",
     drag: BarDrag?,
     badges: "off" | "dot" | "text",
+    layout: ("niri" | "dwindle")?,
+    workspacesRoom: number?,
     style: BarStyle?,
     workspaces: { BarWorkspace },
     scratchpads: { BarScratchpad },
@@ -200,6 +286,8 @@ export type AudioOutput = {
     transport: "builtin" | "usb" | "bluetooth" | "hdmi" | "displayport" | "airplay" | "thunderbolt" | "virtual"
         | "aggregate" | "other",
     default: boolean,
+    kind: "airpods" | "airpodspro" | "airpodsmax" | "beats" | "headphones" | "speaker" | "display" | "airplay"
+        | "builtin" | "other",
 }
 
 export type AudioApp = {
@@ -274,9 +362,23 @@ export type Microphone = {
     muted: boolean?,
 }
 
+export type DisplayBrightness = {
+    id: string,
+    name: string,
+    value: number,
+    available: boolean,
+}
+
 export type Brightness = {
     value: number,
     available: boolean,
+    mainDisplayId: string?,
+    displays: { DisplayBrightness },
+}
+
+export type NightShift = {
+    available: boolean,
+    enabled: boolean,
 }
 
 export type NotificationAction = {
@@ -470,6 +572,30 @@ export type WiFi = {
     location: "authorized" | "denied" | "restricted" | "notDetermined",
 }
 
+export type WiFiNetwork = {
+    id: string,
+    ssid: string,
+    rssi: number,
+    security: string?,
+    secured: boolean,
+    enterprise: boolean,
+    known: boolean,
+    opensSettings: boolean,
+}
+
+export type WiFiNetworks = {
+    known: { WiFiNetwork },
+    other: { WiFiNetwork },
+    scanning: boolean,
+    joining: string?,
+    failure: { id: string, message: string }?,
+}
+
+export type Connection = {
+    kind: "wifi" | "ethernet" | "cellular" | "other" | "none",
+    interface: string?,
+}
+
 export type BluetoothDevice = {
     id: string,
     name: string,
@@ -570,6 +696,10 @@ export type Data = {
     awake: Awake?,
     microphone: Microphone?,
     brightness: Brightness?,
+    connection: Connection?,
+    commandPalette: CommandPalette?,
+    nightShift: NightShift?,
+    wifiNetworks: WiFiNetworks?,
 }
 
 export type Format = {
@@ -798,7 +928,7 @@ export type Props = {
     pressOpacity: number?,
     pressFill: Color?,
     pressAnimate: Animate?,
-    onHover: InputHandler?,
+    onHover: (InputHandler | string)?,
     hoverDelay: number?,
     hoverGrace: number?,
     gesture: Gesture?,
@@ -825,6 +955,8 @@ export type Props = {
     drag: boolean?,
     drop: boolean?,
     scroll: boolean?,
+    marquee: boolean?,
+    maxWidth: number?,
     [number]: Element,
 }
 
@@ -835,7 +967,6 @@ export type TextProps = Props & {
     filled: boolean?,
     size: number?,
     weight: Weight?,
-    maxWidth: number?,
     lines: number?,
     color: Color?,
     reserve: string?,
@@ -846,6 +977,8 @@ export type TextInputProps = Props & {
     text: string?,
     placeholder: string?,
     multiline: boolean?,
+    editable: boolean?,
+    wrap: boolean?,
     maxLength: number?,
     focus: boolean?,
     style: TextStyle?,
@@ -971,6 +1104,13 @@ export type ComponentProps = Props & {
     props: any?,
 }
 
+export type ImageConversionUpdate = {
+    progress: { completed: number, total: number }?,
+    ok: boolean?,
+    items: { Resource }?,
+    error: string?,
+}
+
 export type ServiceHandle = {
     cancel: (self: ServiceHandle) -> (),
 }
@@ -1019,6 +1159,7 @@ declare omniwm: {
         close: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),
     },
     resources: {
+        convert: (resources: { Resource }, format: "png" | "jpeg" | "tiff", callback: (update: ImageConversionUpdate) -> ()) -> (ServiceHandle?, string?),
         persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),
         restore: (token: string) -> (Resource?, string?),
     },

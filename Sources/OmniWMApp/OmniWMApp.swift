@@ -11,6 +11,7 @@ struct OmniWMApp: App {
     @State private var bootstrap: AppBootstrapState
 
     init() {
+        AppRelaunch.awaitPredecessor()
         AppLanguagePreference.applyConfiguredLanguage()
         let bootstrap = AppBootstrapState()
         _bootstrap = State(wrappedValue: bootstrap)

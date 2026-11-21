@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 @MainActor
 final class CommandPaletteFocusSession {

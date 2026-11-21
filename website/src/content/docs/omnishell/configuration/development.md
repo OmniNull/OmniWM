@@ -31,7 +31,22 @@ Top-level `shell/widgets/` overrides apply to every profile. `shell init` writes
 
 ## Modules and editor types
 
-`omniwm.d.luau` in the shell folder provides the shipped type declarations for your Luau editor. The [browsable API reference](/omnishell/reference/) presents those declarations with examples and topic links.
+`omniwm.d.luau` in the shell folder provides the shipped type declarations for your Luau editor. With [luau-lsp](https://github.com/JohnnyMorganz/luau-lsp), such as the Luau Language Server extension for VS Code, load it as a definitions file and turn off the default Roblox platform in your editor settings:
+
+```json
+{
+  "luau-lsp.platform.type": "standard",
+  "luau-lsp.types.definitionFiles": { "@omniwm": "~/.config/omniwm/shell/omniwm.d.luau" }
+}
+```
+
+Write `function render(ctx: Context)` to get completion and type checks for `ctx`. To check a widget from Terminal, run this in its folder:
+
+```sh
+luau-lsp analyze --platform=standard --definitions=@omniwm=~/.config/omniwm/shell/omniwm.d.luau init.luau
+```
+
+The [browsable API reference](/omnishell/reference/) presents those declarations with examples and topic links.
 
 Use `require("./helpers")` or `require("@self/helpers")` for a widget’s helper files. `require("../lib/panel")` loads a shared `lib/panel.luau`, from the top-level shell folder first, then the selected profile, then `default/`. Component libraries use the root profile’s overrides. Ordinary widgets can load up to 64 source files; island roots can load up to 512 including components and libraries. Exceeding the limit reports a load error.
 

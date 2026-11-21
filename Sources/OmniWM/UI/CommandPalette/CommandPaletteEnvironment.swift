@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 private final class CommandPaletteActionBox: @unchecked Sendable {
     let action: () -> Void
@@ -28,52 +27,12 @@ enum CommandPaletteKeyboardLanguage {
     }
 }
 
-private enum CommandPalettePasteKeyCode {
-    static func current() -> UInt16? {
-        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
-              let property = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
-        else {
-            return nil
-        }
-        return withExtendedLifetime(source) {
-            let data = Unmanaged<CFData>.fromOpaque(property).takeUnretainedValue()
-            guard let bytes = CFDataGetBytePtr(data) else { return nil }
-            return bytes.withMemoryRebound(to: UCKeyboardLayout.self, capacity: 1) { layout in
-                for keyCode in UInt16(0) ..< 128 {
-                    var deadKeyState: UInt32 = 0
-                    var length = 0
-                    var characters = [UniChar](repeating: 0, count: 4)
-                    let status = characters.withUnsafeMutableBufferPointer { buffer in
-                        guard let baseAddress = buffer.baseAddress else { return OSStatus(paramErr) }
-                        return UCKeyTranslate(
-                            layout,
-                            keyCode,
-                            UInt16(kUCKeyActionDown),
-                            UInt32(cmdKey >> 8),
-                            UInt32(LMGetKbdType()),
-                            OptionBits(kUCKeyTranslateNoDeadKeysBit),
-                            &deadKeyState,
-                            buffer.count,
-                            &length,
-                            baseAddress
-                        )
-                    }
-                    if status == noErr,
-                       String(decoding: characters.prefix(Int(length)), as: UTF16.self).lowercased() == "v"
-                    {
-                        return keyCode
-                    }
-                }
-                return nil
-            }
-        }
-    }
-}
-
 @MainActor
 struct CommandPaletteEnvironment {
-    var confirmLauncherEntryRemoval: (LauncherEntry, NSWindow?, @escaping @MainActor (Bool) -> Void) -> Void = {
-        LauncherEntryRemovalPrompt.confirm($0, from: $1, completion: $2)
+    var confirmLauncherEntryRemoval: (
+        LauncherEntry, Bool, NSWindow?, @escaping @MainActor (Bool) -> Void
+    ) -> Void = {
+        LauncherEntryRemovalPrompt.confirm($0, clearsShortcut: $1, from: $2, completion: $3)
     }
 
     var requestWindowMarkName: () -> String? = { CommandPaletteMarkNamePrompt.requestName() }
@@ -81,10 +40,18 @@ struct CommandPaletteEnvironment {
         CommandPaletteMarkRemovalPrompt.requestName(from: markNames)
     }
 
+    var quickLook: (
+        [URL], ShellDesktopSource, @escaping ShellDesktopPlatform.PresentationCompletion
+    ) throws -> ShellDesktopPlatform.Presentation = { urls, source, completion in
+        try ShellDesktopPlatform.appKit.quicklook(urls, 1, source, completion)
+    }
+
     var frontmostApplication: () -> NSRunningApplication? = { NSWorkspace.shared.frontmostApplication }
     var runningApplication: (pid_t) -> NSRunningApplication? = { NSRunningApplication(processIdentifier: $0) }
     var ownBundleIdentifier: () -> String? = { Bundle.main.bundleIdentifier }
     var ownProcessIdentifier: () -> pid_t = { NSRunningApplication.current.processIdentifier }
+    var paletteShortcuts: () -> PaletteShortcuts = { PaletteShortcuts.current() }
+    var observeKeyboardLayout: ((@MainActor () -> Void)?) -> Void = { KeyboardLayoutObserver.shared.observe($0) }
     var fetchMenuItems: (pid_t) -> [MenuItemModel] = { MenuAnywhereFetcher().fetchMenuItemsSync(for: $0) }
     var applicationActivationNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
     var performCommand: (WMController, HotkeyCommand) -> ExternalCommandResult = { controller, command in
@@ -316,7 +283,10 @@ struct CommandPaletteEnvironment {
     }
 
     var postPasteShortcut: () -> Bool = {
-        guard let keyCode = CommandPalettePasteKeyCode.current() else { return false }
+        let pasteLetter: InlineArray = [KeyboardLayoutKeyCode.letter("v")]
+        guard let keyCode = KeyboardLayoutKeyCode.keyCodes(typing: pasteLetter, modifiers: UInt32(cmdKey))[0] else {
+            return false
+        }
         let source = CGEventSource(stateID: .combinedSessionState)
         guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)

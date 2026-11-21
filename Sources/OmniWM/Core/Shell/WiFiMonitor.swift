@@ -7,10 +7,16 @@ import CoreWLAN
 
 enum ShellWiFiCommand: Equatable, Sendable {
     case authorize
+    case scan
+    case join(String)
 
     init?(words: [String]) {
-        guard words == ["authorize"] else { return nil }
-        self = .authorize
+        switch words.count {
+        case 1 where words[0] == "authorize": self = .authorize
+        case 1 where words[0] == "scan": self = .scan
+        case 2 where words[0] == "join" && ShellWiFiNetwork.ssidData(id: words[1]) != nil: self = .join(words[1])
+        default: return nil
+        }
     }
 }
 
@@ -169,16 +175,13 @@ final class WiFiMonitor: NSObject, ShellDeviceSource, CLLocationManagerDelegate 
         refresh()
     }
 
-    func perform(_ command: ShellWiFiCommand) {
-        switch command {
-        case .authorize:
-            if location.authorizationStatus == .notDetermined {
-                location.requestWhenInUseAuthorization()
-            } else if let url = URL(
-                string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices"
-            ) {
-                NSWorkspace.shared.open(url)
-            }
+    func authorize() {
+        if location.authorizationStatus == .notDetermined {
+            location.requestWhenInUseAuthorization()
+        } else if let url = URL(
+            string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices"
+        ) {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -213,11 +216,11 @@ final class WiFiMonitor: NSObject, ShellDeviceSource, CLLocationManagerDelegate 
         guard let interface = CWWiFiClient.shared().interface() else { return nil }
         var wifi = ShellWiFi(power: interface.powerOn(), location: location)
         let rssi = interface.rssiValue()
-        guard wifi.power, rssi != 0 else { return wifi }
+        guard wifi.power, rssi != 0 || interface.interfaceMode() == .station else { return wifi }
         let channel = interface.wlanChannel()
         wifi.connected = true
         wifi.ssid = interface.ssid()
-        wifi.rssi = rssi
+        wifi.rssi = rssi == 0 ? nil : rssi
         wifi.band = channel.flatMap { ShellWiFi.band($0.channelBand) }
         wifi.channel = channel?.channelNumber
         wifi.security = ShellWiFi.security(interface.security())

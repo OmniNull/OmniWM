@@ -42,6 +42,8 @@ enum FloatingFrameGeometry {
 enum FrameTolerance {
     static let frameWrite: CGFloat = 1.0
     static let screenMatch: CGFloat = 2.0
+    static let managedReplacementCenter: CGFloat = 96
+    static let managedReplacementSize: CGFloat = 64
 }
 
 extension CGSize {

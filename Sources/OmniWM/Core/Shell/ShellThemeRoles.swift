@@ -40,6 +40,8 @@ struct ShellRGBA: Equatable {
         return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
     }
 
+    static let readableTextContrast = 4.5
+
     func contrast(_ other: ShellRGBA) -> Double {
         let (light, dark) = (max(luminance, other.luminance), min(luminance, other.luminance))
         return (light + 0.05) / (dark + 0.05)
@@ -174,7 +176,8 @@ extension ShellTheme {
     }
 
     private static func readable(_ color: ShellRGBA, under text: ShellRGBA, toward target: ShellRGBA) -> ShellRGBA {
-        (0 ... 10).lazy.map { color.mixed(with: target, Double($0) / 10) }.first { $0.contrast(text) >= 4.5 } ?? target
+        (0 ... 10).lazy.map { color.mixed(with: target, Double($0) / 10) }
+            .first { $0.contrast(text) >= ShellRGBA.readableTextContrast } ?? target
     }
 
     private static func lift(_ color: ShellRGBA, above grounds: [ShellRGBA], toward target: ShellRGBA) -> ShellRGBA {

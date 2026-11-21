@@ -178,9 +178,11 @@ struct WindowClassificationRulesSnapshot: Codable, Equatable, Sendable {
             axSubrole: rule.axSubrole.map(RuntimeTraceLimits.boundedString),
             layout: rule.layout,
             assignToWorkspace: rule.assignToWorkspace.map(RuntimeTraceLimits.boundedString),
+            assignToWorkspaceForAllWindows: rule.assignToWorkspaceForAllWindows,
             initialContainerPrimarySpan: rule.initialContainerPrimarySpan,
             minWidth: rule.minWidth,
-            minHeight: rule.minHeight
+            minHeight: rule.minHeight,
+            scratchpad: rule.scratchpad
         )
     }
 

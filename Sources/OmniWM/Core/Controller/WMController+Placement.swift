@@ -8,6 +8,7 @@ import OmniWMIPC
 extension WMController {
     func resolveWorkspaceForNewWindow(
         workspaceName: String? = nil,
+        assignToWorkspaceForAllWindows: Bool = false,
         axRef: AXWindowRef,
         pid: pid_t,
         parentWindowId: UInt32? = nil,
@@ -17,7 +18,7 @@ extension WMController {
         allowsFloatingSpawnPlacement: Bool = false,
         placementOrigin: WorkspacePlacementOrigin = .liveCreate,
         createPlacementContext: WindowCreatePlacementContext? = nil,
-        windowFrame: CGRect? = nil,
+        appKitFrame: CGRect? = nil,
         fallbackWorkspaceId: WorkspaceDescriptor.ID?
     ) -> WorkspacePlacementResolution {
         placementResolver.resolveWorkspacePlacement(
@@ -26,11 +27,12 @@ extension WMController {
                 pid: pid,
                 parentWindowId: parentWindowId,
                 placementMode: placementMode,
-                windowFrame: windowFrame,
+                appKitFrame: appKitFrame,
                 existingEntry: nil
             ),
             rules: WorkspacePlacementRules(
                 workspaceName: workspaceName,
+                assignToWorkspaceForAllWindows: assignToWorkspaceForAllWindows,
                 inheritTrackedParentWorkspace: inheritTrackedParentWorkspace,
                 structuralReplacementWorkspaceId: structuralReplacementWorkspaceId,
                 allowsFloatingSpawnPlacement: allowsFloatingSpawnPlacement
@@ -51,20 +53,24 @@ extension WMController {
         structuralReplacementWorkspaceId: WorkspaceDescriptor.ID? = nil,
         placementMode: TrackedWindowMode,
         placementContext: WorkspacePlacementContext,
-        windowFrame: CGRect? = nil
+        appKitFrame: CGRect? = nil
     ) -> WorkspaceDescriptor.ID {
         let inheritTrackedParentWorkspace = shouldInheritTrackedParentWorkspace(for: evaluation)
+        let placementFrame = appKitFrame ?? WindowAdmissionGeometryEvidence.usableAppKitFrame(
+            fromWindowServer: evaluation.facts.windowServer?.frame
+        )
         return placementResolver.resolveWorkspacePlacement(
             window: WorkspacePlacementWindow(
                 axRef: axRef,
                 pid: evaluation.token.pid,
                 parentWindowId: evaluation.facts.windowServer?.parentId,
                 placementMode: placementMode,
-                windowFrame: windowFrame ?? evaluation.facts.windowServer?.frame,
+                appKitFrame: placementFrame,
                 existingEntry: existingEntry
             ),
             rules: WorkspacePlacementRules(
                 workspaceName: evaluation.decision.workspaceName,
+                assignToWorkspaceForAllWindows: evaluation.decision.assignToWorkspaceForAllWindows,
                 inheritTrackedParentWorkspace: inheritTrackedParentWorkspace,
                 structuralReplacementWorkspaceId: structuralReplacementWorkspaceId,
                 allowsFloatingSpawnPlacement: allowsFloatingSpawnPlacement(

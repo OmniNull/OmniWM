@@ -11,6 +11,7 @@ enum TrackedWindowMode: Equatable, Hashable, Sendable {
 
 final class WindowModel {
     typealias WindowKey = WindowToken
+    typealias EntryIndex = Dictionary<WindowToken, WindowState>.Values.Index
 
     private struct WorkspaceModeKey: Hashable {
         let workspaceId: WorkspaceDescriptor.ID
@@ -316,6 +317,21 @@ extension WindowModel {
     private func readEntry<Result>(_ token: WindowToken, _ read: (inout WindowState) -> Result) -> Result? {
         guard let index = entries.index(forKey: token) else { return nil }
         return read(&entries.values[index])
+    }
+
+    func withEntry<Result>(_ token: WindowToken, _ read: (borrowing WindowState) -> Result) -> Result? {
+        readEntry(token) { (entry: inout WindowState) in read(entry) }
+    }
+
+    func withEntry<Result>(forWindowId windowId: Int, _ read: (borrowing WindowState) -> Result) -> Result? {
+        windowIdToToken[windowId].flatMap { withEntry($0, read) }
+    }
+
+    func withEntry<Result>(at index: EntryIndex, _ read: (borrowing WindowState) -> Result) -> Result {
+        func borrow(_ entry: inout WindowState) -> Result {
+            read(entry)
+        }
+        return borrow(&entries.values[index])
     }
 
     private func updateEntry(_ token: WindowToken, _ update: (inout WindowState) -> Void) {

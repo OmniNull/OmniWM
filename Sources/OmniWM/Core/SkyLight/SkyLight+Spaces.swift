@@ -217,6 +217,16 @@ extension SkyLight {
         }
     }
 
+    func currentSpaceUUID(forDisplay identifier: String) -> String? {
+        let cid = getMainConnectionID()
+        guard cid != 0,
+              let displaySpaces = spaces.copyManagedDisplaySpaces(cid)?.takeRetainedValue() as? [[String: Any]],
+              let display = displaySpaces.first(where: { $0["Display Identifier"] as? String == identifier })
+              ?? displaySpaces.first(where: { $0["Display Identifier"] as? String == "Main" })
+        else { return nil }
+        return (display["Current Space"] as? [String: Any])?["uuid"] as? String
+    }
+
     nonisolated static func displayUUID(for displayId: CGDirectDisplayID) -> String? {
         guard let uuid = displayCreateUUIDFromDisplayID?(displayId)?.takeRetainedValue(),
               let string = CFUUIDCreateString(nil, uuid)

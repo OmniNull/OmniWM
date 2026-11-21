@@ -210,19 +210,24 @@ final class DwindleSplitInsertionTests: XCTestCase {
     }
 
     func testExclusionAndFullscreenCancelInsteadOfRetargeting() throws {
-        for invalidation in 0 ..< 4 {
+        enum Invalidation: CaseIterable {
+            case sourceExcluded, firstBranchExcluded, secondBranchExcluded, firstPeerFullscreen, lastPeerFullscreen
+        }
+        for invalidation in Invalidation.allCases {
             for updateBeforeRelease in [false, true] {
                 let fixture = makeFixture(orientation: .horizontal)
                 let engine = fixture.engine
                 let ws = fixture.workspaceId
                 try hover(fixture.tokens[0], fixture: fixture)
                 switch invalidation {
-                case 0: engine.setExcludedTokens([fixture.tokens[0]], in: ws)
-                case 1: engine.setExcludedTokens([fixture.tokens[1], fixture.tokens[2]], in: ws)
-                case 2: engine.setExcludedTokens([fixture.tokens[3], fixture.tokens[4]], in: ws)
-                default:
-                    engine.setSelectedNode(engine.findNode(for: fixture.tokens[1], in: ws), in: ws)
-                    XCTAssertEqual(engine.toggleFullscreen(in: ws), fixture.tokens[1])
+                case .sourceExcluded: engine.setExcludedTokens([fixture.tokens[0]], in: ws)
+                case .firstBranchExcluded: engine.setExcludedTokens([fixture.tokens[1], fixture.tokens[2]], in: ws)
+                case .secondBranchExcluded: engine.setExcludedTokens([fixture.tokens[3], fixture.tokens[4]], in: ws)
+                case .firstPeerFullscreen,
+                     .lastPeerFullscreen:
+                    let token = invalidation == .firstPeerFullscreen ? fixture.tokens[1] : fixture.tokens[4]
+                    engine.setSelectedNode(engine.findNode(for: token, in: ws), in: ws)
+                    XCTAssertEqual(engine.toggleFullscreen(in: ws), token)
                 }
                 let before = tree(try XCTUnwrap(engine.root(for: ws)))
                 let frames = engine.calculateLayout(for: ws, screen: screen)

@@ -50,7 +50,8 @@ final class HostedWindowPresentationTests: XCTestCase {
             let item = try XCTUnwrap(palette.first { $0.id == entry.token })
             XCTAssertEqual(item.appName, metadata.title)
             XCTAssertEqual(item.title, metadata.title)
-            try assertHostedSymbol(item.appIcon, named: metadata.icon)
+            XCTAssertEqual(item.hostedSymbol, metadata.icon)
+            XCTAssertNil(item.bundleIdentifier)
             let tile = overview.makeOverviewWindowData(
                 for: entry,
                 preferredFrame: nil,

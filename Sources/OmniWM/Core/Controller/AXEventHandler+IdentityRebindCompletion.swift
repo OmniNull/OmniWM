@@ -118,7 +118,7 @@ extension AXEventHandler {
         }
         let focusTransactionIds = controller.dwindleLayoutHandler
             .groupReveals.currentPendingGroupRevealFocusTransactionIds(for: oldToken)
-        return controller.withRuntimeFrameJobCancellationSuppressed {
+        let rekeyedEntry: WindowState? = controller.withRuntimeFrameJobCancellationSuppressed {
             guard let entry = controller.workspaceManager.rekeyWindow(
                 from: oldToken,
                 to: newToken,
@@ -152,5 +152,26 @@ extension AXEventHandler {
             )
             return entry
         }
+        if let rekeyedEntry, let frame = managedReplacementMetadata?.readOnlyAdmissionFrame {
+            return applyReadOnlyReplacementAdmission(frame: frame, entry: rekeyedEntry, controller: controller)
+        }
+        return rekeyedEntry
+    }
+
+    private func applyReadOnlyReplacementAdmission(
+        frame: CGRect, entry: WindowState, controller: WMController
+    ) -> WindowState? {
+        let manager = controller.workspaceManager
+        guard manager.setWindowMode(.floating, for: entry.token) else { return entry }
+        manager.updateFloatingGeometry(
+            frame: frame,
+            for: entry.token,
+            referenceMonitor: manager.monitor(for: entry.workspaceId),
+            restoreToFloating: true
+        )
+        controller.layoutRefreshController.requestRelayout(
+            reason: .windowRuleReevaluation, affectedWorkspaceIds: [entry.workspaceId], suppressWindowActivation: true
+        )
+        return manager.entry(for: entry.token)
     }
 }

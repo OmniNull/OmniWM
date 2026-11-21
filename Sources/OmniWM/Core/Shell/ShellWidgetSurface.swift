@@ -25,6 +25,8 @@ final class ShellWidgetSurface {
     var onDrag: (@MainActor (ShellDragEvent) -> Void)?
     var onTooltip: (@MainActor (ShellTooltipEvent?) -> Void)?
     var onMove: (@MainActor () -> Void)?
+    var onScroll: (@MainActor () -> Void)?
+    var onVisibleBoundsChange: (@MainActor () -> Void)?
     var onFocusChange: (@MainActor (Bool) -> Void)?
     var onUnhandledEscape: (() -> Void)?
     var sequence = 0
@@ -65,7 +67,7 @@ final class ShellWidgetSurface {
     let layout = ShellWidgetLayout()
     let scene: ShellLayerScene
     let resources: ShellResources
-    let palette: ShellPalette
+    var palette: ShellPalette
     let motionPolicy: MotionPolicy
     var animates = false
     var drawsRootMaterial = false
@@ -73,6 +75,16 @@ final class ShellWidgetSurface {
     var symbolImages: [SymbolKey: CGImage] = [:]
     var iconImages: [IconKey: CGImage] = [:]
     var pointer: CGPoint?
+    private(set) var visibleBounds: CGRect?
+    var followedTarget: String? {
+        didSet {
+            guard followedTarget != oldValue else { return }
+            revealFollowedTarget()
+        }
+    }
+
+    var followedFrame: Rect?
+
     var hovered: [ElementHandle] = []
     var hoverScratch: [ElementHandle] = []
     var focused = ElementHandle.none
@@ -84,7 +96,7 @@ final class ShellWidgetSurface {
     var tooltipTarget = ElementHandle.none
     var tooltipTimer: DispatchWorkItem?
     var previewed = ElementHandle.none
-    var previewFrame: Rect?
+    var previewFrame: CGRect?
     var pressed = ElementHandle.none
     var pressedButton = ShellEvent.Button.left
     var pressCapture: ShellPointerCapture?
@@ -127,6 +139,8 @@ final class ShellWidgetSurface {
     var dragging = false
     var textInputs: [ElementHandle: ShellTextInput] = [:]
     var inputAppearances: [ElementHandle: ShellOwnedInputAppearance] = [:]
+    var pinnedInput: ShellTextInput?
+    var pinnedInputKey: UInt64 = 0
     weak var text: ShellTextStore?
 
     struct SymbolKey: Hashable {
@@ -225,6 +239,13 @@ extension ShellWidgetSurface {
         layout.naturalSize
     }
 
+    func setVisibleBounds(_ bounds: CGRect?) {
+        guard bounds != visibleBounds else { return }
+        visibleBounds = bounds
+        updatePreview()
+        onVisibleBoundsChange?()
+    }
+
     var chrome: ShellPopoutChrome {
         let root = layout.core.rootHandle
         guard layout.core.contains(root) else { return ShellPopoutChrome() }
@@ -237,12 +258,19 @@ extension ShellWidgetSurface {
     }
 
     @discardableResult
-    func apply(_ output: [UInt8], text: ShellTextStore, gestureAcknowledgement: UInt64 = 0) -> Bool {
+    func apply(
+        _ output: [UInt8],
+        text: ShellTextStore,
+        gestureAcknowledgement: UInt64 = 0,
+        keeping anchor: ShellScrollAnchor? = nil
+    ) -> Bool {
         let followerExits = followerExitBindings()
-        guard layout.apply(output, text: text) else {
+        let scrollLimit = rootScroll?.limit
+        guard layout.apply(output, text: text, visibleBounds: visibleBounds) else {
             acknowledgeGesture(through: gestureAcknowledgement)
             return false
         }
+        let anchored = anchor.flatMap(keep)
         if self.text !== text { keyDeclaration = 0
             declaredKeys = []
         }
@@ -266,6 +294,7 @@ extension ShellWidgetSurface {
         }
         reconcileOwnedEditorFocus()
         commands += self.commands(text: text)
+        if let anchored { commands.append(anchored) }
         reconcileResourceDrop()
         updateHover(into: &commands, reapply: true)
         let receipt = finishManipulationLayout(through: gestureAcknowledgement, commands: &commands)
@@ -278,6 +307,10 @@ extension ShellWidgetSurface {
         }
         animates = true
         onMove?()
+        if rootScroll?.limit != scrollLimit || followedItem.map(contentFrame) != followedFrame {
+            revealFollowedTarget()
+            onScroll?()
+        }
         return true
     }
 
@@ -350,10 +383,16 @@ extension ShellWidgetSurface {
         cancelManipulation(reason: "display-changed", immediate: true)
         finishSettle()
         layout.setRootLimit(size)
+        reconcileInput()
+        reconcileResourceDrop()
+        updatePreview()
         guard let text else { return }
         var commands = commands(text: text)
+        layoutTextInputs(into: &commands)
         appendFollow(into: &commands)
         scene.submit(commands, animated: false)
+        onMove?()
+        revealFollowedTarget()
     }
 
     var animatesShaders: Bool {
@@ -399,7 +438,8 @@ extension ShellWidgetSurface {
         reveals.removeAll()
         retiringReveals.removeAll()
         blurDeclaredFocus()
-        for input in textInputs.values { input.remove() }
+        for input in textInputs.values where input !== pinnedInput { input.remove() }
+        pinnedInput?.unbind()
         textInputs.removeAll(keepingCapacity: true)
         inputAppearances.removeAll(keepingCapacity: true)
         self.text = text

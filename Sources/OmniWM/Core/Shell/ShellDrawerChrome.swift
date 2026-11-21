@@ -141,9 +141,6 @@ final class ShellDrawerChrome {
 
     private func layout() {
         let layout = placement.layout(size: size)
-        let appearance = NSApp.appearance
-        panel.appearance = appearance
-        drawer.appearance = appearance
         panel.hasShadow = placement.workspaceBar == nil
         panel.setFrame(layout.frame, display: true)
         background.rootView = HiddenBarPanelBackground(layout: layout, placement: placement)

@@ -37,7 +37,7 @@ function render(ctx)
         else
             props.gap = 8 * scale
             if m.showIcon then
-                props[#props + 1] = look.glyph{ name = "calendar", size = look.px(ctx, "symbol") }
+                props[#props + 1] = look.barGlyph(ctx, { name = "calendar" })
             end
             if m.showDate then
                 props[#props + 1] = look.text{ text = m.date, size = 13 * scale, color = "secondaryForeground" }

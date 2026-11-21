@@ -34,6 +34,8 @@ enum IPCRuleProjection {
             validation.identifierError,
             validation.titleMatcherError,
             validation.initialContainerPrimarySpanError,
+            validation.workspaceAssignmentError,
+            validation.scratchpadError,
             validation.effectError,
             validation.minSizeError
         ].compactMap { $0 }
@@ -50,9 +52,11 @@ enum IPCRuleProjection {
             axSubrole: definition.axSubrole,
             layout: definition.layout,
             assignToWorkspace: definition.assignToWorkspace,
+            assignToWorkspaceForAllWindows: definition.assignToWorkspaceForAllWindows,
             initialContainerPrimarySpan: definition.initialContainerPrimarySpan,
             minWidth: definition.minWidth,
             minHeight: definition.minHeight,
+            scratchpad: definition.scratchpad,
             specificity: rule.specificity,
             isValid: isValid,
             invalidRegexMessage: invalidRegexMessage,
@@ -71,9 +75,11 @@ enum IPCRuleProjection {
                 axSubrole: rule.axSubrole,
                 layout: ipcRuleLayout(from: rule.effectiveLayoutAction),
                 assignToWorkspace: rule.assignToWorkspace,
+                assignToWorkspaceForAllWindows: rule.assignToWorkspaceForAllWindows,
                 initialContainerPrimarySpan: rule.initialContainerPrimarySpan,
                 minWidth: rule.minWidth,
-                minHeight: rule.minHeight
+                minHeight: rule.minHeight,
+                scratchpad: rule.scratchpad
             )
         )
     }
@@ -90,9 +96,11 @@ enum IPCRuleProjection {
             axSubrole: normalized.axSubrole,
             layout: windowRuleLayout(from: normalized.layout),
             assignToWorkspace: normalized.assignToWorkspace,
+            assignToWorkspaceForAllWindows: normalized.assignToWorkspaceForAllWindows,
             initialContainerPrimarySpan: normalized.initialContainerPrimarySpan,
             minWidth: normalized.minWidth,
-            minHeight: normalized.minHeight
+            minHeight: normalized.minHeight,
+            scratchpad: normalized.scratchpad
         )
     }
 
@@ -106,9 +114,11 @@ enum IPCRuleProjection {
             axSubrole: trimmedNonEmpty(definition.axSubrole),
             layout: definition.layout,
             assignToWorkspace: trimmedNonEmpty(definition.assignToWorkspace),
+            assignToWorkspaceForAllWindows: definition.assignToWorkspaceForAllWindows,
             initialContainerPrimarySpan: definition.initialContainerPrimarySpan,
             minWidth: definition.minWidth,
-            minHeight: definition.minHeight
+            minHeight: definition.minHeight,
+            scratchpad: definition.scratchpad
         )
     }
 

@@ -132,8 +132,9 @@ enum ShellSettingsPreview {
                 surface: islandData
             ), settings: config.widgetSettings, expanded: expanded, renderBudget: renderBudget
         )
+        let paletteDark = request.dark || (islandSize == nil && request.style.solidBlack)
         let images = try await ShellSettingsPreviewRaster.render(
-            trees, theme: config.theme, dark: request.dark, scale: request.scale, limit: islandSize
+            trees, theme: config.theme, dark: paletteDark, scale: request.scale, limit: islandSize
         )
         try Task.checkCancellation()
         if let image = images.first, islandSize != nil { return image.image }

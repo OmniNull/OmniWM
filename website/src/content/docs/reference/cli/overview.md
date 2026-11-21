@@ -121,7 +121,7 @@ Turning **Enable IPC** on starts the server immediately and creates the Unix soc
 
 ## IPC Protocol
 
-**Protocol version:** 22
+**Protocol version:** 23
 
 The client and server versions must match exactly. A mismatched client can still call `version`, but every other remote request returns `protocol_mismatch`; there is no cross-version compatibility path.
 
@@ -166,7 +166,9 @@ If `OMNIWM_SOCKET` points into an existing directory, OmniWM reuses that directo
 
 ## Shell Completion
 
-Generate shell completion scripts for `omniwmctl`.
+Generate the shell registration for native `omniwmctl` completion.
+
+`omniwmctl` must be on `PATH` when you press Tab. Fish requires version 4.0 or newer; Nushell requires version 0.116.0 or newer.
 
 ```
 omniwmctl completion <zsh|bash|fish|nu>
@@ -188,7 +190,7 @@ omniwmctl completion fish | source
 
 ### Nushell
 
-Nushell completions require Nu 0.108 or newer. Run these commands in Nushell to generate the completion module:
+Nushell completions use the record-based completer API in Nushell 0.116.0 or newer. Run these commands to generate the registration module:
 
 ```nu
 mkdir ($nu.default-config-dir | path join completions)
@@ -201,7 +203,7 @@ Then add this line to `config.nu` (open it with `config nu`):
 use ($nu.default-config-dir | path join completions omniwmctl-completions.nu) omniwmctl
 ```
 
-Start a new Nushell session, or run the `use` line at the prompt after generating the file. Regenerate the module after upgrading OmniWM, then start a new session to load the updated completions.
+Start a new Nushell session, or run the `use` line at the prompt after generating the file. Suggestions come from the installed `omniwmctl`, so catalog updates do not require regenerating the registration.
 
 Type one of these prefixes and press Tab:
 
@@ -211,4 +213,4 @@ Type one of these prefixes and press Tab:
 | `omniwmctl completion n` | `nu` |
 | `omniwmctl capture start perf` | `performance` |
 
-Completions are context-aware: query names, selectors, field names, command paths, capture actions and profiles, channel names, rule actions, and fixed argument values come from the shared automation catalog. Generating and using completions does not connect to IPC; live workspace names and window IDs are not suggested.
+Completions are context-aware: query names, selectors, field names, command paths, capture actions and profiles, channel names, rule actions, and fixed argument values come from the shared automation catalog. Each Tab request runs native selection in `omniwmctl`; the generated shell text only registers that command. Generating and using completions does not connect to IPC; live workspace names and window IDs are not suggested.

@@ -30,19 +30,6 @@ struct RuntimeQuakeTerminalFrame: Codable, Equatable, Sendable {
     }
 }
 
-struct IssueDraft: Codable, Equatable, Sendable {
-    var title: String = ""
-    var actual: String = ""
-    var expected: String = ""
-    var repro: String = ""
-    var affectedApps: String = ""
-    var category: String = ""
-    var layout: String = ""
-    var regression: String = ""
-    var regressionVersion: String = ""
-    var polishedBody: String = ""
-}
-
 enum MonitorSetupStatus: String, Codable, Equatable, Sendable {
     case notPresented
     case dismissed
@@ -69,10 +56,9 @@ struct RuntimeState: Codable, Equatable, Sendable {
     var launcherLaunches: [String: [LauncherLaunch]]?
     var launcherShortcuts: [String: LauncherShortcut]?
     var launcherHiddenSuggestions: [String]?
+    var unifiedSearchPickHistory: UnifiedSearchPickHistory?
     var quakeTerminalUseCustomFrame: Bool?
     var quakeTerminalCustomFrame: RuntimeQuakeTerminalFrame?
-    var issueDraft: IssueDraft?
-    var hasSeenIssueWalkthrough: Bool?
     var welcomePresented: Bool?
     var screenRecordingPromptDeclined: Bool?
     var monitorSetupStatus: MonitorSetupStatus?
@@ -294,24 +280,6 @@ final class RuntimeStateStore {
         }
     }
 
-    var issueDraft: IssueDraft? {
-        get { state.issueDraft }
-        set {
-            guard state.issueDraft != newValue else { return }
-            state.issueDraft = newValue
-            scheduleSave()
-        }
-    }
-
-    var hasSeenIssueWalkthrough: Bool {
-        get { state.hasSeenIssueWalkthrough ?? false }
-        set {
-            guard hasSeenIssueWalkthrough != newValue else { return }
-            state.hasSeenIssueWalkthrough = newValue
-            scheduleSave()
-        }
-    }
-
     var welcomePresented: Bool {
         get { state.welcomePresented ?? false }
         set {
@@ -428,5 +396,24 @@ extension RuntimeStateStore {
             state.screenRecordingPromptDeclined = newValue
             scheduleSave()
         }
+    }
+
+    func recordUnifiedSearchPick(query: String, key: UnifiedSearchPickKey, date: Date = Date()) {
+        var history = state.unifiedSearchPickHistory ?? UnifiedSearchPickHistory()
+        history.record(query: query, key: key, date: date)
+        guard history != state.unifiedSearchPickHistory else { return }
+        state.unifiedSearchPickHistory = history
+        scheduleSave()
+    }
+
+    func unifiedSearchLearnedPicks(for query: String) -> [UnifiedSearchPickKey] {
+        (state.unifiedSearchPickHistory ?? UnifiedSearchPickHistory())
+            .learnedPicksStrongestFirst(for: query, launcherLaunches: state.launcherLaunches ?? [:])
+    }
+
+    func clearUnifiedSearchPickHistory() {
+        guard state.unifiedSearchPickHistory != nil else { return }
+        state.unifiedSearchPickHistory = nil
+        scheduleSave()
     }
 }

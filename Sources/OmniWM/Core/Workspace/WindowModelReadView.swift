@@ -117,6 +117,14 @@ extension WindowModel {
             model.workspace(for: token)
         }
 
+        func withEntry<Result>(_ token: WindowToken, _ read: (borrowing WindowState) -> Result) -> Result? {
+            model.withEntry(token, read)
+        }
+
+        func withEntry<Result>(forWindowId windowId: Int, _ read: (borrowing WindowState) -> Result) -> Result? {
+            model.withEntry(forWindowId: windowId, read)
+        }
+
         func mode(for token: WindowToken) -> TrackedWindowMode? {
             model.mode(for: token)
         }

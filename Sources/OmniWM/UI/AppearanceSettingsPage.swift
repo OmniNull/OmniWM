@@ -33,18 +33,6 @@ struct AppearanceSettingsPage: View {
         )
         return Form {
             Section("Appearance") {
-                Picker("App Appearance", selection: $settings.appearanceMode) {
-                    ForEach(AppearanceMode.allCases, id: \.self) { mode in
-                        Text(mode.localizedDisplayName).tag(mode)
-                    }
-                }
-                .id("App Appearance")
-                .onChange(of: settings.appearanceMode) { _, _ in
-                    controller.applyCurrentAppearanceMode()
-                }
-
-                SettingsCaption(localized: "Follows macOS appearance or uses the selected light or dark appearance.")
-
                 Toggle("Show app icons in tab rails", isOn: Binding(
                     get: { settings.tabRailAppIcons },
                     set: { controller.setTabRailAppIcons($0) }
@@ -59,6 +47,13 @@ struct AppearanceSettingsPage: View {
                     controller.motionPolicy.systemReducesMotion
                         ? String(localized: "Off while macOS Reduce Motion is on.")
                         : String(localized: "Turns OmniWM-authored animations on or off live without relaunching.")
+                )
+
+                Toggle("Slide Workspace Switches", isOn: $settings.slideWorkspaceSwitches)
+                    .id("Slide Workspace Switches")
+                    .disabled(!controller.motionPolicy.animationsEnabled)
+                SettingsCaption(
+                    localized: "Workspace switches from shortcuts, the command palette and omniwmctl slide like a trackpad swipe. Needs Screen Recording."
                 )
 
                 SettingsSliderRow(

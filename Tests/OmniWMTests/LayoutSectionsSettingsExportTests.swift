@@ -29,7 +29,15 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
             "resizeStepPercent": .integer(5),
             "moveWindowStacksIntoColumn": .boolean(true),
             "allowOverscroll": .boolean(false),
-            "overscrollVisibleStripPercent": .integer(5)
+            "overscrollVisibleStripPercent": .integer(5),
+            "shrinkToFit": .boolean(false),
+            "edgePeekPercent": .float(BuiltInSettingsDefaults.niriEdgePeekPercent),
+            "fitToVisibleContainerCount": .boolean(false),
+            "keepExistingWindowWidth": .boolean(false),
+            "keepSizeOnUnstack": .boolean(false),
+            "keepSizesOnDisplayMove": .boolean(false),
+            "keepSizesOnSettingsChange": .boolean(false),
+            "keepStripEndsOnScreen": .boolean(false)
         ]))
         XCTAssertEqual(tree["dwindle"], .table([
             "smartSplit": .boolean(false),
@@ -135,6 +143,125 @@ final class LayoutSectionsSettingsExportTests: XCTestCase {
         XCTAssertEqual(restored.resizeStepPercent, 7)
         XCTAssertEqual(decoded.hotkeyBindings, export.hotkeyBindings)
         XCTAssertEqual(decoded.hotkeyBindings.filter { ids.contains($0.id) }.count, 6)
+    }
+
+    @MainActor
+    func testStripControlsDefaultOffRoundTripAndLoadWhenOmitted() throws {
+        let controls: [(
+            key: String,
+            export: WritableKeyPath<SettingsExport.Niri, Bool?>,
+            setting: ReferenceWritableKeyPath<NiriSettings, Bool>
+        )] = [
+            ("fitToVisibleContainerCount", \.fitToVisibleContainerCount, \.fitToVisibleContainerCount),
+            ("keepExistingWindowWidth", \.keepExistingWindowWidth, \.keepExistingWindowWidth),
+            ("keepSizeOnUnstack", \.keepSizeOnUnstack, \.keepSizeOnUnstack),
+            ("keepSizesOnDisplayMove", \.keepSizesOnDisplayMove, \.keepSizesOnDisplayMove),
+            ("keepSizesOnSettingsChange", \.keepSizesOnSettingsChange, \.keepSizesOnSettingsChange),
+            ("keepStripEndsOnScreen", \.keepStripEndsOnScreen, \.keepStripEndsOnScreen)
+        ]
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        for control in controls {
+            XCTAssertEqual(SettingsExport.defaults().niri[keyPath: control.export], false, control.key)
+            XCTAssertFalse(NiriSettings()[keyPath: control.setting], control.key)
+
+            var export = SettingsExport.defaults()
+            export.niri[keyPath: control.export] = true
+            let encoded = try SettingsTOMLCodec.encode(export)
+            XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("\(control.key) = true"), control.key)
+            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export, control.key)
+            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty, control.key)
+
+            let settings = NiriSettings()
+            settings.apply(export.niri, baseline: .defaults())
+            XCTAssertTrue(settings[keyPath: control.setting], control.key)
+            XCTAssertEqual(settings.export()[keyPath: control.export], true, control.key)
+
+            let omitted = try removing(key: control.key, from: "niri", in: source)
+            let result = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8))
+            XCTAssertNil(result.migration, control.key)
+            XCTAssertNil(result.export.niri[keyPath: control.export], control.key)
+            settings.apply(result.export.niri, baseline: .defaults())
+            XCTAssertFalse(settings[keyPath: control.setting], control.key)
+        }
+    }
+
+    @MainActor
+    func testDefaultSpanRoundTripsAsAutoAppWidthOrAClampedCustomSpan() throws {
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let defaultLine = "defaultContainerPrimarySpan = 0.5\n"
+        XCTAssertTrue(source.contains(defaultLine))
+        func loaded(_ line: String) throws -> NiriSettings {
+            let settings = NiriSettings()
+            let edited = source.replacingOccurrences(of: defaultLine, with: line)
+            settings.apply(try SettingsTOMLCodec.decodeForLoad(Data(edited.utf8)).export.niri, baseline: .defaults())
+            return settings
+        }
+
+        let app = try loaded("defaultContainerPrimarySpan = \"app\"\n")
+        XCTAssertTrue(app.opensNewWindowsAtAppWidth)
+        XCTAssertNil(app.defaultContainerPrimarySpan)
+        XCTAssertEqual(app.export().defaultContainerPrimarySpan, .app)
+        var export = SettingsExport.defaults()
+        export.niri.defaultContainerPrimarySpan = .app
+        let encoded = try SettingsTOMLCodec.encode(export)
+        XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("defaultContainerPrimarySpan = \"app\""))
+        XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+
+        let auto = try loaded("")
+        XCTAssertFalse(auto.opensNewWindowsAtAppWidth)
+        XCTAssertNil(auto.defaultContainerPrimarySpan)
+        XCTAssertNil(auto.export().defaultContainerPrimarySpan)
+
+        let custom = try loaded("defaultContainerPrimarySpan = 0.6\n")
+        XCTAssertFalse(custom.opensNewWindowsAtAppWidth)
+        XCTAssertEqual(custom.defaultContainerPrimarySpan, 0.6)
+        XCTAssertEqual(custom.export().defaultContainerPrimarySpan, .custom(0.6))
+
+        let tooWide = try loaded("defaultContainerPrimarySpan = 1.5\n")
+        XCTAssertEqual(tooWide.defaultContainerPrimarySpan, NiriSettings.validatedDefaultContainerPrimarySpan(1.5))
+    }
+
+    @MainActor
+    func testPeripheralVisionDefaultsToOffRoundTripsAndIsClampedFromZeroToTen() throws {
+        XCTAssertEqual(BuiltInSettingsDefaults.niriEdgePeekPercent, 0)
+        XCTAssertEqual(SettingsExport.defaults().niri.edgePeekPercent, BuiltInSettingsDefaults.niriEdgePeekPercent)
+        XCTAssertEqual(NiriSettings().edgePeekPercent, BuiltInSettingsDefaults.niriEdgePeekPercent)
+        var export = SettingsExport.defaults()
+        export.niri.edgePeekPercent = 5
+        let encoded = try SettingsTOMLCodec.encode(export)
+        XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("edgePeekPercent = 5"))
+        XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "edgePeekPercent", from: "niri", in: source)
+        let decoded = try SettingsTOMLCodec.decodeForLoad(Data(omitted.utf8)).export
+        XCTAssertNil(decoded.niri.edgePeekPercent)
+        let settings = NiriSettings()
+        settings.apply(decoded.niri, baseline: .defaults())
+        XCTAssertEqual(settings.edgePeekPercent, BuiltInSettingsDefaults.niriEdgePeekPercent)
+        settings.edgePeekPercent = 40
+        XCTAssertEqual(settings.edgePeekPercent, 10)
+        settings.edgePeekPercent = -1
+        XCTAssertEqual(settings.edgePeekPercent, 0)
+    }
+
+    @MainActor
+    func testASettingsFileThatStillHoldsTheRemovedSwitchAndDropModifierLoads() throws {
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let kept = "shrinkToFit = false\n"
+        let removed = ["macOSFusion", "macOSFusionModifier"]
+        let withOldKeys = source.replacingOccurrences(
+            of: kept,
+            with: kept + "\(removed[0]) = true\n\(removed[1]) = \"option\"\n"
+        )
+        XCTAssertNotEqual(withOldKeys, source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(withOldKeys.utf8))
+        XCTAssertNil(result.migration)
+        XCTAssertEqual(result.export, SettingsExport.defaults())
+        XCTAssertEqual(
+            Set(SettingsTOMLCodec.unknownKeyPaths(in: Data(withOldKeys.utf8))),
+            Set(removed.map { "niri.\($0)" })
+        )
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {

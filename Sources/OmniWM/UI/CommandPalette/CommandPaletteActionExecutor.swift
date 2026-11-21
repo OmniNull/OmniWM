@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 private enum CommandPaletteFocusSignal {
     static let name = Notification.Name("OmniWM.CommandPalette.FocusChanged")
@@ -189,7 +188,7 @@ final class CommandPaletteActionExecutor {
                   let target,
                   !environment.isLockScreenActive(wmController),
                   environment.isAccessibilityTrusted(),
-                  !environment.isSecureInputActive()
+                  !(environment.isSecureInputActive() && wmController.settings.pausePalettePasteDuringSecureInput)
             else {
                 return
             }
@@ -444,7 +443,7 @@ extension CommandPaletteActionExecutor {
         case let .paste(controller):
             guard !environment.isLockScreenActive(controller),
                   environment.isAccessibilityTrusted(),
-                  !environment.isSecureInputActive()
+                  !(environment.isSecureInputActive() && controller.settings.pausePalettePasteDuringSecureInput)
             else {
                 return
             }

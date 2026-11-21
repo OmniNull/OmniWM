@@ -4,6 +4,45 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing IPCWorkspaceRequest) throws {
+        switch value {
+        case let .focusName(target):
+            begin(123)
+            var first = true
+            self.key("name", &first)
+            try self.value("focus-name")
+            self.key("workspaceTarget", &first)
+            try self.value(target)
+            end(125)
+        case let .moveToMonitor(target, direction, force):
+            begin(123)
+            var first = true
+            self.key("direction", &first)
+            try self.value(direction)
+            self.key("force", &first)
+            try self.value(force)
+            self.key("name", &first)
+            try self.value("move-to-monitor")
+            self.key("workspaceTarget", &first)
+            try self.value(target)
+            end(125)
+        case let .rename(target, displayName):
+            begin(123)
+            var first = true
+            self.key("displayName", &first)
+            try self.value(displayName)
+            self.key("name", &first)
+            try self.value("rename")
+            self.key("workspaceTarget", &first)
+            try self.value(target)
+            end(125)
+        }
+    }
+
+    mutating func value(_ value: borrowing IPCCycleDirection) throws {
+        try self.value(value.rawValue)
+    }
+
     mutating func value(_ value: borrowing IPCWindowRequest) throws {
         begin(123)
         var first = true
@@ -215,45 +254,6 @@ extension IPCJSONWriter {
             try shellRequestInitialize(widget)
         case let .trigger(widget, name, text):
             try shellRequestTrigger(widget, name, text)
-        }
-    }
-
-    mutating func value(_ value: borrowing IPCSubscribeRequest) throws {
-        begin(123)
-        var first = true
-        self.key("allChannels", &first)
-        try self.value(value.allChannels)
-        self.key("channels", &first)
-        try self.value(value.channels)
-        self.key("sendInitial", &first)
-        try self.value(value.sendInitial)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCRequest.Payload) throws {
-        switch value {
-        case let .none(payload):
-            try self.value(payload)
-        case let .command(payload):
-            try self.value(payload)
-        case let .capture(payload):
-            try self.value(payload)
-        case let .query(payload):
-            try self.value(payload)
-        case let .rule(payload):
-            try self.value(payload)
-        case let .workspace(payload):
-            try self.value(payload)
-        case let .window(payload):
-            try self.value(payload)
-        case let .windowMark(payload):
-            try self.value(payload)
-        case let .windowGather(payload):
-            try self.value(payload)
-        case let .shell(payload):
-            try self.value(payload)
-        case let .subscribe(payload):
-            try self.value(payload)
         }
     }
 }

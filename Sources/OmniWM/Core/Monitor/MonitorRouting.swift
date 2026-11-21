@@ -61,33 +61,37 @@ enum MonitorRouting {
         monitors: [Monitor],
         wrapAround: Bool
     ) -> Adjacency {
-        guard let completeLayout = completeLayout(layout, for: monitors) else {
-            return .fallBackToMacOS
+        guard let grid = Grid(layout: layout, monitors: monitors) else { return .fallBackToMacOS }
+        return grid.adjacent(from: source.id, direction: direction, wrapAround: wrapAround)
+    }
+
+    struct Grid {
+        private let monitors: [Monitor]
+        private let cells: [GridCell]
+
+        init?(layout: [MonitorRoutingSettings], monitors: [Monitor]) {
+            guard let completeLayout = MonitorRouting.completeLayout(layout, for: monitors) else { return nil }
+            self.monitors = monitors
+            cells = completeLayout.map { GridCell(column: $0.gridColumn, row: $0.gridRow) }
         }
 
-        let placed = zip(monitors, completeLayout).map { monitor, settings in
-            PlacedMonitor(monitor: monitor, column: settings.gridColumn, row: settings.gridRow)
+        func adjacent(from source: Monitor.ID, direction: Direction, wrapAround: Bool) -> Adjacency {
+            guard let originIndex = monitors.firstIndex(where: { $0.id == source }) else { return .fallBackToMacOS }
+            let origin = cells[originIndex]
+            var nearest: (index: Int, offset: Int)?
+            var farthestBehind: (index: Int, offset: Int)?
+            for index in cells.indices where index != originIndex && cells[index].sharesLine(
+                with: origin,
+                direction: direction
+            ) {
+                let offset = cells[index].offset(from: origin, direction: direction)
+                if offset > 0, offset < nearest?.offset ?? .max { nearest = (index, offset) }
+                if offset < farthestBehind?.offset ?? .max { farthestBehind = (index, offset) }
+            }
+            if let nearest { return .monitor(monitors[nearest.index]) }
+            guard wrapAround, let farthestBehind else { return .edge }
+            return .monitor(monitors[farthestBehind.index])
         }
-        guard let origin = placed.first(where: { $0.monitor.id == source.id }) else {
-            return .fallBackToMacOS
-        }
-
-        let line = placed.filter {
-            $0.monitor.id != origin.monitor.id && $0.sharesLine(with: origin, direction: direction)
-        }
-        let ahead = line.filter { $0.offset(from: origin, direction: direction) > 0 }
-        if let nearest = ahead.min(by: {
-            $0.offset(from: origin, direction: direction) < $1.offset(from: origin, direction: direction)
-        }) {
-            return .monitor(nearest.monitor)
-        }
-
-        guard wrapAround, let wrapped = line.min(by: {
-            $0.offset(from: origin, direction: direction) < $1.offset(from: origin, direction: direction)
-        }) else {
-            return .edge
-        }
-        return .monitor(wrapped.monitor)
     }
 
     static func completeLayout(
@@ -131,12 +135,11 @@ enum MonitorRouting {
     }
 }
 
-private struct PlacedMonitor {
-    let monitor: Monitor
+private struct GridCell: Hashable {
     let column: Int
     let row: Int
 
-    func sharesLine(with origin: PlacedMonitor, direction: Direction) -> Bool {
+    func sharesLine(with origin: GridCell, direction: Direction) -> Bool {
         switch direction {
         case .left,
              .right: row == origin.row
@@ -145,7 +148,7 @@ private struct PlacedMonitor {
         }
     }
 
-    func offset(from origin: PlacedMonitor, direction: Direction) -> Int {
+    func offset(from origin: GridCell, direction: Direction) -> Int {
         switch direction {
         case .right: column - origin.column
         case .left: origin.column - column
@@ -153,9 +156,4 @@ private struct PlacedMonitor {
         case .up: origin.row - row
         }
     }
-}
-
-private struct GridCell: Hashable {
-    let column: Int
-    let row: Int
 }

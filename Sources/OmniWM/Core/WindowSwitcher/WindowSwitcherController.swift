@@ -23,15 +23,27 @@ final class WindowSwitcherController {
     private var items: [WindowSwitcherItem] = []
     private var selection = WindowSwitcherSelection()
     private var workspaceId: WorkspaceDescriptor.ID?
+    private var visibleWorkspaceIds: Set<WorkspaceDescriptor.ID> = []
     private var scope = WindowSwitcherScope.allWorkspaces
     private var screenFrame = CGRect.zero
     private var scale: CGFloat = 2
     private let dismissalMonitor = PanelDismissalMonitor()
     private var generation: UInt64 = 0
+    private let modifierFlags: () -> CGEventFlags
+    private let armExternalSession: @MainActor (HotkeyCenter, CGEventFlags) -> UInt64?
     private(set) var isVisible = false
 
-    init(controller: WMController, previewCapture: OverviewThumbnailCapture? = nil) {
+    init(
+        controller: WMController,
+        previewCapture: OverviewThumbnailCapture? = nil,
+        modifierFlags: @escaping () -> CGEventFlags = { CGEventSource.flagsState(.combinedSessionState) },
+        armExternalSession: @escaping @MainActor (HotkeyCenter, CGEventFlags) -> UInt64? = {
+            $0.beginExternalWindowSwitcherSession(holding: $1)
+        }
+    ) {
         self.controller = controller
+        self.modifierFlags = modifierFlags
+        self.armExternalSession = armExternalSession
         panel = WindowSwitcherPanel(ownedWindowRegistry: controller.ownedWindowRegistry)
         capture = previewCapture ?? OverviewThumbnailCapture(consumer: .windowSwitcher)
         capture.onPreview = { [weak self] handle, frame in
@@ -45,7 +57,7 @@ final class WindowSwitcherController {
             self?.selection.select(token)
             self?.commit(focusOrigin: .pointerSelection)
         }
-        panel.onToggleScope = { [weak self] in self?.handle(.toggleScope) }
+        panel.onCycleScope = { [weak self] in self?.handle(.cycleScope) }
         panel.onClose = { [weak self] token in self?.close(token) }
         panel.onVisibleItemsChanged = { [weak self] displayed in self?.captureVisibleItems(displayed) }
     }
@@ -61,14 +73,10 @@ final class WindowSwitcherController {
         case let .begin(reverse, initialScope):
             begin(reverse: reverse, initialScope: initialScope)
         case let .cycle(reverse):
+            cycle(reverse: reverse)
+        case .cycleScope:
             guard isVisible else { return }
-            let previous = selection.selected
-            reconcileItems()
-            if selection.selected == previous { selection.cycle(reverse: reverse) }
-            render()
-        case .toggleScope:
-            guard isVisible else { return }
-            scope = scope == .allWorkspaces ? .activeWorkspace : .allWorkspaces
+            scope = scope.next(offeringVisibleWorkspaces: visibleScopeAddsWorkspaces)
             controller?.settings.windowSwitcher.scope = scope
             reconcileItems()
             render()
@@ -86,16 +94,50 @@ final class WindowSwitcherController {
         }
     }
 
+    func shutdown() {
+        dismiss()
+        capture.releaseCache(reason: .shutdown)
+        panel.close()
+    }
+
+    func dismiss() {
+        controller?.hotkeys.cancelWindowSwitcherSession(generation: generation)
+        capture.clear()
+        if controller?.settings.windowSwitcher.enabled != true || controller?.isLockScreenActive == true {
+            capture.releaseCache()
+        }
+        items.removeAll()
+        previews.removeAll()
+        previewHandles.removeAll()
+        selection = WindowSwitcherSelection()
+        guard isVisible else { return }
+        isVisible = false
+        panel.hide()
+        controller?.focusPolicyEngine.endLease(owner: .windowSwitcher)
+        dismissalMonitor.stop()
+    }
+}
+
+extension WindowSwitcherController {
     private func begin(reverse: Bool, initialScope: WindowSwitcherScope?) {
-        guard let controller, controller.hotkeysEnabled, controller.settings.windowSwitcher.enabled,
-              !controller.isLockScreenActive,
-              !controller.isOverviewOpen(), !controller.commandPaletteController.isVisible,
+        guard let controller, controller.settings.windowSwitcher.enabled,
+              !controller.isLockScreenActive, !controller.isOverviewOpen(),
+              !controller.commandPaletteController.isVisible,
               let monitor = controller.monitorForInteraction()
         else {
             dismiss()
             return
         }
-        workspaceId = controller.activeWorkspace()?.id
+        prepareSelection(reverse: reverse, initialScope: initialScope, controller: controller, monitor: monitor)
+        show(controller: controller)
+    }
+
+    @discardableResult
+    private func prepareSelection(
+        reverse: Bool, initialScope: WindowSwitcherScope?, controller: WMController, monitor: Monitor
+    ) -> WindowToken? {
+        workspaceId = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id
+        visibleWorkspaceIds = controller.workspaceManager.visibleWorkspaceIds()
         scope = initialScope ?? controller.settings.windowSwitcher.scope
         screenFrame = monitor.visibleFrame
         scale = NSScreen.screens.first { $0.displayId == monitor.displayId }?.backingScaleFactor ?? 2
@@ -107,6 +149,10 @@ final class WindowSwitcherController {
             tokens: scopedItems().map { $0.handle.id }, current: current, reverse: reverse,
             recent: listedRecency(manager: controller.workspaceManager)
         )
+        return current
+    }
+
+    private func show(controller: WMController) {
         isVisible = true
         controller.focusPolicyEngine.beginLease(owner: .windowSwitcher, reason: "window_switcher", duration: nil)
         dismissalMonitor.start(
@@ -143,26 +189,32 @@ final class WindowSwitcherController {
         guard let controller else { return [] }
         let manager = controller.workspaceManager
         let byToken = Dictionary(uniqueKeysWithValues: items.map { ($0.handle.id, $0) })
-        let scoped = manager.workspaces.filter { scope == .allWorkspaces || $0.id == workspaceId }
-            .flatMap { workspace in
-                orderedEntries(in: workspace.id, manager: manager).compactMap { entry -> WindowSwitcherItem? in
-                    guard !entry.observedState.isNativeWithdrawn,
-                          var item = byToken[entry.token],
-                          manager.handle(for: entry.token) === item.handle
-                    else { return nil }
-                    item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
-                    item.isMinimized = entry.observedState.isMinimized
-                    if let metadata = entry.target.hostedMetadata {
-                        item.title = metadata.title
-                        if metadata.role == .main,
-                           controller.shellAppWindowManager.activeSheet(for: entry.token) != nil
-                        {
-                            item.title += " — " + String(localized: "Dialog open")
-                        }
-                    }
-                    return item
-                }
+        let scoped = manager.workspaces.filter { workspace in
+            switch scope {
+            case .allWorkspaces: true
+            case .visibleWorkspaces: visibleWorkspaceIds.contains(workspace.id)
+            case .activeWorkspace: workspace.id == workspaceId
             }
+        }
+        .flatMap { workspace in
+            orderedEntries(in: workspace.id, manager: manager).compactMap { entry -> WindowSwitcherItem? in
+                guard !entry.observedState.isNativeWithdrawn,
+                      var item = byToken[entry.token],
+                      manager.handle(for: entry.token) === item.handle
+                else { return nil }
+                item.workspaceName = controller.settings.workspaces.displayName(for: workspace.name)
+                item.isMinimized = entry.observedState.isMinimized
+                if let metadata = entry.target.hostedMetadata {
+                    item.title = metadata.title
+                    if metadata.role == .main,
+                       controller.shellAppWindowManager.activeSheet(for: entry.token) != nil
+                    {
+                        item.title += " — " + String(localized: "Dialog open")
+                    }
+                }
+                return item
+            }
+        }
         guard controller.settings.windowSwitcher.order == .lastUsed else { return scoped }
         return WindowSwitcherOrder.lastUsed.orderedItems(scoped, recent: listedRecency(manager: manager))
     }
@@ -190,11 +242,25 @@ final class WindowSwitcherController {
                 return byToken[token]
             }
         }
-        return WorkspaceEntryOrdering.orderedEntries(entries, topology: manager.layoutTopology(for: workspaceId))
+        return WorkspaceEntryOrdering.orderedEntries(
+            consume entries,
+            topology: manager.layoutTopology(for: workspaceId)
+        )
     }
 
     private func reconcileItems() {
         selection.reconcile(tokens: scopedItems().map { $0.handle.id })
+    }
+
+    @discardableResult
+    private func cycle(reverse: Bool) -> ExternalCommandResult {
+        guard isVisible else { return .noChange }
+        let previous = selection.selected
+        reconcileItems()
+        if selection.selected == previous { selection.cycle(reverse: reverse) }
+        render()
+        guard selection.selected != nil else { return .notFound }
+        return selection.selected == previous ? .noChange : .executed
     }
 
     private func render() {
@@ -270,39 +336,58 @@ final class WindowSwitcherController {
 
     private func commit(focusOrigin: ManagedFocusOrigin) {
         guard isVisible else { return }
-        let target = scopedItems().first { $0.handle.id == selection.selected }?.handle
+        let target = selectedHandle()
         dismiss()
         guard let target else { return }
         activate(target, focusOrigin: focusOrigin)
     }
 
-    private func activate(_ target: WindowHandle, focusOrigin: ManagedFocusOrigin) {
-        guard let controller else { return }
-        if !controller.windowActionHandler.focusWindowFromBar(handle: target, focusOrigin: focusOrigin) {
-            NSSound.beep()
-        }
+    private func selectedHandle() -> WindowHandle? {
+        scopedItems().first { $0.handle.id == selection.selected }?.handle
     }
 
-    func shutdown() {
+    @discardableResult
+    private func activate(_ target: WindowHandle, focusOrigin: ManagedFocusOrigin) -> ExternalCommandResult {
+        guard let controller else { return .ignoredDisabled }
+        if controller.windowActionHandler
+            .focusWindowFromBar(handle: target, focusOrigin: focusOrigin) { return .executed }
+        NSSound.beep()
+        return .windowActionFailed
+    }
+
+    private var visibleScopeAddsWorkspaces: Bool {
+        if let workspaceId, visibleWorkspaceIds.contains(workspaceId) {
+            return visibleWorkspaceIds.count > 1
+        }
+        return !visibleWorkspaceIds.isEmpty
+    }
+
+    func advanceFromAutomation(reverse: Bool, scope: WindowSwitcherScope?) -> ExternalCommandResult {
+        guard let controller, !controller.isLockScreenActive else { return .ignoredDisabled }
+        guard !controller.commandPaletteController.isVisible else { return .noChange }
+        if isVisible { return cycle(reverse: reverse) }
+        guard let monitor = controller.monitorForInteraction() else { return .notFound }
+
+        let held = modifierFlags().intersection(WindowSwitcherInput.releaseModifiers)
+        let current = prepareSelection(reverse: reverse, initialScope: scope, controller: controller, monitor: monitor)
+        if !held.isEmpty, modifierFlags().contains(held),
+           let sessionGeneration = armExternalSession(controller.hotkeys, held)
+        {
+            generation = sessionGeneration
+            if modifierFlags().contains(held) {
+                show(controller: controller)
+                return .executed
+            }
+        }
+
+        let target = selectedHandle()
         dismiss()
-        capture.releaseCache(reason: .shutdown)
-        panel.close()
-    }
-
-    func dismiss() {
-        controller?.hotkeys.cancelWindowSwitcherSession(generation: generation)
-        capture.clear()
-        if controller?.settings.windowSwitcher.enabled != true || controller?.isLockScreenActive == true {
-            capture.releaseCache()
+        guard let target else { return .notFound }
+        if target.id == current, controller.workspaceManager.nativeManagedFocusToken == target.id,
+           controller.workspaceManager.pendingFocusedToken == nil
+        {
+            return .noChange
         }
-        items.removeAll()
-        previews.removeAll()
-        previewHandles.removeAll()
-        selection = WindowSwitcherSelection()
-        guard isVisible else { return }
-        isVisible = false
-        panel.hide()
-        controller?.focusPolicyEngine.endLease(owner: .windowSwitcher)
-        dismissalMonitor.stop()
+        return activate(target, focusOrigin: .keyboardOrProgrammatic)
     }
 }

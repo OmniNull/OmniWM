@@ -43,9 +43,18 @@ struct ShellAudioOutput: Equatable, Sendable {
     let name: String
     let transport: String
     let isDefault: Bool
+    let kind: String
+
+    init(id: AudioObjectID, name: String, transport: String, isDefault: Bool, bluetoothKind: String? = nil) {
+        self.id = id
+        self.name = name
+        self.transport = transport
+        self.isDefault = isDefault
+        kind = ShellAudio.outputKind(name: name, transport: transport, bluetoothKind: bluetoothKind)
+    }
 
     func write(into writer: inout ShellValueWriter) {
-        writer.map(4)
+        writer.map(5)
         writer.key("id")
         writer.string(String(id))
         writer.key("name")
@@ -54,6 +63,8 @@ struct ShellAudioOutput: Equatable, Sendable {
         writer.string(transport)
         writer.key("default")
         writer.bool(isDefault)
+        writer.key("kind")
+        writer.string(kind)
     }
 }
 
@@ -178,17 +189,23 @@ enum ShellAudio {
     }
 
     static func outputs(default current: AudioObjectID?) -> [ShellAudioOutput] {
-        devices().compactMap { device in
-            guard canBeDefaultOutput(device), !isOwn(uid: uid(of: device)),
+        var pairedKinds: [String: String]?
+        return devices().compactMap { device in
+            let deviceUID = uid(of: device)
+            guard canBeDefaultOutput(device), !isOwn(uid: deviceUID),
                   let name = string(kAudioObjectPropertyName, of: device)
             else {
                 return nil
             }
+            let link = transport(code: value(kAudioDevicePropertyTransportType, of: device) ?? 0)
+            var bluetoothKind: String?
+            if link == "bluetooth", let address = deviceUID.flatMap(bluetoothAddress(uid:)) {
+                let kinds = pairedKinds ?? ShellBluetooth.pairedAudioKinds()
+                pairedKinds = kinds
+                bluetoothKind = kinds[address]
+            }
             return ShellAudioOutput(
-                id: device,
-                name: name,
-                transport: transport(code: value(kAudioDevicePropertyTransportType, of: device) ?? 0),
-                isDefault: device == current
+                id: device, name: name, transport: link, isDefault: device == current, bluetoothKind: bluetoothKind
             )
         }.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
@@ -365,6 +382,30 @@ enum ShellAudio {
         let status = AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<UInt32>.size), &value)
         if status != noErr {
             Log.shell.error("Setting output mute failed with status \(status)")
+        }
+    }
+}
+
+extension ShellAudio {
+    static func bluetoothAddress(uid: String) -> String? {
+        uid.firstMatch(of: /(?:[0-9A-Fa-f]{2}[-:]){5}[0-9A-Fa-f]{2}/).map { ShellBluetooth.address(String($0.output)) }
+    }
+
+    static func outputKind(name: String, transport: String, bluetoothKind: String? = nil) -> String {
+        switch transport {
+        case "bluetooth":
+            let kinds = [
+                ("AirPods Pro", "airpodspro"),
+                ("AirPods Max", "airpodsmax"),
+                ("AirPods", "airpods"),
+                ("Beats", "beats")
+            ]
+            return kinds.first { name.localizedCaseInsensitiveContains($0.0) }?.1 ?? bluetoothKind ?? "headphones"
+        case "hdmi",
+             "displayport": return "display"
+        case "airplay": return "airplay"
+        case "builtin": return "builtin"
+        default: return "other"
         }
     }
 }

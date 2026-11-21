@@ -11,22 +11,27 @@ Bar widgets and popouts use the same widget package. `render(ctx)` supplies the 
 
 `leading`, `center` and `trailing` are the bar's three groups, in order; widgets in a split bar's active island come from `leading` and `center`. With **Full Width** on, the bar spans the screen edge and the groups sit at its start, center and end; **Notch Mode** then picks where `center` goes on a notched display.
 
+When a full-width bar is too crowded, widgets never draw over each other, nor under the notch when **Notch Mode** places `center` beside it. The gaps between widgets tighten first. `priority` lists widgets from most to least important, and the least important widget on the crowded side then gives way. On a horizontal bar, a widget whose root row scrolls, such as the bundled `workspaces`, keeps the room that is left and scrolls inside it: its clipped edge fades and it keeps the focused workspace in view. A plain row of items drops whole items, keeping its start, or its end in `trailing`. A widget with a marquee outside `trailing` is shortened to the room that is left. Any other widget is hidden. On a vertical bar the widget that gives way is cut by just the amount that doesn't fit, keeping its start, or its end in `trailing`, and is hidden when even that isn't enough. Widgets missing from the list rank after it, from the outer edges inward, then `center`.
+
 An enabled full-width bar requests macOS menu-bar auto-hide unless its position is **Below Menu Bar**. Moving the last requesting bar below the menu bar, disabling it or quitting OmniWM normally restores the previous preference if it still matches the value OmniWM applied. Another display's full-width bar can keep automatic hiding active because the preference is system-wide. See [Full Width](/features/workspace-bar/#layout-and-appearance-options) for manual hiding and crash recovery. At overlapping top placement, the bar stays above the native menu bar. The themed presets reserve their occupied space for tiled windows; **Reserve Space for Workspace Bar** controls this, and an automatically hidden workspace bar does not reserve space.
 
-**Settings > Styles & Widgets > Bar** edits them for the selected style: drag to reorder, select **Add Widget…** to choose a group, and select a widget for its options or **Remove from Bar**. **Use Style Layout…** restores all three groups together. Right-click a widget on the bar to move it, take it off the bar or open these settings; when the widget uses right-click itself, Option + right-click opens the same menu. Your own widgets in `widgets/` are listed there to add.
+**Settings > Styles & Widgets > Bar** edits them for the selected style: drag to reorder, select **Add Widget…** to choose a group, and select a widget for its options or **Remove from Bar**. Under **Priority**, drag widgets into the order they keep their place on a crowded bar. **Use Style Layout…** restores all three groups and the style's priority together. Right-click a widget on the bar to move it, take it off the bar or open these settings; when the widget uses right-click itself, Option + right-click opens the same menu. Your own widgets in `widgets/` are listed there to add.
 
 ```toml
 # In ~/.config/omniwm/shell/shell.toml, for the default profile:
 profiles.default.leading = ["omniwm", "workspaces", "scratchpads"]
 profiles.default.center = ["clock"]
 profiles.default.trailing = ["volume", "system-stats"]
+profiles.default.priority = ["workspaces", "clock", "volume", "omniwm", "system-stats"]
 ```
 
 Use the active profile’s name instead of `default`. In that profile folder’s own `shell.toml`, omit `profiles.<name>.`. Profile settings and precedence are explained in [Profiles and palettes](/omnishell/configuration/profiles-palettes/#profile-settings).
 
 ## Widget options
 
-**Add Widget…** also offers `launcher`, `active-window`, `input-source`, `wifi`, `bluetooth`, `battery-details`, `world-clock`, `privacy` and `control-center`. With **Transparent Background** and **Show Item Backgrounds** both on, the default widgets draw their own capsules and palette popouts.
+**Add Widget…** also offers `launcher`, `active-window`, `input-source`, `wifi`, `wifi-networks`, `bluetooth`, `battery-details`, `world-clock`, `privacy` and `control-center`. **Unreleased:** `wifi-networks` is available when building from `main`. It is `wifi` with a list of nearby networks in its popout: click a Known Network or an open network to join it. Long lists scroll. Unsaved secured and enterprise networks, and any network OmniWM cannot join directly, open Wi-Fi Settings, where OmniWM uses Accessibility to select the exact network and start Apple's join flow. It only does so when the row's security in Settings matches the network you clicked. Any password or identity is entered only in macOS; OmniWM does not read credential fields. If the network cannot be selected safely within eight seconds, Settings stays open for a manual join and the widget reports the failed handoff. The handoff continues if its popout closes.
+
+With **Transparent Background** and **Show Item Backgrounds** both on, the default widgets draw their own capsules and palette popouts.
 
 Select a widget to change supported choices visually. Options follow the actual widget implementation in the selected style; a style that does not use an option does not show it. World Clock provides a location list, and Weather provides city or coordinates, units, and refresh interval. The default widgets also read these values from `profiles.<profile>.widgets.<name>` in `shell.toml`:
 
@@ -38,7 +43,9 @@ Select a widget to change supported choices visually. Options follow the actual 
 | `launcher` | `mode`: a command palette mode such as `"windows"`; `symbol`: an SF Symbol |
 | `active-window` | `display`: `"icon_and_text"`, `"icon_only"` or `"text_only"`; `maxWidth` |
 | `battery-details` | `percent`: `"beside"`, `"inside"` or `"off"` |
-| `control-center` | `tab`: the tab it opens on |
+| `control-center` | `tab`: `"overview"`, `"audio"`, `"displays"`, `"media"`, `"calendar"`, `"weather"` or `"system"` |
+
+The Control Center’s **Displays** tab adjusts brightness for each display where macOS exposes that control, toggles Night Shift when available, and links to Displays in System Settings.
 
 `hiddenBarWidget` and `systemStatsWidget` name the widgets that draw the Hidden Bar drawer and the System Stats popout. The profile supplies defaults; GUI changes are saved as that profile’s overrides. Workspace Bar’s master enable switch, excluded apps and icon overrides stay global. Enabling **System Stats Button** also places the configured stats widget on the bar if it was removed.
 

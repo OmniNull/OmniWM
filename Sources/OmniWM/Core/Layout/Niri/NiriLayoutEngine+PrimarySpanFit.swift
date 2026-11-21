@@ -18,10 +18,14 @@ extension NiriLayoutEngine {
         let hasPreviousFit = columns.contains {
             orientation == .horizontal ? $0.fittedWidth != nil : $0.fittedHeight != nil
         }
-        let visibleCount = effectiveVisibleContainerCount(in: workspaceId)
+        let settings = workspace.attachedMonitorId.map(effectiveSettings(for:)) ?? effectiveSettings(in: workspaceId)
+        let keepsSpans = !settings.fitsVisibleContainerCount
+        if keepsSpans, !hasPreviousFit, workspace.shrinkToFitColumnIds.isEmpty { return }
+        let visibleCount = settings.visibleContainerCount
         let exclusions = projectionExclusions(in: workspaceId)
         if exclusions.isEmpty, columns.count >= visibleCount, !hasPreviousFit,
-           workspace.manualWidthColumnCount == nil, workspace.manualHeightColumnCount == nil
+           workspace.manualWidthColumnCount == nil, workspace.manualHeightColumnCount == nil,
+           workspace.shrinkToFitColumnIds.isEmpty
         {
             return
         }
@@ -30,9 +34,10 @@ extension NiriLayoutEngine {
         let count = projected.count
         if workspace.manualWidthColumnCount != count { workspace.manualWidthColumnCount = nil }
         if workspace.manualHeightColumnCount != count { workspace.manualHeightColumnCount = nil }
+        dropStaleShrinkToFit(columns, in: workspace, .init(workingFrame, gaps: gaps, orientation: orientation))
         let isSingleWindow = count == 1 && projected[0].windows.count == 1
         let manual = workspace[keyPath: manualCountKey] != nil && !isSingleWindow
-        let canFit = !manual && count > 0 && count < visibleCount && !isSingleWindow
+        let canFit = !keepsSpans && !manual && count > 0 && count < visibleCount && !isSingleWindow
         guard canFit || hasPreviousFit else { return }
 
         clearExcludedPrimarySpanFits(columns, excluding: exclusions, orientation: orientation)
@@ -96,12 +101,24 @@ extension NiriLayoutEngine {
         }
     }
 
+    func holdPrimarySpans(on monitorId: Monitor.ID) {
+        assertSanctionedMutation()
+        guard let monitor = monitors[monitorId] else { return }
+        let manualCountKey: ReferenceWritableKeyPath<NiriWorkspaceState, Int?> = monitor.orientation == .horizontal
+            ? \.manualWidthColumnCount : \.manualHeightColumnCount
+        for workspaceId in monitor.workspaceRoots.keys {
+            ensureState(for: workspaceId)[keyPath: manualCountKey] = projectedColumns(in: workspaceId)
+                .count { !$0.windows.isEmpty }
+        }
+    }
+
     func beginManualPrimarySpanResize(
         _ column: NiriContainer,
         in workspaceId: WorkspaceDescriptor.ID,
         orientation: Monitor.Orientation
     ) {
         let workspace = ensureState(for: workspaceId)
+        releaseShrinkToFit(column, in: workspace)
         switch orientation {
         case .horizontal:
             if workspace.manualWidthColumnCount == nil {
@@ -209,7 +226,7 @@ extension NiriLayoutEngine {
         return targets
     }
 
-    private func applyPrimarySpanFitWidth(
+    func applyPrimarySpanFitWidth(
         _ target: CGFloat,
         fitted: Bool,
         to column: NiriContainer,
@@ -230,7 +247,7 @@ extension NiriLayoutEngine {
         )
     }
 
-    private func applyPrimarySpanFitHeight(
+    func applyPrimarySpanFitHeight(
         _ target: CGFloat,
         fitted: Bool,
         to column: NiriContainer,

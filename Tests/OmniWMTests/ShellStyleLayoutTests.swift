@@ -1301,6 +1301,46 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
+    func testWiredWiFiPopoutKeepsTheRadioTitleAsTheHeader() throws {
+        let shell = try sharedLibraryShell("wifi")
+        defer { try? FileManager.default.removeItem(at: shell) }
+        for profile in ["nocturne", "wayline", "default"] {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            for wired in [false, true] where wired || profile != "default" {
+                let widget = try makeWidget(
+                    "wifi", config: config, shell: shell,
+                    source: shell.appendingPathComponent("default/widgets/wifi/init.luau")
+                )
+                wifiFixture(widget, ShellWiFi(power: true, location: "authorized"))
+                if wired {
+                    widget.set("connection") { ShellConnection(kind: "ethernet", interface: "en0").write(into: &$0) }
+                }
+                widget.render(fixture(config, height: config.barOverride?.settings.height ?? 32, vertical: false))
+                widget.layoutPopout()
+                func frame(_ title: String) throws -> CGRect {
+                    let element = try XCTUnwrap(widget.surface.layout.core.elements {
+                        widget.text.string($0.text) == ShellLocalizer.string(title, [])
+                    }.first, profile + "/" + title)
+                    return CGRect(widget.surface.layout.core.absoluteFrame(of: element))
+                }
+                let title = try frame("Wi-Fi")
+                if profile == "default" {
+                    XCTAssertLessThan(try frame("Ethernet").midY, title.midY)
+                    continue
+                }
+                let status = try frame("On")
+                XCTAssertEqual(status.midY, title.midY, accuracy: 1, profile)
+                XCTAssertGreaterThanOrEqual(status.minX, title.maxX, profile)
+                let firstCard = try wired ? frame("Ethernet") : frame("Not Connected")
+                XCTAssertLessThan(title.midY, firstCard.midY, profile)
+                if wired {
+                    XCTAssertLessThan(firstCard.midY, try frame("Not Connected").midY, profile)
+                }
+            }
+        }
+    }
+
     func testSharedNetworkPanelsKeepStateFeedbackAndDeliveredActions() throws {
         let shell = try sharedLibraryShell("wifi")
         defer { try? FileManager.default.removeItem(at: shell) }
@@ -1662,7 +1702,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                                 context
                             )
                             XCTAssertNotEqual(stats.deps & ShellDataKey.battery.bit, 0, context)
-                            XCTAssertEqual(stats.deps & ShellDataKey.power.bit, 0, context)
+                            XCTAssertNotEqual(stats.deps & ShellDataKey.power.bit, 0, context)
                             XCTAssertEqual(stats.deps & ShellDataKey.seconds.bit, 0, context)
                             if hooked.contains(profile), !vertical {
                                 let design: Double = profile == "celestial" ? 60 : 40
@@ -1886,7 +1926,9 @@ final class ShellStyleLayoutTests: XCTestCase {
                                 widget.text.string(label.content.text),
                                 profile == "matrix" ? "~/Safari" : "A quiet afternoon", context
                             )
-                            XCTAssertEqual(label.content.maxWidth, maximum, context)
+                            let viewport = tree.first { $0.content.marquee }
+                            XCTAssertEqual(viewport?.content.maxWidth ?? label.content.maxWidth, maximum, context)
+                            if viewport != nil { XCTAssertEqual(label.content.maxWidth, 0, context) }
                             XCTAssertEqual(label.paint.rotate, vertical ? 90 : 0, context)
                         }
                         XCTAssertLessThanOrEqual(
@@ -2940,11 +2982,14 @@ final class ShellStyleLayoutTests: XCTestCase {
                         var expected: Set<ShellDataKey> = [
                             .settings,
                             .wifi,
+                            .connection,
                             .bluetooth,
                             .volume,
                             .muted,
+                            .outputs,
                             .media,
-                            .battery
+                            .battery,
+                            .appearance
                         ]
                         if hasBattery { expected.formUnion([.charging, .power]) }
                         XCTAssertEqual(deps & ~ShellDataKey.bar.bit, expected.reduce(0) { $0 | $1.bit }, context)
@@ -3027,10 +3072,29 @@ final class ShellStyleLayoutTests: XCTestCase {
         wifiFixture(widget)
         bluetoothFixture(widget)
         batteryFixture(widget)
-        mediaFixture(widget)
-        calendarFixture(widget)
-        weatherFixture(widget)
-        systemStatsFixture(widget)
+        let title = "Northern Lights"
+        mediaFixture(widget, title: title)
+        let calendar = calendarFixture(widget)
+        let weather = weatherFixture(widget)
+        let system = systemStatsFixture(widget)
+        func label(_ key: String) -> String {
+            ShellLocalizer.string(key, [])
+        }
+        let namedCards = try [
+            (
+                "overview",
+                [label("Wi-Fi"), label("Bluetooth"), label("Sound"), title, label("Dark Mode"), label("Battery")]
+            ),
+            ("audio", [label("Sound"), label("Output"), label("Applications")]),
+            ("displays", [label("Brightness"), label("Night Shift"), label("Displays Settings…")]),
+            ("media", [title, label("Lyrics")]),
+            ("calendar", [XCTUnwrap(calendar.events.first).title, String(XCTUnwrap(calendar.month).days)]),
+            (
+                "weather",
+                [XCTUnwrap(weather.place), XCTUnwrap(weather.hours.first).label, XCTUnwrap(weather.days.first).label]
+            ),
+            ("system", [label("CPU"), system.host.hostname])
+        ]
         for capsule in [false, true] {
             var bar = fixture(config, height: 40, vertical: false)
             if capsule {
@@ -3038,14 +3102,7 @@ final class ShellStyleLayoutTests: XCTestCase {
                 bar.style.backgrounds = true
             }
             widget.render(bar)
-            for (tab, count) in [
-                ("overview", 5),
-                ("audio", 3),
-                ("media", 2),
-                ("calendar", 2),
-                ("weather", 3),
-                ("system", 2)
-            ] {
+            for (tab, names) in namedCards {
                 let context = "\(tab)/capsule=\(capsule)"
                 widget.set("settings") { ShellServiceValue.object(["tab": .text(tab)]).write(to: &$0) }
                 widget.layoutPopout()
@@ -3054,11 +3111,22 @@ final class ShellStyleLayoutTests: XCTestCase {
                     return paint.fill.role & 0xFF == UInt16(ShellRole.elevatedSurface.rawValue + 1)
                         && paint.cornerRadius == 9
                 }
-                XCTAssertEqual(cards.count, count, context)
+                let cardTexts = cards.map { card in
+                    var texts: Set<String> = []
+                    _ = widget.surface.layout.core.firstDescendant(of: card) { content in
+                        if content.text != 0 { texts.insert(widget.text.string(content.text)) }
+                        return false
+                    }
+                    return texts
+                }
+                XCTAssertEqual(cards.count, names.count, context)
+                for name in names {
+                    XCTAssertEqual(cardTexts.filter { $0.contains(name) }.count, 1, "\(context): \(name)")
+                }
                 let tabs = widget.surface.layout.core.elements {
                     $0.help != 0 && $0.action != 0
                 }.filter { widget.surface.layout.core.absoluteFrame(of: $0).height == 30 }
-                XCTAssertEqual(tabs.count, 6, context)
+                XCTAssertEqual(tabs.count, namedCards.count, context)
                 let tabBottom = try XCTUnwrap(tabs.map {
                     CGRect(widget.surface.layout.core.absoluteFrame(of: $0)).maxY
                 }.max(), context)
@@ -3103,6 +3171,7 @@ final class ShellStyleLayoutTests: XCTestCase {
             for tabIcon in [
                 "dashboard",
                 "volume_up",
+                "desktop_windows",
                 "music_note",
                 "calendar_month",
                 "partly_cloudy_day",
@@ -3399,7 +3468,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         )
     }
 
-    func testSharedVolumeBarsKeepInputAndAvoidOutputAndAppDemand() throws {
+    func testSharedVolumeBarsKeepInputAndReadOutputsButAvoidAppDemand() throws {
         let shell = try sharedAudioShell()
         defer { try? FileManager.default.removeItem(at: shell) }
         for profile in try barHostingProfiles(in: shell) {
@@ -3423,7 +3492,8 @@ final class ShellStyleLayoutTests: XCTestCase {
                         omni_instance_render(widget.instance, OMNI_VIEW_BAR, 100_000_000, &stats, &error, error.count),
                         OMNI_OK, context
                     )
-                    XCTAssertEqual(stats.deps & (ShellDataKey.outputs.bit | ShellDataKey.audioApps.bit), 0, context)
+                    XCTAssertEqual(stats.deps & ShellDataKey.outputs.bit, ShellDataKey.outputs.bit, context)
+                    XCTAssertEqual(stats.deps & ShellDataKey.audioApps.bit, 0, context)
                     XCTAssertEqual(
                         stats.deps & (ShellDataKey.volume.bit | ShellDataKey.muted.bit),
                         ShellDataKey.volume.bit | ShellDataKey.muted.bit, context
@@ -3784,6 +3854,33 @@ final class ShellStyleLayoutTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testWaylineHiddenIndicatorOutlinesOnlyPartlyHiddenApps() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        XCTAssertTrue(try ShellProfiles.select("wayline", in: shell))
+        let config = ShellConfig.resolve(shellDirectory: shell)
+        let widget = try makeWidget("workspaces", config: config, shell: shell)
+        let height = config.barOverride?.settings.height ?? SettingsExport.WorkspaceBar.defaults().height
+        let bar = fixture(config, height: height, vertical: false)
+        widget.render(bar)
+        let tree = widget.tree()
+        var outlines: [String: Color] = [:]
+        for (index, node) in tree.enumerated() where node.kind == .symbol {
+            let name = widget.text.string(node.content.text)
+            guard name.hasPrefix("eye.slash") else { continue }
+            let indicator = try XCTUnwrap(tree.indices.last { $0 < index && Int(tree[$0].subtreeEnd) > index })
+            XCTAssertNil(outlines.updateValue(tree[indicator].paint.stroke, forKey: name), name)
+        }
+        let apps = bar.workspaces.flatMap(\.windows).filter { $0.hidden > 0 }
+        XCTAssertEqual(Set(apps.map { $0.hidden == $0.count }), [true, false])
+        let full = try XCTUnwrap(outlines["eye.slash.fill"])
+        XCTAssertEqual(full.alpha, 0)
+        XCTAssertEqual(full.role, 0)
+        let partial = try XCTUnwrap(outlines["eye.slash"])
+        XCTAssertEqual(partial.role & 0xFF, UInt16(ShellRole.badge.rawValue + 1))
     }
 
     func testSharedNocturneStatsKeepsUniformFrameInsets() throws {
@@ -4595,6 +4692,610 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
+    func testCommandPaletteKeepsQueryResultsRowsAndActionsAcrossSkins() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            let resources = ShellResources(motion: MotionPolicy(animationsEnabled: false))
+            resources.palette.refresh(theme: config.theme, appearance: try XCTUnwrap(NSAppearance(named: .darkAqua)))
+            for palette in [
+                commandPaletteFixture(), commandModePaletteFixture(), menuModePaletteFixture(),
+                clipboardModePaletteFixture(), unifiedPaletteFixture()
+            ] {
+                try assertCommandPalette(palette, profile: profile, config: config, shell: shell, resources: resources)
+            }
+            try assertClipboardPaletteStates(profile: profile, config: config, shell: shell, resources: resources)
+        }
+    }
+
+    func testCommandPaletteCollapsedQueryAndModesStayInsideThePanelWithoutOverlapping() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        var palette = commandPaletteFixture()
+        palette.expanded = false
+        palette.height = Double(CommandPalettePanel.collapsedHeight)
+        let bounds = CGRect(x: 0, y: 0, width: palette.width, height: palette.height)
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            let widget = try makeWidget(ShellWidgetHost.commandPaletteWidget, config: config, shell: shell)
+            widget.render(fixture(config, height: ShellBarStyle().height, vertical: false))
+            widget.set("commandPalette") { palette.write(into: &$0) }
+            widget.layoutPopout()
+            let layout = widget.surface.layout
+            XCTAssertEqual(widget.surface.size, bounds.size, profile)
+            let query = try XCTUnwrap(layout.handle(forKey: CommandPaletteShellPresenter.queryKey), profile)
+            let queryFrame = CGRect(layout.core.absoluteFrame(of: query))
+            XCTAssertGreaterThan(queryFrame.width, 0, profile)
+            XCTAssertGreaterThan(queryFrame.height, 0, profile)
+            XCTAssertTrue(bounds.contains(queryFrame), profile)
+            var buttons: [CGRect] = []
+            for mode in palette.modes {
+                let handle = try XCTUnwrap(layout.handle(forKey: "mode-" + mode.id), profile)
+                let frame = CGRect(layout.core.absoluteFrame(of: handle))
+                XCTAssertGreaterThan(frame.width, 0, profile)
+                XCTAssertGreaterThan(frame.height, 0, profile)
+                XCTAssertTrue(bounds.contains(frame), profile)
+                XCTAssertFalse(queryFrame.intersects(frame), profile)
+                XCTAssertTrue(buttons.allSatisfy { !$0.intersects(frame) }, profile)
+                buttons.append(frame)
+            }
+            XCTAssertEqual(buttons.count, palette.modes.count, profile)
+        }
+    }
+
+    func testCommandPaletteDefaultHiddenBadgeKeepsTheRenderedWindowRowHeight() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(ShellDefaults.sync(into: shell), [])
+        let config = ShellConfig.resolve(shellDirectory: shell)
+        XCTAssertEqual(config.profile, ShellDefaults.profile)
+        let widget = try makeWidget(ShellWidgetHost.commandPaletteWidget, config: config, shell: shell)
+        widget.render(fixture(config, height: ShellBarStyle().height, vertical: false))
+        var palette = commandPaletteFixture()
+        palette.rows = [try XCTUnwrap(palette.rows.first)]
+        let rowID = palette.rows[0].id
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        let visible = try XCTUnwrap(widget.surface.layout.handle(forKey: rowID))
+        let visibleHeight = widget.surface.layout.core.layoutFrame(of: visible).height
+        let hidden = ShellCommandPaletteData.Badge(
+            text: String(localized: "App hidden"), tone: .danger, symbol: "eye.slash.fill"
+        )
+        palette.rows[0].badges.insert(hidden, at: 0)
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        let hiddenRow = try XCTUnwrap(widget.surface.layout.handle(forKey: rowID))
+        XCTAssertEqual(widget.surface.layout.core.layoutFrame(of: hiddenRow).height, visibleHeight)
+        XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(hidden.text))
+    }
+
+    func testCommandPaletteDrawsLauncherToolbarGridAndListAcrossSkins() throws {
+        let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: shell) }
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
+        for profile in ([ShellDefaults.profile] + (try ShellStyleFixture.names())).sorted() {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            let resources = ShellResources(motion: MotionPolicy(animationsEnabled: false))
+            resources.palette.refresh(theme: config.theme, appearance: try XCTUnwrap(NSAppearance(named: .darkAqua)))
+            for palette in [launcherPaletteFixture(grid: true), launcherPaletteFixture(grid: false)] {
+                try assertLauncherPalette(palette, profile: profile, config: config, shell: shell, resources: resources)
+            }
+        }
+    }
+
+    private func assertLauncherPalette(
+        _ palette: ShellCommandPaletteData,
+        profile: String,
+        config: ShellConfig,
+        shell: URL,
+        resources: ShellResources
+    ) throws {
+        let profile = "\(profile) \(palette.mode)"
+        let widget = try makeWidget(
+            ShellWidgetHost.commandPaletteWidget, config: config, shell: shell, resources: resources
+        )
+        widget.render(fixture(config, height: 32, vertical: false))
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        let layout = widget.surface.layout
+        let launcher = try XCTUnwrap(palette.launcher)
+        let actions = Set(layout.core.elements { $0.action != 0 }.map {
+            widget.text.string(layout.core.content(of: $0).action)
+        })
+        let expected = launcher.filters.map { "palette filter " + $0.id }
+            + launcher.chips.map { "palette chip " + $0.id }
+            + launcher.views.map { "palette view " + $0.id }
+            + (launcher.add.map { ["palette menu " + $0.id] } ?? [])
+        for action in expected {
+            XCTAssertTrue(actions.contains(action), "\(profile): \(action)")
+        }
+        let results = try XCTUnwrap(layout.handle(forKey: CommandPaletteShellPresenter.resultsKey), profile)
+        var drawn: [UInt64] = []
+        layout.core.forEachChild(of: results) { _, key in drawn.append(key) }
+        XCTAssertEqual(drawn, palette.rows.map { ShellWidgetLayout.elementKey($0.id) }, profile)
+        let targets = palette.rows.flatMap { $0.kind == .gridRow ? $0.cells : $0.kind == .heading ? [] : [$0] }
+        for item in targets {
+            let handle = try XCTUnwrap(layout.handle(forKey: item.id), "\(profile): \(item.id)")
+            let content = layout.core.content(of: handle)
+            XCTAssertTrue(content.menu, "\(profile): \(item.id)")
+            XCTAssertEqual(widget.text.string(content.target), item.id, profile)
+            XCTAssertEqual(
+                widget.text.string(content.hoverAction),
+                item.kind == .saved || item.kind == .executable ? "palette highlight " + item.id : "",
+                "\(profile): \(item.id)"
+            )
+            XCTAssertTrue(
+                widget.strings(OMNI_VIEW_POPOUT).contains { $0.localizedCaseInsensitiveContains(item.title) },
+                "\(profile): \(item.title)"
+            )
+            let frame = CGRect(layout.core.absoluteFrame(of: handle))
+            let before = widget.clicks.count
+            widget.surface.press(at: CGPoint(x: frame.midX, y: frame.midY))
+            widget.surface.release(at: CGPoint(x: frame.midX, y: frame.midY))
+            XCTAssertEqual(
+                widget.clicks.dropFirst(before).map(\.action), ["palette activate " + item.id], "\(profile): \(item.id)"
+            )
+        }
+        for row in palette.rows where row.kind == .gridRow {
+            let handle = try XCTUnwrap(layout.handle(forKey: row.id), profile)
+            var cells: [UInt64] = []
+            layout.core.forEachChild(of: handle) { _, key in cells.append(key) }
+            XCTAssertEqual(cells, row.cells.map { ShellWidgetLayout.elementKey($0.id) }, profile)
+            let widths = row.cells.map {
+                layout.core.layoutFrame(of: layout.handle(forKey: $0.id) ?? handle).width
+            }
+            XCTAssertEqual(Set(widths).count, 1, "\(profile): grid cells share one width")
+        }
+        if let preview = palette.preview {
+            XCTAssertNotNil(layout.handle(forKey: palette.mode + "-preview"), profile)
+            for detail in preview.details {
+                XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(detail.value), "\(profile): \(detail.label)")
+            }
+        }
+        if ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] != nil {
+            try write(
+                [("launcher", raster(widget.surface, scale: 2), widget.surface.size)],
+                name: "command-palette-\(profile.replacingOccurrences(of: " ", with: "-"))", scale: 2, dark: true,
+                solidBlack: false
+            )
+        }
+        var empty = palette
+        empty.rows = []
+        empty.state = "empty"
+        empty.emptyText = String(localized: "No launcher results found")
+        empty.emptySymbol = CommandPaletteMode.applications.symbolName
+        empty.emptyAction = .init(
+            id: "launcher add",
+            title: String(localized: "Add Entry…"),
+            symbol: "plus",
+            shortcut: ""
+        )
+        widget.set("commandPalette") { empty.write(into: &$0) }
+        widget.layoutPopout()
+        let emptyActions = Set(layout.core.elements { $0.action != 0 }.map {
+            widget.text.string(layout.core.content(of: $0).action)
+        })
+        XCTAssertTrue(emptyActions.contains("palette launcher add"), profile)
+        XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(empty.emptyText), profile)
+    }
+
+    private func launcherPaletteFixture(grid: Bool) -> ShellCommandPaletteData {
+        var palette = commandPaletteFixture()
+        let mode: CommandPaletteMode = grid ? .files : .applications
+        palette.mode = mode.rawValue
+        for index in palette.modes.indices {
+            palette.modes[index].selected = palette.modes[index].id == palette.mode
+        }
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: mode)
+        palette.actions = []
+        let listWidth = grid
+            ? (CGFloat(palette.width) * CommandPaletteController.shellPreviewSplit).rounded(.down)
+            : CGFloat(palette.width)
+        let columns = CommandPaletteController.launcherColumnCount(
+            for: mode, width: listWidth, style: grid ? .grid : .list
+        )
+        let chip = { (id: String, selected: Bool) in
+            ShellCommandPaletteData.Mode(
+                id: id,
+                title: id.capitalized,
+                symbol: "",
+                shortcut: "",
+                selected: selected,
+                enabled: true
+            )
+        }
+        palette.launcher = .init(
+            filters: grid ? [] : LauncherFilter.allCases.map { chip($0.rawValue, $0 == .all) },
+            chips: ["documents", "images"].map { chip($0, $0 == "images") },
+            views: grid ? [
+                .init(
+                    id: "grid",
+                    title: "Grid",
+                    symbol: "square.grid.2x2",
+                    shortcut: "",
+                    selected: true,
+                    enabled: true
+                ),
+                .init(id: "list", title: "List", symbol: "list.bullet", shortcut: "", selected: false, enabled: true)
+            ] : [],
+            add: grid ? nil : .init(id: "launcher-add", title: "Add…", symbol: "plus", shortcut: ""),
+            columns: columns,
+            grid: grid
+        )
+        let item = { (id: String, kind: ShellCommandPaletteRowKind, title: String, symbol: String) in
+            ShellCommandPaletteData.Row(
+                id: id, kind: kind, title: title, subtitle: "Subtitle \(title)",
+                icon: .init(app: nil, pid: nil, symbol: symbol), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            )
+        }
+        let heading = ShellCommandPaletteData.Row(
+            id: "heading-launcher-results", kind: .heading, title: "Results", subtitle: "",
+            icon: .init(app: nil, pid: nil, symbol: nil), badges: [], marks: [], hint: nil, hintShortcut: nil,
+            selected: false, enabled: false
+        )
+        if grid {
+            let files = (0 ..< columns + 1).map { item("file-\($0)", .file, "Document \($0).txt", "doc.fill") }
+            palette.rows = [heading] + stride(from: 0, to: files.count, by: columns).map { start in
+                var row = item("grid-\(start)", .gridRow, "", "")
+                row.cells = Array(files[start ..< min(start + columns, files.count)])
+                return row
+            }
+            palette.rows[1].cells[0].selected = true
+            palette.rows[1].selected = true
+            palette.selected = palette.rows[1].id
+            palette.preview = .init(
+                id: files[0].id, state: "file", text: nil, image: nil, title: files[0].title, symbol: "doc.fill",
+                details: [.init(label: "Kind", value: "Plain Text"), .init(label: "Size", value: "2 KB")]
+            )
+        } else {
+            var saved = item("saved-0", .saved, "Deploy", "terminal")
+            saved.badges = [.init(text: "Terminal", tone: .neutral, symbol: nil)]
+            var tool = item("tool-0", .executable, "git", "terminal")
+            tool.badges = [.init(text: "CLI", tone: .neutral, symbol: nil)]
+            palette.rows = [heading, saved, tool, item("app-0", .application, "Calculator", "app.fill")]
+            palette.rows[1].selected = true
+            palette.selected = palette.rows[1].id
+        }
+        palette.total = palette.rows.count
+        return palette
+    }
+
+    private func assertCommandPalette(
+        _ palette: ShellCommandPaletteData,
+        profile: String,
+        config: ShellConfig,
+        shell: URL,
+        resources: ShellResources
+    ) throws {
+        let rowActions = palette.rows.filter(\.enabled).map { "palette activate \($0.id)" }
+        let profile = "\(profile) \(palette.unified ? "unified" : palette.mode)"
+        let widget = try makeWidget(
+            ShellWidgetHost.commandPaletteWidget, config: config, shell: shell, resources: resources
+        )
+        widget.render(fixture(config, height: 32, vertical: false))
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        let layout = widget.surface.layout
+        let query = try XCTUnwrap(layout.handle(forKey: CommandPaletteShellPresenter.queryKey), profile)
+        XCTAssertEqual(layout.core.kind(of: query), .input, profile)
+        let results = try XCTUnwrap(layout.handle(forKey: CommandPaletteShellPresenter.resultsKey), profile)
+        XCTAssertTrue(layout.core.content(of: results).scrolls, profile)
+        let strings = widget.strings(OMNI_VIEW_POPOUT)
+        for row in palette.rows {
+            XCTAssertTrue(
+                strings.contains { $0.localizedCaseInsensitiveContains(row.title) }, "\(profile): \(row.title)"
+            )
+            for mark in row.marks {
+                XCTAssertTrue(
+                    strings.contains { $0.localizedCaseInsensitiveContains(mark.text) },
+                    "\(profile): \(mark.text)"
+                )
+            }
+            let handle = try XCTUnwrap(layout.handle(forKey: row.id), profile)
+            let frame = CGRect(layout.core.absoluteFrame(of: handle))
+            widget.surface.press(at: CGPoint(x: frame.midX, y: frame.midY))
+            widget.surface.release(at: CGPoint(x: frame.midX, y: frame.midY))
+        }
+        XCTAssertEqual(widget.clicks.map(\.action), rowActions, profile)
+        let actions = Set(layout.core.elements { $0.action != 0 }.map {
+            widget.text.string(layout.core.content(of: $0).action)
+        })
+        for action in palette.actions {
+            XCTAssertTrue(actions.contains("palette " + action.id), "\(profile): \(action.id)")
+        }
+        for row in palette.rows {
+            let handle = try XCTUnwrap(layout.handle(forKey: row.id), profile)
+            if row.kind == .clipboard {
+                let content = layout.core.content(of: handle)
+                XCTAssertTrue(content.menu, profile)
+                XCTAssertEqual(widget.text.string(content.target), row.id, profile)
+                XCTAssertEqual(widget.text.string(content.hoverAction), "palette highlight " + row.id, profile)
+            }
+            for entry in row.actions {
+                XCTAssertTrue(actions.contains("palette " + entry.id), profile)
+                let control = try XCTUnwrap(layout.core.elements {
+                    widget.text.string($0.action) == "palette " + entry.id
+                }.first, profile)
+                let frame = CGRect(layout.core.absoluteFrame(of: control))
+                let before = widget.clicks.count
+                let point = CGPoint(x: frame.midX, y: frame.midY)
+                widget.surface.press(at: point)
+                widget.surface.release(at: point)
+                XCTAssertEqual(widget.clicks.dropFirst(before).map(\.action), ["palette " + entry.id], profile)
+            }
+            guard let symbol = row.icon.symbol else { continue }
+            let drawn = layout.core.elements { _ in true }.contains { element in
+                guard layout.core.kind(of: element) == .symbol,
+                      widget.text.string(layout.core.content(of: element).text) == symbol
+                else { return false }
+                var parent = layout.core.parent(of: element)
+                while parent.slot >= 0 {
+                    if parent == handle { return true }
+                    parent = layout.core.parent(of: parent)
+                }
+                return false
+            }
+            XCTAssertTrue(drawn, "\(profile): \(row.id) draws its declared symbol")
+        }
+        XCTAssertEqual(actions.contains("palette menu modes"), palette.browseModes, profile)
+        if palette.unified {
+            XCTAssertNil(layout.handle(forKey: "mode-windows"), profile)
+            XCTAssertNil(layout.handle(forKey: "clipboard-preview"), profile)
+        }
+        guard ProcessInfo.processInfo.environment["OMNIWM_SHELL_SNAPSHOTS"] != nil else { return }
+        let expanded = try raster(widget.surface, scale: 2)
+        let expandedSize = widget.surface.size
+        var collapsed = palette
+        collapsed.expanded = false
+        collapsed.height = Double(CommandPalettePanel.collapsedHeight)
+        widget.set("commandPalette") { collapsed.write(into: &$0) }
+        widget.layoutPopout()
+        try write(
+            [
+                ("collapsed", raster(widget.surface, scale: 2), widget.surface.size),
+                ("expanded", expanded, expandedSize)
+            ],
+            name: "command-palette-\(profile.replacingOccurrences(of: " ", with: "-"))", scale: 2, dark: true,
+            solidBlack: false
+        )
+    }
+
+    private func menuModePaletteFixture() -> ShellCommandPaletteData {
+        var palette = commandPaletteFixture()
+        palette.mode = CommandPaletteMode.menu.rawValue
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: .menu)
+        palette.browseModes = true
+        palette.actions = []
+        palette.rows = [
+            .init(
+                id: "menu-save", kind: .menu, title: "Save As", subtitle: "File", icon: .init(),
+                badges: [.init(text: "⇧⌘S", tone: .shortcut, symbol: nil)], marks: [],
+                hint: nil, hintShortcut: nil, selected: true, enabled: true
+            )
+        ]
+        palette.selected = palette.rows[0].id
+        return palette
+    }
+
+    private func clipboardModePaletteFixture() -> ShellCommandPaletteData {
+        var palette = commandPaletteFixture()
+        palette.mode = CommandPaletteMode.clipboard.rawValue
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: .clipboard)
+        palette.browseModes = true
+        palette.actions = []
+        palette.rows = [
+            .init(
+                id: "clipboard-text", kind: .clipboard, title: "Copied text", subtitle: "Text", icon: .init(
+                    app: nil, pid: nil, symbol: "text.alignleft"
+                ), badges: [], marks: [], hint: nil, hintShortcut: nil, selected: true, enabled: true
+            ),
+            .init(
+                id: "clipboard-image", kind: .clipboard, title: "Copied image", subtitle: "Image", icon: .init(
+                    app: nil, pid: nil, symbol: "photo"
+                ), badges: [], marks: [], hint: nil, hintShortcut: nil, selected: false, enabled: true
+            )
+        ]
+        for index in palette.rows.indices {
+            let id = palette.rows[index].id
+            palette.rows[index].actions = [
+                .init(id: "paste " + id, title: "Paste", symbol: "arrow.turn.down.left", shortcut: ""),
+                .init(id: "menu " + id, title: "More Actions", symbol: "ellipsis", shortcut: "")
+            ]
+        }
+        palette.rows[0].pinned = true
+        palette.selected = palette.rows[0].id
+        palette.preview = .init(
+            id: palette.rows[0].id, state: "text", text: "Selected preview text", image: nil, width: 0, height: 0
+        )
+        return palette
+    }
+
+    private func unifiedPaletteFixture() -> ShellCommandPaletteData {
+        var palette = commandModePaletteFixture()
+        palette.unified = true
+        palette.placeholder = String(localized: "Search…")
+        palette.modes = []
+        let menu = menuModePaletteFixture()
+        let clipboard = clipboardModePaletteFixture()
+        palette.rows += menu.rows + clipboard.rows
+        palette.rows += [
+            .init(
+                id: "application-result", kind: .application, title: "Calculator", subtitle: "Applications",
+                icon: .init(app: nil, pid: nil, symbol: "app.fill"), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            ),
+            .init(
+                id: "file-result", kind: .file, title: "Notes.txt", subtitle: "/Documents",
+                icon: .init(app: nil, pid: nil, symbol: "doc.fill"), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            ),
+            .init(
+                id: "saved-result", kind: .saved, title: "Saved command", subtitle: "echo hello",
+                icon: .init(app: nil, pid: nil, symbol: "terminal"), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            ),
+            .init(
+                id: "show-all", kind: .showAll, title: "Show all in Files", subtitle: "",
+                icon: .init(app: nil, pid: nil, symbol: "arrow.right.circle"), badges: [], marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: true
+            )
+        ]
+        for index in palette.rows.indices { palette.rows[index].selected = palette.rows[index].id == palette.selected }
+        palette.height = Double(palette.rows.count + 1) * Double(CommandPalettePanel.collapsedHeight)
+        return palette
+    }
+
+    private func assertClipboardPaletteStates(
+        profile: String, config: ShellConfig, shell: URL, resources: ShellResources
+    ) throws {
+        let widget = try makeWidget(
+            ShellWidgetHost.commandPaletteWidget,
+            config: config,
+            shell: shell,
+            resources: resources
+        )
+        widget.render(fixture(config, height: 32, vertical: false))
+        var palette = clipboardModePaletteFixture()
+        palette.error = String(localized: "Could not clear clipboard history.")
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(try XCTUnwrap(palette.error)), profile)
+        let inputKey = "clipboard-preview-" + (try XCTUnwrap(palette.preview)).id
+        let input = try XCTUnwrap(widget.surface.layout.handle(forKey: inputKey), profile)
+        let content = widget.surface.layout.core.content(of: input)
+        XCTAssertTrue(content.inputMultiline, profile)
+        XCTAssertFalse(content.inputEditable, profile)
+        XCTAssertFalse(content.inputWrap, profile)
+        XCTAssertEqual(widget.text.string(content.text), palette.preview?.text, profile)
+        for state in ["loading", "unavailable"] {
+            palette.preview?.state = state
+            widget.set("commandPalette") { palette.write(into: &$0) }
+            widget.layoutPopout()
+            XCTAssertNotNil(widget.surface.layout.handle(forKey: "clipboard-preview"), profile)
+            XCTAssertNil(widget.surface.layout.handle(forKey: inputKey), profile)
+            let label = state == "loading" ? String(localized: "Loading preview…") :
+                String(localized: "Preview unavailable")
+            XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(label), profile)
+        }
+        palette.preview?.state = "image"
+        palette.preview?.image = "palette/test-preview"
+        palette.preview?.width = palette.width
+        palette.preview?.height = palette.height
+        widget.set("commandPalette") { palette.write(into: &$0) }
+        widget.layoutPopout()
+        XCTAssertTrue(widget.surface.layout.core.elements { _ in true }.contains {
+            widget.surface.layout.core.kind(of: $0) == .bitmap
+                && widget.text.string(widget.surface.layout.core.content(of: $0).text) == palette.preview?.image
+        }, profile)
+        for state in ["disabled", "loading", "empty", "blank"] {
+            palette.state = state
+            palette.rows = []
+            palette.emptyText = state
+            palette.emptySymbol = CommandPaletteMode.clipboard.symbolName
+            palette.emptyAction = state == "disabled"
+                ? .init(id: "enable", title: String(localized: "Enable"), symbol: "power", shortcut: "") : nil
+            widget.set("commandPalette") { palette.write(into: &$0) }
+            widget.layoutPopout()
+            XCTAssertNil(widget.surface.layout.handle(forKey: "clipboard-preview"), profile)
+            let actions = widget.surface.layout.core.elements { $0.action != 0 }.map {
+                widget.text.string(widget.surface.layout.core.content(of: $0).action)
+            }
+            XCTAssertEqual(actions.contains("palette enable"), state == "disabled", profile)
+        }
+    }
+
+    private func commandModePaletteFixture() -> ShellCommandPaletteData {
+        var palette = commandPaletteFixture()
+        palette.mode = CommandPaletteMode.commands.rawValue
+        for index in palette.modes.indices {
+            palette.modes[index].selected = palette.modes[index].id == palette.mode
+        }
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: .commands)
+        palette.actions = []
+        let none = ShellCommandPaletteData.Icon(app: nil, pid: nil, symbol: nil)
+        let command = ShellCommandPaletteData.Icon(app: nil, pid: nil, symbol: CommandPaletteMode.commands.symbolName)
+        palette.rows = [
+            .init(
+                id: "heading-Monitor", kind: .heading, title: "Monitor", subtitle: "", icon: none, badges: [],
+                marks: [],
+                hint: nil, hintShortcut: nil, selected: false, enabled: false
+            ),
+            .init(
+                id: "focusLeft", kind: .command, title: "Focus Left", subtitle: "", icon: command,
+                badges: [
+                    .init(text: "All", tone: .neutral, symbol: nil),
+                    .init(text: "⌥H", tone: .shortcut, symbol: nil)
+                ],
+                marks: [], hint: nil, hintShortcut: nil, selected: true, enabled: true
+            ),
+            .init(
+                id: "balanceSizes", kind: .command, title: "Balance Sizes", subtitle: "", icon: command,
+                badges: [
+                    .init(text: "Dwindle", tone: .warning, symbol: nil),
+                    .init(text: "Unassigned", tone: .shortcutMuted, symbol: nil)
+                ],
+                marks: [], hint: nil, hintShortcut: nil, selected: false, enabled: false
+            ),
+            .init(
+                id: "heading-Layout", kind: .heading, title: "Layout", subtitle: "", icon: none, badges: [],
+                marks: [], hint: nil, hintShortcut: nil, selected: false, enabled: false
+            ),
+            .init(
+                id: "toggleFullscreen", kind: .command, title: "Toggle Fullscreen", subtitle: "Container and Column",
+                icon: command,
+                badges: [
+                    .init(text: "All", tone: .neutral, symbol: nil),
+                    .init(text: "Unassigned", tone: .shortcutMuted, symbol: nil)
+                ],
+                marks: [], hint: nil, hintShortcut: nil, selected: false, enabled: true
+            )
+        ]
+        palette.selected = palette.rows[1].id
+        return palette
+    }
+
+    private func commandPaletteFixture() -> ShellCommandPaletteData {
+        var palette = ShellCommandPaletteData()
+        palette.open = true
+        palette.expanded = true
+        palette.width = Double(CommandPalettePanel.width)
+        palette.height = Double(CommandPalettePanel.expandedHeight)
+        palette.mode = CommandPaletteMode.windows.rawValue
+        palette.modes = CommandPaletteMode.allCases.map {
+            .init(
+                id: $0.rawValue, title: $0.localizedDisplayName, symbol: $0.symbolName,
+                shortcut: CommandPalettePresentation.modeHint(for: $0).shortcut,
+                selected: $0 == .windows, enabled: true
+            )
+        }
+        palette.placeholder = CommandPalettePresentation.searchPlaceholder(for: .windows)
+        palette.actions = [
+            .init(id: "mark set", title: "Mark selected window…", symbol: "tag", shortcut: "⌃⌥⇧M"),
+            .init(id: "mark remove", title: "Remove mark…", symbol: "tag.slash", shortcut: "⌃⌥⇧R")
+        ]
+        palette.rows = [("Inbox", "Mail"), ("Notes", "Notes"), ("Terminal", "Ghostty")].enumerated().map { index, row in
+            .init(
+                id: "window-\(index)", kind: .window, title: row.0, subtitle: row.1,
+                icon: .init(app: nil, pid: nil, symbol: index == 2 ? "gearshape" : nil),
+                badges: [.init(text: "\(index + 1)", tone: .neutral, symbol: nil)],
+                marks: index == 1 ? ["editor", "research"].map {
+                    .init(text: String(localized: "Mark: \($0)"), tone: .accent, symbol: nil)
+                } : [],
+                hint: index == 1 ? "Summon Right" : nil, hintShortcut: index == 1 ? "⇧↩" : nil,
+                selected: index == 1, enabled: true
+            )
+        }
+        palette.selected = palette.rows[1].id
+        return palette
+    }
+
     func testSharedHiddenMenusScrollToTheLastActionWithinScreenBoundsAcrossSkins() throws {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
@@ -4797,25 +5498,24 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
-    func testSolidBlackWorkspaceLabelsStayReadableInLightAndDarkAppearances() throws {
+    func testSolidBlackWorkspaceLabelsStayReadableOnTheDarkPalette() throws {
         let widget = try ShellRenderedWidget("workspaces")
         let black = ShellRGBA(CGColor(gray: 0, alpha: 1))
-        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
-            widget.resources.palette.refresh(theme: .native, appearance: try XCTUnwrap(NSAppearance(named: appearance)))
-            for accents in [false, true] {
-                var bar = fixture(ShellConfig(), height: 32, vertical: false)
-                bar.style.solidBlack = true
-                bar.style.accents = accents
-                widget.render(bar)
-                for name in accents ? ["2", "3"] : ["1", "2", "3"] {
-                    let label = try XCTUnwrap(widget.tree().first {
-                        widget.text.string($0.content.text) == name
-                            && widget.text.string($0.content.target) == "workspace \(name)"
-                            && $0.kind == .label
-                    })
-                    let color = try ShellRGBA(XCTUnwrap(widget.resources.palette.color(label.content.color)))
-                    XCTAssertGreaterThanOrEqual(color.contrast(black), 4.5, "\(appearance.rawValue) workspace \(name)")
-                }
+        let palette = widget.resources.darkPalette
+        palette.refresh(theme: .native, appearance: ShellPalette.darkAppearance)
+        for accents in [false, true] {
+            var bar = fixture(ShellConfig(), height: 32, vertical: false)
+            bar.style.solidBlack = true
+            bar.style.accents = accents
+            widget.render(bar)
+            for name in accents ? ["2", "3"] : ["1", "2", "3"] {
+                let label = try XCTUnwrap(widget.tree().first {
+                    widget.text.string($0.content.text) == name
+                        && widget.text.string($0.content.target) == "workspace \(name)"
+                        && $0.kind == .label
+                })
+                let color = try ShellRGBA(XCTUnwrap(palette.color(label.content.color)))
+                XCTAssertGreaterThanOrEqual(color.contrast(black), ShellRGBA.readableTextContrast, "workspace \(name)")
             }
         }
     }
@@ -5146,7 +5846,7 @@ final class ShellStyleLayoutTests: XCTestCase {
             )
         case (_, "network"):
             return (
-                [.wifi, .network],
+                [.wifi, .connection, .network],
                 missing ? ["Unavailable", "Wi-Fi Settings…"] : ["Harbour Home", "Download", "Upload"]
             )
         case (_, "bluetooth"):
@@ -5261,7 +5961,12 @@ final class ShellStyleLayoutTests: XCTestCase {
         widget.set("audioApps") { ShellAudioApps(access: access, apps: apps).write(into: &$0) }
     }
 
-    private func calendarFixture(_ widget: ShellRenderedWidget, access: String = "full", month: Bool = true) {
+    @discardableResult
+    private func calendarFixture(
+        _ widget: ShellRenderedWidget,
+        access: String = "full",
+        month: Bool = true
+    ) -> ShellCalendar {
         let now = 1_000_000.0
         let events = access == "full" ? [
             ShellCalendarEvent(
@@ -5289,6 +5994,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         widget.set("seconds") { $0.number(now) }
         widget.set("clock") { $0.string("9:41 AM") }
         widget.set("date") { $0.string("Fri Oct 23") }
+        return calendar
     }
 
     private func percent(_ value: Double) -> String {
@@ -5535,27 +6241,27 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
-    private func systemStatsFixture(_ widget: ShellRenderedWidget) {
-        widget.set("system") { writer in
-            ShellSystemData(
-                memoryUsed: 21 << 30,
-                memoryTotal: 36 << 30,
-                pressure: .normal,
-                diskUsed: 612_000_000_000,
-                diskTotal: 994_000_000_000,
-                uptime: 273_840,
-                host: SystemStatsHostInfo(
-                    chip: "Apple M4 Max",
-                    modelIdentifier: "Mac16,9",
-                    osVersion: "Version 27.2",
-                    hostname: "studio"
-                ),
-                displays: [
-                    ShellSystemDisplay(width: 5120, height: 2880, refresh: 120),
-                    ShellSystemDisplay(width: 3024, height: 1964, refresh: 120)
-                ]
-            ).write(into: &writer)
-        }
+    @discardableResult
+    private func systemStatsFixture(_ widget: ShellRenderedWidget) -> ShellSystemData {
+        let system = ShellSystemData(
+            memoryUsed: 21 << 30,
+            memoryTotal: 36 << 30,
+            pressure: .normal,
+            diskUsed: 612_000_000_000,
+            diskTotal: 994_000_000_000,
+            uptime: 273_840,
+            host: SystemStatsHostInfo(
+                chip: "Apple M4 Max",
+                modelIdentifier: "Mac16,9",
+                osVersion: "Version 27.2",
+                hostname: "studio"
+            ),
+            displays: [
+                ShellSystemDisplay(width: 5120, height: 2880, refresh: 120),
+                ShellSystemDisplay(width: 3024, height: 1964, refresh: 120)
+            ]
+        )
+        widget.set("system") { system.write(into: &$0) }
         widget.set("cpu") { $0.number(37) }
         widget.set("gpu") { $0.number(18) }
         widget.set("memory") { $0.number(58) }
@@ -5569,6 +6275,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
         widget.set("networkHistory") { history.write(into: &$0) }
         batteryFixture(widget)
+        return system
     }
 
     private func hiddenBarFixture(vertical: Bool, menu: Bool) -> ShellHiddenBarData {

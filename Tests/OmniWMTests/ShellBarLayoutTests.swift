@@ -47,6 +47,35 @@ final class ShellBarLayoutTests: XCTestCase {
         try TOMLDecoder().decode([String: TOMLNode].self, from: Data(read().utf8))
     }
 
+    func testPriorityLayersLikeTheLanesAndUnlistedWidgetsRankOuterFirst() throws {
+        try write("default/shell.toml", """
+        leading = ["omniwm", "workspaces", "scratchpads"]
+        center = ["active-window"]
+        trailing = ["media", "clock"]
+        priority = ["active-window"]
+        """)
+        func ranks(_ order: [String]) -> [String: Int] {
+            Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        }
+        var config = ShellConfig.resolve(shellDirectory: shell)
+        XCTAssertEqual(config.priority, ["active-window"])
+        XCTAssertEqual(
+            config.priorityRanks(),
+            ranks(["active-window", "omniwm", "clock", "workspaces", "media", "scratchpads"])
+        )
+
+        try write("shell.toml", """
+        [profiles.default]
+        priority = ["clock", "workspaces"]
+        """)
+        config = ShellConfig.resolve(shellDirectory: shell)
+        XCTAssertEqual(config.priority, ["clock", "workspaces"])
+        XCTAssertEqual(
+            config.priorityRanks(),
+            ranks(["clock", "workspaces", "omniwm", "media", "scratchpads", "active-window"])
+        )
+    }
+
     func testEnablingStatsPlacesTheConfiguredWidgetAndDisablingKeepsItsPosition() throws {
         try write("default/shell.toml", """
         leading = ["workspaces"]

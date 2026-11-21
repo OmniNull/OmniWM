@@ -18,10 +18,42 @@ final class DwindleTile {
     private(set) var members: [DwindleTileMember]
     private(set) var activeIndex: Int
 
-    init(token: WindowToken, fullscreen: Bool = false) {
-        id = UUID()
+    init(token: WindowToken, fullscreen: Bool = false, id: DwindleTileId = UUID()) {
+        self.id = id
         members = [DwindleTileMember(token: token, isFullscreen: fullscreen)]
         activeIndex = 0
+    }
+
+    init(members: consuming[DwindleTileMember], activeIndex: Int, id: DwindleTileId = UUID()) {
+        precondition(members.indices.contains(activeIndex))
+        self.id = id
+        self.members = members
+        self.activeIndex = activeIndex
+    }
+
+    func restoreMembers(_ restored: consuming [DwindleTileMember], activeToken: WindowToken?) {
+        precondition(!restored.isEmpty)
+        var restoredActive = 0
+        for index in restored.indices where restored[index].token == activeToken {
+            restoredActive = index
+            break
+        }
+        if members != restored { members = restored }
+        activeIndex = restoredActive
+    }
+
+    func restoreMemberStates(
+        from restored: borrowing [DwindleTileMember],
+        range: Range<Int>,
+        activeToken: WindowToken?
+    ) {
+        for index in members.indices {
+            let member = restored[range.lowerBound + index]
+            if members[index].isFullscreen != member.isFullscreen {
+                members[index].isFullscreen = member.isFullscreen
+            }
+            if member.token == activeToken { activeIndex = index }
+        }
     }
 
     var activeMember: DwindleTileMember {
@@ -57,6 +89,12 @@ final class DwindleTile {
         activeIndex = insertionIndex
     }
 
+    func insert(_ member: DwindleTileMember, at index: Int) {
+        let insertionIndex = min(max(0, index), members.count)
+        members.insert(member, at: insertionIndex)
+        if insertionIndex <= activeIndex { activeIndex += 1 }
+    }
+
     func remove(at index: Int) -> DwindleTileMember {
         precondition(members.count > 1 && members.indices.contains(index))
         let member = members.remove(at: index)
@@ -85,6 +123,26 @@ final class DwindleTile {
     func setFullscreen(_ fullscreen: Bool, for token: WindowToken) {
         guard let index = memberIndex(for: token) else { return }
         members[index].isFullscreen = fullscreen
+    }
+
+    @discardableResult
+    func reorder(_ token: WindowToken, to destination: Int) -> Bool {
+        guard let source = memberIndex(for: token), members.indices.contains(destination), source != destination else {
+            return false
+        }
+        let selected = activeToken
+        do {
+            var span = members.mutableSpan
+            let member = span[source]
+            if source < destination {
+                for index in source ..< destination { span[index] = span[index + 1] }
+            } else {
+                for index in stride(from: source, to: destination, by: -1) { span[index] = span[index - 1] }
+            }
+            span[destination] = member
+        }
+        activeIndex = memberIndex(for: selected) ?? destination
+        return true
     }
 
     @discardableResult
@@ -183,6 +241,7 @@ final class DwindleNode {
     weak var parent: DwindleNode?
     var children: [DwindleNode] = []
     var kind: DwindleNodeKind
+    var edgeExpansion: DwindleEdgeExpansion?
     var cachedFrame: CGRect?
     var cachedContentFrame: CGRect?
 
@@ -191,8 +250,8 @@ final class DwindleNode {
 
     var frameAnimation: CubicRectAnimation?
 
-    init(kind: DwindleNodeKind) {
-        id = UUID()
+    init(kind: DwindleNodeKind, id: DwindleNodeId = UUID()) {
+        self.id = id
         self.kind = kind
     }
 

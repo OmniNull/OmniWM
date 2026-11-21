@@ -41,6 +41,7 @@ extension WMController {
             return .notFound
         }
 
+        axEventHandler.downgradeExplicitRuleApplyRetry(windowId: token.windowId)
         if workspaceManager.setScratchpadMembership(token, to: index) {
             requestWorkspaceBarRefresh()
         }
@@ -132,6 +133,7 @@ extension WMController {
             monitor: target.monitor,
             revealGroupId: groupId
         ) {
+            axEventHandler.downgradeExplicitRuleApplyRetry(windowId: entry.windowId)
             revealed = true
         }
         guard revealed else {
@@ -143,6 +145,7 @@ extension WMController {
     }
 
     private func releaseScratchpadWindow(_ token: WindowToken, entry: WindowState, arrivesQuietly: Bool = false) {
+        axEventHandler.downgradeExplicitRuleApplyRetry(windowId: token.windowId)
         cleanupScratchpadWindowResources(for: token)
         applyManagedWindowOverride(.forceTile, for: token, entry: entry, arrivesQuietly: arrivesQuietly)
     }
@@ -260,18 +263,31 @@ extension WMController {
 
     func reconcileScratchpadMembersAfterAppUnhide(pid: pid_t) {
         for entry in workspaceManager.entries(forPid: pid) {
-            guard let index = workspaceManager.scratchpadIndex(for: entry.token),
-                  workspaceManager.hiddenState(for: entry.token)?.isScratchpad == true,
-                  !isManagedWindowSuspendedForNativeFullscreen(entry.token),
-                  let monitor = workspaceManager.monitor(for: entry.workspaceId) ?? monitorForInteraction()
-            else {
-                continue
-            }
-            if workspaceManager.revealedScratchpadIndex() == index {
-                _ = showScratchpadWindow(entry, on: entry.workspaceId, monitor: monitor)
-            } else {
-                _ = parkScratchpadWindow(entry, monitor: monitor)
-            }
+            reconcileParkedScratchpadMember(entry)
+        }
+    }
+
+    func reconcileDisplayableScratchpadMember(_ token: WindowToken) {
+        guard let entry = workspaceManager.entry(for: token),
+              !workspaceManager.isWindowSuppressedByMacOS(entry)
+        else {
+            return
+        }
+        reconcileParkedScratchpadMember(entry)
+    }
+
+    private func reconcileParkedScratchpadMember(_ entry: WindowState) {
+        guard let index = workspaceManager.scratchpadIndex(for: entry.token),
+              workspaceManager.hiddenState(for: entry.token)?.isScratchpad == true,
+              !isManagedWindowSuspendedForNativeFullscreen(entry.token),
+              let monitor = workspaceManager.monitor(for: entry.workspaceId) ?? monitorForInteraction()
+        else {
+            return
+        }
+        if workspaceManager.revealedScratchpadIndex() == index {
+            _ = showScratchpadWindow(entry, on: entry.workspaceId, monitor: monitor)
+        } else {
+            _ = parkScratchpadWindow(entry, monitor: monitor)
         }
     }
 

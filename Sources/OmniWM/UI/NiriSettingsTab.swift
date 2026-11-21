@@ -48,16 +48,20 @@ struct NiriSettingsTab: View {
 private struct GlobalNiriSettingsSection: View {
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
+    @State private var windowTilingSettingsProbe = WindowTilingSettingsProbe()
 
     var body: some View {
         let spanMode = Binding<NiriDefaultSpanSettingsSection.Mode>(
-            get: { settings.niri.defaultContainerPrimarySpan == nil ? .auto : .custom },
+            get: {
+                if settings.niri.defaultContainerPrimarySpan != nil { return .custom }
+                return settings.niri.opensNewWindowsAtAppWidth ? .app : .auto
+            },
             set: { mode in
-                settings
-                    .niri
-                    .defaultContainerPrimarySpan = mode == .auto ? nil :
-                    (settings.niri.defaultContainerPrimarySpan ?? 0.5)
-                controller.updateNiriConfig(defaultContainerPrimarySpan: settings.niri.defaultContainerPrimarySpan)
+                settings.niri.opensNewWindowsAtAppWidth = mode == .app
+                settings.niri.defaultContainerPrimarySpan = mode == .custom
+                    ? (settings.niri.defaultContainerPrimarySpan ?? 0.5)
+                    : nil
+                controller.applyNiriDefaultSpanSettings()
             }
         )
         let defaultContainerPrimarySpanPercent = Binding(
@@ -73,19 +77,29 @@ private struct GlobalNiriSettingsSection: View {
             SettingsSliderRow(
                 label: String(localized: "Visible Containers"),
                 value: Binding(
-                    get: { Double(settings.niri.visibleContainerCount) },
-                    set: { settings.niri.visibleContainerCount = Int($0) }
+                    get: { settings.niri.fitToVisibleContainerCount ? Double(settings.niri.visibleContainerCount) : 0 },
+                    set: { newValue in
+                        settings.niri.fitToVisibleContainerCount = newValue > 0
+                        if newValue > 0 {
+                            settings.niri.visibleContainerCount = Int(newValue)
+                        }
+                    }
                 ),
-                range: 1 ... 5,
+                range: 0 ... 5,
                 step: 1,
-                valueText: "\(settings.niri.visibleContainerCount)",
+                valueText: settings.niri.fitToVisibleContainerCount
+                    ? "\(settings.niri.visibleContainerCount)"
+                    : String(localized: "Off"),
                 valueWidth: 32
             )
             .id("Visible Containers")
-            .onChange(of: settings.niri.visibleContainerCount) { _, newValue in
-                controller.updateNiriConfig(visibleContainerCount: newValue)
-                controller.rebalanceNiriSizesForVisibleContainerCountChange()
+            .onChange(of: settings.niri.fitToVisibleContainerCount ? settings.niri.visibleContainerCount : 0) {
+                controller.applyNiriVisibleContainerSettings()
             }
+
+            SettingsCaption(
+                localized: "With fewer columns than this number, columns grow to fill the display. Off keeps their own widths in horizontal strips and heights in vertical strips."
+            )
 
             Toggle("Infinite Loop Navigation", isOn: Bindable(settings.niri).infiniteLoop)
                 .id("Infinite Loop Navigation")
@@ -108,6 +122,42 @@ private struct GlobalNiriSettingsSection: View {
                 .onChange(of: settings.niri.alwaysCenterSingleColumn) { _, newValue in
                     controller.updateNiriConfig(alwaysCenterSingleColumn: newValue)
                 }
+
+            SettingsCaption(localized: "Also centers a strip whose columns all fit on the display.")
+
+            Toggle("Keep Strip Ends on Screen", isOn: Bindable(settings.niri).keepStripEndsOnScreen)
+                .id("Keep Strip Ends on Screen")
+                .onChange(of: settings.niri.keepStripEndsOnScreen) {
+                    controller.applyNiriStripPolicies()
+                }
+
+            SettingsCaption(
+                localized: "Focusing or closing the first or last column leaves no empty space past the end of the strip."
+            )
+
+            SettingsSliderRow(
+                label: String(localized: "Peripheral Vision"),
+                value: Bindable(settings.niri).edgePeekPercent,
+                range: 0 ... 10,
+                step: 0.5,
+                valueText: settings.niri.edgePeekPercent.formatted(.number.precision(.fractionLength(0 ... 1))) + "%",
+                valueWidth: 56
+            )
+            .id("Peripheral Vision")
+            .onChange(of: settings.niri.edgePeekPercent) {
+                controller.updateNiriConfig(edgePeekShare: controller.edgePeekShare)
+            }
+
+            SettingsCaption(
+                localized: "Keeps part of the next window in view at each strip edge that has more windows. Columns and resizes leave room for it unless a window needs more space. A share of the display’s width for horizontal strips or height for vertical strips; at 0%, peeking is off."
+            )
+
+            Toggle("Focus Clicked Windows Without Scrolling", isOn: Bindable(settings.focus).clickFocusWithoutScrolling)
+                .id("Focus Clicked Windows Without Scrolling")
+
+            SettingsCaption(
+                localized: "A left click on a partially visible window focuses it without moving the viewport. Keyboard navigation, gestures, Cmd-Tab, and the Dock still scroll windows into view. Has no effect when Center Focused Column is Always."
+            )
 
             Toggle("Allow Overscroll", isOn: Bindable(settings.niri).allowOverscroll)
                 .id("Allow Overscroll")
@@ -147,6 +197,15 @@ private struct GlobalNiriSettingsSection: View {
             )
             .id("Stack Moved Window Into Adjacent Column")
 
+            Toggle("Shrink Columns to Fit", isOn: Bindable(settings.niri).shrinkToFit)
+                .id("Shrink Columns to Fit")
+                .onChange(of: settings.niri.shrinkToFit) { _, newValue in
+                    controller.updateNiriConfig(shrinkToFit: newValue)
+                }
+            SettingsCaption(
+                localized: "Keyboard resizing also resizes the other visible columns to fill the view. If a window can't shrink to its share, resize again."
+            )
+
             SingleWindowFitControls(
                 label: String(localized: "Single Window"),
                 fit: settings.niri.singleWindowFit,
@@ -175,11 +234,31 @@ private struct GlobalNiriSettingsSection: View {
         }
         .id("Niri Layout")
 
+        Section("Undo and Redo") {
+            if !windowTilingSettingsProbe.enabledSettings.isEmpty {
+                windowTilingNote
+            }
+
+            LayoutHistoryHotkeyRow(actionId: "undo", anchor: "Undo", settings: settings, controller: controller)
+                .onAppear { windowTilingSettingsProbe.refresh() }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    windowTilingSettingsProbe.refresh()
+                }
+
+            LayoutHistoryHotkeyRow(actionId: "redo", anchor: "Redo", settings: settings, controller: controller)
+
+            SettingsCaption(
+                localized: "Undo takes back the last change to the windows in this workspace, such as a move, a stack, a resize or tabs, up to 20 changes. Redo puts it back."
+            )
+        }
+
         NiriDefaultSpanSettingsSection(
             allowsGlobal: false,
             mode: spanMode,
             percent: defaultContainerPrimarySpanPercent
         )
+
+        NiriKeptSizesSettingsSection(settings: settings, controller: controller)
 
         Section("Container Primary Span Presets") {
             ForEach(presets.indices, id: \.self) { index in
@@ -241,134 +320,31 @@ private struct GlobalNiriSettingsSection: View {
     }
 }
 
-private struct MonitorNiriSettingsSection: View {
-    @Bindable var settings: SettingsStore
-    @Bindable var controller: WMController
-    let monitor: Monitor
-
-    private var monitorSettings: MonitorNiriSettings {
-        settings.niri.settings(for: monitor) ?? MonitorNiriSettings(
-            monitorName: monitor.name
-        )
-    }
-
-    private func updateSetting(_ update: (inout MonitorNiriSettings) -> Void) {
-        var ms = monitorSettings
-        update(&ms)
-        settings.niri.update(ms, for: monitor)
-        controller.updateMonitorNiriSettings()
-    }
-
-    var body: some View {
-        let ms = monitorSettings
-        let resolved = settings.niri.resolved(for: monitor)
-        let effectiveSpan = resolved.defaultContainerPrimarySpan ?? 1.0 / Double(resolved.visibleContainerCount)
-        let spanMode = Binding<NiriDefaultSpanSettingsSection.Mode>(
-            get: {
-                switch monitorSettings.defaultContainerPrimarySpan {
-                case nil: .useGlobal
-                case .auto: .auto
-                case .custom: .custom
-                }
-            },
-            set: { mode in
-                let span: NiriContainerPrimarySpanOverride? = switch mode {
-                case .useGlobal: nil
-                case .auto: .auto
-                case .custom: .custom(effectiveSpan)
-                }
-                updateSetting { $0.defaultContainerPrimarySpan = span }
+extension GlobalNiriSettingsSection {
+    private var windowTilingNote: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(
+                "macOS window tiling interferes with dragging. Turn off these settings in Desktop & Dock:",
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            ForEach(windowTilingSettingsProbe.enabledSettings, id: \.preferenceKey) { setting in
+                Text(verbatim: "• \(setting.localizedName)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-        )
-        let spanPercent = Binding(
-            get: { Int((effectiveSpan * 100).rounded()) },
-            set: { percent in
-                updateSetting {
-                    $0.defaultContainerPrimarySpan = .custom(Double(min(100, max(5, percent))) / 100.0)
-                }
-            }
-        )
-
-        Section("Niri Layout") {
-            OverridableSlider(
-                label: String(localized: "Visible Containers"),
-                value: ms.visibleContainerCount.map { Double($0) },
-                globalValue: Double(settings.niri.visibleContainerCount),
-                range: 1 ... 5,
-                step: 1,
-                formatter: { "\(Int($0))" },
-                onChange: { newValue in
-                    updateSetting { $0.visibleContainerCount = Int(newValue) }
-                    controller.rebalanceNiriSizesForVisibleContainerCountChange(on: monitor.id)
-                },
-                onReset: { updateSetting { $0.visibleContainerCount = nil } }
-            )
-
-            OverridableToggle(
-                label: String(localized: "Infinite Loop Navigation"),
-                value: ms.infiniteLoop,
-                globalValue: settings.niri.infiniteLoop,
-                onChange: { newValue in updateSetting { $0.infiniteLoop = newValue } },
-                onReset: { updateSetting { $0.infiniteLoop = nil } }
-            )
-
-            OverridablePicker(
-                label: String(localized: "Center Focused Column"),
-                value: ms.centerFocusedColumn,
-                globalValue: settings.niri.centerFocusedColumn,
-                options: CenterFocusedColumn.allCases,
-                displayName: { $0.localizedDisplayName },
-                onChange: { newValue in updateSetting { $0.centerFocusedColumn = newValue } },
-                onReset: { updateSetting { $0.centerFocusedColumn = nil } }
-            )
-
-            OverridableToggle(
-                label: String(localized: "Always Center Single Column"),
-                value: ms.alwaysCenterSingleColumn,
-                globalValue: settings.niri.alwaysCenterSingleColumn,
-                onChange: { newValue in updateSetting { $0.alwaysCenterSingleColumn = newValue } },
-                onReset: { updateSetting { $0.alwaysCenterSingleColumn = nil } }
-            )
-
-            OverridableToggle(
-                label: String(localized: "Allow Overscroll"),
-                value: ms.allowOverscroll,
-                globalValue: settings.niri.allowOverscroll,
-                onChange: { newValue in updateSetting { $0.allowOverscroll = newValue } },
-                onReset: { updateSetting { $0.allowOverscroll = nil } }
-            )
-
-            OverridableSlider(
-                label: String(localized: "Overscroll Visible Strip"),
-                value: ms.overscrollVisibleStripPercent.map(Double.init),
-                globalValue: Double(settings.niri.overscrollVisibleStripPercent),
-                range: 1 ... 100,
-                step: 1,
-                formatter: { "\(Int($0))%" },
-                onChange: { newValue in updateSetting { $0.overscrollVisibleStripPercent = Int(newValue) } },
-                onReset: { updateSetting { $0.overscrollVisibleStripPercent = nil } }
-            )
-            .disabled(!(ms.allowOverscroll ?? settings.niri.allowOverscroll))
-
-            SingleWindowFitControls(
-                label: String(localized: "Single Window"),
-                fit: ms.singleWindowFit ?? settings.niri.singleWindowFit,
-                modes: SingleWindowFit.niriModes,
-                isOverridden: ms.singleWindowFit != nil,
-                onChange: { newValue in updateSetting { $0.singleWindowFit = newValue } },
-                onReset: { updateSetting { $0.singleWindowFit = nil } }
-            )
+            Button("Open Desktop & Dock Settings", action: windowTilingSettingsProbe.openDesktopAndDockSettings)
+                .accessibilityHint("Opens macOS Desktop & Dock settings, where window tiling can be turned off.")
         }
-        .id("Niri Layout")
-
-        NiriDefaultSpanSettingsSection(allowsGlobal: true, mode: spanMode, percent: spanPercent)
     }
 }
 
-private struct NiriDefaultSpanSettingsSection: View {
+struct NiriDefaultSpanSettingsSection: View {
     enum Mode {
         case useGlobal
         case auto
+        case app
         case custom
     }
 
@@ -383,11 +359,12 @@ private struct NiriDefaultSpanSettingsSection: View {
                     Text("Use Global").tag(Mode.useGlobal)
                 }
                 Text("Auto").tag(Mode.auto)
+                Text("App’s Own Size").tag(Mode.app)
                 Text("Custom").tag(Mode.custom)
             }
             .id("Span Mode")
             .pickerStyle(.segmented)
-            .frame(maxWidth: allowsGlobal ? 320 : 220)
+            .frame(maxWidth: allowsGlobal ? 460 : 360)
 
             if mode == .custom {
                 LabeledContent("Custom Span") {
@@ -408,7 +385,13 @@ private struct NiriDefaultSpanSettingsSection: View {
             case .useGlobal:
                 SettingsCaption(localized: "Follows the span setting for All Displays.")
             case .auto:
-                SettingsCaption(localized: "Auto divides the primary axis by the Visible Containers setting.")
+                SettingsCaption(
+                    localized: "Auto divides the primary axis by the Visible Containers setting, or uses Preset 1 when that is Off."
+                )
+            case .app:
+                SettingsCaption(
+                    localized: "A new window keeps its app’s width in a horizontal strip or height in a vertical strip. A window with an opening-size rule keeps its rule."
+                )
             case .custom:
                 SettingsCaption(
                     localized: "New or claimed containers start at this primary span until you resize them."
@@ -416,5 +399,48 @@ private struct NiriDefaultSpanSettingsSection: View {
             }
         }
         .id("Default New Container Primary Span")
+    }
+}
+
+private struct NiriKeptSizesSettingsSection: View {
+    @Bindable var settings: SettingsStore
+    @Bindable var controller: WMController
+
+    var body: some View {
+        Section("Kept Sizes") {
+            Toggle("Keep Existing Window Sizes", isOn: Bindable(settings.niri).keepExistingWindowWidth)
+                .id("Keep Existing Window Sizes")
+
+            SettingsCaption(
+                localized: "A window already open when OmniWM first tiles it keeps its width in a horizontal strip or height in a vertical strip."
+            )
+
+            Toggle("Keep Size When Pulling Out or Gathering", isOn: Bindable(settings.niri).keepSizeOnUnstack)
+                .id("Keep Size When Pulling Out or Gathering")
+                .onChange(of: settings.niri.keepSizeOnUnstack) {
+                    controller.applyNiriStripPolicies()
+                }
+
+            SettingsCaption(
+                localized: "A window moved out of a stack, or gathered into a new column, takes the size of the column it came from."
+            )
+
+            Toggle(
+                "Keep Sizes When Moving a Workspace to Another Display",
+                isOn: Bindable(settings.niri).keepSizesOnDisplayMove
+            )
+            .id("Keep Sizes When Moving a Workspace to Another Display")
+            .onChange(of: settings.niri.keepSizesOnDisplayMove) {
+                controller.applyNiriStripPolicies()
+            }
+
+            Toggle("Keep Sizes When Layout Settings Change", isOn: Bindable(settings.niri).keepSizesOnSettingsChange)
+                .id("Keep Sizes When Layout Settings Change")
+
+            SettingsCaption(
+                localized: "Changing Visible Containers or the default span leaves open columns as they are."
+            )
+        }
+        .id("Kept Sizes")
     }
 }

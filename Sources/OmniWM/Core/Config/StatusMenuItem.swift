@@ -4,7 +4,6 @@
 enum StatusMenuItem: String, CaseIterable, Identifiable {
     case hiddenIcons
     case settings
-    case reportBug
     case appRules
     case openShellFolder
     case checkForUpdates

@@ -123,6 +123,7 @@ extension HotkeyCenter {
         let enabled = keyboardTapRequiredOutsideModes
             || keyboardModeInput.capturesKeys
             || !suppressedHotkeyKeyCodes.isEmpty
+            || windowSwitcherInput.holdsKeyboard(for: .shortcut)
         if CGEvent.tapIsEnabled(tap: tap) != enabled {
             CGEvent.tapEnable(tap: tap, enable: enabled)
         }
@@ -143,7 +144,7 @@ extension HotkeyCenter {
         return !captureUnavailable || !needsModeCapture(command)
     }
 
-    private func isRegistrationAllowed(_ command: HotkeyCommand) -> Bool {
+    func isRegistrationAllowed(_ command: HotkeyCommand) -> Bool {
         Self.allowsRegistration(
             of: command,
             paused: keyboardModeInput.kind == .paused,
@@ -184,11 +185,12 @@ extension HotkeyCenter {
         carbonRegistrations.register(
             plan.registrations.filter {
                 !Self.staysRegisteredWhilePaused($0.command) && isRegistrationAllowed($0.command)
+                    && !yieldsToPalette($0.binding)
             },
             failures: &registrationFailures
         )
         sideSpecificDispatch = hyperTriggerTap == nil ? [] : plan.sideSpecificRegistrations
-            .filter { isRegistrationAllowed($0.command) }
+            .filter { isRegistrationAllowed($0.command) && !yieldsToPalette($0.binding) }
             .map { CommandHotkeyTapMatcher.Entry(binding: $0.binding, command: $0.command) }
         mouseButtonDispatch = plan.mouseButtonRegistrations.filter { isRegistrationAllowed($0.value) }
     }

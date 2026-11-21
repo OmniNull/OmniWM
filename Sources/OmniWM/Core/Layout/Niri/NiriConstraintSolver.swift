@@ -78,13 +78,18 @@ extension NiriAxisSolver {
             weights: weights,
             minimums: minConstraints
         )
-        weightedAllocation.distribute(remainingSpace: remainingSpace, values: &values)
+        if maxConstraints.contains(where: { $0 != nil }) {
+            weightedAllocation.distributeCapped(
+                remainingSpace: remainingSpace, maximums: maxConstraints, values: &values
+            )
+        } else {
+            weightedAllocation.distribute(remainingSpace: remainingSpace, values: &values)
+        }
 
         return windows.enumerated().map { index, window in
             let isAtMinimum = minConstraints[index] > epsilon &&
                 abs(values[index] - minConstraints[index]) <= epsilon
-            let isAtMaximum = fixedAllocation.values[index] != nil &&
-                (maxConstraints[index].map { abs(values[index] - $0) <= epsilon } ?? false)
+            let isAtMaximum = maxConstraints[index].map { abs(values[index] - $0) <= epsilon } ?? false
             return Output(
                 value: max(Self.minimumRenderableSpan, values[index]),
                 wasConstrained: window.isConstraintFixed || fixedAllocation
@@ -210,7 +215,7 @@ extension NiriAxisSolver {
     }
 
     struct WeightedAllocation {
-        private let candidates: [WeightedCandidate]
+        private var candidates: [WeightedCandidate]
         private var pendingWeight: CGFloat = 0
 
         init(indices: [Int], weights: [CGFloat], minimums: [CGFloat]) {
@@ -231,6 +236,28 @@ extension NiriAxisSolver {
                 return lhs.index < rhs.index
             }
             self.candidates = candidates
+        }
+
+        mutating func distributeCapped(
+            remainingSpace: CGFloat,
+            maximums: borrowing [CGFloat?],
+            values: inout [CGFloat]
+        ) {
+            var remaining = remainingSpace
+            while !candidates.isEmpty {
+                distribute(remainingSpace: remaining, values: &values)
+                var capped = false
+                for index in candidates.indices.reversed() {
+                    let candidate = candidates[index]
+                    guard let maximum = maximums[candidate.index], values[candidate.index] > maximum else { continue }
+                    values[candidate.index] = maximum
+                    remaining -= maximum
+                    candidates.remove(at: index)
+                    capped = true
+                }
+                guard capped else { return }
+                pendingWeight = candidates.reduce(0) { $0 + $1.weight }
+            }
         }
 
         mutating func distribute(remainingSpace: CGFloat, values: inout [CGFloat]) {

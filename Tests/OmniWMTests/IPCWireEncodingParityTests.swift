@@ -66,6 +66,27 @@ final class IPCWireEncodingParityTests: XCTestCase {
         }
     }
 
+    func testWindowSwitcherRequestsEncodeDirectionAndOptionalScope() throws {
+        let fixtures: [(command: IPCCommandRequest, arguments: [String: String])] = [
+            (.windowSwitcher(direction: .next, scope: nil), ["direction": "next"]),
+            (
+                .windowSwitcher(direction: .previous, scope: .visibleWorkspaces),
+                ["direction": "previous", "scope": "visible-workspaces"]
+            )
+        ]
+        for fixture in fixtures {
+            let request = IPCRequest(id: "switcher", command: fixture.command)
+            let line = try IPCWire.encodeRequestLine(request)
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: line) as? [String: Any])
+            let payload = try XCTUnwrap(object["payload"] as? [String: Any])
+
+            XCTAssertEqual(payload["name"] as? String, "window-switcher")
+            XCTAssertEqual(payload["arguments"] as? [String: String], fixture.arguments)
+            XCTAssertEqual(line, try reference(request))
+            XCTAssertEqual(try IPCWire.decodeRequest(from: line), request)
+        }
+    }
+
     func testAllResponseAndEventModelsMatchReference() throws {
         let messages = try fixtures().filter { $0.kind != "request" }
         XCTAssertEqual(messages.count, 257)

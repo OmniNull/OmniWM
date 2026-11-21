@@ -24,16 +24,6 @@ private func localizedModifierName(_ name: String) -> String {
     }.joined(separator: "+")
 }
 
-extension AppearanceMode {
-    var localizedDisplayName: String {
-        switch self {
-        case .automatic: String(localized: "Automatic")
-        case .light: String(localized: "Light")
-        case .dark: String(localized: "Dark")
-        }
-    }
-}
-
 extension LayoutType {
     var localizedDisplayName: String {
         switch self {
@@ -70,16 +60,6 @@ extension CenterFocusedColumn {
         case .never: String(localized: "Never")
         case .always: String(localized: "Always")
         case .onOverflow: String(localized: "On Overflow")
-        }
-    }
-}
-
-extension ResizePreviewStyle {
-    var localizedDisplayName: String {
-        switch self {
-        case .live: String(localized: "Live Resize")
-        case .glass: String(localized: "Glass Placeholder")
-        case .snapshot: String(localized: "Window Snapshot")
         }
     }
 }
@@ -145,18 +125,6 @@ extension QuakeTerminalBackgroundEffect {
         case .glassRegular: String(localized: "Regular Glass")
         case .glassClear: String(localized: "Clear Glass")
         }
-    }
-}
-
-extension MouseMoveModifierKey {
-    var localizedDisplayName: String {
-        localizedModifierName(displayName)
-    }
-}
-
-extension MouseResizeModifierKey {
-    var localizedDisplayName: String {
-        localizedModifierName(displayName)
     }
 }
 

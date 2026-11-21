@@ -7,6 +7,7 @@ import OmniWMShellCore
 @MainActor
 final class ShellResources {
     let palette = ShellPalette()
+    let darkPalette = ShellPalette(appearance: ShellPalette.darkAppearance)
     let shaders = ShellShaderLibrary()
     let images = ShellImageLibrary()
     let motion: MotionPolicy
@@ -22,6 +23,11 @@ final class ShellResources {
     private let processIcon: @MainActor (pid_t) -> NSImage?
     private var icons: [String: NSImage?] = [:]
     private var bitmaps: [String: CGImage] = [:]
+
+    func refreshPalettes(theme: ShellTheme) {
+        palette.refresh(theme: theme, appearance: NSApplication.shared.effectiveAppearance)
+        darkPalette.refresh(theme: theme, appearance: ShellPalette.darkAppearance)
+    }
 
     init(
         motion: MotionPolicy,

@@ -77,6 +77,16 @@ let package = Package(
             ]
         ),
         .target(
+            name: "OmniWMWiFiSPI",
+            path: "Sources/OmniWMWiFiSPI",
+            cSettings: [
+                .treatAllWarnings(as: .error)
+            ],
+            linkerSettings: [
+                .linkedFramework("CoreWLAN")
+            ]
+        ),
+        .target(
             name: "OmniWMLuau",
             path: "Sources/OmniWMLuau",
             exclude: ["LICENSE.txt", "lua_LICENSE.txt", "VERSION", "Bytecode/src/BytecodeGraph.cpp"],
@@ -127,6 +137,7 @@ let package = Package(
                 "OmniWMAudioTap",
                 "OmniWMLayerCorners",
                 "OmniWMLauncherSPI",
+                "OmniWMWiFiSPI",
                 "OmniWMMaterialColor",
                 "OmniWMScriptHost",
                 "OmniWMShellCore",
@@ -135,7 +146,6 @@ let package = Package(
             path: "Sources/OmniWM",
             resources: [
                 .process("Resources"),
-                .copy("Core/IssueReporter/Prompts"),
                 .copy("ShellDefault"),
                 .copy("ShellApps")
             ],
@@ -144,7 +154,6 @@ let package = Package(
                 .treatAllWarnings(as: .error),
                 .interoperabilityMode(.C),
                 .unsafeFlags([
-                    "-Xfrontend", "-disable-autolink-framework", "-Xfrontend", "FoundationModels",
                     "-Xfrontend", "-disable-round-trip-debug-types"
                 ])
             ],
@@ -158,8 +167,7 @@ let package = Package(
                 .linkedLibrary("z"),
                 .linkedLibrary("c++"),
                 .unsafeFlags(["-L\(ghosttyMacOSLibraryDirectory)"]),
-                .unsafeFlags(["-F/System/Library/PrivateFrameworks", "-framework", "SkyLight"]),
-                .unsafeFlags(["-weak_framework", "FoundationModels"])
+                .unsafeFlags(["-F/System/Library/PrivateFrameworks", "-framework", "SkyLight"])
             ]
         ),
         .executableTarget(
@@ -175,12 +183,6 @@ let package = Package(
             name: "OmniWMCtl",
             dependencies: ["OmniWMIPC"],
             path: "Sources/OmniWMCtl",
-            resources: [
-                .embedInCode("Completions/completion.zsh"),
-                .embedInCode("Completions/completion.bash"),
-                .embedInCode("Completions/completion.fish"),
-                .embedInCode("Completions/completion.nu")
-            ],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
                 .treatAllWarnings(as: .error)

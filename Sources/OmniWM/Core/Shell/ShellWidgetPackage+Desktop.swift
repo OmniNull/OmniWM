@@ -35,6 +35,10 @@ extension ShellDesktopRequest {
             action = operation == "open" ? .open(resource) : .reveal(resource)
         } else if operation == "quicklook" || operation == "share" {
             action = try Self.groupAction(operation, fields: fields, anchor: &anchor)
+        } else if operation == "convert", fields.count == 3,
+                  let format = fields["format"]?.string.flatMap(ShellImageConversionFormat.init(rawValue:))
+        {
+            action = .convert(try Self.resources(fields["resources"]), format: format)
         } else { throw ShellResourceFailure("invalid_request") }
         self.init(id: id, action: action, anchor: anchor)
     }
@@ -44,11 +48,7 @@ extension ShellDesktopRequest {
         fields: [String: ShellServiceValue],
         anchor: inout ShellDesktopAnchorLocator?
     ) throws -> Action {
-        guard let values = fields["resources"]?.values, !values.isEmpty, values.count <= 32 else {
-            throw ShellResourceFailure("invalid_resources")
-        }
-        let resources = try values.map { try Self.resource($0) }
-        guard Set(resources).count == resources.count else { throw ShellResourceFailure("duplicate_resource") }
+        let resources = try Self.resources(fields["resources"])
         if operation == "quicklook" {
             guard fields.count == 3, let value = fields["index"]?.number, value.isFinite,
                   value >= 1, value <= Double(resources.count), value.rounded(.towardZero) == value
@@ -64,6 +64,15 @@ extension ShellDesktopRequest {
             anchor = try ShellDesktopAnchorLocator(bytes: value)
             return .share(resources, service: service)
         }
+    }
+
+    private static func resources(_ value: ShellServiceValue?) throws -> [ShellResourceID] {
+        guard let values = value?.values, !values.isEmpty, values.count <= ShellResourceStore.attachmentLimit else {
+            throw ShellResourceFailure("invalid_resources")
+        }
+        let resources = try values.map { try Self.resource($0) }
+        guard Set(resources).count == resources.count else { throw ShellResourceFailure("duplicate_resource") }
+        return resources
     }
 
     private static func resource(_ value: ShellServiceValue?) throws -> ShellResourceID {

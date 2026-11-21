@@ -29,13 +29,8 @@ final class SettingsStore {
     @ObservationIgnored private var lastEffectiveTrackpadAvailability: Bool?
     @ObservationIgnored private(set) var layoutConfigurationRevision: UInt64 = 0
 
-    var effectiveTrackpadGesturesEnabled: Bool {
-        gestures.scrollEnabled || gestures.workspaceSwipeEnabled ||
-            (gestures.overviewGestureEnabled && overview.enabled) ||
-            gestures.windowMoveEnabled || gestures.windowResizeEnabled
-    }
-
     var onIPCEnabledChanged: (@MainActor (Bool) -> Void)?
+    var onSlideWorkspaceSwitchesChanged: (@MainActor () -> Void)?
     var onExternalSettingsReloaded: (@MainActor () -> Void)?
     var onConfigNoticeChanged: (@MainActor () -> Void)?
     var onTrackpadGestureAvailabilityChanged: (@MainActor (Bool) -> Void)?
@@ -68,6 +63,8 @@ final class SettingsStore {
     let overview = OverviewSettings()
     let windowSwitcher = WindowSwitcherSettings()
     let keyboardModes = KeyboardModeSettings()
+    let commandPalette = CommandPaletteSettings()
+    let appTheming = AppThemingSettings()
 
     var hotkeyBindings = SettingsStore.defaultExport.hotkeyBindings {
         didSet { scheduleSave() }
@@ -157,6 +154,22 @@ final class SettingsStore {
         }
     }
 
+    var slideWorkspaceSwitches = SettingsStore.defaultExport.slideWorkspaceSwitches {
+        didSet {
+            guard oldValue != slideWorkspaceSwitches else { return }
+            onSlideWorkspaceSwitchesChanged?()
+            scheduleSave()
+        }
+    }
+
+    var slideWorkspaceSwitchesUntracked: Bool {
+        _slideWorkspaceSwitches
+    }
+
+    var pausePalettePasteDuringSecureInput = SettingsStore.defaultExport.pausePalettePasteDuringSecureInput {
+        didSet { scheduleSave() }
+    }
+
     var language = SettingsStore.defaultExport.language {
         didSet { scheduleSave() }
     }
@@ -202,10 +215,6 @@ final class SettingsStore {
         quakeTerminalCustomFrame = nil
     }
 
-    var appearanceMode = SettingsStore.defaultExport.appearanceMode {
-        didSet { scheduleSave() }
-    }
-
     var tabRailAppIcons = SettingsStore.defaultExport.tabRailAppIcons {
         didSet { scheduleSave() }
     }
@@ -241,25 +250,20 @@ final class SettingsStore {
         dwindle.onChange = { [weak self] in self?.scheduleSave() }
         gestures.onChange = { [weak self] in
             self?.notifyTrackpadAvailabilityIfChanged()
-            self?.scheduleSave()
+            self?.pointerSettingsDidChange()
         }
         workspaceBar.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         workspaceBar.onNotificationBadgesChange = { [weak self] in self?.scheduleSave() }
         island.onChange = { [weak self] in self?.scheduleSave() }
         shellPermissions.onChange = { [weak self] in self?.scheduleSave() }
+        appTheming.onChange = { [weak self] in self?.scheduleSave() }
         workspaces.onChange = { [weak self] in self?.workspacesDidChange() }
         borders.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         overview.onChange = { [weak self] in
             self?.notifyTrackpadAvailabilityIfChanged()
             self?.scheduleSave()
         }
-        statusBar.onChange = { [weak self] in self?.scheduleSave() }
-        statusMenu.onChange = { [weak self] in self?.scheduleSave() }
-        windowSwitcher.onChange = { [weak self] in self?.scheduleSave() }
-        keyboardModes.onChange = { [weak self] in self?.scheduleSave() }
-        hiddenBar.onChange = { [weak self] in self?.scheduleSave() }
-        clipboard.onChange = { [weak self] in self?.scheduleSave() }
-        quakeTerminal.onChange = { [weak self] in self?.scheduleSave() }
+        scheduleSaveOnPlainTableChanges()
         lastEffectiveTrackpadAvailability = effectiveTrackpadGesturesEnabled
 
         let outcome = persistence.loadOutcome()
@@ -358,6 +362,18 @@ extension SettingsStore {
         runtimeState.launcherLaunchesSnapshot
     }
 
+    func recordUnifiedSearchPick(query: String, key: UnifiedSearchPickKey) {
+        runtimeState.recordUnifiedSearchPick(query: query, key: key)
+    }
+
+    func unifiedSearchLearnedPicks(for query: String) -> [UnifiedSearchPickKey] {
+        runtimeState.unifiedSearchLearnedPicks(for: query)
+    }
+
+    func clearUnifiedSearchPickHistory() {
+        runtimeState.clearUnifiedSearchPickHistory()
+    }
+
     var launcherHiddenSuggestions: Set<String> {
         get { runtimeState.launcherHiddenSuggestions }
         set { runtimeState.launcherHiddenSuggestions = newValue }
@@ -369,16 +385,6 @@ extension SettingsStore {
 
     func savePersistedWindowRestoreCatalog(_ catalog: PersistedWindowRestoreCatalog) {
         runtimeState.windowRestoreCatalog = catalog.entries.isEmpty ? nil : catalog
-    }
-
-    var issueDraft: IssueDraft? {
-        get { runtimeState.issueDraft }
-        set { runtimeState.issueDraft = newValue }
-    }
-
-    var hasSeenIssueWalkthrough: Bool {
-        get { runtimeState.hasSeenIssueWalkthrough }
-        set { runtimeState.hasSeenIssueWalkthrough = newValue }
     }
 
     var appVolumes: [String: AppVolumeSetting] {
@@ -458,15 +464,18 @@ extension SettingsStore {
         hiddenBar.apply(export.hiddenBar)
         animationsEnabled = export.animationsEnabled
         animationSpeed = export.animationSpeed
+        slideWorkspaceSwitches = export.slideWorkspaceSwitches
+        pausePalettePasteDuringSecureInput = export.pausePalettePasteDuringSecureInput
         language = export.language
         clipboard.apply(export.clipboard)
         launcher = export.launcher
+        commandPalette.apply(export.commandPalette)
 
         quakeTerminal.apply(export.quakeTerminal, baseline: SettingsStore.defaultExport.quakeTerminal)
 
-        appearanceMode = export.appearanceMode
         tabRailAppIcons = export.tabRailAppIcons
         shellPermissions.apply(export.shellPermissions)
+        appTheming.apply(export.appTheming)
     }
 
     private func pointerSettingsDidChange() {

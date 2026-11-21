@@ -11,6 +11,7 @@ extension WMController {
         let workspaceLabel: String
         let workspaceRawName: String
         let focusedAppName: String?
+        let layout: ActiveLayoutKind
     }
 
     struct WindowDecisionEvaluation {

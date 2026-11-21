@@ -9,6 +9,15 @@ import XCTest
 
 let failureBound: TimeInterval = 30
 
+func serialTestQueue(_ label: String) -> DispatchSerialQueue {
+    DispatchSerialQueue(label: label, qos: .unspecified, attributes: [], autoreleaseFrequency: .workItem, target: nil)
+}
+
+func notificationPreferences(_ apps: [[String: Any]]) throws -> Data {
+    let root: [String: Any] = ["version": ShellNotificationPreferences.supportedVersion, "apps": apps]
+    return try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
+}
+
 func floatStored<T: BinaryFloatingPoint>(_ value: T) -> T {
     T(Float(value))
 }

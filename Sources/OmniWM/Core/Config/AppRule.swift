@@ -21,6 +21,11 @@ enum WindowRuleLayoutAction: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum AppRuleScratchpadConflict: Equatable, Sendable {
+    case assignToWorkspace
+    case tileLayout
+}
+
 struct AppRule: Codable, Identifiable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case id
@@ -32,9 +37,11 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         case axSubrole
         case layout
         case assignToWorkspace
+        case assignToWorkspaceForAllWindows
         case initialContainerPrimarySpan
         case minWidth
         case minHeight
+        case scratchpad
     }
 
     let id: UUID
@@ -46,9 +53,11 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
     var axSubrole: String?
     var layout: WindowRuleLayoutAction?
     var assignToWorkspace: String?
+    var assignToWorkspaceForAllWindows: Bool?
     var initialContainerPrimarySpan: Double?
     var minWidth: Double?
     var minHeight: Double?
+    var scratchpad: Int?
 
     init(
         id: UUID = UUID(),
@@ -60,9 +69,11 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         axSubrole: String? = nil,
         layout: WindowRuleLayoutAction? = nil,
         assignToWorkspace: String? = nil,
+        assignToWorkspaceForAllWindows: Bool? = nil,
         initialContainerPrimarySpan: Double? = nil,
         minWidth: Double? = nil,
-        minHeight: Double? = nil
+        minHeight: Double? = nil,
+        scratchpad: Int? = nil
     ) {
         self.id = id
         self.bundleId = bundleId
@@ -73,9 +84,11 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         self.axSubrole = axSubrole
         self.layout = layout
         self.assignToWorkspace = assignToWorkspace
+        self.assignToWorkspaceForAllWindows = assignToWorkspaceForAllWindows
         self.initialContainerPrimarySpan = initialContainerPrimarySpan
         self.minWidth = minWidth
         self.minHeight = minHeight
+        self.scratchpad = scratchpad
         normalizeSingleTitle()
     }
 
@@ -93,10 +106,32 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         return initialContainerPrimarySpan
     }
 
+    var assignedWorkspaceName: String? {
+        guard let trimmed = assignToWorkspace?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty
+        else {
+            return nil
+        }
+        return trimmed
+    }
+
+    var scratchpadConflict: AppRuleScratchpadConflict? {
+        guard scratchpad != nil else { return nil }
+        if assignedWorkspaceName != nil { return .assignToWorkspace }
+        if effectiveLayoutAction == .tile { return .tileLayout }
+        return nil
+    }
+
+    var validScratchpad: ScratchpadIndex? {
+        guard let scratchpad, scratchpadConflict == nil else { return nil }
+        return ScratchpadIndex(scratchpad)
+    }
+
     var hasEffect: Bool {
         effectiveLayoutAction != .auto ||
-            assignToWorkspace?.isEmpty == false ||
+            assignedWorkspaceName != nil ||
             validInitialContainerPrimarySpan != nil ||
+            validScratchpad != nil ||
             minWidth != nil || minHeight != nil
     }
 
@@ -143,6 +178,7 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
             assignToWorkspace != nil ||
             initialContainerPrimarySpan != nil ||
             minWidth != nil || minHeight != nil ||
+            scratchpad != nil ||
             hasAdvancedMatchers
     }
 
@@ -157,9 +193,14 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         axSubrole = try container.decodeIfPresent(String.self, forKey: .axSubrole)
         layout = try container.decodeIfPresent(WindowRuleLayoutAction.self, forKey: .layout)
         assignToWorkspace = try container.decodeIfPresent(String.self, forKey: .assignToWorkspace)
+        assignToWorkspaceForAllWindows = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .assignToWorkspaceForAllWindows
+        )
         initialContainerPrimarySpan = try container.decodeIfPresent(Double.self, forKey: .initialContainerPrimarySpan)
         minWidth = try container.decodeIfPresent(Double.self, forKey: .minWidth)
         minHeight = try container.decodeIfPresent(Double.self, forKey: .minHeight)
+        scratchpad = try container.decodeIfPresent(Int.self, forKey: .scratchpad)
         normalizeSingleTitle()
     }
 
@@ -174,9 +215,11 @@ struct AppRule: Codable, Identifiable, Equatable, Sendable {
         try container.encodeIfPresent(axSubrole, forKey: .axSubrole)
         try container.encodeIfPresent(layout, forKey: .layout)
         try container.encodeIfPresent(assignToWorkspace, forKey: .assignToWorkspace)
+        try container.encodeIfPresent(assignToWorkspaceForAllWindows, forKey: .assignToWorkspaceForAllWindows)
         try container.encodeIfPresent(initialContainerPrimarySpan, forKey: .initialContainerPrimarySpan)
         try container.encodeIfPresent(minWidth, forKey: .minWidth)
         try container.encodeIfPresent(minHeight, forKey: .minHeight)
+        try container.encodeIfPresent(scratchpad, forKey: .scratchpad)
     }
 
     private mutating func normalizeSingleTitle() {

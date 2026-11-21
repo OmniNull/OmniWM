@@ -36,7 +36,7 @@ function render(ctx: Context)
         button = ui.stack(frame)
     else
         local props = table.clone(behaviour)
-        props[1] = look.glyph(glyph)
+        props[1] = look.barGlyph(ctx, glyph)
         button = look.bar(ctx, props)
     end
     for key, value in behaviour do
@@ -179,9 +179,10 @@ local function model(ctx: Context)
     end
     if data.battery then
         local level = math.clamp(data.battery / 100, 0, 1)
+        local plugged = data.power ~= nil and data.power.source == "ac"
         m.battery = { level = level, percent = ctx.format.percent(level), charging = data.charging,
             status = batteryStatus(ctx), low = level <= 0.2 and not data.charging,
-            symbol = look.batterySymbol(level * 100, data.charging) }
+            symbol = look.batterySymbol(level * 100, data.charging or plugged) }
     end
     return m
 end

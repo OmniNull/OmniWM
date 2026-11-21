@@ -55,6 +55,18 @@ final class ShellPointerEventTests: XCTestCase {
         XCTAssertEqual(ShellLayerScene.engineQueue.sync { scene.layers[root.slot]?.opacity }, 1)
     }
 
+    func testStringHoverReachesTheOwnerSynchronouslyWithoutInvokingLuau() throws {
+        let command = "palette highlight clipboard-row"
+        let fixture = try Fixture("return ui.box{w=40,h=20,onHover='\(command)'}")
+        fixture.surface.hover(at: CGPoint(x: 1, y: 1))
+        XCTAssertEqual(fixture.events.map(\.event.kind), [.hover])
+        XCTAssertEqual(fixture.events.map(\.event.phase), [.began])
+        XCTAssertEqual(fixture.events.first.map { fixture.text.string($0.action) }, command)
+        XCTAssertEqual(fixture.events.first.map { $0.action & OMNI_ACTION_HANDLER }, 0)
+        fixture.surface.hover(at: nil)
+        XCTAssertEqual(fixture.events.map(\.event.phase), [.began, .ended])
+    }
+
     func testExplicitZeroPressScaleIsAppliedAndRestoredWithoutALuauHandler() throws {
         let fixture = try Fixture("return ui.box{w=40,h=20,pressScale=0}")
         let surface = fixture.surface

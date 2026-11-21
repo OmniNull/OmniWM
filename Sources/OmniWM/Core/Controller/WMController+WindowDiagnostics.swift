@@ -59,6 +59,7 @@ extension WMController {
             deferredReason: evaluation.decision.deferredReason,
             admissionOutcome: evaluation.decision.admissionOutcome,
             workspaceName: evaluation.decision.workspaceName,
+            scratchpad: evaluation.decision.admissionHints.scratchpad,
             minWidth: evaluation.decision.ruleEffects.minWidth,
             minHeight: evaluation.decision.ruleEffects.minHeight,
             initialNiriContainerPrimarySpan: evaluation.decision.admissionHints.initialNiriContainerPrimarySpan,
@@ -93,6 +94,6 @@ extension WMController {
     }
 
     func workspaceAssignment(pid: pid_t, windowId: Int) -> WorkspaceDescriptor.ID? {
-        workspaceManager.entry(forPid: pid, windowId: windowId)?.workspaceId
+        workspaceManager.workspace(for: WindowToken(pid: pid, windowId: windowId))
     }
 }

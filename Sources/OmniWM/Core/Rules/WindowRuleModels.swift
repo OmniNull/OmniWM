@@ -55,12 +55,14 @@ struct WindowRuleProvenance: Equatable, Sendable {
     var minWidth: UUID?
     var minHeight: UUID?
     var initialContainerPrimarySpan: UUID?
+    var scratchpad: UUID?
 
     static let none = WindowRuleProvenance()
 }
 
 struct ManagedWindowAdmissionHints: Equatable, Sendable {
     var initialNiriContainerPrimarySpan: Double?
+    var scratchpad: ScratchpadIndex?
 
     static let none = ManagedWindowAdmissionHints()
 }
@@ -70,6 +72,7 @@ struct WindowDecision: Equatable, Sendable {
     let source: WindowDecisionSource
     let layoutDecisionKind: WindowDecisionLayoutKind
     let workspaceName: String?
+    var assignToWorkspaceForAllWindows = false
     let ruleEffects: ManagedWindowRuleEffects
     let admissionHints: ManagedWindowAdmissionHints
     let ruleProvenance: WindowRuleProvenance

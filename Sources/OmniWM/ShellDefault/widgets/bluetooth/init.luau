@@ -13,7 +13,7 @@ function render(ctx)
     local button = look.bluetoothBar and look.bluetoothBar(ctx, state)
     if not button then
         local props = table.clone(behaviour)
-        props[1] = bluetooth.glyph(state, 16 * look.scale(ctx))
+        props[1] = bluetooth.glyph(state, look.px(ctx, "barSymbol"))
         button = look.bar(ctx, props)
     end
     for key, value in behaviour do

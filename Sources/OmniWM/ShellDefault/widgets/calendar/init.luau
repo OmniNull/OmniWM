@@ -17,7 +17,7 @@ function render(ctx)
         local scale = look.scale(ctx)
         local vertical = ctx.data.bar.style.vertical
         local props = table.clone(behaviour)
-        props[1] = look.glyph{ name = "calendar", size = 14 * scale }
+        props[1] = look.barGlyph(ctx, { name = "calendar", size = 14 * scale })
         local event = state.event
         if event then
             props.gap = if vertical then 2 * scale else nil

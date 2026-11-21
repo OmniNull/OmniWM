@@ -5,6 +5,9 @@ import QuartzCore
 
 struct OverviewNativeTransition {
     static let response = 0.25
+    static let closeHandoffProgress = 0.01
+    static let closeRevealProgress = 0.08
+    static let settleTimeResolution: CFTimeInterval = 0.001
     private static let rubberBandCoefficient = 0.55
     private static let rubberBandDimension = 0.30
     private static let flickVelocity = 0.5
@@ -18,7 +21,7 @@ struct OverviewNativeTransition {
     let initialVelocity: Double
     let response: Double
     let duration: CFTimeInterval
-    private let frequency: Double
+    private let spring: CriticalSpring
 
     var chromeExitResponse: Double? {
         target == 0 ? response / 2 : nil
@@ -42,39 +45,50 @@ struct OverviewNativeTransition {
         target = to
         self.initialVelocity = initialVelocity
         self.response = response
-        frequency = 2 * .pi / response
+        let frequency = 2 * .pi / response
+        spring = CriticalSpring(displacement: from - to, initialVelocity: initialVelocity, frequency: frequency)
         let normalizedVelocity = to == from ? 0 : initialVelocity / (to - from)
-        duration = to == from
+        let settlingDuration = to == from
             ? 0
             : Self.makeSpring(initialVelocity: normalizedVelocity, frequency: frequency).settlingDuration
+        duration = to == 0
+            ? spring.settleTime(within: Self.closeHandoffProgress, latest: settlingDuration)
+            : settlingDuration
     }
 
     func value(at time: CFTimeInterval) -> Double {
         let elapsed = max(0, time - startTime)
         guard elapsed < duration else { return target }
-        let displacement = from - target
-        let coefficient = frequency * displacement + initialVelocity
-        return target + exp(-frequency * elapsed) * (displacement + coefficient * elapsed)
+        return target + spring.offset(at: elapsed)
     }
 
     func velocity(at time: CFTimeInterval) -> Double {
         let elapsed = max(0, time - startTime)
         guard elapsed < duration else { return 0 }
-        let displacement = from - target
-        let coefficient = frequency * displacement + initialVelocity
-        return exp(-frequency * elapsed) * (
-            initialVelocity - frequency * coefficient * elapsed
-        )
+        return spring.velocity(at: elapsed)
     }
 
     func makeAnimation(keyPath: String, response: Double? = nil) -> CASpringAnimation {
         let animation = Self.makeSpring(
             initialVelocity: normalizedVelocity,
-            frequency: response.map { 2 * .pi / $0 } ?? frequency
+            frequency: response.map { 2 * .pi / $0 } ?? spring.frequency
         )
         animation.keyPath = keyPath
         animation.beginTime = startTime
         animation.duration = response == nil ? duration : animation.settlingDuration
+        return animation
+    }
+
+    func makeCloseReveal() -> CAKeyframeAnimation? {
+        guard target == 0, duration > 0 else { return nil }
+        let revealStart = spring.settleTime(within: Self.closeRevealProgress, latest: duration)
+        let animation = CAKeyframeAnimation(keyPath: "opacity")
+        animation.values = [Float(1), 1, 0]
+        animation.keyTimes = [0, NSNumber(value: revealStart / duration), 1]
+        animation.beginTime = startTime
+        animation.duration = duration
+        animation.fillMode = .forwards
+        animation.isRemovedOnCompletion = false
         return animation
     }
 
@@ -110,6 +124,32 @@ struct OverviewNativeTransition {
     private static func unresist(_ stretch: Double) -> Double {
         let bounded = min(stretch, rubberBandDimension - 1e-9)
         return bounded * rubberBandDimension / (rubberBandCoefficient * (rubberBandDimension - bounded))
+    }
+
+    private struct CriticalSpring {
+        let displacement: Double
+        let initialVelocity: Double
+        let frequency: Double
+
+        private var coefficient: Double {
+            frequency * displacement + initialVelocity
+        }
+
+        func offset(at elapsed: CFTimeInterval) -> Double {
+            exp(-frequency * elapsed) * (displacement + coefficient * elapsed)
+        }
+
+        func velocity(at elapsed: CFTimeInterval) -> Double {
+            exp(-frequency * elapsed) * (initialVelocity - frequency * coefficient * elapsed)
+        }
+
+        func settleTime(within offsetLimit: Double, latest: CFTimeInterval) -> CFTimeInterval {
+            var time = latest
+            while time > 0, abs(offset(at: time)) <= offsetLimit {
+                time -= OverviewNativeTransition.settleTimeResolution
+            }
+            return time <= 0 ? 0 : min(latest, time + OverviewNativeTransition.settleTimeResolution)
+        }
     }
 
     private static func makeSpring(initialVelocity: Double, frequency: Double) -> CASpringAnimation {

@@ -111,7 +111,7 @@ extension AXEventHandler {
             return .handled
         }
 
-        trackPreparedCreate(candidate)
+        trackPreparedCreate(candidate, countsAsFocused: true)
         return finishFocusedCreateAdmission(
             candidate, activation: focusedActivation, requestDisposition: requestDisposition,
             verifiedManagedParentToken: verifiedManagedParentToken, controller: controller

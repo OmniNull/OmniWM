@@ -17,7 +17,7 @@ function render(ctx: Context)
     if not button then
         local scale = look.scale(ctx)
         local props = table.clone(behaviour)
-        props[1] = look.glyph{ name = "globe", size = 14 * scale, weight = "medium" }
+        props[1] = look.barGlyph(ctx, { name = "globe", size = 14 * scale, weight = "medium" })
         if vertical then
             props.gap = scale
             props.pad = 2 * scale

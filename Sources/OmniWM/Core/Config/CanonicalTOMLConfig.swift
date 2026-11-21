@@ -24,8 +24,10 @@ struct CanonicalTOMLConfig: Codable, Equatable {
     var statusMenu: SettingsExport.StatusMenu
     var hiddenBar: SettingsExport.HiddenBar
     var launcher: LauncherConfiguration
+    var commandPalette: SettingsExport.CommandPalette
     var clipboard: SettingsExport.Clipboard
     var quakeTerminal: SettingsExport.QuakeTerminal
+    var appTheming: SettingsExport.AppTheming
     var scratchpads: SettingsExport.Scratchpads
     var appearance: Appearance
     var hotkeys: [HotkeyBinding]
@@ -48,6 +50,8 @@ struct CanonicalTOMLConfig: Codable, Equatable {
         var ipcEnabled: Bool
         var animationsEnabled: Bool
         var animationSpeed: Double?
+        var slideWorkspaceSwitches: Bool?
+        var pausePalettePasteDuringSecureInput: Bool?
         var language: String?
         var workspaceAutoBackAndForth: Bool?
     }
@@ -57,7 +61,6 @@ struct CanonicalTOMLConfig: Codable, Equatable {
     }
 
     struct Appearance: Codable, Equatable {
-        var mode: AppearanceMode
         var tabRailAppIcons: Bool
     }
 }
@@ -65,7 +68,6 @@ struct CanonicalTOMLConfig: Codable, Equatable {
 extension CanonicalTOMLConfig.Appearance {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        mode = try container.decode(AppearanceMode.self, forKey: .mode)
         tabRailAppIcons = try container.decodeIfPresent(Bool.self, forKey: .tabRailAppIcons) ?? false
     }
 }
@@ -89,10 +91,8 @@ extension CanonicalTOMLConfig {
         dwindle = try container.decode(SettingsExport.Dwindle.self, forKey: .dwindle)
         borders = try container.decode(SettingsExport.Borders.self, forKey: .borders)
         overview = try container.decode(SettingsExport.Overview.self, forKey: .overview)
-        windowSwitcher = try container.decodeIfPresent(SettingsExport.WindowSwitcher.self, forKey: .windowSwitcher)
-            ?? SettingsExport.WindowSwitcher()
-        keyboardModes = try container.decodeIfPresent(SettingsExport.KeyboardModes.self, forKey: .keyboardModes)
-            ?? SettingsExport.KeyboardModes()
+        windowSwitcher = try Self.decodeOptionalTable(.windowSwitcher, from: container) ?? .init()
+        keyboardModes = try Self.decodeOptionalTable(.keyboardModes, from: container) ?? .init()
         workspaceBar = try container.decode(SettingsExport.WorkspaceBar.self, forKey: .workspaceBar)
         island = try container.decodeIfPresent(SettingsExport.Island.self, forKey: .island) ?? .defaults()
         gestures = try container.decode(SettingsExport.Gestures.self, forKey: .gestures)
@@ -100,8 +100,10 @@ extension CanonicalTOMLConfig {
         statusMenu = try Self.decodeStatusMenu(from: container)
         hiddenBar = try container.decode(SettingsExport.HiddenBar.self, forKey: .hiddenBar)
         launcher = try container.decodeIfPresent(LauncherConfiguration.self, forKey: .launcher) ?? .init()
+        commandPalette = try Self.decodeOptionalTable(.commandPalette, from: container) ?? .init()
         clipboard = try container.decode(SettingsExport.Clipboard.self, forKey: .clipboard)
         quakeTerminal = try container.decode(SettingsExport.QuakeTerminal.self, forKey: .quakeTerminal)
+        appTheming = try Self.decodeOptionalTable(.appTheming, from: container) ?? .init()
         scratchpads = try container.decode(SettingsExport.Scratchpads.self, forKey: .scratchpads)
         appearance = try container.decode(Appearance.self, forKey: .appearance)
         hotkeys = try Self.decodeHotkeys(from: container)
@@ -139,6 +141,8 @@ extension CanonicalTOMLConfig {
             ipcEnabled: export.ipcEnabled,
             animationsEnabled: export.animationsEnabled,
             animationSpeed: AnimationSpeed.normalized(export.animationSpeed),
+            slideWorkspaceSwitches: export.slideWorkspaceSwitches,
+            pausePalettePasteDuringSecureInput: export.pausePalettePasteDuringSecureInput,
             language: export.language,
             workspaceAutoBackAndForth: export.workspaceAutoBackAndForth
         )
@@ -161,10 +165,11 @@ extension CanonicalTOMLConfig {
         statusMenu = export.statusMenu
         hiddenBar = export.hiddenBar
         launcher = export.launcher
+        commandPalette = export.commandPalette
         clipboard = export.clipboard
         quakeTerminal = export.quakeTerminal
         scratchpads = export.scratchpads
-        appearance = Appearance(mode: export.appearanceMode, tabRailAppIcons: export.tabRailAppIcons)
+        appearance = Appearance(tabRailAppIcons: export.tabRailAppIcons)
         hotkeys = export.hotkeyBindings
         workspaces = export.workspaceConfigurations
         appRules = export.appRules
@@ -174,6 +179,7 @@ extension CanonicalTOMLConfig {
         monitorDwindleOverrides = export.monitorDwindleSettings
         monitorGapOverrides = export.monitorGapSettings
         shellPermissions = export.shellPermissions
+        appTheming = export.appTheming
     }
 
     func toSettingsExport() -> SettingsExport {
@@ -214,11 +220,14 @@ extension CanonicalTOMLConfig {
             hiddenBar: hiddenBar,
             animationsEnabled: general.animationsEnabled,
             animationSpeed: AnimationSpeed.normalized(general.animationSpeed ?? 1),
+            slideWorkspaceSwitches: general.slideWorkspaceSwitches ?? false,
+            pausePalettePasteDuringSecureInput: general.pausePalettePasteDuringSecureInput ?? true,
             language: general.language,
             launcher: launcher,
+            commandPalette: commandPalette,
             clipboard: clipboard,
             quakeTerminal: quakeTerminal,
-            appearanceMode: appearance.mode,
+            appTheming: appTheming,
             tabRailAppIcons: appearance.tabRailAppIcons,
             shellPermissions: shellPermissions
         )
@@ -246,6 +255,13 @@ extension CanonicalTOMLConfig {
         try container.decodeIfPresent(SettingsExport.StatusMenu.self, forKey: .statusMenu) ?? .defaults()
     }
 
+    private static func decodeOptionalTable<Table: Decodable>(
+        _ key: CodingKeys,
+        from container: KeyedDecodingContainer<CodingKeys>
+    ) throws -> Table? {
+        try container.decodeIfPresent(Table.self, forKey: key)
+    }
+
     private func statusMenuForExport() -> SettingsExport.StatusMenu {
         var statusMenu = statusMenu
         let defaults = SettingsExport.StatusMenu.defaults()
@@ -260,6 +276,7 @@ extension CanonicalTOMLConfig {
     private func statusBarForExport() -> SettingsExport.StatusBar {
         var statusBar = statusBar
         statusBar.showIcon = statusBar.showIcon ?? true
+        statusBar.showLayout = statusBar.showLayout ?? false
         return statusBar
     }
 
@@ -273,10 +290,7 @@ extension CanonicalTOMLConfig {
         gestures.windowResizeEnabled = gestures.windowResizeEnabled ?? false
         gestures.windowResizeFingerCount = gestures.windowResizeFingerCount ?? .three
         gestures.windowGestureSensitivity = gestures.windowGestureSensitivity ?? 1.0
-        gestures.resizePreviewStyle = gestures.resizePreviewStyle ?? .live
         gestures.dwindleGroupDragAcrossDisplays = gestures.dwindleGroupDragAcrossDisplays ?? .group
-        gestures.adoptNativeResize = gestures.adoptNativeResize ?? false
-        gestures.adoptNativeMoveAcrossDisplays = gestures.adoptNativeMoveAcrossDisplays ?? false
         return gestures
     }
 }

@@ -21,8 +21,14 @@ struct DwindleInteractiveResize {
 
     var horizontal: Axis?
     var vertical: Axis?
+    let centered: Centered?
 
     var didChange = false
+}
+
+struct DwindleResizeMatch: ~Copyable {
+    let split: DwindleNode
+    let child: DwindleNode
 }
 
 enum DwindleResizeEdgePolicy {
@@ -37,7 +43,8 @@ extension DwindleLayoutEngine {
         startLocation: CGPoint,
         in workspaceId: WorkspaceDescriptor.ID,
         innerGap: CGFloat,
-        edgePolicy: DwindleResizeEdgePolicy = .exact
+        edgePolicy: DwindleResizeEdgePolicy = .exact,
+        allowsCentered: Bool = false
     ) -> Bool {
         guard interactiveResize == nil else { return false }
         guard let leaf = findNode(for: token, in: workspaceId), leaf.isLeaf, !leaf.isFullscreen else { return false }
@@ -65,7 +72,10 @@ extension DwindleLayoutEngine {
             startMouseLocation: startLocation,
             innerGap: innerGap,
             horizontal: horizontal?.axis,
-            vertical: vertical?.axis
+            vertical: vertical?.axis,
+            centered: allowsCentered ? centeredResizeBindings(
+                from: leaf, workspaceId: workspaceId, innerGap: innerGap
+            ) : nil
         )
         return true
     }
@@ -86,6 +96,14 @@ extension DwindleLayoutEngine {
             )?.axis
             resize.edges.formUnion(edges)
             interactiveResize = resize
+        }
+
+        if resize.centered != nil,
+           resize.edges.contains([.left, .right]) || resize.edges.contains([.bottom, .top])
+        {
+            let changed = updateCenteredResize(resize, leaf: leaf, currentLocation: currentLocation)
+            if changed { interactiveResize?.didChange = true }
+            return changed
         }
 
         var changed = false
@@ -114,9 +132,10 @@ extension DwindleLayoutEngine {
 
     @discardableResult
     func interactiveResizeEnd() -> Bool {
-        let didChange = interactiveResize?.didChange ?? false
+        guard let resize = interactiveResize else { return false }
         interactiveResize = nil
-        return didChange
+        if resize.didChange { recordNativeResizeHistory(resize) }
+        return resize.didChange
     }
 
     func clearInteractiveResize() {
@@ -158,7 +177,8 @@ extension DwindleLayoutEngine {
             originRatio + 2 * delta / axis.length,
             for: match.split,
             innerGap: resize.innerGap,
-            excludedTokens: excludedTokens(in: resize.workspaceId)
+            excludedTokens: excludedTokens(in: resize.workspaceId),
+            referenceRatio: originRatio
         )
         guard newRatio != match.split.splitRatio else { return false }
         match.split.kind = .split(orientation: axis.orientation, ratio: newRatio)
@@ -203,26 +223,33 @@ extension DwindleLayoutEngine {
         return (resolved, preferred == firstEdge ? secondEdge : firstEdge)
     }
 
-    private func resolveAxis(
+    func resolveAxis(
         from leaf: DwindleNode,
         axis: DwindleOrientation,
         wantFirstChild: Bool,
         workspaceId: WorkspaceDescriptor.ID
     ) -> DwindleInteractiveResize.Axis? {
         guard let match = controllingSplit(
-                  from: leaf,
-                  orientation: axis,
-                  wantFirstChild: wantFirstChild,
-                  workspaceId: workspaceId
-              ),
-              let frame = match.split.cachedFrame
+            from: leaf,
+            orientation: axis,
+            wantFirstChild: wantFirstChild,
+            workspaceId: workspaceId
+        )
         else {
             return nil
         }
-        let axisLength = axis == .horizontal ? frame.width : frame.height
+        return resizeAxis(from: match, orientation: axis)
+    }
+
+    func resizeAxis(
+        from match: borrowing DwindleResizeMatch,
+        orientation: DwindleOrientation
+    ) -> DwindleInteractiveResize.Axis? {
+        guard let frame = match.split.cachedFrame else { return nil }
+        let axisLength = orientation == .horizontal ? frame.width : frame.height
         guard axisLength.isFinite, axisLength > 0 else { return nil }
         return DwindleInteractiveResize.Axis(
-            orientation: axis,
+            orientation: orientation,
             splitId: match.split.id,
             childId: match.child.id,
             originRatio: match.split.splitRatio,
@@ -230,12 +257,12 @@ extension DwindleLayoutEngine {
         )
     }
 
-    private func controllingSplit(
+    func controllingSplit(
         from leaf: DwindleNode,
         orientation: DwindleOrientation,
         wantFirstChild: Bool,
         workspaceId: WorkspaceDescriptor.ID
-    ) -> (split: DwindleNode, child: DwindleNode)? {
+    ) -> DwindleResizeMatch? {
         var child = leaf
         var current = leaf.parent
         while let parent = current {
@@ -247,7 +274,7 @@ extension DwindleLayoutEngine {
                ),
                child.isFirstChild(of: parent) == wantFirstChild
             {
-                return (parent, child)
+                return DwindleResizeMatch(split: parent, child: child)
             }
             child = parent
             current = parent.parent

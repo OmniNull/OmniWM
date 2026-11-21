@@ -49,7 +49,6 @@ extension SettingsExport {
             language: nil,
             clipboard: Clipboard.defaults(),
             quakeTerminal: QuakeTerminal.defaults(),
-            appearanceMode: .dark,
             tabRailAppIcons: false
         )
     }
@@ -125,7 +124,15 @@ extension SettingsExport.Niri {
             resizeStepPercent: BuiltInSettingsDefaults.niriResizeStepPercent,
             moveWindowStacksIntoColumn: true,
             allowOverscroll: false,
-            overscrollVisibleStripPercent: 5
+            overscrollVisibleStripPercent: 5,
+            shrinkToFit: false,
+            edgePeekPercent: BuiltInSettingsDefaults.niriEdgePeekPercent,
+            fitToVisibleContainerCount: false,
+            keepExistingWindowWidth: false,
+            keepSizeOnUnstack: false,
+            keepSizesOnDisplayMove: false,
+            keepSizesOnSettingsChange: false,
+            keepStripEndsOnScreen: false
         )
     }
 }
@@ -205,18 +212,13 @@ extension SettingsExport.Gestures {
             scrollEnabled: true,
             scrollSensitivity: 5.0,
             scrollModifierKey: .optionShift,
-            mouseMoveModifierKey: .option,
-            mouseResizeModifierKey: .option,
             fingerCount: .three,
             invertDirection: true,
             trackpadScrollStyle: .snap,
             workspaceSwipeEnabled: false,
             workspaceSwipeFingerCount: .three,
             workspaceSwipeAxis: .vertical,
-            resizePreviewStyle: .live,
             dwindleGroupDragAcrossDisplays: .group,
-            adoptNativeResize: false,
-            adoptNativeMoveAcrossDisplays: false,
             mouseWheelSensitivity: 1.0
         )
     }

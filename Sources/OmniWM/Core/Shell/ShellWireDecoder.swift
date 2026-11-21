@@ -183,6 +183,7 @@ enum ShellWireDecoder {
             hoverMaterial: wire.hover_material,
             lines: wire.lines,
             scrolls: wire.flags & UInt16(OMNI_NODE_SCROLL) != 0,
+            marquee: wire.behavior_flags & UInt32(OMNI_NODE_MARQUEE) != 0,
             bridges: UInt32(wire.options) & OMNI_NODE_OPTION_BRIDGE != 0,
             openDuration: wire.open_duration,
             closeDuration: wire.close_duration,
@@ -231,6 +232,8 @@ enum ShellWireDecoder {
         content.inputFocusAction = wire.input_focus_action
         content.inputMaxLength = wire.input_max_length
         content.inputMultiline = UInt32(wire.input_flags) & OMNI_INPUT_MULTILINE != 0
+        content.inputEditable = wire.behavior_flags & OMNI_NODE_BEHAVIOR_INPUT_READ_ONLY == 0
+        content.inputWrap = wire.behavior_flags & OMNI_NODE_BEHAVIOR_INPUT_NO_WRAP == 0
         content.inputFocus = UInt32(wire.input_flags) & OMNI_INPUT_FOCUS_PRESENT == 0 ? -1 :
             (UInt32(wire.input_flags) & OMNI_INPUT_FOCUS_VALUE != 0 ? 1 : 0)
     }

@@ -34,6 +34,9 @@ extension SurfaceCore {
              .input:
             Size2(width: 0, height: 0)
         }
+        if content[slotIndex].marquee, content[slotIndex].maxWidth > 0 {
+            size.width = Swift.min(size.width, content[slotIndex].maxWidth)
+        }
         if style.width >= 0 {
             size.width = style.width
         }

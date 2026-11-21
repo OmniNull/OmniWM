@@ -11,15 +11,26 @@ extension DwindleLayoutEngine {
               !state.excludedTokens.contains(token),
               !isWindowFullscreen(token, in: workspaceId)
         else { return false }
-        var hasPeer = false
-        for leaf in state.root.collectAllLeaves() {
-            guard let tile = leaf.tile,
-                  let member = visibleMember(in: tile, excluding: state.excludedTokens)
-            else { continue }
-            if member.isFullscreen { return false }
-            if leaf !== source { hasPeer = true }
+        let status = insertionPeerStatus(in: state.root, source: source, excluding: state.excludedTokens)
+        return status.hasPeer && !status.hasFullscreen
+    }
+
+    func insertionPeerStatus(
+        in node: DwindleNode,
+        source: DwindleNode,
+        excluding excludedTokens: Set<WindowToken>
+    ) -> (hasPeer: Bool, hasFullscreen: Bool) {
+        if node.isLeaf {
+            guard let member = visibleMember(in: node.tile, excluding: excludedTokens) else { return (false, false) }
+            return (node !== source, member.isFullscreen)
         }
-        return hasPeer
+        var hasPeer = false
+        for child in node.children {
+            let status = insertionPeerStatus(in: child, source: source, excluding: excludedTokens)
+            if status.hasFullscreen { return (false, true) }
+            hasPeer = hasPeer || status.hasPeer
+        }
+        return (hasPeer, false)
     }
 
     @discardableResult

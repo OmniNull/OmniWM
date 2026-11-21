@@ -11,8 +11,7 @@ installing so you can decide whether it fits your system and workflow.
 ## Supported Macs and macOS
 
 - **Apple Silicon only** — Intel Macs are not supported.
-- **macOS 26 Tahoe or later** — core window management supports macOS 26. Hidden Bar concealment and optional issue-report rewriting require macOS 27 or later.
-- **Issue-report rewriting** — **Rewrite & Format with AI** also requires enabled Apple Intelligence and an available local model. Manual reporting remains available without it.
+- **macOS 26 Tahoe or later** — core window management supports macOS 26. Hidden Bar concealment requires macOS 27 or later.
 - **System Integrity Protection stays enabled** — official releases do not require disabling SIP.
 
 ## Required macOS permissions

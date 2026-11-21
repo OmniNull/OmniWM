@@ -186,7 +186,7 @@ final class ShellRetainedUnitTests: XCTestCase {
             local mode = ctx.data.cpu
             local component = ui.component{ id = "clock", w = if mode == 0 then 20 else 40 }
             if mode == 1 then error("root failed after mount") end
-            if mode == 2 then return ui.stack{ component, ui.box{ onHover = "invalid" } } end
+            if mode == 2 then return ui.stack{ component, ui.box{ onHover = false } } end
             return component
         end
         """, modules: ["clock": """
@@ -220,7 +220,7 @@ final class ShellRetainedUnitTests: XCTestCase {
         return { views = { compact = function(ctx)
             local value = ctx.data.seconds
             if value == 2 then error("view failed") end
-            if value == 3 then return ui.box{ onHover = "bad callback" } end
+            if value == 3 then return ui.box{ onHover = false } end
             return ui.text{ text = tostring(value) }
         end } }
         """])

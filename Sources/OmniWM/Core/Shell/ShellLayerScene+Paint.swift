@@ -35,6 +35,7 @@ extension ShellLayerScene {
 
     func applyPaint(_ slot: Int32, _ paint: ShellLayerPaint, preset: ShellAnimation?, animated: Bool) {
         guard let layer = layers[slot] else { return }
+        setMarquee(slot, enabled: paint.marquee)
         setPresence(slot, appear: paint.appear, exit: paint.exit, reveal: paint.reveal, morph: paint.morph)
         let glass = glassBodies[slot] != nil
         if !glass { applyMaterial(slot, paint, to: layer) }
@@ -56,7 +57,7 @@ extension ShellLayerScene {
             } else {
                 quarters.remove(slot)
             }
-            layer.bounds.size = CGSize(width: layer.bounds.height, height: layer.bounds.width)
+            turnQuarter(slot, layer)
         }
         layer.shadowColor = paint.shadow
         layer.shadowOpacity = paint.shadow == nil || glass ? 0 : 1
@@ -126,15 +127,17 @@ extension ShellLayerScene {
         fill: CGColor?
     ) {
         let from = layer.presentation() ?? layer
-        add(
-            animation,
-            to: layer,
-            "backgroundColor",
-            from: from.backgroundColor ?? Self.clear,
-            to: fill ?? Self.clear,
-            changed: !Self.same(layer.backgroundColor, fill)
-        )
-        animateOutline(animation, of: layer, from: from, to: paint)
+        if !(layer is CAShapeLayer) {
+            add(
+                animation,
+                to: layer,
+                "backgroundColor",
+                from: from.backgroundColor ?? Self.clear,
+                to: fill ?? Self.clear,
+                changed: !Self.same(layer.backgroundColor, fill)
+            )
+            animateOutline(animation, of: layer, from: from, to: paint)
+        }
         add(
             animation,
             to: layer,

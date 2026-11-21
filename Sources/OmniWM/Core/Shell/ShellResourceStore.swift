@@ -24,12 +24,6 @@ actor ShellResourceStore {
         case url(URL)
     }
 
-    struct Promise: Sendable {
-        let resource: ShellResourceID
-        let owner: ShellServiceOwner
-        let directory: URL
-    }
-
     struct Pin: Sendable {
         let id: UUID
         let values: [Value]
@@ -57,6 +51,8 @@ actor ShellResourceStore {
         var files: [ShellResourceID: ShellResourceFile] = [:]
         var pending: Set<ShellResourceID>
         var completion: (@Sendable (Result<ActionFiles, ShellResourceFailure>) -> Void)?
+        var conversion: ShellImageConversionState = .idle
+        var conversionWaiters: [CheckedContinuation<Void, Never>] = []
     }
 
     struct ActionFiles: Sendable {
@@ -159,28 +155,6 @@ actor ShellResourceStore {
         finishWaiting(ids)
     }
 
-    func promise(_ id: ShellResourceID, owner: ShellServiceOwner) throws -> Promise {
-        try requirePending([id], owner: owner)
-        return Promise(resource: id, owner: owner, directory: try makeDirectory("promises"))
-    }
-
-    func completePromise(_ promise: Promise, result: Result<String, ShellResourceFailure>) throws {
-        defer { clean(promise.directory) }
-        var prepared: Backing?
-        do {
-            try requirePending([promise.resource], owner: promise.owner)
-            let path = try result.get()
-            let item = try copyOutput(path, directory: promise.directory, operation: ShellResourceOperation())
-            prepared = item
-            try install([item], ids: [promise.resource], owner: promise.owner)
-            finishWaiting([promise.resource])
-        } catch {
-            clean(prepared?.ownedDirectory)
-            fail([promise.resource], owner: promise.owner, error: String(describing: error))
-            throw error
-        }
-    }
-
     func fail(_ ids: [ShellResourceID], owner: ShellServiceOwner, error: String) {
         catalog.fail(ids, owner: owner, error: error)
         finishWaiting(ids)
@@ -212,25 +186,6 @@ actor ShellResourceStore {
     func release(_ pin: Pin) {
         guard let ids = pins.removeValue(forKey: pin.id) else { return }
         for id in ids { releaseBacking(id) }
-    }
-
-    @discardableResult
-    func retire(_ owner: ShellServiceOwner) -> [ShellResourcePersistenceResult] {
-        let namespace = catalog.namespace(owner, includingInactive: true)
-        catalog.deactivate(owner)
-        for token in selections.keys.filter({ selections[$0]?.owner == owner }) {
-            if let selected = selections.removeValue(forKey: token) {
-                for item in selected.items { clean(item.ownedDirectory) }
-            }
-        }
-        let failures = flush(owner)
-        catalog.retire(owner)
-        if let namespace { manifests.removeValue(forKey: namespace) }
-        for key in actions.keys.filter({ $0.id.owner == owner }) { finishAction(key) }
-        for id in records.keys.filter({ records[$0]?.owner == owner }) {
-            if let record = records.removeValue(forKey: id) { releaseBacking(record.backing) }
-        }
-        return failures
     }
 
     func requirePending(_ ids: [ShellResourceID], owner: ShellServiceOwner) throws {

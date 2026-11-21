@@ -25,6 +25,8 @@ extension ShellDesktopServices {
         case .clipboardRead:
             do { readClipboard(try platform.clipboardRead(), operation: operation) }
             catch { finish(operation, result: ShellDesktopResult(error: String(describing: error))) }
+        case let .convert(ids, format):
+            convert(operation, ids: ids, format: format)
         case let .quicklook(ids, index):
             quicklook(operation, ids: ids, index: index, source: source)
         case let .share(ids, service):

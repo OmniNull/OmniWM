@@ -4,7 +4,7 @@ views = ["window", "confirm"]
 capabilities = { provider = true }
 
 [provider]
-command = ["provider.sh"]
+command = ["provider"]
 
 [window]
 width = 520

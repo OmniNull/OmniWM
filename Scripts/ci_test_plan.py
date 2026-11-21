@@ -16,7 +16,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = Path("Tests/OmniWMTests")
 SHARDS = 4
-SHELL_SUITES = {"LauncherExecutionTests", "LauncherTerminalLiveTests", "NuCompletionTests", "WorkspaceMoveIPCContractTests"}
+SHELL_SUITES = {
+    "CLICompletionSelectorTests", "CLICompletionTemplateTests", "LauncherExecutionTests", "LauncherTerminalLiveTests",
+    "NuCompletionTests", "WorkspaceMoveIPCContractTests",
+}
 SECONDS = json.loads((ROOT / "Scripts/ci-suite-seconds.json").read_text())
 DEFAULT_SECONDS = 0.1
 DECLARATION = re.compile(r"^[ \t]*(?:@\w+[ \t]+)*((?:(?:public|package|internal|open|private|fileprivate|final|nonisolated)[ \t]+)*)"

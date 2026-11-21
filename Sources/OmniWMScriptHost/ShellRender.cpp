@@ -147,6 +147,9 @@ enum Atom : int16_t {
     AtomFollow,
     AtomHit,
     AtomFollowRadius,
+    AtomEditable,
+    AtomWrap,
+    AtomMarquee,
     AtomCount
 };
 
@@ -177,6 +180,7 @@ const Name atomNames[AtomCount] = {
     {"manipulationFollow", 18}, {"reveal", 6}, {"morph", 5}, {"cursor", 6},
     {"shadowOffset", 12}, {"pulse", 5}, {"backdrop", 8}, {"rim", 3}, {"gradient", 8},
     {"follow", 6}, {"hit", 3}, {"followRadius", 12},
+    {"editable", 8}, {"wrap", 4}, {"marquee", 7},
 };
 
 static_assert(sizeof(omni_wire_node) == 448);
@@ -1816,6 +1820,10 @@ void readField(lua_State *L, int atom, omni_wire_node &node, omni_instance *inst
             node.flags |= OMNI_NODE_SCROLL;
         }
         break;
+    case AtomMarquee:
+        if (lua_type(L, -1) != LUA_TBOOLEAN) { luaL_error(L, "marquee must be a boolean"); }
+        if (lua_toboolean(L, -1)) { node.behavior_flags |= OMNI_NODE_MARQUEE; }
+        break;
     case AtomColor: colorValue(L, node.color, node.color_role); break;
     case AtomName:
     case AtomApp: node.text = internValue(L, -1, instance); break;
@@ -1825,7 +1833,9 @@ void readField(lua_State *L, int atom, omni_wire_node &node, omni_instance *inst
         break;
     }
     case AtomOnClick: node.action = actionValue(L, instance); break;
-    case AtomOnHover: node.hover_action = inputAction(L, instance, "onHover"); break;
+    case AtomOnHover:
+        node.hover_action = lua_type(L, -1) == LUA_TSTRING ? actionValue(L, instance) : inputAction(L, instance, "onHover");
+        break;
     case AtomOnPress: node.press_action = inputAction(L, instance, "onPress"); break;
     case AtomOnGesture: node.gesture_action = inputAction(L, instance, "onGesture"); break;
     case AtomOnKey: node.key_action = inputAction(L, instance, "onKey"); break;
@@ -1860,6 +1870,14 @@ void readField(lua_State *L, int atom, omni_wire_node &node, omni_instance *inst
     case AtomMultiline:
         if (!lua_isboolean(L, -1)) { luaL_error(L, "multiline must be a boolean"); }
         if (lua_toboolean(L, -1)) { node.input_flags |= OMNI_INPUT_MULTILINE; }
+        break;
+    case AtomEditable:
+        if (!lua_isboolean(L, -1)) { luaL_error(L, "editable must be a boolean"); }
+        if (!lua_toboolean(L, -1)) { node.behavior_flags |= OMNI_NODE_BEHAVIOR_INPUT_READ_ONLY; }
+        break;
+    case AtomWrap:
+        if (!lua_isboolean(L, -1)) { luaL_error(L, "wrap must be a boolean"); }
+        if (!lua_toboolean(L, -1)) { node.behavior_flags |= OMNI_NODE_BEHAVIOR_INPUT_NO_WRAP; }
         break;
     case AtomFocus:
         if (!lua_isboolean(L, -1)) { luaL_error(L, "focus must be a boolean"); }
@@ -2350,6 +2368,9 @@ void encodeNodeContents(lua_State *L, int index, omni_instance *instance, int de
         lua_pop(L, 1);
         node.input_flags |= OMNI_INPUT_FOCUSABLE;
     }
+    if (node.kind != 10 && (node.behavior_flags & (OMNI_NODE_BEHAVIOR_INPUT_READ_ONLY | OMNI_NODE_BEHAVIOR_INPUT_NO_WRAP)) != 0) {
+        luaL_error(L, "editable and wrap require ui.input");
+    }
     if ((node.resource_drop_action != 0 || node.resource_hover_action != 0) && node.resource_accepts == 0) {
         luaL_error(L, "onDrop and onDropHover require accepts");
     }
@@ -2379,6 +2400,13 @@ void encodeNodeContents(lua_State *L, int index, omni_instance *instance, int de
         lua_pop(L, 1);
     }
     nodes[self].subtree_end = static_cast<int32_t>(nodes.size());
+    if ((nodes[self].behavior_flags & OMNI_NODE_MARQUEE) != 0) {
+        if (node.kind != 0 || node.axis != 0 || (node.flags & OMNI_NODE_SCROLL) == 0
+            || nodes.size() != self + 2 || nodes[self + 1].kind != 2) {
+            luaL_error(L, "marquee requires a scrolling row with one passive ui.text child");
+        }
+        nodes[self + 1].behavior_flags |= OMNI_NODE_BEHAVIOR_DECORATIVE;
+    }
 }
 
 struct ValueReader {

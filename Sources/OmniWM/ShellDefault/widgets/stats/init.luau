@@ -11,7 +11,7 @@ local function meter(ctx, entry, variant: string)
         return stats.gauge(entry.value, 22 * scale, color,
             look.text{ text = tostring(math.round(entry.value)), size = 10 * scale, weight = "medium" })
     end
-    local glyph = look.glyph{ name = entry.symbol, size = 14 * scale }
+    local glyph = look.barGlyph(ctx, { name = entry.symbol, size = 14 * scale })
     if ctx.data.bar.style.vertical then
         return ui.column{ gap = scale, glyph, look.text{ text = tostring(entry.value), size = 10 * scale } }
     end

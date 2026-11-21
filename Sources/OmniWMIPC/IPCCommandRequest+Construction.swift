@@ -28,6 +28,8 @@ extension IPCCommandRequest {
             self = try arguments.requireNoArguments(.openCommandPalette)
         case .openCommandPaletteMode:
             self = try .openCommandPaletteMode(mode: arguments.paletteMode())
+        case .windowSwitcher:
+            self = try arguments.windowSwitcher()
         case .raiseAllFloatingWindows:
             self = try arguments.requireNoArguments(.raiseAllFloatingWindows)
         case .toggleFloatingFocus:

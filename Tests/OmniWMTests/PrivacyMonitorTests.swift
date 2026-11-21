@@ -96,10 +96,9 @@ final class PrivacyMonitorTests: XCTestCase {
         }
 
         func drainRegistrationCallbacks() {
-            for _ in 0 ..< 32 {
-                guard !pending.isEmpty else { return }
-                pending.removeFirst()()
-            }
+            let callbacks = pending
+            pending.removeAll()
+            for callback in callbacks { callback() }
             XCTAssertTrue(pending.isEmpty)
         }
 

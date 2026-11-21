@@ -120,7 +120,9 @@ final class ShellMenuWidgetTests: XCTestCase {
             theme: config.theme,
             appearance: try XCTUnwrap(NSAppearance(named: dark ? .darkAqua : .aqua))
         )
+        resources.darkPalette.refresh(theme: config.theme, appearance: ShellPalette.darkAppearance)
         let bar = bar(config, height: height, vertical: vertical)
+        let palette = bar.style.solidBlack ? resources.darkPalette : resources.palette
         for (name, action) in [("apple-menu", "menu apple"), ("app-menu", "menu app")] {
             let widget = try makeWidget(name, config: config, scale: scale, resources: resources)
             setApp(widget, bundle: "com.apple.finder")
@@ -136,8 +138,11 @@ final class ShellMenuWidgetTests: XCTestCase {
             if name == "apple-menu" {
                 XCTAssertEqual(widget.text.string(image.content.text), "applelogo")
                 if bar.style.solidBlack {
-                    let color = try ShellRGBA(XCTUnwrap(resources.palette.color(image.content.color)))
-                    XCTAssertGreaterThanOrEqual(color.contrast(ShellRGBA(CGColor(gray: 0, alpha: 1))), 4.5)
+                    let color = try ShellRGBA(XCTUnwrap(palette.color(image.content.color)))
+                    XCTAssertGreaterThanOrEqual(
+                        color.contrast(ShellRGBA(CGColor(gray: 0, alpha: 1))),
+                        ShellRGBA.readableTextContrast
+                    )
                 }
             } else {
                 XCTAssertEqual(image.content.iconSource, .bundle)
@@ -151,7 +156,7 @@ final class ShellMenuWidgetTests: XCTestCase {
                     widget.surface, name: "menus-\(config.profile)-\(config.themeName)-\(name)",
                     dark: dark, directory: directory,
                     background: bar.style.solidBlack ? CGColor(gray: 0, alpha: 1)
-                        : resources.palette.color(Color(packed: 0), default: .background)
+                        : palette.color(Color(packed: 0), default: .background)
                 )
             }
         }

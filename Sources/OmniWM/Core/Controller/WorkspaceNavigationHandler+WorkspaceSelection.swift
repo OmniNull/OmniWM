@@ -38,6 +38,19 @@ extension WorkspaceNavigationHandler {
             return false
         }
 
+        if controller.settings.slideWorkspaceSwitchesUntracked, affectedWorkspaces.isEmpty,
+           let monitorId = interactionMonitorId(for: controller),
+           let currentWorkspace,
+           controller.workspaceManager.monitor(for: currentWorkspace.id)?.id == monitorId,
+           let targetWorkspaceId = controller.workspaceManager.workspaceId(named: rawWorkspaceID),
+           controller.workspaceManager.monitor(for: targetWorkspaceId)?.id == monitorId,
+           controller.layoutRefreshController.workspaceSwipe.animateSwitch(
+               to: targetWorkspaceId, on: monitorId, isNext: nil
+           )
+        {
+            return true
+        }
+
         if let currentWorkspace {
             saveNiriViewportState(for: currentWorkspace.id)
         }
@@ -70,9 +83,14 @@ extension WorkspaceNavigationHandler {
         guard let controller else { return }
         guard let currentMonitorId = explicitMonitorId ?? interactionMonitorId(for: controller)
         else { return }
-        let resolvedWorkspace = explicitMonitorId == nil
-            ? controller.activeWorkspace()
-            : controller.workspaceManager.activeWorkspaceOrFirst(on: currentMonitorId)
+        let slides = controller.settings.slideWorkspaceSwitchesUntracked
+        let pendingId = slides
+            ? controller.layoutRefreshController.workspaceSwipe.pendingSwitchTarget(on: currentMonitorId)
+            : nil
+        let resolvedWorkspace = pendingId.flatMap { controller.workspaceManager.descriptor(for: $0) }
+            ?? (explicitMonitorId == nil
+                ? controller.activeWorkspace()
+                : controller.workspaceManager.activeWorkspaceOrFirst(on: currentMonitorId))
         guard let currentWorkspace = resolvedWorkspace else { return }
         let skipEmpty = skipsEmptyWorkspaces(on: currentMonitorId)
 
@@ -93,7 +111,9 @@ extension WorkspaceNavigationHandler {
         }
 
         guard let targetWorkspace else { return }
-        activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: currentMonitorId)
+        activateWorkspaceInOrder(
+            targetWorkspace, from: currentWorkspace.id, on: currentMonitorId, isNext: isNext, animated: slides
+        )
     }
 
     func switchWorkspaceBySwipe(isNext: Bool, monitorId: Monitor.ID) {
@@ -166,16 +186,26 @@ extension WorkspaceNavigationHandler {
             }
             return false
         }
-        return activateWorkspaceInOrder(targetWorkspace, from: currentWorkspace.id, on: monitorId)
+        return activateWorkspaceInOrder(
+            targetWorkspace, from: currentWorkspace.id, on: monitorId,
+            animated: controller.settings.slideWorkspaceSwitchesUntracked
+        )
     }
 
     @discardableResult
     private func activateWorkspaceInOrder(
         _ targetWorkspace: WorkspaceDescriptor,
         from currentWorkspaceId: WorkspaceDescriptor.ID,
-        on monitorId: Monitor.ID
+        on monitorId: Monitor.ID,
+        isNext: Bool? = nil,
+        animated: Bool = false
     ) -> Bool {
         guard let controller else { return false }
+        if animated, controller.layoutRefreshController.workspaceSwipe.animateSwitch(
+            to: targetWorkspace.id, on: monitorId, isNext: isNext
+        ) {
+            return true
+        }
         saveNiriViewportState(for: currentWorkspaceId)
         guard controller.workspaceManager.setActiveWorkspace(targetWorkspace.id, on: monitorId) else {
             return false
@@ -250,6 +280,13 @@ extension WorkspaceNavigationHandler {
         }
 
         let currentWorkspace = controller.activeWorkspace()
+        if controller.settings.slideWorkspaceSwitchesUntracked, let currentWorkspace,
+           controller.workspaceManager.monitor(for: currentWorkspace.id)?.id == currentMonitorId,
+           controller.workspaceManager.monitor(for: prevWorkspace.id)?.id == currentMonitorId
+        {
+            activateWorkspaceInOrder(prevWorkspace, from: currentWorkspace.id, on: currentMonitorId, animated: true)
+            return
+        }
         if let currentWorkspace {
             saveNiriViewportState(for: currentWorkspace.id)
         }

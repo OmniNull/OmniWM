@@ -9,7 +9,8 @@ extension AXEventHandler {
         bundleId: String?,
         workspaceId: WorkspaceDescriptor.ID,
         mode: TrackedWindowMode,
-        facts: WindowRuleFacts
+        facts: WindowRuleFacts,
+        readOnlyAdmissionFrame: CGRect? = nil
     ) -> ManagedReplacementMetadata {
         ManagedReplacementMetadata(
             bundleId: bundleId,
@@ -22,7 +23,8 @@ extension AXEventHandler {
             parentWindowId: normalizedParentWindowId(facts.windowServer?.parentId),
             frame: facts.windowServer?.frame,
             transientWindowServerEvidence: facts.windowServer?.hasTransientSurfaceEvidence ?? false,
-            degradedWindowServerChildEvidence: facts.degradedWindowServerChildEvidence
+            degradedWindowServerChildEvidence: facts.degradedWindowServerChildEvidence,
+            readOnlyAdmissionFrame: readOnlyAdmissionFrame
         )
     }
 
@@ -52,9 +54,9 @@ extension AXEventHandler {
         if entry.mode == .floating,
            let floatingFrame = controller?.workspaceManager.floatingState(for: entry.token)?.lastFrame
         {
-            metadata.frame = floatingFrame
+            metadata.frame = ScreenCoordinateSpace.toWindowServer(rect: floatingFrame)
         } else if let appliedFrame = controller?.axManager.lastAppliedFrame(for: entry.windowId) {
-            metadata.frame = appliedFrame
+            metadata.frame = ScreenCoordinateSpace.toWindowServer(rect: appliedFrame)
         }
         return metadata
     }
@@ -218,9 +220,9 @@ extension AXEventHandler {
     private func framesAreCloseForManagedReplacement(_ lhs: CGRect?, _ rhs: CGRect?) -> Bool {
         guard let lhs, let rhs else { return false }
 
-        return abs(lhs.midX - rhs.midX) <= 96
-            && abs(lhs.midY - rhs.midY) <= 96
-            && abs(lhs.width - rhs.width) <= 64
-            && abs(lhs.height - rhs.height) <= 64
+        return abs(lhs.midX - rhs.midX) <= FrameTolerance.managedReplacementCenter
+            && abs(lhs.midY - rhs.midY) <= FrameTolerance.managedReplacementCenter
+            && abs(lhs.width - rhs.width) <= FrameTolerance.managedReplacementSize
+            && abs(lhs.height - rhs.height) <= FrameTolerance.managedReplacementSize
     }
 }

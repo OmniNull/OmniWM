@@ -92,7 +92,7 @@ final class StatusMenuModel {
     var hasVisiblePrimaryRows: Bool {
         if canShowHiddenIcons, isMenuItemVisible(.hiddenIcons) { return true }
         if checkForUpdatesAction != nil, isMenuItemVisible(.checkForUpdates) { return true }
-        return [StatusMenuItem.settings, .reportBug, .appRules, .openShellFolder]
+        return [StatusMenuItem.settings, .appRules, .openShellFolder]
             .contains { isMenuItemVisible($0) }
     }
 
@@ -243,10 +243,6 @@ final class StatusMenuModel {
     func openShellFolder() {
         ShellProfiles
             .openFolder(ShellWidgetHost.shellDirectory(in: settings.settingsFileURL.deletingLastPathComponent()))
-    }
-
-    func openReportIssue() {
-        openSettings(section: .reportIssue)
     }
 
     func checkForUpdates() {

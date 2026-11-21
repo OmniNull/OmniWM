@@ -2,6 +2,12 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 extension SettingsStore {
+    var effectiveTrackpadGesturesEnabled: Bool {
+        gestures.scrollEnabled || gestures.workspaceSwipeEnabled ||
+            (gestures.overviewGestureEnabled && overview.enabled) ||
+            gestures.windowMoveEnabled || gestures.windowResizeEnabled
+    }
+
     func updateGestureSettings(
         _ candidate: SettingsExport.Gestures,
         monitors: [Monitor]

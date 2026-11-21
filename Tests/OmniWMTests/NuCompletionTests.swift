@@ -7,12 +7,12 @@ import OmniWMIPC
 import XCTest
 
 final class NuCompletionTests: XCTestCase {
-    func testGenerationIsDeterministicAndRendersEveryPlaceholder() {
+    func testGenerationIsDeterministicAndDelegatesSelectionToTheNativeCommand() {
         let script = CLICompletionGenerator.script(for: .nu)
         XCTAssertFalse(script.contains("#{{"))
-        XCTAssertTrue(script.contains("    windowMarkActionNames: ["))
-        XCTAssertTrue(script.contains("    windowMarkListFlags: ["))
-        XCTAssertTrue(script.contains("    windowGatherReachFlag: \"--from\""))
+        XCTAssertTrue(script.contains("^omniwmctl __complete nu ...$place.command | lines"))
+        XCTAssertTrue(script.contains("@complete \"nu-complete omniwmctl\""))
+        XCTAssertTrue(script.contains("export extern omniwmctl [...args: string]"))
         XCTAssertEqual(script, CLICompletionGenerator.script(for: .nu))
     }
 
@@ -42,13 +42,10 @@ final class NuCompletionTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode([String].self, from: output), ["omniwmctl"])
     }
 
-    func testGeneratedStringLiteralsPreserveSpecialCharacters() throws {
+    func testImportedCommandPreservesSpecialCharacters() throws {
         let value = "A \"quote\", a \\ path,\n\t\r\u{0001} and $'literal' 🙂"
-        let output = try NuCompletionTestSupport.run("\(CLICompletionGenerator.nushellString(value)) | encode base64")
-        XCTAssertEqual(
-            String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines),
-            Data(value.utf8).base64EncodedString()
-        )
+        let output = try NuCompletionTestSupport.run("omniwmctl \(NuCompletionTestSupport.literal(value))")
+        XCTAssertEqual(output, Data((value + "\0").utf8))
     }
 
     func testTopLevelAndActionFamiliesUseCatalogChoices() throws {
@@ -89,8 +86,8 @@ final class NuCompletionTests: XCTestCase {
         let cases: [(String, [String])] = [
             ("omniwmctl command focus ", ["left", "right", "up", "down", "previous", "down-or-left", "up-or-right"]),
             ("omniwmctl command scratchpad ", ["assign", "toggle"]),
-            ("omniwmctl command scratchpad assign ", (1 ... 10).map(String.init)),
-            ("omniwmctl command scratchpad toggle ", (1 ... 10).map(String.init)),
+            ("omniwmctl command scratchpad assign ", IPCScratchpadSlots.range.map(String.init)),
+            ("omniwmctl command scratchpad toggle ", IPCScratchpadSlots.range.map(String.init)),
             ("omniwmctl command move-to-monitor ", ["left", "right", "up", "down"]),
             ("omniwmctl command resize ", ["horizontal", "vertical"]),
             ("omniwmctl command resize horizontal ", ["grow", "shrink"]),

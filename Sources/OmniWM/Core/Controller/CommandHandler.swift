@@ -24,6 +24,7 @@ final class CommandHandler {
     func handleHotkeyInvocation(_ invocation: HotkeyInvocation) -> ExternalCommandResult {
         guard let controller else { return .notFound }
         guard controller.isEnabled else { return .ignoredDisabled }
+        controller.noteUserAction()
         if invocation.command == .presentation(.overview), invocation.trigger?.isRepeat == true {
             return .executed
         }
@@ -64,17 +65,17 @@ final class CommandHandler {
     }
 
     private func performAllowedCommand(_ command: HotkeyCommand, controller: WMController) -> ExternalCommandResult {
+        var changeStart = layoutChangeStart(recording: command, controller: controller)
+        let mixedTransferSource = mixedTransferSelection(for: command, controller: controller)
+        defer { finishLayoutChange(changeStart, transfer: mixedTransferSource, controller: controller) }
         switch command {
         case let .focus(direction):
             focusWindow(direction: direction)
         case let .focusNavigation(action): return perform(action, controller: controller)
         case let .move(direction):
-            let outcome = moveWindow(direction: direction)
-            if outcome == .atWorkspaceEdge, controller.settings.focus.moveCrossesMonitorAtEdge {
-                controller.workspaceNavigationHandler.moveWindowAcrossMonitorAtEdge(direction: direction)
-            }
+            moveWindowCrossingMonitors(direction: direction, controller: controller, widening: &changeStart)
         case let .workspace(action): return perform(action, controller: controller)
-        case let .windowMovement(action): return perform(action, controller: controller)
+        case let .windowMovement(action): return perform(action, controller: controller, widening: &changeStart)
         case let .column(action): return perform(action, controller: controller)
         case let .monitorFocus(action): return perform(action, controller: controller)
         case let .fullscreen(action): return perform(action, controller: controller)
@@ -317,6 +318,7 @@ final class CommandHandler {
 
         configs[index] = configs[index].with(layoutType: newLayout)
         controller.settings.workspaces.configurations = configs
+        controller.refreshStatusBar()
         controller.layoutRefreshController.requestRelayout(reason: .workspaceLayoutToggled)
         if let ipcApplicationBridge = controller.ipcApplicationBridge {
             Task {
@@ -328,6 +330,68 @@ final class CommandHandler {
 }
 
 extension CommandHandler {
+    enum LayoutChangeCoverage {
+        case ownWorkspace
+        case everyNiriWorkspace
+    }
+
+    static func layoutChangeCoverage(of command: HotkeyCommand) -> LayoutChangeCoverage? {
+        switch command {
+        case .move,
+             .moveColumn,
+             .windowMovement:
+            .ownWorkspace
+        case let .column(action):
+            switch action {
+            case .moveToFirst,
+                 .moveToLast,
+                 .moveToIndex,
+                 .toggleTabbed: .ownWorkspace
+            case .moveToWorkspace,
+                 .moveToWorkspaceUp,
+                 .moveToWorkspaceDown: .everyNiriWorkspace
+            }
+        case let .workspace(action):
+            switch action {
+            case .moveTo,
+                 .moveUp,
+                 .moveDown,
+                 .moveToMonitor,
+                 .moveToSlot: .everyNiriWorkspace
+            default: nil
+            }
+        case let .sizing(action):
+            action != .undo && action != .redo ? .ownWorkspace : nil
+        default:
+            nil
+        }
+    }
+
+    private func layoutChangeStart(
+        recording command: HotkeyCommand,
+        controller: WMController
+    ) -> NiriLayoutChangeStart? {
+        let layout = controller.niriLayoutHandler
+        return switch Self.layoutChangeCoverage(of: command) {
+        case .ownWorkspace: layout.activeLayoutChangeStart()
+        case .everyNiriWorkspace:
+            layout.layoutChangeStartCoveringEveryNiriWorkspace(in: controller.activeWorkspace()?.id)
+        case nil: nil
+        }
+    }
+
+    private func moveWindowCrossingMonitors(
+        direction: Direction,
+        controller: WMController,
+        widening changeStart: inout NiriLayoutChangeStart?
+    ) {
+        let outcome = moveWindow(direction: direction)
+        if outcome == .atWorkspaceEdge, controller.settings.focus.moveCrossesMonitorAtEdge {
+            changeStart = controller.niriLayoutHandler.coveringEveryNiriWorkspace(changeStart)
+            controller.workspaceNavigationHandler.moveWindowAcrossMonitorAtEdge(direction: direction)
+        }
+    }
+
     func performWindowMarkAction(_ action: WindowMarkHotkeyAction, for token: WindowToken?) -> ExternalCommandResult {
         guard let controller else { return .notFound }
         let expectedHandle = token.flatMap { controller.workspaceManager.handle(for: $0) }

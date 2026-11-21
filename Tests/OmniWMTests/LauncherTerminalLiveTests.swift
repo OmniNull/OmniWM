@@ -123,6 +123,7 @@ import XCTest
         }
 
         private func shellMatrix(directory: URL, terminal: LauncherTerminal) async throws -> LauncherLaunchRequest {
+            let environmentCache = LauncherEnvironmentCache(helperExecutable: try LauncherHelperTestSupport.executable)
             let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
                 .deletingLastPathComponent()
             let shells: [(LauncherShell, String, String)] = [
@@ -147,17 +148,19 @@ import XCTest
                 let file = directory.appendingPathComponent(shell.rawValue)
                 let temporary = file.appendingPathExtension("tmp")
                 let redirect = shell == .nushell ? "out>" : ">"
-                entry.command = assignment + "; /usr/bin/printf '%s' $omniwm_value \(redirect) \(LauncherLaunchRequest.quote(temporary.path)); /bin/mv \(LauncherLaunchRequest.quote(temporary.path)) \(LauncherLaunchRequest.quote(file.path))"
-                let request = try await LauncherLaunchRequest.prepare(entry: entry, configuration: configuration)
+                entry.command = assignment + "; /usr/bin/printf '%s' $omniwm_value \(redirect) \(LauncherHelperTestSupport.quote(temporary.path)); /bin/mv \(LauncherHelperTestSupport.quote(temporary.path)) \(LauncherHelperTestSupport.quote(file.path))"
+                let request = try await LauncherLaunchRequest.prepare(
+                    entry: entry, configuration: configuration, environmentCache: environmentCache
+                )
                 values = request.environment
-                commands.append(request.shellCommand + " || exit 1")
+                commands.append(LauncherHelperTestSupport.shellCommand(request) + " || exit 1")
             }
             let marker = directory.appendingPathComponent("complete")
             commands
                 .append(
-                    "/usr/bin/printf '%s' \"$PPID\" > \(LauncherLaunchRequest.quote(directory.appendingPathComponent("helper-pid").path))"
+                    "/usr/bin/printf '%s' \"$PPID\" > \(LauncherHelperTestSupport.quote(directory.appendingPathComponent("helper-pid").path))"
                 )
-            commands.append("/usr/bin/touch \(LauncherLaunchRequest.quote(marker.path))")
+            commands.append("/usr/bin/touch \(LauncherHelperTestSupport.quote(marker.path))")
             return LauncherLaunchRequest(
                 executable: "/bin/sh", arguments: ["-c", commands.joined(separator: "\n")],
                 directory: directory.path, environment: values

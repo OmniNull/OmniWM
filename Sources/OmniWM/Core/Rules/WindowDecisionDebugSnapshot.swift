@@ -19,6 +19,7 @@ struct WindowDecisionDebugSnapshot: Equatable, Sendable {
     let deferredReason: WindowDecisionDeferredReason?
     let admissionOutcome: WindowDecisionAdmissionOutcome
     let workspaceName: String?
+    let scratchpad: ScratchpadIndex?
     let minWidth: Double?
     let minHeight: Double?
     let initialNiriContainerPrimarySpan: Double?
@@ -65,6 +66,8 @@ struct WindowDecisionDebugSnapshot: Equatable, Sendable {
             "admissionOutcome=\(admissionOutcome.rawValue)",
             "workspaceName=\(workspaceName ?? "nil")",
             "workspaceRuleId=\(ruleIdDescription(ruleProvenance.workspace))",
+            "scratchpad=\(stringValue(scratchpad))",
+            "scratchpadRuleId=\(ruleIdDescription(ruleProvenance.scratchpad))",
             "minWidth=\(stringValue(minWidth))",
             "minWidthRuleId=\(ruleIdDescription(ruleProvenance.minWidth))",
             "minHeight=\(stringValue(minHeight))",

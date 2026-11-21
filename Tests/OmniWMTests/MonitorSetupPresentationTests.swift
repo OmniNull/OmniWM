@@ -12,7 +12,7 @@ final class MonitorSetupPresentationTests: XCTestCase {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try Data(#"{"hasSeenIssueWalkthrough":true}"#.utf8)
+        try Data(#"{"welcomePresented":true}"#.utf8)
             .write(to: root.appendingPathComponent(RuntimeStateStore.fileName))
 
         let runtimeState = RuntimeStateStore(directory: root, deferSaves: false)

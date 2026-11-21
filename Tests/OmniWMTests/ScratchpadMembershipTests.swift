@@ -63,6 +63,45 @@ final class ScratchpadMembershipTests: XCTestCase {
         XCTAssertTrue(fixture.manager.occupiedScratchpadIndices().isEmpty)
     }
 
+    func testMovingTheLastMemberToAnotherSlotClearsTheReveal() throws {
+        let fixture = makeFixture()
+        let token = addWindow(pid: 970_071, windowId: 970_171, to: fixture)
+        XCTAssertTrue(fixture.manager.setScratchpadMembership(token, to: 3))
+        XCTAssertTrue(fixture.manager.setRevealedScratchpad(3))
+
+        XCTAssertTrue(fixture.manager.setScratchpadMembership(token, to: 7))
+
+        XCTAssertNil(fixture.manager.revealedScratchpadIndex())
+        XCTAssertEqual(fixture.manager.scratchpadMembers(in: 7), [token])
+    }
+
+    func testDestroyingTheLastMemberClearsTheReveal() throws {
+        let fixture = makeFixture()
+        let token = addWindow(pid: 970_072, windowId: 970_172, to: fixture)
+        XCTAssertTrue(fixture.manager.setScratchpadMembership(token, to: 3))
+        XCTAssertTrue(fixture.manager.setRevealedScratchpad(3))
+
+        XCTAssertNotNil(fixture.manager.removeWindow(pid: token.pid, windowId: token.windowId))
+
+        XCTAssertNil(fixture.manager.scratchpadIndex(for: token))
+        XCTAssertTrue(fixture.manager.occupiedScratchpadIndices().isEmpty)
+        XCTAssertNil(fixture.manager.revealedScratchpadIndex())
+    }
+
+    func testAppQuitOfTheLastMemberClearsTheReveal() throws {
+        let fixture = makeFixture()
+        let first = addWindow(pid: 970_073, windowId: 970_173, to: fixture)
+        let second = addWindow(pid: 970_073, windowId: 970_174, to: fixture)
+        XCTAssertTrue(fixture.manager.setScratchpadMembership(first, to: 3))
+        XCTAssertTrue(fixture.manager.setScratchpadMembership(second, to: 3))
+        XCTAssertTrue(fixture.manager.setRevealedScratchpad(3))
+
+        XCTAssertFalse(fixture.manager.removeWindowsForApp(pid: first.pid).isEmpty)
+
+        XCTAssertTrue(fixture.manager.scratchpadMembers(in: 3).isEmpty)
+        XCTAssertNil(fixture.manager.revealedScratchpadIndex())
+    }
+
     func testRemovingOneOfSeveralMembersKeepsTheSlotRevealed() throws {
         let fixture = makeFixture()
         let first = addWindow(pid: 970_041, windowId: 970_141, to: fixture)

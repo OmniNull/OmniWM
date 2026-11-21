@@ -29,7 +29,7 @@ final class IntentLedger {
     }
 
     var activeManagedRequest: ManagedFocusRequest? {
-        entries.last { $0.phase == .pending && $0.kind.isFocusWindow }?.asManagedFocusRequest
+        lastIntent { $0.phase == .pending && $0.kind.isFocusWindow }?.asManagedFocusRequest
     }
 
     func enableDeferredRetryRaise(for request: ManagedFocusRequest, required: Bool = false) {
@@ -145,7 +145,7 @@ final class IntentLedger {
         pid: pid_t,
         appVisibilityGeneration: UInt64
     ) -> AppRevealFocusDrainResult? {
-        guard let index = entries.firstIndex(where: { $0.id == intentId && $0.phase == .pending }),
+        guard let index = openIndex(where: { $0.id == intentId }),
               case var .appRevealFocus(payload) = entries[index].kind,
               payload.pendingAppPIDs.contains(pid),
               let expectedGeneration = payload.coordinatedAppGenerations[pid]
@@ -173,7 +173,7 @@ final class IntentLedger {
     }
 
     func updateReplacementFocus(id: IntentID, _ mutate: (inout ReplacementFocusPayload) -> Void) {
-        guard let index = entries.firstIndex(where: { $0.id == id && $0.phase == .pending }),
+        guard let index = openIndex(where: { $0.id == id }),
               case var .replacementFocus(payload) = entries[index].kind
         else {
             return
@@ -193,7 +193,7 @@ final class IntentLedger {
     }
 
     func updateSameAppCloseProbe(id: IntentID, _ mutate: (inout SameAppCloseProbePayload) -> Void) {
-        guard let index = entries.firstIndex(where: { $0.id == id && $0.phase == .pending }),
+        guard let index = openIndex(where: { $0.id == id }),
               case var .sameAppCloseProbe(payload) = entries[index].kind
         else {
             return
@@ -215,7 +215,7 @@ final class IntentLedger {
         id: IntentID,
         _ mutate: (inout AppTerminationFocusRecoveryPayload) -> Void
     ) {
-        guard let index = entries.firstIndex(where: { $0.id == id && $0.phase == .pending }),
+        guard let index = openIndex(where: { $0.id == id }),
               case var .appTerminationFocusRecovery(payload) = entries[index].kind
         else {
             return
@@ -276,7 +276,7 @@ final class IntentLedger {
         source: ActivationEventSource?,
         reason: AppVisibilityTrace.Reason? = nil
     ) -> Intent? {
-        guard let index = entries.firstIndex(where: { $0.id == id && $0.phase == .pending }) else { return nil }
+        guard let index = openIndex(where: { $0.id == id }) else { return nil }
         if deferredRetryRaise?.request.requestId == id,
            phase != .confirmed || deferredRetryRaise?.required != true
         {
@@ -291,17 +291,16 @@ final class IntentLedger {
         return entries[index]
     }
 
-    private func openIndex(where predicate: (Intent) -> Bool) -> Int? {
-        entries.lastIndex { $0.phase == .pending && predicate($0) }
-    }
-
     private func trim() {
-        guard entries.count > Self.capacity else { return }
         var overflow = entries.count - Self.capacity
-        entries.removeAll { entry in
-            guard overflow > 0, entry.phase.isRetired else { return false }
-            overflow -= 1
-            return true
+        var index = entries.startIndex
+        while overflow > 0, index < entries.endIndex {
+            if entries[index].phase.isRetired {
+                entries.remove(at: index)
+                overflow -= 1
+            } else {
+                index += 1
+            }
         }
     }
 }
@@ -354,7 +353,7 @@ extension IntentLedger {
         token: WindowToken,
         to workspaceId: WorkspaceDescriptor.ID
     ) -> ManagedFocusRequest? {
-        guard let index = entries.firstIndex(where: { $0.id == requestId && $0.phase == .pending }),
+        guard let index = openIndex(where: { $0.id == requestId }),
               case let .focusWindow(currentToken, _, requestPhase) = entries[index].kind,
               currentToken == token
         else {
@@ -376,7 +375,7 @@ extension IntentLedger {
         sourceToken: WindowToken,
         isRetry: Bool = false
     ) -> ManagedFocusRequest? {
-        guard let index = entries.firstIndex(where: { $0.id == requestId && $0.phase == .pending }),
+        guard let index = openIndex(where: { $0.id == requestId }),
               case let .focusWindow(token, workspaceId, requestPhase) = entries[index].kind,
               token.pid == sourceToken.pid,
               token != sourceToken,
@@ -399,7 +398,7 @@ extension IntentLedger {
     }
 
     func completeSameAppActivationHandoff(requestId: IntentID) -> ManagedFocusRequest? {
-        guard let index = entries.firstIndex(where: { $0.id == requestId && $0.phase == .pending }),
+        guard let index = openIndex(where: { $0.id == requestId }),
               case let .focusWindow(token, workspaceId, .awaitingSameAppActivation) = entries[index].kind
         else {
             return nil
@@ -418,7 +417,7 @@ extension IntentLedger {
         source: ActivationEventSource,
         retryLimit: Int
     ) -> ManagedFocusRequest? {
-        guard let index = entries.firstIndex(where: { $0.id == requestId && $0.phase == .pending }) else {
+        guard let index = openIndex(where: { $0.id == requestId }) else {
             return nil
         }
         guard case .focusWindow(_, _, .awaitingConfirmation) = entries[index].kind else {
@@ -467,7 +466,7 @@ extension IntentLedger {
     ) -> ManagedFocusRequest? {
         guard let request = activeManagedRequest, request.token == token else { return nil }
         if request.phase != .awaitingConfirmation,
-           let index = entries.firstIndex(where: { $0.id == request.requestId }),
+           let index = lastIntentIndex(where: { $0.id == request.requestId }),
            case let .focusWindow(token, workspaceId, _) = entries[index].kind
         {
             entries[index].kind = .focusWindow(

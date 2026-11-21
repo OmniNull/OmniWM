@@ -50,11 +50,11 @@ import XCTest
                 settings.island.enabled = false
                 settings.animationsEnabled = false
                 settings.hotkeyBindings = []
-                settings.hasSeenIssueWalkthrough = true
                 settings.appRules = [
                     AppRule(bundleId: "com.example.Editor", layout: .tile, assignToWorkspace: "1"),
                     AppRule(bundleId: "com.example.Chat", layout: .float),
-                    AppRule(bundleId: "com.example.Browser", titleSubstring: "Documentation", layout: .tile)
+                    AppRule(bundleId: "com.example.Browser", titleSubstring: "Documentation", layout: .tile),
+                    AppRule(bundleId: "com.example.Notes", layout: .float, scratchpad: 2)
                 ]
                 controller = WMController(
                     settings: settings,
@@ -216,45 +216,6 @@ import XCTest
             await fixture.close()
         }
 
-        func testLauncherPaletteShowsFiltersAndSavedCommands() async throws {
-            try requireNativeRendering()
-            let fixture = try Fixture()
-            try await fixture.prepare()
-            var entry = LauncherEntry()
-            entry.name = "Build Project"
-            entry.command = "swift build"
-            fixture.settings.launcher.entries = [entry]
-            var environment = CommandPaletteEnvironment()
-            environment.submitApplicationSearch = { _, _, _, generation, publish in
-                publish(generation, [LauncherSection(id: .all, title: "Apps", items: [
-                    LauncherApplicationResult(
-                        bundleURL: URL(fileURLWithPath: ApplicationCatalogFilter.finderPath),
-                        bundleIdentifier: "com.apple.finder",
-                        displayName: "Finder"
-                    )
-                ])], [])
-            }
-            environment.stopApplicationSearch = {}
-            let palette = CommandPaletteController(
-                motionPolicy: fixture.controller.motionPolicy,
-                environment: environment
-            )
-            palette.show(wmController: fixture.controller, mode: .applications)
-            defer { palette.dismiss(reason: .cancel) }
-            do {
-                try await render(
-                    CommandPaletteView(controller: palette, motionPolicy: fixture.controller.motionPolicy),
-                    fixture: fixture, windowClass: WindowClass(size: CGSize(width: 760, height: 420), dark: true),
-                    section: .launcher, name: "launcher-palette",
-                    requiredText: ["All", "Apps", "Saved", "CLI Tools", "Add", "Build Project", "Finder"]
-                )
-            } catch {
-                await fixture.close()
-                throw error
-            }
-            await fixture.close()
-        }
-
         func testPopulatedAppRulesAndItsEditorRenderAtNarrowAndWideSizes() async throws {
             try requireNativeRendering()
             let fixture = try Fixture()
@@ -357,7 +318,7 @@ import XCTest
                             .first { $0.isVisible && $0.title == "OmniWM Settings" })
                         navigation.selectTab("mouse")
                         await self.display(window, appearance: window.effectiveAppearance)
-                        gestures.adoptNativeResize.toggle()
+                        gestures.dwindleGroupDragAcrossDisplays = .window
                         await self.display(window, appearance: window.effectiveAppearance)
                         navigation.selectTab("trackpad")
                         await self.display(window, appearance: window.effectiveAppearance)
@@ -686,6 +647,7 @@ import XCTest
             switch section {
             case .general: String(localized: "App Language")
             case .appearance: String(localized: "App Appearance")
+            case .appTheming: String(localized: "Apply Now")
             case .styles: String(localized: "Bar Widgets")
             case .menuBar: String(localized: "Show Workspace")
             case .network: String(localized: "Built-in Services")
@@ -697,10 +659,10 @@ import XCTest
             case .windowSwitcher: String(localized: "Enable Window Switcher")
             case .hotkeys: String(localized: "System Hyper Trigger")
             case .mouseTrackpad: String(localized: "Trackpad")
+            case .commandPalette: String(localized: "Enable Unified Search")
             case .launcher: String(localized: "Saved Entries")
             case .quakeTerminal: String(localized: "Enable Quake Terminal")
             case .diagnostics: String(localized: "Health")
-            case .reportIssue: String(localized: "Title")
             case .advanced: String(localized: "Reveal Settings File")
             }
         }

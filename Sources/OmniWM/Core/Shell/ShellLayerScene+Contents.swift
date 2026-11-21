@@ -17,6 +17,8 @@ extension ShellLayerScene {
             layer.add(fade, forKey: "contents")
         }
         layer.contents = contents
+        if contents != nil { trackPixelSnap(slot, layer) }
+        refreshMarqueeContents(slot, contents: contents)
     }
 
     func rasterize(_ text: String, style: UInt32, color: CGColor, maxWidth: CGFloat, lines: Int) -> CGImage? {
@@ -54,7 +56,7 @@ extension ShellLayerScene {
         context.saveGState()
         defer { context.restoreGState() }
         context.scaleBy(x: scale, y: scale)
-        context.textPosition = CGPoint(x: 0, y: descent)
+        context.textPosition = CGPoint(x: 0, y: pixelAligned(descent))
         CTLineDraw(line, context)
         return context.makeImage()
     }
@@ -75,10 +77,14 @@ extension ShellLayerScene {
         let ascent = CTFontGetAscent(font)
         let lineHeight = ascent + CTFontGetDescent(font) + CTFontGetLeading(font)
         for (index, line) in lines.enumerated() {
-            context.textPosition = CGPoint(x: 0, y: size.height - ascent - CGFloat(index) * lineHeight)
+            context.textPosition = CGPoint(x: 0, y: pixelAligned(size.height - ascent - CGFloat(index) * lineHeight))
             CTLineDraw(line, context)
         }
         return context.makeImage()
+    }
+
+    private func pixelAligned(_ baseline: CGFloat) -> CGFloat {
+        snapsToPixels ? (baseline * scale).rounded() / scale : baseline
     }
 
     func textBitmapContext(width: Int, height: Int) -> CGContext? {

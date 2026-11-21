@@ -51,7 +51,7 @@ extension ShellAppWindowManager {
             closeChild(token)
             return false
         }
-        return true
+        return closeGuards[token]?() ?? true
     }
 
     func handleWindowRequest(_ request: ShellWindowRequest, runtime: ShellAppRuntime, parent: WindowToken) -> String? {

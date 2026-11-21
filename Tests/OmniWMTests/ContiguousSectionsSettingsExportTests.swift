@@ -12,8 +12,8 @@ final class ContiguousSectionsSettingsExportTests: XCTestCase {
             "borders": ["enabled", "width"],
             "borders.color": ["red", "green", "blue", "alpha"],
             "gestures": [
-                "scrollEnabled", "scrollSensitivity", "scrollModifierKey", "mouseMoveModifierKey",
-                "mouseResizeModifierKey", "fingerCount", "invertDirection", "trackpadScrollStyle",
+                "scrollEnabled", "scrollSensitivity", "scrollModifierKey",
+                "fingerCount", "invertDirection", "trackpadScrollStyle",
                 "workspaceSwipeEnabled", "workspaceSwipeFingerCount", "workspaceSwipeAxis"
             ],
             "statusBar": ["showWorkspaceName", "showAppNames", "useWorkspaceId"],
@@ -47,6 +47,25 @@ final class ContiguousSectionsSettingsExportTests: XCTestCase {
         var hidden = SettingsExport.defaults()
         hidden.statusBar.showIcon = false
         XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(hidden)).statusBar.showIcon, false)
+    }
+
+    @MainActor
+    func testStatusBarLayoutDefaultsOffForExistingFilesAndRoundTrips() throws {
+        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let omitted = try removing(key: "showLayout", from: "statusBar", in: source)
+        let decoded = try SettingsTOMLCodec.decode(Data(omitted.utf8))
+        let settings = StatusBarSettings()
+        settings.showLayout = true
+        settings.apply(decoded.statusBar)
+        XCTAssertFalse(settings.showLayout)
+        XCTAssertEqual(decoded.statusBar.showLayout, false)
+
+        for enabled in [true, false] {
+            settings.showLayout = enabled
+            var export = SettingsExport.defaults()
+            export.statusBar = settings.export()
+            XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)).statusBar.showLayout, enabled)
+        }
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {

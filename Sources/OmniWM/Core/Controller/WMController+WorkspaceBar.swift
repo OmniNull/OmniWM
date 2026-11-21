@@ -91,7 +91,7 @@ extension WMController {
     }
 
     var statusBarRefreshIsEnabled: Bool {
-        statusBarController != nil && settings.statusBar.showWorkspaceName
+        statusBarController != nil && (settings.statusBar.showWorkspaceName || settings.statusBar.showLayout)
     }
 
     var hasWindowOrLayoutEventSubscribers: Bool {
@@ -143,10 +143,9 @@ extension WMController {
         }
 
         let focusedAppName: String? = if let focusedToken = workspaceManager.selectedManagedToken,
-                                         let entry = workspaceManager.entry(for: focusedToken),
-                                         entry.workspaceId == workspace.id
+                                         workspaceManager.workspace(for: focusedToken) == workspace.id
         {
-            resolvedAppInfo(for: entry.pid)?.name
+            resolvedAppInfo(for: focusedToken.pid)?.name
         } else {
             nil
         }
@@ -155,7 +154,8 @@ extension WMController {
             monitorId: monitor.id,
             workspaceLabel: settings.workspaces.displayName(for: workspace.name),
             workspaceRawName: workspace.name,
-            focusedAppName: focusedAppName
+            focusedAppName: focusedAppName,
+            layout: workspaceManager.activeLayoutKind(for: workspace.id)
         )
     }
 
@@ -255,10 +255,10 @@ extension WMController {
     }
 
     func publishWorkspaceDataChanges(from previous: DesiredSurfaceScene, to desired: DesiredSurfaceScene) {
-        if desired.bars != previous.bars, statusBarRefreshIsEnabled {
+        let channels = Self.workspaceDataChannels(from: previous, to: desired)
+        if channels.contains(.workspaceBar), statusBarRefreshIsEnabled {
             refreshStatusBar()
         }
-        let channels = Self.workspaceDataChannels(from: previous, to: desired)
         guard !channels.isEmpty, let ipcApplicationBridge else { return }
         Task {
             for channel in channels {
@@ -300,6 +300,7 @@ extension WMController {
         let effective = resolved ?? settings.workspaceBar.resolved(for: monitor)
         guard isWorkspaceBarConfiguredVisible(on: monitor, resolved: effective) else { return false }
         return !isWorkspaceBarSuppressedByNativeFullscreen(on: monitor, resolved: effective)
+            && !workspaceBarManager.coversNativeMenuBarItems(on: monitor, resolved: effective)
     }
 
     func canAutoHideWorkspaceBar(on monitor: Monitor, resolved: ResolvedBarSettings) -> Bool {

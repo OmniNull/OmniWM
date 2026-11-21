@@ -8,7 +8,7 @@ permissions: {}
 
 jobs:
   welcome:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2604
     permissions:
       issues: write
     steps:

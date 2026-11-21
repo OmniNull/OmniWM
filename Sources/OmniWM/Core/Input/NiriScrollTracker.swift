@@ -3,7 +3,6 @@
 
 import Foundation
 
-/// Swift port of Niri's `input/scroll_tracker.rs` for wheel/touchpad bind ticks.
 struct NiriScrollTracker {
     let tick: CGFloat
     var last: CGFloat = 0.0

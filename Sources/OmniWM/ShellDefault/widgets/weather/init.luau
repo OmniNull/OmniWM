@@ -17,7 +17,7 @@ function render(ctx)
     local button = look.weatherBar and look.weatherBar(ctx, state)
     if not button then
         local scale = look.scale(ctx)
-        local props = { onClick = ui.popout, look.glyph{ name = state.symbol, size = look.px(ctx, "symbol") } }
+        local props = { onClick = ui.popout, look.barGlyph(ctx, { name = state.symbol, size = look.px(ctx, "symbol") }) }
         if ctx.data.bar.style.vertical then
             props.gap = scale
             props.pad = 2 * scale

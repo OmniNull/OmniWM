@@ -27,7 +27,8 @@ extension WMController {
     func parkScratchpadWindow(
         _ entry: WindowState,
         monitor: Monitor,
-        captureGeometry: Bool = true
+        captureGeometry: Bool = true,
+        admission: ScratchpadParkAdmission? = nil
     ) -> Bool {
         let logicalOnly = workspaceManager.isWindowSuppressedByMacOS(entry.token)
             || isManagedWindowSuspendedForNativeFullscreen(entry.token)
@@ -45,7 +46,9 @@ extension WMController {
         if captureGeometry {
             _ = captureVisibleFloatingGeometry(for: entry.token, preferredMonitor: monitor)
         }
-        if entry.axRef != nil, let ref = AXWindowService.axWindowRef(for: UInt32(entry.windowId), pid: entry.pid) {
+        if let axRef = entry.axRef,
+           let ref = admission == nil ? AXWindowService.axWindowRef(for: UInt32(entry.windowId), pid: entry.pid) : axRef
+        {
             AXWindowService.pinAXElement(ref.element, for: UInt32(entry.windowId))
         }
 
@@ -53,7 +56,8 @@ extension WMController {
             entry,
             monitor: monitor,
             side: layoutRefreshController.preferredHideSide(for: monitor),
-            reason: .scratchpad
+            reason: .scratchpad,
+            observedFrame: admission?.observedFrame
         )
         if !parked,
            workspaceManager.hiddenState(for: entry.token) == nil,
@@ -169,10 +173,9 @@ extension WMController {
         for entry in scratchpadEntries(in: index) where entry.workspaceId != workspaceId {
             reassignManagedWindow(entry.token, to: workspaceId)
         }
-        let resolvedEntries = entries.compactMap { workspaceManager.entry(for: $0.token) }
-        let preferredToken = preferredToken ?? workspaceManager.lastFocusedToken(in: workspaceId)
-        let ordered = resolvedEntries.filter { $0.token != preferredToken }
-            + resolvedEntries.filter { $0.token == preferredToken }
+        let ordered = workspaceManager
+            .scratchpadStackingOrder(entries.map(\.token), preferring: preferredToken)
+            .compactMap { workspaceManager.entry(for: $0) }
         let orderedHandles = ordered.compactMap { workspaceManager.handle(for: $0.token) }
         var revealed = false
         let groupId = layoutRefreshController.revealGroups.begin(index: index) { [weak self] outcome in
@@ -189,10 +192,7 @@ extension WMController {
                 return handle.id
             }
             guard !survivors.isEmpty else {
-                if self.workspaceManager.revealedScratchpadIndex() == index {
-                    self.workspaceManager.setRevealedScratchpad(nil)
-                    self.requestWorkspaceBarRefresh()
-                }
+                self.layoutRefreshController.reconcileRevealedScratchpadAfterGroupDiscard(index)
                 return
             }
             self.scratchpadStacking

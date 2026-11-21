@@ -16,7 +16,7 @@ final class HostedWindowFocusTests: XCTestCase {
 
         XCTAssertNotNil(fixture.controller.focusWindow(target, raisesWindow: false))
 
-        XCTAssertEqual(fixture.recorder.operations, [.nativeFront(target), .nativeActivate])
+        XCTAssertEqual(fixture.recorder.operations, [.nativeFront(target), .nativeActivate, .nativeExactFocus(target)])
         XCTAssertNotEqual(other, target)
         XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.token, target)
     }
@@ -37,6 +37,7 @@ final class HostedWindowFocusTests: XCTestCase {
 
         XCTAssertEqual(fixture.recorder.operations, [
             .nativeKey(target), .nativeExactFocus(target), .nativeFront(target), .nativeActivate,
+            .nativeExactFocus(target),
             .nativeKey(target), .nativeExactFocus(target)
         ])
         XCTAssertTrue(fixture.recorder.coverageQueries.isEmpty)
@@ -68,7 +69,8 @@ final class HostedWindowFocusTests: XCTestCase {
             XCTAssertEqual(
                 fixture.recorder.operations,
                 hosted
-                    ? [.nativeFront(target), .nativeActivate] : [.externalFocus(target), .externalRaise]
+                    ? [.nativeFront(target), .nativeActivate, .nativeExactFocus(target)]
+                    : [.externalFocus(target), .externalRaise]
             )
         }
     }

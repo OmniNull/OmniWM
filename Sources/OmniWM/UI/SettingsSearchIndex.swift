@@ -26,6 +26,9 @@ enum SettingsSearchIndex {
         setting("Execution Defaults", section: .launcher, anchor: "launcher-execution"),
         setting("Shell", section: .launcher, anchor: "launcher-execution"),
         setting("Terminal", section: .launcher, anchor: "launcher-execution"),
+        setting("Enable Unified Search", section: .commandPalette),
+        setting("Searched Modes", section: .commandPalette),
+        setting("Clear Pick History", section: .commandPalette),
         setting("Language", section: .general, anchor: "Language"),
         setting("App Language", section: .general, anchor: "App Language"),
         setting("Startup", section: .general, anchor: "Startup"),
@@ -35,9 +38,9 @@ enum SettingsSearchIndex {
         setting("Check for Updates Automatically", section: .general, anchor: "Check for Updates Automatically"),
         setting("Check for Updates...", section: .general, anchor: "Check for Updates..."),
         setting("Appearance", section: .appearance, tab: "app", anchor: "Appearance"),
-        setting("App Appearance", section: .appearance, tab: "app", anchor: "App Appearance"),
         setting("Show app icons in tab rails", section: .appearance, tab: "app", anchor: "Show app icons in tab rails"),
         setting("Enable Animations", section: .appearance, tab: "app", anchor: "Enable Animations"),
+        setting("Slide Workspace Switches", section: .appearance, tab: "app", anchor: "Slide Workspace Switches"),
         setting("Tiling Animation Speed", section: .appearance, tab: "app", anchor: "Tiling Animation Speed"),
         setting("Window Borders", section: .appearance, tab: "borders", anchor: "Window Borders"),
         setting("Enable Borders", section: .appearance, tab: "borders", anchor: "Enable Borders"),
@@ -55,6 +58,7 @@ enum SettingsSearchIndex {
         setting("Customize", section: .appearance, tab: "borders", anchor: "Customize"),
         setting("Status Bar", section: .menuBar, tab: "status", anchor: "Status Bar"),
         setting("Show Workspace", section: .menuBar, tab: "status", anchor: "Show Workspace"),
+        setting("Show Layout", section: .menuBar, tab: "status", anchor: "Show Layout"),
         setting("Use Workspace Number", section: .menuBar, tab: "status", anchor: "Use Workspace Number"),
         setting("Show Focused App", section: .menuBar, tab: "status", anchor: "Show Focused App"),
         setting("Show Menu Bar Icon", section: .menuBar, tab: "status", anchor: "Show Menu Bar Icon"),
@@ -89,6 +93,25 @@ enum SettingsSearchIndex {
         setting("Infinite Loop Navigation", section: .layouts, tab: "niri", anchor: "Infinite Loop Navigation"),
         setting("Center Focused Column", section: .layouts, tab: "niri", anchor: "Center Focused Column"),
         setting("Always Center Single Column", section: .layouts, tab: "niri", anchor: "Always Center Single Column"),
+        setting("Keep Strip Ends on Screen", section: .layouts, tab: "niri", anchor: "Keep Strip Ends on Screen"),
+        setting("Kept Sizes", section: .layouts, tab: "niri", anchor: "Kept Sizes"),
+        setting("Keep Existing Window Sizes", section: .layouts, tab: "niri", anchor: "Keep Existing Window Sizes"),
+        setting(
+            "Keep Size When Pulling Out or Gathering", section: .layouts, tab: "niri",
+            anchor: "Keep Size When Pulling Out or Gathering"
+        ),
+        setting(
+            "Keep Sizes When Moving a Workspace to Another Display", section: .layouts, tab: "niri",
+            anchor: "Keep Sizes When Moving a Workspace to Another Display"
+        ),
+        setting(
+            "Keep Sizes When Layout Settings Change", section: .layouts, tab: "niri",
+            anchor: "Keep Sizes When Layout Settings Change"
+        ),
+        setting(
+            "Focus Clicked Windows Without Scrolling", section: .layouts, tab: "niri",
+            anchor: "Focus Clicked Windows Without Scrolling"
+        ),
         setting("Allow Overscroll", section: .layouts, tab: "niri", anchor: "Allow Overscroll"),
         setting("Overscroll Visible Strip", section: .layouts, tab: "niri", anchor: "Overscroll Visible Strip"),
         setting("Gaps at Screen Edges", section: .layouts, tab: "niri", anchor: "Gaps at Screen Edges"),
@@ -98,8 +121,12 @@ enum SettingsSearchIndex {
             tab: "niri",
             anchor: "Stack Moved Window Into Adjacent Column"
         ),
+        setting("Shrink Columns to Fit", section: .layouts, tab: "niri", anchor: "Shrink Columns to Fit"),
         setting("Single Window", section: .layouts, tab: "niri", anchor: "Niri Layout"),
         setting("Resize Increment", section: .layouts, tab: "niri", anchor: "Resize Increment"),
+        setting("Peripheral Vision", section: .layouts, tab: "niri", anchor: "Peripheral Vision"),
+        setting("Undo", section: .layouts, tab: "niri", anchor: "Undo"),
+        setting("Redo", section: .layouts, tab: "niri", anchor: "Redo"),
         setting(
             "Default New Container Primary Span",
             section: .layouts,
@@ -180,27 +207,12 @@ enum SettingsSearchIndex {
         setting("macOS Gestures", section: .mouseTrackpad, tab: "trackpad", anchor: "macOS Gestures"),
         setting("Open Trackpad Settings", section: .mouseTrackpad, tab: "trackpad", anchor: "Open Trackpad Settings"),
         setting("Mouse Move & Resize", section: .mouseTrackpad, tab: "mouse", anchor: "Mouse Move & Resize"),
-        setting("Left Mouse Move Modifier", section: .mouseTrackpad, tab: "mouse", anchor: "Left Mouse Move Modifier"),
         setting(
             "Dwindle Group Across Displays",
             section: .mouseTrackpad,
             tab: "mouse",
             anchor: "Dwindle Group Across Displays"
         ),
-        setting(
-            "Right Mouse Resize Modifier",
-            section: .mouseTrackpad,
-            tab: "mouse",
-            anchor: "Right Mouse Resize Modifier"
-        ),
-        setting("Resize Preview", section: .mouseTrackpad, tab: "mouse", anchor: "Resize Preview"),
-        setting(
-            "Keep Native Moves Across Displays",
-            section: .mouseTrackpad,
-            tab: "mouse",
-            anchor: "Keep Native Moves Across Displays"
-        ),
-        setting("Keep Native Edge Resizes", section: .mouseTrackpad, tab: "mouse", anchor: "Keep Native Edge Resizes"),
         setting("Focus Follows Mouse", section: .mouseTrackpad, tab: "mouse", anchor: "Focus Follows Mouse"),
         setting(
             "Enable Focus Follows Mouse",
@@ -248,16 +260,27 @@ enum SettingsSearchIndex {
         setting("Animation Duration", section: .quakeTerminal, anchor: "Animation Duration"),
         setting("Auto-hide on Focus Loss", section: .quakeTerminal, anchor: "Auto-hide on Focus Loss"),
         setting("About", section: .quakeTerminal, anchor: "About"),
+        setting("Ghostty Theme", section: .appTheming),
+        setting("kitty Theme", section: .appTheming),
+        setting("herdr Theme", section: .appTheming),
+        setting("Neovim Theme", section: .appTheming),
+        setting("Terminal Colors", section: .appTheming),
+        setting("Add Custom Template…", section: .appTheming),
+        setting("Template Placeholders", section: .appTheming),
         setting("Controls", section: .hotkeys, anchor: "Controls"),
         setting("System Hyper Trigger", section: .hotkeys, anchor: "System Hyper Trigger"),
         setting("Request Permission", section: .hotkeys, anchor: "Request Permission"),
+        setting(
+            "Pause Palette Paste During Secure Input",
+            section: .hotkeys,
+            anchor: "Pause Palette Paste During Secure Input"
+        ),
         setting("Reset to Defaults", section: .hotkeys, anchor: "Reset to Defaults"),
         setting("Shortcuts", section: .hotkeys, anchor: "Shortcuts"),
         setting("Command, shortcut, or scope", section: .hotkeys, anchor: "Command, shortcut, or scope"),
         setting("OK", section: .hotkeys, anchor: "OK"),
         setting("Reset Hotkeys", section: .hotkeys, anchor: "Reset Hotkeys"),
         setting("Cancel", section: .hotkeys, anchor: "Cancel"),
-        setting("Report Crash…", section: .diagnostics),
         setting("Copy File", section: .diagnostics),
         setting("Reveal", section: .diagnostics),
         setting("Private-API Capability", section: .diagnostics, anchor: "Private-API Capability"),
@@ -267,27 +290,42 @@ enum SettingsSearchIndex {
         setting("Stop & Save Recording", section: .diagnostics, anchor: "Stop & Save Recording"),
         setting("Measure Performance", section: .diagnostics, anchor: "Measure Performance"),
         setting("Start Performance Capture", section: .diagnostics, anchor: "Start Performance Capture"),
-        setting("Stop & Save Performance Capture", section: .diagnostics, anchor: "Stop & Save Performance Capture"),
-        setting("Issue", section: .reportIssue, anchor: "Issue"),
-        setting("Title", section: .reportIssue, anchor: "Title"),
-        setting("Category", section: .reportIssue, anchor: "Category"),
-        setting("Context (optional)", section: .reportIssue, anchor: "Context (optional)"),
-        setting("Affected app(s)", section: .reportIssue, anchor: "Affected app(s)"),
-        setting("Active layout", section: .reportIssue, anchor: "Active layout"),
-        setting("Worked in an earlier version?", section: .reportIssue, anchor: "Worked in an earlier version?"),
-        setting("Last working version/build", section: .reportIssue, anchor: "Last working version/build"),
-        setting("Rewrite & Format with AI", section: .reportIssue, anchor: "Rewrite & Format with AI"),
-        setting("Apply", section: .reportIssue, anchor: "Apply"),
-        setting("Dismiss", section: .reportIssue, anchor: "Dismiss"),
-        setting("Submit to GitHub", section: .reportIssue, anchor: "Submit to GitHub"),
-        setting("Discard Draft", section: .reportIssue, anchor: "Discard Draft"),
-        setting("Keep Editing", section: .reportIssue, anchor: "Keep Editing"),
-        setting("Show guide", section: .reportIssue, anchor: "Show guide"),
-        setting("Report another issue", section: .reportIssue, anchor: "Report another issue"),
-        setting("Reveal Log Again", section: .reportIssue, anchor: "Reveal Log Again"),
-        setting("Diagnostics recording", section: .reportIssue, anchor: "Diagnostics recording"),
-        setting("Stop, Save & Include Recording", section: .reportIssue, anchor: "Stop, Save & Include Recording"),
-        setting("Additional evidence", section: .reportIssue, anchor: "Additional evidence"),
+        setting("Stop & Save Performance Capture", section: .diagnostics, anchor: "Stop & Save Performance Capture")
+    ]
+}
+
+extension SettingsSearchIndex {
+    static func results(for query: String) -> [SettingsSearchEntry] {
+        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return [] }
+        return entries.filter { entry in
+            let text = ([entry.title, entry.context] + entry.keywords).joined(separator: " ")
+            return words.allSatisfy { text.localizedStandardContains($0) }
+        }
+    }
+
+    static let entries: [SettingsSearchEntry] = SettingsSection.allCases.map { section in
+        SettingsSearchEntry(
+            title: section.displayName,
+            route: SettingsRoute(section: section),
+            keywords: aliases(for: section)
+        )
+    } + settings + styleSettings + advancedSettings + networkSettings
+
+    private static func setting(
+        _ title: LocalizedStringResource,
+        section: SettingsSection,
+        tab: String? = nil,
+        anchor: String? = nil,
+        itemID: String? = nil
+    ) -> SettingsSearchEntry {
+        SettingsSearchEntry(
+            title: String(localized: title),
+            route: SettingsRoute(section: section, tab: tab, anchor: anchor, itemID: itemID)
+        )
+    }
+
+    private static let styleSettings: [SettingsSearchEntry] = [
         setting("Custom Bar", section: .styles, tab: "lanes"),
         setting("Bar Widgets", section: .styles, tab: "lanes"),
         setting("Position", section: .styles, tab: "placement"),
@@ -311,44 +349,15 @@ enum SettingsSearchIndex {
         setting("Weather", section: .styles, itemID: "weather"),
         setting("World Clock", section: .styles, itemID: "world-clock"),
         setting("Volume", section: .styles, itemID: "volume"),
-        setting("Drawer", section: .styles, tab: "drawers"),
+        setting("Drawer", section: .styles, tab: "drawers")
+    ]
+
+    private static let advancedSettings: [SettingsSearchEntry] = [
         setting("Settings File", section: .advanced, anchor: "Configuration Files"),
         setting("Shell Folder", section: .advanced, anchor: "Shell Development"),
         setting("IPC", section: .advanced, anchor: "Automation"),
         setting("Command-Line Tools", section: .advanced, anchor: "Command-Line Tools")
     ]
-}
-
-extension SettingsSearchIndex {
-    static func results(for query: String) -> [SettingsSearchEntry] {
-        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
-        guard !words.isEmpty else { return [] }
-        return entries.filter { entry in
-            let text = ([entry.title, entry.context] + entry.keywords).joined(separator: " ")
-            return words.allSatisfy { text.localizedStandardContains($0) }
-        }
-    }
-
-    static let entries: [SettingsSearchEntry] = SettingsSection.allCases.map { section in
-        SettingsSearchEntry(
-            title: section.displayName,
-            route: SettingsRoute(section: section),
-            keywords: aliases(for: section)
-        )
-    } + settings + networkSettings
-
-    private static func setting(
-        _ title: LocalizedStringResource,
-        section: SettingsSection,
-        tab: String? = nil,
-        anchor: String? = nil,
-        itemID: String? = nil
-    ) -> SettingsSearchEntry {
-        SettingsSearchEntry(
-            title: String(localized: title),
-            route: SettingsRoute(section: section, tab: tab, anchor: anchor, itemID: itemID)
-        )
-    }
 
     private static let networkSettings: [SettingsSearchEntry] = [
         setting("Widget Network Access", section: .network, anchor: NetworkPermissionsPage.widgetsAnchor),
@@ -419,6 +428,7 @@ extension SettingsSearchIndex {
         case .monitors: ["monitors", "displays", "screens", "routing"]
         case .appRules: ["app rules", "float", "tile", "bundle", "match"]
         case .windowSwitcher: ["alt-tab", "command-tab", "option-tab", "app switcher", "previews"]
+        case .commandPalette: ["palette", "unified search", "top hits", "spotlight", "alfred"]
         case .hotkeys: ["hotkeys", "keyboard", "shortcuts", "hyper", "commands", "pause", "prefix", "mode key"]
         case .advanced: ["config", "toml", "luau", "ipc", "cli", "terminal"]
         default: [section.rawValue]

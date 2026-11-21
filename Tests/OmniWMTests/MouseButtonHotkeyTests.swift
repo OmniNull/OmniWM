@@ -183,11 +183,11 @@ final class MouseButtonHotkeyTests: XCTestCase {
         defer { controller.hotkeys.stop() }
 
         XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 3))
-        XCTAssertEqual(handler.state.capturedOtherMouseButton, 3)
+        XCTAssertEqual(handler.tapInputs.capturedOtherMouseButton, 3)
         XCTAssertEqual(controller.hotkeys.isMouseButtonCaptured?(3), true)
         XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDragged, button: 3))
         XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseUp, button: 3))
-        XCTAssertNil(handler.state.capturedOtherMouseButton)
+        XCTAssertNil(handler.tapInputs.capturedOtherMouseButton)
         XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 4))
         XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 3, modifiers: .maskAlternate))
         XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseUp, button: 3))
@@ -196,7 +196,7 @@ final class MouseButtonHotkeyTests: XCTestCase {
         XCTAssertTrue(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 3))
         handler.pressedMouseButtonsProvider = { 0 }
         handler.recoverAfterTapDisable()
-        XCTAssertNil(handler.state.capturedOtherMouseButton)
+        XCTAssertNil(handler.tapInputs.capturedOtherMouseButton)
     }
 
     func testIneligibleStatesPassBoundButtonThrough() throws {
@@ -220,15 +220,15 @@ final class MouseButtonHotkeyTests: XCTestCase {
         handler.state.isMoving = true
         XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 3))
         handler.state.isMoving = false
-        handler.state.capturedInteractionButton = .right
+        handler.tapInputs.capturedInteractionButton = .right
         XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 3))
-        handler.state.capturedInteractionButton = nil
+        handler.tapInputs.capturedInteractionButton = nil
         controller.setHotkeyRecordingActive(true)
         XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 3))
         controller.setHotkeyRecordingActive(false)
         controller.hotkeys.stop()
         XCTAssertFalse(handler.receiveTapOtherMouseButton(type: .otherMouseDown, button: 3))
-        XCTAssertNil(handler.state.capturedOtherMouseButton)
+        XCTAssertNil(handler.tapInputs.capturedOtherMouseButton)
         XCTAssertTrue(received.isEmpty)
     }
 

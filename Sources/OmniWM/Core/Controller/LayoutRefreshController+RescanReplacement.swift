@@ -13,10 +13,9 @@ extension LayoutRefreshController {
         let controller = context.controller
         let enumerationSnapshot = context.enumerationSnapshot
         let token = window.identity.token
-        let existingEntry = window.identity.existingEntry
         let bundleId = window.identity.bundleId
         let evaluation = window.decision.evaluation
-        return existingEntry == nil
+        return !window.identity.isTracked
             ? controller.axEventHandler.structuralReplacementMatch(
                 token: token,
                 candidate: .init(
@@ -39,7 +38,7 @@ extension LayoutRefreshController {
 
     func rekeyFullRescanReplacement(
         _ window: FullRescanEvaluatedWindow,
-        trackedMode: TrackedWindowMode,
+        admitted: WindowAdmission,
         match structuralMatch: AXEventHandler.StructuralReplacementMatch?,
         context: FullRescanMutationContext,
         progress: inout FullRescanProgress
@@ -49,11 +48,10 @@ extension LayoutRefreshController {
         let ax = window.candidate.axRef
         let winId = window.identity.token.windowId
         let token = window.identity.token
-        let existingEntry = window.identity.existingEntry
         let bundleId = window.identity.bundleId
         let appFullscreen = window.decision.appFullscreen
         let evaluation = window.decision.evaluation
-        if existingEntry == nil,
+        if !window.identity.isTracked,
            let windowId = UInt32(exactly: winId),
            let structuralMatch,
            controller.axEventHandler.rekeyStructuralManagedReplacement(
@@ -63,9 +61,10 @@ extension LayoutRefreshController {
                candidate: .init(
                    bundleId: bundleId ?? evaluation.facts.ax
                        .bundleId,
-                   mode: trackedMode,
+                   mode: admitted.mode,
                    facts: evaluation.facts
                ),
+               readOnlyAdmissionFrame: admitted.readOnlyFrame,
                admissionHints: evaluation.decision
                    .admissionHints,
                sizeConstraints: candidate.enumeratedWindow
@@ -118,7 +117,7 @@ extension LayoutRefreshController {
                 fallbackWorkspaceId: focusedWorkspaceId,
                 reevaluation: .automatic
             ),
-            windowFrame: candidate.capturedFrame
+            appKitFrame: candidate.capturedAppKitFrame
         )
     }
 }

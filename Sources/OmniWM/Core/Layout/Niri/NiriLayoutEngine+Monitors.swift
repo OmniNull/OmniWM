@@ -53,6 +53,7 @@ extension NiriLayoutEngine {
     func updateMonitorSettings(_ settings: ResolvedNiriSettings, for monitorId: Monitor.ID) {
         assertSanctionedMutation()
         monitors[monitorId]?.resolvedSettings = settings
+        refreshEdgePeeksPossible()
     }
 
     func globalResolvedSettings() -> ResolvedNiriSettings {
@@ -63,7 +64,10 @@ extension NiriLayoutEngine {
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             singleWindowFit: singleWindowFit,
             infiniteLoop: infiniteLoop,
-            edgeOverscroll: edgeOverscroll
+            edgeOverscroll: edgeOverscroll,
+            edgePeekShare: edgePeekShare,
+            fitsVisibleContainerCount: policies.fitsVisibleContainerCount,
+            opensNewWindowsAtAppWidth: policies.opensNewWindowsAtAppWidth
         )
     }
 
@@ -98,8 +102,6 @@ extension NiriLayoutEngine {
         effectiveSettings(in: workspaceId).infiniteLoop
     }
 
-    /// Reassign a single workspace without pruning unrelated workspaces
-    /// that are omitted from the request.
     func moveWorkspace(
         _ workspaceId: WorkspaceDescriptor.ID,
         to monitorId: Monitor.ID,
@@ -111,8 +113,6 @@ extension NiriLayoutEngine {
         attachWorkspaceRootIfNeeded(workspaceId, to: targetMonitor)
     }
 
-    /// Reconcile the authoritative full workspace-to-monitor assignment set
-    /// during monitor sync and prune stale duplicate roots.
     func syncWorkspaceAssignments(
         _ assignments: [(workspaceId: WorkspaceDescriptor.ID, monitor: Monitor)],
         orientations: [Monitor.ID: Monitor.Orientation] = [:]
@@ -186,7 +186,9 @@ extension NiriLayoutEngine {
     }
 
     private func rederiveAutomaticContainerSpans(in root: NiriRoot, for monitor: NiriMonitor) {
-        guard effectiveSettings(for: monitor.id).defaultContainerPrimarySpan == nil else { return }
+        guard !policies.keepsSizesOnDisplayMove,
+              effectiveSettings(for: monitor.id).defaultContainerPrimarySpan == nil
+        else { return }
         let reset = resolvedContainerResetPrimarySpan(for: monitor.id)
         switch monitor.orientation {
         case .horizontal:

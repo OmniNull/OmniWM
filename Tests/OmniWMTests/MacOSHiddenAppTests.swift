@@ -204,6 +204,30 @@ final class MacOSHiddenAppTests: XCTestCase {
         XCTAssertGreaterThan(frameReadCount, frameReadsBeforeUnhide)
     }
 
+    func testUnhidingAnAppWithAFloatingWindowRescansItSoItsKindIsReadAgain() throws {
+        let controller = makeController()
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        let floating = addWindow(pid: 880_021, windowId: 880_121, to: workspaceId, controller: controller)
+        let tiled = addWindow(pid: 880_022, windowId: 880_122, to: workspaceId, controller: controller)
+        XCTAssertTrue(controller.workspaceManager.setWindowMode(.floating, for: floating))
+        func rescans() -> [RescanScope] {
+            let layoutState = controller.layoutRefreshController.layoutState
+            return [layoutState.activeRefresh, layoutState.pendingRefresh].compactMap { refresh in
+                refresh.flatMap { $0.kind == .fullRescan ? $0.rescanScope : nil }
+            }
+        }
+        func hideAndUnhide(_ token: WindowToken) {
+            controller.workspaceManager.setAppHidden(true, pid: token.pid, source: .service)
+            controller.axEventHandler.handleAppUnhidden(pid: token.pid, source: .service)
+        }
+
+        hideAndUnhide(tiled)
+        XCTAssertEqual(rescans(), [])
+
+        hideAndUnhide(floating)
+        XCTAssertEqual(rescans(), [.targeted(appPIDs: [floating.pid], nativeSpaceIds: [])])
+    }
+
     func testNativeFullscreenReasonSurvivesAppHideAndUnhide() throws {
         let controller = makeController()
         let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))

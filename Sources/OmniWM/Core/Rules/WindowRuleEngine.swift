@@ -98,6 +98,7 @@ final class WindowRuleEngine {
             source: .manualOverride,
             layoutDecisionKind: .explicitLayout,
             workspaceName: decision.workspaceName,
+            assignToWorkspaceForAllWindows: decision.assignToWorkspaceForAllWindows,
             ruleEffects: decision.ruleEffects,
             admissionHints: decision.admissionHints,
             ruleProvenance: provenance,
@@ -255,12 +256,12 @@ final class WindowRuleEngine {
         requireExplicitInclusion: Bool,
         _ body: (CompiledWindowRule) -> Void
     ) {
-        for candidate in rules {
-            if requireExplicitInclusion, !candidate.explicitlyIncludesNonstandardSurface {
+        for index in rules.indices {
+            if requireExplicitInclusion, !rules[index].explicitlyIncludesNonstandardSurface {
                 continue
             }
-            guard candidate.matches(facts) else { continue }
-            body(candidate)
+            guard rules[index].matches(facts) else { continue }
+            body(rules[index])
         }
     }
 }

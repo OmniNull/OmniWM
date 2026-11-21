@@ -18,6 +18,70 @@ struct ShellLayerPath: Equatable, Sendable {
     func fitted(to size: CGSize) -> CGPath? {
         path?.path(fitting: viewBox, into: size)
     }
+
+    func fittedShape(to size: CGSize) -> ShellPathShape? {
+        path?.shape(fitting: viewBox, into: size)
+    }
+}
+
+struct ShellArcMorph {
+    private let from: ShellPathShape
+    private let target: ShellPathShape
+    private let begin: CFTimeInterval
+    private let duration: CFTimeInterval
+    private let steps: Int
+    private let spring: ShellReveal?
+    private let curve: ShellCurve?
+
+    init?(
+        _ preset: ShellAnimation,
+        from: ShellPathShape,
+        to target: ShellPathShape,
+        begin: CFTimeInterval
+    ) {
+        guard from.morphs(to: target) else { return nil }
+        if case let .ease(seconds) = preset.motion {
+            duration = seconds / preset.speed
+            spring = nil
+        } else {
+            let timing = preset.make("path")
+            duration = timing.duration
+            spring = (timing as? CASpringAnimation).map { spring in
+                ShellReveal(
+                    begin: 0, progress: 0, target: 1,
+                    spring: .init(mass: spring.mass, stiffness: spring.stiffness, damping: spring.damping),
+                    duration: timing.duration
+                )
+            }
+        }
+        guard duration.isFinite, duration > 0 else { return nil }
+        self.from = from
+        self.target = target
+        self.begin = begin
+        steps = max(2, Int(min(ceil(duration * ShellReveal.rate), 240)))
+        curve = preset.curve ?? ShellCurve(wire: 4, custom: nil)
+    }
+
+    func shape(at time: CFTimeInterval) -> ShellPathShape {
+        let position = min(max((time - begin) / duration, 0), 1) * Double(steps)
+        let lower = Int(position)
+        let start = progress(at: lower)
+        let end = progress(at: min(lower + 1, steps))
+        return from.interpolated(to: target, at: start + (end - start) * (position - Double(lower)))
+    }
+
+    func keyframes() -> CAKeyframeAnimation {
+        let animation = CAKeyframeAnimation(keyPath: "path")
+        animation.values = (0 ... steps).map { from.interpolated(to: target, at: progress(at: $0)).path() }
+        animation.duration = duration
+        animation.calculationMode = .linear
+        return animation
+    }
+
+    private func progress(at step: Int) -> CGFloat {
+        let fraction = Double(step) / Double(steps)
+        return spring?.state(at: fraction * duration).progress ?? curve?.value(at: fraction) ?? fraction
+    }
 }
 
 struct ShellEnter: Equatable, Sendable {
@@ -189,19 +253,55 @@ extension ShellLayerScene {
 
     func layoutPath(_ slot: Int32, animation: ShellAnimation?) {
         guard let shape = layers[slot] as? CAShapeLayer, let spec = paths[slot] else { return }
-        let path = spec.fitted(to: shape.bounds.size)
-        if let animation, shape.path != nil, path != nil, shape.path != path {
-            let from = (shape.presentation() ?? shape).path
-            add(animation, to: shape, "path", from: from, to: path)
-            if let mask = masks[slot]?.layer {
-                add(animation, to: mask, "path", from: from, to: path)
-            }
-        }
+        let size = shape.bounds.size
+        let path = spec.fitted(to: size)
+        let target = spec.fittedShape(to: size)
+        let morph = shape.path == path ? pathShapes[slot]?.morph : animatePath(
+            slot, shape: shape, to: path, target: target, animation: animation
+        )
+        pathShapes[slot] = target.map { ($0, morph) }
         shape.path = path
         shape.fillRule = spec.evenOdd ? .evenOdd : .nonZero
         if let mask = masks[slot] {
             Self.mirror(shape, into: mask.layer)
         }
+    }
+
+    private func animatePath(
+        _ slot: Int32,
+        shape: CAShapeLayer,
+        to path: CGPath?,
+        target: ShellPathShape?,
+        animation: ShellAnimation?
+    ) -> ShellArcMorph? {
+        let mask = masks[slot]?.layer
+        let targets = [shape, mask].compactMap(\.self)
+        if let animation, let path, let model = shape.path {
+            let visible = mask ?? shape
+            let from = (visible.presentation() as? CAShapeLayer)?.path ?? model
+            if let target, let previous = pathShapes[slot], !shapeTracks.contours.contains(slot),
+               visible.animation(forKey: Self.enterPathKey) == nil
+            {
+                let time = now()
+                let localTime = shape.convertTime(time, from: nil)
+                let running = shape.animation(forKey: "path") is CAKeyframeAnimation ? previous.morph : nil
+                let shown = running?.shape(at: localTime) ?? (from == model ? previous.model : nil)
+                if let shown, let morph = ShellArcMorph(animation, from: shown, to: target, begin: localTime) {
+                    let frames = morph.keyframes()
+                    for layer in targets {
+                        frames.beginTime = layer.convertTime(time, from: nil)
+                        layer.add(frames, forKey: "path")
+                    }
+                    return morph
+                }
+            }
+            if ShellPath.haveMatchingSegments(from, path) {
+                for layer in targets { add(animation, to: layer, "path", from: from, to: path) }
+                return nil
+            }
+        }
+        for layer in targets { layer.removeAnimation(forKey: "path") }
+        return nil
     }
 
     static func align(_ mask: CALayer, with layer: CALayer) {
@@ -298,7 +398,9 @@ extension ShellLayerScene {
         else {
             return nil
         }
-        return ((resumed as? CAShapeLayer)?.path ?? (opening ? start : current), opening ? current : start)
+        let from = (resumed as? CAShapeLayer)?.path ?? (opening ? start : current)
+        let to = opening ? current : start
+        return ShellPath.haveMatchingSegments(from, to) ? (from, to) : nil
     }
 
     private static func enterAnimation(

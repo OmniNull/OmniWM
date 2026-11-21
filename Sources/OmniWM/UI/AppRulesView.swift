@@ -299,6 +299,19 @@ struct AppRuleSidebarRow: View {
                 accessibilityLabel: String(localized: "Assigned to workspace \(workspace)")
             )
         }
+        if let slot = rule.validScratchpad {
+            RuleBadge(
+                text: String(localized: "SP \(slot.rawValue)"),
+                color: .mint,
+                accessibilityLabel: String(localized: "Joins scratchpad \(slot.rawValue)")
+            )
+        } else if rule.scratchpad != nil {
+            RuleBadge(
+                text: String(localized: "Scratchpad invalid"),
+                color: .red,
+                accessibilityLabel: String(localized: "Invalid scratchpad")
+            )
+        }
         if let width = rule.validInitialContainerPrimarySpan {
             let percent = AppRulePrimarySpanPercent.displayText(for: width)
             RuleBadge(

@@ -19,10 +19,15 @@ extension WMController {
     @discardableResult
     func reevaluateWindowRules(
         for targets: Set<WindowRuleReevaluationTarget>,
-        context: WindowRuleReevaluationContext = .automatic
+        context: WindowRuleReevaluationContext = .automatic,
+        stillWantsExplicitApply: (() -> Bool)? = nil
     ) async -> WindowRuleReevaluationOutcome {
         guard !targets.isEmpty else { return .none }
-        var reevaluation = WindowRuleReevaluation(controller: self, context: context)
+        var reevaluation = WindowRuleReevaluation(
+            controller: self,
+            context: context,
+            stillWantsExplicitApply: stillWantsExplicitApply
+        )
         return await reevaluation.run(for: targets)
     }
 }

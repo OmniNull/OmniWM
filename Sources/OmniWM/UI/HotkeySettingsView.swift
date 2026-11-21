@@ -24,6 +24,7 @@ struct HotkeySettingsView: View {
         let hotkeyMouseButtons = OverviewInputSettingsValidation.hotkeyMouseButtons(settings.hotkeyBindings)
         let modeKeyFailures = KeyboardModeTable(bindings: settings.hotkeyBindings).failures
         let modeLeaderAssigned = settings.hotkeyBindings.contains(where: Self.isAssignedModeLeader)
+        let paletteShortcuts = PaletteShortcuts.current()
         HotkeySettingsPage(
             subtitle: String(
                 localized: "Search commands, edit shortcuts, and review registration problems without leaving the settings window."
@@ -89,6 +90,12 @@ struct HotkeySettingsView: View {
                     }
                 }
 
+                Toggle("Pause Palette Paste During Secure Input", isOn: $settings.pausePalettePasteDuringSecureInput)
+                    .id("Pause Palette Paste During Secure Input")
+                SettingsCaption(localized:
+                    "While macOS Secure Input is on, the command palette doesn’t paste clipboard entries. Turn off if an app holds Secure Input in the background. Keyboard modes and shortcuts marked “Paused during Secure Input” stay paused either way."
+                )
+
                 LabeledContent("Defaults") {
                     Button("Reset to Defaults", role: .destructive) {
                         confirmsResetToDefaults = true
@@ -150,6 +157,7 @@ struct HotkeySettingsView: View {
                                 hyperModifiers: settings.hyperKeyModifiers.carbonMask,
                                 shiftedCharacters: shiftedCharacters
                             ),
+                            paletteShortcutNotes: paletteShortcuts.collisions(with: binding.binding).map(\.note),
                             isHyperActive: {
                                 controller.isHyperTriggerActive
                             },
@@ -187,30 +195,16 @@ struct HotkeySettingsView: View {
             cancelRecording()
             controller.setHotkeysEnabled(settings.hotkeysEnabled)
         }
-        .alert(item: $conflictAlert) { alert in
-            Alert(
-                title: Text("Hotkey Conflict"),
-                message: Text(alert.message),
-                primaryButton: .destructive(Text("Replace")) {
-                    HotkeyBindingEditor.applyConflictResolution(alert, settings: settings)
-                    controller.updateHotkeyBindings(settings.hotkeyBindings)
-                    cancelRecording()
-                },
-                secondaryButton: .cancel {
-                    cancelRecording()
-                }
-            )
-        }
-        .alert(
-            "Hotkey Conflict",
-            isPresented: Binding(get: { captureRejection != nil }, set: { if !$0 { captureRejection = nil } }),
-            presenting: captureRejection
-        ) { _ in
-            Button("OK", role: .cancel) {}
-                .id("OK")
-        } message: { message in
-            Text(message)
-        }
+        .modifier(HotkeyConflictAlerts(
+            conflictAlert: $conflictAlert,
+            captureRejection: $captureRejection,
+            settings: settings,
+            onReplaced: {
+                controller.updateHotkeyBindings(settings.hotkeyBindings)
+                cancelRecording()
+            },
+            onCancelled: cancelRecording
+        ))
         .confirmationDialog("Reset all hotkeys?", isPresented: $confirmsResetToDefaults) {
             Button("Reset Hotkeys", role: .destructive) {
                 settings.resetHotkeysToDefaults()
@@ -233,21 +227,6 @@ struct HotkeySettingsView: View {
         recordingTarget = .chord(actionId)
     }
 
-    private func hyperModifierToggle(_ title: String, flag: UInt32) -> some View {
-        Toggle(title, isOn: Binding(
-            get: { settings.hyperKeyModifiers.contains(flag) },
-            set: { included in
-                guard let updated = settings.hyperKeyModifiers.setting(flag, included: included) else { return }
-                settings.hyperKeyModifiers = updated
-            }
-        ))
-        .disabled(
-            settings.hyperKeyModifiers.contains(flag)
-                && settings.hyperKeyModifiers.modifierCount <= HyperKeyModifiers.minimumModifierCount
-        )
-        .accessibilityLabel("Hyper includes \(title)")
-    }
-
     private func systemHyperTriggerFailureMessage(_ failure: SystemHyperTriggerFailure) -> String {
         switch failure {
         case .eventTapUnavailable:
@@ -258,13 +237,10 @@ struct HotkeySettingsView: View {
     }
 
     private func handleChordCaptured(actionId: String, newTrigger: HotkeyTrigger) {
-        guard let chord = newTrigger.chordBinding else {
-            handleTriggerCaptured(actionId: actionId, newTrigger: newTrigger)
-            return
-        }
-        let previousSide = settings.hotkeyBindings
-            .first { $0.id == actionId }?.binding.chordBinding?.side ?? .either
-        handleTriggerCaptured(actionId: actionId, newTrigger: .chord(chord.settingSide(previousSide)))
+        handleTriggerCaptured(
+            actionId: actionId,
+            newTrigger: HotkeyBindingEditor.triggerKeepingSide(newTrigger, for: actionId, settings: settings)
+        )
     }
 
     private func handleTriggerCaptured(actionId: String, newTrigger: HotkeyTrigger) {
@@ -294,10 +270,8 @@ struct HotkeySettingsView: View {
     }
 
     private func setSide(actionId: String, side: ModifierSide) {
-        guard let binding = settings.hotkeyBindings.first(where: { $0.id == actionId }),
-              let chord = binding.binding.chordBinding
-        else { return }
-        handleTriggerCaptured(actionId: actionId, newTrigger: .chord(chord.settingSide(side)))
+        guard let trigger = HotkeyBindingEditor.trigger(for: actionId, side: side, settings: settings) else { return }
+        handleTriggerCaptured(actionId: actionId, newTrigger: trigger)
     }
 
     private func cancelRecording() {
@@ -395,6 +369,21 @@ extension HotkeySettingsView {
                 "In Prefix and Window mode, single keys run commands. After you give Begin Prefix or Enter or Leave Window Mode a shortcut, set mode keys beside the commands below. Needs Input Monitoring permission."
             )
         }
+    }
+
+    private func hyperModifierToggle(_ title: String, flag: UInt32) -> some View {
+        Toggle(title, isOn: Binding(
+            get: { settings.hyperKeyModifiers.contains(flag) },
+            set: { included in
+                guard let updated = settings.hyperKeyModifiers.setting(flag, included: included) else { return }
+                settings.hyperKeyModifiers = updated
+            }
+        ))
+        .disabled(
+            settings.hyperKeyModifiers.contains(flag)
+                && settings.hyperKeyModifiers.modifierCount <= HyperKeyModifiers.minimumModifierCount
+        )
+        .accessibilityLabel("Hyper includes \(title)")
     }
 
     private func handleModeKeyCaptured(actionId: String, trigger: HotkeyTrigger) {

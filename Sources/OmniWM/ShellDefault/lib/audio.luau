@@ -9,16 +9,33 @@ local TRANSPORT = {
     builtin = "laptopcomputer", usb = "cable.connector", bluetooth = "headphones", hdmi = "display",
     displayport = "display", airplay = "airplayaudio", thunderbolt = "bolt.horizontal",
 }
+local DEVICE = {
+    airpods = "airpods", airpodspro = "airpodspro", airpodsmax = "airpodsmax", beats = "beats.headphones",
+    headphones = "headphones", speaker = "hifispeaker", display = "tv", airplay = "airplayaudio",
+}
 
-function audio.symbol(volume: number?, muted: boolean?): string
+function audio.symbol(volume: number?, muted: boolean?, kind: string?): string
     if not volume then
         return "speaker.fill"
     end
     if muted or volume == 0 then
         return "speaker.slash.fill"
     end
+    local device = kind and DEVICE[kind]
+    if device then
+        return device
+    end
     return if volume < 34 then "speaker.wave.1.fill" elseif volume < 67 then "speaker.wave.2.fill"
         else "speaker.wave.3.fill"
+end
+
+local function defaultKind(outputs): string?
+    for _, device in outputs or {} do
+        if device.default then
+            return device.kind
+        end
+    end
+    return nil
 end
 
 function audio.scroll(ctx, event, step: number?)
@@ -45,7 +62,8 @@ end
 function audio.state(ctx)
     local volume = ctx.data.volume
     local muted = ctx.data.muted == true
-    return { volume = volume, muted = muted, level = volume and volume / 100, symbol = audio.symbol(volume, muted),
+    return { volume = volume, muted = muted, level = volume and volume / 100,
+        symbol = audio.symbol(volume, muted, defaultKind(ctx.data.outputs)),
         percent = volume and ctx.format.percent(volume / 100), set = setVolume, mute = "volume mute",
         muteSymbol = if muted then "speaker.wave.2" else "speaker.slash" }
 end

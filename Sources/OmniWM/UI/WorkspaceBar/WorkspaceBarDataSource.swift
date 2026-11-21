@@ -27,9 +27,13 @@ struct WorkspaceBarDataSource {
 
     private struct WorkspaceSnapshot {
         let workspace: WorkspaceDescriptor
-        let tiledEntries: [WindowState]
-        let floatingEntries: [WindowState]
-        let hasBarOccupancy: Bool
+        let entries: [WindowState]
+        let tiled: [Int]
+        let floating: [Int]
+
+        var hasBarOccupancy: Bool {
+            !tiled.isEmpty || !floating.isEmpty
+        }
     }
 
     func workspaceBarProjection(
@@ -87,74 +91,64 @@ struct WorkspaceBarDataSource {
         focusedToken: WindowToken?,
         hiddenAppPIDs: Set<pid_t>
     ) -> WorkspaceBarItem {
-        let topology = workspaceManager.layoutTopology(for: snapshot.workspace.id)
-        let orderedTiledEntries = visibilityOrderedEntries(
-            WorkspaceEntryOrdering.orderedEntries(
-                snapshot.tiledEntries,
-                topology: topology
-            ),
-            hiddenAppPIDs: hiddenAppPIDs
-        )
-        let orderedFloatingEntries = visibilityOrderedEntries(
-            WorkspaceEntryOrdering.orderedEntries(
-                snapshot.floatingEntries,
-                topology: topology
-            ),
-            hiddenAppPIDs: hiddenAppPIDs
-        )
-        let useLayoutOrder = topology.hasColumns
-        let tiledWindows = windowProjector.items(
-            entries: orderedTiledEntries,
-            deduplicate: options.deduplicateAppIcons,
-            useLayoutOrder: useLayoutOrder,
-            focusedToken: focusedToken,
-            hiddenAppPIDs: hiddenAppPIDs
-        )
-        let floatingWindows = windowProjector.items(
-            entries: orderedFloatingEntries,
-            deduplicate: options.deduplicateAppIcons,
-            useLayoutOrder: useLayoutOrder,
-            focusedToken: focusedToken,
-            hiddenAppPIDs: hiddenAppPIDs
-        )
-
+        let windows = snapshot.hasBarOccupancy
+            ? windowItems(snapshot, options: options, focusedToken: focusedToken, hiddenAppPIDs: hiddenAppPIDs)
+            : (tiled: [], floating: [])
         return WorkspaceBarItem(
             id: snapshot.workspace.id,
             name: settings.workspaces.displayName(for: snapshot.workspace.name),
             rawName: snapshot.workspace.name,
             isFocused: snapshot.workspace.id == activeWorkspaceId,
-            tiledWindows: tiledWindows,
-            floatingWindows: floatingWindows
+            tiledWindows: windows.tiled,
+            floatingWindows: windows.floating
         )
+    }
+
+    private func windowItems(
+        _ snapshot: WorkspaceSnapshot,
+        options: WorkspaceBarProjectionOptions,
+        focusedToken: WindowToken?,
+        hiddenAppPIDs: Set<pid_t>
+    ) -> (tiled: [WorkspaceBarWindowItem], floating: [WorkspaceBarWindowItem]) {
+        let topology = workspaceManager.layoutTopology(for: snapshot.workspace.id)
+        let grouping: WorkspaceBarWindowProjector.Grouping = options.deduplicateAppIcons
+            ? .byApp(keepsLayoutOrder: topology.hasColumns) : .individual
+        let entries = snapshot.entries
+        func items(_ indices: [Int]) -> [WorkspaceBarWindowItem] {
+            windowProjector.items(
+                entries: entries,
+                order: visibilityOrdered(
+                    WorkspaceEntryOrdering.orderedIndices(indices, in: entries, topology: topology),
+                    in: entries,
+                    hiddenAppPIDs: hiddenAppPIDs
+                ),
+                grouping: grouping,
+                focusedToken: focusedToken,
+                hiddenAppPIDs: hiddenAppPIDs
+            )
+        }
+        return (items(snapshot.tiled), items(snapshot.floating))
     }
 
     private func workspaceSnapshot(
         for workspace: WorkspaceDescriptor,
         options: WorkspaceBarProjectionOptions
     ) -> WorkspaceSnapshot {
-        let projectedEntries = workspaceManager.barVisibleEntries(
+        let entries = workspaceManager.barVisibleEntries(
             in: workspace.id,
             showFloatingWindows: options.showFloatingWindows
         )
-        var tiledEntries: [WindowState] = []
-        var floatingEntries: [WindowState] = []
-        for entry in projectedEntries {
-            if windowProjector.isExcluded(entry, options: options) {
-                continue
-            }
-            switch entry.mode {
+        var tiled: [Int] = []
+        var floating: [Int] = []
+        for index in entries.indices where !windowProjector.isExcluded(entries[index], options: options) {
+            switch entries[index].mode {
             case .tiling:
-                tiledEntries.append(entry)
+                tiled.append(index)
             case .floating:
-                floatingEntries.append(entry)
+                floating.append(index)
             }
         }
-        return WorkspaceSnapshot(
-            workspace: workspace,
-            tiledEntries: tiledEntries,
-            floatingEntries: floatingEntries,
-            hasBarOccupancy: !tiledEntries.isEmpty || !floatingEntries.isEmpty
-        )
+        return WorkspaceSnapshot(workspace: workspace, entries: entries, tiled: tiled, floating: floating)
     }
 
     private func scratchpadItems(
@@ -171,8 +165,8 @@ struct WorkspaceBarDataSource {
 
             let windows = windowProjector.items(
                 entries: entries,
-                deduplicate: true,
-                useLayoutOrder: false,
+                order: Array(entries.indices),
+                grouping: .byApp(keepsLayoutOrder: false),
                 focusedToken: focusedToken,
                 hiddenAppPIDs: workspaceManager.hiddenAppPIDs
             )
@@ -192,19 +186,20 @@ struct WorkspaceBarDataSource {
         }
     }
 
-    private func visibilityOrderedEntries(
-        _ entries: [WindowState],
+    private func visibilityOrdered(
+        _ order: [Int],
+        in entries: [WindowState],
         hiddenAppPIDs: Set<pid_t>
-    ) -> [WindowState] {
-        var visible: [WindowState] = []
-        var hidden: [WindowState] = []
-        visible.reserveCapacity(entries.count)
-        hidden.reserveCapacity(entries.count)
-        for entry in entries {
-            if hiddenAppPIDs.contains(entry.pid) {
-                hidden.append(entry)
+    ) -> [Int] {
+        guard !hiddenAppPIDs.isEmpty else { return order }
+        var visible: [Int] = []
+        var hidden: [Int] = []
+        visible.reserveCapacity(order.count)
+        for index in order {
+            if hiddenAppPIDs.contains(entries[index].pid) {
+                hidden.append(index)
             } else {
-                visible.append(entry)
+                visible.append(index)
             }
         }
         visible.append(contentsOf: hidden)

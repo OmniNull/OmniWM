@@ -69,7 +69,7 @@
       "kind": "type",
       "topic": "ui-elements",
       "anchor": "api-element",
-      "declaration": "export type Element = { kind: number }",
+      "declaration": "export type Element = { kind: number, [any]: any }",
       "fields": [
         "kind"
       ],
@@ -538,6 +538,155 @@
       ]
     },
     {
+      "name": "CommandPaletteBadge",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalettebadge",
+      "declaration": "export type CommandPaletteBadge = {\n    text: string,\n    tone: \"neutral\" | \"accent\" | \"danger\" | \"warning\" | \"shortcut\" | \"shortcutMuted\",\n    symbol: string?,\n}",
+      "fields": [
+        "text",
+        "tone",
+        "symbol"
+      ],
+      "related": []
+    },
+    {
+      "name": "CommandPaletteChoice",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalettechoice",
+      "declaration": "export type CommandPaletteChoice = {\n    id: string,\n    title: string,\n    symbol: string,\n    shortcut: string,\n    selected: boolean,\n    enabled: boolean,\n}",
+      "fields": [
+        "id",
+        "title",
+        "symbol",
+        "shortcut",
+        "selected",
+        "enabled"
+      ],
+      "related": []
+    },
+    {
+      "name": "CommandPaletteAction",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpaletteaction",
+      "declaration": "export type CommandPaletteAction = { id: string, title: string, symbol: string, shortcut: string }",
+      "fields": [
+        "id",
+        "title",
+        "symbol",
+        "shortcut"
+      ],
+      "related": []
+    },
+    {
+      "name": "CommandPaletteRow",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpaletterow",
+      "declaration": "export type CommandPaletteRow = {\n    id: string,\n    kind: \"window\" | \"command\" | \"heading\" | \"menu\" | \"clipboard\" | \"application\" | \"file\" | \"saved\" | \"showAll\"\n        | \"executable\" | \"gridRow\",\n    title: string,\n    subtitle: string,\n    icon: { app: string?, pid: number?, symbol: string?, bitmap: string? },\n    badges: { CommandPaletteBadge },\n    marks: { CommandPaletteBadge },\n    hint: string?,\n    hintShortcut: string?,\n    selected: boolean,\n    enabled: boolean,\n    pinned: boolean,\n    actions: { CommandPaletteAction },\n    cells: { CommandPaletteRow },\n}",
+      "fields": [
+        "id",
+        "kind",
+        "title",
+        "subtitle",
+        "icon",
+        "badges",
+        "marks",
+        "hint",
+        "hintShortcut",
+        "selected",
+        "enabled",
+        "pinned",
+        "actions",
+        "cells"
+      ],
+      "related": [
+        "CommandPaletteBadge",
+        "CommandPaletteAction"
+      ]
+    },
+    {
+      "name": "CommandPalettePreview",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalettepreview",
+      "declaration": "export type CommandPalettePreview = {\n    id: string,\n    state: \"loading\" | \"text\" | \"image\" | \"unavailable\" | \"file\" | \"blank\",\n    text: string?,\n    image: string?,\n    width: number,\n    height: number,\n    title: string?,\n    symbol: string?,\n    details: { { label: string, value: string } },\n}",
+      "fields": [
+        "id",
+        "state",
+        "text",
+        "image",
+        "width",
+        "height",
+        "title",
+        "symbol",
+        "details"
+      ],
+      "related": []
+    },
+    {
+      "name": "CommandPaletteLauncher",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalettelauncher",
+      "declaration": "export type CommandPaletteLauncher = {\n    filters: { CommandPaletteChoice },\n    chips: { CommandPaletteChoice },\n    views: { CommandPaletteChoice },\n    add: CommandPaletteAction?,\n    columns: number,\n    grid: boolean,\n}",
+      "fields": [
+        "filters",
+        "chips",
+        "views",
+        "add",
+        "columns",
+        "grid"
+      ],
+      "related": [
+        "CommandPaletteChoice",
+        "CommandPaletteAction"
+      ]
+    },
+    {
+      "name": "CommandPalette",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-commandpalette",
+      "declaration": "export type CommandPalette = {\n    open: boolean,\n    expanded: boolean,\n    width: number,\n    height: number,\n    mode: string,\n    modes: { CommandPaletteChoice },\n    placeholder: string,\n    query: string,\n    state: \"results\" | \"empty\" | \"loading\" | \"disabled\" | \"blank\",\n    emptyText: string,\n    emptySymbol: string,\n    feedback: string?,\n    actions: { CommandPaletteAction },\n    rows: { CommandPaletteRow },\n    selected: string,\n    first: number,\n    total: number,\n    before: number,\n    after: number,\n    unified: boolean,\n    browseModes: boolean,\n    error: string?,\n    preview: CommandPalettePreview?,\n    launcher: CommandPaletteLauncher?,\n    emptyAction: CommandPaletteAction?,\n}",
+      "fields": [
+        "open",
+        "expanded",
+        "width",
+        "height",
+        "mode",
+        "modes",
+        "placeholder",
+        "query",
+        "state",
+        "emptyText",
+        "emptySymbol",
+        "feedback",
+        "actions",
+        "rows",
+        "selected",
+        "first",
+        "total",
+        "before",
+        "after",
+        "unified",
+        "browseModes",
+        "error",
+        "preview",
+        "launcher",
+        "emptyAction"
+      ],
+      "related": [
+        "CommandPaletteChoice",
+        "CommandPaletteAction",
+        "CommandPaletteRow",
+        "CommandPalettePreview",
+        "CommandPaletteLauncher"
+      ]
+    },
+    {
       "name": "BarDrag",
       "kind": "type",
       "topic": "context-data",
@@ -556,13 +705,15 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-bar",
-      "declaration": "export type Bar = {\n    monitor: string,\n    monitorId: string,\n    island: \"all\" | \"active\" | \"secondary\",\n    drag: BarDrag?,\n    badges: \"off\" | \"dot\" | \"text\",\n    style: BarStyle?,\n    workspaces: { BarWorkspace },\n    scratchpads: { BarScratchpad },\n}",
+      "declaration": "export type Bar = {\n    monitor: string,\n    monitorId: string,\n    island: \"all\" | \"active\" | \"secondary\",\n    drag: BarDrag?,\n    badges: \"off\" | \"dot\" | \"text\",\n    layout: (\"niri\" | \"dwindle\")?,\n    workspacesRoom: number?,\n    style: BarStyle?,\n    workspaces: { BarWorkspace },\n    scratchpads: { BarScratchpad },\n}",
       "fields": [
         "monitor",
         "monitorId",
         "island",
         "drag",
         "badges",
+        "layout",
+        "workspacesRoom",
         "style",
         "workspaces",
         "scratchpads"
@@ -594,12 +745,13 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-audiooutput",
-      "declaration": "export type AudioOutput = {\n    id: string,\n    name: string,\n    transport: \"builtin\" | \"usb\" | \"bluetooth\" | \"hdmi\" | \"displayport\" | \"airplay\" | \"thunderbolt\" | \"virtual\"\n        | \"aggregate\" | \"other\",\n    default: boolean,\n}",
+      "declaration": "export type AudioOutput = {\n    id: string,\n    name: string,\n    transport: \"builtin\" | \"usb\" | \"bluetooth\" | \"hdmi\" | \"displayport\" | \"airplay\" | \"thunderbolt\" | \"virtual\"\n        | \"aggregate\" | \"other\",\n    default: boolean,\n    kind: \"airpods\" | \"airpodspro\" | \"airpodsmax\" | \"beats\" | \"headphones\" | \"speaker\" | \"display\" | \"airplay\"\n        | \"builtin\" | \"other\",\n}",
       "fields": [
         "id",
         "name",
         "transport",
-        "default"
+        "default",
+        "kind"
       ],
       "related": []
     },
@@ -738,14 +890,44 @@
       "related": []
     },
     {
+      "name": "DisplayBrightness",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-displaybrightness",
+      "declaration": "export type DisplayBrightness = {\n    id: string,\n    name: string,\n    value: number,\n    available: boolean,\n}",
+      "fields": [
+        "id",
+        "name",
+        "value",
+        "available"
+      ],
+      "related": []
+    },
+    {
       "name": "Brightness",
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-brightness",
-      "declaration": "export type Brightness = {\n    value: number,\n    available: boolean,\n}",
+      "declaration": "export type Brightness = {\n    value: number,\n    available: boolean,\n    mainDisplayId: string?,\n    displays: { DisplayBrightness },\n}",
       "fields": [
         "value",
-        "available"
+        "available",
+        "mainDisplayId",
+        "displays"
+      ],
+      "related": [
+        "DisplayBrightness"
+      ]
+    },
+    {
+      "name": "NightShift",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-nightshift",
+      "declaration": "export type NightShift = {\n    available: boolean,\n    enabled: boolean,\n}",
+      "fields": [
+        "available",
+        "enabled"
       ],
       "related": []
     },
@@ -1058,6 +1240,53 @@
       "related": []
     },
     {
+      "name": "WiFiNetwork",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-wifinetwork",
+      "declaration": "export type WiFiNetwork = {\n    id: string,\n    ssid: string,\n    rssi: number,\n    security: string?,\n    secured: boolean,\n    enterprise: boolean,\n    known: boolean,\n    opensSettings: boolean,\n}",
+      "fields": [
+        "id",
+        "ssid",
+        "rssi",
+        "security",
+        "secured",
+        "enterprise",
+        "known",
+        "opensSettings"
+      ],
+      "related": []
+    },
+    {
+      "name": "WiFiNetworks",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-wifinetworks",
+      "declaration": "export type WiFiNetworks = {\n    known: { WiFiNetwork },\n    other: { WiFiNetwork },\n    scanning: boolean,\n    joining: string?,\n    failure: { id: string, message: string }?,\n}",
+      "fields": [
+        "known",
+        "other",
+        "scanning",
+        "joining",
+        "failure"
+      ],
+      "related": [
+        "WiFiNetwork"
+      ]
+    },
+    {
+      "name": "Connection",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-connection",
+      "declaration": "export type Connection = {\n    kind: \"wifi\" | \"ethernet\" | \"cellular\" | \"other\" | \"none\",\n    interface: string?,\n}",
+      "fields": [
+        "kind",
+        "interface"
+      ],
+      "related": []
+    },
+    {
       "name": "BluetoothDevice",
       "kind": "type",
       "topic": "context-data",
@@ -1135,7 +1364,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-data",
-      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n}",
+      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    connection: Connection?,\n    commandPalette: CommandPalette?,\n    nightShift: NightShift?,\n    wifiNetworks: WiFiNetworks?,\n}",
       "fields": [
         "clock",
         "date",
@@ -1186,7 +1415,11 @@
         "notifications",
         "awake",
         "microphone",
-        "brightness"
+        "brightness",
+        "connection",
+        "commandPalette",
+        "nightShift",
+        "wifiNetworks"
       ],
       "related": [
         "Weather",
@@ -1211,7 +1444,11 @@
         "Notifications",
         "Awake",
         "Microphone",
-        "Brightness"
+        "Brightness",
+        "Connection",
+        "CommandPalette",
+        "NightShift",
+        "WiFiNetworks"
       ]
     },
     {
@@ -1623,7 +1860,7 @@
       "kind": "type",
       "topic": "layout-styling",
       "anchor": "api-props",
-      "declaration": "export type Props = {\n    cursor: (\"grab\" | \"pointer\")?,\n    decorative: boolean?,\n    manipulationCommit: string?,\n    manipulationFollow: { response: number, bounce: number? }?,\n    effect: { source: string, values: { number }?, fps: number?, bleed: number? }?,\n    accepts: { ResourceKind }?,\n    onDrop: ((ctx: Context, event: DropEvent) -> ())?,\n    onDropHover: ((ctx: Context, event: DropHoverEvent) -> ())?,\n    dragItems: { Resource }?,\n    onDragOut: ((ctx: Context, event: DragOutEvent) -> ())?,\n    appear: Presence?,\n    exit: Presence?,\n    reveal: Reveal?,\n    morph: Morph?,\n    key: string?,\n    rotate: number?,\n    loop: { dx: { number }?, dy: { number }?, rotate: { number }?, paused: boolean? }?,\n    trail: boolean?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    gap: number?,\n    pad: number?,\n    center: boolean?,\n    fill: Color?,\n    material: Material?,\n    blurRadius: number?,\n    saturation: number?,\n    bridge: boolean?,\n    attach: boolean?,\n    open: number?,\n    close: number?,\n    enter: Enter?,\n    mask: boolean?,\n    border: Color?,\n    borderWidth: number?,\n    radius: number?,\n    opacity: number?,\n    hover: Color?,\n    hoverScale: number?,\n    hoverOpacity: number?,\n    help: string?,\n    animate: Animate?,\n    hoverAnimate: (Motion | number)?,\n    hoverMaterial: Material?,\n    onClick: Click?,\n    onRightClick: Click?,\n    onScroll: Click?,\n    onPress: InputHandler?,\n    pressScale: number?,\n    pressOpacity: number?,\n    pressFill: Color?,\n    pressAnimate: Animate?,\n    onHover: InputHandler?,\n    hoverDelay: number?,\n    hoverGrace: number?,\n    gesture: Gesture?,\n    onGesture: InputHandler?,\n    gestureEvents: (\"boundary\" | \"all\")?,\n    scrollMomentum: (\"consume\" | \"deliver\")?,\n    focusable: boolean?,\n    focusRing: boolean?,\n    keys: { string }?,\n    onKey: InputHandler?,\n    onOutsidePress: InputHandler?,\n    popout: boolean?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    scale: number?,\n    shadow: Color?,\n    shadowRadius: number?,\n    shadowOffset: { x: number, y: number }?,\n    pulse: Pulse?,\n    target: string?,\n    menu: boolean?,\n    preview: boolean?,\n    drag: boolean?,\n    drop: boolean?,\n    scroll: boolean?,\n    [number]: Element,\n}",
+      "declaration": "export type Props = {\n    cursor: (\"grab\" | \"pointer\")?,\n    decorative: boolean?,\n    manipulationCommit: string?,\n    manipulationFollow: { response: number, bounce: number? }?,\n    effect: { source: string, values: { number }?, fps: number?, bleed: number? }?,\n    accepts: { ResourceKind }?,\n    onDrop: ((ctx: Context, event: DropEvent) -> ())?,\n    onDropHover: ((ctx: Context, event: DropHoverEvent) -> ())?,\n    dragItems: { Resource }?,\n    onDragOut: ((ctx: Context, event: DragOutEvent) -> ())?,\n    appear: Presence?,\n    exit: Presence?,\n    reveal: Reveal?,\n    morph: Morph?,\n    key: string?,\n    rotate: number?,\n    loop: { dx: { number }?, dy: { number }?, rotate: { number }?, paused: boolean? }?,\n    trail: boolean?,\n    w: number?,\n    h: number?,\n    grow: number?,\n    gap: number?,\n    pad: number?,\n    center: boolean?,\n    fill: Color?,\n    material: Material?,\n    blurRadius: number?,\n    saturation: number?,\n    bridge: boolean?,\n    attach: boolean?,\n    open: number?,\n    close: number?,\n    enter: Enter?,\n    mask: boolean?,\n    border: Color?,\n    borderWidth: number?,\n    radius: number?,\n    opacity: number?,\n    hover: Color?,\n    hoverScale: number?,\n    hoverOpacity: number?,\n    help: string?,\n    animate: Animate?,\n    hoverAnimate: (Motion | number)?,\n    hoverMaterial: Material?,\n    onClick: Click?,\n    onRightClick: Click?,\n    onScroll: Click?,\n    onPress: InputHandler?,\n    pressScale: number?,\n    pressOpacity: number?,\n    pressFill: Color?,\n    pressAnimate: Animate?,\n    onHover: (InputHandler | string)?,\n    hoverDelay: number?,\n    hoverGrace: number?,\n    gesture: Gesture?,\n    onGesture: InputHandler?,\n    gestureEvents: (\"boundary\" | \"all\")?,\n    scrollMomentum: (\"consume\" | \"deliver\")?,\n    focusable: boolean?,\n    focusRing: boolean?,\n    keys: { string }?,\n    onKey: InputHandler?,\n    onOutsidePress: InputHandler?,\n    popout: boolean?,\n    align: Align?,\n    dx: number?,\n    dy: number?,\n    scale: number?,\n    shadow: Color?,\n    shadowRadius: number?,\n    shadowOffset: { x: number, y: number }?,\n    pulse: Pulse?,\n    target: string?,\n    menu: boolean?,\n    preview: boolean?,\n    drag: boolean?,\n    drop: boolean?,\n    scroll: boolean?,\n    marquee: boolean?,\n    maxWidth: number?,\n    [number]: Element,\n}",
       "fields": [
         "cursor",
         "decorative",
@@ -1704,7 +1941,9 @@
         "preview",
         "drag",
         "drop",
-        "scroll"
+        "scroll",
+        "marquee",
+        "maxWidth"
       ],
       "related": [
         "ResourceKind",
@@ -1734,7 +1973,7 @@
       "kind": "type",
       "topic": "ui-elements",
       "anchor": "api-textprops",
-      "declaration": "export type TextProps = Props & {\n    text: string,\n    style: TextStyle?,\n    font: Font?,\n    filled: boolean?,\n    size: number?,\n    weight: Weight?,\n    maxWidth: number?,\n    lines: number?,\n    color: Color?,\n    reserve: string?,\n}",
+      "declaration": "export type TextProps = Props & {\n    text: string,\n    style: TextStyle?,\n    font: Font?,\n    filled: boolean?,\n    size: number?,\n    weight: Weight?,\n    lines: number?,\n    color: Color?,\n    reserve: string?,\n}",
       "fields": [
         "text",
         "style",
@@ -1742,7 +1981,6 @@
         "filled",
         "size",
         "weight",
-        "maxWidth",
         "lines",
         "color",
         "reserve"
@@ -1760,12 +1998,14 @@
       "kind": "type",
       "topic": "ui-elements",
       "anchor": "api-textinputprops",
-      "declaration": "export type TextInputProps = Props & {\n    key: string,\n    text: string?,\n    placeholder: string?,\n    multiline: boolean?,\n    maxLength: number?,\n    focus: boolean?,\n    style: TextStyle?,\n    font: Font?,\n    size: number?,\n    weight: Weight?,\n    color: Color?,\n    onChange: InputHandler?,\n    onCommit: InputHandler?,\n    onCancel: InputHandler?,\n    onFocus: InputHandler?,\n}",
+      "declaration": "export type TextInputProps = Props & {\n    key: string,\n    text: string?,\n    placeholder: string?,\n    multiline: boolean?,\n    editable: boolean?,\n    wrap: boolean?,\n    maxLength: number?,\n    focus: boolean?,\n    style: TextStyle?,\n    font: Font?,\n    size: number?,\n    weight: Weight?,\n    color: Color?,\n    onChange: InputHandler?,\n    onCommit: InputHandler?,\n    onCancel: InputHandler?,\n    onFocus: InputHandler?,\n}",
       "fields": [
         "key",
         "text",
         "placeholder",
         "multiline",
+        "editable",
+        "wrap",
         "maxLength",
         "focus",
         "style",
@@ -2005,6 +2245,22 @@
       ]
     },
     {
+      "name": "ImageConversionUpdate",
+      "kind": "type",
+      "topic": "resources-desktop",
+      "anchor": "api-imageconversionupdate",
+      "declaration": "export type ImageConversionUpdate = {\n    progress: { completed: number, total: number }?,\n    ok: boolean?,\n    items: { Resource }?,\n    error: string?,\n}",
+      "fields": [
+        "progress",
+        "ok",
+        "items",
+        "error"
+      ],
+      "related": [
+        "Resource"
+      ]
+    },
+    {
       "name": "ServiceHandle",
       "kind": "type",
       "topic": "services",
@@ -2140,12 +2396,13 @@
       "kind": "namespace",
       "topic": "services",
       "anchor": "api-omniwm",
-      "declaration": "declare omniwm: {\n    windows: {\n        open: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),\n        close: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),\n    },\n    resources: {\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },\n    pick: (options: { files: boolean, multiple: boolean? }, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    open: (resource: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    reveal: (resource: Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    quicklook: ((resources: { Resource }, index: number?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    share: ((resources: { Resource }, anchor: string, service: \"airdrop\"?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, anchor: string, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    clipboard: {\n        copy: (content: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n        read: (callback: DesktopCallback) -> (ServiceHandle?, string?),\n    },\n    provider: {\n        send: (name: string, args: any, options: { files: { Resource }? }?, callback: ((result: ProviderResult) -> ())?) -> (ServiceHandle?, string?),\n    },\n    http: (request: HTTPRequest, callback: (result: HTTPResult) -> ()) -> (ServiceHandle?, string?),\n    after: (seconds: number, callback: () -> ()) -> (ServiceHandle?, string?),\n    store: {\n        get: (key: string) -> any,\n        set: (key: string, value: any) -> (boolean?, string?),\n        status: StoreStatus,\n    },\n    asset: (path: string) -> Asset,\n    components: {\n        activity: (id: string) -> ComponentActivity?,\n        add: (widget: string, options: { [string]: ComponentValue }?, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        remove: (id: string, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        move: (id: string, index: number, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        enable: (id: string, enabled: boolean, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        set: (id: string, key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    config: {\n        set: (key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    run: (command: string) -> (),\n    log: (...any) -> (),\n    l10n: (key: string, ...any) -> string,\n}",
+      "declaration": "declare omniwm: {\n    windows: {\n        open: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),\n        close: (id: string, callback: WindowCallback?) -> (ServiceHandle?, string?),\n    },\n    resources: {\n        convert: (resources: { Resource }, format: \"png\" | \"jpeg\" | \"tiff\", callback: (update: ImageConversionUpdate) -> ()) -> (ServiceHandle?, string?),\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },\n    pick: (options: { files: boolean, multiple: boolean? }, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    open: (resource: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    reveal: (resource: Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n    quicklook: ((resources: { Resource }, index: number?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    share: ((resources: { Resource }, anchor: string, service: \"airdrop\"?, callback: DesktopCallback?) -> (ServiceHandle?, string?))\n        & ((resources: { Resource }, anchor: string, callback: DesktopCallback) -> (ServiceHandle?, string?)),\n    clipboard: {\n        copy: (content: string | Resource, callback: DesktopCallback?) -> (ServiceHandle?, string?),\n        read: (callback: DesktopCallback) -> (ServiceHandle?, string?),\n    },\n    provider: {\n        send: (name: string, args: any, options: { files: { Resource }? }?, callback: ((result: ProviderResult) -> ())?) -> (ServiceHandle?, string?),\n    },\n    http: (request: HTTPRequest, callback: (result: HTTPResult) -> ()) -> (ServiceHandle?, string?),\n    after: (seconds: number, callback: () -> ()) -> (ServiceHandle?, string?),\n    store: {\n        get: (key: string) -> any,\n        set: (key: string, value: any) -> (boolean?, string?),\n        status: StoreStatus,\n    },\n    asset: (path: string) -> Asset,\n    components: {\n        activity: (id: string) -> ComponentActivity?,\n        add: (widget: string, options: { [string]: ComponentValue }?, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        remove: (id: string, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        move: (id: string, index: number, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        enable: (id: string, enabled: boolean, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n        set: (id: string, key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    config: {\n        set: (key: string, value: ComponentValue, callback: ConfigCallback?) -> (ServiceHandle?, string?),\n    },\n    run: (command: string) -> (),\n    log: (...any) -> (),\n    l10n: (key: string, ...any) -> string,\n}",
       "fields": [],
       "related": [
         "WindowCallback",
         "ServiceHandle",
         "Resource",
+        "ImageConversionUpdate",
         "DesktopCallback",
         "ProviderResult",
         "HTTPRequest",
@@ -2198,10 +2455,25 @@
       "kind": "namespace",
       "topic": "resources-desktop",
       "anchor": "api-omniwm-resources",
-      "declaration": "    resources: {\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },",
+      "declaration": "    resources: {\n        convert: (resources: { Resource }, format: \"png\" | \"jpeg\" | \"tiff\", callback: (update: ImageConversionUpdate) -> ()) -> (ServiceHandle?, string?),\n        persist: (resource: Resource, callback: ((result: { ok: boolean, token: string?, error: string? }) -> ())?) -> (string?, string?),\n        restore: (token: string) -> (Resource?, string?),\n    },",
       "fields": [],
       "related": [
-        "Resource"
+        "Resource",
+        "ImageConversionUpdate",
+        "ServiceHandle"
+      ]
+    },
+    {
+      "name": "omniwm.resources.convert",
+      "kind": "member",
+      "topic": "resources-desktop",
+      "anchor": "api-omniwm-resources-convert",
+      "declaration": "        convert: (resources: { Resource }, format: \"png\" | \"jpeg\" | \"tiff\", callback: (update: ImageConversionUpdate) -> ()) -> (ServiceHandle?, string?),",
+      "fields": [],
+      "related": [
+        "Resource",
+        "ImageConversionUpdate",
+        "ServiceHandle"
       ]
     },
     {

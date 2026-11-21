@@ -5,17 +5,17 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 struct CommandPaletteWindowItem: Identifiable {
     let id: WindowToken
     let handle: WindowHandle
     let title: String
     let appName: String
-    let appIcon: NSImage?
     let workspaceName: String
     let isAppHidden: Bool
     let markNames: [String]
+    var bundleIdentifier: String?
+    var hostedSymbol: String?
 }
 
 struct CommandPaletteCommandItem: Identifiable {
@@ -76,6 +76,23 @@ enum CommandPaletteSelectionID: Hashable {
     case launcherEntry(UUID)
     case executable(String)
     case file(LauncherSectionID, String)
+    case showAll(CommandPaletteMode)
+}
+
+extension CommandPaletteSelectionID {
+    var mode: CommandPaletteMode? {
+        switch self {
+        case .window: .windows
+        case .menu: .menu
+        case .clipboard: .clipboard
+        case .command: .commands
+        case .launcherEntry,
+             .application,
+             .executable: .applications
+        case .file: .files
+        case .showAll: nil
+        }
+    }
 }
 
 enum CommandPaletteSelectionTrigger: Equatable {

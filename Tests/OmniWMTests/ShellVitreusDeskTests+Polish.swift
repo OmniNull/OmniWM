@@ -119,10 +119,20 @@ extension ShellVitreusDeskTests {
                 }
                 let tint = try color("tint")
                 let glass = try color("panel").mixed(with: white, 0.12)
-                for (name, floor) in [("ink", 4.5), ("faint", 4.5), ("mint", 4.5), ("minthi", 4.5), ("alert", 3)] {
+                for (name, floor) in [
+                    ("ink", ShellRGBA.readableTextContrast),
+                    ("faint", ShellRGBA.readableTextContrast),
+                    ("mint", ShellRGBA.readableTextContrast),
+                    ("minthi", ShellRGBA.readableTextContrast),
+                    ("alert", 3)
+                ] {
                     XCTAssertGreaterThanOrEqual(try color(name).contrast(glass), floor, "\(label) \(name)")
                 }
-                XCTAssertGreaterThanOrEqual(try color("onmint").contrast(color("mint")), 4.5, label)
+                XCTAssertGreaterThanOrEqual(
+                    try color("onmint").contrast(color("mint")),
+                    ShellRGBA.readableTextContrast,
+                    label
+                )
                 let tone = Self.tone(tint)
                 let rounding = Self.halfLevelToneChange(tint)
                 if scheme == .content || scheme == .fidelity {

@@ -40,11 +40,14 @@ extension SettingsStore {
             hiddenBar: hiddenBar.export(),
             animationsEnabled: animationsEnabled,
             animationSpeed: animationSpeed,
+            slideWorkspaceSwitches: slideWorkspaceSwitches,
+            pausePalettePasteDuringSecureInput: pausePalettePasteDuringSecureInput,
             language: language,
             launcher: launcher,
+            commandPalette: commandPalette.export(),
             clipboard: clipboard.export(),
             quakeTerminal: quakeTerminal.export(),
-            appearanceMode: appearanceMode,
+            appTheming: appTheming.export(),
             tabRailAppIcons: tabRailAppIcons,
             shellPermissions: shellPermissions.export()
         )

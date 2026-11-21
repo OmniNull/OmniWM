@@ -32,7 +32,7 @@ extension WMController {
             requested: target.height,
             observed: observed.height
         )
-        adoptObservedSizeEvidence(evidence, for: entry)
+        adoptObservedSizeEvidence(evidence, for: entry.token, in: entry.workspaceId)
     }
 
     func adoptObservedMinimumAfterTerminalSizeWriteFailure(_ refusal: AXFrameTerminalRefusal) {
@@ -61,17 +61,18 @@ extension WMController {
         )
         guard observedMin.width > 1 || observedMin.height > 1 else { return }
         evidence.minSize = observedMin
-        adoptObservedSizeEvidence(evidence, for: entry)
+        adoptObservedSizeEvidence(evidence, for: entry.token, in: entry.workspaceId)
     }
 
     func relaxObservedSizeEvidence(afterVerifiedWrite result: AXFrameApplyResult) {
+        let token = WindowToken(pid: result.pid, windowId: result.windowId)
         guard result.writeResult.components == .all,
               result.writeResult.observedFrame != nil,
               let accepted = result.confirmedFrame?.size,
-              let entry = workspaceManager.entry(forPid: result.pid, windowId: result.windowId),
-              let axRef = entry.axRef,
+              let window = workspaceManager.withEntry(token, { (axRef: $0.axRef, workspaceId: $0.workspaceId) }),
+              let axRef = window.axRef,
               sameAXWindowIdentity(axRef, result.expectedWindow),
-              var evidence = workspaceManager.observedSizeEvidence(for: entry.token)
+              var evidence = workspaceManager.observedSizeEvidence(for: token)
         else {
             return
         }
@@ -85,15 +86,26 @@ extension WMController {
             hint: &evidence.hints.height,
             accepted: accepted.height
         )
-        adoptObservedSizeEvidence(evidence, for: entry)
+        adoptObservedSizeEvidence(evidence, for: token, in: window.workspaceId)
     }
 
-    private func adoptObservedSizeEvidence(_ evidence: ObservedSizeEvidence, for entry: WindowState) {
-        guard workspaceManager.setObservedSizeEvidence(evidence, for: entry.token) else { return }
-        workspaceManager.invalidateLayout(for: [entry.workspaceId])
+    func isSizeAnimating(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let window = niriEngine?.findNode(for: token, in: workspaceId) else { return false }
+        if window.heightAnimation != nil { return true }
+        guard let column = window.parent as? NiriContainer else { return false }
+        return column.hasWidthAnimationRunning || column.hasHeightAnimationRunning
+    }
+
+    private func adoptObservedSizeEvidence(
+        _ evidence: ObservedSizeEvidence,
+        for token: WindowToken,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) {
+        guard workspaceManager.setObservedSizeEvidence(evidence, for: token) else { return }
+        workspaceManager.invalidateLayout(for: [workspaceId])
         layoutRefreshController.requestRelayout(
             reason: .observedConstraintsChanged,
-            affectedWorkspaceIds: [entry.workspaceId]
+            affectedWorkspaceIds: [workspaceId]
         )
     }
 

@@ -70,7 +70,7 @@ extension SurfaceCore {
         emitContent(
             slot: slot,
             changes: ContentChanges(
-                paint: node.paint != .none,
+                paint: node.paint != .none || node.content.marquee,
                 text: node.content.text != 0 || node.content.iconRef != 0 || node.content.placeholder != 0 || node
                     .content.resourceImageRef != 0,
                 value: true,
@@ -148,6 +148,7 @@ extension SurfaceCore {
         }
         let old = content[slotIndex]
         let new = node.content
+        paintChanged = paintChanged || old.marquee != new.marquee
         if old.scrolls != new.scrolls {
             scrollOffset[slotIndex] = 0
             patches.ops.append(.setScroll(handle(slot), offset: 0, vertical: node.layout.axis == .column))
@@ -160,6 +161,7 @@ extension SurfaceCore {
             || old.textureRef != new.textureRef
             || old.resourceImageRef != new.resourceImageRef || old.thumbnail != new.thumbnail
         let needsMeasure = old.reserve != new.reserve
+            || old.marquee != new.marquee
             || old.style != new.style
             || old.maxWidth != new.maxWidth
             || old.lines != new.lines

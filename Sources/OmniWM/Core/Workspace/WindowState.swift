@@ -16,6 +16,7 @@ struct ManagedReplacementMetadata: Equatable, Sendable {
     var frame: CGRect?
     var transientWindowServerEvidence = false
     var degradedWindowServerChildEvidence = false
+    var readOnlyAdmissionFrame: CGRect?
 
     func mergingNonNilValues(from overlay: ManagedReplacementMetadata) -> ManagedReplacementMetadata {
         ManagedReplacementMetadata(
@@ -168,6 +169,12 @@ struct HostedWindowMetadata: Equatable, Sendable {
     var instanceID = UUID()
     var rootID = UUID()
     var role = HostedWindowRole.main
+    var admitsFloating = false
+}
+
+extension HostedWindowMetadata {
+    static let settingsAppID = Bundle.main.bundleIdentifier ?? "com.barut.OmniWM"
+    static let settingsIcon = "gearshape"
 }
 
 enum WindowTarget: Equatable, Sendable {

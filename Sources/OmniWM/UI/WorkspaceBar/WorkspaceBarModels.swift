@@ -124,6 +124,8 @@ struct WorkspaceBarShellWidget: Identifiable, Equatable {
     let lane: ShellLane
     var island = WorkspaceBarIslandSlice.all
     var failure: ShellWidgetFailure?
+    var priority = Int.max
+    var stops: [CGFloat]?
 }
 
 struct ShellWidgetFailure: Equatable {

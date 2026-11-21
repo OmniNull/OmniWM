@@ -11,7 +11,7 @@ function render(ctx)
     local button = look.launcherBar and look.launcherBar(ctx, state)
     if not button then
         local props = table.clone(behaviour)
-        props[1] = look.glyph{ name = state.symbol, size = 14 * look.scale(ctx), weight = "medium" }
+        props[1] = look.barGlyph(ctx, { name = state.symbol, size = 14 * look.scale(ctx), weight = "medium" })
         button = look.bar(ctx, props)
     end
     for key, value in behaviour do

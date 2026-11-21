@@ -7,7 +7,7 @@ import XCTest
 
 enum NuCompletionTestSupport {
     static func completions(_ commandLines: [String]) throws -> [[String]] {
-        let list = try commandLines.map(literal).joined(separator: ", ")
+        let list = commandLines.map(literal).joined(separator: ", ")
         let output = try run("[\(list)] | each { |line| $line | commandline complete | default [] } | to json")
         let results = try JSONDecoder().decode([[String]].self, from: output)
         guard results.count == commandLines.count else {
@@ -26,16 +26,26 @@ enum NuCompletionTestSupport {
 
         let module = directory.appendingPathComponent("completions.nu")
         try CLICompletionGenerator.script(for: .nu).write(to: module, atomically: true, encoding: .utf8)
+        let completionExecutable = Bundle(for: NuCompletionTests.self).bundleURL.deletingLastPathComponent()
+            .appendingPathComponent("omniwmctl")
+        guard FileManager.default.isExecutableFile(atPath: completionExecutable.path) else {
+            throw Failure.missingCompletionExecutable(completionExecutable.path)
+        }
+        let command = "'" + completionExecutable.path.replacingOccurrences(of: "'", with: "'\\''") + "'"
         let fixture = directory.appendingPathComponent("omniwmctl")
-        try "#!/bin/sh\n/usr/bin/printf '%s\\0' \"$@\"\n"
-            .write(to: fixture, atomically: true, encoding: .utf8)
+        try """
+        #!/bin/sh
+        if [ "$1" = __complete ]; then exec \(command) "$@"; fi
+        /usr/bin/printf '%s\\0' "$@"
+
+        """.write(to: fixture, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fixture.path)
 
         let process = Process()
         let output = Pipe()
         let errors = Pipe()
         process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = ["-n", "-c", "use \(try literal(module.path)) omniwmctl; \(body)"]
+        process.arguments = ["-n", "-c", "use \(literal(module.path)) omniwmctl; \(body)"]
         process.currentDirectoryURL = directory
         process.environment = ProcessInfo.processInfo.environment.merging(["PATH": "\(directory.path):\(path)"]) {
             _, replacement in replacement
@@ -52,10 +62,18 @@ enum NuCompletionTestSupport {
         return data
     }
 
-    private static func literal(_ value: String) throws -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .withoutEscapingSlashes
-        return String(decoding: try encoder.encode(value), as: UTF8.self)
+    static func literal(_ value: String) -> String {
+        "\"" + value.unicodeScalars.map { scalar in
+            switch scalar {
+            case "\\": "\\\\"
+            case "\"": "\\\""
+            case "\n": "\\n"
+            case "\r": "\\r"
+            case "\t": "\\t"
+            case _ where scalar.value < 0x20: "\\u{\(String(scalar.value, radix: 16))}"
+            default: String(scalar)
+            }
+        }.joined() + "\""
     }
 
     static func nuExecutable(path: String) throws -> String {
@@ -71,5 +89,6 @@ enum NuCompletionTestSupport {
     private enum Failure: Error {
         case shell(Int32, String)
         case resultCount(expected: Int, output: String)
+        case missingCompletionExecutable(String)
     }
 }

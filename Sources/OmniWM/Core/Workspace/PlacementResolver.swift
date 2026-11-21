@@ -65,17 +65,10 @@ final class PlacementResolver {
 
         var ruleSkipReason: WorkspaceRuleSkipReason?
         if let workspaceName = rules.workspaceName {
-            let resolvedRuleWorkspaceId = workspaceManager.workspaceId(
-                for: workspaceName,
-                createIfMissing: false
-            )
-            if !shouldApplyWorkspaceRule(pid: window.pid, context: context.reevaluation) {
+            if !shouldApplyWorkspaceRule(pid: window.pid, rules: rules, context: context.reevaluation) {
                 ruleSkipReason = .appAlreadyHasEntries
-            } else if let resolvedRuleWorkspaceId {
-                return WorkspacePlacementResolution(
-                    workspaceId: resolvedRuleWorkspaceId,
-                    rung: .workspaceRule
-                )
+            } else if let workspaceId = workspaceManager.workspaceId(for: workspaceName, createIfMissing: false) {
+                return WorkspacePlacementResolution(workspaceId: workspaceId, rung: .workspaceRule)
             } else {
                 ruleSkipReason = .workspaceNotMaterialized
             }
@@ -106,9 +99,10 @@ final class PlacementResolver {
 
     private func shouldApplyWorkspaceRule(
         pid: pid_t?,
+        rules: WorkspacePlacementRules,
         context: WindowRuleReevaluationContext
     ) -> Bool {
-        if context == .explicitRuleApply {
+        if rules.assignToWorkspaceForAllWindows || context == .explicitRuleApply {
             return true
         }
         guard let pid else { return true }
@@ -167,7 +161,6 @@ extension PlacementResolver {
     ) -> WorkspacePlacementTarget {
         let axRef = window.axRef
         let placementMode = window.placementMode
-        let windowFrame = window.windowFrame
         let createPlacementContext = context.createPlacementContext
 
         let preferManagedFocusPlacement = placementMode == .tiling
@@ -203,7 +196,7 @@ extension PlacementResolver {
             return target
         }
 
-        if let monitor = monitorForPlacementFrame(windowFrame),
+        if let monitor = monitorForAppKitFrame(window.appKitFrame),
            let workspace = workspaceManager.activeWorkspaceOrFirst(on: monitor.id)
         {
             return WorkspacePlacementTarget(
@@ -214,7 +207,7 @@ extension PlacementResolver {
 
         if workspaceManager.monitors.count > 1,
            let axRef,
-           let monitor = monitorForPlacementFrame(AXWindowService.framePreferFast(axRef)),
+           let monitor = monitorForAppKitFrame(AXWindowService.framePreferFast(axRef)),
            let workspace = workspaceManager.activeWorkspaceOrFirst(on: monitor.id)
         {
             return WorkspacePlacementTarget(
@@ -440,7 +433,7 @@ extension PlacementResolver {
         return nil
     }
 
-    private func monitorForPlacementFrame(_ frame: CGRect?) -> Monitor? {
+    func monitorForAppKitFrame(_ frame: CGRect?) -> Monitor? {
         guard let frame, !frame.isNull, !frame.isEmpty else { return nil }
         return frame.center.monitorApproximation(in: workspaceManager.monitors)
     }

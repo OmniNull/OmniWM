@@ -97,10 +97,15 @@ extension ShellWidgetSurface {
     }
 
     func targetFrames() -> [ShellTargetFrame] {
-        layout.core.elements { ($0.drag || $0.drop) && $0.target != 0 }.map { handle in
+        layout.core.elements { ($0.drag || $0.drop) && $0.target != 0 }.compactMap { handle in
+            if let visibleBounds, !CGRect(presentedFrame(of: handle)).intersects(visibleBounds) { return nil }
             let content = layout.core.content(of: handle)
             return ShellTargetFrame(target: content.target, frame: anchor(of: handle).frame, drop: content.drop)
         }
+    }
+
+    var visibleScreenFrame: CGRect? {
+        visibleBounds.map(screenFrame)
     }
 
     func openContextMenu(at point: CGPoint, option: Bool) -> Bool {
@@ -131,7 +136,7 @@ extension ShellWidgetSurface {
         onMenu?(ShellMenuEvent(
             target: content.target,
             anchor: anchor(of: target),
-            label: label.slot >= 0 ? anchor(of: label).frame : nil
+            label: label.slot >= 0 ? shownFrame(of: label).map(screenFrame) : nil
         ))
         return true
     }
@@ -235,8 +240,53 @@ extension ShellWidgetSurface {
     private func scrollContent(at point: CGPoint, by delta: CGPoint) -> Bool {
         let container = element(at: point) { $0.scrolls }
         guard container.slot >= 0 else { return false }
+        guard !layout.core.content(of: container).marquee else { return true }
         let vertical = layout.core.layoutStyle(of: container).axis == .column
         guard let offset = layout.scroll(container, by: Float(vertical ? delta.y : delta.x)) else { return true }
+        submitScroll(container, offset: offset, vertical: vertical)
+        return true
+    }
+
+    func reveal(key: String, within containerKey: String) {
+        guard let container = layout.handle(forKey: containerKey),
+              layout.core.content(of: container).scrolls,
+              let item = layout.handle(forKey: key)
+        else { return }
+        reveal(item, within: container)
+    }
+
+    func reveal(_ item: ElementHandle, within container: ElementHandle, margin: Float = 0) {
+        let vertical = layout.core.layoutStyle(of: container).axis == .column
+        let viewport = layout.core.absoluteFrame(of: container)
+        let target = layout.core.absoluteFrame(of: item)
+        let start = vertical ? viewport.y : viewport.x
+        let length = vertical ? viewport.height : viewport.width
+        let itemStart = (vertical ? target.y : target.x) - margin
+        let itemEnd = itemStart + (vertical ? target.height : target.width) + margin * 2
+        let delta = itemStart < start ? itemStart - start : max(itemEnd - (start + length), 0)
+        guard delta != 0, let offset = layout.scroll(container, by: delta) else { return }
+        submitScroll(container, offset: offset, vertical: vertical)
+    }
+
+    func keep(_ anchor: ShellScrollAnchor) -> ShellLayerCommand? {
+        guard let container = layout.core.firstHandle(withKey: anchor.container),
+              layout.core.content(of: container).scrolls
+        else { return nil }
+        let vertical = layout.core.layoutStyle(of: container).axis == .column
+        var target = anchor.offset
+        if let key = anchor.item, let item = layout.core.firstHandle(withKey: key),
+           layout.core.parent(of: item) == container
+        {
+            let frame = layout.core.layoutFrame(of: item)
+            target = (vertical ? frame.y : frame.x) - anchor.top
+        }
+        guard let offset = layout.scroll(container, by: target - layout.core.scrollOffset(of: container)) else {
+            return nil
+        }
+        return .scroll(slot: container.slot, origin: Self.scrollOrigin(offset, vertical: vertical))
+    }
+
+    private func submitScroll(_ container: ElementHandle, offset: Float, vertical: Bool) {
         var commands: [ShellLayerCommand] = [
             .scroll(slot: container.slot, origin: Self.scrollOrigin(offset, vertical: vertical))
         ]
@@ -244,7 +294,7 @@ extension ShellWidgetSurface {
         scene.submit(commands, animated: false)
         layoutTextInputs()
         onMove?()
-        return true
+        onScroll?()
     }
 
     func release(at point: CGPoint, event: ShellEvent = ShellEvent(), timestamp: TimeInterval = CACurrentMediaTime()) {
@@ -287,7 +337,7 @@ extension ShellWidgetSurface {
     var screenAnchor: ShellAnchor? {
         guard let window = view.window, window.isVisible else { return nil }
         return ShellAnchor(
-            frame: window.convertToScreen(view.convert(view.bounds, to: nil)),
+            frame: window.convertToScreen(view.convert(shownBounds, to: nil)),
             level: window.level,
             container: window.frame
         )
@@ -298,10 +348,26 @@ extension ShellWidgetSurface {
         return layout.core.contains(handle) ? anchor(of: handle) : nil
     }
 
+    var shownBounds: CGRect {
+        visibleBounds ?? view.bounds
+    }
+
+    func shownFrame(of handle: ElementHandle) -> CGRect? {
+        let presented = CGRect(presentedFrame(of: handle))
+        guard let visibleBounds else { return presented }
+        let shown = presented.intersection(visibleBounds)
+        return shown.isEmpty ? nil : shown
+    }
+
     func anchor(of handle: ElementHandle) -> ShellAnchor {
-        let frame = view.convert(CGRect(presentedFrame(of: handle)), to: nil)
+        let frame = screenFrame(shownFrame(of: handle) ?? CGRect(presentedFrame(of: handle)))
         guard let window = view.window else { return ShellAnchor(frame: frame, level: .popUpMenu) }
-        return ShellAnchor(frame: window.convertToScreen(frame), level: window.level, container: window.frame)
+        return ShellAnchor(frame: frame, level: window.level, container: window.frame)
+    }
+
+    private func screenFrame(_ rect: CGRect) -> CGRect {
+        let frame = view.convert(rect, to: nil)
+        return view.window?.convertToScreen(frame) ?? frame
     }
 
     func hover(at point: CGPoint?) {
@@ -315,8 +381,9 @@ extension ShellWidgetSurface {
     }
 
     func updatePreview() {
-        let target = element(at: pointer) { $0.preview && $0.target != 0 }
-        let frame = target.slot >= 0 ? presentedFrame(of: target) : nil
+        let visible = pointer.map { visibleBounds?.contains($0) ?? true } == true
+        let target = visible ? element(at: pointer) { $0.preview && $0.target != 0 } : .none
+        let frame = target.slot >= 0 ? shownFrame(of: target) : nil
         guard target != previewed || frame != previewFrame else { return }
         previewed = target
         previewFrame = frame

@@ -89,9 +89,12 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `inputSource` | The keyboard input source and the enabled ones, each with a short label |
 | `privacy` | Whether any app is using a microphone or a camera |
 | `wifi` | Wi-Fi power, signal, band, channel and security, and the network name once Location access is allowed |
+| `wifiNetworks` | **Unreleased:** available when building from `main`. Known Networks (saved and in range, in macOS auto-join order) and Other Networks (in range, by signal), up to 12 each, plus scan, join and failure state. Each network's `opensSettings` is true when clicking it hands off to Wi-Fi Settings. Reading it starts a scan every 10 seconds, so read it only in a popout; it stays empty until Location access is allowed |
+| `connection` | How the Mac reaches the network (`wifi`, `ethernet`, `cellular`, `other` or `none`) and the interface name; a VPN reports the Wi-Fi or Ethernet link beneath it |
 | `bluetooth` | Bluetooth power and paired devices with their battery levels, once Bluetooth access is allowed |
-| `volume`, `muted`, `outputs` | Output volume and the audio outputs |
-| `brightness` | Main display brightness (0–100) and whether the control is available |
+| `volume`, `muted`, `outputs` | Output volume and the audio outputs, each with a device `kind` such as `airpodspro`, `headphones` or `display` |
+| `brightness` | Main display brightness and per-display brightness controls (0–100) |
+| `nightShift` | Whether macOS Night Shift is available and enabled |
 | `microphone` | Default input device volume (0–100) and mute state; either control is absent when unsupported |
 | `awake` | OmniWM's Prevent Sleep state and its optional Unix expiry time |
 | `audioApps` | Apps with audio and their own volume |
@@ -105,7 +108,7 @@ ui.text{ text = ctx.format.bytes(ctx.data.system and ctx.data.system.memory.used
 | `badges` | Dock badge labels keyed by lowercase bundle ID for apps with managed windows; available to bars, islands and popouts |
 | `weather` | Current conditions with humidity, sunrise and sunset, 24 hours and 7 days |
 | `user` | Your name and account picture |
-| `appearance` | `"light"` or `"dark"` |
+| `appearance` | `"light"` or `"dark"`, following macOS |
 | `hiddenBar` | Hidden Bar items, kept current while the Hidden Bar is closed, so a bar widget can show them inline |
 | `menuApp` | App-menu target with process ID, name, and bundle ID; absent if no target is available |
 | `components`, `catalog`, `settingsSchema` | Configured instance metadata, installed component catalog, and root option schema; see [components and configuration](/omnishell/reference/components-configuration/) |
@@ -137,11 +140,25 @@ return ui.text{ text = weather and tostring(weather.temp) or "Unavailable" }
 
 ## Brightness and system controls
 
-`brightness set <0-100>`, `brightness up` and `brightness down` target the main display. Up/down use 6.25 percentage point steps and clamp at the endpoints. `ctx.data.brightness` has a numeric `value` and `available`. An unavailable display reports `{value=0, available=false}`; hide brightness controls when unavailable. The getter and setter must both resolve and the getter must return a valid value before a write is attempted.
+:::note[Unreleased]
+Per-display brightness and Night Shift controls are available when building from `main`.
+:::
 
-Brightness refreshes when demand starts or resumes and after a brightness command. External brightness-key changes are not watched by this integration. `brightness settings` opens Displays settings. Wi-Fi and Bluetooth power switches use the existing `wifi settings` and `bluetooth settings` handoffs; their power commands are not enabled without evidence that they work without an administrator prompt. Reading these controls never requests access.
+`brightness set <0-100>`, `brightness up` and `brightness down` target the main display. Up/down use 6.25 percentage point steps and clamp at the endpoints. The top-level `value` and `available` in `ctx.data.brightness` describe the main display. Use `ctx.data.brightness.displays` to find current displays by their stable UUID (`id`) and name, and `brightness display <UUID> set <0-100>` to adjust a specific display.
+
+`mainDisplayId` is the main display's UUID when it has a row in `displays`. If `mainDisplayId` is `nil` and the top-level `available` is true, the main-display commands can still adjust its brightness.
+
+An unavailable brightness control reports `value=0` and `available=false`. Each write requires a supported display and a successful brightness read. Brightness refreshes when demand starts or resumes, when the display configuration changes, and after a brightness command. A change made with an external brightness key appears at the next refresh. `brightness settings` opens Displays settings.
+
+`night-shift on` and `night-shift off` control the macOS Night Shift switch. Only show a working toggle when `ctx.data.nightShift.available` is true, and use the `enabled` Boolean for its state. Night Shift refreshes when demand starts or resumes and after a Night Shift command. Settings and schedule changes appear at the next refresh.
+
+Wi-Fi and Bluetooth power switches open System Settings through `wifi settings` and `bluetooth settings`. Reading these controls never requests access.
+
+<LuauDeclaration name="DisplayBrightness" />
 
 <LuauDeclaration name="Brightness" />
+
+<LuauDeclaration name="NightShift" />
 
 ## Keep awake and microphone
 
@@ -183,6 +200,8 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 |---|---|
 | `volume up [percent]`, `volume down [percent]`, `volume set <0-100>`, `volume mute` | Output volume |
 | `brightness set <0-100>`, `brightness up`, `brightness down`, `brightness settings` | Adjust a supported main display or open Displays settings |
+| `brightness display <UUID> set <0-100>` | Set brightness for a supported display |
+| `night-shift on\|off` | Turn macOS Night Shift on or off when available |
 | `microphone set <0-100>`, `microphone mute` | Default input volume and mute, when supported |
 | `session awake on\|off\|<minutes>` | OmniWM's Prevent Sleep, on until off or for a number of minutes |
 | `volume output <id>` | Switch the output |
@@ -190,14 +209,17 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 | `volume permission` | Open the System Audio Recording privacy settings |
 | `media play`, `media pause`, `media toggle`, `media next`, `media previous`, `media seek <seconds>`, `media shuffle`, `media repeat`, `media open` | Playback; shuffle turns shuffle on or off and repeat steps through off, one and all, as `media.shuffle` and `media.repeatMode` show; when no widget reads `media`, play, pause and track changes send the media keys |
 | `session lock`, `session sleep`, `session logout`, `session restart`, `session shutdown` | Lock the screen, sleep, or ask macOS to log out, restart or shut down; macOS shows its usual confirmation for the last three, and asks once for permission to control loginwindow |
+| `appearance toggle`, `appearance settings` | Switch macOS between light and dark appearance, or open the Appearance settings, where Auto is set |
 | `calendar authorize`, `calendar settings`, `calendar open [event]`, `calendar month next\|previous\|today`, `calendar day <yyyy-mm-dd>` | Calendar; `settings` opens the Calendars privacy settings |
 | `reminders authorize`, `reminders settings`, `reminders complete <id>`, `reminders add <text>` | Request Reminders access, open its privacy settings, or complete a selected writable reminder; failures appear in `ctx.data.reminders.error` |
 | `notifications refresh`, `notifications settings`, `notifications open <bundle>` | Refresh retained notifications, open Full Disk Access settings, or open the source application |
+| `notifications center` | Open macOS's Notification Center when it is not already showing; currently unavailable on macOS 26 |
 | `notifications dismiss <bundle> <id>`, `notifications dismiss-all`, `notifications cancel-dismiss-all` | Request native dismissal, process the retained snapshot, or stop after the current action |
 | `notifications reply <bundle> <id> <hex>` | Submit a supported native text reply; `<hex>` is the UTF-8 text encoded as hexadecimal bytes |
 | `battery settings`, `focus settings`, `screenshot settings` | Open Battery or Focus settings, or the Screenshot app |
 | `input-source select <id>`, `input-source settings` | Switch the keyboard input source; open the Keyboard settings |
 | `wifi authorize`, `wifi settings` | Ask for Location access, or open its privacy settings once asked; open the Wi-Fi settings |
+| `wifi scan`, `wifi join <id>` | **Unreleased:** available when building from `main`. Scan for networks, or join the network whose `ctx.data.wifiNetworks` entry has that `id`, falling back to Apple's join flow in Wi-Fi Settings |
 | `bluetooth authorize`, `bluetooth settings` | Ask for Bluetooth access, or open its privacy settings once asked; open the Bluetooth settings |
 | `shell toggle <name>` | Open or close a drawer or a widget's popout, or send the island root a `toggle` trigger |
 | `shell trigger <widget> <name> [value]` | Call that widget's `trigger(ctx, event)` on each of its instances, as `omniwmctl shell trigger` does |
@@ -216,6 +238,10 @@ Use `reminders authorize` to request access, `reminders settings` to open Remind
 ## Workspace and bar snapshots
 
 IDs are host-issued identities. Use a current snapshot for actions; titles and labels are presentation data. `BarStyle` describes the effective native bar settings, while `bar.island` indicates which split-bar group is rendering. Hidden Bar menu row IDs are valid only for the displayed native-menu page.
+
+**Unreleased — available when building from `main`.** `bar.layout` is the layout of the workspace active on the bar's display, `"niri"` or `"dwindle"`, while **Show Layout** (`statusBar.showLayout`) is on, and `nil` otherwise. The bundled OmniWM button shows it as a glyph beside the logo.
+
+**Unreleased — available when building from `main`.** `bar.workspacesRoom` is the length in points left for the `workspaces` widget along a horizontal full-width or Fill Left of Notch bar once its neighbours have their space. It is `nil` on bars that grow with their content and when no widget named `workspaces` has a place on the bar. The bundled widget tightens its padding when its regular length exceeds it.
 
 <LuauDeclaration name="Workspace" />
 
@@ -240,6 +266,30 @@ IDs are host-issued identities. Use a current snapshot for actions; titles and l
 <LuauDeclaration name="HiddenBarMenu" />
 
 <LuauDeclaration name="HiddenBarMenuRow" />
+
+## Command palette snapshot
+
+Only the `command-palette` widget receives `ctx.data.commandPalette`, in its own script. OmniWM owns the query, search, selection, previews and actions. The widget puts its search field in a `ui.input` keyed `query`, and results in a scrolling column keyed `results` with each direct row keyed by its `id`. Rows near the viewport arrive with `first` and `total`; add `results-before` and `results-after` spacer boxes only when their `before` or `after` height is positive. Heading rows and disabled rows take no activation.
+
+Rows cover Windows, Commands, Menu, Clipboard, Apps, Files and unified search, including application, file, saved, CLI and Show All results. In Apps and Files, `launcher` carries the filters, category chips, Grid and List choices and the Add… action; a `gridRow` row holds up to `launcher.columns` `cells`. `emptyAction` is the button an empty or disabled state offers. `unified` suppresses mode navigation; `browseModes` enables the native Browse Modes button. `state` distinguishes results, empty, loading, disabled and blank content, and `error` carries Clipboard feedback. Clipboard rows have a pinned indication and trailing `actions`. `preview` contains only the selected item's bounded text or a named bitmap with dimensions; in Files, ⌘Y adds a `file` preview with a thumbnail sized in points, a title and `details`, and Space opens macOS Quick Look; use `ui.input{multiline=true, editable=false, wrap=false}` for selectable text. Icon bitmaps and preview bitmaps belong to the palette presenter and are retired when it closes, falls back or is replaced.
+
+Click actions include `palette activate <id>`, `palette paste <id>`, `palette mode <id>`, `palette mark set`, `palette mark remove`, `palette clear`, `palette filter <id>`, `palette chip <id>`, `palette view <id>`, `palette menu <id>` (`modes` opens Browse Modes, `launcher-add` opens Add…) and `palette <emptyAction.id>`. Clipboard, saved and CLI rows use `onHover = "palette highlight <id>"` and `hoverDelay = 0`; they, Apps and Files rows and grid cells use `menu = true` and `target = id`. Swift handles selection and native menus, including right-click and Control-click. The host revalidates the current row and action. No AX objects or raw clipboard representations are exposed.
+
+Styles use optional `look.commandPalettePanel`, `commandPaletteSearch`, `commandPaletteTabs`, `commandPaletteRow`, `commandPaletteSection`, `commandPaletteBadge`, `commandPaletteAction`, `commandPaletteEmpty`, `commandPalettePreview`, `commandPaletteToolbar`, `commandPaletteChip` and `commandPaletteCell` hooks, or provide their own `widgets/command-palette/init.luau`. `commandPalettePreview(ctx, preview, props)` wraps the shared preview content; the common widget attaches row actions and native-menu metadata after row hooks.
+
+<LuauDeclaration name="CommandPalette" />
+
+<LuauDeclaration name="CommandPaletteRow" />
+
+<LuauDeclaration name="CommandPaletteBadge" />
+
+<LuauDeclaration name="CommandPalettePreview" />
+
+<LuauDeclaration name="CommandPaletteLauncher" />
+
+<LuauDeclaration name="CommandPaletteChoice" />
+
+<LuauDeclaration name="CommandPaletteAction" />
 
 ## Audio and media snapshots
 
@@ -269,7 +319,7 @@ Read access before rendering protected contents. Timestamps are Unix seconds. Ca
 
 ## Notification snapshots
 
-`ctx.data.notifications` reads retained Notification Center data through a read-only database connection. Full Disk Access is required; reading the feed does not request it. `notifications settings` opens the Full Disk Access pane. The feed follows database changes while demanded, but native persistence can delay updates by several seconds. `membershipComplete` reports whether all retained notifications and their identifiers were captured consistently; `metadataComplete` covers additional text, app and native metadata. `complete` is true only when both are true. Check these fields alongside `state` and `error` before treating the snapshot as authoritative.
+`ctx.data.notifications` reads retained Notification Center data through a read-only database connection. Full Disk Access is required; reading the feed does not request it. `notifications settings` opens the Full Disk Access pane. The feed follows database changes while demanded, but native persistence can delay updates by several seconds. With readable notification settings, `items` omits apps with notifications or Notification Center turned off, `_SYSTEM_CENTER_:` sources, and apps that are in neither those settings nor LaunchServices, so the empty state and Clear All cover only the remaining items. `membershipComplete` reports whether all retained notifications, including omitted ones, and their identifiers were captured consistently; `metadataComplete` covers additional text, app and native metadata. `complete` is true only when both are true. Check these fields alongside `state` and `error` before treating the snapshot as authoritative.
 
 The bundled [Notifications widget](/features/workspace-bar/#notifications) provides Details, Reply, dismissal and Clear All. Custom widgets issue the commands in [Actions](#actions) through `omniwm.run`; they are shell commands, not additional `omniwmctl command` paths. Use an item's current `bundle` and UUID `id`, rather than a title or row index. The host derives each item's `actionsSupported` flag from the source identifier's command support. When false, keep the notification visible without Open, Dismiss or Reply, and disable Clear All while it remains visible.
 
@@ -316,6 +366,12 @@ Weather supplies current conditions, 24 hourly entries, and seven daily entries;
 <LuauDeclaration name="InputSourceEntry" />
 
 <LuauDeclaration name="WiFi" />
+
+<LuauDeclaration name="WiFiNetworks" />
+
+<LuauDeclaration name="WiFiNetwork" />
+
+<LuauDeclaration name="Connection" />
 
 <LuauDeclaration name="Bluetooth" />
 

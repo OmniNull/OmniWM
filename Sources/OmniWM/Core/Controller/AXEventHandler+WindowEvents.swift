@@ -143,7 +143,7 @@ extension AXEventHandler {
               windowInfo.id == UInt32(exactly: token.windowId),
               managedWindowTokenUsingCachedIdentity(token, matchesObservedPid: windowInfo.pid),
               let isOrderedIn = windowInfo.isOrderedIn,
-              controller.workspaceManager.entry(for: token) != nil
+              controller.workspaceManager.workspace(for: token) != nil
         else { return }
         lifecycleQueries.visibilityRechecksAfterFocusLoss.remove(token)
         if !isOrderedIn {
@@ -290,6 +290,9 @@ extension AXEventHandler {
             return
         }
 
+        if effectivePlacementOrigin == .liveCreate, controller?.settings.niri.readsObservedWindowWidths == true {
+            controller?.niriEngine?.noteOpeningWindow(candidate.token)
+        }
         trackPreparedCreate(candidate)
     }
 

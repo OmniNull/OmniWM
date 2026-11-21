@@ -65,7 +65,7 @@ final class WorkspaceBarNotificationBadgeTests: XCTestCase {
                 }
                 XCTAssertEqual(badges.count, 1, "\(label) \(height)")
                 for badge in badges {
-                    XCTAssertGreaterThan(badge.bounds.width, 0)
+                    XCTAssertGreaterThanOrEqual(badge.bounds.width, badge.bounds.height, "\(label) \(height)")
                     XCTAssertLessThanOrEqual(badge.bounds.width, slot, "\(label) \(height)")
                     XCTAssertLessThanOrEqual(badge.bounds.height, icon)
                     widths[label] = badge.bounds.width

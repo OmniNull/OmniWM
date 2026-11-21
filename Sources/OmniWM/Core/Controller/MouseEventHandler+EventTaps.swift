@@ -81,17 +81,16 @@ extension MouseEventHandler {
         if type == .leftMouseDragged, Thread.isMainThread {
             let windowId = MouseEventHandler.eventWindowIdUnderPointer(event)
             let location = ScreenCoordinateSpace.toAppKit(point: event.location)
+            let timestamp = event.timestamp
             MainActor.assumeIsolated {
-                guard let handler = MouseEventHandler._instance,
-                      handler.state.awaitsNativeTitleBarDragTarget
-                else { return }
-                if handler.isCapturingPerformance {
-                    handler.recordCGEvent(type)
-                }
-                handler.receiveAnnotatedNativeMouseDragged(
-                    at: location,
-                    windowIdUnderPointer: windowId
-                )
+                guard let handler = MouseEventHandler._instance else { return }
+                let activePressTimestamp = handler.state.awaitsNativeTitleBarDragTarget
+                    ? handler.state.nativeTitleBarDragPressTimestamp : nil
+                if let activePressTimestamp, timestamp < activePressTimestamp { return }
+                if handler.eventIntake.recordPendingLeftMouseDragTarget(
+                    at: location, windowId: windowId, timestamp: timestamp, hasActivePress: activePressTimestamp != nil
+                ) { return }
+                handler.dispatchAnnotatedLeftMouseDragged(at: location, windowIdUnderPointer: windowId)
             }
         } else {
             _ = MouseEventHandler.processTapCallback(type: type, event: event)
@@ -229,13 +228,20 @@ extension MouseEventHandler {
         location: CGPoint,
         modifiers: CGEventFlags,
         buttonNumber: Int64,
-        scrollPayload: (payload: MouseScrollIntake, traceMetadata: TrackpadScrollTrace.ScrollMetadata?)?
+        scrollPayload: (payload: MouseScrollIntake, traceMetadata: TrackpadScrollTrace.ScrollMetadata?)?,
+        clickCount: Int64 = 1
     ) -> Bool {
         if isCapturingPerformance { recordCGEvent(type) }
 
         switch type {
         case .leftMouseDown:
-            return receiveTapMouseDown(at: location, modifiers: modifiers, button: .left)
+            return receiveTapMouseDown(
+                at: location,
+                modifiers: modifiers,
+                button: .left,
+                clickCount: clickCount,
+                authoritative: true
+            )
         case .leftMouseDragged:
             let suppress = isCapturedInteraction(.left)
             receiveTapMouseDragged(at: location, button: .left)

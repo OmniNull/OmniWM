@@ -201,48 +201,6 @@ final class WorkspaceBarSettings {
 }
 
 extension WorkspaceBarSettings {
-    func export() -> SettingsExport.WorkspaceBar {
-        SettingsExport.WorkspaceBar(
-            enabled: enabled,
-            hoverPreviewsEnabled: hoverPreviewsEnabled,
-            notificationBadges: notificationBadges,
-            notificationBadgeRefreshIntervalSeconds: notificationBadgeRefreshIntervalSeconds,
-            showLabels: showLabels,
-            showFloatingWindows: showFloatingWindows,
-            windowLevel: windowLevel,
-            position: position,
-            notchMode: notchMode,
-            notchActiveZoneWidth: notchActiveZoneWidth,
-            fullWidth: fullWidth,
-            fullWidthNotchMode: fullWidthNotchMode,
-            systemStatsButton: systemStatsButton,
-            deduplicateAppIcons: deduplicateAppIcons,
-            hideEmptyWorkspaces: hideEmptyWorkspaces,
-            excludedBundleIDs: SettingsExport.WorkspaceBar.sortedExcludedBundleIDs(
-                excludedBundleIDs
-            ),
-            iconOverrides: iconOverrides,
-            reserveLayoutSpace: reserveLayoutSpace,
-            autoHide: autoHide,
-            autoHideRevealDelayMilliseconds: autoHideRevealDelayMilliseconds,
-            autoHideHideDelayMilliseconds: autoHideHideDelayMilliseconds,
-            revealModifier: revealModifier,
-            revealHoldMilliseconds: revealHoldMilliseconds,
-            hideInNativeFullscreen: hideInNativeFullscreen,
-            height: height,
-            backgroundOpacity: backgroundOpacity,
-            inactiveIconOpacity: inactiveIconOpacity,
-            transparentBackground: transparentBackground,
-            solidBlackBackground: solidBlackBackground,
-            showItemBackgrounds: showItemBackgrounds,
-            showAccentHighlights: showAccentHighlights,
-            xOffset: xOffset,
-            yOffset: yOffset,
-            accentColor: accentColor,
-            textColor: textColor
-        )
-    }
-
     func applyIdentity(_ bar: SettingsExport.WorkspaceBar) {
         enabled = bar.enabled
         hoverPreviewsEnabled = bar.hoverPreviewsEnabled
@@ -317,50 +275,60 @@ extension WorkspaceBarSettings {
     }
 
     var resolvedHoverPreviewsEnabled: Bool {
-        profileOverride?.hoverPreviewsEnabled ?? hoverPreviewsEnabled
+        access(keyPath: \.profileOverride)
+        return _profileOverride?.hoverPreviewsEnabled ?? hoverPreviewsEnabled
     }
 
     var resolvedHideInNativeFullscreen: Bool {
-        profileOverride?.hideInNativeFullscreen ?? hideInNativeFullscreen
+        access(keyPath: \.profileOverride)
+        return _profileOverride?.hideInNativeFullscreen ?? hideInNativeFullscreen
     }
 
     var resolvedNotificationBadges: WorkspaceBarNotificationBadgeMode {
-        profileOverride?.notificationBadges ?? notificationBadges
+        access(keyPath: \.profileOverride)
+        return _profileOverride?.notificationBadges ?? notificationBadges
     }
 
     var resolvedNotificationBadgeRefreshIntervalSeconds: Double {
-        profileOverride?.notificationBadgeRefreshIntervalSeconds ?? notificationBadgeRefreshIntervalSeconds
+        access(keyPath: \.profileOverride)
+        return _profileOverride?.notificationBadgeRefreshIntervalSeconds ?? notificationBadgeRefreshIntervalSeconds
     }
 
     var resolvedAutoHideRevealDelayMilliseconds: Double {
-        profileOverride?.autoHideRevealDelayMilliseconds ?? autoHideRevealDelayMilliseconds
+        access(keyPath: \.profileOverride)
+        return _profileOverride?.autoHideRevealDelayMilliseconds ?? autoHideRevealDelayMilliseconds
     }
 
     var resolvedAutoHideHideDelayMilliseconds: Double {
-        profileOverride?.autoHideHideDelayMilliseconds ?? autoHideHideDelayMilliseconds
+        access(keyPath: \.profileOverride)
+        return _profileOverride?.autoHideHideDelayMilliseconds ?? autoHideHideDelayMilliseconds
     }
 
     var resolvedRevealModifier: WorkspaceBarRevealModifier {
-        profileOverride?.revealModifier ?? revealModifier
+        access(keyPath: \.profileOverride)
+        return _profileOverride?.revealModifier ?? revealModifier
     }
 
     var resolvedRevealHoldMilliseconds: Double {
-        profileOverride?.revealHoldMilliseconds ?? revealHoldMilliseconds
+        access(keyPath: \.profileOverride)
+        return _profileOverride?.revealHoldMilliseconds ?? revealHoldMilliseconds
     }
 
     func resolved(for monitor: Monitor, includingProfileMonitor: Bool = true) -> ResolvedBarSettings {
         let monitorOverride = settings(for: monitor)
-        guard let profile = profileOverride else { return resolved(override: monitorOverride, profile: nil) }
-        var combined = monitorOverride?.overlaid(by: profile.settings) ?? profile.settings
+        access(keyPath: \.profileOverride)
+        guard let profileSettings = _profileOverride?.settings else { return resolved(override: monitorOverride) }
+        var combined = monitorOverride?.overlaid(by: profileSettings) ?? profileSettings
         if includingProfileMonitor,
-           let override = MonitorSettingsStore.get(for: monitor, in: profile.monitorOverrides)
+           let monitorOverrides = _profileOverride?.monitorOverrides,
+           let override = MonitorSettingsStore.get(for: monitor, in: monitorOverrides)
         {
             combined = combined.overlaid(by: override)
         }
-        return resolved(override: combined, profile: profile)
+        return resolved(override: combined)
     }
 
-    private func resolved(override: MonitorBarSettings?, profile: WorkspaceBarProfileOverride?) -> ResolvedBarSettings {
+    private func resolved(override: MonitorBarSettings?) -> ResolvedBarSettings {
         let position = override?.position ?? self.position
         let fullWidth = override?.fullWidth ?? self.fullWidth
         let fullWidthNotchMode = override?.fullWidthNotchMode ?? self.fullWidthNotchMode
@@ -373,6 +341,7 @@ extension WorkspaceBarSettings {
         } else {
             override?.notchMode ?? self.notchMode
         }
+        let usesThemeColors = _profileOverride?.usesThemeColors == true
         return ResolvedBarSettings(
             enabled: enabled && (override?.enabled ?? true),
             showLabels: override?.showLabels ?? showLabels,
@@ -386,7 +355,7 @@ extension WorkspaceBarSettings {
             notchActiveZoneWidth: override?.notchActiveZoneWidth ?? notchActiveZoneWidth,
             fullWidth: fullWidth,
             fullWidthNotchMode: fullWidthNotchMode,
-            systemStatsButton: profile?.systemStatsButton ?? systemStatsButton,
+            systemStatsButton: _profileOverride?.systemStatsButton ?? systemStatsButton,
             position: position,
             windowLevel: override?.windowLevel ?? windowLevel,
             height: override?.height ?? height,
@@ -398,10 +367,10 @@ extension WorkspaceBarSettings {
             showAccentHighlights: override?.showAccentHighlights ?? showAccentHighlights,
             xOffset: override?.xOffset ?? xOffset,
             yOffset: override?.yOffset ?? yOffset,
-            accentColor: profile?.accentColor ?? (profile?.usesThemeColors == true ? nil : accentColor),
-            textColor: profile?.textColor ?? (profile?.usesThemeColors == true ? nil : textColor),
-            barFill: profile?.barFill,
-            barBorder: profile?.barBorder
+            accentColor: _profileOverride?.accentColor ?? (usesThemeColors ? nil : accentColor),
+            textColor: _profileOverride?.textColor ?? (usesThemeColors ? nil : textColor),
+            barFill: _profileOverride?.barFill,
+            barBorder: _profileOverride?.barBorder
         )
     }
 

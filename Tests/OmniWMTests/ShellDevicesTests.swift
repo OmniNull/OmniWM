@@ -3,13 +3,12 @@
 
 import CoreBluetooth
 import CoreLocation
-import CoreWLAN
 @testable import OmniWM
 import XCTest
 
 @MainActor
 final class ShellDevicesTests: XCTestCase {
-    private func read(_ keys: [ShellDataKey]) -> (deps: UInt64, cadence: ShellDataFeed.Cadence) {
+    func read(_ keys: [ShellDataKey]) -> (deps: UInt64, cadence: ShellDataFeed.Cadence) {
         let deps = keys.reduce(UInt64(0)) { $0 | $1.bit }
         return (deps, .of([(deps, nil)]))
     }
@@ -25,22 +24,31 @@ final class ShellDevicesTests: XCTestCase {
     }
 
     func testTheInputSourceIsReadOnlyWhileAWidgetReadsIt() throws {
-        let devices = ShellDevices()
+        let abc = ShellInputSourceEntry(id: "com.apple.keylayout.ABC", name: "ABC", short: "ABC")
+        let fixture = ShellInputSource(current: abc, sources: [abc])
+        var reads = 0
+        let devices = ShellDevices(inputSource: InputSourceController(notificationCenter: NotificationCenter()) {
+            reads += 1
+            return fixture
+        })
         let feed = ShellDataFeed(devices: devices, deliver: { _ in })
         defer { feed.stop() }
         feed.start()
         XCTAssertNil(feed.current.inputSource)
+        XCTAssertEqual(reads, 0)
         let reading = read([.inputSource])
         feed.setDemand(reading.deps, cadence: reading.cadence)
         let source = try XCTUnwrap(feed.current.inputSource)
+        XCTAssertEqual(source, fixture)
         XCTAssertEqual(source, devices.inputSource.value)
-        XCTAssertTrue(source.sources.contains(source.current))
+        XCTAssertEqual(reads, 1)
         XCTAssertNotNil(devices.inputSource.onChange)
         let other = read([.clock])
         feed.setDemand(other.deps, cadence: other.cadence)
         XCTAssertNil(feed.current.inputSource)
         XCTAssertNil(devices.inputSource.value)
         XCTAssertNil(devices.inputSource.onChange)
+        XCTAssertEqual(reads, 1)
     }
 
     func testInputSourceCommandsParse() {
@@ -51,6 +59,13 @@ final class ShellDevicesTests: XCTestCase {
         XCTAssertEqual(ShellAction("input-source settings"), .settings(.inputSource))
         XCTAssertNil(ShellAction("input-source select"))
         XCTAssertNil(ShellAction("input-source"))
+    }
+
+    func testAppearanceCommandsParse() {
+        XCTAssertEqual(ShellAction("appearance toggle"), .appearance(.toggle))
+        XCTAssertEqual(ShellAction("appearance settings"), .settings(.appearance))
+        XCTAssertNil(ShellAction("appearance"))
+        XCTAssertNil(ShellAction("appearance dark"))
     }
 
     func testWidgetsReadTheInputSource() throws {
@@ -93,50 +108,6 @@ final class ShellDevicesTests: XCTestCase {
         widget.set("privacy") { ShellPrivacy(microphone: false, camera: true).write(into: &$0) }
         widget.render(ShellBarData())
         XCTAssertTrue(widget.strings().contains("false true"))
-    }
-
-    func testWiFiDescribesItsLinkAndCommandsParse() throws {
-        XCTAssertEqual(ShellWiFi.band(.band6GHz), "6 GHz")
-        XCTAssertNil(ShellWiFi.band(.bandUnknown))
-        XCTAssertEqual(ShellWiFi.security(.wpa3Personal), "WPA3 Personal")
-        XCTAssertEqual(ShellWiFi.location(.authorizedAlways), "authorized")
-        XCTAssertEqual(ShellWiFi.location(.denied), "denied")
-        XCTAssertEqual(ShellWiFi.location(.notDetermined), "notDetermined")
-        XCTAssertEqual(ShellAction("wifi authorize"), .wifi(.authorize))
-        XCTAssertEqual(ShellAction("wifi settings"), .settings(.wifi))
-        XCTAssertNil(ShellAction("wifi on"))
-
-        let widget = try ShellRenderedWidget(name: "wifi", source: """
-        function render(ctx)
-            local wifi = ctx.data.wifi
-            return ui.text{ text = tostring(wifi.ssid) .. " " .. wifi.rssi .. " " .. wifi.band .. " " .. wifi.location }
-        end
-        """)
-        widget.set("wifi") {
-            ShellWiFi(power: true, connected: true, rssi: -61, band: "5 GHz", channel: 149, location: "denied")
-                .write(into: &$0)
-        }
-        widget.render(ShellBarData())
-        XCTAssertTrue(widget.strings().contains("nil -61 5 GHz denied"))
-    }
-
-    func testWiFiIsReadOffTheMainThreadOnlyWhileAWidgetReadsIt() async throws {
-        let devices = ShellDevices(wifi: WiFiMonitor(read: { _ in ShellWiFi(power: true, location: "denied") }))
-        let (changes, changed) = boundedChanges()
-        let feed = ShellDataFeed(devices: devices, deliver: { _ in changed.yield() })
-        defer { feed.stop() }
-        feed.start()
-        let reading = read([.wifi])
-        feed.setDemand(reading.deps, cadence: reading.cadence)
-        XCTAssertTrue(devices.wifi.isListening)
-        await changes.wait { feed.current.wifi != nil }
-        XCTAssertEqual(feed.current.wifi, devices.wifi.value)
-        XCTAssertEqual(feed.current.wifi?.location, "denied")
-        let other = read([.clock])
-        feed.setDemand(other.deps, cadence: other.cadence)
-        XCTAssertFalse(devices.wifi.isListening)
-        XCTAssertNil(feed.current.wifi)
-        XCTAssertNil(devices.wifi.onChange)
     }
 
     func testBluetoothDescribesDevicesAndWaitsForAccess() throws {

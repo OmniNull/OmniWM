@@ -30,7 +30,7 @@ final class NiriSettings {
     }
 
     var defaultContainerPrimarySpan = NiriSettings.validatedDefaultContainerPrimarySpan(
-        NiriSettings.defaults.defaultContainerPrimarySpan
+        NiriSettings.defaults.defaultContainerPrimarySpan?.customSpan
     ) {
         didSet {
             let validated = NiriSettings.validatedDefaultContainerPrimarySpan(defaultContainerPrimarySpan)
@@ -42,7 +42,40 @@ final class NiriSettings {
         }
     }
 
+    var opensNewWindowsAtAppWidth = NiriSettings.defaults.defaultContainerPrimarySpan == .app {
+        didSet { onChange?() }
+    }
+
     var visibleContainerCount = NiriSettings.defaults.visibleContainerCount {
+        didSet { onChange?() }
+    }
+
+    var fitToVisibleContainerCount = NiriSettings.defaults.fitToVisibleContainerCount ?? false {
+        didSet { onChange?() }
+    }
+
+    var keepExistingWindowWidth = NiriSettings.defaults.keepExistingWindowWidth ?? false {
+        didSet { onChange?() }
+    }
+
+    var readsObservedWindowWidths: Bool {
+        keepExistingWindowWidth || opensNewWindowsAtAppWidth
+            || monitorOverrides.contains { $0.defaultContainerPrimarySpan == .app }
+    }
+
+    var keepSizeOnUnstack = NiriSettings.defaults.keepSizeOnUnstack ?? false {
+        didSet { onChange?() }
+    }
+
+    var keepSizesOnDisplayMove = NiriSettings.defaults.keepSizesOnDisplayMove ?? false {
+        didSet { onChange?() }
+    }
+
+    var keepSizesOnSettingsChange = NiriSettings.defaults.keepSizesOnSettingsChange ?? false {
+        didSet { onChange?() }
+    }
+
+    var keepStripEndsOnScreen = NiriSettings.defaults.keepStripEndsOnScreen ?? false {
         didSet { onChange?() }
     }
 
@@ -74,6 +107,10 @@ final class NiriSettings {
         didSet { onChange?() }
     }
 
+    var shrinkToFit = NiriSettings.defaults.shrinkToFit ?? false {
+        didSet { onChange?() }
+    }
+
     var overscrollVisibleStripPercent = NiriSettings.defaults.overscrollVisibleStripPercent ?? 5 {
         didSet {
             let validated = Self.validatedOverscrollVisibleStripPercent(overscrollVisibleStripPercent)
@@ -93,6 +130,21 @@ final class NiriSettings {
         min(100, max(1, percent))
     }
 
+    var edgePeekPercent = NiriSettings.defaults.edgePeekPercent ?? BuiltInSettingsDefaults.niriEdgePeekPercent {
+        didSet {
+            let validated = NiriSettings.validatedEdgePeekPercent(edgePeekPercent)
+            if validated != edgePeekPercent {
+                edgePeekPercent = validated
+                return
+            }
+            onChange?()
+        }
+    }
+
+    nonisolated static func validatedEdgePeekPercent(_ percent: Double) -> Double {
+        min(10, max(0, percent))
+    }
+
     var monitorOverrides: [MonitorNiriSettings] = [] {
         didSet { onChange?() }
     }
@@ -105,12 +157,21 @@ final class NiriSettings {
             alwaysCenterSingleColumn: alwaysCenterSingleColumn,
             singleWindowFit: singleWindowFit,
             containerPrimarySpanPresets: containerPrimarySpanPresets,
-            defaultContainerPrimarySpan: defaultContainerPrimarySpan,
+            defaultContainerPrimarySpan: defaultContainerPrimarySpan.map { .custom($0) }
+                ?? (opensNewWindowsAtAppWidth ? .app : nil),
             edgeGaps: edgeGaps,
             resizeStepPercent: resizeStepPercent,
             moveWindowStacksIntoColumn: moveWindowStacksIntoColumn,
             allowOverscroll: allowOverscroll,
-            overscrollVisibleStripPercent: overscrollVisibleStripPercent
+            overscrollVisibleStripPercent: overscrollVisibleStripPercent,
+            shrinkToFit: shrinkToFit,
+            edgePeekPercent: edgePeekPercent,
+            fitToVisibleContainerCount: fitToVisibleContainerCount,
+            keepExistingWindowWidth: keepExistingWindowWidth,
+            keepSizeOnUnstack: keepSizeOnUnstack,
+            keepSizesOnDisplayMove: keepSizesOnDisplayMove,
+            keepSizesOnSettingsChange: keepSizesOnSettingsChange,
+            keepStripEndsOnScreen: keepStripEndsOnScreen
         )
     }
 
@@ -125,6 +186,10 @@ final class NiriSettings {
             ?? baseline.overscrollVisibleStripPercent ?? 5
         edgeGaps = niri.edgeGaps ?? baseline.edgeGaps ?? true
         moveWindowStacksIntoColumn = niri.moveWindowStacksIntoColumn ?? baseline.moveWindowStacksIntoColumn ?? true
+        shrinkToFit = niri.shrinkToFit ?? baseline.shrinkToFit ?? false
+        edgePeekPercent = NiriSettings.validatedEdgePeekPercent(
+            niri.edgePeekPercent ?? baseline.edgePeekPercent ?? BuiltInSettingsDefaults.niriEdgePeekPercent
+        )
         resizeStepPercent = niri.resizeStepPercent ?? baseline.resizeStepPercent ?? BuiltInSettingsDefaults
             .niriResizeStepPercent
         containerPrimarySpanPresets = NiriSettings.validatedContainerPrimarySpanPresets(
@@ -132,7 +197,14 @@ final class NiriSettings {
                 .defaultContainerPrimarySpanPresets
         )
         defaultContainerPrimarySpan = NiriSettings
-            .validatedDefaultContainerPrimarySpan(niri.defaultContainerPrimarySpan)
+            .validatedDefaultContainerPrimarySpan(niri.defaultContainerPrimarySpan?.customSpan)
+        opensNewWindowsAtAppWidth = niri.defaultContainerPrimarySpan == .app
+        fitToVisibleContainerCount = niri.fitToVisibleContainerCount ?? baseline.fitToVisibleContainerCount ?? false
+        keepExistingWindowWidth = niri.keepExistingWindowWidth ?? baseline.keepExistingWindowWidth ?? false
+        keepSizeOnUnstack = niri.keepSizeOnUnstack ?? baseline.keepSizeOnUnstack ?? false
+        keepSizesOnDisplayMove = niri.keepSizesOnDisplayMove ?? baseline.keepSizesOnDisplayMove ?? false
+        keepSizesOnSettingsChange = niri.keepSizesOnSettingsChange ?? baseline.keepSizesOnSettingsChange ?? false
+        keepStripEndsOnScreen = niri.keepStripEndsOnScreen ?? baseline.keepStripEndsOnScreen ?? false
     }
 
     func settings(for monitor: Monitor) -> MonitorNiriSettings? {
@@ -167,8 +239,18 @@ final class NiriSettings {
             edgeOverscroll: NiriEdgeOverscroll(
                 allowed: override?.allowOverscroll ?? allowOverscroll,
                 visibleStripPercent: override?.overscrollVisibleStripPercent ?? overscrollVisibleStripPercent
-            )
+            ),
+            edgePeekShare: edgePeekShare(override: override),
+            fitsVisibleContainerCount: override?.fitToVisibleContainerCount ?? fitToVisibleContainerCount,
+            opensNewWindowsAtAppWidth: override?.defaultContainerPrimarySpan.map { $0 == .app }
+                ?? opensNewWindowsAtAppWidth
         )
+    }
+
+    private func edgePeekShare(override: MonitorNiriSettings?) -> CGFloat? {
+        let percent = override?.edgePeekPercent ?? edgePeekPercent
+        guard percent > 0 else { return nil }
+        return CGFloat(percent) / 100
     }
 
     nonisolated static let defaultContainerPrimarySpanPresets: [Double] = BuiltInSettingsDefaults

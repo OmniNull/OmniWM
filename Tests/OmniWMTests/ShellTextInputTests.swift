@@ -271,3 +271,87 @@ final class ShellTextInputTests: XCTestCase {
         XCTAssertNotNil(box.post(change("abc", target: 1, sequence: 4)))
     }
 }
+
+extension ShellTextInputTests {
+    func testReadOnlyMultilineInputKeepsSelectionAndAdoptsFocusedModelChanges() throws {
+        let original = "selected preview"
+        let replacement = "replacement preview"
+        let fixture = try Fixture("""
+        return ui.input{key='preview',w=120,h=60,multiline=true,editable=false,
+            text=if ctx.data.seconds==0 then '\(original)' else '\(replacement)',onChange=function() end}
+        """)
+        let input = try fixture.input()
+        let editor = try XCTUnwrap(input.editor)
+        let window = NSWindow(
+            contentRect: fixture.widget.surface.view.frame, styleMask: [], backing: .buffered, defer: false
+        )
+        window.contentView = fixture.widget.surface.view
+        XCTAssertTrue(window.makeFirstResponder(editor))
+        defer {
+            window.makeFirstResponder(nil)
+            window.contentView = nil
+        }
+        XCTAssertFalse(editor.isEditable)
+        XCTAssertTrue(editor.isSelectable)
+        input.beganEditing()
+        let selection = NSRange(location: 0, length: original.prefix(while: { $0 != " " }).utf16.count)
+        editor.setSelectedRange(selection)
+        fixture.render()
+        XCTAssertEqual(editor.selectedRange(), selection)
+        XCTAssertEqual(input.text, original)
+        fixture.render(1)
+        XCTAssertEqual(input.text, replacement)
+        XCTAssertFalse(fixture.events.contains { $0.event.kind == .textChange })
+        XCTAssertFalse(input.textView(editor, shouldChangeTextIn: selection, replacementString: "edit"))
+        for character in ["v", "x", "z"] {
+            let event = try XCTUnwrap(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+                windowNumber: 0, context: nil, characters: character, charactersIgnoringModifiers: character,
+                isARepeat: false, keyCode: 0
+            ))
+            XCTAssertTrue(input.editCommand(event))
+            XCTAssertEqual(input.text, replacement)
+        }
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        editor.selectAll(nil)
+        XCTAssertEqual(editor.selectedRange(), NSRange(location: 0, length: replacement.utf16.count))
+        XCTAssertFalse(editor.isRichText)
+        let types = editor.writablePasteboardTypes
+        let plainTextType = try XCTUnwrap(types.first)
+        XCTAssertTrue(editor.writeSelection(to: pasteboard, types: types))
+        XCTAssertEqual(pasteboard.string(forType: plainTextType), replacement)
+    }
+
+    func testNonwrappingReadOnlyInputScrollsBothAxesAndRestoresStateAcrossReset() throws {
+        let line = String(repeating: "wide preview ", count: 40)
+        let fixture = try Fixture("""
+        return ui.input{key='preview',w=120,h=60,multiline=true,editable=false,wrap=false,
+            text='\(line)\\n\(line)\\n\(line)\\n\(line)'}
+        """)
+        let input = try fixture.input()
+        let editor = try XCTUnwrap(input.editor)
+        let scroll = try XCTUnwrap(input.view.subviews.first as? NSScrollView)
+        XCTAssertTrue(scroll.hasHorizontalScroller)
+        XCTAssertTrue(scroll.hasVerticalScroller)
+        XCTAssertFalse(try XCTUnwrap(editor.textContainer).widthTracksTextView)
+        XCTAssertGreaterThan(editor.frame.width, scroll.contentSize.width)
+        let selection = NSRange(location: 0, length: line.prefix(while: { $0 != " " }).utf16.count)
+        editor.setSelectedRange(selection)
+        let origin = CGPoint(x: min(scroll.contentSize.width, editor.frame.width - scroll.contentSize.width), y: 0)
+        scroll.contentView.scroll(to: origin)
+        let states = fixture.widget.surface.readOnlyInputStates()
+        XCTAssertEqual(states.count, 1)
+        fixture.render()
+        XCTAssertEqual(editor.selectedRange(), selection)
+        XCTAssertEqual(scroll.contentView.bounds.origin, origin)
+        fixture.widget.surface.reset(text: fixture.widget.text)
+        fixture.render()
+        fixture.widget.surface.restoreReadOnlyInputStates(states)
+        let restored = try fixture.input()
+        XCTAssertFalse(restored === input)
+        XCTAssertEqual(restored.editor?.selectedRange(), selection)
+        let restoredScroll = try XCTUnwrap(restored.view.subviews.first as? NSScrollView)
+        XCTAssertEqual(restoredScroll.contentView.bounds.origin, origin)
+    }
+}

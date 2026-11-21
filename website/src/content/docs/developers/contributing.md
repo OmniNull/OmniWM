@@ -227,7 +227,7 @@ Local releases via `Scripts/omniwm_release.py` use your own keychain and notariz
 
 For canaries, configure **canary-signing** with no required reviewers and a selected-branches deployment policy allowing only `main`.
 
-The daily **OmniWM canary** workflow skips a build when the checked-out commit is already contained in a stable or canary tag, or when only documentation changed since the newest ancestor tag. For this check, documentation means root-level `.md` files and everything under `docs/` or `website/`; Markdown elsewhere, including bundled issue-report prompts under `Sources/`, still counts as an app change. Documentation-only commits are also omitted from canary release notes. The manual `force` option bypasses both skip checks.
+The daily **OmniWM canary** workflow skips a build when the checked-out commit is already contained in a stable or canary tag, or when only documentation changed since the newest ancestor tag. For this check, documentation means root-level `.md` files and everything under `docs/` or `website/`; Markdown elsewhere still counts as an app change. Documentation-only commits are also omitted from canary release notes. The manual `force` option bypasses both skip checks.
 
 When a build is needed, the workflow requires the latest **OmniWM CI** push run on `main` to pass, including both **Verify** and **Tests**. It starts from the actual checkout rather than the scheduled event's commit, before dependency setup or importing Apple credentials. Documentation-only pushes don't start CI, so it uses the newest commit that has a run, looking from the checked-out commit down through documentation-only commits to the first app commit. A failed or unfinished run there, or no run at all, stops the canary; wait for CI to pass and rerun the workflow. The manual `force` option cannot bypass CI.
 
@@ -235,20 +235,16 @@ When a build is needed, the workflow requires the latest **OmniWM CI** push run 
 
 The **Main branch protection** ruleset blocks branch deletion and force-pushes. Keep those protections and do not grant GitHub Actions an **Always** bypass. The release workflow uses a normal fast-forward push and rejects additional blocking rules before publication, even when its token could bypass them. Required checks or pull-request-only updates need a release flow that publishes an already-reviewed version commit; do not bypass those rules to keep the current flow working.
 
-Re-enable **OmniWM CI** and confirm **Verify** and **Tests** on hosted runners. For an existing PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. A manual run provides logs; it does not replace the PR's required check. Updating the PR branch triggers its normal PR checks. Approve first-time fork runs when needed.
+**OmniWM CI** (`ci.yml`) runs automatically on pull requests and pushes to `main` or branches ending in `-release`, except documentation-only changes. **Website** (`website.yml`) checks website changes on pull requests and pushes to `main`. Neither workflow requires a custom review approval. GitHub may still require approval for first-time fork runs.
+
+For an existing PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. A manual run runs the full test groups and provides logs; it does not replace the PR's required check. Updating the PR branch triggers its normal PR checks.
 
 ## Trace Files
 
 Include a trace file when useful, especially for bug reports. Open **Settings → Troubleshooting**, click **Start Recording**, reproduce the bug, then click **Stop & Save Recording** and attach the saved `.log` file.
 
-**Report a Bug…** in the status-bar menu opens the in-app report form. Recording or selecting trace and crash evidence is optional; on submit OmniWM prepares a fresh diagnostic `.log` with whatever you selected, reveals it for attaching, and opens a pre-filled GitHub issue.
-
 Before attaching a diagnostic, review it: the file can contain OmniWM settings, application and window titles, and title-based App Rule matchers.
 
 With IPC enabled, captures can also be scripted using the CLI: `capture start trace`, `capture stop`, and `capture status`.
-
-## Improving the Issue-Report Prompt
-
-The prompt that rewrites bug reports into GitHub issues lives in plain Markdown. See [docs/issue-report-prompt.md](https://github.com/OmniNull/OmniWM/blob/main/docs/issue-report-prompt.md) for the files, constraints, and verification steps.
 
 If you are unsure about something, open an issue or ask in your pull request. Questions and early feedback are welcome.

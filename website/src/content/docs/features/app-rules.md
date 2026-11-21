@@ -5,7 +5,7 @@ sidebar:
   order: 7
 ---
 
-Open **App Rules** from OmniWM's status-bar menu to configure window-matching behavior. Rules can match by bundle ID, app-name substring, title substring or regex, and AX role/subrole. When several rules match a window, each setting (layout, workspace, minimum width, minimum height, and initial container span) comes from the most specific matching rule that sets it; ties follow list order. A setting left on Automatic or turned off adds nothing, so it never erases another rule's value.
+Open **App Rules** from OmniWM's status-bar menu to configure window-matching behavior. Rules can match by bundle ID, app-name substring, title substring or regex, and AX role/subrole. When several rules match a window, each setting (layout, destination (workspace or, **Unreleased:** when building from `main`, scratchpad), minimum width, minimum height, and initial container span) comes from the most specific matching rule that sets it; ties follow list order. A setting left on Automatic or turned off adds nothing, so it never erases another rule's value.
 
 ## Create a rule from a window
 
@@ -40,8 +40,15 @@ Use the target's actual bundle ID and AX values. This escape hatch does not admi
 
 ## Rule actions
 
-- **Layout (Automatic / Tile / Float)** — leave classification automatic, or force matching windows to tile or float.
+- **Layout (Automatic / Tile / Float)** — leave classification automatic, or request tiling or floating.
+  **Unreleased**. In builds from `main`, when admitting a window or promoting it from Float to Tile, OmniWM uses Float
+  if the window has a usable frame and its `AXSize` is read-only or unsupported. A tiling request can wait for another
+  read when writability is unknown.
 - **Assign to Workspace** — use a valid workspace assignment as the initial default whenever the matching app currently has no tracked windows. Additional windows open on the workspace active when creation began. Automatic rule reevaluation leaves managed windows in place, while explicit rule application can move them. Readmission, structural replacements, and unique persisted boot-restore matches preserve their existing placement continuity.
+  **Unreleased:** when building from `main`, enable **Apply to Every New Matching Window** to route later
+  matching windows to the same workspace when OmniWM starts managing them. Child windows eligible to inherit
+  placement from a tracked parent still open on the parent's workspace.
+- **Assign to Scratchpad** — **Unreleased — available when building from `main`.** Add each matching window to a [scratchpad](/features/scratchpads/#joining-by-app-rule) slot, 1–10, when OmniWM starts managing it. The picker shows slot labels, but the rule stores the slot number. See [Rule destination](#rule-destination).
 - **Initial Container Primary Span (Niri)** — start matching resizable windows at 5–100% when they create or claim a new container; the container remains freely resizable afterward.
 - **Minimum Size** — prevent the layout engine from sizing windows below a threshold.
 
@@ -49,9 +56,39 @@ Use the target's actual bundle ID and AX values. This escape hatch does not admi
 Initial container primary span is a one-time seed. It controls width in horizontal orientation and height in vertical orientation. Niri's Single Window Fit still takes visual precedence for a lone window, and physical minimum-size constraints can clamp the resolved pixel size without changing the stored initial proportion.
 :::
 
+## Rule destination
+
+**Unreleased — available when building from `main`.** Assign to Workspace and Assign to Scratchpad are one setting, the rule's destination. A rule sets one or the other, never both. When several matching rules set a destination, the most specific one wins and ties follow list order, so a more specific workspace rule beats a less specific scratchpad rule, and the other way round. If the winning workspace doesn't exist, or the app already has tracked windows and **Apply to Every New Matching Window** is off for the winning rule, the window gets default placement. It doesn't fall back to a scratchpad rule that lost.
+
+A scratchpad destination works differently from a workspace destination:
+
+- It applies to every matching window when OmniWM starts managing it, including windows already open at startup.
+- Joining the slot floats the window, as assigning it by hand does. The rule never floats a window that doesn't join. Adding or editing a scratchpad rule, or a title change, leaves windows OmniWM already manages as they are. A member stays floating and stays in its slot after its title stops matching or the rule is removed.
+- Scratchpad can't be combined with Assign to Workspace or with Layout set to Tile. The App Rules window, `omniwmctl`, and IPC refuse such a rule. In `settings.toml` the rule still loads, but its scratchpad is ignored and the rule list shows a validation message. `omniwmctl` and IPC also refuse a slot outside 1–10, and `settings.toml` ignores one the same way.
+- Scratchpad alone doesn't admit a surface that needs a precise inclusion rule (see [Structural admission](#structural-admission)). For such a surface, also set Layout to Float and set `axRole` and `axSubrole`.
+
+`omniwmctl rule apply` is the only way to apply a scratchpad destination to a window OmniWM already manages. When the winning destination is a scratchpad:
+
+- A window already in that slot is left as it is, whether it's parked or visible, so applying twice changes nothing.
+- A window in another slot, or in none, joins that slot.
+- A joining window that you set to tile by hand is floated again.
+
+When a workspace destination now wins for a scratchpad member, the window leaves its slot, comes back on screen if it was parked, and moves to that workspace with its layout from the rules. When no rule sets a destination, scratchpad membership doesn't change.
+
 ## TOML
 
-Rules can also be written in `settings.toml` (see [Configuration](/config/configuration/)). The equivalent TOML rule uses a proportion:
+Rules can also be written in `settings.toml` (see [Configuration](/config/configuration/)). To send every new
+matching VS Code window to a configured workspace named `32`, use this rule (**Unreleased:** available when
+building from `main`).
+
+```toml
+[[appRules]]
+bundleId = "com.microsoft.VSCode"
+assignToWorkspace = "32"
+assignToWorkspaceForAllWindows = true
+```
+
+The initial container primary span uses a proportion:
 
 ```toml
 [[appRules]]

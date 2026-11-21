@@ -17,6 +17,19 @@ extension WMController {
         layoutRefreshController.requestRelayout(reason: .monitorSettingsChanged)
     }
 
+    func isNiriStrip(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        workspaceManager.activeLayoutKind(for: workspaceId) == .niri
+    }
+
+    func isLandscapeNiriStrip(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        isNiriStrip(workspaceId) && isOnLandscapeDisplay(workspaceId)
+    }
+
+    func isOnLandscapeDisplay(_ workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        guard let monitor = workspaceManager.monitor(for: workspaceId) else { return false }
+        return settings.monitors.effectiveOrientation(for: monitor) == .horizontal
+    }
+
     func updateMonitorNiriSettings() {
         guard niriEngine != nil else { return }
         niriLayoutHandler.refreshResolvedMonitorSettings(rebalanceChangedSpans: true)
@@ -45,6 +58,7 @@ extension WMController {
 
     func updateWorkspaceConfig() {
         workspaceManager.applySettings()
+        refreshStatusBar()
         syncMonitorsToNiriEngine()
         layoutRefreshController.requestRelayout(reason: .workspaceConfigChanged)
     }
@@ -80,7 +94,9 @@ extension WMController {
         singleWindowFit: SingleWindowFit? = nil,
         edgeOverscroll: NiriEdgeOverscroll? = nil,
         containerPrimarySpanPresets: [Double]? = nil,
-        defaultContainerPrimarySpan: Double?? = nil
+        defaultContainerPrimarySpan: Double?? = nil,
+        shrinkToFit: Bool? = nil,
+        edgePeekShare: CGFloat?? = nil
     ) {
         niriLayoutHandler.updateNiriConfig(
             visibleContainerCount: visibleContainerCount,
@@ -90,7 +106,9 @@ extension WMController {
             singleWindowFit: singleWindowFit,
             edgeOverscroll: edgeOverscroll,
             containerPrimarySpanPresets: containerPrimarySpanPresets,
-            defaultContainerPrimarySpan: defaultContainerPrimarySpan
+            defaultContainerPrimarySpan: defaultContainerPrimarySpan,
+            shrinkToFit: shrinkToFit,
+            edgePeekShare: edgePeekShare
         )
     }
 

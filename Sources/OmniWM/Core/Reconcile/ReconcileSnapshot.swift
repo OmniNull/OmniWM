@@ -125,6 +125,13 @@ struct TopologyProfile: Hashable, Equatable, Codable, Sendable {
     init(sortedMonitors: [Monitor]) {
         displays = sortedMonitors.map(DisplayFingerprint.init)
     }
+
+    func containsDisplay(_ displayId: CGDirectDisplayID) -> Bool {
+        for index in displays.indices where displays[index].displayId == displayId {
+            return true
+        }
+        return false
+    }
 }
 
 struct RestoreIntent: Equatable {

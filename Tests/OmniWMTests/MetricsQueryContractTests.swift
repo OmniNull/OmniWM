@@ -26,10 +26,7 @@ final class MetricsQueryContractTests: XCTestCase {
     }
 
     func testCompletionsOfferTheMetricsQuery() {
-        for shell in CLIShell.allCases {
-            let script = CLICompletionGenerator.script(for: shell)
-            XCTAssertTrue(script.contains("metrics"), "\(shell) completions should offer the metrics query")
-        }
+        XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", "query", ""]).contains("metrics"))
     }
 
     func testMetricsResultRoundTripsOnTheWire() throws {
@@ -87,7 +84,7 @@ final class MetricsQueryContractTests: XCTestCase {
         let object = try XCTUnwrap(
             JSONSerialization.jsonObject(with: encoded) as? [String: Any]
         )
-        XCTAssertEqual(object["version"] as? Int, 22)
+        XCTAssertEqual(object["version"] as? Int, OmniWMIPCProtocol.version)
         let resultObject = try XCTUnwrap(object["result"] as? [String: Any])
         XCTAssertEqual(resultObject["kind"] as? String, "metrics")
 

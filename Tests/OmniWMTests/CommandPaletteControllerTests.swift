@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 @testable import OmniWM
-import SwiftUI
 import XCTest
 
 @MainActor
@@ -215,30 +214,20 @@ final class CommandPaletteControllerTests: XCTestCase {
     }
 
     func testModeHintsKeepDirectShortcutsVisible() {
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .windows),
-            .init(title: "Windows", shortcut: "⌘1")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .menu),
-            .init(title: "Menu", shortcut: "⌘2")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .clipboard),
-            .init(title: "Clipboard", shortcut: "⌘3")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .commands),
-            .init(title: "Commands", shortcut: "⌘4")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .applications),
-            .init(title: "Launcher", shortcut: "⌘5")
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.modeHint(for: .files),
-            .init(title: "Files", shortcut: "⌘6")
-        )
+        let expected: [(CommandPaletteMode, String, String)] = [
+            (.windows, "Windows", "⌘1"),
+            (.menu, "Menu", "⌘2"),
+            (.clipboard, "Clipboard", "⌘3"),
+            (.commands, "Commands", "⌘4"),
+            (.applications, "Launcher", "⌘5"),
+            (.files, "Files", "⌘6")
+        ]
+        for (mode, title, shortcut) in expected {
+            XCTAssertEqual(
+                CommandPalettePresentation.modeHint(for: mode),
+                .init(title: title, shortcut: shortcut)
+            )
+        }
     }
 
     func testMarkActionShortcutsStayVisibleAndMapToPaletteActions() {
@@ -246,20 +235,6 @@ final class CommandPaletteControllerTests: XCTestCase {
 
         XCTAssertEqual(CommandPalettePresentation.setMarkShortcut, "⌃⌥⇧M")
         XCTAssertEqual(CommandPalettePresentation.removeMarkShortcut, "⌃⌥⇧R")
-        XCTAssertEqual(
-            CommandPalettePresentation.availableMarkShortcut(
-                for: .set,
-                configuredBindings: DefaultHotkeyBindings.all()
-            ),
-            CommandPalettePresentation.setMarkShortcut
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.availableMarkShortcut(
-                for: .remove,
-                configuredBindings: DefaultHotkeyBindings.all()
-            ),
-            CommandPalettePresentation.removeMarkShortcut
-        )
         XCTAssertEqual(
             CommandPalettePresentation.markAction(
                 forKeyCode: UInt16(kVK_ANSI_M),
@@ -294,38 +269,62 @@ final class CommandPaletteControllerTests: XCTestCase {
         )
     }
 
-    func testConfiguredGlobalMarkChordTakesPriorityOverPaletteShortcut() {
-        let setBinding = HotkeyBinding(
-            id: "openMenuAnywhere",
-            command: .openMenuAnywhere,
-            binding: KeyBinding(
-                keyCode: UInt32(kVK_ANSI_M),
-                modifiers: UInt32(controlKey | optionKey | shiftKey)
-            )
-        )
-        let removeBinding = HotkeyBinding(
-            id: "openMenuAnywhere",
-            command: .openMenuAnywhere,
-            binding: KeyBinding(
-                keyCode: UInt32(kVK_ANSI_R),
-                modifiers: UInt32(controlKey | optionKey | shiftKey)
-            ).settingSide(.right)
-        )
+    func testMarkChordsWorkInPaletteEvenWhenBoundGlobally() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let markChord = KeyBinding(keyCode: UInt32(kVK_ANSI_M), modifiers: UInt32(controlKey | optionKey | shiftKey))
+        fixture.controller.settings.updateTrigger(for: "openMenuAnywhere", newTrigger: .chord(markChord))
+        let hotkeys = fixture.controller.hotkeys
+        hotkeys.updateBindings(fixture.controller.settings.hotkeyBindings, systemHyperTrigger: .none)
+        hotkeys.start()
+        defer { hotkeys.stop() }
+        XCTAssertTrue(hotkeys.carbonRegistrations.registeredCommands.contains(.openMenuAnywhere))
 
-        XCTAssertNil(CommandPalettePresentation.availableMarkShortcut(for: .set, configuredBindings: [setBinding]))
-        XCTAssertNotNil(CommandPalettePresentation.availableMarkShortcut(
-            for: .remove,
-            configuredBindings: [setBinding]
+        _ = try fixture.show()
+        XCTAssertFalse(hotkeys.carbonRegistrations.registeredCommands.contains(.openMenuAnywhere))
+        let event = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [.control, .option, .shift],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "M",
+            charactersIgnoringModifiers: "M",
+            isARepeat: false,
+            keyCode: UInt16(kVK_ANSI_M)
         ))
-        XCTAssertNil(CommandPalettePresentation.availableMarkShortcut(
-            for: .remove,
-            configuredBindings: [removeBinding]
-        ))
+        XCTAssertTrue(fixture.palette.handleKeyDown(event))
+        XCTAssertEqual(fixture.palette.actionFeedbackText, "Select a window row before changing its marks.")
+
+        fixture.palette.dismiss(reason: .selection)
+        XCTAssertTrue(hotkeys.carbonRegistrations.registeredCommands.contains(.openMenuAnywhere))
     }
 
-    func testCompactModePickerLeaves326PointSearchField() {
-        XCTAssertEqual(CommandPaletteModePicker.compactWidth, 304)
-        XCTAssertEqual(CommandPalettePanel.width - CommandPaletteModePicker.compactWidth - 10, 326)
+    func testKeyboardLayoutChangeWhilePaletteIsOpenMovesReservedLetterChords() throws {
+        var previewKey = UInt16(kVK_ANSI_Y)
+        var onLayoutChange: (@MainActor () -> Void)?
+        let fixture = CommandPaletteFocusFixture { environment in
+            environment.paletteShortcuts = { PaletteShortcuts(previewKeyCode: previewKey, revealKeyCode: nil) }
+            environment.observeKeyboardLayout = { onLayoutChange = $0 }
+        }
+        defer { fixture.cleanup() }
+        let commandY = KeyBinding(keyCode: UInt32(kVK_ANSI_Y), modifiers: UInt32(cmdKey))
+        let commandZ = KeyBinding(keyCode: UInt32(kVK_ANSI_Z), modifiers: UInt32(cmdKey))
+        _ = try fixture.show()
+        let hotkeys = fixture.controller.hotkeys
+        XCTAssertTrue(hotkeys.yieldsToPalette(commandY))
+        XCTAssertFalse(hotkeys.yieldsToPalette(commandZ))
+
+        previewKey = UInt16(kVK_ANSI_Z)
+        try XCTUnwrap(onLayoutChange)()
+
+        XCTAssertFalse(hotkeys.yieldsToPalette(commandY))
+        XCTAssertTrue(hotkeys.yieldsToPalette(commandZ))
+
+        fixture.palette.dismiss(reason: .selection)
+        XCTAssertNil(onLayoutChange)
+        XCTAssertFalse(hotkeys.yieldsToPalette(commandZ))
     }
 
     func testHiddenManagedRowsRemainSearchableAndSortAfterVisibleRows() throws {
@@ -366,14 +365,9 @@ final class CommandPaletteControllerTests: XCTestCase {
 
         XCTAssertFalse(palette.allowsWindowAlternateAction(item))
         XCTAssertNil(palette.resolvedSelectionAction(for: .alternate))
-        XCTAssertEqual(
-            CommandPalettePresentation.windowsStatusText(
-                selectedItem: item,
-                isSummonRightAvailable: true,
-                isSelectedWindowEligibleForSummon: false
-            ),
-            "Enter jumps. Shift-Enter unavailable for this window."
-        )
+        let row = try windowRow(floatingToken, in: palette)
+        XCTAssertNil(row.hint)
+        XCTAssertNil(row.hintShortcut)
         XCTAssertTrue(CommandPalettePresentation.allowsSummonRight(
             item, isTiling: false, isCurrentWorkspaceEmpty: true
         ))
@@ -588,96 +582,79 @@ final class CommandPaletteControllerTests: XCTestCase {
         XCTAssertEqual(CommandPaletteSearch.filterWindowItems(items, query: "research").map(\.id), [item.id])
     }
 
-    func testWindowRowShowsEachMarkIndividuallyAndAccessibly() {
-        let markedRow = CommandPaletteWindowRow(
-            item: makeWindowItem(windowId: 92_111, markNames: ["editor", "research"]),
-            isSelected: false,
-            isSummonRightAvailable: false,
-            onSelect: {}
-        )
-        let unmarkedRow = CommandPaletteWindowRow(
-            item: makeWindowItem(windowId: 92_112),
-            isSelected: false,
-            isSummonRightAvailable: false,
-            onSelect: {}
-        )
-
-        XCTAssertEqual(markedRow.markLabels, ["Mark: editor", "Mark: research"])
-        XCTAssertEqual(markedRow.accessibilityLabel, "Quarterly review, Drafts, Mark: editor, Mark: research")
-        XCTAssertTrue(unmarkedRow.markLabels.isEmpty)
-        XCTAssertEqual(unmarkedRow.accessibilityLabel, "Quarterly review, Drafts")
-    }
-
-    func testWindowStatusTextDescribesSelectedHiddenWindowPrimaryAction() throws {
+    func testHiddenWindowShellBadgeAndPrimaryActionRejectAnAlternateAction() throws {
         let (wmController, _, hiddenToken) = try makeWindowFixture()
-        let hiddenItem = try XCTUnwrap(
-            CommandPaletteSearch.buildWindowItems(from: wmController).first { $0.id == hiddenToken }
-        )
+        let palette = makeWindowPalette(wmController)
+        palette.selectedItemID = .window(hiddenToken)
+        let item = try XCTUnwrap(palette.windows.first { $0.id == hiddenToken })
+        let row = try windowRow(hiddenToken, in: palette)
 
         XCTAssertEqual(
-            CommandPalettePresentation.windowsStatusText(
-                selectedItem: hiddenItem,
-                isSummonRightAvailable: true
-            ),
-            "Return · Unhide & Focus"
+            row.badges.filter { $0.symbol == "eye.slash.fill" }.map(\.text),
+            [String(localized: "App hidden")]
         )
-        XCTAssertEqual(
-            CommandPalettePresentation.windowsStatusText(
-                selectedItem: hiddenItem,
-                isSummonRightAvailable: false
-            ),
-            "Return · Unhide & Focus"
-        )
+        XCTAssertFalse(palette.allowsWindowAlternateAction(item))
+        XCTAssertNil(palette.resolvedSelectionAction(for: .alternate))
+        XCTAssertNil(row.hint)
+        guard case let .navigateWindow(controller, handle)? = palette.resolvedSelectionAction(for: .primary) else {
+            return XCTFail("The hidden row keeps its primary exact-window action")
+        }
+        XCTAssertTrue(controller === wmController)
+        XCTAssertTrue(handle === item.handle)
     }
 
-    func testWindowStatusTextPreservesVisibleWindowGuidance() throws {
-        let (wmController, visibleToken, _) = try makeWindowFixture()
-        let visibleItem = try XCTUnwrap(
-            CommandPaletteSearch.buildWindowItems(from: wmController).first { $0.id == visibleToken }
-        )
+    func testSelectedWindowShellHintTracksTheCapturedSummonAnchor() throws {
+        let (wmController, anchor, selected) = try makeWindowFixture()
+        wmController.workspaceManager.setAppHidden(false, pid: selected.pid, source: .service)
+        let workspace = try XCTUnwrap(wmController.workspaceManager.entry(for: anchor)?.workspaceId)
+        try focus(anchor, in: workspace, controller: wmController)
+        let palette = makeWindowPalette(wmController)
+        palette.focusSession.begin(wmController: wmController)
+        palette.selectedItemID = .window(selected)
+        XCTAssertTrue(palette.isSummonRightAvailable)
+        let row = try windowRow(selected, in: palette)
+        let expected = try XCTUnwrap(CommandPalettePresentation.selectedWindowHint(isSummonRightAvailable: true))
+        XCTAssertEqual(row.hint, expected.title)
+        XCTAssertEqual(row.hintShortcut, expected.shortcut)
 
-        XCTAssertEqual(
-            CommandPalettePresentation.windowsStatusText(
-                selectedItem: visibleItem,
-                isSummonRightAvailable: true
-            ),
-            "Enter jumps. Shift-Enter summons right."
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.windowsStatusText(
-                selectedItem: visibleItem,
-                isSummonRightAvailable: false
-            ),
-            "Enter jumps. Shift-Enter unavailable without an anchor."
-        )
+        palette.focusSession.clear()
+        XCTAssertFalse(palette.isSummonRightAvailable)
+        let unanchored = try windowRow(selected, in: palette)
+        XCTAssertNil(unanchored.hint)
+        XCTAssertNil(unanchored.hintShortcut)
     }
 
-    func testWindowStatusTextExplainsEmptyWorkspaceMoveAndAnchoredSummon() {
-        let item = makeWindowItem(windowId: 92_113)
+    func testWindowAlternateActionResolvesAnEmptyWorkspaceMoveAndAnchoredSummon() throws {
+        let (wmController, anchor, selected) = try makeWindowFixture()
+        let manager = wmController.workspaceManager
+        manager.setAppHidden(false, pid: selected.pid, source: .service)
+        let sourceWorkspace = try XCTUnwrap(manager.entry(for: selected)?.workspaceId)
+        let emptyWorkspace = try XCTUnwrap(manager.workspaceId(for: "2", createIfMissing: true))
+        XCTAssertNotNil(manager.focusWorkspace(id: emptyWorkspace))
+        let palette = makeWindowPalette(wmController)
+        palette.focusSession.begin(wmController: wmController)
+        palette.selectedItemID = .window(selected)
+        XCTAssertTrue(palette.isCurrentWorkspaceEmpty)
+        guard case let .moveWindowToWorkspace(owner, moved, destination)? = palette
+            .resolvedSelectionAction(for: .alternate)
+        else {
+            return XCTFail("The alternate action moves the selected window into the captured empty workspace")
+        }
+        XCTAssertTrue(owner === wmController)
+        XCTAssertEqual(moved.id, selected)
+        XCTAssertEqual(destination, emptyWorkspace)
 
-        XCTAssertEqual(
-            CommandPalettePresentation.windowsStatusText(
-                selectedItem: item,
-                isSummonRightAvailable: false,
-                isCurrentWorkspaceEmpty: true
-            ),
-            "Enter jumps. Shift-Enter moves here (empty workspace)."
-        )
-        XCTAssertEqual(
-            CommandPalettePresentation.windowsStatusText(
-                selectedItem: item,
-                isSummonRightAvailable: true,
-                isCurrentWorkspaceEmpty: false
-            ),
-            "Enter jumps. Shift-Enter summons right."
-        )
-    }
-
-    func testHiddenBadgeDoesNotChangeCommandPaletteWindowRowHeight() {
-        let visibleHeight = commandPaletteWindowRowHeight(isAppHidden: false)
-        let hiddenHeight = commandPaletteWindowRowHeight(isAppHidden: true)
-
-        XCTAssertEqual(hiddenHeight, visibleHeight)
+        try focus(anchor, in: sourceWorkspace, controller: wmController)
+        palette.focusSession.begin(wmController: wmController)
+        XCTAssertFalse(palette.isCurrentWorkspaceEmpty)
+        guard case let .summonWindowRight(summonOwner, summoned, captured)? = palette
+            .resolvedSelectionAction(for: .alternate)
+        else {
+            return XCTFail("The alternate action summons beside the captured window")
+        }
+        XCTAssertTrue(summonOwner === wmController)
+        XCTAssertEqual(summoned.id, selected)
+        XCTAssertEqual(captured.token, anchor)
     }
 
     func testClipboardSearchFindsFullContentAndKeepsPinnedResultsFirst() {
@@ -726,7 +703,37 @@ final class CommandPaletteControllerTests: XCTestCase {
         )
     }
 
+    private func makeWindowPalette(_ controller: WMController) -> CommandPaletteController {
+        var environment = CommandPaletteEnvironment()
+        environment.frontmostApplication = { nil }
+        let palette = CommandPaletteController(
+            motionPolicy: MotionPolicy(animationsEnabled: false),
+            environment: environment
+        )
+        palette.wmController = controller
+        palette.refreshWindowItems()
+        return palette
+    }
+
+    private func windowRow(_ token: WindowToken, in palette: CommandPaletteController) throws -> ShellCommandPaletteData
+        .Row
+    {
+        var data = ShellCommandPaletteData()
+        palette.windowRows(into: &data, limit: Float(CommandPalettePanel.expandedHeight))
+        return try XCTUnwrap(data.rows.first { $0.id == CommandPaletteController.shellRowID(token) })
+    }
+
+    private func focus(_ token: WindowToken, in workspace: WorkspaceDescriptor.ID, controller: WMController) throws {
+        let manager = controller.workspaceManager
+        let target = try XCTUnwrap(manager.focusWorkspace(id: workspace))
+        _ = manager.recordReconcileEvent(.managedFocusConfirmed(
+            token: token, workspaceId: workspace, monitorId: target.monitor.id,
+            requestId: nil, source: .workspaceManager
+        ))
+    }
+
     private func makeWindowFixture() throws -> (WMController, WindowToken, WindowToken) {
+        _ = NSApplication.shared
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("OmniWMCommandPaletteTests-\(UUID().uuidString)", isDirectory: true)
         let settings = SettingsStore(
@@ -780,33 +787,9 @@ final class CommandPaletteControllerTests: XCTestCase {
             handle: WindowHandle(id: token),
             title: title,
             appName: appName,
-            appIcon: nil,
             workspaceName: "Research",
             isAppHidden: false,
             markNames: markNames
         )
-    }
-
-    private func commandPaletteWindowRowHeight(isAppHidden: Bool) -> CGFloat {
-        let token = WindowToken(pid: 92_003, windowId: isAppHidden ? 92_104 : 92_103)
-        let item = CommandPaletteWindowItem(
-            id: token,
-            handle: WindowHandle(id: token),
-            title: "Terminal",
-            appName: "Ghostty",
-            appIcon: nil,
-            workspaceName: "1",
-            isAppHidden: isAppHidden,
-            markNames: []
-        )
-        let hostingView = NSHostingView(rootView: CommandPaletteWindowRow(
-            item: item,
-            isSelected: false,
-            isSummonRightAvailable: false,
-            onSelect: {}
-        ).frame(width: 620))
-
-        hostingView.layoutSubtreeIfNeeded()
-        return hostingView.fittingSize.height
     }
 }

@@ -4,13 +4,41 @@
 import Foundation
 
 extension IntentLedger {
+    func lastIntentIndex(where predicate: (Intent) -> Bool) -> Int? {
+        let entries = entries
+        var index = entries.endIndex
+        while index > entries.startIndex {
+            index -= 1
+            if predicate(entries[index]) { return index }
+        }
+        return nil
+    }
+
+    func openIndex(where predicate: (Intent) -> Bool) -> Int? {
+        lastIntentIndex { $0.phase == .pending && predicate($0) }
+    }
+
+    func lastIntent(where predicate: (Intent) -> Bool) -> Intent? {
+        guard let index = lastIntentIndex(where: predicate) else { return nil }
+        return entries[index]
+    }
+
+    func intents(where predicate: (Intent) -> Bool) -> [Intent] {
+        let entries = entries
+        var matches: [Intent] = []
+        for index in entries.indices where predicate(entries[index]) {
+            matches.append(entries[index])
+        }
+        return matches
+    }
+
     private static let lateEchoWindow: Duration = .seconds(1)
     func classifyFocusObservation(token: WindowToken) -> EchoClassification {
         if let intent = openFocusIntent(token: token) {
             return .echoOf(intent)
         }
         let now = clock()
-        let lateEcho = entries.last { entry in
+        let lateEcho = lastIntent { entry in
             guard entry.phase.isRetired,
                   entry.kind.focusTargetToken == token,
                   let retiredAt = entry.retiredAt
@@ -41,7 +69,7 @@ extension IntentLedger {
     }
 
     func openAppRevealFocusIntent(pid: pid_t) -> (intent: Intent, payload: AppRevealFocusPayload)? {
-        guard let intent = entries.last(where: { entry in
+        guard let intent = lastIntent(where: { entry in
                   guard entry.phase == .pending,
                         case let .appRevealFocus(payload) = entry.kind
                   else {
@@ -57,7 +85,7 @@ extension IntentLedger {
     }
 
     func openReplacementFocusIntent(pid: pid_t, workspaceId: WorkspaceDescriptor.ID) -> Intent? {
-        entries.last { entry in
+        lastIntent { entry in
             guard entry.phase == .pending,
                   case let .replacementFocus(payload) = entry.kind
             else {
@@ -68,7 +96,7 @@ extension IntentLedger {
     }
 
     func openReplacementFocusIntents(pid: pid_t) -> [Intent] {
-        entries.filter { entry in
+        intents { entry in
             guard entry.phase == .pending,
                   case let .replacementFocus(payload) = entry.kind
             else {
@@ -79,14 +107,14 @@ extension IntentLedger {
     }
 
     func openReplacementFocusIntents() -> [Intent] {
-        entries.filter { entry in
+        intents { entry in
             guard entry.phase == .pending, case .replacementFocus = entry.kind else { return false }
             return true
         }
     }
 
     func openSameAppCloseProbe() -> (intent: Intent, payload: SameAppCloseProbePayload)? {
-        let open = entries.last { entry in
+        let open = lastIntent { entry in
             guard entry.phase == .pending, case .sameAppCloseProbe = entry.kind else { return false }
             return true
         }
@@ -98,7 +126,7 @@ extension IntentLedger {
         intent: Intent,
         payload: AppTerminationFocusRecoveryPayload
     )? {
-        let open = entries.last { entry in
+        let open = lastIntent { entry in
             guard entry.phase == .pending,
                   case .appTerminationFocusRecovery = entry.kind
             else {
@@ -115,23 +143,23 @@ extension IntentLedger {
     }
 
     func intent(id: IntentID) -> Intent? {
-        entries.first { $0.id == id }
+        lastIntent { $0.id == id }
     }
 
     func openIntent(id: IntentID) -> Intent? {
-        entries.first { $0.id == id && $0.phase == .pending }
+        lastIntent { $0.id == id && $0.phase == .pending }
     }
 
     func openFocusIntent(token: WindowToken) -> Intent? {
-        entries.last { $0.phase == .pending && $0.kind.focusTargetToken == token }
+        lastIntent { $0.phase == .pending && $0.kind.focusTargetToken == token }
     }
 
     func newestFocusIntentIssuedAtSeq() -> UInt64? {
-        entries.last { $0.kind.isFocusWindow }?.issuedAtSeq
+        lastIntent { $0.kind.isFocusWindow }?.issuedAtSeq
     }
 
     func newestFocusIntentId() -> IntentID? {
-        entries.last { $0.kind.isFocusWindow }?.id
+        lastIntent { $0.kind.isFocusWindow }?.id
     }
 
     func allowsMouseToFocusedWarp(for token: WindowToken) -> Bool {

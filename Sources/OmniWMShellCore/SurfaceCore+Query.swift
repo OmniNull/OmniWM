@@ -113,6 +113,15 @@ extension SurfaceCore {
         return .none
     }
 
+    public func forEachChild(of handle: ElementHandle, _ body: (ElementHandle, UInt64) -> Void) {
+        guard contains(handle) else { return }
+        var slot = firstChild[Int(handle.slot)]
+        while slot >= 0 {
+            body(self.handle(slot), key[Int(slot)])
+            slot = nextSibling[Int(slot)]
+        }
+    }
+
     public func elements(matching predicate: (Content) -> Bool) -> [ElementHandle] {
         var found: [ElementHandle] = []
         var stack: [Int32] = root >= 0 ? [root] : []

@@ -125,6 +125,7 @@ extension NiriLayoutEngine {
         clearExcludedColumnFrames(
             in: workspaceId, excluding: excludedTokens, recordsPresentationGeometry: recordsPresentationGeometry
         )
+        applyEdgePeekCaps(in: workspaceId, workingFrame: context.area.workingFrame, gap: context.primaryGap)
         if animationTime == nil {
             reconcilePrimarySpanFit(
                 in: workspaceId,
@@ -160,27 +161,27 @@ extension NiriLayoutEngine {
         time: TimeInterval,
         orientation: Monitor.Orientation
     ) -> [NiriPreparedLayoutColumn] {
-        for projectedColumn in projectedColumns
-            where projectedColumn.windows.count == projectedColumn.column.windowNodes.count
-        {
+        for projectedColumn in projectedColumns {
             switch orientation {
             case .horizontal:
-                if projectedColumn.column.cachedWidth <= 0 {
-                    projectedColumn.column.resolveAndCacheWidth(
-                        workingAreaWidth: area.workingFrame.width,
-                        gaps: primaryGap,
-                        contentInset: projectedColumn.windows.count > 1
-                            ? tabContentInset(for: projectedColumn.column)
-                            : 0
-                    )
-                }
+                guard projectedColumn.column.cachedWidth <= 0,
+                      projectedColumn.windows.count == projectedColumn.column.windowNodes.count
+                else { continue }
+                projectedColumn.column.resolveAndCacheWidth(
+                    workingAreaWidth: area.workingFrame.width,
+                    gaps: primaryGap,
+                    contentInset: projectedColumn.windows.count > 1
+                        ? tabContentInset(for: projectedColumn.column)
+                        : 0
+                )
             case .vertical:
-                if projectedColumn.column.cachedHeight <= 0 {
-                    projectedColumn.column.resolveAndCacheHeight(
-                        workingAreaHeight: area.workingFrame.height,
-                        gaps: primaryGap
-                    )
-                }
+                guard projectedColumn.column.cachedHeight <= 0,
+                      projectedColumn.windows.count == projectedColumn.column.windowNodes.count
+                else { continue }
+                projectedColumn.column.resolveAndCacheHeight(
+                    workingAreaHeight: area.workingFrame.height,
+                    gaps: primaryGap
+                )
             }
         }
 
@@ -231,12 +232,7 @@ extension NiriLayoutEngine {
         let resolvedSpans = resolveWindowSpans(
             container: container,
             windows: windows,
-            axis: NiriAxisLayout(
-                availableSpace: containerFrames.secondarySpan(),
-                gap: secondaryGap,
-                isTabbed: isTabbed,
-                orientation: layoutFrames.orientation
-            ),
+            axis: containerFrames.secondaryAxis(gap: secondaryGap, isTabbed: isTabbed),
             secondarySpanOverride: placement.secondarySpanOverride
         )
 
@@ -260,13 +256,17 @@ extension NiriLayoutEngine {
                 within: containerFrames,
                 at: context.time
             )
-            result[window.token] = renderedFrame
+            let anchoredFrame = anchoredToTrailingEdge(
+                renderedFrame,
+                of: window,
+                in: container,
+                orientation: layoutFrames.orientation
+            )
+            window.renderedFrame = anchoredFrame
+            result[window.token] = anchoredFrame
 
-            if !isTabbed {
-                pos += span
-                if i < windows.count - 1 {
-                    pos += secondaryGap
-                }
+            if !isTabbed, i < windows.count - 1 {
+                pos += span + secondaryGap
             }
         }
     }
@@ -290,12 +290,13 @@ extension NiriLayoutEngine {
             isTabbed: axis.isTabbed,
             isVertical: axis.orientation == .vertical
         )
+        let windowSpan = windows.span
         let outputs: [NiriAxisSolver.Output]
         if let memo = container.axisSolveMemo, memo.key == cacheKey {
             outputs = memo.outputs
         } else {
-            let inputs = windows.map { window in
-                axisSolverInput(for: window, axis: axis)
+            let inputs = windows.indices.map { index in
+                axisSolverInput(for: windows[index], axis: axis)
             }
             let hardOutputs = NiriAxisSolver.solve(
                 windows: inputs,
@@ -303,16 +304,19 @@ extension NiriLayoutEngine {
                 gapSize: axis.gap,
                 isTabbed: axis.isTabbed
             )
-            outputs = packedSecondarySpans(
-                windows: windows,
+            outputs = columnFillingSpans(
+                packedSecondarySpans(
+                    windows: windows,
+                    inputs: inputs,
+                    hardOutputs: hardOutputs,
+                    axis: axis
+                ),
                 inputs: inputs,
-                hardOutputs: hardOutputs,
                 axis: axis
             )
             container.axisSolveMemo = (cacheKey, outputs)
         }
 
-        let windowSpan = windows.span
         for (i, output) in outputs.enumerated() {
             switch axis.orientation {
             case .horizontal:
@@ -366,10 +370,52 @@ extension NiriLayoutEngine {
         )
     }
 
+    private func columnFillingSpans(
+        _ outputs: [NiriAxisSolver.Output],
+        inputs: [NiriAxisSolver.Input],
+        axis: NiriAxisLayout
+    ) -> [NiriAxisSolver.Output] {
+        guard outputs.count > 1, !axis.isTabbed else { return outputs }
+        let usableSpace = axis.availableSpace - axis.gap * CGFloat(outputs.count + 1)
+        let total = outputs.reduce(0) { $0 + $1.value }
+        guard total > 0, total < usableSpace - 0.5 else { return outputs }
+        let shares = zip(inputs, outputs).map { input, output in
+            NiriAxisSolver.Input(
+                weight: output.value,
+                minConstraint: input.minConstraint,
+                maxConstraint: input.maxConstraint,
+                hasMaxConstraint: input.hasMaxConstraint,
+                isConstraintFixed: input.isConstraintFixed,
+                hasFixedValue: false,
+                fixedValue: nil
+            )
+        }
+        return NiriAxisSolver.solve(
+            windows: shares,
+            availableSpace: axis.availableSpace,
+            gapSize: axis.gap,
+            isTabbed: false
+        )
+    }
+
     private func axisSolverInput(
-        for window: NiriWindow,
+        for window: borrowing NiriWindow,
         axis: NiriAxisLayout
     ) -> NiriAxisSolver.Input {
+        if axis.isTabbed {
+            return window.axisSolverInput(orientation: axis.orientation, hasFixedValue: false, fixedValue: nil)
+        }
+        if let override = window.liveSpanOverride {
+            let weight = axis.orientation == .horizontal ? window.heightWeight : window.widthWeight
+            let minimum: CGFloat
+            if override.ignoresMinimum {
+                minimum = 0
+            } else {
+                let size = window.constraints.normalized().minSize
+                minimum = axis.orientation == .horizontal ? size.height : size.width
+            }
+            return liveSpanOverrideInput(override, weight: weight, minimum: minimum)
+        }
         let specification = switch axis.orientation {
         case .horizontal: window.height
         case .vertical: window.windowWidth

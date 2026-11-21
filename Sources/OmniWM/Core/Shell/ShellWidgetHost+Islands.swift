@@ -51,6 +51,7 @@ extension ShellWidgetHost {
             result[key] = ShellBarData(
                 monitor: target.monitor.name,
                 monitorId: IPCDisplayRef.identifier(target.monitor.id),
+                layout: bar?.layout,
                 style: bar?.style ?? ShellBarStyle(),
                 barEnabled: bar != nil,
                 workspaces: bar?.workspaces ?? [],

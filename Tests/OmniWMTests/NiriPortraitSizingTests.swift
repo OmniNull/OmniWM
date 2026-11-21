@@ -636,4 +636,148 @@ final class NiriPortraitSizingTests: NiriInteractionTestCase {
         XCTAssertFalse(fixture.engine.tickAllColumnAnimations(in: fixture.workspaceId, at: .infinity))
         XCTAssertEqual(fixture.column.cachedHeight, portraitFrame.height * presets[1])
     }
+
+    func testPortraitFixedMembersFillTheRowWithoutChangingTheirChosenWidths() throws {
+        let fixture = try makeTwoWindowRow()
+        let firstChoice = portraitFrame.width / 9 * 2
+        let secondChoice = portraitFrame.width / 9
+        fixture.first.windowWidth = .fixed(firstChoice)
+        fixture.second.windowWidth = .fixed(secondChoice)
+
+        let frames = portraitLayout(fixture.engine, in: fixture.workspaceId, state: fixture.state)
+        let first = try XCTUnwrap(frames[fixture.first.token])
+        let second = try XCTUnwrap(frames[fixture.second.token])
+
+        XCTAssertEqual(second.minX, portraitFrame.minX)
+        XCTAssertEqual(second.maxX, first.minX)
+        XCTAssertEqual(first.maxX, portraitFrame.maxX)
+        XCTAssertEqual(first.width, portraitFrame.width * firstChoice / (firstChoice + secondChoice))
+        XCTAssertEqual(second.width, portraitFrame.width * secondChoice / (firstChoice + secondChoice))
+        XCTAssertEqual(fixture.first.windowWidth, .fixed(firstChoice))
+        XCTAssertEqual(fixture.second.windowWidth, .fixed(secondChoice))
+
+        fixture.engine.removeWindow(token: fixture.second.token, in: fixture.workspaceId)
+        let alone = try XCTUnwrap(
+            portraitLayout(fixture.engine, in: fixture.workspaceId, state: fixture.state)[fixture.first.token]
+        )
+        XCTAssertEqual(alone.width, firstChoice)
+    }
+
+    func testPortraitRowFillRespectsMemberMaximumWidths() throws {
+        let fixture = try makeTwoWindowRow()
+        let choice = portraitFrame.width / 9
+        let firstMaximum = portraitFrame.width / 3
+        let secondMaximum = portraitFrame.width / 2
+        fixture.first.windowWidth = .fixed(choice)
+        fixture.second.windowWidth = .fixed(choice)
+        fixture.first.constraints = WindowSizeConstraints(
+            minSize: CGSize(width: 1, height: 1),
+            maxSize: CGSize(width: firstMaximum, height: 0),
+            isFixed: false
+        )
+        fixture.second.constraints = WindowSizeConstraints(
+            minSize: CGSize(width: 1, height: 1),
+            maxSize: CGSize(width: secondMaximum, height: 0),
+            isFixed: false
+        )
+
+        let frames = portraitLayout(fixture.engine, in: fixture.workspaceId, state: fixture.state)
+        XCTAssertEqual(try XCTUnwrap(frames[fixture.first.token]).width, firstMaximum)
+        XCTAssertEqual(try XCTUnwrap(frames[fixture.second.token]).width, secondMaximum)
+    }
+
+    func testPortraitRowFillPreservesObservedWidthPacking() throws {
+        let fixture = try makeTwoWindowRow()
+        let requested = portraitFrame.width / 9
+        let observed = portraitFrame.width / 3
+        fixture.first.windowWidth = .fixed(requested)
+        fixture.second.windowWidth = .fixed(requested)
+        fixture.first.packingHints.width = ObservedAxisHint(requested: requested, observed: observed)
+
+        let frames = portraitLayout(fixture.engine, in: fixture.workspaceId, state: fixture.state)
+        let first = try XCTUnwrap(frames[fixture.first.token])
+        let second = try XCTUnwrap(frames[fixture.second.token])
+        XCTAssertGreaterThanOrEqual(first.width, observed)
+        XCTAssertEqual(first.width, portraitFrame.width * observed / (observed + requested))
+        XCTAssertEqual(second.minX, portraitFrame.minX)
+        XCTAssertEqual(second.maxX, first.minX)
+        XCTAssertEqual(first.maxX, portraitFrame.maxX)
+    }
+
+    func testPortraitTabPlacesUseTheRenderedSecondaryGeometryAndRailInset() throws {
+        let fixture = try makeTwoWindowRow()
+        fixture.engine.renderStyle.tabIndicatorWidth = portraitFrame.width / 30
+        fixture.first.windowWidth = .auto(weight: 2)
+        fixture.second.windowWidth = .auto(weight: 1)
+        let context = NiriInteractionContext(
+            workspaceId: fixture.workspaceId,
+            motion: .disabled,
+            workingFrame: portraitFrame,
+            gaps: 0,
+            orientation: .vertical
+        )
+        for mode in [ColumnDisplay.normal, .tabbed, .normal] {
+            fixture.column.displayMode = mode
+            fixture.engine.updateTabbedColumnVisibility(column: fixture.column)
+            let frames = portraitLayout(fixture.engine, in: fixture.workspaceId, state: fixture.state)
+            let places = fixture.engine.liveWindowPlaces(in: [fixture.column], context: context)
+            for window in [fixture.first, fixture.second] {
+                let frame = try XCTUnwrap(frames[window.token])
+                let place = try XCTUnwrap(places[window.id])
+                XCTAssertEqual(place.minX, frame.minX)
+                XCTAssertEqual(place.width, frame.width)
+                XCTAssertEqual(place.minY, 0)
+                XCTAssertEqual(place.height, 0)
+                if mode == .tabbed {
+                    XCTAssertEqual(frame.minX, portraitFrame.minX + fixture.engine.renderStyle.tabIndicatorWidth)
+                    XCTAssertEqual(frame.maxX, portraitFrame.maxX)
+                }
+            }
+        }
+    }
+
+    func testPortraitRowMembersGrowFromTheirDrawnWidthsAfterRemoval() throws {
+        var fixture = try makeTwoWindowRow()
+        let third = addWindow(fixture.engine, pid: 2_001, windowId: 3, to: fixture.workspaceId, after: fixture.second)
+        let context = NiriInteractionContext(
+            workspaceId: fixture.workspaceId,
+            motion: .disabled,
+            workingFrame: portraitFrame,
+            gaps: 0,
+            orientation: .vertical
+        )
+        XCTAssertTrue(fixture.engine.consumeWindow(
+            third, into: fixture.column, enteringFrom: .right, context: context, state: &fixture.state
+        ))
+        let before = portraitLayout(fixture.engine, in: fixture.workspaceId, state: fixture.state)
+        fixture.engine.removeWindow(token: fixture.second.token, in: fixture.workspaceId)
+        let after = portraitLayout(fixture.engine, in: fixture.workspaceId, state: fixture.state)
+
+        XCTAssertTrue(fixture.engine.animateFilledSizeChanges(
+            in: fixture.workspaceId,
+            oldFrames: before,
+            newFrames: after,
+            motion: .enabled,
+            orientation: .vertical
+        ))
+        for window in [fixture.first, third] {
+            let initial = try XCTUnwrap(before[window.token])
+            let settled = try XCTUnwrap(after[window.token])
+            let spring = try XCTUnwrap(window.widthAnimation).animation
+            XCTAssertGreaterThan(settled.width, initial.width)
+            let start = window.animatedFrame(
+                from: settled, within: portraitFrame, at: spring.startTime, orientation: .vertical
+            )
+            XCTAssertEqual(start.width, initial.width)
+            XCTAssertEqual(start.height, initial.height)
+            XCTAssertNil(window.heightAnimation)
+            XCTAssertEqual(
+                window.animatedFrame(from: settled, within: portraitFrame, at: .infinity, orientation: .vertical),
+                settled
+            )
+        }
+        XCTAssertTrue(fixture.engine.hasAnyWindowAnimationsRunning(in: fixture.workspaceId))
+        XCTAssertFalse(fixture.engine.tickAllWindowAnimations(in: fixture.workspaceId, at: .infinity))
+        XCTAssertFalse(fixture.engine.hasAnyWindowAnimationsRunning(in: fixture.workspaceId))
+    }
 }

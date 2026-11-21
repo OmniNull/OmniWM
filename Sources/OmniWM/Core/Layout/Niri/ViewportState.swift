@@ -9,6 +9,7 @@ struct OffsetTransition: Equatable {
         case jump
         case spring(SpringConfig)
         case deceleration
+        case edgeScroll(speed: CGFloat)
     }
 
     var rebaseDelta: CGFloat = 0
@@ -26,6 +27,8 @@ struct ViewportState: Equatable {
 
     var selectedNodeId: NodeId?
 
+    var clickFocusedNodeId: NodeId?
+
     var viewOffsetToRestore: CGFloat?
 
     var activatePrevColumnOnRemoval: CGFloat?
@@ -37,7 +40,8 @@ extension ViewportState {
     var hasPendingOffsetAnimation: Bool {
         switch offsetTransition.kind {
         case .spring,
-             .deceleration: true
+             .deceleration,
+             .edgeScroll: true
         default: false
         }
     }
@@ -61,6 +65,11 @@ extension ViewportState {
     mutating func decelerateOffset(to offset: CGFloat) {
         viewOffset = offset
         offsetTransition.kind = .deceleration
+    }
+
+    mutating func edgeScrollOffset(to limit: CGFloat, speed: CGFloat) {
+        viewOffset = limit
+        offsetTransition.kind = .edgeScroll(speed: speed)
     }
 
     mutating func clearOffsetTransition() {

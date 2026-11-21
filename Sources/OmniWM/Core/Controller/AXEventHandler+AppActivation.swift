@@ -79,6 +79,14 @@ extension AXEventHandler {
             )
         }
 
+        if pid == getpid(),
+           controller.shellAppWindowManager.isManagedOwnedFocusTarget(
+               activeRequest: controller.intentLedger.activeManagedRequest
+           )
+        {
+            return false
+        }
+
         if pid == getpid(), controller.hasFrontmostOwnedWindow || controller.hasVisibleOwnedWindow {
             if let activeRequest = controller.intentLedger.activeManagedRequest, activeRequest.token.pid == pid {
                 _ = controller.cancelManagedFocusRequest(activeRequest)

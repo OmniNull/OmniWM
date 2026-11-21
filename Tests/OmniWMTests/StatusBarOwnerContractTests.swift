@@ -98,6 +98,35 @@ final class StatusBarOwnerContractTests: XCTestCase {
         Bindable(settings.statusBar).showWorkspaceName
     }
 
+    func testLayoutBindingSavesIndependentlyOfWorkspaceVisibility() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settings = makeSettings(directory: directory)
+        let changes = Mutex<[String]>([])
+        withObservationTracking {
+            _ = settings.statusBar.showLayout
+        } onChange: {
+            changes.withLock { $0.append("layout") }
+        }
+        withObservationTracking {
+            _ = settings.statusBar.showWorkspaceName
+        } onChange: {
+            changes.withLock { $0.append("workspace") }
+        }
+
+        Bindable(settings.statusBar).showLayout.wrappedValue = true
+
+        XCTAssertEqual(changes.withLock { $0 }, ["layout"])
+        XCTAssertFalse(settings.statusBar.showWorkspaceName)
+        XCTAssertFalse(settings.statusBar.showAppNames)
+        XCTAssertEqual(try savedExport(settings).statusBar.showLayout, true)
+
+        var imported = settings.toExport()
+        imported.statusBar.showLayout = false
+        settings.applyExport(imported)
+        XCTAssertFalse(settings.statusBar.showLayout)
+    }
+
     private func appNamesBinding(_ settings: SettingsStore) -> Binding<Bool> {
         Bindable(settings.statusBar).showAppNames
     }

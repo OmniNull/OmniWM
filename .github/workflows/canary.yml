@@ -31,7 +31,7 @@ env:
 jobs:
   prereq:
     name: Check canary signing setup
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2604
     timeout-minutes: 5
     permissions:
       contents: read
@@ -63,7 +63,7 @@ jobs:
     needs: prereq
     # Scheduled workflows also fire on forks; only the upstream repo signs.
     if: github.repository == 'OmniNull/OmniWM' && github.ref == 'refs/heads/main' && needs.prereq.outputs.ready == 'true'
-    runs-on: xcode-27
+    runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 60
     # Deliberately not release-signing: that environment requires the owner
     # review every stable release needs, and a daily schedule must not queue

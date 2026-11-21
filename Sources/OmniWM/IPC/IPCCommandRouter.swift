@@ -36,8 +36,8 @@ final class IPCCommandRouter {
             return controller.commandHandler.performCommand(HotkeyCommand(ipc: command))
         case .openCommandPalette:
             return controller.commandHandler.performCommand(.openCommandPalette)
-        case let .openCommandPaletteMode(mode):
-            return openCommandPalette(mode: mode)
+        case let .openCommandPaletteMode(mode): return openCommandPalette(mode: mode)
+        case let .windowSwitcher(direction, scope): return advanceWindowSwitcher(direction: direction, scope: scope)
         case .raiseAllFloatingWindows:
             return raiseAllFloatingWindows()
         case .toggleFloatingFocus:
@@ -338,5 +338,19 @@ extension IPCCommandRouter {
         }
         controller.openCommandPalette(mode: CommandPaletteMode(ipc: mode))
         return .executed
+    }
+
+    private func advanceWindowSwitcher(
+        direction: IPCWindowSwitcherDirection,
+        scope: IPCWindowSwitcherScope?
+    ) -> ExternalCommandResult {
+        if let guardResult = IPCCommandValidation.controllerState(controller) {
+            return guardResult
+        }
+        guard controller.settings.windowSwitcher.enabled else { return .ignoredDisabled }
+        return controller.windowSwitcherController.advanceFromAutomation(
+            reverse: direction == .previous,
+            scope: scope.map(WindowSwitcherScope.init(ipc:))
+        )
     }
 }

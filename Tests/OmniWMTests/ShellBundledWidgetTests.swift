@@ -26,8 +26,8 @@ final class ShellBundledWidgetTests: XCTestCase {
 
     private static let names = [
         "clock", "battery", "volume", "weather", "stats", "workspaces", "scratchpads", "omniwm", "system-stats",
-        "hidden-bar", "media", "calendar", "launcher", "active-window", "input-source", "wifi", "bluetooth",
-        "battery-details", "world-clock", "privacy", "control-center"
+        "hidden-bar", "media", "calendar", "launcher", "active-window", "input-source", "wifi", "wifi-networks",
+        "bluetooth", "battery-details", "world-clock", "privacy", "control-center"
     ]
 
     private static let essentials = [
@@ -183,6 +183,32 @@ final class ShellBundledWidgetTests: XCTestCase {
                 ShellWiFi(
                     power: true, connected: true, ssid: "Harbourfront", rssi: -58, band: "5 GHz", channel: 149,
                     security: "WPA3 Personal", location: "authorized"
+                ).write(into: &$0)
+            }),
+            ("wifiNetworks", value {
+                let id = { (ssid: String) in ShellWiFiNetwork.id(Data(ssid.utf8)) }
+                ShellWiFiNetworks(
+                    known: [ShellWiFiNetwork(
+                        id: id("Office"),
+                        ssid: "Office",
+                        rssi: -64,
+                        security: "WPA2 Personal",
+                        secured: true,
+                        known: true
+                    )],
+                    other: [
+                        ShellWiFiNetwork(id: id("Café"), ssid: "Café", rssi: -77, security: "Open"),
+                        ShellWiFiNetwork(
+                            id: id("Corp"),
+                            ssid: "Corp",
+                            rssi: -70,
+                            security: "WPA2 Enterprise",
+                            secured: true,
+                            enterprise: true
+                        )
+                    ],
+                    joining: id("Office"),
+                    failure: ShellWiFiFailure(id: id("Café"), message: "The operation couldn’t be completed.")
                 ).write(into: &$0)
             }),
             ("bluetooth", value { writer in
@@ -402,6 +428,55 @@ final class ShellBundledWidgetTests: XCTestCase {
                 let strings = nodes.map { text.string($0.text) }
                 XCTAssertFalse(strings.contains("pause.fill") || strings.contains("keyboard"), style)
             })
+        }
+    }
+
+    func testOmniWMButtonsShowTheBarLayoutInsideTheButton() throws {
+        var problems: [String] = []
+        let styles = try ["default"] + ShellStyleFixture.names().filter { style in
+            let config = try XCTUnwrap(ShellConfig.load(
+                profile: style, shellDirectory: Self.styleShell, problems: &problems
+            ))
+            return (config.leading + config.center + config.trailing).contains("omniwm")
+        }
+        XCTAssertEqual(problems, [])
+        let layouts: [ActiveLayoutKind] = [.niri, .dwindle]
+        let states: [(secure: Bool, mode: KeyboardModeKind)] = [(false, .normal), (true, .normal), (false, .paused)]
+        for style in styles {
+            for vertical in [false, true] {
+                for state in states {
+                    for layout in [nil] + layouts {
+                        let label = "\(style) vertical=\(vertical) secure=\(state.secure) \(state.mode.rawValue) "
+                            + (layout?.rawValue ?? "none")
+                        let data = try fullData(vertical: vertical) { bar in
+                            bar.layout = layout
+                            bar.style.secureInput = state.secure
+                            bar.style.keyboardMode = state.mode.rawValue
+                        }
+                        try renderStyle(style, widget: "omniwm", data: data, inspect: { view, nodes, text in
+                            guard view == OMNI_VIEW_BAR else { return }
+                            let strings = nodes.map { text.string($0.text) }
+                            XCTAssertTrue(strings.contains(state.secure ? "omniwm.lock" : "omniwm"), label)
+                            XCTAssertEqual(strings.contains("pause.fill"), state.mode == .paused, label)
+                            for other in layouts where other != layout {
+                                XCTAssertFalse(strings.contains(StatusBarController.layoutSymbolName(other)), label)
+                            }
+                            guard let layout else { return }
+                            let mark = try XCTUnwrap(
+                                strings.firstIndex(of: StatusBarController.layoutSymbolName(layout)), label
+                            )
+                            XCTAssertEqual(
+                                text.string(nodes[mark].help), StatusBarController.layoutDisplayName(layout), label
+                            )
+                            let button = try XCTUnwrap(
+                                nodes.firstIndex { text.string($0.action) == "shell menu" },
+                                label
+                            )
+                            XCTAssertTrue(button < mark && mark < Int(nodes[button].subtree_end), label)
+                        })
+                    }
+                }
+            }
         }
     }
 
@@ -690,17 +765,19 @@ final class ShellBundledWidgetTests: XCTestCase {
         let variants = [full, full.filter { (Self.essentials + ["hiddenBar"]).contains($0.0) }]
         let widgets = [
             "battery-details", "bluetooth", "calendar", "control-center", "hidden-bar-menu",
-            "input-source", "media", "stats", "system-stats", "volume", "weather", "world-clock", "wifi"
+            "input-source", "media", "stats", "system-stats", "volume", "weather", "world-clock", "wifi",
+            "wifi-networks"
         ]
         for widget in widgets {
-            for data in variants {
+            for (index, data) in variants.enumerated() {
                 try renderStyle("default", widget: widget, data: data, inspect: { view, nodes, _ in
                     guard view == OMNI_VIEW_POPOUT else { return }
                     let empty = nodes.isEmpty || nodes.count == 1 && nodes[0].width == 0 && nodes[0].height == 0
                     if empty {
                         XCTAssertTrue([
-                            "battery-details", "bluetooth", "calendar", "input-source", "weather", "wifi", "world-clock"
-                        ].contains(widget), widget)
+                            "battery-details", "bluetooth", "calendar", "input-source", "weather", "wifi",
+                            "world-clock"
+                        ].contains(widget) || widget == "wifi-networks" && index == 1, widget)
                         for node in nodes {
                             XCTAssertEqual(node.text, 0, widget)
                             XCTAssertEqual(node.action, 0, widget)
@@ -725,12 +802,40 @@ final class ShellBundledWidgetTests: XCTestCase {
         }
     }
 
+    func testWiFiNetworksPopoutScrollsInsteadOfOutgrowingAShortDisplay() throws {
+        let networks = { (prefix: String, known: Bool) in
+            (1 ... 12).map { index in
+                ShellWiFiNetwork(
+                    id: ShellWiFiNetwork.id(Data("\(prefix) \(index)".utf8)), ssid: "\(prefix) \(index)",
+                    rssi: -40 - index, security: "WPA2 Personal", secured: true, known: known
+                )
+            }
+        }
+        let data = try fullData { $0.style.height = 32 }.map { key, bytes in
+            key == "wifiNetworks"
+                ? (key, value {
+                    ShellWiFiNetworks(known: networks("Known", true), other: networks("Other", false))
+                        .write(into: &$0)
+                })
+                : (key, bytes)
+        }
+        var rendered = false
+        try renderStyle("default", widget: "wifi-networks", data: data, inspect: { view, nodes, _ in
+            guard view == OMNI_VIEW_POPOUT else { return }
+            let root = try XCTUnwrap(nodes.first)
+            XCTAssertLessThanOrEqual(root.height, 700)
+            XCTAssertTrue(nodes.contains { UInt32($0.flags) & OMNI_NODE_SCROLL != 0 })
+            rendered = true
+        })
+        XCTAssertTrue(rendered)
+    }
+
     func testDefaultControlCenterTabsRenderWithFullAndMissingDataAndUnknownTabsShowOverview() throws {
         let full = try fullData { $0.style.height = 32 }
         let variants = [full, full.filter { Self.essentials.contains($0.0) }]
         let tabs = [
-            ("overview", "Control Center"), ("audio", "Audio"), ("media", "Media"), ("calendar", "Calendar"),
-            ("weather", "Weather"), ("system", "System"), ("unknown", "Control Center")
+            ("overview", "Control Center"), ("audio", "Audio"), ("displays", "Displays"), ("media", "Media"),
+            ("calendar", "Calendar"), ("weather", "Weather"), ("system", "System"), ("unknown", "Control Center")
         ]
         for (index, data) in variants.enumerated() {
             for (tab, title) in tabs {

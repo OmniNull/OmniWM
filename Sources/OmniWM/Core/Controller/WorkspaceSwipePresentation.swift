@@ -53,7 +53,8 @@ final class WorkspaceSwipePresentation {
     }
 
     private func hasDisplayWork(_ flight: Flight, _ displayId: CGDirectDisplayID) -> Bool {
-        flight.preparation.monitor.displayId == displayId && !flight.committing
+        flight.preparation.monitor.displayId == displayId
+            && (!flight.committing || flight.isKeyboard && !flight.motionFinished)
             && (flight.motion.target != nil || flight.carry != nil)
     }
 
@@ -182,7 +183,7 @@ final class WorkspaceSwipePresentation {
         return true
     }
 
-    private func activateDisplayLink(for flight: Flight) -> Bool {
+    func activateDisplayLink(for flight: Flight) -> Bool {
         if refreshController?
             .displayLinkActivationForTests?(flight.preparation.monitor.displayId) == true { return true }
         guard let link = refreshController?.getOrCreateDisplayLink(for: flight.preparation.monitor.displayId) else {
@@ -225,7 +226,13 @@ final class WorkspaceSwipePresentation {
             }
             present(flight, at: timestamp)
             if flight.motion.isComplete(at: timestamp) {
-                if flight.motion.target == 1 { commit(flight) } else { cancel(flight, reason: "cancelled") }
+                if flight.committing {
+                    finishKeyboardMotion(flight)
+                } else if flight.motion.target == 1 {
+                    commit(flight)
+                } else {
+                    cancel(flight, reason: "cancelled")
+                }
             }
         }
     }
@@ -271,7 +278,7 @@ extension WorkspaceSwipePresentation {
         return true
     }
 
-    private func install(_ flight: Flight, after predecessor: Flight?) {
+    func install(_ flight: Flight, after predecessor: Flight?, tracksGesture: Bool = true) {
         let monitor = flight.preparation.monitor
         refreshController?.stopScrollAnimation(for: monitor.displayId)
         refreshController?.stopDwindleAnimation(for: monitor.displayId)
@@ -283,7 +290,7 @@ extension WorkspaceSwipePresentation {
         noteNewestGesture(on: monitor.id)
         flight.serial = latestSerial
         flights[monitor.id] = flight
-        gestureFlight = flight
+        if tracksGesture { gestureFlight = flight }
         trace(predecessor == nil ? "began" : "chained")
     }
 
@@ -341,7 +348,7 @@ extension WorkspaceSwipePresentation {
         didSubmitPlacement(flight)
     }
 
-    private func didSubmitPlacement(_ flight: Flight) {
+    func didSubmitPlacement(_ flight: Flight) {
         guard isCurrent(flight), flight.committing else { return }
         flight.settlement?.seal()
     }

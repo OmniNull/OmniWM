@@ -7,6 +7,218 @@ import SQLite3
 import XCTest
 
 final class ShellNotificationStoreTests: XCTestCase {
+    private let fixtureBundle = "com.omniwm.NotificationRouteFixture"
+    private let allowed = ShellNotificationPreferences.notificationsAllowed
+    private let hidden = ShellNotificationPreferences.hiddenFromNotificationCenter
+
+    func testAlertStyleDoesNotDetermineHistoryMembershipAndMissingMembersStillFail() throws {
+        let base = try XCTUnwrap(PropertyListSerialization
+            .propertyList(from: fixture("rich-base"), format: nil) as? [String: Any])
+        try database { url, db in
+            var members = Data()
+            var expected: Set<String> = []
+            for (index, style) in ["0", "1", "2", "99", "NULL"].enumerated() {
+                let id = Data(repeating: UInt8(index + 1), count: 16)
+                var root = base
+                root["uuid"] = id
+                let payload = try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
+                try insert(payload, uuid: id, into: db)
+                try sql("UPDATE record SET style=\(style),presented=0 WHERE uuid=\(blob(id))", db)
+                members.append(id)
+                expected.insert(try XCTUnwrap(ShellNotificationMetadata.guid(id)))
+            }
+            try sql("INSERT INTO delivered VALUES(1,\(blob(members)))", db)
+            let result = read(url)
+            XCTAssertTrue(result.complete)
+            XCTAssertEqual(Set(result.items.compactMap { $0.fields?["id"]?.string }), expected)
+
+            members.append(Data(repeating: 9, count: 16))
+            try sql("UPDATE delivered SET list=\(blob(members))", db)
+            let incomplete = read(url)
+            XCTAssertFalse(incomplete.membershipComplete)
+            XCTAssertTrue(incomplete.issues.contains { $0.reason == .missingRecord })
+            XCTAssertEqual(incomplete.items.count, expected.count)
+        }
+    }
+
+    func testCurrentPreferencesControlHistoryIndependentlyOfArrivalStyle() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        try database { url, db in
+            try insert(payload, uuid: guid, into: db)
+            try sql("INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
+            for style in [0, 1, 2] {
+                try sql("UPDATE record SET style=\(style)", db)
+                for (flags, visible) in [(allowed, true), (allowed | hidden, false), (.zero, false), (allowed, true)] {
+                    try setPreferences([["bundle-id": fixtureBundle, "flags": flags]], for: url)
+                    let result = read(url)
+                    XCTAssertEqual(result.items.count, visible ? 1 : 0)
+                    XCTAssertEqual(result.state, visible ? "ready" : "empty")
+                    XCTAssertTrue(result.membershipComplete)
+                    XCTAssertTrue(result.complete)
+                    XCTAssertTrue(result.issues.isEmpty)
+                }
+            }
+            try sql("UPDATE delivered SET list=\(blob(guid + Data(repeating: 9, count: 16)))", db)
+            let incomplete = read(url)
+            XCTAssertFalse(incomplete.membershipComplete)
+            XCTAssertTrue(incomplete.issues.contains { $0.reason == .missingRecord })
+        }
+    }
+
+    func testPreferenceMatchingIgnoresBundleCaseWithoutChangingPublishedIdentifiers() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        for bundle in ["com.apple.ScriptEditor2", "net.whatsapp.WhatsApp"] {
+            for (stored, preference) in [(bundle.lowercased(), bundle), (bundle, bundle.lowercased())] {
+                try database { url, db in
+                    try sql("UPDATE app SET identifier='\(stored)' WHERE app_id=1", db)
+                    try insert(payload, uuid: guid, into: db)
+                    try sql("INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
+                    for flags in [allowed | hidden, allowed] {
+                        try setPreferences([["bundle-id": preference, "flags": flags]], for: url)
+                        let result = read(url)
+                        XCTAssertTrue(result.complete)
+                        if flags & hidden != 0 {
+                            XCTAssertTrue(result.items.isEmpty)
+                        } else {
+                            XCTAssertEqual(result.items.count, 1)
+                            XCTAssertEqual(result.items.first?.fields?["bundle"]?.string, stored)
+                        }
+                        XCTAssertEqual(result.apps.first?.fields?["bundle"]?.string, stored)
+                    }
+                }
+            }
+        }
+    }
+
+    func testExcludedAppStillParticipatesInCrossAppDuplicateValidation() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        let bundles = [fixtureBundle, "com.omniwm.OtherFixture"]
+        for excluded in bundles {
+            try database { url, db in
+                try sql("INSERT INTO app(app_id,identifier) VALUES(2,'\(bundles[1])')", db)
+                for app in [1, 2] {
+                    try insert(payload, uuid: guid, into: db)
+                    try sql("UPDATE record SET app_id=\(app) WHERE rec_id=last_insert_rowid()", db)
+                    try sql("INSERT INTO delivered VALUES(\(app),\(blob(guid)))", db)
+                }
+                try setPreferences(
+                    bundles.map { ["bundle-id": $0, "flags": $0 == excluded ? .zero : allowed] }, for: url
+                )
+                let result = read(url)
+                XCTAssertEqual(result.items.count, 1)
+                XCTAssertEqual(result.items.first?.fields?["bundle"]?.string, bundles.first { $0 != excluded })
+                XCTAssertFalse(result.membershipComplete)
+                XCTAssertFalse(result.canDismiss)
+                XCTAssertTrue(result.issues.contains { $0.reason == .duplicateIdentifier })
+            }
+        }
+    }
+
+    func testUnreadablePreferencesLeaveTheSnapshotUnfiltered() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        try database { url, db in
+            try insert(payload, uuid: guid, into: db)
+            try sql("INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
+            let hiddenFixture: [[String: Any]] = [["bundle-id": fixtureBundle, "flags": hidden]]
+            try setPreferences(hiddenFixture, for: url)
+            XCTAssertTrue(read(url).items.isEmpty)
+            try FileManager.default.removeItem(at: preferencesURL(url))
+            let missing = read(url)
+            try Data([1, 2, 3]).write(to: preferencesURL(url))
+            let malformed = read(url)
+            let unsupportedPreferences: [String: Any] = [
+                "version": ShellNotificationPreferences.supportedVersion + 1, "apps": hiddenFixture
+            ]
+            try PropertyListSerialization.data(fromPropertyList: unsupportedPreferences, format: .binary, options: 0)
+                .write(to: preferencesURL(url))
+            let unsupported = read(url)
+            let readFailure = ShellNotificationStore.read(
+                at: url, preferencesURL: url.deletingLastPathComponent(), isInstalled: { _ in false }
+            )
+            for result in [missing, malformed, unsupported, readFailure] {
+                XCTAssertEqual(result.state, "ready")
+                XCTAssertEqual(result.items.count, 1)
+                XCTAssertTrue(result.complete)
+                XCTAssertTrue(result.issues.isEmpty)
+            }
+        }
+    }
+
+    func testAppsWithoutSettingsAreListedOnlyWhenInstalled() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        try database { url, db in
+            try insert(payload, uuid: guid, into: db)
+            try sql("INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
+            try setPreferences([], for: url)
+            let removed = read(url)
+            XCTAssertTrue(removed.items.isEmpty)
+            XCTAssertEqual(removed.state, "empty")
+            XCTAssertTrue(removed.complete)
+            XCTAssertEqual(read(url, installed: [fixtureBundle]).items.count, 1)
+            try sql(
+                "UPDATE app SET identifier='\(ShellNotificationPreferences.permissionPromptSource)' WHERE app_id=1", db
+            )
+            XCTAssertEqual(read(url).items.count, 1)
+            try sql("UPDATE delivered SET list=\(blob(guid + Data(repeating: 9, count: guid.count)))", db)
+            try sql("UPDATE app SET identifier='\(fixtureBundle)' WHERE app_id=1", db)
+            let incomplete = read(url)
+            XCTAssertTrue(incomplete.items.isEmpty)
+            XCTAssertFalse(incomplete.membershipComplete)
+            XCTAssertTrue(incomplete.issues.contains { $0.reason == .missingRecord })
+        }
+    }
+
+    func testSystemCenterSourcesAreNeverListedWhateverTheirSettings() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        let source = ShellNotificationPreferences.systemCenterPrefix + "com.example.agent"
+        let settings: [[[String: Any]]] = [[], [["bundle-id": source.uppercased(), "flags": allowed]]]
+        try database { url, db in
+            try sql("UPDATE app SET identifier='\(source)' WHERE app_id=1", db)
+            try insert(payload, uuid: guid, into: db)
+            try sql("INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
+            for apps in settings {
+                try setPreferences(apps, for: url)
+                let result = read(url, installed: [source])
+                XCTAssertTrue(result.items.isEmpty)
+                XCTAssertEqual(result.state, "empty")
+                XCTAssertTrue(result.complete)
+            }
+        }
+    }
+
+    func testDuplicateIDsAcrossAlertStylesKeepOneItemInEitherRowOrder() throws {
+        let payload = try fixture("rich-base")
+        let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
+        let guid = try XCTUnwrap(root["uuid"] as? Data)
+        for styles in [[0, 1], [1, 0], [1, 1]] {
+            try database { url, db in
+                for style in styles {
+                    try insert(payload, uuid: guid, into: db)
+                    try sql("UPDATE record SET style=\(style) WHERE rec_id=last_insert_rowid()", db)
+                }
+                try sql("INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
+                let result = read(url)
+                XCTAssertEqual(result.items.count, 1)
+                XCTAssertEqual(result.items.first?.fields?["id"]?.string, ShellNotificationMetadata.guid(guid))
+                XCTAssertFalse(result.membershipComplete)
+                XCTAssertTrue(result.issues.contains { $0.reason == .duplicateIdentifier })
+                XCTAssertFalse(result.issues.contains { $0.reason == .missingRecord })
+            }
+        }
+    }
+
     func testRichRecordPreservesExactTextArchivesActionsAndBinaryMetadata() throws {
         let payload = try fixture("rich-base")
         let root = try XCTUnwrap(PropertyListSerialization.propertyList(from: payload, format: nil) as? [String: Any])
@@ -15,7 +227,7 @@ final class ShellNotificationStoreTests: XCTestCase {
         try database { url, db in
             try insert(payload, uuid: guid, into: db)
             try sql("INSERT INTO delivered VALUES (1,\(blob(guid)))", db)
-            let result = ShellNotificationStore.read(at: url)
+            let result = read(url)
             XCTAssertEqual(result.state, "ready")
             XCTAssertTrue(result.complete)
             let item = try XCTUnwrap(result.items.first?.fields)
@@ -61,7 +273,7 @@ final class ShellNotificationStoreTests: XCTestCase {
         try database { url, db in
             try insert(payload, uuid: Data(repeating: 7, count: 16), into: db)
             try sql("INSERT INTO delivered VALUES (1,\(blob(guid)))", db)
-            let result = ShellNotificationStore.read(at: url)
+            let result = read(url)
             XCTAssertEqual(result.state, "incomplete")
             XCTAssertFalse(result.complete)
             XCTAssertEqual(result.items.first?.fields?["id"]?.string, ShellNotificationMetadata.guid(guid))
@@ -76,7 +288,7 @@ final class ShellNotificationStoreTests: XCTestCase {
             try insert(payload, uuid: guid, into: db)
             try insert(Data([1, 2, 3]), uuid: Data(repeating: 4, count: 16), into: db)
             try sql("INSERT INTO delivered VALUES (1,\(blob(guid)))", db)
-            let result = ShellNotificationStore.read(at: url)
+            let result = read(url)
             XCTAssertEqual(result.state, "ready")
             XCTAssertTrue(result.complete)
             XCTAssertEqual(result.items.count, 1)
@@ -86,14 +298,14 @@ final class ShellNotificationStoreTests: XCTestCase {
     func testNullEmptyMembershipMalformedAndMissingStorageAreDistinct() throws {
         try database { url, db in
             try sql("INSERT INTO delivered VALUES (1,NULL)", db)
-            XCTAssertEqual(ShellNotificationStore.read(at: url).state, "empty")
+            XCTAssertEqual(read(url).state, "empty")
             try sql("UPDATE delivered SET list=X'010203'", db)
-            let malformed = ShellNotificationStore.read(at: url)
+            let malformed = read(url)
             XCTAssertEqual(malformed.state, "malformed")
             XCTAssertFalse(malformed.complete)
         }
         let missing = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
-        XCTAssertEqual(ShellNotificationStore.read(at: missing).state, "unavailable")
+        XCTAssertEqual(read(missing).state, "unavailable")
         XCTAssertFalse(FileManager.default.fileExists(atPath: missing.path))
     }
 
@@ -106,7 +318,7 @@ final class ShellNotificationStoreTests: XCTestCase {
             try insert(payload, uuid: guid, into: db)
             try insert(Data([1, 2, 3]), uuid: corrupt, into: db)
             try sql("INSERT INTO delivered VALUES(1,\(blob(guid + corrupt)))", db)
-            let result = ShellNotificationStore.read(at: url)
+            let result = read(url)
             XCTAssertEqual(result.state, "malformed")
             XCTAssertFalse(result.complete)
             XCTAssertEqual(result.items.count, 1)
@@ -161,7 +373,7 @@ final class ShellNotificationStoreTests: XCTestCase {
         try database { url, db in
             try insert(payload, uuid: guid, into: db)
             try sql("INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
-            let result = ShellNotificationStore.read(at: url)
+            let result = read(url)
             XCTAssertTrue(result.complete)
             var value = result.items.first?.fields?["userInfo"]
             for _ in 0 ..< 20 { value = value?.fields?["next"] }
@@ -180,7 +392,7 @@ final class ShellNotificationStoreTests: XCTestCase {
         try database { url, db in
             try insert(payload, uuid: guid, into: db)
             try sql("INSERT INTO delivered VALUES(1,\(blob(guid)))", db)
-            let result = ShellNotificationStore.read(at: url)
+            let result = read(url)
             XCTAssertFalse(result.complete)
             XCTAssertEqual(result.state, "incomplete")
             XCTAssertEqual(result.items.first?.fields?["title"]?.string, "")
@@ -205,17 +417,30 @@ final class ShellNotificationStoreTests: XCTestCase {
         return try Data(contentsOf: root.appendingPathComponent("Fixtures/Notifications/\(name).bplist"))
     }
 
+    private func read(_ url: URL, installed: Set<String> = []) -> ShellNotificationsData {
+        ShellNotificationStore.read(at: url, preferencesURL: preferencesURL(url), isInstalled: installed.contains)
+    }
+
+    private func preferencesURL(_ database: URL) -> URL {
+        database.deletingLastPathComponent().appendingPathComponent("preferences.plist")
+    }
+
+    private func setPreferences(_ apps: [[String: Any]], for database: URL) throws {
+        try notificationPreferences(apps).write(to: preferencesURL(database), options: .atomic)
+    }
+
     private func database(_ body: (URL, OpaquePointer) throws -> Void) throws {
         let directory = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("db")
+        try setPreferences([["bundle-id": fixtureBundle, "flags": allowed]], for: url)
         var handle: OpaquePointer?
         XCTAssertEqual(sqlite3_open(url.path, &handle), SQLITE_OK)
         let db = try XCTUnwrap(handle)
         defer { sqlite3_close(db) }
         try sql(
-            "CREATE TABLE app(app_id INTEGER PRIMARY KEY,identifier TEXT,badge INTEGER,extra TEXT); CREATE TABLE categories(app_id INTEGER PRIMARY KEY,categories BLOB); CREATE TABLE delivered(app_id INTEGER PRIMARY KEY,list BLOB); CREATE TABLE displayed(app_id INTEGER PRIMARY KEY,list BLOB); CREATE TABLE requests(app_id INTEGER PRIMARY KEY,list BLOB); CREATE TABLE record(rec_id INTEGER PRIMARY KEY,app_id INTEGER,uuid BLOB,data BLOB,request_date REAL,request_last_date REAL,delivered_date REAL,presented INTEGER,style INTEGER,snooze_fire_date REAL); INSERT INTO app VALUES(1,'com.omniwm.NotificationRouteFixture',37,'preserved'); INSERT INTO displayed VALUES(1,NULL); INSERT INTO requests VALUES(1,NULL);",
+            "CREATE TABLE app(app_id INTEGER PRIMARY KEY,identifier TEXT,badge INTEGER,extra TEXT); CREATE TABLE categories(app_id INTEGER PRIMARY KEY,categories BLOB); CREATE TABLE delivered(app_id INTEGER PRIMARY KEY,list BLOB); CREATE TABLE displayed(app_id INTEGER PRIMARY KEY,list BLOB); CREATE TABLE requests(app_id INTEGER PRIMARY KEY,list BLOB); CREATE TABLE record(rec_id INTEGER PRIMARY KEY,app_id INTEGER,uuid BLOB,data BLOB,request_date REAL,request_last_date REAL,delivered_date REAL,presented INTEGER,style INTEGER,snooze_fire_date REAL); INSERT INTO app VALUES(1,'\(fixtureBundle)',37,'preserved'); INSERT INTO displayed VALUES(1,NULL); INSERT INTO requests VALUES(1,NULL);",
             db
         )
         try sql("INSERT INTO categories VALUES(1,\(blob(try fixture("categories"))))", db)

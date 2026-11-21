@@ -48,7 +48,7 @@ env:
 jobs:
   validate:
     name: Validate release request
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2604
     timeout-minutes: 5
     permissions:
       contents: read
@@ -127,7 +127,7 @@ jobs:
     name: Build latest GhosttyKit for Apple Silicon
     needs: validate
     if: inputs.mode == 'prepare'
-    runs-on: xcode-27
+    runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 90
     permissions:
       contents: read
@@ -166,7 +166,7 @@ jobs:
     environment: release-signing
     needs: [validate, ghostty]
     if: inputs.mode == 'prepare'
-    runs-on: xcode-27
+    runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 120
     permissions:
       # Write is required only for the no-op push-access probe; prepare never pushes.
@@ -197,6 +197,7 @@ jobs:
             echo '::error::main moved since dispatch; re-run prepare.'
             exit 1
           fi
+      - uses: ./.github/actions/setup-audio
       - uses: ./.github/actions/setup-swift
       - uses: ./.github/actions/setup-lix
         with:
@@ -286,7 +287,7 @@ jobs:
     environment: release-publish
     needs: validate
     if: inputs.mode == 'publish'
-    runs-on: xcode-27
+    runs-on: blacksmith-6vcpu-macos-27
     timeout-minutes: 60
     permissions:
       contents: write

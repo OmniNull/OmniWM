@@ -13,7 +13,12 @@ the initial default whenever the matching app currently has no tracked windows. 
 workspace active when creation began. Automatic reevaluation preserves existing managed windows' workspaces, while
 readmission, structural replacements, and unique persisted boot-restore matches
 preserve placement continuity. `rule apply` is the explicit path that may move existing managed windows.
+With `--assign-to-workspace-for-all-windows`, the workspace assignment applies to every new matching window
+(**Unreleased:** available when building from `main`). `omniwmctl query rules --format json` shows the option
+as `assignToWorkspaceForAllWindows`.
 Initial container primary span is a one-shot Niri admission hint and never resizes an existing container.
+A scratchpad destination doesn't have the no-tracked-windows limit: it applies to every matching window when OmniWM
+starts managing it (**Unreleased:** available when building from `main`).
 
 ```
 omniwmctl rule <action> [arguments...] [options...]
@@ -31,9 +36,11 @@ omniwmctl rule <action> [arguments...] [options...]
 | `--ax-subrole` | `<subrole>` | Match accessibility subrole |
 | `--layout` | `<auto\|tile\|float>` | Layout action (`auto` = default behavior) |
 | `--assign-to-workspace` | `<raw-name>` | Use this workspace as the initial default whenever the matching app currently has no tracked windows |
+| `--assign-to-workspace-for-all-windows` | — | **Unreleased:** available when building from `main`. Apply the workspace assignment to every new matching window. Requires `--assign-to-workspace` |
 | `--initial-container-primary-span` | `<proportion>` | Initial Niri container primary span for a resizable window, from `0.05` through `1.0` inclusive |
 | `--min-width` | `<points>` | Minimum window width in points |
 | `--min-height` | `<points>` | Minimum window height in points |
+| `--scratchpad` | `<1-10>` | **Unreleased:** available when building from `main`. Add every matching window to this scratchpad slot when OmniWM starts managing it. Cannot be combined with `--assign-to-workspace` or `--layout tile` |
 
 When supplied, bundle IDs must match the pattern: `^[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*$`. Every rule needs
 at least one identifier — a bundle ID, app-name substring, or title (substring/regex). The bundle ID is
@@ -41,7 +48,14 @@ the app's *runtime* identifier (`NSRunningApplication.bundleIdentifier`); apps w
 or wrapper apps) are matched by app name and/or title. AX role/subrole refine an existing match but cannot
 identify a rule on their own. Title substring and title regex are mutually exclusive, and a supplied regex
 must compile. Every rule also needs at least one effect: a layout other than `auto`, a workspace assignment,
-an initial container primary span, or a minimum width or height. Minimum sizes must be positive and finite.
+a scratchpad slot, an initial container primary span, or a minimum width or height (the scratchpad slot is
+**Unreleased:** available when building from `main`). Minimum sizes must be positive and finite.
+
+**Unreleased:** available when building from `main`. `--assign-to-workspace` and `--scratchpad` set the same thing, the rule's destination, so a rule sets at most
+one of them. Of the matching rules that set a destination, the most specific wins, and list order breaks ties. If
+the winning workspace destination is skipped, the window gets default placement, not a losing scratchpad
+destination. `omniwmctl query rules` shows each rule's scratchpad slot. See
+[App Rules](/features/app-rules/#rule-destination) for the full behavior.
 
 ## Structural Admission
 
@@ -71,7 +85,9 @@ the stored `initialContainerPrimarySpan` proportion.
 omniwmctl rule add [options...]
 ```
 
-Supply `--bundle-id` and/or at least one matcher (`--app-name-substring`, `--title-substring`, `--title-regex`). Appends a new rule to the end of the rule list. Its placement defaults apply whenever the matching app currently has no tracked windows; already managed windows are not moved.
+Supply `--bundle-id` and/or at least one matcher (`--app-name-substring`, `--title-substring`, `--title-regex`).
+This appends a rule to the end of the list and uses the chosen destination when admitting matching windows.
+Already managed windows stay in place.
 
 **Replace a rule:**
 
@@ -106,7 +122,9 @@ omniwmctl rule apply [--focused | --window <opaque-id> | --pid <pid>]
 Re-evaluates the current rule set against the target. Defaults to `--focused` if no target is specified. This is
 the explicit path for applying ongoing rule effects to already managed windows; the one-shot initial container
 primary-span hint is not reasserted on an existing container. Explicit application may move an existing window
-to its valid assigned workspace.
+to its valid assigned workspace. **Unreleased:** available when building from `main`. When a scratchpad destination wins, a window already in the slot is left unchanged
+and any other window joins the slot. When a workspace destination wins for a scratchpad member, the window leaves
+its slot for that workspace.
 
 | Target | Description |
 |--------|-------------|
@@ -123,8 +141,14 @@ omniwmctl rule add --bundle-id com.apple.finder --layout float
 # Tile Safari's first newly admitted window on workspace 2 when Safari has no tracked windows
 omniwmctl rule add --bundle-id com.apple.Safari --layout tile --assign-to-workspace 2
 
+# Route every new VS Code window to workspace 32 (Unreleased: available when building from main)
+omniwmctl rule add --bundle-id com.microsoft.VSCode --assign-to-workspace 32 --assign-to-workspace-for-all-windows
+
 # Start new Kitty containers at 50% of the primary axis in Niri
 omniwmctl rule add --bundle-id net.kovidgoyal.kitty --initial-container-primary-span 0.5
+
+# Add every new TextEdit window to scratchpad 2 (Unreleased: available when building from main)
+omniwmctl rule add --bundle-id com.apple.TextEdit --scratchpad 2
 
 # Float windows with "Preferences" in the title
 omniwmctl rule add --bundle-id com.apple.Safari --title-substring Preferences --layout float

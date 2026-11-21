@@ -34,60 +34,70 @@ struct WorkspaceBarWindowProjector {
         return options.excludes(bundleId: bundleId(for: entry))
     }
 
+    enum Grouping {
+        case individual
+        case byApp(keepsLayoutOrder: Bool)
+    }
+
     func items(
         entries: [WindowState],
-        deduplicate: Bool,
-        useLayoutOrder: Bool,
+        order: [Int],
+        grouping: Grouping,
         focusedToken: WindowToken?,
         hiddenAppPIDs: Set<pid_t>
     ) -> [WorkspaceBarWindowItem] {
-        if deduplicate {
-            return createDedupedWindowItems(
+        switch grouping {
+        case let .byApp(keepsLayoutOrder):
+            createDedupedWindowItems(
                 entries: entries,
-                useLayoutOrder: useLayoutOrder,
+                order: order,
+                useLayoutOrder: keepsLayoutOrder,
+                focusedToken: focusedToken,
+                hiddenAppPIDs: hiddenAppPIDs
+            )
+        case .individual:
+            createIndividualWindowItems(
+                entries: entries,
+                order: order,
                 focusedToken: focusedToken,
                 hiddenAppPIDs: hiddenAppPIDs
             )
         }
-
-        return createIndividualWindowItems(
-            entries: entries,
-            focusedToken: focusedToken,
-            hiddenAppPIDs: hiddenAppPIDs
-        )
     }
 
     private func createDedupedWindowItems(
         entries: [WindowState],
+        order: [Int],
         useLayoutOrder: Bool,
         focusedToken: WindowToken?,
         hiddenAppPIDs: Set<pid_t>
     ) -> [WorkspaceBarWindowItem] {
-        var entriesByApp: [AppGroupKey: [WindowState]] = [:]
+        var indicesByApp: [AppGroupKey: [Int]] = [:]
         var appOrder: [AppGroupKey] = []
-        entriesByApp.reserveCapacity(entries.count)
-        appOrder.reserveCapacity(entries.count)
+        indicesByApp.reserveCapacity(order.count)
+        appOrder.reserveCapacity(order.count)
 
-        for entry in entries {
-            let groupKey = appGroupKey(for: entry)
-            if entriesByApp[groupKey] == nil {
-                entriesByApp[groupKey] = []
+        for index in order {
+            let groupKey = appGroupKey(for: entries[index])
+            if indicesByApp[groupKey] == nil {
+                indicesByApp[groupKey] = []
                 appOrder.append(groupKey)
             }
-            entriesByApp[groupKey]?.append(entry)
+            indicesByApp[groupKey]?.append(index)
         }
 
-        let indexedItems = appOrder.enumerated().compactMap { index, groupKey -> (Int, WorkspaceBarWindowItem)? in
-            guard let appEntries = entriesByApp[groupKey],
+        let indexedItems = appOrder.enumerated().compactMap { position, groupKey -> (Int, WorkspaceBarWindowItem)? in
+            guard let appIndices = indicesByApp[groupKey],
                   let item = createDeduplicatedWindowItem(
-                      entries: appEntries,
+                      entries: entries,
+                      indices: appIndices,
                       focusedToken: focusedToken,
                       hiddenAppPIDs: hiddenAppPIDs
                   )
             else {
                 return nil
             }
-            return (index, item)
+            return (position, item)
         }
 
         if useLayoutOrder {
@@ -107,41 +117,43 @@ struct WorkspaceBarWindowProjector {
 
     private func createDeduplicatedWindowItem(
         entries: [WindowState],
+        indices: [Int],
         focusedToken: WindowToken?,
         hiddenAppPIDs: Set<pid_t>
     ) -> WorkspaceBarWindowItem? {
-        guard let firstEntry = entries.first,
-              let firstHandle = workspaceManager.handle(for: firstEntry.token)
+        guard let firstIndex = indices.first,
+              let firstHandle = workspaceManager.handle(for: entries[firstIndex].token)
         else {
             return nil
         }
-        let appEntry = entries.first { appInfoCache.info(for: $0.pid) != nil } ?? firstEntry
-        let presentation = appInfoCache.presentation(for: appEntry)
+        let appIndex = indices.first { appInfoCache.info(for: entries[$0].pid) != nil } ?? firstIndex
+        let presentation = appInfoCache.presentation(for: entries[appIndex])
         let appName = presentation.name ?? String(localized: "Unknown")
-        let windowInfos = entries.compactMap { entry -> WorkspaceBarWindowInfo? in
-            guard let handle = workspaceManager.handle(for: entry.token) else { return nil }
+        let windowInfos = indices.compactMap { index -> WorkspaceBarWindowInfo? in
+            let token = entries[index].token
+            guard let handle = workspaceManager.handle(for: token) else { return nil }
             return WorkspaceBarWindowInfo(
-                id: entry.token,
+                id: token,
                 handle: handle,
-                windowId: entry.windowId,
-                title: windowTitle(for: entry) ?? appName,
-                isFocused: entry.token == focusedToken,
-                isAppHidden: hiddenAppPIDs.contains(entry.pid)
+                windowId: token.windowId,
+                title: windowTitle(for: entries[index]) ?? appName,
+                isFocused: token == focusedToken,
+                isAppHidden: hiddenAppPIDs.contains(token.pid)
             )
         }
 
         return WorkspaceBarWindowItem(
-            id: firstEntry.token,
+            id: entries[firstIndex].token,
             handle: firstHandle,
-            windowId: firstEntry.windowId,
+            windowId: entries[firstIndex].windowId,
             appName: appName,
-            bundleId: bundleId(for: firstEntry),
+            bundleId: bundleId(for: entries[firstIndex]),
             icon: icon(
-                for: firstEntry,
+                for: entries[firstIndex],
                 fallback: presentation.icon,
-                processBundleId: appInfoCache.bundleId(for: appEntry.pid)
+                processPid: entries[appIndex].pid
             ),
-            isFocused: entries.contains { $0.token == focusedToken },
+            isFocused: indices.contains { entries[$0].token == focusedToken },
             windowCount: windowInfos.count,
             hiddenWindowCount: windowInfos.count { $0.isAppHidden },
             allWindows: windowInfos
@@ -150,37 +162,39 @@ struct WorkspaceBarWindowProjector {
 
     private func createIndividualWindowItems(
         entries: [WindowState],
+        order: [Int],
         focusedToken: WindowToken?,
         hiddenAppPIDs: Set<pid_t>
     ) -> [WorkspaceBarWindowItem] {
-        entries.compactMap { entry -> WorkspaceBarWindowItem? in
-            guard let handle = workspaceManager.handle(for: entry.token) else { return nil }
-            let presentation = appInfoCache.presentation(for: entry)
+        order.compactMap { index -> WorkspaceBarWindowItem? in
+            let token = entries[index].token
+            guard let handle = workspaceManager.handle(for: token) else { return nil }
+            let presentation = appInfoCache.presentation(for: entries[index])
             let appName = presentation.name ?? String(localized: "Unknown")
-            let title = windowTitle(for: entry) ?? appName
+            let title = windowTitle(for: entries[index]) ?? appName
 
             return WorkspaceBarWindowItem(
-                id: entry.token,
+                id: token,
                 handle: handle,
-                windowId: entry.windowId,
+                windowId: token.windowId,
                 appName: appName,
-                bundleId: bundleId(for: entry),
+                bundleId: bundleId(for: entries[index]),
                 icon: icon(
-                    for: entry,
+                    for: entries[index],
                     fallback: presentation.icon,
-                    processBundleId: appInfoCache.bundleId(for: entry.pid)
+                    processPid: token.pid
                 ),
-                isFocused: entry.token == focusedToken,
+                isFocused: token == focusedToken,
                 windowCount: 1,
-                hiddenWindowCount: hiddenAppPIDs.contains(entry.pid) ? 1 : 0,
+                hiddenWindowCount: hiddenAppPIDs.contains(token.pid) ? 1 : 0,
                 allWindows: [
                     WorkspaceBarWindowInfo(
-                        id: entry.token,
+                        id: token,
                         handle: handle,
-                        windowId: entry.windowId,
+                        windowId: token.windowId,
                         title: title,
-                        isFocused: entry.token == focusedToken,
-                        isAppHidden: hiddenAppPIDs.contains(entry.pid)
+                        isFocused: token == focusedToken,
+                        isAppHidden: hiddenAppPIDs.contains(token.pid)
                     )
                 ]
             )
@@ -190,11 +204,11 @@ struct WorkspaceBarWindowProjector {
     private func icon(
         for entry: WindowState,
         fallback: NSImage?,
-        processBundleId: String?
+        processPid: pid_t
     ) -> NSImage? {
         guard iconResolver.hasOverrides else { return fallback }
         if let bundleId = normalizedBundleId(entry.managedReplacementMetadata?.bundleId)
-            ?? normalizedBundleId(processBundleId),
+            ?? normalizedBundleId(appInfoCache.bundleId(for: processPid)),
            let override = iconResolver.image(for: bundleId)
         {
             return override
@@ -229,10 +243,10 @@ struct WorkspaceBarWindowProjector {
     }
 
     private func windowTitle(for entry: WindowState) -> String? {
-        guard let title = appInfoCache.presentation(
-                  for: entry, title: AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId))
-              ).title,
-              !title.isEmpty else { return nil }
+        guard let title = entry.target.hostedMetadata?.title
+            ?? AXWindowService.titlePreferFast(windowId: UInt32(entry.windowId)),
+            !title.isEmpty
+        else { return nil }
         return title
     }
 }

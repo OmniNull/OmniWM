@@ -4,7 +4,7 @@
 local look = require("./look")
 local actions = require("./actions")
 
-local battery = {}
+local battery = { boltContrastLevel = 55 }
 
 local function tint(level: number, charging: boolean): string
     if charging then
@@ -26,9 +26,12 @@ function battery.state(ctx)
         return nil
     end
     local charging = ctx.data.charging == true
-    return { level = level, charging = charging, low = level <= 20 and not charging, tint = tint(level, charging),
-        symbol = look.batterySymbol(level, charging), text = tostring(level), percent = ctx.format.percent(level / 100),
-        reserve = ctx.format.percent(1), mode = (ctx.data.settings or {}).percent or "beside" }
+    local power = ctx.data.power
+    local plugged = power ~= nil and power.source == "ac"
+    return { level = level, charging = charging, plugged = plugged, low = level <= 20 and not charging,
+        tint = tint(level, charging), symbol = look.batterySymbol(level, charging or plugged), text = tostring(level),
+        percent = ctx.format.percent(level / 100), reserve = ctx.format.percent(1),
+        mode = (ctx.data.settings or {}).percent or "beside" }
 end
 
 function battery.model(ctx)
@@ -65,8 +68,9 @@ function battery.cell(state, w: number, h: number, inside: string?)
             radius = (h - 4) * 0.3, fill = if inside then state.tint .. "/0.22" else state.tint } }
     if inside then
         body[#body + 1] = look.text{ text = inside, size = h * 0.72, weight = "semibold" }
-    elseif state.charging then
-        body[#body + 1] = look.glyph{ name = "bolt.fill", size = h * 0.78, color = "foreground" }
+    elseif state.charging or state.plugged then
+        body[#body + 1] = look.glyph{ name = "bolt.fill", size = h * 0.78,
+            color = if state.level >= battery.boltContrastLevel then "background" else "foreground" }
     end
     return ui.row{ gap = 1,
         ui.stack(body),

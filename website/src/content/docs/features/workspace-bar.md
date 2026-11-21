@@ -19,6 +19,7 @@ Open **Settings > Styles & Widgets > Bar** to arrange widgets, select a widget f
 
 - Click a workspace chip to switch to that workspace.
 - Click an app icon to focus that window directly.
+- When the bar covers the macOS menus, use the **App Menu** widget to open the focused app’s menu. In JetBrains IDEs such as PhpStorm, selecting a heading such as **File** opens the IDE’s native menu.
 - When **Deduplicate App Icons** is enabled, multiple windows from one app share a single grouped icon with a count badge; click a grouped icon to open their window list, while a single-window icon focuses that window directly.
 - macOS-hidden windows are marked with an eye-slash badge; selecting a hidden window unhides its app and focuses that exact window.
 - Non-empty [scratchpad](/features/scratchpads/) slots appear as pills; clicking a pill toggles that scratchpad.
@@ -29,9 +30,9 @@ Optionally show a System Stats button that opens a CPU, memory, GPU, disk, and u
 
 ## Notifications
 
-The `notifications` widget shows retained macOS notifications. If your style does not already show it, use **Settings > Styles & Widgets > Bar > Add Widget…** to add **Notifications**. This is separate from the Dock badges described below.
+The `notifications` widget shows retained macOS notifications. If your style does not already show it, use **Settings > Styles & Widgets > Bar > Add Widget…** to add **Notifications**. To have a click open macOS's own Notification Center instead, turn on **Click opens Notification Center** in the widget's **Options**; a right-click then opens the retained list. That click is currently unavailable on macOS 26. This is separate from the Dock badges described below.
 
-Grant OmniWM **Full Disk Access** in **System Settings > Privacy & Security**, then quit and reopen it. The widget's **Settings** button opens that pane. The feed reads Notification Center's database when it changes; native persistence can delay updates by several seconds. Storage errors and incomplete snapshots appear in the widget. **Details** shows participants, attachments, action definitions and native metadata.
+Grant OmniWM **Full Disk Access** in **System Settings > Privacy & Security**, then quit and reopen it. The widget's **Settings** button opens that pane. The feed reads Notification Center's database when it changes; native persistence can delay updates by several seconds. With readable notification settings, the widget leaves out apps with notifications or **Notification Center** turned off, macOS's internal system-center sources, and apps that are in neither those settings nor macOS's list of installed apps. Storage errors and incomplete snapshots appear in the widget. **Details** shows participants, attachments, action definitions and native metadata.
 
 Use a notification's close button to request dismissal, or **Clear All** to process the retained snapshot. Missing optional details do not block clearing; an incomplete notification list or inconsistent identifiers do. The popout distinguishes incomplete notification membership from missing details and shows when another action is in progress. Detailed read issues are included in the diagnostics summary. **Cancel** stops Clear All after the current action; it cannot undo requests already dispatched. A **Reply** control appears only when the notification declares one uniquely identifiable text-input action with send-button metadata. Replies and dismissal require **Accessibility** and matching controls in Notification Center. Unsupported or ambiguous actions report their outcome; macOS may keep some notifications.
 
@@ -114,7 +115,7 @@ autoHide = true
 
 ### Additional appearance controls
 
-- **Fill Left of Notch** — an additional notch mode that fills the menu-bar area left of the notch, covering application menus. Without a notch it uses the left half of the menu bar. When effective at a top position, this mode always hides in native fullscreen, regardless of **Hide in Native Fullscreen**.
+- **Fill Left of Notch** — an additional notch mode that fills the menu-bar area left of the notch, covering application menus. Without a notch it uses the left half of the menu bar. When effective at a top position, this mode always hides in native fullscreen, regardless of **Hide in Native Fullscreen**. Widgets span the whole area, with trailing widgets at the notch edge; when they do not fit, they give way in **Priority** order instead of running under the notch. The bar draws dark while the menu bar is dark, even when OmniWM is light. When macOS expands its menu bar overflow over the bar, the bar hides until the overflow collapses.
 - **Inactive Icon Opacity** — adjust unfocused app icons from 0–100%; **Reset to Style Defaults** clears the override.
 - **Transparent Background** — hide the bar material, tint, and border while keeping its contents interactive.
 - **Solid Black Background** — use an opaque black bar; it takes precedence over **Transparent Background** when both are enabled.

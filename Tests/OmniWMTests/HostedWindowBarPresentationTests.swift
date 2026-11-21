@@ -15,7 +15,7 @@ final class HostedWindowBarPresentationTests: XCTestCase {
         let entries = notes + [timer]
         let projector = fixture.projector()
         let deduped = projector.items(
-            entries: entries, deduplicate: true, useLayoutOrder: true,
+            entries: entries, order: Array(entries.indices), grouping: .byApp(keepsLayoutOrder: true),
             focusedToken: notes.last?.token, hiddenAppPIDs: []
         )
         XCTAssertEqual(deduped.map(\.id), [notes[0].token, timer.token])
@@ -32,7 +32,7 @@ final class HostedWindowBarPresentationTests: XCTestCase {
             try assertHostedSymbol(item.icon, named: metadata.icon)
         }
         let individual = projector.items(
-            entries: entries, deduplicate: false, useLayoutOrder: true,
+            entries: entries, order: Array(entries.indices), grouping: .individual,
             focusedToken: timer.token, hiddenAppPIDs: []
         )
         XCTAssertEqual(individual.map(\.id), entries.map(\.token))
@@ -65,9 +65,9 @@ final class HostedWindowBarPresentationTests: XCTestCase {
         )
         XCTAssertFalse(projector.isExcluded(hosted, options: options))
         XCTAssertTrue(projector.isExcluded(external, options: options))
-        for deduplicate in [false, true] {
+        for grouping in [WorkspaceBarWindowProjector.Grouping.individual, .byApp(keepsLayoutOrder: true)] {
             let items = projector.items(
-                entries: [hosted, external], deduplicate: deduplicate, useLayoutOrder: true,
+                entries: [hosted, external], order: [0, 1], grouping: grouping,
                 focusedToken: nil, hiddenAppPIDs: []
             )
             let hostedItem = try XCTUnwrap(items.first { $0.id == hosted.token })
@@ -87,7 +87,7 @@ final class HostedWindowBarPresentationTests: XCTestCase {
             )
             XCTAssertTrue(hostOverrides.isExcluded(hosted, options: hostOptions))
             let item = try XCTUnwrap(hostOverrides.items(
-                entries: [hosted], deduplicate: false, useLayoutOrder: true, focusedToken: nil, hiddenAppPIDs: []
+                entries: [hosted], order: [0], grouping: .individual, focusedToken: nil, hiddenAppPIDs: []
             ).first)
             XCTAssertTrue(item.icon === override)
         }

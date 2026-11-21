@@ -19,6 +19,7 @@ struct ShellServiceCompletion: Sendable {
     let id: ShellServiceID
     let revision: UInt64
     let payload: [UInt8]
+    let isProgress: Bool
     let resource: ShellResourceCompletion?
     let desktopResources: [ShellResourceID]?
     let authorization: ShellHTTPAuthorization?
@@ -28,6 +29,7 @@ struct ShellServiceCompletion: Sendable {
         id: ShellServiceID,
         revision: UInt64 = 0,
         payload: [UInt8],
+        isProgress: Bool = false,
         desktopResources: [ShellResourceID]? = nil,
         resource: ShellResourceCompletion? = nil,
         authorization: ShellHTTPAuthorization? = nil
@@ -35,13 +37,14 @@ struct ShellServiceCompletion: Sendable {
         self.id = id
         self.revision = revision
         self.payload = payload
+        self.isProgress = isProgress
         self.desktopResources = desktopResources
         self.resource = resource
         self.authorization = authorization
     }
 
     func discardUndelivered() {
-        onDiscard?(self)
+        if !isProgress { onDiscard?(self) }
     }
 }
 
@@ -212,8 +215,16 @@ final class ShellServiceLedger: Sendable {
     func complete(_ completion: ShellServiceCompletion) -> Bool {
         let result = state.withLock { state -> (Bool, (@Sendable () -> Void)?) in
             guard var operation = state.operations[completion.id], !operation.completed else { return (false, nil) }
-            operation.completed = true
-            state.operations[completion.id] = operation
+            if completion.isProgress,
+               let index = state.completions.firstIndex(where: { $0.id == completion.id && $0.isProgress })
+            {
+                state.completions[index] = completion
+                return (true, nil)
+            }
+            if !completion.isProgress {
+                operation.completed = true
+                state.operations[completion.id] = operation
+            }
             state.completions.append(completion)
             if state.capture.id != 0 {
                 state.capture.completionsPeak = max(state.capture.completionsPeak, state.completions.count)
@@ -233,7 +244,7 @@ final class ShellServiceLedger: Sendable {
             var completions = Array(state.completions.prefix(count))
             state.completions.removeFirst(count)
             var cancellations: [@Sendable () -> Void] = []
-            for index in completions.indices {
+            for index in completions.indices where !completions[index].isProgress {
                 if let operation = state.operations.removeValue(forKey: completions[index].id) {
                     completions[index].onDiscard = operation.discard
                     cancellations.append(operation.cancel)

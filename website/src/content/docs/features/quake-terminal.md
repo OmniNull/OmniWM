@@ -39,7 +39,7 @@ You can also adjust the terminal directly with the mouse: drag its edges to resi
 
 ## Appearance
 
-Quake Terminal loads Ghostty's normal configuration files and their included files, so your font, theme, and other terminal preferences can be shared. OmniWM applies its Quake background opacity and background effect afterward; configure those controls in **Settings → Quake Terminal**.
+Quake Terminal loads Ghostty's normal configuration files and their included files, so your font, theme, and other terminal preferences can be shared. To color it from OmniWM's palette, turn on Ghostty in [App Theming](/features/app-theming/) and select its themes in your Ghostty config; **Add to Ghostty Config…** on the Ghostty row does that for you. OmniWM applies its Quake background opacity and background effect afterward; configure those controls in **Settings → Quake Terminal**.
 
 - **Background Effect** — choose `Standard Blur`, `Regular Glass`, or `Clear Glass`. `Standard Blur` comes with an adjustable blur radius; the native glass effects do not, but switching effects preserves the saved Standard Blur radius so it becomes active again when you return to it.
 - **Quake Background Opacity** — 10–100%.

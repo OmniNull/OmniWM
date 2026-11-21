@@ -98,3 +98,13 @@ identifier_name:
     - y
     - i
     - j
+
+# CONTRIBUTING.md asks for clear names and structure instead of additional source comments.
+custom_rules:
+  no_doc_comments:
+    name: "No doc comments"
+    regex: "///|/\\*\\*"
+    match_kinds:
+      - doccomment
+    message: "Avoid doc comments; use clear names and structure (CONTRIBUTING.md)."
+    severity: warning

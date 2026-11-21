@@ -51,7 +51,6 @@ func privateAPIProbePresentationStatus(for report: PrivateAPIProbeReport) -> Dia
 
 struct DiagnosticsSettingsTab: View {
     @Bindable var controller: WMController
-    let navigation: SettingsNavigationModel
 
     @State private var traceStatus: DiagnosticsActionStatus = .idle
     @State private var probeStatus: DiagnosticsActionStatus = .idle
@@ -99,20 +98,10 @@ struct DiagnosticsSettingsTab: View {
     private var crashBannerSection: some View {
         if let crash = controller.pendingCrashReport {
             Section {
-                LabeledContent {
-                    Button("Report Crash…") {
-                        navigation.section = .reportIssue
-                    }
-                    .id("Report Crash…")
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                } label: {
-                    Label("OmniWM recovered from a crash", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                }
+                Label("OmniWM recovered from a crash", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
                 Text(crash.reason)
                     .font(.callout)
-                SettingsCaption(localized: "Report it to open a pre-filled issue with the crash details.")
                 HStack(spacing: 8) {
                     Button("Copy File") {
                         copyFile(crash.url)

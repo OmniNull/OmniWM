@@ -57,6 +57,7 @@ extension LayoutRefreshController {
     ) -> WindowState? {
         let controller = context.controller
         var existingEntry = entry
+        let wasNativeSuppressed = entry?.observedState.isNativeSuppressed == true
         if let entry = existingEntry, let minimized = candidate.minimizedAttribute {
             controller.axEventHandler.updateWindowMinimizedState(
                 minimized,
@@ -72,6 +73,10 @@ extension LayoutRefreshController {
                 appFullscreen: candidate.isFullscreen(screenFrames: context.screenFrames),
                 requestRefresh: false
             )
+            existingEntry = controller.workspaceManager.entry(for: entry.token)
+        }
+        if wasNativeSuppressed, let entry = existingEntry, !entry.observedState.isNativeSuppressed {
+            controller.reconcileDisplayableScratchpadMember(entry.token)
             existingEntry = controller.workspaceManager.entry(for: entry.token)
         }
         return existingEntry
@@ -122,9 +127,9 @@ extension LayoutRefreshController {
         let deferredTrackedEntry = decision.disposition == .undecided
             ? existingEntry
             : nil
-        let createPlacementContext = existingEntry == nil
-            ? controller.axEventHandler.pendingCreatePlacementContext(for: winId)
-            : nil
+        let createPlacementContext = identity.isTracked
+            ? nil
+            : controller.axEventHandler.pendingCreatePlacementContext(for: winId)
         let placementOrigin: WorkspacePlacementOrigin = createPlacementContext == nil
             ? .discovery
             : .liveCreate

@@ -46,6 +46,9 @@ struct AppRuleDraft: Identifiable, Equatable {
     var layoutAction: WindowRuleLayoutAction
     var assignToWorkspaceEnabled: Bool
     var assignToWorkspace: String
+    var assignToWorkspaceForAllWindows: Bool
+    var scratchpadEnabled: Bool
+    var scratchpad: Int
     var initialContainerPrimarySpanEnabled: Bool
     var initialContainerPrimarySpan: Double
     var minWidthEnabled: Bool
@@ -68,6 +71,9 @@ struct AppRuleDraft: Identifiable, Equatable {
         layoutAction = .auto
         assignToWorkspaceEnabled = false
         assignToWorkspace = ""
+        assignToWorkspaceForAllWindows = false
+        scratchpadEnabled = false
+        scratchpad = 1
         initialContainerPrimarySpanEnabled = false
         initialContainerPrimarySpan = 0.5
         minWidthEnabled = false
@@ -91,6 +97,10 @@ struct AppRuleDraft: Identifiable, Equatable {
         layoutAction = rule.effectiveLayoutAction
         assignToWorkspaceEnabled = rule.assignToWorkspace != nil
         assignToWorkspace = rule.assignToWorkspace ?? ""
+        assignToWorkspaceForAllWindows = rule.assignedWorkspaceName != nil && rule
+            .assignToWorkspaceForAllWindows == true
+        scratchpadEnabled = rule.scratchpad != nil
+        scratchpad = rule.scratchpad ?? 1
         initialContainerPrimarySpanEnabled = rule.initialContainerPrimarySpan != nil
         initialContainerPrimarySpan = rule.initialContainerPrimarySpan ?? 0.5
         minWidthEnabled = rule.minWidth != nil
@@ -120,6 +130,9 @@ struct AppRuleDraft: Identifiable, Equatable {
             lhs.layoutAction == rhs.layoutAction &&
             lhs.assignToWorkspaceEnabled == rhs.assignToWorkspaceEnabled &&
             lhs.assignToWorkspace == rhs.assignToWorkspace &&
+            lhs.assignToWorkspaceForAllWindows == rhs.assignToWorkspaceForAllWindows &&
+            lhs.scratchpadEnabled == rhs.scratchpadEnabled &&
+            lhs.scratchpad == rhs.scratchpad &&
             lhs.initialContainerPrimarySpanEnabled == rhs.initialContainerPrimarySpanEnabled &&
             nanStableEqual(lhs.initialContainerPrimarySpan, rhs.initialContainerPrimarySpan) &&
             lhs.minWidthEnabled == rhs.minWidthEnabled &&
@@ -200,6 +213,10 @@ struct AppRuleDraft: Identifiable, Equatable {
         )
     }
 
+    var scratchpadError: String? {
+        AppRuleDraftValidation.scratchpadError(for: makeRule())
+    }
+
     var effectHint: String? {
         let rule = makeRule()
         guard rule.hasIdentifyingMatcher, !rule.hasEffect else { return nil }
@@ -211,7 +228,7 @@ struct AppRuleDraft: Identifiable, Equatable {
     var isValid: Bool {
         let rule = makeRule()
         return bundleIdError == nil && titleRegexError == nil && initialContainerPrimarySpanError == nil &&
-            minSizeError == nil
+            scratchpadError == nil && minSizeError == nil
             && rule.hasIdentifyingMatcher && rule.hasEffect
     }
 
@@ -232,7 +249,8 @@ struct AppRuleDraft: Identifiable, Equatable {
     }
 
     func makeRule(id: UUID? = nil) -> AppRule {
-        AppRule(
+        let workspace = assignToWorkspaceEnabled ? trimmedRuleValue(assignToWorkspace) : nil
+        return AppRule(
             id: id ?? self.id,
             bundleId: bundleId.trimmingCharacters(in: .whitespacesAndNewlines),
             appNameSubstring: appNameMatcherEnabled ? trimmedRuleValue(appNameSubstring) : nil,
@@ -241,10 +259,12 @@ struct AppRuleDraft: Identifiable, Equatable {
             axRole: axRoleEnabled ? trimmedRuleValue(axRole) : nil,
             axSubrole: axSubroleEnabled ? trimmedRuleValue(axSubrole) : nil,
             layout: layoutAction == .auto ? nil : layoutAction,
-            assignToWorkspace: assignToWorkspaceEnabled ? trimmedRuleValue(assignToWorkspace) : nil,
+            assignToWorkspace: workspace,
+            assignToWorkspaceForAllWindows: workspace != nil && assignToWorkspaceForAllWindows ? true : nil,
             initialContainerPrimarySpan: initialContainerPrimarySpanEnabled ? initialContainerPrimarySpan : nil,
             minWidth: minWidthEnabled ? minWidth : nil,
-            minHeight: minHeightEnabled ? minHeight : nil
+            minHeight: minHeightEnabled ? minHeight : nil,
+            scratchpad: scratchpadEnabled ? scratchpad : nil
         )
     }
 
@@ -265,6 +285,20 @@ enum AppRuleDraftValidation {
         return String(
             localized: "Initial container primary span must be a finite proportion from 0.05 through 1.0 (5% through 100%)"
         )
+    }
+
+    static func scratchpadError(for rule: AppRule) -> String? {
+        if let scratchpad = rule.scratchpad, ScratchpadIndex(scratchpad) == nil {
+            return String(localized: "Scratchpad must be a slot from 1 to 10")
+        }
+        switch rule.scratchpadConflict {
+        case .assignToWorkspace:
+            return String(localized: "Choose a scratchpad or a workspace, not both")
+        case .tileLayout:
+            return String(localized: "Scratchpad windows float, so the layout can't be Tile")
+        case nil:
+            return nil
+        }
     }
 
     static func titleRegexError(for pattern: String?) -> String? {

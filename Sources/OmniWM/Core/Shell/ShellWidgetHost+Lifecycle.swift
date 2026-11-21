@@ -22,7 +22,7 @@ extension ShellWidgetHost {
         configProblems = []
         config = ShellConfig.resolve(shellDirectory: shellDirectory, problems: &configProblems)
         onConfigChange?(config)
-        resources.palette.refresh(theme: paletteTheme, appearance: NSApplication.shared.effectiveAppearance)
+        refreshPalettes()
         resources.shaders.onChange = { [weak self] in
             self?.shadersChanged(includingAssets: false)
         }
@@ -45,7 +45,6 @@ extension ShellWidgetHost {
         }
         observeSystem()
         rescan()
-        updateWallpaperPalette()
     }
 
     private func observeSystem() {
@@ -90,8 +89,6 @@ extension ShellWidgetHost {
         latestData.publish(ShellWidgetData())
         observation?.cancel()
         observation = nil
-        wallpaperPalette?.stop()
-        wallpaperPalette = nil
         if let systemColorsObserver {
             NotificationCenter.default.removeObserver(systemColorsObserver)
             self.systemColorsObserver = nil
@@ -133,40 +130,22 @@ extension ShellWidgetHost {
         providerApprovals = [:]
     }
 
-    func updateWallpaperPalette() {
-        guard config.themeName == ShellWallpaperPalette.themeName else {
-            wallpaperPalette?.stop()
-            wallpaperPalette = nil
-            return
-        }
-        if let wallpaperPalette {
-            wallpaperPalette.setScheme(config.wallpaperScheme)
-            return
-        }
-        let writer = ShellWallpaperPaletteWriter(
-            destination: shellDirectory.appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml"),
-            scheme: config.wallpaperScheme
-        ) { [weak self] problem in
-            guard let self, !configProblems.contains(problem) else { return }
-            ShellConfig.report(problem, &configProblems)
-            publishToggleNames()
-        }
-        wallpaperPalette = writer
-        writer.start()
-    }
-
     func setBarColors(accent: SettingsColor?, foreground: SettingsColor?) {
         guard barColors.accent != accent || barColors.foreground != foreground else { return }
         barColors = (accent, foreground)
-        guard started, config.themeName == "native" else { return }
-        appearanceDidChange()
+        guard started else { return }
+        if config.themeName == "native" {
+            appearanceDidChange()
+        } else {
+            onPaletteChange?(Self.paletteTheme(config: config, accent: accent, foreground: foreground))
+        }
     }
 
-    private var paletteTheme: ShellTheme {
+    static func paletteTheme(config: ShellConfig, accent: SettingsColor?, foreground: SettingsColor?) -> ShellTheme {
         var theme = config.theme
         let profile = config.barOverride
-        let accent = profile?.accentColor ?? (profile?.usesThemeColors == true ? nil : barColors.accent)
-        let foreground = profile?.textColor ?? (profile?.usesThemeColors == true ? nil : barColors.foreground)
+        let accent = profile?.accentColor ?? (profile?.usesThemeColors == true ? nil : accent)
+        let foreground = profile?.textColor ?? (profile?.usesThemeColors == true ? nil : foreground)
         for (role, color) in [(ShellRole.accent, accent), (.foreground, foreground)] {
             guard let color else { continue }
             let resolved = NSColor(deviceRed: color.red, green: color.green, blue: color.blue, alpha: color.alpha)
@@ -176,8 +155,14 @@ extension ShellWidgetHost {
         return theme
     }
 
+    private func refreshPalettes() {
+        let theme = Self.paletteTheme(config: config, accent: barColors.accent, foreground: barColors.foreground)
+        resources.refreshPalettes(theme: theme)
+        onPaletteChange?(theme)
+    }
+
     func appearanceDidChange() {
-        resources.palette.refresh(theme: paletteTheme, appearance: NSApplication.shared.effectiveAppearance)
+        refreshPalettes()
         refreshBarShaders()
         resources.devices.appearance.refresh()
         iconsDidChange()

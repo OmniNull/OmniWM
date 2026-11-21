@@ -30,6 +30,8 @@ extension IPCCommandRequest: Codable {
             try command.encodeArguments(to: &writer)
         case let .openCommandPaletteMode(mode):
             try writer.encode(paletteMode: mode)
+        case let .windowSwitcher(direction, scope):
+            try writer.encode(switcherDirection: direction, scope: scope)
         case let .workspaceLayout(command):
             try command.encodeArguments(to: &writer)
         case let .scratchpad(command):

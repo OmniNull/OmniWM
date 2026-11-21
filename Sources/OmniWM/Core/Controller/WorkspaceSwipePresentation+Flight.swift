@@ -41,6 +41,9 @@ extension WorkspaceSwipePresentation {
         var carried = CGVector.zero
         var chained = false
         var serial = 0
+        var isKeyboard = false
+        var motionFinished = false
+        var deferredFinishReason: String?
 
         init(
             preparation: Preparation,

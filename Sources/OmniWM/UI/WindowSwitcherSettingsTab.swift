@@ -60,6 +60,7 @@ struct WindowSwitcherSettingsTab: View {
         if settings.windowSwitcher.commandTab == .remembered || settings.windowSwitcher.optionTab == .remembered {
             Picker("Remembered Scope", selection: Bindable(settings.windowSwitcher).scope) {
                 Text("All Workspaces").tag(WindowSwitcherScope.allWorkspaces)
+                Text("Visible Workspaces").tag(WindowSwitcherScope.visibleWorkspaces)
                 Text("Active Workspace").tag(WindowSwitcherScope.activeWorkspace)
             }
         }
@@ -71,6 +72,7 @@ struct WindowSwitcherSettingsTab: View {
     ) -> some View {
         Picker(title, selection: selection) {
             Text("Active Workspace").tag(WindowSwitcherShortcutScope.activeWorkspace)
+            Text("Visible Workspaces").tag(WindowSwitcherShortcutScope.visibleWorkspaces)
             Text("All Workspaces").tag(WindowSwitcherShortcutScope.allWorkspaces)
             Text("Last Used Scope").tag(WindowSwitcherShortcutScope.remembered)
             Text("Disabled").tag(WindowSwitcherShortcutScope.disabled)

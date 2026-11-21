@@ -7,7 +7,7 @@ import QuartzCore
 
 extension NiriLayoutHandler {
     func toggleFullscreen() {
-        performWindowSizing(on: .focused) { engine, windowNode, context, state in
+        performWindowSizing(on: .focused, focusesWindowAfterLayout: true) { engine, windowNode, context, state in
             engine.toggleFullscreen(windowNode, motion: context.motion, state: &state)
             if windowNode.sizingMode == .normal {
                 engine.recoverSettledCoverage(context: context, state: &state)
@@ -17,14 +17,22 @@ extension NiriLayoutHandler {
     }
 
     func cycleSize(forward: Bool) {
-        cycleContainerPrimarySpan(forward: forward)
+        performWindowSizing(on: .focused) { engine, windowNode, context, state in
+            guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
+            fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
+                engine.cycleColumnSpanAroundCentre(column, forwards: forward, context: context, state: &state)
+            }
+            return .containerPrimarySpanChanged
+        }
     }
 
     @discardableResult
     func cycleContainerPrimarySpan(forward: Bool, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
             guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
-            engine.toggleContainerPrimarySpan(column, forwards: forward, context: context, state: &state)
+            fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
+                engine.toggleContainerPrimarySpan(column, forwards: forward, context: context, state: &state)
+            }
             return .containerPrimarySpanChanged
         }
     }
@@ -32,9 +40,53 @@ extension NiriLayoutHandler {
     @discardableResult
     func cycleWindowPrimarySpan(forward: Bool, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
-            engine.toggleWindowPrimarySpan(windowNode, forwards: forward, context: context, state: &state)
+            fittingVisibleColumns(
+                around: engine.findColumn(containing: windowNode, in: context.workspaceId),
+                engine: engine,
+                context: context,
+                state: &state
+            ) { state in
+                engine.toggleWindowPrimarySpan(windowNode, forwards: forward, context: context, state: &state)
+            }
             return .windowSizeChanged(token: windowNode.token)
         }
+    }
+
+    private func fittingVisibleColumns(
+        around column: @autoclosure () -> NiriContainer?,
+        engine: NiriLayoutEngine,
+        context: NiriInteractionContext,
+        state: inout ViewportState,
+        _ resize: (inout ViewportState) -> Void
+    ) {
+        guard engine.shrinkToFit, let column = column() else { return resize(&state) }
+        var onScreen = engine.onScreenProjectedColumns(
+            in: context.workspaceId, state: state, geometry: context.sizingGeometry
+        )
+        resize(&state)
+        guard !onScreen.isEmpty else { return }
+        Self.keepVisibleContainersRun(
+            in: &onScreen,
+            around: column,
+            visibleCount: engine.effectiveVisibleContainerCount(in: context.workspaceId)
+        )
+        engine.shrinkVisibleColumnsToFit(around: column, onScreen: onScreen, context: context, state: &state)
+    }
+
+    private nonisolated static func keepVisibleContainersRun(
+        in onScreen: inout [NiriProjectedColumn],
+        around column: NiriContainer,
+        visibleCount: Int
+    ) {
+        guard onScreen.count > visibleCount, visibleCount > 0 else { return }
+        var index = 0
+        while index < onScreen.count, onScreen[index].column !== column {
+            index += 1
+        }
+        guard index < onScreen.count else { return }
+        let start = min(max(0, index - visibleCount + 1), onScreen.count - visibleCount)
+        onScreen.removeSubrange((start + visibleCount)...)
+        onScreen.removeSubrange(..<start)
     }
 
     @discardableResult
@@ -119,7 +171,9 @@ extension NiriLayoutHandler {
     func setContainerPrimarySpan(_ change: NiriSizeChange, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
             guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return nil }
-            engine.setContainerPrimarySpan(column, change: change, context: context, state: &state)
+            fittingVisibleColumns(around: column, engine: engine, context: context, state: &state) { state in
+                engine.setContainerPrimarySpan(column, change: change, context: context, state: &state)
+            }
             return .containerPrimarySpanChanged
         }
     }
@@ -127,7 +181,14 @@ extension NiriLayoutHandler {
     @discardableResult
     func setWindowPrimarySpan(_ change: NiriSizeChange, target: WindowTarget = .focused) -> Bool {
         performWindowSizing(on: target) { engine, windowNode, context, state in
-            engine.setWindowPrimarySpan(windowNode, change: change, context: context, state: &state)
+            fittingVisibleColumns(
+                around: engine.findColumn(containing: windowNode, in: context.workspaceId),
+                engine: engine,
+                context: context,
+                state: &state
+            ) { state in
+                engine.setWindowPrimarySpan(windowNode, change: change, context: context, state: &state)
+            }
             return .windowSizeChanged(token: windowNode.token)
         }
     }
@@ -175,7 +236,9 @@ extension NiriLayoutHandler {
     }
 
     func balanceSizesAllWorkspaces(on monitorId: Monitor.ID? = nil, onlyAutomaticSpans: Bool = false) {
-        guard let controller, let engine = controller.niriEngine else { return }
+        guard let controller, let engine = controller.niriEngine,
+              !controller.settings.niri.keepSizesOnSettingsChange
+        else { return }
         var changed: Set<WorkspaceDescriptor.ID> = []
         for descriptor in controller.workspaceManager.workspaces {
             guard controller.settings.workspaces.layoutType(for: descriptor.name) != .dwindle else { continue }
@@ -212,29 +275,26 @@ extension NiriLayoutHandler {
     }
 
     @discardableResult
-    private func performWindowSizing(
+    func performWindowSizing(
         on target: WindowTarget,
+        focusesWindowAfterLayout: Bool = false,
         _ operation: (NiriLayoutEngine, NiriWindow, NiriInteractionContext, inout ViewportState) -> LayoutOperation?
     ) -> Bool {
-        var performed = false
+        var sized: (workspaceId: WorkspaceDescriptor.ID, token: WindowToken)?
         withNiriWindowContext(target) { engine, windowNode, context, state in
             guard let layoutOperation = operation(engine, windowNode, context, &state) else { return }
             let workspaceId = context.workspaceId
             recordLayoutOperation(layoutOperation, in: workspaceId)
-            requestLayoutCommandRelayout(in: workspaceId)
             startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
-            beginResizePreview(in: workspaceId)
-            performed = true
+            sized = (workspaceId, windowNode.token)
         }
-        return performed
-    }
-
-    private func beginResizePreview(in workspaceId: WorkspaceDescriptor.ID) {
-        guard let controller, hasScrollAnimation(for: workspaceId) else { return }
-        controller.resizeOverlay.begin(
-            workspaceId: workspaceId,
-            style: controller.settings.gestures.resizePreviewStyle,
-            pointerDriven: false
+        guard let sized else { return false }
+        requestLayoutCommandRelayout(
+            in: sized.workspaceId,
+            postLayout: focusesWindowAfterLayout
+                ? controller?.focusWindowAfterLayout(sized.token, in: sized.workspaceId)
+                : nil
         )
+        return true
     }
 }

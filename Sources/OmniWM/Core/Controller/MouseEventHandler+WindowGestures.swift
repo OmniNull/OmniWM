@@ -5,6 +5,25 @@ import AppKit
 import Foundation
 
 extension MouseEventHandler {
+    func supportsColumnScroll(_ layoutType: LayoutType, in controller: WMController) -> Bool {
+        switch layoutType {
+        case .niri,
+             .defaultLayout:
+            controller.niriEngine != nil
+        case .dwindle:
+            false
+        }
+    }
+
+    func workspaceSwipeAxis(for workspace: WorkspaceDescriptor, on monitor: Monitor) -> WorkspaceSwipeAxis? {
+        guard let controller, let config = trackpadGestureConfig else { return nil }
+        let layoutType = controller.settings.workspaces.layoutType(for: workspace.name)
+        let columnScrollAxis = supportsColumnScroll(layoutType, in: controller)
+            ? gestureColumnScrollAxis(workspaceId: workspace.id, monitor: monitor, supportsColumnScroll: true)
+            : nil
+        return TrackpadGestureIntent.effectiveWorkspaceSwipeAxis(config, columnScrollAxis: columnScrollAxis)
+    }
+
     func gestureColumnScrollAxis(
         workspaceId: WorkspaceDescriptor.ID,
         monitor: Monitor,

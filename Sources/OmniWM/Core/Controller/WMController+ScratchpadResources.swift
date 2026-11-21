@@ -9,16 +9,26 @@ extension WMController {
     @discardableResult
     func prepareWindowForScratchpadAssignment(
         _ token: WindowToken,
-        preferredMonitor: Monitor? = nil
+        preferredMonitor: Monitor? = nil,
+        observedFrame: CGRect? = nil,
+        allowLiveFrameFallback: Bool = true
     ) -> Bool {
         guard let entry = workspaceManager.entry(for: token) else {
             return false
         }
 
         if entry.mode == .floating {
-            guard captureVisibleFloatingGeometry(for: token, preferredMonitor: preferredMonitor) != nil
-                || workspaceManager.floatingState(for: token) != nil
-            else {
+            let captured = allowLiveFrameFallback
+                && captureVisibleFloatingGeometry(for: token, preferredMonitor: preferredMonitor) != nil
+            if !captured, let observedFrame {
+                seedFloatingGeometryIfNeeded(
+                    for: token,
+                    preferredMonitor: preferredMonitor,
+                    observedFrame: observedFrame,
+                    allowLiveFrameFallback: false
+                )
+            }
+            guard captured || workspaceManager.floatingState(for: token) != nil else {
                 return false
             }
             if workspaceManager.manualLayoutOverride(for: token) != .forceFloat {
@@ -27,7 +37,7 @@ extension WMController {
             return true
         }
 
-        guard let frame = liveFrame(for: entry) else { return false }
+        guard let frame = (allowLiveFrameFallback ? liveFrame(for: entry) : nil) ?? observedFrame else { return false }
         let referenceMonitor = floatingPlacementMonitor(
             for: entry,
             preferredMonitor: preferredMonitor,

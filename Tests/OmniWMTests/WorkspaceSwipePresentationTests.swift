@@ -337,6 +337,143 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertFalse(swipe.hasPresentation)
     }
 
+    func testKeyboardSwitchCommitsAtOnceAndSlidesUntilBothFinish() throws {
+        var mediaTime = 0.0
+        let (controller, swipe, monitor, source) = try fixture(mediaTimeProvider: { mediaTime })
+        let duration = slideDuration(controller)
+        let manager = controller.workspaceManager
+        let next = try XCTUnwrap(manager.nextWorkspaceInOrder(on: monitor.id, from: source, wrapAround: true))
+
+        XCTAssertTrue(swipe.animateSwitch(to: next.id, on: monitor.id, isNext: true))
+
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, next.id)
+        let flight = try XCTUnwrap(swipe.flights[monitor.id])
+        XCTAssertTrue(flight.isKeyboard)
+        XCTAssertNil(swipe.flight)
+        XCTAssertTrue(swipe.hasDisplayWork(monitor.displayId))
+
+        swipe.didSubmitPlacement(flight)
+        XCTAssertTrue(swipe.hasPresentation)
+
+        mediaTime = duration / 2
+        swipe.tick(displayId: monitor.displayId, timestamp: mediaTime)
+        XCTAssertGreaterThan(flight.progress, 0)
+        XCTAssertLessThan(flight.progress, 1)
+        XCTAssertTrue(swipe.hasPresentation)
+
+        swipe.tick(displayId: monitor.displayId, timestamp: duration)
+        XCTAssertFalse(swipe.hasPresentation)
+        XCTAssertFalse(swipe.hasDisplayWork(monitor.displayId))
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, next.id)
+    }
+
+    func testKeyboardSwitchDuringSlideChainsFromTheDestination() throws {
+        var mediaTime = 0.0
+        let (controller, swipe, monitor, source) = try fixture(mediaTimeProvider: { mediaTime })
+        let duration = slideDuration(controller)
+        let manager = controller.workspaceManager
+        let third = try XCTUnwrap(manager.workspaceId(for: "3", createIfMissing: true))
+        manager.assignWorkspaceToMonitor(third, monitorId: monitor.id)
+        let second = try XCTUnwrap(manager.nextWorkspaceInOrder(on: monitor.id, from: source, wrapAround: false))
+        XCTAssertTrue(swipe.animateSwitch(to: second.id, on: monitor.id, isNext: true))
+        let first = try XCTUnwrap(swipe.flights[monitor.id])
+
+        mediaTime = duration / 2
+        swipe.tick(displayId: monitor.displayId, timestamp: mediaTime)
+        let residual = try XCTUnwrap(first.residual(at: mediaTime))
+        XCTAssertTrue(swipe.animateSwitch(to: third, on: monitor.id, isNext: true))
+
+        let chained = try XCTUnwrap(swipe.flights[monitor.id])
+        XCTAssertFalse(chained === first)
+        XCTAssertEqual(chained.preparation.source.id, second.id)
+        XCTAssertEqual(chained.destination.id, third)
+        XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, third)
+        XCTAssertEqual(chained.offset(destination: false).dy, residual.dy)
+
+        swipe.didSubmitPlacement(chained)
+        swipe.tick(displayId: monitor.displayId, timestamp: 2 * duration)
+        XCTAssertFalse(swipe.hasPresentation)
+    }
+
+    func testKeyboardSwitchDoesNothingWithAnimationsOff() throws {
+        let (controller, swipe, monitor, source) = try fixture()
+        controller.motionPolicy.animationsEnabled = false
+        let next = try XCTUnwrap(controller.workspaceManager.nextWorkspaceInOrder(
+            on: monitor.id, from: source, wrapAround: true
+        ))
+
+        XCTAssertFalse(swipe.animateSwitch(to: next.id, on: monitor.id, isNext: true))
+
+        XCTAssertEqual(controller.workspaceManager.activeWorkspace(on: monitor.id)?.id, source)
+        XCTAssertFalse(swipe.hasPresentation)
+    }
+
+    func testKeyboardSlideFollowsTheConfiguredAxis() throws {
+        let (controller, swipe, monitor, source) = try fixture()
+        let gestures = controller.settings.gestures
+        gestures.workspaceSwipeAxis = .horizontal
+        XCTAssertEqual(gestures.effectiveWorkspaceSwipeAxis, .vertical)
+        let next = try XCTUnwrap(controller.workspaceManager.nextWorkspaceInOrder(
+            on: monitor.id, from: source, wrapAround: true
+        ))
+
+        XCTAssertTrue(swipe.animateSwitch(to: next.id, on: monitor.id, isNext: true))
+
+        XCTAssertEqual(swipe.flights[monitor.id]?.axis, .horizontal)
+        swipe.cancelAll(reason: "test-complete")
+    }
+
+    func testShortcutDuringSettlingSwipeCountsFromTheSwipeOnlyWhileSlidesAreOn() throws {
+        for slides in [false, true] {
+            let (controller, swipe, monitor, source) = try fixture()
+            let manager = controller.workspaceManager
+            controller.settings.slideWorkspaceSwitches = slides
+            let second = try XCTUnwrap(manager.nextWorkspaceInOrder(on: monitor.id, from: source, wrapAround: false))
+            let third = try XCTUnwrap(manager.workspaceId(for: "3", createIfMissing: true))
+            manager.assignWorkspaceToMonitor(third, monitorId: monitor.id)
+            XCTAssertEqual(try settleForwardSwipe(swipe, on: monitor).destination.id, second.id)
+
+            controller.workspaceNavigationHandler.switchWorkspaceRelative(isNext: true)
+
+            XCTAssertEqual(manager.activeWorkspace(on: monitor.id)?.id, slides ? third : second.id)
+            XCTAssertEqual(swipe.flights[monitor.id]?.isKeyboard ?? false, slides)
+            swipe.cancelAll(reason: "test-complete")
+        }
+    }
+
+    func testTurningSlidesOffMidSlideRemovesItAndKeepsTheSwipePreview() throws {
+        var mediaTime = 0.0
+        let (controller, swipe, monitor, source) = try fixture(mediaTimeProvider: { mediaTime })
+        controller.settings.gestures.workspaceSwipeEnabled = true
+        controller.settings.slideWorkspaceSwitches = true
+        let next = try XCTUnwrap(controller.workspaceManager.nextWorkspaceInOrder(
+            on: monitor.id, from: source, wrapAround: true
+        ))
+        XCTAssertTrue(swipe.animateSwitch(to: next.id, on: monitor.id, isNext: true))
+        let preview = swipe.previewSurface(controller, for: monitor.id)
+        mediaTime = slideDuration(controller) / 2
+        swipe.tick(displayId: monitor.displayId, timestamp: mediaTime)
+        XCTAssertTrue(swipe.hasPresentation)
+
+        controller.settings.slideWorkspaceSwitches = false
+
+        XCTAssertFalse(swipe.hasPresentation)
+        XCTAssertTrue(swipe.previewSurface(controller, for: monitor.id) === preview)
+        XCTAssertEqual(controller.workspaceManager.activeWorkspace(on: monitor.id)?.id, next.id)
+    }
+
+    func testWarmingWaitsForSwipesOrSlides() throws {
+        let (controller, swipe, monitor, _) = try fixture()
+        controller.hasStartedServices = true
+
+        swipe.warmPreviews()
+        XCTAssertNil(swipe.previews[monitor.id])
+
+        controller.settings.slideWorkspaceSwitches = true
+        swipe.warmPreviews()
+        XCTAssertNotNil(swipe.previews[monitor.id])
+    }
+
     func testSwipeOnAnotherMonitorRunsAlongsideTheSettlingSwitch() throws {
         var mediaTime = 1.06
         let (controller, swipe, monitor, other, source, otherSource) = try twoMonitorFixture { mediaTime }
@@ -1132,13 +1269,24 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
         XCTAssertEqual(fixture.driver.streams[0].request.pixelWidth, Int(ceil(settledWidth)))
     }
 
-    func testTurningSwipeOrAnimationsOffReleasesThePreviewAndItsCache() async throws {
-        let disablers: [@MainActor (WMController) -> Void] = [
-            { $0.settings.gestures.workspaceSwipeEnabled = false },
-            { $0.setAnimationsEnabled(false) },
-            { $0.motionPolicy.systemReducesMotion = true }
+    func testTurningFeaturesOffReleasesThePreviewAndItsCacheOnlyWhenNothingUsesThem() async throws {
+        typealias Change = @MainActor (WMController) -> Void
+        let swipesOn: Change = { $0.settings.gestures.workspaceSwipeEnabled = true }
+        let cases: [(enable: Change, disable: Change, releases: Bool)] = [
+            (swipesOn, { $0.settings.gestures.workspaceSwipeEnabled = false }, true),
+            ({ $0.settings.slideWorkspaceSwitches = true }, { $0.settings.slideWorkspaceSwitches = false }, true),
+            (swipesOn, { $0.setAnimationsEnabled(false) }, true),
+            (swipesOn, { $0.motionPolicy.systemReducesMotion = true }, true),
+            (
+                {
+                    swipesOn($0)
+                    $0.settings.slideWorkspaceSwitches = true
+                },
+                { $0.settings.gestures.workspaceSwipeEnabled = false },
+                false
+            )
         ]
-        for disable in disablers {
+        for (enable, disable, releases) in cases {
             let driver = OverviewPreviewTestDriver()
             let capture = driver.makeCapture(consumer: .workspaceSwipe)
             let preview = try WorkspaceSwipePreview(
@@ -1152,7 +1300,7 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
                 capture.clear()
                 driver.finish()
             }
-            controller.settings.gestures.workspaceSwipeEnabled = true
+            enable(controller)
             let handle = WindowHandle(id: WindowToken(pid: 764_951, windowId: 1))
             capture.reconcile(
                 represented: [handle],
@@ -1174,9 +1322,21 @@ final class WorkspaceSwipePresentationTests: XCTestCase {
 
             disable(controller)
 
-            XCTAssertEqual(capture.cachedByteCount, 0)
-            XCTAssertFalse(swipe.previewSurface(controller, for: monitor.id) === preview)
+            if releases {
+                XCTAssertEqual(capture.cachedByteCount, 0)
+                XCTAssertFalse(swipe.previewSurface(controller, for: monitor.id) === preview)
+            } else {
+                XCTAssertGreaterThan(capture.cachedByteCount, 0)
+                XCTAssertTrue(swipe.previewSurface(controller, for: monitor.id) === preview)
+            }
         }
+    }
+
+    private func slideDuration(_ controller: WMController) -> TimeInterval {
+        SpringAnimation(
+            from: 0, to: 1, startTime: 0,
+            config: controller.motionPolicy.snapshot().scaled(WorkspaceSwipeMotion.springConfig)
+        ).duration
     }
 
     private func makeSettings() -> SettingsStore {

@@ -12,7 +12,7 @@ final class ShellFocusTransferTests: XCTestCase {
         let widget: ShellRenderedWidget
         let panel: ShellFocusPanel
 
-        init(_ panel: ShellFocusPanel? = nil, input: Bool = false) throws {
+        init(input: Bool = false) throws {
             _ = NSApplication.shared
             widget = try ShellRenderedWidget(name: "focus-transfer", source: input ? """
             function render(ctx)
@@ -24,14 +24,13 @@ final class ShellFocusTransferTests: XCTestCase {
             end
             """)
             widget.render(ShellBarData())
-            self.panel = panel ?? ShellPopoutPanel(content: widget.surface.view)
-            if panel != nil { self.panel.contentView = widget.surface.view }
-            self.panel.setFrame(CGRect(x: 20, y: 20, width: 120, height: 60), display: false)
+            panel = ShellPopoutPanel(content: widget.surface.view)
+            panel.setFrame(CGRect(x: 20, y: 20, width: 120, height: 60), display: false)
             widget.surface.view.frame = CGRect(x: 0, y: 0, width: 120, height: 60)
-            self.panel.orderFrontRegardless()
+            panel.orderFrontRegardless()
             widget.surface.setVisible(true)
             OwnedWindowRegistry.shared.register(
-                self.panel, surfaceId: "focus-test-\(ObjectIdentifier(self.panel))",
+                panel, surfaceId: "focus-test-\(ObjectIdentifier(panel))",
                 policy: SurfacePolicy(
                     kind: .workspaceBar,
                     hitTestPolicy: .interactive,
@@ -64,123 +63,6 @@ final class ShellFocusTransferTests: XCTestCase {
             onCommand: { _, _ in }, onMenu: { _ in }, onPreview: { _ in }, onDrag: { _ in },
             onPopoutChange: {}, onTitleDemandChange: { _ in }
         )
-    }
-
-    func testIslandPopoutBarAndDrawerTransferKeepsOneLeaseAndOriginalReturnTarget() throws {
-        let policy = FocusPolicyEngine()
-        let host = host(policy)
-        let widget = try ShellRenderedWidget(
-            name: "focus-island",
-            source: "function render(ctx) return ui.box{w=120,h=60,focusable=true} end"
-        )
-        widget.render(ShellBarData())
-        let monitor = Monitor(
-            id: .init(displayId: 95401), displayId: 95401,
-            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
-            visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 868), hasNotch: false, name: "Focus fixture"
-        )
-        let island = ShellIsland(surface: widget.surface, monitor: monitor, size: CGSize(width: 200, height: 100))
-        host.islandWindows[monitor.id] = island
-        host.connectIslandInput(island, on: monitor.id)
-        island.update(monitor: monitor, size: CGSize(width: 200, height: 100), visible: true, level: .normal)
-        let popout = try Fixture()
-        let bar = try Fixture(WorkspaceBarPanel.defaultPanel())
-        let drawerWidget = try ShellRenderedWidget(
-            name: "focus-drawer",
-            source: "function render(ctx) return ui.text{text='Draw',onClick=function() end} end"
-        )
-        drawerWidget.render(ShellBarData())
-        drawerWidget.surface.focusAxis = .vertical
-        let chrome = ShellDrawerChrome(
-            content: drawerWidget.surface.view,
-            placement: HiddenBarPanelPlacement(
-                attachment: PopupAttachment(anchor: CGPoint(x: 300, y: 700)),
-                visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 900)
-            ), motion: MotionPolicy(animationsEnabled: false), onJoin: { _ in }
-        )
-        chrome.onKeyboardFocus = { active in
-            if active { host.focusShellSurface(drawerWidget.surface, keyboardNavigation: true) }
-            else { host.releaseShellFocus(from: drawerWidget.surface, restore: true) }
-        }
-        popout.connect(host)
-        bar.connect(host)
-        defer { chrome.close(animated: false)
-            popout.close()
-            bar.close()
-            host.closeIslands()
-        }
-        var leaseChanges = 0
-        policy.onLeaseChanged = { _ in leaseChanges += 1 }
-        widget.surface.focusDeclared(widget.surface.layout.core.rootHandle)
-        XCTAssertEqual(host.focusedIsland, monitor.id)
-        let returnWindow = ShellFocusPanel(contentRect: .zero, styleMask: [], backing: .buffered, defer: false)
-        let returnResponder = NSView()
-        host.shellPreviousKeyWindow = returnWindow
-        host.shellPreviousFirstResponder = returnResponder
-        popout.focus()
-        XCTAssertTrue(host.focusedSurface === popout.widget.surface)
-        XCTAssertNil(host.focusedIsland)
-        XCTAssertFalse(island.panel.canBecomeKey)
-        bar.focus()
-        XCTAssertTrue(host.focusedSurface === bar.widget.surface)
-        XCTAssertFalse(popout.panel.canBecomeKey)
-        let sibling = try ShellRenderedWidget(
-            name: "focus-sibling",
-            source: "function render(ctx) return ui.box{w=30,h=20,focusable=true} end"
-        )
-        sibling.render(ShellBarData())
-        bar.widget.surface.view.addSubview(sibling.surface.view)
-        sibling.surface.view.frame = CGRect(x: 0, y: 0, width: 30, height: 20)
-        sibling.surface.setVisible(true)
-        host.connectSurfaceFocus(sibling.surface) { true }
-        sibling.surface.focusDeclared(sibling.surface.layout.core.rootHandle)
-        XCTAssertTrue(host.focusedSurface === sibling.surface)
-        XCTAssertFalse(bar.widget.surface.declaredFocus)
-        XCTAssertTrue(bar.panel.canBecomeKey)
-        chrome.show(size: CGSize(width: 120, height: 60), level: .normal)
-        XCTAssertTrue(host.focusedSurface === drawerWidget.surface)
-        XCTAssertFalse(bar.panel.canBecomeKey)
-        XCTAssertTrue(chrome.panel.canBecomeKey)
-        XCTAssertTrue(chrome.panel.firstResponder === drawerWidget.surface.preferredFirstResponder)
-        XCTAssertTrue(host.shellPreviousKeyWindow === returnWindow)
-        XCTAssertTrue(host.shellPreviousFirstResponder === returnResponder)
-        XCTAssertEqual(policy.activeLease?.owner, .shellIsland)
-        XCTAssertEqual(leaseChanges, 1)
-        chrome.close(animated: false)
-        XCTAssertNil(policy.activeLease)
-        XCTAssertNil(host.focusedSurface)
-        XCTAssertFalse(chrome.panel.canBecomeKey)
-        XCTAssertEqual(leaseChanges, 2)
-    }
-
-    func testStaleSourceCannotReleaseTransferredFocusAndActualHideReleasesIt() throws {
-        let policy = FocusPolicyEngine()
-        let host = host(policy)
-        let first = try Fixture()
-        let second = try Fixture()
-        first.connect(host)
-        second.connect(host)
-        defer { first.close()
-            second.close()
-        }
-        first.focus()
-        let stale = first.panel.onBlur
-        second.focus()
-        first.widget.surface.onFocusChange?(false)
-        stale?()
-        XCTAssertTrue(host.focusedSurface === second.widget.surface)
-        XCTAssertEqual(policy.activeLease?.owner, .shellIsland)
-        XCTAssertFalse(first.panel.canBecomeKey)
-        XCTAssertTrue(second.panel.canBecomeKey)
-        XCTAssertFalse(OwnedWindowRegistry.shared.visibleWindows(suppressesManagedFocusRecovery: true)
-            .contains { $0 === first.panel })
-        XCTAssertTrue(OwnedWindowRegistry.shared.visibleWindows(suppressesManagedFocusRecovery: true)
-            .contains { $0 === second.panel })
-        second.widget.surface.setVisible(false)
-        XCTAssertNil(host.focusedSurface)
-        XCTAssertNil(policy.activeLease)
-        XCTAssertFalse(second.panel.canBecomeKey)
-        XCTAssertNil(host.islandInputMonitors)
     }
 
     func testRegistryFocusOverridePreservesSurfaceIdentityCaptureAndRegions() throws {

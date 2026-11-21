@@ -168,9 +168,13 @@ extension WorkspaceBarManager {
             id: item.id,
             name: item.name,
             layout: layout.layout,
-            hitFrame: panel.map {
-                Self.dropHitFrame(target.frame, panelFrame: $0.frame, orientation: orientation)
-            } ?? icons.reduce(target.frame) { $0.union($1.frame) },
+            hitFrame: Self.clamp(
+                panel.map {
+                    Self.dropHitFrame(target.frame, panelFrame: $0.frame, orientation: orientation)
+                } ?? icons.reduce(target.frame) { $0.union($1.frame) },
+                to: target.visible,
+                orientation: orientation
+            ),
             icons: icons,
             columnCount: layout.columnCount,
             orientation: panel == nil
@@ -186,6 +190,21 @@ extension WorkspaceBarManager {
         icons.first.map {
             abs($0.frame.midY - mark.midY) > abs($0.frame.midX - mark.midX) ? .vertical : .horizontal
         }
+    }
+
+    static func clamp(_ frame: CGRect, to visible: CGRect?, orientation: WorkspaceBarOrientation) -> CGRect {
+        guard let visible else { return frame }
+        if orientation.isVertical {
+            let minY = max(frame.minY, visible.minY)
+            return CGRect(
+                x: frame.minX,
+                y: minY,
+                width: frame.width,
+                height: max(0, min(frame.maxY, visible.maxY) - minY)
+            )
+        }
+        let minX = max(frame.minX, visible.minX)
+        return CGRect(x: minX, y: frame.minY, width: max(0, min(frame.maxX, visible.maxX) - minX), height: frame.height)
     }
 
     static func dropHitFrame(

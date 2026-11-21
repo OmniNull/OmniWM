@@ -4,7 +4,7 @@
 import Foundation
 
 enum DiagnosticsRetention {
-    private static let temporaryLifetime: TimeInterval = 60 * 60
+    static let temporaryLifetime: TimeInterval = 60 * 60
 
     static func wipe(
         directory: URL,
@@ -60,11 +60,7 @@ enum DiagnosticsRetention {
     }
 
     private static func isOwnedTemporaryFile(_ name: String) -> Bool {
-        (
-            name.hasPrefix(".omniwm-diagnostics-")
-                || name.hasPrefix(".omniwm-trace-")
-                || name.hasPrefix(".omniwm-performance-")
-        )
+        (name.hasPrefix(".omniwm-trace-") || name.hasPrefix(".omniwm-performance-"))
             && name.hasSuffix(".tmp")
     }
 }

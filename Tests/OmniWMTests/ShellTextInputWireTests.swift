@@ -57,6 +57,8 @@ final class ShellTextInputWireTests: XCTestCase {
             "key='x',maxLength=1.00000001",
             "key='x',maxLength=math.huge",
             "key='x',multiline=1",
+            "key='x',editable=1",
+            "key='x',wrap='no'",
             "key='x',focus='yes'",
             "key='x',onChange='focus left'",
             "key='x',onCommit=1",
@@ -67,6 +69,54 @@ final class ShellTextInputWireTests: XCTestCase {
         ] {
             let script = try ShellScriptHostTests.Script("function render(ctx) return ui.input{\(properties)} end")
             XCTAssertEqual(script.render().status, OMNI_ERR_RUNTIME, properties)
+        }
+    }
+
+    func testReadOnlyAndWrapOptionsRequireAnInput() throws {
+        for properties in ["editable=false", "wrap=false"] {
+            let script = try ShellScriptHostTests.Script("function render(ctx) return ui.box{\(properties)} end")
+            XCTAssertEqual(script.render().status, OMNI_ERR_RUNTIME, properties)
+        }
+    }
+
+    @MainActor
+    func testEditableAndWrapDefaultOnAndDecodeIndependentFlags() throws {
+        struct Declaration {
+            let properties: String
+            let editable: Bool
+            let wraps: Bool
+        }
+        for declaration in [
+            Declaration(properties: "", editable: true, wraps: true),
+            Declaration(properties: "editable=true,wrap=true,", editable: true, wraps: true),
+            Declaration(properties: "editable=false,", editable: false, wraps: true),
+            Declaration(properties: "wrap=false,", editable: true, wraps: false),
+            Declaration(properties: "editable=false,wrap=false,", editable: false, wraps: false)
+        ] {
+            let properties = declaration.properties
+            let editable = declaration.editable
+            let wraps = declaration.wraps
+            let script = try ShellScriptHostTests.Script(
+                "function render(ctx) return ui.input{key='preview',multiline=true,\(properties)} end"
+            )
+            XCTAssertEqual(script.render().status, OMNI_OK, script.message)
+            let node = try first(script)
+            XCTAssertEqual(
+                node.behavior_flags & OMNI_NODE_BEHAVIOR_INPUT_READ_ONLY,
+                editable ? 0 : OMNI_NODE_BEHAVIOR_INPUT_READ_ONLY
+            )
+            XCTAssertEqual(
+                node.behavior_flags & OMNI_NODE_BEHAVIOR_INPUT_NO_WRAP,
+                wraps ? 0 : OMNI_NODE_BEHAVIOR_INPUT_NO_WRAP
+            )
+            let strings = ShellTextStore()
+            strings.ingest(wire: script.output)
+            let layout = ShellWidgetLayout()
+            XCTAssertTrue(layout.apply(script.output, text: strings))
+            let content = layout.core.content(of: layout.core.rootHandle)
+            XCTAssertEqual(content.inputEditable, editable)
+            XCTAssertEqual(content.inputWrap, wraps)
+            XCTAssertTrue(content.inputMultiline)
         }
     }
 

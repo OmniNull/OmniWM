@@ -15,6 +15,8 @@ extension AXEventHandler {
         var isMinimized = false
         let replacementMetadata: ManagedReplacementMetadata
         let structuralReplacementMatch: StructuralReplacementMatch?
+        var observedFrame: CGRect?
+        var scratchpadAdmission: ScratchpadAdmission?
 
         var bundleId: String? {
             replacementMetadata.bundleId

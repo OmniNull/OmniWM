@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import Carbon
 
 @MainActor
 extension CommandPaletteController {
@@ -13,6 +14,10 @@ extension CommandPaletteController {
             return false
         }
         let relevantModifiers = event.modifierFlags.intersection([.shift, .command, .control, .option])
+
+        if isUnifiedSearch {
+            return handleUnifiedKeyDown(event, relevantModifiers: relevantModifiers)
+        }
 
         if handleMarkKeyDown(event, relevantModifiers: relevantModifiers) { return true }
 
@@ -55,13 +60,61 @@ extension CommandPaletteController {
         }
     }
 
+    private func handleUnifiedKeyDown(_ event: NSEvent, relevantModifiers: NSEvent.ModifierFlags) -> Bool {
+        if case .window? = selectedItemID, handleMarkKeyDown(event, relevantModifiers: relevantModifiers) {
+            return true
+        }
+        if handleLauncherRevealKey(event, modifiers: relevantModifiers) { return true }
+        if let index = CommandPalettePresentation.topHitIndex(
+            keyCode: event.keyCode,
+            relevantModifiers: relevantModifiers,
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers
+        ) {
+            openUnifiedTopHit(at: index)
+            return true
+        }
+        if event.keyCode == UInt16(kVK_Tab), relevantModifiers.isEmpty || relevantModifiers == .shift {
+            jumpUnifiedSection(by: relevantModifiers == .shift ? -1 : 1)
+            return true
+        }
+        if CommandPalettePresentation.modeNavigationTarget(
+            currentMode: selectedMode,
+            isMenuModeAvailable: isMenuModeAvailable,
+            keyCode: event.keyCode,
+            relevantModifiers: relevantModifiers,
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers
+        ) != nil {
+            return true
+        }
+
+        switch event.keyCode {
+        case 53:
+            dismiss(reason: .cancel)
+            return true
+        case 126:
+            moveSelection(by: -1)
+            return true
+        case 125:
+            moveSelection(by: 1)
+            return true
+        default:
+            guard let trigger = Self.selectionTrigger(
+                forKeyCode: event.keyCode,
+                modifierFlags: relevantModifiers
+            ) else {
+                return false
+            }
+            selectCurrent(trigger: trigger)
+            return true
+        }
+    }
+
     private func handleMarkKeyDown(_ event: NSEvent, relevantModifiers: NSEvent.ModifierFlags) -> Bool {
-        guard selectedMode == .windows,
+        guard isUnifiedSearch || selectedMode == .windows,
               let markAction = CommandPalettePresentation.markAction(
                   forKeyCode: event.keyCode,
                   relevantModifiers: relevantModifiers
-              ),
-              markShortcut(for: markAction) != nil
+              )
         else { return false }
         guard isExpanded else {
             expandResults()

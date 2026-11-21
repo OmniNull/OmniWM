@@ -30,7 +30,7 @@ final class ShellWidgetLayout {
         return CGSize(width: CGFloat(size.width), height: CGFloat(size.height))
     }
 
-    func apply(_ output: [UInt8], text: ShellTextStore) -> Bool {
+    func apply(_ output: [UInt8], text: ShellTextStore, visibleBounds: CGRect? = nil) -> Bool {
         let nodes = Self.scratch
         let count = output.withUnsafeBytes { buffer -> Int in
             guard let base = buffer.baseAddress else { return 0 }
@@ -44,11 +44,36 @@ final class ShellWidgetLayout {
             context: UnsafeMutableRawPointer(text.table),
             into: &patches
         )
+        if let visibleBounds {
+            core.setRootLimit(
+                limit(showing: visibleBounds) ?? Size2(width: .infinity, height: .infinity),
+                into: &patches
+            )
+        }
         return true
+    }
+
+    func limit(showing bounds: CGRect) -> Size2? {
+        guard bounds.origin == .zero, hasMarquee || scrolls(cutTo: bounds.size) else { return nil }
+        return Size2(width: Float(bounds.width), height: Float(bounds.height))
     }
 
     func scroll(_ handle: ElementHandle, by delta: Float) -> Float? {
         core.scroll(handle, by: delta)
+    }
+
+    func handle(forKey key: String) -> ElementHandle? {
+        core.firstHandle(withKey: Self.elementKey(key))
+    }
+
+    static func elementKey(_ key: String) -> UInt64 {
+        var hash: UInt64 = 0xCBF2_9CE4_8422_2325
+        for byte in key.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01B3
+        }
+        hash &= ~(UInt64(3) << 62)
+        return hash == 0 ? 1 : hash
     }
 
     func setRootBleed(_ bleed: Insets) {
@@ -70,6 +95,13 @@ final class ShellWidgetLayout {
             into: &patches
         )
     }
+}
+
+struct ShellScrollAnchor {
+    let container: UInt64
+    let item: UInt64?
+    let top: Float
+    let offset: Float
 }
 
 struct ShellPopoutChrome: Equatable {

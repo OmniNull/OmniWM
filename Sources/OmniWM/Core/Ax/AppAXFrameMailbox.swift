@@ -64,6 +64,24 @@ final class AppAXFrameMailbox {
     private struct Submission {
         var results: [AXFrameApplyResult?]
         let completion: Completion
+
+        mutating func record(_ result: AXFrameApplyResult, at index: Int) -> Bool? {
+            guard results.indices.contains(index), results[index] == nil else { return nil }
+            results[index] = result
+            for slot in results.indices where results[slot] == nil {
+                return false
+            }
+            return true
+        }
+
+        func completedResults() -> [AXFrameApplyResult] {
+            var completed: [AXFrameApplyResult] = []
+            completed.reserveCapacity(results.count)
+            for index in results.indices {
+                if let result = results[index] { completed.append(result) }
+            }
+            return completed
+        }
     }
 
     private var nextSubmissionId: UInt64 = 1
@@ -250,11 +268,12 @@ final class AppAXFrameMailbox {
         let previousInFlightCount = inFlightCount
         activeDrain = nil
         var deliveries: [Delivery] = []
-        for (index, item) in drain.items.enumerated() {
+        let items = drain.items
+        for index in items.indices {
             let result = index < results.count
                 ? results[index]
-                : skippedFrameApplyResult(for: item.request, reason: .cancelled)
-            resolve(item, result: result, deliveries: &deliveries)
+                : skippedFrameApplyResult(for: items[index].request, reason: .cancelled)
+            resolve(items[index], result: result, deliveries: &deliveries)
         }
         let nextDrain = startDrainIfIdle()
         AppAXContextRuntimeMetrics.shared.noteDepthChange(
@@ -315,28 +334,18 @@ final class AppAXFrameMailbox {
         result: AXFrameApplyResult,
         deliveries: inout [Delivery]
     ) {
-        guard var submission = submissions[item.submissionId],
-              submission.results.indices.contains(item.index),
-              submission.results[item.index] == nil
+        guard let slot = submissions.index(forKey: item.submissionId),
+              let isComplete = submissions.values[slot].record(result, at: item.index)
         else {
             return
         }
-        submission.results[item.index] = result
         AppAXContextRuntimeMetrics.shared.noteCompleted(
             lane: lane,
             cancelled: result.writeResult.failureReason == .cancelled
         )
-        if submission.results.allSatisfy({ $0 != nil }) {
-            submissions.removeValue(forKey: item.submissionId)
-            deliveries.append(
-                Delivery(
-                    results: submission.results.compactMap { $0 },
-                    completion: submission.completion
-                )
-            )
-        } else {
-            submissions[item.submissionId] = submission
-        }
+        guard isComplete else { return }
+        let submission = submissions.remove(at: slot).value
+        deliveries.append(Delivery(results: submission.completedResults(), completion: submission.completion))
     }
 }
 

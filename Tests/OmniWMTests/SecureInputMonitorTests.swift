@@ -205,6 +205,23 @@ final class SecureInputMonitorTests: XCTestCase {
         XCTAssertFalse(controller.hotkeys.hotkeyHealthFacts().isRunning)
     }
 
+    func testSecureInputBlocksKeyboardModesWhateverThePastePauseIsSetTo() {
+        for pausesPaste in [true, false] {
+            let controller = makeController()
+            controllersToStop.append(controller)
+            controller.settings.pausePalettePasteDuringSecureInput = pausesPaste
+            XCTAssertFalse(controller.isLockScreenActive)
+            XCTAssertEqual(controller.hotkeys.isKeyboardModeArmingBlocked?(), false, "pausesPaste=\(pausesPaste)")
+            let recorder = Recorder()
+            recorder.isSecure = true
+            configure(controller.secureInputMonitor, recorder)
+            controller.serviceLifecycleManager.startSecureInputMonitor()
+
+            XCTAssertTrue(controller.secureInputMonitor.isSecureInputActive)
+            XCTAssertEqual(controller.hotkeys.isKeyboardModeArmingBlocked?(), true, "pausesPaste=\(pausesPaste)")
+        }
+    }
+
     func testSecureInputIsIndicatedOnlyWhileHotkeysAreEnabled() {
         let controller = makeController()
         controllersToStop.append(controller)

@@ -43,10 +43,6 @@ final class HotkeyCenter {
         if isRunning { refreshCommandHotkeyRegistrations() }
     }
 
-    func cancelWindowSwitcherSession(generation: UInt64) {
-        windowSwitcherInput.cancel(generation: generation)
-    }
-
     let carbonRegistrations = CarbonHotkeyRegistration()
     private(set) var isRunning = false
     private(set) var commandHotkeysSuspended = false
@@ -55,8 +51,11 @@ final class HotkeyCenter {
     var sideSpecificDispatch: [CommandHotkeyTapMatcher.Entry] = []
     var mouseButtonDispatch: [MouseButtonBinding: HotkeyCommand] = [:]
     var suppressedHotkeyKeyCodes: Set<UInt32> = []
+    var paletteShortcutChords: [KeyBinding] = []
     var hyperTriggerTap: CFMachPort?
     var hyperTriggerRunLoopSource: CFRunLoopSource?
+    var externalWindowSwitcherTap: CFMachPort?
+    var externalWindowSwitcherRunLoopSource: CFRunLoopSource?
     var hyperTrigger = HyperTriggerStateMachine(trigger: .none, capsLockRemapped: false)
     private let capsLockHyperRemapper = CapsLockHyperRemapper()
     private var capsLockToggler = CapsLockToggler()
@@ -221,6 +220,7 @@ final class HotkeyCenter {
             sideSpecificDispatch = []
         }
         applyRegistrationFilters()
+        applyPaletteShortcutYield()
         DiagnosticsEventRecorder.shared.recordLifecycle(
             name: "hotkeys.registered registered=\(carbonRegistrations.count) "
                 + "failures=\(registrationFailures.count) sided=\(sideSpecificDispatch.count) "
@@ -293,6 +293,7 @@ final class HotkeyCenter {
     private func resetTapBoundInputState() {
         windowSwitcherInput.reset()
         onWindowSwitcherAction?(.cancel, windowSwitcherInput.generation)
+        releaseExternalWindowSwitcherTapIfIdle()
         hyperTrigger.reset()
     }
 
@@ -307,15 +308,12 @@ final class HotkeyCenter {
 
 extension HotkeyCenter {
     func handleHyperTriggerEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        let switcherDecision = windowSwitcherInput.handle(
-            type: type,
-            keyCode: Int(event.getIntegerValueField(.keyboardEventKeycode)),
-            flags: event.flags,
-            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
-            canBegin: windowSwitcherEnabled && !commandHotkeysSuspended && keyboardModeInput.kind == .normal
-        )
-        if let action = switcherDecision.action { onWindowSwitcherAction?(action, windowSwitcherInput.generation) }
-        if switcherDecision.consumed { return nil }
+        if handleWindowSwitcherEvent(type: type, event: event, source: .shortcut) { return nil }
+        if type == .keyUp,
+           windowSwitcherInput.ownsKeyUp(Int(event.getIntegerValueField(.keyboardEventKeycode)), source: .external)
+        {
+            return Unmanaged.passUnretained(event)
+        }
         switch type {
         case .tapDisabledByTimeout:
             InputTapHealth.recordTapDisabled(mouse: false, byTimeout: true)
@@ -328,6 +326,8 @@ extension HotkeyCenter {
             InputTapHealth.recordTapDisabled(mouse: false, byTimeout: false)
             resetTransientInputState()
             hyperTriggerTap.map { CGEvent.tapEnable(tap: $0, enable: false) }
+            return Unmanaged.passUnretained(event)
+        case _ where !isRunning:
             return Unmanaged.passUnretained(event)
         case .keyDown,
              .keyUp:
@@ -386,10 +386,11 @@ extension HotkeyCenter {
 
     private func handleHyperTriggerFlagsChanged(_ event: CGEvent) -> Unmanaged<CGEvent>? {
         let keyCode = UInt32(event.getIntegerValueField(.keyboardEventKeycode))
-        return applyHyperTriggerDecision(
-            hyperTrigger.handleFlagsChanged(keyCode: keyCode, rawFlags: event.flags.rawValue),
-            to: event
-        )
+        let decision = hyperTrigger.handleFlagsChanged(keyCode: keyCode, rawFlags: event.flags.rawValue)
+        if decision == .suppress, windowSwitcherInput.activeSource == .external {
+            _ = handleWindowSwitcherEvent(type: .flagsChanged, event: event, source: .external)
+        }
+        return applyHyperTriggerDecision(decision, to: event)
     }
 
     private func handleHyperTriggerMouseEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {

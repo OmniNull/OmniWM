@@ -62,20 +62,17 @@ final class SettingsExportApplicationTests: XCTestCase {
         settings.focus.followsMouse = false
         settings.gestures.scrollEnabled = false
         settings.gestures.workspaceSwipeEnabled = false
-        settings.appearanceMode = .light
         var events: [String] = []
         settings.onIPCEnabledChanged = { enabled in
             events.append("ipc")
             XCTAssertTrue(enabled)
             XCTAssertTrue(settings.focus.followsMouse)
             XCTAssertFalse(settings.gestures.scrollEnabled)
-            XCTAssertEqual(settings.appearanceMode, .light)
         }
         settings.onTrackpadGestureAvailabilityChanged = { available in
             events.append("gestures")
             XCTAssertTrue(available)
             XCTAssertTrue(settings.gestures.scrollEnabled)
-            XCTAssertEqual(settings.appearanceMode, .dark)
         }
         defer {
             settings.onIPCEnabledChanged = nil
@@ -85,7 +82,6 @@ final class SettingsExportApplicationTests: XCTestCase {
         export.focus.followsMouse = true
         export.ipcEnabled = true
         export.gestures.scrollEnabled = true
-        export.appearanceMode = .dark
 
         settings.applyExport(export)
 

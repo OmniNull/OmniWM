@@ -102,11 +102,13 @@ struct OverviewLayerMotion {
         return layer.presentation()?.bounds ?? (animation.fromValue as? NSValue)?.rectValue ?? layer.bounds
     }
 
-    static func displayedOpacity(of layer: CALayer) -> Float {
-        guard let animation = layer.animation(forKey: "overview.opacity") as? CABasicAnimation else {
+    static func displayedOpacity(of layer: CALayer, animationKey: String = "overview.opacity") -> Float {
+        guard let animation = layer.animation(forKey: animationKey) else {
             return layer.opacity
         }
-        return layer.presentation()?.opacity ?? (animation.fromValue as? NSNumber)?.floatValue ?? layer.opacity
+        return layer.presentation()?.opacity
+            ?? ((animation as? CABasicAnimation)?.fromValue as? NSNumber)?.floatValue
+            ?? layer.opacity
     }
 
     private static func displayedPosition(of layer: CALayer) -> CGPoint {

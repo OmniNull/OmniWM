@@ -32,6 +32,10 @@ final class TabRailTrackView: NSVisualEffectView {
         overlayView.presentedMarkerRects()
     }
 
+    func visualIndex(at point: CGPoint) -> Int? {
+        overlayView.visualIndex(at: point)
+    }
+
     func update(
         layout: TabRailLayout,
         activeVisualIndex: Int,

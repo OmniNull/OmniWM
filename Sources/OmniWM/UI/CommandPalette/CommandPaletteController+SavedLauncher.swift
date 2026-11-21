@@ -66,9 +66,11 @@ extension CommandPaletteController {
               let entry = settings.launcher.entries.first(where: { $0.id == id }) else { return }
         let fromPalette = isVisible
         if fromPalette { isPresentingModalPrompt = true }
+        let warnsAboutShortcut = Self.shortcutCleared(byRemoving: entry, from: settings) != nil
         environment
             .confirmLauncherEntryRemoval(
                 entry,
+                warnsAboutShortcut,
                 fromPalette ? presentation.panel : NSApp.keyWindow
             ) { [weak self] confirmed in
                 guard let self else { return }
@@ -77,12 +79,29 @@ extension CommandPaletteController {
                     self.isPresentingModalPrompt = false
                 }
                 guard confirmed, settings.launcher.entries.contains(entry) else { return }
+                if warnsAboutShortcut, let actionID = Self.shortcutCleared(byRemoving: entry, from: settings) {
+                    settings.clearBinding(for: actionID)
+                    settings.updateModeKey(for: actionID, newModeKey: nil)
+                }
                 settings.launcher.entries.removeAll { $0.id == id }
                 if self.isVisible {
                     self.refreshSavedApplicationIdentifiers(settings: settings)
                     self.updateSelectionAfterFilterChange()
                 }
             }
+    }
+
+    private static func shortcutCleared(byRemoving entry: LauncherEntry, from settings: SettingsStore) -> String? {
+        guard let bundleID = entry.bundleIdentifier,
+              !settings.launcher.entries.contains(where: { $0.id != entry.id && $0.bundleIdentifier == bundleID })
+        else {
+            return nil
+        }
+        let actionID = ActionCatalog.openAppPrefix + bundleID
+        let isAssigned = settings.hotkeyBindings.contains {
+            $0.id == actionID && (!$0.binding.isUnassigned || $0.modeKey != nil)
+        }
+        return isAssigned ? actionID : nil
     }
 
     func refreshSavedApplicationIdentifiers(settings: SettingsStore) {

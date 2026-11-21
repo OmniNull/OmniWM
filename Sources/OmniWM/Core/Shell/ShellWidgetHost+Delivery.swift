@@ -20,6 +20,7 @@ extension ShellWidgetHost {
         if let previous = instance.surface { releaseShellFocus(from: previous, restore: true) }
         let surface = ShellWidgetSurface(scale: scale, resources: resources, directories: folders(of: state))
         surface.assetFolders = state.assetPackages
+        surface.palette = palette(for: key)
         connectResourceDrop(surface, key: ShellTreeKey(bar: key, view: .bar), widget: name)
         connectResourceDrag(surface, key: ShellTreeKey(bar: key, view: .bar), widget: name)
         surface.drawsRootMaterial = key.placement == .island
@@ -29,6 +30,9 @@ extension ShellWidgetHost {
         }
         surface.onMove = { [weak self] in
             self?.popout?.refreshAnchor()
+        }
+        surface.onVisibleBoundsChange = { [weak self] in
+            self?.layoutGeneration &+= 1
         }
         surface.onLayoutMenu = { [weak self, weak surface] anchor in
             guard let self, let surface else { return }
@@ -47,6 +51,7 @@ extension ShellWidgetHost {
             surface.sequence = instance.sequences[ShellWidgetView.bar.rawValue]
             surface.apply(instance.nodes, text: state.text)
         }
+        surface.followedTarget = followedTarget(on: key)
         instance.surface = surface
         return surface.view
     }
@@ -56,12 +61,14 @@ extension ShellWidgetHost {
         for state in widgets.values {
             for (key, instance) in state.instances where key.monitor == monitor {
                 guard let surface = instance.surface, surface.visible else { continue }
+                let visible = surface.visibleScreenFrame
                 for frame in surface.targetFrames() {
                     targets.append(ShellDropTarget(
                         target: state.text.string(frame.target),
                         frame: frame.frame,
                         drop: frame.drop,
-                        inIsland: key.placement == .island
+                        inIsland: key.placement == .island,
+                        visible: visible
                     ))
                 }
             }
@@ -101,7 +108,11 @@ extension ShellWidgetHost {
         guard !widgets.isEmpty else { return }
         let next = barData()
         guard next != bars else { return }
+        let dark = darkBarKeys()
         bars = next
+        syncFollowedTargets()
+        syncBarPalettes()
+        if darkBarKeys() != dark { refreshBarShaders() }
         refreshIslandData()
         if let popout, popout.key.placement == .bar, headless == nil, next[popout.key] == nil {
             closePopout()
@@ -114,6 +125,35 @@ extension ShellWidgetHost {
         }
         publishDemand()
         refreshSlots()
+    }
+
+    func palette(for key: ShellBarKey) -> ShellPalette {
+        palette(for: key, dark: darkBarKeys())
+    }
+
+    private func palette(for key: ShellBarKey, dark: Set<ShellBarKey>) -> ShellPalette {
+        dark.contains(key) ? resources.darkPalette : resources.palette
+    }
+
+    private func darkBarKeys() -> Set<ShellBarKey> {
+        var keys: Set<ShellBarKey> = []
+        for (key, data) in bars where key.placement == .bar && (data.style.solidBlack || data.style.dark) {
+            keys.insert(key)
+        }
+        return keys
+    }
+
+    private func syncBarPalettes() {
+        let dark = darkBarKeys()
+        for state in widgets.values {
+            for (key, instance) in state.instances {
+                guard let surface = instance.surface else { continue }
+                let palette = palette(for: key, dark: dark)
+                guard surface.palette !== palette else { continue }
+                surface.palette = palette
+                instance.redraw(text: state.text)
+            }
+        }
     }
 
     @discardableResult
@@ -346,43 +386,9 @@ extension ShellWidgetHost {
         }
     }
 
-    private static let titleDemand = ShellDataKey.title.bit | ShellDataKey.bar.bit
-
-    func publishDemand() {
-        let demand = dataDemand
-        let cadence = ShellDataFeed.Cadence.of(widgets.values.map { (self.demand(of: $0), interval(of: $0)) })
-        feed?.setDemand(demand, cadence: cadence)
-        publishTitleDemand(demand & Self.titleDemand != 0)
-    }
-
-    func interval(of state: WidgetState) -> Double? {
-        config.widgetIntervals[state.name] ?? state.declaration.interval
-    }
-
-    func demand(of state: WidgetState) -> UInt64 {
-        var deps: UInt64 = state.package == nil ? 0 : state.backgroundDemand
-        var active = false
-        for (key, instance) in state.instances
-            where key.placement != .island || islandData[key]?.surface?.visible == true
-        {
-            active = true
-            deps |= instance.deps | instance.popoutDeps
-        }
-        return active && state.package != nil && state.failures > 0 ? deps | state.failedDeps : deps
-    }
-
-    func publishTitleDemand(_ demands: Bool) {
-        guard demands != demandsWindowTitles else { return }
-        demandsWindowTitles = demands
-        onTitleDemandChange(demands)
-    }
-
-    var dataDemand: UInt64 {
-        widgets.values.reduce(0) { $0 | demand(of: $1) }
-    }
-
     func refreshSlots() {
         var placed: [Monitor.ID: [(rank: (lane: Int, rank: Int), widget: WorkspaceBarShellWidget)]] = [:]
+        let priorities = config.priorityRanks()
         for state in widgets.values {
             let placement = config.lane(of: state.name)
             for (key, instance) in state.instances where bars[key] != nil {
@@ -395,16 +401,24 @@ extension ShellWidgetHost {
                         size: instance.size,
                         lane: placement.lane,
                         island: key.island,
-                        failure: failure
+                        failure: failure,
+                        priority: priorities[state.name] ?? .max,
+                        stops: failure == nil ? stops(of: instance, on: key, lane: placement.lane) : nil
                     )
                 ))
             }
         }
-        placedSlots = placed.mapValues { entries in
-            entries.sorted {
-                ($0.rank.lane, $0.rank.rank, $0.widget.id) < ($1.rank.lane, $1.rank.rank, $1.widget.id)
-            }.map(\.widget)
-        }
+        placedSlots = placed.mapValues(Self.slotOrder)
+    }
+
+    private nonisolated static func slotOrder(
+        _ entries: [(rank: (lane: Int, rank: Int), widget: WorkspaceBarShellWidget)]
+    ) -> [WorkspaceBarShellWidget] {
+        entries.indices.sorted {
+            entries[$0].rank != entries[$1].rank
+                ? entries[$0].rank < entries[$1].rank
+                : entries[$0].widget.id < entries[$1].widget.id
+        }.map { entries[$0].widget }
     }
 
     private func failure(of state: WidgetState, at instance: InstanceState) -> ShellWidgetFailure? {

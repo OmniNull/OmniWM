@@ -82,9 +82,35 @@ extension ShellResourceStore {
         if waiting[id]?.isEmpty == true { waiting.removeValue(forKey: id) }
     }
 
+    @discardableResult
+    func retire(_ owner: ShellServiceOwner) async -> [ShellResourcePersistenceResult] {
+        let namespace = catalog.namespace(owner, includingInactive: true)
+        catalog.deactivate(owner)
+        for token in selections.keys.filter({ selections[$0]?.owner == owner }) {
+            if let selected = selections.removeValue(forKey: token) {
+                for item in selected.items { clean(item.ownedDirectory) }
+            }
+        }
+        let failures = flush(owner)
+        catalog.retire(owner)
+        if let namespace { manifests.removeValue(forKey: namespace) }
+        let actionKeys = actions.keys.filter { $0.id.owner == owner }
+        for key in actionKeys { finishAction(key) }
+        for id in records.keys.filter({ records[$0]?.owner == owner }) {
+            if let record = records.removeValue(forKey: id) { releaseBacking(record.backing) }
+        }
+        for key in actionKeys {
+            guard let slot = actions.index(forKey: key) else { continue }
+            await withCheckedContinuation { completion in
+                actions.values[slot].conversionWaiters.append(completion)
+            }
+        }
+        return failures
+    }
+
     func finishAction(_ key: ShellResourceLeaseKey) {
+        guard actions[key]?.cancelForCleanup() == true else { return }
         guard let action = actions.removeValue(forKey: key) else { return }
-        action.operation.cancel()
         for id in action.inputs {
             waiting[id]?.remove(key)
             if waiting[id]?.isEmpty == true { waiting.removeValue(forKey: id) }

@@ -2,12 +2,13 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 @testable import OmniWMCtl
+import OmniWMIPC
 import XCTest
 
 final class CLICompletionCatalogTests: XCTestCase {
     func testScratchpadActionsAndSlotsOccupySeparateArgumentPositions() {
         XCTAssertEqual(CLICompletionCatalog.commandSlotThreeSuggestionsByFirst["scratchpad"], ["assign", "toggle"])
-        let slots = (1 ... 10).map(String.init).sorted()
+        let slots = IPCScratchpadSlots.range.map(String.init).sorted()
         for action in ["assign", "toggle"] {
             XCTAssertEqual(CLICompletionCatalog.commandSlotFourSuggestionsByPath["scratchpad \(action)"], slots)
         }

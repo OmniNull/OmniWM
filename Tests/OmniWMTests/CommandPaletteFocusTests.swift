@@ -140,6 +140,7 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertTrue(fixture.palette.isExpanded)
         XCTAssertGreaterThan(panel.frame.height, compactFrame.height + 200)
         XCTAssertEqual(panel.frame.maxY, compactFrame.maxY)
+        await waitForSearchEditing(panel)
         try fixture.insertText("clipboard")
         XCTAssertEqual(fixture.palette.searchText, "clipboard")
     }
@@ -209,28 +210,6 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertEqual(fixture.palette.searchText, "second")
     }
 
-    func testPalettePanelIsNonactivatingAndSearchRemainsFocused() async throws {
-        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
-        guard session?["CGSSessionScreenIsLocked"] as? Bool != true else {
-            throw MissingTestPrerequisite("A locked console cannot grant key-window status")
-        }
-        _ = NSApplication.shared
-        let originalPolicy = NSApp.activationPolicy()
-        NSApp.setActivationPolicy(.accessory)
-        defer { NSApp.setActivationPolicy(originalPolicy) }
-        let fixture = CommandPaletteFocusFixture()
-        defer { fixture.cleanup() }
-        let panel = try await showAndWaitForEditing(fixture)
-
-        XCTAssertTrue(panel.styleMask.contains(.nonactivatingPanel))
-        XCTAssertTrue(
-            panel.isKeyWindow,
-            "active=\(NSApp.isActive) visible=\(panel.isVisible) key=\(String(describing: NSApp.keyWindow))"
-        )
-        try fixture.insertText("search")
-        XCTAssertEqual(fixture.palette.searchText, "search")
-    }
-
     func testChangingModeReturnsFocusToSearch() async throws {
         let app = NSRunningApplication.current
         let fixture = CommandPaletteFocusFixture { environment in
@@ -245,6 +224,7 @@ final class CommandPaletteFocusTests: XCTestCase {
             XCTAssertTrue(panel.makeFirstResponder(nil))
             fixture.palette.selectedMode = mode
             fixture.layout()
+            await waitForSearchEditing(panel)
             try fixture.insertText(mode.rawValue)
             XCTAssertTrue(fixture.palette.searchText.hasSuffix(mode.rawValue))
             XCTAssertEqual(fixture.palette.selectedMode, mode)
@@ -463,12 +443,29 @@ final class CommandPaletteFocusTests: XCTestCase {
         let itemCount = fixture.palette.clipboardItems.count
         resignKey = { fixture.palette.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification)) }
 
+        let error = String(localized: "Could not clear clipboard history.")
+        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+        let rendered = expectation(description: "The shell draws the clipboard clear failure")
+        let previousTree = shell.onTree
+        defer { shell.onTree = previousTree }
+        shell.onTree = {
+            previousTree?()
+            guard !shell.surface.layout.core.elements(matching: {
+                $0.text != 0 && shell.surface.text?.string($0.text) == error
+            }).isEmpty else { return }
+            shell.onTree = previousTree
+            rendered.fulfill()
+        }
         fixture.palette.clearClipboardHistory()
-        await fulfillment(of: [failed], timeout: failureBound)
+        await fulfillment(of: [failed, rendered], timeout: failureBound)
         XCTAssertTrue(fixture.palette.isVisible)
         XCTAssertTrue(fixture.palette.isExpanded)
         XCTAssertEqual(fixture.palette.clipboardItems.count, itemCount)
-        XCTAssertEqual(fixture.palette.clipboardStatusText, "Could not clear clipboard history.")
+        XCTAssertEqual(fixture.palette.clipboardErrorText, error)
+        XCTAssertEqual(
+            fixture.palette.shellData(size: fixture.palette.presentation.shellLayoutSize(expanded: true)).error,
+            error
+        )
         resignKey?()
         XCTAssertFalse(fixture.palette.isVisible)
     }
@@ -888,6 +885,50 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertEqual(pasteCount, 0)
     }
 
+    func testClipboardPasteIgnoresSecureInputWhenItsPauseIsOff() async {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        fixture.controller.settings.pausePalettePasteDuringSecureInput = false
+        let copied = expectation(description: "Clipboard item copied")
+        let awaitingFocus = expectation(description: "Paste waits for target focus")
+        let app = NSRunningApplication.current
+        var frontmostApp: NSRunningApplication?
+        var readyExpectation: XCTestExpectation? = awaitingFocus
+        var pasteCount = 0
+        var environment = CommandPaletteEnvironment()
+        environment.runningApplication = { pid in pid == app.processIdentifier ? app : nil }
+        environment.frontmostApplication = {
+            readyExpectation?.fulfill()
+            readyExpectation = nil
+            return frontmostApp
+        }
+        environment.focusedWindowID = { _ in 42 }
+        environment.isOwnWindowKey = { false }
+        environment.focusedInputProcessIdentifier = { app.processIdentifier }
+        environment.copyClipboardItem = { _, _ in
+            copied.fulfill()
+            return true
+        }
+        environment.isSecureInputActive = { true }
+        environment.isAccessibilityTrusted = { true }
+        environment.isLockScreenActive = { _ in false }
+        environment.postPasteShortcut = {
+            pasteCount += 1
+            return true
+        }
+        let focusSession = CommandPaletteFocusSession(environment: environment)
+        let executor = CommandPaletteActionExecutor(environment: environment, focusSession: focusSession)
+        let focusTarget = CommandPaletteFocusTarget(app: .init(app: app), focusedWindow: nil, focusedWindowID: 42)
+        let pasteTarget = CommandPaletteClipboardPasteTarget(focusTarget: focusTarget, expectedWindowId: 42)
+
+        executor.perform(.pasteClipboard(fixture.controller, UUID(), pasteTarget, false))
+        await fulfillment(of: [copied, awaitingFocus], timeout: failureBound)
+        XCTAssertEqual(pasteCount, 0)
+        frontmostApp = app
+        executor.applicationActivated(pid: app.processIdentifier)
+        XCTAssertEqual(pasteCount, 1)
+    }
+
     func testPasteWithoutFormattingUsesPlainTextCopy() async {
         let fixture = CommandPaletteFocusFixture()
         defer { fixture.cleanup() }
@@ -908,15 +949,428 @@ final class CommandPaletteFocusTests: XCTestCase {
         await fulfillment(of: [plainCopied], timeout: failureBound)
     }
 
+    func testShellPrewarmWaitsUntilThePaletteCloses() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let manager = fixture.controller.workspaceBarManager
+        _ = try fixture.show()
+        let shown = try XCTUnwrap(fixture.palette.presentation.shell)
+        let host = makePaletteHost(fixture.root)
+        manager.shellHost = host
+        defer { manager.shellHost = nil }
+        XCTAssertNotEqual(host.config, shown.config)
+        fixture.palette.prewarmShell(from: manager)
+        XCTAssertTrue(fixture.palette.presentation.shell === shown)
+        fixture.palette.toggle(wmController: fixture.controller)
+        XCTAssertFalse(fixture.palette.isVisible)
+        let rebuilt = try XCTUnwrap(fixture.palette.presentation.shell)
+        XCTAssertFalse(rebuilt === shown)
+        XCTAssertEqual(rebuilt.config, host.config)
+    }
+
+    func testShellRebuildsWhenStyleFilesChangeAndWaitsUntilThePaletteCloses() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let host = makePaletteHost(fixture.root)
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: host.shellDirectory), [])
+        host.config = ShellConfig.resolve(shellDirectory: host.shellDirectory)
+        fixture.controller.workspaceBarManager.shellHost = host
+        defer { fixture.controller.workspaceBarManager.shellHost = nil }
+        let look = try XCTUnwrap(host.config.file("lib/look.luau"))
+        func editLook() throws {
+            let text = try String(contentsOf: look, encoding: .utf8)
+            try (text + "\n").write(to: look, atomically: true, encoding: .utf8)
+        }
+
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
+        let original = try XCTUnwrap(fixture.palette.presentation.shell)
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
+        XCTAssertTrue(fixture.palette.presentation.shell === original)
+
+        try editLook()
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
+        let updated = try XCTUnwrap(fixture.palette.presentation.shell)
+        XCTAssertFalse(updated === original)
+
+        _ = try fixture.show()
+        XCTAssertTrue(fixture.palette.presentation.shell === updated)
+        try editLook()
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
+        XCTAssertTrue(fixture.palette.presentation.shell === updated)
+        fixture.palette.toggle(wmController: fixture.controller)
+        XCTAssertFalse(fixture.palette.isVisible)
+        let reopened = try XCTUnwrap(fixture.palette.presentation.shell)
+        XCTAssertFalse(reopened === updated)
+    }
+
+    func testShellPaletteUsesTheSelectedStyleWithTheBarOff() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let manager = fixture.controller.workspaceBarManager
+        XCTAssertNil(manager.shellHost)
+        let shellDirectory = manager.shellConfiguration.shellDirectory
+        XCTAssertEqual(try ShellStyleFixture.prepare(into: shellDirectory), [])
+        let profile = try XCTUnwrap(ShellStyleFixture.names().first)
+        XCTAssertTrue(try ShellProfiles.select(profile, in: shellDirectory))
+        let managed = shellDirectory.appendingPathComponent(
+            "\(ShellDefaults.profile)/widgets/\(ShellWidgetHost.commandPaletteWidget)", isDirectory: true
+        )
+        try FileManager.default.removeItem(at: managed)
+        manager.shellConfigurationSaved(ShellConfig.resolve(shellDirectory: shellDirectory))
+        fixture.palette.prewarmShell(from: manager)
+        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+        XCTAssertEqual(shell.config.profile, profile)
+        XCTAssertFalse(shell.fallback)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: managed.appendingPathComponent("init.luau").path))
+        try awaitPaletteTree(shell) { shell.hasTree }
+    }
+
+    func testShellChromeStaysHiddenUntilTheFirstTreeArrives() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
+        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+        let firstTree = expectation(description: "The palette widget delivers its first tree")
+        let applyChrome = shell.onTree
+        shell.onTree = {
+            applyChrome?()
+            firstTree.fulfill()
+        }
+        fixture.palette.syncShellContent()
+        XCTAssertFalse(shell.hasTree)
+        XCTAssertTrue(shell.chrome.effectView.isHidden)
+        XCTAssertTrue(shell.chrome.glassView.isHidden)
+        wait(for: [firstTree], timeout: failureBound)
+        XCTAssertTrue(shell.hasTree)
+        XCTAssertEqual(shell.chrome.glassView.isHidden, !shell.surface.chrome.glass)
+        XCTAssertEqual(shell.chrome.effectView.isHidden, shell.surface.chrome.glass || shell.surface.chrome.clear)
+    }
+
+    func testShellCommandRowsMatchTheListAndGroupOnlyWithoutAQuery() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+        fixture.palette.selectMode(.commands)
+        let size = wholeCommandListSize(fixture)
+        let items = Dictionary(uniqueKeysWithValues: fixture.palette.commandItems.map { ($0.id, $0) })
+        guard case let .command(selectedID)? = fixture.palette.selectedItemID else {
+            return XCTFail("Commands mode opens with a command selected")
+        }
+
+        let grouped = fixture.palette.shellData(size: size)
+        var sections: [(ShellCommandPaletteRowKind, String)] = []
+        for category in HotkeyCategory.allCases {
+            let members = fixture.palette.commandItems.filter { $0.spec.category == category }
+            guard !members.isEmpty else { continue }
+            sections.append((.heading, category.localizedDisplayName))
+            sections += members.map { (.command, $0.spec.localizedTitle) }
+        }
+        XCTAssertEqual(grouped.first, 0)
+        XCTAssertEqual(grouped.rows.map(\.kind), sections.map(\.0))
+        XCTAssertEqual(grouped.rows.map(\.title), sections.map(\.1))
+        XCTAssertEqual(grouped.rows.filter(\.selected).map(\.id), [selectedID])
+        XCTAssertEqual(grouped.selected, selectedID)
+        XCTAssertEqual(grouped.total, grouped.rows.count)
+        XCTAssertTrue(grouped.rows.allSatisfy { $0.kind != .heading || (!$0.enabled && $0.badges.isEmpty) })
+        let commands = grouped.rows.filter { $0.kind == .command }
+        XCTAssertTrue(commands.contains { !$0.enabled })
+        XCTAssertTrue(commands.contains { $0.badges.contains { $0.tone == .shortcutMuted } })
+        for row in commands {
+            let item = try XCTUnwrap(items[row.id])
+            XCTAssertEqual(row.subtitle, "")
+            XCTAssertEqual(row.enabled, item.isLayoutCompatible)
+            XCTAssertEqual(row.badges, [
+                .init(
+                    text: item.spec.layoutCompatibility.localizedDisplayName,
+                    tone: item.isLayoutCompatible ? .neutral : .warning,
+                    symbol: nil
+                ),
+                .init(text: item.shortcut, tone: item.hasShortcut ? .shortcut : .shortcutMuted, symbol: nil)
+            ])
+        }
+
+        for query in [".", "focus"] {
+            fixture.palette.searchText = query
+            let flat = fixture.palette.shellData(size: size)
+            XCTAssertEqual(flat.rows.map(\.id), fixture.palette.filteredCommandItems.map(\.id), query)
+            XCTAssertEqual(
+                flat.rows.map(\.subtitle),
+                fixture.palette.filteredCommandItems.map(\.spec.category.localizedDisplayName),
+                query
+            )
+        }
+    }
+
+    func testShellActivateRunsOnlyEnabledCommandRows() throws {
+        var dispatched: [HotkeyCommand] = []
+        let fixture = CommandPaletteFocusFixture { environment in
+            environment.performCommand = { _, command in
+                dispatched.append(command)
+                return .executed
+            }
+        }
+        defer { fixture.cleanup() }
+        _ = try fixture.show()
+        fixture.palette.selectMode(.commands)
+        fixture.palette.expandResults()
+        let rows = fixture.palette.shellData(size: wholeCommandListSize(fixture)).rows
+        let disabled = rows.filter { !$0.enabled }
+        XCTAssertTrue(disabled.contains { $0.kind == .heading })
+        XCTAssertTrue(disabled.contains { $0.kind == .command })
+        let selection = fixture.palette.selectedItemID
+        for row in disabled {
+            fixture.palette.performShellCommand("activate " + row.id)
+        }
+        XCTAssertTrue(dispatched.isEmpty)
+        XCTAssertEqual(fixture.palette.selectedItemID, selection)
+        XCTAssertTrue(fixture.palette.isVisible)
+
+        let target = try XCTUnwrap(fixture.palette.commandItems.first { $0.spec.command == .openMenuAnywhere })
+        fixture.palette.performShellCommand("activate " + target.id)
+        XCTAssertEqual(dispatched, [target.spec.command])
+        XCTAssertFalse(fixture.palette.isVisible)
+    }
+
+    func testShellListDrawsOnlyNearbyRowsAndRevealsTheLastSelection() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let host = makePaletteHost(fixture.root)
+        fixture.controller.workspaceBarManager.shellHost = host
+        defer { fixture.controller.workspaceBarManager.shellHost = nil }
+        let (shell, tokens) = try showLongWindowList(fixture, host: host)
+        let ids = tokens.map(CommandPaletteController.shellRowID)
+        func drawn(_ id: String) -> Bool {
+            shell.surface.layout.handle(forKey: id) != nil
+        }
+        func fullyVisible(_ id: String) -> Bool {
+            paletteRowFullyVisible(shell, id)
+        }
+
+        let opened = try XCTUnwrap(shell.published)
+        XCTAssertLessThan(opened.rows.count, tokens.count)
+        XCTAssertEqual(opened.first, 0)
+        XCTAssertGreaterThan(opened.after, 0)
+        XCTAssertTrue(fullyVisible(ids[0]))
+
+        try scrollPaletteToEnd(shell, ids: ids)
+        XCTAssertFalse(drawn(ids[0]))
+        let scrolled = try XCTUnwrap(shell.published)
+        XCTAssertEqual(scrolled.selected, ids[0])
+        XCTAssertEqual(scrolled.first + scrolled.rows.count, tokens.count)
+        XCTAssertGreaterThan(scrolled.before, 0)
+
+        fixture.palette.moveSelection(by: 1)
+        XCTAssertEqual(fixture.palette.selectedItemID, .window(tokens[1]))
+        try awaitPaletteTree(shell) { fullyVisible(ids[1]) }
+        XCTAssertFalse(drawn(ids[ids.count - 1]))
+        XCTAssertEqual(shell.published?.selected, ids[1])
+    }
+
+    func testShellRedrawRepaintsWithTheNewThemeAndKeepsScrollAndComposition() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let host = makePaletteHost(fixture.root)
+        fixture.controller.workspaceBarManager.shellHost = host
+        defer { fixture.controller.workspaceBarManager.shellHost = nil }
+        let (shell, tokens) = try showLongWindowList(fixture, host: host)
+        let ids = tokens.map(CommandPaletteController.shellRowID)
+        let panel = try XCTUnwrap(fixture.palette.presentation.panel)
+        try scrollPaletteToEnd(shell, ids: ids)
+        let published = try XCTUnwrap(shell.published)
+        XCTAssertGreaterThan(published.before, 0)
+        let scrolled = try XCTUnwrap(shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.resultsKey))
+        let offset = shell.surface.layout.core.scrollOffset(of: scrolled)
+        shell.focusField(in: panel)
+        shell.field.beganEditing()
+        let editor = try XCTUnwrap(shell.field.textEditor)
+        editor.setMarkedText(
+            "日本",
+            selectedRange: NSRange(location: 2, length: 0),
+            replacementRange: NSRange(location: NSNotFound, length: 0)
+        )
+
+        let foreground = NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1)
+        var theme = host.config.theme
+        theme.light[ShellRole.foreground.rawValue] = foreground
+        theme.dark[ShellRole.foreground.rawValue] = foreground
+        XCTAssertNotEqual(shell.field.field?.textColor?.cgColor, foreground.cgColor)
+        let resources = try XCTUnwrap(fixture.controller.workspaceBarManager.commandPaletteResources)
+        resources.palette.refresh(theme: theme, appearance: panel.effectiveAppearance)
+        shell.redraw()
+
+        XCTAssertTrue(fixture.palette.presentation.shell === shell)
+        XCTAssertEqual(shell.field.field?.textColor?.cgColor, foreground.cgColor)
+        let redrawn = try XCTUnwrap(shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.resultsKey))
+        XCTAssertEqual(shell.surface.layout.core.scrollOffset(of: redrawn), offset)
+        XCTAssertEqual(shell.published, published)
+        XCTAssertTrue(shell.drawsPublishedList())
+        XCTAssertTrue(paletteRowFullyVisible(shell, ids[ids.count - 1]))
+        XCTAssertTrue(panel.firstResponder === shell.field.textEditor)
+        XCTAssertTrue(editor.hasMarkedText())
+        XCTAssertEqual(shell.field.text, "日本")
+    }
+
+    func testShellRedrawKeepsAScrollPastTheDrawnRows() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let host = makePaletteHost(fixture.root)
+        fixture.controller.workspaceBarManager.shellHost = host
+        defer { fixture.controller.workspaceBarManager.shellHost = nil }
+        let (shell, tokens) = try showLongWindowList(fixture, host: host)
+        let ids = tokens.map(CommandPaletteController.shellRowID)
+        let list = try XCTUnwrap(shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.resultsKey))
+        let listFrame = CGRect(shell.surface.layout.core.absoluteFrame(of: list))
+        let listLength = ids.reduce(Float(0)) { $0 + shell.rowWindow.advance(of: $1) }
+        XCTAssertTrue(shell.surface.scroll(
+            at: CGPoint(x: listFrame.midX, y: listFrame.midY),
+            event: ShellEvent(button: .none),
+            content: CGPoint(x: 0, y: CGFloat(listLength / 2))
+        ))
+        let offset = shell.surface.layout.core.scrollOffset(of: list)
+        XCTAssertFalse(ids.contains { paletteRowFullyVisible(shell, $0) })
+
+        shell.redraw()
+
+        let redrawn = try XCTUnwrap(shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.resultsKey))
+        XCTAssertEqual(shell.surface.layout.core.scrollOffset(of: redrawn), offset)
+        try awaitPaletteTree(shell) { paletteSettled(shell, ids: ids) }
+        XCTAssertGreaterThan(try XCTUnwrap(shell.published).first, 0)
+        XCTAssertTrue(ids.contains { paletteRowFullyVisible(shell, $0) })
+    }
+
+    func testShellFilterAfterADeepScrollKeepsTheMatches() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let host = makePaletteHost(fixture.root)
+        fixture.controller.workspaceBarManager.shellHost = host
+        defer { fixture.controller.workspaceBarManager.shellHost = nil }
+        let (shell, tokens) = try showLongWindowList(fixture, host: host)
+        let ids = tokens.map(CommandPaletteController.shellRowID)
+        try scrollPaletteToEnd(shell, ids: ids)
+        let visible = try XCTUnwrap(shell.published).rows.map(\.id).filter { paletteRowFullyVisible(shell, $0) }
+
+        let query = "Window 7"
+        fixture.palette.searchText = query
+        let matches = fixture.palette.filteredWindowItems.map { CommandPaletteController.shellRowID($0.id) }
+        XCTAssertFalse(matches.isEmpty)
+        XCTAssertTrue(Set(matches).isDisjoint(with: visible))
+        try awaitPaletteTree(shell) { shell.published?.query == query && paletteSettled(shell, ids: matches) }
+        let filtered = try XCTUnwrap(shell.published)
+        XCTAssertEqual(filtered.state, "results")
+        XCTAssertEqual(filtered.total, matches.count)
+        XCTAssertEqual(filtered.first + filtered.rows.count, matches.count)
+        XCTAssertTrue(paletteRowFullyVisible(shell, matches[matches.count - 1]))
+    }
+
+    func testShellRevealKeepsTheLastRowInViewWhenTallerRowsChangeTheEstimate() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let host = makePaletteHost(fixture.root)
+        fixture.controller.workspaceBarManager.shellHost = host
+        defer { fixture.controller.workspaceBarManager.shellHost = nil }
+        let marked = Self.longListCount / 2
+        let (shell, tokens) = try showLongWindowList(fixture, host: host) { $0 >= marked ? ["work"] : [] }
+        let ids = tokens.map(CommandPaletteController.shellRowID)
+        XCTAssertTrue(try XCTUnwrap(shell.published).rows.allSatisfy { (ids.firstIndex(of: $0.id) ?? marked) < marked })
+        func spacer() -> Float? {
+            shell.surface.layout.core.firstHandle(withKey: CommandPaletteShellPresenter.beforeKey)
+                .map { shell.surface.layout.core.layoutFrame(of: $0).height }
+        }
+
+        fixture.palette.moveSelection(by: -1)
+        XCTAssertEqual(fixture.palette.selectedItemID, .window(tokens[tokens.count - 1]))
+        try awaitPaletteTree(shell) { paletteRowFullyVisible(shell, ids[ids.count - 1]) }
+        let revealed = try XCTUnwrap(spacer())
+        try awaitPaletteTree(shell) { paletteSettled(shell, ids: ids) }
+
+        XCTAssertGreaterThan(shell.rowWindow.advance(of: ids[ids.count - 1]), shell.rowWindow.advance(of: ids[0]))
+        XCTAssertNotEqual(try XCTUnwrap(spacer()), revealed)
+        XCTAssertTrue(paletteRowFullyVisible(shell, ids[ids.count - 1]))
+        XCTAssertEqual(shell.published?.selected, ids[ids.count - 1])
+    }
+
+    private func wholeCommandListSize(_ fixture: CommandPaletteFocusFixture) -> CGSize {
+        XCTAssertEqual(fixture.palette.presentation.shell?.rowWindow.viewport, 0)
+        let entries = fixture.palette.commandItems.count + HotkeyCategory.allCases.count
+        return CGSize(
+            width: fixture.palette.presentation.shellLayoutSize(expanded: true).width,
+            height: CGFloat(entries) * CGFloat(CommandPaletteRowWindow.shortestRow)
+        )
+    }
+
+    private static let longListCount = 200
+    private static let longListProcess: pid_t = 92_011
+
+    private func paletteRowFullyVisible(_ shell: CommandPaletteShellPresenter, _ id: String) -> Bool {
+        guard let row = shell.surface.layout.handle(forKey: id),
+              let list = shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.resultsKey)
+        else { return false }
+        let frame = shell.surface.layout.core.absoluteFrame(of: row)
+        let viewport = shell.surface.layout.core.absoluteFrame(of: list)
+        return frame.y >= viewport.y && frame.y + frame.height <= viewport.y + viewport.height
+    }
+
+    private func scrollPaletteToEnd(_ shell: CommandPaletteShellPresenter, ids: [String]) throws {
+        let list = try XCTUnwrap(shell.surface.layout.handle(forKey: CommandPaletteShellPresenter.resultsKey))
+        let listFrame = CGRect(shell.surface.layout.core.absoluteFrame(of: list))
+        let listLength = ids.reduce(Float(0)) { $0 + shell.rowWindow.advance(of: $1) }
+        XCTAssertTrue(shell.surface.scroll(
+            at: CGPoint(x: listFrame.midX, y: listFrame.midY),
+            event: ShellEvent(button: .none),
+            content: CGPoint(x: 0, y: CGFloat(listLength))
+        ))
+        try awaitPaletteTree(shell) {
+            paletteRowFullyVisible(shell, ids[ids.count - 1]) && paletteSettled(shell, ids: ids)
+        }
+    }
+
+    private func showLongWindowList(
+        _ fixture: CommandPaletteFocusFixture,
+        host: ShellWidgetHost,
+        marks: (Int) -> [String] = { _ in [] }
+    ) throws -> (CommandPaletteShellPresenter, [WindowToken]) {
+        fixture.palette.prewarmShell(from: fixture.controller.workspaceBarManager)
+        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+        _ = try fixture.show()
+        XCTAssertTrue(fixture.palette.presentation.shell === shell)
+        let tokens = (0 ..< Self.longListCount).map { WindowToken(pid: Self.longListProcess, windowId: $0) }
+        fixture.palette.windows = tokens.enumerated().map { index, token in
+            CommandPaletteWindowItem(
+                id: token, handle: WindowHandle(id: token), title: "Window \(token.windowId)", appName: "Notes",
+                workspaceName: "1", isAppHidden: false, markNames: marks(index)
+            )
+        }
+        fixture.palette.expandResults()
+        let ids = tokens.map(CommandPaletteController.shellRowID)
+        try awaitPaletteTree(shell) {
+            shell.published?.total == tokens.count && shell.surface.layout.handle(forKey: ids[0]) != nil
+                && paletteSettled(shell, ids: ids)
+        }
+        return (shell, tokens)
+    }
+
+    private func paletteSettled(_ shell: CommandPaletteShellPresenter, ids: [String]) -> Bool {
+        guard let published = shell.published, shell.rowWindow.viewport > 0, shell.drawsPublishedList() else {
+            return false
+        }
+        let slice = shell.slice(ids: ids, selected: nil, limit: Float(published.height))
+        return published.first == slice.range.lowerBound && published.rows.count == slice.range.count
+            && Float(published.before) == slice.before && Float(published.after) == slice.after
+    }
+
     private func showAndWaitForEditing(_ fixture: CommandPaletteFocusFixture) async throws -> NSPanel {
         let panel = try fixture.show()
+        await waitForSearchEditing(panel)
+        return panel
+    }
+
+    private func waitForSearchEditing(_ panel: NSPanel) async {
         let editing = expectation(description: "Search becomes the first responder")
         let observation = panel.publisher(for: \.firstResponder, options: [.initial, .new])
             .first { $0 is NSTextView }
             .sink { _ in editing.fulfill() }
         await fulfillment(of: [editing], timeout: failureBound)
         observation.cancel()
-        return panel
     }
 
     private func sendKey(keyCode: UInt16, characters: String, to panel: NSPanel) throws {
@@ -1032,5 +1486,44 @@ final class CommandPaletteFocusFixture {
             panel.delegate = nil
         }
         try? FileManager.default.removeItem(at: root)
+    }
+}
+
+extension XCTestCase {
+    @MainActor
+    func awaitPaletteTree(_ shell: CommandPaletteShellPresenter, until condition: () -> Bool) throws {
+        let previous = shell.onTree
+        defer { shell.onTree = previous }
+        while !condition() {
+            let tree = expectation(description: "The palette applies its next tree")
+            shell.onTree = {
+                shell.onTree = previous
+                previous?()
+                tree.fulfill()
+            }
+            guard XCTWaiter().wait(for: [tree], timeout: failureBound) == .completed else {
+                XCTFail("The palette stopped applying trees before the expected state")
+                return
+            }
+        }
+    }
+
+    @MainActor
+    func makePaletteHost(_ root: URL) -> ShellWidgetHost {
+        ShellWidgetHost(
+            configDirectory: root.appendingPathComponent("config"),
+            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
+            resourceStore: ShellResourceStore(directory: root.appendingPathComponent("resources")),
+            world: { ShellWorldData() },
+            vars: { [:] },
+            bars: { [:] },
+            onLayoutChange: {},
+            onCommand: { _, _ in },
+            onMenu: { _ in },
+            onPreview: { _ in },
+            onDrag: { _ in },
+            onPopoutChange: {},
+            onTitleDemandChange: { _ in }
+        )
     }
 }

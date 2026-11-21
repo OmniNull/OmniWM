@@ -8,7 +8,7 @@ import Foundation
 final class WorldStore {
     private let model: WindowModel
     let windows: WindowModel.ReadView
-    private let trace: ReconcileTraceRecorder
+    let trace: ReconcileTraceRecorder
     private(set) var seq: UInt64 = 0
     private(set) var focus = FocusSessionSnapshot()
     private(set) var viewports: [WorkspaceDescriptor.ID: ViewportState] = [:]
@@ -36,11 +36,11 @@ final class WorldStore {
         dwindleEngine?.isMutationSanctioned = sanctioned
     }
 
-    init(nowProvider: @escaping () -> Date = Date.init) {
+    init(validatesScopes: Bool = WorldStore.validatesScopesByDefault, nowProvider: @escaping () -> Date = Date.init) {
         let model = WindowModel()
         self.model = model
         windows = WindowModel.ReadView(model: model)
-        trace = ReconcileTraceRecorder(nowProvider: nowProvider)
+        trace = ReconcileTraceRecorder(validatesScopes: validatesScopes, nowProvider: nowProvider)
     }
 
     @discardableResult
@@ -52,6 +52,49 @@ final class WorldStore {
         preMutate: () -> Void = {},
         resolvePlan: (ActionPlan, WindowToken?, ReconcileSnapshot) -> ActionPlan
     ) -> ReconcileTxn {
+        inCommitFrame(event) { isOutermost in
+            let windowExistedBeforeMutation = if case .windowAdmitted = event {
+                event.token.flatMap { model.entry(for: $0) } != nil
+            } else {
+                false
+            }
+            preMutate()
+            let familyEvents = hostedFamilyEvents(for: event, monitors: monitors)
+            applyWindowMutationBeforePlan(event, monitors: monitors)
+            let existingEntry = event.token.flatMap { model.entry(for: $0) }
+            let normalizedEvent = EventNormalizer.normalize(
+                event: event,
+                existingEntry: existingEntry,
+                monitors: monitors
+            )
+            let reducerSnapshot = snapshot()
+            let plan = StateReducer.reduce(
+                event: normalizedEvent,
+                existingEntry: existingEntry,
+                currentSnapshot: reducerSnapshot,
+                monitors: monitors,
+                windowExistedBeforeMutation: windowExistedBeforeMutation
+            )
+            var resolvedPlan = resolvePlan(plan, normalizedEvent.token, reducerSnapshot)
+            applyHostedFamilyEvents(familyEvents, monitors: monitors, snapshot: snapshot, plan: &resolvedPlan)
+            applyWindowRemovalAfterPlan(event, monitors: monitors)
+
+            var committedSnapshot = resolvedPlan.mutatesRuntimeState || event.mutatesSnapshotAfterPlan || !familyEvents
+                .isEmpty
+                ? snapshot()
+                : reducerSnapshot
+            completeSnapshot(&committedSnapshot)
+            return trace.recordTransaction(
+                event: event,
+                normalizedEvent: normalizedEvent,
+                resolvedPlan: resolvedPlan,
+                committedSnapshot: committedSnapshot,
+                validateInvariants: isOutermost
+            )
+        }
+    }
+
+    func inCommitFrame<Result>(_ event: WMEvent, _ body: (_ isOutermost: Bool) -> Result) -> Result {
         commitDepth += 1
         pushEngineSanction()
         let previousCommitEvent = currentCommitEvent
@@ -62,53 +105,7 @@ final class WorldStore {
             currentCommitEvent = previousCommitEvent
         }
         seq &+= 1
-
-        let windowExistedBeforeMutation = if case .windowAdmitted = event {
-            event.token.flatMap { model.entry(for: $0) } != nil
-        } else {
-            false
-        }
-        preMutate()
-        let familyEvents = hostedFamilyEvents(for: event, monitors: monitors)
-        applyWindowMutationBeforePlan(event, monitors: monitors)
-        let existingEntry = event.token.flatMap { model.entry(for: $0) }
-        let normalizedEvent = EventNormalizer.normalize(
-            event: event,
-            existingEntry: existingEntry,
-            monitors: monitors
-        )
-        let reducerSnapshot = snapshot()
-        let plan = StateReducer.reduce(
-            event: normalizedEvent,
-            existingEntry: existingEntry,
-            currentSnapshot: reducerSnapshot,
-            monitors: monitors,
-            windowExistedBeforeMutation: windowExistedBeforeMutation
-        )
-        var resolvedPlan = resolvePlan(plan, normalizedEvent.token, reducerSnapshot)
-        applyHostedFamilyEvents(familyEvents, monitors: monitors, snapshot: snapshot, plan: &resolvedPlan)
-        applyWindowRemovalAfterPlan(event, monitors: monitors)
-
-        var committedSnapshot = resolvedPlan.mutatesRuntimeState || event.mutatesSnapshotAfterPlan || !familyEvents
-            .isEmpty
-            ? snapshot()
-            : reducerSnapshot
-        completeSnapshot(&committedSnapshot)
-        return trace.recordTransaction(
-            event: event,
-            normalizedEvent: normalizedEvent,
-            resolvedPlan: resolvedPlan,
-            committedSnapshot: committedSnapshot,
-            validateInvariants: commitDepth == 1
-        )
-    }
-
-    func traceRecords() -> [ReconcileTraceRecord] {
-        trace.snapshot()
-    }
-
-    func invariantViolationCountsDump() -> String {
-        trace.invariantViolationCountsDump()
+        return body(commitDepth == 1)
     }
 
     func noteInvalidation(workspaceId: WorkspaceDescriptor.ID?, domains: InvalidationDomain) {
@@ -333,9 +330,7 @@ extension WorldStore {
     func appVisibilityGeneration(for pid: pid_t) -> UInt64 {
         appVisibilityGenerationByPID[pid] ?? 0
     }
-}
 
-extension WorldStore {
     func applyMonitorSessions(_ sessions: [Monitor.ID: MonitorSession]) {
         assertInCommit("applyMonitorSessions")
         monitorSessions = sessions

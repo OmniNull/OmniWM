@@ -73,7 +73,7 @@ Only OmniShell sends `action`; providers send the other frames. Echo the request
 
 Events and results remain ordered. The package admits at most 256 queued events; overflow fails that provider while preserving already accepted replies. Results use reserved capacity, so event traffic cannot displace them. Outgoing unwritten actions share a 1 MiB limit and use nonblocking pipes. Stderr is drained with bounded diagnostics. None of these paths waits on the UI thread or advances animations.
 
-The optional **Converter** component is installed but unconfigured. Add it through the catalog, then approve its program when prompted to convert dropped images. Its provider uses macOS image tools; returned outputs are ordinary Resources.
+The optional **Converter** component is installed but unconfigured. Add it through the catalog to convert dropped images with the [native image conversion service](/omnishell/reference/resources-desktop/#image-conversion). Its outputs are ordinary Resources and no provider approval is needed.
 
 <LuauDeclaration name="omniwm.provider.send" />
 

@@ -70,6 +70,7 @@ enum ShellSettingsPane: String, Sendable {
     case notifications
     case focus
     case screenshot
+    case appearance
 
     var url: URL? {
         if self == .screenshot {
@@ -84,6 +85,7 @@ enum ShellSettingsPane: String, Sendable {
         case .notifications: "com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles"
         case .focus: "com.apple.Focus-Settings.extension"
         case .screenshot: ""
+        case .appearance: "com.apple.Appearance-Settings.extension"
         }
         return URL(string: "x-apple.systempreferences:\(pane)")
     }
@@ -94,6 +96,7 @@ enum ShellAction: Equatable, Sendable {
     case volume(ShellVolumeCommand)
     case microphone(ShellMicrophoneCommand)
     case brightness(ShellBrightnessCommand)
+    case nightShift(ShellNightShiftCommand)
     case awake(ShellAwakeCommand)
     case media(ShellMediaCommand)
     case calendar(ShellCalendarCommand)
@@ -103,6 +106,7 @@ enum ShellAction: Equatable, Sendable {
     case wifi(ShellWiFiCommand)
     case bluetooth(ShellBluetoothCommand)
     case session(ShellSessionCommand)
+    case appearance(ShellAppearanceCommand)
     case settings(ShellSettingsPane)
     case toggle(widget: String)
     case trigger(widget: String, name: String, value: String?)
@@ -111,6 +115,7 @@ enum ShellAction: Equatable, Sendable {
         "volume": { ShellVolumeCommand(words: $0).map(ShellAction.volume) },
         "microphone": { ShellMicrophoneCommand(words: $0).map(ShellAction.microphone) },
         "brightness": { ShellBrightnessCommand(words: $0).map(ShellAction.brightness) },
+        "night-shift": { ShellNightShiftCommand(words: $0).map(ShellAction.nightShift) },
         "media": { ShellMediaCommand(words: $0).map(ShellAction.media) },
         "calendar": { ShellCalendarCommand(words: $0).map(ShellAction.calendar) },
         "reminders": { ShellRemindersCommand(words: $0).map(ShellAction.reminders) },
@@ -118,6 +123,7 @@ enum ShellAction: Equatable, Sendable {
         "input-source": { ShellInputSourceCommand(words: $0).map(ShellAction.inputSource) },
         "wifi": { ShellWiFiCommand(words: $0).map(ShellAction.wifi) },
         "bluetooth": { ShellBluetoothCommand(words: $0).map(ShellAction.bluetooth) },
+        "appearance": { ShellAppearanceCommand(words: $0).map(ShellAction.appearance) },
         "session": {
             ShellAwakeCommand(words: $0).map(ShellAction.awake)
                 ?? ShellSessionCommand(words: $0).map(ShellAction.session)
@@ -177,6 +183,7 @@ struct ShellDropTarget: Equatable {
     let frame: CGRect
     let drop: Bool
     var inIsland = false
+    var visible: CGRect?
 }
 
 @MainActor
@@ -194,6 +201,7 @@ final class ShellWidgetHost {
         var nodes: [UInt8] = []
         private(set) var unmountedLayout: ShellWidgetLayout?
         var size: CGSize = .zero
+        var parts = ShellWidgetParts()
         var sequences = InlineArray<2, Int>(repeating: 0)
         var deps: UInt64 = 0
         var popoutDeps: UInt64 = 0
@@ -208,21 +216,21 @@ final class ShellWidgetHost {
         func apply(_ tree: ShellWidgetDelivery.Tree, text: ShellTextStore, gestureAcknowledgement: UInt64 = 0) -> Bool {
             nodes = tree.nodes
             deps = tree.demand
-            let nextSize: CGSize
+            let layout: ShellWidgetLayout
             if let surface {
                 surface.sequence = tree.sequence
                 guard surface.apply(tree.nodes, text: text, gestureAcknowledgement: gestureAcknowledgement)
                 else { return false }
-                nextSize = surface.size
+                layout = surface.layout
             } else {
-                let layout = unmountedLayout ?? ShellWidgetLayout()
+                layout = unmountedLayout ?? ShellWidgetLayout()
                 unmountedLayout = layout
                 guard layout.apply(tree.nodes, text: text) else { return false }
-                nextSize = layout.size
             }
             sequences[ShellWidgetView.bar.rawValue] = tree.sequence
-            guard nextSize != size else { return false }
-            size = nextSize
+            let next = (size: layout.naturalSize, parts: layout.parts)
+            guard next != (size, parts) else { return false }
+            (size, parts) = next
             return true
         }
 
@@ -332,7 +340,6 @@ final class ShellWidgetHost {
     var traceImagesBegin: Task<Void, Never>?
     var feed: ShellDataFeed?
     var observation: ShellDirectoryObservation?
-    var wallpaperPalette: ShellWallpaperPaletteWriter?
     var systemColorsObserver: NSObjectProtocol?
     var powerStateObserver: NSObjectProtocol?
     var displaySleepObservers: [NSObjectProtocol] = []
@@ -367,6 +374,7 @@ final class ShellWidgetHost {
     var drawerKeys: [String: ShellBarKey] = [:]
     var onBadgesDemandChange: (@MainActor (Bool) -> Void)?
     var onConfigChange: (@MainActor (ShellConfig) -> Void)?
+    var onPaletteChange: (@MainActor (ShellTheme) -> Void)?
     var onWidgetMenu: (@MainActor (ShellWidgetMenuRequest) -> Void)?
     var onToggleNamesChange: (@MainActor () -> Void)?
     var onWidgetsChange: (@MainActor () -> Void)?

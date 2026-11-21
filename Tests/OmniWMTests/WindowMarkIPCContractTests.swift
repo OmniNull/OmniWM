@@ -103,12 +103,15 @@ final class WindowMarkIPCContractTests: XCTestCase {
         )
         XCTAssertTrue(CLIParser.usageText.contains("omniwmctl window mark list [--json]"))
 
-        for shell in CLIShell.allCases {
-            let script = CLICompletionGenerator.script(for: shell)
-            for token in ["mark", "set", "list", "focus", "summon", "remove", "--json"] {
-                XCTAssertTrue(script.contains(token), "\(shell.rawValue) completion missing \(token)")
-            }
-        }
+        XCTAssertTrue(CLICompletionSelector.suggestions(words: ["omniwmctl", "window", ""]).contains("mark"))
+        XCTAssertEqual(
+            Set(CLICompletionSelector.suggestions(words: ["omniwmctl", "window", "mark", ""])),
+            Set(IPCAutomationManifest.windowMarkActionDescriptors.map(\.name.rawValue))
+        )
+        XCTAssertEqual(
+            CLICompletionSelector.suggestions(words: ["omniwmctl", "window", "mark", "list", ""]),
+            ["--json"]
+        )
     }
 
     func testListResultRoundTripsAndRendersWindowContext() throws {

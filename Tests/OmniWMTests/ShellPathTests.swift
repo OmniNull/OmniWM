@@ -15,6 +15,15 @@ final class ShellPathTests: XCTestCase {
         return data.path(fitting: nil, into: .zero).boundingBoxOfPath
     }
 
+    private enum FittedPointRounding {
+        static let arcFromEndPoints = 78
+        static let viewBoxFit = 12
+        static let interpolation = 32
+        static let ellipsePoint = 19
+        static let expectation = 7
+        static let operations = 2 * arcFromEndPoints + viewBoxFit + interpolation + ellipsePoint + expectation
+    }
+
     private func assertRect(_ rect: CGRect, _ expected: CGRect, line: UInt = #line) {
         let handleAngle = CGFloat.pi / 8
         let arcBound = expected.width / 27 * pow(sin(handleAngle), 6) / pow(cos(handleAngle), 2)
@@ -60,6 +69,91 @@ final class ShellPathTests: XCTestCase {
             return XCTFail("a packed arc should end in a curve")
         }
         XCTAssertEqual(end, CGPoint(x: 10, y: 0))
+    }
+
+    func testMorphingAnEllipseAcrossEquivalentAxesPreservesItsExtent() throws {
+        let start = try XCTUnwrap(ShellPath.parse("M10 0 A10 5 0 0 1 0 5")?.shape(fitting: nil, into: .zero))
+        let swapped = try XCTUnwrap(ShellPath.parse("M10 0 A5 10 90 0 1 0 5")?.shape(fitting: nil, into: .zero))
+        let swappedBounds = start.interpolated(to: swapped, at: 0.5).path().boundingBoxOfPath
+        assertRect(swappedBounds, CGRect(x: 0, y: 0, width: 10, height: 5))
+        let left = -5 * sqrt(2.0)
+        for source in ["M10 0 A10 5 180 0 1 -10 0", "M10 0 A5 10 90 0 1 -10 0"] {
+            let target = try XCTUnwrap(ShellPath.parse(source)?.shape(fitting: nil, into: .zero))
+            let bounds = start.interpolated(to: target, at: 0.5).path().boundingBoxOfPath
+            assertRect(bounds, CGRect(x: left, y: 0, width: 10 - left, height: 5))
+        }
+    }
+
+    func testRotatingAnEllipsePreservesItsRadiiWithANonuniformViewBox() throws {
+        let viewBox = CGRect(x: -2, y: -3, width: 20, height: 20)
+        let size = CGSize(width: 40, height: 60)
+        let radii = CGSize(width: 10, height: 5)
+        let quarterTurn = CGFloat(90)
+        let start = try XCTUnwrap(ShellPath.parse(
+            "M\(radii.width) 0 A\(radii.width) \(radii.height) 0 0 1 0 \(radii.height)"
+        )?.shape(fitting: viewBox, into: size))
+        let target = try XCTUnwrap(ShellPath.parse(
+            "M0 \(radii.width) A\(radii.width) \(radii.height) \(quarterTurn) 0 1 -\(radii.height) 0"
+        )?.shape(fitting: viewBox, into: size))
+        let midpoint = start.interpolated(to: target, at: 0.5).path()
+        let halfway = quarterTurn / 2 * .pi / 180
+        let scale = CGSize(width: size.width / viewBox.width, height: size.height / viewBox.height)
+        let majorEnd = (radii.width * cos(halfway) - viewBox.minX) * scale.width
+        let minorEnd = CGPoint(
+            x: (-radii.height * sin(halfway) - viewBox.minX) * scale.width,
+            y: (radii.height * cos(halfway) - viewBox.minY) * scale.height
+        )
+        let rounding = CGFloat.rounding(operations: FittedPointRounding.operations, at: size.height)
+        XCTAssertEqual(midpoint.boundingBoxOfPath.maxX, majorEnd, accuracy: rounding)
+        XCTAssertEqual(midpoint.currentPoint.x, minorEnd.x, accuracy: rounding)
+        XCTAssertEqual(midpoint.currentPoint.y, minorEnd.y, accuracy: rounding)
+    }
+
+    func testOnlyAConcentricRoundCappedBandMorphsAsABand() throws {
+        for gauge in [(side: 48, width: 4), (side: 72, width: 12)] {
+            let size = CGSize(width: gauge.side, height: gauge.side)
+            let bands = try celestialBands(side: gauge.side, width: gauge.width)
+            XCTAssertEqual(bands.count, percentages.count)
+            for band in bands {
+                XCTAssertNotNil(ShellPath.parse(band)?.shape(fitting: nil, into: size), band)
+            }
+        }
+        for (reason, outline) in [
+            ("ring arcs off center", "M10 0 A10 10 0 0 1 0 10 A2 2 0 0 1 0 6 A8 8 0 0 0 6 0 A2 2 0 0 1 10 0 Z"),
+            (
+                "ring arcs the long way round",
+                "M10 0 A10 10 0 1 1 -6 8 A1 1 0 0 1 -4.8 6.4 A8 8 0 1 0 8 0 A1 1 0 0 1 10 0 Z"
+            )
+        ] {
+            let parsed = try XCTUnwrap(ShellPath.parse(outline), reason)
+            XCTAssertNil(parsed.shape(fitting: nil, into: .zero), reason)
+        }
+    }
+
+    private let percentages = 1 ... 100
+
+    private func celestialBands(side: Int, width: Int) throws -> [String] {
+        let geometry = try String(
+            contentsOf: ShellStyleFixture.source("celestial").appendingPathComponent("lib/geometry.luau"),
+            encoding: .utf8
+        )
+        let widget = try ShellRenderedWidget(
+            name: "celestial-bands",
+            source: """
+            local geometry = require("../lib/geometry")
+            function render(ctx)
+                local rows = {}
+                for percent = \(percentages.lowerBound), \(percentages.upperBound) do
+                    rows[#rows + 1] = ui.text{ text = geometry.gauge(\(side), \(width), percent / 100).value }
+                end
+                return ui.column(rows)
+            end
+            """,
+            modules: [.init(path: "celestial/lib/geometry.luau", source: geometry)],
+            chunk: "@celestial/widgets/bands.luau"
+        )
+        widget.render(ShellBarData())
+        return widget.strings().filter { $0.hasPrefix("M ") }
     }
 
     func testMalformedPathDataDrawsNothing() {

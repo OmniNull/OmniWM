@@ -61,7 +61,7 @@ final class WindowSwitcherInputTests: XCTestCase {
     func testScopeShortcutNeverLeaksCommandSAndDoesNotRepeat() {
         var input = WindowSwitcherInput()
         _ = key(&input, kVK_Tab)
-        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .toggleScope)
+        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .cycleScope)
         let repeated = key(&input, kVK_ANSI_S, isRepeat: true)
         XCTAssertTrue(repeated.consumed)
         XCTAssertNil(repeated.action)
@@ -126,7 +126,7 @@ final class WindowSwitcherInputTests: XCTestCase {
         input.shortcuts = WindowSwitcherShortcuts(commandTab: .remembered, optionTab: .disabled)
         XCTAssertFalse(key(&input, kVK_Tab, flags: [.maskAlternate]).consumed)
         XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false))
-        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .toggleScope)
+        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .cycleScope)
         XCTAssertEqual(key(&input, kVK_Command, type: .flagsChanged, flags: []).action, .commit)
     }
 
@@ -134,7 +134,7 @@ final class WindowSwitcherInputTests: XCTestCase {
         var input = WindowSwitcherInput()
         _ = key(&input, kVK_Tab)
         _ = key(&input, kVK_Tab, type: .keyUp)
-        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .toggleScope)
+        XCTAssertEqual(key(&input, kVK_ANSI_S).action, .cycleScope)
         _ = key(&input, kVK_Command, type: .flagsChanged, flags: [])
         XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))
     }
@@ -151,6 +151,12 @@ final class WindowSwitcherInputTests: XCTestCase {
         XCTAssertNil(key(&input, kVK_Option, type: .flagsChanged, flags: []).action)
     }
 
+    func testShortcutAssignedToVisibleWorkspacesOpensThatScope() {
+        var input = WindowSwitcherInput()
+        input.shortcuts = WindowSwitcherShortcuts(commandTab: .visibleWorkspaces, optionTab: .allWorkspaces)
+        XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .visibleWorkspaces))
+    }
+
     func testBothShortcutsCanBeDisabled() {
         var input = WindowSwitcherInput()
         input.shortcuts = WindowSwitcherShortcuts(commandTab: .disabled, optionTab: .disabled)
@@ -159,14 +165,65 @@ final class WindowSwitcherInputTests: XCTestCase {
         XCTAssertFalse(key(&input, kVK_Tab, flags: [.maskAlternate]).consumed)
     }
 
+    func testExternalSessionCommitsWhenAnyHeldModifierIsReleasedButNotShift() {
+        var input = WindowSwitcherInput()
+        let hyper: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+        input.beginExternalSession(holding: hyper)
+        XCTAssertTrue(input.isActive)
+        let withoutShift: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl]
+        XCTAssertNil(key(&input, kVK_Shift, type: .flagsChanged, flags: withoutShift, source: .external).action)
+        XCTAssertEqual(
+            key(&input, kVK_Control, type: .flagsChanged, flags: [.maskCommand, .maskAlternate], source: .external)
+                .action,
+            .commit
+        )
+        XCTAssertFalse(input.isActive)
+    }
+
+    func testExternalSessionPassesUnknownKeysToTheHotkeyManager() {
+        var input = WindowSwitcherInput()
+        input.beginExternalSession(holding: [.maskControl])
+        let trigger = key(&input, kVK_ANSI_J, flags: [.maskControl], source: .external)
+        XCTAssertFalse(trigger.consumed)
+        XCTAssertNil(trigger.action)
+        XCTAssertFalse(key(&input, kVK_ANSI_J, type: .keyUp, flags: [.maskControl], source: .external).consumed)
+        XCTAssertEqual(key(&input, kVK_Tab, flags: [.maskControl], source: .external).action, .cycle(reverse: false))
+        XCTAssertEqual(key(&input, kVK_ANSI_S, flags: [.maskControl], source: .external).action, .cycleScope)
+        XCTAssertEqual(key(&input, kVK_Escape, flags: [.maskControl], source: .external).action, .cancel)
+        XCTAssertTrue(key(&input, kVK_Escape, type: .keyUp, flags: [.maskControl], source: .external).consumed)
+    }
+
+    func testKeyboardSessionAfterExternalSessionSwallowsUnknownKeysAgain() {
+        var input = WindowSwitcherInput()
+        input.beginExternalSession(holding: [.maskAlternate])
+        _ = key(&input, kVK_Option, type: .flagsChanged, flags: [], source: .external)
+        _ = key(&input, kVK_Tab)
+        XCTAssertTrue(key(&input, kVK_ANSI_Q).consumed)
+        XCTAssertNil(key(&input, kVK_Option, type: .flagsChanged, flags: [.maskCommand]).action)
+        XCTAssertEqual(key(&input, kVK_Command, type: .flagsChanged, flags: []).action, .commit)
+    }
+
+    func testSessionKeepsTheKeyboardUntilConsumedKeysAreReleased() {
+        var input = WindowSwitcherInput()
+        input.beginExternalSession(holding: [.maskControl])
+        XCTAssertEqual(key(&input, kVK_Return, flags: [.maskControl], source: .external).action, .commit)
+        XCTAssertFalse(input.isActive)
+        XCTAssertTrue(input.holdsKeyboard(for: .external))
+        XCTAssertFalse(key(&input, kVK_Return, type: .keyUp, flags: [.maskControl]).consumed)
+        XCTAssertTrue(key(&input, kVK_Return, type: .keyUp, flags: [.maskControl], source: .external).consumed)
+        XCTAssertFalse(input.holdsKeyboard(for: .external))
+        XCTAssertFalse(key(&input, kVK_Return, flags: [], source: .external).consumed)
+    }
+
     private func key(
         _ input: inout WindowSwitcherInput,
         _ keyCode: Int,
         type: CGEventType = .keyDown,
         flags: CGEventFlags = [.maskCommand],
         isRepeat: Bool = false,
-        canBegin: Bool = true
+        canBegin: Bool = true,
+        source: WindowSwitcherInput.Source = .shortcut
     ) -> WindowSwitcherInput.Decision {
-        input.handle(type: type, keyCode: keyCode, flags: flags, isRepeat: isRepeat, canBegin: canBegin)
+        input.handle(type: type, keyCode: keyCode, flags: flags, isRepeat: isRepeat, canBegin: canBegin, source: source)
     }
 }

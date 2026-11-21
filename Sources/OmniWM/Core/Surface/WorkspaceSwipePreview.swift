@@ -52,7 +52,7 @@ final class WorkspaceSwipePreview {
 
     private let ownedWindowRegistry: OwnedWindowRegistry
     private let capture: OverviewThumbnailCapture
-    private let hasCaptureAccess: @MainActor () -> Bool
+    let hasCaptureAccess: @MainActor () -> Bool
     private let backdrop: WorkspaceSwipeBackdrop
     private let captureDisplay: @MainActor (Monitor, CGRect) async -> CGImage?
     private var sourceSnapshot: CGImage?

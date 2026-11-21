@@ -95,24 +95,10 @@ final class MoveWindowToMonitorIPCCommandTests: XCTestCase {
                 "omniwmctl command move-to-monitor <left|right|up|down>"
             )
         )
-
-        for shell in CLIShell.allCases {
-            let script = CLICompletionGenerator.script(for: shell)
-            switch shell {
-            case .zsh,
-                 .bash:
-                XCTAssertTrue(script.contains("\"move-to-monitor\")"))
-                XCTAssertTrue(script.contains("suggestions=\"down left right up\""))
-            case .fish:
-                XCTAssertTrue(
-                    script.contains(
-                        "__fish_seen_subcommand_from command; and __fish_seen_subcommand_from move-to-monitor"
-                    )
-                )
-            case .nu:
-                XCTAssertTrue(script.contains("\"move-to-monitor\": [\"down\" \"left\" \"right\" \"up\"]"))
-            }
-        }
+        XCTAssertEqual(
+            Set(CLICompletionSelector.suggestions(words: ["omniwmctl", "command", "move-to-monitor", ""])),
+            Set(["left", "right", "up", "down"])
+        )
     }
 
     @MainActor

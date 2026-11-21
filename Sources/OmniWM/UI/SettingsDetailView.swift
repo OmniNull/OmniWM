@@ -47,6 +47,8 @@ struct SettingsDetailView: View {
                 controller: controller,
                 windowCornerPreferences: windowCornerPreferences
             )
+        case .appTheming:
+            AppThemingSettingsPage(settings: settings, controller: controller)
         case .styles:
             ShellDesktopEditorPage(settings: settings, controller: controller)
         case .menuBar:
@@ -69,14 +71,14 @@ struct SettingsDetailView: View {
             HotkeySettingsView(settings: settings, controller: controller)
         case .mouseTrackpad:
             MouseTrackpadSettingsTab(settings: settings, controller: controller)
+        case .commandPalette:
+            CommandPaletteSettingsTab(settings: settings)
         case .launcher:
             LauncherSettingsPage(settings: settings, controller: controller, navigation: navigation)
         case .quakeTerminal:
             QuakeTerminalSettingsTab(settings: settings, controller: controller)
         case .diagnostics:
-            DiagnosticsSettingsTab(controller: controller, navigation: navigation)
-        case .reportIssue:
-            ReportIssueSettingsTab(controller: controller)
+            DiagnosticsSettingsTab(controller: controller)
         case .advanced:
             AdvancedSettingsPage(settings: settings, controller: controller)
         }

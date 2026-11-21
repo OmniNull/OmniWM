@@ -14,13 +14,10 @@ struct ShellPathData: Equatable, Sendable {
     }
 
     var elements: [Element] = []
+    fileprivate var shape: ShellPathShape?
 
     func path(fitting viewBox: CGRect?, into size: CGSize) -> CGPath {
-        var transform = CGAffineTransform.identity
-        if let viewBox, viewBox.width > 0, viewBox.height > 0 {
-            transform = CGAffineTransform(scaleX: size.width / viewBox.width, y: size.height / viewBox.height)
-                .translatedBy(x: -viewBox.minX, y: -viewBox.minY)
-        }
+        let transform = Self.fittingTransform(viewBox, into: size)
         let path = CGMutablePath()
         for element in elements {
             switch element {
@@ -33,6 +30,17 @@ struct ShellPathData: Equatable, Sendable {
             }
         }
         return path.copy() ?? path
+    }
+
+    func shape(fitting viewBox: CGRect?, into size: CGSize) -> ShellPathShape? {
+        guard let shape else { return nil }
+        return shape.fitted(using: Self.fittingTransform(viewBox, into: size))
+    }
+
+    private static func fittingTransform(_ viewBox: CGRect?, into size: CGSize) -> CGAffineTransform {
+        guard let viewBox, viewBox.width > 0, viewBox.height > 0 else { return .identity }
+        return CGAffineTransform(scaleX: size.width / viewBox.width, y: size.height / viewBox.height)
+            .translatedBy(x: -viewBox.minX, y: -viewBox.minY)
     }
 
     fileprivate mutating func move(to point: CGPoint) {
@@ -77,7 +85,24 @@ enum ShellPath {
                 command = UInt8(ascii: "L")
             }
         }
+        let closes = command | 0x20 == UInt8(ascii: "z")
+        if steps == ShellPathBand.commandCount, closes, parser.arcCount == parser.bandEdges.count,
+           case .move? = parser.path.elements.first
+        {
+            parser.path.shape = ShellPathBand(parser.bandEdges).map { .band($0) }
+        } else if steps != 2 {
+            parser.path.shape = nil
+        }
         return parser.path.elements.isEmpty ? nil : parser.path
+    }
+
+    static func haveMatchingSegments(_ first: CGPath, _ second: CGPath) -> Bool {
+        func segmentTypes(_ path: CGPath) -> [CGPathElementType] {
+            var types: [CGPathElementType] = []
+            path.applyWithBlock { types.append($0.pointee.type) }
+            return types
+        }
+        return segmentTypes(first) == segmentTypes(second)
     }
 
     private struct Parser {
@@ -87,6 +112,8 @@ enum ShellPath {
         var start = CGPoint.zero
         var cubic: CGPoint?
         var quadratic: CGPoint?
+        var bandEdges = InlineArray<4, ShellPathBand.Edge?>(repeating: nil)
+        var arcCount = 0
 
         mutating func apply(_ command: UInt8) -> Bool {
             let relative = command >= UInt8(ascii: "a")
@@ -173,71 +200,24 @@ enum ShellPath {
             }
             let end = origin + point
             let arc = Arc(radii: CGSize(width: rx, height: ry), rotation: rotation, large: large, sweep: sweep)
+            if arcCount < bandEdges.count {
+                bandEdges[arcCount] = ShellPathBand.Edge(arc: arc, from: current, to: end)
+            }
+            arcCount += 1
             ShellPath.addArc(arc, to: &path, from: current, to: end)
             current = end
             return true
         }
     }
 
-    private struct Arc {
+    struct Arc {
         let radii: CGSize
         let rotation: CGFloat
         let large: Bool
         let sweep: Bool
-    }
 
-    private struct ArcGeometry {
-        let center: CGPoint
-        let rx: CGFloat
-        let ry: CGFloat
-        let cosPhi: CGFloat
-        let sinPhi: CGFloat
-        let theta: CGFloat
-        let delta: CGFloat
-
-        init(_ arc: Arc, from start: CGPoint, to end: CGPoint) {
-            var rx = abs(arc.radii.width)
-            var ry = abs(arc.radii.height)
-            let phi = arc.rotation * .pi / 180
-            cosPhi = cos(phi)
-            sinPhi = sin(phi)
-            let halfX = (start.x - end.x) / 2
-            let halfY = (start.y - end.y) / 2
-            let x1 = cosPhi * halfX + sinPhi * halfY
-            let y1 = -sinPhi * halfX + cosPhi * halfY
-            let lambda = (x1 * x1) / (rx * rx) + (y1 * y1) / (ry * ry)
-            if lambda > 1 {
-                rx *= lambda.squareRoot()
-                ry *= lambda.squareRoot()
-            }
-            let numerator = rx * rx * ry * ry - rx * rx * y1 * y1 - ry * ry * x1 * x1
-            let denominator = rx * rx * y1 * y1 + ry * ry * x1 * x1
-            let coefficient = (max(numerator / denominator, 0)).squareRoot() * (arc.large == arc.sweep ? -1 : 1)
-            let centerX = coefficient * rx * y1 / ry
-            let centerY = -coefficient * ry * x1 / rx
-            center = CGPoint(
-                x: cosPhi * centerX - sinPhi * centerY + (start.x + end.x) / 2,
-                y: sinPhi * centerX + cosPhi * centerY + (start.y + end.y) / 2
-            )
-            self.rx = rx
-            self.ry = ry
-            let from = CGPoint(x: (x1 - centerX) / rx, y: (y1 - centerY) / ry)
-            let to = CGPoint(x: (-x1 - centerX) / rx, y: (-y1 - centerY) / ry)
-            theta = ShellPath.angle(CGPoint(x: 1, y: 0), from)
-            var delta = ShellPath.angle(from, to)
-            if !arc.sweep, delta > 0 {
-                delta -= 2 * .pi
-            } else if arc.sweep, delta < 0 {
-                delta += 2 * .pi
-            }
-            self.delta = delta
-        }
-
-        func point(_ unit: CGPoint) -> CGPoint {
-            CGPoint(
-                x: center.x + rx * cosPhi * unit.x - ry * sinPhi * unit.y,
-                y: center.y + rx * sinPhi * unit.x + ry * cosPhi * unit.y
-            )
+        var isCircle: Bool {
+            radii.width > 0 && radii.width == radii.height
         }
     }
 
@@ -247,25 +227,14 @@ enum ShellPath {
             path.addLine(to: end)
             return
         }
-        let geometry = ArcGeometry(arc, from: start, to: end)
-        let segments = max(Int((abs(geometry.delta) / (.pi / 2)).rounded(.up)), 1)
-        let step = geometry.delta / CGFloat(segments)
-        let handle = 4 / 3 * tan(step / 4)
-        for index in 0 ..< segments {
-            let a1 = geometry.theta + CGFloat(index) * step
-            let a2 = a1 + step
-            let first = CGPoint(x: cos(a1) - handle * sin(a1), y: sin(a1) + handle * cos(a1))
-            let second = CGPoint(x: cos(a2) + handle * sin(a2), y: sin(a2) - handle * cos(a2))
-            path.addCurve(
-                to: index == segments - 1 ? end : geometry.point(CGPoint(x: cos(a2), y: sin(a2))),
-                control1: geometry.point(first),
-                control2: geometry.point(second)
-            )
+        let geometry = ShellPathArc(arc, from: start, to: end)
+        if path.elements.count == 1, case .move = path.elements[0] { path.shape = .arc(geometry) }
+        let quarterTurns = abs(geometry.delta) / (.pi / 2)
+        let boundaryTolerance = 16 * quarterTurns.ulp
+        let segments = max(Int((quarterTurns - boundaryTolerance).rounded(.up)), 1)
+        geometry.appendCurves(segments: segments, endingAt: end) { end, first, second in
+            path.addCurve(to: end, control1: first, control2: second)
         }
-    }
-
-    private static func angle(_ lhs: CGPoint, _ rhs: CGPoint) -> CGFloat {
-        atan2(lhs.x * rhs.y - lhs.y * rhs.x, lhs.x * rhs.x + lhs.y * rhs.y)
     }
 
     private struct Reader {

@@ -205,11 +205,6 @@ struct StatusMenuPrimaryView: View {
                         model.openSettings()
                     }
                 }
-                if model.isMenuItemVisible(.reportBug) {
-                    MenuActionRow(icon: StatusMenuItem.reportBug.icon, label: StatusMenuItem.reportBug.title) {
-                        model.openReportIssue()
-                    }
-                }
                 if model.isMenuItemVisible(.appRules) {
                     MenuActionRow(icon: StatusMenuItem.appRules.icon, label: StatusMenuItem.appRules.title) {
                         model.openAppRules()
@@ -402,9 +397,6 @@ struct StatusMenuHelpLinksView: View {
             }
             MenuActionRow(icon: "heart", label: String(localized: "Sponsor on GitHub"), isExternal: true) {
                 open("https://github.com/sponsors/BarutSRB")
-            }
-            MenuActionRow(icon: "heart", label: String(localized: "Sponsor on PayPal"), isExternal: true) {
-                open("https://paypal.me/beacon2024")
             }
         }
     }

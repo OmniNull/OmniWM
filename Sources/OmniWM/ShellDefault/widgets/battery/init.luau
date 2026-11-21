@@ -14,7 +14,8 @@ function render(ctx)
         return button
     end
     local scale = look.scale(ctx)
-    local glyph = look.glyph{ name = state.symbol, size = 14 * scale, color = if state.low then "error" else "foreground" }
+    local glyph = look.barGlyph(ctx, { name = state.symbol, size = 14 * scale,
+        color = if state.low then "error" else "foreground" })
     if ctx.data.bar.style.vertical then
         return look.bar(ctx, { gap = scale, pad = 2 * scale, glyph, look.text{ text = state.text, size = 10 * scale } })
     end

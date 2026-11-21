@@ -48,7 +48,9 @@ Global switches: hotkeys, Hyper key, default layout, sleep, updates, IPC, animat
 | `updateChecksEnabled` | boolean | `true` | Automatic update checks. |
 | `ipcEnabled` | boolean | `false` | Enables the IPC server used by `omniwmctl`. |
 | `animationsEnabled` | boolean | `true` | Animates window layout changes and other OmniWM-authored motion. macOS Reduce Motion turns them off regardless of this key. |
-| `animationSpeed` *(optional)* | float | `1.0` | Tiling animation speed multiplier: `2.0` is twice as fast, `0.5` is half as fast. Applies to Niri focus, window/column movement and resizing, Dwindle layout changes, and workspace swipe settling. Values are clamped to `0.25`–`4.0`; nonfinite values use `1.0`. Changes apply to newly started transitions. Direct gesture tracking, inertial scrolling, Overview, and Quake terminal animations keep their own behavior. |
+| `animationSpeed` *(optional)* | float | `1.0` | Tiling animation speed multiplier: `2.0` is twice as fast, `0.5` is half as fast. Applies to Niri focus, window/column movement and resizing, Dwindle layout changes, workspace swipe settling, and workspace switch slides. Values are clamped to `0.25`–`4.0`; nonfinite values use `1.0`. Changes apply to newly started transitions. Direct gesture tracking, inertial scrolling, Overview, and Quake terminal animations keep their own behavior. |
+| `slideWorkspaceSwitches` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. Workspace switches from shortcuts, the command palette and `omniwmctl` slide between workspaces like a workspace swipe, in the same direction as a workspace swipe, whether or not `workspaceSwipeEnabled` is on. Needs `animationsEnabled` and Screen Recording; without them, or while the destination workspace has no captured preview yet, the switch is instant. While on, OmniWM keeps previews of the neighboring workspaces captured in the background. Settings > Appearance > App & Motion. |
+| `pausePalettePasteDuringSecureInput` *(optional)* | boolean | `true` | **Unreleased:** Available when building from `main`. While macOS Secure Input is on, command palette clipboard entries don't paste. Set to `false` when an app holds Secure Input in the background and you still want to paste from the palette. Keyboard modes don't start during Secure Input either way, and macOS still pauses Hyper and left/right-specific shortcuts, and those on letter, number or symbol keys without Control or Command. Settings > Hotkeys > Controls. |
 | `language` *(optional)* | string | unset | Interface language as a packaged localization code, such as `"ja"` or `"sr-Latn"`. Leave it unset to follow macOS. Takes effect the next time OmniWM starts. |
 | `workspaceAutoBackAndForth` *(optional)* | boolean | `false` | When a workspace shortcut or command palette entry targets the workspace you are already on, switch to the previously active workspace instead, like i3's `workspace_auto_back_and_forth`. `omniwmctl` workspace commands are unaffected. Settings > Workspaces > Workspace Switching. |
 
@@ -60,6 +62,7 @@ Pointer-driven focus and monitor-edge focus/move behavior.
 | --- | --- | --- | --- |
 | `followsMouse` | boolean | `false` | Focuses a managed window when the pointer enters it, no click needed. |
 | `followsMouseOnlyFullyVisible` (optional) | boolean | `false` | Restricts Niri hover focus to tiled windows whose current WindowServer bounds fit inside their assigned monitor's screen bounds and contain the pointer. If those bounds are unavailable, hover leaves focus unchanged. Also disables hover navigation at Niri screen edges. Clicks, keyboard navigation, Dwindle, and floating windows are unaffected. Requires `followsMouse`. |
+| `clickFocusWithoutScrolling` (optional) | boolean | `false` | **Unreleased:** Available when building from `main`. A left click without modifiers on a partially visible Niri window focuses it and leaves the viewport where it is. Keyboard navigation, gestures, Cmd-Tab, the Dock, and other activations still scroll the window into view. With `followsMouse`, hovering focuses and scrolls the window before you click. Enable `followsMouseOnlyFullyVisible` as well to avoid that. Has no effect when `centerFocusedColumn` is `always`. Dwindle and floating windows are unaffected. |
 | `edgeNavigationInterval` *(optional)* | float | `1.5` | Seconds before hovering at a Niri edge moves one column, and between further moves while the pointer stays on the edge or preview. Requires `followsMouse`; moving away stops navigation. Values are clamped to `0.25`–`2.0` and rounded to the nearest `0.25`; nonfinite values use `1.5`. |
 | `raiseOnMouseFocus` | boolean | `false` | Also raises the window when focus-follows-mouse focuses it. A tiled window that a visible floating window overlaps from the front is focused without raising. |
 | `lockModifier` | string | `"off"` | Modifier that holds focus in place while pressed: `off`, `option`, `leftOption`, `rightOption`, `command`, `leftCommand`, `rightCommand`, `control`, `leftControl`, `rightControl`, `shift`, `leftShift`, `rightShift`. |
@@ -158,18 +161,26 @@ Options for the scrolling (Niri) layout.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `visibleContainerCount` | integer | `2` | How many containers (columns) share the viewport side by side. When fewer containers are open, they expand proportionally to fill unused space while preserving their relative widths. Manual resizing takes priority until the container count changes. |
+| `visibleContainerCount` | integer | `2` | How many containers (columns) share the viewport along the strip. When fewer containers are open, they expand proportionally to fill unused space while preserving their relative widths or heights. Manual resizing takes priority until the container count changes. This applies on both horizontal and vertical strips only while `fitToVisibleContainerCount` is `true`. |
+| `fitToVisibleContainerCount` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. Visible Containers in Settings shows `false` as Off. On either strip orientation, `true` expands fewer containers than `visibleContainerCount` to fill the display, and an automatic default span is the display divided by that count. `false` leaves each column at its own width in a horizontal strip or height in a vertical strip, and an automatic default span is the first of `containerPrimarySpanPresets`. |
 | `infiniteLoop` | boolean | `false` | Treats the column strip as a loop instead of a bounded row. |
 | `centerFocusedColumn` | string | `"never"` | When to center the focused column: `never`, `always`, `onOverflow`. |
-| `alwaysCenterSingleColumn` | boolean | `false` | Centers the column when a workspace holds only one. |
+| `alwaysCenterSingleColumn` | boolean | `false` | Centers the column when a workspace holds only one, and centers the whole strip when all its columns fit on the display. |
+| `keepStripEndsOnScreen` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. Focusing or closing the first or last column leaves no empty space past the end of the strip, unless the focused column is always centered. |
 | `allowOverscroll` *(optional)* | boolean | `false` | Allows trackpad scrolling past the first or last container to leave the desktop exposed after release. Applies to both snap and continuous scrolling, including single-window workspaces. Explicit focus navigation reveals the target normally. |
 | `overscrollVisibleStripPercent` *(optional)* | integer | `5` | Minimum visible strip at either overscroll limit, as a percentage of the edge container's primary span capped at the viewport span. Clamped to 1–100; used only when `allowOverscroll` is enabled. |
 | `singleWindowFit` | string | `"fill"` | Size of a lone window: `fill` (the "Full Screen" fit, which uses the fullscreen layout frame and honors `fullscreenUsesOuterGaps`), `container_primary_span`, or `WIDTHxHEIGHT`. |
 | `containerPrimarySpanPresets` *(optional)* | float array | `[1/3, 1/2, 2/3]` | Span fractions the span-cycling actions step through. |
-| `defaultContainerPrimarySpan` *(optional)* | float | `0.5` | Primary-axis span fraction for new containers. |
+| `defaultContainerPrimarySpan` *(optional)* | float or string | `0.5` | Primary-axis span fraction for new containers. Leave it out for an automatic span. `"app"` (**unreleased**, available when building from `main`) opens a new window at its app’s width in a horizontal strip or height in a vertical strip; a window with an opening-size rule keeps its rule. |
+| `keepExistingWindowWidth` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. A window already open when OmniWM first tiles it keeps its width in a horizontal strip or height in a vertical strip. Settings calls this **Keep Existing Window Sizes**. |
+| `keepSizeOnUnstack` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. A window moved out of a stack into a column of its own, or gathered into a new column, takes the size of the column it came from instead of the default span. |
+| `keepSizesOnDisplayMove` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. A workspace moved to another display keeps its automatically sized columns as they are instead of resizing them for that display. |
+| `keepSizesOnSettingsChange` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. Changing Visible Containers or the default span in Settings leaves open columns as they are. |
 | `resizeStepPercent` *(optional)* | integer | `5` | Increment for Niri grow/shrink actions in percentage points, clamped to 1–100. Applies to container primary, window primary, and window secondary spans. Explicit CLI sizes are unaffected. |
 | `edgeGaps` *(optional)* | boolean | `true` | Keeps the inner gap between columns and the screen edges, in addition to the outer gaps. `false` uses the inner gap only between columns and between stacked windows. A lone window is unaffected. |
+| `shrinkToFit` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. Resizing a column with the keyboard (set, adjust or cycle its span) resizes the other visible columns, up to the Visible Containers count, so together they fill the working area, keeping each within its size limits. Their own widths come back when the column count or the gaps change. Mouse resizing is unchanged, and nothing is refitted automatically: if a window can't shrink to its share, the row can still extend into the outer gaps until the next keyboard resize. |
 | `moveWindowStacksIntoColumn` *(optional)* | boolean | `true` | Moving a lone window left or right stacks it into the adjacent column. `false` swaps its column with the adjacent one instead, unless the adjacent column is tabbed: then the window joins its tabs. A window that shares a column still moves out into its own column. |
+| `edgePeekPercent` *(optional)* | float | `0.0` | Peripheral Vision: keeps a strip of the next column showing at each screen edge that has more columns beyond it, as a percentage of the display's width for horizontal strips or height for vertical strips, clamped to 0–10. `0` shows none. Columns are laid out no larger along the strip than the display minus these strips, unless a window's minimum size or the size it is known to settle at needs more; the strip is then smaller or absent. An edge shared with another display shows none. A display can set its own value with `edgePeekPercent` in its monitor Niri settings. |
 
 The resize increment defaults to 5% instead of the previous fixed 10%.
 
@@ -211,7 +222,7 @@ Border drawn around the focused window.
 
 Gradient and glow are composable. A missing table preserves solid rendering. Non-finite or structurally invalid values preserve the previous valid appearance; finite gradient color components are clamped to `0...1`, while glow radius and opacity must remain within their documented ranges. Glow reuses the border's solid color or gradient endpoints unless `glow.color` or `glow.darkColor` overrides it, so a gradient border produces a spatially matching gradient glow by default.
 
-Border and gradient colors resolve per macOS appearance: dark values apply when the system (or OmniWM's own Appearance setting, when not Automatic) uses the dark appearance, and update live as the appearance switches — no restart needed. Unset dark values keep the base colors, so existing configs render exactly as before. In Settings, inherited colors are labeled explicitly; Customize creates an override and Reset restores inheritance. Editing one dark gradient endpoint leaves the other inherited until customized. The glow inherits the resolved border color or gradient endpoints, so it adapts with them.
+Border and gradient colors resolve per macOS appearance: dark values apply when macOS uses the dark appearance, and update live as the appearance switches — no restart needed. Unset dark values keep the base colors, so existing configs render exactly as before. In Settings, inherited colors are labeled explicitly; Customize creates an override and Reset restores inheritance. Editing one dark gradient endpoint leaves the other inherited until customized. The glow inherits the resolved border color or gradient endpoints, so it adapts with them.
 
 ## overview
 
@@ -237,9 +248,9 @@ The [window switcher](/features/window-switcher/). The table is optional; when a
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `enabled` | boolean | `false` | Takes over Command-Tab and Option-Tab, as assigned below, through OmniWM's input event tap. |
-| `commandTab` | string | `"activeWorkspace"` | Scope Command-Tab opens: `activeWorkspace`, `allWorkspaces`, `remembered` (the last scope chosen with S), or `disabled` (leaves the macOS app switcher). |
+| `commandTab` | string | `"activeWorkspace"` | Scope Command-Tab opens: `activeWorkspace`, `visibleWorkspaces` (**Unreleased:** available when building from `main`; the workspace shown on each monitor), `allWorkspaces`, `remembered` (the last scope chosen with S), or `disabled` (leaves the macOS app switcher). |
 | `optionTab` | string | `"allWorkspaces"` | Scope Option-Tab opens. Same values as `commandTab`. |
-| `scope` | string | `"allWorkspaces"` | The remembered scope, saved when you press S or click the scope button: `allWorkspaces` or `activeWorkspace`. |
+| `scope` | string | `"allWorkspaces"` | The remembered scope, saved when you press S or click the scope button: `allWorkspaces`, `visibleWorkspaces` (**Unreleased**), or `activeWorkspace`. |
 | `showFooter` | boolean | `true` | Shows the scope button and window count. |
 | `order` | string | `"omniLayout"` | Window order: `omniLayout` follows the workspace layout; `lastUsed` sorts by focus recency across the selected scope, followed by windows without focus history in layout order. |
 
@@ -323,14 +334,12 @@ The seven optional `overviewGesture…` and `window…` keys below configure Ove
 | `scrollSensitivity` | float | `5.0` | Trackpad scroll gesture sensitivity. |
 | `mouseWheelSensitivity` (optional) | float | `1.0` | Smooth mouse-wheel navigation multiplier, clamped to `0.1`–`10.0`. Higher values require less wheel movement to switch columns. Standard discrete wheel steps still move one column per notch. Applies only while the mouse scroll modifier is held. Normal app scrolling is unchanged. |
 | `scrollModifierKey` | string | `"optionShift"` | Modifier for wheel scrolling: `optionShift`, `controlShift`, `commandShift`, `controlOptionShift`, `optionCommandShift`, `controlCommandShift`, or `controlOptionCommandShift`. The System Hyper Trigger does not add modifiers to wheel events. |
-| `mouseMoveModifierKey` | string | `"option"` | Modifier for left-dragging tiled windows. Both layouts choose from the drop position: the target tile's center swaps and its sides insert beside it. In Niri, the sides facing neighboring columns open a new column and the other sides stack into the target's column; in Dwindle, internal dividers insert between subtrees and the workspace's outer edges insert at the root. `Shift` does not change this behavior. Workspace-edge targets take precedence in a band up to 24 points wide along the working area's boundary; dropping on another display uses the same targets there; see [drag guidance](/guides/tips/#swap-windows-by-dragging). Values: `off`, `option`, `control`, `command`, `controlOption`, `optionCommand`, `controlCommand`, `controlOptionCommand`. |
-| `mouseResizeModifierKey` | string | `"option"` | Modifier for right-drag resize: `option`, `control`, `command`, `shift`, `controlOption`, `optionCommand`, `optionShift`, `controlCommand`, `controlShift`, `commandShift`, `controlOptionCommand`, `controlOptionShift`, `optionCommandShift`, `controlCommandShift`, `controlOptionCommandShift`. |
 | `fingerCount` | integer | `3` | Trackpad column-scroll finger count: `3` or `4`. |
 | `invertDirection` | boolean | `true` | Inverts trackpad gesture direction. |
 | `trackpadScrollStyle` | string | `"snap"` | `snap` (snap to columns) or `momentum`. |
 | `workspaceSwipeEnabled` | boolean | `false` | Trackpad swipe switches to the next/previous workspace. |
 | `workspaceSwipeFingerCount` | integer | `3` | Workspace-swipe finger count: `2`, `3`, or `4`. |
-| `workspaceSwipeAxis` | string | `"vertical"` | Workspace-swipe axis: `horizontal` or `vertical`. |
+| `workspaceSwipeAxis` | string | `"vertical"` | Workspace-swipe axis: `horizontal` or `vertical`. Workspace switch slides from shortcuts go the same way as workspace swipes. |
 | `workspaceSwipeEdgeBehavior` *(optional)* | string | `"cycle"` | What a workspace swipe does past the first or last workspace: `cycle` wraps around, `none` ignores the swipe, and `onePast` moves from the last occupied workspace to an empty one, creating it if needed, while ignoring swipes past an empty last workspace or before the first. Applies to trackpad swipes only; next/previous workspace hotkeys always wrap. |
 | `overviewGestureEnabled` *(optional)* | boolean | `false` | Enable the trackpad gesture that opens Overview with an upward swipe and closes it with a downward swipe. |
 | `overviewGestureFingerCount` *(optional)* | integer | `4` | Overview gesture finger count: `3` or `4`. |
@@ -339,10 +348,7 @@ The seven optional `overviewGesture…` and `window…` keys below configure Ove
 | `windowResizeEnabled` *(optional)* | boolean | `false` | Drag without clicking to resize the tiled window under the cursor in either layout. |
 | `windowResizeFingerCount` *(optional)* | integer | `3` | Window-resize finger count: `2`, `3`, or `4`. |
 | `windowGestureSensitivity` *(optional)* | float | `1.0` | Move/resize sensitivity, clamped to `0.1…5.0`; non-finite values use `1.0`. |
-| `resizePreviewStyle` *(optional)* | string | `"live"` | What modifier-based mouse resizing, trackpad resize gestures, and Niri keyboard resizing show while the size changes: `live` writes the real window frames on every step, `glass` shows a glass panel with the app icon over each moving window, `snapshot` stretches a still capture of each moving window (needs Screen Recording, falls back to `glass` without it). `glass` and `snapshot` write the final frames once the resize ends. Native edge or corner drags bypass this setting; Dwindle neighbours always resize live. |
-| `dwindleGroupDragAcrossDisplays` *(optional)* | string | `"group"` | What a modifier drag of a Dwindle tab group moves when you drop it on another display: `group` moves the whole group, which becomes one tabbed column in Niri; `window` moves only the dragged window. The same choice decides whether a swap onto a Dwindle group exchanges the whole group or only the window under the pointer. |
-| `adoptNativeResize` *(optional)* | boolean | `false` | Keep a native edge or corner resize of a tiled window. Dwindle moves the shared split and resizes neighbouring windows while you drag. Niri changes that column's width or the stacked windows' heights after release. |
-| `adoptNativeMoveAcrossDisplays` *(optional)* | boolean | `false` | Keep a native title-bar move onto another display without a modifier. The pointer's display determines the destination active workspace. Drops use the same placement, group, size-constraint and focus rules as modifier drags. Moves within one display still snap back; native resizing is controlled separately by `adoptNativeResize`. |
+| `dwindleGroupDragAcrossDisplays` *(optional)* | string | `"group"` | What a title-bar drag of a Dwindle tab group moves onto another display: `group` moves the whole group, which becomes one tabbed column in Niri; `window` moves only the dragged window. The same choice decides whether a swap onto a Dwindle group exchanges the whole group or only the window under the pointer. |
 
 Window move and resize gestures use all directions, so their finger counts must differ from every other enabled gesture. Configuration loading rejects overlaps with each other, column scrolling, workspace switching, or Overview. In Settings, **Set Up…** previews the conflicting assignments and lets you choose which gestures to turn off before applying the change. When editing TOML, disable or reassign conflicting gestures in the same edit. Moving stays on the starting monitor; resizing can continue beyond its bounds. Lift all fingers to finish, and turn off matching macOS gestures under System Settings → Trackpad → More Gestures. These gestures are inactive while Overview is open and do not use `invertDirection`.
 
@@ -355,9 +361,12 @@ Extra readouts beside the menu bar icon.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `showWorkspaceName` | boolean | `false` | Shows the active workspace beside the menu bar icon. |
+| `showLayout` | boolean | `false` | **Unreleased — available when building from `main`.** Shows the active workspace’s resolved Niri or Dwindle layout, independently of `showWorkspaceName`. The OmniWM button on OmniShell bars shows the same layout glyph beside its logo, using the layout of the workspace active on that bar’s display. |
 | `showAppNames` | boolean | `false` | Also shows the focused app's name. |
 | `useWorkspaceId` | boolean | `false` | Shows the workspace number instead of its name. |
-| `showIcon` | boolean | `true` | Shows the OmniWM icon beside the workspace. When off, only the workspace shows, except while diagnostics are recording or Secure Input is on. Has no effect while `showWorkspaceName` is off. |
+| `showIcon` | boolean | `true` | Shows the OmniWM icon beside the workspace or layout. When off, state icons still appear for diagnostics, Secure Input, and keyboard modes. Has no effect while both `showWorkspaceName` and `showLayout` are off. |
+
+If workspace information is unavailable, the item falls back to the OmniWM icon; state icons retain precedence.
 
 ## statusMenu
 
@@ -367,9 +376,9 @@ Contents of the OmniWM status menu panel (the dropdown on OmniWM's menu bar item
 | --- | --- | --- | --- |
 | `showControls` | boolean | `true` | Master switch for the CONTROLS grid and its help card. |
 | `showControlHelp` | boolean | `true` | Shows the description card under the controls grid. Has no effect while `showControls` is off. |
-| `showMenuItems` | boolean | `true` | Master switch for OmniWM's own rows: Settings, Report a Bug…, App Rules, Open Shell Folder, Check for Updates…, Advanced, Diagnostics, Help & Links, Omni Sponsors. Quit OmniWM always stays. |
+| `showMenuItems` | boolean | `true` | Master switch for OmniWM's own rows: Settings, App Rules, Open Shell Folder, Check for Updates…, Advanced, Diagnostics, Help & Links, Omni Sponsors. Quit OmniWM always stays. |
 | `hiddenControls` | string array | `[]` | Control tiles to hide individually: `bordersEnabled`, `workspaceBarEnabled`, `preventSleepEnabled`, `focusFollowsMouse`, `focusCrossesMonitorAtEdge`, `moveMouseToFocusedWindow`, `focusFollowsWindowToMonitor`, `moveCrossesMonitorAtEdge`, `mouseWarpEnabled`, `hiddenBarEnabled`. |
-| `hiddenMenuItems` | string array | `[]` | OmniWM rows to hide individually: `hiddenIcons`, `settings`, `reportBug`, `appRules`, `openShellFolder`, `checkForUpdates`, `advanced`, `diagnostics`, `helpLinks`, `sponsors`. |
+| `hiddenMenuItems` | string array | `[]` | OmniWM rows to hide individually: `hiddenIcons`, `settings`, `appRules`, `openShellFolder`, `checkForUpdates`, `advanced`, `diagnostics`, `helpLinks`, `sponsors`. |
 
 The master switches and the per-item arrays are independent: turning a master off hides the group without changing the individual choices, so turning it back on restores exactly the previous selection. Unknown ids are ignored.
 
@@ -456,6 +465,17 @@ arguments = ["--title", "Weekly report"]
 terminal = "background"
 ```
 
+## commandPalette
+
+**Unreleased — available when building from `main`.** The [command palette](/features/command-palette/#unified-search). The table and both keys are optional; when absent, every key takes its default. Configure these values in **Settings > Command Palette**.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `unifiedSearch` | boolean | `false` | Open Command Palette shows unified search instead of the last-used mode. Each mode's own Command Palette shortcut still opens just that mode. |
+| `searchedModes` | string array | `["windows", "applications", "commands", "files"]` | Palette modes unified search covers, in the order their groups appear: `windows`, `menu`, `clipboard`, `commands`, `applications` (Launcher), `files`. Unknown and repeated names are ignored. |
+
+What unified search learns from your picks is stored in the state directory, not in the config file.
+
 ## quakeTerminal
 
 The drop-down (Quake) terminal. `enabled` and `provider` apply to every provider; the position, size, animation, auto-hide and appearance keys below configure Ghostty. Kitty and foot use their own configuration and the optional [Kitty](#quaketerminalkitty) or [foot](#quaketerminalfoot) overrides.
@@ -515,6 +535,33 @@ Optional. When present, OmniWM sends the position and an explicit width and heig
 | `widthPercent` | float | `100.0` | Width as a percentage of the panel's area (`10`–`100`). |
 | `heightPercent` | float | `50.0` | Height as a percentage of the panel's area (`10`–`100`). |
 
+## appTheming
+
+[App theming](/features/app-theming/). Every table is optional; when absent, nothing is themed.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `terminalColors` | string | `"palette"` | How terminal colors 1 to 6 and 9 to 14 are made: `palette` follows an accent-only palette such as the wallpaper's (a theme with its own hues keeps them), `standard` keeps standard hues tinted toward the accent. See [terminal colors](/features/app-theming/#terminal-colors). |
+| `ghostty.enabled` | boolean | `false` | Writes `omniwm-light` and `omniwm-dark` to `ghostty/themes/` in your config folder and reloads Ghostty when the palette changes. |
+| `kitty.enabled` | boolean | `false` | Writes kitty's `light-theme.auto.conf` and `dark-theme.auto.conf` and reloads kitty with `SIGUSR1`. |
+| `herdr.enabled` | boolean | `false` | Keeps `[theme.custom]` in herdr's `config.toml` in step with the palette. Turn it on in Settings, which shows the change and makes a backup first; OmniWM won't change an existing herdr config it hasn't been allowed to. |
+| `herdr.reloadSavedMachines` | boolean | `true` | Also runs `herdr --machine <label> server reload-config` for every enabled saved machine. Custom templates with `reload = "herdr"` follow it too. When it is off, OmniWM runs no herdr command; the local server always reloads through herdr's socket. |
+| `neovim.enabled` | boolean | `false` | Writes the `omniwm.lua` base16 module, with light and dark palettes chosen by Neovim's `background`, to `nvim/lua/` in your config folder, plus `nvim/colors/omniwm.lua`, and reloads running Neovim with `SIGUSR1`. See [Neovim](/features/app-theming/#neovim). |
+
+### appTheming.custom
+
+An array of tables, one per custom template.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `id` | string | generated | Identifies the template's status and state. |
+| `name` | string | `""` | Shown in Settings. |
+| `enabled` | boolean | `false` | Renders the template. |
+| `template` | string | `""` | Path of the template file; `~/` is your home folder. |
+| `darkTemplate` *(optional)* | string | unset | Template used in dark mode instead of `template`. |
+| `output` | string | `""` | File to write, inside `~/.config` (or `$XDG_CONFIG_HOME`) or `~/Library/Application Support`. |
+| `reload` | string | `"none"` | After writing: `none`, `ghostty`, `kitty` or `herdr`. `herdr` also reloads saved machines when `herdr.reloadSavedMachines` is on. Any other value, and an older `reloadCommand` key, is ignored; nothing is run. |
+
 ## scratchpads
 
 Optional labels for the ten scratchpad slots. A label replaces the slot number in the workspace bar and in `omniwmctl` output.
@@ -535,14 +582,12 @@ Appearance of OmniWM's own UI.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `mode` | string | `"dark"` | `automatic`, `light`, or `dark`. |
 | `tabRailAppIcons` *(optional)* | boolean | `false` | Replaces compact tab markers with app icons in Niri and Dwindle. Each tab group reserves a 28-point rail instead of 10 points; crowded rails scroll vertically. |
 
 The **Show app icons in tab rails** toggle in **Settings → Appearance → App & Motion** controls the same option. Changes apply live without restarting.
 
 ```toml
 [appearance]
-mode = "dark"
 tabRailAppIcons = true
 ```
 
@@ -611,9 +656,11 @@ Array of per-app window rules, editable in the **App Rules** window. Matchers se
 | `axSubrole` *(optional)* | string | Matches the accessibility subrole. |
 | `layout` *(optional)* | string | `auto` (default), `tile`, or `float`. |
 | `assignToWorkspace` *(optional)* | string | Workspace name the window is routed to. |
+| `assignToWorkspaceForAllWindows` *(optional)* | boolean | **Unreleased:** available when building from `main`. Apply the rule's workspace assignment to every new matching window. Defaults to `false` and requires `assignToWorkspace`. |
 | `initialContainerPrimarySpan` *(optional)* | float | Initial Niri span for the window's container (`0.05`–`1.0`). |
 | `minWidth` *(optional)* | float | Minimum layout width in points. |
 | `minHeight` *(optional)* | float | Minimum layout height in points. |
+| `scratchpad` *(optional)* | integer | **Unreleased:** available when building from `main`. [Scratchpad](/features/scratchpads/#joining-by-app-rule) slot (`1`–`10`) that matching windows join when OmniWM starts managing them. Forms one [destination](/features/app-rules/#rule-destination) with `assignToWorkspace`, so a rule can't set both; it also can't be combined with `layout = "tile"`. Such a rule, or a slot outside `1`–`10`, loads with a validation message and its `scratchpad` is ignored. |
 
 The defaults ship 13 rules that set minimum sizes for apps with known resize floors (Codex, Commander One, Chrome, Zed, Safari, Zen, Firefox, Dia, Spotify, Discord, Ghostty, Outlook, Messages).
 
@@ -656,9 +703,9 @@ Each row requires `name`, `source` and a `command` string array. `sha256` is opt
 
 ```toml
 [[shellPermissions.programs]]
-name = "converter"
-source = "/Users/me/.config/omniwm/shell/lake/widgets/converter"
-command = ["provider.pl"]
+name = "provider-review"
+source = "/Users/me/.config/omniwm/apps/provider-review"
+command = ["provider"]
 denied = true
 ```
 
@@ -688,11 +735,11 @@ When `workspaceBar.enabled = false`, no monitor can show its bar. Saved `monitor
 | --- | --- |
 | `monitorBarOverrides` | `enabled`, `showLabels`, `showFloatingWindows`, `deduplicateAppIcons`, `hideEmptyWorkspaces`, `reserveLayoutSpace`, `autoHide`, `notchMode`, `notchActiveZoneWidth`, `fullWidth`, `fullWidthNotchMode`, `position`, `windowLevel`, `height`, `backgroundOpacity`, `inactiveIconOpacity`, `transparentBackground`, `solidBlackBackground`, `showItemBackgrounds`, `showAccentHighlights`, `xOffset`, `yOffset` — see [`workspaceBar`](#workspacebar). |
 | `monitorOrientationOverrides` | `orientation`: `horizontal` or `vertical` layout orientation for that monitor |
-| `monitorNiriOverrides` | `visibleContainerCount`, `defaultContainerPrimarySpan`, `centerFocusedColumn`, `alwaysCenterSingleColumn`, `singleWindowFit`, `infiniteLoop`, `allowOverscroll`, `overscrollVisibleStripPercent` — see [`niri`](#niri) |
+| `monitorNiriOverrides` | `visibleContainerCount`, `fitToVisibleContainerCount`, `defaultContainerPrimarySpan`, `centerFocusedColumn`, `alwaysCenterSingleColumn`, `singleWindowFit`, `infiniteLoop`, `allowOverscroll`, `overscrollVisibleStripPercent`, `edgePeekPercent` — see [`niri`](#niri) |
 | `monitorDwindleOverrides` | `smartSplit`, `defaultSplitRatio`, `splitWidthMultiplier`, `singleWindowFit`, `useGlobalGaps`, `innerGap` — see [`dwindle`](#dwindle) |
 | `monitorGapOverrides` | `innerGap`, `outerGapLeft`, `outerGapRight`, `outerGapTop`, `outerGapBottom`, `fullscreenUsesOuterGaps` — see [`gaps`](#gaps) |
 
-For Niri's **Default New Container Primary Span**, choose a monitor under **Settings > Layouts > Niri > Configure**. **Use Global** is the default and follows **All Displays**. **Auto** uses that monitor's Visible Containers count, even when All Displays uses Custom. **Custom** sets a separate percentage for that monitor. In `monitorNiriOverrides`, omit `defaultContainerPrimarySpan` for Use Global, set it to `"auto"` for Auto, or use a number from `0.05` to `1.0` for Custom (for example, `0.6` means 60%).
+For Niri's **Default New Container Primary Span**, choose a monitor under **Settings > Layouts > Niri > Configure**. **Use Global** is the default and follows **All Displays**. **Auto** divides by that monitor's Visible Containers count, or uses the first preset while Visible Containers is Off there, even when All Displays uses Custom. **App’s Own Size** keeps the app’s width on a horizontal strip or height on a vertical strip. **Custom** sets a separate percentage for that monitor. In `monitorNiriOverrides`, omit `defaultContainerPrimarySpan` for Use Global, set it to `"auto"` for Auto or `"app"` for App’s Own Size, or use a number from `0.05` to `1.0` for Custom (for example, `0.6` means 60%).
 
 ```toml
 [[monitorGapOverrides]]

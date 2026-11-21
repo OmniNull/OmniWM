@@ -20,6 +20,21 @@ enum CLIRuntime {
         let outputFormat = CLIParser.outputFormat(arguments: arguments)
 
         do {
+            if let command = arguments.dropFirst().first, command == "__launch" || command == "__environment" {
+                guard arguments.count == 3 else { throw CLIParseError.usage("Invalid launcher helper invocation") }
+                return try command == "__launch"
+                    ? CLILauncherHelper.launch(socket: arguments[2])
+                    : CLILauncherHelper.environment(marker: arguments[2])
+            }
+            if arguments.dropFirst().first == "__complete" {
+                let words = try CLICompletionInput.words(arguments: Array(arguments.dropFirst(2)))
+                let suggestions = CLICompletionSelector.suggestions(
+                    words: words, filterPrefix: arguments[2] != CLIShell.fish.rawValue
+                )
+                let text = suggestions.isEmpty ? "" : suggestions.joined(separator: "\n") + "\n"
+                CLIRenderer.write(CLIRenderedOutput(data: Data(text.utf8), destination: .standardOutput))
+                return CLIExitCode.success.rawValue
+            }
             let parsed = try CLIParser.parse(arguments: arguments)
 
             switch parsed.invocation {

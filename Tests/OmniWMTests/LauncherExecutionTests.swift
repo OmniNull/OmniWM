@@ -70,7 +70,7 @@ final class LauncherExecutionTests: XCTestCase {
         global.shellExecutable = "/bin/zsh"
         var entry = global
         entry.shellExecutable = override.path
-        let cache = LauncherEnvironmentCache()
+        let cache = LauncherEnvironmentCache(helperExecutable: try LauncherHelperTestSupport.executable)
         _ = try await cache.environment(for: global)
         _ = try await cache.environment(for: entry)
         setenv("OMNIWM_LAUNCHER_MARKER", "new", 1)
@@ -99,12 +99,13 @@ final class LauncherExecutionTests: XCTestCase {
     }
 
     func testProcessReportsFailureAndDrainsBoundedOutput() async throws {
-        let large = String(repeating: "a", count: 100_000)
+        let outputLimit = Int(getpagesize())
+        let large = String(repeating: "a", count: outputLimit * 2)
         let result = try await LauncherProcess.run(
-            executable: "/usr/bin/printf", arguments: ["%s", large], environment: [:], outputLimit: 4096
+            executable: "/usr/bin/printf", arguments: ["%s", large], environment: [:], outputLimit: outputLimit
         )
         XCTAssertEqual(result.status, 0)
-        XCTAssertEqual(result.output.count, 4096)
+        XCTAssertEqual(result.output.count, outputLimit)
         XCTAssertTrue(result.truncated)
         let failure = try await LauncherProcess.run(
             executable: "/bin/sh", arguments: ["-c", "printf failure >&2; exit 7"], environment: [:]
@@ -114,12 +115,12 @@ final class LauncherExecutionTests: XCTestCase {
     }
 
     func testProcessDeadlineReportsFailure() async throws {
+        let fifo = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-blocked-\(UUID())")
+        XCTAssertEqual(mkfifo(fifo.path, 0o600), 0)
+        defer { try? FileManager.default.removeItem(at: fifo) }
         do {
             _ = try await LauncherProcess.run(
-                executable: "/bin/sleep",
-                arguments: ["30"],
-                environment: [:],
-                deadline: 0.1
+                executable: "/bin/cat", arguments: [fifo.path], environment: [:], deadline: 0
             )
             XCTFail("An unfinished process must not succeed")
         } catch {
@@ -128,9 +129,13 @@ final class LauncherExecutionTests: XCTestCase {
     }
 
     func testDetachedChildDoesNotKeepParentRunOpen() async throws {
+        let fifo = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-child-\(UUID())")
+        XCTAssertEqual(mkfifo(fifo.path, 0o600), 0)
+        defer { try? FileManager.default.removeItem(at: fifo) }
         let result = try await LauncherProcess.run(
-            executable: "/bin/sh", arguments: ["-c", "sleep 30 & printf '%s' $!"],
-            environment: ["PATH": "/usr/bin:/bin"], deadline: 2
+            executable: "/bin/sh",
+            arguments: ["-c", "/bin/cat \(LauncherHelperTestSupport.quote(fifo.path)) & printf '%s' $!"],
+            environment: ["PATH": "/usr/bin:/bin"], deadline: failureBound
         )
         let pid = try XCTUnwrap(Int32(String(decoding: result.output, as: UTF8.self)))
         defer { _ = kill(pid, SIGTERM) }
@@ -138,14 +143,18 @@ final class LauncherExecutionTests: XCTestCase {
     }
 
     func testDeadlineReapsProcessThatIgnoresTermination() async throws {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-pid-\(UUID())")
-        defer { try? FileManager.default.removeItem(at: file) }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-deadline-\(UUID())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("pid")
+        let fifo = root.appendingPathComponent("blocked")
+        XCTAssertEqual(mkfifo(fifo.path, 0o600), 0)
         do {
             _ = try await LauncherProcess.run(
                 executable: "/bin/sh",
                 arguments: [
                     "-c",
-                    "printf '%s' $$ > \(LauncherLaunchRequest.quote(file.path)); trap '' TERM; while :; do :; done"
+                    "trap '' TERM; printf '%s' $$ > \(LauncherHelperTestSupport.quote(file.path)); exec /bin/cat \(LauncherHelperTestSupport.quote(fifo.path))"
                 ],
                 environment: [:], deadline: 1
             )
@@ -167,39 +176,32 @@ final class LauncherExecutionTests: XCTestCase {
             executable: "/usr/bin/printf", arguments: ["%s\\0"] + arguments,
             directory: directory.path, environment: ["PATH": "/usr/bin:/bin"]
         )
-        let helper = try request.makeTerminalHelper()
-        let result = try await LauncherProcess.run(
-            executable: "/bin/sh", arguments: [helper.path], environment: request.environment
-        )
+        let result = try await LauncherHelperTestSupport.run(request, inheriting: request.environment)
         XCTAssertEqual(result.status, 0)
         XCTAssertEqual(
             result.output.split(separator: 0).prefix(arguments.count).map { String(decoding: $0, as: UTF8.self) },
             arguments
         )
-        XCTAssertFalse(FileManager.default.fileExists(atPath: helper.deletingLastPathComponent().path))
         let cwd = LauncherLaunchRequest(
             executable: "/bin/pwd",
             arguments: [],
             directory: directory.path,
             environment: [:]
         )
-        let cwdHelper = try cwd.makeTerminalHelper()
-        let cwdResult = try await LauncherProcess.run(
-            executable: "/bin/sh",
-            arguments: [cwdHelper.path],
-            environment: [:]
-        )
-        XCTAssertTrue(String(decoding: cwdResult.output, as: UTF8.self)
-            .hasPrefix(directory.resolvingSymlinksInPath().path + "\n"))
+        let cwdResult = try await LauncherHelperTestSupport.run(cwd, inheriting: [:])
+        XCTAssertEqual(cwdResult.status, 0)
+        let reportedDirectory = try XCTUnwrap(String(decoding: cwdResult.output, as: UTF8.self)
+            .split(separator: "\n").first)
+        var actualDirectory = stat()
+        var expectedDirectory = stat()
+        XCTAssertEqual(stat(String(reportedDirectory), &actualDirectory), 0)
+        XCTAssertEqual(stat(directory.path, &expectedDirectory), 0)
+        XCTAssertEqual(actualDirectory.st_dev, expectedDirectory.st_dev)
+        XCTAssertEqual(actualDirectory.st_ino, expectedDirectory.st_ino)
         let failure = LauncherLaunchRequest(
             executable: "/bin/sh", arguments: ["-c", "exit 9"], directory: directory.path, environment: [:]
         )
-        let failureHelper = try failure.makeTerminalHelper()
-        let failureResult = try await LauncherProcess.run(
-            executable: "/bin/sh",
-            arguments: [failureHelper.path],
-            environment: [:]
-        )
+        let failureResult = try await LauncherHelperTestSupport.run(failure, inheriting: [:])
         XCTAssertEqual(failureResult.status, 9)
     }
 
@@ -213,27 +215,36 @@ final class LauncherExecutionTests: XCTestCase {
                 "TERM": "dumb"
             ]
         )
-        let transfer = try LauncherEnvironmentTransfer(request: request)
-        let helper = try request.makeTerminalHelper(holdOutput: false, transfer: transfer)
-        let helperText = try String(contentsOf: helper, encoding: .utf8)
-        XCTAssertFalse(helperText.contains(value))
+        let transfer = try LauncherHelperTestSupport.transfer(request: request)
+        defer { transfer.cancel() }
+        XCTAssertFalse(transfer.command.contains(value))
+        XCTAssertEqual(
+            try FileManager.default.destinationOfSymbolicLink(atPath: transfer.helper.executable.path),
+            try LauncherHelperTestSupport.executable.path
+        )
+        let entries = try FileManager.default.contentsOfDirectory(atPath: transfer.helper.folder.path)
+        XCTAssertEqual(Set(entries), Set([
+            transfer.helper.executable.lastPathComponent,
+            URL(fileURLWithPath: transfer.endpoint).lastPathComponent
+        ]))
         async let delivered: Void = transfer.waitForDelivery()
         let result = try await LauncherProcess.run(
-            executable: "/bin/sh", arguments: [helper.path], environment: [
+            executable: transfer.arguments[0], arguments: Array(transfer.arguments.dropFirst()), environment: [
                 "OMNIWM_TRANSFER_TEST": "stale",
                 "TERM": "xterm-256color"
             ],
-            deadline: 10, outputLimit: 100_000
+            deadline: failureBound, outputLimit: value.utf8.count + Int(getpagesize())
         )
         try await delivered
         XCTAssertEqual(result.status, 7)
         XCTAssertTrue(String(decoding: result.output, as: UTF8.self).hasPrefix(value + "\nxterm-256color"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: transfer.endpoint))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: helper.deletingLastPathComponent().path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: transfer.helper.folder.path))
     }
 
     #if OMNIWM_LIVE_CHECKS
         func testRealNushellFishZshAndBothBashVersions() async throws {
+            let environmentCache = LauncherEnvironmentCache(helperExecutable: try LauncherHelperTestSupport.executable)
             let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
                 .deletingLastPathComponent()
             let shells: [(LauncherShell, String, String)] = [
@@ -269,7 +280,9 @@ final class LauncherExecutionTests: XCTestCase {
                 var entry = LauncherEntry()
                 entry.name = shell.rawValue
                 entry.command = command
-                let request = try await LauncherLaunchRequest.prepare(entry: entry, configuration: configuration)
+                let request = try await LauncherLaunchRequest.prepare(
+                    entry: entry, configuration: configuration, environmentCache: environmentCache
+                )
                 let result = try await LauncherProcess.run(
                     executable: request.executable, arguments: request.arguments,
                     environment: request.environment, directory: request.directory

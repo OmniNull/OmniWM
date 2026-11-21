@@ -195,7 +195,7 @@ extension AXEventHandler {
         token: WindowToken,
         placement: WorkspacePlacementResolution,
         createPlacementContext: WindowCreatePlacementContext?,
-        windowFrame: CGRect?,
+        appKitFrame: CGRect?,
         controller: WMController
     ) {
         recordNiriCreateFocusTrace(
@@ -209,21 +209,13 @@ extension AXEventHandler {
                     focusedWorkspaceId: createPlacementContext?.focusedWorkspaceId,
                     focusedMonitorId: createPlacementContext?.focusedMonitorId,
                     nativeSpaceMonitorId: createPlacementContext?.nativeSpaceMonitorId,
-                    frameMonitorId: placementTraceMonitorId(for: windowFrame, controller: controller),
+                    frameMonitorId: controller.placementResolver.monitorForAppKitFrame(appKitFrame)?.id,
                     interactionWorkspaceId: createPlacementContext?.interactionWorkspaceId,
                     interactionMonitorId: createPlacementContext?.interactionMonitorId,
                     ruleSkipReason: placement.ruleSkipReason
                 )
             )
         )
-    }
-
-    private func placementTraceMonitorId(
-        for frame: CGRect?,
-        controller: WMController
-    ) -> Monitor.ID? {
-        guard let frame, !frame.isNull, !frame.isEmpty else { return nil }
-        return frame.center.monitorApproximation(in: controller.workspaceManager.monitors)?.id
     }
 
     func resolveWindowInfo(_ windowId: UInt32) -> WindowServerInfo? {

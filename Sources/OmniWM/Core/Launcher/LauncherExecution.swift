@@ -5,6 +5,7 @@ import AppKit
 import Carbon
 import Foundation
 import Observation
+import OmniWMIPC
 
 struct LauncherLaunchRequest: Sendable {
     let executable: String
@@ -12,22 +13,21 @@ struct LauncherLaunchRequest: Sendable {
     let directory: String
     let environment: [String: String]
 
-    private static let terminalEnvironmentKeys: Set<String> = [
-        "TERM", "COLORTERM", "TERM_PROGRAM", "TERM_PROGRAM_VERSION", "TERM_SESSION_ID", "TERMINFO", "TERMINFO_DIRS",
-        "TTY"
-    ]
-
     var terminalEnvironment: [String: String] {
-        environment.filter { !Self.terminalEnvironmentKeys.contains($0.key) }
+        environment.filter { !LauncherHelperRequest.terminalEnvironmentKeys.contains($0.key) }
     }
 
-    static func prepare(entry: LauncherEntry, configuration: LauncherConfiguration) async throws -> Self {
+    static func prepare(
+        entry: LauncherEntry,
+        configuration: LauncherConfiguration,
+        environmentCache: LauncherEnvironmentCache = .shared
+    ) async throws -> Self {
         var configuration = configuration
         if entry.shell != .defaultShell || !entry.shellExecutable.isEmpty {
             configuration.shell = entry.shell
             configuration.shellExecutable = entry.shellExecutable
         }
-        let environment = try await LauncherEnvironmentCache.shared.environment(for: configuration)
+        let environment = try await environmentCache.environment(for: configuration)
         let directory = entry.workingDirectory.isEmpty
             ? FileManager.default.homeDirectoryForCurrentUser.path : LauncherPaths.expanded(entry.workingDirectory)
         var isDirectory: ObjCBool = false
@@ -66,71 +66,6 @@ struct LauncherLaunchRequest: Sendable {
         }
         return Self(executable: executable, arguments: arguments, directory: directory, environment: environment.values)
     }
-
-    static func quote(_ value: String) -> String {
-        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
-    }
-
-    var shellCommand: String {
-        ([executable] + arguments).map(Self.quote).joined(separator: " ")
-    }
-
-    var terminalShellCommand: String {
-        let inherited = Self.terminalEnvironmentKeys.sorted().map { "${\($0)+\"\($0)=$\($0)\"}" }
-        let captured = terminalEnvironment.sorted { $0.key < $1.key }.map { Self.quote($0.key + "=" + $0.value) }
-        return (["/usr/bin/env", "-i"] + inherited + captured + ["/usr/bin/nice", "-n", "0", shellCommand])
-            .joined(separator: " ")
-    }
-
-    func makeTerminalHelper(holdOutput: Bool = true, transfer: LauncherEnvironmentTransfer? = nil) throws -> URL {
-        let folder = URL(fileURLWithPath: "/private/tmp/omniwm-launch-" + UUID().uuidString, isDirectory: true)
-        let manager = FileManager.default
-        try manager.createDirectory(
-            at: folder,
-            withIntermediateDirectories: false,
-            attributes: [.posixPermissions: 0o700]
-        )
-        let file = folder.appendingPathComponent("run")
-        let execution: String
-        if let transfer {
-            execution = """
-            omniwm_environment=$(/usr/bin/nc -U \(Self.quote(transfer.endpoint)) </dev/null) || exit 1
-            case "$omniwm_environment" in
-                *\(Self.quote(transfer.marker))) omniwm_environment=${omniwm_environment%\(Self.quote(transfer.marker))} ;;
-                *) exit 1 ;;
-            esac
-            eval "$omniwm_environment"
-            """
-        } else {
-            execution = shellCommand
-        }
-        let hold = holdOutput ? """
-        /usr/bin/printf '%s\\n' \(Self.quote(String(localized: "Press Return to close.")))
-        IFS= read -r omniwm_reply
-        """ : ""
-        let content = """
-        #!/bin/sh
-        /bin/rm -f "$0"
-        /bin/rmdir \(Self.quote(folder.path))
-        cd \(Self.quote(directory)) || exit 1
-        PATH=\(Self.quote(environment["PATH"] ?? "/usr/bin:/bin"))
-        export PATH
-        \(execution)
-        omniwm_status=$?
-        /usr/bin/printf '\\n%s %s.\\n' \(Self.quote(String(localized: "Exit status"))) "$omniwm_status"
-        \(hold)
-        exit "$omniwm_status"
-
-        """
-        do {
-            try Data(content.utf8).write(to: file, options: .withoutOverwriting)
-            try manager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: file.path)
-            return file
-        } catch {
-            try? manager.removeItem(at: folder)
-            throw error
-        }
-    }
 }
 
 actor LauncherEnvironmentCache {
@@ -142,6 +77,11 @@ actor LauncherEnvironmentCache {
     }
 
     private var environments: [Key: Task<LauncherEnvironment, Error>] = [:]
+    private let helperExecutable: URL?
+
+    init(helperExecutable: URL? = nil) {
+        self.helperExecutable = helperExecutable
+    }
 
     func environment(
         for configuration: LauncherConfiguration,
@@ -154,7 +94,9 @@ actor LauncherEnvironmentCache {
         )
         if refresh { environments.removeAll() }
         if let task = environments[key] { return try await task.value }
-        let task = Task { try await LauncherEnvironment.load(configuration: configuration) }
+        let task = Task { [helperExecutable] in
+            try await LauncherEnvironment.load(configuration: configuration, helperExecutable: helperExecutable)
+        }
         environments[key] = task
         do {
             return try await task.value
@@ -287,19 +229,14 @@ enum LauncherExternalTerminal {
             throw LauncherFailure(String(localized: "The selected terminal is not installed."))
         }
         let reused = terminal == .terminal || terminal == .iterm
-        let transfer = reused ? try LauncherEnvironmentTransfer(request: request) : nil
-        let helper: URL
-        do {
-            helper = try request.makeTerminalHelper(holdOutput: reused, transfer: transfer)
-        } catch {
-            transfer?.cancel()
-            throw error
-        }
+        let transfer = try LauncherEnvironmentTransfer(
+            request: request, isolateEnvironment: reused, holdOutput: reused
+        )
         let options = NSWorkspace.OpenConfiguration()
         options.createsNewApplicationInstance = !reused
         options.environment = request.terminalEnvironment
         if terminal == .ghostty {
-            options.arguments = ["--wait-after-command=true", "-e", "/bin/sh", helper.path]
+            options.arguments = ["--wait-after-command=true", "-e"] + transfer.arguments
         } else if terminal == .kitty {
             options.arguments = [
                 "-o",
@@ -307,21 +244,18 @@ enum LauncherExternalTerminal {
                 "--hold",
                 "--session=none",
                 "--directory",
-                request.directory,
-                "/bin/sh",
-                helper.path
-            ]
+                request.directory
+            ] + transfer.arguments
         }
         do {
             let app = try await NSWorkspace.shared.openApplication(at: appURL, configuration: options)
             let reference = reused ? try await sessionEvent(
-                terminal: terminal, pid: app.processIdentifier, reference: nil, action: .launch(helper.path)
+                terminal: terminal, pid: app.processIdentifier, reference: nil, action: .launch(transfer.command)
             ) : nil
-            try await transfer?.waitForDelivery()
+            try await transfer.waitForDelivery()
             return LauncherTerminalSession(application: app, terminal: terminal, reference: reference)
         } catch {
-            transfer?.cancel()
-            try? FileManager.default.removeItem(at: helper.deletingLastPathComponent())
+            transfer.cancel()
             throw error
         }
     }

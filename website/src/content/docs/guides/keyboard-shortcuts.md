@@ -102,7 +102,11 @@ These shortcuts are available while the Command Palette is open in **Windows** m
 | Mark selected window | `Control + Option + Shift + M` |
 | Remove a mark from the selected window | `Control + Option + Shift + R` |
 
-These shortcuts are local to the open Palette and yield to conflicting enabled global shortcuts; the affected Palette action remains available as a button. **Set Mark on Focused Window** and **Remove Mark from Focused Window** are also available as separate, unassigned actions in **Settings > Keyboard Shortcuts** for configurable global shortcuts. Outside the Palette, key combinations retain their configured global behavior.
+**Unreleased — available when building from `main`.** While the Palette is open, it reserves these chords in every mode, so an enabled global shortcut on either chord does nothing until the Palette closes. **Set Mark on Focused Window** and **Remove Mark from Focused Window** are also available as separate, unassigned actions in **Settings > Keyboard Shortcuts** for configurable global shortcuts.
+
+### Command Palette
+
+**Unreleased — available when building from `main`.** While the Palette is open, it reserves its shortcuts in every mode: `Cmd + 1` to `Cmd + 6`, `Cmd + Return`, `Cmd + R`, `Cmd + Y`, and the mark chords above. An enabled global shortcut on one of these chords does not run while the Palette is open and keeps its configured behavior outside it. Settings shows a note under that shortcut naming what the Palette reserves the chord for. See [Command Palette](/features/command-palette/#palette-shortcuts) for what each one does.
 
 ## Move Window
 

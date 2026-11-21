@@ -113,7 +113,7 @@ extension ShellShaderTests {
         let layer = CALayer()
         layer.bounds = CGRect(x: 0, y: 0, width: 8, height: 4)
         let drawer = ShellShaderDrawer(
-            scale: 1, container: layer, queue: DispatchSerialQueue(label: "test.shader.frames")
+            scale: 1, container: layer, queue: serialTestQueue("test.shader.frames")
         ) { frames.continuation.yield($0) }
         var input = ShellShaderInput(values: SIMD4(0.5, 0, 0, 1), rate: 0, colors: .init(repeating: .zero))
         drawer.update(0, layer: layer, program: program, input: input)
@@ -142,7 +142,7 @@ extension ShellShaderTests {
         let layer = CALayer()
         layer.bounds = CGRect(x: 0, y: 0, width: 8, height: 4)
         let drawer = ShellShaderDrawer(
-            scale: 1, container: layer, queue: DispatchSerialQueue(label: "test.shader.replacement")
+            scale: 1, container: layer, queue: serialTestQueue("test.shader.replacement")
         ) { frames.continuation.yield($0) }
         let context = try XCTUnwrap(CGContext(
             data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,

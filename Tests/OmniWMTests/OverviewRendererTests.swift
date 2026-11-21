@@ -648,6 +648,32 @@ final class OverviewRendererTests: XCTestCase {
     }
 
     @MainActor
+    func testCancellingFinishedCloseRevealKeepsOverviewTransparentUntilOrderOut() throws {
+        let (layout, _) = makeLayerLayout()
+        let view = OverviewView(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        let panel = attach(view)
+        defer { panel.close() }
+        let fixture = makeAnimationFixture()
+        view.updateLayout(layout, state: .open, searchQuery: "", selectedWindowHandle: nil)
+        view.updateLayer()
+        let root = view.layerRenderer.root
+        let closeDuration = OverviewNativeTransition(generation: 1, startTime: 0, from: 1, to: 0).duration
+        let finished = OverviewNativeTransition(
+            generation: 1, startTime: CACurrentMediaTime() - closeDuration, from: 1, to: 0
+        )
+
+        XCTAssertTrue(view.installAnimation(finished, completion: OverviewAnimationCompletion(
+            animator: fixture.animator, displayId: 1, generation: 1
+        )))
+        XCTAssertNotNil(root.animation(forKey: OverviewLayerRenderer.closeRevealKey))
+        CATransaction.flush()
+        view.cancelAnimation()
+
+        XCTAssertNil(root.animation(forKey: OverviewLayerRenderer.closeRevealKey))
+        XCTAssertEqual(root.opacity, 0)
+    }
+
+    @MainActor
     func testGestureReleaseReanchorsFromDisplayedCardGeometry() throws {
         var (layout, item) = makeLayerLayout()
         var section = try XCTUnwrap(layout.workspaceSections.first)

@@ -34,7 +34,8 @@ function render(ctx)
         local props = { gap = 5 * scale }
         for _, indicator in m.indicators do
             props[#props + 1] = if m.icons
-                then look.glyph{ name = indicator.symbol, size = 14 * scale, weight = "medium", color = indicator.color }
+                then look.barGlyph(ctx, { name = indicator.symbol, size = 14 * scale, weight = "medium",
+                    color = indicator.color })
                 else ui.box{ w = 6 * scale, h = 6 * scale, radius = 3 * scale, fill = indicator.color }
         end
         button = look.bar(ctx, props)

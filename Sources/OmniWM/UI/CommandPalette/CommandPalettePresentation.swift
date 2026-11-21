@@ -5,7 +5,6 @@ import AppKit
 import ApplicationServices
 import Carbon
 import Observation
-import SwiftUI
 
 enum CommandPalettePresentation {
     static let unavailableMenuStatusText =
@@ -23,21 +22,6 @@ enum CommandPalettePresentation {
 
     static let setMarkShortcut = "⌃⌥⇧M"
     static let removeMarkShortcut = "⌃⌥⇧R"
-
-    static func availableMarkShortcut(
-        for action: MarkAction,
-        configuredBindings: [HotkeyBinding]
-    ) -> String? {
-        let keyCode = action == .set ? kVK_ANSI_M : kVK_ANSI_R
-        let localBinding = KeyBinding(
-            keyCode: UInt32(keyCode),
-            modifiers: UInt32(controlKey | optionKey | shiftKey)
-        )
-        guard !configuredBindings.contains(where: {
-            $0.binding.chordBinding?.conflicts(with: localBinding) == true
-        }) else { return nil }
-        return action == .set ? setMarkShortcut : removeMarkShortcut
-    }
 
     static func markAction(
         forKeyCode keyCode: UInt16,
@@ -99,6 +83,23 @@ enum CommandPalettePresentation {
         UInt16(kVK_ANSI_6): "6", UInt16(kVK_ANSI_Keypad6): "6"
     ]
 
+    static func topHitIndex(
+        keyCode: UInt16,
+        relevantModifiers: NSEvent.ModifierFlags,
+        charactersIgnoringModifiers: String?
+    ) -> Int? {
+        guard relevantModifiers == .command,
+              let digit = (modeDigitByKeyCode[keyCode] ?? charactersIgnoringModifiers)
+                  .flatMap({ $0.count == 1 ? Int($0) : nil }),
+              (1 ... UnifiedSearch.topHitLimit).contains(digit)
+        else { return nil }
+        return digit - 1
+    }
+
+    static func topHitShortcut(at index: Int) -> String {
+        "⌘\(index + 1)"
+    }
+
     static func modeNavigationTarget(
         currentMode: CommandPaletteMode,
         isMenuModeAvailable: Bool,
@@ -154,28 +155,6 @@ enum CommandPalettePresentation {
         isCurrentWorkspaceEmpty: Bool
     ) -> Bool {
         !item.isAppHidden && (isCurrentWorkspaceEmpty || isTiling)
-    }
-
-    static func windowsStatusText(
-        selectedItem: CommandPaletteWindowItem?,
-        isSummonRightAvailable: Bool,
-        isSelectedWindowEligibleForSummon: Bool = true,
-        isCurrentWorkspaceEmpty: Bool = false
-    ) -> String {
-        if selectedItem?.isAppHidden == true {
-            return String(localized: "Return · Unhide & Focus")
-        }
-
-        let summonText = if isCurrentWorkspaceEmpty {
-            String(localized: "Shift-Enter moves here (empty workspace).")
-        } else if !isSelectedWindowEligibleForSummon {
-            String(localized: "Shift-Enter unavailable for this window.")
-        } else if isSummonRightAvailable {
-            String(localized: "Shift-Enter summons right.")
-        } else {
-            String(localized: "Shift-Enter unavailable without an anchor.")
-        }
-        return String(localized: "Enter jumps. \(summonText)")
     }
 }
 

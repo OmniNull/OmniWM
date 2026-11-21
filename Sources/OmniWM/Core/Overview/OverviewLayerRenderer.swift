@@ -9,6 +9,7 @@ final class OverviewLayerRenderer {
     typealias Colors = OverviewRenderStyle.Colors
     typealias Metrics = OverviewRenderStyle.Metrics
     static let searchPlaceholder = String(localized: "Type to search...")
+    static let closeRevealKey = "overview.closeReveal"
 
     let root = CALayer()
     private let backdropGroup = CALayer()
@@ -139,6 +140,11 @@ final class OverviewLayerRenderer {
         animation.toValue = 1
         animation.delegate = completion
         completionLayer.add(animation, forKey: "overview.completion")
+        root.removeAnimation(forKey: Self.closeRevealKey)
+        if let reveal = transition.makeCloseReveal() {
+            reveal.beginTime = root.convertTime(transition.startTime, from: nil)
+            root.add(reveal, forKey: Self.closeRevealKey)
+        }
     }
 
     func cancelAnimation() {
@@ -146,6 +152,12 @@ final class OverviewLayerRenderer {
         reflowTransition = nil
         reflowArrivals.removeAll(keepingCapacity: true)
         completionLayer.removeAnimation(forKey: "overview.completion")
+        if root.animation(forKey: Self.closeRevealKey) != nil {
+            OverviewRenderer.withoutAnimation {
+                root.opacity = OverviewLayerMotion.displayedOpacity(of: root, animationKey: Self.closeRevealKey)
+                root.removeAnimation(forKey: Self.closeRevealKey)
+            }
+        }
         for layer in [backdropGroup, content, workspaceChrome, overflowPills, dropTarget, selectionOutline, search] {
             OverviewLayerMotion.remove(from: layer)
         }
@@ -180,6 +192,7 @@ final class OverviewLayerRenderer {
         let visible = visibleContentRect(for: layout, state: state)
         OverviewRenderer.withoutAnimation {
             root.frame = state.bounds
+            root.opacity = 1
             backdropGroup.frame = root.bounds
             glassLayer?.opacity = Float(state.progress)
             backdrop.frame = root.bounds

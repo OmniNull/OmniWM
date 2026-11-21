@@ -48,6 +48,10 @@ enum StructuralMutationOutcome: Equatable {
 
 @MainActor final class NiriLayoutHandler {
     weak var controller: WMController?
+    var layoutStepClock: @MainActor () -> TimeInterval = { CACurrentMediaTime() }
+    var overflowReports: [WindowToken: TimeInterval] = [:]
+    var isOverflowCheckScheduled = false
+    var unshownOverflowMessage: UnshownOverflowMessage?
 
     struct NiriLayoutPass {
         let motion: MotionSnapshot
@@ -109,6 +113,15 @@ enum StructuralMutationOutcome: Equatable {
     }
 
     var scrollAnimationByDisplay: [CGDirectDisplayID: WorkspaceDescriptor.ID] = [:]
+    var laidOutExclusions: [WorkspaceDescriptor.ID: Set<WindowToken>] = [:]
+    var stackFramesBeforeExclusion: [WorkspaceDescriptor.ID: [WindowToken: CGRect]] = [:]
+    var viewsBeforeExclusion: [WorkspaceDescriptor.ID: [NodeId: ExcludedColumnView]] = [:]
+
+    struct ExcludedColumnView {
+        let before: CGFloat
+        let columnIds: [NodeId]
+        let widths: [ProportionalSize]
+    }
 
     init(controller: WMController?) {
         self.controller = controller
@@ -120,8 +133,7 @@ enum StructuralMutationOutcome: Equatable {
     ) {
         controller?.layoutRefreshController.requestLayoutCommandRelayout(
             affectedWorkspaceIds: [workspaceId],
-            postLayout: postLayout,
-            postLayoutDomains: .layoutCommit
+            postLayout: postLayout
         )
     }
 
@@ -233,6 +245,7 @@ struct NodeActivationOptions {
     var axFocus: Bool = true
     var focusOrigin: ManagedFocusOrigin = .keyboardOrProgrammatic
     var startAnimation: Bool = true
+    var clickFocusWithoutScrolling: Bool = false
 }
 
 @MainActor struct NiriOperationContext {
@@ -258,6 +271,17 @@ struct NodeActivationOptions {
         oldFrames: [WindowToken: CGRect],
         yContainmentFrame: CGRect? = nil
     ) {
+        let animationTime = (engine.animationClock?.now() ?? CACurrentMediaTime()) + 2.0
+        _ = engine.triggerMoveAnimations(
+            in: wsId,
+            oldFrames: oldFrames,
+            newFrames: predictedFrames(state: state, at: animationTime),
+            motion: motion,
+            yContainmentFrame: yContainmentFrame
+        )
+    }
+
+    func predictedFrames(state: ViewportState, at animationTime: TimeInterval) -> [WindowToken: CGRect] {
         let scale = NSScreen.screens.first(where: { $0.displayId == monitor.displayId })?
             .backingScaleFactor ?? 2.0
         let layoutFrames = controller.layoutFrames(for: monitor, scale: scale)
@@ -279,8 +303,7 @@ struct NodeActivationOptions {
             horizontal: gaps,
             vertical: gaps
         )
-        let animationTime = (engine.animationClock?.now() ?? CACurrentMediaTime()) + 2.0
-        let newFrames = engine.calculateCombinedLayoutUsingPools(
+        return engine.calculateCombinedLayoutUsingPools(
             in: wsId,
             monitor: monitor,
             gaps: layoutGaps,
@@ -288,12 +311,20 @@ struct NodeActivationOptions {
             workingArea: workingArea,
             animationTime: animationTime
         ).frames
-        _ = engine.triggerMoveAnimations(
+    }
+
+    func settledFrames(state: ViewportState) -> [WindowToken: CGRect] {
+        predictedFrames(state: state, at: .infinity)
+    }
+
+    func preparePredictedSizeAnimation(state: ViewportState, oldFrames: [WindowToken: CGRect]) {
+        let now = engine.animationClock?.now() ?? CACurrentMediaTime()
+        engine.animateFilledSizeChanges(
             in: wsId,
             oldFrames: oldFrames,
-            newFrames: newFrames,
+            newFrames: engine.framesIncludingSizeAnimations(settledFrames(state: state), in: wsId, at: now),
             motion: motion,
-            yContainmentFrame: yContainmentFrame
+            orientation: orientation
         )
     }
 

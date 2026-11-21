@@ -87,7 +87,7 @@ final class IPCResizeCommandTests: XCTestCase {
                     return XCTFail("Expected command request")
                 }
 
-                XCTAssertEqual(parsed.request.version, 22)
+                XCTAssertEqual(parsed.request.version, OmniWMIPCProtocol.version)
                 XCTAssertEqual(request, .dwindle(.resize(axis: axis, operation: operation)))
             }
         }
@@ -119,13 +119,13 @@ final class IPCResizeCommandTests: XCTestCase {
                 "omniwmctl command resize <horizontal|vertical> <grow|shrink>"
             )
         )
-
-        for shell in CLIShell.allCases {
-            let script = CLICompletionGenerator.script(for: shell)
-            XCTAssertTrue(script.contains("horizontal"), shell.rawValue)
-            XCTAssertTrue(script.contains("vertical"), shell.rawValue)
-            XCTAssertTrue(script.contains("grow"), shell.rawValue)
-            XCTAssertTrue(script.contains("shrink"), shell.rawValue)
+        let axes = ["horizontal", "vertical"]
+        XCTAssertEqual(Set(CLICompletionSelector.suggestions(words: ["omniwmctl", "command", "resize", ""])), Set(axes))
+        for axis in axes {
+            XCTAssertEqual(
+                Set(CLICompletionSelector.suggestions(words: ["omniwmctl", "command", "resize", axis, ""])),
+                Set(["grow", "shrink"])
+            )
         }
     }
 }

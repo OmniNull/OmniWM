@@ -7,15 +7,25 @@ import XCTest
 
 final class WindowSwitcherSettingsTests: XCTestCase {
     func testRoundTripPersistsEnabledAndWorkspaceScope() throws {
+        let scopes = WindowSwitcherScope.allCases
+        for (index, shortcut) in WindowSwitcherShortcutScope.allCases.enumerated() {
+            var settings = SettingsExport.defaults()
+            settings.windowSwitcher.enabled = true
+            settings.windowSwitcher.scope = scopes[index % scopes.count]
+            settings.windowSwitcher.commandTab = .remembered
+            settings.windowSwitcher.optionTab = shortcut
+            settings.windowSwitcher.showFooter = false
+            settings.windowSwitcher.order = .lastUsed
+            let data = try SettingsTOMLCodec.encode(settings)
+            XCTAssertEqual(try SettingsTOMLCodec.decode(data).windowSwitcher, settings.windowSwitcher)
+        }
+    }
+
+    func testVisibleWorkspacesUsesItsDocumentedTOMLValue() throws {
         var settings = SettingsExport.defaults()
-        settings.windowSwitcher.enabled = true
-        settings.windowSwitcher.scope = .activeWorkspace
-        settings.windowSwitcher.commandTab = .remembered
-        settings.windowSwitcher.optionTab = .disabled
-        settings.windowSwitcher.showFooter = false
-        settings.windowSwitcher.order = .lastUsed
-        let data = try SettingsTOMLCodec.encode(settings)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).windowSwitcher, settings.windowSwitcher)
+        settings.windowSwitcher.scope = .visibleWorkspaces
+        let encoded = String(decoding: try SettingsTOMLCodec.encode(settings), as: UTF8.self)
+        XCTAssertTrue(encoded.contains("scope = \"visibleWorkspaces\""))
     }
 
     func testNewConfigurationDefaultsToSeparateWorkspaceShortcuts() {

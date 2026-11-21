@@ -4,9 +4,9 @@
 import SwiftUI
 
 enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, appearance, styles, menuBar, network
+    case general, appearance, appTheming, styles, menuBar, network
     case workspaces, layouts, monitors, appRules, overview, windowSwitcher
-    case hotkeys, mouseTrackpad, launcher, quakeTerminal, diagnostics, reportIssue, advanced
+    case hotkeys, mouseTrackpad, commandPalette, launcher, quakeTerminal, diagnostics, advanced
 
     var id: String {
         rawValue
@@ -49,6 +49,12 @@ enum SettingsSection: String, CaseIterable, Identifiable {
                 String(localized: "Appearance"),
                 "paintpalette",
                 String(localized: "Choose how OmniWM looks and moves.")
+            )
+        case .appTheming:
+            Presentation(
+                String(localized: "App Theming"),
+                "paintbrush.pointed",
+                String(localized: "Color Ghostty, kitty, herdr, Neovim and your own templates from OmniWM’s palette.")
             )
         case .styles:
             Presentation(
@@ -116,6 +122,12 @@ enum SettingsSection: String, CaseIterable, Identifiable {
                 "computermouse",
                 String(localized: "Configure gestures, window manipulation, and pointer focus.")
             )
+        case .commandPalette:
+            Presentation(
+                String(localized: "Command Palette"),
+                "magnifyingglass",
+                String(localized: "Choose how the palette searches windows, apps, commands, and files.")
+            )
         case .launcher:
             Presentation(
                 String(localized: "Launcher"), "square.grid.2x2",
@@ -132,12 +144,6 @@ enum SettingsSection: String, CaseIterable, Identifiable {
                 String(localized: "Troubleshooting"),
                 "stethoscope",
                 String(localized: "Check app health and record a problem or performance capture.")
-            )
-        case .reportIssue:
-            Presentation(
-                String(localized: "Report an Issue"),
-                "ladybug",
-                String(localized: "Prepare a report and choose the evidence you want to share.")
             )
         case .advanced:
             Presentation(
@@ -168,12 +174,12 @@ enum SettingsSectionGroup: String, CaseIterable, Identifiable {
 
     var sections: [SettingsSection] {
         switch self {
-        case .app: [.general, .appearance]
+        case .app: [.general, .appearance, .appTheming]
         case .desktop: [.styles, .menuBar, .network]
         case .windows: [.workspaces, .layouts, .monitors, .appRules, .overview, .windowSwitcher]
         case .input: [.hotkeys, .mouseTrackpad]
-        case .tools: [.launcher, .quakeTerminal]
-        case .support: [.diagnostics, .reportIssue, .advanced]
+        case .tools: [.commandPalette, .launcher, .quakeTerminal]
+        case .support: [.diagnostics, .advanced]
         }
     }
 }

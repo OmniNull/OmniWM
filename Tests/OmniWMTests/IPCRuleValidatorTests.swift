@@ -153,11 +153,101 @@ final class IPCRuleValidatorTests: XCTestCase {
         XCTAssertNil(decoded.initialContainerPrimarySpan)
     }
 
+    func testWorkspaceAssignmentForAllWindowsRequiresAWorkspaceAndSurvivesIPC() throws {
+        let invalid = IPCRuleDefinition(
+            bundleId: "com.test.app", layout: .tile, assignToWorkspace: " ", assignToWorkspaceForAllWindows: true
+        )
+        XCTAssertNotNil(IPCRuleValidator.validate(invalid).workspaceAssignmentError)
+        let rule = IPCRuleDefinition(
+            bundleId: "com.test.app", assignToWorkspace: "32", assignToWorkspaceForAllWindows: true
+        )
+        XCTAssertTrue(IPCRuleValidator.validate(rule).isValid)
+
+        let request = IPCRequest(id: "1", rule: .add(rule: rule))
+        XCTAssertEqual(try IPCWire.decodeRequest(from: IPCWire.encodeRequestLine(request)), request)
+
+        let snapshot = IPCRuleSnapshot(
+            id: "r1", position: 1, bundleId: rule.bundleId, layout: .auto, assignToWorkspace: "32",
+            assignToWorkspaceForAllWindows: true, specificity: 2, isValid: true
+        )
+        let response = IPCResponse.success(
+            id: request.id, kind: .query, result: IPCResult(rules: IPCRulesQueryResult(rules: [snapshot]))
+        )
+        XCTAssertEqual(try IPCWire.decodeResponse(from: IPCWire.encodeResponseLine(response)), response)
+        let previous = Data(#"{"bundleId":"com.test.app","layout":"auto","assignToWorkspace":"32"}"#.utf8)
+        XCTAssertNil(try JSONDecoder().decode(IPCRuleDefinition.self, from: previous).assignToWorkspaceForAllWindows)
+    }
+
+    func testScratchpadSlotBoundsAcceptedAsTheOnlyEffect() {
+        let slots = IPCScratchpadSlots.range
+        for slot in [slots.lowerBound, slots.upperBound] {
+            let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: "com.test.app", scratchpad: slot))
+            XCTAssertNil(report.scratchpadError)
+            XCTAssertNil(report.effectError)
+            XCTAssertTrue(report.isValid)
+        }
+    }
+
+    func testScratchpadOutsideSlotRangeRejectedWithoutCountingAsEffect() {
+        let slots = IPCScratchpadSlots.range
+        for slot in [slots.lowerBound - 1, slots.upperBound + 1, -slots.upperBound] {
+            let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: "com.test.app", scratchpad: slot))
+            XCTAssertEqual(report.scratchpadError, "Scratchpad must be a slot from 1 to 10")
+            XCTAssertNotNil(report.effectError)
+            XCTAssertFalse(report.isValid)
+        }
+    }
+
+    func testScratchpadConflictsWithWorkspaceAndTileLayout() {
+        let workspace = IPCRuleValidator.validate(
+            IPCRuleDefinition(bundleId: "com.test.app", assignToWorkspace: "3", scratchpad: 2)
+        )
+        XCTAssertEqual(workspace.scratchpadError, "Choose a scratchpad or a workspace, not both")
+        XCTAssertFalse(workspace.isValid)
+
+        let tile = IPCRuleValidator.validate(
+            IPCRuleDefinition(bundleId: "com.test.app", layout: .tile, scratchpad: 2)
+        )
+        XCTAssertEqual(tile.scratchpadError, "Scratchpad windows float, so the layout can't be Tile")
+        XCTAssertFalse(tile.isValid)
+
+        let float = IPCRuleValidator.validate(
+            IPCRuleDefinition(bundleId: "com.test.app", layout: .float, scratchpad: 2)
+        )
+        XCTAssertNil(float.scratchpadError)
+        XCTAssertTrue(float.isValid)
+    }
+
+    func testScratchpadIPCModelsRoundTripAndManifestOption() throws {
+        let definition = IPCRuleDefinition(bundleId: "com.test.app", scratchpad: 4)
+        let definitionData = try JSONEncoder().encode(definition)
+        XCTAssertEqual(try JSONDecoder().decode(IPCRuleDefinition.self, from: definitionData), definition)
+
+        let snapshot = IPCRuleSnapshot(
+            id: "x",
+            position: 1,
+            bundleId: "com.test.app",
+            layout: .auto,
+            scratchpad: 4,
+            specificity: 2,
+            isValid: true
+        )
+        let snapshotData = try IPCWire.makeEncoder().encode(snapshot)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: snapshotData) as? [String: Any])
+        XCTAssertEqual(object["scratchpad"] as? Int, 4)
+        XCTAssertEqual(try JSONDecoder().decode(IPCRuleSnapshot.self, from: snapshotData), snapshot)
+
+        let descriptor = try XCTUnwrap(
+            IPCAutomationManifest.ruleDefinitionOptionDescriptors.first { $0.flag == "--scratchpad" }
+        )
+        XCTAssertEqual(descriptor.valuePlaceholder, "<1-10>")
+    }
+
     func testMessagesAggregateAllErrors() {
         let report = IPCRuleValidator.validate(IPCRuleDefinition(bundleId: ""))
         XCTAssertEqual(report.messages, [
             "Set a bundle ID, app name, or title matcher",
-            "Set a layout, workspace, initial container primary span, or minimum size — this rule has no effect"
+            "Set a layout, workspace, scratchpad, initial container primary span, or minimum size — this rule has no effect"
         ])
         XCTAssertEqual(report.messages, report.messages.filter { !$0.isEmpty })
         XCTAssertFalse(report.messages.isEmpty)
@@ -168,10 +258,14 @@ final class IPCRuleValidatorTests: XCTestCase {
             identifierError: "identifier",
             titleMatcherError: "title",
             initialContainerPrimarySpanError: "span",
+            scratchpadError: "scratchpad",
             effectError: "effect",
             minSizeError: "size"
         )
-        XCTAssertEqual(complete.messages, ["bundle", "regex", "identifier", "title", "span", "effect", "size"])
+        XCTAssertEqual(
+            complete.messages,
+            ["bundle", "regex", "identifier", "title", "span", "scratchpad", "effect", "size"]
+        )
     }
 
     func testSnapshotCodecToleratesMissingValidationMessages() throws {

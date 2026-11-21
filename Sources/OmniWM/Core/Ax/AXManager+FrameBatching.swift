@@ -102,7 +102,9 @@ extension AXManager {
             if decision.shouldCancelPendingRetry {
                 cancelPendingFrameRetry(for: windowId)
             }
-            deferredDeliveries.append(contentsOf: decision.deliveries)
+            if !decision.deliveries.isEmpty {
+                deferredDeliveries.append(contentsOf: decision.deliveries)
+            }
             guard let request = decision.request else { continue }
             if framesByPid[pid] == nil {
                 framesByPid[pid] = []

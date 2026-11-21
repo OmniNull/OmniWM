@@ -38,15 +38,30 @@ struct ShellWorldData: Equatable, Sendable {
 
 extension WMController {
     func shellMenuApp(
-        frontmost: @autoclosure () -> NSRunningApplication? = NSWorkspace.shared.frontmostApplication
+        frontmost: @autoclosure () -> NSRunningApplication? = NSWorkspace.shared.frontmostApplication,
+        menuBarOwner: @autoclosure () -> NSRunningApplication? = NSWorkspace.shared.menuBarOwningApplication
     ) -> ShellMenuApp? {
-        if let token = workspaceManager.selectedManagedToken,
-           let entry = workspaceManager.entry(for: token)
-        {
-            let info = appInfoCache.info(for: entry.pid)
-            return ShellMenuApp(pid: entry.pid, name: info?.name ?? "", bundle: info?.bundleId ?? "")
+        func runningMenuBarOwner() -> NSRunningApplication? {
+            guard let owner = menuBarOwner(), !owner.isTerminated else { return nil }
+            return owner
         }
-        guard let app = frontmost(), !app.isTerminated else { return nil }
+
+        let app: NSRunningApplication
+        if let token = workspaceManager.selectedManagedToken,
+           let pid = workspaceManager.withEntry(token, { $0.pid })
+        {
+            let info = appInfoCache.info(for: pid)
+            guard info?.activationPolicy == .accessory,
+                  workspaceManager.nativeManagedFocusToken?.pid == pid,
+                  let owner = runningMenuBarOwner()
+            else {
+                return ShellMenuApp(pid: pid, name: info?.name ?? "", bundle: info?.bundleId ?? "")
+            }
+            app = owner
+        } else {
+            guard let frontmostApp = frontmost(), !frontmostApp.isTerminated else { return nil }
+            app = frontmostApp.activationPolicy == .accessory ? runningMenuBarOwner() ?? frontmostApp : frontmostApp
+        }
         return ShellMenuApp(
             pid: app.processIdentifier,
             name: app.localizedName ?? "",
@@ -67,16 +82,18 @@ extension WMController {
                 windows: workspaceManager.windowCount(in: workspace.id)
             )
         }
-        let entry = focusedToken.flatMap { workspaceManager.entry(for: $0) }
-        let hosted = entry?.target.hostedMetadata
-        let info = hosted == nil ? entry.flatMap { appInfoCache.info(for: $0.pid) } : nil
+        let focus = focusedToken.flatMap { token in
+            workspaceManager.withEntry(token) { (pid: $0.pid, windowId: $0.windowId, hosted: $0.target.hostedMetadata) }
+        }
+        let hosted = focus?.hosted
+        let info = hosted == nil ? focus.flatMap { appInfoCache.info(for: $0.pid) } : nil
         let frontmost = hosted == nil && (info?.name == nil || info?.bundleId == nil)
             ? NSWorkspace.shared.frontmostApplication : nil
         return ShellWorldData(
             workspace: workspaces.first(where: \.focused)?.name ?? "",
             app: hosted?.title ?? info?.name ?? frontmost?.localizedName ?? "",
             bundle: hosted?.appId ?? info?.bundleId ?? frontmost?.bundleIdentifier ?? "",
-            title: hosted?.title ?? entry
+            title: hosted?.title ?? focus
                 .flatMap { AXWindowService.titlePreferFast(windowId: UInt32($0.windowId)) } ?? "",
             workspaces: workspaces,
             menuApp: shellMenuApp()

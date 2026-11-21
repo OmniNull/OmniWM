@@ -55,14 +55,7 @@ enum TerminalCellWidth {
                 emojiCount += 1
             }
 
-            let scalarWidth = wcwidth(Int32(scalar.value))
-            if scalarWidth >= 0 {
-                width += Int(scalarWidth)
-            } else if properties.generalCategory != .control,
-                      !properties.isDefaultIgnorableCodePoint
-            {
-                width += 1
-            }
+            width += cellWidth(of: scalar, properties)
         }
 
         if regionalIndicatorCount == 2 ||
@@ -75,5 +68,17 @@ enum TerminalCellWidth {
         }
 
         return width
+    }
+
+    private static func cellWidth(of scalar: Unicode.Scalar, _ properties: Unicode.Scalar.Properties) -> Int {
+        switch properties.generalCategory {
+        case .nonspacingMark,
+             .enclosingMark:
+            return 0
+        default:
+            let width = wcwidth(Int32(scalar.value))
+            if width >= 0 { return Int(width) }
+            return properties.generalCategory == .control || properties.isDefaultIgnorableCodePoint ? 0 : 1
+        }
     }
 }

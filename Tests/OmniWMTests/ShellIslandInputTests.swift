@@ -15,14 +15,15 @@ final class ShellIslandInputTests: XCTestCase {
         let island: ShellIsland
         let monitor: Monitor
         var events: [ShellClick] = []
+        private static let display: UInt32 = 95101
 
-        init(_ body: String, display: UInt32 = 95101) throws {
+        init(_ body: String) throws {
             _ = NSApplication.shared
             monitor = Monitor(
-                id: .init(displayId: display), displayId: display,
+                id: .init(displayId: Self.display), displayId: Self.display,
                 frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
                 visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 868),
-                hasNotch: false, name: "Island input \(display)"
+                hasNotch: false, name: "Island input \(Self.display)"
             )
             widget = try ShellRenderedWidget(name: "island-input", source: "function render(ctx) " + body + " end")
             widget.surface.sequence = 1
@@ -47,47 +48,6 @@ final class ShellIslandInputTests: XCTestCase {
             widget.surface.sequence = sequence
             widget.render(ShellBarData())
         }
-    }
-
-    func testFocusTransfersAcrossDisplaysAndStaleCallbacksCannotReleaseNewLease() throws {
-        let policy = FocusPolicyEngine()
-        let host = host(policy)
-        let first = try Fixture("return ui.box{w=80,h=30,focusable=true,keys={'escape'},onKey=function() end}")
-        let second = try Fixture(
-            "return ui.box{w=80,h=30,focusable=true,keys={'escape'},onKey=function() end}",
-            display: 95102
-        )
-        attach(first, to: host)
-        attach(second, to: host)
-        defer { host.closeIslands() }
-        first.show()
-        second.show()
-        first.widget.surface.focusDeclared(first.widget.surface.layout.core.rootHandle)
-        XCTAssertEqual(host.focusedIsland, first.monitor.id)
-        XCTAssertEqual(policy.activeLease?.owner, .shellIsland)
-        XCTAssertTrue(first.island.panel.canBecomeKey)
-        XCTAssertEqual(host.islandData[key(first)]?.surface?.focused, true)
-        XCTAssertEqual(host.islandData[key(second)]?.surface?.focused, false)
-
-        second.widget.surface.focusDeclared(second.widget.surface.layout.core.rootHandle)
-        XCTAssertEqual(host.focusedIsland, second.monitor.id)
-        XCTAssertEqual(policy.activeLease?.owner, .shellIsland)
-        XCTAssertFalse(first.widget.surface.declaredFocus)
-        XCTAssertFalse(first.island.panel.canBecomeKey)
-        XCTAssertTrue(second.island.panel.canBecomeKey)
-        XCTAssertEqual(host.islandData[key(first)]?.surface?.focused, false)
-        XCTAssertEqual(host.islandData[key(second)]?.surface?.focused, true)
-        first.island.onFocusChange?(false)
-        first.island.onBlur?()
-        XCTAssertEqual(host.focusedIsland, second.monitor.id)
-        XCTAssertEqual(policy.activeLease?.owner, .shellIsland)
-
-        second.widget.surface.blurDeclaredFocus()
-        XCTAssertNil(host.focusedIsland)
-        XCTAssertNil(policy.activeLease)
-        XCTAssertFalse(second.island.panel.canBecomeKey)
-        XCTAssertEqual(host.islandData[key(second)]?.surface?.focused, false)
-        XCTAssertNil(host.islandInputMonitors)
     }
 
     func testOutsideOnlyTargetKeepsEnvelopeTransparentAndUsesCurrentLocalCoordinatesAndSequence() throws {

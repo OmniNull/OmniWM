@@ -14,31 +14,63 @@ extension LayoutRefreshController {
         else { return }
         let decision = prepareFullRescanWindowDecision(candidate, identity: identity, context: context)
         let window = FullRescanEvaluatedWindow(candidate: candidate, identity: identity, decision: decision)
-        if shouldYieldFullRescanWindow(window, context: context, progress: &progress) { return }
-        guard let trackedMode = decision.effectiveTrackedMode else {
+        let scratchpadAdmission = identity.isTracked
+            ? nil
+            : decision.effectiveTrackedMode.flatMap {
+                context.controller.scratchpadAdmission(for: decision.evaluation, requestedMode: $0)
+            }
+        let requestedMode = scratchpadAdmission == nil ? decision.effectiveTrackedMode : .floating
+        let admitted = requestedMode.flatMap { mode in
+            if decision.shouldPreservePreFullscreenState { return WindowAdmission(mode: mode) }
+            return context.controller.resolveWindowAdmission(
+                evaluation: decision.evaluation,
+                axRef: candidate.axRef,
+                requestedMode: mode,
+                existingMode: identity.existingEntry?.mode
+            )
+        }
+        if shouldYieldFullRescanWindow(
+            window, trackedMode: admitted?.mode ?? requestedMode, context: context, progress: &progress
+        ) { return }
+        if let admitted {
+            reconcileTrackedFullRescanWindow(
+                window,
+                admitted: admitted,
+                scratchpadAdmission: scratchpadAdmission,
+                context: context,
+                progress: &progress
+            )
+        } else if requestedMode == nil {
             rejectFullRescanWindow(window, context: context, progress: &progress)
-            return
+        } else {
+            context.controller.axEventHandler.scheduleGeometryAdmissionRetry(
+                token: identity.token, axRef: candidate.axRef,
+                existingEntry: identity.existingEntry, placementOrigin: decision.placementOrigin
+            )
+            if let existingEntry = identity.existingEntry {
+                progress.seenKeys.insert(existingEntry.token)
+            }
         }
-        if trackedMode != .tiling {
-            context.controller.axEventHandler.cancelTrackedTilingPromotionRetry(windowId: candidate.windowId)
-        }
-        if deferFullRescanWindow(window, trackedMode: trackedMode, context: context, progress: &progress) { return }
-        reconcileTrackedFullRescanWindow(window, trackedMode: trackedMode, context: context, progress: &progress)
     }
 
     private func reconcileTrackedFullRescanWindow(
         _ window: FullRescanEvaluatedWindow,
-        trackedMode: TrackedWindowMode,
+        admitted: WindowAdmission,
+        scratchpadAdmission: ScratchpadAdmission?,
         context: FullRescanMutationContext,
         progress: inout FullRescanProgress
     ) {
-        let structuralMatch = fullRescanStructuralMatch(window, trackedMode: trackedMode, context: context)
-        if rekeyFullRescanReplacement(
+        let trackedMode = admitted.mode
+        let replacementAdmission = scratchpadAdmission.map {
+            WindowAdmission(mode: $0.replacementMode(for: admitted), geometry: admitted.geometry)
+        } ?? admitted
+        let structuralMatch = fullRescanStructuralMatch(
             window,
-            trackedMode: trackedMode,
-            match: structuralMatch,
-            context: context,
-            progress: &progress
+            trackedMode: replacementAdmission.mode,
+            context: context
+        )
+        if rekeyFullRescanReplacement(
+            window, admitted: replacementAdmission, match: structuralMatch, context: context, progress: &progress
         ) { return }
         let defaultWorkspace = fullRescanDefaultWorkspace(
             window,
@@ -54,6 +86,7 @@ extension LayoutRefreshController {
             assignment: assignment,
             context: context
         )
+        let arrival = fullRescanScratchpadArrival(window, scratchpadAdmission: scratchpadAdmission, context: context)
         let admittedToken = admitFullRescanWindow(window, admission: admission, context: context)
         guard completeFullRescanTracking(
             window,
@@ -69,27 +102,66 @@ extension LayoutRefreshController {
             admittedToken: admittedToken,
             context: context
         )
+        joinFullRescanScratchpad(
+            scratchpadAdmission, window: window, admitted: admitted,
+            admittedToken: admittedToken, arrival: arrival
+        )
         progress.seenKeys.insert(admittedToken)
+    }
+
+    private func fullRescanScratchpadArrival(
+        _ window: FullRescanEvaluatedWindow,
+        scratchpadAdmission: ScratchpadAdmission?,
+        context: FullRescanMutationContext
+    ) -> ScratchpadJoinArrival? {
+        guard let scratchpadAdmission else { return nil }
+        let controller = context.controller
+        guard window.decision.createPlacementContext != nil else {
+            return .quiet(previousFocusToken: controller.workspaceManager.selectedManagedToken)
+        }
+        return controller.axEventHandler.scratchpadJoinArrival(
+            window.identity.token,
+            in: scratchpadAdmission.index,
+            canCountAsFocused: !window.decision.appFullscreen && window.candidate.minimizedAttribute != true
+        )
+    }
+
+    private func joinFullRescanScratchpad(
+        _ scratchpadAdmission: ScratchpadAdmission?,
+        window: FullRescanEvaluatedWindow,
+        admitted: WindowAdmission,
+        admittedToken: WindowToken,
+        arrival: ScratchpadJoinArrival?
+    ) {
+        guard let scratchpadAdmission, let arrival, let controller else { return }
+        controller.joinScratchpadOnAdmission(
+            admittedToken,
+            scratchpadAdmission,
+            observedFrame: window.candidate.capturedAppKitFrame ?? admitted.geometry?.frame,
+            appFullscreen: window.decision.appFullscreen,
+            arrival: arrival
+        )
     }
 
     private func shouldYieldFullRescanWindow(
         _ window: FullRescanEvaluatedWindow,
+        trackedMode: TrackedWindowMode?,
         context: FullRescanMutationContext,
         progress: inout FullRescanProgress
     ) -> Bool {
+        guard !window.identity.isTracked else { return false }
         let enumerationSnapshot = context.enumerationSnapshot
         let scope = context.scope
         let token = window.identity.token
         let existingEntry = window.identity.existingEntry
         let bundleId = window.identity.bundleId
         let evaluation = window.decision.evaluation
-        let decision = window.decision.evaluation.decision
-        let effectiveTrackedMode = window.decision.effectiveTrackedMode
+        let decision = evaluation.decision
         return yieldToDeferredCreate(
             .init(
                 token: token,
                 bundleId: bundleId ?? evaluation.facts.ax.bundleId,
-                mode: effectiveTrackedMode,
+                mode: trackedMode,
                 factsAreDeferred: decision.disposition == .undecided,
                 facts: evaluation.facts,
                 entry: existingEntry
@@ -137,34 +209,5 @@ extension LayoutRefreshController {
                 controller.axEventHandler.discardCreatePlacementContext(for: winId)
             }
         }
-    }
-
-    private func deferFullRescanWindow(
-        _ window: FullRescanEvaluatedWindow,
-        trackedMode: TrackedWindowMode,
-        context: FullRescanMutationContext,
-        progress: inout FullRescanProgress
-    ) -> Bool {
-        let controller = context.controller
-        let ax = window.candidate.axRef
-        let token = window.identity.token
-        let existingEntry = window.identity.existingEntry
-        let evaluation = window.decision.evaluation
-        let placementOrigin = window.decision.placementOrigin
-        if controller.axEventHandler.deferAdmissionIfNeeded(
-            evaluation: evaluation,
-            axRef: ax,
-            token: token,
-            mode: trackedMode,
-            existingEntry: existingEntry,
-            placementOrigin: placementOrigin
-        ) {
-            if let existingEntry {
-                progress.seenKeys.insert(existingEntry.token)
-            }
-            return true
-        }
-
-        return false
     }
 }

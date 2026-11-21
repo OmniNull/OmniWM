@@ -167,20 +167,12 @@ struct SponsorsView: View {
 
     private var footerSection: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                Button(action: { openURL("https://paypal.me/beacon2024") }, label: {
-                    Text("Sponsor on PayPal")
-                        .font(.system(size: 13, weight: .medium))
-                })
-                .buttonStyle(OmniGlassButtonStyle())
-
-                Button(action: onClose) {
-                    Text("Close")
-                        .font(.system(size: 13, weight: .medium))
-                        .frame(width: 80)
-                }
-                .buttonStyle(OmniGlassButtonStyle())
+            Button(action: onClose) {
+                Text("Close")
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 80)
             }
+            .buttonStyle(OmniGlassButtonStyle())
 
             Text("Ranks reflect sponsorship order, not donation amounts")
                 .font(.system(size: 11))

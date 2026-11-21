@@ -368,6 +368,7 @@ class CanaryCITests(unittest.TestCase):
             ("head_branch", "feature"),
             ("event", "pull_request"),
             ("path", ".github/workflows/website.yml"),
+            ("path", ".github/workflows/approved-ci.yml"),
         ):
             with self.subTest(field=field):
                 original = self.run[field]

@@ -3,6 +3,22 @@
 
 import AppKit
 
+enum ShellAppearanceCommand: Equatable, Sendable {
+    case toggle
+
+    init?(words: [String]) {
+        guard words == ["toggle"] else { return nil }
+        self = .toggle
+    }
+
+    func perform(using functions: SkyLightAppearanceFunctions = .system) -> Bool {
+        guard let getTheme = functions.getTheme, let setTheme = functions.setTheme else { return false }
+        let dark = getTheme() == SkyLightAppearanceFunctions.dark
+        setTheme(dark ? SkyLightAppearanceFunctions.light : SkyLightAppearanceFunctions.dark)
+        return true
+    }
+}
+
 struct ShellAppearance: Equatable, Sendable, ShellValueWritable {
     var dark: Bool
 

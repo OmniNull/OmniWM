@@ -7,6 +7,7 @@ enum ShellNotificationsCommand: Equatable, Sendable {
     case refresh
     case dismissAll
     case cancelDismissAll
+    case center
     case open(bundle: String)
     case dismiss(bundle: String, id: UUID)
     case reply(bundle: String, id: UUID, text: String)
@@ -18,6 +19,8 @@ enum ShellNotificationsCommand: Equatable, Sendable {
             self = .dismissAll
         } else if words == ["cancel-dismiss-all"] {
             self = .cancelDismissAll
+        } else if words == ["center"] {
+            self = .center
         } else if words.count == 2, words[0] == "open", Self.validBundle(words[1]) {
             self = .open(bundle: words[1])
         } else if words.count == 3, words[0] == "dismiss", Self.validBundle(words[1]),

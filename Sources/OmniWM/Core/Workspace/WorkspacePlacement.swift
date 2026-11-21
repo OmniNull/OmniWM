@@ -43,12 +43,13 @@ struct WorkspacePlacementWindow {
     let pid: pid_t?
     let parentWindowId: UInt32?
     let placementMode: TrackedWindowMode
-    let windowFrame: CGRect?
+    let appKitFrame: CGRect?
     let existingEntry: WindowState?
 }
 
 struct WorkspacePlacementRules {
     let workspaceName: String?
+    let assignToWorkspaceForAllWindows: Bool
     let inheritTrackedParentWorkspace: Bool
     let structuralReplacementWorkspaceId: WorkspaceDescriptor.ID?
     let allowsFloatingSpawnPlacement: Bool

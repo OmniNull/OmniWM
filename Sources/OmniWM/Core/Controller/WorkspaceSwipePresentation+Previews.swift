@@ -25,9 +25,13 @@ extension WorkspaceSwipePresentation {
     }
 
     func syncAvailability() {
-        guard let controller, !allPreviews.isEmpty,
-              !controller.motionPolicy.animationsEnabled || !controller.settings.gestures.workspaceSwipeEnabled
-        else { return }
+        guard let controller else { return }
+        let swipes = controller.settings.gestures.workspaceSwipeEnabled
+        let slides = controller.settings.slideWorkspaceSwitchesUntracked
+        for flight in Array(flights.values) where !(flight.isKeyboard ? slides : swipes) {
+            cancel(flight, reason: "disabled", settlingFocus: false)
+        }
+        guard !allPreviews.isEmpty, !controller.motionPolicy.animationsEnabled || !(swipes || slides) else { return }
         cancelAll(reason: "disabled")
         for preview in allPreviews {
             preview.release()

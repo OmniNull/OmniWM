@@ -87,6 +87,25 @@ struct ShellBluetooth: Equatable, Sendable, ShellValueWritable {
         }
     }
 
+    static func audioKind(major: BluetoothDeviceClassMajor, minor: BluetoothDeviceClassMinor) -> String? {
+        guard Int(major) == kBluetoothDeviceClassMajorAudio else { return nil }
+        return Int(minor) == kBluetoothDeviceClassMinorAudioLoudspeaker ? "speaker" : "headphones"
+    }
+
+    static func pairedAudioKinds() -> [String: String] {
+        guard CBCentralManager.authorization == .allowedAlways else { return [:] }
+        var kinds: [String: String] = [:]
+        for case let device as IOBluetoothDevice in IOBluetoothDevice.pairedDevices() ?? [] {
+            guard let raw = device.addressString,
+                  let kind = audioKind(major: device.deviceClassMajor, minor: device.deviceClassMinor)
+            else {
+                continue
+            }
+            kinds[address(raw)] = kind
+        }
+        return kinds
+    }
+
     static func address(_ address: String) -> String {
         address.lowercased().replacingOccurrences(of: ":", with: "-")
     }

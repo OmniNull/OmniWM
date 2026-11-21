@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import ImageIO
 import OmniWMMaterialColor
 
 enum ShellWallpaperScheme: String, CaseIterable, Sendable {
@@ -83,93 +84,194 @@ enum ShellWallpaperPalette {
     }
 }
 
-@MainActor
-final class ShellWallpaperPaletteWriter {
-    static let store = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/com.apple.wallpaper/Store", isDirectory: true)
-    private static let queue = DispatchQueue(label: "com.barut.OmniWM.shell.wallpaper", qos: .utility)
+extension ShellWallpaperPalette {
+    static let stillImageProvider = "com.apple.wallpaper.choice.image"
+    static let aerialProvider = "com.apple.wallpaper.choice.aerials"
+    static let aerials = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Application Support/com.apple.wallpaper/aerials", isDirectory: true)
 
-    private let destination: URL
-    private let image: @MainActor () -> CGImage?
-    private let onFailure: @MainActor (String) -> Void
-    private var observation: ShellDirectoryObservation?
-    private var observers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
-    private var scheme: ShellWallpaperScheme
+    enum DesktopChoice: Equatable, Sendable {
+        case file(URL)
+        case aerial(asset: String?, thumbnail: URL?)
+        case shuffle
+        case other
+    }
 
-    init(
-        destination: URL,
-        scheme: ShellWallpaperScheme,
-        image: @escaping @MainActor () -> CGImage? = {
-            OverviewWallpaperCache().image(for: CGMainDisplayID(), maxPixelSize: ShellWallpaperPalette.pixelSize)
+    struct StillWallpaper: Equatable, Sendable {
+        let url: URL
+        let size: Int64
+        let modified: Date
+    }
+
+    struct StillProbe: Sendable {
+        let showsWallpaperWindow: Bool
+        let location: (display: String, space: String)?
+    }
+
+    enum Source: Equatable, Sendable {
+        case still(StillWallpaper, aerial: Bool)
+        case capture(aerial: Bool)
+    }
+
+    @MainActor
+    static func stillProbe(
+        for displayId: CGDirectDisplayID,
+        frame: CGRect? = nil,
+        windows: () -> [[String: Any]] = {
+            CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
         },
-        onFailure: @escaping @MainActor (String) -> Void
-    ) {
-        self.destination = destination
-        self.scheme = scheme
-        self.image = image
-        self.onFailure = onFailure
-    }
-
-    isolated deinit {
-        stop()
-    }
-
-    func start() {
-        guard observation == nil else { return }
-        observation = ShellDirectoryObservation { [weak self] in
-            self?.watchStore()
-            self?.refresh()
-        }
-        watchStore()
-        observers = [
-            (NSWorkspace.shared.notificationCenter, NSWorkspace.activeSpaceDidChangeNotification),
-            (NotificationCenter.default, NSApplication.didChangeScreenParametersNotification)
-        ].map { center, name in
-            (center, center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refresh() }
-            })
-        }
-        refresh()
-    }
-
-    func setScheme(_ next: ShellWallpaperScheme) {
-        guard next != scheme else { return }
-        scheme = next
-        refresh()
-    }
-
-    func stop() {
-        observation?.cancel()
-        observation = nil
-        for observer in observers {
-            observer.center.removeObserver(observer.token)
-        }
-        observers = []
-    }
-
-    func refresh() {
-        guard let image = image() else {
-            onFailure("The wallpaper palette keeps its last colors because the wallpaper image is unavailable")
-            return
-        }
-        let pixels = ShellWallpaperPalette.pixels(of: image)
-        let scheme = scheme
-        let destination = destination
-        Self.queue.async {
-            do {
-                _ = try ShellWallpaperPalette.write(
-                    ShellWallpaperPalette.theme(pixels: pixels, scheme: scheme),
-                    to: destination
-                )
-            } catch {
-                Log.shell.error("Failed to write the wallpaper palette: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func watchStore() {
-        observation?.sync(
-            paths: [Self.store, Self.store.appendingPathComponent("Index.plist")], recursivePaths: [Self.store]
+        location: (CGDirectDisplayID) -> (display: String, space: String)? = { ShellWallpaperPalette.location(of: $0) }
+    ) -> StillProbe {
+        StillProbe(
+            showsWallpaperWindow: showsWallpaperWindow(windows(), frame: frame ?? CGDisplayBounds(displayId)),
+            location: location(displayId)
         )
+    }
+
+    static func source(_ probe: StillProbe, store: Data?, aerials: URL = Self.aerials) -> Source {
+        guard let location = probe.location,
+              let choice = desktopChoice(store: store, location: location, aerials: aerials)
+        else { return .capture(aerial: false) }
+        switch choice {
+        case let .aerial(_, thumbnail):
+            guard probe.showsWallpaperWindow, let thumbnail, let still = stamp(thumbnail) else {
+                return .capture(aerial: true)
+            }
+            return .still(still, aerial: true)
+        case let .file(chosen):
+            guard probe.showsWallpaperWindow, isSingleImage(chosen), let still = stamp(chosen)
+            else { return .capture(aerial: false) }
+            return .still(still, aerial: false)
+        case .shuffle,
+             .other:
+            return .capture(aerial: false)
+        }
+    }
+
+    static func storeIndex() -> Data? {
+        try? Data(contentsOf: ShellWallpaperPaletteWriter.store.appendingPathComponent("Index.plist"))
+    }
+
+    @MainActor
+    static func location(of displayId: CGDirectDisplayID) -> (display: String, space: String)? {
+        SkyLight.displayUUID(for: displayId).flatMap { display in
+            SkyLight.shared.currentSpaceUUID(forDisplay: display).map { (display, $0) }
+        }
+    }
+
+    private static func stamp(_ url: URL) -> StillWallpaper? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = (attributes[.size] as? NSNumber)?.int64Value,
+              let modified = attributes[.modificationDate] as? Date
+        else { return nil }
+        return StillWallpaper(url: url, size: size, modified: modified)
+    }
+
+    @MainActor
+    static func screenImage(
+        for displayId: CGDirectDisplayID,
+        aerial: Bool,
+        capture: (CGDirectDisplayID) -> CGImage? = { displayId in
+            guard ScreenCapturePermissionMonitor.shared.isGranted else { return nil }
+            let frame = CGDisplayBounds(displayId)
+            return SkyLight.shared.captureWallpaper(in: frame).flatMap {
+                $0.width >= Int(ceil(frame.width)) && $0.height >= Int(ceil(frame.height)) ? $0 : nil
+            }
+        },
+        fallback: (CGDirectDisplayID) -> CGImage? = {
+            OverviewWallpaperCache().image(for: $0, maxPixelSize: ShellWallpaperPalette.pixelSize)
+        }
+    ) -> CGImage? {
+        aerial ? capture(displayId) : fallback(displayId)
+    }
+
+    static func desktopChoice(
+        store: Data?,
+        location: (display: String, space: String),
+        aerials: URL
+    ) -> DesktopChoice? {
+        guard let store,
+              let index = try? PropertyListSerialization.propertyList(from: store, format: nil) as? [String: Any],
+              let content = desktopContent(in: index, location: location)
+        else { return nil }
+        if let path = stillImagePath(of: content) {
+            return .file(URL(fileURLWithPath: path))
+        }
+        guard let choices = content["Choices"] as? [[String: Any]], let choice = choices.first else { return .other }
+        let isAerial = choices.allSatisfy { $0["Provider"] as? String == aerialProvider }
+        if content["Shuffle"] as? String != "$null" {
+            return isAerial ? .aerial(asset: nil, thumbnail: nil) : .shuffle
+        }
+        guard isAerial else { return .other }
+        guard choices.count == 1,
+              let data = choice["Configuration"] as? Data,
+              let configuration = try? PropertyListSerialization.propertyList(from: data, format: nil)
+              as? [String: Any],
+              let asset = configuration["assetID"] as? String,
+              !asset.isEmpty, !asset.contains("/")
+        else { return .aerial(asset: nil, thumbnail: nil) }
+        let thumbnail = aerials.appendingPathComponent("thumbnails/\(asset).png").standardizedFileURL
+        return .aerial(
+            asset: asset,
+            thumbnail: FileManager.default.fileExists(atPath: thumbnail.path) ? thumbnail : nil
+        )
+    }
+
+    static func read(_ url: URL) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: pixelSize,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    }
+
+    @MainActor
+    static func showsWallpaperWindow(_ windows: [[String: Any]], frame: CGRect) -> Bool {
+        guard let wallpaper = SkyLight.wallpaperWindow(in: windows, frame: frame) else { return false }
+        return windows.contains {
+            $0[kCGWindowNumber as String] as? UInt32 == wallpaper.id
+                && $0[kCGWindowLayer as String] as? Int32 == CGWindowLevelForKey(.desktopWindow) - 1
+        }
+    }
+
+    static func isSingleImage(_ url: URL) -> Bool {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return false }
+        return CGImageSourceGetCount(source) == 1
+    }
+
+    static func desktopContent(
+        in index: [String: Any],
+        location: (display: String, space: String)
+    ) -> [String: Any]? {
+        let space = (index["Spaces"] as? [String: Any])?[location.space] as? [String: Any]
+        let entries: [Any?] = [
+            (space?["Displays"] as? [String: Any])?[location.display],
+            space?["Default"],
+            (index["Displays"] as? [String: Any])?[location.display],
+            index["AllSpacesAndDisplays"],
+            index["SystemDefault"]
+        ]
+        return entries.lazy.compactMap { candidate -> Any? in
+            guard let entry = candidate as? [String: Any] else { return nil }
+            let slot = entry["Type"] as? String == "linked" ? "Linked" : "Desktop"
+            return (entry[slot] as? [String: Any])?["Content"]
+        }.first as? [String: Any]
+    }
+
+    static func stillImagePath(of content: [String: Any]) -> String? {
+        guard content["Shuffle"] as? String == "$null",
+              let choices = content["Choices"] as? [[String: Any]], choices.count == 1,
+              choices[0]["Provider"] as? String == stillImageProvider,
+              let data = choices[0]["Configuration"] as? Data,
+              let configuration = try? PropertyListSerialization
+                  .propertyList(from: data, format: nil) as? [String: Any],
+              configuration["type"] as? String == "imageFile",
+              let relative = (configuration["url"] as? [String: Any])?["relative"] as? String,
+              let url = URL(string: relative), url.isFileURL
+        else { return nil }
+        return url.standardizedFileURL.path
     }
 }

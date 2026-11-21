@@ -7,6 +7,154 @@ import XCTest
 
 @MainActor
 final class ShellNotificationsControllerTests: XCTestCase {
+    private let fixtureBundle = "fixture.notifications"
+
+    func testPreferenceReplacementRefreshesWithoutDatabaseChanges() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let preferencesDirectory = directory.appendingPathComponent("preferences")
+        try FileManager.default.createDirectory(at: preferencesDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let preferencesURL = preferencesDirectory.appendingPathComponent("settings.plist")
+        let databaseURL = directory.appendingPathComponent("db")
+        try Data().write(to: databaseURL)
+        let allowed = ShellNotificationPreferences.notificationsAllowed
+        let hidden = ShellNotificationPreferences.hiddenFromNotificationCenter
+        try notificationPreferences([["bundle-id": fixtureBundle, "flags": allowed]]).write(to: preferencesURL)
+        let controller = ShellNotificationsController(
+            url: databaseURL,
+            preferencesURL: preferencesURL,
+            load: { [fixtureBundle] _ in
+                let listed = ShellNotificationPreferences(contentsOf: preferencesURL)?
+                    .lists(fixtureBundle, isInstalled: { _ in true }) ?? true
+                return ShellNotificationsData(state: listed ? "ready" : "empty")
+            }
+        )
+        controller.setListening(true)
+        defer { controller.setListening(false) }
+        await controller.task?.value
+        XCTAssertEqual(controller.current.state, "ready")
+        let before = ShellNotificationsController.StorageRevision.read(at: databaseURL)
+        let refreshed = expectation(description: "preference-only change published")
+        controller.onChange = { value in
+            if value.state == "empty" { refreshed.fulfill() }
+        }
+        try notificationPreferences([["bundle-id": fixtureBundle, "flags": allowed | hidden]])
+            .write(to: preferencesURL, options: .atomic)
+        await fulfillment(of: [refreshed], timeout: failureBound)
+        XCTAssertEqual(ShellNotificationsController.StorageRevision.read(at: databaseURL), before)
+    }
+
+    func testPreferenceOnlyChangeCannotRestoreADispatchedNotification() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let preferencesDirectory = directory.appendingPathComponent("preferences")
+        try FileManager.default.createDirectory(at: preferencesDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let preferencesURL = preferencesDirectory.appendingPathComponent("settings.plist")
+        let databaseURL = directory.appendingPathComponent("db")
+        try Data().write(to: databaseURL)
+        try Data(UUID().uuidString.utf8).write(to: preferencesURL)
+        let original = SettingsFileAccess.currentFingerprint(at: preferencesURL)
+        let id = UUID()
+        let snapshot = ShellNotificationsData(state: "ready", items: [.object([
+            "id": .text(id.uuidString.lowercased()), "bundle": .text(fixtureBundle), "actions": .array([])
+        ])])
+        let readAfterRewrite = expectation(description: "read started after the preference rewrite")
+        readAfterRewrite.assertForOverFulfill = false
+        let controller = ShellNotificationsController(
+            url: databaseURL,
+            preferencesURL: preferencesURL,
+            load: { _ in
+                if SettingsFileAccess.currentFingerprint(at: preferencesURL) != original {
+                    readAfterRewrite.fulfill()
+                }
+                return snapshot
+            },
+            perform: { _ in .dispatched }
+        )
+        controller.setListening(true)
+        defer { controller.setListening(false) }
+        await controller.task?.value
+        XCTAssertTrue(controller.perform(.dismiss(bundle: fixtureBundle, id: id)))
+        let action = try XCTUnwrap(controller.actionTask)
+        await action.value
+        await controller.task?.value
+        XCTAssertEqual(controller.current.dispatched, [id.uuidString.lowercased()])
+        try Data(UUID().uuidString.utf8).write(to: preferencesURL, options: .atomic)
+        await fulfillment(of: [readAfterRewrite], timeout: failureBound)
+        await controller.task?.value
+        XCTAssertEqual(controller.current.dispatched, [id.uuidString.lowercased()])
+        XCTAssertEqual(controller.current.kept, 0)
+    }
+
+    func testClockHostFollowsTheOSReleaseAndFallsBackToTheOtherHost() {
+        let pids: [String: pid_t] = [
+            "com.apple.notificationcenterui": 1,
+            "com.apple.MenuBarAgent": 2,
+            "com.apple.controlcenter": 3
+        ]
+        func resolve(_ major: Int, without missing: String? = nil) -> pid_t? {
+            ShellNotificationsController.nativeProcesses(osMajorVersion: major) {
+                $0 == missing ? nil : pids[$0]
+            }?.1
+        }
+        XCTAssertEqual(resolve(26), 3)
+        XCTAssertEqual(resolve(27), 2)
+        XCTAssertEqual(resolve(26, without: "com.apple.controlcenter"), 2)
+        XCTAssertEqual(resolve(27, without: "com.apple.MenuBarAgent"), 3)
+        XCTAssertNil(resolve(26, without: "com.apple.notificationcenterui"))
+    }
+
+    func testCenterCommandIsTheBareWord() {
+        XCTAssertEqual(ShellAction("notifications center"), .notifications(.center))
+        XCTAssertNil(ShellAction("notifications center now"))
+    }
+
+    func testCenterRunsItsPerformerOnceAndLeavesTheSnapshotAlone() async {
+        let ran = expectation(description: "center performer ran")
+        let controller = ShellNotificationsController(url: url(), showCenter: {
+            ran.fulfill()
+            return .dispatched
+        })
+        let before = controller.current
+        XCTAssertTrue(controller.perform(.center))
+        await fulfillment(of: [ran], timeout: failureBound)
+        XCTAssertEqual(controller.current, before)
+    }
+
+    func testCenterIsRefusedWhileANativeActionIsInFlight() async throws {
+        let id = UUID()
+        let snapshot = ShellNotificationsData(state: "ready", items: [.object([
+            "id": .text(id.uuidString.lowercased()), "bundle": .text(fixtureBundle), "actions": .array([])
+        ])])
+        let entered = expectation(description: "dismiss entered")
+        let ran = expectation(description: "center performer ran")
+        let release = AsyncStream<Void>.makeStream()
+        let controller = ShellNotificationsController(
+            url: url(),
+            load: { _ in snapshot },
+            perform: { _ in
+                entered.fulfill()
+                for await _ in release.stream { break }
+                return .dispatched
+            },
+            showCenter: {
+                ran.fulfill()
+                return .dispatched
+            }
+        )
+        controller.setListening(true)
+        defer { controller.setListening(false) }
+        await controller.task?.value
+        XCTAssertTrue(controller.perform(.dismiss(bundle: fixtureBundle, id: id)))
+        let action = try XCTUnwrap(controller.actionTask)
+        await fulfillment(of: [entered], timeout: failureBound)
+        XCTAssertFalse(controller.perform(.center))
+        release.continuation.yield()
+        await action.value
+        XCTAssertTrue(controller.perform(.center))
+        await fulfillment(of: [ran], timeout: failureBound)
+    }
+
     private actor LoadGate {
         let entered: @Sendable (Int) -> Void
         let returned: @Sendable (Int) -> Void
@@ -58,7 +206,7 @@ final class ShellNotificationsControllerTests: XCTestCase {
         ShellNotificationsData(
             state: "ready",
             items: [.object(["id": .text(id), "body": .text("Synthetic private body \(id)")])],
-            apps: [.object(["bundle": .text("fixture.notifications")])]
+            apps: [.object(["bundle": .text(fixtureBundle)])]
         )
     }
 

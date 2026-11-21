@@ -5,6 +5,15 @@ import AppKit
 import Foundation
 import OmniWMIPC
 
+struct WindowAdmission {
+    let mode: TrackedWindowMode
+    var geometry: WindowAdmissionGeometryEvidence?
+
+    var readOnlyFrame: CGRect? {
+        geometry?.isSizeSettable == false ? geometry?.frame : nil
+    }
+}
+
 extension WMController {
     private static let finderQuickLookSubrole = "Quick Look"
     private static let finderBundleId = "com.apple.finder"
@@ -53,49 +62,44 @@ extension WMController {
         return nil
     }
 
-    func shouldDeferAdmission(
+    func resolveWindowAdmission(
         evaluation: WindowDecisionEvaluation,
         axRef: AXWindowRef,
-        mode: TrackedWindowMode,
-        windowInfo: WindowServerInfo?
-    ) -> Bool {
-        if let admissionGeometry = evaluation.admissionGeometry {
-            if mode == .tiling,
-               !admissionGeometry.isSizeSettable
-            {
-                return true
-            }
-            guard let frame = evaluation.facts.windowServer?.frame
-                ?? windowInfo?.frame
-                ?? admissionGeometry.frame
-            else {
-                return true
-            }
-            return !Self.isMeaningfulAdmissionFrame(frame)
+        requestedMode: TrackedWindowMode,
+        existingMode: TrackedWindowMode? = nil
+    ) -> WindowAdmission? {
+        let requiresValidation = existingMode == nil || existingMode == .floating && requestedMode == .tiling
+        guard requiresValidation else { return WindowAdmission(mode: requestedMode) }
+
+        let sizeSettable: Bool? = if let geometry = evaluation.admissionGeometry {
+            geometry.isSizeSettable
+        } else if requestedMode == .tiling {
+            AXWindowService.sizeSettable(axRef)
+        } else {
+            nil
         }
-        if mode == .tiling,
-           !AXWindowService.isSizeSettable(axRef)
-        {
-            return true
+        if requestedMode == .tiling, sizeSettable == nil { return nil }
+
+        let serverFrame = WindowAdmissionGeometryEvidence.usableAppKitFrame(
+            fromWindowServer: evaluation.facts.windowServer?.frame
+        )
+        let frame: CGRect? = if let serverFrame {
+            serverFrame
+        } else if let geometry = evaluation.admissionGeometry {
+            WindowAdmissionGeometryEvidence.usableFrame(geometry.frame)
+        } else {
+            WindowAdmissionGeometryEvidence.usableFrame(AXWindowService.framePreferFast(axRef))
+                ?? WindowAdmissionGeometryEvidence.usableFrame(try? AXWindowService.frame(axRef))
         }
-        if let frame = evaluation.facts.windowServer?.frame ?? windowInfo?.frame,
-           Self.isMeaningfulAdmissionFrame(frame)
-        {
-            return false
-        }
-        guard let axFrame = AXWindowService.framePreferFast(axRef)
-            ?? (try? AXWindowService.frame(axRef))
-        else {
-            return true
-        }
-        return !Self.isMeaningfulAdmissionFrame(axFrame)
+        guard let frame else { return nil }
+        return WindowAdmission(
+            mode: sizeSettable == false ? .floating : requestedMode,
+            geometry: .init(isSizeSettable: sizeSettable, frame: frame)
+        )
     }
 
     static func isMeaningfulAdmissionFrame(_ frame: CGRect) -> Bool {
-        !frame.isNull
-            && !frame.isInfinite
-            && frame.width > 1
-            && frame.height > 1
+        WindowAdmissionGeometryEvidence.usableFrame(frame) != nil
     }
 
     func trackedModePreservingAutomaticFallbackState(

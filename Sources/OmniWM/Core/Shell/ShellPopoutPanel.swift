@@ -5,15 +5,13 @@ import AppKit
 
 @MainActor
 final class ShellPopoutPanel: ShellFocusPanel {
-    private let effectView = NSVisualEffectView()
-    private let glassView = NSGlassEffectView()
-    private let content: NSView
+    private let chrome: ShellChromeView
     private var morphs = 0
     static let morphPosition = "morph.position"
     static let morphBounds = "morph.bounds"
 
     init(content: NSView) {
-        self.content = content
+        chrome = ShellChromeView(content: content)
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
         backgroundColor = .clear
@@ -23,23 +21,11 @@ final class ShellPopoutPanel: ShellFocusPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         isReleasedWhenClosed = false
         animationBehavior = .none
-        effectView.state = .active
-        effectView.wantsLayer = true
-        effectView.layer?.masksToBounds = true
-        glassView.style = .regular
-        let container = NSView()
-        for view in [effectView, glassView] {
-            view.autoresizingMask = [.width, .height]
-            container.addSubview(view)
-        }
-        content.wantsLayer = true
-        content.layer?.masksToBounds = true
-        container.addSubview(content)
-        contentView = container
+        contentView = chrome
     }
 
     var showsGlass: Bool {
-        !glassView.isHidden
+        chrome.showsGlass
     }
 
     func show(
@@ -51,26 +37,18 @@ final class ShellPopoutPanel: ShellFocusPanel {
         from start: CGRect? = nil,
         morph: ShellAnimation? = nil
     ) {
-        let reduceTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-        effectView.material = reduceTransparency ? .windowBackground : .popover
-        effectView.blendingMode = reduceTransparency ? .withinWindow : .behindWindow
-        effectView.isHidden = chrome.glass || chrome.clear
-        glassView.isHidden = !chrome.glass
+        self.chrome.apply(chrome, masksContent: contentFrame == nil)
         hasShadow = !chrome.clear && contentFrame == nil
-        effectView.layer?.cornerRadius = chrome.radius
-        glassView.cornerRadius = chrome.radius
-        content.layer?.cornerRadius = chrome.radius
-        content.layer?.masksToBounds = contentFrame == nil
         self.level = level
         morphs += 1
         let inner = contentFrame ?? CGRect(origin: .zero, size: frame.size)
         if let morph, isVisible, self.frame != frame {
-            let shown = content.layer?.presentation()?.frame ?? content.frame
+            let shown = self.chrome.content.layer?.presentation()?.frame ?? self.chrome.content.frame
             self.morph(from: (self.frame, shown), to: (frame, inner), animation: morph)
             return
         }
         setFrame(frame, display: true)
-        for view in [effectView, glassView, content] {
+        for view in self.chrome.layers {
             view.layer?.removeAnimation(forKey: Self.morphPosition)
             view.layer?.removeAnimation(forKey: Self.morphBounds)
             view.frame = inner
@@ -125,7 +103,7 @@ final class ShellPopoutPanel: ShellFocusPanel {
             }
         }
         setFrame(union, display: true)
-        for view in [effectView, glassView, content] {
+        for view in chrome.layers {
             view.frame = start
             guard let layer = view.layer else {
                 view.frame = end
@@ -151,7 +129,7 @@ final class ShellPopoutPanel: ShellFocusPanel {
     private func finishMorph(_ generation: Int, at target: (frame: CGRect, inner: CGRect)) {
         guard generation == morphs else { return }
         setFrame(target.frame, display: true)
-        for view in [effectView, glassView, content] {
+        for view in chrome.layers {
             view.frame = target.inner
         }
     }
