@@ -2560,6 +2560,51 @@ final class NativeResizeAdoptionTests: NiriInteractionTestCase {
         XCTAssertNil(fixture.controller.dwindleEngine?.interactiveResize)
     }
 
+    func testADwindleEdgePressDuringAnInFlightSizeWriteIsPutBackAfterTheWriteLands() async throws {
+        let fixture = try makeFixture(.dwindle, pid: 835_308)
+        let blocker = blockRefreshes(fixture)
+        defer { unblockRefreshes(fixture, blocker: blocker) }
+        let token = fixture.tokens[0]
+        let start = try fixture.frame(token)
+        let target = CGRect(x: start.minX, y: start.minY + 30, width: start.width, height: start.height - 30)
+        let createdContext = try await AppAXContextRegistry.getOrCreate(.current, pid: token.pid)
+        let context = try XCTUnwrap(createdContext)
+        defer { context.destroy() }
+        let request = try XCTUnwrap(fixture.controller.axManager.stageFrameWrite(for: AXFrameApplicationTarget(
+            pid: token.pid, window: XCTUnwrap(fixture.entry(token).axRef), frame: target
+        )))
+        let drain = try XCTUnwrap(context.frameDelivery.enqueueFrames(
+            [request], callbackGeneration: context.callbackGeneration, completion: { _ in }
+        ).drain)
+        XCTAssertTrue(fixture.controller.axManager.hasInFlightFrameWrite(for: token))
+        let reported = ReportedFrame(start)
+        fixture.handler.nativeWindowFrameProvider = { _ in reported.frame }
+        fixture.handler.pressedMouseButtonsProvider = { MouseEventHandler.MouseButton.left.pressedMask }
+        let press = CGPoint(x: start.maxX - FrameTolerance.frameWrite, y: target.midY)
+
+        XCTAssertFalse(fixture.handler.dispatchMouseDown(
+            at: press, modifiers: [], windowIdUnderPointer: token.windowId
+        ))
+        XCTAssertNil(fixture.handler.state.nativeResizeStart)
+        let result = WindowAdmissionTestSupport.successfulFrameResult(request: request)
+        let outcome = context.frameDelivery.finishFrames(batchId: UUID(), drainId: drain.id, results: [result])
+        for delivery in outcome.deliveries { delivery.deliver() }
+        fixture.controller.axManager.handleFrameApplyResults([result])
+        reported.frame = target
+        XCTAssertFalse(fixture.controller.axManager.hasInFlightFrameWrite(for: token))
+        XCTAssertFalse(fixture.controller.axManager.isAwaitingFrameWrite(token.windowId))
+        let drag = CGPoint(x: press.x + 40, y: press.y)
+        fixture.handler.dispatchMouseDragged(at: drag)
+        XCTAssertNil(fixture.handler.state.nativeTitleBarDrag?.adoptionStartFrame)
+
+        reported.frame = grown(target, right: 100)
+        fixture.controller.axEventHandler.handleFrameChanged(windowId: UInt32(token.windowId))
+        fixture.handler.dispatchMouseUp(at: drag)
+
+        XCTAssertEqual(try fixture.frame(token).width, start.width, accuracy: FrameTolerance.frameWrite)
+        XCTAssertNil(fixture.controller.dwindleEngine?.interactiveResize)
+    }
+
     func testADwindleEdgeDragDuringAPendingPositionWriteStartsFromThePendingFrame() throws {
         let fixture = try makeFixture(.dwindle, pid: 835_305)
         let blocker = blockRefreshes(fixture)

@@ -176,7 +176,7 @@ struct MouseInputState {
     var leftPressWasDragged = false
     var leftReleaseLocation: CGPoint?
     var nativeResizeStart: NativeResizeStart?
-    var staleNativeResizeStartToken: WindowToken?
+    var rejectedNativeResizeStartToken: WindowToken?
     var nativeResizeCorrectionsByWindowId: [Int: NativeResizeCorrection] = [:]
     var nativeCrossDisplayMove: NativeCrossDisplayMove?
 
