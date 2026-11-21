@@ -151,6 +151,9 @@ extension MouseEventHandler {
             cancelActiveMouseInteraction()
             return
         }
+        if button == .left, !state.isMoving, !state.isResizing {
+            controller?.surfaceReconciler.recheckBorderOrderingAfterMouseUp(at: location)
+        }
         handleMouseUpFromTap(at: location, button: button)
     }
 

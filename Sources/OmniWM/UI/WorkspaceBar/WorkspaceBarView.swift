@@ -124,6 +124,7 @@ private struct WorkspaceBarContentView: View {
                 ShellWidgetSlot(widget: widget, view: shellSurface?(widget.id), cuttable: zones != nil)
                     .layoutValue(key: WorkspaceBarZoneLayout.Lane.self, value: lane)
                     .layoutValue(key: WorkspaceBarZoneLayout.Priority.self, value: widget.priority)
+                    .layoutValue(key: WorkspaceBarZoneLayout.Stops.self, value: widget.stops)
             }
         }
     }

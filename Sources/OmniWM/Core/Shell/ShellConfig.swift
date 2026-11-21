@@ -31,6 +31,7 @@ struct ShellDrawerConfig: Equatable {
 
 struct ShellConfig: Equatable {
     static let bundledScratchpads = "scratchpads"
+    static let bundledWorkspaces = "workspaces"
 
     var profile = ShellDefaults.profile
     var directories: [URL] = []

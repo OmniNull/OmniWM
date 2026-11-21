@@ -198,9 +198,13 @@ final class SurfaceScene {
         return true
     }
 
-    func containsInteractive(point: CGPoint, excluding kinds: [SurfaceKind] = []) -> Bool {
-        nodesByID.values.contains { node in
+    func containsInteractive(
+        point: CGPoint, excluding kinds: [SurfaceKind] = [], excludingWindow: NSWindow? = nil
+    ) -> Bool {
+        let excludedWindowID = excludingWindow.map(ObjectIdentifier.init)
+        return nodesByID.values.contains { node in
             guard !kinds.contains(node.policy.kind),
+                  excludedWindowID == nil || node.windowObjectIdentifier != excludedWindowID,
                   node.policy.hitTestPolicy != .passthrough,
                   isVisible(node)
             else {

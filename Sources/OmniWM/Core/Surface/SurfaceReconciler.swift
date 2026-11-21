@@ -24,10 +24,12 @@ final class SurfaceReconciler {
     private(set) var reconcileScheduled = false
     private(set) var forceOrderingOnNextReconcile = false
     private(set) var pendingReconcileScope: ReconcileScope?
+    private(set) var borderOrderCheckTask: Task<Void, Never>?
     fileprivate let borderApplier: BorderSurfaceApplier
     private let parkingEdgeMaskManager = ParkingEdgeMaskManager()
     private let applyTabRails: TabRailApply
     private let applyNativeFullscreenPlaceholders: NativeFullscreenPlaceholderApply
+    private let isWindowBelow: @MainActor (CGWindowID, CGWindowID) -> Bool
     let nativeFullscreenState = NativeFullscreenSurfaceState()
     private(set) var appliedScene = DesiredSurfaceScene.empty
 
@@ -51,12 +53,17 @@ final class SurfaceReconciler {
                 placeholders,
                 forceOrdering: forceOrdering
             )
+        },
+        isWindowBelow: @escaping @MainActor (CGWindowID, CGWindowID) -> Bool = { window, target in
+            let windows = CGWindowListCopyWindowInfo(.optionOnScreenBelowWindow, target) as? [[String: Any]]
+            return windows?.contains { $0[kCGWindowNumber as String] as? CGWindowID == window } == true
         }
     ) {
         self.controller = controller
         self.borderApplier = borderApplier
         self.applyTabRails = applyTabRails
         self.applyNativeFullscreenPlaceholders = applyNativeFullscreenPlaceholders
+        self.isWindowBelow = isWindowBelow
         borderApplier.onWindowLevelResolved = { [weak self] in
             self?.noteBorderChanged()
         }
@@ -199,26 +206,14 @@ final class SurfaceReconciler {
         controller.tabRailManager.applyAnimationGeometry(commands, in: workspaceId)
     }
 
-    func handleVerifiedFrameApplySuccess(_ result: AXFrameApplyResult) {
-        guard let controller else { return }
-        let token = WindowToken(pid: result.pid, windowId: result.windowId)
-        guard controller.workspaceManager.borderFocusToken == token else { return }
-        noteBorderChanged()
-    }
-
     func cleanup() {
         reconcileScheduled = false
         forceOrderingOnNextReconcile = false
         pendingReconcileScope = nil
-        borderApplier.cleanup()
+        cleanupBorder()
         parkingEdgeMaskManager.removeAll()
         nativeFullscreenState.cleanup()
         appliedScene = .empty
-    }
-
-    func cleanupBorder() {
-        borderApplier.cleanup()
-        appliedScene.border = nil
     }
 
     private func flushScheduledReconcile() {
@@ -354,8 +349,48 @@ extension SurfaceReconciler {
 }
 
 extension SurfaceReconciler {
+    func cleanupBorder() {
+        borderOrderCheckTask?.cancel()
+        borderOrderCheckTask = nil
+        borderApplier.cleanup()
+        appliedScene.border = nil
+    }
+
     func ringWindowId(orderedAbove target: UInt32) -> UInt32? {
         borderApplier.ringWindowId(orderedAbove: target)
+    }
+
+    func recheckBorderOrderingAfterMouseUp(at location: CGPoint) {
+        guard let border = appliedScene.border, border.frame.contains(location),
+              controller?.workspaceManager.nativeManagedFocusToken == border.token,
+              let target = CGWindowID(exactly: border.token.windowId),
+              let ring = ringWindowId(orderedAbove: target)
+        else { return }
+
+        borderOrderCheckTask?.cancel()
+        borderOrderCheckTask = Task { [weak self] in
+            defer {
+                if !Task.isCancelled { self?.borderOrderCheckTask = nil }
+            }
+            // The app can raise its focused window after the mouse-up event without sending an order notification.
+            for delay in [Duration.milliseconds(100), .milliseconds(400)] {
+                try? await Task.sleep(for: delay)
+                guard let self, !Task.isCancelled,
+                      let controller, controller.isEnabled, !controller.isLockScreenActive,
+                      controller.workspaceManager.nativeManagedFocusToken == border.token,
+                      appliedScene.border?.token == border.token,
+                      ringWindowId(orderedAbove: target) == ring
+                else { return }
+                if isWindowBelow(ring, target) { noteRestackOccurred() }
+            }
+        }
+    }
+
+    func handleVerifiedFrameApplySuccess(_ result: AXFrameApplyResult) {
+        guard let controller else { return }
+        let token = WindowToken(pid: result.pid, windowId: result.windowId)
+        guard controller.workspaceManager.borderFocusToken == token else { return }
+        noteBorderChanged()
     }
 
     func noteInvalidation(_ scope: SessionSurfaceInvalidationScope) {

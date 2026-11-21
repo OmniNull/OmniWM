@@ -132,7 +132,7 @@ extension ShellWidgetHost {
         case let .reminders(command): resources.calendar?.perform(command)
         case let .notifications(command): perform(command)
         case let .inputSource(command): resources.devices.inputSource.perform(command)
-        case let .wifi(command): resources.devices.wifi.perform(command)
+        case let .wifi(command): resources.devices.perform(command)
         case let .bluetooth(command): resources.devices.bluetooth.perform(command)
         case let .session(command): ShellSession.perform(command)
         case let .appearance(command):

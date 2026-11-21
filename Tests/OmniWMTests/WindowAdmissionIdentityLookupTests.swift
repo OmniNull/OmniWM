@@ -9,15 +9,34 @@ import XCTest
 
 @MainActor
 private final class CreatedWindowLookupGate {
-    var continuation: CheckedContinuation<AXWindowRef?, Never>?
+    private enum State {
+        case idle
+        case waiting(CheckedContinuation<AXWindowRef?, Never>)
+        case ready(AXWindowRef?)
+    }
+
+    private var state = State.idle
 
     func wait() async -> AXWindowRef? {
-        await withCheckedContinuation { continuation = $0 }
+        switch state {
+        case .idle:
+            return await withCheckedContinuation { state = .waiting($0) }
+        case let .ready(axRef):
+            state = .idle
+            return axRef
+        case .waiting:
+            XCTFail("Only one AX lookup can wait on this gate")
+            return nil
+        }
     }
 
     func resume(_ axRef: AXWindowRef? = nil) {
-        continuation?.resume(returning: axRef)
-        continuation = nil
+        if case let .waiting(continuation) = state {
+            state = .idle
+            continuation.resume(returning: axRef)
+        } else {
+            state = .ready(axRef)
+        }
     }
 }
 
@@ -234,45 +253,55 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
         XCTAssertEqual(handler.admissionRetryStateByWindowId[windowId]?.attempt, 1)
     }
 
-    func testExhaustedCreateIsRetriedByLaterFrameAndCreateEvents() async throws {
+    func testExhaustedCreateIgnoresFrameChanges() async throws {
         let controller = WindowAdmissionTestSupport.controller()
         let handler = controller.axEventHandler
         defer { handler.cleanup() }
         let windowId = UInt32(token.windowId)
         let info = windowInfo(for: token)
-        handler.windowInfoProvider = { _ in info }
         installExhaustedCreateRetry(handler, windowId: windowId)
-        let gate = CreatedWindowLookupGate()
-        defer { gate.resume() }
-        let frameStarted = expectation(description: "frame recovery AX lookup")
-        let createStarted = expectation(description: "create recovery AX lookup")
-        var requests = 0
-        handler.createdWindowAXRefProvider = { _ in
-            requests += 1
-            if requests == 1 { frameStarted.fulfill() } else { createStarted.fulfill() }
-            return await gate.wait()
+        handler.frameObservations.query = { _ in info }
+        var createQueries = 0
+        handler.lifecycleQueries.query = { _ in
+            createQueries += 1
+            return nil
         }
 
-        XCTAssertTrue(handler.retryAdmissionAfterFrameChange(windowId: windowId))
-        await handler.lifecycleQueries.task?.value
-        await fulfillment(of: [frameStarted], timeout: failureBound)
-        let frameLookup = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
-        gate.resume()
-        await frameLookup.value
-        let afterFrame = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId])
-        XCTAssertTrue(afterFrame.exhausted)
-        XCTAssertEqual(afterFrame.executionPhase, .waiting)
-        XCTAssertNil(afterFrame.task)
+        for _ in 0 ..< 3 {
+            handler.handleFrameChanged(windowId: windowId)
+            await handler.frameObservations.byWindowId[windowId]?.task.value
+            await handler.lifecycleQueries.task?.value
+        }
 
-        handler.processCreatedWindow(windowId: windowId)
-        await handler.lifecycleQueries.task?.value
-        await fulfillment(of: [createStarted], timeout: failureBound)
-        let createLookup = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
-        gate.resume()
-        await createLookup.value
+        XCTAssertEqual(createQueries, 0)
+        let state = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId])
+        XCTAssertTrue(state.exhausted)
+        XCTAssertEqual(state.executionPhase, .waiting)
+        XCTAssertNil(state.task)
+    }
 
-        XCTAssertEqual(requests, 2)
-        XCTAssertEqual(handler.admissionRetryStateByWindowId[windowId]?.executionPhase, .waiting)
+    func testExhaustedRetryDoesNotSuppressFrameForReusedWindowID() async throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        let handler = controller.axEventHandler
+        let refresh = controller.layoutRefreshController
+        defer {
+            handler.cleanup()
+            refresh.resetState()
+        }
+        let replacement = WindowToken(pid: token.pid + 1, windowId: token.windowId)
+        let windowId = UInt32(token.windowId)
+        let workspaceId = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
+        _ = WindowAdmissionTestSupport.track(replacement, in: workspaceId, controller: controller)
+        installExhaustedCreateRetry(handler, windowId: windowId)
+        let info = windowInfo(for: replacement)
+        handler.frameObservations.query = { _ in info }
+        refresh.layoutState.isRefreshSuspendedForLockScreen = true
+
+        handler.handleFrameChanged(windowId: windowId)
+        await handler.frameObservations.byWindowId[windowId]?.task.value
+
+        XCTAssertEqual(refresh.layoutState.pendingRefresh?.reason, .axWindowChanged)
+        XCTAssertEqual(refresh.layoutState.pendingRefresh?.affectedWorkspaceIds, [workspaceId])
     }
 
     func testCompletedExhaustedCreateAttemptCannotStayRunning() async throws {
@@ -294,19 +323,95 @@ final class WindowAdmissionIdentityLookupTests: XCTestCase {
             return await gate.wait()
         }
 
-        XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
+        handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
         await handler.lifecycleQueries.task?.value
         XCTAssertEqual(handler.admissionRetryStateByWindowId[windowId]?.executionPhase, .waiting)
         XCTAssertEqual(requests, 0)
 
         windowServerInfo = info
-        XCTAssertTrue(handler.dispatchAdmissionRetry(windowId: windowId))
+        handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
         await handler.lifecycleQueries.task?.value
         await fulfillment(of: [started], timeout: failureBound)
         let lookup = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
         gate.resume()
         await lookup.value
         XCTAssertEqual(requests, 1)
+        let state = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId])
+        XCTAssertTrue(state.exhausted)
+        XCTAssertEqual(state.executionPhase, .waiting)
+        XCTAssertNil(state.task)
+    }
+
+    func testNewCreateAdmitsWindowWithoutReplayingExhaustedFocus() async throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        let handler = controller.axEventHandler
+        defer {
+            handler.cleanup()
+            controller.layoutRefreshController.resetState()
+        }
+        let token = self.token
+        let windowId = UInt32(token.windowId)
+        let axRef = WindowAdmissionTestSupport.axRef(for: token)
+        let info = windowInfo(for: token)
+        let trigger = AdmissionRetryTrigger.focused(
+            token: token, source: .focusedWindowChanged, observationGeneration: 0, callbackGeneration: nil
+        )
+        handler.admissionRetryStateByWindowId[windowId] = AdmissionRetryState(
+            expectedToken: token, axRef: axRef, reason: .degenerateGeometry,
+            attempt: AXEventHandler.createdWindowRetryLimit, generation: 1, trigger: trigger,
+            focusedAdmissionContinuation: trigger.focusedAdmissionContinuation, exhausted: true, task: nil
+        )
+        var focusReads = 0
+        controller.factResolver.factProvider = { _ in
+            focusReads += 1
+            return nil
+        }
+        controller.hasStartedServices = true
+        handler.frontmostApplicationPIDProvider = { token.pid }
+        handler.windowInfoProvider = { _ in info }
+        let evaluation = controller.evaluateWindowDisposition(
+            token: token,
+            evidence: .init(
+                facts: .init(
+                    role: kAXWindowRole as String, subrole: kAXStandardWindowSubrole as String,
+                    title: "New window", hasCloseButton: true, hasFullscreenButton: true,
+                    fullscreenButtonEnabled: true, hasZoomButton: true, hasMinimizeButton: true,
+                    appPolicy: .regular, bundleId: "test.admission", attributeFetchSucceeded: true
+                ),
+                sizeConstraints: .unconstrained
+            ),
+            appFullscreen: false, windowInfo: info,
+            admissionGeometry: .init(isSizeSettable: true, frame: ScreenCoordinateSpace.toAppKit(rect: info.frame))
+        )
+        controller.windowDispositionEvaluationForTests = { _ in evaluation }
+        let gate = CreatedWindowLookupGate()
+        defer { gate.resume() }
+        let started = XCTestExpectation(description: "new create AX lookup")
+        handler.createdWindowAXRefProvider = { _ in
+            started.fulfill()
+            return await gate.wait()
+        }
+
+        handler.handleCGSEvent(.created(windowId: windowId, spaceId: 0))
+        XCTAssertEqual(focusReads, 0)
+        await handler.lifecycleQueries.task?.value
+        let lookup = try XCTUnwrap(handler.admissionRetryStateByWindowId[windowId]?.task)
+        guard await XCTWaiter.fulfillment(of: [started], timeout: failureBound) == .completed else {
+            return XCTFail("The new create AX lookup did not start")
+        }
+        XCTAssertFalse(handler.scheduleFocusedAdmissionReadmit(
+            continuation: .init(
+                token: token, source: .focusedWindowChanged, observationGeneration: 0, callbackGeneration: nil
+            ),
+            axRef: axRef,
+            reason: .degenerateGeometry
+        ))
+        gate.resume(axRef)
+        await lookup.value
+
+        XCTAssertNotNil(controller.workspaceManager.entry(for: token))
+        XCTAssertNil(handler.admissionRetryStateByWindowId[windowId])
+        XCTAssertEqual(focusReads, 0)
     }
 
     func testDefaultLookupCreatesNoAXContextForPolicyExcludedApp() async throws {

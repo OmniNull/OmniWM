@@ -1301,6 +1301,46 @@ final class ShellStyleLayoutTests: XCTestCase {
         }
     }
 
+    func testWiredWiFiPopoutKeepsTheRadioTitleAsTheHeader() throws {
+        let shell = try sharedLibraryShell("wifi")
+        defer { try? FileManager.default.removeItem(at: shell) }
+        for profile in ["nocturne", "wayline", "default"] {
+            XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
+            let config = ShellConfig.resolve(shellDirectory: shell)
+            for wired in [false, true] where wired || profile != "default" {
+                let widget = try makeWidget(
+                    "wifi", config: config, shell: shell,
+                    source: shell.appendingPathComponent("default/widgets/wifi/init.luau")
+                )
+                wifiFixture(widget, ShellWiFi(power: true, location: "authorized"))
+                if wired {
+                    widget.set("connection") { ShellConnection(kind: "ethernet", interface: "en0").write(into: &$0) }
+                }
+                widget.render(fixture(config, height: config.barOverride?.settings.height ?? 32, vertical: false))
+                widget.layoutPopout()
+                func frame(_ title: String) throws -> CGRect {
+                    let element = try XCTUnwrap(widget.surface.layout.core.elements {
+                        widget.text.string($0.text) == ShellLocalizer.string(title, [])
+                    }.first, profile + "/" + title)
+                    return CGRect(widget.surface.layout.core.absoluteFrame(of: element))
+                }
+                let title = try frame("Wi-Fi")
+                if profile == "default" {
+                    XCTAssertLessThan(try frame("Ethernet").midY, title.midY)
+                    continue
+                }
+                let status = try frame("On")
+                XCTAssertEqual(status.midY, title.midY, accuracy: 1, profile)
+                XCTAssertGreaterThanOrEqual(status.minX, title.maxX, profile)
+                let firstCard = try wired ? frame("Ethernet") : frame("Not Connected")
+                XCTAssertLessThan(title.midY, firstCard.midY, profile)
+                if wired {
+                    XCTAssertLessThan(firstCard.midY, try frame("Not Connected").midY, profile)
+                }
+            }
+        }
+    }
+
     func testSharedNetworkPanelsKeepStateFeedbackAndDeliveredActions() throws {
         let shell = try sharedLibraryShell("wifi")
         defer { try? FileManager.default.removeItem(at: shell) }

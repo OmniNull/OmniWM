@@ -67,6 +67,7 @@ enum EventIntakeTrace {
         case .activeSpaceChanged: Identity(kind: "active-space")
         case .display: Identity(kind: "display")
         case .hotkeyInvocation: Identity(kind: "hotkey")
+        case .windowSwitcherAction: Identity(kind: "window-switcher")
         case .intentExpired: Identity(kind: "intent-expired")
         case .ipcCommand: Identity(kind: "ipc-command")
         case .leftMouseDown: Identity(kind: "left-mouse-down")

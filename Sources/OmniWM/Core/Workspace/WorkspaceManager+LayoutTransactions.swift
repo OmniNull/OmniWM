@@ -14,35 +14,25 @@ extension WorkspaceManager {
         _ body: () -> T
     ) -> T {
         var result: T?
-        commitWorldEvent(
-            .userCommand(workspaceId: workspaceId, label: label, source: source),
-            monitors: monitors,
-            preMutate: { result = body() },
-            resolvePlan: { plan, _, _ in plan }
-        )
+        commitWorldScope(in: workspaceId, label: label, source: source) { result = body() }
         return result!
     }
 
     @discardableResult
     func withBatchedLayoutBuild(_ build: () -> [WorkspaceLayoutPlan]) -> [WorkspaceLayoutPlan] {
         var plans: [WorkspaceLayoutPlan] = []
-        commitWorldEvent(
-            .userCommand(workspaceId: nil, label: "layout_build", source: .layoutRefresh),
-            monitors: monitors,
-            preMutate: {
-                plans = build()
-                for index in plans.indices {
-                    guard let viewportState = plans[index].sessionPatch.viewportState else { continue }
-                    self.applyViewportInBatch(viewportState, for: plans[index].workspaceId)
-                    plans[index].sessionPatch.viewportState = nil
-                }
-                let committedSeq = self.worldSeq
-                for index in plans.indices {
-                    plans[index].sessionPatch.plannedSeq = committedSeq
-                }
-            },
-            resolvePlan: { plan, _, _ in plan }
-        )
+        commitWorldScope(in: nil, label: "layout_build", source: .layoutRefresh) {
+            plans = build()
+            for index in plans.indices {
+                guard let viewportState = plans[index].sessionPatch.viewportState else { continue }
+                self.applyViewportInBatch(viewportState, for: plans[index].workspaceId)
+                plans[index].sessionPatch.viewportState = nil
+            }
+            let committedSeq = self.worldSeq
+            for index in plans.indices {
+                plans[index].sessionPatch.plannedSeq = committedSeq
+            }
+        }
         return plans
     }
 

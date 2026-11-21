@@ -25,6 +25,7 @@ final class ShellWidgetSurface {
     var onDrag: (@MainActor (ShellDragEvent) -> Void)?
     var onTooltip: (@MainActor (ShellTooltipEvent?) -> Void)?
     var onMove: (@MainActor () -> Void)?
+    var onScroll: (@MainActor () -> Void)?
     var onVisibleBoundsChange: (@MainActor () -> Void)?
     var onFocusChange: (@MainActor (Bool) -> Void)?
     var onUnhandledEscape: (() -> Void)?
@@ -75,6 +76,15 @@ final class ShellWidgetSurface {
     var iconImages: [IconKey: CGImage] = [:]
     var pointer: CGPoint?
     private(set) var visibleBounds: CGRect?
+    var followedTarget: String? {
+        didSet {
+            guard followedTarget != oldValue else { return }
+            revealFollowedTarget()
+        }
+    }
+
+    var followedFrame: Rect?
+
     var hovered: [ElementHandle] = []
     var hoverScratch: [ElementHandle] = []
     var focused = ElementHandle.none
@@ -255,6 +265,7 @@ extension ShellWidgetSurface {
         keeping anchor: ShellScrollAnchor? = nil
     ) -> Bool {
         let followerExits = followerExitBindings()
+        let scrollLimit = rootScroll?.limit
         guard layout.apply(output, text: text, visibleBounds: visibleBounds) else {
             acknowledgeGesture(through: gestureAcknowledgement)
             return false
@@ -296,6 +307,10 @@ extension ShellWidgetSurface {
         }
         animates = true
         onMove?()
+        if rootScroll?.limit != scrollLimit || followedItem.map(contentFrame) != followedFrame {
+            revealFollowedTarget()
+            onScroll?()
+        }
         return true
     }
 
@@ -377,6 +392,7 @@ extension ShellWidgetSurface {
         appendFollow(into: &commands)
         scene.submit(commands, animated: false)
         onMove?()
+        revealFollowedTarget()
     }
 
     var animatesShaders: Bool {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import Carbon
 import CoreGraphics
 import Foundation
 @testable import OmniWM
@@ -79,6 +80,65 @@ final class EventTapTeardownTests: XCTestCase {
         XCTAssertFalse(CFRunLoopContainsSource(CFRunLoopGetMain(), fixture.source, .commonModes))
         XCTAssertNil(hotkeys.hyperTriggerTap)
         XCTAssertNil(hotkeys.hyperTriggerRunLoopSource)
+    }
+
+    func testExternalSwitcherUsesATailTapAndKeepsItUntilItsLastKeyUp() async throws {
+        let hotkeys = HotkeyCenter()
+        let shortcut = try makeFixture()
+        hotkeys.hyperTriggerTap = shortcut.tap
+        hotkeys.hyperTriggerRunLoopSource = shortcut.source
+        let externalTap = try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, nil, nil, nil))
+        var callback: CGEventTapCallBack?
+        var context: UnsafeMutableRawPointer?
+        let generation = try XCTUnwrap(hotkeys.beginExternalWindowSwitcherSession(holding: .maskAlternate) {
+            location, placement, options, mask, handler, userInfo in
+            XCTAssertEqual(location, .cgSessionEventTap)
+            XCTAssertEqual(placement, .tailAppendEventTap)
+            XCTAssertEqual(options, .defaultTap)
+            XCTAssertNotEqual(mask & (1 << CGEventType.flagsChanged.rawValue), 0)
+            callback = handler
+            context = userInfo
+            return externalTap
+        })
+        let handle = try XCTUnwrap(callback)
+        let proxy = OpaquePointer(Unmanaged.passUnretained(externalTap).toOpaque())
+        var actions: [WindowSwitcherAction] = []
+        hotkeys.onWindowSwitcherAction = { action, _ in actions.append(action) }
+        let press = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_ANSI_W), keyDown: true))
+        press.flags = .maskAlternate
+
+        XCTAssertNotNil(hotkeys.handleHyperTriggerEvent(type: .keyDown, event: press))
+        XCTAssertTrue(actions.isEmpty)
+        XCTAssertNil(handle(proxy, .keyDown, press, context))
+        XCTAssertEqual(actions, [.close])
+        hotkeys.cancelWindowSwitcherSession(generation: generation)
+        XCTAssertTrue(CFMachPortIsValid(externalTap))
+        XCTAssertNotNil(hotkeys.handleHyperTriggerEvent(type: .keyUp, event: press))
+        XCTAssertNil(handle(proxy, .keyUp, press, context))
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        XCTAssertFalse(CFMachPortIsValid(externalTap))
+        XCTAssertNil(hotkeys.externalWindowSwitcherTap)
+        XCTAssertTrue(CFMachPortIsValid(shortcut.tap))
+    }
+
+    func testExternalSwitcherCommitsWhenHyperConsumesTheModifierRelease() throws {
+        let hotkeys = HotkeyCenter()
+        hotkeys.start()
+        defer { hotkeys.stop() }
+        hotkeys.hyperTrigger = HyperTriggerStateMachine(trigger: .key(UInt32(kVK_Control)), capsLockRemapped: false)
+        hotkeys.windowSwitcherInput.beginExternalSession(holding: .maskControl)
+        var actions: [WindowSwitcherAction] = []
+        hotkeys.onWindowSwitcherAction = { action, _ in actions.append(action) }
+        let release = try XCTUnwrap(CGEvent(source: nil))
+        release.type = .flagsChanged
+        release.setIntegerValueField(.keyboardEventKeycode, value: Int64(kVK_Control))
+        release.flags = []
+
+        XCTAssertNil(hotkeys.handleHyperTriggerEvent(type: .flagsChanged, event: release))
+        XCTAssertEqual(actions, [.commit])
+        XCTAssertFalse(hotkeys.windowSwitcherInput.isActive)
     }
 
     func testUnstartedHotkeyDestructionOnMainActorCleansUpImmediately() throws {
