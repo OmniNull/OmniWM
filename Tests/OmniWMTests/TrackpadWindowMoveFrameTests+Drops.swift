@@ -237,4 +237,43 @@ extension TrackpadWindowMoveFrameTests {
         XCTAssertGreaterThanOrEqual(movedFrame.minX, try XCTUnwrap(frames[left]).maxX)
         XCTAssertLessThanOrEqual(movedFrame.maxX, try XCTUnwrap(frames[right]).minX)
     }
+
+    func testUndoAndRedoTakeBackAndRepeatATrackpadDrop() throws {
+        for kind in MoveKind.allCases {
+            for side in [Direction?.none, .up] {
+                let fixture = try makeMoveFixture(kind, windows: 3)
+                let original = fixture.order()
+                try drop(fixture, on: side, of: fixture.target)
+                let dropped = fixture.order()
+                XCTAssertNotEqual(dropped, original, "\(kind) \(String(describing: side))")
+
+                XCTAssertTrue(stepHistory(.undo, in: fixture), "\(kind) \(String(describing: side))")
+                XCTAssertEqual(fixture.order(), original, "\(kind) \(String(describing: side))")
+                XCTAssertTrue(stepHistory(.redo, in: fixture), "\(kind) \(String(describing: side))")
+                XCTAssertEqual(fixture.order(), dropped, "\(kind) \(String(describing: side))")
+            }
+        }
+    }
+
+    func testUndoAfterATrackpadDropThatChangedNothingDoesWhatItWouldHaveDoneWithoutTheDrop() throws {
+        for scenario in UnchangedDrop.allCases {
+            let untouched = try makeUnchangedDrop(scenario).fixture
+            let (fixture, side, target) = try makeUnchangedDrop(scenario)
+            XCTAssertEqual(fixture.order(), untouched.order(), "\(scenario)")
+
+            try drop(fixture, on: side, of: target)
+
+            XCTAssertEqual(stepHistory(.undo, in: fixture), stepHistory(.undo, in: untouched), "\(scenario)")
+            XCTAssertEqual(fixture.order(), untouched.order(), "\(scenario)")
+        }
+    }
+
+    private func stepHistory(_ direction: NiriLayoutHistoryDirection, in fixture: Fixture) -> Bool {
+        if fixture.kind == .dwindle {
+            return fixture.controller.dwindleLayoutHandler.stepLayoutHistory(
+                direction == .undo ? .undo : .redo, in: fixture.workspace
+            )
+        }
+        return fixture.controller.niriLayoutHandler.stepLayoutHistory(direction, in: fixture.workspace)
+    }
 }

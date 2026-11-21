@@ -59,7 +59,10 @@ extension MouseEventHandler {
             label: move.isInsertion ? "dwindle_mouse_insert" : "dwindle_mouse_swap",
             source: .mouse
         ) {
-            engine.interactiveMoveEnd() != nil
+            let before = engine.layoutSnapshot(in: wsId)
+            let changed = engine.interactiveMoveEnd() != nil
+            engine.recordLayoutChange(in: wsId, since: before)
+            return changed
         }
         guard changed else {
             restoreManagedMove(in: wsId)
@@ -92,6 +95,7 @@ extension MouseEventHandler {
         }
         let geometry = controller.niriInteractionGeometry(for: monitor)
         let movedToken = move.windowToken
+        let layoutStart = controller.niriLayoutHandler.layoutChangeStart(in: wsId)
         var didEnd = false
         controller.workspaceManager.withNiriViewportState(for: wsId) { vstate in
             didEnd = engine.interactiveMoveEnd(
@@ -106,6 +110,7 @@ extension MouseEventHandler {
             restoreManagedMove(in: wsId)
             return
         }
+        controller.niriLayoutHandler.recordLayoutChange(since: layoutStart)
         controller.workspaceManager.recordLayoutOperation(
             .interactiveMoveEnded(token: movedToken),
             in: wsId,
