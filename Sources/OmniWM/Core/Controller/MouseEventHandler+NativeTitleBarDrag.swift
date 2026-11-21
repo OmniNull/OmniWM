@@ -203,13 +203,13 @@ extension MouseEventHandler {
         let hadUnsettledFrameWrite = controller.axManager.isAwaitingFrameWrite(drag.token.windowId)
             || controller.axManager.hasInFlightFrameWrite(for: drag.token)
         let startFrame = state.nativeResizeStart.flatMap { $0.token == drag.token ? $0.frame : nil }
-        let startWasStale = state.staleNativeResizeStartToken == drag.token
+        let startWasRejected = state.rejectedNativeResizeStartToken == drag.token
         state.nativeResizeStart = nil
-        state.staleNativeResizeStartToken = nil
+        state.rejectedNativeResizeStartToken = nil
         drag.phase = .dragging
         let pendingFrameChangesSize = recordNativeDragStartFrames(
             &drag,
-            from: (startFrame, startWasStale),
+            from: (startFrame, startWasRejected),
             awaitingWrite: hadUnsettledFrameWrite,
             in: dragged.workspaceId,
             controller: controller
@@ -242,12 +242,12 @@ extension MouseEventHandler {
 
     private func recordNativeDragStartFrames(
         _ drag: inout MouseInputState.NativeTitleBarDrag,
-        from start: (frame: CGRect?, wasStale: Bool),
+        from start: (frame: CGRect?, wasRejected: Bool),
         awaitingWrite hadUnsettledFrameWrite: Bool,
         in workspaceId: WorkspaceDescriptor.ID,
         controller: WMController
     ) -> Bool {
-        let (startFrame, startWasStale) = start
+        let (startFrame, startWasRejected) = start
         let onNiriStrip = controller.isNiriStrip(workspaceId)
         let onLandscapeStrip = onNiriStrip && controller.isOnLandscapeDisplay(workspaceId)
         let layoutStartFrame = controller.axManager.lastAppliedFrame(for: drag.token.windowId)
@@ -258,7 +258,7 @@ extension MouseEventHandler {
             } ?? true : false
         let hasResizePress = onLandscapeStrip || isPortraitResizePress(in: pending ?? layoutStartFrame)
         drag.canStartLiveNiriDrag = onNiriStrip && (onLandscapeStrip || !hasResizePress)
-        let resizeFallbackFrame = onNiriStrip || !startWasStale ? layoutStartFrame : nil
+        let resizeFallbackFrame = onNiriStrip || !startWasRejected ? layoutStartFrame : nil
         drag
             .adoptionStartFrame = hadUnsettledFrameWrite ? nil : startFrame ??
             (hasResizePress ? resizeFallbackFrame : nil)
