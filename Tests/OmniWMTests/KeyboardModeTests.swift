@@ -309,7 +309,8 @@ final class KeyboardModeTests: XCTestCase {
             keyCode: kVK_Tab,
             flags: .maskCommand,
             isRepeat: false,
-            canBegin: true
+            canBegin: true,
+            source: .shortcut
         )
         XCTAssertTrue(center.windowSwitcherInput.isActive)
         switcherActions.removeAll()

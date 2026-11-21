@@ -57,6 +57,7 @@ extension ShellAppWindowManager {
                   to: workspace
               ) else { return nil }
         controller.workspaceManager.updateFloatingGeometry(frame: window.frame, for: token)
+        controller.workspaceManager.setWindowMinimized(window.isMiniaturized, token: token, source: .service)
         controller.ownedWindowRegistry.setManagedFocusRecoverySuppressed(false, for: window)
         closeGuards[token] = shouldClose
         return token

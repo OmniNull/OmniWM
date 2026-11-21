@@ -220,8 +220,18 @@ local function utilityPanel(ctx, m, library, title, symbol, width)
     local content = library.content(ctx, inner, m)
     local header
     if m then
-        header = table.remove(content, 1)
-        header[1].weight = "bold"
+        for index, child in ipairs(content) do
+            local first = child[1]
+            if first and first.text ~= nil then
+                header = table.remove(content, index)
+                break
+            end
+        end
+        if header then
+            header[1].weight = "bold"
+        else
+            header = ui.row{ w = inner, ui.text{ text = title, size = 14, weight = "bold" } }
+        end
         if m.power == nil or (m.power and (not m.devices or #m.devices > 0)) then
             content[1] = statsCard(inner, content[1])
         end
