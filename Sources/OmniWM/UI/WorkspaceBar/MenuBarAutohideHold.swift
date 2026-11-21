@@ -69,6 +69,7 @@ final class MenuBarAutohideHold {
     private var request: Bool?
     private var deferredRequest: Bool?
     private var menuAccess: Set<MenuBarAccessOwner> = []
+    private var restorePending = false
 
     init(system: System = .live, runtimeState: RuntimeStateStore) {
         self.system = system
@@ -85,6 +86,11 @@ final class MenuBarAutohideHold {
     func update(hiding: Bool) {
         if !menuAccess.isEmpty {
             deferredRequest = hiding
+            return
+        }
+        if restorePending {
+            deferredRequest = hiding
+            restorePending = !restoreAfterMenuAccess()
             return
         }
         apply(hiding: hiding)
@@ -113,11 +119,13 @@ final class MenuBarAutohideHold {
                 return false
             }
             menuAccess.insert(owner)
+            restorePending = false
             return true
         }
         menuAccess.remove(owner)
         guard menuAccess.isEmpty else { return true }
-        return restoreAfterMenuAccess()
+        restorePending = !restoreAfterMenuAccess()
+        return !restorePending
     }
 
     @discardableResult

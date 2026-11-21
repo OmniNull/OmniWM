@@ -98,6 +98,23 @@ final class MenuBarAutohideHoldTests: XCTestCase {
         XCTAssertEqual(menuBar.calls, [false, true])
     }
 
+    func testFailedMenuAccessRestoreIsRetriedByTheNextUpdate() {
+        let menuBar = FakeMenuBarAutohide()
+        menuBar.preference = true
+        let hold = MenuBarAutohideHold(system: menuBar.system, runtimeState: store())
+
+        XCTAssertTrue(hold.setMenuAccess(true, for: .notifications))
+        menuBar.succeeds = false
+        XCTAssertFalse(hold.setMenuAccess(false, for: .notifications))
+        XCTAssertEqual(menuBar.preference, false)
+
+        menuBar.succeeds = true
+        hold.update(hiding: false)
+
+        XCTAssertEqual(menuBar.preference, true)
+        XCTAssertEqual(menuBar.calls, [false, true, true])
+    }
+
     func testMenuAccessPreservesOriginalPreferenceAcrossPersistentHideAndTemporaryVisibility() {
         let menuBar = FakeMenuBarAutohide()
         let state = store()

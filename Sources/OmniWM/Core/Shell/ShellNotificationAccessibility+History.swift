@@ -136,7 +136,7 @@ extension ShellNotificationAccessibility.Session {
         }
     }
 
-    /// An auto-hidden menu bar keeps the clock off screen, so a click would land on whatever is below it.
+    // An auto-hidden menu bar keeps the clock off screen, so a click would land on whatever is below it.
     private func revealMenuBar(_ clock: AXUIElement, at point: CGPoint) throws -> Bool {
         guard !holdsMenuBarAccess else { return false }
         let access = menuBarAccess

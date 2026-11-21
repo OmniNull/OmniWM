@@ -46,19 +46,26 @@ extension ShellNotificationAccessibility.Session {
     ) throws -> (UUID, AXUIElement)? {
         let ordered = snapshot.items.sorted { lhs, _ in lhs.key == target }
         for (id, matches) in ordered where !unclearableStacks.contains(id) && matches.count == 1 {
-            if try string(matches[0], kAXSubroleAttribute) == Self.stackSubrole { return (id, matches[0]) }
+            if try isStack(matches[0]) { return (id, matches[0]) }
         }
         return nil
     }
 
     // A stack left uncleared may still hide the target, so only expansion can prove it is gone.
     private func hasStack(in snapshot: ShellNotificationAccessibility.Snapshot) throws -> Bool {
-        for element in snapshot.items.values.joined()
-            where try string(element, kAXSubroleAttribute) == Self.stackSubrole
-        {
+        for element in snapshot.items.values.joined() where try isStack(element) {
             return true
         }
         return false
+    }
+
+    // A peer that vanished since the snapshot is no stack and must not abort the target's own path.
+    private func isStack(_ element: AXUIElement) throws -> Bool {
+        do {
+            return try string(element, kAXSubroleAttribute) == Self.stackSubrole
+        } catch is ShellNotificationAccessibility.ExpiredElement {
+            return false
+        }
     }
 
     private func clearStack(_ id: UUID, _ stack: AXUIElement) throws -> Bool {
