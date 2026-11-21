@@ -705,7 +705,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-bar",
-      "declaration": "export type Bar = {\n    monitor: string,\n    monitorId: string,\n    island: \"all\" | \"active\" | \"secondary\",\n    drag: BarDrag?,\n    badges: \"off\" | \"dot\" | \"text\",\n    layout: (\"niri\" | \"dwindle\")?,\n    style: BarStyle?,\n    workspaces: { BarWorkspace },\n    scratchpads: { BarScratchpad },\n}",
+      "declaration": "export type Bar = {\n    monitor: string,\n    monitorId: string,\n    island: \"all\" | \"active\" | \"secondary\",\n    drag: BarDrag?,\n    badges: \"off\" | \"dot\" | \"text\",\n    layout: (\"niri\" | \"dwindle\")?,\n    workspacesRoom: number?,\n    style: BarStyle?,\n    workspaces: { BarWorkspace },\n    scratchpads: { BarScratchpad },\n}",
       "fields": [
         "monitor",
         "monitorId",
@@ -713,6 +713,7 @@
         "drag",
         "badges",
         "layout",
+        "workspacesRoom",
         "style",
         "workspaces",
         "scratchpads"
@@ -1239,6 +1240,41 @@
       "related": []
     },
     {
+      "name": "WiFiNetwork",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-wifinetwork",
+      "declaration": "export type WiFiNetwork = {\n    id: string,\n    ssid: string,\n    rssi: number,\n    security: string?,\n    secured: boolean,\n    enterprise: boolean,\n    known: boolean,\n    opensSettings: boolean,\n}",
+      "fields": [
+        "id",
+        "ssid",
+        "rssi",
+        "security",
+        "secured",
+        "enterprise",
+        "known",
+        "opensSettings"
+      ],
+      "related": []
+    },
+    {
+      "name": "WiFiNetworks",
+      "kind": "type",
+      "topic": "context-data",
+      "anchor": "api-wifinetworks",
+      "declaration": "export type WiFiNetworks = {\n    known: { WiFiNetwork },\n    other: { WiFiNetwork },\n    scanning: boolean,\n    joining: string?,\n    failure: { id: string, message: string }?,\n}",
+      "fields": [
+        "known",
+        "other",
+        "scanning",
+        "joining",
+        "failure"
+      ],
+      "related": [
+        "WiFiNetwork"
+      ]
+    },
+    {
       "name": "Connection",
       "kind": "type",
       "topic": "context-data",
@@ -1328,7 +1364,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-data",
-      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    nightShift: NightShift?,\n    connection: Connection?,\n    commandPalette: CommandPalette?,\n}",
+      "declaration": "export type Data = {\n    clock: string,\n    date: string,\n    seconds: number,\n    cpu: number?,\n    memory: number,\n    battery: number?,\n    charging: boolean,\n    gpu: number?,\n    disk: number?,\n    network: { down: number, up: number }?,\n    volume: number?,\n    muted: boolean?,\n    vars: { [string]: string },\n    weather: Weather?,\n    workspace: string,\n    app: string,\n    bundle: string,\n    title: string,\n    workspaces: { Workspace },\n    bar: Bar,\n    settings: { [string]: any }?,\n    hiddenBar: HiddenBar,\n    system: System?,\n    outputs: { AudioOutput }?,\n    audioApps: AudioApps?,\n    media: Media?,\n    calendar: Calendar?,\n    power: Power?,\n    inputSource: InputSource?,\n    privacy: { microphone: boolean, camera: boolean }?,\n    wifi: WiFi?,\n    bluetooth: Bluetooth?,\n    user: { name: string, account: string, avatar: string? }?,\n    thermal: { cpu: number?, gpu: number?, gpuName: string? }?,\n    networkHistory: { down: { number }, up: { number }, received: number, sent: number }?,\n    appearance: (\"light\" | \"dark\")?,\n    lyrics: Lyrics?,\n    spectrum: { access: \"unknown\" | \"granted\" | \"denied\", bars: { number }, bpm: number? }?,\n    tempo: number?,\n    island: Island?,\n    components: { ComponentInfo }?,\n    catalog: { ComponentCatalogEntry }?,\n    settingsSchema: { [string]: ComponentOption }?,\n    reminders: Reminders?,\n    badges: { [string]: string },\n    menuApp: { pid: number, name: string, bundle: string }?,\n    notifications: Notifications?,\n    awake: Awake?,\n    microphone: Microphone?,\n    brightness: Brightness?,\n    connection: Connection?,\n    commandPalette: CommandPalette?,\n    nightShift: NightShift?,\n    wifiNetworks: WiFiNetworks?,\n}",
       "fields": [
         "clock",
         "date",
@@ -1380,9 +1416,10 @@
         "awake",
         "microphone",
         "brightness",
-        "nightShift",
         "connection",
-        "commandPalette"
+        "commandPalette",
+        "nightShift",
+        "wifiNetworks"
       ],
       "related": [
         "Weather",
@@ -1408,9 +1445,10 @@
         "Awake",
         "Microphone",
         "Brightness",
-        "NightShift",
         "Connection",
-        "CommandPalette"
+        "CommandPalette",
+        "NightShift",
+        "WiFiNetworks"
       ]
     },
     {

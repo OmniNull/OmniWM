@@ -57,7 +57,7 @@ extension ShellLayerScene {
             } else {
                 quarters.remove(slot)
             }
-            layer.bounds.size = CGSize(width: layer.bounds.height, height: layer.bounds.width)
+            turnQuarter(slot, layer)
         }
         layer.shadowColor = paint.shadow
         layer.shadowOpacity = paint.shadow == nil || glass ? 0 : 1

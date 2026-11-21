@@ -62,8 +62,4 @@ extension WorkspaceManager {
         }
         snapshot.layouts = layouts
     }
-
-    func reconcileSnapshotDump() -> String {
-        ReconcileDebugDump.snapshot(reconcileSnapshot())
-    }
 }

@@ -51,7 +51,7 @@ extension StateReducer {
         case .systemWake:
             plan.notes = ["system_wake"]
         case .userCommand:
-            plan.notes = ["user_command"]
+            plan.notes = ActionPlan.userCommandNotes
         default:
             break
         }

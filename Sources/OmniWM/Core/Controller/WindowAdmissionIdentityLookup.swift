@@ -33,11 +33,14 @@ extension AXEventHandler {
         let windowId = UInt32(token.windowId)
         var state: AdmissionRetryState
         if let existing = admissionRetryStateByWindowId[windowId] {
-            guard case .create = existing.trigger else { return }
-            if case let .running(owner) = existing.executionPhase {
-                guard execution == AdmissionRetryExecution(
-                    windowId: windowId, generation: existing.generation, executionOwner: owner
-                ) else { return }
+            // A new create can look up identity while keeping the exhausted retry budget.
+            if !existing.exhausted || execution != nil {
+                guard case .create = existing.trigger else { return }
+            }
+            if case let .running(owner) = existing.executionPhase,
+               execution != .init(windowId: windowId, generation: existing.generation, executionOwner: owner)
+            {
+                return
             }
             state = existing
         } else {
@@ -57,6 +60,8 @@ extension AXEventHandler {
             windowId: windowId, generation: state.generation, executionOwner: executionOwner
         )
         state.expectedToken = token
+        state.trigger = .create
+        state.identityRebindSource = nil
         state.executionPhase = .running(executionOwner)
         let provider = createdWindowAXRefProvider
         let query = lifecycleQueries.query

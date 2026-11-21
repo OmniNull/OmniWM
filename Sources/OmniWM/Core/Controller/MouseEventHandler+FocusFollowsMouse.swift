@@ -50,7 +50,7 @@ extension MouseEventHandler {
             return
         }
 
-        if shouldBlockOwnWindowInput(at: location, windowIdUnderPointer: windowIdUnderPointer) {
+        if shouldBlockOwnWindowHover(at: location, windowIdUnderPointer: windowIdUnderPointer) {
             resetHoveredEdgesIfNeeded()
             return
         }
@@ -93,14 +93,28 @@ extension MouseEventHandler {
             ?? monitor.autoOrientation
     }
 
-    func shouldBlockOwnWindowInput(at location: CGPoint, windowIdUnderPointer: Int? = nil) -> Bool {
-        guard let controller, controller.isPointInOwnWindow(location) else { return false }
+    func shouldBlockOwnWindowInput(
+        at location: CGPoint, windowIdUnderPointer: Int? = nil, excludingWindow: NSWindow? = nil
+    ) -> Bool {
+        guard let controller, controller.isPointInOwnWindow(location, excludingWindow: excludingWindow)
+        else { return false }
         if let windowIdUnderPointer, windowIdUnderPointer > 0,
-           !controller.isOwnedWindow(windowNumber: windowIdUnderPointer)
+           excludingWindow != nil || !controller.isOwnedWindow(windowNumber: windowIdUnderPointer)
         {
-            return controller.ownedWindowRegistry.contains(point: location, excluding: [.niriEdgePicture])
+            return controller.ownedWindowRegistry.contains(
+                point: location, excluding: [.niriEdgePicture], excludingWindow: excludingWindow
+            )
         }
         return true
+    }
+
+    private func shouldBlockOwnWindowHover(at location: CGPoint, windowIdUnderPointer: Int?) -> Bool {
+        let hostedWindow = windowIdUnderPointer.flatMap {
+            controller?.shellAppWindowManager.window(withWindowNumber: $0)
+        }
+        return shouldBlockOwnWindowInput(
+            at: location, windowIdUnderPointer: windowIdUnderPointer, excludingWindow: hostedWindow
+        )
     }
 
     func shouldBlockOwnWindowGestureInput(at location: CGPoint) -> Bool {
@@ -303,7 +317,7 @@ extension MouseEventHandler {
               controller.isEnabled,
               controller.focusFollowsMouseEnabled,
               !controller.isOverviewOpen(),
-              !shouldBlockOwnWindowInput(at: sample.location),
+              !shouldBlockOwnWindowHover(at: sample.location, windowIdUnderPointer: sample.windowIdUnderPointer),
               !controller.settings.focus.lockModifier.isHeld(inRawFlags: sample.modifiersRawValue),
               !state.isMoving,
               !state.isResizing,

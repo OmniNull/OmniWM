@@ -171,6 +171,7 @@ struct ShellBarLayout: Equatable, Sendable {
         case "active-window": String(localized: "Active Window")
         case "input-source": String(localized: "Input Source")
         case "wifi": String(localized: "Wi-Fi")
+        case "wifi-networks": String(localized: "Wi-Fi Networks")
         case "bluetooth": String(localized: "Bluetooth")
         case "battery-details": String(localized: "Battery Details")
         case "world-clock": String(localized: "World Clock")

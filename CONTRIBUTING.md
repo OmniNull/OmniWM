@@ -237,6 +237,8 @@ The **Main branch protection** ruleset blocks branch deletion and force-pushes. 
 
 **OmniWM CI** (`ci.yml`) runs automatically on pull requests and pushes to `main` or branches ending in `-release`, except documentation-only changes. **Website** (`website.yml`) checks website changes on pull requests and pushes to `main`. Neither workflow requires a custom review approval. GitHub may still require approval for first-time fork runs.
 
+Both workflows default to GitHub-hosted runners. To use Blacksmith, set `OMNIWM_CI_RUNNER_PROVIDER` to `blacksmith` under **Settings → Secrets and variables → Actions → Variables**. Set it to `github` or delete it to switch back for new runs.
+
 Retiring the custom gate also requires a repository administrator to remove only the **CI approval** required status check from **Main approval with BarutSRB-only bypass** and **Owner or three maintainers on other branches**. The retired workflow no longer produces that check. Keep all other required checks and ordinary branch protections unchanged.
 
 For an existing PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. A manual run runs the full test groups and provides logs; it does not replace the PR's required check. Updating the PR branch triggers its normal PR checks.

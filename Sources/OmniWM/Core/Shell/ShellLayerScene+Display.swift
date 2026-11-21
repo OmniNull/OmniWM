@@ -7,6 +7,7 @@ extension ShellLayerScene {
     func updateBackingScale(_ next: CGFloat) {
         guard next != scale else { return }
         scale = next
+        if !snapsToPixels { restoreLayoutFrames() }
         let retiring = Set(presence.retained.values.map { ObjectIdentifier($0.subtree) })
         func update(_ layer: CALayer) {
             guard !retiring.contains(ObjectIdentifier(layer)) else { return }

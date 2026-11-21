@@ -8,6 +8,7 @@ import OmniWMIPC
 extension WMController {
     func resolveWorkspaceForNewWindow(
         workspaceName: String? = nil,
+        assignToWorkspaceForAllWindows: Bool = false,
         axRef: AXWindowRef,
         pid: pid_t,
         parentWindowId: UInt32? = nil,
@@ -31,6 +32,7 @@ extension WMController {
             ),
             rules: WorkspacePlacementRules(
                 workspaceName: workspaceName,
+                assignToWorkspaceForAllWindows: assignToWorkspaceForAllWindows,
                 inheritTrackedParentWorkspace: inheritTrackedParentWorkspace,
                 structuralReplacementWorkspaceId: structuralReplacementWorkspaceId,
                 allowsFloatingSpawnPlacement: allowsFloatingSpawnPlacement
@@ -68,6 +70,7 @@ extension WMController {
             ),
             rules: WorkspacePlacementRules(
                 workspaceName: evaluation.decision.workspaceName,
+                assignToWorkspaceForAllWindows: evaluation.decision.assignToWorkspaceForAllWindows,
                 inheritTrackedParentWorkspace: inheritTrackedParentWorkspace,
                 structuralReplacementWorkspaceId: structuralReplacementWorkspaceId,
                 allowsFloatingSpawnPlacement: allowsFloatingSpawnPlacement(
