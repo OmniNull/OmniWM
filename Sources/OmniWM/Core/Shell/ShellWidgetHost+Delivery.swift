@@ -51,6 +51,7 @@ extension ShellWidgetHost {
             surface.sequence = instance.sequences[ShellWidgetView.bar.rawValue]
             surface.apply(instance.nodes, text: state.text)
         }
+        surface.followedTarget = followedTarget(on: key)
         instance.surface = surface
         return surface.view
     }
@@ -107,8 +108,11 @@ extension ShellWidgetHost {
         guard !widgets.isEmpty else { return }
         let next = barData()
         guard next != bars else { return }
+        let dark = darkBarKeys()
         bars = next
+        syncFollowedTargets()
         syncBarPalettes()
+        if darkBarKeys() != dark { refreshBarShaders() }
         refreshIslandData()
         if let popout, popout.key.placement == .bar, headless == nil, next[popout.key] == nil {
             closePopout()
@@ -133,7 +137,7 @@ extension ShellWidgetHost {
 
     private func darkBarKeys() -> Set<ShellBarKey> {
         var keys: Set<ShellBarKey> = []
-        for (key, data) in bars where key.placement == .bar && data.style.solidBlack {
+        for (key, data) in bars where key.placement == .bar && (data.style.solidBlack || data.style.dark) {
             keys.insert(key)
         }
         return keys
@@ -398,7 +402,8 @@ extension ShellWidgetHost {
                         lane: placement.lane,
                         island: key.island,
                         failure: failure,
-                        priority: priorities[state.name] ?? .max
+                        priority: priorities[state.name] ?? .max,
+                        stops: failure == nil ? stops(of: instance, on: key, lane: placement.lane) : nil
                     )
                 ))
             }

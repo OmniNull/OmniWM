@@ -19,6 +19,8 @@ final class WorkspaceBarManager {
         panel.setFrame(frame, display: true)
     }
 
+    var menuBarIsDark: @MainActor () -> Bool = { false }
+
     private(set) var barsByMonitor: [Monitor.ID: WorkspaceBarInstance] = [:]
     weak var controller: WMController?
     private weak var settings: SettingsStore?
@@ -39,8 +41,17 @@ final class WorkspaceBarManager {
     private let surfaceCoordinator = SurfaceCoordinator.shared
     private var hiddenBarJoin: HiddenBarPanelPlacement.Join?
     var shellHost: ShellWidgetHost?
+    var wallpaperPalette: ShellWallpaperPaletteWriter?
+    var isQuittingShell = false
+    var makeWallpaperPalette: @MainActor (
+        URL, ShellWallpaperScheme, @escaping @MainActor (String) -> Void
+    ) -> ShellWallpaperPaletteWriter = { destination, scheme, onFailure in
+        ShellWallpaperPaletteWriter(destination: destination, scheme: scheme, onFailure: onFailure)
+    }
+
     let shellPermissions = ShellNetworkPermissions()
     var commandPaletteResources: ShellResources?
+    var commandPaletteTheme: ShellTheme?
     var commandPaletteColorsObserver: NSObjectProtocol?
     var commandPaletteConfigCache: ShellConfig?
     var shellPermissionPrompts: ShellPermissionPrompts?
@@ -64,6 +75,14 @@ final class WorkspaceBarManager {
     var shellHiddenBarBitmaps: Set<String> = []
     var retiredShellHiddenBarBitmaps: Set<String> = []
     var menuBarHold: MenuBarAutohideHold?
+    var menuBarOverflow: NativeMenuBarOverflowWatcher? {
+        didSet {
+            oldValue?.setActive(false)
+            menuBarOverflow?.onChange = { [weak self] in
+                self?.controller?.requestWorkspaceBarRefresh()
+            }
+        }
+    }
 
     isolated deinit {
         if let commandPaletteColorsObserver {
@@ -135,6 +154,9 @@ final class WorkspaceBarManager {
         }
         updateShellHiddenBarPlacement()
         rebuildAutoHideTargets()
+        menuBarOverflow?.setActive(bars.contains {
+            settings.workspaceBar.resolved(for: $0.monitor).notchMode == .fillLeftOfNotch
+        })
         if let menuBarHold, let controller {
             menuBarHold.update(hiding: bars.contains { bar in
                 let resolved = settings.workspaceBar.resolved(for: bar.monitor)
@@ -177,7 +199,7 @@ final class WorkspaceBarManager {
         )
         barsByMonitor[monitor.id] = instance
 
-        instance.applyCurrentAppearance()
+        instance.applyAppearance(barAppearance(for: resolved))
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         surfaceCoordinator.register(
             window: primary.panel,
@@ -196,7 +218,7 @@ final class WorkspaceBarManager {
         guard instance.updateMonitor(monitor, screen: screen) else { return false }
 
         instance.updateSnapshot(snapshot)
-        instance.applyCurrentAppearance()
+        instance.applyAppearance(barAppearance(for: resolved))
         instance.applyPanelSettings(resolved: resolved)
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         return true
@@ -265,6 +287,7 @@ final class WorkspaceBarManager {
             stopShellHost()
         }
         syncNotificationBadges()
+        menuBarOverflow?.setActive(false)
         menuBarHold?.update(hiding: false)
     }
 
@@ -300,7 +323,9 @@ final class WorkspaceBarManager {
             closeShellSystemStats(on: instance.monitorId)
         }
     }
+}
 
+extension WorkspaceBarManager {
     private func updateIslandView(
         _ island: WorkspaceBarIslandPanel,
         model: WorkspaceBarModel,
@@ -312,9 +337,7 @@ final class WorkspaceBarManager {
         island.slice = slice
         island.hostingView.rootView = makeBarView(model: model, slice: slice, monitorId: monitorId)
     }
-}
 
-extension WorkspaceBarManager {
     func topBarBottom(on monitorId: Monitor.ID) -> CGFloat? {
         guard let instance = barsByMonitor[monitorId], let settings, let controller else { return nil }
         let resolved = settings.workspaceBar.resolved(for: instance.monitor)

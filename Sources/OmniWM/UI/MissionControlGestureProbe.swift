@@ -35,22 +35,28 @@ final class MissionControlGestureProbe {
     private let urlOpener: @MainActor (URL) -> Void
 
     init(
-        preferenceReader: @MainActor @escaping (String, String) -> Any? = { key, domain in
-            let preferenceKey: CFString = key as NSString
-            let applicationID: CFString = domain as NSString
-            return CFPreferencesCopyAppValue(preferenceKey, applicationID)
-        },
-        domainSynchronizer: @MainActor @escaping (String) -> Void = { domain in
-            let applicationID: CFString = domain as NSString
-            CFPreferencesAppSynchronize(applicationID)
-        },
-        urlOpener: @MainActor @escaping (URL) -> Void = { url in
-            NSWorkspace.shared.open(url)
-        }
+        preferenceReader: @MainActor @escaping (String, String) -> Any? = MissionControlGestureProbe.readPreference,
+        domainSynchronizer: @MainActor @escaping (String) -> Void = MissionControlGestureProbe.synchronizePreferences,
+        urlOpener: @MainActor @escaping (URL) -> Void = MissionControlGestureProbe.openURL
     ) {
         self.preferenceReader = preferenceReader
         self.domainSynchronizer = domainSynchronizer
         self.urlOpener = urlOpener
+    }
+
+    static func readPreference(_ key: String, in domain: String) -> Any? {
+        let preferenceKey: CFString = key as NSString
+        let applicationID: CFString = domain as NSString
+        return CFPreferencesCopyAppValue(preferenceKey, applicationID)
+    }
+
+    static func synchronizePreferences(in domain: String) {
+        let applicationID: CFString = domain as NSString
+        CFPreferencesAppSynchronize(applicationID)
+    }
+
+    static func openURL(_ url: URL) {
+        NSWorkspace.shared.open(url)
     }
 
     func refresh() {

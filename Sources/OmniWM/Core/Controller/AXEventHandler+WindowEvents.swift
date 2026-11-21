@@ -292,6 +292,9 @@ extension AXEventHandler {
             return
         }
 
+        if effectivePlacementOrigin == .liveCreate, controller?.settings.niri.readsObservedWindowWidths == true {
+            controller?.niriEngine?.noteOpeningWindow(candidate.token)
+        }
         trackPreparedCreate(candidate)
     }
 

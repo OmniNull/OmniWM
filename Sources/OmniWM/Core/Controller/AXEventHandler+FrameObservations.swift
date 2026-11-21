@@ -140,11 +140,9 @@ extension AXEventHandler {
     }
 
     private func retryAdmissionForFrameChange(windowId: UInt32, windowServerToken: WindowToken) -> Bool {
-        if let retryState = admissionRetryStateByWindowId[windowId] {
-            guard retryState.expectedToken.map({ $0 == windowServerToken }) ?? true else { return true }
-            if retryAdmissionAfterFrameChangeRequiresEarlyReturn(windowId: windowId) { return true }
-        }
-        return false
+        guard let retryState = admissionRetryStateByWindowId[windowId], !retryState.exhausted else { return false }
+        guard retryState.expectedToken.map({ $0 == windowServerToken }) ?? true else { return true }
+        return retryAdmissionAfterFrameChangeRequiresEarlyReturn(windowId: windowId)
     }
 
     private func repairParkedWindowFrame(

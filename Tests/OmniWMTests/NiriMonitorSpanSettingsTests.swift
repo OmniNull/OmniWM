@@ -34,6 +34,19 @@ final class NiriMonitorSpanSettingsTests: XCTestCase {
         settings.update(override, for: monitor)
         settings.defaultContainerPrimarySpan = nil
         XCTAssertEqual(settings.resolved(for: monitor).defaultContainerPrimarySpan, 0.6)
+        XCTAssertFalse(settings.resolved(for: monitor).opensNewWindowsAtAppWidth)
+
+        override.defaultContainerPrimarySpan = .app
+        settings.update(override, for: monitor)
+        XCTAssertNil(settings.resolved(for: monitor).defaultContainerPrimarySpan)
+        XCTAssertTrue(settings.resolved(for: monitor).opensNewWindowsAtAppWidth)
+        XCTAssertTrue(settings.readsObservedWindowWidths)
+
+        override.defaultContainerPrimarySpan = .auto
+        settings.update(override, for: monitor)
+        settings.opensNewWindowsAtAppWidth = true
+        XCTAssertFalse(settings.resolved(for: monitor).opensNewWindowsAtAppWidth)
+        settings.opensNewWindowsAtAppWidth = false
 
         override.defaultContainerPrimarySpan = nil
         settings.update(override, for: monitor)
@@ -47,6 +60,7 @@ final class NiriMonitorSpanSettingsTests: XCTestCase {
         export.monitorNiriSettings = [
             MonitorNiriSettings(monitorName: "Global"),
             MonitorNiriSettings(monitorName: "Auto", defaultContainerPrimarySpan: .auto),
+            MonitorNiriSettings(monitorName: "App", defaultContainerPrimarySpan: .app),
             MonitorNiriSettings(monitorName: "Custom", defaultContainerPrimarySpan: .custom(0.6))
         ]
         let data = try SettingsTOMLCodec.encode(export)
@@ -60,11 +74,12 @@ final class NiriMonitorSpanSettingsTests: XCTestCase {
             guard case let .table(table) = node, case let .string(name) = table["monitorName"] else { return nil }
             return (name, table["defaultContainerPrimarySpan"])
         }
-        XCTAssertEqual(spans.count, 3)
+        XCTAssertEqual(spans.count, 4)
         for (name, span) in spans {
             switch name {
             case "Global": XCTAssertNil(span)
             case "Auto": XCTAssertEqual(span, .string("auto"))
+            case "App": XCTAssertEqual(span, .string("app"))
             case "Custom": XCTAssertEqual(span, .float(0.6))
             default: XCTFail("Unexpected monitor")
             }

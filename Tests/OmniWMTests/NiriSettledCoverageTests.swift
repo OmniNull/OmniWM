@@ -6,6 +6,22 @@ import CoreGraphics
 import XCTest
 
 final class NiriSettledCoverageTests: NiriInteractionTestCase {
+    func testAFrameWhollyOutsideItsDisplayAcrossTheStripIsNotClippedIntoIt() {
+        let display = CGRect(x: 0, y: 0, width: 1_000, height: 100)
+        XCTAssertNil(NiriMonitorPlaneGeometry.crossAxisClipped(
+            CGRect(x: 0, y: 200, width: 400, height: 20), to: display, orientation: .horizontal
+        ))
+        XCTAssertNil(NiriMonitorPlaneGeometry.crossAxisClipped(
+            CGRect(x: 1_200, y: 0, width: 20, height: 400), to: display, orientation: .vertical
+        ))
+        XCTAssertEqual(
+            NiriMonitorPlaneGeometry.crossAxisClipped(
+                CGRect(x: 0, y: 80, width: 400, height: 40), to: display, orientation: .horizontal
+            ),
+            CGRect(x: 0, y: 80, width: 400, height: 20)
+        )
+    }
+
     private let sourceFrame = CGRect(x: 0, y: 0, width: 1_440, height: 2_560)
     private let traceWorkingFrame = CGRect(x: 16, y: 16, width: 1_408, height: 2_498)
     private let traceNeighborSpan: CGFloat = 1_581

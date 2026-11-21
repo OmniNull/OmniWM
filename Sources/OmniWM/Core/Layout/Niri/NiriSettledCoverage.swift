@@ -35,8 +35,12 @@ enum NiriMonitorPlaneGeometry {
         hiddenPlacementMonitor: HiddenPlacementMonitorContext?,
         hiddenPlacementMonitors: [HiddenPlacementMonitorContext]
     ) -> AxisHideEdge? {
+        guard let rect = hiddenPlacementMonitor.map({
+            crossAxisClipped(renderedRect, to: $0.frame, orientation: orientation)
+        }) ?? renderedRect
+        else { return nil }
         let (minimumOverflow, maximumOverflow) = overflowRects(
-            of: renderedRect,
+            of: rect,
             beyond: viewportFrame,
             orientation: orientation
         )
@@ -430,7 +434,7 @@ extension NiriLayoutEngine {
         }
 
         return withProjectedViewport(state: &state, context: context) { containers, projectedState in
-            guard !(settings.alwaysCenterSingleColumn && containers.count == 1),
+            guard !centresWholeStrip(containers, context: context),
                   containers.count > 1,
                   containers.allSatisfy({ $0.effectiveSizingMode == .normal }),
                   let selectedNodeId = projectedState.selectedNodeId,
@@ -438,17 +442,14 @@ extension NiriLayoutEngine {
                   !isExcludedFromProjection(selectedNode.token, in: context.workspaceId),
                   let selectedContainer = findColumn(containing: selectedNode, in: context.workspaceId),
                   selectedContainer.effectiveSizingMode == .normal,
-                  let selectedIndex = containers.firstIndex(where: { $0 === selectedContainer })
+                  let selectedIndex = containers.firstIndex(where: { $0 === selectedContainer }),
+                  let spans = settledCoverageSpans(in: containers, orientation: context.orientation)
             else {
                 return false
             }
 
-            guard let spans = settledCoverageSpans(in: containers, orientation: context.orientation) else {
-                return false
-            }
-
             let activeIndex = projectedState.activeColumnIndex.clamped(to: 0 ... containers.count - 1)
-            let offset = NiriSettledCoverageEvaluator.bestOffset(
+            let offset = settledCoverageOffset(
                 for: .init(
                     containerSpans: spans,
                     selectedIndex: selectedIndex,

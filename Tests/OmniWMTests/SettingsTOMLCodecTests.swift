@@ -315,6 +315,45 @@ final class SettingsTOMLCodecTests: XCTestCase {
         }
     }
 
+    func testAConfigFromBeforeUndoGivesUndoAndRedoTheirKeys() throws {
+        let defaults = HotkeyBindingRegistry.defaults()
+        let older = defaults
+            .filter { !HotkeyBindingRegistry.idsGivenTheirDefaultWhenMissing.contains($0.id) }
+            .map { PersistedHotkeyBinding(id: $0.id, trigger: $0.binding) }
+
+        let resolved = try HotkeyBindingRegistry.resolve(older)
+
+        for id in ["undo", "redo"] {
+            let expected = try XCTUnwrap(defaults.first { $0.id == id }?.binding)
+            XCTAssertNotEqual(expected, .unassigned, id)
+            XCTAssertEqual(resolved.first { $0.id == id }?.binding, expected, id)
+        }
+    }
+
+    func testUndoKeepsNoKeyWhenAnotherCommandHasItOrTheUserClearedIt() throws {
+        let defaults = HotkeyBindingRegistry.defaults()
+        let undoKey = try XCTUnwrap(defaults.first { $0.id == "undo" }?.binding)
+        let redoKey = try XCTUnwrap(defaults.first { $0.id == "redo" }?.binding)
+        var older = defaults
+            .filter { !HotkeyBindingRegistry.idsGivenTheirDefaultWhenMissing.contains($0.id) }
+            .map { PersistedHotkeyBinding(id: $0.id, trigger: $0.binding) }
+        let other = older[0].id
+        older[0] = PersistedHotkeyBinding(id: other, trigger: undoKey)
+
+        let taken = try HotkeyBindingRegistry.resolve(older)
+
+        XCTAssertEqual(taken.first { $0.id == other }?.binding, undoKey)
+        XCTAssertEqual(taken.first { $0.id == "undo" }?.binding, .unassigned)
+        XCTAssertEqual(taken.first { $0.id == "redo" }?.binding, redoKey)
+
+        let cleared = defaults.map {
+            PersistedHotkeyBinding(id: $0.id, trigger: $0.id == "undo" ? .unassigned : $0.binding)
+        }
+        let resolved = try HotkeyBindingRegistry.resolve(cleared)
+
+        XCTAssertEqual(resolved.first { $0.id == "undo" }?.binding, .unassigned)
+    }
+
     @MainActor
     func testLoadFailureReportsRejectedHotkeyActionsPrecisely() throws {
         let cases = [
@@ -566,34 +605,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertEqual(try SettingsTOMLCodec.decode(data).gestures.trackpadScrollStyle, .momentum)
     }
 
-    func testMouseMoveModifierRoundTrips() throws {
-        XCTAssertEqual(SettingsExport.defaults().gestures.mouseMoveModifierKey, .option)
-        XCTAssertTrue(
-            String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-                .contains("mouseMoveModifierKey = \"option\"")
-        )
-
-        for modifier in [MouseMoveModifierKey.off, .controlOption] {
-            var export = SettingsExport.defaults()
-            export.gestures.mouseMoveModifierKey = modifier
-            let data = try SettingsTOMLCodec.encode(export)
-
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data).gestures.mouseMoveModifierKey, modifier)
-        }
-    }
-
-    @MainActor
-    func testMouseMoveModifierStoreMappingRoundTrips() {
-        let source = makeSettingsStore()
-        source.gestures.mouseMoveModifierKey = .controlCommand
-        let destination = makeSettingsStore()
-
-        destination.applyExport(source.toExport())
-
-        XCTAssertEqual(destination.gestures.mouseMoveModifierKey, .controlCommand)
-        XCTAssertEqual(destination.toExport().gestures.mouseMoveModifierKey, .controlCommand)
-    }
-
     @MainActor
     func testRaiseOnMouseFocusStoreMappingSurvivesDisabledFocusFollowsMouse() {
         let source = makeSettingsStore()
@@ -743,7 +754,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
             ("workspaceSwipeEnabled = false\n", "workspaceSwipeEnabled = \"false\"\n"),
             ("workspaceSwipeFingerCount = 3\n", "workspaceSwipeFingerCount = \"three\"\n"),
             ("workspaceSwipeAxis = \"vertical\"\n", "workspaceSwipeAxis = 3\n"),
-            ("mouseMoveModifierKey = \"option\"\n", "mouseMoveModifierKey = 3\n"),
             ("overviewGestureFingerCount = 4", "overviewGestureFingerCount = 2"),
             ("\nfingerCount = 3", "\nfingerCount = 2")
         ]
@@ -852,7 +862,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
 
     func testUnknownEnumValueRejectsWholeFile() throws {
         let cases: [(line: String, invalid: String, key: String)] = [
-            ("resizePreviewStyle = \"live\"", "resizePreviewStyle = \"unsupported\"", "gestures.resizePreviewStyle"),
             ("defaultLayoutType = \"\(LayoutType.niri.rawValue)\"", "defaultLayoutType = \"bsp\"", "defaultLayoutType"),
             ("lockModifier = \"\(FocusLockModifier.off.rawValue)\"", "lockModifier = \"hyper\"", "lockModifier"),
             ("mode = \"\(MonitorRoutingMode.macOS.rawValue)\"", "mode = \"sideways\"", "routing.mode"),
@@ -886,16 +895,6 @@ final class SettingsTOMLCodecTests: XCTestCase {
                 "scrollModifierKey = \"\(ScrollModifierKey.optionShift.rawValue)\"",
                 "scrollModifierKey = \"fn\"",
                 "scrollModifierKey"
-            ),
-            (
-                "mouseMoveModifierKey = \"\(MouseMoveModifierKey.option.rawValue)\"",
-                "mouseMoveModifierKey = \"shift\"",
-                "gestures.mouseMoveModifierKey"
-            ),
-            (
-                "mouseResizeModifierKey = \"\(MouseResizeModifierKey.option.rawValue)\"",
-                "mouseResizeModifierKey = \"hyperspace\"",
-                "mouseResizeModifierKey"
             ),
             ("fingerCount = \(GestureFingerCount.three.rawValue)\n", "fingerCount = 7\n", "fingerCount"),
             (

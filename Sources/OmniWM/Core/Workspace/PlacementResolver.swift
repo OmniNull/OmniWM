@@ -65,17 +65,10 @@ final class PlacementResolver {
 
         var ruleSkipReason: WorkspaceRuleSkipReason?
         if let workspaceName = rules.workspaceName {
-            let resolvedRuleWorkspaceId = workspaceManager.workspaceId(
-                for: workspaceName,
-                createIfMissing: false
-            )
-            if !shouldApplyWorkspaceRule(pid: window.pid, context: context.reevaluation) {
+            if !shouldApplyWorkspaceRule(pid: window.pid, rules: rules, context: context.reevaluation) {
                 ruleSkipReason = .appAlreadyHasEntries
-            } else if let resolvedRuleWorkspaceId {
-                return WorkspacePlacementResolution(
-                    workspaceId: resolvedRuleWorkspaceId,
-                    rung: .workspaceRule
-                )
+            } else if let workspaceId = workspaceManager.workspaceId(for: workspaceName, createIfMissing: false) {
+                return WorkspacePlacementResolution(workspaceId: workspaceId, rung: .workspaceRule)
             } else {
                 ruleSkipReason = .workspaceNotMaterialized
             }
@@ -106,9 +99,10 @@ final class PlacementResolver {
 
     private func shouldApplyWorkspaceRule(
         pid: pid_t?,
+        rules: WorkspacePlacementRules,
         context: WindowRuleReevaluationContext
     ) -> Bool {
-        if context == .explicitRuleApply {
+        if rules.assignToWorkspaceForAllWindows || context == .explicitRuleApply {
             return true
         }
         guard let pid else { return true }

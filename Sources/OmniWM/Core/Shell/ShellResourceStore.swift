@@ -24,12 +24,6 @@ actor ShellResourceStore {
         case url(URL)
     }
 
-    struct Promise: Sendable {
-        let resource: ShellResourceID
-        let owner: ShellServiceOwner
-        let directory: URL
-    }
-
     struct Pin: Sendable {
         let id: UUID
         let values: [Value]
@@ -159,28 +153,6 @@ actor ShellResourceStore {
             throw error
         }
         finishWaiting(ids)
-    }
-
-    func promise(_ id: ShellResourceID, owner: ShellServiceOwner) throws -> Promise {
-        try requirePending([id], owner: owner)
-        return Promise(resource: id, owner: owner, directory: try makeDirectory("promises"))
-    }
-
-    func completePromise(_ promise: Promise, result: Result<String, ShellResourceFailure>) throws {
-        defer { clean(promise.directory) }
-        var prepared: Backing?
-        do {
-            try requirePending([promise.resource], owner: promise.owner)
-            let path = try result.get()
-            let item = try copyOutput(path, directory: promise.directory, operation: ShellResourceOperation())
-            prepared = item
-            try install([item], ids: [promise.resource], owner: promise.owner)
-            finishWaiting([promise.resource])
-        } catch {
-            clean(prepared?.ownedDirectory)
-            fail([promise.resource], owner: promise.owner, error: String(describing: error))
-            throw error
-        }
     }
 
     func fail(_ ids: [ShellResourceID], owner: ShellServiceOwner, error: String) {

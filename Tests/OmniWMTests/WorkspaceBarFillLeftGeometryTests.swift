@@ -64,6 +64,62 @@ final class WorkspaceBarFillLeftGeometryTests: XCTestCase {
         )
     }
 
+    func testFillLeftOfNotchLaysContentOutAcrossTheWholeFrame() throws {
+        let monitor = makeMonitor()
+        let resolved = makeResolved(notchMode: .fillLeftOfNotch)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        let frame = geometry.frame(fittingLength: 900, monitor: monitor, resolved: resolved)
+        let zones = try XCTUnwrap(geometry.zones(frame: frame, monitor: monitor, resolved: resolved))
+
+        XCTAssertEqual(zones, WorkspaceBarZones(notch: nil, mode: .off))
+        let spans = WorkspaceBarZoneLayout.spans(
+            of: [.init(lane: .leading, length: 200), .init(lane: .trailing, length: 90)],
+            length: frame.width,
+            zones: zones,
+            spacing: 8,
+            inset: 4
+        )
+        XCTAssertEqual(spans[0].start, 4)
+        XCTAssertEqual(spans[1].start + spans[1].length, frame.width - 4)
+    }
+
+    func testFillLeftOfNotchContentGivesWayInsteadOfRunningUnderTheNotch() throws {
+        let monitor = makeMonitor()
+        let resolved = makeResolved(notchMode: .fillLeftOfNotch)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        let frame = geometry.frame(fittingLength: 900, monitor: monitor, resolved: resolved)
+        let zones = try XCTUnwrap(geometry.zones(frame: frame, monitor: monitor, resolved: resolved))
+
+        let spans = WorkspaceBarZoneLayout.spans(
+            of: [
+                .init(lane: .leading, length: 500, priority: 0),
+                .init(lane: .leading, length: 120, priority: 1),
+                .init(lane: .trailing, length: 90, priority: 2)
+            ],
+            length: frame.width,
+            zones: zones,
+            spacing: 8,
+            inset: 4
+        )
+
+        XCTAssertEqual(frame.maxX, 656 - WorkspaceBarGeometry.notchGap)
+        XCTAssertEqual(spans[0].length, 500)
+        XCTAssertEqual(spans[1].length, 120)
+        XCTAssertLessThan(spans[2].length, 90)
+        for span in spans where span.length > 0 {
+            XCTAssertLessThanOrEqual(span.start + span.length, frame.width - 4)
+        }
+    }
+
+    func testIslandWithoutFillKeepsContentSizedLayout() throws {
+        let monitor = makeMonitor()
+        let resolved = makeResolved(notchMode: .off)
+        let geometry = WorkspaceBarGeometry.resolve(monitor: monitor, resolved: resolved, isVisible: true)
+        let frame = geometry.frame(fittingLength: 300, monitor: monitor, resolved: resolved)
+
+        XCTAssertNil(geometry.zones(frame: frame, monitor: monitor, resolved: resolved))
+    }
+
     func testFillLeftOfNotchFrameUsesVirtualMidpointWithoutNotch() throws {
         let monitor = makeMonitor(hasNotch: false, notchRange: nil)
         let resolved = makeResolved(notchMode: .fillLeftOfNotch)

@@ -157,6 +157,40 @@ final class FocusLossRescanTests: XCTestCase {
         XCTAssertTrue(handler.focusLossRescans.heldByWindowId.isEmpty)
     }
 
+    func testAHiddenWindowOrderedOutDuringTheHoldIsRescannedWhenTheHoldEnds() throws {
+        let fixture = try makeFixture()
+        let handler = fixture.handler
+        let hidden = fixture.addWindow(windowId: fixture.newWindowId + 1)
+        fixture.controller.workspaceManager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .workspaceInactive),
+            for: hidden
+        )
+        let new = fixture.addWindow(windowId: fixture.newWindowId)
+        fixture.focus(new)
+        handler.rescanAppThatLostFocus(newFocusWindowId: new.windowId)
+        let requestedRescan = {
+            [fixture.layoutState.activeRefresh, fixture.layoutState.pendingRefresh].contains {
+                $0?.kind == .fullRescan
+                    && $0?.rescanScope == .targeted(appPIDs: [fixture.previous.pid], nativeSpaceIds: [])
+            }
+        }
+
+        handler.applyObservedWindowOrdering(
+            WindowServerInfo(
+                id: UInt32(hidden.windowId), pid: hidden.pid, level: 0, frame: .zero, isOrderedIn: false
+            ),
+            token: hidden
+        )
+
+        XCTAssertEqual(fixture.controller.workspaceManager.entry(for: hidden)?.observedState.isNativeWithdrawn, true)
+        XCTAssertFalse(requestedRescan())
+
+        handler.releaseFocusLossRescan(windowId: new.windowId)
+
+        XCTAssertTrue(requestedRescan())
+        fixture.controller.layoutRefreshController.resetState()
+    }
+
     func testAFloatingNewWindowRescansNow() throws {
         let fixture = try makeFixture()
         let handler = fixture.handler

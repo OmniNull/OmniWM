@@ -15,6 +15,7 @@ final class IPCRuleRouter {
     }
 
     func handle(_ request: IPCRuleRequest) async -> Result<IPCRulesQueryResult, IPCErrorCode> {
+        controller.noteUserAction()
         switch request {
         case let .add(rule):
             return add(rule)

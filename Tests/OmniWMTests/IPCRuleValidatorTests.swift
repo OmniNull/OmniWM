@@ -153,6 +153,31 @@ final class IPCRuleValidatorTests: XCTestCase {
         XCTAssertNil(decoded.initialContainerPrimarySpan)
     }
 
+    func testWorkspaceAssignmentForAllWindowsRequiresAWorkspaceAndSurvivesIPC() throws {
+        let invalid = IPCRuleDefinition(
+            bundleId: "com.test.app", layout: .tile, assignToWorkspace: " ", assignToWorkspaceForAllWindows: true
+        )
+        XCTAssertNotNil(IPCRuleValidator.validate(invalid).workspaceAssignmentError)
+        let rule = IPCRuleDefinition(
+            bundleId: "com.test.app", assignToWorkspace: "32", assignToWorkspaceForAllWindows: true
+        )
+        XCTAssertTrue(IPCRuleValidator.validate(rule).isValid)
+
+        let request = IPCRequest(id: "1", rule: .add(rule: rule))
+        XCTAssertEqual(try IPCWire.decodeRequest(from: IPCWire.encodeRequestLine(request)), request)
+
+        let snapshot = IPCRuleSnapshot(
+            id: "r1", position: 1, bundleId: rule.bundleId, layout: .auto, assignToWorkspace: "32",
+            assignToWorkspaceForAllWindows: true, specificity: 2, isValid: true
+        )
+        let response = IPCResponse.success(
+            id: request.id, kind: .query, result: IPCResult(rules: IPCRulesQueryResult(rules: [snapshot]))
+        )
+        XCTAssertEqual(try IPCWire.decodeResponse(from: IPCWire.encodeResponseLine(response)), response)
+        let previous = Data(#"{"bundleId":"com.test.app","layout":"auto","assignToWorkspace":"32"}"#.utf8)
+        XCTAssertNil(try JSONDecoder().decode(IPCRuleDefinition.self, from: previous).assignToWorkspaceForAllWindows)
+    }
+
     func testScratchpadSlotBoundsAcceptedAsTheOnlyEffect() {
         let slots = IPCScratchpadSlots.range
         for slot in [slots.lowerBound, slots.upperBound] {

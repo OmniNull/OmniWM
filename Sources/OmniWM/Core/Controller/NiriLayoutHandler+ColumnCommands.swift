@@ -213,14 +213,22 @@ extension NiriLayoutHandler {
         var toggled = false
         withNiriWindowContext(target) { engine, windowNode, context, state in
             let workspaceId = context.workspaceId
-            guard let column = engine.column(of: windowNode),
-                  engine.toggleColumnTabbed(
-                      column,
-                      in: workspaceId,
-                      motion: context.motion,
-                      orientation: context.orientation
-                  )
-            else { return }
+            guard let column = engine.column(of: windowNode) else { return }
+            let previousPlaces = context.motion.animationsEnabled
+                ? engine.liveWindowPlaces(in: [column], context: context) : [:]
+            let shownTab = context.motion.animationsEnabled && column.isTabbed
+                ? engine.projectedActiveWindow(in: column, workspaceId: workspaceId)
+                : nil
+            guard engine.toggleColumnTabbed(
+                column,
+                in: workspaceId,
+                motion: context.motion,
+                orientation: context.orientation,
+                animateWindowMovement: false
+            ) else { return }
+            if context.motion.animationsEnabled {
+                engine.animateDisplayChange(of: column, from: previousPlaces, onlyMoving: shownTab, context: context)
+            }
             recordLayoutOperation(.displayModeChanged, in: workspaceId)
             controller.layoutRefreshController.requestLayoutCommandRelayout(affectedWorkspaceIds: [workspaceId])
             if engine.hasAnyWindowAnimationsRunning(in: workspaceId) {

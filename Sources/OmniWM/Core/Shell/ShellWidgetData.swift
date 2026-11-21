@@ -56,6 +56,8 @@ enum ShellDataKey: String, CaseIterable, Sendable {
     case brightness
     case connection
     case commandPalette
+    case nightShift
+    case wifiNetworks
 
     private static let order = allCases
     static let table = order.map(\.rawValue).joined(separator: "\n")
@@ -148,6 +150,7 @@ struct ShellWidgetData: Equatable, Sendable {
     var awake: ShellAwake?
     var microphone: ShellMicrophone?
     var brightness: ShellBrightness?
+    var nightShift: ShellNightShift?
     var outputs: [ShellAudioOutput]?
     var audioApps: ShellAudioApps?
     var media: ShellMedia?
@@ -159,6 +162,7 @@ struct ShellWidgetData: Equatable, Sendable {
     var inputSource: ShellInputSource?
     var privacy: ShellPrivacy?
     var wifi: ShellWiFi?
+    var wifiNetworks: ShellWiFiNetworks?
     var connection: ShellConnection?
     var bluetooth: ShellBluetooth?
     var user: ShellUser?
@@ -192,6 +196,7 @@ extension ShellWidgetData {
             | Self.changed(.awake, when: awake != previous.awake)
             | Self.changed(.microphone, when: microphone != previous.microphone)
             | Self.changed(.brightness, when: brightness != previous.brightness)
+            | Self.changed(.nightShift, when: nightShift != previous.nightShift)
             | Self.changed(.outputs, when: outputs != previous.outputs)
             | Self.changed(.audioApps, when: audioApps != previous.audioApps)
             | Self.changed(.media, when: media != previous.media)
@@ -203,6 +208,7 @@ extension ShellWidgetData {
             | Self.changed(.inputSource, when: inputSource != previous.inputSource)
             | Self.changed(.privacy, when: privacy != previous.privacy)
             | Self.changed(.wifi, when: wifi != previous.wifi)
+            | Self.changed(.wifiNetworks, when: wifiNetworks != previous.wifiNetworks)
             | Self.changed(.connection, when: connection != previous.connection)
             | Self.changed(.bluetooth, when: bluetooth != previous.bluetooth)
             | Self.changed(.user, when: user != previous.user)

@@ -6,12 +6,13 @@ import Foundation
 
 extension MouseEventHandler {
     func captureNativeResizeStart(
-        for token: WindowToken?, at location: CGPoint, windowServerFramesAtMouseDown: [WindowToken: CGRect]?
+        for token: WindowToken?, at location: CGPoint,
+        windowServerFramesAtMouseDown: [WindowToken: CGRect]?
     ) {
         state.nativeResizeStart = nil
-        guard let controller,
-              controller.settings.gestures.adoptNativeResize,
-              let token,
+        state.staleNativeResizeStartToken = nil
+        guard let controller else { return }
+        guard let token,
               let entry = controller.workspaceManager.entry(for: token),
               let axRef = entry.axRef,
               entry.layoutReason == .standard,
@@ -23,7 +24,10 @@ extension MouseEventHandler {
         } else {
             nativeWindowFrameProvider(axRef)
         }
-        guard observedFrame?.approximatelyEqual(to: frame, tolerance: FrameTolerance.frameWrite) == true else { return }
+        guard observedFrame?.approximatelyEqual(to: frame, tolerance: FrameTolerance.frameWrite) == true else {
+            state.staleNativeResizeStartToken = token
+            return
+        }
         state.nativeResizeStart = .init(token: token, frame: frame, location: location)
     }
 
@@ -46,13 +50,27 @@ extension MouseEventHandler {
             finishNativeDwindleResize(&drag)
             requestNativeTitleBarDragCorrection(for: entry)
         } else {
-            guard let start = nativeResizeStartFrame(drag, entry: entry), let observedFrame else { return false }
-            let edges = Self.nativeResizeEdges(from: start, to: observedFrame)
-            guard !edges.isEmpty,
-                  adoptNiriNativeResize(entry, edges: edges, from: start, to: observedFrame)
+            guard drag.pointerWasDragged,
+                  let start = nativeResizeStartFrame(drag, entry: entry),
+                  let observedFrame
+            else { return false }
+            let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: true)
+            guard !edges.isEmpty else { return false }
+            if edges.contains([.left, .right]) || edges.contains([.top, .bottom]),
+               !controller.isOnLandscapeDisplay(entry.workspaceId),
+               drag.pressLocation.map({ Self.isNativeResizePress(at: $0, in: start) }) != true
+            {
+                return false
+            }
+            let completed = completedNativeResize(
+                of: drag, edges: edges, from: start, observed: observedFrame, entry: entry
+            )
+            guard adoptNiriNativeResize(entry, edges: edges, from: start, to: completed, shownAt: observedFrame)
             else { return false }
         }
         drag.adoptionStartFrame = nil
+        drag.pendingWriteStartFrame = nil
+        drag.liveStartFrame = nil
         drag.phase = .awaitingCorrection
         drag.receivedFrameChange = false
         return true
@@ -60,13 +78,13 @@ extension MouseEventHandler {
 
     @discardableResult
     func adoptHostedNativeResize(_ entry: WindowState, from start: CGRect, to observed: CGRect) -> Bool {
-        guard let controller, controller.settings.gestures.adoptNativeResize,
+        guard let controller,
               entry.target.hostedMetadata != nil, entry.mode == .tiling, entry.layoutReason == .standard,
               entry.hiddenState == nil else { return false }
-        let edges = Self.nativeResizeEdges(from: start, to: observed)
+        let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: true)
         guard !edges.isEmpty else { return false }
         if controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .niri {
-            return adoptNiriNativeResize(entry, edges: edges, from: start, to: observed)
+            return adoptNiriNativeResize(entry, edges: edges, from: start, to: observed, shownAt: observed)
         }
         var drag = MouseInputState.NativeTitleBarDrag(token: entry.token)
         drag.adoptionStartFrame = start
@@ -80,11 +98,9 @@ extension MouseEventHandler {
         _ drag: MouseInputState.NativeTitleBarDrag,
         entry: WindowState
     ) -> CGRect? {
-        guard let controller,
-              controller.settings.gestures.adoptNativeResize,
-              let start = drag.adoptionStartFrame,
-              entry.layoutReason == .standard else { return nil }
-        if entry.target.hostedMetadata != nil { return start }
+        guard let controller, entry.layoutReason == .standard else { return nil }
+        guard let start = drag.adoptionStartFrame else { return drag.pendingWriteStartFrame }
+        if entry.target.hostedMetadata != nil || drag.lateResize { return start }
         guard !controller.axManager.isAwaitingFrameWrite(entry.windowId),
               controller.axManager.lastAppliedFrame(for: entry.windowId)?.approximatelyEqual(
                   to: start,
@@ -96,7 +112,7 @@ extension MouseEventHandler {
         return start
     }
 
-    static func nativeResizeEdges(from start: CGRect, to observed: CGRect) -> ResizeEdge {
+    static func nativeResizeEdges(from start: CGRect, to observed: CGRect, allowsCentred: Bool = false) -> ResizeEdge {
         func moved(_ before: CGFloat, _ after: CGFloat) -> Bool {
             abs(after - before) > FrameTolerance.screenMatch
         }
@@ -104,7 +120,11 @@ extension MouseEventHandler {
         let right = moved(start.maxX, observed.maxX)
         let bottom = moved(start.minY, observed.minY)
         let top = moved(start.maxY, observed.maxY)
-        guard !(left && right), !(bottom && top) else { return [] }
+        guard !(left && right)
+            || allowsCentred && isCentredResize(start.minX ... start.maxX, observed.minX ... observed.maxX),
+            !(bottom && top)
+            || allowsCentred && isCentredResize(start.minY ... start.maxY, observed.minY ... observed.maxY)
+        else { return [] }
         var edges: ResizeEdge = []
         if left { edges.insert(.left) }
         if right { edges.insert(.right) }
@@ -139,7 +159,8 @@ extension MouseEventHandler {
         _ entry: WindowState,
         edges: ResizeEdge,
         from start: CGRect,
-        to observed: CGRect
+        to observed: CGRect,
+        shownAt shown: CGRect
     ) -> Bool {
         let workspaceId = entry.workspaceId
         guard let controller,
@@ -147,31 +168,38 @@ extension MouseEventHandler {
               let monitor = controller.workspaceManager.monitor(for: workspaceId),
               !controller.niriLayoutHandler.hasScrollAnimation(for: workspaceId),
               let window = engine.findNode(for: entry.token, in: workspaceId),
-              engine.interactiveResizeTarget(windowId: window.id, in: workspaceId) != nil
+              engine.interactiveResizeTarget(windowId: window.id, in: workspaceId) != nil,
+              let context = liveColumnContext(for: workspaceId)
         else {
             return false
         }
-        let context = nativeResizeContext(controller, engine: engine, workspaceId: workspaceId, monitor: monitor)
         let horizontal = context.orientation == .horizontal
         let primaryEdges = edges.intersection(horizontal ? [.left, .right] : [.top, .bottom])
-        let adoptsSecondary = !edges.subtracting(primaryEdges).isEmpty
-            && !(horizontal && engine.singleWindowLayoutContext(in: workspaceId) != nil)
-        guard !primaryEdges.isEmpty || adoptsSecondary else { return false }
+        let secondary = edges.subtracting(primaryEdges)
+        let secondarySpan = adoptedSecondarySpan(
+            secondary, of: window, in: workspaceId, frames: (start, observed), orientation: context.orientation
+        )
+        guard !primaryEdges.isEmpty || secondarySpan != nil else { return false }
 
+        let slide = fusionEdgeResizeSlide(
+            around: window, in: workspaceId, resizedFrom: start, to: observed,
+            includeStackMates: horizontal || !secondary.isEmpty
+        )
+        let changeStart = controller.niriLayoutHandler.layoutChangeStart(in: workspaceId)
         var changed = false
         controller.workspaceManager.withNiriViewportState(for: workspaceId) { viewportState in
-            if adoptsSecondary {
+            if let secondarySpan {
                 changed = adoptNiriSecondarySpan(
                     window,
-                    span: horizontal ? observed.height : observed.width,
-                    renderedSpan: horizontal ? start.height : start.width,
+                    span: secondarySpan,
+                    frames: (start, observed),
                     context: context
                 )
             }
             if !primaryEdges.isEmpty,
                resizeNiriPrimarySpan(
                    window,
-                   edges: primaryEdges,
+                   edges: edges,
                    frames: (start, observed),
                    context: context,
                    state: &viewportState
@@ -181,15 +209,43 @@ extension MouseEventHandler {
             }
         }
         guard changed else { return false }
-        if entry.axRef != nil { controller.axManager.forceApplyNextFrame(for: entry.windowId) }
-        settleNiriResize(entry.token, in: workspaceId)
+        confirmAdoptedNiriFrame(shown, for: entry, horizontal: horizontal, controller: controller)
+        settleAdoptedNiriResize(window, sliding: slide, monitor: monitor, context: context)
+        controller.niriLayoutHandler.recordLayoutChange(since: changeStart)
         return true
+    }
+
+    private func settleAdoptedNiriResize(
+        _ window: NiriWindow,
+        sliding slide: FusionEdgeResizeSlide?,
+        monitor: Monitor,
+        context: NiriInteractionContext
+    ) {
+        guard let slide else {
+            settleNiriResize(window.token, in: context.workspaceId)
+            return
+        }
+        settleFusionEdgeResize(window, sliding: slide, monitor: monitor, context: context)
+    }
+
+    private func confirmAdoptedNiriFrame(
+        _ observed: CGRect,
+        for entry: WindowState,
+        horizontal: Bool,
+        controller: WMController
+    ) {
+        guard entry.axRef != nil else { return }
+        if horizontal {
+            controller.axManager.confirmFrameWrite(for: entry.windowId, frame: observed)
+        } else {
+            controller.axManager.forceApplyNextFrame(for: entry.windowId)
+        }
     }
 
     private func adoptNiriSecondarySpan(
         _ window: NiriWindow,
         span: CGFloat,
-        renderedSpan: CGFloat,
+        frames: (start: CGRect, observed: CGRect),
         context: NiriInteractionContext
     ) -> Bool {
         guard let engine = controller?.niriEngine,
@@ -207,8 +263,13 @@ extension MouseEventHandler {
             in: context.workspaceId,
             geometry: context.sizingGeometry
         )
-        let applied = context.orientation == .horizontal ? window.height : window.windowWidth
-        guard case let .fixed(value) = applied, abs(value - renderedSpan) <= FrameTolerance.frameWrite else {
+        let horizontal = context.orientation == .horizontal
+        let renderedSpan = horizontal ? frames.start.height : frames.start.width
+        let applied = horizontal ? window.height : window.windowWidth
+        guard case let .fixed(value) = applied else { return true }
+        if abs(value - renderedSpan) > FrameTolerance.frameWrite,
+           neighboursGiveWay(to: window, from: frames.start, to: frames.observed, context: context)
+        {
             return true
         }
         for sibling in siblings {
@@ -220,22 +281,6 @@ extension MouseEventHandler {
         return false
     }
 
-    private func nativeResizeContext(
-        _ controller: WMController,
-        engine: NiriLayoutEngine,
-        workspaceId: WorkspaceDescriptor.ID,
-        monitor: Monitor
-    ) -> NiriInteractionContext {
-        let geometry = controller.niriInteractionGeometry(for: monitor)
-        return NiriInteractionContext(
-            workspaceId: workspaceId,
-            motion: controller.motionPolicy.snapshot(),
-            workingFrame: geometry.workingFrame,
-            gaps: geometry.innerGap,
-            orientation: resolvedNiriOrientation(engine: engine, workspaceId: workspaceId, monitor: monitor)
-        )
-    }
-
     private func resizeNiriPrimarySpan(
         _ window: NiriWindow,
         edges: ResizeEdge,
@@ -243,10 +288,15 @@ extension MouseEventHandler {
         context: NiriInteractionContext,
         state: inout ViewportState
     ) -> Bool {
+        let horizontal = context.orientation == .horizontal
+        let primaryEdges = edges.intersection(horizontal ? [.left, .right] : [.bottom, .top])
+        let primary = centredPrimaryResize(
+            primaryEdges, from: frames.start, to: frames.observed, orientation: context.orientation
+        )
         guard let engine = controller?.niriEngine,
               engine.interactiveResizeBegin(
                   windowId: window.id,
-                  edges: edges,
+                  edges: primary.edges,
                   startLocation: frames.start.origin,
                   in: context.workspaceId,
                   orientation: context.orientation,
@@ -256,7 +306,7 @@ extension MouseEventHandler {
             return false
         }
         guard engine.interactiveResizeUpdate(
-            currentLocation: Self.nativeResizeLocation(edges, from: frames.start, to: frames.observed),
+            currentLocation: Self.nativeResizeLocation(primary.edges, from: frames.start, to: primary.observed),
             monitorFrame: context.workingFrame,
             gaps: LayoutGaps(horizontal: context.gaps, vertical: context.gaps),
             viewportState: { $0(&state) }
@@ -264,12 +314,8 @@ extension MouseEventHandler {
             engine.clearInteractiveResize()
             return false
         }
-        engine.interactiveResizeEnd(
-            motion: context.motion,
-            state: &state,
-            workingFrame: context.workingFrame,
-            gaps: context.gaps
-        )
+        engine.clearInteractiveResize()
+        keepCentredResizeInPlace(window, primary, context: context, state: &state)
         return true
     }
 
@@ -291,7 +337,8 @@ extension MouseEventHandler {
             return
         }
         guard let observedFrame else { return }
-        let edges = Self.nativeResizeEdges(from: start, to: observedFrame)
+        let allowsCentered = allowsCenteredNativeDwindleResize(entry, from: start)
+        let edges = Self.nativeResizeEdges(from: start, to: observedFrame, allowsCentred: allowsCentered)
         guard !edges.isEmpty || observedFrame.approximatelyEqual(to: start, tolerance: FrameTolerance.screenMatch)
         else { return }
         if drag.dwindleResizeWorkspaceId == nil {
@@ -302,7 +349,8 @@ extension MouseEventHandler {
                 startLocation: start.origin,
                 in: workspaceId,
                 innerGap: controller.resolvedDwindleSettings(for: monitor).innerGap,
-                edgePolicy: .exact
+                edgePolicy: .exact,
+                allowsCentered: allowsCentered
             ) else { return }
             controller.dwindleLayoutHandler.refreshEngineConstraints(workspaceId: workspaceId, monitor: monitor)
             drag.dwindleResizeWorkspaceId = workspaceId
@@ -316,9 +364,6 @@ extension MouseEventHandler {
             return
         }
         let combinedEdges = resize.edges.union(edges)
-        guard !combinedEdges.isSuperset(of: [.left, .right]),
-              !combinedEdges.isSuperset(of: [.top, .bottom])
-        else { return }
         if entry.axRef != nil { state.nativeTitleBarDrag = drag }
         if engine.interactiveResizeUpdate(
             currentLocation: Self.nativeResizeLocation(combinedEdges, from: start, to: observedFrame),
@@ -326,6 +371,13 @@ extension MouseEventHandler {
         ), renderOnChange {
             controller.layoutRefreshController.renderDwindleInteractiveResize(for: workspaceId)
         }
+    }
+
+    private func allowsCenteredNativeDwindleResize(_ entry: borrowing WindowState, from start: CGRect) -> Bool {
+        if entry.target.hostedMetadata != nil { return true }
+        guard Self.modifierFlagsMatch(state.leftPressModifiers, required: .maskAlternate),
+              let press = state.leftPressLocation else { return false }
+        return Self.isNativeResizePress(at: press, in: start)
     }
 
     func finishNativeDwindleResize(_ drag: inout MouseInputState.NativeTitleBarDrag) {
@@ -336,5 +388,62 @@ extension MouseEventHandler {
               resize.token == drag.token, resize.workspaceId == workspaceId
         else { return }
         finishDwindleResize()
+    }
+
+    func nativeResizeTarget(
+        of drag: MouseInputState.NativeTitleBarDrag,
+        from start: CGRect,
+        observed: CGRect,
+        entry: WindowState
+    ) -> CGSize? {
+        guard let controller,
+              let press = drag.pressLocation,
+              let release = drag.releaseLocation,
+              entry.axRef != nil
+        else { return nil }
+        let edges = Self.nativeResizeEdges(from: start, to: observed, allowsCentred: true)
+        guard !edges.isEmpty else { return nil }
+        let dx = release.x - press.x
+        let dy = release.y - press.y
+        func span(_ length: CGFloat, low: Bool, high: Bool, delta: CGFloat, pressedHigh: Bool) -> CGFloat {
+            switch (low, high) {
+            case (true, true): length + 2 * (pressedHigh ? delta : -delta)
+            case (false, true): length + delta
+            case (true, false): length - delta
+            case (false, false): length
+            }
+        }
+        let reported = controller.workspaceManager.cachedConstraints(for: entry.token, maxAge: .greatestFiniteMagnitude)
+            ?? .unconstrained
+        let constraints = reported.isFixed ? WindowSizeConstraints.unconstrained : reported
+        let learned = controller.workspaceManager.observedSizeEvidence(for: entry.token)?.minSize ?? .zero
+        func clamped(_ value: CGFloat, min minimum: CGFloat, max maximum: CGFloat) -> CGFloat {
+            let floor = max(value, minimum)
+            return maximum > 0 ? min(floor, maximum) : floor
+        }
+        return CGSize(
+            width: clamped(
+                span(
+                    start.width,
+                    low: edges.contains(.left),
+                    high: edges.contains(.right),
+                    delta: dx,
+                    pressedHigh: press.x >= start.midX
+                ),
+                min: max(constraints.minSize.width, learned.width),
+                max: constraints.maxSize.width
+            ),
+            height: clamped(
+                span(
+                    start.height,
+                    low: edges.contains(.bottom),
+                    high: edges.contains(.top),
+                    delta: dy,
+                    pressedHigh: press.y >= start.midY
+                ),
+                min: max(constraints.minSize.height, learned.height),
+                max: constraints.maxSize.height
+            )
+        )
     }
 }

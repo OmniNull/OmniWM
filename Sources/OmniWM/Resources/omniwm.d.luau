@@ -266,6 +266,7 @@ export type Bar = {
     drag: BarDrag?,
     badges: "off" | "dot" | "text",
     layout: ("niri" | "dwindle")?,
+    workspacesRoom: number?,
     style: BarStyle?,
     workspaces: { BarWorkspace },
     scratchpads: { BarScratchpad },
@@ -361,9 +362,23 @@ export type Microphone = {
     muted: boolean?,
 }
 
+export type DisplayBrightness = {
+    id: string,
+    name: string,
+    value: number,
+    available: boolean,
+}
+
 export type Brightness = {
     value: number,
     available: boolean,
+    mainDisplayId: string?,
+    displays: { DisplayBrightness },
+}
+
+export type NightShift = {
+    available: boolean,
+    enabled: boolean,
 }
 
 export type NotificationAction = {
@@ -557,6 +572,25 @@ export type WiFi = {
     location: "authorized" | "denied" | "restricted" | "notDetermined",
 }
 
+export type WiFiNetwork = {
+    id: string,
+    ssid: string,
+    rssi: number,
+    security: string?,
+    secured: boolean,
+    enterprise: boolean,
+    known: boolean,
+    opensSettings: boolean,
+}
+
+export type WiFiNetworks = {
+    known: { WiFiNetwork },
+    other: { WiFiNetwork },
+    scanning: boolean,
+    joining: string?,
+    failure: { id: string, message: string }?,
+}
+
 export type Connection = {
     kind: "wifi" | "ethernet" | "cellular" | "other" | "none",
     interface: string?,
@@ -664,6 +698,8 @@ export type Data = {
     brightness: Brightness?,
     connection: Connection?,
     commandPalette: CommandPalette?,
+    nightShift: NightShift?,
+    wifiNetworks: WiFiNetworks?,
 }
 
 export type Format = {

@@ -22,6 +22,8 @@ class TabRailWindow: NSPanel {
 
     var onSelect: ((TabRailInfo, Int, WindowToken?) -> Void)?
     var ringOrderedAbove: (@MainActor (UInt32) -> UInt32?)?
+    var onDrag: ((TabRailDrag) -> Void)?
+    var acceptsDrags: (TabRailInfo) -> Bool = { _ in false }
 
     init(
         owner: TabRailOwner, workspaceId: WorkspaceDescriptor.ID, motionPolicy: MotionPolicy,
@@ -57,6 +59,13 @@ class TabRailWindow: NSPanel {
             guard let self, let currentInfo else { return }
             let token = currentInfo.tabs.first(where: { $0.visualIndex == visualIndex })?.token
             self.onSelect?(currentInfo, visualIndex, token)
+        }
+        railView.onDrag = { [weak self] event, location in
+            self?.forwardDrag(event, at: location)
+        }
+        railView.acceptsDrags = { [weak self] in
+            guard let self, let currentInfo else { return false }
+            return acceptsDrags(currentInfo)
         }
         railView.onHoverChange = { [weak self] tab, itemRect in
             self?.updateHoverCard(tab: tab, itemRect: itemRect)
@@ -111,6 +120,17 @@ class TabRailWindow: NSPanel {
     override func convertToScreen(_ rect: NSRect) -> NSRect {
         let origin = appliedFrame.origin
         return rect.offsetBy(dx: origin.x, dy: origin.y)
+    }
+
+    private func forwardDrag(_ event: TabRailDragGesture.Event, at location: CGPoint) {
+        guard let currentInfo, let tab = event.pressedTab(in: currentInfo.tabs) else { return }
+        onDrag?(TabRailDrag(
+            info: currentInfo,
+            visualIndex: tab.visualIndex,
+            token: tab.token,
+            location: location,
+            pressLocation: event.pressPoint
+        ))
     }
 
     func update(info: TabRailInfo, forceOrdering: Bool, style: TabRailStyle = .compact) {
@@ -319,5 +339,14 @@ class TabRailWindow: NSPanel {
 
     private static func surfaceID(workspaceId: WorkspaceDescriptor.ID, owner: TabRailOwner) -> String {
         "tab-rail-\(workspaceId.uuidString)-\(owner.surfaceIdentifier)"
+    }
+}
+
+extension TabRailWindow {
+    func dragTarget(at point: CGPoint) -> (token: WindowToken, visualIndex: Int)? {
+        guard isOrderedIn else { return nil }
+        let frame = appliedFrame
+        guard frame.contains(point) else { return nil }
+        return railView.dragTarget(at: CGPoint(x: point.x - frame.minX, y: point.y - frame.minY))
     }
 }

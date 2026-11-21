@@ -54,12 +54,15 @@ extension WorkspaceBarManager {
         } else {
             applyShellProfile(config)
             commandPaletteConfigCache = nil
+            updateShellTheme(config, needed: usesShellThemeWithoutHost)
             controller?.appThemeShellIsOff(
                 theme: { [weak self] in self?.appThemeFallbackTheme() ?? .native },
                 refresh: true
             )
         }
-        controller?.commandPaletteController.prewarmShell(from: self)
+        if shellHost != nil || commandPaletteResources != nil {
+            controller?.commandPaletteController.prewarmShell(from: self)
+        }
     }
 
     func toggleShellSystemStats(preferring monitors: [Monitor]) -> Bool {
@@ -91,12 +94,18 @@ extension WorkspaceBarManager {
         lastIslands = []
         notificationBadges.onLabelsChange = nil
         host?.stop()
+        if let host {
+            updateShellTheme(host.config, needed: usesShellThemeWithoutHost)
+        }
         controller?.appThemeShellIsOff { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         setShellBadgeDemand(false)
         controller?.mouseEventHandler.reconcileMouseMoveSubscription()
     }
 
     func flushShellForQuit() async {
+        isQuittingShell = true
+        shellConfiguration.stopObserving(for: .shellTheme)
+        stopWallpaperPalette()
         shellHost?.stop()
         await shellConfiguration.flush()
         await ShellWidgetHost.flushRetiredWork()
@@ -224,6 +233,7 @@ extension WorkspaceBarManager {
         }
         host.onConfigChange = { [weak self] config in
             self?.shellConfiguration.adopt(config)
+            self?.updateShellTheme(config)
             NotificationCenter.default.post(name: .shellConfigDidChange, object: nil)
             self?.applyShellProfile(config)
             self?.applyIslands(self?.lastIslands ?? [])
@@ -287,10 +297,12 @@ extension WorkspaceBarManager {
         let showsLayout = controller.settings.statusBar.showLayout
         for bar in lastBars where keepsShellInstance(bar) {
             let resolved = settings.resolved(for: bar.monitor)
+            var style = ShellBarStyle(resolved, settings: settings, snapshot: bar.snapshot)
+            style.dark = usesDarkPalette(resolved)
             var data = ShellBarData(
                 monitor: bar.monitor,
                 snapshot: bar.snapshot,
-                style: ShellBarStyle(resolved, settings: settings, snapshot: bar.snapshot),
+                style: style,
                 sessionToken: shellSessionToken,
                 badges: notificationBadges,
                 icons: &icons
@@ -311,6 +323,9 @@ extension WorkspaceBarManager {
                 if island != .active {
                     compactScratchpads(in: &data, bar: bar, geometry: geometry, resolved: resolved)
                 }
+                data.workspacesRoom = island == .all
+                    ? workspacesRoom(for: bar, geometry: geometry, resolved: resolved)
+                    : nil
                 result[ShellBarKey(monitor: bar.monitor.id, island: island)] = data
             }
         }
@@ -342,24 +357,29 @@ extension WorkspaceBarManager {
         shellCompactedScratchpads[bar.monitor.id] = compact
     }
 
-    static func compactScratchpads(
-        _ snapshot: WorkspaceBarSnapshot,
-        beside slots: [WorkspaceBarShellWidget],
-        availableWidth: CGFloat,
-        icons: Int
-    ) -> Set<Int> {
-        let others = slots.filter { $0.id != ShellConfig.bundledScratchpads }
-        let presented = WorkspaceBarScratchpadLayout.compactedItems(
-            snapshot.scratchpads,
-            widthBudget: .init(
-                availableWidth: availableWidth,
-                baseWidth: 8 + others.reduce(0) { $0 + $1.size.width } + CGFloat(max(0, others.count - 1)) * 8
-            ),
-            barHeight: snapshot.barHeight,
-            icons: icons,
-            hasAdjacentContent: !others.isEmpty
+    private func workspacesRoom(
+        for bar: DesiredBarSurface,
+        geometry: WorkspaceBarGeometry,
+        resolved: ResolvedBarSettings
+    ) -> Double? {
+        guard !bar.snapshot.orientation.isVertical, let shellHost else { return nil }
+        let frame = geometry.frame(fittingLength: 0, monitor: bar.monitor, resolved: resolved)
+        guard let zones = geometry.zones(frame: frame, monitor: bar.monitor, resolved: resolved) else { return nil }
+        let compact = shellCompactedScratchpads[bar.monitor.id]
+        return Self.workspacesRoom(
+            beside: shellHost.slots(for: bar.monitor.id).filter { $0.island == .all },
+            length: frame.width,
+            zones: zones,
+            scratchpads: compact.map { compact in
+                WorkspaceBarScratchpadLayout.estimatedWidth(
+                    of: bar.snapshot.scratchpads.map {
+                        $0.presented(as: compact.contains($0.index) ? .compact : .expanded)
+                    },
+                    barHeight: bar.snapshot.barHeight,
+                    icons: shellHost.config.scratchpadIcons
+                )
+            }
         )
-        return Set(presented.filter { $0.presentation == .compact }.map(\.index))
     }
 
     enum ShellBarClick: Equatable {
@@ -383,8 +403,15 @@ extension WorkspaceBarManager {
         if shellHost != nil {
             service.setTheme(appTheme())
         } else {
+            updateShellTheme(commandPaletteConfig)
             service.setFallbackTheme { [weak self] in self?.appThemeFallbackTheme() ?? .native }
         }
+    }
+
+    func stopShellThemeObservationIfUnused() {
+        guard shellHost == nil, !usesShellThemeWithoutHost else { return }
+        shellConfiguration.stopObserving(for: .shellTheme)
+        stopWallpaperPalette()
     }
 
     func appThemeFallbackTheme() -> ShellTheme {
@@ -393,5 +420,54 @@ extension WorkspaceBarManager {
             accent: controller?.settings.workspaceBar.accentColor,
             foreground: controller?.settings.workspaceBar.textColor
         )
+    }
+
+    func updateShellTheme(_ config: ShellConfig, needed: Bool = true) {
+        guard !isQuittingShell else { return }
+        if needed, shellHost == nil {
+            shellConfiguration.startObserving(for: .shellTheme)
+        } else {
+            shellConfiguration.stopObserving(for: .shellTheme)
+        }
+        guard needed, config.themeName == ShellWallpaperPalette.themeName else {
+            stopWallpaperPalette()
+            return
+        }
+        if let wallpaperPalette {
+            wallpaperPalette.setScheme(config.wallpaperScheme)
+            return
+        }
+        let destination = shellConfiguration.shellDirectory
+            .appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml")
+        let writer = makeWallpaperPalette(destination, config.wallpaperScheme) { [weak self] problem in
+            guard let self else { return }
+            if let shellHost {
+                guard !shellHost.configProblems.contains(problem) else { return }
+                ShellConfig.report(problem, &shellHost.configProblems)
+                shellHost.publishToggleNames()
+            } else {
+                Log.shell.error(problem)
+            }
+        }
+        writer.onWrite = { [weak self] in
+            guard let self else { return }
+            if let shellHost {
+                shellHost.reloadConfig()
+            } else {
+                shellConfiguration.requestRefresh()
+            }
+        }
+        wallpaperPalette = writer
+        writer.start()
+    }
+
+    private var usesShellThemeWithoutHost: Bool {
+        commandPaletteResources != nil || controller?.appThemeService != nil
+    }
+
+    private func stopWallpaperPalette() {
+        wallpaperPalette?.onWrite = nil
+        wallpaperPalette?.stop()
+        wallpaperPalette = nil
     }
 }

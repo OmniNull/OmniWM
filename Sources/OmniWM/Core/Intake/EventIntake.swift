@@ -14,6 +14,7 @@ enum IntakeEvent: Sendable {
     case cgs(CGSWindowEvent)
     case display(DisplayConfigurationObserver.DisplayEvent)
     case hotkeyInvocation(HotkeyInvocation)
+    case windowSwitcherAction(WindowSwitcherAction, generation: UInt64)
     case intentExpired(intentId: IntentID, deadlineGeneration: UInt64)
     case ipcCommand(IPCCommandIntake)
     case leftMouseDown(LeftMouseDownIntake)
@@ -41,6 +42,7 @@ struct LeftMouseDownIntake: Sendable {
     let timestamp: CGEventTimestamp
     let windowServerFrames: [WindowToken: CGRect]
     var dragTarget: (location: CGPoint, windowId: Int)?
+    var clickCount: Int64 = 1
 }
 
 struct MouseScrollIntake: Sendable {

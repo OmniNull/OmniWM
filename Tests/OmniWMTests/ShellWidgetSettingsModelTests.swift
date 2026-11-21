@@ -145,7 +145,7 @@ final class ShellWidgetSettingsModelTests: XCTestCase {
         XCTAssertEqual(controlCenter.options["tab"]?.defaultValue, .string("overview"))
         XCTAssertEqual(
             controlCenter.options["tab"]?.choices,
-            ["overview", "audio", "media", "calendar", "weather", "system"]
+            ["overview", "audio", "displays", "media", "calendar", "weather", "system"]
         )
         let launcher = try XCTUnwrap(ShellRootSettings.load("launcher", directories: [defaults]))
         XCTAssertNil(launcher.options["mode"]?.defaultValue)

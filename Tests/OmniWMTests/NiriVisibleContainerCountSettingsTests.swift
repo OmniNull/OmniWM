@@ -51,6 +51,128 @@ final class NiriVisibleContainerCountSettingsTests: XCTestCase {
         XCTAssertEqual(after.right, before.right)
     }
 
+    func testCountChangesLeaveColumnsAloneWithKeepSizesOnSettingsChange() throws {
+        let fixture = try makeFixture()
+        fixture.controller.settings.niri.defaultContainerPrimarySpan = nil
+        fixture.controller.updateNiriConfig(defaultContainerPrimarySpan: .some(nil))
+        fixture.controller.settings.niri.keepSizesOnSettingsChange = true
+        let before = widths(fixture)
+
+        overrideVisibleContainerCount(4, on: fixture.leftMonitor, fixture: fixture)
+        fixture.controller.rebalanceNiriSizesForVisibleContainerCountChange(on: fixture.leftMonitor.id)
+        fixture.controller.settings.niri.visibleContainerCount = 3
+        fixture.controller.updateNiriConfig(visibleContainerCount: 3)
+        fixture.controller.rebalanceNiriSizesForVisibleContainerCountChange()
+
+        XCTAssertEqual(widths(fixture).left, before.left)
+        XCTAssertEqual(widths(fixture).right, before.right)
+    }
+
+    func testSpanChangesLeaveColumnsAloneWithKeepSizesOnSettingsChange() throws {
+        let fixture = try makeFixture()
+        fixture.controller.settings.niri.keepSizesOnSettingsChange = true
+        let before = widths(fixture)
+
+        fixture.controller.settings.niri.defaultContainerPrimarySpan = 0.95
+        fixture.controller.updateNiriConfig(defaultContainerPrimarySpan: 0.95)
+        overrideSpan(.custom(0.6), on: fixture.leftMonitor, fixture: fixture)
+
+        XCTAssertEqual(widths(fixture).left, before.left)
+        XCTAssertEqual(widths(fixture).right, before.right)
+        XCTAssertEqual(fixture.engine.defaultContainerPrimarySpan, 0.95)
+    }
+
+    func testAGlobalSpanModeChangeRebalancesUnlessSizesAreKept() throws {
+        let customSpan = 0.8
+        for keepsSizes in [false, true] {
+            let fixture = try makeFixture()
+            let settings = fixture.controller.settings.niri
+            settings.keepSizesOnSettingsChange = keepsSizes
+            let initial = widths(fixture)
+            let auto = 1 / CGFloat(settings.visibleContainerCount)
+
+            settings.defaultContainerPrimarySpan = customSpan
+            fixture.controller.applyNiriDefaultSpanSettings()
+            let custom = widths(fixture)
+            XCTAssertEqual(
+                custom.left,
+                keepsSizes ? initial.left : [CGFloat(customSpan), CGFloat(customSpan)],
+                "\(keepsSizes)"
+            )
+            XCTAssertEqual(
+                custom.right,
+                keepsSizes ? initial.right : [CGFloat(customSpan), CGFloat(customSpan)],
+                "\(keepsSizes)"
+            )
+            XCTAssertEqual(fixture.engine.defaultContainerPrimarySpan, CGFloat(customSpan))
+
+            settings.defaultContainerPrimarySpan = nil
+            fixture.controller.applyNiriDefaultSpanSettings()
+            XCTAssertEqual(widths(fixture).left, keepsSizes ? initial.left : [auto, auto], "\(keepsSizes)")
+            XCTAssertEqual(widths(fixture).right, keepsSizes ? initial.right : [auto, auto], "\(keepsSizes)")
+            XCTAssertNil(fixture.engine.defaultContainerPrimarySpan)
+
+            settings.defaultContainerPrimarySpan = customSpan
+            fixture.controller.applyNiriDefaultSpanSettings()
+            XCTAssertEqual(
+                widths(fixture).left,
+                keepsSizes ? initial.left : [CGFloat(customSpan), CGFloat(customSpan)],
+                "\(keepsSizes)"
+            )
+        }
+    }
+
+    func testAVisibleContainersChangeLeavesFittedColumnsAsDrawnOnlyWhileSizesAreKept() throws {
+        let storedSpans: [CGFloat] = [0.3, 0.2]
+        let newCount = 2
+        for keepsSizes in [false, true] {
+            let fixture = try makeFixture { niri in
+                niri.defaultContainerPrimarySpan = nil
+                niri.visibleContainerCount = 3
+                niri.fitToVisibleContainerCount = true
+            }
+            let settings = fixture.controller.settings.niri
+            fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.leftWorkspaceId) {
+                for (column, span) in zip(fixture.engine.columns(in: fixture.leftWorkspaceId), storedSpans) {
+                    column.width = .proportion(span)
+                    column.cachedWidth = 0
+                }
+            }
+            let fitted = drawnWidths(fixture)
+            XCTAssertTrue(fixture.engine.columns(in: fixture.leftWorkspaceId).allSatisfy { $0.fittedWidth != nil })
+            settings.keepSizesOnSettingsChange = keepsSizes
+
+            settings.visibleContainerCount = newCount
+            fixture.controller.applyNiriVisibleContainerSettings()
+
+            let drawn = drawnWidths(fixture)
+            if keepsSizes {
+                XCTAssertEqual(drawn, fitted)
+                XCTAssertEqual(widths(fixture).left, storedSpans)
+            } else {
+                XCTAssertNotEqual(drawn, fitted)
+                XCTAssertEqual(
+                    widths(fixture).left,
+                    Array(repeating: 1 / CGFloat(newCount), count: storedSpans.count)
+                )
+            }
+        }
+    }
+
+    private func drawnWidths(_ fixture: Fixture) -> [CGFloat] {
+        let gap = fixture.controller.innerGap(for: fixture.leftMonitor)
+        fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.leftWorkspaceId) {
+            _ = fixture.engine.calculateLayoutWithVisibility(
+                state: fixture.controller.workspaceManager.niriViewportState(for: fixture.leftWorkspaceId),
+                workspaceId: fixture.leftWorkspaceId,
+                monitorFrame: fixture.controller.insetWorkingFrame(for: fixture.leftMonitor),
+                gaps: (horizontal: gap, vertical: gap),
+                orientation: .horizontal
+            )
+        }
+        return fixture.engine.columns(in: fixture.leftWorkspaceId).map(\.cachedWidth)
+    }
+
     func testMonitorAutoSpanRebalancesWhileGlobalSpanIsCustom() throws {
         let fixture = try makeFixture()
         fixture.controller.settings.niri.defaultContainerPrimarySpan = 0.95
@@ -183,10 +305,11 @@ final class NiriVisibleContainerCountSettingsTests: XCTestCase {
         return (proportions(fixture.leftWorkspaceId), proportions(fixture.rightWorkspaceId))
     }
 
-    private func makeFixture() throws -> Fixture {
+    private func makeFixture(configure: (NiriSettings) -> Void = { _ in }) throws -> Fixture {
         let leftMonitor = makeMonitor(displayId: 868_001, x: 0)
         let rightMonitor = makeMonitor(displayId: 868_002, x: 1600)
         let settings = makeSettings(left: leftMonitor, right: rightMonitor)
+        configure(settings.niri)
         let controller = WMController(settings: settings)
         controller.workspaceManager.applyMonitorConfigurationChange([leftMonitor, rightMonitor])
         controller.workspaceManager.applySettings()

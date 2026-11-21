@@ -20,6 +20,9 @@ extension AXEventHandler {
         }
         guard let entryAXRef = entry.axRef, CFEqual(entryAXRef.element, axRef.element) else { return }
         updateWindowMinimizedState(minimized, token: token)
+        if !minimized, entry.mode == .floating {
+            requestTargetedFullRescan(for: [pid])
+        }
         if !minimized, frontmostApplicationPIDProvider() == pid {
             handleAppActivation(pid: pid, source: .focusedWindowChanged)
         }
@@ -58,6 +61,11 @@ extension AXEventHandler {
                   && !observed.isMinimized && !observed.isNativeFullscreen),
               controller.workspaceManager.setWindowNativeWithdrawn(withdrawn, token: token, source: source)
         else { return false }
+        if withdrawn, controller.workspaceManager.hiddenState(for: token) != nil,
+           !focusLossRescans.heldByWindowId.values.contains(where: { $0.appPIDs.contains(token.pid) })
+        {
+            requestTargetedFullRescan(for: [token.pid])
+        }
         refreshWindowNativeSuppression(
             token: token,
             reason: withdrawn ? .windowWithdrawn : .windowReopened,
@@ -80,7 +88,11 @@ extension AXEventHandler {
                 _ = controller.cancelManagedFocusRequest(request)
             }
             controller.intentLedger.discardPendingFocus(token)
-            controller.layoutRefreshController.cancelActiveAnimations(for: entry.workspaceId)
+            let slideAlreadyPlanned = controller.isNiriStrip(entry.workspaceId)
+                && controller.niriLayoutHandler.laidOutExclusions[entry.workspaceId]?.contains(token) == true
+            if !slideAlreadyPlanned {
+                controller.layoutRefreshController.cancelActiveAnimations(for: entry.workspaceId)
+            }
         }
         if entry.axRef != nil { controller.axManager.setWindowNativeSuppressed(suppressed, token: token) }
         if requestRefresh, !suppressed {

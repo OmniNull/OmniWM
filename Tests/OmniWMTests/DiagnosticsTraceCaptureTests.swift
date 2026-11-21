@@ -49,6 +49,7 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
             "== Space Topology ==",
             "== Native Fullscreen Placeholders ==",
             "== Shell Notifications ==",
+            "== Invariant Check ==",
             "== Multitouch Source ==",
             "== AX Frame State ==",
             "== Settings (TOML) =="
@@ -513,6 +514,110 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
         XCTAssertFalse(recorder.isStoragePrepared)
         XCTAssertFalse(recorder.isSpareStoragePrepared)
         XCTAssertFalse(diagnosticsEventRecorder.isVerboseStoragePrepared)
+    }
+
+    @MainActor
+    func testProblemRecordingRequestsScopeValidationUntilItEnds() async throws {
+        let directory = try makeDiagnosticsDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
+        XCTAssertFalse(controller.workspaceManager.scopeValidationRequested)
+
+        guard case .started = await controller.toggleTraceCapture(desiredState: .active) else {
+            return XCTFail("expected the recording to start")
+        }
+        XCTAssertTrue(controller.workspaceManager.scopeValidationRequested)
+
+        guard case let .stopped(artifact) = await controller.toggleTraceCapture(desiredState: .inactive) else {
+            return XCTFail("expected the recording to stop")
+        }
+        XCTAssertFalse(controller.workspaceManager.scopeValidationRequested)
+        let contents = try String(contentsOf: artifact.url, encoding: .utf8)
+        let reports = ["== State At Start ==", "== State At End =="]
+        let settings = contents.components(separatedBy: "== Invariant Check ==\n").dropFirst()
+            .map { $0.components(separatedBy: "\n").first }
+        XCTAssertTrue(reports.allSatisfy(contents.contains))
+        XCTAssertEqual(settings.count, reports.count)
+        XCTAssertTrue(settings.allSatisfy { $0?.hasSuffix("requested=on") == true })
+    }
+
+    @MainActor
+    func testPerformanceCaptureDoesNotRequestScopeValidation() async throws {
+        let directory = try makeDiagnosticsDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let controller = WMController(settings: makeSettingsStore(), diagnosticsDirectory: directory)
+
+        guard case .started = await controller.toggleTraceCapture(desiredState: .active, profile: .performance) else {
+            return XCTFail("expected the performance capture to start")
+        }
+        XCTAssertFalse(controller.workspaceManager.scopeValidationRequested)
+
+        guard case .stopped = await controller.toggleTraceCapture(desiredState: .inactive, profile: .performance)
+        else {
+            return XCTFail("expected the performance capture to stop")
+        }
+        XCTAssertFalse(controller.workspaceManager.scopeValidationRequested)
+    }
+
+    @MainActor
+    func testReportChecksTheSnapshotItPrints() throws {
+        let controller = WindowAdmissionTestSupport.controller(prefix: "InvariantCheckReport")
+        let workspaceId = try XCTUnwrap(
+            WindowAdmissionTestSupport.workspace(named: "1", layoutType: .niri, controller: controller)
+        )
+        controller.enableNiriLayout()
+        let engine = try XCTUnwrap(controller.niriEngine)
+        let registered = WindowToken(pid: 874_301, windowId: 874_302)
+        _ = WindowAdmissionTestSupport.track(registered, in: workspaceId, controller: controller)
+        let registeredNode = engine.addWindow(token: registered, to: workspaceId, afterSelection: nil)
+        let setting = "scope-validation=\(WorldStore.validatesScopesByDefault ? "on" : "off") requested=off"
+        XCTAssertEqual(try invariantCheck(in: controller), "\(setting)\nclean")
+
+        let stray = WindowToken(pid: registered.pid, windowId: registered.windowId + 1)
+        _ = engine.addWindow(token: stray, to: workspaceId, afterSelection: registeredNode.id)
+        defer {
+            controller.workspaceManager.withEngineMutationScope(in: workspaceId) {
+                engine.removeWindow(token: stray, in: workspaceId)
+            }
+        }
+
+        let manager = controller.workspaceManager
+        let traceBefore = manager.reconcileTraceDump()
+        let countsBefore = manager.invariantViolationCountsDump()
+        let check = try invariantCheck(in: controller)
+        XCTAssertTrue(check.hasPrefix("\(setting)\nlayout_token_missing "))
+        XCTAssertTrue(check.contains(String(describing: stray)))
+        XCTAssertEqual(manager.reconcileTraceDump(), traceBefore)
+        XCTAssertEqual(manager.invariantViolationCountsDump(), countsBefore)
+    }
+
+    func testInvariantCheckNamesTheSettingAndEachViolation() {
+        var focus = FocusSessionSnapshot()
+        focus.pendingManagedFocus = PendingManagedFocusSnapshot(
+            token: nil, workspaceId: nil, monitorId: nil, requestId: 1
+        )
+        let snapshot = ReconcileSnapshot(
+            topologyProfile: TopologyProfile(sortedMonitors: []), focusSession: focus, windows: []
+        )
+        let violations = InvariantChecks.validate(snapshot: snapshot)
+        XCTAssertFalse(violations.isEmpty)
+
+        let unchecked = ReconcileDebugDump.invariantCheck(snapshot, validatesEveryScope: false, requested: false)
+        let requested = ReconcileDebugDump.invariantCheck(snapshot, validatesEveryScope: true, requested: true)
+
+        XCTAssertEqual(
+            unchecked.components(separatedBy: "\n"),
+            ["scope-validation=off requested=off"] + violations.map { "\($0.code) \($0.message)" }
+        )
+        XCTAssertEqual(requested.components(separatedBy: "\n").first, "scope-validation=on requested=on")
+    }
+
+    @MainActor
+    private func invariantCheck(in controller: WMController) throws -> String {
+        let report = RuntimeDiagnosticsReport.build(controller, traceLimit: 0)
+        let parts = report.components(separatedBy: "== Invariant Check ==\n")
+        XCTAssertEqual(parts.count, 2)
+        return try XCTUnwrap(parts.last?.components(separatedBy: "\n\n== ").first)
     }
 
     private func makeDiagnosticsDirectory() throws -> URL {

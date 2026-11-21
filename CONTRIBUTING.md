@@ -235,7 +235,11 @@ When a build is needed, the workflow requires the latest **OmniWM CI** push run 
 
 The **Main branch protection** ruleset blocks branch deletion and force-pushes. Keep those protections and do not grant GitHub Actions an **Always** bypass. The release workflow uses a normal fast-forward push and rejects additional blocking rules before publication, even when its token could bypass them. Required checks or pull-request-only updates need a release flow that publishes an already-reviewed version commit; do not bypass those rules to keep the current flow working.
 
-Re-enable **OmniWM CI** and confirm **Verify** and **Tests** on hosted runners. For an existing PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. A manual run provides logs; it does not replace the PR's required check. Updating the PR branch triggers its normal PR checks. Approve first-time fork runs when needed.
+**OmniWM CI** (`ci.yml`) runs automatically on pull requests and pushes to `main` or branches ending in `-release`, except documentation-only changes. **Website** (`website.yml`) checks website changes on pull requests and pushes to `main`. Neither workflow requires a custom review approval. GitHub may still require approval for first-time fork runs.
+
+Both workflows default to GitHub-hosted runners. To use Blacksmith, set `OMNIWM_CI_RUNNER_PROVIDER` to `blacksmith` under **Settings → Secrets and variables → Actions → Variables**. Set it to `github` or delete it to switch back for new runs.
+
+For an existing PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. A manual run runs the full test groups and provides logs; it does not replace the PR's required check. Updating the PR branch triggers its normal PR checks.
 
 ## Trace Files
 

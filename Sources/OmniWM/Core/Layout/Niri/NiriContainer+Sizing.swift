@@ -4,6 +4,18 @@
 import Foundation
 
 extension NiriContainer {
+    func cachedPrimarySpan(orientation: Monitor.Orientation) -> CGFloat {
+        orientation == .horizontal ? cachedWidth : cachedHeight
+    }
+
+    func setCachedPrimarySpan(_ span: CGFloat, orientation: Monitor.Orientation) {
+        if orientation == .horizontal { cachedWidth = span } else { cachedHeight = span }
+    }
+
+    func hasPrimarySpanAnimation(orientation: Monitor.Orientation) -> Bool {
+        orientation == .horizontal ? hasWidthAnimationRunning : hasHeightAnimationRunning
+    }
+
     func applyWindowWidth(
         _ window: NiriWindow,
         projectedWindows: [NiriWindow],

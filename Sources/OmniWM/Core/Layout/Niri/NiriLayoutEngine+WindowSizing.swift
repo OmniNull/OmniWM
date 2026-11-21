@@ -96,7 +96,7 @@ extension NiriLayoutEngine {
         )
     }
 
-    private func availableWindowWidth(
+    func availableWindowWidth(
         in column: NiriContainer,
         projectedWindowCount: Int,
         workingFrame: CGRect

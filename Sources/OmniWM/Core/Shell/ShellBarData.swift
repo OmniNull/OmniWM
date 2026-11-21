@@ -64,6 +64,7 @@ struct ShellBarStyle: Equatable, Sendable {
     var previews = true
     var hideInFullscreen = true
     var hidesMenuBar = false
+    var dark = false
 
     func write(to writer: inout ShellValueWriter) {
         let optional = { (value: String?) -> (inout ShellValueWriter) -> Void in
@@ -149,9 +150,10 @@ struct ShellBarData: Equatable, Sendable {
     var scratchpads: [ShellBarScratchpad] = []
     var drag: ShellBarDrag?
     var surface: ShellIslandData?
+    var workspacesRoom: Double?
 
     func write(to writer: inout ShellValueWriter) {
-        writer.map(layout == nil ? 8 : 9)
+        writer.map(8 + (layout == nil ? 0 : 1) + (workspacesRoom == nil ? 0 : 1))
         writer.key("drag")
         if let drag {
             drag.write(to: &writer)
@@ -169,6 +171,10 @@ struct ShellBarData: Equatable, Sendable {
         if let layout {
             writer.key("layout")
             writer.string(layout.rawValue)
+        }
+        if let workspacesRoom {
+            writer.key("workspacesRoom")
+            writer.number(workspacesRoom)
         }
         writer.key("style")
         (barEnabled ? style : nil).map { $0.write(to: &writer) } ?? writer.null()

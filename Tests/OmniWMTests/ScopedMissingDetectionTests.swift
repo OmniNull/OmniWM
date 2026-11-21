@@ -157,6 +157,111 @@ final class ScopedMissingDetectionTests: XCTestCase {
         }
     }
 
+    func testTargetedRescanRetiresHiddenWindowThatTheAppOrderedOut() throws {
+        let (controller, workspaceId) = try makeFixture()
+        let parkedToken = WindowToken(pid: 468_150, windowId: 468_151)
+        let orderedOutToken = WindowToken(pid: 468_152, windowId: 468_153)
+        let tokens = [parkedToken, orderedOutToken]
+        track(tokens, in: workspaceId, controller: controller)
+        for token in tokens {
+            controller.workspaceManager.setHiddenState(
+                HiddenState(
+                    proportionalPosition: .zero,
+                    referenceMonitorId: nil,
+                    reason: .workspaceInactive
+                ),
+                for: token
+            )
+        }
+        XCTAssertTrue(controller.workspaceManager.setWindowNativeWithdrawn(true, token: orderedOutToken))
+        let windowServerInfoByWindowId = Dictionary(
+            uniqueKeysWithValues: tokens.map { token in
+                (
+                    token.windowId,
+                    WindowServerInfo(id: UInt32(token.windowId), pid: token.pid, level: 0, frame: .zero)
+                )
+            }
+        )
+
+        for pass in 0 ..< 2 {
+            var seenKeys: Set<WindowToken> = []
+            controller.layoutRefreshController.preserveHiddenWindowsDuringTargetedFullRescan(
+                controller.workspaceManager.allEntries(),
+                eligibleKeys: Set(tokens),
+                windowServerInfoByWindowId: windowServerInfoByWindowId,
+                seenKeys: &seenKeys
+            )
+
+            XCTAssertEqual(seenKeys, [parkedToken])
+            let missing = controller.layoutRefreshController.confirmedMissingEntries(
+                keys: seenKeys,
+                eligibleKeys: Set(tokens),
+                requiredConsecutiveMisses: 2
+            )
+            XCTAssertEqual(missing.map(\.token), pass == 0 ? [] : [orderedOutToken])
+        }
+    }
+
+    func testRepeatedEmptyInventoryConfirmsOnlyWindowsItCanRetire() async throws {
+        let cases: [(authority: ManagedWindowLifetimeAuthority, hiddenAndWithdrawn: Bool)] = [
+            (.directLifecycle, true), (.directLifecycle, false), (.axTopLevelInventory, true)
+        ]
+        for (authority, hiddenAndWithdrawn) in cases {
+            let (controller, workspaceId) = try makeFixture()
+            let refresh = controller.layoutRefreshController
+            defer {
+                refresh.fullRescanEnumerationSnapshotForTests = nil
+                refresh.resetState()
+                controller.axManager.cleanup()
+            }
+            let token = WindowToken(pid: 468_154, windowId: 468_155)
+            _ = controller.workspaceManager.addWindow(
+                WindowAdmissionTestSupport.axRef(for: token),
+                pid: token.pid,
+                windowId: token.windowId,
+                to: workspaceId,
+                lifetimeAuthority: authority
+            )
+            if hiddenAndWithdrawn {
+                controller.workspaceManager.setHiddenState(
+                    HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .workspaceInactive),
+                    for: token
+                )
+                XCTAssertTrue(controller.workspaceManager.setWindowNativeWithdrawn(true, token: token))
+            }
+            refresh.fullRescanEnumerationSnapshotForTests = .init(
+                windows: [],
+                successfullyEnumeratedPIDs: [token.pid],
+                failedPIDs: [],
+                authoritativeTargetPIDs: [token.pid],
+                exactWindowIds: nil,
+                identityAliasesByWindowId: [:],
+                windowServerInfoByWindowId: [
+                    token.windowId: WindowServerInfo(
+                        id: UInt32(token.windowId), pid: token.pid, level: 0, frame: .zero
+                    )
+                ]
+            )
+
+            var confirmations = 0
+            refresh.requestFullRescan(
+                reason: .staleFullRescan,
+                scope: .targeted(appPIDs: [token.pid], nativeSpaceIds: [])
+            )
+            for _ in 0 ..< 4 {
+                await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
+                guard let confirmation = refresh.layoutState.missingConfirmationTask else { break }
+                confirmations += 1
+                await confirmation.value
+            }
+
+            let retires = authority == .axTopLevelInventory
+            let label = "\(authority) hiddenAndWithdrawn: \(hiddenAndWithdrawn)"
+            XCTAssertEqual(confirmations, retires ? 1 : 0, label)
+            XCTAssertEqual(controller.workspaceManager.entry(for: token) == nil, retires, label)
+        }
+    }
+
     func testKnownInactiveSpaceIsPreservedWhileUnknownSpaceRemainsEligible() throws {
         let (controller, workspaceId) = try makeFixture()
         let inactiveToken = WindowToken(pid: 468_106, windowId: 468_107)

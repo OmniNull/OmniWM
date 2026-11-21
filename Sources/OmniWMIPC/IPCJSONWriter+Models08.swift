@@ -4,6 +4,31 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing [IPCShellWidget]) throws {
+        begin(91)
+        var first = true
+        let span = value.span
+        var index = 0
+        while index < span.count {
+            item(&first)
+            try self.value(span[index])
+            index += 1
+        }
+        end(93)
+    }
+
+    mutating func value(_ value: borrowing IPCShellWidgetsQueryResult) throws {
+        begin(123)
+        var first = true
+        self.key("problems", &first)
+        try self.value(value.problems)
+        self.key("profile", &first)
+        try self.value(value.profile)
+        self.key("widgets", &first)
+        try self.value(value.widgets)
+        end(125)
+    }
+
     mutating func value(_ value: borrowing IPCResult.Payload) throws {
         switch value {
         case let .pong(payload):
@@ -221,45 +246,5 @@ extension IPCJSONWriter {
              .moveDown:
             break
         }
-    }
-
-    mutating func arguments(_ value: borrowing IPCColumnCommand, _ first: inout Bool) throws {
-        switch value {
-        case let .move(direction):
-            try argument("direction", direction, &first)
-        case let .moveToIndex(columnIndex):
-            try argument("columnIndex", columnIndex, &first)
-        case let .moveToWorkspace(workspaceNumber):
-            try argument("workspaceNumber", workspaceNumber, &first)
-        case .moveToFirst,
-             .moveToLast,
-             .moveToWorkspaceUp,
-             .moveToWorkspaceDown,
-             .toggleTabbed:
-            break
-        }
-    }
-
-    mutating func value(_ value: borrowing IPCSizeChangeKind) throws {
-        try self.value(value.rawValue)
-    }
-
-    mutating func value(_ value: borrowing IPCSizeChange) throws {
-        begin(123)
-        var first = true
-        self.key("kind", &first)
-        try self.value(value.kind)
-        self.key("value", &first)
-        try self.value(value.value)
-        end(125)
-    }
-
-    mutating func argument(_ name: StaticString, _ value: borrowing IPCSizeChange, _ first: inout Bool) throws {
-        self.key("arguments", &first)
-        begin(123)
-        var argumentFirst = true
-        self.key(name, &argumentFirst)
-        try self.value(value)
-        end(125)
     }
 }

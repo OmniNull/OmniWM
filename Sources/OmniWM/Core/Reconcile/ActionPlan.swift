@@ -125,3 +125,9 @@ struct ActionPlan: Equatable {
         return parts.joined(separator: ",")
     }
 }
+
+extension ActionPlan {
+    static var userCommandNotes: [String] {
+        ["user_command"]
+    }
+}

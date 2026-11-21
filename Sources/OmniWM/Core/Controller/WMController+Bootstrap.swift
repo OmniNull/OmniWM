@@ -18,7 +18,7 @@ extension WMController {
         focusPolicyEngine.intentLedger = intentLedger
         focusPolicyEngine.deadlineWheel = deadlineWheel
         hotkeys.isMouseButtonCaptured = { [weak self] button in
-            self?.mouseEventHandler.state.capturedOtherMouseButton == button
+            self?.mouseEventHandler.tapInputs.capturedOtherMouseButton == button
         }
         hotkeys.onCommand = { [weak self] invocation in
             guard let self else { return }
@@ -34,13 +34,10 @@ extension WMController {
             return secureInputMonitor.isSecureInputActive || isLockScreenActive
         }
         hotkeys.onWindowSwitcherAction = { [weak self] action, generation in
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if case .begin = action {
-                    guard settings.windowSwitcher.enabled else { return }
-                    windowSwitcherController.handle(action, generation: generation)
-                } else {
-                    windowSwitcherControllerStorage?.handle(action, generation: generation)
+            guard let self else { return }
+            if !eventIntake.enqueue(.windowSwitcherAction(action, generation: generation)) {
+                DispatchQueue.main.async { [weak self] in
+                    self?.handleWindowSwitcherAction(action, generation: generation)
                 }
             }
         }
@@ -66,12 +63,23 @@ extension WMController {
     func configureSurfaceCallbacks() {
         configureAppTheming()
         traceCaptureCoordinator.onStateChange = { [weak self] in
+            self?.syncScopeValidationWithRecording()
             self?.statusBarController?.handleTraceCaptureStateChange()
         }
         secureInputIndicator.openHotkeysSettings = { [weak self] in
             self?.statusBarController?.openSettings(section: .hotkeys)
         }
         tabRailManager.ringOrderedAbove = { [weak self] in self?.surfaceReconciler.ringWindowId(orderedAbove: $0) }
+        tabRailManager.onDrag = { [weak self] drag in
+            self?.mouseEventHandler.handleTabRailDrag(drag)
+        }
+        tabRailManager.acceptsDrags = { [weak self] info in
+            guard let self else { return false }
+            switch info.owner {
+            case .niriColumn: return isNiriStrip(info.workspaceId)
+            case .dwindleTile: return workspaceManager.activeLayoutKind(for: info.workspaceId) == .dwindle
+            }
+        }
         tabRailManager.onSelect = { [weak self] info, visualIndex, token in
             guard let self else { return }
             switch info.owner {
