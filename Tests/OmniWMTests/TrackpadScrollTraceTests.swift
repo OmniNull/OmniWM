@@ -14,8 +14,9 @@ final class TrackpadScrollTraceTests: XCTestCase {
             recorder.endCapture()
             recorder.releaseStorage()
         }
+        let recognitionTime = 1.03
         let motion = WorkspaceSwipeMotion(
-            cumulativeUnits: 180, timestamp: 1.03,
+            cumulativeUnits: 180, timestamp: recognitionTime,
             recognitionMovement: SwipeEvent(delta: 180, timestamp: 1)
         )
         XCTAssertTrue(motion.release(timestamp: 1.04, allowFlick: true, animationTime: 100))
@@ -31,7 +32,7 @@ final class TrackpadScrollTraceTests: XCTestCase {
         })
         XCTAssertEqual(
             try XCTUnwrap(values["velocity"].flatMap(Double.init)),
-            180 / WorkspaceSwipeMotion.travelUnits / (1.04 - 1)
+            180 / WorkspaceSwipeMotion.travelUnits / (recognitionTime - 1)
         )
         XCTAssertGreaterThan(try XCTUnwrap(values["projected"].flatMap(Double.init)), 0.5)
         XCTAssertEqual(values["progress"], "0.0")
