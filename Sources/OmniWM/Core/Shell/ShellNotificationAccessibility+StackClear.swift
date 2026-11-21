@@ -71,7 +71,7 @@ extension ShellNotificationAccessibility.Session {
     private func clearStack(_ id: UUID, _ stack: AXUIElement) throws -> Bool {
         enter("clearStack")
         try check()
-        let pressed = ShellNotificationAction.clearStack(
+        let pressed = try ShellNotificationAction.clearStack(
             actions: {
                 var names: CFArray?
                 let result = AXUIElementCopyActionNames(stack, &names)
@@ -79,6 +79,7 @@ extension ShellNotificationAccessibility.Session {
                 return result == .success ? names as? [String] ?? [] : nil
             },
             press: { action in
+                try check()
                 let result = AXUIElementPerformAction(stack, action as CFString)
                 trace("native.stack.clear", fields: "stack=\(id.uuidString.lowercased()) ax=\(result.rawValue)")
                 return result == .success

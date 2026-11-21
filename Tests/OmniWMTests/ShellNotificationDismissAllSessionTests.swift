@@ -275,4 +275,22 @@ final class ShellNotificationDismissAllSessionTests: XCTestCase {
             XCTAssertEqual(presses, expectedPresses)
         }
     }
+
+    func testCancellationDuringTheActionReadSendsNoStackClear() {
+        struct Cancelled: Error {}
+        var cancelled = false
+        var sent = 0
+        XCTAssertThrowsError(try ShellNotificationAction.clearStack(
+            actions: {
+                cancelled = true
+                return ["Name:Clear All\nTarget:clear"]
+            },
+            press: { _ in
+                if cancelled { throw Cancelled() }
+                sent += 1
+                return true
+            }
+        )) { XCTAssertTrue($0 is Cancelled) }
+        XCTAssertEqual(sent, 0)
+    }
 }
