@@ -7,7 +7,11 @@ import QuartzCore
 
 extension DwindleLayoutHandler {
     @discardableResult
-    func applyFramesOnDemand(workspaceId wsId: WorkspaceDescriptor.ID, monitor: Monitor) -> Bool {
+    func applyFramesOnDemand(
+        workspaceId wsId: WorkspaceDescriptor.ID,
+        monitor: Monitor,
+        isInteractiveMove: Bool = false
+    ) -> Bool {
         guard let controller,
               let activeWorkspaceId = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id,
               let engine = controller.dwindleEngine,
@@ -23,7 +27,8 @@ extension DwindleLayoutHandler {
 
         let plan = buildOnDemandLayoutPlan(
             snapshot: snapshot,
-            engine: engine
+            engine: engine,
+            isInteractiveMove: isInteractiveMove
         )
         return controller.layoutRefreshController.executeLayoutPlan(plan)
     }

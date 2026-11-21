@@ -28,7 +28,9 @@ extension MouseEventHandler {
             cancelActiveMouseInteraction()
             return
         }
-        _ = controller.dwindleLayoutHandler.applyFramesOnDemand(workspaceId: move.workspaceId, monitor: monitor)
+        _ = controller.dwindleLayoutHandler.applyFramesOnDemand(
+            workspaceId: move.workspaceId, monitor: monitor, isInteractiveMove: true
+        )
     }
 
     func finishDwindleMove(at location: CGPoint) {
@@ -181,7 +183,7 @@ extension MouseEventHandler {
             cancelActiveMouseInteraction()
             return
         }
-        controller.layoutRefreshController.renderInteractiveResize(for: move.workspaceId)
+        controller.layoutRefreshController.renderInteractiveResize(for: move.workspaceId, isInteractiveMove: true)
     }
 
     func restoreManagedMove(in workspaceId: WorkspaceDescriptor.ID?) {
