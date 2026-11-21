@@ -13,22 +13,24 @@ extension WorkingAreaContext {
     func settledRenderedContainerRect(
         _ rect: CGRect,
         contentFrame: CGRect,
+        spillLimit: CGRect? = nil,
         orientation: Monitor.Orientation
     ) -> CGRect {
         var frame = rect
+        let tolerance = 1 / scale
         switch orientation {
         case .horizontal:
-            if frame.maxX <= contentFrame.minX {
+            if frame.maxX <= contentFrame.minX || spillLimit.map({ frame.minX < $0.minX - tolerance }) == true {
                 frame.origin.x += viewFrame.minX - frame.maxX
-            } else if frame.minX >= contentFrame.maxX {
+            } else if frame.minX >= contentFrame.maxX || spillLimit.map({ frame.maxX > $0.maxX + tolerance }) == true {
                 frame.origin.x += viewFrame.maxX - frame.minX
             } else {
                 return frame
             }
         case .vertical:
-            if frame.maxY <= contentFrame.minY {
+            if frame.maxY <= contentFrame.minY || spillLimit.map({ frame.minY < $0.minY - tolerance }) == true {
                 frame.origin.y += viewFrame.minY - frame.maxY
-            } else if frame.minY >= contentFrame.maxY {
+            } else if frame.minY >= contentFrame.maxY || spillLimit.map({ frame.maxY > $0.maxY + tolerance }) == true {
                 frame.origin.y += viewFrame.maxY - frame.minY
             } else {
                 return frame
