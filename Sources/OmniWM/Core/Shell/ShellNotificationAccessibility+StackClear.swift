@@ -6,7 +6,6 @@ import Foundation
 
 extension ShellNotificationAccessibility.Session {
     private static let stackSubrole = "AXNotificationCenterBannerStack"
-    private static let clearAllAction = "Name:Clear All"
 
     // One stack's Clear All removes every notification it groups, which beats closing banners one by one.
     func clearBatchItem() -> ShellNotificationActionOutcome {
@@ -68,20 +67,28 @@ extension ShellNotificationAccessibility.Session {
         }
     }
 
+    // Any refusal leaves the stack to the per-banner path, which expands it and closes the target itself.
     private func clearStack(_ id: UUID, _ stack: AXUIElement) throws -> Bool {
         enter("clearStack")
-        let names = try actions(stack).filter {
-            $0.split(separator: "\n", maxSplits: 1).first == Substring(Self.clearAllAction)
-        }
-        guard names.count == 1 else {
-            trace("native.stack.clear.unsupported", fields: "matches=\(names.count)")
+        try check()
+        let pressed = ShellNotificationAction.clearStack(
+            actions: {
+                var names: CFArray?
+                let result = AXUIElementCopyActionNames(stack, &names)
+                trace("native.actions.read", fields: "ax=\(result.rawValue)")
+                return result == .success ? names as? [String] ?? [] : nil
+            },
+            press: { action in
+                let result = AXUIElementPerformAction(stack, action as CFString)
+                trace("native.stack.clear", fields: "stack=\(id.uuidString.lowercased()) ax=\(result.rawValue)")
+                return result == .success
+            }
+        )
+        guard pressed else {
+            trace("native.stack.clear.skipped", fields: "stack=\(id.uuidString.lowercased())")
             unclearableStacks.insert(id)
             return false
         }
-        try check()
-        let result = AXUIElementPerformAction(stack, names[0] as CFString)
-        trace("native.stack.clear", fields: "stack=\(id.uuidString.lowercased()) ax=\(result.rawValue)")
-        guard result == .success else { throw ShellNotificationAccessibility.ActionFailure(outcome: .failed) }
         _ = try wait { value in
             guard value.history else {
                 throw ShellNotificationAccessibility.ActionFailure(outcome: .historyClosed)

@@ -239,4 +239,40 @@ final class ShellNotificationDismissAllSessionTests: XCTestCase {
         )
         XCTAssertEqual(outcome, .failed)
     }
+
+    func testStackClearPressesTheOneAdvertisedClearAll() {
+        let clearAll = "Name:Clear All\nTarget:clear"
+        var pressed: [String] = []
+        let cleared = ShellNotificationAction.clearStack(
+            actions: { ["Name:Show Details\nTarget:details", clearAll] },
+            press: { action in
+                pressed.append(action)
+                return true
+            }
+        )
+        XCTAssertTrue(cleared)
+        XCTAssertEqual(pressed, [clearAll])
+    }
+
+    func testRefusedStackClearLeavesTheStackToTheBannerPath() {
+        let clearAll = "Name:Clear All\nTarget:clear"
+        let cases: [(actions: [String]?, accepts: Bool, presses: Int)] = [
+            (nil, true, 0),
+            (["Name:Clear All Later\nTarget:other"], true, 0),
+            ([clearAll, clearAll], true, 0),
+            ([clearAll], false, 1)
+        ]
+        for (advertised, accepts, expectedPresses) in cases {
+            var presses = 0
+            let cleared = ShellNotificationAction.clearStack(
+                actions: { advertised },
+                press: { _ in
+                    presses += 1
+                    return accepts
+                }
+            )
+            XCTAssertFalse(cleared)
+            XCTAssertEqual(presses, expectedPresses)
+        }
+    }
 }
