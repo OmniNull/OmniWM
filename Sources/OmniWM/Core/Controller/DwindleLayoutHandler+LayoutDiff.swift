@@ -19,7 +19,7 @@ extension DwindleLayoutHandler {
             canRestoreHiddenWorkspaceWindows: snapshot.isActiveWorkspace,
             scale: snapshot.monitor.scale,
             reassertHidden: reassertHidden,
-            pendingParkWindowIds: controller?.axManager.pendingParkWindowIdsAwaitingSkyLightMove ?? [],
+            pendingParkWindowIds: controller?.axManager.pendingParks(includingMoved: animationTime == nil) ?? [],
             animationTime: animationTime
         )
     }

@@ -119,7 +119,8 @@ extension NiriLayoutHandler {
         monitor: Monitor,
         animationTime: TimeInterval? = nil,
         settlesAnimation: Bool = false,
-        animsMs: Double = 0
+        animsMs: Double = 0,
+        isInteractiveMove: Bool = false
     ) -> Bool {
         guard let controller,
               let activeWorkspaceId = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id
@@ -145,11 +146,8 @@ extension NiriLayoutHandler {
 
         let buildStart = CACurrentMediaTime()
         let plan = buildOnDemandLayoutPlan(
-            snapshot: snapshot,
-            engine: engine,
-            monitor: monitor,
-            animationTime: animationTime,
-            settlesAnimation: settlesAnimation
+            snapshot: snapshot, engine: engine, monitor: monitor,
+            animationTime: animationTime, settlesAnimation: settlesAnimation, isInteractiveMove: isInteractiveMove
         )
         let buildSeconds = CACurrentMediaTime() - buildStart
         controller.layoutRefreshController.recordScrollBuild(

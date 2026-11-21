@@ -189,7 +189,7 @@ extension LayoutRefreshController {
             )
         }
         if !plan.isAnimationTick {
-            controller.surfaceReconciler.noteWorldChanged()
+            controller.surfaceReconciler.noteInvalidation(plan.isInteractiveMove ? .layoutEdge : .full)
         }
         return AcceptedSeq(
             after: controller.workspaceManager.worldSeq,

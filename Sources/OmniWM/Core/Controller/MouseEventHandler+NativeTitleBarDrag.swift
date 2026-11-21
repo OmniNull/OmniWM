@@ -209,8 +209,7 @@ extension MouseEventHandler {
         drag.phase = .dragging
         let pendingFrameChangesSize = recordNativeDragStartFrames(
             &drag,
-            from: startFrame,
-            startWasRejected: startWasRejected,
+            from: (startFrame, startWasRejected),
             awaitingWrite: hadUnsettledFrameWrite,
             in: dragged.workspaceId,
             controller: controller
@@ -243,12 +242,12 @@ extension MouseEventHandler {
 
     private func recordNativeDragStartFrames(
         _ drag: inout MouseInputState.NativeTitleBarDrag,
-        from startFrame: CGRect?,
-        startWasRejected: Bool,
+        from start: (frame: CGRect?, wasRejected: Bool),
         awaitingWrite hadUnsettledFrameWrite: Bool,
         in workspaceId: WorkspaceDescriptor.ID,
         controller: WMController
     ) -> Bool {
+        let (startFrame, startWasRejected) = start
         let onNiriStrip = controller.isNiriStrip(workspaceId)
         let onLandscapeStrip = onNiriStrip && controller.isOnLandscapeDisplay(workspaceId)
         let layoutStartFrame = controller.axManager.lastAppliedFrame(for: drag.token.windowId)
