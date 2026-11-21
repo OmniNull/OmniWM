@@ -505,6 +505,64 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         XCTAssertEqual(order(fixture, in: other), there)
     }
 
+    func testAChangeCoveringEveryWorkspaceLeavesAnUntouchedWorkspaceWithoutAnUndoStep() throws {
+        let fixture = try makeFixture(pid: 834_242, workspaceNames: ["1", "2"])
+        let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))
+        try moveWindow(fixture, 2, to: other)
+        fixture.engine.clearLayoutHistory(in: fixture.workspaceId)
+        fixture.engine.clearLayoutHistory(in: other)
+        let handler = fixture.controller.niriLayoutHandler
+        let before = order(fixture, in: fixture.workspaceId)
+        let there = order(fixture, in: other)
+        XCTAssertFalse(there.isEmpty)
+
+        let start = try XCTUnwrap(handler.layoutChangeStartCoveringEveryNiriWorkspace(in: fixture.workspaceId))
+        XCTAssertEqual(Set(start.snapshots.keys), [fixture.workspaceId, other])
+        fixture.mutate { fixture.stack(1, onto: 0) }
+        handler.recordLayoutChange(since: start)
+
+        XCTAssertNotEqual(order(fixture, in: fixture.workspaceId), before)
+        XCTAssertNil(fixture.engine.peekLayoutHistory(.undo, in: other))
+        XCTAssertTrue(handler.stepLayoutHistory(.undo, in: fixture.workspaceId))
+        XCTAssertEqual(order(fixture, in: fixture.workspaceId), before)
+        XCTAssertEqual(order(fixture, in: other), there)
+    }
+
+    func testAWindowArrivingOnAWorkspaceThatAppearedDuringTheChangeIsUndoneFromThere() throws {
+        let fixture = try makeFixture(pid: 834_243)
+        let controller = fixture.controller
+        let handler = controller.niriLayoutHandler
+        let before = order(fixture, in: fixture.workspaceId)
+        let handle = try XCTUnwrap(controller.workspaceManager.handle(for: fixture.tokens[0]))
+
+        let start = try XCTUnwrap(handler.layoutChangeStartCoveringEveryNiriWorkspace(in: fixture.workspaceId))
+        XCTAssertEqual(Array(start.snapshots.keys), [fixture.workspaceId])
+        XCTAssertTrue(start.coversEveryNiriWorkspace)
+        controller.settings.workspaces.configurations.append(
+            WorkspaceConfiguration(
+                name: "2",
+                monitorAssignment: .specificDisplay(OutputId(from: fixture.monitor)),
+                layoutType: .niri
+            )
+        )
+        controller.workspaceManager.applySettings()
+        let other = try XCTUnwrap(controller.workspaceManager.workspaceId(named: "2"))
+        let navigation = controller.workspaceNavigationHandler
+        if let mutation = navigation.moveWindow(handle: handle, toWorkspaceId: other).mutation {
+            navigation.finishWorkspaceMove(mutation, focusPolicy: .retainCurrent)
+        }
+        handler.recordLayoutChange(since: start)
+
+        XCTAssertEqual(order(fixture, in: other), [[fixture.tokens[0]]])
+        let arrival = try XCTUnwrap(fixture.engine.peekLayoutHistory(.undo, in: other))
+        XCTAssertEqual(arrival.away.map(\.workspaceId), [fixture.workspaceId])
+        XCTAssertEqual(arrival.away.first?.tokens, [fixture.tokens[0]])
+        _ = controller.workspaceManager.focusWorkspace(named: "2")
+        XCTAssertTrue(handler.stepLayoutHistory(.undo))
+        XCTAssertEqual(order(fixture, in: fixture.workspaceId), before)
+        XCTAssertTrue(order(fixture, in: other).isEmpty)
+    }
+
     func testWideningAddsEveryOtherNiriWorkspaceOnceAndKeepsTheFirstSnapshot() throws {
         let fixture = try makeFixture(pid: 834_241, workspaceNames: ["1", "2"])
         let other = try XCTUnwrap(fixture.controller.workspaceManager.workspaceId(named: "2"))

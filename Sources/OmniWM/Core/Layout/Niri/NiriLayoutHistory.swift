@@ -35,9 +35,11 @@ struct NiriColumnSizing: Equatable {
         sizing = engine.containerSizingState(for: column)
         fittedWidth = column.fittedWidth
         fittedHeight = column.fittedHeight
-        windows = Dictionary(
-            uniqueKeysWithValues: column.windowNodes.map { ($0.token, NiriWindowSpans($0, in: column)) }
-        )
+        let nodes = column.windowNodes
+        windows = nodes.reduce(into: [WindowToken: NiriWindowSpans](minimumCapacity: nodes.count)) { spans, node in
+            let replaced = spans.updateValue(NiriWindowSpans(node, in: column), forKey: node.token)
+            precondition(replaced == nil)
+        }
     }
 
     func restore(to column: NiriContainer, engine: NiriLayoutEngine) {
@@ -79,10 +81,6 @@ struct NiriLayoutSnapshot {
 
     static var empty: NiriLayoutSnapshot {
         NiriLayoutSnapshot(columns: [], manualWidthColumnCount: nil, manualHeightColumnCount: nil, focused: nil)
-    }
-
-    var tokens: Set<WindowToken> {
-        Set(columns.flatMap(\.windows))
     }
 
     func hasSameLayout(as other: NiriLayoutSnapshot) -> Bool {
@@ -271,17 +269,22 @@ extension NiriLayoutEngine {
     }
 
     func windowSizes(in workspaceId: WorkspaceDescriptor.ID) -> [WindowToken: CGSize] {
-        (root(for: workspaceId)?.allWindows ?? []).reduce(into: [:]) { sizes, window in
+        let windows = root(for: workspaceId)?.allWindows ?? []
+        return windows.reduce(into: [WindowToken: CGSize](minimumCapacity: windows.count)) { sizes, window in
             sizes[window.token] = window.frame?.size
         }
     }
 
-    func recordLayoutChange(in workspaceId: WorkspaceDescriptor.ID, since before: NiriLayoutSnapshot?) {
+    func recordLayoutChange(
+        in workspaceId: WorkspaceDescriptor.ID,
+        since before: NiriLayoutSnapshot?,
+        timing: NiriLayoutStepTiming? = nil
+    ) {
         guard let before,
               let after = layoutSnapshot(in: workspaceId, focused: nil),
               !after.hasSameLayout(as: before)
         else { return }
-        ensureState(for: workspaceId).layoutHistory.record(before)
+        ensureState(for: workspaceId).layoutHistory.record(before, after: after, timing: timing)
     }
 
     func forgetLastRedo(in workspaceId: WorkspaceDescriptor.ID) {
