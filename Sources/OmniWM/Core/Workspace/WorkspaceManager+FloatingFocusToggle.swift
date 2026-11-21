@@ -12,13 +12,21 @@ extension WorkspaceManager {
         return entry.workspaceId == workspaceId && entry.mode == .floating
     }
 
-    func floatingFocusToggleTarget(in workspaceId: WorkspaceDescriptor.ID) -> WindowToken? {
-        let candidates = floatingEntries(in: workspaceId).filter { isFloatingWindowDisplayable($0) }
-        if let remembered = lastFloatingFocusedToken(in: workspaceId),
-           candidates.contains(where: { $0.token == remembered })
-        {
-            return remembered
+    /// The window after `focusedToken` in the workspace's cycle of floating, then tiled
+    /// windows, or the first window when it is not in the cycle. Nil when there is nowhere to go.
+    func focusToggleTarget(
+        after focusedToken: WindowToken? = nil,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> WindowToken? {
+        let floating = floatingEntries(in: workspaceId).filter { isFloatingWindowDisplayable($0) }
+        let tiled = tiledEntries(in: workspaceId).filter {
+            isFocusResolutionEligible($0, in: workspaceId, mode: .tiling)
         }
-        return candidates.max { ($0.pid, $0.windowId) < ($1.pid, $1.windowId) }?.token
+        let order = [floating, tiled].flatMap { entries in
+            entries.map(\.token).sorted { ($0.pid, $0.windowId) < ($1.pid, $1.windowId) }
+        }
+        guard let focusedToken, let index = order.firstIndex(of: focusedToken) else { return order.first }
+        let next = order[(index + 1) % order.count]
+        return next == focusedToken ? nil : next
     }
 }
