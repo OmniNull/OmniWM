@@ -10,6 +10,7 @@ extension MouseEventHandler {
         windowServerFramesAtMouseDown: [WindowToken: CGRect]?
     ) {
         state.nativeResizeStart = nil
+        state.staleNativeResizeStartToken = nil
         guard let controller else { return }
         guard let token,
               let entry = controller.workspaceManager.entry(for: token),
@@ -23,7 +24,10 @@ extension MouseEventHandler {
         } else {
             nativeWindowFrameProvider(axRef)
         }
-        guard observedFrame?.approximatelyEqual(to: frame, tolerance: FrameTolerance.frameWrite) == true else { return }
+        guard observedFrame?.approximatelyEqual(to: frame, tolerance: FrameTolerance.frameWrite) == true else {
+            state.staleNativeResizeStartToken = token
+            return
+        }
         state.nativeResizeStart = .init(token: token, frame: frame, location: location)
     }
 

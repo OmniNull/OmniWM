@@ -63,6 +63,7 @@ extension WMController {
     func configureSurfaceCallbacks() {
         configureAppTheming()
         traceCaptureCoordinator.onStateChange = { [weak self] in
+            self?.syncScopeValidationWithRecording()
             self?.statusBarController?.handleTraceCaptureStateChange()
         }
         secureInputIndicator.openHotkeysSettings = { [weak self] in

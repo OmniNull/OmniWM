@@ -100,6 +100,33 @@ final class LayoutBuildCompletionTests: XCTestCase {
         )
     }
 
+    func testBatchedBuildAppliesItsViewportPatchAndStampsTheFinalSequence() throws {
+        let (controller, workspaceId) = try fixture()
+        let manager = controller.workspaceManager
+        let monitor = try XCTUnwrap(manager.monitor(for: workspaceId))
+        var target = manager.niriViewportState(for: workspaceId)
+        target.jumpOffset(to: 0)
+        XCTAssertNotEqual(manager.niriViewportState(for: workspaceId).viewOffset, target.viewOffset)
+        var entrySeq: UInt64?
+
+        let plans = manager.withBatchedLayoutBuild {
+            entrySeq = manager.worldSeq
+            manager.withEngineMutationScope(in: workspaceId) {}
+            return [WorkspaceLayoutPlan(
+                workspaceId: workspaceId,
+                monitor: controller.layoutRefreshController.buildMonitorSnapshot(for: monitor),
+                sessionPatch: WorkspaceSessionPatch(workspaceId: workspaceId, viewportState: target),
+                diff: WorkspaceLayoutDiff()
+            )]
+        }
+
+        let patch = try XCTUnwrap(plans.first).sessionPatch
+        XCTAssertNil(patch.viewportState)
+        XCTAssertEqual(manager.niriViewportState(for: workspaceId).viewOffset, target.viewOffset)
+        XCTAssertEqual(patch.plannedSeq, manager.worldSeq)
+        XCTAssertGreaterThan(patch.plannedSeq, try XCTUnwrap(entrySeq))
+    }
+
     private func fixture() throws -> (WMController, WorkspaceDescriptor.ID) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let settings = SettingsStore(

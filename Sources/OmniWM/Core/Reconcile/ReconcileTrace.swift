@@ -17,13 +17,21 @@ final class ReconcileTraceRecorder {
     private static let defaultLimit = 256
 
     private let nowProvider: () -> Date
+    private let validatesScopes: Bool
+    var scopeValidationRequested = false
+    private(set) var transactionCount: UInt64 = 0
     private var invariantViolationCounts: [String: Int] = [:]
     private var nextSequence: UInt64 = 1
     private var records: RingBuffer<ReconcileTraceRecord>
 
-    init(limit: Int = defaultLimit, nowProvider: @escaping () -> Date = Date.init) {
+    init(limit: Int = defaultLimit, validatesScopes: Bool, nowProvider: @escaping () -> Date = Date.init) {
         records = RingBuffer(capacity: limit)
+        self.validatesScopes = validatesScopes
         self.nowProvider = nowProvider
+    }
+
+    var validatesEveryScope: Bool {
+        validatesScopes || scopeValidationRequested
     }
 
     func recordTransaction(
@@ -33,20 +41,11 @@ final class ReconcileTraceRecorder {
         committedSnapshot: ReconcileSnapshot,
         validateInvariants: Bool
     ) -> ReconcileTxn {
-        let invariantViolations = validateInvariants
-            ? InvariantChecks.validate(snapshot: committedSnapshot)
-            : []
+        transactionCount &+= 1
         var tracedPlan = resolvedPlan
-        if !invariantViolations.isEmpty {
-            tracedPlan.notes.append(contentsOf: invariantViolations.map(\.traceNote))
-            for violation in invariantViolations {
-                invariantViolationCounts[violation.code, default: 0] += 1
-            }
-            assertionFailure(
-                "Reconcile invariants violated after \(event.summary): "
-                    + invariantViolations.map(\.code).joined(separator: ",")
-            )
-        }
+        let invariantViolations = validateInvariants
+            ? noteViolations(in: committedSnapshot, after: event, plan: &tracedPlan)
+            : []
         let txn = ReconcileTxn(
             timestamp: nowProvider(),
             event: event,
@@ -57,6 +56,34 @@ final class ReconcileTraceRecorder {
         )
         append(transaction: txn)
         return txn
+    }
+
+    func recordScope(event: WMEvent, validating snapshot: ReconcileSnapshot?) {
+        var plan = ActionPlan()
+        plan.notes = ActionPlan.userCommandNotes
+        var invariantViolations: [ReconcileInvariantViolation] = []
+        if let snapshot {
+            invariantViolations = noteViolations(in: snapshot, after: event, plan: &plan)
+        }
+        append(event: event, plan: plan, invariantViolations: invariantViolations, timestamp: nowProvider())
+    }
+
+    private func noteViolations(
+        in snapshot: ReconcileSnapshot,
+        after event: WMEvent,
+        plan: inout ActionPlan
+    ) -> [ReconcileInvariantViolation] {
+        let invariantViolations = InvariantChecks.validate(snapshot: snapshot)
+        guard !invariantViolations.isEmpty else { return invariantViolations }
+        plan.notes.append(contentsOf: invariantViolations.map(\.traceNote))
+        for violation in invariantViolations {
+            invariantViolationCounts[violation.code, default: 0] += 1
+        }
+        assertionFailure(
+            "Reconcile invariants violated after \(event.summary): "
+                + invariantViolations.map(\.code).joined(separator: ",")
+        )
+        return invariantViolations
     }
 
     func invariantViolationCountsDump() -> String {
