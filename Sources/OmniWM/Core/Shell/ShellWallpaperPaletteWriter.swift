@@ -35,7 +35,7 @@ final class ShellWallpaperPaletteWriter {
     private let destination: URL
     private let source: @MainActor () -> Lookup
     private let read: @Sendable (URL) -> CGImage?
-    private let image: @MainActor (_ aerial: Bool) -> CGImage?
+    private let image: @MainActor (_ aerial: Bool, _ fallbackFile: URL?) -> CGImage?
     private let perform: Perform
     private let deliver: Deliver
     private let onFailure: @MainActor (String) -> Void
@@ -59,8 +59,8 @@ final class ShellWallpaperPaletteWriter {
             return { ShellWallpaperPalette.source(probe, store: ShellWallpaperPalette.storeIndex()) }
         },
         read: @escaping @Sendable (URL) -> CGImage? = { ShellWallpaperPalette.read($0) },
-        image: @escaping @MainActor (_ aerial: Bool) -> CGImage? = {
-            ShellWallpaperPalette.screenImage(for: CGMainDisplayID(), aerial: $0)
+        image: @escaping @MainActor (_ aerial: Bool, _ fallbackFile: URL?) -> CGImage? = { aerial, fallbackFile in
+            ShellWallpaperPalette.screenImage(for: CGMainDisplayID(), aerial: aerial, fallbackFile: fallbackFile)
         },
         perform: @escaping Perform = ShellWallpaperPaletteWriter.performOnWriterQueue,
         deliver: @escaping Deliver = ShellWallpaperPaletteWriter.deliverOnMain,
@@ -160,21 +160,23 @@ final class ShellWallpaperPaletteWriter {
             guard refreshLifetime.withLock({ $0 }) else { return }
             record.generation &+= 1
             let generation = record.generation
-            let capture = { (aerial: Bool) in
+            let capture = { (aerial: Bool, fallbackFile: URL?) in
                 deliver {
                     guard refreshLifetime.withLock({ $0 }) else { return }
-                    self?.refreshImage(onlyIfChanged: onlyIfChanged, aerial: aerial, generation: generation)
+                    self?.refreshImage(
+                        onlyIfChanged: onlyIfChanged, aerial: aerial, fallbackFile: fallbackFile, generation: generation
+                    )
                 }
             }
             switch lookup() {
-            case let .capture(aerial):
-                capture(aerial)
+            case let .capture(aerial, fallbackFile):
+                capture(aerial, fallbackFile)
             case let .still(still, aerial):
                 let needsRead = still != record.written || record.unreadable == still
                     || scheme != record.scheme || !Self.exists(destination)
                 guard !onlyIfChanged || needsRead else { return }
                 guard let image = record.readStill(still, using: read) else {
-                    capture(aerial)
+                    capture(aerial, nil)
                     return
                 }
                 let pixels = ShellWallpaperPalette.pixels(of: image)
@@ -191,9 +193,9 @@ final class ShellWallpaperPaletteWriter {
         }
     }
 
-    private func refreshImage(onlyIfChanged: Bool, aerial: Bool, generation: UInt64) {
+    private func refreshImage(onlyIfChanged: Bool, aerial: Bool, fallbackFile: URL?, generation: UInt64) {
         guard let refreshLifetime else { return }
-        guard let image = image(aerial) else {
+        guard let image = image(aerial, fallbackFile) else {
             onFailure("The wallpaper palette keeps its last colors because the wallpaper image is unavailable")
             return
         }
