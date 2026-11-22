@@ -4,8 +4,9 @@ include Scripts/dev-tools.env
 
 NIX_BUILD := nix --extra-experimental-features "nix-command flakes" build
 GHOSTTYKIT := Frameworks/GhosttyKit.xcframework
-SWIFTFORMAT := $(CURDIR)/.cache/flake-tools/bin/swiftformat
-SWIFTLINT := $(CURDIR)/.cache/flake-tools/bin/swiftlint
+DEV_TOOLS := $(if $(OMNIWM_DEV_TOOLS),$(OMNIWM_DEV_TOOLS),$(CURDIR)/.cache/flake-tools)
+SWIFTFORMAT := $(DEV_TOOLS)/bin/swiftformat
+SWIFTLINT := $(DEV_TOOLS)/bin/swiftlint
 SWIFT_WITH_GHOSTTY = LIBRARY_PATH="$$(./Scripts/ghostty-preflight.sh print-library-dir)$${LIBRARY_PATH:+:$$LIBRARY_PATH}"
 SWIFT := $(or $(SWIFTLY_HOME_DIR),$(HOME)/.swiftly)/bin/swift
 

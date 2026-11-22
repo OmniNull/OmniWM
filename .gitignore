@@ -1,6 +1,7 @@
 # Build artifacts
 .build/
 .direnv/
+/.env.local
 __pycache__/
 
 # SwiftPM
