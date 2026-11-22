@@ -68,7 +68,7 @@ extension MouseEventHandler {
         switch (controller.settings.workspaces.layoutType(for: workspace.name), mode) {
         case (.dwindle, .windowMove):
             guard let engine = controller.dwindleEngine else { return false }
-            began = beginDwindleMove(token: token, engine: engine, wsId: wsId, at: location, source: .trackpadGesture)
+            began = beginDwindleGestureMove(token: token, engine: engine, wsId: wsId, at: location)
         case (.dwindle, .windowResize):
             guard let engine = controller.dwindleEngine else { return false }
             began = beginDwindleResize(

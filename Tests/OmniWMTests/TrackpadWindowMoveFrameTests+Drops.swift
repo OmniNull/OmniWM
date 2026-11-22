@@ -190,13 +190,29 @@ extension TrackpadWindowMoveFrameTests {
         XCTAssertEqual(fixture.order(), untouched.order())
     }
 
-    func testTrackpadDropOnTheTopOfADwindleTileLandsAboveIt() throws {
+    private func heldAndSettledFrames(_ fixture: Fixture, movingTo point: CGPoint) throws -> [WindowToken: CGRect] {
+        move(fixture, to: point)
+        let held = try frames(fixture)
+        let landing = fixture.base.dwindle.currentFrames(in: fixture.workspace)
+        let scale = fixture.controller.layoutRefreshController.buildMonitorSnapshot(for: fixture.monitor).scale
+        let projectedLanding = landing.mapValues { $0.roundedToPhysicalPixels(scale: scale) }
+        let order = fixture.order()
+        XCTAssertEqual(held[fixture.moved], fixture.expectedFloatingFrame(at: fixture.touch(at: point)))
+        XCTAssertNotEqual(projectedLanding, fixture.initialFrames)
+        XCTAssertEqual(held.filter { $0.key != fixture.moved }, projectedLanding.filter { $0.key != fixture.moved })
+        lift(fixture, at: point)
+        XCTAssertEqual(fixture.order(), order)
+        XCTAssertEqual(try frames(fixture), projectedLanding)
+        return projectedLanding
+    }
+
+    func testTrackpadMoveToTheTopOfADwindleTileLandsAboveItBeforeLift() throws {
         let fixture = try makeMoveFixture(.dwindle, windows: 3)
         let (moved, target) = (fixture.tokens[0], fixture.tokens[1])
 
-        try drop(fixture, on: .up, of: target)
-
-        let frames = try frames(fixture)
+        let point = part(.up, of: fixture.targetFrame)
+        XCTAssertEqual(WindowMoveGeometry.insertionDirection(at: point, in: fixture.targetFrame), .up)
+        let frames = try heldAndSettledFrames(fixture, movingTo: point)
         let movedFrame = try XCTUnwrap(frames[moved])
         let targetFrame = try XCTUnwrap(frames[target])
         XCTAssertGreaterThanOrEqual(movedFrame.minY, targetFrame.maxY)
@@ -204,7 +220,7 @@ extension TrackpadWindowMoveFrameTests {
         XCTAssertEqual(movedFrame.width, targetFrame.width)
     }
 
-    func testTrackpadDropAtTheEdgeOfTheDwindleAreaMakesTheWindowTheTileAlongThatEdge() throws {
+    func testTrackpadMoveToTheDwindleAreaEdgeMakesTheOuterTileBeforeLift() throws {
         let fixture = try makeMoveFixture(.dwindle, windows: 3)
         let moved = fixture.moved
         let area = fixture.controller.insetWorkingFrame(for: fixture.monitor)
@@ -215,10 +231,7 @@ extension TrackpadWindowMoveFrameTests {
             .right
         )
 
-        move(fixture, to: lastPointInside)
-        lift(fixture, at: lastPointInside)
-
-        let frames = try frames(fixture)
+        let frames = try heldAndSettledFrames(fixture, movingTo: lastPointInside)
         let movedFrame = try XCTUnwrap(frames[moved])
         let tiled = frames.values.reduce(CGRect.null) { $0.union($1) }
         XCTAssertEqual(movedFrame.maxX, tiled.maxX)
@@ -229,7 +242,7 @@ extension TrackpadWindowMoveFrameTests {
         }
     }
 
-    func testTrackpadDropOnTheLineBetweenTwoDwindleTilesLandsBetweenThemOnlyAtTheLift() throws {
+    func testTrackpadMoveOntoADwindleDividerLandsBetweenItsTilesBeforeLift() throws {
         let fixture = try makeMoveFixture(.dwindle, windows: 3)
         let (moved, left, right) = (fixture.tokens[0], fixture.tokens[1], fixture.tokens[2])
         let leftFrame = try XCTUnwrap(fixture.initialFrames[left])
@@ -240,11 +253,7 @@ extension TrackpadWindowMoveFrameTests {
             fixture.base.dwindle.splitBoundaryMoveHit(at: line, for: moved, in: fixture.workspace, time: 0)
         )
 
-        move(fixture, to: line)
-        XCTAssertEqual(fixture.base.dwindle.interactiveMove?.isInsertion, false)
-        lift(fixture, at: line)
-
-        let frames = try frames(fixture)
+        let frames = try heldAndSettledFrames(fixture, movingTo: line)
         let movedFrame = try XCTUnwrap(frames[moved])
         XCTAssertGreaterThanOrEqual(movedFrame.minX, try XCTUnwrap(frames[left]).maxX)
         XCTAssertLessThanOrEqual(movedFrame.maxX, try XCTUnwrap(frames[right]).minX)

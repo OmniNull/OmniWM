@@ -98535,7 +98535,7 @@
         }
       }
     },
-    "Point at a tiled window and drag without clicking. In Niri, windows make room as you move. In Dwindle, drop on the middle to swap or near an edge to insert." : {
+    "Point at a tiled window and drag without clicking. Other windows make room as you move. Lift to settle." : {
 
     },
     "Point at a tiled window and drag without clicking. Resize pulls the nearest movable edges. Lift your fingers to finish." : {

@@ -6,7 +6,7 @@ import Foundation
 
 extension MouseEventHandler {
     var isCarryingWindowByGesture: Bool {
-        state.activeInteractionSource == .trackpadGesture && state.moveLayout == .niri
+        state.activeInteractionSource == .trackpadGesture && state.isMoving
     }
 
     var isInputSuppressed: Bool {

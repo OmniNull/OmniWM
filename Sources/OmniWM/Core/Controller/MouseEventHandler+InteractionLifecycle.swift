@@ -107,12 +107,18 @@ extension MouseEventHandler {
         let wasActive = state.isMoving || state.isResizing
 
         if state.isMoving {
-            let workspaceId = state.moveLayout == .dwindle
-                ? controller.dwindleEngine?.interactiveMove?.workspaceId
-                : controller.niriEngine?.interactiveMove?.workspaceId
-            controller.niriEngine?.interactiveMoveCancel()
-            controller.dwindleEngine?.interactiveMoveCancel()
-            let restoredWorkspace = workspaceId ?? state.lockedGestureContext?.workspaceId
+            let restoredWorkspace: WorkspaceDescriptor.ID?
+            if state.moveLayout == .dwindle, let engine = controller.dwindleEngine,
+               let wsId = engine.liveMoveWorkspaceId
+            {
+                restoredWorkspace = controller.workspaceManager.withEngineMutationScope(in: wsId, source: .mouse) {
+                    engine.liveMoveCancel(at: controller.animationClock.now())
+                }
+            } else {
+                restoredWorkspace = controller.niriEngine?.interactiveMove?.workspaceId ?? state.lockedGestureContext?
+                    .workspaceId
+                controller.niriEngine?.interactiveMoveCancel()
+            }
             clearMoveInteractionState()
             restoreManagedMove(in: restoredWorkspace)
         }

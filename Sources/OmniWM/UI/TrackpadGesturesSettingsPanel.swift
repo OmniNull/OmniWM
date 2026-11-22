@@ -186,7 +186,7 @@ struct TrackpadGesturesSettingsPanel: View {
             )
         case .move:
             SettingsCaption(
-                localized: "Point at a tiled window and drag without clicking. In Niri, windows make room as you move. In Dwindle, drop on the middle to swap or near an edge to insert."
+                localized: "Point at a tiled window and drag without clicking. Other windows make room as you move. Lift to settle."
             )
         case .resize:
             SettingsCaption(

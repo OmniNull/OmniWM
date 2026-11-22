@@ -423,30 +423,48 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertFalse(handler.isInteractiveGestureActive)
     }
 
-    func testFourFingerDragSwapsDwindleTilesOnRelease() throws {
+    func testFourFingerDragSwapsDwindleTilesBeforeLiftAndSettlesAfterFingerGrace() throws {
         let fixture = try makeDwindleFixture(pid: 9_201)
         let handler = fixture.handler
         let travel = (fixture.secondFrame.midX - fixture.firstFrame.midX)
             / (workingFrame.width * CGFloat(SettingsExport.Gestures.defaultMoveSensitivity))
+        let fingers = fixture.controller.settings.gestures.windowMoveFingerCount.rawValue
+        let startX: CGFloat = 1 / 4
+        let endX = startX + travel
 
-        var gesture = fixture.driver(at: fixture.firstFrame.center)
-        gesture.begin(fingers: 4, x: 0.2)
-        gesture.drag(fingers: 4, fromX: 0.2, toX: 0.2 + travel)
-
+        let grace = TrackpadGestureMode.windowMove.fingerCountGrace
+        var activeCount = 0
+        func emit(fingers: Int, x: CGFloat, at time: TimeInterval) throws {
+            let contact = MultitouchGestureSource.RawTouch(x: Float(x), y: 0.5)
+            let delivery = MultitouchGestureSource.makeSnapshot(
+                frame: .init(touches: Array(repeating: contact, count: fingers), timestamp: time),
+                location: fixture.firstFrame.center, previousActiveCount: activeCount
+            )
+            activeCount = delivery.activeCount
+            handler.receiveTapGestureEvent(try XCTUnwrap(delivery.snapshot))
+        }
+        try emit(fingers: fingers, x: startX, at: 0)
+        try emit(fingers: fingers, x: endX, at: grace / 2)
         XCTAssertTrue(handler.state.isMoving)
         XCTAssertEqual(handler.state.moveLayout, .dwindle)
-        XCTAssertEqual(fixture.engine.interactiveMove?.token, fixture.first)
-        XCTAssertEqual(fixture.engine.interactiveMove?.targetToken, fixture.second)
-        XCTAssertNil(fixture.engine.interactiveMove?.targetDirection)
-        XCTAssertEqual(fixture.engine.interactiveMoveTargetFrame(at: 0), fixture.secondFrame)
-
-        gesture.end()
-
-        XCTAssertFalse(handler.state.isMoving)
-        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertEqual(fixture.engine.liveMoveToken, fixture.first)
+        XCTAssertTrue(fixture.engine.liveMoveHoldsTarget(at: fixture.secondFrame.center))
         fixture.relayout()
         XCTAssertEqual(fixture.presentedFrame(fixture.first), fixture.secondFrame)
         XCTAssertEqual(fixture.presentedFrame(fixture.second), fixture.firstFrame)
+
+        let mismatch = grace
+        try emit(fingers: fingers - 1, x: endX, at: mismatch)
+        try emit(fingers: fingers - 1, x: endX, at: mismatch + grace / 2)
+        XCTAssertTrue(handler.state.isMoving)
+        try emit(fingers: fingers - 1, x: endX, at: (mismatch + grace).nextUp)
+        XCTAssertFalse(handler.state.isMoving)
+        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertNil(fixture.engine.liveMoveToken)
+        fixture.relayout()
+        XCTAssertEqual(fixture.presentedFrame(fixture.first), fixture.secondFrame)
+        XCTAssertEqual(fixture.presentedFrame(fixture.second), fixture.firstFrame)
+        try emit(fingers: 0, x: endX, at: mismatch + grace * 2)
     }
 
     func testThreeFingerDragResizesDwindleSplit() throws {

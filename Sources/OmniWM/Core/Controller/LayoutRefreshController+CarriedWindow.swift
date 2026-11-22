@@ -59,6 +59,21 @@ extension LayoutRefreshController {
         }
     }
 
+    func renderDwindleCarriedWindow(
+        in workspaceId: WorkspaceDescriptor.ID,
+        on monitor: Monitor,
+        geometry: LayoutMonitorSnapshot,
+        controller: WMController
+    ) {
+        guard !hasDwindleAnimationRunning(in: workspaceId),
+              carriedWindowRefresh(for: workspaceId, on: monitor.id, manager: controller.workspaceManager) != .ownsFrame
+        else { return }
+        dwindleHandler.applyFramesOnDemand(
+            workspaceId: workspaceId, monitor: monitor, isInteractiveMove: true,
+            activeMonitor: (workspaceId, geometry)
+        )
+    }
+
     fileprivate enum CarriedWindowRefresh {
         case idle, otherWork, ownsFrame
     }

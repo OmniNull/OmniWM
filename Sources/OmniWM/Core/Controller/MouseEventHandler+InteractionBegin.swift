@@ -78,23 +78,21 @@ extension MouseEventHandler {
         return true
     }
 
-    func beginDwindleMove(
-        token: WindowToken,
-        engine: DwindleLayoutEngine,
-        wsId: WorkspaceDescriptor.ID,
-        at location: CGPoint,
-        source: MouseInputState.InteractionSource
+    func beginDwindleGestureMove(
+        token: WindowToken, engine: DwindleLayoutEngine, wsId: WorkspaceDescriptor.ID, at location: CGPoint
     ) -> Bool {
-        guard let controller else { return false }
-        let now = controller.animationClock.now()
-        guard let frame = engine.presentedFrame(for: token, in: wsId, at: now),
-              engine.interactiveMoveBegin(token: token, startLocation: location, startFrame: frame, in: wsId)
+        guard let controller,
+              let frame = engine.presentedFrame(for: token, in: wsId, at: controller.animationClock.now())
         else { return false }
+        finishPendingLiveStackDrop()
+        let began = controller.workspaceManager.withEngineMutationScope(in: wsId, source: .mouse) {
+            engine.liveMoveBegin(token: token, startLocation: location, startFrame: frame, in: wsId)
+        }
+        guard began else { return false }
 
         state.isMoving = true
         state.moveLayout = .dwindle
-        state.activeInteractionSource = source
-        tapInputs.capturedInteractionButton = source.mouseButton
+        state.activeInteractionSource = .trackpadGesture
         NSCursor.closedHand.set()
         return true
     }

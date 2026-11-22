@@ -123,7 +123,7 @@ extension MouseEventHandler {
             }
             let speed = controller.settings.gestures.windowMoveSensitivity
             let point = gestureWindowLocation(for: lockedContext, in: monitor.frame, speed: speed, clamp: true)
-            updateActiveMove(at: point)
+            updateActiveMove(at: point, on: monitor)
         case .windowResize:
             guard state.gestureOwnsWindowInteraction, state.isResizing else {
                 abortActiveGestureIfNeeded()

@@ -47,7 +47,7 @@ extension TrackpadWindowMoveFrameTests {
         )
     }
 
-    private func executePendingRelayout(_ refresh: LayoutRefreshController) throws {
+    func executePendingRelayout(_ refresh: LayoutRefreshController) throws {
         let request = try XCTUnwrap(refresh.layoutState.pendingRefresh)
         refresh.layoutState.pendingRefresh = nil
         let generation = refresh.layoutState.refreshGeneration

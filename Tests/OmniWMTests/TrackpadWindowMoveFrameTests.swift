@@ -269,7 +269,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             XCTAssertEqual(fixture.handler.state.activeInteractionSource, .trackpadGesture)
             XCTAssertNil(fixture.handler.state.activeInteractionButton)
             if kind == .dwindle {
-                XCTAssertEqual(fixture.order(), original)
+                XCTAssertEqual(fixture.order(), [[fixture.target], [fixture.moved]])
             } else {
                 XCTAssertNotNil(fixture.base.niri.liveColumnMove?.narrowedSlot)
             }
@@ -358,7 +358,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             fixture.begin()
             fixture.move()
             if kind == .dwindle {
-                XCTAssertEqual(fixture.order(), [[fixture.moved, sibling], [fixture.target]])
+                XCTAssertEqual(fixture.order(), [[fixture.target], [fixture.moved, sibling]])
             } else {
                 XCTAssertFalse(try XCTUnwrap(fixture.base.niri.liveColumnMove).isWholeColumn)
             }
@@ -423,6 +423,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             XCTAssertNil(reconciler.pendingReconcileScope)
 
             fixture.send(fixture.event(at: fixture.targetTouch, phase: .ended, sample: 4))
+            if kind == .dwindle { try executePendingRelayout(fixture.controller.layoutRefreshController) }
 
             XCTAssertEqual(fixture.order(), [[fixture.target], [fixture.moved]], "\(kind)")
             XCTAssertEqual(reconciler.pendingReconcileScope, .fullScene, "\(kind)")
@@ -694,7 +695,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             [fixture.expectedFloatingFrame(at: touch)]
         )
         if fixture.kind == .dwindle {
-            XCTAssertFalse(try XCTUnwrap(fixture.base.dwindle.interactiveMove).allowsInsertion)
+            XCTAssertTrue(try XCTUnwrap(fixture.base.dwindle.interactiveMove).allowsInsertion)
         } else {
             XCTAssertEqual(try XCTUnwrap(fixture.base.niri.liveColumnMove).windowToken, fixture.moved)
         }
