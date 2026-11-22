@@ -203,9 +203,8 @@ final class OverviewView: NSView {
         updateHoverState(at: camera.scenePoint(at: point))
     }
 
-    override func magnify(with event: NSEvent) {
+    func magnify(with event: NSEvent, at point: CGPoint) {
         guard dragCandidateHandle == nil, rightDragPoint == nil, !isTabPickerOpen else { return }
-        let point = convert(event.locationInWindow, from: nil)
         if let handle = camera.magnify(with: event, at: point, hitTest: pinchTarget) {
             onWindowSelected?(handle)
         }
@@ -371,6 +370,7 @@ extension OverviewView {
     }
 
     private func pinchTarget(at point: CGPoint) -> WindowHandle? {
+        guard bounds.contains(point) else { return nil }
         let scene = camera.scenePoint(at: point)
         let layoutPoint = layerRenderer.layoutPoint(at: scene, layout: layout)
         let contentPoint = CGPoint(x: layoutPoint.x, y: layoutPoint.y + layout.scrollOffset)

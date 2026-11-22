@@ -52,6 +52,7 @@ final class OverviewWindowSession {
 
     private var windows: [OverviewWindow] = []
     private var windowsByDisplayId: [CGDirectDisplayID: OverviewWindow] = [:]
+    private var magnificationWindow: OverviewWindow?
     var isTabPickerOpen: Bool {
         windows.contains(where: \.isTabPickerOpen)
     }
@@ -177,8 +178,28 @@ final class OverviewWindowSession {
         return windows.first(where: { $0.monitorId == primaryMonitorId })
     }
 
+    func magnify(with event: NSEvent, at screenPoint: CGPoint) -> Bool {
+        switch event.phase {
+        case .began:
+            magnificationWindow = windows.first { $0.isVisible && $0.frame.contains(screenPoint) }
+        case .changed,
+             .ended,
+             .cancelled:
+            break
+        default:
+            return false
+        }
+        guard let magnificationWindow else { return false }
+        if event.phase == .ended || event.phase == .cancelled {
+            self.magnificationWindow = nil
+        }
+        magnificationWindow.magnify(with: event, at: screenPoint)
+        return true
+    }
+
     func closeWindows() {
         endDragPreview()
+        magnificationWindow = nil
         for window in windows {
             ownedWindowRegistry.unregister(surfaceId: "overview-\(String(describing: window.monitorId))")
             window.hide()
