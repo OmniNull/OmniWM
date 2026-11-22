@@ -31,6 +31,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         let targetFrame: CGRect
         let startTouch: CGPoint
         let targetTouch: CGPoint
+        let moveSpeed: CGFloat
         let events: MoveEvents
         let blocker: DwindleLiveTitleBarDragTests.RefreshBlocker
 
@@ -59,10 +60,25 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         }
 
         func touch(at point: CGPoint, grabbedAt grab: CGPoint? = nil) -> CGPoint {
-            let anchor = grab ?? startFrame.center
-            return CGPoint(
-                x: startTouch.x + (point.x - anchor.x) / monitor.frame.width,
-                y: startTouch.y + (point.y - anchor.y) / monitor.frame.height
+            Self.touch(
+                at: point,
+                from: grab ?? startFrame.center,
+                start: startTouch,
+                display: monitor.frame,
+                speed: moveSpeed
+            )
+        }
+
+        static func touch(
+            at point: CGPoint,
+            from grab: CGPoint,
+            start: CGPoint,
+            display: CGRect,
+            speed: CGFloat
+        ) -> CGPoint {
+            CGPoint(
+                x: start.x + (point.x - grab.x) / (display.width * speed),
+                y: start.y + (point.y - grab.y) / (display.height * speed)
             )
         }
 
@@ -117,12 +133,14 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         }
 
         func expectedFloatingFrame(at touch: CGPoint) -> CGRect {
-            let point = TrackpadGestureIntent.windowGestureLocation(
-                start: startFrame.center, startTouch: startTouch, currentTouch: touch,
-                monitorFrame: monitor.frame,
-                sensitivity: CGFloat(controller.settings.gestures.windowGestureSensitivity)
+            let display = monitor.frame
+            let x = startFrame.midX + (touch.x - startTouch.x) * display.width * moveSpeed
+            let y = startFrame.midY + (touch.y - startTouch.y) * display.height * moveSpeed
+            let lastScreenPoint = CGPoint(x: display.maxX - 1, y: display.maxY - 1)
+            let frame = startFrame.offsetBy(
+                dx: min(max(display.minX, x), lastScreenPoint.x) - startFrame.midX,
+                dy: min(max(display.minY, y), lastScreenPoint.y) - startFrame.midY
             )
-            let frame = startFrame.offsetBy(dx: point.x - startFrame.midX, dy: point.y - startFrame.midY)
             guard kind == .dwindle else { return frame }
             let scale = controller.layoutRefreshController.buildMonitorSnapshot(for: monitor).scale
             return frame.roundedToPhysicalPixels(scale: scale)
@@ -164,6 +182,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         windows: Int = 2,
         adjacentDisplay: Bool = false,
         firstWindowId: Int = 1,
+        moveSpeed: CGFloat = CGFloat(SettingsExport.Gestures.defaultMoveSensitivity),
         prepare: (CrossDisplayDragTests.Fixture, [WindowToken]) throws -> Void = { _, _ in }
     ) throws -> Fixture {
         let host = CrossDisplayDragTests()
@@ -181,7 +200,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         gestures.windowMoveEnabled = true
         gestures.windowMoveFingerCount = .four
         gestures.windowResizeEnabled = false
-        gestures.windowGestureSensitivity = 1
+        gestures.windowMoveSensitivity = Double(moveSpeed)
         controller.motionPolicy.animationsEnabled = false
         controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
         let tokens = (0 ..< (grouped ? 3 : windows)).map {
@@ -218,9 +237,8 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         let start = try XCTUnwrap(initial[tokens[0]])
         let target = try XCTUnwrap(initial[tokens.dropFirst().first ?? tokens[0]])
         let startTouch = CGPoint(x: 1 / 4, y: 1 / 4)
-        let targetTouch = CGPoint(
-            x: startTouch.x + (target.midX - start.midX) / base.monitors[0].frame.width,
-            y: startTouch.y + (target.midY - start.midY) / base.monitors[0].frame.height
+        let targetTouch = Fixture.touch(
+            at: target.center, from: start.center, start: startTouch, display: base.monitors[0].frame, speed: moveSpeed
         )
         let events = MoveEvents(
             begin: Fixture.event(location: start.center, touch: startTouch, phase: .began, sample: 0),
@@ -234,7 +252,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         controller.layoutRefreshController.layoutState.didExecuteEffectPlan = true
         let fixture = Fixture(
             base: base, kind: kind, tokens: tokens, initialFrames: initial, startFrame: start, targetFrame: target,
-            startTouch: startTouch, targetTouch: targetTouch, events: events, blocker: blocker
+            startTouch: startTouch, targetTouch: targetTouch, moveSpeed: moveSpeed, events: events, blocker: blocker
         )
         addTeardownBlock { @MainActor in fixture.finish() }
         return fixture

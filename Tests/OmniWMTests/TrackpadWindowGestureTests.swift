@@ -69,7 +69,8 @@ final class TrackpadWindowGestureTests: XCTestCase {
         }
 
         var travelToSecond: CGFloat {
-            (secondFrame.center.x - firstFrame.center.x) / monitor.frame.width
+            (secondFrame.midX - firstFrame.midX) /
+                (monitor.frame.width * CGFloat(SettingsExport.Gestures.defaultMoveSensitivity))
         }
 
         var firstRightEdgeGrip: CGPoint {
@@ -162,16 +163,20 @@ final class TrackpadWindowGestureTests: XCTestCase {
     }
 
     func testThreeFingerResizePreservesLifecycleAcrossSensitivities() throws {
-        let cases: [(Double, CGFloat, pid_t)] = [(1, 160, 9_102), (0.5, 80, 9_103)]
-        for (sensitivity, delta, pid) in cases {
-            let fixture = try makeNiriFixture(pid: pid)
-            fixture.controller.settings.gestures.windowGestureSensitivity = sensitivity
+        let cases: [(move: Double, resize: Double)] = [(2, 1), (1, 1), (1, 0.5)]
+        let start: CGFloat = 3 / 8
+        let fingerTravel: CGFloat = 1 / 8
+        for speeds in cases {
+            let fixture = try makeNiriFixture(pid: 9_102)
+            fixture.controller.settings.gestures.windowResizeSensitivity = speeds.resize
+            fixture.controller.settings.gestures.windowMoveSensitivity = speeds.move
+            let delta = fixture.monitor.frame.width * fingerTravel * CGFloat(speeds.resize)
             let handler = fixture.handler
             let widthBefore = fixture.firstFrame.width
 
             var gesture = fixture.driver(at: fixture.firstRightEdgeGrip)
-            gesture.begin(fingers: 3, x: 0.4)
-            gesture.drag(fingers: 3, fromX: 0.4, toX: 0.5, steps: 8)
+            gesture.begin(fingers: 3, x: start)
+            gesture.drag(fingers: 3, fromX: start, toX: start + fingerTravel, steps: 8)
 
             XCTAssertEqual(handler.state.activeGestureMode, .windowResize)
             XCTAssertTrue(handler.state.isResizing)
@@ -181,6 +186,8 @@ final class TrackpadWindowGestureTests: XCTestCase {
             let resize = try XCTUnwrap(fixture.engine.interactiveResize)
             XCTAssertTrue(resize.edges.contains(.right))
             XCTAssertEqual(resize.startMouseLocation, gesture.location)
+            let context = try XCTUnwrap(handler.state.lockedGestureContext)
+            XCTAssertEqual(handler.gestureWindowLocation(for: context).x, gesture.location.x + delta)
 
             gesture.end()
 
@@ -419,7 +426,8 @@ final class TrackpadWindowGestureTests: XCTestCase {
     func testFourFingerDragSwapsDwindleTilesOnRelease() throws {
         let fixture = try makeDwindleFixture(pid: 9_201)
         let handler = fixture.handler
-        let travel = (fixture.secondFrame.midX - fixture.firstFrame.midX) / fixture.screen.width
+        let travel = (fixture.secondFrame.midX - fixture.firstFrame.midX)
+            / (workingFrame.width * CGFloat(SettingsExport.Gestures.defaultMoveSensitivity))
 
         var gesture = fixture.driver(at: fixture.firstFrame.center)
         gesture.begin(fingers: 4, x: 0.2)
@@ -675,7 +683,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertEqual(controller.innerGap(for: fixture.monitor), 0)
         XCTAssertEqual(controller.insetWorkingFrame(for: fixture.monitor), frame)
         XCTAssertEqual(fixture.frames(), [fixture.first.token: first, fixture.second.token: second])
-        controller.settings.gestures.windowGestureSensitivity = 5
+        controller.settings.gestures.windowMoveSensitivity = GestureSettings.windowGestureSensitivityRange.upperBound
         var gesture = fixture.driver(at: first.center)
         gesture.begin(fingers: 4, x: 0.2)
         gesture.drag(fingers: 4, fromX: 0.2, toX: 1)
@@ -683,11 +691,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertEqual(fixture.engine.liveColumnMove?.workspaceId, fixture.workspaceId)
         let context = try XCTUnwrap(fixture.handler.state.lockedGestureContext)
         let point = fixture.handler.gestureWindowLocation(for: context)
-        XCTAssertEqual(point, TrackpadGestureIntent.windowGestureLocation(
-            start: first.center, startTouch: CGPoint(x: 0.2, y: 0.5),
-            currentTouch: CGPoint(x: 1, y: 0.5), monitorFrame: frame,
-            sensitivity: CGFloat(controller.settings.gestures.windowGestureSensitivity)
-        ))
+        XCTAssertEqual(point, CGPoint(x: frame.maxX - 1, y: first.midY))
         XCTAssertTrue(second.contains(point))
         XCTAssertEqual(fixture.handler.livePointer.location, point)
         gesture.end()
@@ -706,7 +710,6 @@ final class TrackpadWindowGestureTests: XCTestCase {
         settings.gestures.windowMoveFingerCount = .four
         settings.gestures.windowResizeEnabled = true
         settings.gestures.windowResizeFingerCount = .three
-        settings.gestures.windowGestureSensitivity = 1.0
         return controller
     }
 

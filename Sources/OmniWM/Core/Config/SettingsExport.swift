@@ -182,6 +182,9 @@ struct SettingsExport: Equatable {
     }
 
     struct Gestures: Codable, Equatable {
+        static let defaultMoveSensitivity = 2.0
+        static let defaultResizeSensitivity = 1.0
+
         var scrollEnabled: Bool
         var scrollSensitivity: Double
         var scrollModifierKey: ScrollModifierKey
@@ -198,7 +201,8 @@ struct SettingsExport: Equatable {
         var windowMoveFingerCount: GestureFingerCount? = .four
         var windowResizeEnabled: Bool? = false
         var windowResizeFingerCount: GestureFingerCount? = .three
-        var windowGestureSensitivity: Double? = 1.0
+        var windowMoveSensitivity: Double? = defaultMoveSensitivity
+        var windowGestureSensitivity: Double? = defaultResizeSensitivity
         var dwindleGroupDragAcrossDisplays: DwindleGroupDrag? = .group
         var mouseWheelSensitivity: Double? = 1.0
     }

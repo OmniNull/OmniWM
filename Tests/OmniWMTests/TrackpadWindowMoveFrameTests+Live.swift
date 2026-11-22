@@ -6,6 +6,45 @@ import AppKit
 import XCTest
 
 extension TrackpadWindowMoveFrameTests {
+    func testMoveUsesOnlyItsOwnSpeedForAnInteriorStrokeAndReturnsToTheGrab() throws {
+        let speeds: [(move: CGFloat, resize: Double)] = [(2, 1), (2, 2), (1, 2)]
+        let fullResizeStroke: CGFloat = 1 / 8
+        let moveStroke = fullResizeStroke / 2
+        for kind in MoveKind.allCases {
+            for speed in speeds {
+                let fixture = try makeMoveFixture(kind, moveSpeed: speed.move)
+                fixture.controller.settings.gestures.windowResizeSensitivity = speed.resize
+                let beginTime = fixture.events.begin.timestamp
+                fixture.handler.liveDragClock = { beginTime }
+                let display = fixture.monitor.frame
+                let destination = fixture.startFrame.offsetBy(
+                    dx: display.width * moveStroke * speed.move, dy: display.height * moveStroke * speed.move
+                )
+                XCTAssertTrue(display.contains(destination.center))
+                let touch = CGPoint(x: fixture.startTouch.x + moveStroke, y: fixture.startTouch.y + moveStroke)
+
+                fixture.begin()
+                fixture.send(fixture.event(at: touch))
+                XCTAssertTrue(fixture.handler.state.gestureOwnsWindowInteraction)
+                XCTAssertEqual(
+                    try fixture.projection().frameChanges.first { $0.token == fixture.moved }?.frame,
+                    destination
+                )
+                let context = try XCTUnwrap(fixture.handler.state.lockedGestureContext)
+                XCTAssertEqual(fixture.handler.gestureWindowLocation(for: context), destination.center)
+
+                fixture.send(fixture.event(at: fixture.startTouch))
+                XCTAssertEqual(
+                    try fixture.projection().frameChanges.first { $0.token == fixture.moved }?.frame,
+                    fixture.startFrame
+                )
+                fixture.release()
+                XCTAssertFalse(fixture.handler.state.isMoving)
+                XCTAssertEqual(fixture.order(), [[fixture.moved], [fixture.target]])
+            }
+        }
+    }
+
     func testOffCentreTrackpadGrabAimsWithTheWindowMidpointOnBothStripAxes() throws {
         for kind in [MoveKind.horizontal, .vertical] {
             let fixture = try makeMoveFixture(kind)
