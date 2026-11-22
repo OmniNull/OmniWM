@@ -134,6 +134,16 @@ final class ShellAudioOutputKindTests: XCTestCase {
         XCTAssertFalse(symbols.contains { $0.hasPrefix("speaker.") }, "\(symbols)")
     }
 
+    func testTheVolumeBarShowsTheDefaultOutputDeviceWithoutAVolumeReading() throws {
+        let outputs = [
+            OutputFixture(id: 42, name: "Speakers", transport: "builtin", kind: "builtin", isDefault: false),
+            OutputFixture(id: 3, name: "Display", transport: "hdmi", kind: "display", isDefault: true)
+        ]
+        XCTAssertEqual(try renderVolumeBar(volume: nil, muted: false, outputs: outputs), ["tv"])
+        XCTAssertEqual(try renderVolumeBar(volume: nil, muted: true, outputs: outputs), ["speaker.slash.fill"])
+        XCTAssertEqual(try renderVolumeBar(volume: nil, muted: false, outputs: nil), ["speaker.fill"])
+    }
+
     func testAMutedVolumeBarShowsTheSlashedSpeakerWhateverTheDevice() throws {
         let symbols = try renderVolumeBar(volume: 40, muted: true, outputs: [
             OutputFixture(id: 3, name: "AirPods Pro", transport: "bluetooth", kind: "airpodspro", isDefault: true)
@@ -164,9 +174,11 @@ final class ShellAudioOutputKindTests: XCTestCase {
         }
     }
 
-    private func renderVolumeBar(volume: Double, muted: Bool, outputs: [OutputFixture]?) throws -> [String] {
+    private func renderVolumeBar(volume: Double?, muted: Bool, outputs: [OutputFixture]?) throws -> [String] {
         let widget = try ShellRenderedWidget("volume")
-        widget.set("volume") { $0.number(volume) }
+        widget.set("volume") { writer in
+            volume.map { writer.number($0) } ?? writer.null()
+        }
         widget.set("muted") { $0.bool(muted) }
         if let outputs {
             widget.set("outputs") { writer in
