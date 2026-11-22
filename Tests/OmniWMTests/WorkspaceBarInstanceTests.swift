@@ -251,7 +251,8 @@ final class WorkspaceBarInstanceTests: XCTestCase {
                 motionPolicy: MotionPolicy(animationsEnabled: false)
             ),
             resolved: makeResolved(),
-            monitor: makeMonitor()
+            monitor: makeMonitor(),
+            appearance: nil
         )
         return Fixture(
             instance: WorkspaceBarInstance(

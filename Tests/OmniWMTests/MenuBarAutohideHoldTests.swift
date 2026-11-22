@@ -564,7 +564,8 @@ final class MenuBarAutohideHoldTests: XCTestCase {
                 motionPolicy: MotionPolicy(animationsEnabled: false)
             ),
             resolved: settings.resolved(for: monitor),
-            monitor: monitor
+            monitor: monitor,
+            appearance: nil
         )
         defer { island.panel.close() }
         XCTAssertGreaterThan(island.panel.level.rawValue, NSWindow.Level.statusBar.rawValue)

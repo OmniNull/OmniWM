@@ -48,7 +48,8 @@ final class WorkspaceBarPanelPolicyTests: XCTestCase {
                 motionPolicy: MotionPolicy(animationsEnabled: false)
             ),
             resolved: resolved,
-            monitor: monitor
+            monitor: monitor,
+            appearance: nil
         )
     }
 
