@@ -6076,6 +6076,66 @@ final class RuntimeArchitectureTests: XCTestCase {
     }
 
     @MainActor
+    func testTrackedWineWindowKeepsModeWhenItStopsBeingMain() throws {
+        let controller = Self.controller()
+        let workspaceId = try XCTUnwrap(
+            controller.workspaceManager.workspaceId(for: "1", createIfMissing: true)
+        )
+        let pid = pid_t(941_100)
+        let windowId = 941_200
+        let token = controller.workspaceManager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowId),
+            pid: pid,
+            windowId: windowId,
+            to: workspaceId,
+            mode: .floating
+        )
+        let entry = try XCTUnwrap(controller.workspaceManager.entry(for: token))
+
+        for level: Int32 in [0, 27] {
+            let facts = WindowRuleFacts(
+                appName: "fifa.exe",
+                ax: AXWindowFacts(
+                    role: kAXWindowRole as String,
+                    subrole: kAXUnknownSubrole as String,
+                    title: nil,
+                    hasCloseButton: false,
+                    hasFullscreenButton: false,
+                    fullscreenButtonEnabled: nil,
+                    hasZoomButton: false,
+                    hasMinimizeButton: false,
+                    appPolicy: .regular,
+                    bundleId: nil,
+                    attributeFetchSucceeded: true,
+                    isMain: false,
+                    isModal: false
+                ),
+                sizeConstraints: nil,
+                windowServer: WindowServerInfo(
+                    id: UInt32(windowId),
+                    pid: Int32(pid),
+                    level: level,
+                    frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+                    tags: 4_295_499_777,
+                    attributes: 2,
+                    parentId: 0
+                )
+            )
+            let decision = WindowRuleEngine().decision(for: facts, token: token, appFullscreen: false)
+
+            XCTAssertEqual(
+                controller.trackedModePreservingAutomaticFallbackState(
+                    decision: decision,
+                    existingEntry: entry,
+                    context: .automatic
+                ),
+                .floating,
+                "level \(level)"
+            )
+        }
+    }
+
+    @MainActor
     func testAutomaticUnprovenIndependentRootDecisionPreservesModeWhileExternalSurfaceEvicts() throws {
         let controller = Self.controller()
         let workspaceId = try XCTUnwrap(

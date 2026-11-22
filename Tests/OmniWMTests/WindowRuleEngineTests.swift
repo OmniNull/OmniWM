@@ -303,12 +303,12 @@ final class WindowRuleEngineTests: XCTestCase {
         XCTAssertEqual(decision.source, wineRuleSource)
     }
 
-    func testWineBuiltInLeavesNonMainPopupsUnmanaged() {
+    func testWineBuiltInLeavesNonMainPopupsUnmanagedAsUnprovenRoots() {
         for level: Int32 in [0, 3, 27] {
             let decision = evaluate(WindowRuleEngine(), wineFacts(isMain: false, level: level))
 
             XCTAssertEqual(decision.disposition, .unmanaged, "level \(level)")
-            XCTAssertEqual(decision.source, .builtInRule(WindowRuleEngine.externalSurfaceRuleName))
+            XCTAssertTrue(decision.isUnprovenIndependentRootDecision, "level \(level)")
         }
     }
 

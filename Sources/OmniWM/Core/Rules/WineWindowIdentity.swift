@@ -17,9 +17,18 @@ enum WineWindowIdentity {
     }
 
     static func isMainWindow(_ facts: WindowRuleFacts) -> Bool {
+        isWineWindow(facts) && facts.ax.isMain == true
+    }
+
+    static func isNonMainUnknownWindow(_ facts: WindowRuleFacts) -> Bool {
+        isWineWindow(facts)
+            && facts.ax.isMain != true
+            && facts.ax.subrole == (kAXUnknownSubrole as String)
+    }
+
+    private static func isWineWindow(_ facts: WindowRuleFacts) -> Bool {
         facts.ax.attributeFetchSucceeded
             && facts.ax.role == (kAXWindowRole as String)
-            && facts.ax.isMain == true
             && isWineProcess(bundleId: facts.ax.bundleId, appName: facts.appName)
     }
 }

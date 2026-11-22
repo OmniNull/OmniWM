@@ -45,8 +45,9 @@ Windows programs running under Wine report their windows as buttonless `AXWindow
 fullscreen game can sit above the status-window level. A built-in rule floats the main window of such a program so it
 can be focused, moved, and hidden with its workspace like any other floating window. OmniWM recognizes a Wine process
 by a process name ending in `.exe` with no bundle ID, or by a CrossOver helper bundle ID
-(`com.codeweavers.CrossOverHelper.*`). The program's popup menus, tooltips, and dropdowns are never its main window,
-so they stay unmanaged. Wine windows that report a standard title bar are classified normally.
+(`com.codeweavers.CrossOverHelper.*`). Under the built-in rule, the program's popup menus, tooltips, and dropdowns stay
+unmanaged because they never become its main window. A window the rule already floats keeps its state if another of
+the program's windows later becomes main. Wine windows that report a standard title bar are classified normally.
 
 To tile a Wine program's window instead, add a user rule with the same precise shape; it outranks the built-in rule:
 
@@ -58,6 +59,9 @@ axRole = "AXWindow"
 axSubrole = "AXUnknown"
 layout = "tile"
 ```
+
+A user rule cannot test whether a window is the main window, so this rule also tiles the program's popups. If the main
+window's title is known and differs from the popups' titles, add `titleSubstring` to narrow the match.
 
 ## Rule actions
 
