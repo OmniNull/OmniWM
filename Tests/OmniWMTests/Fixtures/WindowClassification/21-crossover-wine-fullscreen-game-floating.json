@@ -46,10 +46,19 @@
     "tokenPid": 93970,
     "tokenWindowId": 5585
   },
-  "rules": [],
+  "rules": [
+    {
+      "id": "11111111-0000-4000-8000-00000000E1E1",
+      "bundleId": "",
+      "appNameSubstring": "fifa.exe",
+      "axRole": "AXWindow",
+      "axSubrole": "AXUnknown",
+      "layout": "float"
+    }
+  ],
   "expectedDecision": {
     "disposition": "floating",
-    "source": "builtInRule(wineWindow)",
+    "source": "userRule(11111111-0000-4000-8000-00000000E1E1)",
     "heuristicReasons": [],
     "layoutDecisionKind": "explicitLayout"
   }

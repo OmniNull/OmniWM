@@ -46,10 +46,19 @@
     "tokenPid": 87774,
     "tokenWindowId": 5541
   },
-  "rules": [],
+  "rules": [
+    {
+      "id": "11111111-0000-4000-8000-00000000E1E1",
+      "bundleId": "",
+      "appNameSubstring": "Aurora15Connector.exe",
+      "axRole": "AXWindow",
+      "axSubrole": "AXUnknown",
+      "layout": "float"
+    }
+  ],
   "expectedDecision": {
     "disposition": "floating",
-    "source": "builtInRule(wineWindow)",
+    "source": "userRule(11111111-0000-4000-8000-00000000E1E1)",
     "heuristicReasons": [],
     "layoutDecisionKind": "explicitLayout"
   }

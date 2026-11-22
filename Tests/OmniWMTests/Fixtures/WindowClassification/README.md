@@ -10,8 +10,7 @@ The disposition is the ownership boundary. `managed` and `floating` are semantic
 suppressed later. Help tags, input-method surfaces, and non-self parented windows are hard external. Closeable,
 parentless accessory-app `AXWindow` roots at ordinary WindowServer levels are normal candidates. Buttonless
 accessory roots, prohibited-app roots, non-`AXWindow` roles, and unsupported AX subroles require precise
-inclusion; parentless roots at status-window level or higher require that inclusion to come from a user rule, except a
-Wine program's main window, which the built-in `wineWindow` rule may include.
+inclusion; parentless roots at status-window level or higher require that inclusion to come from a user rule.
 
 ## Adding a fixture
 
@@ -22,5 +21,5 @@ Wine program's main window, which the built-in `wineWindow` rule may include.
    `observedDecision` without reviewing the reported problem. Positive root-window fixtures must include
    matching WindowServer identity and root-parent evidence; buttonless dialog and floating-window fixtures
    must also preserve tri-state `isMain` and `isModal` AX facts. A positive high-level fixture must include a
-   precise matching user rule (or be a Wine main window covered by `wineWindow`), while a normal-admission accessory fixture must preserve its close-button fact.
+   precise matching user rule, while a normal-admission accessory fixture must preserve its close-button fact.
 4. Run `swift test --filter WindowClassificationRegressionTests`.

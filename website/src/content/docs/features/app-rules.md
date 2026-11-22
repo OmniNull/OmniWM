@@ -26,8 +26,7 @@ classification.
 Buttonless accessory roots, prohibited-app roots, non-`AXWindow` roles, and otherwise unsupported AX subroles
 require a precise inclusion rule. The rule must identify the app or window, set both `axRole` and `axSubrole` to
 the observed values, and choose Tile or Float rather than Automatic. Parentless roots at status-window level or
-higher use the same precise shape, but only a user-authored rule can opt them in; built-in rules cannot, except
-the Wine rule described below. For example:
+higher use the same precise shape, but only a user-authored rule can opt them in; built-in rules cannot. For example:
 
 ```toml
 [[appRules]]
@@ -41,15 +40,9 @@ Use the target's actual bundle ID and AX values. This escape hatch does not admi
 
 ### Wine and CrossOver programs
 
-Windows programs running under Wine report their windows as buttonless `AXWindow` / `AXUnknown` surfaces, and a
-fullscreen game can sit above the status-window level. A built-in rule floats the main window of such a program so it
-can be focused, moved, and hidden with its workspace like any other floating window. OmniWM recognizes a Wine process
-by a process name ending in `.exe` with no bundle ID, or by a CrossOver helper bundle ID
-(`com.codeweavers.CrossOverHelper.*`). Under the built-in rule, the program's popup menus, tooltips, and dropdowns stay
-unmanaged because they never become its main window. A window the rule already floats keeps its state if another of
-the program's windows later becomes main. Wine windows that report a standard title bar are classified normally.
-
-To tile a Wine program's window instead, add a user rule with the same precise shape; it outranks the built-in rule:
+Windows programs running under Wine or CrossOver often report buttonless `AXWindow` / `AXUnknown` windows, which
+OmniWM leaves unmanaged by default. A fullscreen game can also sit above the status-window level. To manage such a
+program's windows, add a precise rule that matches the program's process name:
 
 ```toml
 [[appRules]]
@@ -57,11 +50,17 @@ bundleId = ""
 appNameSubstring = "Aurora15Connector.exe"
 axRole = "AXWindow"
 axSubrole = "AXUnknown"
-layout = "tile"
+layout = "float"
 ```
 
-A user rule cannot test whether a window is the main window, so this rule also tiles the program's popups. If the main
-window's title is known and differs from the popups' titles, add `titleSubstring` to narrow the match.
+Use `layout = "tile"` to tile the window instead. Wine processes usually have no bundle ID, so the rule matches the
+`.exe` name; `appNameSubstring = ".exe"` covers every such program. A program that CrossOver launches through a
+helper may report a `com.codeweavers.CrossOverHelper.*` bundle ID instead. Check the inspector's debug dump for the
+actual values.
+
+The rule matches every parentless `AXWindow` / `AXUnknown` window of the program, so it can also catch the program's
+own popups. If the main window's title is known and differs from the popups' titles, add `titleSubstring` to narrow
+the match.
 
 ## Rule actions
 

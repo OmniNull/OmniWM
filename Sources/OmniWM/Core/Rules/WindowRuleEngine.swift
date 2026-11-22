@@ -160,13 +160,13 @@ final class WindowRuleEngine {
             userRules = composedUserRules(facts: facts, requireExplicitInclusion: true)
             builtInRule = bestMatch(in: builtInRules, facts: facts, requireExplicitInclusion: true)
             if userRules.isEmpty, builtInRule == nil {
-                return .rejected(uncoveredSurfaceDecision(facts))
+                return .rejected(externalSurfaceDecision())
             }
         case .requiresExplicitUserInclusion:
             userRules = composedUserRules(facts: facts, requireExplicitInclusion: true)
             builtInRule = nil
             if userRules.isEmpty {
-                return .rejected(uncoveredSurfaceDecision(facts))
+                return .rejected(externalSurfaceDecision())
             }
         case .requiresIndependentRootInclusion:
             userRules = composedUserRules(facts: facts, requireExplicitInclusion: true)
@@ -180,14 +180,6 @@ final class WindowRuleEngine {
             return .rejected(deferredStructuralDecision(reason: reason))
         }
         return .matched(MatchedWindowRules(userRules: userRules, builtInRule: builtInRule))
-    }
-
-    private func uncoveredSurfaceDecision(_ facts: WindowRuleFacts) -> WindowDecision {
-        // A Wine window that is not main may be a popup, or a window the program admitted
-        // while it was main. Leave new ones unmanaged without evicting a tracked one.
-        WineWindowIdentity.isNonMainUnknownWindow(facts)
-            ? unprovenIndependentRootDecision()
-            : externalSurfaceDecision()
     }
 
     private func externalSurfaceDecision() -> WindowDecision {
