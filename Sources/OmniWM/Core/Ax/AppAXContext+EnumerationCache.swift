@@ -20,11 +20,14 @@ extension AppAXContext {
         with newWindows: [Int: AXUIElement],
         windows: ThreadGuardedValue<[Int: AXUIElement]>,
         bindingGeneration: UInt64,
-        windowBindingEpoch: LockedGenerationEpoch
+        windowBindingEpoch: LockedGenerationEpoch,
+        retryRaiseBinding: AppAXRetryRaiseBinding
     ) -> Bool {
         windowBindingEpoch.performIfCurrent(bindingGeneration) {
+            retryRaiseBinding.invalidateChangedBinding(in: newWindows)
             windows.value = newWindows
-        } != nil
+            return true
+        } ?? false
     }
 
     nonisolated static func recordFinalEnumeratedWindow(

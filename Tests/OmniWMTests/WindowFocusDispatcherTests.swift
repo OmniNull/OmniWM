@@ -85,22 +85,20 @@ final class WindowFocusDispatcherTests: XCTestCase {
             recorder.releaseStorage()
         }
         var steps: [String] = []
-        WindowFocusDispatchTrace.traceRetryRaise(pid: 7, windowId: 70, postedNs: 0) { waited in
-            waited()
+        WindowFocusDispatchTrace.traceRetryRaise(pid: 7, windowId: 70, postedNs: 0, startedNs: 0) {
             steps.append("untraced")
             return true
         }
         XCTAssertEqual(recorder.dump(), "none")
 
         let postedNs = DispatchTime.now().uptimeNanoseconds
-        WindowFocusDispatchTrace.traceRetryRaise(pid: 7, windowId: 71, postedNs: postedNs) { waited in
-            steps.append("wait")
-            waited()
+        let startedNs = DispatchTime.now().uptimeNanoseconds
+        WindowFocusDispatchTrace.traceRetryRaise(pid: 7, windowId: 71, postedNs: postedNs, startedNs: startedNs) {
             steps.append("raise")
             return false
         }
 
-        XCTAssertEqual(steps, ["untraced", "wait", "raise"])
+        XCTAssertEqual(steps, ["untraced", "raise"])
         let line = recorder.dump()
         XCTAssertTrue(line.hasPrefix("scope=worker-retry-raise"))
         XCTAssertTrue(line.contains(" pid=7 win=71 posted_ns=\(postedNs) "))
@@ -115,6 +113,7 @@ final class WindowFocusDispatcherTests: XCTestCase {
         let started = try XCTUnwrap(fields["start_ns"].flatMap { UInt64($0) })
         let waited = try XCTUnwrap(fields["waited_ns"].flatMap { UInt64($0) })
         let ended = try XCTUnwrap(fields["end_ns"].flatMap { UInt64($0) })
+        XCTAssertEqual(started, startedNs)
         XCTAssertTrue(postedNs <= started && started <= waited && waited <= ended)
     }
 

@@ -52,15 +52,15 @@ enum WindowFocusDispatchTrace {
         pid: pid_t,
         windowId: Int,
         postedNs: UInt64,
-        _ raise: (_ waited: () -> Void) -> Bool
+        startedNs: UInt64,
+        _ raise: () -> Bool
     ) {
         guard postedNs != 0 else {
-            _ = raise {}
+            _ = raise()
             return
         }
-        let startedNs = DispatchTime.now().uptimeNanoseconds
-        var waitedNs: UInt64 = 0
-        let raised = raise { waitedNs = DispatchTime.now().uptimeNanoseconds }
+        let waitedNs = DispatchTime.now().uptimeNanoseconds
+        let raised = raise()
         retryRaise.record(
             .init(
                 pid: pid,
