@@ -64,7 +64,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: read # Pin manual PR runs before checking out contributor code.
+      pull-requests: read
     outputs:
       source-sha: ${{ steps.source.outputs.sha }}
       tests: ${{ steps.plan.outputs.tests }}

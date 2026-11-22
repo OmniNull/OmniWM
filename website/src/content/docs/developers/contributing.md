@@ -239,7 +239,7 @@ The **Main branch protection** ruleset blocks branch deletion and force-pushes. 
 
 The **Main approval with BarutSRB-only bypass** and **Owner or three maintainers on other branches** rulesets require pull request approval. The **CI approval** status check has been removed from both rulesets.
 
-For an open PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. The manual run includes the full test groups. Updating the PR branch triggers its normal PR checks.
+For an open, mergeable PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number. All test groups run against the same resolved merge commit. Updating the PR branch triggers its normal PR checks.
 
 ## Trace Files
 

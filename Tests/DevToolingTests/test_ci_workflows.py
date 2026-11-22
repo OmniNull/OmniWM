@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import re
@@ -71,9 +72,10 @@ class CIWorkflowTests(unittest.TestCase):
             self.assertIn(value, before_checkout)
         script = textwrap.dedent(before_checkout.split("        run: |\n", 1)[1])
         event_sha, merge_sha = "a" * 40, "b" * 40
-        ready = f"open\ttrue\t{merge_sha}"
-        closed = f"closed\ttrue\t{merge_sha}"
-        pending = f"open\tnull\t{merge_sha}"
+        ready = {"state": "open", "mergeable": True, "merge_commit_sha": merge_sha}
+        closed = {**ready, "state": "closed"}
+        merged = {**closed, "merged": True, "mergeable": None}
+        pending = {**ready, "mergeable": None}
         cases = [
             ("push", "", [], 0, event_sha, ""),
             ("pull_request", "", [], 0, event_sha, ""),
@@ -81,17 +83,20 @@ class CIWorkflowTests(unittest.TestCase):
             ("workflow_dispatch", "1", [ready], 0, merge_sha, ""),
             ("workflow_dispatch", "1254", [ready], 0, merge_sha, ""),
             ("workflow_dispatch", "1254", [closed], 0, None, "must be open"),
-            ("workflow_dispatch", "1254", [f"open\tfalse\t{merge_sha}"], 0, None, "cannot be merged"),
+            ("workflow_dispatch", "1254", [merged], 0, None, "must be open"),
+            ("workflow_dispatch", "1254", [{**ready, "mergeable": False}], 0, None, "cannot be merged"),
             ("workflow_dispatch", "1254", [pending, ready], 0, merge_sha, ""),
+            ("workflow_dispatch", "1254", [{**pending, "merge_commit_sha": None}, ready], 0, merge_sha, ""),
             ("workflow_dispatch", "1254", [pending, closed], 0, None, "must be open"),
             ("workflow_dispatch", "1254", [pending] * 5, 0, None, "still computing mergeability"),
             ("workflow_dispatch", "1254", [ready], 1, None, "Could not resolve"),
         ]
         cases += [("workflow_dispatch", number, [], 0, None, "pr_number must be a positive integer")
                   for number in ("0", "-1", "01", "1/../head", "1\n2", "$(exit 0)", " 1")]
-        cases += [("workflow_dispatch", "1254", [f"open\ttrue\t{sha}"], 0, None,
+        cases += [("workflow_dispatch", "1254", [{**ready, "merge_commit_sha": sha}], 0, None,
                    "Source commit must be a full 40-character")
-                  for sha in ("", "null", "b" * 39, "b" * 41, "g" * 40, merge_sha + r"\n" + event_sha)]
+                  for sha in ("", None, "null", "b" * 39, "b" * 41, "g" * 40,
+                              merge_sha + r"\n" + event_sha, merge_sha + "\n" + event_sha)]
         for event, number, answers, status, expected, error in cases:
             with self.subTest(event=event, number=number, answers=answers, status=status), tempfile.TemporaryDirectory() as tmp:
                 directory = Path(tmp)
@@ -100,12 +105,8 @@ class CIWorkflowTests(unittest.TestCase):
                     #!/bin/bash
                     echo "${0##*/} $*" >> "$CALLS"
                     answer=$(sed -n "$(wc -l < "$CALLS" | tr -d ' ')p" <<< "$ANSWERS")
-                    if [[ "$4" == ".merge_commit_sha" ]]; then
-                      cut -f3 <<< "$answer"
-                    else
-                      printf '%s\\n' "$answer"
-                    fi
-                    exit "$QUERY_STATUS"
+                    if [[ "$QUERY_STATUS" != 0 ]]; then exit "$QUERY_STATUS"; fi
+                    jq -r "$4" <<< "$answer"
                     ''')
                 for command in ("gh", "git"):
                     (directory / command).write_text(stub)
@@ -116,7 +117,8 @@ class CIWorkflowTests(unittest.TestCase):
                                         capture_output=True, text=True, env={**os.environ, "PATH": f"{tmp}:{os.environ['PATH']}",
                                         "PR_NUMBER": number, "EVENT_SHA": event_sha, "GITHUB_EVENT_NAME": event,
                                         "GH_REPO": "OmniNull/OmniWM", "GH_TOKEN": "fixture", "GITHUB_OUTPUT": str(output),
-                                        "CALLS": str(calls), "ANSWERS": "\n".join(answers), "QUERY_STATUS": str(status)})
+                                        "CALLS": str(calls), "ANSWERS": "\n".join(map(json.dumps, answers)),
+                                        "QUERY_STATUS": str(status)})
                 self.assertEqual(result.returncode == 0, expected is not None, result.stdout + result.stderr)
                 self.assertEqual(output.read_text() if output.exists() else "", f"sha={expected}\n" if expected else "")
                 requests = calls.read_text().splitlines() if calls.exists() else []
