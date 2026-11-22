@@ -19,7 +19,7 @@ final class WorkspaceBarManager {
         panel.setFrame(frame, display: true)
     }
 
-    var menuBarIsDark: @MainActor () -> Bool = { false }
+    var menuBarIsDark = false
 
     private(set) var barsByMonitor: [Monitor.ID: WorkspaceBarInstance] = [:]
     weak var controller: WMController?
@@ -183,12 +183,14 @@ final class WorkspaceBarManager {
         let measurementView = NSHostingView(rootView: WorkspaceBarMeasurementView(snapshot: snapshot))
         let screen = screenProvider(monitor.displayId)
         let panel = makePanel(screen: screen)
+        let appearance = barAppearance(for: resolved, on: monitor)
+        measurementView.appearance = appearance
         let primary = WorkspaceBarIslandPanel(
             panel: panel,
             rootView: makeBarView(model: model, slice: .all, monitorId: monitor.id),
             resolved: resolved,
             monitor: monitor,
-            appearance: barAppearance(for: resolved, on: monitor)
+            appearance: appearance
         )
 
         let instance = WorkspaceBarInstance(
@@ -200,7 +202,6 @@ final class WorkspaceBarManager {
         )
         barsByMonitor[monitor.id] = instance
 
-        instance.applyAppearance(barAppearance(for: resolved, on: monitor))
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         surfaceCoordinator.register(
             window: primary.panel,
@@ -416,7 +417,7 @@ extension WorkspaceBarManager {
             rootView: makeBarView(model: instance.model, slice: .secondary, monitorId: instance.monitorId),
             resolved: resolved,
             monitor: instance.monitor,
-            appearance: barAppearance(for: resolved, on: instance.monitor)
+            appearance: instance.primary.panel.appearance
         )
         surfaceCoordinator.register(
             window: island.panel,

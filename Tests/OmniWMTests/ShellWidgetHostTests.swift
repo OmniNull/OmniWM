@@ -1003,6 +1003,9 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
     }
 
     func testBothIslandsOfASplitBarUnderADarkMenuBarDrawDark() async throws {
+        let previous = NSApplication.shared.appearance
+        NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        defer { NSApplication.shared.appearance = previous }
         executionTimeAllowance = failureBound
         let shell = ShellWidgetHost.shellDirectory(in: controller.settings.settingsFileURL.deletingLastPathComponent())
         XCTAssertTrue(try ShellProfiles.setValue(
@@ -1014,7 +1017,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         controller.settings.workspaceBar.notchMode = .splitActiveLeft
         let manager = makeManager()
         defer { manager.cleanup() }
-        manager.menuBarIsDark = { true }
+        manager.menuBarIsDark = true
         let focused = WorkspaceBarItem(
             id: WorkspaceDescriptor.ID(),
             name: "1",
@@ -1038,9 +1041,10 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         }
         XCTAssertTrue(islands.allSatisfy { palette($0) === host.resources.darkPalette })
 
-        manager.menuBarIsDark = { false }
+        manager.menuBarIsDark = false
         manager.refreshMenuBarAppearance()
-        XCTAssertNotEqual(secondary.panel.appearance?.name, .darkAqua)
+        XCTAssertEqual(instance.primary.panel.appearance?.name, .aqua)
+        XCTAssertEqual(secondary.panel.appearance?.name, .aqua)
         XCTAssertTrue(islands.allSatisfy { palette($0) === host.resources.palette })
     }
 

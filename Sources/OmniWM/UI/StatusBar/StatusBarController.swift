@@ -71,12 +71,10 @@ final class StatusBarController: NSObject {
         button.action = #selector(handleClick(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         button.setAccessibilityElement(true)
-        controller.workspaceBarManager.menuBarIsDark = { [weak button] in
-            button.map { WorkspaceBarManager.isDark($0.effectiveAppearance) } ?? false
+        menuBarAppearanceObservation = button.observe(\.effectiveAppearance) { [weak self] _, _ in
+            Task { @MainActor in self?.updateMenuBarAppearance() }
         }
-        menuBarAppearanceObservation = button.observe(\.effectiveAppearance) { [weak controller] _, _ in
-            Task { @MainActor in controller?.workspaceBarManager.refreshMenuBarAppearance() }
-        }
+        updateMenuBarAppearance()
 
         let model = StatusMenuModel(settings: settings, controller: controller)
         model.ipcMenuEnabled = cliManager != nil
@@ -96,6 +94,12 @@ final class StatusBarController: NSObject {
         hiddenBarController.statusItems.bind(omniButton: button)
         hiddenBarController.setup()
         refreshWorkspaces()
+    }
+
+    private func updateMenuBarAppearance() {
+        guard let button = statusButton, let manager = controller?.workspaceBarManager else { return }
+        manager.menuBarIsDark = WorkspaceBarManager.isDark(button.effectiveAppearance)
+        manager.refreshMenuBarAppearance()
     }
 
     enum StatusItemClickRoute {
@@ -318,6 +322,7 @@ final class StatusBarController: NSObject {
         menuHost = nil
         hiddenBarController.cleanup()
         menuBarAppearanceObservation = nil
+        controller?.workspaceBarManager.menuBarIsDark = false
         if let item = statusItem {
             NSStatusBar.system.removeStatusItem(item)
             statusItem = nil

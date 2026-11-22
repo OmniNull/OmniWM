@@ -11,7 +11,7 @@ extension WorkspaceBarManager {
     func usesDarkPalette(_ resolved: ResolvedBarSettings, on monitor: Monitor) -> Bool {
         !resolved.fullWidth
             && WorkspaceBarGeometry.effectivePosition(for: monitor, resolved: resolved) == .overlappingMenuBar
-            && menuBarIsDark()
+            && menuBarIsDark
     }
 
     func refreshMenuBarAppearance() {
