@@ -14,22 +14,14 @@ extension TrackpadWindowMoveFrameTests {
         WindowMoveGeometry.targetFrame(in: frame, direction: side).center
     }
 
-    private func touch(for point: CGPoint, in fixture: Fixture) -> CGPoint {
-        let monitor = fixture.monitor.frame
-        return CGPoint(
-            x: fixture.startTouch.x + (point.x - fixture.startFrame.midX) / monitor.width,
-            y: fixture.startTouch.y + (point.y - fixture.startFrame.midY) / monitor.height
-        )
-    }
-
     private func move(_ fixture: Fixture, to point: CGPoint) {
         fixture.begin()
-        fixture.send(fixture.event(at: touch(for: point, in: fixture)))
+        fixture.send(fixture.event(at: fixture.touch(at: point)))
         XCTAssertTrue(fixture.handler.state.isMoving)
     }
 
     private func lift(_ fixture: Fixture, at point: CGPoint) {
-        fixture.send(fixture.event(at: touch(for: point, in: fixture), phase: .ended, sample: 3))
+        fixture.send(fixture.event(at: fixture.touch(at: point), phase: .ended, sample: 3))
         XCTAssertFalse(fixture.handler.state.isMoving)
     }
 
@@ -53,100 +45,55 @@ extension TrackpadWindowMoveFrameTests {
         return members.indices.contains(column.activeTileIdx) ? members[column.activeTileIdx].token : nil
     }
 
-    func testTrackpadDropBesideAFarColumnGivesTheWindowItsOwnColumnOnThatSide() throws {
-        for side in [Direction.left, .right] {
+    private func holdOverTarget(_ fixture: Fixture, at point: CGPoint) throws {
+        fixture.handler.liveDragClock = { 0 }
+        move(fixture, to: point)
+        let delay = fixture.base.niri.liveCentreStackDelay
+        fixture.handler.liveDragClock = { delay }
+        try XCTUnwrap(fixture.handler.liveDragSession?.hoverTimer).fire()
+    }
+
+    func testTrackpadHoldOverTargetMakesRoomAboveOrBelowBeforeLift() throws {
+        for above in [false, true] {
             let fixture = try makeMoveFixture(.horizontal, windows: 3)
-            let (moved, middle, far) = (fixture.tokens[0], fixture.tokens[1], fixture.tokens[2])
-            XCTAssertEqual(fixture.order(), [[moved], [middle], [far]])
+            let (moved, target, other) = (fixture.moved, fixture.target, fixture.tokens[2])
+            let frame = fixture.targetFrame
+            let point = CGPoint(x: frame.midX, y: (frame.midY + (above ? frame.maxY : frame.minY)) / 2)
+            let members = above ? [target, moved] : [moved, target]
 
-            try drop(fixture, on: side, of: far)
+            try holdOverTarget(fixture, at: point)
+            XCTAssertEqual(fixture.order().first { $0.contains(target) }, members)
+            XCTAssertTrue(fixture.handler.state.gestureOwnsWindowInteraction)
 
-            XCTAssertEqual(
-                fixture.order(),
-                side == .left ? [[middle], [moved], [far]] : [[middle], [far], [moved]],
-                "\(side)"
-            )
+            lift(fixture, at: point)
+            XCTAssertEqual(fixture.order(), [members, [other]])
+            let settled = try frames(fixture)
+            let lower = try XCTUnwrap(settled[members[0]])
+            let upper = try XCTUnwrap(settled[members[1]])
+            XCTAssertLessThanOrEqual(lower.maxY, upper.minY)
+            XCTAssertEqual(activeMember(ofColumnHolding: moved, in: fixture), moved)
+            XCTAssertTrue(stepHistory(.undo, in: fixture))
+            XCTAssertEqual(fixture.order(), [[moved], [target], [other]])
+            XCTAssertFalse(stepHistory(.undo, in: fixture))
+            XCTAssertTrue(stepHistory(.redo, in: fixture))
+            XCTAssertEqual(fixture.order(), [members, [other]])
         }
     }
 
-    func testTrackpadDropOnTheTopOrBottomOfAWindowStacksItThereAsTheActiveMember() throws {
-        for side in [Direction.up, .down] {
-            let fixture = try makeMoveFixture(.horizontal, windows: 3)
-            let (moved, target, other) = (fixture.tokens[0], fixture.tokens[1], fixture.tokens[2])
+    func testCancellingAProvisionalTrackpadStackRestoresLayoutFramesAndHistory() throws {
+        let fixture = try makeMoveFixture(.horizontal)
+        try holdOverTarget(fixture, at: fixture.targetFrame.center)
+        XCTAssertTrue(fixture.order().contains { $0.contains(fixture.moved) && $0.contains(fixture.target) })
 
-            try drop(fixture, on: side, of: target)
+        fixture.cancel()
 
-            XCTAssertEqual(
-                fixture.order(),
-                side == .up ? [[target, moved], [other]] : [[moved, target], [other]],
-                "\(side)"
-            )
-            let frames = try frames(fixture)
-            let movedFrame = try XCTUnwrap(frames[moved])
-            let targetFrame = try XCTUnwrap(frames[target])
-            if side == .up {
-                XCTAssertGreaterThanOrEqual(movedFrame.minY, targetFrame.maxY)
-            } else {
-                XCTAssertLessThanOrEqual(movedFrame.maxY, targetFrame.minY)
-            }
-            XCTAssertEqual(activeMember(ofColumnHolding: moved, in: fixture), moved, "\(side)")
-        }
+        XCTAssertEqual(fixture.order(), [[fixture.moved], [fixture.target]])
+        XCTAssertEqual(try frames(fixture), fixture.initialFrames)
+        XCTAssertFalse(stepHistory(.undo, in: fixture))
+        XCTAssertNil(fixture.base.niri.liveColumnMove)
     }
 
-    private enum UnchangedDrop: CaseIterable {
-        case loneWindowOnTheNearSideOfItsNeighbour
-        case stackedWindowOnTheSideItAlreadyOccupies
-        case stackedWindowNextToItsNeighbourAcrossAHiddenWindow
-    }
-
-    private func makeUnchangedDrop(
-        _ scenario: UnchangedDrop
-    ) throws -> (fixture: Fixture, side: Direction, target: WindowToken) {
-        switch scenario {
-        case .loneWindowOnTheNearSideOfItsNeighbour:
-            let fixture = try makeMoveFixture(.horizontal, windows: 3)
-            return (fixture, .left, fixture.target)
-        case .stackedWindowOnTheSideItAlreadyOccupies:
-            let fixture = try makeMoveFixture(.horizontal, grouped: true) { base, tokens in
-                base.niriNode(tokens[0])?.height = Self.ownShare
-            }
-            return (fixture, .down, fixture.tokens[2])
-        case .stackedWindowNextToItsNeighbourAcrossAHiddenWindow:
-            let host = CrossDisplayDragTests()
-            let fixture = try makeMoveFixture(.horizontal, grouped: true) { base, tokens in
-                base.niriNode(tokens[0])?.height = Self.ownShare
-                let hidden = host.addWindow(tokens.count + 1, to: base.source, pid: Self.hiddenAppPid, base)
-                try host.stack(hidden, onto: tokens[0], in: base.source, base)
-                _ = base.manager.setAppHidden(true, pid: Self.hiddenAppPid, source: .ax)
-            }
-            let column = try XCTUnwrap(fixture.order().first)
-            XCTAssertEqual([column.first, column.last], [fixture.moved, fixture.tokens[2]])
-            let hiddenBetween = column.dropFirst().dropLast().map {
-                fixture.base.niri.isExcludedFromProjection($0, in: fixture.workspace)
-            }
-            XCTAssertEqual(hiddenBetween, [true])
-            return (fixture, .down, fixture.tokens[2])
-        }
-    }
-
-    func testATrackpadDropThatWouldChangeNothingPutsTheWindowBackAsItWas() throws {
-        for scenario in UnchangedDrop.allCases {
-            let (fixture, side, target) = try makeUnchangedDrop(scenario)
-            let original = fixture.order()
-            let height = fixture.base.niriNode(fixture.moved)?.height
-            if scenario != .loneWindowOnTheNearSideOfItsNeighbour {
-                XCTAssertEqual(height, Self.ownShare, "\(scenario)")
-            }
-
-            try drop(fixture, on: side, of: target)
-
-            XCTAssertEqual(fixture.order(), original, "\(scenario)")
-            XCTAssertEqual(fixture.base.niriNode(fixture.moved)?.height, height, "\(scenario)")
-            XCTAssertEqual(try frames(fixture), fixture.initialFrames, "\(scenario)")
-        }
-    }
-
-    func testTrackpadDropOfTheShownTabIntoAnotherStackShowsTheTabLeftBehind() throws {
+    func testATrackpadMoveOfTheShownTabCarriesTheOtherTabsWithIt() throws {
         let fixture = try makeMoveFixture(.horizontal, grouped: true) { base, tokens in
             base.manager.withEngineMutationScope(in: base.source) {
                 guard let shown = base.niriNode(tokens[0]),
@@ -156,26 +103,91 @@ extension TrackpadWindowMoveFrameTests {
                 base.niri.activateWindow(shown.id, in: base.source)
             }
         }
-        let (moved, target, leftBehind) = (fixture.tokens[0], fixture.tokens[1], fixture.tokens[2])
-        XCTAssertEqual(fixture.base.niriNode(leftBehind)?.isHiddenInTabbedMode, true)
+        let (moved, target, tab) = (fixture.moved, fixture.target, fixture.tokens[2])
+        XCTAssertEqual(fixture.base.niriNode(tab)?.isHiddenInTabbedMode, true)
 
-        try drop(fixture, on: .up, of: target)
+        let point = CGPoint(x: (fixture.targetFrame.midX + fixture.targetFrame.maxX) / 2, y: fixture.targetFrame.midY)
+        move(fixture, to: point)
+        XCTAssertEqual(fixture.base.niri.liveColumnMove?.isWholeColumn, true)
+        lift(fixture, at: point)
 
-        XCTAssertEqual(fixture.order(), [[leftBehind], [target, moved]])
-        XCTAssertEqual(fixture.base.niriNode(leftBehind)?.isHiddenInTabbedMode, false)
-        XCTAssertEqual(activeMember(ofColumnHolding: leftBehind, in: fixture), leftBehind)
+        XCTAssertEqual(fixture.order(), [[target], [moved, tab]])
+        XCTAssertEqual(fixture.base.niriNode(tab)?.isHiddenInTabbedMode, true)
+        XCTAssertEqual(activeMember(ofColumnHolding: tab, in: fixture), moved)
     }
 
-    func testTrackpadStackDropOnAPortraitStripResetsTheWindowsOwnWidth() throws {
-        let fixture = try makeMoveFixture(.vertical, grouped: true) { base, tokens in
+    func testTrackpadMovesOneMemberWithinAnOrdinaryStackBeforeLift() throws {
+        let fixture = try makeMoveFixture(.horizontal, grouped: true)
+        let (moved, target, sibling) = (fixture.moved, fixture.target, fixture.tokens[2])
+        let siblingFrame = try XCTUnwrap(fixture.initialFrames[sibling])
+        let expected = [[sibling, moved], [target]]
+
+        move(fixture, to: siblingFrame.center)
+        XCTAssertEqual(fixture.order(), expected)
+        lift(fixture, at: siblingFrame.center)
+
+        XCTAssertEqual(fixture.order(), expected)
+        XCTAssertEqual(activeMember(ofColumnHolding: sibling, in: fixture), moved)
+    }
+
+    func testTrackpadStackLandingOnAPortraitStripResetsTheWindowsOwnWidth() throws {
+        let fixture = try makeMoveFixture(.vertical, windows: 3) { base, tokens in
             base.niriNode(tokens[0])?.windowWidth = Self.ownShare
         }
-        let (moved, target, sibling) = (fixture.tokens[0], fixture.tokens[1], fixture.tokens[2])
+        let point = CGPoint(x: (fixture.targetFrame.midX + fixture.targetFrame.maxX) / 2, y: fixture.targetFrame.midY)
+        XCTAssertEqual(fixture.base.niriNode(fixture.moved)?.windowWidth, Self.ownShare)
+        try holdOverTarget(fixture, at: point)
+        lift(fixture, at: point)
 
-        try drop(fixture, on: .right, of: target)
+        XCTAssertEqual(fixture.order(), [[fixture.target, fixture.moved], [fixture.tokens[2]]])
+        XCTAssertEqual(fixture.base.niriNode(fixture.moved)?.windowWidth, .default)
+    }
 
-        XCTAssertEqual(fixture.order(), [[sibling], [target, moved]])
-        XCTAssertEqual(fixture.base.niriNode(moved)?.windowWidth, .default)
+    func testALoneWindowFloatsAndReturnsWithoutATrackpadHistoryStep() throws {
+        for tabbed in [false, true] {
+            let fixture = try makeMoveFixture(.horizontal, windows: 1) { base, tokens in
+                if tabbed, let window = base.niriNode(tokens[0]) {
+                    base.manager.withEngineMutationScope(in: base.source) {
+                        base.niri.findColumn(containing: window, in: base.source)?.displayMode = .tabbed
+                    }
+                }
+            }
+            let frame = fixture.startFrame
+            let point = CGPoint(x: frame.midX, y: (frame.midY + frame.maxY) / 2)
+            let carried = frame.offsetBy(dx: 0, dy: point.y - frame.midY)
+            move(fixture, to: point)
+            XCTAssertEqual(try frames(fixture)[fixture.moved], carried)
+            lift(fixture, at: point)
+            XCTAssertEqual(try frames(fixture), fixture.initialFrames)
+            XCTAssertEqual(fixture.order(), [[fixture.moved]])
+            XCTAssertFalse(stepHistory(.undo, in: fixture))
+        }
+    }
+
+    func testMovingWithinAStackSlotKeepsItsSizeAndHistoryAcrossAHiddenMember() throws {
+        let host = CrossDisplayDragTests()
+        func makeStack() throws -> Fixture {
+            try makeMoveFixture(.horizontal, grouped: true) { base, tokens in
+                base.niriNode(tokens[0])?.height = Self.ownShare
+                let hidden = host.addWindow(tokens.count + 1, to: base.source, pid: Self.hiddenAppPid, base)
+                try host.stack(hidden, onto: tokens[0], in: base.source, base)
+                _ = base.manager.setAppHidden(true, pid: Self.hiddenAppPid, source: .ax)
+            }
+        }
+        let untouched = try makeStack()
+        let fixture = try makeStack()
+        let original = fixture.order()
+        let between = try XCTUnwrap(original.first).dropFirst().dropLast()
+        XCTAssertEqual(between.map { fixture.base.niri.isExcludedFromProjection($0, in: fixture.workspace) }, [true])
+        let point = CGPoint(x: fixture.startFrame.midX, y: (fixture.startFrame.midY + fixture.startFrame.maxY) / 2)
+        move(fixture, to: point)
+        lift(fixture, at: point)
+
+        XCTAssertEqual(fixture.order(), original)
+        XCTAssertEqual(fixture.base.niriNode(fixture.moved)?.height, Self.ownShare)
+        XCTAssertEqual(try frames(fixture), fixture.initialFrames)
+        XCTAssertEqual(stepHistory(.undo, in: fixture), stepHistory(.undo, in: untouched))
+        XCTAssertEqual(fixture.order(), untouched.order())
     }
 
     func testTrackpadDropOnTheTopOfADwindleTileLandsAboveIt() throws {
@@ -238,33 +250,18 @@ extension TrackpadWindowMoveFrameTests {
         XCTAssertLessThanOrEqual(movedFrame.maxX, try XCTUnwrap(frames[right]).minX)
     }
 
-    func testUndoAndRedoTakeBackAndRepeatATrackpadDrop() throws {
-        for kind in MoveKind.allCases {
-            for side in [Direction?.none, .up] {
-                let fixture = try makeMoveFixture(kind, windows: 3)
-                let original = fixture.order()
-                try drop(fixture, on: side, of: fixture.target)
-                let dropped = fixture.order()
-                XCTAssertNotEqual(dropped, original, "\(kind) \(String(describing: side))")
+    func testUndoAndRedoTakeBackAndRepeatADwindleTrackpadDrop() throws {
+        for side in [Direction?.none, .up] {
+            let fixture = try makeMoveFixture(.dwindle, windows: 3)
+            let original = fixture.order()
+            try drop(fixture, on: side, of: fixture.target)
+            let dropped = fixture.order()
+            XCTAssertNotEqual(dropped, original)
 
-                XCTAssertTrue(stepHistory(.undo, in: fixture), "\(kind) \(String(describing: side))")
-                XCTAssertEqual(fixture.order(), original, "\(kind) \(String(describing: side))")
-                XCTAssertTrue(stepHistory(.redo, in: fixture), "\(kind) \(String(describing: side))")
-                XCTAssertEqual(fixture.order(), dropped, "\(kind) \(String(describing: side))")
-            }
-        }
-    }
-
-    func testUndoAfterATrackpadDropThatChangedNothingDoesWhatItWouldHaveDoneWithoutTheDrop() throws {
-        for scenario in UnchangedDrop.allCases {
-            let untouched = try makeUnchangedDrop(scenario).fixture
-            let (fixture, side, target) = try makeUnchangedDrop(scenario)
-            XCTAssertEqual(fixture.order(), untouched.order(), "\(scenario)")
-
-            try drop(fixture, on: side, of: target)
-
-            XCTAssertEqual(stepHistory(.undo, in: fixture), stepHistory(.undo, in: untouched), "\(scenario)")
-            XCTAssertEqual(fixture.order(), untouched.order(), "\(scenario)")
+            XCTAssertTrue(stepHistory(.undo, in: fixture))
+            XCTAssertEqual(fixture.order(), original)
+            XCTAssertTrue(stepHistory(.redo, in: fixture))
+            XCTAssertEqual(fixture.order(), dropped)
         }
     }
 

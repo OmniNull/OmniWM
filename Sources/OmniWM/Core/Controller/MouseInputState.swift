@@ -98,7 +98,7 @@ struct MouseInputState {
         let time: TimeInterval
     }
 
-    struct LiveTabPull {
+    struct CarriedWindow {
         let token: WindowToken
         let anchorLocation: CGPoint
         let startFrame: CGRect
@@ -216,7 +216,7 @@ struct LiveDragPointer {
 }
 
 struct LiveDragSession {
-    var tabPull: MouseInputState.LiveTabPull?
+    var carriedWindow: MouseInputState.CarriedWindow?
     var referenceOffset: CGFloat?
     var edgeScroll: MouseInputState.LiveEdgeScroll?
     var edgeZoneHold: MouseInputState.LiveEdgeZoneHold?

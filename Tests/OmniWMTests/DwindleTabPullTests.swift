@@ -168,7 +168,7 @@ extension DwindleLiveTitleBarDragTests {
         }
 
         func assertTerminal(file: StaticString = #filePath, line: UInt = #line) {
-            XCTAssertNil(handler.liveDragSession?.tabPull, file: file, line: line)
+            XCTAssertNil(handler.liveDragSession?.carriedWindow, file: file, line: line)
             XCTAssertNil(handler.state.nativeTitleBarDrag, file: file, line: line)
             XCTAssertNil(engine.liveMoveWorkspaceId, file: file, line: line)
             XCTAssertNil(engine.interactiveMove, file: file, line: line)
@@ -194,7 +194,7 @@ extension DwindleLiveTitleBarDragTests {
         let fixture = try makeTabPullFixture()
         fixture.assertLayout(joined: false)
         let anchor = try fixture.begin()
-        XCTAssertEqual(fixture.handler.liveDragSession?.tabPull?.token, fixture.pulled)
+        XCTAssertEqual(fixture.handler.liveDragSession?.carriedWindow?.token, fixture.pulled)
         XCTAssertNil(fixture.handler.state.nativeTitleBarDrag)
         XCTAssertEqual(
             fixture.engine.tile(containing: fixture.kept, in: fixture.workspaceId)?.members.map(\.token),

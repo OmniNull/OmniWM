@@ -175,9 +175,9 @@ extension NiriLayoutEngine {
         move.endSideDwell()
         let homeClosed = move.originClosedToward != nil
         let underPointer = liveColumnOrStripEnd(
-            in: homeClosed ? strip.filter { $0.column !== dragged } : strip,
-            at: cursor,
+            in: strip, at: cursor,
             ignoring: dropSpace,
+            closedHome: homeClosed ? dragged : nil,
             context: context
         )
         let side = livePointerSide(of: underPointer, pointer: pointer, strip: strip, context: context)

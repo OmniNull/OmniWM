@@ -80,47 +80,6 @@ extension MouseEventHandler {
         }
     }
 
-    func finishNiriMove(at location: CGPoint) {
-        guard let controller else { return }
-        guard let engine = controller.niriEngine, let move = engine.interactiveMove else {
-            controller.niriEngine?.interactiveMoveCancel()
-            restoreManagedMove(in: state.lockedGestureContext?.workspaceId)
-            return
-        }
-        let wsId = move.workspaceId
-        guard let monitor = controller.workspaceManager.monitor(for: wsId) else {
-            engine.interactiveMoveCancel()
-            restoreManagedMove(in: wsId)
-            return
-        }
-        let geometry = controller.niriInteractionGeometry(for: monitor)
-        let movedToken = move.windowToken
-        let layoutStart = controller.niriLayoutHandler.layoutChangeStart(in: wsId)
-        var didEnd = false
-        controller.workspaceManager.withNiriViewportState(for: wsId) { vstate in
-            didEnd = engine.interactiveMoveEnd(
-                at: location,
-                motion: controller.motionPolicy.snapshot(),
-                state: &vstate,
-                workingFrame: geometry.workingFrame,
-                gaps: geometry.innerGap
-            )
-        }
-        guard didEnd else {
-            restoreManagedMove(in: wsId)
-            return
-        }
-        controller.niriLayoutHandler.recordLayoutChange(since: layoutStart)
-        controller.workspaceManager.recordLayoutOperation(
-            .interactiveMoveEnded(token: movedToken),
-            in: wsId,
-            source: .mouse
-        )
-        controller.layoutRefreshController.requestImmediateRelayout(
-            reason: .interactiveGesture, affectedWorkspaceIds: [wsId]
-        )
-    }
-
     func handleMouseDraggedFromTap(
         at location: CGPoint,
         button: MouseButton,
@@ -167,29 +126,8 @@ extension MouseEventHandler {
         if state.moveLayout == .dwindle {
             handleDwindleMoveDrag(at: location)
         } else {
-            updateNiriMove(at: location)
+            moveCarriedWindow(to: location)
         }
-    }
-
-    private func updateNiriMove(at location: CGPoint) {
-        guard let controller else { return }
-        guard let engine = controller.niriEngine, let move = engine.interactiveMove,
-              let startFrame = move.startFrame
-        else {
-            cancelActiveMouseInteraction()
-            return
-        }
-        let frame = startFrame.offsetBy(
-            dx: location.x - move.startMouseLocation.x, dy: location.y - move.startMouseLocation.y
-        )
-        guard frame != move.floatingFrame else { return }
-        engine.interactiveMove?.floatingFrame = frame
-        _ = engine.interactiveMoveUpdate(currentLocation: location)
-        guard engine.interactiveMove != nil else {
-            cancelActiveMouseInteraction()
-            return
-        }
-        controller.layoutRefreshController.renderInteractiveResize(for: move.workspaceId, isInteractiveMove: true)
     }
 
     func restoreManagedMove(in workspaceId: WorkspaceDescriptor.ID?) {

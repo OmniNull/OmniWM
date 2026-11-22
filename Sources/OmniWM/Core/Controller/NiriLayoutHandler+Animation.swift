@@ -120,7 +120,8 @@ extension NiriLayoutHandler {
         animationTime: TimeInterval? = nil,
         settlesAnimation: Bool = false,
         animsMs: Double = 0,
-        isInteractiveMove: Bool = false
+        isInteractiveMove: Bool = false,
+        requiringSettledFrameFor carried: WindowToken? = nil
     ) -> Bool {
         guard let controller,
               let activeWorkspaceId = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id
@@ -171,7 +172,8 @@ extension NiriLayoutHandler {
                 )
             )
         }
-        return applied
+        guard applied, let carried else { return applied }
+        return LayoutDiffExecutor.isFrameOnly(plan.diff) && plan.diff.frameChanges.contains { $0.token == carried }
     }
 
     private struct ScrollTickSpans {

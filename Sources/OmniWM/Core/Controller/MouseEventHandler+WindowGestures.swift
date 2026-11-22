@@ -83,7 +83,7 @@ extension MouseEventHandler {
             guard let engine = controller.niriEngine, let window = engine.findNode(for: token, in: wsId) else {
                 return false
             }
-            began = beginNiriMove(window: window, engine: engine, wsId: wsId, at: location, source: .trackpadGesture)
+            began = beginNiriGestureMove(window: window, engine: engine, wsId: wsId, at: location)
         case (_, .windowResize):
             guard let engine = controller.niriEngine, let window = engine.findNode(for: token, in: wsId) else {
                 return false

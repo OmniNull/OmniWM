@@ -125,7 +125,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         }
     }
 
-    func testFourFingerDragMovesWindowAndSwapsOnRelease() throws {
+    func testFourFingerDragOpensALiveLandingBeforeRelease() throws {
         let fixture = try makeNiriFixture(pid: 9_101)
         let handler = fixture.handler
         XCTAssertEqual(fixture.windowOrder(), [fixture.first.token, fixture.second.token])
@@ -144,22 +144,20 @@ final class TrackpadWindowGestureTests: XCTestCase {
         XCTAssertEqual(handler.state.activeInteractionSource, .trackpadGesture)
         XCTAssertEqual(handler.state.moveLayout, .niri)
         XCTAssertNil(handler.state.activeInteractionButton)
-        XCTAssertEqual(fixture.engine.interactiveMove?.windowToken, fixture.first.token)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.windowToken, fixture.first.token)
         XCTAssertFalse(handler.isViewportGestureActive)
         XCTAssertTrue(handler.isInteractiveGestureActive)
-        let hoverTarget = try XCTUnwrap(
-            fixture.engine.interactiveMove?.currentHoverTarget,
-            "Expected the virtual cursor to hover the second window"
-        )
-        XCTAssertEqual(hoverTarget.token, fixture.second.token)
-        XCTAssertNil(hoverTarget.direction)
+        let held = try XCTUnwrap(fixture.engine.liveColumnMove)
+        XCTAssertNotNil(held.narrowedSlot)
+        XCTAssertEqual(held.floatingFrame?.center.x, fixture.secondFrame.midX)
+        XCTAssertNil(handler.state.nativeTitleBarDrag)
 
         gesture.end()
 
         XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
-        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertEqual(fixture.windowOrder(), [fixture.second.token, fixture.first.token])
     }
 
@@ -209,7 +207,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         gesture.drag(fingers: 4, fromX: 0.2, toX: 0.45, steps: 5)
         XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.state.isMoving)
-        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertNil(fixture.engine.liveColumnMove)
         gesture.end()
         XCTAssertFalse(handler.state.suppressGestureStartUntilAllTouchesLift)
     }
@@ -225,7 +223,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         gesture.begin(fingers: 4, x: 0.2)
         gesture.drag(fingers: 4, fromX: 0.2, toX: 0.45, steps: 5)
         XCTAssertFalse(handler.state.isMoving)
-        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertNil(fixture.engine.liveColumnMove)
         gesture.end()
     }
 
@@ -258,7 +256,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         gesture.end(.cancelled)
 
         XCTAssertFalse(handler.state.isMoving)
-        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertEqual(fixture.windowOrder(), [fixture.first.token, fixture.second.token])
     }
@@ -280,7 +278,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
         gesture.frame(fingers: 3, x: endX, after: 0.1)
 
         XCTAssertFalse(handler.state.isMoving)
-        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertEqual(fixture.windowOrder(), [fixture.second.token, fixture.first.token])
         XCTAssertTrue(handler.state.suppressGestureStartUntilAllTouchesLift)
 
@@ -359,6 +357,9 @@ final class TrackpadWindowGestureTests: XCTestCase {
         gesture.drag(fingers: 4, fromX: 0.2, toX: 0.28, steps: 4)
         XCTAssertTrue(handler.state.isMoving)
 
+        let before = try XCTUnwrap(fixture.engine.liveColumnMove?.floatingFrame)
+        let pointer = handler.livePointer.location
+        XCTAssertFalse(handler.receiveTapMouseDown(at: fixture.secondFrame.center, modifiers: []))
         handler.pressedMouseButtonsProvider = { 0 }
         handler.dispatchMouseDragged(at: fixture.secondFrame.center)
         XCTAssertTrue(handler.state.isMoving, "A mouse drag without a held button must not cancel a gesture move")
@@ -368,7 +369,8 @@ final class TrackpadWindowGestureTests: XCTestCase {
             handler.dispatchMouseDown(at: fixture.secondFrame.center, modifiers: .maskAlternate),
             "A modifier click cannot start a second interaction while the gesture owns one"
         )
-        XCTAssertNotNil(fixture.engine.interactiveMove)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.floatingFrame, before)
+        XCTAssertEqual(handler.livePointer.location, pointer)
 
         gesture.end()
         XCTAssertFalse(handler.state.isMoving)
@@ -388,7 +390,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
-        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertEqual(fixture.windowOrder(), [fixture.first.token, fixture.second.token])
 
@@ -409,7 +411,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
 
         XCTAssertFalse(handler.state.isMoving)
         XCTAssertFalse(handler.state.gestureOwnsWindowInteraction)
-        XCTAssertNil(fixture.engine.interactiveMove)
+        XCTAssertNil(fixture.engine.liveColumnMove)
         XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
         XCTAssertFalse(handler.isInteractiveGestureActive)
     }
@@ -548,7 +550,7 @@ final class TrackpadWindowGestureTests: XCTestCase {
             gesture.drag(fingers: fingers, fromX: 0.2, toX: 0.35)
             XCTAssertTrue(handler.state.gestureOwnsWindowInteraction)
             handler.resetForMultitouchSourceReplacement()
-            XCTAssertNil(fixture.engine.interactiveMove)
+            XCTAssertNil(fixture.engine.liveColumnMove)
             XCTAssertNil(fixture.engine.interactiveResize)
             XCTAssertNil(handler.state.activeInteractionSource)
             XCTAssertEqual(handler.tapInputs.gesturePhase, .idle)
@@ -613,8 +615,9 @@ final class TrackpadWindowGestureTests: XCTestCase {
         let startX: Float = 0.2
         let endX = startX + Float(fixture.travelToSecond)
         var time = 100.0
-        func emit(fingers: Int, x: Float) {
-            time += 0.01
+        func emit(fingers: Int, x: Float, after interval: TimeInterval = 0.01) {
+            time += interval
+            handler.liveDragClock = { [time] in time }
             backend.emitFrame(
                 registryId: 101,
                 touches: Array(repeating: (x: x, y: Float(0.5)), count: fingers),
@@ -628,17 +631,24 @@ final class TrackpadWindowGestureTests: XCTestCase {
             emit(fingers: 4, x: startX + (endX - startX) * Float(step) / 10)
         }
         XCTAssertTrue(handler.state.isMoving)
-
-        for _ in 0 ..< 20 {
-            emit(fingers: 1, x: endX)
+        let move = try XCTUnwrap(fixture.engine.liveColumnMove)
+        let slot = move.dropSpaceId ?? move.homeColumnId
+        let shownOrder = fixture.engine.columns(in: fixture.workspaceId).compactMap { column in
+            column.id == slot ? fixture.first.token : column.windowNodes.first { $0 === fixture.second }?.token
         }
+
+        let grace = TrackpadGestureMode.windowMove.fingerCountGrace
+        emit(fingers: 1, x: endX)
+        emit(fingers: 1, x: endX, after: grace / 2)
+        XCTAssertTrue(handler.state.isMoving)
+        emit(fingers: 1, x: endX, after: grace)
         XCTAssertFalse(handler.state.isMoving)
-        XCTAssertEqual(fixture.windowOrder(), [fixture.second.token, fixture.first.token])
+        XCTAssertEqual(fixture.windowOrder(), shownOrder)
 
         emit(fingers: 0, x: 0)
     }
 
-    func testMoveOvershootKeepsEdgeWindowAsDropTarget() throws {
+    func testMoveOvershootKeepsTheLivePointAtTheStartingDisplaysEdge() throws {
         let fixture = try makeNiriFixture(pid: 9_120)
         let controller = fixture.controller
         controller.settings.gaps.size = 0
@@ -669,12 +679,8 @@ final class TrackpadWindowGestureTests: XCTestCase {
         var gesture = fixture.driver(at: first.center)
         gesture.begin(fingers: 4, x: 0.2)
         gesture.drag(fingers: 4, fromX: 0.2, toX: 1)
-        let hoverTarget = try XCTUnwrap(
-            fixture.engine.interactiveMove?.currentHoverTarget,
-            "Overshoot lost the edge drop target"
-        )
-        XCTAssertEqual(hoverTarget.token, fixture.second.token)
-        XCTAssertEqual(hoverTarget.direction, .right)
+        XCTAssertEqual(fixture.handler.liveDragSession?.edgeScroll?.edge, .trailing)
+        XCTAssertEqual(fixture.engine.liveColumnMove?.workspaceId, fixture.workspaceId)
         let context = try XCTUnwrap(fixture.handler.state.lockedGestureContext)
         let point = fixture.handler.gestureWindowLocation(for: context)
         XCTAssertEqual(point, TrackpadGestureIntent.windowGestureLocation(
@@ -683,7 +689,9 @@ final class TrackpadWindowGestureTests: XCTestCase {
             sensitivity: CGFloat(controller.settings.gestures.windowGestureSensitivity)
         ))
         XCTAssertTrue(second.contains(point))
+        XCTAssertEqual(fixture.handler.livePointer.location, point)
         gesture.end()
+        XCTAssertFalse(fixture.handler.state.isMoving)
         XCTAssertEqual(fixture.windowOrder(), [fixture.second.token, fixture.first.token])
     }
 

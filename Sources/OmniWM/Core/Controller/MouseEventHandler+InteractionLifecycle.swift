@@ -24,7 +24,7 @@ extension MouseEventHandler {
         state.isMoving || state.isResizing || isViewportGestureActive
             || state.nativeTitleBarDrag?.dwindleResizeWorkspaceId != nil
             || state.nativeTitleBarDrag?.dwindleLiveDrag == true
-            || liveDragSession?.tabPull?.layout == .dwindle
+            || liveDragSession?.carriedWindow?.layout == .dwindle
             || isLiveColumnDragActive
     }
 
@@ -243,7 +243,8 @@ extension MouseEventHandler {
         if state.moveLayout == .dwindle {
             finishDwindleMove(at: location)
         } else {
-            finishNiriMove(at: location)
+            endCarriedWindowMove(at: location)
+            return
         }
         clearMoveInteractionState()
         NSCursor.arrow.set()

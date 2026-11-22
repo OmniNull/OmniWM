@@ -107,6 +107,9 @@ extension MouseEventHandler {
     }
 
     func discardNativeTitleBarDrag(for token: WindowToken) {
+        if isCarryingWindowByGesture, liveDragSession?.carriedWindow?.token == token {
+            cancelLiveColumnDrag()
+        }
         if state.nativeResizeCorrectionsByWindowId[token.windowId]?.token == token {
             state.nativeResizeCorrectionsByWindowId[token.windowId] = nil
         }

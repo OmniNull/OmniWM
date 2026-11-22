@@ -215,23 +215,37 @@ extension NiriLayoutHandler {
         node: NiriWindow?,
         context: NiriLayoutDiffContext
     ) -> LayoutFrameChange {
+        settledFrameChange(
+            token: token, frame: frame, node: node, workspace: (context.workspaceId, context.engine),
+            horizontalEdge: context.settledContext.flatMap {
+                $0.monitor.orientation == .horizontal ? ($0.monitor.frame, $0.state) : nil
+            }
+        )
+    }
+
+    func settledFrameChange(
+        token: WindowToken,
+        frame: CGRect,
+        node: NiriWindow?,
+        workspace: (id: WorkspaceDescriptor.ID, engine: NiriLayoutEngine),
+        horizontalEdge: (screen: CGRect, state: ViewportState)?
+    ) -> LayoutFrameChange {
         var change = LayoutFrameChange(
             token: token,
             frame: frame,
             forceApply: node?.sizingMode == .fullscreen
         )
-        if let settledContext = context.settledContext,
-           settledContext.monitor.orientation == .horizontal,
-           frame.minX < settledContext.monitor.frame.minX,
+        if let horizontalEdge,
+           frame.minX < horizontalEdge.screen.minX,
            let node, node.sizingMode == .normal,
-           node.id != settledContext.state.selectedNodeId,
-           let column = context.engine.column(of: node),
-           context.engine.columnIndex(of: column, in: context.workspaceId) != settledContext.state.activeColumnIndex,
+           node.id != horizontalEdge.state.selectedNodeId,
+           let column = workspace.engine.column(of: node),
+           workspace.engine.columnIndex(of: column, in: workspace.id) != horizontalEdge.state.activeColumnIndex,
            let axManager = controller?.axManager,
            axManager.animationFrameComponents(for: token.windowId, targetFrame: frame) == .position,
            let nativeFrame = axManager.lastAppliedFrame(for: token.windowId)
         {
-            let screenFrame = settledContext.monitor.frame
+            let screenFrame = horizontalEdge.screen
             let anchor = NiriMonitorPlaneGeometry.clampedFrame(
                 frame.offsetBy(dx: screenFrame.minX - frame.maxX, dy: 0),
                 screenClampRect: screenFrame,
