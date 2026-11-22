@@ -80,7 +80,7 @@ extension MouseEventHandler {
               !shouldBlockOwnWindowInput(at: location),
               !state.isMoving, !state.isResizing,
               tapInputs.capturedInteractionButton == nil,
-              liveDragSession?.tabPull == nil,
+              liveDragSession?.carriedWindow == nil,
               let strip = pressedStrip(at: location)
         else { return false }
         if strip.layoutKind == .dwindle {

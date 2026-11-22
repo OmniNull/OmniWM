@@ -15,23 +15,23 @@ struct AppRulesView: View {
     @State private var pendingSelection: AppRule.ID?
     @State private var pendingDraft: AppRuleDraft?
     @State private var isConfirmingDiscard = false
+    @GestureState private var dragOriginWidth: CGFloat?
+    @Environment(\.layoutDirection) private var layoutDirection
 
     var body: some View {
         GeometryReader { geometry in
-            let wide = geometry.size.width >= 760
+            let availableWidth = geometry.size.width
+            let wide = availableWidth >= AppRulesSidebarSizing.wideLayoutThreshold
+            let sidebarWidth = AppRulesSidebarSizing.clamped(editorState.sidebarWidth, availableWidth: availableWidth)
             let layout = wide ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
             layout {
-                AppRulesSidebar(
-                    rules: settings.appRules,
-                    searchText: $searchText,
-                    selection: selectionBinding,
-                    onAdd: { presentNewRule() },
-                    onDelete: { pendingDeleteRule = $0 },
-                    onMove: moveHandler
-                )
-                .frame(width: wide ? 230 : nil)
-                .frame(maxHeight: wide ? .infinity : selectedRuleId == nil ? 220 : 0)
-                .clipped()
+                sidebar
+                    .frame(width: wide ? sidebarWidth : nil)
+                    .frame(maxHeight: wide ? .infinity : selectedRuleId == nil ? 220 : 0)
+                    .clipped()
+                if wide {
+                    sidebarResizeHandle(width: sidebarWidth, availableWidth: availableWidth)
+                }
                 VStack(alignment: .leading, spacing: 0) {
                     if !wide, selectedRuleId != nil {
                         Button("All Rules", systemImage: "chevron.left") { selectionBinding.wrappedValue = nil }
@@ -93,6 +93,60 @@ struct AppRulesView: View {
                 }
             }
         )
+    }
+
+    private var sidebar: some View {
+        AppRulesSidebar(
+            rules: settings.appRules,
+            searchText: $searchText,
+            selection: selectionBinding,
+            onAdd: { presentNewRule() },
+            onDelete: { pendingDeleteRule = $0 },
+            onMove: moveHandler
+        )
+    }
+
+    private func sidebarResizeHandle(width: CGFloat, availableWidth: CGFloat) -> some View {
+        let step = AppRulesSidebarSizing.keyboardStep
+        return Divider()
+            .frame(width: AppRulesSidebarSizing.handleWidth)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .pointerStyle(.columnResize)
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .updating($dragOriginWidth) { value, origin, _ in
+                        let start = origin ?? width
+                        origin = start
+                        editorState.sidebarWidth = AppRulesSidebarSizing.resized(
+                            from: start,
+                            dividerOffset: value.translation.width,
+                            layoutDirection: layoutDirection,
+                            availableWidth: availableWidth
+                        )
+                    }
+            )
+            .focusable()
+            .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
+                editorState.sidebarWidth = AppRulesSidebarSizing.resized(
+                    from: width,
+                    dividerOffset: press.key == .rightArrow ? step : -step,
+                    layoutDirection: layoutDirection,
+                    availableWidth: availableWidth
+                )
+                return .handled
+            }
+            .accessibilityElement()
+            .accessibilityLabel("Rule list width")
+            .accessibilityValue("\(Int(width.rounded())) pt")
+            .accessibilityAdjustableAction { direction in
+                let delta: CGFloat = switch direction {
+                case .increment: step
+                case .decrement: -step
+                @unknown default: 0
+                }
+                editorState.sidebarWidth = AppRulesSidebarSizing.clamped(width + delta, availableWidth: availableWidth)
+            }
     }
 
     @ViewBuilder private var detailColumn: some View {
@@ -264,6 +318,8 @@ struct AppRuleSidebarRow: View {
                 Text(rule.displayLabel)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(rule.displayLabel)
 
                 HStack(spacing: 4) {
                     badges
@@ -386,5 +442,29 @@ struct RuleBadge: View {
             .foregroundStyle(color)
             .clipShape(RoundedRectangle(cornerRadius: 4))
             .accessibilityLabel(accessibilityLabel ?? text)
+    }
+}
+
+enum AppRulesSidebarSizing {
+    static let minimum: CGFloat = 200
+    static let standard: CGFloat = 230
+    static let handleWidth: CGFloat = 7
+    static let minimumEditorWidth: CGFloat = 400
+    static let wideLayoutThreshold: CGFloat = 760
+    static let keyboardStep: CGFloat = 20
+
+    static func clamped(_ width: CGFloat, availableWidth: CGFloat) -> CGFloat {
+        let maximum = max(minimum, availableWidth - handleWidth - minimumEditorWidth)
+        return min(max(width, minimum), maximum)
+    }
+
+    static func resized(
+        from origin: CGFloat,
+        dividerOffset: CGFloat,
+        layoutDirection: LayoutDirection,
+        availableWidth: CGFloat
+    ) -> CGFloat {
+        let growth = layoutDirection == .rightToLeft ? -dividerOffset : dividerOffset
+        return clamped(origin + growth, availableWidth: availableWidth)
     }
 }

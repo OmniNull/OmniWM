@@ -29,7 +29,7 @@ extension MouseEventHandler {
     }
 
     func startCrossDisplayTabPull(
-        _ pull: inout MouseInputState.LiveTabPull,
+        _ pull: inout MouseInputState.CarriedWindow,
         in workspaceId: WorkspaceDescriptor.ID,
         at location: CGPoint,
         holding region: CGRect?
@@ -68,7 +68,7 @@ extension MouseEventHandler {
             orientation = context.orientation
         }
         guard began else { return false }
-        liveDragSession = .init(tabPull: pull)
+        liveDragSession = .init(carriedWindow: pull)
         if let orientation, let monitor = controller.workspaceManager.monitor(for: workspaceId) {
             holdLiveEdgeZone(startingAt: location, monitorFrame: monitor.frame, orientation: orientation)
         }

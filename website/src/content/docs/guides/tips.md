@@ -17,11 +17,11 @@ Use [App Rules](/features/app-rules/) to exclude problematic apps from tiling or
 
 Drag a tiled window by its title bar to rearrange it or move it onto another display. Native title-bar movement is always available. In [Overview](/features/overview/), drag a thumbnail to a workspace, window position or Niri column gap.
 
-Niri rearranges columns and windows while you drag. Dwindle swaps tiles at their centers and inserts beside tiles, between splits or at workspace edges. Dwindle tab groups move together; dragging an individual group tab moves only that tab.
+Niri rearranges columns and windows while you drag. Dwindle swaps tiles at their centers and inserts beside tiles, between splits or at workspace edges. A Dwindle tab group moves as one tile. Dragging an individual tab by its rail moves just that tab.
 
 Moves work between Niri and Dwindle in any combination. **Dwindle Group Across Displays** in **Settings → Mouse & Trackpad** chooses whether a title-bar drag carries the whole group or only the active window. A whole group moved into Niri becomes a tabbed column. A swap that would not fit the destination is refused, and a drop on a fullscreen space cancels.
 
-The **Move Window** trackpad gesture moves the actual window with your fingers. It stays on the starting display and swaps with the window under its final position when you release. A Niri gesture swaps the selected window; a Dwindle gesture swaps the tile, including its group. Releasing away from a target or cancelling the gesture restores the original position.
+The **Move windows** trackpad gesture stays on the starting display. In Niri, neighbouring windows make room as you drag. Pause over a column to stack, then lift to settle. A tabbed column moves together. In an ordinary stack you move one window. In Dwindle, drag a tile or group over another tile’s middle to swap, near its edge to insert beside it, or over a divider to insert between tiles. Lift to settle. Undo takes back a move.
 
 ## Resize a window
 
@@ -48,9 +48,9 @@ All five gesture assignments appear together in **Trackpad Gestures**. You can s
 
 ## Move and resize with the trackpad (opt-in)
 
-Enable **Move windows** or **Resize windows** in **Settings → Mouse & Trackpad → Trackpad Gestures** to drag without clicking. The gesture targets the tiled window under the cursor in either layout; lift all fingers to finish. Move swaps with the window under the drop position and stays on the starting monitor. Resize adjusts the nearest movable edges. The pointer itself stays in place.
+Enable **Move windows** or **Resize windows** in **Settings → Mouse & Trackpad → Trackpad Gestures** to drag the tiled window under the pointer without clicking. Both layouts rearrange as you move. Lift to settle. Resize adjusts the nearest movable edges. The pointer stays in place.
 
-Choose two, three, or four fingers for each action. Defaults are four fingers to move and three to resize, with both actions disabled. Column scrolling is on by default with three fingers, so the Resize row first offers **Set Up…**; pick another finger count (two fingers can intercept normal scrolling in apps) or turn off **Scroll columns**. A window gesture needs a finger count unused by other enabled OmniWM gestures, including column scrolling, workspace switching, and Overview. **Set Up…** previews which conflicting gestures would turn off and lets you choose before applying the assignment. You can also reassign or disable those gestures yourself. At **1.0x** sensitivity, a full trackpad sweep travels across the starting screen.
+Choose two, three, or four fingers for each action. Defaults are four fingers to move and three to resize, with both actions disabled. Column scrolling is on by default with three fingers, so the Resize row first offers **Set Up…**; pick another finger count (two fingers can intercept normal scrolling in apps) or turn off **Scroll columns**. A window gesture needs a finger count unused by other enabled OmniWM gestures, including column scrolling, workspace switching, and Overview. **Set Up…** previews which conflicting gestures would turn off and lets you choose before applying the assignment. You can also reassign or disable those gestures yourself. Adjust **Move speed** and **Resize speed** independently. At the default Move speed of **2.0x**, half a trackpad sweep travels one starting-screen width. Resize starts at **1.0x**.
 
 Turn off matching macOS gestures in **System Settings → Trackpad → More Gestures** to prevent Mission Control, App Exposé, or full-screen app switching from firing alongside window gestures.
 

@@ -68,7 +68,7 @@ extension MouseEventHandler {
         switch (controller.settings.workspaces.layoutType(for: workspace.name), mode) {
         case (.dwindle, .windowMove):
             guard let engine = controller.dwindleEngine else { return false }
-            began = beginDwindleMove(token: token, engine: engine, wsId: wsId, at: location, source: .trackpadGesture)
+            began = beginDwindleGestureMove(token: token, engine: engine, wsId: wsId, at: location)
         case (.dwindle, .windowResize):
             guard let engine = controller.dwindleEngine else { return false }
             began = beginDwindleResize(
@@ -83,7 +83,7 @@ extension MouseEventHandler {
             guard let engine = controller.niriEngine, let window = engine.findNode(for: token, in: wsId) else {
                 return false
             }
-            began = beginNiriMove(window: window, engine: engine, wsId: wsId, at: location, source: .trackpadGesture)
+            began = beginNiriGestureMove(window: window, engine: engine, wsId: wsId, at: location)
         case (_, .windowResize):
             guard let engine = controller.niriEngine, let window = engine.findNode(for: token, in: wsId) else {
                 return false
@@ -106,16 +106,32 @@ extension MouseEventHandler {
     }
 
     func gestureWindowLocation(for lockedContext: MouseInputState.LockedGestureContext) -> CGPoint {
-        guard let monitor = controller?.workspaceManager.monitor(byId: lockedContext.monitorId) else {
+        guard let controller, let monitor = controller.workspaceManager.monitor(byId: lockedContext.monitorId) else {
             return lockedContext.startLocation
         }
-        return TrackpadGestureIntent.windowGestureLocation(
+        let isMove = state.activeGestureMode == .windowMove
+        let gestures = controller.settings.gestures
+        return gestureWindowLocation(
+            for: lockedContext,
+            in: monitor.frame,
+            speed: isMove ? gestures.windowMoveSensitivity : gestures.windowResizeSensitivity,
+            clamp: isMove
+        )
+    }
+
+    func gestureWindowLocation(
+        for lockedContext: MouseInputState.LockedGestureContext,
+        in monitorFrame: CGRect,
+        speed: Double,
+        clamp: Bool
+    ) -> CGPoint {
+        TrackpadGestureIntent.windowGestureLocation(
             start: lockedContext.startLocation,
             startTouch: CGPoint(x: state.gestureStartX, y: state.gestureStartY),
             currentTouch: CGPoint(x: state.gestureLastAverageX, y: state.gestureLastAverageY),
-            monitorFrame: monitor.frame,
-            sensitivity: CGFloat(controller?.settings.gestures.windowGestureSensitivity ?? 1.0),
-            clampToMonitor: state.activeGestureMode == .windowMove
+            monitorFrame: monitorFrame,
+            sensitivity: CGFloat(speed),
+            clampToMonitor: clamp
         )
     }
 

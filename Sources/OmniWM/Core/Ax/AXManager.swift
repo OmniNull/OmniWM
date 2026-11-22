@@ -65,6 +65,10 @@ final class AXManager {
         parkLedger.pendingParkWindowIds.filter { skyLightLivePositionByWindowId[$0] == nil }
     }
 
+    func pendingParks(includingMoved: Bool) -> Set<Int> {
+        includingMoved ? pendingParkWindowIds : pendingParkWindowIdsAwaitingSkyLightMove
+    }
+
     func prepareParkFrameApplications(_ frames: [AXFrameApplicationTarget]) -> [AXFrameApplicationRequest] {
         parkLedger.prepareParkFrameApplications(frames, currentFrame: frameLedger.lastAppliedFrame)
     }

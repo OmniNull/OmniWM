@@ -16,7 +16,7 @@ extension MouseEventHandler {
     private func beginLiveNiriTabPull(_ drag: borrowing TabRailDrag) {
         guard let token = drag.token,
               !isLiveColumnDragActive,
-              liveDragSession?.tabPull == nil,
+              liveDragSession?.carriedWindow == nil,
               let controller,
               let entry = controller.workspaceManager.entry(for: token),
               controller.isNiriStrip(entry.workspaceId),
@@ -43,12 +43,10 @@ extension MouseEventHandler {
             )
         }
         guard began else { return }
-        state.liveDragLayoutStart = layoutStart
-        liveDragSession = .init(tabPull: .init(token: token, anchorLocation: drag.location, startFrame: startFrame))
-        if let monitor = controller.workspaceManager.monitor(for: entry.workspaceId) {
-            holdLiveEdgeZone(startingAt: drag.location, monitorFrame: monitor.frame, orientation: context.orientation)
-        }
-        state.deferredClickScroll = nil
+        startCarryingNiriWindow(
+            .init(token: token, anchorLocation: drag.location, startFrame: startFrame), in: context,
+            layoutStart: layoutStart
+        )
         controller.syncLiveDragPointerHold(active: true)
         let location = drag.location
         let towardTrailingSide = context.primaryCoordinate(of: location)
@@ -64,19 +62,38 @@ extension MouseEventHandler {
         if detached {
             engine.liveColumnMoveSettled()
         }
-        moveLiveTabPull(to: drag.location)
+        moveCarriedWindow(to: drag.location)
     }
 
-    func moveLiveTabPull(to location: CGPoint) {
-        if liveDragSession?.tabPull?.layout == .dwindle {
+    func startCarryingNiriWindow(
+        _ carried: MouseInputState.CarriedWindow, in context: NiriInteractionContext,
+        layoutStart: consuming NiriLayoutChangeStart?, referenceOffset: CGFloat? = nil
+    ) {
+        state.liveDragLayoutStart = layoutStart
+        liveDragSession = .init(carriedWindow: carried, referenceOffset: referenceOffset)
+        if let monitor = controller?.workspaceManager.monitor(for: context.workspaceId) {
+            holdLiveEdgeZone(
+                startingAt: carried.anchorLocation,
+                monitorFrame: monitor.frame,
+                orientation: context.orientation
+            )
+        }
+        state.deferredClickScroll = nil
+    }
+
+    func moveCarriedWindow(to location: CGPoint) {
+        if liveDragSession?.carriedWindow?.layout == .dwindle {
             moveLiveDwindleTabPull(to: location)
             return
         }
-        guard let pull = liveDragSession?.tabPull,
+        guard let pull = liveDragSession?.carriedWindow,
               let controller,
               let engine = controller.niriEngine,
               engine.liveColumnMove?.windowToken == pull.token
-        else { return }
+        else {
+            if isCarryingWindowByGesture { cancelLiveColumnDrag() }
+            return
+        }
         let frame = pull.startFrame.offsetBy(
             dx: location.x - pull.anchorLocation.x,
             dy: location.y - pull.anchorLocation.y
@@ -85,18 +102,22 @@ extension MouseEventHandler {
         engine.liveColumnMove?.floatingFrame = frame
         livePointer.location = location
         recordLivePointerSample(location)
+        if state.gestureOwnsWindowInteraction {
+            updateLiveColumnDrag(at: location, drawing: frame)
+            return
+        }
         updateLiveColumnDrag(at: location)
-        guard liveDragSession?.tabPull?.layout == .niri else { return }
-        controller.layoutRefreshController.requestImmediateRelayout(
-            reason: .interactiveGesture,
-            affectedWorkspaceIds: Set([engine.liveColumnMove?.workspaceId].compactMap(\.self))
-        )
+        if liveDragSession?.carriedWindow?.layout == .niri, let workspaceId = engine.liveColumnMove?.workspaceId {
+            controller.layoutRefreshController.requestImmediateRelayout(
+                reason: .interactiveGesture, affectedWorkspaceIds: [workspaceId]
+            )
+        }
     }
 
-    func endLiveTabPull(at location: CGPoint) {
-        guard liveDragSession?.tabPull != nil else { return }
-        moveLiveTabPull(to: location)
-        guard let pull = liveDragSession?.tabPull, let controller else { return }
+    func endCarriedWindowMove(at location: CGPoint) {
+        guard liveDragSession?.carriedWindow != nil else { return }
+        moveCarriedWindow(to: location)
+        guard let pull = liveDragSession?.carriedWindow, let controller else { return }
         if liveCrossDisplayMove != nil {
             let frame = pull.layout == .dwindle ? controller.dwindleEngine?.liveTabMoveFloatingFrame
                 : controller.niriEngine?.liveColumnMove?.floatingFrame

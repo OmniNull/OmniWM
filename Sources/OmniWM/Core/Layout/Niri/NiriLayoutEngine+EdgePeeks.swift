@@ -73,7 +73,9 @@ extension NiriLayoutEngine {
         gap: CGFloat,
         orientation: Monitor.Orientation
     ) {
-        let placed = columns.filter { !$0.isLiveHomeSpot && !$0.isLiveDropSpace }
+        let placed = columns.contains { $0.isLiveHomeSpot || $0.isLiveDropSpace }
+            ? columns.filter { !$0.isLiveHomeSpot && !$0.isLiveDropSpace }
+            : columns
         let peeks = placed.count > 1
             ? viewFrame.flatMap { edgePeekSpans(viewFrame: $0, orientation: orientation) }
             : nil
@@ -109,9 +111,15 @@ extension NiriLayoutEngine {
         orientation: Monitor.Orientation
     ) {
         let (viewFrame, workingFrame) = frames
-        let previous = columns.map(\.stripEndPeekRoom)
-        columns.forEach { $0.stripEndPeekRoom = nil }
-        var rooms = [StripEndPeekRoom?](repeating: nil, count: columns.count)
+        let previousFirst = columns.first?.stripEndPeekRoom
+        let previousLast = columns.last?.stripEndPeekRoom
+        var staleMiddle: [Int] = []
+        for index in columns.indices where columns[index].stripEndPeekRoom != nil {
+            columns[index].stripEndPeekRoom = nil
+            if index != 0, index != columns.count - 1 { staleMiddle.append(index) }
+        }
+        var firstRoom: StripEndPeekRoom?
+        var lastRoom: StripEndPeekRoom?
         if let viewFrame, let peeks, columns.count > 2 {
             let horizontal = orientation == .horizontal
             let spans = columns.map { column in
@@ -125,14 +133,14 @@ extension NiriLayoutEngine {
                     contentInset: horizontal ? tabContentInset(for: column) : 0
                 )
             }
-            rooms[0] = StripEndPeekRoom(
+            firstRoom = StripEndPeekRoom(
                 farSpans: Array(spans.dropFirst()),
                 inset: (horizontal ? workingFrame.minX - viewFrame.minX : workingFrame.minY - viewFrame.minY) + gap,
                 viewSpan: horizontal ? viewFrame.width : viewFrame.height,
                 peek: peeks.trailing,
                 gap: gap
             )
-            rooms[columns.count - 1] = StripEndPeekRoom(
+            lastRoom = StripEndPeekRoom(
                 farSpans: Array(spans.dropLast().reversed()),
                 inset: (horizontal ? viewFrame.maxX - workingFrame.maxX : viewFrame.maxY - workingFrame.maxY) + gap,
                 viewSpan: horizontal ? viewFrame.width : viewFrame.height,
@@ -140,30 +148,17 @@ extension NiriLayoutEngine {
                 gap: gap
             )
         }
-        for (index, column) in columns.enumerated() {
-            column.stripEndPeekRoom = rooms[index]
-            if rooms[index] != previous[index] {
-                column.invalidateCachedPrimarySpan(orientation: orientation)
-            }
+        for index in staleMiddle {
+            columns[index].invalidateCachedPrimarySpan(orientation: orientation)
         }
-    }
-
-    static func peekShortfall(
-        spans: [CGFloat],
-        inset: CGFloat,
-        viewSpan: CGFloat,
-        peek: CGFloat,
-        gap: CGFloat
-    ) -> CGFloat {
-        guard peek > 0, let endSpan = spans.first else { return 0 }
-        var position = inset + endSpan + gap
-        for span in spans.dropFirst() {
-            if position + span > viewSpan {
-                return max(0, position - (viewSpan - peek))
-            }
-            position += span + gap
+        if let first = columns.first {
+            first.stripEndPeekRoom = firstRoom
+            if firstRoom != previousFirst { first.invalidateCachedPrimarySpan(orientation: orientation) }
         }
-        return 0
+        if columns.count > 1, let last = columns.last {
+            last.stripEndPeekRoom = lastRoom
+            if lastRoom != previousLast { last.invalidateCachedPrimarySpan(orientation: orientation) }
+        }
     }
 
     func applyEdgePeekCaps(in workspaceId: WorkspaceDescriptor.ID, workingFrame: CGRect, gap: CGFloat) {
@@ -175,8 +170,6 @@ extension NiriLayoutEngine {
         else { return }
         let orientation = monitor?.orientation ?? .horizontal
         let projected = projectedColumns(in: workspaceId)
-        let projectedIds = Set(projected.map { ObjectIdentifier($0.column) })
-        let hidden = columns(in: workspaceId).filter { !projectedIds.contains(ObjectIdentifier($0)) }
         applyEdgePeekCaps(
             to: projected.map(\.column),
             viewFrame: monitor?.frame,
@@ -184,7 +177,11 @@ extension NiriLayoutEngine {
             gap: gap,
             orientation: orientation
         )
-        for column in hidden where column.edgePeekCap != nil {
+        let all = columns(in: workspaceId)
+        guard projected.count != all.count else { return }
+        for column in all
+            where column.edgePeekCap != nil && !projected.contains(where: { $0.column === column })
+        {
             column.edgePeekCap = nil
             column.invalidateCachedPrimarySpan(orientation: orientation)
         }
@@ -247,12 +244,14 @@ struct StripEndPeekRoom: Equatable {
     var gap: CGFloat
 
     func cappedSpan(_ span: CGFloat) -> CGFloat {
-        span - NiriLayoutEngine.peekShortfall(
-            spans: [span] + farSpans,
-            inset: inset,
-            viewSpan: viewSpan,
-            peek: peek,
-            gap: gap
-        )
+        guard peek > 0 else { return span }
+        var position = inset + span + gap
+        for farSpan in farSpans {
+            if position + farSpan > viewSpan {
+                return span - max(0, position - (viewSpan - peek))
+            }
+            position += farSpan + gap
+        }
+        return span
     }
 }

@@ -507,7 +507,7 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
         XCTAssertEqual(fixture.handler.liveDragReference(point), CGPoint(x: 700, y: 300))
         XCTAssertEqual(fixture.handler.liveDragWindowMidX(point), 700)
 
-        fixture.handler.liveDragSession?.tabPull = .init(
+        fixture.handler.liveDragSession?.carriedWindow = .init(
             token: fixture.tokens[1],
             anchorLocation: point,
             startFrame: try fixture.frame(fixture.tokens[1])

@@ -9,6 +9,24 @@ import XCTest
 final class DwindleGroupVisibilityTests: XCTestCase {
     private let screen = CGRect(x: 0, y: 0, width: 1000, height: 800)
 
+    func testAnimationOmitsAMemberMissingFromItsTargetFrames() {
+        let fixture = makeGroupedFixture()
+        let frames = fixture.engine.calculateLayout(for: fixture.workspaceId, screen: screen)
+        let time = TimeInterval.zero
+        let member = fixture.second
+        XCTAssertNotNil(frames[member])
+        XCTAssertNotNil(fixture.engine.presentedFrame(for: member, in: fixture.workspaceId, at: time))
+        let diff = fixture.handler.layoutDiff(
+            windows: [snapshot(member)], frames: [:],
+            context: .init(
+                engine: fixture.engine, workspaceId: fixture.workspaceId,
+                preferredHideSide: .left, canRestoreHiddenWorkspaceWindows: true, scale: 1,
+                reassertHidden: false, pendingParkWindowIds: [], animationTime: time
+            )
+        )
+        XCTAssertTrue(diff.frameChanges.isEmpty)
+    }
+
     func testLayoutDiffParksInactiveMemberAndFramesOnlyActiveMember() {
         let fixture = makeGroupedFixture()
         let frames = fixture.engine.calculateLayout(for: fixture.workspaceId, screen: screen)

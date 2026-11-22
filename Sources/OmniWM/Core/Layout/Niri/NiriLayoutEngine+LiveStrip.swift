@@ -15,26 +15,29 @@ extension NiriLayoutEngine {
             gaps: context.gaps,
             orientation: context.orientation
         )
-        let geometry = projectedGeometrySnapshot(
-            in: context.workspaceId,
-            workingFrame: context.workingFrame,
-            gaps: context.gaps,
-            orientation: context.orientation
-        )
-        guard let anchor = projectedViewportAnchor(state: state, geometry: geometry, in: context.workspaceId)
-        else { return [] }
-        let viewPosition = anchor.primaryPosition + state.viewOffset
-        let origin = context.primaryOrigin
-        return geometry.columns.map { column in
-            let minX = origin + column.primaryPosition - viewPosition
+        let columns = projectedColumns(in: context.workspaceId)
+        let active = projectedActiveColumnIndex(state: state, columns: columns, in: context.workspaceId)
+        guard columns.indices.contains(active) else { return [] }
+
+        var anchorPosition: CGFloat = 0
+        var strip = columns.enumerated().map { index, column in
             let span = projectedPrimarySpan(
-                for: column.projectedColumn,
-                workingFrame: context.workingFrame,
-                gap: context.gaps,
-                orientation: context.orientation
+                for: column, workingFrame: context.workingFrame, gap: context.gaps, orientation: context.orientation
             )
-            return LiveColumnMove.StripColumn(column: column.projectedColumn.column, minX: minX, maxX: minX + span)
+            if index < active { anchorPosition += span + context.gaps }
+            return LiveColumnMove.StripColumn(column: column.column, minX: 0, maxX: span)
         }
+        let viewPosition = anchorPosition + state.viewOffset
+        var primaryPosition: CGFloat = 0
+        var intervals = strip.mutableSpan
+        for index in intervals.indices {
+            let span = intervals[index].width
+            let minX = context.primaryOrigin + primaryPosition - viewPosition
+            intervals[index].minX = minX
+            intervals[index].maxX = minX + span
+            primaryPosition += span + context.gaps
+        }
+        return strip
     }
 
     func liveColumn(

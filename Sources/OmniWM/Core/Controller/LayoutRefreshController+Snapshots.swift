@@ -122,11 +122,12 @@ extension LayoutRefreshController {
         monitor: Monitor,
         resolveConstraints: Bool,
         orientation: Monitor.Orientation? = nil,
-        isActiveWorkspace: Bool
+        isActiveWorkspace: Bool,
+        geometry: LayoutMonitorSnapshot? = nil
     ) -> WorkspaceRefreshInput? {
         guard let controller else { return nil }
 
-        let monitorSnapshot = buildMonitorSnapshot(for: monitor, orientation: orientation)
+        let monitorSnapshot = geometry ?? buildMonitorSnapshot(for: monitor, orientation: orientation)
         let neighborAxes = monitor.neighborAxes(among: controller.workspaceManager.monitors)
         var excludedTokens: Set<WindowToken> = []
         var windows: [LayoutWindowSnapshot] = []

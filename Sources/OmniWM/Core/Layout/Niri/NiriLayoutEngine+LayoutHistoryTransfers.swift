@@ -11,11 +11,11 @@ extension NiriLayoutEngine {
         coveringEveryWorkspace: Bool,
         timing: NiriLayoutStepTiming? = nil
     ) {
-        let origins = before.reduce(into: [WindowToken: WorkspaceDescriptor.ID]()) { origins, item in
-            for token in item.value.tokens {
-                origins[token] = item.key
-            }
+        if !coveringEveryWorkspace, before.count == 1, let previous = before[mainWorkspaceId] {
+            recordLayoutChange(in: mainWorkspaceId, since: previous, timing: timing)
+            return
         }
+        let origins = workspaceByToken(in: before)
         var afters: [WorkspaceDescriptor.ID: NiriLayoutSnapshot] = [:]
         for workspaceId in before.keys {
             afters[workspaceId] = layoutSnapshot(in: workspaceId, focused: nil)
@@ -25,15 +25,18 @@ extension NiriLayoutEngine {
                 afters[workspaceId] = layoutSnapshot(in: workspaceId, focused: nil)
             }
         }
-        let locations = afters.reduce(into: [WindowToken: WorkspaceDescriptor.ID]()) { locations, item in
-            for token in item.value.tokens {
-                locations[token] = item.key
-            }
-        }
+        let locations = workspaceByToken(in: afters)
         for (workspaceId, after) in afters {
             let previous = before[workspaceId] ?? .empty
-            let arrived = after.columns.flatMap(\.windows).filter { origins[$0].map { $0 != workspaceId } ?? false }
-            let departed = previous.tokens.contains { locations[$0].map { $0 != workspaceId } ?? false }
+            var arrived: [WindowToken] = []
+            after.columns.forEach { column in
+                for token in column.windows where origins[token].map({ $0 != workspaceId }) ?? false {
+                    arrived.append(token)
+                }
+            }
+            let departed = previous.columns.contains { column in
+                column.windows.contains { locations[$0].map { $0 != workspaceId } ?? false }
+            }
             guard !arrived.isEmpty || departed else {
                 if workspaceId == mainWorkspaceId, !after.hasSameLayout(as: previous) {
                     ensureState(for: workspaceId).layoutHistory.record(previous, after: after, timing: timing)
@@ -45,6 +48,18 @@ extension NiriLayoutEngine {
                 before[origin].map { NiriLayoutAway(workspaceId: origin, tokens: tokens, snapshot: $0) }
             }
             ensureState(for: workspaceId).layoutHistory.record(entry, after: after, timing: timing)
+        }
+    }
+
+    private func workspaceByToken(
+        in snapshots: [WorkspaceDescriptor.ID: NiriLayoutSnapshot]
+    ) -> [WindowToken: WorkspaceDescriptor.ID] {
+        snapshots.reduce(into: [:]) { workspaces, item in
+            item.value.columns.forEach { column in
+                for token in column.windows {
+                    workspaces[token] = item.key
+                }
+            }
         }
     }
 

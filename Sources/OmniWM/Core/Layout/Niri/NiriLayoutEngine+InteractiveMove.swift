@@ -120,17 +120,13 @@ extension NiriLayoutEngine {
                 state: &state
             )
         }
-        let inserted = insertWindowByMove(
+        return stackWindowByMoveDrop(
             sourceWindowId: move.windowId,
             targetWindowId: target.nodeId,
             position: direction.secondaryStep(for: move.orientation) == 1 ? .after : .before,
             context: context,
             state: &state
         )
-        if inserted {
-            activateWindow(move.windowId, in: move.workspaceId)
-        }
-        return inserted
     }
 
     func interactiveMoveCancel() {
@@ -203,6 +199,49 @@ extension NiriLayoutEngine {
             return false
         }
         return insertWindowInNewColumn(sourceWindow, insertIndex: insertIndex, context: context, state: &state)
+    }
+
+    private func stackWindowByMoveDrop(
+        sourceWindowId: NodeId,
+        targetWindowId: NodeId,
+        position: InsertPosition,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
+        guard let sourceWindow = findNode(by: sourceWindowId, in: context.workspaceId) as? NiriWindow,
+              let sourceColumn = findColumn(containing: sourceWindow, in: context.workspaceId)
+        else {
+            return false
+        }
+        let (first, second) = position == .after
+            ? (targetWindowId, sourceWindowId) : (sourceWindowId, targetWindowId)
+        var previous: NodeId?
+        for member in sourceColumn.windowNodes
+            where !isExcludedFromProjection(member.token, in: context.workspaceId)
+        {
+            if member.id == second {
+                if previous == first { return false }
+                break
+            }
+            previous = member.id
+        }
+        guard insertWindowByMove(
+            sourceWindowId: sourceWindowId,
+            targetWindowId: targetWindowId,
+            position: position,
+            context: context,
+            state: &state
+        ) else {
+            return false
+        }
+        if context.orientation == .vertical {
+            sourceWindow.windowWidth = .default
+        }
+        if sourceColumn.isTabbed {
+            updateTabbedColumnVisibility(column: sourceColumn)
+        }
+        activateWindow(sourceWindowId, in: context.workspaceId)
+        return true
     }
 
     func swapWindowsByMove(

@@ -5,112 +5,60 @@ import AppKit
 import Foundation
 
 extension MouseEventHandler {
-    private func handleDwindleMoveDrag(at location: CGPoint) {
+    private func handleDwindleMoveDrag(at location: CGPoint, on knownMonitor: Monitor? = nil) {
         guard let controller, let engine = controller.dwindleEngine,
-              let move = engine.interactiveMove,
-              let startFrame = move.startFrame,
-              let monitor = controller.workspaceManager.monitor(for: move.workspaceId)
+              let move = engine.interactiveMove, let startFrame = move.startFrame,
+              let monitor = knownMonitor ?? controller.workspaceManager.monitor(for: move.workspaceId),
+              let workspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id),
+              workspace.id == move.workspaceId,
+              controller.settings.workspaces.layoutType(for: workspace.name) == .dwindle
         else {
             cancelActiveMouseInteraction()
             return
         }
-        let frame = startFrame.offsetBy(
-            dx: location.x - move.startLocation.x, dy: location.y - move.startLocation.y
-        )
+        let frame = startFrame.offsetBy(dx: location.x - move.startLocation.x, dy: location.y - move.startLocation.y)
         guard frame != move.floatingFrame else { return }
         engine.interactiveMove?.floatingFrame = frame
-        let now = controller.animationClock.now()
-        _ = engine.interactiveMoveUpdate(
-            currentLocation: location, at: now,
-            workspaceFrame: controller.insetWorkingFrame(for: monitor)
+        let refresh = controller.layoutRefreshController
+        let geometry = refresh.buildMonitorSnapshot(for: monitor)
+        let region = engine.prepareLiveMoveTarget(
+            at: location, time: controller.animationClock.now(),
+            workspaceFrame: geometry.workingFrame
         )
         guard engine.interactiveMove != nil else {
             cancelActiveMouseInteraction()
             return
         }
-        _ = controller.dwindleLayoutHandler.applyFramesOnDemand(workspaceId: move.workspaceId, monitor: monitor)
+        if let region, controller.workspaceManager.withEngineMutationScope(in: workspace.id, source: .mouse, {
+            engine.applyLiveMoveTarget(in: region)
+        }) {
+            controller.workspaceManager.recordLayoutOperation(
+                .interactiveMoveEnded(token: move.token),
+                in: workspace.id,
+                source: .mouse
+            )
+            refresh.requestImmediateRelayout(
+                reason: .interactiveGesture, affectedWorkspaceIds: [workspace.id]
+            )
+        } else {
+            refresh.renderDwindleCarriedWindow(
+                in: workspace.id,
+                on: monitor,
+                geometry: geometry,
+                controller: controller
+            )
+        }
     }
 
     func finishDwindleMove(at location: CGPoint) {
-        guard let controller, let engine = controller.dwindleEngine else { return }
-        guard let wsId = engine.interactiveMove?.workspaceId else {
-            restoreManagedMove(in: state.lockedGestureContext?.workspaceId)
-            return
+        handleDwindleMoveDrag(at: location)
+        guard state.isMoving, let controller, let engine = controller.dwindleEngine,
+              let wsId = engine.liveMoveWorkspaceId
+        else { return }
+        controller.workspaceManager.withEngineMutationScope(in: wsId, source: .mouse) {
+            _ = engine.endCarriedLiveMove(at: controller.animationClock.now())
         }
-        guard let monitor = controller.workspaceManager.monitor(for: wsId) else {
-            engine.interactiveMoveCancel()
-            restoreManagedMove(in: wsId)
-            return
-        }
-        _ = engine.interactiveMoveUpdate(
-            currentLocation: location, at: controller.animationClock.now(),
-            workspaceFrame: controller.insetWorkingFrame(for: monitor)
-        )
-        guard let move = engine.interactiveMove, move.target != nil else {
-            engine.interactiveMoveCancel()
-            restoreManagedMove(in: wsId)
-            return
-        }
-        let changed = controller.workspaceManager.withEngineMutationScope(
-            in: wsId,
-            label: move.isInsertion ? "dwindle_mouse_insert" : "dwindle_mouse_swap",
-            source: .mouse
-        ) {
-            engine.interactiveMoveEnd() != nil
-        }
-        guard changed else {
-            restoreManagedMove(in: wsId)
-            return
-        }
-        controller.workspaceManager.recordLayoutOperation(
-            move.isInsertion ? .interactiveMoveEnded(token: move.token) : .windowsSwapped,
-            in: wsId,
-            source: .mouse
-        )
-        if controller.hasStartedServices {
-            controller.layoutRefreshController.requestImmediateRelayout(
-                reason: .interactiveGesture, affectedWorkspaceIds: [wsId]
-            )
-        }
-    }
-
-    func finishNiriMove(at location: CGPoint) {
-        guard let controller else { return }
-        guard let engine = controller.niriEngine, let move = engine.interactiveMove else {
-            controller.niriEngine?.interactiveMoveCancel()
-            restoreManagedMove(in: state.lockedGestureContext?.workspaceId)
-            return
-        }
-        let wsId = move.workspaceId
-        guard let monitor = controller.workspaceManager.monitor(for: wsId) else {
-            engine.interactiveMoveCancel()
-            restoreManagedMove(in: wsId)
-            return
-        }
-        let geometry = controller.niriInteractionGeometry(for: monitor)
-        let movedToken = move.windowToken
-        var didEnd = false
-        controller.workspaceManager.withNiriViewportState(for: wsId) { vstate in
-            didEnd = engine.interactiveMoveEnd(
-                at: location,
-                motion: controller.motionPolicy.snapshot(),
-                state: &vstate,
-                workingFrame: geometry.workingFrame,
-                gaps: geometry.innerGap
-            )
-        }
-        guard didEnd else {
-            restoreManagedMove(in: wsId)
-            return
-        }
-        controller.workspaceManager.recordLayoutOperation(
-            .interactiveMoveEnded(token: movedToken),
-            in: wsId,
-            source: .mouse
-        )
-        controller.layoutRefreshController.requestImmediateRelayout(
-            reason: .interactiveGesture, affectedWorkspaceIds: [wsId]
-        )
+        restoreManagedMove(in: wsId)
     }
 
     func handleMouseDraggedFromTap(
@@ -155,33 +103,12 @@ extension MouseEventHandler {
         return true
     }
 
-    func updateActiveMove(at location: CGPoint) {
+    func updateActiveMove(at location: CGPoint, on monitor: Monitor? = nil) {
         if state.moveLayout == .dwindle {
-            handleDwindleMoveDrag(at: location)
+            handleDwindleMoveDrag(at: location, on: monitor)
         } else {
-            updateNiriMove(at: location)
+            moveCarriedWindow(to: location)
         }
-    }
-
-    private func updateNiriMove(at location: CGPoint) {
-        guard let controller else { return }
-        guard let engine = controller.niriEngine, let move = engine.interactiveMove,
-              let startFrame = move.startFrame
-        else {
-            cancelActiveMouseInteraction()
-            return
-        }
-        let frame = startFrame.offsetBy(
-            dx: location.x - move.startMouseLocation.x, dy: location.y - move.startMouseLocation.y
-        )
-        guard frame != move.floatingFrame else { return }
-        engine.interactiveMove?.floatingFrame = frame
-        _ = engine.interactiveMoveUpdate(currentLocation: location)
-        guard engine.interactiveMove != nil else {
-            cancelActiveMouseInteraction()
-            return
-        }
-        controller.layoutRefreshController.renderInteractiveResize(for: move.workspaceId)
     }
 
     func restoreManagedMove(in workspaceId: WorkspaceDescriptor.ID?) {

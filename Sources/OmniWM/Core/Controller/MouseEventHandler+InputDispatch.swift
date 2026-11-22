@@ -5,6 +5,10 @@ import AppKit
 import Foundation
 
 extension MouseEventHandler {
+    var isCarryingWindowByGesture: Bool {
+        state.activeInteractionSource == .trackpadGesture && state.isMoving
+    }
+
     var isInputSuppressed: Bool {
         guard let controller else { return true }
         return controller.isLockScreenActive || controller.isFrontmostAppLockScreen()
@@ -79,7 +83,7 @@ extension MouseEventHandler {
             handleInputSuppressionBegan()
             return false
         }
-        guard controller != nil else { return false }
+        guard controller != nil, !isCarryingWindowByGesture else { return false }
         controller?.noteUserAction()
         if button == .left {
             state.leftPressLocation = location
@@ -119,6 +123,7 @@ extension MouseEventHandler {
             handleInputSuppressionBegan()
             return
         }
+        guard !isCarryingWindowByGesture else { return }
         warpDraggedPointer(at: location)
         controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
         confirmNativeMouseDrag(at: location, button: button)
@@ -130,7 +135,7 @@ extension MouseEventHandler {
     }
 
     func dispatchMouseUp(at location: CGPoint, button: MouseButton = .left) {
-        if button == .left {
+        if button == .left, !isCarryingWindowByGesture {
             releaseEdgeResizeHold()
         }
         if state.parkingEdgePressButton == button {
@@ -140,11 +145,12 @@ extension MouseEventHandler {
             handleInputSuppressionBegan()
             return
         }
+        guard !isCarryingWindowByGesture else { return }
         if button == .left { state.leftReleaseLocation = location }
         markNativeTitleBarDragFallbackReleased(button: button, at: location)
         finishNativeTitleBarDragIfNeeded(button: button)
         if button == .left {
-            endLiveTabPull(at: location)
+            endCarriedWindowMove(at: location)
             runDeferredClickScroll()
         }
         if !isCapturedInteraction(button), shouldBlockOwnWindowInput(at: location) {
@@ -229,28 +235,14 @@ extension MouseEventHandler {
         queuedLeftPress: LeftMouseDownIntake? = nil,
         authoritative: Bool = false
     ) -> Bool {
+        if isCarryingWindowByGesture, !isInputSuppressed { return false }
         if let latched = state.parkingEdgePressButton,
            latched == button || pressedMouseButtonsProvider() & latched.pressedMask == 0
         {
             state.parkingEdgePressButton = nil
         }
         let blocked = shouldBlockOwnWindowInput(at: location)
-        if blocked {
-            if queuedLeftPress == nil { dropPendingTapMovement() }
-            if button == .left, !isInputSuppressed,
-               state.nativeTitleBarDrag == nil,
-               state.awaitsNativeTitleBarDragTarget,
-               state.nativeTitleBarDragFallbackReleased
-            {
-                retireNativeTitleBarDragAtInputBoundary()
-            }
-        } else {
-            if queuedLeftPress == nil { flushQueuedTapEventsBeforeImmediateDispatch() }
-            if button == .left, !isInputSuppressed {
-                state.liveDropScroll = nil
-                retireNativeTitleBarDragAtInputBoundary()
-            }
-        }
+        prepareForMouseDown(button, blocked: blocked, queued: queuedLeftPress != nil)
         var strip = button == .left ? pressedStrip(at: location) : nil
         if button == .left {
             armFusionDoubleClick(at: location, modifiers: modifiers, clickCount: clickCount, in: &strip)
@@ -276,8 +268,28 @@ extension MouseEventHandler {
         return suppress
     }
 
+    private func prepareForMouseDown(_ button: MouseButton, blocked: Bool, queued: Bool) {
+        if blocked {
+            if !queued { dropPendingTapMovement() }
+            if button == .left, !isInputSuppressed,
+               state.nativeTitleBarDrag == nil,
+               state.awaitsNativeTitleBarDragTarget,
+               state.nativeTitleBarDragFallbackReleased
+            {
+                retireNativeTitleBarDragAtInputBoundary()
+            }
+        } else {
+            if !queued { flushQueuedTapEventsBeforeImmediateDispatch() }
+            if button == .left, !isInputSuppressed {
+                state.liveDropScroll = nil
+                retireNativeTitleBarDragAtInputBoundary()
+            }
+        }
+    }
+
     func receiveTapMouseDragged(at location: CGPoint, button: MouseButton = .left) {
         if !isInputSuppressed {
+            guard !isCarryingWindowByGesture else { return }
             confirmNativeMouseDrag(at: location, button: button)
         }
         EventIntake.post(.mouseDragged(button: button, location: location))
@@ -328,6 +340,7 @@ extension MouseEventHandler {
     }
 
     func receiveTapMouseUp(at location: CGPoint, button: MouseButton = .left, drainPendingEvents: Bool = true) {
+        if isCarryingWindowByGesture, !isInputSuppressed { return }
         markNativeTitleBarDragFallbackReleased(button: button, at: location)
         defer {
             if tapInputs.capturedInteractionButton == button {
@@ -406,6 +419,7 @@ extension MouseEventHandler {
             handleInputSuppressionBegan()
             return
         }
+        guard !isCarryingWindowByGesture else { return }
         warpDraggedPointer(at: location)
         controller?.workspaceBarManager.handleAutoHideMouseMoved(at: location)
         confirmNativeMouseDrag(at: location, button: button)
@@ -417,7 +431,7 @@ extension MouseEventHandler {
     }
 
     private func ownWindowInterruptsDrag(_ button: MouseButton, at location: CGPoint) -> Bool {
-        !isCapturedInteraction(button) && !isLiveColumnDragActive && liveDragSession?.tabPull == nil
+        !isCapturedInteraction(button) && !isLiveColumnDragActive && liveDragSession?.carriedWindow == nil
             && shouldBlockOwnWindowInput(at: location)
     }
 

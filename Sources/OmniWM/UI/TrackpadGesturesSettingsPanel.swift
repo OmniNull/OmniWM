@@ -186,7 +186,7 @@ struct TrackpadGesturesSettingsPanel: View {
             )
         case .move:
             SettingsCaption(
-                localized: "Point at a tiled window and drag without clicking. Drop over another window to swap. Movement stays on the starting display; lift your fingers to drop."
+                localized: "Point at a tiled window and drag without clicking. Other windows make room as you move. Lift to settle."
             )
         case .resize:
             SettingsCaption(
@@ -240,21 +240,24 @@ struct TrackpadGesturesSettingsPanel: View {
 
     private var sharedControls: some View {
         Section("Shared Gesture Controls") {
-            SettingsSliderRow(
-                label: String(localized: "Move & resize sensitivity"),
-                value: Bindable(settings.gestures).windowGestureSensitivity,
-                range: GestureSettings.windowGestureSensitivityRange,
-                step: 0.1,
-                valueText: String(
-                    localized: "\(settings.gestures.windowGestureSensitivity.formatted(.number.precision(.fractionLength(1))))x"
-                )
+            windowSpeedRow(String(localized: "Move speed"), value: Bindable(settings.gestures).windowMoveSensitivity)
+            windowSpeedRow(
+                String(localized: "Resize speed"),
+                value: Bindable(settings.gestures).windowResizeSensitivity
             )
-            SettingsCaption(localized: "At 1.0x, sweeping the whole trackpad travels across the whole screen.")
+            SettingsCaption(localized: "Increase either speed to cover the same distance with less finger travel.")
             Toggle("Invert Direction (Natural)", isOn: Bindable(settings.gestures).invertDirection)
             SettingsCaption(settings.gestures.invertDirection
                 ? String(localized: "Affects column scrolling and workspace swipes. Swipe right = scroll right.")
                 : String(localized: "Affects column scrolling and workspace swipes. Swipe right = scroll left."))
         }
+    }
+
+    private func windowSpeedRow(_ label: String, value: Binding<Double>) -> some View {
+        SettingsSliderRow(
+            label: label, value: value, range: GestureSettings.windowGestureSensitivityRange, step: 0.1,
+            valueText: String(localized: "\(value.wrappedValue.formatted(.number.precision(.fractionLength(1))))x")
+        )
     }
 
     private func description(for action: GestureAssignmentAction) -> String {
@@ -272,7 +275,7 @@ struct TrackpadGesturesSettingsPanel: View {
         case .overview:
             String(localized: "Swipe up to open Overview and down to close it.")
         case .move:
-            String(localized: "Drag without clicking to swap tiled windows on the same display.")
+            String(localized: "Drag without clicking to rearrange tiled windows on the same display.")
         case .resize:
             String(localized: "Drag without clicking to resize the nearest movable window edges.")
         }

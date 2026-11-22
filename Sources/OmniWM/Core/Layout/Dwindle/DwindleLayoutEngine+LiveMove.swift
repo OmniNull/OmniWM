@@ -36,12 +36,16 @@ extension DwindleLayoutEngine {
     func liveMoveBegin(
         token: WindowToken,
         startLocation: CGPoint,
+        startFrame: CGRect? = nil,
         holding region: CGRect? = nil,
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
         assertSanctionedMutation()
         guard liveMoveWorkspaceId == nil,
-              interactiveMoveBegin(token: token, startLocation: startLocation, allowsInsertion: true, in: workspaceId)
+              interactiveMoveBegin(
+                  token: token, startLocation: startLocation, startFrame: startFrame, allowsInsertion: true,
+                  in: workspaceId
+              )
         else { return false }
         guard let before = layoutSnapshot(in: workspaceId) else {
             interactiveMoveCancel()
@@ -54,7 +58,7 @@ extension DwindleLayoutEngine {
     }
 
     func liveMoveHoldsTarget(at point: CGPoint) -> Bool {
-        withLiveMoveSource { _ in
+        withLiveMoveSource { _, _ in
             liveMove?.acceptedRegion?.contains(point) == true
         } ?? false
     }
@@ -66,26 +70,42 @@ extension DwindleLayoutEngine {
     ) -> Bool {
         assertSanctionedMutation()
         guard liveMoveWorkspaceId != nil else { return false }
+        guard let region = prepareLiveMoveTarget(at: currentLocation, time: time, workspaceFrame: workspaceFrame)
+        else { return false }
+        return applyLiveMoveTarget(in: region)
+    }
+
+    func prepareLiveMoveTarget(at point: CGPoint, time: TimeInterval, workspaceFrame: CGRect) -> CGRect? {
         guard let move = interactiveMove,
-              let changed = withLiveMoveSource({ source in
-                  if liveMove?.acceptedRegion?.contains(currentLocation) == true { return false }
+              let region = withLiveMoveSource({ source, _ -> CGRect? in
+                  if liveMove?.acceptedRegion?.contains(point) == true { return nil }
                   liveMove?.acceptedRegion = nil
                   let hit = updateInteractiveMoveTarget(
-                      move, source: source, currentLocation: currentLocation, at: time, workspaceFrame: workspaceFrame
+                      move, source: source, currentLocation: point, at: time, workspaceFrame: workspaceFrame
                   )
-                  guard let pending = interactiveMove,
-                        let region = hit.region ?? interactiveMoveTargetFrame(at: time),
-                        applyInteractiveMoveTarget(pending) != nil
-                  else { return false }
-                  interactiveMoveClearTarget()
-                  liveMove?.acceptedRegion = region
-                  return true
+                  return hit.region ?? interactiveMoveTargetFrame(at: time)
               })
         else {
             interactiveMoveCancel()
-            return false
+            return nil
         }
-        return changed
+        return region
+    }
+
+    func applyLiveMoveTarget(in region: CGRect) -> Bool {
+        assertSanctionedMutation()
+        guard let move = interactiveMove, applyInteractiveMoveTarget(move) != nil else { return false }
+        interactiveMoveClearTarget()
+        liveMove?.acceptedRegion = region
+        return true
+    }
+
+    func endCarriedLiveMove(at time: TimeInterval) -> WorkspaceDescriptor.ID? {
+        assertSanctionedMutation()
+        guard let carried = interactiveMove, let frame = carried.floatingFrame,
+              withLiveMoveSource({ _, state in state.pendingMovementFrameSeeds[carried.token] = frame }) != nil
+        else { return liveMoveCancel(at: time) }
+        return liveMoveEnd()
     }
 
     func liveMoveEnd(recordingHistory: Bool = true) -> WorkspaceDescriptor.ID? {
@@ -109,15 +129,20 @@ extension DwindleLayoutEngine {
         return move.workspaceId
     }
 
-    func withLiveMoveSource<Result>(_ body: (borrowing DwindleNode) -> Result) -> Result? {
+    func withLiveMoveSource<Result>(
+        _ body: (borrowing DwindleNode, borrowing DwindleWorkspaceState) -> Result
+    ) -> Result? {
         guard let move = interactiveMove,
               liveMoveWorkspaceId == move.workspaceId,
               liveMoveToken == move.token,
               let state = existingState(for: move.workspaceId),
               let source = state.leafByToken[move.token],
               !state.excludedTokens.contains(move.token),
-              source.tile?.member(for: move.token)?.isFullscreen != true
+              let tile = source.tile
         else { return nil }
-        return body(source)
+        let member = move.startFrame == nil
+            ? tile.member(for: move.token) : visibleMember(in: tile, excluding: state.excludedTokens)
+        guard let member, member.token == move.token, !member.isFullscreen else { return nil }
+        return body(source, state)
     }
 }

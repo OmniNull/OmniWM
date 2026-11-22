@@ -19,6 +19,11 @@ final class GestureSettings {
 
     private nonisolated static let scrollSensitivityRange = 0.1 ... 100.0
 
+    private nonisolated static func normalizedWindowSensitivity(_ value: Double, defaultValue: Double) -> Double {
+        guard value.isFinite else { return defaultValue }
+        return min(max(value, windowGestureSensitivityRange.lowerBound), windowGestureSensitivityRange.upperBound)
+    }
+
     private nonisolated static func normalizedScrollSensitivity(_ value: Double) -> Double {
         guard value.isFinite else { return defaults.scrollSensitivity }
         return min(max(value, scrollSensitivityRange.lowerBound), scrollSensitivityRange.upperBound)
@@ -127,14 +132,26 @@ final class GestureSettings {
         didSet { notifyChange() }
     }
 
-    var windowGestureSensitivity = GestureSettings.defaults.windowGestureSensitivity ?? 1.0 {
+    var windowMoveSensitivity = SettingsExport.Gestures.defaultMoveSensitivity {
         didSet {
-            let range = GestureSettings.windowGestureSensitivityRange
-            let normalized = windowGestureSensitivity.isFinite
-                ? min(max(windowGestureSensitivity, range.lowerBound), range.upperBound)
-                : GestureSettings.defaults.windowGestureSensitivity ?? 1.0
-            guard normalized == windowGestureSensitivity else {
-                windowGestureSensitivity = normalized
+            let normalized = GestureSettings.normalizedWindowSensitivity(
+                windowMoveSensitivity, defaultValue: SettingsExport.Gestures.defaultMoveSensitivity
+            )
+            guard normalized == windowMoveSensitivity else {
+                windowMoveSensitivity = normalized
+                return
+            }
+            notifyChange()
+        }
+    }
+
+    var windowResizeSensitivity = SettingsExport.Gestures.defaultResizeSensitivity {
+        didSet {
+            let normalized = GestureSettings.normalizedWindowSensitivity(
+                windowResizeSensitivity, defaultValue: SettingsExport.Gestures.defaultResizeSensitivity
+            )
+            guard normalized == windowResizeSensitivity else {
+                windowResizeSensitivity = normalized
                 return
             }
             notifyChange()
@@ -171,7 +188,8 @@ final class GestureSettings {
             windowMoveFingerCount: windowMoveFingerCount,
             windowResizeEnabled: windowResizeEnabled,
             windowResizeFingerCount: windowResizeFingerCount,
-            windowGestureSensitivity: windowGestureSensitivity,
+            windowMoveSensitivity: windowMoveSensitivity,
+            windowGestureSensitivity: windowResizeSensitivity,
             dwindleGroupDragAcrossDisplays: dwindleGroupDragAcrossDisplays,
             mouseWheelSensitivity: mouseWheelSensitivity
         )
@@ -202,7 +220,8 @@ final class GestureSettings {
         windowMoveFingerCount = gestures.windowMoveFingerCount ?? .four
         windowResizeEnabled = gestures.windowResizeEnabled ?? false
         windowResizeFingerCount = gestures.windowResizeFingerCount ?? .three
-        windowGestureSensitivity = gestures.windowGestureSensitivity ?? 1.0
+        windowMoveSensitivity = gestures.windowMoveSensitivity ?? SettingsExport.Gestures.defaultMoveSensitivity
+        windowResizeSensitivity = gestures.windowGestureSensitivity ?? SettingsExport.Gestures.defaultResizeSensitivity
         dwindleGroupDragAcrossDisplays = gestures.dwindleGroupDragAcrossDisplays ?? .group
         isApplying = false
         if export() != previous {

@@ -27,13 +27,13 @@ extension MouseEventHandler {
               || controller.workspaceManager.activeLayoutKind(for: entry.workspaceId) == .dwindle
               || controller.workspaceManager.activeLayoutKind(for: target) == .dwindle
         else { return false }
-        let tabPull = liveDragSession?.tabPull
+        let carriedWindow = liveDragSession?.carriedWindow
         let unit = liveCrossDisplayMove?.unit
             ?? liveCrossDisplayUnit(for: token, in: entry.workspaceId, controller: controller)
         guard let unit,
               let preflight = liveCrossDisplayDrop(
                   at: location, source: entry.workspaceId, unit: unit,
-                  pullsTab: tabPull != nil, controller: controller
+                  pullsTab: carriedWindow != nil, controller: controller
               ),
               let prepared = controller.crossDisplayDropPlan(for: preflight, unit: unit)
         else { return true }
@@ -47,7 +47,7 @@ extension MouseEventHandler {
             prepared
         } else if let drop = liveCrossDisplayDrop(
             at: location, source: source, unit: unit,
-            pullsTab: tabPull != nil, controller: controller
+            pullsTab: carriedWindow != nil, controller: controller
         ) {
             controller.crossDisplayDropPlan(for: drop, unit: unit)
         } else { nil }
@@ -55,12 +55,12 @@ extension MouseEventHandler {
             cancelLiveCrossDisplayMove()
             return true
         }
-        applyLiveCrossDisplayDrop(plan, at: location, tabPull: tabPull, controller: controller)
+        applyLiveCrossDisplayDrop(plan, at: location, carriedWindow: carriedWindow, controller: controller)
         return true
     }
 
     private var liveCrossDisplayToken: WindowToken? {
-        if let pull = liveDragSession?.tabPull { return pull.token }
+        if let pull = liveDragSession?.carriedWindow { return pull.token }
         guard let drag = state.nativeTitleBarDrag, drag.liveDrag || drag.dwindleLiveDrag else { return nil }
         return drag.token
     }
@@ -78,7 +78,7 @@ extension MouseEventHandler {
     private func applyLiveCrossDisplayDrop(
         _ plan: borrowing CrossDisplayDropPlan,
         at location: CGPoint,
-        tabPull: MouseInputState.LiveTabPull?,
+        carriedWindow: MouseInputState.CarriedWindow?,
         controller: borrowing WMController
     ) {
         let drop = plan.drop
@@ -104,7 +104,8 @@ extension MouseEventHandler {
         default: nil
         }
         guard startCrossDisplayDriver(
-            for: plan.unit.activeToken, in: drop.workspaceId, at: location, holding: region, tabPull: tabPull
+            for: plan.unit.activeToken, in: drop.workspaceId, at: location, holding: region,
+            carriedWindow: carriedWindow
         )
         else {
             cancelLiveCrossDisplayMove()
@@ -163,7 +164,7 @@ extension MouseEventHandler {
         in workspaceId: WorkspaceDescriptor.ID,
         controller: borrowing WMController
     ) -> CrossDisplayDragUnit? {
-        if liveDragSession?.tabPull?.token == token {
+        if liveDragSession?.carriedWindow?.token == token {
             return CrossDisplayDragUnit(tokens: [token], activeIndex: 0)
         }
         if let engine = controller.niriEngine, let move = engine.liveColumnMove,
@@ -204,10 +205,10 @@ extension MouseEventHandler {
         in workspaceId: WorkspaceDescriptor.ID,
         at location: CGPoint,
         holding region: CGRect?,
-        tabPull: MouseInputState.LiveTabPull?
+        carriedWindow: MouseInputState.CarriedWindow?
     ) -> Bool {
-        if var tabPull {
-            return startCrossDisplayTabPull(&tabPull, in: workspaceId, at: location, holding: region)
+        if var carriedWindow {
+            return startCrossDisplayTabPull(&carriedWindow, in: workspaceId, at: location, holding: region)
         }
         guard let controller, var drag = state.nativeTitleBarDrag else { return false }
         drag.liveDragDeclined = false

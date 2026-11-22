@@ -96,13 +96,15 @@ extension DwindleLayoutEngine {
         in workspaceId: WorkspaceDescriptor.ID,
         time: TimeInterval
     ) -> (target: DwindleMoveTarget, region: CGRect)? {
-        guard canInsertAtWorkspaceEdge(token: token, in: workspaceId),
-              let state = existingState(for: workspaceId), let source = state.leafByToken[token]
+        guard let state = existingState(for: workspaceId), state.tileCount > 2,
+              let source = state.leafByToken[token]
         else { return nil }
         let geometry = splitMoveGeometry(
             at: point, in: state.root, source: source, excludedTokens: state.excludedTokens, time: time
         )
-        guard let target = geometry.target, let region = geometry.targetRegion else { return nil }
+        guard let target = geometry.target, let region = geometry.targetRegion,
+              canInsertAtWorkspaceEdge(token: token, in: workspaceId)
+        else { return nil }
         return (target, region)
     }
 
@@ -124,7 +126,7 @@ extension DwindleLayoutEngine {
         excludedTokens: Set<WindowToken>,
         time: TimeInterval
     ) -> SplitMoveGeometry {
-        if let tile = node.tile, visibleMember(in: tile, excluding: excludedTokens) != nil {
+        if visibleMember(in: node.tile, excluding: excludedTokens) != nil {
             return SplitMoveGeometry(
                 frame: presentedTileFrame(of: node, at: time), hasPeer: node !== source, target: nil
             )
