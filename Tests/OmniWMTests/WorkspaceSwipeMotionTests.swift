@@ -14,11 +14,20 @@ final class WorkspaceSwipeMotionTests: XCTestCase {
             recognitionMovement: SwipeEvent(delta: movement, timestamp: 1)
         )
 
+        let trackedVelocity = movement / WorkspaceSwipeMotion.travelUnits / (recognitionTime - 1)
+        let releaseTime = 100.0
+
         XCTAssertEqual(motion.progress(at: recognitionTime), 0)
-        let trackedVelocity = motion.velocity(at: recognitionTime)
-        XCTAssertTrue(motion.release(timestamp: recognitionTime + frameInterval, allowFlick: true, animationTime: 100))
+        XCTAssertEqual(motion.velocity(at: recognitionTime), trackedVelocity)
+        XCTAssertTrue(motion.release(
+            timestamp: recognitionTime + frameInterval, allowFlick: true, animationTime: releaseTime
+        ))
         XCTAssertEqual(motion.target, 1)
-        XCTAssertEqual(motion.velocity(at: 100), trackedVelocity, accuracy: 1e-6)
+        let committed = SpringAnimation(
+            from: 0, to: 1, initialVelocity: trackedVelocity, startTime: releaseTime,
+            config: MotionSnapshot.enabled.scaled(WorkspaceSwipeMotion.springConfig)
+        )
+        XCTAssertEqual(motion.velocity(at: releaseTime), committed.velocity(at: releaseTime))
     }
 
     func testSlowRecognitionUsesRecentMovementInsteadOfWholeContactDisplacement() {
