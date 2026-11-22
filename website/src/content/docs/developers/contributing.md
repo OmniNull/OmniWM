@@ -237,7 +237,9 @@ The **Main branch protection** ruleset blocks branch deletion and force-pushes. 
 
 **OmniWM CI** (`ci.yml`) runs automatically on pull requests and pushes to `main` or branches ending in `-release`, except documentation-only changes. **Website** (`website.yml`) checks website changes on pull requests and pushes to `main`. Neither workflow requires a custom review approval. GitHub may still require approval for first-time fork runs.
 
-For an existing PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. A manual run runs the full test groups and provides logs; it does not replace the PR's required check. Updating the PR branch triggers its normal PR checks.
+The **Main approval with BarutSRB-only bypass** and **Owner or three maintainers on other branches** rulesets require pull request approval. The **CI approval** status check has been removed from both rulesets.
+
+For an open PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. The manual run includes the full test groups. Updating the PR branch triggers its normal PR checks.
 
 ## Trace Files
 
