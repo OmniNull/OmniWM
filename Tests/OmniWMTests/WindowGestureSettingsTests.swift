@@ -131,21 +131,39 @@ final class WindowGestureSettingsTests: XCTestCase {
 
     func testSensitivityNormalizesDirectAssignmentsAndImportedValues() {
         withSettings { settings in
-            for (value, expected) in [
-                (Double.nan, 1.0),
-                (.infinity, 1.0),
-                (-.infinity, 1.0),
-                (0, 0.1),
-                (6, 5.0),
-                (2.3, 2.3)
+            let range = GestureSettings.windowGestureSensitivityRange
+            let configured = 1.75
+            for (runtime, wire, other, fallback) in [
+                (
+                    \GestureSettings.windowMoveSensitivity,
+                    \SettingsExport.Gestures.windowMoveSensitivity,
+                    \GestureSettings.windowResizeSensitivity,
+                    2.0
+                ),
+                (
+                    \GestureSettings.windowResizeSensitivity,
+                    \SettingsExport.Gestures.windowGestureSensitivity,
+                    \GestureSettings.windowMoveSensitivity,
+                    1.0
+                )
             ] {
-                settings.gestures.windowGestureSensitivity = value
-                XCTAssertEqual(settings.gestures.windowGestureSensitivity, expected)
-                var export = settings.toExport()
-                export.gestures.windowGestureSensitivity = value
-                settings.applyExport(export)
-                XCTAssertEqual(settings.gestures.windowGestureSensitivity, expected)
-                XCTAssertEqual(settings.toExport().gestures.windowGestureSensitivity, expected)
+                let gestures = settings.gestures
+                gestures[keyPath: other] = configured
+                for (input, expected) in [
+                    (Double.nan, fallback), (.infinity, fallback), (-.infinity, fallback),
+                    (range.lowerBound.nextDown, range.lowerBound), (range.upperBound.nextUp, range.upperBound),
+                    (range.lowerBound, range.lowerBound), (range.upperBound, range.upperBound), (configured, configured)
+                ] {
+                    gestures[keyPath: runtime] = input
+                    XCTAssertEqual(gestures[keyPath: runtime], expected)
+                    XCTAssertEqual(gestures[keyPath: other], configured)
+                    var export = settings.toExport()
+                    export.gestures[keyPath: wire] = input
+                    settings.applyExport(export)
+                    XCTAssertEqual(gestures[keyPath: runtime], expected)
+                    XCTAssertEqual(gestures[keyPath: other], configured)
+                    XCTAssertEqual(settings.toExport().gestures[keyPath: wire], expected)
+                }
             }
         }
     }
@@ -157,12 +175,14 @@ final class WindowGestureSettingsTests: XCTestCase {
             export.gestures.windowMoveFingerCount = nil
             export.gestures.windowResizeEnabled = nil
             export.gestures.windowResizeFingerCount = nil
+            export.gestures.windowMoveSensitivity = nil
             export.gestures.windowGestureSensitivity = nil
             settings.gestures.windowMoveEnabled = true
             settings.gestures.windowResizeEnabled = true
             settings.gestures.windowMoveFingerCount = .two
             settings.gestures.windowResizeFingerCount = .four
-            settings.gestures.windowGestureSensitivity = 4
+            settings.gestures.windowMoveSensitivity = 3
+            settings.gestures.windowResizeSensitivity = 4
 
             settings.applyExport(export)
 
@@ -170,7 +190,8 @@ final class WindowGestureSettingsTests: XCTestCase {
             XCTAssertFalse(settings.gestures.windowResizeEnabled)
             XCTAssertEqual(settings.gestures.windowMoveFingerCount, .four)
             XCTAssertEqual(settings.gestures.windowResizeFingerCount, .three)
-            XCTAssertEqual(settings.gestures.windowGestureSensitivity, 1)
+            XCTAssertEqual(settings.gestures.windowMoveSensitivity, 2)
+            XCTAssertEqual(settings.gestures.windowResizeSensitivity, 1)
         }
     }
 

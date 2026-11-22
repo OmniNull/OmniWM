@@ -15,15 +15,15 @@ local DEVICE = {
 }
 
 function audio.symbol(volume: number?, muted: boolean?, kind: string?): string
-    if not volume then
-        return "speaker.fill"
-    end
     if muted or volume == 0 then
         return "speaker.slash.fill"
     end
     local device = kind and DEVICE[kind]
     if device then
         return device
+    end
+    if not volume then
+        return "speaker.fill"
     end
     return if volume < 34 then "speaker.wave.1.fill" elseif volume < 67 then "speaker.wave.2.fill"
         else "speaker.wave.3.fill"

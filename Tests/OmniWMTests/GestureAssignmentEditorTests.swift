@@ -145,7 +145,8 @@ final class GestureAssignmentEditorTests: XCTestCase {
             settings.gestures.windowMoveEnabled = true
             settings.gestures.windowMoveFingerCount = .two
             settings.gestures.overviewGestureEnabled = true
-            settings.gestures.windowGestureSensitivity = 2.4
+            settings.gestures.windowMoveSensitivity = 1.8
+            settings.gestures.windowResizeSensitivity = 2.4
             settings.gestures.invertDirection = true
             let original = settings.gestures.export()
             let editor = GestureAssignmentEditor()
@@ -200,7 +201,8 @@ final class GestureAssignmentEditorTests: XCTestCase {
             guard let resolution = editor.proposal?.resolutions.first else {
                 return XCTFail("Expected a replacement proposal")
             }
-            settings.gestures.windowGestureSensitivity = 3.2
+            settings.gestures.windowMoveSensitivity = 2.75
+            settings.gestures.windowResizeSensitivity = 3.2
             settings.gestures.windowMoveFingerCount = .two
 
             editor.confirm(resolution, settings: settings, monitors: [])
@@ -217,7 +219,8 @@ final class GestureAssignmentEditorTests: XCTestCase {
             XCTAssertTrue(settings.gestures.windowMoveEnabled)
             XCTAssertTrue(settings.gestures.overviewGestureEnabled)
             XCTAssertEqual(settings.gestures.windowMoveFingerCount, .two)
-            XCTAssertEqual(settings.gestures.windowGestureSensitivity, 3.2)
+            XCTAssertEqual(settings.gestures.windowMoveSensitivity, 2.75)
+            XCTAssertEqual(settings.gestures.windowResizeSensitivity, 3.2)
             XCTAssertNil(editor.proposal)
         }
     }

@@ -6,7 +6,7 @@ import Foundation
 
 extension MouseEventHandler {
     var isLiveColumnDragActive: Bool {
-        state.nativeTitleBarDrag?.liveDrag == true || liveDragSession?.tabPull?.layout == .niri
+        state.nativeTitleBarDrag?.liveDrag == true || liveDragSession?.carriedWindow?.layout == .niri
     }
 
     func holdsSelectionScroll(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
@@ -43,8 +43,8 @@ extension MouseEventHandler {
         if state.nativeTitleBarDrag?.canStartLiveDwindleDrag == true {
             return trackLiveDwindleDrag(at: location, button: button)
         }
-        if button == .left, liveDragSession?.tabPull != nil {
-            moveLiveTabPull(to: location)
+        if button == .left, liveDragSession?.carriedWindow != nil {
+            moveCarriedWindow(to: location)
             return true
         }
         guard button == .left,
@@ -349,8 +349,15 @@ extension MouseEventHandler {
     }
 
     func endLiveDragSession() {
-        controller?.pointerEdgeBarrier.publishLiveDragHold(nil)
-        controller?.syncLiveDragPointerHold(active: false)
+        if isCarryingWindowByGesture {
+            controller?.layoutRefreshController.carriedWindowDrawStamp = nil
+            clearMoveInteractionState()
+            livePointer.location = nil
+            NSCursor.arrow.set()
+        } else {
+            controller?.pointerEdgeBarrier.publishLiveDragHold(nil)
+            controller?.syncLiveDragPointerHold(active: false)
+        }
         endLiveEdgeScroll()
         liveDragSession?.hoverTimer?.invalidate()
         liveDragSession?.followUp?.invalidate()
@@ -386,7 +393,9 @@ extension MouseEventHandler {
 
     func refreshLiveColumnLayout(in workspaceId: WorkspaceDescriptor.ID, engine: NiriLayoutEngine) {
         guard let controller else { return }
-        controller.layoutRefreshController.requestLayoutCommandRelayout(affectedWorkspaceIds: [workspaceId])
+        let refresh = controller.layoutRefreshController
+        refresh.carriedWindowDrawStamp = nil
+        refresh.requestLayoutCommandRelayout(affectedWorkspaceIds: [workspaceId])
         controller.niriLayoutHandler.startScrollAnimationIfNeeded(
             for: workspaceId,
             state: controller.workspaceManager.niriViewportState(for: workspaceId),
@@ -412,6 +421,12 @@ extension MouseEventHandler {
               let engine = controller.niriEngine,
               let monitor = controller.workspaceManager.monitor(for: workspaceId)
         else { return nil }
+        return liveColumnContext(for: workspaceId, engine: engine, monitor: monitor, controller: controller)
+    }
+
+    func liveColumnContext(
+        for workspaceId: WorkspaceDescriptor.ID, engine: NiriLayoutEngine, monitor: Monitor, controller: WMController
+    ) -> NiriInteractionContext {
         let geometry = controller.niriInteractionGeometry(for: monitor)
         return NiriInteractionContext(
             workspaceId: workspaceId,

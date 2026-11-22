@@ -13,6 +13,7 @@ final class NiriPicturePrewarmingTests: XCTestCase {
 
     @MainActor
     private final class CaptureLog {
+        var eligible = true
         var tokens: [WindowToken] = []
         var completions: [@MainActor (CGImage?) -> Void] = []
 
@@ -287,8 +288,10 @@ final class NiriPicturePrewarmingTests: XCTestCase {
         warm: [WindowToken: CGSize] = [:],
         motion: [WindowToken: CGSize] = [:],
         pictured: Bool = false,
-        orientation: Monitor.Orientation = .vertical
+        orientation: Monitor.Orientation = .vertical,
+        workspace: WorkspaceDescriptor.ID? = nil
     ) -> WorkspaceLayoutPlan {
+        let workspaceId = workspace ?? self.workspaceId
         var diff = WorkspaceLayoutDiff()
         diff.picturePreparation = NiriPicturePreparation(
             isSettled: settled, warmCandidates: warm, motionCandidates: motion
@@ -314,5 +317,88 @@ final class NiriPicturePrewarmingTests: XCTestCase {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ))
         return try XCTUnwrap(context.makeImage())
+    }
+}
+
+extension NiriPicturePrewarmingTests {
+    func testSettledCarryKeepsTheCurrentCaptureAndRenewsALostWarmImage() throws {
+        let log = CaptureLog()
+        let presenter = presenter(log)
+        var landing = plan(warm: [token: display.size])
+        landing.diff.frameChanges = [.init(token: token, frame: display, forceApply: false)]
+        let previousFrame = display
+        let currentFrame = display.offsetBy(dx: display.width / 2, dy: 0)
+        presenter.reconcile(landing)
+        landing.diff.frameChanges = [.init(token: token, frame: currentFrame, forceApply: false)]
+        presenter.reconcile(landing)
+
+        presenter.frameApplicationEnded(token: token, targetFrame: previousFrame)
+        XCTAssertTrue(log.tokens.isEmpty)
+        XCTAssertFalse(presenter.requiresFullCarryDraw(in: workspaceId))
+        presenter.frameApplicationEnded(token: token, targetFrame: currentFrame)
+        XCTAssertEqual(log.tokens, [token])
+        XCTAssertFalse(presenter.requiresFullCarryDraw(in: workspaceId))
+        XCTAssertFalse(presenter.requiresFullCarryDraw(in: WorkspaceDescriptor.ID()))
+        try XCTUnwrap(log.completions.first)(image())
+        XCTAssertEqual(presenter.readyTokens, [token])
+        XCTAssertFalse(presenter.requiresFullCarryDraw(in: workspaceId))
+
+        presenter.handleMemoryPressure(true)
+        presenter.handleMemoryPressure(false)
+        XCTAssertTrue(presenter.readyTokens.isEmpty)
+        XCTAssertTrue(presenter.requiresFullCarryDraw(in: workspaceId))
+        presenter.reconcile(landing)
+        presenter.frameApplicationEnded(token: token, targetFrame: currentFrame, applied: false)
+        XCTAssertFalse(presenter.requiresFullCarryDraw(in: workspaceId))
+    }
+
+    func testSettledCarryWaitsForAnEdgePictureUntilItRetires() throws {
+        let log = CaptureLog()
+        let surface = Surface()
+        let presenter = presenter(log, surface: surface)
+        let warm = [token: display.size]
+        presenter.reconcile(plan(warm: warm))
+        try XCTUnwrap(log.completions.first)(image())
+        XCTAssertFalse(presenter.requiresFullCarryDraw(in: workspaceId))
+
+        presenter.reconcile(plan(warm: warm, pictured: true))
+        XCTAssertNotNil(surface.image)
+        XCTAssertTrue(presenter.requiresFullCarryDraw(in: workspaceId))
+        presenter.reconcile(plan(warm: warm))
+        XCTAssertTrue(surface.hidden)
+        XCTAssertFalse(presenter.requiresFullCarryDraw(in: workspaceId))
+    }
+
+    func testCarriedCaptureRetargetsOnlyAnEligiblePendingWindowInItsWorkspace() {
+        let log = CaptureLog()
+        let presenter = NiriEdgePictures(
+            capture: log.capture, makeSurface: { Surface() }, isCaptureEligible: { _ in log.eligible },
+            activate: { _, _ in }
+        )
+        let otherWorkspace = WorkspaceDescriptor.ID()
+        var landing = plan(warm: [token: display.size])
+        let change = LayoutFrameChange(token: token, frame: pictureFrame, forceApply: false)
+        landing.diff.frameChanges = [.init(token: token, frame: display, forceApply: false)]
+        presenter.reconcile(landing)
+        presenter.updatePendingCapture(for: change, in: otherWorkspace)
+        let otherWindow = WindowToken(pid: token.pid, windowId: token.windowId + 1)
+        presenter.updatePendingCapture(
+            for: .init(token: otherWindow, frame: pictureFrame, components: .position, forceApply: false),
+            in: workspaceId
+        )
+        XCTAssertEqual(presenter.pendingCaptures[token]?.targetFrame, display)
+        XCTAssertNil(presenter.capturedPictures[otherWindow])
+        XCTAssertTrue(log.tokens.isEmpty)
+
+        var transferred = plan(warm: [token: display.size], workspace: otherWorkspace)
+        transferred.diff.frameChanges = [change]
+        presenter.reconcile(transferred)
+        XCTAssertTrue(presenter.requiresFullCarryDraw(in: workspaceId))
+        XCTAssertFalse(presenter.requiresFullCarryDraw(in: otherWorkspace))
+
+        log.eligible = false
+        presenter.updatePendingCapture(for: change, in: otherWorkspace)
+        XCTAssertNil(presenter.pendingCaptures[token])
+        XCTAssertTrue(log.tokens.isEmpty)
     }
 }

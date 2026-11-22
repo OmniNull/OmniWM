@@ -30,6 +30,7 @@ extension DwindleLayoutHandler {
         context: DwindleLayoutDiffContext
     ) -> WorkspaceLayoutDiff {
         var diff = WorkspaceLayoutDiff()
+        diff.frameChanges.reserveCapacity(frames.count)
         let effectiveScale = max(context.scale, 1.0)
         let excludedTokens = context.engine.excludedTokens(in: context.workspaceId)
         let liveFloatingFrame = context.engine.liveMoveWorkspaceId == context.workspaceId
@@ -37,19 +38,18 @@ extension DwindleLayoutHandler {
         let move = context.engine.interactiveMove
         let floatingFrame = liveFloatingFrame ?? (move?.workspaceId == context.workspaceId ? move?.floatingFrame : nil)
         let floatingToken = liveFloatingFrame != nil ? context.engine.liveTabMoveToken : move?.token
+        func frame(for token: WindowToken) -> CGRect? {
+            guard let target = frames[token] else { return nil }
+            guard let time = context.animationTime else { return target }
+            return context.engine.presentedFrame(for: token, in: context.workspaceId, at: time) ?? target
+        }
         for window in windows {
             let token = window.token
-            let targetFrame = frames[token]
-            let frame = if let animationTime = context.animationTime, targetFrame != nil {
-                context.engine.presentedFrame(for: token, in: context.workspaceId, at: animationTime) ?? targetFrame
-            } else {
-                targetFrame
-            }
             if window.isNativeFullscreenSuspended {
                 if let originalToken = window.nativeFullscreenOriginalToken {
                     diff.nativeFullscreenSlots[originalToken] = nativeFullscreenSlot(
                         token: token,
-                        frame: frame?.roundedToPhysicalPixels(scale: effectiveScale),
+                        frame: frame(for: token)?.roundedToPhysicalPixels(scale: effectiveScale),
                         context: context,
                         excludedTokens: excludedTokens
                     )
@@ -70,7 +70,7 @@ extension DwindleLayoutHandler {
                 continue
             }
             appendVisibleFrame(
-                frame, for: window, context: context, scale: effectiveScale, diff: &diff
+                frame(for: token), for: window, context: context, scale: effectiveScale, diff: &diff
             )
         }
         return diff

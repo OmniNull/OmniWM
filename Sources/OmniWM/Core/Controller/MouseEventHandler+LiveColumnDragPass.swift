@@ -5,10 +5,10 @@ import AppKit
 import Foundation
 
 extension MouseEventHandler {
-    func updateLiveColumnDrag(at location: CGPoint, immediate: Bool = false) {
+    @discardableResult
+    func updateLiveColumnDrag(at location: CGPoint, immediate: Bool = false, drawing frame: CGRect? = nil) -> Bool {
         cancelLiveDragFollowUp()
-        guard runLiveColumnDragPass(at: location, immediate: immediate) else { return }
-        scheduleLiveDragFollowUp()
+        return runLiveColumnDragPass(at: location, immediate: immediate, drawing: frame)
     }
 
     private func scheduleLiveDragFollowUp() {
@@ -30,25 +30,29 @@ extension MouseEventHandler {
         liveDragSession?.followUp = nil
     }
 
-    private func runLiveColumnDragPass(at location: CGPoint, immediate: Bool) -> Bool {
+    private func runLiveColumnDragPass(at location: CGPoint, immediate: Bool, drawing frame: CGRect?) -> Bool {
         guard isLiveColumnDragActive,
               let controller,
               let engine = controller.niriEngine,
               let move = engine.liveColumnMove,
-              move.windowToken == (liveDragSession?.tabPull?.token ?? state.nativeTitleBarDrag?.token)
+              move.windowToken == (liveDragSession?.carriedWindow?.token ?? state.nativeTitleBarDrag?.token)
         else {
             endLiveDragSession()
             return false
         }
-        let workspaceId = move.workspaceId
+        let (workspaceId, token) = (move.workspaceId, move.windowToken)
         let slowed = livePointerHasSlowed(at: liveDragClock())
         let updateLabel = slowed ? "update slowed=1" : "update slowed=0"
         guard let monitor = liveDragMonitor(in: workspaceId, at: location, label: updateLabel, controller: controller)
         else { return false }
-        guard let context = liveColumnContext(for: workspaceId) else {
-            traceLiveDrag(updateLabel, at: location)
-            controller.pointerEdgeBarrier.publishLiveDragHold(nil)
-            return false
+        let context = liveColumnContext(for: workspaceId, engine: engine, monitor: monitor, controller: controller)
+        var refreshed = false
+        defer {
+            if let frame, !refreshed {
+                controller.layoutRefreshController.renderCarriedWindow(
+                    token, frame: frame, engine: engine, monitor: monitor, context: context
+                )
+            }
         }
         trackLiveEdgeZone(at: location, monitorFrame: monitor.frame, orientation: context.orientation)
         let reference = liveDragReference(location, orientation: context.orientation)
@@ -75,13 +79,18 @@ extension MouseEventHandler {
             context: context,
             strip: strip
         )
+        scheduleLiveHoverCheck(for: step, at: now)
+        refreshed = settleLiveDragStep(step, immediate: immediate, at: location, in: workspaceId, engine: engine)
+        return refreshed
+    }
+
+    private func scheduleLiveHoverCheck(for step: LiveColumnMove.Step, at now: TimeInterval) {
         if let until = step.hoverDeadline {
             let stopCheck = livePointerStopCheckDelay(at: now) ?? .infinity
             scheduleLiveHoverCheck(after: min(until - now, stopCheck))
         } else {
             cancelLiveHoverCheck()
         }
-        return settleLiveDragStep(step, immediate: immediate, at: location, in: workspaceId, engine: engine)
     }
 
     @inline(__always)
@@ -96,7 +105,7 @@ extension MouseEventHandler {
             cancelLiveColumnDrag()
             return nil
         }
-        if pointerHasLeft(monitor, at: location) {
+        if !state.gestureOwnsWindowInteraction, pointerHasLeft(monitor, at: location) {
             traceLiveDrag(label, at: location)
             if !carryLiveColumnDrag(from: workspaceId, at: location) {
                 MouseTrace.record("live-drag carry refused at=\(TraceFormat.point(location)) from=\(workspaceId)")
@@ -152,8 +161,10 @@ extension MouseEventHandler {
         }
         traceLiveDrag(immediate ? "changed-immediate" : "changed", at: location)
         refreshLiveColumnLayout(in: workspaceId, engine: engine)
-        guard !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) else { return false }
-        engine.liveColumnMoveSettled()
+        if !hasPendingLiveColumnAnimation(in: workspaceId, engine: engine) {
+            engine.liveColumnMoveSettled()
+            scheduleLiveDragFollowUp()
+        }
         return true
     }
 

@@ -5,51 +5,36 @@ import AppKit
 import Foundation
 
 extension MouseEventHandler {
-    func beginNiriMove(
-        window tiledWindow: NiriWindow,
-        engine: NiriLayoutEngine,
-        wsId: WorkspaceDescriptor.ID,
-        at location: CGPoint,
-        source: MouseInputState.InteractionSource
+    func beginNiriGestureMove(
+        window: NiriWindow, engine: NiriLayoutEngine, wsId: WorkspaceDescriptor.ID, at location: CGPoint
     ) -> Bool {
-        guard let controller, let monitor = controller.workspaceManager.monitor(for: wsId),
-              let frame = tiledWindow.renderedFrame ?? tiledWindow.frame
+        guard let controller, liveDragSession == nil, let context = liveColumnContext(for: wsId)
         else { return false }
-        let geometry = controller.niriInteractionGeometry(for: monitor)
-        let orientation = resolvedNiriOrientation(
-            engine: engine,
-            workspaceId: wsId,
-            monitor: monitor
-        )
-
-        var moveStarted = false
-        controller.workspaceManager.withNiriViewportState(for: wsId) { vstate in
-            if engine.interactiveMoveBegin(
-                windowId: tiledWindow.id,
-                windowToken: tiledWindow.token,
-                startLocation: location,
-                startFrame: frame,
-                allowsInsertion: source.mouseButton != nil,
-                context: .init(
-                    workspaceId: wsId,
-                    motion: controller.motionPolicy.snapshot(),
-                    workingFrame: geometry.workingFrame,
-                    gaps: geometry.innerGap,
-                    orientation: orientation
-                ),
-                state: &vstate
-            ) {
-                moveStarted = true
+        finishPendingLiveStackDrop()
+        guard let frame = window.renderedFrame ?? window.frame else { return false }
+        let start = controller.niriLayoutHandler.layoutChangeStart(in: wsId)
+        let began = controller.workspaceManager.withNiriViewportState(
+            for: wsId, committingIf: { $0 },
+            { viewport in
+                engine.liveColumnMoveBegin(
+                    windowId: window.id, windowToken: window.token, canCarry: true, context: context, state: &viewport
+                )
             }
-        }
-        guard moveStarted else { return false }
+        )
+        guard began else { return false }
 
         state.isMoving = true
         state.moveLayout = .niri
-        state.activeInteractionSource = source
-        tapInputs.capturedInteractionButton = source.mouseButton
+        state.activeInteractionSource = .trackpadGesture
+        startCarryingNiriWindow(
+            .init(token: window.token, anchorLocation: location, startFrame: frame), in: context, layoutStart: start,
+            referenceOffset: context.primaryStart(of: frame) + context.primarySpan(of: frame) / 2
+                - context.primaryCoordinate(of: location)
+        )
+        engine.liveColumnMove?.floatingFrame = frame
+        livePointer.location = location
+        recordLivePointerSample(location)
         NSCursor.closedHand.set()
-
         return true
     }
 
@@ -93,26 +78,21 @@ extension MouseEventHandler {
         return true
     }
 
-    func beginDwindleMove(
-        token: WindowToken,
-        engine: DwindleLayoutEngine,
-        wsId: WorkspaceDescriptor.ID,
-        at location: CGPoint,
-        source: MouseInputState.InteractionSource
+    func beginDwindleGestureMove(
+        token: WindowToken, engine: DwindleLayoutEngine, wsId: WorkspaceDescriptor.ID, at location: CGPoint
     ) -> Bool {
-        guard let controller else { return false }
-        let now = controller.animationClock.now()
-        guard let frame = engine.presentedFrame(for: token, in: wsId, at: now),
-              engine.interactiveMoveBegin(
-                  token: token, startLocation: location, startFrame: frame,
-                  allowsInsertion: source.mouseButton != nil, in: wsId
-              )
+        guard let controller,
+              let frame = engine.presentedFrame(for: token, in: wsId, at: controller.animationClock.now())
         else { return false }
+        finishPendingLiveStackDrop()
+        let began = controller.workspaceManager.withEngineMutationScope(in: wsId, source: .mouse) {
+            engine.liveMoveBegin(token: token, startLocation: location, startFrame: frame, in: wsId)
+        }
+        guard began else { return false }
 
         state.isMoving = true
         state.moveLayout = .dwindle
-        state.activeInteractionSource = source
-        tapInputs.capturedInteractionButton = source.mouseButton
+        state.activeInteractionSource = .trackpadGesture
         NSCursor.closedHand.set()
         return true
     }

@@ -307,7 +307,7 @@ extension MouseEventHandler {
         context: NiriInteractionContext,
         state viewportState: ViewportState
     ) {
-        guard let controller, let engine = controller.niriEngine else { return }
+        guard !state.gestureOwnsWindowInteraction, let controller, let engine = controller.niriEngine else { return }
         guard controller.workspaceManager.monitors.count > 1 else {
             controller.pointerEdgeBarrier.publishLiveDragHold(nil)
             return

@@ -7,6 +7,36 @@ import XCTest
 
 @MainActor
 final class ShellIslandPlacementTests: XCTestCase {
+    func testConnectingDisplayRestoresDisplacedIslandWithUnchangedGeometry() throws {
+        let host = makeHost()
+        let root = state("lake")
+        host.widgets = [root.name: root]
+        host.config.island = ShellIslandConfig(root: root.name, displays: .all)
+        defer { host.closeIslands() }
+
+        let primary = monitor(92113, notch: false)
+        let existing = monitor(92114, notch: false, origin: CGPoint(x: 1440, y: 0))
+        let connected = monitor(92115, notch: false, origin: CGPoint(x: -1440, y: 0))
+        let initial = [primary, existing].map { DesiredIslandSurface(monitor: $0, fullscreen: false) }
+        host.updateIslands(initial, level: .mainMenu)
+        let island = try XCTUnwrap(host.islandWindows[existing.id])
+        let expected = island.geometry.frame
+        XCTAssertEqual(island.panel.frame, expected)
+
+        let displaced = CGRect(
+            x: primary.frame.midX - expected.width / 2, y: primary.frame.midY - expected.height / 2,
+            width: expected.width, height: expected.height
+        )
+        island.panel.setFrame(displaced, display: false)
+        XCTAssertEqual(island.panel.frame, displaced)
+
+        host.updateIslands(initial + [DesiredIslandSurface(monitor: connected, fullscreen: false)], level: .mainMenu)
+
+        XCTAssertNotNil(host.islandWindows[connected.id])
+        XCTAssertTrue(host.islandWindows[existing.id] === island)
+        XCTAssertEqual(island.panel.frame, expected)
+    }
+
     func testDisplaySelectionAndFullscreenPolicyRemainSeparateFromBarPlacement() {
         let host = makeHost()
         let main = monitor(CGMainDisplayID(), notch: true)
@@ -259,12 +289,12 @@ final class ShellIslandPlacementTests: XCTestCase {
         )
     }
 
-    private func monitor(_ displayId: UInt32, notch: Bool) -> Monitor {
+    private func monitor(_ displayId: UInt32, notch: Bool, origin: CGPoint = .zero) -> Monitor {
         Monitor(
             id: .init(displayId: displayId), displayId: displayId,
-            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
-            visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 868),
-            hasNotch: notch, notchRange: notch ? 630 ... 810 : nil,
+            frame: CGRect(origin: origin, size: CGSize(width: 1440, height: 900)),
+            visibleFrame: CGRect(origin: origin, size: CGSize(width: 1440, height: 868)),
+            hasNotch: notch, notchRange: notch ? (origin.x + 630) ... (origin.x + 810) : nil,
             notchHeight: notch ? 32 : 0, name: "Display \(displayId)"
         )
     }

@@ -22,8 +22,29 @@ final class WindowGesturePersistenceTests: XCTestCase {
         XCTAssertEqual(result.export.gestures.windowMoveFingerCount, .four)
         XCTAssertEqual(result.export.gestures.windowResizeEnabled, false)
         XCTAssertEqual(result.export.gestures.windowResizeFingerCount, .three)
+        XCTAssertEqual(result.export.gestures.windowMoveSensitivity, 2)
         XCTAssertEqual(result.export.gestures.windowGestureSensitivity, 1)
         XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(result.export)), result.export)
+    }
+
+    func testEachOmittedWindowSpeedUsesItsOwnDefault() throws {
+        let moveSpeed = 1.75
+        let resizeSpeed = 3.25
+        var export = SettingsExport.defaults()
+        export.gestures.windowMoveSensitivity = moveSpeed
+        export.gestures.windowGestureSensitivity = resizeSpeed
+        let toml = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
+        for (omitted, expectedMove, expectedResize) in [
+            ("windowMoveSensitivity", 2.0, resizeSpeed), ("windowGestureSensitivity", moveSpeed, 1.0)
+        ] {
+            let remaining = toml.components(separatedBy: "\n").filter { !$0.hasPrefix("\(omitted) = ") }
+            let data = Data(remaining.joined(separator: "\n").utf8)
+            let result = try SettingsTOMLCodec.decodeForLoad(data)
+            XCTAssertNil(result.migration)
+            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: data).isEmpty)
+            XCTAssertEqual(result.export.gestures.windowMoveSensitivity, expectedMove)
+            XCTAssertEqual(result.export.gestures.windowGestureSensitivity, expectedResize)
+        }
     }
 
     func testWindowGestureSettingsRoundTripEverySupportedFingerCount() throws {
@@ -33,6 +54,7 @@ final class WindowGesturePersistenceTests: XCTestCase {
             export.gestures.windowMoveFingerCount = count
             export.gestures.windowResizeEnabled = true
             export.gestures.windowResizeFingerCount = count
+            export.gestures.windowMoveSensitivity = 1.75
             export.gestures.windowGestureSensitivity = 2.5
 
             let encoded = try SettingsTOMLCodec.encode(export)
@@ -74,6 +96,7 @@ final class WindowGesturePersistenceTests: XCTestCase {
             ("windowResizeEnabled", ["1", "\"false\""]),
             ("windowMoveFingerCount", ["1", "5", "true", "\"four\""]),
             ("windowResizeFingerCount", ["1", "5", "false", "\"three\""]),
+            ("windowMoveSensitivity", ["true", "\"fast\""]),
             ("windowGestureSensitivity", ["true", "\"fast\""])
         ] {
             for value in values {
@@ -135,6 +158,8 @@ final class WindowGesturePersistenceTests: XCTestCase {
         candidate.gestures.windowMoveEnabled = true
         candidate.gestures.windowResizeEnabled = true
         candidate.gestures.windowResizeFingerCount = .four
+        candidate.gestures.windowMoveSensitivity = 1.75
+        candidate.gestures.windowGestureSensitivity = 3.25
         candidate.gaps.size = before.gaps.size + 5
         let rejectedData = try SettingsTOMLCodec.encode(candidate)
         try rejectedData.write(to: url, options: .atomic)

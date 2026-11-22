@@ -62,7 +62,7 @@ final class WMController {
     let traceCaptureCoordinator: RuntimeTraceCaptureCoordinator
     let appInfoCache = AppInfoCache()
     @ObservationIgnored
-    private(set) lazy var niriEdgePictures = makeEdgePictures()
+    lazy var niriEdgePictures = makeEdgePictures()
 
     @ObservationIgnored
     let workspaceBarIconResolver: WorkspaceBarIconResolver

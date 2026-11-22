@@ -150,6 +150,14 @@ final class NiriEdgePictures {
         for surface in spareSurfaces { surface.destroy() }
     }
 
+    func requiresFullCarryDraw(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        if pictures.values.contains(where: { $0.workspaceId == workspaceId }) { return true }
+        guard let warm = warmStates[workspaceId] else { return false }
+        return warm.isMoving || warm.warmCandidates.contains {
+            capturedPictures[$0] == nil && pendingCaptures[$0]?.key.workspaceId != workspaceId
+        }
+    }
+
     func reconcile(_ plan: WorkspaceLayoutPlan) {
         defer { reconcileLiveStreams() }
         let resting = !plan.isInteractiveResize && plan.diff.picturePreparation?.isSettled == true

@@ -343,11 +343,12 @@ The seven optional `overviewGesture…` and `window…` keys below configure Ove
 | `workspaceSwipeEdgeBehavior` *(optional)* | string | `"cycle"` | What a workspace swipe does past the first or last workspace: `cycle` wraps around, `none` ignores the swipe, and `onePast` moves from the last occupied workspace to an empty one, creating it if needed, while ignoring swipes past an empty last workspace or before the first. Applies to trackpad swipes only; next/previous workspace hotkeys always wrap. |
 | `overviewGestureEnabled` *(optional)* | boolean | `false` | Enable the trackpad gesture that opens Overview with an upward swipe and closes it with a downward swipe. |
 | `overviewGestureFingerCount` *(optional)* | integer | `4` | Overview gesture finger count: `3` or `4`. |
-| `windowMoveEnabled` *(optional)* | boolean | `false` | Drag without clicking to swap the tiled window under the cursor in either layout. |
+| `windowMoveEnabled` *(optional)* | boolean | `false` | Move the tiled window under the pointer without clicking. Other windows make room as you drag. Lift to settle. |
 | `windowMoveFingerCount` *(optional)* | integer | `4` | Window-move finger count: `2`, `3`, or `4`. |
 | `windowResizeEnabled` *(optional)* | boolean | `false` | Drag without clicking to resize the tiled window under the cursor in either layout. |
 | `windowResizeFingerCount` *(optional)* | integer | `3` | Window-resize finger count: `2`, `3`, or `4`. |
-| `windowGestureSensitivity` *(optional)* | float | `1.0` | Move/resize sensitivity, clamped to `0.1…5.0`; non-finite values use `1.0`. |
+| `windowMoveSensitivity` *(optional)* | float | `2.0` | Move speed, clamped to `0.1…5.0`. Non-finite values use `2.0`. |
+| `windowGestureSensitivity` *(optional)* | float | `1.0` | Resize speed, clamped to `0.1…5.0`. Non-finite values use `1.0`. |
 | `dwindleGroupDragAcrossDisplays` *(optional)* | string | `"group"` | What a title-bar drag of a Dwindle tab group moves onto another display: `group` moves the whole group, which becomes one tabbed column in Niri; `window` moves only the dragged window. The same choice decides whether a swap onto a Dwindle group exchanges the whole group or only the window under the pointer. |
 
 Window move and resize gestures use all directions, so their finger counts must differ from every other enabled gesture. Configuration loading rejects overlaps with each other, column scrolling, workspace switching, or Overview. In Settings, **Set Up…** previews the conflicting assignments and lets you choose which gestures to turn off before applying the change. When editing TOML, disable or reassign conflicting gestures in the same edit. Moving stays on the starting monitor; resizing can continue beyond its bounds. Lift all fingers to finish, and turn off matching macOS gestures under System Settings → Trackpad → More Gestures. These gestures are inactive while Overview is open and do not use `invertDirection`.

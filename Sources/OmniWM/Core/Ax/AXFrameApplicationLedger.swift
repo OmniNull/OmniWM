@@ -10,7 +10,7 @@ final class AXFrameApplicationLedger {
     private var pendingFrameWrites: [Int: AXPendingFrameWrite] = [:]
     private var recentFrameWriteFailures: [Int: AXRecentFrameWriteFailure] = [:]
     private var retryBudgetByWindowId: [Int: Int] = [:]
-    private var forceApplyWindowIds: Set<Int> = []
+    private(set) var forceApplyWindowIds: Set<Int> = []
     private var rekeyedWindowIds = AXFrameRekeyMap()
     private let observers = AXFrameObserverRegistry()
     private var nextFrameApplicationRequestId: AXFrameRequestId = 1

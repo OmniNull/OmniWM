@@ -59,6 +59,20 @@ final class ShellIslandPanelTests: XCTestCase {
         XCTAssertFalse(panel.isVisible)
     }
 
+    func testFractionalEnvelopeIsOnlyReappliedAfterPanelMoves() {
+        let panel = ShellIslandPanel(content: NSView())
+        defer { panel.close() }
+        let envelope = CGRect(x: 300.5, y: 500, width: 600, height: 300)
+        XCTAssertTrue(panel.setEnvelope(envelope))
+        let appliedFrame = panel.frame
+        XCTAssertFalse(panel.setEnvelope(envelope))
+
+        panel.setFrame(appliedFrame.offsetBy(dx: 0, dy: -150), display: false)
+        XCTAssertTrue(panel.setEnvelope(envelope))
+        XCTAssertEqual(panel.frame, appliedFrame)
+        XCTAssertFalse(panel.setEnvelope(envelope))
+    }
+
     func testDisplaySafeBoundsExcludeResolvedReservedChromeOnEveryEdge() {
         let display = Monitor(
             id: .init(displayId: 44), displayId: 44,

@@ -10,16 +10,18 @@ extension DwindleLayoutHandler {
     func applyFramesOnDemand(
         workspaceId wsId: WorkspaceDescriptor.ID,
         monitor: Monitor,
-        isInteractiveMove: Bool = false
+        isInteractiveMove: Bool = false,
+        activeMonitor: (workspace: WorkspaceDescriptor.ID, geometry: LayoutMonitorSnapshot)? = nil
     ) -> Bool {
         guard let controller,
-              let activeWorkspaceId = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id)?.id,
+              let activeWorkspaceId = activeMonitor?.workspace ?? controller.workspaceManager
+                  .activeWorkspaceOrFirst(on: monitor.id)?.id,
               let engine = controller.dwindleEngine,
               let snapshot = makeWorkspaceSnapshot(
                   workspaceId: wsId,
                   monitor: monitor,
                   resolveConstraints: false,
-                  isActiveWorkspace: activeWorkspaceId == wsId
+                  isActiveWorkspace: activeWorkspaceId == wsId, geometry: activeMonitor?.geometry
               )
         else {
             return false

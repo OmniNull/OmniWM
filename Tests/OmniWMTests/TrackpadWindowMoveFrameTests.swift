@@ -31,6 +31,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         let targetFrame: CGRect
         let startTouch: CGPoint
         let targetTouch: CGPoint
+        let moveSpeed: CGFloat
         let events: MoveEvents
         let blocker: DwindleLiveTitleBarDragTests.RefreshBlocker
 
@@ -55,7 +56,37 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         }
 
         var target: WindowToken {
-            tokens[1]
+            tokens.dropFirst().first ?? moved
+        }
+
+        func touch(at point: CGPoint, grabbedAt grab: CGPoint? = nil) -> CGPoint {
+            Self.touch(
+                at: point,
+                from: grab ?? startFrame.center,
+                start: startTouch,
+                display: monitor.frame,
+                speed: moveSpeed
+            )
+        }
+
+        static func touch(
+            at point: CGPoint,
+            from grab: CGPoint,
+            start: CGPoint,
+            display: CGRect,
+            speed: CGFloat
+        ) -> CGPoint {
+            CGPoint(
+                x: start.x + (point.x - grab.x) / (display.width * speed),
+                y: start.y + (point.y - grab.y) / (display.height * speed)
+            )
+        }
+
+        func slideWithinStartingWindow(_ fraction: CGFloat) -> CGPoint {
+            let point = kind == .vertical
+                ? CGPoint(x: startFrame.midX + startFrame.width * fraction, y: startFrame.midY)
+                : CGPoint(x: startFrame.midX, y: startFrame.midY + startFrame.height * fraction)
+            return touch(at: point)
         }
 
         func send(_ event: MouseEventHandler.GestureEventSnapshot) {
@@ -102,12 +133,14 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         }
 
         func expectedFloatingFrame(at touch: CGPoint) -> CGRect {
-            let point = TrackpadGestureIntent.windowGestureLocation(
-                start: startFrame.center, startTouch: startTouch, currentTouch: touch,
-                monitorFrame: monitor.frame,
-                sensitivity: CGFloat(controller.settings.gestures.windowGestureSensitivity)
+            let display = monitor.frame
+            let x = startFrame.midX + (touch.x - startTouch.x) * display.width * moveSpeed
+            let y = startFrame.midY + (touch.y - startTouch.y) * display.height * moveSpeed
+            let lastScreenPoint = CGPoint(x: display.maxX - 1, y: display.maxY - 1)
+            let frame = startFrame.offsetBy(
+                dx: min(max(display.minX, x), lastScreenPoint.x) - startFrame.midX,
+                dy: min(max(display.minY, y), lastScreenPoint.y) - startFrame.midY
             )
-            let frame = startFrame.offsetBy(dx: point.x - startFrame.midX, dy: point.y - startFrame.midY)
             guard kind == .dwindle else { return frame }
             let scale = controller.layoutRefreshController.buildMonitorSnapshot(for: monitor).scale
             return frame.roundedToPhysicalPixels(scale: scale)
@@ -143,12 +176,22 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         }
     }
 
-    func makeMoveFixture(_ kind: MoveKind, grouped: Bool = false, windows: Int = 2) throws -> Fixture {
+    func makeMoveFixture(
+        _ kind: MoveKind,
+        grouped: Bool = false,
+        windows: Int = 2,
+        adjacentDisplay: Bool = false,
+        firstWindowId: Int = 1,
+        moveSpeed: CGFloat = CGFloat(SettingsExport.Gestures.defaultMoveSensitivity),
+        prepare: (CrossDisplayDragTests.Fixture, [WindowToken]) throws -> Void = { _, _ in }
+    ) throws -> Fixture {
         let host = CrossDisplayDragTests()
+        let frame = CGRect(x: 137, y: -241, width: 1600, height: 1200)
+        let layouts: [LayoutType] = adjacentDisplay ? [.niri, .niri] : [kind == .dwindle ? .dwindle : .niri]
         let base = try host.makeFixture(
-            [kind == .dwindle ? .dwindle : .niri],
+            layouts,
             sourceOrientation: kind == .vertical ? .vertical : .horizontal,
-            frames: [CGRect(x: 137, y: -241, width: 1600, height: 1200)]
+            frames: adjacentDisplay ? [frame, frame.offsetBy(dx: frame.width, dy: 0)] : [frame]
         )
         let controller = base.controller
         let gestures = controller.settings.gestures
@@ -157,10 +200,12 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         gestures.windowMoveEnabled = true
         gestures.windowMoveFingerCount = .four
         gestures.windowResizeEnabled = false
-        gestures.windowGestureSensitivity = 1
+        gestures.windowMoveSensitivity = Double(moveSpeed)
         controller.motionPolicy.animationsEnabled = false
         controller.layoutRefreshController.displayLinkActivationForTests = { _ in true }
-        let tokens = (1 ... (grouped ? 3 : windows)).map { host.addWindow($0, to: base.source, pid: 965_801, base) }
+        let tokens = (0 ..< (grouped ? 3 : windows)).map {
+            host.addWindow(firstWindowId + $0, to: base.source, pid: 965_801, base)
+        }
         for token in tokens { base.manager.setCachedConstraints(.unconstrained, for: token) }
         if grouped {
             if kind == .dwindle {
@@ -178,6 +223,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             column.cachedWidth = 0
             column.cachedHeight = 0
         }
+        try prepare(base, tokens)
         base.layout()
         XCTAssertTrue(base.manager.confirmManagedFocus(tokens[0], in: base.source, activateWorkspaceOnMonitor: false))
         let plans = base.manager.withBatchedLayoutBuild {
@@ -189,11 +235,10 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             ($0.token, $0.frame)
         })
         let start = try XCTUnwrap(initial[tokens[0]])
-        let target = try XCTUnwrap(initial[tokens[1]])
+        let target = try XCTUnwrap(initial[tokens.dropFirst().first ?? tokens[0]])
         let startTouch = CGPoint(x: 1 / 4, y: 1 / 4)
-        let targetTouch = CGPoint(
-            x: startTouch.x + (target.midX - start.midX) / base.monitors[0].frame.width,
-            y: startTouch.y + (target.midY - start.midY) / base.monitors[0].frame.height
+        let targetTouch = Fixture.touch(
+            at: target.center, from: start.center, start: startTouch, display: base.monitors[0].frame, speed: moveSpeed
         )
         let events = MoveEvents(
             begin: Fixture.event(location: start.center, touch: startTouch, phase: .began, sample: 0),
@@ -204,15 +249,16 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         )
         for (token, frame) in initial { controller.axManager.confirmFrameWrite(for: token.windowId, frame: frame) }
         let blocker = DwindleLiveTitleBarDragTests().blockRefreshes(controller, workspace: base.source)
+        controller.layoutRefreshController.layoutState.didExecuteEffectPlan = true
         let fixture = Fixture(
             base: base, kind: kind, tokens: tokens, initialFrames: initial, startFrame: start, targetFrame: target,
-            startTouch: startTouch, targetTouch: targetTouch, events: events, blocker: blocker
+            startTouch: startTouch, targetTouch: targetTouch, moveSpeed: moveSpeed, events: events, blocker: blocker
         )
         addTeardownBlock { @MainActor in fixture.finish() }
         return fixture
     }
 
-    func testTrackpadMovesThePhysicalWindowOnBothNiriAxesAndDwindleBeforeSwapRelease() throws {
+    func testTrackpadMovesThePhysicalWindowOnBothNiriAxesAndDwindleBeforeLanding() throws {
         for kind in MoveKind.allCases {
             let fixture = try makeMoveFixture(kind)
             let original = [[fixture.moved], [fixture.target]]
@@ -222,12 +268,16 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             XCTAssertTrue(fixture.handler.state.gestureOwnsWindowInteraction)
             XCTAssertEqual(fixture.handler.state.activeInteractionSource, .trackpadGesture)
             XCTAssertNil(fixture.handler.state.activeInteractionButton)
-            XCTAssertEqual(fixture.order(), original)
+            if kind == .dwindle {
+                XCTAssertEqual(fixture.order(), [[fixture.target], [fixture.moved]])
+            } else {
+                XCTAssertNotNil(fixture.base.niri.liveColumnMove?.narrowedSlot)
+            }
             try assertFloating(fixture, at: fixture.targetTouch)
             fixture.release()
             XCTAssertFalse(fixture.handler.state.isMoving)
             XCTAssertEqual(fixture.order(), [[fixture.target], [fixture.moved]])
-            XCTAssertNil(fixture.base.niri.interactiveMove)
+            XCTAssertNil(fixture.base.niri.liveColumnMove)
             XCTAssertNil(fixture.base.dwindle.interactiveMove)
         }
     }
@@ -237,30 +287,32 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             let fixture = try makeMoveFixture(kind)
             FrameApplyTrace.shared.beginCapture()
             defer { FrameApplyTrace.shared.endCapture() }
+            let touch = fixture.slideWithinStartingWindow(1 / 4)
             fixture.begin()
-            fixture.move()
-            try assertFloating(fixture, at: fixture.targetTouch)
+            fixture.send(fixture.event(at: touch))
+            try assertFloating(fixture, at: touch)
             let trace = FrameApplyTrace.shared.dump()
             XCTAssertTrue(trace.contains("win=\(fixture.moved.windowId) "))
             let sequence = fixture.base.manager.worldSeq
-            fixture.repeatPoint()
+            fixture.send(fixture.event(at: touch, sample: 3))
             fixture.handler.dispatchMouseDragged(at: fixture.startFrame.center)
             fixture.handler.dispatchMouseUp(at: fixture.startFrame.center)
             XCTAssertEqual(FrameApplyTrace.shared.dump(), trace)
             XCTAssertEqual(fixture.base.manager.worldSeq, sequence)
             XCTAssertTrue(fixture.handler.state.gestureOwnsWindowInteraction)
-            try assertFloating(fixture, at: fixture.targetTouch)
+            try assertFloating(fixture, at: touch)
             fixture.cancel()
         }
     }
 
-    func testTrackpadCancellationAndNoTargetReleaseRestoreTheOriginalPhysicalFrames() throws {
+    func testTrackpadCancellationAndReleaseAtTheStartRestoreTheOriginalPhysicalFrames() throws {
         for kind in MoveKind.allCases {
             for cancels in [true, false] {
                 let fixture = try makeMoveFixture(kind)
+                let touch = cancels ? fixture.targetTouch : fixture.slideWithinStartingWindow(1 / 4)
                 fixture.begin()
-                fixture.move()
-                try assertFloating(fixture, at: fixture.targetTouch)
+                fixture.send(fixture.event(at: touch))
+                try assertFloating(fixture, at: touch)
                 if cancels {
                     fixture.cancel()
                 } else {
@@ -270,7 +322,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
                 XCTAssertFalse(fixture.handler.state.isMoving)
                 XCTAssertEqual(fixture.handler.tapInputs.gesturePhase, .idle)
                 XCTAssertEqual(fixture.order(), [[fixture.moved], [fixture.target]])
-                XCTAssertNil(fixture.base.niri.interactiveMove)
+                XCTAssertNil(fixture.base.niri.liveColumnMove)
                 XCTAssertNil(fixture.base.dwindle.interactiveMove)
                 let restored = try fixture.projection()
                 XCTAssertEqual(
@@ -288,45 +340,50 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             fixture.begin()
             fixture.send(fixture.event(at: beyondMonitor))
             try assertFloating(fixture, at: beyondMonitor)
-            XCTAssertEqual(fixture.order(), [[fixture.moved], [fixture.target]])
+            if kind != .dwindle {
+                let point = try XCTUnwrap(fixture.handler.livePointer.location)
+                XCTAssertTrue(fixture.monitor.frame.contains(point))
+                XCTAssertEqual(fixture.base.niri.liveColumnMove?.workspaceId, fixture.workspace)
+            }
             fixture.cancel()
+            XCTAssertEqual(fixture.order(), [[fixture.moved], [fixture.target]])
         }
     }
 
-    func testTrackpadKeepsNiriWindowAndDwindleWholeTileSwapUnits() throws {
+    func testTrackpadTakesOneStackMemberInNiriAndTheWholeTileInDwindle() throws {
         for kind in MoveKind.allCases {
             let fixture = try makeMoveFixture(kind, grouped: true)
             let sibling = fixture.tokens[2]
             XCTAssertEqual(fixture.order(), [[fixture.moved, sibling], [fixture.target]])
             fixture.begin()
             fixture.move()
-            XCTAssertEqual(fixture.order(), [[fixture.moved, sibling], [fixture.target]])
+            if kind == .dwindle {
+                XCTAssertEqual(fixture.order(), [[fixture.target], [fixture.moved, sibling]])
+            } else {
+                XCTAssertFalse(try XCTUnwrap(fixture.base.niri.liveColumnMove).isWholeColumn)
+            }
             try assertFloating(fixture, at: fixture.targetTouch)
             fixture.release()
-            let expected = kind == .dwindle
-                ? [[fixture.target], [fixture.moved, sibling]]
-                : [[fixture.target, sibling], [fixture.moved]]
-            XCTAssertEqual(fixture.order(), expected)
+            if kind == .dwindle {
+                XCTAssertEqual(fixture.order(), [[fixture.target], [fixture.moved, sibling]])
+            } else {
+                XCTAssertTrue(fixture.order().contains([sibling]))
+                XCTAssertTrue(fixture.order().contains([fixture.moved]))
+                XCTAssertTrue(fixture.order().contains([fixture.target]))
+            }
         }
-    }
-
-    private func midpoint(of fixture: Fixture) -> CGPoint {
-        CGPoint(
-            x: (fixture.startTouch.x + fixture.targetTouch.x) / 2,
-            y: (fixture.startTouch.y + fixture.targetTouch.y) / 2
-        )
     }
 
     private func floatingFrame(of fixture: Fixture) -> CGRect? {
         fixture.kind == .dwindle
             ? fixture.base.dwindle.interactiveMove?.floatingFrame
-            : fixture.base.niri.interactiveMove?.floatingFrame
+            : fixture.base.niri.liveColumnMove?.floatingFrame
     }
 
     private func beginMoveWithStartedServices(_ fixture: Fixture) {
         fixture.controller.hasStartedServices = true
         fixture.begin()
-        fixture.move()
+        fixture.send(fixture.event(at: fixture.slideWithinStartingWindow(1 / 4)))
         XCTAssertTrue(fixture.handler.state.gestureOwnsWindowInteraction)
         XCTAssertTrue(fixture.handler.state.isMoving)
         fixture.controller.surfaceReconciler.reconcileNow()
@@ -335,7 +392,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
 
     private func sendChangedPoint(_ fixture: Fixture) {
         let before = floatingFrame(of: fixture)
-        fixture.send(fixture.event(at: midpoint(of: fixture)))
+        fixture.send(fixture.event(at: fixture.slideWithinStartingWindow(1 / 8)))
         XCTAssertNotNil(before)
         XCTAssertNotEqual(floatingFrame(of: fixture), before)
     }
@@ -360,12 +417,13 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             sendChangedPoint(fixture)
 
             XCTAssertEqual(reconciler.pendingReconcileScope, .borderOnly, "\(kind)")
-            try assertFloating(fixture, at: midpoint(of: fixture))
+            try assertFloating(fixture, at: fixture.slideWithinStartingWindow(1 / 8))
             fixture.send(fixture.event(at: fixture.targetTouch, sample: 3))
             reconciler.reconcileNow()
             XCTAssertNil(reconciler.pendingReconcileScope)
 
             fixture.send(fixture.event(at: fixture.targetTouch, phase: .ended, sample: 4))
+            if kind == .dwindle { try executePendingRelayout(fixture.controller.layoutRefreshController) }
 
             XCTAssertEqual(fixture.order(), [[fixture.target], [fixture.moved]], "\(kind)")
             XCTAssertEqual(reconciler.pendingReconcileScope, .fullScene, "\(kind)")
@@ -374,14 +432,16 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
 
     func testChangedTrackpadPointSchedulesTheFullSceneWhileTabRailsExist() throws {
         for kind in MoveKind.allCases {
-            let fixture = try makeMoveFixture(kind, grouped: true)
-            if kind != .dwindle {
-                fixture.base.manager.withEngineMutationScope(in: fixture.workspace) {
-                    let column = fixture.base.niri.columns(in: fixture.workspace)[0]
-                    column.displayMode = .tabbed
-                    column.setActiveTileIdx(0)
+            let fixture = try makeMoveFixture(kind, grouped: kind == .dwindle, windows: 3) { base, tokens in
+                if kind != .dwindle {
+                    try CrossDisplayDragTests().stack(tokens[2], onto: tokens[1], in: base.source, base)
+                    let tab = try XCTUnwrap(base.niriNode(tokens[1]))
+                    base.manager.withEngineMutationScope(in: base.source) {
+                        let column = base.niri.findColumn(containing: tab, in: base.source)
+                        column?.displayMode = .tabbed
+                        base.niri.activateWindow(tab.id, in: base.source)
+                    }
                 }
-                fixture.base.layout()
             }
             let reconciler = fixture.controller.surfaceReconciler
             beginMoveWithStartedServices(fixture)
@@ -463,7 +523,8 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
 
     private func offscreenFixture(_ kind: MoveKind) throws -> (fixture: Fixture, hidden: WindowToken) {
         let fixture = try makeMoveFixture(
-            kind, grouped: kind == .dwindle, windows: Self.windowsWithAnOffscreenColumn
+            kind, grouped: kind == .dwindle, windows: Self.windowsWithAnOffscreenColumn,
+            firstWindowId: Int(CGWindowID.max) - Self.windowsWithAnOffscreenColumn
         )
         let hidden = try XCTUnwrap(fixture.tokens.last)
         let controller = fixture.controller
@@ -473,26 +534,49 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
                 ? controller.dwindleLayoutHandler.layoutWithDwindleEngine(activeWorkspaces: [fixture.workspace])
                 : controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [fixture.workspace])
         }.first)
-        let side = try XCTUnwrap(hideSide(of: hidden, in: relayout.diff))
-        let seed = try XCTUnwrap(
-            kind == .dwindle ? fixture.initialFrames[fixture.moved] : fixture.base.niriNode(hidden)?.frame
-        )
-        let origin = try XCTUnwrap(
-            refresh.liveFrameHideOrigin(for: seed, monitor: fixture.monitor, side: side, reason: .layoutTransient)
-        )
-        let parked = CGRect(origin: origin, size: seed.size)
-        refresh.fastFrameProvider = { token, _ in token == hidden ? parked : nil }
+        let ax = controller.axManager
+        var physical = fixture.initialFrames
+        for token in fixture.tokens where physical[token] == nil {
+            physical[token] = fixture.base.frame(token)
+        }
+        var parks: [WindowToken: (frame: CGRect, side: HideSide)] = [:]
+        for change in relayout.diff.visibilityChanges {
+            guard case let .hide(token, side) = change else { continue }
+            let seed = try XCTUnwrap(
+                kind == .dwindle ? fixture.initialFrames[fixture.moved] : fixture.base.niriNode(token)?.frame
+            )
+            let origin = try XCTUnwrap(
+                refresh.liveFrameHideOrigin(for: seed, monitor: fixture.monitor, side: side, reason: .layoutTransient)
+            )
+            let frame = CGRect(origin: origin, size: seed.size)
+            physical[token] = frame
+            parks[token] = (frame, side)
+            ax.confirmFrameWrite(for: token.windowId, frame: frame)
+            let entry = try XCTUnwrap(controller.workspaceManager.entry(for: token))
+            _ = ax.prepareParkFrameApplications([.init(
+                pid: token.pid,
+                window: try XCTUnwrap(entry.axRef),
+                frame: frame
+            )])
+            if let request = ax.pendingParkFrameRequest(for: token.windowId) {
+                XCTAssertEqual(request.frame, frame)
+                XCTAssertTrue(ax.processParkFrameApplyResults([
+                    WindowAdmissionTestSupport.successfulFrameResult(request: request)
+                ]).isEmpty)
+            }
+        }
+        XCTAssertNotNil(parks[hidden])
+        refresh.fastFrameProvider = { token, _ in physical[token] }
+        let bounds = Dictionary(uniqueKeysWithValues: physical.map {
+            (UInt32($0.key.windowId), ScreenCoordinateSpace.toWindowServer(rect: $0.value))
+        })
+        refresh.windowBoundsProvider = { ids in bounds.filter { ids.contains($0.key) } }
         XCTAssertTrue(refresh.executeLayoutPlan(relayout))
-        XCTAssertEqual(controller.workspaceManager.hiddenState(for: hidden)?.offscreenSide, side)
-        let entry = try XCTUnwrap(controller.workspaceManager.entry(for: hidden))
-        let request = try XCTUnwrap(controller.axManager.prepareParkFrameApplications([
-            .init(pid: hidden.pid, window: XCTUnwrap(entry.axRef), frame: parked)
-        ]).first)
-        XCTAssertTrue(controller.axManager.processParkFrameApplyResults([
-            WindowAdmissionTestSupport.successfulFrameResult(request: request)
-        ]).isEmpty)
-        XCTAssertEqual(controller.axManager.verifiedParkFrame(for: hidden.windowId), parked)
-        XCTAssertFalse(controller.axManager.pendingParkWindowIds.contains(hidden.windowId))
+        for (token, park) in parks {
+            XCTAssertEqual(controller.workspaceManager.hiddenState(for: token)?.offscreenSide, park.side)
+            XCTAssertEqual(ax.verifiedParkFrame(for: token.windowId), park.frame)
+        }
+        XCTAssertTrue(ax.pendingParkWindowIds.isEmpty)
         return (fixture, hidden)
     }
 
@@ -515,7 +599,7 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
         for kind in MoveKind.allCases {
             let (fixture, hidden) = try offscreenFixture(kind)
             fixture.begin()
-            fixture.move()
+            fixture.send(fixture.event(at: fixture.slideWithinStartingWindow(1 / 4)))
             XCTAssertTrue(fixture.handler.state.isMoving)
             FrameApplyTrace.shared.beginCapture()
             defer { FrameApplyTrace.shared.endCapture() }
@@ -534,9 +618,15 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             let (fixture, hidden) = try offscreenFixture(kind)
             let manager = fixture.controller.axManager
             fixture.begin()
-            fixture.move()
+            fixture.send(fixture.event(at: fixture.slideWithinStartingWindow(1 / 4)))
             XCTAssertTrue(fixture.handler.state.isMoving)
+            let world = fixture.base.manager.worldSeq
+            if kind == .horizontal {
+                XCTAssertNotNil(fixture.controller.layoutRefreshController.carriedWindowDrawStamp)
+            }
             manager.markParkPending(for: hidden.windowId, pid: hidden.pid)
+            XCTAssertEqual(fixture.base.manager.worldSeq, world)
+            XCTAssertEqual(manager.pendingParkWindowIds, [hidden.windowId])
             XCTAssertTrue(manager.pendingParkWindowIdsAwaitingSkyLightMove.contains(hidden.windowId))
             FrameApplyTrace.shared.beginCapture()
             defer { FrameApplyTrace.shared.endCapture() }
@@ -556,12 +646,15 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             let entry = try XCTUnwrap(controller.workspaceManager.entry(for: hidden))
             let side = try XCTUnwrap(controller.workspaceManager.hiddenState(for: hidden)?.offscreenSide)
             fixture.begin()
-            fixture.move()
+            fixture.send(fixture.event(at: fixture.slideWithinStartingWindow(1 / 4)))
             XCTAssertTrue(fixture.handler.state.isMoving)
+            if kind == .horizontal {
+                XCTAssertNotNil(controller.layoutRefreshController.carriedWindowDrawStamp)
+            }
             controller.layoutRefreshController.applyLayoutTransientHides(
                 [(entry, side)], monitor: fixture.monitor, isAnimationTick: true, preserveWorkspaceInactive: false
             )
-            XCTAssertTrue(manager.pendingParkWindowIds.contains(hidden.windowId))
+            XCTAssertEqual(manager.pendingParkWindowIds, [hidden.windowId])
             XCTAssertNotNil(manager.skyLightLivePosition(for: hidden.windowId))
             XCTAssertFalse(manager.pendingParkWindowIdsAwaitingSkyLightMove.contains(hidden.windowId))
             XCTAssertNil(manager.pendingParkFrameRequest(for: hidden.windowId))
@@ -602,9 +695,9 @@ final class TrackpadWindowMoveFrameTests: XCTestCase {
             [fixture.expectedFloatingFrame(at: touch)]
         )
         if fixture.kind == .dwindle {
-            XCTAssertFalse(try XCTUnwrap(fixture.base.dwindle.interactiveMove).allowsInsertion)
+            XCTAssertTrue(try XCTUnwrap(fixture.base.dwindle.interactiveMove).allowsInsertion)
         } else {
-            XCTAssertFalse(try XCTUnwrap(fixture.base.niri.interactiveMove).allowsInsertion)
+            XCTAssertEqual(try XCTUnwrap(fixture.base.niri.liveColumnMove).windowToken, fixture.moved)
         }
     }
 }
