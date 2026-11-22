@@ -19,7 +19,7 @@ final class ShellServiceVMFixture {
     private var error = [CChar](repeating: 0, count: 512)
 
     init(enabled: Bool = true) throws {
-        vm = try XCTUnwrap(ShellVM.make(memoryLimit: 32 << 20))
+        vm = try XCTUnwrap(ShellVM.make(memoryLimit: ShellWidgetPackage.memoryLimit))
         XCTAssertEqual(omni_vm_set_configuration_enabled(vm, enabled), OMNI_OK)
     }
 
@@ -35,7 +35,7 @@ final class ShellServiceVMFixture {
     func load(_ source: String) {
         XCTAssertEqual(omni_vm_load(
             vm, "@profile/widgets/root/init.luau", source, source.utf8.count,
-            200_000_000, &error, error.count
+            ShellWidgetPackage.loadBudget, &error, error.count
         ), OMNI_OK, message)
     }
 
@@ -59,7 +59,9 @@ final class ShellServiceVMFixture {
         writer.key("amount")
         writer.number(Double(amount))
         XCTAssertEqual(writer.bytes.withUnsafeBufferPointer {
-            omni_vm_configure_components(vm, $0.baseAddress, $0.count, 200_000_000, &error, error.count)
+            omni_vm_configure_components(
+                vm, $0.baseAddress, $0.count, ShellWidgetPackage.loadBudget, &error, error.count
+            )
         }, OMNI_OK, message)
     }
 
@@ -85,7 +87,7 @@ final class ShellServiceVMFixture {
         var handled = false
         XCTAssertEqual((bytes ?? writer.bytes).withUnsafeBufferPointer {
             omni_vm_complete_service(
-                vm, request.owner, request.id, 0, $0.baseAddress, $0.count, 200_000_000,
+                vm, request.owner, request.id, 0, $0.baseAddress, $0.count, ShellWidgetPackage.handlerBudget,
                 &handled, &error, error.count
             )
         }, OMNI_OK, message)
@@ -110,14 +112,16 @@ final class ShellServiceVMFixture {
         var writer = ShellValueWriter()
         writer.map(0)
         XCTAssertEqual(writer.bytes.withUnsafeBufferPointer {
-            omni_instance_trigger(instance, $0.baseAddress, $0.count, 200_000_000, &error, error.count)
+            omni_instance_trigger(
+                instance, $0.baseAddress, $0.count, ShellWidgetPackage.handlerBudget, &error, error.count
+            )
         }, OMNI_OK, message)
     }
 
     func render() throws {
         var stats = omni_render_stats()
         XCTAssertEqual(omni_instance_render(
-            try instance(), OMNI_VIEW_BAR, 200_000_000, &stats, &error, error.count
+            try instance(), OMNI_VIEW_BAR, ShellWidgetPackage.renderBudget, &stats, &error, error.count
         ), OMNI_OK, message)
     }
 }
