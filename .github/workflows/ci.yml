@@ -85,8 +85,27 @@ jobs:
               echo "::error::pr_number must be a positive integer."
               exit 1
             fi
-            if ! sha="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq '.merge_commit_sha')"; then
-              echo "::error::Could not resolve the pull request merge commit."
+            for attempt in 1 2 3 4 5; do
+              if ! snapshot="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq '[.state, (.mergeable | tostring), .merge_commit_sha] | @tsv')"; then
+                echo "::error::Could not resolve the pull request merge commit."
+                exit 1
+              fi
+              IFS=$'\t' read -r state mergeable sha <<< "$snapshot"
+              if [[ "$state" != open ]]; then
+                echo "::error::The pull request must be open."
+                exit 1
+              fi
+              if [[ "$mergeable" == true ]]; then
+                break
+              fi
+              if [[ "$mergeable" != null ]]; then
+                echo "::error::The pull request cannot be merged with its base branch."
+                exit 1
+              fi
+              if (( attempt < 5 )); then sleep 2; fi
+            done
+            if [[ "$mergeable" != true ]]; then
+              echo "::error::GitHub is still computing mergeability. Run the workflow again once the test merge is ready."
               exit 1
             fi
           fi
