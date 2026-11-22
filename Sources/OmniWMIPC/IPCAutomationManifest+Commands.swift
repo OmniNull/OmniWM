@@ -400,7 +400,7 @@ extension IPCAutomationManifest {
         ),
         .init(
             name: .toggleFloatingFocus,
-            summary: "Toggle focus between the floating and tiled windows of the active workspace."
+            summary: "Step focus through the active workspace's floating windows, then back to the tiled window."
         ),
         .init(
             name: .rescueOffscreenWindows,

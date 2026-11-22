@@ -22,7 +22,8 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
             "moveMouseToFocusedWindow": .boolean(false),
             "followsWindowToMonitor": .boolean(false),
             "crossesMonitorAtEdge": .boolean(false),
-            "moveCrossesMonitorAtEdge": .boolean(false)
+            "moveCrossesMonitorAtEdge": .boolean(false),
+            "floatingFocusToggleCyclesAllWindows": .boolean(false)
         ]))
         XCTAssertEqual(tree["mouseWarp"], .table([
             "margin": .integer(1),
@@ -85,6 +86,29 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
 
         let malformed = source.replacingOccurrences(
             of: "clickFocusWithoutScrolling = true", with: "clickFocusWithoutScrolling = \"true\""
+        )
+        XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformed.utf8)))
+    }
+
+    func testFloatingFocusToggleModeRoundTripsAndDefaultsForExistingConfigurations() throws {
+        var export = SettingsExport.defaults()
+        export.focus.floatingFocusToggleCyclesAllWindows = true
+        let data = try SettingsTOMLCodec.encode(export)
+        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
+        XCTAssertFalse(
+            SettingsTOMLCodec.unknownKeyPaths(in: data).contains("focus.floatingFocusToggleCyclesAllWindows")
+        )
+
+        let source = String(decoding: data, as: UTF8.self)
+        let missing = try removing(key: "floatingFocusToggleCyclesAllWindows", from: "focus", in: source)
+        let result = try SettingsTOMLCodec.decodeForLoad(Data(missing.utf8))
+        XCTAssertFalse(result.export.focus.floatingFocusToggleCyclesAllWindows)
+        XCTAssertNil(result.migration)
+        XCTAssertNil(result.migratedData)
+
+        let malformed = source.replacingOccurrences(
+            of: "floatingFocusToggleCyclesAllWindows = true",
+            with: "floatingFocusToggleCyclesAllWindows = \"true\""
         )
         XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformed.utf8)))
     }

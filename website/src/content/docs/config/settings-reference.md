@@ -70,6 +70,7 @@ Pointer-driven focus and monitor-edge focus/move behavior.
 | `followsWindowToMonitor` | boolean | `false` | Follows ordinary window or column transfers to another workspace, including dedicated monitor-move actions. Edge-crossing moves always follow. |
 | `crossesMonitorAtEdge` | boolean | `false` | Directional focus continues onto the neighboring monitor at the screen edge. |
 | `moveCrossesMonitorAtEdge` | boolean | `false` | Directional window move continues onto the neighboring monitor at the workspace edge and always follows the moved window. |
+| `floatingFocusToggleCyclesAllWindows` (optional) | boolean | `false` | **Unreleased:** Available when building from `main`. Off: `Toggle Floating/Tiled Focus` goes from a tiled window to the remembered floating window, steps through the workspace's other floating windows one press at a time, then returns to the tiled window you came from. On: each press focuses the next window on the workspace in a fixed order, floating windows first and then tiled windows, wrapping at the end. |
 
 ## mouseWarp
 

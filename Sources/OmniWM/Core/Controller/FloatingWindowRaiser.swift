@@ -9,6 +9,7 @@ final class FloatingWindowRaiser {
     private weak var controller: WMController?
     private let visibleOwnedWindowsProvider: () -> [NSWindow]
     private let frontOwnedWindow: (NSWindow) -> Void
+    private var floatingFocusCycleStart: (workspaceId: WorkspaceDescriptor.ID, token: WindowToken)?
 
     init(
         controller: WMController,
@@ -93,7 +94,12 @@ final class FloatingWindowRaiser {
                 activeWorkspaceIds: [workspaceId]
             )
         }
-        guard let target = workspaceManager.focusToggleTarget(after: focusedToken, in: workspaceId) else {
+        guard let target = floatingFocusToggleTarget(
+            after: focusedToken,
+            leavingFloating: leavingFloating,
+            in: workspaceId,
+            controller: controller
+        ) else {
             return .noChange
         }
 
@@ -107,6 +113,38 @@ final class FloatingWindowRaiser {
         }
         controller.focusWindow(target)
         return .executed
+    }
+
+    private func floatingFocusToggleTarget(
+        after focusedToken: WindowToken?,
+        leavingFloating: Bool,
+        in workspaceId: WorkspaceDescriptor.ID,
+        controller: WMController
+    ) -> WindowToken? {
+        let workspaceManager = controller.workspaceManager
+        if controller.settings.focus.floatingFocusToggleCyclesAllWindows {
+            floatingFocusCycleStart = nil
+            return workspaceManager.focusToggleCycleAllTarget(after: focusedToken, in: workspaceId)
+        }
+        var cycleStart: WindowToken?
+        if leavingFloating, let focusedToken {
+            cycleStart = floatingFocusCycleStart.flatMap { start in
+                start.workspaceId == workspaceId
+                    && workspaceManager.isFloatingFocusToggleSource(start.token, in: workspaceId)
+                    ? start.token : nil
+            } ?? focusedToken
+        }
+        let target = workspaceManager.floatingFocusToggleTarget(
+            after: focusedToken,
+            cycleStart: cycleStart,
+            in: workspaceId
+        )
+        if let target, workspaceManager.windowMode(for: target) == .floating {
+            floatingFocusCycleStart = (workspaceId, cycleStart ?? target)
+        } else {
+            floatingFocusCycleStart = nil
+        }
+        return target
     }
 
     func hasRaisableFloatingWindows() -> Bool {

@@ -35,11 +35,19 @@ final class FloatingFocusToggleTests: XCTestCase {
         let first = addWindow(5003, 33, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
         let second = addWindow(5004, 32, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
         _ = addWindow(5005, 34, to: fixture.workspace2, mode: .floating, manager: fixture.manager)
+        _ = fixture.manager.rememberFocus(tiled, in: fixture.workspace1)
+        let manager = fixture.manager
+        let workspace = fixture.workspace1
 
-        XCTAssertEqual(fixture.manager.focusToggleTarget(in: fixture.workspace1), first)
-        XCTAssertEqual(fixture.manager.focusToggleTarget(after: tiled, in: fixture.workspace1), first)
-        XCTAssertEqual(fixture.manager.focusToggleTarget(after: first, in: fixture.workspace1), second)
-        XCTAssertEqual(fixture.manager.focusToggleTarget(after: second, in: fixture.workspace1), tiled)
+        XCTAssertEqual(manager.floatingFocusToggleTarget(after: tiled, cycleStart: nil, in: workspace), first)
+        XCTAssertEqual(manager.floatingFocusToggleTarget(after: first, cycleStart: first, in: workspace), second)
+        XCTAssertEqual(manager.floatingFocusToggleTarget(after: second, cycleStart: first, in: workspace), tiled)
+        XCTAssertEqual(manager.floatingFocusToggleTarget(after: second, cycleStart: second, in: workspace), first)
+
+        XCTAssertEqual(manager.focusToggleCycleAllTarget(after: nil, in: workspace), first)
+        XCTAssertEqual(manager.focusToggleCycleAllTarget(after: tiled, in: workspace), first)
+        XCTAssertEqual(manager.focusToggleCycleAllTarget(after: first, in: workspace), second)
+        XCTAssertEqual(manager.focusToggleCycleAllTarget(after: second, in: workspace), tiled)
     }
 
     func testTargetIsAbsentWithoutAnotherWindowOnTheWorkspace() throws {
@@ -48,7 +56,8 @@ final class FloatingFocusToggleTests: XCTestCase {
         let tiled = addWindow(5006, 41, to: fixture.workspace1, manager: fixture.manager)
         _ = addWindow(5006, 42, to: fixture.workspace2, mode: .floating, manager: fixture.manager)
 
-        XCTAssertNil(fixture.manager.focusToggleTarget(after: tiled, in: fixture.workspace1))
+        XCTAssertNil(fixture.manager.floatingFocusToggleTarget(after: tiled, cycleStart: nil, in: fixture.workspace1))
+        XCTAssertNil(fixture.manager.focusToggleCycleAllTarget(after: tiled, in: fixture.workspace1))
     }
 
     func testToggleFromTiledFocusFocusesTheFirstFloatingWindow() throws {
@@ -64,22 +73,24 @@ final class FloatingFocusToggleTests: XCTestCase {
         XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.token, first)
     }
 
-    func testToggleFromTheLastFloatingWindowMovesToTheFirstNormalWindow() async throws {
+    func testToggleFromTheLastFloatingWindowReturnsToTheRememberedTile() async throws {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }
-        let firstTiled = addWindow(5008, 61, to: fixture.workspace1, manager: fixture.manager)
-        _ = addWindow(5008, 62, to: fixture.workspace1, manager: fixture.manager)
-        let floating = addWindow(5008, 63, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        _ = addWindow(5008, 201, to: fixture.workspace1, manager: fixture.manager)
+        let rememberedTiled = addWindow(5008, 202, to: fixture.workspace1, manager: fixture.manager)
+        let floating = addWindow(5008, 203, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        _ = fixture.manager.rememberFocus(rememberedTiled, in: fixture.workspace1)
         XCTAssertTrue(fixture.manager.setManagedFocus(floating, in: fixture.workspace1))
 
         XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
-        XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.token, firstTiled)
+        XCTAssertEqual(fixture.controller.intentLedger.activeManagedRequest?.token, rememberedTiled)
     }
 
     func testRepeatedTogglesVisitEveryFloatingWindowThenReturnToTiled() async throws {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }
+        _ = addWindow(5013, 100, to: fixture.workspace1, manager: fixture.manager)
         let tiled = addWindow(5013, 101, to: fixture.workspace1, manager: fixture.manager)
         let first = addWindow(5013, 102, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
         let second = addWindow(5013, 103, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
@@ -87,20 +98,40 @@ final class FloatingFocusToggleTests: XCTestCase {
         _ = fixture.manager.rememberFocus(tiled, in: fixture.workspace1)
         XCTAssertTrue(fixture.manager.setManagedFocus(tiled, in: fixture.workspace1))
 
-        for expected in [first, second, third, tiled, first] {
+        for expected in [first, second, third, tiled, third, first, second, tiled] {
             XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
             await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
             try confirmRequestedFocus(on: expected, fixture: fixture)
         }
     }
 
-    func testRepeatedTogglesAlsoVisitNormalWindows() async throws {
+    func testCycleStartsAtTheRememberedFloatingWindowAndVisitsTheRest() async throws {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }
+        let tiled = addWindow(5018, 131, to: fixture.workspace1, manager: fixture.manager)
+        let first = addWindow(5018, 132, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        let second = addWindow(5018, 133, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        let third = addWindow(5018, 134, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        _ = fixture.manager.rememberFocus(second, in: fixture.workspace1)
+        _ = fixture.manager.rememberFocus(tiled, in: fixture.workspace1)
+        XCTAssertTrue(fixture.manager.setManagedFocus(tiled, in: fixture.workspace1))
+
+        for expected in [second, third, first, tiled] {
+            XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
+            await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+            try confirmRequestedFocus(on: expected, fixture: fixture)
+        }
+    }
+
+    func testCycleAllWindowsSettingAlsoVisitsTiledWindows() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.controller.layoutRefreshController.resetState() }
+        fixture.controller.settings.focus.floatingFocusToggleCyclesAllWindows = true
         let firstTiled = addWindow(5016, 121, to: fixture.workspace1, manager: fixture.manager)
         let secondTiled = addWindow(5016, 122, to: fixture.workspace1, manager: fixture.manager)
         let floating = addWindow(5016, 123, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
         _ = addWindow(5017, 124, to: fixture.workspace2, manager: fixture.manager)
+        _ = fixture.manager.rememberFocus(secondTiled, in: fixture.workspace1)
         XCTAssertTrue(fixture.manager.setManagedFocus(firstTiled, in: fixture.workspace1))
 
         for expected in [secondTiled, floating, firstTiled] {
