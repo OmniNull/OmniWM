@@ -26,7 +26,8 @@ classification.
 Buttonless accessory roots, prohibited-app roots, non-`AXWindow` roles, and otherwise unsupported AX subroles
 require a precise inclusion rule. The rule must identify the app or window, set both `axRole` and `axSubrole` to
 the observed values, and choose Tile or Float rather than Automatic. Parentless roots at status-window level or
-higher use the same precise shape, but only a user-authored rule can opt them in; built-in rules cannot. For example:
+higher use the same precise shape, but only a user-authored rule can opt them in; built-in rules cannot, except
+the Wine rule described below. For example:
 
 ```toml
 [[appRules]]
@@ -37,6 +38,26 @@ layout = "float"
 ```
 
 Use the target's actual bundle ID and AX values. This escape hatch does not admit a parented surface.
+
+### Wine and CrossOver programs
+
+Windows programs running under Wine report their windows as buttonless `AXWindow` / `AXUnknown` surfaces, and a
+fullscreen game can sit above the status-window level. A built-in rule floats the main window of such a program so it
+can be focused, moved, and hidden with its workspace like any other floating window. OmniWM recognizes a Wine process
+by a process name ending in `.exe` with no bundle ID, or by a CrossOver helper bundle ID
+(`com.codeweavers.CrossOverHelper.*`). The program's popup menus, tooltips, and dropdowns are never its main window,
+so they stay unmanaged. Wine windows that report a standard title bar are classified normally.
+
+To tile a Wine program's window instead, add a user rule with the same precise shape; it outranks the built-in rule:
+
+```toml
+[[appRules]]
+bundleId = ""
+appNameSubstring = "Aurora15Connector.exe"
+axRole = "AXWindow"
+axSubrole = "AXUnknown"
+layout = "tile"
+```
 
 ## Rule actions
 

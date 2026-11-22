@@ -1,0 +1,56 @@
+{
+  "observation": {
+    "appName": "Aurora15Connector.exe",
+    "input": {
+      "appFullscreen": false,
+      "appName": "Aurora15Connector.exe",
+      "ax": {
+        "appPolicy": "regular",
+        "attributeFetchSucceeded": true,
+        "hasCloseButton": false,
+        "hasFullscreenButton": false,
+        "hasMinimizeButton": false,
+        "hasZoomButton": false,
+        "isMain": true,
+        "isModal": false,
+        "role": "AXWindow",
+        "subrole": "AXUnknown"
+      },
+      "sizeConstraints": {
+        "isFixed": true,
+        "maxHeight": 717,
+        "maxWidth": 1100,
+        "minHeight": 717,
+        "minWidth": 1100
+      },
+      "windowServer": {
+        "attributes": 2,
+        "frameHeight": 717,
+        "frameWidth": 1100,
+        "frameX": 206,
+        "frameY": 132,
+        "id": 5541,
+        "level": 0,
+        "parentId": 0,
+        "pid": 87774,
+        "tags": 4295499777
+      }
+    },
+    "observedDecision": {
+      "disposition": "floating",
+      "heuristicReasons": [],
+      "layoutDecisionKind": "explicitLayout",
+      "source": "userRule(11111111-0000-4000-8000-00000000E1E1)"
+    },
+    "rulesRevision": 2,
+    "tokenPid": 87774,
+    "tokenWindowId": 5541
+  },
+  "rules": [],
+  "expectedDecision": {
+    "disposition": "floating",
+    "source": "builtInRule(wineWindow)",
+    "heuristicReasons": [],
+    "layoutDecisionKind": "explicitLayout"
+  }
+}

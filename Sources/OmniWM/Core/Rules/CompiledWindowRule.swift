@@ -11,10 +11,22 @@ struct CompiledWindowRule {
         case builtIn(String)
     }
 
+    enum IdentityMatcher {
+        case wineMainWindow
+
+        func matches(_ facts: WindowRuleFacts) -> Bool {
+            switch self {
+            case .wineMainWindow:
+                WineWindowIdentity.isMainWindow(facts)
+            }
+        }
+    }
+
     let rule: AppRule
     let source: Source
     let titleRegex: NSRegularExpression?
     let order: Int
+    var identityMatcher: IdentityMatcher?
 
     var requiresTitle: Bool {
         rule.titleSubstring?.isEmpty == false || titleRegex != nil
@@ -62,6 +74,9 @@ struct CompiledWindowRule {
     }
 
     func matches(_ facts: WindowRuleFacts) -> Bool {
+        if let identityMatcher, !identityMatcher.matches(facts) {
+            return false
+        }
         guard matchesApp(bundleId: facts.ax.bundleId, appName: facts.appName) else { return false }
 
         if let titleSubstring = nonEmpty(rule.titleSubstring) {
@@ -97,6 +112,7 @@ struct CompiledWindowRule {
     }
 
     private static let finderQuickLookSubrole = "Quick Look"
+    static let wineWindowRuleName = "wineWindow"
 
     static func compile(
         rule: AppRule,
@@ -158,6 +174,8 @@ struct CompiledWindowRule {
             )
         }
 
+        rules.append(makeWineWindowRule(order: rules.count))
+
         rules.append(
             CompiledWindowRule(
                 rule: AppRule(
@@ -173,5 +191,20 @@ struct CompiledWindowRule {
         )
 
         return rules
+    }
+
+    private static func makeWineWindowRule(order: Int) -> CompiledWindowRule {
+        CompiledWindowRule(
+            rule: AppRule(
+                bundleId: "",
+                axRole: kAXWindowRole as String,
+                axSubrole: kAXUnknownSubrole as String,
+                layout: .float
+            ),
+            source: .builtIn(wineWindowRuleName),
+            titleRegex: nil,
+            order: order,
+            identityMatcher: .wineMainWindow
+        )
     }
 }

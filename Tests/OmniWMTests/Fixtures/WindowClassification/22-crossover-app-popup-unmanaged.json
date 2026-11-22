@@ -1,0 +1,58 @@
+{
+  "observation": {
+    "appName": "CrossOver",
+    "bundleId": "com.codeweavers.CrossOver",
+    "input": {
+      "appFullscreen": false,
+      "appName": "CrossOver",
+      "ax": {
+        "appPolicy": "regular",
+        "attributeFetchSucceeded": true,
+        "bundleId": "com.codeweavers.CrossOver",
+        "hasCloseButton": false,
+        "hasFullscreenButton": false,
+        "hasMinimizeButton": false,
+        "hasZoomButton": false,
+        "isMain": false,
+        "isModal": false,
+        "role": "AXWindow",
+        "subrole": "AXUnknown"
+      },
+      "sizeConstraints": {
+        "isFixed": true,
+        "maxHeight": 150,
+        "maxWidth": 144,
+        "minHeight": 150,
+        "minWidth": 144
+      },
+      "windowServer": {
+        "attributes": 2,
+        "frameHeight": 150,
+        "frameWidth": 144,
+        "frameX": 404,
+        "frameY": 169,
+        "id": 5529,
+        "level": 3,
+        "parentId": 0,
+        "pid": 87459,
+        "tags": 36028801314726402
+      }
+    },
+    "observedDecision": {
+      "disposition": "unmanaged",
+      "heuristicReasons": [],
+      "layoutDecisionKind": "explicitLayout",
+      "source": "builtInRule(externalSurface)"
+    },
+    "rulesRevision": 2,
+    "tokenPid": 87459,
+    "tokenWindowId": 5529
+  },
+  "rules": [],
+  "expectedDecision": {
+    "disposition": "unmanaged",
+    "source": "builtInRule(externalSurface)",
+    "heuristicReasons": [],
+    "layoutDecisionKind": "explicitLayout"
+  }
+}

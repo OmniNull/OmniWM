@@ -118,7 +118,11 @@ struct WindowEligibilityPolicy {
         if let windowServer = windowServerEvidence,
            windowServer.level >= Self.systemSurfaceLevelFloor
         {
-            return .requiresExplicitUserInclusion
+            // Wine raises a fullscreen Windows program's main window above the status-window
+            // level. It is still the program's own window, so the built-in Wine rule may include it.
+            return WineWindowIdentity.isMainWindow(facts)
+                ? .requiresExplicitInclusion
+                : .requiresExplicitUserInclusion
         }
 
         if facts.ax.appPolicy == .prohibited
