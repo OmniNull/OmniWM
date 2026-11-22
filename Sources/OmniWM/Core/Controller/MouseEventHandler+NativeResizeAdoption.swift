@@ -10,30 +10,48 @@ extension MouseEventHandler {
         windowServerFramesAtMouseDown: [WindowToken: CGRect]?
     ) {
         state.nativeResizeStart = nil
-        state.rejectedNativeResizeStartToken = nil
+        state.nativeResizeStartRejections.removeAll()
         guard let controller else { return }
+        let axManager = controller.axManager
+        if state.awaitsNativeTitleBarDragTarget, let windowServerFramesAtMouseDown {
+            for (candidate, bounds) in windowServerFramesAtMouseDown where candidate != token {
+                if let write = axManager.inFlightFrameWrite(for: candidate),
+                   Self.changesSize(write, from: axManager.lastAppliedFrame(for: candidate.windowId)),
+                   Self.isNativeResizePress(at: location, in: ScreenCoordinateSpace.toAppKit(rect: bounds))
+                {
+                    state.nativeResizeStartRejections[candidate] = .sizeWrite
+                }
+            }
+        }
         guard let token,
               let entry = controller.workspaceManager.entry(for: token),
               let axRef = entry.axRef,
-              entry.layoutReason == .standard,
-              let frame = controller.axManager.lastAppliedFrame(for: token.windowId)
+              entry.layoutReason == .standard
         else { return }
-        guard !controller.axManager.hasInFlightFrameWrite(for: token) else {
-            if controller.axManager.hasPendingFrameSizeChange(for: token.windowId, comparedTo: frame.size) {
-                state.rejectedNativeResizeStartToken = token
+        let appliedFrame = axManager.lastAppliedFrame(for: token.windowId)
+        if let write = axManager.inFlightFrameWrite(for: token) {
+            if Self.changesSize(write, from: appliedFrame) {
+                state.nativeResizeStartRejections[token] = .sizeWrite
             }
             return
         }
+        guard let frame = appliedFrame else { return }
         let observedFrame = if let windowServerFramesAtMouseDown {
             windowServerFramesAtMouseDown[token].map(ScreenCoordinateSpace.toAppKit(rect:))
         } else {
             nativeWindowFrameProvider(axRef)
         }
         guard observedFrame?.approximatelyEqual(to: frame, tolerance: FrameTolerance.frameWrite) == true else {
-            state.rejectedNativeResizeStartToken = token
+            state.nativeResizeStartRejections[token] = .frameMismatch
             return
         }
         state.nativeResizeStart = .init(token: token, frame: frame, location: location)
+    }
+
+    private static func changesSize(_ write: AppAXFrameWriteRequest, from frame: CGRect?) -> Bool {
+        guard write.components.contains(.size) else { return false }
+        guard let frame else { return true }
+        return !axFrameMatches(frame, target: write.frame, components: .size)
     }
 
     func adoptNativeResizeIfEligible(
