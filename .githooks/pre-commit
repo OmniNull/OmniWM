@@ -6,6 +6,9 @@ cd "$root"
 git diff --cached --check
 
 export OMNIWM_DEV_TOOLS="${OMNIWM_DEV_TOOLS:-$root/.cache/flake-tools}"
+if [[ "$OMNIWM_DEV_TOOLS" != /* ]]; then
+  OMNIWM_DEV_TOOLS="$root/$OMNIWM_DEV_TOOLS"
+fi
 tools="$OMNIWM_DEV_TOOLS/bin"
 python=python3
 if [ -x "$tools/python3" ]; then
@@ -35,10 +38,19 @@ if [ -s "$snapshot/swift-paths" ]; then
 fi
 
 ipc_paths=(Sources/OmniWMIPC/ Scripts/generate_ipc_wire.py Scripts/ipc_wire_models.py)
-if ! git diff --cached --quiet -- "${ipc_paths[@]}"; then
+if ! git diff --cached --quiet -- .swiftformat "${ipc_paths[@]}"; then
   if [ -x "$tools/swiftformat" ] && command -v "$python" >/dev/null; then
-    git ls-files -z -- .swiftformat "${ipc_paths[@]}" |
-      git checkout-index --force --prefix="$snapshot/" --stdin -z
+    tree="$(git write-tree)"
+    ipc_index="$snapshot/ipc-index"
+    GIT_INDEX_FILE="$ipc_index" git read-tree "$tree"
+    git ls-tree -r -z --name-only "$tree" -- .swiftformat Scripts/dev-tools.env "${ipc_paths[@]}" |
+      GIT_INDEX_FILE="$ipc_index" git checkout-index --ignore-skip-worktree-bits --force --prefix="$snapshot/" --stdin -z
+    required_version="$(sed -n 's/^SWIFTFORMAT_VERSION=//p' "$snapshot/Scripts/dev-tools.env")"
+    actual_version="$("$tools/swiftformat" --version 2>/dev/null || true)"
+    if [ -z "$required_version" ] || [ "$actual_version" != "$required_version" ]; then
+      echo "pre-commit: SwiftFormat $required_version required (found ${actual_version:-missing}), reload the nix shell or run make setup-tools" >&2
+      exit 1
+    fi
     if ! "$python" "$snapshot/Scripts/generate_ipc_wire.py" --check; then
       echo "pre-commit: run python3 Scripts/generate_ipc_wire.py and stage the regenerated files" >&2
       exit 1
