@@ -205,7 +205,7 @@ extension MouseEventHandler {
         let startFrame = state.nativeResizeStart.flatMap { $0.token == drag.token ? $0.frame : nil }
         let rejection = state.nativeResizeStartRejections[drag.token]
         state.nativeResizeStart = nil
-        state.nativeResizeStartRejections.removeAll()
+        clearNativeResizeStartRejections()
         drag.phase = .dragging
         let pendingFrameChangesSize = recordNativeDragStartFrames(
             &drag,

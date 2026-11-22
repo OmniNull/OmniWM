@@ -10,7 +10,7 @@ extension MouseEventHandler {
         windowServerFramesAtMouseDown: [WindowToken: CGRect]?
     ) {
         state.nativeResizeStart = nil
-        state.nativeResizeStartRejections.removeAll()
+        clearNativeResizeStartRejections()
         guard let controller else { return }
         let axManager = controller.axManager
         if state.awaitsNativeTitleBarDragTarget, let windowServerFramesAtMouseDown {
@@ -46,6 +46,11 @@ extension MouseEventHandler {
             return
         }
         state.nativeResizeStart = .init(token: token, frame: frame, location: location)
+    }
+
+    func clearNativeResizeStartRejections() {
+        guard !state.nativeResizeStartRejections.isEmpty else { return }
+        state.nativeResizeStartRejections.removeAll(keepingCapacity: true)
     }
 
     private static func changesSize(_ write: AppAXFrameWriteRequest, from frame: CGRect?) -> Bool {
