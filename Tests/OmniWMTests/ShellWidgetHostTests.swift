@@ -1002,6 +1002,48 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         XCTAssertEqual(instance?.primary.slice, .active)
     }
 
+    func testBothIslandsOfASplitBarUnderADarkMenuBarDrawDark() async throws {
+        executionTimeAllowance = failureBound
+        let shell = ShellWidgetHost.shellDirectory(in: controller.settings.settingsFileURL.deletingLastPathComponent())
+        XCTAssertTrue(try ShellProfiles.setValue(
+            "overlappingMenuBar", at: ShellProfiles.key("workspaceBar", of: "default") + ["position"], in: shell
+        ))
+        XCTAssertTrue(try ShellProfiles.setValue(
+            false, at: ShellProfiles.key("workspaceBar", of: "default") + ["fullWidth"], in: shell
+        ))
+        controller.settings.workspaceBar.notchMode = .splitActiveLeft
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        manager.menuBarIsDark = { true }
+        let focused = WorkspaceBarItem(
+            id: WorkspaceDescriptor.ID(),
+            name: "1",
+            rawName: "1",
+            isFocused: true,
+            tiledWindows: [],
+            floatingWindows: []
+        )
+
+        manager.apply([barSurface(items: [focused])])
+        await waitForShellWidgets(manager)
+        let instance = try XCTUnwrap(manager.barsByMonitor[monitor.id])
+        let secondary = try XCTUnwrap(instance.secondary)
+        XCTAssertEqual(instance.primary.panel.appearance?.name, .darkAqua)
+        XCTAssertEqual(secondary.panel.appearance?.name, .darkAqua)
+        XCTAssertEqual(secondary.hostingView.appearance?.name, .darkAqua)
+        let host = try XCTUnwrap(manager.shellHost)
+        let islands = [WorkspaceBarIslandSlice.active, .secondary]
+        func palette(_ island: WorkspaceBarIslandSlice) -> ShellPalette {
+            host.palette(for: ShellBarKey(monitor: monitor.id, island: island))
+        }
+        XCTAssertTrue(islands.allSatisfy { palette($0) === host.resources.darkPalette })
+
+        manager.menuBarIsDark = { false }
+        manager.refreshMenuBarAppearance()
+        XCTAssertNotEqual(secondary.panel.appearance?.name, .darkAqua)
+        XCTAssertTrue(islands.allSatisfy { palette($0) === host.resources.palette })
+    }
+
     private func waitForShellWidgets(_ manager: WorkspaceBarManager) async {
         await waitForShellWidgets(manager, on: monitor, count: 1)
     }

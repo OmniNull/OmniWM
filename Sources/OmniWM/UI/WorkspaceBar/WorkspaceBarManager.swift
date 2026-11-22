@@ -187,7 +187,8 @@ final class WorkspaceBarManager {
             panel: panel,
             rootView: makeBarView(model: model, slice: .all, monitorId: monitor.id),
             resolved: resolved,
-            monitor: monitor
+            monitor: monitor,
+            appearance: barAppearance(for: resolved, on: monitor)
         )
 
         let instance = WorkspaceBarInstance(
@@ -199,7 +200,7 @@ final class WorkspaceBarManager {
         )
         barsByMonitor[monitor.id] = instance
 
-        instance.applyAppearance(barAppearance(for: resolved))
+        instance.applyAppearance(barAppearance(for: resolved, on: monitor))
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         surfaceCoordinator.register(
             window: primary.panel,
@@ -218,7 +219,7 @@ final class WorkspaceBarManager {
         guard instance.updateMonitor(monitor, screen: screen) else { return false }
 
         instance.updateSnapshot(snapshot)
-        instance.applyAppearance(barAppearance(for: resolved))
+        instance.applyAppearance(barAppearance(for: resolved, on: monitor))
         instance.applyPanelSettings(resolved: resolved)
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         return true
@@ -414,7 +415,8 @@ extension WorkspaceBarManager {
             panel: makePanel(screen: screenProvider(instance.monitor.displayId)),
             rootView: makeBarView(model: instance.model, slice: .secondary, monitorId: instance.monitorId),
             resolved: resolved,
-            monitor: instance.monitor
+            monitor: instance.monitor,
+            appearance: barAppearance(for: resolved, on: instance.monitor)
         )
         surfaceCoordinator.register(
             window: island.panel,

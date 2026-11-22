@@ -301,7 +301,7 @@ extension WorkspaceBarManager {
         for bar in lastBars where keepsShellInstance(bar) {
             let resolved = settings.resolved(for: bar.monitor)
             var style = ShellBarStyle(resolved, settings: settings, snapshot: bar.snapshot)
-            style.dark = usesDarkPalette(resolved)
+            style.dark = usesDarkPalette(resolved, on: bar.monitor)
             var data = ShellBarData(
                 monitor: bar.monitor,
                 snapshot: bar.snapshot,
