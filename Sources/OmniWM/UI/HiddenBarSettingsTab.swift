@@ -6,10 +6,6 @@ import SwiftUI
 
 @MainActor
 enum HiddenBarSettingsEdits {
-    static func setEnabled(_ enabled: Bool, apply: (Bool) -> Void) {
-        apply(enabled)
-    }
-
     static func setHidden(
         _ hidden: Bool,
         bundleID: String,
@@ -28,10 +24,6 @@ enum HiddenBarSettingsEdits {
         guard settings.hiddenBar.hiddenBundleIDs != normalized else { return }
         settings.hiddenBar.hiddenBundleIDs = normalized
         reconcile()
-    }
-
-    static func setRehideInterval(_ value: Double, settings: SettingsStore) {
-        settings.hiddenBar.rehideIntervalSeconds = HiddenBarSettingsPolicy.validatedRehideIntervalSeconds(value)
     }
 
     static func openFullDiskAccessSettings() {
