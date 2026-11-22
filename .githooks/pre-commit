@@ -38,7 +38,8 @@ if [ -s "$snapshot/swift-paths" ]; then
 fi
 
 ipc_paths=(Sources/OmniWMIPC/ Scripts/generate_ipc_wire.py Scripts/ipc_wire_models.py)
-if ! git diff --cached --quiet -- .swiftformat "${ipc_paths[@]}"; then
+if ! git diff --cached --quiet -- .swiftformat "${ipc_paths[@]}" ||
+   ! git diff --cached --quiet -G '^SWIFTFORMAT_VERSION=' -- Scripts/dev-tools.env; then
   if [ -x "$tools/swiftformat" ] && command -v "$python" >/dev/null; then
     tree="$(git write-tree)"
     ipc_index="$snapshot/ipc-index"
