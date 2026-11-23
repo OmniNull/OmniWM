@@ -222,7 +222,7 @@ extension NiriLayoutHandler {
         )
 
         if pass.engine.shrinkToFit {
-            pass.engine.autoFitVisibleColumns(context: pass.interactionContext, state: &state)
+            pass.engine.autoFitIfRequested(context: pass.interactionContext, state: &state)
         }
 
         var plan = computeLayoutPlan(

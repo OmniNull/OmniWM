@@ -43,55 +43,28 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         XCTAssertEqual(frames[1].maxX, monitorFrame.width - sidePadding, accuracy: pixel)
     }
 
-    func testAChangeSeenWhileFocusIsElsewhereIsFittedWhenFocusReturns() throws {
-        let fixture = try makeFixture(windowCount: 3, visibleContainerCount: 2)
-        fixture.controller.settings.niri.shrinkToFit = true
-        fixture.controller.updateNiriConfig(shrinkToFit: true)
-        try focusColumn(0, fixture)
-        XCTAssertTrue(fixture.controller.niriLayoutHandler.setContainerPrimarySpan(.setProportion(85)))
-        _ = try settledFrames(fixture)
-        let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        let neighbour = engine.columns(in: fixture.workspaceId)[1]
-        XCTAssertNotNil(neighbour.fittedWidth)
-        let manager = fixture.controller.workspaceManager
-        let arrived = try XCTUnwrap(engine.columns(in: fixture.workspaceId)[2].windowNodes.first)
-
-        neighbour.fittedWidth = nil
-        neighbour.invalidateCachedPrimarySpan(orientation: .horizontal)
-        _ = manager.commitWorkspaceSelection(
-            nodeId: arrived.id,
-            focusedToken: arrived.token,
-            in: fixture.workspaceId,
-            onMonitor: try XCTUnwrap(manager.monitor(for: fixture.workspaceId)).id
-        )
-        manager.withNiriViewportState(for: fixture.workspaceId) { $0.activeColumnIndex = 2 }
-        _ = try layoutFrames(fixture)
-        try revealColumn(0, atLeadingEdge: true, fixture)
-
-        let frames = try settledFrames(fixture)
-        let pixel = try pixel(fixture)
-        XCTAssertEqual(frames[0].minX, sidePadding, accuracy: pixel)
-        XCTAssertEqual(frames[1].maxX, monitorFrame.width - sidePadding, accuracy: pixel)
-    }
-
     func testARefusalDuringADecelerationIsFittedOnceItEnds() throws {
         let fixture = try makeEvenFixture(windowCount: 3, visibleContainerCount: 3)
         fixture.controller.settings.niri.shrinkToFit = true
         fixture.controller.updateNiriConfig(shrinkToFit: true)
         _ = try settledFrames(fixture)
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        let refusing = try XCTUnwrap(engine.findNode(for: fixture.tokens[2], in: fixture.workspaceId))
         learnMinimumWidth(900, for: fixture.tokens[2], fixture: fixture)
 
         fixture.controller.niriLayoutHandler.withNiriWorkspaceContext {
             engine, workspaceId, _, state, _, workingFrame, gaps, orientation in
-            refusing.constraints = WindowSizeConstraints(
-                minSize: CGSize(width: 900, height: 1), maxSize: .zero, isFixed: false
+            engine.updateWindowConstraints(
+                for: fixture.tokens[2],
+                constraints: WindowSizeConstraints(
+                    minSize: CGSize(width: 900, height: 1),
+                    maxSize: .zero,
+                    isFixed: false
+                ),
+                in: workspaceId,
+                motion: .disabled
             )
-            engine.findColumn(containing: refusing, in: workspaceId)?
-                .invalidateCachedPrimarySpan(orientation: orientation)
             state.decelerateOffset(to: state.viewOffset)
-            engine.autoFitVisibleColumns(
+            engine.autoFitIfRequested(
                 context: NiriInteractionContext(
                     workspaceId: workspaceId,
                     motion: .disabled,
@@ -110,6 +83,145 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(frames.map(\.width).max() ?? 0, 900)
         XCTAssertEqual(frames[0].minX, sidePadding, accuracy: pixel)
         XCTAssertEqual(frames[2].maxX, monitorFrame.width - sidePadding, accuracy: pixel)
+    }
+
+    func testAMouseResizeOnAnotherWorkspaceLeavesThisFitToRun() throws {
+        let fixture = try makeEvenFixture(windowCount: 3, visibleContainerCount: 3)
+        fixture.controller.settings.niri.shrinkToFit = true
+        fixture.controller.updateNiriConfig(shrinkToFit: true)
+        _ = try settledFrames(fixture)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        engine.interactiveResize = InteractiveResize(
+            windowId: NodeId(),
+            workspaceId: UUID(),
+            originalContainerSpan: nil,
+            originalWindowBaseline: nil,
+            edges: .right,
+            startMouseLocation: .zero,
+            columnIndex: 0,
+            orientation: .horizontal,
+            originalViewOffset: nil
+        )
+
+        learnMinimumWidth(900, for: fixture.tokens[2], fixture: fixture)
+
+        let frames = try settledFrames(fixture)
+        let pixel = try pixel(fixture)
+        XCTAssertGreaterThanOrEqual(frames.map(\.width).max() ?? 0, 900)
+        XCTAssertEqual(frames[0].minX, sidePadding, accuracy: pixel)
+        XCTAssertEqual(frames[2].maxX, monitorFrame.width - sidePadding, accuracy: pixel)
+    }
+
+    func testTheRunAroundTheFocusedColumnCanStartAtIt() throws {
+        let fixture = try makeEvenFixture(windowCount: 3, visibleContainerCount: 2)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        let columns = engine.columns(in: fixture.workspaceId)
+        for (column, width) in zip(columns, [1300.0, 700.0, 1000.0]) {
+            setMinimumWidth(width, for: try XCTUnwrap(column.windowNodes.first).token, fixture: fixture)
+        }
+        try focusColumn(1, fixture)
+        fixture.controller.settings.niri.shrinkToFit = true
+        fixture.controller.updateNiriConfig(shrinkToFit: true)
+
+        let frames = try settledFrames(fixture)
+
+        let pixel = try pixel(fixture)
+        let middle = try XCTUnwrap(columns[1].windowNodes.first?.renderedFrame)
+        let right = try XCTUnwrap(columns[2].windowNodes.first?.renderedFrame)
+        XCTAssertEqual(middle.minX, sidePadding, accuracy: pixel, "\(frames)")
+        XCTAssertEqual(right.maxX, monitorFrame.width - sidePadding, accuracy: pixel, "\(frames)")
+    }
+
+    func testClosingAColumnRefitsTheRowWhenTheOwnWidthsOverflow() throws {
+        let fixture = try makeFixture(windowCount: 3, visibleContainerCount: 2)
+        fixture.controller.settings.niri.shrinkToFit = true
+        fixture.controller.updateNiriConfig(shrinkToFit: true)
+        try focusColumn(0, fixture)
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.setContainerPrimarySpan(.setProportion(85)))
+        _ = try settledFrames(fixture)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        let closing = try XCTUnwrap(engine.columns(in: fixture.workspaceId)[2].windowNodes.first).token
+
+        _ = fixture.controller.workspaceManager.removeWindow(pid: closing.pid, windowId: closing.windowId)
+        for _ in 0 ..< 3 {
+            _ = fixture.controller.workspaceManager.withBatchedLayoutBuild {
+                fixture.controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [fixture.workspaceId])
+            }
+            _ = engine.tickAllColumnAnimations(in: fixture.workspaceId, at: .infinity)
+            _ = fixture.controller.workspaceManager.animationDriver.tick(in: fixture.workspaceId, at: .infinity)
+            fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspaceId) {
+                $0.clearOffsetTransition()
+            }
+        }
+
+        let remaining = engine.columns(in: fixture.workspaceId)
+        XCTAssertEqual(remaining.count, 2)
+        let frames = try remaining.map { try XCTUnwrap($0.windowNodes.first?.renderedFrame) }
+        let pixel = try pixel(fixture)
+        XCTAssertEqual(frames[0].minX, sidePadding, accuracy: pixel, "\(frames)")
+        XCTAssertEqual(frames[1].maxX, monitorFrame.width - sidePadding, accuracy: pixel, "\(frames)")
+    }
+
+    func testOpeningAColumnRefitsTheRowWhenTheOwnWidthsOverflow() throws {
+        let fixture = try makeFixture(windowCount: 2, visibleContainerCount: 2)
+        fixture.controller.settings.niri.shrinkToFit = true
+        fixture.controller.updateNiriConfig(shrinkToFit: true)
+        try focusColumn(0, fixture)
+        XCTAssertTrue(fixture.controller.niriLayoutHandler.setContainerPrimarySpan(.setProportion(85)))
+        _ = try settledFrames(fixture)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+
+        _ = fixture.controller.workspaceManager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid_t(899)), windowId: 899),
+            pid: pid_t(899),
+            windowId: 899,
+            to: fixture.workspaceId
+        )
+        for _ in 0 ..< 3 {
+            _ = fixture.controller.workspaceManager.withBatchedLayoutBuild {
+                fixture.controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [fixture.workspaceId])
+            }
+            _ = engine.tickAllColumnAnimations(in: fixture.workspaceId, at: .infinity)
+            _ = fixture.controller.workspaceManager.animationDriver.tick(in: fixture.workspaceId, at: .infinity)
+            fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspaceId) {
+                $0.clearOffsetTransition()
+            }
+        }
+
+        let frames = try engine.columns(in: fixture.workspaceId).map {
+            try XCTUnwrap($0.windowNodes.first?.renderedFrame)
+        }
+        let working = sidePadding ... monitorFrame.width - sidePadding
+        let onScreen = frames.filter { $0.maxX > working.lowerBound && $0.minX < working.upperBound }
+        let pixel = try pixel(fixture)
+        XCTAssertEqual(onScreen.map(\.minX).min() ?? 0, sidePadding, accuracy: pixel, "\(frames)")
+        XCTAssertEqual(onScreen.map(\.maxX).max() ?? 0, monitorFrame.width - sidePadding, accuracy: pixel, "\(frames)")
+    }
+
+    func testExpellingAWindowIntoANewColumnRefitsTheRow() throws {
+        let fixture = try makeFixture(windowCount: 2, visibleContainerCount: 2)
+        fixture.controller.settings.niri.shrinkToFit = true
+        fixture.controller.updateNiriConfig(shrinkToFit: true)
+        let engine = try XCTUnwrap(fixture.controller.niriEngine)
+        let handler = fixture.controller.niriLayoutHandler
+        XCTAssertTrue(handler.consumeWindowIntoColumn(containing: fixture.handles[0]).didMutate)
+        _ = try settledFrames(fixture)
+        XCTAssertEqual(engine.columns(in: fixture.workspaceId).count, 1)
+        XCTAssertTrue(handler.setContainerPrimarySpan(.setProportion(75), target: .window(fixture.handles[0])))
+        _ = try settledFrames(fixture)
+
+        XCTAssertTrue(handler.expelWindowFromColumn(containing: fixture.handles[1]).didMutate)
+
+        _ = try settledFrames(fixture)
+        let columns = engine.columns(in: fixture.workspaceId)
+        XCTAssertEqual(columns.count, 2)
+        let monitor = try XCTUnwrap(fixture.controller.workspaceManager.monitor(for: fixture.workspaceId))
+        let geometry = fixture.controller.niriInteractionGeometry(for: monitor)
+        XCTAssertEqual(
+            columns.map(\.settledWidth).reduce(0, +),
+            geometry.workingFrame.width - 3 * geometry.innerGap,
+            accuracy: try pixel(fixture)
+        )
     }
 
     func testOffLeavesTheOverflow() throws {
@@ -389,44 +501,7 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         )
     }
 
-    func testNavigatingToAnUnderfilledPairMovesThePeekingColumnOutOfView() throws {
-        let fixture = try makeFixture(windowCount: 3, visibleContainerCount: 2)
-        fixture.controller.settings.niri.shrinkToFit = true
-        fixture.controller.updateNiriConfig(shrinkToFit: true)
-        try revealColumn(2, atLeadingEdge: false, fixture)
-        try revealColumn(1, atLeadingEdge: true, fixture)
-        XCTAssertTrue(fixture.controller.niriLayoutHandler.setWindowPrimarySpan(.adjustProportion(-20)))
-        _ = try settledFrames(fixture)
-
-        try revealColumn(0, atLeadingEdge: true, fixture)
-
-        let working = sidePadding ... monitorFrame.width - sidePadding
-        for frame in try settledFrames(fixture) {
-            let inside = working.contains(frame.minX) && working.contains(frame.maxX)
-            let outside = frame.maxX <= working.lowerBound || frame.minX >= working.upperBound
-            XCTAssertTrue(inside || outside, "\(frame) straddles an outer gap")
-        }
-    }
-
-    func testNavigatingTheOtherWayMovesThePeekingColumnOutOfView() throws {
-        let fixture = try makeFixture(windowCount: 3, visibleContainerCount: 2)
-        fixture.controller.settings.niri.shrinkToFit = true
-        fixture.controller.updateNiriConfig(shrinkToFit: true)
-        try revealColumn(1, atLeadingEdge: false, fixture)
-        XCTAssertTrue(fixture.controller.niriLayoutHandler.setWindowPrimarySpan(.adjustProportion(-20)))
-        _ = try settledFrames(fixture)
-
-        try revealColumn(2, atLeadingEdge: false, fixture)
-
-        let working = sidePadding ... monitorFrame.width - sidePadding
-        for frame in try settledFrames(fixture) {
-            let inside = working.contains(frame.minX) && working.contains(frame.maxX)
-            let outside = frame.maxX <= working.lowerBound || frame.minX >= working.upperBound
-            XCTAssertTrue(inside || outside, "\(frame) straddles an outer gap")
-        }
-    }
-
-    func testNavigatingToAnOverflowingPairNeverResizesColumns() throws {
+    func testMovingFocusToAnOverflowingPairNeverResizesColumns() throws {
         let fixture = try makeFixture(windowCount: 3, visibleContainerCount: 2)
         fixture.controller.settings.niri.shrinkToFit = true
         fixture.controller.updateNiriConfig(shrinkToFit: true)
@@ -439,14 +514,8 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
 
         try revealColumn(0, atLeadingEdge: true, fixture)
 
-        let frames = try settledFrames(fixture)
+        _ = try settledFrames(fixture)
         XCTAssertEqual(engine.columns(in: fixture.workspaceId).map(\.cachedWidth), widths)
-        let working = sidePadding ... monitorFrame.width - sidePadding
-        for frame in frames {
-            let inside = working.contains(frame.minX) && working.contains(frame.maxX)
-            let outside = frame.maxX <= working.lowerBound || frame.minX >= working.upperBound
-            XCTAssertTrue(inside || outside, "\(frame) straddles an outer gap")
-        }
     }
 
     func testMovingFocusRightAfterAFitNeverResizesColumns() throws {
@@ -466,46 +535,6 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(engine.columns(in: fixture.workspaceId).last).settledWidth, lastWidth)
     }
 
-    func testShrinkingNextToAParkedColumnFitsOnlyVisibleContainersColumns() throws {
-        let fixture = try makeFixture(windowCount: 3, visibleContainerCount: 2)
-        fixture.controller.settings.niri.shrinkToFit = true
-        fixture.controller.updateNiriConfig(shrinkToFit: true)
-        try revealColumn(2, atLeadingEdge: false, fixture)
-        try revealColumn(1, atLeadingEdge: true, fixture)
-        for _ in 0 ..< 2 {
-            XCTAssertTrue(fixture.controller.niriLayoutHandler.setWindowPrimarySpan(.adjustProportion(-10)))
-        }
-        _ = try settledFrames(fixture)
-        try revealColumn(0, atLeadingEdge: true, fixture)
-        _ = try settledFrames(fixture)
-        let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        let lastWidth = try XCTUnwrap(engine.columns(in: fixture.workspaceId).last).cachedWidth
-
-        for _ in 0 ..< 2 {
-            XCTAssertTrue(fixture.controller.niriLayoutHandler.setWindowPrimarySpan(.adjustProportion(-10)))
-        }
-
-        let working = sidePadding ... monitorFrame.width - sidePadding
-        let onScreen = try settledFrames(fixture).filter { working.contains($0.minX) && working.contains($0.maxX) }
-        XCTAssertEqual(try XCTUnwrap(engine.columns(in: fixture.workspaceId).last).cachedWidth, lastWidth)
-        XCTAssertEqual(onScreen.count, 2)
-        XCTAssertEqual(onScreen.first?.minX ?? 0, sidePadding, accuracy: try pixel(fixture))
-        XCTAssertEqual(onScreen.last?.maxX ?? 0, monitorFrame.width - sidePadding, accuracy: try pixel(fixture))
-    }
-
-    func testOffLeavesThePeekingColumnToUpstream() throws {
-        let fixture = try makeFixture(windowCount: 3, visibleContainerCount: 2)
-        try revealColumn(2, atLeadingEdge: false, fixture)
-        try revealColumn(1, atLeadingEdge: true, fixture)
-        XCTAssertTrue(fixture.controller.niriLayoutHandler.setWindowPrimarySpan(.adjustProportion(-20)))
-        _ = try settledFrames(fixture)
-
-        try revealColumn(0, atLeadingEdge: true, fixture)
-
-        let rightEdge = monitorFrame.width - sidePadding
-        XCTAssertTrue(try settledFrames(fixture).contains { $0.minX < rightEdge && $0.maxX > rightEdge })
-    }
-
     func testOffKeepsNoAutomaticFitState() throws {
         let fixture = try makeFixture(windowCount: 3, visibleContainerCount: 2)
         setMinimumWidth(900, for: fixture.tokens[2], fixture: fixture)
@@ -515,7 +544,8 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         _ = try settledFrames(fixture)
 
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        XCTAssertNil(engine.ensureState(for: fixture.workspaceId).autoFitSignature)
+        XCTAssertFalse(engine.ensureState(for: fixture.workspaceId).autoFitRequested)
+        XCTAssertNil(engine.ensureState(for: fixture.workspaceId).autoFitBasis)
         XCTAssertTrue(engine.columns(in: fixture.workspaceId).allSatisfy { $0.fittedWidth == nil })
     }
 

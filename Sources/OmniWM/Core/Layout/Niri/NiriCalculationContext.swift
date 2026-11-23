@@ -64,5 +64,4 @@ struct NiriColumnLayoutPass {
     let viewPosition: CGFloat
     let selectedNodeId: NodeId?
     let settledContentFrame: CGRect?
-    var spillLimit: CGRect?
 }

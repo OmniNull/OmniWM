@@ -19,9 +19,11 @@ extension NiriLayoutEngine {
         if node.packingHints != packingHints {
             node.packingHints = packingHints
             column?.invalidateCachedPrimarySpans()
+            requestAutoFit(in: workspaceId)
         }
         guard node.constraints != normalized else { return }
         node.constraints = normalized
+        requestAutoFit(in: workspaceId)
         guard let column else { return }
         clampColumnHeightToBounds(column, in: workspaceId, motion: motion)
         clampColumnWidthToBounds(column, in: workspaceId, motion: motion)
