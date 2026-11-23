@@ -63,6 +63,43 @@ extension ActionCatalog {
         ])
     }
 
+    static func appendDirectionalResizeBindings(_ specs: inout [ActionSpec]) {
+        specs.append(contentsOf: [
+            action(
+                id: "resizeInDirection.left",
+                command: .dwindle(.resizeInDirection(.left)),
+                category: .layout,
+                binding: .unassigned,
+                visibility: .advanced,
+                keywords: ["resize", "left"]
+            ),
+            action(
+                id: "resizeInDirection.right",
+                command: .dwindle(.resizeInDirection(.right)),
+                category: .layout,
+                binding: .unassigned,
+                visibility: .advanced,
+                keywords: ["resize", "right"]
+            ),
+            action(
+                id: "resizeInDirection.up",
+                command: .dwindle(.resizeInDirection(.up)),
+                category: .layout,
+                binding: .unassigned,
+                visibility: .advanced,
+                keywords: ["resize", "up"]
+            ),
+            action(
+                id: "resizeInDirection.down",
+                command: .dwindle(.resizeInDirection(.down)),
+                category: .layout,
+                binding: .unassigned,
+                visibility: .advanced,
+                keywords: ["resize", "down"]
+            )
+        ])
+    }
+
     static func appendPreselectionBindings(_ specs: inout [ActionSpec]) {
         specs.append(contentsOf: [
             action(

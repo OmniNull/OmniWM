@@ -10,6 +10,7 @@ enum DwindleAction: Equatable, Hashable {
     case swapSplit
     case resizeAlongAxis(DwindleOrientation, Bool)
     case resizeFocusedWindow(Bool)
+    case resizeInDirection(Direction)
     case preselect(Direction)
     case preselectClear
 }
@@ -49,6 +50,18 @@ extension DwindleAction {
                 "command.dwindle.shrinkFocusedWindow", defaultValue: "Shrink Focused Window", table: "Commands",
                 bundle: .omniWM
             )
+        case .resizeInDirection(.left): LocalizedStringResource(
+                "command.dwindle.resizeLeft", defaultValue: "Resize Left", table: "Commands", bundle: .omniWM
+            )
+        case .resizeInDirection(.right): LocalizedStringResource(
+                "command.dwindle.resizeRight", defaultValue: "Resize Right", table: "Commands", bundle: .omniWM
+            )
+        case .resizeInDirection(.up): LocalizedStringResource(
+                "command.dwindle.resizeUp", defaultValue: "Resize Up", table: "Commands", bundle: .omniWM
+            )
+        case .resizeInDirection(.down): LocalizedStringResource(
+                "command.dwindle.resizeDown", defaultValue: "Resize Down", table: "Commands", bundle: .omniWM
+            )
         case .preselect(.left): LocalizedStringResource(
                 "command.dwindle.preselectLeft", defaultValue: "Preselect Left", table: "Commands", bundle: .omniWM
             )
@@ -80,6 +93,8 @@ extension DwindleAction {
             .dwindle(.resize)
         case .resizeFocusedWindow:
             .dwindle(.resizeFocused)
+        case .resizeInDirection:
+            .dwindle(.resizeDirection)
         case .preselect:
             .dwindle(.preselect)
         case .preselectClear:
@@ -94,6 +109,7 @@ extension DwindleAction {
              .swapSplit,
              .resizeAlongAxis,
              .resizeFocusedWindow,
+             .resizeInDirection,
              .preselect,
              .preselectClear:
             .dwindle

@@ -65,6 +65,7 @@ toggle-split
 swap-split
 resize
 resize-focused
+resize-direction
 preselect
 preselect-clear
 open-command-palette

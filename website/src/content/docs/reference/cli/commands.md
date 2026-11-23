@@ -174,6 +174,7 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | `command swap-split` | — | dwindle | Swap the active split |
 | `command resize` | `<horizontal\|vertical> <grow\|shrink>` | dwindle | Grow or shrink the selected window along an axis |
 | `command resize-focused` | `<grow\|shrink>` | dwindle | Grow or shrink the focused window |
+| `command resize-direction` | `<left\|right\|up\|down>` | dwindle | Move the focused window's right or bottom border toward a direction, or its opposite border when it has none |
 | `command preselect` | `<left\|right\|up\|down>` | dwindle | Set the preselection direction |
 | `command preselect clear` | — | dwindle | Clear the preselection |
 

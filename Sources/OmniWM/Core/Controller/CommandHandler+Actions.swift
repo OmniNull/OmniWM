@@ -260,6 +260,8 @@ extension CommandHandler {
             controller.dwindleLayoutHandler.resizeAlongAxisInDwindle(orientation: orientation, grow: grow)
         case let .resizeFocusedWindow(grow):
             controller.dwindleLayoutHandler.resizeFocusedWindowInDwindle(grow: grow)
+        case let .resizeInDirection(direction):
+            controller.dwindleLayoutHandler.resizeInDirectionInDwindle(direction: direction)
         case let .preselect(direction):
             controller.dwindleLayoutHandler.preselectInDwindle(direction: direction)
         case .preselectClear:
