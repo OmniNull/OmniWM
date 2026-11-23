@@ -112,6 +112,8 @@ In Dwindle, `focus left/right` remains spatial. `focus up/down` traverses a grou
 | `command switch-workspace anywhere` | `<number>` | shared | Focus a workspace by numeric workspace ID across all monitors |
 | `command switch-workspace slot` | `<number>` | shared | Switch to the workspace at a one-based position in the interaction monitor's ordered workspace list |
 
+With [`workspaceSwitchWrapAround`](/config/settings-reference/#general) set to `false`, `next` and `prev` stop at the ends of the workspace order.
+
 ### Move to Workspace
 
 | Command | Arguments | Layout | Description |

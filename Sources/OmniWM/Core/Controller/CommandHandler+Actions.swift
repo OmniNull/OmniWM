@@ -72,10 +72,12 @@ extension CommandHandler {
             )
         case let .moveToSlot(slot):
             controller.workspaceNavigationHandler.moveFocusedWindow(toWorkspaceSlot: slot)
-        case .next:
-            controller.workspaceNavigationHandler.switchWorkspaceRelative(isNext: true)
-        case .previous:
-            controller.workspaceNavigationHandler.switchWorkspaceRelative(isNext: false)
+        case .next,
+             .previous:
+            controller.workspaceNavigationHandler.switchWorkspaceRelative(
+                isNext: action == .next,
+                wrapAround: controller.settings.workspaces.switchWrapAround
+            )
         case let .moveWorkspaceToMonitor(direction):
             moveActiveWorkspace(toMonitor: direction, controller: controller)
         case let .swapWithMonitor(direction):

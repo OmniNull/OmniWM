@@ -53,6 +53,7 @@ Global switches: hotkeys, Hyper key, default layout, sleep, updates, IPC, animat
 | `pausePalettePasteDuringSecureInput` *(optional)* | boolean | `true` | **Unreleased:** Available when building from `main`. While macOS Secure Input is on, command palette clipboard entries don't paste. Set to `false` when an app holds Secure Input in the background and you still want to paste from the palette. Keyboard modes don't start during Secure Input either way, and macOS still pauses Hyper and left/right-specific shortcuts, and those on letter, number or symbol keys without Control or Command. Settings > Hotkeys > Controls. |
 | `language` *(optional)* | string | unset | Interface language as a packaged localization code, such as `"ja"` or `"sr-Latn"`. Leave it unset to follow macOS. Takes effect the next time OmniWM starts. |
 | `workspaceAutoBackAndForth` *(optional)* | boolean | `false` | When a workspace shortcut or command palette entry targets the workspace you are already on, switch to the previously active workspace instead, like i3's `workspace_auto_back_and_forth`. `omniwmctl` workspace commands are unaffected. Settings > Workspaces > Workspace Switching. |
+| `workspaceSwitchWrapAround` *(optional)* | boolean | `true` | Set to `false` to stop Next and Previous Workspace commands at the ends of the current monitor's workspace order. Applies to shortcuts, the command palette, and `omniwmctl`. Settings > Workspaces > Workspace Switching. |
 
 ## focus
 
@@ -340,7 +341,7 @@ The seven optional `overviewGesture…` and `window…` keys below configure Ove
 | `workspaceSwipeEnabled` | boolean | `false` | Trackpad swipe switches to the next/previous workspace. |
 | `workspaceSwipeFingerCount` | integer | `3` | Workspace-swipe finger count: `2`, `3`, or `4`. |
 | `workspaceSwipeAxis` | string | `"vertical"` | Workspace-swipe axis: `horizontal` or `vertical`. Workspace switch slides from shortcuts go the same way as workspace swipes. |
-| `workspaceSwipeEdgeBehavior` *(optional)* | string | `"cycle"` | What a workspace swipe does past the first or last workspace: `cycle` wraps around, `none` ignores the swipe, and `onePast` moves from the last occupied workspace to an empty one, creating it if needed, while ignoring swipes past an empty last workspace or before the first. Applies to trackpad swipes only; next/previous workspace hotkeys always wrap. |
+| `workspaceSwipeEdgeBehavior` *(optional)* | string | `"cycle"` | What a workspace swipe does past the first or last workspace: `cycle` wraps around, `none` ignores the swipe, and `onePast` moves from the last occupied workspace to an empty one, creating it if needed, while ignoring swipes past an empty last workspace or before the first. Applies to trackpad swipes. See [`workspaceSwitchWrapAround`](#general) for Next and Previous Workspace commands. |
 | `overviewGestureEnabled` *(optional)* | boolean | `false` | Enable the trackpad gesture that opens Overview with an upward swipe and closes it with a downward swipe. |
 | `overviewGestureFingerCount` *(optional)* | integer | `4` | Overview gesture finger count: `3` or `4`. |
 | `windowMoveEnabled` *(optional)* | boolean | `false` | Move the tiled window under the pointer without clicking. Other windows make room as you drag. Lift to settle. |

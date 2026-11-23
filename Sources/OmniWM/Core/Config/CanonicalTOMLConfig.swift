@@ -54,6 +54,7 @@ struct CanonicalTOMLConfig: Codable, Equatable {
         var pausePalettePasteDuringSecureInput: Bool?
         var language: String?
         var workspaceAutoBackAndForth: Bool?
+        var workspaceSwitchWrapAround: Bool?
     }
 
     struct Monitors: Codable, Equatable {
@@ -62,6 +63,27 @@ struct CanonicalTOMLConfig: Codable, Equatable {
 
     struct Appearance: Codable, Equatable {
         var tabRailAppIcons: Bool
+    }
+}
+
+extension CanonicalTOMLConfig.General {
+    fileprivate init(export: SettingsExport) {
+        self.init(
+            hotkeysEnabled: export.hotkeysEnabled,
+            systemHyperTrigger: export.systemHyperTrigger,
+            hyperKeyModifiers: export.hyperKeyModifiers,
+            defaultLayoutType: export.defaultLayoutType,
+            preventSleepEnabled: export.preventSleepEnabled,
+            updateChecksEnabled: export.updateChecksEnabled,
+            ipcEnabled: export.ipcEnabled,
+            animationsEnabled: export.animationsEnabled,
+            animationSpeed: AnimationSpeed.normalized(export.animationSpeed),
+            slideWorkspaceSwitches: export.slideWorkspaceSwitches,
+            pausePalettePasteDuringSecureInput: export.pausePalettePasteDuringSecureInput,
+            language: export.language,
+            workspaceAutoBackAndForth: export.workspaceAutoBackAndForth,
+            workspaceSwitchWrapAround: export.workspaceSwitchWrapAround
+        )
     }
 }
 
@@ -131,21 +153,7 @@ extension CanonicalTOMLConfig {
 extension CanonicalTOMLConfig {
     init(export: SettingsExport) {
         schemaVersion = SettingsTOMLCodec.currentSchemaVersion
-        general = General(
-            hotkeysEnabled: export.hotkeysEnabled,
-            systemHyperTrigger: export.systemHyperTrigger,
-            hyperKeyModifiers: export.hyperKeyModifiers,
-            defaultLayoutType: export.defaultLayoutType,
-            preventSleepEnabled: export.preventSleepEnabled,
-            updateChecksEnabled: export.updateChecksEnabled,
-            ipcEnabled: export.ipcEnabled,
-            animationsEnabled: export.animationsEnabled,
-            animationSpeed: AnimationSpeed.normalized(export.animationSpeed),
-            slideWorkspaceSwitches: export.slideWorkspaceSwitches,
-            pausePalettePasteDuringSecureInput: export.pausePalettePasteDuringSecureInput,
-            language: export.language,
-            workspaceAutoBackAndForth: export.workspaceAutoBackAndForth
-        )
+        general = General(export: export)
         focus = export.focus
         focus.edgeNavigationInterval = FocusSettings.normalizedEdgeNavigationInterval(focus.edgeNavigationInterval)
         mouseWarp = export.mouseWarp
@@ -198,6 +206,7 @@ extension CanonicalTOMLConfig {
             windowSwitcher: windowSwitcher,
             keyboardModes: keyboardModes,
             workspaceAutoBackAndForth: general.workspaceAutoBackAndForth ?? false,
+            workspaceSwitchWrapAround: general.workspaceSwitchWrapAround ?? true,
             hotkeyBindings: hotkeys,
             systemHyperTrigger: general.systemHyperTrigger,
             hyperKeyModifiers: general.hyperKeyModifiers,

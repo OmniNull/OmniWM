@@ -21,6 +21,10 @@ final class WorkspaceSettings {
         didSet { onChange?() }
     }
 
+    var switchWrapAround = WorkspaceSettings.defaults.workspaceSwitchWrapAround {
+        didSet { onChange?() }
+    }
+
     func configuredNames() -> [String] {
         configurations.map(\.name)
     }
