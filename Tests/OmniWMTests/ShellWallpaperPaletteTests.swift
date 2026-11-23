@@ -1007,9 +1007,14 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         XCTAssertEqual(palette(in: root), expected)
 
         let recoveredImage = Self.image([(0x1E88E5, 1)])
+        let recoveredPalette = palette(of: recoveredImage)
         capturedImage = recoveredImage
         writer.refreshIfChanged()
-        XCTAssertEqual(palette(in: root), palette(of: recoveredImage))
+        XCTAssertEqual(palette(in: root), recoveredPalette)
+
+        capturedImage = nil
+        writer.refreshIfChanged()
+        XCTAssertEqual(palette(in: root), recoveredPalette)
     }
 
     func testTheDesktopChoiceNamesTheFileTheAerialOrTheShuffleForTheDisplayAndSpace() throws {

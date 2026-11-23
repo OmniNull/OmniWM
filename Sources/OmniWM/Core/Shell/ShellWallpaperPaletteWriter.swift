@@ -170,7 +170,8 @@ final class ShellWallpaperPaletteWriter {
             }
             switch lookup() {
             case let .capture(aerial, fallbackFile):
-                capture(aerial, fallbackFile)
+                let initialFile = fallbackFile.flatMap { Self.exists(destination) ? nil : $0 }
+                capture(aerial, initialFile)
             case let .still(still, aerial):
                 let needsRead = still != record.written || record.unreadable == still
                     || scheme != record.scheme || !Self.exists(destination)
