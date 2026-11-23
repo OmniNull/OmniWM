@@ -17,6 +17,20 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
         XCTAssertEqual(ordered, [floating.token, tiled.token])
     }
 
+    func testPreviewDrawsParkedWindowsInWindowServerOrder() {
+        let tiled = item(windowId: 101)
+        let floating = item(windowId: 102)
+        let ranks = SkyLight.windowRanksFrontToBack { option in
+            let windowIDs = option == .optionAll ? [tiled.token.windowId, floating.token.windowId] : []
+            var pointers = windowIDs.map { UnsafeRawPointer(bitPattern: $0) }
+            return pointers.withUnsafeMutableBufferPointer { buffer in
+                CFArrayCreate(nil, buffer.baseAddress, buffer.count, nil)
+            }
+        }
+
+        XCTAssertEqual(orderedTokens(in: [tiled, floating], ranks: ranks), [floating.token, tiled.token])
+    }
+
     func testPreviewKeepsUnlistedWindowSlotsAndFallsBackWithoutRanks() {
         let items = (101 ... 105).map { item(windowId: $0) }
         let ordered = orderedTokens(in: items, ranks: [101: 1, 103: 3, 105: 2])

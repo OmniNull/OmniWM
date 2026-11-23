@@ -106,6 +106,28 @@ import XCTest
             XCTAssertNil(try XCTUnwrap(metadata?[wid]).isOrderedIn)
         }
 
+        func testLiveWindowRanksFollowParkedWindowOrder() throws {
+            let sky = SkyLight.shared
+            let frame = CGRect(x: -9000, y: -9000, width: 10, height: 10)
+            let windows = (0 ..< 2).map { _ in sky.createBorderWindow(frame: frame) }
+            defer { windows.filter { $0 != 0 }.forEach(sky.releaseBorderWindow) }
+            guard !windows.contains(0) else {
+                throw MissingTestPrerequisite("Unable to create owned SkyLight test windows")
+            }
+
+            for window in windows {
+                XCTAssertTrue(sky.moveWindow(window, to: frame.origin))
+                sky.orderWindow(window, relativeTo: 0, order: .above)
+            }
+            for (front, back) in [(windows[0], windows[1]), (windows[1], windows[0])] {
+                sky.orderWindow(front, relativeTo: back, order: .above)
+                try synchronizeWindowServer()
+
+                let ranks = SkyLight.windowRanksFrontToBack()
+                XCTAssertLessThan(try XCTUnwrap(ranks[front]), try XCTUnwrap(ranks[back]))
+            }
+        }
+
         func testLiveAboveOrdersWindowBackIn() async throws {
             let sky = SkyLight.shared
             let wid = sky.createBorderWindow(frame: CGRect(x: -9000, y: -9000, width: 10, height: 10))
