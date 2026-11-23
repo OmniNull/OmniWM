@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Show Native Fullscreen Windows When Switching" : {
+
+    },
+    "Switching to a workspace whose remembered window is in macOS native fullscreen focuses that window, so macOS moves to its Space. When off, the workspace selects the window’s placeholder." : {
+
+    },
     "Apply to Every New Matching Window" : {
 
     },

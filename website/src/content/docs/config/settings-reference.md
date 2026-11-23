@@ -53,6 +53,7 @@ Global switches: hotkeys, Hyper key, default layout, sleep, updates, IPC, animat
 | `pausePalettePasteDuringSecureInput` *(optional)* | boolean | `true` | **Unreleased:** Available when building from `main`. While macOS Secure Input is on, command palette clipboard entries don't paste. Set to `false` when an app holds Secure Input in the background and you still want to paste from the palette. Keyboard modes don't start during Secure Input either way, and macOS still pauses Hyper and left/right-specific shortcuts, and those on letter, number or symbol keys without Control or Command. Settings > Hotkeys > Controls. |
 | `language` *(optional)* | string | unset | Interface language as a packaged localization code, such as `"ja"` or `"sr-Latn"`. Leave it unset to follow macOS. Takes effect the next time OmniWM starts. |
 | `workspaceAutoBackAndForth` *(optional)* | boolean | `false` | When a workspace shortcut or command palette entry targets the workspace you are already on, switch to the previously active workspace instead, like i3's `workspace_auto_back_and_forth`. `omniwmctl` workspace commands are unaffected. Settings > Workspaces > Workspace Switching. |
+| `focusNativeFullscreenOnWorkspaceSwitch` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. When you switch to a workspace whose remembered window is in macOS native fullscreen, focus that window so macOS moves to its Space, like AeroSpace. When `false`, the workspace selects the window's placeholder. Settings > Workspaces > Workspace Switching. |
 
 ## focus
 

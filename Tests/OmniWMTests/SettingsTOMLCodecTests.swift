@@ -74,6 +74,28 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertNil(result.migration)
     }
 
+    func testFocusNativeFullscreenOnWorkspaceSwitchDefaultsOffAndRoundTrips() throws {
+        var export = SettingsExport.defaults()
+        XCTAssertFalse(export.focusNativeFullscreenOnWorkspaceSwitch)
+        for enabled in [false, true] {
+            export.focusNativeFullscreenOnWorkspaceSwitch = enabled
+            let data = try SettingsTOMLCodec.encode(export)
+            XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
+            XCTAssertFalse(
+                SettingsTOMLCodec.unknownKeyPaths(in: data)
+                    .contains("general.focusNativeFullscreenOnWorkspaceSwitch")
+            )
+        }
+
+        let omitted = try canonicalDefaultLines { lines in
+            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("focusNativeFullscreenOnWorkspaceSwitch = ") })
+            lines.remove(at: index)
+        }
+        let result = try SettingsTOMLCodec.decodeForLoad(omitted)
+        XCTAssertFalse(result.export.focusNativeFullscreenOnWorkspaceSwitch)
+        XCTAssertNil(result.migration)
+    }
+
     func testPausePalettePasteDuringSecureInputDefaultsOnAndRoundTrips() throws {
         var export = SettingsExport.defaults()
         XCTAssertTrue(export.pausePalettePasteDuringSecureInput)

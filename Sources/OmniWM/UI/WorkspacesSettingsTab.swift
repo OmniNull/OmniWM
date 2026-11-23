@@ -87,6 +87,13 @@ struct WorkspacesSettingsTab: View {
                 SettingsCaption(localized:
                     "A workspace shortcut or command palette entry for the workspace you are on returns to the previous workspace instead. omniwmctl is not affected."
                 )
+                Toggle(
+                    "Show Native Fullscreen Windows When Switching",
+                    isOn: Bindable(settings.workspaces).focusNativeFullscreenOnSwitch
+                )
+                SettingsCaption(localized:
+                    "Switching to a workspace whose remembered window is in macOS native fullscreen focuses that window, so macOS moves to its Space. When off, the workspace selects the window’s placeholder."
+                )
             }
 
             Section {

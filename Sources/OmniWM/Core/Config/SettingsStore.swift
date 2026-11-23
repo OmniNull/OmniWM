@@ -426,6 +426,7 @@ extension SettingsStore {
         workspaces.configurations = WorkspaceSettings.normalizedConfigurations(export.workspaceConfigurations)
         workspaces.defaultLayoutType = export.defaultLayoutType
         workspaces.autoBackAndForth = export.workspaceAutoBackAndForth
+        workspaces.focusNativeFullscreenOnSwitch = export.focusNativeFullscreenOnWorkspaceSwitch
 
         borders.apply(export.borders)
 

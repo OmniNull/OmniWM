@@ -21,6 +21,10 @@ final class WorkspaceSettings {
         didSet { onChange?() }
     }
 
+    var focusNativeFullscreenOnSwitch = WorkspaceSettings.defaults.focusNativeFullscreenOnWorkspaceSwitch {
+        didSet { onChange?() }
+    }
+
     func configuredNames() -> [String] {
         configurations.map(\.name)
     }

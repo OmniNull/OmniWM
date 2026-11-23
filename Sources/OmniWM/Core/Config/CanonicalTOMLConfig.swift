@@ -54,6 +54,7 @@ struct CanonicalTOMLConfig: Codable, Equatable {
         var pausePalettePasteDuringSecureInput: Bool?
         var language: String?
         var workspaceAutoBackAndForth: Bool?
+        var focusNativeFullscreenOnWorkspaceSwitch: Bool?
     }
 
     struct Monitors: Codable, Equatable {
@@ -128,10 +129,9 @@ extension CanonicalTOMLConfig {
     }
 }
 
-extension CanonicalTOMLConfig {
+extension CanonicalTOMLConfig.General {
     init(export: SettingsExport) {
-        schemaVersion = SettingsTOMLCodec.currentSchemaVersion
-        general = General(
+        self.init(
             hotkeysEnabled: export.hotkeysEnabled,
             systemHyperTrigger: export.systemHyperTrigger,
             hyperKeyModifiers: export.hyperKeyModifiers,
@@ -144,8 +144,16 @@ extension CanonicalTOMLConfig {
             slideWorkspaceSwitches: export.slideWorkspaceSwitches,
             pausePalettePasteDuringSecureInput: export.pausePalettePasteDuringSecureInput,
             language: export.language,
-            workspaceAutoBackAndForth: export.workspaceAutoBackAndForth
+            workspaceAutoBackAndForth: export.workspaceAutoBackAndForth,
+            focusNativeFullscreenOnWorkspaceSwitch: export.focusNativeFullscreenOnWorkspaceSwitch
         )
+    }
+}
+
+extension CanonicalTOMLConfig {
+    init(export: SettingsExport) {
+        schemaVersion = SettingsTOMLCodec.currentSchemaVersion
+        general = General(export: export)
         focus = export.focus
         focus.edgeNavigationInterval = FocusSettings.normalizedEdgeNavigationInterval(focus.edgeNavigationInterval)
         mouseWarp = export.mouseWarp
@@ -198,6 +206,7 @@ extension CanonicalTOMLConfig {
             windowSwitcher: windowSwitcher,
             keyboardModes: keyboardModes,
             workspaceAutoBackAndForth: general.workspaceAutoBackAndForth ?? false,
+            focusNativeFullscreenOnWorkspaceSwitch: general.focusNativeFullscreenOnWorkspaceSwitch ?? false,
             hotkeyBindings: hotkeys,
             systemHyperTrigger: general.systemHyperTrigger,
             hyperKeyModifiers: general.hyperKeyModifiers,

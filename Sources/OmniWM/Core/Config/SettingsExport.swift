@@ -23,6 +23,7 @@ struct SettingsExport: Equatable {
     var windowSwitcher = WindowSwitcher()
     var keyboardModes = KeyboardModes()
     var workspaceAutoBackAndForth = false
+    var focusNativeFullscreenOnWorkspaceSwitch = false
 
     var hotkeyBindings: [HotkeyBinding]
     var systemHyperTrigger: SystemHyperTrigger
