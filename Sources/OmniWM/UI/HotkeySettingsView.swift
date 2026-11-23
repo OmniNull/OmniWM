@@ -96,6 +96,15 @@ struct HotkeySettingsView: View {
                     "While macOS Secure Input is on, the command palette doesn’t paste clipboard entries. Turn off if an app holds Secure Input in the background. Keyboard modes and shortcuts marked “Paused during Secure Input” stay paused either way."
                 )
 
+                Toggle(
+                    "Floating Focus Toggle Cycles All Windows",
+                    isOn: Bindable(settings.focus).floatingFocusToggleCyclesAllWindows
+                )
+                .id("Floating Focus Toggle Cycles All Windows")
+                SettingsCaption(localized:
+                    "When off, Toggle Floating/Tiled Focus steps through the workspace’s floating windows, then returns to the tiled window you came from. When on, it steps through every window on the workspace: floating windows first, then tiled windows."
+                )
+
                 LabeledContent("Defaults") {
                     Button("Reset to Defaults", role: .destructive) {
                         confirmsResetToDefaults = true

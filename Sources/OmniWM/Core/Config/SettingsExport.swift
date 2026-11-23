@@ -81,6 +81,7 @@ struct SettingsExport: Equatable {
         var followsWindowToMonitor: Bool
         var crossesMonitorAtEdge: Bool
         var moveCrossesMonitorAtEdge: Bool
+        var floatingFocusToggleCyclesAllWindows: Bool = false
     }
 
     struct MouseWarp: Codable, Equatable {
@@ -299,5 +300,9 @@ extension SettingsExport.Focus {
         followsWindowToMonitor = try container.decode(Bool.self, forKey: .followsWindowToMonitor)
         crossesMonitorAtEdge = try container.decode(Bool.self, forKey: .crossesMonitorAtEdge)
         moveCrossesMonitorAtEdge = try container.decode(Bool.self, forKey: .moveCrossesMonitorAtEdge)
+        floatingFocusToggleCyclesAllWindows = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .floatingFocusToggleCyclesAllWindows
+        ) ?? Self.defaults().floatingFocusToggleCyclesAllWindows
     }
 }

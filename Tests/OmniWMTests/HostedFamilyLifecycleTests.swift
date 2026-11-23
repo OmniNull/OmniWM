@@ -89,6 +89,11 @@ final class HostedFamilyLifecycleTests: XCTestCase {
             handle: try XCTUnwrap(fixture.world.handle(for: utility.token))
         ))
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        for window in [parent.window, utility.window, sheet.window] {
+            fixture.manager.windowDidChangeOcclusionState(
+                Notification(name: NSWindow.didChangeOcclusionStateNotification, object: window)
+            )
+        }
         for token in tokens {
             XCTAssertFalse(try XCTUnwrap(fixture.world.entry(for: token)).observedState.isMinimized)
             XCTAssertTrue(try XCTUnwrap(fixture.manager.slot(for: token)).context.visible)

@@ -9,6 +9,7 @@ final class FloatingWindowRaiser {
     private weak var controller: WMController?
     private let visibleOwnedWindowsProvider: () -> [NSWindow]
     private let frontOwnedWindow: (NSWindow) -> Void
+    private var floatingFocusCycleStart: (workspaceId: WorkspaceDescriptor.ID, token: WindowToken)?
 
     init(
         controller: WMController,
@@ -86,20 +87,68 @@ final class FloatingWindowRaiser {
         else { return .noChange }
         let workspaceManager = controller.workspaceManager
 
-        if workspaceManager.isFloatingFocusToggleSource(controller.focusedManagedTokenForCommand(), in: workspaceId) {
-            guard let target = workspaceManager.preferredFocusToken(in: workspaceId) else { return .noChange }
+        // A press before the previous focus request is confirmed steps on from its target.
+        let pendingToken = workspaceManager.pendingFocusedToken.flatMap {
+            workspaceManager.entry(for: $0)?.workspaceId == workspaceId ? $0 : nil
+        }
+        let focusedToken = pendingToken ?? controller.focusedManagedTokenForCommand()
+        let leavingFloating = workspaceManager.isFloatingFocusToggleSource(focusedToken, in: workspaceId)
+        if !leavingFloating {
+            controller.layoutRefreshController.restoreWorkspaceInactiveFloatingWindows(
+                activeWorkspaceIds: [workspaceId]
+            )
+        }
+        guard let target = floatingFocusToggleTarget(
+            after: focusedToken,
+            leavingFloating: leavingFloating,
+            in: workspaceId,
+            controller: controller
+        ) else {
+            return .noChange
+        }
+
+        guard workspaceManager.windowMode(for: target) == .floating else {
             return controller.windowActionHandler.navigateToWindowInternal(token: target, workspaceId: workspaceId)
                 ? .executed
                 : .noChange
         }
-
-        controller.layoutRefreshController.restoreWorkspaceInactiveFloatingWindows(activeWorkspaceIds: [workspaceId])
-        guard let target = workspaceManager.floatingFocusToggleTarget(in: workspaceId) else { return .noChange }
-        if let plan = makeRaiseAllFloatingPlan(in: workspaceId) {
-            raise(plan, controller: controller)
+        if leavingFloating, let tiled = workspaceManager.preferredFocusToken(in: workspaceId) {
+            controller.performWindowOrdering(windowId: tiled.windowId)
         }
         controller.focusWindow(target)
         return .executed
+    }
+
+    private func floatingFocusToggleTarget(
+        after focusedToken: WindowToken?,
+        leavingFloating: Bool,
+        in workspaceId: WorkspaceDescriptor.ID,
+        controller: WMController
+    ) -> WindowToken? {
+        let workspaceManager = controller.workspaceManager
+        if controller.settings.focus.floatingFocusToggleCyclesAllWindows {
+            floatingFocusCycleStart = nil
+            return workspaceManager.focusToggleCycleAllTarget(after: focusedToken, in: workspaceId)
+        }
+        var cycleStart: WindowToken?
+        if leavingFloating, let focusedToken {
+            cycleStart = floatingFocusCycleStart.flatMap { start in
+                start.workspaceId == workspaceId
+                    && workspaceManager.isFloatingFocusCycleMember(start.token, in: workspaceId)
+                    ? start.token : nil
+            } ?? focusedToken
+        }
+        let target = workspaceManager.floatingFocusToggleTarget(
+            after: focusedToken,
+            cycleStart: cycleStart,
+            in: workspaceId
+        )
+        if let target, workspaceManager.windowMode(for: target) == .floating {
+            floatingFocusCycleStart = (workspaceId, cycleStart ?? target)
+        } else {
+            floatingFocusCycleStart = nil
+        }
+        return target
     }
 
     func hasRaisableFloatingWindows() -> Bool {
@@ -114,15 +163,14 @@ final class FloatingWindowRaiser {
         return true
     }
 
-    private func makeRaiseAllFloatingPlan(in workspaceId: WorkspaceDescriptor.ID? = nil) -> FloatingWindowRaisePlan? {
+    private func makeRaiseAllFloatingPlan() -> FloatingWindowRaisePlan? {
         guard let controller else { return nil }
 
-        let workspaceIds = workspaceId.map { [$0] } ?? Array(controller.workspaceManager.visibleWorkspaceIds())
-        let managedSurfaces = workspaceIds
+        let managedSurfaces = controller.workspaceManager.visibleWorkspaceIds()
             .flatMap { controller.workspaceManager.floatingEntries(in: $0) }
             .filter { controller.workspaceManager.isFloatingWindowDisplayable($0) }
             .map(RaisableSurface.managed)
-        let ownedSurfaces = workspaceId != nil ? [] : visibleOwnedWindowsProvider()
+        let ownedSurfaces = visibleOwnedWindowsProvider()
             .filter { $0.windowNumber > 0 }
             .map(RaisableSurface.owned)
         let surfaces = managedSurfaces + ownedSurfaces

@@ -228,6 +228,10 @@ final class HostedManagementWindow: NSWindow {
         reportsMinimized
     }
 
+    override var occlusionState: NSWindow.OcclusionState {
+        reportsVisible && !reportsMinimized ? [.visible] : []
+    }
+
     override var isKeyWindow: Bool {
         reportsKey && reportsVisible && !reportsMinimized
     }

@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Floating Focus Toggle Cycles All Windows" : {
+
+    },
+    "When off, Toggle Floating/Tiled Focus steps through the workspace’s floating windows, then returns to the tiled window you came from. When on, it steps through every window on the workspace: floating windows first, then tiled windows." : {
+
+    },
     "Apply to Every New Matching Window" : {
 
     },
