@@ -108,6 +108,8 @@ final class WMController {
     @ObservationIgnored
     private var runtimeFrameJobCancellationSuppressionDepth: Int = 0
     @ObservationIgnored
+    private var workspaceSwipeRetirementSuppressionDepth: Int = 0
+    @ObservationIgnored
     let floatDemotionTracker = FloatDemotionTracker()
     @ObservationIgnored
     var hiddenWorkspaceBarMonitorIds: Set<Monitor.ID> = []
@@ -428,7 +430,9 @@ extension WMController {
         surfaceScope: SessionSurfaceInvalidationScope
     ) {
         pruneEdgePictures()
-        layoutRefreshController.workspaceSwipe.handleInvalidation(workspaceId: workspaceId, domains: domains)
+        if workspaceSwipeRetirementSuppressionDepth == 0 {
+            layoutRefreshController.workspaceSwipe.handleInvalidation(workspaceId: workspaceId, domains: domains)
+        }
         surfaceReconciler.noteInvalidation(surfaceScope)
         guard domains.contains(.workspace) || domains.contains(.fullscreen) else { return }
         guard runtimeFrameJobCancellationSuppressionDepth == 0 else { return }
@@ -438,6 +442,12 @@ extension WMController {
     func withRuntimeFrameJobCancellationSuppressed<T>(_ body: () throws -> T) rethrows -> T {
         runtimeFrameJobCancellationSuppressionDepth += 1
         defer { runtimeFrameJobCancellationSuppressionDepth -= 1 }
+        return try body()
+    }
+
+    func withWorkspaceSwipeRetirementSuppressed<T>(_ body: () throws -> T) rethrows -> T {
+        workspaceSwipeRetirementSuppressionDepth += 1
+        defer { workspaceSwipeRetirementSuppressionDepth -= 1 }
         return try body()
     }
 
