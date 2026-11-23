@@ -103,14 +103,20 @@ extension ShellWallpaperPalette {
         let modified: Date
     }
 
+    enum WallpaperWindow: Sendable {
+        case system
+        case other
+        case unavailable
+    }
+
     struct StillProbe: Sendable {
-        let showsWallpaperWindow: Bool
+        let window: WallpaperWindow
         let location: (display: String, space: String)?
     }
 
     enum Source: Equatable, Sendable {
         case still(StillWallpaper, aerial: Bool)
-        case capture(aerial: Bool)
+        case capture(aerial: Bool, fallbackFile: URL? = nil)
     }
 
     @MainActor
@@ -123,24 +129,24 @@ extension ShellWallpaperPalette {
         location: (CGDirectDisplayID) -> (display: String, space: String)? = { ShellWallpaperPalette.location(of: $0) }
     ) -> StillProbe {
         StillProbe(
-            showsWallpaperWindow: showsWallpaperWindow(windows(), frame: frame ?? CGDisplayBounds(displayId)),
+            window: wallpaperWindow(in: windows(), frame: frame ?? CGDisplayBounds(displayId)),
             location: location(displayId)
         )
     }
 
     static func source(_ probe: StillProbe, store: Data?, aerials: URL = Self.aerials) -> Source {
-        guard let location = probe.location,
-              let choice = desktopChoice(store: store, location: location, aerials: aerials)
+        guard let choice = desktopChoice(store: store, location: probe.location, aerials: aerials)
         else { return .capture(aerial: false) }
         switch choice {
         case let .aerial(_, thumbnail):
-            guard probe.showsWallpaperWindow, let thumbnail, let still = stamp(thumbnail) else {
+            guard probe.window == .system, let thumbnail, let still = stamp(thumbnail) else {
                 return .capture(aerial: true)
             }
             return .still(still, aerial: true)
         case let .file(chosen):
-            guard probe.showsWallpaperWindow, isSingleImage(chosen), let still = stamp(chosen)
+            guard probe.window != .other, isSingleImage(chosen), let still = stamp(chosen)
             else { return .capture(aerial: false) }
+            if probe.window == .unavailable { return .capture(aerial: false, fallbackFile: still.url) }
             return .still(still, aerial: false)
         case .shuffle,
              .other:
@@ -171,23 +177,25 @@ extension ShellWallpaperPalette {
     static func screenImage(
         for displayId: CGDirectDisplayID,
         aerial: Bool,
-        capture: (CGDirectDisplayID) -> CGImage? = { displayId in
-            guard ScreenCapturePermissionMonitor.shared.isGranted else { return nil }
-            let frame = CGDisplayBounds(displayId)
-            return SkyLight.shared.captureWallpaper(in: frame).flatMap {
+        fallbackFile: URL? = nil,
+        frame: CGRect? = nil,
+        makeCache: () -> OverviewWallpaperCache = { OverviewWallpaperCache() }
+    ) -> CGImage? {
+        let frame = frame ?? CGDisplayBounds(displayId)
+        let cache = makeCache()
+        if aerial {
+            return cache.captureWallpaper(frame).flatMap {
                 $0.width >= Int(ceil(frame.width)) && $0.height >= Int(ceil(frame.height)) ? $0 : nil
             }
-        },
-        fallback: (CGDirectDisplayID) -> CGImage? = {
-            OverviewWallpaperCache().image(for: $0, maxPixelSize: ShellWallpaperPalette.pixelSize)
         }
-    ) -> CGImage? {
-        aerial ? capture(displayId) : fallback(displayId)
+        // AppKit can keep reporting the previous wallpaper after a change.
+        cache.desktopImageURL = { _ in fallbackFile }
+        return cache.image(for: displayId, maxPixelSize: pixelSize, frame: frame)
     }
 
     static func desktopChoice(
         store: Data?,
-        location: (display: String, space: String),
+        location: (display: String, space: String)?,
         aerials: URL
     ) -> DesktopChoice? {
         guard let store,
@@ -229,12 +237,13 @@ extension ShellWallpaperPalette {
     }
 
     @MainActor
-    static func showsWallpaperWindow(_ windows: [[String: Any]], frame: CGRect) -> Bool {
-        guard let wallpaper = SkyLight.wallpaperWindow(in: windows, frame: frame) else { return false }
-        return windows.contains {
+    private static func wallpaperWindow(in windows: [[String: Any]], frame: CGRect) -> WallpaperWindow {
+        guard let wallpaper = SkyLight.wallpaperWindow(in: windows, frame: frame) else { return .unavailable }
+        let isSystem = windows.contains {
             $0[kCGWindowNumber as String] as? UInt32 == wallpaper.id
                 && $0[kCGWindowLayer as String] as? Int32 == CGWindowLevelForKey(.desktopWindow) - 1
         }
+        return isSystem ? .system : .other
     }
 
     static func isSingleImage(_ url: URL) -> Bool {
@@ -244,16 +253,22 @@ extension ShellWallpaperPalette {
 
     static func desktopContent(
         in index: [String: Any],
-        location: (display: String, space: String)
+        location: (display: String, space: String)?
     ) -> [String: Any]? {
-        let space = (index["Spaces"] as? [String: Any])?[location.space] as? [String: Any]
-        let entries: [Any?] = [
-            (space?["Displays"] as? [String: Any])?[location.display],
-            space?["Default"],
-            (index["Displays"] as? [String: Any])?[location.display],
-            index["AllSpacesAndDisplays"],
-            index["SystemDefault"]
-        ]
+        var entries: [Any?] = []
+        if let location {
+            let space = (index["Spaces"] as? [String: Any])?[location.space] as? [String: Any]
+            entries = [
+                (space?["Displays"] as? [String: Any])?[location.display],
+                space?["Default"],
+                (index["Displays"] as? [String: Any])?[location.display]
+            ]
+        } else {
+            guard ["Displays", "Spaces"].allSatisfy({
+                index[$0] == nil || (index[$0] as? [String: Any])?.isEmpty == true
+            }) else { return nil }
+        }
+        entries += [index["AllSpacesAndDisplays"], index["SystemDefault"]]
         return entries.lazy.compactMap { candidate -> Any? in
             guard let entry = candidate as? [String: Any] else { return nil }
             let slot = entry["Type"] as? String == "linked" ? "Linked" : "Desktop"
