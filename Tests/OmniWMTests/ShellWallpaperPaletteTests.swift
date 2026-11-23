@@ -265,7 +265,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         into root: URL,
         source: @escaping @Sendable () -> ShellWallpaperPalette.Source,
         read: @escaping @Sendable (URL) -> CGImage? = { _ in nil },
-        image: @escaping @MainActor (Bool, URL?) -> CGImage? = { _, _ in nil },
+        image: @escaping ShellWallpaperPaletteWriter.CaptureImage = { _, _ in nil },
         deliver: @escaping ShellWallpaperPaletteWriter.Deliver = { MainActor.assumeIsolated($0) },
         onFailure: @escaping @MainActor (String) -> Void = { _ in }
     ) -> ShellWallpaperPaletteWriter {
@@ -284,7 +284,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
     private func capturing(_ wallpaper: Wallpaper, into root: URL) -> ShellWallpaperPaletteWriter {
         makeWriter(into: root, source: { .capture(aerial: false) }, image: { _, _ in
             wallpaper.reads += 1
-            return wallpaper.image
+            return ShellWallpaperPalette.ScreenImage(wallpaper.image)
         })
     }
 
@@ -301,7 +301,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             read: { decoder.read($0) },
             image: { _, _ in
                 capture?.reads += 1
-                return capture?.image
+                return capture.map { ShellWallpaperPalette.ScreenImage($0.image) }
             },
             onFailure: { problems?.reported.append($0) }
         )
@@ -394,7 +394,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         let capture = Wallpaper(Self.forest)
         let writer = makeWriter(into: root, source: { current }, read: ShellWallpaperPalette.read, image: { _, _ in
             capture.reads += 1
-            return capture.image
+            return ShellWallpaperPalette.ScreenImage(capture.image)
         })
         defer { writer.stop() }
         writer.start()
@@ -722,7 +722,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             into: root,
             source: { source.current },
             read: { decoder.read($0) },
-            image: { _, _ in captured.image },
+            image: { _, _ in ShellWallpaperPalette.ScreenImage(captured.image) },
             deliver: { hops.deliver($0) }
         )
         defer { writer.stop() }
@@ -750,7 +750,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         let captured = Wallpaper(Self.forest)
         let writer = makeWriter(into: root, source: { .capture(aerial: false) }, image: { _, _ in
             captured.reads += 1
-            return captured.image
+            return ShellWallpaperPalette.ScreenImage(captured.image)
         }, deliver: { hops.deliver($0) })
         defer { writer.stop() }
 
@@ -770,7 +770,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         let writer = makeWriter(
             into: root,
             source: { .capture(aerial: false) },
-            image: { _, _ in wallpaper.image },
+            image: { _, _ in ShellWallpaperPalette.ScreenImage(wallpaper.image) },
             deliver: { hops.deliver($0) }
         )
         defer { writer.stop() }
@@ -884,7 +884,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         let shown = ShellWallpaperPalette.screenImage(
             for: 999, aerial: true, frame: Self.screen, canCapture: true, capture: { _ in Self.forest }
         )
-        XCTAssertEqual(shown.map(palette(of:)), palette(of: Self.forest))
+        XCTAssertEqual(shown.map { palette(of: $0.image) }, palette(of: Self.forest))
     }
 
     func testAnAerialWithoutAThumbnailIsCapturedOrKeepsItsColorsButNeverReadsTheStaleFile() throws {
@@ -911,7 +911,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
                     cache.desktopImageURL = { _ in stale }
                     return cache
                 }
-            )
+            )?.image
         }
         XCTAssertEqual(screen(capture: Self.sunset).map(palette(of:)), palette(of: Self.sunset))
         XCTAssertNil(screen(capture: nil), "a failed capture keeps the last colors instead of the stale file")
@@ -919,7 +919,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         XCTAssertEqual(cachesMade, 0, "Aerial capture does not use a wallpaper cache")
     }
 
-    func testWithoutCapturePermissionAppKitsFileIsUsedOnlyWhenThereIsNoConfirmedFile() throws {
+    func testFileFallbackUsesAppKitOrTheConfirmedFileWhenCaptureIsUnavailable() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -931,19 +931,127 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         let storePalette = palette(of: try XCTUnwrap(ShellWallpaperPalette.read(storeFile)))
         XCTAssertNotEqual(appKitPalette, storePalette)
 
-        func shown(fallbackFile: URL?) -> String? {
+        func shown(fileFallback: ShellWallpaperPalette.FileFallback) -> String? {
             ShellWallpaperPalette.screenImage(
-                for: 999, aerial: false, fallbackFile: fallbackFile, frame: Self.screen, canCapture: false,
+                for: 999, aerial: false, fileFallback: fileFallback, frame: Self.screen, canCapture: false,
                 makeCache: {
                     let cache = OverviewWallpaperCache(captureWallpaper: { _ in nil })
                     cache.desktopImageURL = { _ in appKitFile }
                     return cache
                 }
-            ).map(palette(of:))
+            ).map { palette(of: $0.image) }
         }
 
-        XCTAssertEqual(shown(fallbackFile: nil), appKitPalette)
-        XCTAssertEqual(shown(fallbackFile: storeFile), storePalette)
+        XCTAssertEqual(shown(fileFallback: .appKit), appKitPalette)
+        XCTAssertEqual(shown(fileFallback: .file(storeFile)), storePalette)
+    }
+
+    func testFailedCaptureGeneratesTheFirstPaletteFromAppKitWhenTheStoreCannotConfirmAFile() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let current = root.appendingPathComponent("current.png")
+        try writeWallpaper([Self.sunset], to: current, type: "public.png")
+        let selection = source(windows: [], store: try store(current, shuffle: ["Interval": 300]))
+        var captureAttempts = 0
+        let writer = makeWriter(
+            into: root,
+            source: { selection },
+            read: ShellWallpaperPalette.read,
+            image: { aerial, fileFallback in
+                ShellWallpaperPalette.screenImage(
+                    for: 999,
+                    aerial: aerial,
+                    fileFallback: fileFallback,
+                    frame: Self.screen,
+                    canCapture: true,
+                    makeCache: {
+                        let cache = OverviewWallpaperCache(captureWallpaper: { _ in
+                            captureAttempts += 1
+                            return nil
+                        })
+                        cache.desktopImageURL = { _ in current }
+                        return cache
+                    }
+                )
+            }
+        )
+        defer { writer.stop() }
+
+        XCTAssertNil(palette(in: root))
+        writer.start()
+        XCTAssertEqual(captureAttempts, 1)
+        XCTAssertEqual(palette(in: root), palette(of: Self.sunset))
+    }
+
+    func testShuffledWallpaperUpdatesThePaletteThroughAppKitWithoutCapturePermission() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let first = root.appendingPathComponent("first.png")
+        let second = root.appendingPathComponent("second.png")
+        try writeWallpaper([Self.sunset], to: first, type: "public.png")
+        try writeWallpaper([Self.forest], to: second, type: "public.png")
+        let selection = source(windows: [], store: try store(first, shuffle: ["Interval": 300]))
+        var appKitURL = first
+        let writer = makeWriter(
+            into: root,
+            source: { selection },
+            image: { aerial, fileFallback in
+                ShellWallpaperPalette.screenImage(
+                    for: 999, aerial: aerial, fileFallback: fileFallback, frame: Self.screen, canCapture: false,
+                    makeCache: {
+                        let cache = OverviewWallpaperCache(captureWallpaper: { _ in nil })
+                        cache.desktopImageURL = { _ in appKitURL }
+                        return cache
+                    }
+                )
+            }
+        )
+        defer { writer.stop() }
+
+        writer.start()
+        XCTAssertEqual(palette(in: root), palette(of: Self.sunset))
+
+        appKitURL = second
+        writer.refreshIfChanged()
+        XCTAssertEqual(palette(in: root), palette(of: Self.forest))
+    }
+
+    func testFailedCaptureKeepsAPaletteRestoredWhileTheCaptureIsPending() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let stale = root.appendingPathComponent("previous.png")
+        try writeWallpaper([Self.forest], to: stale, type: "public.png")
+        let selection = source(windows: [], store: nil)
+        let hops = HeldHops()
+        let writer = makeWriter(
+            into: root,
+            source: { selection },
+            image: { aerial, fileFallback in
+                ShellWallpaperPalette.screenImage(
+                    for: 999, aerial: aerial, fileFallback: fileFallback, frame: Self.screen, canCapture: true,
+                    makeCache: {
+                        let cache = OverviewWallpaperCache(captureWallpaper: { _ in nil })
+                        cache.desktopImageURL = { _ in stale }
+                        return cache
+                    }
+                )
+            },
+            deliver: { hops.deliver($0) }
+        )
+        defer { writer.stop() }
+
+        writer.start()
+        XCTAssertNil(palette(in: root))
+        let expected = palette(of: Self.sunset)
+        XCTAssertTrue(try ShellWallpaperPalette.write(
+            expected,
+            to: root.appendingPathComponent("themes/wallpaper.luau")
+        ))
+        hops.release()
+        XCTAssertEqual(palette(in: root), expected)
     }
 
     func testFailedCaptureKeepsLastPaletteWhenAppKitReportsAnOldWallpaper() throws {
@@ -963,11 +1071,11 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             into: root,
             source: { selection.current },
             read: ShellWallpaperPalette.read,
-            image: { aerial, fallbackFile in
+            image: { aerial, fileFallback in
                 ShellWallpaperPalette.screenImage(
                     for: 999,
                     aerial: aerial,
-                    fallbackFile: fallbackFile,
+                    fileFallback: fileFallback,
                     frame: Self.screen,
                     canCapture: true,
                     makeCache: {
@@ -1018,11 +1126,11 @@ final class ShellWallpaperPaletteTests: XCTestCase {
             into: root,
             source: { selection },
             read: ShellWallpaperPalette.read,
-            image: { aerial, fallbackFile in
+            image: { aerial, fileFallback in
                 ShellWallpaperPalette.screenImage(
                     for: 999,
                     aerial: aerial,
-                    fallbackFile: fallbackFile,
+                    fileFallback: fileFallback,
                     frame: Self.screen,
                     canCapture: true,
                     makeCache: {

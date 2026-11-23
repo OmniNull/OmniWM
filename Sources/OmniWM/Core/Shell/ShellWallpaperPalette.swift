@@ -77,10 +77,24 @@ enum ShellWallpaperPalette {
         return text + "}\n"
     }
 
-    static func write(_ text: String, to url: URL) throws -> Bool {
-        guard (try? Data(contentsOf: url)) != Data(text.utf8) else { return false }
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data(text.utf8).write(to: url, options: .atomic)
+    static func write(_ text: String, to url: URL, onlyIfMissing: Bool = false) throws -> Bool {
+        let data = Data(text.utf8)
+        guard (try? Data(contentsOf: url)) != data else { return false }
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        if !onlyIfMissing {
+            try data.write(to: url, options: .atomic)
+            return true
+        }
+
+        let temporary = directory.appendingPathComponent(".wallpaper-\(UUID().uuidString).tmp")
+        try data.write(to: temporary, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        guard renamex_np(temporary.path, url.path, UInt32(RENAME_EXCL)) == 0 else {
+            let code = POSIXErrorCode(rawValue: errno) ?? .EIO
+            if code == .EEXIST { return false }
+            throw POSIXError(code)
+        }
         return true
     }
 }
@@ -118,6 +132,22 @@ extension ShellWallpaperPalette {
     enum Source: Equatable, Sendable {
         case still(StillWallpaper, aerial: Bool)
         case capture(aerial: Bool, fallbackFile: URL? = nil)
+    }
+
+    enum FileFallback: Sendable {
+        case automatic
+        case appKit
+        case file(URL)
+    }
+
+    struct ScreenImage {
+        let image: CGImage
+        let onlyIfMissing: Bool
+
+        init(_ image: CGImage, onlyIfMissing: Bool = false) {
+            self.image = image
+            self.onlyIfMissing = onlyIfMissing
+        }
     }
 
     @MainActor
@@ -178,24 +208,33 @@ extension ShellWallpaperPalette {
     static func screenImage(
         for displayId: CGDirectDisplayID,
         aerial: Bool,
-        fallbackFile: URL? = nil,
+        fileFallback: FileFallback = .automatic,
         frame: CGRect? = nil,
         canCapture: Bool = ScreenCapturePermissionMonitor.shared.isGranted,
         capture: (CGRect) -> CGImage? = { SkyLight.shared.captureWallpaper(in: $0) },
         makeCache: () -> OverviewWallpaperCache = { OverviewWallpaperCache() }
-    ) -> CGImage? {
+    ) -> ScreenImage? {
         if aerial {
             guard canCapture else { return nil }
             let frame = frame ?? CGDisplayBounds(displayId)
-            return capture(frame).flatMap {
-                $0.width >= Int(ceil(frame.width)) && $0.height >= Int(ceil(frame.height)) ? $0 : nil
-            }
+            guard let image = capture(frame),
+                  image.width >= Int(ceil(frame.width)), image.height >= Int(ceil(frame.height))
+            else { return nil }
+            return ScreenImage(image)
         }
         let cache = makeCache()
-        if canCapture || fallbackFile != nil {
-            cache.desktopImageURL = { _ in fallbackFile }
+        let appKitURL = cache.desktopImageURL
+        var usedFileFallback = false
+        cache.desktopImageURL = { displayId in
+            usedFileFallback = true
+            return switch fileFallback {
+            case .automatic: canCapture ? nil : appKitURL(displayId)
+            case .appKit: appKitURL(displayId)
+            case let .file(url): url
+            }
         }
-        return cache.image(for: displayId, maxPixelSize: pixelSize, frame: frame)
+        guard let image = cache.image(for: displayId, maxPixelSize: pixelSize, frame: frame) else { return nil }
+        return ScreenImage(image, onlyIfMissing: canCapture && usedFileFallback)
     }
 
     static func desktopChoice(
