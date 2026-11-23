@@ -87,7 +87,11 @@ final class FloatingWindowRaiser {
         else { return .noChange }
         let workspaceManager = controller.workspaceManager
 
-        let focusedToken = controller.focusedManagedTokenForCommand()
+        // A press before the previous focus request is confirmed steps on from its target.
+        let pendingToken = workspaceManager.pendingFocusedToken.flatMap {
+            workspaceManager.entry(for: $0)?.workspaceId == workspaceId ? $0 : nil
+        }
+        let focusedToken = pendingToken ?? controller.focusedManagedTokenForCommand()
         let leavingFloating = workspaceManager.isFloatingFocusToggleSource(focusedToken, in: workspaceId)
         if !leavingFloating {
             controller.layoutRefreshController.restoreWorkspaceInactiveFloatingWindows(
@@ -130,7 +134,7 @@ final class FloatingWindowRaiser {
         if leavingFloating, let focusedToken {
             cycleStart = floatingFocusCycleStart.flatMap { start in
                 start.workspaceId == workspaceId
-                    && workspaceManager.isFloatingFocusToggleSource(start.token, in: workspaceId)
+                    && workspaceManager.isFloatingFocusCycleMember(start.token, in: workspaceId)
                     ? start.token : nil
             } ?? focusedToken
         }

@@ -141,6 +141,92 @@ final class FloatingFocusToggleTests: XCTestCase {
         }
     }
 
+    func testCycleAllWindowsSettingVisitsAnInactiveTab() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.controller.layoutRefreshController.resetState() }
+        fixture.controller.settings.focus.floatingFocusToggleCyclesAllWindows = true
+        let firstTab = addWindow(5021, 161, to: fixture.workspace1, manager: fixture.manager)
+        let secondTab = addWindow(5021, 162, to: fixture.workspace1, manager: fixture.manager)
+        let engine = NiriLayoutEngine()
+        fixture.controller.niriEngine = engine
+        let (firstNode, secondNode) = fixture.manager.withEngineMutationScope {
+            let first = engine.addWindow(token: firstTab, to: fixture.workspace1, afterSelection: nil)
+            let second = engine.addWindow(token: secondTab, to: fixture.workspace1, afterSelection: first.id)
+            return (first, second)
+        }
+        let column = try XCTUnwrap(engine.column(of: firstNode))
+        fixture.manager.withEngineMutationScope {
+            var state = ViewportState(selectedNodeId: firstNode.id)
+            XCTAssertTrue(engine.consumeWindow(
+                secondNode, into: column, enteringFrom: .right,
+                context: .init(
+                    workspaceId: fixture.workspace1, motion: .disabled,
+                    workingFrame: CGRect(x: 0, y: 0, width: 1600, height: 900),
+                    gaps: 12, orientation: .horizontal
+                ), state: &state
+            ))
+        }
+        let firstIndex = try XCTUnwrap(column.windowNodes.firstIndex { $0 === firstNode })
+        fixture.manager.withEngineMutationScope {
+            column.setActiveTileIdx(firstIndex)
+            XCTAssertTrue(engine.setColumnDisplay(
+                .tabbed, for: column, in: fixture.workspace1, motion: .disabled, orientation: .horizontal
+            ))
+        }
+        fixture.manager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .layoutTransient(.right)),
+            for: secondTab
+        )
+        XCTAssertTrue(fixture.manager.setManagedFocus(firstTab, in: fixture.workspace1))
+
+        XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
+        await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+        try confirmRequestedFocus(on: secondTab, fixture: fixture)
+        XCTAssertTrue(column.windowNodes[column.activeTileIdx] === secondNode)
+    }
+
+    func testHidingTheCycleStartStillReturnsToTheTile() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.controller.layoutRefreshController.resetState() }
+        let tiled = addWindow(5020, 151, to: fixture.workspace1, manager: fixture.manager)
+        let first = addWindow(5020, 152, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        let second = addWindow(5020, 153, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        let third = addWindow(5020, 154, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        _ = fixture.manager.rememberFocus(tiled, in: fixture.workspace1)
+        XCTAssertTrue(fixture.manager.setManagedFocus(tiled, in: fixture.workspace1))
+
+        for expected in [first, second] {
+            XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
+            await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+            try confirmRequestedFocus(on: expected, fixture: fixture)
+        }
+        fixture.manager.setHiddenState(
+            HiddenState(proportionalPosition: .zero, referenceMonitorId: nil, reason: .scratchpad),
+            for: first
+        )
+
+        for expected in [third, tiled] {
+            XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
+            await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
+            try confirmRequestedFocus(on: expected, fixture: fixture)
+        }
+    }
+
+    func testPressBeforeFocusConfirmationStepsOnFromThePendingTarget() throws {
+        let fixture = try makeFixture()
+        defer { fixture.controller.layoutRefreshController.resetState() }
+        let tiled = addWindow(5022, 171, to: fixture.workspace1, manager: fixture.manager)
+        let first = addWindow(5022, 172, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        let second = addWindow(5022, 173, to: fixture.workspace1, mode: .floating, manager: fixture.manager)
+        _ = fixture.manager.rememberFocus(tiled, in: fixture.workspace1)
+        XCTAssertTrue(fixture.manager.setManagedFocus(tiled, in: fixture.workspace1))
+
+        XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
+        XCTAssertEqual(fixture.manager.pendingFocusedToken, first)
+        XCTAssertEqual(fixture.controller.toggleFloatingFocus(), .executed)
+        XCTAssertEqual(fixture.manager.pendingFocusedToken, second)
+    }
+
     func testToggleWrapsBetweenFloatingWindowsWhenNothingIsTiled() async throws {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }
