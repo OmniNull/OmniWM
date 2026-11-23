@@ -21,6 +21,23 @@ You can use local variables, functions and `require("./sizes")` or `require("../
 
 To enable editor completion and type checking, open the config folder in luau-lsp, select the standard platform, enable the new solver, and register the bundled `omniwm-config.d.luau` as a definitions file. For an app installed in Applications, it lives at `/Applications/OmniWM.app/Contents/Resources/OmniWM_OmniWM.bundle/Contents/Resources/omniwm-config.d.luau`. Keep the `--!strict` and `OmniWMSettings` annotation shown above. See the [settings reference](/config/settings-reference/) for keys, defaults and examples.
 
+## Recipes
+
+Put either recipe in `init.luau`, next to `settings.luau`. Save the file to apply it.
+
+**Grow the focused Niri column.** Control + Option + K adds 12 percentage points to the column’s share of the available space. Change `+12%` to choose the step for this key. The standard resize shortcuts use **Settings → Layouts → Niri → Resize Increment**.
+
+```lua
+local wm = omniwm
+wm.keymap.set("Control+Option+K", wm.cmd("set-container-primary-span", "+12%"))
+```
+
+**Float an app’s windows.** This rule floats new TextEdit documents. Substitute another app’s bundle ID to float its windows.
+
+```lua
+omniwm.rule { bundleId = "com.apple.TextEdit", layout = "float" }
+```
+
 ## Opening the file
 
 Click OmniWM's status bar icon and use:
