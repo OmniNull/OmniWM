@@ -48,7 +48,16 @@
     "tokenPid": 87459,
     "tokenWindowId": 5529
   },
-  "rules": [],
+  "rules": [
+    {
+      "id": "11111111-0000-4000-8000-00000000E1E1",
+      "bundleId": "",
+      "appNameSubstring": ".exe",
+      "axRole": "AXWindow",
+      "axSubrole": "AXUnknown",
+      "layout": "float"
+    }
+  ],
   "expectedDecision": {
     "disposition": "unmanaged",
     "source": "builtInRule(externalSurface)",
