@@ -1,7 +1,7 @@
 return {
     format = 1,
     name = "sakura",
-    version = "1.0.1",
+    version = "2.0.0",
     api = 1,
     author = "OmniNull",
     license = "GPL-2.0-only",

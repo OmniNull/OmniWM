@@ -27,7 +27,7 @@ This installs `OmniWM.app` and puts `omniwmctl` on your `PATH`. Then finish with
 
 Quit OmniWM first, then run `brew upgrade omniwm` and relaunch it. Homebrew replaces the app bundle underneath a running OmniWM.
 
-**Moving to Luau settings.** On a Canary or Homebrew build that uses Luau, OmniWM starts from defaults unless you supply your own `~/.config/omniwm/settings.luau`. Your old `settings.toml` stays untouched on disk. You can use it for reference when you [edit the new file](/config/configuration/). Styles you installed earlier keep their old TOML files, which these builds can't read. Reinstall them from **Settings > Styles & Widgets**.
+**Moving to Luau settings.** On a Canary or Homebrew build that uses Luau, OmniWM starts from defaults unless you supply your own `~/.config/omniwm/settings.luau`. Your old `settings.toml` stays untouched on disk. You can use it for reference when you [edit the new file](/config/configuration/). Styles you installed earlier keep their old TOML files, which these builds can't read. Update them from **Settings > Styles & Widgets**.
 
 ### Migrating from the project tap
 
