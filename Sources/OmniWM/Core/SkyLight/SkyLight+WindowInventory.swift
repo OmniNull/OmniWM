@@ -114,6 +114,17 @@ extension SkyLight {
         } succeeded: { $0 != nil }
     }
 
+    func onScreenWindowRanksFrontToBack() -> [UInt32: Int] {
+        guard let windows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]]
+        else { return [:] }
+        var ranks: [UInt32: Int] = [:]
+        for (rank, window) in windows.enumerated() {
+            guard let id = window[kCGWindowNumber as String] as? UInt32, ranks[id] == nil else { continue }
+            ranks[id] = rank
+        }
+        return ranks
+    }
+
     func hasOverlappingWindowsAbove(_ windowId: UInt32, among candidates: Set<UInt32>) -> Bool? {
         MainThreadAXSpanTrace.measure(.focusCoverageQuery, windowId: Int(windowId), count: candidates.count) {
             guard let windows = CGWindowListCopyWindowInfo(

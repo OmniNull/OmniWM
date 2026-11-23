@@ -7,6 +7,23 @@ import XCTest
 
 @MainActor
 final class WorkspaceSwipePreviewTests: XCTestCase {
+    func testPreviewDrawsWindowServerStackBackToFront() {
+        let tiled = item(windowId: 101)
+        let floating = item(windowId: 102)
+        let items = [tiled, floating]
+
+        let ordered = WorkspaceSwipePreview.backToFront(items, ranks: [101: 0, 102: 1])
+
+        XCTAssertEqual(ordered.map(\.token), [floating.token, tiled.token])
+    }
+
+    func testPreviewKeepsUnlistedWindowSlotsAndFallsBackWithoutRanks() {
+        let items = (101 ... 105).map { item(windowId: $0) }
+        let ordered = WorkspaceSwipePreview.backToFront(items, ranks: [101: 1, 103: 3, 105: 2])
+        XCTAssertEqual(ordered.map(\.token.windowId), [103, 102, 105, 104, 101])
+        XCTAssertEqual(WorkspaceSwipePreview.backToFront(items, ranks: [:]).map(\.token), items.map(\.token))
+    }
+
     func testMissingPreviewDoesNotShowPanelWhenLateFrameArrives() async throws {
         let driver = OverviewPreviewTestDriver()
         let capture = driver.makeCapture()
@@ -271,9 +288,9 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
         )
     }
 
-    private func item() -> WorkspaceSwipePreview.Item {
+    private func item(windowId: Int = 456) -> WorkspaceSwipePreview.Item {
         .init(
-            handle: WindowHandle(id: WindowToken(pid: 123, windowId: 456)),
+            handle: WindowHandle(id: WindowToken(pid: 123, windowId: windowId)),
             frame: CGRect(x: 50, y: 50, width: 400, height: 300)
         )
     }
