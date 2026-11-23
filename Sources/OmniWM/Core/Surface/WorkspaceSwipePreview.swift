@@ -316,18 +316,34 @@ final class WorkspaceSwipePreview {
 }
 
 extension WorkspaceSwipePreview {
-    static func backToFront(_ items: [Item], ranks: [UInt32: Int]) -> [Item] {
-        guard items.count > 1, !ranks.isEmpty else { return items }
-        var ordered = items
-        let ranked = items.enumerated().compactMap { index, item -> (index: Int, rank: Int)? in
-            guard let id = UInt32(exactly: item.token.windowId), let rank = ranks[id] else { return nil }
-            return (index, rank)
+    static func forEachBackToFrontIndex(in items: [Item], ranks: [UInt32: Int], draw: (Int) -> Void) {
+        guard items.count > 1, !ranks.isEmpty else {
+            items.indices.forEach(draw)
+            return
         }
-        let sorted = ranked.sorted { lhs, rhs in lhs.rank > rhs.rank }
-        for (slot, window) in zip(ranked, sorted) {
-            ordered[slot.index] = items[window.index]
+        func rank(at index: Int) -> Int? {
+            guard let id = UInt32(exactly: items[index].token.windowId) else { return nil }
+            return ranks[id]
         }
-        return ordered
+        withTemporaryAllocation(of: (index: Int, rank: Int).self, capacity: items.count) { ranked in
+            for index in items.indices {
+                if let rank = rank(at: index) { ranked.append((index, rank)) }
+            }
+            var elements = ranked.mutableSpan
+            elements.withUnsafeMutableBufferPointer { buffer in
+                var order = buffer
+                order.sort { $0.rank > $1.rank }
+            }
+            var next = 0
+            for index in items.indices {
+                if rank(at: index) == nil {
+                    draw(index)
+                } else {
+                    draw(ranked[next].index)
+                    next += 1
+                }
+            }
+        }
     }
 
     private func makeWorkspaceLayers(
@@ -335,34 +351,26 @@ extension WorkspaceSwipePreview {
     ) -> (CALayer, CALayer) {
         let scale = Self.scale(for: monitor)
         let ranks = source.count > 1 || destination.count > 1 ? SkyLight.shared.onScreenWindowRanksFrontToBack() : [:]
-        return (
-            makeWorkspaceLayer(
-                Self.backToFront(source, ranks: ranks), monitor: monitor, frame: frame, scale: scale, image: image
-            ),
-            makeWorkspaceLayer(
-                Self.backToFront(destination, ranks: ranks), monitor: monitor, frame: frame, scale: scale, image: image
-            )
-        )
-    }
 
-    private func makeWorkspaceLayer(
-        _ items: [Item], monitor: Monitor, frame: CGRect, scale: CGFloat, image: CGImage
-    ) -> CALayer {
-        let layer = CALayer()
-        layer.frame = CGRect(origin: .zero, size: frame.size)
-        layer.masksToBounds = true
-        layer.addSublayer(makeWallpaperLayer(image, monitor: monitor, frame: frame))
-        for item in items {
-            guard let preview = capture.preview(for: item.handle) else { continue }
-            let content = Content(
-                preview: preview,
-                frame: item.frame.offsetBy(dx: -frame.minX, dy: -frame.minY),
-                scale: scale
-            )
-            contents[item.handle, default: []].append(content)
-            layer.addSublayer(content.layer)
+        func makeLayer(for items: [Item]) -> CALayer {
+            let layer = CALayer()
+            layer.frame = CGRect(origin: .zero, size: frame.size)
+            layer.masksToBounds = true
+            layer.addSublayer(makeWallpaperLayer(image, monitor: monitor, frame: frame))
+            Self.forEachBackToFrontIndex(in: items, ranks: ranks) { index in
+                let item = items[index]
+                guard let preview = capture.preview(for: item.handle) else { return }
+                let content = Content(
+                    preview: preview,
+                    frame: item.frame.offsetBy(dx: -frame.minX, dy: -frame.minY),
+                    scale: scale
+                )
+                contents[item.handle, default: []].append(content)
+                layer.addSublayer(content.layer)
+            }
+            return layer
         }
-        return layer
+        return (makeLayer(for: source), makeLayer(for: destination))
     }
 
     private func makeSourceSnapshotLayer(in sourceLayer: CALayer) -> CALayer {

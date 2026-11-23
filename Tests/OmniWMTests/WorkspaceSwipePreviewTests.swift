@@ -12,16 +12,16 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
         let floating = item(windowId: 102)
         let items = [tiled, floating]
 
-        let ordered = WorkspaceSwipePreview.backToFront(items, ranks: [101: 0, 102: 1])
+        let ordered = orderedTokens(in: items, ranks: [101: 0, 102: 1])
 
-        XCTAssertEqual(ordered.map(\.token), [floating.token, tiled.token])
+        XCTAssertEqual(ordered, [floating.token, tiled.token])
     }
 
     func testPreviewKeepsUnlistedWindowSlotsAndFallsBackWithoutRanks() {
         let items = (101 ... 105).map { item(windowId: $0) }
-        let ordered = WorkspaceSwipePreview.backToFront(items, ranks: [101: 1, 103: 3, 105: 2])
-        XCTAssertEqual(ordered.map(\.token.windowId), [103, 102, 105, 104, 101])
-        XCTAssertEqual(WorkspaceSwipePreview.backToFront(items, ranks: [:]).map(\.token), items.map(\.token))
+        let ordered = orderedTokens(in: items, ranks: [101: 1, 103: 3, 105: 2])
+        XCTAssertEqual(ordered.map(\.windowId), [103, 102, 105, 104, 101])
+        XCTAssertEqual(orderedTokens(in: items, ranks: [:]), items.map(\.token))
     }
 
     func testMissingPreviewDoesNotShowPanelWhenLateFrameArrives() async throws {
@@ -286,6 +286,12 @@ final class WorkspaceSwipePreviewTests: XCTestCase {
             visibleFrame: CGRect(x: 0, y: 30, width: 1200, height: 750),
             hasNotch: false, name: "Preview test"
         )
+    }
+
+    private func orderedTokens(in items: [WorkspaceSwipePreview.Item], ranks: [UInt32: Int]) -> [WindowToken] {
+        var tokens: [WindowToken] = []
+        WorkspaceSwipePreview.forEachBackToFrontIndex(in: items, ranks: ranks) { tokens.append(items[$0].token) }
+        return tokens
     }
 
     private func item(windowId: Int = 456) -> WorkspaceSwipePreview.Item {
