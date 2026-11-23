@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
-#if OMNIWM_CONFIG_CALLBACK_TRACE
+#if OMNIWM_LIVE_CHECKS && OMNIWM_CONFIG_CALLBACK_TRACE
     import AppKit
     import Carbon
     @testable import OmniWM
@@ -39,7 +39,6 @@
         }
 
         func testMatchedChordToVisiblePalette() async throws {
-            try XCTSkipUnless(ProcessInfo.processInfo.environment["OMNIWM_CONFIG_CALLBACK_LATENCY"] == "1")
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             let controller = makeController(in: directory)
             defer {

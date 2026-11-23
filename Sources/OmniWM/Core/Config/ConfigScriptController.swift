@@ -58,6 +58,7 @@ final class ConfigScriptController {
     private(set) var maskedBindingChords: Set<KeyBinding> = []
     @ObservationIgnored private var acceptedFiles: Set<URL> = []
     @ObservationIgnored private var bindingConflict: String?
+    @ObservationIgnored private var acceptedRuleConflict: String?
     @ObservationIgnored private var acceptedMask: UInt32 = 0
     @ObservationIgnored private var loadError: String?
     @ObservationIgnored private(set) var callbackQueue: ConfigScriptCallbackQueue?
@@ -173,7 +174,8 @@ final class ConfigScriptController {
             let rules = evaluation?.rules ?? []
             let commands = evaluation?.namedCommands ?? []
             let resolved = resolve(declarations, parsedWith: hyperMask, base: settings.hotkeyBindings)
-            if let conflict = resolved.conflict ?? ruleConflict(rules) {
+            let conflict = resolved.conflict ?? (rules == acceptedRules ? acceptedRuleConflict : ruleConflict(rules))
+            if let conflict {
                 loadError = conflict
             } else {
                 retireCallbacks()
@@ -183,6 +185,7 @@ final class ConfigScriptController {
                 callbackError = nil
                 acceptedBindings = declarations
                 acceptedRules = rules
+                acceptedRuleConflict = nil
                 let commandsChanged = commands != acceptedCommands
                 if commandsChanged { acceptedCommands = commands }
                 maskedBindingChords = []
@@ -202,7 +205,7 @@ final class ConfigScriptController {
                 return true
             }
         }
-        refreshRuleConflicts()
+        refreshDiagnostic()
         return false
     }
 
@@ -214,12 +217,17 @@ final class ConfigScriptController {
         effectiveBindings = resolved.rows
         maskedBindingChords = resolved.masked
         bindingConflict = resolved.conflict
-        refreshRuleConflicts()
+        refreshDiagnostic()
         return resolved.rows
     }
 
     func refreshRuleConflicts() {
-        let configError = loadError ?? bindingConflict ?? ruleConflict(acceptedRules)
+        acceptedRuleConflict = ruleConflict(acceptedRules)
+        refreshDiagnostic()
+    }
+
+    private func refreshDiagnostic() {
+        let configError = loadError ?? bindingConflict ?? acceptedRuleConflict
         if let configError, let callbackError {
             updateDiagnostic("\(configError)\n\(callbackError)")
         } else {
@@ -242,7 +250,7 @@ final class ConfigScriptController {
 
     func reportCallbackError(_ error: ConfigScriptError) {
         callbackError = description(source: error.source, line: error.line, message: error.message)
-        refreshRuleConflicts()
+        refreshDiagnostic()
     }
 
     private func ruleConflict(_ rules: [ConfigScriptRule]) -> String? {

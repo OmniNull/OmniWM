@@ -122,7 +122,7 @@ final class ConfigScriptPaletteTests: XCTestCase {
         let worker = try XCTUnwrap(queue.worker)
         await worker.value
         XCTAssertNil(script.diagnostic)
-        XCTAssertEqual(omni_config_vm_entry_count() - entries, 1)
+        assertConfigVMEntries(1, since: entries)
         XCTAssertNil(script.onCommandsChanged)
     }
 }

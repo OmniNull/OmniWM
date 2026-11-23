@@ -46,8 +46,12 @@ final class ConfigScriptHostTests: XCTestCase {
             source.indices.filter { source[$0].hasPrefix("wm.keymap") }.map { $0 + 1 }
         )
         XCTAssertEqual(result.bindings.last?.chord, KeyBinding(keyCode: UInt32(kVK_ANSI_F), modifiers: mask))
-        XCTAssertGreaterThan(result.peakBytes, 0)
-        XCTAssertLessThanOrEqual(result.peakBytes, ConfigScriptLoader.heapLimit)
+        #if DEBUG || OMNIWM_LIVE_CHECKS
+            XCTAssertGreaterThan(result.peakBytes, 0)
+            XCTAssertLessThanOrEqual(result.peakBytes, ConfigScriptLoader.heapLimit)
+        #else
+            XCTAssertEqual(result.peakBytes, 0)
+        #endif
     }
 
     func testNativeParserAndBindingValidationReportTheFailingLineEvenWhenCaught() async throws {
@@ -241,4 +245,17 @@ final class ConfigScriptHostTests: XCTestCase {
             }
         }
     }
+}
+
+func assertConfigVMEntries(
+    _ expected: UInt64,
+    since start: UInt64,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) {
+    #if DEBUG || OMNIWM_LIVE_CHECKS
+        XCTAssertEqual(omni_config_vm_entry_count() - start, expected, file: file, line: line)
+    #else
+        XCTAssertEqual(omni_config_vm_entry_count(), 0, file: file, line: line)
+    #endif
 }

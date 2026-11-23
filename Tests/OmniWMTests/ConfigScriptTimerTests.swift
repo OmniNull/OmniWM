@@ -83,7 +83,7 @@ final class ConfigScriptTimerTests: XCTestCase {
         await sleeper.waitForPendingSleeps(1)
         sleeper.resumeNext()
         await worker.value
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 1)
+        assertConfigVMEntries(1, since: before)
     }
 
     func testOneShotUsesNativeDispatchAndStopsAtFirstFailure() async throws {
@@ -111,7 +111,7 @@ final class ConfigScriptTimerTests: XCTestCase {
         await worker.value
         XCTAssertEqual(omni_config_live_vm_count(), liveBeforeLoad)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 1)
+        assertConfigVMEntries(1, since: before)
         XCTAssertEqual(sleeper.requestedDurations, [.seconds(interval)])
         XCTAssertEqual(sleeper.pendingCount, 0)
         let line = try XCTUnwrap(lines.firstIndex { $0.contains("'\(missing)'") }) + 1
@@ -230,6 +230,6 @@ final class ConfigScriptTimerTests: XCTestCase {
         let before = omni_config_vm_entry_count()
         XCTAssertEqual(script.enqueue(function: id, controller: fixture.controller), .executed)
         await script.callbackQueue?.worker?.value
-        XCTAssertEqual(omni_config_vm_entry_count(), before + 1)
+        assertConfigVMEntries(1, since: before)
     }
 }

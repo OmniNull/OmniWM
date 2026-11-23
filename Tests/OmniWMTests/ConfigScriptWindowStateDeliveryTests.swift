@@ -64,7 +64,7 @@ final class ConfigScriptWindowStateDeliveryTests: XCTestCase {
         let check = try XCTUnwrap(fixture.script.acceptedCommands.first)
         XCTAssertEqual(fixture.press(.configFunction(check.function)), .executed)
         await fixture.script.callbackQueue?.worker?.value
-        XCTAssertEqual(omni_config_vm_entry_count() - before, UInt64(expected.count + 1))
+        assertConfigVMEntries(UInt64(expected.count + 1), since: before)
         XCTAssertNil(fixture.script.diagnostic)
     }
 
@@ -91,12 +91,12 @@ final class ConfigScriptWindowStateDeliveryTests: XCTestCase {
         }
         observer.emit(.windowTitle, .init(id: String(capacity), edge: .title("replacement")))
         await fixture.script.callbackQueue?.worker?.value
-        XCTAssertEqual(omni_config_vm_entry_count() - before, UInt64(capacity))
+        assertConfigVMEntries(UInt64(capacity), since: before)
         observer.emit(.windowTitle, .init(id: "next", edge: .title("resumed")))
         let check = try XCTUnwrap(fixture.script.acceptedCommands.first)
         XCTAssertEqual(fixture.press(.configFunction(check.function)), .executed)
         await fixture.script.callbackQueue?.worker?.value
-        XCTAssertEqual(omni_config_vm_entry_count() - before, UInt64(capacity + 2))
+        assertConfigVMEntries(UInt64(capacity + 2), since: before)
         XCTAssertNil(fixture.script.diagnostic)
     }
 }

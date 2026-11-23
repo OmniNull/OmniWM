@@ -69,7 +69,7 @@ final class ConfigScriptReadTriggerTests: XCTestCase {
         XCTAssertEqual(fixture.press(.configFunction(name.function)), .executed)
         await fixture.script.callbackQueue?.worker?.value
         XCTAssertNil(fixture.script.diagnostic)
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 2)
+        assertConfigVMEntries(2, since: before)
     }
 
     func testListenersSeeOnlyTheirOwnListsFromTheSameTrigger() async throws {
@@ -97,7 +97,7 @@ final class ConfigScriptReadTriggerTests: XCTestCase {
         let before = omni_config_vm_entry_count()
         fixture.apply(load)
         await fixture.script.callbackQueue?.worker?.value
-        XCTAssertEqual(omni_config_vm_entry_count() - before, UInt64(try XCTUnwrap(load.result.get()).events.count))
+        assertConfigVMEntries(UInt64(try XCTUnwrap(load.result.get()).events.count), since: before)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
         XCTAssertNil(fixture.script.diagnostic)
     }

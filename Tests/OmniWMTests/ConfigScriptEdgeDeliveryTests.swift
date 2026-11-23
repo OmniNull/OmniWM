@@ -51,7 +51,7 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
         let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
         await worker.value
         XCTAssertNil(fixture.script.diagnostic)
-        XCTAssertEqual(omni_config_vm_entry_count() - before, UInt64(limit + 1))
+        assertConfigVMEntries(UInt64(limit + 1), since: before)
         let subsequent = ConfigScriptEventPayload(id: "later", edge: .workspace(id: "fixture", name: nil))
         observer.emit(.windowClose, subsequent)
         await fixture.script.callbackQueue?.worker?.value
@@ -104,7 +104,7 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
         let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
         await worker.value
         XCTAssertEqual(manager.workspace(for: second), destination)
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 3)
+        assertConfigVMEntries(3, since: before)
         XCTAssertNil(fixture.script.diagnostic)
         let check = try XCTUnwrap(fixture.script.acceptedCommands.first)
         XCTAssertEqual(fixture.press(.configFunction(check.function)), .executed)

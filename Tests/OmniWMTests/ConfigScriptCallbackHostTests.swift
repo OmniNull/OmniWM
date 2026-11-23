@@ -47,7 +47,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
         XCTAssertEqual(workspace.commands.map(\.operation), [.native(.showNotice("\(id)/\(name)"))])
         XCTAssertEqual(empty.commands.map(\.operation), [.native(.showNotice("absent/absent"))])
         XCTAssertEqual(other.commands.map(\.operation), [.native(.showNotice("second"))])
-        XCTAssertEqual(omni_config_vm_entry_count() - before, UInt64([workspace, empty, other].count))
+        assertConfigVMEntries(UInt64([workspace, empty, other].count), since: before)
     }
 
     func testUnknownEventsRejectTheConfigAtTheirSourceLineEvenInsidePcall() async throws {
@@ -196,7 +196,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
         XCTAssertEqual(first.commands.map(\.line), dispatchLines)
         let second = try await generation.invoke(function: id, context: ConfigScriptContext())
         XCTAssertEqual(second.commands.map(\.operation), [.native(.focusNavigation(.previous))])
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 2)
+        assertConfigVMEntries(2, since: before)
         print("Callback host allocator calls per invocation: \(first.allocations), \(second.allocations)")
         let replacement = try await load(source)
         let next = try XCTUnwrap(replacement.generation)

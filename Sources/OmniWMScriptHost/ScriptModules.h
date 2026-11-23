@@ -7,6 +7,12 @@
 
 namespace omni_detail {
 
+#if defined(DEBUG) || defined(OMNIWM_LIVE_CHECKS)
+inline constexpr bool trackConfigMetrics = true;
+#else
+inline constexpr bool trackConfigMetrics = false;
+#endif
+
 struct Module {
     std::string chunk;
     int result = LUA_NOREF;
@@ -27,6 +33,12 @@ struct ModuleRuntime : ScriptRuntime {
 
     ModuleRuntime(omni_read_module read, void *ctx, std::atomic<uint64_t> *counter = nullptr)
         : context(ctx), readModule(read), entryCounter(counter) {}
+
+    void recordEntry() const {
+        if constexpr (trackConfigMetrics) {
+            if (entryCounter) entryCounter->fetch_add(1, std::memory_order_relaxed);
+        }
+    }
 };
 
 omni_config_location declarationSite(lua_State *L, ModuleRuntime &vm);

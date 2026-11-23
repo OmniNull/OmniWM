@@ -35,7 +35,7 @@ final class ShellLuauConfirmationTests: XCTestCase {
             let task = Task {
                 try await coordinator.editBar(confirm: presenter.confirm) { $0.move("clock", to: .trailing) }
             }
-            await fulfillment(of: [shown], timeout: 5)
+            await fulfillment(of: [shown], timeout: failureBound)
             let question = try XCTUnwrap(presenter.question)
             XCTAssertEqual(question.fileURL, file)
             XCTAssertTrue(question.message.contains("lane()"))

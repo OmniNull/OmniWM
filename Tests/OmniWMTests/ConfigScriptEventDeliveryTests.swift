@@ -49,7 +49,7 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         let before = omni_config_vm_entry_count()
         try await runNamed(burst, in: fixture)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, finalID)
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 2)
+        assertConfigVMEntries(2, since: before)
         try await runNamed(check, in: fixture)
     }
 
@@ -78,7 +78,7 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         await worker.value
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
         XCTAssertNil(fixture.script.diagnostic)
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 3)
+        assertConfigVMEntries(3, since: before)
         try await runNamed(check, in: fixture)
     }
 
@@ -117,7 +117,7 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         await worker.value
         XCTAssertEqual(diagnostics.count, 1, "\(diagnostics)")
         XCTAssertTrue(try XCTUnwrap(diagnostics.first).contains(first))
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 2)
+        assertConfigVMEntries(2, since: before)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, origin)
     }
 
@@ -133,7 +133,7 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         fixture.apply(first)
         let initial = try XCTUnwrap(fixture.script.callbackQueue?.worker)
         await initial.value
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 1)
+        assertConfigVMEntries(1, since: before)
         XCTAssertNotNil(fixture.script.eventObservers)
         fixture.apply(ConfigScriptLoad(
             versions: [:],
@@ -151,7 +151,7 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         let replacement = try XCTUnwrap(fixture.script.callbackQueue?.worker)
         await retired.value
         await replacement.value
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 3)
+        assertConfigVMEntries(3, since: before)
         XCTAssertNil(fixture.script.diagnostic)
         XCTAssertNil(fixture.script.eventObservers)
         try switchTo(fixture.destination, in: fixture)

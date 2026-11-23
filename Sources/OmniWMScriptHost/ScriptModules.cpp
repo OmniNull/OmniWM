@@ -183,7 +183,7 @@ int requireConfigModule(lua_State *L) {
     }
     lua_xmove(moduleThread, L, 1);
     vm.moduleExecutions++;
-    if (vm.entryCounter) vm.entryCounter->fetch_add(1, std::memory_order_relaxed);
+    vm.recordEntry();
     int result = lua_pcall(L, 0, 1, handler);
     if (result != LUA_OK || vm.rejected) {
         if (!vm.rejected) {

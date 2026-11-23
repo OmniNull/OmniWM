@@ -133,7 +133,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("queue is full"))
         XCTAssertEqual(omni_config_vm_entry_count(), initialEntries)
         await fixture.script.callbackQueue?.worker?.value
-        XCTAssertEqual(omni_config_vm_entry_count() - initialEntries, UInt64(ConfigScriptCallbackQueue.capacity))
+        assertConfigVMEntries(UInt64(ConfigScriptCallbackQueue.capacity), since: initialEntries)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
         let errorLine = try XCTUnwrap(body.firstIndex { $0.contains("error(") }) + 1
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("init.luau:\(errorLine):"))
@@ -141,6 +141,43 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let native = HotkeyCommand.workspace(.next)
         XCTAssertEqual(fixture.press(native), .executed)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
+    }
+
+    func testSettingsRuleChangesUpdateTheDiagnosticBetweenCallbackErrors() async throws {
+        let fixture = try Fixture(test: self)
+        let rule = AppRule(bundleId: "com.apple.TextEdit", layout: .float)
+        let body = [
+            "local nextError = 'first failure'",
+            "omniwm.rule { id = '\(rule.id)', bundleId = '\(rule.bundleId)', layout = 'tile' }",
+            "omniwm.keymap.set('Control+Option+I', function()",
+            "    local message = nextError",
+            "    nextError = 'second failure'",
+            "    error(message)",
+            "end)"
+        ]
+        fixture.apply(try await fixture.load(body))
+        let command = try fixture.command
+        let directory = fixture.controller.settings.settingsFileURL.deletingLastPathComponent()
+        let path = directory.appendingPathComponent("init.luau").path
+        let ruleLine = try XCTUnwrap(body.firstIndex { $0.contains("omniwm.rule") }) + 1
+        let errorLine = try XCTUnwrap(body.firstIndex { $0.contains("error(message)") }) + 1
+        let conflict = "\(path):\(ruleLine): Rule ID \(rule.id) conflicts with Settings."
+        let first = "\(path):\(errorLine): first failure"
+        let second = "\(path):\(errorLine): second failure"
+
+        XCTAssertEqual(fixture.press(command), .executed)
+        await fixture.script.callbackQueue?.worker?.value
+        XCTAssertEqual(fixture.script.diagnostic, first)
+        fixture.controller.settings.appRules.append(rule)
+        fixture.controller.updateAppRules()
+        XCTAssertEqual(fixture.script.diagnostic, "\(conflict)\n\(first)")
+
+        XCTAssertEqual(fixture.press(command), .executed)
+        await fixture.script.callbackQueue?.worker?.value
+        XCTAssertEqual(fixture.script.diagnostic, "\(conflict)\n\(second)")
+        fixture.controller.settings.appRules.removeAll { $0.id == rule.id }
+        fixture.controller.updateAppRules()
+        XCTAssertEqual(fixture.script.diagnostic, second)
     }
 
     func testProgramSpawnFailureStopsLaterCommandsAndReportsTheRunLine() async throws {
@@ -180,7 +217,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         for command in sequence { XCTAssertEqual(fixture.press(command), .executed) }
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
         await fixture.script.callbackQueue?.worker?.value
-        XCTAssertEqual(omni_config_vm_entry_count() - before, UInt64(sequence.count))
+        assertConfigVMEntries(UInt64(sequence.count), since: before)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
         let slowLine = try XCTUnwrap(lines.firstIndex { $0.contains("while true") }) + 1
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("init.luau:\(slowLine):"))
@@ -205,7 +242,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         await fixture.script.callbackQueue?.worker?.value
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("invalid edit"))
-        XCTAssertEqual(omni_config_vm_entry_count() - before, 1)
+        assertConfigVMEntries(1, since: before)
 
         let newLoad = try await fixture
             .load(["omniwm.keymap.set('Control+Option+I', function() error('new handler') end)"])

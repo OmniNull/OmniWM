@@ -38,7 +38,8 @@ struct ConfigVM : ModuleRuntime {
     unsigned bindings = 0;
     unsigned rules = 0;
 
-    ConfigVM(const omni_config_callbacks &callbacks, void *context) : ModuleRuntime(callbacks.read_module, context, &vmEntries), callbacks(callbacks) {}
+    ConfigVM(const omni_config_callbacks &callbacks, void *context)
+        : ModuleRuntime(callbacks.read_module, context, trackConfigMetrics ? &vmEntries : nullptr), callbacks(callbacks) {}
     ~ConfigVM() {
         if (main != nullptr) {
             closeRuntime(*this);
@@ -496,7 +497,7 @@ omni_status resumeConfig(ConfigVM &vm, int arguments, uint64_t budget, char *err
     omni_status status;
     {
         CallScope scope(&vm, budget);
-        vmEntries.fetch_add(1, std::memory_order_relaxed);
+        vm.recordEntry();
         int result = lua_resume(L, nullptr, arguments);
         status = finishModuleCall(vm, L, result, error, capacity);
     }
@@ -702,7 +703,7 @@ omni_status omni_config_load(const char *chunk_name, omni_config_span source,
     try {
         owned = std::make_unique<omni_config_vm>(*callbacks, context);
         auto &vm = *owned;
-        if (openRuntime(vm, heap_limit, static_cast<ModuleRuntime *>(&vm), true)) {
+        if (openRuntime(vm, heap_limit, static_cast<ModuleRuntime *>(&vm), trackConfigMetrics)) {
             liveVMs.fetch_add(1, std::memory_order_relaxed);
             installConfig(vm.main);
             sandboxRuntime(vm);
@@ -728,11 +729,13 @@ omni_status omni_config_load(const char *chunk_name, omni_config_span source,
     }
     trimUTF8End(error, error_capacity);
     if (stats && owned) {
-        stats->peak_bytes = owned->peak;
+        if constexpr (trackConfigMetrics) {
+            stats->peak_bytes = owned->peak;
+            stats->allocations = owned->allocations;
+        }
         stats->location = owned->location;
         stats->module_executions = owned->moduleExecutions;
         stats->cancelled_timers = owned->cancelledTimers;
-        stats->allocations = owned->allocations;
     }
     if (status == OMNI_OK && resident &&
         owned->functions.size() > static_cast<size_t>(__builtin_popcount(owned->cancelledTimers))) {
@@ -777,7 +780,7 @@ omni_status omni_config_invoke(omni_config_vm *vm, uint32_t callback_id, omni_co
     vm->logs = 0;
     vm->actions = 0;
     vm->tokenBytes = 0;
-    uint64_t allocations = vm->allocations;
+    const uint64_t allocations = trackConfigMetrics ? vm->allocations : 0;
     uint32_t previouslyCancelled = vm->cancelledTimers;
     omni_status status;
     try {
@@ -805,9 +808,11 @@ omni_status omni_config_invoke(omni_config_vm *vm, uint32_t callback_id, omni_co
     vm->invoking = false;
     if (stats) {
         stats->location = vm->location;
-        stats->allocations = vm->allocations - allocations;
+        if constexpr (trackConfigMetrics) {
+            stats->allocations = vm->allocations - allocations;
+            stats->peak_bytes = vm->peak;
+        }
         stats->cancelled_timers = vm->cancelledTimers & ~previouslyCancelled;
-        stats->peak_bytes = vm->peak;
     }
     return status;
 }
@@ -821,5 +826,5 @@ uint64_t omni_config_live_vm_count(void) noexcept {
 }
 
 uint64_t omni_config_vm_entry_count(void) noexcept {
-    return vmEntries.load(std::memory_order_relaxed);
+    return omni_detail::trackConfigMetrics ? vmEntries.load(std::memory_order_relaxed) : 0;
 }
