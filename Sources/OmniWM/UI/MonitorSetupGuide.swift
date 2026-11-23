@@ -215,6 +215,7 @@ struct MonitorSetupGuide: View {
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canContinue)
+                    .settingsField(.routingMode, .routingArrangements, .workspaces, .mouseWarpEnabled)
             } else {
                 Button("Continue") {
                     step = Step(rawValue: step.rawValue + 1) ?? .mouseWarp

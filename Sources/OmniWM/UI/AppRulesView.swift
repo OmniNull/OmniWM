@@ -259,9 +259,11 @@ struct AppRulesSidebar: View {
             TextField("Search rules", text: $searchText)
                 .textFieldStyle(.roundedBorder)
             Button("Add Rule", systemImage: "plus", action: onAdd)
+                .settingsField(.appRules)
             List(selection: $selection) {
                 ForEach(rows.rules) { rule in
                     AppRuleSidebarRow(rule: rule)
+                        .settingsField(.appRules, row: rule.id.uuidString)
                         .tag(rule.id)
                         .contextMenu {
                             Button(role: .destructive) {

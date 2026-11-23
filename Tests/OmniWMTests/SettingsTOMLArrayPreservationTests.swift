@@ -218,19 +218,22 @@ final class SettingsTOMLArrayPreservationTests: XCTestCase {
             AppRule(bundleId: "com.example.Duplicate", layout: .float)
         ]
         let ambiguous = try idlessDuplicateData(from: SettingsTOMLCodec.encode(original))
-        let settingsURL = directory.appendingPathComponent(SettingsFilePersistence.fileName)
+        let settingsURL = directory.appendingPathComponent("settings.toml")
         try ambiguous.write(to: settingsURL)
-        let persistence = SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false)
-        var loaded = try XCTUnwrap(persistence.loadOutcome().export)
-        loaded.gaps.size += 1
-
-        XCTAssertThrowsError(try persistence.saveImmediately(loaded)) { error in
-            XCTAssertEqual(
-                error as? SettingsTOMLCodecError,
-                .cannotSafelyPreserveArrayElement("appRules[0]")
-            )
+        var desired = try SettingsTOMLCodec.decode(ambiguous)
+        desired.gaps.size += 1
+        let transaction = SettingsFileWriteTransaction(
+            directoryURL: directory,
+            fileURL: settingsURL,
+            targetURL: settingsURL
+        )
+        guard case let .failed(failure) = transaction.perform(
+            desired,
+            persist: { _ in XCTFail("Ambiguous data must remain intact") }
+        ) else {
+            return XCTFail("Expected an ambiguous array error")
         }
-        XCTAssertTrue(persistence.settingsWritesBlocked)
+        XCTAssertEqual(failure.error as? SettingsTOMLCodecError, .cannotSafelyPreserveArrayElement("appRules[0]"))
         XCTAssertEqual(try Data(contentsOf: settingsURL), ambiguous)
     }
 

@@ -18,6 +18,7 @@ struct AppThemingCustomSection: View {
             Button("Add Custom Template…") {
                 editing = SettingsExport.AppTheming.Custom(name: "", template: "", output: "")
             }
+            .settingsField(.appThemingCustom)
         } header: {
             Text("Custom Templates")
         } footer: {
@@ -36,7 +37,9 @@ struct AppThemingCustomSection: View {
                         SettingsCaption(reloadText(custom))
                     }
                 }
+                .settingsField(.appThemingCustom, row: custom.id, leaf: "enabled")
                 Button("Edit…") { editing = custom }
+                    .settingsField(.appThemingCustom, row: custom.id)
                 Button(role: .destructive) {
                     settings.values.custom.removeAll { $0.id == custom.id }
                 } label: {
@@ -44,6 +47,7 @@ struct AppThemingCustomSection: View {
                 }
                 .buttonStyle(.borderless)
                 .help(Text("Remove"))
+                .settingsField(.appThemingCustom, row: custom.id)
             }
             HStack(spacing: 6) {
                 Image(systemName: "doc.plaintext").foregroundStyle(.secondary)

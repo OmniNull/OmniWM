@@ -11,7 +11,7 @@ final class OverviewGesturePersistenceTests: XCTestCase {
     func testAbsentOverviewKeysUseDefaultsWithoutEnumeratingMonitors() throws {
         let fixture = try makeFixture()
         defer { fixture.remove() }
-        let data = try canonicalData(removing: ["overviewGestureEnabled", "overviewGestureFingerCount"])
+        let data = Data("return { gestures = {} }".utf8)
         try data.write(to: fixture.fileURL)
         var monitorCalls = 0
         let persistence = SettingsFilePersistence(
@@ -61,7 +61,7 @@ final class OverviewGesturePersistenceTests: XCTestCase {
         for (export, monitors) in [(overviewExport(), [vertical]), (workspaceConflict, [])] {
             let fixture = try makeFixture()
             defer { fixture.remove() }
-            let data = try SettingsTOMLCodec.encode(export)
+            let data = try SettingsLuauDocument.initialSource(export)
             try data.write(to: fixture.fileURL)
             let persistence = makePersistence(in: fixture, monitors: monitors)
 
@@ -73,9 +73,9 @@ final class OverviewGesturePersistenceTests: XCTestCase {
             XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: fixture.directory.path), [
                 SettingsFilePersistence.fileName
             ])
-            XCTAssertFalse(persistence.settingsWritesBlocked)
+            XCTAssertTrue(persistence.settingsWritesBlocked)
 
-            try SettingsTOMLCodec.encode(.defaults()).write(to: fixture.fileURL, options: .atomic)
+            try SettingsLuauDocument.initialSource(.defaults()).write(to: fixture.fileURL, options: .atomic)
             XCTAssertEqual(persistence.loadOutcome().export, .defaults())
             try data.write(to: fixture.fileURL, options: .atomic)
 
@@ -100,7 +100,7 @@ final class OverviewGesturePersistenceTests: XCTestCase {
                 orientation: .vertical
             )
         ]
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         try data.write(to: fixture.fileURL)
         let persistence = makePersistence(in: fixture, monitors: [monitor])
 
@@ -116,7 +116,7 @@ final class OverviewGesturePersistenceTests: XCTestCase {
         let fixture = try makeFixture()
         defer { fixture.remove() }
         let export = overviewExport()
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         try data.write(to: fixture.fileURL)
         let persistence = makePersistence(in: fixture, monitors: [makeMonitor(vertical: false)])
 
@@ -135,7 +135,7 @@ final class OverviewGesturePersistenceTests: XCTestCase {
         initial.gestures.scrollEnabled = false
         initial.gestures.workspaceSwipeEnabled = false
         initial.gaps.size = 17
-        try SettingsTOMLCodec.encode(initial).write(to: fixture.fileURL)
+        try SettingsLuauDocument.initialSource(initial).write(to: fixture.fileURL)
         let persistence = makePersistence(in: fixture, monitors: [makeMonitor(vertical: true)])
         let settings = SettingsStore(
             persistence: persistence,
@@ -157,7 +157,7 @@ final class OverviewGesturePersistenceTests: XCTestCase {
         var candidate = overviewExport()
         candidate.gaps.size = 29
         candidate.ipcEnabled = !initial.ipcEnabled
-        let rejectedData = try SettingsTOMLCodec.encode(candidate)
+        let rejectedData = try SettingsLuauDocument.initialSource(candidate)
         try rejectedData.write(to: fixture.fileURL, options: .atomic)
 
         persistence.handlePossibleSettingsFileChange()
@@ -172,7 +172,7 @@ final class OverviewGesturePersistenceTests: XCTestCase {
         XCTAssertEqual(noticeChanges, 1)
 
         candidate.gestures.fingerCount = .three
-        let repairedData = try SettingsTOMLCodec.encode(candidate)
+        let repairedData = try SettingsLuauDocument.initialSource(candidate)
         try repairedData.write(to: fixture.fileURL, options: .atomic)
         persistence.handlePossibleSettingsFileChange()
 

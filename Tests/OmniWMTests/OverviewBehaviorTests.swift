@@ -542,7 +542,7 @@ final class OverviewBehaviorTests: XCTestCase {
         overview.invalidateDeferredActionsForServiceStop()
         XCTAssertEqual(saves, 2)
         settings.flushNow()
-        let persisted = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let persisted = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertEqual(persisted.overview.zoom, 1.1)
         settings.applyExport(persisted)
         saves = 0

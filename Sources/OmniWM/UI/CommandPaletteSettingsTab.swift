@@ -11,6 +11,7 @@ struct CommandPaletteSettingsTab: View {
         Form {
             Section("Unified Search") {
                 Toggle("Enable Unified Search", isOn: Bindable(settings.commandPalette).unifiedSearch)
+                    .settingsField(.commandPaletteUnifiedSearch)
                 SettingsCaption(
                     localized: "Open Command Palette searches several palette modes at once and shows up to three top hits above the results. Each mode’s own Command Palette shortcut still opens just that mode."
                 )
@@ -19,6 +20,7 @@ struct CommandPaletteSettingsTab: View {
             Section("Searched Modes") {
                 ForEach(orderedModes, id: \.self) { mode in
                     modeRow(mode)
+                        .settingsField(.commandPaletteSearchedModes, row: mode.rawValue)
                 }
                 SettingsCaption(
                     localized: "Results are grouped in this order. Menu reads the frontmost app’s menus each time the palette opens. Clipboard needs clipboard history."

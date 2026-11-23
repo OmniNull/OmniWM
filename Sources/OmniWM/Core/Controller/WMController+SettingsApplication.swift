@@ -10,6 +10,13 @@ extension WMController {
         hiddenBarController.isHidingAvailable
     }
 
+    func observeConfirmedSettingsEdits() {
+        settings.onConfirmedSettingsEdit = { [weak self] in
+            guard let self else { return }
+            applyPersistedSettings(settings, startServices: false)
+        }
+    }
+
     func applyPersistedSettings(_ settings: SettingsStore, startServices: Bool = true) {
         workspaceBarManager.updateShellPermissions(settings, reloadingManagedPolicy: true)
         setAnimationsEnabled(settings.animationsEnabled, persist: false)
@@ -60,6 +67,7 @@ extension WMController {
     func setAnimationsEnabled(_ enabled: Bool, persist: Bool = true) {
         if persist, settings.animationsEnabled != enabled {
             settings.animationsEnabled = enabled
+            guard settings.animationsEnabled == enabled else { return }
         }
 
         guard motionPolicy.userAnimationsEnabled != enabled else { return }
@@ -71,6 +79,7 @@ extension WMController {
         let speed = AnimationSpeed.normalized(speed)
         if persist, settings.animationSpeed != speed {
             settings.animationSpeed = speed
+            guard settings.animationSpeed == speed else { return }
         }
         if motionPolicy.animationSpeed != speed {
             motionPolicy.animationSpeed = speed
@@ -84,6 +93,7 @@ extension WMController {
     func setTabRailAppIcons(_ enabled: Bool, persist: Bool = true) {
         if persist, settings.tabRailAppIcons != enabled {
             settings.tabRailAppIcons = enabled
+            guard settings.tabRailAppIcons == enabled else { return }
         }
 
         let width = TabRailStyle(appIcons: enabled).reservedWidth

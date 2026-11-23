@@ -194,6 +194,7 @@ struct MonitorSetupPhysicalArrangementStep: View {
                     },
                     height: 230
                 )
+                .settingsField(.routingArrangements, row: draft.arrangementID?.uuidString, leaf: "monitors")
 
                 RoutingAccessibleEditor(
                     rows: routingRows,
@@ -201,6 +202,7 @@ struct MonitorSetupPhysicalArrangementStep: View {
                         draft.move(monitorID, direction: direction)
                     }
                 )
+                .settingsField(.routingArrangements, row: draft.arrangementID?.uuidString, leaf: "monitors")
 
                 routingStatus
             }

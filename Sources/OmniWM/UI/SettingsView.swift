@@ -24,6 +24,8 @@ struct SettingsView: View {
             )
         }
         .environment(navigation)
+        .environment(settings)
+        .modifier(SettingsFormulaSheet(settings: settings))
         .frame(minWidth: 760, minHeight: 560)
         .confirmationDialog("Discard unsaved changes?", isPresented: Binding(
             get: { navigation.pendingRoute != nil },

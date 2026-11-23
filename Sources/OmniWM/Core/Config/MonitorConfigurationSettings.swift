@@ -66,3 +66,19 @@ final class MonitorConfigurationSettings {
         MonitorRouting.store(layout, for: monitors, in: &arrangements)
     }
 }
+
+extension SettingsStore {
+    func applyMonitorSetup(
+        routingSettings: [MonitorRoutingSettings],
+        monitors: [Monitor],
+        mouseWarpEnabled: Bool,
+        workspaceConfigurations: [WorkspaceConfiguration]
+    ) {
+        self.monitors.storeRoutingLayout(routingSettings, for: monitors)
+        self.monitors.routingMode = .custom
+        self.pointer.enabled = mouseWarpEnabled
+        if workspaces.configurations != workspaceConfigurations {
+            workspaces.configurations = workspaceConfigurations
+        }
+    }
+}

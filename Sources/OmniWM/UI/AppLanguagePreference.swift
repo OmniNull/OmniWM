@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 public enum AppLanguagePreference {
     private static let key = "AppleLanguages"
@@ -18,6 +17,7 @@ public enum AppLanguagePreference {
         Locale(identifier: language).localizedString(forIdentifier: language) ?? language
     }
 
+    @MainActor
     public static func applyConfiguredLanguage() {
         let defaults = UserDefaults.standard
         guard let arguments = launchArguments(
@@ -27,14 +27,9 @@ public enum AppLanguagePreference {
         defaults.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain)
     }
 
+    @MainActor
     static func configuredLanguage(in fileURL: URL) -> String? {
-        guard let targetURL = try? SettingsFileAccess.settingsTarget(for: fileURL),
-              let data = try? SettingsFileAccess.existingData(at: targetURL),
-              let settings = try? TOMLDecoder().decode([String: TOMLNode].self, from: data),
-              case let .table(general)? = settings["general"],
-              case let .string(language)? = general["language"]
-        else { return nil }
-        return language
+        SettingsFilePersistence.launchLanguage(at: fileURL)
     }
 
     static func launchArguments(_ arguments: [String: Any], selecting language: String?) -> [String: Any]? {

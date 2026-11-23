@@ -213,7 +213,7 @@ final class OverviewSettingsTOMLTests: XCTestCase {
         settings.overview.hoveredBorderColor = color(0.3, 0.4, 0.5, 0.6)
         settings.overview.selectedBorderColor = color(0.4, 0.5, 0.6, 0.7)
 
-        let persisted = try SettingsTOMLCodec.decode(Data(contentsOf: persistence.fileURL))
+        let persisted = try SettingsLuauDocument(Data(contentsOf: persistence.fileURL)).export
         XCTAssertEqual(persisted.overview.zoom, settings.overview.zoom)
         XCTAssertEqual(persisted.overview.invertScrollDirection, true)
         XCTAssertEqual(persisted.overview.mouseScrollSpeed, 0.05)

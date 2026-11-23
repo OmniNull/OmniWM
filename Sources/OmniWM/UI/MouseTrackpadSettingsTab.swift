@@ -91,6 +91,7 @@ struct MouseTrackpadSettingsTab: View {
                 }
             }
             .id("Dwindle Group Across Displays")
+            .settingsField(.gesturesDwindleGroupDragAcrossDisplays)
 
             SettingsCaption(
                 localized: "Choose what dragging a Dwindle group by its title bar moves onto another display. A whole group moved into Niri becomes one tabbed column. Dragging an individual group tab moves only that tab."
@@ -103,16 +104,19 @@ struct MouseTrackpadSettingsTab: View {
         Section("Focus Follows Mouse") {
             Toggle("Enable Focus Follows Mouse", isOn: Bindable(settings.focus).followsMouse)
                 .id("Enable Focus Follows Mouse")
+                .settingsField(.focusFollowsMouse)
                 .onChange(of: settings.focus.followsMouse) { _, newValue in
                     controller.setFocusFollowsMouse(newValue)
                 }
 
             Toggle("Raise Window When Focus Follows Mouse", isOn: Bindable(settings.focus).raiseOnMouseFocus)
                 .id("Raise Window When Focus Follows Mouse")
+                .settingsField(.focusRaiseOnMouseFocus)
                 .disabled(!settings.focus.followsMouse)
 
             Toggle("Only Focus Fully Visible Niri Windows", isOn: Bindable(settings.focus).followsMouseOnlyFullyVisible)
                 .id("Only Focus Fully Visible Niri Windows")
+                .settingsField(.focusFollowsMouseOnlyFullyVisible)
                 .disabled(!settings.focus.followsMouse)
 
             SettingsCaption(
@@ -120,6 +124,7 @@ struct MouseTrackpadSettingsTab: View {
             )
 
             SettingsSliderRow(
+                field: .init(.focusEdgeNavigationInterval),
                 label: String(localized: "Edge navigation interval"),
                 value: Bindable(settings.focus).edgeNavigationInterval,
                 range: FocusSettings.edgeNavigationIntervalRange,
@@ -141,6 +146,7 @@ struct MouseTrackpadSettingsTab: View {
                 }
             }
             .id("Focus Lock Modifier")
+            .settingsField(.focusLockModifier)
             .disabled(!settings.focus.followsMouse)
 
             SettingsCaption(

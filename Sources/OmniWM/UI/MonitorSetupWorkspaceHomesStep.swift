@@ -54,6 +54,7 @@ struct MonitorSetupWorkspaceHomesStep: View {
                                 draft.removeDraftCreatedWorkspace(configuration.id)
                             }
                         )
+                        .settingsField(.workspaces, row: configuration.id.uuidString, leaf: "monitorAssignment")
                     }
                 }
             }
@@ -80,6 +81,7 @@ struct MonitorSetupWorkspaceHomesStep: View {
                                 systemImage: "plus.circle"
                             )
                         }
+                        .settingsField(.workspaces, row: nil)
                     }
                 }
             }

@@ -32,7 +32,7 @@ final class BorderOwnerContractTests: XCTestCase {
         settings.borders.width = 99
         XCTAssertEqual(changes.withLock { $0 }, ["color", "width"])
         XCTAssertEqual(settings.borders.width, 99)
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertEqual(saved.borders.color, color)
         XCTAssertEqual(saved.borders.width, 99)
         XCTAssertEqual(saved, settings.toExport())
@@ -74,7 +74,7 @@ final class BorderOwnerContractTests: XCTestCase {
         XCTAssertEqual(settings.borders.color, SettingsColor(red: 0, green: 1, blue: 0.25, alpha: 0.75))
         XCTAssertEqual(try Data(contentsOf: settings.settingsFileURL), originalData)
         settings.borders.enabled = true
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertEqual(saved, settings.toExport())
     }
 

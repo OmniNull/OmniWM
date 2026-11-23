@@ -83,3 +83,9 @@ final class CommandPaletteSettings {
         return true
     }
 }
+
+extension SettingsExport.CommandPalette: SettingsWireNames {
+    static var settingsWireNames: [String: [String]] {
+        [CodingKeys.searchedModes.stringValue: CommandPaletteMode.allCases.map(\.rawValue)]
+    }
+}

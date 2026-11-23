@@ -175,3 +175,9 @@ struct ResolvedNiriSettings: Equatable {
     var fitsVisibleContainerCount = true
     var opensNewWindowsAtAppWidth = false
 }
+
+extension NiriContainerPrimarySpanOverride: SettingsWireVariants {
+    static var settingsWireVariants: [SettingsWireVariant] {
+        [.named("auto"), .named("app"), .sample(.number(1))]
+    }
+}

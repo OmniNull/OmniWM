@@ -278,6 +278,7 @@ extension WMController {
     func setOverviewEnabled(_ enabled: Bool) {
         if settings.overview.enabled != enabled {
             settings.overview.enabled = enabled
+            guard settings.overview.enabled == enabled else { return }
         }
         if !enabled {
             windowActionHandlerStorage?.releaseOverviewController()

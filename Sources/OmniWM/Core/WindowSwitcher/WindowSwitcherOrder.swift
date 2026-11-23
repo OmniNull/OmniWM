@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
-enum WindowSwitcherOrder: String, Codable {
+enum WindowSwitcherOrder: String, Codable, CaseIterable {
     case omniLayout
     case lastUsed
 

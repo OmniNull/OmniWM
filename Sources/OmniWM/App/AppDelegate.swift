@@ -205,7 +205,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 title: String(localized: "IPC Failed to Start"),
                 message: error.localizedDescription
             )
-            settings.ipcEnabled = false
+            settings.recordFailedIPCStart()
         }
     }
 
@@ -223,7 +223,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                     message: error.localizedDescription
                 )
                 if isEnabled {
-                    settings.ipcEnabled = false
+                    settings.recordFailedIPCStart()
                 }
             }
         }
@@ -232,6 +232,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             controller.applyPersistedSettings(settings)
             controller.shellAppCatalog.requestRefresh()
         }
+        controller.observeConfirmedSettingsEdits()
         settings.onConfigNoticeChanged = { [weak self, weak controller] in
             controller?.refreshDiagnosticsIssues()
             guard let self, launchOverlayFinished else { return }

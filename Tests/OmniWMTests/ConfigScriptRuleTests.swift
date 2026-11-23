@@ -90,22 +90,28 @@ final class ConfigScriptRuleTests: XCTestCase {
     }
 
     func testScriptRulesStayInMemoryAndReturnWhenConflictingGUIRuleIsRemoved() throws {
-        let wm = WindowAdmissionTestSupport.controller()
-        let settings = wm.settings
-        let root = settings.settingsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
+        let persistence = SettingsFilePersistence(directory: root, startWatching: false, deferSaves: false)
+        let settings = SettingsStore(persistence: persistence, runtimeState: RuntimeStateStore(directory: root))
         let base = AppRule(bundleId: "com.apple.TextEdit", layout: .tile)
         let overlay = AppRule(bundleId: bundle, layout: .tile)
         var collision = overlay
         collision.layout = .float
-        settings.appRules = [base]
+        func writeRules(_ rules: [AppRule]) throws {
+            var configured = settings.toExport()
+            configured.appRules = rules
+            try SettingsLuauDocument.initialSource(configured).write(to: persistence.fileURL, options: .atomic)
+            persistence.handlePossibleSettingsFileChange()
+        }
+        try writeRules([base])
         let initial = settings.appRulesRevision
         XCTAssertTrue(settings.setScriptAppRules([overlay]))
         XCTAssertEqual(settings.appRulesRevision, initial + 1)
         XCTAssertFalse(settings.setScriptAppRules([overlay]))
         XCTAssertEqual(settings.effectiveAppRules, [base, overlay])
 
-        settings.appRules.append(collision)
+        try writeRules([base, collision])
         XCTAssertEqual(settings.appRulesDiagnosticSnapshot.rules, [base, collision])
         let masked = settings.appRulesRevision
         XCTAssertEqual(masked, initial + 2)
@@ -113,16 +119,18 @@ final class ConfigScriptRuleTests: XCTestCase {
         XCTAssertFalse(settings.setScriptAppRules([]))
         XCTAssertFalse(settings.setScriptAppRules([overlay]))
         XCTAssertEqual(settings.appRulesRevision, masked)
-        settings.flushNow()
-        let persisted = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        settings.gaps.size += 1
+        XCTAssertNil(settings.configNotice)
+        let persisted = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertEqual(persisted.appRules, [base, collision])
 
-        settings.appRules.removeLast()
+        try writeRules([base])
         XCTAssertEqual(settings.appRulesRevision, masked + 1)
         XCTAssertEqual(settings.effectiveAppRules, [base, overlay])
         XCTAssertEqual(settings.appRulesDiagnosticSnapshot.rules, [base, overlay])
-        settings.flushNow()
-        let unmasked = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        settings.gaps.size += 1
+        XCTAssertNil(settings.configNotice)
+        let unmasked = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertEqual(unmasked.appRules, [base])
     }
 

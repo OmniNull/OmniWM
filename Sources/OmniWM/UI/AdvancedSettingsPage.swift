@@ -58,6 +58,7 @@ struct AdvancedSettingsPage: View {
             if let menu, menu.ipcMenuEnabled {
                 Section("Automation") {
                     Toggle("Enable IPC", isOn: $settings.ipcEnabled)
+                        .settingsField(.generalIpcEnabled)
                     SettingsCaption(localized: "Allows local commands and scripts to control OmniWM.")
                 }
                 .id("Automation")

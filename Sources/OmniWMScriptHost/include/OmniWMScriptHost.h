@@ -306,6 +306,20 @@ typedef struct omni_config_span {
     size_t length;
 } omni_config_span;
 
+typedef uint32_t (*omni_settings_field)(void *context, uint32_t parent, omni_config_span key,
+    size_t begin, size_t end, uint32_t line, bool literal, bool record);
+typedef void (*omni_settings_formula)(void *context, uint32_t field, size_t begin, size_t end, uint32_t line);
+typedef struct omni_settings_item {
+    omni_config_span key;
+    size_t begin, value_begin, end, separator;
+    size_t list_position, index_begin, index_end;
+} omni_settings_item;
+typedef void (*omni_settings_constructor)(void *context, uint32_t field, size_t begin, size_t end,
+    const omni_settings_item *items, size_t count);
+typedef void (*omni_settings_comment)(void *context, size_t begin, size_t end);
+typedef void (*omni_settings_return_site)(void *context, size_t begin, size_t end, uint32_t line, size_t insertion);
+typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t length);
+
 #define OMNI_CONFIG_MODULE_LIMIT 64u
 #define OMNI_CONFIG_ERROR_CAPACITY 1024u
 #define OMNI_CONFIG_COMMAND_LIMIT 64u
@@ -368,6 +382,14 @@ typedef struct omni_config_module {
     omni_config_span source;
 } omni_config_module;
 
+typedef bool (*omni_read_module)(void *context, uint32_t requester, omni_config_span spec,
+    omni_config_module *module, char *error, size_t capacity);
+
+omni_status omni_settings_evaluate(omni_config_span source, size_t heap_limit, uint64_t budget,
+    void *context, omni_settings_field field, omni_settings_formula formula, omni_settings_constructor constructor,
+    omni_settings_comment comment, omni_settings_return_site return_site,
+    omni_settings_table table, omni_read_module read_module, omni_config_location *site, char *error, size_t capacity) OMNI_NOEXCEPT;
+
 typedef enum omni_config_value_kind {
     OMNI_CONFIG_STRING,
     OMNI_CONFIG_NUMBER,
@@ -394,8 +416,7 @@ typedef struct omni_config_callbacks {
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
     bool (*bind)(void *context, omni_config_span chord, uint32_t action_id, omni_config_span mode_key,
         omni_config_location location, char *error, size_t capacity);
-    bool (*read_module)(void *context, uint32_t requester, omni_config_span spec,
-        omni_config_module *module, char *error, size_t capacity);
+    omni_read_module read_module;
     bool (*rule)(void *context, const omni_config_field *fields, size_t count,
         omni_config_location location, char *error, size_t capacity);
     bool (*bind_function)(void *context, omni_config_span chord, uint32_t callback_id, omni_config_span mode_key, uint8_t reads,

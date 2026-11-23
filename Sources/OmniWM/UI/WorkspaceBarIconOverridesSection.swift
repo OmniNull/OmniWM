@@ -112,6 +112,7 @@ struct WorkspaceBarIconOverridesSection: View {
                             removeOverride(for: candidate.bundleID)
                         }
                     )
+                    .settingsField(.workspaceBarIconOverrides, member: candidate.bundleID)
                 }
             }
 
@@ -126,6 +127,7 @@ struct WorkspaceBarIconOverridesSection: View {
                     WorkspaceBarAppCandidates.normalizedBundleID(newBundleID) == nil
                 )
             }
+            .settingsField(.workspaceBarIconOverrides)
         }
         .sheet(item: $iconPickerRequest) { request in
             WorkspaceBarAppIconPicker(

@@ -167,7 +167,7 @@ final class QuakeTerminalAppearanceSettingsTests: XCTestCase {
         settings.quakeTerminal.backgroundBlurRadius = 40
         settings.quakeTerminal.backgroundEffect = .glassClear
 
-        let persisted = try SettingsTOMLCodec.decode(Data(contentsOf: persistence.fileURL))
+        let persisted = try SettingsLuauDocument(Data(contentsOf: persistence.fileURL)).export
         XCTAssertEqual(persisted.quakeTerminal.backgroundBlurRadius, 40)
         XCTAssertEqual(persisted.quakeTerminal.backgroundEffect, .glassClear)
     }

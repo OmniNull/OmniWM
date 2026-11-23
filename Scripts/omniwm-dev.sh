@@ -82,13 +82,13 @@ seed_settings() {
     /*) ;;
     *) config_base="$HOME/.config" ;;
   esac
-  local source="$config_base/omniwm/settings.toml"
+  local source="$config_base/omniwm/settings.luau"
   local destination="$config_base/omniwm-dev"
   if [ ! -e "$destination" ]; then
     mkdir -p "$destination"
     if [ -f "$source" ]; then
-      cp -L "$source" "$destination/settings.toml"
-      echo "omniwm-dev: copied settings to $destination/settings.toml"
+      cp -L "$source" "$destination/settings.luau"
+      echo "omniwm-dev: copied settings to $destination/settings.luau"
     fi
   fi
 }

@@ -32,6 +32,12 @@ final class WorkspaceSettings {
         configurations.map(\.name)
     }
 
+    nonisolated static func insert<Row>(_ row: Row, into rows: inout [Row], name: (Row) -> String) {
+        let newName = name(row)
+        let index = rows.firstIndex { WorkspaceIDPolicy.sortsBefore(newName, name($0)) } ?? rows.endIndex
+        rows.insert(row, at: index)
+    }
+
     func layoutType(for workspaceName: String) -> LayoutType {
         let configurations = self.configurations
         let span = configurations.span

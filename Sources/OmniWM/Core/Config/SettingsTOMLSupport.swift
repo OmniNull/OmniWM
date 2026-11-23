@@ -83,22 +83,22 @@ struct SettingsTOMLDecodeResult: Equatable {
 }
 
 extension SettingsTOMLCodec {
-    static func diagnosticDescription(for error: Error) -> String {
+    static func diagnosticDescription(for error: Error, root: String = "settings.toml") -> String {
         switch error {
         case let error as TOMLDecodingError:
             error.description
         case let DecodingError.keyNotFound(key, context):
-            "\(diagnosticPath(context.codingPath + [key])): \(context.debugDescription)"
+            "\(diagnosticPath(context.codingPath + [key], root: root)): \(context.debugDescription)"
         case let DecodingError.typeMismatch(_, context),
              let DecodingError.valueNotFound(_, context),
              let DecodingError.dataCorrupted(context):
-            "\(diagnosticPath(context.codingPath)): \(context.debugDescription)"
+            "\(diagnosticPath(context.codingPath, root: root)): \(context.debugDescription)"
         default:
             error.localizedDescription
         }
     }
 
-    private static func diagnosticPath(_ codingPath: [CodingKey]) -> String {
+    private static func diagnosticPath(_ codingPath: [CodingKey], root: String) -> String {
         var result = ""
         for key in codingPath {
             if let index = key.intValue {
@@ -107,7 +107,7 @@ extension SettingsTOMLCodec {
                 result += result.isEmpty ? key.stringValue : ".\(key.stringValue)"
             }
         }
-        return result.isEmpty ? "settings.toml" : result
+        return result.isEmpty ? root : result
     }
 }
 

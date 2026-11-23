@@ -72,6 +72,7 @@ struct WorkspacesSettingsTab: View {
                         Text(layout.localizedDisplayName).tag(layout)
                     }
                 }
+                .settingsField(.generalDefaultLayoutType)
                 .id("Layout Algorithm")
                 .onChange(of: settings.workspaces.defaultLayoutType) { _, _ in
                     controller.updateWorkspaceConfig()
@@ -84,6 +85,7 @@ struct WorkspacesSettingsTab: View {
                     "Go Back When Switching to the Current Workspace",
                     isOn: Bindable(settings.workspaces).autoBackAndForth
                 )
+                .settingsField(.generalWorkspaceAutoBackAndForth)
                 SettingsCaption(localized:
                     "A workspace shortcut or command palette entry for the workspace you are on returns to the previous workspace instead. omniwmctl is not affected."
                 )
@@ -106,6 +108,7 @@ struct WorkspacesSettingsTab: View {
                             onEdit: { editingConfig = config },
                             onDelete: { pendingDeleteConfig = config }
                         )
+                        .settingsField(.workspaces, row: config.id.uuidString)
                     }
                 }
             } header: {
@@ -116,6 +119,7 @@ struct WorkspacesSettingsTab: View {
                         Label("Add workspace", systemImage: "plus.circle")
                     })
                     .buttonStyle(.plain)
+                    .settingsField(.workspaces)
                     .help(addButtonHelp)
                     .accessibilityLabel("Add workspace")
                 }
@@ -345,6 +349,10 @@ struct WorkspaceEditSheet: View {
         self.onCancel = onCancel
     }
 
+    private var row: String? {
+        isNew ? nil : configuration.id.uuidString
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             Text(isNew ? String(localized: "Add Workspace") : String(localized: "Edit Workspace"))
@@ -361,6 +369,7 @@ struct WorkspaceEditSheet: View {
                     get: { configuration.displayName ?? "" },
                     set: { configuration.displayName = $0.isEmpty ? nil : $0 }
                 ))
+                .settingsField(.workspaces, row: row, leaf: "displayName")
                 .id("Display Name (optional)")
                 .textFieldStyle(.roundedBorder)
 
@@ -368,6 +377,7 @@ struct WorkspaceEditSheet: View {
                     selection: $configuration.monitorAssignment,
                     connectedMonitors: connectedMonitors
                 )
+                .settingsField(.workspaces, row: row, leaf: "monitorAssignment")
 
                 Text(
                     "Main, Secondary, and Tertiary follow the Monitor Roles order in Settings > Monitors; without a ranking, Main is the macOS main display and the others follow arrangement order. Specific Display pins this workspace to the selected monitor when available."
@@ -380,6 +390,7 @@ struct WorkspaceEditSheet: View {
                         Text(layout.localizedDisplayName).tag(layout)
                     }
                 }
+                .settingsField(.workspaces, row: row, leaf: "layoutType")
                 .id("Layout")
             }
 
@@ -394,6 +405,7 @@ struct WorkspaceEditSheet: View {
                     onSave(configuration)
                 }
                 .keyboardShortcut(.defaultAction)
+                .settingsField(.workspaces, row: row)
             }
         }
         .padding()

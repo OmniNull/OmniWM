@@ -261,33 +261,30 @@ final class ShellNetworkPermissionTests: XCTestCase {
     }
 
     @MainActor
-    func testSettingsStoreRecordsAndResetsHostDecisionsAndPersistsThem() throws {
-        let settings = SettingsStore(
-            persistence: SettingsFilePersistence(directory: root, startWatching: false, deferSaves: false),
-            runtimeState: RuntimeStateStore(directory: root, deferSaves: false)
-        )
-        var changes = 0
-        settings.shellPermissions.onDecisionsChange = { changes += 1 }
-        settings.shellPermissions.setNetwork(.allowed, hosts: ["API.example."], for: principal)
-        settings.shellPermissions.setNetwork(.allowed, hosts: ["api.example"], for: principal)
-        XCTAssertEqual(changes, 1)
+    func testSettingsFileGrantsHostPermissionAndARejectedListEditKeepsIt() throws {
         let allowed = ShellPermissionDecisions.Widget(
             role: .component, name: "ci", source: "/shell/widgets/ci", allowed: ["api.example"]
         )
-        XCTAssertEqual(
-            try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)).shellPermissions.widgets,
-            [allowed]
+        var configured = SettingsExport.defaults()
+        configured.shellPermissions.widgets = [allowed]
+        let source = try SettingsLuauDocument.initialSource(configured)
+        let persistence = SettingsFilePersistence(directory: root, startWatching: false, deferSaves: false)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try source.write(to: persistence.fileURL)
+        let settings = SettingsStore(
+            persistence: persistence,
+            runtimeState: RuntimeStateStore(directory: root, deferSaves: false)
         )
-        settings.shellPermissions.setNetwork(nil, hosts: ["api.example"], for: principal)
-        XCTAssertEqual(changes, 2)
-        XCTAssertTrue(
-            try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)).shellPermissions.widgets.isEmpty
-        )
-        var export = settings.toExport()
-        export.shellPermissions.widgets = [allowed]
-        settings.applyExport(export)
-        XCTAssertEqual(changes, 3)
         XCTAssertEqual(settings.shellPermissions.decisions.widgets, [allowed])
+        settings.shellPermissions.setNetwork(nil, hosts: ["api.example"], for: principal)
+        XCTAssertTrue(String(describing: settings.configNotice).contains("shellPermissions.widgets"))
+        XCTAssertEqual(settings.shellPermissions.decisions.widgets, [allowed])
+        XCTAssertEqual(try Data(contentsOf: persistence.fileURL), source)
+        configured.shellPermissions.widgets = []
+        try SettingsLuauDocument.initialSource(configured).write(to: persistence.fileURL, options: .atomic)
+        persistence.handlePossibleSettingsFileChange()
+        XCTAssertNil(settings.configNotice)
+        XCTAssertTrue(settings.shellPermissions.decisions.widgets.isEmpty)
     }
 
     func testManagedPolicyReadsOnlyForcedValuesAndFailsClosedOnInvalidOnes() {

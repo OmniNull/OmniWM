@@ -18,6 +18,7 @@ struct QuakeTerminalSettingsTab: View {
             Section("Quake Terminal") {
                 Toggle("Enable Quake Terminal", isOn: Bindable(settings.quakeTerminal).enabled)
                     .id("Enable Quake Terminal")
+                    .settingsField(.quakeTerminalEnabled)
                     .onChange(of: settings.quakeTerminal.enabled) { _, newValue in
                         controller.setQuakeTerminalEnabled(newValue)
                     }
@@ -28,6 +29,7 @@ struct QuakeTerminalSettingsTab: View {
                     }
                 }
                 .id("Terminal")
+                .settingsField(.quakeTerminalProvider)
                 .onChange(of: settings.quakeTerminal.provider) { _, newValue in
                     controller.setQuakeTerminalProvider(newValue)
                 }
@@ -84,6 +86,7 @@ struct QuakeTerminalSettingsTab: View {
                         }
                     }
                     .id("Position")
+                    .settingsField(.quakeTerminalPosition)
 
                     Picker("Show On", selection: Bindable(settings.quakeTerminal).monitorMode) {
                         ForEach(QuakeTerminalMonitorMode.allCases, id: \.self) { mode in
@@ -91,8 +94,10 @@ struct QuakeTerminalSettingsTab: View {
                         }
                     }
                     .id("Show On")
+                    .settingsField(.quakeTerminalMonitorMode)
 
                     SettingsSliderRow(
+                        field: .init(.quakeTerminalWidthPercent),
                         label: String(localized: "Width"),
                         value: Bindable(settings.quakeTerminal).widthPercent,
                         range: 10 ... 100,
@@ -102,6 +107,7 @@ struct QuakeTerminalSettingsTab: View {
                     .id("Width")
 
                     SettingsSliderRow(
+                        field: .init(.quakeTerminalHeightPercent),
                         label: String(localized: "Height"),
                         value: Bindable(settings.quakeTerminal).heightPercent,
                         range: 10 ... 100,
@@ -126,11 +132,13 @@ struct QuakeTerminalSettingsTab: View {
                         }
                     }
                     .id("Background Effect")
+                    .settingsField(.quakeTerminalBackgroundEffect)
                     .onChange(of: settings.quakeTerminal.backgroundEffect) { _, _ in
                         controller.reloadQuakeTerminalBackgroundEffect()
                     }
 
                     SettingsSliderRow(
+                        field: .init(.quakeTerminalOpacity),
                         label: String(localized: "Quake Background Opacity"),
                         value: Bindable(settings.quakeTerminal).opacity,
                         range: 0.1 ... 1.0,
@@ -143,6 +151,7 @@ struct QuakeTerminalSettingsTab: View {
                     }
 
                     SettingsSliderRow(
+                        field: .init(.quakeTerminalBackgroundBlurRadius),
                         label: String(localized: "Background Blur"),
                         value: Binding(
                             get: { [settings] in Double(settings.quakeTerminal.backgroundBlurRadius) },
@@ -182,6 +191,7 @@ struct QuakeTerminalSettingsTab: View {
 
                     Toggle("Auto-hide on Focus Loss", isOn: Bindable(settings.quakeTerminal).autoHide)
                         .id("Auto-hide on Focus Loss")
+                        .settingsField(.quakeTerminalAutoHide)
                 }
                 .id("Behavior")
             }
@@ -219,6 +229,7 @@ struct QuakeAnimationDurationRow: View {
 
     var body: some View {
         SettingsSliderRow(
+            field: .init(.quakeTerminalAnimationDuration),
             label: String(localized: "Animation Duration"),
             value: Bindable(quake).animationDuration,
             range: 0 ... 1,

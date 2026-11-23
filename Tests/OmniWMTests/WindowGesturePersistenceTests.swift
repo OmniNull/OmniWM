@@ -116,7 +116,7 @@ final class WindowGesturePersistenceTests: XCTestCase {
         export.gestures.windowMoveEnabled = true
         export.gestures.windowResizeEnabled = true
         let url = directory.appendingPathComponent(SettingsFilePersistence.fileName)
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         try data.write(to: url)
         var monitorCalls = 0
         let persistence = SettingsFilePersistence(
@@ -140,7 +140,7 @@ final class WindowGesturePersistenceTests: XCTestCase {
         let url = directory.appendingPathComponent(SettingsFilePersistence.fileName)
         var initial = SettingsExport.defaults()
         initial.gestures.scrollEnabled = false
-        try SettingsTOMLCodec.encode(initial).write(to: url)
+        try SettingsLuauDocument.initialSource(initial).write(to: url)
         let persistence = SettingsFilePersistence(
             directory: directory, startWatching: false, deferSaves: false, monitorProvider: { [] }
         )
@@ -161,7 +161,7 @@ final class WindowGesturePersistenceTests: XCTestCase {
         candidate.gestures.windowMoveSensitivity = 1.75
         candidate.gestures.windowGestureSensitivity = 3.25
         candidate.gaps.size = before.gaps.size + 5
-        let rejectedData = try SettingsTOMLCodec.encode(candidate)
+        let rejectedData = try SettingsLuauDocument.initialSource(candidate)
         try rejectedData.write(to: url, options: .atomic)
 
         persistence.handlePossibleSettingsFileChange()
@@ -174,7 +174,7 @@ final class WindowGesturePersistenceTests: XCTestCase {
         }
         XCTAssertEqual(try Data(contentsOf: url), rejectedData)
         candidate.gestures.windowResizeFingerCount = .three
-        let repairedData = try SettingsTOMLCodec.encode(candidate)
+        let repairedData = try SettingsLuauDocument.initialSource(candidate)
         try repairedData.write(to: url, options: .atomic)
 
         persistence.handlePossibleSettingsFileChange()

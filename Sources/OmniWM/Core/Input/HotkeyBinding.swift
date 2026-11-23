@@ -451,3 +451,15 @@ enum HotkeyCategory: String, CaseIterable {
         .script: String(localized: "Script Commands")
     ]
 }
+
+extension KeyBinding: SettingsWireVariants {
+    static var settingsWireVariants: [SettingsWireVariant] {
+        [.sample(.string(unassigned.humanReadableString)), .sample(.record([:]))]
+    }
+}
+
+extension HotkeyTrigger: SettingsWireVariants {
+    static var settingsWireVariants: [SettingsWireVariant] {
+        KeyBinding.settingsWireVariants
+    }
+}

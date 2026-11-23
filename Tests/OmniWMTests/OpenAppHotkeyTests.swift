@@ -134,7 +134,7 @@ final class OpenAppHotkeyTests: XCTestCase {
         )
     }
 
-    func testRemovingTheLastLauncherEntryForAnAppClearsItsShortcutAcrossTOMLReload() throws {
+    func testRemovingTheLastLauncherEntryForAnAppClearsItsShortcutAcrossSettingsReload() throws {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         var warnings: [Bool] = []
@@ -178,8 +178,11 @@ final class OpenAppHotkeyTests: XCTestCase {
         XCTAssertEqual(warnings, [false, true])
         XCTAssertEqual(changes, [actionID, actionID])
 
-        settings.flushNow()
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        try SettingsLuauDocument.initialSource(settings.toExport()).write(
+            to: settings.settingsFileURL,
+            options: .atomic
+        )
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertFalse(saved.hotkeyBindings.contains { $0.id == actionID })
         let reloaded = makeSettings(root)
         XCTAssertNil(reloaded.configNotice)
@@ -249,7 +252,10 @@ final class OpenAppHotkeyTests: XCTestCase {
         entry.kind = .application
         entry.path = bundleURL.path
         settings.launcher.entries = [entry]
-        settings.flushNow()
+        try SettingsLuauDocument.initialSource(settings.toExport()).write(
+            to: settings.settingsFileURL,
+            options: .atomic
+        )
         XCTAssertNil(entry.bundleIdentifier)
         XCTAssertFalse(settings.hotkeyBindings.contains { $0.id == actionID })
 

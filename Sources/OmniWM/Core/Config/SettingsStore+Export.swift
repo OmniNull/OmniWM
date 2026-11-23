@@ -52,4 +52,28 @@ extension SettingsStore {
             shellPermissions: shellPermissions.export()
         )
     }
+
+    func applyServiceSettings(_ export: SettingsExport) {
+        preventSleepEnabled = export.preventSleepEnabled
+        updateChecksEnabled = export.updateChecksEnabled
+        ipcEnabled = export.ipcEnabled
+        gestures.apply(export.gestures)
+        statusBar.apply(export.statusBar)
+        statusMenu.apply(export.statusMenu)
+        hiddenBar.apply(export.hiddenBar)
+        animationsEnabled = export.animationsEnabled
+        animationSpeed = export.animationSpeed
+        slideWorkspaceSwitches = export.slideWorkspaceSwitches
+        pausePalettePasteDuringSecureInput = export.pausePalettePasteDuringSecureInput
+        language = export.language
+        clipboard.apply(export.clipboard)
+        launcher = export.launcher
+        commandPalette.apply(export.commandPalette)
+
+        quakeTerminal.apply(export.quakeTerminal, baseline: SettingsStore.defaultExport.quakeTerminal)
+
+        tabRailAppIcons = export.tabRailAppIcons
+        shellPermissions.apply(export.shellPermissions)
+        appTheming.apply(export.appTheming)
+    }
 }

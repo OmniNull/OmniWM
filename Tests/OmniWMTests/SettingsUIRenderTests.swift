@@ -126,7 +126,7 @@ import XCTest
                         try await render(
                             LauncherEntryEditor(
                                 entry: draft, runOnly: kind == .executable, configuration: fixture.settings.launcher,
-                                save: { _ in }, run: { _ in }
+                                save: { _, _ in }, run: { _ in }
                             ),
                             fixture: fixture, windowClass: WindowClass(
                                 size: CGSize(width: 620, height: 600),

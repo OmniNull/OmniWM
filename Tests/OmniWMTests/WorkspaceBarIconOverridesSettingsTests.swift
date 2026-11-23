@@ -145,7 +145,7 @@ final class WorkspaceBarIconOverridesSettingsTests: XCTestCase {
             "org.example.Blank": "\n"
         ]
 
-        try SettingsTOMLCodec.encode(external).write(to: persistence.fileURL, options: .atomic)
+        try SettingsLuauDocument.initialSource(external).write(to: persistence.fileURL, options: .atomic)
         await fulfillment(of: [reloaded], timeout: failureBound)
 
         XCTAssertEqual(externalReloadCount, 1)

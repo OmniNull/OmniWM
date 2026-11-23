@@ -231,7 +231,7 @@ import XCTest
                 Color.clear
                     .onAppear { presented = true }
                     .sheet(isPresented: $presented, onDismiss: onDismiss) {
-                        LauncherEntryEditor(entry: entry, runOnly: runOnly, save: save, run: run)
+                        LauncherEntryEditor(entry: entry, runOnly: runOnly, save: { entry, _ in save(entry) }, run: run)
                             .transaction { $0.animation = nil }
                             .onAppear(perform: onAppear)
                     }

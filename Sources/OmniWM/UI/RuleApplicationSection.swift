@@ -5,6 +5,7 @@ import SwiftUI
 
 struct RuleApplicationSection: View {
     @Binding var draft: AppRuleDraft
+    let row: String?
     let controller: WMController
 
     @State private var runningApps: [RunningAppInfo] = []
@@ -15,6 +16,7 @@ struct RuleApplicationSection: View {
         Section("Application") {
             TextField("Bundle ID", text: $draft.bundleId)
                 .textFieldStyle(.roundedBorder)
+                .settingsField(.appRules, row: row, leaf: "bundleId")
             if let error = draft.bundleIdError {
                 Text(error)
                     .font(.caption)
@@ -57,6 +59,7 @@ struct RuleApplicationSection: View {
                     isPickerPresented = false
                 }
             }
+            .settingsField(.appRules, row: row, leaf: "bundleId", "appNameSubstring")
 
             if let windowSize = selectedAppInfo?.trackedWindowSize {
                 Button {
@@ -68,12 +71,15 @@ struct RuleApplicationSection: View {
                     )
                 }
                 .buttonStyle(.bordered)
+                .settingsField(.appRules, row: row, leaf: "minWidth", "minHeight")
             }
 
             Toggle("Also match by app name", isOn: $draft.appNameMatcherEnabled)
+                .settingsField(.appRules, row: row, leaf: "appNameSubstring")
             if draft.appNameMatcherEnabled {
                 TextField("App name contains, e.g. Preview", text: $draft.appNameSubstring)
                     .textFieldStyle(.roundedBorder)
+                    .settingsField(.appRules, row: row, leaf: "appNameSubstring")
             }
 
             SettingsCaption(

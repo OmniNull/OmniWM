@@ -260,7 +260,47 @@ enum SettingsFileAccess {
         }
     }
 
+    static func createAtomically(_ data: Data, at targetURL: URL) throws {
+        let temporary = targetURL.deletingLastPathComponent()
+            .appendingPathComponent(".settings-\(UUID().uuidString).tmp")
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try writeExclusive(data, to: temporary)
+        try FileManager.default.linkItem(at: temporary, to: targetURL)
+    }
+
     static func writeAtomically(_ data: Data, at targetURL: URL) throws {
         try data.write(to: targetURL, options: .atomic)
+    }
+}
+
+struct SettingsFileEdit {
+    let target: URL
+    let previous: SettingsFileAccess.Fingerprint?
+    let patch: SettingsLuauEdit
+    var modules: SettingsFileVersions = [:]
+
+    func verify(at fileURL: URL, originalSource: Data?, approved: Bool) throws {
+        if patch.question != nil, !approved {
+            throw SettingsLuauError(
+                message: "Changing a formula requires confirmation in Settings. Edit the file directly or choose the value in the Settings window."
+            )
+        }
+        guard modules.isCurrent else { throw SettingsLuauError.changedHelper }
+        if let revision = previous {
+            let current = try SettingsFileAccess.readContents(
+                at: target,
+                maximumBytes: ConfigScriptLoader.sourceLimit
+            )
+            guard current.fingerprint == revision, current.data == originalSource else {
+                throw SettingsLuauError(
+                    message: "settings.luau was edited externally. Read the latest file before saving."
+                )
+            }
+        }
+        guard SettingsFileAccess.currentFingerprint(at: fileURL) == previous,
+              try SettingsFileAccess.settingsTarget(for: fileURL) == target
+        else {
+            throw SettingsLuauError(message: "settings.luau changed during this edit. Try again with the latest file.")
+        }
     }
 }

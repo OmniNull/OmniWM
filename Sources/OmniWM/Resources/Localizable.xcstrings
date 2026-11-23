@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Code · %@:%lld" : {
+
+    },
     "Apply to Every New Matching Window" : {
 
     },
@@ -107722,6 +107725,9 @@
           }
         }
       }
+    },
+    "Replace calculated settings?" : {
+
     },
     "Replaces compact markers with app icons. Applies to Niri and Dwindle." : {
       "localizations" : {

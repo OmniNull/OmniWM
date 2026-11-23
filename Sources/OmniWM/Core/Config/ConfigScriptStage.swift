@@ -58,7 +58,7 @@ struct ConfigScriptStage {
                     actionID.pointee = try stage.pointee.resolve(UnsafeBufferPointer(start: words, count: count))
                     return true
                 } catch let failure {
-                    return ConfigScriptStage.writeError(failure, to: error, capacity: capacity)
+                    return failure.write(to: error, capacity: capacity)
                 }
             },
             bind: { context, chord, actionID, modeKey, location, error, capacity in
@@ -69,18 +69,14 @@ struct ConfigScriptStage {
                     try stage.pointee.bind(chord, action: action, mode: modeKey, location: location)
                     return true
                 } catch let failure {
-                    return ConfigScriptStage.writeError(failure, to: error, capacity: capacity)
+                    return failure.write(to: error, capacity: capacity)
                 }
             },
             read_module: { context, requester, spec, result, error, capacity in
-                guard let context, let result else { return false }
-                do throws(ConfigScriptError) {
-                    let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
-                    result.pointee = try stage.pointee.sources.module(requestedBy: requester, spec: spec)
-                    return true
-                } catch let failure {
-                    return ConfigScriptStage.writeError(failure, to: error, capacity: capacity)
-                }
+                guard let context else { return false }
+                return context.assumingMemoryBound(to: ConfigScriptStage.self).pointee.sources.resolve(
+                    requester, spec: spec, into: result, error: error, capacity: capacity
+                )
             },
             rule: { context, fields, count, location, error, capacity in
                 guard let context, let fields else { return false }
@@ -89,7 +85,7 @@ struct ConfigScriptStage {
                     try stage.pointee.addRule(UnsafeBufferPointer(start: fields, count: count), location: location)
                     return true
                 } catch let failure {
-                    return ConfigScriptStage.writeError(failure, to: error, capacity: capacity)
+                    return failure.write(to: error, capacity: capacity)
                 }
             },
             bind_function: { context, chord, functionID, modeKey, reads, location, error, capacity in
@@ -107,7 +103,7 @@ struct ConfigScriptStage {
                     )
                     return true
                 } catch let failure {
-                    return ConfigScriptStage.writeError(failure, to: error, capacity: capacity)
+                    return failure.write(to: error, capacity: capacity)
                 }
             },
             dispatch: { context, actionID, location, error, capacity in
@@ -118,7 +114,7 @@ struct ConfigScriptStage {
                     stage.pointee.dispatch(.native(command), at: location)
                     return true
                 } catch let failure {
-                    return ConfigScriptStage.writeError(failure, to: error, capacity: capacity)
+                    return failure.write(to: error, capacity: capacity)
                 }
             },
             log: { context, span, location in
@@ -140,7 +136,7 @@ struct ConfigScriptStage {
                     }
                     return true
                 } catch let failure {
-                    return ConfigScriptStage.writeError(failure, to: error, capacity: capacity)
+                    return failure.write(to: error, capacity: capacity)
                 }
             },
             effect: { context, kind, words, count, location, actionID, error, capacity in
@@ -153,7 +149,7 @@ struct ConfigScriptStage {
                     )
                     return true
                 } catch let failure {
-                    return ConfigScriptStage.writeError(failure, to: error, capacity: capacity)
+                    return failure.write(to: error, capacity: capacity)
                 }
             }
         )
@@ -305,26 +301,6 @@ extension ConfigScriptStage {
             throw ConfigScriptError(line: nil, message: "Command words and chords must be valid UTF-8.")
         }
         return string
-    }
-
-    private static func writeError(
-        _ failure: ConfigScriptError,
-        to buffer: UnsafeMutablePointer<CChar>?,
-        capacity: Int
-    ) -> Bool {
-        guard let buffer, capacity > 0 else { return false }
-        let bytes = failure.message.utf8
-        var end = bytes.index(bytes.startIndex, offsetBy: capacity - 1, limitedBy: bytes.endIndex) ?? bytes.endIndex
-        while end != bytes.startIndex, end != bytes.endIndex, bytes[end] & 0xC0 == 0x80 {
-            bytes.formIndex(before: &end)
-        }
-        var count = 0
-        for byte in bytes[..<end] {
-            buffer[count] = CChar(bitPattern: byte)
-            count += 1
-        }
-        buffer[count] = 0
-        return false
     }
 
     private mutating func addEvent(

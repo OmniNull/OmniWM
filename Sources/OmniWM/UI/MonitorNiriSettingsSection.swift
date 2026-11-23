@@ -8,26 +8,21 @@ struct MonitorNiriSettingsSection: View {
     @Bindable var controller: WMController
     let monitor: Monitor
 
-    private var monitorSettings: MonitorNiriSettings {
-        settings.niri.settings(for: monitor) ?? MonitorNiriSettings(
-            monitorName: monitor.name
-        )
-    }
-
     private func updateSetting(_ update: (inout MonitorNiriSettings) -> Void) {
-        var ms = monitorSettings
+        var ms = settings.niri.settings(for: monitor) ?? MonitorNiriSettings(monitorName: monitor.name)
         update(&ms)
         settings.niri.update(ms, for: monitor)
         controller.updateMonitorNiriSettings()
     }
 
     var body: some View {
-        let ms = monitorSettings
+        let ms = settings.niri.settings(for: monitor)
+        let row = ms?.id.uuidString
         let resolved = settings.niri.resolved(for: monitor)
         let effectiveSpan = resolved.defaultContainerPrimarySpan ?? 1.0 / Double(resolved.visibleContainerCount)
         let spanMode = Binding<NiriDefaultSpanSettingsSection.Mode>(
             get: {
-                switch monitorSettings.defaultContainerPrimarySpan {
+                switch settings.niri.settings(for: monitor)?.defaultContainerPrimarySpan {
                 case nil: .useGlobal
                 case .auto: .auto
                 case .app: .app
@@ -55,8 +50,14 @@ struct MonitorNiriSettingsSection: View {
 
         Section("Niri Layout") {
             OverridableSlider(
+                field: .init(
+                    .monitorNiriOverrides,
+                    row: row,
+                    leaf: "visibleContainerCount",
+                    "fitToVisibleContainerCount"
+                ),
                 label: String(localized: "Visible Containers"),
-                value: ms.visibleContainerCount == nil && ms.fitToVisibleContainerCount == nil
+                value: ms?.visibleContainerCount == nil && ms?.fitToVisibleContainerCount == nil
                     ? nil
                     : resolved.fitsVisibleContainerCount ? Double(resolved.visibleContainerCount) : 0,
                 globalValue: settings.niri.fitToVisibleContainerCount ? Double(settings.niri.visibleContainerCount) : 0,
@@ -83,16 +84,18 @@ struct MonitorNiriSettingsSection: View {
             )
 
             OverridableToggle(
+                field: .init(.monitorNiriOverrides, row: row, leaf: "infiniteLoop"),
                 label: String(localized: "Infinite Loop Navigation"),
-                value: ms.infiniteLoop,
+                value: ms?.infiniteLoop,
                 globalValue: settings.niri.infiniteLoop,
                 onChange: { newValue in updateSetting { $0.infiniteLoop = newValue } },
                 onReset: { updateSetting { $0.infiniteLoop = nil } }
             )
 
             OverridablePicker(
+                field: .init(.monitorNiriOverrides, row: row, leaf: "centerFocusedColumn"),
                 label: String(localized: "Center Focused Column"),
-                value: ms.centerFocusedColumn,
+                value: ms?.centerFocusedColumn,
                 globalValue: settings.niri.centerFocusedColumn,
                 options: CenterFocusedColumn.allCases,
                 displayName: { $0.localizedDisplayName },
@@ -101,24 +104,27 @@ struct MonitorNiriSettingsSection: View {
             )
 
             OverridableToggle(
+                field: .init(.monitorNiriOverrides, row: row, leaf: "alwaysCenterSingleColumn"),
                 label: String(localized: "Always Center Single Column"),
-                value: ms.alwaysCenterSingleColumn,
+                value: ms?.alwaysCenterSingleColumn,
                 globalValue: settings.niri.alwaysCenterSingleColumn,
                 onChange: { newValue in updateSetting { $0.alwaysCenterSingleColumn = newValue } },
                 onReset: { updateSetting { $0.alwaysCenterSingleColumn = nil } }
             )
 
             OverridableToggle(
+                field: .init(.monitorNiriOverrides, row: row, leaf: "allowOverscroll"),
                 label: String(localized: "Allow Overscroll"),
-                value: ms.allowOverscroll,
+                value: ms?.allowOverscroll,
                 globalValue: settings.niri.allowOverscroll,
                 onChange: { newValue in updateSetting { $0.allowOverscroll = newValue } },
                 onReset: { updateSetting { $0.allowOverscroll = nil } }
             )
 
             OverridableSlider(
+                field: .init(.monitorNiriOverrides, row: row, leaf: "overscrollVisibleStripPercent"),
                 label: String(localized: "Overscroll Visible Strip"),
-                value: ms.overscrollVisibleStripPercent.map(Double.init),
+                value: ms?.overscrollVisibleStripPercent.map(Double.init),
                 globalValue: Double(settings.niri.overscrollVisibleStripPercent),
                 range: 1 ... 100,
                 step: 1,
@@ -126,20 +132,23 @@ struct MonitorNiriSettingsSection: View {
                 onChange: { newValue in updateSetting { $0.overscrollVisibleStripPercent = Int(newValue) } },
                 onReset: { updateSetting { $0.overscrollVisibleStripPercent = nil } }
             )
-            .disabled(!(ms.allowOverscroll ?? settings.niri.allowOverscroll))
+            .disabled(!(ms?.allowOverscroll ?? settings.niri.allowOverscroll))
 
             SingleWindowFitControls(
                 label: String(localized: "Single Window"),
-                fit: ms.singleWindowFit ?? settings.niri.singleWindowFit,
+                field: .monitorNiriOverrides,
+                row: row,
+                fit: ms?.singleWindowFit ?? settings.niri.singleWindowFit,
                 modes: SingleWindowFit.niriModes,
-                isOverridden: ms.singleWindowFit != nil,
+                isOverridden: ms?.singleWindowFit != nil,
                 onChange: { newValue in updateSetting { $0.singleWindowFit = newValue } },
                 onReset: { updateSetting { $0.singleWindowFit = nil } }
             )
 
             OverridableSlider(
+                field: .init(.monitorNiriOverrides, row: row, leaf: "edgePeekPercent"),
                 label: String(localized: "Peripheral Vision"),
-                value: ms.edgePeekPercent,
+                value: ms?.edgePeekPercent,
                 globalValue: settings.niri.edgePeekPercent,
                 range: 0 ... 10,
                 step: 0.5,
@@ -154,6 +163,6 @@ struct MonitorNiriSettingsSection: View {
         }
         .id("Niri Layout")
 
-        NiriDefaultSpanSettingsSection(allowsGlobal: true, mode: spanMode, percent: spanPercent)
+        NiriDefaultSpanSettingsSection(allowsGlobal: true, row: row, mode: spanMode, percent: spanPercent)
     }
 }

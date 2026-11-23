@@ -5,82 +5,38 @@ import Darwin
 import Foundation
 
 enum SettingsConfigDiagnostics {
-    private struct NoticeIssue {
-        let kind: DiagnosticsIssue.Kind
-        let describesRecovery: Bool
-    }
-
     static func issues(
         directoryURL: URL = SettingsFilePersistence.defaultDirectoryURL,
         notice: SettingsConfigNotice? = nil
     ) -> [DiagnosticsIssue] {
-        var issues: [DiagnosticsIssue] = []
-
-        let settingsURL = directoryURL.appendingPathComponent(SettingsFilePersistence.fileName, isDirectory: false)
-        if let data = try? Data(contentsOf: settingsURL) {
-            let unknown = SettingsTOMLCodec.unknownKeyPaths(in: data)
-            if !unknown.isEmpty {
-                issues.append(DiagnosticsIssue(
-                    kind: .unknownConfigKeys(keyPaths: unknown),
-                    configFileURL: settingsURL
-                ))
-            }
-        }
-
-        let noticeIssue = notice.flatMap(issue(for:))
-        if let noticeIssue {
-            issues.append(DiagnosticsIssue(kind: noticeIssue.kind, configFileURL: settingsURL))
-        }
-
-        if noticeIssue?.describesRecovery != true,
-           SettingsFilePersistence.corruptFileNames.contains(where: { fileName in
-               pathEntryExists(at: directoryURL.appendingPathComponent(fileName, isDirectory: false))
-           })
-        {
-            issues.append(DiagnosticsIssue(kind: .settingsFileCorrupt, configFileURL: settingsURL))
-        }
-
-        return issues
+        guard let notice, let kind = issue(for: notice) else { return [] }
+        let url = directoryURL.appendingPathComponent(SettingsFilePersistence.fileName, isDirectory: false)
+        return [DiagnosticsIssue(kind: kind, configFileURL: url)]
     }
 
-    private static func issue(for notice: SettingsConfigNotice) -> NoticeIssue? {
+    private static func issue(for notice: SettingsConfigNotice) -> DiagnosticsIssue.Kind? {
         switch notice {
         case let .migrated(report, backupURL):
             guard pathEntryExists(at: backupURL) else { return nil }
-            return NoticeIssue(
-                kind: .settingsMigrated(report: report, backupURL: backupURL),
-                describesRecovery: false
-            )
+            return .settingsMigrated(report: report, backupURL: backupURL)
         case let .migrationWriteBlocked(report, backupURL, reason):
-            let existingBackupURL = backupURL.flatMap { pathEntryExists(at: $0) ? $0 : nil }
-            return NoticeIssue(
-                kind: .settingsPersistenceBlocked(
-                    reason: ([reason] + report.messages).joined(separator: " "),
-                    backupURL: existingBackupURL
-                ),
-                describesRecovery: false
+            let existing = backupURL.flatMap { pathEntryExists(at: $0) ? $0 : nil }
+            return .settingsPersistenceBlocked(
+                reason: ([reason] + report.messages).joined(separator: " "),
+                backupURL: existing
             )
         case let .unsupportedVersion(found, supported):
-            return NoticeIssue(
-                kind: .settingsPersistenceBlocked(
-                    reason: "schemaVersion \(found) is newer than supported version \(supported).",
-                    backupURL: nil
-                ),
-                describesRecovery: false
+            return .settingsPersistenceBlocked(
+                reason: "schemaVersion \(found) is newer than supported version \(supported).",
+                backupURL: nil
             )
         case let .recoveredInvalid(backupURL, reason):
             guard pathEntryExists(at: backupURL) else { return nil }
-            return NoticeIssue(
-                kind: .settingsRecovered(reason: reason, backupURL: backupURL),
-                describesRecovery: true
-            )
+            return .settingsRecovered(reason: reason, backupURL: backupURL)
         case let .persistenceWriteBlocked(reason):
-            return NoticeIssue(
-                kind: .settingsPersistenceBlocked(reason: reason, backupURL: nil),
-                describesRecovery: false
-            )
+            return .settingsPersistenceBlocked(reason: reason, backupURL: nil)
         case let .invalidRejected(reason):
-            return NoticeIssue(kind: .settingsInvalidRejected(reason: reason), describesRecovery: false)
+            return .settingsInvalidRejected(reason: reason)
         }
     }
 

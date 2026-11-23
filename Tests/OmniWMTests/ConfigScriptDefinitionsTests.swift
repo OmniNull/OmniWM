@@ -101,6 +101,8 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         -- SPDX-License-Identifier: GPL-2.0-only
         -- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+        \(SettingsSchemaRecorder.inventory().definition)
+
         declare extern type ConfigAction with
         end
 
@@ -186,15 +188,47 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
         let source = root.appendingPathComponent("Sources/OmniWM/Resources").appendingPathComponent(resourceName)
+        let idsURL = root.appendingPathComponent("Sources/OmniWM/Core/Config/SettingsFieldID.swift")
+        let ids = try Data(SettingsSchemaRecorder.inventory().fieldIDSource.utf8)
         if ProcessInfo.processInfo.environment["OMNIWM_REGENERATE_CONFIG_DEFS"] == "1" {
+            try ids.write(to: idsURL, options: .atomic)
             try expected.write(to: source, options: .atomic)
             return
         }
+        XCTAssertEqual(try Data(contentsOf: idsURL), ids, regenerationCommand)
         XCTAssertEqual(try Data(contentsOf: source), expected, regenerationCommand)
         let products = Bundle(for: Self.self).bundleURL.deletingLastPathComponent()
         let bundle = try XCTUnwrap(Bundle(url: products.appendingPathComponent("OmniWM_OmniWM.bundle")))
         let resource = try XCTUnwrap(bundle.url(forResource: resourceName, withExtension: nil))
         XCTAssertEqual(try Data(contentsOf: resource), expected, regenerationCommand)
+    }
+
+    func testSettingsInventoryRecordsDefaultedFieldsAndCustomWireForms() throws {
+        let shape = try SettingsSchemaRecorder.inventory()
+        guard case let .record(root) = shape,
+              case let .record(gaps) = root["gaps"]?.shape,
+              case let .list(.record(hotkey)) = root["hotkeys"]?.shape,
+              case let .alternatives(binding) = hotkey["binding"]?.shape,
+              case let .record(palette) = root["commandPalette"]?.shape,
+              case let .record(niri) = root["niri"]?.shape,
+              case let .alternatives(span) = niri["defaultContainerPrimarySpan"]?.shape
+        else {
+            return XCTFail("Expected the native settings and shortcut wire shapes")
+        }
+        XCTAssertNil(root["schemaVersion"])
+        XCTAssertEqual(gaps["size"]?.shape, .scalar("number"))
+        XCTAssertEqual(gaps["size"]?.hasDefault, true)
+        XCTAssertEqual(hotkey["id"]?.optional, false)
+        XCTAssertEqual(hotkey["modeKey"]?.optional, true)
+        XCTAssertTrue(binding.contains(.scalar("string")))
+        XCTAssertTrue(binding.contains { form in
+            guard case let .record(fields) = form else { return false }
+            return fields["keyCode"]?.shape == .scalar("number")
+        })
+        XCTAssertEqual(palette["searchedModes"]?.shape, .list(.names(CommandPaletteMode.allCases.map(\.rawValue))))
+        XCTAssertTrue(span.contains(.scalar("number")))
+        XCTAssertTrue(span.contains(.names(["auto"])))
+        XCTAssertTrue(span.contains(.names(["app"])))
     }
 
     func testSupportedOverloadsAndNativeRuleFields() throws {

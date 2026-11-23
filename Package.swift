@@ -107,6 +107,8 @@ let package = Package(
             dependencies: ["OmniWMLuau"],
             path: "Sources/OmniWMScriptHost",
             cxxSettings: [
+                .headerSearchPath("../OmniWMLuau/Ast/include"),
+                .headerSearchPath("../OmniWMLuau/Common/include"),
                 .unsafeFlags(["-O2"], .when(configuration: .debug)),
                 .treatAllWarnings(as: .error),
                 .treatWarning("unused-command-line-argument", as: .warning)

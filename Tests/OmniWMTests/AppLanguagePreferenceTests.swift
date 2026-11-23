@@ -20,15 +20,13 @@ final class AppLanguagePreferenceTests: XCTestCase {
         settings.language = "sr-Latn"
 
         let text = try String(contentsOf: settings.settingsFileURL, encoding: .utf8)
-        let generalSection = try XCTUnwrap(text.components(separatedBy: "[general]\n").last)
-            .components(separatedBy: "\n[").first
-        XCTAssertTrue(try XCTUnwrap(generalSection).contains("language = \"sr-Latn\""))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(text.utf8)).language, "sr-Latn")
+        XCTAssertTrue(text.contains("language = \"sr-Latn\""))
+        XCTAssertEqual(try SettingsLuauDocument(Data(text.utf8)).export.language, "sr-Latn")
         XCTAssertEqual(AppLanguagePreference.configuredLanguage(in: settings.settingsFileURL), "sr-Latn")
 
         settings.language = nil
 
-        XCTAssertNil(try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)).language)
+        XCTAssertNil(try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export.language)
         XCTAssertNil(AppLanguagePreference.configuredLanguage(in: settings.settingsFileURL))
     }
 

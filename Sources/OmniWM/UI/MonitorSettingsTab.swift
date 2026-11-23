@@ -166,9 +166,12 @@ struct MonitorSettingsTab: View {
                 Text("Custom Arrangement").tag(MonitorRoutingMode.custom)
             }
             .id("Arrangement")
+            .settingsField(.routingMode)
             .pickerStyle(.segmented)
 
             if settings.monitors.routingMode == .custom {
+                let layout = routingEditorLayout
+                let row = layout.arrangementID?.uuidString
                 if routingTiles.isEmpty {
                     Text(
                         connectedMonitors.isEmpty ?
@@ -183,6 +186,7 @@ struct MonitorSettingsTab: View {
                         onSelect: { selectedMonitor = $0 },
                         onPlace: { placeRouting($0, column: $1, row: $2) }
                     )
+                    .settingsField(.routingArrangements, row: row, leaf: "monitors")
 
                     if !routingNeighborPreview.isEmpty {
                         ForEach(routingNeighborPreview, id: \.direction) { entry in
@@ -193,10 +197,11 @@ struct MonitorSettingsTab: View {
                     }
 
                     RoutingAccessibleEditor(rows: routingRows, onMove: { moveRouting($0, $1) })
+                        .settingsField(.routingArrangements, row: row, leaf: "monitors")
                 }
 
                 if !sortedMonitors.isEmpty {
-                    switch routingEditorLayout.source {
+                    switch layout.source {
                     case .exact:
                         SettingsCaption(
                             localized: "This arrangement is saved for the connected displays. Changes update only this arrangement."
@@ -214,6 +219,7 @@ struct MonitorSettingsTab: View {
 
                 Button("Reset Custom Arrangement to macOS Layout") { seedFromMacOS() }
                     .id("Reset Custom Arrangement to macOS Layout")
+                    .settingsField(.routingArrangements, row: row, leaf: "monitors")
 
                 SettingsCaption(
                     localized: "Make this look like your real desk. Displays in the same row or column can exchange focus, windows, and the pointer. OmniWM remembers an arrangement for each set of connected displays. This does not change where macOS places windows."
@@ -239,18 +245,23 @@ struct MonitorSettingsTab: View {
         Section("Cross-Monitor Behavior") {
             Toggle("Focus Across Monitor at Edge", isOn: Bindable(settings.focus).crossesMonitorAtEdge)
                 .id("Focus Across Monitor at Edge")
+                .settingsField(.focusCrossesMonitorAtEdge)
             Toggle("Move Window Across Monitor at Edge", isOn: Bindable(settings.focus).moveCrossesMonitorAtEdge)
                 .id("Move Window Across Monitor at Edge")
+                .settingsField(.focusMoveCrossesMonitorAtEdge)
             Toggle("Follow Window to Monitor", isOn: Bindable(settings.focus).followsWindowToMonitor)
                 .id("Follow Window to Monitor")
+                .settingsField(.focusFollowsWindowToMonitor)
             Toggle(isOn: Bindable(settings.pointer).enabled) {
                 HStack(spacing: 8) {
                     Text("Mouse Warp")
                     MonitorBadge(text: String(localized: "Recommended"))
                 }
             }
+            .settingsField(.mouseWarpEnabled)
             Toggle("Constrain Cursor to Arrangement", isOn: Bindable(settings.pointer).constrainToArrangement)
                 .id("Constrain Cursor to Arrangement")
+                .settingsField(.mouseWarpConstrainToArrangement)
                 .disabled(!settings.pointer.enabled || settings.monitors.routingMode != .custom)
 
             LabeledContent("Mouse Warp Margin") {
@@ -261,6 +272,7 @@ struct MonitorSettingsTab: View {
                 }
             }
             .disabled(!settings.pointer.enabled)
+            .settingsField(.mouseWarpMargin)
 
             SettingsCaption(
                 localized: "Mouse Warp moves the pointer across matching display edges using the OmniWM routing arrangement. It is recommended when the macOS displays touch only at their corners."
@@ -408,10 +420,6 @@ private struct SelectedMonitorDetails: View {
         settings.monitors.orientationSettings(for: monitor)?.orientation
     }
 
-    private var effectiveOrientation: Monitor.Orientation {
-        settings.monitors.effectiveOrientation(for: monitor)
-    }
-
     private var gestureConflict: TrackpadGestureConflict? {
         rejectedGestureConflict ?? GestureSettingsValidation.conflict(
             gestures: settings.gestures.export(),
@@ -421,6 +429,8 @@ private struct SelectedMonitorDetails: View {
     }
 
     var body: some View {
+        let stored = settings.monitors.orientationSettings(for: monitor)
+        let rowIndex = stored.flatMap { settings.monitors.orientationOverrides.firstIndex(of: $0) }
         LabeledContent("Monitor") {
             HStack(spacing: 8) {
                 Text(displayLabel.name)
@@ -438,7 +448,7 @@ private struct SelectedMonitorDetails: View {
         }
 
         LabeledContent("Current") {
-            Text(effectiveOrientation.displayName)
+            Text((stored?.orientation ?? monitor.autoOrientation).displayName)
                 .fontWeight(.medium)
         }
 
@@ -453,13 +463,15 @@ private struct SelectedMonitorDetails: View {
             Text("Vertical").tag(Monitor.Orientation.vertical as Monitor.Orientation?)
         }
         .id("Orientation Override")
+        .settingsField(.monitorOrientationOverrides, index: rowIndex, leaf: "orientation")
         .pickerStyle(.segmented)
 
-        if orientationOverride != nil {
+        if stored?.orientation != nil {
             Button("Reset to Auto") {
                 updateOrientation(nil)
             }
             .id("Reset to Auto")
+            .settingsField(.monitorOrientationOverrides, index: rowIndex, leaf: "orientation")
         }
 
         SettingsCaption(localized: "Vertical monitors scroll windows top-to-bottom instead of left-to-right.")

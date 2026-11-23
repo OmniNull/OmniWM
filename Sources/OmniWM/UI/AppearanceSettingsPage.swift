@@ -38,11 +38,13 @@ struct AppearanceSettingsPage: View {
                     set: { controller.setTabRailAppIcons($0) }
                 ))
                 .id("Show app icons in tab rails")
+                .settingsField(.appearanceTabRailAppIcons)
                 SettingsCaption(localized: "Replaces compact markers with app icons. Applies to Niri and Dwindle.")
 
                 Toggle("Enable Animations", isOn: animationsEnabled)
                     .id("Enable Animations")
                     .disabled(controller.motionPolicy.systemReducesMotion)
+                    .settingsField(.generalAnimationsEnabled)
                 SettingsCaption(
                     controller.motionPolicy.systemReducesMotion
                         ? String(localized: "Off while macOS Reduce Motion is on.")
@@ -52,11 +54,13 @@ struct AppearanceSettingsPage: View {
                 Toggle("Slide Workspace Switches", isOn: $settings.slideWorkspaceSwitches)
                     .id("Slide Workspace Switches")
                     .disabled(!controller.motionPolicy.animationsEnabled)
+                    .settingsField(.generalSlideWorkspaceSwitches)
                 SettingsCaption(
                     localized: "Workspace switches from shortcuts, the command palette and omniwmctl slide like a trackpad swipe. Needs Screen Recording."
                 )
 
                 SettingsSliderRow(
+                    field: .init(.generalAnimationSpeed),
                     label: String(localized: "Tiling Animation Speed"),
                     value: Binding(
                         get: { controller.motionPolicy.animationSpeed },

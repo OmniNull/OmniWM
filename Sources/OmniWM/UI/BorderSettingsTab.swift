@@ -12,12 +12,14 @@ struct BorderSettingsTab: View {
             Section("Window Borders") {
                 Toggle("Enable Borders", isOn: Bindable(settings.borders).enabled)
                     .id("Enable Borders")
+                    .settingsField(.bordersEnabled)
                     .onChange(of: settings.borders.enabled) { _, _ in
                         controller.borderSettingsChanged()
                     }
 
                 if settings.borders.enabled {
                     SettingsSliderRow(
+                        field: .init(.bordersWidth),
                         label: String(localized: "Border Width"),
                         value: Bindable(settings.borders).width,
                         range: 1 ... 12,
@@ -34,15 +36,18 @@ struct BorderSettingsTab: View {
 
                     ColorPicker("Border Color", selection: colorBinding, supportsOpacity: true)
                         .id("Border Color")
+                        .settingsField(.bordersColor)
                     BorderColorOverrideRow(
                         title: String(localized: "Dark Mode Border Color"),
                         color: darkColorBinding,
                         initialColor: settings.borders.color,
                         inheritance: String(localized: "Inherits Border Color")
                     )
+                    .settingsField(.bordersDarkColor)
 
                     Toggle("Gradient Border", isOn: gradientEnabledBinding)
                         .id("Gradient Border")
+                        .settingsField(.bordersGradientEnabled)
                     if settings.borders.gradient?.enabled == true {
                         Picker("Gradient Direction", selection: gradientDirectionBinding) {
                             ForEach(BorderGradientDirection.allCases, id: \.self) { direction in
@@ -50,28 +55,35 @@ struct BorderSettingsTab: View {
                             }
                         }
                         .id("Gradient Direction")
+                        .settingsField(.bordersGradientDirection)
                         ColorPicker("Gradient Start", selection: gradientStartBinding, supportsOpacity: true)
                             .id("Gradient Start")
+                            .settingsField(.bordersGradientStart)
                         ColorPicker("Gradient End", selection: gradientEndBinding, supportsOpacity: true)
                             .id("Gradient End")
+                            .settingsField(.bordersGradientEnd)
                         BorderColorOverrideRow(
                             title: String(localized: "Dark Mode Gradient Start"),
                             color: gradientDarkColorBinding(\.start),
                             initialColor: settings.borders.gradient?.start ?? BorderGradient.default.start,
                             inheritance: String(localized: "Inherits Gradient Start")
                         )
+                        .settingsField(.bordersGradientDarkStart)
                         BorderColorOverrideRow(
                             title: String(localized: "Dark Mode Gradient End"),
                             color: gradientDarkColorBinding(\.end),
                             initialColor: settings.borders.gradient?.end ?? BorderGradient.default.end,
                             inheritance: String(localized: "Inherits Gradient End")
                         )
+                        .settingsField(.bordersGradientDarkEnd)
                     }
 
                     Toggle("Glow", isOn: glowEnabledBinding)
                         .id("Glow")
+                        .settingsField(.bordersGlowEnabled)
                     if settings.borders.glow?.enabled == true {
                         SettingsSliderRow(
+                            field: .init(.bordersGlowRadius),
                             label: String(localized: "Glow Radius"),
                             value: glowRadiusBinding,
                             range: 0 ... 32,
@@ -83,6 +95,7 @@ struct BorderSettingsTab: View {
                         )
                         .id("Glow Radius")
                         SettingsSliderRow(
+                            field: .init(.bordersGlowOpacity),
                             label: String(localized: "Glow Opacity"),
                             value: glowOpacityBinding,
                             range: 0 ... 1,
@@ -98,6 +111,7 @@ struct BorderSettingsTab: View {
                             initialColor: settings.borders.color,
                             inheritance: glowInheritance(isDark: false)
                         )
+                        .settingsField(.bordersGlowColor)
                         BorderColorOverrideRow(
                             title: String(localized: "Dark Mode Glow Color"),
                             color: glowColorBinding(\.darkColor),
@@ -105,6 +119,7 @@ struct BorderSettingsTab: View {
                                 ?? settings.borders.darkColor ?? settings.borders.color,
                             inheritance: glowInheritance(isDark: true)
                         )
+                        .settingsField(.bordersGlowDarkColor)
                     }
                 }
             }

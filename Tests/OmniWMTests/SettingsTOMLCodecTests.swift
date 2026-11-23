@@ -370,13 +370,8 @@ final class SettingsTOMLCodecTests: XCTestCase {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: directory) }
 
-            let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self) + """
-
-            [[hotkeys]]
-            binding = "Option+H"
-            id = "\(id)"
-            """
-            try Data(source.utf8).write(to: directory.appendingPathComponent("settings.toml"))
+            let source = "return { hotkeys = { { binding = 'Option+H', id = '\(id)' } } }"
+            try Data(source.utf8).write(to: directory.appendingPathComponent(SettingsFilePersistence.fileName))
 
             LogErrorTap.shared.reset()
             let persistence = SettingsFilePersistence(
@@ -560,7 +555,7 @@ final class SettingsTOMLCodecTests: XCTestCase {
     }
 
     @MainActor
-    func testSavePathPreservesUnknownKeys() throws {
+    func testUnknownSettingRejectsSaveAndPreservesUserSource() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("OmniWMSettingsCodecTests-\(UUID().uuidString)", isDirectory: true)
         defer {
@@ -568,21 +563,15 @@ final class SettingsTOMLCodecTests: XCTestCase {
         }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        let previous = try defaultsWithReplacements(
-            ("[general]\n", "[general]\nfutureSetting = \"keep-me\"\n")
-        )
-        let fileURL = directory.appendingPathComponent(SettingsFilePersistence.fileName, isDirectory: false)
-        try previous.write(to: fileURL, options: .atomic)
-
+        let input = Data("return { general = { futureSetting = 'keep-me' } }".utf8)
+        let fileURL = directory.appendingPathComponent(SettingsFilePersistence.fileName)
+        try input.write(to: fileURL)
         let persistence = SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false)
-        var export = persistence.load()
-        export.gaps.size = 24
-
-        try persistence.saveImmediately(export)
-
-        let rewritten = try String(contentsOf: fileURL, encoding: .utf8)
-        XCTAssertTrue(rewritten.contains("futureSetting = \"keep-me\""))
-        XCTAssertTrue(rewritten.contains("size = 24.0"))
+        let outcome = persistence.loadOutcome()
+        XCTAssertNil(outcome.export)
+        XCTAssertTrue(String(describing: outcome.notice).contains("general.futureSetting"))
+        XCTAssertThrowsError(try persistence.saveImmediately(.defaults()))
+        XCTAssertEqual(try Data(contentsOf: fileURL), input)
     }
 
     func testPreservingEncodeKeepsCanonicalBytesWhenNoUnknownKeysExist() throws {
@@ -784,9 +773,12 @@ final class SettingsTOMLCodecTests: XCTestCase {
             ),
             autosaveEnabled: false
         )
-        settings.gestures.workspaceSwipeEnabled = true
-        settings.gestures.workspaceSwipeFingerCount = .four
-        settings.gestures.workspaceSwipeAxis = .horizontal
+        var working = settings.toExport()
+        working.gestures.workspaceSwipeEnabled = true
+        working.gestures.workspaceSwipeFingerCount = .four
+        working.gestures.workspaceSwipeAxis = .horizontal
+        try SettingsLuauDocument.initialSource(working).write(to: persistence.fileURL, options: .atomic)
+        persistence.handlePossibleSettingsFileChange()
         var noticeChangeCount = 0
         settings.onConfigNoticeChanged = {
             noticeChangeCount += 1
@@ -796,9 +788,7 @@ final class SettingsTOMLCodecTests: XCTestCase {
             externalReloadCount += 1
         }
 
-        let malformed = try defaultsWithReplacements(
-            ("workspaceSwipeAxis = \"vertical\"\n", "workspaceSwipeAxis = 3\n")
-        )
+        let malformed = Data("return {gestures = { workspaceSwipeAxis = 3 }}".utf8)
         try malformed.write(to: persistence.fileURL, options: .atomic)
         persistence.handlePossibleSettingsFileChange()
 
@@ -815,7 +805,7 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertEqual(settings.gestures.workspaceSwipeFingerCount, .four)
         XCTAssertEqual(settings.gestures.workspaceSwipeAxis, .horizontal)
 
-        let valid = try SettingsTOMLCodec.encode(.defaults())
+        let valid = try SettingsLuauDocument.initialSource(.defaults())
         try valid.write(to: persistence.fileURL, options: .atomic)
         persistence.handlePossibleSettingsFileChange()
 

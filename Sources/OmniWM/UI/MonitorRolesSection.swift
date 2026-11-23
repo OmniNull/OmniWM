@@ -10,7 +10,7 @@ struct MonitorRolesSection: View {
     let onRankingChanged: () -> Void
 
     var body: some View {
-        Section("Monitor Roles") {
+        Section {
             ForEach(Array(settings.ranking.enumerated()), id: \.element) { index, entry in
                 RankedMonitorRow(
                     role: rankedMonitorRoleLabel(at: index),
@@ -48,6 +48,8 @@ struct MonitorRolesSection: View {
                     localized: "Workspaces assigned to Main, Secondary, or Tertiary follow this order using only the displays that are connected. Unranked displays follow after the ranked ones, and the Quake terminal's Main Monitor option uses the same Main."
                 )
             }
+        } header: {
+            Text("Monitor Roles").settingsField(.monitorsRanking)
         }
     }
 

@@ -60,6 +60,7 @@ struct HotkeyBindingRow: View {
                         onSetSide(binding.id, side)
                     }
                 )
+                .settingsField(.hotkeys, row: binding.id, leaf: "binding")
 
                 if showsModeKey {
                     HotkeyModeKeyControl(
@@ -71,12 +72,14 @@ struct HotkeyBindingRow: View {
                         onCancel: onCancelRecording,
                         onClear: { onClearModeKey(binding.id) }
                     )
+                    .settingsField(.hotkeys, row: binding.id, leaf: "modeKey")
                 }
 
                 ResetIconButton(title: String(localized: "Reset \(binding.command.localizedDisplayName) to default")) {
                     recordingTarget = nil
                     onResetBindings(binding.id)
                 }
+                .settingsField(.hotkeys, row: binding.id)
             }
         } label: {
             VStack(alignment: .leading, spacing: 4) {

@@ -126,8 +126,8 @@ final class StatusMenuSettingsTests: XCTestCase {
     }
 
     func testDisabledControlSwitchKeepsItsStoredChoice() {
-        withStatusMenuSettings { settings, _ in
-            let hidden = StatusMenuControl.bordersEnabled
+        let hidden = StatusMenuControl.bordersEnabled
+        withStatusMenuSettings(source: "return {statusMenu = {hiddenControls = {'\(hidden.rawValue)'}}}") { settings, _ in
             let shown = StatusMenuControl.workspaceBarEnabled
             let featureState = settings.borders.enabled
             settings.statusMenu.setControl(hidden.rawValue, isVisible: false)
@@ -151,8 +151,8 @@ final class StatusMenuSettingsTests: XCTestCase {
     }
 
     func testDisabledMenuItemSwitchKeepsItsStoredChoice() {
-        withStatusMenuSettings { settings, _ in
-            let hidden = StatusMenuItem.appRules
+        let hidden = StatusMenuItem.appRules
+        withStatusMenuSettings(source: "return {statusMenu = {hiddenMenuItems = {'\(hidden.rawValue)'}}}") { settings, _ in
             let shown = StatusMenuItem.settings
             settings.statusMenu.setMenuItem(hidden, isVisible: false)
             settings.statusMenu.setMenuItem(shown, isVisible: true)
@@ -179,7 +179,7 @@ final class StatusMenuSettingsPersistenceTests: XCTestCase {
     func testChangingStatusMenuSettingsSchedulesASave() throws {
         try withStatusMenuSettings { settings, fileURL in
             func persisted() throws -> SettingsExport.StatusMenu {
-                try SettingsTOMLCodec.decode(Data(contentsOf: fileURL)).statusMenu
+                try SettingsLuauDocument(Data(contentsOf: fileURL)).export.statusMenu
             }
 
             var expected = SettingsExport.StatusMenu.defaults()
@@ -188,8 +188,8 @@ final class StatusMenuSettingsPersistenceTests: XCTestCase {
             XCTAssertEqual(try persisted(), expected)
 
             let control = StatusMenuControl.bordersEnabled.rawValue
-            expected.hiddenControls = [control]
             settings.statusMenu.setControl(control, isVisible: false)
+            XCTAssertTrue(String(describing: settings.configNotice).contains("statusMenu.hiddenControls"))
             XCTAssertEqual(try persisted(), expected)
 
             expected.showControls = !(try XCTUnwrap(expected.showControls))
@@ -201,8 +201,8 @@ final class StatusMenuSettingsPersistenceTests: XCTestCase {
             XCTAssertEqual(try persisted(), expected)
 
             let item = StatusMenuItem.appRules
-            expected.hiddenMenuItems = [item.rawValue]
             settings.statusMenu.setMenuItem(item, isVisible: false)
+            XCTAssertTrue(String(describing: settings.configNotice).contains("statusMenu.hiddenMenuItems"))
             XCTAssertEqual(try persisted(), expected)
         }
     }
@@ -269,11 +269,17 @@ final class StatusMenuSettingsTOMLTests: XCTestCase {
 }
 
 @MainActor
-private func withStatusMenuSettings(_ body: (SettingsStore, URL) throws -> Void) rethrows {
+private func withStatusMenuSettings(source: String? = nil, _ body: (SettingsStore, URL) throws -> Void) rethrows {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("OmniWMStatusMenuSettingsTests-\(UUID().uuidString)", isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     let configDirectory = root.appendingPathComponent("config", isDirectory: true)
+    if let source {
+        do {
+            try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+            try Data(source.utf8).write(to: configDirectory.appendingPathComponent(SettingsFilePersistence.fileName))
+        } catch { return XCTFail("Could not create the settings fixture: \(error)") }
+    }
     let settings = SettingsStore(
         persistence: SettingsFilePersistence(
             directory: configDirectory,
@@ -286,5 +292,5 @@ private func withStatusMenuSettings(_ body: (SettingsStore, URL) throws -> Void)
         ),
         autosaveEnabled: true
     )
-    try body(settings, configDirectory.appendingPathComponent("settings.toml"))
+    try body(settings, settings.settingsFileURL)
 }

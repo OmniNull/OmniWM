@@ -19,7 +19,7 @@ struct KittyQuakeSettingsSections: View {
         Section("Kitty Placement") {
             QuakePlacementOverrideControls(
                 title: "Override Kitty Placement",
-                anchor: "Kitty",
+                provider: .kitty,
                 placement: Bindable(quake).kitty.placement
             )
 
@@ -39,7 +39,7 @@ struct KittyQuakeSettingsSections: View {
         Section("Kitty Behavior") {
             QuakeAutoHideOverridePicker(
                 configTitle: "Kitty Config",
-                anchor: "Kitty",
+                provider: .kitty,
                 autoHide: Bindable(quake).kitty.autoHide
             )
         }
@@ -50,7 +50,7 @@ struct KittyQuakeSettingsSections: View {
         Section("Kitty Appearance") {
             QuakeOpacityOverrideControls(
                 title: "Override Kitty Opacity",
-                anchor: "Kitty",
+                provider: .kitty,
                 opacity: Bindable(quake).kitty.opacity
             )
 

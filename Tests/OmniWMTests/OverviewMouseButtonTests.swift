@@ -176,7 +176,7 @@ final class OverviewMouseButtonTests: XCTestCase {
         candidate.overview.mouseButton = 4
         candidate.overview.invertScrollDirection = true
         candidate.overview.mouseScrollSpeed = 1.75
-        try SettingsTOMLCodec.encode(candidate).write(to: persistence.fileURL, options: .atomic)
+        try SettingsLuauDocument.initialSource(candidate).write(to: persistence.fileURL, options: .atomic)
         persistence.handlePossibleSettingsFileChange()
         XCTAssertNil(settings.configNotice)
         XCTAssertEqual(settings.overview.mouseButton, 4)

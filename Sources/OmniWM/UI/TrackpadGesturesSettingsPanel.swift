@@ -96,12 +96,14 @@ struct TrackpadGesturesSettingsPanel: View {
             .labelsHidden()
             .frame(width: 112)
             .accessibilityIdentifier("gesture-\(action.rawValue)-fingers")
+            .settingsField(action.settingsFields.fingers)
             if needsSetup {
                 Button("Set Up…") { submit(action, .enabled(true)) }
                     .focused($focusedControl, equals: .action(action))
                     .frame(width: 80, alignment: .trailing)
                     .accessibilityLabel("Set up \(action.title)")
                     .accessibilityHint("Review conflicting assignments and choose which gestures to turn off.")
+                    .settingsField(action.settingsFields.enabled)
             } else {
                 Toggle("\(action.title)", isOn: Binding(
                     get: { action.isEnabled(in: settings.gestures.export()) },
@@ -112,6 +114,7 @@ struct TrackpadGesturesSettingsPanel: View {
                 .labelsHidden()
                 .frame(width: 80, alignment: .trailing)
                 .accessibilityIdentifier("gesture-\(action.rawValue)-enabled")
+                .settingsField(action.settingsFields.enabled)
             }
         }
     }
@@ -169,6 +172,7 @@ struct TrackpadGesturesSettingsPanel: View {
                     Text(axis.localizedDisplayName).tag(axis)
                 }
             }
+            .settingsField(.gesturesWorkspaceSwipeAxis)
             SettingsCaption(
                 localized: "When sharing fingers with column scrolling in Niri, workspace swipes use the perpendicular direction on each display. The selected axis applies without column scrolling."
             )
@@ -177,6 +181,7 @@ struct TrackpadGesturesSettingsPanel: View {
                     Text(behavior.localizedDisplayName).tag(behavior)
                 }
             }
+            .settingsField(.gesturesWorkspaceSwipeEdgeBehavior)
             SettingsCaption(
                 localized: "Wrap Around moves between the last and first workspace. Stop ignores swipes past either end. Open One Empty Workspace moves from the last occupied workspace to an empty one, creating it if needed, and ignores swipes past an empty last workspace or before the first."
             )
@@ -198,6 +203,7 @@ struct TrackpadGesturesSettingsPanel: View {
     private var columnDetails: some View {
         Group {
             SettingsSliderRow(
+                field: .init(.gesturesScrollSensitivity),
                 label: String(localized: "Scroll sensitivity"),
                 value: Bindable(settings.gestures).scrollSensitivity,
                 range: 0.1 ... 100.0,
@@ -211,6 +217,7 @@ struct TrackpadGesturesSettingsPanel: View {
                     Text(style.localizedDisplayName).tag(style)
                 }
             }
+            .settingsField(.gesturesTrackpadScrollStyle)
             SettingsCaption(settings.gestures.trackpadScrollStyle == .momentum
                 ? String(localized: "Free inertial scrolling with rubber-band edges.")
                 : String(localized: "Scroll snaps to the nearest column."))
@@ -219,10 +226,12 @@ struct TrackpadGesturesSettingsPanel: View {
                     Text(key.localizedDisplayName).tag(key)
                 }
             }
+            .settingsField(.gesturesScrollModifierKey)
             SettingsCaption(
                 localized: "Hold this modifier and scroll the mouse wheel to scroll columns. Turning off Scroll columns disables both trackpad and modified mouse-wheel column scrolling."
             )
             SettingsSliderRow(
+                field: .init(.gesturesMouseWheelSensitivity),
                 label: String(localized: "Mouse wheel sensitivity"),
                 value: Bindable(settings.gestures).mouseWheelSensitivity,
                 range: GestureSettings.mouseWheelSensitivityRange,
@@ -240,21 +249,27 @@ struct TrackpadGesturesSettingsPanel: View {
 
     private var sharedControls: some View {
         Section("Shared Gesture Controls") {
-            windowSpeedRow(String(localized: "Move speed"), value: Bindable(settings.gestures).windowMoveSensitivity)
+            windowSpeedRow(
+                String(localized: "Move speed"), field: .gesturesWindowMoveSensitivity,
+                value: Bindable(settings.gestures).windowMoveSensitivity
+            )
             windowSpeedRow(
                 String(localized: "Resize speed"),
+                field: .gesturesWindowGestureSensitivity,
                 value: Bindable(settings.gestures).windowResizeSensitivity
             )
             SettingsCaption(localized: "Increase either speed to cover the same distance with less finger travel.")
             Toggle("Invert Direction (Natural)", isOn: Bindable(settings.gestures).invertDirection)
+                .settingsField(.gesturesInvertDirection)
             SettingsCaption(settings.gestures.invertDirection
                 ? String(localized: "Affects column scrolling and workspace swipes. Swipe right = scroll right.")
                 : String(localized: "Affects column scrolling and workspace swipes. Swipe right = scroll left."))
         }
     }
 
-    private func windowSpeedRow(_ label: String, value: Binding<Double>) -> some View {
+    private func windowSpeedRow(_ label: String, field: SettingsFieldID, value: Binding<Double>) -> some View {
         SettingsSliderRow(
+            field: .init(field),
             label: label, value: value, range: GestureSettings.windowGestureSensitivityRange, step: 0.1,
             valueText: String(localized: "\(value.wrappedValue.formatted(.number.precision(.fractionLength(1))))x")
         )
@@ -287,5 +302,23 @@ struct TrackpadGesturesSettingsPanel: View {
 
     private func refreshProposal() {
         editor.refresh(settings: settings, monitors: monitors)
+    }
+}
+
+extension GestureAssignmentAction {
+    fileprivate var settingsFields: (enabled: SettingsFieldID, fingers: SettingsFieldID) {
+        switch self {
+        case .columns: (SettingsFieldID.gesturesScrollEnabled, SettingsFieldID.gesturesFingerCount)
+        case .workspaces: (
+                SettingsFieldID.gesturesWorkspaceSwipeEnabled,
+                SettingsFieldID.gesturesWorkspaceSwipeFingerCount
+            )
+        case .overview: (
+                SettingsFieldID.gesturesOverviewGestureEnabled,
+                SettingsFieldID.gesturesOverviewGestureFingerCount
+            )
+        case .move: (SettingsFieldID.gesturesWindowMoveEnabled, SettingsFieldID.gesturesWindowMoveFingerCount)
+        case .resize: (SettingsFieldID.gesturesWindowResizeEnabled, SettingsFieldID.gesturesWindowResizeFingerCount)
+        }
     }
 }

@@ -28,38 +28,14 @@ final class ConfigDiagnosticsTests: XCTestCase {
         XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: Data()), [])
     }
 
-    func testRecoveryIssuePersistsUntilBothBackupSlotsAreAbsent() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("OmniWMConfigRecoveryDiag-\(UUID().uuidString)", isDirectory: true)
+    func testOldTOMLBackupsDoNotReportIssuesForTheLuauFile() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-
-        let firstURL = directory.appendingPathComponent(SettingsFilePersistence.corruptFileName)
-        let secondURL = directory.appendingPathComponent(SettingsFilePersistence.secondaryCorruptFileName)
-        try Data([0x01]).write(to: firstURL)
-        XCTAssertEqual(SettingsConfigDiagnostics.issues(directoryURL: directory).map(\.kind), [.settingsFileCorrupt])
-
-        try Data([0x02]).write(to: secondURL)
-        XCTAssertEqual(SettingsConfigDiagnostics.issues(directoryURL: directory).map(\.kind), [.settingsFileCorrupt])
-
-        try FileManager.default.removeItem(at: firstURL)
-        XCTAssertEqual(SettingsConfigDiagnostics.issues(directoryURL: directory).map(\.kind), [.settingsFileCorrupt])
-
-        try FileManager.default.removeItem(at: secondURL)
+        for name in SettingsFilePersistence.corruptFileNames {
+            try Data(name.utf8).write(to: directory.appendingPathComponent(name))
+        }
         XCTAssertTrue(SettingsConfigDiagnostics.issues(directoryURL: directory).isEmpty)
-    }
-
-    func testRecoveryIssueDetectsDanglingBackupSymlink() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("OmniWMConfigRecoverySymlinkDiag-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        let backupURL = directory.appendingPathComponent(SettingsFilePersistence.corruptFileName)
-        let missingURL = directory.appendingPathComponent("missing.toml")
-        try FileManager.default.createSymbolicLink(at: backupURL, withDestinationURL: missingURL)
-
-        XCTAssertEqual(SettingsConfigDiagnostics.issues(directoryURL: directory).map(\.kind), [.settingsFileCorrupt])
     }
 
     func testInformationalConfigNoticesDisappearWhenBackupIsRemoved() throws {

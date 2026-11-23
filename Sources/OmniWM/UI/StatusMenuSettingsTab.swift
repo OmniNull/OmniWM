@@ -10,11 +10,14 @@ struct StatusMenuSettingsTab: View {
         Form {
             Section("Sections") {
                 Toggle("Show Controls", isOn: Bindable(settings.statusMenu).showControls)
+                    .settingsField(.statusMenuShowControls)
                     .id("Show Controls")
                 Toggle("Show Control Help", isOn: Bindable(settings.statusMenu).showControlHelp)
-                    .id("Show Control Help")
                     .disabled(!settings.statusMenu.showControls)
+                    .settingsField(.statusMenuShowControlHelp)
+                    .id("Show Control Help")
                 Toggle("Show OmniWM Items", isOn: Bindable(settings.statusMenu).showMenuItems)
+                    .settingsField(.statusMenuShowMenuItems)
                     .id("Show OmniWM Items")
                 SettingsCaption(
                     localized: "Show Controls is the master switch for the controls grid. OmniWM Items are Settings, App Rules, updates, and the Advanced, Diagnostics, and Help pages; Quit always stays available."
@@ -25,8 +28,9 @@ struct StatusMenuSettingsTab: View {
                     Toggle(isOn: visibilityBinding(for: control)) {
                         Label(control.label, systemImage: control.icon)
                     }
-                    .id("Show \(control.label)")
                     .disabled(!settings.statusMenu.showControls)
+                    .settingsField(.statusMenuHiddenControls, row: control.rawValue)
+                    .id("Show \(control.label)")
                 }
                 SettingsCaption(
                     localized: "Turn off a control to remove its tile from the status menu. The underlying feature keeps its current state."
@@ -37,8 +41,9 @@ struct StatusMenuSettingsTab: View {
                     Toggle(isOn: menuItemVisibilityBinding(for: item)) {
                         Label(item.title, systemImage: item.icon)
                     }
-                    .id("Show \(item.title)")
                     .disabled(!settings.statusMenu.showMenuItems)
+                    .settingsField(.statusMenuHiddenMenuItems, row: item.rawValue)
+                    .id("Show \(item.title)")
                 }
                 SettingsCaption(
                     localized: "Hide individual OmniWM items from the status menu. Turn off Show OmniWM Items to hide the whole group at once."

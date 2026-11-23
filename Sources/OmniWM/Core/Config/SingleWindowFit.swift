@@ -128,3 +128,9 @@ extension SingleWindowFit: Codable {
         try container.encode(serialized)
     }
 }
+
+extension SingleWindowFit: SettingsWireVariants {
+    static var settingsWireVariants: [SettingsWireVariant] {
+        [.sample(.string(fullScreen.serialized))]
+    }
+}

@@ -42,7 +42,7 @@ final class SettingsDomainOwnerTests: XCTestCase {
         XCTAssertEqual(settings.toExport(), values)
         XCTAssertEqual(try Data(contentsOf: settings.settingsFileURL), savedBeforeImport)
         settings.focus.followsMouse.toggle()
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)), settings.toExport())
+        XCTAssertEqual(try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export, settings.toExport())
     }
 
     func testDomainBindingTracksImportsAndPersistsEdits() throws {
@@ -59,7 +59,7 @@ final class SettingsDomainOwnerTests: XCTestCase {
 
         XCTAssertFalse(settings.focus.followsMouse)
         XCTAssertEqual(
-            try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)),
+            try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export,
             settings.toExport()
         )
     }
@@ -67,7 +67,8 @@ final class SettingsDomainOwnerTests: XCTestCase {
     func testWorkspaceOwnerKeepsIndependentObservationAndImportNormalization() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let settings = makeSettings(directory: directory)
+        let persistence = SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false)
+        let settings = SettingsStore(persistence: persistence, runtimeState: RuntimeStateStore(directory: directory))
         let observed = Mutex(0)
         withObservationTracking {
             _ = settings.workspaces.configurations
@@ -82,7 +83,8 @@ final class SettingsDomainOwnerTests: XCTestCase {
         let explicit = WorkspaceConfiguration(name: "1", layoutType: .niri)
         values.workspaceConfigurations = [inherited, explicit, inherited]
 
-        settings.applyExport(values)
+        try SettingsLuauDocument.initialSource(values).write(to: settings.settingsFileURL, options: .atomic)
+        persistence.handlePossibleSettingsFileChange()
 
         XCTAssertEqual(observed.withLock { $0 }, 1)
         XCTAssertEqual(settings.workspaces.configurations, [explicit, inherited])
@@ -93,7 +95,9 @@ final class SettingsDomainOwnerTests: XCTestCase {
         XCTAssertEqual(settings.workspaces.displayName(for: "3"), "3")
         binding.wrappedValue = .niri
         XCTAssertEqual(settings.workspaces.layoutType(for: "2"), .niri)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)), settings.toExport())
+        let stored = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
+        XCTAssertEqual(stored.defaultLayoutType, settings.workspaces.defaultLayoutType)
+        XCTAssertEqual(stored.workspaceConfigurations, values.workspaceConfigurations)
     }
 
     func testFullyVisibleHoverSettingImportsAndPersistsEdits() throws {
@@ -107,10 +111,10 @@ final class SettingsDomainOwnerTests: XCTestCase {
         XCTAssertTrue(settings.focus === focus)
         XCTAssertTrue(focus.followsMouseOnlyFullyVisible)
         focus.followsMouseOnlyFullyVisible = false
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertFalse(saved.focus.followsMouseOnlyFullyVisible)
         focus.followsMouseOnlyFullyVisible = true
-        XCTAssertTrue(try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        XCTAssertTrue(try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
             .focus.followsMouseOnlyFullyVisible)
     }
 
@@ -125,10 +129,10 @@ final class SettingsDomainOwnerTests: XCTestCase {
         XCTAssertTrue(settings.focus === focus)
         XCTAssertTrue(focus.clickFocusWithoutScrolling)
         focus.clickFocusWithoutScrolling = false
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertFalse(saved.focus.clickFocusWithoutScrolling)
         focus.clickFocusWithoutScrolling = true
-        XCTAssertTrue(try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        XCTAssertTrue(try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
             .focus.clickFocusWithoutScrolling)
     }
 

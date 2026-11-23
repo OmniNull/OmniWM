@@ -43,13 +43,15 @@ struct AppRuleDetailView: View {
 
     var body: some View {
         Form {
-            RuleApplicationSection(draft: $draft, controller: controller)
-            RuleWindowBehaviorSection(draft: $draft, workspaceNames: workspaceNames, settings: controller.settings)
-            RuleMinimumSizeSection(draft: $draft)
+            RuleApplicationSection(draft: $draft, row: rule.id.uuidString, controller: controller)
+            RuleWindowBehaviorSection(
+                draft: $draft, row: rule.id.uuidString, workspaceNames: workspaceNames, settings: controller.settings
+            )
+            RuleMinimumSizeSection(draft: $draft, row: rule.id.uuidString)
 
             Section {
                 DisclosureGroup("Advanced Matchers", isExpanded: $isAdvancedMatchersExpanded) {
-                    AdvancedMatchersEditor(draft: $draft, regexError: titleRegexError)
+                    AdvancedMatchersEditor(draft: $draft, row: rule.id.uuidString, regexError: titleRegexError)
                 }
             }
 
@@ -72,6 +74,7 @@ struct AppRuleDetailView: View {
                 Button(role: .destructive, action: onDelete) {
                     Label("Delete Rule", systemImage: "trash")
                 }
+                .settingsField(.appRules, row: rule.id.uuidString)
             }
         }
         .formStyle(.grouped)
@@ -107,6 +110,7 @@ struct AppRuleDetailView: View {
             .keyboardShortcut("s", modifiers: .command)
             .buttonStyle(.borderedProminent)
             .disabled(!isDirty || !draft.isValid)
+            .settingsField(.appRules, row: rule.id.uuidString)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -149,7 +153,7 @@ struct AppRuleAddSheet: View {
                 .font(.headline)
 
             Form {
-                RuleApplicationSection(draft: $draft, controller: controller)
+                RuleApplicationSection(draft: $draft, row: nil, controller: controller)
                 RuleWindowBehaviorSection(draft: $draft, workspaceNames: workspaceNames, settings: controller.settings)
                 RuleMinimumSizeSection(draft: $draft)
 
@@ -179,6 +183,7 @@ struct AppRuleAddSheet: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!draft.isValid)
+                .settingsField(.appRules, row: nil)
             }
         }
         .padding()
@@ -188,6 +193,7 @@ struct AppRuleAddSheet: View {
 
 struct RuleWindowBehaviorSection: View {
     @Binding var draft: AppRuleDraft
+    var row: String?
     let workspaceNames: [String]
     let settings: SettingsStore
 
@@ -199,6 +205,7 @@ struct RuleWindowBehaviorSection: View {
                 }
             }
             .pickerStyle(.segmented)
+            .settingsField(.appRules, row: row, leaf: "layout")
 
             SettingsCaption(
                 localized: "Settings left on Automatic or off can come from other rules that match the same window."
@@ -209,6 +216,7 @@ struct RuleWindowBehaviorSection: View {
                     guard enabled else { return }
                     seedWorkspaceIfNeeded()
                 }
+                .settingsField(.appRules, row: row, leaf: "assignToWorkspace")
 
             if draft.assignToWorkspaceEnabled {
                 Picker("Workspace", selection: $draft.assignToWorkspace) {
@@ -220,6 +228,7 @@ struct RuleWindowBehaviorSection: View {
                     }
                 }
                 .disabled(workspaceNames.isEmpty)
+                .settingsField(.appRules, row: row, leaf: "assignToWorkspace")
 
                 if workspaceNames.isEmpty {
                     SettingsCaption(localized: "No workspaces configured. Add workspaces in Settings.")
@@ -230,9 +239,11 @@ struct RuleWindowBehaviorSection: View {
                 }
 
                 Toggle("Apply to Every New Matching Window", isOn: $draft.assignToWorkspaceForAllWindows)
+                    .settingsField(.appRules, row: row, leaf: "assignToWorkspaceForAllWindows")
             }
 
             Toggle("Assign to Scratchpad", isOn: scratchpadEnabled)
+                .settingsField(.appRules, row: row, leaf: "scratchpad")
 
             if draft.scratchpadEnabled {
                 Picker("Scratchpad Slot", selection: $draft.scratchpad) {
@@ -243,6 +254,7 @@ struct RuleWindowBehaviorSection: View {
                         Text("Slot \(draft.scratchpad)").tag(draft.scratchpad)
                     }
                 }
+                .settingsField(.appRules, row: row, leaf: "scratchpad")
 
                 if let error = draft.scratchpadError {
                     Text(error)
@@ -252,6 +264,7 @@ struct RuleWindowBehaviorSection: View {
             }
 
             Toggle("Initial Container Primary Span", isOn: $draft.initialContainerPrimarySpanEnabled)
+                .settingsField(.appRules, row: row, leaf: "initialContainerPrimarySpan")
             if draft.initialContainerPrimarySpanEnabled {
                 LabeledContent("Primary Span") {
                     HStack {
@@ -271,6 +284,7 @@ struct RuleWindowBehaviorSection: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .settingsField(.appRules, row: row, leaf: "initialContainerPrimarySpan")
 
                 if let error = draft.initialContainerPrimarySpanError {
                     Text(error)
@@ -346,26 +360,31 @@ struct RuleWindowBehaviorSection: View {
 
 struct RuleMinimumSizeSection: View {
     @Binding var draft: AppRuleDraft
+    var row: String?
 
     var body: some View {
         Section("Minimum Size (Layout Constraint)") {
             Toggle("Minimum Width", isOn: $draft.minWidthEnabled)
+                .settingsField(.appRules, row: row, leaf: "minWidth")
             if draft.minWidthEnabled {
                 HStack {
                     TextField("Width", value: $draft.minWidth, format: .number)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 100)
+                        .settingsField(.appRules, row: row, leaf: "minWidth")
                     Text("px")
                         .foregroundStyle(.secondary)
                 }
             }
 
             Toggle("Minimum Height", isOn: $draft.minHeightEnabled)
+                .settingsField(.appRules, row: row, leaf: "minHeight")
             if draft.minHeightEnabled {
                 HStack {
                     TextField("Height", value: $draft.minHeight, format: .number)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 100)
+                        .settingsField(.appRules, row: row, leaf: "minHeight")
                     Text("px")
                         .foregroundStyle(.secondary)
                 }
@@ -379,55 +398,6 @@ struct RuleMinimumSizeSection: View {
 
             SettingsCaption(localized: "Prevents the layout engine from sizing the window smaller than these values.")
         }
-    }
-}
-
-struct AdvancedMatchersEditor: View {
-    @Binding var draft: AppRuleDraft
-    let regexError: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SettingsCaption(localized: "Narrow a rule to specific windows within an app.")
-
-            Picker("Title Match", selection: $draft.titleMatcherMode) {
-                ForEach(TitleMatcherMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode)
-                }
-            }
-
-            switch draft.titleMatcherMode {
-            case .none:
-                EmptyView()
-            case .substring:
-                TextField("Title contains", text: $draft.titleSubstring)
-                    .textFieldStyle(.roundedBorder)
-            case .regex:
-                TextField("Title regex", text: $draft.titleRegex)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                if let regexError {
-                    Text("Title regex is invalid: \(regexError)")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-            }
-
-            Toggle("AX Role", isOn: $draft.axRoleEnabled)
-            if draft.axRoleEnabled {
-                TextField("e.g. AXWindow", text: $draft.axRole)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-            }
-
-            Toggle("AX Subrole", isOn: $draft.axSubroleEnabled)
-            if draft.axSubroleEnabled {
-                TextField("e.g. AXStandardWindow", text: $draft.axSubrole)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-            }
-        }
-        .padding(.vertical, 4)
     }
 }
 

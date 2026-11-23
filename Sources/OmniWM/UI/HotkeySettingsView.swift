@@ -69,6 +69,7 @@ struct HotkeySettingsView: View {
                     .accessibilityLabel("System Hyper trigger")
                     .accessibilityValue(settings.systemHyperTrigger.humanReadableString)
                 }
+                .settingsField(.generalSystemHyperTrigger)
                 if let hyperTriggerError {
                     SettingsCaption(hyperTriggerError)
                 }
@@ -91,6 +92,7 @@ struct HotkeySettingsView: View {
                         controller.updateHotkeyBindings(settings.hotkeyBindings, force: true)
                     }
                 }
+                .settingsField(.generalHyperKeyModifiers)
                 SettingsCaption(localized:
                     "Modifiers that make up the Hyper chord. Unchecked modifiers stay free to combine with Hyper in shortcuts, such as Hyper+Shift when Shift is excluded."
                 )
@@ -108,6 +110,7 @@ struct HotkeySettingsView: View {
 
                 Toggle("Pause Palette Paste During Secure Input", isOn: $settings.pausePalettePasteDuringSecureInput)
                     .id("Pause Palette Paste During Secure Input")
+                    .settingsField(.generalPausePalettePasteDuringSecureInput)
                 SettingsCaption(localized:
                     "While macOS Secure Input is on, the command palette doesn’t paste clipboard entries. Turn off if an app holds Secure Input in the background. Keyboard modes and shortcuts marked “Paused during Secure Input” stay paused either way."
                 )
@@ -117,6 +120,7 @@ struct HotkeySettingsView: View {
                         confirmsResetToDefaults = true
                     }
                     .id("Reset to Defaults")
+                    .settingsField(.hotkeys)
                 }
             }
             .id("Controls")
@@ -249,7 +253,9 @@ struct HotkeySettingsView: View {
     private var isRecordingOrDrafting: Bool {
         recordingTarget != nil
     }
+}
 
+extension HotkeySettingsView {
     private func startChordRecording(for actionId: String) {
         recordingTarget = .chord(actionId)
     }
@@ -328,9 +334,7 @@ struct HotkeySettingsView: View {
     private func syncHotkeyRecordingState() {
         controller.setHotkeyRecordingActive(isRecordingOrDrafting)
     }
-}
 
-extension HotkeySettingsView {
     private var systemHyperTriggerBinding: Binding<SystemHyperTrigger> {
         Binding(
             get: { settings.systemHyperTrigger },
@@ -387,6 +391,7 @@ extension HotkeySettingsView {
                 .labelsHidden()
                 .frame(minWidth: 160)
             }
+            .settingsField(.keyboardModesPauseTimeoutSeconds)
             SettingsCaption(
                 localized: "While paused, only Pause or Resume Shortcuts and Leave Keyboard Mode keep working."
             )

@@ -48,7 +48,7 @@ final class IslandSettingsTests: XCTestCase {
         settings.workspaceBar.enabled = false
         settings.island.enabled = true
 
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertTrue(saved.island.enabled)
         XCTAssertFalse(saved.workspaceBar.enabled)
         XCTAssertEqual(saved, settings.toExport())

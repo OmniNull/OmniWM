@@ -124,6 +124,7 @@ struct HiddenBarSettingsTab: View {
                             }
                         }
                     }
+                    .settingsField(.hiddenBarHiddenBundleIDs, row: row.bundleID)
                 }
             }
         }

@@ -30,6 +30,7 @@ enum MonitorSettingsTabModel {
     struct RoutingEditorLayout {
         let settings: [MonitorRoutingSettings]
         let source: RoutingSource
+        var arrangementID: MonitorArrangement.ID?
 
         var usesMacOSFallback: Bool {
             source == .macOS && !settings.isEmpty
@@ -45,7 +46,8 @@ enum MonitorSettingsTabModel {
         {
             return RoutingEditorLayout(
                 settings: completeLayout,
-                source: arrangements[index].monitors.count == monitors.count ? .exact : .inherited
+                source: arrangements[index].monitors.count == monitors.count ? .exact : .inherited,
+                arrangementID: arrangements[index].id
             )
         }
 

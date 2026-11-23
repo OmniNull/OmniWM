@@ -106,7 +106,7 @@ final class SettingsFileObservationTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: directoryLink, withDestinationURL: nested)
         let intermediate = aliases.appendingPathComponent("current.toml")
         try FileManager.default.createSymbolicLink(
-            atPath: intermediate.path, withDestinationPath: "../first/settings.toml"
+            atPath: intermediate.path, withDestinationPath: "../first/\(SettingsFilePersistence.fileName)"
         )
         let settings = config.appendingPathComponent(SettingsFilePersistence.fileName)
         try FileManager.default.createSymbolicLink(
@@ -116,7 +116,7 @@ final class SettingsFileObservationTests: XCTestCase {
         XCTAssertEqual(persistence.load().gaps.size, 17)
 
         await expectReload(23, from: persistence) {
-            try replaceLink(intermediate, destination: "../directory-link/../settings.toml")
+            try replaceLink(intermediate, destination: "../directory-link/../\(SettingsFilePersistence.fileName)")
         }
         let target = second.appendingPathComponent(SettingsFilePersistence.fileName)
         try await expectObservation(from: persistence, watching: [settings, second]) {
@@ -163,7 +163,7 @@ final class SettingsFileObservationTests: XCTestCase {
     }
 
     func testInitiallyDanglingAndCyclicLinksRecoverAfterReplacement() async throws {
-        for destination in ["../external/settings.toml", "settings.toml"] {
+        for destination in ["../external/\(SettingsFilePersistence.fileName)", "\(SettingsFilePersistence.fileName)"] {
             let root = try makeRoot()
             defer { try? FileManager.default.removeItem(at: root) }
             let config = try makeDirectory("config", in: root)
@@ -176,7 +176,7 @@ final class SettingsFileObservationTests: XCTestCase {
 
             await expectReload(23, from: persistence) {
                 try writeSettings(23, in: external)
-                try replaceLink(settings, destination: "../external/settings.toml")
+                try replaceLink(settings, destination: "../external/\(SettingsFilePersistence.fileName)")
             }
             XCTAssertFalse(persistence.settingsWritesBlocked)
             await expectReload(29, from: persistence) { try writeSettings(29, in: external, atomic: true) }
@@ -208,13 +208,13 @@ final class SettingsFileObservationTests: XCTestCase {
 
         export.gaps.size = savedSize
         try await expectObservation(from: persistence, watching: [persistence.fileURL, config]) {
-            (try? SettingsTOMLCodec.decode(Data(contentsOf: persistence.fileURL)).gaps.size) == savedSize
+            (try? SettingsLuauDocument(Data(contentsOf: persistence.fileURL)).export.gaps.size) == savedSize
         } edit: {
             try persistence.saveImmediately(export)
         }
         persistence.handlePossibleSettingsFileChange()
         XCTAssertTrue(reloads.isEmpty)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(contentsOf: persistence.fileURL)).gaps.size, savedSize)
+        XCTAssertEqual(try SettingsLuauDocument(Data(contentsOf: persistence.fileURL)).export.gaps.size, savedSize)
 
         let reloaded = expectation(description: "External settings reload after filtered native events")
         reloaded.assertForOverFulfill = false
@@ -243,7 +243,7 @@ final class SettingsFileObservationTests: XCTestCase {
     private func writeSettings(_ size: Double, in directory: URL, atomic: Bool = false) throws {
         var export = SettingsExport.defaults()
         export.gaps.size = size
-        try SettingsTOMLCodec.encode(export).write(
+        try SettingsLuauDocument.initialSource(export).write(
             to: directory.appendingPathComponent(SettingsFilePersistence.fileName),
             options: atomic ? .atomic : []
         )

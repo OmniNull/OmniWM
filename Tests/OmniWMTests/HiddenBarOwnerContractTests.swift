@@ -20,7 +20,7 @@ final class HiddenBarOwnerContractTests: XCTestCase {
 
         XCTAssertEqual(settings.hiddenBar.hiddenBundleIDs, identifiers)
         XCTAssertEqual(settings.hiddenBar.rehideIntervalSeconds, 99)
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertEqual(saved.hiddenBar.hiddenBundleIDs, identifiers)
         XCTAssertEqual(saved.hiddenBar.rehideIntervalSeconds, 99)
         XCTAssertEqual(saved, settings.toExport())
@@ -74,7 +74,7 @@ final class HiddenBarOwnerContractTests: XCTestCase {
                 ["com.example.second", "com.example.first", "com.example.third"]
             )
             let data = try? Data(contentsOf: settings.settingsFileURL)
-            let saved = data.flatMap { try? SettingsTOMLCodec.decode($0) }
+            let saved = data.flatMap { try? SettingsLuauDocument($0).export }
             XCTAssertEqual(saved, settings.toExport())
         }
         XCTAssertEqual(reconciliations, 1)

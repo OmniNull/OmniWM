@@ -37,6 +37,28 @@ struct ConfigScriptSources {
         self.entry = entry
     }
 
+    init(entry: URL?, sourceByteCount: Int) {
+        self.entry = entry?.standardizedFileURL
+        totalBytes = sourceByteCount
+        if let entry = self.entry {
+            logicalIDs[entry] = 0
+            if let resolved = try? SettingsFileAccess.canonicalURL(for: entry) { resolvedIDs[resolved] = 0 }
+        }
+    }
+
+    mutating func resolve(
+        _ requester: UInt32, spec: omni_config_span, into result: UnsafeMutablePointer<omni_config_module>?,
+        error: UnsafeMutablePointer<CChar>?, capacity: Int
+    ) -> Bool {
+        guard let result else { return false }
+        do {
+            result.pointee = try module(requestedBy: requester, spec: spec)
+            return true
+        } catch let failure {
+            return failure.write(to: error, capacity: capacity)
+        }
+    }
+
     mutating func readEntry(at url: URL) throws -> Data? {
         let version = ConfigScriptFileVersion(at: url)
         versions[url] = version
@@ -106,7 +128,8 @@ struct ConfigScriptSources {
         let target = try SettingsFileAccess.settingsTarget(for: url)
         let resolved = try SettingsFileAccess.canonicalURL(for: target)
         if let id = resolvedIDs[resolved] {
-            versions[url] = id == 0 ? versions[entry] : .target(modules[Int(id) - 1].fingerprint)
+            versions[url] = id == 0 ? versions[entry] ?? ConfigScriptFileVersion(at: url) :
+                .target(modules[Int(id) - 1].fingerprint)
             return id
         }
         let remaining = ConfigScriptLoader.sourceLimit - totalBytes
@@ -132,5 +155,26 @@ struct ConfigScriptSources {
         resolvedIDs[resolved] = id
         totalBytes += contents.data.count
         return id
+    }
+}
+
+extension ConfigScriptError {
+    func write(
+        to buffer: UnsafeMutablePointer<CChar>?,
+        capacity: Int
+    ) -> Bool {
+        guard let buffer, capacity > 0 else { return false }
+        let bytes = message.utf8
+        var end = bytes.index(bytes.startIndex, offsetBy: capacity - 1, limitedBy: bytes.endIndex) ?? bytes.endIndex
+        while end != bytes.startIndex, end != bytes.endIndex, bytes[end] & 0xC0 == 0x80 {
+            bytes.formIndex(before: &end)
+        }
+        var count = 0
+        for byte in bytes[..<end] {
+            buffer[count] = CChar(bitPattern: byte)
+            count += 1
+        }
+        buffer[count] = 0
+        return false
     }
 }

@@ -191,3 +191,15 @@ final class AppThemingSettings {
         values = next
     }
 }
+
+extension SettingsExport.AppTheming: SettingsWireNames {
+    static var settingsWireNames: [String: [String]] {
+        [CodingKeys.terminalColors.stringValue: AppThemeTerminalColors.allCases.map(\.rawValue)]
+    }
+}
+
+extension AppThemingCustom: SettingsWireNames {
+    static var settingsWireNames: [String: [String]] {
+        [CodingKeys.reload.stringValue: AppThemeCustomReload.allCases.map(\.rawValue)]
+    }
+}

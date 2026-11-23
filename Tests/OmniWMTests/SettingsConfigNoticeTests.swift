@@ -9,15 +9,14 @@ import XCTest
 final class SettingsConfigNoticeTests: XCTestCase {
     func testStartupRejectionShowsFileAndParserReasonWithoutTakingFocus() throws {
         let keyWindow = NSApp?.keyWindow
-        let fixture = try Fixture(initialText: "monitorGapOverrides = []\n[[monitorGapOverrides]]\n")
+        let fixture = try Fixture(initialText: "return {\n    szie = 4,\n}")
         defer { fixture.close() }
         let panel = try fixture.panel()
         let issue = try XCTUnwrap(fixture.notices.issue)
 
         XCTAssertTrue(issue.message.contains(fixture.persistence.fileURL.path))
-        XCTAssertTrue(issue.message.contains("line 2"))
-        XCTAssertTrue(issue.message.contains("column 1"))
-        XCTAssertTrue(issue.message.contains("cannot redefine existing array 'monitorGapOverrides'"))
+        XCTAssertTrue(issue.message.contains("settings.luau:2:"))
+        XCTAssertTrue(issue.message.contains("szie: Unknown setting."))
         XCTAssertTrue(issue.message.contains("active settings were not changed"))
         XCTAssertFalse(panel.canBecomeKey)
         XCTAssertFalse(panel.canBecomeMain)
@@ -37,7 +36,7 @@ final class SettingsConfigNoticeTests: XCTestCase {
         XCTAssertNil(fixture.notices.issue)
         XCTAssertTrue(fixture.registry.visibleWindows().isEmpty)
         let originalSettings = fixture.settings.toExport()
-        try fixture.edit("[general\n")
+        try fixture.edit("return {gaps = (}\n")
         let panel = try fixture.panel()
         let firstIssue = fixture.notices.issue
         fixture.notices.dismiss()
@@ -48,24 +47,24 @@ final class SettingsConfigNoticeTests: XCTestCase {
         XCTAssertNotNil(fixture.settings.configNotice)
         XCTAssertEqual(fixture.settings.toExport(), originalSettings)
 
-        try fixture.edit("bad = [\n")
+        try fixture.edit("return {bogus = true}\n")
         XCTAssertTrue(try fixture.panel() === panel)
         XCTAssertNotEqual(fixture.notices.issue, firstIssue)
 
-        try fixture.edit(String(decoding: SettingsTOMLCodec.encode(originalSettings), as: UTF8.self))
+        try fixture.edit(String(decoding: SettingsLuauDocument.initialSource(originalSettings), as: UTF8.self))
         XCTAssertNil(fixture.notices.issue)
         XCTAssertNil(fixture.settings.configNotice)
         XCTAssertFalse(panel.isVisible)
         XCTAssertFalse(fixture.registry.contains(window: panel))
 
-        try fixture.edit("[general\n")
+        try fixture.edit("return {gaps = (}\n")
         XCTAssertTrue(try fixture.panel().isVisible)
         XCTAssertEqual(fixture.notices.issue, firstIssue)
     }
 
     func testOpeningRejectedFileReportsFailureAndKeepsNoticeVisible() throws {
         var openedURL: URL?
-        let fixture = try Fixture(initialText: "[general\n", openFile: {
+        let fixture = try Fixture(initialText: "return {gaps = (}\n", openFile: {
             openedURL = $0
             return false
         })
@@ -82,21 +81,21 @@ final class SettingsConfigNoticeTests: XCTestCase {
     }
 
     func testOpeningRejectedFileKeepsTheDiagnosticAvailable() throws {
-        let fixture = try Fixture(initialText: "[general\n", openFile: { _ in true })
+        let fixture = try Fixture(initialText: "return {gaps = (}\n", openFile: { _ in true })
         defer { fixture.close() }
         fixture.notices.openSettingsFile()
         XCTAssertEqual(fixture.notices.fileStatus, .opened)
         XCTAssertTrue(try fixture.panel().isVisible)
     }
 
-    func testUnsupportedSchemaShowsBlockedWriteNoticeAndClearsAfterCorrection() throws {
-        let original = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let future = original.replacingOccurrences(of: "schemaVersion = 5", with: "schemaVersion = 6")
+    func testInvalidTypeBlocksWritesAndClearsAfterCorrection() throws {
+        let original = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
+        let future = "return {gaps = {size = false}}"
         let fixture = try Fixture(initialText: future)
         defer { fixture.close() }
         XCTAssertTrue(try fixture.panel().isVisible)
         XCTAssertTrue(fixture.settings.settingsWritesBlocked)
-        guard case .settingsPersistenceBlocked = fixture.notices.issue?.kind else {
+        guard case .settingsInvalidRejected = fixture.notices.issue?.kind else {
             return XCTFail("Expected blocked settings notice")
         }
 
@@ -109,7 +108,7 @@ final class SettingsConfigNoticeTests: XCTestCase {
     func testClosingNoticeReleasesItsRegisteredSurface() throws {
         weak var panel: NSPanel?
         let registry = try autoreleasepool {
-            let fixture = try Fixture(initialText: "[general\n")
+            let fixture = try Fixture(initialText: "return {gaps = (}\n")
             defer { fixture.close() }
             panel = try fixture.panel()
             fixture.notices.close()
@@ -134,7 +133,7 @@ final class SettingsConfigNoticeTests: XCTestCase {
                 .appendingPathComponent("SettingsConfigNoticeTests-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             if let initialText {
-                try Data(initialText.utf8).write(to: directory.appendingPathComponent("settings.toml"))
+                try Data(initialText.utf8).write(to: directory.appendingPathComponent(SettingsFilePersistence.fileName))
             }
             persistence = SettingsFilePersistence(
                 directory: directory, startWatching: false, deferSaves: false, monitorProvider: { [] }
