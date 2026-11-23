@@ -12,8 +12,8 @@ struct LiveColumnMove {
 
     struct StripColumn {
         let column: NiriContainer
-        let minX: CGFloat
-        let maxX: CGFloat
+        var minX: CGFloat
+        var maxX: CGFloat
 
         var midX: CGFloat {
             (minX + maxX) / 2

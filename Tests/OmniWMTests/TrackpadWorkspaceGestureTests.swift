@@ -1143,14 +1143,11 @@ final class TrackpadWorkspaceGestureTests: XCTestCase {
         ]
         for (label, phase, switches) in cases {
             let fixture = try makeFixture()
-            var time: TimeInterval = 100
-            sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: time)
-            for step in 1 ... 3 {
-                time += 0.01
-                sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5, y: 0.2 + 0.04 * CGFloat(step), at: time)
-            }
-            time += 0.005
-            sendFrame(fixture, phase: phase, fingers: 0, x: 0, y: 0, at: time)
+            fixture.controller.motionPolicy.animationsEnabled = false
+            sendFrame(fixture, phase: .began, fingers: 3, x: 0.5, y: 0.2, at: 100)
+            sendFrame(fixture, phase: .changed, fingers: 3, x: 0.5, y: 0.24, at: 100.02)
+            XCTAssertEqual(activeWorkspace(fixture), fixture.ws1, label)
+            sendFrame(fixture, phase: phase, fingers: 0, x: 0, y: 0, at: 100.04)
             XCTAssertEqual(activeWorkspace(fixture), switches ? fixture.ws2 : fixture.ws1, label)
         }
     }

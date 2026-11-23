@@ -45,10 +45,8 @@ extension DwindleLayoutEngine {
         railTarget: DwindleTabMoveTarget?
     ) -> Bool {
         assertSanctionedMutation()
-        guard let move = interactiveMove, liveTabMoveToken == move.token,
-              let state = existingState(for: move.workspaceId)
-        else { return false }
-        return withLiveMoveSource { source in
+        guard let move = interactiveMove, liveTabMoveToken == move.token else { return false }
+        return withLiveMoveSource { source, state in
             if let railTarget {
                 liveMove?.acceptedRegion = nil
                 return joinLiveTab(move.token, target: railTarget, state: state, in: move.workspaceId)

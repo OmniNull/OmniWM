@@ -39,6 +39,8 @@ struct ShellIslandGeometry: Equatable, Sendable {
 
 @MainActor
 final class ShellIslandPanel: ShellFocusPanel {
+    private var lastEnvelope: (requested: CGRect, observed: CGRect)?
+
     init(content: NSView) {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
@@ -57,10 +59,15 @@ final class ShellIslandPanel: ShellFocusPanel {
     }
 
     @discardableResult
-    func setEnvelope(_ frame: CGRect) -> Bool {
-        guard self.frame != frame else { return false }
-        setFrame(frame, display: false)
-        return true
+    func setEnvelope(_ envelope: CGRect) -> Bool {
+        let currentFrame = frame
+        guard lastEnvelope?.requested != envelope || lastEnvelope?.observed != currentFrame else { return false }
+        let needsPlacement = currentFrame != envelope
+        if needsPlacement {
+            setFrame(envelope, display: false)
+        }
+        lastEnvelope = (envelope, frame)
+        return needsPlacement
     }
 }
 
@@ -115,9 +122,10 @@ final class ShellIsland {
 
     func update(monitor: Monitor, size: CGSize, visible: Bool, level: NSWindow.Level) {
         let next = ShellIslandGeometry(monitor: monitor, size: size)
-        if geometry != next {
-            geometry = next
-            panel.setEnvelope(next.frame)
+        let geometryChanged = geometry != next
+        geometry = next
+        panel.setEnvelope(next.frame)
+        if geometryChanged {
             updateStage()
             layoutSurface()
         }

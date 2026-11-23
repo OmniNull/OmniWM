@@ -94,12 +94,9 @@ extension MouseEventHandler {
                 abortActiveGestureIfNeeded()
                 return
             }
-            let orientation: Monitor.Orientation = lockedContext.columnScrollAxis == .horizontal
-                ? .horizontal
-                : .vertical
-            let primaryDelta = lockedContext.columnScrollAxis == .horizontal
-                ? metrics.rawDeltaX
-                : metrics.rawDeltaY
+            let horizontal = lockedContext.columnScrollAxis == .horizontal
+            let orientation: Monitor.Orientation = horizontal ? .horizontal : .vertical
+            let primaryDelta = horizontal ? metrics.rawDeltaX : metrics.rawDeltaY
             var deltaUnits = primaryDelta * CGFloat(controller.settings.gestures.scrollSensitivity)
             if controller.settings.gestures.invertDirection {
                 deltaUnits = -deltaUnits
@@ -124,13 +121,17 @@ extension MouseEventHandler {
                 abortActiveGestureIfNeeded()
                 return
             }
-            updateActiveMove(at: gestureWindowLocation(for: lockedContext))
+            let speed = controller.settings.gestures.windowMoveSensitivity
+            let point = gestureWindowLocation(for: lockedContext, in: monitor.frame, speed: speed, clamp: true)
+            updateActiveMove(at: point, on: monitor)
         case .windowResize:
             guard state.gestureOwnsWindowInteraction, state.isResizing else {
                 abortActiveGestureIfNeeded()
                 return
             }
-            updateManagedResize(at: gestureWindowLocation(for: lockedContext))
+            let speed = controller.settings.gestures.windowResizeSensitivity
+            let point = gestureWindowLocation(for: lockedContext, in: monitor.frame, speed: speed, clamp: false)
+            updateManagedResize(at: point)
         case nil:
             abortActiveGestureIfNeeded()
         }
@@ -269,14 +270,13 @@ extension MouseEventHandler {
             ))
         }
         guard allowFlick, !state.workspaceSwipeFired else { return }
-        state.workspaceSwipeTracker.push(delta: 0, timestamp: timestamp)
         let cumulative = (axis == .horizontal
             ? state.gestureLastAverageX - state.gestureStartX
             : state.gestureLastAverageY - state.gestureStartY)
             * GestureEventSnapshot.normalizedPositionToGestureUnits
         guard let displacement = TrackpadGestureIntent.releaseFlickDisplacement(
                   cumulativeAxisUnits: cumulative,
-                  velocity: state.workspaceSwipeTracker.velocity()
+                  velocity: state.workspaceSwipeTracker.velocity(atRelease: timestamp)
               ),
               let isNext = TrackpadGestureIntent.isNextWorkspace(
                   axis: axis,

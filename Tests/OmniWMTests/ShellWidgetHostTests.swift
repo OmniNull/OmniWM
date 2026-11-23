@@ -700,15 +700,8 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
 
     func testHoverDrawersOpenWhenThePointerReachesTheirScreenEdge() async throws {
         executionTimeAllowance = failureBound
-        let monitors = controller.workspaceManager.monitors
-        guard let main = monitors.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw MissingTestPrerequisite("drawers need the main display")
-        }
-        let point = CGPoint(x: main.frame.maxX - 0.5, y: main.frame.midY)
-        let edge = ShellDrawerConfig(id: "probe", edge: .right, widgets: [], hover: true)
-        guard ShellEdgeHover.touches(point, edge, main.frame, monitors.map(\.frame)) else {
-            throw MissingTestPrerequisite("the main display's right edge adjoins another display")
-        }
+        let monitor = try XCTUnwrap(controller.workspaceManager.monitors.max(by: { $0.frame.maxX < $1.frame.maxX }))
+        let point = CGPoint(x: monitor.frame.maxX - 0.5, y: monitor.frame.midY)
         let shell = controller.settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("shell")
         let widget = shell.appendingPathComponent("widgets/test", isDirectory: true)
         try Data("""
@@ -725,15 +718,15 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
         let manager = makeManager()
         defer { manager.cleanup() }
-        manager.apply([barSurface(on: main)])
-        await waitForShellWidgets(manager, on: main, count: 1)
+        manager.apply([barSurface(on: monitor)])
+        await waitForShellWidgets(manager, on: monitor, count: 1)
         XCTAssertTrue(manager.needsShellEdgeMouseMoves)
 
-        manager.handleAutoHideMouseMoved(at: CGPoint(x: main.frame.midX, y: main.frame.midY))
+        manager.handleAutoHideMouseMoved(at: CGPoint(x: monitor.frame.midX, y: monitor.frame.midY))
         XCTAssertNil(manager.shellHost?.drawer)
         manager.handleAutoHideMouseMoved(at: point)
         XCTAssertEqual(manager.shellHost?.drawer?.id, "controls")
-        XCTAssertEqual(manager.shellHost?.drawer?.monitor, main.id)
+        XCTAssertEqual(manager.shellHost?.drawer?.monitor, monitor.id)
     }
 
     func testFlushDashboardDrawersStayOpenUntilThePointerLeavesThem() async throws {
@@ -1000,6 +993,52 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         XCTAssertEqual(instance?.model.snapshot.shellWidgets.map(\.island), [.secondary])
         XCTAssertEqual(instance?.secondary?.slice, .secondary)
         XCTAssertEqual(instance?.primary.slice, .active)
+    }
+
+    func testBothIslandsOfASplitBarUnderADarkMenuBarDrawDark() async throws {
+        let previous = NSApplication.shared.appearance
+        NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        defer { NSApplication.shared.appearance = previous }
+        executionTimeAllowance = failureBound
+        let shell = ShellWidgetHost.shellDirectory(in: controller.settings.settingsFileURL.deletingLastPathComponent())
+        XCTAssertTrue(try ShellProfiles.setValue(
+            "overlappingMenuBar", at: ShellProfiles.key("workspaceBar", of: "default") + ["position"], in: shell
+        ))
+        XCTAssertTrue(try ShellProfiles.setValue(
+            false, at: ShellProfiles.key("workspaceBar", of: "default") + ["fullWidth"], in: shell
+        ))
+        controller.settings.workspaceBar.notchMode = .splitActiveLeft
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        manager.menuBarIsDark = true
+        let focused = WorkspaceBarItem(
+            id: WorkspaceDescriptor.ID(),
+            name: "1",
+            rawName: "1",
+            isFocused: true,
+            tiledWindows: [],
+            floatingWindows: []
+        )
+
+        manager.apply([barSurface(items: [focused])])
+        await waitForShellWidgets(manager)
+        let instance = try XCTUnwrap(manager.barsByMonitor[monitor.id])
+        let secondary = try XCTUnwrap(instance.secondary)
+        XCTAssertEqual(instance.primary.panel.appearance?.name, .darkAqua)
+        XCTAssertEqual(secondary.panel.appearance?.name, .darkAqua)
+        XCTAssertEqual(secondary.hostingView.appearance?.name, .darkAqua)
+        let host = try XCTUnwrap(manager.shellHost)
+        let islands = [WorkspaceBarIslandSlice.active, .secondary]
+        func palette(_ island: WorkspaceBarIslandSlice) -> ShellPalette {
+            host.palette(for: ShellBarKey(monitor: monitor.id, island: island))
+        }
+        XCTAssertTrue(islands.allSatisfy { palette($0) === host.resources.darkPalette })
+
+        manager.menuBarIsDark = false
+        manager.refreshMenuBarAppearance()
+        XCTAssertEqual(instance.primary.panel.appearance?.name, .aqua)
+        XCTAssertEqual(secondary.panel.appearance?.name, .aqua)
+        XCTAssertTrue(islands.allSatisfy { palette($0) === host.resources.palette })
     }
 
     private func waitForShellWidgets(_ manager: WorkspaceBarManager) async {

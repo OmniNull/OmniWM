@@ -8,7 +8,8 @@ import QuartzCore
 extension DwindleLayoutHandler {
     func buildOnDemandLayoutPlan(
         snapshot: DwindleWorkspaceSnapshot,
-        engine: DwindleLayoutEngine
+        engine: DwindleLayoutEngine,
+        isInteractiveMove: Bool = false
     ) -> WorkspaceLayoutPlan {
         let frames = engine.calculateLayout(
             for: snapshot.workspaceId,
@@ -20,7 +21,9 @@ extension DwindleLayoutHandler {
         var diff = layoutDiff(
             windows: snapshot.windows,
             frames: frames,
-            context: layoutDiffContext(snapshot: snapshot, engine: engine, reassertHidden: true, animationTime: nil)
+            context: layoutDiffContext(
+                snapshot: snapshot, engine: engine, reassertHidden: !isInteractiveMove, animationTime: nil
+            )
         )
         let isInteractiveResize = engine.interactiveResize?.workspaceId == snapshot.workspaceId
         if isInteractiveResize, let axManager = controller?.axManager {
@@ -36,6 +39,7 @@ extension DwindleLayoutHandler {
             ),
             diff: diff,
             isInteractiveResize: isInteractiveResize,
+            isInteractiveMove: isInteractiveMove,
             isActiveWorkspace: snapshot.isActiveWorkspace
         )
     }

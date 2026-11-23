@@ -60,7 +60,7 @@ extension LayoutRefreshController {
         )
     }
 
-    func renderInteractiveResize(for workspaceId: WorkspaceDescriptor.ID) {
+    func renderInteractiveResize(for workspaceId: WorkspaceDescriptor.ID, isInteractiveMove: Bool = false) {
         guard let controller,
               let engine = controller.niriEngine,
               let monitor = controller.workspaceManager.monitor(for: workspaceId)
@@ -70,7 +70,8 @@ extension LayoutRefreshController {
             state: controller.workspaceManager.niriViewportState(for: workspaceId),
             engine: engine,
             monitor: monitor,
-            animationTime: nil
+            animationTime: nil,
+            isInteractiveMove: isInteractiveMove
         )
     }
 

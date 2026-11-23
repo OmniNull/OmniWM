@@ -67,7 +67,11 @@ extension AXManager {
     }
 
     func hasInFlightFrameWrite(for token: WindowToken) -> Bool {
-        AppAXContextRegistry.contexts[token.pid]?.frameDelivery.hasInFlightFrameWrite(for: token.windowId) == true
+        inFlightFrameWrite(for: token) != nil
+    }
+
+    func inFlightFrameWrite(for token: WindowToken) -> AppAXFrameWriteRequest? {
+        AppAXContextRegistry.contexts[token.pid]?.frameDelivery.inFlightFrameWrite(for: token.windowId)
     }
 
     func pendingFrameWrite(for windowId: Int) -> CGRect? {

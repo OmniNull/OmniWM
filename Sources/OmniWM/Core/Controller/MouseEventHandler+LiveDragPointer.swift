@@ -6,7 +6,7 @@ import Foundation
 
 extension MouseEventHandler {
     func liveDragReference(_ location: CGPoint, orientation: Monitor.Orientation = .horizontal) -> CGPoint {
-        guard liveDragSession?.tabPull == nil,
+        guard liveDragSession?.carriedWindow == nil || state.gestureOwnsWindowInteraction,
               liveDragSession?.edgeScroll == nil,
               let offset = liveDragSession?.referenceOffset
         else { return location }
@@ -25,7 +25,8 @@ extension MouseEventHandler {
     }
 
     func liveDragWindowMidX(_ location: CGPoint, orientation: Monitor.Orientation = .horizontal) -> CGFloat? {
-        guard liveDragSession?.tabPull == nil, let offset = liveDragSession?.referenceOffset else { return nil }
+        guard liveDragSession?.carriedWindow == nil || state.gestureOwnsWindowInteraction,
+              let offset = liveDragSession?.referenceOffset else { return nil }
         return (orientation == .horizontal ? location.x : location.y) + offset
     }
 

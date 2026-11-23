@@ -25,6 +25,7 @@ extension DwindleLayoutEngine {
         guard state.root.projectedVisibleLeafCount > 0 else { return [:] }
 
         var output: [WindowToken: CGRect] = [:]
+        output.reserveCapacity(state.root.projectedVisibleLeafCount)
         let tilingArea = screen
         let borderSafeFillArea = borderSafeFillScreen ?? fullscreenScreen ?? screen
         let fullscreenArea = fullscreenScreen ?? screen

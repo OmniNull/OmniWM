@@ -83,6 +83,38 @@ final class MenuBarAutohideHoldTests: XCTestCase {
         }
     }
 
+    func testMenuAccessStaysRevealedUntilEveryOwnerReleases() {
+        let menuBar = FakeMenuBarAutohide()
+        menuBar.preference = true
+        let hold = MenuBarAutohideHold(system: menuBar.system, runtimeState: store())
+
+        XCTAssertTrue(hold.setMenuAccess(true, for: .hiddenBar))
+        XCTAssertTrue(hold.setMenuAccess(true, for: .notifications))
+        XCTAssertTrue(hold.setMenuAccess(false, for: .hiddenBar))
+        XCTAssertEqual(menuBar.preference, false)
+        XCTAssertTrue(hold.setMenuAccess(false, for: .notifications))
+
+        XCTAssertEqual(menuBar.preference, true)
+        XCTAssertEqual(menuBar.calls, [false, true])
+    }
+
+    func testFailedMenuAccessRestoreIsRetriedByTheNextUpdate() {
+        let menuBar = FakeMenuBarAutohide()
+        menuBar.preference = true
+        let hold = MenuBarAutohideHold(system: menuBar.system, runtimeState: store())
+
+        XCTAssertTrue(hold.setMenuAccess(true, for: .notifications))
+        menuBar.succeeds = false
+        XCTAssertFalse(hold.setMenuAccess(false, for: .notifications))
+        XCTAssertEqual(menuBar.preference, false)
+
+        menuBar.succeeds = true
+        hold.update(hiding: false)
+
+        XCTAssertEqual(menuBar.preference, true)
+        XCTAssertEqual(menuBar.calls, [false, true, true])
+    }
+
     func testMenuAccessPreservesOriginalPreferenceAcrossPersistentHideAndTemporaryVisibility() {
         let menuBar = FakeMenuBarAutohide()
         let state = store()
@@ -532,7 +564,8 @@ final class MenuBarAutohideHoldTests: XCTestCase {
                 motionPolicy: MotionPolicy(animationsEnabled: false)
             ),
             resolved: settings.resolved(for: monitor),
-            monitor: monitor
+            monitor: monitor,
+            appearance: nil
         )
         defer { island.panel.close() }
         XCTAssertGreaterThan(island.panel.level.rawValue, NSWindow.Level.statusBar.rawValue)

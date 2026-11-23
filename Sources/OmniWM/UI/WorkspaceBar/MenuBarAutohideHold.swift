@@ -16,6 +16,11 @@ struct MenuBarHideHold: Codable, Equatable {
     }
 }
 
+enum MenuBarAccessOwner {
+    case hiddenBar
+    case notifications
+}
+
 @MainActor
 final class MenuBarAutohideHold {
     struct System {
@@ -63,7 +68,8 @@ final class MenuBarAutohideHold {
     private let runtimeState: RuntimeStateStore
     private var request: Bool?
     private var deferredRequest: Bool?
-    private var menuAccess = false
+    private var menuAccess: Set<MenuBarAccessOwner> = []
+    private var restorePending = false
 
     init(system: System = .live, runtimeState: RuntimeStateStore) {
         self.system = system
@@ -78,17 +84,26 @@ final class MenuBarAutohideHold {
     }
 
     func update(hiding: Bool) {
-        if menuAccess {
+        if !menuAccess.isEmpty {
             deferredRequest = hiding
+            return
+        }
+        if restorePending {
+            deferredRequest = hiding
+            restorePending = !restoreAfterMenuAccess()
             return
         }
         apply(hiding: hiding)
     }
 
     @discardableResult
-    func setMenuAccess(_ active: Bool) -> Bool {
-        guard menuAccess != active else { return true }
+    func setMenuAccess(_ active: Bool, for owner: MenuBarAccessOwner = .hiddenBar) -> Bool {
+        guard menuAccess.contains(owner) != active else { return true }
         if active {
+            guard menuAccess.isEmpty else {
+                menuAccess.insert(owner)
+                return true
+            }
             let current = system.preference()
             let previousHold = currentHold(matching: current)
             var hold = previousHold ?? MenuBarHideHold(previous: current)
@@ -103,11 +118,14 @@ final class MenuBarAutohideHold {
                 }
                 return false
             }
-            menuAccess = true
+            menuAccess.insert(owner)
+            restorePending = false
             return true
         }
-        menuAccess = false
-        return restoreAfterMenuAccess()
+        menuAccess.remove(owner)
+        guard menuAccess.isEmpty else { return true }
+        restorePending = !restoreAfterMenuAccess()
+        return !restorePending
     }
 
     @discardableResult

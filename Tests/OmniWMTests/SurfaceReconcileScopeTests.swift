@@ -285,6 +285,7 @@ final class SurfaceReconcileScopeTests: XCTestCase {
     func testLayoutEdgeHideSchedulesFullSceneWhileTabRailsExist() throws {
         let controller = startedController()
         let (workspaceId, tokens) = try tiledWindows(count: 2, controller: controller)
+        _ = try XCTUnwrap(controller.workspaceManager.focusWorkspace(id: workspaceId))
         let engine = try XCTUnwrap(controller.niriEngine)
         controller.workspaceManager.withEngineMutationScope {
             let columns = engine.columns(in: workspaceId)
@@ -297,7 +298,7 @@ final class SurfaceReconcileScopeTests: XCTestCase {
         }
         let reconciler = controller.surfaceReconciler
         reconciler.reconcileNow()
-        XCTAssertFalse(reconciler.appliedScene.tabRails.isEmpty)
+        XCTAssertEqual(reconciler.appliedScene.tabRails.map(\.workspaceId), [workspaceId])
 
         controller.workspaceManager.setHiddenState(hiddenState(.layoutTransient(.left)), for: tokens[0])
 

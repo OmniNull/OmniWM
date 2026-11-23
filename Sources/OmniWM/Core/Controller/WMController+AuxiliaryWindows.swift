@@ -76,10 +76,6 @@ extension WMController {
         )
     }
 
-    func setHiddenBarEnabled(_ enabled: Bool) {
-        hiddenBarController.setEnabled(enabled)
-    }
-
     func updateHiddenBarSettings() {
         hiddenBarController.applySettings()
     }

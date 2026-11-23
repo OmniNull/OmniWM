@@ -214,13 +214,9 @@ final class WorkspaceSwipePreview {
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        let scale = Self.scale(for: monitor)
         root.addSublayer(makeWallpaperLayer(wallpaperImage, monitor: monitor, frame: frame))
-        let sourceLayer = makeWorkspaceLayer(
-            source, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
-        )
-        let destinationLayer = makeWorkspaceLayer(
-            destination, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
+        let (sourceLayer, destinationLayer) = makeWorkspaceLayers(
+            source: source, destination: destination, monitor: monitor, frame: frame, image: wallpaperImage
         )
         destinationLayer.isHidden = true
         sourceSnapshotLayer = makeSourceSnapshotLayer(in: sourceLayer)
@@ -264,12 +260,8 @@ final class WorkspaceSwipePreview {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         CATransaction.setCompletionBlock { withExtendedLifetime(previous) {} }
-        let scale = Self.scale(for: monitor)
-        let sourceLayer = makeWorkspaceLayer(
-            source, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
-        )
-        let destinationLayer = makeWorkspaceLayer(
-            destination, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
+        let (sourceLayer, destinationLayer) = makeWorkspaceLayers(
+            source: source, destination: destination, monitor: monitor, frame: frame, image: wallpaperImage
         )
         destinationLayer.isHidden = true
         self.sourceLayer?.removeFromSuperlayer()
@@ -324,24 +316,61 @@ final class WorkspaceSwipePreview {
 }
 
 extension WorkspaceSwipePreview {
-    private func makeWorkspaceLayer(
-        _ items: [Item], monitor: Monitor, frame: CGRect, scale: CGFloat, image: CGImage
-    ) -> CALayer {
-        let layer = CALayer()
-        layer.frame = CGRect(origin: .zero, size: frame.size)
-        layer.masksToBounds = true
-        layer.addSublayer(makeWallpaperLayer(image, monitor: monitor, frame: frame))
-        for item in items {
-            guard let preview = capture.preview(for: item.handle) else { continue }
-            let content = Content(
-                preview: preview,
-                frame: item.frame.offsetBy(dx: -frame.minX, dy: -frame.minY),
-                scale: scale
-            )
-            contents[item.handle, default: []].append(content)
-            layer.addSublayer(content.layer)
+    static func forEachBackToFrontIndex(in items: [Item], ranks: [UInt32: Int], draw: (Int) -> Void) {
+        guard items.count > 1, !ranks.isEmpty else {
+            items.indices.forEach(draw)
+            return
         }
-        return layer
+        func rank(at index: Int) -> Int? {
+            guard let id = UInt32(exactly: items[index].token.windowId) else { return nil }
+            return ranks[id]
+        }
+        withTemporaryAllocation(of: (index: Int, rank: Int).self, capacity: items.count) { ranked in
+            for index in items.indices {
+                if let rank = rank(at: index) { ranked.append((index, rank)) }
+            }
+            var elements = ranked.mutableSpan
+            elements.withUnsafeMutableBufferPointer { buffer in
+                var order = buffer
+                order.sort { $0.rank > $1.rank }
+            }
+            var next = 0
+            for index in items.indices {
+                if rank(at: index) == nil {
+                    draw(index)
+                } else {
+                    draw(ranked[next].index)
+                    next += 1
+                }
+            }
+        }
+    }
+
+    private func makeWorkspaceLayers(
+        source: [Item], destination: [Item], monitor: Monitor, frame: CGRect, image: CGImage
+    ) -> (CALayer, CALayer) {
+        let scale = Self.scale(for: monitor)
+        let ranks = source.count > 1 || destination.count > 1 ? SkyLight.shared.onScreenWindowRanksFrontToBack() : [:]
+
+        func makeLayer(for items: [Item]) -> CALayer {
+            let layer = CALayer()
+            layer.frame = CGRect(origin: .zero, size: frame.size)
+            layer.masksToBounds = true
+            layer.addSublayer(makeWallpaperLayer(image, monitor: monitor, frame: frame))
+            Self.forEachBackToFrontIndex(in: items, ranks: ranks) { index in
+                let item = items[index]
+                guard let preview = capture.preview(for: item.handle) else { return }
+                let content = Content(
+                    preview: preview,
+                    frame: item.frame.offsetBy(dx: -frame.minX, dy: -frame.minY),
+                    scale: scale
+                )
+                contents[item.handle, default: []].append(content)
+                layer.addSublayer(content.layer)
+            }
+            return layer
+        }
+        return (makeLayer(for: source), makeLayer(for: destination))
     }
 
     private func makeSourceSnapshotLayer(in sourceLayer: CALayer) -> CALayer {

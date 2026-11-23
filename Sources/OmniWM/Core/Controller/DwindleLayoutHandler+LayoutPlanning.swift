@@ -10,7 +10,8 @@ extension DwindleLayoutHandler {
         workspaceId wsId: WorkspaceDescriptor.ID,
         monitor: Monitor,
         resolveConstraints: Bool,
-        isActiveWorkspace: Bool
+        isActiveWorkspace: Bool,
+        geometry: LayoutMonitorSnapshot? = nil
     ) -> DwindleWorkspaceSnapshot? {
         guard let controller else { return nil }
 
@@ -18,7 +19,7 @@ extension DwindleLayoutHandler {
             workspaceId: wsId,
             monitor: monitor,
             resolveConstraints: resolveConstraints,
-            isActiveWorkspace: isActiveWorkspace
+            isActiveWorkspace: isActiveWorkspace, geometry: geometry
         ) else {
             return nil
         }

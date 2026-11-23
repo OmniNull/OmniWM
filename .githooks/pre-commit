@@ -1,35 +1,69 @@
-#!/bin/sh
-set -u
+#!/usr/bin/env bash
+set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
-tools="$root/.cache/flake-tools/bin"
-status=0
-swift="$(git diff --cached --name-only --diff-filter=ACMR -- '*.swift')"
+cd "$root"
+git diff --cached --check
 
-if [ -n "$swift" ]; then
+export OMNIWM_DEV_TOOLS="${OMNIWM_DEV_TOOLS:-$root/.cache/flake-tools}"
+if [[ "$OMNIWM_DEV_TOOLS" != /* ]]; then
+  OMNIWM_DEV_TOOLS="$root/$OMNIWM_DEV_TOOLS"
+fi
+tools="$OMNIWM_DEV_TOOLS/bin"
+python=python3
+if [ -x "$tools/python3" ]; then
+  python="$tools/python3"
+fi
+
+snapshot="$(mktemp -d)"
+trap 'rm -rf "$snapshot"' EXIT
+
+git diff --cached --name-only --diff-filter=ACMR -z -- '*.swift' > "$snapshot/swift-paths"
+if [ -s "$snapshot/swift-paths" ]; then
   if [ -x "$tools/swiftformat" ] && [ -x "$tools/swiftlint" ]; then
-    snapshot="$(mktemp -d)"
-    trap 'rm -rf "$snapshot"' EXIT
-    printf '%s\n' "$swift" .swiftformat .swiftlint.yml .swift-version | git checkout-index --prefix="$snapshot/" --stdin
-    sources="$(printf '%s\n' "$swift" | grep '^Sources/' || true)"
+    git ls-files -z -- .swiftformat .swiftlint.yml .swift-version |
+      git checkout-index --prefix="$snapshot/" --stdin -z
+    git checkout-index --prefix="$snapshot/" --stdin -z < "$snapshot/swift-paths"
+    git diff --cached --name-only --diff-filter=ACMR -z -- 'Sources/*.swift' > "$snapshot/source-paths"
     (
-      cd "$snapshot" || exit 1
-      printf '%s\n' "$swift" | tr '\n' '\0' | xargs -0 "$tools/swiftformat" --lint --quiet || exit 1
-      if [ -n "$sources" ]; then
-        printf '%s\n' "$sources" | tr '\n' '\0' | xargs -0 "$tools/swiftlint" lint --quiet --force-exclude || exit 1
+      cd "$snapshot"
+      xargs -0 "$tools/swiftformat" --lint --quiet -- < swift-paths
+      if [ -s source-paths ]; then
+        xargs -0 "$tools/swiftlint" lint --quiet --force-exclude -- < source-paths
       fi
-    ) || status=1
+    )
   else
-    echo "pre-commit: skipping SwiftFormat and SwiftLint, run make setup-tools to enable them" >&2
+    echo "pre-commit: skipping SwiftFormat and SwiftLint, load the nix shell or run make setup-tools" >&2
   fi
 fi
 
-if ! git diff --cached --quiet -- Scripts/dev-tools.env; then
-  pins="$(mktemp)"
-  git show :Scripts/dev-tools.env > "$pins"
-  python3 "$root/Scripts/check-pinned-downloads.py" "$pins" ||
-    echo "pre-commit: warning, ci and make setup will fail until the pinned download above is public" >&2
-  rm -f "$pins"
+ipc_paths=(Sources/OmniWMIPC/ Scripts/generate_ipc_wire.py Scripts/ipc_wire_models.py)
+if ! git diff --cached --quiet -- .swiftformat "${ipc_paths[@]}" ||
+   ! git diff --cached --quiet -G '^SWIFTFORMAT_VERSION=' -- Scripts/dev-tools.env; then
+  if [ -x "$tools/swiftformat" ] && command -v "$python" >/dev/null; then
+    tree="$(git write-tree)"
+    ipc_index="$snapshot/ipc-index"
+    GIT_INDEX_FILE="$ipc_index" git read-tree "$tree"
+    git ls-tree -r -z --name-only "$tree" -- .swiftformat Scripts/dev-tools.env "${ipc_paths[@]}" |
+      GIT_INDEX_FILE="$ipc_index" git checkout-index --ignore-skip-worktree-bits --force --prefix="$snapshot/" --stdin -z
+    required_version="$(sed -n 's/^SWIFTFORMAT_VERSION=//p' "$snapshot/Scripts/dev-tools.env")"
+    actual_version="$("$tools/swiftformat" --version 2>/dev/null || true)"
+    if [ -z "$required_version" ] || [ "$actual_version" != "$required_version" ]; then
+      echo "pre-commit: SwiftFormat $required_version required (found ${actual_version:-missing}), reload the nix shell or run make setup-tools" >&2
+      exit 1
+    fi
+    if ! "$python" "$snapshot/Scripts/generate_ipc_wire.py" --check; then
+      echo "pre-commit: run python3 Scripts/generate_ipc_wire.py and stage the regenerated files" >&2
+      exit 1
+    fi
+  else
+    echo "pre-commit: skipping generated IPC checks, load the nix shell or run make setup-tools" >&2
+  fi
 fi
 
-exit "$status"
+if ! git diff --cached --quiet --diff-filter=ACMR -- Scripts/dev-tools.env; then
+  pins="$snapshot/dev-tools.env"
+  git show :Scripts/dev-tools.env > "$pins"
+  "$python" "$root/Scripts/check-pinned-downloads.py" "$pins" ||
+    echo "pre-commit: warning, ci and make setup will fail until the pinned download above is public" >&2
+fi

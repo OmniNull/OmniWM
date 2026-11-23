@@ -19,7 +19,7 @@ final class WorkspaceBarManager {
         panel.setFrame(frame, display: true)
     }
 
-    var menuBarIsDark: @MainActor () -> Bool = { false }
+    var menuBarIsDark = false
 
     private(set) var barsByMonitor: [Monitor.ID: WorkspaceBarInstance] = [:]
     weak var controller: WMController?
@@ -183,11 +183,14 @@ final class WorkspaceBarManager {
         let measurementView = NSHostingView(rootView: WorkspaceBarMeasurementView(snapshot: snapshot))
         let screen = screenProvider(monitor.displayId)
         let panel = makePanel(screen: screen)
+        let appearance = barAppearance(for: resolved, on: monitor)
+        measurementView.appearance = appearance
         let primary = WorkspaceBarIslandPanel(
             panel: panel,
             rootView: makeBarView(model: model, slice: .all, monitorId: monitor.id),
             resolved: resolved,
-            monitor: monitor
+            monitor: monitor,
+            appearance: appearance
         )
 
         let instance = WorkspaceBarInstance(
@@ -199,7 +202,6 @@ final class WorkspaceBarManager {
         )
         barsByMonitor[monitor.id] = instance
 
-        instance.applyAppearance(barAppearance(for: resolved))
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         surfaceCoordinator.register(
             window: primary.panel,
@@ -218,7 +220,7 @@ final class WorkspaceBarManager {
         guard instance.updateMonitor(monitor, screen: screen) else { return false }
 
         instance.updateSnapshot(snapshot)
-        instance.applyAppearance(barAppearance(for: resolved))
+        instance.applyAppearance(barAppearance(for: resolved, on: monitor))
         instance.applyPanelSettings(resolved: resolved)
         updateBarFrameAndPosition(for: monitor, resolved: resolved, snapshot: snapshot, instance: instance)
         return true
@@ -414,7 +416,8 @@ extension WorkspaceBarManager {
             panel: makePanel(screen: screenProvider(instance.monitor.displayId)),
             rootView: makeBarView(model: instance.model, slice: .secondary, monitorId: instance.monitorId),
             resolved: resolved,
-            monitor: instance.monitor
+            monitor: instance.monitor,
+            appearance: instance.primary.panel.appearance
         )
         surfaceCoordinator.register(
             window: island.panel,

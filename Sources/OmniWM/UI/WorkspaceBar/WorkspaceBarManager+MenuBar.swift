@@ -4,18 +4,21 @@
 import AppKit
 
 extension WorkspaceBarManager {
-    func barAppearance(for resolved: ResolvedBarSettings) -> NSAppearance? {
-        usesDarkPalette(resolved) ? NSAppearance(named: .darkAqua) : NSApplication.shared.appearance
+    func barAppearance(for resolved: ResolvedBarSettings, on monitor: Monitor) -> NSAppearance? {
+        usesDarkPalette(resolved, on: monitor) ? NSAppearance(named: .darkAqua) : NSApplication.shared.appearance
     }
 
-    func usesDarkPalette(_ resolved: ResolvedBarSettings) -> Bool {
-        resolved.notchMode == .fillLeftOfNotch && menuBarIsDark()
+    func usesDarkPalette(_ resolved: ResolvedBarSettings, on monitor: Monitor) -> Bool {
+        !resolved.fullWidth
+            && WorkspaceBarGeometry.effectivePosition(for: monitor, resolved: resolved) == .overlappingMenuBar
+            && menuBarIsDark
     }
 
     func refreshMenuBarAppearance() {
         guard let settings = controller?.settings else { return }
         for instance in barsByMonitor.values {
-            instance.applyAppearance(barAppearance(for: settings.workspaceBar.resolved(for: instance.monitor)))
+            let resolved = settings.workspaceBar.resolved(for: instance.monitor)
+            instance.applyAppearance(barAppearance(for: resolved, on: instance.monitor))
         }
         shellHost?.updateBars()
     }

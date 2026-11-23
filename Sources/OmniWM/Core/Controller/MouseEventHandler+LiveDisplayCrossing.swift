@@ -41,7 +41,7 @@ extension MouseEventHandler {
             return carried.map { .init(token: $0, workspaceId: targetWorkspaceId) }
         }
         guard !carried.isEmpty else { return false }
-        if source.orientation != target.orientation, liveDragSession?.tabPull == nil {
+        if source.orientation != target.orientation, liveDragSession?.carriedWindow == nil {
             liveDragSession?.referenceOffset = if let observed {
                 target.primaryStart(of: observed) + target.primarySpan(of: observed) / 2
                     - target.primaryCoordinate(of: location)

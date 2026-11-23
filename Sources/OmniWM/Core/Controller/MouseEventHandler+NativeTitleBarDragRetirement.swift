@@ -68,7 +68,7 @@ extension MouseEventHandler {
         cancelLiveDwindleTabPull()
         correctDeferredNativeResizeFrameIfNeeded()
         state.nativeResizeStart = nil
-        state.staleNativeResizeStartToken = nil
+        clearNativeResizeStartRejections()
         state.nativeCrossDisplayMove = nil
         cancelLiveDwindleDrag()
         cancelLiveColumnDrag()
@@ -107,6 +107,12 @@ extension MouseEventHandler {
     }
 
     func discardNativeTitleBarDrag(for token: WindowToken) {
+        if state.moveLayout == .dwindle, controller?.dwindleEngine?.liveMoveToken == token {
+            cancelActiveMouseInteraction()
+        }
+        if isCarryingWindowByGesture, liveDragSession?.carriedWindow?.token == token {
+            cancelLiveColumnDrag()
+        }
         if state.nativeResizeCorrectionsByWindowId[token.windowId]?.token == token {
             state.nativeResizeCorrectionsByWindowId[token.windowId] = nil
         }

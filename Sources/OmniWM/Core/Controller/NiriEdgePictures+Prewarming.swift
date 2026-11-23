@@ -54,6 +54,21 @@ extension NiriEdgePictures {
         }
     }
 
+    func updatePendingCapture(for change: LayoutFrameChange, in workspaceId: WorkspaceDescriptor.ID) {
+        guard let pending = pendingCaptures[change.token], pending.key.workspaceId == workspaceId else { return }
+        guard isCaptureEligible(change.token) else {
+            remove(change.token)
+            return
+        }
+        if change.components.contains(.size) {
+            if pending.targetFrame != change.frame {
+                pendingCaptures[change.token] = NiriPendingPictureCapture(key: pending.key, targetFrame: change.frame)
+            }
+        } else {
+            requestPicture(change.token, key: pending.key)
+        }
+    }
+
     func preparePicture(_ token: WindowToken, picture: Picture, plan: WorkspaceLayoutPlan) {
         guard isCaptureEligible(token) else { remove(token)
             return

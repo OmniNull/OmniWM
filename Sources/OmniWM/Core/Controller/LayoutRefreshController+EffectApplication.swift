@@ -138,6 +138,9 @@ extension LayoutRefreshController {
         _ plan: WorkspaceLayoutPlan,
         suppressWindowActivation: Bool = false
     ) -> AcceptedSeq? {
+        if carriedWindowDrawStamp?.workspaceId == plan.workspaceId {
+            carriedWindowDrawStamp = nil
+        }
         guard let controller else { return nil }
         guard plan.sessionPatch.plannedSeq == 0
             || controller.workspaceManager.isSeqCurrent(
@@ -189,7 +192,7 @@ extension LayoutRefreshController {
             )
         }
         if !plan.isAnimationTick {
-            controller.surfaceReconciler.noteWorldChanged()
+            controller.surfaceReconciler.noteInvalidation(plan.isInteractiveMove ? .layoutEdge : .full)
         }
         return AcceptedSeq(
             after: controller.workspaceManager.worldSeq,

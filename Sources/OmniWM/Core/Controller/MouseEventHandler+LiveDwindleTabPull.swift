@@ -33,7 +33,7 @@ extension MouseEventHandler {
             return true
         }
         guard began else { return }
-        liveDragSession = .init(tabPull: .init(
+        liveDragSession = .init(carriedWindow: .init(
             token: token, anchorLocation: drag.location, startFrame: frame, layout: .dwindle
         ))
         state.deferredClickScroll = nil
@@ -42,7 +42,7 @@ extension MouseEventHandler {
     }
 
     func moveLiveDwindleTabPull(to location: CGPoint, starting: Bool = false) {
-        guard let pull = liveDragSession?.tabPull, pull.layout == .dwindle,
+        guard let pull = liveDragSession?.carriedWindow, pull.layout == .dwindle,
               let controller, let engine = controller.dwindleEngine,
               engine.liveTabMoveToken == pull.token,
               let workspaceId = engine.liveMoveWorkspaceId,
@@ -85,7 +85,7 @@ extension MouseEventHandler {
     }
 
     func finishLiveDwindleTabPull() {
-        guard liveDragSession?.tabPull?.layout == .dwindle,
+        guard liveDragSession?.carriedWindow?.layout == .dwindle,
               let controller, let engine = controller.dwindleEngine,
               let workspaceId = engine.liveMoveWorkspaceId
         else { return }
@@ -99,7 +99,7 @@ extension MouseEventHandler {
     }
 
     func cancelLiveDwindleTabPull(withinCrossDisplayMove: Bool = false) {
-        guard liveDragSession?.tabPull?.layout == .dwindle else { return }
+        guard liveDragSession?.carriedWindow?.layout == .dwindle else { return }
         if !withinCrossDisplayMove, liveCrossDisplayMove != nil {
             cancelLiveCrossDisplayMove()
             return

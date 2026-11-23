@@ -6,16 +6,28 @@ import XCTest
 
 final class WorkspaceSwipeMotionTests: XCTestCase {
     func testRecognitionMovementCommitsSingleFrameFlickWithoutProgressJump() {
+        let frameInterval = 1.0 / 128
+        let recognitionTime = 1 + frameInterval
+        let movement = 4.0
         let motion = WorkspaceSwipeMotion(
-            cumulativeUnits: 150, timestamp: 1.03125,
-            recognitionMovement: SwipeEvent(delta: 150, timestamp: 1)
+            cumulativeUnits: movement, timestamp: recognitionTime,
+            recognitionMovement: SwipeEvent(delta: movement, timestamp: 1)
         )
 
-        XCTAssertEqual(motion.progress(at: 1.03125), 0)
-        XCTAssertEqual(motion.velocity(at: 1.03125), 150 / WorkspaceSwipeMotion.travelUnits / (1.03125 - 1))
-        XCTAssertTrue(motion.release(timestamp: 1.0625, allowFlick: true, animationTime: 100))
+        let trackedVelocity = movement / WorkspaceSwipeMotion.travelUnits / (recognitionTime - 1)
+        let releaseTime = 100.0
+
+        XCTAssertEqual(motion.progress(at: recognitionTime), 0)
+        XCTAssertEqual(motion.velocity(at: recognitionTime), trackedVelocity)
+        XCTAssertTrue(motion.release(
+            timestamp: recognitionTime + frameInterval, allowFlick: true, animationTime: releaseTime
+        ))
         XCTAssertEqual(motion.target, 1)
-        XCTAssertEqual(motion.velocity(at: 100), 150 / WorkspaceSwipeMotion.travelUnits / (1.0625 - 1))
+        let committed = SpringAnimation(
+            from: 0, to: 1, initialVelocity: trackedVelocity, startTime: releaseTime,
+            config: MotionSnapshot.enabled.scaled(WorkspaceSwipeMotion.springConfig)
+        )
+        XCTAssertEqual(motion.velocity(at: releaseTime), committed.velocity(at: releaseTime))
     }
 
     func testSlowRecognitionUsesRecentMovementInsteadOfWholeContactDisplacement() {

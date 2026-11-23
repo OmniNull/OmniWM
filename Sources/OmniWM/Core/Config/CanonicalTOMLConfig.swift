@@ -289,7 +289,10 @@ extension CanonicalTOMLConfig {
         gestures.windowMoveFingerCount = gestures.windowMoveFingerCount ?? .four
         gestures.windowResizeEnabled = gestures.windowResizeEnabled ?? false
         gestures.windowResizeFingerCount = gestures.windowResizeFingerCount ?? .three
-        gestures.windowGestureSensitivity = gestures.windowGestureSensitivity ?? 1.0
+        gestures.windowMoveSensitivity = gestures.windowMoveSensitivity ?? SettingsExport.Gestures
+            .defaultMoveSensitivity
+        gestures.windowGestureSensitivity = gestures.windowGestureSensitivity ?? SettingsExport.Gestures
+            .defaultResizeSensitivity
         gestures.dwindleGroupDragAcrossDisplays = gestures.dwindleGroupDragAcrossDisplays ?? .group
         return gestures
     }

@@ -12,11 +12,16 @@ final class WorkspaceBarIslandPanel {
     var lastAppliedFrame: NSRect?
     private var lastObservedFrame: NSRect?
 
-    init(panel: WorkspaceBarPanel, rootView: WorkspaceBarView, resolved: ResolvedBarSettings, monitor: Monitor) {
+    init(
+        panel: WorkspaceBarPanel,
+        rootView: WorkspaceBarView,
+        resolved: ResolvedBarSettings,
+        monitor: Monitor,
+        appearance: NSAppearance?
+    ) {
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.sizingOptions = []
         panel.contentView = hostingView
-        let appearance = NSApplication.shared.appearance
         panel.appearance = appearance
         hostingView.appearance = appearance
         self.panel = panel

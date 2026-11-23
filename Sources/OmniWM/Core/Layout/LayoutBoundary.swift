@@ -281,6 +281,7 @@ struct WorkspaceLayoutPlan {
     var dwindleAnimationTargetDisposition: DwindleAnimationTargetDisposition?
     var isAnimationTick = false
     var isInteractiveResize = false
+    var isInteractiveMove = false
     var isActiveWorkspace = true
     var isSlideInFlight = false
 }

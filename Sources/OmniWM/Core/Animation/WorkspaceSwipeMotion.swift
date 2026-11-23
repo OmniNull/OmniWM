@@ -69,8 +69,7 @@ final class WorkspaceSwipeMotion {
     ) -> Bool {
         guard spring == nil, timestamp.isFinite, timestamp >= lastTimestamp,
               animationTime.isFinite else { return false }
-        tracker.push(delta: 0, timestamp: timestamp)
-        let velocity = allowFlick ? tracker.velocity() : 0
+        let velocity = allowFlick ? tracker.velocity(atRelease: timestamp) : 0
         let projected = trackedProgress - velocity / Self.projectionDecay
         let destination = allowFlick && projected >= 0.5 ? 1.0 : 0.0
         TrackpadScrollTrace.record(.workspacePresentation(

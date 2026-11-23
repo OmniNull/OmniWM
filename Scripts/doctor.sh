@@ -2,7 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BIN_DIR="$ROOT_DIR/.cache/flake-tools/bin"
+BIN_DIR="${OMNIWM_DEV_TOOLS:-$ROOT_DIR/.cache/flake-tools}/bin"
+if [[ "$BIN_DIR" != /* ]]; then
+  BIN_DIR="$ROOT_DIR/$BIN_DIR"
+fi
 FRAMEWORK_DIR="$ROOT_DIR/Frameworks/GhosttyKit.xcframework"
 ERRORS=0
 source "$ROOT_DIR/Scripts/dev-tools.env"

@@ -49,24 +49,59 @@ final class WorkspaceBarManagerTests: XCTestCase {
         let manager = makeManager()
         defer { manager.cleanup() }
 
-        manager.menuBarIsDark = { true }
+        manager.menuBarIsDark = true
         manager.apply([barSurface(itemCount: 1)])
         let fill = controller.settings.workspaceBar.resolved(for: monitor)
         XCTAssertEqual(fill.notchMode, .fillLeftOfNotch)
         let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
         XCTAssertEqual(panel.appearance?.name, .darkAqua)
-        XCTAssertTrue(manager.usesDarkPalette(fill))
+        XCTAssertTrue(manager.usesDarkPalette(fill, on: monitor))
 
-        manager.menuBarIsDark = { false }
+        manager.menuBarIsDark = false
         manager.refreshMenuBarAppearance()
         XCTAssertEqual(panel.appearance, NSApplication.shared.appearance)
-        XCTAssertFalse(manager.usesDarkPalette(fill))
+        XCTAssertFalse(manager.usesDarkPalette(fill, on: monitor))
+    }
 
-        let island = WorkspaceBarSettings().resolved(for: monitor)
-        XCTAssertNotEqual(island.notchMode, .fillLeftOfNotch)
-        manager.menuBarIsDark = { true }
-        XCTAssertEqual(manager.barAppearance(for: island), NSApplication.shared.appearance)
-        XCTAssertFalse(manager.usesDarkPalette(island))
+    func testOnlyBarsDrawnOnTheVisibleMenuBarTakeItsAppearance() {
+        let previous = NSApplication.shared.appearance
+        NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        defer { NSApplication.shared.appearance = previous }
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        manager.menuBarIsDark = true
+        let bar = controller.settings.workspaceBar
+        func appearance(on monitor: Monitor) -> NSAppearance.Name? {
+            manager.barAppearance(for: bar.resolved(for: monitor), on: monitor)?.name
+        }
+        let external = Monitor(
+            id: .init(displayId: 92_202), displayId: 92_202,
+            frame: CGRect(x: 0, y: 0, width: 3440, height: 1440),
+            visibleFrame: CGRect(x: 0, y: 0, width: 3440, height: 1410),
+            hasNotch: false, name: "External"
+        )
+
+        bar.position = .overlappingMenuBar
+        bar.fullWidth = false
+        bar.notchMode = .off
+        XCTAssertEqual(appearance(on: external), .darkAqua)
+
+        bar.notchMode = .moveBelowMenuBar
+        XCTAssertEqual(appearance(on: external), .darkAqua)
+        XCTAssertEqual(appearance(on: notchedMonitor), .aqua)
+
+        bar.fullWidth = true
+        XCTAssertEqual(appearance(on: external), .aqua)
+
+        bar.fullWidth = false
+        for position in [WorkspaceBarPosition.belowMenuBar, .bottom, .left, .right] {
+            bar.position = position
+            XCTAssertEqual(appearance(on: external), .aqua, "\(position)")
+        }
+
+        bar.position = .overlappingMenuBar
+        manager.menuBarIsDark = false
+        XCTAssertEqual(appearance(on: external), .aqua)
     }
 
     func testFillBarStepsAsideWhileNativeMenuBarItemsExpandOverIt() {
@@ -1150,6 +1185,15 @@ final class WorkspaceBarManagerTests: XCTestCase {
             monitor: monitor,
             visible: true,
             snapshot: snapshot(itemCount: itemCount, orientation: orientation)
+        )
+    }
+
+    private var notchedMonitor: Monitor {
+        Monitor(
+            id: .init(displayId: 92_201), displayId: 92_201,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 949),
+            hasNotch: true, notchRange: 663.5 ... 848.5, notchHeight: 33, name: "Notched"
         )
     }
 

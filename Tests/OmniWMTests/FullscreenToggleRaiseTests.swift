@@ -163,7 +163,7 @@ final class FullscreenToggleRaiseTests: XCTestCase {
             ),
             autosaveEnabled: false
         )
-        return WMController(
+        let controller = WMController(
             settings: settings,
             windowFocusOperations: WindowFocusOperations(
                 activateApp: { _ in },
@@ -177,6 +177,13 @@ final class FullscreenToggleRaiseTests: XCTestCase {
                 }
             )
         )
+        let frame = CGRect(x: 0, y: 0, width: 1600, height: 900)
+        let monitor = Monitor(
+            id: .init(displayId: 830_301), displayId: 830_301, frame: frame, visibleFrame: frame,
+            hasNotch: false, name: "Fullscreen Toggle"
+        )
+        controller.workspaceManager.applyMonitorConfigurationChange([monitor])
+        return controller
     }
 
     private func addWindow(
