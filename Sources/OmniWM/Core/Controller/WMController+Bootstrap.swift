@@ -62,6 +62,9 @@ extension WMController {
 
     func configureSurfaceCallbacks() {
         configureAppTheming()
+        settings.focus.onEdgeNavigationEnabledChange = { [weak self] in
+            self?.surfaceReconciler.noteWorldChanged()
+        }
         traceCaptureCoordinator.onStateChange = { [weak self] in
             self?.syncScopeValidationWithRecording()
             self?.statusBarController?.handleTraceCaptureStateChange()

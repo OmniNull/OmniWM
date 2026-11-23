@@ -147,6 +147,7 @@ struct WorldView {
               let engine = controller.niriEngine
         else { return masks }
 
+        let navigationEnabled = controller.settings.focus.edgeNavigationEnabled
         for monitor in monitors {
             guard masks.contains(where: { $0.key.monitorId == monitor.id }),
                   let workspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id),
@@ -162,7 +163,7 @@ struct WorldView {
             for side in sides {
                 let key = ParkingEdgeMaskKey(monitorId: monitor.id, side: side)
                 let targetIndex = activeIndex + side.step
-                let navigation: ParkingEdgeNavigation? = if columns.indices.contains(targetIndex),
+                let navigation: ParkingEdgeNavigation? = if navigationEnabled, columns.indices.contains(targetIndex),
                                                             let window = engine
                                                                 .projectedActiveWindow(in: columns[targetIndex])
                 {
@@ -177,9 +178,8 @@ struct WorldView {
                 if let index = masks.firstIndex(where: { $0.key == key }) {
                     masks[index].navigation = navigation
                 } else {
-                    masks.append(DesiredParkingEdgeMask(
-                        key: key, frame: side.frame(in: monitor.visibleFrame), navigation: navigation
-                    ))
+                    let frame = side.frame(in: monitor.visibleFrame)
+                    masks.append(DesiredParkingEdgeMask(key: key, frame: frame, navigation: navigation))
                 }
             }
         }

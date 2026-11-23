@@ -214,7 +214,7 @@ final class ParkingEdgeMaskTests: XCTestCase {
         XCTAssertEqual(firstInfo.capturePolicy, .excluded)
         XCTAssertFalse(firstInfo.suppressesManagedFocusRecovery)
         XCTAssertEqual(firstInfo.frame, firstFrame)
-        XCTAssertEqual(firstWindow.level, .statusBar)
+        XCTAssertEqual(firstWindow.level, ParkingEdgeMaskWindow.windowLevel)
         XCTAssertFalse(firstWindow.ignoresMouseEvents)
 
         manager.apply([DesiredParkingEdgeMask(key: key, frame: secondFrame)])

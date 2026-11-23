@@ -33,6 +33,7 @@ struct MouseTrackpadSettingsTab: View {
                 Form {
                     mouseMoveAndResizeSection
                     focusFollowsMouseSection
+                    niriEdgeNavigationSection
                 }
                 .formStyle(.grouped)
             } else {
@@ -123,23 +124,6 @@ struct MouseTrackpadSettingsTab: View {
                 localized: "Ignore partially offscreen Niri windows and disable hover navigation at screen edges. Click or use the keyboard to reveal them."
             )
 
-            SettingsSliderRow(
-                field: .init(.focusEdgeNavigationInterval),
-                label: String(localized: "Edge navigation interval"),
-                value: Bindable(settings.focus).edgeNavigationInterval,
-                range: FocusSettings.edgeNavigationIntervalRange,
-                step: FocusSettings.edgeNavigationIntervalStep,
-                valueText: String(
-                    localized: "\(settings.focus.edgeNavigationInterval.formatted(.number.precision(.fractionLength(0 ... 2))))s"
-                )
-            )
-            .id("Edge navigation interval")
-            .disabled(!settings.focus.followsMouse || settings.focus.followsMouseOnlyFullyVisible)
-
-            SettingsCaption(
-                localized: "Hover at a Niri screen edge to move one column after this interval, then repeat while the pointer stays on the edge or preview. Move away to stop."
-            )
-
             Picker("Focus Lock Modifier", selection: Bindable(settings.focus).lockModifier) {
                 ForEach(FocusLockModifier.allCases, id: \.self) { key in
                     Text(key.localizedDisplayName).tag(key)
@@ -154,5 +138,33 @@ struct MouseTrackpadSettingsTab: View {
             )
         }
         .id("Focus Follows Mouse")
+    }
+
+    private var niriEdgeNavigationSection: some View {
+        Section {
+            Toggle("Niri Edge Navigation", isOn: Bindable(settings.focus).edgeNavigationEnabled)
+                .id("Niri Edge Navigation")
+                .settingsField(.focusEdgeNavigationEnabled)
+
+            SettingsSliderRow(
+                field: .init(.focusEdgeNavigationInterval),
+                label: String(localized: "Edge navigation interval"),
+                value: Bindable(settings.focus).edgeNavigationInterval,
+                range: FocusSettings.edgeNavigationIntervalRange,
+                step: FocusSettings.edgeNavigationIntervalStep,
+                valueText: String(
+                    localized: "\(settings.focus.edgeNavigationInterval.formatted(.number.precision(.fractionLength(0 ... 2))))s"
+                )
+            )
+            .id("Edge navigation interval")
+            .disabled(
+                !settings.focus.edgeNavigationEnabled || !settings.focus.followsMouse
+                    || settings.focus.followsMouseOnlyFullyVisible
+            )
+
+            SettingsCaption(
+                localized: "Hover at a Niri screen edge to move one column after this interval, then repeat while the pointer stays on the edge or preview. Move away to stop."
+            )
+        }
     }
 }

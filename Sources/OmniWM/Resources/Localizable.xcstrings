@@ -158954,6 +158954,7 @@
 
     },
     "Edge navigation interval" : {},
+    "Niri Edge Navigation" : {},
     "Hover at a Niri screen edge to move one column after this interval, then repeat while the pointer stays on the edge or preview. Move away to stop." : {},
     "Each setting comes from the most specific matching rule that sets it; ties break by order — drag to reorder." : {
       "localizations" : {

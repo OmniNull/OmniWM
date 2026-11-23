@@ -15,6 +15,7 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
             "followsMouse": .boolean(false),
             "followsMouseOnlyFullyVisible": .boolean(false),
             "clickFocusWithoutScrolling": .boolean(false),
+            "edgeNavigationEnabled": .boolean(true),
             "edgeNavigationInterval": .number(1.5),
             "raiseOnMouseFocus": .boolean(false),
             "lockModifier": .string("off"),
@@ -33,6 +34,18 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
             "arrangements": .record([:])
         ]))
         XCTAssertEqual(try SettingsLuauFixture.decode(data), defaults)
+    }
+
+    func testEdgeNavigationCanBeDisabledAndDefaultsOnForExistingConfigurations() throws {
+        var export = SettingsExport.defaults()
+        export.focus.edgeNavigationEnabled = false
+        let data = try SettingsLuauDocument.initialSource(export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
+
+        let source = String(decoding: data, as: UTF8.self)
+        let missing = try removing(key: "edgeNavigationEnabled", from: "focus", in: source)
+        let result = try SettingsLuauDocument(Data(missing.utf8))
+        XCTAssertTrue(result.export.focus.edgeNavigationEnabled)
     }
 
     func testEveryEdgeNavigationIntervalRoundTrips() throws {

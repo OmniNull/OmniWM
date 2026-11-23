@@ -29,7 +29,7 @@ final class ParkingEdgeFinWindow: NSPanel {
         isFloatingPanel = true
         isOpaque = false
         backgroundColor = .clear
-        level = .statusBar
+        level = ParkingEdgeMaskWindow.windowLevel
         ignoresMouseEvents = false
         acceptsMouseMovedEvents = true
         hasShadow = false
