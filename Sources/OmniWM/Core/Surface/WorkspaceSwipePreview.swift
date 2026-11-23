@@ -214,13 +214,9 @@ final class WorkspaceSwipePreview {
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        let scale = Self.scale(for: monitor)
         root.addSublayer(makeWallpaperLayer(wallpaperImage, monitor: monitor, frame: frame))
-        let sourceLayer = makeWorkspaceLayer(
-            source, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
-        )
-        let destinationLayer = makeWorkspaceLayer(
-            destination, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
+        let (sourceLayer, destinationLayer) = makeWorkspaceLayers(
+            source: source, destination: destination, monitor: monitor, frame: frame, image: wallpaperImage
         )
         destinationLayer.isHidden = true
         sourceSnapshotLayer = makeSourceSnapshotLayer(in: sourceLayer)
@@ -264,12 +260,8 @@ final class WorkspaceSwipePreview {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         CATransaction.setCompletionBlock { withExtendedLifetime(previous) {} }
-        let scale = Self.scale(for: monitor)
-        let sourceLayer = makeWorkspaceLayer(
-            source, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
-        )
-        let destinationLayer = makeWorkspaceLayer(
-            destination, monitor: monitor, frame: frame, scale: scale, image: wallpaperImage
+        let (sourceLayer, destinationLayer) = makeWorkspaceLayers(
+            source: source, destination: destination, monitor: monitor, frame: frame, image: wallpaperImage
         )
         destinationLayer.isHidden = true
         self.sourceLayer?.removeFromSuperlayer()
@@ -324,6 +316,35 @@ final class WorkspaceSwipePreview {
 }
 
 extension WorkspaceSwipePreview {
+    static func backToFront(_ items: [Item], ranks: [UInt32: Int]) -> [Item] {
+        guard items.count > 1, !ranks.isEmpty else { return items }
+        var ordered = items
+        let ranked = items.enumerated().compactMap { index, item -> (index: Int, rank: Int)? in
+            guard let id = UInt32(exactly: item.token.windowId), let rank = ranks[id] else { return nil }
+            return (index, rank)
+        }
+        let sorted = ranked.sorted { lhs, rhs in lhs.rank > rhs.rank }
+        for (slot, window) in zip(ranked, sorted) {
+            ordered[slot.index] = items[window.index]
+        }
+        return ordered
+    }
+
+    private func makeWorkspaceLayers(
+        source: [Item], destination: [Item], monitor: Monitor, frame: CGRect, image: CGImage
+    ) -> (CALayer, CALayer) {
+        let scale = Self.scale(for: monitor)
+        let ranks = source.count > 1 || destination.count > 1 ? SkyLight.shared.onScreenWindowRanksFrontToBack() : [:]
+        return (
+            makeWorkspaceLayer(
+                Self.backToFront(source, ranks: ranks), monitor: monitor, frame: frame, scale: scale, image: image
+            ),
+            makeWorkspaceLayer(
+                Self.backToFront(destination, ranks: ranks), monitor: monitor, frame: frame, scale: scale, image: image
+            )
+        )
+    }
+
     private func makeWorkspaceLayer(
         _ items: [Item], monitor: Monitor, frame: CGRect, scale: CGFloat, image: CGImage
     ) -> CALayer {
