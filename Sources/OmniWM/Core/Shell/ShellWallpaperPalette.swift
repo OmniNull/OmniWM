@@ -179,17 +179,21 @@ extension ShellWallpaperPalette {
         aerial: Bool,
         fallbackFile: URL? = nil,
         frame: CGRect? = nil,
+        canCapture: Bool = ScreenCapturePermissionMonitor.shared.isGranted,
+        capture: (CGRect) -> CGImage? = { SkyLight.shared.captureWallpaper(in: $0) },
         makeCache: () -> OverviewWallpaperCache = { OverviewWallpaperCache() }
     ) -> CGImage? {
-        let frame = frame ?? CGDisplayBounds(displayId)
-        let cache = makeCache()
         if aerial {
-            return cache.captureWallpaper(frame).flatMap {
+            guard canCapture else { return nil }
+            let frame = frame ?? CGDisplayBounds(displayId)
+            return capture(frame).flatMap {
                 $0.width >= Int(ceil(frame.width)) && $0.height >= Int(ceil(frame.height)) ? $0 : nil
             }
         }
-        // AppKit can keep reporting the previous wallpaper after a change.
-        cache.desktopImageURL = { _ in fallbackFile }
+        let cache = makeCache()
+        if canCapture || fallbackFile != nil {
+            cache.desktopImageURL = { _ in fallbackFile }
+        }
         return cache.image(for: displayId, maxPixelSize: pixelSize, frame: frame)
     }
 
