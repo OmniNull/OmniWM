@@ -69,6 +69,10 @@ extension WMController {
         secureInputIndicator.openHotkeysSettings = { [weak self] in
             self?.statusBarController?.openSettings(section: .hotkeys)
         }
+        secureInputIndicator.showsExplanationAutomatically = settings.showSecureInputExplanation
+        settings.onShowSecureInputExplanationChanged = { [weak self] enabled in
+            self?.secureInputIndicator.showsExplanationAutomatically = enabled
+        }
         tabRailManager.ringOrderedAbove = { [weak self] in self?.surfaceReconciler.ringWindowId(orderedAbove: $0) }
         tabRailManager.onDrag = { [weak self] drag in
             self?.mouseEventHandler.handleTabRailDrag(drag)

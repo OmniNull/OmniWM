@@ -111,6 +111,25 @@ final class SettingsFileModelTests: XCTestCase {
         XCTAssertTrue(result.export.pausePalettePasteDuringSecureInput)
     }
 
+    @MainActor
+    func testSecureInputExplanationDefaultsOnAndRoundTrips() throws {
+        let settings = makeSettingsStore()
+        XCTAssertTrue(settings.showSecureInputExplanation)
+
+        settings.showSecureInputExplanation = false
+        let data = try SettingsLuauDocument.initialSource(settings.toExport())
+        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("showSecureInputExplanation = false"))
+
+        settings.showSecureInputExplanation = true
+        settings.applyExport(try SettingsLuauDocument(data).export)
+        XCTAssertFalse(settings.showSecureInputExplanation)
+        XCTAssertFalse(settings.toExport().showSecureInputExplanation)
+
+        let omitted = try SettingsLuauDocument(Data("return {}".utf8))
+        settings.applyExport(omitted.export)
+        XCTAssertTrue(settings.showSecureInputExplanation)
+    }
+
     func testSlideWorkspaceSwitchesDefaultsOffAndRoundTrips() throws {
         var export = SettingsExport.defaults()
         XCTAssertFalse(export.slideWorkspaceSwitches)

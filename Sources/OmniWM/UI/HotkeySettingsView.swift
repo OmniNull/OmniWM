@@ -115,6 +115,10 @@ struct HotkeySettingsView: View {
                     "While macOS Secure Input is on, the command palette doesn’t paste clipboard entries. Turn off if an app holds Secure Input in the background. Keyboard modes and shortcuts marked “Paused during Secure Input” stay paused either way."
                 )
 
+                Toggle("Automatically Show Secure Input Explanation", isOn: $settings.showSecureInputExplanation)
+                    .id("Automatically Show Secure Input Explanation")
+                    .settingsField(.generalShowSecureInputExplanation)
+
                 LabeledContent("Defaults") {
                     Button("Reset to Defaults", role: .destructive) {
                         confirmsResetToDefaults = true

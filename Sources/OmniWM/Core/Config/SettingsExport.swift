@@ -54,6 +54,7 @@ struct SettingsExport: Equatable {
     var animationSpeed: Double
     var slideWorkspaceSwitches = false
     var pausePalettePasteDuringSecureInput = true
+    var showSecureInputExplanation = true
     var language: String?
 
     var launcher = LauncherConfiguration()

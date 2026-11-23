@@ -105,6 +105,7 @@ enum SettingsFieldID: String, CaseIterable {
     case generalLanguage = "general.language"
     case generalPausePalettePasteDuringSecureInput = "general.pausePalettePasteDuringSecureInput"
     case generalPreventSleepEnabled = "general.preventSleepEnabled"
+    case generalShowSecureInputExplanation = "general.showSecureInputExplanation"
     case generalSlideWorkspaceSwitches = "general.slideWorkspaceSwitches"
     case generalSystemHyperTrigger = "general.systemHyperTrigger"
     case generalUpdateChecksEnabled = "general.updateChecksEnabled"

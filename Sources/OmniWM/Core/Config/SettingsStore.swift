@@ -32,6 +32,7 @@ final class SettingsStore {
 
     var onIPCEnabledChanged: (@MainActor (Bool) -> Void)?
     var onSlideWorkspaceSwitchesChanged: (@MainActor () -> Void)?
+    var onShowSecureInputExplanationChanged: (@MainActor (Bool) -> Void)?
     var onExternalSettingsReloaded: (@MainActor () -> Void)?
     var onConfirmedSettingsEdit: (@MainActor () -> Void)?
     var onConfigNoticeChanged: (@MainActor () -> Void)?
@@ -120,14 +121,7 @@ final class SettingsStore {
     }
 
     var ipcEnabled = SettingsStore.defaultExport.ipcEnabled {
-        didSet {
-            guard oldValue != ipcEnabled else { return }
-            let enabled = ipcEnabled
-            scheduleSave()
-            if ipcEnabled == enabled, !restoringFormulaDraft {
-                onIPCEnabledChanged?(enabled)
-            }
-        }
+        didSet { saveChange(\.ipcEnabled, from: oldValue) { onIPCEnabledChanged?($0) } }
     }
 
     let statusBar = StatusBarSettings()
@@ -155,14 +149,7 @@ final class SettingsStore {
     }
 
     var slideWorkspaceSwitches = SettingsStore.defaultExport.slideWorkspaceSwitches {
-        didSet {
-            guard oldValue != slideWorkspaceSwitches else { return }
-            let enabled = slideWorkspaceSwitches
-            scheduleSave()
-            if slideWorkspaceSwitches == enabled, !restoringFormulaDraft {
-                onSlideWorkspaceSwitchesChanged?()
-            }
-        }
+        didSet { saveChange(\.slideWorkspaceSwitches, from: oldValue) { _ in onSlideWorkspaceSwitchesChanged?() } }
     }
 
     var slideWorkspaceSwitchesUntracked: Bool {
@@ -171,6 +158,12 @@ final class SettingsStore {
 
     var pausePalettePasteDuringSecureInput = SettingsStore.defaultExport.pausePalettePasteDuringSecureInput {
         didSet { scheduleSave() }
+    }
+
+    var showSecureInputExplanation = SettingsStore.defaultExport.showSecureInputExplanation {
+        didSet {
+            saveChange(\.showSecureInputExplanation, from: oldValue) { onShowSecureInputExplanationChanged?($0) }
+        }
     }
 
     var language = SettingsStore.defaultExport.language {
@@ -349,6 +342,13 @@ final class SettingsStore {
 
     func editList(at path: [String], keeping indices: [Int?], _ change: () -> Void) {
         persistence.editList(at: path, keeping: indices, change)
+    }
+
+    private func saveChange(_ setting: KeyPath<SettingsStore, Bool>, from oldValue: Bool, _ onChange: (Bool) -> Void) {
+        let enabled = self[keyPath: setting]
+        guard oldValue != enabled else { return }
+        scheduleSave()
+        if self[keyPath: setting] == enabled, !restoringFormulaDraft { onChange(enabled) }
     }
 
     func scheduleSave() {

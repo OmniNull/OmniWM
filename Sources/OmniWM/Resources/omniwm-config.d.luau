@@ -155,6 +155,7 @@ export type OmniWMSettings = {
         ipcEnabled: boolean?,
         language: string?,
         pausePalettePasteDuringSecureInput: boolean?,
+        showSecureInputExplanation: boolean?,
         preventSleepEnabled: boolean?,
         slideWorkspaceSwitches: boolean?,
         systemHyperTrigger: string?,
