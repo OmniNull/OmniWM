@@ -1,0 +1,11 @@
+return {
+    format = 1,
+    name = "lake",
+    version = "1.0.2",
+    api = 1,
+    author = "OmniNull",
+    license = "GPL-2.0-only",
+    title = "Lake",
+    summary = "A minimal bar and a customizable island for media, calendar, and more.",
+    previews = { "bar.jpg", "desktop.jpg" },
+}

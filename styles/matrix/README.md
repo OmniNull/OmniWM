@@ -16,4 +16,4 @@ Widgets keep their media transport, volume, calendar, weather and system control
 
 ## Credits and licences
 
-Style code is GPL-2.0-only, as declared in [style.toml](style.toml). The rain shader and style code are part of OmniWM.
+Style code is GPL-2.0-only, as declared in [style.luau](style.luau). The rain shader and style code are part of OmniWM.

@@ -24,4 +24,4 @@ Optional commands: `omniwmctl shell trigger vitreus desk <display-id>` toggles t
 
 ## Credits and licences
 
-Style code is GPL-2.0-only, as declared in [style.toml](style.toml). Adapts [Vitreus](https://github.com/natepayn3/Vitreus) (MIT); retain [Vitreus-LICENSE.txt](Vitreus-LICENSE.txt). Space Grotesk is supplied under the SIL Open Font License; retain [fonts/OFL.txt](fonts/OFL.txt).
+Style code is GPL-2.0-only, as declared in [style.luau](style.luau). Adapts [Vitreus](https://github.com/natepayn3/Vitreus) (MIT); retain [Vitreus-LICENSE.txt](Vitreus-LICENSE.txt). Space Grotesk is supplied under the SIL Open Font License; retain [fonts/OFL.txt](fonts/OFL.txt).

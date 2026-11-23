@@ -10,28 +10,27 @@ final class ShellRoomProfileTests: XCTestCase {
     private var root: URL!
 
     private static let rooms = """
-    [island.room]
-    setting = "layout"
-    size = "barSize"
-    [island.room.variants.island]
-    top = { base = 8, scaled = 54, mode = "add" }
-    dock = "bottom"
-    [island.room.variants.left]
-    left = { base = 14, scaled = 62.1, mode = "total" }
-    top = { base = 24, mode = "total", clear = "none" }
-    right = { base = 24, mode = "total" }
-    bottom = { base = 24, mode = "total" }
-    dock = "right"
-    [island.room.variants.seg]
-    top = { base = 10, scaled = 48.6, mode = "total" }
-    left = { base = 24, mode = "total" }
-    right = { base = 24, mode = "total" }
-    bottom = { base = 24, mode = "total" }
-    [island.room.dock]
-    base = 23.8
-    scaled = 45.9
-    when = ["pins", "addons"]
-    unless = "dockOverlap"
+    {
+        setting = "layout",
+        size = "barSize",
+        variants = {
+            island = { top = { base = 8, scaled = 54, mode = "add" }, dock = "bottom" },
+            left = {
+                left = { base = 14, scaled = 62.1, mode = "total" },
+                top = { base = 24, mode = "total", clear = "none" },
+                right = { base = 24, mode = "total" },
+                bottom = { base = 24, mode = "total" },
+                dock = "right",
+            },
+            seg = {
+                top = { base = 10, scaled = 48.6, mode = "total" },
+                left = { base = 24, mode = "total" },
+                right = { base = 24, mode = "total" },
+                bottom = { base = 24, mode = "total" },
+            },
+        },
+        dock = { base = 23.8, scaled = 45.9, when = { "pins", "addons" }, unless = "dockOverlap" },
+    }
     """
 
     override func setUpWithError() throws {
@@ -53,7 +52,7 @@ final class ShellRoomProfileTests: XCTestCase {
             ("left", 1.0, .left, 76.0),
             ("seg", 1.0, .top, 59.0)
         ] {
-            let (config, problems) = try load(settings: "layout='\(layout)'\nbarSize=\(size)")
+            let (config, problems) = try load(settings: "layout='\(layout)', barSize=\(size)")
             XCTAssertEqual(problems, [])
             let room = try XCTUnwrap(config.barOverride?.room)
             XCTAssertEqual(room.edges[edge]?.value, expected)
@@ -76,16 +75,17 @@ final class ShellRoomProfileTests: XCTestCase {
     }
 
     func testMissingOptionalSizeKeyDefaultsToOne() throws {
-        let rooms = Self.rooms.replacingOccurrences(of: "size = \"barSize\"\n", with: "")
-        let (config, problems) = try load(settings: "layout='island'\nbarSize=0.7", rooms: rooms)
+        let rooms = Self.rooms.replacingOccurrences(of: "size = \"barSize\",", with: "")
+        let (config, problems) = try load(settings: "layout='island', barSize=0.7", rooms: rooms)
         XCTAssertEqual(problems, [])
         XCTAssertEqual(config.barOverride?.room?.edges[.top]?.value, 62)
     }
 
     func testRoomUsesMergedRootSettingsAndDisplaySelectorInOverrideEquality() throws {
         let (initial, _) = try load()
-        try Data("[profiles.default.widgets.root]\nlayout='left'\nbarSize=0.7\n".utf8)
-            .write(to: root.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { widgets = { root = { layout = \"left\", barSize = 0.7 } } } } }\n"
+            .utf8)
+            .write(to: root.appendingPathComponent("shell.luau"))
         var problems: [String] = []
         let overridden = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems))
         XCTAssertEqual(problems, [])
@@ -99,11 +99,11 @@ final class ShellRoomProfileTests: XCTestCase {
 
     func testDockActivatesForAnyNonemptyListOrTrueAndHonoursUnless() throws {
         for (settings, active) in [
-            ("pins=['app']", true), ("pins=[]\naddons=['clock']", true), ("pins=true", true),
-            ("pins=[]\naddons=false", false), ("pins=['app']\ndockOverlap=true", false),
-            ("pins=['app']\ndockOverlap=false", true)
+            ("pins={'app'}", true), ("pins={}, addons={'clock'}", true), ("pins=true", true),
+            ("pins={}, addons=false", false), ("pins={'app'}, dockOverlap=true", false),
+            ("pins={'app'}, dockOverlap=false", true)
         ] {
-            let (config, problems) = try load(settings: "layout='left'\n\(settings)")
+            let (config, problems) = try load(settings: "layout='left', \(settings)")
             XCTAssertEqual(problems, [])
             XCTAssertEqual(config.barOverride?.room?.dock?.edge, active ? .right : nil)
             XCTAssertEqual(config.barOverride?.room?.dock?.value, active ? 70 : nil)
@@ -151,13 +151,13 @@ final class ShellRoomProfileTests: XCTestCase {
 
     func testUnknownFieldsInRoomUnselectedVariantsEdgesAndDockRejectTheRoom() throws {
         for rooms in [
-            Self.rooms.replacingOccurrences(of: "setting = \"layout\"", with: "setting = \"layout\"\nextra = true"),
+            Self.rooms.replacingOccurrences(of: "setting = \"layout\"", with: "setting = \"layout\", extra = true"),
             Self.rooms.replacingOccurrences(
-                of: "[island.room.variants.left]",
-                with: "[island.room.variants.left]\nextra = true"
+                of: "left = {\n",
+                with: "left = { extra = true,\n"
             ),
             Self.rooms.replacingOccurrences(of: "base = 8, scaled = 54", with: "base = 8, scaled = 54, extra = 1"),
-            Self.rooms.replacingOccurrences(of: "base = 23.8", with: "base = 23.8\nextra = true")
+            Self.rooms.replacingOccurrences(of: "base = 23.8", with: "base = 23.8, extra = true")
         ] {
             let (config, problems) = try load(rooms: rooms)
             XCTAssertNil(config.barOverride?.room)
@@ -168,7 +168,7 @@ final class ShellRoomProfileTests: XCTestCase {
     func testInvalidGeometryAndModesReportNoRoom() throws {
         for rooms in [
             Self.rooms.replacingOccurrences(of: "mode = \"add\"", with: "mode = \"max\""),
-            Self.rooms.replacingOccurrences(of: "base = 8", with: "base = nan"),
+            Self.rooms.replacingOccurrences(of: "base = 8", with: "base = 0 / 0"),
             Self.rooms.replacingOccurrences(of: "base = 8", with: "base = -1000"),
             Self.rooms.replacingOccurrences(of: "mode = \"add\"", with: "mode = \"add\", clear = \"bad\""),
             Self.rooms.replacingOccurrences(of: "right = { base = 24", with: "right = { clear = \"none\", base = 24"),
@@ -181,14 +181,14 @@ final class ShellRoomProfileTests: XCTestCase {
     }
 
     func testInvalidSizeOrDockDeclarationReportNoRoom() throws {
-        for size in ["'large'", "nan", "inf", "-1"] {
-            let (config, problems) = try load(settings: "layout='island'\nbarSize=\(size)")
+        for size in ["'large'", "0 / 0", "math.huge", "-1"] {
+            let (config, problems) = try load(settings: "layout='island', barSize=\(size)")
             XCTAssertNil(config.barOverride?.room)
             XCTAssertFalse(problems.isEmpty)
         }
         for rooms in [
-            Self.rooms.replacingOccurrences(of: "when = [\"pins\", \"addons\"]", with: "when = []"),
-            Self.rooms.replacingOccurrences(of: "when = [\"pins\", \"addons\"]", with: "when = [4]"),
+            Self.rooms.replacingOccurrences(of: "when = { \"pins\", \"addons\" }", with: "when = {}"),
+            Self.rooms.replacingOccurrences(of: "when = { \"pins\", \"addons\" }", with: "when = {4}"),
             Self.rooms.replacingOccurrences(of: "unless = \"dockOverlap\"", with: "unless = false")
         ] {
             let (config, problems) = try load(rooms: rooms)
@@ -201,16 +201,14 @@ final class ShellRoomProfileTests: XCTestCase {
         settings: String = "layout='island'", rooms: String = ShellRoomProfileTests.rooms, displays: String = "all"
     ) throws -> (ShellConfig, [String]) {
         let source = """
-        theme = "native"
-        [island]
-        root = "root"
-        displays = "\(displays)"
-        [widgets.root]
-        \(settings)
-        \(rooms)
+        return {
+            theme = "native",
+            island = { root = "root", displays = "\(displays)", room = \(rooms) },
+            widgets = { root = { \(settings) } },
+        }
         """
-        try Data(source.utf8).write(to: root.appendingPathComponent("default/shell.toml"))
-        try Data().write(to: root.appendingPathComponent("shell.toml"))
+        try Data(source.utf8).write(to: root.appendingPathComponent("default/shell.luau"))
+        try Data("return {}".utf8).write(to: root.appendingPathComponent("shell.luau"))
         var problems: [String] = []
         return try (XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems)), problems)
     }

@@ -50,7 +50,7 @@ final class ShellAppCatalogTests: XCTestCase {
         withObservationTracking { _ = catalog.definitions } onChange: { edited.fulfill() }
         let newTitle = "Observed authoring change"
         try fixture.writeFile(
-            fixture.manifest.replacingOccurrences(of: fixture.title, with: newTitle), path: "component.toml"
+            fixture.manifest.replacingOccurrences(of: fixture.title, with: newTitle), path: "component.manifest.luau"
         )
         await fulfillment(of: [edited], timeout: observationFailureDeadline)
         XCTAssertEqual(catalog.definitions[fixture.id]?.title, newTitle)
@@ -97,7 +97,10 @@ final class ShellAppCatalogTests: XCTestCase {
                 "\(catalog.problems)"
             )
         }
-        try fixture.write(manifest: fixture.manifest + "\nunknown = true")
+        try fixture.write(manifest: fixture.manifest.replacingOccurrences(
+            of: "return {",
+            with: "return { unknown = true,"
+        ))
         await catalog.refresh()
         XCTAssertNil(catalog.definitions[fixture.id])
         XCTAssertTrue(catalog.problems.contains { $0.contains("unknown") })
@@ -161,7 +164,7 @@ final class ShellAppCatalogTests: XCTestCase {
             config: fixture.controller.settings.settingsFileURL.deletingLastPathComponent()
         )
         defer { try? FileManager.default.removeItem(at: authoring.directory) }
-        try authoring.write(manifest: "views = ['main']")
+        try authoring.write(manifest: "return { views = { \"main\" } }")
         let catalog = fixture.controller.shellAppCatalog
         await catalog.refresh()
         let editor = ShellDesktopEditor(

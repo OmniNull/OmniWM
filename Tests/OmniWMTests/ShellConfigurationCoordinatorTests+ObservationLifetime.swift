@@ -164,7 +164,7 @@ extension ShellConfigurationCoordinatorTests {
         XCTAssertTrue(opened.isEmpty)
         let active = Dictionary(grouping: try observationDescriptors(), by: \.path).mapValues(\.count)
         let watchedPaths = active.keys.filter { active[$0, default: 0] > before[$0, default: 0] }
-        XCTAssertFalse(try Data(contentsOf: shell.appendingPathComponent("shell.toml")).isEmpty)
+        XCTAssertFalse(try Data(contentsOf: shell.appendingPathComponent("shell.luau")).isEmpty)
         let height = 45.0
         try await coordinator.set(height, key: "height")
         XCTAssertEqual(try load(shell).barOverride?.settings.height, height)

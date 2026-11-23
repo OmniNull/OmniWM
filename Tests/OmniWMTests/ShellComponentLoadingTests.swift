@@ -15,9 +15,13 @@ final class ShellComponentLoadingTests: XCTestCase {
         try write("function render(ctx) return ui.box{} end", at: shell, path: "look/widgets/lake/init.luau")
         try write("return {}", at: shell, path: "lib/lake/init.luau")
         try write("return {}", at: shell, path: "widgets/custom/component.luau")
-        try write("views = ['compact']\nuses = ['base']", at: shell, path: "widgets/custom/component.toml")
+        try write(
+            "return { views = { \"compact\" }, uses = { \"base\" } }",
+            at: shell,
+            path: "widgets/custom/component.manifest.luau"
+        )
         try write("return {}", at: shell, path: "default/widgets/base/component.luau")
-        try write("views = ['compact']", at: shell, path: "default/widgets/base/component.toml")
+        try write("return { views = { \"compact\" } }", at: shell, path: "default/widgets/base/component.manifest.luau")
         let host = host(root)
         host.config.directories = [shell, shell.appendingPathComponent("look"), shell.appendingPathComponent("default")]
         host.config.island = ShellIslandConfig(
@@ -45,7 +49,11 @@ final class ShellComponentLoadingTests: XCTestCase {
         )
         XCTAssertEqual(source.assetPackages["lake"], state.sourceURL.deletingLastPathComponent())
         let before = host.fingerprint(of: state.sourceURL)
-        try write("views = ['compact', 'expanded']", at: shell, path: "widgets/custom/component.toml")
+        try write(
+            "return { views = { \"compact\", \"expanded\" } }",
+            at: shell,
+            path: "widgets/custom/component.manifest.luau"
+        )
         XCTAssertNotEqual(before, host.fingerprint(of: state.sourceURL))
     }
 
@@ -82,7 +90,11 @@ final class ShellComponentLoadingTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: shell) }
         try write("{}", at: shell, path: "look/.manifest.json")
         try write("return {}", at: shell, path: "look/widgets/component/component.luau")
-        try write("views = ['compact']", at: shell, path: "look/widgets/component/component.toml")
+        try write(
+            "return { views = { \"compact\" } }",
+            at: shell,
+            path: "look/widgets/component/component.manifest.luau"
+        )
         try write("return {}", at: shell, path: "look/lib/lake/policy.luau")
         var config = ShellConfig()
         config.profile = "look"
@@ -92,7 +104,7 @@ final class ShellComponentLoadingTests: XCTestCase {
             shell.appendingPathComponent("widgets/component", isDirectory: true)
         )
         XCTAssertTrue(FileManager.default
-            .fileExists(atPath: shell.appendingPathComponent("widgets/component/component.toml").path))
+            .fileExists(atPath: shell.appendingPathComponent("widgets/component/component.manifest.luau").path))
         XCTAssertEqual(
             try ShellProfiles.eject("lib/lake/policy.luau", config: config, shellDirectory: shell),
             shell.appendingPathComponent("lib/lake/policy.luau")
@@ -122,11 +134,11 @@ final class ShellComponentLoadingTests: XCTestCase {
         end } }
         """, at: shell, path: "widgets/box/component.luau")
         try write("""
-        views = ["compact"]
-        [options.width]
-        type = "number"
-        default = 12
-        """, at: shell, path: "widgets/box/component.toml")
+        return {
+            views = { "compact" },
+            options = { width = { type = "number", default = 12 } },
+        }
+        """, at: shell, path: "widgets/box/component.manifest.luau")
         let host = host(root)
         host.config.directories = [shell]
         host.config.leading = ["lake"]

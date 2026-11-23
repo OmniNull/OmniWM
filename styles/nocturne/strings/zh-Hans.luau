@@ -1,0 +1,3 @@
+return {
+    ["Now Playing"] = "正在播放",
+}

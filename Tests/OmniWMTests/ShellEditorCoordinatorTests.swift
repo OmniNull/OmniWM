@@ -4,7 +4,6 @@
 import Foundation
 @testable import OmniWM
 import Synchronization
-import TOML
 import XCTest
 
 @MainActor
@@ -119,7 +118,7 @@ final class ShellEditorCoordinatorTests: XCTestCase {
     func testUnknownExplicitProfilesRejectAllEditsWithoutAnyWrite() async throws {
         let fixture = try await fixture()
         let configuration = fixture.configuration
-        let bytes = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml"))
+        let bytes = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau"))
         let active = configuration.config
         let revision = configuration.revision
         let writes = Mutex(0)
@@ -159,7 +158,7 @@ final class ShellEditorCoordinatorTests: XCTestCase {
             }
         }
         XCTAssertEqual(writes.withLock { $0 }, 0)
-        XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml")), bytes)
+        XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau")), bytes)
         XCTAssertEqual(configuration.config, active)
         XCTAssertEqual(configuration.revision, revision)
     }
@@ -216,13 +215,13 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         let fixture = try await fixture()
         let configuration = fixture.configuration
         let first = try await configuration.editorSnapshot(profile: "lake")
-        try write(schema(true), to: "lake/widgets/clock/settings.toml", in: fixture.shell)
+        try write(schema(true), to: "lake/widgets/clock/settings.luau", in: fixture.shell)
         try await configuration.editBar(profile: "lake") { $0.trailing = ["clock"] }
         let changed = try await configuration.editorSnapshot(profile: "lake")
         XCTAssertEqual(changed.layout.trailing, ["clock"])
         XCTAssertEqual(changed.schemas, first.schemas)
         XCTAssertEqual(changed.schemas["clock"]?.options["date"]?.defaultValue, .bool(false))
-        try write(schema(false), to: "lake/widgets/new-widget/settings.toml", in: fixture.shell)
+        try write(schema(false), to: "lake/widgets/new-widget/settings.luau", in: fixture.shell)
         try write(
             "function render(ctx) return ui.box{} end",
             to: "lake/widgets/new-widget/init.luau",
@@ -241,13 +240,13 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         let configuration = fixture.configuration
         let first = try await configuration.editorSnapshot(profile: "lake")
         XCTAssertFalse(first.themes.contains("new-palette"))
-        try write("", to: "lake/themes/new-palette.toml", in: fixture.shell)
+        try write("return {}", to: "lake/themes/new-palette.luau", in: fixture.shell)
         try await configuration.refresh()
         let added = try await configuration.editorSnapshot(profile: "lake")
         XCTAssertEqual(added.config, first.config)
         XCTAssertTrue(added.themes.contains("new-palette"))
         XCTAssertEqual(added.schemas, first.schemas)
-        try FileManager.default.removeItem(at: fixture.shell.appendingPathComponent("lake/themes/lake-only.toml"))
+        try FileManager.default.removeItem(at: fixture.shell.appendingPathComponent("lake/themes/lake-only.luau"))
         try await configuration.refresh()
         let removed = try await configuration.editorSnapshot(profile: "lake")
         XCTAssertFalse(removed.themes.contains("lake-only"))
@@ -258,7 +257,7 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         for editsMonitor in [false, true] {
             let fixture = try await fixture()
             let configuration = fixture.configuration
-            let file = fixture.shell.appendingPathComponent("shell.toml")
+            let file = fixture.shell.appendingPathComponent("shell.luau")
             let original = try Data(contentsOf: file)
             try FileManager.default.removeItem(at: fixture.shell.appendingPathComponent("lake"))
             let context = editsMonitor ? "updateMonitor" : "editBar"
@@ -337,7 +336,7 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         configuration.stopObserving()
         let original = configuration.config
         var generation = configuration.sourceGeneration
-        for path in ["lake/themes/new-palette.toml", "lake/editor-preview.asset"] {
+        for path in ["lake/themes/new-palette.luau", "lake/editor-preview.asset"] {
             let changed = try await configuration.editFile(refreshMetadata: false) { directory in
                 try Data("".utf8).write(to: directory.appendingPathComponent(path))
                 return true
@@ -351,14 +350,14 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         }
     }
 
-    func testRootSettingSaveConsumesNonRootTOMLChangeExactlyOnce() async throws {
+    func testRootSettingSaveConsumesNonRootMetadataChangeExactlyOnce() async throws {
         let fixture = try await fixture()
         let configuration = fixture.configuration
         configuration.stopObserving()
         let generation = configuration.sourceGeneration
-        let file = fixture.shell.appendingPathComponent("default/shell.toml")
+        let file = fixture.shell.appendingPathComponent("default/shell.luau")
         let source = try String(contentsOf: file, encoding: .utf8)
-        let changed = try ShellTOMLText.settingNodes([(["leading"], .array([.string("clock")]))], in: source)
+        let changed = try ShellLuauFixture.editing([(["leading"], .list([.string("clock")]))], in: source)
         try Data(changed.utf8).write(to: file)
         XCTAssertNotEqual(configuration.config.leading, ["clock"])
         try await configuration.set(52, key: "height", profile: "default")
@@ -382,19 +381,19 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         let configuration = ShellConfigurationCoordinator(shellDirectory: shell)
         try await configuration.ensureLoaded()
         try write("""
-        profile = "default"
-        [weather]
-        city = "Toronto"
-        [profiles.default.workspaceBar]
-        height = 34
-        [profiles.lake.workspaceBar]
-        height = 40
-        [profiles.nocturne.workspaceBar]
-        height = 46
-        """, to: "shell.toml", in: shell)
+        return {
+            profile = "default",
+            weather = { city = "Toronto" },
+            profiles = {
+                default = { workspaceBar = { height = 34 } },
+                lake = { workspaceBar = { height = 40 } },
+                nocturne = { workspaceBar = { height = 46 } },
+            },
+        }
+        """, to: "shell.luau", in: shell)
         try write("function render(ctx) return ui.box{} end", to: "lake/widgets/clock/init.luau", in: shell)
-        try write(schema(false), to: "lake/widgets/clock/settings.toml", in: shell)
-        try write("", to: "lake/themes/lake-only.toml", in: shell)
+        try write(schema(false), to: "lake/widgets/clock/settings.luau", in: shell)
+        try write("return {}", to: "lake/themes/lake-only.luau", in: shell)
         try await configuration.refresh()
         XCTAssertEqual(configuration.config.profile, "default")
         XCTAssertNil(configuration.metadataError)
@@ -411,10 +410,9 @@ final class ShellEditorCoordinatorTests: XCTestCase {
 
     private func schema(_ date: Bool) -> String {
         """
-        [options.date]
-        type = "boolean"
-        title = "Show date"
-        default = \(date)
+        return {
+            options = { date = { type = "boolean", title = "Show date", default = \(date) } },
+        }
         """
     }
 
@@ -424,33 +422,30 @@ final class ShellEditorCoordinatorTests: XCTestCase {
         try Data((text + "\n").utf8).write(to: file)
     }
 
-    private func document(_ shell: URL) throws -> [String: TOMLNode] {
-        try TOMLDecoder().decode(
-            [String: TOMLNode].self,
-            from: Data(contentsOf: shell.appendingPathComponent("shell.toml"))
-        )
+    private func document(_ shell: URL) throws -> [String: SettingsLuauValue] {
+        try ShellLuauFixture.table(at: shell.appendingPathComponent("shell.luau"))
     }
 
-    private func node(_ path: [String], in shell: URL) throws -> TOMLNode? {
-        var current: TOMLNode? = .table(try document(shell))
+    private func node(_ path: [String], in shell: URL) throws -> SettingsLuauValue? {
+        var current: SettingsLuauValue? = .record(try document(shell))
         for key in path {
-            guard case let .table(table)? = current else { return nil }
+            guard case let .record(table)? = current else { return nil }
             current = table[key]
         }
         return current
     }
 
-    private func outside(_ profile: String, in document: [String: TOMLNode]) -> [String: TOMLNode] {
+    private func outside(_ profile: String, in document: [String: SettingsLuauValue]) -> [String: SettingsLuauValue] {
         var result = document
-        if case var .table(profiles)? = result["profiles"] {
+        if case var .record(profiles)? = result["profiles"] {
             profiles[profile] = nil
-            result["profiles"] = .table(profiles)
+            result["profiles"] = .record(profiles)
         }
         return result
     }
 
     private func assertUnchangedOutside(
-        _ profile: String, original: [String: TOMLNode], fixture: Fixture, active: ShellConfig,
+        _ profile: String, original: [String: SettingsLuauValue], fixture: Fixture, active: ShellConfig,
         file: StaticString = #filePath, line: UInt = #line
     ) throws {
         XCTAssertEqual(

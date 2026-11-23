@@ -19,7 +19,7 @@ struct ShellDrawerInspector: View {
         Group {
             if !editor.drawerEditable(drawer.id) {
                 Section {
-                    SettingsCaption(localized: "Rename this drawer in shell.toml to edit it here.")
+                    SettingsCaption(localized: "Rename this drawer in shell.luau to edit it here.")
                 }
             }
             Group {

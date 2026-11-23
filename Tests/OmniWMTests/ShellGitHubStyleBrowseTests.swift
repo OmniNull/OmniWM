@@ -110,7 +110,7 @@ struct ShellGitHubStyleBrowseFixture {
         let manifest = Self.manifest(name: name, previews: [preview])
         files = [
             ShellStyleFile(path: ShellStyleManifest.fileName, data: manifest, executable: false),
-            ShellStyleFile(path: "shell.toml", data: Data("[workspaceBar]\n".utf8), executable: false),
+            ShellStyleFile(path: "shell.luau", data: Data("return { workspaceBar = {} }\n".utf8), executable: false),
             ShellStyleFile(path: "lib/pieces.luau", data: Data("return {}".utf8), executable: false),
             ShellStyleFile(path: "bin/helper", data: Data("fixture executable".utf8), executable: true)
         ]
@@ -146,13 +146,15 @@ struct ShellGitHubStyleBrowseFixture {
 
     static func manifest(name: String, previews: [String] = [], api: Int = ShellStyleManifest.api) -> Data {
         Data("""
-        format = \(ShellStyleManifest.format)
-        api = \(api)
-        name = "\(name)"
-        version = "1.2.3"
-        title = "\(name.capitalized)"
-        summary = "A fixture style"
-        previews = [\(previews.map { "\"\($0)\"" }.joined(separator: ", "))]
+        return {
+            format = \(ShellStyleManifest.format),
+            api = \(api),
+            name = "\(name)",
+            version = "1.2.3",
+            title = "\(name.capitalized)",
+            summary = "A fixture style",
+            previews = { \(previews.map { "\"\($0)\"" }.joined(separator: ", ")) },
+        }
         """.utf8)
     }
 }
@@ -232,7 +234,7 @@ final class ShellGitHubStyleBrowseTests: XCTestCase {
         }
         try fixture.reply(entries, at: fixture.collectionURL)
         let rawStyles = "\(fixture.raw)/\(ShellGitHubStyleSource.folder)"
-        fixture.reply(Data("bad TOML [".utf8), at: "\(rawStyles)/\(invalid)/\(ShellStyleManifest.fileName)")
+        fixture.reply(Data("return {".utf8), at: "\(rawStyles)/\(invalid)/\(ShellStyleManifest.fileName)")
         fixture.reply(
             ShellGitHubStyleBrowseFixture.manifest(name: incompatible, api: ShellStyleManifest.api + 1),
             at: "\(rawStyles)/\(incompatible)/\(ShellStyleManifest.fileName)"
@@ -293,8 +295,8 @@ final class ShellGitHubStyleBrowseTests: XCTestCase {
             _ = try await ShellGitHubStyleSource.browse(fixture.address, session: fixture.session)
             XCTFail("The repository has no styles")
         } catch {
-            XCTAssertTrue(error.localizedDescription.contains("style.toml"))
-            XCTAssertTrue(error.localizedDescription.contains("styles/<name>/style.toml"))
+            XCTAssertTrue(error.localizedDescription.contains("style.luau"))
+            XCTAssertTrue(error.localizedDescription.contains("styles/<name>/style.luau"))
         }
     }
 

@@ -23,7 +23,7 @@ extension ShellDesktopEditorTests {
         navigation.request(requested)
         await fixture.editor.open(navigation.route)
         XCTAssertNotNil(fixture.editor.pendingTransition)
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let contents = try Data(contentsOf: file)
         try Data("[invalid".utf8).write(to: file)
         defer { try? contents.write(to: file) }

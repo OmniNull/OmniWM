@@ -26,7 +26,11 @@ struct SettingsFormulaSheet: ViewModifier {
                 HStack {
                     Button("Edit Settings File") {
                         do {
-                            _ = try SettingsFileWorkflow.perform(.open, settings: settings)
+                            if let url = question.fileURL {
+                                guard NSWorkspace.shared.open(url) else { throw CocoaError(.fileNoSuchFile) }
+                            } else {
+                                _ = try SettingsFileWorkflow.perform(.open, settings: settings)
+                            }
                             confirmation.answer(question.id, replace: false)
                         } catch {
                             openError = error.localizedDescription

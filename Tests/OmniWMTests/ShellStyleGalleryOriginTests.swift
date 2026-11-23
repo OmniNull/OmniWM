@@ -233,7 +233,7 @@ extension ShellDesktopEditorTests {
         let draft = await dirtyText(context.local.editor, value: "#654321FF")
         let draftBefore = context.local.editor.draft(draft)
         XCTAssertTrue(context.local.editor.hasUnsavedChanges)
-        let settings = context.local.shell.appendingPathComponent("shell.toml")
+        let settings = context.local.shell.appendingPathComponent("shell.luau")
         let saved = try Data(contentsOf: settings)
         let newer = try await offer(context, version: nextVersion(context.listing.manifest.version))
         await newer.gallery.update(newer.listing)

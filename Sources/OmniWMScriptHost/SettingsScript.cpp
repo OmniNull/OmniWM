@@ -190,13 +190,13 @@ void installLibraries(lua_State *L) {
 }
 }
 
-omni_status omni_settings_evaluate(omni_config_span source, size_t heap_limit, uint64_t budget,
+omni_status omni_settings_evaluate(const char *filename, omni_config_span source, size_t heap_limit, uint64_t budget, bool shellNumbers,
     void *context, omni_settings_field field, omni_settings_formula formula, omni_settings_constructor constructor,
     omni_settings_comment comment, omni_settings_return_site returnSite,
     omni_settings_table table, omni_read_module readModule, omni_config_location *site, char *error, size_t capacity) noexcept {
     using namespace omni_detail;
     using namespace Luau;
-    if (source.length > OMNI_CONFIG_BYTE_LIMIT || !site || !field || !formula || !constructor || !comment || !returnSite || !table || !heap_limit || !budget) {
+    if (!filename || source.length > OMNI_CONFIG_BYTE_LIMIT || !site || !field || !formula || !constructor || !comment || !returnSite || !table || !heap_limit || !budget) {
         copyMessage("invalid settings input or source exceeds 1 MiB", error, capacity);
         return OMNI_ERR_COMPILE;
     }
@@ -246,10 +246,11 @@ omni_status omni_settings_evaluate(omni_config_span source, size_t heap_limit, u
             lua_pushcfunction(vm.main, requireConfigModule, "require");
             lua_setglobal(vm.main, "require");
         }
-        vm.modules.push_back({"@settings.luau"});
+        std::string chunk = std::string("@") + filename;
+        vm.modules.push_back({chunk});
         vm.chain.push_back(0);
         sandboxRuntime(vm);
-        omni_status loaded = loadChunk(vm.thread, "@settings.luau", source, site->line, error, capacity);
+        omni_status loaded = loadChunk(vm.thread, chunk.c_str(), source, site->line, error, capacity);
         if (loaded != OMNI_OK) return loaded;
         std::vector<uint8_t> json;
         omni_status status;
@@ -267,7 +268,7 @@ omni_status omni_settings_evaluate(omni_config_span source, size_t heap_limit, u
             if (status == OMNI_OK) {
                 std::string reason;
                 if (lua_gettop(L) != 1 || !lua_istable(L, 1)) reason = "return exactly one settings table";
-                else encodeJSONValue(L, 1, json, OMNI_CONFIG_BYTE_LIMIT, reason);
+                else encodeJSONValue(L, 1, json, OMNI_CONFIG_BYTE_LIMIT, reason, shellNumbers);
                 if (!reason.empty()) {
                     copyMessage(reason.c_str(), error, capacity);
                     status = OMNI_ERR_RUNTIME;

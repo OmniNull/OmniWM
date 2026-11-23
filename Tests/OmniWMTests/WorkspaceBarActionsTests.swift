@@ -505,7 +505,8 @@ final class WorkspaceBarActionsTests: XCTestCase {
         settings.workspaceBar.hoverPreviewsEnabled = false
         let shell = ShellWidgetHost.shellDirectory(in: settings.settingsFileURL.deletingLastPathComponent())
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
-        try Data("leading = [\"omniwm\"]\ntrailing = []\n".utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { leading = { \"omniwm\" }, trailing = {} }\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.luau"))
         let bars = controller.workspaceBarManager
         bars.screenProvider = { _ in nil }
         bars.frameApplier = { _, _ in }

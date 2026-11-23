@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 struct ShellAppWindowDeclaration: Equatable, Sendable {
     let view: String
@@ -12,10 +11,14 @@ struct ShellAppWindowDeclaration: Equatable, Sendable {
 }
 
 extension ShellComponentCatalog {
-    static func window(_ node: TOMLNode?, widget: String, views: [String]) throws -> ShellAppWindowDeclaration? {
+    static func window(
+        _ node: SettingsLuauValue?,
+        widget: String,
+        views: [String]
+    ) throws -> ShellAppWindowDeclaration? {
         guard let node else { return nil }
         let place = "\(widget) [window]"
-        guard case let .table(table) = node else { throw Failure("\(place) must be a table") }
+        guard case let .record(table) = node else { throw Failure("\(place) must be a table") }
         try checkKeys(table, allowed: ["view", "width", "height", "minWidth", "minHeight", "children"], place: place)
         let view = try windowView(table["view"], fallback: "window", views: views, place: place)
         let sizes = try windowSizes(table, place: place)
@@ -26,16 +29,16 @@ extension ShellComponentCatalog {
     }
 
     private static func windowChildren(
-        _ node: TOMLNode?, widget: String, views: [String]
+        _ node: SettingsLuauValue?, widget: String, views: [String]
     ) throws -> [String: ShellAppChildDefinition] {
         guard let node else { return [:] }
         let place = "\(widget) [window.children]"
-        guard case let .table(children) = node else { throw Failure("\(place) must be a table") }
+        guard case let .record(children) = node else { throw Failure("\(place) must be a table") }
         var result: [String: ShellAppChildDefinition] = [:]
         for id in children.keys.sorted() {
             let place = "\(widget) [window.children.\(id)]"
             guard validName(id) else { throw Failure("\(place): invalid child id") }
-            guard case let .table(table)? = children[id] else { throw Failure("\(place) must be a table") }
+            guard case let .record(table)? = children[id] else { throw Failure("\(place) must be a table") }
             try checkKeys(
                 table, allowed: ["kind", "view", "title", "width", "height", "minWidth", "minHeight"], place: place
             )
@@ -55,7 +58,7 @@ extension ShellComponentCatalog {
     }
 
     private static func windowView(
-        _ node: TOMLNode?, fallback: String, views: [String], place: String
+        _ node: SettingsLuauValue?, fallback: String, views: [String], place: String
     ) throws -> String {
         let view = try string(node, fallback: fallback, place: "\(place) view")
         guard validName(view), views.contains(view) else {
@@ -65,7 +68,7 @@ extension ShellComponentCatalog {
     }
 
     private static func windowSizes(
-        _ table: [String: TOMLNode], place: String
+        _ table: [String: SettingsLuauValue], place: String
     ) throws -> (preferred: CGSize, minimum: CGSize) {
         func points(_ key: String) throws -> CGFloat {
             guard let value = ShellConfig.number(table[key]), value.isFinite, value > 0 else {

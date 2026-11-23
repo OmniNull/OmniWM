@@ -26,9 +26,9 @@ If either name already belongs to your own work, choose a fresh name and update 
 
 ## 2. Declare the reusable component
 
-Save this manifest as `~/.config/omniwm/shell/widgets/demo-clock/component.toml`:
+Save this manifest as `~/.config/omniwm/shell/widgets/demo-clock/component.manifest.luau`:
 
-<ExampleFile file="widgets/demo-clock/component.toml" />
+<ExampleFile file="widgets/demo-clock/component.manifest.luau" />
 
 The manifest names the views and declares a **Label** option. `default` supplies `"Desk"` when no label is configured; `maxLength` bounds user input. The host validates options before creating the component instance.
 
@@ -40,15 +40,15 @@ A component returns a table; it does not define a global `render`. Its view func
 
 ## 3. Define the profile and instance
 
-Save this as `~/.config/omniwm/shell/tutorial-island/shell.toml`:
+Save this as `~/.config/omniwm/shell/tutorial-island/shell.luau`:
 
-<ExampleFile file="tutorial-island/shell.toml" />
+<ExampleFile file="tutorial-island/shell.luau" />
 
-`[island]` selects the root widget and its fixed native envelope. The 420 × 240 envelope bounds the rendered contents; expansion changes the UI tree inside it. This profile shows the island on the main display and hides it in native fullscreen.
+The `island` table selects the root widget and its fixed native envelope. The 420 × 240 envelope bounds the rendered contents; expansion changes the UI tree inside it. This profile shows the island on the main display and hides it in native fullscreen.
 
-`[[island.components]]` adds one configured instance. `widget = "demo-clock"` selects the package, while `id = "desk-clock"` identifies this particular instance. The root mounts that ID. `label = "My desk"` overrides the manifest default.
+The `island.components` list contains one configured instance. `widget = "demo-clock"` selects the package, while `id = "desk-clock"` identifies this particular instance. The root mounts that ID. `label = "My desk"` overrides the manifest default.
 
-Profile files use `[island]`; overrides in the top-level shell file use `[profiles.tutorial-island.island]`. Keep this example in its own profile file. See [islands and components](/omnishell/configuration/islands-components/) for configuration layering.
+In a profile, put the island settings under `island`. In your personal shell file, the same settings belong under `profiles["tutorial-island"].island`. Keep this example in its own profile file. See [islands and components](/omnishell/configuration/islands-components/) for configuration layering.
 
 ## 4. Draw the compact and expanded root
 
@@ -67,10 +67,10 @@ Your final installation tree is:
 ```text
 ~/.config/omniwm/shell/
 ├── tutorial-island/
-│   ├── shell.toml
+│   ├── shell.luau
 │   └── widgets/tutorial-root/init.luau
 └── widgets/demo-clock/
-    ├── component.toml
+    ├── component.manifest.luau
     └── component.luau
 ```
 
@@ -101,7 +101,7 @@ Lake creates its own instance ID and mounts the same component package; you do n
 | Symptom | Check |
 |---|---|
 | No island appears | Select `tutorial-island`, enable Dynamic Island, leave native fullscreen, and inspect `shell-widgets` for root errors. |
-| The capsule appears without clock content | Match `id = "desk-clock"` in `shell.toml` with `ui.component` and check the component's manifest/source filenames. |
+| The capsule appears without clock content | Match `id = "desk-clock"` in `shell.luau` with `ui.component` and check the component's manifest/source filenames. |
 | Escape does nothing | Click the capsule to give it focus first; the root must keep `focusable`, `keys`, and `onKey`. |
 | Demo clock is absent from Lake's catalog | Install both component files in top-level `shell/widgets/demo-clock/` and check the manifest for errors. |
 

@@ -75,12 +75,12 @@ import XCTest
             for (size, dark) in [(CGSize(width: 539, height: 480), true), (CGSize(width: 819, height: 680), false)] {
                 for kind in CompoundDraftKind.allCases {
                     let fixture = try await fixture()
-                    let original = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml"))
+                    let original = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau"))
                     let key = try await prepareCompoundDraft(kind, editor: fixture.editor)
                     XCTAssertTrue(fixture.editor.draft(key)?.dirty == true)
                     try await renderCompoundDraft(kind, editor: fixture.editor, size: size, dark: dark)
                     XCTAssertTrue(fixture.editor.draft(key)?.dirty == true)
-                    XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml")), original)
+                    XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau")), original)
                     XCTAssertEqual(fixture.configuration.config.profile, "default")
                     XCTAssertNil(fixture.editor.controller.workspaceBarManager.shellHost)
                 }

@@ -41,7 +41,7 @@ final class CommandPaletteShellTests: XCTestCase {
         XCTAssertNil(manager.shellHost)
         let writer = try XCTUnwrap(manager.wallpaperPalette)
         XCTAssertTrue(writer.isRechecking)
-        let destination = root.appendingPathComponent("themes/wallpaper.toml")
+        let destination = root.appendingPathComponent("themes/wallpaper.luau")
         let pixels = ShellWallpaperPalette.pixels(of: wallpaper.image)
         XCTAssertEqual(
             try String(contentsOf: destination, encoding: .utf8),

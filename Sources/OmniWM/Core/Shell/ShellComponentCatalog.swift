@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 enum ShellComponentValue: Equatable, Sendable {
     case bool(Bool)
@@ -10,13 +9,15 @@ enum ShellComponentValue: Equatable, Sendable {
     case string(String)
     case strings([String])
 
-    init?(_ node: TOMLNode) {
+    init?(_ node: SettingsLuauValue) {
         switch node {
         case let .boolean(value): self = .bool(value)
         case let .integer(value): self = .number(Double(value))
-        case let .float(value) where value.isFinite: self = .number(value)
+        case let .number(value) where value.isFinite: self = .number(value)
         case let .string(value): self = .string(value)
-        case let .array(values):
+        case .record,
+             .list:
+            guard let values = node.shellArray else { return nil }
             let strings = values.compactMap { value -> String? in
                 guard case let .string(string) = value else { return nil }
                 return string
@@ -38,12 +39,12 @@ enum ShellComponentValue: Equatable, Sendable {
         }
     }
 
-    var node: TOMLNode {
+    var node: SettingsLuauValue {
         switch self {
         case let .bool(value): .boolean(value)
-        case let .number(value): .float(value)
+        case let .number(value): .number(value)
         case let .string(value): .string(value)
-        case let .strings(values): .array(values.map(TOMLNode.string))
+        case let .strings(values): .list(values.map(SettingsLuauValue.string))
         }
     }
 }
@@ -148,6 +149,7 @@ struct ShellComponentDescriptor: Equatable, Sendable {
 }
 
 enum ShellComponentCatalog {
+    static let manifestName = "component.manifest.luau"
     static let rootModuleLimit = 512
     static let instanceLimit = 64
     static let purposeLimit = 300
@@ -177,14 +179,14 @@ enum ShellComponentCatalog {
             && !name.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
     }
 
-    static func instances(from node: TOMLNode?) throws -> [ShellComponentInstance] {
+    static func instances(in node: SettingsLuauValue?) throws -> [ShellComponentInstance] {
         guard let node else { return [] }
-        guard case let .array(values) = node, values.count <= instanceLimit else {
+        guard let values = node.shellArray, values.count <= instanceLimit else {
             throw Failure("[island] components must be an array of at most \(instanceLimit) instances")
         }
         var seen: Set<String> = []
         return try values.map { value in
-            guard case let .table(table) = value,
+            guard case let .record(table) = value,
                   case let .string(id)? = table["id"], validName(id), seen.insert(id).inserted,
                   case let .string(widget)? = table["widget"], validName(widget)
             else { throw Failure("[island] each component needs a unique id and a widget name") }
@@ -211,7 +213,7 @@ enum ShellComponentCatalog {
     static func load(_ widget: String, directories: [URL]) throws -> ShellComponentDescriptor {
         guard validName(widget), let folder = directories.lazy.map({
             $0.appendingPathComponent("widgets/\(widget)", isDirectory: true)
-        }).first(where: { FileManager.default.fileExists(atPath: $0.appendingPathComponent("component.toml").path) })
+        }).first(where: { FileManager.default.fileExists(atPath: $0.appendingPathComponent(manifestName).path) })
         else { throw Failure("No component named \(widget) is installed") }
         return try load(widget, folder: folder)
     }
@@ -280,10 +282,10 @@ enum ShellComponentCatalog {
     }
 
     static func parseOptions(
-        _ node: TOMLNode?, place: String, reservedNames: Set<String> = reservedOptions
+        _ node: SettingsLuauValue?, place: String, reservedNames: Set<String> = reservedOptions
     ) throws -> [String: ShellComponentOption] {
         guard let node else { return [:] }
-        guard case let .table(entries) = node else { throw Failure("\(place) options must be a table") }
+        guard case let .record(entries) = node else { throw Failure("\(place) options must be a table") }
         var options: [String: ShellComponentOption] = [:]
         for (key, node) in entries {
             guard validName(key), !reservedNames.contains(key) else {
@@ -294,9 +296,9 @@ enum ShellComponentCatalog {
         return options
     }
 
-    static func option(_ node: TOMLNode, key: String, widget: String) throws -> ShellComponentOption {
+    static func option(_ node: SettingsLuauValue, key: String, widget: String) throws -> ShellComponentOption {
         let place = "\(widget) option \(key)"
-        guard case let .table(table) = node, case let .string(type)? = table["type"],
+        guard case let .record(table) = node, case let .string(type)? = table["type"],
               let kind = ShellComponentOption.Kind(rawValue: type)
         else { throw Failure("\(place) needs a valid type") }
         try checkKeys(
@@ -323,7 +325,7 @@ enum ShellComponentCatalog {
     }
 
     private static func applyNumberConstraints(
-        _ table: [String: TOMLNode], to option: inout ShellComponentOption, place: String
+        _ table: [String: SettingsLuauValue], to option: inout ShellComponentOption, place: String
     ) throws {
         for key in ["min", "max", "step"] where table[key] != nil {
             guard option.kind == .number, let number = ShellConfig.number(table[key]), number.isFinite,
@@ -339,10 +341,10 @@ enum ShellComponentCatalog {
     }
 
     static func parseCapabilities(
-        _ node: TOMLNode?, place: String, describesPurpose: Bool = false
+        _ node: SettingsLuauValue?, place: String, describesPurpose: Bool = false
     ) throws -> ShellComponentCapabilities {
         guard let node else { return ShellComponentCapabilities() }
-        guard case let .table(table) = node else { throw Failure("\(place) capabilities must be a table") }
+        guard case let .record(table) = node else { throw Failure("\(place) capabilities must be a table") }
         let keys: Set<String> = ["commands", "network", "files", "clipboard"]
         try checkKeys(table, allowed: describesPurpose ? keys.union(["provider", "purpose"]) : keys, place: place)
         var result = ShellComponentCapabilities()
@@ -358,9 +360,9 @@ enum ShellComponentCatalog {
         return result
     }
 
-    static func rootCapabilities(_ node: TOMLNode?, place: String) throws -> ShellComponentCapabilities {
+    static func rootCapabilities(_ node: SettingsLuauValue?, place: String) throws -> ShellComponentCapabilities {
         guard let node else { return ShellComponentCapabilities() }
-        guard case let .table(table) = node else { throw Failure("\(place) capabilities must be a table") }
+        guard case let .record(table) = node else { throw Failure("\(place) capabilities must be a table") }
         try checkKeys(table, allowed: ["network", "purpose"], place: place)
         var result = ShellComponentCapabilities()
         result.network = try strings(table["network"], fallback: [], place: "\(place) network")
@@ -368,7 +370,7 @@ enum ShellComponentCatalog {
         return result
     }
 
-    private static func purpose(_ node: TOMLNode?, place: String) throws -> String? {
+    private static func purpose(_ node: SettingsLuauValue?, place: String) throws -> String? {
         guard let node else { return nil }
         guard case let .string(value) = node, value.count <= purposeLimit else {
             throw Failure("\(place) purpose must be a string of at most \(purposeLimit) characters")
@@ -376,21 +378,21 @@ enum ShellComponentCatalog {
         return value
     }
 
-    static func checkKeys(_ table: [String: TOMLNode], allowed: Set<String>, place: String) throws {
+    static func checkKeys(_ table: [String: SettingsLuauValue], allowed: Set<String>, place: String) throws {
         if let key = table.keys.sorted().first(where: { !allowed.contains($0) }) {
             throw Failure("\(place): unknown key \(key)")
         }
     }
 
-    static func string(_ node: TOMLNode?, fallback: String, place: String) throws -> String {
+    static func string(_ node: SettingsLuauValue?, fallback: String, place: String) throws -> String {
         guard let node else { return fallback }
         guard case let .string(value) = node else { throw Failure("\(place) must be a string") }
         return value
     }
 
-    static func strings(_ node: TOMLNode?, fallback: [String], place: String) throws -> [String] {
+    static func strings(_ node: SettingsLuauValue?, fallback: [String], place: String) throws -> [String] {
         guard let node else { return fallback }
-        guard case let .array(values) = node else { throw Failure("\(place) must be a string array") }
+        guard let values = node.shellArray else { throw Failure("\(place) must be a string array") }
         return try values.map { value in
             guard case let .string(string) = value else { throw Failure("\(place) must contain strings") }
             return string

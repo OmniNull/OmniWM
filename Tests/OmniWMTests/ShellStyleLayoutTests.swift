@@ -4029,10 +4029,15 @@ final class ShellStyleLayoutTests: XCTestCase {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
-        let cases = [("nan", 0), ("\"4\"", 3), ("inf", 6), ("2.7", 2), ("9", 6), ("-1", 0), ("5", 5)]
+        let cases = [("0/0", 0), ("\"4\"", 3), ("math.huge", 6), ("2.7", 2), ("9", 6), ("-1", 0), ("5", 5)]
         for (value, expected) in cases {
-            try Data("[profiles.default.widgets.scratchpads]\nshownWindows = \(value)\n".utf8)
-                .write(to: shell.appendingPathComponent("shell.toml"))
+            try Data("""
+            return {
+                profiles = { default = { widgets = { scratchpads = { shownWindows = \(value) } } } },
+            }
+
+            """.utf8)
+                .write(to: shell.appendingPathComponent("shell.luau"))
             let config = ShellConfig.resolve(shellDirectory: shell)
             XCTAssertEqual(config.scratchpadIcons, expected, value)
             let widget = try makeWidget("scratchpads", config: config, shell: shell)
@@ -4070,8 +4075,8 @@ final class ShellStyleLayoutTests: XCTestCase {
             "\"#1E90FX\"": terracotta, "\"#GG90FF\"": terracotta, "\"blue\"": terracotta, "3": terracotta
         ]
         for (value, expected) in cases {
-            try Data("[profiles.default.widgets.omniwm]\niconColor = \(value)\n".utf8)
-                .write(to: shell.appendingPathComponent("shell.toml"))
+            try Data("return { profiles = { default = { widgets = { omniwm = { iconColor = \(value) } } } } }\n".utf8)
+                .write(to: shell.appendingPathComponent("shell.luau"))
             let config = ShellConfig.resolve(shellDirectory: shell)
             let widget = try makeWidget("omniwm", config: config, shell: shell)
             widget.render(fixture(config, height: 32, vertical: false))

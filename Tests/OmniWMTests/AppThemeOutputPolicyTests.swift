@@ -70,8 +70,8 @@ final class AppThemeOutputPolicyTests: XCTestCase {
         ] {
             XCTAssertThrowsError(try sandbox.policy.destination(for: path), path)
         }
-        XCTAssertThrowsError(try sandbox.policy.destination(for: "~/.config/omniwm/shell/themes/x.toml")) {
-            XCTAssertEqual($0 as? AppThemeOutputError, .protectedFolder("~/.config/omniwm/shell/themes/x.toml"))
+        XCTAssertThrowsError(try sandbox.policy.destination(for: "~/.config/omniwm/shell/themes/x.luau")) {
+            XCTAssertEqual($0 as? AppThemeOutputError, .protectedFolder("~/.config/omniwm/shell/themes/x.luau"))
         }
     }
 

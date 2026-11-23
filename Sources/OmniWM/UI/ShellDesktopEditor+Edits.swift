@@ -247,6 +247,8 @@ extension ShellDesktopEditor {
             try await operation()
             await reload()
             return true
+        } catch is CancellationError {
+            return false
         } catch {
             problem = error.localizedDescription
             return false

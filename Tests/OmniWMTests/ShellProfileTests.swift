@@ -3,7 +3,6 @@
 
 import AppKit
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class ShellDefaultsTests: XCTestCase {
@@ -20,7 +19,7 @@ final class ShellDefaultsTests: XCTestCase {
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try write("v1", to: "widgets/clock/init.luau", in: source)
-        try write("a = 1", to: "themes/dusk.toml", in: source)
+        try write("return { a = 1 }", to: "themes/dusk.luau", in: source)
     }
 
     override func tearDownWithError() throws {
@@ -30,7 +29,7 @@ final class ShellDefaultsTests: XCTestCase {
     func testFirstSyncInstallsTheBundleAndRepeatedSyncsWriteNothing() throws {
         XCTAssertEqual(sync(), [])
         XCTAssertEqual(try read("widgets/clock/init.luau"), "v1")
-        XCTAssertEqual(try read("themes/dusk.toml"), "a = 1")
+        XCTAssertEqual(try read("themes/dusk.luau"), "return { a = 1 }")
         let manifest = installed.appendingPathComponent(".manifest.json")
         let fingerprint = try XCTUnwrap(SettingsFileAccess.currentFingerprint(at: manifest))
 
@@ -40,18 +39,18 @@ final class ShellDefaultsTests: XCTestCase {
 
     func testUpgradesReplaceUneditedFilesAndBackUpEditedOnesOnlyWhenTheyChange() throws {
         _ = sync()
-        try write("a = 2", to: "themes/dusk.toml", in: installed)
+        try write("return { a = 2 }", to: "themes/dusk.luau", in: installed)
         try write("v2", to: "widgets/clock/init.luau", in: source)
 
         XCTAssertEqual(sync(), [])
         XCTAssertEqual(try read("widgets/clock/init.luau"), "v2")
-        XCTAssertEqual(try read("themes/dusk.toml"), "a = 2")
+        XCTAssertEqual(try read("themes/dusk.luau"), "return { a = 2 }")
 
-        try write("a = 3", to: "themes/dusk.toml", in: source)
+        try write("return { a = 3 }", to: "themes/dusk.luau", in: source)
         let backups = sync()
-        XCTAssertEqual(backups.map(\.lastPathComponent), ["dusk.toml.edited-2026-10-08"])
-        XCTAssertEqual(try read("themes/dusk.toml"), "a = 3")
-        XCTAssertEqual(try String(contentsOf: XCTUnwrap(backups.first), encoding: .utf8), "a = 2")
+        XCTAssertEqual(backups.map(\.lastPathComponent), ["dusk.luau.edited-2026-10-08"])
+        XCTAssertEqual(try read("themes/dusk.luau"), "return { a = 3 }")
+        XCTAssertEqual(try String(contentsOf: XCTUnwrap(backups.first), encoding: .utf8), "return { a = 2 }")
         XCTAssertEqual(sync(), [])
     }
 
@@ -87,8 +86,8 @@ final class ShellDefaultsTests: XCTestCase {
         XCTAssertEqual(ShellProfiles.names(in: shell), [ShellDefaults.profile])
         let target = try ShellStyleFixture.install(name, into: shell)
         XCTAssertEqual(
-            try Data(contentsOf: target.appendingPathComponent("shell.toml")),
-            try Data(contentsOf: source.appendingPathComponent("shell.toml"))
+            try Data(contentsOf: target.appendingPathComponent("shell.luau")),
+            try Data(contentsOf: source.appendingPathComponent("shell.luau"))
         )
         XCTAssertFalse(FileManager.default.fileExists(atPath: target.appendingPathComponent(".manifest.json").path))
         XCTAssertEqual(ShellProfiles.names(in: shell), [ShellDefaults.profile, name])
@@ -104,18 +103,18 @@ final class ShellDefaultsTests: XCTestCase {
         XCTAssertEqual(ShellProfiles.names(in: shell), [ShellDefaults.profile] + names)
         let defaultTheme = ShellConfig.resolve(shellDirectory: shell).themeName
         for style in names {
-            try write("profile = \"\(style)\"\n", to: "shell.toml", in: shell)
+            try write("return { profile = \"\(style)\" }\n", to: "shell.luau", in: shell)
             var problems: [String] = []
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
             XCTAssertEqual(problems, [], style)
-            let source = try ShellStyleFixture.source(style).appendingPathComponent("shell.toml")
-            let declared = try TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: source))
+            let source = try ShellStyleFixture.source(style).appendingPathComponent("shell.luau")
+            let declared = try ShellLuauFixture.table(at: source)
             if case let .string(theme)? = declared["theme"] {
                 XCTAssertEqual(config.themeName, theme, style)
             } else {
                 XCTAssertEqual(config.themeName, defaultTheme, style)
             }
-            guard case let .table(bar)? = declared["workspaceBar"],
+            guard case let .record(bar)? = declared["workspaceBar"],
                   case let .integer(height)? = bar["height"],
                   case let .boolean(fullWidth)? = bar["fullWidth"],
                   case let .string(position)? = bar["position"]
@@ -142,7 +141,7 @@ final class ShellDefaultsTests: XCTestCase {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
         XCTAssertEqual(ShellDefaults.sync(into: shell), [])
         try ShellStyleFixture.install("vitreus", into: shell)
-        try write("profile = \"vitreus\"\n", to: "shell.toml", in: shell)
+        try write("return { profile = \"vitreus\" }\n", to: "shell.luau", in: shell)
         var problems: [String] = []
         let vitreus = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
         XCTAssertEqual(problems, [])
@@ -160,9 +159,9 @@ final class ShellDefaultsTests: XCTestCase {
     }
 
     func testVitreusThemeKeepsTheStockVitreusPaletteInBothAppearances() throws {
-        let url = try ShellStyleFixture.source("vitreus").appendingPathComponent("themes/vitreus.toml")
-        let toml = try TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: url))
-        guard case let .table(light)? = toml["light"], case let .table(dark)? = toml["dark"] else {
+        let url = try ShellStyleFixture.source("vitreus").appendingPathComponent("themes/vitreus.luau")
+        let palette = try ShellLuauFixture.table(at: url)
+        guard case let .record(light)? = palette["light"], case let .record(dark)? = palette["dark"] else {
             return XCTFail("vitreus needs [light] and [dark]")
         }
         XCTAssertEqual(light, dark)
@@ -206,10 +205,14 @@ final class ShellDefaultsTests: XCTestCase {
         XCTAssertEqual(ShellConfig.resolve(shellDirectory: shell).scratchpadIcons, 3)
         XCTAssertTrue(try ShellProfiles.select("nocturne", in: shell))
         XCTAssertEqual(ShellConfig.resolve(shellDirectory: shell).scratchpadIcons, 2)
-        let selected = try String(contentsOf: shell.appendingPathComponent("shell.toml"), encoding: .utf8)
-        for (value, expected) in [("9", 6), ("-1", 0), ("4", 4), ("inf", 6), ("2.7", 2)] {
-            try Data((selected + "\n[profiles.nocturne.widgets.scratchpads]\nshownWindows = \(value)\n").utf8)
-                .write(to: shell.appendingPathComponent("shell.toml"))
+        for (value, expected) in [("9", 6), ("-1", 0), ("4", 4), ("math.huge", 6), ("2.7", 2)] {
+            try Data(("""
+            return { profile = "nocturne",
+                profiles = { nocturne = { widgets = { scratchpads = { shownWindows = \(value) } } } },
+            }
+
+            """).utf8)
+                .write(to: shell.appendingPathComponent("shell.luau"))
             XCTAssertEqual(ShellConfig.resolve(shellDirectory: shell).scratchpadIcons, expected, value)
         }
     }
@@ -293,7 +296,7 @@ final class ShellDefaultsTests: XCTestCase {
     func testLakeInstallsPopulatedBarLanesAndReservedMaterialPlacement() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
         XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
-        try write("profile = \"lake\"\n", to: "shell.toml", in: shell)
+        try write("return { profile = \"lake\" }\n", to: "shell.luau", in: shell)
         var problems: [String] = []
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
         XCTAssertEqual(problems, [])
@@ -382,7 +385,7 @@ final class ShellDefaultsTests: XCTestCase {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
         let name = try XCTUnwrap(ShellStyleFixture.names().first)
         let target = try ShellStyleFixture.install(name, into: shell)
-        let file = target.appendingPathComponent("shell.toml")
+        let file = target.appendingPathComponent("shell.luau")
         let contents = "mine"
         try contents.write(to: file, atomically: true, encoding: .utf8)
         XCTAssertEqual(sync(), [])
@@ -393,7 +396,7 @@ final class ShellDefaultsTests: XCTestCase {
     func testDefaultSyncLeavesFormerlyManagedStylesAndTheirFilesAlone() throws {
         let shell = root.appendingPathComponent("shell", isDirectory: true)
         let files = [
-            "shell.toml": "theme = 'native'", "lib/style.luau": "return {}",
+            "shell.luau": "return { theme = \"native\" }", "lib/style.luau": "return {}",
             "widgets/extra/init.luau": "mine", ".manifest.json": "{}"
         ]
         let style = shell.appendingPathComponent("system", isDirectory: true)
@@ -418,9 +421,9 @@ final class ShellDefaultsTests: XCTestCase {
         let link = root.appendingPathComponent("linked-shell")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: root)
         let linkedShell = link.appendingPathComponent("shell", isDirectory: true)
-        let original = try Data(contentsOf: style.appendingPathComponent("shell.toml"))
+        let original = try Data(contentsOf: style.appendingPathComponent("shell.luau"))
         XCTAssertEqual(ShellDefaults.sync(into: linkedShell, from: source), [])
-        XCTAssertEqual(try Data(contentsOf: style.appendingPathComponent("shell.toml")), original)
+        XCTAssertEqual(try Data(contentsOf: style.appendingPathComponent("shell.luau")), original)
         XCTAssertTrue(FileManager.default.fileExists(atPath: style.appendingPathComponent(manifest).path))
         XCTAssertEqual(ShellProfiles.names(in: linkedShell), [ShellDefaults.profile, name])
     }
@@ -456,9 +459,9 @@ final class ShellProfileTests: XCTestCase {
         try? FileManager.default.removeItem(at: root)
     }
 
-    func testABrokenShellTomlFallsBackToTheLayersBelowIt() throws {
-        try write("leading = [\"menu\"]\ntrailing = [\"clock\"]\n", to: "default/shell.toml")
-        try write("leading = [", to: "shell.toml")
+    func testABrokenShellLuauFallsBackToTheLayersBelowIt() throws {
+        try write("return { leading = { \"menu\" }, trailing = { \"clock\" } }\n", to: "default/shell.luau")
+        try write("return {leading = {", to: "shell.luau")
 
         XCTAssertNil(ShellConfig.load(shellDirectory: root))
         var problems: [String] = []
@@ -467,22 +470,22 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertEqual(config.leading, ["menu"])
         XCTAssertEqual(config.trailing, ["clock"])
         XCTAssertEqual(problems.count, 1)
-        XCTAssertTrue(problems.first?.hasPrefix("\(root.lastPathComponent)/shell.toml: ") == true)
+        XCTAssertTrue(problems.first?.hasPrefix("\(root.lastPathComponent)/shell.luau: ") == true)
 
-        try write("", to: "shell.toml")
-        try write("leading = [", to: "default/shell.toml")
+        try write("return {}", to: "shell.luau")
+        try write("return {leading = {", to: "default/shell.luau")
         XCTAssertNil(ShellConfig.load(shellDirectory: root))
     }
 
     func testTheShellFolderLayersOverTheProfileWhichLayersOverTheDefault() throws {
-        try write("profile = \"look\"\nprofiles.look.trailing = [\"clock\"]\n", to: "shell.toml")
+        try write(
+            "return { profile = \"look\", profiles = { look = { trailing = { \"clock\" } } } }\n",
+            to: "shell.luau"
+        )
         try write("""
-        hiddenBarWidget = "drawer"
-        leading = ["menu"]
-        [weather]
-        city = "Oslo"
-        """, to: "default/shell.toml")
-        try write("leading = [\"spaces\"]\n[weather]\nunits = \"fahrenheit\"\n", to: "look/shell.toml")
+        return { hiddenBarWidget = "drawer", leading = { "menu" }, weather = { city = "Oslo" } }
+        """, to: "default/shell.luau")
+        try write("return { leading = { \"spaces\" }, weather = { units = \"fahrenheit\" } }\n", to: "look/shell.luau")
 
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
         XCTAssertEqual(config.profile, "look")
@@ -501,9 +504,9 @@ final class ShellProfileTests: XCTestCase {
     }
 
     func testFilesResolveFromTheShellFolderThenTheProfileThenTheDefault() throws {
-        try write("profile = \"look\"\n", to: "shell.toml")
-        try write("theme = \"dusk\"\n", to: "look/shell.toml")
-        try write("[light]\naccent = \"#FF0000\"\n", to: "default/themes/dusk.toml")
+        try write("return { profile = \"look\" }\n", to: "shell.luau")
+        try write("return { theme = \"dusk\" }\n", to: "look/shell.luau")
+        try write("return { light = { accent = \"#FF0000\" } }\n", to: "default/themes/dusk.luau")
         for layer in ["default", "look"] {
             try write("return nil", to: "\(layer)/widgets/clock/init.luau")
         }
@@ -523,8 +526,11 @@ final class ShellProfileTests: XCTestCase {
 
     @MainActor
     func testProfilesOverrideHiddenBarSettings() throws {
-        try write("[hiddenBar]\nenabled = false\nhiddenBundleIDs = [\"a\"]\n", to: "default/shell.toml")
-        try write("[profiles.default.hiddenBar]\nrehideIntervalSeconds = 99\n", to: "shell.toml")
+        try write("return { hiddenBar = { enabled = false, hiddenBundleIDs = { \"a\" } } }\n", to: "default/shell.luau")
+        try write(
+            "return { profiles = { default = { hiddenBar = { rehideIntervalSeconds = 99 } } } }\n",
+            to: "shell.luau"
+        )
 
         let override = try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.hiddenBarOverride)
         XCTAssertEqual(
@@ -550,23 +556,26 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertEqual(settings.hiddenBar.resolvedRehideIntervalSeconds, 30)
         XCTAssertEqual(settings.hiddenBar.rehideIntervalSeconds, 8)
 
-        try write("[hiddenBar]\n", to: "default/shell.toml")
-        try write("[profiles.default.hiddenBar]\nhiddenBundleIDs = []\n", to: "shell.toml")
+        try write("return { hiddenBar = {} }\n", to: "default/shell.luau")
+        try write("return { profiles = { default = { hiddenBar = { hiddenBundleIDs = {} } } } }\n", to: "shell.luau")
         XCTAssertNil(try XCTUnwrap(ShellConfig.load(shellDirectory: root)).hiddenBarOverride)
     }
 
     @MainActor
     func testProfilesOverrideWorkspaceBarSettingsAboveMonitorOverrides() throws {
         try write("""
-        [workspaceBar]
-        height = 30
-        position = "bottom"
-        showLabels = false
-        inactiveIconOpacity = 4
-        excludedBundleIDs = ["com.apple.Safari"]
-        notchMode = "nowhere"
-        """, to: "default/shell.toml")
-        try write("[profiles.default.workspaceBar]\nheight = 36\n", to: "shell.toml")
+        return {
+            workspaceBar = {
+                height = 30,
+                position = "bottom",
+                showLabels = false,
+                inactiveIconOpacity = 4,
+                excludedBundleIDs = { "com.apple.Safari" },
+                notchMode = "nowhere",
+            },
+        }
+        """, to: "default/shell.luau")
+        try write("return { profiles = { default = { workspaceBar = { height = 36 } } } }\n", to: "shell.luau")
 
         let override = try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.barOverride)
         XCTAssertEqual(
@@ -605,18 +614,25 @@ final class ShellProfileTests: XCTestCase {
     @MainActor
     func testProfilesOverrideGlobalWorkspaceBarSettings() throws {
         try write("""
-        [profiles.default.workspaceBar]
-        hoverPreviewsEnabled = false
-        systemStatsButton = false
-        hideInNativeFullscreen = false
-        notificationBadges = "dot"
-        notificationBadgeRefreshIntervalSeconds = 0
-        autoHideRevealDelayMilliseconds = 250
-        autoHideHideDelayMilliseconds = 5000
-        revealModifier = "option"
-        revealHoldMilliseconds = 300
-        excludedBundleIDs = ["com.apple.Safari"]
-        """, to: "shell.toml")
+        return {
+            profiles = {
+                default = {
+                    workspaceBar = {
+                        hoverPreviewsEnabled = false,
+                        systemStatsButton = false,
+                        hideInNativeFullscreen = false,
+                        notificationBadges = "dot",
+                        notificationBadgeRefreshIntervalSeconds = 0,
+                        autoHideRevealDelayMilliseconds = 250,
+                        autoHideHideDelayMilliseconds = 5000,
+                        revealModifier = "option",
+                        revealHoldMilliseconds = 300,
+                        excludedBundleIDs = { "com.apple.Safari" },
+                    },
+                },
+            },
+        }
+        """, to: "shell.luau")
         var problems: [String] = []
         let override = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems)?.barOverride)
         XCTAssertEqual(override.overriddenKeys, [
@@ -660,19 +676,16 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertEqual(settings.resolved(for: monitor).systemStatsButton, settings.systemStatsButton)
     }
 
-    func testThemesSetWorkspaceBarSettingsBelowShellToml() throws {
+    func testThemesSetWorkspaceBarSettingsBelowShellLuau() throws {
         try write("""
-        [dark]
-        accent = "#FF0000"
-
-        [workspaceBar]
-        height = 40
-        backgroundOpacity = 0.5
-        solidBlackBackground = true
-        """, to: "themes/look.toml")
+        return {
+            dark = { accent = "#FF0000" },
+            workspaceBar = { height = 40, backgroundOpacity = 0.5, solidBlackBackground = true },
+        }
+        """, to: "themes/look.luau")
         try write(
-            "profiles.default.theme = \"look\"\n\n[profiles.default.workspaceBar]\nheight = 32\n",
-            to: "shell.toml"
+            "return { profiles = { default = { theme = \"look\", workspaceBar = { height = 32 } } } }\n",
+            to: "shell.luau"
         )
 
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
@@ -686,24 +699,26 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertEqual(override.settings.backgroundOpacity, 0.5)
         XCTAssertEqual(override.settings.solidBlackBackground, true)
 
-        try write("profiles.default.theme = \"native\"\n", to: "shell.toml")
+        try write("return { profiles = { default = { theme = \"native\" } } }\n", to: "shell.luau")
         XCTAssertTrue(try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.barOverride).usesThemeColors)
     }
 
     @MainActor
     func testThemesAndProfilesPaintTheBarWithPaletteRoles() throws {
         try write("""
-        [dark]
-        surface = "#102030"
-        border = "#405060"
-
-        [workspaceBar]
-        barFill = "surface/0.5"
-        barBorder = "nowhere"
-        """, to: "themes/look.toml")
+        return {
+            dark = { surface = "#102030", border = "#405060" },
+            workspaceBar = { barFill = "surface/0.5", barBorder = "nowhere" },
+        }
+        """, to: "themes/look.luau")
         try write(
-            "profiles.default.theme = \"look\"\n\n[profiles.default.workspaceBar]\ntransparentBackground = true\n",
-            to: "shell.toml"
+            """
+            return {
+                profiles = { default = { theme = "look", workspaceBar = { transparentBackground = true } } },
+            }
+
+            """,
+            to: "shell.luau"
         )
         var problems: [String] = []
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems))
@@ -719,8 +734,8 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertNil(ShellThemeColor("surface/2", theme: config.theme))
 
         try write(
-            "profiles.default.theme = \"look\"\n\n[profiles.default.workspaceBar]\nbarBorder = \"border\"\n",
-            to: "shell.toml"
+            "return { profiles = { default = { theme = \"look\", workspaceBar = { barBorder = \"border\" } } } }\n",
+            to: "shell.luau"
         )
         let bordered = try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.barOverride)
         XCTAssertEqual(bordered.barBorder, ShellThemeColor("border", theme: config.theme))
@@ -755,38 +770,34 @@ final class ShellProfileTests: XCTestCase {
 
     func testTheConfigReportsItsProblems() throws {
         try write("""
-        profiles.default.leading = ["clock", 3]
-        profiles.default.trailling = ["clock"]
-        profiles.default.theme = "look"
-
-        [weather]
-        city = "Toronto"
-        unit = "celsius"
-
-        [profiles.default.drawer.controls]
-        widgets = ["volume"]
-        edges = "left"
-        """, to: "shell.toml")
+        return {
+            profiles = {
+                default = {
+                    leading = { "clock", 3 },
+                    trailling = { "clock" },
+                    theme = "look",
+                    drawer = { controls = { widgets = { "volume" }, edges = "left" } },
+                },
+            },
+            weather = { city = "Toronto", unit = "celsius" },
+        }
+        """, to: "shell.luau")
         try write("""
-        [light]
-        accent = "orange"
-
-        [bar]
-        height = 30
-        """, to: "themes/look.toml")
+        return { light = { accent = "orange" }, bar = { height = 30 } }
+        """, to: "themes/look.luau")
         var problems: [String] = []
         XCTAssertNotNil(ShellConfig.load(shellDirectory: root, problems: &problems))
         XCTAssertEqual(problems, [
-            "shell.toml has unknown key trailling",
-            "shell.toml: leading must contain widget names",
-            "shell.toml: [weather] has unknown key unit",
-            "shell.toml: [drawer.controls] has unknown key edges",
+            "shell.luau has unknown key trailling",
+            "shell.luau: leading must contain widget names",
+            "shell.luau: [weather] has unknown key unit",
+            "shell.luau: [drawer.controls] has unknown key edges",
             "Theme look has unknown key bar",
             "Theme look: [light] accent must be a role name set to \"#RRGGBB\" or \"#RRGGBBAA\""
         ])
 
-        let bundled = try String(contentsOf: XCTUnwrap(ShellDefaults.bundledFile("shell.toml")), encoding: .utf8)
-        try write(bundled, to: "default/shell.toml")
+        let bundled = try String(contentsOf: XCTUnwrap(ShellDefaults.bundledFile("shell.luau")), encoding: .utf8)
+        try write(bundled, to: "default/shell.luau")
         let bundledThemes = try FileManager.default.contentsOfDirectory(
             atPath: XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("themes").path
         )
@@ -796,7 +807,7 @@ final class ShellProfileTests: XCTestCase {
         )
         XCTAssertFalse(bundledThemes.isEmpty)
         for theme in bundledThemes.map({ String($0.dropLast(5)) }) {
-            try write("profiles.default.theme = \"\(theme)\"\n", to: "shell.toml")
+            try write("return { profiles = { default = { theme = \"\(theme)\" } } }\n", to: "shell.luau")
             problems = []
             XCTAssertEqual(ShellConfig.load(shellDirectory: root, problems: &problems)?.themeName, theme)
             XCTAssertEqual(problems, [], theme)
@@ -812,12 +823,9 @@ final class ShellProfileTests: XCTestCase {
             "tokyo-night", "vitreus", "wayline"
         ]
         for name in names {
-            let toml = try TOMLDecoder().decode(
-                [String: TOMLNode].self,
-                from: Data(contentsOf: XCTUnwrap(themes[name]))
-            )
+            let palette = try ShellLuauFixture.table(at: XCTUnwrap(themes[name]))
             for appearance in ["light", "dark"] {
-                guard case let .table(entries)? = toml[appearance]
+                guard case let .record(entries)? = palette[appearance]
                 else { return XCTFail("\(name) has no [\(appearance)]") }
                 let derived = Set(ShellTheme.derivedRoles.map { "\($0)" })
                 XCTAssertEqual(
@@ -904,8 +912,8 @@ final class ShellProfileTests: XCTestCase {
     func testSelectingSymlinkedProfilesLoadsTheirSettingsAndWidgets() throws {
         for name in try makeSymlinkedProfiles() {
             XCTAssertTrue(try ShellProfiles.select(name, in: root), name)
-            assertTOMLEqual(try String(contentsOf: root.appendingPathComponent("shell.toml"), encoding: .utf8), """
-            profile = "\(name)"
+            assertLuauEqual(try String(contentsOf: root.appendingPathComponent("shell.luau"), encoding: .utf8), """
+            return { profile = "\(name)" }
             """)
 
             var problems: [String] = []
@@ -941,11 +949,11 @@ final class ShellProfileTests: XCTestCase {
                 XCTAssertEqual((error as? CocoaError)?.code, .fileNoSuchFile)
             }
         }
-        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("shell.toml").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("shell.luau").path))
     }
 
     private func makeSymlinkedProfiles() throws -> [String] {
-        try write("trailing = [\"linked-clock\"]\n", to: ".profiles/look/shell.toml")
+        try write("return { trailing = { \"linked-clock\" } }\n", to: ".profiles/look/shell.luau")
         try write("return 'linked profile'", to: ".profiles/look/widgets/linked-clock/init.luau")
         let links = [
             ("absolute", root.appendingPathComponent(".profiles/look").path),
@@ -961,16 +969,15 @@ final class ShellProfileTests: XCTestCase {
         return links.map(\.0).sorted()
     }
 
-    private func assertTOMLEqual(
+    private func assertLuauEqual(
         _ actual: String,
         _ expected: String,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         do {
-            let decoder = TOMLDecoder()
-            let actualValue = try decoder.decode([String: TOMLNode].self, from: Data(actual.utf8))
-            let expectedValue = try decoder.decode([String: TOMLNode].self, from: Data(expected.utf8))
+            let actualValue = try ShellLuauFixture.table(actual)
+            let expectedValue = try ShellLuauFixture.table(expected)
             XCTAssertEqual(actualValue, expectedValue, file: file, line: line)
         } catch {
             XCTFail(error.localizedDescription, file: file, line: line)
@@ -982,47 +989,64 @@ final class ShellProfileTests: XCTestCase {
             at: root.appendingPathComponent("look"),
             withIntermediateDirectories: true
         )
-        let config = root.appendingPathComponent("shell.toml")
+        let config = root.appendingPathComponent("shell.luau")
         let read = { try String(contentsOf: config, encoding: .utf8) }
 
         XCTAssertFalse(try ShellProfiles.select("default", in: root))
         XCTAssertFalse(FileManager.default.fileExists(atPath: config.path))
         XCTAssertTrue(try ShellProfiles.select("look", in: root))
-        assertTOMLEqual(try read(), "profile = \"look\"\n")
+        assertLuauEqual(try read(), "return { profile = \"look\" }\n")
         XCTAssertEqual(ShellConfig.load(shellDirectory: root)?.profile, "look")
 
-        try write("trailing = [\"clock\"]\n  profile   = \"look\"\n[weather]\nprofile = \"keep\"\n", to: "shell.toml")
+        try write(
+            "return { trailing = { \"clock\" }, profile = \"look\", weather = { profile = \"keep\" } }\n",
+            to: "shell.luau"
+        )
         XCTAssertTrue(try ShellProfiles.select("default", in: root))
-        assertTOMLEqual(try read(), "trailing = [\"clock\"]\nprofile = \"default\"\n[weather]\nprofile = \"keep\"\n")
+        assertLuauEqual(
+            try read(),
+            "return { trailing = { \"clock\" }, profile = \"default\", weather = { profile = \"keep\" } }\n"
+        )
         XCTAssertFalse(try ShellProfiles.select("default", in: root))
         XCTAssertThrowsError(try ShellProfiles.select("gone", in: root))
 
-        try write("[weather]\nprofile = \"keep\"", to: "shell.toml")
+        try write("return { weather = { profile = \"keep\" } }", to: "shell.luau")
         XCTAssertTrue(try ShellProfiles.select("look", in: root))
-        assertTOMLEqual(try read(), "profile = \"look\"\n[weather]\nprofile = \"keep\"\n")
+        assertLuauEqual(try read(), "return { profile = \"look\", weather = { profile = \"keep\" } }\n")
     }
 
     @MainActor
     func testYourSettingsForAProfileWinOverItsOwnAndStayWithThatProfile() throws {
-        try write("theme = \"dusk\"\n\n[workspaceBar]\nheight = 34\nshowLabels = true\n", to: "look/shell.toml")
-        try write("[dark]\naccent = \"#0000FF\"\n", to: "look/themes/dusk.toml")
+        try write(
+            "return { theme = \"dusk\", workspaceBar = { height = 34, showLabels = true } }\n",
+            to: "look/shell.luau"
+        )
+        try write("return { dark = { accent = \"#0000FF\" } }\n", to: "look/themes/dusk.luau")
         try write("""
-        profile = "look"
-
-        [profiles.look.workspaceBar]
-        height = 40
-
-        [profiles.default.workspaceBar]
-        height = 22
-        """, to: "shell.toml")
+        return {
+            profile = "look",
+            profiles = {
+                look = { workspaceBar = { height = 40 } },
+                default = { workspaceBar = { height = 22 } },
+            },
+        }
+        """, to: "shell.luau")
         let look = try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.barOverride)
         XCTAssertEqual(look.settings.height, 40)
         XCTAssertEqual(look.settings.showLabels, true)
         XCTAssertTrue(look.usesThemeColors)
 
         try write(
-            "[profiles.look.workspaceBar]\nheight = 40\n\n[profiles.default.workspaceBar]\nheight = 22\n",
-            to: "shell.toml"
+            """
+            return {
+                profiles = {
+                    look = { workspaceBar = { height = 40 } },
+                    default = { workspaceBar = { height = 22 } },
+                },
+            }
+
+            """,
+            to: "shell.luau"
         )
         let plain = try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.barOverride)
         XCTAssertEqual(plain.settings.height, 22)
@@ -1046,16 +1070,16 @@ final class ShellProfileTests: XCTestCase {
         settings.textColor = red
         let theme = try XCTUnwrap(ShellStyleFixture.themeFiles(in: ShellStyleFixture.defaults).first)
             .deletingPathExtension().lastPathComponent
-        try write("profiles.default.theme = \"\(theme)\"\n", to: "shell.toml")
+        try write("return { profiles = { default = { theme = \"\(theme)\" } } }\n", to: "shell.luau")
         settings.profileOverride = try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.barOverride)
         XCTAssertNil(settings.resolved(for: monitor).accentColor)
         XCTAssertNil(settings.resolved(for: monitor).textColor)
 
         XCTAssertTrue(try ShellProfiles.setNodes([
-            (["profiles", "default", "workspaceBar", "accentColor"], try ShellTOMLText.node(red))
+            (["profiles", "default", "workspaceBar", "accentColor"], try SettingsLuauValue.encoding(red))
         ], in: root))
         XCTAssertTrue(try ShellProfiles.setNodes([
-            (["profiles", "default", "workspaceBar", "textColor"], try ShellTOMLText.node(red))
+            (["profiles", "default", "workspaceBar", "textColor"], try SettingsLuauValue.encoding(red))
         ], in: root))
         settings.profileOverride = try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.barOverride)
         XCTAssertEqual(settings.resolved(for: monitor).accentColor, red)
@@ -1076,11 +1100,14 @@ final class ShellProfileTests: XCTestCase {
             frame: CGRect(x: 0, y: 0, width: 800, height: 600),
             visibleFrame: CGRect(x: 0, y: 0, width: 800, height: 600), hasNotch: false, name: "Main"
         )
-        try write("[workspaceBar]\nposition = \"left\"\nheight = 60\n", to: "look/shell.toml")
-        try write("profile = \"look\"\n[profiles.look.workspaceBar]\nheight = 80\n", to: "shell.toml")
+        try write("return { workspaceBar = { position = \"left\", height = 60 } }\n", to: "look/shell.luau")
+        try write(
+            "return { profile = \"look\", profiles = { look = { workspaceBar = { height = 80 } } } }\n",
+            to: "shell.luau"
+        )
         let custom = MonitorBarSettings(monitorName: monitor.name, monitorDisplayId: 7, position: .bottom, height: 100)
         XCTAssertTrue(try ShellProfiles.setNodes([
-            (["profiles", "look", "monitorBarOverrides"], try ShellTOMLText.node([custom]))
+            (["profiles", "look", "monitorBarOverrides"], try SettingsLuauValue.encoding([custom]))
         ], in: root))
         let settings = WorkspaceBarSettings()
         settings.height = 24
@@ -1141,11 +1168,11 @@ final class ShellProfileTests: XCTestCase {
     }
 
     func testEachProfileKeepsItsOwnThemeChoice() throws {
-        try write("[dark]\naccent = \"#FF0000\"\n", to: "themes/ember.toml")
-        try write("theme = \"dusk\"\n", to: "look/shell.toml")
-        try write("[dark]\naccent = \"#0000FF\"\n", to: "look/themes/dusk.toml")
+        try write("return { dark = { accent = \"#FF0000\" } }\n", to: "themes/ember.luau")
+        try write("return { theme = \"dusk\" }\n", to: "look/shell.luau")
+        try write("return { dark = { accent = \"#0000FF\" } }\n", to: "look/themes/dusk.luau")
         try write("x", to: "themes/notes.txt")
-        let config = root.appendingPathComponent("shell.toml")
+        let config = root.appendingPathComponent("shell.luau")
         let read = { try String(contentsOf: config, encoding: .utf8) }
         let bundled = try ShellStyleFixture.themeFiles(in: ShellStyleFixture.defaults)
             .map { $0.deletingPathExtension().lastPathComponent }
@@ -1157,11 +1184,11 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertThrowsError(try ShellProfiles.selectTheme("dusk", in: root))
         XCTAssertThrowsError(try ShellProfiles.selectTheme("notes", in: root))
         XCTAssertTrue(try ShellProfiles.selectTheme("ember", in: root))
-        assertTOMLEqual(try read(), "profiles.default.theme = \"ember\"\n")
+        assertLuauEqual(try read(), "return { profiles = { default = { theme = \"ember\" } } }\n")
         XCTAssertEqual(ShellConfig.load(shellDirectory: root)?.themeName, "ember")
 
         XCTAssertTrue(try ShellProfiles.select("look", in: root))
-        assertTOMLEqual(try read(), "profile = \"look\"\nprofiles.default.theme = \"ember\"\n")
+        assertLuauEqual(try read(), "return { profile = \"look\", profiles = { default = { theme = \"ember\" } } }\n")
         let look = ShellConfig.resolve(shellDirectory: root)
         XCTAssertEqual(look.themeName, "dusk")
         XCTAssertTrue(ShellProfiles.themes(of: look).contains("dusk"))
@@ -1169,15 +1196,15 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertTrue(try ShellProfiles.selectTheme("ember", in: root))
         XCTAssertEqual(ShellConfig.load(shellDirectory: root)?.themeName, "ember")
         XCTAssertTrue(try ShellProfiles.selectTheme("dusk", in: root))
-        assertTOMLEqual(try read(), "profile = \"look\"\nprofiles.default.theme = \"ember\"\n")
+        assertLuauEqual(try read(), "return { profile = \"look\", profiles = { default = { theme = \"ember\" } } }\n")
 
         XCTAssertTrue(try ShellProfiles.select(ShellDefaults.profile, in: root))
         XCTAssertEqual(ShellConfig.load(shellDirectory: root)?.themeName, "ember")
     }
 
     func testEjectingCopiesInheritedWidgetsIntoTheSelectedProfile() throws {
-        try write("profile = \"look\"\n", to: "shell.toml")
-        try write("", to: "look/shell.toml")
+        try write("return { profile = \"look\" }\n", to: "shell.luau")
+        try write("return {}", to: "look/shell.luau")
         try write("return 'look'", to: "default/widgets/clock/init.luau")
         try write("return 2", to: "default/widgets/clock/helper.luau")
         var config = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
@@ -1199,8 +1226,8 @@ final class ShellProfileTests: XCTestCase {
     }
 
     func testCreatingAWidgetKeepsItInTheSelectedProfile() throws {
-        try write("profile = \"look\"\n", to: "shell.toml")
-        try write("", to: "look/shell.toml")
+        try write("return { profile = \"look\" }\n", to: "shell.luau")
+        try write("return {}", to: "look/shell.luau")
         XCTAssertTrue(try ShellProfiles.create("mine", in: root))
         XCTAssertFalse(try ShellProfiles.create("mine", in: root))
         XCTAssertEqual(
@@ -1211,15 +1238,15 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertNil(ShellConfig.resolve(shellDirectory: root).widget("mine"))
     }
 
-    func testTheHiddenBarWidgetIsNamedInShellToml() throws {
-        try write("profiles.default.hiddenBarWidget = \"drawer\"\n", to: "shell.toml")
+    func testTheHiddenBarWidgetIsNamedInShellLuau() throws {
+        try write("return { profiles = { default = { hiddenBarWidget = \"drawer\" } } }\n", to: "shell.luau")
         XCTAssertEqual(ShellConfig.load(shellDirectory: root)?.hiddenBarWidget, "drawer")
-        try write("profiles.default.hiddenBarWidget = \"../drawer\"\n", to: "shell.toml")
+        try write("return { profiles = { default = { hiddenBarWidget = \"../drawer\" } } }\n", to: "shell.luau")
         XCTAssertNil(ShellConfig.load(shellDirectory: root)?.hiddenBarWidget)
     }
 
     func testAMissingProfileFallsBackToTheDefault() throws {
-        try write("profile = \"gone\"\n", to: "shell.toml")
+        try write("return { profile = \"gone\" }\n", to: "shell.luau")
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
         XCTAssertEqual(config.profile, ShellDefaults.profile)
         XCTAssertEqual(config.directories, [root, root.appendingPathComponent("default", isDirectory: true)])

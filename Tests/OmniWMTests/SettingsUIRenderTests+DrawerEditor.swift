@@ -20,10 +20,10 @@ import XCTest
                         let configuration = fixture.controller.workspaceBarManager.shellConfiguration
                         try await prepareDrawerFixture(fixture, state: state)
                         let original = try Data(contentsOf: configuration.shellDirectory
-                            .appendingPathComponent("shell.toml"))
+                            .appendingPathComponent("shell.luau"))
                         try await renderDrawerState(fixture, state: state, windowClass: windowClass)
                         XCTAssertEqual(
-                            try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.toml")),
+                            try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.luau")),
                             original
                         )
                         XCTAssertNil(fixture.controller.workspaceBarManager.shellHost)
@@ -51,7 +51,7 @@ import XCTest
                 await editor.reload()
                 _ = try await ShellSettingsPreview
                     .panels(for: XCTUnwrap(editor.panelRequest(editor.drawerCandidates(nil))))
-                let file = configuration.shellDirectory.appendingPathComponent("shell.toml")
+                let file = configuration.shellDirectory.appendingPathComponent("shell.luau")
                 let original = try Data(contentsOf: file)
                 for windowClass in windowClasses {
                     try await renderAddDrawerCases(
@@ -83,7 +83,7 @@ import XCTest
                 )
                 await editor.reload()
                 let drawer = try XCTUnwrap(editor.drawer("tools"))
-                let original = try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.toml"))
+                let original = try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.luau"))
                 for windowClass in windowClasses {
                     try await render(
                         Form { ShellDrawerInspector(editor: editor, drawer: drawer, confirmingDelete: true) }
@@ -97,7 +97,7 @@ import XCTest
                         ]
                     )
                     XCTAssertEqual(
-                        try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.toml")),
+                        try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.luau")),
                         original
                     )
                 }
@@ -161,7 +161,7 @@ import XCTest
         private func renderAddDrawerCases(
             _ editor: ShellDesktopEditor, fixture: Fixture, windowClass: WindowClass, original: Data
         ) async throws {
-            let file = editor.configuration.shellDirectory.appendingPathComponent("shell.toml")
+            let file = editor.configuration.shellDirectory.appendingPathComponent("shell.luau")
             editor.problem = nil
             try await render(
                 ShellAddDrawerSheet(

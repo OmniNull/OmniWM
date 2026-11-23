@@ -1,0 +1,21 @@
+return {
+    title = "Timer",
+    icon = "timer",
+    views = { "compact", "peek", "expanded" },
+    options = {
+        label = {
+            type = "string",
+            title = "Initial label",
+            default = "Timer",
+            maxLength = 80,
+        },
+        duration = {
+            type = "number",
+            title = "Initial duration (seconds)",
+            default = 300,
+            min = 1,
+            max = 86400,
+            step = 1,
+        },
+    },
+}

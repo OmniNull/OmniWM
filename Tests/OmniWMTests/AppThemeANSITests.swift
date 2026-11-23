@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class AppThemeANSITests: XCTestCase {
@@ -131,9 +130,9 @@ final class AppThemeANSITests: XCTestCase {
         terminalColors: AppThemeTerminalColors = .palette
     ) throws -> AppThemePalette {
         let text = ShellWallpaperPalette.theme(pixels: Array(repeating: pixel, count: 64), scheme: .tonalSpot)
-        let toml = try TOMLDecoder().decode([String: TOMLNode].self, from: Data(text.utf8))
+        let palette = try ShellLuauFixture.table(text)
         var problems: [String] = []
-        let theme = ShellTheme(toml: toml, name: ShellWallpaperPalette.themeName, problems: &problems)
+        let theme = ShellTheme(values: palette, name: ShellWallpaperPalette.themeName, problems: &problems)
         XCTAssertTrue(problems.isEmpty, problems.joined(separator: "; "))
         return AppThemePalette(theme: theme, terminalColors: terminalColors)
     }

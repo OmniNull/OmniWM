@@ -207,7 +207,7 @@ final class AppThemingLifecycleTests: XCTestCase {
         XCTAssertNil(manager.shellHost)
         XCTAssertTrue(writer.isRechecking)
         XCTAssertTrue(FileManager.default
-            .fileExists(atPath: shell.shellDirectory.appendingPathComponent("themes/wallpaper.toml").path))
+            .fileExists(atPath: shell.shellDirectory.appendingPathComponent("themes/wallpaper.luau").path))
         try await shell.refresh()
         let previous = try XCTUnwrap(sandbox.read(".config/kitty/dark-theme.auto.conf"))
         XCTAssertEqual(service.palette, AppThemePalette(theme: shell.config.theme))

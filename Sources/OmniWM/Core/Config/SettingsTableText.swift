@@ -17,7 +17,7 @@ struct SettingsTableText {
         let endsInLineComment: Bool
     }
 
-    let document: SettingsLuauDocument
+    let document: LuauTableDocument
     let table: SettingsSourceTable
     let newline: String
 

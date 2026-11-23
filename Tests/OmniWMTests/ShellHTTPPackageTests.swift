@@ -987,8 +987,8 @@ final class ShellHTTPPackageTests: XCTestCase {
         ) }
         defer { ProtocolStub.plans.withLock { $0[url] = nil } }
         let files = [
-            "shell.toml": "profiles.default.trailing = [\"test\"]\n",
-            "widgets/test/settings.toml": "[capabilities]\nnetwork = ['\(host)']\n",
+            "shell.luau": "return { profiles = { default = { trailing = { \"test\" } } } }\n",
+            "widgets/test/settings.luau": "return { capabilities = { network = { \"\(host)\" } } }",
             "widgets/test/init.luau": """
             assert(omniwm.http({url='\(url)'},function(result)
                 omniwm.run(result.ok and 'switch-workspace 8'
@@ -1094,8 +1094,8 @@ final class ShellHTTPPackageTests: XCTestCase {
         let folder = layer.appendingPathComponent("widgets/child")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let network = hosts.map { "'\($0)'" }.joined(separator: ", ")
-        try Data("views = ['compact']\ncapabilities = { network = [\(network)] }\n".utf8)
-            .write(to: folder.appendingPathComponent("component.toml"))
+        try Data("return { views = { \"compact\" }, capabilities = { network = { \(network) } } }".utf8)
+            .write(to: folder.appendingPathComponent("component.manifest.luau"))
         try Data(module.utf8).write(to: folder.appendingPathComponent("component.luau"))
     }
 

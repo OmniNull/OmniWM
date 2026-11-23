@@ -1,0 +1,5 @@
+return {
+    title = "Music",
+    icon = "music.note",
+    views = { "compact", "peek", "expanded" },
+}

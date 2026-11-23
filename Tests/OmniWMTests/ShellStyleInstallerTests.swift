@@ -53,9 +53,9 @@ final class ShellStyleInstallerTests: XCTestCase {
     func testAnExistingFolderIsReplacedOnlyOnRequestAndKeptAsABackup() throws {
         let listing = try XCTUnwrap(repository.styles().first)
         let files = try repository.files(of: listing.name)
-        let mine = shell.appendingPathComponent("\(listing.name)/shell.toml")
+        let mine = shell.appendingPathComponent("\(listing.name)/shell.luau")
         try FileManager.default.createDirectory(at: mine.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let edits = "theme = \"mine\"\n"
+        let edits = "return { theme = \"mine\" }\n"
         try edits.write(to: mine, atomically: true, encoding: .utf8)
 
         XCTAssertThrowsError(try install(listing, files: files))
@@ -63,7 +63,7 @@ final class ShellStyleInstallerTests: XCTestCase {
 
         try install(listing, files: files, replacing: true)
         let backup = shell.appendingPathComponent("\(ShellStyleInstaller.backupsFolder)/\(listing.name)-\(day)")
-        XCTAssertEqual(try String(contentsOf: backup.appendingPathComponent("shell.toml"), encoding: .utf8), edits)
+        XCTAssertEqual(try String(contentsOf: backup.appendingPathComponent("shell.luau"), encoding: .utf8), edits)
         XCTAssertNotNil(try ShellStyleInstaller.receipt(in: shell.appendingPathComponent(listing.name)))
 
         try install(listing, files: files, replacing: true)
@@ -94,7 +94,7 @@ final class ShellStyleInstallerTests: XCTestCase {
             ("backslash", [manifest, file("widgets\\init.luau")]),
             ("case duplicate", [manifest, file("lib/Look.luau"), file("lib/look.luau")]),
             ("file and folder", [manifest, file("lib"), file("lib/look.luau")]),
-            ("no manifest", [file("shell.toml")])
+            ("no manifest", [file("shell.luau")])
         ]
         for (label, files) in cases {
             XCTAssertThrowsError(
@@ -140,13 +140,7 @@ final class ShellStyleInstallerTests: XCTestCase {
         try FileManager.default.createDirectory(
             at: style.appendingPathComponent(ShellStyleRepository.previewsFolder), withIntermediateDirectories: true
         )
-        let manifest = "format = \(ShellStyleManifest.format)\nname = \"probe\"\nversion = \"1.0.0\"\n"
-            + "api = \(ShellStyleManifest.api)\ntitle = \"Probe\"\nsummary = \"A probe.\"\n"
-        try manifest.write(
-            to: style.appendingPathComponent(ShellStyleManifest.fileName),
-            atomically: true,
-            encoding: .utf8
-        )
+        try probeManifest().data.write(to: style.appendingPathComponent(ShellStyleManifest.fileName))
         try Data().write(to: style.appendingPathComponent("\(ShellStyleRepository.previewsFolder)/bar.png"))
         try Data().write(to: style.appendingPathComponent(".DS_Store"))
         let probe = ShellStyleRepository(folder: styles)
@@ -154,7 +148,7 @@ final class ShellStyleInstallerTests: XCTestCase {
         XCTAssertEqual(try probe.files(of: "probe").map(\.path), [ShellStyleManifest.fileName])
         try FileManager.default.createSymbolicLink(
             at: style.appendingPathComponent("linked.luau"),
-            withDestinationURL: style.appendingPathComponent("shell.toml")
+            withDestinationURL: style.appendingPathComponent("shell.luau")
         )
         XCTAssertThrowsError(try probe.files(of: "probe"))
     }
@@ -173,9 +167,9 @@ final class ShellStyleInstallerTests: XCTestCase {
     func testAPublishedReplacementReportsWhereThePreviousCopyStaysWhenItsBackupCannotMove() throws {
         let listing = try XCTUnwrap(repository.styles().first)
         let files = try repository.files(of: listing.name)
-        let mine = shell.appendingPathComponent("\(listing.name)/shell.toml")
+        let mine = shell.appendingPathComponent("\(listing.name)/shell.luau")
         try FileManager.default.createDirectory(at: mine.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let edits = "theme = \"mine\"\n"
+        let edits = "return { theme = \"mine\" }\n"
         try edits.write(to: mine, atomically: true, encoding: .utf8)
         let backups = shell.appendingPathComponent(ShellStyleInstaller.backupsFolder, isDirectory: true)
         try FileManager.default.createDirectory(at: backups, withIntermediateDirectories: true)
@@ -183,7 +177,7 @@ final class ShellStyleInstallerTests: XCTestCase {
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: backups.path) }
 
         let previous = try XCTUnwrap(try install(listing, files: files, replacing: true))
-        XCTAssertEqual(try String(contentsOf: previous.appendingPathComponent("shell.toml"), encoding: .utf8), edits)
+        XCTAssertEqual(try String(contentsOf: previous.appendingPathComponent("shell.luau"), encoding: .utf8), edits)
         XCTAssertNotEqual(previous.deletingLastPathComponent().standardizedFileURL, backups.standardizedFileURL)
         XCTAssertNotNil(try ShellStyleInstaller.receipt(in: shell.appendingPathComponent(listing.name)))
     }
@@ -254,7 +248,7 @@ final class ShellStyleInstallerTests: XCTestCase {
         )
         let picture = "bar.png"
         try FileManager.default.createDirectory(at: previews, withIntermediateDirectories: true)
-        try probeManifest(["previews": "[\"\(picture)\"]"]).data
+        try probeManifest(["previews": "{ \"\(picture)\" }"]).data
             .write(to: previews.deletingLastPathComponent().appendingPathComponent(ShellStyleManifest.fileName))
         try Data().write(to: previews.appendingPathComponent(picture))
         let listing = try XCTUnwrap(ShellStyleRepository(folder: checkout).styles().first)
@@ -267,13 +261,14 @@ final class ShellStyleInstallerTests: XCTestCase {
             "format": "\(ShellStyleManifest.format)", "name": "\"probe\"", "version": "\"\(version)\"",
             "api": "\(ShellStyleManifest.api)", "title": "\"Probe\"", "summary": "\"A probe.\""
         ].merging(changes) { $1 }
-        let text = entries.sorted { $0.key < $1.key }.map { "\($0.key) = \($0.value)" }.joined(separator: "\n")
+        let fields = entries.sorted { $0.key < $1.key }.map { "\($0.key) = \($0.value)," }
+        let text = "return {\n" + fields.joined(separator: "\n") + "\n}"
         return ShellStyleFile(path: ShellStyleManifest.fileName, data: Data(text.utf8), executable: false)
     }
 
     private func entries(in folder: URL) -> [String] {
         ((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []).filter {
-            $0 != ShellDefaults.profile && $0 != "shell.toml"
+            $0 != ShellDefaults.profile && $0 != "shell.luau"
         }.sorted()
     }
 }

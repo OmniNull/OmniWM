@@ -50,19 +50,20 @@ final class ShellDisabledComponentApprovalTests: XCTestCase {
                 return ui.row(children)
             end
             """.utf8).write(to: root.appendingPathComponent("init.luau"))
-            var manifest = """
-            views = ['compact']
-            [capabilities]
-            network = ['api.example']
-            provider = \(provider)
+            let declaration = provider ? "provider = { command = { 'provider.sh' } }," : ""
+            let manifest = """
+            return {
+                views = { 'compact' },
+                capabilities = { network = { 'api.example' }, provider = \(provider) },
+                \(declaration)
+            }
             """
             if provider {
-                manifest += "\n[provider]\ncommand = ['provider.sh']\n"
                 let executable = component.appendingPathComponent("provider.sh")
                 try Data("#!/bin/sh\nexit 1\n".utf8).write(to: executable)
                 try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
             }
-            try Data(manifest.utf8).write(to: component.appendingPathComponent("component.toml"))
+            try Data(manifest.utf8).write(to: component.appendingPathComponent("component.manifest.luau"))
             let request = requestHost.map {
                 "assert(omniwm.http({url='https://\($0)/data'},function(result) end))"
             } ?? ""

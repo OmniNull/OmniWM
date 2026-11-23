@@ -17,7 +17,8 @@ struct SettingsTableEdit {
         let new: SettingsLuauValue
     }
 
-    let document: SettingsLuauDocument
+    let document: LuauTableDocument
+    let settings: SettingsExport?
     let origins: SettingsListOrigins
     let newline: String
     var questions: [String] = []
@@ -67,8 +68,8 @@ struct SettingsTableEdit {
 
     private mutating func replaceValue(_ node: Node, field: SettingsLuauDocument.Field) throws -> Replacement {
         var value = node.new
-        if node.source.isEmpty {
-            value = try SettingsLuauValue.fields(of: document.export)
+        if node.source.isEmpty, let settings {
+            value = try SettingsLuauValue.fields(of: settings)
             for change in SettingsValueChange
                 .between(node.old, node.new) { value.set(change.value, at: change.path[...]) }
             value.set(nil, at: ["schemaVersion"])

@@ -17,7 +17,7 @@ extension ShellDesktopEditorTests {
             let key = await dirtyText(fixture.editor)
             let draft = fixture.editor.draft(key)
             let snapshot = fixture.editor.snapshot
-            let bytes = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml"))
+            let bytes = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau"))
             let changed = await fixture.editor.request(transition)
             XCTAssertFalse(changed, "\(transition)")
             XCTAssertEqual(fixture.editor.pendingTransition, transition)
@@ -31,7 +31,7 @@ extension ShellDesktopEditorTests {
             XCTAssertEqual(fixture.editor.draft(key), draft)
             XCTAssertEqual(fixture.editor.selectedStyle, "lake")
             XCTAssertEqual(fixture.editor.selectedWidget, "omniwm")
-            XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml")), bytes)
+            XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau")), bytes)
         }
     }
 
@@ -121,7 +121,7 @@ extension ShellDesktopEditorTests {
             let key = await dirtyText(fixture.editor)
             let original = try XCTUnwrap(fixture.editor.draft(key))
             _ = await fixture.editor.request(transition)
-            let file = fixture.shell.appendingPathComponent("shell.toml")
+            let file = fixture.shell.appendingPathComponent("shell.luau")
             let saved = try Data(contentsOf: file)
             try Data("[invalid".utf8).write(to: file)
             await fixture.editor.resolve(.save)
@@ -164,12 +164,12 @@ extension ShellDesktopEditorTests {
         let fixture = try await fixture()
         let key = await dirtyText(fixture.editor, value: "1234567890")
         XCTAssertEqual(fixture.editor.schema(for: "omniwm")?.options["iconColor"]?.maxLength, 9)
-        let original = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml"))
+        let original = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau"))
         let saved = await fixture.editor.saveDraft(key)
         XCTAssertFalse(saved)
         XCTAssertTrue(fixture.editor.draft(key)?.dirty == true)
         XCTAssertNotNil(fixture.editor.draft(key)?.error)
-        XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml")), original)
+        XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau")), original)
     }
 
     func testWeatherReadsAndWritesOnlyTheSharedRootTable() async throws {
@@ -187,7 +187,7 @@ extension ShellDesktopEditorTests {
         XCTAssertTrue(saved)
         let current = try document(fixture)
         XCTAssertEqual(current["profiles"], before["profiles"])
-        guard case let .table(root)? = current["weather"] else { return XCTFail("Missing shared Weather") }
+        guard case let .record(root)? = current["weather"] else { return XCTFail("Missing shared Weather") }
         XCTAssertEqual(root["city"], .string("London"))
         XCTAssertEqual(root["units"], .string("fahrenheit"))
         XCTAssertEqual(fixture.configuration.config.profile, "default")
@@ -232,7 +232,7 @@ extension ShellDesktopEditorTests {
         held.finish(failing: true)
         let drained = await fixture.editor.writes.drain()
         XCTAssertFalse(drained)
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         let saved = await fixture.editor.saveDraft(key)
         XCTAssertFalse(saved)

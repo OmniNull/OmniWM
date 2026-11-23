@@ -441,7 +441,7 @@ extension WorkspaceBarManager {
             return
         }
         let destination = shellConfiguration.shellDirectory
-            .appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml")
+            .appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).luau")
         let writer = makeWallpaperPalette(destination, config.wallpaperScheme) { [weak self] problem in
             guard let self else { return }
             if let shellHost {

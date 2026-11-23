@@ -1,0 +1,31 @@
+return {
+    title = "OmniShell Example",
+    icon = "app",
+    views = { "window", "confirm", "preferences" },
+    window = {
+        width = 640,
+        height = 420,
+        minWidth = 280,
+        minHeight = 240,
+        children = {
+            confirm = {
+                kind = "sheet",
+                view = "confirm",
+                title = "Confirm deletion",
+                width = 360,
+                height = 200,
+                minWidth = 280,
+                minHeight = 160,
+            },
+            preferences = {
+                kind = "utility",
+                view = "preferences",
+                title = "Preferences",
+                width = 420,
+                height = 260,
+                minWidth = 280,
+                minHeight = 220,
+            },
+        },
+    },
+}

@@ -77,20 +77,20 @@ final class ShellWeatherTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let cases: [(String, ShellWeatherLocation?)] = [
             (
-                "[weather]\ncity = \"Toronto\"\nunits = \"fahrenheit\"\n",
+                "return { weather = { city = \"Toronto\", units = \"fahrenheit\" } }\n",
                 .init(place: .city("Toronto"), fahrenheit: true)
             ),
             (
-                "[weather]\nlatitude = 43.6\nlongitude = -79\n",
+                "return { weather = { latitude = 43.6, longitude = -79 } }\n",
                 .init(place: .coordinates(latitude: 43.6, longitude: -79))
             ),
-            ("[weather]\nlatitude = 120\nlongitude = 0\n", nil),
-            ("[weather]\ncity = \"Toronto\"\nunits = \"kelvin\"\n", nil),
-            ("", nil)
+            ("return { weather = { latitude = 120, longitude = 0 } }\n", nil),
+            ("return { weather = { city = \"Toronto\", units = \"kelvin\" } }\n", nil),
+            ("return {}", nil)
         ]
-        for (toml, expected) in cases {
-            try Data(toml.utf8).write(to: root.appendingPathComponent("shell.toml"))
-            XCTAssertEqual(try XCTUnwrap(ShellConfig.load(shellDirectory: root)).weather, expected, toml)
+        for (source, expected) in cases {
+            try Data(source.utf8).write(to: root.appendingPathComponent("shell.luau"))
+            XCTAssertEqual(try XCTUnwrap(ShellConfig.load(shellDirectory: root)).weather, expected, source)
         }
     }
 
@@ -99,26 +99,22 @@ final class ShellWeatherTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try Data("""
-        [profiles.default.widgets.stats]
-        interval = 10
-        [weather]
-        city = "Toronto"
-        refresh = 30
-        """.utf8).write(to: root.appendingPathComponent("shell.toml"))
+        return {
+            profiles = { default = { widgets = { stats = { interval = 10 } } } },
+            weather = { city = "Toronto", refresh = 30 },
+        }
+        """.utf8).write(to: root.appendingPathComponent("shell.luau"))
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
         XCTAssertEqual(config.widgetIntervals, ["stats": 10])
         XCTAssertEqual(config.weather?.refresh, .seconds(1800))
 
-        for refresh in ["inf", "1e300"] {
+        for refresh in ["math.huge", "1e300"] {
             try Data("""
-            [profiles.default.widgets.forever]
-            interval = inf
-            [profiles.default.widgets.never]
-            interval = nan
-            [weather]
-            city = "Toronto"
-            refresh = \(refresh)
-            """.utf8).write(to: root.appendingPathComponent("shell.toml"))
+            return {
+                profiles = { default = { widgets = { forever = { interval = math.huge }, never = { interval = 0 / 0 } } } },
+                weather = { city = "Toronto", refresh = \(refresh) },
+            }
+            """.utf8).write(to: root.appendingPathComponent("shell.luau"))
             let unbounded = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
             XCTAssertEqual(unbounded.widgetIntervals, ["forever": ShellWidgetDeclaration.maximumInterval])
             XCTAssertEqual(unbounded.weather?.refresh, .seconds(24 * 60 * 60))

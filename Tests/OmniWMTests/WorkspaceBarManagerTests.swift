@@ -29,8 +29,8 @@ final class WorkspaceBarManagerTests: XCTestCase {
         )
         let shell = root.appendingPathComponent("config/shell", isDirectory: true)
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
-        try Data("profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = []\n".utf8)
-            .write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { leading = {}, center = {}, trailing = {} } } }\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.luau"))
         controller = WMController(settings: settings)
     }
 
@@ -41,11 +41,23 @@ final class WorkspaceBarManagerTests: XCTestCase {
 
     func testFillBarTakesTheMenuBarAppearanceInsteadOfTheAppAppearance() throws {
         try Data(
-            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = []\n[profiles.default.workspaceBar]\nfullWidth = false\nnotchMode = \"fillLeftOfNotch\"\n"
-                .utf8
+            """
+            return {
+                profiles = {
+                    default = {
+                        leading = {},
+                        center = {},
+                        trailing = {},
+                        workspaceBar = { fullWidth = false, notchMode = "fillLeftOfNotch" },
+                    },
+                },
+            }
+
+            """
+            .utf8
         )
         .write(to: controller.settings.settingsFileURL.deletingLastPathComponent()
-            .appendingPathComponent("shell/shell.toml"))
+            .appendingPathComponent("shell/shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
 
@@ -136,11 +148,23 @@ final class WorkspaceBarManagerTests: XCTestCase {
         try Data("function render(ctx) return ui.box{ w = 10 * #ctx.data.bar.workspaces, h = 10 } end".utf8)
             .write(to: widget.appendingPathComponent("init.luau"))
         try Data(
-            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = [\"count\"]\n[profiles.default.workspaceBar]\nfullWidth = false\n"
-                .utf8
+            """
+            return {
+                profiles = {
+                    default = {
+                        leading = {},
+                        center = {},
+                        trailing = { "count" },
+                        workspaceBar = { fullWidth = false },
+                    },
+                },
+            }
+
+            """
+            .utf8
         )
         .write(to: widget.deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("shell.toml"))
+            .appendingPathComponent("shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
         func width(after bar: DesiredBarSurface, is expected: CGFloat) async throws -> NSRect? {
@@ -368,14 +392,19 @@ final class WorkspaceBarManagerTests: XCTestCase {
 
     func testFirstApplyAfterTheShellStartsWaitsForBarsProjectedFromItsProfile() throws {
         let shell = controller.settings.settingsFileURL.deletingLastPathComponent()
-            .appendingPathComponent("shell/shell.toml")
+            .appendingPathComponent("shell/shell.luau")
         let profilePosition = WorkspaceBarPosition.left
         try Data("""
-        profiles.default.leading = []
-        profiles.default.center = []
-        profiles.default.trailing = []
-        profiles.default.workspaceBar.position = "\(profilePosition.rawValue)"
-        profiles.default.workspaceBar.fullWidth = true
+        return {
+            profiles = {
+                default = {
+                    leading = {},
+                    center = {},
+                    trailing = {},
+                    workspaceBar = { position = "\(profilePosition.rawValue)", fullWidth = true },
+                },
+            },
+        }
         """.utf8).write(to: shell)
         let manager = makeManager()
         defer { manager.cleanup() }

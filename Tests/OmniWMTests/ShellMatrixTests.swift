@@ -387,8 +387,11 @@ final class ShellBarShaderConfigTests: XCTestCase {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
         XCTAssertEqual(try ShellStyleFixture.prepare(into: shell), [])
-        try Data("profile = \"matrix\"\n[profiles.matrix.barShader]\nfps = 12\nvalues = [0.2, 0]\n".utf8)
-            .write(to: shell.appendingPathComponent("shell.toml"))
+        try Data(
+            "return {\n    profile = \"matrix\",\n    profiles = { matrix = { barShader = { fps = 12, values = { 0.2, 0 } } } },\n}\n"
+                .utf8
+        )
+        .write(to: shell.appendingPathComponent("shell.luau"))
         var problems: [String] = []
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
         XCTAssertEqual(problems, [])
@@ -396,8 +399,8 @@ final class ShellBarShaderConfigTests: XCTestCase {
             config.barShader,
             ShellBarShader(source: "matrix-rain.metal", fps: 12, values: SIMD4(0.2, 0, 0, 0))
         )
-        try Data("profile = \"matrix\"\n[profiles.matrix.barShader]\nenabled = false\n".utf8)
-            .write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { profile = \"matrix\", profiles = { matrix = { barShader = { enabled = false } } } }\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.luau"))
         XCTAssertNil(ShellConfig.load(shellDirectory: shell, problems: &problems)?.barShader)
         XCTAssertEqual(problems, [])
     }
@@ -406,16 +409,17 @@ final class ShellBarShaderConfigTests: XCTestCase {
         let shell = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: shell) }
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
-        let filename = "source = \"matrix-rain.metal\"\n"
+        let filename = "source = \"matrix-rain.metal\", "
         for declaration in [
             "", "source = \"../matrix-rain.metal\"", "source = \"matrix-rain\"", "source = \"/tmp/rain.metal\"",
             "source = \".hidden.metal\"", "source = \"\"", filename + "enabled = 1",
-            filename + "fps = -1", filename + "fps = 61", filename + "fps = 0.5", filename + "fps = nan",
-            filename + "values = [1, 2, 3, 4, 5]", filename + "values = [inf]",
-            filename + "values = [1e100]", filename + "values = [\"green\"]"
+            filename + "fps = -1", filename + "fps = 61", filename + "fps = 0.5", filename + "fps = 0 / 0",
+            filename + "values = {1, 2, 3, 4, 5}", filename + "values = {math.huge}",
+            filename + "values = {1e100}", filename + "values = {\"green\"}"
         ] {
-            try Data("[profiles.default]\nleading = [\"clock\"]\n[profiles.default.barShader]\n\(declaration)\n".utf8)
-                .write(to: shell.appendingPathComponent("shell.toml"))
+            try Data("return { profiles = { default = { leading = { 'clock' }, barShader = { \(declaration) } } } }"
+                .utf8)
+                .write(to: shell.appendingPathComponent("shell.luau"))
             var problems: [String] = []
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems), declaration)
             XCTAssertEqual(config.leading, ["clock"], declaration)

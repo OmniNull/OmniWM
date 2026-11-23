@@ -679,7 +679,8 @@ final class AppThemeServiceTests: XCTestCase {
         let directory = sandbox.root.appendingPathComponent("omniwm-config", isDirectory: true)
         let shell = directory.appendingPathComponent("shell", isDirectory: true)
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
-        try Data("profiles.default.theme = \"catppuccin\"\n".utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { theme = \"catppuccin\" } } }\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.luau"))
         let manager = WorkspaceBarManager(
             configDirectory: directory,
             motionPolicy: MotionPolicy(animationsEnabled: false)

@@ -119,8 +119,13 @@ final class WorkspaceBarFullWidthTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try Data("[profiles.default.workspaceBar]\nfullWidth = true\nfullWidthNotchMode = \"leftOfNotch\"\n".utf8)
-            .write(to: root.appendingPathComponent("shell.toml"))
+        try Data("""
+        return {
+            profiles = { default = { workspaceBar = { fullWidth = true, fullWidthNotchMode = "leftOfNotch" } } },
+        }
+
+        """.utf8)
+            .write(to: root.appendingPathComponent("shell.luau"))
         let override = try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.barOverride)
         XCTAssertEqual(override.overriddenKeys, ["accentColor", "fullWidth", "fullWidthNotchMode", "textColor"])
         let bar = WorkspaceBarSettings()

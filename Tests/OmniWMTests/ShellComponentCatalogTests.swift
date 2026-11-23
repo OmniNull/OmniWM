@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class ShellComponentCatalogTests: XCTestCase {
@@ -19,29 +18,17 @@ final class ShellComponentCatalogTests: XCTestCase {
 
     func testAllOptionTypesMergeDefaultsAndRejectInvalidValues() throws {
         try component("clock", manifest: """
-        title = "World clock"
-        views = ["compact", "expanded"]
-        [options.zone]
-        type = "string"
-        default = "Europe/London"
-        maxLength = 64
-        [options.seconds]
-        type = "boolean"
-        default = false
-        [options.size]
-        type = "number"
-        default = 12
-        min = 8
-        max = 40
-        step = 2
-        [options.face]
-        type = "choice"
-        choices = ["digital", "analog"]
-        default = "digital"
-        [options.labels]
-        type = "strings"
-        default = ["Home"]
-        maxLength = 20
+        return {
+            title = "World clock",
+            views = { "compact", "expanded" },
+            options = {
+                zone = { type = "string", default = "Europe/London", maxLength = 64 },
+                seconds = { type = "boolean", default = false },
+                size = { type = "number", default = 12, min = 8, max = 40, step = 2 },
+                face = { type = "choice", choices = { "digital", "analog" }, default = "digital" },
+                labels = { type = "strings", default = { "Home" }, maxLength = 20 },
+            },
+        }
         """)
         let catalog = try ShellComponentCatalog.load("clock", directories: [root])
         let first = try catalog.validate(ShellComponentInstance(
@@ -70,21 +57,24 @@ final class ShellComponentCatalogTests: XCTestCase {
 
     func testInvalidSchemasAndReservedOptionsFailWithReasons() throws {
         let cases = [
-            ("type = \"number\"\ndefault = 4\nmin = 8", "broken option value: invalid default"),
-            ("type = \"number\"\nstep = 0", "broken option value: invalid step"),
-            ("type = \"number\"\nmin = 3\nmax = 1", "broken option value: min is greater than max"),
+            ("type = \"number\", default = 4, min = 8", "broken option value: invalid default"),
+            ("type = \"number\", step = 0", "broken option value: invalid step"),
+            ("type = \"number\", min = 3, max = 1", "broken option value: min is greater than max"),
             ("type = \"choice\"", "broken option value needs choices"),
-            ("type = \"boolean\"\ndefault = \"yes\"", "broken option value: invalid default"),
-            ("type = \"string\"\nmaxLength = -1", "broken option value: invalid maxLength")
+            ("type = \"boolean\", default = \"yes\"", "broken option value: invalid default"),
+            ("type = \"string\", maxLength = -1", "broken option value: invalid maxLength")
         ]
         for (option, expectedReason) in cases {
-            try component("broken", manifest: "views = [\"compact\"]\n[options.value]\n" + option)
+            try component("broken", manifest: "return { views = { 'compact' }, options = { value = { \(option) } } }")
             XCTAssertThrowsError(try ShellComponentCatalog.load("broken", directories: [root])) { error in
                 XCTAssertEqual(error.localizedDescription, expectedReason)
             }
         }
         for key in ShellComponentCatalog.reservedOptions {
-            try component("broken", manifest: "views = [\"compact\"]\n[options.\(key)]\ntype = \"boolean\"")
+            try component(
+                "broken",
+                manifest: "return { views = { \"compact\" }, options = { [\"\(key)\"] = { type = \"boolean\" } } }"
+            )
             XCTAssertThrowsError(try ShellComponentCatalog.load("broken", directories: [root])) { error in
                 XCTAssertEqual(error.localizedDescription, "broken: reserved or invalid option name \(key)")
             }
@@ -93,9 +83,9 @@ final class ShellComponentCatalogTests: XCTestCase {
 
     func testUsesResolveTransitivelyOnceAndLayerOverrideWins() throws {
         let fallback = root.appendingPathComponent("profile")
-        try component("base", manifest: "title = \"User base\"\nviews = [\"compact\"]")
-        try component("custom", manifest: "views = [\"compact\"]\nuses = [\"base\"]", layer: fallback)
-        try component("base", manifest: "title = \"Stock base\"\nviews = [\"compact\"]", layer: fallback)
+        try component("base", manifest: "return { title = \"User base\", views = { \"compact\" } }")
+        try component("custom", manifest: "return { views = { \"compact\" }, uses = { \"base\" } }", layer: fallback)
+        try component("base", manifest: "return { title = \"Stock base\", views = { \"compact\" } }", layer: fallback)
         let result = try ShellComponentCatalog.resolve([
             ShellComponentInstance(id: "one", widget: "custom"),
             ShellComponentInstance(id: "two", widget: "custom")
@@ -103,7 +93,7 @@ final class ShellComponentCatalogTests: XCTestCase {
         XCTAssertEqual(result.descriptors.map(\.widget), ["base", "custom"])
         XCTAssertEqual(result.descriptors.first?.title, "User base")
         XCTAssertEqual(result.instances.map(\.id), ["one", "two"])
-        try component("base", manifest: "views = [\"compact\"]\nuses = [\"custom\"]")
+        try component("base", manifest: "return { views = { \"compact\" }, uses = { \"custom\" } }")
         XCTAssertThrowsError(try ShellComponentCatalog.resolve(
             result.instances,
             directories: [root, fallback]
@@ -113,16 +103,19 @@ final class ShellComponentCatalogTests: XCTestCase {
     }
 
     func testProviderInstanceKeyUsesOrdinaryOptionValidationAndDoesNotGrantTrust() throws {
-        let table = try TOMLDecoder().decode(
-            [String: TOMLNode].self,
-            from: Data("components = [{id = 'one', widget = 'clock', provider = true}]".utf8)
+        let table = try ShellLiteralMetadata.read(
+            Data("return { components = { { id = \"one\", widget = \"clock\", provider = true } } }".utf8),
+            filename: "shell.luau"
         )
-        let instance = try XCTUnwrap(ShellComponentCatalog.instances(from: table["components"]).first)
+        let instance = try XCTUnwrap(ShellComponentCatalog.instances(in: table["components"]).first)
         XCTAssertEqual(instance.options["provider"], .bool(true))
-        try component("clock", manifest: "views = ['compact']")
+        try component("clock", manifest: "return { views = { \"compact\" } }")
         let undeclared = try ShellComponentCatalog.load("clock", directories: [root])
         XCTAssertThrowsError(try undeclared.validate(instance))
-        try component("clock", manifest: "views = ['compact']\n[options.provider]\ntype = 'boolean'")
+        try component(
+            "clock",
+            manifest: "return { views = { \"compact\" }, options = { provider = { type = \"boolean\" } } }"
+        )
         let declared = try ShellComponentCatalog.load("clock", directories: [root])
         XCTAssertEqual(try declared.validate(instance).options["provider"], .bool(true))
         XCTAssertFalse(declared.authorizesProvider(instance))
@@ -130,25 +123,27 @@ final class ShellComponentCatalogTests: XCTestCase {
 
     func testInstancesRejectDuplicateIdsTraversalAndUnsupportedValues() throws {
         for text in [
-            "components = [{id = 'same', widget = 'clock'}, {id = 'same', widget = 'clock'}]",
-            "components = [{id = 'a', widget = '../clock'}]",
-            "components = [{id = 'a', widget = 'clock', enabled = 1}]",
-            "components = [{id = 'a', widget = 'clock', zone = {nested = 'value'}}]",
-            "components = [{id = 'a', widget = 'clock', commands = ['session']}]"
+            "return { components = { { id = \"same\", widget = \"clock\" }, { id = \"same\", widget = \"clock\" } } }",
+            "return { components = { { id = \"a\", widget = \"../clock\" } } }",
+            "return { components = { { id = \"a\", widget = \"clock\", enabled = 1 } } }",
+            "return { components = { { id = \"a\", widget = \"clock\", zone = { nested = \"value\" } } } }",
+            "return { components = { { id = \"a\", widget = \"clock\", commands = { \"session\" } } } }"
         ] {
-            let table = try TOMLDecoder().decode([String: TOMLNode].self, from: Data(text.utf8))
-            XCTAssertThrowsError(try ShellComponentCatalog.instances(from: table["components"]))
+            let table = try ShellLiteralMetadata.read(Data(text.utf8), filename: "shell.luau")
+            XCTAssertThrowsError(try ShellComponentCatalog.instances(in: table["components"]))
         }
     }
 
     func testInstanceProviderCapabilityIsRejectedWhileTheManifestCanDeclareIt() throws {
-        let table = try TOMLDecoder().decode([String: TOMLNode].self, from: Data("""
-        components = [{id = 'a', widget = 'clock', capabilities = { provider = true }}]
-        """.utf8))
-        XCTAssertThrowsError(try ShellComponentCatalog.instances(from: table["components"])) { error in
+        let table = try ShellLiteralMetadata.read(Data("""
+        return {
+            components = { { id = "a", widget = "clock", capabilities = { provider = true } } },
+        }
+        """.utf8), filename: "shell.luau")
+        XCTAssertThrowsError(try ShellComponentCatalog.instances(in: table["components"])) { error in
             XCTAssertTrue(error.localizedDescription.contains("provider"))
         }
-        try component("clock", manifest: "views = ['compact']\ncapabilities = { provider = true }")
+        try component("clock", manifest: "return { views = { \"compact\" }, capabilities = { provider = true } }")
         let descriptor = try ShellComponentCatalog.load("clock", directories: [root])
         XCTAssertTrue(descriptor.capabilities.provider)
     }
@@ -156,7 +151,7 @@ final class ShellComponentCatalogTests: XCTestCase {
     private func component(_ name: String, manifest: String, layer: URL? = nil) throws {
         let folder = (layer ?? root).appendingPathComponent("widgets/\(name)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try Data(manifest.utf8).write(to: folder.appendingPathComponent("component.toml"))
+        try Data(manifest.utf8).write(to: folder.appendingPathComponent("component.manifest.luau"))
         try Data("return { views = {} }".utf8).write(to: folder.appendingPathComponent("component.luau"))
     }
 }

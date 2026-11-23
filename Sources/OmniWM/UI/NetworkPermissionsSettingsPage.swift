@@ -185,7 +185,7 @@ private struct NetworkPermissionsWidgetSection: View {
                 } label: {
                     Text(verbatim: host.name).font(.body.monospaced())
                     if host.declaredByShellConfig {
-                        Text("Declared by your shell.toml")
+                        Text("Declared by your shell.luau")
                     }
                 }
                 .settingsField(.shellPermissionsWidgets, index: rowIndex, element: host.name, leaf: "allowed", "denied")

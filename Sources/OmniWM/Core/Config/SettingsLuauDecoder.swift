@@ -6,6 +6,7 @@ import Foundation
 struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
     let value: SettingsLuauValue
     var defaults: SettingsLuauValue?
+    var validatesSettings = true
     var codingPath: [any CodingKey] = []
     var userInfo: [CodingUserInfoKey: Any] {
         [:]
@@ -17,7 +18,7 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
 
     func container<Key: CodingKey>(keyedBy _: Key.Type) throws -> KeyedDecodingContainer<Key> {
         guard case let .record(fields) = value else { throw mismatch([String: SettingsLuauValue].self) }
-        if let unknown = fields.keys.first(where: { Key(stringValue: $0) == nil }) {
+        if validatesSettings, let unknown = fields.keys.first(where: { Key(stringValue: $0) == nil }) {
             throw DecodingError.dataCorrupted(.init(
                 codingPath: codingPath + [DynamicCodingKey(unknown)],
                 debugDescription: "Unknown setting."
@@ -29,9 +30,9 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
     func unkeyedContainer() throws -> any UnkeyedDecodingContainer {
         switch value {
         case let .list(elements):
-            return Elements(decoder: self, elements: SettingsListIdentity.sourceRows(
+            return Elements(decoder: self, elements: validatesSettings ? SettingsListIdentity.sourceRows(
                 path: codingPath.map(\.stringValue), rows: elements
-            ))
+            ) : elements)
         case .record(let fields) where fields.isEmpty: return Elements(decoder: self, elements: [])
         default: throw mismatch([SettingsLuauValue].self)
         }
@@ -135,7 +136,12 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
                     .init(codingPath: codingPath, debugDescription: "Missing setting.")
                 )
             }
-            return SettingsLuauDecoder(value: value, defaults: fallback, codingPath: codingPath + [key])
+            return SettingsLuauDecoder(
+                value: value,
+                defaults: fallback,
+                validatesSettings: decoder.validatesSettings,
+                codingPath: codingPath + [key]
+            )
         }
 
         func contains(_ key: Key) -> Bool {
@@ -194,7 +200,7 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
             )) }
             defer { currentIndex += 1 }
             return SettingsLuauDecoder(
-                value: elements[currentIndex],
+                value: elements[currentIndex], validatesSettings: decoder.validatesSettings,
                 codingPath: codingPath + [DynamicCodingKey(intValue: currentIndex)!]
             )
         }

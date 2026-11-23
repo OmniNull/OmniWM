@@ -47,8 +47,8 @@ final class ShellDesktopEditorTests: XCTestCase {
         let drained = await fixture.editor.writes.drain()
         XCTAssertTrue(drained)
         let current = try document(fixture)
-        guard case let .table(profiles)? = current["profiles"],
-              case let .table(lake)? = profiles["lake"] else { return XCTFail("Missing Lake profile") }
+        guard case let .record(profiles)? = current["profiles"],
+              case let .record(lake)? = profiles["lake"] else { return XCTFail("Missing Lake profile") }
         XCTAssertNil(lake["workspaceBar"])
         XCTAssertEqual(fixture.configuration.config.profile, "default")
     }
@@ -140,7 +140,7 @@ final class ShellDesktopEditorTests: XCTestCase {
 
     func testResetRefusesAFailedContinuousValueUntilItIsDiscarded() async throws {
         let fixture = try await fixture()
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         try Data("[invalid".utf8).write(to: file)
         fixture.editor.set(51, key: "height", continuous: true)
@@ -162,8 +162,8 @@ final class ShellDesktopEditorTests: XCTestCase {
         fixture.editor.reset()
         await outcome.wait(nextSave)
         let current = try document(fixture)
-        guard case let .table(profiles)? = current["profiles"],
-              case let .table(lake)? = profiles["lake"] else { return XCTFail("Missing Lake profile") }
+        guard case let .record(profiles)? = current["profiles"],
+              case let .record(lake)? = profiles["lake"] else { return XCTFail("Missing Lake profile") }
         XCTAssertNil(lake["workspaceBar"])
         XCTAssertTrue(fixture.editor.writes.failures.isEmpty)
     }

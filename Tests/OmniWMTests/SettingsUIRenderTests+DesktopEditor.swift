@@ -20,7 +20,7 @@ import XCTest
                         let configuration = fixture.controller.workspaceBarManager.shellConfiguration
                         _ = try await configuration.selectProfile("default")
                         let original = try Data(contentsOf: configuration.shellDirectory
-                            .appendingPathComponent("shell.toml"))
+                            .appendingPathComponent("shell.luau"))
                         let navigation = SettingsNavigationModel()
                         navigation.proceed(to: SettingsRoute(
                             section: .styles, itemID: state == .widget ? "clock" : nil
@@ -54,7 +54,7 @@ import XCTest
                         }
                         XCTAssertEqual(configuration.config.profile, "default")
                         XCTAssertEqual(
-                            try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.toml")),
+                            try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.luau")),
                             original
                         )
                         XCTAssertNil(fixture.controller.workspaceBarManager.shellHost)

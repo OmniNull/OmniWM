@@ -1,0 +1,5 @@
+return {
+    title = "Mic and camera",
+    icon = "mic.fill",
+    views = { "compact", "expanded" },
+}

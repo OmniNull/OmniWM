@@ -1,0 +1,17 @@
+return {
+    title = "Image converter",
+    icon = "arrow.triangle.2.circlepath",
+    views = { "compact", "peek", "expanded" },
+    capabilities = {
+        files = true,
+        clipboard = true,
+    },
+    options = {
+        format = {
+            type = "choice",
+            default = "png",
+            choices = { "png", "jpeg", "tiff" },
+            title = "Output format",
+        },
+    },
+}

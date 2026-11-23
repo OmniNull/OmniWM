@@ -88,50 +88,11 @@ extension SettingsLuauDocument {
         origins: SettingsListOrigins = [:]
     ) throws -> SettingsLuauEdit {
         let (old, new) = try editableFields(from: previous, to: desired)
-        let changes = SettingsValueChange.between(old, new)
-        let newline = source.range(of: Data("\r\n".utf8)) == nil ? "\n" : "\r\n"
-        var plan = SettingsTableEdit(document: self, origins: origins, newline: newline)
-        let output: Data
-        var planned = sourceValue
-        if let field = fields[[]] {
-            let root = SettingsTableEdit.Node(source: [], model: [], raw: sourceValue, old: old, new: new)
-            var updated = source
-            if let replacement = try plan.rewrite(root, within: field.bytes) {
-                updated.replaceSubrange(field.bytes, with: replacement.text.utf8)
-                planned = replacement.value
-            }
-            output = updated
-        } else if let first = returnSites.first, !changes.isEmpty {
-            var tree = try SettingsLuauValue.fields(of: export)
-            for change in changes { tree.set(change.value, at: change.path[...]) }
-            tree.set(nil, at: ["schemaVersion"])
-            output = replaceReturns(
-                with: tree,
-                changes: changes,
-                insertion: first.insertion,
-                plan: &plan
-            )
-            planned = tree
-            plan.fixed.append([])
-        } else if changes.isEmpty {
-            output = source
-        } else {
-            throw SettingsLuauError(
-                message: "Settings cannot locate a writable return value. Edit settings.luau directly."
-            )
-        }
-        guard !plan.questions.isEmpty else { return SettingsLuauEdit(source: output, question: nil, expected: nil) }
-        let expected = try SettingsLuauValue.fields(of: Self.decode(planned, fields: fields))
-        plan.includeOtherChanges(changes)
-        return SettingsLuauEdit(
-            source: output,
-            question: plan.questions.joined(separator: "\n\n"),
-            expected: expected,
-            fixedPaths: plan.fixed + SettingsValueChange.between(
-                old,
-                new,
-                rows: .retained(origins)
-            ).map(\.path)
+        let patch = try table.edit(from: old, to: new, origins: origins, settings: export)
+        guard let expected = patch.expected else { return patch }
+        return try SettingsLuauEdit(
+            source: patch.source, question: patch.question,
+            expected: .fields(of: Self.decode(expected, fields: fields)), fixedPaths: patch.fixedPaths
         )
     }
 
@@ -152,6 +113,61 @@ extension SettingsLuauDocument {
             return try .fields(of: persisted)
         }
         return try (fields(of: previous), fields(of: desired))
+    }
+}
+
+extension LuauTableDocument {
+    func edit(
+        from old: SettingsLuauValue, to new: SettingsLuauValue,
+        origins: SettingsListOrigins = [:], settings: SettingsExport? = nil
+    ) throws -> SettingsLuauEdit {
+        let changes = SettingsValueChange.between(old, new)
+        let newline = source.range(of: Data("\r\n".utf8)) == nil ? "\n" : "\r\n"
+        var plan = SettingsTableEdit(document: self, settings: settings, origins: origins, newline: newline)
+        let output: Data
+        var planned = sourceValue
+        if let field = fields[[]] {
+            let root = SettingsTableEdit.Node(source: [], model: [], raw: sourceValue, old: old, new: new)
+            var updated = source
+            if let replacement = try plan.rewrite(root, within: field.bytes) {
+                updated.replaceSubrange(field.bytes, with: replacement.text.utf8)
+                planned = replacement.value
+            }
+            output = updated
+        } else if let first = returnSites.first, !changes.isEmpty {
+            var tree = new
+            if let settings {
+                tree = try SettingsLuauValue.fields(of: settings)
+                for change in changes { tree.set(change.value, at: change.path[...]) }
+                tree.set(nil, at: ["schemaVersion"])
+            }
+            output = replaceReturns(
+                with: tree,
+                changes: changes,
+                insertion: first.insertion,
+                plan: &plan
+            )
+            planned = tree
+            plan.fixed.append([])
+        } else if changes.isEmpty {
+            output = source
+        } else {
+            throw SettingsLuauError(
+                message: "Settings cannot locate a writable return value. Edit the file directly."
+            )
+        }
+        guard !plan.questions.isEmpty else { return SettingsLuauEdit(source: output, question: nil, expected: nil) }
+        plan.includeOtherChanges(changes)
+        return SettingsLuauEdit(
+            source: output,
+            question: plan.questions.joined(separator: "\n\n"),
+            expected: planned,
+            fixedPaths: plan.fixed + SettingsValueChange.between(
+                old,
+                new,
+                rows: .retained(origins)
+            ).map(\.path)
+        )
     }
 
     private func replaceReturns(

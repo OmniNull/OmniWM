@@ -3,17 +3,16 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
 extension ShellDesktopEditorTests {
     func testDrawerProvenanceIncludesDefaultLayersAndExcludesRootOwnedDrawers() async throws {
         let fixture = try await drawerFixture()
-        let base = fixture.shell.appendingPathComponent("default/shell.toml")
-        let source = try String(contentsOf: base, encoding: .utf8)
-        try Data((source + "\n[drawer.inherited]\nwidgets = [\"clock\"]\nedge = \"left\"\nreach = 17\n").utf8)
-            .write(to: base)
+        let base = fixture.shell.appendingPathComponent("default/shell.luau")
+        _ = try ShellLuauDocument.write([(["drawer", "inherited"], .record([
+            "widgets": .list([.string("clock")]), "edge": .string("left"), "reach": .integer(17)
+        ]))], in: base.deletingLastPathComponent())
         try await fixture.configuration.set(51, key: "reach", table: "drawer.inherited", profile: "celestial")
         try await fixture.configuration.addDrawer("root-only", edge: .right, widget: "weather", profile: "default")
         try await fixture.configuration.refresh()
@@ -30,8 +29,8 @@ extension ShellDesktopEditorTests {
         XCTAssertEqual(fixture.editor.drawer("inherited")?.edge, .left)
         XCTAssertTrue(fixture.editor.isStyleDrawer("inherited"))
         XCTAssertEqual(outsideProfile("celestial", try document(fixture)), outsideProfile("celestial", before))
-        let reset = try String(contentsOf: fixture.shell.appendingPathComponent("shell.toml"), encoding: .utf8)
-        XCTAssertFalse(try ShellTOMLText.contains(["profiles", "celestial", "drawer", "inherited"], in: reset))
+        let reset = try String(contentsOf: fixture.shell.appendingPathComponent("shell.luau"), encoding: .utf8)
+        XCTAssertNil(try ShellLuauDocument(Data(reset.utf8)).value["profiles"]?["celestial"]?["drawer"]?["inherited"])
         do {
             try await fixture.configuration.deleteDrawer("inherited", profile: "celestial")
             XCTFail("Deleted an inherited style drawer")
@@ -46,12 +45,12 @@ extension ShellDesktopEditorTests {
         try Data("".utf8).write(to: fileProfile)
         let broken = fixture.shell.appendingPathComponent("broken")
         try manager.createDirectory(at: broken, withIntermediateDirectories: true)
-        try Data("[invalid".utf8).write(to: broken.appendingPathComponent("shell.toml"))
+        try Data("[invalid".utf8).write(to: broken.appendingPathComponent("shell.luau"))
         let reserved = fixture.shell.appendingPathComponent("lib")
         try manager.createDirectory(at: reserved, withIntermediateDirectories: true)
         let fallback = fixture.shell.appendingPathComponent(".fallback")
         try manager.createDirectory(at: fallback, withIntermediateDirectories: true)
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         for profile in ["nonexistent", "regular-profile", "lib", "broken", ".fallback"] {
             await rejectsDrawerOperation { try await fixture.configuration.addDrawer(
@@ -74,7 +73,7 @@ extension ShellDesktopEditorTests {
 
     func testDrawerCoordinatorRejectsFreshDuplicateNamesAndEmptyMemberEdits() async throws {
         let fixture = try await drawerFixture()
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let before = try Data(contentsOf: file)
         await rejectsDrawerOperation {
             try await fixture.configuration.addDrawer("dashboard", edge: .left, widget: "clock", profile: "celestial")
@@ -97,7 +96,7 @@ extension ShellDesktopEditorTests {
     func testDrawerCoordinatorRejectsInstalledWidgetNamesBeforeWriting() async throws {
         let fixture = try await drawerFixture()
         XCTAssertNotNil(fixture.editor.layout?.source(of: "clock"))
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         await rejectsDrawerOperation {
             try await fixture.configuration.addDrawer("clock", edge: .left, widget: "weather", profile: "celestial")

@@ -17,8 +17,8 @@ final class ShellDirectoryObservationTests: XCTestCase {
         let shell = try directory("targets/first/shell", in: root)
         let profile = try directory("profile", in: root)
         let sources = try directory("sources", in: root)
-        try Data("profile = 'selected'\n".utf8).write(to: shell.appendingPathComponent("shell.toml"))
-        try Data("theme = 'native'\n".utf8).write(to: profile.appendingPathComponent("shell.toml"))
+        try Data("return { profile = \"selected\" }\n".utf8).write(to: shell.appendingPathComponent("shell.luau"))
+        try Data("return { theme = \"native\" }\n".utf8).write(to: profile.appendingPathComponent("shell.luau"))
         try Data("return {}\n".utf8).write(to: sources.appendingPathComponent("shared.luau"))
         try FileManager.default.createSymbolicLink(
             atPath: aliases.appendingPathComponent("current").path,

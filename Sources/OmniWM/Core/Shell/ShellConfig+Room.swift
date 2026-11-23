@@ -2,19 +2,18 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 extension ShellConfig {
     static func room(
-        in profile: [String: TOMLNode], island: ShellIslandConfig?, problems: inout [String]
+        in profile: [String: SettingsLuauValue], island: ShellIslandConfig?, problems: inout [String]
     ) -> WorkspaceBarRoom? {
-        guard case let .table(islandTable)? = profile["island"], let node = islandTable["room"], let island else {
+        guard case let .record(islandTable)? = profile["island"], let node = islandTable["room"], let island else {
             return nil
         }
         do {
             return try ShellRoomParser(profile: profile, island: island).parse(node)
         } catch {
-            report("shell.toml: [island.room] \(error.localizedDescription)", &problems)
+            report("shell.luau: [island.room] \(error.localizedDescription)", &problems)
             return nil
         }
     }
@@ -29,17 +28,17 @@ private struct ShellRoomParser {
         }
     }
 
-    let profile: [String: TOMLNode]
+    let profile: [String: SettingsLuauValue]
     let island: ShellIslandConfig
 
-    private var settings: [String: TOMLNode] {
-        guard case let .table(widgets)? = profile["widgets"], case let .table(root)? = widgets[island.root] else {
+    private var settings: [String: SettingsLuauValue] {
+        guard case let .record(widgets)? = profile["widgets"], case let .record(root)? = widgets[island.root] else {
             return [:]
         }
         return root
     }
 
-    func parse(_ node: TOMLNode) throws -> WorkspaceBarRoom {
+    func parse(_ node: SettingsLuauValue) throws -> WorkspaceBarRoom {
         let table = try table(node, keys: ["setting", "size", "variants", "dock"], name: "room")
         let selector = try name(table["setting"], field: "setting")
         let sizeKey = try table["size"].map { try name($0, field: "size") }
@@ -57,9 +56,9 @@ private struct ShellRoomParser {
     }
 
     private func variant(
-        _ node: TOMLNode?, selection: String, size: Double
+        _ node: SettingsLuauValue?, selection: String, size: Double
     ) throws -> (WorkspaceBarRoom, WorkspaceBarRoom.Edge?) {
-        guard case let .table(variants)? = node, !variants.isEmpty else {
+        guard case let .record(variants)? = node, !variants.isEmpty else {
             throw Problem("variants must contain at least one named variant")
         }
         var selected: WorkspaceBarRoom?
@@ -90,10 +89,10 @@ private struct ShellRoomParser {
         return (selected, selectedDock)
     }
 
-    private func activeDock(_ node: TOMLNode, size: Double) throws -> CGFloat? {
+    private func activeDock(_ node: SettingsLuauValue, size: Double) throws -> CGFloat? {
         let dock = try table(node, keys: ["base", "scaled", "when", "unless"], name: "dock")
         let value = try value(dock, size: size, name: "dock")
-        guard case let .array(conditions)? = dock["when"], !conditions.isEmpty else {
+        guard case let .list(conditions)? = dock["when"], !conditions.isEmpty else {
             throw Problem("dock.when must contain root setting names")
         }
         let keys = try conditions.map { try name($0, field: "dock.when") }
@@ -101,7 +100,7 @@ private struct ShellRoomParser {
         let active = keys.contains { key in
             switch settings[key] {
             case .boolean(true)?: true
-            case let .array(values)?: !values.isEmpty
+            case let .list(values)?: !values.isEmpty
             default: false
             }
         }
@@ -109,7 +108,7 @@ private struct ShellRoomParser {
     }
 
     private func reservation(
-        _ node: TOMLNode, edge: WorkspaceBarRoom.Edge, size: Double
+        _ node: SettingsLuauValue, edge: WorkspaceBarRoom.Edge, size: Double
     ) throws -> WorkspaceBarRoom.Reservation {
         let keys: Set<String> = edge == .top ? ["base", "scaled", "mode", "clear"] : ["base", "scaled", "mode"]
         let table = try table(node, keys: keys, name: edge.rawValue)
@@ -132,7 +131,7 @@ private struct ShellRoomParser {
         )
     }
 
-    private func value(_ table: [String: TOMLNode], size: Double, name: String) throws -> CGFloat {
+    private func value(_ table: [String: SettingsLuauValue], size: Double, name: String) throws -> CGFloat {
         let base = try table["base"].map { try number($0, field: "\(name).base") } ?? 0
         let scaled = try table["scaled"].map { try number($0, field: "\(name).scaled") } ?? 0
         let value = floor(base + scaled * size + 0.5)
@@ -140,22 +139,26 @@ private struct ShellRoomParser {
         return CGFloat(value)
     }
 
-    private func table(_ node: TOMLNode, keys: Set<String>, name: String) throws -> [String: TOMLNode] {
-        guard case let .table(table) = node else { throw Problem("\(name) must be a table") }
+    private func table(
+        _ node: SettingsLuauValue,
+        keys: Set<String>,
+        name: String
+    ) throws -> [String: SettingsLuauValue] {
+        guard case let .record(table) = node else { throw Problem("\(name) must be a table") }
         if let key = table.keys.sorted().first(where: { !keys.contains($0) }) {
             throw Problem("\(name) has unknown key \(key)")
         }
         return table
     }
 
-    private func name(_ node: TOMLNode?, field: String) throws -> String {
+    private func name(_ node: SettingsLuauValue?, field: String) throws -> String {
         guard case let .string(value)? = node, ShellConfig.isName(value) else {
             throw Problem("\(field) must be a root setting name")
         }
         return value
     }
 
-    private func number(_ node: TOMLNode, field: String) throws -> Double {
+    private func number(_ node: SettingsLuauValue, field: String) throws -> Double {
         guard let value = ShellConfig.number(node),
               value.isFinite else { throw Problem("\(field) must be a finite number") }
         return value

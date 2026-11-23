@@ -23,6 +23,7 @@ let package = Package(
             name: "omniwmctl",
             targets: ["OmniWMCtl"]
         ),
+        .executable(name: "omniwm-metadata", targets: ["OmniWMMetadataTool"]),
         .library(
             name: "OmniWMNowPlaying",
             type: .dynamic,
@@ -115,6 +116,15 @@ let package = Package(
             ]
         ),
         .target(
+            name: "OmniWMMetadata",
+            dependencies: ["OmniWMScriptHost"]
+        ),
+        .executableTarget(
+            name: "OmniWMMetadataTool",
+            dependencies: ["OmniWMMetadata"],
+            path: "Scripts/OmniWMMetadataTool"
+        ),
+        .target(
             name: "OmniWMMaterialColor",
             path: "Sources/OmniWMMaterialColor",
             cxxSettings: [
@@ -141,6 +151,7 @@ let package = Package(
                 "OmniWMLauncherSPI",
                 "OmniWMWiFiSPI",
                 "OmniWMMaterialColor",
+                "OmniWMMetadata",
                 "OmniWMScriptHost",
                 "OmniWMShellCore",
                 .product(name: "TOML", package: "swift-toml")

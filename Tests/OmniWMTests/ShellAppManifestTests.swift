@@ -9,15 +9,11 @@ final class ShellAppManifestTests: XCTestCase {
     func testStrictDeclarationsPreserveComponentMetadataAndChildGeometry() throws {
         let fixture = ShellAppAuthoringFixture()
         defer { try? fixture.remove() }
-        try fixture.write(manifest: fixture.manifest + """
-
-        [options.greeting]
-        type = "string"
-        default = "Hello from the manifest"
-        [capabilities]
-        commands = ["focus-left"]
-        files = true
-        """)
+        let extra = """
+        options = { greeting = { type = "string", default = "Hello from the manifest" } },
+        capabilities = { commands = { "focus-left" }, files = true },
+        """
+        try fixture.write(manifest: fixture.manifest.replacingOccurrences(of: "return {", with: "return {\n" + extra))
         let app = try ShellAppDefinition.load(id: fixture.id, folder: fixture.folder)
         let source = try app.source()
         XCTAssertEqual(app.title, fixture.title)
@@ -42,7 +38,7 @@ final class ShellAppManifestTests: XCTestCase {
     func testMainViewDefaultsToWindowAndBundledChildrenComeFromTheManifest() throws {
         let fixture = ShellAppAuthoringFixture(view: "window")
         defer { try? fixture.remove() }
-        try fixture.write(manifest: fixture.manifest.replacingOccurrences(of: "view = \"window\"\n", with: ""))
+        try fixture.write(manifest: fixture.manifest.replacingOccurrences(of: "view = \"window\",", with: ""))
         XCTAssertEqual(try ShellAppDefinition.load(id: fixture.id, folder: fixture.folder).view, fixture.view)
         let example = try XCTUnwrap(ShellAppDefinition.example)
         let component = try ShellComponentCatalog.load(example.id, folder: example.folder, sourceFile: "init.luau")
@@ -56,8 +52,8 @@ final class ShellAppManifestTests: XCTestCase {
         let fixture = ShellAppAuthoringFixture()
         defer { try? fixture.remove() }
         let invalid: [(String, String)] = [
-            (fixture.manifest.replacingOccurrences(of: "[window]", with: "[window]\nunknown = true"), "unknown"),
-            (fixture.manifest.replacingOccurrences(of: "[window]", with: "[window]\nkind = 'utility'"), "kind"),
+            (fixture.manifest.replacingOccurrences(of: "window = {", with: "window = { unknown = true,"), "unknown"),
+            (fixture.manifest.replacingOccurrences(of: "window = {", with: "window = { kind = 'utility',"), "kind"),
             (
                 fixture.manifest.replacingOccurrences(of: "width = \(fixture.preferred.width)", with: "width = true"),
                 "width"
@@ -70,15 +66,6 @@ final class ShellAppManifestTests: XCTestCase {
             (
                 fixture.manifest.replacingOccurrences(of: "minWidth = \(fixture.minimum.width)", with: "minWidth = 0"),
                 "minWidth"
-            ),
-            (
-                fixture.manifest
-                    .replacingOccurrences(of: "minHeight = \(fixture.minimum.height)", with: "minHeight = nan"),
-                "minHeight"
-            ),
-            (
-                fixture.manifest.replacingOccurrences(of: "width = \(fixture.preferred.width)", with: "width = inf"),
-                "width"
             ),
             (
                 fixture.manifest.replacingOccurrences(of: "height = \(fixture.preferred.height)", with: "height = -1"),
@@ -95,8 +82,8 @@ final class ShellAppManifestTests: XCTestCase {
             (
                 fixture.manifest
                     .replacingOccurrences(
-                        of: "[window.children.confirm]",
-                        with: "[window.children.confirm]\nunknown = true"
+                        of: "confirm = {",
+                        with: "confirm = { unknown = true,"
                     ),
                 "confirm"
             ),
@@ -108,12 +95,7 @@ final class ShellAppManifestTests: XCTestCase {
             (fixture.manifest.replacingOccurrences(of: "view = \"confirm\"", with: "view = 'missing'"), "confirm"),
             (
                 fixture.manifest
-                    .replacingOccurrences(of: "minWidth = \(fixture.childMinimum.width)", with: "minWidth = inf"),
-                "confirm"
-            ),
-            (
-                fixture.manifest
-                    .replacingOccurrences(of: "[window.children.confirm]", with: "[window.children.'bad/id']"),
+                    .replacingOccurrences(of: "confirm = {", with: "['bad/id'] = {"),
                 "bad/id"
             )
         ]
@@ -126,24 +108,46 @@ final class ShellAppManifestTests: XCTestCase {
         }
     }
 
+    func testNonfiniteMainAndChildDimensionsFailAtTheirManifestLine() throws {
+        let fixture = ShellAppAuthoringFixture()
+        defer { try? fixture.remove() }
+        for (field, invalid) in [
+            ("minHeight = \(fixture.minimum.height)", "minHeight = nan"),
+            ("width = \(fixture.preferred.width)", "width = 1e999"),
+            ("minWidth = \(fixture.childMinimum.width)", "minWidth = 1e999")
+        ] {
+            let manifest = fixture.manifest.replacingOccurrences(of: field, with: invalid)
+            let lines = manifest.split(separator: "\n", omittingEmptySubsequences: false)
+            let index = try XCTUnwrap(lines.firstIndex { $0.contains(invalid) })
+            try fixture.write(manifest: manifest)
+            XCTAssertThrowsError(try ShellAppDefinition.load(id: fixture.id, folder: fixture.folder)) { error in
+                XCTAssertTrue(
+                    error.localizedDescription.contains("\(fixture.id)/component.manifest.luau:\(index + 1):"),
+                    error.localizedDescription
+                )
+                XCTAssertTrue(error.localizedDescription.contains("finite numbers"), error.localizedDescription)
+            }
+        }
+    }
+
     func testMissingTablesFieldsAndSourceAreAuthoringFailures() throws {
         let fixture = ShellAppAuthoringFixture()
         defer { try? fixture.remove() }
         for (manifest, field) in [
-            ("views = ['main']", "[window]"),
-            ("views = ['main']\nwindow = false", "[window]"),
-            ("views = ['main']\n[window]\nview = 'main'", "width"),
+            ("return { views = { 'main' } }", "[window]"),
+            ("return { views = { 'main' }, window = false }", "[window]"),
+            ("return { views = { 'main' }, window = { view = 'main' } }", "width"),
             (
                 fixture.manifest
                     .replacingOccurrences(
-                        of: "[window.children.confirm]",
-                        with: "[window.children]\ninvalid = false\n[window.children.confirm]"
+                        of: "confirm = {",
+                        with: "invalid = false, confirm = {"
                     ),
                 "invalid"
             ),
-            (fixture.manifest.replacingOccurrences(of: "kind = \"sheet\"\n", with: ""), "kind"),
-            (fixture.manifest.replacingOccurrences(of: "view = \"confirm\"\n", with: ""), "view"),
-            (fixture.manifest.replacingOccurrences(of: "title = \"Confirm fixture\"\n", with: ""), "title")
+            (fixture.manifest.replacingOccurrences(of: "kind = \"sheet\",", with: ""), "kind"),
+            (fixture.manifest.replacingOccurrences(of: "view = \"confirm\",", with: ""), "view"),
+            (fixture.manifest.replacingOccurrences(of: "title = \"Confirm fixture\",", with: ""), "title")
         ] {
             try fixture.write(manifest: manifest)
             XCTAssertThrowsError(try ShellAppDefinition.load(id: fixture.id, folder: fixture.folder)) { error in

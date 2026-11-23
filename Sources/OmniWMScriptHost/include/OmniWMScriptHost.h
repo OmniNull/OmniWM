@@ -385,7 +385,10 @@ typedef struct omni_config_module {
 typedef bool (*omni_read_module)(void *context, uint32_t requester, omni_config_span spec,
     omni_config_module *module, char *error, size_t capacity);
 
-omni_status omni_settings_evaluate(omni_config_span source, size_t heap_limit, uint64_t budget,
+omni_status omni_metadata_parse(omni_config_span source, void *context, omni_settings_table table,
+    uint32_t *line, char *error, size_t capacity) OMNI_NOEXCEPT;
+
+omni_status omni_settings_evaluate(const char *filename, omni_config_span source, size_t heap_limit, uint64_t budget, bool shellNumbers,
     void *context, omni_settings_field field, omni_settings_formula formula, omni_settings_constructor constructor,
     omni_settings_comment comment, omni_settings_return_site return_site,
     omni_settings_table table, omni_read_module read_module, omni_config_location *site, char *error, size_t capacity) OMNI_NOEXCEPT;

@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
@@ -14,7 +13,7 @@ final class ShellConfigSymlinkTests: XCTestCase {
         let target: URL
 
         var link: URL {
-            directory.appendingPathComponent("shell.toml")
+            directory.appendingPathComponent("shell.luau")
         }
 
         func remove() {
@@ -32,7 +31,7 @@ final class ShellConfigSymlinkTests: XCTestCase {
 
         try assertSymlink(at: fixture.link, destination: fixture.target.path)
         XCTAssertEqual(try node(["profile"], at: fixture.target), .string("look"))
-        XCTAssertEqual(try node(["trailing"], at: fixture.target), .array([.string("clock")]))
+        XCTAssertEqual(try node(["trailing"], at: fixture.target), .list([.string("clock")]))
         XCTAssertEqual(try Data(contentsOf: fixture.link), try Data(contentsOf: fixture.target))
         XCTAssertFalse(try ShellProfiles.select("look", in: fixture.directory))
     }
@@ -49,15 +48,15 @@ final class ShellConfigSymlinkTests: XCTestCase {
 
         try assertSymlink(at: fixture.link, destination: destination)
         try assertSymlink(
-            at: fixture.target.deletingLastPathComponent().appendingPathComponent("active.toml"),
-            destination: "shell.toml"
+            at: fixture.target.deletingLastPathComponent().appendingPathComponent("active.luau"),
+            destination: "shell.luau"
         )
         XCTAssertEqual(try node(["profile"], at: fixture.target), .string("look"))
         XCTAssertEqual(try node(key, at: fixture.target), .string("dusk"))
         XCTAssertTrue(try ShellProfiles.reset(key, in: fixture.directory))
         XCTAssertNil(try node(key, at: fixture.target))
-        XCTAssertEqual(try node(["trailing"], at: fixture.target), .array([.string("clock")]))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.root.appendingPathComponent("active.toml").path))
+        XCTAssertEqual(try node(["trailing"], at: fixture.target), .list([.string("clock")]))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.root.appendingPathComponent("active.luau").path))
     }
 
     func testIslandEditsPreserveAbsoluteAndRelativeShellSymlinks() async throws {
@@ -79,16 +78,16 @@ final class ShellConfigSymlinkTests: XCTestCase {
 
             try assertSymlink(at: fixture.link, destination: destination)
             let instances = try ShellComponentCatalog.instances(
-                from: node(["profiles", "look", "island", "components"], at: fixture.target)
+                in: node(["profiles", "look", "island", "components"], at: fixture.target)
             )
             XCTAssertEqual(instances, components)
             XCTAssertEqual(try node(["profile"], at: fixture.target), .string("default"))
-            XCTAssertEqual(try node(["trailing"], at: fixture.target), .array([.string("clock")]))
+            XCTAssertEqual(try node(["trailing"], at: fixture.target), .list([.string("clock")]))
         }
     }
 
     func testProfileSelectionRejectsDanglingAndCyclicShellSymlinks() throws {
-        for destination in ["../dotfiles/missing.toml", "shell.toml"] {
+        for destination in ["../dotfiles/missing.luau", "shell.luau"] {
             let fixture = try makeFixture()
             defer { fixture.remove() }
             try FileManager.default.createSymbolicLink(atPath: fixture.link.path, withDestinationPath: destination)
@@ -104,7 +103,7 @@ final class ShellConfigSymlinkTests: XCTestCase {
     }
 
     func testIslandEditsRejectDanglingAndCyclicShellSymlinks() async throws {
-        for destination in ["../dotfiles/missing.toml", "shell.toml"] {
+        for destination in ["../dotfiles/missing.luau", "shell.luau"] {
             let fixture = try makeFixture()
             defer { fixture.remove() }
             try FileManager.default.createSymbolicLink(atPath: fixture.link.path, withDestinationPath: destination)
@@ -124,7 +123,7 @@ final class ShellConfigSymlinkTests: XCTestCase {
     }
 
     private var initialContents: String {
-        "profile = 'default'\ntrailing = ['clock']\n"
+        "return { profile = \"default\", trailing = { \"clock\" } }\n"
     }
 
     private func makeFixture() throws -> Fixture {
@@ -136,7 +135,7 @@ final class ShellConfigSymlinkTests: XCTestCase {
             withIntermediateDirectories: true
         )
         try FileManager.default.createDirectory(at: dotfiles, withIntermediateDirectories: true)
-        return Fixture(root: root, directory: directory, target: dotfiles.appendingPathComponent("shell.toml"))
+        return Fixture(root: root, directory: directory, target: dotfiles.appendingPathComponent("shell.luau"))
     }
 
     private func makeRelativeLink(in fixture: Fixture) throws -> String {
@@ -147,9 +146,9 @@ final class ShellConfigSymlinkTests: XCTestCase {
             at: fixture.root.appendingPathComponent("dotfiles-link"), withDestinationURL: nested
         )
         try FileManager.default.createSymbolicLink(
-            atPath: dotfiles.appendingPathComponent("active.toml").path, withDestinationPath: "shell.toml"
+            atPath: dotfiles.appendingPathComponent("active.luau").path, withDestinationPath: "shell.luau"
         )
-        let destination = "../dotfiles-link/../active.toml"
+        let destination = "../dotfiles-link/../active.luau"
         try FileManager.default.createSymbolicLink(atPath: fixture.link.path, withDestinationPath: destination)
         return destination
     }
@@ -167,11 +166,11 @@ final class ShellConfigSymlinkTests: XCTestCase {
         )
     }
 
-    private func node(_ path: [String], at url: URL) throws -> TOMLNode? {
-        let tree = try TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: url))
-        var node = TOMLNode.table(tree)
+    private func node(_ path: [String], at url: URL) throws -> SettingsLuauValue? {
+        let tree = try ShellLuauFixture.table(at: url)
+        var node = SettingsLuauValue.record(tree)
         for key in path {
-            guard case let .table(table) = node, let next = table[key] else { return nil }
+            guard case let .record(table) = node, let next = table[key] else { return nil }
             node = next
         }
         return node

@@ -12,7 +12,7 @@ final class ShellConfigurationApplicationTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let shell = directory.appendingPathComponent("shell")
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
-        try Data("broken = [".utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("broken = [".utf8).write(to: shell.appendingPathComponent("shell.luau"))
         var layoutChanges = 0
         let host = ShellWidgetHost(
             configDirectory: directory, resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
@@ -96,7 +96,7 @@ final class ShellConfigurationApplicationTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let shell = directory.appendingPathComponent("shell")
         _ = try ShellStyleFixture.prepare(into: shell)
-        try Data("unexpected = 1\n".utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { unexpected = 1 }\n".utf8).write(to: shell.appendingPathComponent("shell.luau"))
         let motion = MotionPolicy(animationsEnabled: false)
         let manager = WorkspaceBarManager(configDirectory: directory, motionPolicy: motion)
         let host = ShellWidgetHost(

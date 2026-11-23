@@ -13,14 +13,14 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         try write("root", shell, "look/widgets/lake/init.luau")
         try write("custom", shell, "widgets/custom/component.luau")
         try write("""
-        views = ['compact']
-        uses = ['base']
-        [options.width]
-        type = 'number'
-        default = 47
-        """, shell, "widgets/custom/component.toml")
+        return {
+            views = { "compact" },
+            uses = { "base" },
+            options = { width = { type = "number", default = 47 } },
+        }
+        """, shell, "widgets/custom/component.manifest.luau")
         try write("base", shell, "default/widgets/base/component.luau")
-        try write("views = ['compact']", shell, "default/widgets/base/component.toml")
+        try write("return { views = { \"compact\" } }", shell, "default/widgets/base/component.manifest.luau")
         let configured = ShellComponentInstance(id: "personal", widget: "custom", enabled: false)
         let source = try ShellWidgetSourceLoader.build(input(shell, components: [configured]))
         XCTAssertEqual(source.chunk, "@look/widgets/lake/init.luau")
@@ -92,7 +92,7 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         try write("fallback", shell, "default/lib/lake/view.luau")
         try write("custom", shell, "widgets/custom/component.luau")
         try write("helper", shell, "widgets/custom/nested/helper.luau")
-        try write("views = ['compact']", shell, "widgets/custom/component.toml")
+        try write("return { views = { \"compact\" } }", shell, "widgets/custom/component.manifest.luau")
         let configuration = shell.deletingLastPathComponent()
         let link = configuration.appendingPathComponent("config-link", isDirectory: true)
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: configuration)
@@ -182,9 +182,13 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         let bundled = try XCTUnwrap(ShellDefaults.bundled)
         let root = try XCTUnwrap(ShellConfig.bundledWidget("apple-menu"))
         try write("custom", shell, "widgets/custom/component.luau")
-        try write("views = ['compact']\nuses = ['base']", shell, "widgets/custom/component.toml")
+        try write(
+            "return { views = { \"compact\" }, uses = { \"base\" } }",
+            shell,
+            "widgets/custom/component.manifest.luau"
+        )
         try write("base", shell, "look/widgets/base/component.luau")
-        try write("views = ['compact']", shell, "look/widgets/base/component.toml")
+        try write("return { views = { \"compact\" } }", shell, "look/widgets/base/component.manifest.luau")
         try write("error('broken user library')", shell, "lib/menu-button.luau")
         try write("user only", shell, "look/lib/user-only.luau")
         let captured = ShellWidgetSourceLoader.Input(
@@ -215,10 +219,14 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         let watched = ShellWidgetSourceLoader.packageDirectories(captured, components: source.componentDescriptors)
         XCTAssertTrue(watched.contains(custom))
         XCTAssertTrue(watched.contains(base))
-        for manifest in ["widgets/custom/component.toml", "look/widgets/base/component.toml"] {
+        for manifest in ["widgets/custom/component.manifest.luau", "look/widgets/base/component.manifest.luau"] {
             XCTAssertNotNil(prepared.fingerprint[shell.appendingPathComponent(manifest).path])
         }
-        try write("views = ['compact', 'expanded']", shell, "look/widgets/base/component.toml")
+        try write(
+            "return { views = { \"compact\", \"expanded\" } }",
+            shell,
+            "look/widgets/base/component.manifest.luau"
+        )
         let updated = try await loader.prepare(captured)
         XCTAssertNotEqual(prepared.fingerprint, updated.fingerprint)
     }
@@ -264,13 +272,13 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: shell.deletingLastPathComponent()) }
         try write("root", shell, "look/widgets/lake/init.luau")
         try write("a", shell, "widgets/a/component.luau")
-        try write("views = ['compact']\nuses = ['b']", shell, "widgets/a/component.toml")
+        try write("return { views = { \"compact\" }, uses = { \"b\" } }", shell, "widgets/a/component.manifest.luau")
         let captured = input(shell, components: [.init(id: "a", widget: "a")])
         XCTAssertThrowsError(try ShellWidgetSourceLoader.build(captured)) { error in
             XCTAssertEqual((error as? ShellComponentCatalog.Failure)?.message, "No component named b is installed")
         }
         try write("b", shell, "widgets/b/component.luau")
-        try write("views = ['compact']\nuses = ['a']", shell, "widgets/b/component.toml")
+        try write("return { views = { \"compact\" }, uses = { \"a\" } }", shell, "widgets/b/component.manifest.luau")
         XCTAssertThrowsError(try ShellWidgetSourceLoader.build(captured)) { error in
             XCTAssertEqual((error as? ShellComponentCatalog.Failure)?.message, "Component dependency cycle at a")
         }
@@ -306,17 +314,17 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: shell.deletingLastPathComponent()) }
         try write("root", shell, "look/widgets/lake/init.luau")
         try write("a", shell, "widgets/a/component.luau")
-        try write("views = ['compact']\nuses = ['base']", shell, "widgets/a/component.toml")
-        try write("views = ['compact']", shell, "look/widgets/a/component.toml")
+        try write("return { views = { \"compact\" }, uses = { \"base\" } }", shell, "widgets/a/component.manifest.luau")
+        try write("return { views = { \"compact\" } }", shell, "look/widgets/a/component.manifest.luau")
         try write("base", shell, "default/widgets/base/component.luau")
-        try write("views = ['compact']", shell, "default/widgets/base/component.toml")
+        try write("return { views = { \"compact\" } }", shell, "default/widgets/base/component.manifest.luau")
         let captured = input(shell, components: [.init(id: "a", widget: "a")])
         let prepared = try await ShellWidgetSourceLoader().prepare(captured)
         XCTAssertEqual(Set(prepared.fingerprint.keys), [
             "look/widgets/lake/init.luau", "look/widgets/a/component.luau", "look/widgets/base/component.luau",
-            shell.appendingPathComponent("widgets/a/component.toml").path,
-            shell.appendingPathComponent("look/widgets/a/component.toml").path,
-            shell.appendingPathComponent("default/widgets/base/component.toml").path
+            shell.appendingPathComponent("widgets/a/component.manifest.luau").path,
+            shell.appendingPathComponent("look/widgets/a/component.manifest.luau").path,
+            shell.appendingPathComponent("default/widgets/base/component.manifest.luau").path
         ])
         XCTAssertEqual(
             prepared.fingerprint,
@@ -328,16 +336,24 @@ final class ShellWidgetSourceLoaderTests: XCTestCase {
         let shell = temporaryShell()
         defer { try? FileManager.default.removeItem(at: shell.deletingLastPathComponent()) }
         try write("root", shell, "look/widgets/lake/init.luau")
-        try write("capabilities = { network = [\"inherited.example\"] }", shell, "default/widgets/lake/settings.toml")
+        try write(
+            "return { capabilities = { network = { \"inherited.example\" } } }",
+            shell,
+            "default/widgets/lake/settings.luau"
+        )
         XCTAssertEqual(try ShellWidgetSourceLoader.build(input(shell)).network, [])
-        try write("capabilities = { network = [\"API.example\"] }", shell, "look/widgets/lake/settings.toml")
+        try write(
+            "return { capabilities = { network = { \"API.example\" } } }",
+            shell,
+            "look/widgets/lake/settings.luau"
+        )
         XCTAssertEqual(try ShellWidgetSourceLoader.build(input(shell)).network, ["API.example"])
-        let settings = shell.appendingPathComponent("look/widgets/lake/settings.toml").path
+        let settings = shell.appendingPathComponent("look/widgets/lake/settings.luau").path
         XCTAssertNotNil(ShellWidgetSourceLoader.fingerprint(input(shell))[settings])
         try write(
-            "capabilities = { network = [\"api.example\"], files = true }",
+            "return { capabilities = { network = { \"api.example\" }, files = true } }",
             shell,
-            "look/widgets/lake/settings.toml"
+            "look/widgets/lake/settings.luau"
         )
         XCTAssertThrowsError(try ShellRootSettings.load("lake", directories: [shell.appendingPathComponent("look")]))
         XCTAssertEqual(try ShellWidgetSourceLoader.build(input(shell)).network, [])

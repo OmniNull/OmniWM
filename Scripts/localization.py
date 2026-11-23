@@ -10,7 +10,6 @@ import struct
 import subprocess
 import sys
 import tempfile
-import tomllib
 from pathlib import Path
 
 
@@ -212,27 +211,33 @@ def validate_catalog_data(data, label):
             raise ValueError(f"{label}: {key!r}: {error}") from error
 
 
-def shell_keys(folders):
-    used = set()
-    for widget in sorted(widget for folder in folders for widget in folder.rglob("*.luau")):
-        used.update(SHELL_KEY.findall(widget.read_text()))
-    for manifest in (file for folder in folders for file in folder.rglob("*.toml")
-                     if file.name in ("settings.toml", "component.toml")):
-        options = tomllib.loads(manifest.read_text(encoding="utf-8")).get("options", {})
-        used.update(option.get("title", key) for key, option in options.items())
-    return used
+def read_shell_metadata(folders):
+    patterns = ("style.luau", "strings/*.luau", "widgets/*/settings.luau", "widgets/*/component.manifest.luau")
+    paths = sorted({file for folder in folders for pattern in patterns for file in folder.glob(pattern)})
+    if not paths:
+        return {}
+    result = subprocess.run(
+        [str(swiftly_bin() / "swift"), "run", "--quiet", "--arch", "arm64",
+         "--scratch-path", str(ROOT / ".build/localization"), "omniwm-metadata", *map(str, paths)],
+        cwd=ROOT, check=True, stdout=subprocess.PIPE, text=True,
+    )
+    return {Path(name): value for name, value in json.loads(result.stdout).items()}
 
 
-def style_keys(style):
-    required = shell_keys((style,))
+def shell_keys(folder, metadata):
+    required = set()
     optional = set()
-    for file in style.rglob("*.toml"):
-        if file.name in ("settings.toml", "component.toml"):
-            data = tomllib.loads(file.read_text(encoding="utf-8"))
-            if file.name == "component.toml" and "title" in data:
-                optional.add(data["title"])
-            optional.update(choice for option in data.get("options", {}).values()
-                            for choice in option.get("choices", []))
+    for file in folder.rglob("*.luau"):
+        if file in metadata:
+            if file.name in ("settings.luau", "component.manifest.luau"):
+                data = metadata[file]
+                if file.name == "component.manifest.luau" and "title" in data:
+                    optional.add(data["title"])
+                for key, option in data.get("options", {}).items():
+                    required.add(option.get("title", key))
+                    optional.update(option.get("choices", []))
+        elif file != folder / "shell.luau" and file.parent != folder / "themes":
+            required.update(SHELL_KEY.findall(file.read_text(encoding="utf-8")))
     return required, required | optional
 
 
@@ -246,17 +251,16 @@ def table_arguments(key, english):
     return expected or declared
 
 
-def validate_style_strings(styles, shell_strings):
-    for style in sorted(path for path in styles.iterdir() if path.is_dir()):
-        tables = {file.stem: tomllib.loads(file.read_text(encoding="utf-8"))
-                  for file in sorted((style / "strings").glob("*.toml"))}
+def validate_style_strings(styles, shell_strings, metadata):
+    for style in styles:
+        tables = {file.stem: values for file, values in metadata.items() if file.parent == style / "strings"}
         english = tables.get("en", {})
-        required, allowed = style_keys(style)
+        required, allowed = shell_keys(style, metadata)
         missing = sorted(required - english.keys() - shell_strings.keys())
         if missing:
-            raise ValueError(f"{style.name}/strings/en.toml: missing keys {missing}")
+            raise ValueError(f"{style.name}/strings/en.luau: missing keys {missing}")
         for locale, table in tables.items():
-            label = f"{style.name}/strings/{locale}.toml"
+            label = f"{style.name}/strings/{locale}.luau"
             unused = sorted(table.keys() - allowed)
             if unused:
                 raise ValueError(f"{label}: keys the style does not use {unused}")
@@ -271,8 +275,8 @@ def validate_style_strings(styles, shell_strings):
                     raise ValueError(f"{label}: {key!r} format differs from English")
 
 
-def validate_shell_usage(strings, folders):
-    used = shell_keys(folders)
+def validate_shell_usage(strings, folders, metadata):
+    used = set().union(*(shell_keys(folder, metadata)[0] for folder in folders))
     missing = sorted(used - strings.keys())
     if missing:
         raise ValueError(f"Shell.xcstrings: widgets use missing keys {missing}")
@@ -291,8 +295,10 @@ def validate_catalogs(catalog_dir=CATALOGS, info_plist=ROOT / "Info.plist", widg
         data = json.loads(path.read_text())
         validate_catalog_data(data, path.name)
         if name == "Shell":
-            validate_shell_usage(data["strings"], widgets)
-            validate_style_strings(styles, data["strings"])
+            style_folders = sorted(folder for folder in styles.iterdir() if folder.is_dir())
+            metadata = read_shell_metadata((*widgets, *style_folders))
+            validate_shell_usage(data["strings"], widgets, metadata)
+            validate_style_strings(style_folders, data["strings"], metadata)
         if name == "InfoPlist":
             info = plistlib.loads(info_plist.read_bytes())
             for key in INFO_KEYS:

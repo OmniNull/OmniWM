@@ -4,7 +4,6 @@
 import AppKit
 @testable import OmniWM
 import OmniWMMaterialColor
-import TOML
 import XCTest
 
 final class MaterialColorTests: XCTestCase {
@@ -110,11 +109,11 @@ final class MaterialColorTests: XCTestCase {
     }
 
     func testCelestialIsCaelestiasDarkSchemeAndItsGeneratedLightOne() throws {
-        let url = try ShellStyleFixture.source("celestial").appendingPathComponent("themes/celestial.toml")
-        let toml = try TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: url))
+        let url = try ShellStyleFixture.source("celestial").appendingPathComponent("themes/celestial.luau")
+        let palette = try ShellLuauFixture.table(at: url)
         let caelestiaOnly: [ShellRole: UInt32] = [.tertiaryContainer: 0xB58763, .tertiaryContainerForeground: 0x000000]
         for dark in [false, true] {
-            guard case let .table(entries)? = toml[dark ? "dark" : "light"] else { return XCTFail("no palette") }
+            guard case let .record(entries)? = palette[dark ? "dark" : "light"] else { return XCTFail("no palette") }
             let generated = ShellMaterialPalette.colors(seed: 0xA8627B, dark: dark)
             XCTAssertEqual(generated.count, ShellMaterialPalette.roles.count)
             for (role, color) in generated {

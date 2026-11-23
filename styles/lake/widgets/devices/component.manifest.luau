@@ -1,0 +1,20 @@
+return {
+    title = "Devices",
+    icon = "headphones",
+    views = { "compact", "expanded" },
+    options = {
+        alerts = {
+            type = "boolean",
+            title = "Connection alerts",
+            default = true,
+        },
+        alertSeconds = {
+            type = "number",
+            title = "Alert duration (seconds)",
+            default = 4,
+            min = 1,
+            max = 10,
+            step = 1,
+        },
+    },
+}

@@ -51,8 +51,8 @@ final class ShellIslandWorldTests: XCTestCase {
         let settings = makeSettings(root)
         let shell = root.appendingPathComponent("shell", isDirectory: true)
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
-        try Data("profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = []\n".utf8)
-            .write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { leading = {}, center = {}, trailing = {} } } }\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.luau"))
         settings.workspaceBar.enabled = false
         settings.island.enabled = true
         let controller = WMController(settings: settings)

@@ -14,7 +14,7 @@ extension Dictionary where Key == URL, Value == ConfigScriptFileVersion {
 struct SettingsLuauInput: Sendable {
     let source: Data
     let modules: SettingsFileVersions
-    let result: Result<SettingsLuauDocument.Evaluation, any Error>
+    let result: Result<LuauTableDocument.Evaluation, any Error>
 }
 
 struct SettingsLuauLoad {

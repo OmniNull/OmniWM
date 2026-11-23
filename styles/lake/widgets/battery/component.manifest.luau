@@ -1,0 +1,28 @@
+return {
+    title = "Battery",
+    icon = "battery.100percent",
+    views = { "compact", "expanded" },
+    options = {
+        lowThreshold = {
+            type = "number",
+            title = "Low battery threshold (%)",
+            default = 20,
+            min = 1,
+            max = 100,
+            step = 1,
+        },
+        alerts = {
+            type = "boolean",
+            title = "Battery and charging alerts",
+            default = true,
+        },
+        alertSeconds = {
+            type = "number",
+            title = "Alert duration (seconds)",
+            default = 4,
+            min = 1,
+            max = 10,
+            step = 1,
+        },
+    },
+}

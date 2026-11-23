@@ -67,7 +67,7 @@ final class CLIRendererOutputTests: XCTestCase {
                 error: "init.luau:1: oops",
                 placements: []
             )
-        ], problems: ["shell.toml: unknown key trailling"]))
+        ], problems: ["shell.luau: unknown key trailling"]))
         let output = try CLIRenderer.responseOutput(.success(id: "1", kind: .query, result: result), format: .tsv)
         let lines = try XCTUnwrap(String(data: output.data, encoding: .utf8)).trimmingCharacters(in: .newlines)
             .components(separatedBy: "\n")
@@ -80,7 +80,7 @@ final class CLIRendererOutputTests: XCTestCase {
 
         let table = try CLIRenderer.responseOutput(.success(id: "1", kind: .query, result: result), format: .table)
         let text = try XCTUnwrap(String(data: table.data, encoding: .utf8)).trimmingCharacters(in: .newlines)
-        XCTAssertTrue(text.hasSuffix("\n\nProblems:\n  shell.toml: unknown key trailling"))
+        XCTAssertTrue(text.hasSuffix("\n\nProblems:\n  shell.luau: unknown key trailling"))
     }
 
     func testPlainTitleIsUnchanged() throws {

@@ -245,7 +245,10 @@ extension ShellWidgetHost {
     }
 
     func watchFiles() {
-        let paths = watchedPaths + resources.shaders.files + resources.images.files + configurationMetadataPaths
+        var paths = watchedPaths + resources.shaders.files + resources.images.files + configurationMetadataPaths
+        if !config.helperFiles.isEmpty || !failedConfigHelpers.isEmpty {
+            paths += ShellConfigurationInputs.helperPaths(config.helperFiles.union(failedConfigHelpers))
+        }
         observation?.sync(paths: paths, recursivePaths: paths)
     }
 
@@ -297,13 +300,13 @@ extension ShellWidgetHost {
             )) ?? []
             return [
                 directory,
-                directory.appendingPathComponent("shell.toml"),
+                directory.appendingPathComponent("shell.luau"),
                 directory.appendingPathComponent("widgets", isDirectory: true),
                 directory.appendingPathComponent("shaders", isDirectory: true),
                 directory.appendingPathComponent("fonts", isDirectory: true),
                 directory.appendingPathComponent(ShellStrings.folder, isDirectory: true),
                 themes
-            ] + files.filter { $0.pathExtension == "toml" }
+            ] + files.filter { $0.pathExtension == "luau" }
         }
     }
 
@@ -327,7 +330,7 @@ extension ShellWidgetHost {
         {
             packages[name] = config.widget(name) ?? ShellConfig.bundledWidget(name)
             if packages[name] == nil, reportedMissing.insert(name).inserted {
-                Log.shell.error("shell.toml names a widget \(name) that is not in any widgets folder")
+                Log.shell.error("shell.luau names a widget \(name) that is not in any widgets folder")
             }
         }
         for (name, trip) in trips {

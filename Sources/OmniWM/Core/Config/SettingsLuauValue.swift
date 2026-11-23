@@ -11,6 +11,14 @@ enum SettingsLuauValue: Hashable, Decodable, Sendable {
     case number(Double)
     case boolean(Bool)
 
+    private static let shellNumbers = CodingUserInfoKey(rawValue: "omniwm.shellNumbers")!
+
+    static func decodeJSON(_ data: Data, shellNumbers: Bool) throws -> Self {
+        let decoder = JSONDecoder()
+        if shellNumbers { decoder.userInfo[Self.shellNumbers] = true }
+        return try decoder.decode(Self.self, from: data)
+    }
+
     init(from decoder: Decoder) throws {
         let value = try decoder.singleValueContainer()
         if let fields = try? value.decode([String: Self].self) { self = .record(fields) }
@@ -18,7 +26,26 @@ enum SettingsLuauValue: Hashable, Decodable, Sendable {
         else if let bool = try? value.decode(Bool.self) { self = .boolean(bool) }
         else if let text = try? value.decode(String.self) { self = .string(text) }
         else if let integer = try? value.decode(Int64.self) { self = .integer(integer) }
-        else { self = try .number(value.decode(Double.self)) }
+        else {
+            do { self = try .number(value.decode(Double.self)) } catch {
+                guard decoder.userInfo[Self.shellNumbers] != nil, var tag = try? decoder.unkeyedContainer(),
+                      tag.count == 2, try tag.decodeNil(), let number = Double(try tag.decode(String.self)),
+                      !number.isFinite else { throw error }
+                self = .number(number.isNaN ? .nan : number)
+            }
+        }
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case let (.record(left), .record(right)): left == right
+        case let (.list(left), .list(right)): left == right
+        case let (.string(left), .string(right)): left == right
+        case let (.integer(left), .integer(right)): left == right
+        case let (.number(left), .number(right)): left == right || left.bitPattern == right.bitPattern
+        case let (.boolean(left), .boolean(right)): left == right
+        default: false
+        }
     }
 
     subscript(key: String) -> Self? {
@@ -38,7 +65,10 @@ enum SettingsLuauValue: Hashable, Decodable, Sendable {
         switch self {
         case let .boolean(value): return value ? "true" : "false"
         case let .integer(value): return String(value)
-        case let .number(value): return String(value)
+        case let .number(value):
+            if value.isNaN { return "(0 / 0)" }
+            if value.isInfinite { return value.sign == .minus ? "(-1 / 0)" : "(1 / 0)" }
+            return String(value)
         case let .string(value): return Self.quoted(value)
         case let .list(values): return Self.table(values.map { $0.literal(depth: depth + 1) }, depth: depth)
         case let .record(fields):
@@ -102,4 +132,14 @@ protocol SettingsWireVariants {
 
 protocol SettingsWireNames {
     static var settingsWireNames: [String: [String]] { get }
+}
+
+extension SettingsLuauValue {
+    static func encoding(_ value: some Encodable) throws -> Self {
+        try JSONDecoder().decode(Self.self, from: JSONEncoder().encode(value))
+    }
+
+    func decode<Value: Decodable>(_ type: Value.Type) throws -> Value {
+        try Value(from: SettingsLuauDecoder(value: self, validatesSettings: false))
+    }
 }

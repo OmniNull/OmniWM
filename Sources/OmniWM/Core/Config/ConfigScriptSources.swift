@@ -23,6 +23,7 @@ struct ConfigScriptSources {
     }
 
     let entry: URL?
+    private var packageRoot: URL?
     private(set) var versions: [URL: ConfigScriptFileVersion] = [:]
     private var modules: [Module] = []
     private var resolvedIDs: [URL: UInt32] = [:]
@@ -37,7 +38,8 @@ struct ConfigScriptSources {
         self.entry = entry
     }
 
-    init(entry: URL?, sourceByteCount: Int) {
+    init(entry: URL?, sourceByteCount: Int, packageRoot: URL? = nil) {
+        self.packageRoot = packageRoot
         self.entry = entry?.standardizedFileURL
         totalBytes = sourceByteCount
         if let entry = self.entry {
@@ -127,6 +129,9 @@ struct ConfigScriptSources {
     private mutating func loadModule(_ url: URL, entry: URL) throws -> UInt32 {
         let target = try SettingsFileAccess.settingsTarget(for: url)
         let resolved = try SettingsFileAccess.canonicalURL(for: target)
+        if let packageRoot, !resolved.path.hasPrefix(packageRoot.path + "/") {
+            throw ConfigScriptError(line: nil, message: "Helper is outside its shell package: \(url.path)")
+        }
         if let id = resolvedIDs[resolved] {
             versions[url] = id == 0 ? versions[entry] ?? ConfigScriptFileVersion(at: url) :
                 .target(modules[Int(id) - 1].fingerprint)

@@ -1,0 +1,3 @@
+return {
+    ["Now Playing"] = "Nu aan het spelen",
+}

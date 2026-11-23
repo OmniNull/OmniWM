@@ -53,8 +53,8 @@ final class ShellVitreusDockTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         let folder = shell.appendingPathComponent("widgets/vitreus-notes", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try Data("title = 'Notes'\nicon = 'note.text'\nviews = ['addon']\n".utf8)
-            .write(to: folder.appendingPathComponent("component.toml"))
+        try Data("return { title = \"Notes\", icon = \"note.text\", views = { \"addon\" } }".utf8)
+            .write(to: folder.appendingPathComponent("component.manifest.luau"))
         try Data("""
         return { views = { addon = function(ctx)
             return ui.stack({ w = ctx.view.w, h = ctx.view.h, ui.text({ text = "notes " .. ctx.view.props.cu }) })

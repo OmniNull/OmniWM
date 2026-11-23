@@ -5,7 +5,6 @@ import AppKit
 @testable import OmniWM
 import OmniWMScriptHost
 import OmniWMShellCore
-import TOML
 import XCTest
 
 @MainActor
@@ -79,10 +78,12 @@ final class ShellVitreusBarTests: XCTestCase {
 
     func testTheRoomFollowsTheLayoutSizeAndDockRootSettings() throws {
         let shell = try shell()
-        let selected = try String(contentsOf: shell.appendingPathComponent("shell.toml"), encoding: .utf8)
         func room(_ settings: String) throws -> WorkspaceBarRoom {
-            try Data((selected + "\n[profiles.vitreus.widgets.vitreus]\n" + settings).utf8)
-                .write(to: shell.appendingPathComponent("shell.toml"))
+            try Data(
+                "return { profile = 'vitreus', profiles = { vitreus = { widgets = { vitreus = { \(settings) } } } } }"
+                    .utf8
+            )
+            .write(to: shell.appendingPathComponent("shell.luau"))
             return try XCTUnwrap(VitreusFixture.config(shell).barOverride?.room, settings)
         }
         typealias Edges = [WorkspaceBarRoom.Edge: WorkspaceBarRoom.Reservation]
@@ -97,7 +98,7 @@ final class ShellVitreusBarTests: XCTestCase {
         XCTAssertEqual(island.edges, [.top: .init(value: 62, mode: .add)])
         XCTAssertNil(island.dock)
         XCTAssertEqual(island.displays, .all)
-        XCTAssertEqual(try room("size = 0.7\n").edges, [.top: .init(value: 46, mode: .add)])
+        XCTAssertEqual(try room("size = 0.7").edges, [.top: .init(value: 46, mode: .add)])
         var seg = total(.top, 59)
         seg[.top] = .init(value: 59, mode: .total, clear: .notch)
         let frames: [(String, Edges)] = [
@@ -108,13 +109,13 @@ final class ShellVitreusBarTests: XCTestCase {
             "left": .right, "right": .left, "ftop": .bottom, "fbottom": .top, "seg": .bottom, "island": .bottom
         ]
         for (layout, edges) in frames {
-            let pinned = try room("layout = \"\(layout)\"\npins = [\"com.apple.Safari\"]\n")
+            let pinned = try room("layout = \"\(layout)\", pins = {\"com.apple.Safari\"}")
             XCTAssertEqual(pinned.edges, edges, layout)
             XCTAssertEqual(pinned.dock, try .init(edge: XCTUnwrap(docks[layout]), value: 70), layout)
         }
-        XCTAssertEqual(try room("layout = \"left\"\nsize = 0.7\n").edges, total(.left, 57))
-        XCTAssertEqual(try room("addons = [\"clock\"]\nsize = 0.7\n").dock, .init(edge: .bottom, value: 56))
-        XCTAssertNil(try room("pins = [\"com.apple.Safari\"]\ndockOverlap = true\n").dock)
+        XCTAssertEqual(try room("layout = \"left\", size = 0.7").edges, total(.left, 57))
+        XCTAssertEqual(try room("addons = {\"clock\"}, size = 0.7").dock, .init(edge: .bottom, value: 56))
+        XCTAssertNil(try room("pins = {\"com.apple.Safari\"}, dockOverlap = true").dock)
     }
 
     func testRootSettingsDeclareTheVitreusDefaultsAndAcceptTheProfileValues() throws {
@@ -147,13 +148,12 @@ final class ShellVitreusBarTests: XCTestCase {
             let option = try XCTUnwrap(settings.options[key], key)
             XCTAssertEqual([option.minimum, option.maximum, option.step], range, key)
         }
-        let profile = try TOMLDecoder().decode(
-            [String: TOMLNode].self, from: Data(contentsOf: shell.appendingPathComponent("vitreus/shell.toml"))
-        )
-        guard case let .table(widgets)? = profile["widgets"], case let .table(root)? = widgets["vitreus"] else {
+        let profile = try ShellLuauFixture.table(at: shell.appendingPathComponent("vitreus/shell.luau"))
+        guard case let .record(widgets)? = profile["widgets"], case let .record(root)? = widgets["vitreus"] else {
             return XCTFail("the profile needs [widgets.vitreus]")
         }
-        let configured = try root.mapValues { try XCTUnwrap(ShellComponentValue($0)) }
+        let configured = ShellWidgetSettingsModel.values(widget: "vitreus", config: config)
+        XCTAssertEqual(Set(configured.keys), Set(root.keys))
         XCTAssertEqual(Set(configured.keys), ["layout", "size", "pins", "addons", "dockOverlap"])
         XCTAssertEqual(try settings.values(applying: configured), expected)
     }
@@ -414,11 +414,15 @@ extension ShellVitreusBarTests {
             try VitreusFixture.frame(melted, key: "drawer-content-calendar").minY,
             pill.maxY
         )
-        let selected = try String(contentsOf: shell.appendingPathComponent("shell.toml"), encoding: .utf8)
         let rooms: [(String, CGFloat)] = [("island", 62), ("seg", 59)]
         for (layout, room) in rooms {
-            try Data((selected + "\n[profiles.vitreus.widgets.vitreus]\nlayout = \"\(layout)\"\n").utf8)
-                .write(to: shell.appendingPathComponent("shell.toml"))
+            try Data(
+                (
+                    "return { profile = \"vitreus\", profiles = { vitreus = { widgets = { vitreus = { layout = \"\(layout)\" } } } } }\n"
+                )
+                .utf8
+            )
+            .write(to: shell.appendingPathComponent("shell.luau"))
             let controller = roomController()
             controller.settings.workspaceBar.profileOverride = try XCTUnwrap(VitreusFixture.config(shell).barOverride)
             let piece = layout == "seg" ? "notch-middle" : "shell"

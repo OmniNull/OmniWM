@@ -27,7 +27,7 @@ struct ShellAppDefinition: Equatable, Sendable {
     static func load(id: String, folder: URL) throws -> Self {
         let component = try ShellComponentCatalog.load(id, folder: folder, sourceFile: "init.luau")
         guard let window = component.window else {
-            throw ShellComponentCatalog.Failure("\(id)/component.toml: missing [window]")
+            throw ShellComponentCatalog.Failure("\(id)/component.manifest.luau: missing [window]")
         }
         return Self(
             id: id, title: component.title, contentSize: window.contentSize,

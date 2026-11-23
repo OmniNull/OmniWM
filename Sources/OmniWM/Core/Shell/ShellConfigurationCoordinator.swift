@@ -3,7 +3,6 @@
 
 import Foundation
 import Observation
-import TOML
 
 @MainActor
 @Observable
@@ -32,6 +31,7 @@ final class ShellConfigurationCoordinator {
         pendingCount > 0
     }
 
+    @ObservationIgnored weak var formulaConfirmation: SettingsFormulaConfirmation?
     @ObservationIgnored var writer: ShellIslandConfigWriter?
     @ObservationIgnored private var tail: Task<Void, Never>?
     @ObservationIgnored private let catalogLoader = ShellConfigurationCatalogLoader()
@@ -130,7 +130,7 @@ final class ShellConfigurationCoordinator {
     func set<Value: Encodable>(
         _ value: Value?, key: String, table: String = "workspaceBar", profile: String? = nil
     ) async throws {
-        let node = try value.map { try ShellTOMLText.node($0) }
+        let node = try value.map { try SettingsLuauValue.encoding($0) }
         let path = table.split(separator: ".").map(String.init) + [key]
         try await setNode(node, path: path, profile: profile)
     }
@@ -168,17 +168,18 @@ final class ShellConfigurationCoordinator {
         _ value: Value?, widget: String, key: String, profile: String? = nil
     ) async throws {
         guard ShellComponentCatalog.validName(widget), ShellComponentCatalog.validName(key) else {
-            throw ShellTOMLText.Failure.invalidValue(key)
+            throw ShellComponentCatalog
+                .Failure("The shell setting at \(key) could not be edited. No settings were changed.")
         }
         try await setNode(
-            try value.map { try ShellTOMLText.node($0) },
+            try value.map { try SettingsLuauValue.encoding($0) },
             path: ["widgets", widget, key],
             profile: profile
         )
     }
 
     func setWeather<Value: Encodable>(_ value: Value?) async throws {
-        let node = try value.map { try ShellTOMLText.node($0) }
+        let node = try value.map { try SettingsLuauValue.encoding($0) }
         _ = try await editFile(refreshMetadata: false, scansSources: false) { directory in
             try ShellProfiles.setNodes([(["weather"], node)], in: directory)
         }
@@ -226,7 +227,11 @@ final class ShellConfigurationCoordinator {
         }
     }
 
-    func editBar(profile: String? = nil, _ change: @escaping @MainActor (inout ShellBarLayout) -> Void) async throws {
+    func editBar(
+        profile: String? = nil,
+        confirm: ShellIslandConfigWriter.Confirmation? = nil,
+        _ change: @escaping @MainActor (inout ShellBarLayout) -> Void
+    ) async throws {
         let profile = try await targetProfile(profile)
         try await ordered { [self] in
             let snapshot = try await load(profile: profile)
@@ -235,7 +240,7 @@ final class ShellConfigurationCoordinator {
             }
             change(&layout)
             let next = layout
-            _ = try await persistence().perform { directory in
+            _ = try await persistence().perform(confirm: confirm) { directory in
                 try next.save(shellDirectory: directory)
                 return true
             }
@@ -277,7 +282,7 @@ final class ShellConfigurationCoordinator {
                 if value.overriddenKeys.isEmpty { MonitorSettingsStore.remove(for: monitor, from: &overrides) }
                 else { MonitorSettingsStore.update(value, for: monitor, in: &overrides) }
             } else { MonitorSettingsStore.remove(for: monitor, from: &overrides) }
-            let node = try overrides.isEmpty ? nil : ShellTOMLText.node(overrides)
+            let node = try overrides.isEmpty ? nil : SettingsLuauValue.encoding(overrides)
             let name = snapshot.profile
             _ = try await persistence().perform { directory in
                 try ShellProfiles.setNodes([(ShellProfiles.key("monitorBarOverrides", of: name), node)], in: directory)
@@ -291,7 +296,7 @@ final class ShellConfigurationCoordinator {
         await writer?.flush()
     }
 
-    private func setNode(_ node: TOMLNode?, path: [String], profile: String?) async throws {
+    private func setNode(_ node: SettingsLuauValue?, path: [String], profile: String?) async throws {
         let profile = try await targetProfile(profile)
         try await ordered { [self] in
             let name = profile
@@ -304,17 +309,6 @@ final class ShellConfigurationCoordinator {
 }
 
 extension ShellConfigurationCoordinator {
-    func editFile(
-        refreshMetadata: Bool = true,
-        scansSources: Bool = true,
-        _ operation: @escaping @Sendable (URL) throws -> Bool
-    ) async throws -> Bool {
-        try await edit(refreshMetadata: refreshMetadata, scansSources: scansSources) { directory in
-            let changed = try operation(directory)
-            return (changed, changed)
-        }
-    }
-
     func edit<Value: Sendable>(
         refreshMetadata: Bool = true,
         scansSources: Bool = true,
@@ -351,13 +345,6 @@ extension ShellConfigurationCoordinator {
         return try await load().profile
     }
 
-    func explicitProfile(_ profile: String?) async throws -> String? {
-        guard let profile else { return nil }
-        try await ensureLoaded()
-        guard profiles.contains(profile) else { throw CocoaError(.fileNoSuchFile) }
-        return profile
-    }
-
     private func load(profile: String? = nil) async throws -> ShellConfig {
         let snapshot = try await prepared(profile: profile).config
         if let profile, snapshot.profile != profile { throw ShellBarLayout.Unreadable(problem: profile) }
@@ -374,7 +361,7 @@ extension ShellConfigurationCoordinator {
         let loaded = try await prepared()
         let snapshot = loaded.config
         let previousInputs = inputs
-        let nextInputs = if scanInputs || inputs == nil {
+        let nextInputs = if scanInputs || inputs == nil || config.helperFiles != snapshot.helperFiles {
             try await persistence().perform { directory in
                 try ShellConfigurationInputs(directory: directory, config: snapshot)
             }
@@ -458,7 +445,12 @@ extension ShellConfigurationCoordinator {
                 needsRefresh = false
                 do { try await refresh() }
                 catch {
-                    let paths = ShellConfigurationInputs.recoveryPaths(shellDirectory, config: config, previous: inputs)
+                    let paths = ShellConfigurationInputs.recoveryPaths(
+                        shellDirectory,
+                        config: config,
+                        previous: inputs,
+                        attempted: (error as? ShellBarLayout.Unreadable)?.helperFiles ?? []
+                    )
                     observation?.sync(paths: paths.paths, recursivePaths: paths.recursivePaths)
                     metadataError = error.localizedDescription
                 }
@@ -468,9 +460,12 @@ extension ShellConfigurationCoordinator {
 
     private func persistence() -> ShellIslandConfigWriter {
         if let writer { return writer }
-        let value = ShellIslandConfigWriter(shellDirectory: shellDirectory) { [weak self] in
+        let value = ShellIslandConfigWriter(shellDirectory: shellDirectory, confirm: { [weak self] request in
+            guard let presenter = self?.formulaConfirmation else { throw request }
+            return try await presenter.confirm(request)
+        }, reloadReady: { [weak self] in
             await self?.reloadAfterPersistence()
-        }
+        })
         writer = value
         return value
     }

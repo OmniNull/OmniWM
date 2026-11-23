@@ -16,4 +16,4 @@ Turn on **Settings > Styles & Widgets > Island > Show Dynamic Island**. Hover fo
 
 ## Credits and licences
 
-Style code is GPL-2.0-only, as declared in [style.toml](style.toml). The style and its components are part of OmniWM.
+Style code is GPL-2.0-only, as declared in [style.luau](style.luau). The style and its components are part of OmniWM.

@@ -150,7 +150,7 @@ void markTimeReads(lua_State *L);
 void installComponentHost(lua_State *L, ShellPackage &package);
 int assetReference(lua_State *L);
 bool encodeValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t limit, std::string &error);
-bool encodeJSONValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t limit, std::string &error);
+bool encodeJSONValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t limit, std::string &error, bool shellNumbers = false);
 bool decodeJSONValue(lua_State *L, const char *bytes, size_t length, bool readonly, std::string &error);
 bool isJSONNull(lua_State *L, int index);
 void pushJSONNull(lua_State *L);

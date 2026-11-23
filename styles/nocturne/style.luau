@@ -1,0 +1,11 @@
+return {
+    format = 1,
+    name = "nocturne",
+    version = "1.0.1",
+    api = 1,
+    author = "OmniNull",
+    license = "GPL-2.0-only",
+    title = "Nocturne",
+    summary = "A rounded bar with rich status widgets and deep colors.",
+    previews = { "bar.jpg", "desktop.jpg" },
+}

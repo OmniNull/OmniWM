@@ -35,7 +35,10 @@ final class ShellApprovalPruningTests: XCTestCase {
     @MainActor
     func testAnOverrideOrRemovalRetiresThePrincipalAndCancelsItsPrompt() throws {
         let shell = root.appendingPathComponent("shell")
-        try write("profiles.default.trailing = [\"test\"]\n", to: shell.appendingPathComponent("shell.toml"))
+        try write(
+            "return { profiles = { default = { trailing = { \"test\" } } } }\n",
+            to: shell.appendingPathComponent("shell.luau")
+        )
         let profile = shell.appendingPathComponent("default/widgets/test")
         try writeWidget(in: profile)
         let host = makeHost()
@@ -79,7 +82,10 @@ final class ShellApprovalPruningTests: XCTestCase {
     @MainActor
     func testRemovingADeclaredHostOnReloadRetiresItsPromptAndRejectsALateArrival() throws {
         let shell = root.appendingPathComponent("shell")
-        try write("profiles.default.trailing = [\"test\"]\n", to: shell.appendingPathComponent("shell.toml"))
+        try write(
+            "return { profiles = { default = { trailing = { \"test\" } } } }\n",
+            to: shell.appendingPathComponent("shell.luau")
+        )
         let folder = shell.appendingPathComponent("default/widgets/test")
         try writeWidget(in: folder, hosts: ["api.example", "cdn.example"])
         let host = makeHost()
@@ -242,21 +248,25 @@ final class ShellApprovalPruningTests: XCTestCase {
 
     private func writeSettings(in folder: URL, hosts: [String]) throws {
         try write(
-            "[capabilities]\nnetwork = [\(hosts.map { "'\($0)'" }.joined(separator: ", "))]\n",
-            to: folder.appendingPathComponent("settings.toml")
+            "return { capabilities = { network = { \(hosts.map { "'\($0)'" }.joined(separator: ", ")) } } }",
+            to: folder.appendingPathComponent("settings.luau")
         )
     }
 
     private func writeComponent(in folder: URL, command: String?, hosts: [String]) throws {
-        var manifest = """
-        title = 'Converter'
-        views = ['compact']
-        [capabilities]
-        network = [\(hosts.map { "'\($0)'" }.joined(separator: ", "))]
-        provider = \(command != nil)
+        let program = command.map { "provider = { command = { '\($0)' } }," } ?? ""
+        let manifest = """
+        return {
+            title = 'Converter',
+            views = { 'compact' },
+            capabilities = {
+                network = { \(hosts.map { "'\($0)'" }.joined(separator: ", ")) },
+                provider = \(command != nil),
+            },
+            \(program)
+        }
         """
-        if let command { manifest += "\n[provider]\ncommand = ['\(command)']" }
-        try write(manifest, to: folder.appendingPathComponent("component.toml"))
+        try write(manifest, to: folder.appendingPathComponent("component.manifest.luau"))
     }
 
     private func write(_ contents: String, to file: URL) throws {

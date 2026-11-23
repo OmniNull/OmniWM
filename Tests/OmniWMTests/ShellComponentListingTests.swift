@@ -52,21 +52,15 @@ final class ShellComponentListingTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let folder = root.appendingPathComponent("widgets/lake")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let file = folder.appendingPathComponent("settings.toml")
+        let file = folder.appendingPathComponent("settings.luau")
         let manifest = """
-        [options.width]
-        type = "number"
-        min = 200
-        max = 600
-        step = 20
-        default = 400
-        [options.hover]
-        type = "boolean"
-        default = true
-        [options.motion]
-        type = "choice"
-        choices = ["smooth", "spring"]
-        default = "spring"
+        return {
+            options = {
+                width = { type = "number", min = 200, max = 600, step = 20, default = 400 },
+                hover = { type = "boolean", default = true },
+                motion = { type = "choice", choices = { "smooth", "spring" }, default = "spring" },
+            },
+        }
         """
         try Data(manifest.utf8).write(to: file)
         let schema = try XCTUnwrap(ShellRootSettings.load("lake", directories: [root]))
@@ -89,13 +83,13 @@ final class ShellComponentListingTests: XCTestCase {
                 catalog: [:],
                 rootOptions: schema.options
             ))
-            try Data("[options.\(key)]\ntype = 'boolean'\n".utf8).write(to: file)
+            try Data("return { options = { [\"\(key)\"] = { type = \"boolean\" } } }".utf8).write(to: file)
             if key == "network" {
                 let settings = try XCTUnwrap(ShellRootSettings.load("lake", directories: [root]))
                 XCTAssertEqual(try settings.values(applying: [key: .bool(true)]), [key: .bool(true)])
                 XCTAssertThrowsError(try settings.values(applying: [key: .string("example.com")]))
                 XCTAssertThrowsError(try ShellComponentCatalog.parseOptions(
-                    .table([key: .table(["type": .string("boolean")])]), place: "component"
+                    .record([key: .record(["type": .string("boolean")])]), place: "component"
                 ))
             } else {
                 XCTAssertThrowsError(try ShellRootSettings.load("lake", directories: [root]))
@@ -111,20 +105,15 @@ final class ShellComponentListingTests: XCTestCase {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try Data("error('must not execute')".utf8).write(to: folder.appendingPathComponent("component.luau"))
         try Data("""
-        title = "Clock"
-        views = ["compact", "expanded"]
-        [options.zone]
-        type = "choice"
-        title = "Zone"
-        default = "UTC"
-        choices = ["UTC", "Asia/Tokyo"]
-        [options.size]
-        type = "number"
-        min = 10
-        max = 30
-        step = 2
-        default = 20
-        """.utf8).write(to: folder.appendingPathComponent("component.toml"))
+        return {
+            title = "Clock",
+            views = { "compact", "expanded" },
+            options = {
+                zone = { type = "choice", title = "Zone", default = "UTC", choices = { "UTC", "Asia/Tokyo" } },
+                size = { type = "number", min = 10, max = 30, step = 2, default = 20 },
+            },
+        }
+        """.utf8).write(to: folder.appendingPathComponent("component.manifest.luau"))
         let entries = try ShellComponentCatalog.installed(directories: [root])
         let vm = try XCTUnwrap(omni_vm_create(32 << 20, "catalog", 7))
         defer { _ = omni_vm_destroy(vm) }
@@ -160,8 +149,8 @@ final class ShellComponentListingTests: XCTestCase {
     private func component(_ name: String, title: String, layer: URL, source: Bool = true) throws {
         let folder = layer.appendingPathComponent("widgets/\(name)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try Data("title = '\(title)'\nviews = ['compact']\n".utf8)
-            .write(to: folder.appendingPathComponent("component.toml"))
+        try Data("return { title = \"\(title)\", views = { \"compact\" } }".utf8)
+            .write(to: folder.appendingPathComponent("component.manifest.luau"))
         if source {
             try Data("error('catalog must not execute source')".utf8)
                 .write(to: folder.appendingPathComponent("component.luau"))

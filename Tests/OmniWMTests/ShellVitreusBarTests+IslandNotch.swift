@@ -670,10 +670,14 @@ extension ShellVitreusBarTests {
     func testTheIslandRoomStartsAtTheBarBottomOnANotchedDisplay() throws {
         let shell = try shell()
         let monitor = Self.fourteenInch()
-        let selected = try String(contentsOf: shell.appendingPathComponent("shell.toml"), encoding: .utf8)
         for size in [1, 0.7] {
-            try Data((selected + "\n[profiles.vitreus.widgets.vitreus]\nsize = \(size)\n").utf8)
-                .write(to: shell.appendingPathComponent("shell.toml"))
+            try Data(
+                (
+                    "return { profile = \"vitreus\", profiles = { vitreus = { widgets = { vitreus = { size = \(size) } } } } }\n"
+                )
+                .utf8
+            )
+            .write(to: shell.appendingPathComponent("shell.luau"))
             let controller = roomController()
             controller.settings.workspaceBar.profileOverride = try XCTUnwrap(VitreusFixture.config(shell).barOverride)
             let menu = monitor.frame.maxY - monitor.visibleFrame.maxY

@@ -73,7 +73,11 @@ final class ShellSettingsWriteQueue {
     private func run(_ target: Target) async {
         while let write = entries[target]?.write {
             var failure: String?
-            do { try await write() } catch { failure = error.localizedDescription }
+            do { try await write() }
+            catch is CancellationError {
+                entries[target] = nil
+                break
+            } catch { failure = error.localizedDescription }
             guard var entry = entries[target] else { break }
             if entry.pending {
                 entry.pending = false

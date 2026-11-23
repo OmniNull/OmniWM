@@ -1,0 +1,105 @@
+-- SPDX-License-Identifier: GPL-2.0-only
+-- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+return {
+    options = {
+        layout = {
+            type = "choice",
+            title = "Layout",
+            default = "island",
+            choices = { "island", "left", "right", "ftop", "fbottom", "seg" },
+        },
+        size = {
+            type = "number",
+            title = "Bar size",
+            default = 1,
+            min = 0.7,
+            max = 1,
+            step = 0.01,
+        },
+        pieces = {
+            type = "strings",
+            title = "Bar pieces",
+            default = {
+                "apple",
+                "app",
+                "workspaces",
+                "scratchpads",
+                "title",
+                "tray",
+                "search",
+                "stats",
+                "omniwm",
+                "controls",
+                "clock",
+            },
+            maxLength = 16,
+        },
+        pins = {
+            type = "strings",
+            title = "Pinned apps",
+            default = {},
+            maxLength = 255,
+        },
+        addons = {
+            type = "strings",
+            title = "Add-ons",
+            default = {},
+            maxLength = 128,
+        },
+        dockOverlap = {
+            type = "boolean",
+            title = "Corner docks overlap windows",
+            default = false,
+        },
+        visualiser = {
+            type = "boolean",
+            title = "Audio visualiser",
+            default = false,
+        },
+        cols = {
+            type = "number",
+            title = "Visualiser columns",
+            default = 24,
+            min = 6,
+            max = 47,
+            step = 1,
+        },
+        sens = {
+            type = "number",
+            title = "Visualiser sensitivity",
+            default = 1,
+            min = 0.3,
+            max = 3,
+            step = 0.01,
+        },
+        hgt = {
+            type = "number",
+            title = "Visualiser height",
+            default = 150,
+            min = 40,
+            max = 300,
+            step = 1,
+        },
+        bl = {
+            type = "number",
+            title = "Visualiser blend",
+            default = 1,
+            min = 0,
+            max = 1,
+            step = 0.01,
+        },
+        lay = {
+            type = "choice",
+            title = "Visualiser placement",
+            default = "bottom",
+            choices = { "bottom", "corners", "top", "left", "right" },
+        },
+        mon = {
+            type = "string",
+            title = "Visualiser display",
+            default = "",
+            maxLength = 256,
+        },
+    },
+}

@@ -344,6 +344,7 @@ final class ShellWidgetHost {
     var powerStateObserver: NSObjectProtocol?
     var displaySleepObservers: [NSObjectProtocol] = []
     var watchedPaths: [URL] = []
+    var failedConfigHelpers: Set<URL> = []
     var barColors: (accent: SettingsColor?, foreground: SettingsColor?) = (nil, nil)
     let latestData = ShellLatestWidgetData()
     var outbox: ShellWidgetOutbox?

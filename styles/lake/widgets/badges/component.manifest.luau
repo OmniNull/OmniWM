@@ -1,0 +1,5 @@
+return {
+    title = "App badges",
+    icon = "app.badge",
+    views = { "compact", "expanded" },
+}

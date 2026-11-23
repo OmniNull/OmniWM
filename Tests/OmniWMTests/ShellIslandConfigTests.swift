@@ -10,9 +10,9 @@ final class ShellIslandConfigTests: XCTestCase {
 
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try write("profile = \"look\"\n", to: "shell.toml")
-        try write("leading = []\n", to: "default/shell.toml")
-        try write("trailing = []\n", to: "look/shell.toml")
+        try write("return { profile = \"look\" }\n", to: "shell.luau")
+        try write("return { leading = {} }\n", to: "default/shell.luau")
+        try write("return { trailing = {} }\n", to: "look/shell.luau")
     }
 
     override func tearDownWithError() throws {
@@ -24,7 +24,7 @@ final class ShellIslandConfigTests: XCTestCase {
         XCTAssertNil(try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems)).island)
         XCTAssertTrue(problems.isEmpty)
 
-        try write("[island]\n", to: "look/shell.toml")
+        try write("return { island = {} }\n", to: "look/shell.luau")
         XCTAssertEqual(
             try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems)).island,
             ShellIslandConfig()
@@ -33,15 +33,14 @@ final class ShellIslandConfigTests: XCTestCase {
     }
 
     func testUserProfileIslandOverridesMergeWithSelectedAndDefaultProfiles() throws {
-        try write("[island]\nroot = \"base\"\nwidth = 700\nheight = 200\n", to: "default/shell.toml")
-        try write("[island]\nroot = \"custom\"\nheight = 280\n", to: "look/shell.toml")
+        try write("return { island = { root = \"base\", width = 700, height = 200 } }\n", to: "default/shell.luau")
+        try write("return { island = { root = \"custom\", height = 280 } }\n", to: "look/shell.luau")
         try write("""
-        profile = "look"
-        [profiles.look.island]
-        width = 900
-        displays = "all"
-        fullscreen = "show"
-        """, to: "shell.toml")
+        return {
+            profile = "look",
+            profiles = { look = { island = { width = 900, displays = "all", fullscreen = "show" } } },
+        }
+        """, to: "shell.luau")
         var problems: [String] = []
         let island = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems)?.island)
         XCTAssertEqual(island.root, "custom")
@@ -52,11 +51,11 @@ final class ShellIslandConfigTests: XCTestCase {
     }
 
     func testDisplaySizingIsOptInAndValidated() throws {
-        try write("[island]\nsizing = \"display\"\n", to: "look/shell.toml")
+        try write("return { island = { sizing = \"display\" } }\n", to: "look/shell.luau")
         var problems: [String] = []
         XCTAssertEqual(ShellConfig.load(shellDirectory: root, problems: &problems)?.island?.sizing, .display)
         XCTAssertTrue(problems.isEmpty)
-        try write("[island]\nsizing = \"monitor-name\"\n", to: "look/shell.toml")
+        try write("return { island = { sizing = \"monitor-name\" } }\n", to: "look/shell.luau")
         problems = []
         XCTAssertNil(ShellConfig.load(shellDirectory: root, problems: &problems)?.island)
         XCTAssertTrue(problems.contains { $0.contains("sizing") })
@@ -64,11 +63,13 @@ final class ShellIslandConfigTests: XCTestCase {
 
     func testInvalidIslandValuesFailClosedWithDiagnostics() throws {
         for value in [
-            "island = 7", "[island]\nroot = \"../escape\"", "[island]\ndisplays = \"primary\"",
-            "[island]\nfullscreen = \"sometimes\"", "[island]\nwidth = 0", "[island]\nheight = 8193",
-            "[island]\nwidth = nan", "[island]\nheight = \"300\""
+            "return { island = 7 }", "return { island = { root = \"../escape\" } }",
+            "return { island = { displays = \"primary\" } }",
+            "return { island = { fullscreen = \"sometimes\" } }", "return { island = { width = 0 } }",
+            "return { island = { height = 8193 } }",
+            "return { island = { width = 0/0 } }", "return { island = { height = \"300\" } }"
         ] {
-            try write(value, to: "look/shell.toml")
+            try write(value, to: "look/shell.luau")
             var problems: [String] = []
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems), value)
             XCTAssertNil(config.island, value)
@@ -77,45 +78,59 @@ final class ShellIslandConfigTests: XCTestCase {
     }
 
     func testUnknownIslandKeyIsReportedAndUserTopLevelDoesNotEnableIsland() throws {
-        try write("[island]\nextra = true\n", to: "look/shell.toml")
+        try write("return { island = { extra = true } }\n", to: "look/shell.luau")
         var problems: [String] = []
         XCTAssertNotNil(ShellConfig.load(shellDirectory: root, problems: &problems)?.island)
         XCTAssertTrue(problems.contains { $0.contains("extra") })
 
-        try write("trailing = []\n", to: "look/shell.toml")
-        try write("profile = \"look\"\n[island]\nroot = \"custom\"\n", to: "shell.toml")
+        try write("return { trailing = {} }\n", to: "look/shell.luau")
+        try write("return { profile = \"look\", island = { root = \"custom\" } }\n", to: "shell.luau")
         problems = []
         XCTAssertNil(ShellConfig.load(shellDirectory: root, problems: &problems)?.island)
-        XCTAssertTrue(problems.contains { $0.contains("island belongs in [profiles.look]") })
+        XCTAssertTrue(problems.contains { $0.contains("island belongs in profiles[\"look\"]") })
     }
 
     func testComponentArraysReplaceAndProviderIsAnOrdinaryOption() throws {
         try write("""
-        [island]
-        [[island.components]]
-        id = "stock"
-        widget = "clock"
-        provider = true
-        capabilities = {commands = ["session"]}
-        """, to: "look/shell.toml")
+        return {
+            island = {
+                components = {
+                    {
+                        id = "stock",
+                        widget = "clock",
+                        provider = true,
+                        capabilities = { commands = { "session" } },
+                    },
+                },
+            },
+        }
+        """, to: "look/shell.luau")
         var problems: [String] = []
         var config = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems))
         XCTAssertEqual(config.island?.components.count, 1)
         XCTAssertEqual(config.island?.components.first?.options["provider"], .bool(true))
         XCTAssertNil(config.island?.components.first?.capabilities)
         try write("""
-        profile = "look"
-        [[profiles.look.island.components]]
-        id = "tokyo"
-        widget = "clock"
-        zone = "Asia/Tokyo"
-        provider = true
-        capabilities = {commands = ["media"]}
-        [[profiles.look.island.components]]
-        id = "london"
-        widget = "clock"
-        enabled = false
-        """, to: "shell.toml")
+        return {
+            profile = "look",
+            profiles = {
+                look = {
+                    island = {
+                        components = {
+                            {
+                                id = "tokyo",
+                                widget = "clock",
+                                zone = "Asia/Tokyo",
+                                provider = true,
+                                capabilities = { commands = { "media" } },
+                            },
+                            { id = "london", widget = "clock", enabled = false },
+                        },
+                    },
+                },
+            },
+        }
+        """, to: "shell.luau")
         config = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems))
         XCTAssertEqual(config.island?.components.map(\.id), ["tokyo", "london"])
         XCTAssertEqual(config.island?.components.first?.options["provider"], .bool(true))

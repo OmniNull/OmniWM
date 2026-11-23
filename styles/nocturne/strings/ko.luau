@@ -1,0 +1,3 @@
+return {
+    ["Now Playing"] = "지금 재생 중",
+}

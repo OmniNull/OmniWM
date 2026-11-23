@@ -64,16 +64,17 @@ enum ShellWallpaperPalette {
     static func theme(pixels: [UInt32], scheme: ShellWallpaperScheme) -> String {
         let seed = pixels.withUnsafeBufferPointer { omni_material_seed($0.baseAddress, $0.count, 0) }
         let (source, variant) = seed == 0 ? (gray, OMNI_MATERIAL_MONOCHROME) : (seed, scheme.variant)
-        var text = ""
+        var text = "return {\n"
         for (name, dark) in [("light", false), ("dark", true)] {
             let colors = ShellMaterialPalette.colors(seed: source, variant: variant, dark: dark)
-            text += text.isEmpty ? "[\(name)]\n" : "\n[\(name)]\n"
+            text += "    \(name) = {\n"
             for role in ShellRole.allCases {
                 guard let color = colors[role] else { continue }
-                text += "\(role) = \"#\(String(format: "%06X", color))\"\n"
+                text += "        \(role) = \"#\(String(format: "%06X", color))\",\n"
             }
+            text += "    },\n"
         }
-        return text
+        return text + "}\n"
     }
 
     static func write(_ text: String, to url: URL) throws -> Bool {

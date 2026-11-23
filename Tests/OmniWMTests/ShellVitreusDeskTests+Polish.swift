@@ -4,7 +4,6 @@
 import AppKit
 @testable import OmniWM
 import OmniWMShellCore
-import TOML
 import XCTest
 
 @MainActor
@@ -45,7 +44,7 @@ extension ShellVitreusDeskTests {
     private static func theme(_ text: String, name: String) throws -> ShellTheme {
         var problems: [String] = []
         let theme = try ShellTheme(
-            toml: TOMLDecoder().decode([String: TOMLNode].self, from: Data(text.utf8)), name: name, problems: &problems
+            values: ShellLuauFixture.table(text), name: name, problems: &problems
         )
         XCTAssertEqual(problems, [], name)
         return theme
@@ -90,7 +89,7 @@ extension ShellVitreusDeskTests {
 
     func testTheVitreusThemeResolvesEveryRoleToTheStockVitreusPalette() throws {
         let roles = try vitreusRoles()
-        let url = try ShellStyleFixture.source("vitreus").appendingPathComponent("themes/vitreus.toml")
+        let url = try ShellStyleFixture.source("vitreus").appendingPathComponent("themes/vitreus.luau")
         let theme = try Self.theme(String(contentsOf: url, encoding: .utf8), name: "vitreus")
         for (name, stock) in Self.stock where name != "mintlo" {
             XCTAssertEqual(Self.hex(try Self.color(roles[name], in: theme)), stock, name)

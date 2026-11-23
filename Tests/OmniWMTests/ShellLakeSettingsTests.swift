@@ -21,7 +21,7 @@ final class ShellLakeSettingsTests: XCTestCase {
         }
         let widget = try fixture()
         widget.render(ShellBarData())
-        XCTAssertFalse(widget.strings().contains("Edit in shell.toml"))
+        XCTAssertFalse(widget.strings().contains("Edit in shell.luau"))
         let input = try textInput("Edit Zone", in: widget)
         XCTAssertEqual(input.content.inputMaxLength, 64)
         XCTAssertEqual(input.content.action, 0)
@@ -85,7 +85,7 @@ final class ShellLakeSettingsTests: XCTestCase {
         absent.render(ShellBarData())
         absent.invoke(try action("Appearance settings", in: absent))
         absent.render(ShellBarData())
-        XCTAssertTrue(absent.strings().contains("Edit this profile’s settings in shell.toml."))
+        XCTAssertTrue(absent.strings().contains("Edit this profile’s settings in shell.luau."))
     }
 
     func testRootColorAndActionTargetsUseValidatedPublicWrites() throws {

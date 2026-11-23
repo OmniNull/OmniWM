@@ -16,4 +16,4 @@ Use the bar buttons to open their panels. Change placement, thickness and widget
 
 ## Credits and licences
 
-Style code is GPL-2.0-only, as declared in [style.toml](style.toml). Colours adapt [Noctalia](https://github.com/noctalia-dev/noctalia) (MIT); retain [its notice](Noctalia-LICENSE.txt).
+Style code is GPL-2.0-only, as declared in [style.luau](style.luau). Colours adapt [Noctalia](https://github.com/noctalia-dev/noctalia) (MIT); retain [its notice](Noctalia-LICENSE.txt).

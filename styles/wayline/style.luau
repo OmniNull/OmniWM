@@ -1,0 +1,11 @@
+return {
+    format = 1,
+    name = "wayline",
+    version = "1.0.1",
+    api = 1,
+    author = "OmniNull",
+    license = "GPL-2.0-only",
+    title = "Wayline",
+    summary = "A structured bar with labeled workspaces and quick status controls.",
+    previews = { "bar.jpg", "desktop.jpg" },
+}

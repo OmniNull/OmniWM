@@ -6,10 +6,10 @@ Contributors can try a checkout style as described in [Trying a Style](../websit
 
 ```text
 <name>/
-├── style.toml          English metadata, plain MAJOR.MINOR.PATCH version and style API
+├── style.luau          English metadata, plain MAJOR.MINOR.PATCH version and style API
 ├── README.md           Summary, previews, behaviour, controls and credits
 ├── previews/           Gallery images or GIFs, when available
-├── strings/            Widget and option translations in <locale>.toml
+├── strings/            Widget and option translations in <locale>.luau
 ├── widgets/            Luau widgets and components
 ├── lib/                Shared Luau modules for this style
 ├── themes/             Style-owned palettes
@@ -17,8 +17,8 @@ Contributors can try a checkout style as described in [Trying a Style](../websit
 └── fonts/              Font files and their notices
 ```
 
-Every style has `style.toml` and `README.md`; the other folders are optional. Keep upstream notices in the style folder and font notices beside their fonts. Manifest text stays in English; widget translations fall back from the exact locale to the language, English and the app's own strings.
+Every style has `style.luau` and `README.md`; the other folders are optional. Keep upstream notices in the style folder and font notices beside their fonts. Manifest text stays in English; widget translations fall back from the exact locale to the language, English and the app's own strings.
 
-To publish a style, put this folder's contents at the root of a public GitHub repository, or put several styles under `styles/<name>/`. A root `style.toml` takes precedence over the collection. In a collection, each manifest's `name` must match its folder. List preview file names in the manifest's `previews` field and keep the pictures in `previews/`.
+To publish a style, put this folder's contents at the root of a public GitHub repository, or put several styles under `styles/<name>/`. A root `style.luau` takes precedence over the collection. In a collection, each manifest's `name` must match its folder. List preview file names in the manifest's `previews` field and keep the pictures in `previews/`.
 
 Users add the repository's main-page URL through **Get Styles > Add from GitHub…**. OmniWM reads its default branch; no release or package is needed. Increase the manifest's plain `MAJOR.MINOR.PATCH` version to offer an **Update**. Changes published at the same version do not offer one.

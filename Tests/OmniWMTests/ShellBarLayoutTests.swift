@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class ShellBarLayoutTests: XCTestCase {
@@ -24,10 +23,8 @@ final class ShellBarLayoutTests: XCTestCase {
             try Data("function render(ctx) return ui.box{} end\n".utf8)
                 .write(to: folder.appendingPathComponent("init.luau"))
         }
-        try write("default/shell.toml", """
-        leading = ["workspaces"]
-        trailing = ["clock"]
-        hiddenBarWidget = "hidden-bar"
+        try write("default/shell.luau", """
+        return { leading = { "workspaces" }, trailing = { "clock" }, hiddenBarWidget = "hidden-bar" }
         """)
     }
 
@@ -39,20 +36,14 @@ final class ShellBarLayoutTests: XCTestCase {
         try Data((contents + "\n").utf8).write(to: shell.appendingPathComponent(path))
     }
 
-    private func read() throws -> String {
-        try String(contentsOf: shell.appendingPathComponent("shell.toml"), encoding: .utf8)
-    }
-
-    private func parsed() throws -> [String: TOMLNode] {
-        try TOMLDecoder().decode([String: TOMLNode].self, from: Data(read().utf8))
-    }
-
     func testPriorityLayersLikeTheLanesAndUnlistedWidgetsRankOuterFirst() throws {
-        try write("default/shell.toml", """
-        leading = ["omniwm", "workspaces", "scratchpads"]
-        center = ["active-window"]
-        trailing = ["media", "clock"]
-        priority = ["active-window"]
+        try write("default/shell.luau", """
+        return {
+            leading = { "omniwm", "workspaces", "scratchpads" },
+            center = { "active-window" },
+            trailing = { "media", "clock" },
+            priority = { "active-window" },
+        }
         """)
         func ranks(_ order: [String]) -> [String: Int] {
             Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
@@ -64,9 +55,8 @@ final class ShellBarLayoutTests: XCTestCase {
             ranks(["active-window", "omniwm", "clock", "workspaces", "media", "scratchpads"])
         )
 
-        try write("shell.toml", """
-        [profiles.default]
-        priority = ["clock", "workspaces"]
+        try write("shell.luau", """
+        return { profiles = { default = { priority = { "clock", "workspaces" } } } }
         """)
         config = ShellConfig.resolve(shellDirectory: shell)
         XCTAssertEqual(config.priority, ["clock", "workspaces"])
@@ -77,10 +67,8 @@ final class ShellBarLayoutTests: XCTestCase {
     }
 
     func testEnablingStatsPlacesTheConfiguredWidgetAndDisablingKeepsItsPosition() throws {
-        try write("default/shell.toml", """
-        leading = ["workspaces"]
-        trailing = ["clock"]
-        systemStatsWidget = "weather"
+        try write("default/shell.luau", """
+        return { leading = { "workspaces" }, trailing = { "clock" }, systemStatsWidget = "weather" }
         """)
         XCTAssertTrue(try ShellBarLayout.setSystemStatsEnabled(true, in: shell))
         var config = ShellConfig.resolve(shellDirectory: shell)
@@ -99,14 +87,13 @@ final class ShellBarLayoutTests: XCTestCase {
     }
 
     func testAnIslandThatDrawsStatsKeepsTheToggleOutOfTheBarLanes() throws {
-        try write("default/shell.toml", """
-        leading = ["workspaces"]
-        trailing = ["clock"]
-        systemStatsWidget = "weather"
-
-        [island]
-        root = "mine"
-        drawsSystemStats = true
+        try write("default/shell.luau", """
+        return {
+            leading = { "workspaces" },
+            trailing = { "clock" },
+            systemStatsWidget = "weather",
+            island = { root = "mine", drawsSystemStats = true },
+        }
         """)
         XCTAssertTrue(ShellConfig.resolve(shellDirectory: shell).hasSystemStatsButtonPlace)
         XCTAssertTrue(try ShellBarLayout.setSystemStatsEnabled(true, in: shell))
@@ -162,7 +149,7 @@ final class ShellBarLayoutTests: XCTestCase {
     }
 
     func testTheCenterLaneLoadsAndPlacesBetweenTheOthers() throws {
-        try write("shell.toml", "profiles.default.center = [\"weather\"]")
+        try write("shell.luau", "return { profiles = { default = { center = { \"weather\" } } } }")
         let config = ShellConfig.resolve(shellDirectory: shell)
         XCTAssertEqual(config.center, ["weather"])
         XCTAssertEqual(config.lane(of: "weather").lane, .center)
@@ -174,8 +161,8 @@ final class ShellBarLayoutTests: XCTestCase {
     }
 
     func testAHandWrittenProfileTableSupportsTheSameEditsAsDottedKeys() throws {
-        let original = "[profiles.default]\ntrailing = [\"clock\"]\n"
-        try write("shell.toml", original.trimmingCharacters(in: .newlines))
+        let original = "return { profiles = { default = { trailing = { \"clock\" } } } }\n"
+        try write("shell.luau", original.trimmingCharacters(in: .newlines))
         XCTAssertEqual(try ShellBarLayout.load(shellDirectory: shell).get().trailing, ["clock"])
         XCTAssertTrue(try ShellBarLayout.edit(shellDirectory: shell) { $0.add("weather", to: .leading) })
         let saved = try ShellBarLayout.load(shellDirectory: shell).get()
@@ -221,12 +208,15 @@ final class ShellBarLayoutTests: XCTestCase {
     }
 
     func testProfileKeysAtTheTopLevelAreReportedWhereTheyBelong() throws {
-        try write("shell.toml", "leading = [\"clock\"]\nbogus = 1\nprofiles.default.trailing = \"mine\"")
+        try write(
+            "shell.luau",
+            "return { leading = { \"clock\" }, bogus = 1, profiles = { default = { trailing = \"mine\" } } }"
+        )
         var problems: [String] = []
         let config = ShellConfig.resolve(shellDirectory: shell, problems: &problems)
         XCTAssertEqual(config.leading, ["workspaces"])
         XCTAssertEqual(config.trailing, [])
-        XCTAssertTrue(problems.contains { $0.contains("leading belongs in [profiles.default]") }, "\(problems)")
+        XCTAssertTrue(problems.contains { $0.contains("leading belongs in profiles[\"default\"]") }, "\(problems)")
         XCTAssertTrue(problems.contains { $0.contains("unknown key bogus") }, "\(problems)")
         XCTAssertTrue(problems.contains { $0.contains("trailing must be a list of widget names") }, "\(problems)")
     }

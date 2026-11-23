@@ -45,19 +45,17 @@ final class ShellWallpaperPaletteTests: XCTestCase {
 
     private static let grey = ShellWallpaperPalette.pixels(of: image([(0x6E6E6E, 1), (0xBDBDBD, 1)]))
 
-    private func colors(_ text: String, _ appearance: String) -> [String: UInt32] {
-        var colors: [String: UInt32] = [:]
-        var section = ""
-        for line in text.split(separator: "\n") {
-            if line.hasPrefix("[") {
-                section = String(line.dropFirst().dropLast())
-            } else if section == appearance, let equals = line.firstIndex(of: "=") {
-                let name = line[..<equals].trimmingCharacters(in: .whitespaces)
-                let hex = line[line.index(after: equals)...].trimmingCharacters(in: .whitespaces.union(["\"", "#"]))
-                colors[name] = UInt32(hex, radix: 16)
-            }
+    private func colors(_ text: String, _ appearance: String) throws -> [String: UInt32] {
+        let theme = try ShellLuauFixture.table(text)
+        guard case let .record(palette)? = theme[appearance] else {
+            throw SettingsLuauError(message: "Missing palette for \(appearance).")
         }
-        return colors
+        return try palette.mapValues { value in
+            guard case let .string(hex) = value, hex.hasPrefix("#") else {
+                throw SettingsLuauError(message: "Expected a hexadecimal color.")
+            }
+            return try XCTUnwrap(UInt32(hex.dropFirst(), radix: 16))
+        }
     }
 
     private func spread(_ color: UInt32) -> Int {
@@ -65,34 +63,34 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         return channels.max()! - channels.min()!
     }
 
-    func testThePaletteIsDeterministicAndFollowsTheScheme() {
+    func testThePaletteIsDeterministicAndFollowsTheScheme() throws {
         for wallpaper in Self.wallpapers {
             let tonal = ShellWallpaperPalette.theme(pixels: wallpaper.pixels, scheme: .tonalSpot)
             XCTAssertEqual(tonal, ShellWallpaperPalette.theme(pixels: wallpaper.pixels, scheme: .tonalSpot))
             XCTAssertNotEqual(tonal, ShellWallpaperPalette.theme(pixels: wallpaper.pixels, scheme: .vibrant))
             for appearance in ["light", "dark"] {
                 XCTAssertEqual(
-                    Set(colors(tonal, appearance).keys),
+                    Set(try colors(tonal, appearance).keys),
                     Set(ShellMaterialPalette.roles.keys.map { "\($0)" }),
                     wallpaper.name
                 )
             }
         }
-        let sky = colors(ShellWallpaperPalette.theme(pixels: Self.wallpapers[0].pixels, scheme: .tonalSpot), "dark")
+        let sky = try colors(ShellWallpaperPalette.theme(pixels: Self.wallpapers[0].pixels, scheme: .tonalSpot), "dark")
         let accent = sky["accent"] ?? 0
         XCTAssertGreaterThan(accent & 0xFF, (accent >> 16) & 0xFF)
     }
 
-    func testAGreyWallpaperGivesANeutralPalette() {
+    func testAGreyWallpaperGivesANeutralPalette() throws {
         for scheme in ShellWallpaperScheme.allCases {
             let grey = ShellWallpaperPalette.theme(pixels: Self.grey, scheme: scheme)
             for appearance in ["light", "dark"] {
-                for (role, color) in colors(grey, appearance) where role != "\(ShellRole.error)" {
+                for (role, color) in try colors(grey, appearance) where role != "\(ShellRole.error)" {
                     XCTAssertLessThanOrEqual(spread(color), 2, "\(scheme) \(appearance) \(role)")
                 }
             }
         }
-        let sky = colors(ShellWallpaperPalette.theme(pixels: Self.wallpapers[0].pixels, scheme: .tonalSpot), "dark")
+        let sky = try colors(ShellWallpaperPalette.theme(pixels: Self.wallpapers[0].pixels, scheme: .tonalSpot), "dark")
         XCTAssertGreaterThan(spread(sky["accent"] ?? 0), 40)
     }
 
@@ -100,14 +98,15 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try Data("profiles.default.theme = \"wallpaper\"\n".utf8).write(to: root.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { theme = \"wallpaper\" } } }\n".utf8)
+            .write(to: root.appendingPathComponent("shell.luau"))
         var problems: [String] = []
         let pending = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems))
         XCTAssertEqual(pending.themeName, ShellWallpaperPalette.themeName)
         XCTAssertEqual(pending.theme, ShellTheme.native)
         XCTAssertEqual(problems, [])
 
-        let url = root.appendingPathComponent("themes/wallpaper.toml")
+        let url = root.appendingPathComponent("themes/wallpaper.luau")
         let text = ShellWallpaperPalette.theme(pixels: Self.wallpapers[1].pixels, scheme: .tonalSpot)
         XCTAssertTrue(try ShellWallpaperPalette.write(text, to: url))
         let written = try FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date
@@ -146,15 +145,16 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         XCTAssertTrue(try ShellProfiles.selectTheme(ShellWallpaperPalette.themeName, in: root))
         XCTAssertTrue(try ShellProfiles.selectScheme(.rainbow, in: root))
         XCTAssertFalse(try ShellProfiles.selectScheme(.rainbow, in: root))
-        let text = try String(contentsOf: root.appendingPathComponent("shell.toml"), encoding: .utf8)
-        XCTAssertTrue(try ShellTOMLText.contains(["profiles", "default", "scheme"], in: text), text)
+        let text = try String(contentsOf: root.appendingPathComponent("shell.luau"), encoding: .utf8)
+        XCTAssertNotNil(try ShellLuauDocument(Data(text.utf8)).value["profiles"]?["default"]?["scheme"], text)
         var problems: [String] = []
         let selected = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems))
         XCTAssertEqual(selected.themeName, ShellWallpaperPalette.themeName)
         XCTAssertEqual(selected.wallpaperScheme, .rainbow)
         XCTAssertEqual(problems, [])
 
-        try Data("profiles.default.scheme = \"sepia\"\n".utf8).write(to: root.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { scheme = \"sepia\" } } }\n".utf8)
+            .write(to: root.appendingPathComponent("shell.luau"))
         let invalid = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems))
         XCTAssertEqual(invalid.wallpaperScheme, .tonalSpot)
         XCTAssertEqual(problems.count, 1)
@@ -270,7 +270,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         onFailure: @escaping @MainActor (String) -> Void = { _ in }
     ) -> ShellWallpaperPaletteWriter {
         ShellWallpaperPaletteWriter(
-            destination: root.appendingPathComponent("themes/wallpaper.toml"),
+            destination: root.appendingPathComponent("themes/wallpaper.luau"),
             scheme: .tonalSpot,
             source: { source },
             read: read,
@@ -504,7 +504,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
     }
 
     private func palette(in root: URL) -> String? {
-        try? String(contentsOf: root.appendingPathComponent("themes/wallpaper.toml"), encoding: .utf8)
+        try? String(contentsOf: root.appendingPathComponent("themes/wallpaper.luau"), encoding: .utf8)
     }
 
     func testTheRecheckFollowsAWallpaperThatChangesWithoutAStoreEvent() {
@@ -531,7 +531,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         writer.start()
         XCTAssertEqual(palette(in: root), palette(of: Self.sunset))
         let edited = "edited by hand"
-        try Data(edited.utf8).write(to: root.appendingPathComponent("themes/wallpaper.toml"))
+        try Data(edited.utf8).write(to: root.appendingPathComponent("themes/wallpaper.luau"))
 
         let reads = wallpaper.reads
         writer.refreshIfChanged()
@@ -600,7 +600,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
     func testTheRecheckWritesThePaletteAgainAfterItsFileIsDeleted() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let destination = root.appendingPathComponent("themes/wallpaper.toml")
+        let destination = root.appendingPathComponent("themes/wallpaper.luau")
         let file = StillFile(ShellWallpaperPalette.StillWallpaper(
             url: root.appendingPathComponent("sunset.png"), size: 4096, modified: Date(timeIntervalSince1970: 1000)
         ))
@@ -660,7 +660,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let sky = palette(of: Self.sky)
-        XCTAssertTrue(try ShellWallpaperPalette.write(sky, to: root.appendingPathComponent("themes/wallpaper.toml")))
+        XCTAssertTrue(try ShellWallpaperPalette.write(sky, to: root.appendingPathComponent("themes/wallpaper.luau")))
         let file = StillFile(ShellWallpaperPalette.StillWallpaper(
             url: root.appendingPathComponent("broken.png"), size: 4096, modified: Date(timeIntervalSince1970: 1000)
         ))

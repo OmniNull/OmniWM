@@ -95,7 +95,7 @@ extension ShellDesktopEditorTests {
 
     func testPriorityAndLaneDropsRejectEachOthersPayloads() async throws {
         let fixture = try await fixture()
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         let name = try XCTUnwrap(fixture.editor.priorityOrder.first)
         XCTAssertFalse(fixture.editor.drop(fixture.editor.priorityPayload(for: name), into: .center, at: 0))
@@ -113,7 +113,7 @@ extension ShellDesktopEditorTests {
         _ = await other.selectStyle("nocturne")
         let stale = fixture.editor.dragPayload(for: "clock")
         _ = await fixture.editor.selectStyle("nocturne")
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         let snapshot = fixture.editor.snapshot?.config
         for payload in [

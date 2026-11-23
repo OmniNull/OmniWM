@@ -1,0 +1,21 @@
+return {
+    title = "HTTP burst fixture",
+    icon = "network",
+    views = { "compact", "expanded" },
+    capabilities = {
+        network = { "127.0.0.1" },
+    },
+    options = {
+        endpoint = {
+            type = "string",
+            default = "http://127.0.0.1:8765",
+            maxLength = 128,
+        },
+        timeout = {
+            type = "number",
+            default = 30,
+            min = 1,
+            max = 120,
+        },
+    },
+}

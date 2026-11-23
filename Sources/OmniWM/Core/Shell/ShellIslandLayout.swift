@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 struct ShellIslandLayout: Equatable, Sendable {
     enum Operation: Equatable, Sendable {
@@ -101,30 +100,28 @@ struct ShellIslandLayout: Equatable, Sendable {
         }
     }
 
-    static func persisted(_ change: Change, profile: String, root: String, in original: String) throws -> String {
-        let entry: (key: [String], value: TOMLNode?)
+    static func entry(for change: Change, profile: String, root: String) -> ([String], SettingsLuauValue?) {
         switch change {
         case let .components(instances):
-            entry = (ShellProfiles.key("island", of: profile) + ["components"], .array(instances.map(node)))
+            (ShellProfiles.key("island", of: profile) + ["components"], .list(instances.map(node)))
         case let .rootSetting(key, value):
-            entry = (ShellProfiles.key("widgets", of: profile) + [root, key], value.node)
+            (ShellProfiles.key("widgets", of: profile) + [root, key], value.node)
         }
-        return try ShellTOMLText.settingNodes([entry], in: original)
     }
 
-    private static func node(_ instance: ShellComponentInstance) -> TOMLNode {
+    private static func node(_ instance: ShellComponentInstance) -> SettingsLuauValue {
         var table = instance.options.mapValues(\.node)
         table["id"] = .string(instance.id)
         table["widget"] = .string(instance.widget)
         table["enabled"] = .boolean(instance.enabled)
         if let capabilities = instance.capabilities {
-            table["capabilities"] = .table([
-                "commands": .array(capabilities.commands.map(TOMLNode.string)),
-                "network": .array(capabilities.network.map(TOMLNode.string)),
+            table["capabilities"] = .record([
+                "commands": .list(capabilities.commands.map(SettingsLuauValue.string)),
+                "network": .list(capabilities.network.map(SettingsLuauValue.string)),
                 "files": .boolean(capabilities.files),
                 "clipboard": .boolean(capabilities.clipboard)
             ])
         }
-        return .table(table)
+        return .record(table)
     }
 }

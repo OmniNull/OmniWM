@@ -202,8 +202,7 @@ extension WorkspaceBarManager {
                     return .invalidArguments
                 }
                 changed = try await shellConfiguration.editFile { directory in
-                    let theme = try ShellProfiles.selectTheme(name, in: directory)
-                    return try ShellProfiles.selectScheme(scheme, in: directory) || theme
+                    try ShellProfiles.selectTheme(name, scheme: scheme, in: directory)
                 }
             case let .eject(widget):
                 changed = try await shellConfiguration.editFile { directory in

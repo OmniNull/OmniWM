@@ -7,7 +7,6 @@ import Foundation
 import Observation
 @testable import OmniWM
 import Synchronization
-import TOML
 import XCTest
 
 @MainActor
@@ -87,7 +86,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
     func testDirectoryObservationRecoversAfterStreamStartFailure() async throws {
         let shell = try fixture()
         defer { try? FileManager.default.removeItem(at: shell) }
-        let file = shell.appendingPathComponent("shell.toml")
+        let file = shell.appendingPathComponent("shell.luau")
         var attempts = 0
         var changed: XCTestExpectation? = expectation(description: "Refresh while restarting the event stream")
         let observation = ShellDirectoryObservation(startStream: { stream in
@@ -103,7 +102,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(attempts, 2)
 
         changed = expectation(description: "Native file event after stream recovery")
-        try Data("profile = 'default'\n".utf8).write(to: file, options: .atomic)
+        try Data("return { profile = \"default\" }\n".utf8).write(to: file, options: .atomic)
         await fulfillment(of: [try XCTUnwrap(changed)], timeout: failureBound)
     }
 
@@ -149,12 +148,12 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         _ = try ShellProfiles.select("lake", in: shell)
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
-        let before = try Data(contentsOf: shell.appendingPathComponent("shell.toml"))
+        let before = try Data(contentsOf: shell.appendingPathComponent("shell.luau"))
         let defaultProfile = try await coordinator.previewConfig(profile: "default")
         XCTAssertEqual(defaultProfile.profile, "default")
         XCTAssertEqual(defaultProfile.island?.root, "focus-ribbon")
         XCTAssertEqual(coordinator.config.profile, "lake")
-        XCTAssertEqual(try Data(contentsOf: shell.appendingPathComponent("shell.toml")), before)
+        XCTAssertEqual(try Data(contentsOf: shell.appendingPathComponent("shell.luau")), before)
         try await coordinator.selectProfile("default")
         try await coordinator.set("main", key: "displays", table: "island")
         XCTAssertEqual(coordinator.config.island?.root, "focus-ribbon")
@@ -237,8 +236,8 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             try Data("function render(ctx) return ui.box{} end".utf8)
                 .write(to: folder.appendingPathComponent("init.luau"))
         }
-        try Data("[options.date]\ntype = 'boolean'\ndefault = true\n".utf8)
-            .write(to: inherited.appendingPathComponent("settings.toml"))
+        try Data("return { options = { date = { type = \"boolean\", default = true } } }".utf8)
+            .write(to: inherited.appendingPathComponent("settings.luau"))
         let loader = ShellConfigurationCatalogLoader()
         let directories = [shell, shell.appendingPathComponent("default")]
         let overridden = try await loader.settings(widgets: ["clock"], directories: directories)
@@ -311,11 +310,13 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         let catalog = try XCTUnwrap(coordinator.catalog)
         let root = try XCTUnwrap(catalog.settings)
         let component = try XCTUnwrap(catalog.descriptors["world-clock"])
-        try Data("[options.date]\ntype = 'number'\ndefault = 5\n".utf8)
-            .write(to: clock.folder.appendingPathComponent("settings.toml"))
-        try Data("[options.width]\ntype = 'number'\ndefault = 100\nmin = 0\nmax = 200\nstep = 20\n".utf8)
-            .write(to: root.folder.appendingPathComponent("settings.toml"))
-        try Data("views = []\n".utf8).write(to: component.folder.appendingPathComponent("component.toml"))
+        try Data("return { options = { date = { type = \"number\", default = 5 } } }".utf8)
+            .write(to: clock.folder.appendingPathComponent("settings.luau"))
+        try Data("return { options = { width = { type = \"number\", default = 100, min = 0, max = 200, step = 20 } } }"
+            .utf8)
+            .write(to: root.folder.appendingPathComponent("settings.luau"))
+        try Data("return { views = {} }".utf8)
+            .write(to: component.folder.appendingPathComponent("component.manifest.luau"))
 
         try await coordinator.set(44, key: "height")
         try await coordinator.setWidgetValue(.bool(false), widget: "clock", key: "date")
@@ -329,7 +330,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.catalog?.settings?.options["width"]?.maximum, 200)
         XCTAssertNil(coordinator.catalog?.descriptors["world-clock"])
         XCTAssertNotNil(coordinator.catalog?.entries.first { $0.widget == "world-clock" }?.error)
-        let saved = try Data(contentsOf: shell.appendingPathComponent("shell.toml"))
+        let saved = try Data(contentsOf: shell.appendingPathComponent("shell.luau"))
         do {
             try await coordinator.setWidgetValue(.bool(true), widget: "clock", key: "date")
             XCTFail("The refreshed number option must reject a boolean")
@@ -338,7 +339,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             try await coordinator.island(.rootSetting(key: "width", value: .number(540)))
             XCTFail("The refreshed maximum must reject 540")
         } catch {}
-        XCTAssertEqual(try Data(contentsOf: shell.appendingPathComponent("shell.toml")), saved)
+        XCTAssertEqual(try Data(contentsOf: shell.appendingPathComponent("shell.luau")), saved)
     }
 
     func testUnchangedRefreshKeepsPreviewRevisionMetadataAndPublication() async throws {
@@ -367,7 +368,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         try await coordinator.ensureLoaded()
         let defaultProfile = try await coordinator.previewConfig(profile: "default")
         let revision = coordinator.revision
-        try Data("not valid = [".utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("not valid = [".utf8).write(to: shell.appendingPathComponent("shell.luau"))
         try await coordinator.ensureLoaded()
         let cached = try await coordinator.previewConfig(profile: "default")
         XCTAssertEqual(cached, defaultProfile)
@@ -521,7 +522,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
                 .key("workspaceBar", of: "lake") + ["height"]
             _ = try ShellProfiles.setValue(41, at: heightKey, in: first)
             _ = try ShellProfiles.setValue(47, at: heightKey, in: second)
-            let file = second.appendingPathComponent("shell.toml")
+            let file = second.appendingPathComponent("shell.luau")
             let repaired = try Data(contentsOf: file)
             try Data("broken = [".utf8).write(to: file)
             let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
@@ -561,7 +562,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         }
         let target = external.appendingPathComponent("lake")
         _ = try ShellProfiles.setValue(47, at: ["workspaceBar", "height"], in: target)
-        let file = target.appendingPathComponent("shell.toml")
+        let file = target.appendingPathComponent("shell.luau")
         let repaired = try Data(contentsOf: file)
         try Data("broken = [".utf8).write(to: file)
         try FileManager.default.createSymbolicLink(
@@ -639,8 +640,8 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         let clock = try XCTUnwrap(coordinator.widgetSchemas["clock"])
         let changed = expectation(description: "Schema edit published")
         withObservationTracking { _ = coordinator.revision } onChange: { changed.fulfill() }
-        try Data("[options.date]\ntype = 'number'\ndefault = 5\n".utf8)
-            .write(to: clock.folder.appendingPathComponent("settings.toml"))
+        try Data("return { options = { date = { type = \"number\", default = 5 } } }".utf8)
+            .write(to: clock.folder.appendingPathComponent("settings.luau"))
         await fulfillment(of: [changed], timeout: failureBound)
         await coordinator.flush()
         XCTAssertEqual(coordinator.widgetSchemas["clock"]?.options["date"]?.kind, .number)
@@ -692,7 +693,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: shell) }
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
-        XCTAssertFalse(FileManager.default.fileExists(atPath: shell.appendingPathComponent("shell.toml").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: shell.appendingPathComponent("shell.luau").path))
         let revision = coordinator.revision
         try await coordinator.set(43, key: "height")
         XCTAssertEqual(coordinator.revision, revision + 1)
@@ -703,16 +704,13 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
     func testSavingRewritesOnlyTheProfilesLayoutKeysAndResetRestoresTheProfile() async throws {
         let shell = try barFixture()
         try writeBarFile("""
-        # my shell
-        profile = "default"
-        profiles.default.trailing = [
-            "clock",
-            "mine",
-        ]
-
-        [weather]
-        city = "Toronto"
-        """, to: "shell.toml", in: shell)
+        -- my shell
+        return {
+            profile = "default",
+            profiles = { default = { trailing = { "clock", "mine" } } },
+            weather = { city = "Toronto" },
+        }
+        """, to: "shell.luau", in: shell)
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
         let initial = try XCTUnwrap(coordinator.barLayout)
@@ -725,12 +723,12 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         }
         XCTAssertEqual(try parsedBarConfiguration(shell), [
             "profile": .string("default"),
-            "profiles": .table(["default": .table([
-                "leading": .array([.string("workspaces"), .string("weather")]),
-                "center": .array([]),
-                "trailing": .array([.string("clock")])
+            "profiles": .record(["default": .record([
+                "leading": .list([.string("workspaces"), .string("weather")]),
+                "center": .record([:]),
+                "trailing": .list([.string("clock")])
             ])]),
-            "weather": .table(["city": .string("Toronto")])
+            "weather": .record(["city": .string("Toronto")])
         ])
         let saved = try XCTUnwrap(coordinator.barLayout)
         XCTAssertEqual(saved.leading, ["workspaces", "weather"])
@@ -739,7 +737,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         try await coordinator.resetBarLayout()
         XCTAssertEqual(try parsedBarConfiguration(shell), [
             "profile": .string("default"),
-            "weather": .table(["city": .string("Toronto")])
+            "weather": .record(["city": .string("Toronto")])
         ])
         let reset = try XCTUnwrap(coordinator.barLayout)
         XCTAssertFalse(reset.customized)
@@ -748,18 +746,18 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
 
     func testEachProfileKeepsItsOwnLayout() async throws {
         let shell = try barFixture()
-        try writeBarFile("leading = [\"clock\"]\ntrailing = []", to: "styled/shell.toml", in: shell)
-        try writeBarFile("profile = \"styled\"", to: "shell.toml", in: shell)
+        try writeBarFile("return { leading = { \"clock\" }, trailing = {} }", to: "styled/shell.luau", in: shell)
+        try writeBarFile("return { profile = \"styled\" }", to: "shell.luau", in: shell)
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
         XCTAssertEqual(coordinator.config.profile, "styled")
         try await coordinator.editBar { $0.add("weather", to: .center) }
         XCTAssertEqual(try parsedBarConfiguration(shell), [
             "profile": .string("styled"),
-            "profiles": .table(["styled": .table([
-                "leading": .array([.string("clock")]),
-                "center": .array([.string("weather")]),
-                "trailing": .array([])
+            "profiles": .record(["styled": .record([
+                "leading": .list([.string("clock")]),
+                "center": .list([.string("weather")]),
+                "trailing": .record([:])
             ])])
         ])
         let styled = try XCTUnwrap(coordinator.barLayout)
@@ -781,17 +779,17 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
 
     func testABrokenLayerBlocksEditingInsteadOfSavingFallbackLists() async throws {
         let shell = try barFixture()
-        let original = "profiles.default.leading = [\"clock\"]\nprofiles.default.theme = \"dusk\"\n"
-        try Data(original.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        let original = "return { profiles = { default = { leading = { \"clock\" }, theme = \"dusk\" } } }\n"
+        try Data(original.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
-        try writeBarFile("leading = [", to: "default/shell.toml", in: shell)
+        try writeBarFile("return {leading = {", to: "default/shell.luau", in: shell)
 
         do {
             try await coordinator.refresh()
             XCTFail("A broken layer must not load")
         } catch let unreadable as ShellBarLayout.Unreadable {
-            XCTAssertTrue(unreadable.problem.hasPrefix("default/shell.toml"), unreadable.problem)
+            XCTAssertTrue(unreadable.problem.hasPrefix("default/shell.luau"), unreadable.problem)
         } catch {
             XCTFail("Expected unreadable layer, got \(error)")
         }
@@ -799,23 +797,27 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             try await coordinator.editBar { $0.remove("clock") }
             XCTFail("A broken layer must block editing")
         } catch let unreadable as ShellBarLayout.Unreadable {
-            XCTAssertTrue(unreadable.problem.hasPrefix("default/shell.toml"), unreadable.problem)
+            XCTAssertTrue(unreadable.problem.hasPrefix("default/shell.luau"), unreadable.problem)
         } catch {
             XCTFail("Expected unreadable layer, got \(error)")
         }
-        XCTAssertEqual(try Data(contentsOf: shell.appendingPathComponent("shell.toml")), Data(original.utf8))
+        XCTAssertEqual(try Data(contentsOf: shell.appendingPathComponent("shell.luau")), Data(original.utf8))
     }
 
     func testBarEditsPreserveOutsideLayoutChanges() async throws {
         let shell = try barFixture()
-        try writeBarFile("profiles.default.trailing = [\"clock\", \"weather\", \"mine\"]", to: "shell.toml", in: shell)
+        try writeBarFile(
+            "return { profiles = { default = { trailing = { \"clock\", \"weather\", \"mine\" } } } }",
+            to: "shell.luau",
+            in: shell
+        )
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
         try await coordinator.refresh()
         XCTAssertEqual(coordinator.barLayout?.trailing, ["clock", "weather", "mine"])
 
-        let outside = "profiles.default.trailing = [\"mine\", \"clock\"]\nprofiles.default.center = [\"weather\"]\n"
-        try Data(outside.utf8).write(to: shell.appendingPathComponent("shell.toml"))
-        XCTAssertEqual(try Data(contentsOf: shell.appendingPathComponent("shell.toml")), Data(outside.utf8))
+        let outside = "return { profiles = { default = { trailing = { \"mine\", \"clock\" }, center = { \"weather\" } } } }\n"
+        try Data(outside.utf8).write(to: shell.appendingPathComponent("shell.luau"))
+        XCTAssertEqual(try Data(contentsOf: shell.appendingPathComponent("shell.luau")), Data(outside.utf8))
         try await coordinator.editBar { $0.remove("clock") }
         let saved = try XCTUnwrap(coordinator.barLayout)
         XCTAssertEqual(saved.center, ["weather"])
@@ -843,8 +845,8 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         XCTAssertEqual(Array(coordinator.config.leading.prefix(3)), ["apple-menu", "app-menu", "omniwm"])
         let document = try parsedBarConfiguration(shell)
         XCTAssertEqual(document["profile"], .string("default"))
-        guard case let .table(profiles)? = document["profiles"],
-              case let .table(profile)? = profiles["default"]
+        guard case let .record(profiles)? = document["profiles"],
+              case let .record(profile)? = profiles["default"]
         else {
             return XCTFail("Expected retained default profile theme")
         }
@@ -862,9 +864,9 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         let selected = try await coordinator.selectProfile("default")
         XCTAssertTrue(selected)
         let order = ["clock", "workspaces"]
-        func profile() throws -> [String: TOMLNode] {
-            guard case let .table(profiles)? = try parsedBarConfiguration(shell)["profiles"],
-                  case let .table(profile)? = profiles["default"]
+        func profile() throws -> [String: SettingsLuauValue] {
+            guard case let .record(profiles)? = try parsedBarConfiguration(shell)["profiles"],
+                  case let .record(profile)? = profiles["default"]
             else { return [:] }
             return profile
         }
@@ -873,7 +875,7 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(coordinator.config.priority, order)
         XCTAssertEqual(coordinator.barLayout?.customized, true)
-        XCTAssertEqual(try profile()["priority"], .array(order.map { .string($0) }))
+        XCTAssertEqual(try profile()["priority"], .list(order.map { .string($0) }))
         for lane in ShellLane.allCases {
             XCTAssertNil(try profile()[lane.rawValue])
         }
@@ -892,8 +894,8 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
             }
         }
         try writeBarFile(
-            "leading = [\"workspaces\"]\ntrailing = [\"clock\"]\nhiddenBarWidget = \"hidden-bar\"",
-            to: "default/shell.toml",
+            "return { leading = { \"workspaces\" }, trailing = { \"clock\" }, hiddenBarWidget = \"hidden-bar\" }",
+            to: "default/shell.luau",
             in: shell
         )
         try writeBarFile("function render(ctx) return ui.box{} end", to: "widgets/mine/init.luau", in: shell)
@@ -906,11 +908,8 @@ final class ShellConfigurationCoordinatorTests: XCTestCase {
         try Data((contents + "\n").utf8).write(to: url)
     }
 
-    private func parsedBarConfiguration(_ shell: URL) throws -> [String: TOMLNode] {
-        try TOMLDecoder().decode(
-            [String: TOMLNode].self,
-            from: Data(contentsOf: shell.appendingPathComponent("shell.toml"))
-        )
+    private func parsedBarConfiguration(_ shell: URL) throws -> [String: SettingsLuauValue] {
+        try ShellLuauFixture.table(at: shell.appendingPathComponent("shell.luau"))
     }
 
     private func expectObservedBarHeight(

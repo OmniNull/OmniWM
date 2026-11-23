@@ -155,7 +155,7 @@ final class ShellWidgetSettingsModelTests: XCTestCase {
         ))
         XCTAssertEqual(status.options["network"]?.defaultValue, .bool(true))
         XCTAssertThrowsError(try ShellComponentCatalog.parseOptions(
-            .table(["network": .table(["type": .string("boolean")])]), place: "component"
+            .record(["network": .record(["type": .string("boolean")])]), place: "component"
         ))
     }
 
@@ -165,7 +165,7 @@ final class ShellWidgetSettingsModelTests: XCTestCase {
         let declared = roots.flatMap { root in
             ShellConfig.widgetFolders(in: root).filter {
                 FileManager.default.fileExists(atPath: $0.appendingPathComponent("init.luau").path)
-                    && FileManager.default.fileExists(atPath: $0.appendingPathComponent("settings.toml").path)
+                    && FileManager.default.fileExists(atPath: $0.appendingPathComponent("settings.luau").path)
             }
         }
         var checked: [URL] = []

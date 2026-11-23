@@ -124,9 +124,8 @@ final class ShellWidgetInspectorTests: XCTestCase {
         let reset = ShellConfigurationCoordinator(shellDirectory: directory)
         try await reset.ensureLoaded()
         for option in options {
-            XCTAssertFalse(ShellProfiles.hasTopLevel(
-                [ShellProfiles.key("widgets", of: "nocturne") + [option.widget, option.key]], in: directory
-            ), option.widget)
+            let saved = try ShellLuauDocument.load(at: directory.appendingPathComponent("shell.luau"))
+            XCTAssertNil(saved.value["profiles"]?["nocturne"]?["widgets"]?[option.widget]?[option.key], option.widget)
             let schemaDefault = try XCTUnwrap(reset.widgetSchemas[option.widget]?.options[option.key]?.defaultValue)
             XCTAssertEqual(schemaDefault, .number(option.schemaDefault), option.widget)
             XCTAssertEqual(

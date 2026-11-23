@@ -9,28 +9,38 @@ final class SettingsFormulaConfirmation {
     struct Question: Identifiable {
         let id = UUID()
         let message: String
+        let fileURL: URL?
     }
 
     private(set) var question: Question?
     @ObservationIgnored var canPresent: (() -> Bool)?
-    @ObservationIgnored private var replace: (() -> Void)?
+    @ObservationIgnored private var respond: ((Bool) -> Void)?
 
     func present(_ message: String, replace: @escaping () -> Void) {
-        self.replace = replace
-        question = Question(message: message)
+        discard()
+        respond = { if $0 { replace() } }
+        question = Question(message: message, fileURL: nil)
+    }
+
+    func confirm(_ request: ShellLuauConfirmation) async throws -> Bool {
+        guard canPresent?() == true else { throw request }
+        discard()
+        return await withCheckedContinuation { continuation in
+            respond = { continuation.resume(returning: $0) }
+            question = Question(message: request.message, fileURL: request.url)
+        }
     }
 
     func answer(_ id: UUID, replace shouldReplace: Bool) {
         guard question?.id == id else { return }
-        let action = replace
-        discard()
-        if shouldReplace { action?() }
+        let action = respond
+        question = nil
+        respond = nil
+        action?(shouldReplace)
     }
 
     func discard() {
-        guard question != nil else { return }
-        question = nil
-        replace = nil
+        if let question { answer(question.id, replace: false) }
     }
 }
 

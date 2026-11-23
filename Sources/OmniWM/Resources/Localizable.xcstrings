@@ -164849,7 +164849,7 @@
     "Opens a persistent copy in your external editor. Visual options are in Styles & Widgets." : {
 
     },
-    "Rename this drawer in shell.toml to edit it here." : {
+    "Rename this drawer in shell.luau to edit it here." : {
 
     },
     "Sample data and panel layout. Hover settings change the trigger area, not the panel." : {
@@ -165002,7 +165002,7 @@
     "Allowed" : {
 
     },
-    "Declared by your shell.toml" : {
+    "Declared by your shell.luau" : {
 
     },
     "Needs approval" : {
