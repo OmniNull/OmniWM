@@ -51,7 +51,9 @@ jobs:
       - name: Date sources by their last commit
         env:
           CACHED_BUILD_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
-        run: python3 Scripts/restore-mtimes.py "$CACHED_BUILD_KEY"
+        run: |
+          swift package dump-package > "$RUNNER_TEMP/package.json"
+          python3 Scripts/restore-mtimes.py "$CACHED_BUILD_KEY" "$RUNNER_TEMP/package.json"
       - name: Build the app and test bundle
         run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64 --scratch-path .build/localization
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
@@ -187,7 +189,9 @@ jobs:
         if: needs.changes.outputs.tests == 'true'
         env:
           CACHED_BUILD_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
-        run: python3 Scripts/restore-mtimes.py "$CACHED_BUILD_KEY"
+        run: |
+          swift package dump-package > "$RUNNER_TEMP/package.json"
+          python3 Scripts/restore-mtimes.py "$CACHED_BUILD_KEY" "$RUNNER_TEMP/package.json"
       - name: Put flake tools on PATH
         run: echo "$PWD/.cache/flake-tools/bin" >> "$GITHUB_PATH"
       - name: Verify package toolchain
