@@ -166,19 +166,22 @@ final class TabRailWindowPlacementTests: XCTestCase {
     func testRailStraddlingADisplayEdgeStaysOutOfAppKit() throws {
         let rail = makeRail()
         defer { rail.close() }
-        let display = try XCTUnwrap(NSScreen.screens.first).frame
-        rail.update(info: info(activeWindowId: windowId), forceOrdering: false)
-        let moved = tile.offsetBy(dx: tile.width, dy: 0)
+        let displays = NSScreen.screens.map(\.frame)
+        let display = try XCTUnwrap(displays.min(by: { $0.minX < $1.minX }))
+        let startingTile = tile.offsetBy(dx: display.midX - tile.minX, dy: display.midY - tile.midY)
+        rail.update(info: info(tile: startingTile, activeWindowId: windowId), forceOrdering: false)
+        let moved = startingTile.offsetBy(dx: display.width / 4, dy: 0)
         rail.updateAnimationGeometry(TabRailGeometryCommand(key: key, tileFrame: moved, visibleTileFrame: moved))
         let writes = rail.frameWrites
         let moves = rail.moves
-        var atEdge = tile
+        var atEdge = startingTile
         atEdge.origin.x = display.minX
 
         rail.update(info: info(tile: atEdge, activeWindowId: windowId), forceOrdering: false)
 
         let frame = TabRailPlacement.frame(for: atEdge, tabCount: 2, style: .compact)
-        XCTAssertFalse(display.contains(frame.center))
+        XCTAssertTrue(display.intersects(frame))
+        XCTAssertFalse(displays.contains { $0.contains(frame.center) })
         XCTAssertEqual(rail.frameWrites, writes)
         XCTAssertEqual(rail.moves, moves + [frame])
     }
