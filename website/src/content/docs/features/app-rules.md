@@ -42,7 +42,7 @@ Use the target's actual bundle ID and AX values. This escape hatch does not admi
 
 Windows programs running under Wine or CrossOver often report buttonless `AXWindow` / `AXUnknown` windows, which
 OmniWM leaves unmanaged by default. A fullscreen game can also sit above the status-window level. To manage such a
-program's windows, add a precise rule that matches the program's process name:
+program's windows, add a precise rule that matches the program's app name:
 
 ```toml
 [[appRules]]
@@ -54,9 +54,10 @@ layout = "float"
 ```
 
 Use `layout = "tile"` to tile the window instead. Wine processes usually have no bundle ID, so the rule matches the
-`.exe` name; `appNameSubstring = ".exe"` covers every such program. A program that CrossOver launches through a
-helper may report a `com.codeweavers.CrossOverHelper.*` bundle ID instead. Check the inspector's debug dump for the
-actual values.
+app name instead: the `appName` value in the inspector's debug dump, which **New Rule from Focused Window** fills in
+for you. That name is often the `.exe` file name, but it can differ from it. `appNameSubstring = ".exe"` covers every
+program whose app name contains `.exe`. A program that CrossOver launches through a helper may report a
+`com.codeweavers.CrossOverHelper.*` bundle ID instead. Check the inspector's debug dump for the actual values.
 
 The rule matches every parentless `AXWindow` / `AXUnknown` window of the program, so it can also catch the program's
 own popups. If the main window's title is known and differs from the popups' titles, add `titleSubstring` to narrow
