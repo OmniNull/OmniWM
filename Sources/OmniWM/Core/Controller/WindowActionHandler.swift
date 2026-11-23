@@ -71,16 +71,13 @@ final class WindowActionHandler {
         appReveal = AppRevealActions(controller: controller, requestApplicationUnhide: requestApplicationUnhide)
     }
 
-    func raiseAllFloatingWindows() {
+    @discardableResult
+    func raiseAllFloatingWindows() -> ExternalCommandResult {
         floatingWindows.raiseAllFloatingWindows()
     }
 
     func toggleFloatingFocus() -> ExternalCommandResult {
         floatingWindows.toggleFloatingFocus()
-    }
-
-    func hasRaisableFloatingWindows() -> Bool {
-        floatingWindows.hasRaisableFloatingWindows()
     }
 
     @discardableResult

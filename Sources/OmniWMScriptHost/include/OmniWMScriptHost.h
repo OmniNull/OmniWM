@@ -298,6 +298,65 @@ typedef struct omni_render_stats {
     uint32_t changed;
 } omni_render_stats;
 
+#define OMNI_CONFIG_DECLARATION_LIMIT 4096u
+#define OMNI_CONFIG_BYTE_LIMIT 1048576u
+
+typedef struct omni_config_span {
+    const char *data;
+    size_t length;
+} omni_config_span;
+
+#define OMNI_CONFIG_MODULE_LIMIT 64u
+#define OMNI_CONFIG_ERROR_CAPACITY 1024u
+
+typedef struct omni_config_location {
+    uint32_t source_id;
+    int line;
+} omni_config_location;
+
+typedef struct omni_config_module {
+    uint32_t id;
+    omni_config_span name;
+    omni_config_span source;
+} omni_config_module;
+
+typedef enum omni_config_value_kind {
+    OMNI_CONFIG_STRING,
+    OMNI_CONFIG_NUMBER,
+    OMNI_CONFIG_BOOLEAN
+} omni_config_value_kind;
+
+typedef struct omni_config_field {
+    omni_config_span name;
+    omni_config_value_kind kind;
+    omni_config_span string_value;
+    double number_value;
+    bool bool_value;
+} omni_config_field;
+
+typedef struct omni_config_callbacks {
+    bool (*resolve)(void *context, const omni_config_span *words, size_t count,
+        omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
+    bool (*bind)(void *context, omni_config_span chord, uint32_t action_id, omni_config_span mode_key,
+        omni_config_location location, char *error, size_t capacity);
+    bool (*read_module)(void *context, uint32_t requester, omni_config_span spec,
+        omni_config_module *module, char *error, size_t capacity);
+    bool (*rule)(void *context, const omni_config_field *fields, size_t count,
+        omni_config_location location, char *error, size_t capacity);
+} omni_config_callbacks;
+
+typedef struct omni_config_stats {
+    size_t peak_bytes;
+    omni_config_location location;
+    uint32_t module_executions;
+} omni_config_stats;
+
+omni_status omni_config_evaluate(const char *chunk_name, omni_config_span source,
+    size_t heap_limit, uint64_t cpu_budget_ns, const omni_config_callbacks *callbacks,
+    void *context, omni_config_stats *stats, char *error, size_t error_capacity) OMNI_NOEXCEPT;
+uint64_t omni_config_live_vm_count(void) OMNI_NOEXCEPT;
+uint64_t omni_config_vm_entry_count(void) OMNI_NOEXCEPT;
+
 omni_vm *omni_vm_create(size_t memory_limit_bytes, const char *data_keys, size_t data_keys_length) OMNI_NOEXCEPT;
 omni_status omni_vm_destroy(omni_vm *vm) OMNI_NOEXCEPT;
 omni_status omni_vm_load(omni_vm *vm, const char *chunk_name, const char *source, size_t source_length, uint64_t budget_ns, char *error, size_t error_capacity) OMNI_NOEXCEPT;

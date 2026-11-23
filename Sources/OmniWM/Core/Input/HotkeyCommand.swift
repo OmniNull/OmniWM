@@ -56,6 +56,7 @@ enum HotkeyCommand: Equatable, Hashable {
 
     case openCommandPalette
     case openCommandPaletteMode(IPCCommandPaletteMode)
+    case windowSwitcher(direction: IPCWindowSwitcherDirection, scope: WindowSwitcherScope?)
 
     case raiseAllFloatingWindows
     case toggleFloatingFocus
@@ -89,10 +90,11 @@ enum HotkeyCommand: Equatable, Hashable {
     }
 
     var layoutCompatibility: LayoutCompatibility {
-        if case let .sizing(action) = self {
-            return action.compatibility
+        switch self {
+        case let .sizing(action): action.compatibility
+        case let .workspace(action): action.compatibility
+        default: ActionCatalog.layoutCompatibility(for: self) ?? .shared
         }
-        return ActionCatalog.layoutCompatibility(for: self) ?? .shared
     }
 
     var repeatsInPrefix: Bool {

@@ -20,16 +20,28 @@ struct HotkeySettingsView: View {
 
     var body: some View {
         let groups = HotkeySettingsDisplayModel.search(searchText, bindings: settings.hotkeyBindings)
+        let scriptBindings = HotkeySettingsDisplayModel.search(
+            searchText,
+            scriptBindings: controller.configScript?.acceptedBindings ?? []
+        )
         let shiftedCharacters = SecureInputShortcutRisk.currentLayoutShiftedCharacters()
         let hotkeyMouseButtons = OverviewInputSettingsValidation.hotkeyMouseButtons(settings.hotkeyBindings)
         let modeKeyFailures = KeyboardModeTable(bindings: settings.hotkeyBindings).failures
-        let modeLeaderAssigned = settings.hotkeyBindings.contains(where: Self.isAssignedModeLeader)
+        let modeLeaderAssigned = Self.hasAssignedModeLeader(
+            settings.hotkeyBindings,
+            scriptBindings: controller.configScript?.effectiveBindings ?? []
+        )
         let paletteShortcuts = PaletteShortcuts.current()
         HotkeySettingsPage(
             subtitle: String(
                 localized: "Search commands, edit shortcuts, and review registration problems without leaving the settings window."
             )
         ) {
+            if let diagnostic = controller.configScriptDiagnostic {
+                Section {
+                    Text(verbatim: diagnostic).textSelection(.enabled)
+                }
+            }
             Section("Controls") {
                 LabeledContent("System Hyper Trigger") {
                     Picker("System Hyper Trigger", selection: systemHyperTriggerBinding) {
@@ -134,12 +146,19 @@ struct HotkeySettingsView: View {
                 )
                 SettingsCaption(HotkeyBindingRow.secureInputTip)
 
-                if groups.isEmpty {
+                if groups.isEmpty, scriptBindings.isEmpty {
                     Text("No matching hotkeys.")
                         .foregroundStyle(.secondary)
                 }
             }
             .id("Shortcuts")
+
+            if !scriptBindings.isEmpty {
+                ScriptShortcutSection(
+                    bindings: scriptBindings,
+                    masked: controller.configScript?.maskedBindingChords ?? []
+                )
+            }
 
             ForEach(groups) { group in
                 Section(group.category.localizedDisplayName) {
@@ -149,8 +168,8 @@ struct HotkeySettingsView: View {
                             recordingTarget: $recordingTarget,
                             failureReason: controller.hotkeyRegistrationFailures[binding.command],
                             modeKeyFailure: modeKeyFailures[binding.command],
-                            showsModeKey: Self
-                                .acceptsModeKey(binding) && (modeLeaderAssigned || binding.modeKey != nil),
+                            showsModeKey: KeyboardModeTable
+                                .isEligible(binding.command) && (modeLeaderAssigned || binding.modeKey != nil),
                             pausedDuringSecureInput: SecureInputShortcutRisk.isPaused(
                                 binding.binding,
                                 hyperTriggerConfigured: settings.systemHyperTrigger != .none,
@@ -333,14 +352,12 @@ extension HotkeySettingsView {
         return (defaultPauseTimeoutChoices + [current]).sorted()
     }
 
-    private static func isAssignedModeLeader(_ binding: HotkeyBinding) -> Bool {
-        (binding.command == .keyboardMode(.beginPrefix) || binding.command == .keyboardMode(.toggleWindowMode))
-            && !binding.binding.isUnassigned
-    }
-
-    private static func acceptsModeKey(_ binding: HotkeyBinding) -> Bool {
-        if case .keyboardMode = binding.command { return false }
-        return true
+    static func hasAssignedModeLeader(_ configured: [HotkeyBinding], scriptBindings: [HotkeyBinding]) -> Bool {
+        func isAssigned(_ binding: HotkeyBinding) -> Bool {
+            (binding.command == .keyboardMode(.beginPrefix) || binding.command == .keyboardMode(.toggleWindowMode))
+                && !binding.binding.isUnassigned
+        }
+        return configured.contains(where: isAssigned) || scriptBindings.contains(where: isAssigned)
     }
 
     private var keyboardModesSection: some View {
@@ -412,5 +429,42 @@ extension HotkeySettingsView {
                 controller.updateKeyboardModeSettings()
             }
         )
+    }
+}
+
+private struct ScriptShortcutSection: View {
+    let bindings: [ConfigScriptBinding]
+    let masked: Set<KeyBinding>
+
+    var body: some View {
+        Section("Script Shortcuts") {
+            ForEach(bindings, id: \.chord) { binding in
+                LabeledContent {
+                    VStack(alignment: .trailing) {
+                        Text(verbatim: binding.rawChord)
+                        if let modeKey = binding.modeKey {
+                            HStack {
+                                Text("Mode Key")
+                                Text(verbatim: modeKey.displayString)
+                            }
+                            .font(.caption)
+                        }
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(verbatim: binding.commandText)
+                        Text(verbatim: binding.sourceLocation)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if masked.contains(binding.chord) {
+                            Text("Overridden by Settings")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
+                .textSelection(.enabled)
+            }
+        }
     }
 }

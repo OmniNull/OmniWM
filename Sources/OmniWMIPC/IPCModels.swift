@@ -108,14 +108,14 @@ public enum IPCErrorCode: String, Codable, Equatable, Sendable, Error {
     case internalError = "internal_error"
 }
 
-public enum IPCDirection: String, Codable, Equatable, Sendable {
+public enum IPCDirection: String, Codable, CaseIterable, Equatable, Sendable {
     case left
     case right
     case up
     case down
 }
 
-public enum IPCResizeAxis: String, Codable, Equatable, Sendable {
+public enum IPCResizeAxis: String, Codable, CaseIterable, Equatable, Sendable {
     case horizontal
     case vertical
 }
@@ -125,7 +125,7 @@ public enum IPCWindowMode: String, Codable, Equatable, Sendable {
     case floating
 }
 
-public enum IPCWorkspaceLayout: String, Codable, Equatable, Sendable {
+public enum IPCWorkspaceLayout: String, Codable, CaseIterable, Equatable, Sendable {
     case defaultLayout = "default"
     case niri
     case dwindle
@@ -184,13 +184,13 @@ public enum IPCDisplayOrientation: String, Codable, Equatable, Sendable {
     case vertical
 }
 
-public enum IPCRuleLayout: String, Codable, Equatable, Sendable {
+public enum IPCRuleLayout: String, Codable, CaseIterable, Equatable, Sendable {
     case auto
     case tile
     case float
 }
 
-public enum IPCResizeOperation: String, Codable, Equatable, Sendable {
+public enum IPCResizeOperation: String, Codable, CaseIterable, Equatable, Sendable {
     case grow
     case shrink
 }

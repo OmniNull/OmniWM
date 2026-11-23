@@ -39,18 +39,19 @@ final class CommandHandler {
     }
 
     @discardableResult
-    func performCommand(_ command: HotkeyCommand) -> ExternalCommandResult {
+    func performCommand(_ command: HotkeyCommand, source: Source = .shortcut) -> ExternalCommandResult {
         guard let controller else { return .notFound }
         guard controller.isEnabled else { return .ignoredDisabled }
         guard !Self.shouldIgnoreCommand(command, isOverviewOpen: controller.isOverviewOpen()) else {
             return .ignoredOverview
         }
 
-        guard Self.isLayoutCompatible(command.layoutCompatibility, with: currentLayoutType()) else {
+        let compatibility = command.layoutCompatibility
+        guard compatibility == .shared || Self.isLayoutCompatible(compatibility, with: currentLayoutType()) else {
             return .ignoredLayoutMismatch
         }
 
-        return performAllowedCommand(command, controller: controller)
+        return performAllowedCommand(command, source: source, controller: controller)
     }
 
     static func isLayoutCompatible(_ compatibility: LayoutCompatibility, with layoutType: LayoutType) -> Bool {
@@ -64,7 +65,11 @@ final class CommandHandler {
         }
     }
 
-    private func performAllowedCommand(_ command: HotkeyCommand, controller: WMController) -> ExternalCommandResult {
+    private func performAllowedCommand(
+        _ command: HotkeyCommand,
+        source: Source,
+        controller: WMController
+    ) -> ExternalCommandResult {
         var changeStart = layoutChangeStart(recording: command, controller: controller)
         let mixedTransferSource = mixedTransferSelection(for: command, controller: controller)
         defer { finishLayoutChange(changeStart, transfer: mixedTransferSource, controller: controller) }
@@ -74,7 +79,7 @@ final class CommandHandler {
         case let .focusNavigation(action): return perform(action, controller: controller)
         case let .move(direction):
             moveWindowCrossingMonitors(direction: direction, controller: controller, widening: &changeStart)
-        case let .workspace(action): return perform(action, controller: controller)
+        case let .workspace(action): return perform(action, source: source, controller: controller)
         case let .windowMovement(action): return perform(action, controller: controller, widening: &changeStart)
         case let .column(action): return perform(action, controller: controller)
         case let .monitorFocus(action): return perform(action, controller: controller)
@@ -87,16 +92,16 @@ final class CommandHandler {
             controller.openCommandPalette()
         case let .openCommandPaletteMode(mode):
             controller.openCommandPalette(mode: CommandPaletteMode(ipc: mode))
-        case .raiseAllFloatingWindows:
-            controller.raiseAllFloatingWindows()
-        case .toggleFloatingFocus:
-            return controller.toggleFloatingFocus()
-        case .rescueOffscreenWindows:
-            _ = controller.rescueOffscreenWindows()
-        case .windowState(.toggleFloating):
-            return controller.toggleFocusedWindowFloating()
-        case .windowState(.close):
-            return controller.closeFocusedWindow()
+        case let .windowSwitcher(direction, scope):
+            return controller.windowSwitcherController.advanceFromAutomation(
+                reverse: direction == .previous,
+                scope: scope
+            )
+        case .raiseAllFloatingWindows: return controller.raiseAllFloatingWindows()
+        case .toggleFloatingFocus: return controller.toggleFloatingFocus()
+        case .rescueOffscreenWindows: return controller.rescueOffscreenWindows() > 0 ? .executed : .noChange
+        case .windowState(.toggleFloating): return controller.toggleFocusedWindowFloating()
+        case .windowState(.close): return controller.closeFocusedWindow()
         case let .scratchpad(action): return perform(action, controller: controller)
         case .openMenuAnywhere:
             controller.openMenuAnywhere()
@@ -330,6 +335,11 @@ final class CommandHandler {
 }
 
 extension CommandHandler {
+    enum Source {
+        case shortcut
+        case ipc
+    }
+
     enum LayoutChangeCoverage {
         case ownWorkspace
         case everyNiriWorkspace
@@ -354,6 +364,7 @@ extension CommandHandler {
         case let .workspace(action):
             switch action {
             case .moveTo,
+                 .moveToOnMonitor,
                  .moveUp,
                  .moveDown,
                  .moveToMonitor,

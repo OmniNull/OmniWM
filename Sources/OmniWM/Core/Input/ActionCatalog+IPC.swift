@@ -12,6 +12,7 @@ extension ActionCatalog {
         case .moveColumn: .column(.move)
         case .openCommandPalette: .openCommandPalette
         case .openCommandPaletteMode: .openCommandPaletteMode
+        case .windowSwitcher: .windowSwitcher
         case .raiseAllFloatingWindows: .raiseAllFloatingWindows
         case .toggleFloatingFocus: .toggleFloatingFocus
         case .rescueOffscreenWindows: .rescueOffscreenWindows

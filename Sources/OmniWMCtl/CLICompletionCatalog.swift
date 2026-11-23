@@ -71,7 +71,7 @@ enum CLICompletionCatalog {
     }
 
     static var workspaceMoveDirections: [String] {
-        literalValues(for: .direction) ?? []
+        IPCDirection.allCases.map(\.rawValue)
     }
 
     static var workspaceMoveOptionalFlags: [String] {
@@ -115,7 +115,7 @@ enum CLICompletionCatalog {
             guard let first = descriptor.commandWords.first else { continue }
             if descriptor.commandWords.count > 1 {
                 map[first, default: []].insert(descriptor.commandWords[1])
-            } else if let literals = literalValues(for: descriptor.arguments.first?.kind) {
+            } else if let literals = descriptor.arguments.first?.kind.literalValues {
                 map[first, default: []].formUnion(literals)
             }
         }
@@ -131,7 +131,7 @@ enum CLICompletionCatalog {
         var map: [String: Set<String>] = [:]
         for descriptor in IPCAutomationManifest.commandDescriptors where descriptor.commandWords.count == 1 {
             guard descriptor.arguments.count > 1,
-                  let literals = literalValues(for: descriptor.arguments[1].kind),
+                  let literals = descriptor.arguments[1].kind.literalValues,
                   let first = descriptor.commandWords.first
             else {
                 continue
@@ -154,7 +154,7 @@ enum CLICompletionCatalog {
             where descriptor.commandWords.count == commandWordCount
         {
             guard descriptor.arguments.count > argumentIndex,
-                  let literals = literalValues(for: descriptor.arguments[argumentIndex].kind)
+                  let literals = descriptor.arguments[argumentIndex].kind.literalValues
             else {
                 continue
             }
@@ -204,34 +204,6 @@ enum CLICompletionCatalog {
 
     private static func selectorFlags(for descriptor: IPCQueryDescriptor) -> [String] {
         descriptor.selectors.map(\.name.flag)
-    }
-
-    private static func literalValues(for kind: IPCCommandArgumentKind?) -> [String]? {
-        guard let kind else { return nil }
-        switch kind {
-        case .direction:
-            return ["left", "right", "up", "down"]
-        case .layout:
-            return ["default", "niri", "dwindle"]
-        case .paletteMode:
-            return IPCCommandPaletteMode.allCases.map(\.rawValue)
-        case .switcherDirection:
-            return IPCWindowSwitcherDirection.allCases.map(\.rawValue)
-        case .switcherScope:
-            return IPCWindowSwitcherScope.allCases.map(\.rawValue)
-        case .resizeAxis:
-            return ["horizontal", "vertical"]
-        case .resizeOperation:
-            return ["grow", "shrink"]
-        case .scratchpadIndex:
-            return IPCScratchpadSlots.range.map(String.init)
-        case .appID,
-             .workspaceNumber,
-             .columnIndex,
-             .windowIndex,
-             .sizeChange:
-            return nil
-        }
     }
 
     private static func pathKey(_ words: [String]) -> String {

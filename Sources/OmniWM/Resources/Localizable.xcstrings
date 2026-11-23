@@ -96543,6 +96543,9 @@
         }
       }
     },
+    "Overridden by Settings" : {
+
+    },
     "Overrides" : {
       "localizations" : {
         "ja" : {
@@ -118273,6 +118276,12 @@
           }
         }
       }
+    },
+    "Script Rules" : {
+
+    },
+    "Script Shortcuts" : {
+
     },
     "Secure Input Active" : {
       "extractionState" : "stale",

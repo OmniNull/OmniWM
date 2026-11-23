@@ -4,6 +4,7 @@
 import CoreGraphics
 @testable import OmniWM
 import OmniWMIPC
+import OmniWMScriptHost
 import XCTest
 
 @MainActor
@@ -37,6 +38,55 @@ final class NiriResizeIncrementTests: XCTestCase {
             shrink: .resizeWindowSecondarySpan(grow: false),
             primary: false
         )
+    }
+
+    func testScriptBindingsExecuteTheirDeclaredResizeAfterVMDestruction() async throws {
+        let fixture = try makeFixture()
+        let controller = fixture.controller
+        controller.settings.hotkeyBindings = []
+        controller.settings.ipcEnabled = false
+        controller.settings.workspaceBar.enabled = false
+        let directory = controller.settings.settingsFileURL.deletingLastPathComponent()
+        let fileURL = directory.appendingPathComponent("init.luau")
+        let increments = [("Control+Option+J", 4), ("Control+Option+K", 12)]
+        let source = increments.map { chord, percent in
+            #"wm.keymap.set("\#(chord)", wm.cmd("set-container-primary-span", "+\#(percent)%"))"#
+        }.joined(separator: "\n")
+        try ("local wm = omniwm\n" + source).write(to: fileURL, atomically: true, encoding: .utf8)
+        defer {
+            controller.stopConfigScript()
+            controller.layoutRefreshController.resetState()
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+        let published = expectation(description: "Native resize bindings published")
+        controller.startConfigScript(at: fileURL)
+        let config = try XCTUnwrap(controller.configScript)
+        config.onReloadProcessed = { published.fulfill() }
+        await fulfillment(of: [published], timeout: failureBound)
+        config.onReloadProcessed = nil
+        XCTAssertNil(config.diagnostic)
+        XCTAssertEqual(omni_config_live_vm_count(), 0)
+
+        let guiRows = try increments.map { chord, percent in
+            try HotkeyBinding(
+                id: chord,
+                command: .sizing(.setContainerPrimarySpan(.adjustProportion(CGFloat(percent)))),
+                binding: XCTUnwrap(KeySymbolMapper.fromHumanReadable(chord))
+            )
+        }
+        let plan = HotkeyCenter.registrationPlan(for: controller.hotkeys.configuration.bindings)
+        XCTAssertEqual(plan, HotkeyCenter.registrationPlan(for: guiRows))
+        guard case var .proportion(expectedWidth) = fixture.column.width else {
+            return XCTFail("Fixture must start with a proportional column")
+        }
+        for (chord, percent) in increments {
+            let binding = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(chord))
+            let registration = try XCTUnwrap(plan.registrations.first { $0.binding == binding })
+            XCTAssertEqual(controller.commandHandler.performCommand(registration.command), .executed)
+            expectedWidth += CGFloat(percent) / 100
+            assertSpan(fixture, primary: true, expected: expectedWidth)
+        }
+        XCTAssertEqual(omni_config_live_vm_count(), 0)
     }
 
     func testLiteralIPCResizeKeepsItsAmount() throws {

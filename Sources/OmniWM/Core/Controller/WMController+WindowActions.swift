@@ -126,7 +126,8 @@ extension WMController {
         )
     }
 
-    func raiseAllFloatingWindows() {
+    @discardableResult
+    func raiseAllFloatingWindows() -> ExternalCommandResult {
         windowActionHandler.raiseAllFloatingWindows()
     }
 
@@ -137,12 +138,6 @@ extension WMController {
     @discardableResult
     func restoreVisibleWorkspaceInactiveFloatingWindows() -> Int {
         layoutRefreshController.restoreWorkspaceInactiveFloatingWindows(
-            activeWorkspaceIds: workspaceManager.visibleWorkspaceIds()
-        )
-    }
-
-    func hasVisibleWorkspaceInactiveFloatingWindows() -> Bool {
-        layoutRefreshController.hasWorkspaceInactiveFloatingWindows(
             activeWorkspaceIds: workspaceManager.visibleWorkspaceIds()
         )
     }

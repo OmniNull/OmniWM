@@ -111,6 +111,38 @@ final class HotkeySettingsDisplayModelTests: XCTestCase {
         XCTAssertTrue(groups.isEmpty)
     }
 
+    func testScriptSearchFindsTheDeclaredChordArgumentsAndCurrentLine() async throws {
+        let loader = ConfigScriptLoader()
+        let prefix = ["local wm = omniwm"]
+        let increase = "+12%"
+        let decrease = "-12%"
+        let grow = "Control+Option+J"
+        let shrink = "Control+Option+K"
+        let command = "set-container-primary-span"
+        let declarations = [
+            "wm.keymap.set('\(grow)', wm.cmd('\(command)', '\(increase)'))",
+            "wm.keymap.set('\(shrink)', wm.cmd('\(command)', '\(decrease)'))"
+        ]
+        func evaluate(_ lines: [String]) async throws -> [ConfigScriptBinding] {
+            try await loader.evaluate(
+                Data(lines.joined(separator: "\n").utf8),
+                hyperMask: HyperKeyModifiers.default.carbonMask
+            ).bindings
+        }
+        let rows = try await evaluate(prefix + declarations)
+        let first = try XCTUnwrap(rows.first)
+        let location = "init.luau:\(prefix.count + 1)"
+        for term in [grow.uppercased(), increase, location] {
+            XCTAssertEqual(HotkeySettingsDisplayModel.search(term, scriptBindings: rows), [first], term)
+        }
+        XCTAssertEqual(HotkeySettingsDisplayModel.search(command, scriptBindings: rows), rows)
+        XCTAssertEqual(HotkeySettingsDisplayModel.search(" ", scriptBindings: rows), rows)
+        XCTAssertTrue(HotkeySettingsDisplayModel.search(command, bindings: []).isEmpty)
+        let shifted = try await evaluate(prefix + [""] + declarations)
+        XCTAssertEqual(shifted.map(\.chord), rows.map(\.chord))
+        XCTAssertTrue(HotkeySettingsDisplayModel.search(location, scriptBindings: shifted).isEmpty)
+    }
+
     private func searchIDs(_ query: String, bindings: [HotkeyBinding]) -> [String] {
         HotkeySettingsDisplayModel.search(query, bindings: bindings)
             .flatMap(\.bindings).map(\.id)

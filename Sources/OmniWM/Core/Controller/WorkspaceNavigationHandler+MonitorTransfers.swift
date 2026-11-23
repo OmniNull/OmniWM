@@ -6,28 +6,32 @@ import Foundation
 import OmniWMIPC
 
 extension WorkspaceNavigationHandler {
-    func moveWindowToMonitor(direction: Direction) {
+    @discardableResult
+    func moveWindowToMonitor(direction: Direction) -> ExternalCommandResult {
         moveFocusedWindowToMonitor(direction: direction, focusPolicy: .configured)
     }
 
     func moveWindowAcrossMonitorAtEdge(direction: Direction) {
-        moveFocusedWindowToMonitor(direction: direction, focusPolicy: .alwaysFollow)
+        _ = moveFocusedWindowToMonitor(direction: direction, focusPolicy: .alwaysFollow)
     }
 
     private func moveFocusedWindowToMonitor(
         direction: Direction,
         focusPolicy: WorkspaceMoveFocusPolicy
-    ) {
-        guard let controller else { return }
-        guard let token = controller.workspaceManager.selectedManagedToken else { return }
-        guard let currentWsId = controller.workspaceManager.workspace(for: token) else { return }
+    ) -> ExternalCommandResult {
+        guard let controller,
+              let token = controller.workspaceManager.selectedManagedToken,
+              let source = controller.workspaceManager.workspace(for: token),
+              let monitor = controller.workspaceManager.monitorId(for: source),
+              let adjacent = controller.workspaceManager.adjacentMonitor(from: monitor, direction: direction)
+        else { return .notFound }
 
-        saveNiriViewportState(for: currentWsId)
-        guard case let .changed(mutation) = moveWindowToMonitor(
-            handle: WindowHandle(id: token),
-            direction: direction
-        ) else { return }
+        saveNiriViewportState(for: source)
+        guard case let .changed(mutation) = moveWindow(
+            handle: WindowHandle(id: token), from: source, to: adjacent, direction: direction, controller: controller
+        ) else { return .noChange }
         finishWorkspaceMove(mutation, focusPolicy: focusPolicy)
+        return .executed
     }
 
     func moveWindowToMonitor(
@@ -35,18 +39,24 @@ extension WorkspaceNavigationHandler {
         direction: Direction
     ) -> StructuralMutationOutcome {
         guard let controller,
-              controller.workspaceManager.entry(for: handle.id)?.target.hostedMetadata?.role.parent == nil,
-              let sourceWorkspaceId = controller.workspaceManager.workspace(for: handle.id),
-              let sourceMonitorId = controller.workspaceManager.monitorId(for: sourceWorkspaceId),
-              let targetMonitor = controller.workspaceManager.adjacentMonitor(
-                  from: sourceMonitorId,
-                  direction: direction
-              ),
+              let source = controller.workspaceManager.workspace(for: handle.id),
+              let monitor = controller.workspaceManager.monitorId(for: source),
+              let adjacent = controller.workspaceManager.adjacentMonitor(from: monitor, direction: direction)
+        else { return .unchanged }
+        return moveWindow(handle: handle, from: source, to: adjacent, direction: direction, controller: controller)
+    }
+
+    private func moveWindow(
+        handle: WindowHandle,
+        from sourceWorkspaceId: WorkspaceDescriptor.ID,
+        to targetMonitor: Monitor,
+        direction: Direction,
+        controller: WMController
+    ) -> StructuralMutationOutcome {
+        guard controller.workspaceManager.entry(for: handle.id)?.target.hostedMetadata?.role.parent == nil,
               let targetWorkspace = controller.workspaceManager.activeWorkspaceOrFirst(on: targetMonitor.id),
               targetWorkspace.id != sourceWorkspaceId
-        else {
-            return .unchanged
-        }
+        else { return .unchanged }
 
         let targetIsNiri = controller.workspaceManager.activeLayoutKind(for: targetWorkspace.id) == .niri
         let anchorToken: WindowToken? = targetIsNiri ? Self.spatialNeighborToken(
@@ -84,19 +94,20 @@ extension WorkspaceNavigationHandler {
         )
     }
 
-    func swapCurrentWorkspaceWithMonitor(direction: Direction) {
-        guard let controller else { return }
+    @discardableResult
+    func swapCurrentWorkspaceWithMonitor(direction: Direction) -> ExternalCommandResult {
+        guard let controller else { return .notFound }
         guard let currentMonitorId = interactionMonitorId(for: controller)
-        else { return }
-        guard let currentWsId = controller.activeWorkspace()?.id else { return }
+        else { return .notFound }
 
         guard let targetMonitor = controller.workspaceManager.adjacentMonitor(
             from: currentMonitorId,
             direction: direction
-        ) else { return }
+        ) else { return .notFound }
 
-        guard let targetWsId = controller.workspaceManager.activeWorkspace(on: targetMonitor.id)?.id
-        else { return }
+        guard let currentWsId = controller.activeWorkspace()?.id,
+              let targetWsId = controller.workspaceManager.activeWorkspace(on: targetMonitor.id)?.id
+        else { return .noChange }
 
         saveNiriViewportState(for: currentWsId)
         restoreRememberedSelection(in: targetWsId)
@@ -104,7 +115,7 @@ extension WorkspaceNavigationHandler {
         guard controller.workspaceManager.swapWorkspaces(
             currentWsId, on: currentMonitorId,
             with: targetWsId, on: targetMonitor.id
-        ) else { return }
+        ) else { return .noChange }
 
         controller.syncMonitorsToNiriEngine()
 
@@ -118,6 +129,7 @@ extension WorkspaceNavigationHandler {
                 controller?.focusWindow(focusToken)
             }
         }
+        return .executed
     }
 
     func moveWorkspaceToMonitor(
@@ -190,15 +202,23 @@ extension WorkspaceNavigationHandler {
         return moveWindow(handle: handle, toWorkspaceId: targetWorkspaceId)
     }
 
-    func moveWindowToWorkspaceOnMonitor(rawWorkspaceID: String, monitorDirection: Direction) {
-        guard let controller else { return }
-        guard let token = controller.workspaceManager.selectedManagedToken else { return }
+    @discardableResult
+    func moveFocusedWindow(toWorkspaceIndex index: Int, onMonitor direction: Direction) -> ExternalCommandResult {
+        guard index >= 0, index < Int.max else { return .invalidArguments }
+        let rawWorkspaceID = String(index + 1)
+        guard let controller, let token = controller.workspaceManager.selectedManagedToken else { return .notFound }
+        if let source = controller.workspaceManager.workspace(for: token),
+           controller.workspaceManager.descriptor(for: source)?.name == rawWorkspaceID
+        {
+            return .noChange
+        }
         guard case let .changed(mutation) = moveWindowToWorkspaceOnMonitor(
             handle: WindowHandle(id: token),
             rawWorkspaceId: rawWorkspaceID,
-            monitorDirection: monitorDirection
-        ) else { return }
+            monitorDirection: direction
+        ) else { return .notFound }
 
         finishWorkspaceMove(mutation)
+        return .executed
     }
 }

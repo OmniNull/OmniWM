@@ -363,10 +363,9 @@ extension HotkeyCenter {
             if suppressedHotkeyKeyCodes.contains(keyCode) {
                 return nil
             }
-            if keyboardModeInput.capturesKeys, handleKeyboardModeKeyDown(keyCode: keyCode, event: event) {
-                return nil
-            }
-            if dispatchSideSpecificHotkey(keyCode: keyCode, event: event) {
+            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
+               dispatchCommandKeyDown(keyCode: keyCode, rawFlags: event.flags.rawValue)
+            {
                 return nil
             }
             return Unmanaged.passUnretained(event)
@@ -453,9 +452,10 @@ extension HotkeyCenter {
         return true
     }
 
-    private func dispatchSideSpecificHotkey(keyCode: UInt32, event: CGEvent) -> Bool {
-        guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else { return false }
-        let rawFlags = event.flags.rawValue
+    func dispatchCommandKeyDown(keyCode: UInt32, rawFlags: UInt64) -> Bool {
+        if keyboardModeInput.capturesKeys, handleKeyboardModeKeyDown(keyCode: keyCode, rawFlags: rawFlags) {
+            return true
+        }
         if let entry = CommandHotkeyTapMatcher.firstMatch(
             keyCode: keyCode,
             rawFlags: rawFlags,

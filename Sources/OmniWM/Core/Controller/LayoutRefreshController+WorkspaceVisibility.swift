@@ -58,19 +58,6 @@ extension LayoutRefreshController {
         controller?.workspaceManager.spaceTopology.isWindowOnKnownInactiveSpace(windowId) ?? false
     }
 
-    func hasWorkspaceInactiveFloatingWindows(activeWorkspaceIds: Set<WorkspaceDescriptor.ID>) -> Bool {
-        guard let controller else { return false }
-        for workspaceId in activeWorkspaceIds {
-            guard let monitor = controller.workspaceManager.monitor(for: workspaceId) else { continue }
-            for entry in controller.workspaceManager.floatingEntries(in: workspaceId)
-                where workspaceInactiveFloatingRestoreFrame(for: entry, monitor: monitor) != nil
-            {
-                return true
-            }
-        }
-        return false
-    }
-
     @discardableResult
     func restoreWorkspaceInactiveFloatingWindows(activeWorkspaceIds: Set<WorkspaceDescriptor.ID>) -> Int {
         guard let controller else { return 0 }

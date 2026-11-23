@@ -18,6 +18,8 @@
 
 namespace {
 
+using omni_detail::ScriptRuntime;
+
 constexpr uint64_t unboundedBudget = UINT64_MAX / 2;
 constexpr uint64_t maximumArm = 3600ull * 1000000000ull;
 
@@ -260,13 +262,13 @@ dispatch_queue_t watchdogQueue() {
 }
 
 void watchdogFired(void *context) {
-    auto *vm = static_cast<omni_vm *>(context);
+    auto *vm = static_cast<ScriptRuntime *>(context);
     vm->pending.store(true, std::memory_order_release);
     std::atomic_thread_fence(std::memory_order_seq_cst);
     __atomic_store_n(&lua_callbacks(vm->main)->interrupt, budgetHook, __ATOMIC_RELAXED);
 }
 
-void armWatchdog(omni_vm *vm, uint64_t afterNanoseconds) {
+void armWatchdog(ScriptRuntime *vm, uint64_t afterNanoseconds) {
     dispatch_source_set_timer(
         vm->timer,
         dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(std::min(afterNanoseconds, maximumArm))),
@@ -275,7 +277,7 @@ void armWatchdog(omni_vm *vm, uint64_t afterNanoseconds) {
     );
 }
 
-void disarmWatchdog(omni_vm *vm) {
+void disarmWatchdog(ScriptRuntime *vm) {
     dispatch_source_set_timer(vm->timer, DISPATCH_TIME_FOREVER, DISPATCH_TIME_FOREVER, 0);
 }
 
@@ -322,7 +324,9 @@ void budgetHook(lua_State *L, int gc) {
     if (gc >= 0) {
         return;
     }
-    auto *vm = static_cast<omni_vm *>(lua_callbacks(L)->userdata);
+    void *context;
+    lua_getallocf(L, &context);
+    auto *vm = static_cast<ScriptRuntime *>(context);
     if (vm == nullptr || !vm->inCall) {
         return;
     }
@@ -359,19 +363,23 @@ void enableLuauFlags() {
     });
 }
 
+template <bool trackPeak>
 void *allocate(void *ud, void *ptr, size_t oldSize, size_t newSize) {
-    auto *vm = static_cast<omni_vm *>(ud);
+    auto *vm = static_cast<ScriptRuntime *>(ud);
     if (newSize == 0) {
         std::free(ptr);
         vm->used -= oldSize;
         return nullptr;
     }
-    if (newSize > oldSize && vm->used - oldSize + newSize > vm->limit) {
+    if (newSize > oldSize && newSize - oldSize > vm->limit - vm->used) {
         return nullptr;
     }
     void *result = std::realloc(ptr, newSize);
     if (result != nullptr) {
         vm->used = vm->used - oldSize + newSize;
+        if constexpr (trackPeak) {
+            vm->peak = std::max(vm->peak, vm->used);
+        }
     }
     return result;
 }
@@ -478,6 +486,47 @@ void accountBytecode(BytecodeCache &cache, const std::shared_ptr<BytecodeEntry> 
 
 namespace omni_detail {
 
+lua_State *openRuntime(ScriptRuntime &vm, size_t limit, void *userdata, bool trackPeak) {
+    enableLuauFlags();
+    vm.limit = limit;
+    vm.main = lua_newstate(trackPeak ? allocate<true> : allocate<false>, &vm);
+    if (vm.main != nullptr) {
+        uint64_t key[4];
+        arc4random_buf(key, sizeof key);
+        lua_setpointerencodekey(vm.main, key[0], key[1], key[2], key[3]);
+        lua_callbacks(vm.main)->userdata = userdata;
+    }
+    return vm.main;
+}
+
+void sandboxRuntime(ScriptRuntime &vm) {
+    luaL_sandbox(vm.main);
+    vm.thread = lua_newthread(vm.main);
+    luaL_sandboxthread(vm.thread);
+    vm.timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, DISPATCH_TIMER_STRICT, watchdogQueue());
+    if (vm.timer == nullptr) {
+        throw std::bad_alloc();
+    }
+    dispatch_set_context(vm.timer, &vm);
+    dispatch_source_set_event_handler_f(vm.timer, watchdogFired);
+    disarmWatchdog(&vm);
+    dispatch_activate(vm.timer);
+}
+
+void closeRuntime(ScriptRuntime &vm) noexcept {
+    if (vm.timer != nullptr) {
+        dispatch_source_cancel(vm.timer);
+        dispatch_sync_f(watchdogQueue(), nullptr, [](void *) {});
+        dispatch_release(vm.timer);
+    }
+    if (vm.main != nullptr) {
+        try {
+            lua_close(vm.main);
+        } catch (...) {
+        }
+    }
+}
+
 lua_CompileOptions scriptCompileOptions() {
     static const char *const mutableGlobals[] = {"omniwm", nullptr};
     lua_CompileOptions options{};
@@ -539,7 +588,7 @@ void copyValueMessage(lua_State *L, int index, char *error, size_t capacity) {
     }
 }
 
-CallScope::CallScope(omni_vm *vm, uint64_t budget) : vm(vm) {
+CallScope::CallScope(ScriptRuntime *vm, uint64_t budget) : vm(vm) {
     uint64_t start = threadCPU();
     vm->pending.store(false, std::memory_order_release);
     __atomic_store_n(&lua_callbacks(vm->main)->interrupt, nullptr, __ATOMIC_RELAXED);
@@ -549,7 +598,6 @@ CallScope::CallScope(omni_vm *vm, uint64_t budget) : vm(vm) {
     vm->latched = false;
     vm->budget = budget == 0 ? unboundedBudget : budget;
     vm->callStartCPU = start;
-    vm->encodeSteps = 0;
     vm->inCall = true;
 }
 
@@ -561,7 +609,7 @@ CallScope::~CallScope() {
     __atomic_store_n(&lua_callbacks(vm->main)->interrupt, nullptr, __ATOMIC_RELAXED);
 }
 
-omni_status enforceBudget(omni_vm *vm, omni_status status, char *error, size_t capacity) {
+omni_status enforceBudget(ScriptRuntime *vm, omni_status status, char *error, size_t capacity) {
     if (status != OMNI_OK || vm->lastCallCPU <= vm->budget) {
         return status;
     }
@@ -569,7 +617,7 @@ omni_status enforceBudget(omni_vm *vm, omni_status status, char *error, size_t c
     return OMNI_ERR_TIMEOUT;
 }
 
-omni_status finish(omni_vm *vm, lua_State *L, int status, char *error, size_t capacity) {
+omni_status finish(ScriptRuntime *vm, lua_State *L, int status, char *error, size_t capacity) {
     if (vm->latched) {
         copyValueMessage(L, -1, error, capacity);
         lua_settop(L, 0);
@@ -594,18 +642,11 @@ using namespace omni_detail;
 omni_vm *omni_vm_create(size_t memory_limit_bytes, const char *data_keys, size_t data_keys_length) noexcept {
     std::unique_ptr<omni_vm> owned;
     try {
-        enableLuauFlags();
         owned = std::make_unique<omni_vm>();
-        owned->limit = memory_limit_bytes;
-        owned->main = lua_newstate(allocate, owned.get());
-        if (owned->main == nullptr) {
+        lua_State *L = openRuntime(*owned, memory_limit_bytes, owned.get(), false);
+        if (L == nullptr) {
             return nullptr;
         }
-        lua_State *L = owned->main;
-        uint64_t pointerKey[4];
-        arc4random_buf(pointerKey, sizeof pointerKey);
-        lua_setpointerencodekey(L, pointerKey[0], pointerKey[1], pointerKey[2], pointerKey[3]);
-        lua_callbacks(L)->userdata = owned.get();
         lua_callbacks(L)->useratom = shellAtom;
         luaL_openlibs(L);
         if (!registerDataKeys(L, owned->package, data_keys, data_keys_length)) {
@@ -643,26 +684,13 @@ omni_vm *omni_vm_create(size_t memory_limit_bytes, const char *data_keys, size_t
         lua_pop(L, 1);
         installJSON(L);
         installServices(L, owned->package);
-        luaL_sandbox(L);
-        owned->thread = lua_newthread(L);
-        luaL_sandboxthread(owned->thread);
-        owned->timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, DISPATCH_TIMER_STRICT, watchdogQueue());
-        if (owned->timer == nullptr) {
-            throw std::bad_alloc();
-        }
-        dispatch_set_context(owned->timer, owned.get());
-        dispatch_source_set_event_handler_f(owned->timer, watchdogFired);
-        disarmWatchdog(owned.get());
-        dispatch_activate(owned->timer);
+        sandboxRuntime(*owned);
         return owned.release();
     } catch (...) {
-        if (owned && owned->main != nullptr) {
-            try {
-                lua_close(owned->main);
-            } catch (...) {
-            }
+        if (owned) {
+            closeRuntime(*owned);
+            destroyServices(owned.get());
         }
-        if (owned) { destroyServices(owned.get()); }
         return nullptr;
     }
 }
@@ -793,13 +821,7 @@ omni_status omni_vm_destroy(omni_vm *vm) noexcept {
     if (vm->inCall) {
         return OMNI_ERR_REENTRANT;
     }
-    dispatch_source_cancel(vm->timer);
-    dispatch_sync_f(watchdogQueue(), nullptr, [](void *) {});
-    dispatch_release(vm->timer);
-    try {
-        lua_close(vm->main);
-    } catch (...) {
-    }
+    closeRuntime(*vm);
     destroyServices(vm);
     if (vm->localizerRelease != nullptr) {
         vm->localizerRelease(vm->localizerContext);

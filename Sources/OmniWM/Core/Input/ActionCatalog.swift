@@ -240,6 +240,7 @@ enum ActionCatalog {
              .fullscreen,
              .openCommandPalette,
              .openCommandPaletteMode,
+             .windowSwitcher,
              .raiseAllFloatingWindows,
              .toggleFloatingFocus,
              .rescueOffscreenWindows,
@@ -282,6 +283,7 @@ enum ActionCatalog {
                 "command.palette.toggle", defaultValue: "Toggle Command Palette", table: "Commands", bundle: .omniWM
             )
         case let .openCommandPaletteMode(mode): mode.actionDisplayName()
+        case .windowSwitcher: LocalizedStringResource("Window Switcher", bundle: .omniWM)
         case .raiseAllFloatingWindows: LocalizedStringResource(
                 "command.floating.raiseAll", defaultValue: "Raise All Floating Windows", table: "Commands",
                 bundle: .omniWM

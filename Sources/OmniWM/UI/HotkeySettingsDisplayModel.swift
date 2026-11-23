@@ -136,6 +136,17 @@ enum HotkeySettingsDisplayModel {
         }
     }
 
+    static func search(_ query: String, scriptBindings: [ConfigScriptBinding]) -> [ConfigScriptBinding] {
+        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !term.isEmpty else { return scriptBindings }
+        return scriptBindings.filter {
+            $0.rawChord.localizedCaseInsensitiveContains(term)
+                || $0.modeKey?.humanReadableString.localizedCaseInsensitiveContains(term) == true
+                || $0.commandText.localizedCaseInsensitiveContains(term)
+                || $0.sourceLocation.localizedCaseInsensitiveContains(term)
+        }
+    }
+
     private static func matchesSearch(_ normalizedQuery: String, binding: HotkeyBinding) -> Bool {
         guard !normalizedQuery.isEmpty else { return true }
         if let terms = ActionCatalog.normalizedSearchTerms(for: binding.id) {
@@ -186,6 +197,12 @@ enum HotkeySettingsDisplayModel {
         requestGranted: Bool
     ) -> HotkeyInputMonitoringStatus {
         HotkeyInputMonitoringStatus(granted: preflightGranted || (requestIfNeeded && requestGranted))
+    }
+}
+
+extension ConfigScriptBinding {
+    var sourceLocation: String {
+        "\(source):\(line)"
     }
 }
 

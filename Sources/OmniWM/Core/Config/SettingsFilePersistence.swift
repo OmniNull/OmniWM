@@ -49,7 +49,7 @@ final class SettingsFilePersistence {
         self.deferSaves = deferSaves
         self.monitorProvider = monitorProvider
         observation = SettingsFileObservation(directoryURL: directoryURL, fileURL: fileURL)
-        observation.attach(to: self)
+        observation.onPossibleChange = { [weak self] _ in self?.handlePossibleSettingsFileChange() }
 
         if startWatching {
             observation.start()

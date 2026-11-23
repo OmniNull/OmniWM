@@ -26,6 +26,8 @@ final class WMController {
     @ObservationIgnored
     let windowMarkRegistry = WindowMarkRegistry()
     let hotkeys = HotkeyCenter()
+    var configScript: ConfigScriptController?
+    var configScriptDiagnostic: String?
     private(set) var hotkeyRegistrationFailures: [HotkeyCommand: HotkeyRegistrationFailureReason] = [:]
     private(set) var systemHyperTriggerFailure: SystemHyperTriggerFailure?
     private(set) var windowSwitcherInputAvailable = false

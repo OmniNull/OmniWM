@@ -234,7 +234,7 @@ enum KeySymbolMapper {
         Dictionary(uniqueKeysWithValues: nameToModifier.map { (normalizeName($0.key), $0.value) })
     }()
 
-    static func fromHumanReadable(_ string: String) -> KeyBinding? {
+    static func fromHumanReadable(_ string: String, hyperMask: UInt32 = hyperModifiers) -> KeyBinding? {
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.localizedCaseInsensitiveCompare("Unassigned") == .orderedSame { return .unassigned }
         let parts = trimmed.components(separatedBy: "+").map {
@@ -245,7 +245,7 @@ enum KeySymbolMapper {
         var left: UInt32 = 0
         var right: UInt32 = 0
         for part in parts.dropLast() {
-            guard let token = modifierToken(named: part) else { return nil }
+            guard let token = modifierToken(named: part, hyperMask: hyperMask) else { return nil }
             modifiers |= token.flag
             switch token.side {
             case .either: break
@@ -272,9 +272,12 @@ enum KeySymbolMapper {
         orderedModifiers.filter { modifiers & $0.carbon != 0 }.map(\.symbol).joined()
     }
 
-    static func modifierToken(named name: String) -> (flag: UInt32, side: ModifierSide)? {
+    static func modifierToken(
+        named name: String,
+        hyperMask: UInt32 = hyperModifiers
+    ) -> (flag: UInt32, side: ModifierSide)? {
         if normalizeName(name) == "hyper" {
-            return (hyperModifiers, .either)
+            return (hyperMask, .either)
         }
         if let flag = baseModifierFlag(named: name) {
             return (flag, .either)

@@ -5,7 +5,7 @@ import Darwin
 import Foundation
 
 enum SettingsFileAccess {
-    struct Fingerprint: Equatable {
+    struct Fingerprint: Equatable, Sendable {
         let deviceID: UInt64
         let inode: UInt64
         let modificationTimeNanoseconds: Int64
@@ -49,14 +49,46 @@ enum SettingsFileAccess {
         )
     }
 
+    static func readContents(at targetURL: URL, maximumBytes: Int) throws -> Contents {
+        let descriptor = targetURL.withUnsafeFileSystemRepresentation { path in
+            path.map { Darwin.open($0, O_RDONLY | O_NONBLOCK | O_CLOEXEC) } ?? -1
+        }
+        guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        defer { try? handle.close() }
+        var status = stat()
+        guard Darwin.fstat(descriptor, &status) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        guard status.st_mode & S_IFMT == S_IFREG else { throw POSIXError(.EFTYPE) }
+        guard status.st_size <= maximumBytes else { throw POSIXError(.EFBIG) }
+        let original = fingerprint(from: status)
+        var data = Data()
+        data.reserveCapacity(Int(status.st_size))
+        while let chunk = try handle.read(upToCount: max(1, Int(status.st_size) + 1 - data.count)), !chunk.isEmpty {
+            guard chunk.count <= maximumBytes - data.count else { throw POSIXError(.EFBIG) }
+            guard chunk.count <= Int(status.st_size) - data.count else { throw POSIXError(.ESTALE) }
+            data.append(chunk)
+        }
+        guard Darwin.fstat(descriptor, &status) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        guard fingerprint(from: status) == original else { throw POSIXError(.ESTALE) }
+        return Contents(data: data, fingerprint: original)
+    }
+
     static func currentFingerprint(at fileURL: URL) -> Fingerprint? {
+        try? fileFingerprint(at: fileURL)
+    }
+
+    static func fileFingerprint(at fileURL: URL, followingLinks: Bool = true) throws -> Fingerprint {
         var statBuffer = stat()
         let result = fileURL.withUnsafeFileSystemRepresentation { path -> CInt in
             guard let path else { return -1 }
-            return Darwin.fstatat(AT_FDCWD, path, &statBuffer, 0)
+            return Darwin.fstatat(AT_FDCWD, path, &statBuffer, followingLinks ? 0 : AT_SYMLINK_NOFOLLOW)
         }
 
-        guard result == 0 else { return nil }
+        guard result == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         return Self.fingerprint(from: statBuffer)
     }
 

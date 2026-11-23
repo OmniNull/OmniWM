@@ -86,6 +86,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsConfigNoticeController = nil
         statusBarController?.cleanup()
         if let controller = AppDelegate.sharedBootstrap?.controller {
+            controller.stopConfigScript()
             if !terminationPending { controller.serviceLifecycleManager.stop() }
             controller.workspaceManager.flushPersistedWindowRestoreCatalogNow()
         }
@@ -209,6 +210,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func observeSettings(_ settings: SettingsStore, controller: WMController) {
+        controller
+            .startConfigScript(at: settings.settingsFileURL.deletingLastPathComponent()
+                .appendingPathComponent("init.luau"))
         settings.onIPCEnabledChanged = { [weak self, weak controller] isEnabled in
             guard let self, let controller else { return }
             do {

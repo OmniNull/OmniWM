@@ -178,6 +178,30 @@ final class WorkspaceSlotNavigationTests: XCTestCase {
         XCTAssertEqual(fixture.manager.activeWorkspace(on: fixture.monitorA.id)?.id, fixture.workspace3)
     }
 
+    func testScriptBindsMonitorLocalSlotAndWorkspaceIDIndependently() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.controller.layoutRefreshController.resetState() }
+        let workspaceNumber = try XCTUnwrap(fixture.manager.descriptor(for: fixture.workspace2)?.name)
+        let source = """
+        local wm = omniwm
+        wm.keymap.set("Control+Option+S", wm.cmd("switch-workspace", "slot", "\(workspaceNumber)"))
+        wm.keymap.set("Control+Option+W", wm.cmd("switch-workspace", "\(workspaceNumber)"))
+        """
+        let result = try await ConfigScriptLoader().evaluate(
+            Data(source.utf8), hyperMask: fixture.controller.settings.hyperKeyModifiers.carbonMask
+        )
+        let commands = result.bindings.map(\.command)
+        let number = try XCTUnwrap(Int(workspaceNumber))
+        XCTAssertEqual(commands, [.workspace(.switchSlot(number)), .workspace(.switchTo(number - 1))])
+        let slot = try XCTUnwrap(commands.first)
+        let named = try XCTUnwrap(commands.last)
+        XCTAssertEqual(fixture.controller.commandHandler.performCommand(slot), .executed)
+        XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace3)
+        XCTAssertEqual(fixture.controller.commandHandler.performCommand(named), .executed)
+        XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace2)
+        XCTAssertEqual(fixture.manager.activeWorkspace(on: fixture.monitorA.id)?.id, fixture.workspace3)
+    }
+
     func testRouterDistinguishesInvalidAbsentAndUnchangedSlots() throws {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }

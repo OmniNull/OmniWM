@@ -14,6 +14,7 @@ extension CommandHandler {
         case let .workspace(action):
             switch action {
             case .moveTo,
+                 .moveToOnMonitor,
                  .moveUp,
                  .moveDown,
                  .moveToMonitor,

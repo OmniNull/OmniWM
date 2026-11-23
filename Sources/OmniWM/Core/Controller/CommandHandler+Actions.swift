@@ -45,45 +45,52 @@ extension CommandHandler {
         return .executed
     }
 
-    func perform(_ action: WorkspaceAction, controller: WMController) -> ExternalCommandResult {
+    func perform(_ action: WorkspaceAction, source: Source, controller: WMController) -> ExternalCommandResult {
         if detachesWindow(action), let token = controller.focusedManagedTokenForCommand(),
            controller.workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil
         {
             return .attachedWindow
         }
+        let navigation = controller.workspaceNavigationHandler
         switch action {
         case let .moveToMonitor(direction):
-            controller.workspaceNavigationHandler.moveWindowToMonitor(direction: direction)
+            return navigation.moveWindowToMonitor(direction: direction)
         case let .moveTo(index):
-            controller.workspaceNavigationHandler.moveFocusedWindow(toWorkspaceIndex: index)
-        case .moveUp:
-            controller.workspaceNavigationHandler.moveWindowToAdjacentWorkspace(direction: .up)
-        case .moveDown:
-            controller.workspaceNavigationHandler.moveWindowToAdjacentWorkspace(direction: .down)
-        case let .switchTo(index):
-            controller.workspaceNavigationHandler.switchWorkspace(
-                index: index,
-                autoBackAndForth: controller.settings.workspaces.autoBackAndForth
-            )
-        case let .switchSlot(slot):
-            controller.workspaceNavigationHandler.switchWorkspaceSlot(
-                slot,
-                autoBackAndForth: controller.settings.workspaces.autoBackAndForth
-            )
+            return navigation.moveFocusedWindow(toWorkspaceIndex: index)
+        case let .moveToOnMonitor(index, direction):
+            return navigation.moveFocusedWindow(toWorkspaceIndex: index, onMonitor: direction)
+        case .moveUp,
+             .moveDown:
+            return navigation.moveWindowToAdjacentWorkspace(direction: action == .moveUp ? .up : .down)
+        case let .switchTo(number),
+             let .switchSlot(number):
+            let autoBackAndForth = source == .shortcut && controller.settings.workspaces.autoBackAndForth
+            if case .switchTo = action {
+                return navigation.switchWorkspace(index: number, autoBackAndForth: autoBackAndForth)
+            }
+            return navigation.switchWorkspaceSlotResult(number, autoBackAndForth: autoBackAndForth)
+        case let .switchAnywhere(index):
+            return navigation.switchWorkspace(index: index, anywhere: true)
         case let .moveToSlot(slot):
-            controller.workspaceNavigationHandler.moveFocusedWindow(toWorkspaceSlot: slot)
-        case .next:
-            controller.workspaceNavigationHandler.switchWorkspaceRelative(isNext: true)
-        case .previous:
-            controller.workspaceNavigationHandler.switchWorkspaceRelative(isNext: false)
+            return navigation.moveFocusedWindowToWorkspaceSlot(slot)
+        case .next,
+             .previous,
+             .backAndForth:
+            let previousWorkspaceId = controller.activeWorkspace()?.id
+            if action == .backAndForth {
+                navigation.workspaceBackAndForth()
+            } else {
+                navigation.switchWorkspaceRelative(isNext: action == .next)
+            }
+            return controller.activeWorkspace()?.id == previousWorkspaceId ? .noChange : .executed
         case let .moveWorkspaceToMonitor(direction):
             moveActiveWorkspace(toMonitor: direction, controller: controller)
         case let .swapWithMonitor(direction):
-            controller.workspaceNavigationHandler.swapCurrentWorkspaceWithMonitor(direction: direction)
-        case .backAndForth:
-            controller.workspaceNavigationHandler.workspaceBackAndForth()
+            return navigation.swapCurrentWorkspaceWithMonitor(direction: direction)
         case .toggleLayout:
             toggleWorkspaceLayout()
+        case let .setLayout(layout):
+            return setWorkspaceLayout(layout) ? .executed : .noChange
         }
         return .executed
     }
@@ -92,11 +99,14 @@ extension CommandHandler {
         switch action {
         case .moveToMonitor,
              .moveTo,
+             .moveToOnMonitor,
              .moveUp,
              .moveDown,
              .moveToSlot:
             true
         case .switchTo,
+             .switchAnywhere,
+             .setLayout,
              .switchSlot,
              .next,
              .previous,
@@ -160,15 +170,12 @@ extension CommandHandler {
     }
 
     func perform(_ action: IPCMonitorFocusCommand, controller: WMController) -> ExternalCommandResult {
-        switch action {
-        case .previous:
-            controller.workspaceNavigationHandler.focusMonitorCyclic(previous: true)
-        case .next:
-            controller.workspaceNavigationHandler.focusMonitorCyclic(previous: false)
-        case .last:
-            controller.workspaceNavigationHandler.focusLastMonitor()
+        let changed = switch action {
+        case .previous: controller.workspaceNavigationHandler.focusMonitorCyclic(previous: true)
+        case .next: controller.workspaceNavigationHandler.focusMonitorCyclic(previous: false)
+        case .last: controller.workspaceNavigationHandler.focusLastMonitor()
         }
-        return .executed
+        return changed ? .executed : .noChange
     }
 
     func perform(_ action: IPCFullscreenCommand, controller: WMController) -> ExternalCommandResult {

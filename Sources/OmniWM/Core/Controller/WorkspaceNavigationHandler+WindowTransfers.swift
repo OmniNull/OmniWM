@@ -13,15 +13,20 @@ extension WorkspaceNavigationHandler {
 
     @discardableResult
     func moveFocusedWindow(toWorkspaceSlot slot: Int) -> Bool {
+        moveFocusedWindowToWorkspaceSlot(slot) == .executed
+    }
+
+    func moveFocusedWindowToWorkspaceSlot(_ slot: Int) -> ExternalCommandResult {
+        guard slot >= 1 else { return .invalidArguments }
         guard let controller,
               let token = controller.workspaceManager.selectedManagedToken,
-              let targetWorkspace = workspaceSlot(slot),
-              controller.workspaceManager.workspace(for: token) != targetWorkspace.id
-        else { return false }
+              let targetWorkspace = workspaceSlot(slot)
+        else { return .notFound }
+        guard controller.workspaceManager.workspace(for: token) != targetWorkspace.id else { return .noChange }
         if case .changed = commitWindowMove(handle: WindowHandle(id: token), toWorkspaceId: targetWorkspace.id) {
-            return true
+            return .executed
         }
-        return false
+        return .workspaceStateConflict
     }
 
     private func transferWindowFromSourceEngine(
@@ -99,34 +104,39 @@ extension WorkspaceNavigationHandler {
         )
     }
 
-    func moveWindowToAdjacentWorkspace(direction: Direction) {
-        guard let controller else { return }
-        guard let token = controller.workspaceManager.selectedManagedToken else { return }
-        guard let sourceWorkspaceId = controller.workspaceManager.workspace(for: token) else { return }
+    @discardableResult
+    func moveWindowToAdjacentWorkspace(direction: Direction) -> ExternalCommandResult {
+        guard let controller, let token = controller.workspaceManager.selectedManagedToken,
+              let sourceWorkspaceId = controller.workspaceManager.workspace(for: token)
+        else { return .notFound }
 
         saveNiriViewportState(for: sourceWorkspaceId)
         guard case let .changed(mutation) = moveWindowToAdjacentWorkspace(
             handle: WindowHandle(id: token),
             direction: direction
-        ) else { return }
+        ) else { return .noChange }
 
         finishWorkspaceMove(mutation)
+        return .executed
     }
 
-    func moveFocusedWindow(toWorkspaceIndex index: Int) {
-        guard let rawWorkspaceID = WorkspaceIDPolicy.rawID(from: max(0, index) + 1) else { return }
-        moveFocusedWindow(toRawWorkspaceID: rawWorkspaceID)
+    @discardableResult
+    func moveFocusedWindow(toWorkspaceIndex index: Int) -> ExternalCommandResult {
+        guard index >= 0, index < Int.max else { return .invalidArguments }
+        return moveFocusedWindow(toRawWorkspaceID: String(index + 1))
     }
 
-    func moveFocusedWindow(toRawWorkspaceID rawWorkspaceID: String) {
+    @discardableResult
+    func moveFocusedWindow(toRawWorkspaceID rawWorkspaceID: String) -> ExternalCommandResult {
         guard let controller,
               let token = controller.workspaceManager.selectedManagedToken,
-              let targetWorkspaceId = controller.workspaceManager.workspaceId(
-                  for: rawWorkspaceID,
-                  createIfMissing: false
-              )
-        else { return }
-        commitWindowMove(handle: WindowHandle(id: token), toWorkspaceId: targetWorkspaceId)
+              let targetWorkspaceId = controller.workspaceManager.workspaceId(named: rawWorkspaceID)
+        else { return .notFound }
+        guard controller.workspaceManager.workspace(for: token) != targetWorkspaceId else { return .noChange }
+        if case .changed = commitWindowMove(handle: WindowHandle(id: token), toWorkspaceId: targetWorkspaceId) {
+            return .executed
+        }
+        return .notFound
     }
 
     @discardableResult

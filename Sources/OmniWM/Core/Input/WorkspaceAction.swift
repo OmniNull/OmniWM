@@ -6,10 +6,12 @@ import OmniWMIPC
 
 enum WorkspaceAction: Equatable, Hashable {
     case moveTo(Int)
+    case moveToOnMonitor(Int, Direction)
     case moveUp
     case moveDown
     case moveToMonitor(Direction)
     case switchTo(Int)
+    case switchAnywhere(Int)
     case switchSlot(Int)
     case moveToSlot(Int)
     case next
@@ -18,6 +20,7 @@ enum WorkspaceAction: Equatable, Hashable {
     case swapWithMonitor(Direction)
     case backAndForth
     case toggleLayout
+    case setLayout(LayoutType)
 }
 
 extension WorkspaceAction {
@@ -27,6 +30,7 @@ extension WorkspaceAction {
                 "command.workspace.moveTo", defaultValue: "Move Focused Window to Workspace \(idx + 1)",
                 table: "Commands", bundle: .omniWM
             )
+        case let .moveToOnMonitor(index, direction): Self.moveToMonitorTitle(direction, workspaceIndex: index)
         case .moveUp: LocalizedStringResource(
                 "command.workspace.moveWindowUp", defaultValue: "Move Focused Window to Workspace Up",
                 table: "Commands", bundle: .omniWM
@@ -38,6 +42,10 @@ extension WorkspaceAction {
         case let .switchTo(idx): LocalizedStringResource(
                 "command.workspace.switchTo", defaultValue: "Switch to Workspace \(idx + 1)", table: "Commands",
                 bundle: .omniWM
+            )
+        case let .switchAnywhere(index): LocalizedStringResource(
+                "command.workspace.switchAnywhere", defaultValue: "Focus Workspace \(index + 1) Across Monitors",
+                table: "Commands", bundle: .omniWM
             )
         case let .switchSlot(slot): LocalizedStringResource(
                 "command.workspace.switchSlot", defaultValue: "Switch to Workspace Slot \(slot)", table: "Commands",
@@ -61,15 +69,53 @@ extension WorkspaceAction {
                 "command.workspace.backAndForth", defaultValue: "Switch to Last Active Workspace", table: "Commands",
                 bundle: .omniWM
             )
-        case .toggleLayout: LocalizedStringResource(
-                "command.workspace.toggleLayout", defaultValue: "Toggle Workspace Layout", table: "Commands",
-                bundle: .omniWM
-            )
+        case let .setLayout(layout): Self.layoutTitle(layout)
+        case .toggleLayout: Self.layoutTitle(nil)
         }
     }
 
-    private static func moveToMonitorTitle(_ direction: Direction) -> LocalizedStringResource {
-        switch direction {
+    private static func layoutTitle(_ layout: LayoutType?) -> LocalizedStringResource {
+        if let layout {
+            return LocalizedStringResource(
+                "command.workspace.setLayout", defaultValue: "Set Workspace Layout to \(layout.displayName)",
+                table: "Commands", bundle: .omniWM
+            )
+        }
+        return LocalizedStringResource(
+            "command.workspace.toggleLayout", defaultValue: "Toggle Workspace Layout", table: "Commands",
+            bundle: .omniWM
+        )
+    }
+
+    private static func moveToMonitorTitle(
+        _ direction: Direction,
+        workspaceIndex: Int? = nil
+    ) -> LocalizedStringResource {
+        if let workspaceIndex {
+            return switch direction {
+            case .left: LocalizedStringResource(
+                    "command.workspace.moveToOnMonitor.left",
+                    defaultValue: "Move Focused Window to Workspace \(workspaceIndex + 1) on the Monitor to the Left",
+                    table: "Commands", bundle: .omniWM
+                )
+            case .right: LocalizedStringResource(
+                    "command.workspace.moveToOnMonitor.right",
+                    defaultValue: "Move Focused Window to Workspace \(workspaceIndex + 1) on the Monitor to the Right",
+                    table: "Commands", bundle: .omniWM
+                )
+            case .up: LocalizedStringResource(
+                    "command.workspace.moveToOnMonitor.up",
+                    defaultValue: "Move Focused Window to Workspace \(workspaceIndex + 1) on the Monitor Above",
+                    table: "Commands", bundle: .omniWM
+                )
+            case .down: LocalizedStringResource(
+                    "command.workspace.moveToOnMonitor.down",
+                    defaultValue: "Move Focused Window to Workspace \(workspaceIndex + 1) on the Monitor Below",
+                    table: "Commands", bundle: .omniWM
+                )
+            }
+        }
+        return switch direction {
         case .left: LocalizedStringResource(
                 "command.workspace.moveWindowToMonitor.left", defaultValue: "Move Focused Window to Monitor on Left",
                 table: "Commands", bundle: .omniWM
@@ -135,6 +181,8 @@ extension WorkspaceAction {
         switch self {
         case .switchTo:
             .workspace(.switchTo)
+        case .switchAnywhere:
+            .workspace(.switchAnywhere)
         case .switchSlot:
             .workspace(.switchSlot)
         case .moveToSlot:
@@ -147,6 +195,8 @@ extension WorkspaceAction {
             .workspace(.backAndForth)
         case .moveTo:
             .workspace(.moveTo)
+        case .moveToOnMonitor:
+            .workspace(.moveToOnMonitor)
         case .moveUp:
             .workspace(.moveUp)
         case .moveDown:
@@ -157,27 +207,14 @@ extension WorkspaceAction {
             nil
         case .swapWithMonitor:
             .swapWorkspaceWithMonitor
+        case .setLayout:
+            .workspaceLayout(.set)
         case .toggleLayout:
             .workspaceLayout(.toggle)
         }
     }
 
     var compatibility: LayoutCompatibility {
-        switch self {
-        case .moveTo,
-             .moveUp,
-             .moveDown,
-             .moveToMonitor,
-             .switchTo,
-             .switchSlot,
-             .moveToSlot,
-             .next,
-             .previous,
-             .moveWorkspaceToMonitor,
-             .swapWithMonitor,
-             .backAndForth,
-             .toggleLayout:
-            .shared
-        }
+        .shared
     }
 }

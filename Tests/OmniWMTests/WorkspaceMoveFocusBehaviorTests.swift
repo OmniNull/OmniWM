@@ -610,7 +610,7 @@ final class WorkspaceMoveFocusBehaviorTests: XCTestCase {
         XCTAssertNil(manager.selectedManagedToken)
         XCTAssertEqual(
             controller.commandHandler.performCommand(.workspace(.moveToMonitor(.right))),
-            .executed
+            .notFound
         )
         XCTAssertEqual(manager.worldSeq, noFocusWorldSeq)
         XCTAssertNil(controller.layoutRefreshController.layoutState.activeRefresh)
@@ -634,7 +634,7 @@ final class WorkspaceMoveFocusBehaviorTests: XCTestCase {
 
         XCTAssertEqual(
             controller.commandHandler.performCommand(.workspace(.moveToMonitor(.left))),
-            .executed
+            .notFound
         )
         XCTAssertEqual(manager.workspace(for: window.id), fixture.sourceWorkspaceId)
         XCTAssertEqual(manager.worldSeq, noAdjacentWorldSeq)

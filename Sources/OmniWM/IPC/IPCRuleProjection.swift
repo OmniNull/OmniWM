@@ -4,8 +4,8 @@
 import Foundation
 import OmniWMIPC
 
-@MainActor
 enum IPCRuleProjection {
+    @MainActor
     static func result(
         settings: SettingsStore,
         windowRuleEngine: WindowRuleEngine

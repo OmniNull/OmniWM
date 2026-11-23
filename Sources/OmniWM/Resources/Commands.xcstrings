@@ -14302,6 +14302,50 @@
         }
       }
     },
+    "command.workspace.moveToOnMonitor.down" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Focused Window to Workspace %lld on the Monitor Below"
+          }
+        }
+      }
+    },
+    "command.workspace.moveToOnMonitor.left" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Focused Window to Workspace %lld on the Monitor to the Left"
+          }
+        }
+      }
+    },
+    "command.workspace.moveToOnMonitor.right" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Focused Window to Workspace %lld on the Monitor to the Right"
+          }
+        }
+      }
+    },
+    "command.workspace.moveToOnMonitor.up" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move Focused Window to Workspace %lld on the Monitor Above"
+          }
+        }
+      }
+    },
     "command.workspace.moveToSlot" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -15481,6 +15525,17 @@
         }
       }
     },
+    "command.workspace.setLayout" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Set Workspace Layout to %@"
+          }
+        }
+      }
+    },
     "command.workspace.swapWithMonitor.down" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -16001,6 +16056,17 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "워크스페이스를 위쪽 모니터의 워크스페이스와 교환"
+          }
+        }
+      }
+    },
+    "command.workspace.switchAnywhere" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Focus Workspace %lld Across Monitors"
           }
         }
       }

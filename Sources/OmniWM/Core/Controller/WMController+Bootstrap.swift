@@ -196,8 +196,31 @@ extension WMController {
         }
     }
 
-    func updateHotkeyBindings(_ bindings: [HotkeyBinding], force: Bool = false) {
-        let enabledBindings = bindings.filter { settings.isCommandFeatureEnabled($0.command) }
+    func startConfigScript(at fileURL: URL) {
+        guard configScript == nil else { return }
+        let script = ConfigScriptController(fileURL: fileURL, settings: settings) { [weak self] rows in
+            guard let self else { return }
+            updateHotkeyBindings(settings.hotkeyBindings, scriptBindings: rows)
+        }
+        script.onDiagnosticChanged = { [weak self] diagnostic in self?.configScriptDiagnostic = diagnostic }
+        script.onRulesChanged = { [weak self] in self?.updateAppRules() }
+        configScript = script
+        script.start()
+    }
+
+    func stopConfigScript() {
+        configScript?.stop()
+        configScript = nil
+    }
+
+    func updateHotkeyBindings(
+        _ bindings: [HotkeyBinding],
+        force: Bool = false,
+        scriptBindings: [HotkeyBinding]? = nil
+    ) {
+        let scriptRows = scriptBindings ?? configScript?.bindings(for: bindings) ?? []
+        let combined = scriptRows.isEmpty ? bindings : bindings + scriptRows
+        let enabledBindings = combined.filter { settings.isCommandFeatureEnabled($0.command) }
         hotkeys.updateBindings(
             enabledBindings,
             systemHyperTrigger: settings.systemHyperTrigger,

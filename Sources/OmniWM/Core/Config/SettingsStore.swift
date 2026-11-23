@@ -95,23 +95,29 @@ final class SettingsStore {
         didSet { scheduleSave() }
     }
 
-    private(set) var appRulesRevision: UInt64 = 0
-    private(set) var appRulesDiagnosticSnapshot = WindowClassificationRulesSnapshot(
-        revision: 0,
-        rules: SettingsStore.defaultExport.appRules
-    )
+    @ObservationIgnored private var ruleSet = EffectiveAppRules(configured: SettingsStore.defaultExport.appRules)
+    var appRulesRevision: UInt64 {
+        ruleSet.snapshot.revision
+    }
+
+    var appRulesDiagnosticSnapshot: WindowClassificationRulesSnapshot {
+        ruleSet.snapshot
+    }
+
+    var effectiveAppRules: [AppRule] {
+        ruleSet.effective
+    }
 
     var appRules = SettingsStore.defaultExport.appRules {
         didSet {
-            if appRules != oldValue {
-                appRulesRevision &+= 1
-                appRulesDiagnosticSnapshot = WindowClassificationRulesSnapshot(
-                    revision: appRulesRevision,
-                    rules: appRules
-                )
-            }
+            if appRules != oldValue { ruleSet.refresh(configured: appRules) }
             scheduleSave()
         }
+    }
+
+    @discardableResult
+    func setScriptAppRules(_ rules: [AppRule]) -> Bool {
+        ruleSet.setScriptRules(rules, configured: appRules)
     }
 
     var preventSleepEnabled = SettingsStore.defaultExport.preventSleepEnabled {

@@ -16,7 +16,8 @@ final class WindowRuleEngine {
         case rejected(WindowDecision)
     }
 
-    private var compiledUserRules: [CompiledWindowRule] = []
+    private(set) var compiledUserRules: [CompiledWindowRule] = []
+    private(set) var rebuildCount: UInt64 = 0
     private let builtInRules: [CompiledWindowRule]
     private var titleRules: [CompiledWindowRule] = []
     private(set) var invalidRegexMessagesByRuleId: [UUID: String] = [:]
@@ -67,6 +68,7 @@ final class WindowRuleEngine {
     }
 
     func rebuild(rules: [AppRule]) {
+        rebuildCount &+= 1
         var invalidRegexMessagesByRuleId: [UUID: String] = [:]
         compiledUserRules = rules.enumerated().compactMap { index, rule in
             guard rule.hasIdentifyingMatcher, rule.hasEffect else { return nil }

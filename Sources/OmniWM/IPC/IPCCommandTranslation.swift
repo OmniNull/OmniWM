@@ -4,6 +4,66 @@
 import OmniWMIPC
 
 extension HotkeyCommand {
+    init?(direct request: IPCCommandRequest) {
+        switch request {
+        case let .focus(command): self.init(ipc: command)
+        case let .windowMovement(command): self.init(ipc: command)
+        case let .column(command): self.init(ipc: command)
+        case let .sizing(command): self.init(ipc: command)
+        case let .dwindle(command): self.init(ipc: command)
+        case let .scratchpad(command): self.init(ipc: command)
+        case .openCommandPalette: self = .openCommandPalette
+        case .toggleFloatingFocus: self = .toggleFloatingFocus
+        case .workspaceLayout(.toggle): self = .workspace(.toggleLayout)
+        case let .fullscreen(command): self = .fullscreen(command)
+        case let .presentation(command): self = .presentation(command)
+        case let .media(command): self = .media(command)
+        case let .keyboardMode(command): self = .keyboardMode(command)
+        case let .windowState(command): self = .windowState(command)
+        case .openMenuAnywhere: self = .openMenuAnywhere
+        case let .shellAppOpen(appID): self = .shellAppOpen(appID)
+        case let .shellAppNewWindow(appID): self = .shellAppNewWindow(appID)
+        case let .workspace(action): self.init(ipc: action)
+        case let .monitorFocus(action): self = .monitorFocus(action)
+        case let .swapWorkspaceWithMonitor(direction): self = .workspace(.swapWithMonitor(Direction(ipc: direction)))
+        case let .openCommandPaletteMode(mode): self = .openCommandPaletteMode(mode)
+        case let .windowSwitcher(direction, scope):
+            self = .windowSwitcher(direction: direction, scope: scope.map(WindowSwitcherScope.init(ipc:)))
+        case .raiseAllFloatingWindows: self = .raiseAllFloatingWindows
+        case .rescueOffscreenWindows: self = .rescueOffscreenWindows
+        case let .workspaceLayout(.set(layout)): self = .workspace(.setLayout(LayoutType(ipc: layout)))
+        }
+    }
+
+    private init?(ipc command: IPCWorkspaceCommand) {
+        switch command {
+        case let .switchTo(number):
+            guard let index = Self.zeroBasedIndex(from: number) else { return nil }
+            self = .workspace(.switchTo(index))
+        case let .switchAnywhere(number):
+            guard let index = Self.zeroBasedIndex(from: number) else { return nil }
+            self = .workspace(.switchAnywhere(index))
+        case let .switchSlot(slot):
+            guard slot > 0 else { return nil }
+            self = .workspace(.switchSlot(slot))
+        case let .moveTo(number):
+            guard let index = Self.zeroBasedIndex(from: number) else { return nil }
+            self = .workspace(.moveTo(index))
+        case let .moveToOnMonitor(number, direction):
+            guard let index = Self.zeroBasedIndex(from: number) else { return nil }
+            self = .workspace(.moveToOnMonitor(index, Direction(ipc: direction)))
+        case let .moveToSlot(slot):
+            guard slot > 0 else { return nil }
+            self = .workspace(.moveToSlot(slot))
+        case let .moveToMonitor(direction): self = .workspace(.moveToMonitor(Direction(ipc: direction)))
+        case .next: self = .workspace(.next)
+        case .previous: self = .workspace(.previous)
+        case .backAndForth: self = .workspace(.backAndForth)
+        case .moveUp: self = .workspace(.moveUp)
+        case .moveDown: self = .workspace(.moveDown)
+        }
+    }
+
     init?(ipc command: IPCFocusCommand) {
         switch command {
         case let .spatial(ipcDirection):

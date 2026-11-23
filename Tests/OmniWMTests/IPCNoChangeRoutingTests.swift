@@ -94,7 +94,7 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         let commands = fixture.controller.commandHandler
 
         XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchTo(workspaceNumber: 2))), .executed)
-        XCTAssertEqual(commands.performCommand(.workspace(.switchTo(1))), .executed)
+        XCTAssertEqual(commands.performCommand(.workspace(.switchTo(1))), .noChange)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace2)
 
         fixture.controller.settings.workspaces.autoBackAndForth = true
@@ -130,6 +130,37 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveTo(workspaceNumber: 7))), .notFound)
         XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveToMonitor(direction: .right))), .notFound)
         XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: token), fixture.workspace1)
+    }
+
+    func testLoadedWorkspaceBindingsRejectTargetsRemovedAfterLoad() async throws {
+        let fixture = try makeFixture()
+        let controller = fixture.controller
+        defer { controller.layoutRefreshController.resetState() }
+        let manager = controller.workspaceManager
+        let target = try XCTUnwrap(manager.descriptor(for: fixture.workspace2)?.name)
+        let source = """
+        local wm = omniwm
+        wm.keymap.set("Control+Option+W", wm.cmd("switch-workspace", "\(target)"))
+        wm.keymap.set("Control+Option+N", wm.cmd("switch-workspace", "anywhere", "\(target)"))
+        """
+        let loaded = try await ConfigScriptLoader().evaluate(
+            Data(source.utf8), hyperMask: controller.settings.hyperKeyModifiers.carbonMask
+        )
+        let number = try XCTUnwrap(Int(target))
+        let requests: [IPCCommandRequest] = [
+            .workspace(.switchTo(workspaceNumber: number)), .workspace(.switchAnywhere(workspaceNumber: number))
+        ]
+        XCTAssertEqual(loaded.bindings.count, requests.count)
+        controller.settings.workspaces.configurations.removeAll { $0.name == target }
+        controller.updateWorkspaceConfig()
+        XCTAssertNil(manager.workspaceId(named: target))
+
+        for (binding, request) in zip(loaded.bindings, requests) {
+            XCTAssertEqual(controller.commandHandler.performCommand(binding.command), .notFound)
+            XCTAssertEqual(fixture.router.handle(request), .notFound)
+        }
+        XCTAssertEqual(controller.activeWorkspace()?.id, fixture.workspace1)
+        XCTAssertNil(manager.workspaceId(named: target))
     }
 
     func testSatisfiedMaintenanceCommandsReportNoChange() throws {

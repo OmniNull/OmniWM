@@ -82,12 +82,12 @@ extension HotkeyCenter {
         return true
     }
 
-    func handleKeyboardModeKeyDown(keyCode: UInt32, event: CGEvent) -> Bool {
+    func handleKeyboardModeKeyDown(keyCode: UInt32, rawFlags: UInt64) -> Bool {
         let previous = keyboardModeInput.state
         let decision = keyboardModeInput.handleKeyDown(
             keyCode: keyCode,
-            rawFlags: event.flags.rawValue,
-            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
+            rawFlags: rawFlags,
+            isRepeat: false,
             now: keyboardModeNow(),
             table: keyboardModeTable
         )

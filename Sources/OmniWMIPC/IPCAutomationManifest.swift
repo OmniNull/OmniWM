@@ -60,6 +60,24 @@ public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Se
     case resizeOperation = "resize-operation"
     case sizeChange = "size-change"
 
+    public var literalValues: [String]? {
+        switch self {
+        case .direction: IPCDirection.allCases.map(\.rawValue)
+        case .layout: IPCWorkspaceLayout.allCases.map(\.rawValue)
+        case .paletteMode: IPCCommandPaletteMode.allCases.map(\.rawValue)
+        case .switcherDirection: IPCWindowSwitcherDirection.allCases.map(\.rawValue)
+        case .switcherScope: IPCWindowSwitcherScope.allCases.map(\.rawValue)
+        case .resizeAxis: IPCResizeAxis.allCases.map(\.rawValue)
+        case .resizeOperation: IPCResizeOperation.allCases.map(\.rawValue)
+        case .scratchpadIndex: IPCScratchpadSlots.range.map(String.init)
+        case .appID,
+             .workspaceNumber,
+             .columnIndex,
+             .windowIndex,
+             .sizeChange: nil
+        }
+    }
+
     public var usagePlaceholder: String {
         switch self {
         case .appID:

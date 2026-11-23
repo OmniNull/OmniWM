@@ -63,12 +63,9 @@ extension WMController {
         layoutRefreshController.requestRelayout(reason: .workspaceConfigChanged)
     }
 
-    func rebuildAppRulesCache() {
-        windowRuleEngine.rebuild(rules: settings.appRules)
-    }
-
     func updateAppRules() {
-        rebuildAppRulesCache()
+        configScript?.refreshRuleConflicts()
+        windowRuleEngine.rebuild(rules: settings.effectiveAppRules)
         layoutRefreshController.requestFullRescan(reason: .appRulesChanged)
     }
 
