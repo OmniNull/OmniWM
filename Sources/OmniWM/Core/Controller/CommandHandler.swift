@@ -7,6 +7,7 @@ import Foundation
 @MainActor
 final class CommandHandler {
     weak var controller: WMController?
+    private(set) lazy var scriptNotice = ShellTooltip(wrapping: true)
     var nativeFullscreenStateProvider: ((AXWindowRef) -> Bool)?
     var nativeFullscreenSetter: ((AXWindowRef, Bool) -> Bool)?
     var frontmostAppPidProvider: (() -> pid_t?)?
@@ -74,8 +75,9 @@ final class CommandHandler {
         let mixedTransferSource = mixedTransferSelection(for: command, controller: controller)
         defer { finishLayoutChange(changeStart, transfer: mixedTransferSource, controller: controller) }
         switch command {
-        case let .focus(direction):
-            focusWindow(direction: direction)
+        case let .configFunction(id):
+            return controller.configScript?.enqueue(function: id, controller: controller) ?? .notFound
+        case let .focus(direction): focusWindow(direction: direction)
         case let .focusNavigation(action): return perform(action, controller: controller)
         case let .move(direction):
             moveWindowCrossingMonitors(direction: direction, controller: controller, widening: &changeStart)
@@ -84,12 +86,10 @@ final class CommandHandler {
         case let .column(action): return perform(action, controller: controller)
         case let .monitorFocus(action): return perform(action, controller: controller)
         case let .fullscreen(action): return perform(action, controller: controller)
-        case let .moveColumn(direction):
-            moveContainer(direction: direction)
+        case let .moveColumn(direction): moveContainer(direction: direction)
         case let .sizing(action): return perform(action, controller: controller)
         case let .dwindle(action): return perform(action, controller: controller)
-        case .openCommandPalette:
-            controller.openCommandPalette()
+        case .openCommandPalette: controller.openCommandPalette()
         case let .openCommandPaletteMode(mode):
             controller.openCommandPalette(mode: CommandPaletteMode(ipc: mode))
         case let .windowSwitcher(direction, scope):
@@ -103,8 +103,7 @@ final class CommandHandler {
         case .windowState(.toggleFloating): return controller.toggleFocusedWindowFloating()
         case .windowState(.close): return controller.closeFocusedWindow()
         case let .scratchpad(action): return perform(action, controller: controller)
-        case .openMenuAnywhere:
-            controller.openMenuAnywhere()
+        case .openMenuAnywhere: controller.openMenuAnywhere()
         case let .windowMark(action):
             return performWindowMarkAction(action, for: controller.workspaceManager.nativeManagedFocusToken)
         case let .presentation(action): return perform(action, controller: controller)
@@ -118,6 +117,8 @@ final class CommandHandler {
         case let .shellAppNewWindow(appID):
             return controller.shellAppWindowManager.newWindow(appID) ? .executed : .notFound
         case let .openApp(bundleID): return openApp(bundleID, controller: controller)
+        case let .runProgram(argv): runProgram(argv)
+        case let .showNotice(text): scriptNotice.showTransient(text, at: controller.currentMouseLocation())
         }
         return .executed
     }
@@ -462,5 +463,15 @@ extension CommandHandler {
             ""
         ))
         return .executed
+    }
+
+    private func runProgram(_ argv: [String]) {
+        Task { @concurrent in
+            do {
+                try await LauncherProcess.start(argv)
+            } catch {
+                Log.config.error("omniwm.run: \(error.localizedDescription)")
+            }
+        }
     }
 }

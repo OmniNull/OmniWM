@@ -7,7 +7,7 @@ import Foundation
 import OmniWMScriptHost
 import XCTest
 
-private extension ConfigScriptLoader {
+private extension ConfigScriptGeneration {
     func profiledLoad(_ url: URL, hyperMask: UInt32) -> (ConfigScriptLoad, UInt64) {
         let start = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
         let result = load(fileURL: url, hyperMask: hyperMask)
@@ -55,7 +55,7 @@ final class ConfigScriptPerformanceTests: XCTestCase {
                 for (phase, contents) in [initial, changed, changed].enumerated() {
                     try contents.write(to: url, options: .atomic)
                     let wall = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
-                    let (load, workerCPU) = await loader.profiledLoad(
+                    let (load, workerCPU) = await loader.makeGeneration().profiledLoad(
                         url,
                         hyperMask: settings.hyperKeyModifiers.carbonMask
                     )
@@ -166,7 +166,7 @@ extension ConfigScriptPerformanceTests {
                 let beforeScan = try XCTUnwrap(wm.layoutRefreshController.performanceSnapshot()).refreshesEnqueued
                 let mask = wm.settings.hyperKeyModifiers.carbonMask
                 let wall = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
-                let (load, workerCPU) = await loader.profiledLoad(url, hyperMask: mask)
+                let (load, workerCPU) = await loader.makeGeneration().profiledLoad(url, hyperMask: mask)
                 let cpu = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
                 let applied = controller.apply(load, hyperMask: mask)
                 let mainCPU = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) - cpu

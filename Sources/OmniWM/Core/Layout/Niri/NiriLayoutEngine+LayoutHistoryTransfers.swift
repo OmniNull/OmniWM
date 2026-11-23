@@ -164,7 +164,7 @@ extension NiriLayoutEngine {
                 container.setActiveTileIdx(column.activeTile)
             } else {
                 for window in returning {
-                    column.sizing.windows[window.token]?.restore(window, in: container)
+                    column.sizing.windows[window.token]?.restore(window, engine: self)
                 }
             }
             updateTabbedColumnVisibility(column: container)

@@ -207,6 +207,9 @@ extension WMController {
     }
 
     func openCommandPalette(mode: CommandPaletteMode? = nil) {
+        #if OMNIWM_CONFIG_CALLBACK_TRACE
+            ConfigScriptLatencyTrace.mark(.nativeCommand)
+        #endif
         commandPaletteController.toggle(wmController: self, mode: mode)
     }
 

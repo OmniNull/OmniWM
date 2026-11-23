@@ -29,6 +29,26 @@ extension WorldStore {
         trace.invariantViolationCountsDump()
     }
 
+    func isSeqCurrent(
+        _ plannedSeq: UInt64,
+        for workspaceId: WorkspaceDescriptor.ID,
+        domains: InvalidationDomain
+    ) -> Bool {
+        invalidationMarks(for: workspaceId).isCurrent(plannedSeq, domains: domains)
+    }
+
+    func isSeqEpochCurrent(_ plannedSeq: UInt64, domains: InvalidationDomain) -> Bool {
+        epochMarks.isCurrent(plannedSeq, domains: domains)
+    }
+
+    func settleScriptWindowState(_ observer: ConfigScriptEventObservers) {
+        if isEngineMutationSanctioned {
+            pendingScriptWindowState = observer
+        } else {
+            observer.publishSettledWindowStates()
+        }
+    }
+
     func commitScope(
         in workspaceId: WorkspaceDescriptor.ID?,
         label: String,

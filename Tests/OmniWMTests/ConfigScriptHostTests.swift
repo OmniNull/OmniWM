@@ -21,7 +21,7 @@ final class ConfigScriptHostTests: XCTestCase {
         } catch let error as ConfigScriptError {
             failure = error
         }
-        return try XCTUnwrap(failure, "Expected the complete configuration to be rejected")
+        return try XCTUnwrap(failure, "Expected the complete configuration to be rejected: \(text)")
     }
 
     func testConstructsTypedNativeActionsAndReportsDeclarationLines() async throws {
@@ -69,6 +69,36 @@ final class ConfigScriptHostTests: XCTestCase {
         XCTAssertEqual(forged.line, prefix.count + 1)
     }
 
+    func testNativeEffectsValidateArgumentShapePathsAndByteBounds() async throws {
+        let wordLimit = Int(OMNI_CONFIG_ARG_BYTE_LIMIT)
+        let word = "string.rep('x', \(wordLimit))"
+        let wordsAtLimit = Int(OMNI_CONFIG_ARGV_BYTE_LIMIT) / wordLimit
+        let valid = [
+            "wm.open(string.rep('a', \(OMNI_CONFIG_BUNDLE_BYTE_LIMIT)))",
+            "wm.notify(string.rep('a', \(OMNI_CONFIG_NOTICE_BYTE_LIMIT)))",
+            "wm.run(table.create(\(OMNI_CONFIG_ARGC_LIMIT), 'x'))",
+            "wm.run(table.create(\(wordsAtLimit), \(word)))"
+        ]
+        _ = try await evaluate((["local wm = omniwm"] + valid).joined(separator: "\n"))
+        let invalid = [
+            "wm.open('')", "wm.open('Not an app ID')", "wm.notify('')",
+            "wm.open(string.rep('a', \(OMNI_CONFIG_BUNDLE_BYTE_LIMIT + 1)))",
+            "wm.notify(string.rep('a', \(OMNI_CONFIG_NOTICE_BYTE_LIMIT + 1)))", "wm.notify(string.char(255))",
+            "wm.run('one string')", "wm.run({})", "wm.run({ '' })", "wm.run({ 'relative/program' })",
+            "wm.run({ [1] = 'program', [3] = 'hole' })", "wm.run({ 'program', named = 'extra' })",
+            "wm.run({ 'program', true })", "wm.run({ 'program', string.char(0) })",
+            "wm.run(table.create(\(OMNI_CONFIG_ARGC_LIMIT + 1), 'x'))",
+            "wm.run({ 'program', string.rep('x', \(wordLimit + 1)) })",
+            "wm.run(table.create(\(wordsAtLimit + 1), \(word)))"
+        ]
+        for call in invalid {
+            let script = ["local wm = omniwm", call]
+            let failure = try await rejection(script.joined(separator: "\n"))
+            XCTAssertEqual(failure.line, script.count, call)
+            XCTAssertFalse(failure.message.isEmpty, call)
+        }
+    }
+
     func testEveryManifestCommandCanBeConstructedInLuau() async throws {
         let source = IPCAutomationManifest.commandDescriptors.map { descriptor in
             let firstPositiveIndex = "1"
@@ -90,7 +120,8 @@ final class ConfigScriptHostTests: XCTestCase {
     func testHostExposesOnlyConfigServicesAndFreezesItsTables() async throws {
         let result = try await evaluate("""
         assert(ui == nil and type(require) == "function" and io == nil and package == nil)
-        assert(omniwm.run == nil and omniwm.data == nil and omniwm.dispatch == nil)
+        assert(omniwm.data == nil and type(omniwm.dispatch) == "function" and type(omniwm.log) == "function")
+        assert(type(omniwm.open) == "function" and type(omniwm.run) == "function" and type(omniwm.notify) == "function")
         assert(not pcall(function() omniwm.cmd = nil end))
         assert(not pcall(function() omniwm.keymap.set = nil end))
         local action = omniwm.cmd("open-command-palette")
@@ -180,7 +211,8 @@ final class ConfigScriptHostTests: XCTestCase {
         let limit = Int(OMNI_CONFIG_DECLARATION_LIMIT)
         let loops = [
             "omniwm.cmd('open-command-palette')",
-            "omniwm.keymap.set('Option+J', action)"
+            "omniwm.keymap.set('Option+J', action)",
+            "omniwm.on('workspace.active', function() end)"
         ]
         for statement in loops {
             for count in [limit, limit + 1] {
@@ -191,7 +223,10 @@ final class ConfigScriptHostTests: XCTestCase {
                         actionID?.pointee = 0
                         return omni_config_live_vm_count() > 0
                     },
-                    bind: { _, _, _, _, _, _, _ in true }, read_module: nil, rule: nil
+                    bind: { _, _, _, _, _, _, _ in true }, read_module: nil, rule: nil,
+                    bind_function: nil, dispatch: nil, log: nil,
+                    named_function: { _, event, _, _, _, _, _, _ in event },
+                    effect: nil
                 )
                 var stats = omni_config_stats()
                 var message = [CChar](repeating: 0, count: 256)

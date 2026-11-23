@@ -89,6 +89,53 @@ final class NiriResizeIncrementTests: XCTestCase {
         XCTAssertEqual(omni_config_live_vm_count(), 0)
     }
 
+    func testFunctionShortcutResizesForTheAppCapturedAtPress() async throws {
+        let textEdit = "com.apple.TextEdit"
+        let textEditPercent = 12
+        let otherPercent = 4
+        let source = """
+        local wm = omniwm
+        local textEdit = wm.cmd("set-container-primary-span", "+\(textEditPercent)%")
+        local other = wm.cmd("set-container-primary-span", "+\(otherPercent)%")
+        wm.keymap.set("Control+Option+I", function(ctx)
+            wm.dispatch(if ctx.bundleId == "\(textEdit)" then textEdit else other)
+        end)
+        """
+        for (bundleId, expectedPercent) in [(textEdit, textEditPercent), ("test.other-app", otherPercent)] {
+            let fixture = try makeFixture()
+            let controller = fixture.controller
+            defer {
+                controller.stopConfigScript()
+                controller.layoutRefreshController.resetState()
+            }
+            let workspace = try XCTUnwrap(controller.activeWorkspace())
+            let token = fixture.window.token
+            _ = controller.workspaceManager.setManagedFocus(token, in: workspace.id)
+            _ = controller.appInfoCache.info(for: token.pid) { _ in
+                AppInfoCache.AppInfo(name: bundleId, bundleId: bundleId, icon: nil, activationPolicy: .regular)
+            }
+            controller.settings.hotkeyBindings = []
+            let file = controller.settings.settingsFileURL.deletingLastPathComponent()
+                .appendingPathComponent("init.luau")
+            let script = ConfigScriptController(fileURL: file, settings: controller.settings) { _ in }
+            controller.configScript = script
+            let mask = controller.settings.hyperKeyModifiers.carbonMask
+            let evaluation = try await ConfigScriptLoader().evaluate(Data(source.utf8), hyperMask: mask)
+            XCTAssertTrue(script.apply(ConfigScriptLoad(versions: [:], result: .success(evaluation)), hyperMask: mask))
+            guard case let .proportion(initialWidth) = fixture.column.width else {
+                return XCTFail("Fixture must start with a proportional column")
+            }
+            let command = try XCTUnwrap(script.effectiveBindings.first?.command)
+            XCTAssertEqual(
+                controller.commandHandler.handleHotkeyInvocation(HotkeyInvocation(command: command)),
+                .executed
+            )
+            await script.callbackQueue?.worker?.value
+            XCTAssertNil(script.diagnostic)
+            assertSpan(fixture, primary: true, expected: initialWidth + CGFloat(expectedPercent) / 100)
+        }
+    }
+
     func testLiteralIPCResizeKeepsItsAmount() throws {
         let requests: [(IPCSizingCommand, Bool)] = [
             (.setContainerPrimarySpan(change: .adjustProportion(10)), true),

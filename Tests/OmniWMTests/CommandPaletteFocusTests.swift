@@ -4,6 +4,7 @@
 import AppKit
 import Combine
 @testable import OmniWM
+import OmniWMIPC
 import XCTest
 
 @MainActor
@@ -713,6 +714,69 @@ final class CommandPaletteFocusTests: XCTestCase {
         executor.perform(.command(fixture.controller, .windowState(.close), nil))
 
         XCTAssertEqual(presentedMessages, ["The command could not be completed."])
+    }
+
+    func testUnreachableWorkspaceCommandsOnOneMonitorStaySilent() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let controller = fixture.controller
+        let manager = controller.workspaceManager
+        let monitor = try XCTUnwrap(manager.monitors.first)
+        manager.applyMonitorConfigurationChange([monitor])
+        manager.applySettings()
+        let workspace = try XCTUnwrap(manager.activeWorkspaceOrFirst(on: monitor.id))
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let windowID = Int(pid)
+        let window = manager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowID),
+            pid: pid, windowId: windowID, to: workspace.id
+        )
+        XCTAssertTrue(manager.setManagedFocus(window, in: workspace.id))
+        let names = controller.settings.workspaces.configurations.map(\.name)
+        let unused = try XCTUnwrap(Int(WorkspaceIDPolicy.lowestUnusedRawID(in: names)))
+        let missingSlot = names.count + 1
+        var failures: [String] = []
+        var results: [ExternalCommandResult] = []
+        var environment = CommandPaletteEnvironment()
+        environment.presentCommandFailure = { failures.append($0) }
+        environment.performCommand = { controller, command in
+            let result = controller.commandHandler.performCommand(command)
+            results.append(result)
+            return result
+        }
+        let executor = CommandPaletteActionExecutor(
+            environment: environment, focusSession: CommandPaletteFocusSession(environment: environment)
+        )
+        let commands: [HotkeyCommand] = [
+            .workspace(.moveToMonitor(.right)), .workspace(.switchTo(unused - 1)), .workspace(.switchSlot(missingSlot))
+        ]
+        for command in commands { executor.perform(.command(controller, command, nil)) }
+        XCTAssertEqual(results, commands.map { _ in .notFound })
+        XCTAssertTrue(failures.isEmpty)
+        controller.isEnabled = false
+        executor.perform(.command(controller, commands[0], nil))
+        XCTAssertEqual(results.last, .ignoredDisabled)
+        XCTAssertEqual(failures, ["This feature is disabled."])
+    }
+
+    func testFailedWorkspaceSlotMoveIsSilentButAttachedWindowIsReported() {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        var result = ExternalCommandResult.workspaceStateConflict
+        var failures: [String] = []
+        var environment = CommandPaletteEnvironment()
+        environment.presentCommandFailure = { failures.append($0) }
+        environment.performCommand = { _, _ in result }
+        let executor = CommandPaletteActionExecutor(
+            environment: environment, focusSession: CommandPaletteFocusSession(environment: environment)
+        )
+        let firstSlot = 1
+        let command = HotkeyCommand.workspace(.moveToSlot(firstSlot))
+        executor.perform(.command(fixture.controller, command, nil))
+        XCTAssertTrue(failures.isEmpty)
+        result = .attachedWindow
+        executor.perform(.command(fixture.controller, command, nil))
+        XCTAssertEqual(failures, ["Attached windows stay floating and follow their parent."])
     }
 
     func testCommandNoChangeDoesNotPresentFailure() {

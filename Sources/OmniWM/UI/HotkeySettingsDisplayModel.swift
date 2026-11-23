@@ -147,6 +147,14 @@ enum HotkeySettingsDisplayModel {
         }
     }
 
+    static func search(_ query: String, scriptCommands: [ConfigScriptNamedCommand]) -> [ConfigScriptNamedCommand] {
+        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !term.isEmpty else { return scriptCommands }
+        return scriptCommands.filter {
+            $0.name.localizedCaseInsensitiveContains(term) || $0.sourceLocation.localizedCaseInsensitiveContains(term)
+        }
+    }
+
     private static func matchesSearch(_ normalizedQuery: String, binding: HotkeyBinding) -> Bool {
         guard !normalizedQuery.isEmpty else { return true }
         if let terms = ActionCatalog.normalizedSearchTerms(for: binding.id) {
@@ -201,6 +209,12 @@ enum HotkeySettingsDisplayModel {
 }
 
 extension ConfigScriptBinding {
+    var sourceLocation: String {
+        "\(source):\(line)"
+    }
+}
+
+extension ConfigScriptNamedCommand {
     var sourceLocation: String {
         "\(source):\(line)"
     }

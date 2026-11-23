@@ -20,7 +20,10 @@ extension ActionCatalog {
         case let .presentation(command): .presentation(command)
         case let .media(command): .media(command)
         case let .keyboardMode(command): .keyboardMode(command)
-        case .shellToggle,
+        case .configFunction,
+             .runProgram,
+             .showNotice,
+             .shellToggle,
              .openApp,
              .windowMark:
             nil

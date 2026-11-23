@@ -45,6 +45,7 @@ extension WorkspaceManager {
         if txn.plan.mutatesRuntimeState || eventRequiresRuntimeInvalidation(event) {
             noteInvalidation(for: event)
         }
+        scriptTopologyObserver?.topologyCommitted(previous: topologyPlan.previousMonitors, in: self)
         return txn
     }
 

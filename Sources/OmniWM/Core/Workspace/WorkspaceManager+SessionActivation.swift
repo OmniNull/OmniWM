@@ -60,6 +60,11 @@ extension WorkspaceManager {
         }
 
         if workspaceVisibilityChanged {
+            if let observer = scriptWorkspaceMoveObserver, context == nil {
+                observer.refreshWorkspaceMonitorAssignments(
+                    for: workspaceId, and: previousWorkspaceOnMonitor, in: self, context: resolutionContext
+                )
+            }
             drainPendingRuntimeMonitorOverrideClears()
         }
         return true

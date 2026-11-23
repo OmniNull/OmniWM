@@ -418,6 +418,7 @@ enum HotkeyCategory: String, CaseIterable {
     case monitor = "Monitor"
     case layout = "Layout"
     case column = "Container and Column"
+    case script = "Script Commands"
 
     var localizedDisplayName: String {
         Self.localizedNames[self] ?? rawValue
@@ -446,6 +447,7 @@ enum HotkeyCategory: String, CaseIterable {
         .column: String(localized: LocalizedStringResource(
             "command.category.column", defaultValue: "Container and Column", table: "Commands",
             bundle: .omniWM
-        ))
+        )),
+        .script: String(localized: "Script Commands")
     ]
 }

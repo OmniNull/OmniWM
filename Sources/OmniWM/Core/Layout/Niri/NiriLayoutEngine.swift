@@ -60,6 +60,12 @@ final class NiriLayoutEngine {
 
     var windowMovementAnimationConfig: SpringConfig = .niriWindowMovement
     var animationClock: AnimationClock?
+    var onFullscreenChange: ((WindowToken, Bool) -> Void)? {
+        didSet {
+            for state in states.values { state.onFullscreenChange = onFullscreenChange }
+        }
+    }
+
     var isMutationSanctioned = true
 
     func assertSanctionedMutation(_ operation: StaticString = #function) {
@@ -145,6 +151,7 @@ final class NiriLayoutEngine {
             return existing
         }
         let state = NiriWorkspaceState(workspaceId: workspaceId)
+        state.onFullscreenChange = onFullscreenChange
         states[workspaceId] = state
         return state
     }

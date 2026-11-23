@@ -7,11 +7,19 @@ import AppKit
 final class ShellTooltip {
     private static let offset = CGPoint(x: 10, y: 22)
     private static let padding = CGSize(width: 8, height: 4)
+    static let noticeDuration: TimeInterval = 2
 
     private let panel: NSPanel
-    private let label = NSTextField(labelWithString: "")
+    private let label: NSTextField
+    private(set) var dismissalTimer: Timer?
 
-    init() {
+    init(wrapping: Bool = false) {
+        if wrapping {
+            label = NSTextField(wrappingLabelWithString: "")
+            label.preferredMaxLayoutWidth = 360
+        } else {
+            label = NSTextField(labelWithString: "")
+        }
         panel = NSPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -68,5 +76,25 @@ final class ShellTooltip {
 
     func hide() {
         panel.orderOut(nil)
+    }
+
+    func showTransient(_ text: String, at location: CGPoint) {
+        show(text, at: location)
+        if let dismissalTimer {
+            dismissalTimer.fireDate = Date(timeIntervalSinceNow: Self.noticeDuration)
+            return
+        }
+        let timer = Timer(
+            timeInterval: Self.noticeDuration, target: self, selector: #selector(dismiss(_:)),
+            userInfo: nil, repeats: false
+        )
+        dismissalTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    @objc private func dismiss(_ timer: Timer) {
+        guard timer === dismissalTimer else { return }
+        dismissalTimer = nil
+        hide()
     }
 }

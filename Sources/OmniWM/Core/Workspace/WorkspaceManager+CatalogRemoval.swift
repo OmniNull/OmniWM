@@ -24,7 +24,16 @@ extension WorkspaceManager {
 
     func removeWorkspaces(_ ids: [WorkspaceDescriptor.ID]) {
         guard !ids.isEmpty else { return }
+        if let observer = scriptWorkspaceRemovalObserver {
+            let removed = observer.removalPayloads(for: ids, in: self)
+            removeCatalogEntries(ids)
+            observer.workspacesRemoved(ids, payloads: removed)
+        } else {
+            removeCatalogEntries(ids)
+        }
+    }
 
+    private func removeCatalogEntries(_ ids: [WorkspaceDescriptor.ID]) {
         let toRemove = Set(ids)
         for id in toRemove {
             noteInvalidation(workspaceId: id, domains: [.workspace, .layout, .focus])

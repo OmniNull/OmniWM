@@ -52,6 +52,10 @@ extension WindowModel {
             model.windows(in: workspace)
         }
 
+        func tokens(in workspace: WorkspaceDescriptor.ID) -> [WindowToken] {
+            model.tokens(in: workspace)
+        }
+
         func forEachToken(in workspace: WorkspaceDescriptor.ID, _ body: (WindowToken) -> Void) {
             model.forEachToken(in: workspace, body)
         }

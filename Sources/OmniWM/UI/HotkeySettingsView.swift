@@ -24,6 +24,10 @@ struct HotkeySettingsView: View {
             searchText,
             scriptBindings: controller.configScript?.acceptedBindings ?? []
         )
+        let scriptCommands = HotkeySettingsDisplayModel.search(
+            searchText,
+            scriptCommands: controller.configScript?.acceptedCommands ?? []
+        )
         let shiftedCharacters = SecureInputShortcutRisk.currentLayoutShiftedCharacters()
         let hotkeyMouseButtons = OverviewInputSettingsValidation.hotkeyMouseButtons(settings.hotkeyBindings)
         let modeKeyFailures = KeyboardModeTable(bindings: settings.hotkeyBindings).failures
@@ -146,7 +150,7 @@ struct HotkeySettingsView: View {
                 )
                 SettingsCaption(HotkeyBindingRow.secureInputTip)
 
-                if groups.isEmpty, scriptBindings.isEmpty {
+                if groups.isEmpty, scriptBindings.isEmpty, scriptCommands.isEmpty {
                     Text("No matching hotkeys.")
                         .foregroundStyle(.secondary)
                 }
@@ -158,6 +162,10 @@ struct HotkeySettingsView: View {
                     bindings: scriptBindings,
                     masked: controller.configScript?.maskedBindingChords ?? []
                 )
+            }
+
+            if !scriptCommands.isEmpty {
+                ScriptCommandSection(commands: scriptCommands)
             }
 
             ForEach(groups) { group in
@@ -429,6 +437,23 @@ extension HotkeySettingsView {
                 controller.updateKeyboardModeSettings()
             }
         )
+    }
+}
+
+private struct ScriptCommandSection: View {
+    let commands: [ConfigScriptNamedCommand]
+
+    var body: some View {
+        Section(HotkeyCategory.script.localizedDisplayName) {
+            ForEach(commands, id: \.name) { command in
+                LabeledContent {
+                    Text(verbatim: command.sourceLocation)
+                } label: {
+                    Text(verbatim: command.name)
+                }
+                .textSelection(.enabled)
+            }
+        }
     }
 }
 

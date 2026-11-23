@@ -92,6 +92,9 @@ extension WorkspaceManager {
             domains: [.workspace, .layout, .focus]
         )
         schedulePersistedWindowRestoreCatalogSave()
+        scriptWorkspaceMoveObserver?.refreshWorkspaceMonitorAssignments(
+            for: workspaceId, and: visibility.destinationWorkspaceId, in: self, context: context
+        )
         notifySessionStateChanged()
 
         return WorkspaceMonitorMoveOutcome(

@@ -232,7 +232,10 @@ enum ActionCatalog {
         case .moveColumn(.up),
              .moveColumn(.down):
             .dwindle
-        case .focus,
+        case .configFunction,
+             .runProgram,
+             .showNotice,
+             .focus,
              .move,
              .moveColumn(.left),
              .moveColumn(.right),
@@ -274,6 +277,9 @@ enum ActionCatalog {
 
     private static func titleResource(for command: HotkeyCommand) -> LocalizedStringResource {
         switch command {
+        case .configFunction,
+             .runProgram,
+             .showNotice: LocalizedStringResource("Script Shortcuts", bundle: .omniWM)
         case let .focus(direction): focusTitle(direction)
         case let .move(direction): moveTitle(direction)
         case let .monitorFocus(command): command.actionDisplayName()
@@ -309,10 +315,7 @@ enum ActionCatalog {
             )
         case .shellAppOpen: shellAppExampleTitle
         case .shellAppNewWindow: shellAppNewWindowExampleTitle
-        case let .openApp(bundleID): LocalizedStringResource(
-                "command.app.open", defaultValue: "Open \(appDisplayName(bundleID: bundleID))", table: "Commands",
-                bundle: .omniWM
-            )
+        case let .openApp(bundleID): openAppTitle(bundleID: bundleID)
         case let .focusNavigation(action): action.actionDisplayName()
         case let .windowMovement(action): action.actionDisplayName()
         case let .column(action): action.actionDisplayName()

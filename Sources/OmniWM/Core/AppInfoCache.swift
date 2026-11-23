@@ -84,6 +84,10 @@ final class AppInfoCache {
         info(for: pid)?.bundleId
     }
 
+    func cachedBundleId(for pid: pid_t) -> String? {
+        cache[pid]?.bundleId
+    }
+
     func hasCachedInfo(for pid: pid_t) -> Bool {
         cache[pid] != nil
     }

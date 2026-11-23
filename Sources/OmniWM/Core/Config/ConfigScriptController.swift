@@ -37,38 +37,54 @@ final class ConfigScriptController {
         var hyperMask: UInt32
     }
 
+    @ObservationIgnored private weak var wmController: WMController?
+    @ObservationIgnored private(set) var eventObservers: ConfigScriptEventObservers?
     private let fileURL: URL
     private let settings: SettingsStore
     let observation: SettingsFileObservation
     private let loader = ConfigScriptLoader()
+    private let timerSleep: ConfigScriptTimerSleep
+    @ObservationIgnored private(set) var timerWorker: Task<Void, Never>?
     private let didChangeBindings: @MainActor ([HotkeyBinding]) -> Void
     @ObservationIgnored var onDiagnosticChanged: (@MainActor (String?) -> Void)?
     @ObservationIgnored var onRulesChanged: (@MainActor () -> Void)?
+    @ObservationIgnored var onCommandsChanged: (@MainActor () -> Void)?
     @ObservationIgnored var onReloadProcessed: (@MainActor () -> Void)?
     @ObservationIgnored private var requested: Input?
     @ObservationIgnored private var job: Task<Void, Never>?
     private(set) var acceptedBindings: [ConfigScriptBinding] = []
     private(set) var acceptedRules: [ConfigScriptRule] = []
+    private(set) var acceptedCommands: [ConfigScriptNamedCommand] = []
     private(set) var maskedBindingChords: Set<KeyBinding> = []
     @ObservationIgnored private var acceptedFiles: Set<URL> = []
     @ObservationIgnored private var bindingConflict: String?
     @ObservationIgnored private var acceptedMask: UInt32 = 0
     @ObservationIgnored private var loadError: String?
+    @ObservationIgnored private(set) var callbackQueue: ConfigScriptCallbackQueue?
+    @ObservationIgnored private var callbackError: String?
     @ObservationIgnored private(set) var diagnostic: String?
     @ObservationIgnored private(set) var effectiveBindings: [HotkeyBinding] = []
 
     init(
         fileURL: URL,
         settings: SettingsStore,
+        wmController: WMController? = nil,
+        timerSleep: @escaping ConfigScriptTimerSleep = { try await Task.sleep(for: $0) },
         didChangeBindings: @escaping @MainActor ([HotkeyBinding]) -> Void
     ) {
+        self.wmController = wmController
         self.fileURL = fileURL.standardizedFileURL
         self.settings = settings
+        self.timerSleep = timerSleep
         self.didChangeBindings = didChangeBindings
         observation = SettingsFileObservation(
             directoryURL: self.fileURL.deletingLastPathComponent(),
             fileURL: self.fileURL
         )
+    }
+
+    isolated deinit {
+        timerWorker?.cancel()
     }
 
     func start() {
@@ -87,6 +103,11 @@ final class ConfigScriptController {
         job?.cancel()
         job = nil
         requested = nil
+        retireCallbacks()
+        if !acceptedCommands.isEmpty {
+            acceptedCommands.removeAll()
+            onCommandsChanged?()
+        }
     }
 
     private func requestCurrent(changed: Set<URL>? = nil) {
@@ -150,12 +171,20 @@ final class ConfigScriptController {
         case let .success(evaluation):
             let declarations = evaluation?.bindings ?? []
             let rules = evaluation?.rules ?? []
+            let commands = evaluation?.namedCommands ?? []
             let resolved = resolve(declarations, parsedWith: hyperMask, base: settings.hotkeyBindings)
             if let conflict = resolved.conflict ?? ruleConflict(rules) {
                 loadError = conflict
             } else {
+                retireCallbacks()
+                callbackQueue = evaluation?.generation.map { ConfigScriptCallbackQueue(
+                    generation: $0, bindings: declarations, commands: commands, events: evaluation?.events ?? []
+                ) }
+                callbackError = nil
                 acceptedBindings = declarations
                 acceptedRules = rules
+                let commandsChanged = commands != acceptedCommands
+                if commandsChanged { acceptedCommands = commands }
                 maskedBindingChords = []
                 acceptedMask = hyperMask
                 loadError = nil
@@ -166,11 +195,14 @@ final class ConfigScriptController {
                     didChangeBindings(resolved.rows)
                 }
                 if rulesChanged { onRulesChanged?() }
+                if commandsChanged { onCommandsChanged?() }
                 updateDiagnostic(nil)
+                installEvents(evaluation?.events ?? [])
+                if let timers = evaluation?.timers, !timers.isEmpty { installTimers(timers) }
                 return true
             }
         }
-        updateDiagnostic(loadError)
+        refreshRuleConflicts()
         return false
     }
 
@@ -187,7 +219,30 @@ final class ConfigScriptController {
     }
 
     func refreshRuleConflicts() {
-        updateDiagnostic(loadError ?? bindingConflict ?? ruleConflict(acceptedRules))
+        let configError = loadError ?? bindingConflict ?? ruleConflict(acceptedRules)
+        if let configError, let callbackError {
+            updateDiagnostic("\(configError)\n\(callbackError)")
+        } else {
+            updateDiagnostic(configError ?? callbackError)
+        }
+    }
+
+    func enqueue(function: Int, controller: WMController) -> ExternalCommandResult {
+        guard let callbackQueue, let reads = callbackQueue.declarations[function]?.reads else { return .notFound }
+        guard callbackQueue.hasCapacity else {
+            guard let row = callbackQueue.declarations[function] else { return .notFound }
+            reportCallbackError(ConfigScriptError(
+                line: row.line, message: "Callback queue is full. This press was dropped.", source: row.source
+            ))
+            return .windowActionFailed
+        }
+        callbackQueue.enqueue(function: function, reads: reads, controller: controller, owner: self)
+        return .executed
+    }
+
+    func reportCallbackError(_ error: ConfigScriptError) {
+        callbackError = description(source: error.source, line: error.line, message: error.message)
+        refreshRuleConflicts()
     }
 
     private func ruleConflict(_ rules: [ConfigScriptRule]) -> String? {
@@ -214,7 +269,9 @@ final class ConfigScriptController {
         if let value { Log.config.error(value) }
         onDiagnosticChanged?(value)
     }
+}
 
+extension ConfigScriptController {
     private struct Claim {
         let chord: KeyBinding
         let owner: String
@@ -319,5 +376,55 @@ final class ConfigScriptController {
         }
         resolution.rows.sort { $0.id < $1.id }
         return resolution
+    }
+}
+
+extension ConfigScriptController {
+    private func retireCallbacks() {
+        timerWorker?.cancel()
+        timerWorker = nil
+        eventObservers?.stop()
+        eventObservers = nil
+        callbackQueue?.retire()
+        callbackQueue = nil
+    }
+
+    private func installTimers(_ timers: [ConfigScriptTimer]) {
+        guard let queue = callbackQueue, let controller = wmController else { return }
+        timerWorker = Task { [generation = queue.generation, timerSleep, weak self, weak queue, weak controller] in
+            await generation.runTimers(
+                timers,
+                sleep: timerSleep,
+                capture: { [weak self, weak queue, weak controller] reads in
+                    guard !Task.isCancelled, let self, let queue, let controller,
+                          callbackQueue === queue else { return nil }
+                    return controller.configScriptCapture(reads: reads)
+                },
+                deliver: { [weak self, weak queue, weak controller] result, target in
+                    guard !Task.isCancelled, let self, let queue, let controller,
+                          callbackQueue === queue else { return }
+                    await queue.applyTimer(result, target: target, controller: controller, owner: self)
+                }
+            )
+        }
+    }
+
+    private func installEvents(_ events: [ConfigScriptEventListener]) {
+        guard !events.isEmpty, let controller = wmController, let queue = callbackQueue else { return }
+        var kinds = Set(events.map(\.kind))
+        let reloaded = kinds.remove(.configReloaded) != nil
+        if !kinds.isEmpty {
+            eventObservers = ConfigScriptEventObservers(controller: controller, kinds: kinds) {
+                [weak self] kind, payload in
+                guard let self, let queue = callbackQueue, let controller = wmController else { return }
+                queue.enqueue(event: kind, payload: payload, controller: controller, owner: self)
+            }
+        }
+        if reloaded {
+            #if OMNIWM_CONFIG_CALLBACK_TRACE
+                ConfigScriptLatencyTrace.eventPayloadBuilt()
+            #endif
+            queue.enqueue(event: .configReloaded, payload: .init(), controller: controller, owner: self)
+        }
     }
 }

@@ -102,6 +102,7 @@ extension DwindleLayoutEngine {
         state: DwindleWorkspaceState
     ) -> (member: DwindleTileMember, excluded: Bool) {
         let member = tile.remove(at: index)
+        if let onFullscreenChange, member.isFullscreen { onFullscreenChange(token, true) }
         state.leafByToken.removeValue(forKey: token)
         state.pendingMovementFrameSeeds.removeValue(forKey: token)
         return (member, state.excludedTokens.remove(token) != nil)
@@ -117,6 +118,9 @@ extension DwindleLayoutEngine {
         let successorToken = state.selectedNodeId == leaf.id
             ? removalSuccessorToken(for: token, in: workspaceId)
             : nil
+        if let onFullscreenChange {
+            for member in tile.members where member.isFullscreen { onFullscreenChange(member.token, true) }
+        }
         let tokens = tile.members.map(\.token)
         let excluded = state.excludedTokens.intersection(tokens)
         for member in tokens {

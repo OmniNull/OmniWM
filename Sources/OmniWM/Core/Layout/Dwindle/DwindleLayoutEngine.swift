@@ -30,6 +30,7 @@ final class DwindleLayoutEngine {
     var settings: DwindleSettings = DwindleSettings()
     var tabRailWidth: CGFloat = 12
     var animationClock: AnimationClock?
+    var onFullscreenChange: ((WindowToken, Bool) -> Void)?
     var isMutationSanctioned = true
 
     var interactiveResize: DwindleInteractiveResize?

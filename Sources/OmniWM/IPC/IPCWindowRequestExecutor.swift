@@ -15,18 +15,18 @@ struct IPCWindowRequestExecutor {
     }
 
     func handle(_ request: IPCWindowRequest) -> ExternalCommandResult {
+        handle(request, address: IPCWindowOpaqueID.decode(request.windowId))
+    }
+
+    func handle(
+        _ request: IPCWindowRequest, address: @autoclosure () -> IPCWindowOpaqueID.Address?
+    ) -> ExternalCommandResult {
         if let guardResult = IPCCommandValidation.controllerState(controller) {
             return guardResult
         }
-
-        switch IPCWindowOpaqueID.validate(request.windowId, expectingSessionToken: sessionToken) {
-        case .invalid:
-            return .invalidArguments
-        case .stale:
-            return .staleWindowId
-        case let .valid(pid, windowId):
-            return perform(request, token: WindowToken(pid: pid, windowId: windowId))
-        }
+        guard let address = address() else { return .invalidArguments }
+        guard address.sessionToken == sessionToken else { return .staleWindowId }
+        return perform(request, token: WindowToken(pid: address.pid, windowId: address.windowId))
     }
 
     private func perform(_ request: IPCWindowRequest, token: WindowToken) -> ExternalCommandResult {

@@ -26,6 +26,23 @@ final class WorldStore {
     private var commitDepth = 0
     private var currentCommitEvent: WMEvent?
 
+    var pendingScriptWindowState: ConfigScriptEventObservers?
+    var scriptWindowModeObserver: ConfigScriptEventObservers? {
+        didSet {
+            model.onModeChange = scriptWindowModeObserver?.noteModeChange(_:was:)
+        }
+    }
+
+    private var pendingWindowMoves: [WindowMembershipBatch.Record] = []
+    var scriptWindowMoveObserver: ConfigScriptEventObservers? {
+        didSet {
+            pendingWindowMoves.removeAll()
+            model.onMembershipChange = scriptWindowMoveObserver.map { _ in
+                { [unowned self] change in pendingWindowMoves.append((commitDepth, change)) }
+            }
+        }
+    }
+
     var isEngineMutationSanctioned: Bool {
         commitDepth > 0
     }
@@ -84,13 +101,23 @@ final class WorldStore {
                 ? snapshot()
                 : reducerSnapshot
             completeSnapshot(&committedSnapshot)
-            return trace.recordTransaction(
+            let transaction = trace.recordTransaction(
                 event: event,
                 normalizedEvent: normalizedEvent,
                 resolvedPlan: resolvedPlan,
                 committedSnapshot: committedSnapshot,
                 validateInvariants: isOutermost
             )
+            if let observer = pendingScriptWindowState, !windowExistedBeforeMutation, case .windowAdmitted = event {
+                observer.discardFirstAdmissionChanges(event.token)
+            }
+            if let observer = scriptWindowMoveObserver, !pendingWindowMoves.isEmpty {
+                guard pendingWindowMoves.last?.depth == commitDepth else { return transaction }
+                var moves = WindowMembershipBatch(taking: &pendingWindowMoves, depth: commitDepth)
+                observer.publishWindowMoves(moves, transaction: transaction, wasTracked: windowExistedBeforeMutation)
+                if scriptWindowMoveObserver === observer { moves.recycle(into: &pendingWindowMoves) }
+            }
+            return transaction
         }
     }
 
@@ -103,6 +130,10 @@ final class WorldStore {
             commitDepth -= 1
             pushEngineSanction()
             currentCommitEvent = previousCommitEvent
+            if let observer = pendingScriptWindowState, commitDepth == 0 {
+                pendingScriptWindowState = nil
+                observer.publishSettledWindowStates()
+            }
         }
         seq &+= 1
         return body(commitDepth == 1)
@@ -132,18 +163,6 @@ final class WorldStore {
 
     func invalidationMarks(for workspaceId: WorkspaceDescriptor.ID) -> InvalidationMarks {
         broadcastMarks.merged(with: workspaceMarks[workspaceId] ?? InvalidationMarks())
-    }
-
-    func isSeqCurrent(
-        _ plannedSeq: UInt64,
-        for workspaceId: WorkspaceDescriptor.ID,
-        domains: InvalidationDomain
-    ) -> Bool {
-        invalidationMarks(for: workspaceId).isCurrent(plannedSeq, domains: domains)
-    }
-
-    func isSeqEpochCurrent(_ plannedSeq: UInt64, domains: InvalidationDomain) -> Bool {
-        epochMarks.isCurrent(plannedSeq, domains: domains)
     }
 
     func removeInvalidationMarks<S: Sequence>(for workspaceIds: S) where S.Element == WorkspaceDescriptor.ID {
@@ -320,13 +339,13 @@ final class WorldStore {
         spaceTopology.windowSpace.removeValue(forKey: token.windowId)
         reconcileNiriMembership(for: token, keeping: nil, monitors: monitors)
     }
-
-    func assertInCommit(_ operation: StaticString) {
-        assert(commitDepth > 0, "\(operation) must run inside WorldStore.commit")
-    }
 }
 
 extension WorldStore {
+    func assertInCommit(_ operation: StaticString) {
+        assert(commitDepth > 0, "\(operation) must run inside WorldStore.commit")
+    }
+
     func appVisibilityGeneration(for pid: pid_t) -> UInt64 {
         appVisibilityGenerationByPID[pid] ?? 0
     }
@@ -444,27 +463,7 @@ extension WorldStore {
         for token: WindowToken,
         monitors: [Monitor]
     ) -> Bool {
-        guard let entry = model.entry(for: token) else { return false }
-        var restoreIntent = StateReducer.restoreIntent(for: entry, monitors: monitors)
-        restoreIntent.niriPlacement = placement
-        if detached {
-            restoreIntent.detachedNiriContainerSizingState = NiriContainerSizingState(
-                width: placement.column.width,
-                presetWidthIndex: placement.column.presetWidthIndex,
-                isFullWidth: placement.column.isFullWidth,
-                savedWidth: placement.column.savedWidth,
-                hasManualSingleWindowWidthOverride: placement.column.hasManualSingleWindowWidthOverride,
-                height: placement.column.height,
-                isFullHeight: placement.column.isFullHeight,
-                savedHeight: placement.column.savedHeight,
-                hasManualSingleWindowHeightOverride: placement.column.hasManualSingleWindowHeightOverride
-            )
-        } else {
-            restoreIntent.detachedNiriContainerSizingState = nil
-        }
-        guard entry.restoreIntent != restoreIntent else { return false }
-        model.setRestoreIntent(restoreIntent, for: token)
-        return true
+        model.storeNiriPlacement(placement, detached: detached, for: token, monitors: monitors)
     }
 
     func installDwindleEngine(_ engine: DwindleLayoutEngine?) {

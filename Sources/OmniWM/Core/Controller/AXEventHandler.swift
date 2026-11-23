@@ -41,6 +41,7 @@ final class AXEventHandler {
     private var nextManagedReplacementEventSequence: UInt64 = 0
     var visibleWindowInfoProvider: () -> [WindowServerInfo]
     var windowInfoProvider: (UInt32) -> WindowServerInfo?
+    var scriptWindowTitleObserver: ConfigScriptEventObservers?
     var windowTitleProvider: @MainActor (UInt32) -> String? = { AXWindowService.titlePreferFast(windowId: $0) }
     var windowInfoBatchProvider: (Set<UInt32>) async throws -> [UInt32: WindowServerInfo]?
     var createdWindowAXRefProvider: (WindowToken) async throws -> AXWindowRef? = lookupCreatedWindowIdentity
@@ -57,9 +58,7 @@ final class AXEventHandler {
     var managedWindowIdentityRebindFinalizationProvider:
         ((AXManagedWindowIdentity, AXManagedWindowIdentity) async -> Bool)?
     var managedWindowIdentityRebindTargetIsAliveProvider: ((pid_t) -> Bool)?
-    var frontmostApplicationPIDProvider: () -> pid_t? = {
-        NSWorkspace.shared.frontmostApplication?.processIdentifier
-    }
+    var frontmostApplicationPIDProvider: () -> pid_t? = { NSWorkspace.shared.frontmostApplication?.processIdentifier }
 
     var applicationIsHiddenProvider: @MainActor (pid_t) -> Bool = AXEventHandler.nativeApplicationIsHidden
     var applicationIsTerminatedProvider: (pid_t) -> Bool = { pid in

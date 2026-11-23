@@ -23,6 +23,8 @@ final class WindowModel {
         let cachedAt: Date
     }
 
+    var onModeChange: ((WindowToken, TrackedWindowMode) -> Void)?
+    var onMembershipChange: ((MembershipChange) -> Void)?
     private(set) var entries: [WindowToken: WindowState] = [:]
     private var windowIdToToken: [Int: WindowToken] = [:]
     private var handleByToken: [WindowToken: WindowHandle] = [:]
@@ -209,6 +211,7 @@ final class WindowModel {
     func updateWorkspace(for token: WindowToken, workspace: WorkspaceDescriptor.ID) {
         guard let (oldWorkspace, mode) = readEntry(token, { ($0.workspaceId, $0.mode) }) else { return }
         if oldWorkspace != workspace {
+            onMembershipChange?(MembershipChange(token: token, source: oldWorkspace, destination: workspace))
             workspaceIndex.remove(
                 token,
                 from: oldWorkspace
@@ -227,8 +230,11 @@ final class WindowModel {
     }
 
     func windows(in workspace: WorkspaceDescriptor.ID) -> [WindowState] {
-        guard let tokens = workspaceIndex.tokensByKey[workspace] else { return [] }
-        return tokens.compactMap { entries[$0] }
+        tokens(in: workspace).compactMap { entries[$0] }
+    }
+
+    func tokens(in workspace: WorkspaceDescriptor.ID) -> [WindowToken] {
+        workspaceIndex.tokensByKey[workspace] ?? []
     }
 
     func forEachToken(in workspace: WorkspaceDescriptor.ID, _ body: (WindowToken) -> Void) {
@@ -356,6 +362,7 @@ extension WindowModel {
             token,
             to: WorkspaceModeKey(workspaceId: workspaceId, mode: mode)
         )
+        onModeChange?(token, currentMode)
     }
 
     func floatingState(for token: WindowToken) -> FloatingState? {
@@ -436,10 +443,6 @@ extension WindowModel {
 
     func layoutReason(for token: WindowToken) -> LayoutReason {
         readEntry(token) { $0.layoutReason } ?? .standard
-    }
-
-    func isNativeFullscreenSuspended(_ token: WindowToken) -> Bool {
-        readEntry(token) { $0.layoutReason == .nativeFullscreen } ?? false
     }
 
     func setLayoutReason(_ reason: LayoutReason, for token: WindowToken) {

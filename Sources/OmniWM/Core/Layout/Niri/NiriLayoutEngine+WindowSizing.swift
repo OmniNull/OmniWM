@@ -51,7 +51,15 @@ extension NiriLayoutEngine {
             window.stopMoveAnimations()
         }
 
+        setSizingMode(mode, for: window)
+    }
+
+    func setSizingMode(_ mode: SizingMode, for window: NiriWindow) {
+        let previous = window.sizingMode
         window.sizingMode = mode
+        if let onFullscreenChange, (previous == .fullscreen) != (mode == .fullscreen) {
+            onFullscreenChange(window.token, previous == .fullscreen)
+        }
     }
 
     func toggleFullscreen(

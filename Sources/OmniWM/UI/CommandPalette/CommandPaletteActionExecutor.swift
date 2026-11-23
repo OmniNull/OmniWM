@@ -36,6 +36,7 @@ private func commandPaletteFocusedWindowChangedCallback(
 final class CommandPaletteActionExecutor {
     private enum CommandFailure {
         case targetUnavailable
+        case scriptCommandUnavailable
         case focusNotRestored
         case focusTimedOut
         case focusInterrupted
@@ -45,6 +46,8 @@ final class CommandPaletteActionExecutor {
             switch self {
             case .targetUnavailable:
                 String(localized: "The original app is no longer available.")
+            case .scriptCommandUnavailable:
+                String(localized: "This script command is no longer available.")
             case .focusNotRestored:
                 String(localized: "The original app could not be focused.")
             case .focusTimedOut:
@@ -243,7 +246,7 @@ extension CommandPaletteActionExecutor {
               target.app.processIdentifier != environment.ownProcessIdentifier()
         else {
             cancelPendingCommand()
-            reportCommandResult(environment.performCommand(controller, command))
+            reportCommandResult(environment.performCommand(controller, command), for: command)
             return
         }
         beginFocusedAction(
@@ -439,7 +442,7 @@ extension CommandPaletteActionExecutor {
         cancelPendingCommand()
         switch pendingAction.action {
         case let .command(controller, command):
-            reportCommandResult(environment.performCommand(controller, command))
+            reportCommandResult(environment.performCommand(controller, command), for: command)
         case let .paste(controller):
             guard !environment.isLockScreenActive(controller),
                   environment.isAccessibilityTrusted(),
@@ -451,9 +454,19 @@ extension CommandPaletteActionExecutor {
         }
     }
 
-    private func reportCommandResult(_ result: ExternalCommandResult) {
-        guard result != .executed, result != .noChange else { return }
-        reportCommandFailure(.execution(result))
+    private func reportCommandResult(_ result: ExternalCommandResult, for command: HotkeyCommand) {
+        switch (result, command) {
+        case (.executed, _),
+             (.noChange, _),
+             (.notFound, .workspace),
+             (.notFound, .monitorFocus),
+             (.workspaceStateConflict, .workspace(.moveToSlot)):
+            return
+        case (.notFound, .configFunction):
+            reportCommandFailure(.scriptCommandUnavailable)
+        default:
+            reportCommandFailure(.execution(result))
+        }
     }
 
     private func reportCommandFailure(_ failure: CommandFailure) {

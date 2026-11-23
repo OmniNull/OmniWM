@@ -379,6 +379,7 @@ void *allocate(void *ud, void *ptr, size_t oldSize, size_t newSize) {
         vm->used = vm->used - oldSize + newSize;
         if constexpr (trackPeak) {
             vm->peak = std::max(vm->peak, vm->used);
+            vm->allocations++;
         }
     }
     return result;

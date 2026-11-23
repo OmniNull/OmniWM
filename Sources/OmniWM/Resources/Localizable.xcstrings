@@ -118277,6 +118277,9 @@
         }
       }
     },
+    "Script Commands" : {
+
+    },
     "Script Rules" : {
 
     },
@@ -152348,6 +152351,9 @@
     "Removed mark ‘%@’ from the selected window." : {},
     "Marked the selected window as ‘%@’." : {},
     "Window mark name" : {},
+    "This script command is no longer available." : {
+
+    },
     "This window or mark is no longer available. Search again for a current result." : {},
     "Summon right is unavailable. Focus a managed window in the active workspace first." : {},
     "Choose which mark to remove from this window." : {},

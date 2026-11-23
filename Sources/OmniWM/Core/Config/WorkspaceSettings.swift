@@ -7,14 +7,21 @@ import OmniWMIPC
 @MainActor @Observable
 final class WorkspaceSettings {
     private nonisolated static let defaults = SettingsExport.defaults()
+    @ObservationIgnored var scriptFullscreenObserver: ConfigScriptEventObservers?
     @ObservationIgnored var onChange: (() -> Void)?
 
     var configurations = WorkspaceSettings.defaults.workspaceConfigurations {
-        didSet { onChange?() }
+        didSet {
+            scriptFullscreenObserver?.workspaceLayoutsChanged(previous: oldValue, defaultLayout: defaultLayoutType)
+            onChange?()
+        }
     }
 
     var defaultLayoutType = WorkspaceSettings.defaults.defaultLayoutType {
-        didSet { onChange?() }
+        didSet {
+            scriptFullscreenObserver?.workspaceLayoutsChanged(previous: configurations, defaultLayout: oldValue)
+            onChange?()
+        }
     }
 
     var autoBackAndForth = WorkspaceSettings.defaults.workspaceAutoBackAndForth {

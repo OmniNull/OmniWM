@@ -11,15 +11,35 @@ final class IPCWindowOpaqueIDTests: XCTestCase {
             (UUID().uuidString, 12_345, 67),
             ("prefix:suffix", 42, 7),
             ("a:b:c:d", 3, 999_999),
+            ("???>>>", .min, .max),
             ("prefix\u{0600}", 42, 7)
         ]
         for (token, pid, windowId) in cases {
             let opaque = IPCWindowOpaqueID.encode(pid: pid, windowId: windowId, sessionToken: token)
+            XCTAssertEqual(opaque, opaqueID(payload: "\(token):\(pid):\(windowId)"))
             XCTAssertEqual(
                 IPCWindowOpaqueID.validate(opaque, expectingSessionToken: token),
                 .valid(pid: pid, windowId: windowId),
                 token
             )
+        }
+    }
+
+    func testStreamingIDsAppendExactlyTheCanonicalBytesAcrossBitBoundaries() {
+        let sessions = ["", "x", "xy", "???>>>", "🌿", "前:後", UUID().uuidString]
+        let processes: [Int32] = [.min, -1, 0, 1, .max]
+        let windows: [Int] = [.min, -1, 0, 1, .max]
+        for session in sessions {
+            let encoder = IPCWindowOpaqueID.Encoder(sessionToken: session)
+            for process in processes {
+                var bytes = Data("prefix".utf8)
+                var expected = "prefix"
+                for window in windows {
+                    encoder.append(pid: process, windowId: window, to: &bytes)
+                    expected += opaqueID(payload: "\(session):\(process):\(window)")
+                    XCTAssertEqual(bytes, Data(expected.utf8))
+                }
+            }
         }
     }
 

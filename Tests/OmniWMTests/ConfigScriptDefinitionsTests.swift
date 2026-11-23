@@ -39,6 +39,52 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         return overloads.joined(separator: "\n    & ")
     }
 
+    private func dispatchDefinitions() -> String {
+        var overloads = ["{ read dispatch: (action: ConfigAction) -> () }"]
+        for action in IPCAutomationManifest.windowActionDescriptors {
+            var parameters = ["kind: \"window\"", "action: \(action.name.rawValue.debugDescription)"]
+            for argument in action.arguments {
+                let parameter = switch argument {
+                case "opaque-id": "id: string"
+                case "direction": "direction: \(union(IPCDirection.allCases.map(\.rawValue)))"
+                case "cycle-direction": "direction: \(union(IPCCycleDirection.allCases.map(\.rawValue)))"
+                default: "\(argument.replacingOccurrences(of: "-", with: "_")): string"
+                }
+                parameters.append(parameter)
+            }
+            overloads.append("{ read dispatch: (\(parameters.joined(separator: ", "))) -> () }")
+        }
+        return overloads.joined(separator: "\n    & ")
+    }
+
+    private let lookupDefinitions = """
+    export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors"
+    export type ConfigReadOptions = { reads: { ConfigRead } }
+    export type ConfigWindowRow = {
+        read id: string, read bundleId: string?, read title: string?, read workspace: string,
+        read monitor: string?, read floating: boolean, read fullscreen: boolean, read minimized: boolean,
+    }
+    export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
+    export type ConfigMonitorRow = { read id: string, read name: string }
+    export type ConfigLookups = {
+        read workspaceWindows: { read [number]: ConfigWindowRow }?,
+        read windows: { read [number]: ConfigWindowRow }?,
+        read workspaces: { read [number]: ConfigWorkspaceRow }?,
+        read monitors: { read [number]: ConfigMonitorRow }?,
+        read truncated: { read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean? }?,
+    }
+    export type ConfigContext = ConfigLookups & {
+        read windowId: string?,
+        read bundleId: string?,
+        read workspace: string?,
+        read layout: string?,
+    }
+
+    export type ConfigFunction = (context: ConfigContext) -> ()
+    export type ConfigTimerOptions = { read afterSeconds: number, read everySeconds: nil } | { read afterSeconds: nil, read everySeconds: number }
+    export type ConfigTimer = { read cancel: () -> () }
+    """
+
     private func renderedDefinitions() throws -> String {
         let fields = ConfigScriptRuleField.allCases.map { field in
             let type = switch field.kind {
@@ -62,15 +108,77 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         \(fields.joined(separator: "\n"))
         }
 
+        \(lookupDefinitions)
+
+        \(eventDefinitions())
+
         export type ConfigCommands =
             \(commandDefinitions())
 
-        declare omniwm: ConfigCommands & {
-            read keymap: { read set: (chord: string, action: ConfigAction, options: { modeKey: string? }?) -> () },
+        export type ConfigDispatch =
+            \(dispatchDefinitions())
+        export type ConfigKeymap = { read set: (chord: string, action: ConfigAction | ConfigFunction, options: { modeKey: string?, reads: { ConfigRead }? }?) -> () }
+        export type ConfigTimers = { read timer: (options: ConfigTimerOptions, callback: () -> ()) -> ConfigTimer }
+            & { read timer: (options: ConfigTimerOptions, callback: ConfigFunction, optionsForCallback: ConfigReadOptions) -> ConfigTimer }
+
+        declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & {
+            read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
+            read open: (bundleId: string) -> ConfigAction,
+            read run: (argv: { string }) -> ConfigAction,
+            read notify: (text: string) -> ConfigAction,
+            read keymap: ConfigKeymap,
+            read log: (...any) -> (),
             read rule: (rule: ConfigRule) -> (),
         }
 
         """
+    }
+
+    private func eventDefinitions() -> String {
+        let rect = "{ read x: number, read y: number, read width: number, read height: number }"
+        var payloads = ["export type ConfigEventRect = \(rect)"]
+        let windowEdge = "{ read id: string, read bundleId: string?, read workspaceId: string?, " +
+            "read workspaceName: string?, read previousWorkspaceId: string?, read previousWorkspaceName: string?, read missed: number }"
+        let workspaceEdge = "{ read id: string, read name: string, read monitorId: string?, " +
+            "read monitorName: string?, read previousMonitorId: string?, read previousMonitorName: string?, read missed: number }"
+        let monitorEdge = "{ read id: string, read name: string, read frame: ConfigEventRect, " +
+            "read previousFrame: ConfigEventRect?, read visibleFrame: ConfigEventRect, read previousVisibleFrame: ConfigEventRect?, read missed: number }"
+        var overloads: [String] = []
+        let named = "{ read id: string?, read name: string? }"
+        for kind in ConfigScriptEventKind.allCases {
+            let (name, fields) = switch kind {
+            case .workspaceActive: ("ConfigWorkspaceEvent", named)
+            case .windowActive: ("ConfigWindowEvent", "{ read id: string?, read bundleId: string? }")
+            case .monitorFocused: ("ConfigMonitorEvent", named)
+            case .keybindsSubmap: ("ConfigSubmapEvent", "{ read name: string }")
+            case .configReloaded: ("ConfigReloadEvent", "{}")
+            case .windowOpen,
+                 .windowClose,
+                 .windowMoveToWorkspace: ("ConfigWindowEdge", windowEdge)
+            case .workspaceCreated,
+                 .workspaceRemoved,
+                 .workspaceMoveToMonitor: ("ConfigWorkspaceEdge", workspaceEdge)
+            case .monitorAdded,
+                 .monitorRemoved,
+                 .monitorLayoutChanged: ("ConfigMonitorEdge", monitorEdge)
+            case .windowTitle: ("ConfigWindowTitle", windowStateFields("title: string"))
+            case .windowMinimize: ("ConfigWindowMinimize", windowStateFields("minimized: boolean"))
+            case .windowFullscreen: ("ConfigWindowFullscreen", windowStateFields("fullscreen: boolean"))
+            case .windowUpdateState: ("ConfigWindowState", windowStateFields("floating: boolean"))
+            }
+            let declaration = "export type \(name) = ConfigLookups & \(fields)"
+            if payloads.last != declaration { payloads.append(declaration) }
+            overloads
+                .append(
+                    "{ read on: (name: \(kind.rawValue.debugDescription), callback: (event: \(name)) -> (), options: ConfigReadOptions?) -> () }"
+                )
+        }
+        return payloads.joined(separator: "\n") + "\n\nexport type ConfigEvents =\n    " +
+            overloads.joined(separator: "\n    & ")
+    }
+
+    private func windowStateFields(_ field: String) -> String {
+        "{ read id: string, read bundleId: string?, read \(field), read missed: number }"
     }
 
     func testGeneratedDefinitions() throws {
@@ -98,7 +206,17 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         XCTAssertTrue(definitions.contains(#"{ read cmd: (command: "open-command-palette") -> ConfigAction }"#))
         XCTAssertTrue(definitions.contains(#"command: "open-command-palette", palette_mode: "#))
         XCTAssertTrue(definitions.contains(#"{ read cmd: (command: "rescue-offscreen-windows") -> ConfigAction }"#))
-        XCTAssertTrue(definitions.contains("options: { modeKey: string? }?"))
+        XCTAssertTrue(definitions
+            .contains("action: ConfigAction | ConfigFunction, options: { modeKey: string?, reads: { ConfigRead }? }?"))
+        XCTAssertTrue(definitions
+            .contains("command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> ()"))
+        XCTAssertTrue(definitions.contains("open: (bundleId: string) -> ConfigAction"))
+        XCTAssertTrue(definitions.contains("run: (argv: { string }) -> ConfigAction"))
+        XCTAssertTrue(definitions.contains("notify: (text: string) -> ConfigAction"))
+        XCTAssertTrue(definitions.contains("read dispatch: (action: ConfigAction) -> ()"))
+        XCTAssertTrue(definitions.contains(#"read dispatch: (kind: "window", action: "focus", id: string) -> ()"#))
+        XCTAssertTrue(definitions.contains("optionsForCallback: ConfigReadOptions) -> ConfigTimer"))
+        XCTAssertTrue(definitions.contains("read log: (...any) -> ()"))
         let switcherDirections = union(IPCWindowSwitcherDirection.allCases.map(\.rawValue))
         let scopes = union(IPCWindowSwitcherScope.allCases.map(\.rawValue))
         let switcher = "{ read cmd: (command: \"window-switcher\", switcher_direction: \(switcherDirections)"

@@ -21,6 +21,66 @@ export type ConfigRule = {
     scratchpad: number?,
 }
 
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors"
+export type ConfigReadOptions = { reads: { ConfigRead } }
+export type ConfigWindowRow = {
+    read id: string, read bundleId: string?, read title: string?, read workspace: string,
+    read monitor: string?, read floating: boolean, read fullscreen: boolean, read minimized: boolean,
+}
+export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
+export type ConfigMonitorRow = { read id: string, read name: string }
+export type ConfigLookups = {
+    read workspaceWindows: { read [number]: ConfigWindowRow }?,
+    read windows: { read [number]: ConfigWindowRow }?,
+    read workspaces: { read [number]: ConfigWorkspaceRow }?,
+    read monitors: { read [number]: ConfigMonitorRow }?,
+    read truncated: { read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean? }?,
+}
+export type ConfigContext = ConfigLookups & {
+    read windowId: string?,
+    read bundleId: string?,
+    read workspace: string?,
+    read layout: string?,
+}
+
+export type ConfigFunction = (context: ConfigContext) -> ()
+export type ConfigTimerOptions = { read afterSeconds: number, read everySeconds: nil } | { read afterSeconds: nil, read everySeconds: number }
+export type ConfigTimer = { read cancel: () -> () }
+
+export type ConfigEventRect = { read x: number, read y: number, read width: number, read height: number }
+export type ConfigWorkspaceEvent = ConfigLookups & { read id: string?, read name: string? }
+export type ConfigWindowEvent = ConfigLookups & { read id: string?, read bundleId: string? }
+export type ConfigMonitorEvent = ConfigLookups & { read id: string?, read name: string? }
+export type ConfigSubmapEvent = ConfigLookups & { read name: string }
+export type ConfigReloadEvent = ConfigLookups & {}
+export type ConfigWindowEdge = ConfigLookups & { read id: string, read bundleId: string?, read workspaceId: string?, read workspaceName: string?, read previousWorkspaceId: string?, read previousWorkspaceName: string?, read missed: number }
+export type ConfigWorkspaceEdge = ConfigLookups & { read id: string, read name: string, read monitorId: string?, read monitorName: string?, read previousMonitorId: string?, read previousMonitorName: string?, read missed: number }
+export type ConfigMonitorEdge = ConfigLookups & { read id: string, read name: string, read frame: ConfigEventRect, read previousFrame: ConfigEventRect?, read visibleFrame: ConfigEventRect, read previousVisibleFrame: ConfigEventRect?, read missed: number }
+export type ConfigWindowTitle = ConfigLookups & { read id: string, read bundleId: string?, read title: string, read missed: number }
+export type ConfigWindowMinimize = ConfigLookups & { read id: string, read bundleId: string?, read minimized: boolean, read missed: number }
+export type ConfigWindowFullscreen = ConfigLookups & { read id: string, read bundleId: string?, read fullscreen: boolean, read missed: number }
+export type ConfigWindowState = ConfigLookups & { read id: string, read bundleId: string?, read floating: boolean, read missed: number }
+
+export type ConfigEvents =
+    { read on: (name: "workspace.active", callback: (event: ConfigWorkspaceEvent) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "window.active", callback: (event: ConfigWindowEvent) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "monitor.focused", callback: (event: ConfigMonitorEvent) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "keybinds.submap", callback: (event: ConfigSubmapEvent) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "config.reloaded", callback: (event: ConfigReloadEvent) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "window.open", callback: (event: ConfigWindowEdge) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "window.close", callback: (event: ConfigWindowEdge) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "window.move_to_workspace", callback: (event: ConfigWindowEdge) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "workspace.created", callback: (event: ConfigWorkspaceEdge) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "workspace.removed", callback: (event: ConfigWorkspaceEdge) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "workspace.move_to_monitor", callback: (event: ConfigWorkspaceEdge) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "monitor.added", callback: (event: ConfigMonitorEdge) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "monitor.removed", callback: (event: ConfigMonitorEdge) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "monitor.layout_changed", callback: (event: ConfigMonitorEdge) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "window.title", callback: (event: ConfigWindowTitle) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "window.minimize", callback: (event: ConfigWindowMinimize) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "window.fullscreen", callback: (event: ConfigWindowFullscreen) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "window.update_state", callback: (event: ConfigWindowState) -> (), options: ConfigReadOptions?) -> () }
+
 export type ConfigCommands =
     { read cmd: (command: "focus", direction: "left" | "right" | "up" | "down") -> ConfigAction }
     & { read cmd: (command: "focus", word2: "previous") -> ConfigAction }
@@ -125,7 +185,37 @@ export type ConfigCommands =
     & { read cmd: (command: "app-open", app_id: string) -> ConfigAction }
     & { read cmd: (command: "app-new-window", app_id: string) -> ConfigAction }
 
-declare omniwm: ConfigCommands & {
-    read keymap: { read set: (chord: string, action: ConfigAction, options: { modeKey: string? }?) -> () },
+export type ConfigDispatch =
+    { read dispatch: (action: ConfigAction) -> () }
+    & { read dispatch: (kind: "window", action: "focus", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "navigate", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "summon-right", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "close", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "move-to-workspace", id: string, workspace: string) -> () }
+    & { read dispatch: (kind: "window", action: "move-column-to-first", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "move-column-to-last", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "move-column-to-index", id: string, number: string) -> () }
+    & { read dispatch: (kind: "window", action: "move-column", id: string, direction: "left" | "right" | "up" | "down") -> () }
+    & { read dispatch: (kind: "window", action: "toggle-container-full-primary-span", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "set-container-primary-span", id: string, size_change: string) -> () }
+    & { read dispatch: (kind: "window", action: "set-window-primary-span", id: string, size_change: string) -> () }
+    & { read dispatch: (kind: "window", action: "cycle-window-primary-span", id: string, direction: "forward" | "backward") -> () }
+    & { read dispatch: (kind: "window", action: "set-window-secondary-span", id: string, size_change: string) -> () }
+    & { read dispatch: (kind: "window", action: "reset-window-secondary-span", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "cycle-window-secondary-span", id: string, direction: "forward" | "backward") -> () }
+    & { read dispatch: (kind: "window", action: "toggle-column-tabbed", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "toggle-floating", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "assign-to-scratchpad", id: string, number: string) -> () }
+export type ConfigKeymap = { read set: (chord: string, action: ConfigAction | ConfigFunction, options: { modeKey: string?, reads: { ConfigRead }? }?) -> () }
+export type ConfigTimers = { read timer: (options: ConfigTimerOptions, callback: () -> ()) -> ConfigTimer }
+    & { read timer: (options: ConfigTimerOptions, callback: ConfigFunction, optionsForCallback: ConfigReadOptions) -> ConfigTimer }
+
+declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & {
+    read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
+    read open: (bundleId: string) -> ConfigAction,
+    read run: (argv: { string }) -> ConfigAction,
+    read notify: (text: string) -> ConfigAction,
+    read keymap: ConfigKeymap,
+    read log: (...any) -> (),
     read rule: (rule: ConfigRule) -> (),
 }

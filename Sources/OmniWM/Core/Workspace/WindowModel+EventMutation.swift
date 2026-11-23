@@ -90,6 +90,40 @@ extension WindowModel {
         }
     }
 
+    @discardableResult
+    func storeNiriPlacement(
+        _ placement: PersistedNiriPlacement,
+        detached: Bool,
+        for token: WindowToken,
+        monitors: [Monitor]
+    ) -> Bool {
+        guard let entry = entry(for: token) else { return false }
+        var restoreIntent = StateReducer.restoreIntent(for: entry, monitors: monitors)
+        restoreIntent.niriPlacement = placement
+        if detached {
+            restoreIntent.detachedNiriContainerSizingState = NiriContainerSizingState(
+                width: placement.column.width,
+                presetWidthIndex: placement.column.presetWidthIndex,
+                isFullWidth: placement.column.isFullWidth,
+                savedWidth: placement.column.savedWidth,
+                hasManualSingleWindowWidthOverride: placement.column.hasManualSingleWindowWidthOverride,
+                height: placement.column.height,
+                isFullHeight: placement.column.isFullHeight,
+                savedHeight: placement.column.savedHeight,
+                hasManualSingleWindowHeightOverride: placement.column.hasManualSingleWindowHeightOverride
+            )
+        } else {
+            restoreIntent.detachedNiriContainerSizingState = nil
+        }
+        guard entry.restoreIntent != restoreIntent else { return false }
+        setRestoreIntent(restoreIntent, for: token)
+        return true
+    }
+
+    func isNativeFullscreenSuspended(_ token: WindowToken) -> Bool {
+        layoutReason(for: token) == .nativeFullscreen
+    }
+
     func applyNiriPlacements(_ placements: [WindowToken: PersistedNiriPlacement], monitors: [Monitor]) {
         for (token, placement) in placements {
             guard let entry = self.entry(for: token), entry.mode == .tiling else { continue }

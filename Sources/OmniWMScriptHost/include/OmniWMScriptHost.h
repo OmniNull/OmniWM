@@ -308,6 +308,54 @@ typedef struct omni_config_span {
 
 #define OMNI_CONFIG_MODULE_LIMIT 64u
 #define OMNI_CONFIG_ERROR_CAPACITY 1024u
+#define OMNI_CONFIG_COMMAND_LIMIT 64u
+#define OMNI_CONFIG_ARGC_LIMIT 64u
+#define OMNI_CONFIG_ARG_BYTE_LIMIT 4096u
+#define OMNI_CONFIG_ARGV_BYTE_LIMIT 32768u
+#define OMNI_CONFIG_BUNDLE_BYTE_LIMIT 255u
+#define OMNI_CONFIG_NOTICE_BYTE_LIMIT 512u
+#define OMNI_CONFIG_TIMER_LIMIT 16u
+#define OMNI_CONFIG_TIMER_MINIMUM_SECONDS 1u
+#define OMNI_CONFIG_READ_WORKSPACE_WINDOWS 1u
+#define OMNI_CONFIG_READ_WINDOWS 2u
+#define OMNI_CONFIG_READ_WORKSPACES 4u
+#define OMNI_CONFIG_READ_MONITORS 8u
+
+typedef struct omni_config_vm omni_config_vm;
+
+typedef struct omni_config_timer {
+    uint32_t callback_id;
+    bool repeats;
+    double seconds;
+    uint8_t reads;
+} omni_config_timer;
+
+typedef struct omni_config_rect {
+    double x, y, width, height;
+    bool present;
+} omni_config_rect;
+
+typedef enum omni_config_edge_kind {
+    OMNI_EDGE_WORKSPACE, OMNI_EDGE_MONITOR, OMNI_EDGE_GEOMETRY, OMNI_WINDOW_TITLE,
+    OMNI_WINDOW_MINIMIZED, OMNI_WINDOW_FULLSCREEN, OMNI_WINDOW_FLOATING
+} omni_config_edge_kind;
+
+typedef struct omni_config_edge {
+    omni_config_edge_kind kind;
+    bool flag;
+    uint64_t missed;
+    omni_config_span id, name, previous_id, previous_name;
+    omni_config_rect frame, previous_frame, visible_frame, previous_visible_frame;
+} omni_config_edge;
+
+typedef struct omni_config_trigger {
+    omni_config_span id;
+    omni_config_span bundle_id;
+    omni_config_span name;
+    omni_config_span layout;
+    const omni_config_edge *edge;
+    omni_config_span snapshot;
+} omni_config_trigger;
 
 typedef struct omni_config_location {
     uint32_t source_id;
@@ -334,6 +382,13 @@ typedef struct omni_config_field {
     bool bool_value;
 } omni_config_field;
 
+typedef enum omni_config_effect_kind {
+    OMNI_CONFIG_OPEN_APP,
+    OMNI_CONFIG_RUN_PROGRAM,
+    OMNI_CONFIG_SHOW_NOTICE,
+    OMNI_CONFIG_WINDOW_DISPATCH
+} omni_config_effect_kind;
+
 typedef struct omni_config_callbacks {
     bool (*resolve)(void *context, const omni_config_span *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
@@ -343,17 +398,34 @@ typedef struct omni_config_callbacks {
         omni_config_module *module, char *error, size_t capacity);
     bool (*rule)(void *context, const omni_config_field *fields, size_t count,
         omni_config_location location, char *error, size_t capacity);
+    bool (*bind_function)(void *context, omni_config_span chord, uint32_t callback_id, omni_config_span mode_key, uint8_t reads,
+        omni_config_location location, char *error, size_t capacity);
+    bool (*dispatch)(void *context, uint32_t action_id, omni_config_location location, char *error, size_t capacity);
+    void (*log)(void *context, omni_config_span message, omni_config_location location);
+    bool (*named_function)(void *context, bool is_event, omni_config_span name, uint32_t callback_id, uint8_t reads,
+        omni_config_location location, char *error, size_t capacity);
+    bool (*effect)(void *context, omni_config_effect_kind kind, const omni_config_span *words, size_t count,
+        omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
 } omni_config_callbacks;
 
 typedef struct omni_config_stats {
     size_t peak_bytes;
     omni_config_location location;
     uint32_t module_executions;
+    uint32_t cancelled_timers;
+    uint64_t allocations;
 } omni_config_stats;
 
 omni_status omni_config_evaluate(const char *chunk_name, omni_config_span source,
     size_t heap_limit, uint64_t cpu_budget_ns, const omni_config_callbacks *callbacks,
     void *context, omni_config_stats *stats, char *error, size_t error_capacity) OMNI_NOEXCEPT;
+omni_status omni_config_load(const char *chunk_name, omni_config_span source,
+    size_t heap_limit, uint64_t cpu_budget_ns, const omni_config_callbacks *callbacks,
+    void *context, omni_config_stats *stats, char *error, size_t error_capacity, omni_config_vm **resident) OMNI_NOEXCEPT;
+omni_status omni_config_invoke(omni_config_vm *resident, uint32_t callback_id, omni_config_trigger trigger,
+    uint64_t cpu_budget_ns, void *context, omni_config_stats *stats, char *error, size_t error_capacity) OMNI_NOEXCEPT;
+void omni_config_destroy(omni_config_vm *resident) OMNI_NOEXCEPT;
+const omni_config_timer *omni_config_timers(const omni_config_vm *resident, size_t *count) OMNI_NOEXCEPT;
 uint64_t omni_config_live_vm_count(void) OMNI_NOEXCEPT;
 uint64_t omni_config_vm_entry_count(void) OMNI_NOEXCEPT;
 

@@ -70,6 +70,7 @@ final class IPCServer: IPCServerLifecycle {
         authorizationToken: String = UUID().uuidString
     ) {
         self.controller = controller
+        controller.automationSessionToken = sessionToken
         self.socketPath = socketPath
         self.fileManager = fileManager
         self.authorizationToken = authorizationToken

@@ -74,6 +74,7 @@ struct ScriptRuntime {
     size_t limit = 0;
     size_t used = 0;
     size_t peak = 0;
+    uint64_t allocations = 0;
     uint64_t budget = 0;
     uint64_t callStartCPU = 0;
     uint64_t lastCallCPU = 0;

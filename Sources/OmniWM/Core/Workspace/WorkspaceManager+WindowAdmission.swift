@@ -27,12 +27,11 @@ extension WorkspaceManager {
             )
             return existingEntry.token
         }
-        if let existingEntry = windowQueries.entry(for: token), existingEntry.axRef == nil {
-            return token
-        }
+        let existingIsAX = windowQueries.withEntry(token) { $0.axRef != nil }
+        guard existingIsAX != false else { return token }
         let adoptNativeFocus = allowsNativeFocusAdoption
             && !isMinimized
-            && windowQueries.entry(for: token) == nil
+            && existingIsAX == nil
             && nativeFullscreenRecord(for: token) == nil
             && focusSessionSnapshot.pendingManagedFocus == .empty
             && focusSessionSnapshot.nativeFocusOwner.externalToken == token
@@ -59,9 +58,9 @@ extension WorkspaceManager {
                 source: .workspaceManager
             )
         )
-        if isMinimized {
-            setWindowMinimized(true, token: token, source: .workspaceManager)
-        }
+        let minimized = isMinimized && setWindowMinimized(
+            true, token: token, source: .workspaceManager, publishesEvent: existingIsAX != nil
+        )
         if let handle = windowQueries.handle(for: token) {
             onWindowPresenceObserved?(handle)
         }
@@ -69,7 +68,17 @@ extension WorkspaceManager {
             notifySessionStateChanged()
             drainPendingRuntimeMonitorOverrideClears()
         }
+        if existingIsAX == nil { publishInitialWindowState(token, minimized: minimized) }
         return token
+    }
+
+    private func publishInitialWindowState(_ token: WindowToken, minimized: Bool) {
+        scriptWindowOpenObserver?.windowOpened(token)
+        if minimized { scriptWindowMinimizeObserver?.windowStateChanged(
+            .windowMinimize,
+            token: token,
+            value: .minimized(true)
+        ) }
     }
 
     @discardableResult
@@ -112,6 +121,7 @@ extension WorkspaceManager {
         if let handle = windowQueries.handle(for: token) {
             onWindowPresenceObserved?(handle)
         }
+        scriptWindowOpenObserver?.windowOpened(token)
         return token
     }
 

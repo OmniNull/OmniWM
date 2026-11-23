@@ -170,6 +170,16 @@ enum CommandPaletteSearch {
         .map(\.0)
     }
 
+    static func observeCommandItems(
+        from wmController: WMController, update: @escaping @MainActor ([CommandPaletteCommandItem]) -> Void
+    ) {
+        update(buildCommandItems(from: wmController))
+        wmController.configScript?.onCommandsChanged = { [weak wmController] in
+            guard let wmController else { return }
+            update(buildCommandItems(from: wmController))
+        }
+    }
+
     static func buildCommandItems(from wmController: WMController) -> [CommandPaletteCommandItem] {
         let layoutType = wmController.activeWorkspace().map {
             wmController.settings.workspaces.layoutType(for: $0.name)
@@ -183,7 +193,11 @@ enum CommandPaletteSearch {
         let appSpecs = apps.flatMap { app in
             [false, true].compactMap { ActionCatalog.shellAppSpec(appID: app.id, title: app.title, newWindow: $0) }
         }
-        return (ActionCatalog.allSpecs() + appSpecs).filter {
+        var specs = ActionCatalog.allSpecs() + appSpecs
+        for command in wmController.configScript?.acceptedCommands ?? [] {
+            specs.append(command.paletteSpec)
+        }
+        return specs.filter {
             wmController.settings.isCommandFeatureEnabled($0.command)
         }.map { spec in
             let trigger = spec.visibility == .unassignable ? nil : triggersByID[spec.id]
@@ -313,6 +327,16 @@ enum CommandPaletteSearch {
             focusRecencyOrder: wmController.workspaceManager.windowFocusRecencyOrder,
             confirmedFocusToken: wmController.workspaceManager.selectedManagedToken,
             focusedWindowToken: focusedWindowToken
+        )
+    }
+}
+
+extension ConfigScriptNamedCommand {
+    fileprivate var paletteSpec: ActionSpec {
+        ActionSpec(
+            id: "scriptCommand." + name, command: .configFunction(function), title: name, localizedTitle: name,
+            keywords: [], category: .script, visibility: .unassignable, layoutCompatibility: .shared,
+            defaultBinding: .unassigned, ipcCommandName: nil
         )
     }
 }

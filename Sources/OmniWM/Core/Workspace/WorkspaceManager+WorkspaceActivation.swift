@@ -41,6 +41,9 @@ extension WorkspaceManager {
 
         noteInvalidation(workspaceId: workspace1Id, domains: [.workspace, .layout, .focus])
         noteInvalidation(workspaceId: workspace2Id, domains: [.workspace, .layout, .focus])
+        scriptWorkspaceMoveObserver?.refreshWorkspaceMonitorAssignments(
+            for: workspace1Id, and: workspace2Id, in: self, context: monitorResolutionContext()
+        )
         notifySessionStateChanged()
         return true
     }

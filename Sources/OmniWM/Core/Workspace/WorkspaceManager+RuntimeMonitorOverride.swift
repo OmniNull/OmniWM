@@ -41,6 +41,7 @@ extension WorkspaceManager {
             visibleMonitorByWorkspace: visibleMonitorByWorkspace,
             visibleWorkspacesBeforeClear: visibleWorkspacesBeforeClear
         )
+        scriptWorkspaceMoveObserver?.refreshWorkspaceMonitorAssignments(in: self)
     }
 
     func drainPendingRuntimeMonitorOverrideClears() {
@@ -80,6 +81,7 @@ extension WorkspaceManager {
         ) else {
             return
         }
+        scriptWorkspaceMoveObserver?.refreshWorkspaceMonitorAssignments(in: self)
         onDeferredWorkspaceMonitorMove?(outcome)
     }
 

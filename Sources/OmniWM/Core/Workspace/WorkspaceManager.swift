@@ -14,6 +14,10 @@ final class WorkspaceManager {
     private var _monitorsById: [Monitor.ID: Monitor] = [:]
     let workspaceCatalog = WorkspaceCatalog()
     let settings: SettingsStore
+    var scriptWorkspaceCreationObserver: ConfigScriptEventObservers?
+    var scriptWorkspaceRemovalObserver: ConfigScriptEventObservers?
+    var scriptWorkspaceMoveObserver: ConfigScriptEventObservers?
+    var scriptTopologyObserver: ConfigScriptEventObservers?
 
     private var disconnectedVisibleWorkspaceCache: [MonitorRestoreKey: WorkspaceDescriptor.ID] = [:]
 
@@ -40,6 +44,25 @@ final class WorkspaceManager {
     var onSessionStateChanged: ((SessionSurfaceInvalidationScope) -> Void)?
     var onRuntimeInvalidation:
         ((WorkspaceDescriptor.ID?, InvalidationDomain, SessionSurfaceInvalidationScope) -> Void)?
+    var scriptWindowOpenObserver: ConfigScriptEventObservers?
+    var scriptWindowCloseObserver: ConfigScriptEventObservers?
+    var scriptWindowMinimizeObserver: ConfigScriptEventObservers?
+    var scriptWindowFullscreenObserver: ConfigScriptEventObservers?
+
+    var scriptWindowModeObserver: ConfigScriptEventObservers? {
+        get { world.scriptWindowModeObserver }
+        set { world.scriptWindowModeObserver = newValue }
+    }
+
+    func settleScriptWindowState(_ observer: ConfigScriptEventObservers) {
+        world.settleScriptWindowState(observer)
+    }
+
+    var scriptWindowMoveObserver: ConfigScriptEventObservers? {
+        get { world.scriptWindowMoveObserver }
+        set { world.scriptWindowMoveObserver = newValue }
+    }
+
     var onWindowPresenceObserved: ((WindowHandle) -> Void)?
     var onWindowRemoved: ((WindowState) -> Void)?
     var onHostedFamilyWorkspaceChanged: ((WindowToken, WorkspaceDescriptor.ID) -> Void)?
@@ -48,9 +71,7 @@ final class WorkspaceManager {
 
     init(settings: SettingsStore) {
         self.settings = settings
-        if monitors.isEmpty {
-            monitors = [Monitor.fallback()]
-        }
+        if monitors.isEmpty { monitors = [Monitor.fallback()] }
         rebuildMonitorIndexes()
         world.installActiveLayoutResolver { [unowned self] workspaceId in
             self.activeLayoutKind(for: workspaceId)
@@ -388,6 +409,7 @@ extension WorkspaceManager {
     var niriEngine: NiriLayoutEngine? {
         get { world.niriEngine }
         set {
+            scriptWindowFullscreenObserver?.replaceNiri(world.niriEngine, with: newValue)
             let captured: Bool
             if let current = world.niriEngine, current !== newValue {
                 captured = withEngineMutationScope(label: "niri_engine_replaced", source: .workspaceManager) {
@@ -420,7 +442,10 @@ extension WorkspaceManager {
 
     var dwindleEngine: DwindleLayoutEngine? {
         get { world.dwindleEngine }
-        set { world.installDwindleEngine(newValue) }
+        set {
+            scriptWindowFullscreenObserver?.replaceDwindle(world.dwindleEngine, with: newValue)
+            world.installDwindleEngine(newValue)
+        }
     }
 
     func layoutTopology(for workspaceId: WorkspaceDescriptor.ID) -> LayoutTopology {

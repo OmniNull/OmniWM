@@ -80,6 +80,9 @@ enum HotkeyCommand: Equatable, Hashable {
     case sizing(SizingAction)
     case dwindle(DwindleAction)
     case scratchpad(ScratchpadAction)
+    case configFunction(Int)
+    case runProgram([String])
+    case showNotice(String)
 
     var displayName: String {
         ActionCatalog.title(for: self) ?? String(describing: self)
@@ -91,6 +94,9 @@ enum HotkeyCommand: Equatable, Hashable {
 
     var layoutCompatibility: LayoutCompatibility {
         switch self {
+        case .configFunction,
+             .runProgram,
+             .showNotice: .shared
         case let .sizing(action): action.compatibility
         case let .workspace(action): action.compatibility
         default: ActionCatalog.layoutCompatibility(for: self) ?? .shared

@@ -26,12 +26,15 @@ final class WMController {
     @ObservationIgnored
     let windowMarkRegistry = WindowMarkRegistry()
     let hotkeys = HotkeyCenter()
+    @ObservationIgnored
+    lazy var automationSessionToken = UUID().uuidString
     var configScript: ConfigScriptController?
     var configScriptDiagnostic: String?
     private(set) var hotkeyRegistrationFailures: [HotkeyCommand: HotkeyRegistrationFailureReason] = [:]
     private(set) var systemHyperTriggerFailure: SystemHyperTriggerFailure?
     private(set) var windowSwitcherInputAvailable = false
     var keyboardModeKind = KeyboardModeKind.normal
+    @ObservationIgnored var scriptModeObserver: ConfigScriptEventObservers?
     @ObservationIgnored
     var userActionCount: UInt64 = 0
     let secureInputMonitor = SecureInputMonitor()

@@ -35,6 +35,7 @@ extension DwindleLayoutEngine {
         let tokens = fullscreenTokens(in: workspaceId)
         for token in tokens {
             findNode(for: token, in: workspaceId)?.tile?.setFullscreen(false, for: token)
+            onFullscreenChange?(token, true)
         }
         return !tokens.isEmpty
     }

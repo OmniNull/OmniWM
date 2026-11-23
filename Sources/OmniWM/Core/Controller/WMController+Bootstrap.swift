@@ -198,7 +198,11 @@ extension WMController {
 
     func startConfigScript(at fileURL: URL) {
         guard configScript == nil else { return }
-        let script = ConfigScriptController(fileURL: fileURL, settings: settings) { [weak self] rows in
+        let script = ConfigScriptController(
+            fileURL: fileURL,
+            settings: settings,
+            wmController: self
+        ) { [weak self] rows in
             guard let self else { return }
             updateHotkeyBindings(settings.hotkeyBindings, scriptBindings: rows)
         }

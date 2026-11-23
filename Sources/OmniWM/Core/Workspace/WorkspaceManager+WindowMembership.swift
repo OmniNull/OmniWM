@@ -61,6 +61,7 @@ extension WorkspaceManager {
             notifySessionStateChanged()
         }
         drainPendingRuntimeMonitorOverrideClears()
+        scriptWindowCloseObserver?.windowClosed(entry)
         onWindowRemoved?(entry)
         return entry
     }

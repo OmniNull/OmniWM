@@ -12,6 +12,47 @@ struct LauncherProcessResult: Sendable {
 }
 
 enum LauncherProcess {
+    @concurrent
+    static func start(_ argv: [String], environment: [String: String]? = nil) async throws {
+        let environment = environment ?? ProcessInfo.processInfo.environment
+        let directory = FileManager.default.currentDirectoryPath
+        guard let program = argv.first, !program.isEmpty else { throw LauncherFailure("Missing executable.") }
+        let executable: String
+        if program.hasPrefix("/") {
+            executable = program
+        } else {
+            guard !program.contains("/"), let path = environment["PATH"] else {
+                throw LauncherFailure("No executable for '\(program)' on OmniWM's PATH.")
+            }
+            let workingDirectory = URL(fileURLWithPath: directory, isDirectory: true)
+            let folders = path.components(separatedBy: ":")
+            guard let match = folders.lazy.map({ folder in
+                let base = folder.isEmpty ? workingDirectory : URL(
+                    fileURLWithPath: folder,
+                    relativeTo: workingDirectory
+                )
+                return base.appendingPathComponent(program).standardizedFileURL.path
+            }).first(where: { candidate in
+                var isDirectory: ObjCBool = false
+                return FileManager.default.fileExists(atPath: candidate, isDirectory: &isDirectory)
+                    && !isDirectory.boolValue && FileManager.default.isExecutableFile(atPath: candidate)
+            }) else { throw LauncherFailure("No executable for '\(program)' on OmniWM's PATH.") }
+            executable = match
+        }
+        let request = LauncherLaunchRequest(
+            executable: executable, arguments: Array(argv.dropFirst()), directory: directory, environment: environment
+        )
+        try Task.checkCancellation()
+        try await withCheckedThrowingContinuation { (started: CheckedContinuation<Void, Error>) in
+            do {
+                let operation = try Operation(request: request, outputLimit: 0, continuation: nil)
+                operation.start(deadline: nil, captureStandardError: true, started: started)
+            } catch {
+                started.resume(throwing: error)
+            }
+        }
+    }
+
     static func run(
         executable: String,
         arguments: [String],
@@ -52,11 +93,11 @@ enum LauncherProcess {
         private let timer: DispatchSourceTimer
         private let descriptor: Int32
         private let outputLimit: Int
-        private let continuation: CheckedContinuation<LauncherProcessResult, Error>
+        private let continuation: CheckedContinuation<LauncherProcessResult, Error>?
 
         init(
             request: LauncherLaunchRequest, outputLimit: Int,
-            continuation: CheckedContinuation<LauncherProcessResult, Error>
+            continuation: CheckedContinuation<LauncherProcessResult, Error>?
         ) throws {
             let pipe = Pipe()
             let queue = DispatchQueue(label: "com.omniwm.launcher.process", qos: .userInitiated)
@@ -76,7 +117,9 @@ enum LauncherProcess {
             process.currentDirectoryURL = URL(fileURLWithPath: request.directory)
         }
 
-        func start(deadline: TimeInterval?, captureStandardError: Bool) {
+        func start(
+            deadline: TimeInterval?, captureStandardError: Bool, started: CheckedContinuation<Void, Error>? = nil
+        ) {
             queue.async { [self] in
                 process.standardInput = FileHandle.nullDevice
                 process.standardOutput = pipe
@@ -92,9 +135,16 @@ enum LauncherProcess {
                 timer.resume()
                 do {
                     try process.run()
-                    try pipe.fileHandleForWriting.close()
                 } catch {
                     try? pipe.fileHandleForWriting.close()
+                    finish(failure: LauncherFailure(error.localizedDescription))
+                    started?.resume(throwing: error)
+                    return
+                }
+                started?.resume()
+                do {
+                    try pipe.fileHandleForWriting.close()
+                } catch {
                     finish(failure: LauncherFailure(error.localizedDescription))
                 }
             }
@@ -106,6 +156,7 @@ enum LauncherProcess {
             for _ in 0 ..< 32 {
                 let count = buffer.withUnsafeMutableBytes { read(descriptor, $0.baseAddress, $0.count) }
                 if count > 0 {
+                    guard continuation != nil else { continue }
                     state.withLock { state in
                         let remaining = max(0, outputLimit - state.output.count)
                         state.output.append(contentsOf: buffer.prefix(min(remaining, count)))
@@ -163,7 +214,7 @@ enum LauncherProcess {
             reader.setEventHandler(handler: nil)
             reader.cancel()
             process.terminationHandler = nil
-            continuation.resume(with: result.mapError { $0 as Error })
+            continuation?.resume(with: result.mapError { $0 as Error })
         }
     }
 }
