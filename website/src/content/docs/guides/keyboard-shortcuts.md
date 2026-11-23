@@ -27,7 +27,7 @@ While a mode is on, a pill at the bottom of every display names it. In Prefix an
 
 ## When a shortcut does not fire
 
-Confirm the binding and any registration warning in **Settings > Keyboard Shortcuts**, then check **Settings > Troubleshooting** for related diagnostics. If skhd, Raycast, or another shortcut utility is still running with the same binding, stop it or reassign the conflicting shortcut before editing `settings.toml`.
+Confirm the binding and any registration warning in **Settings > Keyboard Shortcuts**, then check **Settings > Troubleshooting** for related diagnostics. If skhd, Raycast, or another shortcut utility is still running with the same binding, stop it or reassign the conflicting shortcut before editing `settings.luau`.
 
 [HotkeyClash](https://github.com/Wunderlandmedia/HotkeyClash) can inspect shortcuts across supported apps, config files, and macOS. It does not parse Raycast settings.
 
@@ -179,7 +179,7 @@ The window-to-monitor actions send the focused window directly to the current wo
 | Center Focused Column | `Unassigned` | `Niri` |
 | Center Visible Columns | `Unassigned` | `Niri` |
 
-Niri grow/shrink actions use a configurable increment, defaulting to 5% instead of 10%. Change **Resize Increment** in Niri settings or `[niri].resizeStepPercent` in TOML (1–100). Explicit `omniwmctl` size arguments keep their specified amounts.
+Niri grow/shrink actions use a configurable increment, defaulting to 5% instead of 10%. Change **Resize Increment** in Niri settings or `niri.resizeStepPercent` in `settings.luau` (1–100). Explicit `omniwmctl` size arguments keep their specified amounts.
 
 `Consume or Expel Window Left / Right` exist as automation-only actions. They are reachable from `omniwmctl` but never appear in Settings > Keyboard Shortcuts, because they intentionally cannot be bound to a shortcut.
 

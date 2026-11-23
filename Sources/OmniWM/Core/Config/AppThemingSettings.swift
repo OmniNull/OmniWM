@@ -13,7 +13,6 @@ enum AppThemeCustomReload: String, Codable, CaseIterable, Equatable, Sendable {
     case none
     case ghostty
     case kitty
-    case herdr
 }
 
 struct AppThemingApp: Codable, Equatable {
@@ -26,22 +25,6 @@ struct AppThemingApp: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
-    }
-}
-
-struct AppThemingHerdr: Codable, Equatable {
-    var enabled = false
-    var reloadSavedMachines = true
-
-    init(enabled: Bool = false, reloadSavedMachines: Bool = true) {
-        self.enabled = enabled
-        self.reloadSavedMachines = reloadSavedMachines
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
-        reloadSavedMachines = try container.decodeIfPresent(Bool.self, forKey: .reloadSavedMachines) ?? true
     }
 }
 
@@ -93,13 +76,11 @@ struct AppThemingCustom: Codable, Equatable, Identifiable {
 extension SettingsExport {
     struct AppTheming: Codable, Equatable {
         typealias App = AppThemingApp
-        typealias Herdr = AppThemingHerdr
         typealias Custom = AppThemingCustom
 
         var terminalColors = AppThemeTerminalColors.palette
         var ghostty = App()
         var kitty = App()
-        var herdr = Herdr()
         var neovim = App()
         var custom: [Custom] = []
 
@@ -111,7 +92,6 @@ extension SettingsExport {
                 .flatMap(AppThemeTerminalColors.init(rawValue:)) ?? .palette
             ghostty = try container.decodeIfPresent(App.self, forKey: .ghostty) ?? App()
             kitty = try container.decodeIfPresent(App.self, forKey: .kitty) ?? App()
-            herdr = try container.decodeIfPresent(Herdr.self, forKey: .herdr) ?? Herdr()
             neovim = try container.decodeIfPresent(App.self, forKey: .neovim) ?? App()
             custom = try container.decodeIfPresent([Custom].self, forKey: .custom) ?? []
         }
@@ -120,7 +100,6 @@ extension SettingsExport {
             switch app {
             case .ghostty: ghostty.enabled
             case .kitty: kitty.enabled
-            case .herdr: herdr.enabled
             case .neovim: neovim.enabled
             }
         }
@@ -129,7 +108,6 @@ extension SettingsExport {
             switch app {
             case .ghostty: ghostty.enabled = enabled
             case .kitty: kitty.enabled = enabled
-            case .herdr: herdr.enabled = enabled
             case .neovim: neovim.enabled = enabled
             }
         }
@@ -144,21 +122,20 @@ extension SettingsExport {
                     id: app.id,
                     name: app.name,
                     outputs: app.outputs(configHome: configHome),
-                    reload: app.reload(savedMachines: herdr.reloadSavedMachines)
+                    reload: app.reload
                 )
             }
-            return builtIns + custom.filter(\.enabled).map { $0.target(savedMachines: herdr.reloadSavedMachines) }
+            return builtIns + custom.filter(\.enabled).map(\.target)
         }
     }
 }
 
 extension AppThemingCustom {
-    func target(savedMachines: Bool) -> AppThemeTarget {
+    var target: AppThemeTarget {
         let reloadAction: AppThemeReloadAction? = switch reload {
         case .none: nil
         case .ghostty: .ghostty
         case .kitty: .kitty
-        case .herdr: .herdr(savedMachines: savedMachines)
         }
         let dark = darkTemplate.flatMap { $0.isEmpty ? nil : AppThemeTemplateSource.file($0) }
         return AppThemeTarget(

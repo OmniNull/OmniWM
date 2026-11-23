@@ -104,13 +104,13 @@ final class SettingsFileObservationTests: XCTestCase {
         try writeSettings(23, in: second)
         let directoryLink = root.appendingPathComponent("directory-link")
         try FileManager.default.createSymbolicLink(at: directoryLink, withDestinationURL: nested)
-        let intermediate = aliases.appendingPathComponent("current.toml")
+        let intermediate = aliases.appendingPathComponent("current.luau")
         try FileManager.default.createSymbolicLink(
             atPath: intermediate.path, withDestinationPath: "../first/\(SettingsFilePersistence.fileName)"
         )
         let settings = config.appendingPathComponent(SettingsFilePersistence.fileName)
         try FileManager.default.createSymbolicLink(
-            atPath: settings.path, withDestinationPath: "../aliases/current.toml"
+            atPath: settings.path, withDestinationPath: "../aliases/current.luau"
         )
         let persistence = SettingsFilePersistence(directory: config, deferSaves: false)
         XCTAssertEqual(persistence.load().gaps.size, 17)

@@ -30,9 +30,6 @@ let package = Package(
             targets: ["OmniWMNowPlaying"]
         )
     ],
-    dependencies: [
-        .package(url: "https://github.com/mattt/swift-toml.git", from: "2.0.0")
-    ],
     targets: [
         .binaryTarget(
             name: "GhosttyKit",
@@ -153,8 +150,7 @@ let package = Package(
                 "OmniWMMaterialColor",
                 "OmniWMMetadata",
                 "OmniWMScriptHost",
-                "OmniWMShellCore",
-                .product(name: "TOML", package: "swift-toml")
+                "OmniWMShellCore"
             ],
             path: "Sources/OmniWM",
             resources: [

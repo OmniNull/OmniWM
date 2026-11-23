@@ -166,7 +166,7 @@ final class OverviewMouseButtonTests: XCTestCase {
         var candidate = valid
         candidate.overview.mouseButton = 3
         candidate.systemHyperTrigger = .mouseButton(3)
-        let rejected = try SettingsTOMLCodec.encode(candidate)
+        let rejected = try SettingsLuauDocument.initialSource(candidate)
         try rejected.write(to: persistence.fileURL, options: .atomic)
         persistence.handlePossibleSettingsFileChange()
         XCTAssertEqual(settings.toExport(), valid)

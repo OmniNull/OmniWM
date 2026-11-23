@@ -126,7 +126,6 @@ struct AppThemingCustomEditor: View {
                     Text("Do Nothing").tag(AppThemeCustomReload.none)
                     Text("Reload Ghostty").tag(AppThemeCustomReload.ghostty)
                     Text("Reload kitty").tag(AppThemeCustomReload.kitty)
-                    Text("Reload herdr").tag(AppThemeCustomReload.herdr)
                 }
                 .settingsField(.appThemingCustom, row: row, leaf: "reload")
                 if custom.reload == .none {

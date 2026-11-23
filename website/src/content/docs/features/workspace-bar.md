@@ -46,10 +46,13 @@ The same app-wide badge appears on every matching icon, including expanded scrat
 
 **Refresh Interval** controls how often badges update, from 1 to 60 seconds (default 5). Turning off badges or the Workspace Bar stops badge checks.
 
-```toml
-[workspaceBar]
-notificationBadges = "text" # "off", "dot", or "text"
-notificationBadgeRefreshIntervalSeconds = 5
+```lua
+return {
+    workspaceBar = {
+        notificationBadges = "text", -- "off", "dot", or "text"
+        notificationBadgeRefreshIntervalSeconds = 5,
+    },
+}
 ```
 
 ## Layout and appearance options
@@ -71,14 +74,17 @@ Overlapping placement reserves only the space below the menu bar reached by the 
 
 ### Bottom and side placement
 
-```toml
-[workspaceBar]
-position = "bottom" # also "left" or "right"
+```lua
+return {
+    workspaceBar = {
+        position = "bottom", -- also "left" or "right"
+    },
+}
 ```
 
 Placement follows the usable display edge, avoiding a visible Dock. X/Y offsets still apply (positive X moves right; positive Y moves upward). **Reserve layout space** reserves the configured bar thickness at the selected edge, including layout-fullscreen windows; offsets do not change that reservation.
 
-Side bars stack upright labels and icons and scroll vertically when needed. **Bar Thickness** (`height` in TOML) controls their width. Drag-and-drop follows the bar's horizontal or vertical order. Stats, hover previews, workspace rename panels, hidden-icon panels, and the fallback OmniWM menu open inward from the displayed bar or icon.
+Side bars stack upright labels and icons and scroll vertically when needed. **Bar Thickness** (`height` in `settings.luau`) controls their width. Drag-and-drop follows the bar's horizontal or vertical order. Stats, hover previews, workspace rename panels, hidden-icon panels, and the fallback OmniWM menu open inward from the displayed bar or icon.
 
 Notch modes, including **Fill Left of Notch**, are ignored at bottom/left/right without changing your saved preference. Existing visibility settings still apply; automatically hidden bars remain overlay-only.
 
@@ -86,11 +92,14 @@ Notch modes, including **Fill Left of Notch**, are ignored at bottom/left/right 
 
 Enable **Automatically hide and show the workspace bar** globally or per display:
 
-```toml
-[workspaceBar]
-autoHide = true # default: false
-autoHideRevealDelayMilliseconds = 0 # 0-1000
-autoHideHideDelayMilliseconds = 0 # 0-1000
+```lua
+return {
+    workspaceBar = {
+        autoHide = true, -- default: false
+        autoHideRevealDelayMilliseconds = 0, -- 0-1000
+        autoHideHideDelayMilliseconds = 0, -- 0-1000
+    },
+}
 ```
 
 The bar appears when the pointer touches the edge along its span, not anywhere along the display edge. Once visible, it stays up while the pointer moves along that edge on the same display. It hides when the pointer moves inward beyond the bar's thickness (height for horizontal bars, width for side bars) and interactions end. Menus, popups, previews, renaming, and sheets retain their display's bar; dragging can retain visible bars across displays.
@@ -103,14 +112,19 @@ Auto-hidden bars never reserve layout space, even while visible. Manual hiding, 
 
 `autoHide = false` keeps a display's bar visible even when a reveal modifier is configured, and **Reserve layout space** still applies. To hide a bar that previously used only a reveal modifier, enable `autoHide`; both hover and the modifier will reveal it. For example, keep external bars visible while revealing the built-in display's bar on hover or Control+Shift. The example omits the override's generated identity fields; keep those from the override saved by the per-display settings editor:
 
-```toml
-[workspaceBar]
-autoHide = false
-revealModifier = "controlShift"
-
-[[monitorBarOverrides]]
-monitorName = "Built-in Retina Display"
-autoHide = true
+```lua
+return {
+    workspaceBar = {
+        autoHide = false,
+        revealModifier = "controlShift",
+    },
+    monitorBarOverrides = {
+        {
+            monitorName = "Built-in Retina Display",
+            autoHide = true,
+        },
+    },
+}
 ```
 
 ### Additional appearance controls
@@ -127,15 +141,20 @@ These options also support per-monitor overrides. See the [Settings Reference](/
 
 ## Excluding apps and overriding icons
 
-Exclude individual apps or choose alternate app icons across all monitors in Settings. Icon overrides can also be configured in `settings.toml` (see [Configuration](/config/configuration/)). Quote bundle IDs so TOML treats each dotted identifier as one key:
+Exclude individual apps or choose alternate app icons across all monitors in Settings. Icon overrides can also be configured in `settings.luau` (see [Configuration](/config/configuration/)). Use a bracketed string key for each bundle ID so the periods stay part of its name.
 
-```toml
-[workspaceBar.iconOverrides]
-"com.example.App" = "icons/custom.icns"
-"com.cmuxterm.app" = "bundle-resource:AppIconDark"
+```lua
+return {
+    workspaceBar = {
+        iconOverrides = {
+            ["com.example.App"] = "icons/custom.icns",
+            ["com.cmuxterm.app"] = "bundle-resource:AppIconDark",
+        },
+    },
+}
 ```
 
-`bundle-resource:` loads a named image packaged inside the selected app. The Settings picker discovers likely app-icon resources on demand; runtime-generated or downloaded Dock icons may not be available. Absolute paths are used as written, `~` expands to your home directory, and relative paths are resolved from the directory containing `settings.toml`.
+`bundle-resource:` loads a named image packaged inside the selected app. The Settings picker discovers likely app-icon resources on demand; runtime-generated or downloaded Dock icons may not be available. Absolute paths are used as written, `~` expands to your home directory, and relative paths are resolved from the directory containing `settings.luau`.
 
 :::note
 Overrides affect only the workspace bar. A valid override takes precedence over the app's standard icon; an unavailable or invalid image falls back to the standard icon, then the dashed placeholder when no app icon is available. OmniWM does not watch image files; use Replace to reload a file changed in place.

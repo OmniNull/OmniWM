@@ -29,7 +29,7 @@ OmniWMApp                          (@main entry point)
     │   └── OmniWMLuau             (vendored Luau VM and compiler, MIT)
     ├── OmniWMMaterialColor        (C++ Material Color Utilities bridge for wallpaper palettes)
     ├── OmniWMShellCore            (noncopyable shell layout and diff core)
-    ├── TOML                       (swift-toml — the only third-party package)
+    ├── OmniWMMetadata             (literal Luau metadata reader)
     └── GhosttyKit                 (binary xcframework)
 
 OmniWMNowPlaying                   (dynamic library loaded by the Now Playing adapter)
@@ -57,10 +57,11 @@ OmniWMTests                        (test target)
 | `OmniWMNowPlaying` | Objective-C dynamic library the Now Playing adapter loads to read and control media | None |
 | `OmniWMLuau` | Vendored Luau VM and compiler (MIT) | None |
 | `OmniWMScriptHost` | C++ Luau shell host: VM containment, CPU and memory budgets, the `ui` prelude, rendering and the wire format | OmniWMLuau |
+| `OmniWMMetadata` | Reads literal Luau manifests, form schemas and translations | OmniWMScriptHost |
 | `OmniWMMaterialColor` | C++ Material Color Utilities bridge for wallpaper palettes | None |
 | `OmniWMShellCore` | Noncopyable layout and diff core for shell widget trees | None |
 | `OmniWMCtl` | CLI tool (`omniwmctl`) | OmniWMIPC |
-| `OmniWM` | Core window manager library | OmniWMIPC, OmniWMLayerCorners, OmniWMLauncherSPI, OmniWMWiFiSPI, OmniWMAudioTap, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore, GhosttyKit, TOML, system frameworks |
+| `OmniWM` | Core window manager library | OmniWMIPC, OmniWMLayerCorners, OmniWMLauncherSPI, OmniWMWiFiSPI, OmniWMAudioTap, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore, GhosttyKit, OmniWMMetadata, system frameworks |
 | `OmniWMApp` | Executable wrapper with SwiftUI scene | OmniWM |
 | `OmniWMTests` | Test target (fixtures copied as a resource bundle) | OmniWM, OmniWMAudioTap, OmniWMCtl, OmniWMLayerCorners, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore |
 
@@ -96,7 +97,7 @@ Sources/
 │   │   │   ├── Niri/                Orientation-aware scrolling-container engine
 │   │   │   └── Dwindle/             Binary-partition layout engine
 │   │   ├── Animation/               Springs, cubic easing, deceleration, viewport motion, policy
-│   │   ├── Config/                  SettingsStore, TOML codec, runtime state, per-monitor settings
+│   │   ├── Config/                  SettingsStore, Luau document reader and writer, runtime state, per-monitor settings
 │   │   ├── Rules/                   Window rule engine and structural lookup tables
 │   │   ├── Input/                   Action catalog, bindings, Carbon hotkeys
 │   │   ├── Multitouch/              Raw multitouch frame source + gesture bindings
@@ -129,9 +130,8 @@ Sources/
 
 ### External Dependencies
 
-OmniWM uses a single third-party Swift package, vendored Luau and Material Color Utilities sources, and system frameworks:
+OmniWM uses vendored Luau and Material Color Utilities sources, the local GhosttyKit framework, and system frameworks:
 
-- **`swift-toml`** — the only third-party Swift package; used by `Core/Config/SettingsTOMLCodec.swift` and `SettingsTOMLMigration.swift` to decode, encode, and migrate `settings.toml`.
 - **Key system frameworks**: AppKit/SwiftUI, Accessibility/ApplicationServices, Carbon/CoreHID, Core Graphics/Core Text/QuartzCore/ScreenCaptureKit, IOKit (including `hidsystem` and `pwr_mgt`), ServiceManagement, and os. The Luau shell's `ui.shader` compiles and draws Metal fragment shaders (`Core/Shell/ShellShader.swift`, `ShellShaderDrawer.swift`); MetalKit is link-time only, and the Ghostty surface reaches Metal through a `CAMetalLayer`.
 - **SkyLight**: a private Apple framework for low-latency window-server access, linked via `-framework SkyLight` and additionally `dlopen`/`dlsym`-loaded for SLS* symbols.
 - **CFPreferences**: Hidden Bar reads and updates the native per-app visibility data in the Control Center group preferences. The API is public; the stored data format is private to macOS.
@@ -233,14 +233,7 @@ snapshot are outside scope.
    `XDG_STATE_HOME` overrides, falling back to `~/.config/omniwm` and `~/.local/state/omniwm`. The fixed Dev bundle
    identity `com.barut.OmniWM.dev` selects `omniwm-dev` beneath the same base directories.
 2. **`RuntimeStateStore`** — JSON store for non-settings runtime state (`runtime-state.json`).
-3. **`SettingsStore`** — `@MainActor @Observable`, loaded from `settings.toml` in the resolved config directory.
-   `UserDefaults` is not used for settings; TOML is the single source of truth. `SettingsTOMLCodec` first reads the
-   raw TOML tree, version-gates it, applies each required schema migration in memory, then strictly decodes the current
-   canonical schema. A successful known-version upgrade secures the exact original bytes in a write-once pre-version
-   backup and atomically rewrites only the final canonical file; valid migrations never use invalid-file recovery
-   slots. An unsupported future version remains untouched and blocks settings writes. Structured configuration notices
-   cover startup, live reload, and save-time races through one
-   `SettingsStore` transition path, so diagnostics update only when the notice actually changes.
+3. **`SettingsStore`** owns main-actor settings. `SettingsLuauDocument` evaluates `settings.luau` and its local helper files before bootstrap, including the language choice. `SettingsFilePersistence` observes those files. Valid external edits update the running settings. A failed reload keeps the last working values and reports the error. A Settings window edit patches the source in place, with confirmation before replacing a formula.
 4. **`HiddenBarController`** — per-app native menu-bar visibility and the hidden-icons panel.
 5. **`WMController`** — central coordinator (see [4.1](#41-wmcontroller--the-coordinator)); passed the clipboard-history directory.
 6. **`AppCLIManager`** and **`UpdateCoordinator`** — CLI exposure plus GitHub release polling/popup.
@@ -1004,7 +997,7 @@ LauncherExecution.run(entry)
 Command text uses the selected shell's syntax. Script/executable arguments remain separate array elements.
 The built-in route requires the Ghostty Quake provider; external Terminal/iTerm2 control may require Automation
 permission. These user-started native commands are outside OmniShell widget HTTP consent and provider trust.
-Saved entries/defaults belong to `[launcher]` in `settings.toml`; see the [settings reference](/config/settings-reference/#launcher).
+Saved entries/defaults belong to `launcher` in `settings.luau`; see the [settings reference](/config/settings-reference/#launcher).
 
 ### 4.16 OmniShell
 
@@ -1031,7 +1024,7 @@ main-actor AppKit host. Native animation and gesture tracking do not require a L
 Source replacement retires the affected package or component generation, cancels its services and rejects late
 completions. Durable data lives in `ShellStore` and `ShellResourceStore`, outside the editable configuration.
 
-Declarations and approval have separate owners. A root/bar `settings.toml` or component manifest declares hosts;
+Declarations and approval have separate owners. A root/bar `settings.luau` or component manifest declares hosts;
 `ShellNetworkPermissions` applies user decisions and managed policy to HTTP requests and redirects.
 `ShellWidgetHost+Permissions` collects package approval requests and prunes them against current declarations.
 `ShellPermissionPrompts` observes that host, queues native prompts and passes choices to `ShellPermissionSettings`
@@ -1178,7 +1171,7 @@ CLIRenderer displays the result
 1. Add the property to its `Core/Config/` domain owner, such as `FocusSettings` or `NiriSettings`, with defaults, `onChange`, and export/apply mapping. `SettingsStore` owns these domains and connects their changes to `scheduleSave()`; add a direct store property only for settings owned there.
 2. Wire runtime behavior in `WMController.applyPersistedSettings()` or the consuming handler.
 3. Add UI under `Sources/OmniWM/UI/`.
-4. Thread it through the relevant `SettingsExport.swift` / `SettingsExport+*.swift` model and `CanonicalTOMLConfig.swift` mapping. `SettingsTOMLCodec` handles encoding/decoding, while `SettingsFilePersistence` owns file access, observation, save scheduling, and configuration notices. Verify that the setting survives a TOML round trip. Operational/runtime state (updater status, restore catalog, palette mode, Quake custom frame, issue draft/walkthrough, and monitor-setup status) belongs in `RuntimeStateStore` (`runtime-state.json`), not the TOML.
+4. Map it in the settings export, file model, controls and generated settings definitions. Verify loading and saving through `SettingsLuauDocument`. `SettingsFilePersistence` owns file access, observation and save notices. Operational state, including updater status, restore catalogs, palette mode and the Quake custom frame, belongs in `RuntimeStateStore` (`runtime-state.json`).
 
 ### 6.4 Modifying Layout Behavior
 

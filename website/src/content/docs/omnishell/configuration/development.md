@@ -67,7 +67,7 @@ See [Input and motion](/omnishell/reference/input-motion/) for root lifecycle ev
 omniwmctl query shell-widgets
 ```
 
-The query shows widget state and errors, plus mistakes in `shell.toml` and theme files such as unknown keys and invalid values. Use it after creating a package, changing placement, editing options or saving source. Selecting a widget in **Settings > Styles & Widgets** also shows its effective source and diagnostics.
+The query shows widget state and errors, plus mistakes in `shell.luau` and theme files such as unknown keys and invalid values. Use it after creating a package, changing placement, editing options or saving source. Selecting a widget in **Settings > Styles & Widgets** also shows its effective source and diagnostics.
 
 `omniwm.log(...)` writes to the macOS unified log under the `shell` category. Inspect recent entries in Terminal:
 
@@ -80,7 +80,7 @@ The query shows widget state and errors, plus mistakes in `shell.toml` and theme
 | Widget does not appear | Confirm its name is in a bar lane or the active island configuration, the owning surface is enabled, and the effective source is the file you edited. |
 | An edit reports a compile or load error | Read the query diagnostic and correct the indicated source or manifest. A bad reload can leave the previous accepted widget running. |
 | Widget stops after repeated errors | Correct the reported runtime error and save its source; repeated failures cut off that package. |
-| Options are absent | Put `settings.toml` beside the effective `init.luau`; declare the keys that source actually reads. User replacements do not inherit an ignored schema. |
+| Options are absent | Put `settings.luau` beside the effective `init.luau`; declare the keys that source actually reads. User replacements do not inherit an ignored schema. |
 | State disappears after reload | Save durable values with `omniwm.store`; ordinary view state is not persisted. |
 | Data is unavailable | Check the permission below, then the data or service error. Reading data alone does not grant access. |
 | Provider does not run | Declare its manifest capability, enable its instance, and approve its trust prompt in **Settings > Network & Permissions**; check for a changed executable or an organization block. See [Providers](/omnishell/reference/providers/). |
@@ -105,4 +105,4 @@ The query shows widget state and errors, plus mistakes in `shell.toml` and theme
 
 Now Playing needs no permission.
 
-Component capabilities are separate from macOS permissions. Network hosts, files, clipboard and provider execution must satisfy the [component contract](/omnishell/reference/components-configuration/), [service API](/omnishell/reference/services/) and [provider policy](/omnishell/reference/providers/). A widget cannot grant itself new capabilities through its configuration controls. Instance `capabilities.network` in your own `shell.toml` extends a declaration only; consent and program trust live in the app’s [settings.toml](/config/settings-reference/#shellpermissions). Organization policy uses separate [managed preferences](/config/managed-preferences/).
+Component capabilities are separate from macOS permissions. Network hosts, files, clipboard and provider execution must satisfy the [component contract](/omnishell/reference/components-configuration/), [service API](/omnishell/reference/services/) and [provider policy](/omnishell/reference/providers/). A widget cannot grant itself new capabilities through its configuration controls. Instance `capabilities.network` in your own `shell.luau` extends a declaration only; consent and program trust live in the app’s [settings.luau](/config/settings-reference/#shellpermissions). Organization policy uses separate [managed preferences](/config/managed-preferences/).

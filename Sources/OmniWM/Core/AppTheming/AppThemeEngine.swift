@@ -63,8 +63,6 @@ struct AppThemeEngine: Sendable {
         let display: String
         let before: Data?
         let after: Data
-        let ownedText: String
-        let currentOwnedText: String?
     }
 
     func run(_ job: AppThemeJob) -> AppThemeRunReport {
@@ -168,23 +166,21 @@ struct AppThemeEngine: Sendable {
         state: inout AppThemeState,
         report: inout AppThemeRunReport
     ) {
-        let terminalsChanged = job.targets.contains { $0.isTerminal && changed[$0.id] == true }
         let ordered = job.targets.enumerated()
             .sorted { ($0.element.reload?.phase ?? 0, $0.offset) < ($1.element.reload?.phase ?? 0, $1.offset) }
             .map(\.element)
         let needed = ordered.filter { target in
-            guard let action = target.reload, let wrote = changed[target.id], job.enabled.contains(target) else {
+            guard target.reload != nil, let wrote = changed[target.id], job.enabled.contains(target) else {
                 return false
             }
             return wrote || state.reloadPending.contains(target.id) || job.forceReload.contains(target.id)
-                || (action.runsAfterTerminals && (terminalsChanged || job.appearanceChanged))
         }
         var outcomes: [AppThemeReloadAction: AppThemeReloadOutcome] = [:]
         for target in needed {
             guard let action = target.reload, job.enabled.contains(target) else { continue }
             state.reloadPending.insert(target.id)
             try? store.save(state)
-            let reloader = AppThemeReloader(environment: environment) { job.enabled.contains(target) }
+            let reloader = AppThemeReloader(environment: environment)
             let outcome = outcomes[action] ?? reloader.reload(
                 action,
                 newFiles: needed.contains { $0.reload == action && created.contains($0.id) }
@@ -220,38 +216,10 @@ struct AppThemeEngine: Sendable {
         let url = try policy.destination(for: output.path, roots: roots)
         let display = policy.display(url)
         let before = try AppThemeFileWriter.read(url, display: display)
-        let existingText = try before.map { data in
-            guard let text = String(data: data, encoding: .utf8) else { throw AppThemeEngineError.notText(display) }
-            return text
+        if let before, String(data: before, encoding: .utf8) == nil {
+            throw AppThemeEngineError.notText(display)
         }
-        guard let keys = output.table else {
-            return Rendered(
-                url: url,
-                display: display,
-                before: before,
-                after: Data(text.utf8),
-                ownedText: text,
-                currentOwnedText: existingText
-            )
-        }
-        let existing = existingText ?? ""
-        let table = AppThemeTOMLTable(keys: keys)
-        let body = text.hasSuffix("\n") ? text : text + "\n"
-        let current = table.current(in: existing)
-        let after = current == body ? existing : try table.replacing(in: existing, with: body, path: display)
-        let owner = current ?? (before == nil || Self.isBlank(existing) ? nil : "")
-        return Rendered(
-            url: url,
-            display: display,
-            before: before,
-            after: Data(after.utf8),
-            ownedText: body,
-            currentOwnedText: owner
-        )
-    }
-
-    private static func isBlank(_ text: String) -> Bool {
-        text.allSatisfy(\.isWhitespace)
+        return Rendered(url: url, display: display, before: before, after: Data(text.utf8))
     }
 
     private func templateText(_ source: AppThemeTemplateSource) throws -> String {
@@ -289,7 +257,7 @@ extension AppThemeEngine {
     ) throws -> (names: [String], newFiles: Bool) {
         let rendered = try target.outputs.map { try render($0, job: job, roots: roots) }
         let conflicts = rendered.filter { item in
-            guard item.before != item.after, let current = item.currentOwnedText else { return false }
+            guard item.before != item.after, let current = item.before else { return false }
             let digest = AppThemeFileWriter.digest(current)
             let owned = state.owned[item.url.path] == digest || state.pending[item.url.path] == digest
             return !owned && !Self.isReviewed(item, job)
@@ -323,7 +291,7 @@ extension AppThemeEngine {
         state: inout AppThemeState,
         backups: inout [URL]
     ) throws -> FileWrite {
-        let digest = AppThemeFileWriter.digest(item.ownedText)
+        let digest = AppThemeFileWriter.digest(item.after)
         let path = item.url.path
         if item.before == item.after {
             if state.owned[path] != digest || state.pending[path] != nil {

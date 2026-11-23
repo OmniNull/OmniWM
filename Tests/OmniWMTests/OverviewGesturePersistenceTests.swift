@@ -32,7 +32,7 @@ final class OverviewGesturePersistenceTests: XCTestCase {
         XCTAssertNil(outcome.notice)
         XCTAssertEqual(monitorCalls, 0)
         XCTAssertEqual(try Data(contentsOf: fixture.fileURL), data)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)), export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export)), export)
     }
 
     func testMalformedOverviewTypesAndFingerCountsRejectDecode() throws {
@@ -45,7 +45,7 @@ final class OverviewGesturePersistenceTests: XCTestCase {
             ("overviewGestureFingerCount", "5")
         ] {
             let data = try canonicalData(replacing: [key: replacement])
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(data), "\(key) = \(replacement)")
+            XCTAssertThrowsError(try SettingsLuauFixture.decode(data), "\(key) = \(replacement)")
         }
     }
 
@@ -245,11 +245,12 @@ final class OverviewGesturePersistenceTests: XCTestCase {
         removing keys: Set<String> = [],
         replacing replacements: [String: String] = [:]
     ) throws -> Data {
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let canonical = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         let lines = canonical.components(separatedBy: "\n").compactMap { line -> String? in
-            guard let key = line.components(separatedBy: " = ").first else { return line }
+            guard let key = line.trimmingCharacters(in: .whitespaces).components(separatedBy: " = ").first
+            else { return line }
             if keys.contains(key) { return nil }
-            if let replacement = replacements[key] { return "\(key) = \(replacement)" }
+            if let replacement = replacements[key] { return "\(key) = \(replacement)," }
             return line
         }
         return Data(lines.joined(separator: "\n").utf8)

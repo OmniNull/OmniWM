@@ -37,9 +37,9 @@ final class SystemStatsCommandTests: XCTestCase {
 
         var export = SettingsExport.defaults()
         export.workspaceBar.systemStatsButton = true
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("systemStatsButton = true"))
-        XCTAssertTrue(try SettingsTOMLCodec.decode(data).workspaceBar.systemStatsButton)
+        XCTAssertTrue(try SettingsLuauFixture.decode(data).workspaceBar.systemStatsButton)
     }
 
     @MainActor

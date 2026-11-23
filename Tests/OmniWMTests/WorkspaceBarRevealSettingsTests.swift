@@ -16,11 +16,14 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
             var export = SettingsExport.defaults()
             export.workspaceBar.revealModifier = modifier
             export.workspaceBar.revealHoldMilliseconds = delay
-            let data = try SettingsTOMLCodec.encode(export)
-            let toml = String(decoding: data, as: UTF8.self)
-            XCTAssertTrue(toml.contains("revealModifier = \"\(literal)\""))
-            XCTAssertTrue(toml.contains("revealHoldMilliseconds = \(delay)"))
-            let decoded = try SettingsTOMLCodec.decode(data)
+            let data = try SettingsLuauDocument.initialSource(export)
+            let source = String(decoding: data, as: UTF8.self)
+            XCTAssertTrue(source.contains("revealModifier = \"\(literal)\""))
+            XCTAssertEqual(
+                try SettingsLuauFixture.fields(in: data)["workspaceBar"]?["revealHoldMilliseconds"],
+                SettingsLuauFixture.number(delay)
+            )
+            let decoded = try SettingsLuauFixture.decode(data)
             XCTAssertEqual(decoded.workspaceBar.revealModifier, modifier)
             XCTAssertEqual(decoded.workspaceBar.revealHoldMilliseconds, delay)
         }
@@ -34,14 +37,14 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
         export.workspaceBar.autoHideHideDelayMilliseconds = 450
         export.workspaceBar.revealModifier = .option
         export.monitorBarSettings = [MonitorBarSettings(monitorName: "External", autoHide: false)]
-        let data = try SettingsTOMLCodec.encode(export)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-        let legacy = String(decoding: data, as: UTF8.self)
-            .replacingOccurrences(of: "autoHide = true\n", with: "")
-            .replacingOccurrences(of: "autoHideRevealDelayMilliseconds = 300.0\n", with: "")
-            .replacingOccurrences(of: "autoHideHideDelayMilliseconds = 450.0\n", with: "")
-            .replacingOccurrences(of: "[[monitorBarOverrides]]\nautoHide = false\n", with: "[[monitorBarOverrides]]\n")
-        let decoded = try SettingsTOMLCodec.decode(Data(legacy.utf8))
+        let data = try SettingsLuauDocument.initialSource(export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
+        var tree = try SettingsLuauValue.fields(of: export)
+        for key in ["autoHide", "autoHideRevealDelayMilliseconds", "autoHideHideDelayMilliseconds"] {
+            tree.set(nil, at: ["workspaceBar", key])
+        }
+        tree.set(nil, at: ["monitorBarOverrides", "0", "autoHide"])
+        let decoded = try SettingsLuauFixture.decode(Data(("return " + tree.literal()).utf8))
         XCTAssertFalse(decoded.workspaceBar.autoHide)
         XCTAssertEqual(decoded.workspaceBar.autoHideRevealDelayMilliseconds, 0)
         XCTAssertEqual(decoded.workspaceBar.autoHideHideDelayMilliseconds, 0)
@@ -114,7 +117,7 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
                 monitorName: builtIn.name, monitorDisplayUUID: builtIn.displayUUID,
                 monitorDisplayId: builtIn.displayId, autoHide: !autoHide
             )]
-            settings.applyExport(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)))
+            settings.applyExport(try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export)))
             XCTAssertEqual(settings.workspaceBar.resolved(for: builtIn).autoHide, !autoHide)
             XCTAssertEqual(settings.workspaceBar.resolved(for: external).autoHide, autoHide)
             let controller = WMController(settings: settings)
@@ -215,8 +218,8 @@ final class WorkspaceBarRevealSettingsTests: XCTestCase {
     }
 
     private func defaultsDroppingLines(containing fragments: String...) throws -> Data {
-        let toml = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let lines = toml.split(separator: "\n", omittingEmptySubsequences: false).filter { line in
+        let source = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
+        let lines = source.split(separator: "\n", omittingEmptySubsequences: false).filter { line in
             !fragments.contains { line.contains($0) }
         }
         return Data(lines.joined(separator: "\n").utf8)

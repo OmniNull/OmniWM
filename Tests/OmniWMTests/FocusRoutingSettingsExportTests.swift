@@ -3,20 +3,19 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class FocusRoutingSettingsExportTests: XCTestCase {
     func testDefaultSectionsKeepCanonicalTableShapeAndValues() throws {
         let defaults = SettingsExport.defaults()
-        let data = try SettingsTOMLCodec.encode(defaults)
-        let tree = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
+        let data = try SettingsLuauDocument.initialSource(defaults)
+        let tree = try SettingsLuauFixture.fields(in: data)
 
-        XCTAssertEqual(tree["focus"], .table([
+        XCTAssertEqual(tree["focus"], .record([
             "followsMouse": .boolean(false),
             "followsMouseOnlyFullyVisible": .boolean(false),
             "clickFocusWithoutScrolling": .boolean(false),
-            "edgeNavigationInterval": .float(1.5),
+            "edgeNavigationInterval": .number(1.5),
             "raiseOnMouseFocus": .boolean(false),
             "lockModifier": .string("off"),
             "moveMouseToFocusedWindow": .boolean(false),
@@ -24,114 +23,101 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
             "crossesMonitorAtEdge": .boolean(false),
             "moveCrossesMonitorAtEdge": .boolean(false)
         ]))
-        XCTAssertEqual(tree["mouseWarp"], .table([
+        XCTAssertEqual(tree["mouseWarp"], .record([
             "margin": .integer(1),
             "enabled": .boolean(true),
             "constrainToArrangement": .boolean(false)
         ]))
-        XCTAssertEqual(tree["routing"], .table([
+        XCTAssertEqual(tree["routing"], .record([
             "mode": .string("macOS"),
-            "arrangements": .array([])
+            "arrangements": .record([:])
         ]))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), defaults)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), defaults)
     }
 
     func testEveryEdgeNavigationIntervalRoundTrips() throws {
         var export = SettingsExport.defaults()
         for interval in stride(from: 0.25, through: 2.0, by: 0.25) {
             export.focus.edgeNavigationInterval = interval
-            let data = try SettingsTOMLCodec.encode(export)
-            let result = try SettingsTOMLCodec.decodeForLoad(data)
+            let data = try SettingsLuauDocument.initialSource(export)
+            let result = try SettingsLuauDocument(data)
             XCTAssertEqual(result.export, export)
-            XCTAssertNil(result.migration)
-            XCTAssertNil(result.migratedData)
-            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("focus.edgeNavigationInterval"))
+
+            XCTAssertNoThrow(try SettingsLuauFixture.decode(data))
         }
     }
 
     func testFullyVisibleHoverSettingRoundTripsAndDefaultsForExistingConfigurations() throws {
         var export = SettingsExport.defaults()
         export.focus.followsMouseOnlyFullyVisible = true
-        let data = try SettingsTOMLCodec.encode(export)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-        XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("focus.followsMouseOnlyFullyVisible"))
-
+        let data = try SettingsLuauDocument.initialSource(export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         let source = String(decoding: data, as: UTF8.self)
         let missing = try removing(key: "followsMouseOnlyFullyVisible", from: "focus", in: source)
-        let result = try SettingsTOMLCodec.decodeForLoad(Data(missing.utf8))
+        let result = try SettingsLuauDocument(Data(missing.utf8))
         XCTAssertFalse(result.export.focus.followsMouseOnlyFullyVisible)
-        XCTAssertNil(result.migration)
-        XCTAssertNil(result.migratedData)
 
         let malformed = source.replacingOccurrences(
             of: "followsMouseOnlyFullyVisible = true", with: "followsMouseOnlyFullyVisible = \"true\""
         )
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformed.utf8)))
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(Data(malformed.utf8)))
     }
 
     func testClickFocusWithoutScrollingRoundTripsAndDefaultsForExistingConfigurations() throws {
         var export = SettingsExport.defaults()
         export.focus.clickFocusWithoutScrolling = true
-        let data = try SettingsTOMLCodec.encode(export)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-        XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("focus.clickFocusWithoutScrolling"))
-
+        let data = try SettingsLuauDocument.initialSource(export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         let source = String(decoding: data, as: UTF8.self)
         let missing = try removing(key: "clickFocusWithoutScrolling", from: "focus", in: source)
-        let result = try SettingsTOMLCodec.decodeForLoad(Data(missing.utf8))
+        let result = try SettingsLuauDocument(Data(missing.utf8))
         XCTAssertFalse(result.export.focus.clickFocusWithoutScrolling)
-        XCTAssertNil(result.migration)
-        XCTAssertNil(result.migratedData)
 
         let malformed = source.replacingOccurrences(
             of: "clickFocusWithoutScrolling = true", with: "clickFocusWithoutScrolling = \"true\""
         )
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformed.utf8)))
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(Data(malformed.utf8)))
     }
 
-    func testEdgeNavigationIntervalNormalizesAtTOMLBoundary() throws {
-        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+    func testEdgeNavigationIntervalNormalizesAtLuauBoundary() throws {
+        let source = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         for (literal, expected) in [
             ("0", 0.25), ("-1.0", 0.25), ("0.374", 0.25), ("0.375", 0.5),
-            ("1.375", 1.5), ("3.0", 2.0), ("nan", 1.5), ("inf", 1.5), ("-inf", 1.5)
+            ("1.375", 1.5), ("3.0", 2.0)
         ] {
             let data = Data(source.replacingOccurrences(
                 of: "edgeNavigationInterval = 1.5",
                 with: "edgeNavigationInterval = \(literal)"
             ).utf8)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data).focus.edgeNavigationInterval, expected, literal)
+            XCTAssertEqual(try SettingsLuauFixture.decode(data).focus.edgeNavigationInterval, expected, literal)
         }
         var export = SettingsExport.defaults()
         for (value, expected) in [(Double.nan, 1.5), (.infinity, 1.5), (-2.0, 0.25), (1.375, 1.5), (4.0, 2.0)] {
             export.focus.edgeNavigationInterval = value
-            let data = try SettingsTOMLCodec.encode(export)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data).focus.edgeNavigationInterval, expected)
+            let data = try SettingsLuauDocument.initialSource(export)
+            XCTAssertEqual(try SettingsLuauFixture.decode(data).focus.edgeNavigationInterval, expected)
         }
     }
 
     func testOmittedEdgeNavigationIntervalUsesDefaultAndMalformedValueFails() throws {
-        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         let missing = try removing(key: "edgeNavigationInterval", from: "focus", in: source)
-        let result = try SettingsTOMLCodec.decodeForLoad(Data(missing.utf8))
+        let result = try SettingsLuauDocument(Data(missing.utf8))
         XCTAssertEqual(result.export.focus.edgeNavigationInterval, 1.5)
-        XCTAssertNil(result.migration)
-        XCTAssertNil(result.migratedData)
 
         let malformed = source.replacingOccurrences(
             of: "edgeNavigationInterval = 1.5",
             with: "edgeNavigationInterval = \"1.5\""
         )
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformed.utf8))) { error in
-            guard case let DecodingError.typeMismatch(_, context) = error else {
-                return XCTFail("Expected an invalid interval type, got \(error)")
-            }
-            XCTAssertEqual(context.codingPath.map(\.stringValue), ["focus", "edgeNavigationInterval"])
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(Data(malformed.utf8))) { error in
+            XCTAssertTrue(
+                error.localizedDescription.contains("focus.edgeNavigationInterval"),
+                error.localizedDescription
+            )
         }
     }
 
     func testExistingSectionFieldsRemainRequired() throws {
-        let data = try SettingsTOMLCodec.encode(.defaults())
-        let source = String(decoding: data, as: UTF8.self)
         let sections = [
             "focus": [
                 "followsMouse", "raiseOnMouseFocus", "lockModifier", "moveMouseToFocusedWindow",
@@ -141,28 +127,15 @@ final class FocusRoutingSettingsExportTests: XCTestCase {
             "routing": ["mode", "arrangements"]
         ]
         for (section, keys) in sections {
-            for key in keys {
-                let incomplete = try removing(key: key, from: section, in: source)
-                XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(incomplete.utf8))) { error in
-                    guard case let DecodingError.keyNotFound(missingKey, context) = error else {
-                        return XCTFail("Expected missing section field, got \(error)")
-                    }
-                    XCTAssertEqual(missingKey.stringValue, key)
-                    XCTAssertEqual(context.codingPath.map(\.stringValue), [section])
-                }
-            }
+            try SettingsLuauFixture.assertRequiredFields(keys, in: section)
         }
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {
-        var lines = source.components(separatedBy: "\n")
-        let header = try XCTUnwrap(lines.firstIndex(of: "[\(section)]"))
-        let following = lines.indices.dropFirst(header + 1)
-        let sectionEnd = following.first { lines[$0].hasPrefix("[") } ?? lines.endIndex
-        let field = try XCTUnwrap(((header + 1) ..< sectionEnd).first {
-            lines[$0].hasPrefix("\(key) = ")
-        })
-        lines.remove(at: field)
-        return lines.joined(separator: "\n")
+        var tree = SettingsLuauValue.record(try SettingsLuauFixture.fields(in: Data(source.utf8)))
+        let parts = section.split(separator: ".").map(String.init) + [key]
+        XCTAssertNotNil(parts.reduce(Optional(tree)) { $0?[$1] })
+        tree.set(nil, at: parts[...])
+        return "return " + tree.literal()
     }
 }

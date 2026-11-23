@@ -20,13 +20,11 @@ struct AppThemeOutput: Equatable, Sendable {
     let template: AppThemeTemplateSource
     var darkTemplate: AppThemeTemplateSource?
     var variant = AppThemeVariant.current
-    var table: [String]?
 }
 
 enum AppThemeReloadAction: Hashable, Sendable {
     case ghostty
     case kitty
-    case herdr(savedMachines: Bool)
     case neovim
 
     var phase: Int {
@@ -34,12 +32,7 @@ enum AppThemeReloadAction: Hashable, Sendable {
         case .ghostty,
              .kitty: 0
         case .neovim: 1
-        case .herdr: 2
         }
-    }
-
-    var runsAfterTerminals: Bool {
-        if case .herdr = self { true } else { false }
     }
 }
 
@@ -48,10 +41,6 @@ struct AppThemeTarget: Equatable, Sendable, Identifiable {
     let name: String
     let outputs: [AppThemeOutput]
     let reload: AppThemeReloadAction?
-
-    var isTerminal: Bool {
-        reload == .ghostty || reload == .kitty
-    }
 }
 
 struct AppThemeResult: Codable, Equatable, Sendable {
@@ -73,7 +62,6 @@ struct AppThemeResult: Codable, Equatable, Sendable {
 struct AppThemeJob: Sendable {
     let palette: AppThemePalette
     let dark: Bool
-    let appearanceChanged: Bool
     let targets: [AppThemeTarget]
     var takeOver: [String: String] = [:]
     var forceReload: Set<String> = []

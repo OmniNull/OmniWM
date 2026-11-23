@@ -14,39 +14,9 @@ final class AppThemingSettingsTests: XCTestCase {
         XCTAssertTrue(defaults.targets(configHome: URL(fileURLWithPath: "/Users/x/.config")).isEmpty)
     }
 
-    func testCustomHerdrReloadsFollowTheSavedMachinesSetting() {
-        var settings = SettingsExport.AppTheming()
-        settings.custom = [.init(name: "herdr", template: "~/t.conf", output: "~/.config/x/y.conf", reload: .herdr)]
-        let configHome = URL(fileURLWithPath: "/Users/x/.config")
-        settings.herdr.reloadSavedMachines = false
-        XCTAssertEqual(settings.targets(configHome: configHome).first?.reload, .herdr(savedMachines: false))
-        settings.herdr.reloadSavedMachines = true
-        XCTAssertEqual(settings.targets(configHome: configHome).first?.reload, .herdr(savedMachines: true))
-    }
-
-    func testThePageBuildsCustomHerdrTargetsFromTheSavedMachinesSetting() throws {
-        var values = SettingsExport.AppTheming()
-        let custom = SettingsExport.AppTheming.Custom(
-            name: "herdr", template: "~/t.conf", output: "~/.config/x/y.conf", reload: .herdr
-        )
-        values.custom = [custom]
-        let sandbox = try AppThemeSandbox()
-        defer { sandbox.remove() }
-        for machines in [false, true] {
-            values.herdr.reloadSavedMachines = machines
-            let preview = AppThemePreview(
-                engine: sandbox.engine(AppThemeFakeEnvironment()),
-                values: values,
-                dark: true
-            ) { nil }
-            XCTAssertEqual(preview.target(for: custom).reload, .herdr(savedMachines: machines))
-        }
-    }
-
-    func testSettingsRoundTripThroughTOML() throws {
+    func testSettingsRoundTripThroughLuau() throws {
         var settings = SettingsExport.defaults()
         settings.appTheming.ghostty.enabled = true
-        settings.appTheming.herdr = .init(enabled: true, reloadSavedMachines: false)
         settings.appTheming.custom = [
             .init(
                 id: "A1",
@@ -57,42 +27,32 @@ final class AppThemingSettingsTests: XCTestCase {
                 reload: .kitty
             )
         ]
-        let data = try SettingsTOMLCodec.encode(settings)
+        let data = try SettingsLuauDocument.initialSource(settings)
         let text = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(text.contains("[appTheming.ghostty]"), text)
-        XCTAssertTrue(text.contains("[[appTheming.custom]]"), text)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).appTheming, settings.appTheming)
+        XCTAssertTrue(text.contains("ghostty = {"), text)
+        XCTAssertTrue(text.contains("custom = {"), text)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).appTheming, settings.appTheming)
     }
 
     func testTerminalColorsSettingRoundTripsAndDefaultsToPalette() throws {
         XCTAssertEqual(SettingsExport.defaults().appTheming.terminalColors, .palette)
         var settings = SettingsExport.defaults()
         settings.appTheming.terminalColors = .standard
-        let data = try SettingsTOMLCodec.encode(settings)
+        let data = try SettingsLuauDocument.initialSource(settings)
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("terminalColors = \"standard\""))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).appTheming.terminalColors, .standard)
-        let text = String(decoding: data, as: UTF8.self)
-        let missing = text.replacingOccurrences(of: "terminalColors = \"standard\"\n", with: "")
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(missing.utf8)).appTheming.terminalColors, .palette)
-        let unknown = text.replacingOccurrences(of: "terminalColors = \"standard\"", with: "terminalColors = \"sepia\"")
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(unknown.utf8)).appTheming.terminalColors, .palette)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).appTheming.terminalColors, .standard)
+        let missing = "return { appTheming = {} }"
+        XCTAssertEqual(try SettingsLuauFixture.decode(Data(missing.utf8)).appTheming.terminalColors, .palette)
+        let unknown = #"return { appTheming = { terminalColors = "sepia" } }"#
+        XCTAssertEqual(try SettingsLuauFixture.decode(Data(unknown.utf8)).appTheming.terminalColors, .palette)
     }
 
     func testMissingSectionAndKeysDecodeToSafeDefaults() throws {
-        let encoded = try SettingsTOMLCodec.encode(SettingsExport.defaults())
-        let lines = String(decoding: encoded, as: UTF8.self).components(separatedBy: "\n")
-        var inSection = false
-        let legacy = lines.filter { line in
-            if line.hasPrefix("[") { inSection = line.hasPrefix("[appTheming") || line.hasPrefix("[[appTheming") }
-            return !inSection
-        }.joined(separator: "\n")
-        XCTAssertFalse(legacy.contains("appTheming"))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(legacy.utf8)).appTheming, SettingsExport.AppTheming())
-        let partial = legacy + "\n[appTheming.kitty]\nenabled = true\n\n[[appTheming.custom]]\nname = \"Foot\"\n"
-        let decoded = try SettingsTOMLCodec.decode(Data(partial.utf8)).appTheming
+        XCTAssertEqual(try SettingsLuauFixture.decode(Data("return {}".utf8)).appTheming, SettingsExport.AppTheming())
+        let partial = #"return { appTheming = { kitty = { enabled = true }, custom = { { name = "Foot" } } } }"#
+        let decoded = try SettingsLuauFixture.decode(Data(partial.utf8)).appTheming
         XCTAssertTrue(decoded.kitty.enabled)
         XCTAssertFalse(decoded.ghostty.enabled)
-        XCTAssertTrue(decoded.herdr.reloadSavedMachines)
         XCTAssertEqual(decoded.custom.first?.name, "Foot")
         XCTAssertEqual(decoded.custom.first?.enabled, false)
         XCTAssertEqual(decoded.custom.first?.reload, AppThemeCustomReload.none)
@@ -129,7 +89,7 @@ final class AppThemingSettingsTests: XCTestCase {
         XCTAssertEqual(paths, [
             "/Users/x/.config/ghostty/themes/omniwm-light", "/Users/x/.config/ghostty/themes/omniwm-dark",
             "/Users/x/.config/kitty/light-theme.auto.conf", "/Users/x/.config/kitty/dark-theme.auto.conf",
-            "/Users/x/.config/herdr/config.toml", "/Users/x/.config/nvim/lua/omniwm.lua",
+            "/Users/x/.config/nvim/lua/omniwm.lua",
             "/Users/x/.config/nvim/colors/omniwm.lua"
         ])
     }
@@ -212,7 +172,7 @@ final class AppThemeServiceTests: XCTestCase {
     func testAnAppTurnedOffAfterItsRunWasQueuedIsNotWritten() {
         let settings = AppThemingSettings()
         settings.values.kitty.enabled = true
-        settings.values.herdr = .init(enabled: true, reloadSavedMachines: false)
+        settings.values.ghostty.enabled = true
         let worker = AppThemeHeldWork()
         let service = sandbox.service(settings, fake, perform: worker.perform) { true }
         settings.onValuesChange = { service.settingsDidChange() }
@@ -221,7 +181,7 @@ final class AppThemeServiceTests: XCTestCase {
         worker.release()
         XCTAssertNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
         XCTAssertNil(service.results["kitty"])
-        XCTAssertNotNil(sandbox.read(".config/herdr/config.toml"))
+        XCTAssertNotNil(sandbox.read(".config/ghostty/themes/omniwm-dark"))
         XCTAssertFalse(fake.signals.contains { $0.pid == AppThemeFakeEnvironment.kittyPID })
     }
 
@@ -243,11 +203,10 @@ final class AppThemeServiceTests: XCTestCase {
     @MainActor
     func testStoredResultsArriveFromTheWorkersRunNotFromTheMainThread() {
         var stored = SettingsExport.AppTheming()
-        stored.herdr = .init(enabled: true, reloadSavedMachines: false)
+        stored.ghostty.enabled = true
         _ = sandbox.engine(fake).run(AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
-            appearanceChanged: false,
             targets: stored.targets(configHome: sandbox.policy.configHome)
         ))
         let settings = AppThemingSettings()
@@ -258,7 +217,7 @@ final class AppThemeServiceTests: XCTestCase {
         service.paletteDidChange(theme(background: .black))
         XCTAssertTrue(service.results.isEmpty)
         worker.release()
-        XCTAssertEqual(service.results["herdr"]?.outcome, .updated)
+        XCTAssertEqual(service.results["ghostty"]?.outcome, .updated)
         XCTAssertEqual(service.results["kitty"]?.outcome, .updated)
     }
 
@@ -294,20 +253,21 @@ final class AppThemeServiceTests: XCTestCase {
 
     @MainActor
     func testTurningOnAnAppWithAnExistingFileBacksItUpFirst() throws {
-        try sandbox.write("[keys]\nprefix = \"x\"\n", to: ".config/herdr/config.toml")
+        let original = "background #123456\n"
+        try sandbox.write(original, to: ".config/ghostty/themes/omniwm-dark")
         let settings = AppThemingSettings()
         let service = sandbox.service(settings, fake) { true }
         settings.onValuesChange = { service.settingsDidChange() }
         service.paletteDidChange(theme(background: .black))
-        let changes = try service.changes(for: service.target(for: .herdr), onlyExisting: true)
+        let changes = try service.changes(for: service.target(for: .ghostty), onlyExisting: true)
         XCTAssertEqual(changes.count, 1)
-        XCTAssertEqual(changes.first?.diff.filter { $0.kind == .removed }, [])
-        XCTAssertTrue(changes.first?.diff.contains { $0.kind == .added && $0.text == "[theme.custom]" } == true)
-        service.confirm(changes, enabling: .herdr)
-        XCTAssertTrue(settings.values.herdr.enabled)
-        XCTAssertEqual(service.results["herdr"]?.outcome, .updated)
+        XCTAssertTrue(changes.first?.diff.contains { $0.kind == .removed && $0.text == "background #123456" } == true)
+        XCTAssertTrue(changes.first?.diff.contains { $0.kind == .added && $0.text.hasPrefix("background = ") } == true)
+        service.confirm(changes, enabling: .ghostty)
+        XCTAssertTrue(settings.values.ghostty.enabled)
+        XCTAssertEqual(service.results["ghostty"]?.outcome, .updated)
         let backup = try XCTUnwrap(service.lastBackup)
-        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), "[keys]\nprefix = \"x\"\n")
+        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), original)
     }
 
     @MainActor
@@ -546,7 +506,7 @@ final class AppThemeServiceTests: XCTestCase {
         service.paletteDidChange(theme(background: .black))
         let palette = try XCTUnwrap(service.palette)
         _ = sandbox.engine(fake).run(AppThemeJob(
-            palette: palette, dark: true, appearanceChanged: false, targets: enabled.targets(configHome: configHome)
+            palette: palette, dark: true, targets: enabled.targets(configHome: configHome)
         ))
         let kills = { self.fake.signals.filter { $0.signal == SIGUSR1 }.count }
         XCTAssertEqual(kills(), 1)
@@ -595,12 +555,16 @@ final class AppThemeServiceTests: XCTestCase {
         defer { NSApplication.shared.appearance = saved }
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
         let settings = AppThemingSettings()
-        settings.values.herdr = .init(enabled: true, reloadSavedMachines: false)
+        try sandbox.write("{{mode}}", to: "templates/mode")
+        settings.values.custom = [.init(
+            name: "Mode",
+            template: sandbox.path("templates/mode").path,
+            output: "~/.config/mode/theme"
+        )]
         let service = sandbox.service(settings, fake, systemIsDark: AppThemeService.liveSystemIsDark)
         XCTAssertTrue(service.isDark)
         service.paletteDidChange(theme(background: .black))
-        let herdr = try XCTUnwrap(sandbox.read(".config/herdr/config.toml"))
-        XCTAssertTrue(herdr.contains("from its dark palette"), herdr)
+        XCTAssertEqual(sandbox.read(".config/mode/theme"), "dark")
     }
 
     @MainActor
@@ -609,17 +573,22 @@ final class AppThemeServiceTests: XCTestCase {
         defer { NSApplication.shared.appearance = saved }
         NSApplication.shared.appearance = NSAppearance(named: .aqua)
         let settings = AppThemingSettings()
-        settings.values.herdr = .init(enabled: true, reloadSavedMachines: false)
+        try sandbox.write("{{mode}}", to: "templates/mode")
+        settings.values.custom = [.init(
+            name: "Mode",
+            template: sandbox.path("templates/mode").path,
+            output: "~/.config/mode/theme"
+        )]
         let service = sandbox.service(settings, fake, systemIsDark: AppThemeService.liveSystemIsDark)
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
         service.paletteDidChange(theme(background: .black))
-        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its dark palette"))
+        XCTAssertEqual(sandbox.read(".config/mode/theme"), "dark")
         NSApplication.shared.appearance = NSAppearance(named: .aqua)
         service.paletteDidChange(theme(background: .darkGray))
-        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its light palette"))
+        XCTAssertEqual(sandbox.read(".config/mode/theme"), "light")
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
         service.paletteDidChange(theme(background: .black))
-        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its dark palette"))
+        XCTAssertEqual(sandbox.read(".config/mode/theme"), "dark")
     }
 
     @MainActor
@@ -628,15 +597,20 @@ final class AppThemeServiceTests: XCTestCase {
         defer { NSApplication.shared.appearance = saved }
         NSApplication.shared.appearance = NSAppearance(named: .aqua)
         let settings = AppThemingSettings()
-        settings.values.herdr = .init(enabled: true, reloadSavedMachines: false)
+        try sandbox.write("{{mode}}", to: "templates/mode")
+        settings.values.custom = [.init(
+            name: "Mode",
+            template: sandbox.path("templates/mode").path,
+            output: "~/.config/mode/theme"
+        )]
         let service = sandbox.service(settings, fake, systemIsDark: AppThemeService.liveSystemIsDark)
         service.start()
         defer { service.stop() }
         service.paletteDidChange(theme(background: .black))
-        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its light palette"))
+        XCTAssertEqual(sandbox.read(".config/mode/theme"), "light")
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
         XCTAssertTrue(service.isDark)
-        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("from its dark palette"))
+        XCTAssertEqual(sandbox.read(".config/mode/theme"), "dark")
     }
 
     @MainActor

@@ -6,20 +6,18 @@ import Foundation
 @testable import OmniWM
 import XCTest
 
-final class SettingsTOMLCodecTests: XCTestCase {
+final class SettingsFileModelTests: XCTestCase {
     func testScrollModifierChoicesRoundTripWithOptionShiftDefault() throws {
         var export = SettingsExport.defaults()
         XCTAssertEqual(export.gestures.scrollModifierKey, .optionShift)
         for modifier in ScrollModifierKey.allCases {
             export.gestures.scrollModifierKey = modifier
-            let data = try SettingsTOMLCodec.encode(export)
+            let data = try SettingsLuauDocument.initialSource(export)
             XCTAssertTrue(String(decoding: data, as: UTF8.self).contains(
                 "scrollModifierKey = \"\(modifier.rawValue)\""
             ))
-            let result = try SettingsTOMLCodec.decodeForLoad(data)
+            let result = try SettingsLuauDocument(data)
             XCTAssertEqual(result.export, export)
-            XCTAssertNil(result.migration)
-            XCTAssertNil(result.migratedData)
         }
     }
 
@@ -28,30 +26,26 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertEqual(export.animationSpeed, 1)
         for speed in [0.25, 1, 1.75, 2, 4] {
             export.animationSpeed = speed
-            let data = try SettingsTOMLCodec.encode(export)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("general.animationSpeed"))
+            let data = try SettingsLuauDocument.initialSource(export)
+            XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         }
     }
 
-    func testOmittedAnimationSpeedUsesDefaultWithoutMigration() throws {
-        let data = try canonicalDefaultLines { lines in
-            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("animationSpeed = ") })
-            lines.remove(at: index)
-        }
-        let result = try SettingsTOMLCodec.decodeForLoad(data)
-        XCTAssertEqual(result.export.animationSpeed, 1)
-        XCTAssertNil(result.migration)
-        XCTAssertNil(result.migratedData)
+    func testOmittedAnimationSpeedUsesDefault() throws {
+        XCTAssertEqual(
+            try SettingsLuauFixture.decode(Data("return {}".utf8)).animationSpeed,
+            SettingsExport.defaults().animationSpeed
+        )
     }
 
-    func testAnimationSpeedNormalizesOutOfRangeAndNonfiniteTOML() throws {
-        for (literal, expected) in [("0", 0.25), ("-2.0", 0.25), ("10.0", 4), ("nan", 1), ("inf", 1)] {
-            let data = try canonicalDefaultLines { lines in
-                let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("animationSpeed = ") })
-                lines[index] = "animationSpeed = \(literal)"
-            }
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data).animationSpeed, expected)
+    func testAnimationSpeedNormalizesOutOfRangeAndRejectsNonfiniteInput() throws {
+        for (literal, expected) in [("0", 0.25), ("-2.0", 0.25), ("10.0", 4)] {
+            let source = Data("return { general = { animationSpeed = \(literal) } }".utf8)
+            XCTAssertEqual(try SettingsLuauFixture.decode(source).animationSpeed, expected)
+        }
+        for literal in ["math.huge", "(0 / 0)"] {
+            XCTAssertThrowsError(try SettingsLuauDocument(Data("return { general = { animationSpeed = \(literal) } }"
+                    .utf8)))
         }
     }
 
@@ -60,18 +54,17 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertFalse(export.workspaceAutoBackAndForth)
         for enabled in [false, true] {
             export.workspaceAutoBackAndForth = enabled
-            let data = try SettingsTOMLCodec.encode(export)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("general.workspaceAutoBackAndForth"))
+            let data = try SettingsLuauDocument.initialSource(export)
+            XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         }
 
         let omitted = try canonicalDefaultLines { lines in
-            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("workspaceAutoBackAndForth = ") })
+            let index = try XCTUnwrap(lines
+                .firstIndex { $0.trimmingCharacters(in: .whitespaces).hasPrefix("workspaceAutoBackAndForth = ") })
             lines.remove(at: index)
         }
-        let result = try SettingsTOMLCodec.decodeForLoad(omitted)
+        let result = try SettingsLuauDocument(omitted)
         XCTAssertFalse(result.export.workspaceAutoBackAndForth)
-        XCTAssertNil(result.migration)
     }
 
     func testPausePalettePasteDuringSecureInputDefaultsOnAndRoundTrips() throws {
@@ -79,19 +72,19 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertTrue(export.pausePalettePasteDuringSecureInput)
         for enabled in [false, true] {
             export.pausePalettePasteDuringSecureInput = enabled
-            let data = try SettingsTOMLCodec.encode(export)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data)
-                .contains("general.pausePalettePasteDuringSecureInput"))
+            let data = try SettingsLuauDocument.initialSource(export)
+            XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         }
 
         let omitted = try canonicalDefaultLines { lines in
-            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("pausePalettePasteDuringSecureInput = ") })
+            let index = try XCTUnwrap(lines
+                .firstIndex {
+                    $0.trimmingCharacters(in: .whitespaces).hasPrefix("pausePalettePasteDuringSecureInput = ")
+                })
             lines.remove(at: index)
         }
-        let result = try SettingsTOMLCodec.decodeForLoad(omitted)
+        let result = try SettingsLuauDocument(omitted)
         XCTAssertTrue(result.export.pausePalettePasteDuringSecureInput)
-        XCTAssertNil(result.migration)
     }
 
     func testSlideWorkspaceSwitchesDefaultsOffAndRoundTrips() throws {
@@ -99,18 +92,17 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertFalse(export.slideWorkspaceSwitches)
         for enabled in [false, true] {
             export.slideWorkspaceSwitches = enabled
-            let data = try SettingsTOMLCodec.encode(export)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("general.slideWorkspaceSwitches"))
+            let data = try SettingsLuauDocument.initialSource(export)
+            XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         }
 
         let omitted = try canonicalDefaultLines { lines in
-            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("slideWorkspaceSwitches = ") })
+            let index = try XCTUnwrap(lines
+                .firstIndex { $0.trimmingCharacters(in: .whitespaces).hasPrefix("slideWorkspaceSwitches = ") })
             lines.remove(at: index)
         }
-        let result = try SettingsTOMLCodec.decodeForLoad(omitted)
+        let result = try SettingsLuauDocument(omitted)
         XCTAssertFalse(result.export.slideWorkspaceSwitches)
-        XCTAssertNil(result.migration)
     }
 
     func testTabRailAppIconsDefaultsAndRoundTrips() throws {
@@ -119,76 +111,52 @@ final class SettingsTOMLCodecTests: XCTestCase {
 
         for enabled in [false, true] {
             export.tabRailAppIcons = enabled
-            let data = try SettingsTOMLCodec.encode(export)
-            let text = String(decoding: data, as: UTF8.self)
-            let appearanceSection = try XCTUnwrap(text.components(separatedBy: "[appearance]\n").last)
-                .components(separatedBy: "\n[").first
-
-            XCTAssertTrue(try XCTUnwrap(appearanceSection).contains("tabRailAppIcons = \(enabled)"))
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-            XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains("appearance.tabRailAppIcons"))
+            let data = try SettingsLuauDocument.initialSource(export)
+            XCTAssertEqual(
+                try SettingsLuauFixture.fields(in: data)["appearance"]?["tabRailAppIcons"],
+                .boolean(enabled)
+            )
+            XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         }
     }
 
-    func testMissingTabRailAppIconsDefaultsToCompactWithoutMigration() throws {
+    func testMissingTabRailAppIconsDefaultsToCompact() throws {
         let withoutKey = try canonicalDefaultLines { lines in
-            let index = try XCTUnwrap(lines.firstIndex(of: "tabRailAppIcons = false"))
+            let index = try XCTUnwrap(lines.firstIndex { $0.contains("tabRailAppIcons = false") })
             lines.remove(at: index)
         }
 
-        let result = try SettingsTOMLCodec.decodeForLoad(withoutKey)
+        let result = try SettingsLuauDocument(withoutKey)
 
         XCTAssertFalse(result.export.tabRailAppIcons)
-        XCTAssertNil(result.migration)
-        XCTAssertNil(result.migratedData)
     }
 
-    func testDefaultTOMLOmitsUnassignableHotkeyActions() throws {
-        let toml = String(
-            decoding: try SettingsTOMLCodec.encode(.defaults()),
+    func testDefaultLuauOmitsUnassignableHotkeyActions() throws {
+        let source = String(
+            decoding: try SettingsLuauDocument.initialSource(.defaults()),
             as: UTF8.self
         )
 
         for id in ["consumeOrExpelWindowLeft", "consumeOrExpelWindowRight"] {
-            XCTAssertFalse(toml.contains(#"id = "\#(id)""#))
+            XCTAssertFalse(source.contains(#"id = "\#(id)""#))
         }
     }
 
-    func testTOMLRejectsUnassignableHotkeyActions() throws {
+    func testLuauRejectsUnassignableHotkeyActions() throws {
         for id in ["consumeOrExpelWindowLeft", "consumeOrExpelWindowRight"] {
-            let source = Data(
-                (String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self) + """
-
-                [[hotkeys]]
-                binding = "Option+H"
-                id = "\(id)"
-                """).utf8
-            )
-
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(source)) { error in
-                XCTAssertEqual(
-                    error as? HotkeyBindingResolutionError,
-                    .unassignableActionID(id)
-                )
-                XCTAssertEqual(
-                    error.localizedDescription,
-                    "hotkeys: \(id) cannot be assigned as a hotkey."
-                )
+            let source = Data("return { hotkeys = { { id = '\(id)', binding = 'Option+H' } } }".utf8)
+            XCTAssertThrowsError(try SettingsLuauFixture.decode(source)) { error in
+                XCTAssertTrue(error.localizedDescription
+                    .contains(HotkeyBindingResolutionError.unassignableActionID(id).localizedDescription))
             }
         }
     }
 
-    func testTOMLTreatsAMissingKnownHotkeyActionAsUnassigned() throws {
+    func testLuauTreatsAMissingKnownHotkeyActionAsUnassigned() throws {
         let firstID = try XCTUnwrap(HotkeyBindingRegistry.defaults().first?.id)
-        let withoutEntry = try canonicalDefaultLines { lines in
-            let idIndex = try XCTUnwrap(lines.firstIndex(of: #"id = "\#(firstID)""#))
-            XCTAssertEqual(lines[idIndex - 2], "[[hotkeys]]")
-            lines.removeSubrange((idIndex - 2) ... idIndex)
-        }
-
-        let result = try SettingsTOMLCodec.decodeForLoad(withoutEntry)
-
-        XCTAssertNil(result.migration)
+        var export = SettingsExport.defaults()
+        export.hotkeyBindings.removeAll { $0.id == firstID }
+        let result = try SettingsLuauDocument(SettingsLuauDocument.initialSource(export))
         let bindings = result.export.hotkeyBindings
         XCTAssertEqual(bindings.first { $0.id == firstID }?.binding, .unassigned)
         XCTAssertEqual(
@@ -197,51 +165,31 @@ final class SettingsTOMLCodecTests: XCTestCase {
         )
     }
 
-    func testVersionFourFileWithoutFloatingFocusToggleLoadsWithoutMigration() throws {
-        let withoutToggle = try canonicalDefaultLines { lines in
-            let idIndex = try XCTUnwrap(lines.firstIndex(of: #"id = "toggleFloatingFocus""#))
-            XCTAssertEqual(lines[idIndex - 2], "[[hotkeys]]")
-            lines.removeSubrange((idIndex - 2) ... idIndex)
-        }
-        XCTAssertTrue(String(decoding: withoutToggle, as: UTF8.self).contains("schemaVersion = 5"))
-
-        let result = try SettingsTOMLCodec.decodeForLoad(withoutToggle)
-
-        XCTAssertNil(result.migration)
-        XCTAssertEqual(result.export.hotkeyBindings, SettingsExport.defaults().hotkeyBindings)
+    func testMissingFloatingFocusToggleUsesDefault() throws {
+        var export = SettingsExport.defaults()
+        export.hotkeyBindings.removeAll { $0.id == "toggleFloatingFocus" }
+        XCTAssertEqual(
+            try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export)).hotkeyBindings,
+            SettingsExport.defaults().hotkeyBindings
+        )
     }
 
-    func testTOMLRejectsDuplicateHotkeyAction() throws {
+    func testLuauRejectsDuplicateHotkeyAction() throws {
         let firstID = try XCTUnwrap(HotkeyBindingRegistry.defaults().first?.id)
-        let duplicated = try canonicalDefaultLines { lines in
-            let idIndex = try XCTUnwrap(lines.firstIndex(of: #"id = "\#(firstID)""#))
-            XCTAssertEqual(lines[idIndex - 2], "[[hotkeys]]")
-            lines.insert(contentsOf: lines[(idIndex - 2) ... idIndex], at: idIndex + 1)
-        }
-
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(duplicated)) { error in
-            XCTAssertEqual(error as? HotkeyBindingResolutionError, .duplicateActionID(firstID))
+        let row = "{ id = '\(firstID)', binding = 'Option+H' }"
+        let source = Data("return { hotkeys = { \(row), \(row) } }".utf8)
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(source)) { error in
+            XCTAssertTrue(error.localizedDescription
+                .contains(HotkeyBindingResolutionError.duplicateActionID(firstID).localizedDescription))
         }
     }
 
-    func testTOMLRejectsMissingRequiredKey() throws {
-        for (key, parent, line) in [
-            ("followsMouse", "focus", "followsMouse = "),
-            ("raiseOnMouseFocus", "focus", "raiseOnMouseFocus = "),
-            ("fullscreenUsesOuterGaps", "gaps", "fullscreenUsesOuterGaps = false")
-        ] {
-            let withoutKey = try canonicalDefaultLines { lines in
-                let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix(line) })
-                lines.remove(at: index)
-            }
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(withoutKey), key) { error in
-                guard case let DecodingError.keyNotFound(found, context) = error else {
-                    return XCTFail("expected keyNotFound, got \(error)")
-                }
-                XCTAssertEqual(found.stringValue, key)
-                XCTAssertEqual(context.codingPath.map(\.stringValue), [parent])
-            }
-        }
+    func testMissingFieldsUseNativeDefaults() throws {
+        let result = try SettingsLuauFixture.decode(Data("return { focus = {}, gaps = {} }".utf8))
+        let defaults = SettingsExport.defaults()
+        XCTAssertEqual(result.focus.followsMouse, defaults.focus.followsMouse)
+        XCTAssertEqual(result.focus.raiseOnMouseFocus, defaults.focus.raiseOnMouseFocus)
+        XCTAssertEqual(result.gaps.fullscreenUsesOuterGaps, defaults.gaps.fullscreenUsesOuterGaps)
     }
 
     func testRaiseOnMouseFocusDefaultsAndRoundTrips() throws {
@@ -249,29 +197,22 @@ final class SettingsTOMLCodecTests: XCTestCase {
 
         XCTAssertFalse(export.focus.raiseOnMouseFocus)
         XCTAssertTrue(
-            String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
+            String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
                 .contains("raiseOnMouseFocus = false")
         )
 
         export.focus.raiseOnMouseFocus = true
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
 
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("raiseOnMouseFocus = true"))
-        XCTAssertTrue(try SettingsTOMLCodec.decode(data).focus.raiseOnMouseFocus)
+        XCTAssertTrue(try SettingsLuauFixture.decode(data).focus.raiseOnMouseFocus)
     }
 
-    func testTOMLRejectsCorruptHyperSettings() throws {
+    func testLuauRejectsCorruptHyperSettings() throws {
         for (key, value) in [("systemHyperTrigger", "NotAKey"), ("hyperKeyModifiers", "Control")] {
-            let corrupt = try canonicalDefaultLines { lines in
-                let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("\(key) = ") })
-                lines[index] = "\(key) = \"\(value)\""
-            }
-
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(corrupt), key) { error in
-                guard case let DecodingError.dataCorrupted(context) = error else {
-                    return XCTFail("\(key): expected dataCorrupted, got \(error)")
-                }
-                XCTAssertEqual(context.codingPath.map(\.stringValue), ["general", key], key)
+            let source = Data("return { general = { \(key) = '\(value)' } }".utf8)
+            XCTAssertThrowsError(try SettingsLuauFixture.decode(source)) { error in
+                XCTAssertTrue(error.localizedDescription.contains("general.\(key)"), error.localizedDescription)
             }
         }
     }
@@ -386,7 +327,7 @@ final class SettingsTOMLCodecTests: XCTestCase {
     }
 
     private func canonicalDefaultLines(_ mutate: (inout [String]) throws -> Void) throws -> Data {
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let canonical = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         var lines = canonical.components(separatedBy: "\n")
         let original = lines
         try mutate(&lines)
@@ -408,131 +349,22 @@ final class SettingsTOMLCodecTests: XCTestCase {
             )
         ]
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let decoded = try SettingsLuauFixture.decode(data)
 
         XCTAssertTrue(decoded.gaps.fullscreenUsesOuterGaps)
         XCTAssertEqual(decoded.monitorGapSettings, export.monitorGapSettings)
-        let toml = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(toml.contains("innerGap = 6.0"))
-        XCTAssertTrue(toml.contains("fullscreenUsesOuterGaps = true"))
-        XCTAssertTrue(toml.contains("fullscreenUsesOuterGaps = false"))
-    }
-
-    func testPreservingEncodeKeepsUnknownKeysInsideKnownTables() throws {
-        let previous = try defaultsWithReplacements(
-            ("[general]\n", "[general]\nfutureSetting = \"keep-me\"\n"),
-            ("[niri]\n", "[niri]\nfutureNiriSetting = true\n")
-        )
-
-        var export = try SettingsTOMLCodec.decode(previous)
-        export.gaps.size = 24
-
-        let rewritten = String(
-            decoding: try SettingsTOMLCodec.encode(export, preservingUnknownKeysFrom: previous),
-            as: UTF8.self
-        )
-
-        XCTAssertTrue(rewritten.contains("futureSetting = \"keep-me\""))
-        XCTAssertTrue(rewritten.contains("futureNiriSetting = true"))
-        XCTAssertTrue(rewritten.contains("size = 24.0"))
-    }
-
-    func testPreservingEncodeUsesCanonicalDataOnlyWhenPreviousDataIsAbsent() throws {
-        let export = SettingsExport.defaults()
-
-        let rewritten = try SettingsTOMLCodec.encode(export, preservingUnknownKeysFrom: nil)
-
-        XCTAssertEqual(rewritten, try SettingsTOMLCodec.encode(export))
-    }
-
-    func testPreservingEncodeRejectsUnparseablePreviousData() {
-        for (label, previous) in [("empty", Data()), ("malformed", Data("[general\ninvalid".utf8))] {
-            XCTAssertThrowsError(
-                try SettingsTOMLCodec.encode(.defaults(), preservingUnknownKeysFrom: previous),
-                label
-            ) { error in
-                XCTAssertEqual(error as? SettingsTOMLCodecError, .cannotSafelyPreservePreviousData, label)
-            }
-        }
-    }
-
-    func testPreservingEncodeKeepsUnknownExtensionTables() throws {
-        let previous = try defaultsWithSuffix(
-            """
-
-            [future]
-            topValue = "top"
-
-            [future.nested]
-            flag = true
-            """
-        )
-
-        var export = try SettingsTOMLCodec.decode(previous)
-        export.gaps.size = 24
-
-        let rewritten = String(
-            decoding: try SettingsTOMLCodec.encode(export, preservingUnknownKeysFrom: previous),
-            as: UTF8.self
-        )
-
-        XCTAssertTrue(rewritten.contains("[future]"))
-        XCTAssertTrue(rewritten.contains("topValue = \"top\""))
-        XCTAssertTrue(rewritten.contains("[future.nested]"))
-        XCTAssertTrue(rewritten.contains("flag = true"))
-        XCTAssertTrue(rewritten.contains("size = 24.0"))
-    }
-
-    func testPreservingEncodeKeepsUnknownDateTimeTypes() throws {
-        let previous = try defaultsWithSuffix(
-            """
-
-            [futureTimeTypes]
-            futureDate = 2026-06-15
-            futureLocalDateTime = 2026-06-15T12:30:00
-            futureOffset = 2026-06-15T12:30:00-04:00
-            futureTime = 12:30:00
-            """
-        )
-
-        var export = try SettingsTOMLCodec.decode(previous)
-        export.gaps.size = 24
-
-        let rewritten = String(
-            decoding: try SettingsTOMLCodec.encode(export, preservingUnknownKeysFrom: previous),
-            as: UTF8.self
-        )
-
-        XCTAssertTrue(rewritten.contains("futureDate = 2026-06-15"))
-        XCTAssertTrue(rewritten.contains("futureLocalDateTime = 2026-06-15T12:30:00"))
-        XCTAssertTrue(rewritten.contains("futureTime = 12:30:00"))
-
-        let actualValue = try XCTUnwrap(tomlValue(for: "futureOffset", in: rewritten))
-        let actual = try XCTUnwrap(parseOffsetDateTime(actualValue))
-        let expected = try XCTUnwrap(parseOffsetDateTime("2026-06-15T12:30:00-04:00"))
-        XCTAssertEqual(actual.timeIntervalSince1970, expected.timeIntervalSince1970)
-    }
-
-    func testPreservingEncodeDoesNotResurrectClearedKnownOptionals() throws {
-        let previous = try SettingsTOMLCodec.encode(.defaults())
-
-        var export = try SettingsTOMLCodec.decode(previous)
-        export.quakeTerminal.opacity = nil
-
-        let rewrittenData = try SettingsTOMLCodec.encode(export, preservingUnknownKeysFrom: previous)
-        let rewritten = String(decoding: rewrittenData, as: UTF8.self)
-        let decoded = try SettingsTOMLCodec.decode(rewrittenData)
-
-        XCTAssertFalse(rewritten.contains("opacity = 1.0"))
-        XCTAssertNil(decoded.quakeTerminal.opacity)
+        let source = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(source.contains("innerGap = 6,"))
+        XCTAssertTrue(source.contains("fullscreenUsesOuterGaps = true"))
+        XCTAssertTrue(source.contains("fullscreenUsesOuterGaps = false"))
     }
 
     func testMonitorRankingRoundTripsInOrderAndTableIsOmittedWhenEmpty() throws {
-        let defaults = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        XCTAssertFalse(defaults.contains("[monitors]"))
+        let defaults = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
+        XCTAssertFalse(defaults.contains("monitors = {"))
         XCTAssertFalse(defaults.contains("ranking"))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(defaults.utf8)).monitorRanking, [])
+        XCTAssertEqual(try SettingsLuauFixture.decode(Data(defaults.utf8)).monitorRanking, [])
 
         var export = SettingsExport.defaults()
         export.monitorRanking = [
@@ -541,12 +373,12 @@ final class SettingsTOMLCodecTests: XCTestCase {
             OutputId(name: "Built-in Retina Display")
         ]
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(toml.contains("[[monitors.ranking]]"), toml)
-        XCTAssertTrue(toml.contains("displayUUID = \"22222222-2222-2222-2222-222222222222\""), toml)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(source.contains("ranking = {"), source)
+        XCTAssertTrue(source.contains("displayUUID = \"22222222-2222-2222-2222-222222222222\""), source)
 
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertEqual(decoded.monitorRanking.map(\.name), ["DELL U3423WE", "LG HDR 4K", "Built-in Retina Display"])
         XCTAssertEqual(decoded.monitorRanking[0].displayUUID, "22222222-2222-2222-2222-222222222222")
         XCTAssertEqual(decoded.monitorRanking[1].displayId, 7)
@@ -574,24 +406,15 @@ final class SettingsTOMLCodecTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: fileURL), input)
     }
 
-    func testPreservingEncodeKeepsCanonicalBytesWhenNoUnknownKeysExist() throws {
-        let export = SettingsExport.defaults()
-        let canonicalData = try SettingsTOMLCodec.encode(export)
-
-        let rewritten = try SettingsTOMLCodec.encode(export, preservingUnknownKeysFrom: canonicalData)
-
-        XCTAssertEqual(rewritten, canonicalData)
-    }
-
     func testTrackpadScrollStyleRoundTrips() throws {
         XCTAssertEqual(SettingsExport.defaults().gestures.trackpadScrollStyle, .snap)
 
         var export = SettingsExport.defaults()
         export.gestures.trackpadScrollStyle = .momentum
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
 
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("trackpadScrollStyle = \"momentum\""))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).gestures.trackpadScrollStyle, .momentum)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).gestures.trackpadScrollStyle, .momentum)
     }
 
     @MainActor
@@ -612,16 +435,16 @@ final class SettingsTOMLCodecTests: XCTestCase {
         var export = SettingsExport.defaults()
         export.gestures.overviewGestureEnabled = true
         export.gestures.overviewGestureFingerCount = .three
-        let encoded = try SettingsTOMLCodec.encode(export)
-        let decoded = try SettingsTOMLCodec.decode(encoded)
+        let encoded = try SettingsLuauDocument.initialSource(export)
+        let decoded = try SettingsLuauFixture.decode(encoded)
         XCTAssertEqual(decoded.gestures.overviewGestureEnabled, true)
         XCTAssertEqual(decoded.gestures.overviewGestureFingerCount, .three)
 
         let oldConfig = String(decoding: encoded, as: UTF8.self)
             .split(separator: "\n")
-            .filter { !$0.hasPrefix("overviewGesture") }
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("overviewGesture") }
             .joined(separator: "\n")
-        let defaults = try SettingsTOMLCodec.decode(Data(oldConfig.utf8))
+        let defaults = try SettingsLuauFixture.decode(Data(oldConfig.utf8))
         XCTAssertEqual(defaults.gestures.overviewGestureEnabled, false)
         XCTAssertEqual(defaults.gestures.overviewGestureFingerCount, .four)
     }
@@ -650,36 +473,24 @@ final class SettingsTOMLCodecTests: XCTestCase {
         export.gestures.workspaceSwipeEnabled = true
         export.gestures.workspaceSwipeFingerCount = .four
         export.gestures.workspaceSwipeAxis = .horizontal
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         let encoded = String(decoding: data, as: UTF8.self)
 
         XCTAssertTrue(encoded.contains("workspaceSwipeEnabled = true"))
         XCTAssertTrue(encoded.contains("workspaceSwipeFingerCount = 4"))
         XCTAssertTrue(encoded.contains("workspaceSwipeAxis = \"horizontal\""))
 
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertTrue(decoded.gestures.workspaceSwipeEnabled)
         XCTAssertEqual(decoded.gestures.workspaceSwipeFingerCount, .four)
         XCTAssertEqual(decoded.gestures.workspaceSwipeAxis, .horizontal)
     }
 
     @MainActor
-    func testNonfiniteTOMLScrollSensitivityNormalizesWhenApplied() throws {
-        for literal in ["nan", "inf", "-inf"] {
-            let data = try defaultsWithReplacements(
-                ("scrollSensitivity = 5.0\n", "scrollSensitivity = \(literal)\n")
-            )
-            let export = try SettingsTOMLCodec.decode(data)
-            let settings = makeSettingsStore()
-
-            XCTAssertFalse(export.gestures.scrollSensitivity.isFinite)
-            settings.applyExport(export)
-
-            XCTAssertEqual(settings.gestures.scrollSensitivity, SettingsExport.defaults().gestures.scrollSensitivity)
-            XCTAssertEqual(
-                settings.toExport().gestures.scrollSensitivity,
-                SettingsExport.defaults().gestures.scrollSensitivity
-            )
+    func testNonfiniteScrollSensitivityIsRejectedOnLoad() throws {
+        for literal in ["math.huge", "-math.huge", "(0 / 0)"] {
+            let source = Data("return { gestures = { scrollSensitivity = \(literal) } }".utf8)
+            XCTAssertThrowsError(try SettingsLuauDocument(source))
         }
     }
 
@@ -703,13 +514,13 @@ final class SettingsTOMLCodecTests: XCTestCase {
         var export = SettingsExport.defaults()
         XCTAssertEqual(export.gestures.workspaceSwipeEdgeBehavior, .cycle)
         export.gestures.workspaceSwipeEdgeBehavior = .onePast
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         let encoded = String(decoding: data, as: UTF8.self)
         XCTAssertTrue(encoded.contains("workspaceSwipeEdgeBehavior = \"onePast\""))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).gestures.workspaceSwipeEdgeBehavior, .onePast)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).gestures.workspaceSwipeEdgeBehavior, .onePast)
 
-        let omitted = encoded.replacingOccurrences(of: "workspaceSwipeEdgeBehavior = \"onePast\"\n", with: "")
-        let decoded = try SettingsTOMLCodec.decode(Data(omitted.utf8))
+        let omitted = encoded.replacingOccurrences(of: "workspaceSwipeEdgeBehavior = \"onePast\",\n", with: "")
+        let decoded = try SettingsLuauFixture.decode(Data(omitted.utf8))
         let settings = makeSettingsStore()
         settings.gestures.apply(decoded.gestures)
         XCTAssertEqual(settings.gestures.workspaceSwipeEdgeBehavior, .cycle)
@@ -740,16 +551,16 @@ final class SettingsTOMLCodecTests: XCTestCase {
 
     func testMalformedOrUnsupportedSettingValuesRejectDecode() throws {
         let replacements = [
-            ("workspaceSwipeEnabled = false\n", "workspaceSwipeEnabled = \"false\"\n"),
-            ("workspaceSwipeFingerCount = 3\n", "workspaceSwipeFingerCount = \"three\"\n"),
-            ("workspaceSwipeAxis = \"vertical\"\n", "workspaceSwipeAxis = 3\n"),
+            ("workspaceSwipeEnabled = false,\n", "workspaceSwipeEnabled = \"false\",\n"),
+            ("workspaceSwipeFingerCount = 3,\n", "workspaceSwipeFingerCount = \"three\",\n"),
+            ("workspaceSwipeAxis = \"vertical\",\n", "workspaceSwipeAxis = 3,\n"),
             ("overviewGestureFingerCount = 4", "overviewGestureFingerCount = 2"),
-            ("\nfingerCount = 3", "\nfingerCount = 2")
+            ("fingerCount = 3", "fingerCount = 2")
         ]
 
         for (target, replacement) in replacements {
             let malformed = try defaultsWithReplacements((target, replacement))
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(malformed), replacement)
+            XCTAssertThrowsError(try SettingsLuauFixture.decode(malformed), replacement)
         }
     }
 
@@ -820,16 +631,16 @@ final class SettingsTOMLCodecTests: XCTestCase {
     func testFocusLockModifierRoundTrips() throws {
         XCTAssertEqual(SettingsExport.defaults().focus.lockModifier, .off)
         XCTAssertTrue(
-            String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+            String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
                 .contains("lockModifier = \"off\"")
         )
 
         var export = SettingsExport.defaults()
         export.focus.lockModifier = .leftOption
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
 
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("lockModifier = \"leftOption\""))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).focus.lockModifier, .leftOption)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).focus.lockModifier, .leftOption)
     }
 
     func testBooleanSettingsRoundTrip() throws {
@@ -843,10 +654,10 @@ final class SettingsTOMLCodecTests: XCTestCase {
 
             var export = SettingsExport.defaults()
             export[keyPath: path] = true
-            let data = try SettingsTOMLCodec.encode(export)
+            let data = try SettingsLuauDocument.initialSource(export)
 
             XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("\(key) = true"), key)
-            XCTAssertTrue(try SettingsTOMLCodec.decode(data)[keyPath: path], key)
+            XCTAssertTrue(try SettingsLuauFixture.decode(data)[keyPath: path], key)
         }
     }
 
@@ -886,15 +697,15 @@ final class SettingsTOMLCodecTests: XCTestCase {
                 "scrollModifierKey = \"fn\"",
                 "scrollModifierKey"
             ),
-            ("fingerCount = \(GestureFingerCount.three.rawValue)\n", "fingerCount = 7\n", "fingerCount"),
+            ("fingerCount = \(GestureFingerCount.three.rawValue),\n", "fingerCount = 7,\n", "fingerCount"),
             (
                 "trackpadScrollStyle = \"\(TrackpadScrollStyle.snap.rawValue)\"",
                 "trackpadScrollStyle = \"drift\"",
                 "trackpadScrollStyle"
             ),
             (
-                "workspaceSwipeFingerCount = \(GestureFingerCount.three.rawValue)\n",
-                "workspaceSwipeFingerCount = 7\n",
+                "workspaceSwipeFingerCount = \(GestureFingerCount.three.rawValue),\n",
+                "workspaceSwipeFingerCount = 7,\n",
                 "workspaceSwipeFingerCount"
             ),
             (
@@ -923,22 +734,22 @@ final class SettingsTOMLCodecTests: XCTestCase {
                 "monitorMode"
             ),
             (
-                "workspaceSwipeFingerCount = 3\n",
-                "workspaceSwipeFingerCount = 5\n",
+                "workspaceSwipeFingerCount = 3,\n",
+                "workspaceSwipeFingerCount = 5,\n",
                 "gestures.workspaceSwipeFingerCount"
             ),
             ("revealModifier = \"off\"", "revealModifier = \"garbage\"", "workspaceBar.revealModifier")
         ]
-        let defaults = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        XCTAssertNoThrow(try SettingsTOMLCodec.decode(Data(defaults.utf8)))
+        let defaults = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
+        XCTAssertNoThrow(try SettingsLuauFixture.decode(Data(defaults.utf8)))
 
         for testCase in cases {
             XCTAssertTrue(defaults.contains(testCase.line), testCase.key)
             let data = Data(defaults.replacingOccurrences(of: testCase.line, with: testCase.invalid).utf8)
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(data), testCase.key) { error in
+            XCTAssertThrowsError(try SettingsLuauFixture.decode(data), testCase.key) { error in
                 XCTAssertTrue(
-                    SettingsTOMLCodec.diagnosticDescription(for: error).contains(testCase.key),
-                    "\(testCase.key): \(SettingsTOMLCodec.diagnosticDescription(for: error))"
+                    SettingsLuauError.diagnosticDescription(for: error).contains(testCase.key),
+                    "\(testCase.key): \(SettingsLuauError.diagnosticDescription(for: error))"
                 )
             }
         }
@@ -955,25 +766,22 @@ final class SettingsTOMLCodecTests: XCTestCase {
                 singleWindowFit: SingleWindowFit(mode: .containerPrimarySpan)
             )
         ]
-        let toml = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
-        XCTAssertEqual(toml.components(separatedBy: "singleWindowFit = \"container_primary_span\"").count, 3)
-        XCTAssertNoThrow(try SettingsTOMLCodec.decode(Data(toml.utf8)))
+        let source = String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
+        XCTAssertEqual(source.components(separatedBy: "singleWindowFit = \"container_primary_span\"").count, 3)
+        XCTAssertNoThrow(try SettingsLuauFixture.decode(Data(source.utf8)))
         for table in ["monitorNiriOverrides", "monitorDwindleOverrides"] {
-            var lines = toml.components(separatedBy: "\n")
-            let header = try XCTUnwrap(lines.firstIndex(of: "[[\(table)]]"))
+            var lines = source.components(separatedBy: "\n")
+            let header = try XCTUnwrap(lines.firstIndex { $0.contains("\(table) = {") })
             let value = try XCTUnwrap(lines.indices.dropFirst(header + 1).first {
-                lines[$0] == "singleWindowFit = \"container_primary_span\""
+                lines[$0].contains("singleWindowFit = \"container_primary_span\"")
             })
-            lines[value] = "singleWindowFit = \"stretch\""
+            lines[value] = "singleWindowFit = \"stretch\","
             let invalid = Data(lines.joined(separator: "\n").utf8)
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(invalid), table) { error in
-                guard case let DecodingError.dataCorrupted(context) = error else {
-                    return XCTFail("expected invalid singleWindowFit, got \(error)")
-                }
-                XCTAssertEqual(context.codingPath.count, 3)
-                XCTAssertEqual(context.codingPath.first?.stringValue, table)
-                XCTAssertEqual(context.codingPath.dropFirst().first?.intValue, 0)
-                XCTAssertEqual(context.codingPath.last?.stringValue, "singleWindowFit")
+            XCTAssertThrowsError(try SettingsLuauFixture.decode(invalid), table) { error in
+                XCTAssertTrue(
+                    error.localizedDescription.contains("\(table)[0].singleWindowFit"),
+                    error.localizedDescription
+                )
             }
         }
     }
@@ -981,24 +789,17 @@ final class SettingsTOMLCodecTests: XCTestCase {
     func testEmptySingleWindowFitRejectsDecode() throws {
         let data = try defaultsWithReplacements(("singleWindowFit = \"fill\"", "singleWindowFit = \"\""))
 
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(data)) { error in
-            XCTAssertTrue(SettingsTOMLCodec.diagnosticDescription(for: error).contains("singleWindowFit"))
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(data)) { error in
+            XCTAssertTrue(SettingsLuauError.diagnosticDescription(for: error).contains("singleWindowFit"))
         }
     }
 
     private func defaultsWithReplacements(_ replacements: (String, String)...) throws -> Data {
-        var toml = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        var source = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         for (target, replacement) in replacements {
-            toml = toml.replacingOccurrences(of: target, with: replacement)
+            source = source.replacingOccurrences(of: target, with: replacement)
         }
-        return Data(toml.utf8)
-    }
-
-    private func defaultsWithSuffix(_ suffix: String) throws -> Data {
-        var toml = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        toml += suffix
-        toml += "\n"
-        return Data(toml.utf8)
+        return Data(source.utf8)
     }
 
     @MainActor
@@ -1017,24 +818,5 @@ final class SettingsTOMLCodecTests: XCTestCase {
             ),
             autosaveEnabled: false
         )
-    }
-
-    private func tomlValue(for key: String, in toml: String) -> String? {
-        let prefix = "\(key) = "
-        return toml
-            .split(separator: "\n")
-            .map { String($0).trimmingCharacters(in: .whitespaces) }
-            .first { $0.hasPrefix(prefix) }
-            .map { String($0.dropFirst(prefix.count)) }
-    }
-
-    private func parseOffsetDateTime(_ value: String) -> Date? {
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-        let wholeSeconds = ISO8601DateFormatter()
-        wholeSeconds.formatOptions = [.withInternetDateTime]
-
-        return fractional.date(from: value) ?? wholeSeconds.date(from: value)
     }
 }

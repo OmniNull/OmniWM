@@ -104,13 +104,4 @@ final class AppThemeTemplateTests: XCTestCase {
         XCTAssertTrue(kitty.contains("background #eff1f5\n"))
         XCTAssertTrue(kitty.contains("color4 \(palette.light.ansi[4].hex)\n"))
     }
-
-    func testHerdrTemplateKeepsItsPanelsTransparent() throws {
-        let herdr = try AppThemeTemplate.render(AppThemeBuiltIn.herdr.template, palette: palette, dark: true)
-        for key in ["panel_bg", "surface0", "surface1", "surface_dim"] {
-            XCTAssertTrue(herdr.contains("\(key) = \"reset\"\n"), key)
-        }
-        XCTAssertFalse(herdr.contains("sidebar_bg"))
-        XCTAssertTrue(herdr.hasPrefix("[theme.custom]\n"))
-    }
 }

@@ -3,7 +3,6 @@
 
 import Darwin
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
@@ -25,11 +24,11 @@ final class LauncherExecutionTests: XCTestCase {
     }
 
     func testLauncherEntryDecodesFromAHandwrittenTableMissingFields() throws {
-        let toml = Data("""
-        name = "Build"
-        command = "swift build"
+        let source = Data("""
+        return { name = "Build", command = "swift build" }
         """.utf8)
-        let decoded = try TOMLDecoder().decode(LauncherEntry.self, from: toml)
+        let decoded = try LuauTableDocument(SettingsLuauDocument.read(source, at: nil)).sourceValue
+            .decode(LauncherEntry.self)
         XCTAssertEqual(decoded.name, "Build")
         XCTAssertEqual(decoded.command, "swift build")
         XCTAssertEqual(decoded.kind, .command)
@@ -94,7 +93,7 @@ final class LauncherExecutionTests: XCTestCase {
         export.launcher.shell = .fish
         export.launcher.shellExecutable = "/custom/fish"
         export.launcher.terminal = .ghostty
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         XCTAssertEqual(decoded.launcher, export.launcher)
     }
 

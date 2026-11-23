@@ -64,14 +64,17 @@ Thumbnails require Screen Recording permission. Without it, window titles and ke
 
 ## Configuration
 
-```toml
-[windowSwitcher]
-enabled = true
-commandTab = "activeWorkspace"
-optionTab = "allWorkspaces"
-showFooter = true
-order = "omniLayout"
-scope = "allWorkspaces"
+```lua
+return {
+    windowSwitcher = {
+        enabled = true,
+        commandTab = "activeWorkspace",
+        optionTab = "allWorkspaces",
+        showFooter = true,
+        order = "omniLayout",
+        scope = "allWorkspaces",
+    },
+}
 ```
 
 `commandTab` and `optionTab` accept `"activeWorkspace"`, `"visibleWorkspaces"`, `"allWorkspaces"`, `"remembered"`, or `"disabled"`. `scope` stores the last chosen workspace scope: `"activeWorkspace"`, `"visibleWorkspaces"`, or `"allWorkspaces"`. Changing shortcut assignments cancels an open switcher.

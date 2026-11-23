@@ -262,7 +262,6 @@ enum SettingsSearchIndex {
         setting("About", section: .quakeTerminal, anchor: "About"),
         setting("Ghostty Theme", section: .appTheming),
         setting("kitty Theme", section: .appTheming),
-        setting("herdr Theme", section: .appTheming),
         setting("Neovim Theme", section: .appTheming),
         setting("Terminal Colors", section: .appTheming),
         setting("Add Custom Template…", section: .appTheming),
@@ -430,7 +429,7 @@ extension SettingsSearchIndex {
         case .windowSwitcher: ["alt-tab", "command-tab", "option-tab", "app switcher", "previews"]
         case .commandPalette: ["palette", "unified search", "top hits", "spotlight", "alfred"]
         case .hotkeys: ["hotkeys", "keyboard", "shortcuts", "hyper", "commands", "pause", "prefix", "mode key"]
-        case .advanced: ["config", "toml", "luau", "ipc", "cli", "terminal"]
+        case .advanced: ["config", "luau", "luau", "ipc", "cli", "terminal"]
         default: [section.rawValue]
         }
     }

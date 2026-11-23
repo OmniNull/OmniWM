@@ -7,16 +7,6 @@ import Foundation
 final class SettingsFilePersistence {
     nonisolated static let defaultDirectoryURL = OmniWMStoragePaths.live.configDirectory
     nonisolated static let fileName = "settings.luau"
-    nonisolated static let corruptFileName = "settings.toml.corrupt"
-    nonisolated static let secondaryCorruptFileName = "settings.toml.corrupt.1"
-    nonisolated static let corruptFileNames = [corruptFileName, secondaryCorruptFileName]
-    nonisolated static let preVersionOneFileName = "settings.toml.pre-v1"
-    nonisolated static let secondaryPreVersionOneFileName = "settings.toml.pre-v1.1"
-    nonisolated static let preVersionOneFileNames = [preVersionOneFileName, secondaryPreVersionOneFileName]
-    nonisolated static func migrationBackupFileNames(for targetVersion: Int) -> [String] {
-        let primary = "settings.toml.pre-v\(targetVersion)"
-        return [primary, "\(primary).1"]
-    }
 
     let directoryURL: URL
     let fileURL: URL
@@ -105,7 +95,7 @@ final class SettingsFilePersistence {
 
             return try readDocument(at: targetURL, initial: true)
         } catch {
-            let reason = SettingsTOMLCodec.diagnosticDescription(for: error)
+            let reason = error.localizedDescription
             let notice = SettingsConfigNotice.persistenceWriteBlocked(reason: reason)
             writeBlockNotice = notice
             Log.config.error("Failed to load \(fileURL.path): \(reason)")

@@ -11,7 +11,7 @@ A **profile** supplies the widgets, libraries, layout and appearance for a deskt
 
 ```
 ~/.config/omniwm/shell/
-├── shell.toml          # chooses the profile, holds your settings for each one
+├── shell.luau          # chooses the profile, holds your settings for each one
 ├── omniwm.d.luau       # type definitions for your editor
 ├── widgets/            # your widgets, used before any profile's
 ├── fonts/              # fonts for every profile
@@ -25,13 +25,13 @@ A **profile** supplies the widgets, libraries, layout and appearance for a deskt
 
 Fonts in top-level `fonts/` and in `<profile>/fonts/` are available to that profile's widgets by family name. Put shared fonts in `fonts/` and style-specific fonts in that profile’s `fonts/` folder.
 
-A profile is any other folder in the shell folder. Choose it in **Settings > Styles & Widgets** with **Use Style**, with `profile = "<name>"` in `shell.toml`, or with `omniwmctl shell profile <name>`. The **Palette** picker recolors the selected style and `omniwmctl shell theme <name>` the active profile, and that profile keeps the choice. Anything a profile does not contain comes from `default/`.
+A profile is any other folder in the shell folder. Choose it in **Settings > Styles & Widgets** with **Use Style**, with `profile = "<name>"` in `shell.luau`, or with `omniwmctl shell profile <name>`. The **Palette** picker recolors the selected style and `omniwmctl shell theme <name>` the active profile, and that profile keeps the choice. Anything a profile does not contain comes from `default/`.
 
 Each optional style describes its appearance, controls and credits in its [README](https://github.com/OmniNull/OmniWM/tree/main/styles). Each style brings its own palette when it needs one.
 
 ## Installing styles
 
-Open **Settings > Styles & Widgets > Get Styles** to install, update or remove a style, then choose **Use Style**. Installing leaves your current style selected. Style folders you already have keep working.
+Open **Settings > Styles & Widgets > Get Styles** to install, update or remove a style, then choose **Use Style**. Installing leaves your current style selected. Installed styles need the Luau profile and manifest described below.
 
 For another public repository, choose **Add from GitHub…**, paste its main-page URL (`https://github.com/owner/repository`), and choose **Load**. Only install styles from authors you trust: a style runs code in OmniWM. Each browse uses one snapshot of the repository's default branch. Official styles use your app's release tag; development builds can use the checkout.
 
@@ -41,39 +41,51 @@ Other GitHub repositories with installed styles appear under **Added from GitHub
 
 ## Writing a style
 
-A style's `style.toml` gives, in English, its title, summary, version (such as `1.0.0`) and the style API it was written for. OmniWM keeps Default when a style was written for another API or a newer OmniWM. Its `strings/<locale>.toml` files translate the text its widgets and options show; a missing translation falls back to the language, then English, then OmniWM's own strings.
+Put `style.luau` at the root of a single-style repository, or use `styles/<name>/style.luau` for each style in a collection. The gallery reads the manifest without running style code. It uses the same literal-table reader as `strings/<locale>.luau`, `widgets/<name>/settings.luau` and `component.manifest.luau`. These files return data directly: strings, numbers, booleans and tables. Keep calculations and `require` calls in executable files such as `component.luau`. Profile and theme files may also use calculations and local helpers.
+
+A style's `style.luau` gives, in English, its title, summary, version (such as `1.0.0`) and the style API it was written for. OmniWM keeps Default when a style was written for another API or a newer OmniWM. Its `strings/<locale>.luau` files translate the text its widgets and options show; a missing translation falls back to the language, then English, then OmniWM's own strings.
 
 ## Profile settings
 
-```toml
-profile = "default"
-profiles.default.theme = "nord"              # a generic palette or themes/<name>.toml
-profiles.default.leading = ["omniwm", "workspaces", "scratchpads"]
-profiles.default.center = ["clock"]
-profiles.default.trailing = ["volume", "system-stats"]
-
-[weather]
-city = "Toronto"                   # or latitude = 43.65, longitude = -79.38
-units = "celsius"                  # or "fahrenheit"
-refresh = 15                       # minutes, at least 5
-
-[profiles.default.widgets.volume]
-step = 5                           # any keys: the widget reads them as ctx.data.settings
-interval = 2                       # seconds between timed updates for this widget
-
-[profiles.default.drawer.controls]
-edge = "right"                     # left, right, top or bottom
-widgets = ["volume", "media", "calendar"]
-hover = true                       # open when the pointer reaches the edge
-
-[profiles.default.workspaceBar]
-height = 40                        # also editable in Styles & Widgets
-
-[profiles.default.hiddenBar]
-enabled = true                     # also rehideIntervalSeconds
+```lua
+return {
+    profile = "default",
+    profiles = {
+        default = {
+            theme = "nord", -- a generic palette or themes/<name>.luau
+            leading = { "omniwm", "workspaces", "scratchpads" },
+            center = { "clock" },
+            trailing = { "volume", "system-stats" },
+            widgets = {
+                volume = {
+                    step = 5, -- any keys: the widget reads them as ctx.data.settings
+                    interval = 2, -- seconds between timed updates for this widget
+                },
+            },
+            drawer = {
+                controls = {
+                    edge = "right", -- left, right, top or bottom
+                    widgets = { "volume", "media", "calendar" },
+                    hover = true, -- open when the pointer reaches the edge
+                },
+            },
+            workspaceBar = {
+                height = 40, -- also editable in Styles & Widgets
+            },
+            hiddenBar = {
+                enabled = true, -- also rehideIntervalSeconds
+            },
+        },
+    },
+    weather = {
+        city = "Toronto", -- or latitude = 43.65, longitude = -79.38
+        units = "celsius", -- or "fahrenheit"
+        refresh = 15, -- minutes, at least 5
+    },
+}
 ```
 
-Everything except `profile` and `[weather]` belongs to one profile, under `profiles.<name>`, so changing one profile never changes another. A profile folder's own `shell.toml` takes the same keys without the prefix, and your `profiles.<name>` settings win over it. Style options in **Settings > Styles & Widgets** save to the selected style. Both dotted keys and TOML tables are supported. Display-specific choices are saved in `profiles.<name>.monitorBarOverrides`; they override that profile’s general bar settings. Resetting a control restores the profile default without changing another profile.
+Everything except `profile` and `weather` belongs to one profile, under `profiles.<name>`, so changing one profile never changes another. A profile folder's own `shell.luau` takes the same keys without the prefix, and your `profiles.<name>` settings win over it. Style options in **Settings > Styles & Widgets** save to the selected style. Use nested tables for groups. Groups merge across layers and a list such as `leading` replaces the entire inherited list. Display-specific choices are saved in `profiles.<name>.monitorBarOverrides`; they override that profile’s general bar settings. Resetting a control restores the profile default without changing another profile.
 
 The bar lane, widget and drawer keys are described in [Bars, popouts, and drawers](/omnishell/configuration/bars-drawers/). Island roots and component instances are described in [Islands and components](/omnishell/configuration/islands-components/).
 
@@ -81,17 +93,17 @@ The bar lane, widget and drawer keys are described in [Bars, popouts, and drawer
 
 Default includes the generic palettes Catppuccin, Dracula, Everforest, Gruvbox, Kanagawa, Monolith, Nord, Rosé Pine and Tokyo Night. A style’s own palettes are offered while that style is selected or previewed.
 
-A theme in `themes/<name>.toml` sets palette roles under `[light]` and `[dark]` (for example `accent = "#FF9500"`) and may set the bar's look under its own `[workspaceBar]`.
+A theme in `themes/<name>.luau` sets palette roles under `light` and `dark` (for example `accent = "#FF9500"`) and may set the bar's look under its own `workspaceBar`.
 
 ### Wallpaper palette
 
-`theme = "wallpaper"` makes the palette from the main display's wallpaper, Material 3 style, and `scheme` picks how: `tonalSpot` (the default), `content`, `vibrant`, `expressive`, `fidelity`, `fruitSalad`, `rainbow`, `neutral` or `monochrome`; **Settings > Styles & Widgets > Palette** and `omniwmctl shell theme wallpaper <scheme>` set both. OmniWM writes it to `themes/wallpaper.toml` and makes it again when the wallpaper, the Space or the displays change. A still image wallpaper is read from its file, so the palette matches it as soon as it is set. An Aerial is read from the thumbnail macOS keeps for it, and if there is none, from what it shows on screen; when neither can be read the palette keeps its colors. Dynamic wallpapers and live wallpaper apps that draw at the desktop level like [Pixeldish](https://github.com/dappermint/pixeldish), are read from what they show on screen. OmniWM also looks at the main display's wallpaper once a minute, so a wallpaper that changes on its own, like a shuffled folder or a live wallpaper app, gets its palette within a minute.
+`theme = "wallpaper"` makes the palette from the main display's wallpaper, Material 3 style, and `scheme` picks how: `tonalSpot` (the default), `content`, `vibrant`, `expressive`, `fidelity`, `fruitSalad`, `rainbow`, `neutral` or `monochrome`; **Settings > Styles & Widgets > Palette** and `omniwmctl shell theme wallpaper <scheme>` set both. OmniWM writes it to `themes/wallpaper.luau` and makes it again when the wallpaper, the Space or the displays change. A still image wallpaper is read from its file, so the palette matches it as soon as it is set. An Aerial is read from the thumbnail macOS keeps for it, and if there is none, from what it shows on screen; when neither can be read the palette keeps its colors. Dynamic wallpapers and live wallpaper apps that draw at the desktop level like [Pixeldish](https://github.com/dappermint/pixeldish), are read from what they show on screen. OmniWM also looks at the main display's wallpaper once a minute, so a wallpaper that changes on its own, like a shuffled folder or a live wallpaper app, gets its palette within a minute.
 
 ### Palette roles and bar fill
 
 Besides the base roles, the palette has Material 3 style `highestSurface`, `accentContainer`, `secondaryAccent`, `secondaryContainer`, `tertiaryAccent` and `tertiaryContainer`, each container with a `…Foreground` for text on it; a theme that leaves them out gets readable ones made from its own accent and surfaces.
 
-`shell.toml`'s `[workspaceBar]` wins over the theme's. There, `barFill = "surface"` paints the bar with a palette role instead of its Settings background, and `barBorder = "border"` adds a 1 pt edge to that fill; add `/0.8` to a role for 80% opacity.
+`shell.luau`'s `workspaceBar` wins over the theme's. There, `barFill = "surface"` paints the bar with a palette role instead of its Settings background, and `barBorder = "border"` adds a 1 pt edge to that fill; add `/0.8` to a role for 80% opacity.
 
 **Custom Accent Color** and **Custom Text Color** work with every palette. Resetting a color restores the palette value. The native material and motion appear on the live desktop; Settings previews use the actual widget sources with sample data.
 
@@ -99,4 +111,4 @@ Styles that declare an effect expose its controls under **Styles & Widgets > Bar
 
 Use [development diagnostics](/omnishell/configuration/development/#diagnostics) to find unknown keys, invalid values and theme errors.
 
-[App Theming](/features/app-theming/) writes these roles into Ghostty, kitty, herdr and your own templates.
+[App Theming](/features/app-theming/) writes these roles into Ghostty, kitty and your own templates.

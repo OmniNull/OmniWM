@@ -78,14 +78,14 @@ final class ScratchpadCommandTests: XCTestCase {
         XCTAssertEqual(router.handle(.scratchpad(.assign(index: 0))), .invalidArguments)
     }
 
-    func testLabelsRoundTripThroughTOML() throws {
+    func testLabelsRoundTripThroughLuau() throws {
         XCTAssertTrue(SettingsExport.defaults().scratchpads.labels.isEmpty)
 
         var export = SettingsExport.defaults()
         export.scratchpads.labels = ["3": "COMMS"]
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("COMMS"))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).scratchpads.labels, ["3": "COMMS"])
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).scratchpads.labels, ["3": "COMMS"])
     }
 
     @MainActor

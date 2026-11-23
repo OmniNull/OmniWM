@@ -76,7 +76,7 @@ final class SettingsConfigNoticeController {
         if case let .invalidRejected(reason) = notice {
             kind = .settingsInvalidRejected(reason: reason)
         } else if let reason = notice.blockingReason {
-            kind = .settingsPersistenceBlocked(reason: reason, backupURL: nil)
+            kind = .settingsPersistenceBlocked(reason: reason)
         } else {
             return nil
         }

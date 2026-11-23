@@ -53,11 +53,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             firstDisplayId: CGDirectDisplayID,
             secondDisplayId: CGDirectDisplayID
         )
-        case unknownConfigKeys(keyPaths: [String])
-        case settingsFileCorrupt
-        case settingsMigrated(report: SettingsMigrationReport, backupURL: URL)
-        case settingsRecovered(reason: String, backupURL: URL)
-        case settingsPersistenceBlocked(reason: String, backupURL: URL?)
+        case settingsPersistenceBlocked(reason: String)
         case settingsInvalidRejected(reason: String)
     }
 
@@ -77,10 +73,6 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case let .hotkeySidedHyper(actionID, _, _, _): "hotkey-sided-hyper:\(actionID)"
         case let .fixedDock(_, edge, _, displayId): "fixedDock:\(displayId):\(edge.rawValue)"
         case let .horizontalDisplayArrangement(_, _, first, second): "displayArrangement:\(first):\(second)"
-        case .unknownConfigKeys: "unknown-config-keys"
-        case .settingsFileCorrupt: "settings-corrupt"
-        case .settingsMigrated: "settings-migrated"
-        case .settingsRecovered: "settings-recovered"
         case .settingsPersistenceBlocked: "settings-persistence-blocked"
         case .settingsInvalidRejected: "settings-invalid-rejected"
         }
@@ -96,10 +88,6 @@ struct DiagnosticsIssue: Identifiable, Equatable {
              .hotkeySidedHyper,
              .fixedDock,
              .horizontalDisplayArrangement,
-             .unknownConfigKeys,
-             .settingsFileCorrupt,
-             .settingsMigrated,
-             .settingsRecovered,
              .settingsInvalidRejected:
             .warning
         }
@@ -113,10 +101,6 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case let .hotkeySidedHyper(_, command, _, _): "Hyper shortcut may not fire: \(command)"
         case let .fixedDock(monitorName, _, _, _): "Fixed Dock detected on \(monitorName)"
         case .horizontalDisplayArrangement: "Unsupported vertical display overlap detected"
-        case .unknownConfigKeys: "Unrecognized settings keys"
-        case .settingsFileCorrupt: "Settings recovery file available"
-        case .settingsMigrated: "Settings upgraded"
-        case .settingsRecovered: "Invalid settings recovered"
         case .settingsPersistenceBlocked: "Settings writes blocked"
         case .settingsInvalidRejected: "Invalid settings left untouched"
         }
@@ -144,21 +128,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case let .horizontalDisplayArrangement(firstName, secondName, _, _):
             "\(firstName) and \(secondName) overlap vertically in the display arrangement. "
                 + "Horizontally parked windows can bleed onto the neighboring display."
-        case let .unknownConfigKeys(keyPaths):
-            "settings.toml contains keys OmniWM does not recognize: \(keyPaths.joined(separator: ", ")). "
-                + "They are ignored."
-        case .settingsFileCorrupt:
-            "OmniWM preserved settings data it could not parse as settings.toml.corrupt "
-                + "or settings.toml.corrupt.1."
-        case let .settingsMigrated(report, backupURL):
-            "OmniWM upgraded \(configPath) from schema version \(report.fromVersion) to \(report.toVersion). "
-                + "The exact original bytes were preserved at \(backupURL.path). "
-                + report.messages.joined(separator: " ")
-        case let .settingsRecovered(reason, backupURL):
-            "OmniWM could not decode \(configPath): \(reason) The exact rejected bytes were preserved at \(backupURL.path)."
-        case let .settingsPersistenceBlocked(reason, backupURL):
+        case let .settingsPersistenceBlocked(reason):
             "OmniWM left \(configPath) untouched and blocked configuration writes: \(reason)"
-                + (backupURL.map { " The exact original bytes are at \($0.path)." } ?? "")
         case let .settingsInvalidRejected(reason):
             "OmniWM could not decode \(configPath) and left the file untouched: \(reason) The active settings were not changed."
         }
@@ -183,20 +154,10 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             "Enable Dock auto-hide in System Settings → Desktop & Dock, or move the Dock off the parking edge."
         case .horizontalDisplayArrangement:
             "Arrange displays vertically or diagonally in System Settings → Displays so frames do not overlap."
-        case .unknownConfigKeys:
-            "Remove or fix the keys in \(configPath)."
-        case .settingsFileCorrupt:
-            "Inspect \(configDirectoryPath)/settings.toml.corrupt and "
-                + "\(configDirectoryPath)/settings.toml.corrupt.1 if present, "
-                + "then delete the recovery files to dismiss this notice."
-        case let .settingsMigrated(_, backupURL):
-            "Verify the upgraded settings, then keep the backup or delete \(backupURL.path) to dismiss this notice."
-        case let .settingsRecovered(_, backupURL):
-            "Compare \(backupURL.path) with \(configPath), restore valid values, and then remove the recovery file."
         case .settingsPersistenceBlocked:
-            "Resolve the reported schema or backup problem at \(configPath), then reload or restart OmniWM."
+            "Resolve the reported file problem at \(configPath), then reload or restart OmniWM."
         case .settingsInvalidRejected:
-            "Correct the reported value at \(configPath); OmniWM applies the file once it decodes. Saving from the Settings window first secures the rejected bytes as a recovery file."
+            "Correct the reported value in \(configPath) and save the file to apply your settings."
         }
     }
 
@@ -212,10 +173,6 @@ struct DiagnosticsIssue: Identifiable, Equatable {
              .hotkeyCoFireAdvisory:
             "x-apple.systempreferences:com.apple.preference.keyboard"
         case .hotkeySidedHyper,
-             .unknownConfigKeys,
-             .settingsFileCorrupt,
-             .settingsMigrated,
-             .settingsRecovered,
              .settingsPersistenceBlocked,
              .settingsInvalidRejected:
             nil
@@ -224,11 +181,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
 
     var revealsConfigFolder: Bool {
         switch kind {
-        case .unknownConfigKeys,
-             .settingsFileCorrupt,
-             .settingsMigrated,
-             .settingsRecovered,
-             .settingsPersistenceBlocked,
+        case .settingsPersistenceBlocked,
              .settingsInvalidRejected:
             true
         default:
@@ -240,12 +193,6 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         (configFileURL ?? SettingsFilePersistence.fileURL).path
     }
 
-    private var configDirectoryPath: String {
-        (configFileURL ?? SettingsFilePersistence.fileURL).deletingLastPathComponent().path
-    }
-}
-
-extension DiagnosticsIssue {
     var localizedTitle: String {
         switch kind {
         case .accessibilityNotGranted: String(localized: "Accessibility access required")
@@ -259,10 +206,6 @@ extension DiagnosticsIssue {
             String(localized: "Fixed Dock detected on \(monitorName)")
         case .horizontalDisplayArrangement:
             String(localized: "Unsupported vertical display overlap detected")
-        case .unknownConfigKeys: String(localized: "Unrecognized settings keys")
-        case .settingsFileCorrupt: String(localized: "Settings recovery file available")
-        case .settingsMigrated: String(localized: "Settings upgraded")
-        case .settingsRecovered: String(localized: "Invalid settings recovered")
         case .settingsPersistenceBlocked: String(localized: "Settings writes blocked")
         case .settingsInvalidRejected: String(localized: "Invalid settings left untouched")
         }
@@ -308,32 +251,10 @@ extension DiagnosticsIssue {
             return String(
                 localized: "\(firstName) and \(secondName) overlap vertically in the display arrangement. Horizontally parked windows can bleed onto the neighboring display."
             )
-        case let .unknownConfigKeys(keyPaths):
+        case let .settingsPersistenceBlocked(reason):
             return String(
-                localized: "settings.toml contains keys OmniWM does not recognize: \(keyPaths.joined(separator: ", ")). They are ignored."
+                localized: "OmniWM left \(configPath) untouched and blocked configuration writes: \(reason)"
             )
-        case .settingsFileCorrupt:
-            return String(
-                localized: "OmniWM preserved settings data it could not parse as settings.toml.corrupt or settings.toml.corrupt.1."
-            )
-        case let .settingsMigrated(report, backupURL):
-            return String(
-                localized: "OmniWM upgraded \(configPath) from schema version \(report.fromVersion) to \(report.toVersion). The exact original bytes were preserved at \(backupURL.path). \(report.messages.joined(separator: " "))"
-            )
-        case let .settingsRecovered(reason, backupURL):
-            return String(
-                localized: "OmniWM could not decode \(configPath): \(reason) The exact rejected bytes were preserved at \(backupURL.path)."
-            )
-        case let .settingsPersistenceBlocked(reason, backupURL):
-            if let backupURL {
-                return String(
-                    localized: "OmniWM left \(configPath) untouched and blocked configuration writes: \(reason) The exact original bytes are at \(backupURL.path)."
-                )
-            } else {
-                return String(
-                    localized: "OmniWM left \(configPath) untouched and blocked configuration writes: \(reason)"
-                )
-            }
         case let .settingsInvalidRejected(reason):
             return String(
                 localized: "OmniWM could not decode \(configPath) and left the file untouched: \(reason) The active settings were not changed."
@@ -370,27 +291,13 @@ extension DiagnosticsIssue {
             String(
                 localized: "Arrange displays vertically or diagonally in System Settings → Displays so frames do not overlap."
             )
-        case .unknownConfigKeys:
-            String(localized: "Remove or fix the keys in \(configPath).")
-        case .settingsFileCorrupt:
-            String(
-                localized: "Inspect \(configDirectoryPath)/settings.toml.corrupt and \(configDirectoryPath)/settings.toml.corrupt.1 if present, then delete the recovery files to dismiss this notice."
-            )
-        case let .settingsMigrated(_, backupURL):
-            String(
-                localized: "Verify the upgraded settings, then keep the backup or delete \(backupURL.path) to dismiss this notice."
-            )
-        case let .settingsRecovered(_, backupURL):
-            String(
-                localized: "Compare \(backupURL.path) with \(configPath), restore valid values, and then remove the recovery file."
-            )
         case .settingsPersistenceBlocked:
             String(
-                localized: "Resolve the reported schema or backup problem at \(configPath), then reload or restart OmniWM."
+                localized: "Resolve the reported file problem at \(configPath), then reload or restart OmniWM."
             )
         case .settingsInvalidRejected:
             String(
-                localized: "Correct the reported value at \(configPath); OmniWM applies the file once it decodes. Saving from the Settings window first secures the rejected bytes as a recovery file."
+                localized: "Correct the reported value in \(configPath) and save the file to apply your settings."
             )
         }
     }

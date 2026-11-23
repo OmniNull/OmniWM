@@ -27,6 +27,8 @@ This installs `OmniWM.app` and puts `omniwmctl` on your `PATH`. Then finish with
 
 Quit OmniWM first, then run `brew upgrade omniwm` and relaunch it. Homebrew replaces the app bundle underneath a running OmniWM.
 
+**Moving to Luau settings.** On a Canary or Homebrew build that uses Luau, OmniWM starts from defaults unless you supply your own `~/.config/omniwm/settings.luau`. Your old `settings.toml` stays untouched on disk. You can use it for reference when you [edit the new file](/config/configuration/). Styles you installed earlier keep their old TOML files, which these builds can't read. Reinstall them from **Settings > Styles & Widgets**.
+
 ### Migrating from the project tap
 
 `BarutSRB/tap` is retired: 0.6.7 was its final release, and every later version ships only through the official cask. If you installed from the tap, quit OmniWM and run these commands in this order:
@@ -51,16 +53,14 @@ nix profile install nixpkgs#omniwm
 
 With nix-darwin or Home Manager, add `pkgs.omniwm` to `environment.systemPackages` or `home.packages`.
 
-For a declarative setup, enable the Home Manager module. It installs the package, runs OmniWM as a launchd agent, and writes `~/.config/omniwm/settings.toml` from an attribute set or a tracked TOML file:
+With Home Manager, enable the package and agent using `programs.omniwm.enable`. The upstream module currently targets `omniwm/settings.toml` when you use its `settings` option. For a build using Luau, leave that option unset and supply the Luau file directly:
 
 ```nix
-programs.omniwm = {
-  enable = true;
-  settings = ./omniwm-settings.toml;
-};
+programs.omniwm.enable = true;
+xdg.configFile."omniwm/settings.luau".source = ./omniwm-settings.luau;
 ```
 
-Treat the declared TOML file or attribute set as authoritative: edit it and run Home Manager switch to apply changes. OmniWM preserves settings symlinks, so settings backed by a read-only Nix-store file cannot be saved from the GUI.
+Edit the tracked file and run `home-manager switch` to apply changes. A file linked to the read-only Nix store can be read by OmniWM, but the Settings window cannot save edits there. Keep a writable config file if you want to use the window for editing.
 
 Home Manager enables a launchd agent with KeepAlive by default. To launch and quit OmniWM manually instead, set `programs.omniwm.launchd.enable = false`.
 
@@ -90,9 +90,9 @@ Stable releases are recommended for everyday use. Canary builds let you try rece
 
 To try one with a Homebrew or GitHub Releases install:
 
-1. Save a copy of `~/.config/omniwm/settings.toml`.
+1. Back up your OmniWM config folder, normally `~/.config/omniwm/`.
 2. Quit OmniWM, then download the newest [canary build](https://github.com/OmniNull/OmniWM/releases?q=canary) and replace `OmniWM.app` in `/Applications` with the app from its ZIP.
-3. Relaunch OmniWM. It uses your existing settings.
+3. Relaunch OmniWM. For a build using Luau settings, follow the [upgrade note](#upgrading) above.
 
 Canary builds check only for newer published Canary releases. Stable builds continue to check only stable releases. Use `Install and Relaunch` in the update popup, download from the release page, or use `brew upgrade --cask omniwm@canary` if you installed that Homebrew cask and its new version is available. Older Canary builds need one manual update to gain Canary update checks.
 

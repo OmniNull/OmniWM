@@ -81,7 +81,6 @@ extension WMController {
         let values = settings.appTheming.values
         return AppThemePreview(
             engine: appThemeEngine,
-            values: values,
             dark: AppThemeService.liveSystemIsDark()
         ) { [weak self] in
             self

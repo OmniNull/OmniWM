@@ -108,11 +108,11 @@ The installed Dev app has the fixed identity `com.barut.OmniWM.dev`, which selec
 
 | Data | Normal app | Dev app |
 | --- | --- | --- |
-| Settings | `~/.config/omniwm/settings.toml` | `~/.config/omniwm-dev/settings.toml` |
+| Settings | `~/.config/omniwm/settings.luau` | `~/.config/omniwm-dev/settings.luau` |
 | Saved state | `~/.local/state/omniwm/` | `~/.local/state/omniwm-dev/` |
 | OmniWM diagnostics | `~/.local/state/omniwm/diagnostics/` | `~/.local/state/omniwm-dev/diagnostics/` |
 
-On first installation, the helper copies your normal `settings.toml` into an independent Dev file. Existing Dev settings are preserved, and later edits are never synchronized. If no normal settings file exists, Dev uses its defaults. Saved state and clipboard history start fresh; they are not copied.
+On first installation, the helper copies your normal `settings.luau` into an independent Dev file. If it uses local helpers, copy those files into the matching locations in the Dev config yourself. Existing Dev settings are preserved, and later edits are never synchronized. If no normal settings file exists, Dev uses its defaults. Saved state and clipboard history start fresh; they are not copied.
 
 Absolute `XDG_CONFIG_HOME` and `XDG_STATE_HOME` values replace the corresponding base directories, with `omniwm` or `omniwm-dev` appended. Relative values are ignored. These variables must be available to the app process: a variable set only in a Terminal session is not automatically available to a Finder launch.
 

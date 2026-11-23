@@ -25,15 +25,11 @@ export type OmniWMSettings = {
             id: string?,
             name: string?,
             output: string?,
-            reload: ("none" | "ghostty" | "kitty" | "herdr")?,
+            reload: ("none" | "ghostty" | "kitty")?,
             template: string?,
         } }?,
         ghostty: {
             enabled: boolean?,
-        }?,
-        herdr: {
-            enabled: boolean?,
-            reloadSavedMachines: boolean?,
         }?,
         kitty: {
             enabled: boolean?,

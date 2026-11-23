@@ -282,12 +282,12 @@ enum RuntimeDiagnosticsReport {
     private static func settingsSection(_ controller: WMController) -> String {
         let body: String
         do {
-            let encoded = try SettingsTOMLCodec.encode(controller.settings.toExport())
+            let encoded = try SettingsLuauDocument.initialSource(controller.settings.toExport())
             body = String(bytes: encoded, encoding: .utf8) ?? ""
         } catch {
             body = "settings encode failed: \(error.localizedDescription)"
         }
-        return section("Settings (TOML)", body)
+        return section("Settings (Luau)", body)
     }
 
     private static func format(_ rect: CGRect) -> String {

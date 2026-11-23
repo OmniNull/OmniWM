@@ -31,7 +31,7 @@ Drag a tiled window's edge or corner to resize it. Niri and Dwindle adjust the l
 
 Hold `Option + Shift + Mouse Scroll Wheel` (default, configurable) to scroll along the active Niri primary axis: left/right in horizontal orientation or up/down in vertical orientation.
 
-If a smooth mouse wheel needs too much movement to switch columns, expand **Scroll columns** under **Settings → Mouse & Trackpad → Trackpad** and increase **Mouse wheel sensitivity**. The default `1.0x` preserves existing behavior. Higher values speed up window navigation without changing normal scrolling in apps or trackpad sensitivity. The same setting is available as `mouseWheelSensitivity` in the TOML `[gestures]` table.
+If a smooth mouse wheel needs too much movement to switch columns, expand **Scroll columns** under **Settings → Mouse & Trackpad → Trackpad** and increase **Mouse wheel sensitivity**. The default `1.0x` preserves existing behavior. Higher values speed up window navigation without changing normal scrolling in apps or trackpad sensitivity. The same setting is available as `mouseWheelSensitivity` in the `gestures` table.
 
 ## Trackpad gestures
 

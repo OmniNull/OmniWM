@@ -22,7 +22,6 @@ final class AppThemeFileTransactionTests: XCTestCase {
         AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
-            appearanceChanged: false,
             targets: [AppThemeTarget(
                 id: "transaction",
                 name: "Transaction",
@@ -139,7 +138,6 @@ final class AppThemeFileTransactionTests: XCTestCase {
     private var preview: AppThemePreview {
         AppThemePreview(
             engine: sandbox.engine(fake),
-            values: SettingsExport.AppTheming(),
             dark: true,
             palette: { AppThemeFixtures.palette }
         )

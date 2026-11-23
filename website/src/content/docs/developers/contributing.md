@@ -113,11 +113,11 @@ The installed Dev app has the fixed identity `com.barut.OmniWM.dev`, which selec
 
 | Data | Normal app | Dev app |
 | --- | --- | --- |
-| Settings | `~/.config/omniwm/settings.toml` | `~/.config/omniwm-dev/settings.toml` |
+| Settings | `~/.config/omniwm/settings.luau` | `~/.config/omniwm-dev/settings.luau` |
 | Saved state | `~/.local/state/omniwm/` | `~/.local/state/omniwm-dev/` |
 | OmniWM diagnostics | `~/.local/state/omniwm/diagnostics/` | `~/.local/state/omniwm-dev/diagnostics/` |
 
-On first installation, the helper copies your normal `settings.toml` into an independent Dev file. Existing Dev settings are preserved, and later edits are never synchronized. If no normal settings file exists, Dev uses its defaults. Saved state and clipboard history start fresh; they are not copied.
+On first installation, the helper copies your normal `settings.luau` into an independent Dev file. If it uses local helpers, copy those files into the matching locations in the Dev config yourself. Existing Dev settings are preserved, and later edits are never synchronized. If no normal settings file exists, Dev uses its defaults. Saved state and clipboard history start fresh; they are not copied.
 
 Absolute `XDG_CONFIG_HOME` and `XDG_STATE_HOME` values replace the corresponding base directories, with `omniwm` or `omniwm-dev` appended. Relative values are ignored. These variables must be available to the app process: a variable set only in a Terminal session is not automatically available to a Finder launch.
 
@@ -176,7 +176,7 @@ The optional styles live in `styles/`, one folder per style. A development build
 
 ### Translating the App
 
-Translations live in the [string catalogs](https://github.com/OmniNull/OmniWM/tree/main/Sources/OmniWM/Resources). `Localizable.xcstrings` contains interface text, `Commands.xcstrings` contains command names, categories, and scopes, `InfoPlist.xcstrings` contains the macOS permission descriptions, and `Shell.xcstrings` contains the Default OmniShell widget text; add or edit your language's `localizations` entries in those catalogs. Each style in `styles/` keeps its own text in flat `strings/<locale>.toml` tables: `en.toml` lists the English text, and a language file maps the same English keys to translations. Keep the English keys and source values intact, and translate the meaning in context. English is the fallback for strings without a translation.
+Translations live in the [string catalogs](https://github.com/OmniNull/OmniWM/tree/main/Sources/OmniWM/Resources). `Localizable.xcstrings` contains interface text, `Commands.xcstrings` contains command names, categories, and scopes, `InfoPlist.xcstrings` contains the macOS permission descriptions, and `Shell.xcstrings` contains the Default OmniShell widget text; add or edit your language's `localizations` entries in those catalogs. Each style in `styles/` keeps its own text in flat `strings/<locale>.luau` tables: `en.luau` lists the English text, and a language file maps the same English keys to translations. Keep the English keys and source values intact, and translate the meaning in context. English is the fallback for strings without a translation.
 
 Preserve each format argument's type when translating. You may reorder arguments with positional forms such as `%2$@` and `%1$lld`; a `%lld` count cannot become `%@`. Plural branches may omit a count when the wording does not need it. `make verify` checks format arguments, including plural forms, before a translation is accepted. To preview length and direction issues, use Xcode's localization pseudolanguages or change the app language in macOS settings.
 

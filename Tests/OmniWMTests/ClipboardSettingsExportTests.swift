@@ -5,23 +5,22 @@ import Foundation
 import Observation
 @testable import OmniWM
 import Synchronization
-import TOML
 import XCTest
 
 final class ClipboardSettingsExportTests: XCTestCase {
     func testDefaultClipboardKeepsCanonicalTableShapeAndValues() throws {
         let defaults = SettingsExport.defaults()
-        let data = try SettingsTOMLCodec.encode(defaults)
-        let tree = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
+        let data = try SettingsLuauDocument.initialSource(defaults)
+        let tree = try SettingsLuauFixture.fields(in: data)
 
-        XCTAssertEqual(tree["clipboard"], .table([
+        XCTAssertEqual(tree["clipboard"], .record([
             "historyEnabled": .boolean(false),
             "maxItems": .integer(200),
             "maxItemBytes": .integer(8_388_608),
             "maxTotalBytes": .integer(67_108_864),
-            "ignoredTypes": .array([])
+            "ignoredTypes": .record([:])
         ]))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), defaults)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), defaults)
     }
 
     func testClipboardRoundTripPreservesValuesWithoutAddingNormalization() throws {
@@ -34,41 +33,25 @@ final class ClipboardSettingsExportTests: XCTestCase {
             ignoredTypes: ["org.example.private", "org.example.other"]
         )
 
-        let encoded = try SettingsTOMLCodec.encode(export)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+        let encoded = try SettingsLuauDocument.initialSource(export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(encoded), export)
     }
 
     func testMissingIgnoredTypesDecodesAsEmpty() throws {
-        let data = try SettingsTOMLCodec.encode(.defaults())
+        let data = try SettingsLuauDocument.initialSource(.defaults())
         let source = String(decoding: data, as: UTF8.self)
         let previousSettings = source.components(separatedBy: "\n").filter {
-            !$0.hasPrefix("ignoredTypes = ")
+            !$0.trimmingCharacters(in: .whitespaces).hasPrefix("ignoredTypes = ")
         }.joined(separator: "\n")
-        let decoded = try SettingsTOMLCodec.decode(Data(previousSettings.utf8))
+        let decoded = try SettingsLuauFixture.decode(Data(previousSettings.utf8))
         XCTAssertEqual(decoded.clipboard.ignoredTypes, [])
     }
 
     func testExistingClipboardKeysRemainRequired() throws {
-        let data = try SettingsTOMLCodec.encode(.defaults())
-        let source = String(decoding: data, as: UTF8.self)
-        for key in ["historyEnabled", "maxItems", "maxItemBytes", "maxTotalBytes"] {
-            var lines = source.components(separatedBy: "\n")
-            let header = try XCTUnwrap(lines.firstIndex(of: "[clipboard]"))
-            let following = lines.indices.dropFirst(header + 1)
-            let sectionEnd = following.first { lines[$0].hasPrefix("[") } ?? lines.endIndex
-            let field = try XCTUnwrap(((header + 1) ..< sectionEnd).first {
-                lines[$0].hasPrefix("\(key) = ")
-            })
-            lines.remove(at: field)
-
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(lines.joined(separator: "\n").utf8))) { error in
-                guard case let DecodingError.keyNotFound(missingKey, context) = error else {
-                    return XCTFail("Expected missing clipboard key, got \(error)")
-                }
-                XCTAssertEqual(missingKey.stringValue, key)
-                XCTAssertEqual(context.codingPath.map(\.stringValue), ["clipboard"])
-            }
-        }
+        try SettingsLuauFixture.assertRequiredFields(
+            ["historyEnabled", "maxItems", "maxItemBytes", "maxTotalBytes"],
+            in: "clipboard"
+        )
     }
 
     @MainActor

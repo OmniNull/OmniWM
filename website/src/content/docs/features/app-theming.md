@@ -1,6 +1,6 @@
 ---
 title: App Theming
-description: Color Ghostty, kitty, herdr, Neovim and your own templates from OmniWM's palette, in light and dark, the moment the palette changes.
+description: Color Ghostty, kitty, Neovim and your own templates from OmniWM's palette, in light and dark, the moment the palette changes.
 sidebar:
   order: 9
 ---
@@ -9,7 +9,7 @@ App theming writes OmniWM's palette into other apps' theme files and asks those 
 
 When the palette changes, or macOS switches between light and dark, OmniWM renders every app you turned on straight away. A file is only written when its contents change, each write replaces the file in one step, and one app failing never stops the others. Each app's row shows the files it writes, how it reloads, and the result of the last update.
 
-OmniWM reloads apps itself, with no AppleScript and no helper commands: it signals Ghostty, kitty and Neovim with `kill()`, and talks to herdr over herdr's own socket. The only commands it ever runs are herdr's own `herdr machine list --json` and `herdr --machine <label> server reload-config`, and only for saved herdr machines when **Also reload saved herdr machines** is on. Each app reloads once per update, after every file is written.
+After writing the theme files, OmniWM signals each configured app once to reload its colors.
 
 ## Ghostty
 
@@ -27,21 +27,11 @@ When the palette changes, OmniWM sends `SIGUSR2` to each running Ghostty, which 
 
 Turning an app on reloads it once, even when its files already match. Turning on **kitty** writes `light-theme.auto.conf` and `dark-theme.auto.conf` to `~/.config/kitty/`. kitty 0.38 or newer reads these files automatically and switches between them with macOS appearance, so `kitty.conf` doesn't change. OmniWM sends `SIGUSR1` to every process of yours named exactly `kitty` when the palette changes, which makes kitty reload its config. kitty 0.50 or newer also picks up these files on that reload the first time they appear; an older kitty that was already open when you turned kitty on uses them after a restart or at the next light and dark switch ([kitty's changelog](https://sw.kovidgoyal.net/kitty/changelog/)), and the row says so. If you already have these files, from `kitten themes` for example, OmniWM shows the change and keeps a backup before it replaces them.
 
-## herdr
-
-herdr keeps its colors in `[theme.custom]` inside its own `~/.config/herdr/config.toml`, so turning on **herdr** first shows exactly how that table will change and saves a backup. From then on OmniWM rewrites only that table for the current appearance. It finds the table with a TOML scanner that understands indented headers, strings and arrays, checks that every other setting in the file stays exactly the same, and leaves the file untouched if it would not. `panel_bg`, `surface0`, `surface1` and `surface_dim` stay `reset`, so herdr keeps the terminal's background and transparency.
-
-After the terminals reload, OmniWM asks the local herdr server to reload through herdr's [socket API](https://herdr.dev/tui/docs/socket-api/), sending `server.reload_config` and showing herdr's own result: reloaded, reloaded with warnings, or why it couldn't apply the config. It finds the socket the way herdr does: `HERDR_SOCKET_PATH` if it is set, then the session named by `HERDR_SESSION`, then `herdr.sock` in herdr's config folder (`~/.config/herdr`, or `$XDG_CONFIG_HOME/herdr` when that is a full path, the same folder app theming writes herdr's config to). A herdr server that isn't running is fine: it reads the new colors when it starts.
-
-A herdr client attached to another machine draws that machine's interface with this terminal's colors, so with **Also reload saved herdr machines** on, OmniWM also runs `herdr machine list --json` and then `herdr --machine <label> server reload-config` for each enabled saved machine, directly and without a shell. This needs the herdr command in `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` or `~/.cargo/bin`. With that setting off, OmniWM runs no herdr command at all, for the herdr row or for a custom template that reloads herdr.
-
-If you edit `[theme.custom]` yourself while herdr theming is on, OmniWM stops updating it and the row offers **Review and Replace…**.
-
 ## Neovim
 
 Turning on **Neovim** writes `~/.config/nvim/lua/omniwm.lua` (under `$XDG_CONFIG_HOME` when it is set), a Lua module holding both the light and the dark palette, rewritten when the palette changes, plus a one-line `colors/omniwm.lua` so `:colorscheme omniwm` works. The module picks the palette from Neovim's `'background'` option, which Neovim sets from your terminal's real background color at startup ([`:h 'background'`](https://neovim.io/doc/user/options.html#'background'); it asks the terminal with an OSC 11 query). So Neovim matches the terminal it runs in, even over SSH, and can't disagree with Ghostty. When `'background'` changes, Neovim reloads the `omniwm` colorscheme, and the module also reapplies itself on `OptionSet background`. `setup()` hands sixteen base16 colors to [base16-nvim](https://github.com/RRethy/base16-nvim), which you need installed, then colors Telescope and mini.pick. This follows the approach of [Noctalia's community Neovim template](https://github.com/noctalia-dev/community-templates/tree/94e9c105622b3d8f18955f51e57a3ae72748c43e/neovim), base16-nvim plus a `SIGUSR1` reload; the module itself is written independently of that template's code.
 
-The module listens for `SIGUSR1` through Neovim's own `Signal` event, in an autocommand group it clears on every load, so reloads never stack up. After each write, OmniWM sends `SIGUSR1` to every process of yours named exactly `nvim`, so every Neovim you are running reloads the module; Neovim [handles that signal itself](https://neovim.io/doc/user/autocmd.html#Signal) and runs every `Signal` autocommand for `SIGUSR1`, so if your own config already uses `SIGUSR1` for something else, that runs on each palette change too. If you switch to another colorscheme, reloads and `'background'` changes leave it alone until you run `:colorscheme omniwm` again. Neovim reloads after the terminals and before herdr. OmniWM never edits your Neovim config or creates plugin files; it only writes those two files of its own. Add these two lines yourself; the App Theming page has them with a Copy button:
+The module listens for `SIGUSR1` through Neovim's own `Signal` event, in an autocommand group it clears on every load, so reloads never stack up. After each write, OmniWM sends `SIGUSR1` to every process of yours named exactly `nvim`, so every Neovim you are running reloads the module; Neovim [handles that signal itself](https://neovim.io/doc/user/autocmd.html#Signal) and runs every `Signal` autocommand for `SIGUSR1`, so if your own config already uses `SIGUSR1` for something else, that runs on each palette change too. If you switch to another colorscheme, reloads and `'background'` changes leave it alone until you run `:colorscheme omniwm` again. Neovim reloads after the terminals. OmniWM never edits your Neovim config or creates plugin files; it only writes those two files of its own. Add these two lines yourself; the App Theming page has them with a Copy button:
 
 ```lua
 { "RRethy/base16-nvim" }, -- in your lazy.nvim plugin list
@@ -69,7 +59,7 @@ For each palette, `base00` is `background`, `base01` `surface`, `base02` `elevat
 
 - a template file, and optionally a separate one for dark mode;
 - an output file inside `~/.config` (or `$XDG_CONFIG_HOME`) or `~/Library/Application Support`;
-- what to do after writing: nothing, or reload Ghostty, kitty or herdr.
+- what to do after writing: nothing, or reload Ghostty or kitty.
 
 A custom template is rendered for the current macOS appearance and rendered again when it changes. With **Do Nothing**, the app has to watch its own file, or you reload it by hand; OmniWM never runs a command of your own after writing. A reload hook for other apps may come later as a separate change.
 
@@ -93,7 +83,7 @@ Placeholders follow [matugen](https://github.com/InioX/matugen/wiki/Configuratio
 
 ### Terminal colors
 
-`ansi0` to `ansi15`, which the Ghostty and kitty themes, herdr's colors and your templates all use, are made from the palette for each appearance. **Settings → App Theming → Terminal Colors** (`terminalColors` in the settings file) chooses how:
+`ansi0` to `ansi15`, which the Ghostty and kitty themes and your templates use, are made from the palette for each appearance. **Settings → App Theming → Terminal Colors** (`terminalColors` in the settings file) chooses how:
 
 - **Follow Palette** (`"palette"`, the default). A palette that only carries accent roles, such as the wallpaper palette, fills the six colors from its accents, the way [Noctalia](https://docs.noctalia.dev/) does for wallpaper themes ([its mapping](https://github.com/noctalia-dev/noctalia/blob/b096daa50f842c22332a04dbafd7d561d15825be/src/theme/fixed_palette.cpp), and its `terminal_colors = "palette"` setting): red is `error`, green `accent`, yellow `secondaryAccent`, blue `tertiaryAccent`, magenta a lighter `accent` and cyan a lighter `secondaryAccent`. The terminal then matches the wallpaper, though red and green may not look red and green in diffs. A theme that sets its own `red`, `green`, `yellow`, `blue`, `purple` and `cyan`, as the bundled themes do, keeps them exactly.
 - **Standard Hues** (`"standard"`). The six colors keep the palette's `red`, `green`, `yellow`, `blue`, `purple` and `cyan` (Apple's system colors when the palette doesn't set them), tinted toward `accent`: each hue turns toward the accent's hue by half the difference, at most 15 degrees, so red stays red and the order of hues never changes, and its saturation moves partway toward the accent's. Familiar `ls` and `git` colors, with a hint of the wallpaper.

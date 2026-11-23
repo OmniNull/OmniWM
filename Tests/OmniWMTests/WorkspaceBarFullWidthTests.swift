@@ -97,19 +97,19 @@ final class WorkspaceBarFullWidthTests: XCTestCase {
             MonitorBarSettings(monitorName: "Built-in", fullWidth: false, fullWidthNotchMode: .leftOfNotch),
             MonitorBarSettings(monitorName: "External")
         ]
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(toml.contains("fullWidthNotchMode = \"splitAroundNotch\""))
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(source.contains("fullWidthNotchMode = \"splitAroundNotch\""))
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertEqual(decoded.workspaceBar, export.workspaceBar)
         XCTAssertEqual(decoded.monitorBarSettings[0].fullWidth, false)
         XCTAssertEqual(decoded.monitorBarSettings[0].fullWidthNotchMode, .leftOfNotch)
         XCTAssertNil(decoded.monitorBarSettings[1].fullWidth)
 
-        let stripped = toml.split(separator: "\n", omittingEmptySubsequences: false)
-            .filter { !$0.hasPrefix("fullWidth") }
+        let stripped = source.split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("fullWidth") }
             .joined(separator: "\n")
-        XCTAssertFalse(try SettingsTOMLCodec.decode(Data(stripped.utf8)).workspaceBar.fullWidth)
+        XCTAssertFalse(try SettingsLuauFixture.decode(Data(stripped.utf8)).workspaceBar.fullWidth)
 
         let applied = WorkspaceBarSettings()
         applied.applyIdentity(decoded.workspaceBar)

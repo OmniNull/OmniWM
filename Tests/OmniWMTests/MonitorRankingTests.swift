@@ -125,13 +125,13 @@ final class MonitorRankingTests: XCTestCase {
         XCTAssertNil(MonitorDescription.tertiary.resolveMonitor(sortedMonitors: twoDisplays))
     }
 
-    func testTertiaryWorkspaceAssignmentRoundTripsThroughTOML() throws {
+    func testTertiaryWorkspaceAssignmentRoundTripsThroughLuau() throws {
         var export = SettingsExport.defaults()
         export.workspaceConfigurations[0].monitorAssignment = .tertiary
 
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("type = \"tertiary\""))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).workspaceConfigurations[0].monitorAssignment, .tertiary)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).workspaceConfigurations[0].monitorAssignment, .tertiary)
         XCTAssertEqual(MonitorAssignment.tertiary.toMonitorDescription(), .tertiary)
         XCTAssertEqual(MonitorAssignment.tertiary.displayName, "Tertiary")
     }

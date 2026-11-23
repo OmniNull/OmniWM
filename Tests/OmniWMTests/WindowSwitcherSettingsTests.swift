@@ -16,15 +16,15 @@ final class WindowSwitcherSettingsTests: XCTestCase {
             settings.windowSwitcher.optionTab = shortcut
             settings.windowSwitcher.showFooter = false
             settings.windowSwitcher.order = .lastUsed
-            let data = try SettingsTOMLCodec.encode(settings)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data).windowSwitcher, settings.windowSwitcher)
+            let data = try SettingsLuauDocument.initialSource(settings)
+            XCTAssertEqual(try SettingsLuauFixture.decode(data).windowSwitcher, settings.windowSwitcher)
         }
     }
 
-    func testVisibleWorkspacesUsesItsDocumentedTOMLValue() throws {
+    func testVisibleWorkspacesUsesItsDocumentedLuauValue() throws {
         var settings = SettingsExport.defaults()
         settings.windowSwitcher.scope = .visibleWorkspaces
-        let encoded = String(decoding: try SettingsTOMLCodec.encode(settings), as: UTF8.self)
+        let encoded = String(decoding: try SettingsLuauDocument.initialSource(settings), as: UTF8.self)
         XCTAssertTrue(encoded.contains("scope = \"visibleWorkspaces\""))
     }
 
@@ -40,24 +40,19 @@ final class WindowSwitcherSettingsTests: XCTestCase {
         var settings = SettingsExport.defaults()
         settings.windowSwitcher.enabled = true
         settings.windowSwitcher.commandTab = .remembered
-        let encoded = try SettingsTOMLCodec.encode(settings)
-        let orderLine = "order = \"\(WindowSwitcherOrder.omniLayout.rawValue)\"\n"
+        let encoded = try SettingsLuauDocument.initialSource(settings)
+        let orderLine = "order = \"\(WindowSwitcherOrder.omniLayout.rawValue)\",\n"
         let legacy = String(decoding: encoded, as: UTF8.self)
             .replacingOccurrences(of: orderLine, with: "")
         XCTAssertNotEqual(legacy, String(decoding: encoded, as: UTF8.self))
-        let decoded = try SettingsTOMLCodec.decode(Data(legacy.utf8))
+        let decoded = try SettingsLuauFixture.decode(Data(legacy.utf8))
         XCTAssertEqual(decoded.windowSwitcher, settings.windowSwitcher)
     }
 
     func testExistingConfigurationDoesNotOptIntoReplacingCommandTab() throws {
-        let encoded = try SettingsTOMLCodec.encode(SettingsExport.defaults())
-        let lines = String(decoding: encoded, as: UTF8.self).components(separatedBy: "\n")
-        var inSwitcherSection = false
-        let legacy = lines.filter { line in
-            if line.hasPrefix("[") { inSwitcherSection = line == "[windowSwitcher]" }
-            return !inSwitcherSection
-        }.joined(separator: "\n")
-        let decoded = try SettingsTOMLCodec.decode(Data(legacy.utf8))
+        var fields = try SettingsLuauFixture.fields()
+        XCTAssertNotNil(fields.removeValue(forKey: "windowSwitcher"))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauFixture.source(fields))
         XCTAssertFalse(decoded.windowSwitcher.enabled)
         XCTAssertEqual(decoded.windowSwitcher.scope, .allWorkspaces)
     }

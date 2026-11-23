@@ -447,7 +447,7 @@ final class NiriDirectionalOrientationTests: XCTestCase {
         )
     }
 
-    func testMoveLeftTOMLBindingRoundTripsAndExecutes() throws {
+    func testMoveLeftLuauBindingRoundTripsAndExecutes() throws {
         let customTrigger = try XCTUnwrap(
             HotkeyTrigger.fromHumanReadable("Control+Option+M")
         )
@@ -461,8 +461,8 @@ final class NiriDirectionalOrientationTests: XCTestCase {
                 )
                 : binding
         }
-        let data = try SettingsTOMLCodec.encode(export)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let decoded = try SettingsLuauFixture.decode(data)
         let binding = try XCTUnwrap(
             decoded.hotkeyBindings.first { $0.id == "move.left" }
         )

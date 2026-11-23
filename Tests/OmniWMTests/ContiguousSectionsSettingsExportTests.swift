@@ -7,7 +7,6 @@ import XCTest
 
 final class ContiguousSectionsSettingsExportTests: XCTestCase {
     func testAllMovedFieldsRemainRequired() throws {
-        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
         let sections = [
             "borders": ["enabled", "width"],
             "borders.color": ["red", "green", "blue", "alpha"],
@@ -20,24 +19,15 @@ final class ContiguousSectionsSettingsExportTests: XCTestCase {
             "hiddenBar": ["enabled", "hiddenBundleIDs", "rehideIntervalSeconds"]
         ]
         for (section, keys) in sections {
-            for key in keys {
-                let incomplete = try removing(key: key, from: section, in: source)
-                XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(incomplete.utf8))) { error in
-                    guard case let DecodingError.keyNotFound(missingKey, context) = error else {
-                        return XCTFail("Expected missing section field, got \(error)")
-                    }
-                    XCTAssertEqual(missingKey.stringValue, key)
-                    XCTAssertEqual(context.codingPath.map(\.stringValue), section.components(separatedBy: "."))
-                }
-            }
+            try SettingsLuauFixture.assertRequiredFields(keys, in: section)
         }
     }
 
     @MainActor
     func testStatusBarIconStaysShownWhenOmittedAndRoundTripsWhenHidden() throws {
-        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         let omitted = try removing(key: "showIcon", from: "statusBar", in: source)
-        let decoded = try SettingsTOMLCodec.decode(Data(omitted.utf8))
+        let decoded = try SettingsLuauFixture.decode(Data(omitted.utf8))
         XCTAssertNotEqual(decoded.statusBar.showIcon, false)
         let settings = StatusBarSettings()
         settings.showIcon = false
@@ -46,14 +36,17 @@ final class ContiguousSectionsSettingsExportTests: XCTestCase {
 
         var hidden = SettingsExport.defaults()
         hidden.statusBar.showIcon = false
-        XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(hidden)).statusBar.showIcon, false)
+        XCTAssertEqual(
+            try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(hidden)).statusBar.showIcon,
+            false
+        )
     }
 
     @MainActor
     func testStatusBarLayoutDefaultsOffForExistingFilesAndRoundTrips() throws {
-        let source = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         let omitted = try removing(key: "showLayout", from: "statusBar", in: source)
-        let decoded = try SettingsTOMLCodec.decode(Data(omitted.utf8))
+        let decoded = try SettingsLuauFixture.decode(Data(omitted.utf8))
         let settings = StatusBarSettings()
         settings.showLayout = true
         settings.apply(decoded.statusBar)
@@ -64,19 +57,18 @@ final class ContiguousSectionsSettingsExportTests: XCTestCase {
             settings.showLayout = enabled
             var export = SettingsExport.defaults()
             export.statusBar = settings.export()
-            XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)).statusBar.showLayout, enabled)
+            XCTAssertEqual(
+                try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export)).statusBar.showLayout,
+                enabled
+            )
         }
     }
 
     private func removing(key: String, from section: String, in source: String) throws -> String {
-        var lines = source.components(separatedBy: "\n")
-        let header = try XCTUnwrap(lines.firstIndex(of: "[\(section)]"))
-        let following = lines.indices.dropFirst(header + 1)
-        let sectionEnd = following.first { lines[$0].hasPrefix("[") } ?? lines.endIndex
-        let field = try XCTUnwrap(((header + 1) ..< sectionEnd).first {
-            lines[$0].hasPrefix("\(key) = ")
-        })
-        lines.remove(at: field)
-        return lines.joined(separator: "\n")
+        var tree = SettingsLuauValue.record(try SettingsLuauFixture.fields(in: Data(source.utf8)))
+        let parts = section.split(separator: ".").map(String.init) + [key]
+        XCTAssertNotNil(parts.reduce(Optional(tree)) { $0?[$1] })
+        tree.set(nil, at: parts[...])
+        return "return " + tree.literal()
     }
 }

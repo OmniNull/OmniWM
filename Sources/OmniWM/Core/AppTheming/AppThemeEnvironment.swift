@@ -3,17 +3,6 @@
 
 import AppKit
 import Foundation
-import os
-
-struct AppThemeCommandResult: Equatable, Sendable {
-    var status: Int32
-    var output: String
-    var timedOut = false
-
-    var succeeded: Bool {
-        status == 0 && !timedOut
-    }
-}
 
 struct AppThemeGhosttyApp: Equatable, Sendable {
     static let bundleIdentifier = "com.mitchellh.ghostty"
@@ -130,99 +119,15 @@ enum AppThemeProcesses {
 }
 
 struct AppThemeEnvironment: Sendable {
-    var run: @Sendable (_ executable: String, _ arguments: [String], _ timeout: TimeInterval) -> AppThemeCommandResult
     var ghosttyApps: @Sendable () -> [AppThemeGhosttyApp]
     var processes: @Sendable (_ name: String) -> [AppThemeProcess]
     var signal: @Sendable (_ process: AppThemeProcess, _ signal: Int32) -> Int32
-    var herdr: @Sendable (_ socket: String, _ method: String) -> AppThemeSocketReply
-    var variables: [String: String]
-    var executable: @Sendable (_ name: String) -> String?
-
-    var home: URL {
-        URL(fileURLWithPath: variables["HOME"] ?? NSHomeDirectory(), isDirectory: true)
-    }
-
-    static let searchFolders = ["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "~/.cargo/bin"]
 
     static let live = AppThemeEnvironment(
-        run: { executable, arguments, timeout in
-            AppThemeProcessRunner.run(executable, arguments, timeout: timeout)
-        },
         ghosttyApps: { AppThemeGhosttyApp.running() },
         processes: { AppThemeProcesses.list(named: $0, realUserID: getuid()) },
         signal: { process, signal in
             AppThemeProcesses.signal(process, signal)
-        },
-        herdr: { socket, method in
-            AppThemeHerdrSocket.send(method, to: socket)
-        },
-        variables: ProcessInfo.processInfo.environment,
-        executable: { name in
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            return searchFolders
-                .map { ($0.hasPrefix("~/") ? home + $0.dropFirst() : $0) + "/" + name }
-                .first { FileManager.default.isExecutableFile(atPath: $0) }
         }
     )
-}
-
-enum AppThemeProcessRunner {
-    static let terminationGrace: TimeInterval = 1
-
-    static func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) -> AppThemeCommandResult {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        var environment = ProcessInfo.processInfo.environment
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let extra = AppThemeEnvironment.searchFolders.map { $0.hasPrefix("~/") ? home + $0.dropFirst() : $0 }
-        environment["PATH"] = (extra + [environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"]).joined(separator: ":")
-        process.environment = environment
-        process.standardInput = FileHandle.nullDevice
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        let finished = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in finished.signal() }
-        let collected = DispatchSemaphore(value: 0)
-        let output = OSAllocatedUnfairLock(initialState: Data())
-        do {
-            try process.run()
-        } catch {
-            return AppThemeCommandResult(status: -1, output: error.localizedDescription)
-        }
-        DispatchQueue.global(qos: .userInitiated).async {
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            output.withLock { $0 = data }
-            collected.signal()
-        }
-        let deadline = DispatchTime.now() + timeout
-        var timedOut = false
-        if finished.wait(timeout: deadline) == .timedOut {
-            timedOut = true
-            process.terminate()
-            if finished.wait(timeout: .now() + terminationGrace) == .timedOut {
-                kill(process.processIdentifier, SIGKILL)
-                finished.wait()
-            }
-        }
-        let complete = collected.wait(timeout: max(deadline, .now())) == .success
-        return result(
-            status: process.terminationStatus,
-            output: complete ? output.withLock { $0 } : nil,
-            timedOut: timedOut
-        )
-    }
-
-    static func result(status: Int32, output: Data?, timedOut: Bool) -> AppThemeCommandResult {
-        guard let output else {
-            return AppThemeCommandResult(
-                status: status,
-                output: String(localized: "its output didn’t finish"),
-                timedOut: true
-            )
-        }
-        let text = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        return AppThemeCommandResult(status: status, output: text, timedOut: timedOut)
-    }
 }

@@ -76,7 +76,7 @@ struct AppThemingSettingsPage: View {
                 controller: controller,
                 paths: page.paths,
                 editing: $editing,
-                onReplace: { reviewConflict(preview.target(for: $0)) }
+                onReplace: { reviewConflict($0.target) }
             )
             AppThemingPlaceholderHelp()
         }
@@ -168,12 +168,6 @@ struct AppThemingSettingsPage: View {
             SettingsCaption(
                 localized: "kitty 0.38 or newer loads these files by itself and switches them with macOS light and dark."
             )
-        case .herdr:
-            Toggle("Also reload saved herdr machines", isOn: herdrMachinesBinding)
-                .settingsField(.appThemingHerdrReloadSavedMachines)
-            SettingsCaption(
-                localized: "A herdr client attached to another machine draws with this terminal’s colors, so OmniWM reloads every enabled saved machine after the terminal."
-            )
         case .neovim:
             neovimActivation
         }
@@ -223,9 +217,6 @@ struct AppThemingSettingsPage: View {
         switch app {
         case .ghostty: String(localized: "Light and dark themes · reloads Ghostty 1.2 or newer with SIGUSR2")
         case .kitty: String(localized: "Automatic light and dark themes · reloads kitty with SIGUSR1")
-        case .herdr: String(
-                localized: "The [theme.custom] table of herdr’s config · reloads herdr through its socket API"
-            )
         case .neovim: String(
                 localized: "A base16 module for the current appearance · reloads Neovim with SIGUSR1"
             )
@@ -278,13 +269,6 @@ struct AppThemingSettingsPage: View {
             set: { settings.appTheming.values.terminalColors = $0 }
         )
     }
-
-    private var herdrMachinesBinding: Binding<Bool> {
-        Binding(
-            get: { settings.appTheming.values.herdr.reloadSavedMachines },
-            set: { settings.appTheming.values.herdr.reloadSavedMachines = $0 }
-        )
-    }
 }
 
 extension AppThemingSettingsPage {
@@ -334,7 +318,7 @@ extension AppThemingSettingsPage {
         if let app = AppThemeBuiltIn(rawValue: targetID) {
             reviewConflict(preview.target(for: app))
         } else if let custom = settings.appTheming.values.custom.first(where: { $0.targetID == targetID }) {
-            reviewConflict(preview.target(for: custom))
+            reviewConflict(custom.target)
         }
     }
 
@@ -364,7 +348,7 @@ extension AppThemingSettingsPage {
     private func refreshGhosttySelection() {
         let preview = preview
         let targets = AppThemeBuiltIn.allCases.map(preview.target(for:))
-            + settings.appTheming.values.custom.map(preview.target(for:))
+            + settings.appTheming.values.custom.map(\.target)
         page.refresh(controller.appThemeEngine, targets: targets)
     }
 }
@@ -373,7 +357,6 @@ extension AppThemeBuiltIn {
     fileprivate var enabledField: SettingsFieldID {
         switch self {
         case .ghostty: SettingsFieldID.appThemingGhosttyEnabled
-        case .herdr: SettingsFieldID.appThemingHerdrEnabled
         case .kitty: SettingsFieldID.appThemingKittyEnabled
         case .neovim: SettingsFieldID.appThemingNeovimEnabled
         }

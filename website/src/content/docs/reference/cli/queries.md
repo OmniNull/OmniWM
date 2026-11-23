@@ -106,7 +106,7 @@ The three workspace flags answer different questions. `is-focused` marks the wor
 | `commands` | — | — | Automation action registry for `command`, `workspace`, `window`, `window mark`, `window gather`, and `shell` surfaces |
 | `subscriptions` | — | — | Subscription registry |
 | `capabilities` | — | — | Full protocol capabilities, including `windowMarkActions`, `windowGatherActions`, and `shellActions` |
-| `shell-widgets` | — | — | Luau shell widgets with their `state` (`loading`, `loaded`, `failed` or `fallback`), `placements`, `source` file and any `error`, plus `problems` found in `shell.toml` and theme files |
+| `shell-widgets` | — | — | Luau shell widgets with their `state` (`loading`, `loaded`, `failed` or `fallback`), `placements`, `source` file and any `error`, plus `problems` found in `shell.luau` and theme files |
 
 `commands` and `capabilities` include the `window mark` descriptors. List live marks with [`omniwmctl window mark list`](/reference/cli/actions/#window-marks).
 

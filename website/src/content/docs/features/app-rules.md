@@ -28,12 +28,17 @@ require a precise inclusion rule. The rule must identify the app or window, set 
 the observed values, and choose Tile or Float rather than Automatic. Parentless roots at status-window level or
 higher use the same precise shape, but only a user-authored rule can opt them in; built-in rules cannot. For example:
 
-```toml
-[[appRules]]
-bundleId = "com.example.overlay"
-axRole = "AXWindow"
-axSubrole = "AXStandardWindow"
-layout = "float"
+```lua
+return {
+    appRules = {
+        {
+            bundleId = "com.example.overlay",
+            axRole = "AXWindow",
+            axSubrole = "AXStandardWindow",
+            layout = "float",
+        },
+    },
+}
 ```
 
 Use the target's actual bundle ID and AX values. This escape hatch does not admit a parented surface.
@@ -64,7 +69,7 @@ A scratchpad destination works differently from a workspace destination:
 
 - It applies to every matching window when OmniWM starts managing it, including windows already open at startup.
 - Joining the slot floats the window, as assigning it by hand does. The rule never floats a window that doesn't join. Adding or editing a scratchpad rule, or a title change, leaves windows OmniWM already manages as they are. A member stays floating and stays in its slot after its title stops matching or the rule is removed.
-- Scratchpad can't be combined with Assign to Workspace or with Layout set to Tile. The App Rules window, `omniwmctl`, and IPC refuse such a rule. In `settings.toml` the rule still loads, but its scratchpad is ignored and the rule list shows a validation message. `omniwmctl` and IPC also refuse a slot outside 1–10, and `settings.toml` ignores one the same way.
+- Scratchpad can't be combined with Assign to Workspace or with Layout set to Tile. The App Rules window, `omniwmctl`, and IPC refuse such a rule. In `settings.luau` the rule still loads, but its scratchpad is ignored and the rule list shows a validation message. `omniwmctl` and IPC also refuse a slot outside 1–10, and `settings.luau` ignores one the same way.
 - Scratchpad alone doesn't admit a surface that needs a precise inclusion rule (see [Structural admission](#structural-admission)). For such a surface, also set Layout to Float and set `axRole` and `axSubrole`.
 
 `omniwmctl rule apply` is the only way to apply a scratchpad destination to a window OmniWM already manages. When the winning destination is a scratchpad:
@@ -75,25 +80,35 @@ A scratchpad destination works differently from a workspace destination:
 
 When a workspace destination now wins for a scratchpad member, the window leaves its slot, comes back on screen if it was parked, and moves to that workspace with its layout from the rules. When no rule sets a destination, scratchpad membership doesn't change.
 
-## TOML
+## Luau
 
-Rules can also be written in `settings.toml` (see [Configuration](/config/configuration/)). To send every new
+Rules can also be written in `settings.luau` (see [Configuration](/config/configuration/)). To send every new
 matching VS Code window to a configured workspace named `32`, use this rule (**Unreleased:** available when
 building from `main`).
 
-```toml
-[[appRules]]
-bundleId = "com.microsoft.VSCode"
-assignToWorkspace = "32"
-assignToWorkspaceForAllWindows = true
+```lua
+return {
+    appRules = {
+        {
+            bundleId = "com.microsoft.VSCode",
+            assignToWorkspace = "32",
+            assignToWorkspaceForAllWindows = true,
+        },
+    },
+}
 ```
 
 The initial container primary span uses a proportion:
 
-```toml
-[[appRules]]
-bundleId = "net.kovidgoyal.kitty"
-initialContainerPrimarySpan = 0.5
+```lua
+return {
+    appRules = {
+        {
+            bundleId = "net.kovidgoyal.kitty",
+            initialContainerPrimarySpan = 0.5,
+        },
+    },
+}
 ```
 
 ## Default rules

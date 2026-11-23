@@ -20,10 +20,9 @@ final class AppThemeEngineTests: XCTestCase {
         sandbox.remove()
     }
 
-    private func targets(_ apps: [AppThemeBuiltIn], machines: Bool = true) -> [AppThemeTarget] {
+    private func targets(_ apps: [AppThemeBuiltIn]) -> [AppThemeTarget] {
         var settings = SettingsExport.AppTheming()
         for app in apps { settings.setEnabled(app, true) }
-        settings.herdr.reloadSavedMachines = machines
         return settings.targets(configHome: sandbox.policy.configHome)
     }
 
@@ -31,13 +30,11 @@ final class AppThemeEngineTests: XCTestCase {
         _ targets: [AppThemeTarget],
         palette: AppThemePalette = AppThemeFixtures.palette,
         dark: Bool = true,
-        appearanceChanged: Bool = false,
         takeOver: Set<String> = []
     ) -> AppThemeRunReport {
         sandbox.engine(fake).run(AppThemeJob(
             palette: palette,
             dark: dark,
-            appearanceChanged: appearanceChanged,
             targets: targets,
             takeOver: Dictionary(uniqueKeysWithValues: takeOver.map { path in
                 (path, AppThemeFileWriter.digest((try? Data(contentsOf: URL(fileURLWithPath: path))) ?? Data()))
@@ -96,15 +93,19 @@ final class AppThemeEngineTests: XCTestCase {
     }
 
     func testLightAndDarkSwitchRewritesOnlyCurrentModeOutputs() throws {
-        _ = run(targets([.ghostty, .herdr]))
-        let herdrDark = try XCTUnwrap(sandbox.read(".config/herdr/config.toml"))
-        XCTAssertTrue(herdrDark.contains("text = \"#cdd6f4\""))
+        try sandbox.write("{{mode}}", to: "templates/mode")
+        let mode = AppThemingCustom(
+            name: "Mode", template: sandbox.path("templates/mode").path, output: "~/.config/custom/mode"
+        )
+        let apps = targets([.ghostty]) + [mode.target]
+        _ = run(apps)
+        XCTAssertEqual(sandbox.read(".config/custom/mode"), "dark")
         let ghosttyInode = inode(".config/ghostty/themes/omniwm-dark")
-        let report = run(targets([.ghostty, .herdr]), dark: false, appearanceChanged: true)
+        let report = run(apps, dark: false)
         XCTAssertEqual(report.results["ghostty"]?.outcome, .unchanged)
-        XCTAssertEqual(report.results["herdr"]?.outcome, .updated)
+        XCTAssertEqual(report.results[mode.targetID]?.outcome, .updated)
         XCTAssertEqual(inode(".config/ghostty/themes/omniwm-dark"), ghosttyInode)
-        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("text = \"#4c4f69\""))
+        XCTAssertEqual(sandbox.read(".config/custom/mode"), "light")
     }
 
     func testNewKittyThemeFilesTellOlderKittyToRestart() throws {
@@ -120,39 +121,30 @@ final class AppThemeEngineTests: XCTestCase {
 
     func testAReloadFailureDoesNotBlockOtherApps() throws {
         fake.signalErrors[AppThemeFakeEnvironment.ghosttyPID] = EPERM
-        let report = run(targets([.ghostty, .kitty, .herdr]))
+        let report = run(targets([.ghostty, .kitty]))
         XCTAssertEqual(report.results["ghostty"]?.outcome, .updated)
         XCTAssertEqual(report.results["ghostty"]?.reloadFailed, true)
         XCTAssertEqual(report.results["kitty"]?.reloadFailed, false)
-        XCTAssertEqual(report.results["herdr"]?.reloadFailed, false)
         XCTAssertNotNil(sandbox.read(".config/kitty/dark-theme.auto.conf"))
-        XCTAssertNotNil(sandbox.read(".config/herdr/config.toml"))
         XCTAssertTrue(fake.signals.contains { $0.signal == SIGUSR1 })
-        XCTAssertTrue(fake.events.contains("herdr server.reload_config"))
     }
 
     func testEachAppIsReloadedOncePerRunHoweverManyTargetsAskForIt() throws {
-        fake.responses["/opt/homebrew/bin/herdr machine list"] = AppThemeCommandResult(
-            status: 0,
-            output: #"[{"label":"netrunner","enabled":true}]"#
-        )
         try sandbox.write("{{mode}}\n", to: "templates/mode.conf")
-        let customs = [AppThemeCustomReload.ghostty, .herdr].map { reload in
+        let customs = [AppThemeCustomReload.ghostty, .kitty].map { reload in
             SettingsExport.AppTheming.Custom(
                 name: reload.rawValue,
                 template: sandbox.path("templates/mode.conf").path,
                 output: "~/.config/extra/\(reload.rawValue).conf",
                 reload: reload
-            ).target(savedMachines: true)
+            ).target
         }
-        let report = run(targets([.ghostty, .herdr]) + customs)
+        let report = run(targets([.ghostty, .kitty]) + customs)
         XCTAssertEqual(fake.events, [
             "signal \(AppThemeFakeEnvironment.ghosttyPID) \(SIGUSR2)",
-            "herdr server.reload_config",
-            "run /opt/homebrew/bin/herdr machine list --json",
-            "run /opt/homebrew/bin/herdr --machine netrunner server reload-config"
+            "signal \(AppThemeFakeEnvironment.kittyPID) \(SIGUSR1)"
         ])
-        for target in targets([.ghostty, .herdr]) + customs {
+        for target in targets([.ghostty, .kitty]) + customs {
             XCTAssertNotNil(report.results[target.id]?.reload, target.name)
         }
         XCTAssertTrue(try sandbox.store.load().reloadPending.isEmpty)
@@ -164,7 +156,6 @@ final class AppThemeEngineTests: XCTestCase {
         var job = AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
-            appearanceChanged: false,
             targets: targets([.ghostty])
         )
         job.forceReload = ["ghostty"]
@@ -193,90 +184,9 @@ final class AppThemeEngineTests: XCTestCase {
             template: sandbox.path("missing.template").path,
             output: "~/.config/broken/colors.conf"
         )
-        let report = run([bad.target(savedMachines: false)] + targets([.kitty]))
+        let report = run([bad.target] + targets([.kitty]))
         XCTAssertEqual(report.results[bad.targetID]?.outcome, .failed)
         XCTAssertEqual(report.results["kitty"]?.outcome, .updated)
-    }
-
-    func testTerminalReloadsComeBeforeHerdrAndItsSavedMachines() throws {
-        fake.responses["/opt/homebrew/bin/herdr machine list"] = AppThemeCommandResult(
-            status: 0,
-            output: #"[{"id":"1","label":"netrunner","enabled":true},{"id":"2","label":"off","enabled":false},{"id":"3","label":"-x","enabled":true}]"#
-        )
-        let report = run(targets([.herdr, .ghostty]))
-        XCTAssertEqual(fake.events, [
-            "signal \(AppThemeFakeEnvironment.ghosttyPID) \(SIGUSR2)",
-            "herdr server.reload_config",
-            "run /opt/homebrew/bin/herdr machine list --json",
-            "run /opt/homebrew/bin/herdr --machine netrunner server reload-config"
-        ])
-        XCTAssertTrue(report.results["herdr"]?.reload?.contains("1 of 1") == true)
-    }
-
-    func testHerdrReloadsSavedMachinesWhenOnlyTheTerminalChanged() throws {
-        fake.responses["/opt/homebrew/bin/herdr machine list"] = AppThemeCommandResult(
-            status: 0,
-            output: #"[{"label":"netrunner","enabled":true}]"#
-        )
-        _ = run(targets([.herdr, .ghostty]))
-        var dark = AppThemeFixtures.dark
-        dark[.accentForeground] = AppThemeColor(hex: "#000001")
-        let events = fake.events.count
-        let report = run(
-            targets([.herdr, .ghostty]),
-            palette: AppThemePalette(light: AppThemeFixtures.light, dark: dark)
-        )
-        XCTAssertEqual(report.results["ghostty"]?.outcome, .updated)
-        XCTAssertEqual(report.results["herdr"]?.outcome, .unchanged)
-        XCTAssertEqual(fake.events.dropFirst(events).map { $0.components(separatedBy: " ").last }, [
-            "\(SIGUSR2)", "server.reload_config", "--json", "reload-config"
-        ])
-        let before = fake.events.count
-        _ = run(targets([.herdr, .ghostty], machines: false))
-        XCTAssertFalse(fake.events.dropFirst(before).contains { $0.hasPrefix("run ") })
-        XCTAssertTrue(fake.events.dropFirst(before).contains("herdr server.reload_config"))
-    }
-
-    func testCommandOutputIsKeptWhole() {
-        let length = AppThemeReloader.messageLimit + 1
-        let result = AppThemeProcessRunner.run(
-            "/bin/sh",
-            ["-c", "head -c \(length) /dev/zero | tr '\\0' x"],
-            timeout: failureBound
-        )
-        XCTAssertTrue(result.succeeded)
-        XCTAssertEqual(result.output.count, length)
-    }
-
-    func testACommandWhoseOutputDidNotFinishIsAFailure() {
-        let unfinished = AppThemeProcessRunner.result(status: 0, output: nil, timedOut: false)
-        XCTAssertFalse(unfinished.succeeded)
-        XCTAssertTrue(unfinished.timedOut)
-        let finished = AppThemeProcessRunner.result(status: 0, output: Data(" [] \n".utf8), timedOut: false)
-        XCTAssertTrue(finished.succeeded)
-        XCTAssertEqual(finished.output, "[]")
-    }
-
-    func testHerdrNotRunningIsFine() throws {
-        fake.herdrReply = .notRunning
-        let report = run(targets([.herdr], machines: false))
-        XCTAssertEqual(report.results["herdr"]?.reloadFailed, false)
-        XCTAssertTrue(try sandbox.store.load().reloadPending.isEmpty)
-    }
-
-    func testHerdrKeepsTheRestOfItsConfigAndNeedsConsentForAnExistingFile() throws {
-        let config = "[keys]\nprefix = \"ctrl+b\"\n\n[theme]\nname = \"terminal\"\n"
-        try sandbox.write(config, to: ".config/herdr/config.toml")
-        let refused = run(targets([.herdr]))
-        XCTAssertEqual(refused.results["herdr"]?.outcome, .conflict)
-        XCTAssertEqual(sandbox.read(".config/herdr/config.toml"), config)
-        let path = sandbox.path(".config/herdr/config.toml").path
-        let report = run(targets([.herdr]), takeOver: [path])
-        XCTAssertEqual(report.results["herdr"]?.outcome, .updated)
-        let written = try XCTUnwrap(sandbox.read(".config/herdr/config.toml"))
-        XCTAssertTrue(written.hasPrefix(config))
-        XCTAssertTrue(written.contains("[theme.custom]\n"))
-        XCTAssertEqual(run(targets([.herdr])).results["herdr"]?.outcome, .unchanged)
     }
 
     func testFilesChangedOutsideOmniWMAreNotOverwritten() throws {
@@ -356,7 +266,7 @@ final class AppThemeEngineTests: XCTestCase {
             template: sandbox.path("templates/app.conf").path,
             output: "~/.config/app/colors.conf"
         )
-        let report = run([custom.target(savedMachines: false)])
+        let report = run([custom.target])
         XCTAssertEqual(report.results[custom.targetID]?.outcome, .failed)
         XCTAssertNil(sandbox.read(".config/app/colors.conf"))
     }
@@ -367,11 +277,11 @@ final class AppThemeEngineTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o200], ofItemAtPath: state)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: state) }
         let events = fake.events.count
-        let report = run(targets([.kitty, .herdr]), palette: AppThemeFixtures.shifted("#000000"))
+        let report = run(targets([.kitty, .neovim]), palette: AppThemeFixtures.shifted("#000000"))
         XCTAssertEqual(report.results["kitty"]?.outcome, .failed)
-        XCTAssertEqual(report.results["herdr"]?.outcome, .failed)
+        XCTAssertEqual(report.results["neovim"]?.outcome, .failed)
         XCTAssertTrue(report.results["kitty"]?.message.contains("state.json") == true)
-        XCTAssertNil(sandbox.read(".config/herdr/config.toml"))
+        XCTAssertNil(sandbox.read(".config/nvim/lua/omniwm.lua"))
         XCTAssertEqual(fake.events.count, events)
     }
 
@@ -386,17 +296,17 @@ final class AppThemeEngineTests: XCTestCase {
             template: sandbox.path("templates/app.conf").path,
             output: "~/.config/app/colors.conf"
         )
-        let job = AppThemeJob(palette: AppThemeFixtures.palette, dark: true, appearanceChanged: false, targets: [])
-        XCTAssertThrowsError(try sandbox.engine(fake).render(custom.target(savedMachines: false).outputs[0], job: job))
-        let report = run([custom.target(savedMachines: false)], takeOver: [url.path])
+        let job = AppThemeJob(palette: AppThemeFixtures.palette, dark: true, targets: [])
+        XCTAssertThrowsError(try sandbox.engine(fake).render(custom.target.outputs[0], job: job))
+        let report = run([custom.target], takeOver: [url.path])
         XCTAssertEqual(report.results[custom.targetID]?.outcome, .failed)
         XCTAssertEqual(try Data(contentsOf: url), original)
     }
 
     func testASaveMadeJustBeforeTheReplaceIsKept() throws {
-        _ = run(targets([.herdr], machines: false))
-        let path = sandbox.path(".config/herdr/config.toml")
-        let edited = try XCTUnwrap(sandbox.read(".config/herdr/config.toml")) + "\n[keys]\nprefix = \"ctrl+a\"\n"
+        _ = run(targets([.kitty]))
+        let path = sandbox.path(".config/kitty/dark-theme.auto.conf")
+        let edited = try XCTUnwrap(sandbox.read(".config/kitty/dark-theme.auto.conf")) + "\nbackground #123456\n"
         var engine = sandbox.engine(fake)
         let prepared = AppThemeSeen()
         engine.willReplace = { url in
@@ -410,11 +320,10 @@ final class AppThemeEngineTests: XCTestCase {
         let report = engine.run(AppThemeJob(
             palette: AppThemePalette(light: AppThemeFixtures.light, dark: dark),
             dark: true,
-            appearanceChanged: false,
-            targets: targets([.herdr], machines: false)
+            targets: targets([.kitty])
         ))
-        XCTAssertEqual(report.results["herdr"]?.outcome, .conflict)
-        XCTAssertEqual(sandbox.read(".config/herdr/config.toml"), edited)
+        XCTAssertEqual(report.results["kitty"]?.outcome, .conflict)
+        XCTAssertEqual(sandbox.read(".config/kitty/dark-theme.auto.conf"), edited)
         XCTAssertEqual(fake.events.count, events)
         XCTAssertNil(try sandbox.store.load().pending[path.path])
         XCTAssertTrue(prepared.value)
@@ -438,7 +347,6 @@ final class AppThemeEngineTests: XCTestCase {
         let report = engine.run(AppThemeJob(
             palette: AppThemePalette(light: lightRoles, dark: darkRoles),
             dark: true,
-            appearanceChanged: false,
             targets: targets([.kitty])
         ))
         XCTAssertEqual(report.results["kitty"]?.outcome, .conflict)
@@ -459,7 +367,6 @@ final class AppThemeEngineTests: XCTestCase {
         let report = engine.run(AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
-            appearanceChanged: false,
             targets: targets([.kitty])
         ))
         XCTAssertEqual(report.results["kitty"]?.outcome, .conflict)
@@ -480,7 +387,6 @@ final class AppThemeEngineTests: XCTestCase {
         let report = engine.run(AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
-            appearanceChanged: false,
             targets: targets([.kitty]),
             takeOver: [url.path: AppThemeFileWriter.digest(Data("include mine.conf\n".utf8))]
         ))
@@ -530,8 +436,7 @@ final class AppThemeEngineTests: XCTestCase {
         var job = AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
-            appearanceChanged: false,
-            targets: targets(apps, machines: true)
+            targets: targets(apps)
         )
         job.enabled = enabled
         return job
@@ -584,26 +489,13 @@ final class AppThemeEngineTests: XCTestCase {
     }
 
     func testReloadsStopForAnAppTurnedOffDuringAnEarlierReload() throws {
-        let enabled = AppThemeEnabledTargets(["kitty", "herdr"])
+        let enabled = AppThemeEnabledTargets(["kitty", "neovim"])
         fake.onEvent = { event in
             if event.hasPrefix("signal") { enabled.set(["kitty"]) }
         }
-        let report = sandbox.engine(fake).run(gatedJob([.kitty, .herdr], enabled: enabled))
+        let report = sandbox.engine(fake).run(gatedJob([.kitty, .neovim], enabled: enabled))
         XCTAssertEqual(fake.events, ["signal \(AppThemeFakeEnvironment.kittyPID) \(SIGUSR1)"])
-        XCTAssertNil(report.results["herdr"]?.reload)
-    }
-
-    func testSavedMachinesStopWhenHerdrIsTurnedOffDuringItsReload() throws {
-        fake.responses["/opt/homebrew/bin/herdr machine list"] = AppThemeCommandResult(
-            status: 0,
-            output: #"[{"label":"netrunner","enabled":true}]"#
-        )
-        let enabled = AppThemeEnabledTargets(["herdr"])
-        fake.onEvent = { event in
-            if event.hasPrefix("herdr") { enabled.set([]) }
-        }
-        _ = sandbox.engine(fake).run(gatedJob([.herdr], enabled: enabled))
-        XCTAssertEqual(fake.events, ["herdr server.reload_config"])
+        XCTAssertNil(report.results["neovim"]?.reload)
     }
 
     func testAGhosttyConfigEditIsUndoneWhenALaterFileCannotBeReplaced() throws {
@@ -670,7 +562,7 @@ final class AppThemeEngineTests: XCTestCase {
                 output: "~/.config/\(folder)/dark-theme.auto.conf"
             )
         }
-        let all = targets([.kitty]) + customs.map { $0.target(savedMachines: false) }
+        let all = targets([.kitty]) + customs.map { $0.target }
         let first = run(all)
         XCTAssertEqual(first.results["kitty"]?.outcome, .updated)
         for custom in customs {
@@ -703,17 +595,16 @@ final class AppThemeEngineTests: XCTestCase {
             job: AppThemeJob(
                 palette: AppThemeFixtures.shifted("#000000"),
                 dark: true,
-                appearanceChanged: false,
                 targets: []
             )
         )
         var state = try sandbox.store.load()
-        state.pending[url.path] = AppThemeFileWriter.digest(next.ownedText)
+        state.pending[url.path] = AppThemeFileWriter.digest(next.after)
         try sandbox.store.save(state)
         try AppThemeFileWriter.writeAtomically(next.after, to: url)
         let report = run(targets([.kitty]), palette: AppThemeFixtures.shifted("#000000"))
         XCTAssertEqual(report.results["kitty"]?.outcome, .unchanged)
-        XCTAssertEqual(try sandbox.store.load().owned[url.path], AppThemeFileWriter.digest(next.ownedText))
+        XCTAssertEqual(try sandbox.store.load().owned[url.path], AppThemeFileWriter.digest(next.after))
         XCTAssertTrue(try sandbox.store.load().pending.isEmpty)
     }
 
@@ -724,7 +615,7 @@ final class AppThemeEngineTests: XCTestCase {
             "~/.zshrc",
             "~/.config/../.zshrc",
             "/tmp/evil",
-            "~/.config/omniwm/settings.toml",
+            "~/.config/omniwm/settings.luau",
             "~/Library/LaunchAgents/evil.plist"
         ]
         for output in outputs {
@@ -733,7 +624,7 @@ final class AppThemeEngineTests: XCTestCase {
                 template: sandbox.path("templates/evil.conf").path,
                 output: output
             )
-            let report = run([custom.target(savedMachines: false)])
+            let report = run([custom.target])
             XCTAssertEqual(report.results[custom.targetID]?.outcome, .failed, output)
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: sandbox.path(".zshrc").path))
@@ -743,7 +634,7 @@ final class AppThemeEngineTests: XCTestCase {
             template: sandbox.path("templates/evil.conf").path,
             output: "~/.config/evil/evil.conf"
         )
-        XCTAssertEqual(run([allowed.target(savedMachines: false)]).results[allowed.targetID]?.outcome, .updated)
+        XCTAssertEqual(run([allowed.target]).results[allowed.targetID]?.outcome, .updated)
         XCTAssertEqual(sandbox.read(".config/evil/evil.conf"), "x = $(touch \(marker.path))\n`touch \(marker.path)`\n")
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
         XCTAssertTrue(fake.events.isEmpty)
@@ -758,41 +649,32 @@ final class AppThemeEngineTests: XCTestCase {
             darkTemplate: sandbox.path("templates/app-dark.conf").path,
             output: "~/.config/app/colors.conf"
         )
-        _ = run([custom.target(savedMachines: false)], dark: true)
+        _ = run([custom.target], dark: true)
         XCTAssertEqual(sandbox.read(".config/app/colors.conf"), "dark #11111b\n")
-        _ = run([custom.target(savedMachines: false)], dark: false, appearanceChanged: true)
+        _ = run([custom.target], dark: false)
         XCTAssertEqual(sandbox.read(".config/app/colors.conf"), "light #eff1f5\n")
         XCTAssertTrue(fake.events.isEmpty)
     }
 
-    func testAnOldReloadCommandInSettingsDecodesAndRunsNothing() throws {
+    func testAnUnknownReloadOptionNeverRunsAProgram() throws {
         let marker = sandbox.root.appendingPathComponent("ran")
         try sandbox.write("{{mode}}\n", to: "templates/app.conf")
-        var inAppTheming = false
-        var legacy = String(decoding: try SettingsTOMLCodec.encode(SettingsExport.defaults()), as: UTF8.self)
-            .components(separatedBy: "\n")
-            .filter { line in
-                if line
-                    .hasPrefix("[") { inAppTheming = line.hasPrefix("[appTheming") || line.hasPrefix("[[appTheming") }
-                return !inAppTheming
-            }
-            .joined(separator: "\n")
-        legacy += """
-
-        [[appTheming.custom]]
-        name = "Old"
-        enabled = true
-        template = "\(sandbox.path("templates/app.conf").path)"
-        output = "~/.config/old/mode"
-        reload = "command"
-        reloadCommand = ["/usr/bin/touch", "\(marker.path)"]
-
-        """
-        let custom = try XCTUnwrap(SettingsTOMLCodec.decode(Data(legacy.utf8)).appTheming.custom.first)
+        let entry: [String: SettingsLuauValue] = [
+            "name": .string("Old"), "enabled": .boolean(true),
+            "template": .string(sandbox.path("templates/app.conf").path), "output": .string("~/.config/old/mode"),
+            "reload": .string("command")
+        ]
+        func source(_ entry: [String: SettingsLuauValue]) -> Data {
+            SettingsLuauFixture.source(["appTheming": .record(["custom": .list([.record(entry)])])])
+        }
+        var withCommand = entry
+        withCommand["reloadCommand"] = .list([.string("/usr/bin/touch"), .string(marker.path)])
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(source(withCommand)))
+        let custom = try XCTUnwrap(SettingsLuauFixture.decode(source(entry)).appTheming.custom.first)
         XCTAssertEqual(custom.name, "Old")
         XCTAssertEqual(custom.reload, AppThemeCustomReload.none)
-        XCTAssertNil(custom.target(savedMachines: false).reload)
-        let report = run([custom.target(savedMachines: false)])
+        XCTAssertNil(custom.target.reload)
+        let report = run([custom.target])
         XCTAssertEqual(report.results[custom.targetID]?.outcome, .updated)
         XCTAssertNil(report.results[custom.targetID]?.reload)
         XCTAssertTrue(fake.events.isEmpty)
@@ -804,7 +686,6 @@ final class AppThemeEngineTests: XCTestCase {
         let job = AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
-            appearanceChanged: false,
             targets: targets([.kitty])
         )
         let simultaneousRuns = 4
@@ -821,7 +702,7 @@ final class AppThemeEngineTests: XCTestCase {
         )
         let backup = try sandbox.store.backup(
             Data("token = secret\n".utf8),
-            of: sandbox.path(".config/herdr/config.toml")
+            of: sandbox.path(".config/kitty/dark-theme.auto.conf")
         )
         let manager = FileManager.default
         XCTAssertEqual(try manager.attributesOfItem(atPath: backup.path)[.posixPermissions] as? Int, 0o600)

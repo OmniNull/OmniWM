@@ -3,8 +3,7 @@
 
 import Foundation
 
-struct CanonicalTOMLConfig: Codable, Equatable {
-    var schemaVersion: Int
+struct SettingsFileModel: Codable, Equatable {
     var general: General
     var focus: SettingsExport.Focus
     var mouseWarp: SettingsExport.MouseWarp
@@ -65,18 +64,17 @@ struct CanonicalTOMLConfig: Codable, Equatable {
     }
 }
 
-extension CanonicalTOMLConfig.Appearance {
+extension SettingsFileModel.Appearance {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         tabRailAppIcons = try container.decodeIfPresent(Bool.self, forKey: .tabRailAppIcons) ?? false
     }
 }
 
-extension CanonicalTOMLConfig {
+extension SettingsFileModel {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
         general = try container.decode(General.self, forKey: .general)
         KeySymbolMapper.setHyperKeyModifiers(general.hyperKeyModifiers)
         focus = try container.decode(SettingsExport.Focus.self, forKey: .focus)
@@ -128,9 +126,8 @@ extension CanonicalTOMLConfig {
     }
 }
 
-extension CanonicalTOMLConfig {
+extension SettingsFileModel {
     init(export: SettingsExport) {
-        schemaVersion = SettingsTOMLCodec.currentSchemaVersion
         general = General(
             hotkeysEnabled: export.hotkeysEnabled,
             systemHyperTrigger: export.systemHyperTrigger,

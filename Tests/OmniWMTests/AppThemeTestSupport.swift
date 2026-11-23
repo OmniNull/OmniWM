@@ -38,11 +38,6 @@ enum AppThemeFixtures {
 }
 
 final class AppThemeFakeEnvironment: Sendable {
-    struct Call: Equatable, Sendable {
-        let executable: String
-        let arguments: [String]
-    }
-
     struct Signal: Equatable, Sendable {
         let pid: pid_t
         let signal: Int32
@@ -51,36 +46,19 @@ final class AppThemeFakeEnvironment: Sendable {
     static let ghosttyPID: pid_t = 4242
     static let kittyPID: pid_t = 4343
     static let neovimPID: pid_t = 4444
-    static let herdrExecutable = "/opt/homebrew/bin/herdr"
 
     private struct State: Sendable {
         var recorded: [String] = []
-        var commands: [Call] = []
         var sent: [Signal] = []
-        var responses = [AppThemeFakeEnvironment.herdrExecutable + " machine list": AppThemeCommandResult(
-            status: 0,
-            output: "[]"
-        )]
         var ghostty: [AppThemeGhosttyApp] = []
         var processes: [String: [pid_t]] = [
             "kitty": [AppThemeFakeEnvironment.kittyPID], "nvim": [AppThemeFakeEnvironment.neovimPID]
         ]
         var signalErrors: [pid_t: Int32] = [:]
-        var executables: [String: String] = ["herdr": AppThemeFakeEnvironment.herdrExecutable]
         var onEvent: (@Sendable (String) -> Void)?
-        var variables: [String: String] = ["HOME": "/Users/omniwm-test"]
-        var herdrReply = AppThemeSocketReply.line(
-            #"{"id":"\#(AppThemeHerdrSocket.requestID)","result":{"type":"config_reload","status":"applied","diagnostics":[]}}"#
-        )
-        var sockets: [String] = []
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
-
-    var responses: [String: AppThemeCommandResult] {
-        get { state.withLock { $0.responses } }
-        set { state.withLock { $0.responses = newValue } }
-    }
 
     var ghostty: [AppThemeGhosttyApp] {
         get { state.withLock { $0.ghostty } }
@@ -97,32 +75,9 @@ final class AppThemeFakeEnvironment: Sendable {
         set { state.withLock { $0.signalErrors = newValue } }
     }
 
-    var executables: [String: String] {
-        get { state.withLock { $0.executables } }
-        set { state.withLock { $0.executables = newValue } }
-    }
-
     var onEvent: (@Sendable (String) -> Void)? {
         get { state.withLock { $0.onEvent } }
         set { state.withLock { $0.onEvent = newValue } }
-    }
-
-    var variables: [String: String] {
-        get { state.withLock { $0.variables } }
-        set { state.withLock { $0.variables = newValue } }
-    }
-
-    var herdrReply: AppThemeSocketReply {
-        get { state.withLock { $0.herdrReply } }
-        set { state.withLock { $0.herdrReply = newValue } }
-    }
-
-    var herdrSockets: [String] {
-        state.withLock { $0.sockets }
-    }
-
-    var calls: [Call] {
-        state.withLock { $0.commands }
     }
 
     var signals: [Signal] {
@@ -144,17 +99,6 @@ final class AppThemeFakeEnvironment: Sendable {
 
     var environment: AppThemeEnvironment {
         AppThemeEnvironment(
-            run: { [self] executable, arguments, _ in
-                let event = (["run", executable] + arguments).joined(separator: " ")
-                defer { announce(event) }
-                return state.withLock { state in
-                    state.commands.append(Call(executable: executable, arguments: arguments))
-                    state.recorded.append(event)
-                    let key = ([executable] + arguments).joined(separator: " ")
-                    return state.responses.first { key.hasPrefix($0.key) }?.value
-                        ?? AppThemeCommandResult(status: 0, output: "")
-                }
-            },
             ghosttyApps: { [self] in ghostty },
             processes: { [self] name in
                 state.withLock { ($0.processes[name] ?? []).map { AppThemeProcess(listed: $0, name: name) } }
@@ -168,17 +112,7 @@ final class AppThemeFakeEnvironment: Sendable {
                     state.recorded.append(event)
                     return state.signalErrors[pid] ?? 0
                 }
-            },
-            herdr: { [self] socket, method in
-                defer { announce("herdr \(method)") }
-                return state.withLock { state in
-                    state.sockets.append(socket)
-                    state.recorded.append("herdr \(method)")
-                    return state.herdrReply
-                }
-            },
-            variables: variables,
-            executable: { [self] name in state.withLock { $0.executables[name] } }
+            }
         )
     }
 }

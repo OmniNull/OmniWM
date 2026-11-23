@@ -18,15 +18,16 @@ final class SettingsRoutingCodecTests: XCTestCase {
             MonitorRoutingSettings(monitorName: "Built-in", monitorDisplayId: 2, gridColumn: 0, gridRow: 1)
         ])]
 
-        let encoded = try SettingsTOMLCodec.encode(export)
-        let text = String(decoding: encoded, as: UTF8.self)
-        XCTAssertTrue(text.contains("[[routing.arrangements.monitors]]"))
-        XCTAssertFalse(text.contains("monitorRoutingOverrides"))
-        let mode = try XCTUnwrap(text.range(of: "mode = \"custom\""))
-        let arrangements = try XCTUnwrap(text.range(of: "[[routing.arrangements]]"))
-        XCTAssertLessThan(mode.lowerBound, arrangements.lowerBound)
+        let encoded = try SettingsLuauDocument.initialSource(export)
+        let fields = try SettingsLuauFixture.fields(in: encoded)
+        guard case let .list(arrangements) = fields["routing"]?["arrangements"] else {
+            return XCTFail("Missing routing arrangements")
+        }
+        XCTAssertEqual(arrangements.count, export.routing.arrangements.count)
+        XCTAssertNotNil(arrangements.first?["monitors"])
+        XCTAssertNil(fields["monitorRoutingOverrides"])
 
-        let decoded = try SettingsTOMLCodec.decode(encoded)
+        let decoded = try SettingsLuauFixture.decode(encoded)
 
         XCTAssertEqual(decoded.routing.mode, .custom)
         XCTAssertFalse(decoded.mouseWarp.enabled)
@@ -34,12 +35,12 @@ final class SettingsRoutingCodecTests: XCTestCase {
     }
 
     func testRoutingDefaults() throws {
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(.defaults()))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(.defaults()))
 
         XCTAssertEqual(decoded.routing.mode, .macOS)
         XCTAssertTrue(decoded.mouseWarp.enabled)
         XCTAssertTrue(decoded.routing.arrangements.isEmpty)
-        XCTAssertTrue(String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-            .contains("arrangements = []"))
+        XCTAssertTrue(String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
+            .contains("arrangements = {}"))
     }
 }

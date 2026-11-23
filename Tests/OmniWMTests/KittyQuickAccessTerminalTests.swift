@@ -4,7 +4,6 @@
 import CoreGraphics
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
@@ -410,17 +409,17 @@ final class KittyQuickAccessTerminalTests: XCTestCase {
         XCTAssertEqual(fake.controls.count, 1)
     }
 
-    func testProviderDefaultsToGhosttyAndRoundTripsThroughTOML() throws {
+    func testProviderDefaultsToGhosttyAndRoundTripsThroughLuau() throws {
         XCTAssertEqual(SettingsExport.QuakeTerminal.defaults().provider, .ghostty)
         var export = SettingsExport.defaults()
         export.quakeTerminal.provider = .kitty
         export.quakeTerminal.kitty = KittyQuakeSettings(autoHide: true, opacity: 0.5)
-        let data = try SettingsTOMLCodec.encode(export)
-        let tree = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
-        guard case let .table(quake) = try XCTUnwrap(tree["quakeTerminal"])
+        let data = try SettingsLuauDocument.initialSource(export)
+        let tree = try SettingsLuauFixture.fields(in: data)
+        guard case let .record(quake) = try XCTUnwrap(tree["quakeTerminal"])
         else { return XCTFail("Expected quakeTerminal table") }
         XCTAssertNotNil(quake["provider"])
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("provider = \"kitty\""))
     }
 
@@ -429,7 +428,7 @@ final class KittyQuickAccessTerminalTests: XCTestCase {
         settings.quakeTerminal.provider = .kitty
         var export = SettingsExport.defaults()
         export.quakeTerminal.provider = nil
-        settings.applyExport(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)))
+        settings.applyExport(try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export)))
         XCTAssertEqual(settings.quakeTerminal.provider, .ghostty)
     }
 

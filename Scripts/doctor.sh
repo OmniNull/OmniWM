@@ -112,8 +112,8 @@ print_paths() {
   case "$config_base" in /*) ;; *) config_base="$HOME/.config" ;; esac
   case "$state_base" in /*) ;; *) state_base="$HOME/.local/state" ;; esac
   echo "Development tools: $BIN_DIR"
-  echo "Release settings: $config_base/omniwm/settings.toml"
-  echo "Dev settings: $config_base/omniwm-dev/settings.toml"
+  echo "Release settings: $config_base/omniwm/settings.luau"
+  echo "Dev settings: $config_base/omniwm-dev/settings.luau"
   echo "Dev state: $state_base/omniwm-dev"
   for app in "$dev_app" "$release_app"; do
     if [ -d "$app" ]; then

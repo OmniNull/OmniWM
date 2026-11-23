@@ -139,7 +139,6 @@ extension LuauTableDocument {
             if let settings {
                 tree = try SettingsLuauValue.fields(of: settings)
                 for change in changes { tree.set(change.value, at: change.path[...]) }
-                tree.set(nil, at: ["schemaVersion"])
             }
             output = replaceReturns(
                 with: tree,

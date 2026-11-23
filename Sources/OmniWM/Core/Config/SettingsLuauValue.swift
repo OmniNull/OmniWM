@@ -57,7 +57,7 @@ enum SettingsLuauValue: Hashable, Decodable, Sendable {
         let active = HyperKeyModifiers(carbonMask: KeySymbolMapper.hyperModifiers) ?? .default
         KeySymbolMapper.setHyperKeyModifiers(export.hyperKeyModifiers)
         defer { KeySymbolMapper.setHyperKeyModifiers(active) }
-        let data = try JSONEncoder().encode(CanonicalTOMLConfig(export: export))
+        let data = try JSONEncoder().encode(SettingsFileModel(export: export))
         return try JSONDecoder().decode(Self.self, from: data)
     }
 

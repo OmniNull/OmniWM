@@ -7,24 +7,24 @@ import XCTest
 
 final class WindowGesturePersistenceTests: XCTestCase {
     func testWindowGestureKeysAreAdditiveWithinCurrentSchema() throws {
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let canonical = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         let data = Data(canonical.components(separatedBy: "\n")
-            .filter { !$0.hasPrefix("windowMove") && !$0.hasPrefix("windowResize")
-                && !$0.hasPrefix("windowGestureSensitivity")
+            .filter {
+                !$0.trimmingCharacters(in: .whitespaces).hasPrefix("windowMove") && !$0
+                    .trimmingCharacters(in: .whitespaces).hasPrefix("windowResize")
+                    && !$0.trimmingCharacters(in: .whitespaces).hasPrefix("windowGestureSensitivity")
             }
             .joined(separator: "\n").utf8)
 
-        let result = try SettingsTOMLCodec.decodeForLoad(data)
+        let result = try SettingsLuauDocument(data)
 
-        XCTAssertEqual(SettingsTOMLCodec.currentSchemaVersion, 5)
-        XCTAssertNil(result.migration)
         XCTAssertEqual(result.export.gestures.windowMoveEnabled, false)
         XCTAssertEqual(result.export.gestures.windowMoveFingerCount, .four)
         XCTAssertEqual(result.export.gestures.windowResizeEnabled, false)
         XCTAssertEqual(result.export.gestures.windowResizeFingerCount, .three)
         XCTAssertEqual(result.export.gestures.windowMoveSensitivity, 2)
         XCTAssertEqual(result.export.gestures.windowGestureSensitivity, 1)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(result.export)), result.export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(result.export)), result.export)
     }
 
     func testEachOmittedWindowSpeedUsesItsOwnDefault() throws {
@@ -33,15 +33,16 @@ final class WindowGesturePersistenceTests: XCTestCase {
         var export = SettingsExport.defaults()
         export.gestures.windowMoveSensitivity = moveSpeed
         export.gestures.windowGestureSensitivity = resizeSpeed
-        let toml = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
         for (omitted, expectedMove, expectedResize) in [
             ("windowMoveSensitivity", 2.0, resizeSpeed), ("windowGestureSensitivity", moveSpeed, 1.0)
         ] {
-            let remaining = toml.components(separatedBy: "\n").filter { !$0.hasPrefix("\(omitted) = ") }
+            let remaining = source.components(separatedBy: "\n")
+                .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("\(omitted) = ") }
             let data = Data(remaining.joined(separator: "\n").utf8)
-            let result = try SettingsTOMLCodec.decodeForLoad(data)
-            XCTAssertNil(result.migration)
-            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: data).isEmpty)
+            let result = try SettingsLuauDocument(data)
+
+            XCTAssertNoThrow(try SettingsLuauFixture.decode(data))
             XCTAssertEqual(result.export.gestures.windowMoveSensitivity, expectedMove)
             XCTAssertEqual(result.export.gestures.windowGestureSensitivity, expectedResize)
         }
@@ -57,9 +58,8 @@ final class WindowGesturePersistenceTests: XCTestCase {
             export.gestures.windowMoveSensitivity = 1.75
             export.gestures.windowGestureSensitivity = 2.5
 
-            let encoded = try SettingsTOMLCodec.encode(export)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
-            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
+            let encoded = try SettingsLuauDocument.initialSource(export)
+            XCTAssertEqual(try SettingsLuauFixture.decode(encoded), export)
         }
     }
 
@@ -68,23 +68,22 @@ final class WindowGesturePersistenceTests: XCTestCase {
         for mode in DwindleGroupDrag.allCases {
             var export = SettingsExport.defaults()
             export.gestures.dwindleGroupDragAcrossDisplays = mode
-            let encoded = try SettingsTOMLCodec.encode(export)
+            let encoded = try SettingsLuauDocument.initialSource(export)
             XCTAssertTrue(
                 String(decoding: encoded, as: UTF8.self)
                     .contains("dwindleGroupDragAcrossDisplays = \"\(mode.rawValue)\"")
             )
-            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
-            XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: encoded).isEmpty)
+            XCTAssertEqual(try SettingsLuauFixture.decode(encoded), export)
         }
 
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let canonical = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         let omitted = Data(canonical.components(separatedBy: "\n")
-            .filter { !$0.hasPrefix("dwindleGroupDragAcrossDisplays") }
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("dwindleGroupDragAcrossDisplays") }
             .joined(separator: "\n").utf8)
-        let result = try SettingsTOMLCodec.decodeForLoad(omitted)
-        XCTAssertNil(result.migration)
+        let result = try SettingsLuauDocument(omitted)
+
         XCTAssertEqual(result.export.gestures.dwindleGroupDragAcrossDisplays, .group)
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(replacingDefault(
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(replacingDefault(
             "dwindleGroupDragAcrossDisplays",
             with: "\"tile\""
         )))
@@ -101,7 +100,7 @@ final class WindowGesturePersistenceTests: XCTestCase {
         ] {
             for value in values {
                 let data = try replacingDefault(key, with: value)
-                XCTAssertThrowsError(try SettingsTOMLCodec.decode(data), "\(key) = \(value)")
+                XCTAssertThrowsError(try SettingsLuauFixture.decode(data), "\(key) = \(value)")
             }
         }
     }
@@ -187,9 +186,9 @@ final class WindowGesturePersistenceTests: XCTestCase {
     }
 
     private func replacingDefault(_ key: String, with value: String) throws -> Data {
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let canonical = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
         return Data(canonical.components(separatedBy: "\n")
-            .map { $0.hasPrefix("\(key) = ") ? "\(key) = \(value)" : $0 }
+            .map { $0.trimmingCharacters(in: .whitespaces).hasPrefix("\(key) = ") ? "\(key) = \(value)," : $0 }
             .joined(separator: "\n").utf8)
     }
 }

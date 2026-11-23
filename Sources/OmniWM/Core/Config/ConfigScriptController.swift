@@ -252,7 +252,7 @@ final class ConfigScriptController {
         return description(
             source: row.source,
             line: row.line,
-            message: "Rule ID \(row.rule.id) conflicts with Settings/TOML."
+            message: "Rule ID \(row.rule.id) conflicts with Settings."
         )
     }
 
@@ -288,11 +288,11 @@ extension ConfigScriptController {
             var claims: [UInt32: [Self]] = [:]
             for row in base {
                 if let key = row.binding.chordBinding {
-                    claims[key.keyCode, default: []].append(Self(chord: key, owner: "Settings/TOML \(row.id)"))
+                    claims[key.keyCode, default: []].append(Self(chord: key, owner: "Settings \(row.id)"))
                 }
                 if let key = row.modeKey {
                     claims[key.keyCode, default: []].append(Self(
-                        chord: key, owner: "Settings/TOML mode key \(row.id)", modeCommand: row.command
+                        chord: key, owner: "Settings mode key \(row.id)", modeCommand: row.command
                     ))
                 }
             }

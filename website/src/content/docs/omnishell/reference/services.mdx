@@ -61,11 +61,16 @@ Callbacks receive `{ok, status, headers, text?, json?, bytes?, error?}`. Respons
 
 A component declares exact network hosts in its manifest:
 
-```toml
-capabilities = { network = ["api.github.com"], purpose = "Shows public repository workflow status." }
+```lua
+return {
+    capabilities = {
+        network = { "api.github.com" },
+        purpose = "Shows public repository workflow status.",
+    },
+}
 ```
 
-Root/bar scripts declare theirs with the same line at the top of the `settings.toml` beside their effective `init.luau`, above any `[options.*]` table; a replacement `init.luau` does not inherit the hosts of the one it replaces, and a `settings.toml` that fails to load grants no hosts. Undeclared hosts fail with `network_denied`, without a prompt. The optional `purpose` is at most 300 characters and appears as **The widget’s own description**; it is not a grant.
+Root/bar scripts declare hosts in the top-level `capabilities` field of the `settings.luau` beside their effective `init.luau`; a replacement `init.luau` does not inherit the hosts of the one it replaces, and a `settings.luau` that fails to load grants no hosts. Undeclared hosts fail with `network_denied`, without a prompt. The optional `purpose` is at most 300 characters and appears as **The widget’s own description**; it is not a grant.
 
 ### Consent and policy
 
@@ -79,9 +84,9 @@ Declarations are not consent. The first request to a declared, undecided host au
 
 These codes arrive in the callback's `error`, not as an admission error. `HTTPError` also permits other error strings, such as transport failures. Requests are never parked or replayed after Allow: the next ordinary request succeeds. A startup-only widget must wait for its next normal reload. Deny, Reset and managed blocks re-check transfers and queued body work; revoked work cannot report a successful late result. Bytes already sent cannot be recalled.
 
-Use **Settings > Network & Permissions** to change decisions, or follow **Network & Permissions…** from a declaring widget’s bar menu or Styles & Widgets inspector. Decisions are stored in OmniWM’s [settings.toml](/config/settings-reference/#shellpermissions), not the widget’s settings file. A root’s Luau configuration API cannot grant consent.
+Use **Settings > Network & Permissions** to change decisions, or follow **Network & Permissions…** from a declaring widget’s bar menu or Styles & Widgets inspector. Decisions are stored in OmniWM’s [settings.luau](/config/settings-reference/#shellpermissions), not the widget’s settings file. A root’s Luau configuration API cannot grant consent.
 
-Your own `shell.toml` instance `capabilities.network` can extend a component’s declared hosts; those hosts still need consent. Host matching is exact, case-insensitive and ignores trailing dots, with no wildcard or subdomain grants; a declared host covers any port. Requests must use HTTPS; plain HTTP is accepted only for declared `localhost`, `127.0.0.1` and `::1`. Every redirect re-checks declarations and current decisions but never prompts. Organization blocks win, a user Deny wins over managed preapproval, and otherwise managed preapproval or user Allow permits the request. See [Managed preferences](/config/managed-preferences/).
+Your own `shell.luau` instance `capabilities.network` can extend a component’s declared hosts; those hosts still need consent. Host matching is exact, case-insensitive and ignores trailing dots, with no wildcard or subdomain grants; a declared host covers any port. Requests must use HTTPS; plain HTTP is accepted only for declared `localhost`, `127.0.0.1` and `::1`. Every redirect re-checks declarations and current decisions but never prompts. Organization blocks win, a user Deny wins over managed preapproval, and otherwise managed preapproval or user Allow permits the request. See [Managed preferences](/config/managed-preferences/).
 
 These rules constrain the Luau HTTP API. Trusted native programs, terminal processes, update checks and browser `openURL` actions are outside it; this is not an OmniWM-wide firewall.
 

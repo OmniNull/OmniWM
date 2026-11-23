@@ -56,8 +56,7 @@ final class SettingsSchemaRecorder: Decoder, SingleValueDecodingContainer {
         let modifier = HyperKeyModifiers(carbonMask: KeySymbolMapper.hyperModifiers) ?? .default
         defer { KeySymbolMapper.setHyperKeyModifiers(modifier) }
         let decoder = SettingsSchemaRecorder(sample: defaults, defaults: defaults)
-        _ = try decoder.value(CanonicalTOMLConfig.self)
-        decoder.fields.removeValue(forKey: "schemaVersion")
+        _ = try decoder.value(SettingsFileModel.self)
         return try decoder.result()
     }
 

@@ -11,35 +11,46 @@ A component is a reusable package with declared views and options. An island roo
 
 ## Packages and manifests
 
-Configure instances in the selected profile's `shell.toml`, or override the entire list under `[[profiles.lake.island.components]]` in your top-level `shell.toml`:
+Configure instances in the selected profile's `shell.luau`, or override the entire list under `profiles.lake.island.components` in your top-level `shell.luau`:
 
-```toml
-[[island.components]]
-id = "london"
-widget = "world-clock"
-zone = "Europe/London"
-label = "London"
-
-[[island.components]]
-id = "tokyo"
-widget = "world-clock"
-zone = "Asia/Tokyo"
-label = "Tokyo"
+```lua
+return {
+    island = {
+        components = {
+            {
+                id = "london",
+                widget = "world-clock",
+                zone = "Europe/London",
+                label = "London",
+            },
+            {
+                id = "tokyo",
+                widget = "world-clock",
+                zone = "Asia/Tokyo",
+                label = "Tokyo",
+            },
+        },
+    },
+}
 ```
 
 Each `id` has its own validated options and shared `instance.state`; `ctx.state` is separate for each display and placement. Disabling an instance runs its `deinit` hook. Editing options calls `options(instance, previous)` without restarting the root. Up to 64 configured instances share the root's VM.
 
-Install components in `shell/widgets/<name>/` with two files. `component.toml` describes the component without running code:
+Install components in `shell/widgets/<name>/` with two files. `component.manifest.luau` describes the component without running code:
 
-```toml
-title = "My clock"
-icon = "clock"
-views = ["compact", "expanded"]
-
-[options.zone]
-type = "string"
-default = "UTC"
-maxLength = 128
+```lua
+return {
+    title = "My clock",
+    icon = "clock",
+    views = { "compact", "expanded" },
+    options = {
+        zone = {
+            type = "string",
+            default = "UTC",
+            maxLength = 128,
+        },
+    },
+}
 ```
 
 `component.luau` returns views and optional `init`, `options`, `deinit` and `activity` functions:
@@ -63,7 +74,7 @@ return {
 The root uses `ctx.data.components` to discover configured instances, `omniwm.components.activity(id)` to read their activity, and `ui.component{ id = "tokyo", view = "expanded", w = 240, props = { density = "compact" } }` to compose a view. Views can have any name. The root chooses placement, navigation and promotion policy; native code does not assign meanings to those names.
 
 
-A widget’s `settings.toml` declares root/bar settings. A component’s `component.toml` declares metadata, views, and options. `component.luau` returns the component definition; it does not replace a root’s `init.luau`.
+A widget’s `settings.luau` declares root/bar settings. A component’s `component.manifest.luau` declares metadata, views, and options. `component.luau` returns the component definition; it does not replace a root’s `init.luau`.
 
 ## Lifecycle hooks
 
@@ -113,39 +124,51 @@ omniwm.config.set("hoverPreview", true)
 
 `add` assigns a stable new instance ID and returns it as `result.id` on success. Move indexes are one-based final positions. Each call returns a service handle, or `nil, error` if admission fails. The optional callback receives `{ok, id?, revision?, error?}`; persistence failure is reported as an error. Configuration actions share the normal bounded async ledger. The host also bounds queued and pending file writes to 256 operations independently of callback cancellation; excess work receives an overload error before changing configuration. Cancellation retires callback delivery; an accepted change already applied in memory still completes its file write.
 
-All values must satisfy the package’s declared option schema. `id`, `widget`, `enabled` and capability names are reserved option keys. `provider` is no longer a reserved permission flag: it is accepted only as a declared ordinary option. Configuration actions cannot grant consent, program trust or wider capabilities; enabling an instance, reordering it or editing ordinary options does not change its remembered decisions. File writes run off the render executor, preserve unrelated current user configuration, and do not reload the root VM. The first component-list write copies the complete effective list into `[profiles.<profile>.island]` because profile arrays replace lower layers.
+All values must satisfy the package’s declared option schema. `id`, `widget`, `enabled` and capability names are reserved option keys. `provider` is no longer a reserved permission flag: it is accepted only as a declared ordinary option. Configuration actions cannot grant consent, program trust or wider capabilities; enabling an instance, reordering it or editing ordinary options does not change its remembered decisions. File writes run off the render executor, preserve unrelated current user configuration, and do not reload the root VM. The first component-list write copies the complete effective list into `profiles.<profile>.island` because profile arrays replace lower layers.
 
-`omniwm.config.set` writes only the calling root's declared settings. A root exposes its editable schema through `widgets/<root>/settings.toml`:
+`omniwm.config.set` writes only the calling root's declared settings. A root exposes its editable schema through `widgets/<root>/settings.luau`:
 
-```toml
-[options.hoverPreview]
-type = "boolean"
-title = "Hover preview"
-default = true
-
-[options.width]
-type = "number"
-title = "Expanded width"
-default = 520
-min = 380
-max = 640
-step = 20
+```lua
+return {
+    options = {
+        hoverPreview = {
+            type = "boolean",
+            title = "Hover preview",
+            default = true,
+        },
+        width = {
+            type = "number",
+            title = "Expanded width",
+            default = 520,
+            min = 380,
+            max = 640,
+            step = 20,
+        },
+    },
+}
 ```
 
-The option types and validation rules are the same as component options. The host publishes effective values in `ctx.data.settings` and schema metadata in `ctx.data.settingsSchema`; they update together on configuration or source changes. A missing root schema means there are no declared root settings to write. The top-level `capabilities` key lists exact hosts for the root’s own `omniwm.http` calls and an optional `purpose` of at most 300 characters. Put it above the first `[options.*]` table, since TOML would otherwise read it as part of that option:
+The option types and validation rules are the same as component options. The host publishes effective values in `ctx.data.settings` and schema metadata in `ctx.data.settingsSchema`; they update together on configuration or source changes. A missing root schema means there are no declared root settings to write. The top-level `capabilities` key lists exact hosts for the root’s own `omniwm.http` calls and an optional `purpose` of at most 300 characters. Place `capabilities` and `options` side by side in the returned table.
 
-```toml
-capabilities = { network = ["api.github.com"], purpose = "Shows public repository workflow status." }
-
-[options.hoverPreview]
-type = "boolean"
-title = "Hover preview"
-default = true
+```lua
+return {
+    capabilities = {
+        network = { "api.github.com" },
+        purpose = "Shows public repository workflow status.",
+    },
+    options = {
+        hoverPreview = {
+            type = "boolean",
+            title = "Hover preview",
+            default = true,
+        },
+    },
+}
 ```
 
-Components put the same optional `capabilities.purpose` in `component.toml`. Settings and network prompts show it verbatim as **The widget’s own description**. It grants nothing and may be omitted. HTTP requires both a declaration and a remembered user decision or managed preapproval; see [Services](/omnishell/reference/services/#consent-and-policy).
+Components put the same optional `capabilities.purpose` in `component.manifest.luau`. Settings and network prompts show it verbatim as **The widget’s own description**. It grants nothing and may be omitted. HTTP requires both a declaration and a remembered user decision or managed preapproval; see [Services](/omnishell/reference/services/#consent-and-policy).
 
-An instance’s `capabilities.network` in your own `shell.toml` only extends the declared hosts and does not grant consent. Instance `capabilities.provider` is rejected; use the separate [program trust decision](/omnishell/reference/providers/) instead. Those decisions live in OmniWM’s `settings.toml`, outside the Luau configuration API.
+An instance’s `capabilities.network` in your own `shell.luau` only extends the declared hosts and does not grant consent. Instance `capabilities.provider` is rejected; use the separate [program trust decision](/omnishell/reference/providers/) instead. Those decisions live in OmniWM’s `settings.luau`, outside the Luau configuration API.
 
 A replacement profile can render these controls however it chooses while retaining the same component integrations and configuration APIs. Native Settings still provides the Show Dynamic Island toggle, profile selection and shell folder access if a custom root cannot render.
 
@@ -159,7 +182,7 @@ Unchanged views keep their handlers while other components publish. Each unit re
 
 Option schemas support `boolean`, `number` (`min`, `max`, `step`), `string` (`maxLength`), `choice` (`choices`) and `strings`. Identity and capability fields are reserved. Native provider execution is not enabled merely by installing a component.
 
-Native Settings translates option titles, choice labels and component titles through the style’s `strings` tables, then `Shell.xcstrings`; other titles are displayed as provided. The localization check covers option titles from both `settings.toml` and `component.toml` in Default and in every style in `styles/`.
+Native Settings translates option titles, choice labels and component titles through the style’s `strings` tables, then `Shell.xcstrings`; other titles are displayed as provided. The localization check covers option titles from both `settings.luau` and `component.manifest.luau` in Default and in every style in `styles/`.
 
 <LuauDeclaration name="ComponentCatalogEntry" />
 
@@ -202,7 +225,7 @@ return lake.extend(stock, {
 })
 ```
 
-Declare `uses = ["media"]` in the custom manifest so the stock definition loads even when no instance directly selects it. Components resolve the root profile's library overrides, including top-level `shell/lib/` files. The source limit is explicit: 64 files for ordinary widgets and 512 for roots, including libraries and components; exceeding it reports a load error.
+Declare `uses = { "media" }` in the custom manifest so the stock definition loads even when no instance directly selects it. Components resolve the root profile's library overrides, including top-level `shell/lib/` files. The source limit is explicit: 64 files for ordinary widgets and 512 for roots, including libraries and components; exceeding it reports a load error.
 
 Editing a component reloads that definition and its declared `uses` dependents, cancels their services, flushes their stores and resets their runtime state. Other component instances and root state remain intact. Editing the root or a shared library replaces the root VM. A root that directly retains a component export through `require("@component/name")` also needs a full reload when that export changes; composing it through `ui.component` allows component-scoped reload.
 

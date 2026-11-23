@@ -5,7 +5,7 @@ import Foundation
 @testable import OmniWM
 import XCTest
 
-final class OverviewSettingsTOMLTests: XCTestCase {
+final class OverviewSettingsLuauTests: XCTestCase {
     func testDefaultsMatchOverviewContract() {
         let defaults = SettingsExport.defaults()
 
@@ -34,16 +34,16 @@ final class OverviewSettingsTOMLTests: XCTestCase {
         export.overview.windowBorders.selected = color(0.4, 0.5, 0.6, 0.7)
         export.overview.matchFocusBorder = false
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let fields = try SettingsLuauFixture.fields(in: data)
+        let decoded = try SettingsLuauFixture.decode(data)
 
-        XCTAssertTrue(toml.contains("[overview]"))
-        XCTAssertTrue(toml.contains("enabled = false"))
-        XCTAssertTrue(toml.contains("[overview.backdrop]"))
-        XCTAssertTrue(toml.contains("[overview.windowBorders.normal]"))
-        XCTAssertTrue(toml.contains("[overview.windowBorders.hovered]"))
-        XCTAssertTrue(toml.contains("[overview.windowBorders.selected]"))
+        XCTAssertNotNil(fields["overview"])
+        XCTAssertEqual(fields["overview"]?["enabled"], .boolean(false))
+        XCTAssertNotNil(fields["overview"]?["backdrop"])
+        XCTAssertNotNil(fields["overview"]?["windowBorders"]?["normal"])
+        XCTAssertNotNil(fields["overview"]?["windowBorders"]?["hovered"])
+        XCTAssertNotNil(fields["overview"]?["windowBorders"]?["selected"])
         XCTAssertEqual(decoded.overview.zoom, export.overview.zoom)
         XCTAssertEqual(decoded.overview.enabled, false)
         XCTAssertEqual(decoded.overview.invertScrollDirection, true)
@@ -101,36 +101,32 @@ final class OverviewSettingsTOMLTests: XCTestCase {
     func testMissingMatchFocusBorderDefaultsToMatching() throws {
         var export = SettingsExport.defaults()
         export.overview.matchFocusBorder = nil
-        let toml = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
-        XCTAssertFalse(toml.contains("matchFocusBorder"))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(toml.utf8)).overview.matchFocusBorder, true)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
+        XCTAssertFalse(source.contains("matchFocusBorder"))
+        XCTAssertEqual(try SettingsLuauFixture.decode(Data(source.utf8)).overview.matchFocusBorder, true)
     }
 
     func testMissingEnabledDefaultsToOn() throws {
         var export = SettingsExport.defaults()
         export.overview.enabled = nil
-        let toml = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(Data(toml.utf8)).overview.enabled, true)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
+        XCTAssertEqual(try SettingsLuauFixture.decode(Data(source.utf8)).overview.enabled, true)
     }
 
     func testMalformedOverviewTypesRejectDecode() throws {
-        let defaults = String(
-            decoding: try SettingsTOMLCodec.encode(SettingsExport.defaults()),
-            as: UTF8.self
-        )
-        let malformed = [
-            replacingValue(in: defaults, table: "overview", key: "zoom", with: "\"large\""),
-            replacingValue(in: defaults, table: "overview.backdrop", key: "red", with: "\"dark\""),
-            replacingValue(
-                in: defaults,
-                table: "overview.windowBorders.selected",
-                key: "alpha",
-                with: "true"
-            )
-        ]
-
-        for toml in malformed {
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(toml.utf8)))
+        for (path, value) in [
+            (["overview", "zoom"], SettingsLuauValue.string("large")),
+            (["overview", "backdrop", "red"], .string("dark")),
+            (["overview", "windowBorders", "selected", "alpha"], .boolean(true))
+        ] {
+            var tree = try SettingsLuauValue.fields(of: .defaults())
+            tree.set(value, at: path[...])
+            XCTAssertThrowsError(try SettingsLuauDocument(Data(("return " + tree.literal()).utf8))) { error in
+                XCTAssertTrue(
+                    error.localizedDescription.contains(path.joined(separator: ".")),
+                    error.localizedDescription
+                )
+            }
         }
     }
 
@@ -238,35 +234,6 @@ final class OverviewSettingsTOMLTests: XCTestCase {
 
     private func color(_ red: Double, _ green: Double, _ blue: Double, _ alpha: Double) -> SettingsColor {
         SettingsColor(red: red, green: green, blue: blue, alpha: alpha)
-    }
-
-    private func replacingValue(
-        in toml: String,
-        table: String,
-        key: String,
-        with replacement: String
-    ) -> String {
-        transform(toml) { currentTable, line in
-            guard currentTable == table, line.hasPrefix("\(key) = ") else { return line }
-            return "\(key) = \(replacement)"
-        }
-    }
-
-    private func transform(
-        _ toml: String,
-        _ operation: (_ table: String, _ line: String) -> String?
-    ) -> String {
-        var currentTable = ""
-        return toml
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .compactMap { substring -> String? in
-                let line = String(substring)
-                if line.hasPrefix("["), line.hasSuffix("]") {
-                    currentTable = String(line.dropFirst().dropLast())
-                }
-                return operation(currentTable, line)
-            }
-            .joined(separator: "\n")
     }
 
     @MainActor

@@ -54,7 +54,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
             Presentation(
                 String(localized: "App Theming"),
                 "paintbrush.pointed",
-                String(localized: "Color Ghostty, kitty, herdr, Neovim and your own templates from OmniWM’s palette.")
+                String(localized: "Apps update the moment OmniWM’s palette or macOS light and dark changes.")
             )
         case .styles:
             Presentation(

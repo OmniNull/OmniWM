@@ -59,14 +59,14 @@ final class SingleWindowFitSerializationSafetyTests: XCTestCase {
         }
     }
 
-    func testTOMLRoundTripsExtremeCustomDimensions() throws {
+    func testLuauRoundTripsExtremeCustomDimensions() throws {
         let boundaryFit = SingleWindowFit(mode: .custom, width: Double(Int.max), height: 720)
         let hugeFit = SingleWindowFit(mode: .custom, width: 1024, height: Double.greatestFiniteMagnitude)
         var export = SettingsExport.defaults()
         export.niri.singleWindowFit = boundaryFit
         export.monitorDwindleSettings = [MonitorDwindleSettings(monitorName: "Extreme", singleWindowFit: hugeFit)]
 
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
 
         XCTAssertEqual(decoded.niri.singleWindowFit, boundaryFit)
         XCTAssertEqual(decoded.monitorDwindleSettings.first?.singleWindowFit, hugeFit)

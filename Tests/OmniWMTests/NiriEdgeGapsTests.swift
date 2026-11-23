@@ -167,12 +167,12 @@ final class NiriEdgeGapsTests: XCTestCase {
     func testEdgeGapsDefaultsToEnabledWhenKeyIsMissingAndRoundTrips() throws {
         var export = SettingsExport.defaults()
         export.niri.edgeGaps = nil
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         XCTAssertEqual(decoded, .defaults())
 
         let settings = makeSettingsStore()
         settings.niri.edgeGaps = false
-        let reloaded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(settings.toExport()))
+        let reloaded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(settings.toExport()))
         XCTAssertEqual(reloaded.niri.edgeGaps, false)
     }
 

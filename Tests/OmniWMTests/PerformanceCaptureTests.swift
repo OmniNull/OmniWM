@@ -426,7 +426,7 @@ final class PerformanceCaptureTests: XCTestCase {
 
         let content = try String(contentsOf: artifact.url, encoding: .utf8)
         XCTAssertFalse(content.contains(privateIdentifier))
-        XCTAssertFalse(content.contains("Settings (TOML)"))
+        XCTAssertFalse(content.contains("Settings (Luau)"))
         XCTAssertFalse(content.contains("Verbose Window Events"))
         XCTAssertTrue(content.contains("axPark submitted="))
         XCTAssertEqual(content.components(separatedBy: "== Owner Metrics Start ==").count - 1, 1)

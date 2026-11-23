@@ -348,12 +348,15 @@ final class NiriShrinkToFitTests: XCTestCase {
         legacy.niri.shrinkToFit = nil
         let settings = NiriSettings()
         settings.shrinkToFit = true
-        settings.apply(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(legacy)).niri, baseline: .defaults())
+        settings.apply(
+            try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(legacy)).niri,
+            baseline: .defaults()
+        )
         XCTAssertFalse(settings.shrinkToFit)
 
         var export = SettingsExport.defaults()
         export.niri.shrinkToFit = true
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         XCTAssertEqual(decoded, export)
         settings.apply(decoded.niri, baseline: .defaults())
         XCTAssertTrue(settings.shrinkToFit)

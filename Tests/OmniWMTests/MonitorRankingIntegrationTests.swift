@@ -15,7 +15,7 @@ final class MonitorRankingIntegrationTests: XCTestCase {
             OutputId(displayId: 960_001, name: "Shared Display")
         ]
         settings.monitors.ranking = ranking
-        let export = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(settings.toExport()))
+        let export = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(settings.toExport()))
         settings.monitors.ranking = []
         settings.applyExport(export)
 
@@ -25,8 +25,7 @@ final class MonitorRankingIntegrationTests: XCTestCase {
         settings.applyExport(.defaults())
 
         XCTAssertTrue(settings.monitors.ranking.isEmpty)
-        XCTAssertFalse(String(decoding: try SettingsTOMLCodec.encode(settings.toExport()), as: UTF8.self)
-            .contains("[monitors]"))
+        XCTAssertNil(try SettingsLuauFixture.fields(settings.toExport())["monitors"])
     }
 
     func testWorkspaceHomesFollowRankingAcrossReorderDisconnectAndReconnect() throws {

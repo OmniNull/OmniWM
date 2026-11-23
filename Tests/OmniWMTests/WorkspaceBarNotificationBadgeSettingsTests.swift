@@ -13,11 +13,11 @@ final class WorkspaceBarNotificationBadgeSettingsTests: XCTestCase {
         XCTAssertEqual(export.workspaceBar.notificationBadges, .off)
         XCTAssertEqual(export.workspaceBar.notificationBadgeRefreshIntervalSeconds, 5)
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(toml.contains("notificationBadges = \"off\""))
-        XCTAssertTrue(toml.contains("notificationBadgeRefreshIntervalSeconds = 5"))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(source.contains("notificationBadges = \"off\""))
+        XCTAssertTrue(source.contains("notificationBadgeRefreshIntervalSeconds = 5"))
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
     }
 
     func testBadgeModesRoundTrip() throws {
@@ -26,18 +26,18 @@ final class WorkspaceBarNotificationBadgeSettingsTests: XCTestCase {
             export.workspaceBar.notificationBadges = mode
             export.workspaceBar.notificationBadgeRefreshIntervalSeconds = 19
 
-            let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+            let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
             XCTAssertEqual(decoded.workspaceBar.notificationBadges, mode)
             XCTAssertEqual(decoded.workspaceBar.notificationBadgeRefreshIntervalSeconds, 19)
         }
     }
 
     func testMissingBadgeKeysUseDefaults() throws {
-        let toml = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let withoutBadgeKeys = toml.split(separator: "\n", omittingEmptySubsequences: false)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
+        let withoutBadgeKeys = source.split(separator: "\n", omittingEmptySubsequences: false)
             .filter { !$0.contains("notificationBadge") }
             .joined(separator: "\n")
-        let decoded = try SettingsTOMLCodec.decode(Data(withoutBadgeKeys.utf8))
+        let decoded = try SettingsLuauFixture.decode(Data(withoutBadgeKeys.utf8))
 
         XCTAssertEqual(decoded.workspaceBar.notificationBadges, .off)
         XCTAssertEqual(decoded.workspaceBar.notificationBadgeRefreshIntervalSeconds, 5)

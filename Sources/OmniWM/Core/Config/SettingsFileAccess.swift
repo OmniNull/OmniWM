@@ -18,12 +18,6 @@ enum SettingsFileAccess {
         let fingerprint: Fingerprint
     }
 
-    private enum BackupSlotState {
-        case absent
-        case matching
-        case occupied
-    }
-
     private static let nanosecondsPerSecond: Int64 = 1_000_000_000
 
     static func ensureDirectoryExists(at directoryURL: URL) throws {
@@ -182,62 +176,6 @@ enum SettingsFileAccess {
 
         guard fileStatus.st_mode & S_IFMT == S_IFREG else { throw POSIXError(.EFTYPE) }
         return try readContents(at: targetURL).data
-    }
-
-    static func secureBackup(
-        _ data: Data,
-        in directoryURL: URL,
-        fileNames: [String],
-        exhaustedError: SettingsFilePersistenceError
-    ) throws -> URL {
-        var firstAbsentURL: URL?
-        for fileName in fileNames {
-            let slotURL = directoryURL.appendingPathComponent(fileName, isDirectory: false)
-            switch Self.backupSlotState(at: slotURL, matching: data) {
-            case .matching:
-                return slotURL
-            case .absent:
-                if firstAbsentURL == nil {
-                    firstAbsentURL = slotURL
-                }
-            case .occupied:
-                break
-            }
-        }
-
-        guard let firstAbsentURL else {
-            throw exhaustedError
-        }
-        try Self.writeExclusive(data, to: firstAbsentURL)
-        return firstAbsentURL
-    }
-
-    private static func backupSlotState(at url: URL, matching expectedData: Data) -> BackupSlotState {
-        let fileDescriptor = url.withUnsafeFileSystemRepresentation { path -> CInt in
-            guard let path else { return -1 }
-            return Darwin.open(path, O_RDONLY | O_NOFOLLOW)
-        }
-
-        guard fileDescriptor >= 0 else {
-            return errno == ENOENT ? .absent : .occupied
-        }
-
-        let handle = FileHandle(fileDescriptor: fileDescriptor, closeOnDealloc: true)
-        defer {
-            try? handle.close()
-        }
-
-        var fileStatus = stat()
-        guard Darwin.fstat(fileDescriptor, &fileStatus) == 0,
-              fileStatus.st_mode & S_IFMT == S_IFREG
-        else {
-            return .occupied
-        }
-        do {
-            return (try handle.readToEnd() ?? Data()) == expectedData ? .matching : .occupied
-        } catch {
-            return .occupied
-        }
     }
 
     private static func writeExclusive(_ data: Data, to url: URL) throws {

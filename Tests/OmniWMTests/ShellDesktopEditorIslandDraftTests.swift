@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor

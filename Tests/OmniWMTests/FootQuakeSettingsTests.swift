@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
@@ -16,10 +15,10 @@ final class FootQuakeSettingsTests: XCTestCase {
         XCTAssertEqual(settings.quakeTerminal.foot.dim, 0)
         XCTAssertTrue(settings.quakeTerminal.foot.isDefault)
         XCTAssertNil(settings.quakeTerminal.export().foot)
-        XCTAssertNil(try quakeTable(SettingsTOMLCodec.encode(settings.toExport()))["foot"])
+        XCTAssertNil(try quakeTable(SettingsLuauDocument.initialSource(settings.toExport()))["foot"])
     }
 
-    func testFootProviderAndOverridesRoundTripThroughNestedTOMLTables() throws {
+    func testFootProviderAndOverridesRoundTripThroughNestedLuauTables() throws {
         var export = SettingsExport.defaults()
         export.quakeTerminal.provider = .foot
         export.quakeTerminal.foot = FootQuakeSettings(
@@ -29,38 +28,35 @@ final class FootQuakeSettingsTests: XCTestCase {
             dim: 0.3
         )
 
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
 
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-        XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: data), [])
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("provider = \"foot\""))
-        guard case let .table(foot) = try XCTUnwrap(quakeTable(data)["foot"]),
-              case let .table(placement) = try XCTUnwrap(foot["placement"])
+        guard case let .record(foot) = try XCTUnwrap(quakeTable(data)["foot"]),
+              case let .record(placement) = try XCTUnwrap(foot["placement"])
         else {
             return XCTFail("Expected nested foot and placement tables")
         }
         XCTAssertEqual(foot["autoHide"], .boolean(true))
-        XCTAssertEqual(foot["opacity"], .float(0.9))
-        XCTAssertEqual(foot["dim"], .float(0.3))
+        XCTAssertEqual(foot["opacity"], .number(0.9))
+        XCTAssertEqual(foot["dim"], .number(0.3))
         XCTAssertEqual(placement["position"], .string("bottom"))
-        XCTAssertEqual(placement["widthPercent"], .float(80))
-        XCTAssertEqual(placement["heightPercent"], .float(40))
+        XCTAssertEqual(placement["widthPercent"], .integer(80))
+        XCTAssertEqual(placement["heightPercent"], .integer(40))
     }
 
     func testOmittedDimDecodesAsOffAndPartialTablesKeepOtherOverridesUnset() throws {
         var export = SettingsExport.defaults()
         export.quakeTerminal.foot = FootQuakeSettings(autoHide: false)
-        let data = try SettingsTOMLCodec.encode(export)
-        guard case let .table(foot) = try XCTUnwrap(quakeTable(data)["foot"]) else {
+        let data = try SettingsLuauDocument.initialSource(export)
+        guard case let .record(foot) = try XCTUnwrap(quakeTable(data)["foot"]) else {
             return XCTFail("Expected foot table")
         }
         XCTAssertEqual(foot.keys.sorted(), ["autoHide", "dim"])
 
-        let withoutDim = try SettingsTOMLCodec.encode(SettingsExport.defaults())
-            + Data("\n[quakeTerminal.foot]\nautoHide = true\n".utf8)
+        let withoutDim = Data("return { quakeTerminal = { foot = { autoHide = true } } }".utf8)
 
-        XCTAssertEqual(try SettingsTOMLCodec.decode(withoutDim).quakeTerminal.foot, FootQuakeSettings(autoHide: true))
-        XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: withoutDim), [])
+        XCTAssertEqual(try SettingsLuauFixture.decode(withoutDim).quakeTerminal.foot, FootQuakeSettings(autoHide: true))
     }
 
     func testFootValuesStayIndependentOfGhosttyAndKitty() {
@@ -129,9 +125,9 @@ final class FootQuakeSettingsTests: XCTestCase {
         XCTAssertEqual(settings.quakeTerminal.foot.placement?.widthPercent, 10)
     }
 
-    private func quakeTable(_ data: Data) throws -> [String: TOMLNode] {
-        let tree = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
-        guard case let .table(quake) = try XCTUnwrap(tree["quakeTerminal"]) else {
+    private func quakeTable(_ data: Data) throws -> [String: SettingsLuauValue] {
+        let tree = try SettingsLuauFixture.fields(in: data)
+        guard case let .record(quake) = try XCTUnwrap(tree["quakeTerminal"]) else {
             XCTFail("Expected quakeTerminal table")
             return [:]
         }

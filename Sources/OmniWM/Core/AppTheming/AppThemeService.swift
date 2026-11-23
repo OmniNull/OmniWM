@@ -27,7 +27,6 @@ final class AppThemeService {
     @ObservationIgnored private let perform: Perform
     @ObservationIgnored private let deliver: Deliver
     @ObservationIgnored private var rerun = false
-    @ObservationIgnored private var appearanceChanged = false
     @ObservationIgnored private var takeOver: [String: String] = [:]
     @ObservationIgnored private var forceReload: Set<String> = []
     @ObservationIgnored var selection: [AppThemeChange] = []
@@ -130,7 +129,6 @@ final class AppThemeService {
         let dark = systemIsDark()
         guard dark != isDark else { return }
         isDark = dark
-        appearanceChanged = true
         schedule()
     }
 
@@ -177,12 +175,10 @@ final class AppThemeService {
         let dark = systemIsDark()
         if dark != isDark {
             isDark = dark
-            appearanceChanged = true
         }
         let job = AppThemeJob(
             palette: palette,
             dark: isDark,
-            appearanceChanged: appearanceChanged,
             targets: targets,
             takeOver: takeOver,
             forceReload: forceReload,
@@ -190,7 +186,6 @@ final class AppThemeService {
             selection: selection
         )
         selection = []
-        appearanceChanged = false
         takeOver = [:]
         forceReload = []
         appliedPalette = palette

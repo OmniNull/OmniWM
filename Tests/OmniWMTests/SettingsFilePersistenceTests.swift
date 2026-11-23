@@ -95,7 +95,7 @@ final class SettingsFilePersistenceTests: XCTestCase {
         let fixture = try makeFixture()
         defer { fixture.remove() }
 
-        let targetURL = fixture.dotfilesDirectory.appendingPathComponent("missing.toml", isDirectory: false)
+        let targetURL = fixture.dotfilesDirectory.appendingPathComponent("missing.luau", isDirectory: false)
         let linkURL = settingsURL(in: fixture)
         try FileManager.default.createSymbolicLink(at: linkURL, withDestinationURL: targetURL)
 
@@ -240,7 +240,10 @@ final class SettingsFilePersistenceTests: XCTestCase {
 
         XCTAssertEqual(loaded, SettingsExport.defaults())
         XCTAssertEqual(try Data(contentsOf: settingsURL(in: fixture)), Data())
-        XCTAssertFalse(FileManager.default.fileExists(atPath: corruptURL(in: fixture).path))
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: fixture.configDirectory.path),
+            [SettingsFilePersistence.fileName]
+        )
     }
 
     @MainActor
@@ -259,7 +262,10 @@ final class SettingsFilePersistenceTests: XCTestCase {
         }
         XCTAssertTrue(reason.contains("raiseOnMouseFocus"))
         XCTAssertEqual(try Data(contentsOf: settingsURL(in: fixture)), invalidData)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: corruptURL(in: fixture).path))
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: fixture.configDirectory.path),
+            [SettingsFilePersistence.fileName]
+        )
     }
 
     @MainActor
@@ -284,7 +290,10 @@ final class SettingsFilePersistenceTests: XCTestCase {
 
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: settingsURL(in: fixture).path)
         XCTAssertEqual(try Data(contentsOf: settingsURL(in: fixture)), originalData)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: corruptURL(in: fixture).path))
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: fixture.configDirectory.path),
+            [SettingsFilePersistence.fileName]
+        )
     }
 
     private func makeFixture() throws -> Fixture {
@@ -304,13 +313,6 @@ final class SettingsFilePersistenceTests: XCTestCase {
 
     private func settingsURL(in fixture: Fixture) -> URL {
         fixture.configDirectory.appendingPathComponent(SettingsFilePersistence.fileName, isDirectory: false)
-    }
-
-    private func corruptURL(in fixture: Fixture, index: Int = 0) -> URL {
-        fixture.configDirectory.appendingPathComponent(
-            SettingsFilePersistence.corruptFileNames[index],
-            isDirectory: false
-        )
     }
 
     private func assertSymlink(

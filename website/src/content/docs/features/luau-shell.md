@@ -58,7 +58,7 @@ The original guide has moved into focused pages. Existing links to its sections 
 | Section | New page |
 |---|---|
 | <span id="the-shell-folder">The shell folder</span> | [Open section](/omnishell/configuration/profiles-palettes/#the-shell-folder) |
-| <span id="shelltoml">shell.toml</span> | [Open section](/omnishell/configuration/profiles-palettes/#profile-settings) |
+| <span id="shelltoml">shell.luau</span> | [Open section](/omnishell/configuration/profiles-palettes/#profile-settings) |
 | <span id="persistent-island">Persistent island</span> | [Open section](/omnishell/configuration/islands-components/#enable-and-place-an-island) |
 | <span id="writing-a-widget">Writing a widget</span> | [Open section](/omnishell/guides/first-widget/) |
 | <span id="visual-options-for-custom-bar-widgets">Visual options for custom bar widgets</span> | [Open section](/omnishell/reference/components-configuration/) |

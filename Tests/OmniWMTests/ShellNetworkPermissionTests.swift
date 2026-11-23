@@ -4,7 +4,6 @@
 import CoreFoundation
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class ShellNetworkPermissionTests: XCTestCase {
@@ -211,7 +210,7 @@ final class ShellNetworkPermissionTests: XCTestCase {
         XCTAssertTrue(updated.widgets.isEmpty)
     }
 
-    func testShellPermissionsRoundTripThroughSettingsTOMLWithDefaults() throws {
+    func testShellPermissionsRoundTripThroughSettingsLuauWithDefaults() throws {
         var export = SettingsExport.defaults()
         XCTAssertEqual(export.shellPermissions, ShellPermissionDecisions())
         XCTAssertTrue(export.shellPermissions.services.weather)
@@ -230,38 +229,36 @@ final class ShellNetworkPermissionTests: XCTestCase {
             ],
             services: .init(weather: true, lyrics: false)
         )
-        let data = try SettingsTOMLCodec.encode(export)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-        XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: data).isEmpty)
-
-        var tree = try TOMLDecoder().decode([String: TOMLNode].self, from: SettingsTOMLCodec.encode(.defaults()))
+        let data = try SettingsLuauDocument.initialSource(export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
+        var tree = try SettingsLuauFixture.fields(in: SettingsLuauDocument.initialSource(.defaults()))
         tree.removeValue(forKey: "shellPermissions")
         XCTAssertEqual(
-            try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)).shellPermissions,
+            try SettingsLuauFixture.decode(SettingsLuauFixture.source(tree)).shellPermissions,
             ShellPermissionDecisions()
         )
-        tree["shellPermissions"] = .table([
-            "widgets": .array([.table([
+        tree["shellPermissions"] = .record([
+            "widgets": .list([.record([
                 "role": .string("bar"), "name": .string("clock"), "source": .string("/shell/widgets/clock")
             ])]),
-            "programs": .array([.table([
+            "programs": .list([.record([
                 "name": .string("tool"), "source": .string("/shell/widgets/tool"),
-                "command": .array([.string("tool.sh")])
+                "command": .list([.string("tool.sh")])
             ])]),
-            "services": .table(["weather": .boolean(false)])
+            "services": .record(["weather": .boolean(false)])
         ])
         XCTAssertEqual(
-            try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)).shellPermissions,
+            try SettingsLuauFixture.decode(SettingsLuauFixture.source(tree)).shellPermissions,
             ShellPermissionDecisions(
                 widgets: [.init(role: .bar, name: "clock", source: "/shell/widgets/clock")],
                 programs: [.init(name: "tool", source: "/shell/widgets/tool", command: ["tool.sh"])],
                 services: .init(weather: false, lyrics: true)
             )
         )
-        tree["shellPermissions"] = .table(["widgets": .array([.table([
+        tree["shellPermissions"] = .record(["widgets": .list([.record([
             "role": .string("island"), "name": .string("clock"), "source": .string("/shell/widgets/clock")
         ])])])
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)))
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(SettingsLuauFixture.source(tree)))
     }
 
     @MainActor

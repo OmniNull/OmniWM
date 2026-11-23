@@ -5,7 +5,6 @@ import Foundation
 
 struct AppThemePreview {
     let engine: AppThemeEngine
-    let values: SettingsExport.AppTheming
     let dark: Bool
     let palette: () -> AppThemePalette?
 
@@ -18,17 +17,13 @@ struct AppThemePreview {
             id: app.id,
             name: app.name,
             outputs: app.outputs(configHome: configHome),
-            reload: app.reload(savedMachines: values.herdr.reloadSavedMachines)
+            reload: app.reload
         )
-    }
-
-    func target(for custom: AppThemingCustom) -> AppThemeTarget {
-        custom.target(savedMachines: values.herdr.reloadSavedMachines)
     }
 
     func changes(for target: AppThemeTarget, onlyExisting: Bool) throws -> [AppThemeChange] {
         guard let palette = palette() else { return [] }
-        let job = AppThemeJob(palette: palette, dark: dark, appearanceChanged: false, targets: [target])
+        let job = AppThemeJob(palette: palette, dark: dark, targets: [target])
         return try target.outputs.compactMap { output in
             let rendered = try engine.render(output, job: job)
             guard rendered.before != rendered.after, !onlyExisting || rendered.before != nil else { return nil }

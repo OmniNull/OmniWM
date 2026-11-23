@@ -18,29 +18,15 @@ final class WorkspaceBarNativeFullscreenSettingsTests: XCTestCase {
         ] {
             var export = SettingsExport.defaults()
             export.workspaceBar.hideInNativeFullscreen = value
-            let data = try SettingsTOMLCodec.encode(export)
+            let data = try SettingsLuauDocument.initialSource(export)
             XCTAssertTrue(String(decoding: data, as: UTF8.self).contains(line))
-            let decoded = try SettingsTOMLCodec.decode(data)
+            let decoded = try SettingsLuauFixture.decode(data)
             XCTAssertEqual(decoded.workspaceBar.hideInNativeFullscreen, value)
         }
     }
 
     func testMissingRequiredWorkspaceBarKeysRejectDecode() throws {
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        for (key, line) in [
-            ("showLabels", "showLabels = true\n"),
-            ("hideInNativeFullscreen", "hideInNativeFullscreen = false\n")
-        ] {
-            XCTAssertTrue(canonical.contains(line), key)
-            let withoutKey = canonical.replacingOccurrences(of: line, with: "")
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(withoutKey.utf8))) { error in
-                guard case let DecodingError.keyNotFound(actualKey, context) = error else {
-                    return XCTFail("expected keyNotFound for \(key), got \(error)")
-                }
-                XCTAssertEqual(actualKey.stringValue, key)
-                XCTAssertEqual(context.codingPath.map(\.stringValue), ["workspaceBar"])
-            }
-        }
+        try SettingsLuauFixture.assertRequiredFields(["showLabels", "hideInNativeFullscreen"], in: "workspaceBar")
     }
 
     @MainActor

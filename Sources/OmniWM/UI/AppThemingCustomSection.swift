@@ -66,7 +66,6 @@ struct AppThemingCustomSection: View {
         case .none: String(localized: "Writes the file only")
         case .ghostty: String(localized: "Then reloads Ghostty")
         case .kitty: String(localized: "Then reloads kitty")
-        case .herdr: String(localized: "Then reloads herdr")
         }
     }
 

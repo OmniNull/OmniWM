@@ -35,4 +35,4 @@ OmniWM reads policy at launch, on settings reload and whenever Settings opens. T
 
 The file uses Apple’s [managed-preferences payload](https://developer.apple.com/documentation/devicemanagement/managedpreferences), placing the five keys in `PayloadContent["com.barut.OmniWM"].Forced[0].mcx_preference_settings`. Adapt the policy and the example payload identifiers/UUIDs for your organization, then deploy it with your device-management service. To target OmniWM Dev, use `com.barut.OmniWM.dev` as the preference domain instead.
 
-User choices remain in [settings.toml](/config/settings-reference/#shellpermissions). Organization policy is separate and takes precedence as described above.
+User choices remain in [settings.luau](/config/settings-reference/#shellpermissions). Organization policy is separate and takes precedence as described above.

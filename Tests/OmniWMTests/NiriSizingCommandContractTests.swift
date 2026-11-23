@@ -121,16 +121,19 @@ final class NiriSizingCommandContractTests: XCTestCase {
         export.niri.containerPrimarySpanPresets = [0.25, 0.5, 0.75]
         export.niri.defaultContainerPrimarySpan = 0.5
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
+        let decoded = try SettingsLuauFixture.decode(data)
 
-        XCTAssertTrue(toml.contains("visibleContainerCount = 4"))
-        XCTAssertTrue(toml.contains("containerPrimarySpanPresets = [0.25, 0.5, 0.75]"))
-        XCTAssertTrue(toml.contains("defaultContainerPrimarySpan = 0.5"))
-        XCTAssertFalse(toml.contains("maxVisibleColumns"))
-        XCTAssertFalse(toml.contains("columnWidthPresets"))
-        XCTAssertFalse(toml.contains("defaultColumnWidth"))
+        XCTAssertTrue(source.contains("visibleContainerCount = 4"))
+        XCTAssertEqual(
+            try SettingsLuauFixture.fields(in: data)["niri"]?["containerPrimarySpanPresets"],
+            .list([.number(0.25), .number(0.5), .number(0.75)])
+        )
+        XCTAssertTrue(source.contains("defaultContainerPrimarySpan = 0.5"))
+        XCTAssertFalse(source.contains("maxVisibleColumns"))
+        XCTAssertFalse(source.contains("columnWidthPresets"))
+        XCTAssertFalse(source.contains("defaultColumnWidth"))
         XCTAssertEqual(decoded.niri.visibleContainerCount, 4)
         XCTAssertEqual(decoded.niri.containerPrimarySpanPresets, [0.25, 0.5, 0.75])
         XCTAssertEqual(decoded.niri.defaultContainerPrimarySpan, 0.5)

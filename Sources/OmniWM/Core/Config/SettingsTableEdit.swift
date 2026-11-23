@@ -72,7 +72,6 @@ struct SettingsTableEdit {
             value = try SettingsLuauValue.fields(of: settings)
             for change in SettingsValueChange
                 .between(node.old, node.new) { value.set(change.value, at: change.path[...]) }
-            value.set(nil, at: ["schemaVersion"])
         }
         let literal: String
         if !node.source.isEmpty, let parent = document.tables[Array(node.source.dropLast())] {

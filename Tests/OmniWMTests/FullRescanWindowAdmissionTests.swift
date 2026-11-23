@@ -79,13 +79,13 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         let bundleId = "com.microsoft.VSCode"
         var settings = SettingsExport.defaults()
         settings.appRules = [AppRule(bundleId: bundleId, assignToWorkspace: "32")]
-        let original = String(decoding: try SettingsTOMLCodec.encode(settings), as: UTF8.self)
+        let original = String(decoding: try SettingsLuauDocument.initialSource(settings), as: UTF8.self)
         let workspaceAssignment = #"assignToWorkspace = "32""#
         let configured = original.replacingOccurrences(
             of: workspaceAssignment,
-            with: workspaceAssignment + "\nassignToWorkspaceForAllWindows = true"
+            with: workspaceAssignment + ",\nassignToWorkspaceForAllWindows = true"
         )
-        let rules = try SettingsTOMLCodec.decode(Data(configured.utf8)).appRules
+        let rules = try SettingsLuauFixture.decode(Data(configured.utf8)).appRules
         controller.windowRuleEngine.rebuild(rules: rules)
 
         let frame = CGRect(

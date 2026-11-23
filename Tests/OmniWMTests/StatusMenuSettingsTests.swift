@@ -189,7 +189,8 @@ final class StatusMenuSettingsPersistenceTests: XCTestCase {
 
             let control = StatusMenuControl.bordersEnabled.rawValue
             settings.statusMenu.setControl(control, isVisible: false)
-            XCTAssertTrue(String(describing: settings.configNotice).contains("statusMenu.hiddenControls"))
+            expected.hiddenControls = [control]
+            XCTAssertNil(settings.configNotice)
             XCTAssertEqual(try persisted(), expected)
 
             expected.showControls = !(try XCTUnwrap(expected.showControls))
@@ -202,13 +203,14 @@ final class StatusMenuSettingsPersistenceTests: XCTestCase {
 
             let item = StatusMenuItem.appRules
             settings.statusMenu.setMenuItem(item, isVisible: false)
-            XCTAssertTrue(String(describing: settings.configNotice).contains("statusMenu.hiddenMenuItems"))
+            expected.hiddenMenuItems = [item.rawValue]
+            XCTAssertNil(settings.configNotice)
             XCTAssertEqual(try persisted(), expected)
         }
     }
 }
 
-final class StatusMenuSettingsTOMLTests: XCTestCase {
+final class StatusMenuSettingsLuauTests: XCTestCase {
     func testStatusMenuDefaultsRoundTrip() throws {
         let export = SettingsExport.defaults()
         let defaults = SettingsExport.StatusMenu.defaults()
@@ -216,11 +218,10 @@ final class StatusMenuSettingsTOMLTests: XCTestCase {
         XCTAssertEqual(export.statusMenu.showControlHelp, defaults.showControlHelp)
         XCTAssertEqual(export.statusMenu.hiddenControls, defaults.hiddenControls)
 
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         let text = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(text.contains("[statusMenu]"), text)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).statusMenu, export.statusMenu)
-        XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: data), [])
+        XCTAssertTrue(text.contains("statusMenu = {"), text)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).statusMenu, export.statusMenu)
     }
 
     func testHiddenControlsRoundTrip() throws {
@@ -233,8 +234,8 @@ final class StatusMenuSettingsTOMLTests: XCTestCase {
         export.statusMenu.hiddenControls = controls
         export.statusMenu.hiddenMenuItems = items
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertEqual(decoded.statusMenu, export.statusMenu)
         XCTAssertEqual(decoded.statusMenu.hiddenControls, controls)
         XCTAssertEqual(decoded.statusMenu.hiddenMenuItems, items)
@@ -242,29 +243,16 @@ final class StatusMenuSettingsTOMLTests: XCTestCase {
     }
 
     func testRemovedAppMenuKeyIsUnknown() throws {
-        let key = "showAppMenu"
-        let table = "statusMenu"
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let input = canonical.replacingOccurrences(of: "[\(table)]", with: "[\(table)]\n\(key) = true")
-        XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: Data(input.utf8)), ["\(table).\(key)"])
+        let source = Data("return { statusMenu = { showAppMenu = true } }".utf8)
+        XCTAssertThrowsError(try SettingsLuauDocument(source)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("statusMenu.showAppMenu"))
+        }
     }
 
-    func testOmittedStatusMenuTableUsesDefaultsWithoutMigration() throws {
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        var lines = canonical.components(separatedBy: "\n")
-        guard let start = lines.firstIndex(where: { $0 == "[statusMenu]" }) else {
-            return XCTFail("canonical config is missing the statusMenu table")
-        }
-        var end = start + 1
-        while end < lines.count, !lines[end].hasPrefix("[") {
-            end += 1
-        }
-        lines.removeSubrange(start ..< end)
-
-        let result = try SettingsTOMLCodec.decodeForLoad(Data(lines.joined(separator: "\n").utf8))
-        XCTAssertEqual(result.export.statusMenu, SettingsExport.StatusMenu.defaults())
-        XCTAssertNil(result.migration)
-        XCTAssertNil(result.migratedData)
+    func testOmittedStatusMenuTableUsesDefaults() throws {
+        var fields = try SettingsLuauFixture.fields()
+        fields.removeValue(forKey: "statusMenu")
+        XCTAssertEqual(try SettingsLuauFixture.decode(SettingsLuauFixture.source(fields)).statusMenu, .defaults())
     }
 }
 

@@ -10,7 +10,13 @@
     "App’s Own Size" : {
 
     },
+    "Correct the reported value in %@ and save the file to apply your settings." : {
+
+    },
     "Keep Existing Window Sizes" : {
+
+    },
+    "Resolve the reported file problem at %@, then reload or restart OmniWM." : {
 
     },
     "With fewer columns than this number, columns grow to fill the display. Off keeps their own widths in horizontal strips and heights in vertical strips." : {
@@ -121,9 +127,6 @@
     "App Theming guide" : {
 
     },
-    "Color Ghostty, kitty, herdr, Neovim and your own templates from OmniWM’s palette." : {
-
-    },
     "Neovim Theme" : {
 
     },
@@ -169,9 +172,6 @@
     "%@ is not a regular file, so OmniWM won’t replace it" : {
 
     },
-    "%@ is not valid TOML, so OmniWM left it unchanged" : {
-
-    },
     "%@ is outside ~/.config and ~/Library/Application Support, so OmniWM won’t write it" : {
 
     },
@@ -195,6 +195,7 @@
 
     },
     "%lld of %lld saved machines reloaded" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -210,9 +211,6 @@
     "A custom template writes one file inside ~/.config or ~/Library/Application Support, rendered for the current macOS appearance." : {
 
     },
-    "A herdr client attached to another machine draws with this terminal’s colors, so OmniWM reloads every enabled saved machine after the terminal." : {
-
-    },
     "Add Custom Template" : {
 
     },
@@ -226,9 +224,6 @@
 
     },
     "Already up to date" : {
-
-    },
-    "Also reload saved herdr machines" : {
 
     },
     "App Theming" : {
@@ -331,19 +326,10 @@
     "Reload Ghostty" : {
 
     },
-    "Reload herdr" : {
-
-    },
     "Reload kitty" : {
 
     },
     "Reloaded Ghostty" : {
-
-    },
-    "Reloaded herdr" : {
-
-    },
-    "Reloaded herdr with warnings" : {
 
     },
     "Reloaded kitty" : {
@@ -353,9 +339,6 @@
 
     },
     "Replace Changed Files" : {
-
-    },
-    "Replacing the table would change other settings in the file, so OmniWM left it unchanged" : {
 
     },
     "Review and Replace…" : {
@@ -379,12 +362,6 @@
     "Terminal colors 0 to 15. Colors 1 to 15 keep at least 4.5:1 contrast with the background." : {
 
     },
-    "The [theme.custom] table of herdr’s config · reloads herdr through its socket API" : {
-
-    },
-    "The rendered template is not a valid TOML table" : {
-
-    },
     "The template %@ can’t be read" : {
 
     },
@@ -392,9 +369,6 @@
 
     },
     "Then reloads Ghostty" : {
-
-    },
-    "Then reloads herdr" : {
 
     },
     "Then reloads kitty" : {
@@ -418,31 +392,7 @@
     "Wrote %@" : {
 
     },
-    "herdr Theme" : {
-
-    },
-    "herdr couldn’t apply its config" : {
-
-    },
-    "herdr didn’t reload" : {
-
-    },
-    "herdr isn’t running; it uses the new colors when it starts" : {
-
-    },
-    "it closed the connection without a reply" : {
-
-    },
     "it isn’t valid app theming state" : {
-
-    },
-    "its output didn’t finish" : {
-
-    },
-    "its reply was too long" : {
-
-    },
-    "its socket path is too long" : {
 
     },
     "kitty 0.38 or newer loads these files by itself and switches them with macOS light and dark." : {
@@ -455,15 +405,6 @@
 
     },
     "kitty isn’t running; it uses the new theme when it opens" : {
-
-    },
-    "saved machines couldn’t be listed" : {
-
-    },
-    "the request couldn’t be written" : {
-
-    },
-    "timed out" : {
 
     },
     "Clear Pick History" : {
@@ -34184,6 +34125,7 @@
       }
     },
     "Compare %@ with %@, restore valid values, and then remove the recovery file." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -38285,6 +38227,7 @@
       }
     },
     "Correct the reported value at %@; OmniWM applies the file once it decodes. Saving from the Settings window first secures the rejected bytes as a recovery file." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -68454,6 +68397,7 @@
       }
     },
     "Inspect %@/settings.toml.corrupt and %@/settings.toml.corrupt.1 if present, then delete the recovery files to dismiss this notice." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -69328,6 +69272,7 @@
       }
     },
     "Invalid settings recovered" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -90562,6 +90507,7 @@
       }
     },
     "OmniWM could not decode %@: %@ The exact rejected bytes were preserved at %@." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -91699,6 +91645,7 @@
       }
     },
     "OmniWM left %@ untouched and blocked configuration writes: %@ The exact original bytes are at %@." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -91953,6 +91900,7 @@
       }
     },
     "OmniWM preserved settings data it could not parse as settings.toml.corrupt or settings.toml.corrupt.1." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -92573,6 +92521,7 @@
       }
     },
     "OmniWM upgraded %@ from schema version %lld to %lld. The exact original bytes were preserved at %@. %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -106611,6 +106560,7 @@
       }
     },
     "Remove or fix the keys in %@." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -110834,6 +110784,7 @@
       }
     },
     "Resolve the reported schema or backup problem at %@, then reload or restart OmniWM." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -119794,6 +119745,7 @@
       }
     },
     "Settings recovery file available" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -119918,6 +119870,7 @@
       }
     },
     "Settings upgraded" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -138960,6 +138913,7 @@
       }
     },
     "Unrecognized settings keys" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -140950,6 +140904,7 @@
       }
     },
     "Verify the upgraded settings, then keep the backup or delete %@ to dismiss this notice." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -150827,10 +150782,8 @@
         }
       }
     },
-    "saved machines need herdr in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin" : {
-
-    },
     "settings.toml contains keys OmniWM does not recognize: %@. They are ignored." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {

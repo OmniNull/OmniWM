@@ -42,6 +42,6 @@ final class WorkspaceBarExportObservationTests: XCTestCase {
         export.workspaceBar.textColor = nil
         export.scratchpads.labels = ["3": "COMMS"]
 
-        XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)), export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export)), export)
     }
 }

@@ -52,7 +52,7 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
             "== Invariant Check ==",
             "== Multitouch Source ==",
             "== AX Frame State ==",
-            "== Settings (TOML) =="
+            "== Settings (Luau) =="
         ] {
             XCTAssertTrue(report.contains(header), "missing report section \(header)")
         }
@@ -372,7 +372,7 @@ final class DiagnosticsTraceCaptureTests: XCTestCase {
         let report = try controller.writeDiagnosticsReport()
         let content = try String(contentsOf: report, encoding: .utf8)
 
-        XCTAssertTrue(content.contains("== Settings (TOML) =="))
+        XCTAssertTrue(content.contains("== Settings (Luau) =="))
         XCTAssertTrue(content.contains("followsMouse = true"))
         XCTAssertFalse(content.contains("<redacted>"), "redaction must not sneak back in")
     }

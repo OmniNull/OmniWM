@@ -12,15 +12,15 @@ final class WorkspaceBarFeatureSwitchTests: XCTestCase {
         XCTAssertTrue(export.workspaceBar.hoverPreviewsEnabled)
 
         export.workspaceBar.hoverPreviewsEnabled = false
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("hoverPreviewsEnabled = false"))
-        XCTAssertFalse(try SettingsTOMLCodec.decode(data).workspaceBar.hoverPreviewsEnabled)
+        XCTAssertFalse(try SettingsLuauFixture.decode(data).workspaceBar.hoverPreviewsEnabled)
 
         let withoutKey = String(decoding: data, as: UTF8.self)
             .split(separator: "\n", omittingEmptySubsequences: false)
             .filter { !$0.contains("hoverPreviewsEnabled") }
             .joined(separator: "\n")
-        XCTAssertTrue(try SettingsTOMLCodec.decode(Data(withoutKey.utf8)).workspaceBar.hoverPreviewsEnabled)
+        XCTAssertTrue(try SettingsLuauFixture.decode(Data(withoutKey.utf8)).workspaceBar.hoverPreviewsEnabled)
     }
 
     @MainActor
