@@ -736,7 +736,9 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "window", action: "toggle-column-tabbed", id: string) -> () }
     & { read dispatch: (kind: "window", action: "toggle-floating", id: string) -> () }
     & { read dispatch: (kind: "window", action: "assign-to-scratchpad", id: string, number: string) -> () }
-export type ConfigKeymap = { read set: (chord: string, action: ConfigAction | ConfigFunction, options: { modeKey: string?, reads: { ConfigRead }? }?) -> () }
+export type ConfigKeymap =
+    { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read reads: nil }?) -> () }
+    & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read reads: { read [number]: ConfigRead }? }?) -> () }
 export type ConfigTimers = { read timer: (options: ConfigTimerOptions, callback: () -> ()) -> ConfigTimer }
     & { read timer: (options: ConfigTimerOptions, callback: ConfigFunction, optionsForCallback: ConfigReadOptions) -> ConfigTimer }
 
