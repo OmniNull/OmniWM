@@ -73,22 +73,6 @@ enum FullRescanCandidateSelection {
         }
     }
 
-    static func shouldPreferFullRescanCandidate(
-        _ candidate: FullRescanWindowCandidate,
-        over current: FullRescanWindowCandidate,
-        activationPolicyByPID: [pid_t: NSApplication.ActivationPolicy],
-        ownerPID: pid_t?,
-        existingPID: pid_t?
-    ) -> Bool {
-        fullRescanCandidatePreference(
-            candidate,
-            over: current,
-            activationPolicyByPID: activationPolicyByPID,
-            ownerPID: ownerPID,
-            existingPID: existingPID
-        ).prefersCandidate
-    }
-
     static func fullRescanCandidatePreference(
         _ candidate: FullRescanWindowCandidate,
         over current: FullRescanWindowCandidate,
