@@ -246,6 +246,7 @@ enum ActionCatalog {
              .windowState,
              .openMenuAnywhere,
              .windowMark,
+             .renameWorkspace,
              .presentation,
              .media,
              .keyboardMode,
@@ -299,6 +300,10 @@ enum ActionCatalog {
                 "command.menu.openAnywhere", defaultValue: "Open Menu Anywhere", table: "Commands", bundle: .omniWM
             )
         case let .windowMark(action): action.actionDisplayName()
+        case .renameWorkspace: LocalizedStringResource(
+                "command.workspace.rename", defaultValue: "Rename Workspace", table: "Commands",
+                bundle: .omniWM
+            )
         case let .presentation(command): command.actionDisplayName()
         case let .media(command): command.actionDisplayName()
         case let .keyboardMode(command): command.actionDisplayName()

@@ -43,6 +43,14 @@ extension ActionCatalog {
             ),
             setWindowMarkActionSpec,
             removeWindowMarkActionSpec,
+            action(
+                id: "renameWorkspace",
+                command: .renameWorkspace,
+                category: .workspace,
+                binding: .unassigned,
+                visibility: .unassignable,
+                keywords: ["rename", "name", "label", "display name", "workspace"]
+            ),
             IPCPresentationCommand.workspaceBar.actionSpec(),
             IPCPresentationCommand.hiddenBar.actionSpec(),
             IPCPresentationCommand.quakeTerminal.actionSpec(),

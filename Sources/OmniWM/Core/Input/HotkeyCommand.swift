@@ -64,6 +64,7 @@ enum HotkeyCommand: Equatable, Hashable {
 
     case openMenuAnywhere
     case windowMark(WindowMarkHotkeyAction)
+    case renameWorkspace
 
     case presentation(IPCPresentationCommand)
     case media(IPCMediaCommand)

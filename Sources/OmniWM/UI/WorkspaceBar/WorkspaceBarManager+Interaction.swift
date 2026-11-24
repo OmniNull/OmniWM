@@ -212,13 +212,19 @@ extension WorkspaceBarManager {
         }
     }
 
-    private func beginRename(workspaceId: WorkspaceDescriptor.ID, monitorId: Monitor.ID, anchor: CGRect) {
+    func beginRename(workspaceId: WorkspaceDescriptor.ID, monitorId: Monitor.ID) -> Bool {
+        guard let island = islandContexts(on: monitorId).first?.island else { return false }
+        return beginRename(workspaceId: workspaceId, monitorId: monitorId, anchor: island.panel.frame)
+    }
+
+    @discardableResult
+    private func beginRename(workspaceId: WorkspaceDescriptor.ID, monitorId: Monitor.ID, anchor: CGRect) -> Bool {
         guard let controller,
               let rawName = controller.workspaceManager.descriptor(for: workspaceId)?.name,
               let (instance, island) = islandContexts(on: monitorId).first,
               let screen = island.panel.screen
         else {
-            return
+            return false
         }
         let panel = renamePanel ?? WorkspaceBarRenamePanel(
             ownedWindowRegistry: controller.ownedWindowRegistry,
@@ -245,6 +251,7 @@ extension WorkspaceBarManager {
                 forWorkspaceNamed: rawName
             )
         }
+        return true
     }
 }
 

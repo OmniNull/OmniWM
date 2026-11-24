@@ -21,6 +21,17 @@ final class ActionCatalogLookupTests: XCTestCase {
         }
     }
 
+    func testRenameWorkspaceIsPaletteOnlyCommand() throws {
+        let spec = try XCTUnwrap(ActionCatalog.spec(for: "renameWorkspace"))
+
+        XCTAssertEqual(spec.command, .renameWorkspace)
+        XCTAssertEqual(spec.title, "Rename Workspace")
+        XCTAssertEqual(spec.visibility, .unassignable)
+        XCTAssertNil(spec.ipcCommandName)
+        XCTAssertFalse(ActionCatalog.defaultHotkeyBindings().contains { $0.id == spec.id })
+        XCTAssertTrue(try XCTUnwrap(ActionCatalog.normalizedSearchTerms(for: spec.id)).contains("rename"))
+    }
+
     func testUncataloguedCommandsKeepDisplayFallbacks() {
         let commands: [(HotkeyCommand, LayoutCompatibility)] = [
             (.column(.moveToIndex(123)), .shared),

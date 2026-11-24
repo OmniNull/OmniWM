@@ -15481,6 +15481,17 @@
         }
       }
     },
+    "command.workspace.rename" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Rename Workspace"
+          }
+        }
+      }
+    },
     "command.workspace.swapWithMonitor.down" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
