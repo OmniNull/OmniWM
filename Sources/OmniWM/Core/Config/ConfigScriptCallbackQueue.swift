@@ -3,6 +3,9 @@
 
 import Foundation
 import OmniWMScriptHost
+#if OMNIWM_SCRIPT_ARC_AUDIT
+    import ScriptARCCounters
+#endif
 
 @MainActor
 final class ConfigScriptCallbackQueue {
@@ -81,6 +84,11 @@ final class ConfigScriptCallbackQueue {
 
     var hasCloseListener: Bool {
         listeners[.windowClose] != nil
+    }
+
+    var isRetired: Bool {
+        if case .retired = state { return true }
+        return false
     }
 
     var isParked: Bool {
@@ -341,7 +349,7 @@ extension ConfigScriptCallbackQueue {
                 self.notifyParkWaiters()
             }
             var slot = InFlight()
-            while self.worker?.isCancelled == false {
+            while !self.isRetired {
                 if self.pendingCount == 0 {
                     await withUnsafeContinuation { self.park($0) }
                     continue
@@ -376,11 +384,11 @@ extension ConfigScriptCallbackQueue {
                         } catch {
                             self.report(error, to: owner)
                         }
-                        guard let next = Self.nextListener(in: &slot), !Task.isCancelled else { break }
+                        guard let next = slot.nextListener(), !Task.isCancelled else { break }
                         function = next
                     } while true
                     self.finish(&slot, isEvent: isEvent)
-                } while self.pendingCount != 0 && self.worker?.isCancelled == false
+                } while self.pendingCount != 0 && !self.isRetired
             }
         }
     }
@@ -393,7 +401,7 @@ extension ConfigScriptCallbackQueue {
     }
 
     private func park(_ continuation: UnsafeContinuation<Void, Never>) {
-        guard pendingCount == 0, worker?.isCancelled == false else {
+        guard pendingCount == 0, !isRetired else {
             continuation.resume()
             return
         }
@@ -427,17 +435,10 @@ extension ConfigScriptCallbackQueue {
         pendingCount = 0
     }
 
-    private static func nextListener(in slot: inout InFlight) -> Int? {
-        while let function = slot.listeners?.popFirst() {
-            if slot.excluded?.contains(function.index) != true {
-                slot.listenerIndex = function.index
-                return function.function
-            }
-        }
-        return nil
-    }
-
     private func dequeue(into slot: inout InFlight, controller: WMController) -> Int? {
+        #if OMNIWM_SCRIPT_ARC_AUDIT
+            script_arc_check_dequeue()
+        #endif
         let next = work[head].take()!
         head = (head + 1) % work.count
         pendingCount -= 1

@@ -47,20 +47,6 @@ static void measured_bridge_release_n(void *object, unsigned n) {
 INTERPOSE(swift_bridgeObjectRetain_n, measured_bridge_retain_n)
 INTERPOSE(swift_bridgeObjectRelease_n, measured_bridge_release_n)
 
-extern __attribute__((swiftcall)) bool swift_task_isCancelled(void *);
-extern __attribute__((swiftcall, weak_import)) bool swift_task_isCancelledWithFlags(void *, uint64_t);
-
-static __attribute__((swiftcall)) bool measured_is_cancelled(void *task) {
-    script_arc_check_dequeue();
-    return swift_task_isCancelled(task);
-}
-static __attribute__((swiftcall)) bool measured_is_cancelled_with_flags(void *task, uint64_t flags) {
-    script_arc_check_dequeue();
-    return swift_task_isCancelledWithFlags(task, flags);
-}
-INTERPOSE(swift_task_isCancelled, measured_is_cancelled)
-INTERPOSE(swift_task_isCancelledWithFlags, measured_is_cancelled_with_flags)
-
 extern __attribute__((swiftcall)) void *swift_continuation_init(void *, uintptr_t);
 extern __attribute__((swiftcall)) void swift_continuation_throwingResume(void *);
 static __attribute__((swiftcall)) void *observed_init(void *frame, uintptr_t flags) {

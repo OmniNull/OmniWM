@@ -9,6 +9,7 @@ void script_arc_install(void);
 void script_arc_check_calibration(void);
 void script_arc_begin(void);
 void script_arc_end(void);
+void script_arc_check_dequeue(void);
 void script_arc_follow(const void *task, bool has_seed);
 void script_arc_finish(void);
 void script_arc_follow_timer(void);

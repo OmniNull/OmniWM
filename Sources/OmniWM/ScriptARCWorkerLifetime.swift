@@ -254,7 +254,7 @@ private func checkOrphanedEventDelivery(directory: URL) async throws {
         value: .minimized(true),
         in: manager
     )
-    precondition(queue.hasPendingWork || worker.isCancelled)
+    precondition(queue.hasPendingWork || queue.isRetired)
     await worker.value
     precondition(queue.worker == nil && !queue.hasPendingWork && owner.diagnostic == nil)
     owner.stop()

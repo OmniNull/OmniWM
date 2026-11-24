@@ -69,6 +69,16 @@ extension ConfigScriptCallbackQueue {
         var listenerIndex = 0
         var listeners: ArraySlice<Listener>?
 
+        mutating func nextListener() -> Int? {
+            while let function = listeners?.popFirst() {
+                if excluded?.contains(function.index) != true {
+                    listenerIndex = function.index
+                    return function.function
+                }
+            }
+            return nil
+        }
+
         mutating func nextEventArgument() -> ConfigScriptQueuedEvent? {
             if listeners?.isEmpty == false { return event }
             return event.take()

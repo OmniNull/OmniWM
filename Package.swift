@@ -233,5 +233,6 @@ if let auditDirectory = scriptARCDirectory {
     host.cxxSettings = (host.cxxSettings ?? []) + [.define("lua_resume", to: "script_arc_lua_resume")]
     let app = package.targets.first { $0.name == "OmniWM" }!
     app.dependencies.append(.byName(name: counters))
+    app.swiftSettings = (app.swiftSettings ?? []) + [.define("OMNIWM_SCRIPT_ARC_AUDIT")]
     app.linkerSettings = (app.linkerSettings ?? []) + [.unsafeFlags(["-L" + auditDirectory, "-lScriptARC"])]
 }

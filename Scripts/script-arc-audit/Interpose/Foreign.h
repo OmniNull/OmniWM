@@ -10,6 +10,5 @@ enum script_foreign_call {
 
 void script_arc_foreign(enum script_foreign_call call);
 void script_arc_foreign_n(enum script_foreign_call call, unsigned n);
-void script_arc_check_dequeue(void);
 void script_arc_observe_park(void);
 void script_arc_record_wake(void (*resume)(void *), void *continuation);
