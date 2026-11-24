@@ -23,7 +23,7 @@ extension ShellConfig {
     ) {
         config.island = islandConfig(table["island"], &problems)
         if case let .record(weather)? = table["weather"] {
-            unknownKeys(in: weather, known: weatherKeys, of: "shell.luau: [weather]", &problems)
+            unknownKeys(in: weather, known: weatherKeys, of: "shell.luau", path: "weather", &problems)
             config.weather = weatherLocation(weather, &problems)
         }
         if case let .string(name)? = table["hiddenBarWidget"] {
@@ -43,10 +43,10 @@ extension ShellConfig {
     private static func islandConfig(_ node: SettingsLuauValue?, _ problems: inout [String]) -> ShellIslandConfig? {
         guard let node else { return nil }
         guard case let .record(table) = node else {
-            report("shell.luau: [island] must be a table", &problems)
+            report("shell.luau: island must be a table", &problems)
             return nil
         }
-        unknownKeys(in: table, known: islandKeys, of: "shell.luau: [island]", &problems)
+        unknownKeys(in: table, known: islandKeys, of: "shell.luau", path: "island", &problems)
         var island = ShellIslandConfig()
         guard applyIslandPlacement(table, to: &island, &problems) else { return nil }
         guard applyIslandSize(table, to: &island, &problems) else { return nil }
@@ -64,28 +64,28 @@ extension ShellConfig {
     ) -> Bool {
         if let root = table["root"] {
             guard case let .string(name) = root, isName(name) else {
-                report("shell.luau: [island] root must be a widget name", &problems)
+                report("shell.luau: island.root must be a widget name", &problems)
                 return false
             }
             island.root = name
         }
         if let draws = table["drawsSystemStats"] {
             guard case let .boolean(value) = draws else {
-                report("shell.luau: [island] drawsSystemStats must be true or false", &problems)
+                report("shell.luau: island.drawsSystemStats must be true or false", &problems)
                 return false
             }
             island.drawsSystemStats = value
         }
         if let displays = table["displays"] {
             guard case let .string(name) = displays, let value = ShellIslandConfig.Displays(rawValue: name) else {
-                report("shell.luau: [island] displays must be notch, main or all", &problems)
+                report("shell.luau: island.displays must be notch, main or all", &problems)
                 return false
             }
             island.displays = value
         }
         if let fullscreen = table["fullscreen"] {
             guard case let .string(name) = fullscreen, let value = ShellIslandConfig.Fullscreen(rawValue: name) else {
-                report("shell.luau: [island] fullscreen must be hide or show", &problems)
+                report("shell.luau: island.fullscreen must be hide or show", &problems)
                 return false
             }
             island.fullscreen = value
@@ -98,14 +98,14 @@ extension ShellConfig {
     ) -> Bool {
         if let sizing = table["sizing"] {
             guard case let .string(name) = sizing, let value = ShellIslandConfig.Sizing(rawValue: name) else {
-                report("shell.luau: [island] sizing must be fixed or display", &problems)
+                report("shell.luau: island.sizing must be fixed or display", &problems)
                 return false
             }
             island.sizing = value
         }
         for key in ["width", "height"] where table[key] != nil {
             guard let value = number(table[key]), value.isFinite, (1 ... 8192).contains(value) else {
-                report("shell.luau: [island] \(key) must be a finite number between 1 and 8192", &problems)
+                report("shell.luau: island.\(key) must be a finite number between 1 and 8192", &problems)
                 return false
             }
             if key == "width" { island.width = value } else { island.height = value }
@@ -125,7 +125,10 @@ extension ShellConfig {
             } else if key == "rehideIntervalSeconds", let value = number(node) {
                 hiddenBar.rehideIntervalSeconds = HiddenBarSettingsPolicy.validatedRehideIntervalSeconds(value)
             } else {
-                report("shell.luau: [hiddenBar] \(key) is not a Hidden Bar setting a profile can override", &problems)
+                report(
+                    "shell.luau: \(SettingsLuauValue.fieldPath(key, in: "hiddenBar")) is not a Hidden Bar setting a profile can override",
+                    &problems
+                )
             }
         }
         return hiddenBar.overriddenKeys.isEmpty ? nil : hiddenBar
@@ -136,15 +139,16 @@ extension ShellConfig {
         _ node: SettingsLuauValue?,
         _ problems: inout [String]
     ) -> ShellDrawerConfig? {
+        let path = "drawer[\(SettingsLuauValue.quoted(id))]"
         guard isName(id), case let .record(table)? = node else {
-            report("shell.luau: [drawer.\(id)] must be a table with a name", &problems)
+            report("shell.luau: \(path) must be a table with a name", &problems)
             return nil
         }
-        unknownKeys(in: table, known: drawerKeys, of: "shell.luau: [drawer.\(id)]", &problems)
+        unknownKeys(in: table, known: drawerKeys, of: "shell.luau", path: path, &problems)
         var edge = ShellDrawerConfig.Edge.right
         if let node = table["edge"] {
             guard case let .string(name) = node, let parsed = ShellDrawerConfig.Edge(rawValue: name) else {
-                report("shell.luau: [drawer.\(id)] edge must be left, right, top or bottom", &problems)
+                report("shell.luau: \(path).edge must be left, right, top or bottom", &problems)
                 return nil
             }
             edge = parsed
@@ -155,12 +159,12 @@ extension ShellConfig {
              .string("panel")?: island = false
         case .string("island")?: island = true
         default:
-            report("shell.luau: [drawer.\(id)] present must be \"panel\" or \"island\"", &problems)
+            report("shell.luau: \(path).present must be \"panel\" or \"island\"", &problems)
             return nil
         }
-        let widgets = names(table["widgets"], key: "[drawer.\(id)] widgets", &problems).filter(isName)
+        let widgets = names(table["widgets"], key: "\(path).widgets", &problems).filter(isName)
         guard island || !widgets.isEmpty else {
-            report("shell.luau: [drawer.\(id)] needs at least one widget", &problems)
+            report("shell.luau: \(path).widgets needs at least one widget", &problems)
             return nil
         }
         var drawer = ShellDrawerConfig(id: id, edge: edge, widgets: widgets, hover: table["hover"] == .boolean(true))
@@ -173,7 +177,7 @@ extension ShellConfig {
         case nil,
              .string("outside")?: break
         case .string("leave")?: drawer.closesOnLeave = true
-        default: report("shell.luau: [drawer.\(id)] close must be \"outside\" or \"leave\"", &problems)
+        default: report("shell.luau: \(path).close must be \"outside\" or \"leave\"", &problems)
         }
         if case let .boolean(chrome)? = table["chrome"] {
             drawer.chrome = chrome

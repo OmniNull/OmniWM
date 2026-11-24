@@ -173,7 +173,15 @@ final class ShellAppCatalogTests: XCTestCase {
         )
         XCTAssertNil(catalog.definitions[authoring.id])
         XCTAssertEqual(editor.metadataProblem, catalog.problems.joined(separator: "\n"))
-        XCTAssertTrue(try XCTUnwrap(editor.metadataProblem).contains("[window]"))
+        let folders = try FileManager.default.contentsOfDirectory(
+            at: authoring.directory,
+            includingPropertiesForKeys: nil
+        )
+        let folder = try XCTUnwrap(folders.first { $0.lastPathComponent == authoring.id })
+        XCTAssertEqual(
+            editor.metadataProblem,
+            "\(folder.path): \(authoring.id)/component.manifest.luau: missing window"
+        )
         try authoring.write()
         await catalog.refresh()
         XCTAssertNil(editor.metadataProblem)

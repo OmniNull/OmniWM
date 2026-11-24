@@ -133,25 +133,39 @@ final class ShellAppManifestTests: XCTestCase {
     func testMissingTablesFieldsAndSourceAreAuthoringFailures() throws {
         let fixture = ShellAppAuthoringFixture()
         defer { try? fixture.remove() }
-        for (manifest, field) in [
-            ("return { views = { 'main' } }", "[window]"),
-            ("return { views = { 'main' }, window = false }", "[window]"),
-            ("return { views = { 'main' }, window = { view = 'main' } }", "width"),
+        let child = #"window.children["confirm"]"#
+        for (manifest, reason) in [
+            ("return { views = { 'main' } }", "missing window"),
+            ("return { views = { 'main' }, window = false }", "window must be a table"),
             (
-                fixture.manifest
-                    .replacingOccurrences(
-                        of: "confirm = {",
-                        with: "invalid = false, confirm = {"
-                    ),
-                "invalid"
+                "return { views = { 'main' }, window = { view = 'main' } }",
+                "window.width must be positive finite points"
             ),
-            (fixture.manifest.replacingOccurrences(of: "kind = \"sheet\",", with: ""), "kind"),
-            (fixture.manifest.replacingOccurrences(of: "view = \"confirm\",", with: ""), "view"),
-            (fixture.manifest.replacingOccurrences(of: "title = \"Confirm fixture\",", with: ""), "title")
+            ("""
+            return { views = { "main" }, window = { view = "main", children = false,
+                width = \(fixture.preferred.width), height = \(fixture.preferred.height),
+                minWidth = \(fixture.minimum.width), minHeight = \(fixture.minimum.height) } }
+            """, "window.children must be a table"),
+            (
+                fixture.manifest.replacingOccurrences(of: "confirm = {", with: "invalid = false, confirm = {"),
+                #"window.children["invalid"] must be a table"#
+            ),
+            (
+                fixture.manifest.replacingOccurrences(of: "kind = \"sheet\",", with: ""),
+                "\(child).kind must be sheet or utility"
+            ),
+            (
+                fixture.manifest.replacingOccurrences(of: "view = \"confirm\",", with: ""),
+                "\(child).view must name a declared component view (got \"\")"
+            ),
+            (
+                fixture.manifest.replacingOccurrences(of: "title = \"Confirm fixture\",", with: ""),
+                "\(child).title must be a nonempty string"
+            )
         ] {
             try fixture.write(manifest: manifest)
             XCTAssertThrowsError(try ShellAppDefinition.load(id: fixture.id, folder: fixture.folder)) { error in
-                XCTAssertTrue(error.localizedDescription.contains(field), error.localizedDescription)
+                XCTAssertEqual(error.localizedDescription, "\(fixture.id)/component.manifest.luau: \(reason)")
             }
         }
         try fixture.write()

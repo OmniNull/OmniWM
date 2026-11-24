@@ -56,8 +56,10 @@ final class ShellDrawerTests: XCTestCase {
         XCTAssertEqual(shelf.edge, .top)
         XCTAssertTrue(shelf.closesOnLeave)
         XCTAssertEqual(drawers.map(\.id), ["shelf"])
-        XCTAssertTrue(problems.contains { $0.contains("present must be") }, "\(problems)")
-        XCTAssertTrue(problems.contains { $0.contains("[drawer.bare] needs at least one widget") }, "\(problems)")
+        XCTAssertEqual(problems, [
+            #"shell.luau: drawer["bare"].widgets needs at least one widget"#,
+            #"shell.luau: drawer["odd"].present must be "panel" or "island""#
+        ])
     }
 
     func testIslandDrawersHoldWhileThePointerIsOverTheIslandAndCloseAfterLeaving() {

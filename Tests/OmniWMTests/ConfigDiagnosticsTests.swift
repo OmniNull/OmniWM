@@ -30,10 +30,35 @@ final class ConfigDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(issues.count, 1)
         XCTAssertEqual(issue.configFileURL, settingsURL)
-        XCTAssertTrue(reason.contains("focus.followsMouse"))
+        let lines = source.components(separatedBy: "\n")
+        let index = try XCTUnwrap(lines.firstIndex { $0.contains("followsMouse =") })
+        XCTAssertEqual(reason, "settings.luau:\(index + 1): focus.followsMouse: Expected a boolean.")
         XCTAssertTrue(issue.message.contains(settingsURL.path))
         XCTAssertTrue(issue.message.contains("focus.followsMouse"))
         XCTAssertTrue(issue.remediation.contains(settingsURL.path))
+    }
+
+    func testTypeErrorsUseLuauNamesAtTheField() throws {
+        let cases = [
+            ("focus = false", "focus", "a table"),
+            ("workspaces = false", "workspaces", "a list"),
+            ("general = { language = false }", "general.language", "a string"),
+            ("gaps = { size = false }", "gaps.size", "a number"),
+            ("gestures = { fingerCount = false }", "gestures.fingerCount", "an integer")
+        ]
+        for (field, path, expected) in cases {
+            let source = ["return {", field, "}"]
+            let fieldLine = try XCTUnwrap(source.firstIndex(of: field)) + 1
+            XCTAssertThrowsError(try SettingsLuauDocument(Data(source.joined(separator: "\n").utf8))) {
+                XCTAssertEqual($0.localizedDescription, "settings.luau:\(fieldLine): \(path): Expected \(expected).")
+            }
+        }
+        XCTAssertThrowsError(try SettingsLuauValue.boolean(false).decode(UInt32.self)) {
+            XCTAssertEqual(
+                SettingsLuauError.diagnosticDescription(for: $0, root: "displayId"),
+                "displayId: Expected an integer."
+            )
+        }
     }
 
     func testUnknownKeysReportTheirLocationInSettings() {

@@ -258,7 +258,7 @@ extension ShellConfig {
         for key in top.keys.sorted() where !topKeys.contains(key) {
             report(
                 profileKeys.contains(key)
-                    ? "shell.luau: \(key) belongs in \(profilesKey)[\(SettingsLuauValue.string(profile).literal())], the settings for the \(profile) profile"
+                    ? "shell.luau: \(key) belongs in \(profilesKey)[\(SettingsLuauValue.quoted(profile))], the settings for the \(profile) profile"
                     : "shell.luau has unknown key \(key)",
                 &problems
             )
@@ -274,7 +274,10 @@ extension ShellConfig {
             if case let .record(settings)? = profiles[profile] {
                 own = merged(own, settings)
             } else if profiles[profile] != nil {
-                report("shell.luau: [\(profilesKey).\(profile)] must be a table of settings", &problems)
+                report(
+                    "shell.luau: \(profilesKey)[\(SettingsLuauValue.quoted(profile))] must be a table of settings",
+                    &problems
+                )
             }
         default:
             report("shell.luau: \(profilesKey) must be a table of profile settings", &problems)
@@ -310,7 +313,7 @@ extension ShellConfig {
     ) {
         for (name, node) in widgets {
             guard case .record = node else {
-                report("shell.luau: [widgets.\(name)] must be a table of settings", &problems)
+                report("shell.luau: widgets[\(SettingsLuauValue.quoted(name))] must be a table of settings", &problems)
                 continue
             }
             var writer = ShellValueWriter()
@@ -359,10 +362,15 @@ extension ShellConfig {
         in table: [String: SettingsLuauValue],
         known: Set<String>,
         of place: String,
+        path: String? = nil,
         _ problems: inout [String]
     ) {
         for key in table.keys.sorted() where !known.contains(key) {
-            report("\(place) has unknown key \(key)", &problems)
+            if let path {
+                report("\(place): \(SettingsLuauValue.fieldPath(key, in: path)) is an unknown key", &problems)
+            } else {
+                report("\(place) has unknown key \(key)", &problems)
+            }
         }
     }
 
@@ -385,11 +393,12 @@ extension ShellConfig {
         for (key, node) in table.sorted(by: { $0.key < $1.key })
             where !applyDisplayKey(key, node, to: &bar.settings) && !applyGlobalKey(key, node, theme: theme, to: &bar)
         {
+            let path = SettingsLuauValue.fieldPath(key, in: "workspaceBar")
             let color = WorkspaceBarProfileOverride.colorKeys.contains { $0.key == key }
             report(
                 color
-                    ? "[workspaceBar] \(key) must be a palette role such as \"surface\" or \"surface/0.8\""
-                    : "[workspaceBar] \(key) is not a bar setting a shell profile or theme can override",
+                    ? "\(path) must be a palette role such as \"surface\" or \"surface/0.8\""
+                    : "\(path) is not a bar setting a shell profile or theme can override",
                 &problems
             )
         }

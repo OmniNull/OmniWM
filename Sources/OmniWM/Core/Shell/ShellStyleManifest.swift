@@ -130,28 +130,31 @@ struct ShellStyleManifest: Equatable, Sendable {
 }
 
 struct ShellBarEffect: Equatable, Sendable {
-    private static let place = "[barEffect]"
-
     let title: String
     let values: [ShellComponentOption]
 
     init(_ node: SettingsLuauValue) throws {
-        guard case let .record(table) = node else { throw ShellStyleManifest.failure("\(Self.place) must be a table") }
+        guard case let .record(table) = node else { throw ShellStyleManifest.failure("barEffect must be a table") }
         if let key = table.keys.sorted().first(where: { !["title", "values"].contains($0) }) {
-            throw ShellStyleManifest.failure("\(Self.place) has unknown key \(key)")
+            throw ShellStyleManifest.failure("\(SettingsLuauValue.fieldPath(key, in: "barEffect")) is an unknown key")
         }
         guard case let .string(title)? = table["title"], !title.isEmpty else {
-            throw ShellStyleManifest.failure("\(Self.place) title must be a nonempty string")
+            throw ShellStyleManifest.failure("barEffect.title must be a nonempty string")
         }
         guard let entries = table["values"]?.shellArray, (1 ... ShellBarShader.valueCount).contains(entries.count)
         else {
-            throw ShellStyleManifest.failure("\(Self.place) values must list 1 to \(ShellBarShader.valueCount) options")
+            throw ShellStyleManifest.failure("barEffect.values must list 1 to \(ShellBarShader.valueCount) options")
         }
         self.title = title
         values = try entries.enumerated().map { index, entry in
-            let option = try ShellComponentCatalog.option(entry, key: "\(index)", widget: Self.place)
+            let path = "barEffect.values[\(index + 1)]"
+            let option = try ShellComponentCatalog.option(
+                entry,
+                key: "\(index)",
+                place: "\(ShellStyleManifest.fileName): \(path)"
+            )
             guard option.kind == .number else {
-                throw ShellStyleManifest.failure("\(Self.place) values must be number options")
+                throw ShellStyleManifest.failure("\(path) must be a number option")
             }
             return option
         }

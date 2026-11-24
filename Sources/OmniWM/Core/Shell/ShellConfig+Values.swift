@@ -48,7 +48,7 @@ extension ShellConfig {
              .string("celsius")?: fahrenheit = false
         case .string("fahrenheit")?: fahrenheit = true
         default:
-            report("shell.luau: [weather] units must be \"celsius\" or \"fahrenheit\"", &problems)
+            report("shell.luau: weather.units must be \"celsius\" or \"fahrenheit\"", &problems)
             return nil
         }
         let refresh = Duration.seconds(min(max(5, number(table["refresh"]) ?? 15), 24 * 60) * 60)
@@ -58,7 +58,7 @@ extension ShellConfig {
         guard let latitude = number(table["latitude"]), let longitude = number(table["longitude"]),
               (-90 ... 90).contains(latitude), (-180 ... 180).contains(longitude)
         else {
-            report("shell.luau: [weather] needs city, or latitude and longitude", &problems)
+            report("shell.luau: weather needs city, or latitude and longitude", &problems)
             return nil
         }
         return ShellWeatherLocation(

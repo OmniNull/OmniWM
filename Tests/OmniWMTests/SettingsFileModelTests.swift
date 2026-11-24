@@ -755,6 +755,24 @@ final class SettingsFileModelTests: XCTestCase {
         }
     }
 
+    func testUnknownStringAndIntegerChoicesShowTheirLuauValues() throws {
+        let cases = [
+            (
+                "workspaceSwipeAxis",
+                "'diagonal'",
+                #"Unsupported choice "diagonal". Expected one of "horizontal", "vertical"."#
+            ),
+            ("workspaceSwipeFingerCount", "7", "Unsupported choice 7. Expected one of 2, 3, 4.")
+        ]
+        for (field, invalid, reason) in cases {
+            let source = ["return { gestures = {", "\(field) = \(invalid)", "} }"]
+            let fieldLine = try XCTUnwrap(source.firstIndex { $0.hasPrefix(field) }) + 1
+            XCTAssertThrowsError(try SettingsLuauDocument(Data(source.joined(separator: "\n").utf8))) {
+                XCTAssertEqual($0.localizedDescription, "settings.luau:\(fieldLine): gestures.\(field): \(reason)")
+            }
+        }
+    }
+
     func testMonitorOverrideUnknownEnumValuesRejectDecode() throws {
         var export = SettingsExport.defaults()
         export.monitorNiriSettings = [

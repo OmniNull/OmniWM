@@ -13,15 +13,16 @@ struct ShellBarShader: Equatable {
     static func parse(_ node: SettingsLuauValue?, problems: inout [String]) -> Self? {
         guard let node else { return nil }
         guard case let .record(table) = node else {
-            ShellConfig.report("shell.luau: [barShader] must be a table", &problems)
+            ShellConfig.report("shell.luau: barShader must be a table", &problems)
             return nil
         }
         for key in table.keys.sorted() where !["enabled", "source", "fps", "values"].contains(key) {
-            ShellConfig.report("shell.luau: [barShader] has unknown key \(key)", &problems)
+            let path = SettingsLuauValue.fieldPath(key, in: "barShader")
+            ShellConfig.report("shell.luau: \(path) is an unknown key", &problems)
         }
         if let enabled = table["enabled"] {
             guard case let .boolean(value) = enabled else {
-                ShellConfig.report("shell.luau: [barShader] enabled must be a boolean", &problems)
+                ShellConfig.report("shell.luau: barShader.enabled must be a boolean", &problems)
                 return nil
             }
             if !value { return nil }
@@ -29,17 +30,17 @@ struct ShellBarShader: Equatable {
         guard case let .string(source)? = table["source"], !source.isEmpty,
               !source.hasPrefix("."), !source.contains("/"), source.hasSuffix(".metal")
         else {
-            ShellConfig.report("shell.luau: [barShader] source must be a shader filename ending in .metal", &problems)
+            ShellConfig.report("shell.luau: barShader.source must be a shader filename ending in .metal", &problems)
             return nil
         }
         guard let fps = frameRate(table["fps"]) else {
-            ShellConfig.report("shell.luau: [barShader] fps must be an integer between 0 and 60", &problems)
+            ShellConfig.report("shell.luau: barShader.fps must be an integer between 0 and 60", &problems)
             return nil
         }
         var shader = Self(source: source, fps: fps)
         if let node = table["values"] {
             guard let values = parameters(node) else {
-                ShellConfig.report("shell.luau: [barShader] values must contain up to four finite numbers", &problems)
+                ShellConfig.report("shell.luau: barShader.values must contain up to four finite numbers", &problems)
                 return nil
             }
             shader.values = values

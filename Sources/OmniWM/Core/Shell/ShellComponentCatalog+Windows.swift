@@ -17,7 +17,7 @@ extension ShellComponentCatalog {
         views: [String]
     ) throws -> ShellAppWindowDeclaration? {
         guard let node else { return nil }
-        let place = "\(widget) [window]"
+        let place = "\(widget)/\(manifestName): window"
         guard case let .record(table) = node else { throw Failure("\(place) must be a table") }
         try checkKeys(table, allowed: ["view", "width", "height", "minWidth", "minHeight", "children"], place: place)
         let view = try windowView(table["view"], fallback: "window", views: views, place: place)
@@ -32,22 +32,22 @@ extension ShellComponentCatalog {
         _ node: SettingsLuauValue?, widget: String, views: [String]
     ) throws -> [String: ShellAppChildDefinition] {
         guard let node else { return [:] }
-        let place = "\(widget) [window.children]"
+        let place = "\(widget)/\(manifestName): window.children"
         guard case let .record(children) = node else { throw Failure("\(place) must be a table") }
         var result: [String: ShellAppChildDefinition] = [:]
         for id in children.keys.sorted() {
-            let place = "\(widget) [window.children.\(id)]"
+            let place = "\(place)[\(SettingsLuauValue.quoted(id))]"
             guard validName(id) else { throw Failure("\(place): invalid child id") }
             guard case let .record(table)? = children[id] else { throw Failure("\(place) must be a table") }
             try checkKeys(
                 table, allowed: ["kind", "view", "title", "width", "height", "minWidth", "minHeight"], place: place
             )
             guard case let .string(rawKind)? = table["kind"], let kind = ShellAppChildDefinition.Kind(rawValue: rawKind)
-            else { throw Failure("\(place) kind must be sheet or utility") }
+            else { throw Failure("\(place).kind must be sheet or utility") }
             let view = try windowView(table["view"], fallback: "", views: views, place: place)
             guard case let .string(title)? = table["title"],
                   !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            else { throw Failure("\(place) title must be a nonempty string") }
+            else { throw Failure("\(place).title must be a nonempty string") }
             let sizes = try windowSizes(table, place: place)
             result[id] = ShellAppChildDefinition(
                 id: id, view: view, title: title, kind: kind,
@@ -60,9 +60,9 @@ extension ShellComponentCatalog {
     private static func windowView(
         _ node: SettingsLuauValue?, fallback: String, views: [String], place: String
     ) throws -> String {
-        let view = try string(node, fallback: fallback, place: "\(place) view")
+        let view = try string(node, fallback: fallback, place: "\(place).view")
         guard validName(view), views.contains(view) else {
-            throw Failure("\(place) view must name a declared component view: \(view)")
+            throw Failure("\(place).view must name a declared component view (got \(SettingsLuauValue.quoted(view)))")
         }
         return view
     }
@@ -72,14 +72,14 @@ extension ShellComponentCatalog {
     ) throws -> (preferred: CGSize, minimum: CGSize) {
         func points(_ key: String) throws -> CGFloat {
             guard let value = ShellConfig.number(table[key]), value.isFinite, value > 0 else {
-                throw Failure("\(place) \(key) must be positive finite points")
+                throw Failure("\(place).\(key) must be positive finite points")
             }
             return CGFloat(value)
         }
         let preferred = try CGSize(width: points("width"), height: points("height"))
         let minimum = try CGSize(width: points("minWidth"), height: points("minHeight"))
         guard preferred.width >= minimum.width, preferred.height >= minimum.height else {
-            throw Failure("\(place) width and height must meet minWidth and minHeight")
+            throw Failure("\(place) requires width and height to meet minWidth and minHeight")
         }
         return (preferred, minimum)
     }

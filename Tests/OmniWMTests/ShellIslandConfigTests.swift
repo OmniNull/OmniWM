@@ -62,18 +62,26 @@ final class ShellIslandConfigTests: XCTestCase {
     }
 
     func testInvalidIslandValuesFailClosedWithDiagnostics() throws {
-        for value in [
-            "return { island = 7 }", "return { island = { root = \"../escape\" } }",
-            "return { island = { displays = \"primary\" } }",
-            "return { island = { fullscreen = \"sometimes\" } }", "return { island = { width = 0 } }",
-            "return { island = { height = 8193 } }",
-            "return { island = { width = 0/0 } }", "return { island = { height = \"300\" } }"
+        let size = "must be a finite number between 1 and 8192"
+        for (value, expected) in [
+            ("7", "island must be a table"),
+            ("{ root = '../escape' }", "island.root must be a widget name"),
+            ("{ displays = 'primary' }", "island.displays must be notch, main or all"),
+            ("{ fullscreen = 'sometimes' }", "island.fullscreen must be hide or show"),
+            ("{ width = 0 }", "island.width \(size)"),
+            ("{ height = 8193 }", "island.height \(size)"),
+            ("{ width = 0/0 }", "island.width \(size)"),
+            ("{ height = '300' }", "island.height \(size)"),
+            (
+                "{ components = { { id = 'clock', widget = 'clock', enabled = 'yes' } } }",
+                "island.components[1].enabled must be boolean"
+            )
         ] {
-            try write(value, to: "look/shell.luau")
+            try write("return { island = \(value) }", to: "look/shell.luau")
             var problems: [String] = []
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems), value)
             XCTAssertNil(config.island, value)
-            XCTAssertTrue(problems.contains { $0.contains("[island]") }, value)
+            XCTAssertEqual(problems, ["shell.luau: \(expected)"], value)
         }
     }
 
@@ -81,7 +89,7 @@ final class ShellIslandConfigTests: XCTestCase {
         try write("return { island = { extra = true } }\n", to: "look/shell.luau")
         var problems: [String] = []
         XCTAssertNotNil(ShellConfig.load(shellDirectory: root, problems: &problems)?.island)
-        XCTAssertTrue(problems.contains { $0.contains("extra") })
+        XCTAssertEqual(problems, ["shell.luau: island.extra is an unknown key"])
 
         try write("return { trailing = {} }\n", to: "look/shell.luau")
         try write("return { profile = \"look\", island = { root = \"custom\" } }\n", to: "shell.luau")

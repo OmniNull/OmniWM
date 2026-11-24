@@ -410,12 +410,17 @@ final class ShellBarShaderConfigTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: shell) }
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
         let filename = "source = \"matrix-rain.metal\", "
-        for declaration in [
-            "", "source = \"../matrix-rain.metal\"", "source = \"matrix-rain\"", "source = \"/tmp/rain.metal\"",
-            "source = \".hidden.metal\"", "source = \"\"", filename + "enabled = 1",
-            filename + "fps = -1", filename + "fps = 61", filename + "fps = 0.5", filename + "fps = 0 / 0",
-            filename + "values = {1, 2, 3, 4, 5}", filename + "values = {math.huge}",
-            filename + "values = {1e100}", filename + "values = {\"green\"}"
+        let source = "barShader.source must be a shader filename ending in .metal"
+        let fps = "barShader.fps must be an integer between 0 and 60"
+        let values = "barShader.values must contain up to four finite numbers"
+        for (declaration, expected) in [
+            ("", source), ("source = '../matrix-rain.metal'", source), ("source = 'matrix-rain'", source),
+            ("source = '/tmp/rain.metal'", source), ("source = '.hidden.metal'", source), ("source = ''", source),
+            (filename + "enabled = 1", "barShader.enabled must be a boolean"),
+            (filename + "fps = -1", fps), (filename + "fps = 61", fps), (filename + "fps = 0.5", fps),
+            (filename + "fps = 0 / 0", fps), (filename + "values = {1, 2, 3, 4, 5}", values),
+            (filename + "values = {math.huge}", values), (filename + "values = {1e100}", values),
+            (filename + "values = {'green'}", values)
         ] {
             try Data("return { profiles = { default = { leading = { 'clock' }, barShader = { \(declaration) } } } }"
                 .utf8)
@@ -424,7 +429,7 @@ final class ShellBarShaderConfigTests: XCTestCase {
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems), declaration)
             XCTAssertEqual(config.leading, ["clock"], declaration)
             XCTAssertNil(config.barShader, declaration)
-            XCTAssertTrue(problems.contains { $0.contains("[barShader]") }, declaration)
+            XCTAssertEqual(problems, ["shell.luau: \(expected)"], declaration)
         }
     }
 }

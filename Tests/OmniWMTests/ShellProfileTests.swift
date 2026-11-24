@@ -644,7 +644,7 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertEqual(override.autoHideHideDelayMilliseconds, 1000)
         XCTAssertEqual(
             problems,
-            ["[workspaceBar] excludedBundleIDs is not a bar setting a shell profile or theme can override"]
+            ["workspaceBar.excludedBundleIDs is not a bar setting a shell profile or theme can override"]
         )
 
         let monitor = Monitor(
@@ -726,7 +726,7 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertEqual(override.overriddenKeys, ["accentColor", "barFill", "textColor", "transparentBackground"])
         XCTAssertEqual(
             problems,
-            ["[workspaceBar] barBorder must be a palette role such as \"surface\" or \"surface/0.8\""]
+            ["workspaceBar.barBorder must be a palette role such as \"surface\" or \"surface/0.8\""]
         )
         let fill = try XCTUnwrap(override.barFill).dark.usingColorSpace(.sRGB)
         XCTAssertEqual(fill?.blueComponent ?? 0, 0x30 / 255)
@@ -768,6 +768,30 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertNil(settings.resolved(for: monitor).barFill)
     }
 
+    func testProfileWidgetAndServiceErrorsIdentifyTheirLuauFields() throws {
+        try write("return { profiles = { default = false } }", to: "shell.luau")
+        var problems: [String] = []
+        XCTAssertNotNil(ShellConfig.load(shellDirectory: root, problems: &problems))
+        XCTAssertEqual(problems, [#"shell.luau: profiles["default"] must be a table of settings"#])
+
+        try write("""
+        return { profiles = { default = {
+            widgets = { ['a"b'] = false },
+            weather = { units = 'kelvin' },
+            drawer = { ['quick-menu'] = { edge = 'middle' } },
+            hiddenBar = { ['old-key'] = true }
+        } } }
+        """, to: "shell.luau")
+        problems = []
+        XCTAssertNotNil(ShellConfig.load(shellDirectory: root, problems: &problems))
+        XCTAssertEqual(problems, [
+            #"shell.luau: widgets["a\"b"] must be a table of settings"#,
+            #"shell.luau: weather.units must be "celsius" or "fahrenheit""#,
+            #"shell.luau: drawer["quick-menu"].edge must be left, right, top or bottom"#,
+            #"shell.luau: hiddenBar["old-key"] is not a Hidden Bar setting a profile can override"#
+        ])
+    }
+
     func testTheConfigReportsItsProblems() throws {
         try write("""
         return {
@@ -790,10 +814,10 @@ final class ShellProfileTests: XCTestCase {
         XCTAssertEqual(problems, [
             "shell.luau has unknown key trailling",
             "shell.luau: leading must contain widget names",
-            "shell.luau: [weather] has unknown key unit",
-            "shell.luau: [drawer.controls] has unknown key edges",
+            "shell.luau: weather.unit is an unknown key",
+            "shell.luau: drawer[\"controls\"].edges is an unknown key",
             "Theme look has unknown key bar",
-            "Theme look: [light] accent must be a role name set to \"#RRGGBB\" or \"#RRGGBBAA\""
+            "Theme look: light.accent must be a role name set to \"#RRGGBB\" or \"#RRGGBBAA\""
         ])
 
         let bundled = try String(contentsOf: XCTUnwrap(ShellDefaults.bundledFile("shell.luau")), encoding: .utf8)

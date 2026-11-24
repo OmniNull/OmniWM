@@ -108,8 +108,9 @@ struct ShellTheme: Equatable {
                       case let .string(text) = value,
                       let color = NSColor(shellHex: text)
                 else {
+                    let path = SettingsLuauValue.fieldPath(key, in: appearance)
                     ShellConfig.report(
-                        "Theme \(name): [\(appearance)] \(key) must be a role name set to \"#RRGGBB\" or \"#RRGGBBAA\"",
+                        "Theme \(name): \(path) must be a role name set to \"#RRGGBB\" or \"#RRGGBBAA\"",
                         &problems
                     )
                     continue

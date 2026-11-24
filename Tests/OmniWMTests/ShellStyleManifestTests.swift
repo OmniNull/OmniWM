@@ -110,13 +110,15 @@ final class ShellStyleManifestTests: XCTestCase {
         XCTAssertEqual(barEffect.values.count, ShellBarShader.valueCount)
         XCTAssertTrue(barEffect.values.allSatisfy { $0.kind == .number && $0.minimum != nil && $0.maximum != nil })
         let toggle = "{ type = \"boolean\", title = \"Value\" }"
-        for extra in [
-            effect(ShellBarShader.valueCount + 1, option: number),
-            effect(0, option: number),
-            effect(1, option: toggle)
+        let limit = "barEffect.values must list 1 to \(ShellBarShader.valueCount) options"
+        for (extra, reason) in [
+            (effect(ShellBarShader.valueCount + 1, option: number), limit),
+            (effect(0, option: number), limit),
+            (effect(1, option: toggle), "barEffect.values[1] must be a number option"),
+            (effect(1, option: "{ type = 'number', step = false }"), "barEffect.values[1]: invalid step")
         ] {
             try write(required, extra: extra)
-            XCTAssertNotNil(ShellStyleManifest.problem(in: folder), extra)
+            XCTAssertEqual(ShellStyleManifest.problem(in: folder), "\(ShellStyleManifest.fileName): \(reason)")
         }
     }
 

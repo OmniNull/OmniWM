@@ -104,7 +104,12 @@ enum SettingsLuauValue: Hashable, Decodable, Sendable {
             .allSatisfy { letter($0) || (UInt8(ascii: "0") ... UInt8(ascii: "9")).contains($0) }
     }
 
-    private static func quoted(_ value: String) -> String {
+    static func fieldPath(_ key: String, in parent: String) -> String {
+        let field = keyLiteral(key)
+        return field.hasPrefix("[") ? parent + field : "\(parent).\(field)"
+    }
+
+    static func quoted(_ value: String) -> String {
         var result = "\""
         for scalar in value.unicodeScalars {
             switch scalar {

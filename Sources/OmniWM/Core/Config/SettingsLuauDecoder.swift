@@ -12,12 +12,15 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
         [:]
     }
 
-    func mismatch(_ type: Any.Type) -> DecodingError {
-        .typeMismatch(type, .init(codingPath: codingPath, debugDescription: "Expected \(type)."))
+    private func mismatch(_ type: Any.Type, expected: String) -> DecodingError {
+        .typeMismatch(type, .init(codingPath: codingPath, debugDescription: "Expected \(expected)."))
     }
 
     func container<Key: CodingKey>(keyedBy _: Key.Type) throws -> KeyedDecodingContainer<Key> {
-        guard case let .record(fields) = value else { throw mismatch([String: SettingsLuauValue].self) }
+        guard case let .record(fields) = value else { throw mismatch(
+            [String: SettingsLuauValue].self,
+            expected: "a table"
+        ) }
         if validatesSettings, let unknown = fields.keys.first(where: { Key(stringValue: $0) == nil }) {
             throw DecodingError.dataCorrupted(.init(
                 codingPath: codingPath + [DynamicCodingKey(unknown)],
@@ -34,7 +37,7 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
                 path: codingPath.map(\.stringValue), rows: elements
             ) : elements)
         case .record(let fields) where fields.isEmpty: return Elements(decoder: self, elements: [])
-        default: throw mismatch([SettingsLuauValue].self)
+        default: throw mismatch([SettingsLuauValue].self, expected: "a list")
         }
     }
 
@@ -47,16 +50,31 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
     }
 
     func decode<T: Decodable>(_ type: T.Type) throws -> T {
-        try T(from: self)
+        do {
+            return try T(from: self)
+        } catch let DecodingError.dataCorrupted(context) where T.self is any RawRepresentable.Type {
+            var message = "Unsupported choice \(value.literal())."
+            if let choices = T.self as? any(RawRepresentable & CaseIterable).Type {
+                message += " Expected one of \(Self.choiceNames(choices))."
+            }
+            throw DecodingError.dataCorrupted(.init(codingPath: context.codingPath, debugDescription: message))
+        }
+    }
+
+    private static func choiceNames<Choice: RawRepresentable & CaseIterable>(_: Choice.Type) -> String {
+        Choice.allCases.map { choice in
+            if let text = choice.rawValue as? String { return SettingsLuauValue.quoted(text) }
+            return String(describing: choice.rawValue)
+        }.joined(separator: ", ")
     }
 
     func decode(_ type: Bool.Type) throws -> Bool {
-        guard case let .boolean(decoded) = value else { throw mismatch(type) }
+        guard case let .boolean(decoded) = value else { throw mismatch(type, expected: "a boolean") }
         return decoded
     }
 
     func decode(_ type: String.Type) throws -> String {
-        guard case let .string(decoded) = value else { throw mismatch(type) }
+        guard case let .string(decoded) = value else { throw mismatch(type, expected: "a string") }
         return decoded
     }
 
@@ -64,7 +82,7 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
         switch value {
         case let .integer(decoded): return Double(decoded)
         case let .number(decoded): return decoded
-        default: throw mismatch(type)
+        default: throw mismatch(type, expected: "a number")
         }
     }
 
@@ -73,7 +91,10 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
     }
 
     private func integer<T: FixedWidthInteger>(_ type: T.Type) throws -> T {
-        guard case let .integer(decoded) = value, let result = T(exactly: decoded) else { throw mismatch(type) }
+        guard case let .integer(decoded) = value, let result = T(exactly: decoded) else { throw mismatch(
+            type,
+            expected: "an integer"
+        ) }
         return result
     }
 
@@ -153,7 +174,7 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
         }
 
         func decode<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T {
-            try T(from: child(key))
+            try child(key).decode(type)
         }
 
         func nestedContainer<NestedKey: CodingKey>(
@@ -210,7 +231,7 @@ struct SettingsLuauDecoder: Decoder, SingleValueDecodingContainer {
         }
 
         mutating func decode<T: Decodable>(_ type: T.Type) throws -> T {
-            try T(from: next())
+            try next().decode(type)
         }
 
         mutating func nestedContainer<Key: CodingKey>(keyedBy type: Key

@@ -142,26 +142,27 @@ final class ShellRoomProfileTests: XCTestCase {
     }
 
     func testUnknownVariantAndMissingOrInvalidRootSelectorReportNoRoom() throws {
-        for settings in ["layout='missing'", "other='island'", "layout=3"] {
+        for (settings, reason) in [
+            ("layout='missing'", #"island.room.variants has no variant named "missing""#),
+            ("other='island'", #"island.room.setting must name a string root setting (got "layout")"#),
+            ("layout=3", #"island.room.setting must name a string root setting (got "layout")"#)
+        ] {
             let (config, problems) = try load(settings: settings)
             XCTAssertNil(config.barOverride?.room)
-            XCTAssertTrue(problems.contains { $0.contains("[island.room]") })
+            XCTAssertEqual(problems, ["shell.luau: \(reason)"])
         }
     }
 
     func testUnknownFieldsInRoomUnselectedVariantsEdgesAndDockRejectTheRoom() throws {
-        for rooms in [
-            Self.rooms.replacingOccurrences(of: "setting = \"layout\"", with: "setting = \"layout\", extra = true"),
-            Self.rooms.replacingOccurrences(
-                of: "left = {\n",
-                with: "left = { extra = true,\n"
-            ),
-            Self.rooms.replacingOccurrences(of: "base = 8, scaled = 54", with: "base = 8, scaled = 54, extra = 1"),
-            Self.rooms.replacingOccurrences(of: "base = 23.8", with: "base = 23.8, extra = true")
+        for (field, replacement, path) in [
+            (#"setting = "layout""#, #"setting = "layout", extra = true"#, "island.room.extra"),
+            ("left = {\n", "left = { extra = true,\n", #"island.room.variants["left"].extra"#),
+            ("base = 8, scaled = 54", "base = 8, scaled = 54, extra = 1", #"island.room.variants["island"].top.extra"#),
+            ("base = 23.8", "base = 23.8, extra = true", "island.room.dock.extra")
         ] {
-            let (config, problems) = try load(rooms: rooms)
+            let (config, problems) = try load(rooms: Self.rooms.replacingOccurrences(of: field, with: replacement))
             XCTAssertNil(config.barOverride?.room)
-            XCTAssertTrue(problems.contains { $0.contains("unknown key extra") })
+            XCTAssertEqual(problems, ["shell.luau: \(path) is an unknown key"])
         }
     }
 

@@ -182,18 +182,18 @@ enum ShellComponentCatalog {
     static func instances(in node: SettingsLuauValue?) throws -> [ShellComponentInstance] {
         guard let node else { return [] }
         guard let values = node.shellArray, values.count <= instanceLimit else {
-            throw Failure("[island] components must be an array of at most \(instanceLimit) instances")
+            throw Failure("island.components must be a list of at most \(instanceLimit) instances")
         }
         var seen: Set<String> = []
-        return try values.map { value in
+        return try values.enumerated().map { index, value in
             guard case let .record(table) = value,
                   case let .string(id)? = table["id"], validName(id), seen.insert(id).inserted,
                   case let .string(widget)? = table["widget"], validName(widget)
-            else { throw Failure("[island] each component needs a unique id and a widget name") }
+            else { throw Failure("island.components[\(index + 1)] needs a unique id and a widget name") }
             var instance = ShellComponentInstance(id: id, widget: widget)
             for key in ["enabled"] where table[key] != nil {
                 guard case let .boolean(flag)? = table[key] else {
-                    throw Failure("[island] component \(id): \(key) must be boolean")
+                    throw Failure("island.components[\(index + 1)].\(key) must be boolean")
                 }
                 instance.enabled = flag
             }
@@ -202,7 +202,8 @@ enum ShellComponentCatalog {
             }
             for (key, node) in table where !["id", "widget", "enabled", "capabilities"].contains(key) {
                 guard !reservedOptions.contains(key), let value = ShellComponentValue(node) else {
-                    throw Failure("[island] component \(id): invalid option \(key)")
+                    let path = SettingsLuauValue.fieldPath(key, in: "island.components[\(index + 1)]")
+                    throw Failure("\(path) is an invalid option for \(id)")
                 }
                 instance.options[key] = value
             }
@@ -291,13 +292,12 @@ enum ShellComponentCatalog {
             guard validName(key), !reservedNames.contains(key) else {
                 throw Failure("\(place): reserved or invalid option name \(key)")
             }
-            options[key] = try option(node, key: key, widget: place)
+            options[key] = try option(node, key: key, place: "\(place) option \(key)")
         }
         return options
     }
 
-    static func option(_ node: SettingsLuauValue, key: String, widget: String) throws -> ShellComponentOption {
-        let place = "\(widget) option \(key)"
+    static func option(_ node: SettingsLuauValue, key: String, place: String) throws -> ShellComponentOption {
         guard case let .record(table) = node, case let .string(type)? = table["type"],
               let kind = ShellComponentOption.Kind(rawValue: type)
         else { throw Failure("\(place) needs a valid type") }
