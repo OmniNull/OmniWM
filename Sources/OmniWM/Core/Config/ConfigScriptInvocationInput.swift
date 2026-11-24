@@ -11,7 +11,7 @@ enum ConfigScriptInvocationInput {
 
     func withTrigger<R>(snapshot: ConfigScriptSnapshot? = nil, _ body: (omni_config_trigger) -> R) -> R {
         guard let snapshot else { return withTrigger(bytes: omni_config_span(), body) }
-        return snapshot.bytes.withUnsafeBytes { bytes in
+        return snapshot.withUnsafeBytes { bytes in
             withTrigger(
                 bytes: omni_config_span(data: bytes.bindMemory(to: CChar.self).baseAddress, length: bytes.count),
                 body

@@ -36,15 +36,27 @@ DYNAMIC_EVENT_STRINGS = {
 }
 RESIDENT_EVENT_MAIN_STORAGE = {"obj": 0, "heap": 0, "VM": 0}
 PARKED_EVENT_WAKE = 1
-WAKE_ONLY_EVENT_KINDS = STATE_AND_EDGE_KINDS - {"workspace.created", "workspace.removed"}
-ONE_TRANSFER_PER_STRING = {*FOCUS_KINDS, "window.minimize", "workspace.move_to_monitor"}
+DISCARDED_NATIVE_EVENT_NIL_RELEASE = 1
+REENTRANT_WORKSPACE_REMOVAL_OBSERVER = 1
+FOCUS_OBJC_OWNERS = ("registered receiver across a reentrant post",
+                     "receiver at the Objective-C selector boundary", "notification at the selector boundary")
+WINDOW_WEAK_LOOKUPS = {
+    "window.move_to_workspace": ("controller while publishing the membership transaction",),
+    "window.update_state": ("controller at mode recording", "controller at mode settlement"),
+}
+MULTIWORD_ROUTES = ("ancestry/extend", "ancestry/union", "ancestry/all-excluded", "ancestry/publication")
+TITLE_TRANSACTIONS = ("title-ready", "title-pending")
+WORKSPACE_KEYS = {f"{prefix}workspace-key/{action}-{outcome}" for prefix in ("", "warm/")
+                  for action in ("next", "previous", "back")
+                  for outcome in ("noop", "switch")}
 TIMER_ROUTES = ("timer/empty", "timer/reads", "timer/effect")
 ROUTES.update({prefix + kind for kind in STATE_AND_EDGE_KINDS for prefix in ("absent/", "event/")})
 ROUTES.update("native/" + kind + suffix for kind in FOCUS_KINDS for suffix in ("+script", "+listener"))
 ROUTES.update("owned/" + kind for kind in DYNAMIC_EVENT_STRINGS)
 ROUTES.update("native/" + kind + suffix for kind in CATALOG_TRANSACTIONS for suffix in ("", "+script"))
 ROUTES.update("native/" + kind + suffix for kind in WINDOW_TRANSACTION_KINDS for suffix in ("", "+script"))
-ROUTES.update(("native/focus", *TIMER_ROUTES))
+ROUTES.update(("native/focus", *TIMER_ROUTES, *MULTIWORD_ROUTES, *WORKSPACE_KEYS))
+ROUTES.update("native/" + kind + suffix for kind in TITLE_TRANSACTIONS for suffix in ("", "+script"))
 PHASES = ("producer", "dequeue", "config", "completion")
 PUBLISHED_REFUSAL = ({"R": 0, "L": 0, "obj": 0, "heap": 0, "VM": 0},
                      "An identical published refusal transfers no ownership and needs no storage or VM entry.")
@@ -84,11 +96,102 @@ EXACT_COSTS = {
     **{(route, phase): RESIDENT_KEY_STORAGE for route in (*WAKE_TRANSFERS, "key/owned-busy")
        for phase in ("producer", "dequeue", "completion")},
     **{(route, "producer"): BORROWED_TITLE_REGISTRATION for route in TITLE_OWNER_TRANSFERS},
+    **{(route, "producer"): ({"obj": 0, "heap": 0, "VM": 0},
+       "Back and Forth with no previous workspace needs no transition, result snapshot or cache rebuild.")
+       for route in WORKSPACE_KEYS if route.endswith("/back-noop")},
     ("key/refusal-repeat", "producer"): PUBLISHED_REFUSAL,
     ("settings/key", "producer"): NATIVE_NO_OP,
     ("script/plain-key", "producer"): NATIVE_NO_OP,
     ("title/no-observer", "producer"): (NO_OBSERVER_OWNERSHIP, "An absent observer transfers no ownership."),
 }
+
+
+def check_window_rows(table):
+    sizes = sorted({int(match[1]) for route, phase in table if phase == "producer"
+                    and (match := re.fullmatch(r"capture/(?:workspace|windows)-(\d+)", route))})
+    if len(sizes) < 2:
+        sys.exit("The window-row control needs distinct fixture sizes")
+    first, last = sizes[0], sizes[-1]
+    routes = ("first/rows/niri/workspace", "first/rows/niri/windows", "rows/niri/workspace",
+              "rows/niri/windows", "rows/dwindle/workspace", "rows/dwindle/windows")
+    for kind in routes:
+        baseline = table.get((f"{kind}-{first}", "producer"))
+        larger = table.get((f"{kind}-{last}", "producer"))
+        if not baseline or not larger:
+            sys.exit(f"Missing matched {kind} capture for {first} and {last} rows")
+        for field in NO_OBSERVER_OWNERSHIP:
+            extra = int(larger[field]) - int(baseline[field])
+            if extra:
+                sys.exit(f"{kind}: {last - first} additional rows must add zero {field}, got {extra}")
+    print(f"capture/row-delta {first} to {last} windows: zero additional ARC, allocations, weak promotions or VM entries")
+
+
+def check_transaction_owners(table, kind, pairs=(), released=(), native_only_releases=()):
+    baseline = "native/" + kind + ("+listener" if kind in FOCUS_KINDS else "")
+    native = table[baseline, "producer"]
+    observed = table["native/" + kind + "+script", "producer"]
+    delta = tuple(int(observed[k]) - int(native[k]) for k in ("R", "L"))
+    retains = PARKED_EVENT_WAKE + len(pairs)
+    releases = retains + len(released) - len(native_only_releases)
+    if delta != (retains, releases):
+        sys.exit(f"{kind}: incremental R/L {delta}, expected {(retains, releases)} for parked worker, "
+                 f"pairs={pairs}, additional releases={released}, native-only releases={native_only_releases}")
+    objc = len(FOCUS_OBJC_OWNERS) if kind in FOCUS_KINDS else 0
+    weak = WINDOW_WEAK_LOOKUPS.get(kind, ())
+    imports = {"oR": objc, "oL": objc, "uR": PARKED_EVENT_WAKE, "uL": PARKED_EVENT_WAKE,
+               "wS": len(weak), "wU": 0, "wO": 0, "oRV": 0, "oAV": 0, "cR": 0, "cL": 0}
+    for field, allowed in imports.items():
+        if int(observed[field]) - int(native[field]) != allowed:
+            sys.exit(f"{kind}: {field} at the native boundary differs from its ownership contract: "
+                     f"selector owners={FOCUS_OBJC_OWNERS if objc else ()}, weak loads={weak}, one executor wake")
+    for field in ("obj", "heap"):
+        if int(observed[field]) > int(native[field]):
+            sys.exit(f"{kind}: script publication adds {field} to {baseline}: {native} versus {observed}")
+
+
+def check_catalog_transactions(table):
+    placements = tuple(f"{stage} {field}" for stage in ("old", "new") for field in
+                       ("monitor list", "visible map", "assigned map", "placement projection lookup"))
+    monitor_context = ("context projection lookup", "monitors", "sorted monitors", "topology profile",
+                       "configured workspace names", "monitor descriptions", "ranking key path",
+                       "monitor settings", "ranking values")
+    fixture_buckets = tuple(f"{stage} bucket {monitor} for {workspace}"
+                            for stage, assignments in (("old", ("left", "left", "left")),
+                                                       ("new", ("left", "left", "right")))
+                            for workspace, assigned in enumerate(assignments)
+                            for monitor in (("left", "right") if assigned == "right" else ("left",)))
+    check_transaction_owners(table, "catalog-bulk", (
+        "original observer across settings application", "workspace descriptors across publication",
+        *placements, *monitor_context, *fixture_buckets
+    ))
+    ranked = ("workspace descriptor for monitor resolution", "assignment and fallback projection lookup",
+              "sorted monitors", "monitor descriptions", "ranking key path",
+              "monitor settings", "ranking values", "first ranked candidate UUID", "second ranked candidate UUID",
+              "resolved monitor UUID")
+    check_transaction_owners(table, "catalog-ranked", ranked)
+    check_transaction_owners(table, "catalog-unavailable", (*ranked, "fallback display UUID"))
+
+
+def check_native_event_transactions(table):
+    for kind in FOCUS_KINDS:
+        check_transaction_owners(table, kind, ("controller in the reentrant Foundation notification frame",))
+    for kind in ("title", *TITLE_TRANSACTIONS):
+        check_transaction_owners(table, kind)
+    check_transaction_owners(table, "window.open")
+    check_transaction_owners(table, "window.close", native_only_releases=("absent saved workspace name",))
+    check_transaction_owners(table, "window.move_to_workspace", (
+        "membership callback during a model update", "frame while recording the move",
+        "transaction move recorder", "workspace manager during publication", "frame while publishing moves"
+    ), ("weak controller lookup", "unowned world lookup for depth", "unowned world lookup for the primary token"))
+    check_transaction_owners(table, "window.minimize", (
+        "original minimization observer across commit", "workspace manager across commit"
+    ))
+    check_transaction_owners(table, "window.update_state", (
+        "mode change callback", "manager while recording prior mode", "pending settlement observer",
+        "manager while publishing settled modes", "prior-mode dictionary iteration", "fullscreen dictionary iteration"
+    ), ("weak controller at record", "previous pending observer", "weak controller at settlement",
+        "vacated mode dictionary", "vacated fullscreen dictionary"))
+    check_transaction_owners(table, "window.fullscreen", ("original fullscreen registration during confirmation",))
 
 
 def check_costs(output):
@@ -99,6 +202,7 @@ def check_costs(output):
         for phase in PHASES:
             if (route, phase) not in table:
                 sys.exit(f"Missing counter measurement: {route} {phase}")
+    check_window_rows(table)
     for route in ("settings/key", "script/plain-key"):
         producer = table[route, "producer"]
         if int(producer["R"]) > NATIVE_RETAIN_CEILING or int(producer["L"]) > NATIVE_RELEASE_CEILING:
@@ -161,23 +265,31 @@ def check_costs(output):
                 sys.exit(f"{kind}/{phase}: activation supplies the queue and worker storage: {counts}")
         if int(table["event/" + kind, "config"]["VM"]) != 1:
             sys.exit(f"{kind}: the subscribed callback must enter its VM once")
-        if kind in WAKE_ONLY_EVENT_KINDS:
-            counts = table["event/" + kind, "producer"]
-            if any(int(counts[k]) != PARKED_EVENT_WAKE for k in ("R", "L")):
-                sys.exit(f"{kind}: static publication transfers only the parked worker's task: {counts}")
+        pairs = PARKED_EVENT_WAKE + (REENTRANT_WORKSPACE_REMOVAL_OBSERVER if kind == "workspace.removed" else 0)
+        counts = table["event/" + kind, "producer"]
+        if any(int(counts[k]) != pairs for k in ("R", "L")):
+            sys.exit(f"{kind}: only the wake and a removal observer across native commit may transfer: {counts}")
+    for route in MULTIWORD_ROUTES:
+        counts = table[route, "producer"]
+        wake = PARKED_EVENT_WAKE if route == "ancestry/publication" else 0
+        released = wake + (DISCARDED_NATIVE_EVENT_NIL_RELEASE if route == "ancestry/all-excluded" else 0)
+        if any(int(counts[k]) != expected for k, expected in
+               {"R": wake, "L": released, **RESIDENT_EVENT_MAIN_STORAGE}.items()):
+            sys.exit(f"{route}: only the wake or the discarded payload's nil release may appear: {counts}")
+    for phase in ("dequeue", "config", "completion"):
+        excluded = table["ancestry/all-excluded", phase]
+        if any(int(excluded[k]) for k in NO_OBSERVER_OWNERSHIP):
+            sys.exit(f"An event excluded by every listener keeps the worker parked: {excluded}")
+    if int(table["ancestry/publication", "config"]["VM"]) != 1:
+        sys.exit("Only the listener outside both occupied ancestry words may run")
     for kind, owners in DYNAMIC_EVENT_STRINGS.items():
         counts = table["owned/" + kind, "producer"]
         if any(int(counts[k]) != v for k, v in RESIDENT_EVENT_MAIN_STORAGE.items()):
             sys.exit(f"{kind}: moving existing {', '.join(owners)} into a slot needs no new storage: {counts}")
-        if kind in ONE_TRANSFER_PER_STRING:
-            if (int(counts["R"]), int(counts["L"])) != (PARKED_EVENT_WAKE + len(owners), PARKED_EVENT_WAKE):
-                sys.exit(f"{kind}: only the wake and {', '.join(owners)} cross delivery: {counts}")
-    for kind in (*WINDOW_TRANSACTION_KINDS, *CATALOG_TRANSACTIONS, *FOCUS_KINDS):
-        baseline = "native/" + kind + ("+listener" if kind in FOCUS_KINDS else "")
-        native = table[baseline, "producer"]
-        subscribed = table["native/" + kind + "+script", "producer"]
-        if any(int(subscribed[k]) > int(native[k]) for k in ("obj", "heap")):
-            sys.exit(f"{kind}: script publication adds storage to {baseline}: {native} versus {subscribed}")
+        if (int(counts["R"]), int(counts["L"])) != (PARKED_EVENT_WAKE + len(owners), PARKED_EVENT_WAKE):
+            sys.exit(f"{kind}: only the wake and {', '.join(owners)} cross delivery: {counts}")
+    check_native_event_transactions(table)
+    check_catalog_transactions(table)
     for route in TIMER_ROUTES:
         if int(table[route, "config"]["VM"]) != 1:
             sys.exit(f"{route}: each timer must fire once on the config executor")
@@ -194,6 +306,48 @@ def check_costs(output):
                 sys.exit(f"{route}: expected {metric}={allowed}, got {actual}. {ownership}")
 
 
+def debugger_output(lldb, binary, fixture, option, commands):
+    args = [lldb, "--batch"]
+    for command in commands:
+        args.extend(("-o", command))
+    result = subprocess.run(args + ["--", binary, fixture, option],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    if result.returncode or "exited with status = 0" not in result.stdout:
+        sys.exit(result.stdout)
+    return result.stdout
+
+
+def check_workspace_result_reads(lldb, binary, fixture):
+    output = debugger_output(lldb, binary, fixture, "--workspace-keys", (
+        "settings set target.inline-breakpoint-strategy always",
+        f'breakpoint set -s {binary.name} -f CommandHandler+Actions.swift -m false -p "controller[.]activeWorkspace[(][)]" -G true',
+        "breakpoint set -s libScriptARC.dylib -n script_arc_end -G true",
+        'breakpoint command add -o "breakpoint list 1" 2',
+        "run",
+    ))
+    previous = 0
+    samples = []
+    checked = set()
+    for line in output.splitlines():
+        if hit := re.match(r"^1: source regex = .*?hit count = (\d+)", line):
+            count = int(hit[1])
+            samples.append(count - previous)
+            previous = count
+            continue
+        fields = line.split()
+        if len(fields) < 3 or fields[0] not in WORKSPACE_KEYS or fields[2] != "producer":
+            continue
+        route = fields[0]
+        expected = int(route.endswith("-switch"))
+        if not samples or any(reads != expected for reads in samples):
+            sys.exit(f"{route}: expected {expected} command-result reads per press, got {samples}\n{output}")
+        checked.add(route)
+        samples.clear()
+    if checked != WORKSPACE_KEYS:
+        sys.exit("Missing workspace command-result samples\n" + output)
+    print("workspace result reads: zero on a no-op, one on an ordinary switch, for each key and cache state")
+
+
 def check_delivery(lldb, binary, fixture):
     probes = [
         '-f ConfigScriptEventObservers+WindowState.swift -p "let event = ConfigScriptWindowTitle"',
@@ -208,17 +362,13 @@ def check_delivery(lldb, binary, fixture):
         "breakpoint set -n script_arc_checkpoint", "run", listing,
         "continue", listing, "continue",
     ]
-    args = [lldb, "--batch"]
-    for command in commands:
-        args.extend(["-o", command])
-    result = subprocess.run(args + ["--", binary, fixture, "--observe-delivery"],
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    reports = re.findall(re.escape("(lldb) " + listing) + r"\n(.+?)(?=\(lldb\) continue)", result.stdout, re.S)
-    if result.returncode or len(reports) != 2 or "exited with status = 0" not in result.stdout:
-        sys.exit(result.stdout)
-    read_counts = re.search(r"delivery-expect dormant=(\d+) subscribed=(\d+)", result.stdout)
+    output = debugger_output(lldb, binary, fixture, "--observe-delivery", commands)
+    reports = re.findall(re.escape("(lldb) " + listing) + r"\n(.+?)(?=\(lldb\) continue)", output, re.S)
+    if len(reports) != 2:
+        sys.exit(output)
+    read_counts = re.search(r"delivery-expect dormant=(\d+) subscribed=(\d+)", output)
     if not read_counts:
-        sys.exit("Missing delivery fixture expectations\n" + result.stdout)
+        sys.exit("Missing delivery fixture expectations\n" + output)
     for label, report, publications in zip(("dormant", "subscribed"), reports, map(int, read_counts.groups())):
         counts = []
         for number in range(1, len(probes) + 1):
@@ -234,4 +384,6 @@ def check_delivery(lldb, binary, fixture):
 
 if __name__ == "__main__":
     check_costs(Path(sys.argv[4]).read_text())
-    check_delivery(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]))
+    lldb, binary, fixture = map(Path, sys.argv[1:4])
+    check_delivery(lldb, binary, fixture)
+    check_workspace_result_reads(lldb, binary, fixture)

@@ -210,28 +210,36 @@ public enum IPCWindowOpaqueID {
         }
 
         public func append(pid: Int32, windowId: Int, to data: inout Data) {
-            emit(pid: pid, windowId: windowId) { data.append(contentsOf: $0) }
+            withEncodedBytes(pid: pid, windowId: windowId) { prefix, suffix in
+                data.append(contentsOf: prefix)
+                data.append(contentsOf: suffix)
+            }
         }
 
         public func append(pid: Int32, windowId: Int, to bytes: inout [UInt8]) {
-            emit(pid: pid, windowId: windowId) { bytes.append(contentsOf: $0) }
+            withEncodedBytes(pid: pid, windowId: windowId) { prefix, suffix in
+                bytes.append(contentsOf: prefix)
+                bytes.append(contentsOf: suffix)
+            }
         }
 
-        private func emit(pid: Int32, windowId: Int, _ write: (UnsafeRawBufferPointer) -> Void) {
+        package func withEncodedBytes<R>(
+            pid: Int32, windowId: Int, _ read: (UnsafeRawBufferPointer, UnsafeRawBufferPointer) -> R
+        ) -> R {
             var decimal = InlineArray<32, UInt8>(repeating: 0)
             var start = decimal.count
             Self.prependDecimal(windowId, to: &decimal, at: &start)
             start -= 1
             decimal[start] = UInt8(ascii: ":")
             Self.prependDecimal(Int(pid), to: &decimal, at: &start)
-            prefix.withUnsafeBytes { write($0) }
             var state = state
             var suffix = InlineArray<44, UInt8>(repeating: 0)
-            withUnsafeMutableBytes(of: &suffix) { buffer in
+            return withUnsafeMutableBytes(of: &suffix) { buffer in
                 var count = 0
                 for index in start ..< decimal.count { state.append(decimal[index], into: buffer, at: &count) }
                 state.finish(into: buffer, at: &count)
-                write(UnsafeRawBufferPointer(start: buffer.baseAddress, count: count))
+                let tail = UnsafeRawBufferPointer(start: buffer.baseAddress, count: count)
+                return prefix.withUnsafeBytes { read($0, tail) }
             }
         }
 

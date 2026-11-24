@@ -21,6 +21,7 @@ final class ConfigScriptCallbackQueue {
     let declarations: [Int: Declaration]
     private let listeners: [ConfigScriptEventKind: [Listener]]
     private let eventReads: [ConfigScriptEventKind: EventReads]?
+    private var snapshotPool = ConfigScriptSnapshotPool()
     private var work: [Work?]
     private var pendingEvents: [ConfigScriptEventKind: Int] = [:]
     private var pendingWindowStates: [WindowStateKey: Int] = [:]
@@ -113,7 +114,7 @@ final class ConfigScriptCallbackQueue {
         guard let queue, let reads = queue.declarations[function]?.reads else { return .notFound }
         guard queue.hasCapacity else { return .windowActionFailed }
         queue.outstandingPresses += 1
-        queue.append(Work(trigger: .function(function, controller.configScriptCapture(reads: reads))))
+        queue.append(Work(trigger: .function(function, queue.capture(reads: reads, controller: controller))))
         queue.wake(controller)
         return .executed
     }
@@ -130,15 +131,13 @@ final class ConfigScriptCallbackQueue {
     }
 
     func recordMissedMinimizations(_ count: Int) {
-        let mask = feedback.currentExclusions
-        guard !allExcluded(.windowMinimize, by: mask) else { return }
+        guard !allExcluded(.windowMinimize, by: feedback.currentExclusions) else { return }
         missedWindowStates += UInt64(count)
         if !pendingWindowStates.isEmpty { work[lastWindowStateSlot]?.missed = missedWindowStates }
     }
 
     func recordMissedEdges(_ count: Int, kind: ConfigScriptEventKind) {
-        let mask = feedback.currentExclusions
-        if !allExcluded(kind, by: mask) { recordMissedEdges(count) }
+        if !allExcluded(kind, by: feedback.currentExclusions) { recordMissedEdges(count) }
     }
 
     private func recordMissedEdges(_ count: Int) {
@@ -226,8 +225,10 @@ final class ConfigScriptCallbackQueue {
     }
 
     private func allExcluded(_ kind: ConfigScriptEventKind, by mask: ConfigScriptListenerMask?) -> Bool {
-        guard let mask else { return false }
-        return listeners[kind]?.allSatisfy { mask.contains($0.index) } == true
+        guard let mask, let index = listeners.index(forKey: kind) else { return false }
+        let registered = listeners.values[index]
+        for position in registered.indices where !mask.contains(registered[position].index) { return false }
+        return true
     }
 
     private func exclusions(
@@ -288,12 +289,20 @@ final class ConfigScriptCallbackQueue {
         return true
     }
 
+    func capture(reads: ConfigScriptReads, controller: WMController) -> ConfigScriptCapture {
+        let target = controller.configScriptTarget()
+        let snapshot = reads.isEmpty ? nil : controller.configScriptSnapshot(
+            reads: reads, target: target, pool: &snapshotPool
+        )
+        return ConfigScriptCapture(target: target, snapshot: snapshot)
+    }
+
     private func eventCapture(
         _ kind: ConfigScriptEventKind, excluding functions: ConfigScriptListenerMask?, controller: WMController
     ) -> ConfigScriptCapture {
-        guard let demand = eventReads?[kind] else { return controller.configScriptCapture(reads: []) }
+        guard let demand = eventReads?[kind] else { return capture(reads: [], controller: controller) }
         let reads = if let functions { demand.demand(excluding: functions) } else { demand.all }
-        return controller.configScriptCapture(reads: reads)
+        return capture(reads: reads, controller: controller)
     }
 
     @discardableResult
@@ -411,6 +420,7 @@ extension ConfigScriptCallbackQueue {
         worker?.cancel()
         if case let .parked(continuation) = previous { continuation.resume() }
         work.removeAll()
+        snapshotPool = ConfigScriptSnapshotPool()
         pendingEvents.removeAll()
         pendingWindowStates.removeAll()
         feedback = ConfigScriptEventFeedback()

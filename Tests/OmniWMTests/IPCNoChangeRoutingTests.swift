@@ -88,6 +88,57 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace1)
     }
 
+    func testRelativeWorkspaceCommandsReportTheWorkspaceAfterReentrantNavigation() throws {
+        for action in [WorkspaceAction.next, .previous, .backAndForth] {
+            let fixture = try makeFixture()
+            let controller = fixture.controller
+            let manager = controller.workspaceManager
+            let monitor = fixture.monitor.id
+            defer { controller.layoutRefreshController.resetState() }
+            controller.settings.workspaceBar.hideEmptyWorkspaces = false
+            manager.updateMonitorSession(monitor) { $0.previousVisibleWorkspaceId = fixture.workspace2 }
+            var returned = false
+            manager.onSessionStateChanged = { _ in
+                guard !returned, manager.visibleWorkspaceId(on: monitor) == fixture.workspace2 else { return }
+                returned = true
+                XCTAssertTrue(manager.setActiveWorkspace(fixture.workspace1, on: monitor))
+            }
+            defer { manager.onSessionStateChanged = nil }
+            XCTAssertEqual(controller.commandHandler.performCommand(.workspace(action)), .noChange)
+            XCTAssertTrue(returned)
+            XCTAssertEqual(controller.activeWorkspace()?.id, fixture.workspace1)
+        }
+    }
+
+    func testRelativeWorkspaceResultUsesTheActiveWorkspaceWhileASwipeIsPending() throws {
+        let fixture = try makeFixture()
+        let controller = fixture.controller
+        let swipe = controller.layoutRefreshController.workspaceSwipe
+        let monitor = fixture.monitor
+        defer { controller.layoutRefreshController.resetState() }
+        controller.settings.workspaceBar.hideEmptyWorkspaces = false
+        controller.settings.slideWorkspaceSwitches = true
+        controller.motionPolicy.animationsEnabled = false
+        let source = WorkspaceSwipePresentation.Workspace(id: fixture.workspace1, items: [])
+        let destination = WorkspaceSwipePresentation.Workspace(id: fixture.workspace2, items: [])
+        let flight = WorkspaceSwipePresentation.Flight(
+            preparation: .init(
+                monitor: monitor,
+                frame: monitor.visibleFrame,
+                source: source,
+                previous: nil,
+                next: destination
+            ),
+            destination: destination, axis: .vertical, cumulative: .zero, isNext: true, timestamp: .zero,
+            recognitionMovement: nil
+        )
+        swipe.install(flight, after: nil)
+        flight.motion.animateToDestination(startTime: .zero, motion: controller.motionPolicy.snapshot())
+        XCTAssertEqual(swipe.pendingSwitchTarget(on: monitor.id), destination.id)
+        XCTAssertEqual(controller.commandHandler.performCommand(.workspace(.next)), .noChange)
+        XCTAssertEqual(controller.activeWorkspace()?.id, source.id)
+    }
+
     func testAutoBackAndForthAppliesToShortcutsButNotToIPC() throws {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }

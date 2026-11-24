@@ -64,23 +64,29 @@ extension WorkspaceNavigationHandler {
         return .executed
     }
 
+    struct SwitchOrigin {
+        let id: WorkspaceDescriptor.ID?
+    }
+
+    @discardableResult
     func switchWorkspaceRelative(
         isNext: Bool,
         wrapAround: Bool = true,
-        monitorId explicitMonitorId: Monitor.ID? = nil
-    ) {
-        guard let controller else { return }
+        monitorId explicitMonitorId: Monitor.ID? = nil,
+        interactionOrigin: @autoclosure () -> SwitchOrigin? = nil
+    ) -> SwitchOrigin? {
+        guard let controller else { return nil }
         guard let currentMonitorId = explicitMonitorId ?? interactionMonitorId(for: controller)
-        else { return }
+        else { return nil }
         let slides = controller.settings.slideWorkspaceSwitchesUntracked
         let pendingId = slides
             ? controller.layoutRefreshController.workspaceSwipe.pendingSwitchTarget(on: currentMonitorId)
             : nil
-        let resolvedWorkspace = pendingId.flatMap { controller.workspaceManager.descriptor(for: $0) }
-            ?? (explicitMonitorId == nil
-                ? controller.activeWorkspace()
-                : controller.workspaceManager.activeWorkspaceOrFirst(on: currentMonitorId))
-        guard let currentWorkspace = resolvedWorkspace else { return }
+        let pendingWorkspace = pendingId.flatMap { controller.workspaceManager.descriptor(for: $0) }
+        let resolvedWorkspace = pendingWorkspace ?? (explicitMonitorId == nil
+            ? controller.activeWorkspace()
+            : controller.workspaceManager.activeWorkspaceOrFirst(on: currentMonitorId))
+        guard let currentWorkspace = resolvedWorkspace else { return nil }
         let skipEmpty = skipsEmptyWorkspaces(on: currentMonitorId)
 
         let targetWorkspace: WorkspaceDescriptor? = if isNext {
@@ -99,10 +105,14 @@ extension WorkspaceNavigationHandler {
             )
         }
 
-        guard let targetWorkspace else { return }
+        guard let targetWorkspace else { return nil }
+        let origin = pendingWorkspace == nil && explicitMonitorId == nil
+            ? SwitchOrigin(id: currentWorkspace.id)
+            : interactionOrigin()
         activateWorkspaceInOrder(
             targetWorkspace, from: currentWorkspace.id, on: currentMonitorId, isNext: isNext, animated: slides
         )
+        return origin
     }
 
     func switchWorkspaceBySwipe(isNext: Bool, monitorId: Monitor.ID) {
@@ -261,29 +271,31 @@ extension WorkspaceNavigationHandler {
         return .executed
     }
 
-    func workspaceBackAndForth() {
-        guard let controller else { return }
+    @discardableResult
+    func workspaceBackAndForth() -> SwitchOrigin? {
+        guard let controller else { return nil }
         guard let currentMonitorId = interactionMonitorId(for: controller)
-        else { return }
+        else { return nil }
 
         guard let prevWorkspace = controller.workspaceManager.previousWorkspace(on: currentMonitorId) else {
-            return
+            return nil
         }
 
         let currentWorkspace = controller.activeWorkspace()
+        let origin = SwitchOrigin(id: currentWorkspace?.id)
         if controller.settings.slideWorkspaceSwitchesUntracked, let currentWorkspace,
            controller.workspaceManager.monitor(for: currentWorkspace.id)?.id == currentMonitorId,
            controller.workspaceManager.monitor(for: prevWorkspace.id)?.id == currentMonitorId
         {
             activateWorkspaceInOrder(prevWorkspace, from: currentWorkspace.id, on: currentMonitorId, animated: true)
-            return
+            return origin
         }
         if let currentWorkspace {
             saveNiriViewportState(for: currentWorkspace.id)
         }
 
         guard controller.workspaceManager.setActiveWorkspace(prevWorkspace.id, on: currentMonitorId) else {
-            return
+            return origin
         }
 
         let monitor = controller.workspaceManager.monitor(for: prevWorkspace.id)
@@ -293,6 +305,7 @@ extension WorkspaceNavigationHandler {
             monitor: monitor,
             startScrollAnimation: false
         )
+        return origin
     }
 
     func resolveOrCreateAdjacentWorkspace(

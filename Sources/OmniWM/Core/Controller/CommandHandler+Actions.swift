@@ -76,13 +76,16 @@ extension CommandHandler {
         case .next,
              .previous,
              .backAndForth:
-            let previousWorkspaceId = controller.activeWorkspace()?.id
-            if action == .backAndForth {
+            let origin = if action == .backAndForth {
                 navigation.workspaceBackAndForth()
             } else {
-                navigation.switchWorkspaceRelative(isNext: action == .next)
+                navigation.switchWorkspaceRelative(
+                    isNext: action == .next,
+                    interactionOrigin: .init(id: controller.activeWorkspace()?.id)
+                )
             }
-            return controller.activeWorkspace()?.id == previousWorkspaceId ? .noChange : .executed
+            guard let origin else { return .noChange }
+            return controller.activeWorkspace()?.id == origin.id ? .noChange : .executed
         case let .moveWorkspaceToMonitor(direction):
             moveActiveWorkspace(toMonitor: direction, controller: controller)
         case let .swapWithMonitor(direction):

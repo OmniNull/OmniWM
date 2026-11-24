@@ -558,11 +558,11 @@ void pushLookupRow(lua_State *L, std::string_view &rows, uint8_t kind) {
         readStringField(L, rows, "workspace");
         readStringField(L, rows, "monitor");
         const auto flags = readUnsigned<uint8_t>(rows);
-        lua_pushboolean(L, flags & 1);
+        lua_pushboolean(L, flags & OMNI_CONFIG_WINDOW_FLOATING);
         lua_rawsetfield(L, -2, "floating");
-        lua_pushboolean(L, flags & 2);
+        lua_pushboolean(L, flags & OMNI_CONFIG_WINDOW_FULLSCREEN);
         lua_rawsetfield(L, -2, "fullscreen");
-        lua_pushboolean(L, flags & 4);
+        lua_pushboolean(L, flags & OMNI_CONFIG_WINDOW_MINIMIZED);
         lua_rawsetfield(L, -2, "minimized");
     } else {
         readStringField(L, rows, "name");

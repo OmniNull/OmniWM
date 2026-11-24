@@ -78,12 +78,6 @@ struct ConfigScriptCapture: Sendable {
 }
 
 extension WMController {
-    func configScriptCapture(reads: ConfigScriptReads) -> ConfigScriptCapture {
-        let target = configScriptTarget()
-        let snapshot = reads.isEmpty ? nil : configScriptSnapshot(reads: reads, target: target)
-        return ConfigScriptCapture(target: target, snapshot: snapshot)
-    }
-
     func configScriptTarget() -> ConfigScriptTarget {
         workspaceManager.configScriptTarget(session: automationSession.identity, apps: appInfoCache)
     }

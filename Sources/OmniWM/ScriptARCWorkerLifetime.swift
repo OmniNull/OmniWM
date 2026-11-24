@@ -35,12 +35,12 @@ extension ScriptARCFixture {
         return script.callbackQueue!
     }
 
-    fileprivate func enqueue(_ name: String) {
+    func enqueue(_ name: String) {
         let function = script.acceptedCommands.first { $0.name == name }!.function
         precondition(controller.enqueueConfigFunction(function) == .executed)
     }
 
-    fileprivate func holdInFlight(_ command: String) async {
+    func holdInFlight(_ command: String) async {
         await withUnsafeContinuation { (observer: UnsafeContinuation<Void, Never>) in
             script_arc_hold_next_entry(unsafeBitCast(observer, to: UnsafeMutableRawPointer.self))
             enqueue(command)
@@ -319,7 +319,7 @@ package func runScriptARCWorkerLifetime(directory: URL) async throws {
     fixture.reportTitleHistoryStorage()
     try await fixture.checkTitleEpochs()
     try await fixture.checkTitleRetirement()
-    fixture.checkAncestryOwnership(last: Int(OMNI_CONFIG_DECLARATION_LIMIT) - 1, report: false)
+    try await fixture.checkMultiwordPublication(report: false)
     try await fixture.checkQueuedEdgeEpoch()
     try await fixture.checkFocusEpochAndRetirement()
     try await fixture.checkNestedQueueReplacement()

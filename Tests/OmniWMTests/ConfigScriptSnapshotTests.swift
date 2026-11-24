@@ -70,6 +70,66 @@ final class ConfigScriptSnapshotTests: XCTestCase {
         ])
     }
 
+    func testHostedAndCachedTextUseTheirOriginalSources() async throws {
+        let fixture = try Fixture(test: self)
+        let controller = fixture.controller
+        let manager = controller.workspaceManager
+        let workspace = try XCTUnwrap(manager.workspaceId(named: fixture.origin))
+        let cached = WindowToken(pid: getpid(), windowId: Int(getpid()))
+        let hosted = WindowToken(pid: cached.pid, windowId: cached.windowId + 1)
+        let cachedBundle = "cached.bundle." + String(cached.pid)
+        let cachedTitle = "cached 窓 " + String(cached.windowId)
+        controller.appInfoCache.evict(pid: cached.pid)
+        _ = controller.appInfoCache.info(for: cached.pid) { _ in
+            .init(name: nil, bundleId: cachedBundle, icon: nil, activationPolicy: .regular)
+        }
+        AXWindowService.storeTitleCacheEntry(windowId: UInt32(cached.windowId), title: cachedTitle)
+        defer { AXWindowService.invalidateCachedTitle(windowId: UInt32(cached.windowId)) }
+        XCTAssertEqual(manager.addWindow(
+            WindowAdmissionTestSupport.axRef(for: cached), pid: cached.pid, windowId: cached.windowId, to: workspace
+        ), cached)
+        let size = CGSize(width: 100, height: 100)
+        XCTAssertEqual(manager.addHostedWindow(
+            token: hosted, metadata: .init(appId: "hosted.app", title: "hosted title", minimumSize: size),
+            to: workspace, initialFrame: CGRect(origin: .zero, size: size)
+        ), hosted)
+        try await check(fixture, reads: ["workspaceWindows"], body: [
+            "local cached, hosted = table.unpack(ctx.workspaceWindows)",
+            "assert(cached.bundleId == '\(cachedBundle)' and cached.title == '\(cachedTitle)')",
+            "assert(hosted.bundleId == 'hosted.app' and hosted.title == 'hosted title')"
+        ])
+    }
+
+    func testOnlyTheSelectedLayoutSuppliesTheTiledFullscreenFlag() async throws {
+        let fixture = try Fixture(test: self)
+        let controller = fixture.controller
+        let manager = controller.workspaceManager
+        let here = try XCTUnwrap(manager.workspaceId(named: fixture.origin))
+        let settings = controller.settings.workspaces
+        let index = try XCTUnwrap(settings.configurations.firstIndex { $0.name == fixture.origin })
+        let first = WindowToken(pid: getpid(), windowId: Int(getpid()))
+        let second = WindowToken(pid: first.pid, windowId: first.windowId + 1)
+        let tokens = [first, second]
+        for token in tokens { _ = WindowAdmissionTestSupport.track(token, in: here, controller: controller) }
+        let niri = NiriLayoutEngine()
+        let dwindle = DwindleLayoutEngine()
+        manager.niriEngine = niri
+        manager.dwindleEngine = dwindle
+        manager.withEngineMutationScope(in: here) {
+            _ = niri.syncWindows(tokens, in: here, selectedNodeId: nil)
+            if let window = niri.findNode(for: first, in: here) { niri.setSizingMode(.fullscreen, for: window) }
+            _ = dwindle.syncWindows(tokens, in: here, focusedToken: nil)
+            XCTAssertTrue(dwindle.toggleFullscreen(for: second, in: here))
+        }
+        for (layout, niriActive) in [(LayoutType.niri, true), (.dwindle, false)] {
+            settings.configurations[index].layoutType = layout
+            try await check(fixture, reads: ["windows"], body: [
+                "assert(ctx.windows[1].fullscreen == \(niriActive))",
+                "assert(ctx.windows[2].fullscreen == \(!niriActive))"
+            ])
+        }
+    }
+
     func testRowLimitPreservesThePrefixAndLeavesOtherListsAvailable() async throws {
         let fixture = try Fixture(test: self)
         let here = try XCTUnwrap(fixture.controller.activeWorkspace()?.id)

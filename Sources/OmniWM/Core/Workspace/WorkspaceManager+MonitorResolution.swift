@@ -75,23 +75,34 @@ extension WorkspaceManager {
         for workspaceId: WorkspaceDescriptor.ID, context: MonitorResolutionContext,
         visibleMonitorId: @autoclosure () -> Monitor.ID?
     ) -> Monitor? {
-        if let runtimeOverride = descriptor(for: workspaceId)?.runtimeMonitorOverride,
-           let monitor = runtimeOverride.resolveMonitor(in: context.sortedMonitors)
+        guard let workspace = descriptor(for: workspaceId) else { return nil }
+        return effectiveMonitor(
+            for: workspace, sortedMonitors: context.sortedMonitors, ranking: context.monitorRanking,
+            description: configuredMonitorDescription(for: workspace.name, context: context),
+            visibleMonitorId: visibleMonitorId()
+        )
+    }
+
+    func effectiveMonitor(
+        for workspace: WorkspaceDescriptor, sortedMonitors: [Monitor], ranking: @autoclosure () -> [OutputId],
+        description: @autoclosure () -> MonitorDescription?, visibleMonitorId: @autoclosure () -> Monitor.ID?
+    ) -> Monitor? {
+        if let runtimeOverride = workspace.runtimeMonitorOverride,
+           let monitor = runtimeOverride.resolveMonitor(in: sortedMonitors)
         {
             return monitor
         }
 
-        if let home = homeMonitor(for: workspaceId, context: context) {
+        if let home = description()?.resolveMonitor(sortedMonitors: sortedMonitors, ranking: ranking()) {
             return home
         }
 
-        guard !context.sortedMonitors.isEmpty else { return nil }
-        guard let workspace = descriptor(for: workspaceId) else { return nil }
+        guard !sortedMonitors.isEmpty else { return nil }
 
         let anchorPoint = workspace.assignedMonitorPoint
             ?? visibleMonitorId().flatMap { monitor(byId: $0)?.workspaceAnchorPoint }
-        guard let anchorPoint else { return context.sortedMonitors.first }
-        return context.sortedMonitors.min { lhs, rhs in
+        guard let anchorPoint else { return sortedMonitors.first }
+        return sortedMonitors.min { lhs, rhs in
             let lhsDistance = lhs.workspaceAnchorPoint.distanceSquared(to: anchorPoint)
             let rhsDistance = rhs.workspaceAnchorPoint.distanceSquared(to: anchorPoint)
             if lhsDistance != rhsDistance {

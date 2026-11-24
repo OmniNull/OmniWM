@@ -14,6 +14,10 @@ enum ScriptARCRunner {
                 let directory = URL(fileURLWithPath: CommandLine.arguments[1])
                 if CommandLine.arguments.contains("--lifetime") {
                     try await runScriptARCWorkerLifetime(directory: directory)
+                    try await runScriptARCSnapshotLifetime(directory: directory)
+                    try runScriptARCWorkspaceKeys(directory: directory, measured: false)
+                } else if CommandLine.arguments.contains("--workspace-keys") {
+                    try runScriptARCWorkspaceKeys(directory: directory, calibratePlatform: true)
                 } else {
                     try await runScriptARCAudit(
                         directory: directory, observeDelivery: CommandLine.arguments.contains("--observe-delivery")

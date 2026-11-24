@@ -16,8 +16,12 @@ struct ConfigScriptReads: OptionSet, Sendable {
 struct ConfigScriptSnapshot: Sendable {
     static let rowLimit = 256
     static let byteLimit = 128 * 1024
-    @MainActor static var capacityHint = 0
-    let bytes: Data
+    fileprivate let reservation: ConfigScriptSnapshotPool.Reservation
+    fileprivate let bytes: [UInt8]
+
+    func withUnsafeBytes<R>(_ read: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {
+        try withExtendedLifetime(reservation) { try bytes.withUnsafeBytes(read) }
+    }
 
     #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
         @MainActor static var captures = 0
@@ -29,20 +33,65 @@ struct ConfigScriptSnapshot: Sendable {
     #endif
 }
 
+@MainActor
+struct ConfigScriptSnapshotPool {
+    fileprivate final class Reservation: Sendable {}
+
+    private struct Slot {
+        var reservation = Reservation()
+        var storage: [UInt8] = []
+    }
+
+    private var slots: [Slot] = []
+    private var capacityHints: [UInt8: Int] = [:]
+
+    fileprivate mutating func capture(
+        reads: ConfigScriptReads, write: (inout SnapshotWriter) -> Void
+    ) -> ConfigScriptSnapshot {
+        var index = slots.startIndex
+        while index < slots.endIndex, !isKnownUniquelyReferenced(&slots[index].reservation) {
+            index += 1
+        }
+        if index == slots.endIndex { slots.append(Slot()) }
+        let limit = reads.rawValue.nonzeroBitCount * ConfigScriptSnapshot.byteLimit
+        var output = SnapshotWriter(limit: limit)
+        swap(&slots[index].storage, &output.bytes)
+        output.bytes.removeAll(keepingCapacity: true)
+        let capacity = capacityHints[reads.rawValue] ?? 0
+        output.bytes.reserveCapacity(capacity == 0 ? limit : capacity)
+        write(&output)
+        if output.bytes.count > capacity { capacityHints[reads.rawValue] = output.bytes.count }
+        swap(&slots[index].storage, &output.bytes)
+        return ConfigScriptSnapshot(reservation: slots[index].reservation, bytes: slots[index].storage)
+    }
+}
+
 private struct SnapshotWriter {
+    let limit: Int
     var bytes: [UInt8] = []
     private var header = 0
     private var rows: UInt16 = 0
     private var truncated = false
 
-    init(capacity: Int) {
-        bytes.reserveCapacity(capacity)
+    init(limit: Int) {
+        self.limit = limit
+    }
+
+    private mutating func makeRoom(for payload: Int, prefix: Int = 0) -> Bool {
+        guard payload <= remaining - prefix else { return false }
+        if payload + prefix > bytes.capacity - bytes.count { bytes.reserveCapacity(limit) }
+        return true
+    }
+
+    private var remaining: Int {
+        ConfigScriptSnapshot.byteLimit - (bytes.count - header)
     }
 
     mutating func start(_ kind: ConfigScriptReads) {
         header = bytes.count
         rows = 0
         truncated = false
+        if MemoryLayout<UInt64>.size > bytes.capacity - bytes.count { bytes.reserveCapacity(limit) }
         appendLE(UInt64(kind.rawValue))
     }
 
@@ -59,7 +108,7 @@ private struct SnapshotWriter {
             return false
         }
         let start = bytes.count
-        guard write(&self), bytes.count - header <= ConfigScriptSnapshot.byteLimit else {
+        guard write(&self) else {
             bytes.removeSubrange(start...)
             truncated = true
             return false
@@ -68,30 +117,47 @@ private struct SnapshotWriter {
         return true
     }
 
-    mutating func string(_ value: String?) -> Bool {
-        let available = ConfigScriptSnapshot.byteLimit - (bytes.count - header) - MemoryLayout<UInt32>.size
-        guard available >= 0 else { return false }
-        guard let value else {
-            appendLE(UInt32.max)
+    mutating func string(_ value: borrowing String?) -> Bool {
+        if value != nil { return string(value!) }
+        guard makeRoom(for: MemoryLayout<UInt32>.size) else { return false }
+        appendLE(UInt32.max)
+        return true
+    }
+
+    mutating func string(_ value: borrowing String) -> Bool {
+        let prefix = MemoryLayout<UInt32>.size
+        if let stored = value.utf8.withContiguousStorageIfAvailable({ source in
+            guard makeRoom(for: source.count, prefix: prefix) else { return false }
+            appendLE(UInt32(source.count))
+            bytes.append(contentsOf: source)
             return true
+        }) { return stored }
+        guard makeRoom(for: prefix) else { return false }
+        let offset = bytes.count
+        appendLE(UInt32.zero)
+        for byte in value.utf8 {
+            guard flag(byte) else { return false }
         }
-        let utf8 = value.utf8
-        let count = utf8.count
-        guard count <= available else { return false }
-        appendLE(UInt32(count))
-        if utf8.withContiguousStorageIfAvailable({ bytes.append(contentsOf: $0) }) == nil {
-            bytes.append(contentsOf: utf8)
-        }
+        let length = UInt32(bytes.count - offset - prefix)
+        bytes.withUnsafeMutableBytes { $0.storeBytes(of: length.littleEndian, toByteOffset: offset, as: UInt32.self) }
         return true
     }
 
     mutating func windowID(_ token: WindowToken, using encoder: borrowing IPCWindowOpaqueID.Encoder) -> Bool {
-        let offset = bytes.count
-        appendLE(UInt32(0))
-        encoder.append(pid: token.pid, windowId: token.windowId, to: &bytes)
-        guard bytes.count - header <= ConfigScriptSnapshot.byteLimit else { return false }
-        let length = UInt32(bytes.count - offset - MemoryLayout<UInt32>.size)
-        bytes.withUnsafeMutableBytes { $0.storeBytes(of: length.littleEndian, toByteOffset: offset, as: UInt32.self) }
+        encoder.withEncodedBytes(pid: token.pid, windowId: token.windowId) { prefix, suffix in
+            let length = prefix.count + suffix.count
+            let headerSize = MemoryLayout<UInt32>.size
+            guard makeRoom(for: length, prefix: headerSize) else { return false }
+            appendLE(UInt32(length))
+            bytes.append(contentsOf: prefix)
+            bytes.append(contentsOf: suffix)
+            return true
+        }
+    }
+
+    mutating func flag(_ value: UInt8) -> Bool {
+        guard makeRoom(for: MemoryLayout<UInt8>.size) else { return false }
+        bytes.append(value)
         return true
     }
 
@@ -108,16 +174,28 @@ private struct SnapshotWriter {
 
 extension WMController {
     func configScriptSnapshot(
-        reads: ConfigScriptReads, target: borrowing ConfigScriptTarget
+        reads: ConfigScriptReads, target: borrowing ConfigScriptTarget, pool: inout ConfigScriptSnapshotPool
     ) -> ConfigScriptSnapshot {
+        let workspace = target.workspaceId
+        let session = target.sessionID
+        return pool.capture(reads: reads) { writeSnapshot(
+            reads: reads,
+            workspaceId: workspace,
+            session: session,
+            to: &$0
+        ) }
+    }
+
+    private func writeSnapshot(
+        reads: ConfigScriptReads, workspaceId: WorkspaceDescriptor.ID?, session: ConfigScriptSession,
+        to output: inout SnapshotWriter
+    ) {
         let manager = workspaceManager
-        var output = SnapshotWriter(capacity: ConfigScriptSnapshot.capacityHint)
         lazy var resolution = manager.monitorResolutionContext()
-        let sessionID = target.sessionID
-        lazy var ids = IPCWindowOpaqueID.Encoder(sessionToken: sessionID.text)
+        lazy var ids = IPCWindowOpaqueID.Encoder(sessionToken: session.text)
         if reads.contains(.workspaceWindows) {
             output.start(.workspaceWindows)
-            if let id = target.workspaceId, let workspace = manager.descriptor(for: id) {
+            if let id = workspaceId, let workspace = manager.descriptor(for: id) {
                 _ = appendScriptWindows(in: workspace, ids: ids, resolution: resolution, to: &output)
             }
             finishScriptList(&output)
@@ -154,8 +232,6 @@ extension WMController {
         #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
             ConfigScriptSnapshot.captures += 1
         #endif
-        ConfigScriptSnapshot.capacityHint = output.bytes.count
-        return ConfigScriptSnapshot(bytes: Data(output.bytes))
     }
 
     private func finishScriptList(_ output: inout SnapshotWriter) {
@@ -178,29 +254,39 @@ extension WMController {
         let monitor = manager.resolvedWorkspaceMonitorId(for: workspace.id, context: resolution)
             .map(IPCDisplayRef.identifier)
         let layout = manager.activeLayoutKind(for: workspace.id)
+        let niri = layout == .niri ? manager.niriEngine : nil
+        let dwindle = layout == .dwindle ? manager.dwindleEngine?.existingState(for: workspace.id) : nil
         for token in tokens {
             let accepted = windows.withEntry(token) { entry in
                 output.row { row in
-                    let hosted = entry.target.hostedMetadata
-                    let bundle = hosted?.appId ?? entry.managedReplacementMetadata?.bundleId
-                        ?? appInfoCache.cachedBundleId(for: entry.pid)
-                    let title = hosted?.title ?? entry.managedReplacementMetadata?.title
-                        ?? UInt32(exactly: token.windowId).flatMap(AXWindowService.cachedTitle(windowId:))
-                    guard row.windowID(token, using: ids), row.string(bundle),
-                          row.string(title),
+                    guard row.windowID(token, using: ids), writeWindowText(entry, to: &row),
                           row.string(workspace.name), row.string(monitor) else { return false }
                     let floating = entry.mode == .floating
                     let fullscreen = entry.observedState.isNativeFullscreen || (!floating && (layout == .niri
-                            ? manager.niriEngine?.isWindowFullscreen(token, in: workspace.id) == true
-                            : manager.dwindleEngine?.isWindowFullscreen(token, in: workspace.id) == true))
-                    let flags: UInt8 = (floating ? 1 : 0) | (fullscreen ? 2 : 0) |
-                        (entry.observedState.isMinimized ? 4 : 0)
-                    row.bytes.append(flags)
-                    return true
+                            ? niri?.isWindowFullscreen(token, in: workspace.id) == true
+                            : dwindle?.isWindowFullscreen(token) == true))
+                    let flags = (floating ? OMNI_CONFIG_WINDOW_FLOATING : 0) |
+                        (fullscreen ? OMNI_CONFIG_WINDOW_FULLSCREEN : 0) |
+                        (entry.observedState.isMinimized ? OMNI_CONFIG_WINDOW_MINIMIZED : 0)
+                    return row.flag(UInt8(flags))
                 }
             }
             if accepted == false { return false }
         }
         return true
+    }
+
+    private func writeWindowText(_ entry: borrowing WindowState, to row: inout SnapshotWriter) -> Bool {
+        if case let .hosted(hosted) = entry.target {
+            return row.string(hosted.appId) && row.string(hosted.title)
+        }
+        if let bundle = entry.managedReplacementMetadata?.bundleId {
+            guard row.string(bundle) else { return false }
+        } else if !appInfoCache.withCachedBundleId(for: entry.pid, { row.string($0) }) {
+            return false
+        }
+        if let title = entry.managedReplacementMetadata?.title { return row.string(title) }
+        guard let id = UInt32(exactly: entry.token.windowId) else { return row.string(nil) }
+        return AXWindowService.withCachedTitle(windowId: id) { row.string($0) }
     }
 }

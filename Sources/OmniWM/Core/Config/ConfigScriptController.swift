@@ -425,7 +425,7 @@ extension ConfigScriptController {
                 capture: { [weak self, weak queue, weak controller] reads in
                     guard !Task.isCancelled, let self, let queue, let controller,
                           callbackQueue === queue else { return nil }
-                    return controller.configScriptCapture(reads: reads)
+                    return queue.capture(reads: reads, controller: controller)
                 },
                 deliver: { [weak self, weak queue, weak controller] result, target in
                     guard !Task.isCancelled, let self, let queue, let controller,

@@ -30,7 +30,13 @@ private final class ScriptARCNativeFocusClient: NSObject {
 private final class ScriptARCReentrantFocusClient: NSObject {
     var onNext: (@MainActor () -> Void)?
 
-    @objc func receive(_: NSNotification) {
+    func observe(_ controller: WMController) {
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(receive), name: .omniwmFocusChanged, object: controller
+        )
+    }
+
+    @objc private func receive(_: NSNotification) {
         let callback = onNext
         onNext = nil
         callback?()
@@ -236,18 +242,12 @@ extension ScriptARCFixture {
         let resumed = "resumed/" + UUID().uuidString
         let native = ScriptARCReentrantFocusClient()
         let center = NotificationCenter.default
-        func registerNative() {
-            center.addObserver(
-                native, selector: #selector(ScriptARCReentrantFocusClient.receive),
-                name: .omniwmFocusChanged, object: controller
-            )
-        }
-        if nativeFirst { registerNative() }
+        if nativeFirst { native.observe(controller) }
         var seen: [String?] = []
         let scriptListener = ConfigScriptEventObservers(controller: controller, kinds: [.windowActive]) { _, event in
             seen.append(event.id)
         }
-        if !nativeFirst { registerNative() }
+        if !nativeFirst { native.observe(controller) }
         defer {
             scriptListener.stop()
             center.removeObserver(native)
@@ -266,6 +266,7 @@ extension ScriptARCFixture {
     func checkNestedQueueReplacement() async throws {
         let center = NotificationCenter.default
         let receiver = ScriptARCReentrantFocusClient()
+        let nestedReceiver = ScriptARCReentrantFocusClient()
         let token = controller.workspaceManager.nativeManagedFocusToken!
         let last = "inner/" + UUID().uuidString
         let id = IPCWindowOpaqueID.encode(token: token, sessionToken: last)
@@ -279,22 +280,21 @@ extension ScriptARCFixture {
         let previous = try await acceptTitleScript("omniwm.on('window.active', function() error('retired') end)")
         await previous.waitForAuditPark()
         let worker = previous.worker!
-        center.addObserver(
-            receiver,
-            selector: #selector(ScriptARCReentrantFocusClient.receive),
-            name: .omniwmFocusChanged,
-            object: controller
-        )
-        defer { center.removeObserver(receiver) }
-        var posts = 0
+        receiver.observe(controller)
+        defer {
+            center.removeObserver(receiver)
+            center.removeObserver(nestedReceiver)
+        }
+        var posts: [String] = []
         func post(_ session: String) {
-            posts += 1
+            posts.append(session)
             controller.automationSessionToken = session
             FocusNotificationDispatcher(controller: controller).notifyFocusChangesIfNeeded()
         }
         receiver.onNext = {
             precondition(previous.hasPendingWork)
-            receiver.onNext = {
+            nestedReceiver.observe(self.controller)
+            nestedReceiver.onNext = {
                 precondition(previous.hasPendingWork)
                 precondition(self.script.apply(.init(versions: [:], result: .success(replacement)), hyperMask: mask))
                 receiver.onNext = { post(last) }
@@ -304,12 +304,8 @@ extension ScriptARCFixture {
         }
         post("outer")
         let next = script.callbackQueue!
-        precondition(next !== previous && next.hasPendingWork && posts == [
-            "outer",
-            "same generation",
-            "replacement",
-            last
-        ].count)
+        precondition(next !== previous && next.hasPendingWork)
+        precondition(posts == ["outer", "same generation", "replacement", last])
         precondition(controller.enqueueConfigFunction(script.acceptedCommands.first!.function) == .executed)
         await worker.value
         await next.waitForAuditPark()

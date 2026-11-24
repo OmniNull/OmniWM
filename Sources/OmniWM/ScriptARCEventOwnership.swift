@@ -40,7 +40,7 @@ extension ScriptARCFixture {
     }
 
     @inline(never)
-    func checkAncestryOwnership(last: Int, report: Bool) {
+    private func checkAncestryOwnership(last: Int, report: Bool) {
         let boundary = UInt64.bitWidth
         var ancestors: ConfigScriptListenerMask = [0, boundary]
         var additional: ConfigScriptListenerMask = [boundary - 1, boundary + 1]
@@ -58,6 +58,46 @@ extension ScriptARCFixture {
         }
         for member in [0, boundary - 1, boundary, boundary + 1, last] { precondition(ancestors.contains(member)) }
         precondition(!cause.excludingSelf.contains(boundary + 1) && !additional.contains(0))
+    }
+
+    func checkMultiwordPublication(report: Bool) async throws {
+        checkAncestryOwnership(last: Int(OMNI_CONFIG_DECLARATION_LIMIT) - 1, report: report)
+        let survivor = UInt64.bitWidth + 1
+        let queue = try await acceptTitleScript("""
+        local seen = 0
+        for index = 0, \(survivor) do
+            omniwm.on("keybinds.submap", function(event)
+                assert(index == \(survivor) and event.name == "normal")
+                seen += 1
+            end)
+        end
+        omniwm.command("Inspect", function() assert(seen == 1) end)
+        """)
+        await queue.waitForAuditPark()
+        var ancestors = ConfigScriptListenerMask()
+        for index in 0 ..< UInt64.bitWidth { ancestors.insert(index) }
+        let controller = controller
+        for excludeSurvivor in [true, false] {
+            var excluded = ancestors
+            if excludeSurvivor { excluded.insert(survivor) }
+            queue.feedback.begin(.init(function: UInt64.bitWidth, ancestors: excluded), controller: controller)
+            if report { script_arc_begin() }
+            ConfigScriptEventObservers.modeChanged(.normal, controller: controller)
+            if report { script_arc_end() }
+            queue.feedback.end(controller: controller)
+            if excludeSurvivor {
+                precondition(queue.isParked && !queue.hasPendingWork)
+                if report { script_arc_report("ancestry/all-excluded", "native", 0) }
+            } else if report {
+                try await finishWorker(seed: false)
+                script_arc_report("ancestry/publication", "event/keybinds.submap", 1)
+            } else {
+                await queue.waitForAuditPark()
+            }
+        }
+        precondition(controller.enqueueConfigFunction(script.acceptedCommands.first!.function) == .executed)
+        await queue.waitForAuditPark()
+        precondition(script.diagnostic == nil)
     }
 
     func checkQueuedEdgeEpoch() async throws {

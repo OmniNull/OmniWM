@@ -85,9 +85,10 @@ extension ConfigScriptEventObservers {
     }
 
     func catalogPlacements(in manager: WorkspaceManager) -> ConfigScriptCatalogPlacements {
-        ConfigScriptCatalogPlacements(
-            monitors: manager.monitors, visible: manager.visibleWorkspaceMap(),
-            assigned: manager.projections.workspaceIdsByMonitor(context: catalogMonitorContext)
+        let projections = manager.projections
+        return ConfigScriptCatalogPlacements(
+            monitors: manager.monitors, visible: projections.visibleWorkspaceMap(),
+            assigned: projections.workspaceIdsByMonitor(context: catalogMonitorContext)
         )
     }
 
@@ -265,13 +266,22 @@ extension WorkspaceManager {
         }
         guard workspaceCatalog.contains(workspace) else { return nil }
         if monitors.count == 1 { return ConfigScriptCatalogMonitor(monitors[0]) }
+        let projections = projections
         if let id = projections.cachedAssignedMonitor(for: workspace), let monitor = configCatalogMonitor(byId: id) {
             return monitor
         }
-        guard let monitor = effectiveMonitor(
-            for: workspace, context: context ?? monitorResolutionContext(), visibleMonitorId: nil
-        )
-        else { return nil }
+        let monitor: Monitor?
+        if let context {
+            monitor = effectiveMonitor(for: workspace, context: context, visibleMonitorId: nil)
+        } else if let row = descriptor(for: workspace) {
+            monitor = effectiveMonitor(
+                for: row, sortedMonitors: projections.sortedMonitors(), ranking: settings.monitors.ranking,
+                description: projections.monitorDescriptionByWorkspaceName()[row.name], visibleMonitorId: nil
+            )
+        } else {
+            return nil
+        }
+        guard let monitor else { return nil }
         return ConfigScriptCatalogMonitor(monitor)
     }
 }

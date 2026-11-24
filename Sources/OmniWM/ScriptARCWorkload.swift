@@ -43,7 +43,7 @@ final class ScriptARCFixture {
     private var nextTitle = "ARC fixture renamed window A"
     private(set) var titleReads = 0
 
-    init(directory: URL) throws {
+    init(directory: URL, snapshotRows: Int? = nil) throws {
         let settings = SettingsStore(
             persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),
             runtimeState: RuntimeStateStore(directory: directory, deferSaves: false),
@@ -68,7 +68,7 @@ final class ScriptARCFixture {
         let pid = getpid()
         token = WindowToken(pid: pid, windowId: Int(pid))
         otherWindow = WindowToken(pid: pid, windowId: token.windowId + 1)
-        try Self.prepareModel(controller, base: token)
+        try Self.prepareModel(controller, base: token, snapshotRows: snapshotRows)
         controller.surfaceReconciler.controller = nil
         controller.axEventHandler.windowTitleProvider = { [unowned self] _ in
             self.titleReads += 1
@@ -77,7 +77,7 @@ final class ScriptARCFixture {
         controller.workspaceManager.flushPersistedWindowRestoreCatalogNow()
     }
 
-    private static func prepareModel(_ controller: WMController, base: WindowToken) throws {
+    private static func prepareModel(_ controller: WMController, base: WindowToken, snapshotRows: Int?) throws {
         let frame = CGRect(x: 0, y: 0, width: 1440, height: 900)
         let monitor = Monitor(
             id: .init(displayId: 1),
@@ -97,7 +97,8 @@ final class ScriptARCFixture {
         manager.onWindowRemoved = nil
         manager.onAnimationMotionsWillBeRemoved = nil
         manager.applyMonitorConfigurationChange([monitor])
-        let names = ["1", "2"]
+        let firstName = snapshotRows == nil ? "1" : String(Int.max)
+        let names = [firstName, "2"]
         settings.workspaces.configurations = names.map {
             WorkspaceConfiguration(
                 name: $0,
@@ -113,7 +114,11 @@ final class ScriptARCFixture {
         }
         _ = manager.setActiveWorkspace(first, on: monitor.id)
         _ = manager.setInteractionMonitor(monitor.id)
-        try admitWindows(in: manager, base: base, first: first, second: second)
+        if let snapshotRows {
+            try admitSnapshotRows(snapshotRows, base: base, workspace: first, controller: controller)
+        } else {
+            try admitWindows(in: manager, base: base, first: first, second: second)
+        }
         guard manager.confirmManagedFocus(base, in: first, onMonitor: monitor.id, activateWorkspaceOnMonitor: false)
         else {
             throw ScriptARCError("Missing fixture focus")
@@ -241,12 +246,17 @@ final class ScriptARCFixture {
     }
 
     @inline(never)
-    func snapshot(_ reads: ConfigScriptReads, route: String, report: Bool) {
+    func snapshot(_ reads: ConfigScriptReads, route: String, report: Bool, expectedRows: Int? = nil) {
+        let queue = script.callbackQueue!
         script_arc_begin()
-        let capture = controller.configScriptCapture(reads: reads)
+        let capture = queue.capture(reads: reads, controller: controller)
         script_arc_end()
         if report { script_arc_report(route, reads.isEmpty ? "native/model" : "capture/fixed", 0) }
         withUnsafePointer(to: capture) { script_arc_sink($0) }
+        if let expectedRows {
+            let count = capture.snapshot!.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).littleEndian }
+            precondition(UInt16(truncatingIfNeeded: count >> 16) == expectedRows)
+        }
         precondition(capture.target.token == token && (capture.snapshot == nil) == reads.isEmpty)
     }
 
@@ -361,6 +371,7 @@ extension ScriptARCFixture {
             if report { script_arc_report(replace ? "title/replacement" : "title/fresh", "title/no-observer", 1) }
         }
         _ = controller.workspaceManager.updateManagedReplacementTitle(older, for: otherWindow)
+        controller.requestWorkspaceBarRefresh()
         title(latest, native: true, measured: true)
         try await finishWorker(seed: false)
         if report { script_arc_report("native/title+script", "native/title", 1) }
@@ -456,6 +467,8 @@ package func runScriptARCAudit(directory: URL, observeDelivery: Bool) async thro
         fixture.snapshot(.workspaceWindows, route: "capture/workspace-8", report: report)
         fixture.snapshot(.windows, route: "capture/windows-200", report: report)
     }
+    try runScriptARCWorkspaceKeys(directory: directory)
+    try await measureSnapshotRows(in: directory)
     try await fixture.ownedKey(fixed)
     try await fixture.refusals(fixed)
     try await fixture.ownedTitles()
@@ -466,14 +479,15 @@ package func runScriptARCAudit(directory: URL, observeDelivery: Bool) async thro
 @MainActor
 private func measureEventFamilies(in directory: URL) async throws {
     let events = try ScriptARCFixture(directory: directory)
-    events.checkAncestryOwnership(last: Int(OMNI_CONFIG_DECLARATION_LIMIT) - 1, report: true)
+    try await events.checkMultiwordPublication(report: true)
     try await events.measureMatchedTitleTransactions(in: directory)
     try await events.focusEvents(directory: directory)
     try await events.topologyEvents(in: directory)
     try await events.windowEvents(in: directory)
     for subscribed in [false, true] {
-        let transactions = try ScriptARCFixture(directory: directory)
-        try await transactions.windowTransactions(in: directory, subscribed: subscribed)
+        let location = directory.appendingPathComponent(subscribed ? "observed-windows" : "native-windows")
+        let transactions = try ScriptARCFixture(directory: location)
+        try await transactions.windowTransactions(in: location, subscribed: subscribed)
     }
     try await events.ownedWindowEvents()
     let timers = try ScriptARCFixture(directory: directory)

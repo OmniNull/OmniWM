@@ -15,7 +15,7 @@ extension DwindleLayoutEngine {
     }
 
     func isWindowFullscreen(_ token: WindowToken, in workspaceId: WorkspaceDescriptor.ID) -> Bool {
-        findNode(for: token, in: workspaceId)?.tile?.member(for: token)?.isFullscreen == true
+        existingState(for: workspaceId)?.isWindowFullscreen(token) == true
     }
 
     func fullscreenTokens(in workspaceId: WorkspaceDescriptor.ID) -> Set<WindowToken> {
@@ -234,5 +234,12 @@ extension DwindleLayoutEngine {
             }
         }
         return nil
+    }
+}
+
+extension DwindleWorkspaceState {
+    func isWindowFullscreen(_ token: WindowToken) -> Bool {
+        guard let node = leafByToken[token], case let .leaf(tile?) = node.kind else { return false }
+        return tile.member(for: token)?.isFullscreen == true
     }
 }

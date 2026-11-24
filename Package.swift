@@ -155,7 +155,8 @@ let package = Package(
             exclude: scriptARCDirectory == nil ? [
                 "ScriptARCWorkload.swift", "ScriptARCWorkerLifetime.swift", "ScriptARCFocusWorkload.swift",
                 "ScriptARCTopologyWorkload.swift", "ScriptARCWindowEvents.swift", "ScriptARCTimerWorkload.swift",
-                "ScriptARCWindowTransactions.swift", "ScriptARCEventOwnership.swift"
+                "ScriptARCWindowTransactions.swift", "ScriptARCEventOwnership.swift", "ScriptARCSnapshotWorkload.swift",
+                "ScriptARCWorkspaceKeys.swift"
             ] : [],
             resources: [
                 .process("Resources"),

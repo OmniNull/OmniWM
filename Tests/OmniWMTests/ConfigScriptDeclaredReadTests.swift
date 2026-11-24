@@ -70,7 +70,12 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
         let result = try XCTUnwrap(load.result.get())
         let generation = try XCTUnwrap(result.generation)
         let target = fixture.controller.configScriptTarget()
-        let snapshot = fixture.controller.configScriptSnapshot(reads: [.workspaces, .monitors], target: target)
+        var pool = ConfigScriptSnapshotPool()
+        let snapshot = fixture.controller.configScriptSnapshot(
+            reads: [.workspaces, .monitors],
+            target: target,
+            pool: &pool
+        )
         let event = ConfigScriptEventPayload(name: "observed")
         let first = try XCTUnwrap(result.events.first)
         do {
