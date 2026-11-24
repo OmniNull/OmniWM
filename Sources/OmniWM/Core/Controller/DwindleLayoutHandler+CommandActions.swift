@@ -104,7 +104,7 @@ extension DwindleLayoutHandler {
     func resizeInDirectionInDwindle(direction: Direction) -> Bool {
         guard let controller else { return false }
         var changed = false
-        controller.dwindleLayoutHandler.withDwindleContext { engine, wsId in
+        controller.dwindleLayoutHandler.withDwindleContext(recordingHistory: true) { engine, wsId in
             changed = engine.resizeSelected(toward: direction, by: engine.settings.resizeStep, in: wsId)
             guard changed else { return }
             controller.dwindleLayoutHandler.recordLayoutOperation(.splitRatioChanged, in: wsId)

@@ -127,4 +127,22 @@ final class DwindleResizeDirectionTests: XCTestCase {
         XCTAssertFalse(fixture.engine.resizeSelected(toward: .right, by: step, in: fixture.ws))
         XCTAssertTrue(fixture.engine.resizeSelected(toward: .left, by: step, in: fixture.ws))
     }
+
+    func testNeverMovesBorderAgainstRequestedDirection() throws {
+        let fixture = makeFixture()
+        let root = try XCTUnwrap(fixture.root)
+        root.kind = .split(orientation: .horizontal, ratio: 0.5)
+        // The left column's minimum width grows after the ratio was stored, so 0.5 is now below
+        // the feasible range and clamping a left step would push the border right.
+        fixture.engine.updateWindowConstraints(
+            for: fixture.top,
+            constraints: WindowSizeConstraints(minSize: CGSize(width: 800, height: 1), maxSize: .zero, isFixed: false)
+        )
+        fixture.select(fixture.bottomRight)
+
+        XCTAssertFalse(fixture.engine.resizeSelected(toward: .left, by: 0.01, in: fixture.ws))
+        XCTAssertEqual(root.splitRatio, 0.5)
+        XCTAssertTrue(fixture.engine.resizeSelected(toward: .right, by: 0.01, in: fixture.ws))
+        XCTAssertGreaterThan(try XCTUnwrap(root.splitRatio), 0.5)
+    }
 }

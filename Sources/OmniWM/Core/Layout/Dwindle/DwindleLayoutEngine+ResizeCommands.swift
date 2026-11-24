@@ -84,14 +84,16 @@ extension DwindleLayoutEngine {
               case let .split(orientation, ratio) = split.kind
         else { return false }
 
-        let newRatio = direction == .right || direction == .up ? ratio + step : ratio - step
+        let grows = direction == .right || direction == .up
         let clampedRatio = clampedRatioRespectingMinimums(
-            newRatio,
+            grows ? ratio + step : ratio - step,
             for: split,
             innerGap: settings.innerGap,
             excludedTokens: state.excludedTokens
         )
-        guard clampedRatio != ratio else { return false }
+        // A stored ratio can sit outside the feasible range (e.g. minimums grew since it was set),
+        // in which case clamping could move the border against the requested direction.
+        guard grows ? clampedRatio > ratio : clampedRatio < ratio else { return false }
         split.kind = .split(orientation: orientation, ratio: clampedRatio)
         return true
     }
