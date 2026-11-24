@@ -284,15 +284,15 @@ final class HotkeyCenter {
         return true
     }
 
-    func resetTransientInputState() {
+    func resetTransientInputState(reconcileTap: Bool = true) {
         resetTapBoundInputState()
-        releaseKeyboardModeCapture()
-        updateEventTapEnablement()
+        releaseKeyboardModeCapture(reconcileTap: reconcileTap)
     }
 
     private func resetTapBoundInputState() {
+        let wasActive = windowSwitcherInput.isActive
         windowSwitcherInput.reset()
-        onWindowSwitcherAction?(.cancel, windowSwitcherInput.generation)
+        if wasActive { onWindowSwitcherAction?(.cancel, windowSwitcherInput.generation) }
         releaseExternalWindowSwitcherTapIfIdle()
         hyperTrigger.reset()
     }
@@ -324,8 +324,7 @@ extension HotkeyCenter {
             return Unmanaged.passUnretained(event)
         case .tapDisabledByUserInput:
             InputTapHealth.recordTapDisabled(mouse: false, byTimeout: false)
-            resetTransientInputState()
-            hyperTriggerTap.map { CGEvent.tapEnable(tap: $0, enable: false) }
+            resetTransientInputState(reconcileTap: hyperTriggerTap.map(CGEvent.tapIsEnabled(tap:)) == true)
             return Unmanaged.passUnretained(event)
         case _ where !isRunning:
             return Unmanaged.passUnretained(event)

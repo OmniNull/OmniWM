@@ -7,6 +7,29 @@ import CoreGraphics
 import XCTest
 
 final class WindowSwitcherInputTests: XCTestCase {
+    @MainActor
+    func testTapResetCancelsOnlyTheActiveSwitcherGeneration() {
+        let center = HotkeyCenter()
+        var actions: [WindowSwitcherAction] = []
+        var generations: [UInt64] = []
+        center.onWindowSwitcherAction = { action, generation in
+            actions.append(action)
+            generations.append(generation)
+        }
+
+        center.resetTransientInputState()
+        XCTAssertTrue(actions.isEmpty)
+
+        center.windowSwitcherInput.beginExternalSession(holding: .maskCommand)
+        let activeGeneration = center.windowSwitcherInput.generation
+        center.resetTransientInputState()
+        center.resetTransientInputState()
+
+        XCTAssertFalse(center.windowSwitcherInput.isActive)
+        XCTAssertEqual(actions, [.cancel])
+        XCTAssertEqual(generations, [activeGeneration])
+    }
+
     func testCancellationSuppressesHeldTabAndAllowsNextPress() {
         var input = WindowSwitcherInput()
         XCTAssertEqual(key(&input, kVK_Tab).action, .begin(reverse: false, scope: .activeWorkspace))

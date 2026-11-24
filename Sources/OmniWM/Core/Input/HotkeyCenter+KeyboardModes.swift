@@ -50,9 +50,13 @@ extension HotkeyCenter {
         setKeyboardMode(.normal)
     }
 
-    func releaseKeyboardModeCapture() {
+    func releaseKeyboardModeCapture(reconcileTap: Bool = true) {
         suppressedHotkeyKeyCodes.removeAll()
-        cancelArmedKeyboardMode()
+        if keyboardModeInput.capturesKeys {
+            setKeyboardMode(.normal, reconcileTap: reconcileTap)
+        } else if reconcileTap {
+            updateEventTapEnablement()
+        }
     }
 
     var canArmKeyboardMode: Bool {
@@ -74,11 +78,11 @@ extension HotkeyCenter {
     }
 
     @discardableResult
-    func setKeyboardMode(_ state: KeyboardModeInput.State) -> Bool {
+    func setKeyboardMode(_ state: KeyboardModeInput.State, reconcileTap: Bool = true) -> Bool {
         let previous = keyboardModeInput.state
         guard previous != state else { return false }
         keyboardModeInput.state = state
-        keyboardModeDidChange(from: previous)
+        keyboardModeDidChange(from: previous, reconcileTap: reconcileTap)
         return true
     }
 
@@ -160,7 +164,7 @@ extension HotkeyCenter {
         command == .keyboardMode(.beginPrefix) || command == .keyboardMode(.toggleWindowMode)
     }
 
-    private func keyboardModeDidChange(from previous: KeyboardModeInput.State) {
+    private func keyboardModeDidChange(from previous: KeyboardModeInput.State, reconcileTap: Bool = true) {
         let previousKind = KeyboardModeInput.kind(of: previous)
         let kind = keyboardModeInput.kind
         if previousKind == .paused, kind != .paused {
@@ -173,7 +177,7 @@ extension HotkeyCenter {
             onWindowSwitcherAction?(.cancel, windowSwitcherInput.generation)
         }
         scheduleKeyboardModeTimer()
-        updateEventTapEnablement()
+        if reconcileTap { updateEventTapEnablement() }
         guard kind != previousKind else { return }
         DiagnosticsEventRecorder.shared.recordLifecycle(name: "hotkeys.mode \(kind.rawValue)")
         onKeyboardModeChange?(kind)
