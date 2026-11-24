@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
-import OmniWMIPC
 import OmniWMScriptHost
 import ScriptARCCounters
 
@@ -41,6 +40,7 @@ final class ScriptARCFixture {
     let token: WindowToken
     let otherWindow: WindowToken
     private var nextTitle = "ARC fixture renamed window A"
+    var scriptSessionSerial: UInt128 = 0
     private(set) var titleReads = 0
 
     init(directory: URL, snapshotRows: Int? = nil) throws {
@@ -68,6 +68,7 @@ final class ScriptARCFixture {
         let pid = getpid()
         token = WindowToken(pid: pid, windowId: Int(pid))
         otherWindow = WindowToken(pid: pid, windowId: token.windowId + 1)
+        controller.scriptSession = ConfigScriptSessionToken(identity: ConfigScriptSession(id: scriptSessionSerial))
         try Self.prepareModel(controller, base: token, snapshotRows: snapshotRows)
         controller.surfaceReconciler.controller = nil
         controller.axEventHandler.windowTitleProvider = { [unowned self] _ in
@@ -177,7 +178,7 @@ final class ScriptARCFixture {
     }
 
     func subscribe(withEventReads: Bool = false) async throws {
-        let expected = IPCWindowOpaqueID.encode(token: otherWindow, sessionToken: controller.automationSessionToken)
+        let expected = ConfigScriptWindowID.string(otherWindow, session: controller.scriptSession.identity)
         let reads = withEventReads ? #", {reads={"workspaceWindows"}}"# : ""
         let verifyReads = withEventReads ? "assert(#e.workspaceWindows == \(Self.workspaceRows))" : ""
         let source = """
@@ -186,6 +187,8 @@ final class ScriptARCFixture {
         wm.keymap.set("Control+Option+F", function(c) assert(c.windowId and not c.windows and not c.workspaceWindows) end)
         wm.keymap.set("Control+Option+L", function(c) assert(#c.workspaceWindows == \(Self.workspaceRows) and not c.windows) end, {reads={"workspaceWindows"}})
         wm.keymap.set("Control+Option+A", function(c) assert(#c.windows == \(Self.totalRows) and not c.workspaceWindows) end, {reads={"windows"}})
+        wm.keymap.set("Control+Option+D", function(c) wm.dispatch("window", "move-to-workspace", c.windowId, c.workspace) end)
+        wm.keymap.set("Control+Option+C", function(c) wm.dispatch(wm.cmd("focus-monitor", "next")) end)
         wm.on("window.title", function(e)
             assert(e.id == "\(expected)" and e.title == "ARC fixture renamed window B")
             \(verifyReads)
@@ -251,7 +254,10 @@ final class ScriptARCFixture {
         script_arc_begin()
         let capture = queue.capture(reads: reads, controller: controller)
         script_arc_end()
-        if report { script_arc_report(route, reads.isEmpty ? "native/model" : "capture/fixed", 0) }
+        if report {
+            script_arc_report(route, reads.isEmpty ? "native/model" : "capture/fixed", 0)
+            print("snapshot-bytes \(route) \(capture.snapshot?.withUnsafeBytes(\.count) ?? 0)")
+        }
         withUnsafePointer(to: capture) { script_arc_sink($0) }
         if let expectedRows {
             let count = capture.snapshot!.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).littleEndian }
@@ -318,7 +324,7 @@ final class ScriptARCFixture {
     }
 
     func ownedKey(_ command: HotkeyCommand) async throws {
-        _ = installCapturedIdentity(session: "session/" + UUID().uuidString, from: controller.activeWorkspace()!.id)
+        _ = installCapturedIdentity(session: nextScriptSession(), from: controller.activeWorkspace()!.id)
         for report in [false, true] {
             try await function(command, route: "key/owned-busy", busy: true, report: report)
         }
@@ -337,44 +343,6 @@ final class ScriptARCFixture {
             precondition(script.diagnostic != nil && controller.configScriptDiagnostic == script.diagnostic)
         }
         await queue.waitUntilParked()
-    }
-}
-
-@MainActor
-extension ScriptARCFixture {
-    func ownedTitles() async throws {
-        controller.automationSessionToken = "title session " + UUID().uuidString
-        setTitleBundle("app." + UUID().uuidString)
-        let queue = try await acceptTitleScript("""
-        omniwm.on("window.title", function(e) assert(e.id and e.bundleId and e.title and e.missed == 0) end)
-        """)
-        await queue.waitForAuditPark()
-        for report in [false, true] {
-            for replace in [false, true] {
-                if replace { title("previous " + UUID().uuidString, native: false, measured: false) }
-                title("latest " + UUID().uuidString, native: false, measured: true)
-                try await finishWorker(seed: false)
-                if report {
-                    script_arc_report(replace ? "title/owned-replacement" : "title/owned-fresh", "title/no-observer", 1)
-                }
-            }
-        }
-    }
-
-    func events(report: Bool) async throws {
-        let older = "ARC fixture renamed window A"
-        let latest = "ARC fixture renamed window B"
-        for replace in [false, true] {
-            if replace { title(older, native: false, measured: false) }
-            title(latest, native: false, measured: true)
-            try await finishWorker(seed: false)
-            if report { script_arc_report(replace ? "title/replacement" : "title/fresh", "title/no-observer", 1) }
-        }
-        _ = controller.workspaceManager.updateManagedReplacementTitle(older, for: otherWindow)
-        controller.requestWorkspaceBarRefresh()
-        title(latest, native: true, measured: true)
-        try await finishWorker(seed: false)
-        if report { script_arc_report("native/title+script", "native/title", 1) }
     }
 }
 
@@ -462,6 +430,7 @@ package func runScriptARCAudit(directory: URL, observeDelivery: Bool) async thro
         try await fixture.function(fixed, route: "key/busy", busy: true, report: report)
         try await fixture.function(local, route: "key/workspace-8", busy: false, report: report)
         try await fixture.function(all, route: "key/windows-200", busy: false, report: report)
+        try await fixture.callbackDispatchKeys(report: report)
         try await fixture.events(report: report)
         fixture.snapshot([], route: "capture/fixed", report: report)
         fixture.snapshot(.workspaceWindows, route: "capture/workspace-8", report: report)

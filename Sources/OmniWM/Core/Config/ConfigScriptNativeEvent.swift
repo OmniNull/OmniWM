@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
 
 struct ConfigScriptNativeEvent: Sendable {
     enum ID: Sendable {
@@ -35,9 +34,9 @@ struct ConfigScriptNativeEvent: Sendable {
                 .workspace(id: id?.uuidString, name: name, previousId: previous?.uuidString, previousName: previousName)
             case let .monitor(id, name, previous, previousName):
                 .monitor(
-                    id: id.map(IPCDisplayRef.identifier),
+                    id: id?.scriptIdentifier,
                     name: name,
-                    previousId: previous.map(IPCDisplayRef.identifier),
+                    previousId: previous?.scriptIdentifier,
                     previousName: previousName
                 )
             case let .geometry(frame, previous, visible, previousVisible):
@@ -75,11 +74,8 @@ struct ConfigScriptNativeEvent: Sendable {
         case .capturedWindow: preconditionFailure("Window edge needs its trigger capture")
         case .none: nil
         case let .workspace(id): id.uuidString
-        case let .monitor(id): IPCDisplayRef.identifier(id)
-        case let .window(token, session, _): windowID ?? IPCWindowOpaqueID.encode(
-                token: token,
-                sessionToken: session.text
-            )
+        case let .monitor(id): id.scriptIdentifier
+        case let .window(token, session, _): windowID ?? ConfigScriptWindowID.string(token, session: session)
         }
         return .init(id: text, name: name, bundleId: bundleId, edge: edge?.encoded)
     }

@@ -117,14 +117,10 @@ final class ConfigScriptEventFeedbackTests: XCTestCase {
         XCTAssertNil(feedback.closeExclusions(token: other))
         var deliveries: [ConfigScriptListenerMask] = []
         let observers = ConfigScriptEventObservers(controller: controller, kinds: [.windowClose]) { _, payload in
-            guard let id = payload.id, let decoded = IPCWindowOpaqueID.decode(
-                id,
-                expectingSessionToken: controller.automationSessionToken
-            ) else { return XCTFail("Expected the removed window ID") }
-            deliveries.append(feedback.closeExclusions(token: WindowToken(
-                pid: decoded.pid,
-                windowId: decoded.windowId
-            )) ?? [])
+            guard let id = payload.id, let decoded = ConfigScriptWindowID.decode(id),
+                  decoded.session == controller.scriptSession.identity
+            else { return XCTFail("Expected the removed window ID") }
+            deliveries.append(feedback.closeExclusions(token: decoded.token) ?? [])
         }
         defer { observers.stop() }
         feedback.begin(concurrent, controller: controller)

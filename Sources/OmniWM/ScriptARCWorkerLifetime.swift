@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
-import OmniWMIPC
 import OmniWMScriptHost
 import ScriptARCCounters
 
@@ -87,16 +86,12 @@ extension ScriptARCFixture {
         let queue = accept(ConfigScriptLoad(versions: [:], result: .success(evaluation)))
         let command = try binding("Control+Option+F")
         await queue.waitForAuditPark()
-        for makeSession: () -> String in [
-            { UUID().uuidString }, { UUID().uuidString.lowercased() }, { "e\u{301}/会:" + UUID().uuidString }
-        ] {
-            await holdInFlight("Hold")
-            let expected = captureIdentity(command, session: makeSession())
-            script_arc_release_entry()
-            await queue.waitForAuditPark()
-            script_arc_finish_entry()
-            precondition(script.diagnostic?.contains(expected) == true)
-        }
+        await holdInFlight("Hold")
+        let expected = captureIdentity(command, session: nextScriptSession())
+        script_arc_release_entry()
+        await queue.waitForAuditPark()
+        script_arc_finish_entry()
+        precondition(script.diagnostic?.contains(expected) == true)
     }
 
     func acceptTitleScript(_ source: String) async throws -> ConfigScriptCallbackQueue {
@@ -110,6 +105,18 @@ extension ScriptARCFixture {
         let current = malloc_size(Unmanaged.passUnretained(handle).toOpaque())
         let titleEnd = class_getInstanceSize(WindowHandle.self) + MemoryLayout<String?>.stride
         print("title/history handle=\(current) with-stored-title=\(malloc_good_size(titleEnd))")
+    }
+
+    func nextScriptSession() -> ConfigScriptSession {
+        scriptSessionSerial += 1
+        return ConfigScriptSession(id: scriptSessionSerial)
+    }
+
+    func setScriptSession(_ identity: ConfigScriptSession) {
+        controller.scriptSession = ConfigScriptSessionToken(
+            identity: identity,
+            epoch: controller.scriptSession.epoch + 1
+        )
     }
 
     func setTitleBundle(_ bundle: String) {
@@ -130,17 +137,16 @@ extension ScriptARCFixture {
         omniwm.command("Report", function() error(table.concat(rows, ";")) end)
         """)
         await queue.waitForAuditPark()
-        let initial = UUID().uuidString
-        let decomposed = "e\u{301}/" + initial
-        let epochs = [initial, decomposed, decomposed.precomposedStringWithCanonicalMapping, initial, initial]
-        let expected = epochs.enumerated().map { index, text in
-            controller.automationSessionToken = text
+        let initial = nextScriptSession()
+        let epochs = [initial, nextScriptSession(), nextScriptSession(), initial, initial]
+        let expected = epochs.enumerated().map { index, session in
+            setScriptSession(session)
             title("superseded", native: false, measured: false)
             let bundle = "app." + UUID().uuidString
             setTitleBundle(bundle)
             let latest = index == epochs.startIndex ? "static title" : "renamed " + UUID().uuidString
             title(latest, native: false, measured: false)
-            let window = IPCWindowOpaqueID.encode(token: otherWindow, sessionToken: text)
+            let window = ConfigScriptWindowID.string(otherWindow, session: session)
             return window + "|" + latest + "|" + bundle
         }
         enqueue("Report")
@@ -179,18 +185,18 @@ extension ScriptARCFixture {
         precondition(script.callbackQueue?.hasPendingWork == false)
     }
 
-    private func captureIdentity(_ command: HotkeyCommand, session: String) -> String {
+    private func captureIdentity(_ command: HotkeyCommand, session: ConfigScriptSession) -> String {
         let previous = controller.activeWorkspace()!.id
         let expected = installCapturedIdentity(session: session, from: previous)
         precondition(key(command, measured: false) == .executed)
-        controller.automationSessionToken = UUID().uuidString
+        setScriptSession(nextScriptSession())
         let manager = controller.workspaceManager
         precondition(manager.setManagedReplacementMetadata(nil, for: token))
         precondition(manager.setActiveWorkspace(previous, on: manager.interactionMonitorId!))
         return expected
     }
 
-    func installCapturedIdentity(session: String, from previous: WorkspaceDescriptor.ID) -> String {
+    func installCapturedIdentity(session: ConfigScriptSession, from previous: WorkspaceDescriptor.ID) -> String {
         let manager = controller.workspaceManager
         let monitor = manager.interactionMonitorId!
         let workspace = manager.createDynamicWorkspace(named: String(Int.max), on: monitor)!
@@ -199,8 +205,8 @@ extension ScriptARCFixture {
         precondition(manager.setManagedReplacementMetadata(
             .init(bundleId: bundle, workspaceId: previous, mode: .tiling), for: token
         ))
-        controller.automationSessionToken = session
-        let id = IPCWindowOpaqueID.encode(token: token, sessionToken: session)
+        setScriptSession(session)
+        let id = ConfigScriptWindowID.string(token, session: session)
         return id + "|" + bundle + "|" + workspace.name
     }
 

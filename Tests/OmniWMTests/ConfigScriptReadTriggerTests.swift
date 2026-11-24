@@ -26,7 +26,7 @@ final class ConfigScriptReadTriggerTests: XCTestCase {
                     if kind == .workspaceActive {
                         ConfigScriptEventObservers.workspaceChanged(nil, name: value, controller: fixture.controller)
                     } else {
-                        let session = fixture.controller.automationSession
+                        let session = fixture.controller.scriptSession
                         observer.publishTitle(.init(
                             token: WindowToken(pid: getpid(), windowId: Int(getpid())),
                             session: session.identity,
@@ -52,7 +52,7 @@ final class ConfigScriptReadTriggerTests: XCTestCase {
         let manager = fixture.controller.workspaceManager
         let workspace = try XCTUnwrap(manager.workspaceId(named: fixture.origin))
         let token = WindowToken(pid: getpid(), windowId: Int(getpid()))
-        let opaque = IPCWindowOpaqueID.encode(token: token, sessionToken: fixture.controller.automationSessionToken)
+        let opaque = ConfigScriptWindowID.string(token, session: fixture.controller.scriptSession.identity)
         _ = WindowAdmissionTestSupport.track(token, in: workspace, controller: fixture.controller)
         let expectedMonitors = manager.monitors.count
         let expectedWorkspaces = manager.workspaces.count

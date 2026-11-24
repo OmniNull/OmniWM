@@ -366,10 +366,7 @@ extension ConfigScriptStage {
         }
         switch kind {
         case OMNI_CONFIG_WINDOW_DISPATCH:
-            var arguments: [String] = []
-            arguments.reserveCapacity(words.count)
-            for word in words { arguments.append(try Self.string(word)) }
-            dispatch(.window(try ConfigScriptWindowRequest(words: arguments)), at: location)
+            dispatch(.window(try ConfigScriptWindowRequest(words: words)), at: location)
         case OMNI_CONFIG_OPEN_APP:
             let bundleID = try Self.string(words[0])
             guard ActionCatalog.isValidOpenAppBundleID(bundleID) else {

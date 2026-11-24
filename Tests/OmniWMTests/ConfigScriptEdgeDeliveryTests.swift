@@ -19,9 +19,9 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
         let excess = kinds.count
         let marker = "Inspect burst"
         let workspace = UUID()
-        let session = fixture.controller.automationSession
+        let session = fixture.controller.scriptSession
         let tokens = (0 ... (limit + excess)).map { WindowToken(pid: getpid(), windowId: $0) }
-        let ids = tokens.map { IPCWindowOpaqueID.encode(token: $0, sessionToken: session.text) }
+        let ids = tokens.map { ConfigScriptWindowID.string($0, session: session.identity) }
         let body = [
             "local received = {}",
             "local ids = {\(ids.map { "'\($0)'" }.joined(separator: ","))}",
@@ -95,8 +95,8 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
             ), token)
         }
         _ = manager.setManagedFocus(second, in: origin, onMonitor: monitor.id)
-        let firstId = IPCWindowOpaqueID.encode(token: first, sessionToken: controller.automationSessionToken)
-        let secondId = IPCWindowOpaqueID.encode(token: second, sessionToken: controller.automationSessionToken)
+        let firstId = ConfigScriptWindowID.string(first, session: controller.scriptSession.identity)
+        let secondId = ConfigScriptWindowID.string(second, session: controller.scriptSession.identity)
         fixture.apply(try await fixture.load([
             "local wm = omniwm",
             "local visited = {}",

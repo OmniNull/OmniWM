@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
 import OmniWMScriptHost
 import ScriptARCCounters
 
@@ -101,9 +100,9 @@ extension ScriptARCFixture {
     }
 
     func checkQueuedEdgeEpoch() async throws {
-        let original = "window/e\u{301}/" + UUID().uuidString
-        controller.automationSessionToken = original
-        let expected = IPCWindowOpaqueID.encode(token: otherWindow, sessionToken: original)
+        let original = nextScriptSession()
+        setScriptSession(original)
+        let expected = ConfigScriptWindowID.string(otherWindow, session: original)
         let bundle = "window.open/" + UUID().uuidString
         setTitleBundle(bundle)
         let queue = try await acceptTitleScript("""
@@ -116,7 +115,7 @@ extension ScriptARCFixture {
         """)
         await queue.waitForAuditPark()
         controller.workspaceManager.publishOpenedWindow(otherWindow)
-        controller.automationSessionToken = original.precomposedStringWithCanonicalMapping
+        setScriptSession(nextScriptSession())
         setTitleBundle("replacement")
         precondition(controller.enqueueConfigFunction(script.acceptedCommands.first!.function) == .executed)
         await queue.waitForAuditPark()

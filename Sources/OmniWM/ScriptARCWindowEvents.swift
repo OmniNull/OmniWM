@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
 import ScriptARCCounters
 
 @MainActor
@@ -22,7 +21,7 @@ extension ScriptARCFixture {
             publishWindowEvent(kind, entry, move, manager)
             script_arc_end()
             script_arc_report(control, "native", 0)
-            let id = IPCWindowOpaqueID.encode(token: otherWindow, sessionToken: controller.automationSessionToken)
+            let id = ConfigScriptWindowID.string(otherWindow, session: controller.scriptSession.identity)
             let queue = try await acceptTitleScript("""
             omniwm.on("\(kind.rawValue)", function(e)
                 assert(e.id == "\(id)" and e.bundleId == "test.omniwm.snapshot.fixture" and e.missed == 0)
@@ -42,13 +41,13 @@ extension ScriptARCFixture {
     func ownedWindowEvents() async throws {
         let manager = controller.workspaceManager
         let previous = manager.workspaceId(named: "2")!
-        let session = "window/" + UUID().uuidString
+        let session = nextScriptSession()
         let bundle = "app." + UUID().uuidString
-        controller.automationSessionToken = session
+        setScriptSession(session)
         setTitleBundle(bundle)
         let entry = manager.entry(for: otherWindow)!
         let move = WindowModel.MembershipChange(token: otherWindow, source: previous, destination: entry.workspaceId)
-        let id = IPCWindowOpaqueID.encode(token: otherWindow, sessionToken: session)
+        let id = ConfigScriptWindowID.string(otherWindow, session: session)
         for kind in [ConfigScriptEventKind.windowOpen, .windowMinimize] {
             let queue =
                 try await acceptTitleScript(
@@ -101,10 +100,10 @@ extension ScriptARCFixture {
         let queue = try await acceptTitleScript(codes.joined(separator: "\n"))
         await queue.waitForAuditPark()
         let observer = script.eventObservers!
-        let initial = UUID().uuidString
+        let initial = nextScriptSession()
         var expected: [String] = []
-        for session in [initial, "e\u{301}/" + initial, initial] {
-            controller.automationSessionToken = session
+        for session in [initial, nextScriptSession(), initial] {
+            setScriptSession(session)
             observer.windowStateChanged(
                 .windowMinimize,
                 token: otherWindow,
@@ -120,7 +119,7 @@ extension ScriptARCFixture {
                 in: controller.workspaceManager
             )
             expected
-                .append(IPCWindowOpaqueID.encode(token: otherWindow, sessionToken: session) + "|" + bundle + "|true")
+                .append(ConfigScriptWindowID.string(otherWindow, session: session) + "|" + bundle + "|true")
         }
         precondition(controller.enqueueConfigFunction(script.acceptedCommands.first!.function) == .executed)
         await queue.waitForAuditPark()
@@ -152,8 +151,8 @@ extension ScriptARCFixture {
         let destination = manager.workspaceId(named: "2")!
         let cap = ConfigScriptCallbackQueue.edgeCapacity
         let ids = (0 ... cap).map { WindowToken(pid: token.pid, windowId: token.windowId + $0) }
-        let session = controller.automationSessionToken
-        let ordered = ids.dropFirst().map { "'" + IPCWindowOpaqueID.encode(token: $0, sessionToken: session) + "'" }
+        let session = controller.scriptSession.identity
+        let ordered = ids.dropFirst().map { "'" + ConfigScriptWindowID.string($0, session: session) + "'" }
             .joined(separator: ",")
         let queue = try await acceptTitleScript("""
         local ids, seen = {\(ordered)}, 0
@@ -182,5 +181,48 @@ extension ScriptARCFixture {
         precondition(controller.enqueueConfigFunction(script.acceptedCommands.first!.function) == .executed)
         await queue.waitForAuditPark()
         precondition(script.diagnostic == nil)
+    }
+}
+
+@MainActor
+extension ScriptARCFixture {
+    func callbackDispatchKeys(report: Bool) async throws {
+        try await function(binding("Control+Option+D"), route: "key/dispatch-window", busy: false, report: report)
+        try await function(binding("Control+Option+C"), route: "key/cmd-in-callback", busy: false, report: report)
+    }
+
+    func ownedTitles() async throws {
+        setScriptSession(nextScriptSession())
+        setTitleBundle("app." + UUID().uuidString)
+        let queue = try await acceptTitleScript("""
+        omniwm.on("window.title", function(e) assert(e.id and e.bundleId and e.title and e.missed == 0) end)
+        """)
+        await queue.waitForAuditPark()
+        for report in [false, true] {
+            for replace in [false, true] {
+                if replace { title("previous " + UUID().uuidString, native: false, measured: false) }
+                title("latest " + UUID().uuidString, native: false, measured: true)
+                try await finishWorker(seed: false)
+                if report {
+                    script_arc_report(replace ? "title/owned-replacement" : "title/owned-fresh", "title/no-observer", 1)
+                }
+            }
+        }
+    }
+
+    func events(report: Bool) async throws {
+        let older = "ARC fixture renamed window A"
+        let latest = "ARC fixture renamed window B"
+        for replace in [false, true] {
+            if replace { title(older, native: false, measured: false) }
+            title(latest, native: false, measured: true)
+            try await finishWorker(seed: false)
+            if report { script_arc_report(replace ? "title/replacement" : "title/fresh", "title/no-observer", 1) }
+        }
+        _ = controller.workspaceManager.updateManagedReplacementTitle(older, for: otherWindow)
+        controller.requestWorkspaceBarRefresh()
+        title(latest, native: true, measured: true)
+        try await finishWorker(seed: false)
+        if report { script_arc_report("native/title+script", "native/title", 1) }
     }
 }

@@ -22,7 +22,6 @@ extension ScriptARCFixture {
         _ = controller.appInfoCache.info(for: base.pid) { _ in
             .init(name: nil, bundleId: "cached.app." + String(base.pid), icon: nil, activationPolicy: .regular)
         }
-        controller.automationSessionToken = "Snapshot session 窓:" + String(base.pid)
         for index in 0 ..< count {
             let token = WindowToken(pid: base.pid, windowId: base.windowId + index)
             let bundle = "app.with.a.dynamic.bundle.id." + String(index)

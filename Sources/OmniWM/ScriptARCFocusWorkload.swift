@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
 import ScriptARCCounters
 
 @MainActor
@@ -62,7 +61,7 @@ extension ScriptARCFixture {
             monitor: monitor,
             window: token
         )
-        controller.automationSessionToken = UUID().uuidString
+        setScriptSession(nextScriptSession())
         _ = manager.setManagedReplacementMetadata(
             .init(bundleId: "focus.fixture", workspaceId: workspace, mode: .tiling), for: token
         )
@@ -109,9 +108,9 @@ extension ScriptARCFixture {
         )
         manager.applyMonitorConfigurationChange([renamed])
         let dynamic = manager.createDynamicWorkspace(named: String(Int.max), on: monitor.id)!
-        let session = "focus/" + UUID().uuidString
+        let session = nextScriptSession()
         let bundle = "bundle." + UUID().uuidString
-        controller.automationSessionToken = session
+        setScriptSession(session)
         _ = manager.setManagedReplacementMetadata(
             .init(bundleId: bundle, workspaceId: workspace, mode: .tiling), for: token
         )
@@ -120,7 +119,7 @@ extension ScriptARCFixture {
             monitor: manager.monitor(byId: monitor.id)!,
             window: token
         )
-        let id = IPCWindowOpaqueID.encode(token: token, sessionToken: session)
+        let id = ConfigScriptWindowID.string(token, session: session)
         let queue = try await acceptTitleScript("""
         omniwm.on("workspace.active", function(e) assert(e.name == "\(dynamic.name)") end)
         omniwm.on("window.active", function(e) assert(e.id == "\(id)" and e.bundleId == "\(bundle)") end)
@@ -237,9 +236,9 @@ extension ScriptARCFixture {
     }
 
     private func checkNativeFocusOrder(token: WindowToken, nativeFirst: Bool) {
-        let outer = "outer/" + UUID().uuidString
-        let nested = "nested/" + UUID().uuidString
-        let resumed = "resumed/" + UUID().uuidString
+        let outer = nextScriptSession()
+        let nested = nextScriptSession()
+        let resumed = nextScriptSession()
         let native = ScriptARCReentrantFocusClient()
         let center = NotificationCenter.default
         if nativeFirst { native.observe(controller) }
@@ -252,15 +251,15 @@ extension ScriptARCFixture {
             scriptListener.stop()
             center.removeObserver(native)
         }
-        controller.automationSessionToken = outer
+        setScriptSession(outer)
         native.onNext = {
-            self.controller.automationSessionToken = nested
+            self.setScriptSession(nested)
             FocusNotificationDispatcher(controller: self.controller).notifyFocusChangesIfNeeded()
-            self.controller.automationSessionToken = resumed
+            self.setScriptSession(resumed)
         }
         FocusNotificationDispatcher(controller: controller).notifyFocusChangesIfNeeded()
         let expected = nativeFirst ? [nested, resumed] : [outer, nested]
-        precondition(seen == expected.map { IPCWindowOpaqueID.encode(token: token, sessionToken: $0) })
+        precondition(seen == expected.map { ConfigScriptWindowID.string(token, session: $0) })
     }
 
     func checkNestedQueueReplacement() async throws {
@@ -268,8 +267,11 @@ extension ScriptARCFixture {
         let receiver = ScriptARCReentrantFocusClient()
         let nestedReceiver = ScriptARCReentrantFocusClient()
         let token = controller.workspaceManager.nativeManagedFocusToken!
-        let last = "inner/" + UUID().uuidString
-        let id = IPCWindowOpaqueID.encode(token: token, sessionToken: last)
+        let outer = nextScriptSession()
+        let sameGeneration = nextScriptSession()
+        let replacing = nextScriptSession()
+        let last = nextScriptSession()
+        let id = ConfigScriptWindowID.string(token, session: last)
         let source = """
         local seen = 0
         omniwm.on("window.active", function(e) seen += 1; assert(e.id == "\(id)") end)
@@ -285,10 +287,10 @@ extension ScriptARCFixture {
             center.removeObserver(receiver)
             center.removeObserver(nestedReceiver)
         }
-        var posts: [String] = []
-        func post(_ session: String) {
+        var posts: [ConfigScriptSession] = []
+        func post(_ session: ConfigScriptSession) {
             posts.append(session)
-            controller.automationSessionToken = session
+            setScriptSession(session)
             FocusNotificationDispatcher(controller: controller).notifyFocusChangesIfNeeded()
         }
         receiver.onNext = {
@@ -298,14 +300,14 @@ extension ScriptARCFixture {
                 precondition(previous.hasPendingWork)
                 precondition(self.script.apply(.init(versions: [:], result: .success(replacement)), hyperMask: mask))
                 receiver.onNext = { post(last) }
-                post("replacement")
+                post(replacing)
             }
-            post("same generation")
+            post(sameGeneration)
         }
-        post("outer")
+        post(outer)
         let next = script.callbackQueue!
         precondition(next !== previous && next.hasPendingWork)
-        precondition(posts == ["outer", "same generation", "replacement", last])
+        precondition(posts == [outer, sameGeneration, replacing, last])
         precondition(controller.enqueueConfigFunction(script.acceptedCommands.first!.function) == .executed)
         await worker.value
         await next.waitForAuditPark()
@@ -315,10 +317,10 @@ extension ScriptARCFixture {
     func checkFocusEpochAndRetirement() async throws {
         let nativeWindow = controller.workspaceManager.nativeManagedFocusToken ?? token
         let workspace = controller.workspaceManager.workspace(for: nativeWindow)!
-        let oldSession = "focus/e\u{301}/" + UUID().uuidString
+        let oldSession = nextScriptSession()
         let oldBundle = "app." + UUID().uuidString
-        let id = IPCWindowOpaqueID.encode(token: nativeWindow, sessionToken: oldSession)
-        controller.automationSessionToken = oldSession
+        let id = ConfigScriptWindowID.string(nativeWindow, session: oldSession)
+        setScriptSession(oldSession)
         let manager = controller.workspaceManager
         _ = manager.setManagedReplacementMetadata(
             .init(bundleId: oldBundle, workspaceId: workspace, mode: .tiling), for: nativeWindow
@@ -330,7 +332,7 @@ extension ScriptARCFixture {
         """)
         await queue.waitForAuditPark()
         ConfigScriptEventObservers.windowChanged(nativeWindow, controller: controller)
-        controller.automationSessionToken = oldSession.precomposedStringWithCanonicalMapping
+        setScriptSession(nextScriptSession())
         _ = manager.setManagedReplacementMetadata(
             .init(bundleId: "replacement", workspaceId: workspace, mode: .tiling), for: nativeWindow
         )

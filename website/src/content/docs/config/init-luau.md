@@ -71,6 +71,8 @@ The row fields are:
 - **workspace:** `id`, `name` and `monitor`;
 - **monitor:** `id` and `name`.
 
+A window `id` is text such as `"9b2f6c0e4d1a7b3c5e8f0a2d4c6e8b1f.48213.912345"`. It names the same window until OmniWM quits, and actions reach that window while OmniWM manages it. A monitor `id` is the display's number as text, such as `"69734208"`.
+
 Each list holds up to 256 rows and 128 KiB. `truncated.<list>` is `true` when a list was cut.
 
 ## Events
@@ -100,7 +102,7 @@ Handlers last until the next reload.
 
 ## Window actions
 
-`omniwm.dispatch("window", action, id, …)` takes these actions:
+`omniwm.dispatch("window", action, id, …)` takes these actions. Take `id` from `ctx.windowId`, a row or an event. IDs from `omniwmctl` don't work here.
 
 | Action | Extra arguments |
 | --- | --- |

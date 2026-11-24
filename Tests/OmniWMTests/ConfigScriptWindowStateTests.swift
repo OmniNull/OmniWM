@@ -16,7 +16,7 @@ final class ConfigScriptWindowStateTests: XCTestCase {
         let source = TitleSource()
         let handler = controller.axEventHandler
         handler.windowTitleProvider = { _ in source.read() }
-        let id = IPCWindowOpaqueID.encode(token: token, sessionToken: controller.automationSessionToken)
+        let id = ConfigScriptWindowID.string(token, session: controller.scriptSession.identity)
         var titles: [String] = []
         let observer = ConfigScriptEventObservers(controller: controller, kinds: [.windowTitle]) { kind, payload in
             XCTAssertEqual(kind, .windowTitle)
@@ -98,10 +98,8 @@ final class ConfigScriptWindowStateTests: XCTestCase {
         let fixture = try HostedFamilyStateFixture()
         defer { fixture.close() }
         let controller = fixture.base.controller
-        let expected = fixture.family.map { IPCWindowOpaqueID.encode(
-            token: $0,
-            sessionToken: controller.automationSessionToken
-        ) }
+        let expected = fixture.family
+            .map { ConfigScriptWindowID.string($0, session: controller.scriptSession.identity) }
         var ids: [String] = []
         let observer = ConfigScriptEventObservers(controller: controller, kinds: [.windowMinimize]) { _, payload in
             if let id = payload.id { ids.append(id) }

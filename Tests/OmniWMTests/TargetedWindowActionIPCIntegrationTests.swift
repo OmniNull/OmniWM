@@ -1267,6 +1267,53 @@ final class TargetedWindowActionIPCIntegrationTests: XCTestCase {
         )
     }
 
+    func testEveryWindowActionHasTheSameOutcomeThroughTheCLIAndLuau() async throws {
+        let arguments = [
+            "workspace": "3", "number": String(IPCScratchpadSlots.range.lowerBound),
+            "direction": IPCDirection.left.rawValue, "cycle-direction": IPCCycleDirection.forward.rawValue,
+            "size-change": "+12%"
+        ]
+        for descriptor in IPCAutomationManifest.windowActionDescriptors {
+            let name = descriptor.name.rawValue
+            let cli = try await makeFixture(columnCount: 4, focusedIndex: 2)
+            let luau = try await makeFixture(columnCount: 4, focusedIndex: 2)
+            let target = cli.windows[1]
+            func words(_ id: String) throws -> [String] {
+                try [name] + descriptor.arguments.map { $0 == "opaque-id" ? id : try XCTUnwrap(arguments[$0]) }
+            }
+            let request = try XCTUnwrap(IPCWindowRequest(actionWords: words(opaqueId(target))))
+            let luauID = ConfigScriptWindowID.string(target.id, session: luau.controller.scriptSession.identity)
+            let dispatch = try ConfigScriptWindowRequest(testWords: words(luauID))
+            let cliResult = cli.router.handle(request)
+            let luauResult = luau.controller.performConfigScriptDispatch(
+                .window(dispatch),
+                target: luau.controller.configScriptTarget()
+            )
+            await WindowAdmissionTestSupport.drainLayoutRefreshes(cli.controller)
+            await WindowAdmissionTestSupport.drainLayoutRefreshes(luau.controller)
+            XCTAssertFalse([.notFound, .staleWindowId, .invalidArguments, .noChange].contains(cliResult), name)
+            XCTAssertEqual(cliResult, luauResult, name)
+            XCTAssertEqual(outcome(cli), outcome(luau), name)
+        }
+    }
+
+    private func outcome(_ fixture: Fixture) -> [String] {
+        let manager = fixture.controller.workspaceManager
+        let windows = fixture.windows.map { handle in
+            let workspace = manager.workspace(for: handle.id).flatMap { manager.descriptor(for: $0)?.name }
+            return [
+                "\(handle.id)", workspace ?? "none", String(describing: manager.entry(for: handle.id)?.mode),
+                String(describing: manager.scratchpadIndex(for: handle.id)),
+                String(manager.hiddenState(for: handle.id)?.isScratchpad == true)
+            ].joined(separator: " ")
+        }
+        return fixture.columnSignature() + windows + [
+            "focused \(fixture.focusRecorder.focusedTokens)",
+            "selected \(String(describing: manager.selectedManagedToken))",
+            "native \(String(describing: manager.nativeManagedFocusToken))"
+        ]
+    }
+
     private func opaqueId(_ handle: WindowHandle) -> String {
         IPCWindowOpaqueID.encode(pid: handle.id.pid, windowId: handle.id.windowId, sessionToken: "test")
     }

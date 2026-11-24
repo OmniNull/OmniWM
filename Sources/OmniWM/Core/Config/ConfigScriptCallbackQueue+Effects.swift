@@ -72,7 +72,7 @@ extension ConfigScriptCallbackQueue {
         let closing: WindowHandle? = if hasCloseListener {
             switch operation {
             case .native(.windowState(.close)): target.token.flatMap { manager.handle(for: $0) }
-            case let .window(window) where window.request.name == .close: manager.handle(for: window.token)
+            case let .window(window) where window.action == .close: manager.handle(for: window.token)
             default: nil
             }
         } else { nil }

@@ -4,26 +4,28 @@
 import Foundation
 @testable import OmniWM
 import OmniWMIPC
+import OmniWMScriptHost
 import XCTest
 
 @MainActor
 final class ConfigScriptWindowDispatchTests: XCTestCase {
     private typealias Fixture = ConfigScriptCallbackQueueTests.Fixture
 
-    func testNativeWindowManifestStagesTypedRequestsWithOpaqueTargetsAtTheirSourceLines() async throws {
+    func testNativeWindowManifestStagesTheCLIActionsWithLuauTargetsAtTheirSourceLines() async throws {
         let token = WindowToken(pid: getpid(), windowId: Int(getpid()))
-        let session = UUID().uuidString
-        let id = IPCWindowOpaqueID.encode(token: token, sessionToken: session)
+        let session = ConfigScriptSession.random()
+        let id = ConfigScriptWindowID.string(token, session: session)
         let arguments = [
             "opaque-id": id, "workspace": "Work", "number": String(IPCScratchpadSlots.range.lowerBound),
             "direction": IPCDirection.right.rawValue, "cycle-direction": IPCCycleDirection.forward.rawValue,
             "size-change": "+12%"
         ]
         var source = ["omniwm.command('Window requests', function()"]
-        var expected: [IPCWindowRequest] = []
+        var expected: [(IPCWindowActionName, WindowAction)] = []
         for descriptor in IPCAutomationManifest.windowActionDescriptors {
             let words = try [descriptor.name.rawValue] + descriptor.arguments.map { try XCTUnwrap(arguments[$0]) }
-            expected.append(try XCTUnwrap(IPCWindowRequest(actionWords: words)))
+            let cli = try XCTUnwrap(IPCWindowRequest(actionWords: words))
+            expected.append((descriptor.name, try XCTUnwrap(WindowAction(cli))))
             source.append("    omniwm.dispatch('window', " + words.map { "'\($0)'" }.joined(separator: ", ") + ")")
         }
         source.append("end)")
@@ -34,11 +36,12 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         XCTAssertEqual(staged.count, expected.count)
         let lines = source.indices.filter { source[$0].contains("omniwm.dispatch") }.map { $0 + 1 }
         XCTAssertEqual(staged.map(\.line), lines)
-        for (dispatch, native) in zip(staged, expected) {
+        for (dispatch, (name, action)) in zip(staged, expected) {
             guard case let .window(window) = dispatch.operation else { return XCTFail("Expected a window request") }
-            XCTAssertEqual(window.request, native)
+            XCTAssertEqual(window.name, name)
+            XCTAssertEqual(window.action, action)
             XCTAssertEqual(window.token, token)
-            XCTAssertEqual(window.address.sessionToken, session)
+            XCTAssertEqual(window.session, session)
             XCTAssertEqual(dispatch.source, "init.luau")
         }
     }
@@ -47,11 +50,12 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         let fixture = try Fixture(test: self)
         defer { fixture.controller.stopConfigScript() }
         let token = WindowToken(pid: getpid(), windowId: Int(getpid()))
-        let id = IPCWindowOpaqueID.encode(token: token, sessionToken: fixture.controller.automationSessionToken)
+        let id = ConfigScriptWindowID.string(token, session: fixture.controller.scriptSession.identity)
         for invalid in [
             "'window', 'focus', 'focused'", "'window', 'focus'", "'window', 'focus', nil",
             "'window', 'not-a-request', '\(id)'", "'window', 'move-column', '\(id)', 'sideways'",
-            "'window', 'close', '\(id)', 'unexpected'", "'not-a-namespace', 'focus', '\(id)'"
+            "'window', 'close', '\(id)', 'unexpected'", "'not-a-namespace', 'focus', '\(id)'",
+            "'window', 'focus', '\(IPCWindowOpaqueID.encode(token: token, sessionToken: UUID().uuidString))'"
         ] {
             let source = [
                 "omniwm.keymap.set('I', function()",
@@ -81,7 +85,7 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
             _ = WindowAdmissionTestSupport.track(token, in: source, controller: wm)
             XCTAssertTrue(manager.setWindowMode(.floating, for: token))
         }
-        let id = IPCWindowOpaqueID.encode(token: moving, sessionToken: wm.automationSessionToken)
+        let id = ConfigScriptWindowID.string(moving, session: wm.scriptSession.identity)
         let move = [
             "omniwm.keymap.set('I', function()",
             "    omniwm.dispatch('window', 'move-to-workspace', '\(id)', '\(fixture.destination)')",
@@ -113,7 +117,7 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         XCTAssertEqual(wm.activeWorkspace()?.id, source)
     }
 
-    func testSessionReplacementAndChangedSummonAnchorAreRejectedAtApply() throws {
+    func testChangedSummonAnchorIsRejectedAtApply() throws {
         let fixture = try Fixture(test: self)
         let wm = fixture.controller
         defer { wm.stopConfigScript() }
@@ -123,18 +127,80 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         let workspace = try XCTUnwrap(wm.activeWorkspace()?.id)
         for token in [first, second] { _ = WindowAdmissionTestSupport.track(token, in: workspace, controller: wm) }
         _ = manager.setManagedFocus(first, in: workspace)
-        let id = IPCWindowOpaqueID.encode(token: second, sessionToken: wm.automationSessionToken)
+        let id = ConfigScriptWindowID.string(second, session: wm.scriptSession.identity)
         let target = wm.configScriptTarget()
-        let summon = try ConfigScriptWindowRequest(words: ["summon-right", id])
+        let summon = try ConfigScriptWindowRequest(testWords: ["summon-right", id])
         _ = manager.setManagedFocus(second, in: workspace)
         XCTAssertEqual(wm.performConfigScriptDispatch(.window(summon), target: target), .staleWindowId)
-        let request = try ConfigScriptWindowRequest(words: ["focus", id])
-        _ = IPCServer(controller: wm)
-        XCTAssertEqual(wm.performConfigScriptDispatch(.window(request), target: target), .staleWindowId)
-        XCTAssertEqual(
-            wm.performConfigScriptDispatch(.window(request), target: wm.configScriptTarget()),
-            .staleWindowId
-        )
         XCTAssertEqual(manager.nativeManagedFocusToken, second)
+    }
+
+    func testOnlyThisSessionsIDForTheSameProcessMovesAWindowAndIPCStartKeepsIt() throws {
+        let fixture = try Fixture(test: self)
+        let wm = fixture.controller
+        defer { wm.stopConfigScript() }
+        let manager = wm.workspaceManager
+        let source = try XCTUnwrap(manager.workspaceId(named: fixture.origin))
+        let destination = try XCTUnwrap(manager.workspaceId(named: fixture.destination))
+        let window = WindowToken(pid: getpid(), windowId: Int(getpid()))
+        _ = WindowAdmissionTestSupport.track(window, in: source, controller: wm)
+        XCTAssertTrue(manager.setWindowMode(.floating, for: window))
+        let session = wm.scriptSession.identity
+        let otherProcess = WindowToken(pid: window.pid + 1, windowId: window.windowId)
+        let refused: [(String, ExternalCommandResult)] = [
+            (ConfigScriptWindowID.string(window, session: ConfigScriptSession(id: session.id &+ 1)), .staleWindowId),
+            (ConfigScriptWindowID.string(otherProcess, session: session), .notFound)
+        ]
+        for (id, result) in refused {
+            let move = try ConfigScriptWindowRequest(testWords: ["move-to-workspace", id, fixture.destination])
+            XCTAssertEqual(wm.performConfigScriptDispatch(.window(move), target: wm.configScriptTarget()), result)
+            XCTAssertEqual(manager.workspace(for: window), source)
+        }
+        let socket = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+        let first = IPCServer(controller: wm, socketPath: socket)
+        try first.start()
+        first.stop()
+        let restarted = IPCServer(controller: wm, socketPath: socket)
+        try restarted.start()
+        defer { restarted.stop() }
+        XCTAssertEqual(wm.scriptSession.identity, session)
+        let id = ConfigScriptWindowID.string(window, session: session)
+        let move = try ConfigScriptWindowRequest(testWords: ["move-to-workspace", id, fixture.destination])
+        XCTAssertEqual(wm.performConfigScriptDispatch(.window(move), target: wm.configScriptTarget()), .executed)
+        XCTAssertEqual(manager.workspace(for: window), destination)
+    }
+
+    func testControllerRefusalComesBeforeTheSuppliedIDSession() throws {
+        let fixture = try Fixture(test: self)
+        let wm = fixture.controller
+        defer { wm.stopConfigScript() }
+        let manager = wm.workspaceManager
+        let source = try XCTUnwrap(manager.workspaceId(named: fixture.origin))
+        let window = WindowToken(pid: getpid(), windowId: Int(getpid()))
+        _ = WindowAdmissionTestSupport.track(window, in: source, controller: wm)
+        let session = wm.scriptSession.identity
+        let other = ConfigScriptWindowID.string(window, session: ConfigScriptSession(id: session.id &+ 1))
+        let move = try ConfigScriptWindowRequest(testWords: ["move-to-workspace", other, fixture.destination])
+        wm.isEnabled = false
+        XCTAssertEqual(wm.performConfigScriptDispatch(.window(move), target: wm.configScriptTarget()), .ignoredDisabled)
+        wm.isEnabled = true
+        XCTAssertEqual(wm.performConfigScriptDispatch(.window(move), target: wm.configScriptTarget()), .staleWindowId)
+        XCTAssertEqual(manager.workspace(for: window), source)
+    }
+}
+
+extension ConfigScriptWindowRequest {
+    init(testWords words: [String]) throws {
+        var bytes: [CChar] = []
+        var ranges: [Range<Int>] = []
+        for word in words {
+            let start = bytes.count
+            bytes.append(contentsOf: word.utf8.map { CChar(bitPattern: $0) })
+            ranges.append(start ..< bytes.count)
+        }
+        self = try bytes.withUnsafeBufferPointer { base in
+            let spans = ranges.map { omni_config_span(data: base.baseAddress! + $0.lowerBound, length: $0.count) }
+            return try spans.withUnsafeBufferPointer { try ConfigScriptWindowRequest(words: $0) }
+        }
     }
 }

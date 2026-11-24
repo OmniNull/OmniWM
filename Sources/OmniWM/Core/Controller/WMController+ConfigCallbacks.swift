@@ -2,48 +2,19 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
-
-enum ConfigScriptSession: Equatable, Sendable {
-    case uuid(UUID)
-    case text(String)
-
-    var text: String {
-        switch self {
-        case let .uuid(id): id.uuidString
-        case let .text(text): text
-        }
-    }
-}
 
 struct ConfigScriptSessionToken {
-    let text: String
     let identity: ConfigScriptSession
     let epoch: UInt64
 
-    init() {
-        let id = UUID()
-        text = id.uuidString
-        identity = .uuid(id)
-        epoch = 0
-    }
-
-    init(_ text: String, epoch: UInt64 = 0) {
+    init(identity: ConfigScriptSession = .random(), epoch: UInt64 = 0) {
+        self.identity = identity
         self.epoch = epoch
-        self.text = text
-        if let id = UUID(uuidString: text), id.uuidString.utf8.elementsEqual(text.utf8) {
-            identity = .uuid(id)
-        } else {
-            identity = .text(text)
-        }
     }
 }
 
 struct ConfigScriptTarget: Sendable {
     let sessionID: ConfigScriptSession
-    var session: String {
-        sessionID.text
-    }
 
     let token: WindowToken?
     struct Workspace: Sendable {
@@ -59,7 +30,7 @@ struct ConfigScriptTarget: Sendable {
     }
 
     var context: ConfigScriptContext {
-        context(windowId: token.map { IPCWindowOpaqueID.encode(token: $0, sessionToken: session) })
+        context(windowId: token.map { ConfigScriptWindowID.string($0, session: sessionID) })
     }
 
     func context(windowId: String?) -> ConfigScriptContext {
@@ -79,21 +50,21 @@ struct ConfigScriptCapture: Sendable {
 
 extension WMController {
     func configScriptTarget() -> ConfigScriptTarget {
-        workspaceManager.configScriptTarget(session: automationSession.identity, apps: appInfoCache)
+        workspaceManager.configScriptTarget(session: scriptSession.identity, apps: appInfoCache)
     }
 
     func startConfigScriptProgram(
         _ arguments: [String],
         target: ConfigScriptTarget
     ) async throws -> ExternalCommandResult {
-        guard target.sessionID == automationSession.identity else { return .staleWindowId }
-        if let refusal = IPCCommandValidation.controllerState(self) { return refusal }
+        guard target.sessionID == scriptSession.identity else { return .staleWindowId }
+        if let automationRefusal { return automationRefusal }
         try await LauncherProcess.start(arguments)
         return .executed
     }
 
     func performConfigScriptCommand(_ command: HotkeyCommand, target: ConfigScriptTarget) -> ExternalCommandResult {
-        guard target.sessionID == automationSession.identity else { return .staleWindowId }
+        guard target.sessionID == scriptSession.identity else { return .staleWindowId }
         let focus = command.configFocusRequirement
         let manager = workspaceManager
         if focus != .none, !matchesConfigScriptFocus(target) { return .staleWindowId }
@@ -127,14 +98,15 @@ extension WMController {
         case let .native(command):
             return performConfigScriptCommand(command, target: target)
         case let .window(window):
-            guard target.sessionID == automationSession.identity else { return .staleWindowId }
-            if window.request.name == .summonRight {
+            guard target.sessionID == scriptSession.identity else { return .staleWindowId }
+            if window.action == .summonRight {
                 guard matchesConfigScriptFocus(target), workspaceManager.selectedManagedToken == target.token else {
                     return .staleWindowId
                 }
             }
-            return IPCWindowRequestExecutor(controller: self, sessionToken: target.session)
-                .handle(window.request, address: window.address)
+            if let automationRefusal { return automationRefusal }
+            guard window.session == scriptSession.identity else { return .staleWindowId }
+            return performWindowAction(window.action, on: window.token)
         }
     }
 

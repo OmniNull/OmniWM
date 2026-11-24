@@ -46,7 +46,7 @@ struct IPCWindowMarkRequestExecutor {
     }
 
     private func controllerStateFailure() -> IPCErrorCode? {
-        guard let result = IPCCommandValidation.controllerState(controller) else { return nil }
+        guard let result = controller.automationRefusal else { return nil }
         switch result {
         case .ignoredDisabled:
             return .disabled

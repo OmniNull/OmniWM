@@ -44,10 +44,7 @@ final class ConfigScriptSnapshotTests: XCTestCase {
         fixture.controller.axEventHandler.windowTitleProvider = { _ in XCTFail("Lookups must use cached titles")
             return nil
         }
-        let ids = tokens.map { IPCWindowOpaqueID.encode(
-            token: $0,
-            sessionToken: fixture.controller.automationSessionToken
-        ) }
+        let ids = tokens.map { ConfigScriptWindowID.string($0, session: fixture.controller.scriptSession.identity) }
         try await check(fixture, reads: ["workspaceWindows"], body: [
             "assert(ctx.windows == nil and ctx.workspaces == nil and ctx.monitors == nil)",
             "assert(table.isfrozen(ctx.workspaceWindows) and table.isfrozen(ctx.truncated))",
@@ -56,7 +53,7 @@ final class ConfigScriptSnapshotTests: XCTestCase {
             "assert(#ctx.workspaceWindows == 3 and a.id == '\(ids[0])' and b.id == '\(ids[2])' and c.id == '\(ids[3])')",
             "assert(table.isfrozen(a) and a.floating and a.minimized and not a.fullscreen)",
             "assert(a.title == '\(names[0])' and a.bundleId == 'lookup.fixture' and a.workspace == '\(fixture.origin)')",
-            "assert(a.monitor == '\(IPCDisplayRef.identifier(monitor.id))' and b.title == nil and c.title == '')"
+            "assert(a.monitor == '\(monitor.id.scriptIdentifier)' and b.title == nil and c.title == '')"
         ])
         try await check(fixture, reads: ["windows", "workspaces", "monitors"], body: [
             "assert(ctx.workspaceWindows == nil and ctx.truncated.workspaceWindows == nil)",
@@ -66,7 +63,7 @@ final class ConfigScriptSnapshotTests: XCTestCase {
             "for _, w in ctx.workspaces do workspaces[w.name] = w end",
             "assert(workspaces['\(fixture.origin)'].id == '\(here.uuidString)')",
             "assert(workspaces['\(fixture.destination)'].id == '\(there.uuidString)')",
-            "assert(ctx.monitors[1].id == '\(IPCDisplayRef.identifier(monitor.id))' and ctx.monitors[1].name ~= nil)"
+            "assert(ctx.monitors[1].id == '\(monitor.id.scriptIdentifier)' and ctx.monitors[1].name ~= nil)"
         ])
     }
 
@@ -137,10 +134,7 @@ final class ConfigScriptSnapshotTests: XCTestCase {
         let count = ConfigScriptSnapshot.rowLimit
         let tokens = (0 ... count).map { WindowToken(pid: getpid(), windowId: Int(getpid()) + $0) }
         for token in tokens { _ = WindowAdmissionTestSupport.track(token, in: here, controller: fixture.controller) }
-        let last = IPCWindowOpaqueID.encode(
-            token: tokens[count - 1],
-            sessionToken: fixture.controller.automationSessionToken
-        )
+        let last = ConfigScriptWindowID.string(tokens[count - 1], session: fixture.controller.scriptSession.identity)
         try await check(fixture, reads: ["workspaceWindows", "windows", "monitors"], body: [
             "assert(#ctx.workspaceWindows == \(count) and #ctx.windows == \(count))",
             "assert(ctx.workspaceWindows[\(count)].id == '\(last)' and ctx.windows[\(count)].id == '\(last)')",

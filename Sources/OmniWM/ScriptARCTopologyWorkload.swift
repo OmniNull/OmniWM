@@ -209,7 +209,7 @@ extension ScriptARCFixture {
         ))
         manager.applySettings()
         precondition(manager.setActiveWorkspace(visible, on: monitor.id))
-        let monitorID = IPCDisplayRef.identifier(monitor.id)
+        let monitorID = monitor.id.scriptIdentifier
         for subscribed in [false, true] {
             if subscribed {
                 let queue = try await acceptTitleScript("""

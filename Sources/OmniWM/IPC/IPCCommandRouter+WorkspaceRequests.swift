@@ -6,7 +6,7 @@ import OmniWMIPC
 
 extension IPCCommandRouter {
     func handle(_ request: IPCWorkspaceRequest) -> ExternalCommandResult {
-        if let guardResult = IPCCommandValidation.controllerState(controller) {
+        if let guardResult = controller.automationRefusal {
             return guardResult
         }
 
@@ -26,7 +26,7 @@ extension IPCCommandRouter {
 
     private func focusWorkspace(_ target: WorkspaceTarget) -> ExternalCommandResult {
         let rawWorkspaceID: String
-        switch IPCCommandValidation.workspaceTarget(target, controller: controller) {
+        switch controller.resolveWorkspace(target) {
         case let .success(resolved):
             rawWorkspaceID = resolved
         case let .failure(result):
@@ -48,7 +48,7 @@ extension IPCCommandRouter {
         force: Bool
     ) -> ExternalCommandResult {
         let rawWorkspaceID: String
-        switch IPCCommandValidation.workspaceTarget(target, controller: controller) {
+        switch controller.resolveWorkspace(target) {
         case let .success(resolved):
             rawWorkspaceID = resolved
         case let .failure(result):
@@ -83,7 +83,7 @@ extension IPCCommandRouter {
     private func renameWorkspace(_ target: WorkspaceTarget, displayName: String) -> ExternalCommandResult {
         guard !displayName.contains(where: \.isNewline) else { return .invalidArguments }
         let rawWorkspaceID: String
-        switch IPCCommandValidation.workspaceTarget(target, controller: controller) {
+        switch controller.resolveWorkspace(target) {
         case let .success(resolved):
             rawWorkspaceID = resolved
         case let .failure(result):

@@ -14,7 +14,7 @@ final class ConfigScriptEventInput {
 
     init(_ controller: WMController) {
         apps = controller.appInfoCache
-        session = controller.automationSession
+        session = controller.scriptSession
     }
 }
 

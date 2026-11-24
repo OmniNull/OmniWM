@@ -11,19 +11,18 @@ import XCTest
 final class ConfigScriptWindowStateDeliveryTests: XCTestCase {
     private typealias Fixture = ConfigScriptCallbackQueueTests.Fixture
 
-    func testRepeatedWindowIDsFollowTheCurrentTokenAndIPCSession() {
+    func testRepeatedWindowIDsFollowTheCurrentTokenAndLuauSession() {
         let first = WindowToken(pid: getpid(), windowId: Int(getpid()))
         let second = WindowToken(pid: first.pid, windowId: first.windowId + 1)
-        let sessions = [UUID().uuidString, UUID().uuidString]
-        for session in sessions {
+        let session = ConfigScriptSession.random()
+        for session in [session, ConfigScriptSession(id: session.id &+ 1)] {
             for token in [first, first, second, second, first] {
-                let state = ConfigScriptNativeEvent(id: .window(token, ConfigScriptSessionToken(session).identity, 0))
+                let state = ConfigScriptNativeEvent(id: .window(token, session, 0))
                 let actual = state.payload().id!
-                XCTAssertEqual(actual, IPCWindowOpaqueID.encode(token: token, sessionToken: session))
-                XCTAssertEqual(
-                    IPCWindowOpaqueID.validate(actual, expectingSessionToken: session),
-                    .valid(pid: token.pid, windowId: token.windowId)
-                )
+                XCTAssertEqual(actual, ConfigScriptWindowID.string(token, session: session))
+                let decoded = ConfigScriptWindowID.decode(actual)
+                XCTAssertEqual(decoded?.session, session)
+                XCTAssertEqual(decoded?.token, token)
             }
         }
     }
@@ -42,12 +41,12 @@ final class ConfigScriptWindowStateDeliveryTests: XCTestCase {
             (.windowFullscreen, "first", .fullscreen(false)),
             (.windowUpdateState, "first", .floating(false))
         ]
-        let session = fixture.controller.automationSession
+        let session = fixture.controller.scriptSession
         let first = WindowToken(pid: getpid(), windowId: Int(getpid()))
         let second = WindowToken(pid: first.pid, windowId: first.windowId + 1)
         let expected = [
-            IPCWindowOpaqueID.encode(token: first, sessionToken: session.text) + ":newest",
-            IPCWindowOpaqueID.encode(token: second, sessionToken: session.text) + ":other",
+            ConfigScriptWindowID.string(first, session: session.identity) + ":newest",
+            ConfigScriptWindowID.string(second, session: session.identity) + ":other",
             "minimized:false",
             "fullscreen:false",
             "floating:false"
@@ -147,9 +146,9 @@ final class ConfigScriptWindowStateDeliveryTests: XCTestCase {
         let dropped = ["outside", "another"]
         let names = (1 ... capacity).map(String.init)
         let titles = names + dropped + ["next"]
-        let session = fixture.controller.automationSession
+        let session = fixture.controller.scriptSession
         let tokens = titles.indices.map { WindowToken(pid: getpid(), windowId: $0) }
-        let ids = tokens.map { IPCWindowOpaqueID.encode(token: $0, sessionToken: session.text) }
+        let ids = tokens.map { ConfigScriptWindowID.string($0, session: session.identity) }
         let orderedIDs = ids.prefix(capacity).map { "'\($0)'" }.joined(separator: ",")
         fixture.apply(try await fixture.load([
             "local seen = 0",

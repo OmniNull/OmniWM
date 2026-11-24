@@ -3,7 +3,7 @@
 
 import Foundation
 
-public enum IPCWindowActionName: String, Codable, Equatable, Sendable {
+public enum IPCWindowActionName: String, Codable, CaseIterable, Equatable, Sendable {
     case focus
     case navigate
     case summonRight = "summon-right"

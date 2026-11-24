@@ -8,17 +8,6 @@ import XCTest
 
 @MainActor
 final class ConfigScriptTargetTests: XCTestCase {
-    func testSessionOnlyUsesUUIDStorageForItsExactWireSpelling() {
-        let id = UUID(uuidString: "ABCDEF01-ABCD-4321-ABCD-ABCDEF012345")!
-        let canonical = ConfigScriptSessionToken(id.uuidString)
-        XCTAssertEqual(canonical.identity, .uuid(id))
-        for text in [id.uuidString.lowercased(), "e\u{301}/会:", "", "non-uuid-" + UUID().uuidString] {
-            let session = ConfigScriptSessionToken(text)
-            XCTAssertEqual(session.identity, .text(text))
-            XCTAssertEqual(Array(session.identity.text.utf8), Array(text.utf8))
-        }
-    }
-
     func testContextUsesIPCFocusAndCachedBundleWithoutStartingIPC() throws {
         let controller = InputControllerTestSupport.controller(for: self)
         let manager = controller.workspaceManager
@@ -28,7 +17,7 @@ final class ConfigScriptTargetTests: XCTestCase {
         controller.settings.ipcEnabled = false
         _ = WindowAdmissionTestSupport.track(token, in: workspace.id, controller: controller)
         XCTAssertTrue(manager.setManagedFocus(token, in: workspace.id))
-        let session = controller.automationSessionToken
+        let session = controller.scriptSession.identity
         let info = AppInfoCache.AppInfo(
             name: "Callback fixture",
             bundleId: "test.callback",
@@ -36,7 +25,7 @@ final class ConfigScriptTargetTests: XCTestCase {
             activationPolicy: .regular
         )
         let unknown = controller.configScriptTarget()
-        XCTAssertEqual(unknown.context.windowId, IPCWindowOpaqueID.encode(token: token, sessionToken: session))
+        XCTAssertEqual(unknown.context.windowId, ConfigScriptWindowID.string(token, session: session))
         XCTAssertNil(unknown.context.bundleId)
         XCTAssertFalse(controller.appInfoCache.hasCachedInfo(for: token.pid))
         _ = controller.appInfoCache.info(for: token.pid) { _ in info }
@@ -47,7 +36,7 @@ final class ConfigScriptTargetTests: XCTestCase {
         XCTAssertEqual(known.windowId, unknown.context.windowId)
     }
 
-    func testHostedWindowHasTheSameIDAndAppAsIPCWithoutAProcessCacheEntry() throws {
+    func testHostedWindowHasItsLuauIDAndTheIPCAppWithoutAProcessCacheEntry() throws {
         let controller = InputControllerTestSupport.controller(for: self)
         let manager = controller.workspaceManager
         let workspace = try XCTUnwrap(controller.activeWorkspace())
@@ -62,9 +51,9 @@ final class ConfigScriptTargetTests: XCTestCase {
         )
         _ = manager.setManagedFocus(token, in: workspace.id)
         let context = controller.configScriptTarget().context
-        let router = IPCQueryRouter(controller: controller, sessionToken: controller.automationSessionToken)
+        let router = IPCQueryRouter(controller: controller, sessionToken: UUID().uuidString)
         let snapshot = try XCTUnwrap(router.focusedWindowResult().window)
-        XCTAssertEqual(context.windowId, snapshot.id)
+        XCTAssertEqual(context.windowId, ConfigScriptWindowID.string(token, session: controller.scriptSession.identity))
         XCTAssertEqual(context.bundleId, metadata.appId)
         XCTAssertEqual(context.bundleId, snapshot.app?.bundleId)
     }
@@ -99,7 +88,7 @@ final class ConfigScriptTargetTests: XCTestCase {
         XCTAssertEqual(controller.performConfigScriptCommand(.windowState(.close), target: target), .staleWindowId)
     }
 
-    func testQueuedActionRejectsReplacedFocusRemovedWindowAndRetiredSession() throws {
+    func testQueuedActionRejectsReplacedFocusRemovedWindowAndOtherSessionButSurvivesIPCStart() throws {
         let controller = InputControllerTestSupport.controller(for: self)
         let manager = controller.workspaceManager
         let workspace = try XCTUnwrap(controller.activeWorkspace())
@@ -119,6 +108,12 @@ final class ConfigScriptTargetTests: XCTestCase {
         XCTAssertNotNil(manager.entry(for: second))
         let previousSession = controller.configScriptTarget()
         _ = IPCServer(controller: controller)
+        XCTAssertEqual(
+            controller.performConfigScriptCommand(.rescueOffscreenWindows, target: previousSession),
+            .noChange
+        )
+        let other = ConfigScriptSession(id: controller.scriptSession.identity.id &+ 1)
+        controller.scriptSession = ConfigScriptSessionToken(identity: other, epoch: controller.scriptSession.epoch + 1)
         XCTAssertEqual(
             controller.performConfigScriptCommand(.rescueOffscreenWindows, target: previousSession),
             .staleWindowId

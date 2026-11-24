@@ -37,12 +37,11 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
     func testCompleteSnapshotMatchesAllWireBytesInNativeOrder() throws {
         let fixture = try ConfigScriptCallbackQueueTests.Fixture(test: self)
         let controller = fixture.controller
-        controller.automationSessionToken = "非 UUID:script"
         let manager = controller.workspaceManager
         let here = try XCTUnwrap(manager.workspaceId(named: fixture.origin))
         let there = try XCTUnwrap(manager.workspaceId(named: fixture.destination))
         let monitor = try XCTUnwrap(manager.monitor(for: here))
-        let display = IPCDisplayRef.identifier(monitor.id)
+        let display = monitor.id.scriptIdentifier
         let utf16Units: [UInt16] = [0x754C, 0xD800, 0x7532]
         let foreign = utf16Units.withUnsafeBufferPointer {
             NSString(characters: $0.baseAddress!, length: $0.count) as String
@@ -63,7 +62,7 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
             )
             XCTAssertEqual(admitted, token)
             var row = Wire()
-            row.text(IPCWindowOpaqueID.encode(token: token, sessionToken: controller.automationSessionToken))
+            row.text(ConfigScriptWindowID.string(token, session: controller.scriptSession.identity))
             row.text(bundle)
             row.text(title)
             row.text(local ? fixture.origin : fixture.destination)
@@ -80,12 +79,12 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
             var row = Wire()
             row.text(workspace.id.uuidString)
             row.text(workspace.name)
-            row.text(manager.resolvedWorkspaceMonitorId(for: workspace.id).map(IPCDisplayRef.identifier))
+            row.text(manager.resolvedWorkspaceMonitorId(for: workspace.id)?.scriptIdentifier)
             return row
         })
         expected.list(.monitors, rows: manager.sortedMonitors().map { monitor in
             var row = Wire()
-            row.text(IPCDisplayRef.identifier(monitor.id))
+            row.text(monitor.id.scriptIdentifier)
             row.text(monitor.name)
             return row
         })
@@ -102,11 +101,11 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
         let here = try XCTUnwrap(manager.workspaceId(named: fixture.origin))
         let token = WindowToken(pid: getpid(), windowId: Int(getpid()))
         let display = try XCTUnwrap(manager.monitor(for: here)).id
-        let id = IPCWindowOpaqueID.encode(token: token, sessionToken: controller.automationSessionToken)
+        let id = ConfigScriptWindowID.string(token, session: controller.scriptSession.identity)
         let bundle = "wire.limit"
         func row(_ title: String) -> Wire {
             var row = Wire()
-            for field in [id, bundle, title, fixture.origin, IPCDisplayRef.identifier(display)] { row.text(field) }
+            for field in [id, bundle, title, fixture.origin, display.scriptIdentifier] { row.text(field) }
             row.integer(UInt8(OMNI_CONFIG_WINDOW_FLOATING))
             return row
         }

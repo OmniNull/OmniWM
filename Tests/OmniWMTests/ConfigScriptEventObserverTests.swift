@@ -38,10 +38,10 @@ final class ConfigScriptEventObserverTests: XCTestCase {
         XCTAssertEqual(received, [
             .workspaceActive: [.init(id: workspace.id.uuidString, name: workspace.name)],
             .windowActive: [.init(
-                id: IPCWindowOpaqueID.encode(token: token, sessionToken: controller.automationSessionToken),
+                id: ConfigScriptWindowID.string(token, session: controller.scriptSession.identity),
                 bundleId: metadata.appId
             )],
-            .monitorFocused: [.init(id: IPCDisplayRef.identifier(fixtureMonitor.id), name: fixtureMonitor.name)]
+            .monitorFocused: [.init(id: fixtureMonitor.id.scriptIdentifier, name: fixtureMonitor.name)]
         ])
         received.removeAll()
         XCTAssertTrue(manager.clearNativeFocusOwner())

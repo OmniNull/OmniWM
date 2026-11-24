@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
 
 @MainActor
 struct ConfigScriptFocusObservers {
@@ -95,7 +94,7 @@ final class ConfigScriptEventObservers {
             var bundle = identity?.takeBundle()
             if bundle == nil { bundle = controller.appInfoCache.cachedBundleId(for: token.pid) }
             return .init(
-                id: .window(token, controller.automationSession.identity, controller.automationSession.epoch),
+                id: .window(token, controller.scriptSession.identity, controller.scriptSession.epoch),
                 bundleId: consume bundle
             )
         }?()
@@ -181,7 +180,7 @@ final class ConfigScriptEventObservers {
             ConfigScriptLatencyTrace.eventPayloadBuilt()
         #endif
         if let deliver {
-            let id = IPCWindowOpaqueID.encode(token: title.token, sessionToken: title.session.text)
+            let id = ConfigScriptWindowID.string(title.token, session: title.session)
             deliver(.windowTitle, title.payload(id: id))
         } else {
             ConfigScriptCallbackQueue.publishTitle(consume title, in: &queue, controller: controller)

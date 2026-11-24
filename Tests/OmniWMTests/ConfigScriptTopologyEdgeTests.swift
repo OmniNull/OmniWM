@@ -34,8 +34,8 @@ final class ConfigScriptTopologyEdgeTests: XCTestCase {
         XCTAssertTrue(manager.moveWorkspaceToMonitor(id, to: right.id, force: true).affectedWorkspaces.isEmpty)
         manager.removeWorkspaces([id, id])
         manager.removeWorkspaces([id])
-        let leftID = IPCDisplayRef.identifier(left.id)
-        let rightID = IPCDisplayRef.identifier(right.id)
+        let leftID = left.id.scriptIdentifier
+        let rightID = right.id.scriptIdentifier
         XCTAssertEqual(received, [
             .workspaceCreated: [.init(id: id.uuidString, name: name, edge: .monitor(id: leftID, name: left.name))],
             .workspaceMoveToMonitor: [.init(id: id.uuidString, name: name, edge: .monitor(
@@ -67,8 +67,8 @@ final class ConfigScriptTopologyEdgeTests: XCTestCase {
         manager.applySettings()
         manager.applySettings()
         manager.applyMonitorConfigurationChange([left])
-        let leftID = IPCDisplayRef.identifier(left.id)
-        let rightID = IPCDisplayRef.identifier(right.id)
+        let leftID = left.id.scriptIdentifier
+        let rightID = right.id.scriptIdentifier
         XCTAssertEqual(moves, [
             .init(id: id.uuidString, name: name, edge: .monitor(
                 id: rightID, name: right.name, previousId: leftID, previousName: left.name
@@ -105,7 +105,7 @@ final class ConfigScriptTopologyEdgeTests: XCTestCase {
         manager.applyMonitorConfigurationChange([changed, left])
         manager.applyMonitorConfigurationChange([renamed, left])
         manager.applyMonitorConfigurationChange([left])
-        let id = IPCDisplayRef.identifier(right.id)
+        let id = right.id.scriptIdentifier
         XCTAssertEqual(received, [
             .monitorAdded: [.init(id: id, name: right.name, edge: .geometry(
                 frame: right.frame, visibleFrame: right.visibleFrame

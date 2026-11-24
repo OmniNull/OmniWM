@@ -31,17 +31,12 @@ final class WMController {
     let windowMarkRegistry = WindowMarkRegistry()
     let hotkeys = HotkeyCenter()
     @ObservationIgnored
-    private(set) var automationSession = ConfigScriptSessionToken()
+    var scriptSession = ConfigScriptSessionToken() {
+        didSet { registeredEventInput?.session = scriptSession }
+    }
+
     @ObservationIgnored
     weak var registeredEventInput: ConfigScriptEventInput?
-
-    var automationSessionToken: String {
-        get { automationSession.text }
-        set {
-            automationSession = ConfigScriptSessionToken(newValue, epoch: automationSession.epoch + 1)
-            registeredEventInput?.session = automationSession
-        }
-    }
 
     var configScript: ConfigScriptController?
     func enqueueConfigFunction(_ function: Int) -> ExternalCommandResult {

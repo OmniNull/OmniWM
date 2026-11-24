@@ -3,7 +3,6 @@
 
 import Dispatch
 import Foundation
-import OmniWMIPC
 import OmniWMScriptHost
 
 struct ConfigScriptContext: Equatable, Sendable {
@@ -16,7 +15,7 @@ struct ConfigScriptContext: Equatable, Sendable {
 struct ConfigScriptDispatch: Sendable {
     enum Operation: Equatable, Sendable {
         case native(HotkeyCommand)
-        indirect case window(ConfigScriptWindowRequest)
+        case window(ConfigScriptWindowRequest)
     }
 
     let operation: Operation
@@ -26,7 +25,7 @@ struct ConfigScriptDispatch: Sendable {
     var displayName: String {
         switch operation {
         case let .native(command): command.displayName
-        case let .window(window): "window " + window.request.name.rawValue
+        case let .window(window): "window " + window.name.rawValue
         }
     }
 }
@@ -52,7 +51,6 @@ actor ConfigScriptGeneration {
     private let queue: DispatchSerialQueue
     private var resident: OpaquePointer?
     private var lastTitleID: TitleWindowID?
-    private var windowIDEncoder: (id: UUID, encoder: IPCWindowOpaqueID.Encoder)?
     private var stage = ConfigScriptStage(hyperMask: 0, fileURL: nil)
     private var functions: [Int: UInt32] = [:]
     var timerWorkers = ConfigScriptTimerWorkers()
@@ -137,23 +135,7 @@ actor ConfigScriptGeneration {
     func invoke(
         function: Int, target: borrowing ConfigScriptTarget, snapshot: ConfigScriptSnapshot? = nil
     ) throws(ConfigScriptError) -> ConfigScriptInvocation {
-        guard let token = target.token else {
-            return try invoke(function: function, input: .context(target.context), snapshot: snapshot)
-        }
-        let context = target.context(windowId: encodedWindow(token, session: target.sessionID))
-        return try invoke(function: function, input: .context(context), snapshot: snapshot)
-    }
-
-    private func encodedWindow(_ token: WindowToken, session: ConfigScriptSession) -> String {
-        guard case let .uuid(id) = session else {
-            return IPCWindowOpaqueID.encode(token: token, sessionToken: session.text)
-        }
-        if windowIDEncoder?.id != id {
-            windowIDEncoder = (id, IPCWindowOpaqueID.Encoder(sessionToken: id.uuidString))
-        }
-        var bytes = Data()
-        windowIDEncoder!.encoder.append(pid: token.pid, windowId: token.windowId, to: &bytes)
-        return String(decoding: bytes, as: UTF8.self)
+        try invoke(function: function, input: .context(target.context), snapshot: snapshot)
     }
 
     func invoke(function: Int, context: ConfigScriptContext) throws(ConfigScriptError) -> ConfigScriptInvocation {
@@ -185,7 +167,7 @@ actor ConfigScriptGeneration {
         #if OMNIWM_CONFIG_CALLBACK_TRACE
             ConfigScriptLatencyTrace.windowStateIDEncoded()
         #endif
-        let id = encodedWindow(token, session: session)
+        let id = ConfigScriptWindowID.string(token, session: session)
         lastTitleID = TitleWindowID(token: token, epoch: epoch, id: id)
         return id
     }

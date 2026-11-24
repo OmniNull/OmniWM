@@ -16,7 +16,7 @@ final class ConfigScriptWindowEdgeTests: XCTestCase {
         let monitor = try XCTUnwrap(manager.monitors.first)
         let destination = try XCTUnwrap(manager.createDynamicWorkspace(named: otherName, on: monitor.id)).id
         let token = WindowToken(pid: getpid(), windowId: Int(getpid()))
-        let id = IPCWindowOpaqueID.encode(token: token, sessionToken: controller.automationSessionToken)
+        let id = ConfigScriptWindowID.string(token, session: controller.scriptSession.identity)
         var kinds: [ConfigScriptEventKind] = []
         var edges: [ConfigScriptEventPayload.Edge] = []
         let observers = ConfigScriptEventObservers(
@@ -56,9 +56,9 @@ final class ConfigScriptWindowEdgeTests: XCTestCase {
         defer { fixture.close() }
         let controller = fixture.base.controller
         let manager = fixture.manager
-        let expectedIDs = fixture.family.map { IPCWindowOpaqueID.encode(
-            token: $0,
-            sessionToken: controller.automationSessionToken
+        let expectedIDs = fixture.family.map { ConfigScriptWindowID.string(
+            $0,
+            session: controller.scriptSession.identity
         ) }
         var ids: [String] = []
         var destination = fixture.otherMonitorDestination

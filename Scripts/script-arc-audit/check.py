@@ -13,7 +13,7 @@ NO_OBSERVER_OWNERSHIP = {
 }
 ROUTES = {
     "setup/activation", "key/cold", "settings/key", "script/plain-key", "key/idle", "key/busy", "key/owned-busy", "key/workspace-8", "key/windows-200",
-    "key/refusal-first", "key/refusal-repeat", "title/no-observer", "native/title", "native/title+script", "native/minimize", "native/float",
+    "key/refusal-first", "key/refusal-repeat", "key/dispatch-window", "key/cmd-in-callback", "title/no-observer", "native/title", "native/title+script", "native/minimize", "native/float",
     "native/fullscreen", "title/fresh", "title/replacement", "capture/fixed", "capture/workspace-8",
     "capture/windows-200", "title/owned-fresh", "title/owned-replacement",
 }
@@ -28,10 +28,10 @@ WINDOW_TRANSACTION_KINDS = ("window.open", "window.close", "window.move_to_works
 CATALOG_TRANSACTIONS = ("catalog-bulk", "catalog-ranked", "catalog-unavailable")
 DYNAMIC_EVENT_STRINGS = {
     "workspace.active": ("workspace name",),
-    "window.active": ("arbitrary session", "bundle ID"),
+    "window.active": ("bundle ID",),
     "monitor.focused": ("monitor name",),
-    "window.open": ("arbitrary session", "bundle ID"),
-    "window.minimize": ("arbitrary session", "bundle ID"),
+    "window.open": ("bundle ID",),
+    "window.minimize": ("bundle ID",),
     "workspace.move_to_monitor": ("workspace name", "previous monitor name", "new monitor name"),
 }
 RESIDENT_EVENT_MAIN_STORAGE = {"obj": 0, "heap": 0, "VM": 0}
@@ -50,6 +50,7 @@ WORKSPACE_KEYS = {f"{prefix}workspace-key/{action}-{outcome}" for prefix in ("",
                   for action in ("next", "previous", "back")
                   for outcome in ("noop", "switch")}
 TIMER_ROUTES = ("timer/empty", "timer/reads", "timer/effect")
+CALLBACK_DISPATCH_ROUTES = ("key/dispatch-window", "key/cmd-in-callback")
 ROUTES.update({prefix + kind for kind in STATE_AND_EDGE_KINDS for prefix in ("absent/", "event/")})
 ROUTES.update("native/" + kind + suffix for kind in FOCUS_KINDS for suffix in ("+script", "+listener"))
 ROUTES.update("owned/" + kind for kind in DYNAMIC_EVENT_STRINGS)
@@ -67,10 +68,9 @@ MAIN_EXECUTOR_JOB_TRANSFER = 1
 CALLBACK_OWNER_RELEASE = 1
 CONTROLLER_RELEASE_AFTER_HOP = 1
 PARK_EXECUTOR_RELEASE = 1
-CAPTURED_ARBITRARY_SESSION_OWNER = 1
 CAPTURED_DYNAMIC_BUNDLE_OWNER = 1
 CAPTURED_DYNAMIC_WORKSPACE_OWNER = 1
-CAPTURED_STRING_OWNERS = CAPTURED_ARBITRARY_SESSION_OWNER + CAPTURED_DYNAMIC_BUNDLE_OWNER + CAPTURED_DYNAMIC_WORKSPACE_OWNER
+CAPTURED_STRING_OWNERS = CAPTURED_DYNAMIC_BUNDLE_OWNER + CAPTURED_DYNAMIC_WORKSPACE_OWNER
 NATIVE_PREVIOUS_HANDLER_GUARDS = 4
 NATIVE_PREVIOUS_HISTORY_LOOKUPS = 2
 NATIVE_DISPATCH_OWNERS = 2
@@ -78,7 +78,7 @@ NATIVE_PREVIOUS_WEAK_PROMOTIONS = 3
 NATIVE_RETAIN_CEILING = NATIVE_PREVIOUS_HANDLER_GUARDS + NATIVE_PREVIOUS_HISTORY_LOOKUPS + NATIVE_DISPATCH_OWNERS
 NATIVE_RELEASE_CEILING = NATIVE_RETAIN_CEILING + NATIVE_PREVIOUS_WEAK_PROMOTIONS
 CAPTURED_DYNAMIC_TITLE_OWNER = 1
-OWNED_TITLE_STRINGS = CAPTURED_ARBITRARY_SESSION_OWNER + CAPTURED_DYNAMIC_BUNDLE_OWNER + CAPTURED_DYNAMIC_TITLE_OWNER
+OWNED_TITLE_STRINGS = CAPTURED_DYNAMIC_BUNDLE_OWNER + CAPTURED_DYNAMIC_TITLE_OWNER
 TITLE_OWNER_TRANSFERS = {
     "title/fresh": (0, 0),
     "title/replacement": (0, 0),
@@ -237,7 +237,7 @@ def check_costs(output):
         scalar = table["key/busy", phase]
         if (int(owned["R"]) > int(scalar["R"]) + extra_retains
                 or int(owned["L"]) > int(scalar["L"]) + extra_releases):
-            sys.exit(f"key/owned-busy/{phase}: the captured session, bundle and workspace "
+            sys.exit(f"key/owned-busy/{phase}: the captured bundle and workspace "
                      f"can each transfer one owner at the queue and executor boundaries: {owned}")
     for route, (stored, displaced) in TITLE_OWNER_TRANSFERS.items():
         producer = table[route, "producer"]
@@ -290,6 +290,12 @@ def check_costs(output):
             sys.exit(f"{kind}: only the wake and {', '.join(owners)} cross delivery: {counts}")
     check_native_event_transactions(table)
     check_catalog_transactions(table)
+    for route in CALLBACK_DISPATCH_ROUTES:
+        if int(table[route, "config"]["VM"]) != 1:
+            sys.exit(f"{route}: the shortcut callback must enter its VM once")
+    for route in ("capture/workspace-8", "capture/windows-200"):
+        if not re.search(rf"^snapshot-bytes {re.escape(route)} [1-9][0-9]*$", output, re.M):
+            sys.exit(f"Missing snapshot byte count for {route}")
     for route in TIMER_ROUTES:
         if int(table[route, "config"]["VM"]) != 1:
             sys.exit(f"{route}: each timer must fire once on the config executor")

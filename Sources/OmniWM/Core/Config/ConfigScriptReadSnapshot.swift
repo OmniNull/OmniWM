@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
 import OmniWMScriptHost
 
 struct ConfigScriptReads: OptionSet, Sendable {
@@ -143,14 +142,11 @@ private struct SnapshotWriter {
         return true
     }
 
-    mutating func windowID(_ token: WindowToken, using encoder: borrowing IPCWindowOpaqueID.Encoder) -> Bool {
-        encoder.withEncodedBytes(pid: token.pid, windowId: token.windowId) { prefix, suffix in
-            let length = prefix.count + suffix.count
-            let headerSize = MemoryLayout<UInt32>.size
-            guard makeRoom(for: length, prefix: headerSize) else { return false }
-            appendLE(UInt32(length))
-            bytes.append(contentsOf: prefix)
-            bytes.append(contentsOf: suffix)
+    mutating func windowID(_ token: WindowToken, session: ConfigScriptSession) -> Bool {
+        ConfigScriptWindowID.withBytes(token, session: session) { id in
+            guard makeRoom(for: id.count, prefix: MemoryLayout<UInt32>.size) else { return false }
+            appendLE(UInt32(id.count))
+            bytes.append(contentsOf: id)
             return true
         }
     }
@@ -192,18 +188,17 @@ extension WMController {
     ) {
         let manager = workspaceManager
         lazy var resolution = manager.monitorResolutionContext()
-        lazy var ids = IPCWindowOpaqueID.Encoder(sessionToken: session.text)
         if reads.contains(.workspaceWindows) {
             output.start(.workspaceWindows)
             if let id = workspaceId, let workspace = manager.descriptor(for: id) {
-                _ = appendScriptWindows(in: workspace, ids: ids, resolution: resolution, to: &output)
+                _ = appendScriptWindows(in: workspace, session: session, resolution: resolution, to: &output)
             }
             finishScriptList(&output)
         }
         if reads.contains(.windows) {
             output.start(.windows)
             for workspace in manager.sortedWorkspaces() {
-                guard appendScriptWindows(in: workspace, ids: ids, resolution: resolution, to: &output)
+                guard appendScriptWindows(in: workspace, session: session, resolution: resolution, to: &output)
                 else {
                     break
                 }
@@ -216,7 +211,7 @@ extension WMController {
                 let stored = output.row { row in
                     let monitor = manager.resolvedWorkspaceMonitorId(for: workspace.id, context: resolution)
                     return row.string(workspace.id.uuidString) && row.string(workspace.name)
-                        && row.string(monitor.map(IPCDisplayRef.identifier))
+                        && row.string(monitor?.scriptIdentifier)
                 }
                 if !stored { break }
             }
@@ -225,7 +220,7 @@ extension WMController {
         if reads.contains(.monitors) {
             output.start(.monitors)
             _ = manager.sortedMonitors().allSatisfy { monitor in
-                output.row { $0.string(IPCDisplayRef.identifier(monitor.id)) && $0.string(monitor.name) }
+                output.row { $0.string(monitor.id.scriptIdentifier) && $0.string(monitor.name) }
             }
             finishScriptList(&output)
         }
@@ -243,7 +238,7 @@ extension WMController {
     }
 
     private func appendScriptWindows(
-        in workspace: WorkspaceDescriptor, ids: IPCWindowOpaqueID.Encoder,
+        in workspace: WorkspaceDescriptor, session: ConfigScriptSession,
         resolution: WorkspaceManager.MonitorResolutionContext,
         to output: inout SnapshotWriter
     ) -> Bool {
@@ -251,15 +246,14 @@ extension WMController {
         let windows = manager.windowQueries
         let tokens = windows.tokens(in: workspace.id)
         guard !tokens.isEmpty else { return true }
-        let monitor = manager.resolvedWorkspaceMonitorId(for: workspace.id, context: resolution)
-            .map(IPCDisplayRef.identifier)
+        let monitor = manager.resolvedWorkspaceMonitorId(for: workspace.id, context: resolution)?.scriptIdentifier
         let layout = manager.activeLayoutKind(for: workspace.id)
         let niri = layout == .niri ? manager.niriEngine : nil
         let dwindle = layout == .dwindle ? manager.dwindleEngine?.existingState(for: workspace.id) : nil
         for token in tokens {
             let accepted = windows.withEntry(token) { entry in
                 output.row { row in
-                    guard row.windowID(token, using: ids), writeWindowText(entry, to: &row),
+                    guard row.windowID(token, session: session), writeWindowText(entry, to: &row),
                           row.string(workspace.name), row.string(monitor) else { return false }
                     let floating = entry.mode == .floating
                     let fullscreen = entry.observedState.isNativeFullscreen || (!floating && (layout == .niri

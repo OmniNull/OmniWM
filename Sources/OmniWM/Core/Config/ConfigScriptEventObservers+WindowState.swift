@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
 
 @MainActor
 struct ConfigScriptObservedWindowStates {
@@ -73,7 +72,7 @@ extension ConfigScriptEventObservers {
         var bundle = identity.takeBundle()
         if bundle == nil { bundle = controller.appInfoCache.cachedBundleId(for: token.pid) }
         let event = ConfigScriptWindowTitle(
-            token: token, session: controller.automationSession.identity, epoch: controller.automationSession.epoch,
+            token: token, session: controller.scriptSession.identity, epoch: controller.scriptSession.epoch,
             title: title, bundle: consume bundle
         )
         publishTitle(consume event, controller: controller)
