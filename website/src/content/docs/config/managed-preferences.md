@@ -2,7 +2,7 @@
 title: Managed Preferences
 description: Organization policy for OmniShell network hosts, native programs and built-in services.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 Organizations can manage OmniShell through forced preferences in **`com.barut.OmniWM`**. The separate Dev app reads **`com.barut.OmniWM.dev`**. Only forced values count; ordinary `defaults write` values are ignored. The policy covers the Luau HTTP API, native provider launches and the built-in Weather and Lyrics services, not update checks, style downloads, embedded terminals or browser `openURL` actions.

@@ -21,38 +21,9 @@ You can use local variables, functions and `require("./sizes")` or `require("../
 
 To enable editor completion and type checking, open the config folder in luau-lsp, select the standard platform, enable the new solver, and register the bundled `omniwm-config.d.luau` as a definitions file. For an app installed in Applications, it lives at `/Applications/OmniWM.app/Contents/Resources/OmniWM_OmniWM.bundle/Contents/Resources/omniwm-config.d.luau`. Keep the `--!strict` and `OmniWMSettings` annotation shown above. See the [settings reference](/config/settings-reference/) for keys, defaults and examples.
 
-## Recipes
+## init.luau
 
-Put these recipes in `init.luau`, next to `settings.luau`. Save the file to apply it.
-
-**Grow the focused Niri column.** Control + Option + K adds 12 percentage points to the column’s share of the available space. Change `+12%` to choose the step for this key. The standard resize shortcuts use **Settings → Layouts → Niri → Resize Increment**.
-
-```lua
-local wm = omniwm
-wm.keymap.set("Control+Option+K", wm.cmd("set-container-primary-span", "+12%"))
-```
-
-**Float an app’s windows.** This rule floats new TextEdit documents. Substitute another app’s bundle ID to float its windows.
-
-```lua
-omniwm.rule { bundleId = "com.apple.TextEdit", layout = "float" }
-```
-
-**Open TextEdit from a shortcut or the command palette.** Build its action once and use it in both places.
-
-```lua
-local wm = omniwm
-local textEdit = wm.act.open("com.apple.TextEdit")
-wm.keymap.set("Control+Option+Shift+J", textEdit)
-wm.command("Open TextEdit", function()
-    wm.dispatch(textEdit)
-    wm.notify("Opening TextEdit")
-end)
-```
-
-Use `wm.act.open(bundleId)`, `wm.act.run(argv)` or `wm.act.notify(text)` whenever you need an action to bind or save. A callback can build one too, then dispatch it later while the same config is loaded. Identical actions share storage. The config can store up to 4,096 actions and 1 MiB of action text. If a new action exceeds either limit, the script reports an error. Actions you already saved still work.
-
-Inside a callback, call `wm.open`, `wm.run` or `wm.notify` directly to queue an effect. Each returns nothing. OmniWM performs the queued effects in order when the callback succeeds and discards them if it fails.
+Shortcuts, palette commands, events, timers and window rules go in the optional `init.luau` next to `settings.luau`. The [init.luau Reference](/config/init-luau/) covers its functions, limits and recipes.
 
 ## Opening the file
 

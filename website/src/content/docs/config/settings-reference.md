@@ -2,7 +2,7 @@
 title: Settings Reference
 description: Complete reference for every table, array, key, and default in OmniWM's settings.luau.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 This reference follows current `main`; features newer than the latest release are marked **Unreleased**.
