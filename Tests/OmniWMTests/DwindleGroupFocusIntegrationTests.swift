@@ -185,6 +185,41 @@ final class DwindleGroupFocusIntegrationTests: XCTestCase {
         XCTAssertEqual(regrouped.activeToken, fixture.activeToken)
     }
 
+    func testMoveWithoutNeighborPlacesStackedTileAtWorkspaceEdgeOnce() throws {
+        let fixture = try makeFixture { _, _ in }
+        let lower = addSpatialNeighborBelowGroup(to: fixture)
+        let screen = fixture.controller.workspaceManager.monitor(for: fixture.workspaceId)?.visibleFrame
+            ?? CGRect(x: 0, y: 0, width: 1200, height: 800)
+        fixture.controller.workspaceManager.withEngineMutationScope {
+            fixture.engine.setSelectedNode(
+                fixture.engine.findNode(for: lower, in: fixture.workspaceId),
+                in: fixture.workspaceId
+            )
+        }
+        let blocker = try blockLayoutRefresh(fixture.controller, workspaceId: fixture.workspaceId)
+        defer { unblockLayoutRefresh(fixture.controller, blocker: blocker) }
+
+        XCTAssertEqual(
+            fixture.controller.dwindleLayoutHandler.moveWindow(direction: .right),
+            .movedWithinWorkspace
+        )
+        fixture.controller.workspaceManager.withEngineMutationScope {
+            _ = fixture.engine.calculateLayout(for: fixture.workspaceId, screen: screen)
+        }
+
+        XCTAssertEqual(fixture.engine.tileCount(in: fixture.workspaceId), 2)
+        XCTAssertEqual(fixture.engine.activeToken(in: fixture.workspaceId), lower)
+        XCTAssertEqual(
+            fixture.engine.findGeometricNeighbor(from: lower, direction: .left, in: fixture.workspaceId),
+            fixture.activeToken
+        )
+        XCTAssertNil(fixture.engine.findGeometricNeighbor(from: lower, direction: .up, in: fixture.workspaceId))
+        XCTAssertEqual(
+            fixture.controller.dwindleLayoutHandler.moveWindow(direction: .right),
+            .atWorkspaceEdge
+        )
+    }
+
     func testMoveExtractsProjectedVisibleMemberWhileGroupedPeerIsAppHidden() throws {
         let fixture = try makeFixture { _, _ in }
         fixture.controller.workspaceManager.setAppHidden(

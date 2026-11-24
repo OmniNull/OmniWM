@@ -51,6 +51,33 @@ extension DwindleLayoutEngine {
         return bestCandidate?.handle
     }
 
+    func tileSpansWorkspace(
+        _ token: WindowToken,
+        across direction: Direction,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        guard let state = existingState(for: workspaceId),
+              let node = state.leafByToken[token],
+              let rootFrame = state.root.cachedFrame,
+              let frame = structuralFrame(
+                  for: node,
+                  at: .init(node: state.root, rect: rootFrame, boundaryEdges: .all),
+                  projection: .init(tilingArea: rootFrame, excludedTokens: state.excludedTokens),
+                  measurement: .structuralRects
+              )
+        else {
+            return true
+        }
+        switch direction {
+        case .left,
+             .right:
+            return abs(frame.minY - rootFrame.minY) < 0.5 && abs(frame.maxY - rootFrame.maxY) < 0.5
+        case .up,
+             .down:
+            return abs(frame.minX - rootFrame.minX) < 0.5 && abs(frame.maxX - rootFrame.maxX) < 0.5
+        }
+    }
+
     func removalSuccessorToken(
         for token: WindowToken,
         in workspaceId: WorkspaceDescriptor.ID
