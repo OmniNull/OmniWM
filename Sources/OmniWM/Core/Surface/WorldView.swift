@@ -278,6 +278,10 @@ struct WorldView {
 }
 
 extension WorldView {
+    func hasDeferredVisibilityRecheck(for token: WindowToken) -> Bool {
+        controller.axEventHandler.hasDeferredVisibilityRecheck(for: token)
+    }
+
     func edgePicturePresentation(for entry: borrowing WindowState) -> NiriEdgePicturePresentation? {
         guard entry.layoutReason == .standard,
               !controller.workspaceManager.isWindowSuppressedByMacOS(entry)

@@ -92,7 +92,8 @@ enum SurfaceDerivation {
         guard world.suppressedFocusToken != token,
               !world.hasPendingNativeFullscreenTransition(in: entry.workspaceId),
               !world.isWindowFullscreenInLayout(entry),
-              picture != nil || world.isManagedWindowDisplayable(entry),
+              picture != nil
+              || (world.isManagedWindowDisplayable(entry) && !world.hasDeferredVisibilityRecheck(for: token)),
               world.isWorkspaceVisible(entry.workspaceId)
         else {
             return nil

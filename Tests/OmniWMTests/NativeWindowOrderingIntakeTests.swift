@@ -312,6 +312,49 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, false)
     }
 
+    func testFocusedFloatingWindowBorderTracksNativeVisibilityBeforeFocusChanges() async throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        defer { cleanup(controller) }
+        let manager = controller.workspaceManager
+        let workspace = try XCTUnwrap(manager.workspaceId(for: "1", createIfMissing: true))
+        _ = manager.focusWorkspace(named: "1")
+        _ = manager.addWindow(
+            WindowAdmissionTestSupport.axRef(for: token),
+            pid: token.pid,
+            windowId: token.windowId,
+            to: workspace,
+            mode: .floating
+        )
+        manager.updateFloatingGeometry(frame: info(orderedIn: true).frame, for: token)
+        controller.settings.borders.enabled = true
+        XCTAssertTrue(manager.setManagedFocus(token, in: workspace))
+
+        let world = WorldView(controller: controller, liveBoundsProvider: { _ in nil })
+        let initialBorder = try XCTUnwrap(SurfaceDerivation.deriveBorder(world: world))
+        XCTAssertEqual(initialBorder.token, token)
+
+        let handler = controller.axEventHandler
+        let windowId = UInt32(token.windowId)
+        let hidden = info(orderedIn: false)
+        handler.lifecycleQueries.query = { _ in hidden }
+        handler.handleCGSEvent(.visibilityChanged(windowId: windowId, orderedIn: false))
+        await handler.lifecycleQueries.task?.value
+
+        XCTAssertEqual(manager.nativeManagedFocusToken, token)
+        XCTAssertEqual(manager.entry(for: token)?.observedState.isNativeWithdrawn, false)
+        XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
+        XCTAssertNil(SurfaceDerivation.deriveAnimationBorder(world: world, previous: initialBorder))
+
+        let shown = info(orderedIn: true)
+        handler.lifecycleQueries.query = { _ in shown }
+        handler.handleCGSEvent(.visibilityChanged(windowId: windowId, orderedIn: true))
+        let showQuery = try XCTUnwrap(handler.lifecycleQueries.task)
+        await showQuery.value
+
+        XCTAssertEqual(manager.nativeManagedFocusToken, token)
+        XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.token, token)
+    }
+
     func testFocusedWindowHiddenByItsAppIsWithdrawnOnceNativeFocusMovesAway() async throws {
         for movesToOwnedSurface in [false, true] {
             let controller = try controller()
@@ -365,7 +408,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
             }
             handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
             await handler.lifecycleQueries.task?.value
-            XCTAssertEqual(handler.lifecycleQueries.visibilityRechecksAfterFocusLoss, [token])
+            XCTAssertTrue(handler.hasDeferredVisibilityRecheck(for: token))
 
             if retires {
                 _ = controller.workspaceManager.removeWindow(pid: token.pid, windowId: token.windowId)

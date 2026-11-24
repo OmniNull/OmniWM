@@ -50,7 +50,10 @@ extension AXEventHandler {
         case let .visibilityChanged(windowId, orderedIn):
             if orderedIn { noteHostedWindowRestack(windowId: windowId) }
             let entry = controller.workspaceManager.entry(forWindowId: Int(windowId))
-            guard !orderedIn || entry?.observedState.isNativeWithdrawn == true || hasVisibilityQuery(windowId: windowId)
+            let previouslyOrderedOut = entry.map {
+                $0.observedState.isNativeWithdrawn || hasDeferredVisibilityRecheck(for: $0.token)
+            } ?? false
+            guard !orderedIn || previouslyOrderedOut || hasVisibilityQuery(windowId: windowId)
             else { return }
             enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged)
 
@@ -129,13 +132,19 @@ extension AXEventHandler {
 
     func applyWindowVisibilityChanged(windowId: UInt32, windowInfo: WindowServerInfo?) {
         guard let controller,
-              case let .exact(token, _) = WindowServerIdentityResolution(windowId: windowId, info: windowInfo)
+              case let .exact(token, info) = WindowServerIdentityResolution(windowId: windowId, info: windowInfo)
         else { return }
-        guard windowInfo?.isOrderedIn != false || controller.workspaceManager.nativeManagedFocusToken != token else {
-            lifecycleQueries.visibilityRechecksAfterFocusLoss.insert(token)
+        if info.isOrderedIn == false,
+           controller.workspaceManager.nativeManagedFocusToken == token,
+           let handle = controller.workspaceManager.handle(for: token)
+        {
+            // The native focus owner still guides close recovery while the window is offscreen.
+            if lifecycleQueries.visibilityRechecksAfterFocusLoss.updateValue(handle, forKey: token) !== handle {
+                controller.surfaceReconciler.noteBorderChanged()
+            }
             return
         }
-        applyObservedWindowOrdering(windowInfo, token: token)
+        applyObservedWindowOrdering(info, token: token)
     }
 
     func applyObservedWindowOrdering(
@@ -151,7 +160,12 @@ extension AXEventHandler {
               let isOrderedIn = windowInfo.isOrderedIn,
               controller.workspaceManager.workspace(for: token) != nil
         else { return }
-        lifecycleQueries.visibilityRechecksAfterFocusLoss.remove(token)
+        if let previousHandle = lifecycleQueries.visibilityRechecksAfterFocusLoss.removeValue(forKey: token),
+           controller.workspaceManager.borderFocusToken == token,
+           controller.workspaceManager.handle(for: token) === previousHandle
+        {
+            controller.surfaceReconciler.noteBorderChanged()
+        }
         if !isOrderedIn {
             let topology = controller.workspaceManager.spaceTopology
             guard !appFullscreen,

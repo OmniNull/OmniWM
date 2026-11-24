@@ -84,7 +84,7 @@ extension AXEventHandler {
         var nextSequence: UInt64 = 1
         var task: Task<Void, Never>?
         var deferredCloseProbeExpiration: IntentID?
-        var visibilityRechecksAfterFocusLoss: Set<WindowToken> = []
+        var visibilityRechecksAfterFocusLoss: [WindowToken: WindowHandle] = [:]
     }
 
     func enqueueLifecycleQuery(windowId: UInt32, kind: LifecycleQueryKind) {
@@ -176,13 +176,22 @@ extension AXEventHandler {
         lifecycleQueries.visibilityRechecksAfterFocusLoss.removeAll()
     }
 
+    func hasDeferredVisibilityRecheck(for token: WindowToken) -> Bool {
+        guard let handle = lifecycleQueries.visibilityRechecksAfterFocusLoss[token] else { return false }
+        return controller?.workspaceManager.handle(for: token) === handle
+    }
+
     func recheckVisibilityAfterFocusLoss() {
         guard let controller, !lifecycleQueries.visibilityRechecksAfterFocusLoss.isEmpty else { return }
         let focusedToken = controller.workspaceManager.nativeManagedFocusToken
-        let unfocused = lifecycleQueries.visibilityRechecksAfterFocusLoss.filter { $0 != focusedToken }
-        lifecycleQueries.visibilityRechecksAfterFocusLoss.subtract(unfocused)
-        for token in unfocused where controller.workspaceManager.entry(for: token) != nil {
-            guard let windowId = UInt32(exactly: token.windowId) else { continue }
+        for (token, handle) in lifecycleQueries.visibilityRechecksAfterFocusLoss where token != focusedToken {
+            guard controller.workspaceManager.handle(for: token) === handle,
+                  let windowId = UInt32(exactly: token.windowId)
+            else {
+                lifecycleQueries.visibilityRechecksAfterFocusLoss.removeValue(forKey: token)
+                continue
+            }
+            guard !hasVisibilityQuery(windowId: windowId) else { continue }
             enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged)
         }
     }
