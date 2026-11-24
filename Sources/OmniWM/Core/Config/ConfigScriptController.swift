@@ -32,6 +32,8 @@ enum ConfigScriptFileVersion: Equatable, Sendable {
 
 @MainActor @Observable
 final class ConfigScriptController {
+    nonisolated static let fileName = "init.luau"
+
     private struct Input: Equatable {
         var versions: [URL: ConfigScriptFileVersion]
         var hyperMask: UInt32
@@ -209,13 +211,13 @@ final class ConfigScriptController {
                 }
                 if rulesChanged { onRulesChanged?() }
                 if commandsChanged { onCommandsChanged?() }
-                updateDiagnostic(nil)
+                refreshLoadDiagnostic()
                 installEvents(evaluation?.events ?? [])
                 if let timers = evaluation?.timers, !timers.isEmpty { installTimers(timers) }
                 return true
             }
         }
-        refreshDiagnostic()
+        refreshLoadDiagnostic()
         return false
     }
 
@@ -227,17 +229,29 @@ final class ConfigScriptController {
         effectiveBindings = resolved.rows
         maskedBindingChords = resolved.masked
         bindingConflict = resolved.conflict
-        refreshDiagnostic()
+        refreshLoadDiagnostic()
         return resolved.rows
     }
 
     func refreshRuleConflicts() {
         acceptedRuleConflict = ruleConflict(acceptedRules)
+        refreshLoadDiagnostic()
+    }
+
+    private var loadDiagnostic: String? {
+        loadError ?? bindingConflict ?? acceptedRuleConflict
+    }
+
+    private func refreshLoadDiagnostic() {
         refreshDiagnostic()
+        let current = loadDiagnostic
+        if settings.configScriptLoadError != current {
+            settings.configScriptLoadError = current
+        }
     }
 
     private func refreshDiagnostic() {
-        let configError = loadError ?? bindingConflict ?? acceptedRuleConflict
+        let configError = loadDiagnostic
         if let configError, let callbackError {
             updateDiagnostic("\(configError)\n\(callbackError)")
         } else {

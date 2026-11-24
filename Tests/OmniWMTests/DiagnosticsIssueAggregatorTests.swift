@@ -95,6 +95,40 @@ final class DiagnosticsIssueAggregatorTests: XCTestCase {
         )
     }
 
+    func testScriptLoadErrorIsListedUntilTheScriptLoads() async throws {
+        let directory = try makeDiagnosticsDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settings = makeSettingsStore()
+        let controller = WMController(settings: settings, diagnosticsDirectory: directory)
+        settings.onConfigNoticeChanged = { [weak controller] in controller?.refreshDiagnosticsIssues() }
+        let configDirectory = settings.settingsFileURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: configDirectory.deletingLastPathComponent()) }
+        let scriptURL = configDirectory.appendingPathComponent(ConfigScriptController.fileName, isDirectory: false)
+        try Data("omniwm.cmd('mistyped')".utf8).write(to: scriptURL)
+        defer { controller.stopConfigScript() }
+
+        try await reloaded(controller) { controller.startConfigScript(at: scriptURL) }
+        let loadError = try XCTUnwrap(settings.configScriptLoadError)
+        let issue = try XCTUnwrap(controller.diagnosticsIssues
+            .first { $0.kind == .configScriptFailed(message: loadError) })
+        XCTAssertEqual(issue.configFileURL, scriptURL)
+
+        try await reloaded(controller) { try Data().write(to: scriptURL, options: .atomic) }
+        XCTAssertNil(settings.configScriptLoadError)
+        XCTAssertFalse(controller.diagnosticsIssues.contains { $0.kind == .configScriptFailed(message: loadError) })
+    }
+
+    private func reloaded(_ controller: WMController, after edit: () throws -> Void) async throws {
+        let completion = expectation(description: "Process init.luau")
+        completion.assertForOverFulfill = false
+        try edit()
+        let script = try XCTUnwrap(controller.configScript)
+        script.onReloadProcessed = { completion.fulfill() }
+        defer { script.onReloadProcessed = nil }
+        await fulfillment(of: [completion], timeout: failureBound)
+    }
+
     private func makeDiagnosticsDirectory() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("OmniWMDiagnosticsAggregator-\(UUID().uuidString)", isDirectory: true)

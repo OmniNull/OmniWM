@@ -55,6 +55,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         )
         case settingsPersistenceBlocked(reason: String)
         case settingsInvalidRejected(reason: String)
+        case configScriptFailed(message: String)
     }
 
     let kind: Kind
@@ -75,6 +76,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case let .horizontalDisplayArrangement(_, _, first, second): "displayArrangement:\(first):\(second)"
         case .settingsPersistenceBlocked: "settings-persistence-blocked"
         case .settingsInvalidRejected: "settings-invalid-rejected"
+        case .configScriptFailed: "config-script-failed"
         }
     }
 
@@ -88,7 +90,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
              .hotkeySidedHyper,
              .fixedDock,
              .horizontalDisplayArrangement,
-             .settingsInvalidRejected:
+             .settingsInvalidRejected,
+             .configScriptFailed:
             .warning
         }
     }
@@ -103,6 +106,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case .horizontalDisplayArrangement: "Unsupported vertical display overlap detected"
         case .settingsPersistenceBlocked: "Settings writes blocked"
         case .settingsInvalidRejected: "Invalid settings left untouched"
+        case .configScriptFailed: "init.luau error"
         }
     }
 
@@ -132,6 +136,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             "OmniWM left \(configPath) untouched and blocked configuration writes: \(reason)"
         case let .settingsInvalidRejected(reason):
             "OmniWM could not decode \(configPath) and left the file untouched: \(reason) The active settings were not changed."
+        case let .configScriptFailed(message):
+            message
         }
     }
 
@@ -158,6 +164,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             "Resolve the reported file problem at \(configPath), then reload or restart OmniWM."
         case .settingsInvalidRejected:
             "Correct the reported value in \(configPath) and save the file to apply your settings."
+        case .configScriptFailed:
+            "Fix the reported problem and save the file."
         }
     }
 
@@ -174,7 +182,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             "x-apple.systempreferences:com.apple.preference.keyboard"
         case .hotkeySidedHyper,
              .settingsPersistenceBlocked,
-             .settingsInvalidRejected:
+             .settingsInvalidRejected,
+             .configScriptFailed:
             nil
         }
     }
@@ -182,7 +191,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
     var revealsConfigFolder: Bool {
         switch kind {
         case .settingsPersistenceBlocked,
-             .settingsInvalidRejected:
+             .settingsInvalidRejected,
+             .configScriptFailed:
             true
         default:
             false
@@ -208,6 +218,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             String(localized: "Unsupported vertical display overlap detected")
         case .settingsPersistenceBlocked: String(localized: "Settings writes blocked")
         case .settingsInvalidRejected: String(localized: "Invalid settings left untouched")
+        case .configScriptFailed: String(localized: "init.luau error")
         }
     }
 
@@ -259,6 +270,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             return String(
                 localized: "OmniWM could not decode \(configPath) and left the file untouched: \(reason) The active settings were not changed."
             )
+        case let .configScriptFailed(message):
+            return message
         }
     }
 
@@ -299,6 +312,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             String(
                 localized: "Correct the reported value in \(configPath) and save the file to apply your settings."
             )
+        case .configScriptFailed:
+            String(localized: "Fix the reported problem and save the file.")
         }
     }
 

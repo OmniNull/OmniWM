@@ -7,6 +7,22 @@ import XCTest
 
 @MainActor
 final class SettingsConfigNoticeTests: XCTestCase {
+    private let brokenScript = "omniwm.cmd('mistyped')"
+    private let validScript = ""
+
+    private var brokenScriptLine: Int {
+        brokenScript.components(separatedBy: "\n").count
+    }
+
+    private func processed(_ fixture: Fixture, edit: () throws -> Void) async throws {
+        let completion = expectation(description: "Process init.luau")
+        completion.assertForOverFulfill = false
+        fixture.script.onReloadProcessed = { completion.fulfill() }
+        defer { fixture.script.onReloadProcessed = nil }
+        try edit()
+        await fulfillment(of: [completion], timeout: failureBound)
+    }
+
     func testStartupRejectionShowsFileAndParserReasonWithoutTakingFocus() throws {
         let keyWindow = NSApp?.keyWindow
         let fixture = try Fixture(initialText: "return {\n    szie = 4,\n}")
@@ -70,7 +86,7 @@ final class SettingsConfigNoticeTests: XCTestCase {
         })
         defer { fixture.close() }
         let original = try Data(contentsOf: fixture.persistence.fileURL)
-        fixture.notices.openSettingsFile()
+        fixture.notices.openIssueFile()
 
         XCTAssertEqual(openedURL, fixture.persistence.fileURL)
         guard case .error = fixture.notices.fileStatus else {
@@ -83,7 +99,7 @@ final class SettingsConfigNoticeTests: XCTestCase {
     func testOpeningRejectedFileKeepsTheDiagnosticAvailable() throws {
         let fixture = try Fixture(initialText: "return {gaps = (}\n", openFile: { _ in true })
         defer { fixture.close() }
-        fixture.notices.openSettingsFile()
+        fixture.notices.openIssueFile()
         XCTAssertEqual(fixture.notices.fileStatus, .opened)
         XCTAssertTrue(try fixture.panel().isVisible)
     }
@@ -120,13 +136,90 @@ final class SettingsConfigNoticeTests: XCTestCase {
         XCTAssertTrue(registry.visibleWindows().isEmpty)
     }
 
+    func testScriptLoadErrorShowsItsFileAndLineAndOpensInitLuau() async throws {
+        var openedURL: URL?
+        let fixture = try Fixture(openFile: {
+            openedURL = $0
+            return true
+        })
+        defer { fixture.close() }
+        try await processed(fixture) {
+            try fixture.writeScript(brokenScript)
+            fixture.script.start()
+        }
+        let issue = try XCTUnwrap(fixture.notices.issue)
+        guard case let .configScriptFailed(message) = issue.kind else {
+            return XCTFail("Expected the init.luau load error")
+        }
+
+        XCTAssertTrue(message.contains("\(fixture.scriptURL.path):\(brokenScriptLine):"))
+        XCTAssertEqual(issue.configFileURL, fixture.scriptURL)
+        XCTAssertTrue(try fixture.panel().isVisible)
+        fixture.notices.openIssueFile()
+        XCTAssertEqual(openedURL, fixture.scriptURL)
+        XCTAssertNil(fixture.notices.fileStatus)
+    }
+
+    func testSettingsNoticeComesFirstThenHandsOverToTheScriptError() async throws {
+        let fixture = try Fixture(initialText: "return {gaps = (}\n")
+        defer { fixture.close() }
+        try await processed(fixture) {
+            try fixture.writeScript(brokenScript)
+            fixture.script.start()
+        }
+        XCTAssertNotNil(fixture.settings.configScriptLoadError)
+        guard case .settingsInvalidRejected = fixture.notices.issue?.kind else {
+            return XCTFail("Expected the settings.luau notice first")
+        }
+        let panel = try fixture.panel()
+        fixture.notices.dismiss()
+        XCTAssertFalse(panel.isVisible)
+
+        try fixture.edit(String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self))
+        XCTAssertNil(fixture.settings.configNotice)
+        guard case .configScriptFailed = fixture.notices.issue?.kind else {
+            return XCTFail("Expected the init.luau load error once settings.luau loads")
+        }
+        XCTAssertTrue(panel.isVisible)
+    }
+
+    func testScriptRecoveryClosesTheNoticeAndCallbackErrorsOpenNone() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        try await processed(fixture) {
+            try fixture.writeScript(brokenScript)
+            fixture.script.start()
+        }
+        let panel = try fixture.panel()
+
+        try await processed(fixture) { try fixture.writeScript(validScript, atomic: true) }
+        XCTAssertNil(fixture.settings.configScriptLoadError)
+        XCTAssertNil(fixture.notices.issue)
+        XCTAssertFalse(fixture.registry.contains(window: panel))
+
+        let noticeChanges = fixture.configNoticeChanges
+        let callbackMessage = "\(fixture.scriptURL.path):\(brokenScriptLine): callback failed"
+        fixture.script.publishCallbackDiagnostic(callbackMessage)
+        XCTAssertEqual(fixture.script.diagnostic, callbackMessage)
+        XCTAssertNil(fixture.settings.configScriptLoadError)
+        XCTAssertEqual(fixture.configNoticeChanges, noticeChanges)
+        XCTAssertNil(fixture.notices.issue)
+        XCTAssertTrue(fixture.registry.visibleWindows().isEmpty)
+    }
+
     @MainActor
     private final class Fixture {
         let directory: URL
         let persistence: SettingsFilePersistence
         let settings: SettingsStore
         let registry = OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
+        let script: ConfigScriptController
         let notices: SettingsConfigNoticeController
+        var configNoticeChanges = 0
+
+        var scriptURL: URL {
+            directory.appendingPathComponent(ConfigScriptController.fileName, isDirectory: false)
+        }
 
         init(initialText: String? = nil, openFile: @escaping (URL) -> Bool = { _ in false }) throws {
             directory = FileManager.default.temporaryDirectory
@@ -146,13 +239,25 @@ final class SettingsConfigNoticeTests: XCTestCase {
                 ),
                 autosaveEnabled: false
             )
+            script = ConfigScriptController(
+                fileURL: directory.appendingPathComponent(ConfigScriptController.fileName, isDirectory: false),
+                settings: settings
+            ) { _ in }
             notices = SettingsConfigNoticeController(
                 settings: settings,
                 ownedWindowRegistry: registry,
                 openFile: openFile
             )
-            settings.onConfigNoticeChanged = { [weak notices] in notices?.refresh() }
+            settings.onConfigNoticeChanged = { [weak self] in
+                guard let self else { return }
+                configNoticeChanges += 1
+                notices.refresh()
+            }
             notices.refresh()
+        }
+
+        func writeScript(_ source: String, atomic: Bool = false) throws {
+            try Data(source.utf8).write(to: scriptURL, options: atomic ? .atomic : [])
         }
 
         func edit(_ text: String) throws {
@@ -165,6 +270,7 @@ final class SettingsConfigNoticeTests: XCTestCase {
         }
 
         func close() {
+            script.stop()
             notices.close()
             try? FileManager.default.removeItem(at: directory)
         }

@@ -6,14 +6,22 @@ import Foundation
 enum SettingsConfigDiagnostics {
     static func issues(
         directoryURL: URL = SettingsFilePersistence.defaultDirectoryURL,
-        notice: SettingsConfigNotice? = nil
+        notice: SettingsConfigNotice? = nil,
+        scriptLoadError: String? = nil
     ) -> [DiagnosticsIssue] {
-        guard let notice else { return [] }
-        let kind: DiagnosticsIssue.Kind = switch notice {
-        case let .persistenceWriteBlocked(reason): .settingsPersistenceBlocked(reason: reason)
-        case let .invalidRejected(reason): .settingsInvalidRejected(reason: reason)
+        var issues: [DiagnosticsIssue] = []
+        if let notice {
+            let kind: DiagnosticsIssue.Kind = switch notice {
+            case let .persistenceWriteBlocked(reason): .settingsPersistenceBlocked(reason: reason)
+            case let .invalidRejected(reason): .settingsInvalidRejected(reason: reason)
+            }
+            let url = directoryURL.appendingPathComponent(SettingsFilePersistence.fileName, isDirectory: false)
+            issues.append(DiagnosticsIssue(kind: kind, configFileURL: url))
         }
-        let url = directoryURL.appendingPathComponent(SettingsFilePersistence.fileName, isDirectory: false)
-        return [DiagnosticsIssue(kind: kind, configFileURL: url)]
+        if let scriptLoadError {
+            let url = directoryURL.appendingPathComponent(ConfigScriptController.fileName, isDirectory: false)
+            issues.append(DiagnosticsIssue(kind: .configScriptFailed(message: scriptLoadError), configFileURL: url))
+        }
+        return issues
     }
 }

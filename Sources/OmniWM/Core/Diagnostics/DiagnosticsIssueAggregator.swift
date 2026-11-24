@@ -39,7 +39,8 @@ enum DiagnosticsIssueAggregator {
 
         issues.append(contentsOf: SettingsConfigDiagnostics.issues(
             directoryURL: controller.settings.settingsFileURL.deletingLastPathComponent(),
-            notice: controller.settings.configNotice
+            notice: controller.settings.configNotice,
+            scriptLoadError: controller.settings.configScriptLoadError
         ))
 
         return issues

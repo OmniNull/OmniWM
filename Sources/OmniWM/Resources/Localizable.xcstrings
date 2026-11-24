@@ -1,6 +1,15 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Edit init.luau" : {
+
+    },
+    "Fix the reported problem and save the file." : {
+
+    },
+    "init.luau error" : {
+
+    },
     "Code · %@:%lld" : {
 
     },

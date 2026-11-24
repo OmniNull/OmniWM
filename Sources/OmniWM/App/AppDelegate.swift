@@ -212,7 +212,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private func observeSettings(_ settings: SettingsStore, controller: WMController) {
         controller
             .startConfigScript(at: settings.settingsFileURL.deletingLastPathComponent()
-                .appendingPathComponent("init.luau"))
+                .appendingPathComponent(ConfigScriptController.fileName))
         settings.onIPCEnabledChanged = { [weak self, weak controller] isEnabled in
             guard let self, let controller else { return }
             do {

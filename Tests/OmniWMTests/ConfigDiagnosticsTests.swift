@@ -85,4 +85,31 @@ final class ConfigDiagnosticsTests: XCTestCase {
         XCTAssertTrue(issue.message.contains(reason))
         XCTAssertTrue(issue.revealsConfigFolder)
     }
+
+    func testScriptLoadErrorFollowsTheSettingsIssueAndNamesInitLuau() throws {
+        let directory = FileManager.default.temporaryDirectory
+        let reason = "Unknown setting."
+        let loadError = "\(ConfigScriptController.fileName):1: Unknown command"
+        let issues = SettingsConfigDiagnostics.issues(
+            directoryURL: directory,
+            notice: .invalidRejected(reason: reason),
+            scriptLoadError: loadError
+        )
+
+        XCTAssertEqual(
+            issues.map(\.kind),
+            [.settingsInvalidRejected(reason: reason), .configScriptFailed(message: loadError)]
+        )
+        let script = try XCTUnwrap(issues.last)
+        XCTAssertEqual(
+            script.configFileURL,
+            directory.appendingPathComponent(ConfigScriptController.fileName, isDirectory: false)
+        )
+        XCTAssertEqual(script.message, loadError)
+        XCTAssertTrue(script.revealsConfigFolder)
+        XCTAssertEqual(
+            SettingsConfigDiagnostics.issues(directoryURL: directory, scriptLoadError: loadError).map(\.kind),
+            [.configScriptFailed(message: loadError)]
+        )
+    }
 }

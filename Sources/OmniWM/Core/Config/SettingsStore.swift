@@ -41,6 +41,9 @@ final class SettingsStore {
     var liveWorkspaceNamesForHotkeys: (@MainActor () -> [String])?
     var liveShellNamesForHotkeys: (@MainActor () -> [String])?
     private(set) var configNotice: SettingsConfigNotice?
+    var configScriptLoadError: String? {
+        didSet { onConfigNoticeChanged?() }
+    }
 
     var hotkeysEnabled = SettingsStore.defaultExport.hotkeysEnabled {
         didSet { scheduleSave() }
