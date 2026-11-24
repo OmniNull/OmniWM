@@ -149,7 +149,7 @@ final class EventInterpreter: EventIntakeSink {
                 + " repeat=\(invocation.trigger?.isRepeat.description ?? "unknown")"
                 + " cmd=\(invocation.command.displayName)"
         )
-        let result = controller.commandHandler.handleHotkeyInvocation(invocation)
+        let result = CommandHandler.handleHotkeyInvocation(invocation, controller: controller)
         InputTrace.record(
             "hotkey.dispatch.end seq=\(sequence)"
                 + " selected=\(TraceFormat.token(controller.workspaceManager.selectedManagedToken))"

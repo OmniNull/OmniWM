@@ -4,6 +4,7 @@ import PackageDescription
 
 let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
 let ghosttyMacOSLibraryDirectory = "\(packageDirectory)/Frameworks/GhosttyKit.xcframework/macos-arm64"
+let scriptARCDirectory = ProcessInfo.processInfo.environment["OMNIWM_SCRIPT_ARC_DIRECTORY"]
 let liveChecks = ProcessInfo.processInfo.environment["OMNIWM_LIVE_CHECKS"] != nil
 
 let package = Package(
@@ -151,6 +152,11 @@ let package = Package(
                 "OmniWMShellCore"
             ],
             path: "Sources/OmniWM",
+            exclude: scriptARCDirectory == nil ? [
+                "ScriptARCWorkload.swift", "ScriptARCWorkerLifetime.swift", "ScriptARCFocusWorkload.swift",
+                "ScriptARCTopologyWorkload.swift", "ScriptARCWindowEvents.swift", "ScriptARCTimerWorkload.swift",
+                "ScriptARCWindowTransactions.swift", "ScriptARCEventOwnership.swift"
+            ] : [],
             resources: [
                 .process("Resources"),
                 .copy("ShellDefault"),
@@ -214,3 +220,17 @@ let package = Package(
     ],
     cxxLanguageStandard: .cxx17
 )
+
+if let auditDirectory = scriptARCDirectory {
+    let counters = "ScriptARCCounters"
+    package.targets.append(.target(name: counters, path: "Scripts/script-arc-audit/Counters"))
+    package.targets.append(.executableTarget(
+        name: "ScriptARCRunner", dependencies: ["OmniWM"], path: "Scripts/script-arc-audit/Runner"
+    ))
+    package.products.append(.executable(name: "script-arc-audit", targets: ["ScriptARCRunner"]))
+    let host = package.targets.first { $0.name == "OmniWMScriptHost" }!
+    host.cxxSettings = (host.cxxSettings ?? []) + [.define("lua_resume", to: "script_arc_lua_resume")]
+    let app = package.targets.first { $0.name == "OmniWM" }!
+    app.dependencies.append(.byName(name: counters))
+    app.linkerSettings = (app.linkerSettings ?? []) + [.unsafeFlags(["-L" + auditDirectory, "-lScriptARC"])]
+}

@@ -17,7 +17,9 @@ extension WMController {
         surfaceReconciler.noteBordersAndBarsChanged()
         refreshStatusBar()
         refreshKeyboardModeIndicator()
-        scriptModeObserver?.modeChanged(kind)
+        if scriptModeObserver != nil {
+            ConfigScriptEventObservers.modeChanged(kind, controller: self)
+        }
     }
 
     func refreshKeyboardModeIndicator() {

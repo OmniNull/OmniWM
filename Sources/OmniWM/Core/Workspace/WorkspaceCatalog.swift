@@ -19,8 +19,19 @@ final class WorkspaceCatalog {
         workspacesById
     }
 
+    func contains(_ id: WorkspaceDescriptor.ID) -> Bool {
+        workspacesById.index(forKey: id) != nil
+    }
+
     func descriptor(for id: WorkspaceDescriptor.ID) -> WorkspaceDescriptor? {
         workspacesById[id]
+    }
+
+    func name(for id: WorkspaceDescriptor.ID) -> String? {
+        guard var descriptor = workspacesById[id] else { return nil }
+        var name = ""
+        swap(&name, &descriptor.name)
+        return name
     }
 
     func workspaceId(named name: String) -> WorkspaceDescriptor.ID? {

@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
-import OmniWMIPC
 import OmniWMScriptHost
 
 struct ConfigScriptEventCause {
     let function: Int
-    let ancestors: Set<Int>
 
-    fileprivate var excludingSelf: Set<Int> {
-        var result = ancestors
-        result.insert(function)
-        return result
+    let excludingSelf: ConfigScriptListenerMask
+
+    init(function: Int, ancestors: ConfigScriptListenerMask) {
+        self.function = function
+        var next = ancestors
+        next.insert(function)
+        excludingSelf = next
     }
 }
 
@@ -29,7 +30,7 @@ struct ConfigScriptEventFeedback {
     private var applying: ConfigScriptEventCause?
     private var priorFocusRequest: UInt64?
     private var deferredFocus: IssuedFocus?
-    private var deferredCloses: [WindowHandle: Set<Int>] = [:]
+    private var deferredCloses: [WindowHandle: ConfigScriptListenerMask] = [:]
     private var launches: [Int: (last: ContinuousClock.Instant, count: Int)] = [:]
 
     mutating func checkLaunch(
@@ -76,38 +77,36 @@ struct ConfigScriptEventFeedback {
         deferredCloses[handle, default: []].formUnion(applying.excludingSelf)
     }
 
-    mutating func closeExclusions(id: String?, controller: WMController) -> Set<Int> {
-        var excluded = applying?.excludingSelf ?? []
-        guard !deferredCloses.isEmpty, let id,
-              let decoded = IPCWindowOpaqueID.decode(id, expectingSessionToken: controller.automationSessionToken)
-        else { return excluded }
-        let token = WindowToken(pid: decoded.pid, windowId: decoded.windowId)
-        if let handle = deferredCloses.keys.first(where: { $0.token == token }),
-           let issued = deferredCloses.removeValue(forKey: handle)
-        {
-            excluded.formUnion(issued)
-        }
+    mutating func closeExclusions(token: WindowToken) -> ConfigScriptListenerMask? {
+        guard !deferredCloses.isEmpty, let handle = deferredCloses.keys.first(where: { $0.token == token }),
+              let issued = deferredCloses.removeValue(forKey: handle) else { return currentExclusions }
+        guard var excluded = currentExclusions else { return issued }
+        excluded.formUnion(issued)
         return excluded
     }
 
-    mutating func exclusions(for kind: ConfigScriptEventKind, controller: WMController) -> Set<Int> {
+    var currentExclusions: ConfigScriptListenerMask? {
+        applying?.excludingSelf
+    }
+
+    mutating func exclusions(for kind: ConfigScriptEventKind, controller: WMController) -> ConfigScriptListenerMask? {
         if let applying { return applying.excludingSelf }
-        guard let focus = deferredFocus else { return [] }
+        guard let focus = deferredFocus else { return nil }
         switch kind {
         case .windowActive,
              .workspaceActive,
              .monitorFocused:
             let manager = controller.workspaceManager
-            guard manager.focusSessionSnapshot.pendingManagedFocus.requestId != focus.id else { return [] }
+            guard manager.focusSessionSnapshot.pendingManagedFocus.requestId != focus.id else { return nil }
             guard manager.nativeManagedFocusToken == focus.token,
                   controller.intentLedger.activeManagedRequest(requestId: focus.id)?.token == focus.token
             else {
                 deferredFocus = nil
-                return []
+                return nil
             }
             return focus.cause.excludingSelf
         default:
-            return []
+            return nil
         }
     }
 }

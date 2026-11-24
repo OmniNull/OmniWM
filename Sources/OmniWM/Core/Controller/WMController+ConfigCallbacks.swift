@@ -4,18 +4,70 @@
 import Foundation
 import OmniWMIPC
 
+enum ConfigScriptSession: Equatable, Sendable {
+    case uuid(UUID)
+    case text(String)
+
+    var text: String {
+        switch self {
+        case let .uuid(id): id.uuidString
+        case let .text(text): text
+        }
+    }
+}
+
+struct ConfigScriptSessionToken {
+    let text: String
+    let identity: ConfigScriptSession
+    let epoch: UInt64
+
+    init() {
+        let id = UUID()
+        text = id.uuidString
+        identity = .uuid(id)
+        epoch = 0
+    }
+
+    init(_ text: String, epoch: UInt64 = 0) {
+        self.epoch = epoch
+        self.text = text
+        if let id = UUID(uuidString: text), id.uuidString.utf8.elementsEqual(text.utf8) {
+            identity = .uuid(id)
+        } else {
+            identity = .text(text)
+        }
+    }
+}
+
 struct ConfigScriptTarget: Sendable {
-    let session: String
+    let sessionID: ConfigScriptSession
+    var session: String {
+        sessionID.text
+    }
+
     let token: WindowToken?
-    let workspaceId: WorkspaceDescriptor.ID?
+    struct Workspace: Sendable {
+        let id: WorkspaceDescriptor.ID
+        let name: String
+        let layout: ActiveLayoutKind
+    }
+
     fileprivate let bundleId: String?
-    fileprivate let workspace: String?
-    fileprivate let layout: ActiveLayoutKind?
+    fileprivate let workspace: Workspace?
+    var workspaceId: WorkspaceDescriptor.ID? {
+        workspace?.id
+    }
 
     var context: ConfigScriptContext {
+        context(windowId: token.map { IPCWindowOpaqueID.encode(token: $0, sessionToken: session) })
+    }
+
+    func context(windowId: String?) -> ConfigScriptContext {
         ConfigScriptContext(
-            windowId: token.map { IPCWindowOpaqueID.encode(token: $0, sessionToken: session) },
-            bundleId: bundleId, workspace: workspace, layout: layout?.rawValue
+            windowId: windowId,
+            bundleId: bundleId,
+            workspace: workspace?.name,
+            layout: workspace?.layout.rawValue
         )
     }
 }
@@ -33,34 +85,21 @@ extension WMController {
     }
 
     func configScriptTarget() -> ConfigScriptTarget {
-        let manager = workspaceManager
-        let window = manager.nativeManagedFocusToken.flatMap { token in
-            manager.withEntry(token) { entry in
-                let bundleId = entry.target.hostedMetadata?.appId ?? entry.managedReplacementMetadata?.bundleId
-                    ?? appInfoCache.cachedBundleId(for: token.pid)
-                return (token: token, bundleId: bundleId)
-            }
-        }
-        let workspace = activeWorkspace()
-        return ConfigScriptTarget(
-            session: automationSessionToken, token: window?.token, workspaceId: workspace?.id,
-            bundleId: window?.bundleId, workspace: workspace?.name,
-            layout: workspace.map { manager.activeLayoutKind(for: $0.id) }
-        )
+        workspaceManager.configScriptTarget(session: automationSession.identity, apps: appInfoCache)
     }
 
     func startConfigScriptProgram(
         _ arguments: [String],
         target: ConfigScriptTarget
     ) async throws -> ExternalCommandResult {
-        guard target.session == automationSessionToken else { return .staleWindowId }
+        guard target.sessionID == automationSession.identity else { return .staleWindowId }
         if let refusal = IPCCommandValidation.controllerState(self) { return refusal }
         try await LauncherProcess.start(arguments)
         return .executed
     }
 
     func performConfigScriptCommand(_ command: HotkeyCommand, target: ConfigScriptTarget) -> ExternalCommandResult {
-        guard target.session == automationSessionToken else { return .staleWindowId }
+        guard target.sessionID == automationSession.identity else { return .staleWindowId }
         let focus = command.configFocusRequirement
         let manager = workspaceManager
         if focus != .none, !matchesConfigScriptFocus(target) { return .staleWindowId }
@@ -94,7 +133,7 @@ extension WMController {
         case let .native(command):
             return performConfigScriptCommand(command, target: target)
         case let .window(window):
-            guard target.session == automationSessionToken else { return .staleWindowId }
+            guard target.sessionID == automationSession.identity else { return .staleWindowId }
             if window.request.name == .summonRight {
                 guard matchesConfigScriptFocus(target), workspaceManager.selectedManagedToken == target.token else {
                     return .staleWindowId
@@ -109,6 +148,23 @@ extension WMController {
         let manager = workspaceManager
         return activeWorkspace()?.id == target.workspaceId && manager.nativeManagedFocusToken == target.token
             && (manager.pendingFocusedToken == nil || manager.pendingFocusedToken == target.token)
+    }
+}
+
+extension WorkspaceManager {
+    fileprivate func configScriptWorkspace() -> ConfigScriptTarget.Workspace? {
+        guard let monitor = interactionMonitorID() else { return nil }
+        if let id = monitorSessionSnapshots[monitor]?.visibleWorkspaceId, let workspace = configScriptWorkspace(id) {
+            return workspace
+        }
+        guard let id = defaultVisibleWorkspaceId(on: monitor) else { return nil }
+        return configScriptWorkspace(id)
+    }
+
+    private func configScriptWorkspace(_ id: WorkspaceDescriptor.ID) -> ConfigScriptTarget.Workspace? {
+        guard let name = workspaceCatalog.name(for: id) else { return nil }
+        let layout = settings.workspaces.configScriptLayout(for: name)
+        return ConfigScriptTarget.Workspace(id: id, name: name, layout: layout)
     }
 }
 
@@ -149,5 +205,24 @@ extension HotkeyCommand {
              .workspace(.moveToSlot): .focused
         default: .none
         }
+    }
+}
+
+extension WorkspaceManager {
+    func configScriptTarget(session: @autoclosure () -> ConfigScriptSession, apps: AppInfoCache) -> ConfigScriptTarget {
+        let focused = nativeManagedFocusToken
+        var window: WindowToken?
+        var bundle: String?
+        if let focused, var identity = configWindow(for: focused) {
+            window = identity.token
+            bundle = identity.takeBundle()
+            if bundle == nil { bundle = apps.cachedBundleId(for: focused.pid) }
+        }
+        return ConfigScriptTarget(
+            sessionID: session(),
+            token: window,
+            bundleId: bundle,
+            workspace: configScriptWorkspace()
+        )
     }
 }

@@ -12,30 +12,6 @@ extension WindowModel {
     }
 }
 
-struct WindowMembershipBatch {
-    typealias Record = (depth: Int, change: WindowModel.MembershipChange)
-    private var storage: [Record] = []
-    private let start: Int
-
-    init(taking pending: inout [Record], depth: Int) {
-        swap(&storage, &pending)
-        var first = storage.count
-        while first > 0, storage[first - 1].depth == depth { first -= 1 }
-        start = first
-        if first > 0 { pending.append(contentsOf: storage[..<first]) }
-    }
-
-    var records: ArraySlice<Record> {
-        storage[start...]
-    }
-
-    mutating func recycle(into pending: inout [Record]) {
-        guard pending.isEmpty else { return }
-        storage.removeAll(keepingCapacity: true)
-        swap(&pending, &storage)
-    }
-}
-
 extension ConfigScriptEventObservers {
     func installWindowEdges(on controller: WMController, kinds: Set<ConfigScriptEventKind>) {
         let manager = controller.workspaceManager
@@ -51,80 +27,86 @@ extension ConfigScriptEventObservers {
         if manager.scriptWindowMoveObserver === self { manager.scriptWindowMoveObserver = nil }
     }
 
-    private struct WindowIdentity {
-        let token: WindowToken
-        let workspace: WorkspaceDescriptor.ID
-        let bundleId: String?
-
-        init(_ entry: borrowing WindowState) {
-            token = entry.token
-            workspace = entry.workspaceId
-            if let appId = entry.target.hostedMetadata?.appId {
-                bundleId = appId
-            } else {
-                bundleId = entry.managedReplacementMetadata?.bundleId
-            }
-        }
-    }
-
-    func windowOpened(_ token: WindowToken) {
-        guard let controller,
-              let identity = controller.workspaceManager.withEntry(token, WindowIdentity.init) else { return }
-        emitWindow(.windowOpen, identity: identity, workspace: identity.workspace, controller: controller)
-    }
-
-    func windowClosed(_ entry: borrowing WindowState) {
-        guard let controller else { return }
-        emitWindow(.windowClose, identity: WindowIdentity(entry), workspace: entry.workspaceId, controller: controller)
-    }
-
-    func publishWindowMoves(
-        _ moves: borrowing WindowMembershipBatch,
-        transaction txn: borrowing ReconcileTxn,
-        wasTracked: Bool
-    ) {
-        let firstAdmission: WindowToken? = if !wasTracked,
-                                              case .windowAdmitted = txn.event { txn.event.token } else { nil }
-        let hydratedToken = txn.plan.persistedHydration != nil ? txn.event.token : nil
-        var sentHydration = false
-        for record in moves.records {
-            let change = record.change
-            if change.token == firstAdmission { continue }
-            if change.token == hydratedToken {
-                guard !sentHydration,
-                      let workspace = controller?.workspaceManager.workspace(for: change.token) else { continue }
-                sentHydration = true
-                if change.source != workspace {
-                    windowMoved(.init(token: change.token, source: change.source, destination: workspace))
-                }
-            } else {
-                windowMoved(change)
-            }
-        }
-    }
-
-    private func windowMoved(_ change: WindowModel.MembershipChange) {
-        guard let controller,
-              let identity = controller.workspaceManager.withEntry(change.token, WindowIdentity.init) else { return }
+    func windowOpened(_ token: WindowToken, in manager: WorkspaceManager) {
+        guard var identity = manager.configWindow(for: token) else { return }
         emitWindow(
-            .windowMoveToWorkspace, identity: identity, workspace: change.destination,
-            previous: change.source, controller: controller
+            .windowOpen,
+            token: identity.token, bundle: identity.takeBundle(),
+            edge: .workspace(id: identity.workspace, name: manager.workspaceCatalog.name(for: identity.workspace)),
+            in: manager
         )
     }
 
-    private func emitWindow(
-        _ kind: ConfigScriptEventKind, identity: WindowIdentity, workspace: WorkspaceDescriptor.ID,
-        previous: WorkspaceDescriptor.ID? = nil, controller: WMController
-    ) {
-        let manager = controller.workspaceManager
-        let bundleId = identity.bundleId ?? controller.appInfoCache.cachedBundleId(for: identity.token.pid)
-        emit(kind, .init(
-            id: IPCWindowOpaqueID.encode(token: identity.token, sessionToken: controller.automationSessionToken),
-            bundleId: bundleId,
+    func windowMoved(_ change: WindowModel.MembershipChange, previousName: String?, in manager: WorkspaceManager) {
+        guard var identity = manager.configWindow(for: change.token) else { return }
+        emitWindow(
+            .windowMoveToWorkspace, token: identity.token, bundle: identity.takeBundle(),
             edge: .workspace(
-                id: workspace.uuidString, name: manager.descriptor(for: workspace)?.name,
-                previousId: previous?.uuidString, previousName: previous.flatMap { manager.descriptor(for: $0)?.name }
+                id: change.destination, name: manager.workspaceCatalog.name(for: change.destination),
+                previousId: change.source, previousName: previousName
+            ),
+            in: manager
+        )
+    }
+
+    fileprivate func emitWindow(
+        _ kind: ConfigScriptEventKind, token: WindowToken, bundle: consuming String?,
+        edge: consuming ConfigScriptNativeEvent.Edge, in manager: WorkspaceManager
+    ) {
+        var bundleId = consume bundle
+        if bundleId == nil { bundleId = nativeInput.cachedBundleID(for: token.pid) }
+        publishNative(kind, .init(
+            id: hasSynchronousDelivery ? .window(token, nativeInput.session.identity, nativeInput.session.epoch)
+                : .capturedWindow(token, nativeInput.session.epoch),
+            bundleId: consume bundleId,
+            edge: consume edge
+        ), in: manager)
+    }
+}
+
+struct ConfigScriptWindowIdentity {
+    let token: WindowToken
+    let workspace: WorkspaceDescriptor.ID
+    private var bundle: String?
+
+    mutating func takeBundle() -> String? {
+        var result: String? = ""
+        swap(&result, &bundle)
+        return result
+    }
+
+    init(_ row: borrowing WindowState) {
+        token = row.token
+        workspace = row.workspaceId
+        switch row.target {
+        case let .hosted(metadata): bundle = metadata.appId
+        case .external: bundle = row.managedReplacementMetadata?.bundleId
+        }
+    }
+}
+
+extension WorkspaceManager {
+    func publishOpenedWindow(_ token: WindowToken) {
+        func publish(_ observer: ConfigScriptEventObservers) {
+            observer.windowOpened(token, in: self)
+        }
+        if let client = ConfigScriptEventObservers.borrowRegistration(&scriptWindowOpenObserver, publish) {
+            publish(client)
+        }
+    }
+
+    func publishClosedWindow(_ identity: consuming ConfigScriptWindowIdentity, name: String?) {
+        func publish(_ observer: ConfigScriptEventObservers) {
+            observer.emitWindow(
+                .windowClose,
+                token: identity.token,
+                bundle: identity.takeBundle(),
+                edge: .workspace(id: identity.workspace, name: name),
+                in: self
             )
-        ))
+        }
+        if let client = ConfigScriptEventObservers.borrowRegistration(&scriptWindowCloseObserver, publish) {
+            publish(client)
+        }
     }
 }

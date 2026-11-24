@@ -16,6 +16,7 @@ struct ConfigScriptReads: OptionSet, Sendable {
 struct ConfigScriptSnapshot: Sendable {
     static let rowLimit = 256
     static let byteLimit = 128 * 1024
+    @MainActor static var capacityHint = 0
     let bytes: Data
 
     #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
@@ -29,10 +30,14 @@ struct ConfigScriptSnapshot: Sendable {
 }
 
 private struct SnapshotWriter {
-    var bytes = Data()
+    var bytes: [UInt8] = []
     private var header = 0
     private var rows: UInt16 = 0
     private var truncated = false
+
+    init(capacity: Int) {
+        bytes.reserveCapacity(capacity)
+    }
 
     mutating func start(_ kind: ConfigScriptReads) {
         header = bytes.count
@@ -66,14 +71,17 @@ private struct SnapshotWriter {
     mutating func string(_ value: String?) -> Bool {
         let available = ConfigScriptSnapshot.byteLimit - (bytes.count - header) - MemoryLayout<UInt32>.size
         guard available >= 0 else { return false }
-        guard var value else {
+        guard let value else {
             appendLE(UInt32.max)
             return true
         }
-        let count = value.utf8.count
+        let utf8 = value.utf8
+        let count = utf8.count
         guard count <= available else { return false }
         appendLE(UInt32(count))
-        value.withUTF8 { bytes.append($0) }
+        if utf8.withContiguousStorageIfAvailable({ bytes.append(contentsOf: $0) }) == nil {
+            bytes.append(contentsOf: utf8)
+        }
         return true
     }
 
@@ -103,10 +111,10 @@ extension WMController {
         reads: ConfigScriptReads, target: borrowing ConfigScriptTarget
     ) -> ConfigScriptSnapshot {
         let manager = workspaceManager
-        var output = SnapshotWriter()
+        var output = SnapshotWriter(capacity: ConfigScriptSnapshot.capacityHint)
         lazy var resolution = manager.monitorResolutionContext()
-        let session = target.session
-        lazy var ids = IPCWindowOpaqueID.Encoder(sessionToken: session)
+        let sessionID = target.sessionID
+        lazy var ids = IPCWindowOpaqueID.Encoder(sessionToken: sessionID.text)
         if reads.contains(.workspaceWindows) {
             output.start(.workspaceWindows)
             if let id = target.workspaceId, let workspace = manager.descriptor(for: id) {
@@ -146,7 +154,8 @@ extension WMController {
         #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
             ConfigScriptSnapshot.captures += 1
         #endif
-        return ConfigScriptSnapshot(bytes: output.bytes)
+        ConfigScriptSnapshot.capacityHint = output.bytes.count
+        return ConfigScriptSnapshot(bytes: Data(output.bytes))
     }
 
     private func finishScriptList(_ output: inout SnapshotWriter) {

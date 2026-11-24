@@ -223,13 +223,13 @@ final class ConfigScriptTimerTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(script.diagnostic).contains("timer failed"))
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
         let id = try XCTUnwrap(script.acceptedCommands.first).function
-        XCTAssertEqual(script.enqueue(function: id, controller: fixture.controller), .executed)
-        await script.callbackQueue?.worker?.value
+        XCTAssertEqual(fixture.controller.enqueueConfigFunction(id), .executed)
+        await script.callbackQueue?.waitUntilParked()
         await worker.value
         XCTAssertEqual(sleeper.pendingCount, 0)
         let before = omni_config_vm_entry_count()
-        XCTAssertEqual(script.enqueue(function: id, controller: fixture.controller), .executed)
-        await script.callbackQueue?.worker?.value
+        XCTAssertEqual(fixture.controller.enqueueConfigFunction(id), .executed)
+        await script.callbackQueue?.waitUntilParked()
         assertConfigVMEntries(1, since: before)
     }
 }

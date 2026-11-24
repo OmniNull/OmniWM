@@ -85,6 +85,8 @@ final class ConfigScriptController {
     }
 
     isolated deinit {
+        eventObservers?.stop()
+        callbackQueue?.retire()
         timerWorker?.cancel()
     }
 
@@ -180,8 +182,16 @@ final class ConfigScriptController {
             } else {
                 retireCallbacks()
                 callbackQueue = evaluation?.generation.map { ConfigScriptCallbackQueue(
-                    generation: $0, bindings: declarations, commands: commands, events: evaluation?.events ?? []
+                    generation: $0, bindings: declarations, commands: commands, events: evaluation?.events ?? [],
+                    fullQueueDiagnostic: { source, line in
+                        description(
+                            source: source,
+                            line: line,
+                            message: "Callback queue is full. This press was dropped."
+                        )
+                    }
                 ) }
+                callbackQueue?.activate(owner: self, controller: wmController)
                 callbackError = nil
                 acceptedBindings = declarations
                 acceptedRules = rules
@@ -235,22 +245,31 @@ final class ConfigScriptController {
         }
     }
 
-    func enqueue(function: Int, controller: WMController) -> ExternalCommandResult {
-        guard let callbackQueue, let reads = callbackQueue.declarations[function]?.reads else { return .notFound }
-        guard callbackQueue.hasCapacity else {
-            guard let row = callbackQueue.declarations[function] else { return .notFound }
-            reportCallbackError(ConfigScriptError(
-                line: row.line, message: "Callback queue is full. This press was dropped.", source: row.source
-            ))
-            return .windowActionFailed
+    struct UnpublishedRefusal: Error {
+        let diagnostic: String
+    }
+
+    static func enqueue(
+        _ function: Int, from script: inout ConfigScriptController?, controller: WMController
+    ) throws(UnpublishedRefusal) -> ExternalCommandResult {
+        guard let script else { return .notFound }
+        let result = ConfigScriptCallbackQueue.enqueue(function, in: &script.callbackQueue, controller: controller)
+        if result == .windowActionFailed,
+           let message = script.callbackQueue?.declarations[function]?.fullQueueDiagnostic,
+           script.callbackError != message
+        {
+            throw UnpublishedRefusal(diagnostic: message)
         }
-        callbackQueue.enqueue(function: function, reads: reads, controller: controller, owner: self)
-        return .executed
+        return result
+    }
+
+    func publishCallbackDiagnostic(_ message: String) {
+        callbackError = message
+        refreshDiagnostic()
     }
 
     func reportCallbackError(_ error: ConfigScriptError) {
-        callbackError = description(source: error.source, line: error.line, message: error.message)
-        refreshDiagnostic()
+        publishCallbackDiagnostic(description(source: error.source, line: error.line, message: error.message))
     }
 
     private func ruleConflict(_ rules: [ConfigScriptRule]) -> String? {
@@ -422,17 +441,16 @@ extension ConfigScriptController {
         var kinds = Set(events.map(\.kind))
         let reloaded = kinds.remove(.configReloaded) != nil
         if !kinds.isEmpty {
-            eventObservers = ConfigScriptEventObservers(controller: controller, kinds: kinds) {
-                [weak self] kind, payload in
-                guard let self, let queue = callbackQueue, let controller = wmController else { return }
-                queue.enqueue(event: kind, payload: payload, controller: controller, owner: self)
-            }
+            eventObservers = ConfigScriptEventObservers(controller: controller, kinds: kinds, queue: queue)
         }
-        if reloaded {
-            #if OMNIWM_CONFIG_CALLBACK_TRACE
-                ConfigScriptLatencyTrace.eventPayloadBuilt()
-            #endif
-            queue.enqueue(event: .configReloaded, payload: .init(), controller: controller, owner: self)
-        }
+        publishReloaded(reloaded, controller: controller)
+    }
+
+    func publishReloaded(_ subscribed: Bool, controller: WMController) {
+        guard subscribed else { return }
+        #if OMNIWM_CONFIG_CALLBACK_TRACE
+            ConfigScriptLatencyTrace.eventPayloadBuilt()
+        #endif
+        ConfigScriptCallbackQueue.publish(.configReloaded, .init(), in: &callbackQueue, controller: controller)
     }
 }

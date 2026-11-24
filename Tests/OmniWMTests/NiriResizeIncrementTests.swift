@@ -130,7 +130,7 @@ final class NiriResizeIncrementTests: XCTestCase {
                 controller.commandHandler.handleHotkeyInvocation(HotkeyInvocation(command: command)),
                 .executed
             )
-            await script.callbackQueue?.worker?.value
+            await script.callbackQueue?.waitUntilParked()
             XCTAssertNil(script.diagnostic)
             assertSpan(fixture, primary: true, expected: initialWidth + CGFloat(expectedPercent) / 100)
         }

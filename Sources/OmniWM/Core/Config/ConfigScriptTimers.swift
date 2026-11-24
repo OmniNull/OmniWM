@@ -91,7 +91,7 @@ extension ConfigScriptGeneration {
                 } else {
                     try invoke(reference: timer.reference, input: .timer)
                 }
-                if !invocation.commands.isEmpty { await deliver(.success(invocation), trigger?.target) }
+                if invocation.batch != nil { await deliver(.success(invocation), trigger?.target) }
             } catch {
                 await deliver(.failure(error), trigger?.target)
             }

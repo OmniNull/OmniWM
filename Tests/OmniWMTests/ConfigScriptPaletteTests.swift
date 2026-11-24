@@ -100,7 +100,7 @@ final class ConfigScriptPaletteTests: XCTestCase {
         fixture.palette.selectCurrent()
         XCTAssertTrue(restoring)
         XCTAssertFalse(fixture.palette.isVisible)
-        XCTAssertNil(queue.worker)
+        XCTAssertFalse(queue.hasPendingWork)
         XCTAssertEqual(omni_config_vm_entry_count(), entries)
 
         let manager = controller.workspaceManager
@@ -119,8 +119,8 @@ final class ConfigScriptPaletteTests: XCTestCase {
         _ = manager.setManagedFocus(token, in: workspace.id)
         frontmost = app
         fixture.palette.actionExecutor.applicationActivated(pid: app.processIdentifier)
-        let worker = try XCTUnwrap(queue.worker)
-        await worker.value
+        XCTAssertTrue(queue.hasPendingWork)
+        await queue.waitUntilParked()
         XCTAssertNil(script.diagnostic)
         assertConfigVMEntries(1, since: entries)
         XCTAssertNil(script.onCommandsChanged)

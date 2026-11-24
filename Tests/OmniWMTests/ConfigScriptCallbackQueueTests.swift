@@ -74,7 +74,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         fixture.apply(try await fixture.load(body))
         XCTAssertEqual(fixture.press(try fixture.command), .executed)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
         let failedLine = try XCTUnwrap(body.firstIndex { $0.contains("'\(missing)'") }) + 1
         let diagnostic = try XCTUnwrap(fixture.script.diagnostic)
@@ -108,7 +108,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let declarationLine = try XCTUnwrap(body.firstIndex { $0.contains("omniwm.command") }) + 1
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic)
             .contains("init.luau:\(declarationLine): Callback queue is full"))
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         fixture.apply(ConfigScriptLoad(versions: [:], result: .success(nil)))
         XCTAssertEqual(fixture.press(action), .notFound)
         XCTAssertNil(fixture.script.callbackQueue)
@@ -132,7 +132,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         XCTAssertEqual(fixture.press(command), .windowActionFailed)
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("queue is full"))
         XCTAssertEqual(omni_config_vm_entry_count(), initialEntries)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         assertConfigVMEntries(UInt64(ConfigScriptCallbackQueue.capacity), since: initialEntries)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
         let errorLine = try XCTUnwrap(body.firstIndex { $0.contains("error(") }) + 1
@@ -141,6 +141,66 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let native = HotkeyCommand.workspace(.next)
         XCTAssertEqual(fixture.press(native), .executed)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
+    }
+
+    func testOverflowObserverCanReplaceScriptAndRetireItsQueueBeforeTheKeyReturns() async throws {
+        let fixture = try Fixture(test: self)
+        fixture.apply(try await fixture.load(["omniwm.keymap.set('Control+Option+I', function() end)"]))
+        let command = try fixture.command
+        let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
+        let before = omni_config_vm_entry_count()
+        for _ in 0 ..< ConfigScriptCallbackQueue.capacity {
+            XCTAssertEqual(fixture.press(command), .executed)
+        }
+        fixture.script.onDiagnosticChanged = { message in
+            XCTAssertTrue(message?.contains("Callback queue is full") == true)
+            fixture.script.stop()
+            fixture.controller.configScript = nil
+        }
+        defer { fixture.script.onDiagnosticChanged = nil }
+        XCTAssertEqual(fixture.press(command), .windowActionFailed)
+        XCTAssertNil(fixture.controller.configScript)
+        XCTAssertEqual(fixture.press(command), .notFound)
+        await worker.value
+        assertConfigVMEntries(0, since: before)
+    }
+
+    func testFullQueuePublishesOnlyChangesToTheSourceOrDiagnostic() async throws {
+        let fixture = try Fixture(test: self)
+        let lines = [
+            "omniwm.keymap.set('Control+Option+I', function() end)",
+            "omniwm.keymap.set('Control+Option+J', function() end)"
+        ]
+        fixture.apply(try await fixture.load(lines))
+        let rows = fixture.script.acceptedBindings
+        let first = try XCTUnwrap(rows.first)
+        let second = try XCTUnwrap(rows.last)
+        let path = fixture.controller.settings.settingsFileURL.deletingLastPathComponent()
+            .appendingPathComponent("init.luau").path
+        let dropped = "Callback queue is full. This press was dropped."
+        let firstLine = try XCTUnwrap(lines.firstIndex { $0.contains("Control+Option+I") }) + 1
+        let firstDrop = "\(path):\(firstLine): \(dropped)"
+        let secondDrop = "\(path):\(lines.count): \(dropped)"
+        var publications: [String?] = []
+        fixture.script.onDiagnosticChanged = { publications.append($0) }
+        defer { fixture.script.onDiagnosticChanged = nil }
+        for _ in 0 ..< ConfigScriptCallbackQueue.capacity {
+            XCTAssertEqual(fixture.press(first.command), .executed)
+        }
+
+        XCTAssertEqual(fixture.press(first.command), .windowActionFailed)
+        XCTAssertEqual(fixture.press(first.command), .windowActionFailed)
+        XCTAssertEqual(fixture.press(second.command), .windowActionFailed)
+        let broken = ConfigScriptError(line: lines.count, message: "invalid replacement")
+        fixture.apply(ConfigScriptLoad(versions: [:], result: .failure(broken)))
+        let loadError = "\(path):\(lines.count): \(broken.message)"
+        XCTAssertEqual(fixture.press(second.command), .windowActionFailed)
+        XCTAssertEqual(fixture.press(first.command), .windowActionFailed)
+        XCTAssertEqual(
+            publications,
+            [firstDrop, secondDrop, "\(loadError)\n\(secondDrop)", "\(loadError)\n\(firstDrop)"]
+        )
+        await fixture.script.callbackQueue?.waitUntilParked()
     }
 
     func testSettingsRuleChangesUpdateTheDiagnosticBetweenCallbackErrors() async throws {
@@ -166,14 +226,14 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let second = "\(path):\(errorLine): second failure"
 
         XCTAssertEqual(fixture.press(command), .executed)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertEqual(fixture.script.diagnostic, first)
         fixture.controller.settings.appRules.append(rule)
         fixture.controller.updateAppRules()
         XCTAssertEqual(fixture.script.diagnostic, "\(conflict)\n\(first)")
 
         XCTAssertEqual(fixture.press(command), .executed)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertEqual(fixture.script.diagnostic, "\(conflict)\n\(second)")
         fixture.controller.settings.appRules.removeAll { $0.id == rule.id }
         fixture.controller.updateAppRules()
@@ -193,7 +253,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         fixture.apply(try await fixture.load(source))
         let named = try XCTUnwrap(fixture.script.acceptedCommands.first)
         XCTAssertEqual(fixture.press(.configFunction(named.function)), .executed)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
         let failedLine = try XCTUnwrap(source.firstIndex { $0.contains("omniwm.run") }) + 1
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("init.luau:\(failedLine):"))
@@ -216,7 +276,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let sequence = [slow, slow, fast]
         for command in sequence { XCTAssertEqual(fixture.press(command), .executed) }
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         assertConfigVMEntries(UInt64(sequence.count), since: before)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
         let slowLine = try XCTUnwrap(lines.firstIndex { $0.contains("while true") }) + 1
@@ -239,7 +299,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let before = omni_config_vm_entry_count()
         XCTAssertEqual(fixture.press(oldCommand), .executed)
         fixture.apply(invalid)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("invalid edit"))
         assertConfigVMEntries(1, since: before)
@@ -255,7 +315,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         await waiting.value
         XCTAssertEqual(omni_config_vm_entry_count(), beforeReplacement)
         XCTAssertEqual(fixture.press(try fixture.command), .executed)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("new handler"))
         fixture.apply(missing)
         XCTAssertNil(fixture.script.callbackQueue)

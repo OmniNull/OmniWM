@@ -6,6 +6,36 @@ import Foundation
 import OmniWMIPC
 
 extension WMController {
+    func makeFootQuickAccessTerminal() -> FootQuickAccessTerminal {
+        let terminal = FootQuickAccessTerminal(
+            environment: .live,
+            socketPath: FootQuickAccessTerminal.defaultSocketPath(),
+            context: { [weak self] in self?.footQuakeControlContext() }
+        )
+        terminal.onToggleFailure = { [weak self] problem in
+            self?.presentQuakeTerminalFailure(
+                title: String(localized: "foot Quake Terminal Unavailable"),
+                message: problem.message
+            )
+        }
+        return terminal
+    }
+
+    func makeKittyQuickAccessTerminal() -> KittyQuickAccessTerminal {
+        let terminal = KittyQuickAccessTerminal(
+            environment: .live,
+            socketPath: KittyQuickAccessTerminal.defaultSocketPath(),
+            context: { [weak self] in self?.kittyQuakeControlContext() }
+        )
+        terminal.onToggleFailure = { [weak self] problem in
+            self?.presentQuakeTerminalFailure(
+                title: String(localized: "Kitty Quake Terminal Unavailable"),
+                message: problem.message
+            )
+        }
+        return terminal
+    }
+
     func handleWindowSwitcherAction(_ action: WindowSwitcherAction, generation: UInt64) {
         if case .begin = action {
             guard settings.windowSwitcher.enabled else { return }
@@ -295,6 +325,6 @@ extension WMController {
     }
 
     func isOverviewOpen() -> Bool {
-        windowActionHandler.isOverviewOpen()
+        windowActionHandlerStorage?.isOverviewOpen() ?? false
     }
 }

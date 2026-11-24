@@ -19,9 +19,13 @@ extension WorkspaceManager {
             return false
         }
         let effectiveAnchorPoint = anchorPoint ?? monitor(byId: monitorId)?.workspaceAnchorPoint
+        let visibleMonitor = monitorIdShowingWorkspace(workspaceId)
+        let previousMonitor = context == nil && scriptWorkspaceMoveObserver != nil
+            ? monitor(byId: visibleMonitor ?? monitorId)
+            : nil
         var workspaceVisibilityChanged = false
 
-        if let prevMonitorId = monitorIdShowingWorkspace(workspaceId),
+        if let prevMonitorId = visibleMonitor,
            prevMonitorId != monitorId
         {
             updateMonitorSession(prevMonitorId) { session in
@@ -50,23 +54,26 @@ extension WorkspaceManager {
             ? self.updateInteractionMonitor(monitorId, preservePrevious: true, notify: false)
             : false
         if workspaceVisibilityChanged || interactionChanged {
-            noteInvalidation(workspaceId: workspaceId, domains: [.workspace, .layout, .focus])
-            if let previousWorkspaceOnMonitor {
-                noteInvalidation(workspaceId: previousWorkspaceOnMonitor, domains: [.workspace, .layout, .focus])
-            }
-            if notify {
-                notifySessionStateChanged()
-            }
+            invalidateWorkspaceActivation(workspaceId, previous: previousWorkspaceOnMonitor, notify: notify)
         }
 
         if workspaceVisibilityChanged {
-            if let observer = scriptWorkspaceMoveObserver, context == nil {
-                observer.refreshWorkspaceMonitorAssignments(
-                    for: workspaceId, and: previousWorkspaceOnMonitor, in: self, context: resolutionContext
+            if context == nil {
+                publishCatalogMoves(
+                    (workspaceId, previousMonitor), to: monitor(byId: monitorId),
+                    displacing: previousWorkspaceOnMonitor, context: resolutionContext
                 )
             }
             drainPendingRuntimeMonitorOverrideClears()
         }
         return true
+    }
+
+    private func invalidateWorkspaceActivation(
+        _ workspaceId: WorkspaceDescriptor.ID, previous: WorkspaceDescriptor.ID?, notify: Bool
+    ) {
+        noteInvalidation(workspaceId: workspaceId, domains: [.workspace, .layout, .focus])
+        if let previous { noteInvalidation(workspaceId: previous, domains: [.workspace, .layout, .focus]) }
+        if notify { notifySessionStateChanged() }
     }
 }

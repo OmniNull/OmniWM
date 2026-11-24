@@ -175,7 +175,7 @@
             }
             await fulfillment(of: [hidden], timeout: failureBound)
             XCTAssertFalse(panel.isVisible)
-            await controller.configScript?.callbackQueue?.worker?.value
+            await controller.configScript?.callbackQueue?.waitUntilParked()
         }
     }
 #endif

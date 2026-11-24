@@ -68,6 +68,13 @@ extension WorkspaceManager {
         for workspaceId: WorkspaceDescriptor.ID,
         context: MonitorResolutionContext
     ) -> Monitor? {
+        effectiveMonitor(for: workspaceId, context: context, visibleMonitorId: monitorIdShowingWorkspace(workspaceId))
+    }
+
+    func effectiveMonitor(
+        for workspaceId: WorkspaceDescriptor.ID, context: MonitorResolutionContext,
+        visibleMonitorId: @autoclosure () -> Monitor.ID?
+    ) -> Monitor? {
         if let runtimeOverride = descriptor(for: workspaceId)?.runtimeMonitorOverride,
            let monitor = runtimeOverride.resolveMonitor(in: context.sortedMonitors)
         {
@@ -82,7 +89,7 @@ extension WorkspaceManager {
         guard let workspace = descriptor(for: workspaceId) else { return nil }
 
         let anchorPoint = workspace.assignedMonitorPoint
-            ?? monitorIdShowingWorkspace(workspaceId).flatMap { monitor(byId: $0)?.workspaceAnchorPoint }
+            ?? visibleMonitorId().flatMap { monitor(byId: $0)?.workspaceAnchorPoint }
         guard let anchorPoint else { return context.sortedMonitors.first }
         return context.sortedMonitors.min { lhs, rhs in
             let lhsDistance = lhs.workspaceAnchorPoint.distanceSquared(to: anchorPoint)

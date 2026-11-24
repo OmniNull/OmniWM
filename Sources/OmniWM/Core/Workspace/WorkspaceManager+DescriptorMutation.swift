@@ -28,7 +28,7 @@ extension WorkspaceManager {
         invalidateWorkspaceProjectionCaches()
         noteInvalidation(workspaceId: workspace.id, domains: [.workspace, .layout, .focus])
         settings.reconcileDynamicHotkeys()
-        scriptWorkspaceCreationObserver?.workspaceCreated(workspace, in: self)
+        withCatalogObserver(.creation) { $0.workspaceCreated(workspace, in: self) }
         return workspace.id
     }
 }

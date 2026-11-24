@@ -23,11 +23,23 @@ final class ConfigScriptReadTriggerTests: XCTestCase {
             for kind in kinds {
                 let before = ConfigScriptSnapshot.captures
                 for value in ["first", "replacement", "last"] {
-                    observer.emit(kind, .init(id: "same", name: value, edge: .title(value)))
+                    if kind == .workspaceActive {
+                        ConfigScriptEventObservers.workspaceChanged(nil, name: value, controller: fixture.controller)
+                    } else {
+                        let session = fixture.controller.automationSession
+                        observer.publishTitle(.init(
+                            token: WindowToken(pid: getpid(), windowId: Int(getpid())),
+                            session: session.identity,
+                            epoch: session.epoch,
+                            title: value,
+                            bundle: nil
+                        ), controller: fixture.controller)
+                    }
                 }
                 XCTAssertEqual(ConfigScriptSnapshot.captures, before)
-                let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-                await worker.value
+                let queue = try XCTUnwrap(fixture.script.callbackQueue)
+                XCTAssertTrue(queue.hasPendingWork)
+                await queue.waitUntilParked()
                 XCTAssertEqual(ConfigScriptSnapshot.captures - before, 1)
                 XCTAssertNil(fixture.script.diagnostic)
             }
@@ -64,10 +76,10 @@ final class ConfigScriptReadTriggerTests: XCTestCase {
         let before = omni_config_vm_entry_count()
         XCTAssertEqual(fixture.press(try fixture.command), .executed)
         XCTAssertTrue(manager.setWindowMode(.floating, for: token))
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         let name = try XCTUnwrap(fixture.script.acceptedCommands.first)
         XCTAssertEqual(fixture.press(.configFunction(name.function)), .executed)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertNil(fixture.script.diagnostic)
         assertConfigVMEntries(2, since: before)
     }
@@ -96,7 +108,7 @@ final class ConfigScriptReadTriggerTests: XCTestCase {
         ])
         let before = omni_config_vm_entry_count()
         fixture.apply(load)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         assertConfigVMEntries(UInt64(try XCTUnwrap(load.result.get()).events.count), since: before)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
         XCTAssertNil(fixture.script.diagnostic)

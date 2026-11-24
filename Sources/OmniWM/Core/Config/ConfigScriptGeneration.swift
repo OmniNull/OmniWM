@@ -3,6 +3,7 @@
 
 import Dispatch
 import Foundation
+import OmniWMIPC
 import OmniWMScriptHost
 
 struct ConfigScriptContext: Equatable, Sendable {
@@ -31,15 +32,27 @@ struct ConfigScriptDispatch: Sendable {
 }
 
 struct ConfigScriptInvocation: Sendable {
-    let commands: [ConfigScriptDispatch]
+    let batch: [ConfigScriptDispatch]?
     let allocations: Int
+
+    var commands: [ConfigScriptDispatch] {
+        batch ?? []
+    }
 }
 
 actor ConfigScriptGeneration {
     static let callbackBudget: UInt64 = 25_000_000
 
+    private struct TitleWindowID {
+        let token: WindowToken
+        let epoch: UInt64
+        let id: String
+    }
+
     private let queue: DispatchSerialQueue
     private var resident: OpaquePointer?
+    private var lastTitleID: TitleWindowID?
+    private var windowIDEncoder: (id: UUID, encoder: IPCWindowOpaqueID.Encoder)?
     private var stage = ConfigScriptStage(hyperMask: 0, fileURL: nil)
     private var functions: [Int: UInt32] = [:]
     var timerWorkers = ConfigScriptTimerWorkers()
@@ -122,13 +135,59 @@ actor ConfigScriptGeneration {
     }
 
     func invoke(
-        function: Int, target: ConfigScriptTarget, snapshot: ConfigScriptSnapshot? = nil
+        function: Int, target: borrowing ConfigScriptTarget, snapshot: ConfigScriptSnapshot? = nil
     ) throws(ConfigScriptError) -> ConfigScriptInvocation {
-        try invoke(function: function, input: .context(target.context), snapshot: snapshot)
+        guard let token = target.token else {
+            return try invoke(function: function, input: .context(target.context), snapshot: snapshot)
+        }
+        let context = target.context(windowId: encodedWindow(token, session: target.sessionID))
+        return try invoke(function: function, input: .context(context), snapshot: snapshot)
+    }
+
+    private func encodedWindow(_ token: WindowToken, session: ConfigScriptSession) -> String {
+        guard case let .uuid(id) = session else {
+            return IPCWindowOpaqueID.encode(token: token, sessionToken: session.text)
+        }
+        if windowIDEncoder?.id != id {
+            windowIDEncoder = (id, IPCWindowOpaqueID.Encoder(sessionToken: id.uuidString))
+        }
+        var bytes = Data()
+        windowIDEncoder!.encoder.append(pid: token.pid, windowId: token.windowId, to: &bytes)
+        return String(decoding: bytes, as: UTF8.self)
     }
 
     func invoke(function: Int, context: ConfigScriptContext) throws(ConfigScriptError) -> ConfigScriptInvocation {
         try invoke(function: function, input: .context(context))
+    }
+
+    func invoke(
+        function: Int, queuedEvent: consuming ConfigScriptQueuedEvent, missed: UInt64, snapshot: ConfigScriptSnapshot?
+    ) throws(ConfigScriptError) -> ConfigScriptInvocation {
+        switch consume queuedEvent {
+        case let .title(title):
+            let id = eventWindowID(title.token, session: title.session, epoch: title.epoch)
+            return try invoke(function: function, event: title.payload(id: id), missed: missed, snapshot: snapshot)
+        case let .native(native):
+            let id: String? = if case let .window(token, session, epoch) = native.id {
+                eventWindowID(token, session: session, epoch: epoch)
+            } else { nil }
+            return try invoke(
+                function: function,
+                event: native.payload(windowID: id),
+                missed: missed,
+                snapshot: snapshot
+            )
+        }
+    }
+
+    private func eventWindowID(_ token: WindowToken, session: ConfigScriptSession, epoch: UInt64) -> String {
+        if let previous = lastTitleID, previous.token == token, previous.epoch == epoch { return previous.id }
+        #if OMNIWM_CONFIG_CALLBACK_TRACE
+            ConfigScriptLatencyTrace.windowStateIDEncoded()
+        #endif
+        let id = encodedWindow(token, session: session)
+        lastTitleID = TitleWindowID(token: token, epoch: epoch, id: id)
+        return id
     }
 
     func invoke(
@@ -177,6 +236,9 @@ actor ConfigScriptGeneration {
         if stats.cancelled_timers != 0 { timerWorkers.cancel(mask: stats.cancelled_timers) }
         defer { stage.dispatched = [] }
         if let diagnostic { throw diagnostic }
-        return ConfigScriptInvocation(commands: stage.dispatched, allocations: Int(stats.allocations))
+        return ConfigScriptInvocation(
+            batch: stage.dispatched.isEmpty ? nil : stage.dispatched,
+            allocations: Int(stats.allocations)
+        )
     }
 }

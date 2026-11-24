@@ -6,29 +6,12 @@ import OmniWMIPC
 
 @MainActor
 struct ConfigScriptObservedWindowStates {
-    private struct WindowID {
-        let token: WindowToken
-        let session: String
-        let encoded: String
-    }
-
-    private var lastID: WindowID?
-
-    mutating func opaqueID(for token: WindowToken, session: String) -> String {
-        if let lastID, lastID.token == token, lastID.session == session { return lastID.encoded }
-        #if OMNIWM_CONFIG_CALLBACK_TRACE
-            ConfigScriptLatencyTrace.windowStateIDEncoded()
-        #endif
-        let id = IPCWindowOpaqueID.encode(token: token, sessionToken: session)
-        lastID = WindowID(token: token, session: session, encoded: id)
-        return id
-    }
-
     struct Request {
         let generation: Int
         let cause: ConfigScriptEventCause
     }
 
+    var minimization: ConfigScriptMinimization?
     var priorModes: [WindowToken: TrackedWindowMode] = [:]
     var priorFullscreen: [WindowToken: Bool] = [:]
     var titlesWithoutMetadata: NSMapTable<WindowHandle, NSString>?
@@ -40,7 +23,10 @@ extension ConfigScriptEventObservers {
     func installWindowStates(on controller: WMController, kinds: Set<ConfigScriptEventKind>) {
         let manager = controller.workspaceManager
         if kinds.contains(.windowTitle) { controller.axEventHandler.scriptWindowTitleObserver = self }
-        if kinds.contains(.windowMinimize) { manager.scriptWindowMinimizeObserver = self }
+        if kinds.contains(.windowMinimize) {
+            windowStates.minimization = ConfigScriptMinimization()
+            manager.scriptWindowMinimizeObserver = self
+        }
         if kinds.contains(.windowFullscreen) {
             manager.scriptWindowFullscreenObserver = self
             controller.settings.workspaces.scriptFullscreenObserver = self
@@ -53,6 +39,7 @@ extension ConfigScriptEventObservers {
 
     func detachWindowStates(from controller: WMController) {
         let manager = controller.workspaceManager
+        windowStates.titlesWithoutMetadata = nil
         if kinds.contains(.windowTitle), controller.axEventHandler.scriptWindowTitleObserver === self {
             controller.axEventHandler.scriptWindowTitleObserver = nil
         }
@@ -68,12 +55,11 @@ extension ConfigScriptEventObservers {
         if manager.scriptWindowModeObserver === self { manager.scriptWindowModeObserver = nil }
     }
 
-    func titleChanged(_ title: String, for token: WindowToken, metadataChanged: Bool) {
-        guard let controller else { return }
-        let manager = controller.workspaceManager
+    func titleChanged(_ title: String, for token: WindowToken, metadataChanged: Bool, controller: WMController) {
+        guard var identity = controller.workspaceManager.configWindow(for: token, withoutMetadata: !metadataChanged)
+        else { return }
         if !metadataChanged {
-            guard manager.managedReplacementMetadata(for: token) == nil,
-                  let handle = manager.handle(for: token) else { return }
+            guard let handle = controller.workspaceManager.handle(for: token) else { return }
             let cache: NSMapTable<WindowHandle, NSString>
             if let existing = windowStates.titlesWithoutMetadata {
                 cache = existing
@@ -84,25 +70,41 @@ extension ConfigScriptEventObservers {
             guard cache.object(forKey: handle) as String? != title else { return }
             cache.setObject(title as NSString, forKey: handle)
         }
-        windowStateChanged(.windowTitle, token: token, value: .title(title))
+        var bundle = identity.takeBundle()
+        if bundle == nil { bundle = controller.appInfoCache.cachedBundleId(for: token.pid) }
+        let event = ConfigScriptWindowTitle(
+            token: token, session: controller.automationSession.identity, epoch: controller.automationSession.epoch,
+            title: title, bundle: consume bundle
+        )
+        publishTitle(consume event, controller: controller)
     }
 
     func commitMinimization(
         of token: WindowToken, minimized: Bool, in manager: WorkspaceManager, commit: () -> Void
     ) {
-        let children: [WindowToken]
-        if manager.withEntry(token, { $0.target.hostedMetadata?.role == .main }) == true {
-            children = manager.hostedFamilyTokens(for: token).dropFirst().filter { child in
-                manager.withEntry(child) { $0.observedState.isMinimized != minimized } == true
-            }
-        } else {
-            children = []
+        guard manager.readConfigWindow(token, { $0.target.hostedMetadata?.role == .main }) == true,
+              let recorder = windowStates.minimization
+        else {
+            commit()
+            if manager.scriptWindowMinimizeObserver === self { manager.publishWindowState(
+                .windowMinimize,
+                token: token,
+                value: .minimized(minimized)
+            ) }
+            return
         }
+        let outer = recorder.active.take()
+        recorder.active = .init(root: token)
         commit()
-        windowStateChanged(.windowMinimize, token: token, value: .minimized(minimized))
-        for child in children {
-            windowStateChanged(.windowMinimize, token: child, value: .minimized(minimized))
-        }
+        let batch = recorder.active.take()
+        recorder.active = outer
+        batch?.publish(minimized: minimized, observer: self, in: manager)
+    }
+
+    func recordMinimizedChild(_ token: WindowToken, of root: WindowToken, previous: Bool, minimized: Bool) {
+        guard previous != minimized, let recorder = windowStates.minimization,
+              recorder.active?.root == root else { return }
+        recorder.active?.append(token, observer: self)
     }
 
     func recordFullscreenRequest(
@@ -121,10 +123,9 @@ extension ConfigScriptEventObservers {
     func nativeFullscreenChanged(
         _ fullscreen: Bool,
         for token: WindowToken,
-        confirming record: WorkspaceNativeFullscreenRecord?
+        confirming record: WorkspaceNativeFullscreenRecord?, in manager: WorkspaceManager
     ) {
-        guard let manager = controller?.workspaceManager,
-              let (workspace, mode) = manager.withEntry(token, { ($0.workspaceId, $0.mode) }) else { return }
+        guard let (workspace, mode) = manager.readConfigWindow(token, { ($0.workspaceId, $0.mode) }) else { return }
         let previous = windowStates.confirmingFullscreen
         if let record, let issued = windowStates.fullscreenRequests.removeValue(forKey: record.originalToken),
            issued.generation == record.transitionGeneration,
@@ -136,26 +137,32 @@ extension ConfigScriptEventObservers {
         }
         defer { windowStates.confirmingFullscreen = previous }
         guard mode != .tiling || !managedFullscreen(token, workspaceId: workspace, manager: manager) else { return }
-        windowStateChanged(.windowFullscreen, token: token, value: .fullscreen(fullscreen))
+        manager.publishWindowState(.windowFullscreen, token: token, value: .fullscreen(fullscreen))
     }
 
     func managedFullscreen(
         _ token: WindowToken, workspaceId: WorkspaceDescriptor.ID, manager: WorkspaceManager
     ) -> Bool {
-        switch manager.activeLayoutKind(for: workspaceId) {
-        case .niri: manager.niriEngine?.isWindowFullscreen(token, in: workspaceId) == true
-        case .dwindle: manager.dwindleEngine?.isWindowFullscreen(token, in: workspaceId) == true
+        if let name = manager.workspaceCatalog.name(for: workspaceId),
+           manager.settings.workspaces.configScriptLayout(for: name) == .dwindle
+        {
+            return manager.dwindleEngine?.isWindowFullscreen(token, in: workspaceId) == true
         }
+        return manager.niriEngine?.isWindowFullscreen(token, in: workspaceId) == true
     }
 
-    func windowStateChanged(_ kind: ConfigScriptEventKind, token: WindowToken, value: ConfigScriptEventPayload.Edge) {
-        guard let controller,
-              let bundle = controller.workspaceManager.withEntry(token, {
-                  $0.target.hostedMetadata?.appId ?? $0.managedReplacementMetadata?.bundleId
-              }) else { return }
-        emit(kind, .init(
-            id: windowStates.opaqueID(for: token, session: controller.automationSessionToken),
-            bundleId: bundle ?? controller.appInfoCache.cachedBundleId(for: token.pid), edge: value
-        ))
+    func windowStateChanged(
+        _ kind: ConfigScriptEventKind,
+        token: WindowToken,
+        value: ConfigScriptNativeEvent.Edge,
+        in manager: WorkspaceManager
+    ) {
+        guard var identity = manager.configWindow(for: token) else { return }
+        var bundle = identity.takeBundle()
+        if bundle == nil { bundle = nativeInput.cachedBundleID(for: token.pid) }
+        publishNative(kind, .init(
+            id: .window(token, nativeInput.session.identity, nativeInput.session.epoch),
+            bundleId: consume bundle, edge: value
+        ), in: manager)
     }
 }

@@ -43,7 +43,7 @@ final class ConfigScriptTopologyEdgeTests: XCTestCase {
             ))],
             .workspaceRemoved: [.init(id: id.uuidString, name: name, edge: .monitor(id: rightID, name: right.name))]
         ])
-        XCTAssertNil(observers.workspaceMonitorAssignments[id])
+        XCTAssertNil(manager.workspaceCatalog.name(for: id))
     }
 
     func testSettingsAndDisconnectPublishActualWorkspaceOwnershipChanges() throws {
@@ -118,10 +118,82 @@ final class ConfigScriptTopologyEdgeTests: XCTestCase {
                 frame: renamed.frame, visibleFrame: renamed.visibleFrame
             ))]
         ])
-        XCTAssertTrue(observers.workspaceMonitorAssignments.isEmpty)
+        XCTAssertNil(observers.catalogMonitorContext)
         observers.stop()
         XCTAssertNil(manager.scriptTopologyObserver)
         XCTAssertNil(manager.scriptWorkspaceMoveObserver)
+    }
+
+    func testCommittedBulkRemovalPreservesOrderAndAccountsForMissingTail() async throws {
+        let fixture = try ConfigScriptCallbackQueueTests.Fixture(test: self)
+        defer { fixture.controller.stopConfigScript() }
+        let manager = fixture.controller.workspaceManager
+        let monitor = try XCTUnwrap(manager.monitors.first)
+        let capacity = ConfigScriptCallbackQueue.edgeCapacity
+        let existing = manager.workspaces.map(\.name)
+        let firstName = try XCTUnwrap(existing.compactMap(Int.init).max()) + 1
+        let overflow = existing.count
+        let ids = try (firstName ..< firstName + capacity + overflow).map { name in
+            try XCTUnwrap(manager.createDynamicWorkspace(named: String(name), on: monitor.id)).id
+        }
+        let expected = ids.prefix(capacity).map { "'\($0.uuidString)'" }.joined(separator: ",")
+        fixture.apply(try await fixture.load([
+            "local expected = {\(expected)}",
+            "local received = 0",
+            "omniwm.on('workspace.removed', function(e)",
+            "    received += 1",
+            "    assert(e.id == expected[received], 'unexpected removed workspace')",
+            "    assert(e.missed == (if received == #expected then \(overflow) else 0))",
+            "end)",
+            "omniwm.command('Check removals', function() assert(received == #expected) end)"
+        ]))
+        manager.removeWorkspaces(ids + ids + [UUID()])
+        let check = try XCTUnwrap(fixture.script.acceptedCommands.first)
+        XCTAssertEqual(fixture.press(.configFunction(check.function)), .executed)
+        let queue = try XCTUnwrap(fixture.script.callbackQueue)
+        await queue.waitUntilParked()
+        XCTAssertNil(fixture.script.diagnostic)
+        XCTAssertTrue(ids.allSatisfy { manager.workspaceCatalog.name(for: $0) == nil })
+    }
+
+    func testCatalogMonitorMatchesNativeResolutionForHiddenMissingAndDisconnectedWorkspaces() throws {
+        let controller = InputControllerTestSupport.controller(for: self)
+        let manager = controller.workspaceManager
+        let (left, disconnected) = monitors()
+        manager.applyMonitorConfigurationChange([left])
+        let name = WorkspaceIDPolicy.lowestUnusedRawID(in: manager.workspaces.map(\.name))
+        let id = try XCTUnwrap(manager.createDynamicWorkspace(named: name, on: left.id)).id
+        XCTAssertNil(manager.monitorIdShowingWorkspace(id))
+        XCTAssertEqual(manager.configCatalogMonitor(for: id)?.id, manager.monitorForWorkspace(id)?.id)
+        XCTAssertEqual(manager.configCatalogMonitor(for: id)?.name, left.name)
+        let missing = UUID()
+        XCTAssertNil(manager.monitorForWorkspace(missing))
+        XCTAssertNil(manager.configCatalogMonitor(for: missing))
+        manager.commitMonitorSessions([disconnected.id: MonitorSession(visibleWorkspaceId: id)])
+        XCTAssertNil(manager.monitorForWorkspace(id))
+        XCTAssertNil(manager.configCatalogMonitor(for: id))
+    }
+
+    func testNestedRemovalLeavesOuterTransactionIntact() throws {
+        let controller = InputControllerTestSupport.controller(for: self)
+        let manager = controller.workspaceManager
+        let monitor = try XCTUnwrap(manager.monitors.first)
+        func workspace() throws -> UUID {
+            let name = WorkspaceIDPolicy.lowestUnusedRawID(in: manager.workspaces.map(\.name))
+            return try XCTUnwrap(manager.createDynamicWorkspace(named: name, on: monitor.id)).id
+        }
+        let first = try workspace()
+        let last = try workspace()
+        let nested = try workspace()
+        var received: [String] = []
+        let observer = ConfigScriptEventObservers(controller: controller, kinds: [.workspaceRemoved]) { _, event in
+            guard let id = event.id else { return XCTFail("Missing removed workspace ID") }
+            received.append(id)
+            if id == first.uuidString { manager.removeWorkspaces([nested]) }
+        }
+        defer { observer.stop() }
+        manager.removeWorkspaces([first, last])
+        XCTAssertEqual(received, [first, nested, last].map(\.uuidString))
     }
 
     private func monitors() -> (Monitor, Monitor) {

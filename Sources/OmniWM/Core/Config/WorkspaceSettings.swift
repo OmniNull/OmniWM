@@ -39,13 +39,26 @@ final class WorkspaceSettings {
     }
 
     func layoutType(for workspaceName: String) -> LayoutType {
-        let configurations = self.configurations
+        let layout = Self.layout(for: workspaceName, in: configurations)
+        return layout == .defaultLayout ? defaultLayoutType : layout
+    }
+
+    @inline(__always)
+    func configScriptLayout(for workspaceName: String) -> ActiveLayoutKind {
+        let fallback = _defaultLayoutType
+        let layout = Self.layout(for: workspaceName, in: _configurations)
+        return (layout == .defaultLayout ? fallback : layout) == .dwindle ? .dwindle : .niri
+    }
+
+    private static func layout(
+        for workspaceName: String,
+        in configurations: borrowing [WorkspaceConfiguration]
+    ) -> LayoutType {
         let span = configurations.span
         for index in span.indices where span[index].name == workspaceName {
-            let layoutType = span[index].layoutType
-            return layoutType == .defaultLayout ? defaultLayoutType : layoutType
+            return span[index].layoutType
         }
-        return defaultLayoutType
+        return .defaultLayout
     }
 
     func displayName(for workspaceName: String) -> String {

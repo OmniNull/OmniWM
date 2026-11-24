@@ -73,8 +73,8 @@ extension WorkspaceManager {
     }
 
     private func publishInitialWindowState(_ token: WindowToken, minimized: Bool) {
-        scriptWindowOpenObserver?.windowOpened(token)
-        if minimized { scriptWindowMinimizeObserver?.windowStateChanged(
+        if scriptWindowOpenObserver != nil { publishOpenedWindow(token) }
+        if minimized, scriptWindowMinimizeObserver != nil { publishWindowState(
             .windowMinimize,
             token: token,
             value: .minimized(true)
@@ -121,7 +121,7 @@ extension WorkspaceManager {
         if let handle = windowQueries.handle(for: token) {
             onWindowPresenceObserved?(handle)
         }
-        scriptWindowOpenObserver?.windowOpened(token)
+        if scriptWindowOpenObserver != nil { publishOpenedWindow(token) }
         return token
     }
 

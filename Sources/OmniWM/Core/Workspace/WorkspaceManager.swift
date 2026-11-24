@@ -31,7 +31,7 @@ final class WorkspaceManager {
     var pendingRuntimeMonitorOverrideClearWorkspaceIds: Set<WorkspaceDescriptor.ID> = []
     var isDrainingPendingRuntimeMonitorOverrideClears = false
     var quietArrivalTokens: Set<WindowToken> = []
-    private lazy var persistedRestoreCatalogStore = PersistedRestoreCatalogStore(
+    private(set) lazy var persistedRestoreCatalogStore = PersistedRestoreCatalogStore(
         bootCatalog: settings.loadPersistedWindowRestoreCatalog(),
         buildSnapshot: { [unowned self] in self.persistedWindowRestoreCatalogBuildSnapshot() },
         save: { [unowned self] in self.settings.savePersistedWindowRestoreCatalog($0) }
@@ -46,12 +46,30 @@ final class WorkspaceManager {
         ((WorkspaceDescriptor.ID?, InvalidationDomain, SessionSurfaceInvalidationScope) -> Void)?
     var scriptWindowOpenObserver: ConfigScriptEventObservers?
     var scriptWindowCloseObserver: ConfigScriptEventObservers?
-    var scriptWindowMinimizeObserver: ConfigScriptEventObservers?
+    var scriptWindowMinimizeObserver: ConfigScriptEventObservers? {
+        get { world.scriptWindowMinimizeObserver }
+        set { world.scriptWindowMinimizeObserver = newValue }
+    }
+
     var scriptWindowFullscreenObserver: ConfigScriptEventObservers?
 
     var scriptWindowModeObserver: ConfigScriptEventObservers? {
         get { world.scriptWindowModeObserver }
-        set { world.scriptWindowModeObserver = newValue }
+        set { world.installWindowModeObserver(newValue) }
+    }
+
+    func publishWindowState(_ kind: ConfigScriptEventKind, token: WindowToken, value: ConfigScriptNativeEvent.Edge) {
+        func publish(_ observer: ConfigScriptEventObservers) {
+            observer.windowStateChanged(kind, token: token, value: value, in: self)
+        }
+        let client = kind == .windowFullscreen
+            ? ConfigScriptEventObservers.borrowRegistration(&scriptWindowFullscreenObserver, publish)
+            : world.borrowWindowStateObserver(kind, publish)
+        if let client { publish(client) }
+    }
+
+    func withWindowMoveObserver(_ publish: (ConfigScriptEventObservers) -> Void) {
+        world.withWindowMoveObserver(publish)
     }
 
     func settleScriptWindowState(_ observer: ConfigScriptEventObservers) {
@@ -60,7 +78,7 @@ final class WorkspaceManager {
 
     var scriptWindowMoveObserver: ConfigScriptEventObservers? {
         get { world.scriptWindowMoveObserver }
-        set { world.scriptWindowMoveObserver = newValue }
+        set { world.installWindowMoveObserver(newValue) }
     }
 
     var onWindowPresenceObserved: ((WindowHandle) -> Void)?
@@ -94,6 +112,14 @@ final class WorkspaceManager {
         _ = world.captureLiveNiriPlacements(containing: tokens, in: workspaceId, monitors: monitors)
     }
 
+    func readConfigWindow<Result>(_ token: WindowToken, _ read: (borrowing WindowState) -> Result) -> Result? {
+        world.readConfigWindow(token, read)
+    }
+
+    func configWindow(for token: WindowToken, withoutMetadata: Bool = false) -> ConfigScriptWindowIdentity? {
+        world.configWindow(for: token, withoutMetadata: withoutMetadata)
+    }
+
     var windowQueries: WindowModel.ReadView {
         world.windows
     }
@@ -112,6 +138,10 @@ final class WorkspaceManager {
 
     var recordedViewportStates: [WorkspaceDescriptor.ID: ViewportState] {
         world.viewports
+    }
+
+    func configVisibleMonitorID(for workspace: WorkspaceDescriptor.ID) -> Monitor.ID? {
+        world.configVisibleMonitorID(for: workspace)
     }
 
     var monitorSessionSnapshots: [Monitor.ID: MonitorSession] {
@@ -243,39 +273,6 @@ extension WorkspaceManager {
         }
     }
 
-    func plannedPersistedHydrationMutation(for token: WindowToken) -> PersistedHydrationMutation? {
-        guard let entry = windowQueries.entry(for: token),
-              entry.hiddenState == nil,
-              let metadata = persistedRestoreMetadata(for: entry),
-              let hydrationPlan = PersistedRestorePlanner.plan(
-                  .init(
-                      token: token,
-                      metadata: metadata,
-                      catalog: persistedRestoreCatalogStore.bootCatalog,
-                      consumedEntries: persistedRestoreCatalogStore.consumedBootEntries,
-                      monitors: monitors,
-                      workspaceIdForName: { [weak self] workspaceName in
-                          self?.workspaceId(for: workspaceName, createIfMissing: false)
-                      }
-                  )
-              )
-        else {
-            return nil
-        }
-
-        return PersistedHydrationMutation(
-            workspaceId: hydrationPlan.workspaceId,
-            monitorId: hydrationPlan.preferredMonitorId ?? effectiveMonitor(for: hydrationPlan.workspaceId)?.id,
-            targetMode: hydrationPlan.targetMode,
-            floatingFrame: hydrationPlan.floatingFrame,
-            niriPlacement: hydrationPlan.niriPlacement,
-            detachedNiriContainerSizingState: hydrationPlan.detachedNiriContainerSizingState,
-            dwindlePlacement: hydrationPlan.dwindlePlacement,
-            consumedKey: hydrationPlan.consumedKey,
-            consumedEntry: hydrationPlan.consumedEntry
-        )
-    }
-
     @discardableResult
     func applyPersistedHydrationMutation(
         _ hydration: PersistedHydrationMutation,
@@ -352,16 +349,17 @@ extension WorkspaceManager {
         return true
     }
 
-    func flushPersistedWindowRestoreCatalogNow() {
-        persistedRestoreCatalogStore.flushNow()
-    }
-
-    func schedulePersistedWindowRestoreCatalogSave() {
-        persistedRestoreCatalogStore.scheduleSave()
+    func configCatalogMonitor(byId id: Monitor.ID) -> ConfigScriptCatalogMonitor? {
+        guard let index = _monitorsById.index(forKey: id) else { return nil }
+        return ConfigScriptCatalogMonitor(stored: &_monitorsById.values[index])
     }
 
     func monitor(byId id: Monitor.ID) -> Monitor? {
         _monitorsById[id]
+    }
+
+    func hasMonitor(_ id: Monitor.ID) -> Bool {
+        _monitorsById.index(forKey: id) != nil
     }
 
     private func rebuildMonitorIndexes() {

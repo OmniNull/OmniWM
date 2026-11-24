@@ -8,6 +8,10 @@ import OmniWMIPC
 @MainActor @Observable
 final class WMController {
     var isEnabled: Bool = true
+    var commandsEnabled: Bool {
+        _isEnabled
+    }
+
     var hotkeysEnabled: Bool = true
     private(set) var desiredEnabled: Bool = true
     private(set) var desiredHotkeysEnabled: Bool = true
@@ -27,13 +31,34 @@ final class WMController {
     let windowMarkRegistry = WindowMarkRegistry()
     let hotkeys = HotkeyCenter()
     @ObservationIgnored
-    lazy var automationSessionToken = UUID().uuidString
+    private(set) var automationSession = ConfigScriptSessionToken()
+    @ObservationIgnored
+    weak var registeredEventInput: ConfigScriptEventInput?
+
+    var automationSessionToken: String {
+        get { automationSession.text }
+        set {
+            automationSession = ConfigScriptSessionToken(newValue, epoch: automationSession.epoch + 1)
+            registeredEventInput?.session = automationSession
+        }
+    }
+
     var configScript: ConfigScriptController?
+    func enqueueConfigFunction(_ function: Int) -> ExternalCommandResult {
+        do {
+            return try ConfigScriptController.enqueue(function, from: &_configScript, controller: self)
+        } catch {
+            _configScript?.publishCallbackDiagnostic(error.diagnostic)
+            return .windowActionFailed
+        }
+    }
+
     var configScriptDiagnostic: String?
     private(set) var hotkeyRegistrationFailures: [HotkeyCommand: HotkeyRegistrationFailureReason] = [:]
     private(set) var systemHyperTriggerFailure: SystemHyperTriggerFailure?
     private(set) var windowSwitcherInputAvailable = false
     var keyboardModeKind = KeyboardModeKind.normal
+    @ObservationIgnored var scriptFocusObservers = ConfigScriptFocusObservers()
     @ObservationIgnored var scriptModeObserver: ConfigScriptEventObservers?
     @ObservationIgnored
     var userActionCount: UInt64 = 0
@@ -153,36 +178,10 @@ final class WMController {
     @ObservationIgnored
     var appliedQuakeTerminalSelection: QuakeTerminalProvider?
     @ObservationIgnored
-    lazy var kittyQuickAccessTerminal: KittyQuickAccessTerminal = {
-        let terminal = KittyQuickAccessTerminal(
-            environment: .live,
-            socketPath: KittyQuickAccessTerminal.defaultSocketPath(),
-            context: { [weak self] in self?.kittyQuakeControlContext() }
-        )
-        terminal.onToggleFailure = { [weak self] problem in
-            self?.presentQuakeTerminalFailure(
-                title: String(localized: "Kitty Quake Terminal Unavailable"),
-                message: problem.message
-            )
-        }
-        return terminal
-    }()
+    lazy var kittyQuickAccessTerminal = makeKittyQuickAccessTerminal()
 
     @ObservationIgnored
-    lazy var footQuickAccessTerminal: FootQuickAccessTerminal = {
-        let terminal = FootQuickAccessTerminal(
-            environment: .live,
-            socketPath: FootQuickAccessTerminal.defaultSocketPath(),
-            context: { [weak self] in self?.footQuakeControlContext() }
-        )
-        terminal.onToggleFailure = { [weak self] problem in
-            self?.presentQuakeTerminalFailure(
-                title: String(localized: "foot Quake Terminal Unavailable"),
-                message: problem.message
-            )
-        }
-        return terminal
-    }()
+    lazy var footQuickAccessTerminal = makeFootQuickAccessTerminal()
 
     @ObservationIgnored let appTheming = AppThemingHost()
     @ObservationIgnored

@@ -61,7 +61,7 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
             ]
             fixture.apply(try await fixture.load(source))
             XCTAssertEqual(fixture.press(try fixture.command), .executed)
-            await fixture.script.callbackQueue?.worker?.value
+            await fixture.script.callbackQueue?.waitUntilParked()
             let line = try XCTUnwrap(source.firstIndex { $0.contains(invalid) }) + 1
             XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("init.luau:\(line):"), invalid)
             XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
@@ -91,7 +91,7 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         _ = manager.setManagedFocus(moving, in: source)
         XCTAssertEqual(fixture.press(try fixture.command), .executed)
         _ = manager.setManagedFocus(other, in: source)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertNil(fixture.script.diagnostic)
         XCTAssertEqual(manager.workspace(for: moving), destination)
         XCTAssertEqual(manager.workspace(for: other), source)
@@ -106,7 +106,7 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         fixture.apply(try await fixture.load(focus))
         XCTAssertEqual(fixture.press(try fixture.command), .executed)
         XCTAssertNotNil(manager.removeWindow(pid: moving.pid, windowId: moving.windowId))
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         let line = try XCTUnwrap(focus.firstIndex { $0.contains("'focus'") }) + 1
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("init.luau:\(line): window focus: notFound"))
         XCTAssertEqual(manager.nativeManagedFocusToken, other)

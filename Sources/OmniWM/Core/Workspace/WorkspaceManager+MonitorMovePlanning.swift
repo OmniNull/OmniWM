@@ -75,6 +75,7 @@ extension WorkspaceManager {
             ? nil
             : OutputId(from: targetMonitor)
 
+        let previous = scriptWorkspaceMoveObserver == nil ? nil : monitor(byId: sourceMonitorId)
         commitWorkspaceMonitorMove(
             workspace,
             to: targetMonitor,
@@ -92,8 +93,8 @@ extension WorkspaceManager {
             domains: [.workspace, .layout, .focus]
         )
         schedulePersistedWindowRestoreCatalogSave()
-        scriptWorkspaceMoveObserver?.refreshWorkspaceMonitorAssignments(
-            for: workspaceId, and: visibility.destinationWorkspaceId, in: self, context: context
+        publishCatalogMoves(
+            (workspaceId, previous), to: targetMonitor, displacing: visibility.destinationWorkspaceId, context: context
         )
         notifySessionStateChanged()
 

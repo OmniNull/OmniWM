@@ -29,7 +29,7 @@ final class MonitorRankingTests: XCTestCase {
         let sorted = Monitor.sortedByPosition([builtIn, dell, lg])
         XCTAssertEqual(
             MonitorRanking.roleOrder(ranking: [], sortedMonitors: sorted).map(\.id),
-            MonitorRanking.defaultOrder(sorted).map(\.id)
+            Self.defaultOrder(sorted).map(\.id)
         )
     }
 
@@ -76,7 +76,7 @@ final class MonitorRankingTests: XCTestCase {
         XCTAssertEqual(
             MonitorRanking.roleOrder(ranking: [stale, OutputId(from: lg)], sortedMonitors: [builtIn, dell, lg])
                 .map(\.displayId),
-            [lg.displayId] + MonitorRanking.defaultOrder([builtIn, dell]).map(\.displayId)
+            [lg.displayId] + Self.defaultOrder([builtIn, dell]).map(\.displayId)
         )
     }
 
@@ -90,6 +90,36 @@ final class MonitorRankingTests: XCTestCase {
         XCTAssertEqual(
             MonitorRanking.effectiveRanks(ranking: ranking, monitors: [builtIn, dell, lg]),
             [0, 1, nil, 2]
+        )
+    }
+
+    func testSingleRoleSkipsRepeatedDisconnectedAndAmbiguousRankEntries() {
+        let twin = Self.makeMonitor(
+            id: lg.displayId + 1,
+            x: lg.frame.maxX,
+            name: dell.name,
+            uuid: "44444444-4444-4444-4444-444444444444"
+        )
+        let primary = Self.makeMonitor(
+            id: builtIn.displayId,
+            x: builtIn.frame.minX,
+            name: builtIn.name,
+            uuid: builtIn.displayUUID,
+            isMain: true
+        )
+        let monitors = [primary, dell, twin, lg]
+        let ranking = [
+            OutputId(displayUUID: "99999999-9999-9999-9999-999999999999", name: builtIn.name),
+            OutputId(name: dell.name), OutputId(from: lg), OutputId(from: lg)
+        ]
+        XCTAssertEqual(MonitorDescription.main.resolveMonitor(sortedMonitors: monitors, ranking: ranking)?.id, lg.id)
+        XCTAssertEqual(
+            MonitorDescription.secondary.resolveMonitor(sortedMonitors: monitors, ranking: ranking)?.id,
+            primary.id
+        )
+        XCTAssertEqual(
+            MonitorDescription.tertiary.resolveMonitor(sortedMonitors: monitors, ranking: ranking)?.id,
+            dell.id
         )
     }
 
@@ -119,7 +149,7 @@ final class MonitorRankingTests: XCTestCase {
 
         XCTAssertEqual(
             MonitorDescription.tertiary.resolveMonitor(sortedMonitors: sorted)?.id,
-            MonitorRanking.defaultOrder(sorted)[2].id
+            Self.defaultOrder(sorted)[2].id
         )
         let twoDisplays = Monitor.sortedByPosition([builtIn, dell])
         XCTAssertNil(MonitorDescription.tertiary.resolveMonitor(sortedMonitors: twoDisplays))
@@ -143,7 +173,7 @@ final class MonitorRankingTests: XCTestCase {
         XCTAssertEqual(MonitorDescription.main.resolveMonitor(sortedMonitors: sorted, ranking: ranking)?.displayId, 3)
         XCTAssertEqual(
             MonitorDescription.secondary.resolveMonitor(sortedMonitors: sorted, ranking: ranking)?.id,
-            MonitorRanking.defaultOrder(sorted).first(where: { $0.displayId != 3 })?.id
+            Self.defaultOrder(sorted).first(where: { $0.displayId != 3 })?.id
         )
     }
 
@@ -268,7 +298,6 @@ final class MonitorRankingTests: XCTestCase {
             )
         }
 
-        XCTAssertEqual(MonitorRanking.defaultOrder(monitors).map(\.displayId), [2, 1, 3])
         XCTAssertEqual(MonitorRanking.roleOrder(ranking: [], sortedMonitors: monitors).map(\.displayId), [2, 1, 3])
     }
 
@@ -299,6 +328,11 @@ final class MonitorRankingTests: XCTestCase {
         XCTAssertEqual(MonitorRanking.moving(names, from: 5, by: -1), names)
         XCTAssertEqual(MonitorRanking.removing(names, at: 1), ["A", "C"])
         XCTAssertEqual(MonitorRanking.removing(names, at: 3), names)
+    }
+
+    private static func defaultOrder(_ sortedMonitors: [Monitor]) -> [Monitor] {
+        guard let main = sortedMonitors.first(where: \.isMain) else { return sortedMonitors }
+        return [main] + sortedMonitors.filter { $0.id != main.id }
     }
 
     private static func makeMonitor(

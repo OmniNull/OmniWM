@@ -18,11 +18,16 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
         let limit = ConfigScriptCallbackQueue.edgeCapacity
         let excess = kinds.count
         let marker = "Inspect burst"
+        let workspace = UUID()
+        let session = fixture.controller.automationSession
+        let tokens = (0 ... (limit + excess)).map { WindowToken(pid: getpid(), windowId: $0) }
+        let ids = tokens.map { IPCWindowOpaqueID.encode(token: $0, sessionToken: session.text) }
         let body = [
             "local received = {}",
+            "local ids = {\(ids.map { "'\($0)'" }.joined(separator: ","))}",
             "local function record(kind, e)",
-            "    assert(table.isfrozen(e) and e.workspaceId == 'fixture')",
-            "    if e.id == 'later' then assert(e.missed == (if #received > 0 then \(excess) else 0)) return end",
+            "    assert(table.isfrozen(e) and e.workspaceId == '\(workspace.uuidString)')",
+            "    if e.id == ids[#ids] then assert(e.missed == (if #received > 0 then \(excess) else 0)) return end",
             "    table.insert(received, {kind, e.id, e.missed})",
             "end"
         ] + kinds.map {
@@ -32,7 +37,7 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
             "    assert(#received == \(limit))",
             "    for i, item in received do",
             "        assert(item[1] == (if i % 2 == 1 then '\(kinds[0].rawValue)' else '\(kinds[1].rawValue)'))",
-            "        assert(item[2] == tostring(i))",
+            "        assert(item[2] == ids[i])",
             "        assert(item[3] == (if i == #received then \(excess) else 0))",
             "    end",
             "end)"
@@ -42,24 +47,28 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
         let check = try XCTUnwrap(fixture.script.acceptedCommands.first)
         let before = omni_config_vm_entry_count()
         for offset in 0 ..< (limit + excess) {
-            observer.emit(kinds[offset % kinds.count], .init(
-                id: String(offset + 1), edge: .workspace(id: "fixture", name: nil)
+            observer.publishNative(kinds[offset % kinds.count], .init(
+                id: .window(tokens[offset], session.identity, session.epoch), edge: .workspace(id: workspace, name: nil)
             ))
         }
         XCTAssertEqual(fixture.press(.configFunction(check.function)), .executed)
         XCTAssertEqual(omni_config_vm_entry_count(), before)
-        let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-        await worker.value
+        let queue = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(queue.hasPendingWork)
+        await queue.waitUntilParked()
         XCTAssertNil(fixture.script.diagnostic)
         assertConfigVMEntries(UInt64(limit + 1), since: before)
-        let subsequent = ConfigScriptEventPayload(id: "later", edge: .workspace(id: "fixture", name: nil))
-        observer.emit(.windowClose, subsequent)
-        await fixture.script.callbackQueue?.worker?.value
+        let subsequent = ConfigScriptNativeEvent(
+            id: .window(tokens.last!, session.identity, session.epoch),
+            edge: .workspace(id: workspace, name: nil)
+        )
+        observer.publishNative(.windowClose, subsequent)
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertNil(fixture.script.diagnostic)
         fixture.apply(try await fixture.load(body))
         let replacement = try XCTUnwrap(fixture.script.eventObservers)
-        replacement.emit(.windowOpen, subsequent)
-        await fixture.script.callbackQueue?.worker?.value
+        replacement.publishNative(.windowOpen, subsequent)
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertNil(fixture.script.diagnostic)
     }
 
@@ -101,14 +110,15 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
         ]))
         let before = omni_config_vm_entry_count()
         manager.setWorkspace(for: first, to: destination)
-        let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-        await worker.value
+        let queue = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(queue.hasPendingWork)
+        await queue.waitUntilParked()
         XCTAssertEqual(manager.workspace(for: second), destination)
         assertConfigVMEntries(3, since: before)
         XCTAssertNil(fixture.script.diagnostic)
         let check = try XCTUnwrap(fixture.script.acceptedCommands.first)
         XCTAssertEqual(fixture.press(.configFunction(check.function)), .executed)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertNil(fixture.script.diagnostic)
     }
 
@@ -136,8 +146,8 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
                 + assertions + ["end)"]
         ))
         let observer = try XCTUnwrap(fixture.script.eventObservers)
-        observer.emit(.monitorLayoutChanged, .init(
-            id: IPCDisplayRef.identifier(monitor.id), name: monitor.name,
+        observer.publishNative(.monitorLayoutChanged, .init(
+            id: .monitor(monitor.id), name: monitor.name,
             edge: .geometry(
                 frame: current,
                 previousFrame: previous,
@@ -145,8 +155,9 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
                 previousVisibleFrame: previousVisible
             )
         ))
-        let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-        await worker.value
+        let queue = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(queue.hasPendingWork)
+        await queue.waitUntilParked()
         XCTAssertNil(fixture.script.diagnostic)
     }
 }

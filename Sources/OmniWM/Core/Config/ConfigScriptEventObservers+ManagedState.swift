@@ -27,7 +27,7 @@ extension ConfigScriptEventObservers {
                 .compactMap { $0.isFullscreen ? $0.token : nil } ?? [])
             let oldTokens = wasDwindle ? dwindle : niri
             for token in dwindle.symmetricDifference(niri) where windowStates.priorFullscreen[token] == nil {
-                if manager.withEntry(token, { $0.workspaceId == workspace.id && $0.mode == .tiling }) == true {
+                if manager.readConfigWindow(token, { $0.workspaceId == workspace.id && $0.mode == .tiling }) == true {
                     windowStates.priorFullscreen[token] = oldTokens.contains(token)
                 }
             }
@@ -68,7 +68,7 @@ extension ConfigScriptEventObservers {
         guard windowStates.priorFullscreen[token] == nil,
               let manager = controller?.workspaceManager, let workspace = manager.workspace(for: token),
               manager.activeLayoutKind(for: workspace) == layout else { return }
-        windowStates.priorFullscreen[token] = manager.withEntry(token) { $0.mode == .tiling } == true && previous
+        windowStates.priorFullscreen[token] = manager.readConfigWindow(token) { $0.mode == .tiling } == true && previous
         manager.settleScriptWindowState(self)
     }
 
@@ -80,16 +80,25 @@ extension ConfigScriptEventObservers {
         swap(&fullscreen, &windowStates.priorFullscreen)
         if kinds.contains(.windowUpdateState) {
             for (token, previous) in modes {
-                guard let mode = manager.withEntry(token, { $0.mode }), mode != previous else { continue }
-                windowStateChanged(.windowUpdateState, token: token, value: .floating(mode == .floating))
+                guard let mode = manager.readConfigWindow(token, { $0.mode }), mode != previous else { continue }
+                if manager.scriptWindowModeObserver === self { manager.publishWindowState(
+                    .windowUpdateState,
+                    token: token,
+                    value: .floating(mode == .floating)
+                ) }
             }
         }
         for (token, previous) in fullscreen {
-            guard let (workspace, mode, native) = manager.withEntry(token, {
+            guard let (workspace, mode, native) = manager.readConfigWindow(token, {
                 ($0.workspaceId, $0.mode, $0.observedState.isNativeFullscreen)
             }), !native else { continue }
             let current = mode == .tiling && managedFullscreen(token, workspaceId: workspace, manager: manager)
-            if current != previous { windowStateChanged(.windowFullscreen, token: token, value: .fullscreen(current)) }
+            if current != previous { windowStateChanged(
+                .windowFullscreen,
+                token: token,
+                value: .fullscreen(current),
+                in: manager
+            ) }
         }
         if windowStates.priorModes.isEmpty {
             modes.removeAll(keepingCapacity: true)

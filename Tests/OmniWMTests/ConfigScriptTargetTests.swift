@@ -8,6 +8,17 @@ import XCTest
 
 @MainActor
 final class ConfigScriptTargetTests: XCTestCase {
+    func testSessionOnlyUsesUUIDStorageForItsExactWireSpelling() {
+        let id = UUID(uuidString: "ABCDEF01-ABCD-4321-ABCD-ABCDEF012345")!
+        let canonical = ConfigScriptSessionToken(id.uuidString)
+        XCTAssertEqual(canonical.identity, .uuid(id))
+        for text in [id.uuidString.lowercased(), "e\u{301}/会:", "", "non-uuid-" + UUID().uuidString] {
+            let session = ConfigScriptSessionToken(text)
+            XCTAssertEqual(session.identity, .text(text))
+            XCTAssertEqual(Array(session.identity.text.utf8), Array(text.utf8))
+        }
+    }
+
     func testContextUsesIPCFocusAndCachedBundleWithoutStartingIPC() throws {
         let controller = InputControllerTestSupport.controller(for: self)
         let manager = controller.workspaceManager

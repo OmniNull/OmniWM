@@ -4,6 +4,7 @@
 #include "Counters.h"
 #include <pthread.h>
 #include <stddef.h>
+#include <stdatomic.h>
 
 typedef void Object;
 typedef void (MallocLogger)(uint32_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uint32_t);
@@ -20,44 +21,56 @@ static Object *(*saved_retain)(Object *);
 static void (*saved_release)(Object *);
 static Object *(*saved_retain_n)(Object *, uint32_t);
 static void (*saved_release_n)(Object *, uint32_t);
-static volatile int active;
+static _Atomic int active;
 static pthread_t counting;
-static uint64_t retains, releases, allocations, mallocs;
+static arc_audit_counts sample;
+static arc_audit_counts *(*current_scope)(void);
 
-static int counts(void) {
-    return active && pthread_equal(pthread_self(), counting);
+static arc_audit_counts *single_thread_scope(void) {
+    return active && pthread_equal(pthread_self(), counting) ? &sample : NULL;
 }
 
 static Object *count_alloc(const void *metadata, size_t size, size_t align) {
-    if (counts()) allocations++;
+    arc_audit_counts *scope = current_scope();
+    if (scope) scope->allocations++;
     return saved_alloc(metadata, size, align);
 }
 
 static Object *count_retain(Object *object) {
-    if (counts()) retains++;
+    arc_audit_counts *scope = current_scope();
+    if (scope) scope->retains++;
     return saved_retain(object);
 }
 
 static void count_release(Object *object) {
-    if (counts()) releases++;
+    arc_audit_counts *scope = current_scope();
+    if (scope) scope->releases++;
     saved_release(object);
 }
 
 static Object *count_retain_n(Object *object, uint32_t n) {
-    if (counts()) retains += n;
+    arc_audit_counts *scope = current_scope();
+    if (scope) scope->retains += n;
     return saved_retain_n(object, n);
 }
 
 static void count_release_n(Object *object, uint32_t n) {
-    if (counts()) releases += n;
+    arc_audit_counts *scope = current_scope();
+    if (scope) scope->releases += n;
     saved_release_n(object, n);
 }
 
 static void count_malloc(uint32_t type, uintptr_t zone, uintptr_t size, uintptr_t old, uintptr_t result, uint32_t skip) {
-    if ((type & 2) && counts()) mallocs++;
+    if (type & 2) {
+        arc_audit_counts *scope = current_scope();
+        if (scope) scope->mallocs++;
+    }
 }
 
-void arc_audit_install(void) {
+void arc_audit_install(void) { arc_audit_install_scoped(single_thread_scope); }
+
+void arc_audit_install_scoped(arc_audit_counts *(*scope)(void)) {
+    current_scope = scope;
     saved_alloc = _swift_allocObject;
     saved_retain = _swift_retain;
     saved_release = _swift_release;
@@ -72,13 +85,13 @@ void arc_audit_install(void) {
 }
 
 void arc_audit_start(void) {
-    retains = releases = allocations = mallocs = 0;
+    sample = (arc_audit_counts){0};
     counting = pthread_self();
     active = 1;
 }
 
 void arc_audit_stop(void) { active = 0; }
-uint64_t arc_audit_retains(void) { return retains; }
-uint64_t arc_audit_releases(void) { return releases; }
-uint64_t arc_audit_allocations(void) { return allocations; }
-uint64_t arc_audit_mallocs(void) { return mallocs; }
+uint64_t arc_audit_retains(void) { return sample.retains; }
+uint64_t arc_audit_releases(void) { return sample.releases; }
+uint64_t arc_audit_allocations(void) { return sample.allocations; }
+uint64_t arc_audit_mallocs(void) { return sample.mallocs; }

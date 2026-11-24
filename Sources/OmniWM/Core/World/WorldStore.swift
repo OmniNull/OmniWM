@@ -23,34 +23,32 @@ final class WorldStore {
     private(set) var epochMarks = InvalidationMarks()
     private var broadcastMarks = InvalidationMarks()
     private var workspaceMarks: [WorkspaceDescriptor.ID: InvalidationMarks] = [:]
-    private var commitDepth = 0
+    private(set) var commitDepth = 0
     private var currentCommitEvent: WMEvent?
 
     var pendingScriptWindowState: ConfigScriptEventObservers?
-    var scriptWindowModeObserver: ConfigScriptEventObservers? {
-        didSet {
-            model.onModeChange = scriptWindowModeObserver?.noteModeChange(_:was:)
+    var scriptWindowModeObserver: ConfigScriptEventObservers?
+    var scriptWindowMinimizeObserver: ConfigScriptEventObservers?
+    var scriptWindowMoveObserver: ConfigScriptEventObservers?
+    private var pendingWindowMoves: ConfigScriptWindowMoves?
+
+    func installWindowModeObserver(_ observer: ConfigScriptEventObservers?) {
+        scriptWindowModeObserver = observer
+        model.onModeChange = observer?.noteModeChange(_:was:)
+    }
+
+    func installWindowMoveObserver(_ observer: ConfigScriptEventObservers?) {
+        scriptWindowMoveObserver = observer
+        guard let catalog = observer?.controller?.workspaceManager.workspaceCatalog else {
+            pendingWindowMoves = nil
+            model.onMembershipChange = nil
+            return
         }
-    }
-
-    private var pendingWindowMoves: [WindowMembershipBatch.Record] = []
-    var scriptWindowMoveObserver: ConfigScriptEventObservers? {
-        didSet {
-            pendingWindowMoves.removeAll()
-            model.onMembershipChange = scriptWindowMoveObserver.map { _ in
-                { [unowned self] change in pendingWindowMoves.append((commitDepth, change)) }
-            }
+        let moves = ConfigScriptWindowMoves()
+        pendingWindowMoves = moves
+        model.onMembershipChange = { [unowned self] change in
+            moves.record(change, depth: commitDepth, primary: currentCommitEvent?.token, catalog: catalog)
         }
-    }
-
-    var isEngineMutationSanctioned: Bool {
-        commitDepth > 0
-    }
-
-    private func pushEngineSanction() {
-        let sanctioned = isEngineMutationSanctioned
-        niriEngine?.isMutationSanctioned = sanctioned
-        dwindleEngine?.isMutationSanctioned = sanctioned
     }
 
     init(validatesScopes: Bool = WorldStore.validatesScopesByDefault, nowProvider: @escaping () -> Date = Date.init) {
@@ -111,11 +109,8 @@ final class WorldStore {
             if let observer = pendingScriptWindowState, !windowExistedBeforeMutation, case .windowAdmitted = event {
                 observer.discardFirstAdmissionChanges(event.token)
             }
-            if let observer = scriptWindowMoveObserver, !pendingWindowMoves.isEmpty {
-                guard pendingWindowMoves.last?.depth == commitDepth else { return transaction }
-                var moves = WindowMembershipBatch(taking: &pendingWindowMoves, depth: commitDepth)
-                observer.publishWindowMoves(moves, transaction: transaction, wasTracked: windowExistedBeforeMutation)
-                if scriptWindowMoveObserver === observer { moves.recycle(into: &pendingWindowMoves) }
+            if scriptWindowMoveObserver != nil, let moves = pendingWindowMoves {
+                publishMoves(transaction, in: moves, depth: commitDepth, wasTracked: windowExistedBeforeMutation)
             }
             return transaction
         }
@@ -342,8 +337,16 @@ final class WorldStore {
 }
 
 extension WorldStore {
-    func assertInCommit(_ operation: StaticString) {
-        assert(commitDepth > 0, "\(operation) must run inside WorldStore.commit")
+    func configVisibleMonitorID(for workspace: WorkspaceDescriptor.ID) -> Monitor.ID? {
+        ConfigScriptCatalogMonitor.visibleID(for: workspace, in: &monitorSessions)
+    }
+
+    func readConfigWindow<Result>(_ token: WindowToken, _ read: (borrowing WindowState) -> Result) -> Result? {
+        model.withEntry(token, read)
+    }
+
+    func configWindow(for token: WindowToken, withoutMetadata: Bool = false) -> ConfigScriptWindowIdentity? {
+        model.configWindow(for: token, withoutMetadata: withoutMetadata)
     }
 
     func appVisibilityGeneration(for pid: pid_t) -> UInt64 {

@@ -19,9 +19,10 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
 
     private func runNamed(_ name: String, in fixture: Fixture) async throws {
         let command = try XCTUnwrap(fixture.script.acceptedCommands.first { $0.name == name })
-        XCTAssertEqual(fixture.script.enqueue(function: command.function, controller: fixture.controller), .executed)
-        let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-        await worker.value
+        XCTAssertEqual(fixture.controller.enqueueConfigFunction(command.function), .executed)
+        let queue = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(queue.hasPendingWork)
+        await queue.waitUntilParked()
         XCTAssertNil(fixture.script.diagnostic)
     }
 
@@ -74,8 +75,9 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         fixture.apply(try await fixture.load(body))
         let before = omni_config_vm_entry_count()
         try switchTo(fixture.destination, in: fixture)
-        let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-        await worker.value
+        let queue = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(queue.hasPendingWork)
+        await queue.waitUntilParked()
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
         XCTAssertNil(fixture.script.diagnostic)
         assertConfigVMEntries(3, since: before)
@@ -113,8 +115,9 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         }
         let before = omni_config_vm_entry_count()
         try switchTo(fixture.destination, in: fixture)
-        let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-        await worker.value
+        let queue = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(queue.hasPendingWork)
+        await queue.waitUntilParked()
         XCTAssertEqual(diagnostics.count, 1, "\(diagnostics)")
         XCTAssertTrue(try XCTUnwrap(diagnostics.first).contains(first))
         assertConfigVMEntries(2, since: before)
@@ -131,8 +134,9 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         let next = try await fixture.load(["omniwm.on('config.reloaded', function() end)"])
         let before = omni_config_vm_entry_count()
         fixture.apply(first)
-        let initial = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-        await initial.value
+        let initial = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(initial.hasPendingWork)
+        await initial.waitUntilParked()
         assertConfigVMEntries(1, since: before)
         XCTAssertNotNil(fixture.script.eventObservers)
         fixture.apply(ConfigScriptLoad(
@@ -140,22 +144,24 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
             result: .failure(ConfigScriptError(line: 1, message: "bad save"))
         ))
         XCTAssertNotNil(fixture.script.diagnostic)
-        XCTAssertNil(fixture.script.callbackQueue?.worker)
+        XCTAssertEqual(fixture.script.callbackQueue?.isParked, true)
         try switchTo(fixture.destination, in: fixture)
-        let kept = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-        await kept.value
+        let kept = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(kept.hasPendingWork)
+        await kept.waitUntilParked()
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("old " + fixture.destination))
         try switchTo(fixture.origin, in: fixture)
         let retired = try XCTUnwrap(fixture.script.callbackQueue?.worker)
         fixture.apply(next)
-        let replacement = try XCTUnwrap(fixture.script.callbackQueue?.worker)
+        let replacement = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(replacement.hasPendingWork)
         await retired.value
-        await replacement.value
+        await replacement.waitUntilParked()
         assertConfigVMEntries(3, since: before)
         XCTAssertNil(fixture.script.diagnostic)
         XCTAssertNil(fixture.script.eventObservers)
         try switchTo(fixture.destination, in: fixture)
-        XCTAssertNil(fixture.script.callbackQueue?.worker)
+        XCTAssertEqual(fixture.script.callbackQueue?.isParked, true)
         fixture.apply(ConfigScriptLoad(versions: [:], result: .success(nil)))
         XCTAssertNil(fixture.script.callbackQueue)
     }
@@ -180,9 +186,10 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         fixture.apply(try await fixture.load(body))
         var errors: [String] = []
         fixture.script.onDiagnosticChanged = { if let diagnostic = $0 { errors.append(diagnostic) } }
-        fixture.controller.scriptModeObserver?.modeChanged(.prefix)
-        let worker = try XCTUnwrap(fixture.script.callbackQueue?.worker)
-        await worker.value
+        ConfigScriptEventObservers.modeChanged(.prefix, controller: fixture.controller)
+        let queue = try XCTUnwrap(fixture.script.callbackQueue)
+        XCTAssertTrue(queue.hasPendingWork)
+        await queue.waitUntilParked()
         XCTAssertTrue(errors.contains { $0.contains("staleWindowId") }, "\(errors)")
         XCTAssertTrue(errors.contains { $0.contains("drop staged switch") }, "\(errors)")
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)

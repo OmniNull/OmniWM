@@ -81,7 +81,12 @@ extension AXEventHandler {
         controller.requestWorkspaceBarRefresh()
         if let title = windowServerTitle ?? windowTitleProvider(windowId) {
             let changed = controller.workspaceManager.updateManagedReplacementTitle(title, for: token)
-            scriptWindowTitleObserver?.titleChanged(title, for: token, metadataChanged: changed)
+            func publish(_ observer: ConfigScriptEventObservers) {
+                observer.titleChanged(title, for: token, metadataChanged: changed, controller: controller)
+            }
+            if let client = ConfigScriptEventObservers.borrowRegistration(&scriptWindowTitleObserver, publish) {
+                publish(client)
+            }
         }
         let appInfo = controller.appInfoCache.hasCachedInfo(for: token.pid)
             ? controller.appInfoCache.info(for: token.pid) : nil

@@ -191,12 +191,12 @@ public enum IPCWindowOpaqueID {
     }
 
     public struct Encoder {
-        private let prefix: Data
+        private let prefix: [UInt8]
         private let state: Base64URLState
 
         public init(sessionToken: String) {
             var state = Base64URLState()
-            var prefix = Data(count: 3 + (sessionToken.utf8.count + 1) * 8 / 6)
+            var prefix = [UInt8](repeating: 0, count: 3 + (sessionToken.utf8.count + 1) * 8 / 6)
             prefix.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
                 buffer[0] = UInt8(ascii: "o")
                 buffer[1] = UInt8(ascii: "w")
@@ -210,20 +210,28 @@ public enum IPCWindowOpaqueID {
         }
 
         public func append(pid: Int32, windowId: Int, to data: inout Data) {
+            emit(pid: pid, windowId: windowId) { data.append(contentsOf: $0) }
+        }
+
+        public func append(pid: Int32, windowId: Int, to bytes: inout [UInt8]) {
+            emit(pid: pid, windowId: windowId) { bytes.append(contentsOf: $0) }
+        }
+
+        private func emit(pid: Int32, windowId: Int, _ write: (UnsafeRawBufferPointer) -> Void) {
             var decimal = InlineArray<32, UInt8>(repeating: 0)
             var start = decimal.count
             Self.prependDecimal(windowId, to: &decimal, at: &start)
             start -= 1
             decimal[start] = UInt8(ascii: ":")
             Self.prependDecimal(Int(pid), to: &decimal, at: &start)
-            data.append(prefix)
+            prefix.withUnsafeBytes { write($0) }
             var state = state
             var suffix = InlineArray<44, UInt8>(repeating: 0)
             withUnsafeMutableBytes(of: &suffix) { buffer in
                 var count = 0
                 for index in start ..< decimal.count { state.append(decimal[index], into: buffer, at: &count) }
                 state.finish(into: buffer, at: &count)
-                data.append(contentsOf: UnsafeRawBufferPointer(start: buffer.baseAddress, count: count))
+                write(UnsafeRawBufferPointer(start: buffer.baseAddress, count: count))
             }
         }
 

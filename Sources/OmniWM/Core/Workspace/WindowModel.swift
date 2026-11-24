@@ -276,18 +276,6 @@ final class WindowModel {
         readEntry(token) { $0.workspaceId }
     }
 
-    func entry(for token: WindowToken) -> WindowState? {
-        entries[token]
-    }
-
-    func entry(for handle: WindowHandle) -> WindowState? {
-        entry(for: handle.id)
-    }
-
-    func entry(forPid pid: pid_t, windowId: Int) -> WindowState? {
-        entry(for: WindowToken(pid: pid, windowId: windowId))
-    }
-
     func entries(forPid pid: pid_t) -> [WindowState] {
         guard let tokens = pidIndex.tokensByKey[pid] else { return [] }
         return tokens.compactMap { entries[$0] }
@@ -299,12 +287,6 @@ final class WindowModel {
 
     func entry(forWindowId windowId: Int) -> WindowState? {
         windowIdToToken[windowId].flatMap { entries[$0] }
-    }
-
-    func entry(forWindowId windowId: Int, inVisibleWorkspaces visibleIds: Set<WorkspaceDescriptor.ID>) -> WindowState? {
-        guard let entry = entry(forWindowId: windowId),
-              visibleIds.contains(entry.workspaceId) else { return nil }
-        return entry
     }
 
     func allEntries() -> [WindowState] {
@@ -320,6 +302,18 @@ final class WindowModel {
 }
 
 extension WindowModel {
+    func configWindow(for token: WindowToken, withoutMetadata: Bool = false) -> ConfigScriptWindowIdentity? {
+        guard let index = entries.index(forKey: token) else { return nil }
+        return Self.configIdentity(&entries.values[index], withoutMetadata: withoutMetadata)
+    }
+
+    private static func configIdentity(
+        _ row: inout WindowState, withoutMetadata: Bool
+    ) -> ConfigScriptWindowIdentity? {
+        guard !withoutMetadata || row.managedReplacementMetadata == nil else { return nil }
+        return ConfigScriptWindowIdentity(row)
+    }
+
     private func readEntry<Result>(_ token: WindowToken, _ read: (inout WindowState) -> Result) -> Result? {
         guard let index = entries.index(forKey: token) else { return nil }
         return read(&entries.values[index])

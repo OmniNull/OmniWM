@@ -35,6 +35,35 @@ final class ConfigScriptWindowStateTests: XCTestCase {
         XCTAssertEqual(source.reads, inputs.count + 1)
     }
 
+    func testTitleHistoryFollowsTheHandleThroughRekeyAndEndsOnDetach() throws {
+        let controller = InputControllerTestSupport.controller(for: self)
+        let manager = controller.workspaceManager
+        let workspace = try XCTUnwrap(controller.activeWorkspace())
+        let original = WindowToken(pid: getpid(), windowId: Int(getpid()))
+        let updated = WindowToken(pid: original.pid, windowId: original.windowId + 1)
+        _ = WindowAdmissionTestSupport.track(original, in: workspace.id, controller: controller)
+        let title = "one stable title"
+        var titles: [String] = []
+        func observe() -> ConfigScriptEventObservers {
+            ConfigScriptEventObservers(controller: controller, kinds: [.windowTitle]) { _, payload in
+                if case let .title(value) = payload.edge { titles.append(value) }
+            }
+        }
+        let observer = observe()
+        observer.titleChanged(title, for: original, metadataChanged: false, controller: controller)
+        XCTAssertNotNil(manager.rekeyWindow(
+            from: original, to: updated, newAXRef: WindowAdmissionTestSupport.axRef(for: updated)
+        ))
+        observer.titleChanged(title, for: updated, metadataChanged: false, controller: controller)
+        XCTAssertEqual(titles, [title])
+        observer.stop()
+        XCTAssertNil(observer.windowStates.titlesWithoutMetadata)
+        let successor = observe()
+        defer { successor.stop() }
+        successor.titleChanged(title, for: updated, metadataChanged: false, controller: controller)
+        XCTAssertEqual(titles, [title, title])
+    }
+
     func testFirstMinimizedAdmissionAndReadmittedWindowModeUseCommittedState() throws {
         let controller = InputControllerTestSupport.controller(for: self)
         let workspace = try XCTUnwrap(controller.activeWorkspace())

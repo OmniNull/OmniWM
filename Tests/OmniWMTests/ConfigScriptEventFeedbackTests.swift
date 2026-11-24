@@ -58,19 +58,22 @@ final class ConfigScriptEventFeedbackTests: XCTestCase {
             return request
         }
         let cause = ConfigScriptEventCause(function: 2, ancestors: [1])
-        let expected = cause.ancestors.union([cause.function])
+        let expected = ConfigScriptListenerMask(arrayLiteral: 1, cause.function)
         var feedback = ConfigScriptEventFeedback()
-        var observed: [Set<Int>] = []
+        var observed: [ConfigScriptListenerMask] = []
         let observers = ConfigScriptEventObservers(controller: controller, kinds: [.windowActive]) { kind, _ in
-            observed.append(feedback.exclusions(for: kind, controller: controller))
+            observed.append(feedback.exclusions(for: kind, controller: controller) ?? [])
         }
         defer { observers.stop() }
+        XCTAssertNil(feedback.currentExclusions)
         feedback.begin(cause, controller: controller)
+        XCTAssertEqual(feedback.currentExclusions, expected)
         XCTAssertEqual(feedback.exclusions(for: .workspaceActive, controller: controller), expected)
         let issued = request(second)
         feedback.end(controller: controller)
+        XCTAssertNil(feedback.currentExclusions)
         XCTAssertTrue(observed.isEmpty)
-        XCTAssertTrue(feedback.exclusions(for: .workspaceActive, controller: controller).isEmpty)
+        XCTAssertNil(feedback.exclusions(for: .workspaceActive, controller: controller))
         try confirm(issued, in: controller)
         XCTAssertEqual(observed, [expected])
         feedback.begin(cause, controller: controller)
@@ -94,15 +97,14 @@ final class ConfigScriptEventFeedbackTests: XCTestCase {
         let ancestor = #line
         let issuer = ConfigScriptEventCause(function: #line, ancestors: [ancestor])
         let concurrent = ConfigScriptEventCause(function: #line, ancestors: [])
-        let issued = issuer.ancestors.union([issuer.function])
+        let issued = ConfigScriptListenerMask(arrayLiteral: ancestor, issuer.function)
+        var combined = issued
+        combined.insert(concurrent.function)
         var feedback = ConfigScriptEventFeedback()
-        func id(_ token: WindowToken) -> String {
-            IPCWindowOpaqueID.encode(token: token, sessionToken: controller.automationSessionToken)
-        }
         feedback.begin(issuer, controller: controller)
         feedback.recordClose(handle, outcome: .windowActionFailed, controller: controller)
         feedback.end(controller: controller)
-        XCTAssertTrue(feedback.closeExclusions(id: id(original), controller: controller).isEmpty)
+        XCTAssertNil(feedback.closeExclusions(token: original))
         feedback.begin(issuer, controller: controller)
         feedback.recordClose(handle, outcome: .executed, controller: controller)
         feedback.end(controller: controller)
@@ -111,21 +113,28 @@ final class ConfigScriptEventFeedbackTests: XCTestCase {
             to: updated,
             newAXRef: WindowAdmissionTestSupport.axRef(for: updated)
         ))
-        XCTAssertTrue(feedback.closeExclusions(id: id(original), controller: controller).isEmpty)
-        XCTAssertTrue(feedback.closeExclusions(id: id(other), controller: controller).isEmpty)
-        var deliveries: [Set<Int>] = []
+        XCTAssertNil(feedback.closeExclusions(token: original))
+        XCTAssertNil(feedback.closeExclusions(token: other))
+        var deliveries: [ConfigScriptListenerMask] = []
         let observers = ConfigScriptEventObservers(controller: controller, kinds: [.windowClose]) { _, payload in
-            deliveries.append(feedback.closeExclusions(id: payload.id, controller: controller))
+            guard let id = payload.id, let decoded = IPCWindowOpaqueID.decode(
+                id,
+                expectingSessionToken: controller.automationSessionToken
+            ) else { return XCTFail("Expected the removed window ID") }
+            deliveries.append(feedback.closeExclusions(token: WindowToken(
+                pid: decoded.pid,
+                windowId: decoded.windowId
+            )) ?? [])
         }
         defer { observers.stop() }
         feedback.begin(concurrent, controller: controller)
         XCTAssertNotNil(manager.removeWindow(pid: updated.pid, windowId: updated.windowId))
         feedback.recordClose(handle, outcome: .executed, controller: controller)
         feedback.end(controller: controller)
-        XCTAssertEqual(deliveries, [issued.union([concurrent.function])])
-        XCTAssertTrue(feedback.closeExclusions(id: id(updated), controller: controller).isEmpty)
+        XCTAssertEqual(deliveries, [combined])
+        XCTAssertNil(feedback.closeExclusions(token: updated))
         XCTAssertNotNil(manager.removeWindow(pid: other.pid, windowId: other.windowId))
-        XCTAssertEqual(deliveries, [issued.union([concurrent.function]), []])
+        XCTAssertEqual(deliveries, [combined, []])
     }
 
     private func confirm(_ request: ManagedFocusRequest, in controller: WMController) throws {

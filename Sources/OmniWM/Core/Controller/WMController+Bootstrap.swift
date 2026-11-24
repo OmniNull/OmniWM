@@ -23,7 +23,7 @@ extension WMController {
         hotkeys.onCommand = { [weak self] invocation in
             guard let self else { return }
             if !eventIntake.enqueue(.hotkeyInvocation(invocation)) {
-                _ = commandHandler.handleHotkeyInvocation(invocation)
+                _ = CommandHandler.handleHotkeyInvocation(invocation, controller: self)
             }
         }
         hotkeys.onKeyboardModeChange = { [weak self] kind in

@@ -16,7 +16,7 @@ final class ConfigScriptSnapshotTests: XCTestCase {
         fixture.apply(try await fixture.load(script))
         let fn = try XCTUnwrap(fixture.script.acceptedCommands.first?.function)
         XCTAssertEqual(fixture.press(.configFunction(fn)), .executed)
-        await fixture.script.callbackQueue?.worker?.value
+        await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertNil(fixture.script.diagnostic)
     }
 
