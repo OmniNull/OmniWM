@@ -20,9 +20,9 @@ final class ConfigScriptNativeExtrasTests: XCTestCase {
         let program = "/usr/bin/true"
         let message = "Native notice"
         let declarations: [(String, HotkeyCommand)] = [
-            ("omniwm.open('\(bundle)')", .openApp(bundle)),
-            ("omniwm.run({'\(program)'})", .runProgram([program])),
-            ("omniwm.notify('\(message)')", .showNotice(message))
+            ("omniwm.act.open('\(bundle)')", .openApp(bundle)),
+            ("omniwm.act.run({'\(program)'})", .runProgram([program])),
+            ("omniwm.act.notify('\(message)')", .showNotice(message))
         ]
         let source = zip(["O", "R", "N"], declarations).map { key, declaration in
             "omniwm.keymap.set('Left Option+\(key)', \(declaration.0))"

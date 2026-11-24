@@ -253,7 +253,7 @@ int bindKey(lua_State *L) {
     const auto *action = static_cast<const uint32_t *>(lua_touserdatatagged(L, 2, actionTag));
     const bool function = lua_isfunction(L, 2) && vm.callbacks.bind_function;
     if (action == nullptr && !function) {
-        reject(L, vm, site, "expected a function or an action returned by omniwm.cmd");
+        reject(L, vm, site, "expected a function or an action from omniwm.cmd or omniwm.act");
     }
     const auto options = callbackOptions(L, vm, site, true, function);
     bool bound = function
@@ -353,11 +353,11 @@ int dispatchAction(lua_State *L) {
 
 size_t readArguments(lua_State *L, ConfigVM &vm, omni_config_location site, omni_config_span *words) {
     if (!lua_istable(L, 1)) {
-        reject(L, vm, site, "omniwm.run expects an array of strings");
+        reject(L, vm, site, "run expects an array of strings");
     }
     const int length = lua_objlen(L, 1);
     if (length < 1 || length > static_cast<int>(OMNI_CONFIG_ARGC_LIMIT)) {
-        reject(L, vm, site, "omniwm.run needs an executable and a bounded number of arguments");
+        reject(L, vm, site, "run needs an executable and a bounded number of arguments");
     }
     int count = 0;
     size_t bytes = 0;
@@ -365,12 +365,12 @@ size_t readArguments(lua_State *L, ConfigVM &vm, omni_config_location site, omni
     while (lua_next(L, 1)) {
         double key = lua_type(L, -2) == LUA_TNUMBER ? lua_tonumber(L, -2) : 0;
         if (!(key >= 1 && key <= length && key == static_cast<int>(key))) {
-            reject(L, vm, site, "omniwm.run expects consecutive array indices starting at one");
+            reject(L, vm, site, "run expects consecutive array indices starting at one");
         }
         auto value = token(L, vm, -1, site);
         if (value.length > OMNI_CONFIG_ARG_BYTE_LIMIT || value.length > OMNI_CONFIG_ARGV_BYTE_LIMIT - bytes ||
             std::memchr(value.data, 0, value.length)) {
-            reject(L, vm, site, "omniwm.run arguments exceed the byte limit or contain a NUL");
+            reject(L, vm, site, "run arguments exceed the byte limit or contain a NUL");
         }
         words[static_cast<int>(key) - 1] = value;
         bytes += value.length;
@@ -378,24 +378,32 @@ size_t readArguments(lua_State *L, ConfigVM &vm, omni_config_location site, omni
         lua_pop(L, 1);
     }
     if (count != length) {
-        reject(L, vm, site, "omniwm.run expects an array without holes");
+        reject(L, vm, site, "run expects an array without holes");
     }
     const std::string_view executable(words[0].data, words[0].length);
     if (executable.empty() || (executable.front() != '/' && executable.find('/') != executable.npos)) {
-        reject(L, vm, site, "omniwm.run needs an absolute executable path or a bare program name");
+        reject(L, vm, site, "run needs an absolute executable path or a bare program name");
     }
     return static_cast<size_t>(count);
 }
 
-template<omni_config_effect_kind kind>
+template<omni_config_effect_kind kind, bool build>
 int nativeEffect(lua_State *L) {
     ConfigVM &vm = declarations(L);
     auto site = declarationSite(L, vm);
+    if constexpr (!build) {
+        if (!vm.invoking) {
+            constexpr const char *guide = kind == OMNI_CONFIG_OPEN_APP ? "during config load, use omniwm.act.open to build an action" :
+                kind == OMNI_CONFIG_RUN_PROGRAM ? "during config load, use omniwm.act.run to build an action" :
+                "during config load, use omniwm.act.notify to build an action";
+            reject(L, vm, site, guide);
+        }
+    }
     if (!vm.callbacks.effect || lua_gettop(L) != 1) {
         reject(L, vm, site, "expected one argument to the action");
     }
-    if (vm.invoking ? vm.commands == OMNI_CONFIG_COMMAND_LIMIT : vm.actions == OMNI_CONFIG_DECLARATION_LIMIT) {
-        reject(L, vm, site, vm.invoking ? "callback command limit exceeded" : "config action limit exceeded");
+    if (build ? vm.actions == OMNI_CONFIG_DECLARATION_LIMIT : vm.commands == OMNI_CONFIG_COMMAND_LIMIT) {
+        reject(L, vm, site, build ? "config action limit exceeded" : "callback command limit exceeded");
     }
     std::array<omni_config_span, kind == OMNI_CONFIG_RUN_PROGRAM ? OMNI_CONFIG_ARGC_LIMIT : 1> words;
     size_t count = 1;
@@ -409,16 +417,17 @@ int nativeEffect(lua_State *L) {
         }
         words[0] = word;
     }
-    auto *action = vm.invoking ? nullptr : static_cast<uint32_t *>(lua_newuserdatatagged(L, sizeof(uint32_t), actionTag));
+    auto *action = build ? static_cast<uint32_t *>(lua_newuserdatatagged(L, sizeof(uint32_t), actionTag)) : nullptr;
     if (!vm.callbacks.effect(vm.context, kind, words.data(), count, site, action, vm.failure, sizeof vm.failure)) {
         reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid action");
     }
-    if (vm.invoking) {
+    if constexpr (build) {
+        vm.actions++;
+        return 1;
+    } else {
         vm.commands++;
         return 0;
     }
-    vm.actions++;
-    return 1;
 }
 
 int writeConfigLog(lua_State *L) {
@@ -451,6 +460,16 @@ int writeConfigLog(lua_State *L) {
     return 0;
 }
 
+template<bool build>
+void installEffectFunctions(lua_State *L) {
+    lua_pushcfunction(L, (nativeEffect<OMNI_CONFIG_OPEN_APP, build>), "open");
+    lua_setfield(L, -2, "open");
+    lua_pushcfunction(L, (nativeEffect<OMNI_CONFIG_RUN_PROGRAM, build>), "run");
+    lua_setfield(L, -2, "run");
+    lua_pushcfunction(L, (nativeEffect<OMNI_CONFIG_SHOW_NOTICE, build>), "notify");
+    lua_setfield(L, -2, "notify");
+}
+
 void installConfig(lua_State *L) {
     for (lua_CFunction open : {luaopen_base, luaopen_table, luaopen_string, luaopen_math, luaopen_bit32, luaopen_utf8, luaopen_os}) {
         lua_pushcfunction(L, open, nullptr);
@@ -462,7 +481,7 @@ void installConfig(lua_State *L) {
     }
     lua_pushcfunction(L, requireConfigModule, "require");
     lua_setglobal(L, "require");
-    lua_createtable(L, 0, 11);
+    lua_createtable(L, 0, 12);
     lua_pushcfunction(L, addTimer, "timer");
     lua_setfield(L, -2, "timer");
     lua_pushcfunction(L, command, "cmd");
@@ -471,12 +490,11 @@ void installConfig(lua_State *L) {
     lua_setfield(L, -2, "command");
     lua_pushcfunction(L, namedFunction<true>, "on");
     lua_setfield(L, -2, "on");
-    lua_pushcfunction(L, nativeEffect<OMNI_CONFIG_OPEN_APP>, "open");
-    lua_setfield(L, -2, "open");
-    lua_pushcfunction(L, nativeEffect<OMNI_CONFIG_RUN_PROGRAM>, "run");
-    lua_setfield(L, -2, "run");
-    lua_pushcfunction(L, nativeEffect<OMNI_CONFIG_SHOW_NOTICE>, "notify");
-    lua_setfield(L, -2, "notify");
+    installEffectFunctions<false>(L);
+    lua_createtable(L, 0, 3);
+    installEffectFunctions<true>(L);
+    lua_setreadonly(L, -1, true);
+    lua_setfield(L, -2, "act");
     lua_pushcfunction(L, addRule, "rule");
     lua_setfield(L, -2, "rule");
     lua_pushcfunction(L, dispatchAction, "dispatch");

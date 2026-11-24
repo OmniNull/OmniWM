@@ -21,27 +21,50 @@ struct ConfigScriptStage {
         let text: String
     }
 
+    private struct EffectText: Hashable {
+        let value: String
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.value.utf8.elementsEqual(rhs.value.utf8)
+        }
+
+        func hash(into hasher: inout Hasher) {
+            var text = value
+            text.withUTF8 { hasher.combine(bytes: UnsafeRawBufferPointer($0)) }
+        }
+    }
+
+    private enum ActionKey: Hashable {
+        case command(HotkeyCommand)
+        case effect(EffectText)
+    }
+
+    private enum Phase {
+        case declarations
+        case callbacks(sourceNames: [String])
+    }
+
     private var actions: [Action] = []
-    private var actionIDs: [HotkeyCommand: UInt32]?
+    private var actionIDs: [ActionKey: UInt32] = [:]
     private var actionBytes = 0
-    private var sourceNames: [String] = []
+    private var phase = Phase.declarations
     private(set) var functions: [Int: UInt32] = [:]
     var dispatched: [ConfigScriptDispatch] = []
 
     func forCallbacks() -> Self {
         var stage = Self(hyperMask: 0, fileURL: nil)
         stage.actions = actions
-        stage.actionIDs = [:]
-        for (index, action) in actions.enumerated() {
-            stage.actionIDs?[action.command] = UInt32(index)
-            stage.actionBytes += action.text.utf8.count
-        }
-        stage.sourceNames = (0 ... sources.moduleCount).map { sources.name(of: UInt32($0)) }
+        stage.actionIDs = actionIDs
+        stage.actionBytes = actionBytes
+        stage.phase = .callbacks(sourceNames: (0 ... sources.moduleCount).map { sources.name(of: UInt32($0)) })
         return stage
     }
 
     func name(of sourceID: UInt32) -> String {
-        sourceNames.isEmpty ? sources.name(of: sourceID) : sourceNames[Int(sourceID)]
+        switch phase {
+        case .declarations: sources.name(of: sourceID)
+        case let .callbacks(names): names[Int(sourceID)]
+        }
     }
 
     init(hyperMask: UInt32, fileURL: URL?) {
@@ -216,23 +239,26 @@ struct ConfigScriptStage {
                 message: "'\(words.joined(separator: " "))' is not a direct hotkey action."
             )
         }
-        if let existing = actionIDs?[command] { return existing }
+        let key = ActionKey.command(command)
+        if case .callbacks = phase, let existing = actionIDs[key] { return existing }
         let text = words.joined(separator: " ")
         let index = UInt32(actions.count)
-        if actionIDs != nil {
-            guard actions.count < Int(OMNI_CONFIG_DECLARATION_LIMIT),
-                  text.utf8.count <= ConfigScriptLoader.sourceLimit - actionBytes
-            else { throw ConfigScriptError(line: nil, message: "Config action storage limit exceeded.") }
-            actionIDs?[command] = index
-            actionBytes += text.utf8.count
-        }
+        try reserveAction(byteCount: text.utf8.count)
+        actionIDs[key] = index
         actions.append(Action(command: command, text: text))
         return index
     }
 
+    private mutating func reserveAction(byteCount: Int) throws(ConfigScriptError) {
+        guard actions.count < Int(OMNI_CONFIG_DECLARATION_LIMIT),
+              byteCount <= ConfigScriptLoader.sourceLimit - actionBytes
+        else { throw ConfigScriptError(line: nil, message: "Config action storage limit exceeded.") }
+        actionBytes += byteCount
+    }
+
     private func action(_ id: UInt32) throws(ConfigScriptError) -> Action {
         guard actions.indices.contains(Int(id)) else {
-            throw ConfigScriptError(line: nil, message: "Expected an action returned by omniwm.cmd.")
+            throw ConfigScriptError(line: nil, message: "Expected an action from omniwm.cmd or omniwm.act.")
         }
         return actions[Int(id)]
     }
@@ -321,10 +347,19 @@ extension ConfigScriptStage {
         _ kind: omni_config_effect_kind, words: UnsafeBufferPointer<omni_config_span>,
         location: omni_config_location, actionID: UnsafeMutablePointer<UInt32>?
     ) throws(ConfigScriptError) {
-        func stage(_ command: HotkeyCommand, text: @autoclosure () -> String) {
+        func stage(_ command: HotkeyCommand, text: @autoclosure () -> String) throws(ConfigScriptError) {
             if let actionID {
-                actionID.pointee = UInt32(actions.count)
-                actions.append(Action(command: command, text: text()))
+                let description = text()
+                let key = ActionKey.effect(EffectText(value: description))
+                if let existing = actionIDs[key] {
+                    actionID.pointee = existing
+                } else {
+                    try reserveAction(byteCount: description.utf8.count)
+                    let index = UInt32(actions.count)
+                    actions.append(Action(command: command, text: description))
+                    actionIDs[key] = index
+                    actionID.pointee = index
+                }
             } else {
                 dispatch(.native(command), at: location)
             }
@@ -340,15 +375,15 @@ extension ConfigScriptStage {
             guard ActionCatalog.isValidOpenAppBundleID(bundleID) else {
                 throw ConfigScriptError(line: nil, message: "Expected an app bundle ID without whitespace.")
             }
-            stage(.openApp(bundleID), text: "open \(bundleID.debugDescription)")
+            try stage(.openApp(bundleID), text: "open \(bundleID.debugDescription)")
         case OMNI_CONFIG_SHOW_NOTICE:
             let message = try Self.string(words[0])
-            stage(.showNotice(message), text: "notify \(message.debugDescription)")
+            try stage(.showNotice(message), text: "notify \(message.debugDescription)")
         case OMNI_CONFIG_RUN_PROGRAM:
             var argv: [String] = []
             argv.reserveCapacity(words.count)
             for word in words { argv.append(try Self.string(word)) }
-            stage(.runProgram(argv), text: "run [" + argv.map(\.debugDescription).joined(separator: ", ") + "]")
+            try stage(.runProgram(argv), text: "run [" + argv.map(\.debugDescription).joined(separator: ", ") + "]")
         default:
             throw ConfigScriptError(line: nil, message: "Unknown native action.")
         }

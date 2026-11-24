@@ -23,7 +23,7 @@ To enable editor completion and type checking, open the config folder in luau-ls
 
 ## Recipes
 
-Put either recipe in `init.luau`, next to `settings.luau`. Save the file to apply it.
+Put these recipes in `init.luau`, next to `settings.luau`. Save the file to apply it.
 
 **Grow the focused Niri column.** Control + Option + K adds 12 percentage points to the column’s share of the available space. Change `+12%` to choose the step for this key. The standard resize shortcuts use **Settings → Layouts → Niri → Resize Increment**.
 
@@ -37,6 +37,22 @@ wm.keymap.set("Control+Option+K", wm.cmd("set-container-primary-span", "+12%"))
 ```lua
 omniwm.rule { bundleId = "com.apple.TextEdit", layout = "float" }
 ```
+
+**Open TextEdit from a shortcut or the command palette.** Build its action once and use it in both places.
+
+```lua
+local wm = omniwm
+local textEdit = wm.act.open("com.apple.TextEdit")
+wm.keymap.set("Control+Option+Shift+J", textEdit)
+wm.command("Open TextEdit", function()
+    wm.dispatch(textEdit)
+    wm.notify("Opening TextEdit")
+end)
+```
+
+Use `wm.act.open(bundleId)`, `wm.act.run(argv)` or `wm.act.notify(text)` whenever you need an action to bind or save. A callback can build one too, then dispatch it later while the same config is loaded. Identical actions share storage. The config can store up to 4,096 actions and 1 MiB of action text. If a new action exceeds either limit, the script reports an error. Actions you already saved still work.
+
+Inside a callback, call `wm.open`, `wm.run` or `wm.notify` directly to queue an effect. Each returns nothing. OmniWM performs the queued effects in order when the callback succeeds and discards them if it fails.
 
 ## Opening the file
 
@@ -61,7 +77,8 @@ The Settings window is a managed floating window. It opens on the active workspa
 
 - Changing a literal in Settings edits that value in place and preserves surrounding code and comments. A **Code** mark beside a calculated value shows its source line. Click the mark to inspect the expression.
 - Editing a calculated value in Settings asks before replacing it. If a function calculates a whole group, the question shows which other values will become fixed. **Cancel** keeps the code. If the source changes while the question is open, the old approval expires.
-- An unknown field, invalid value or broken helper produces an error naming the file and line. On a bad save, OmniWM keeps its last working settings and blocks writes from the Settings window until you fix the file. An invalid file at startup leaves the defaults in effect. Interface language changes take effect at the next launch.
+- A typo such as `gaps.ouetr` or a retired shortcut ID makes OmniWM reject the entire file, including other edits in the same save. While running, it keeps the last working settings, shows the file and line in an error, and blocks saves from the Settings window until you fix the file. **If you start OmniWM with an invalid file, every setting from that file uses its default.** Invalid values and broken helpers follow the same rule.
+- Interface language changes take effect at the next launch.
 - A symlink to your dotfiles stays a symlink when Settings writes through it. If the target is read-only, edit its source instead.
 
 ## Runtime state lives elsewhere

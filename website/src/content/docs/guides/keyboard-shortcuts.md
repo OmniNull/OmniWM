@@ -25,6 +25,15 @@ Mode keys are a single key, optionally with `Shift`, set per action with [`modeK
 
 While a mode is on, a pill at the bottom of every display names it. In Prefix and Window mode, the display you were working on also lists the mode keys above the pill. The focused window's border turns amber for Pause and green for Prefix and Window mode, and the menu bar shows the mode's name. On the workspace bar, the OmniWM button gains a matching chip; custom Luau widgets can read `ctx.data.bar.style.keyboardMode`. The OmniWM menu then offers **Resume Shortcuts**, **Cancel Prefix** or **Leave Window Mode**. Settings > Keyboard Shortcuts > Keyboard Modes sets the Pause timeout. Once Begin Prefix or Enter or Leave Window Mode has a shortcut, every command there except the keyboard-mode actions gets a **Mode Key** button.
 
+To show a notice when the mode changes, add this to `init.luau`. OmniWM uses Hyprland’s event name, `keybinds.submap`, for its keyboard modes. The event’s `name` is `normal`, `paused`, `prefix` or `window`.
+
+```lua
+local wm = omniwm
+wm.on("keybinds.submap", function(e: ConfigSubmapEvent)
+    wm.notify("Keyboard mode: " .. e.name)
+end)
+```
+
 ## When a shortcut does not fire
 
 Confirm the binding and any registration warning in **Settings > Keyboard Shortcuts**, then check **Settings > Troubleshooting** for related diagnostics. If skhd, Raycast, or another shortcut utility is still running with the same binding, stop it or reassign the conflicting shortcut before editing `settings.luau`.

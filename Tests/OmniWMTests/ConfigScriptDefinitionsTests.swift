@@ -85,6 +85,25 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
     export type ConfigTimer = { read cancel: () -> () }
     """
 
+    private let hostDefinitions = """
+    export type ConfigActionBuilders = {
+        read open: (bundleId: string) -> ConfigAction,
+        read run: (argv: { string }) -> ConfigAction,
+        read notify: (text: string) -> ConfigAction,
+    }
+
+    declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & {
+        read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
+        read act: ConfigActionBuilders,
+        read open: (bundleId: string) -> (),
+        read run: (argv: { string }) -> (),
+        read notify: (text: string) -> (),
+        read keymap: ConfigKeymap,
+        read log: (...any) -> (),
+        read rule: (rule: ConfigRule) -> (),
+    }
+    """
+
     private func renderedDefinitions() throws -> String {
         let fields = ConfigScriptRuleField.allCases.map { field in
             let type = switch field.kind {
@@ -125,15 +144,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         export type ConfigTimers = { read timer: (options: ConfigTimerOptions, callback: () -> ()) -> ConfigTimer }
             & { read timer: (options: ConfigTimerOptions, callback: ConfigFunction, optionsForCallback: ConfigReadOptions) -> ConfigTimer }
 
-        declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & {
-            read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
-            read open: (bundleId: string) -> ConfigAction,
-            read run: (argv: { string }) -> ConfigAction,
-            read notify: (text: string) -> ConfigAction,
-            read keymap: ConfigKeymap,
-            read log: (...any) -> (),
-            read rule: (rule: ConfigRule) -> (),
-        }
+        \(hostDefinitions)
 
         """
     }
@@ -233,6 +244,19 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         XCTAssertTrue(span.contains(.names(["app"])))
     }
 
+    func testOnlyActionBuildersReturnDispatchableValues() throws {
+        let definitions = try renderedDefinitions()
+        let start = try XCTUnwrap(definitions.range(of: "export type ConfigActionBuilders = {"))
+        let host = try XCTUnwrap(definitions.range(of: "declare omniwm:"))
+        let builders = definitions[start.upperBound ..< host.lowerBound]
+        let effects = definitions[host.upperBound...]
+        XCTAssertTrue(effects.contains("read act: ConfigActionBuilders"))
+        for signature in ["open: (bundleId: string)", "run: (argv: { string })", "notify: (text: string)"] {
+            XCTAssertTrue(builders.contains("read \(signature) -> ConfigAction"))
+            XCTAssertTrue(effects.contains("read \(signature) -> ()"))
+        }
+    }
+
     func testSupportedOverloadsAndNativeRuleFields() throws {
         let definitions = try renderedDefinitions()
         XCTAssertTrue(definitions.contains(#"{ read cmd: (command: "focus", word2: "previous") -> ConfigAction }"#))
@@ -249,9 +273,6 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         ))
         XCTAssertTrue(definitions
             .contains("command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> ()"))
-        XCTAssertTrue(definitions.contains("open: (bundleId: string) -> ConfigAction"))
-        XCTAssertTrue(definitions.contains("run: (argv: { string }) -> ConfigAction"))
-        XCTAssertTrue(definitions.contains("notify: (text: string) -> ConfigAction"))
         XCTAssertTrue(definitions.contains("read dispatch: (action: ConfigAction) -> ()"))
         XCTAssertTrue(definitions.contains(#"read dispatch: (kind: "window", action: "focus", id: string) -> ()"#))
         XCTAssertTrue(definitions.contains("optionsForCallback: ConfigReadOptions) -> ConfigTimer"))

@@ -72,9 +72,9 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
         let bundle = "com.apple.TextEdit"
         let message = "Current workspace"
         let arguments = argv.map(\.debugDescription).joined(separator: ", ")
-        let effects = ["wm.open('\(bundle)')", "wm.run({\(arguments)})", "wm.notify('\(message)')"]
+        let effects = ["open('\(bundle)')", "run({\(arguments)})", "notify('\(message)')"]
         let chords = ["Control+Option+O", "Control+Option+R", "Control+Option+N"]
-        let bindings = zip(chords, effects).map { "wm.keymap.set('\($0)', \($1))" }
+        let bindings = zip(chords, effects).map { "wm.keymap.set('\($0)', wm.act.\($1))" }
         let prefix = ["local wm = omniwm"]
         let loaded = try await load(prefix + bindings)
         let expected: [HotkeyCommand] = [.openApp(bundle), .runProgram(argv), .showNotice(message)]
@@ -85,7 +85,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
         XCTAssertEqual(run.commandText, "run [\(arguments)]")
 
         let function = ["local wm = omniwm", "wm.command('Apply', function(ctx)"]
-        let callback = function + effects.map { "assert(\($0) == nil)" } + ["end)"]
+        let callback = function + effects.map { "assert(wm.\($0) == nil)" } + ["end)"]
         let active = try await load(callback)
         let generation = try XCTUnwrap(active.generation)
         let id = try XCTUnwrap(active.namedCommands.first?.function)
@@ -97,7 +97,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
     func testCallbackExtrasShareTheDispatchLimitAndDiscardOnFailure() async throws {
         let source = [
             "local wm = omniwm",
-            "local saved = wm.open('com.apple.TextEdit')",
+            "local saved = wm.act.open('com.apple.TextEdit')",
             "wm.command('Bounded', function(ctx)",
             "    if ctx.workspace then",
             "        for i = 1, \(OMNI_CONFIG_COMMAND_LIMIT) do wm.notify(ctx.workspace) end",

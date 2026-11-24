@@ -742,11 +742,18 @@ export type ConfigKeymap =
 export type ConfigTimers = { read timer: (options: ConfigTimerOptions, callback: () -> ()) -> ConfigTimer }
     & { read timer: (options: ConfigTimerOptions, callback: ConfigFunction, optionsForCallback: ConfigReadOptions) -> ConfigTimer }
 
-declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & {
-    read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
+export type ConfigActionBuilders = {
     read open: (bundleId: string) -> ConfigAction,
     read run: (argv: { string }) -> ConfigAction,
     read notify: (text: string) -> ConfigAction,
+}
+
+declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & {
+    read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
+    read act: ConfigActionBuilders,
+    read open: (bundleId: string) -> (),
+    read run: (argv: { string }) -> (),
+    read notify: (text: string) -> (),
     read keymap: ConfigKeymap,
     read log: (...any) -> (),
     read rule: (rule: ConfigRule) -> (),
