@@ -16,6 +16,7 @@ final class NativeFullscreenWorkspaceSwitchTests: XCTestCase {
         await WindowAdmissionTestSupport.drainLayoutRefreshes(fixture.controller)
 
         XCTAssertFalse(fixture.recorder.operations.contains("raise"))
+        XCTAssertFalse(fixture.recorder.operations.contains { $0.hasPrefix("focus:") })
     }
 
     func testSwitchFrontsNativeFullscreenWindowWhenEnabled() async throws {
