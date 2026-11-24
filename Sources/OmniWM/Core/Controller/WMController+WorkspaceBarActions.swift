@@ -5,6 +5,23 @@ import Foundation
 import OmniWMIPC
 
 extension WMController {
+    func renameActiveWorkspace() -> ExternalCommandResult {
+        guard let workspace = activeWorkspace() else { return .notFound }
+        if let monitorId = workspaceManager.monitorId(for: workspace.id),
+           workspaceBarManager.beginRename(workspaceId: workspace.id, monitorId: monitorId)
+        {
+            return .executed
+        }
+        let currentName = settings.workspaces.configurations.first { $0.name == workspace.name }?.displayName
+        guard let name = WorkspaceRenamePrompt.requestName(currentName: currentName, rawName: workspace.name) else {
+            return .noChange
+        }
+        return setWorkspaceDisplayName(
+            name.trimmingCharacters(in: .whitespacesAndNewlines),
+            forWorkspaceNamed: workspace.name
+        )
+    }
+
     func setWorkspaceDisplayName(
         _ displayName: String,
         forWorkspaceNamed rawWorkspaceID: String

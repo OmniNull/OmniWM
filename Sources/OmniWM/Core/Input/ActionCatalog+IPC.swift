@@ -21,7 +21,8 @@ extension ActionCatalog {
         case let .keyboardMode(command): .keyboardMode(command)
         case .shellToggle,
              .openApp,
-             .windowMark:
+             .windowMark,
+             .renameWorkspace:
             nil
         case .shellAppOpen: .shellAppOpen
         case .shellAppNewWindow: .shellAppNewWindow

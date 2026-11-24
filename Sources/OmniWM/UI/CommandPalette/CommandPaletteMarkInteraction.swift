@@ -4,7 +4,7 @@
 import AppKit
 
 @MainActor
-private enum CommandPaletteMarkModal {
+enum CommandPaletteMarkModal {
     static func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
         let frontmostApp = NSWorkspace.shared.frontmostApplication
         let wasActive = NSApp.isActive

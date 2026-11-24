@@ -102,6 +102,8 @@ final class CommandHandler {
             controller.openMenuAnywhere()
         case let .windowMark(action):
             return performWindowMarkAction(action, for: controller.workspaceManager.nativeManagedFocusToken)
+        case .renameWorkspace:
+            return controller.renameActiveWorkspace()
         case let .presentation(action): return perform(action, controller: controller)
         case let .media(action): perform(action, controller: controller)
         case let .keyboardMode(command):
