@@ -32,6 +32,9 @@ struct ShellLuauDocument {
     }
 
     @TaskLocal static var approved: ShellLuauConfirmation?
+    #if DEBUG
+        @TaskLocal static var onEvaluate: (@Sendable (URL) -> Void)?
+    #endif
     private let table: LuauTableDocument
     private let entry: URL?
     private let packageRoot: URL?
@@ -47,6 +50,9 @@ struct ShellLuauDocument {
 
     init(_ source: Data, at entry: URL? = nil, packageRoot: URL? = nil) throws {
         let root = try packageRoot.map(SettingsFileAccess.canonicalURL)
+        #if DEBUG
+            if let entry { Self.onEvaluate?(entry) }
+        #endif
         let input = LuauTableDocument.read(
             source,
             at: entry,

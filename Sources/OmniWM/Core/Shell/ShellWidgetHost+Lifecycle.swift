@@ -20,7 +20,9 @@ extension ShellWidgetHost {
         joinTraceCapture()
         installAuthoringFiles()
         configProblems = []
-        config = ShellConfig.resolve(shellDirectory: shellDirectory, problems: &configProblems)
+        failedConfigHelpers = []
+        var inputs = ShellConfig.SourceFiles(versions: [:])
+        config = ShellConfig.resolve(shellDirectory: shellDirectory, problems: &configProblems, inputs: &inputs)
         onConfigChange?(config)
         refreshPalettes()
         resources.shaders.onChange = { [weak self] in
@@ -44,7 +46,7 @@ extension ShellWidgetHost {
             self?.rescan()
         }
         observeSystem()
-        rescan()
+        rescan(reusing: inputs.versions)
     }
 
     private func observeSystem() {
@@ -181,7 +183,7 @@ extension ShellWidgetHost {
         }
     }
 
-    func rescan(reloadConfiguration: Bool = true) {
+    func rescan(reloadConfiguration: Bool = true, reusing inputs: SettingsFileVersions? = nil) {
         guard started else { return }
         let (found, directories) = discoverPackages()
         syncDiscoveredPackages(found)
@@ -209,7 +211,7 @@ extension ShellWidgetHost {
         }
         shadersChanged(includingAssets: false)
         refreshSlots()
-        if reloadConfiguration { reloadConfig() }
+        if reloadConfiguration, inputs?.isCurrent != true { reloadConfig() }
         refreshConfigurationCatalog()
         publishToggleNames()
     }

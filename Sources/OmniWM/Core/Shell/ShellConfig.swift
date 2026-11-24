@@ -74,10 +74,10 @@ struct ShellConfig: Equatable {
         }
     }
 
-    func file(_ path: String) -> URL? {
+    func file(_ path: String, exists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }) -> URL? {
         directories.lazy
             .map { $0.appendingPathComponent(path) }
-            .first { FileManager.default.fileExists(atPath: $0.path) }
+            .first(where: exists)
     }
 
     static func widgetFolders(in layer: URL) -> [URL] {
@@ -122,11 +122,8 @@ extension ShellConfig {
     }
 
     static func resolve(shellDirectory: URL, problems: inout [String]) -> ShellConfig {
-        if let config = load(shellDirectory: shellDirectory, problems: &problems) {
-            return config
-        }
-        problems = []
-        return load(shellDirectory, skippingBrokenLayers: true, problems: &problems) ?? ShellConfig()
+        var inputs = SourceFiles()
+        return resolve(shellDirectory: shellDirectory, problems: &problems, inputs: &inputs)
     }
 
     static func report(_ problem: String, _ problems: inout [String]) {
@@ -135,29 +132,20 @@ extension ShellConfig {
     }
 
     static func load(
-        _ shellDirectory: URL,
-        profile: String? = nil,
-        skippingBrokenLayers: Bool,
-        problems: inout [String],
-        onFailure: (Set<URL>) -> Void = { _ in }
+        _ shellDirectory: URL, profile: String? = nil, skippingBrokenLayers: Bool = false,
+        problems: inout [String], inputs: inout SourceFiles
     ) -> ShellConfig? {
         var config = ShellConfig()
-        guard var top = layer(in: shellDirectory, packageRoot: nil, files: &config.helperFiles, &problems) ??
+        guard var top = layer(in: shellDirectory, packageRoot: nil, files: &inputs, &problems) ??
             (skippingBrokenLayers ? [:] : nil)
-        else {
-            onFailure(config.helperFiles)
-            return nil
-        }
+        else { return nil }
         if let profile { top["profile"] = .string(profile) }
-        selectProfile(top, in: shellDirectory, for: &config, &problems)
+        selectProfile(top, in: shellDirectory, for: &config, inputs: &inputs, &problems)
         var table: [String: SettingsLuauValue] = [:]
         for directory in config.directories.reversed() where directory != shellDirectory {
-            guard let next = layer(in: directory, packageRoot: directory, files: &config.helperFiles, &problems) ??
+            guard let next = layer(in: directory, packageRoot: directory, files: &inputs, &problems) ??
                 (skippingBrokenLayers ? [:] : nil)
-            else {
-                onFailure(config.helperFiles)
-                return nil
-            }
+            else { return nil }
             table = merged(table, next)
         }
         if case let .string(name)? = table["theme"] {
@@ -169,13 +157,14 @@ extension ShellConfig {
         let own = ownLayer(top, profile: config.profile, &problems)
         config.barLayoutCustomized = ["leading", "center", "trailing", "priority"].contains { own[$0] != nil }
         table = merged(table, own)
-        applyProfile(table, own: own, to: &config, &problems)
+        applyProfile(table, own: own, to: &config, inputs: &inputs, &problems)
+        config.helperFiles = inputs.helpers
         return config
     }
 
     private static func applyProfile(
         _ table: [String: SettingsLuauValue], own: [String: SettingsLuauValue],
-        to config: inout ShellConfig, _ problems: inout [String]
+        to config: inout ShellConfig, inputs: inout SourceFiles, _ problems: inout [String]
     ) {
         unknownKeys(in: table, known: profileKeys, of: "shell.luau", &problems)
         config.themeName = config.styleThemeName
@@ -200,7 +189,7 @@ extension ShellConfig {
         applyServices(table, to: &config, &problems)
         config.barShader = ShellBarShader.parse(table["barShader"], problems: &problems)
         applyComponentTrust(own, to: &config)
-        applyBarSettings(table, to: &config, &problems)
+        applyBarSettings(table, to: &config, inputs: &inputs, &problems)
     }
 
     private static func applyComponentTrust(_ own: [String: SettingsLuauValue], to config: inout ShellConfig) {
@@ -221,10 +210,11 @@ extension ShellConfig {
     }
 
     private static func applyBarSettings(
-        _ table: [String: SettingsLuauValue], to config: inout ShellConfig, _ problems: inout [String]
+        _ table: [String: SettingsLuauValue], to config: inout ShellConfig,
+        inputs: inout SourceFiles, _ problems: inout [String]
     ) {
         var bar: [String: SettingsLuauValue] = [:]
-        if case let .record(themeBar)? = loadTheme(into: &config, &problems)?["workspaceBar"] {
+        if case let .record(themeBar)? = loadTheme(into: &config, inputs: &inputs, &problems)?["workspaceBar"] {
             bar = themeBar
         }
         if case let .record(profileBar)? = table["workspaceBar"] {
@@ -288,10 +278,15 @@ extension ShellConfig {
     private static func selectProfile(
         _ top: [String: SettingsLuauValue],
         in shellDirectory: URL,
-        for config: inout ShellConfig,
+        for config: inout ShellConfig, inputs: inout SourceFiles,
         _ problems: inout [String]
     ) {
         if case let .string(name)? = top["profile"] {
+            if inputs.versions != nil, isName(name) {
+                let folder = shellDirectory.appendingPathComponent(name)
+                inputs.observe(folder)
+                inputs.observe(folder.appendingPathComponent(ShellStyleManifest.fileName))
+            }
             if let problem = ShellProfiles.problem(selecting: name, in: shellDirectory) {
                 report("\(problem), using \(ShellDefaults.profile)", &problems)
             } else {
@@ -333,12 +328,13 @@ extension ShellConfig {
     }
 
     private static func loadTheme(
-        into config: inout ShellConfig,
+        into config: inout ShellConfig, inputs: inout SourceFiles,
         _ problems: inout [String]
     ) -> [String: SettingsLuauValue]? {
         guard config.themeName != "native" else { return nil }
         let path = "themes/\(config.themeName).luau"
-        let themeURL = isName(config.themeName) ? config.file(path) ?? ShellDefaults.bundledFile(path) : nil
+        let themeURL = isName(config.themeName) ? config.file(path) { inputs.exists($0) } ?? ShellDefaults
+            .bundledFile(path) : nil
         if themeURL == nil, config.themeName == ShellWallpaperPalette.themeName {
             return nil
         }
@@ -349,7 +345,7 @@ extension ShellConfig {
         }
         let owner = themeURL.deletingLastPathComponent().deletingLastPathComponent()
         let root = owner.standardizedFileURL.path == config.directories.first?.standardizedFileURL.path ? nil : owner
-        guard let theme = decode(themeURL, packageRoot: root, files: &config.helperFiles, &problems) else {
+        guard let theme = decode(themeURL, packageRoot: root, files: &inputs, &problems) else {
             config.themeName = "native"
             return nil
         }

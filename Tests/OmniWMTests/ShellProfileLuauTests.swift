@@ -3,6 +3,7 @@
 
 import Foundation
 @testable import OmniWM
+import Synchronization
 import XCTest
 
 @MainActor
@@ -104,6 +105,132 @@ final class ShellProfileLuauTests: XCTestCase {
         await fulfillment(of: [updated], timeout: failureBound)
         await coordinator.flush()
         XCTAssertEqual(coordinator.config.trailing, [next])
+    }
+
+    #if DEBUG
+        func testHostColdStartEvaluatesTheTopFileOnce() throws {
+            let directory = temporaryRoot()
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let host = makeHost(in: directory)
+            let top = host.shellDirectory.appendingPathComponent("shell.luau")
+            let profile = host.shellDirectory.appendingPathComponent(ShellDefaults.profile)
+            let theme = "dawn"
+            try write("return {}", at: profile.appendingPathComponent("themes/\(theme).luau"))
+            try write("return { theme = '\(theme)' }", at: profile.appendingPathComponent("shell.luau"))
+            try write("return { profile = '\(ShellDefaults.profile)' }", at: top)
+
+            let evaluations = Mutex([URL]())
+            let record: @Sendable (URL) -> Void = { entry in
+                if entry == top { evaluations.withLock { $0.append(entry) } }
+            }
+            ShellLuauDocument.$onEvaluate.withValue(record) { host.start() }
+            defer { host.stop() }
+            XCTAssertEqual(host.widgetReport.problems, [])
+            XCTAssertEqual(host.config.themeName, theme)
+            XCTAssertEqual(evaluations.withLock { $0 }, [top])
+        }
+    #endif
+
+    func testHostWatchesTheStartupHelperAndKeepsTheWorkingConfigOnInvalidEdit() async throws {
+        let directory = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let (host, helper) = try hostUsingPriorityHelper(in: directory)
+        let initial = "clock"
+        let edited = "volume"
+        try write("return { '\(initial)' }", at: helper)
+        host.start()
+        defer { host.stop() }
+        XCTAssertEqual(host.config.priority, [initial])
+
+        let reloaded = expectation(description: "The host adopted the edited helper")
+        host.onConfigChange = { if $0.priority == [edited] { reloaded.fulfill() } }
+        try write("return { '\(edited)' }", at: helper)
+        await fulfillment(of: [reloaded], timeout: failureBound)
+        XCTAssertEqual(host.config.priority, [edited])
+
+        let working = host.config
+        let rejected = expectation(description: "The host published the strict reload error")
+        host.onWidgetsChange = { [weak host] in
+            if host?.widgetReport.problems.contains(where: { $0.contains(helper.lastPathComponent) }) == true {
+                rejected.fulfill()
+            }
+        }
+        try write("return {", at: helper)
+        await fulfillment(of: [rejected], timeout: failureBound)
+        XCTAssertEqual(host.config, working)
+    }
+
+    func testHostPicksUpAHelperReplacedWhilePublishingTheInitialConfig() throws {
+        let directory = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let (host, helper) = try hostUsingPriorityHelper(in: directory)
+        let initial = "clock"
+        let edited = "volume"
+        try write("return { '\(initial)' }", at: helper)
+        host.onConfigChange = { config in
+            guard config.priority == [initial] else { return }
+            do { try self.write("return { '\(edited)' }", at: helper) }
+            catch { XCTFail(error.localizedDescription) }
+        }
+        host.start()
+        defer { host.stop() }
+        XCTAssertEqual(host.config.priority, [edited])
+    }
+
+    func testHostWatchesAMissingStartupHelperWhileUsingTheFallback() async throws {
+        let directory = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let (host, helper) = try hostUsingPriorityHelper(in: directory)
+        let fallback = "clock"
+        let recovered = "volume"
+        try FileManager.default.createDirectory(
+            at: helper.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try write(
+            "return { priority = { '\(fallback)' } }",
+            at: host.shellDirectory.appendingPathComponent("default/shell.luau")
+        )
+        host.start()
+        defer { host.stop() }
+        XCTAssertEqual(host.config.priority, [fallback])
+        XCTAssertTrue(host.widgetReport.problems.contains { $0.contains(helper.lastPathComponent) })
+        XCTAssertTrue(host.failedConfigHelpers.contains(helper))
+
+        let loaded = expectation(description: "Creating the missing helper recovered the configuration")
+        host.onConfigChange = { if $0.priority == [recovered] { loaded.fulfill() } }
+        try write("return { '\(recovered)' }", at: helper)
+        await fulfillment(of: [loaded], timeout: failureBound)
+        XCTAssertEqual(host.config.priority, [recovered])
+        XCTAssertEqual(host.widgetReport.problems, [])
+        XCTAssertTrue(host.failedConfigHelpers.isEmpty)
+    }
+
+    private func hostUsingPriorityHelper(in directory: URL) throws -> (ShellWidgetHost, URL) {
+        let host = makeHost(in: directory)
+        try write(
+            "return { profiles = { default = { priority = require('../dotfiles/priority') } } }",
+            at: host.shellDirectory.appendingPathComponent("shell.luau")
+        )
+        return (host, directory.appendingPathComponent("dotfiles/priority.luau"))
+    }
+
+    private func makeHost(in directory: URL) -> ShellWidgetHost {
+        ShellWidgetHost(
+            configDirectory: directory,
+            resources: ShellResources(motion: MotionPolicy(animationsEnabled: false)),
+            resourceStore: ShellResourceStore(directory: directory.appendingPathComponent("resources")),
+            world: { ShellWorldData() },
+            vars: { [:] },
+            bars: { [:] },
+            onLayoutChange: {},
+            onCommand: { _, _ in },
+            onMenu: { _ in },
+            onPreview: { _ in },
+            onDrag: { _ in },
+            onPopoutChange: {},
+            onTitleDemandChange: { _ in }
+        )
     }
 
     private func temporaryRoot() -> URL {

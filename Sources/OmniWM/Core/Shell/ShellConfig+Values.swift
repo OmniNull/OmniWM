@@ -4,33 +4,80 @@
 import Foundation
 
 extension ShellConfig {
+    struct SourceFiles {
+        private(set) var helpers: Set<URL> = []
+        var versions: SettingsFileVersions?
+
+        mutating func observe(_ url: URL) {
+            versions?[url] = ConfigScriptFileVersion(at: url)
+        }
+
+        mutating func exists(_ url: URL) -> Bool {
+            guard versions != nil else { return FileManager.default.fileExists(atPath: url.path) }
+            let version = ConfigScriptFileVersion(at: url)
+            versions?[url] = version
+            return version.targetFingerprint != nil
+        }
+
+        mutating func record(_ files: SettingsFileVersions, entry: URL) {
+            helpers.formUnion(files.keys.filter { $0 != entry })
+            versions?.merge(files) { original, _ in original }
+        }
+    }
+
+    static func resolve(shellDirectory: URL, problems: inout [String], inputs: inout SourceFiles) -> ShellConfig {
+        if let config = load(shellDirectory, problems: &problems, inputs: &inputs) { return config }
+        inputs.versions = nil
+        problems = []
+        return load(shellDirectory, skippingBrokenLayers: true, problems: &problems) ?? ShellConfig()
+    }
+
+    static func load(
+        _ shellDirectory: URL,
+        profile: String? = nil,
+        skippingBrokenLayers: Bool,
+        problems: inout [String],
+        onFailure: (Set<URL>) -> Void = { _ in }
+    ) -> ShellConfig? {
+        var inputs = SourceFiles()
+        let config = load(
+            shellDirectory,
+            profile: profile,
+            skippingBrokenLayers: skippingBrokenLayers,
+            problems: &problems,
+            inputs: &inputs
+        )
+        if config == nil { onFailure(inputs.helpers) }
+        return config
+    }
+
     static func layer(
         in directory: URL,
         packageRoot: URL?,
-        files: inout Set<URL>,
+        files: inout SourceFiles,
         _ problems: inout [String]
     ) -> [String: SettingsLuauValue]? {
         let url = directory.appendingPathComponent("shell.luau")
-        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
+        guard files.exists(url) else { return [:] }
         return decode(url, packageRoot: packageRoot, files: &files, &problems)
     }
 
     static func decode(
         _ url: URL,
         packageRoot: URL?,
-        files: inout Set<URL>,
+        files: inout SourceFiles,
         _ problems: inout [String]
     ) -> [String: SettingsLuauValue]? {
         do {
             let document = try ShellLuauDocument.load(at: url, packageRoot: packageRoot)
-            files.formUnion(document.files.keys.filter { $0 != url })
+            files.record(document.files, entry: url)
             guard case let .record(values) = document.value else {
                 throw SettingsLuauError(message: "Return a table with named fields.")
             }
             return values
         } catch {
             if let failure = error as? ShellLuauDocument.LoadFailure {
-                files.formUnion(failure.files.keys.filter { $0 != url })
+                files.record(failure.files, entry: url)
             }
             let name = "\(url.deletingLastPathComponent().lastPathComponent)/\(url.lastPathComponent)"
             report("\(name): \(error.localizedDescription)", &problems)
