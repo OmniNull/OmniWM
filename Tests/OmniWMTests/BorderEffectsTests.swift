@@ -8,8 +8,14 @@ import XCTest
 final class BorderEffectsTests: XCTestCase {
     private let target = CGRect(x: 16, y: 16, width: 100, height: 80)
 
-    private func makePanel() throws -> BorderLayerPanel {
-        guard let panel = BorderLayerPanel(frame: CGRect(x: 0, y: 0, width: 164, height: 144)) else {
+    private func makePanel(nativeRim: Bool = true) throws -> BorderLayerPanel {
+        guard let panel = BorderLayerPanel(
+            frame: CGRect(x: 0, y: 0, width: 164, height: 144), prefersNativeRim: nativeRim
+        ) else {
+            throw MissingTestPrerequisite("Border layer panel is unavailable in this environment")
+        }
+        guard panel.usesNativeRim == nativeRim else {
+            panel.close()
             throw MissingTestPrerequisite("Native rim bridge is unavailable in this environment")
         }
         return panel
@@ -67,6 +73,28 @@ final class BorderEffectsTests: XCTestCase {
         XCTAssertEqual(panel.borderLayer.rimOpacity, 1)
         XCTAssertTrue(panel.gradientStrokeLayer.isHidden)
         XCTAssertTrue(panel.glowColorLayer.isHidden)
+    }
+
+    func testSolidDrawsTheGradientRingShapeWithoutTheNativeRim() throws {
+        let panel = try makePanel(nativeRim: false)
+        defer { panel.close() }
+        let geometry = geometry(width: 4, padding: 0)
+        let base = BorderLayerPanel.cgColor(config(gradient: false, glowOpacity: 0).color)
+        let outerCorner = CGPoint(x: 0.1, y: 0.1)
+        let center = CGPoint(x: geometry.targetFrame.midX, y: geometry.targetFrame.midY)
+
+        updateEffects(panel, geometry: geometry, gradient: false, glowOpacity: 0)
+        XCTAssertNil(panel.borderLayer.superlayer)
+        XCTAssertFalse(panel.gradientStrokeLayer.isHidden)
+        XCTAssertEqual(panel.gradientStrokeLayer.colors as? [CGColor], [base, base])
+        let solidPath = try XCTUnwrap(panel.gradientRingMaskLayer.path)
+        XCTAssertFalse(solidPath.contains(outerCorner, using: .evenOdd))
+        XCTAssertTrue(solidPath.contains(CGPoint(x: geometry.targetFrame.midX, y: 2), using: .evenOdd))
+        XCTAssertFalse(solidPath.contains(center, using: .evenOdd))
+
+        updateEffects(panel, geometry: geometry, gradient: true, glowOpacity: 0)
+        XCTAssertEqual(panel.gradientRingMaskLayer.path, solidPath)
+        XCTAssertNotEqual(panel.gradientStrokeLayer.colors as? [CGColor], [base, base])
     }
 
     func testGlowInstallsBandMask() throws {

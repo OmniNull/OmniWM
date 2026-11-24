@@ -7,7 +7,11 @@ import QuartzCore
 
 @MainActor
 class BorderLayerPanel: NSPanel {
+    static let nativeRimFollowsWindowCorners =
+        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27
+
     let borderLayer = CALayer()
+    let usesNativeRim: Bool
     private(set) var placedFrame: CGRect?
     private var placementIsMoving = false
     private var layerContext: NSObject?
@@ -30,8 +34,8 @@ class BorderLayerPanel: NSPanel {
         effects.gradientRingMaskLayer
     }
 
-    init?(frame: CGRect) {
-        guard omniwm_layer_border_available() else { return nil }
+    init?(frame: CGRect, prefersNativeRim: Bool = BorderLayerPanel.nativeRimFollowsWindowCorners) {
+        usesNativeRim = prefersNativeRim && omniwm_layer_border_available()
         omniwm_window_manager_begin_coordinator_capture()
         super.init(
             contentRect: frame.integral,
@@ -52,15 +56,17 @@ class BorderLayerPanel: NSPanel {
         isRestorable = false
 
         omniwm_window_manager_end_coordinator_capture()
-        borderLayer.cornerCurve = .continuous
-        borderLayer.rimOpacity = 1
         borderLayer.actions = [
             "rimWidth": NSNull(), "rimColor": NSNull(), "rimOpacity": NSNull(), "cornerRadii": NSNull(),
             "bounds": NSNull(), "position": NSNull(), "contentsScale": NSNull()
         ]
         containerLayer.actions = ["hidden": NSNull()]
         containerLayer.addSublayer(effects.root)
-        containerLayer.addSublayer(borderLayer)
+        if usesNativeRim {
+            borderLayer.cornerCurve = .continuous
+            borderLayer.rimOpacity = 1
+            containerLayer.addSublayer(borderLayer)
+        }
         guard let layerContext = SkyLight.shared.attachLayerContext(
             rootLayer: containerLayer, toWindow: UInt32(windowNumber)
         ) else {
@@ -179,6 +185,10 @@ class BorderLayerPanel: NSPanel {
         color: CGColor,
         scale: CGFloat
     ) {
+        guard usesNativeRim else {
+            if containerLayer.contentsScale != scale { containerLayer.contentsScale = scale }
+            return
+        }
         let radii = cornerRadii.normalized(to: geometry.targetFrame.size)
         let nativeRadii = CACornerRadii(
             topLeft: CGSize(width: radii.topLeft, height: radii.topLeft),
@@ -219,9 +229,12 @@ extension BorderLayerPanel {
             config: config,
             baseColor: baseColor,
             scale: scale,
-            cornerContour: cornerContour
+            cornerContour: cornerContour,
+            drawsSolidStroke: !usesNativeRim
         )
-        borderLayer.rimOpacity = config.gradient?.enabled == true || cornerContour != nil ? 0 : 1
+        if usesNativeRim {
+            borderLayer.rimOpacity = config.gradient?.enabled == true || cornerContour != nil ? 0 : 1
+        }
         CATransaction.commit()
     }
 

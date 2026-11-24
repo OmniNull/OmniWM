@@ -51,13 +51,15 @@ extension BorderEffectLayers {
         config: BorderConfig,
         baseColor: CGColor,
         scale: CGFloat,
-        cornerContour: WindowCornerContour? = nil
+        cornerContour: WindowCornerContour? = nil,
+        drawsSolidStroke: Bool = false
     ) {
         let gradient = config.gradient.flatMap { $0.enabled ? $0 : nil }
         let surfaceBounds = CGRect(origin: .zero, size: geometry.surfaceFrame.size)
-        updateGradient(
+        updateStroke(
             gradient, geometry: geometry, cornerRadii: cornerRadii,
-            cornerContour: cornerContour, baseColor: baseColor
+            cornerContour: cornerContour, baseColor: baseColor,
+            drawsSolidStroke: drawsSolidStroke
         )
         glowColorLayer.frame = surfaceBounds
         glowMaskLayer.frame = surfaceBounds
@@ -90,14 +92,15 @@ extension BorderEffectLayers {
         gradientRingMaskLayer.contentsScale = scale
     }
 
-    private func updateGradient(
+    private func updateStroke(
         _ gradient: BorderGradient?,
         geometry: BorderConfig.ResolvedGeometry,
         cornerRadii: WindowCornerRadii,
         cornerContour: WindowCornerContour?,
-        baseColor: CGColor
+        baseColor: CGColor,
+        drawsSolidStroke: Bool
     ) {
-        guard gradient != nil || cornerContour != nil else {
+        guard gradient != nil || cornerContour != nil || drawsSolidStroke else {
             gradientStrokeLayer.isHidden = true
             return
         }
