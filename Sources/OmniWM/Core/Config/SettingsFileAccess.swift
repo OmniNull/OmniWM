@@ -217,11 +217,13 @@ struct SettingsFileEdit {
     let patch: SettingsLuauEdit
     var modules: SettingsFileVersions = [:]
 
+    static let formulaRequiresConfirmation = SettingsLuauError(
+        message: "Changing a formula requires confirmation in Settings. Edit the file directly or choose the value in the Settings window."
+    )
+
     func verify(at fileURL: URL, originalSource: Data?, approved: Bool) throws {
         if patch.question != nil, !approved {
-            throw SettingsLuauError(
-                message: "Changing a formula requires confirmation in Settings. Edit the file directly or choose the value in the Settings window."
-            )
+            throw Self.formulaRequiresConfirmation
         }
         guard modules.isCurrent else { throw SettingsLuauError.changedHelper }
         if let revision = previous {

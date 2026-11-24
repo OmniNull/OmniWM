@@ -68,6 +68,14 @@ final class SettingsFilePersistence {
         writeBlockNotice != nil
     }
 
+    func permitsWorkspaceLayoutEdit(for id: UUID) -> Bool {
+        guard document?.hasFormulas == true, confirmation.canPresent?() != true,
+              !fieldSources.sites(for: [.workspaces], member: .row(id.uuidString), leaves: ["layoutType"]).isEmpty
+        else { return true }
+        rejectEdit(SettingsFileEdit.formulaRequiresConfirmation, restore: false)
+        return false
+    }
+
     func retainFailedIPCState() {
         guard let document, !document.hasLiteral(at: ["general", "ipcEnabled"]) else { return }
         appliedExport?.ipcEnabled = false

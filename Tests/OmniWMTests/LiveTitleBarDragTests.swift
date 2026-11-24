@@ -1772,7 +1772,10 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
             var taken = asked
             taken.size.height += 2 * AXRecentFrameWriteFailure.maxAcceptedSizeSnap
             if switchesToDwindle {
-                XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+                XCTAssertEqual(
+                    fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"),
+                    .executed
+                )
                 XCTAssertEqual(try column(holding: token, in: fixture).windowNodes.count, 2)
             }
 

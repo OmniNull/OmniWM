@@ -300,7 +300,10 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         XCTAssertNotEqual(stacked, original)
         fixture.controller.enableDwindleLayout()
 
-        XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+        XCTAssertEqual(
+            fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"),
+            .executed
+        )
         fixture.controller.workspaceManager.withBatchedLayoutBuild {
             fixture.controller.dwindleLayoutHandler.layoutWithDwindleEngine(activeWorkspaces: [fixture.workspaceId])
         }
@@ -308,7 +311,7 @@ final class NiriLayoutHistoryControllerTests: XCTestCase {
         XCTAssertEqual(order(fixture, in: fixture.workspaceId), stacked)
         XCTAssertFalse(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: fixture.workspaceId))
 
-        XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "1"))
+        XCTAssertEqual(fixture.controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "1"), .executed)
 
         XCTAssertEqual(order(fixture, in: fixture.workspaceId), stacked)
         XCTAssertTrue(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: fixture.workspaceId))

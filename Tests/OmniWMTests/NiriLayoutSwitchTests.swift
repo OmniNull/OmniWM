@@ -30,7 +30,7 @@ final class NiriLayoutSwitchTests: XCTestCase {
         }
         XCTAssertEqual(engine.columns(in: workspaceId).count, 2)
 
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+        XCTAssertEqual(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"), .executed)
         controller.workspaceManager.withBatchedLayoutBuild {
             controller.dwindleLayoutHandler.layoutWithDwindleEngine(activeWorkspaces: [workspaceId])
         }

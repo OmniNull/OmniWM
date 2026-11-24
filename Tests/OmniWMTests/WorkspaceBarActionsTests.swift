@@ -444,7 +444,10 @@ final class WorkspaceBarActionsTests: XCTestCase {
         controller.settings.workspaces.defaultLayoutType = .dwindle
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .dwindle)
         let mainWorkspaceName = try XCTUnwrap(manager.descriptor(for: fixture.ws2)).name
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: mainWorkspaceName))
+        XCTAssertEqual(
+            controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: mainWorkspaceName),
+            .executed
+        )
         XCTAssertTrue(manager.setActiveWorkspace(fixture.ws2, on: fixture.mainMonitor.id))
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .niri)
 
@@ -452,7 +455,10 @@ final class WorkspaceBarActionsTests: XCTestCase {
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.monitorId, fixture.sideMonitor.id)
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .dwindle)
         let sideWorkspaceName = try XCTUnwrap(manager.descriptor(for: fixture.ws3)).name
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: sideWorkspaceName))
+        XCTAssertEqual(
+            controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: sideWorkspaceName),
+            .executed
+        )
         XCTAssertEqual(controller.activeStatusBarWorkspaceSummary()?.layout, .niri)
     }
 
@@ -483,9 +489,9 @@ final class WorkspaceBarActionsTests: XCTestCase {
         let button = try XCTUnwrap(statusBar.statusButton)
         XCTAssertEqual(button.accessibilityValue() as? String, LayoutType.niri.localizedDisplayName)
 
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle))
+        XCTAssertEqual(controller.commandHandler.setWorkspaceLayout(.dwindle), .executed)
         XCTAssertEqual(button.accessibilityValue() as? String, LayoutType.dwindle.localizedDisplayName)
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.defaultLayout))
+        XCTAssertEqual(controller.commandHandler.setWorkspaceLayout(.defaultLayout), .executed)
         XCTAssertEqual(button.accessibilityValue() as? String, LayoutType.niri.localizedDisplayName)
 
         controller.settings.workspaces.defaultLayoutType = .dwindle
@@ -536,7 +542,7 @@ final class WorkspaceBarActionsTests: XCTestCase {
         XCTAssertEqual(layouts(), [.niri, .niri])
 
         XCTAssertNil(reconciler.pendingReconcileScope)
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle))
+        XCTAssertEqual(controller.commandHandler.setWorkspaceLayout(.dwindle), .executed)
         await WindowAdmissionTestSupport.drainLayoutRefreshes(controller)
         reconcileIfPending()
         XCTAssertEqual(layouts(), [.dwindle, .niri])

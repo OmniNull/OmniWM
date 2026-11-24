@@ -295,6 +295,10 @@ final class SettingsStore {
         persistence.settingsWritesBlocked
     }
 
+    func permitsWorkspaceLayoutEdit(for id: UUID) -> Bool {
+        persistence.permitsWorkspaceLayoutEdit(for: id)
+    }
+
     func recordFailedIPCStart() {
         persistence.retainFailedIPCState()
         ipcEnabled = false

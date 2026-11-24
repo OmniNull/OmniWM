@@ -212,7 +212,7 @@ extension CrossDisplayDragTests {
         focusDwindleHistoryToken(tokens[0], fixture)
         stepDwindleHistoryCommand(.dwindle(.resizeAlongAxis(.horizontal, true)), fixture)
         let grownRatio = 1 + fixture.dwindle.settings.resizeStep
-        XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "1"))
+        XCTAssertEqual(fixture.controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "1"), .executed)
         fixture.manager.withBatchedLayoutBuild {
             fixture.controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [fixture.source])
         }
@@ -227,13 +227,16 @@ extension CrossDisplayDragTests {
         fixture.manager.withNiriViewportState(for: fixture.source) { $0.selectedNodeId = first.id }
         stepDwindleHistoryCommand(.sizing(.setContainerPrimarySpan(.setFixed(requested))), fixture)
         XCTAssertNotNil(fixture.niri.peekLayoutHistory(.undo, in: fixture.source))
-        XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+        XCTAssertEqual(
+            fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"),
+            .executed
+        )
         fixture.layout()
         XCTAssertEqual(fixture.dwindle.root(for: fixture.source)?.splitRatio, grownRatio)
         XCTAssertFalse(fixture.controller.niriLayoutHandler.stepLayoutHistory(.undo, in: fixture.source))
         stepDwindleHistoryCommand(.sizing(.undo), fixture)
         XCTAssertEqual(fixture.dwindle.root(for: fixture.source)?.splitRatio, 1)
-        XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "1"))
+        XCTAssertEqual(fixture.controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "1"), .executed)
         stepDwindleHistoryCommand(.sizing(.undo), fixture)
         XCTAssertEqual(column.width, originalWidth)
         XCTAssertEqual(fixture.dwindle.layoutHistoryCounts(in: fixture.source).redo, 1)

@@ -321,9 +321,9 @@ extension CommandHandler {
         return controller.settings.workspaces.layoutType(for: ws.name)
     }
 
-    func toggleWorkspaceLayout() {
-        guard let controller else { return }
-        guard let workspace = controller.activeWorkspace() else { return }
+    func toggleWorkspaceLayout() -> ExternalCommandResult {
+        guard let controller else { return .noChange }
+        guard let workspace = controller.activeWorkspace() else { return .noChange }
         let workspaceName = workspace.name
 
         let currentLayout = controller.settings.workspaces.layoutType(for: workspaceName)
@@ -334,22 +334,28 @@ extension CommandHandler {
         case .dwindle: .niri
         }
 
-        _ = setWorkspaceLayout(newLayout, forWorkspaceNamed: workspaceName)
+        return setWorkspaceLayout(newLayout, forWorkspaceNamed: workspaceName)
     }
 
     @discardableResult
-    func setWorkspaceLayout(_ newLayout: LayoutType, forWorkspaceNamed workspaceName: String? = nil) -> Bool {
-        guard let controller else { return false }
+    func setWorkspaceLayout(
+        _ newLayout: LayoutType,
+        forWorkspaceNamed workspaceName: String? = nil
+    ) -> ExternalCommandResult {
+        guard let controller else { return .noChange }
         let resolvedWorkspaceName = workspaceName ?? controller.activeWorkspace()?.name
-        guard let resolvedWorkspaceName else { return false }
+        guard let resolvedWorkspaceName else { return .noChange }
 
         var configs = controller.settings.workspaces.configurations
-        guard let index = configs.firstIndex(where: { $0.name == resolvedWorkspaceName }) else { return false }
+        guard let index = configs.firstIndex(where: { $0.name == resolvedWorkspaceName }) else { return .noChange }
 
-        guard configs[index].layoutType != newLayout else { return false }
+        guard configs[index].layoutType != newLayout else { return .noChange }
 
+        guard controller.settings.permitsWorkspaceLayoutEdit(for: configs[index].id)
+        else { return .workspaceStateConflict }
         configs[index] = configs[index].with(layoutType: newLayout)
         controller.settings.workspaces.configurations = configs
+        guard controller.settings.workspaces.configurations == configs else { return .noChange }
         controller.refreshStatusBar()
         controller.layoutRefreshController.requestRelayout(reason: .workspaceLayoutToggled)
         if let ipcApplicationBridge = controller.ipcApplicationBridge {
@@ -357,7 +363,7 @@ extension CommandHandler {
                 await ipcApplicationBridge.publishEvent(.layoutChanged)
             }
         }
-        return true
+        return .executed
     }
 }
 

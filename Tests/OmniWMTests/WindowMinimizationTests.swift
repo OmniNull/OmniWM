@@ -568,7 +568,7 @@ final class WindowMinimizationTests: XCTestCase {
         )
         relayout(controller, workspaceId)
 
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+        XCTAssertEqual(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"), .executed)
         XCTAssertEqual(controller.niriLayoutHandler.laidOutExclusions[workspaceId]?.contains(minimized), true)
         columns[2].animateMoveFrom(
             displacement: CGPoint(x: columns[2].cachedWidth, y: 0),
@@ -846,7 +846,7 @@ final class WindowMinimizationTests: XCTestCase {
         _ = controller.workspaceManager.focusWorkspace(named: "1")
         controller.niriLayoutHandler.enableNiriLayout()
         controller.enableDwindleLayout()
-        XCTAssertTrue(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"))
+        XCTAssertEqual(controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "1"), .executed)
         let engine = try XCTUnwrap(controller.niriEngine)
         let token = WindowToken(pid: 688_012, windowId: 688_912)
         _ = WindowAdmissionTestSupport.track(token, in: workspaceId, controller: controller)

@@ -91,9 +91,9 @@ extension CommandHandler {
         case let .swapWithMonitor(direction):
             return navigation.swapCurrentWorkspaceWithMonitor(direction: direction)
         case .toggleLayout:
-            toggleWorkspaceLayout()
+            return toggleWorkspaceLayout()
         case let .setLayout(layout):
-            return setWorkspaceLayout(layout) ? .executed : .noChange
+            return setWorkspaceLayout(layout)
         }
         return .executed
     }
