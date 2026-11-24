@@ -431,6 +431,55 @@ final class MenuExtractorTests: XCTestCase {
         XCTAssertTrue(items[1].submenu?.axRootElement.map { CFEqual($0, recentRoot) } == true)
     }
 
+    func testAppleRootRestoresOptionAlternatesForPowerActions() throws {
+        let menuBar = AXUIElementCreateApplication(91_640)
+        let apple = AXUIElementCreateApplication(91_641)
+        let appleRoot = AXUIElementCreateApplication(91_642)
+        let entries: [(title: String, key: String?, modifiers: Int?)] = [
+            ("Restart…", nil, nil),
+            ("Restart", nil, 10),
+            ("Shut Down…", "", 0),
+            ("Shut Down", "", 2),
+            ("Lock Screen", "Q", 4),
+            ("Log Out Example…", "Q", 1),
+            ("Log Out Example", "Q", 3),
+            ("Unrelated Command", "A", 0),
+            ("Unrelated Option Shortcut", "B", 2)
+        ]
+        let elements = entries.indices.map { AXUIElementCreateApplication(pid_t(91_643 + $0)) }
+        let attributes: [(AXUIElement, [String: Any])] = zip(elements, entries).map { element, entry in
+            var values: [String: Any] = [
+                "AXTitle": entry.title, "AXRole": "AXMenuItem", "AXEnabled": true
+            ]
+            if let key = entry.key { values["AXMenuItemCmdChar"] = key }
+            if let modifiers = entry.modifiers { values["AXMenuItemCmdModifiers"] = modifiers }
+            return (element, values)
+        }
+        let extractor = contentExtractor(
+            children: [(menuBar, [apple]), (appleRoot, elements)],
+            attributes: [(apple, menuAttributes(title: "Apple", root: appleRoot))] + attributes
+        )
+        let target = MenuExtractorTarget()
+        let action = #selector(MenuExtractorTarget.activate(_:))
+
+        let items = try extractor.buildMenu(from: menuBar, content: .apple, target: target, action: action)
+
+        XCTAssertEqual(items.map(\.title), entries.map { $0.title })
+        XCTAssertEqual(items.map(\.isAlternate), [false, true, false, true, false, false, true, false, false])
+        XCTAssertEqual(items[0].keyEquivalentModifierMask, [])
+        XCTAssertEqual(items[1].keyEquivalentModifierMask, [.option])
+        XCTAssertEqual(items[2].keyEquivalentModifierMask, [])
+        XCTAssertEqual(items[3].keyEquivalentModifierMask, [.option])
+        XCTAssertEqual(items[5].keyEquivalentModifierMask, [.shift, .command])
+        XCTAssertEqual(items[6].keyEquivalentModifierMask, [.shift, .option, .command])
+        for (item, element) in zip(items, elements) {
+            let representedElement = try XCTUnwrap(item.representedObject) as CFTypeRef
+            XCTAssertTrue(CFEqual(representedElement, element))
+            XCTAssertTrue(item.target === target)
+            XCTAssertEqual(item.action, action)
+        }
+    }
+
     func testAppleSelectionDistinguishesEmptyContentsFromMissingAppleRoot() throws {
         let menuBar = AXUIElementCreateApplication(91_620)
         let apple = AXUIElementCreateApplication(91_621)

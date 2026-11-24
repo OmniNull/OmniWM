@@ -54,7 +54,8 @@ final class MenuExtractor {
                 from: snapshots,
                 target: target,
                 action: action,
-                isSubmenu: content == .apple
+                isSubmenu: content == .apple,
+                restoresOptionAlternates: content == .apple
             )
         }
     }
@@ -198,7 +199,8 @@ final class MenuExtractor {
         from snapshots: [MenuItemSnapshot],
         target: AnyObject?,
         action: Selector?,
-        isSubmenu: Bool
+        isSubmenu: Bool,
+        restoresOptionAlternates: Bool = false
     ) -> [NSMenuItem] {
         var items: [NSMenuItem] = []
         items.reserveCapacity(snapshots.count)
@@ -207,41 +209,41 @@ final class MenuExtractor {
         var isFirst = true
         var needsSeparator = false
 
-        for snapshot in snapshots {
+        for (index, snapshot) in snapshots.enumerated() {
             autoreleasepool {
                 let itemData = snapshot.attributes
                 let isApple = MenuAXReader.isAppleMenuItem(itemData)
-                if let item = buildSingleMenuItem(
-                    from: snapshot,
-                    target: target,
-                    action: action
-                ) {
-                    if item.isSeparatorItem {
-                        needsSeparator = true
-                        return
-                    }
+                let item = buildSingleMenuItem(from: snapshot, target: target, action: action)
+                if item.isSeparatorItem {
+                    needsSeparator = true
+                    return
+                }
 
-                    if !isSubmenu, isFirst || isApple {
-                        item.attributedTitle = NSAttributedString(
-                            string: item.title,
-                            attributes: [.font: boldFont]
-                        )
-                        if !isApple {
-                            isFirst = false
-                        }
-                    }
-
-                    if needsSeparator, !items.isEmpty {
-                        items.append(.separator())
-                        needsSeparator = false
-                    }
-
-                    if isApple {
-                        appleItem = item
-                    } else {
-                        items.append(item)
+                if !isSubmenu, isFirst || isApple {
+                    item.attributedTitle = NSAttributedString(
+                        string: item.title,
+                        attributes: [.font: boldFont]
+                    )
+                    if !isApple {
+                        isFirst = false
                     }
                 }
+
+                if needsSeparator, !items.isEmpty {
+                    items.append(.separator())
+                    needsSeparator = false
+                }
+
+                if isApple {
+                    appleItem = item
+                    return
+                }
+                if restoresOptionAlternates, index > 0, let primary = items.last {
+                    Self.restoreOptionAlternate(
+                        item, from: snapshot, after: primary, primarySnapshot: snapshots[index - 1]
+                    )
+                }
+                items.append(item)
             }
         }
 
@@ -255,11 +257,42 @@ final class MenuExtractor {
         return items
     }
 
+    private static func restoreOptionAlternate(
+        _ item: NSMenuItem,
+        from snapshot: MenuItemSnapshot,
+        after primary: NSMenuItem,
+        primarySnapshot: MenuItemSnapshot
+    ) {
+        let modifierKey = kAXMenuItemCmdModifiersAttribute as String
+        let option = Int(AXMenuItemModifiers.option.rawValue)
+        let noCommand = Int(AXMenuItemModifiers.noCommand.rawValue)
+        let hasKeyEquivalent = !primary.keyEquivalent.isEmpty
+        let comparedBits = hasKeyEquivalent ? ~0 : ~noCommand
+        let primaryModifiers = primarySnapshot.attributes[modifierKey] as? Int ?? 0
+
+        guard !primary.isSeparatorItem, primary.submenu == nil, item.submenu == nil,
+              primary.keyEquivalent == item.keyEquivalent,
+              primaryModifiers & option == 0,
+              let modifiers = snapshot.attributes[modifierKey] as? Int,
+              (modifiers & comparedBits) == ((primaryModifiers | option) & comparedBits)
+        else { return }
+
+        var modifierMask = NSEvent.ModifierFlags.fromAXModifiers(primaryModifiers)
+        if hasKeyEquivalent, primaryModifiers & noCommand == 0 {
+            modifierMask.insert(.command)
+        } else {
+            modifierMask.remove(.command)
+        }
+        primary.keyEquivalentModifierMask = modifierMask
+        item.keyEquivalentModifierMask = modifierMask.union(.option)
+        item.isAlternate = true
+    }
+
     private func buildSingleMenuItem(
         from snapshot: MenuItemSnapshot,
         target: AnyObject?,
         action: Selector?
-    ) -> NSMenuItem? {
+    ) -> NSMenuItem {
         let itemData = snapshot.attributes
         let title = itemData["AXTitle"] as? String ?? ""
         let role = itemData["AXRole"] as? String ?? ""
