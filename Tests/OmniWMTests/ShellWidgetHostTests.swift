@@ -2512,17 +2512,15 @@ final class ShellWidgetClickTests: XCTestCase {
             let directory = harness.root.appendingPathComponent("shell", isDirectory: true)
             let accent = ShellRole.accent.rawValue
             let original = harness.resources.palette.shaderColors[accent]
+            let accentColorKey = ["profiles", "default", "workspaceBar", "accentColor"]
             XCTAssertTrue(try ShellProfiles.setValue(
                 SettingsColor(red: 0, green: 1, blue: 0, alpha: 1),
-                at: ["profiles", "default", "workspaceBar", "accentColor"], in: directory
+                at: accentColorKey, in: directory
             ))
             harness.host.reloadConfig()
             XCTAssertGreaterThan(harness.resources.palette.shaderColors[accent].y, 0.9)
             XCTAssertLessThan(harness.resources.palette.shaderColors[accent].x, 0.2)
-            XCTAssertTrue(try ShellProfiles.reset(
-                ["profiles", "default", "workspaceBar", "accentColor"],
-                in: directory
-            ))
+            XCTAssertTrue(try ShellProfiles.setNodes([(accentColorKey, nil)], in: directory))
             harness.host.reloadConfig()
             XCTAssertEqual(harness.resources.palette.shaderColors[accent], original)
         }

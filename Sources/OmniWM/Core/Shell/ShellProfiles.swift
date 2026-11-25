@@ -113,16 +113,8 @@ enum ShellProfiles {
         return try ShellLuauDocument.load(at: url).value
     }
 
-    static func setValue<Value: Encodable>(_ value: Value?, at key: [String], in shellDirectory: URL) throws -> Bool {
-        try setNodes([(key, value.map { try .encoding($0) })], in: shellDirectory)
-    }
-
     static func setNodes(_ entries: [([String], SettingsLuauValue?)], in shellDirectory: URL) throws -> Bool {
         try ShellLuauDocument.write(entries, in: shellDirectory)
-    }
-
-    static func reset(_ key: [String], in shellDirectory: URL) throws -> Bool {
-        try setNodes([(key, nil)], in: shellDirectory)
     }
 
     static func eject(_ item: String, config: ShellConfig, shellDirectory: URL) throws -> URL? {

@@ -175,6 +175,12 @@ extension AsyncStream<Void>.Iterator {
     }
 }
 
+extension ShellProfiles {
+    static func setValue<Value: Encodable>(_ value: Value?, at key: [String], in shellDirectory: URL) throws -> Bool {
+        try setNodes([(key, value.map { try .encoding($0) })], in: shellDirectory)
+    }
+}
+
 extension ShellRequest {
     init?(_ text: String) {
         self.init(words: text.split(whereSeparator: \.isWhitespace).map(String.init))
