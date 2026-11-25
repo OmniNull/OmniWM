@@ -48,6 +48,7 @@ final class ShellDevices {
         self.nightShift = nightShift
         self.spectrum = spectrum
         betterDisplay.onBrightnessSupportLoss = brightness.refresh
+        betterDisplay.onNightShiftSupportLoss = nightShift.refresh
     }
 
     func perform(_ command: ShellWiFiCommand) {
@@ -70,10 +71,21 @@ extension ShellDataFeed {
         listen(devices.user, !paused && demands(.user), into: \.user)
         listen(devices.thermal, !paused && demands(.thermal), into: \.thermal)
         listen(devices.appearance, !paused && demands(.appearance), into: \.appearance)
-        listen(devices.brightness, !paused && demands(.brightness), into: \.brightness)
-        listen(devices.betterDisplay, !paused && demands(.betterDisplay), into: \.betterDisplay)
-        listen(devices.nightShift, !paused && demands(.nightShift), into: \.nightShift)
+        listenToDisplays(devices)
         listen(devices.spectrum, !paused && (demands(.spectrum) || demands(.tempo)), into: \.spectrum)
+    }
+
+    private func listenToDisplays(_ devices: ShellDevices) {
+        let brightness = !paused && demands(.brightness)
+        let nightShift = !paused && demands(.nightShift)
+        // Starting BetterDisplay can refresh both natives synchronously. Bind their values together afterward.
+        devices.brightness.onChange = nil
+        devices.nightShift.onChange = nil
+        devices.brightness.setListening(brightness)
+        devices.nightShift.setListening(nightShift)
+        listen(devices.betterDisplay, !paused && demands(.betterDisplay), into: \.betterDisplay)
+        bind(devices.brightness, brightness, into: \.brightness)
+        bind(devices.nightShift, nightShift, into: \.nightShift)
     }
 
     func stopDevices(_ devices: ShellDevices) {
@@ -98,6 +110,14 @@ extension ShellDataFeed {
         into path: WritableKeyPath<ShellWidgetData, Source.Value?>
     ) {
         source.setListening(listening)
+        bind(source, listening, into: path)
+    }
+
+    private func bind<Source: ShellDeviceSource>(
+        _ source: Source,
+        _ listening: Bool,
+        into path: WritableKeyPath<ShellWidgetData, Source.Value?>
+    ) {
         guard listening else {
             source.onChange = nil
             data[keyPath: path] = nil

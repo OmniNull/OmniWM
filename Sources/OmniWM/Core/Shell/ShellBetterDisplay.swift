@@ -51,6 +51,7 @@ final class ShellBetterDisplayMonitor: ShellDeviceSource {
     private(set) var value: ShellBetterDisplay?
     var onChange: ((ShellBetterDisplay?) -> Void)?
     var onBrightnessSupportLoss: (() -> Void)?
+    var onNightShiftSupportLoss: (() -> Void)?
     private let client: ShellBetterDisplayClient
     private let monitors: () -> [Monitor]
     private let center: NotificationCenter
@@ -58,8 +59,9 @@ final class ShellBetterDisplayMonitor: ShellDeviceSource {
     private var stopObserving: (() -> Void)?
     private var screenObserver: NSObjectProtocol?
     private var pid: pid_t?
-    // Retain previous ownership across subscriptions so the first fallback reads current native levels.
+    // Retain previous ownership across subscriptions so the first fallback reads current native values.
     private var managedBrightnessIDs: Set<String> = []
+    private var managedNightShift = false
     private(set) var sample: Task<Void, Never>?
     private var commands: Task<Void, Never>?
     private var pending: [(pid: pid_t, command: ShellBetterDisplayCommand)] = []
@@ -170,9 +172,12 @@ final class ShellBetterDisplayMonitor: ShellDeviceSource {
         guard value != next else { return }
         let available = Set(next.displays.filter(\.available).map(\.id))
         let lostBrightnessSupport = !managedBrightnessIDs.isSubset(of: available)
+        let lostNightShiftSupport = managedNightShift && !next.nightShift.available
         managedBrightnessIDs = available
+        managedNightShift = next.nightShift.available
         value = next
         if lostBrightnessSupport { onBrightnessSupportLoss?() }
+        if lostNightShiftSupport { onNightShiftSupportLoss?() }
         onChange?(next)
     }
 

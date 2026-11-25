@@ -10,7 +10,7 @@ import XCTest
 @MainActor
 final class ShellBetterDisplayTests: XCTestCase {
     @MainActor
-    private final class Fixture {
+    final class Fixture {
         let id = UUID()
         let other = UUID()
         let virtual = UUID()
@@ -26,7 +26,10 @@ final class ShellBetterDisplayTests: XCTestCase {
         var applyBrightnessWrites = false
         var deliveries: [ShellWidgetData] = []
         lazy var updates = boundedChanges()
-        var nightShift: Bool? = false
+        var nightShift = false
+        var supportsNightShift = true
+        var nativeNightShiftReads = 0
+        var nativeNightShiftWrites: [Bool] = []
         var holdRead: XCTestExpectation?
         var resumeRead: CheckedContinuation<[UUID: ShellBetterDisplayClient.Level], Never>?
         var actions: [ShellBetterDisplayCommand] = []
@@ -38,7 +41,7 @@ final class ShellBetterDisplayTests: XCTestCase {
                     return self.pid
                 },
                 brightness: { await self.read($0) },
-                nightShift: { await self.nightShift },
+                nightShift: { await self.readNightShift() },
                 setBrightness: { await self.record(.brightness(id: $1, percent: $2 * 100), pid: $0) },
                 setNightShift: { await self.record(.nightShift($1 ? .on : .off), pid: $0) },
                 openMenu: { await self.record(.menu, pid: $0) }
@@ -57,7 +60,9 @@ final class ShellBetterDisplayTests: XCTestCase {
             )
         }
 
-        func startDisplayFeed() -> ShellDataFeed {
+        func startDisplayFeed(
+            demand: UInt64 = ShellDataKey.brightness.bit | ShellDataKey.betterDisplay.bit
+        ) -> ShellDataFeed {
             let native = ShellDisplayBrightness(access: ShellBrightnessAccess(
                 display: { 1 },
                 read: { number in
@@ -70,12 +75,23 @@ final class ShellBetterDisplayTests: XCTestCase {
                 },
                 monitors: { [self] in [display(id, number: 1), display(other, number: 2)] }
             ), notificationCenter: NotificationCenter())
-            let feed = ShellDataFeed(devices: ShellDevices(brightness: native, betterDisplay: monitor())) { data in
+            let tint = ShellNightShiftMonitor(access: ShellNightShiftAccess(
+                read: {
+                    self.nativeNightShiftReads += 1
+                    return self.nightShift
+                },
+                setEnabled: { enabled in
+                    self.nativeNightShiftWrites.append(enabled)
+                    self.nightShift = enabled
+                    return true
+                }
+            ))
+            let devices = ShellDevices(brightness: native, betterDisplay: monitor(), nightShift: tint)
+            let feed = ShellDataFeed(devices: devices) { data in
                 self.deliveries.append(data)
                 self.updates.changed.yield()
             }
             feed.start()
-            let demand = ShellDataKey.brightness.bit | ShellDataKey.betterDisplay.bit
             feed.setDemand(demand, cadence: .of([(demand, nil)]))
             return feed
         }
@@ -105,11 +121,18 @@ final class ShellBetterDisplayTests: XCTestCase {
             }
         }
 
+        private func readNightShift() -> Bool? {
+            supportsNightShift ? nightShift : nil
+        }
+
         private func record(_ action: ShellBetterDisplayCommand, pid: pid_t) -> Bool {
             targets.append(pid)
             actions.append(action)
             if applyBrightnessWrites, case let .brightness(target, percent) = action, target == id {
                 level = percent / 100
+            }
+            if case let .nightShift(command) = action {
+                nightShift = command == .on
             }
             return true
         }
@@ -284,14 +307,14 @@ final class ShellBetterDisplayTests: XCTestCase {
 }
 
 extension ShellBetterDisplayTests {
-    private func displaysWidget() throws -> ShellRenderedWidget {
+    func displaysWidget() throws -> ShellRenderedWidget {
         let widget = try ShellRenderedWidget("control-center")
         widget.set("settings") { ShellServiceValue.object(["tab": .text("displays")]).write(to: &$0) }
         widget.render(ShellBarData())
         return widget
     }
 
-    private func sliders(_ widget: ShellRenderedWidget, for snapshot: ShellWidgetData) throws -> [TreeNode] {
+    func sliders(_ widget: ShellRenderedWidget, for snapshot: ShellWidgetData) throws -> [TreeNode] {
         let native = try XCTUnwrap(snapshot.brightness)
         let managed = try XCTUnwrap(snapshot.betterDisplay)
         widget.set("brightness") { native.write(into: &$0) }
