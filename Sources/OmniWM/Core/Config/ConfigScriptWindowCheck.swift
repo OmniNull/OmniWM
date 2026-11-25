@@ -39,36 +39,39 @@ enum ConfigScriptWindowCheck: Equatable, Sendable {
         var targetOf: ConfigScriptWorkspaceID?
         var nativeFullscreen = false
         for field in fields {
-            let name = bytes(field.name)
-            if matches(name, "targetOf") {
-                guard field.kind == OMNI_CONFIG_STRING else { throw wrongType(name) }
-                guard let id = ConfigScriptWorkspaceID(text: bytes(field.string_value)) else {
+            if field.named("targetOf") {
+                guard field.kind == OMNI_CONFIG_STRING else { throw wrongType(field) }
+                let text = UnsafeRawBufferPointer(start: field.string_value.data, count: field.string_value.length)
+                guard let id = ConfigScriptWorkspaceID(text: text) else {
                     throw failure("targetOf must be a workspace ID, such as a workspace row's or event's id.")
                 }
                 targetOf = id
-            } else if matches(name, "nativeFullscreen") {
-                guard field.kind == OMNI_CONFIG_BOOLEAN else { throw wrongType(name) }
+            } else if field.named("nativeFullscreen") {
+                guard field.kind == OMNI_CONFIG_BOOLEAN else { throw wrongType(field) }
                 nativeFullscreen = field.bool_value
             } else {
-                throw failure("Unknown focus field '\(String(decoding: name, as: UTF8.self))'.")
+                throw failure("Unknown focus field '\(field.nameText)'.")
             }
         }
         return .focus(targetOf: targetOf, nativeFullscreen: nativeFullscreen)
     }
 
-    private static func matches(_ name: UnsafeRawBufferPointer, _ field: StaticString) -> Bool {
-        name.elementsEqual(UnsafeRawBufferPointer(start: field.utf8Start, count: field.utf8CodeUnitCount))
-    }
-
-    private static func bytes(_ span: omni_config_span) -> UnsafeRawBufferPointer {
-        UnsafeRawBufferPointer(start: span.data, count: span.length)
-    }
-
-    private static func wrongType(_ name: UnsafeRawBufferPointer) -> ConfigScriptError {
-        failure("Focus field '\(String(decoding: name, as: UTF8.self))' has the wrong type.")
+    private static func wrongType(_ field: omni_config_field) -> ConfigScriptError {
+        failure("Focus field '\(field.nameText)' has the wrong type.")
     }
 
     private static func failure(_ message: String) -> ConfigScriptError {
         ConfigScriptError(line: nil, message: message)
+    }
+}
+
+extension omni_config_field {
+    func named(_ expected: StaticString) -> Bool {
+        let actual = UnsafeRawBufferPointer(start: name.data, count: name.length)
+        return expected.withUTF8Buffer { actual.elementsEqual(UnsafeRawBufferPointer($0)) }
+    }
+
+    var nameText: String {
+        String(decoding: UnsafeRawBufferPointer(start: name.data, count: name.length), as: UTF8.self)
     }
 }

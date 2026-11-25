@@ -336,6 +336,15 @@ typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t l
 #define OMNI_CONFIG_READ_MONITORS 8u
 #define OMNI_CONFIG_READ_PLACEMENT 16u
 #define OMNI_CONFIG_READ_FOCUS_TARGET 32u
+#define OMNI_CONFIG_READ_LISTS 63u
+#define OMNI_CONFIG_READ_FRAME_SHIFT 6u
+#define OMNI_CONFIG_READ_WORKSPACE_WINDOW_FRAMES 64u
+#define OMNI_CONFIG_READ_WINDOW_FRAMES 128u
+#define OMNI_CONFIG_READ_MONITOR_FRAMES 512u
+
+#define OMNI_CONFIG_SECTION_TRUNCATED 1u
+#define OMNI_CONFIG_SECTION_FRAMES 2u
+#define OMNI_CONFIG_FRAME_PRESENT 1u
 
 #define OMNI_CONFIG_WINDOW_FLOATING 1u
 #define OMNI_CONFIG_WINDOW_FULLSCREEN 2u
@@ -353,7 +362,7 @@ typedef struct omni_config_timer {
     uint32_t callback_id;
     bool repeats;
     double seconds;
-    uint8_t reads;
+    uint16_t reads;
 } omni_config_timer;
 
 typedef struct omni_config_rect {
@@ -433,11 +442,11 @@ typedef struct omni_config_callbacks {
     omni_read_module read_module;
     bool (*rule)(void *context, const omni_config_field *fields, size_t count,
         omni_config_location location, char *error, size_t capacity);
-    bool (*bind_function)(void *context, omni_config_span chord, uint32_t callback_id, omni_config_span mode_key, uint8_t reads,
+    bool (*bind_function)(void *context, omni_config_span chord, uint32_t callback_id, omni_config_span mode_key, uint16_t reads,
         omni_config_location location, char *error, size_t capacity);
     bool (*dispatch)(void *context, uint32_t action_id, omni_config_location location, char *error, size_t capacity);
     void (*log)(void *context, omni_config_span message, omni_config_location location);
-    bool (*named_function)(void *context, bool is_event, omni_config_span name, uint32_t callback_id, uint8_t reads,
+    bool (*named_function)(void *context, bool is_event, omni_config_span name, uint32_t callback_id, uint16_t reads,
         omni_config_location location, char *error, size_t capacity);
     bool (*effect)(void *context, omni_config_effect_kind kind, const omni_config_span *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);

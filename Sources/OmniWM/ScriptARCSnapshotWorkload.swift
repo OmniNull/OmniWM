@@ -55,6 +55,44 @@ extension ScriptARCFixture {
         }
     }
 
+    func seedSnapshotFrames(_ count: Int) {
+        let manager = controller.workspaceManager
+        let frame = CGRect(origin: .zero, size: manager.monitors[0].visibleFrame.size)
+        for index in 0 ..< count {
+            let row = WindowToken(pid: token.pid, windowId: token.windowId + index)
+            if manager.windowMode(for: row) == .floating {
+                manager.updateFloatingGeometry(frame: frame, for: row)
+            } else {
+                controller.axManager.confirmFrameWrite(for: row.windowId, frame: frame)
+            }
+        }
+    }
+
+    func measureFrameDecode(rows: Int) async throws {
+        let evaluation = try await loader.evaluate(Data("""
+        omniwm.on("workspace.active", function(e) assert(#e.windows == \(rows)) end, { reads = { "windows" } })
+        omniwm.on("workspace.active", function(e) assert(#e.windows == \(rows)) end, { reads = { "windows", "frames" } })
+        """.utf8), hyperMask: 0)
+        guard let generation = evaluation.generation, let queue = script.callbackQueue,
+              let plain = queue.capture(reads: .windows, controller: controller).snapshot,
+              let framed = queue.capture(reads: [.windows, .windowFrames], controller: controller).snapshot
+        else { throw ScriptARCError("Missing decode fixture") }
+        let payload = ConfigScriptEventPayload(name: "decode")
+        for (name, listener, snapshot) in [("off", 0, plain), ("skipped", 0, framed), ("on", 1, framed)] {
+            let function = evaluation.events[listener].function
+            _ = try await generation.invoke(function: function, event: payload, snapshot: snapshot)
+            var samples: [Double] = []
+            samples.reserveCapacity(Self.decodeSamples)
+            for _ in 0 ..< Self.decodeSamples {
+                let start = ContinuousClock.now
+                _ = try await generation.invoke(function: function, event: payload, snapshot: snapshot)
+                samples.append((ContinuousClock.now - start) / .nanoseconds(1))
+            }
+            samples.sort()
+            print("decode/windows-\(rows) frames=\(name) median-ns=\(Int(samples[samples.count / 2]))")
+        }
+    }
+
     func populateSnapshotLayout(_ layout: LayoutType) {
         let manager = controller.workspaceManager
         let workspace = controller.activeWorkspace()!
@@ -134,8 +172,14 @@ package func runScriptARCSnapshotLifetime(directory: URL) async throws {
 }
 
 @MainActor
-func measureSnapshotRows(in directory: URL) async throws {
-    for count in [ScriptARCFixture.workspaceRows, ScriptARCFixture.totalRows] {
+func measureSnapshotRows(
+    in directory: URL, counts: [Int] = [ScriptARCFixture.workspaceRows, ScriptARCFixture.totalRows],
+    decode: Bool = false
+) async throws {
+    let framed: ConfigScriptReads = [
+        .workspaceWindows, .windows, .monitors, .workspaceWindowFrames, .windowFrames, .monitorFrames
+    ]
+    for count in counts {
         let fixture = try ScriptARCFixture(directory: directory, snapshotRows: count)
         defer {
             fixture.script.stop()
@@ -143,17 +187,29 @@ func measureSnapshotRows(in directory: URL) async throws {
                 AXWindowService.invalidateCachedTitle(windowId: UInt32(fixture.token.windowId + index))
             }
         }
+        fixture.seedSnapshotFrames(count)
         _ = try await fixture
             .acceptTitleScript("omniwm.command('Inspect', function() end, {reads={'windows', 'workspaceWindows'}})")
         for layout in [LayoutType.niri, .dwindle] {
             fixture.populateSnapshotLayout(layout)
-            for (name, reads) in [("workspace", ConfigScriptReads.workspaceWindows), ("windows", .windows)] {
+            for (name, reads) in [
+                ("workspace", ConfigScriptReads.workspaceWindows),
+                ("windows", .windows),
+                ("framed", framed)
+            ] {
                 let route = "rows/\(layout.rawValue)/\(name)-\(count)"
                 fixture.snapshot(reads, route: "first/" + route, report: layout == .niri, expectedRows: count)
                 fixture.snapshot(reads, route: route, report: true, expectedRows: count)
             }
         }
+        if decode { try await fixture.measureFrameDecode(rows: count) }
     }
+}
+
+@MainActor
+func measureMixedFrames(in directory: URL) async throws {
+    let fixture = try ScriptARCFixture(directory: directory.appendingPathComponent("mixed-frames"))
+    try await fixture.mixedFrames()
 }
 
 @MainActor
@@ -187,6 +243,38 @@ extension ScriptARCFixture {
         precondition(manager.restoreNativeFullscreenRecord(for: token, clearsNativeFocusOwner: false))
         precondition(manager.setWindowMinimized(true, token: token))
         try await focusTargetRoutes("focus-target-fallback", expecting: otherWindow, in: workspace, name: name)
+    }
+
+    fileprivate func mixedFrames() async throws {
+        let manager = controller.workspaceManager
+        let workspace = manager.workspace(for: token)!
+        let name = manager.descriptor(for: workspace)!.name
+        seedSnapshotFrames(Self.workspaceRows)
+        let plainListener = """
+        omniwm.on("workspace.active", function(e)
+            assert(#e.windows == \(Self.totalRows) and e.windows[1].frame == nil)
+        end, { reads = { "windows" } })
+        """
+        for (route, framed, shared) in [
+            ("shared-frames", true, true), ("shared-plain", false, true), ("solo-frames", true, false),
+            ("solo-plain", false, false)
+        ] {
+            let reads = framed ? "\"windows\", \"frames\"" : "\"windows\""
+            let queue = try await acceptTitleScript("""
+            omniwm.on("workspace.active", function(e)
+                assert(#e.windows == \(Self.totalRows) and (e.windows[1].frame ~= nil) == \(framed))
+            end, { reads = { \(reads) } })
+            \(shared ? plainListener : "")
+            """)
+            await queue.waitForAuditPark()
+            for report in [false, true] {
+                workspaceActive(workspace, name: name)
+                try await finishWorker(seed: false)
+                if report {
+                    script_arc_report("event/workspace.active+" + route, "event/workspace.active", shared ? 2 : 1)
+                }
+            }
+        }
     }
 
     private func focusTargetRoutes(

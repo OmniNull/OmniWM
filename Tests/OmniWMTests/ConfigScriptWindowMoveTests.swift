@@ -236,8 +236,24 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
             (["focus", id], [("targetOf", .text("1"))], "targetOf must be a workspace ID"),
             (["focus", id], [("targetOf", .text(notHex))], "targetOf must be a workspace ID"),
             (["focus", id], [("nativeFullscreen", .text("true"))], "'nativeFullscreen' has the wrong type."),
-            (["close", id], [display], "Only move-to-workspace and focus take a table."),
-            (["move-to-workspace", id, "2"], [display], "Only move-to-workspace and focus take a table.")
+            (["set-floating-frame", id], [], "set-floating-frame needs x, y, width or height."),
+            (["set-floating-frame", id], [("left", .number(1))], "Unknown frame field 'left'."),
+            (["set-floating-frame", id], [("x", .text("1"))], "Frame field 'x' must be a finite number."),
+            (["set-floating-frame", id], [("y", .number(.infinity))], "Frame field 'y' must be a finite number."),
+            (["set-floating-frame", id], [("width", .number(.nan))], "Frame field 'width' must be a finite number."),
+            (["set-floating-frame", id], [("height", .number(0))], "Frame field 'height' must be greater than 0."),
+            (["set-floating-frame", id], [("width", .number(-1))], "Frame field 'width' must be greater than 0."),
+            (
+                ["set-floating-frame", id, "1"],
+                [("x", .number(1))],
+                "Only move-to-workspace, focus and set-floating-frame take a table."
+            ),
+            (["close", id], [display], "Only move-to-workspace, focus and set-floating-frame take a table."),
+            (
+                ["move-to-workspace", id, "2"],
+                [display],
+                "Only move-to-workspace, focus and set-floating-frame take a table."
+            )
         ]
         for (words, fields, expected) in cases {
             XCTAssertThrowsError(try ConfigScriptWindowRequest(testWords: words, destination: fields)) { error in

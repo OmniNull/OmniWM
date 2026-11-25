@@ -475,7 +475,7 @@ extension WorkspaceManager {
     }
 
     var spaceTopology: SpaceTopology {
-        world.spaceTopology
+        _read { yield world.spaceTopology }
     }
 
     func noteInvalidation(

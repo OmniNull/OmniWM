@@ -67,11 +67,14 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `monitors` | Displays, left to right, then top first |
 | `placement` | Where the focused window sits: one record, not a list |
 | `focusTarget` | The window the callback's workspace focuses: one record |
+| `frames` | Adds frames to the window and monitor lists declared with it |
 
 The row fields are:
-- **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (`"native"` for macOS fullscreen, `"omniwm"` for OmniWM's, absent otherwise) and `minimized`;
+- **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (`"native"` for macOS fullscreen, `"omniwm"` for OmniWM's, absent otherwise) and `minimized`, and with `frames`, `frame`;
 - **workspace:** `id`, `name` and `monitor`;
-- **monitor:** `id` and `name`.
+- **monitor:** `id` and `name`, and with `frames`, `frame` and `visibleFrame`, the part the menu bar and Dock leave free.
+
+A frame is `{ x, y, width, height }` in points, in the coordinates `omniwmctl query` uses: from the bottom-left corner of the main display, with `y` growing upward. A window's `frame` is where OmniWM last placed or saw it, not a fresh reading from macOS. It's absent while the window isn't on screen: on a workspace that isn't shown, minimized, hidden, on another macOS Space or in native fullscreen. Tiled windows of OmniShell apps have none.
 
 `ctx.placement` describes the focused window, the one `ctx.windowId` names, and is absent without one. It has `workspace` and `display`, the window's workspace name and display ID. A tiled window on a Niri workspace also has:
 - `column`: its column's position, counting from 1;
@@ -83,7 +86,7 @@ The row fields are:
 
 A window `id` is text such as `"9b2f6c0e4d1a7b3c5e8f0a2d4c6e8b1f.48213.912345"`. It names the same window until OmniWM quits, and actions reach that window while OmniWM manages it. A monitor `id` is the display's number as text, such as `"69734208"`.
 
-Each list holds up to 256 rows and 128 KiB. `truncated.<list>` is `true` when a list was cut.
+Each list holds up to 256 rows and 128 KiB, not counting frames. `truncated.<list>` is `true` when a list was cut.
 
 ## Events
 
@@ -126,7 +129,10 @@ Handlers last until the next reload.
 | `set-container-primary-span`, `set-window-primary-span`, `set-window-secondary-span` | a size such as `"+10%"` or `"50%"` |
 | `cycle-window-primary-span`, `cycle-window-secondary-span` | `"forward"` or `"backward"` |
 | `toggle-column-tabbed`, `toggle-floating` | none |
+| `set-floating-frame` | a table with any of `x`, `y`, `width` and `height` |
 | `assign-to-scratchpad` | slot as a string, such as `"1"` |
+
+`set-floating-frame` moves or resizes a floating window, in the coordinates of [frames](#reads). Fields you leave out keep their current value. The window moves as needed to stay on its display's visible frame, and keeps a size larger than that. A tiled window doesn't move, so dispatch `toggle-floating` first in the same callback. Windows attached to another window, such as sheets, are refused. A minimized or hidden window doesn't change. A window on a workspace that isn't shown gets the frame when you switch to it.
 
 `place-in-own-column` gives just that window a column of its own at that position on its Niri workspace. A window that shares its column, even with a minimized or hidden window, leaves it; a window alone in its column moves with it. A larger position puts it last. Like the other column actions, it doesn't change focus.
 
@@ -393,4 +399,57 @@ omniwm.on("workspace.active", function(e: ConfigWorkspaceEvent)
         omniwm.dispatch("window", "focus", target.id, { targetOf = e.id, nativeFullscreen = true })
     end
 end, { reads = { "focusTarget" } })
+```
+
+**Center a floating window.** Control + Option + C centers the focused floating window on its display's visible frame.
+
+```lua
+local wm = omniwm
+wm.keymap.set("Control+Option+C", function(ctx: ConfigContext)
+    local windows, monitors = ctx.workspaceWindows, ctx.monitors
+    if not windows or not monitors then return end
+    for _, window in windows do
+        local frame = window.frame
+        if window.id == ctx.windowId and window.floating and frame then
+            for _, monitor in monitors do
+                local area = monitor.visibleFrame
+                if monitor.id == window.monitor and area then
+                    wm.dispatch("window", "set-floating-frame", window.id, {
+                        x = area.x + (area.width - frame.width) / 2,
+                        y = area.y + (area.height - frame.height) / 2,
+                    })
+                end
+            end
+        end
+    end
+end, { reads = { "workspaceWindows", "monitors", "frames" } })
+```
+
+**Snap a floating window to halves and quarters.** Control + Option + Left and Right Arrow fill the left and right half of the display's visible frame. Control + Option + Q, W, A and S fill its quarters: top left, top right, bottom left and bottom right. The fractions measure from the top-left corner, and the recipe turns them into frames. Tiled windows stay where the layout puts them.
+
+```lua
+local wm = omniwm
+local function place(chord: string, left: number, top: number, width: number, height: number)
+    wm.keymap.set(chord, function(ctx: ConfigContext)
+        local placement, monitors, id = ctx.placement, ctx.monitors, ctx.windowId
+        if not placement or not monitors or not id then return end
+        for _, monitor in monitors do
+            local area = monitor.visibleFrame
+            if monitor.id == placement.display and area then
+                wm.dispatch("window", "set-floating-frame", id, {
+                    x = area.x + left * area.width,
+                    y = area.y + (1 - top - height) * area.height,
+                    width = width * area.width,
+                    height = height * area.height,
+                })
+            end
+        end
+    end, { reads = { "placement", "monitors", "frames" } })
+end
+place("Control+Option+Left Arrow", 0, 0, 0.5, 1)
+place("Control+Option+Right Arrow", 0.5, 0, 0.5, 1)
+place("Control+Option+Q", 0, 0, 0.5, 0.5)
+place("Control+Option+W", 0.5, 0, 0.5, 0.5)
+place("Control+Option+A", 0, 0.5, 0.5, 0.5)
+place("Control+Option+S", 0.5, 0.5, 0.5, 0.5)
 ```

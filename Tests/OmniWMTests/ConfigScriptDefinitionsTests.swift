@@ -67,6 +67,10 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         }
         let placement = ConfigScriptWindowActionName.placeInOwnColumn.rawValue.debugDescription
         overloads.append("{ read dispatch: (kind: \"window\", action: \(placement), id: string, slot: string) -> () }")
+        let frame = ConfigScriptWindowActionName.setFloatingFrame.rawValue.debugDescription
+        overloads.append(
+            "{ read dispatch: (kind: \"window\", action: \(frame), id: string, frame: ConfigFloatingFrame) -> () }"
+        )
         return overloads.joined(separator: "\n    & ")
     }
 
@@ -78,6 +82,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
             | { read neighbor: \(direction), read of: string?, read column: number? }
             | { read neighbor: \(direction), read of: string, read fromEdge: boolean, read column: number? }
         export type ConfigFocusCheck = { read targetOf: string?, read nativeFullscreen: boolean? }
+        export type ConfigFloatingFrame = { read x: number?, read y: number?, read width: number?, read height: number? }
         """
     }
 
@@ -148,14 +153,13 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
     }
 
     private func eventDefinitions() -> String {
-        let rect = "{ read x: number, read y: number, read width: number, read height: number }"
-        var payloads = ["export type ConfigEventRect = \(rect)"]
+        var payloads: [String] = []
         let windowEdge = "{ read id: string, read bundleId: string?, read workspaceId: string?, " +
             "read workspaceName: string?, read previousWorkspaceId: string?, read previousWorkspaceName: string?, read missed: number }"
         let workspaceEdge = "{ read id: string, read name: string, read monitorId: string?, " +
             "read monitorName: string?, read previousMonitorId: string?, read previousMonitorName: string?, read missed: number }"
-        let monitorEdge = "{ read id: string, read name: string, read frame: ConfigEventRect, " +
-            "read previousFrame: ConfigEventRect?, read visibleFrame: ConfigEventRect, read previousVisibleFrame: ConfigEventRect?, read missed: number }"
+        let monitorEdge = "{ read id: string, read name: string, read frame: ConfigRect, " +
+            "read previousFrame: ConfigRect?, read visibleFrame: ConfigRect, read previousVisibleFrame: ConfigRect?, read missed: number }"
         var overloads: [String] = []
         let named = "{ read id: string?, read name: string? }"
         for kind in ConfigScriptEventKind.allCases {
@@ -288,14 +292,16 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
 }
 
 private let lookupDefinitions = """
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "frames"
 export type ConfigReadOptions = { reads: { ConfigRead } }
+export type ConfigRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWindowRow = {
     read id: string, read bundleId: string?, read title: string?, read workspace: string,
     read monitor: string?, read floating: boolean, read fullscreen: ("native" | "omniwm")?, read minimized: boolean,
+    read frame: ConfigRect?,
 }
 export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
-export type ConfigMonitorRow = { read id: string, read name: string }
+export type ConfigMonitorRow = { read id: string, read name: string, read frame: ConfigRect?, read visibleFrame: ConfigRect? }
 export type ConfigPlacement = { read workspace: string, read display: string?, read column: nil }
     | {
         read workspace: string, read display: string?, read column: number, read columns: number,

@@ -551,14 +551,16 @@ export type ConfigRule = {
     scratchpad: number?,
 }
 
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "frames"
 export type ConfigReadOptions = { reads: { ConfigRead } }
+export type ConfigRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWindowRow = {
     read id: string, read bundleId: string?, read title: string?, read workspace: string,
     read monitor: string?, read floating: boolean, read fullscreen: ("native" | "omniwm")?, read minimized: boolean,
+    read frame: ConfigRect?,
 }
 export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
-export type ConfigMonitorRow = { read id: string, read name: string }
+export type ConfigMonitorRow = { read id: string, read name: string, read frame: ConfigRect?, read visibleFrame: ConfigRect? }
 export type ConfigPlacement = { read workspace: string, read display: string?, read column: nil }
     | {
         read workspace: string, read display: string?, read column: number, read columns: number,
@@ -593,8 +595,8 @@ export type ConfigWindowDestination =
     | { read neighbor: "left" | "right" | "up" | "down", read of: string?, read column: number? }
     | { read neighbor: "left" | "right" | "up" | "down", read of: string, read fromEdge: boolean, read column: number? }
 export type ConfigFocusCheck = { read targetOf: string?, read nativeFullscreen: boolean? }
+export type ConfigFloatingFrame = { read x: number?, read y: number?, read width: number?, read height: number? }
 
-export type ConfigEventRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWorkspaceEvent = ConfigLookups & { read id: string?, read name: string? }
 export type ConfigWindowEvent = ConfigLookups & { read id: string?, read bundleId: string? }
 export type ConfigMonitorEvent = ConfigLookups & { read id: string?, read name: string? }
@@ -602,7 +604,7 @@ export type ConfigSubmapEvent = ConfigLookups & { read name: string }
 export type ConfigReloadEvent = ConfigLookups & {}
 export type ConfigWindowEdge = ConfigLookups & { read id: string, read bundleId: string?, read workspaceId: string?, read workspaceName: string?, read previousWorkspaceId: string?, read previousWorkspaceName: string?, read missed: number }
 export type ConfigWorkspaceEdge = ConfigLookups & { read id: string, read name: string, read monitorId: string?, read monitorName: string?, read previousMonitorId: string?, read previousMonitorName: string?, read missed: number }
-export type ConfigMonitorEdge = ConfigLookups & { read id: string, read name: string, read frame: ConfigEventRect, read previousFrame: ConfigEventRect?, read visibleFrame: ConfigEventRect, read previousVisibleFrame: ConfigEventRect?, read missed: number }
+export type ConfigMonitorEdge = ConfigLookups & { read id: string, read name: string, read frame: ConfigRect, read previousFrame: ConfigRect?, read visibleFrame: ConfigRect, read previousVisibleFrame: ConfigRect?, read missed: number }
 export type ConfigWindowTitle = ConfigLookups & { read id: string, read bundleId: string?, read title: string, read missed: number }
 export type ConfigWindowMinimize = ConfigLookups & { read id: string, read bundleId: string?, read minimized: boolean, read missed: number }
 export type ConfigWindowFullscreen = ConfigLookups & { read id: string, read bundleId: string?, read fullscreen: boolean, read missed: number }
@@ -756,6 +758,7 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "window", action: "toggle-floating", id: string) -> () }
     & { read dispatch: (kind: "window", action: "assign-to-scratchpad", id: string, number: string) -> () }
     & { read dispatch: (kind: "window", action: "place-in-own-column", id: string, slot: string) -> () }
+    & { read dispatch: (kind: "window", action: "set-floating-frame", id: string, frame: ConfigFloatingFrame) -> () }
 export type ConfigKeymap =
     { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read reads: nil }?) -> () }
     & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read reads: { read [number]: ConfigRead }? }?) -> () }

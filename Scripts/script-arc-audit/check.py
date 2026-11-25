@@ -106,6 +106,9 @@ PLACEMENT_CAPTURES = (
 FOCUS_TARGET_CAPTURES = ("capture/focus-target", "capture/focus-target-exit", "capture/focus-target-fallback")
 FOCUS_TARGET_EVENTS = tuple(route.replace("capture/", "event/workspace.active+") for route in FOCUS_TARGET_CAPTURES)
 ROUTES.update(("capture/no-focus-target", *FOCUS_TARGET_CAPTURES, *FOCUS_TARGET_EVENTS))
+MIXED_FRAME_EVENTS = tuple("event/workspace.active+" + name for name in
+                           ("shared-frames", "shared-plain", "solo-frames", "solo-plain"))
+ROUTES.update(("move/floating-frame", *MIXED_FRAME_EVENTS))
 EXACT_COSTS = {
     **{(route, phase): RESIDENT_KEY_STORAGE for route in (*WAKE_TRANSFERS, "key/owned-busy")
        for phase in ("producer", "dequeue", "completion")},
@@ -122,22 +125,30 @@ EXACT_COSTS = {
 
 def check_window_rows(table):
     sizes = sorted({int(match[1]) for route, phase in table if phase == "producer"
-                    and (match := re.fullmatch(r"capture/(?:workspace|windows)-(\d+)", route))})
-    if len(sizes) < 2:
-        sys.exit("The window-row control needs distinct fixture sizes")
-    first, last = sizes[0], sizes[-1]
-    routes = ("first/rows/niri/workspace", "first/rows/niri/windows", "rows/niri/workspace",
-              "rows/niri/windows", "rows/dwindle/workspace", "rows/dwindle/windows")
+                    and (match := re.fullmatch(r"rows/niri/(?:workspace|windows|framed)-(\d+)", route))})
+    if len(sizes) < 3:
+        sys.exit(f"The window-row control needs the workspace size, the full size and the row limit, got {sizes}")
+    first = sizes[0]
+    routes = ("first/rows/niri/workspace", "first/rows/niri/windows", "first/rows/niri/framed", "rows/niri/workspace",
+              "rows/niri/windows", "rows/niri/framed", "rows/dwindle/workspace", "rows/dwindle/windows",
+              "rows/dwindle/framed")
     for kind in routes:
         baseline = table.get((f"{kind}-{first}", "producer"))
-        larger = table.get((f"{kind}-{last}", "producer"))
-        if not baseline or not larger:
-            sys.exit(f"Missing matched {kind} capture for {first} and {last} rows")
-        for field in NO_OBSERVER_OWNERSHIP:
-            extra = int(larger[field]) - int(baseline[field])
-            if extra:
-                sys.exit(f"{kind}: {last - first} additional rows must add zero {field}, got {extra}")
-    print(f"capture/row-delta {first} to {last} windows: zero additional ARC, allocations, weak promotions or VM entries")
+        for size in sizes[1:]:
+            larger = table.get((f"{kind}-{size}", "producer"))
+            if not baseline or not larger:
+                sys.exit(f"Missing matched {kind} capture for {first} and {size} rows")
+            for field in NO_OBSERVER_OWNERSHIP:
+                extra = int(larger[field]) - int(baseline[field])
+                if extra:
+                    sys.exit(f"{kind}: {size - first} additional rows must add zero {field}, got {extra}")
+    for kind in ("rows/niri/framed", "rows/dwindle/framed"):
+        for size in sizes:
+            counts = table[f"{kind}-{size}", "producer"]
+            if int(counts["obj"]) or int(counts["heap"]):
+                sys.exit(f"{kind}-{size}: a warm framed capture of every framed list allocates nothing: {counts}")
+    larger = " and ".join(str(size) for size in sizes[1:])
+    print(f"capture/row-delta {first} to {larger} windows: zero additional ARC, allocations, weak promotions or VM entries")
 
 
 def check_transaction_owners(table, kind, pairs=(), released=(), native_only_releases=()):
@@ -307,11 +318,25 @@ def check_costs(output):
     for route in CALLBACK_DISPATCH_ROUTES:
         if int(table[route, "config"]["VM"]) != 1:
             sys.exit(f"{route}: the shortcut callback must enter its VM once")
-    by_name, neighbor = (table[route, "config"] for route in ("move/by-name", "move/neighbor"))
-    for field in ("R", "L", "obj", "heap"):
-        if int(neighbor[field]) != int(by_name[field]):
-            sys.exit(f"move/neighbor: staging a destination table must cost what a workspace name does, "
-                     f"{field} {neighbor[field]} against {by_name[field]}")
+    by_name = table["move/by-name", "config"]
+    for route in ("move/neighbor", "move/floating-frame"):
+        staged = table[route, "config"]
+        for field in ("R", "L", "obj", "heap"):
+            if int(staged[field]) != int(by_name[field]):
+                sys.exit(f"{route}: staging a window table must cost what a workspace name does, "
+                         f"{field} {staged[field]} against {by_name[field]}")
+    mixed, plain, framed, unframed = MIXED_FRAME_EVENTS
+    for field in ("R", "L", "obj", "heap", "VM"):
+        shared = int(table[mixed, "config"][field]) - int(table[plain, "config"][field])
+        alone = int(table[framed, "config"][field]) - int(table[unframed, "config"][field])
+        if shared != alone:
+            sys.exit(f"{mixed}: frames on a shared list must cost the listener without them nothing, "
+                     f"{field} +{shared} beside it against +{alone} alone")
+    for route in MIXED_FRAME_EVENTS:
+        for phase in ("producer", "dequeue", "completion"):
+            counts = table[route, phase]
+            if int(counts["obj"]) or int(counts["heap"]):
+                sys.exit(f"{route}/{phase}: a warm shared capture needs no main-thread storage: {counts}")
     for (route, baseline), (budget, reason) in CALLBACK_COMMAND_BUILDS.items():
         for field, allowed in budget.items():
             extra = int(table[route, "config"][field]) - int(table[baseline, "config"][field])
@@ -415,7 +440,7 @@ def check_delivery(lldb, binary, fixture):
     probes = [
         '-f ConfigScriptEventObservers+WindowState.swift -p "let event = ConfigScriptWindowTitle"',
         '-f ConfigScriptCallbackQueue.swift -p "let key = WindowStateKey.window\\(\\.windowTitle,"',
-        line_probe("ConfigScriptReadSnapshot.swift", "let limit = reads.rawValue.nonzeroBitCount"),
+        line_probe("ConfigScriptReadSnapshot.swift", "let limit = lists * ConfigScriptSnapshot.byteLimit"),
     ]
     commands = ["settings set target.inline-breakpoint-strategy always"]
     for probe in probes:

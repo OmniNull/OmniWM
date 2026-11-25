@@ -26,6 +26,7 @@ enum WindowAction: Equatable, Sendable {
     case cycleWindowSecondarySpan(forward: Bool)
     case toggleColumnTabbed
     case toggleFloating
+    case setFloatingFrame(FloatingFrameFields)
     case assignToScratchpad(ScratchpadIndex)
 
     fileprivate var refusesAttachedWindow: Bool {
@@ -34,6 +35,7 @@ enum WindowAction: Equatable, Sendable {
              .moveToDisplay,
              .summonRight,
              .toggleFloating,
+             .setFloatingFrame,
              .assignToScratchpad: true
         default: false
         }
@@ -65,11 +67,7 @@ extension WMController {
         on token: WindowToken,
         edgeOf anchor: WorkspaceDescriptor.ID? = nil
     ) -> ExternalCommandResult {
-        if action.refusesAttachedWindow,
-           workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil
-        {
-            return .attachedWindow
-        }
+        if action.refusesAttachedWindow, isAttachedWindow(token) { return .attachedWindow }
         switch action {
         case .focus:
             return windowActionHandler.focusWindowFromBar(token: token) ? .executed : .notFound
@@ -112,9 +110,27 @@ extension WMController {
             return performNiriWindowAction(token) { $0.toggleColumnTabbed(target: .window($1)) }
         case .toggleFloating:
             return toggleFloating(token)
+        case let .setFloatingFrame(fields):
+            return setFloatingFrame(token, to: fields)
         case let .assignToScratchpad(index):
             return assignToScratchpad(token, index: index)
         }
+    }
+
+    private func isAttachedWindow(_ token: WindowToken) -> Bool {
+        workspaceManager.withEntry(token) { $0.target.hostedMetadata?.role.parent != nil } == true
+    }
+
+    private func setFloatingFrame(_ token: WindowToken, to fields: FloatingFrameFields) -> ExternalCommandResult {
+        let manager = workspaceManager
+        guard let handle = manager.handle(for: token) else { return .notFound }
+        let state = manager.withEntry(token) {
+            (manager.isWindowSuppressedByMacOS($0), $0.floatingState?.lastFrame ?? $0.observedState.frame)
+        }
+        guard case let (suppressed, base)? = state, !suppressed, let frame = fields.frame(over: base) else {
+            return .noChange
+        }
+        return placeFloatingWindow(handle, frame: frame) ? .executed : .noChange
     }
 
     private func toggleFloating(_ token: WindowToken) -> ExternalCommandResult {

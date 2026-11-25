@@ -25,12 +25,18 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
             data.append(contentsOf: value.utf8)
         }
 
-        mutating func list(_ kind: ConfigScriptReads, rows: [Wire], truncated: Bool = false) {
-            integer(kind.rawValue)
-            integer(UInt8(truncated ? 1 : 0))
+        mutating func list(_ kind: ConfigScriptReads, rows: [Wire], truncated: Bool = false, framed: Bool = false) {
+            integer(UInt8(kind.rawValue))
+            integer(UInt8((truncated ? OMNI_CONFIG_SECTION_TRUNCATED : 0) | (framed ? OMNI_CONFIG_SECTION_FRAMES : 0)))
             integer(UInt16(rows.count))
             integer(UInt32(rows.reduce(0) { $0 + $1.data.count }))
             for row in rows { data += row.data }
+        }
+
+        mutating func rect(_ frame: CGRect) {
+            for value in [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height] {
+                integer(Double(value).bitPattern)
+            }
         }
     }
 
@@ -128,6 +134,73 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
                 reads: [.workspaceWindows, .windows], target: controller.configScriptTarget(), pool: &pool
             )
             XCTAssertEqual(actual.withUnsafeBytes { Data($0) }, expected.data)
+        }
+    }
+
+    func testFramesFollowTheirRowsAndNeverShortenAList() async throws {
+        let fixture = try ConfigScriptCallbackQueueTests.Fixture(test: self)
+        let controller = fixture.controller
+        let manager = controller.workspaceManager
+        let here = try XCTUnwrap(manager.workspaceId(named: fixture.origin))
+        let monitor = try XCTUnwrap(manager.monitor(for: here))
+        let tokens = [0, 1].map { WindowToken(pid: getpid(), windowId: Int(getpid()) + $0) }
+        let bundle = "wire.frames"
+        let frame = CGRect(x: 100, y: 200, width: 500, height: 300)
+        func row(_ token: WindowToken, _ title: String, framed: Bool) -> Wire {
+            var row = Wire()
+            row.text(ConfigScriptWindowID.string(token, session: controller.scriptSession.identity))
+            for field in [bundle, title, fixture.origin, monitor.id.scriptIdentifier] { row.text(field) }
+            row.integer(UInt8(OMNI_CONFIG_WINDOW_FLOATING))
+            guard framed else { return row }
+            row.integer(UInt8(OMNI_CONFIG_FRAME_PRESENT))
+            row.rect(frame)
+            return row
+        }
+        var empty = Wire()
+        empty.list(.windows, rows: tokens.map { row($0, "", framed: false) })
+        let fitting = String(repeating: "x", count: ConfigScriptSnapshot.byteLimit - empty.data.count)
+        for token in tokens {
+            _ = manager.addWindow(
+                WindowAdmissionTestSupport.axRef(for: token), pid: token.pid, windowId: token.windowId, to: here,
+                mode: .floating,
+                managedReplacementMetadata: .init(bundleId: bundle, workspaceId: here, mode: .floating, title: "")
+            )
+            manager.updateFloatingGeometry(frame: frame, for: token, referenceMonitor: monitor)
+        }
+        var display = Wire()
+        display.text(monitor.id.scriptIdentifier)
+        display.text(monitor.name)
+        display.rect(monitor.frame)
+        display.rect(monitor.visibleFrame)
+        var pool = ConfigScriptSnapshotPool()
+        let reads: ConfigScriptReads = [.windows, .monitors, .windowFrames, .monitorFrames]
+        for title in [fitting, fitting + "x"] {
+            _ = manager.updateManagedReplacementTitle(title, for: tokens[1])
+            var rows = [row(tokens[0], "", framed: true)]
+            if title == fitting { rows.append(row(tokens[1], title, framed: true)) }
+            let truncated = rows.count < tokens.count
+            var expected = Wire()
+            expected.list(.windows, rows: rows, truncated: truncated, framed: true)
+            expected.list(.monitors, rows: [display], framed: true)
+            let actual = controller.configScriptSnapshot(
+                reads: reads, target: controller.configScriptTarget(), pool: &pool
+            )
+            XCTAssertEqual(actual.withUnsafeBytes { Data($0) }, expected.data)
+            let source = """
+            local function check(e, framed)
+                assert(#e.windows == \(rows.count) and e.truncated.windows == \(truncated))
+                for _, w in e.windows do assert((w.frame ~= nil) == framed) end
+            end
+            omniwm.on('workspace.active', function(e) check(e, true) end, { reads = { 'windows', 'frames' } })
+            omniwm.on('workspace.active', function(e) check(e, false) end, { reads = { 'windows' } })
+            """
+            let result = try await ConfigScriptLoader().evaluate(Data(source.utf8), hyperMask: 0)
+            let generation = try XCTUnwrap(result.generation)
+            for listener in result.events {
+                _ = try await generation.invoke(
+                    function: listener.function, event: ConfigScriptEventPayload(name: "observed"), snapshot: actual
+                )
+            }
         }
     }
 }

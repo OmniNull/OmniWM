@@ -7,13 +7,15 @@ import OmniWMScriptHost
 enum ConfigScriptWindowActionName: Equatable, Sendable {
     case shared(IPCWindowActionName)
     case placeInOwnColumn
+    case setFloatingFrame
 
-    static let allCases = IPCWindowActionName.allCases.map(Self.shared) + [.placeInOwnColumn]
+    static let allCases = IPCWindowActionName.allCases.map(Self.shared) + [.placeInOwnColumn, .setFloatingFrame]
 
     var rawValue: String {
         switch self {
         case let .shared(name): name.rawValue
         case .placeInOwnColumn: "place-in-own-column"
+        case .setFloatingFrame: "set-floating-frame"
         }
     }
 }
@@ -57,8 +59,12 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
             case (.shared(.focus), 2):
                 action = .focus
                 check = try .focus(fields: destination)
+            case (.setFloatingFrame, 2):
+                action = try .setFloatingFrame(FloatingFrameFields(fields: destination))
             default:
-                throw ConfigScriptError(line: nil, message: "Only move-to-workspace and focus take a table.")
+                throw ConfigScriptError(
+                    line: nil, message: "Only move-to-workspace, focus and set-floating-frame take a table."
+                )
             }
         } else if words.count == 3 {
             guard let argument = String(validating: Self.bytes(words[2]), as: UTF8.self) else {

@@ -236,6 +236,7 @@ func measureDisplayMoves(in directory: URL) async throws {
         let location = directory.appendingPathComponent(route.replacingOccurrences(of: "/", with: "-"))
         try await ScriptARCFixture(directory: location).displayMove(route: route, byName: byName)
     }
+    try await ScriptARCFixture(directory: directory.appendingPathComponent("move-floating-frame")).floatingFrame()
 }
 
 @MainActor
@@ -282,6 +283,25 @@ extension ScriptARCFixture {
         let column = engine.findNode(for: otherWindow, in: destination).flatMap(engine.column(of:))
         precondition(manager.workspace(for: otherWindow) == destination && column?.windowNodes.count == 1)
         precondition(engine.columns(in: destination).count == 2)
+    }
+}
+
+@MainActor
+extension ScriptARCFixture {
+    fileprivate func floatingFrame() async throws {
+        let manager = controller.workspaceManager
+        let visible = manager.monitors[0].visibleFrame
+        let target = CGRect(origin: visible.origin, size: CGSize(width: visible.width / 2, height: visible.height / 2))
+        precondition(manager.setWindowMode(.floating, for: otherWindow))
+        manager.updateFloatingGeometry(frame: visible, for: otherWindow)
+        let id = ConfigScriptWindowID.string(otherWindow, session: controller.scriptSession.identity)
+        let table = "{ x = \(target.minX), y = \(target.minY), width = \(target.width), height = \(target.height) }"
+        let queue = try await acceptTitleScript("""
+        omniwm.keymap.set("Control+Option+J", function() omniwm.dispatch("window", "set-floating-frame", "\(id)", \(table)) end)
+        """)
+        await queue.waitForAuditPark()
+        try await function(binding("Control+Option+J"), route: "move/floating-frame", busy: false, report: true)
+        precondition(manager.floatingState(for: otherWindow)?.lastFrame == target)
     }
 }
 

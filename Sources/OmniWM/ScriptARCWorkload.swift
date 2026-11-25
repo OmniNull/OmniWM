@@ -34,6 +34,7 @@ extension ConfigScriptCallbackQueue {
 final class ScriptARCFixture {
     static let workspaceRows = 8
     static let totalRows = 200
+    static let decodeSamples = 101
     let controller: WMController
     let script: ConfigScriptController
     let loader = ConfigScriptLoader()
@@ -467,4 +468,8 @@ private func measureEventFamilies(in directory: URL) async throws {
     try await measureDisplayMoves(in: directory)
     try await measurePlacement(in: directory)
     try await measureFocusTarget(in: directory)
+    try await measureMixedFrames(in: directory)
+    try await measureSnapshotRows(
+        in: directory.appendingPathComponent("row-limit"), counts: [ConfigScriptSnapshot.rowLimit], decode: true
+    )
 }
