@@ -712,6 +712,7 @@ export type ConfigCommands =
     & { read cmd: (command: "scratchpad", word2: "assign", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") -> ConfigAction }
     & { read cmd: (command: "scratchpad", word2: "toggle", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") -> ConfigAction }
     & { read cmd: (command: "open-menu-anywhere") -> ConfigAction }
+    & { read cmd: (command: "open-settings") -> ConfigAction }
     & { read cmd: (command: "toggle-workspace-bar") -> ConfigAction }
     & { read cmd: (command: "hidden-bar", word2: "panel") -> ConfigAction }
     & { read cmd: (command: "toggle-quake-terminal") -> ConfigAction }

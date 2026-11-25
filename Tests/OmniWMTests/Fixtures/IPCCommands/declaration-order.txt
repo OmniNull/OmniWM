@@ -97,5 +97,6 @@ close-focused-window
 scratchpad-assign
 scratchpad-toggle
 open-menu-anywhere
+open-settings
 app-open
 app-new-window

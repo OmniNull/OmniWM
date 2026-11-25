@@ -20,7 +20,14 @@ struct OmniWMApp: App {
 
     var body: some Scene {
         Settings {
-            SettingsSceneRedirectView(bootstrap: bootstrap)
+            EmptyView()
+        }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button(String(localized: "Settings…")) { bootstrap.showSettings() }
+                    .keyboardShortcut(",", modifiers: .command)
+                    .disabled(!bootstrap.isReady)
+            }
         }
     }
 }

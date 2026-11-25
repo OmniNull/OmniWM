@@ -79,6 +79,7 @@ close-focused-window
 scratchpad-assign
 scratchpad-toggle
 open-menu-anywhere
+open-settings
 toggle-workspace-bar
 hidden-bar-panel
 toggle-quake-terminal

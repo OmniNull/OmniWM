@@ -213,7 +213,8 @@ extension IPCJSONWriter {
              .media,
              .keyboardMode,
              .windowState,
-             .openMenuAnywhere:
+             .openMenuAnywhere,
+             .openSettings:
             break
         }
         self.key("name", &first)

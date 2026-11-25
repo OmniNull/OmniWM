@@ -195,6 +195,9 @@ final class WMController {
         ownedWindowRegistry: ownedWindowRegistry
     )
 
+    @ObservationIgnored
+    lazy var settingsWindowController = SettingsWindowController.shared
+
     var isTransferringWindow: Bool = false
 
     @ObservationIgnored

@@ -249,6 +249,7 @@ enum ActionCatalog {
              .rescueOffscreenWindows,
              .windowState,
              .openMenuAnywhere,
+             .openSettings,
              .windowMark,
              .presentation,
              .media,
@@ -306,6 +307,7 @@ enum ActionCatalog {
         case .openMenuAnywhere: LocalizedStringResource(
                 "command.menu.openAnywhere", defaultValue: "Open Menu Anywhere", table: "Commands", bundle: .omniWM
             )
+        case .openSettings: openSettingsTitle
         case let .windowMark(action): action.actionDisplayName()
         case let .presentation(command): command.actionDisplayName()
         case let .media(command): command.actionDisplayName()

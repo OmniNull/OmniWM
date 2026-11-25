@@ -21,6 +21,7 @@ extension HotkeyCommand {
         case let .keyboardMode(command): self = .keyboardMode(command)
         case let .windowState(command): self = .windowState(command)
         case .openMenuAnywhere: self = .openMenuAnywhere
+        case .openSettings: self = .openSettings
         case let .shellAppOpen(appID): self = .shellAppOpen(appID)
         case let .shellAppNewWindow(appID): self = .shellAppNewWindow(appID)
         case let .workspace(action): self.init(ipc: action)

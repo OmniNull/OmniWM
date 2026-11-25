@@ -284,6 +284,10 @@ extension WMController {
         windowActionHandler.openMenuAnywhere()
     }
 
+    func openSettings() {
+        settingsWindowController.show(settings: settings, controller: self)
+    }
+
     @discardableResult
     func navigateToCommandPaletteWindow(_ handle: WindowHandle) -> Bool {
         windowActionHandler.navigateToExplicitlySelectedWindow(handle: handle)

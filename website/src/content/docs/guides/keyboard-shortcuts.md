@@ -84,6 +84,7 @@ Turn on **Settings > Workspaces > Go Back When Switching to the Current Workspac
 | Focus Window 1-9 in Column | `Unassigned` | `Niri` |
 | Toggle Command Palette | `Control + Option + Space` | `Shared` |
 | Open Menu Anywhere | `Control + Option + M` | `Shared` |
+| Open Settings | `Hyper + Comma` | `Shared` |
 | Set Mark on Focused Window | `Unassigned` | `Shared` |
 | Remove Mark from Focused Window | `Unassigned` | `Shared` |
 | Close Focused Window | `Unassigned` | `Shared` |

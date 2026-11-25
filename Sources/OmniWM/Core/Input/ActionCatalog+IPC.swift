@@ -31,6 +31,7 @@ extension ActionCatalog {
         case .shellAppNewWindow: .shellAppNewWindow
         case let .windowState(command): .windowState(command)
         case .openMenuAnywhere: .openMenuAnywhere
+        case .openSettings: .openSettings
         case let .focusNavigation(action): action.ipcCommandName()
         case let .windowMovement(action): action.ipcCommandName()
         case let .column(action): action.ipcCommandName()

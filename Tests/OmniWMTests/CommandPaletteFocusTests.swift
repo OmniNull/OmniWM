@@ -490,6 +490,33 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertFalse(fixture.palette.isVisible)
     }
 
+    func testOpenSettingsRunsWithoutRestoringTheCapturedApp() throws {
+        let app = NSRunningApplication.current
+        var dispatched: [HotkeyCommand] = []
+        var failures: [String] = []
+        let fixture = CommandPaletteFocusFixture { environment in
+            environment.ownProcessIdentifier = { -1 }
+            environment.frontmostApplication = { app }
+            environment.restoreCommandFocus = { _ in false }
+            environment.presentCommandFailure = { failures.append($0) }
+            environment.performCommand = { _, command in
+                dispatched.append(command)
+                return .executed
+            }
+        }
+        defer { fixture.cleanup() }
+        for (id, expected) in [("openMenuAnywhere", [HotkeyCommand]()), ("openSettings", [.openSettings])] {
+            dispatched.removeAll()
+            failures.removeAll()
+            _ = try fixture.show()
+            fixture.palette.selectMode(.commands)
+            fixture.palette.selectedItemID = .command(id)
+            fixture.palette.selectCurrent()
+            XCTAssertEqual(dispatched, expected, id)
+            XCTAssertEqual(failures.isEmpty, id == "openSettings", id)
+        }
+    }
+
     func testCommandForInactiveLayoutCannotBeSelected() throws {
         var dispatched: [HotkeyCommand] = []
         let fixture = CommandPaletteFocusFixture { environment in

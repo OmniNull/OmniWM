@@ -24,6 +24,7 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
     case windowState(IPCWindowStateCommand)
     case scratchpad(IPCScratchpadCommandName)
     case openMenuAnywhere
+    case openSettings
     case shellAppOpen
     case shellAppNewWindow
 
@@ -73,6 +74,8 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
             name.rawValue
         case .openMenuAnywhere:
             "open-menu-anywhere"
+        case .openSettings:
+            "open-settings"
         case .shellAppOpen:
             "app-open"
         case .shellAppNewWindow:
@@ -98,6 +101,8 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
             self = .rescueOffscreenWindows
         case "open-menu-anywhere":
             self = .openMenuAnywhere
+        case "open-settings":
+            self = .openSettings
         case "app-open":
             self = .shellAppOpen
         case "app-new-window":
@@ -146,6 +151,7 @@ public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, S
         names.append(contentsOf: IPCWindowStateCommand.allCases.map(Self.windowState))
         names.append(contentsOf: IPCScratchpadCommandName.allCases.map(Self.scratchpad))
         names.append(.openMenuAnywhere)
+        names.append(.openSettings)
         names.append(.shellAppOpen)
         names.append(.shellAppNewWindow)
         return names

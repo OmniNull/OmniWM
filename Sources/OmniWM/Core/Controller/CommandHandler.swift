@@ -130,6 +130,7 @@ final class CommandHandler {
         case .windowState(.close): return controller.closeFocusedWindow()
         case let .scratchpad(action): return handler.perform(action, controller: controller)
         case .openMenuAnywhere: controller.openMenuAnywhere()
+        case .openSettings: controller.openSettings()
         case let .windowMark(action):
             return handler.performWindowMarkAction(action, for: controller.workspaceManager.nativeManagedFocusToken)
         case let .presentation(action): return handler.perform(action, controller: controller)

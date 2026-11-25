@@ -430,6 +430,7 @@ extension IPCAutomationManifest {
             name: .openMenuAnywhere,
             summary: "Open the menu surface anywhere."
         ),
+        .init(name: .openSettings, summary: "Open OmniWM Settings, or bring it forward if it's open."),
         .init(
             name: .presentation(.workspaceBar),
             summary: "Toggle runtime workspace bar visibility."

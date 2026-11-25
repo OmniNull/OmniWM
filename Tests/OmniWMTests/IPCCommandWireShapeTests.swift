@@ -159,6 +159,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"arguments":{"scratchpadIndex":2},"name":"scratchpad-assign"}"#,
         #"{"arguments":{"scratchpadIndex":2},"name":"scratchpad-toggle"}"#,
         #"{"name":"open-menu-anywhere"}"#,
+        #"{"name":"open-settings"}"#,
         #"{"arguments":{"appId":"example"},"name":"app-open"}"#,
         #"{"arguments":{"appId":"example"},"name":"app-new-window"}"#
     ]

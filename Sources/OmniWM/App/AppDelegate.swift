@@ -30,26 +30,13 @@ public final class AppBootstrapState {
         settings != nil && controller != nil
     }
 
-    public func registerRedirectWindow(_ window: NSWindow) {
-        OwnedWindowRegistry.shared.register(window)
-    }
-
-    public func unregisterRedirectWindow(_ window: NSWindow) {
-        OwnedWindowRegistry.shared.unregister(window)
-    }
-
-    public func showSettingsAndCloseRedirectWindow(_ window: NSWindow?) {
+    public func showSettings() {
         guard let settings, let controller else { return }
-        SettingsWindowController.shared.show(
+        controller.settingsWindowController.show(
             settings: settings,
             controller: controller,
             updateCoordinator: updateCoordinator
         )
-        guard let window else { return }
-        unregisterRedirectWindow(window)
-        DispatchQueue.main.async {
-            window.close()
-        }
     }
 }
 

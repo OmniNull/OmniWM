@@ -10481,6 +10481,17 @@
         }
       }
     },
+    "command.settings.open" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open Settings"
+          }
+        }
+      }
+    },
     "command.shell.toggle" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {

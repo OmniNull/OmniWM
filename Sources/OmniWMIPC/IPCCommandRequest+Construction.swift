@@ -24,18 +24,14 @@ extension IPCCommandRequest {
             self = try .swapWorkspaceWithMonitor(direction: arguments.direction())
         case let .dwindle(name):
             self = try .dwindle(IPCDwindleCommand(name: name, arguments: arguments))
-        case .openCommandPalette:
-            self = try arguments.requireNoArguments(.openCommandPalette)
+        case .openCommandPalette: self = try arguments.requireNoArguments(.openCommandPalette)
         case .openCommandPaletteMode:
             self = try .openCommandPaletteMode(mode: arguments.paletteMode())
         case .windowSwitcher:
             self = try arguments.windowSwitcher()
-        case .raiseAllFloatingWindows:
-            self = try arguments.requireNoArguments(.raiseAllFloatingWindows)
-        case .toggleFloatingFocus:
-            self = try arguments.requireNoArguments(.toggleFloatingFocus)
-        case .rescueOffscreenWindows:
-            self = try arguments.requireNoArguments(.rescueOffscreenWindows)
+        case .raiseAllFloatingWindows: self = try arguments.requireNoArguments(.raiseAllFloatingWindows)
+        case .toggleFloatingFocus: self = try arguments.requireNoArguments(.toggleFloatingFocus)
+        case .rescueOffscreenWindows: self = try arguments.requireNoArguments(.rescueOffscreenWindows)
         case let .workspaceLayout(name):
             self = try .workspaceLayout(IPCWorkspaceLayoutCommand(name: name, arguments: arguments))
         case let .fullscreen(name):
@@ -50,8 +46,8 @@ extension IPCCommandRequest {
             self = try .windowState(arguments.requireNoArguments(name))
         case let .scratchpad(name):
             self = try .scratchpad(IPCScratchpadCommand(name: name, arguments: arguments))
-        case .openMenuAnywhere:
-            self = try arguments.requireNoArguments(.openMenuAnywhere)
+        case .openMenuAnywhere: self = try arguments.requireNoArguments(.openMenuAnywhere)
+        case .openSettings: self = try arguments.requireNoArguments(.openSettings)
         case .shellAppOpen:
             self = try .shellAppOpen(appID: arguments.appID())
         case .shellAppNewWindow:
