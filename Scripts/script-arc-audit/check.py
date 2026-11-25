@@ -115,6 +115,9 @@ MIXED_READ_EVENTS = tuple(tuple("event/workspace.active+" + name for name in fam
     ("shared-columns", "shared-plain-columns", "solo-columns", "solo-plain-columns"),
 ))
 ROUTES.update(("move/floating-frame", *(route for family in MIXED_READ_EVENTS for route in family)))
+SHARED_LISTENER_FIELDS = ("R", "L", "obj", "VM")
+SCRIPT_WORKER_MALLOCS = ("Mallocs on the script worker are left out: Luau's page and string-table growth follows the "
+                         "incremental collector's phase, not the listeners' reads.")
 EXACT_COSTS = {
     **{(route, phase): RESIDENT_KEY_STORAGE for route in (*WAKE_TRANSFERS, "key/owned-busy")
        for phase in ("producer", "dequeue", "completion")},
@@ -333,12 +336,12 @@ def check_costs(output):
                 sys.exit(f"{route}: staging a window table must cost what a workspace name does, "
                          f"{field} {staged[field]} against {by_name[field]}")
     for mixed, plain, modified, unmodified in MIXED_READ_EVENTS:
-        for field in ("R", "L", "obj", "heap", "VM"):
+        for field in SHARED_LISTENER_FIELDS:
             shared = int(table[mixed, "config"][field]) - int(table[plain, "config"][field])
             alone = int(table[modified, "config"][field]) - int(table[unmodified, "config"][field])
             if shared != alone:
                 sys.exit(f"{mixed}: a read modifier on a shared list must cost the listener without it nothing, "
-                         f"{field} +{shared} beside it against +{alone} alone")
+                         f"{field} +{shared} beside it against +{alone} alone. {SCRIPT_WORKER_MALLOCS}")
         for route in (mixed, plain, modified, unmodified):
             for phase in ("producer", "dequeue", "completion"):
                 counts = table[route, phase]
