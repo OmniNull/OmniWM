@@ -55,7 +55,8 @@ extension AXEventHandler {
             } ?? false
             guard !orderedIn || previouslyOrderedOut || hasVisibilityQuery(windowId: windowId)
             else { return }
-            enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged)
+            let orderedInHandle = orderedIn ? entry.flatMap { controller.workspaceManager.handle(for: $0.token) } : nil
+            enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged(orderedInHandle: orderedInHandle))
 
         case let .titleChanged(windowId):
             handleWindowTitleChanged(windowId: windowId)
@@ -160,12 +161,7 @@ extension AXEventHandler {
               let isOrderedIn = windowInfo.isOrderedIn,
               controller.workspaceManager.workspace(for: token) != nil
         else { return }
-        if let previousHandle = lifecycleQueries.visibilityRechecksAfterFocusLoss.removeValue(forKey: token),
-           controller.workspaceManager.borderFocusToken == token,
-           controller.workspaceManager.handle(for: token) === previousHandle
-        {
-            controller.surfaceReconciler.noteBorderChanged()
-        }
+        clearDeferredVisibilityRecheck(for: token)
         if !isOrderedIn {
             let topology = controller.workspaceManager.spaceTopology
             guard !appFullscreen,
