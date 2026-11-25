@@ -155,3 +155,77 @@ func measureSnapshotRows(in directory: URL) async throws {
         }
     }
 }
+
+@MainActor
+func measureFocusTarget(in directory: URL) async throws {
+    let fixture = try ScriptARCFixture(directory: directory.appendingPathComponent("focus-target"))
+    try await fixture.focusTarget()
+}
+
+@MainActor
+extension ScriptARCFixture {
+    fileprivate func focusTarget() async throws {
+        let manager = controller.workspaceManager
+        let workspace = manager.workspace(for: token)!
+        let name = manager.descriptor(for: workspace)!.name
+        let queue = try await acceptTitleScript("""
+        omniwm.on("workspace.active", function(e)
+            local t = e.focusTarget
+            assert(t and e.id and t.nativeFullscreen == false)
+            omniwm.dispatch("window", "focus", t.id, { targetOf = e.id, nativeFullscreen = true })
+        end, { reads = { "focusTarget" } })
+        """)
+        await queue.waitForAuditPark()
+        for report in [false, true] {
+            focusTargetCapture([], route: "capture/no-focus-target", report: report)
+        }
+        try await focusTargetRoutes("focus-target", expecting: token, in: workspace, name: name)
+        precondition(manager.markNativeFullscreenSuspended(token, ownsNativeFocus: false))
+        precondition(manager.requestNativeFullscreenExit(token))
+        precondition(manager.nativeFullscreenRecord(for: token)?.transition == .exitRequested)
+        try await focusTargetRoutes("focus-target-exit", expecting: token, in: workspace, name: name)
+        precondition(manager.restoreNativeFullscreenRecord(for: token, clearsNativeFocusOwner: false))
+        precondition(manager.setWindowMinimized(true, token: token))
+        try await focusTargetRoutes("focus-target-fallback", expecting: otherWindow, in: workspace, name: name)
+    }
+
+    private func focusTargetRoutes(
+        _ route: String, expecting target: WindowToken, in workspace: WorkspaceDescriptor.ID, name: String
+    ) async throws {
+        let manager = controller.workspaceManager
+        precondition(manager.resolveWorkspaceFocusToken(in: workspace) == target)
+        for report in [false, true] {
+            focusTargetCapture(.focusTarget, route: "capture/" + route, report: report)
+            workspaceActive(workspace, name: name)
+            try await finishWorker(seed: false)
+            if report { script_arc_report("event/workspace.active+" + route, "event/workspace.active", 1) }
+            precondition(manager.resolveWorkspaceFocusToken(in: workspace) == target)
+        }
+    }
+
+    @inline(never)
+    private func workspaceActive(_ workspace: WorkspaceDescriptor.ID, name: String) {
+        let controller = controller
+        script_arc_begin()
+        ConfigScriptEventObservers.workspaceChanged(workspace, name: name, controller: controller)
+        script_arc_end()
+    }
+
+    @inline(never)
+    private func focusTargetCapture(_ reads: ConfigScriptReads, route: String, report: Bool) {
+        let queue = script.callbackQueue!
+        script_arc_begin()
+        let capture = queue.capture(reads: reads, controller: controller)
+        script_arc_end()
+        if report {
+            script_arc_report(route, "capture/fixed", 0)
+            print("snapshot-bytes \(route) \(capture.snapshot?.withUnsafeBytes(\.count) ?? 0)")
+        }
+        withUnsafePointer(to: capture) { script_arc_sink($0) }
+        guard let snapshot = capture.snapshot else { return precondition(reads.isEmpty) }
+        snapshot.withUnsafeBytes { bytes in
+            let header = bytes.loadUnaligned(as: UInt64.self).littleEndian
+            precondition(UInt16(truncatingIfNeeded: header >> 16) == 1)
+        }
+    }
+}

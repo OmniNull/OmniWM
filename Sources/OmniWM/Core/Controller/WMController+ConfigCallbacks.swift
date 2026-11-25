@@ -13,10 +13,21 @@ struct ConfigScriptSessionToken {
     }
 }
 
+struct ConfigScriptFocusBaseline: Equatable, Sendable {
+    let owner: NativeFocusOwner
+    let pending: WindowToken?
+
+    func unchanged(in now: Self, apartFrom window: WindowToken) -> Bool {
+        (now.owner == owner || now.owner.managedToken == window || now.owner.externalToken == window)
+            && (now.pending == nil || now.pending == pending || now.pending == window)
+    }
+}
+
 struct ConfigScriptTarget: Sendable {
     let sessionID: ConfigScriptSession
 
     let token: WindowToken?
+    let focus: ConfigScriptFocusBaseline
     struct Workspace: Sendable {
         let id: WorkspaceDescriptor.ID
         let name: String
@@ -49,8 +60,8 @@ struct ConfigScriptCapture: Sendable {
 }
 
 extension WMController {
-    func configScriptTarget() -> ConfigScriptTarget {
-        workspaceManager.configScriptTarget(session: scriptSession.identity, apps: appInfoCache)
+    func configScriptTarget(focus: ConfigScriptFocusBaseline? = nil) -> ConfigScriptTarget {
+        workspaceManager.configScriptTarget(session: scriptSession.identity, apps: appInfoCache, focus: focus)
     }
 
     func startConfigScriptProgram(
@@ -106,9 +117,26 @@ extension WMController {
             }
             if let automationRefusal { return automationRefusal }
             guard window.session == scriptSession.identity else { return .staleWindowId }
-            guard window.fromEdge else { return performWindowAction(window.action, on: window.token) }
-            guard window.token == target.token, let anchor = target.workspaceId else { return .invalidArguments }
-            return performWindowAction(window.action, on: window.token, edgeOf: anchor)
+            switch window.check {
+            case nil:
+                return performWindowAction(window.action, on: window.token)
+            case .fromEdge:
+                guard window.token == target.token, let anchor = target.workspaceId else { return .invalidArguments }
+                return performWindowAction(window.action, on: window.token, edgeOf: anchor)
+            case let .focus(targetOf, nativeFullscreen):
+                let manager = workspaceManager
+                if let workspaceId = targetOf?.id,
+                   activeWorkspace()?.id != workspaceId
+                   || !target.focus.unchanged(in: manager.configScriptFocusBaseline, apartFrom: window.token)
+                   || manager.resolveWorkspaceFocusToken(in: workspaceId) != window.token
+                {
+                    return .noChange
+                }
+                guard !nativeFullscreen || manager.showsNativeFullscreenPlaceholder(for: window.token) else {
+                    return .noChange
+                }
+                return performWindowAction(window.action, on: window.token)
+            }
         }
     }
 
@@ -177,11 +205,17 @@ extension HotkeyCommand {
 }
 
 extension WorkspaceManager {
-    func configScriptTarget(session: @autoclosure () -> ConfigScriptSession, apps: AppInfoCache) -> ConfigScriptTarget {
-        let focused = nativeManagedFocusToken
+    var configScriptFocusBaseline: ConfigScriptFocusBaseline {
+        ConfigScriptFocusBaseline(owner: nativeFocusOwner, pending: pendingFocusedToken)
+    }
+
+    func configScriptTarget(
+        session: @autoclosure () -> ConfigScriptSession, apps: AppInfoCache, focus: ConfigScriptFocusBaseline? = nil
+    ) -> ConfigScriptTarget {
+        let focus = focus ?? configScriptFocusBaseline
         var window: WindowToken?
         var bundle: String?
-        if let focused, var identity = configWindow(for: focused) {
+        if let focused = nativeManagedFocusToken, var identity = configWindow(for: focused) {
             window = identity.token
             bundle = identity.takeBundle()
             if bundle == nil { bundle = apps.cachedBundleId(for: focused.pid) }
@@ -189,6 +223,7 @@ extension WorkspaceManager {
         return ConfigScriptTarget(
             sessionID: session(),
             token: window,
+            focus: focus,
             bundleId: bundle,
             workspace: configScriptWorkspace()
         )

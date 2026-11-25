@@ -51,14 +51,15 @@ final class ConfigScriptSnapshotTests: XCTestCase {
             "assert(ctx.truncated.workspaceWindows == false and ctx.truncated.windows == nil)",
             "local a, b, c = table.unpack(ctx.workspaceWindows)",
             "assert(#ctx.workspaceWindows == 3 and a.id == '\(ids[0])' and b.id == '\(ids[2])' and c.id == '\(ids[3])')",
-            "assert(table.isfrozen(a) and a.floating and a.minimized and not a.fullscreen)",
+            "assert(table.isfrozen(a) and a.floating and a.minimized and a.fullscreen == nil)",
             "assert(a.title == '\(names[0])' and a.bundleId == 'lookup.fixture' and a.workspace == '\(fixture.origin)')",
             "assert(a.monitor == '\(monitor.id.scriptIdentifier)' and b.title == nil and c.title == '')"
         ])
         try await check(fixture, reads: ["windows", "workspaces", "monitors"], body: [
             "assert(ctx.workspaceWindows == nil and ctx.truncated.workspaceWindows == nil)",
             "assert(#ctx.windows == \(names.count) and ctx.windows[#ctx.windows].id == '\(ids[1])')",
-            "assert(ctx.windows[#ctx.windows].fullscreen and ctx.windows[#ctx.windows].workspace == '\(fixture.destination)')",
+            "local native = ctx.windows[#ctx.windows]",
+            "assert(native.fullscreen == 'native' and native.workspace == '\(fixture.destination)')",
             "local workspaces = {}",
             "for _, w in ctx.workspaces do workspaces[w.name] = w end",
             "assert(workspaces['\(fixture.origin)'].id == '\(here.uuidString)')",
@@ -118,11 +119,10 @@ final class ConfigScriptSnapshotTests: XCTestCase {
             _ = dwindle.syncWindows(tokens, in: here, focusedToken: nil)
             XCTAssertTrue(dwindle.toggleFullscreen(for: second, in: here))
         }
-        for (layout, niriActive) in [(LayoutType.niri, true), (.dwindle, false)] {
+        for (layout, kinds) in [(LayoutType.niri, ("'omniwm'", "nil")), (.dwindle, ("nil", "'omniwm'"))] {
             settings.configurations[index].layoutType = layout
             try await check(fixture, reads: ["windows"], body: [
-                "assert(ctx.windows[1].fullscreen == \(niriActive))",
-                "assert(ctx.windows[2].fullscreen == \(!niriActive))"
+                "assert(ctx.windows[1].fullscreen == \(kinds.0) and ctx.windows[2].fullscreen == \(kinds.1))"
             ])
         }
     }

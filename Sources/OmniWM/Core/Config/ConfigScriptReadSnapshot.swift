@@ -11,6 +11,7 @@ struct ConfigScriptReads: OptionSet, Sendable {
     static let workspaces = Self(rawValue: UInt8(OMNI_CONFIG_READ_WORKSPACES))
     static let monitors = Self(rawValue: UInt8(OMNI_CONFIG_READ_MONITORS))
     static let placement = Self(rawValue: UInt8(OMNI_CONFIG_READ_PLACEMENT))
+    static let focusTarget = Self(rawValue: UInt8(OMNI_CONFIG_READ_FOCUS_TARGET))
 }
 
 struct ConfigScriptSnapshot: Sendable {
@@ -64,6 +65,12 @@ struct ConfigScriptSnapshotPool {
         swap(&slots[index].storage, &output.bytes)
         return ConfigScriptSnapshot(reservation: slots[index].reservation, bytes: slots[index].storage)
     }
+}
+
+private struct ScriptReadOrigin {
+    let workspaceId: WorkspaceDescriptor.ID?
+    let token: WindowToken?
+    let session: ConfigScriptSession
 }
 
 private struct ScriptStrip {
@@ -188,27 +195,17 @@ extension WMController {
     func configScriptSnapshot(
         reads: ConfigScriptReads, target: borrowing ConfigScriptTarget, pool: inout ConfigScriptSnapshotPool
     ) -> ConfigScriptSnapshot {
-        let workspace = target.workspaceId
-        let token = target.token
-        let session = target.sessionID
-        return pool.capture(reads: reads) { writeSnapshot(
-            reads: reads,
-            workspaceId: workspace,
-            token: token,
-            session: session,
-            to: &$0
-        ) }
+        let origin = ScriptReadOrigin(workspaceId: target.workspaceId, token: target.token, session: target.sessionID)
+        return pool.capture(reads: reads) { writeSnapshot(reads: reads, origin: origin, to: &$0) }
     }
 
-    private func writeSnapshot(
-        reads: ConfigScriptReads, workspaceId: WorkspaceDescriptor.ID?, token: WindowToken?,
-        session: ConfigScriptSession, to output: inout SnapshotWriter
-    ) {
+    private func writeSnapshot(reads: ConfigScriptReads, origin: ScriptReadOrigin, to output: inout SnapshotWriter) {
         let manager = workspaceManager
+        let session = origin.session
         lazy var resolution = manager.monitorResolutionContext()
         if reads.contains(.workspaceWindows) {
             output.start(.workspaceWindows)
-            if let id = workspaceId, let workspace = manager.descriptor(for: id) {
+            if let id = origin.workspaceId, let workspace = manager.descriptor(for: id) {
                 _ = appendScriptWindows(in: workspace, session: session, resolution: resolution, to: &output)
             }
             finishScriptList(&output)
@@ -242,11 +239,7 @@ extension WMController {
             }
             finishScriptList(&output)
         }
-        if reads.contains(.placement) {
-            output.start(.placement)
-            appendScriptPlacement(of: token, session: session, resolution: resolution, to: &output)
-            finishScriptList(&output)
-        }
+        appendScriptRecords(reads: reads, origin: origin, resolution: resolution, to: &output)
         #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
             ConfigScriptSnapshot.captures += 1
         #endif
@@ -279,11 +272,13 @@ extension WMController {
                     guard row.windowID(token, session: session), writeWindowText(entry, to: &row),
                           row.string(workspace.name), row.string(monitor) else { return false }
                     let floating = entry.mode == .floating
-                    let fullscreen = entry.observedState.isNativeFullscreen || (!floating && (layout == .niri
+                    let native = entry.observedState.isNativeFullscreen
+                    let fullscreen = native || (!floating && (layout == .niri
                             ? niri?.isWindowFullscreen(token, in: workspace.id) == true
                             : dwindle?.isWindowFullscreen(token) == true))
                     let flags = (floating ? OMNI_CONFIG_WINDOW_FLOATING : 0) |
                         (fullscreen ? OMNI_CONFIG_WINDOW_FULLSCREEN : 0) |
+                        (native ? OMNI_CONFIG_WINDOW_NATIVE_FULLSCREEN : 0) |
                         (entry.observedState.isMinimized ? OMNI_CONFIG_WINDOW_MINIMIZED : 0)
                     return row.flag(UInt8(flags))
                 }
@@ -291,6 +286,28 @@ extension WMController {
             if accepted == false { return false }
         }
         return true
+    }
+
+    private func appendScriptRecords(
+        reads: ConfigScriptReads, origin: ScriptReadOrigin,
+        resolution: @autoclosure () -> WorkspaceManager.MonitorResolutionContext,
+        to output: inout SnapshotWriter
+    ) {
+        if reads.contains(.placement) {
+            output.start(.placement)
+            appendScriptPlacement(of: origin.token, session: origin.session, resolution: resolution(), to: &output)
+            finishScriptList(&output)
+        }
+        if reads.contains(.focusTarget) {
+            output.start(.focusTarget)
+            let manager = workspaceManager
+            if let workspaceId = origin.workspaceId, let target = manager.resolveWorkspaceFocusToken(in: workspaceId) {
+                let flags = manager.showsNativeFullscreenPlaceholder(for: target)
+                    ? OMNI_CONFIG_FOCUS_TARGET_NATIVE_FULLSCREEN : 0
+                _ = output.row { $0.windowID(target, session: origin.session) && $0.flag(UInt8(flags)) }
+            }
+            finishScriptList(&output)
+        }
     }
 
     private func appendScriptPlacement(

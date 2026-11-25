@@ -23,20 +23,20 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
     let action: WindowAction
     let session: ConfigScriptSession
     let token: WindowToken
-    let fromEdge: Bool
+    let check: ConfigScriptWindowCheck?
 
     init(
         name: ConfigScriptWindowActionName,
         action: WindowAction,
         session: ConfigScriptSession,
         token: WindowToken,
-        fromEdge: Bool = false
+        check: ConfigScriptWindowCheck? = nil
     ) {
         self.name = name
         self.action = action
         self.session = session
         self.token = token
-        self.fromEdge = fromEdge
+        self.check = check
     }
 
     init(
@@ -46,15 +46,20 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
         guard (2 ... 3).contains(words.count), let name = Self.actionName(Self.bytes(words[0])) else {
             throw Self.invalid
         }
-        var fromEdge = false
+        var check: ConfigScriptWindowCheck?
         let action: WindowAction?
         if let destination {
-            guard name == .shared(.moveToWorkspace), words.count == 2 else {
-                throw ConfigScriptError(line: nil, message: "Only move-to-workspace takes a destination table.")
+            switch (name, words.count) {
+            case (.shared(.moveToWorkspace), 2):
+                let parsed = try ConfigScriptWindowDestination(fields: destination)
+                action = .moveToDisplay(parsed.target, column: parsed.column)
+                check = parsed.fromEdge ? .fromEdge : nil
+            case (.shared(.focus), 2):
+                action = .focus
+                check = try .focus(fields: destination)
+            default:
+                throw ConfigScriptError(line: nil, message: "Only move-to-workspace and focus take a table.")
             }
-            let parsed = try ConfigScriptWindowDestination(fields: destination)
-            action = .moveToDisplay(parsed.target, column: parsed.column)
-            fromEdge = parsed.fromEdge
         } else if words.count == 3 {
             guard let argument = String(validating: Self.bytes(words[2]), as: UTF8.self) else {
                 throw ConfigScriptError(line: nil, message: "Command words and chords must be valid UTF-8.")
@@ -67,7 +72,7 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
         guard let id = ConfigScriptWindowID.decode(Self.bytes(words[1])) else {
             throw ConfigScriptError(line: nil, message: "Expected a session-scoped window ID.")
         }
-        self.init(name: name, action: action, session: id.session, token: id.token, fromEdge: fromEdge)
+        self.init(name: name, action: action, session: id.session, token: id.token, check: check)
     }
 
     private static let invalid = ConfigScriptError(line: nil, message: "Invalid window action or arguments.")

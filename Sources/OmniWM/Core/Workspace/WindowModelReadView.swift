@@ -92,15 +92,13 @@ extension WindowModel {
             model.forEachWindowForLayoutSnapshot(in: workspace, mode: mode, body)
         }
 
-        func firstWindow(
+        func firstToken(
             in workspace: WorkspaceDescriptor.ID,
             mode: TrackedWindowMode,
-            where predicate: (WindowState) -> Bool
-        ) -> WindowState? {
-            for token in model.tokens(in: workspace, mode: mode) {
-                if let entry = model.entry(for: token), predicate(entry) {
-                    return entry
-                }
+            where predicate: (borrowing WindowState) -> Bool
+        ) -> WindowToken? {
+            for token in model.tokens(in: workspace, mode: mode) where model.withEntry(token, predicate) == true {
+                return token
             }
             return nil
         }

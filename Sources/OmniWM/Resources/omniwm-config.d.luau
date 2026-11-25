@@ -551,11 +551,11 @@ export type ConfigRule = {
     scratchpad: number?,
 }
 
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget"
 export type ConfigReadOptions = { reads: { ConfigRead } }
 export type ConfigWindowRow = {
     read id: string, read bundleId: string?, read title: string?, read workspace: string,
-    read monitor: string?, read floating: boolean, read fullscreen: boolean, read minimized: boolean,
+    read monitor: string?, read floating: boolean, read fullscreen: ("native" | "omniwm")?, read minimized: boolean,
 }
 export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
 export type ConfigMonitorRow = { read id: string, read name: string }
@@ -564,15 +564,17 @@ export type ConfigPlacement = { read workspace: string, read display: string?, r
         read workspace: string, read display: string?, read column: number, read columns: number,
         read members: { read [number]: string }, read vertical: boolean,
     }
+export type ConfigFocusTarget = { read id: string, read nativeFullscreen: boolean }
 export type ConfigLookups = {
     read workspaceWindows: { read [number]: ConfigWindowRow }?,
     read windows: { read [number]: ConfigWindowRow }?,
     read workspaces: { read [number]: ConfigWorkspaceRow }?,
     read monitors: { read [number]: ConfigMonitorRow }?,
     read placement: ConfigPlacement?,
+    read focusTarget: ConfigFocusTarget?,
     read truncated: {
         read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
-        read placement: boolean?,
+        read placement: boolean?, read focusTarget: boolean?,
     }?,
 }
 export type ConfigContext = ConfigLookups & {
@@ -590,6 +592,7 @@ export type ConfigWindowDestination =
     { read display: string, read column: number? }
     | { read neighbor: "left" | "right" | "up" | "down", read of: string?, read column: number? }
     | { read neighbor: "left" | "right" | "up" | "down", read of: string, read fromEdge: boolean, read column: number? }
+export type ConfigFocusCheck = { read targetOf: string?, read nativeFullscreen: boolean? }
 
 export type ConfigEventRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWorkspaceEvent = ConfigLookups & { read id: string?, read name: string? }
@@ -732,6 +735,7 @@ export type ConfigCommands =
 export type ConfigDispatch =
     { read dispatch: (action: ConfigAction) -> () }
     & { read dispatch: (kind: "window", action: "focus", id: string) -> () }
+    & { read dispatch: (kind: "window", action: "focus", id: string, check: ConfigFocusCheck) -> () }
     & { read dispatch: (kind: "window", action: "navigate", id: string) -> () }
     & { read dispatch: (kind: "window", action: "summon-right", id: string) -> () }
     & { read dispatch: (kind: "window", action: "close", id: string) -> () }

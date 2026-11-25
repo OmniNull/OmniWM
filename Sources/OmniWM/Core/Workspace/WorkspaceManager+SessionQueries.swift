@@ -19,7 +19,7 @@ extension WorkspaceManager {
     }
 
     var nativeFocusOwner: NativeFocusOwner {
-        focusSessionSnapshot.nativeFocusOwner
+        focusSession.nativeFocusOwner
     }
 
     var nativeManagedFocusToken: WindowToken? {
@@ -93,7 +93,7 @@ extension WorkspaceManager {
     }
 
     var pendingFocusedToken: WindowToken? {
-        focusSessionSnapshot.pendingManagedFocus.token
+        focusSession.pendingManagedFocus.token
     }
 
     var pendingFocusedHandle: WindowHandle? {

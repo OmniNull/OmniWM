@@ -10,8 +10,6 @@ import OmniWMScriptHost
 @MainActor
 final class ConfigScriptCallbackQueue {
     static let capacity = 8
-    static let edgeCapacity = Int(OMNI_CONFIG_COMMAND_LIMIT)
-    static let windowStateCapacity = Int(OMNI_CONFIG_COMMAND_LIMIT)
 
     private enum WorkerState {
         case starting
@@ -158,7 +156,7 @@ final class ConfigScriptCallbackQueue {
     ) {
         if case .retired = state { return }
         let mask = exclusions(kind, argument: argument, controller: controller)
-        if stage(kind, consume argument, excluding: mask, capture: {
+        if stage(kind, consume argument, excluding: mask, manager: controller.workspaceManager, capture: {
             eventCapture(kind, excluding: $0, controller: controller)
         }) { wake(controller) }
     }
@@ -183,7 +181,7 @@ final class ConfigScriptCallbackQueue {
         } else if let confirmed {
             mask = Self.combined(mask, confirmed)
         }
-        if stage(kind, consume event, excluding: mask, capture: { excluded in
+        if stage(kind, consume event, excluding: mask, manager: manager, capture: { excluded in
             if eventReads?[kind] != nil {
                 guard let controller = executionController else { return nil }
                 return eventCapture(kind, excluding: excluded, controller: controller)
@@ -196,7 +194,8 @@ final class ConfigScriptCallbackQueue {
 
     private func stage(
         _ kind: ConfigScriptEventKind, _ argument: consuming ConfigScriptNativeEvent,
-        excluding excluded: ConfigScriptListenerMask?, capture: (ConfigScriptListenerMask?) -> ConfigScriptCapture?
+        excluding excluded: ConfigScriptListenerMask?, manager: WorkspaceManager,
+        capture: (ConfigScriptListenerMask?) -> ConfigScriptCapture?
     ) -> Bool {
         switch kind.delivery {
         case .edge:
@@ -214,7 +213,10 @@ final class ConfigScriptCallbackQueue {
         case .latest:
             let slot = pendingEvents[kind]
             if slot == nil, allExcluded(kind, by: excluded) { return false }
-            let next = Work(trigger: .event(kind, consume argument, excluding: excluded, capture: nil))
+            let next = Work(
+                trigger: .event(kind, consume argument, excluding: excluded, capture: nil),
+                focus: manager.configScriptFocusBaseline
+            )
             if let slot {
                 work[slot] = consume next
             } else {
@@ -226,7 +228,8 @@ final class ConfigScriptCallbackQueue {
                       .event(kind, consume argument, excluding: excluded, capture: nil),
                       key: key,
                       kind: kind,
-                      excluding: excluded
+                      excluding: excluded,
+                      focus: manager.configScriptFocusBaseline
                   ) else { return false }
         }
         return true
@@ -263,26 +266,26 @@ final class ConfigScriptCallbackQueue {
     func enqueueTitle(_ title: consuming ConfigScriptWindowTitle, controller: WMController) {
         if case .retired = state { return }
         let key = WindowStateKey.window(.windowTitle, title.token, title.epoch)
-        let accepted: Bool
-        if let excluded = feedback.currentExclusions {
-            accepted = storeWindowState(
-                .causedTitle(consume title, excluding: excluded),
-                key: key,
-                kind: .windowTitle,
-                excluding: excluded
-            )
+        let excluded = feedback.currentExclusions
+        let trigger: Trigger
+        if let excluded {
+            trigger = .causedTitle(consume title, excluding: excluded)
         } else {
-            accepted = storeWindowState(.title(consume title), key: key, kind: .windowTitle, excluding: nil)
+            trigger = .title(consume title)
         }
-        if accepted { wake(controller) }
+        let focus = controller.workspaceManager.configScriptFocusBaseline
+        if storeWindowState(consume trigger, key: key, kind: .windowTitle, excluding: excluded, focus: focus) {
+            wake(controller)
+        }
     }
 
     private func storeWindowState(
         _ trigger: consuming Trigger, key: WindowStateKey, kind: ConfigScriptEventKind,
-        excluding: ConfigScriptListenerMask?
+        excluding: ConfigScriptListenerMask?, focus: ConfigScriptFocusBaseline
     ) -> Bool {
         if let slot = pendingWindowStates[key] {
             work[slot]!.trigger = trigger
+            work[slot]!.focus = focus
             return true
         }
         if let excluding, allExcluded(kind, by: excluding) { return false }
@@ -291,14 +294,16 @@ final class ConfigScriptCallbackQueue {
             work[lastWindowStateSlot]?.missed = missedWindowStates
             return false
         }
-        let slot = append(Work(trigger: trigger, missed: missedWindowStates))
+        let slot = append(Work(trigger: trigger, missed: missedWindowStates, focus: focus))
         lastWindowStateSlot = slot
         pendingWindowStates[key] = slot
         return true
     }
 
-    func capture(reads: ConfigScriptReads, controller: WMController) -> ConfigScriptCapture {
-        let target = controller.configScriptTarget()
+    func capture(
+        reads: ConfigScriptReads, controller: WMController, focus: ConfigScriptFocusBaseline? = nil
+    ) -> ConfigScriptCapture {
+        let target = controller.configScriptTarget(focus: focus)
         let snapshot = reads.isEmpty ? nil : controller.configScriptSnapshot(
             reads: reads, target: target, pool: &snapshotPool
         )
@@ -306,11 +311,12 @@ final class ConfigScriptCallbackQueue {
     }
 
     private func eventCapture(
-        _ kind: ConfigScriptEventKind, excluding functions: ConfigScriptListenerMask?, controller: WMController
+        _ kind: ConfigScriptEventKind, excluding functions: ConfigScriptListenerMask?, controller: WMController,
+        focus: ConfigScriptFocusBaseline? = nil
     ) -> ConfigScriptCapture {
-        guard let demand = eventReads?[kind] else { return capture(reads: [], controller: controller) }
+        guard let demand = eventReads?[kind] else { return capture(reads: [], controller: controller, focus: focus) }
         let reads = if let functions { demand.demand(excluding: functions) } else { demand.all }
-        return capture(reads: reads, controller: controller)
+        return capture(reads: reads, controller: controller, focus: focus)
     }
 
     @discardableResult
@@ -375,7 +381,7 @@ extension ConfigScriptCallbackQueue {
                                 )
                             }
                             if let commands = (consume result).batch {
-                                let cause = isEvent ? self.cause(for: slot) : nil
+                                let cause = isEvent ? slot.cause : nil
                                 try await self.apply(
                                     commands, target: slot.capture!.target, cause: cause, controller: controller,
                                     owner: owner
@@ -391,13 +397,6 @@ extension ConfigScriptCallbackQueue {
                 } while self.pendingCount != 0 && !self.isRetired
             }
         }
-    }
-
-    private func cause(for slot: borrowing InFlight) -> ConfigScriptEventCause {
-        ConfigScriptEventCause(
-            function: slot.listenerIndex,
-            ancestors: slot.excluded ?? []
-        )
     }
 
     private func park(_ continuation: UnsafeContinuation<Void, Never>) {
@@ -442,7 +441,8 @@ extension ConfigScriptCallbackQueue {
         let next = work[head].take()!
         head = (head + 1) % work.count
         pendingCount -= 1
-        let missed = next.missed
+        slot.missed = next.missed
+        let focus = next.focus
         switch (consume next).trigger {
         case let .function(id, capture):
             slot.capture = consume capture
@@ -450,12 +450,12 @@ extension ConfigScriptCallbackQueue {
         case let .title(title):
             pendingWindowStates.removeValue(forKey: .window(.windowTitle, title.token, title.epoch))
             slot.event = .title(consume title)
-            return prepareEvent(.windowTitle, missed: missed, capture: nil, into: &slot, controller: controller)
+            return prepareEvent(.windowTitle, capture: nil, focus: focus, into: &slot, controller: controller)
         case let .causedTitle(title, excluded):
             pendingWindowStates.removeValue(forKey: .window(.windowTitle, title.token, title.epoch))
             slot.event = .title(consume title)
             slot.excluded = excluded
-            return prepareEvent(.windowTitle, missed: missed, capture: nil, into: &slot, controller: controller)
+            return prepareEvent(.windowTitle, capture: nil, focus: focus, into: &slot, controller: controller)
         case let .event(kind, payload, excluded, queuedCapture):
             switch kind.delivery {
             case .edge: pendingEdges -= 1
@@ -467,12 +467,12 @@ extension ConfigScriptCallbackQueue {
             payload.attachCapturedSession(queuedCapture!.target.sessionID)
             slot.event = .native(consume payload)
             slot.excluded = excluded
-            return prepareEvent(kind, missed: missed, capture: queuedCapture, into: &slot, controller: controller)
+            return prepareEvent(kind, capture: queuedCapture, focus: focus, into: &slot, controller: controller)
         }
     }
 
     private func prepareEvent(
-        _ kind: ConfigScriptEventKind, missed: UInt64, capture: ConfigScriptCapture?,
+        _ kind: ConfigScriptEventKind, capture: ConfigScriptCapture?, focus: ConfigScriptFocusBaseline?,
         into slot: inout InFlight, controller: WMController
     ) -> Int? {
         let function: Int
@@ -493,8 +493,7 @@ extension ConfigScriptCallbackQueue {
             slot = InFlight()
             return nil
         }
-        slot.capture = capture ?? eventCapture(kind, excluding: slot.excluded, controller: controller)
-        slot.missed = missed
+        slot.capture = capture ?? eventCapture(kind, excluding: slot.excluded, controller: controller, focus: focus)
         return function
     }
 }

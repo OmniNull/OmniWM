@@ -128,7 +128,7 @@ final class ConfigScriptOwnColumnTests: XCTestCase {
         XCTAssertThrowsError(try ConfigScriptWindowRequest(
             testWords: ["place-in-own-column", id], destination: [("display", .text("1"))]
         )) {
-            XCTAssertEqual(($0 as? ConfigScriptError)?.message, "Only move-to-workspace takes a destination table.")
+            XCTAssertEqual(($0 as? ConfigScriptError)?.message, "Only move-to-workspace and focus take a table.")
         }
         let stale = ConfigScriptWindowID.string(fixture.token(1), session: .random())
         let staleRequest = try ConfigScriptWindowRequest(testWords: ["place-in-own-column", stale, "1"])

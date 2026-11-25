@@ -144,9 +144,9 @@ extension WorkspaceManager {
             return remembered
         }
 
-        return windowQueries.firstWindow(in: workspaceId, mode: .tiling) {
+        return windowQueries.firstToken(in: workspaceId, mode: .tiling) {
             isFocusResolutionEligible($0, in: workspaceId, mode: .tiling)
-        }?.token
+        }
     }
 
     func resolveWorkspaceFocusToken(in workspaceId: WorkspaceDescriptor.ID) -> WindowToken? {
@@ -181,9 +181,9 @@ extension WorkspaceManager {
         ) {
             return confirmed
         }
-        return windowQueries.firstWindow(in: workspaceId, mode: .floating) {
+        return windowQueries.firstToken(in: workspaceId, mode: .floating) {
             isFocusResolutionEligible($0, in: workspaceId, mode: .floating)
-        }?.token
+        }
     }
 
     @discardableResult

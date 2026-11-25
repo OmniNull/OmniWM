@@ -103,6 +103,9 @@ NATIVE_TITLE_PRODUCER_AT_DCDFF9956 = {
 PLACEMENT_CAPTURES = (
     "capture/placement", "capture/placement-mutated", "capture/placement-excluded", "capture/placement-held-tab"
 )
+FOCUS_TARGET_CAPTURES = ("capture/focus-target", "capture/focus-target-exit", "capture/focus-target-fallback")
+FOCUS_TARGET_EVENTS = tuple(route.replace("capture/", "event/workspace.active+") for route in FOCUS_TARGET_CAPTURES)
+ROUTES.update(("capture/no-focus-target", *FOCUS_TARGET_CAPTURES, *FOCUS_TARGET_EVENTS))
 EXACT_COSTS = {
     **{(route, phase): RESIDENT_KEY_STORAGE for route in (*WAKE_TRANSFERS, "key/owned-busy")
        for phase in ("producer", "dequeue", "completion")},
@@ -314,17 +317,32 @@ def check_costs(output):
             extra = int(table[route, "config"][field]) - int(table[baseline, "config"][field])
             if extra != allowed:
                 sys.exit(f"{route}: expected {field} +{allowed} over {baseline}, got +{extra}. {reason}")
-    for route in PLACEMENT_CAPTURES:
+    for route in (*PLACEMENT_CAPTURES, *FOCUS_TARGET_CAPTURES):
         counts = table[route, "producer"]
         if int(counts["obj"]) or int(counts["heap"]):
-            sys.exit(f"{route}: the placement read walks the strip without allocating: {counts}")
+            sys.exit(f"{route}: a declared singleton read fills the warm snapshot without allocating: {counts}")
+    def config_delta(route, baseline):
+        return {k: int(table[route, "config"][k]) - int(table[baseline, "config"][k]) for k in ("R", "L", "obj", "heap")}
+    declared_read = config_delta("key/placement", "key/no-placement")
+    staged_action = config_delta("key/dispatch-window", "key/idle")
+    for route in FOCUS_TARGET_EVENTS:
+        for phase in ("producer", "dequeue", "completion"):
+            counts = table[route, phase]
+            if int(counts["obj"]) or int(counts["heap"]):
+                sys.exit(f"{route}/{phase}: the read and the refused focus check need no main-thread storage: {counts}")
+        extra = config_delta(route, "event/workspace.active")
+        budget = {k: declared_read[k] + staged_action[k] for k in extra}
+        if any(extra[k] != budget[k] for k in ("obj", "heap")) or any(extra[k] > budget[k] for k in ("R", "L")):
+            sys.exit(f"{route}: the record and a checked focus may cost only a declared read plus a staged "
+                     f"window action on the config thread: {extra} against {budget}")
     def counts(route):
         return {k: v for k, v in table[route, "producer"].items() if k not in ("route", "native-control", "phase")}
     if counts("capture/placement-mutated") != counts("capture/placement"):
         sys.exit("capture/placement-mutated: a structural change must not add placement read cost")
-    if counts("capture/no-placement") != counts("capture/fixed"):
-        sys.exit("capture/no-placement: an undeclared placement read must cost nothing")
-    for route in ("capture/workspace-8", "capture/windows-200", *PLACEMENT_CAPTURES):
+    for route in ("capture/no-placement", "capture/no-focus-target"):
+        if counts(route) != counts("capture/fixed"):
+            sys.exit(f"{route}: an undeclared read must cost nothing")
+    for route in ("capture/workspace-8", "capture/windows-200", *PLACEMENT_CAPTURES, *FOCUS_TARGET_CAPTURES):
         if not re.search(rf"^snapshot-bytes {re.escape(route)} [1-9][0-9]*$", output, re.M):
             sys.exit(f"Missing snapshot byte count for {route}")
     for route in TIMER_ROUTES:

@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMScriptHost
+
 extension ConfigScriptCallbackQueue {
+    static let edgeCapacity = Int(OMNI_CONFIG_COMMAND_LIMIT)
+    static let windowStateCapacity = Int(OMNI_CONFIG_COMMAND_LIMIT)
+
     static func combined(
         _ current: ConfigScriptListenerMask?,
         _ additional: ConfigScriptListenerMask
@@ -59,6 +64,7 @@ extension ConfigScriptCallbackQueue {
     struct Work {
         var trigger: Trigger
         var missed: UInt64 = 0
+        var focus: ConfigScriptFocusBaseline?
     }
 
     struct InFlight {
@@ -68,6 +74,10 @@ extension ConfigScriptCallbackQueue {
         var excluded: ConfigScriptListenerMask?
         var listenerIndex = 0
         var listeners: ArraySlice<Listener>?
+
+        var cause: ConfigScriptEventCause {
+            ConfigScriptEventCause(function: listenerIndex, ancestors: excluded ?? [])
+        }
 
         mutating func nextListener() -> Int? {
             while let function = listeners?.popFirst() {

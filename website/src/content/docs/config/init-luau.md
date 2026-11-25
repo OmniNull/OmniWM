@@ -66,9 +66,10 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `workspaces` | Workspaces, per monitor, in Next/Previous Workspace order |
 | `monitors` | Displays, left to right, then top first |
 | `placement` | Where the focused window sits: one record, not a list |
+| `focusTarget` | The window the callback's workspace focuses: one record |
 
 The row fields are:
-- **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (native or OmniWM fullscreen) and `minimized`;
+- **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (`"native"` for macOS fullscreen, `"omniwm"` for OmniWM's, absent otherwise) and `minimized`;
 - **workspace:** `id`, `name` and `monitor`;
 - **monitor:** `id` and `name`.
 
@@ -77,6 +78,8 @@ The row fields are:
 - `columns`: how many columns the workspace shows;
 - `members`: the IDs of the windows in that column, in order, with inactive tabs but without minimized or hidden windows;
 - `vertical`: `true` when the strip runs vertically. Moving a column `"up"` then takes it toward a larger `column`, and `"down"` toward a smaller one. In a horizontal strip, `"right"` and `"left"` do that.
+
+`ctx.focusTarget` is the window OmniWM focuses when you switch to the callback's workspace. For `workspace.active`, that is the workspace just switched to. It has `id` and `nativeFullscreen`, which is `true` when the window sits in its own macOS fullscreen Space and `focus` can bring it forward. It's absent when the workspace has no window to focus.
 
 A window `id` is text such as `"9b2f6c0e4d1a7b3c5e8f0a2d4c6e8b1f.48213.912345"`. It names the same window until OmniWM quits, and actions reach that window while OmniWM manages it. A monitor `id` is the display's number as text, such as `"69734208"`.
 
@@ -126,6 +129,12 @@ Handlers last until the next reload.
 | `assign-to-scratchpad` | slot as a string, such as `"1"` |
 
 `place-in-own-column` gives just that window a column of its own at that position on its Niri workspace. A window that shares its column, even with a minimized or hidden window, leaves it; a window alone in its column moves with it. A larger position puts it last. Like the other column actions, it doesn't change focus.
+
+`focus` also takes a table of checks, made when the focus runs rather than when it's queued:
+- `{ targetOf = id }` focuses the window only if workspace `id` is still the focused workspace, the window is still the one it focuses, and no other window has taken or been asked to take focus since the event or shortcut that ran the callback.
+- `{ nativeFullscreen = true }` focuses it only if it still sits in its own fullscreen Space.
+
+When a check fails, nothing happens, so a callback that was still queued can't pull you back after you've moved on.
 
 ### Destination tables
 
@@ -373,4 +382,15 @@ local function alongStrip(forward: boolean): ConfigFunction
 end
 wm.keymap.set("Control+Option+Shift+]", alongStrip(true), { reads = { "placement" } })
 wm.keymap.set("Control+Option+Shift+[", alongStrip(false), { reads = { "placement" } })
+```
+
+**Land on a native fullscreen window when you switch to its workspace.** Switching to a workspace normally selects a fullscreen window's placeholder. This brings the window forward instead, so macOS shows its fullscreen Space. If you switch away or focus another window before it runs, it does nothing.
+
+```lua
+omniwm.on("workspace.active", function(e: ConfigWorkspaceEvent)
+    local target = e.focusTarget
+    if target and target.nativeFullscreen and e.id then
+        omniwm.dispatch("window", "focus", target.id, { targetOf = e.id, nativeFullscreen = true })
+    end
+end, { reads = { "focusTarget" } })
 ```

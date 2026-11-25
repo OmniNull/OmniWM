@@ -6,98 +6,6 @@ import Foundation
 import XCTest
 
 @MainActor
-private struct StripFixture {
-    let base: NiriGatherFixture
-    let script: ConfigScriptController
-
-    init(monitors: [Monitor], layouts: [LayoutType]? = nil) throws {
-        let specs = monitors.enumerated().map { index, monitor in
-            NiriGatherFixture.WorkspaceSpec(
-                name: String(index + 1), layoutType: layouts?[index] ?? .niri, monitor: monitor
-            )
-        }
-        base = try NiriGatherFixture(prefix: "placement", monitors: monitors, workspaces: specs)
-        for (index, monitor) in monitors.enumerated() {
-            XCTAssertTrue(base.manager.setActiveWorkspace(base.workspace(String(index + 1)), on: monitor.id))
-        }
-        let controller = base.controller
-        controller.settings.hotkeyBindings = []
-        script = ConfigScriptController(
-            fileURL: controller.settings.settingsFileURL.deletingLastPathComponent()
-                .appendingPathComponent("init.luau"),
-            settings: controller.settings,
-            wmController: controller
-        ) { [weak controller] rows in
-            guard let controller else { return }
-            controller.updateHotkeyBindings(controller.settings.hotkeyBindings, scriptBindings: rows)
-        }
-        controller.configScript = script
-    }
-
-    private var mask: UInt32 {
-        base.controller.settings.hyperKeyModifiers.carbonMask
-    }
-
-    func id(_ window: Int) -> String {
-        ConfigScriptWindowID.string(base.token(window), session: base.controller.scriptSession.identity)
-    }
-
-    func load(_ source: String) async throws {
-        let evaluation = try await ConfigScriptLoader().evaluate(Data(source.utf8), hyperMask: mask)
-        XCTAssertTrue(script.apply(ConfigScriptLoad(versions: [:], result: .success(evaluation)), hyperMask: mask))
-    }
-
-    func focus(_ window: Int, on workspace: String) async throws {
-        try await settle()
-        let workspaceId = base.workspace(workspace)
-        let monitor = try XCTUnwrap(base.manager.monitorId(for: workspaceId))
-        base.select(window, in: workspaceId)
-        _ = base.manager.confirmManagedFocus(
-            base.token(window), in: workspaceId, onMonitor: monitor, activateWorkspaceOnMonitor: false
-        )
-        XCTAssertEqual(base.manager.nativeManagedFocusToken, base.token(window))
-        XCTAssertEqual(base.manager.interactionMonitorID(), monitor)
-    }
-
-    private func settle() async throws {
-        await WindowAdmissionTestSupport.drainLayoutRefreshes(base.controller)
-        let pending = base.manager.focusSessionSnapshot.pendingManagedFocus
-        guard let requestId = pending.requestId else { return }
-        _ = base.manager.confirmManagedFocus(
-            try XCTUnwrap(pending.token), in: try XCTUnwrap(pending.workspaceId), onMonitor: pending.monitorId,
-            activateWorkspaceOnMonitor: false, requestId: requestId
-        )
-        XCTAssertEqual(base.manager.focusSessionSnapshot.pendingManagedFocus, .empty)
-    }
-
-    func press(_ chord: String) async throws {
-        let binding = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(chord, hyperMask: mask))
-        let command = try XCTUnwrap(script.effectiveBindings.first { $0.binding.chordBinding == binding }?.command)
-        try await run(command)
-    }
-
-    func run(named name: String) async throws {
-        let function = try XCTUnwrap(script.acceptedCommands.first { $0.name == name }?.function)
-        try await run(.configFunction(function))
-    }
-
-    func inspect(_ body: [String]) async throws {
-        let source = ["omniwm.command('Inspect', function(ctx)"] + body + ["end, { reads = { 'placement' } })"]
-        try await load(source.joined(separator: "\n"))
-        try await run(named: "Inspect")
-    }
-
-    private func run(_ command: HotkeyCommand) async throws {
-        XCTAssertEqual(
-            base.controller.commandHandler.handleHotkeyInvocation(HotkeyInvocation(command: command)),
-            .executed
-        )
-        await script.callbackQueue?.waitUntilParked()
-        XCTAssertNil(script.diagnostic)
-    }
-}
-
-@MainActor
 final class ConfigScriptPlacementTests: XCTestCase {
     private static func display(_ id: UInt32, _ frame: CGRect) -> Monitor {
         Monitor(
@@ -117,19 +25,11 @@ final class ConfigScriptPlacementTests: XCTestCase {
     ]
 
     private static func recipe() throws -> String {
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
-        let page = try String(
-            contentsOf: root.appendingPathComponent("website/src/content/docs/config/init-luau.md"), encoding: .utf8
-        )
-        let heading = try XCTUnwrap(page.range(of: "**Move a window along the strip"))
-        let start = try XCTUnwrap(page.range(of: "```lua\n", range: heading.upperBound ..< page.endIndex))
-        let end = try XCTUnwrap(page.range(of: "\n```", range: start.upperBound ..< page.endIndex))
-        return String(page[start.upperBound ..< end.lowerBound])
+        try ConfigScriptWindowFixture.recipe("Move a window along the strip")
     }
 
     func testPlacementDescribesTheFocusedWindowsColumn() async throws {
-        let fixture = try StripFixture(monitors: [sideBySide[0]])
+        let fixture = try ConfigScriptWindowFixture(monitors: [sideBySide[0]])
         let workspace = fixture.base.workspace("1")
         let display = sideBySide[0].id.scriptIdentifier
         fixture.base.add([1, 2, 3], to: workspace)
@@ -212,7 +112,7 @@ final class ConfigScriptPlacementTests: XCTestCase {
     }
 
     func testAVerticalStripSaysSo() async throws {
-        let fixture = try StripFixture(monitors: [stacked[0]])
+        let fixture = try ConfigScriptWindowFixture(monitors: [stacked[0]])
         fixture.base.add([1, 2], to: fixture.base.workspace("1"))
         try await fixture.focus(2, on: "1")
         try await fixture.inspect([
@@ -222,7 +122,7 @@ final class ConfigScriptPlacementTests: XCTestCase {
     }
 
     func testWindowsOutsideATiledNiriStripGetOnlyWorkspaceAndDisplay() async throws {
-        let fixture = try StripFixture(monitors: sideBySide, layouts: [.niri, .dwindle])
+        let fixture = try ConfigScriptWindowFixture(monitors: sideBySide, layouts: [.niri, .dwindle])
         fixture.base.add([1, 2], to: fixture.base.workspace("1"))
         fixture.base.add([21], to: fixture.base.workspace("2"))
         XCTAssertTrue(fixture.base.manager.setWindowMode(.floating, for: fixture.base.token(1)))
@@ -237,7 +137,7 @@ final class ConfigScriptPlacementTests: XCTestCase {
     }
 
     func testPlacementIsAbsentWithoutAFocusedWindow() async throws {
-        let fixture = try StripFixture(monitors: [sideBySide[0]])
+        let fixture = try ConfigScriptWindowFixture(monitors: [sideBySide[0]])
         fixture.base.add([1], to: fixture.base.workspace("1"))
         try await fixture.inspect(["assert(ctx.placement == nil and ctx.truncated.placement == false)"])
     }
@@ -251,7 +151,7 @@ final class ConfigScriptPlacementTests: XCTestCase {
     }
 
     private func checkRecipe(on monitors: [Monitor]) async throws {
-        let fixture = try StripFixture(monitors: monitors)
+        let fixture = try ConfigScriptWindowFixture(monitors: monitors)
         let (one, two) = (fixture.base.workspace("1"), fixture.base.workspace("2"))
         fixture.base.add([1, 2, 3], to: one)
         fixture.base.add([21], to: two)
@@ -275,7 +175,7 @@ final class ConfigScriptPlacementTests: XCTestCase {
     }
 
     func testAColumnQueuedBeyondTheWindowFirstKeepsTheEdgeMoveFromCrossing() async throws {
-        let fixture = try StripFixture(monitors: sideBySide)
+        let fixture = try ConfigScriptWindowFixture(monitors: sideBySide)
         let (one, two) = (fixture.base.workspace("1"), fixture.base.workspace("2"))
         fixture.base.add([1, 2, 3], to: one)
         fixture.base.add([21], to: two)

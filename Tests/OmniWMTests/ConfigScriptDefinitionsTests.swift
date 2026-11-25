@@ -59,6 +59,11 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
                         "destination: ConfigWindowDestination) -> () }"
                 )
             }
+            if action.name == .focus {
+                overloads.append(
+                    "{ read dispatch: (kind: \"window\", action: \"focus\", id: string, check: ConfigFocusCheck) -> () }"
+                )
+            }
         }
         let placement = ConfigScriptWindowActionName.placeInOwnColumn.rawValue.debugDescription
         overloads.append("{ read dispatch: (kind: \"window\", action: \(placement), id: string, slot: string) -> () }")
@@ -72,45 +77,9 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
             { read display: string, read column: number? }
             | { read neighbor: \(direction), read of: string?, read column: number? }
             | { read neighbor: \(direction), read of: string, read fromEdge: boolean, read column: number? }
+        export type ConfigFocusCheck = { read targetOf: string?, read nativeFullscreen: boolean? }
         """
     }
-
-    private let lookupDefinitions = """
-    export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement"
-    export type ConfigReadOptions = { reads: { ConfigRead } }
-    export type ConfigWindowRow = {
-        read id: string, read bundleId: string?, read title: string?, read workspace: string,
-        read monitor: string?, read floating: boolean, read fullscreen: boolean, read minimized: boolean,
-    }
-    export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
-    export type ConfigMonitorRow = { read id: string, read name: string }
-    export type ConfigPlacement = { read workspace: string, read display: string?, read column: nil }
-        | {
-            read workspace: string, read display: string?, read column: number, read columns: number,
-            read members: { read [number]: string }, read vertical: boolean,
-        }
-    export type ConfigLookups = {
-        read workspaceWindows: { read [number]: ConfigWindowRow }?,
-        read windows: { read [number]: ConfigWindowRow }?,
-        read workspaces: { read [number]: ConfigWorkspaceRow }?,
-        read monitors: { read [number]: ConfigMonitorRow }?,
-        read placement: ConfigPlacement?,
-        read truncated: {
-            read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
-            read placement: boolean?,
-        }?,
-    }
-    export type ConfigContext = ConfigLookups & {
-        read windowId: string?,
-        read bundleId: string?,
-        read workspace: string?,
-        read layout: string?,
-    }
-
-    export type ConfigFunction = (context: ConfigContext) -> ()
-    export type ConfigTimerOptions = { read afterSeconds: number, read everySeconds: nil } | { read afterSeconds: nil, read everySeconds: number }
-    export type ConfigTimer = { read cancel: () -> () }
-    """
 
     private let hostDefinitions = """
     export type ConfigActionBuilders = {
@@ -317,3 +286,42 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         XCTAssertEqual(Set(ConfigScriptRuleField.allCases.map(\.rawValue)), Set(nativeFields))
     }
 }
+
+private let lookupDefinitions = """
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget"
+export type ConfigReadOptions = { reads: { ConfigRead } }
+export type ConfigWindowRow = {
+    read id: string, read bundleId: string?, read title: string?, read workspace: string,
+    read monitor: string?, read floating: boolean, read fullscreen: ("native" | "omniwm")?, read minimized: boolean,
+}
+export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
+export type ConfigMonitorRow = { read id: string, read name: string }
+export type ConfigPlacement = { read workspace: string, read display: string?, read column: nil }
+    | {
+        read workspace: string, read display: string?, read column: number, read columns: number,
+        read members: { read [number]: string }, read vertical: boolean,
+    }
+export type ConfigFocusTarget = { read id: string, read nativeFullscreen: boolean }
+export type ConfigLookups = {
+    read workspaceWindows: { read [number]: ConfigWindowRow }?,
+    read windows: { read [number]: ConfigWindowRow }?,
+    read workspaces: { read [number]: ConfigWorkspaceRow }?,
+    read monitors: { read [number]: ConfigMonitorRow }?,
+    read placement: ConfigPlacement?,
+    read focusTarget: ConfigFocusTarget?,
+    read truncated: {
+        read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
+        read placement: boolean?, read focusTarget: boolean?,
+    }?,
+}
+export type ConfigContext = ConfigLookups & {
+    read windowId: string?,
+    read bundleId: string?,
+    read workspace: string?,
+    read layout: string?,
+}
+
+export type ConfigFunction = (context: ConfigContext) -> ()
+export type ConfigTimerOptions = { read afterSeconds: number, read everySeconds: nil } | { read afterSeconds: nil, read everySeconds: number }
+export type ConfigTimer = { read cancel: () -> () }
+"""

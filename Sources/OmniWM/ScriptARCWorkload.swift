@@ -466,4 +466,5 @@ private func measureEventFamilies(in directory: URL) async throws {
     try await timers.timerEvents(in: directory)
     try await measureDisplayMoves(in: directory)
     try await measurePlacement(in: directory)
+    try await measureFocusTarget(in: directory)
 }

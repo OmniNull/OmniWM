@@ -208,7 +208,7 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
             testWords: ["move-to-workspace", ConfigScriptWindowID.string(fixture.token(1), session: session)],
             destination: fields
         )
-        XCTAssertTrue(request.fromEdge)
+        XCTAssertEqual(request.check, .fromEdge)
         let target = controller.configScriptTarget()
         XCTAssertEqual(controller.performConfigScriptDispatch(.window(request), target: target), .invalidArguments)
         XCTAssertEqual(fixture.manager.workspace(for: fixture.token(1)), source)
@@ -217,6 +217,7 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
     func testDestinationTablesAreValidatedBeforeAnythingMoves() throws {
         let id = ConfigScriptWindowID.string(WindowToken(pid: getpid(), windowId: 1), session: .random())
         let display = ("display", ConfigFieldValue.text("2"))
+        let notHex = String(UUID().uuidString.map { $0 == "-" ? $0 : "x" })
         let cases: [([String], [(String, ConfigFieldValue)], String)] = [
             (["move-to-workspace", id], [], "either display or neighbor"),
             (["move-to-workspace", id], [display, ("neighbor", .text("left"))], "either display or neighbor"),
@@ -230,8 +231,13 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
             (["move-to-workspace", id], [display, ("column", .number(0))], "at least 1"),
             (["move-to-workspace", id], [display, ("column", .number(1.5))], "at least 1"),
             (["move-to-workspace", id], [display, ("slot", .number(1))], "Unknown window destination field"),
-            (["focus", id], [display], "Only move-to-workspace"),
-            (["move-to-workspace", id, "2"], [display], "Only move-to-workspace")
+            (["focus", id], [display], "Unknown focus field 'display'"),
+            (["focus", id], [("targetOf", .number(1))], "Focus field 'targetOf' has the wrong type."),
+            (["focus", id], [("targetOf", .text("1"))], "targetOf must be a workspace ID"),
+            (["focus", id], [("targetOf", .text(notHex))], "targetOf must be a workspace ID"),
+            (["focus", id], [("nativeFullscreen", .text("true"))], "'nativeFullscreen' has the wrong type."),
+            (["close", id], [display], "Only move-to-workspace and focus take a table."),
+            (["move-to-workspace", id, "2"], [display], "Only move-to-workspace and focus take a table.")
         ]
         for (words, fields, expected) in cases {
             XCTAssertThrowsError(try ConfigScriptWindowRequest(testWords: words, destination: fields)) { error in
@@ -247,7 +253,7 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
         omniwm.command('Move', function()
             omniwm.dispatch('window', 'move-to-workspace', '\(id)', { neighbor = 'right', of = '2', fromEdge = true, column = 1 })
         end)
-        omniwm.command('Bad', function() omniwm.dispatch('window', 'focus', '\(id)', {}) end)
+        omniwm.command('Bad', function() omniwm.dispatch('window', 'close', '\(id)', {}) end)
         """
         let result = try await ConfigScriptLoader().evaluate(Data(source.utf8), hyperMask: 0)
         let vm = try XCTUnwrap(result.generation)
@@ -256,11 +262,11 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
         let staged = try await vm.invoke(function: move.function, context: ConfigScriptContext()).commands
         guard case let .window(window)? = staged.first?.operation else { return XCTFail("Expected a window request") }
         XCTAssertEqual(window.action, .moveToDisplay(.neighbor(.right, of: Monitor.ID(displayId: 2)), column: 1))
-        XCTAssertTrue(window.fromEdge)
+        XCTAssertEqual(window.check, .fromEdge)
         let bad = try XCTUnwrap(commands.first { $0.name == "Bad" })
         do {
             _ = try await vm.invoke(function: bad.function, context: ConfigScriptContext())
-            XCTFail("A destination table on focus must be refused")
+            XCTFail("A table on close must be refused")
         } catch {
             XCTAssertTrue(error.message.contains("Only move-to-workspace"), error.message)
         }

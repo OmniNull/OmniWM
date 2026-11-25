@@ -84,10 +84,10 @@ struct CallbackOptions {
     uint8_t reads = 0;
 };
 
-constexpr std::array readNames{"workspaceWindows", "windows", "workspaces", "monitors", "placement"};
-constexpr std::array<uint8_t, 5> readBits{
+constexpr std::array readNames{"workspaceWindows", "windows", "workspaces", "monitors", "placement", "focusTarget"};
+constexpr std::array<uint8_t, 6> readBits{
     OMNI_CONFIG_READ_WORKSPACE_WINDOWS, OMNI_CONFIG_READ_WINDOWS, OMNI_CONFIG_READ_WORKSPACES, OMNI_CONFIG_READ_MONITORS,
-    OMNI_CONFIG_READ_PLACEMENT
+    OMNI_CONFIG_READ_PLACEMENT, OMNI_CONFIG_READ_FOCUS_TARGET
 };
 
 uint8_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
@@ -110,7 +110,7 @@ uint8_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
         auto word = token(L, vm, -1, site);
         auto it = std::find(readNames.begin(), readNames.end(), std::string_view(word.data, word.length));
         if (it == readNames.end()) {
-            reject(L, vm, site, "unknown read; expected workspaceWindows, windows, workspaces, monitors or placement");
+            reject(L, vm, site, "unknown read; expected workspaceWindows, windows, workspaces, monitors, placement or focusTarget");
         }
         auto bit = readBits[it - readNames.begin()];
         if (mask & bit) {
@@ -354,8 +354,8 @@ int dispatchAction(lua_State *L) {
         std::array<omni_config_field, maximumDestinationFields> destination;
         const size_t fields = tableDestination
             ? readFields(L, vm, 4, site, destination.data(), destination.size(),
-                {"too many fields in a window destination",
-                    "window destination fields must be strings, numbers or booleans"})
+                {"too many fields in a window table",
+                    "window table fields must be strings, numbers or booleans"})
             : 0;
         staged = vm.callbacks.window(vm.context, words.data(), count, tableDestination ? destination.data() : nullptr,
             fields, site, vm.failure, sizeof vm.failure);
@@ -600,8 +600,10 @@ void pushLookupRow(lua_State *L, std::string_view &rows, uint8_t kind) {
         const auto flags = readUnsigned<uint8_t>(rows);
         lua_pushboolean(L, flags & OMNI_CONFIG_WINDOW_FLOATING);
         lua_rawsetfield(L, -2, "floating");
-        lua_pushboolean(L, flags & OMNI_CONFIG_WINDOW_FULLSCREEN);
-        lua_rawsetfield(L, -2, "fullscreen");
+        if (flags & OMNI_CONFIG_WINDOW_FULLSCREEN) {
+            lua_pushstring(L, flags & OMNI_CONFIG_WINDOW_NATIVE_FULLSCREEN ? "native" : "omniwm");
+            lua_rawsetfield(L, -2, "fullscreen");
+        }
         lua_pushboolean(L, flags & OMNI_CONFIG_WINDOW_MINIMIZED);
         lua_rawsetfield(L, -2, "minimized");
     } else {
@@ -638,6 +640,14 @@ void pushPlacement(lua_State *L, std::string_view &rows) {
     lua_setreadonly(L, -1, true);
 }
 
+void pushFocusTarget(lua_State *L, std::string_view &rows) {
+    lua_createtable(L, 0, 2);
+    readStringField(L, rows, "id");
+    lua_pushboolean(L, readUnsigned<uint8_t>(rows) & OMNI_CONFIG_FOCUS_TARGET_NATIVE_FULLSCREEN);
+    lua_rawsetfield(L, -2, "nativeFullscreen");
+    lua_setreadonly(L, -1, true);
+}
+
 void pushLookups(lua_State *L, omni_config_span snapshot, uint8_t reads) {
     if (!snapshot.data) {
         throw InvalidSnapshot{};
@@ -663,12 +673,16 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint8_t reads) {
         const auto name = readNames[bit - readBits.begin()];
         lua_pushboolean(L, truncated != 0);
         lua_rawsetfield(L, -2, name);
-        if (kind == OMNI_CONFIG_READ_PLACEMENT) {
+        if (kind == OMNI_CONFIG_READ_PLACEMENT || kind == OMNI_CONFIG_READ_FOCUS_TARGET) {
             if (count > 1) {
                 throw InvalidSnapshot{};
             }
             if (count == 1) {
-                pushPlacement(L, rows);
+                if (kind == OMNI_CONFIG_READ_PLACEMENT) {
+                    pushPlacement(L, rows);
+                } else {
+                    pushFocusTarget(L, rows);
+                }
                 lua_rawsetfield(L, context, name);
             }
         } else {

@@ -136,6 +136,10 @@ final class WorkspaceManager {
         world.focus
     }
 
+    var focusSession: FocusSessionSnapshot {
+        _read { yield world.focus }
+    }
+
     var recordedViewportStates: [WorkspaceDescriptor.ID: ViewportState] {
         world.viewports
     }
