@@ -4,15 +4,29 @@
 import OmniWMIPC
 import OmniWMScriptHost
 
+enum ConfigScriptWindowActionName: Equatable, Sendable {
+    case shared(IPCWindowActionName)
+    case placeInOwnColumn
+
+    static let allCases = IPCWindowActionName.allCases.map(Self.shared) + [.placeInOwnColumn]
+
+    var rawValue: String {
+        switch self {
+        case let .shared(name): name.rawValue
+        case .placeInOwnColumn: "place-in-own-column"
+        }
+    }
+}
+
 struct ConfigScriptWindowRequest: Equatable, Sendable {
-    let name: IPCWindowActionName
+    let name: ConfigScriptWindowActionName
     let action: WindowAction
     let session: ConfigScriptSession
     let token: WindowToken
     let fromEdge: Bool
 
     init(
-        name: IPCWindowActionName,
+        name: ConfigScriptWindowActionName,
         action: WindowAction,
         session: ConfigScriptSession,
         token: WindowToken,
@@ -35,7 +49,7 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
         var fromEdge = false
         let action: WindowAction?
         if let destination {
-            guard name == .moveToWorkspace, words.count == 2 else {
+            guard name == .shared(.moveToWorkspace), words.count == 2 else {
                 throw ConfigScriptError(line: nil, message: "Only move-to-workspace takes a destination table.")
             }
             let parsed = try ConfigScriptWindowDestination(fields: destination)
@@ -57,51 +71,53 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
     }
 
     private static let invalid = ConfigScriptError(line: nil, message: "Invalid window action or arguments.")
-    private static let actionNames = IPCWindowActionName.allCases
+    private static let actionNames = ConfigScriptWindowActionName.allCases
 
     private static func bytes(_ span: omni_config_span) -> UnsafeRawBufferPointer {
         UnsafeRawBufferPointer(start: span.data, count: span.length)
     }
 
-    private static func actionName(_ bytes: UnsafeRawBufferPointer) -> IPCWindowActionName? {
+    private static func actionName(_ bytes: UnsafeRawBufferPointer) -> ConfigScriptWindowActionName? {
         actionNames.first { $0.rawValue.utf8.count == bytes.count && $0.rawValue.utf8.elementsEqual(bytes) }
     }
 
-    private static func action(_ name: IPCWindowActionName) -> WindowAction? {
+    private static func action(_ name: ConfigScriptWindowActionName) -> WindowAction? {
         switch name {
-        case .focus: .focus
-        case .navigate: .navigate
-        case .summonRight: .summonRight
-        case .close: .close
-        case .moveColumnToFirst: .moveColumn(.first)
-        case .moveColumnToLast: .moveColumn(.last)
-        case .toggleContainerFullPrimarySpan: .toggleContainerFullPrimarySpan
-        case .resetWindowSecondarySpan: .resetWindowSecondarySpan
-        case .toggleColumnTabbed: .toggleColumnTabbed
-        case .toggleFloating: .toggleFloating
+        case .shared(.focus): .focus
+        case .shared(.navigate): .navigate
+        case .shared(.summonRight): .summonRight
+        case .shared(.close): .close
+        case .shared(.moveColumnToFirst): .moveColumn(.first)
+        case .shared(.moveColumnToLast): .moveColumn(.last)
+        case .shared(.toggleContainerFullPrimarySpan): .toggleContainerFullPrimarySpan
+        case .shared(.resetWindowSecondarySpan): .resetWindowSecondarySpan
+        case .shared(.toggleColumnTabbed): .toggleColumnTabbed
+        case .shared(.toggleFloating): .toggleFloating
         default: nil
         }
     }
 
-    private static func action(_ name: IPCWindowActionName, argument: String) -> WindowAction? {
+    private static func action(_ name: ConfigScriptWindowActionName, argument: String) -> WindowAction? {
         switch name {
-        case .moveToWorkspace:
+        case .shared(.moveToWorkspace):
             .moveToWorkspace(WorkspaceTarget(resolvingInput: argument))
-        case .moveColumnToIndex:
+        case .shared(.moveColumnToIndex):
             Int(argument).flatMap { $0 > 0 ? .moveColumn(.index($0)) : nil }
-        case .moveColumn:
+        case .placeInOwnColumn:
+            Int(argument).flatMap { $0 > 0 ? .placeInOwnColumn($0) : nil }
+        case .shared(.moveColumn):
             Direction(rawValue: argument).map { .moveColumn(.direction($0)) }
-        case .setContainerPrimarySpan:
+        case .shared(.setContainerPrimarySpan):
             IPCSizeChange(token: argument).map { .setContainerPrimarySpan(NiriSizeChange(ipc: $0)) }
-        case .setWindowPrimarySpan:
+        case .shared(.setWindowPrimarySpan):
             IPCSizeChange(token: argument).map { .setWindowPrimarySpan(NiriSizeChange(ipc: $0)) }
-        case .setWindowSecondarySpan:
+        case .shared(.setWindowSecondarySpan):
             IPCSizeChange(token: argument).map { .setWindowSecondarySpan(NiriSizeChange(ipc: $0)) }
-        case .cycleWindowPrimarySpan:
+        case .shared(.cycleWindowPrimarySpan):
             IPCCycleDirection(rawValue: argument).map { .cycleWindowPrimarySpan(forward: $0 == .forward) }
-        case .cycleWindowSecondarySpan:
+        case .shared(.cycleWindowSecondarySpan):
             IPCCycleDirection(rawValue: argument).map { .cycleWindowSecondarySpan(forward: $0 == .forward) }
-        case .assignToScratchpad:
+        case .shared(.assignToScratchpad):
             Int(argument).flatMap { IPCScratchpadSlots.range.contains($0) ? ScratchpadIndex($0) : nil }
                 .map { .assignToScratchpad($0) }
         default:

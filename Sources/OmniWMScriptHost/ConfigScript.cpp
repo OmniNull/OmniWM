@@ -84,9 +84,10 @@ struct CallbackOptions {
     uint8_t reads = 0;
 };
 
-constexpr std::array readNames{"workspaceWindows", "windows", "workspaces", "monitors"};
-constexpr std::array<uint8_t, 4> readBits{
-    OMNI_CONFIG_READ_WORKSPACE_WINDOWS, OMNI_CONFIG_READ_WINDOWS, OMNI_CONFIG_READ_WORKSPACES, OMNI_CONFIG_READ_MONITORS
+constexpr std::array readNames{"workspaceWindows", "windows", "workspaces", "monitors", "placement"};
+constexpr std::array<uint8_t, 5> readBits{
+    OMNI_CONFIG_READ_WORKSPACE_WINDOWS, OMNI_CONFIG_READ_WINDOWS, OMNI_CONFIG_READ_WORKSPACES, OMNI_CONFIG_READ_MONITORS,
+    OMNI_CONFIG_READ_PLACEMENT
 };
 
 uint8_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
@@ -109,7 +110,7 @@ uint8_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
         auto word = token(L, vm, -1, site);
         auto it = std::find(readNames.begin(), readNames.end(), std::string_view(word.data, word.length));
         if (it == readNames.end()) {
-            reject(L, vm, site, "unknown read; expected workspaceWindows, windows, workspaces or monitors");
+            reject(L, vm, site, "unknown read; expected workspaceWindows, windows, workspaces, monitors or placement");
         }
         auto bit = readBits[it - readNames.begin()];
         if (mask & bit) {
@@ -612,6 +613,31 @@ void pushLookupRow(lua_State *L, std::string_view &rows, uint8_t kind) {
     lua_setreadonly(L, -1, true);
 }
 
+void pushPlacement(lua_State *L, std::string_view &rows) {
+    lua_createtable(L, 0, 6);
+    readStringField(L, rows, "workspace");
+    readStringField(L, rows, "display");
+    const auto flags = readUnsigned<uint8_t>(rows);
+    if (flags & OMNI_CONFIG_PLACEMENT_COLUMN) {
+        lua_pushnumber(L, readUnsigned<uint16_t>(rows));
+        lua_rawsetfield(L, -2, "column");
+        lua_pushnumber(L, readUnsigned<uint16_t>(rows));
+        lua_rawsetfield(L, -2, "columns");
+        const auto members = readUnsigned<uint16_t>(rows);
+        lua_createtable(L, members, 0);
+        for (int member = 1; member <= members; ++member) {
+            const auto id = takeBytes(rows, readUnsigned<uint32_t>(rows));
+            lua_pushlstring(L, id.data(), id.size());
+            lua_rawseti(L, -2, member);
+        }
+        lua_setreadonly(L, -1, true);
+        lua_rawsetfield(L, -2, "members");
+        lua_pushboolean(L, flags & OMNI_CONFIG_PLACEMENT_VERTICAL);
+        lua_rawsetfield(L, -2, "vertical");
+    }
+    lua_setreadonly(L, -1, true);
+}
+
 void pushLookups(lua_State *L, omni_config_span snapshot, uint8_t reads) {
     if (!snapshot.data) {
         throw InvalidSnapshot{};
@@ -637,16 +663,26 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint8_t reads) {
         const auto name = readNames[bit - readBits.begin()];
         lua_pushboolean(L, truncated != 0);
         lua_rawsetfield(L, -2, name);
-        lua_createtable(L, count, 0);
-        for (int row = 1; row <= count; ++row) {
-            pushLookupRow(L, rows, kind);
-            lua_rawseti(L, -2, row);
+        if (kind == OMNI_CONFIG_READ_PLACEMENT) {
+            if (count > 1) {
+                throw InvalidSnapshot{};
+            }
+            if (count == 1) {
+                pushPlacement(L, rows);
+                lua_rawsetfield(L, context, name);
+            }
+        } else {
+            lua_createtable(L, count, 0);
+            for (int row = 1; row <= count; ++row) {
+                pushLookupRow(L, rows, kind);
+                lua_rawseti(L, -2, row);
+            }
+            lua_setreadonly(L, -1, true);
+            lua_rawsetfield(L, context, name);
         }
         if (!rows.empty()) {
             throw InvalidSnapshot{};
         }
-        lua_setreadonly(L, -1, true);
-        lua_rawsetfield(L, context, name);
     }
     if (reads) {
         throw InvalidSnapshot{};

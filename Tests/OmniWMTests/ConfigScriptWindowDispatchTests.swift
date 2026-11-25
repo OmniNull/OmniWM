@@ -38,7 +38,7 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         XCTAssertEqual(staged.map(\.line), lines)
         for (dispatch, (name, action)) in zip(staged, expected) {
             guard case let .window(window) = dispatch.operation else { return XCTFail("Expected a window request") }
-            XCTAssertEqual(window.name, name)
+            XCTAssertEqual(window.name, .shared(name))
             XCTAssertEqual(window.action, action)
             XCTAssertEqual(window.token, token)
             XCTAssertEqual(window.session, session)

@@ -334,10 +334,14 @@ typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t l
 #define OMNI_CONFIG_READ_WINDOWS 2u
 #define OMNI_CONFIG_READ_WORKSPACES 4u
 #define OMNI_CONFIG_READ_MONITORS 8u
+#define OMNI_CONFIG_READ_PLACEMENT 16u
 
 #define OMNI_CONFIG_WINDOW_FLOATING 1u
 #define OMNI_CONFIG_WINDOW_FULLSCREEN 2u
 #define OMNI_CONFIG_WINDOW_MINIMIZED 4u
+
+#define OMNI_CONFIG_PLACEMENT_COLUMN 1u
+#define OMNI_CONFIG_PLACEMENT_VERTICAL 2u
 
 typedef struct omni_config_vm omni_config_vm;
 

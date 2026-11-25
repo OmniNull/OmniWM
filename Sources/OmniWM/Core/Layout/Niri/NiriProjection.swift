@@ -91,18 +91,26 @@ extension NiriLayoutEngine {
             return root(for: workspaceId)?.projectedColumns ?? []
         }
         let columns = columns(in: workspaceId)
-        let liveHomeColumnId = liveColumnMove?.homeColumnId ?? liveStackDrop?.homeColumnId
+        let liveHomeColumnId = liveHomeColumnId
         var projected: [NiriProjectedColumn] = []
         projected.reserveCapacity(columns.count)
         for (durableIndex, column) in columns.enumerated() {
             let windows = column.windowNodes.filter { !excludedTokens.contains($0.token) }
-            if !windows.isEmpty || column.isLiveDropSpace || column.isLiveHomeSpot || column.id == liveHomeColumnId {
+            if !windows.isEmpty || holdsLiveSpace(column, home: liveHomeColumnId) {
                 projected.append(
                     NiriProjectedColumn(column: column, windows: windows, durableIndex: durableIndex)
                 )
             }
         }
         return projected
+    }
+
+    var liveHomeColumnId: NodeId? {
+        liveColumnMove?.homeColumnId ?? liveStackDrop?.homeColumnId
+    }
+
+    func holdsLiveSpace(_ column: NiriContainer, home liveHomeColumnId: NodeId?) -> Bool {
+        column.isLiveDropSpace || column.isLiveHomeSpot || column.id == liveHomeColumnId
     }
 
     func projectedActiveWindow(in projectedColumn: NiriProjectedColumn) -> NiriWindow? {

@@ -551,7 +551,7 @@ export type ConfigRule = {
     scratchpad: number?,
 }
 
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement"
 export type ConfigReadOptions = { reads: { ConfigRead } }
 export type ConfigWindowRow = {
     read id: string, read bundleId: string?, read title: string?, read workspace: string,
@@ -559,12 +559,21 @@ export type ConfigWindowRow = {
 }
 export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
 export type ConfigMonitorRow = { read id: string, read name: string }
+export type ConfigPlacement = { read workspace: string, read display: string?, read column: nil }
+    | {
+        read workspace: string, read display: string?, read column: number, read columns: number,
+        read members: { read [number]: string }, read vertical: boolean,
+    }
 export type ConfigLookups = {
     read workspaceWindows: { read [number]: ConfigWindowRow }?,
     read windows: { read [number]: ConfigWindowRow }?,
     read workspaces: { read [number]: ConfigWorkspaceRow }?,
     read monitors: { read [number]: ConfigMonitorRow }?,
-    read truncated: { read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean? }?,
+    read placement: ConfigPlacement?,
+    read truncated: {
+        read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
+        read placement: boolean?,
+    }?,
 }
 export type ConfigContext = ConfigLookups & {
     read windowId: string?,
@@ -742,6 +751,7 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "window", action: "toggle-column-tabbed", id: string) -> () }
     & { read dispatch: (kind: "window", action: "toggle-floating", id: string) -> () }
     & { read dispatch: (kind: "window", action: "assign-to-scratchpad", id: string, number: string) -> () }
+    & { read dispatch: (kind: "window", action: "place-in-own-column", id: string, slot: string) -> () }
 export type ConfigKeymap =
     { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read reads: nil }?) -> () }
     & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read reads: { read [number]: ConfigRead }? }?) -> () }

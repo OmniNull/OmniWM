@@ -16,6 +16,7 @@ enum WindowAction: Equatable, Sendable {
     case moveToWorkspace(WorkspaceTarget)
     case moveToDisplay(WindowDisplayTarget, column: Int?)
     case moveColumn(NiriColumnMoveTarget)
+    case placeInOwnColumn(Int)
     case toggleContainerFullPrimarySpan
     case setContainerPrimarySpan(NiriSizeChange)
     case setWindowPrimarySpan(NiriSizeChange)
@@ -89,6 +90,8 @@ extension WMController {
             return moveWindow(handle, to: target, column: column, edgeOf: anchor)
         case let .moveColumn(target):
             return performNiriWindowAction(token) { $0.moveColumnPreservingFocus(containing: $1, target: target) }
+        case let .placeInOwnColumn(slot):
+            return performNiriWindowAction(token) { $0.placeWindowInOwnColumn(containing: $1, at: slot) }
         case .toggleContainerFullPrimarySpan:
             return performNiriWindowAction(token) { $0.toggleContainerFullPrimarySpan(target: .window($1)) }
         case let .setContainerPrimarySpan(change):

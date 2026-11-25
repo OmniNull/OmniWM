@@ -65,11 +65,18 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `windows` | Every managed window |
 | `workspaces` | Workspaces, per monitor, in Next/Previous Workspace order |
 | `monitors` | Displays, left to right, then top first |
+| `placement` | Where the focused window sits: one record, not a list |
 
 The row fields are:
 - **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (native or OmniWM fullscreen) and `minimized`;
 - **workspace:** `id`, `name` and `monitor`;
 - **monitor:** `id` and `name`.
+
+`ctx.placement` describes the focused window, the one `ctx.windowId` names, and is absent without one. It has `workspace` and `display`, the window's workspace name and display ID. A tiled window on a Niri workspace also has:
+- `column`: its column's position, counting from 1;
+- `columns`: how many columns the workspace shows;
+- `members`: the IDs of the windows in that column, in order, with inactive tabs but without minimized or hidden windows;
+- `vertical`: `true` when the strip runs vertically. Moving a column `"up"` then takes it toward a larger `column`, and `"down"` toward a smaller one. In a horizontal strip, `"right"` and `"left"` do that.
 
 A window `id` is text such as `"9b2f6c0e4d1a7b3c5e8f0a2d4c6e8b1f.48213.912345"`. It names the same window until OmniWM quits, and actions reach that window while OmniWM manages it. A monitor `id` is the display's number as text, such as `"69734208"`.
 
@@ -111,11 +118,14 @@ Handlers last until the next reload.
 | `move-column-to-first`, `move-column-to-last` | none |
 | `move-column-to-index` | position as a string, such as `"2"` |
 | `move-column` | `"left"`, `"right"`, `"up"` or `"down"` |
+| `place-in-own-column` | position as a string, such as `"2"` |
 | `toggle-container-full-primary-span`, `reset-window-secondary-span` | none |
 | `set-container-primary-span`, `set-window-primary-span`, `set-window-secondary-span` | a size such as `"+10%"` or `"50%"` |
 | `cycle-window-primary-span`, `cycle-window-secondary-span` | `"forward"` or `"backward"` |
 | `toggle-column-tabbed`, `toggle-floating` | none |
 | `assign-to-scratchpad` | slot as a string, such as `"1"` |
+
+`place-in-own-column` gives just that window a column of its own at that position on its Niri workspace. A window that shares its column, even with a minimized or hidden window, leaves it; a window alone in its column moves with it. A larger position puts it last. Like the other column actions, it doesn't change focus.
 
 ### Destination tables
 
@@ -311,20 +321,16 @@ end, { reads = { "windows" } })
 local wm = omniwm
 local function cycle(chord: string, step: number)
     wm.keymap.set(chord, function(ctx: ConfigContext)
-        local monitors, rows, id = ctx.monitors, ctx.workspaceWindows, ctx.windowId
-        if not monitors or not rows or not id then return end
-        local current: string? = nil
-        for _, row in rows do
-            if row.id == id then current = row.monitor end
-        end
+        local monitors, placement, id = ctx.monitors, ctx.placement, ctx.windowId
+        if not monitors or not placement or not id then return end
         for index, monitor in monitors do
-            if monitor.id == current then
+            if monitor.id == placement.display then
                 local target = monitors[(index - 1 + step) % #monitors + 1]
                 wm.dispatch("window", "move-to-workspace", id, { display = target.id })
                 return
             end
         end
-    end, { reads = { "workspaceWindows", "monitors" } })
+    end, { reads = { "placement", "monitors" } })
 end
 cycle("Control+Option+Shift+N", 1)
 cycle("Control+Option+Shift+P", -1)
@@ -343,4 +349,28 @@ local function send(chord: string, direction: "left" | "right")
 end
 send("Control+Option+Shift+H", "left")
 send("Control+Option+Shift+L", "right")
+```
+
+**Move a window along the strip, out of its group and onto the next display.** Control + Option + Shift + Right Bracket moves the focused window one column forward, and Left Bracket one column back. A window that shares its column with another visible window leaves it first. From the outermost column, it moves to the next display. On a Niri workspace there, it becomes the first column going forward and the last going back.
+
+```lua
+local wm = omniwm
+local function alongStrip(forward: boolean): ConfigFunction
+    return function(ctx)
+        local p, id = ctx.placement, ctx.windowId
+        if not id or not p or not p.column or not p.display then return end
+        local direction: "left" | "right" | "up" | "down" =
+            if p.vertical then (if forward then "up" else "down") else (if forward then "right" else "left")
+        if #p.members > 1 then
+            wm.dispatch("window", "place-in-own-column", id, tostring(if forward then p.column + 1 else p.column))
+        elseif p.column == (if forward then p.columns else 1) then
+            wm.dispatch("window", "move-to-workspace", id,
+                { neighbor = direction, of = p.display, fromEdge = true, column = if forward then 1 else nil })
+        else
+            wm.dispatch("window", "move-column", id, direction)
+        end
+    end
+end
+wm.keymap.set("Control+Option+Shift+]", alongStrip(true), { reads = { "placement" } })
+wm.keymap.set("Control+Option+Shift+[", alongStrip(false), { reads = { "placement" } })
 ```

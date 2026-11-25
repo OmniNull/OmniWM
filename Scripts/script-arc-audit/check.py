@@ -13,7 +13,9 @@ NO_OBSERVER_OWNERSHIP = {
 }
 ROUTES = {
     "setup/activation", "key/cold", "settings/key", "script/plain-key", "key/idle", "key/busy", "key/owned-busy", "key/workspace-8", "key/windows-200",
-    "key/refusal-first", "key/refusal-repeat", "key/dispatch-window", "key/cmd-in-callback", "key/cmd-prebuilt", "key/cmd-build-argument", "move/by-name", "move/neighbor", "title/no-observer", "native/title", "native/title+script", "native/minimize", "native/float",
+    "key/refusal-first", "key/refusal-repeat", "key/dispatch-window", "key/cmd-in-callback", "key/cmd-prebuilt", "key/cmd-build-argument", "move/by-name", "move/neighbor", "capture/no-placement", "capture/placement",
+    "capture/placement-mutated", "capture/placement-excluded", "capture/placement-held-tab", "key/no-placement", "key/placement", "place/detach",
+    "place/column", "title/no-observer", "native/title", "native/title+script", "native/minimize", "native/float",
     "native/fullscreen", "title/fresh", "title/replacement", "capture/fixed", "capture/workspace-8",
     "capture/windows-200", "title/owned-fresh", "title/owned-replacement",
 }
@@ -98,6 +100,9 @@ NATIVE_TITLE_PRODUCER_AT_DCDFF9956 = {
     "native/title": (239, 291, 24, 24),
     "native/title+script": (254, 307, 24, 26),
 }
+PLACEMENT_CAPTURES = (
+    "capture/placement", "capture/placement-mutated", "capture/placement-excluded", "capture/placement-held-tab"
+)
 EXACT_COSTS = {
     **{(route, phase): RESIDENT_KEY_STORAGE for route in (*WAKE_TRANSFERS, "key/owned-busy")
        for phase in ("producer", "dequeue", "completion")},
@@ -309,7 +314,17 @@ def check_costs(output):
             extra = int(table[route, "config"][field]) - int(table[baseline, "config"][field])
             if extra != allowed:
                 sys.exit(f"{route}: expected {field} +{allowed} over {baseline}, got +{extra}. {reason}")
-    for route in ("capture/workspace-8", "capture/windows-200"):
+    for route in PLACEMENT_CAPTURES:
+        counts = table[route, "producer"]
+        if int(counts["obj"]) or int(counts["heap"]):
+            sys.exit(f"{route}: the placement read walks the strip without allocating: {counts}")
+    def counts(route):
+        return {k: v for k, v in table[route, "producer"].items() if k not in ("route", "native-control", "phase")}
+    if counts("capture/placement-mutated") != counts("capture/placement"):
+        sys.exit("capture/placement-mutated: a structural change must not add placement read cost")
+    if counts("capture/no-placement") != counts("capture/fixed"):
+        sys.exit("capture/no-placement: an undeclared placement read must cost nothing")
+    for route in ("capture/workspace-8", "capture/windows-200", *PLACEMENT_CAPTURES):
         if not re.search(rf"^snapshot-bytes {re.escape(route)} [1-9][0-9]*$", output, re.M):
             sys.exit(f"Missing snapshot byte count for {route}")
     for route in TIMER_ROUTES:
@@ -370,11 +385,19 @@ def check_workspace_result_reads(lldb, binary, fixture):
     print("workspace result reads: zero on a no-op, one on an ordinary switch, for each key and cache state")
 
 
+def line_probe(source, marker):
+    path = Path("Sources/OmniWM/Core/Config") / source
+    lines = [number for number, line in enumerate(path.read_text().splitlines(), 1) if marker in line]
+    if len(lines) != 1:
+        sys.exit(f"{path}: expected one probe line containing {marker!r}, found {lines}")
+    return f"-f {source} -l {lines[0]} -m false"
+
+
 def check_delivery(lldb, binary, fixture):
     probes = [
         '-f ConfigScriptEventObservers+WindowState.swift -p "let event = ConfigScriptWindowTitle"',
         '-f ConfigScriptCallbackQueue.swift -p "let key = WindowStateKey.window\\(\\.windowTitle,"',
-        '-f ConfigScriptReadSnapshot.swift -p "return ConfigScriptSnapshot"',
+        line_probe("ConfigScriptReadSnapshot.swift", "let limit = reads.rawValue.nonzeroBitCount"),
     ]
     commands = ["settings set target.inline-breakpoint-strategy always"]
     for probe in probes:

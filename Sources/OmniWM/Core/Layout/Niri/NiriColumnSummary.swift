@@ -9,6 +9,25 @@ enum NiriColumnViewportRelation: Equatable {
     case after
 }
 
+struct NiriProjectionMembership {
+    let excludedTokens: Set<WindowToken>
+    let heldTabs: [NiriWindow]
+
+    var admitsEveryWindow: Bool {
+        excludedTokens.isEmpty && heldTabs.isEmpty
+    }
+
+    func admits(_ token: WindowToken) -> Bool {
+        guard !excludedTokens.contains(token) else { return false }
+        return heldTabs.withUnsafeBufferPointer { tabs in
+            for index in tabs.indices where tabs[index].token == token {
+                return false
+            }
+            return true
+        }
+    }
+}
+
 struct NiriColumnSummary: Equatable {
     let columnIndexByToken: [WindowToken: Int]
     let viewport: [NiriColumnViewportRelation]?
@@ -43,6 +62,32 @@ extension NiriLayoutEngine {
             viewport: geometry.map { viewportRelations(of: columns, in: workspaceId, state: state, geometry: $0) },
             displayModes: columns.map { $0.column.displayMode }
         )
+    }
+
+    func projectionMembership(in workspaceId: WorkspaceDescriptor.ID) -> NiriProjectionMembership {
+        NiriProjectionMembership(
+            excludedTokens: projectionExclusions(in: workspaceId),
+            heldTabs: liveColumnMove?.workspaceId == workspaceId ? liveColumnMove?.heldTabs ?? [] : []
+        )
+    }
+
+    func projectedSlot(
+        of column: NiriContainer,
+        in workspaceId: WorkspaceDescriptor.ID,
+        membership: NiriProjectionMembership
+    ) -> (index: Int, count: Int)? {
+        guard let root = root(for: workspaceId) else { return nil }
+        let liveHomeColumnId = liveHomeColumnId
+        var index: Int?
+        var count = 0
+        for case let candidate as NiriContainer in root.children where membership.admitsEveryWindow
+            || holdsLiveSpace(candidate, home: liveHomeColumnId)
+            || candidate.children.contains(where: { ($0 as? NiriWindow).map { membership.admits($0.token) } == true })
+        {
+            if candidate === column { index = count }
+            count += 1
+        }
+        return index.map { (index: $0, count: count) }
     }
 
     func viewportRelations(

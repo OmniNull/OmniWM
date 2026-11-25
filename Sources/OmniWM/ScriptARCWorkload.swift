@@ -465,4 +465,5 @@ private func measureEventFamilies(in directory: URL) async throws {
     let timers = try ScriptARCFixture(directory: directory)
     try await timers.timerEvents(in: directory)
     try await measureDisplayMoves(in: directory)
+    try await measurePlacement(in: directory)
 }

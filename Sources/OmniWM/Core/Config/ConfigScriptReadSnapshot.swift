@@ -10,6 +10,7 @@ struct ConfigScriptReads: OptionSet, Sendable {
     static let windows = Self(rawValue: UInt8(OMNI_CONFIG_READ_WINDOWS))
     static let workspaces = Self(rawValue: UInt8(OMNI_CONFIG_READ_WORKSPACES))
     static let monitors = Self(rawValue: UInt8(OMNI_CONFIG_READ_MONITORS))
+    static let placement = Self(rawValue: UInt8(OMNI_CONFIG_READ_PLACEMENT))
 }
 
 struct ConfigScriptSnapshot: Sendable {
@@ -63,6 +64,15 @@ struct ConfigScriptSnapshotPool {
         swap(&slots[index].storage, &output.bytes)
         return ConfigScriptSnapshot(reservation: slots[index].reservation, bytes: slots[index].storage)
     }
+}
+
+private struct ScriptStrip {
+    let node: NiriContainer
+    let membership: NiriProjectionMembership
+    let column: UInt16
+    let columns: UInt16
+    let members: UInt16
+    let vertical: Bool
 }
 
 private struct SnapshotWriter {
@@ -157,6 +167,12 @@ private struct SnapshotWriter {
         return true
     }
 
+    mutating func count(_ value: UInt16) -> Bool {
+        guard makeRoom(for: MemoryLayout<UInt16>.size) else { return false }
+        appendLE(value)
+        return true
+    }
+
     private mutating func appendLE(_ value: some FixedWidthInteger) {
         withUnsafeBytes(of: value.littleEndian) { bytes.append(contentsOf: $0) }
     }
@@ -173,18 +189,20 @@ extension WMController {
         reads: ConfigScriptReads, target: borrowing ConfigScriptTarget, pool: inout ConfigScriptSnapshotPool
     ) -> ConfigScriptSnapshot {
         let workspace = target.workspaceId
+        let token = target.token
         let session = target.sessionID
         return pool.capture(reads: reads) { writeSnapshot(
             reads: reads,
             workspaceId: workspace,
+            token: token,
             session: session,
             to: &$0
         ) }
     }
 
     private func writeSnapshot(
-        reads: ConfigScriptReads, workspaceId: WorkspaceDescriptor.ID?, session: ConfigScriptSession,
-        to output: inout SnapshotWriter
+        reads: ConfigScriptReads, workspaceId: WorkspaceDescriptor.ID?, token: WindowToken?,
+        session: ConfigScriptSession, to output: inout SnapshotWriter
     ) {
         let manager = workspaceManager
         lazy var resolution = manager.monitorResolutionContext()
@@ -222,6 +240,11 @@ extension WMController {
             _ = manager.sortedMonitors().allSatisfy { monitor in
                 output.row { $0.string(monitor.id.scriptIdentifier) && $0.string(monitor.name) }
             }
+            finishScriptList(&output)
+        }
+        if reads.contains(.placement) {
+            output.start(.placement)
+            appendScriptPlacement(of: token, session: session, resolution: resolution, to: &output)
             finishScriptList(&output)
         }
         #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
@@ -268,6 +291,55 @@ extension WMController {
             if accepted == false { return false }
         }
         return true
+    }
+
+    private func appendScriptPlacement(
+        of token: WindowToken?, session: ConfigScriptSession,
+        resolution: @autoclosure () -> WorkspaceManager.MonitorResolutionContext,
+        to output: inout SnapshotWriter
+    ) {
+        let manager = workspaceManager
+        guard let token, let workspaceId = manager.workspace(for: token),
+              let name = manager.workspaceCatalog.name(for: workspaceId)
+        else { return }
+        let display = manager.monitorIdShowingWorkspace(workspaceId)
+            ?? manager.resolvedWorkspaceMonitorId(for: workspaceId, context: resolution())
+        let engine = manager.activeLayoutKind(for: workspaceId) == .niri ? niriEngine : nil
+        let strip = engine.flatMap { scriptStrip(of: token, in: workspaceId, display: display, engine: $0) }
+        _ = output.row { row in
+            guard row.string(name), row.string(display?.scriptIdentifier) else { return false }
+            guard let strip else { return row.flag(0) }
+            let flags = OMNI_CONFIG_PLACEMENT_COLUMN | (strip.vertical ? OMNI_CONFIG_PLACEMENT_VERTICAL : 0)
+            guard row.flag(UInt8(flags)), row.count(strip.column), row.count(strip.columns), row.count(strip.members)
+            else { return false }
+            for case let window as NiriWindow in strip.node.children where strip.membership.admits(window.token) {
+                guard row.windowID(window.token, session: session) else { return false }
+            }
+            return true
+        }
+    }
+
+    private func scriptStrip(
+        of token: WindowToken, in workspaceId: WorkspaceDescriptor.ID, display: Monitor.ID?, engine: NiriLayoutEngine
+    ) -> ScriptStrip? {
+        let manager = workspaceManager
+        guard manager.withEntry(token, { $0.mode == .tiling && !manager.isWindowSuppressedByMacOS($0) }) == true,
+              case let membership = engine.projectionMembership(in: workspaceId), membership.admits(token),
+              let node = engine.findNode(for: token, in: workspaceId), let column = engine.column(of: node),
+              let slot = engine.projectedSlot(of: column, in: workspaceId, membership: membership),
+              let monitor = display.flatMap(manager.monitor(byId:))
+        else { return nil }
+        var members = 0
+        for case let window as NiriWindow in column.children where membership.admits(window.token) {
+            members += 1
+        }
+        guard let index = UInt16(exactly: slot.index + 1), let count = UInt16(exactly: slot.count),
+              let memberCount = UInt16(exactly: members) else { return nil }
+        let orientation = niriLayoutHandler.resolvedOrientation(for: workspaceId, monitor: monitor, engine: engine)
+        return ScriptStrip(
+            node: column, membership: membership, column: index, columns: count, members: memberCount,
+            vertical: orientation == .vertical
+        )
     }
 
     private func writeWindowText(_ entry: borrowing WindowState, to row: inout SnapshotWriter) -> Bool {

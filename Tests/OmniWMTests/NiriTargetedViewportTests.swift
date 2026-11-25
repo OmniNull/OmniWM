@@ -239,6 +239,58 @@ final class NiriTargetedViewportTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(fixture.focusedFrame()), before)
     }
 
+    func testPlacingABackgroundGroupMemberInItsOwnColumnKeepsTheFocusedFrame() throws {
+        let cases: [(position: Int, excluded: Int?, order: [[Int]])] = [
+            (0, nil, [[4], [0], [1], [2], [3]]),
+            (0, 0, [[0], [4], [1], [2], [3]]),
+            (4, nil, [[0], [1], [2], [3], [4]])
+        ]
+        for orientation in [Monitor.Orientation.horizontal, .vertical] {
+            for center in CenterFocusedColumn.allCases {
+                for testCase in cases {
+                    var fixture = makeFixture(orientation: orientation, center: center, focusedIndex: 3)
+                    let label = "\(orientation) \(center) \(testCase)"
+                    let moved = try XCTUnwrap(fixture.engine.findNode(for: fixture.tokens[4], in: fixture.workspaceId))
+                    let source = fixture.column(containing: fixture.tokens[4])
+                    fixture.engine.moveWindowToColumn(
+                        moved, from: source, to: fixture.columns[1], in: fixture.workspaceId
+                    )
+                    source.remove()
+                    if let excluded = testCase.excluded {
+                        fixture.engine.setProjectionExclusions([fixture.tokens[excluded]], in: fixture.workspaceId)
+                        let focused = try XCTUnwrap(
+                            fixture.engine.findNode(for: fixture.focusedToken, in: fixture.workspaceId)
+                        )
+                        fixture.engine.ensureProjectedSelectionVisible(
+                            node: focused, context: fixture.context, state: &fixture.state,
+                            animationConfig: nil, fromContainerIndex: nil
+                        )
+                    }
+                    let before = try XCTUnwrap(fixture.focusedFrame(), label)
+                    let selection = fixture.state.selectedNodeId
+
+                    XCTAssertTrue(fixture.engine.expelWindow(
+                        moved, toProjectedPosition: testCase.position, context: fixture.context,
+                        state: &fixture.state
+                    ), label)
+
+                    XCTAssertEqual(
+                        fixture.columns.map { $0.windowNodes.map(\.token) },
+                        testCase.order.map { $0.map { fixture.tokens[$0] } },
+                        label
+                    )
+                    XCTAssertEqual(fixture.state.selectedNodeId, selection, label)
+                    XCTAssertEqual(
+                        fixture.state.activeColumnIndex,
+                        fixture.engine.columnIndex(of: fixture.focusedColumn, in: fixture.workspaceId),
+                        label
+                    )
+                    XCTAssertEqual(try XCTUnwrap(fixture.focusedFrame(), label), before, label)
+                }
+            }
+        }
+    }
+
     func testMovingTheFocusedColumnMatchesTheFocusedCommand() throws {
         for center in CenterFocusedColumn.allCases {
             var targeted = makeFixture(center: center)

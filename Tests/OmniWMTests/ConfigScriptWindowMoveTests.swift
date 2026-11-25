@@ -92,24 +92,6 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
         )
     }
 
-    private func stack(
-        _ id: Int,
-        onto target: Int,
-        in workspaceId: WorkspaceDescriptor.ID,
-        _ fixture: NiriGatherFixture
-    ) {
-        fixture.manager.withEngineMutationScope(in: workspaceId) {
-            let engine = fixture.engine
-            guard let node = fixture.node(id, in: workspaceId),
-                  let source = engine.findColumn(containing: node, in: workspaceId),
-                  let targetNode = fixture.node(target, in: workspaceId),
-                  let column = engine.findColumn(containing: targetNode, in: workspaceId)
-            else { return XCTFail("missing fixture columns") }
-            engine.moveWindowToColumn(node, from: source, to: column, in: workspaceId)
-            source.remove()
-        }
-    }
-
     func testDisplayDestinationsCycleThroughThreeDisplaysEachWay() throws {
         let fixture = try fixture()
         fixture.add([1], to: fixture.workspace("1"))
@@ -146,7 +128,7 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
         let destination = fixture.workspace("2")
         fixture.add([1], to: fixture.workspace("1"))
         fixture.add([21, 22], to: destination)
-        stack(22, onto: 21, in: destination, fixture)
+        fixture.stack(22, onto: 21, in: destination)
         XCTAssertEqual(move(fixture, 1, .neighbor(.right, of: nil)), .executed)
         XCTAssertEqual(fixture.layout(destination), [[21, 22], [1]])
     }
@@ -193,7 +175,7 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
         let edge = WindowDisplayTarget.neighbor(.right, of: displays[0].id)
         fixture.add([1, 11, 12, 13], to: source)
         XCTAssertEqual(move(fixture, 1, edge, edgeOf: source), .noChange)
-        stack(13, onto: 12, in: source, fixture)
+        fixture.stack(13, onto: 12, in: source)
         XCTAssertEqual(move(fixture, 13, edge, edgeOf: source), .executed)
         XCTAssertEqual(fixture.layout(fixture.workspace("2")), [[13]])
         XCTAssertEqual(fixture.layout(source), [[1], [11], [12]])
@@ -205,7 +187,7 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
         let fixture = try fixture()
         let source = fixture.workspace("1")
         fixture.add([11, 1, 2], to: source)
-        stack(2, onto: 1, in: source, fixture)
+        fixture.stack(2, onto: 1, in: source)
         XCTAssertTrue(fixture.manager.setWindowMinimized(true, token: fixture.token(2)))
         let edge = WindowDisplayTarget.neighbor(.right, of: displays[0].id)
         XCTAssertEqual(move(fixture, 2, edge, edgeOf: source), .noChange)

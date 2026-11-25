@@ -60,6 +60,8 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
                 )
             }
         }
+        let placement = ConfigScriptWindowActionName.placeInOwnColumn.rawValue.debugDescription
+        overloads.append("{ read dispatch: (kind: \"window\", action: \(placement), id: string, slot: string) -> () }")
         return overloads.joined(separator: "\n    & ")
     }
 
@@ -74,7 +76,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
     }
 
     private let lookupDefinitions = """
-    export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors"
+    export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement"
     export type ConfigReadOptions = { reads: { ConfigRead } }
     export type ConfigWindowRow = {
         read id: string, read bundleId: string?, read title: string?, read workspace: string,
@@ -82,12 +84,21 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
     }
     export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
     export type ConfigMonitorRow = { read id: string, read name: string }
+    export type ConfigPlacement = { read workspace: string, read display: string?, read column: nil }
+        | {
+            read workspace: string, read display: string?, read column: number, read columns: number,
+            read members: { read [number]: string }, read vertical: boolean,
+        }
     export type ConfigLookups = {
         read workspaceWindows: { read [number]: ConfigWindowRow }?,
         read windows: { read [number]: ConfigWindowRow }?,
         read workspaces: { read [number]: ConfigWorkspaceRow }?,
         read monitors: { read [number]: ConfigMonitorRow }?,
-        read truncated: { read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean? }?,
+        read placement: ConfigPlacement?,
+        read truncated: {
+            read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
+            read placement: boolean?,
+        }?,
     }
     export type ConfigContext = ConfigLookups & {
         read windowId: string?,
