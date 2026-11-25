@@ -11,16 +11,17 @@ systemStatsWidget = "system-stats"
 [widgets.workspaces]
 indicator = "numbers"
 cover = "surface"
-coverWidth = 600
+coverWidth = 616
 
-# The bar is as wide as its contents. The large negative xOffset pins it to the left edge of any display.
+# The bar is as wide as its contents. OmniWM keeps it on screen, so these offsets pin it to the top left corner of any
+# display whose menu bar is up to 40 pt tall.
 [workspaceBar]
 position = "overlappingMenuBar"
 fullWidth = false
 notchMode = "off"
-height = 32
+height = 30
 xOffset = -10000
-yOffset = 1
+yOffset = 10
 reserveLayoutSpace = true
 transparentBackground = true
 solidBlackBackground = false

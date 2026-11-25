@@ -19,12 +19,16 @@ Change these in `shell.toml`, under your profile:
 ```toml
 [profiles.lefty.widgets.workspaces]
 cover = "#0C1733"   # surface, background, elevatedSurface or a #RRGGBB colour
-coverWidth = 600    # the bar's width in points, minus 8
+coverWidth = 616    # the bar's width in points, minus 8
+
+[profiles.lefty.widgets.workspaces.displays.SAMSUNG]
+cover = "#364996"   # for the display with this name; either key may be left out
+coverWidth = 700
 ```
 
-- A transparent bar would show the app menus through the workspaces, so the cover is opaque. For a transparent look, set it to a colour close to your wallpaper's top edge. It is one fixed colour, so this suits a still wallpaper.
-- `coverWidth` hides app menus up to that width. Keep it short of the notch: macOS may move menu bar icons to the left of the notch, and they need that gap to stay visible and clickable.
-- The default fits a 33 pt menu bar. On a display with a different one, set `yOffset` to the menu bar's height minus 32.
+- A transparent bar would show the app menus through the workspaces, so the cover is opaque. For a transparent look, set it to a colour close to your wallpaper's top edge. It is one fixed colour per display, so this suits a still wallpaper.
+- `coverWidth` hides app menus up to that width, and the bar grows past it when the workspaces need more room. The default clears the notch at a MacBook's default resolution. At a larger text size, set it to about 0.44 of the display's width minus 60. macOS may move menu bar icons to the left of the notch, and they need that gap to stay visible and clickable.
+- The bar is 30 pt tall and stays in the top left corner. With a shorter menu bar, windows move down to make room.
 - Keep workspaces as the bar's only widget. Others would not be covered.
 
 ## Credits and licences

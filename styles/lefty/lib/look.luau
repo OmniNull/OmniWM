@@ -8,10 +8,10 @@ local DURATION = 0.18
 local COVERS = { background = true, surface = true, elevatedSurface = true }
 local PANEL_GLOW = { 0.35, 0.7, 1.4, 0.35 }
 
--- Items keep their full size from a 32 pt menu bar up to the 40 pt default, then grow with the bar.
+-- Items keep their full size from a 30 pt bar up to 40 pt, then grow with the bar.
 local function scale(ctx): number
     local height = ctx.data.bar.style.height
-    return math.max(height / 40, math.min(1, height / 32))
+    return math.max(height / 40, math.min(1, height / 30))
 end
 
 local function bar(ctx, props)
@@ -91,7 +91,22 @@ local function clockBar(ctx, m)
     return bar(ctx, row)
 end
 
-local function workspaceMarker(_, workspace, style, m, occupied: boolean)
+-- The cover's colour and width, which displays may set for themselves by name.
+local function cover(ctx, style): (string?, number?)
+    local settings = ctx.data.settings or {}
+    local own = if type(settings.displays) == "table" then settings.displays[ctx.data.bar.monitor] else nil
+    own = if type(own) == "table" then own else {}
+    local color, width = own.cover or settings.cover, own.coverWidth or settings.coverWidth
+    if style.vertical or type(color) ~= "string" or type(width) ~= "number" or width <= 0 then
+        return nil
+    end
+    if not COVERS[color] and not string.match(color, "^#%x%x%x%x%x%x$") then
+        return nil
+    end
+    return color, width
+end
+
+local function workspaceMarker(ctx, workspace, style, m, occupied: boolean)
     if m.indicator ~= "numbers" or (m.compact and not style.labels) then
         return nil
     end
@@ -102,7 +117,9 @@ local function workspaceMarker(_, workspace, style, m, occupied: boolean)
         color = if style.accents then "accentForeground" else "foreground"
     else
         fill = if occupied then "foreground/0.08" else nil
-        color = if occupied then "foreground" else "secondaryForeground"
+        -- A cover can be any colour, so keep empty workspaces legible on it.
+        local dim = if cover(ctx, style) then "foreground/0.9" else "secondaryForeground"
+        color = if occupied then "foreground" else dim
     end
     if style.textColor ~= nil then
         color = "foreground"
@@ -122,16 +139,15 @@ end
 
 -- Fill Left of Notch leaves the macOS app menus visible behind a transparent bar. Setting a cover colour and width
 -- on the workspaces widget draws one opaque strip over them, with buttons that open the same menus. The strip always
--- spans the whole width, because an app's menus can be longer than the workspaces.
+-- spans at least the whole width, because an app's menus can be longer than the workspaces.
 local function workspaceGroup(ctx, pills, _, style, m)
-    local settings = ctx.data.settings or {}
-    local color, width = settings.cover, settings.coverWidth
-    local valid = COVERS[color] or type(color) == "string" and string.match(color, "^#%x%x%x%x%x%x$")
-    if not valid or type(width) ~= "number" or m.vertical then
+    local color, width = cover(ctx, style)
+    if not color then
         return nil
     end
     local app = ctx.data.menuApp
-    local row = { w = width, h = style.height, gap = 8, ui.box{ w = 4, h = 1 },
+    -- The row sizes itself and paints its own cover, so workspaces that outgrow the strip widen the bar.
+    local row = { h = style.height, gap = 8, align = "leading", fill = color, ui.box{ w = 4, h = 1 },
         ui.stack{ w = m.item, h = m.item, radius = RADIUS.control, hover = HOVER, onClick = "menu apple",
             help = omniwm.l10n("Apple Menu"),
             ui.symbol{ name = "apple.logo", size = 15 * m.scale, color = "foreground" } } }
@@ -141,9 +157,9 @@ local function workspaceGroup(ctx, pills, _, style, m)
                 pid = if app.bundle == "" then app.pid else nil, w = m.icon, h = m.icon, placeholder = "app.dashed" } }
     end
     row[#row + 1] = ui.row(pills)
-    row[#row + 1] = ui.box{ grow = 1, h = 1 }
-    return ui.stack{ w = width, h = style.height,
-        ui.box{ w = width, h = style.height, fill = color }, ui.row(row) }
+    row[#row + 1] = ui.box{ w = 4, h = 1 }
+    return ui.stack{ h = style.height,
+        ui.box{ w = width, h = style.height, align = "leading", fill = color }, ui.row(row) }
 end
 
 return require("./skin")({

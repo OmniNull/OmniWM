@@ -1,6 +1,6 @@
 format = 1
 name = "lefty"
-version = "1.1.0"
+version = "1.2.0"
 api = 1
 minOmniWM = "0.8.0"
 author = "csavur"
