@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+theme = "lefty"
+leading = ["workspaces"]
+center = []
+trailing = []
+hiddenBarWidget = "hidden-bar"
+systemStatsWidget = "system-stats"
+
+# cover paints an opaque strip over the macOS app menus, which a transparent bar would leave showing.
+[widgets.workspaces]
+indicator = "numbers"
+cover = "surface"
+coverWidth = 600
+
+# The bar is as wide as its contents. The large negative xOffset pins it to the left edge of any display.
+[workspaceBar]
+position = "overlappingMenuBar"
+fullWidth = false
+notchMode = "off"
+height = 32
+xOffset = -10000
+yOffset = 1
+reserveLayoutSpace = true
+transparentBackground = true
+solidBlackBackground = false
+backgroundOpacity = 1
+showItemBackgrounds = false
+showAccentHighlights = true
+showLabels = true

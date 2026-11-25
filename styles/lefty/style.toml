@@ -1,0 +1,11 @@
+format = 1
+name = "lefty"
+version = "1.1.0"
+api = 1
+minOmniWM = "0.8.0"
+author = "csavur"
+license = "GPL-2.0-only"
+tags = ["blue", "light", "dark", "half-width"]
+title = "Lefty"
+summary = "Workspaces on the left, your macOS menu bar on the right."
+previews = ["left.png"]
