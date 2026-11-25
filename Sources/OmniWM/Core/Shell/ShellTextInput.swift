@@ -440,6 +440,7 @@ extension ShellTextInput {
             event: ShellEvent()
         )
         self.init(handle: .none, surface: surface, capture: capture, multiline: false, onText: onText)
+        field?.focusRingType = .none
     }
 
     func rebind(_ handle: ElementHandle) {

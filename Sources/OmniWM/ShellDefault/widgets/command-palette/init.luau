@@ -4,7 +4,7 @@
 local look = require("../lib/look")
 
 local SEARCH = 56
-local FIELD = 24
+local FIELD = 40
 local ICON = 28
 local OUTER = 8
 local INNER = 8
@@ -80,21 +80,13 @@ local function badge(ctx, item)
 end
 
 local function field(ctx, m, width)
-    local input = { key = "query", grow = 1, h = FIELD, size = 20, color = "foreground",
+    local input = { key = "query", grow = 1, h = FIELD, size = 30, weight = "light", color = "foreground",
         placeholder = m.placeholder, text = m.query, focus = true }
     local custom = hook("commandPaletteSearch", ctx, m, input, width)
     if custom then
         return custom
     end
-    local symbol = "magnifyingglass"
-    for _, mode in m.modes do
-        if m.expanded and mode.selected then
-            symbol = mode.symbol
-        end
-    end
-    local row = { w = width, h = SEARCH, gap = 10, pad = 20,
-        look.glyph{ name = symbol, size = 18, weight = "medium", color = "secondaryForeground" },
-        ui.input(input) }
+    local row = { w = width, h = SEARCH, gap = 10, pad = 24, ui.input(input) }
     if m.browseModes then
         row[#row + 1] = ui.stack{ w = CONTROL, h = CONTROL, radius = look.radius(8), hover = look.hover,
             onClick = "palette menu modes", help = omniwm.l10n("Browse modes"),
