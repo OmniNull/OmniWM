@@ -475,4 +475,5 @@ private func measureEventFamilies(in directory: URL) async throws {
         try await fixture.measureDecode(rows: count, of: ["frames"], reads: .windowFrames)
     }
     try await measureColumnReads(in: directory)
+    try await measureDwindleReads(in: directory)
 }

@@ -4,6 +4,102 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func ruleRequestReplace(_ id: borrowing String, _ rule: borrowing IPCRuleDefinition) throws {
+        begin(123)
+        var first = true
+        self.key("arguments", &first)
+        begin(123)
+        var firstNested = true
+        self.key("id", &firstNested)
+        try self.value(id)
+        self.key("rule", &firstNested)
+        try self.value(rule)
+        end(125)
+        self.key("name", &first)
+        try self.value("replace")
+        end(125)
+    }
+
+    mutating func ruleRequestRemove(_ id: borrowing String) throws {
+        begin(123)
+        var first = true
+        self.key("arguments", &first)
+        begin(123)
+        var firstNested = true
+        self.key("id", &firstNested)
+        try self.value(id)
+        end(125)
+        self.key("name", &first)
+        try self.value("remove")
+        end(125)
+    }
+
+    mutating func ruleRequestMove(_ id: borrowing String, _ position: borrowing Int) throws {
+        begin(123)
+        var first = true
+        self.key("arguments", &first)
+        begin(123)
+        var firstNested = true
+        self.key("id", &firstNested)
+        try self.value(id)
+        self.key("position", &firstNested)
+        try self.value(position)
+        end(125)
+        self.key("name", &first)
+        try self.value("move")
+        end(125)
+    }
+
+    mutating func ruleRequestApply(_ target: borrowing IPCRuleApplyTarget) throws {
+        begin(123)
+        var first = true
+        self.key("arguments", &first)
+        begin(123)
+        var firstNested = true
+        self.key("target", &firstNested)
+        try self.value(target)
+        end(125)
+        self.key("name", &first)
+        try self.value("apply")
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCRuleRequest) throws {
+        switch value {
+        case let .add(rule):
+            try ruleRequestAdd(rule)
+        case let .replace(id, rule):
+            try ruleRequestReplace(id, rule)
+        case let .remove(id):
+            try ruleRequestRemove(id)
+        case let .move(id, position):
+            try ruleRequestMove(id, position)
+        case let .apply(target):
+            try ruleRequestApply(target)
+        }
+    }
+
+    mutating func value(_ value: borrowing WorkspaceTarget) throws {
+        switch value {
+        case let .rawID(text):
+            begin(123)
+            var first = true
+            self.key("kind", &first)
+            try self.value("raw-id")
+            self.key("value", &first)
+            try self.value(text)
+            end(125)
+        case let .displayName(text):
+            begin(123)
+            var first = true
+            self.key("kind", &first)
+            try self.value("display-name")
+            self.key("value", &first)
+            try self.value(text)
+            end(125)
+        }
+    }
+
     mutating func value(_ value: borrowing IPCWorkspaceRequest) throws {
         switch value {
         case let .focusName(target):
@@ -164,96 +260,5 @@ extension IPCJSONWriter {
         self.key("widget", &first)
         try self.value(widget)
         end(125)
-    }
-
-    mutating func shellRequestProfile(_ name: borrowing String) throws {
-        begin(123)
-        var first = true
-        self.key("key", &first)
-        try self.value(name)
-        self.key("name", &first)
-        try self.value("profile")
-        end(125)
-    }
-
-    mutating func shellRequestTheme(_ name: borrowing String, _ scheme: borrowing String?) throws {
-        begin(123)
-        var first = true
-        self.key("key", &first)
-        try self.value(name)
-        self.key("name", &first)
-        try self.value("theme")
-        switch scheme {
-        case let fieldValue?:
-            self.key("value", &first)
-            try self.value(fieldValue)
-        case nil:
-            break
-        }
-        end(125)
-    }
-
-    mutating func shellRequestEject(_ widget: borrowing String) throws {
-        begin(123)
-        var first = true
-        self.key("name", &first)
-        try self.value("eject")
-        self.key("widget", &first)
-        try self.value(widget)
-        end(125)
-    }
-
-    mutating func shellRequestInitialize(_ widget: borrowing String) throws {
-        begin(123)
-        var first = true
-        self.key("name", &first)
-        try self.value("init")
-        self.key("widget", &first)
-        try self.value(widget)
-        end(125)
-    }
-
-    mutating func shellRequestTrigger(
-        _ widget: borrowing String,
-        _ name: borrowing String,
-        _ text: borrowing String?
-    ) throws {
-        begin(123)
-        var first = true
-        self.key("key", &first)
-        try self.value(name)
-        self.key("name", &first)
-        try self.value("trigger")
-        switch text {
-        case let fieldValue?:
-            self.key("value", &first)
-            try self.value(fieldValue)
-        case nil:
-            break
-        }
-        self.key("widget", &first)
-        try self.value(widget)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCShellRequest) throws {
-        switch value {
-        case let .set(key, text):
-            try shellRequestSet(key, text)
-        case let .unset(key):
-            try shellRequestUnset(key)
-        case let .toggle(widget):
-            try shellRequestToggle(widget)
-        case let .profile(name):
-            try shellRequestProfile(name)
-        case let .theme(name, scheme):
-            try shellRequestTheme(name, scheme)
-        case let .eject(widget):
-            try shellRequestEject(widget)
-        case let .initialize(widget):
-            try shellRequestInitialize(widget)
-        case let .trigger(widget, name, text):
-            try shellRequestTrigger(widget, name, text)
-        }
     }
 }

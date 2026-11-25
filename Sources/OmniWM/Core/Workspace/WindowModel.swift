@@ -28,6 +28,7 @@ final class WindowModel {
     private(set) var entries: [WindowToken: WindowState] = [:]
     private var windowIdToToken: [Int: WindowToken] = [:]
     private var handleByToken: [WindowToken: WindowHandle] = [:]
+    private var admissions: UInt64 = 0
     private var constraintsCacheByToken: [WindowToken: ConstraintsCacheRecord] = [:]
     private var observedSizeEvidenceByToken: [WindowToken: ObservedSizeEvidence] = [:]
     private var workspaceIndex = WindowTokenIndex<WorkspaceDescriptor.ID>()
@@ -127,6 +128,7 @@ final class WindowModel {
             return token
         }
 
+        admissions &+= 1
         let entry = WindowState(
             token: token,
             target: target,
@@ -135,7 +137,8 @@ final class WindowModel {
             managedReplacementMetadata: managedReplacementMetadata,
             ruleEffects: ruleEffects,
             admissionHints: admissionHints,
-            lifetimeAuthority: lifetimeAuthority
+            lifetimeAuthority: lifetimeAuthority,
+            admission: admissions
         )
         entries[token] = entry
         handleByToken[token] = WindowHandle(id: token)

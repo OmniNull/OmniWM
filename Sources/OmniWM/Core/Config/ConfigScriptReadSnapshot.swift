@@ -4,34 +4,6 @@
 import Foundation
 import OmniWMScriptHost
 
-struct ConfigScriptReads: OptionSet, Sendable {
-    let rawValue: UInt16
-    static let workspaceWindows = Self(rawValue: UInt16(OMNI_CONFIG_READ_WORKSPACE_WINDOWS))
-    static let windows = Self(rawValue: UInt16(OMNI_CONFIG_READ_WINDOWS))
-    static let workspaces = Self(rawValue: UInt16(OMNI_CONFIG_READ_WORKSPACES))
-    static let monitors = Self(rawValue: UInt16(OMNI_CONFIG_READ_MONITORS))
-    static let placement = Self(rawValue: UInt16(OMNI_CONFIG_READ_PLACEMENT))
-    static let focusTarget = Self(rawValue: UInt16(OMNI_CONFIG_READ_FOCUS_TARGET))
-    static let workspaceWindowFrames = Self(rawValue: UInt16(OMNI_CONFIG_READ_WORKSPACE_WINDOW_FRAMES))
-    static let windowFrames = Self(rawValue: UInt16(OMNI_CONFIG_READ_WINDOW_FRAMES))
-    static let monitorFrames = Self(rawValue: UInt16(OMNI_CONFIG_READ_MONITOR_FRAMES))
-    static let workspaceWindowColumns = Self(rawValue: UInt16(OMNI_CONFIG_READ_WORKSPACE_WINDOW_COLUMNS))
-    static let windowColumns = Self(rawValue: UInt16(OMNI_CONFIG_READ_WINDOW_COLUMNS))
-    static let lists = Self(rawValue: UInt16(OMNI_CONFIG_READ_LISTS))
-
-    var frameByteLimit: Int {
-        let windowSections = intersection([.workspaceWindowFrames, .windowFrames]).rawValue.nonzeroBitCount
-        let monitorSections = contains(.monitorFrames) ? 1 : 0
-        return ConfigScriptSnapshot.rowLimit * (windowSections * ConfigScriptSnapshot.windowFrameBytes
-            + monitorSections * ConfigScriptSnapshot.monitorFrameBytes)
-    }
-
-    var columnByteLimit: Int {
-        let sections = intersection([.workspaceWindowColumns, .windowColumns]).rawValue.nonzeroBitCount
-        return ConfigScriptSnapshot.rowLimit * sections * ConfigScriptSnapshot.columnBytes
-    }
-}
-
 struct ConfigScriptSnapshot: Sendable {
     static let rowLimit = 256
     static let byteLimit = 128 * 1024
@@ -69,16 +41,16 @@ struct ConfigScriptSnapshotPool {
     private var columns = ConfigScriptColumnIndex()
 
     fileprivate mutating func capture(
-        reads: ConfigScriptReads, write: (inout SnapshotWriter, inout ConfigScriptColumnIndex) -> Void
+        reads: ConfigScriptReads, write: (inout ConfigScriptSnapshotWriter, inout ConfigScriptColumnIndex) -> Void
     ) -> ConfigScriptSnapshot {
         var index = slots.startIndex
         while index < slots.endIndex, !isKnownUniquelyReferenced(&slots[index].reservation) {
             index += 1
         }
         if index == slots.endIndex { slots.append(Slot()) }
-        let lists = reads.intersection(.lists).rawValue.nonzeroBitCount
-        let limit = lists * ConfigScriptSnapshot.byteLimit + reads.frameByteLimit + reads.columnByteLimit
-        var output = SnapshotWriter(limit: limit)
+        let sections = reads.intersection(.sections).rawValue.nonzeroBitCount
+        let limit = sections * ConfigScriptSnapshot.byteLimit + reads.frameByteLimit + reads.columnByteLimit
+        var output = ConfigScriptSnapshotWriter(limit: limit)
         swap(&slots[index].storage, &output.bytes)
         output.bytes.removeAll(keepingCapacity: true)
         let capacity = capacityHints[reads.rawValue] ?? 0
@@ -105,7 +77,7 @@ private struct ScriptStrip {
     let vertical: Bool
 }
 
-private struct SnapshotWriter {
+struct ConfigScriptSnapshotWriter {
     let limit: Int
     var bytes: [UInt8] = []
     private var header = 0
@@ -120,7 +92,7 @@ private struct SnapshotWriter {
         self.limit = limit
     }
 
-    private mutating func makeRoom(for payload: Int, prefix: Int = 0) -> Bool {
+    mutating func makeRoom(for payload: Int, prefix: Int = 0) -> Bool {
         guard payload <= remaining - prefix else { return false }
         reserve(payload + prefix)
         return true
@@ -135,6 +107,10 @@ private struct SnapshotWriter {
     }
 
     mutating func start(_ kind: ConfigScriptReads, framed: Bool = false, columned: Bool = false) {
+        start(tag: UInt8(truncatingIfNeeded: kind.rawValue), framed: framed, columned: columned)
+    }
+
+    mutating func start(tag: UInt8, framed: Bool = false, columned: Bool = false) {
         header = bytes.count
         rows = 0
         truncated = false
@@ -143,7 +119,7 @@ private struct SnapshotWriter {
         frameBytes = 0
         columnBytes = 0
         reserve(MemoryLayout<UInt64>.size)
-        appendLE(UInt64(kind.rawValue))
+        appendLE(UInt64(tag))
     }
 
     mutating func finish() {
@@ -153,6 +129,19 @@ private struct SnapshotWriter {
         let flags = UInt64(bytes[header]) | (UInt64(section) << 8)
         let value = flags | (UInt64(rows) << 16) | (UInt64(length) << 32)
         bytes.withUnsafeMutableBytes { $0.storeBytes(of: value.littleEndian, toByteOffset: header, as: UInt64.self) }
+    }
+
+    mutating func rowUnlessAbsent(_ write: (inout Self) -> Bool?) {
+        let wasTruncated = truncated
+        var absent = false
+        _ = row { row in
+            guard let stored = write(&row) else {
+                absent = true
+                return false
+            }
+            return stored
+        }
+        if absent { truncated = wasTruncated }
     }
 
     mutating func row(_ write: (inout Self) -> Bool) -> Bool {
@@ -248,7 +237,7 @@ private struct SnapshotWriter {
         return true
     }
 
-    private mutating func appendLE(_ value: some FixedWidthInteger) {
+    mutating func appendLE(_ value: some FixedWidthInteger) {
         withUnsafeBytes(of: value.littleEndian) { bytes.append(contentsOf: $0) }
     }
 
@@ -268,7 +257,7 @@ extension WMController {
     }
 
     private func writeSnapshot(
-        reads: ConfigScriptReads, origin: ScriptReadOrigin, to output: inout SnapshotWriter,
+        reads: ConfigScriptReads, origin: ScriptReadOrigin, to output: inout ConfigScriptSnapshotWriter,
         columns: inout ConfigScriptColumnIndex
     ) {
         let manager = workspaceManager
@@ -320,7 +309,7 @@ extension WMController {
         #endif
     }
 
-    private func appendScriptMonitors(to output: inout SnapshotWriter) {
+    private func appendScriptMonitors(to output: inout ConfigScriptSnapshotWriter) {
         _ = workspaceManager.sortedMonitors().allSatisfy { monitor in
             output.row { row in
                 guard row.string(monitor.id.scriptIdentifier), row.string(monitor.name) else { return false }
@@ -330,7 +319,7 @@ extension WMController {
         }
     }
 
-    private func finishScriptList(_ output: inout SnapshotWriter) {
+    private func finishScriptList(_ output: inout ConfigScriptSnapshotWriter) {
         output.finish()
         #if OMNIWM_CONFIG_CALLBACK_TRACE
             ConfigScriptSnapshot.capturedLists += 1
@@ -341,7 +330,7 @@ extension WMController {
     private func appendScriptWindows(
         in workspace: WorkspaceDescriptor, session: ConfigScriptSession,
         resolution: WorkspaceManager.MonitorResolutionContext,
-        to output: inout SnapshotWriter, columns: inout ConfigScriptColumnIndex
+        to output: inout ConfigScriptSnapshotWriter, columns: inout ConfigScriptColumnIndex
     ) -> Bool {
         let manager = workspaceManager
         let windows = manager.windowQueries
@@ -395,8 +384,15 @@ extension WMController {
     private func appendScriptRecords(
         reads: ConfigScriptReads, origin: ScriptReadOrigin,
         resolution: @autoclosure () -> WorkspaceManager.MonitorResolutionContext,
-        to output: inout SnapshotWriter
+        to output: inout ConfigScriptSnapshotWriter
     ) {
+        if reads.contains(.dwindle) {
+            output.start(tag: UInt8(OMNI_CONFIG_SECTION_DWINDLE))
+            if let workspaceId = origin.workspaceId {
+                appendScriptDwindle(in: workspaceId, session: origin.session, to: &output)
+            }
+            finishScriptList(&output)
+        }
         if reads.contains(.placement) {
             output.start(.placement)
             appendScriptPlacement(of: origin.token, session: origin.session, resolution: resolution(), to: &output)
@@ -417,7 +413,7 @@ extension WMController {
     private func appendScriptPlacement(
         of token: WindowToken?, session: ConfigScriptSession,
         resolution: @autoclosure () -> WorkspaceManager.MonitorResolutionContext,
-        to output: inout SnapshotWriter
+        to output: inout ConfigScriptSnapshotWriter
     ) {
         let manager = workspaceManager
         guard let token, let workspaceId = manager.workspace(for: token),
@@ -463,7 +459,7 @@ extension WMController {
         )
     }
 
-    private func writeWindowText(_ entry: borrowing WindowState, to row: inout SnapshotWriter) -> Bool {
+    private func writeWindowText(_ entry: borrowing WindowState, to row: inout ConfigScriptSnapshotWriter) -> Bool {
         if case let .hosted(hosted) = entry.target {
             return row.string(hosted.appId) && row.string(hosted.title)
         }

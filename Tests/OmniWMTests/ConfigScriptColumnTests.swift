@@ -195,7 +195,7 @@ final class ConfigScriptColumnTests: XCTestCase {
         manager.updateFloatingGeometry(frame: start, for: base.token(3))
         try await fixture.focus(1, on: "1")
         let numbers = try numbers(in: [strip], of: base)
-        let names = ["workspaceWindows", "windows", "workspaces", "monitors", "placement", "focusTarget"]
+        let names = ["workspaceWindows", "windows", "workspaces", "monitors", "placement", "focusTarget", "dwindle"]
         let words = names + ["frames", "columns"]
         let mixes = (0 ..< 1 << words.count).map { mask in
             words.indices.filter { mask & 1 << $0 != 0 }.map { words[$0] }
@@ -215,7 +215,7 @@ final class ConfigScriptColumnTests: XCTestCase {
         local function check(e, want)
             local declared = false
             for _, name in names do
-                assert((e[name] ~= nil) == (want[name] == true), name)
+                assert((e[name] ~= nil) == (want[name] == true and name ~= 'dwindle'), name)
                 declared = declared or want[name] == true
             end
             if declared then

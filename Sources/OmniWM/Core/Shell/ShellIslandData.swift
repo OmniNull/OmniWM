@@ -130,7 +130,9 @@ struct ShellIslandData: Equatable, Sendable {
             writer.null()
             return
         }
-        writer.map(5)
+        let split = navigation.dwindleSplit
+        let preselect = navigation.dwindlePreselect
+        writer.map(5 + (split == nil ? 0 : 1) + (preselect == nil ? 0 : 1))
         writer.key("workspace")
         writer.string(navigation.workspace)
         writer.key("name")
@@ -157,6 +159,14 @@ struct ShellIslandData: Equatable, Sendable {
             writer.string(window.title)
             writer.key("column")
             writer.number(Double(window.column))
+        }
+        if let split {
+            writer.key("dwindleSplit")
+            writer.string(split == .horizontal ? "horizontal" : "vertical")
+        }
+        if let preselect {
+            writer.key("dwindlePreselect")
+            writer.string(preselect.rawValue)
         }
     }
 

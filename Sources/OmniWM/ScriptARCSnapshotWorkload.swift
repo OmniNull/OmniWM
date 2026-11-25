@@ -383,7 +383,7 @@ extension ScriptARCFixture {
         }
     }
 
-    fileprivate func mixedReads(_ modifier: String, probe: String, rows: String, routes: [String]) async throws {
+    func mixedReads(_ modifier: String, probe: String, rows: String, routes: [String]) async throws {
         let manager = controller.workspaceManager
         let workspace = manager.workspace(for: token)!
         let name = manager.descriptor(for: workspace)!.name

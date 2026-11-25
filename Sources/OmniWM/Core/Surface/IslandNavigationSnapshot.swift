@@ -15,4 +15,6 @@ struct IslandNavigationSnapshot: Equatable, Sendable {
     let layout: String
     let focused: WindowToken?
     let windows: [Window]
+    let dwindleSplit: DwindleOrientation?
+    let dwindlePreselect: Direction?
 }

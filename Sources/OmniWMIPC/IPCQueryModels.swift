@@ -20,6 +20,7 @@ public enum IPCQueryName: String, Codable, CaseIterable, Equatable, Sendable {
     case capabilities
     case metrics
     case shellWidgets = "shell-widgets"
+    case dwindleTree = "dwindle-tree"
 }
 
 public struct IPCQuerySelectors: Codable, Equatable, Sendable {

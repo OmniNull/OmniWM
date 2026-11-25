@@ -91,6 +91,9 @@ constexpr std::array<uint8_t, 6> readBits{
 };
 constexpr std::string_view framesRead = "frames";
 constexpr std::string_view columnsRead = "columns";
+constexpr std::string_view dwindleRead = "dwindle";
+constexpr std::array dwindleDirections{"left", "right", "up", "down"};
+static_assert(OMNI_CONFIG_DWINDLE_DOWN == dwindleDirections.size());
 constexpr uint16_t framedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS | OMNI_CONFIG_READ_MONITORS;
 constexpr uint16_t columnedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS;
 static_assert((framedLists << OMNI_CONFIG_READ_FRAME_SHIFT) ==
@@ -108,7 +111,7 @@ uint16_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
     }
     const int table = lua_gettop(L);
     const int length = lua_objlen(L, table);
-    if (length > static_cast<int>(readNames.size()) + 2) {
+    if (length > static_cast<int>(readNames.size()) + 3) {
         reject(L, vm, site, "too many lookup names in reads");
     }
     uint16_t mask = 0;
@@ -125,13 +128,15 @@ uint16_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
         const std::string_view name(word.data, word.length);
         const bool framesName = name == framesRead;
         const bool columnsName = name == columnsRead;
+        const bool dwindleName = name == dwindleRead;
         auto it = std::find(readNames.begin(), readNames.end(), name);
-        if (it == readNames.end() && !framesName && !columnsName) {
+        if (it == readNames.end() && !framesName && !columnsName && !dwindleName) {
             reject(L, vm, site,
-                "unknown read; expected workspaceWindows, windows, workspaces, monitors, placement, focusTarget, frames or columns");
+                "unknown read; expected workspaceWindows, windows, workspaces, monitors, placement, focusTarget, dwindle, "
+                "frames or columns");
         }
         const bool modifier = framesName || columnsName;
-        const uint16_t bit = modifier ? 0 : readBits[it - readNames.begin()];
+        const uint16_t bit = modifier ? 0 : dwindleName ? OMNI_CONFIG_READ_DWINDLE : readBits[it - readNames.begin()];
         if (framesName ? frames : columnsName ? columns : (mask & bit) != 0) {
             reject(L, vm, site, "duplicate lookup name in reads");
         }
@@ -729,12 +734,73 @@ void pushFocusTarget(lua_State *L, std::string_view &rows) {
     lua_setreadonly(L, -1, true);
 }
 
+void pushDwindleNode(lua_State *L, std::string_view &rows) {
+    const auto tag = readUnsigned<uint8_t>(rows);
+    lua_createtable(L, 0, 3);
+    if (tag == OMNI_CONFIG_DWINDLE_SPLIT) {
+        lua_pushstring(L, "split");
+        lua_rawsetfield(L, -2, "kind");
+        const auto orientation = readUnsigned<uint8_t>(rows);
+        if (orientation > OMNI_CONFIG_DWINDLE_VERTICAL) {
+            throw InvalidSnapshot{};
+        }
+        lua_pushstring(L, orientation == OMNI_CONFIG_DWINDLE_VERTICAL ? "vertical" : "horizontal");
+        lua_rawsetfield(L, -2, "orientation");
+        lua_pushnumber(L, readDouble(rows));
+        lua_rawsetfield(L, -2, "ratio");
+    } else if (tag == OMNI_CONFIG_DWINDLE_LEAF) {
+        lua_pushstring(L, "leaf");
+        lua_rawsetfield(L, -2, "kind");
+        const auto active = readUnsigned<uint16_t>(rows);
+        const auto members = readUnsigned<uint16_t>(rows);
+        if (active == 0 || active > members) {
+            throw InvalidSnapshot{};
+        }
+        lua_createtable(L, members, 0);
+        for (int member = 1; member <= members; ++member) {
+            const auto id = takeBytes(rows, readUnsigned<uint32_t>(rows));
+            lua_pushlstring(L, id.data(), id.size());
+            lua_rawseti(L, -2, member);
+        }
+        lua_setreadonly(L, -1, true);
+        lua_rawsetfield(L, -2, "members");
+        lua_pushnumber(L, active);
+        lua_rawsetfield(L, -2, "active");
+    } else {
+        throw InvalidSnapshot{};
+    }
+    lua_setreadonly(L, -1, true);
+}
+
+void pushDwindle(lua_State *L, std::string_view &rows) {
+    lua_createtable(L, 0, 4);
+    readStringField(L, rows, "workspaceId");
+    const auto count = readUnsigned<uint16_t>(rows);
+    lua_createtable(L, count, 0);
+    for (int node = 1; node <= count; ++node) {
+        pushDwindleNode(L, rows);
+        lua_rawseti(L, -2, node);
+    }
+    lua_setreadonly(L, -1, true);
+    lua_rawsetfield(L, -2, "nodes");
+    const auto preselect = readUnsigned<uint8_t>(rows);
+    if (preselect > dwindleDirections.size()) {
+        throw InvalidSnapshot{};
+    }
+    if (preselect != 0) {
+        lua_pushstring(L, dwindleDirections[preselect - 1]);
+        lua_rawsetfield(L, -2, "preselect");
+    }
+    readStringField(L, rows, "revision");
+    lua_setreadonly(L, -1, true);
+}
+
 void pushLookups(lua_State *L, omni_config_span snapshot, uint16_t reads) {
     if (!snapshot.data) {
         throw InvalidSnapshot{};
     }
     const int context = lua_gettop(L);
-    const auto fieldCount = __builtin_popcount(reads & OMNI_CONFIG_READ_LISTS);
+    const auto fieldCount = __builtin_popcount(reads & (OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE));
     lua_createtable(L, 0, fieldCount);
     std::string_view input(snapshot.data, snapshot.length);
     while (!input.empty()) {
@@ -743,6 +809,25 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint16_t reads) {
         const auto count = readUnsigned<uint16_t>(input);
         const auto length = readUnsigned<uint32_t>(input);
         auto rows = takeBytes(input, length);
+        if (kind == OMNI_CONFIG_SECTION_DWINDLE) {
+            if (!(reads & OMNI_CONFIG_READ_DWINDLE)) {
+                continue;
+            }
+            reads &= ~OMNI_CONFIG_READ_DWINDLE;
+            if ((flags & ~OMNI_CONFIG_SECTION_TRUNCATED) || count > 1) {
+                throw InvalidSnapshot{};
+            }
+            lua_pushboolean(L, flags & OMNI_CONFIG_SECTION_TRUNCATED);
+            lua_rawsetfield(L, -2, dwindleRead.data());
+            if (count == 1) {
+                pushDwindle(L, rows);
+                lua_rawsetfield(L, context, dwindleRead.data());
+            }
+            if (!rows.empty()) {
+                throw InvalidSnapshot{};
+            }
+            continue;
+        }
         if (!(kind & reads)) {
             continue;
         }
@@ -789,7 +874,7 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint16_t reads) {
             throw InvalidSnapshot{};
         }
     }
-    if (reads & OMNI_CONFIG_READ_LISTS) {
+    if (reads & (OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE)) {
         throw InvalidSnapshot{};
     }
     lua_setreadonly(L, -1, true);
@@ -813,7 +898,8 @@ void pushContext(lua_State *L, const omni_config_trigger &trigger, bool event, u
             + edge->frame.present + edge->previous_frame.present + edge->visible_frame.present
             + edge->previous_visible_frame.present + (flag != nullptr);
     }
-    lua_createtable(L, 0, capacity + (reads ? 1 + __builtin_popcount(reads & OMNI_CONFIG_READ_LISTS) : 0));
+    lua_createtable(
+        L, 0, capacity + (reads ? 1 + __builtin_popcount(reads & (OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE)) : 0));
     auto field = [L](const char *name, omni_config_span value) {
         if (value.data) {
             lua_pushlstring(L, value.data, value.length);

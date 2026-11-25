@@ -209,7 +209,7 @@ Both fields are required. `from` is `workspace`, `monitor`, or `all`; `omniwmctl
   "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|shell|subscribe>",
   "status": "<success|executed|ignored|error|subscribed>",
   "result": {
-    "kind": "<pong|version|capture|workspace-bar|active-workspace|focused-monitor|apps|metrics|focused-window|windows|workspaces|displays|rules|rule-actions|queries|commands|subscriptions|capabilities|subscribed|window-marks|window-gather|shell-widgets>",
+    "kind": "<pong|version|capture|workspace-bar|active-workspace|focused-monitor|apps|metrics|focused-window|windows|workspaces|displays|dwindle-tree|rules|rule-actions|queries|commands|subscriptions|capabilities|subscribed|window-marks|window-gather|shell-widgets>",
     "payload": { ... }
   }
 }

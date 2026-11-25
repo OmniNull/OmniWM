@@ -341,6 +341,7 @@ typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t l
 #define OMNI_CONFIG_READ_WORKSPACE_WINDOW_FRAMES 64u
 #define OMNI_CONFIG_READ_WINDOW_FRAMES 128u
 #define OMNI_CONFIG_READ_MONITOR_FRAMES 512u
+#define OMNI_CONFIG_READ_DWINDLE 4096u
 #define OMNI_CONFIG_READ_COLUMN_SHIFT 13u
 #define OMNI_CONFIG_READ_WORKSPACE_WINDOW_COLUMNS 8192u
 #define OMNI_CONFIG_READ_WINDOW_COLUMNS 16384u
@@ -359,6 +360,16 @@ typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t l
 #define OMNI_CONFIG_PLACEMENT_VERTICAL 2u
 
 #define OMNI_CONFIG_FOCUS_TARGET_NATIVE_FULLSCREEN 1u
+
+#define OMNI_CONFIG_SECTION_DWINDLE 64u
+#define OMNI_CONFIG_DWINDLE_SPLIT 0u
+#define OMNI_CONFIG_DWINDLE_LEAF 1u
+#define OMNI_CONFIG_DWINDLE_HORIZONTAL 0u
+#define OMNI_CONFIG_DWINDLE_VERTICAL 1u
+#define OMNI_CONFIG_DWINDLE_LEFT 1u
+#define OMNI_CONFIG_DWINDLE_RIGHT 2u
+#define OMNI_CONFIG_DWINDLE_UP 3u
+#define OMNI_CONFIG_DWINDLE_DOWN 4u
 
 typedef struct omni_config_vm omni_config_vm;
 

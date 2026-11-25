@@ -29,11 +29,15 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
             _ kind: ConfigScriptReads, rows: [Wire], truncated: Bool = false, framed: Bool = false,
             columned: Bool = false
         ) {
-            integer(UInt8(kind.rawValue))
-            integer(UInt8(
+            section(UInt8(kind.rawValue), rows: rows, flags: UInt8(
                 (truncated ? OMNI_CONFIG_SECTION_TRUNCATED : 0) | (framed ? OMNI_CONFIG_SECTION_FRAMES : 0) |
                     (columned ? OMNI_CONFIG_SECTION_COLUMNS : 0)
             ))
+        }
+
+        mutating func section(_ tag: UInt8, rows: [Wire], flags: UInt8 = 0) {
+            integer(tag)
+            integer(flags)
             integer(UInt16(rows.count))
             integer(UInt32(rows.reduce(0) { $0 + $1.data.count }))
             for row in rows { data += row.data }
@@ -104,6 +108,66 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
         let reads: ConfigScriptReads = [.workspaceWindows, .windows, .workspaces, .monitors]
         let actual = controller.configScriptSnapshot(reads: reads, target: controller.configScriptTarget(), pool: &pool)
         XCTAssertEqual(actual.withUnsafeBytes { Data($0) }, expected.data)
+    }
+
+    func testTheDwindleSectionFollowsTheListsWithItsTreeInPreorder() async throws {
+        let fixture = try ConfigScriptWindowFixture(
+            monitors: [NiriGatherFixture.monitor(displayId: 1)], layouts: [.dwindle]
+        )
+        let base = fixture.base
+        let manager = base.manager
+        let workspace = base.workspace("1")
+        base.add([1, 2, 3], to: workspace)
+        try await fixture.focus(1, on: "1")
+        let engine = try XCTUnwrap(base.controller.dwindleEngine)
+        var snapshot: DwindleLayoutSnapshot?
+        manager.withEngineMutationScope(in: workspace) {
+            XCTAssertTrue(engine.groupWindow(base.token(3), into: base.token(2), in: workspace))
+            XCTAssertTrue(engine.setPreselection(.down, in: workspace))
+            snapshot = engine.layoutSnapshot(in: workspace)
+        }
+        let tree = try XCTUnwrap(snapshot)
+        XCTAssertTrue(tree.nodes.contains { $0.orientation != nil })
+        XCTAssertTrue(tree.nodes.contains { $0.members.count > 1 })
+        let session = base.controller.scriptSession.identity
+        var row = Wire()
+        row.text(workspace.uuidString)
+        row.integer(UInt16(tree.nodes.count))
+        for node in tree.nodes {
+            if let orientation = node.orientation {
+                row.integer(UInt8(OMNI_CONFIG_DWINDLE_SPLIT))
+                row.integer(UInt8(
+                    orientation == .vertical ? OMNI_CONFIG_DWINDLE_VERTICAL : OMNI_CONFIG_DWINDLE_HORIZONTAL
+                ))
+                row.integer(Double(node.ratio).bitPattern)
+                continue
+            }
+            let members = tree.members[node.members]
+            let active = try XCTUnwrap(members.firstIndex { $0.token == node.active }) - members.startIndex
+            row.integer(UInt8(OMNI_CONFIG_DWINDLE_LEAF))
+            row.integer(UInt16(active + 1))
+            row.integer(UInt16(members.count))
+            for member in members { row.text(ConfigScriptWindowID.string(member.token, session: session)) }
+        }
+        row.integer(UInt8(OMNI_CONFIG_DWINDLE_DOWN))
+        let digits = UInt64.bitWidth / 4
+        row.text(String(repeating: "0", count: digits))
+        var expected = Wire()
+        expected.list(.monitors, rows: manager.sortedMonitors().map { monitor in
+            var row = Wire()
+            row.text(monitor.id.scriptIdentifier)
+            row.text(monitor.name)
+            return row
+        })
+        expected.section(UInt8(OMNI_CONFIG_SECTION_DWINDLE), rows: [row])
+        var pool = ConfigScriptSnapshotPool()
+        let actual = base.controller.configScriptSnapshot(
+            reads: [.monitors, .dwindle], target: base.controller.configScriptTarget(), pool: &pool
+        ).withUnsafeBytes { Data($0) }
+        XCTAssertEqual(actual.count, expected.data.count)
+        XCTAssertEqual(actual.dropLast(digits), expected.data.dropLast(digits))
+        let hex = Set("0123456789ABCDEF".utf8)
+        XCTAssertTrue(actual.suffix(digits).allSatisfy(hex.contains))
     }
 
     func testExactlyFullRowAndOneByteOverflowAcrossListBoundary() throws {

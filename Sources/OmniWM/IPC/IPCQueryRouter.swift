@@ -250,6 +250,53 @@ final class IPCQueryRouter {
 }
 
 extension IPCQueryRouter {
+    func dwindleTreeResult() -> IPCDwindleTreeQueryResult {
+        guard let workspace = controller.interactionWorkspaceProjection().workspace else {
+            return IPCDwindleTreeQueryResult(workspace: nil, tree: nil, tooLarge: false)
+        }
+        let reference = IPCWorkspaceRef(descriptor: workspace, settings: controller.settings)
+        let manager = controller.workspaceManager
+        let engine: DwindleLayoutEngine
+        switch manager.dwindleTreeAccess(for: workspace.id) {
+        case .unavailable:
+            return IPCDwindleTreeQueryResult(workspace: reference, tree: nil, tooLarge: false)
+        case .tooLarge:
+            return IPCDwindleTreeQueryResult(workspace: reference, tree: nil, tooLarge: true)
+        case let .ready(ready):
+            engine = ready
+        }
+        let windows = manager.windowQueries
+        var nodes: [IPCDwindleNode] = []
+        var hasher = Hasher()
+        hasher.combine(sessionToken)
+        let read = engine.readTree(
+            in: workspace.id, hasher: hasher,
+            admission: { windows.tiledAdmission(of: $0, in: workspace.id) },
+            split: { orientation, ratio in
+                let axis: IPCResizeAxis = orientation == .vertical ? .vertical : .horizontal
+                nodes.append(IPCDwindleNode(orientation: axis, ratio: ratio))
+                return true
+            },
+            leaf: { tile, active in
+                let ids = tile.map { IPCWindowOpaqueID.encode(token: $0.token, sessionToken: sessionToken) }
+                nodes.append(IPCDwindleNode(members: ids, active: active + 1))
+                return true
+            }
+        )
+        guard case let .read(preselection, revision) = read else {
+            return IPCDwindleTreeQueryResult(workspace: reference, tree: nil, tooLarge: false)
+        }
+        let tree = IPCDwindleTree(
+            workspaceId: workspace.id.uuidString,
+            revision: String(format: "%016llX", revision),
+            preselect: preselection.map(IPCDirection.init(direction:)),
+            nodes: nodes
+        )
+        return IPCDwindleTreeQueryResult(workspace: reference, tree: tree, tooLarge: false)
+    }
+}
+
+extension IPCQueryRouter {
     private func workspaceBarWorkspace(from item: WorkspaceBarItem) -> IPCWorkspaceBarWorkspace {
         IPCWorkspaceBarWorkspace(
             id: item.id.uuidString,

@@ -125,6 +125,21 @@ extension IPCColumnDisplayMode {
     }
 }
 
+extension IPCDirection {
+    init(direction: Direction) {
+        switch direction {
+        case .left:
+            self = .left
+        case .right:
+            self = .right
+        case .up:
+            self = .up
+        case .down:
+            self = .down
+        }
+    }
+}
+
 extension IPCWorkspaceLayout {
     init(layout: LayoutType) {
         switch layout {
@@ -174,6 +189,8 @@ extension IPCResult {
             self.init(capabilities: queryRouter.capabilitiesResult())
         case .shellWidgets:
             self.init(shellWidgets: queryRouter.shellWidgetsResult())
+        case .dwindleTree:
+            self.init(dwindleTree: queryRouter.dwindleTreeResult())
         }
     }
 

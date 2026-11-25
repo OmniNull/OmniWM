@@ -379,7 +379,7 @@ Weather supplies current conditions, 24 hourly entries, and seven daily entries;
 
 ## Island snapshots
 
-The panel envelope stays fixed while the Luau content expands or collapses. Coordinates begin at its top-left; size and notch dimensions are in points. `navigation.windows` follows Niri column/row order, then floating windows. `column` is one-based for Niri, zero otherwise. Titles use cached metadata and can be empty; fall back to `name`. Use `omniwm.run("window focus " .. id)` to focus a window.
+The panel envelope stays fixed while the Luau content expands or collapses. Coordinates begin at its top-left; size and notch dimensions are in points. `navigation.windows` follows Niri column/row order, then floating windows. `column` is one-based for Niri, zero otherwise. On a Dwindle workspace, `navigation.dwindleSplit` is the orientation of the split that holds the focused window, `horizontal` or `vertical`, and is absent for a lone or floating window. `navigation.dwindlePreselect` is the pending preselect direction, `left`, `right`, `up` or `down`, and is absent when none is set. Titles use cached metadata and can be empty; fall back to `name`. Use `omniwm.run("window focus " .. id)` to focus a window.
 
 <LuauDeclaration name="Island" />
 

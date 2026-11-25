@@ -67,6 +67,7 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `monitors` | Displays, left to right, then top first |
 | `placement` | Where the focused window sits: one record, not a list |
 | `focusTarget` | The window the callback's workspace focuses: one record |
+| `dwindle` | The callback's workspace's Dwindle tree: one record |
 | `frames` | Adds frames to the window and monitor lists declared with it |
 | `columns` | Adds Niri column numbers to the window lists declared with it |
 
@@ -84,6 +85,12 @@ A frame is `{ x, y, width, height }` in points, in the coordinates `omniwmctl qu
 - `vertical`: `true` when the strip runs vertically. Moving a column `"up"` then takes it toward a larger `column`, and `"down"` toward a smaller one. In a horizontal strip, `"right"` and `"left"` do that.
 
 `ctx.focusTarget` is the window OmniWM focuses when you switch to the callback's workspace. For `workspace.active`, that is the workspace just switched to. It has `id` and `nativeFullscreen`, which is `true` when the window sits in its own macOS fullscreen Space and `focus` can bring it forward. It's absent when the workspace has no window to focus.
+
+`ctx.dwindle` describes the Dwindle tree of the callback's workspace. It has `workspaceId`, `revision`, `preselect` when a direction is pending (`"left"`, `"right"`, `"up"` or `"down"`), and `nodes`, the tree in preorder:
+- A split is `{ kind = "split", orientation, ratio }`, followed by its first and then its second subtree. The first is on the left of a `"horizontal"` split and at the bottom of a `"vertical"` one. `ratio` is `1` for an even split.
+- A leaf is `{ kind = "leaf", members, active }`: the IDs of the windows in that tile in tab order, and the position of the one shown, counting from 1. Minimized and hidden windows keep their place.
+
+An empty workspace has no nodes. `revision` is text that changes when the tree, a ratio, a tile's windows or tab, or the preselect changes, and stays the same otherwise; a window that closes and opens again counts as a change. `ctx.dwindle` is absent on other layouts and until Dwindle has laid out the workspace's current windows, for example in a `window.close` callback before the layout catches up. A tree with more than 256 windows gives `nil`, with `truncated.dwindle` set to `true`.
 
 A window's `column` is the position of its Niri column, counting from 1, numbered like `focus-column` and `omniwmctl query`'s `column-index`. Windows in one column, inactive tabs included, share it, and it counts columns scrolled out of view too. Floating windows, Dwindle windows and windows the layout leaves out, such as minimized ones, have none.
 

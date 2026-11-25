@@ -29,6 +29,87 @@ extension IPCJSONWriter {
         end(125)
     }
 
+    mutating func value(_ value: borrowing IPCDwindleNodeKind) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func value(_ value: borrowing IPCResizeAxis) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func value(_ value: borrowing IPCDwindleNode) throws {
+        begin(123)
+        var first = true
+        if let fieldValue = value.active {
+            self.key("active", &first)
+            try self.value(fieldValue)
+        }
+        self.key("kind", &first)
+        try self.value(value.kind)
+        if let fieldValue = value.members {
+            self.key("members", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.orientation {
+            self.key("orientation", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.ratio {
+            self.key("ratio", &first)
+            try self.value(fieldValue)
+        }
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing [IPCDwindleNode]) throws {
+        begin(91)
+        var first = true
+        let span = value.span
+        var index = 0
+        while index < span.count {
+            item(&first)
+            try self.value(span[index])
+            index += 1
+        }
+        end(93)
+    }
+
+    mutating func value(_ value: borrowing IPCDirection) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func value(_ value: borrowing IPCDwindleTree) throws {
+        begin(123)
+        var first = true
+        self.key("nodes", &first)
+        try self.value(value.nodes)
+        if let fieldValue = value.preselect {
+            self.key("preselect", &first)
+            try self.value(fieldValue)
+        }
+        self.key("revision", &first)
+        try self.value(value.revision)
+        self.key("workspaceId", &first)
+        try self.value(value.workspaceId)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCDwindleTreeQueryResult) throws {
+        begin(123)
+        var first = true
+        self.key("tooLarge", &first)
+        try self.value(value.tooLarge)
+        if let fieldValue = value.tree {
+            self.key("tree", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.workspace {
+            self.key("workspace", &first)
+            try self.value(fieldValue)
+        }
+        end(125)
+    }
+
     mutating func value(_ value: borrowing IPCResult.Payload) throws {
         switch value {
         case let .pong(payload):
@@ -74,6 +155,8 @@ extension IPCJSONWriter {
         case let .metrics(payload):
             try self.value(payload)
         case let .shellWidgets(payload):
+            try self.value(payload)
+        case let .dwindleTree(payload):
             try self.value(payload)
         }
     }
@@ -153,10 +236,6 @@ extension IPCJSONWriter {
         end(125)
     }
 
-    mutating func value(_ value: borrowing IPCDirection) throws {
-        try self.value(value.rawValue)
-    }
-
     mutating func argument(_ name: StaticString, _ value: borrowing IPCDirection, _ first: inout Bool) throws {
         self.key("arguments", &first)
         begin(123)
@@ -173,78 +252,5 @@ extension IPCJSONWriter {
         self.key(name, &argumentFirst)
         try self.value(value)
         end(125)
-    }
-
-    mutating func arguments(_ value: borrowing IPCFocusCommand, _ first: inout Bool) throws {
-        switch value {
-        case let .spatial(direction):
-            try argument("direction", direction, &first)
-        case let .windowInColumn(windowIndex):
-            try argument("windowIndex", windowIndex, &first)
-        case let .column(columnIndex):
-            try argument("columnIndex", columnIndex, &first)
-        case .previous,
-             .downOrLeft,
-             .upOrRight,
-             .windowTop,
-             .windowBottom,
-             .windowDownOrTop,
-             .windowUpOrBottom,
-             .windowOrWorkspaceDown,
-             .windowOrWorkspaceUp,
-             .columnFirst,
-             .columnLast,
-             .centerColumn,
-             .centerVisibleColumns:
-            break
-        }
-    }
-
-    mutating func arguments(_ value: borrowing IPCWindowMovementCommand, _ first: inout Bool) throws {
-        switch value {
-        case let .spatial(direction):
-            try argument("direction", direction, &first)
-        case .down,
-             .up,
-             .downOrToWorkspaceDown,
-             .upOrToWorkspaceUp,
-             .consumeOrExpelLeft,
-             .consumeOrExpelRight,
-             .consumeIntoColumn,
-             .expelFromColumn:
-            break
-        }
-    }
-
-    mutating func arguments(_ value: borrowing IPCWorkspaceCommand, _ first: inout Bool) throws {
-        switch value {
-        case let .switchTo(workspaceNumber):
-            try argument("workspaceNumber", workspaceNumber, &first)
-        case let .switchAnywhere(workspaceNumber):
-            try argument("workspaceNumber", workspaceNumber, &first)
-        case let .switchSlot(slotNumber):
-            try argument("slotNumber", slotNumber, &first)
-        case let .moveTo(workspaceNumber):
-            try argument("workspaceNumber", workspaceNumber, &first)
-        case let .moveToOnMonitor(workspaceNumber, direction):
-            self.key("arguments", &first)
-            begin(123)
-            var argumentFirst = true
-            self.key("direction", &argumentFirst)
-            try self.value(direction)
-            self.key("workspaceNumber", &argumentFirst)
-            try self.value(workspaceNumber)
-            end(125)
-        case let .moveToSlot(slotNumber):
-            try argument("slotNumber", slotNumber, &first)
-        case let .moveToMonitor(direction):
-            try argument("direction", direction, &first)
-        case .next,
-             .previous,
-             .backAndForth,
-             .moveUp,
-             .moveDown:
-            break
-        }
     }
 }

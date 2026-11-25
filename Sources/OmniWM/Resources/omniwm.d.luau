@@ -627,6 +627,8 @@ export type IslandNavigation = {
             column: number,
         }
     },
+    dwindleSplit: ("horizontal" | "vertical")?,
+    dwindlePreselect: ("left" | "right" | "up" | "down")?,
 }
 
 export type Island = {

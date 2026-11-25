@@ -214,6 +214,7 @@ struct WindowState: Equatable {
     var lifetimeAuthority: ManagedWindowLifetimeAuthority
     var hiddenState: HiddenState?
     var layoutReason: LayoutReason = .standard
+    let admission: UInt64
 
     var pid: pid_t {
         token.pid
@@ -253,10 +254,12 @@ struct WindowState: Equatable {
         managedReplacementMetadata: ManagedReplacementMetadata?,
         ruleEffects: ManagedWindowRuleEffects,
         admissionHints: ManagedWindowAdmissionHints,
-        lifetimeAuthority: ManagedWindowLifetimeAuthority = .axTopLevelInventory
+        lifetimeAuthority: ManagedWindowLifetimeAuthority = .axTopLevelInventory,
+        admission: UInt64 = 0
     ) {
         self.token = token
         self.target = target
+        self.admission = admission
         self.workspaceId = workspaceId
         self.mode = mode
         lifecyclePhase = mode == .floating ? .floating : .tiled

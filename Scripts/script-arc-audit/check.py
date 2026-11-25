@@ -113,11 +113,18 @@ ROUTES.update(("capture/no-focus-target", *FOCUS_TARGET_CAPTURES, *FOCUS_TARGET_
 MIXED_READ_EVENTS = tuple(tuple("event/workspace.active+" + name for name in family) for family in (
     ("shared-frames", "shared-plain", "solo-frames", "solo-plain"),
     ("shared-columns", "shared-plain-columns", "solo-columns", "solo-plain-columns"),
+    ("shared-dwindle", "shared-plain-dwindle", "solo-dwindle", "solo-plain-dwindle"),
 ))
 ROUTES.update(("move/floating-frame", *(route for family in MIXED_READ_EVENTS for route in family)))
 SHARED_LISTENER_FIELDS = ("R", "L", "obj", "VM")
 SCRIPT_WORKER_MALLOCS = ("Mallocs on the script worker are left out: Luau's page and string-table growth follows the "
                          "incremental collector's phase, not the listeners' reads.")
+DWINDLE_TREE_HOLDS = {
+    "splits": ({"R": 2, "L": 2}, "Each split retains both children while the walk recurses into them."),
+    "leaves": ({"R": 2, "L": 2, "bR": 1, "bL": 1},
+               "Each leaf retains its tile through the copy of its node kind and holds its member array across "
+               "the caller's leaf callback."),
+}
 EXACT_COSTS = {
     **{(route, phase): RESIDENT_KEY_STORAGE for route in (*WAKE_TRANSFERS, "key/owned-busy")
        for phase in ("producer", "dequeue", "completion")},
@@ -132,7 +139,9 @@ EXACT_COSTS = {
 }
 
 
-def check_window_rows(table):
+def check_window_rows(table, output):
+    shapes = {match[1]: {"splits": int(match[2]), "leaves": int(match[3])}
+              for match in re.finditer(r"^dwindle-shape (\S+) splits=(\d+) leaves=(\d+)$", output, re.M)}
     sizes = sorted({int(match[1]) for route, phase in table if phase == "producer"
                     and (match := re.fullmatch(r"rows/niri/(?:workspace|windows|framed)-(\d+)", route))})
     if len(sizes) < 3:
@@ -141,7 +150,8 @@ def check_window_rows(table):
     routes = ("first/rows/niri/workspace", "first/rows/niri/windows", "first/rows/niri/framed",
               "first/rows/niri/columned", "rows/niri/workspace", "rows/niri/windows", "rows/niri/framed",
               "rows/niri/columned", "rows/dwindle/workspace", "rows/dwindle/windows", "rows/dwindle/framed",
-              "rows/dwindle/columned")
+              "rows/dwindle/columned", "first/rows/dwindle/tree", "rows/dwindle/tree", "rows/dwindle/group",
+              "rows/niri/tree")
     for kind in routes:
         baseline = table.get((f"{kind}-{first}", "producer"))
         for size in sizes[1:]:
@@ -150,15 +160,25 @@ def check_window_rows(table):
                 sys.exit(f"Missing matched {kind} capture for {first} and {size} rows")
             for field in NO_OBSERVER_OWNERSHIP:
                 extra = int(larger[field]) - int(baseline[field])
-                if extra:
-                    sys.exit(f"{kind}: {size - first} additional rows must add zero {field}, got {extra}")
-    for kind in ("rows/niri/framed", "rows/dwindle/framed", "rows/niri/columned", "rows/dwindle/columned"):
+                allowed, reason = 0, ""
+                if kind.endswith("rows/dwindle/tree"):
+                    tree = kind.removeprefix("first/")
+                    for unit, (holds, why) in DWINDLE_TREE_HOLDS.items():
+                        if field in holds:
+                            added = shapes[f"{tree}-{size}"][unit] - shapes[f"{tree}-{first}"][unit]
+                            allowed += holds[field] * added
+                            reason += " " + why
+                if extra != allowed:
+                    sys.exit(f"{kind}: {size - first} additional rows must add {allowed} {field}, got {extra}.{reason}")
+    for kind in ("rows/niri/framed", "rows/dwindle/framed", "rows/niri/columned", "rows/dwindle/columned",
+                 "rows/dwindle/tree", "rows/dwindle/group", "rows/niri/tree"):
         for size in sizes:
             counts = table[f"{kind}-{size}", "producer"]
             if int(counts["obj"]) or int(counts["heap"]):
                 sys.exit(f"{kind}-{size}: a warm capture with a read modifier allocates nothing: {counts}")
     larger = " and ".join(str(size) for size in sizes[1:])
-    print(f"capture/row-delta {first} to {larger} windows: zero additional ARC, allocations, weak promotions or VM entries")
+    print(f"capture/row-delta {first} to {larger} windows: zero additional ARC, allocations, weak promotions or VM entries, "
+          "apart from the per-split and per-leaf Dwindle tree holds")
 
 
 def check_transaction_owners(table, kind, pairs=(), released=(), native_only_releases=()):
@@ -237,7 +257,7 @@ def check_costs(output):
         for phase in PHASES:
             if (route, phase) not in table:
                 sys.exit(f"Missing counter measurement: {route} {phase}")
-    check_window_rows(table)
+    check_window_rows(table, output)
     for route in ("settings/key", "script/plain-key"):
         producer = table[route, "producer"]
         if int(producer["R"]) > NATIVE_RETAIN_CEILING or int(producer["L"]) > NATIVE_RELEASE_CEILING:
@@ -460,7 +480,7 @@ def check_delivery(lldb, binary, fixture):
     probes = [
         '-f ConfigScriptEventObservers+WindowState.swift -p "let event = ConfigScriptWindowTitle"',
         '-f ConfigScriptCallbackQueue.swift -p "let key = WindowStateKey.window\\(\\.windowTitle,"',
-        line_probe("ConfigScriptReadSnapshot.swift", "let limit = lists * ConfigScriptSnapshot.byteLimit"),
+        line_probe("ConfigScriptReadSnapshot.swift", "let limit = sections * ConfigScriptSnapshot.byteLimit"),
     ]
     commands = ["settings set target.inline-breakpoint-strategy always"]
     for probe in probes:

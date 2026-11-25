@@ -292,7 +292,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
 }
 
 private let lookupDefinitions = """
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "frames" | "columns"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "dwindle" | "frames" | "columns"
 export type ConfigReadOptions = { reads: { ConfigRead } }
 export type ConfigRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWindowRow = {
@@ -308,6 +308,12 @@ export type ConfigPlacement = { read workspace: string, read display: string?, r
         read members: { read [number]: string }, read vertical: boolean,
     }
 export type ConfigFocusTarget = { read id: string, read nativeFullscreen: boolean }
+export type ConfigDwindleNode = { read kind: "split", read orientation: "horizontal" | "vertical", read ratio: number }
+    | { read kind: "leaf", read members: { read [number]: string }, read active: number }
+export type ConfigDwindleTree = {
+    read workspaceId: string, read revision: string, read preselect: ("left" | "right" | "up" | "down")?,
+    read nodes: { read [number]: ConfigDwindleNode },
+}
 export type ConfigLookups = {
     read workspaceWindows: { read [number]: ConfigWindowRow }?,
     read windows: { read [number]: ConfigWindowRow }?,
@@ -315,9 +321,10 @@ export type ConfigLookups = {
     read monitors: { read [number]: ConfigMonitorRow }?,
     read placement: ConfigPlacement?,
     read focusTarget: ConfigFocusTarget?,
+    read dwindle: ConfigDwindleTree?,
     read truncated: {
         read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
-        read placement: boolean?, read focusTarget: boolean?,
+        read placement: boolean?, read focusTarget: boolean?, read dwindle: boolean?,
     }?,
 }
 export type ConfigContext = ConfigLookups & {

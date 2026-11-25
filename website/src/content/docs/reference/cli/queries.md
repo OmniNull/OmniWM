@@ -100,6 +100,7 @@ The three workspace flags answer different questions. `is-focused` marks the wor
 | `windows` | `--window`, `--workspace`, `--display`, `--focused`, `--visible`, `--floating`, `--scratchpad`, `--app`, `--bundle-id` | window fields | Managed windows |
 | `workspaces` | `--workspace`, `--display`, `--current`, `--visible`, `--focused` | workspace fields | Configured workspaces with occupancy |
 | `displays` | `--display`, `--main`, `--current` | display fields | Connected displays with geometry |
+| `dwindle-tree` | — | — | The interaction workspace's Dwindle tree; see [Dwindle Tree](#dwindle-tree) |
 | `rules` | — | — | Persisted user window rules |
 | `rule-actions` | — | — | Rule action registry |
 | `queries` | — | — | Query registry |
@@ -131,3 +132,28 @@ omniwmctl query workspaces --current
 # Check server capabilities
 omniwmctl query capabilities
 ```
+
+## Dwindle Tree
+
+`query dwindle-tree` returns `workspace`, the interaction monitor's active workspace, plus `tree` and `tooLarge`:
+
+```json
+{
+  "workspace": { "id": "…", "rawName": "1", "displayName": "1", "number": 1 },
+  "tree": {
+    "workspaceId": "…",
+    "revision": "3F9A0C17E2B4D865",
+    "preselect": "right",
+    "nodes": [
+      { "kind": "split", "orientation": "horizontal", "ratio": 1 },
+      { "kind": "leaf", "members": ["<window id>"], "active": 1 },
+      { "kind": "leaf", "members": ["<window id>", "<window id>"], "active": 2 }
+    ]
+  },
+  "tooLarge": false
+}
+```
+
+`nodes` lists the tree in preorder: each split is followed by its first and then its second subtree. The first is on the left of a `horizontal` split and at the bottom of a `vertical` one, and `ratio` is `1` for an even split. A leaf's `members` are the session-scoped window IDs of its tile in tab order, and `active` is the position of the one shown, counting from 1. `preselect` is the pending direction (`left`, `right`, `up` or `down`) and is omitted when none is set. `revision` is 16 hex digits that change when the tree, a ratio, a tile's windows or tab, or the preselect changes, and stay the same otherwise until OmniWM restarts.
+
+An empty Dwindle workspace returns a `tree` with no nodes. `tree` is omitted on other layouts and until Dwindle has laid out the workspace's current windows, for example right after one opens or closes. A tree with more than 256 windows omits `tree` and sets `tooLarge` to `true`.

@@ -219,6 +219,8 @@ enum CLIRenderer {
             return formattedWindowGather(payload, format: format)
         case let .shellWidgets(payload):
             return formattedShellWidgets(payload, format: format)
+        case let .dwindleTree(payload):
+            return formattedDwindleTree(payload, format: format)
         }
     }
 
@@ -406,6 +408,32 @@ extension CLIRenderer {
         )
         guard format == .table || format == .text, !payload.problems.isEmpty else { return table }
         return ([table, "", "Problems:"] + payload.problems.map { "  \($0)" }).joined(separator: "\n")
+    }
+
+    private static func formattedDwindleTree(
+        _ payload: IPCDwindleTreeQueryResult,
+        format: CLIOutputFormat
+    ) -> String {
+        guard let tree = payload.tree else {
+            return payload.tooLarge ? "dwindle tree too large" : "no dwindle tree"
+        }
+        let table = CLITableRenderer.formatRows(
+            headers: ["KIND", "ORIENTATION", "RATIO", "ACTIVE", "MEMBERS"],
+            rows: tree.nodes.map { node in
+                [
+                    node.kind.rawValue,
+                    node.orientation?.rawValue ?? "-",
+                    node.ratio.map { String(format: "%.2f", $0) } ?? "-",
+                    node.active.map(String.init) ?? "-",
+                    dashIfEmpty(node.members?.joined(separator: ", ") ?? "")
+                ]
+            },
+            format: format
+        )
+        guard format == .table || format == .text else { return table }
+        let preselect = tree.preselect.map { ", preselect \($0.rawValue)" } ?? ""
+        let workspace = payload.workspace?.displayName ?? tree.workspaceId
+        return "\(workspace): revision \(tree.revision)\(preselect)\n\(table)"
     }
 
     private static func dashIfEmpty(_ value: String) -> String {

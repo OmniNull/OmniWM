@@ -21,7 +21,7 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             "wm.on('window.active', fn, { reads = { 'frames', 'workspaces', 'monitors' } })",
             "wm.on('window.active', fn, { reads = { 'windows', 'placement', 'frames', 'workspaceWindows' } })",
             "wm.on('window.active', fn, { reads = { 'columns', 'monitors', 'windows', 'focusTarget', 'frames', " +
-                "'workspaces', 'placement', 'workspaceWindows' } })"
+                "'workspaces', 'placement', 'workspaceWindows', 'dwindle' } })"
         ]
         let load = try await fixture.load(statements)
         let result = try XCTUnwrap(load.result.get())
@@ -33,7 +33,8 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             [.windows, .placement, .workspaceWindows, .windowFrames, .workspaceWindowFrames],
             [
                 .workspaceWindows, .windows, .workspaces, .monitors, .placement, .focusTarget,
-                .workspaceWindowFrames, .windowFrames, .monitorFrames, .workspaceWindowColumns, .windowColumns
+                .workspaceWindowFrames, .windowFrames, .monitorFrames, .workspaceWindowColumns, .windowColumns,
+                .dwindle
             ]
         ])
         XCTAssertEqual(result.timers.map(\.reads), [[.windows]])
@@ -56,7 +57,8 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             "wm.command('Frames twice', fn, { reads = { 'monitors', 'frames', 'frames' } })",
             "wm.command('Columns alone', fn, { reads = { 'columns' } })",
             "wm.command('Columns without a window list', fn, { reads = { 'monitors', 'frames', 'columns' } })",
-            "wm.command('Columns twice', fn, { reads = { 'windows', 'columns', 'columns' } })"
+            "wm.command('Columns twice', fn, { reads = { 'windows', 'columns', 'columns' } })",
+            "wm.command('Dwindle twice', fn, { reads = { 'dwindle', 'dwindle' } })"
         ]
         for statement in statements {
             let lines = ["local wm = omniwm", "local function fn() end", statement]
