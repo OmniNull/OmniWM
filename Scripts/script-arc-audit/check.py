@@ -116,6 +116,7 @@ MIXED_READ_EVENTS = tuple(tuple("event/workspace.active+" + name for name in fam
     ("shared-dwindle", "shared-plain-dwindle", "solo-dwindle", "solo-plain-dwindle"),
 ))
 ROUTES.update(("move/floating-frame", *(route for family in MIXED_READ_EVENTS for route in family)))
+ROUTES.update(("gather/join", "gather/unchanged", "gather/refused"))
 SHARED_LISTENER_FIELDS = ("R", "L", "obj", "VM")
 SCRIPT_WORKER_MALLOCS = ("Mallocs on the script worker are left out: Luau's page and string-table growth follows the "
                          "incremental collector's phase, not the listeners' reads.")

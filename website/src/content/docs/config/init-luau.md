@@ -141,8 +141,11 @@ Handlers last until the next reload.
 | `toggle-column-tabbed`, `toggle-floating` | none |
 | `set-floating-frame` | a table with any of `x`, `y`, `width` and `height` |
 | `assign-to-scratchpad` | slot as a string, such as `"1"` |
+| `gather` | a list of 1 to 64 IDs in place of `id`, then optionally `"workspace"`, `"monitor"` or `"all"` |
 
 `set-floating-frame` moves or resizes a floating window, in the coordinates of [frames](#reads). Fields you leave out keep their current value. The window moves as needed to stay on its display's visible frame, and keeps a size larger than that. A tiled window doesn't move, so dispatch `toggle-floating` first in the same callback. Windows attached to another window, such as sheets, are refused. A minimized or hidden window doesn't change. A window on a workspace that isn't shown gets the frame when you switch to it.
+
+`gather` puts the listed windows into one column on the callback's Niri workspace, in the list's order, without changing focus. By default it reaches windows on that workspace only; `"monitor"` adds the other workspaces on its display, and `"all"` every workspace. It's all or nothing: an unknown, repeated or out-of-reach ID, or a window that can't join a column, such as a floating, minimized or hidden one, refuses the whole gather and nothing moves. So does switching away from the callback's workspace before it runs. Like any refused action, it stops the callback's remaining actions.
 
 `place-in-own-column` gives just that window a column of its own at that position on its Niri workspace. A window that shares its column, even with a minimized or hidden window, leaves it; a window alone in its column moves with it. A larger position puts it last. Like the other column actions, it doesn't change focus.
 
@@ -504,4 +507,27 @@ for _, bundleId in chat do
     wm.rule { bundleId = bundleId, scratchpad = 2 }
 end
 wm.keymap.set("Control+Option+Shift+C", wm.cmd("scratchpad", "toggle", "2"))
+```
+
+**Gather an app group into one column.** Control + Option + Shift + G collects Safari and Ghostty windows from every workspace into one column on the Niri workspace you're on, in the order the windows list gives them. Floating, minimized and fullscreen windows stay where they are. If a matching window is on a Dwindle workspace, the gather refuses and nothing moves. A truncated windows list does nothing rather than gather part of the group.
+
+```lua
+local wm = omniwm
+local group: { [string]: boolean } = { ["com.apple.Safari"] = true, ["com.mitchellh.ghostty"] = true }
+local limit = 64
+wm.keymap.set("Control+Option+Shift+G", function(ctx: ConfigContext)
+    local rows = ctx.windows
+    if not rows or (ctx.truncated and ctx.truncated.windows) then return end
+    local ids: { string } = {}
+    for _, row in rows do
+        if row.bundleId and group[row.bundleId] and not row.floating and not row.minimized and not row.fullscreen then
+            table.insert(ids, row.id)
+        end
+    end
+    if #ids > limit then
+        wm.notify("Too many windows to gather at once")
+    elseif #ids > 0 then
+        wm.dispatch("window", "gather", ids, "all")
+    end
+end, { reads = { "windows" } })
 ```

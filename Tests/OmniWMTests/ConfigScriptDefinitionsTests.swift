@@ -71,6 +71,10 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         overloads.append(
             "{ read dispatch: (kind: \"window\", action: \(frame), id: string, frame: ConfigFloatingFrame) -> () }"
         )
+        let gather = ConfigScriptGatherRequest.action.debugDescription
+        let reach = union(ConfigScriptGatherRequest.reaches.map(\.word))
+        overloads
+            .append("{ read dispatch: (kind: \"window\", action: \(gather), ids: {string}, from: (\(reach))?) -> () }")
         return overloads.joined(separator: "\n    & ")
     }
 

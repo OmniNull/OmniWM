@@ -324,6 +324,7 @@ typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t l
 #define OMNI_CONFIG_ERROR_CAPACITY 1024u
 #define OMNI_CONFIG_COMMAND_LIMIT 64u
 #define OMNI_CONFIG_ARGC_LIMIT 64u
+#define OMNI_CONFIG_GATHER_LIMIT 64u
 #define OMNI_CONFIG_ARG_BYTE_LIMIT 4096u
 #define OMNI_CONFIG_ARGV_BYTE_LIMIT 32768u
 #define OMNI_CONFIG_BUNDLE_BYTE_LIMIT 255u

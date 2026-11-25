@@ -179,13 +179,16 @@ struct ConfigScriptStage {
                 guard let context, let words else { return false }
                 do throws(ConfigScriptError) {
                     let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
-                    try stage.pointee.dispatch(
-                        .window(ConfigScriptWindowRequest(
-                            words: UnsafeBufferPointer(start: words, count: count),
+                    let words = UnsafeBufferPointer(start: words, count: count)
+                    let operation: ConfigScriptDispatch.Operation = if ConfigScriptGatherRequest.matches(words) {
+                        try .gather(ConfigScriptGatherRequest(words: words))
+                    } else {
+                        try .window(ConfigScriptWindowRequest(
+                            words: words,
                             destination: destination.map { UnsafeBufferPointer(start: $0, count: destinationCount) }
-                        )),
-                        at: location
-                    )
+                        ))
+                    }
+                    stage.pointee.dispatch(operation, at: location)
                     return true
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)

@@ -108,6 +108,8 @@ extension WMController {
         switch operation {
         case let .native(command):
             return performConfigScriptCommand(command, target: target)
+        case let .gather(gather):
+            return performConfigScriptGather(gather, target: target)
         case let .window(window):
             guard target.sessionID == scriptSession.identity else { return .staleWindowId }
             if window.action == .summonRight {

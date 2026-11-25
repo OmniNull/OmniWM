@@ -369,6 +369,40 @@ int addRule(lua_State *L) {
     return 0;
 }
 
+constexpr std::string_view gatherAction = "gather";
+constexpr std::string_view gatherDefaultReach = "workspace";
+
+bool stageGather(lua_State *L, ConfigVM &vm, omni_config_location site, int top) {
+    static_assert(OMNI_CONFIG_GATHER_LIMIT == 64, "the gather message names the limit");
+    if (top > 4) {
+        reject(L, vm, site, "gather expects a list of window IDs and an optional reach");
+    }
+    const int length = lua_objlen(L, 3);
+    if (length < 1 || length > static_cast<int>(OMNI_CONFIG_GATHER_LIMIT)) {
+        reject(L, vm, site, "gather expects between 1 and 64 window IDs");
+    }
+    std::array<omni_config_span, OMNI_CONFIG_GATHER_LIMIT + 2> words;
+    words[0] = token(L, vm, 2, site);
+    words[1] = lua_isnoneornil(L, 4) ? omni_config_span{gatherDefaultReach.data(), gatherDefaultReach.size()}
+                                     : token(L, vm, 4, site);
+    int count = 0;
+    lua_pushnil(L);
+    while (lua_next(L, 3)) {
+        const double key = lua_type(L, -2) == LUA_TNUMBER ? lua_tonumber(L, -2) : 0;
+        if (!(key >= 1 && key <= length && key == static_cast<int>(key))) {
+            reject(L, vm, site, "gather expects an array of window IDs");
+        }
+        words[static_cast<int>(key) + 1] = token(L, vm, -1, site);
+        count++;
+        lua_pop(L, 1);
+    }
+    if (count != length) {
+        reject(L, vm, site, "gather expects an array without holes");
+    }
+    return vm.callbacks.window(vm.context, words.data(), static_cast<size_t>(length + 2), nullptr, 0, site,
+        vm.failure, sizeof vm.failure);
+}
+
 int dispatchAction(lua_State *L) {
     ConfigVM &vm = declarations(L);
     auto site = declarationSite(L, vm);
@@ -379,9 +413,17 @@ int dispatchAction(lua_State *L) {
         reject(L, vm, site, "callback command limit exceeded");
     }
     bool staged = false;
-    if (lua_type(L, 1) == LUA_TSTRING) {
+    const int top = lua_gettop(L);
+    if (lua_type(L, 1) == LUA_TSTRING && top >= 3 && lua_istable(L, 3) && lua_type(L, 2) == LUA_TSTRING) {
         const auto prefix = token(L, vm, 1, site);
-        const int top = lua_gettop(L);
+        const auto action = token(L, vm, 2, site);
+        if (!vm.callbacks.window || std::string_view(prefix.data, prefix.length) != "window" ||
+            std::string_view(action.data, action.length) != gatherAction) {
+            reject(L, vm, site, "omniwm.dispatch takes a list of window IDs only for 'window', 'gather'");
+        }
+        staged = stageGather(L, vm, site, top);
+    } else if (lua_type(L, 1) == LUA_TSTRING) {
+        const auto prefix = token(L, vm, 1, site);
         const bool tableDestination = top == 4 && lua_istable(L, 4);
         const int count = top - 1 - (tableDestination ? 1 : 0);
         std::array<omni_config_span, LUA_MINSTACK> words;
@@ -391,6 +433,9 @@ int dispatchAction(lua_State *L) {
         }
         for (int i = 0; i < count; i++) {
             words[i] = token(L, vm, i + 2, site);
+        }
+        if (std::string_view(words[0].data, words[0].length) == gatherAction) {
+            reject(L, vm, site, "gather expects a list of window IDs");
         }
         std::array<omni_config_field, maximumDestinationFields> destination;
         const size_t fields = tableDestination
