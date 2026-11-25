@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import OmniWMScriptHost
 import ScriptARCCounters
 
 @MainActor
@@ -12,6 +13,12 @@ extension ScriptARCFixture {
         case cache
         case foreign
     }
+
+    static let snapshotRoutes: [(name: String, reads: ConfigScriptReads)] = [
+        ("workspace", .workspaceWindows),
+        ("windows", .windows),
+        ("framed", [.workspaceWindows, .windows, .monitors, .workspaceWindowFrames, .windowFrames, .monitorFrames])
+    ]
 
     static func admitSnapshotRows(
         _ count: Int, base: WindowToken, workspace: WorkspaceDescriptor.ID, controller: WMController
@@ -68,17 +75,19 @@ extension ScriptARCFixture {
         }
     }
 
-    func measureFrameDecode(rows: Int) async throws {
+    func measureDecode(rows: Int, of modifiers: [String], reads: ConfigScriptReads) async throws {
+        let words = (["windows"] + modifiers).map { "\"" + $0 + "\"" }.joined(separator: ", ")
         let evaluation = try await loader.evaluate(Data("""
         omniwm.on("workspace.active", function(e) assert(#e.windows == \(rows)) end, { reads = { "windows" } })
-        omniwm.on("workspace.active", function(e) assert(#e.windows == \(rows)) end, { reads = { "windows", "frames" } })
+        omniwm.on("workspace.active", function(e) assert(#e.windows == \(rows)) end, { reads = { \(words) } })
         """.utf8), hyperMask: 0)
         guard let generation = evaluation.generation, let queue = script.callbackQueue,
               let plain = queue.capture(reads: .windows, controller: controller).snapshot,
-              let framed = queue.capture(reads: [.windows, .windowFrames], controller: controller).snapshot
+              let modified = queue.capture(reads: reads.union(.windows), controller: controller).snapshot
         else { throw ScriptARCError("Missing decode fixture") }
         let payload = ConfigScriptEventPayload(name: "decode")
-        for (name, listener, snapshot) in [("off", 0, plain), ("skipped", 0, framed), ("on", 1, framed)] {
+        let label = modifiers.joined(separator: "+")
+        for (name, listener, snapshot) in [("off", 0, plain), ("skipped", 0, modified), ("on", 1, modified)] {
             let function = evaluation.events[listener].function
             _ = try await generation.invoke(function: function, event: payload, snapshot: snapshot)
             var samples: [Double] = []
@@ -89,7 +98,7 @@ extension ScriptARCFixture {
                 samples.append((ContinuousClock.now - start) / .nanoseconds(1))
             }
             samples.sort()
-            print("decode/windows-\(rows) frames=\(name) median-ns=\(Int(samples[samples.count / 2]))")
+            print("decode/windows-\(rows) \(label)=\(name) median-ns=\(Int(samples[samples.count / 2]))")
         }
     }
 
@@ -107,6 +116,7 @@ extension ScriptARCFixture {
             manager.withEngineMutationScope(in: workspace.id) {
                 _ = engine.syncWindows(tiled, in: workspace.id, selectedNodeId: nil)
             }
+            _ = engine.projectedColumns(in: workspace.id)
         case .dwindle:
             let engine = DwindleLayoutEngine()
             manager.dwindleEngine = engine
@@ -174,11 +184,9 @@ package func runScriptARCSnapshotLifetime(directory: URL) async throws {
 @MainActor
 func measureSnapshotRows(
     in directory: URL, counts: [Int] = [ScriptARCFixture.workspaceRows, ScriptARCFixture.totalRows],
-    decode: Bool = false
+    routes: [(name: String, reads: ConfigScriptReads)] = ScriptARCFixture.snapshotRoutes,
+    after: (ScriptARCFixture, Int) async throws -> Void = { _, _ in }
 ) async throws {
-    let framed: ConfigScriptReads = [
-        .workspaceWindows, .windows, .monitors, .workspaceWindowFrames, .windowFrames, .monitorFrames
-    ]
     for count in counts {
         let fixture = try ScriptARCFixture(directory: directory, snapshotRows: count)
         defer {
@@ -192,24 +200,48 @@ func measureSnapshotRows(
             .acceptTitleScript("omniwm.command('Inspect', function() end, {reads={'windows', 'workspaceWindows'}})")
         for layout in [LayoutType.niri, .dwindle] {
             fixture.populateSnapshotLayout(layout)
-            for (name, reads) in [
-                ("workspace", ConfigScriptReads.workspaceWindows),
-                ("windows", .windows),
-                ("framed", framed)
-            ] {
+            for (name, reads) in routes {
                 let route = "rows/\(layout.rawValue)/\(name)-\(count)"
                 fixture.snapshot(reads, route: "first/" + route, report: layout == .niri, expectedRows: count)
                 fixture.snapshot(reads, route: route, report: true, expectedRows: count)
             }
         }
-        if decode { try await fixture.measureFrameDecode(rows: count) }
+        try await after(fixture, count)
     }
 }
 
 @MainActor
 func measureMixedFrames(in directory: URL) async throws {
     let fixture = try ScriptARCFixture(directory: directory.appendingPathComponent("mixed-frames"))
-    try await fixture.mixedFrames()
+    fixture.seedSnapshotFrames(ScriptARCFixture.workspaceRows)
+    try await fixture.mixedReads(
+        "frames", probe: "e.windows[1].frame", rows: "#e.windows == \(ScriptARCFixture.totalRows)",
+        routes: ["shared-frames", "shared-plain", "solo-frames", "solo-plain"]
+    )
+}
+
+@MainActor
+func measureColumnReads(in directory: URL) async throws {
+    let mixed = try ScriptARCFixture(directory: directory.appendingPathComponent("mixed-columns"))
+    mixed.populateSnapshotLayout(.niri)
+    mixed.fillWindowList()
+    try await mixed.mixedReads(
+        "columns", probe: "e.windows[2].column",
+        rows: "#e.windows == \(ScriptARCFixture.totalRows) and e.truncated.windows == false",
+        routes: ["shared-columns", "shared-plain-columns", "solo-columns", "solo-plain-columns"]
+    )
+    let limit = ConfigScriptSnapshot.rowLimit
+    try await measureSnapshotRows(
+        in: directory.appendingPathComponent("column-rows"),
+        counts: [ScriptARCFixture.workspaceRows, ScriptARCFixture.totalRows, limit],
+        routes: [("columned", [.workspaceWindows, .windows, .workspaceWindowColumns, .windowColumns])]
+    ) { fixture, count in
+        fixture.populateSnapshotLayout(.niri)
+        if count == ScriptARCFixture.totalRows { fixture.columnEdits() }
+        guard count == limit else { return }
+        try await fixture.measureDecode(rows: count, of: ["columns"], reads: .windowColumns)
+        try await fixture.measureDecode(rows: count, of: ["frames", "columns"], reads: [.windowFrames, .windowColumns])
+    }
 }
 
 @MainActor
@@ -245,24 +277,126 @@ extension ScriptARCFixture {
         try await focusTargetRoutes("focus-target-fallback", expecting: otherWindow, in: workspace, name: name)
     }
 
-    fileprivate func mixedFrames() async throws {
+    fileprivate func fillWindowList() {
+        let manager = controller.workspaceManager
+        var pool = ConfigScriptSnapshotPool()
+        func header() -> UInt64 {
+            controller.configScriptSnapshot(reads: .windows, target: controller.configScriptTarget(), pool: &pool)
+                .withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).littleEndian }
+        }
+        func used(_ header: UInt64) -> Int {
+            MemoryLayout<UInt64>.size + Int(truncatingIfNeeded: header >> 32)
+        }
+        let last = WindowToken(pid: token.pid, windowId: token.windowId + Self.totalRows - 1)
+        let title = manager.windowQueries.managedReplacementMetadata(for: last)?.title ?? ""
+        let missing = ConfigScriptSnapshot.byteLimit - used(header())
+        precondition(manager.updateManagedReplacementTitle(title + String(repeating: "x", count: missing), for: last))
+        let full = header()
+        precondition(used(full) == ConfigScriptSnapshot.byteLimit && UInt16(truncatingIfNeeded: full >> 16) == Self
+            .totalRows)
+        precondition(UInt8(truncatingIfNeeded: full >> 8) & UInt8(OMNI_CONFIG_SECTION_TRUNCATED) == 0)
+    }
+
+    fileprivate func columnEdits() {
+        let manager = controller.workspaceManager
+        let engine = manager.niriEngine!
+        let workspace = controller.activeWorkspace()!.id
+        let tiled = manager.tiledEntries(in: workspace).compactMap { entry -> WindowToken? in
+            if case .hosted = entry.target { return nil }
+            return entry.token
+        }
+        let reads: ConfigScriptReads = [.workspaceWindows, .workspaceWindowColumns]
+        let target = engine.findNode(for: tiled[0], in: workspace).flatMap(engine.column(of:))!
+        snapshot(reads, route: "warm/columns-edit", report: false)
+        join(tiled[1], into: target, reads: reads, routes: (
+            "capture/columns-after-edit",
+            "engine/projection-rebuild"
+        )) {
+            withExtendedLifetime($0.projectedColumns) {}
+        }
+        heldTabCaptures(anchor: tiled[0], in: target, reads: reads)
+        snapshot(reads, route: "warm/columns-plain", report: false)
+        precondition(engine.root(for: workspace)!.cachedProjectedColumns != nil)
+        precondition(manager.setWindowMinimized(true, token: tiled[2]))
+        precondition(engine.root(for: workspace)!.cachedProjectedColumns != nil)
+        for report in [false, true] {
+            snapshot(reads, route: "capture/columns-excluded", report: report)
+        }
+        join(
+            tiled[3], into: target, reads: reads,
+            routes: ("capture/columns-after-edit-excluded", "engine/columns-rebuild")
+        ) { root in
+            for column in root.columns {
+                withExtendedLifetime(column.windowNodes) {}
+            }
+        }
+    }
+
+    private func join(
+        _ window: WindowToken, into target: NiriContainer, reads: ConfigScriptReads,
+        routes: (capture: String, rebuild: String), rebuild: (NiriRoot) -> Void
+    ) {
+        let manager = controller.workspaceManager
+        let engine = manager.niriEngine!
+        let workspace = controller.activeWorkspace()!.id
+        let node = engine.findNode(for: window, in: workspace)!
+        let source = engine.column(of: node)!
+        manager.withEngineMutationScope(in: workspace) {
+            engine.moveWindowToColumn(node, from: source, to: target, in: workspace)
+            source.remove()
+        }
+        snapshot(reads, route: routes.capture, report: true)
+        target.invalidateChildrenCache()
+        let root = engine.root(for: workspace)!
+        script_arc_begin()
+        rebuild(root)
+        script_arc_end()
+        script_arc_report(routes.rebuild, "capture/fixed", 0)
+    }
+
+    private func heldTabCaptures(anchor: WindowToken, in target: NiriContainer, reads: ConfigScriptReads) {
+        let manager = controller.workspaceManager
+        let engine = manager.niriEngine!
+        let workspace = controller.activeWorkspace()!.id
+        let node = engine.findNode(for: anchor, in: workspace)!
+        let monitor = manager.monitor(for: workspace)!
+        let context = NiriInteractionContext(
+            workspaceId: workspace, motion: .disabled, workingFrame: controller.niriWorkingFrame(for: monitor),
+            gaps: controller.innerGap(for: monitor), orientation: .horizontal
+        )
+        manager.withEngineMutationScope(in: workspace) {
+            target.displayMode = .tabbed
+            manager.withNiriViewportState(for: workspace) { state in
+                precondition(engine.liveColumnMoveBegin(
+                    windowId: node.id, windowToken: anchor, context: context, state: &state
+                ))
+            }
+            engine.liveColumnMove?.heldTabs = target.windowNodes.filter { $0 !== node }
+        }
+        precondition(engine.liveColumnMove?.heldTabs.isEmpty == false)
+        for report in [false, true] {
+            snapshot(reads, route: "capture/columns-held-tab", report: report)
+        }
+        manager.withEngineMutationScope(in: workspace) {
+            engine.liveColumnMove = nil
+            target.displayMode = .normal
+        }
+    }
+
+    fileprivate func mixedReads(_ modifier: String, probe: String, rows: String, routes: [String]) async throws {
         let manager = controller.workspaceManager
         let workspace = manager.workspace(for: token)!
         let name = manager.descriptor(for: workspace)!.name
-        seedSnapshotFrames(Self.workspaceRows)
         let plainListener = """
         omniwm.on("workspace.active", function(e)
-            assert(#e.windows == \(Self.totalRows) and e.windows[1].frame == nil)
+            assert(\(rows) and \(probe) == nil)
         end, { reads = { "windows" } })
         """
-        for (route, framed, shared) in [
-            ("shared-frames", true, true), ("shared-plain", false, true), ("solo-frames", true, false),
-            ("solo-plain", false, false)
-        ] {
-            let reads = framed ? "\"windows\", \"frames\"" : "\"windows\""
+        for (route, (modified, shared)) in zip(routes, [(true, true), (false, true), (true, false), (false, false)]) {
+            let reads = modified ? "\"windows\", \"\(modifier)\"" : "\"windows\""
             let queue = try await acceptTitleScript("""
             omniwm.on("workspace.active", function(e)
-                assert(#e.windows == \(Self.totalRows) and (e.windows[1].frame ~= nil) == \(framed))
+                assert(\(rows) and (\(probe) ~= nil) == \(modified))
             end, { reads = { \(reads) } })
             \(shared ? plainListener : "")
             """)

@@ -19,7 +19,9 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             "wm.timer({ afterSeconds = \(OMNI_CONFIG_TIMER_MINIMUM_SECONDS) }, fn, { reads = { 'windows' } })",
             "wm.command('No reads', fn, { reads = {} })",
             "wm.on('window.active', fn, { reads = { 'frames', 'workspaces', 'monitors' } })",
-            "wm.on('window.active', fn, { reads = { 'windows', 'placement', 'frames', 'workspaceWindows' } })"
+            "wm.on('window.active', fn, { reads = { 'windows', 'placement', 'frames', 'workspaceWindows' } })",
+            "wm.on('window.active', fn, { reads = { 'columns', 'monitors', 'windows', 'focusTarget', 'frames', " +
+                "'workspaces', 'placement', 'workspaceWindows' } })"
         ]
         let load = try await fixture.load(statements)
         let result = try XCTUnwrap(load.result.get())
@@ -28,7 +30,11 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
         XCTAssertEqual(result.events.map(\.reads), [
             [.monitors],
             [.workspaces, .monitors, .monitorFrames],
-            [.windows, .placement, .workspaceWindows, .windowFrames, .workspaceWindowFrames]
+            [.windows, .placement, .workspaceWindows, .windowFrames, .workspaceWindowFrames],
+            [
+                .workspaceWindows, .windows, .workspaces, .monitors, .placement, .focusTarget,
+                .workspaceWindowFrames, .windowFrames, .monitorFrames, .workspaceWindowColumns, .windowColumns
+            ]
         ])
         XCTAssertEqual(result.timers.map(\.reads), [[.windows]])
     }
@@ -47,7 +53,10 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             "wm.timer({ afterSeconds = \(OMNI_CONFIG_TIMER_MINIMUM_SECONDS) }, fn, {})",
             "wm.command('Frames alone', fn, { reads = { 'frames' } })",
             "wm.command('Frames without a framed list', fn, { reads = { 'workspaces', 'placement', 'frames' } })",
-            "wm.command('Frames twice', fn, { reads = { 'monitors', 'frames', 'frames' } })"
+            "wm.command('Frames twice', fn, { reads = { 'monitors', 'frames', 'frames' } })",
+            "wm.command('Columns alone', fn, { reads = { 'columns' } })",
+            "wm.command('Columns without a window list', fn, { reads = { 'monitors', 'frames', 'columns' } })",
+            "wm.command('Columns twice', fn, { reads = { 'windows', 'columns', 'columns' } })"
         ]
         for statement in statements {
             let lines = ["local wm = omniwm", "local function fn() end", statement]

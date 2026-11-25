@@ -470,6 +470,9 @@ private func measureEventFamilies(in directory: URL) async throws {
     try await measureFocusTarget(in: directory)
     try await measureMixedFrames(in: directory)
     try await measureSnapshotRows(
-        in: directory.appendingPathComponent("row-limit"), counts: [ConfigScriptSnapshot.rowLimit], decode: true
-    )
+        in: directory.appendingPathComponent("row-limit"), counts: [ConfigScriptSnapshot.rowLimit]
+    ) { fixture, count in
+        try await fixture.measureDecode(rows: count, of: ["frames"], reads: .windowFrames)
+    }
+    try await measureColumnReads(in: directory)
 }

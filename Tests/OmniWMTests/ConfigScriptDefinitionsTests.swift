@@ -292,13 +292,13 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
 }
 
 private let lookupDefinitions = """
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "frames"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "frames" | "columns"
 export type ConfigReadOptions = { reads: { ConfigRead } }
 export type ConfigRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWindowRow = {
     read id: string, read bundleId: string?, read title: string?, read workspace: string,
     read monitor: string?, read floating: boolean, read fullscreen: ("native" | "omniwm")?, read minimized: boolean,
-    read frame: ConfigRect?,
+    read frame: ConfigRect?, read column: number?,
 }
 export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
 export type ConfigMonitorRow = { read id: string, read name: string, read frame: ConfigRect?, read visibleFrame: ConfigRect? }

@@ -103,12 +103,18 @@ NATIVE_TITLE_PRODUCER_AT_DCDFF9956 = {
 PLACEMENT_CAPTURES = (
     "capture/placement", "capture/placement-mutated", "capture/placement-excluded", "capture/placement-held-tab"
 )
+COLUMN_CAPTURES = ("capture/columns-held-tab", "capture/columns-excluded")
+COLUMN_EDITS = (("capture/columns-after-edit", "engine/projection-rebuild"),
+                ("capture/columns-after-edit-excluded", "engine/columns-rebuild"))
+ROUTES.update((*COLUMN_CAPTURES, *(route for pair in COLUMN_EDITS for route in pair)))
 FOCUS_TARGET_CAPTURES = ("capture/focus-target", "capture/focus-target-exit", "capture/focus-target-fallback")
 FOCUS_TARGET_EVENTS = tuple(route.replace("capture/", "event/workspace.active+") for route in FOCUS_TARGET_CAPTURES)
 ROUTES.update(("capture/no-focus-target", *FOCUS_TARGET_CAPTURES, *FOCUS_TARGET_EVENTS))
-MIXED_FRAME_EVENTS = tuple("event/workspace.active+" + name for name in
-                           ("shared-frames", "shared-plain", "solo-frames", "solo-plain"))
-ROUTES.update(("move/floating-frame", *MIXED_FRAME_EVENTS))
+MIXED_READ_EVENTS = tuple(tuple("event/workspace.active+" + name for name in family) for family in (
+    ("shared-frames", "shared-plain", "solo-frames", "solo-plain"),
+    ("shared-columns", "shared-plain-columns", "solo-columns", "solo-plain-columns"),
+))
+ROUTES.update(("move/floating-frame", *(route for family in MIXED_READ_EVENTS for route in family)))
 EXACT_COSTS = {
     **{(route, phase): RESIDENT_KEY_STORAGE for route in (*WAKE_TRANSFERS, "key/owned-busy")
        for phase in ("producer", "dequeue", "completion")},
@@ -129,9 +135,10 @@ def check_window_rows(table):
     if len(sizes) < 3:
         sys.exit(f"The window-row control needs the workspace size, the full size and the row limit, got {sizes}")
     first = sizes[0]
-    routes = ("first/rows/niri/workspace", "first/rows/niri/windows", "first/rows/niri/framed", "rows/niri/workspace",
-              "rows/niri/windows", "rows/niri/framed", "rows/dwindle/workspace", "rows/dwindle/windows",
-              "rows/dwindle/framed")
+    routes = ("first/rows/niri/workspace", "first/rows/niri/windows", "first/rows/niri/framed",
+              "first/rows/niri/columned", "rows/niri/workspace", "rows/niri/windows", "rows/niri/framed",
+              "rows/niri/columned", "rows/dwindle/workspace", "rows/dwindle/windows", "rows/dwindle/framed",
+              "rows/dwindle/columned")
     for kind in routes:
         baseline = table.get((f"{kind}-{first}", "producer"))
         for size in sizes[1:]:
@@ -142,11 +149,11 @@ def check_window_rows(table):
                 extra = int(larger[field]) - int(baseline[field])
                 if extra:
                     sys.exit(f"{kind}: {size - first} additional rows must add zero {field}, got {extra}")
-    for kind in ("rows/niri/framed", "rows/dwindle/framed"):
+    for kind in ("rows/niri/framed", "rows/dwindle/framed", "rows/niri/columned", "rows/dwindle/columned"):
         for size in sizes:
             counts = table[f"{kind}-{size}", "producer"]
             if int(counts["obj"]) or int(counts["heap"]):
-                sys.exit(f"{kind}-{size}: a warm framed capture of every framed list allocates nothing: {counts}")
+                sys.exit(f"{kind}-{size}: a warm capture with a read modifier allocates nothing: {counts}")
     larger = " and ".join(str(size) for size in sizes[1:])
     print(f"capture/row-delta {first} to {larger} windows: zero additional ARC, allocations, weak promotions or VM entries")
 
@@ -325,18 +332,18 @@ def check_costs(output):
             if int(staged[field]) != int(by_name[field]):
                 sys.exit(f"{route}: staging a window table must cost what a workspace name does, "
                          f"{field} {staged[field]} against {by_name[field]}")
-    mixed, plain, framed, unframed = MIXED_FRAME_EVENTS
-    for field in ("R", "L", "obj", "heap", "VM"):
-        shared = int(table[mixed, "config"][field]) - int(table[plain, "config"][field])
-        alone = int(table[framed, "config"][field]) - int(table[unframed, "config"][field])
-        if shared != alone:
-            sys.exit(f"{mixed}: frames on a shared list must cost the listener without them nothing, "
-                     f"{field} +{shared} beside it against +{alone} alone")
-    for route in MIXED_FRAME_EVENTS:
-        for phase in ("producer", "dequeue", "completion"):
-            counts = table[route, phase]
-            if int(counts["obj"]) or int(counts["heap"]):
-                sys.exit(f"{route}/{phase}: a warm shared capture needs no main-thread storage: {counts}")
+    for mixed, plain, modified, unmodified in MIXED_READ_EVENTS:
+        for field in ("R", "L", "obj", "heap", "VM"):
+            shared = int(table[mixed, "config"][field]) - int(table[plain, "config"][field])
+            alone = int(table[modified, "config"][field]) - int(table[unmodified, "config"][field])
+            if shared != alone:
+                sys.exit(f"{mixed}: a read modifier on a shared list must cost the listener without it nothing, "
+                         f"{field} +{shared} beside it against +{alone} alone")
+        for route in (mixed, plain, modified, unmodified):
+            for phase in ("producer", "dequeue", "completion"):
+                counts = table[route, phase]
+                if int(counts["obj"]) or int(counts["heap"]):
+                    sys.exit(f"{route}/{phase}: a warm shared capture needs no main-thread storage: {counts}")
     for (route, baseline), (budget, reason) in CALLBACK_COMMAND_BUILDS.items():
         for field, allowed in budget.items():
             extra = int(table[route, "config"][field]) - int(table[baseline, "config"][field])
@@ -346,6 +353,16 @@ def check_costs(output):
         counts = table[route, "producer"]
         if int(counts["obj"]) or int(counts["heap"]):
             sys.exit(f"{route}: a declared singleton read fills the warm snapshot without allocating: {counts}")
+    for route in COLUMN_CAPTURES:
+        counts = table[route, "producer"]
+        if int(counts["obj"]) or int(counts["heap"]):
+            sys.exit(f"{route}: a warm columns capture with held or excluded windows allocates nothing: {counts}")
+    for capture, engine in COLUMN_EDITS:
+        edit, rebuild = table[capture, "producer"], table[engine, "producer"]
+        for field in ("obj", "heap"):
+            if int(edit[field]) != int(rebuild[field]):
+                sys.exit(f"{capture}: after a structural edit a columns capture allocates only the caches the next "
+                         f"layout pass rebuilds, {field} {edit[field]} against {engine} {rebuild[field]}")
     def config_delta(route, baseline):
         return {k: int(table[route, "config"][k]) - int(table[baseline, "config"][k]) for k in ("R", "L", "obj", "heap")}
     declared_read = config_delta("key/placement", "key/no-placement")

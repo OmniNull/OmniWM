@@ -68,9 +68,10 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `placement` | Where the focused window sits: one record, not a list |
 | `focusTarget` | The window the callback's workspace focuses: one record |
 | `frames` | Adds frames to the window and monitor lists declared with it |
+| `columns` | Adds Niri column numbers to the window lists declared with it |
 
 The row fields are:
-- **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (`"native"` for macOS fullscreen, `"omniwm"` for OmniWM's, absent otherwise) and `minimized`, and with `frames`, `frame`;
+- **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (`"native"` for macOS fullscreen, `"omniwm"` for OmniWM's, absent otherwise) and `minimized`, with `frames`, `frame`, and with `columns`, `column`;
 - **workspace:** `id`, `name` and `monitor`;
 - **monitor:** `id` and `name`, and with `frames`, `frame` and `visibleFrame`, the part the menu bar and Dock leave free.
 
@@ -84,9 +85,11 @@ A frame is `{ x, y, width, height }` in points, in the coordinates `omniwmctl qu
 
 `ctx.focusTarget` is the window OmniWM focuses when you switch to the callback's workspace. For `workspace.active`, that is the workspace just switched to. It has `id` and `nativeFullscreen`, which is `true` when the window sits in its own macOS fullscreen Space and `focus` can bring it forward. It's absent when the workspace has no window to focus.
 
+A window's `column` is the position of its Niri column, counting from 1, numbered like `focus-column` and `omniwmctl query`'s `column-index`. Windows in one column, inactive tabs included, share it, and it counts columns scrolled out of view too. Floating windows, Dwindle windows and windows the layout leaves out, such as minimized ones, have none.
+
 A window `id` is text such as `"9b2f6c0e4d1a7b3c5e8f0a2d4c6e8b1f.48213.912345"`. It names the same window until OmniWM quits, and actions reach that window while OmniWM manages it. A monitor `id` is the display's number as text, such as `"69734208"`.
 
-Each list holds up to 256 rows and 128 KiB, not counting frames. `truncated.<list>` is `true` when a list was cut.
+Each list holds up to 256 rows and 128 KiB, not counting frames or column numbers. `truncated.<list>` is `true` when a list was cut.
 
 ## Events
 
@@ -452,4 +455,46 @@ place("Control+Option+Q", 0, 0, 0.5, 0.5)
 place("Control+Option+W", 0.5, 0, 0.5, 0.5)
 place("Control+Option+A", 0, 0.5, 0.5, 0.5)
 place("Control+Option+S", 0.5, 0.5, 0.5, 0.5)
+```
+
+**Give every Niri column the same width.** Control + Option + Shift + 2 asks for half of the space along the strip for every column on the workspace, and Control + Option + Shift + 3 for a third, without moving focus. In a vertical strip that's the columns' height. It sizes the columns that are there now, including ones scrolled out of view, and leaves your sizing defaults alone. **Balance Sizes** (Option + Shift + B) instead restores every column's default span and resets the sizes within each column. With more than 64 columns the keys only show a notice, because one callback can queue at most 64 actions.
+
+```lua
+local wm = omniwm
+local limit = 64
+local function equalize(chord: string, span: string)
+    wm.keymap.set(chord, function(ctx: ConfigContext)
+        local rows = ctx.workspaceWindows
+        if not rows or (ctx.truncated and ctx.truncated.workspaceWindows) then return end
+        local first: { [number]: string } = {}
+        local count = 0
+        for _, row in rows do
+            local column = row.column
+            if column and not first[column] then
+                first[column] = row.id
+                count += 1
+            end
+        end
+        if count > limit then
+            wm.notify("Too many columns to resize at once")
+            return
+        end
+        for _, id in first do
+            wm.dispatch("window", "set-container-primary-span", id, span)
+        end
+    end, { reads = { "workspaceWindows", "columns" } })
+end
+equalize("Control+Option+Shift+2", "50%")
+equalize("Control+Option+Shift+3", "33.333%")
+```
+
+**Summon a group of apps.** These rules put Slack, Discord and Telegram in scratchpad slot 2 as OmniWM starts managing their windows, and Control + Option + Shift + C shows or hides them together on the workspace you're on. Use the same slot number in both places. The windows float while they're in the slot.
+
+```lua
+local wm = omniwm
+local chat = { "com.tinyspeck.slackmacgap", "com.hnc.Discord", "ru.keepcoder.Telegram" }
+for _, bundleId in chat do
+    wm.rule { bundleId = bundleId, scratchpad = 2 }
+end
+wm.keymap.set("Control+Option+Shift+C", wm.cmd("scratchpad", "toggle", "2"))
 ```

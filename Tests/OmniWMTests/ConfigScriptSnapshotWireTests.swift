@@ -25,9 +25,15 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
             data.append(contentsOf: value.utf8)
         }
 
-        mutating func list(_ kind: ConfigScriptReads, rows: [Wire], truncated: Bool = false, framed: Bool = false) {
+        mutating func list(
+            _ kind: ConfigScriptReads, rows: [Wire], truncated: Bool = false, framed: Bool = false,
+            columned: Bool = false
+        ) {
             integer(UInt8(kind.rawValue))
-            integer(UInt8((truncated ? OMNI_CONFIG_SECTION_TRUNCATED : 0) | (framed ? OMNI_CONFIG_SECTION_FRAMES : 0)))
+            integer(UInt8(
+                (truncated ? OMNI_CONFIG_SECTION_TRUNCATED : 0) | (framed ? OMNI_CONFIG_SECTION_FRAMES : 0) |
+                    (columned ? OMNI_CONFIG_SECTION_COLUMNS : 0)
+            ))
             integer(UInt16(rows.count))
             integer(UInt32(rows.reduce(0) { $0 + $1.data.count }))
             for row in rows { data += row.data }
@@ -134,6 +140,77 @@ final class ConfigScriptSnapshotWireTests: XCTestCase {
                 reads: [.workspaceWindows, .windows], target: controller.configScriptTarget(), pool: &pool
             )
             XCTAssertEqual(actual.withUnsafeBytes { Data($0) }, expected.data)
+        }
+    }
+
+    func testColumnNumbersSitBetweenFlagsAndFramesAndNeverShortenAList() throws {
+        let display = NiriGatherFixture.monitor(displayId: 1)
+        let fixture = try ConfigScriptWindowFixture(monitors: [display])
+        let base = fixture.base
+        let manager = base.manager
+        let controller = base.controller
+        let strip = base.workspace("1")
+        let bundle = "wire.columns"
+        let frame = CGRect(x: 100, y: 200, width: 500, height: 300)
+        let ids = [1, 2, 3]
+        let floating = 3
+        for id in ids {
+            let token = base.token(id)
+            let mode: TrackedWindowMode = id == floating ? .floating : .tiling
+            _ = manager.addWindow(
+                WindowAdmissionTestSupport.axRef(for: token), pid: token.pid, windowId: token.windowId, to: strip,
+                mode: mode,
+                managedReplacementMetadata: .init(bundleId: bundle, workspaceId: strip, mode: mode, title: "")
+            )
+        }
+        manager.withEngineMutationScope {
+            for id in ids where id != floating {
+                _ = base.engine.addWindow(token: base.token(id), to: strip, afterSelection: nil)
+            }
+        }
+        manager.updateFloatingGeometry(frame: frame, for: base.token(floating), referenceMonitor: display)
+        let numbers = try XCTUnwrap(base.handler.columnSummary(for: strip)?.columnIndexByToken)
+        XCTAssertEqual(numbers.count, ids.count - 1)
+        func row(_ id: Int, _ title: String, columned: Bool, framed: Bool) -> Wire {
+            var row = Wire()
+            row.text(fixture.id(id))
+            for field in [bundle, title, "1", display.id.scriptIdentifier] { row.text(field) }
+            row.integer(UInt8(id == floating ? OMNI_CONFIG_WINDOW_FLOATING : 0))
+            if columned { row.integer(UInt16(numbers[base.token(id)] ?? 0)) }
+            guard framed else { return row }
+            guard id == floating else {
+                row.integer(UInt8.zero)
+                return row
+            }
+            row.integer(UInt8(OMNI_CONFIG_FRAME_PRESENT))
+            row.rect(frame)
+            return row
+        }
+        var empty = Wire()
+        empty.list(.windows, rows: ids.map { row($0, "", columned: false, framed: false) })
+        let fitting = String(repeating: "x", count: ConfigScriptSnapshot.byteLimit - empty.data.count)
+        var pool = ConfigScriptSnapshotPool()
+        for title in [fitting, fitting + "x"] {
+            _ = manager.updateManagedReplacementTitle(title, for: base.token(floating))
+            for (columned, framed) in [(false, false), (true, false), (true, true)] {
+                var rows = ids.filter { $0 != floating }.map { row($0, "", columned: columned, framed: framed) }
+                if title == fitting { rows.append(row(floating, title, columned: columned, framed: framed)) }
+                var expected = Wire()
+                expected.list(
+                    .windows, rows: rows, truncated: rows.count < ids.count, framed: framed, columned: columned
+                )
+                var reads: ConfigScriptReads = [.windows]
+                if columned { reads.insert(.windowColumns) }
+                if framed { reads.insert(.windowFrames) }
+                let actual = controller.configScriptSnapshot(
+                    reads: reads, target: controller.configScriptTarget(), pool: &pool
+                )
+                XCTAssertEqual(
+                    actual.withUnsafeBytes { Data($0) },
+                    expected.data,
+                    "columns \(columned), frames \(framed)"
+                )
+            }
         }
     }
 

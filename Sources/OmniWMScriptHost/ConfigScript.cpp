@@ -90,9 +90,15 @@ constexpr std::array<uint8_t, 6> readBits{
     OMNI_CONFIG_READ_PLACEMENT, OMNI_CONFIG_READ_FOCUS_TARGET
 };
 constexpr std::string_view framesRead = "frames";
+constexpr std::string_view columnsRead = "columns";
 constexpr uint16_t framedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS | OMNI_CONFIG_READ_MONITORS;
+constexpr uint16_t columnedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS;
 static_assert((framedLists << OMNI_CONFIG_READ_FRAME_SHIFT) ==
     (OMNI_CONFIG_READ_WORKSPACE_WINDOW_FRAMES | OMNI_CONFIG_READ_WINDOW_FRAMES | OMNI_CONFIG_READ_MONITOR_FRAMES));
+static_assert((columnedLists << OMNI_CONFIG_READ_COLUMN_SHIFT) ==
+    (OMNI_CONFIG_READ_WORKSPACE_WINDOW_COLUMNS | OMNI_CONFIG_READ_WINDOW_COLUMNS));
+static_assert(((OMNI_CONFIG_READ_LISTS << OMNI_CONFIG_READ_FRAME_SHIFT) &
+    (OMNI_CONFIG_READ_WORKSPACE_WINDOW_COLUMNS | OMNI_CONFIG_READ_WINDOW_COLUMNS)) == 0);
 static_assert(OMNI_CONFIG_READ_LISTS == (OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS |
     OMNI_CONFIG_READ_WORKSPACES | OMNI_CONFIG_READ_MONITORS | OMNI_CONFIG_READ_PLACEMENT | OMNI_CONFIG_READ_FOCUS_TARGET));
 
@@ -102,11 +108,12 @@ uint16_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
     }
     const int table = lua_gettop(L);
     const int length = lua_objlen(L, table);
-    if (length > static_cast<int>(readNames.size()) + 1) {
+    if (length > static_cast<int>(readNames.size()) + 2) {
         reject(L, vm, site, "too many lookup names in reads");
     }
     uint16_t mask = 0;
     bool frames = false;
+    bool columns = false;
     int count = 0;
     lua_pushnil(L);
     while (lua_next(L, table)) {
@@ -117,15 +124,19 @@ uint16_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
         auto word = token(L, vm, -1, site);
         const std::string_view name(word.data, word.length);
         const bool framesName = name == framesRead;
+        const bool columnsName = name == columnsRead;
         auto it = std::find(readNames.begin(), readNames.end(), name);
-        if (it == readNames.end() && !framesName) {
-            reject(L, vm, site, "unknown read; expected workspaceWindows, windows, workspaces, monitors, placement, focusTarget or frames");
+        if (it == readNames.end() && !framesName && !columnsName) {
+            reject(L, vm, site,
+                "unknown read; expected workspaceWindows, windows, workspaces, monitors, placement, focusTarget, frames or columns");
         }
-        const uint16_t bit = framesName ? 0 : readBits[it - readNames.begin()];
-        if (framesName ? frames : (mask & bit) != 0) {
+        const bool modifier = framesName || columnsName;
+        const uint16_t bit = modifier ? 0 : readBits[it - readNames.begin()];
+        if (framesName ? frames : columnsName ? columns : (mask & bit) != 0) {
             reject(L, vm, site, "duplicate lookup name in reads");
         }
         frames |= framesName;
+        columns |= columnsName;
         mask |= bit;
         ++count;
         lua_pop(L, 1);
@@ -133,12 +144,20 @@ uint16_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
     if (count != length) {
         reject(L, vm, site, "reads expects consecutive array indices");
     }
+    const uint16_t lists = mask;
     if (frames) {
-        const uint16_t framed = mask & framedLists;
+        const uint16_t framed = lists & framedLists;
         if (!framed) {
             reject(L, vm, site, "frames needs workspaceWindows, windows or monitors in the same reads");
         }
         mask |= framed << OMNI_CONFIG_READ_FRAME_SHIFT;
+    }
+    if (columns) {
+        const uint16_t columned = lists & columnedLists;
+        if (!columned) {
+            reject(L, vm, site, "columns needs workspaceWindows or windows in the same reads");
+        }
+        mask |= columned << OMNI_CONFIG_READ_COLUMN_SHIFT;
     }
     return mask;
 }
@@ -628,9 +647,18 @@ void readRectField(lua_State *L, std::string_view &rows, const char *name, bool 
     setRect(L, name, rect);
 }
 
-void pushLookupRow(lua_State *L, std::string_view &rows, uint8_t kind, bool framed, bool pushesFrames) {
+struct RowLayout {
+    bool framed;
+    bool pushesFrames;
+    bool columned;
+    bool pushesColumns;
+};
+
+void pushLookupRow(lua_State *L, std::string_view &rows, uint8_t kind, RowLayout layout) {
     const bool window = kind == OMNI_CONFIG_READ_WORKSPACE_WINDOWS || kind == OMNI_CONFIG_READ_WINDOWS;
-    lua_createtable(L, 0, window ? 8 : kind == OMNI_CONFIG_READ_WORKSPACES ? 3 : 2 + 2 * pushesFrames);
+    const int fields = window ? 8 + (layout.pushesFrames && layout.pushesColumns)
+        : kind == OMNI_CONFIG_READ_WORKSPACES ? 3 : 2 + 2 * layout.pushesFrames;
+    lua_createtable(L, 0, fields);
     readStringField(L, rows, "id");
     if (window) {
         readStringField(L, rows, "bundleId");
@@ -646,16 +674,23 @@ void pushLookupRow(lua_State *L, std::string_view &rows, uint8_t kind, bool fram
         }
         lua_pushboolean(L, flags & OMNI_CONFIG_WINDOW_MINIMIZED);
         lua_rawsetfield(L, -2, "minimized");
-        if (framed && readUnsigned<uint8_t>(rows) == OMNI_CONFIG_FRAME_PRESENT) {
-            readRectField(L, rows, "frame", pushesFrames);
+        if (layout.columned) {
+            const auto column = readUnsigned<uint16_t>(rows);
+            if (layout.pushesColumns && column != 0) {
+                lua_pushnumber(L, column);
+                lua_rawsetfield(L, -2, "column");
+            }
+        }
+        if (layout.framed && readUnsigned<uint8_t>(rows) == OMNI_CONFIG_FRAME_PRESENT) {
+            readRectField(L, rows, "frame", layout.pushesFrames);
         }
     } else {
         readStringField(L, rows, "name");
         if (kind == OMNI_CONFIG_READ_WORKSPACES) {
             readStringField(L, rows, "monitor");
-        } else if (framed) {
-            readRectField(L, rows, "frame", pushesFrames);
-            readRectField(L, rows, "visibleFrame", pushesFrames);
+        } else if (layout.framed) {
+            readRectField(L, rows, "frame", layout.pushesFrames);
+            readRectField(L, rows, "visibleFrame", layout.pushesFrames);
         }
     }
     lua_setreadonly(L, -1, true);
@@ -716,9 +751,14 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint16_t reads) {
             throw InvalidSnapshot{};
         }
         reads &= ~kind;
-        const bool framed = flags & OMNI_CONFIG_SECTION_FRAMES;
-        const bool pushesFrames = reads & (kind << OMNI_CONFIG_READ_FRAME_SHIFT);
-        if (pushesFrames && !framed) {
+        const RowLayout layout{
+            .framed = (flags & OMNI_CONFIG_SECTION_FRAMES) != 0,
+            .pushesFrames = (kind & framedLists) && (reads & (kind << OMNI_CONFIG_READ_FRAME_SHIFT)),
+            .columned = (flags & OMNI_CONFIG_SECTION_COLUMNS) != 0,
+            .pushesColumns = (kind & columnedLists) && (reads & (kind << OMNI_CONFIG_READ_COLUMN_SHIFT)),
+        };
+        if ((layout.pushesFrames && !layout.framed) || (layout.pushesColumns && !layout.columned) ||
+            (layout.columned && !(kind & columnedLists))) {
             throw InvalidSnapshot{};
         }
         const auto name = readNames[bit - readBits.begin()];
@@ -739,7 +779,7 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint16_t reads) {
         } else {
             lua_createtable(L, count, 0);
             for (int row = 1; row <= count; ++row) {
-                pushLookupRow(L, rows, kind, framed, pushesFrames);
+                pushLookupRow(L, rows, kind, layout);
                 lua_rawseti(L, -2, row);
             }
             lua_setreadonly(L, -1, true);
