@@ -57,3 +57,31 @@ public struct IPCDwindleTreeQueryResult: Codable, Equatable, Sendable {
         self.tooLarge = tooLarge
     }
 }
+
+public enum IPCDwindleActionName: String, Codable, CaseIterable, Equatable, Sendable {
+    case replace
+}
+
+public struct IPCDwindleRequest: Codable, Equatable, Sendable {
+    public let name: IPCDwindleActionName
+    public let tree: IPCDwindleTree
+
+    public init(name: IPCDwindleActionName, tree: IPCDwindleTree) {
+        self.name = name
+        self.tree = tree
+    }
+}
+
+public struct IPCDwindleActionDescriptor: Codable, Equatable, Sendable {
+    public let path: String
+    public let name: IPCDwindleActionName
+    public let summary: String
+    public let arguments: [String]
+
+    public init(path: String, name: IPCDwindleActionName, summary: String, arguments: [String] = []) {
+        self.path = path
+        self.name = name
+        self.summary = summary
+        self.arguments = arguments
+    }
+}

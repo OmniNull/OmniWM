@@ -4,6 +4,62 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing IPCProcessResourceMetrics) throws {
+        begin(123)
+        var first = true
+        self.key("energyNanojoules", &first)
+        try self.value(value.energyNanojoules)
+        self.key("interruptWakeups", &first)
+        try self.value(value.interruptWakeups)
+        self.key("packageIdleWakeups", &first)
+        try self.value(value.packageIdleWakeups)
+        self.key("physicalFootprintBytes", &first)
+        try self.value(value.physicalFootprintBytes)
+        self.key("residentSizeBytes", &first)
+        try self.value(value.residentSizeBytes)
+        self.key("systemTimeNanoseconds", &first)
+        try self.value(value.systemTimeNanoseconds)
+        self.key("userTimeNanoseconds", &first)
+        try self.value(value.userTimeNanoseconds)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCMetricsQueryResult) throws {
+        begin(123)
+        var first = true
+        self.key("axWrites", &first)
+        try self.value(value.axWrites)
+        self.key("displayTicks", &first)
+        try self.value(value.displayTicks)
+        self.key("layoutBuilds", &first)
+        try self.value(value.layoutBuilds)
+        if let fieldValue = value.process {
+            self.key("process", &first)
+            try self.value(fieldValue)
+        }
+        self.key("traceCaptureActive", &first)
+        try self.value(value.traceCaptureActive)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCShellWidget) throws {
+        begin(123)
+        var first = true
+        if let fieldValue = value.error {
+            self.key("error", &first)
+            try self.value(fieldValue)
+        }
+        self.key("name", &first)
+        try self.value(value.name)
+        self.key("placements", &first)
+        try self.value(value.placements)
+        self.key("source", &first)
+        try self.value(value.source)
+        self.key("state", &first)
+        try self.value(value.state)
+        end(125)
+    }
+
     mutating func value(_ value: borrowing [IPCShellWidget]) throws {
         begin(91)
         var first = true
@@ -201,56 +257,5 @@ extension IPCJSONWriter {
 
     mutating func value(_ value: borrowing IPCEventKind) throws {
         try self.value(value.rawValue)
-    }
-
-    mutating func value(_ value: borrowing IPCEventEnvelope) throws {
-        begin(123)
-        var first = true
-        self.key("channel", &first)
-        try self.value(value.channel)
-        if let fieldValue = value.code {
-            self.key("code", &first)
-            try self.value(fieldValue)
-        }
-        self.key("id", &first)
-        try self.value(value.id)
-        self.key("kind", &first)
-        try self.value(value.kind)
-        self.key("ok", &first)
-        try self.value(value.ok)
-        self.key("result", &first)
-        try self.value(value.result)
-        self.key("status", &first)
-        try self.value(value.status)
-        self.key("version", &first)
-        try self.value(value.version)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCRequestKind) throws {
-        try self.value(value.rawValue)
-    }
-
-    mutating func value(_ value: borrowing IPCNoPayload) throws {
-        begin(123)
-        end(125)
-    }
-
-    mutating func argument(_ name: StaticString, _ value: borrowing IPCDirection, _ first: inout Bool) throws {
-        self.key("arguments", &first)
-        begin(123)
-        var argumentFirst = true
-        self.key(name, &argumentFirst)
-        try self.value(value)
-        end(125)
-    }
-
-    mutating func argument(_ name: StaticString, _ value: borrowing Int, _ first: inout Bool) throws {
-        self.key("arguments", &first)
-        begin(123)
-        var argumentFirst = true
-        self.key(name, &argumentFirst)
-        try self.value(value)
-        end(125)
     }
 }

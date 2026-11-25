@@ -22,6 +22,7 @@ public enum IPCRequestKind: String, Codable, Equatable, Sendable {
     case window
     case windowMark = "window-mark"
     case windowGather = "window-gather"
+    case dwindle
     case shell
     case subscribe
 }
@@ -37,6 +38,7 @@ public enum IPCResponseKind: String, Codable, Equatable, Sendable {
     case window
     case windowMark = "window-mark"
     case windowGather = "window-gather"
+    case dwindle
     case shell
     case subscribe
     case error
@@ -63,6 +65,8 @@ public enum IPCResponseKind: String, Codable, Equatable, Sendable {
             self = .windowMark
         case .windowGather:
             self = .windowGather
+        case .dwindle:
+            self = .dwindle
         case .shell:
             self = .shell
         case .subscribe:
@@ -105,6 +109,11 @@ public enum IPCErrorCode: String, Codable, Equatable, Sendable, Error {
     case invalidMark = "invalid_mark"
     case ineligibleWindow = "ineligible_window"
     case doesNotFit = "does_not_fit"
+    case staleRevision = "stale_revision"
+    case wrongWorkspace = "wrong_workspace"
+    case membershipMismatch = "membership_mismatch"
+    case focusConflict = "focus_conflict"
+    case busy
     case internalError = "internal_error"
 }
 

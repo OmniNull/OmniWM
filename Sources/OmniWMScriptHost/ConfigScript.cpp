@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include <string_view>
 
 namespace {
@@ -34,6 +35,7 @@ struct ConfigVM : ModuleRuntime {
     std::vector<omni_config_timer> configuredTimers;
     uint32_t cancelledTimers = 0;
     unsigned commands = 0;
+    bool dwindleStaged = false;
     unsigned logs = 0;
     unsigned actions = 0;
     unsigned bindings = 0;
@@ -403,6 +405,161 @@ bool stageGather(lua_State *L, ConfigVM &vm, omni_config_location site, int top)
         vm.failure, sizeof vm.failure);
 }
 
+constexpr size_t dwindleNodeLimit = 2 * OMNI_CONFIG_DWINDLE_MEMBER_LIMIT - 1;
+constexpr std::array dwindleOrientations{"horizontal", "vertical"};
+static_assert(OMNI_CONFIG_DWINDLE_VERTICAL + 1 == dwindleOrientations.size());
+
+void onlyFields(lua_State *L, ConfigVM &vm, omni_config_location site, int table,
+    std::initializer_list<std::string_view> names, const char *message) {
+    lua_pushnil(L);
+    while (lua_next(L, table)) {
+        size_t length = 0;
+        const char *key = lua_type(L, -2) == LUA_TSTRING ? lua_tolstring(L, -2, &length) : nullptr;
+        if (!key || std::find(names.begin(), names.end(), std::string_view(key, length)) == names.end()) {
+            reject(L, vm, site, message);
+        }
+        lua_pop(L, 1);
+    }
+}
+
+int arrayLength(lua_State *L, ConfigVM &vm, omni_config_location site, int table, size_t limit,
+    const char *limitMessage, const char *message) {
+    const int length = lua_objlen(L, table);
+    if (static_cast<size_t>(length) > limit) {
+        reject(L, vm, site, limitMessage);
+    }
+    int count = 0;
+    lua_pushnil(L);
+    while (lua_next(L, table)) {
+        const double key = lua_type(L, -2) == LUA_TNUMBER ? lua_tonumber(L, -2) : 0;
+        if (!(key >= 1 && key <= length && key == static_cast<int>(key))) {
+            reject(L, vm, site, message);
+        }
+        count++;
+        lua_pop(L, 1);
+    }
+    if (count != length) {
+        reject(L, vm, site, message);
+    }
+    return length;
+}
+
+template <size_t Size>
+uint8_t wordIndex(lua_State *L, ConfigVM &vm, omni_config_location site, const std::array<const char *, Size> &words,
+    const char *message) {
+    const auto word = token(L, vm, -1, site);
+    const auto match = std::find(words.begin(), words.end(), std::string_view(word.data, word.length));
+    if (match == words.end()) {
+        reject(L, vm, site, message);
+    }
+    return static_cast<uint8_t>(match - words.begin());
+}
+
+void readDwindleNode(lua_State *L, ConfigVM &vm, omni_config_location site, omni_config_dwindle_node &node,
+    omni_config_span *members, size_t &memberCount) {
+    const int table = lua_gettop(L);
+    if (!lua_istable(L, table)) {
+        reject(L, vm, site, "dwindle nodes must be tables");
+    }
+    lua_rawgetfield(L, table, "kind");
+    const bool split = wordIndex(L, vm, site, std::array{"split", "leaf"}, "a dwindle node is a split or a leaf") == 0;
+    lua_pop(L, 1);
+    node = omni_config_dwindle_node{};
+    if (split) {
+        onlyFields(L, vm, site, table, {"kind", "orientation", "ratio"}, "a split has kind, orientation and ratio");
+        node.kind = OMNI_CONFIG_DWINDLE_SPLIT;
+        lua_rawgetfield(L, table, "orientation");
+        node.orientation = wordIndex(L, vm, site, dwindleOrientations, "orientation is horizontal or vertical");
+        lua_pop(L, 1);
+        lua_rawgetfield(L, table, "ratio");
+        if (lua_type(L, -1) != LUA_TNUMBER) {
+            reject(L, vm, site, "a split's ratio is a number");
+        }
+        node.ratio = lua_tonumber(L, -1);
+        lua_pop(L, 1);
+        return;
+    }
+    onlyFields(L, vm, site, table, {"kind", "members", "active"}, "a leaf has kind, members and active");
+    node.kind = OMNI_CONFIG_DWINDLE_LEAF;
+    lua_rawgetfield(L, table, "members");
+    const int list = lua_gettop(L);
+    if (!lua_istable(L, list)) {
+        reject(L, vm, site, "a leaf's members are an array of window IDs");
+    }
+    constexpr const char *memberLimitMessage = "a dwindle tree has 1 to 256 windows per leaf and in all";
+    const int length = arrayLength(L, vm, site, list, OMNI_CONFIG_DWINDLE_MEMBER_LIMIT - memberCount,
+        memberLimitMessage, "a leaf's members are an array without holes");
+    if (length < 1) {
+        reject(L, vm, site, memberLimitMessage);
+    }
+    node.first_member = static_cast<uint16_t>(memberCount);
+    node.member_count = static_cast<uint16_t>(length);
+    for (int index = 1; index <= length; index++) {
+        lua_rawgeti(L, list, index);
+        members[memberCount++] = token(L, vm, -1, site);
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+    lua_rawgetfield(L, table, "active");
+    const double active = lua_type(L, -1) == LUA_TNUMBER ? lua_tonumber(L, -1) : 0;
+    if (!(active >= 1 && active <= length && active == static_cast<int>(active))) {
+        reject(L, vm, site, "a leaf's active is the position of one of its members");
+    }
+    node.active = static_cast<uint16_t>(active);
+    lua_pop(L, 1);
+}
+
+bool stageDwindleReplace(lua_State *L, ConfigVM &vm, omni_config_location site, int top) {
+    static_assert(OMNI_CONFIG_DWINDLE_MEMBER_LIMIT == 256, "the dwindle messages name the limit");
+    if (!vm.callbacks.dwindle || top != 3 || lua_type(L, 2) != LUA_TSTRING || !lua_istable(L, 3)) {
+        reject(L, vm, site, "omniwm.dispatch expects 'dwindle', 'replace' and one tree");
+    }
+    const auto action = token(L, vm, 2, site);
+    if (std::string_view(action.data, action.length) != "replace") {
+        reject(L, vm, site, "omniwm.dispatch expects 'dwindle', 'replace' and one tree");
+    }
+    if (vm.dwindleStaged) {
+        reject(L, vm, site, "a callback replaces at most one dwindle tree");
+    }
+    onlyFields(L, vm, site, 3, {"workspaceId", "revision", "preselect", "nodes"},
+        "a dwindle tree has workspaceId, revision, preselect and nodes");
+    omni_config_dwindle_tree tree{};
+    lua_rawgetfield(L, 3, "workspaceId");
+    tree.workspace_id = token(L, vm, -1, site);
+    lua_pop(L, 1);
+    lua_rawgetfield(L, 3, "revision");
+    tree.revision = token(L, vm, -1, site);
+    lua_pop(L, 1);
+    lua_rawgetfield(L, 3, "preselect");
+    tree.preselect = lua_isnil(L, -1)
+        ? 0
+        : wordIndex(L, vm, site, dwindleDirections, "preselect is left, right, up or down") + 1;
+    lua_pop(L, 1);
+    lua_rawgetfield(L, 3, "nodes");
+    const int list = lua_gettop(L);
+    if (!lua_istable(L, list)) {
+        reject(L, vm, site, "a dwindle tree's nodes are an array");
+    }
+    const int length = arrayLength(L, vm, site, list, dwindleNodeLimit, "a dwindle tree has at most 511 nodes",
+        "a dwindle tree's nodes are an array without holes");
+    std::array<omni_config_dwindle_node, dwindleNodeLimit> nodes;
+    std::array<omni_config_span, OMNI_CONFIG_DWINDLE_MEMBER_LIMIT> members;
+    size_t memberCount = 0;
+    for (int index = 1; index <= length; index++) {
+        lua_rawgeti(L, list, index);
+        readDwindleNode(L, vm, site, nodes[index - 1], members.data(), memberCount);
+        lua_pop(L, 1);
+    }
+    tree.nodes = nodes.data();
+    tree.node_count = static_cast<size_t>(length);
+    tree.members = members.data();
+    tree.member_count = memberCount;
+    const bool staged = vm.callbacks.dwindle(vm.context, &tree, site, vm.failure, sizeof vm.failure);
+    lua_pop(L, 1);
+    vm.dwindleStaged = staged;
+    return staged;
+}
+
 int dispatchAction(lua_State *L) {
     ConfigVM &vm = declarations(L);
     auto site = declarationSite(L, vm);
@@ -414,21 +571,22 @@ int dispatchAction(lua_State *L) {
     }
     bool staged = false;
     const int top = lua_gettop(L);
-    if (lua_type(L, 1) == LUA_TSTRING && top >= 3 && lua_istable(L, 3) && lua_type(L, 2) == LUA_TSTRING) {
-        const auto prefix = token(L, vm, 1, site);
+    const bool named = lua_type(L, 1) == LUA_TSTRING;
+    const auto prefix = named ? token(L, vm, 1, site) : omni_config_span{};
+    const std::string_view kind(prefix.data, prefix.length);
+    if (named && kind == "dwindle") {
+        staged = stageDwindleReplace(L, vm, site, top);
+    } else if (named && top >= 3 && lua_istable(L, 3) && lua_type(L, 2) == LUA_TSTRING) {
         const auto action = token(L, vm, 2, site);
-        if (!vm.callbacks.window || std::string_view(prefix.data, prefix.length) != "window" ||
-            std::string_view(action.data, action.length) != gatherAction) {
+        if (!vm.callbacks.window || kind != "window" || std::string_view(action.data, action.length) != gatherAction) {
             reject(L, vm, site, "omniwm.dispatch takes a list of window IDs only for 'window', 'gather'");
         }
         staged = stageGather(L, vm, site, top);
-    } else if (lua_type(L, 1) == LUA_TSTRING) {
-        const auto prefix = token(L, vm, 1, site);
+    } else if (named) {
         const bool tableDestination = top == 4 && lua_istable(L, 4);
         const int count = top - 1 - (tableDestination ? 1 : 0);
         std::array<omni_config_span, LUA_MINSTACK> words;
-        if (!vm.callbacks.window || std::string_view(prefix.data, prefix.length) != "window" ||
-            count < 2 || static_cast<size_t>(count) > words.size()) {
+        if (!vm.callbacks.window || kind != "window" || count < 2 || static_cast<size_t>(count) > words.size()) {
             reject(L, vm, site, "omniwm.dispatch expects 'window', an action, a window ID and any action arguments");
         }
         for (int i = 0; i < count; i++) {
@@ -1088,6 +1246,7 @@ omni_status omni_config_invoke(omni_config_vm *vm, uint32_t callback_id, omni_co
     vm->failure[0] = '\0';
     vm->rejected = false;
     vm->commands = 0;
+    vm->dwindleStaged = false;
     vm->logs = 0;
     vm->actions = 0;
     vm->tokenBytes = 0;

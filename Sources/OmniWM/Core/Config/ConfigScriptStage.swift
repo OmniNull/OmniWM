@@ -193,6 +193,17 @@ struct ConfigScriptStage {
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)
                 }
+            },
+            dwindle: { context, tree, location, error, capacity in
+                guard let context, let tree else { return false }
+                do throws(ConfigScriptError) {
+                    let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
+                    let replace = try ConfigScriptDwindleReplace(tree: tree.pointee)
+                    stage.pointee.dispatch(.dwindleReplace(replace), at: location)
+                    return true
+                } catch let failure {
+                    return failure.write(to: error, capacity: capacity)
+                }
             }
         )
     }
@@ -208,28 +219,6 @@ struct ConfigScriptStage {
             operation: operation,
             source: name(of: location.source_id),
             line: Int(location.line)
-        ))
-    }
-
-    private mutating func addNamedCommand(
-        _ span: omni_config_span, function: UInt32, reads: ConfigScriptReads, location: omni_config_location
-    ) throws(ConfigScriptError) {
-        let name = try Self.string(span).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, name.rangeOfCharacter(from: .controlCharacters) == nil else {
-            throw ConfigScriptError(line: nil, message: "A palette command needs a nonempty, single-line name.")
-        }
-        if let index = commandNames[name] {
-            let prior = namedCommands[index]
-            throw ConfigScriptError(
-                line: nil,
-                message: "Command '\(name)' already declared at \(prior.source):\(prior.line)."
-            )
-        }
-        let id = register(function)
-        commandNames[name] = namedCommands.count
-        namedCommands.append(ConfigScriptNamedCommand(
-            name: name, function: id, source: sources.name(of: location.source_id), line: Int(location.line),
-            reads: reads
         ))
     }
 
@@ -318,6 +307,28 @@ struct ConfigScriptStage {
 }
 
 extension ConfigScriptStage {
+    private mutating func addNamedCommand(
+        _ span: omni_config_span, function: UInt32, reads: ConfigScriptReads, location: omni_config_location
+    ) throws(ConfigScriptError) {
+        let name = try Self.string(span).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.rangeOfCharacter(from: .controlCharacters) == nil else {
+            throw ConfigScriptError(line: nil, message: "A palette command needs a nonempty, single-line name.")
+        }
+        if let index = commandNames[name] {
+            let prior = namedCommands[index]
+            throw ConfigScriptError(
+                line: nil,
+                message: "Command '\(name)' already declared at \(prior.source):\(prior.line)."
+            )
+        }
+        let id = register(function)
+        commandNames[name] = namedCommands.count
+        namedCommands.append(ConfigScriptNamedCommand(
+            name: name, function: id, source: sources.name(of: location.source_id), line: Int(location.line),
+            reads: reads
+        ))
+    }
+
     private mutating func addRule(
         _ fields: UnsafeBufferPointer<omni_config_field>,
         location: omni_config_location

@@ -26,6 +26,7 @@ enum LayoutOperation: Equatable {
     case windowMovedToWorkspace(token: WindowToken, to: WorkspaceDescriptor.ID)
     case windowSizeChanged(token: WindowToken)
     case windowsSwapped
+    case treeReplaced
 
     var summary: String {
         switch self {
@@ -73,6 +74,8 @@ enum LayoutOperation: Equatable {
             "window_size_changed token=\(token)"
         case .windowsSwapped:
             "windows_swapped"
+        case .treeReplaced:
+            "tree_replaced"
         }
     }
 }

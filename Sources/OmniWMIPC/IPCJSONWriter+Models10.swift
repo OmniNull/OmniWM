@@ -4,6 +4,43 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func argument(_ name: StaticString, _ value: borrowing String, _ first: inout Bool) throws {
+        self.key("arguments", &first)
+        begin(123)
+        var argumentFirst = true
+        self.key(name, &argumentFirst)
+        try self.value(value)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCWindowSwitcherDirection) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func value(_ value: borrowing IPCWindowSwitcherScope) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func windowSwitcherArguments(
+        _ direction: IPCWindowSwitcherDirection,
+        _ scope: IPCWindowSwitcherScope?,
+        _ first: inout Bool
+    ) throws {
+        self.key("arguments", &first)
+        begin(123)
+        var argumentFirst = true
+        self.key("direction", &argumentFirst)
+        try self.value(direction)
+        switch scope {
+        case let fieldValue?:
+            self.key("scope", &argumentFirst)
+            try self.value(fieldValue)
+        case nil:
+            break
+        }
+        end(125)
+    }
+
     mutating func value(_ value: borrowing IPCCommandRequest) throws {
         begin(123)
         var first = true
@@ -218,47 +255,6 @@ extension IPCJSONWriter {
         try fields0(value, &first)
         try fields1(value, &first)
         try fields2(value, &first)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCRuleApplyTarget) throws {
-        switch value {
-        case .focused:
-            begin(123)
-            var first = true
-            self.key("kind", &first)
-            try self.value("focused")
-            end(125)
-        case let .window(id):
-            begin(123)
-            var first = true
-            self.key("kind", &first)
-            try self.value("window")
-            self.key("windowId", &first)
-            try self.value(id)
-            end(125)
-        case let .pid(pid):
-            begin(123)
-            var first = true
-            self.key("kind", &first)
-            try self.value("pid")
-            self.key("pid", &first)
-            try self.value(pid)
-            end(125)
-        }
-    }
-
-    mutating func ruleRequestAdd(_ rule: borrowing IPCRuleDefinition) throws {
-        begin(123)
-        var first = true
-        self.key("arguments", &first)
-        begin(123)
-        var firstNested = true
-        self.key("rule", &firstNested)
-        try self.value(rule)
-        end(125)
-        self.key("name", &first)
-        try self.value("add")
         end(125)
     }
 }

@@ -204,11 +204,11 @@ extension IPCJSONWriter {
         end(93)
     }
 
-    mutating func value(_ value: borrowing IPCShellActionName) throws {
+    mutating func value(_ value: borrowing IPCDwindleActionName) throws {
         try self.value(value.rawValue)
     }
 
-    mutating func value(_ value: borrowing IPCShellActionDescriptor) throws {
+    mutating func value(_ value: borrowing IPCDwindleActionDescriptor) throws {
         begin(123)
         var first = true
         self.key("arguments", &first)
@@ -222,7 +222,7 @@ extension IPCJSONWriter {
         end(125)
     }
 
-    mutating func value(_ value: borrowing [IPCShellActionDescriptor]) throws {
+    mutating func value(_ value: borrowing [IPCDwindleActionDescriptor]) throws {
         begin(91)
         var first = true
         let span = value.span
@@ -235,11 +235,11 @@ extension IPCJSONWriter {
         end(93)
     }
 
-    mutating func value(_ value: borrowing IPCWindowActionName) throws {
+    mutating func value(_ value: borrowing IPCShellActionName) throws {
         try self.value(value.rawValue)
     }
 
-    mutating func value(_ value: borrowing IPCWindowActionDescriptor) throws {
+    mutating func value(_ value: borrowing IPCShellActionDescriptor) throws {
         begin(123)
         var first = true
         self.key("arguments", &first)

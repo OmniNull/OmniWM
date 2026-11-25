@@ -13,7 +13,7 @@ sidebar:
 {
   "version": 23,
   "id": "<uuid>",
-  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|shell|subscribe>",
+  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|dwindle|shell|subscribe>",
   "authorizationToken": "<token>",
   "payload": { ... }
 }
@@ -187,6 +187,25 @@ All other window actions take no argument field.
 
 Both fields are required. `from` is `workspace`, `monitor`, or `all`; `omniwmctl` sends `workspace` unless `--from` is given.
 
+**Dwindle replace:**
+
+```json
+{
+  "name": "replace",
+  "tree": {
+    "workspaceId": "…",
+    "revision": "3F9A0C17E2B4D865",
+    "nodes": [
+      { "kind": "split", "orientation": "horizontal", "ratio": 1 },
+      { "kind": "leaf", "members": ["<window id>"], "active": 1 },
+      { "kind": "leaf", "members": ["<window id>"], "active": 1 }
+    ]
+  }
+}
+```
+
+`tree` has the same shape as the `tree` of the [`dwindle-tree` query](/reference/cli/queries/#dwindle-tree), and `preselect` is optional. There is no `omniwmctl` command for this request.
+
 **Shell widget values:**
 
 ```json
@@ -206,7 +225,7 @@ Both fields are required. `from` is `workspace`, `monitor`, or `all`; `omniwmctl
   "version": 23,
   "id": "<request-id>",
   "ok": true,
-  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|shell|subscribe>",
+  "kind": "<ping|version|command|capture|query|rule|workspace|window|window-mark|window-gather|dwindle|shell|subscribe>",
   "status": "<success|executed|ignored|error|subscribed>",
   "result": {
     "kind": "<pong|version|capture|workspace-bar|active-workspace|focused-monitor|apps|metrics|focused-window|windows|workspaces|displays|dwindle-tree|rules|rule-actions|queries|commands|subscriptions|capabilities|subscribed|window-marks|window-gather|shell-widgets>",
@@ -227,6 +246,8 @@ A `window-gather` response has `kind: "window-gather"` and, unless OmniWM is dis
 - `windows`: one entry per requested ID, in request order, with `windowId`, `status`, and an optional `reason`. The status is `moved` or `unchanged` after a gather, `unchanged` when nothing changed, and otherwise `blocked` (no problem was found with it before the request was refused), `refused`, or `unresolved` (the ID does not name a managed window). The per-window reasons are `invalid_window_id`, `stale_window_id`, `duplicate_window`, `not_found`, `outside_reach`, `scratchpad`, `native_fullscreen`, `app_hidden`, `minimized`, `native_withdrawn`, `floating`, `unsupported_layout`, `layout_conflict`, and `layout_fullscreen`.
 
 A gather returns `status: "executed"` once OmniWM has published the whole change in one model update and requested one relayout; window frames settle afterwards. An already satisfied request returns `no_change` with `status: "ignored"`. A refusal changes nothing and returns `status: "error"`; its `code` comes from the request-level reason, or for `window_refused` from the first refused window in request order: `invalid_arguments` for malformed or duplicate IDs and an empty list, `stale_window_id`, `not_found` for unknown windows or no destination, `unsupported_layout`, `ineligible_window`, `does_not_fit`, or `workspace_state_conflict` for `layout_conflict`. While OmniWM is disabled or Overview is open, the request returns `ignored_disabled` or `ignored_overview` with `status: "ignored"`.
+
+A `dwindle` response has no `result`. `status: "executed"` means OmniWM accepted the new tree and asked for a relayout. An unchanged tree returns `no_change` with `status: "ignored"`, and a refused one changes nothing. [Replace](/reference/cli/queries/#replace) lists the checks and their codes.
 
 Authorization, protocol, validation, and routing failures keep the originating response `kind`. For example:
 
@@ -294,7 +315,7 @@ This envelope is produced locally by the CLI, so it does not include IPC fields 
 | `ignored_overview` | Overview is open, so `CommandHandler` rejects external/IPC commands (except `toggle-overview`) before normal execution |
 | `layout_mismatch` | Command incompatible with the active workspace layout |
 | `unauthorized` | Missing or invalid authorization token |
-| `stale_window_id` | Well-formed window ID belongs to a different IPC session |
+| `stale_window_id` | Well-formed window ID belongs to a different IPC session; for a Dwindle tree, also a malformed ID or one that names no managed window |
 | `not_found` | Target window, workspace, monitor, or rule does not exist |
 | `window_action_failed` | The requested close, mark focus, or summon could not complete |
 | `no_change` | Request resolved to the current state (workspace already active and holding keyboard focus, window already on the target, nothing to raise or rescue); status is `ignored`. `switch-workspace`, `switch-workspace slot`, `switch-workspace anywhere`, and `workspace focus-name` return `executed` instead when the workspace is already visible but keyboard focus must be handed back to it |
@@ -309,11 +330,16 @@ This envelope is produced locally by the CLI, so it does not include IPC fields 
 | `unsupported_layout` | The source or target layout cannot summon the marked window, or a gathered window or the gather destination is not on a Niri workspace |
 | `duplicate_mark` | The name is already assigned to another window |
 | `invalid_mark` | The mark name is empty or contains control characters |
-| `ineligible_window` | A gathered window is outside the requested reach, hidden, minimized, withdrawn, in the scratchpad, fullscreen, or floating |
-| `does_not_fit` | The gathered windows' minimum sizes do not fit one destination column |
+| `ineligible_window` | A gathered window is outside the requested reach, hidden, minimized, withdrawn, in the scratchpad, fullscreen, or floating, or a window in a Dwindle tree is hidden, minimized, withdrawn, fullscreen, or in the scratchpad |
+| `does_not_fit` | The gathered windows' minimum sizes do not fit one destination column, or a Dwindle tree's windows do not fit the display |
+| `stale_revision` | The Dwindle tree changed since its `revision` was read |
+| `wrong_workspace` | A Dwindle tree's `workspaceId` is not the interaction workspace, or that workspace does not use Dwindle |
+| `membership_mismatch` | A Dwindle tree does not list each tiled window of its workspace exactly once |
+| `focus_conflict` | A Dwindle tree would hide the focused window, or one OmniWM is about to focus, behind another tab |
+| `busy` | Dwindle is in a mouse resize or move, or has not laid out the workspace's current windows yet; try again once it settles |
 | `internal_error` | Unexpected server-side error |
 
-Malformed opaque window IDs return `invalid_arguments`. For window actions, a valid current-session ID whose window is no longer managed returns `not_found`.
+Malformed opaque window IDs return `invalid_arguments`, except in a Dwindle tree, where they return `stale_window_id`. For window actions, a valid current-session ID whose window is no longer managed returns `not_found`.
 
 ---
 

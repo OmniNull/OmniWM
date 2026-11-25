@@ -79,3 +79,73 @@ extension ScriptARCFixture {
         precondition(engine.existingState(for: workspace)?.tileCount == 1)
     }
 }
+
+@MainActor
+func measureDwindleReplace(in directory: URL) async throws {
+    let fixture = try ScriptARCFixture(directory: directory.appendingPathComponent("dwindle-replace"))
+    fixture.populateSnapshotLayout(.dwindle)
+    try await fixture.replaceRoutes()
+}
+
+@MainActor
+extension ScriptARCFixture {
+    private static let replaceSource = """
+    local wm = omniwm
+    local function turned(tree)
+        local nodes = {}
+        for index, node in tree.nodes do
+            nodes[index] = if node.kind == "split" then {
+                kind = "split", ratio = node.ratio,
+                orientation = if node.orientation == "horizontal" then "vertical" else "horizontal",
+            } else node
+        end
+        return nodes
+    end
+    wm.keymap.set("Control+Option+R", function(c)
+        local tree = assert(c.dwindle)
+        wm.dispatch("dwindle", "replace", { workspaceId = tree.workspaceId, revision = tree.revision, nodes = turned(tree) })
+    end, { reads = { "dwindle" } })
+    wm.keymap.set("Control+Option+S", function(c)
+        local tree = assert(c.dwindle)
+        local stale = if tree.revision == string.rep("0", 16) then string.rep("1", 16) else string.rep("0", 16)
+        wm.dispatch("dwindle", "replace", { workspaceId = tree.workspaceId, revision = stale, nodes = turned(tree) })
+    end, { reads = { "dwindle" } })
+    wm.keymap.set("Control+Option+X", function(c)
+        local tree = assert(c.dwindle)
+        wm.dispatch("dwindle", "replace", { workspaceId = tree.workspaceId, revision = tree.revision, nodes = tree.nodes, extra = true })
+    end, { reads = { "dwindle" } })
+    """
+
+    fileprivate func replaceRoutes() async throws {
+        let manager = controller.workspaceManager
+        let workspace = controller.activeWorkspace()!.id
+        let engine = manager.dwindleEngine!
+        _ = try await acceptTitleScript(Self.replaceSource)
+        await script.callbackQueue!.waitForAuditPark()
+        func orientations() -> [DwindleOrientation] {
+            var snapshot: DwindleLayoutSnapshot?
+            manager.withEngineMutationScope(in: workspace) { snapshot = engine.layoutSnapshot(in: workspace) }
+            return snapshot!.nodes.compactMap(\.orientation)
+        }
+        let original = orientations()
+        precondition(!original.isEmpty)
+        for report in [false, true] {
+            try await function(binding("Control+Option+R"), route: "replace/applied", busy: false, report: report)
+            precondition(orientations() != original || report)
+        }
+        precondition(orientations() == original && script.diagnostic == nil)
+        for report in [false, true] {
+            try await refusedFunction(
+                binding("Control+Option+S"), route: "replace/stale",
+                diagnostic: "the workspace changed since ctx.dwindle was read", report: report
+            )
+        }
+        for report in [false, true] {
+            try await refusedFunction(
+                binding("Control+Option+X"), route: "replace/malformed",
+                diagnostic: "a dwindle tree has workspaceId, revision, preselect and nodes", report: report
+            )
+        }
+        precondition(orientations() == original)
+    }
+}

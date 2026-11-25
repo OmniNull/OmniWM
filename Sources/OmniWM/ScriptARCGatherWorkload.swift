@@ -45,18 +45,24 @@ extension ScriptARCFixture {
             try await function(binding(chord), route: "gather/unchanged", busy: false, report: report)
         }
         precondition(columns() == joined && script.diagnostic == nil)
-        let refused = try binding("Control+Option+3")
         for report in [false, true] {
-            precondition(key(refused, measured: true) == .executed)
-            guard let queue = script.callbackQueue, let worker = queue.worker else {
-                throw ScriptARCError("A refused gather needs a worker")
-            }
-            script_arc_follow(unsafeBitCast(worker, to: UnsafeRawPointer.self), false)
-            await queue.waitForAuditPark()
-            script_arc_finish()
-            precondition(script.diagnostic?.hasSuffix("window gather: windowActionFailed.") == true)
-            if report { script_arc_report("gather/refused", "settings/key", 1) }
+            try await refusedFunction(
+                binding("Control+Option+3"), route: "gather/refused",
+                diagnostic: "window gather: windowActionFailed.", report: report
+            )
         }
         precondition(columns() == joined)
+    }
+
+    func refusedFunction(_ command: HotkeyCommand, route: String, diagnostic: String, report: Bool) async throws {
+        precondition(key(command, measured: true) == .executed)
+        guard let queue = script.callbackQueue, let worker = queue.worker else {
+            throw ScriptARCError("A refused callback needs a worker")
+        }
+        script_arc_follow(unsafeBitCast(worker, to: UnsafeRawPointer.self), false)
+        await queue.waitForAuditPark()
+        script_arc_finish()
+        precondition(script.diagnostic?.contains(diagnostic) == true)
+        if report { script_arc_report(route, "settings/key", 1) }
     }
 }

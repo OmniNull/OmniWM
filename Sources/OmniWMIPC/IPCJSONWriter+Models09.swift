@@ -4,6 +4,57 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing IPCEventEnvelope) throws {
+        begin(123)
+        var first = true
+        self.key("channel", &first)
+        try self.value(value.channel)
+        if let fieldValue = value.code {
+            self.key("code", &first)
+            try self.value(fieldValue)
+        }
+        self.key("id", &first)
+        try self.value(value.id)
+        self.key("kind", &first)
+        try self.value(value.kind)
+        self.key("ok", &first)
+        try self.value(value.ok)
+        self.key("result", &first)
+        try self.value(value.result)
+        self.key("status", &first)
+        try self.value(value.status)
+        self.key("version", &first)
+        try self.value(value.version)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCRequestKind) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func value(_ value: borrowing IPCNoPayload) throws {
+        begin(123)
+        end(125)
+    }
+
+    mutating func argument(_ name: StaticString, _ value: borrowing IPCDirection, _ first: inout Bool) throws {
+        self.key("arguments", &first)
+        begin(123)
+        var argumentFirst = true
+        self.key(name, &argumentFirst)
+        try self.value(value)
+        end(125)
+    }
+
+    mutating func argument(_ name: StaticString, _ value: borrowing Int, _ first: inout Bool) throws {
+        self.key("arguments", &first)
+        begin(123)
+        var argumentFirst = true
+        self.key(name, &argumentFirst)
+        try self.value(value)
+        end(125)
+    }
+
     mutating func arguments(_ value: borrowing IPCFocusCommand, _ first: inout Bool) throws {
         switch value {
         case let .spatial(direction):
@@ -204,42 +255,5 @@ extension IPCJSONWriter {
 
     mutating func value(_ value: borrowing IPCCommandPaletteMode) throws {
         try self.value(value.rawValue)
-    }
-
-    mutating func argument(_ name: StaticString, _ value: borrowing String, _ first: inout Bool) throws {
-        self.key("arguments", &first)
-        begin(123)
-        var argumentFirst = true
-        self.key(name, &argumentFirst)
-        try self.value(value)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCWindowSwitcherDirection) throws {
-        try self.value(value.rawValue)
-    }
-
-    mutating func value(_ value: borrowing IPCWindowSwitcherScope) throws {
-        try self.value(value.rawValue)
-    }
-
-    mutating func windowSwitcherArguments(
-        _ direction: IPCWindowSwitcherDirection,
-        _ scope: IPCWindowSwitcherScope?,
-        _ first: inout Bool
-    ) throws {
-        self.key("arguments", &first)
-        begin(123)
-        var argumentFirst = true
-        self.key("direction", &argumentFirst)
-        try self.value(direction)
-        switch scope {
-        case let fieldValue?:
-            self.key("scope", &argumentFirst)
-            try self.value(fieldValue)
-        case nil:
-            break
-        }
-        end(125)
     }
 }

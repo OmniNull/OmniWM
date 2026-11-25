@@ -110,6 +110,8 @@ extension WMController {
             return performConfigScriptCommand(command, target: target)
         case let .gather(gather):
             return performConfigScriptGather(gather, target: target)
+        case let .dwindleReplace(replace):
+            return performConfigScriptDwindleReplace(replace, target: target).externalResult
         case let .window(window):
             guard target.sessionID == scriptSession.identity else { return .staleWindowId }
             if window.action == .summonRight {

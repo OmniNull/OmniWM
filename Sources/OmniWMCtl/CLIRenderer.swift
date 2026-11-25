@@ -77,6 +77,11 @@ enum CLIRenderer {
              .invalidMark,
              .ineligibleWindow,
              .doesNotFit,
+             .staleRevision,
+             .wrongWorkspace,
+             .membershipMismatch,
+             .focusConflict,
+             .busy,
              .invalidArguments,
              .invalidRequest,
              .none:
@@ -311,11 +316,13 @@ extension CLIRenderer {
         let windowRows = payload.windowActions.map { [$0.path, $0.summary, "window"] }
         let windowMarkRows = payload.windowMarkActions.map { [$0.path, $0.summary, "window-mark"] }
         let windowGatherRows = payload.windowGatherActions.map { [$0.path, $0.summary, "window-gather"] }
+        let dwindleRows = payload.dwindleActions.map { [$0.path, $0.summary, "dwindle"] }
         let shellRows = payload.shellActions.map { [$0.path, $0.summary, "shell"] }
 
         return CLITableRenderer.formatRows(
             headers: ["PATH", "SUMMARY", "SURFACE"],
-            rows: commandRows + workspaceRows + windowRows + windowMarkRows + windowGatherRows + shellRows,
+            rows: commandRows + workspaceRows + windowRows + windowMarkRows + windowGatherRows + dwindleRows +
+                shellRows,
             format: format
         )
     }
@@ -347,6 +354,7 @@ extension CLIRenderer {
             ["window-actions", String(payload.windowActions.count)],
             ["window-mark-actions", String(payload.windowMarkActions.count)],
             ["window-gather-actions", String(payload.windowGatherActions.count)],
+            ["dwindle-actions", String(payload.dwindleActions.count)],
             ["shell-actions", String(payload.shellActions.count)],
             ["subscriptions", String(payload.subscriptions.count)]
         ]

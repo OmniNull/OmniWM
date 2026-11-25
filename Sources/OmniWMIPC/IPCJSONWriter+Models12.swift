@@ -4,6 +4,58 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing IPCWindowGatherRequest) throws {
+        begin(123)
+        var first = true
+        self.key("from", &first)
+        try self.value(value.from)
+        self.key("windowIds", &first)
+        try self.value(value.windowIds)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCDwindleRequest) throws {
+        begin(123)
+        var first = true
+        self.key("name", &first)
+        try self.value(value.name)
+        self.key("tree", &first)
+        try self.value(value.tree)
+        end(125)
+    }
+
+    mutating func shellRequestSet(_ key: borrowing String, _ text: borrowing String) throws {
+        begin(123)
+        var first = true
+        self.key("key", &first)
+        try self.value(key)
+        self.key("name", &first)
+        try self.value("set")
+        self.key("value", &first)
+        try self.value(text)
+        end(125)
+    }
+
+    mutating func shellRequestUnset(_ key: borrowing String) throws {
+        begin(123)
+        var first = true
+        self.key("key", &first)
+        try self.value(key)
+        self.key("name", &first)
+        try self.value("unset")
+        end(125)
+    }
+
+    mutating func shellRequestToggle(_ widget: borrowing String) throws {
+        begin(123)
+        var first = true
+        self.key("name", &first)
+        try self.value("toggle")
+        self.key("widget", &first)
+        try self.value(widget)
+        end(125)
+    }
+
     mutating func shellRequestProfile(_ name: borrowing String) throws {
         begin(123)
         var first = true
@@ -126,6 +178,8 @@ extension IPCJSONWriter {
         case let .windowMark(payload):
             try self.value(payload)
         case let .windowGather(payload):
+            try self.value(payload)
+        case let .dwindle(payload):
             try self.value(payload)
         case let .shell(payload):
             try self.value(payload)

@@ -25,6 +25,7 @@ public struct IPCCommandsQueryResult: Codable, Equatable, Sendable {
     public let windowActions: [IPCWindowActionDescriptor]
     public let windowMarkActions: [IPCWindowMarkActionDescriptor]
     public let windowGatherActions: [IPCWindowGatherActionDescriptor]
+    public let dwindleActions: [IPCDwindleActionDescriptor]
     public let shellActions: [IPCShellActionDescriptor]
 
     public init(
@@ -33,6 +34,7 @@ public struct IPCCommandsQueryResult: Codable, Equatable, Sendable {
         windowActions: [IPCWindowActionDescriptor],
         windowMarkActions: [IPCWindowMarkActionDescriptor],
         windowGatherActions: [IPCWindowGatherActionDescriptor],
+        dwindleActions: [IPCDwindleActionDescriptor],
         shellActions: [IPCShellActionDescriptor]
     ) {
         self.commands = commands
@@ -40,6 +42,7 @@ public struct IPCCommandsQueryResult: Codable, Equatable, Sendable {
         self.windowActions = windowActions
         self.windowMarkActions = windowMarkActions
         self.windowGatherActions = windowGatherActions
+        self.dwindleActions = dwindleActions
         self.shellActions = shellActions
     }
 }
@@ -65,6 +68,7 @@ public struct IPCCapabilitiesQueryResult: Codable, Equatable, Sendable {
     public let windowActions: [IPCWindowActionDescriptor]
     public let windowMarkActions: [IPCWindowMarkActionDescriptor]
     public let windowGatherActions: [IPCWindowGatherActionDescriptor]
+    public let dwindleActions: [IPCDwindleActionDescriptor]
     public let shellActions: [IPCShellActionDescriptor]
     public let subscriptions: [IPCSubscriptionDescriptor]
 
@@ -81,6 +85,7 @@ public struct IPCCapabilitiesQueryResult: Codable, Equatable, Sendable {
         windowActions: [IPCWindowActionDescriptor],
         windowMarkActions: [IPCWindowMarkActionDescriptor],
         windowGatherActions: [IPCWindowGatherActionDescriptor],
+        dwindleActions: [IPCDwindleActionDescriptor],
         shellActions: [IPCShellActionDescriptor],
         subscriptions: [IPCSubscriptionDescriptor]
     ) {
@@ -96,6 +101,7 @@ public struct IPCCapabilitiesQueryResult: Codable, Equatable, Sendable {
         self.windowActions = windowActions
         self.windowMarkActions = windowMarkActions
         self.windowGatherActions = windowGatherActions
+        self.dwindleActions = dwindleActions
         self.shellActions = shellActions
         self.subscriptions = subscriptions
     }

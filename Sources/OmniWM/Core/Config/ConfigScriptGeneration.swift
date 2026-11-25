@@ -17,6 +17,7 @@ struct ConfigScriptDispatch: Sendable {
         case native(HotkeyCommand)
         case window(ConfigScriptWindowRequest)
         case gather(ConfigScriptGatherRequest)
+        indirect case dwindleReplace(ConfigScriptDwindleReplace)
     }
 
     let operation: Operation
@@ -28,6 +29,7 @@ struct ConfigScriptDispatch: Sendable {
         case let .native(command): command.displayName
         case let .window(window): "window " + window.name.rawValue
         case .gather: "window gather"
+        case .dwindleReplace: "dwindle replace"
         }
     }
 }

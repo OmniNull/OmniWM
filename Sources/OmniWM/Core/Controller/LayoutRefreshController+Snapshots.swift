@@ -177,6 +177,26 @@ extension LayoutRefreshController {
         )
     }
 
+    func cachedLayoutConstraints(
+        for token: WindowToken,
+        bounds: (workArea: CGSize, cappedAxes: MonitorNeighborAxes)
+    ) -> WindowSizeConstraints {
+        guard let controller, let entry = controller.workspaceManager.entry(for: token) else { return .unconstrained }
+        var constraints = if let metadata = entry.target.hostedMetadata {
+            WindowSizeConstraints(minSize: metadata.minimumSize, maxSize: .zero, isFixed: false)
+        } else {
+            controller.workspaceManager.cachedConstraints(for: token, maxAge: .greatestFiniteMagnitude)
+                ?? .unconstrained
+        }
+        _ = mergeObservedAndRuleConstraints(&constraints, entry: entry, controller: controller)
+        return Self.overflowCappedConstraints(
+            constraints,
+            layoutReason: entry.layoutReason,
+            workArea: bounds.workArea,
+            cappedAxes: bounds.cappedAxes
+        )
+    }
+
     private func mergeObservedAndRuleConstraints(
         _ mergedConstraints: inout WindowSizeConstraints,
         entry: borrowing WindowState,

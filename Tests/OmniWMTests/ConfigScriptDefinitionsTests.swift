@@ -75,6 +75,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         let reach = union(ConfigScriptGatherRequest.reaches.map(\.word))
         overloads
             .append("{ read dispatch: (kind: \"window\", action: \(gather), ids: {string}, from: (\(reach))?) -> () }")
+        overloads.append("{ read dispatch: (kind: \"dwindle\", action: \"replace\", tree: ConfigDwindleTree) -> () }")
         return overloads.joined(separator: "\n    & ")
     }
 

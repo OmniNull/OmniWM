@@ -44,6 +44,15 @@ extension ConfigScriptCallbackQueue {
                         line: dispatch.line, message: error.localizedDescription, source: dispatch.source
                     )
                 }
+            } else if case let .dwindleReplace(replace) = dispatch.operation {
+                switch controller.performConfigScriptDwindleReplace(replace, target: target) {
+                case let .result(result):
+                    outcome = result
+                case let .refused(refusal):
+                    throw ConfigScriptError(
+                        line: dispatch.line, message: "dwindle replace: \(refusal.reason).", source: dispatch.source
+                    )
+                }
             } else if let cause {
                 outcome = performEventCommand(
                     dispatch.operation,

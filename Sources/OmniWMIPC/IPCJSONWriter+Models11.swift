@@ -4,6 +4,47 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing IPCRuleApplyTarget) throws {
+        switch value {
+        case .focused:
+            begin(123)
+            var first = true
+            self.key("kind", &first)
+            try self.value("focused")
+            end(125)
+        case let .window(id):
+            begin(123)
+            var first = true
+            self.key("kind", &first)
+            try self.value("window")
+            self.key("windowId", &first)
+            try self.value(id)
+            end(125)
+        case let .pid(pid):
+            begin(123)
+            var first = true
+            self.key("kind", &first)
+            try self.value("pid")
+            self.key("pid", &first)
+            try self.value(pid)
+            end(125)
+        }
+    }
+
+    mutating func ruleRequestAdd(_ rule: borrowing IPCRuleDefinition) throws {
+        begin(123)
+        var first = true
+        self.key("arguments", &first)
+        begin(123)
+        var firstNested = true
+        self.key("rule", &firstNested)
+        try self.value(rule)
+        end(125)
+        self.key("name", &first)
+        try self.value("add")
+        end(125)
+    }
+
     mutating func ruleRequestReplace(_ id: borrowing String, _ rule: borrowing IPCRuleDefinition) throws {
         begin(123)
         var first = true
@@ -218,47 +259,5 @@ extension IPCJSONWriter {
 
     mutating func value(_ value: borrowing IPCWindowGatherReach) throws {
         try self.value(value.rawValue)
-    }
-
-    mutating func value(_ value: borrowing IPCWindowGatherRequest) throws {
-        begin(123)
-        var first = true
-        self.key("from", &first)
-        try self.value(value.from)
-        self.key("windowIds", &first)
-        try self.value(value.windowIds)
-        end(125)
-    }
-
-    mutating func shellRequestSet(_ key: borrowing String, _ text: borrowing String) throws {
-        begin(123)
-        var first = true
-        self.key("key", &first)
-        try self.value(key)
-        self.key("name", &first)
-        try self.value("set")
-        self.key("value", &first)
-        try self.value(text)
-        end(125)
-    }
-
-    mutating func shellRequestUnset(_ key: borrowing String) throws {
-        begin(123)
-        var first = true
-        self.key("key", &first)
-        try self.value(key)
-        self.key("name", &first)
-        try self.value("unset")
-        end(125)
-    }
-
-    mutating func shellRequestToggle(_ widget: borrowing String) throws {
-        begin(123)
-        var first = true
-        self.key("name", &first)
-        try self.value("toggle")
-        self.key("widget", &first)
-        try self.value(widget)
-        end(125)
     }
 }

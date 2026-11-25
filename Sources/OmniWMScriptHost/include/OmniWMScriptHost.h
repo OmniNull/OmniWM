@@ -371,6 +371,7 @@ typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t l
 #define OMNI_CONFIG_DWINDLE_RIGHT 2u
 #define OMNI_CONFIG_DWINDLE_UP 3u
 #define OMNI_CONFIG_DWINDLE_DOWN 4u
+#define OMNI_CONFIG_DWINDLE_MEMBER_LIMIT 256u
 
 typedef struct omni_config_vm omni_config_vm;
 
@@ -450,6 +451,25 @@ typedef enum omni_config_effect_kind {
     OMNI_CONFIG_SHOW_NOTICE
 } omni_config_effect_kind;
 
+typedef struct omni_config_dwindle_node {
+    uint8_t kind;
+    uint8_t orientation;
+    double ratio;
+    uint16_t first_member;
+    uint16_t member_count;
+    uint16_t active;
+} omni_config_dwindle_node;
+
+typedef struct omni_config_dwindle_tree {
+    omni_config_span workspace_id;
+    omni_config_span revision;
+    uint8_t preselect;
+    const omni_config_dwindle_node *nodes;
+    size_t node_count;
+    const omni_config_span *members;
+    size_t member_count;
+} omni_config_dwindle_tree;
+
 typedef struct omni_config_callbacks {
     bool (*resolve)(void *context, const omni_config_span *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
@@ -468,6 +488,8 @@ typedef struct omni_config_callbacks {
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
     bool (*window)(void *context, const omni_config_span *words, size_t count, const omni_config_field *destination,
         size_t destination_count, omni_config_location location, char *error, size_t capacity);
+    bool (*dwindle)(void *context, const omni_config_dwindle_tree *tree, omni_config_location location, char *error,
+        size_t capacity);
 } omni_config_callbacks;
 
 typedef struct omni_config_stats {

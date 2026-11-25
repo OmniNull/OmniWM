@@ -75,14 +75,7 @@ actor IPCApplicationBridge {
         case let .capture(capture):
             return await Self.captureResponse(for: capture, id: request.id, controller: controller)
         case let .query(query):
-            return await MainActor.run {
-                let queryRouter = IPCQueryRouter(
-                    controller: controller,
-                    appVersion: appVersion,
-                    sessionToken: sessionToken
-                )
-                return self.response(for: query, id: request.id, queryRouter: queryRouter)
-            }
+            return await MainActor.run { self.response(for: query, id: request.id) }
         case let .rule(rule):
             let ruleRouter = await MainActor.run {
                 IPCRuleRouter(controller: controller, sessionToken: sessionToken)
@@ -105,6 +98,11 @@ actor IPCApplicationBridge {
             return await MainActor.run {
                 IPCWindowGatherRequestExecutor(controller: controller, sessionToken: sessionToken)
                     .response(for: windowGather, id: request.id)
+            }
+        case let .dwindle(dwindle):
+            return await MainActor.run {
+                IPCDwindleRequestExecutor(controller: controller, sessionToken: sessionToken)
+                    .response(for: dwindle, id: request.id)
             }
         case let .shell(shell):
             return await Self.shellResponse(for: shell, id: request.id, controller: controller)
@@ -144,6 +142,7 @@ actor IPCApplicationBridge {
              .window,
              .windowMark,
              .windowGather,
+             .dwindle,
              .shell,
              .subscribe:
             return IPCResponse(failing: request, code: .invalidRequest)
@@ -226,10 +225,11 @@ actor IPCApplicationBridge {
     }
 
     @MainActor
-    private func response(for query: IPCQueryRequest, id: String, queryRouter: IPCQueryRouter) -> IPCResponse {
+    private func response(for query: IPCQueryRequest, id: String) -> IPCResponse {
         if let validationFailure = IPCQuerySelection.validate(query, sessionToken: sessionToken) {
             return .failure(id: id, kind: .query, code: validationFailure)
         }
+        let queryRouter = IPCQueryRouter(controller: controller, appVersion: appVersion, sessionToken: sessionToken)
         return .success(id: id, kind: .query, result: IPCResult(query: query, queryRouter: queryRouter))
     }
 

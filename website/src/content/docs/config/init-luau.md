@@ -92,6 +92,14 @@ A frame is `{ x, y, width, height }` in points, in the coordinates `omniwmctl qu
 
 An empty workspace has no nodes. `revision` is text that changes when the tree, a ratio, a tile's windows or tab, or the preselect changes, and stays the same otherwise; a window that closes and opens again counts as a change. `ctx.dwindle` is absent on other layouts and until Dwindle has laid out the workspace's current windows, for example in a `window.close` callback before the layout catches up. A tree with more than 256 windows gives `nil`, with `truncated.dwindle` set to `true`.
 
+`omniwm.dispatch("dwindle", "replace", tree)` replaces the Dwindle layout of the workspace you're on with `tree`, in the same format as `ctx.dwindle`. Read `ctx.dwindle`, build a changed copy, and pass it back:
+- `workspaceId` and `revision` come from that read. The workspace must still be the one shown, and its tree mustn't have changed since.
+- `nodes` lists every tiled window of the workspace exactly once, inactive tabs included, as one complete tree. Each split is followed by both of its subtrees; each leaf has at least one window and an `active` position. A ratio is from `0` to `2`, with `1` for an even split.
+- The focused window must stay the shown tab of its group, and the windows' minimum sizes must fit the display.
+- It's refused while a window of the workspace is minimized, hidden, fullscreen, in a scratchpad or on another macOS desktop, while you drag or resize a tile or swipe between workspaces, and until Dwindle has laid out a window that just opened or closed.
+
+A callback can replace one tree. A refusal changes nothing, names the reason in the config notice, and stops the callback's remaining actions. Passing the tree back unchanged does nothing, and Undo returns to the layout before the replacement.
+
 A window's `column` is the position of its Niri column, counting from 1, numbered like `focus-column` and `omniwmctl query`'s `column-index`. Windows in one column, inactive tabs included, share it, and it counts columns scrolled out of view too. Floating windows, Dwindle windows and windows the layout leaves out, such as minimized ones, have none.
 
 A window `id` is text such as `"9b2f6c0e4d1a7b3c5e8f0a2d4c6e8b1f.48213.912345"`. It names the same window until OmniWM quits, and actions reach that window while OmniWM manages it. A monitor `id` is the display's number as text, such as `"69734208"`.
@@ -530,4 +538,26 @@ wm.keymap.set("Control+Option+Shift+G", function(ctx: ConfigContext)
         wm.dispatch("window", "gather", ids, "all")
     end
 end, { reads = { "windows" } })
+```
+
+**Rotate a Dwindle workspace.** Control + Option + Shift + R turns every split of the Dwindle workspace you're on: side by side becomes stacked and stacked becomes side by side, keeping each split's ratio and every tab. Press it again to turn it back.
+
+```lua
+local wm = omniwm
+wm.keymap.set("Control+Option+Shift+R", function(ctx: ConfigContext)
+    local tree = ctx.dwindle
+    if not tree then return end
+    local nodes: { ConfigDwindleNode } = {}
+    for index, node in tree.nodes do
+        if node.kind == "split" then
+            local turned = if node.orientation == "horizontal" then "vertical" else "horizontal"
+            nodes[index] = { kind = "split", orientation = turned, ratio = node.ratio }
+        else
+            nodes[index] = node
+        end
+    end
+    wm.dispatch("dwindle", "replace", {
+        workspaceId = tree.workspaceId, revision = tree.revision, preselect = tree.preselect, nodes = nodes,
+    })
+end, { reads = { "dwindle" } })
 ```

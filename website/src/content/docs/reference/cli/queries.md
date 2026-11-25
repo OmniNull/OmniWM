@@ -104,9 +104,9 @@ The three workspace flags answer different questions. `is-focused` marks the wor
 | `rules` | — | — | Persisted user window rules |
 | `rule-actions` | — | — | Rule action registry |
 | `queries` | — | — | Query registry |
-| `commands` | — | — | Automation action registry for `command`, `workspace`, `window`, `window mark`, `window gather`, and `shell` surfaces |
+| `commands` | — | — | Automation action registry for `command`, `workspace`, `window`, `window mark`, `window gather`, `dwindle`, and `shell` surfaces |
 | `subscriptions` | — | — | Subscription registry |
-| `capabilities` | — | — | Full protocol capabilities, including `windowMarkActions`, `windowGatherActions`, and `shellActions` |
+| `capabilities` | — | — | Full protocol capabilities, including `windowMarkActions`, `windowGatherActions`, `dwindleActions`, and `shellActions` |
 | `shell-widgets` | — | — | Luau shell widgets with their `state` (`loading`, `loaded`, `failed` or `fallback`), `placements`, `source` file and any `error`, plus `problems` found in `shell.luau` and theme files |
 
 `commands` and `capabilities` include the `window mark` descriptors. List live marks with [`omniwmctl window mark list`](/reference/cli/actions/#window-marks).
@@ -157,3 +157,48 @@ omniwmctl query capabilities
 `nodes` lists the tree in preorder: each split is followed by its first and then its second subtree. The first is on the left of a `horizontal` split and at the bottom of a `vertical` one, and `ratio` is `1` for an even split. A leaf's `members` are the session-scoped window IDs of its tile in tab order, and `active` is the position of the one shown, counting from 1. `preselect` is the pending direction (`left`, `right`, `up` or `down`) and is omitted when none is set. `revision` is 16 hex digits that change when the tree, a ratio, a tile's windows or tab, or the preselect changes, and stay the same otherwise until OmniWM restarts.
 
 An empty Dwindle workspace returns a `tree` with no nodes. `tree` is omitted on other layouts and until Dwindle has laid out the workspace's current windows, for example right after one opens or closes. A tree with more than 256 windows omits `tree` and sets `tooLarge` to `true`.
+
+### Replace
+
+To change the layout, read the tree, edit it, and send it back as an IPC request with `kind: "dwindle"`. There is no `omniwmctl` command for it. The payload is:
+
+```json
+{
+  "name": "replace",
+  "tree": {
+    "workspaceId": "…",
+    "revision": "3F9A0C17E2B4D865",
+    "preselect": "left",
+    "nodes": [
+      { "kind": "split", "orientation": "vertical", "ratio": 1.4 },
+      { "kind": "leaf", "members": ["<window id>", "<window id>"], "active": 1 },
+      { "kind": "leaf", "members": ["<window id>"], "active": 1 }
+    ]
+  }
+}
+```
+
+`tree` has the same shape as the query's. Omit `preselect` to clear it. OmniWM checks the whole tree before it changes anything:
+
+- `revision` must be the one you read, so a tree that changed in the meantime is refused.
+- `workspaceId` must be the interaction workspace, and that workspace must use Dwindle.
+- The leaves must list every tiled window of that workspace once, by its ID from this session.
+- `ratio` must be from 0 to 2, and `active` must point at one of the leaf's windows.
+- The focused window, or one OmniWM is about to focus, must stay the shown tab of its tile.
+- The windows' minimum sizes must fit the display.
+
+`status: "executed"` means OmniWM accepted the layout and asked for a relayout. Window frames settle afterwards. Sending the current tree unchanged returns `no_change` with `status: "ignored"`. A refusal changes nothing and returns `status: "error"` with one of these codes:
+
+| Code | Meaning |
+|------|---------|
+| `invalid_arguments` | The tree is not one complete Dwindle tree: a split without two children, a leaf without windows, a missing or out-of-range `ratio` or `active`, a field that belongs to the other node kind, a `revision` that is not 16 hex digits, a `workspaceId` that is not a UUID, or more than 256 windows |
+| `stale_revision` | The tree changed since `revision` was read |
+| `wrong_workspace` | `workspaceId` is not the interaction workspace, or that workspace does not use Dwindle |
+| `stale_window_id` | A window ID is malformed, comes from another session, or names a window OmniWM does not manage |
+| `membership_mismatch` | The leaves skip a tiled window, repeat one, or list one from elsewhere |
+| `ineligible_window` | A listed window is minimized, hidden, withdrawn, fullscreen, in a scratchpad, or on another macOS desktop |
+| `focus_conflict` | The focused window, or one OmniWM is about to focus, would stop being the shown tab of its tile |
+| `busy` | A mouse resize or move or a workspace swipe is running, or Dwindle has not laid out the workspace's current windows yet; try again once it settles |
+| `does_not_fit` | The windows' minimum sizes do not fit the display in this layout |
+
+While OmniWM is disabled or Overview is open, the request returns `ignored_disabled` or `ignored_overview` with `status: "ignored"`.

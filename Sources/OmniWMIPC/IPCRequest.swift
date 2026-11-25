@@ -21,6 +21,7 @@ public struct IPCRequest: Codable, Equatable, Sendable {
         case window(IPCWindowRequest)
         case windowMark(IPCWindowMarkRequest)
         case windowGather(IPCWindowGatherRequest)
+        case dwindle(IPCDwindleRequest)
         case shell(IPCShellRequest)
         case subscribe(IPCSubscribeRequest)
     }
@@ -82,6 +83,10 @@ public struct IPCRequest: Codable, Equatable, Sendable {
         )
     }
 
+    public init(id: String, dwindle: IPCDwindleRequest, authorizationToken: String? = nil) {
+        self.init(id: id, kind: .dwindle, authorizationToken: authorizationToken, payload: .dwindle(dwindle))
+    }
+
     public init(id: String, shell: IPCShellRequest, authorizationToken: String? = nil) {
         self.init(id: id, kind: .shell, authorizationToken: authorizationToken, payload: .shell(shell))
     }
@@ -139,6 +144,8 @@ public struct IPCRequest: Codable, Equatable, Sendable {
             payload = .windowMark(try container.decode(IPCWindowMarkRequest.self, forKey: .payload))
         case .windowGather:
             payload = .windowGather(try container.decode(IPCWindowGatherRequest.self, forKey: .payload))
+        case .dwindle:
+            payload = .dwindle(try container.decode(IPCDwindleRequest.self, forKey: .payload))
         case .shell:
             payload = .shell(try container.decode(IPCShellRequest.self, forKey: .payload))
         case .subscribe:
@@ -171,6 +178,8 @@ public struct IPCRequest: Codable, Equatable, Sendable {
         case let .windowMark(payload):
             try container.encode(payload, forKey: .payload)
         case let .windowGather(payload):
+            try container.encode(payload, forKey: .payload)
+        case let .dwindle(payload):
             try container.encode(payload, forKey: .payload)
         case let .shell(payload):
             try container.encode(payload, forKey: .payload)
