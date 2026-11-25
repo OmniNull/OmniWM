@@ -106,7 +106,9 @@ extension WMController {
             }
             if let automationRefusal { return automationRefusal }
             guard window.session == scriptSession.identity else { return .staleWindowId }
-            return performWindowAction(window.action, on: window.token)
+            guard window.fromEdge else { return performWindowAction(window.action, on: window.token) }
+            guard window.token == target.token, let anchor = target.workspaceId else { return .invalidArguments }
+            return performWindowAction(window.action, on: window.token, edgeOf: anchor)
         }
     }
 

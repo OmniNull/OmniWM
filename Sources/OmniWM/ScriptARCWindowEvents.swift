@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
-import Foundation
+import AppKit
+import OmniWMIPC
 import ScriptARCCounters
 
 @MainActor
@@ -226,5 +227,60 @@ extension ScriptARCFixture {
         title(latest, native: true, measured: true)
         try await finishWorker(seed: false)
         if report { script_arc_report("native/title+script", "native/title", 1) }
+    }
+}
+
+@MainActor
+func measureDisplayMoves(in directory: URL) async throws {
+    for (route, byName) in [("move/by-name", true), ("move/neighbor", false)] {
+        let location = directory.appendingPathComponent(route.replacingOccurrences(of: "/", with: "-"))
+        try await ScriptARCFixture(directory: location).displayMove(route: route, byName: byName)
+    }
+}
+
+@MainActor
+extension ScriptARCFixture {
+    fileprivate func displayMove(route: String, byName: Bool) async throws {
+        let manager = controller.workspaceManager
+        let first = manager.monitors.first!
+        let frame = first.frame.offsetBy(dx: first.frame.width, dy: 0)
+        let second = Monitor(
+            id: .init(displayId: first.displayId + 1), displayId: first.displayId + 1, frame: frame,
+            visibleFrame: frame, hasNotch: false, name: "Audit right", displayUUID: UUID().uuidString, isMain: false
+        )
+        manager.applyMonitorConfigurationChange([first, second])
+        let name = WorkspaceIDPolicy.lowestUnusedRawID(in: manager.workspaces.map(\.name))
+        manager.settings.workspaces.configurations.append(
+            WorkspaceConfiguration(name: name, monitorAssignment: .specificDisplay(OutputId(from: second)))
+        )
+        manager.applySettings()
+        let source = manager.workspace(for: otherWindow)!
+        let destination = manager.workspaceId(named: name)!
+        precondition(manager.setActiveWorkspace(destination, on: second.id))
+        let resident = WindowToken(pid: otherWindow.pid, windowId: token.windowId + Self.totalRows)
+        let residentWindow = AXWindowRef(
+            element: AXUIElementCreateApplication(resident.pid),
+            windowId: resident.windowId
+        )
+        precondition(manager.addWindow(
+            residentWindow, pid: resident.pid, windowId: resident.windowId, to: destination, mode: .tiling
+        ) == resident)
+        controller.niriLayoutHandler.enableNiriLayout()
+        let engine = controller.niriEngine!
+        manager.withEngineMutationScope {
+            _ = engine.addWindow(token: otherWindow, to: source, afterSelection: nil)
+            _ = engine.addWindow(token: resident, to: destination, afterSelection: nil)
+        }
+        precondition(manager.windowMode(for: otherWindow) == .tiling && manager.windowMode(for: resident) == .tiling)
+        let id = ConfigScriptWindowID.string(otherWindow, session: controller.scriptSession.identity)
+        let place = byName ? "\"\(name)\"" : "{ neighbor = \"right\" }"
+        let queue = try await acceptTitleScript("""
+        omniwm.keymap.set("Control+Option+J", function() omniwm.dispatch("window", "move-to-workspace", "\(id)", \(place)) end)
+        """)
+        await queue.waitForAuditPark()
+        try await function(binding("Control+Option+J"), route: route, busy: false, report: true)
+        let column = engine.findNode(for: otherWindow, in: destination).flatMap(engine.column(of:))
+        precondition(manager.workspace(for: otherWindow) == destination && column?.windowNodes.count == 1)
+        precondition(engine.columns(in: destination).count == 2)
     }
 }

@@ -4,7 +4,28 @@
 import AppKit
 import Foundation
 
+enum NiriColumnPlacement: Equatable, Sendable {
+    case append
+    case position(Int)
+}
+
 extension NiriLayoutEngine {
+    func insertColumn(
+        _ column: NiriContainer,
+        at placement: NiriColumnPlacement,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) {
+        guard let root = root(for: workspaceId) else { return }
+        if case let .position(position) = placement {
+            let projected = projectedColumns(in: workspaceId)
+            if projected.indices.contains(position) {
+                root.insertChild(column, at: projected[position].durableIndex)
+                return
+            }
+        }
+        root.appendChild(column)
+    }
+
     struct WorkspaceMoveResult {
         let newFocusNodeId: NodeId?
 
@@ -17,6 +38,7 @@ extension NiriLayoutEngine {
         _ window: NiriWindow,
         from sourceWorkspaceId: WorkspaceDescriptor.ID,
         to targetWorkspaceId: WorkspaceDescriptor.ID,
+        placement: NiriColumnPlacement? = nil,
         sourceState: inout ViewportState,
         targetState: inout ViewportState
     ) -> WorkspaceMoveResult? {
@@ -43,7 +65,7 @@ extension NiriLayoutEngine {
             targetColumn = existingColumn
         } else {
             let newColumn = NiriContainer()
-            targetWorkspaceState.root.appendChild(newColumn)
+            insertColumn(newColumn, at: placement ?? .append, in: targetWorkspaceId)
             targetColumn = newColumn
         }
         initializeNewContainerSizing(targetColumn, in: targetWorkspaceId, initialState: sizing)

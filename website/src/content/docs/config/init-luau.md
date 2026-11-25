@@ -107,7 +107,7 @@ Handlers last until the next reload.
 | Action | Extra arguments |
 | --- | --- |
 | `focus`, `navigate`, `summon-right`, `close` | none |
-| `move-to-workspace` | workspace name |
+| `move-to-workspace` | workspace name, or a [destination table](#destination-tables) |
 | `move-column-to-first`, `move-column-to-last` | none |
 | `move-column-to-index` | position as a string, such as `"2"` |
 | `move-column` | `"left"`, `"right"`, `"up"` or `"down"` |
@@ -116,6 +116,14 @@ Handlers last until the next reload.
 | `cycle-window-primary-span`, `cycle-window-secondary-span` | `"forward"` or `"backward"` |
 | `toggle-column-tabbed`, `toggle-floating` | none |
 | `assign-to-scratchpad` | slot as a string, such as `"1"` |
+
+### Destination tables
+
+`move-to-workspace` also takes a table that picks a display instead of a workspace. The window goes to the workspace that display shows when the move runs.
+- `{ display = id }` uses a monitor `id` from `monitors` or a row.
+- `{ neighbor = "left", of = id }` uses the next display in that direction from `of`. Without `of`, it starts from the window's display. With no display there, nothing moves.
+- `column = n` places the window as the `n`th column on a Niri workspace. A larger `n` puts it last. Without `column`, it becomes the last column. Dwindle workspaces ignore it.
+- `fromEdge = true` with `neighbor` and `of` moves the callback's own window only if it is still on the workspace it was on when the key was pressed, on display `of`, and in the outermost Niri column in that direction. Otherwise nothing moves, so a second queued press can't skip a display.
 
 ## Window rules
 
@@ -295,4 +303,44 @@ wm.on("window.close", function(e: ConfigWindowEdge)
         end
     end
 end, { reads = { "windows" } })
+```
+
+**Cycle the focused window through your displays.** Control + Option + Shift + N moves it to the next display, left to right and then top first, wrapping at the end. Adding P instead of N goes the other way.
+
+```lua
+local wm = omniwm
+local function cycle(chord: string, step: number)
+    wm.keymap.set(chord, function(ctx: ConfigContext)
+        local monitors, rows, id = ctx.monitors, ctx.workspaceWindows, ctx.windowId
+        if not monitors or not rows or not id then return end
+        local current: string? = nil
+        for _, row in rows do
+            if row.id == id then current = row.monitor end
+        end
+        for index, monitor in monitors do
+            if monitor.id == current then
+                local target = monitors[(index - 1 + step) % #monitors + 1]
+                wm.dispatch("window", "move-to-workspace", id, { display = target.id })
+                return
+            end
+        end
+    end, { reads = { "workspaceWindows", "monitors" } })
+end
+cycle("Control+Option+Shift+N", 1)
+cycle("Control+Option+Shift+P", -1)
+```
+
+**Send a window to the next display as its own column.** Control + Option + Shift + H and L move the focused window to the display on that side. Unlike Move to Monitor, the window doesn't join a column there.
+
+```lua
+local wm = omniwm
+local function send(chord: string, direction: "left" | "right")
+    wm.keymap.set(chord, function(ctx: ConfigContext)
+        if ctx.windowId then
+            wm.dispatch("window", "move-to-workspace", ctx.windowId, { neighbor = direction })
+        end
+    end)
+end
+send("Control+Option+Shift+H", "left")
+send("Control+Option+Shift+L", "right")
 ```

@@ -77,7 +77,8 @@ extension NiriLayoutEngine {
         to workspaceId: WorkspaceDescriptor.ID,
         afterSelection selectedNodeId: NodeId?,
         focusedToken: WindowToken? = nil,
-        containerSizingState: NiriContainerSizingState? = nil
+        containerSizingState: NiriContainerSizingState? = nil,
+        placement: NiriColumnPlacement? = nil
     ) -> NiriWindow {
         let state = ensureState(for: workspaceId)
         if let existing = state.nodesByToken[token] {
@@ -109,7 +110,9 @@ extension NiriLayoutEngine {
 
         let newColumn = NiriContainer()
         initializeNewContainerSizing(newColumn, in: workspaceId, initialState: containerSizingState)
-        if let refCol = referenceColumn {
+        if let placement {
+            insertColumn(newColumn, at: placement, in: workspaceId)
+        } else if let refCol = referenceColumn {
             root.insertAfter(newColumn, reference: refCol)
         } else {
             root.appendChild(newColumn)

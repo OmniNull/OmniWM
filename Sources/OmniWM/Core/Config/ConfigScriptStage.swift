@@ -174,6 +174,22 @@ struct ConfigScriptStage {
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)
                 }
+            },
+            window: { context, words, count, destination, destinationCount, location, error, capacity in
+                guard let context, let words else { return false }
+                do throws(ConfigScriptError) {
+                    let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
+                    try stage.pointee.dispatch(
+                        .window(ConfigScriptWindowRequest(
+                            words: UnsafeBufferPointer(start: words, count: count),
+                            destination: destination.map { UnsafeBufferPointer(start: $0, count: destinationCount) }
+                        )),
+                        at: location
+                    )
+                    return true
+                } catch let failure {
+                    return failure.write(to: error, capacity: capacity)
+                }
             }
         )
     }
@@ -363,8 +379,6 @@ extension ConfigScriptStage {
             }
         }
         switch kind {
-        case OMNI_CONFIG_WINDOW_DISPATCH:
-            dispatch(.window(try ConfigScriptWindowRequest(words: words)), at: location)
         case OMNI_CONFIG_OPEN_APP:
             let bundleID = try Self.string(words[0])
             guard ActionCatalog.isValidOpenAppBundleID(bundleID) else {

@@ -53,8 +53,24 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
                 parameters.append(parameter)
             }
             overloads.append("{ read dispatch: (\(parameters.joined(separator: ", "))) -> () }")
+            if action.name == .moveToWorkspace {
+                overloads.append(
+                    "{ read dispatch: (kind: \"window\", action: \"move-to-workspace\", id: string, " +
+                        "destination: ConfigWindowDestination) -> () }"
+                )
+            }
         }
         return overloads.joined(separator: "\n    & ")
+    }
+
+    private var destinationDefinitions: String {
+        let direction = union(IPCDirection.allCases.map(\.rawValue))
+        return """
+        export type ConfigWindowDestination =
+            { read display: string, read column: number? }
+            | { read neighbor: \(direction), read of: string?, read column: number? }
+            | { read neighbor: \(direction), read of: string, read fromEdge: boolean, read column: number? }
+        """
     }
 
     private let lookupDefinitions = """
@@ -130,6 +146,8 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         }
 
         \(lookupDefinitions)
+
+        \(destinationDefinitions)
 
         \(eventDefinitions())
 

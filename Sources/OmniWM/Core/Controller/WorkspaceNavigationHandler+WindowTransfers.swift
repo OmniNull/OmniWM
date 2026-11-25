@@ -32,13 +32,15 @@ extension WorkspaceNavigationHandler {
     private func transferWindowFromSourceEngine(
         token: WindowToken,
         from sourceWsId: WorkspaceDescriptor.ID?,
-        to targetWsId: WorkspaceDescriptor.ID
+        to targetWsId: WorkspaceDescriptor.ID,
+        placement: NiriColumnPlacement?
     ) -> WindowTransferResult {
         guard let controller else { return WindowTransferResult(succeeded: false, newSourceFocusToken: nil) }
         let transfer = WindowEngineTransfer(
             token: token,
             sourceWorkspaceId: sourceWsId,
             targetWorkspaceId: targetWsId,
+            placement: placement,
             controller: controller
         )
         var progress = WindowEngineTransferProgress()
@@ -54,7 +56,9 @@ extension WorkspaceNavigationHandler {
             return transferDwindleWindow(token, from: sourceWsId, to: targetWsId, controller: controller)
         }
         if transfer.sourceIsDwindle != transfer.targetIsDwindle, let sourceWsId {
-            return transferMixedWindow(token, from: sourceWsId, to: targetWsId, controller: controller)
+            return transferMixedWindow(
+                token, from: sourceWsId, to: targetWsId, placement: placement, controller: controller
+            )
         }
         transferNiriWindow(transfer, controller: controller, progress: &progress)
         detachTransferredWindow(transfer, controller: controller, progress: &progress)
@@ -142,9 +146,10 @@ extension WorkspaceNavigationHandler {
     @discardableResult
     func commitWindowMove(
         handle: WindowHandle,
-        toWorkspaceId targetWorkspaceId: WorkspaceDescriptor.ID
+        toWorkspaceId targetWorkspaceId: WorkspaceDescriptor.ID,
+        placement: NiriColumnPlacement? = nil
     ) -> StructuralMutationOutcome {
-        let outcome = moveWindow(handle: handle, toWorkspaceId: targetWorkspaceId)
+        let outcome = moveWindow(handle: handle, toWorkspaceId: targetWorkspaceId, placement: placement)
         if case let .changed(mutation) = outcome, let controller {
             let movesSelection = controller.workspaceManager.selectedManagedToken == handle.id
             finishWorkspaceMove(mutation, focusPolicy: movesSelection ? .configured : .retainCurrent)
@@ -155,7 +160,8 @@ extension WorkspaceNavigationHandler {
     @discardableResult
     func moveWindow(
         handle: WindowHandle,
-        toWorkspaceId targetWsId: WorkspaceDescriptor.ID
+        toWorkspaceId targetWsId: WorkspaceDescriptor.ID,
+        placement: NiriColumnPlacement? = nil
     ) -> StructuralMutationOutcome {
         guard let controller,
               controller.workspaceManager.descriptor(for: targetWsId) != nil,
@@ -177,7 +183,8 @@ extension WorkspaceNavigationHandler {
         let transferResult = transferWindowFromSourceEngine(
             token: token,
             from: currentWorkspaceId,
-            to: targetWsId
+            to: targetWsId,
+            placement: placement
         )
         guard transferResult.succeeded else { return .unchanged }
 
@@ -279,6 +286,7 @@ extension WorkspaceNavigationHandler {
                     windowNode,
                     from: sourceWsId,
                     to: targetWsId,
+                    placement: transfer.placement,
                     sourceState: &sourceState,
                     targetState: &targetState
                 ) else { return nil }

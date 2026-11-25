@@ -3,12 +3,18 @@
 
 import OmniWMIPC
 
+enum WindowDisplayTarget: Equatable, Sendable {
+    case display(Monitor.ID)
+    case neighbor(Direction, of: Monitor.ID?)
+}
+
 enum WindowAction: Equatable, Sendable {
     case focus
     case navigate
     case summonRight
     case close
     case moveToWorkspace(WorkspaceTarget)
+    case moveToDisplay(WindowDisplayTarget, column: Int?)
     case moveColumn(NiriColumnMoveTarget)
     case toggleContainerFullPrimarySpan
     case setContainerPrimarySpan(NiriSizeChange)
@@ -24,6 +30,7 @@ enum WindowAction: Equatable, Sendable {
     fileprivate var refusesAttachedWindow: Bool {
         switch self {
         case .moveToWorkspace,
+             .moveToDisplay,
              .summonRight,
              .toggleFloating,
              .assignToScratchpad: true
@@ -52,13 +59,11 @@ extension WMController {
         }
     }
 
-    func isWindow(_ token: WindowToken, onWorkspace rawWorkspaceID: String) -> Bool {
-        guard let targetId = workspaceManager.workspaceId(for: rawWorkspaceID, createIfMissing: false)
-        else { return false }
-        return workspaceManager.workspace(for: token) == targetId
-    }
-
-    func performWindowAction(_ action: WindowAction, on token: WindowToken) -> ExternalCommandResult {
+    func performWindowAction(
+        _ action: WindowAction,
+        on token: WindowToken,
+        edgeOf anchor: WorkspaceDescriptor.ID? = nil
+    ) -> ExternalCommandResult {
         if action.refusesAttachedWindow,
            workspaceManager.entry(for: token)?.target.hostedMetadata?.role.parent != nil
         {
@@ -79,6 +84,9 @@ extension WMController {
         case let .moveToWorkspace(target):
             guard let handle = workspaceManager.handle(for: token) else { return .notFound }
             return moveWindow(handle, to: target)
+        case let .moveToDisplay(target, column):
+            guard let handle = workspaceManager.handle(for: token) else { return .notFound }
+            return moveWindow(handle, to: target, column: column, edgeOf: anchor)
         case let .moveColumn(target):
             return performNiriWindowAction(token) { $0.moveColumnPreservingFocus(containing: $1, target: target) }
         case .toggleContainerFullPrimarySpan:
@@ -161,15 +169,75 @@ extension WMController {
         case let .failure(result): return result
         case let .success(resolved): rawWorkspaceID = resolved
         }
-        guard let targetWorkspaceId = workspaceManager.workspaceId(for: rawWorkspaceID, createIfMissing: false)
+        guard let workspaceId = workspaceManager.workspaceId(for: rawWorkspaceID, createIfMissing: false)
         else { return .notFound }
-        guard !isWindow(handle.id, onWorkspace: rawWorkspaceID) else { return .noChange }
+        return commitMove(handle, to: workspaceId, placement: nil)
+    }
+
+    private func moveWindow(
+        _ handle: WindowHandle,
+        to target: WindowDisplayTarget,
+        column: Int?,
+        edgeOf anchor: WorkspaceDescriptor.ID?
+    ) -> ExternalCommandResult {
+        let manager = workspaceManager
+        let display: Monitor.ID
+        switch target {
+        case let .display(id):
+            guard manager.monitor(byId: id) != nil else { return .notFound }
+            display = id
+        case let .neighbor(direction, of):
+            guard let source = of ?? manager.workspace(for: handle.id).flatMap(manager.monitorId(for:)) else {
+                return .notFound
+            }
+            if let anchor, !isWindow(handle.id, onEdge: direction, of: anchor, display: source) { return .noChange }
+            guard let neighbor = manager.adjacentMonitor(from: source, direction: direction) else { return .noChange }
+            display = neighbor.id
+        }
+        guard let workspace = manager.activeWorkspaceOrFirst(on: display) else { return .noChange }
+        return commitMove(handle, to: workspace.id, placement: column.map { .position($0 - 1) } ?? .append)
+    }
+
+    private func commitMove(
+        _ handle: WindowHandle,
+        to workspaceId: WorkspaceDescriptor.ID,
+        placement: NiriColumnPlacement?
+    ) -> ExternalCommandResult {
+        guard workspaceManager.workspace(for: handle.id) != workspaceId else { return .noChange }
         if case .changed = workspaceNavigationHandler.commitWindowMove(
             handle: handle,
-            toWorkspaceId: targetWorkspaceId
+            toWorkspaceId: workspaceId,
+            placement: placement
         ) {
             return .executed
         }
         return .workspaceStateConflict
+    }
+
+    private func isWindow(
+        _ token: WindowToken,
+        onEdge direction: Direction,
+        of workspaceId: WorkspaceDescriptor.ID,
+        display: Monitor.ID
+    ) -> Bool {
+        let manager = workspaceManager
+        guard let entry = manager.entry(for: token), entry.workspaceId == workspaceId, entry.mode == .tiling,
+              !manager.isWindowSuppressedByMacOS(entry), manager.monitorId(for: workspaceId) == display,
+              manager.activeLayoutKind(for: workspaceId) == .niri,
+              let engine = niriEngine, let monitor = manager.monitor(byId: display),
+              let node = engine.findNode(for: token, in: workspaceId), let column = engine.column(of: node)
+        else { return false }
+        let orientation = niriLayoutHandler.resolvedOrientation(for: workspaceId, monitor: monitor, engine: engine)
+        if let step = direction.primaryStep(for: orientation) {
+            let columns = engine.projectedColumns(in: workspaceId)
+            guard let index = columns.firstIndex(where: { $0.column === column }),
+                  columns[index].windows.contains(where: { $0 === node })
+            else { return false }
+            return !columns.indices.contains(index + step)
+        }
+        guard let step = direction.secondaryStep(for: orientation) else { return false }
+        let windows = engine.projectedWindows(in: column, workspaceId: workspaceId)
+        guard let member = windows.firstIndex(where: { $0 === node }) else { return false }
+        return !windows.indices.contains(member + step)
     }
 }

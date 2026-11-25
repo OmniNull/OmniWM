@@ -14,9 +14,12 @@ extension WorkspaceNavigationHandler {
         _ token: WindowToken,
         from source: WorkspaceDescriptor.ID,
         to target: WorkspaceDescriptor.ID,
+        placement: NiriColumnPlacement?,
         controller: WMController
     ) -> WindowTransferResult {
-        let result = transferMixedWindows(CollectionOfOne(token), from: source, to: target, controller: controller)
+        let result = transferMixedWindows(
+            CollectionOfOne(token), from: source, to: target, placement: placement, controller: controller
+        )
         return WindowTransferResult(succeeded: result.firstMoved != nil, newSourceFocusToken: result.sourceFocus)
     }
 
@@ -53,6 +56,7 @@ extension WorkspaceNavigationHandler {
         _ tokens: Tokens,
         from source: WorkspaceDescriptor.ID,
         to target: WorkspaceDescriptor.ID,
+        placement: NiriColumnPlacement? = nil,
         controller: WMController
     ) -> MixedWindowTransferResult where Tokens.Element == WindowToken {
         guard let niri = controller.niriEngine, let dwindle = controller.dwindleEngine,
@@ -71,7 +75,9 @@ extension WorkspaceNavigationHandler {
             for token in tokens {
                 guard let entry = manager.entry(for: token), entry.workspaceId == source, entry.mode == .tiling,
                       entry.target.hostedMetadata?.role.parent == nil, !manager.isWindowSuppressedByMacOS(token),
-                      moveMixedToken(token, capture: capture, controller: controller, state: &state)
+                      moveMixedToken(
+                          token, capture: capture, placement: placement, controller: controller, state: &state
+                      )
                 else { continue }
                 if let bootstrap { calculateMixedDwindleTarget(bootstrap, in: target, engine: dwindle) }
                 assignments.append(CrossWorkspaceDropAssignment(token: token, workspaceId: target))
@@ -93,6 +99,7 @@ extension WorkspaceNavigationHandler {
     private func moveMixedToken(
         _ token: WindowToken,
         capture: borrowing MixedLayoutHistoryCapture,
+        placement: NiriColumnPlacement?,
         controller: WMController,
         state: inout ViewportState
     ) -> Bool {
@@ -121,7 +128,8 @@ extension WorkspaceNavigationHandler {
             let window = niri.addWindow(
                 token: token, to: niriId, afterSelection: state.selectedNodeId,
                 focusedToken: manager.lastFocusedToken(in: niriId),
-                containerSizingState: keptSizing ?? controller.admittedNiriContainerSizing(for: token)
+                containerSizingState: keptSizing ?? controller.admittedNiriContainerSizing(for: token),
+                placement: placement
             )
             restoreMixedNiriWindowState(window, engine: niri, controller: controller)
             window.constraints = controller.layoutRefreshController.destinationConstraints(for: token, on: monitor)

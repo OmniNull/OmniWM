@@ -414,8 +414,7 @@ typedef struct omni_config_field {
 typedef enum omni_config_effect_kind {
     OMNI_CONFIG_OPEN_APP,
     OMNI_CONFIG_RUN_PROGRAM,
-    OMNI_CONFIG_SHOW_NOTICE,
-    OMNI_CONFIG_WINDOW_DISPATCH
+    OMNI_CONFIG_SHOW_NOTICE
 } omni_config_effect_kind;
 
 typedef struct omni_config_callbacks {
@@ -434,6 +433,8 @@ typedef struct omni_config_callbacks {
         omni_config_location location, char *error, size_t capacity);
     bool (*effect)(void *context, omni_config_effect_kind kind, const omni_config_span *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
+    bool (*window)(void *context, const omni_config_span *words, size_t count, const omni_config_field *destination,
+        size_t destination_count, omni_config_location location, char *error, size_t capacity);
 } omni_config_callbacks;
 
 typedef struct omni_config_stats {

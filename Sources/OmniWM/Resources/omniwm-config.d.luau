@@ -577,6 +577,11 @@ export type ConfigFunction = (context: ConfigContext) -> ()
 export type ConfigTimerOptions = { read afterSeconds: number, read everySeconds: nil } | { read afterSeconds: nil, read everySeconds: number }
 export type ConfigTimer = { read cancel: () -> () }
 
+export type ConfigWindowDestination =
+    { read display: string, read column: number? }
+    | { read neighbor: "left" | "right" | "up" | "down", read of: string?, read column: number? }
+    | { read neighbor: "left" | "right" | "up" | "down", read of: string, read fromEdge: boolean, read column: number? }
+
 export type ConfigEventRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWorkspaceEvent = ConfigLookups & { read id: string?, read name: string? }
 export type ConfigWindowEvent = ConfigLookups & { read id: string?, read bundleId: string? }
@@ -722,6 +727,7 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "window", action: "summon-right", id: string) -> () }
     & { read dispatch: (kind: "window", action: "close", id: string) -> () }
     & { read dispatch: (kind: "window", action: "move-to-workspace", id: string, workspace: string) -> () }
+    & { read dispatch: (kind: "window", action: "move-to-workspace", id: string, destination: ConfigWindowDestination) -> () }
     & { read dispatch: (kind: "window", action: "move-column-to-first", id: string) -> () }
     & { read dispatch: (kind: "window", action: "move-column-to-last", id: string) -> () }
     & { read dispatch: (kind: "window", action: "move-column-to-index", id: string, number: string) -> () }

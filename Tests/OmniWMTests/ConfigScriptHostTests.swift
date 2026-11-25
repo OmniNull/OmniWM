@@ -232,7 +232,7 @@ final class ConfigScriptHostTests: XCTestCase {
                     bind: { _, _, _, _, _, _, _ in true }, read_module: nil, rule: nil,
                     bind_function: nil, dispatch: nil, log: nil,
                     named_function: { _, event, _, _, _, _, _, _ in event },
-                    effect: nil
+                    effect: nil, window: nil
                 )
                 var stats = omni_config_stats()
                 var message = [CChar](repeating: 0, count: 256)

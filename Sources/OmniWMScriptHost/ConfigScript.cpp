@@ -16,6 +16,7 @@ using namespace omni_detail;
 
 constexpr int actionTag = 1;
 constexpr size_t maximumRuleFields = 14;
+constexpr size_t maximumDestinationFields = 8;
 std::atomic<uint64_t> liveVMs{0};
 std::atomic<uint64_t> vmEntries{0};
 
@@ -267,24 +268,18 @@ int bindKey(lua_State *L) {
     return 0;
 }
 
-int addRule(lua_State *L) {
-    ConfigVM &vm = declarations(L);
-    auto site = declarationSite(L, vm);
-    if (vm.invoking) {
-        reject(L, vm, site, "omniwm.rule is only available while loading the config");
-    }
-    if (!vm.callbacks.rule || lua_gettop(L) != 1 || !lua_istable(L, 1)) {
-        reject(L, vm, site, "omniwm.rule expects one table of rule fields");
-    }
-    if (vm.rules == OMNI_CONFIG_DECLARATION_LIMIT) {
-        reject(L, vm, site, "config rule limit exceeded");
-    }
-    std::array<omni_config_field, maximumRuleFields> fields;
+struct FieldMessages {
+    const char *tooMany;
+    const char *badValue;
+};
+
+size_t readFields(lua_State *L, ConfigVM &vm, int index, omni_config_location site, omni_config_field *fields,
+    size_t capacity, FieldMessages messages) {
     size_t count = 0;
     lua_pushnil(L);
-    while (lua_next(L, 1)) {
-        if (count == fields.size()) {
-            reject(L, vm, site, "too many fields in rule");
+    while (lua_next(L, index)) {
+        if (count == capacity) {
+            reject(L, vm, site, messages.tooMany);
         }
         omni_config_field field{};
         field.name = token(L, vm, -2, site);
@@ -302,11 +297,29 @@ int addRule(lua_State *L) {
             field.bool_value = lua_toboolean(L, -1) != 0;
             break;
         default:
-            reject(L, vm, site, "rule fields must be strings, numbers or booleans");
+            reject(L, vm, site, messages.badValue);
         }
         fields[count++] = field;
         lua_pop(L, 1);
     }
+    return count;
+}
+
+int addRule(lua_State *L) {
+    ConfigVM &vm = declarations(L);
+    auto site = declarationSite(L, vm);
+    if (vm.invoking) {
+        reject(L, vm, site, "omniwm.rule is only available while loading the config");
+    }
+    if (!vm.callbacks.rule || lua_gettop(L) != 1 || !lua_istable(L, 1)) {
+        reject(L, vm, site, "omniwm.rule expects one table of rule fields");
+    }
+    if (vm.rules == OMNI_CONFIG_DECLARATION_LIMIT) {
+        reject(L, vm, site, "config rule limit exceeded");
+    }
+    std::array<omni_config_field, maximumRuleFields> fields;
+    const size_t count = readFields(L, vm, 1, site, fields.data(), fields.size(),
+        {"too many fields in rule", "rule fields must be strings, numbers or booleans"});
     if (!vm.callbacks.rule(vm.context, fields.data(), count, site, vm.failure, sizeof vm.failure)) {
         reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid rule");
     }
@@ -326,17 +339,25 @@ int dispatchAction(lua_State *L) {
     bool staged = false;
     if (lua_type(L, 1) == LUA_TSTRING) {
         const auto prefix = token(L, vm, 1, site);
-        int count = lua_gettop(L) - 1;
+        const int top = lua_gettop(L);
+        const bool tableDestination = top == 4 && lua_istable(L, 4);
+        const int count = top - 1 - (tableDestination ? 1 : 0);
         std::array<omni_config_span, LUA_MINSTACK> words;
-        if (!vm.callbacks.effect || std::string_view(prefix.data, prefix.length) != "window" ||
+        if (!vm.callbacks.window || std::string_view(prefix.data, prefix.length) != "window" ||
             count < 2 || static_cast<size_t>(count) > words.size()) {
             reject(L, vm, site, "omniwm.dispatch expects 'window', an action, a window ID and any action arguments");
         }
         for (int i = 0; i < count; i++) {
             words[i] = token(L, vm, i + 2, site);
         }
-        staged = vm.callbacks.effect(vm.context, OMNI_CONFIG_WINDOW_DISPATCH, words.data(), count,
-            site, nullptr, vm.failure, sizeof vm.failure);
+        std::array<omni_config_field, maximumDestinationFields> destination;
+        const size_t fields = tableDestination
+            ? readFields(L, vm, 4, site, destination.data(), destination.size(),
+                {"too many fields in a window destination",
+                    "window destination fields must be strings, numbers or booleans"})
+            : 0;
+        staged = vm.callbacks.window(vm.context, words.data(), count, tableDestination ? destination.data() : nullptr,
+            fields, site, vm.failure, sizeof vm.failure);
     } else {
         const auto *action = static_cast<const uint32_t *>(lua_touserdatatagged(L, 1, actionTag));
         if (lua_gettop(L) != 1 || !action) {

@@ -13,7 +13,7 @@ NO_OBSERVER_OWNERSHIP = {
 }
 ROUTES = {
     "setup/activation", "key/cold", "settings/key", "script/plain-key", "key/idle", "key/busy", "key/owned-busy", "key/workspace-8", "key/windows-200",
-    "key/refusal-first", "key/refusal-repeat", "key/dispatch-window", "key/cmd-in-callback", "key/cmd-prebuilt", "key/cmd-build-argument", "title/no-observer", "native/title", "native/title+script", "native/minimize", "native/float",
+    "key/refusal-first", "key/refusal-repeat", "key/dispatch-window", "key/cmd-in-callback", "key/cmd-prebuilt", "key/cmd-build-argument", "move/by-name", "move/neighbor", "title/no-observer", "native/title", "native/title+script", "native/minimize", "native/float",
     "native/fullscreen", "title/fresh", "title/replacement", "capture/fixed", "capture/workspace-8",
     "capture/windows-200", "title/owned-fresh", "title/owned-replacement",
 }
@@ -299,6 +299,11 @@ def check_costs(output):
     for route in CALLBACK_DISPATCH_ROUTES:
         if int(table[route, "config"]["VM"]) != 1:
             sys.exit(f"{route}: the shortcut callback must enter its VM once")
+    by_name, neighbor = (table[route, "config"] for route in ("move/by-name", "move/neighbor"))
+    for field in ("R", "L", "obj", "heap"):
+        if int(neighbor[field]) != int(by_name[field]):
+            sys.exit(f"move/neighbor: staging a destination table must cost what a workspace name does, "
+                     f"{field} {neighbor[field]} against {by_name[field]}")
     for (route, baseline), (budget, reason) in CALLBACK_COMMAND_BUILDS.items():
         for field, allowed in budget.items():
             extra = int(table[route, "config"][field]) - int(table[baseline, "config"][field])
