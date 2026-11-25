@@ -302,15 +302,21 @@ extension AXEventHandler {
         } ?? false
         if case let .visibilityChanged(orderedInHandle) = request.kind {
             guard let current else { return }
+            let hasNewerVisibilityQuery = hasVisibilityQuery(windowId: request.windowId)
             guard isCurrent, !hasPendingLifecycleDestruction(current.token) else {
-                if !hasVisibilityQuery(windowId: request.windowId) {
+                if !hasNewerVisibilityQuery {
                     enqueueLifecycleQuery(windowId: request.windowId, kind: request.kind)
                 }
                 return
             }
+            if hasNewerVisibilityQuery, windowInfo?.isOrderedIn == true,
+               hasDeferredVisibilityRecheck(for: current.token)
+            {
+                return
+            }
             if let orderedInHandle,
                controller.workspaceManager.handle(for: current.token) === orderedInHandle,
-               !hasVisibilityQuery(windowId: request.windowId),
+               !hasNewerVisibilityQuery,
                windowInfo?.isOrderedIn == nil,
                windowInfo == nil
                || WindowServerIdentityResolution(windowId: request.windowId, info: windowInfo).token == current.token

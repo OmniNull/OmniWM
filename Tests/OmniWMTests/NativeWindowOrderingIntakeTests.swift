@@ -345,6 +345,38 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
     }
 
+    func testNewerOrderOutKeepsBorderHiddenAfterStaleVisibleSample() async throws {
+        let controller = try focusedFloatingWindowController()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        let windowId = UInt32(token.windowId)
+        let world = WorldView(controller: controller, liveBoundsProvider: { _ in nil })
+        handler.applyWindowVisibilityChanged(windowId: windowId, windowInfo: info(orderedIn: false))
+        XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
+
+        let gate = LifecycleQueryGate()
+        defer { gate.resume() }
+        let started = expectation(description: "reopen sample started")
+        var queries = 0
+        handler.lifecycleQueries.query = { _ in
+            queries += 1
+            guard queries == 1 else { return nil }
+            started.fulfill()
+            return await gate.wait()
+        }
+
+        handler.handleCGSEvent(.visibilityChanged(windowId: windowId, orderedIn: true))
+        let task = try XCTUnwrap(handler.lifecycleQueries.task)
+        await fulfillment(of: [started], timeout: failureBound)
+        handler.handleCGSEvent(.visibilityChanged(windowId: windowId, orderedIn: false))
+        gate.resume(info(orderedIn: true))
+        await task.value
+
+        XCTAssertEqual(queries, 2)
+        XCTAssertTrue(handler.hasDeferredVisibilityRecheck(for: token))
+        XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
+    }
+
     private func focusedFloatingWindowController() throws -> WMController {
         let controller = WindowAdmissionTestSupport.controller()
         let manager = controller.workspaceManager
