@@ -189,6 +189,8 @@ extension ScriptARCFixture {
     func callbackDispatchKeys(report: Bool) async throws {
         try await function(binding("Control+Option+D"), route: "key/dispatch-window", busy: false, report: report)
         try await function(binding("Control+Option+C"), route: "key/cmd-in-callback", busy: false, report: report)
+        try await function(binding("Control+Option+B"), route: "key/cmd-prebuilt", busy: false, report: report)
+        try await function(binding("Control+Option+G"), route: "key/cmd-build-argument", busy: false, report: report)
     }
 
     func ownedTitles() async throws {

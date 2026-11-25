@@ -86,7 +86,7 @@ enum ConfigScriptRuleField: String, CaseIterable {
         )
         let errors = IPCRuleValidator.validate(definition).messages
         guard errors.isEmpty else { throw invalid(errors.joined(separator: ". ")) }
-        return IPCRuleProjection.appRule(from: definition, id: ruleID)
+        return AppRule(definition: definition, id: ruleID)
     }
 
     private func accepts(_ field: omni_config_field) -> Bool {

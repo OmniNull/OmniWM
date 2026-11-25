@@ -62,7 +62,8 @@ final class ConfigScriptHostTests: XCTestCase {
             ("wm.cmd('switch-workspace', 'slot', '0')", "Invalid arguments"),
             ("wm.keymap.set('Unassigned', action)", "Invalid keyboard chord"),
             ("wm.keymap.set('Control+UnknownKey', action)", "Invalid keyboard chord"),
-            ("wm.cmd(string.char(255))", "UTF-8")
+            ("wm.cmd(string.char(255))", "UTF-8"),
+            ("wm.cmd('app-open', string.char(255))", "UTF-8")
         ]
         for (statement, expected) in cases {
             let failure = try await rejection((prefix + ["pcall(function() \(statement) end)"]).joined(separator: "\n"))

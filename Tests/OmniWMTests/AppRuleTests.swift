@@ -216,7 +216,7 @@ final class AppRuleTests: XCTestCase {
     func testIPCProjectionRoundTripsInitialContainerPrimarySpan() {
         let rule = AppRule(bundleId: "com.test.app", initialContainerPrimarySpan: 0.5)
         let definition = IPCRuleProjection.definition(from: rule)
-        let projectedRule = IPCRuleProjection.appRule(from: definition, id: rule.id)
+        let projectedRule = AppRule(definition: definition, id: rule.id)
         let snapshot = IPCRuleProjection.snapshot(
             from: projectedRule,
             position: 1,
@@ -246,7 +246,7 @@ final class AppRuleTests: XCTestCase {
     func testIPCProjectionRoundTripsScratchpad() {
         let rule = AppRule(bundleId: "com.test.app", scratchpad: 4)
         let definition = IPCRuleProjection.definition(from: rule)
-        let projectedRule = IPCRuleProjection.appRule(from: definition, id: rule.id)
+        let projectedRule = AppRule(definition: definition, id: rule.id)
         let snapshot = IPCRuleProjection.snapshot(
             from: projectedRule,
             position: 1,

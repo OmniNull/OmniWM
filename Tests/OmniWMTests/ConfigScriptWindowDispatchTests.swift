@@ -191,16 +191,25 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
 
 extension ConfigScriptWindowRequest {
     init(testWords words: [String]) throws {
-        var bytes: [CChar] = []
-        var ranges: [Range<Int>] = []
-        for word in words {
-            let start = bytes.count
-            bytes.append(contentsOf: word.utf8.map { CChar(bitPattern: $0) })
-            ranges.append(start ..< bytes.count)
+        self = try withConfigSpans(words.map { Array($0.utf8) }) { try ConfigScriptWindowRequest(words: $0) }
+    }
+}
+
+func withConfigSpans<Result>(
+    _ words: [[UInt8]],
+    _ body: (UnsafeBufferPointer<omni_config_span>) throws -> Result
+) rethrows -> Result {
+    var bytes: [CChar] = []
+    var ranges: [Range<Int>] = []
+    for word in words {
+        let start = bytes.count
+        bytes.append(contentsOf: word.map { CChar(bitPattern: $0) })
+        ranges.append(start ..< bytes.count)
+    }
+    return try bytes.withUnsafeBufferPointer { base in
+        let spans = ranges.map { range in
+            omni_config_span(data: base.baseAddress.map { $0 + range.lowerBound }, length: range.count)
         }
-        self = try bytes.withUnsafeBufferPointer { base in
-            let spans = ranges.map { omni_config_span(data: base.baseAddress! + $0.lowerBound, length: $0.count) }
-            return try spans.withUnsafeBufferPointer { try ConfigScriptWindowRequest(words: $0) }
-        }
+        return try spans.withUnsafeBufferPointer(body)
     }
 }

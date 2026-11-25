@@ -13,7 +13,7 @@ NO_OBSERVER_OWNERSHIP = {
 }
 ROUTES = {
     "setup/activation", "key/cold", "settings/key", "script/plain-key", "key/idle", "key/busy", "key/owned-busy", "key/workspace-8", "key/windows-200",
-    "key/refusal-first", "key/refusal-repeat", "key/dispatch-window", "key/cmd-in-callback", "title/no-observer", "native/title", "native/title+script", "native/minimize", "native/float",
+    "key/refusal-first", "key/refusal-repeat", "key/dispatch-window", "key/cmd-in-callback", "key/cmd-prebuilt", "key/cmd-build-argument", "title/no-observer", "native/title", "native/title+script", "native/minimize", "native/float",
     "native/fullscreen", "title/fresh", "title/replacement", "capture/fixed", "capture/workspace-8",
     "capture/windows-200", "title/owned-fresh", "title/owned-replacement",
 }
@@ -50,7 +50,13 @@ WORKSPACE_KEYS = {f"{prefix}workspace-key/{action}-{outcome}" for prefix in ("",
                   for action in ("next", "previous", "back")
                   for outcome in ("noop", "switch")}
 TIMER_ROUTES = ("timer/empty", "timer/reads", "timer/effect")
-CALLBACK_DISPATCH_ROUTES = ("key/dispatch-window", "key/cmd-in-callback")
+CALLBACK_DISPATCH_ROUTES = ("key/dispatch-window", "key/cmd-in-callback", "key/cmd-prebuilt", "key/cmd-build-argument")
+CALLBACK_COMMAND_BUILDS = {
+    ("key/cmd-in-callback", "key/cmd-prebuilt"): ({"R": 1, "L": 2, "obj": 0, "heap": 0},
+        "Resolving omniwm.cmd words in place costs only the typed command; no word strings or manifest scans."),
+    ("key/cmd-build-argument", "key/idle"): ({"R": 2, "L": 4, "obj": 1, "heap": 1},
+        "An argument token adds only the value array that IPCCommandRequest(name:argumentValues:) takes."),
+}
 ROUTES.update({prefix + kind for kind in STATE_AND_EDGE_KINDS for prefix in ("absent/", "event/")})
 ROUTES.update("native/" + kind + suffix for kind in FOCUS_KINDS for suffix in ("+script", "+listener"))
 ROUTES.update("owned/" + kind for kind in DYNAMIC_EVENT_STRINGS)
@@ -293,6 +299,11 @@ def check_costs(output):
     for route in CALLBACK_DISPATCH_ROUTES:
         if int(table[route, "config"]["VM"]) != 1:
             sys.exit(f"{route}: the shortcut callback must enter its VM once")
+    for (route, baseline), (budget, reason) in CALLBACK_COMMAND_BUILDS.items():
+        for field, allowed in budget.items():
+            extra = int(table[route, "config"][field]) - int(table[baseline, "config"][field])
+            if extra != allowed:
+                sys.exit(f"{route}: expected {field} +{allowed} over {baseline}, got +{extra}. {reason}")
     for route in ("capture/workspace-8", "capture/windows-200"):
         if not re.search(rf"^snapshot-bytes {re.escape(route)} [1-9][0-9]*$", output, re.M):
             sys.exit(f"Missing snapshot byte count for {route}")

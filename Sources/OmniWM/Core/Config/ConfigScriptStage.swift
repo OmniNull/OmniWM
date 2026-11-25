@@ -214,34 +214,32 @@ struct ConfigScriptStage {
         ))
     }
 
-    private static let maximumWordCount = IPCAutomationManifest.commandDescriptors.reduce(0) {
-        max($0, $1.commandWords.count + $1.arguments.count)
-    }
-
     private mutating func resolve(_ spans: UnsafeBufferPointer<omni_config_span>) throws(ConfigScriptError) -> UInt32 {
-        guard (1 ... Self.maximumWordCount).contains(spans.count) else {
+        guard (1 ... ConfigScriptCommandParser.maximumWordCount).contains(spans.count) else {
             throw ConfigScriptError(line: nil, message: "Expected one command with its individual argument words.")
         }
-        var words: [String] = []
-        words.reserveCapacity(spans.count)
-        for span in spans {
-            words.append(try Self.string(span))
-        }
-        guard let request = IPCCommandRequest(commandWords: words) else {
-            let name = words[0]
-            let unknown = IPCAutomationManifest.commandDescriptors(matching: words).isEmpty
-            let message = unknown ? "Unknown command '\(name)'." : "Invalid arguments for '\(name)'."
+        let outcome = ConfigScriptCommandParser.request(spans)
+        guard case let .request(request) = outcome else {
+            for span in spans {
+                _ = try Self.string(span)
+            }
+            let name = try Self.string(spans[0])
+            let message = if case .unknown = outcome {
+                "Unknown command '\(name)'."
+            } else {
+                "Invalid arguments for '\(name)'."
+            }
             throw ConfigScriptError(line: nil, message: message)
         }
         guard let command = HotkeyCommand(direct: request) else {
             throw ConfigScriptError(
                 line: nil,
-                message: "'\(words.joined(separator: " "))' is not a direct hotkey action."
+                message: "'\(ConfigScriptCommandParser.text(spans))' is not a direct hotkey action."
             )
         }
         let key = ActionKey.command(command)
         if case .callbacks = phase, let existing = actionIDs[key] { return existing }
-        let text = words.joined(separator: " ")
+        let text = ConfigScriptCommandParser.text(spans)
         let index = UInt32(actions.count)
         try reserveAction(byteCount: text.utf8.count)
         actionIDs[key] = index

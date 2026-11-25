@@ -65,61 +65,21 @@ enum IPCRuleProjection {
     }
 
     static func definition(from rule: AppRule) -> IPCRuleDefinition {
-        normalized(
-            IPCRuleDefinition(
-                bundleId: rule.bundleId,
-                appNameSubstring: rule.appNameSubstring,
-                titleSubstring: rule.titleSubstring,
-                titleRegex: rule.titleRegex,
-                axRole: rule.axRole,
-                axSubrole: rule.axSubrole,
-                layout: ipcRuleLayout(from: rule.effectiveLayoutAction),
-                assignToWorkspace: rule.assignToWorkspace,
-                assignToWorkspaceForAllWindows: rule.assignToWorkspaceForAllWindows,
-                initialContainerPrimarySpan: rule.initialContainerPrimarySpan,
-                minWidth: rule.minWidth,
-                minHeight: rule.minHeight,
-                scratchpad: rule.scratchpad
-            )
-        )
-    }
-
-    static func appRule(from definition: IPCRuleDefinition, id: UUID = UUID()) -> AppRule {
-        let normalized = normalized(definition)
-        return AppRule(
-            id: id,
-            bundleId: normalized.bundleId,
-            appNameSubstring: normalized.appNameSubstring,
-            titleSubstring: normalized.titleSubstring,
-            titleRegex: normalized.titleRegex,
-            axRole: normalized.axRole,
-            axSubrole: normalized.axSubrole,
-            layout: windowRuleLayout(from: normalized.layout),
-            assignToWorkspace: normalized.assignToWorkspace,
-            assignToWorkspaceForAllWindows: normalized.assignToWorkspaceForAllWindows,
-            initialContainerPrimarySpan: normalized.initialContainerPrimarySpan,
-            minWidth: normalized.minWidth,
-            minHeight: normalized.minHeight,
-            scratchpad: normalized.scratchpad
-        )
-    }
-
-    private static func normalized(_ definition: IPCRuleDefinition) -> IPCRuleDefinition {
         IPCRuleDefinition(
-            bundleId: definition.bundleId.trimmingCharacters(in: .whitespacesAndNewlines),
-            appNameSubstring: trimmedNonEmpty(definition.appNameSubstring),
-            titleSubstring: trimmedNonEmpty(definition.titleSubstring),
-            titleRegex: trimmedNonEmpty(definition.titleRegex),
-            axRole: trimmedNonEmpty(definition.axRole),
-            axSubrole: trimmedNonEmpty(definition.axSubrole),
-            layout: definition.layout,
-            assignToWorkspace: trimmedNonEmpty(definition.assignToWorkspace),
-            assignToWorkspaceForAllWindows: definition.assignToWorkspaceForAllWindows,
-            initialContainerPrimarySpan: definition.initialContainerPrimarySpan,
-            minWidth: definition.minWidth,
-            minHeight: definition.minHeight,
-            scratchpad: definition.scratchpad
-        )
+            bundleId: rule.bundleId,
+            appNameSubstring: rule.appNameSubstring,
+            titleSubstring: rule.titleSubstring,
+            titleRegex: rule.titleRegex,
+            axRole: rule.axRole,
+            axSubrole: rule.axSubrole,
+            layout: ipcRuleLayout(from: rule.effectiveLayoutAction),
+            assignToWorkspace: rule.assignToWorkspace,
+            assignToWorkspaceForAllWindows: rule.assignToWorkspaceForAllWindows,
+            initialContainerPrimarySpan: rule.initialContainerPrimarySpan,
+            minWidth: rule.minWidth,
+            minHeight: rule.minHeight,
+            scratchpad: rule.scratchpad
+        ).normalized
     }
 
     private static func ipcRuleLayout(from action: WindowRuleLayoutAction) -> IPCRuleLayout {
@@ -131,21 +91,5 @@ enum IPCRuleProjection {
         case .float:
             .float
         }
-    }
-
-    private static func windowRuleLayout(from layout: IPCRuleLayout) -> WindowRuleLayoutAction? {
-        switch layout {
-        case .auto:
-            nil
-        case .tile:
-            .tile
-        case .float:
-            .float
-        }
-    }
-
-    private static func trimmedNonEmpty(_ value: String?) -> String? {
-        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
-        return trimmed.isEmpty ? nil : trimmed
     }
 }
