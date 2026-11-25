@@ -3,6 +3,8 @@
 
 import AppKit
 @testable import OmniWM
+import OmniWMScriptHost
+import OmniWMShellCore
 import XCTest
 
 @MainActor
@@ -18,6 +20,12 @@ final class ShellBetterDisplayTests: XCTestCase {
         var applicationsChanged: (@MainActor @Sendable () -> Void)?
         var readIDs: [[UUID]] = []
         var level = 0.5
+        var supportsFirstDisplay = true
+        var otherLevel: Double?
+        var nativeReads = 0
+        var applyBrightnessWrites = false
+        var deliveries: [ShellWidgetData] = []
+        lazy var updates = boundedChanges()
         var nightShift: Bool? = false
         var holdRead: XCTestExpectation?
         var resumeRead: CheckedContinuation<[UUID: ShellBetterDisplayClient.Level], Never>?
@@ -49,6 +57,29 @@ final class ShellBetterDisplayTests: XCTestCase {
             )
         }
 
+        func startDisplayFeed() -> ShellDataFeed {
+            let native = ShellDisplayBrightness(access: ShellBrightnessAccess(
+                display: { 1 },
+                read: { number in
+                    self.nativeReads += 1
+                    return number == 1 ? self.level : 0.4
+                },
+                set: { _, _ in
+                    XCTFail("Provider handoff must not write native brightness")
+                    return false
+                },
+                monitors: { [self] in [display(id, number: 1), display(other, number: 2)] }
+            ), notificationCenter: NotificationCenter())
+            let feed = ShellDataFeed(devices: ShellDevices(brightness: native, betterDisplay: monitor())) { data in
+                self.deliveries.append(data)
+                self.updates.changed.yield()
+            }
+            feed.start()
+            let demand = ShellDataKey.brightness.bit | ShellDataKey.betterDisplay.bit
+            feed.setDemand(demand, cadence: .of([(demand, nil)]))
+            return feed
+        }
+
         private func display(_ id: UUID, number: CGDirectDisplayID) -> Monitor {
             Monitor(
                 id: .init(displayId: number),
@@ -64,7 +95,9 @@ final class ShellBetterDisplayTests: XCTestCase {
 
         private func read(_ ids: [UUID]) async -> [UUID: ShellBetterDisplayClient.Level] {
             readIDs.append(ids)
-            guard let holdRead else { return [id: .init(value: level), other: .init(value: nil)] }
+            guard let holdRead else {
+                return [id: .init(value: supportsFirstDisplay ? level : nil), other: .init(value: otherLevel)]
+            }
             self.holdRead = nil
             return await withCheckedContinuation { continuation in
                 resumeRead = continuation
@@ -75,6 +108,9 @@ final class ShellBetterDisplayTests: XCTestCase {
         private func record(_ action: ShellBetterDisplayCommand, pid: pid_t) -> Bool {
             targets.append(pid)
             actions.append(action)
+            if applyBrightnessWrites, case let .brightness(target, percent) = action, target == id {
+                level = percent / 100
+            }
             return true
         }
     }
@@ -244,5 +280,110 @@ final class ShellBetterDisplayTests: XCTestCase {
             XCTAssertEqual(output?.demand, demand)
         }
         await package.close()
+    }
+}
+
+extension ShellBetterDisplayTests {
+    private func displaysWidget() throws -> ShellRenderedWidget {
+        let widget = try ShellRenderedWidget("control-center")
+        widget.set("settings") { ShellServiceValue.object(["tab": .text("displays")]).write(to: &$0) }
+        widget.render(ShellBarData())
+        return widget
+    }
+
+    private func sliders(_ widget: ShellRenderedWidget, for snapshot: ShellWidgetData) throws -> [TreeNode] {
+        let native = try XCTUnwrap(snapshot.brightness)
+        let managed = try XCTUnwrap(snapshot.betterDisplay)
+        widget.set("brightness") { native.write(into: &$0) }
+        widget.set("betterDisplay") { managed.write(into: &$0) }
+        return widget.renderPopout().filter { $0.kind == .slider }
+    }
+
+    func testFirstNativeSliderAfterBetterDisplayExitsReadsHardware() async throws {
+        let widget = try displaysWidget()
+        let fixture = Fixture()
+        fixture.level = 0.2
+        fixture.applyBrightnessWrites = true
+        let feed = fixture.startDisplayFeed()
+        defer { feed.stop() }
+        XCTAssertEqual(feed.current.betterDisplay?.running, false)
+        XCTAssertEqual(try sliders(widget, for: feed.current).first?.content.value, 200)
+
+        fixture.pid = 42
+        fixture.applicationsChanged?()
+        await fixture.updates.changes.wait { feed.current.betterDisplay?.displays.first?.available == true }
+        let first = try XCTUnwrap(sliders(widget, for: feed.current).first)
+        XCTAssertEqual(first.content.value, 200)
+        let existingReads = fixture.nativeReads
+        let began = ShellEvent(value: 0.75, phase: .began, kind: .slider)
+        let ended = ShellEvent(value: 0.75, phase: .ended, kind: .slider)
+        XCTAssertEqual(widget.invoke(first.content.action, view: OMNI_VIEW_POPOUT, event: began), [])
+        let commands = widget.invoke(first.content.action, view: OMNI_VIEW_POPOUT, event: ended)
+        XCTAssertEqual(commands, ["betterdisplay brightness \(fixture.id) set 75"])
+        guard case let .betterDisplay(command)? = commands.first.flatMap(ShellAction.init) else {
+            return XCTFail("Expected a BetterDisplay command")
+        }
+        let write = try XCTUnwrap(feed.devices?.betterDisplay.perform(command))
+        await write.value
+        await fixture.updates.changes.wait { feed.current.betterDisplay?.displays.first?.value == 75 }
+        XCTAssertEqual(try sliders(widget, for: feed.current).first?.content.value, 750)
+        XCTAssertEqual(fixture.nativeReads, existingReads)
+
+        fixture.deliveries.removeAll()
+        fixture.pid = nil
+        fixture.applicationsChanged?()
+        let fallback = try XCTUnwrap(fixture.deliveries.first { $0.betterDisplay?.running == false })
+        XCTAssertEqual(fallback.brightness?.value, 75)
+        XCTAssertEqual(try sliders(widget, for: fallback).first?.content.value, 750)
+    }
+
+    func testLosingBrightnessSupportForOneDisplayReadsItsExternalChange() async throws {
+        let widget = try displaysWidget()
+        let fixture = Fixture()
+        fixture.pid = 42
+        fixture.level = 0.2
+        fixture.otherLevel = 0.6
+        let feed = fixture.startDisplayFeed()
+        defer { feed.stop() }
+        await fixture.updates.changes.wait { feed.current.betterDisplay?.displays.first?.available == true }
+        XCTAssertEqual(try sliders(widget, for: feed.current).map(\.content.value), [200, 600])
+
+        fixture.deliveries.removeAll()
+        fixture.level = 0.75 // The user changed the hardware in BetterDisplay itself.
+        fixture.supportsFirstDisplay = false
+        // Trigger a BetterDisplay resample without waking the native display observer.
+        fixture.center.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        await fixture.updates.changes.wait { feed.current.betterDisplay?.displays.first?.available == false }
+        let fallback = try XCTUnwrap(fixture.deliveries.first { $0.betterDisplay?.displays.first?.available == false })
+        XCTAssertEqual(fallback.betterDisplay?.running, true)
+        XCTAssertEqual(fallback.betterDisplay?.displays.last?.id, fixture.other.uuidString)
+        XCTAssertEqual(fallback.betterDisplay?.displays.last?.available, true)
+        XCTAssertEqual(try sliders(widget, for: fallback).map(\.content.value), [750, 600])
+        XCTAssertTrue(fixture.actions.isEmpty)
+    }
+
+    func testReopeningDisplaysAfterBetterDisplayExitsWhileAnotherWidgetKeepsBrightnessDemanded() async throws {
+        let widget = try displaysWidget()
+        let fixture = Fixture()
+        fixture.pid = 42
+        fixture.level = 0.2
+        let feed = fixture.startDisplayFeed()
+        defer { feed.stop() }
+        await fixture.updates.changes.wait { feed.current.betterDisplay?.displays.first?.available == true }
+        XCTAssertEqual(try sliders(widget, for: feed.current).first?.content.value, 200)
+
+        let nativeDemand = ShellDataKey.brightness.bit
+        feed.setDemand(nativeDemand, cadence: .of([(nativeDemand, nil)]))
+        XCTAssertNil(fixture.applicationsChanged)
+        XCTAssertNotNil(feed.current.brightness)
+        fixture.level = 0.75
+        fixture.pid = nil
+
+        fixture.deliveries.removeAll()
+        let reopened = nativeDemand | ShellDataKey.betterDisplay.bit
+        feed.setDemand(reopened, cadence: .of([(reopened, nil)]))
+        let fallback = try XCTUnwrap(fixture.deliveries.first { $0.betterDisplay?.running == false })
+        XCTAssertEqual(try sliders(widget, for: fallback).first?.content.value, 750)
+        XCTAssertTrue(fixture.actions.isEmpty)
     }
 }

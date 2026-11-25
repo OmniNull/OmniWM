@@ -47,6 +47,7 @@ final class ShellDevices {
         self.betterDisplay = betterDisplay
         self.nightShift = nightShift
         self.spectrum = spectrum
+        betterDisplay.onBrightnessSupportLoss = brightness.refresh
     }
 
     func perform(_ command: ShellWiFiCommand) {

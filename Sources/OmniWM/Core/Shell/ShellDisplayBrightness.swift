@@ -189,7 +189,7 @@ final class ShellDisplayBrightness: ShellDeviceSource {
         return succeeded
     }
 
-    private func refresh() {
+    func refresh() {
         guard listening else { return }
         let mainId = access.display()
         let main = access.snapshot(for: mainId)
