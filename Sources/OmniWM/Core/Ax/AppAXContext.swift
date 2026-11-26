@@ -127,10 +127,10 @@ final class AppAXContext {
         )
         let queue = retryRaiseQueue ?? DispatchQueue(label: "OmniWM-AXRetryRaise-\(pid)", qos: .userInitiated)
         retryRaiseQueue = queue
+        let suppression = frameDelivery.retryRaiseSuppression
         AppAXRetryRaiseOperation(
             window: window, pid: pid, job: job, binding: retryRaiseBinding,
-            suppression: frameDelivery.retryRaiseSuppression,
-            allowsLayoutHiddenWindow: allowsLayoutHiddenWindow,
+            isSuppressed: suppression.retryRaiseCheck(for: window.windowId, allowHidden: allowsLayoutHiddenWindow),
             awaitingSubmittedFocus: awaitingSubmittedFocus, raiseWindow: raiseWindow
         ).enqueue(on: queue, appThread: thread, windows: windows) { [weak self] in
             scheduleOnMainRunLoop { [weak self] in

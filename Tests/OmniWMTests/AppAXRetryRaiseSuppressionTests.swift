@@ -111,6 +111,19 @@ final class AppAXRetryRaiseSuppressionTests: XCTestCase {
     }
 
     func testEnumerationInvalidatesQueuedRaiseWhenBindingChanges() async throws {
+        try await assertEnumerationInvalidatesRaise(pausingAt: .queued)
+    }
+
+    func testEnumerationInvalidatesRaiseWhileCheckingSuppression() async throws {
+        try await assertEnumerationInvalidatesRaise(pausingAt: .checkingSuppression)
+    }
+
+    private enum RaisePause: Sendable {
+        case queued
+        case checkingSuppression
+    }
+
+    private func assertEnumerationInvalidatesRaise(pausingAt phase: RaisePause) async throws {
         let (worker, window) = try await makeBoundContext(pid: 831_011, windowId: 831_111)
         defer { worker.destroy() }
         let thread = try XCTUnwrap(worker.axThread)
@@ -136,14 +149,22 @@ final class AppAXRetryRaiseSuppressionTests: XCTestCase {
             let finished = expectation(description: "Retry raise completed for \(scenario.name) binding")
             let resumeRaise = DispatchSemaphore(value: 0)
             defer { resumeRaise.signal() }
+            let pauseRaise: @Sendable () -> Void = {
+                paused.fulfill()
+                resumeRaise.wait()
+            }
             let didRaise = Mutex(false)
             AppAXRetryRaiseOperation(
-                window: window, pid: worker.pid, job: job, binding: binding, suppression: LockedWindowIdSet(),
-                allowsLayoutHiddenWindow: false,
+                window: window, pid: worker.pid, job: job, binding: binding,
+                isSuppressed: {
+                    if phase == .checkingSuppression {
+                        pauseRaise()
+                    }
+                    return false
+                },
                 awaitingSubmittedFocus: {
-                    queue.async {
-                        paused.fulfill()
-                        resumeRaise.wait()
+                    if phase == .queued {
+                        queue.async(execute: pauseRaise)
                     }
                 },
                 raiseWindow: { _ in
@@ -154,7 +175,7 @@ final class AppAXRetryRaiseSuppressionTests: XCTestCase {
                 finished.fulfill()
             }
             guard await XCTWaiter.fulfillment(of: [paused], timeout: failureBound) == .completed else {
-                XCTFail("Retry raise never reached the app thread")
+                XCTFail("Retry raise never reached the requested pause")
                 return
             }
             let enumeratedWindow = scenario.enumeratedWindow

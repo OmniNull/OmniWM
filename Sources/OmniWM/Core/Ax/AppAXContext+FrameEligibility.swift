@@ -18,18 +18,13 @@ extension AppAXContext {
 
     nonisolated static func performRetryRaise(
         _ window: AXWindowRef,
-        boundWindow: AXWindowRef?,
-        suppression: LockedWindowIdSet,
+        binding: AppAXRetryRaiseBinding,
         job: RunLoopJob,
-        allowsLayoutHiddenWindow: Bool = false,
+        isSuppressed: () -> Bool,
         raiseWindow: (AXUIElement) -> Bool
     ) -> Bool {
-        guard !job.isCancelled else { return false }
-        let isSuppressed = allowsLayoutHiddenWindow
-            ? suppression.isHardSuppressed(for: window.windowId) : suppression.contains(window.windowId)
-        guard !isSuppressed,
-              let boundWindow, sameAXWindowIdentity(window, boundWindow), !job.isCancelled
-        else { return false }
+        let canRaise = !job.isCancelled && !isSuppressed()
+        guard let boundWindow = binding.claim(matching: window, for: job, canRaise: canRaise) else { return false }
         return raiseWindow(boundWindow.element)
     }
 
@@ -49,6 +44,12 @@ extension AppAXContext {
     }
 }
 
+extension LockedWindowIdSet {
+    func retryRaiseCheck(for windowId: Int, allowHidden: Bool = false) -> @Sendable () -> Bool {
+        { allowHidden ? self.isHardSuppressed(for: windowId) : self.contains(windowId) }
+    }
+}
+
 final class AppAXRetryRaiseBinding: Sendable {
     private struct Pending: Sendable {
         let window: AXWindowRef
@@ -61,10 +62,11 @@ final class AppAXRetryRaiseBinding: Sendable {
         pending.withLock { $0 = window.map { Pending(window: $0, job: job) } }
     }
 
-    func consume(for job: RunLoopJob) -> AXWindowRef? {
+    func claim(matching window: AXWindowRef, for job: RunLoopJob, canRaise: Bool) -> AXWindowRef? {
         pending.withLock { state in
             guard let binding = state, binding.job === job else { return nil }
-            state = nil
+            defer { state = nil }
+            guard canRaise, sameAXWindowIdentity(window, binding.window), !job.isCancelled else { return nil }
             return binding.window
         }
     }
@@ -85,8 +87,7 @@ struct AppAXRetryRaiseOperation: Sendable {
     let pid: pid_t
     let job: RunLoopJob
     let binding: AppAXRetryRaiseBinding
-    let suppression: LockedWindowIdSet
-    let allowsLayoutHiddenWindow: Bool
+    let isSuppressed: @Sendable () -> Bool
     let awaitingSubmittedFocus: @Sendable () -> Void
     let raiseWindow: @Sendable (AXUIElement) -> Bool
 
@@ -105,6 +106,11 @@ struct AppAXRetryRaiseOperation: Sendable {
             }
             let startedNs = postedNs == 0 ? 0 : DispatchTime.now().uptimeNanoseconds
             awaitingSubmittedFocus()
+            let timing = WindowFocusDispatchTrace.RetryRaiseTiming(
+                postedNs: postedNs,
+                startedNs: startedNs,
+                waitedNs: postedNs == 0 ? 0 : DispatchTime.now().uptimeNanoseconds
+            )
             appThread.runInLoopAsync { _ in
                 guard !job.isCancelled else {
                     completion()
@@ -115,12 +121,9 @@ struct AppAXRetryRaiseOperation: Sendable {
                 }
                 binding.record(boundWindow, for: job)
                 queue.async {
-                    WindowFocusDispatchTrace.traceRetryRaise(
-                        pid: pid, windowId: window.windowId, postedNs: postedNs, startedNs: startedNs
-                    ) {
+                    WindowFocusDispatchTrace.traceRetryRaise(pid: pid, windowId: window.windowId, timing: timing) {
                         AppAXContext.performRetryRaise(
-                            window, boundWindow: binding.consume(for: job), suppression: suppression, job: job,
-                            allowsLayoutHiddenWindow: allowsLayoutHiddenWindow, raiseWindow: raiseWindow
+                            window, binding: binding, job: job, isSuppressed: isSuppressed, raiseWindow: raiseWindow
                         )
                     }
                     completion()

@@ -86,12 +86,15 @@ final class NativeWindowFrameSuppressionTests: XCTestCase {
         let request = frameRequest()
         let delivery = AppAXFrameDelivery()
         delivery.setWindowNativeSuppressed(true, for: request.windowId)
+        let job = RunLoopJob()
+        let binding = AppAXRetryRaiseBinding()
+        binding.record(request.expectedWindow, for: job)
         var raises = 0
         let raised = AppAXContext.performRetryRaise(
             request.expectedWindow,
-            boundWindow: request.expectedWindow,
-            suppression: delivery.retryRaiseSuppression,
-            job: RunLoopJob(),
+            binding: binding,
+            job: job,
+            isSuppressed: delivery.retryRaiseSuppression.retryRaiseCheck(for: request.windowId),
             raiseWindow: { _ in
                 raises += 1
                 return true

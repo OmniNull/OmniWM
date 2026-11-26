@@ -229,10 +229,15 @@ final class AsyncRetryRaiseTests: XCTestCase {
                     boundWindow = AXWindowRef(element: AXUIElementCreateApplication(831_005), windowId: window.windowId)
                 case .accepted: break
                 }
+                let binding = AppAXRetryRaiseBinding()
+                binding.record(boundWindow, for: job)
                 var didRaise = false
                 let result = AppAXContext.performRetryRaise(
-                    window, boundWindow: boundWindow, suppression: suppression, job: job,
-                    allowsLayoutHiddenWindow: allowsLayoutHiddenWindow,
+                    window, binding: binding, job: job,
+                    isSuppressed: suppression.retryRaiseCheck(
+                        for: window.windowId,
+                        allowHidden: allowsLayoutHiddenWindow
+                    ),
                     raiseWindow: { _ in
                         didRaise = true
                         return true
@@ -248,9 +253,11 @@ final class AsyncRetryRaiseTests: XCTestCase {
     func testCancellingAnExecutingWorkerRaiseDoesNotWaitForTheRaise() {
         let job = RunLoopJob()
         let window = AXWindowRef(element: AXUIElementCreateApplication(831_006), windowId: 831_106)
+        let binding = AppAXRetryRaiseBinding()
+        binding.record(window, for: job)
         var steps: [String] = []
         let raised = AppAXContext.performRetryRaise(
-            window, boundWindow: window, suppression: LockedWindowIdSet(), job: job,
+            window, binding: binding, job: job, isSuppressed: { false },
             raiseWindow: { _ in
                 steps.append("entered")
                 job.cancel()
@@ -272,10 +279,16 @@ final class AsyncRetryRaiseTests: XCTestCase {
                     suppression.insert(window.windowId)
                     suppression.setHardSuppressed(hardSuppressed)
                     suppression.setHardSuppressed(windowHardSuppressed, for: window.windowId)
+                    let job = RunLoopJob()
+                    let binding = AppAXRetryRaiseBinding()
+                    binding.record(window, for: job)
                     var didRaise = false
                     let raised = AppAXContext.performRetryRaise(
-                        window, boundWindow: window, suppression: suppression, job: RunLoopJob(),
-                        allowsLayoutHiddenWindow: allowsLayoutHiddenWindow,
+                        window, binding: binding, job: job,
+                        isSuppressed: suppression.retryRaiseCheck(
+                            for: window.windowId,
+                            allowHidden: allowsLayoutHiddenWindow
+                        ),
                         raiseWindow: { _ in
                             didRaise = true
                             return true

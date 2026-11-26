@@ -25,12 +25,17 @@ enum WindowFocusDispatchTrace {
             + " main_hop_us=\(String(format: "%.1f", Double(record.completedNs &- record.endedNs) / 1_000))"
     }
 
-    struct RetryRaiseRecord: Sendable {
-        let pid: pid_t
-        let windowId: Int
+    struct RetryRaiseTiming: Sendable {
         let postedNs: UInt64
         let startedNs: UInt64
         let waitedNs: UInt64
+    }
+
+    struct RetryRaiseRecord: Sendable {
+        let pid: pid_t
+        let windowId: Int
+        let timing: RetryRaiseTiming
+        let raiseStartedNs: UInt64
         let endedNs: UInt64
         let raised: Bool
     }
@@ -39,35 +44,34 @@ enum WindowFocusDispatchTrace {
         sectionTitle: "Worker Retry Raise",
         capacity: 4_096
     ) { record in
-        "scope=worker-retry-raise t_ns=\(record.endedNs) pid=\(record.pid) win=\(record.windowId)"
-            + " posted_ns=\(record.postedNs) start_ns=\(record.startedNs) waited_ns=\(record.waitedNs)"
-            + " end_ns=\(record.endedNs)"
-            + " queue_us=\(String(format: "%.1f", Double(record.startedNs &- record.postedNs) / 1_000))"
-            + " wait_us=\(String(format: "%.1f", Double(record.waitedNs &- record.startedNs) / 1_000))"
-            + " raise_us=\(String(format: "%.1f", Double(record.endedNs &- record.waitedNs) / 1_000))"
+        let timing = record.timing
+        return "scope=worker-retry-raise t_ns=\(record.endedNs) pid=\(record.pid) win=\(record.windowId)"
+            + " posted_ns=\(timing.postedNs) start_ns=\(timing.startedNs) waited_ns=\(timing.waitedNs)"
+            + " raise_start_ns=\(record.raiseStartedNs) end_ns=\(record.endedNs)"
+            + " queue_us=\(String(format: "%.1f", Double(timing.startedNs &- timing.postedNs) / 1_000))"
+            + " wait_us=\(String(format: "%.1f", Double(timing.waitedNs &- timing.startedNs) / 1_000))"
+            + " raise_us=\(String(format: "%.1f", Double(record.endedNs &- record.raiseStartedNs) / 1_000))"
             + " raised=\(record.raised)"
     }
 
     static func traceRetryRaise(
         pid: pid_t,
         windowId: Int,
-        postedNs: UInt64,
-        startedNs: UInt64,
+        timing: RetryRaiseTiming,
         _ raise: () -> Bool
     ) {
-        guard postedNs != 0 else {
+        guard timing.postedNs != 0 else {
             _ = raise()
             return
         }
-        let waitedNs = DispatchTime.now().uptimeNanoseconds
+        let raiseStartedNs = DispatchTime.now().uptimeNanoseconds
         let raised = raise()
         retryRaise.record(
             .init(
                 pid: pid,
                 windowId: windowId,
-                postedNs: postedNs,
-                startedNs: startedNs,
-                waitedNs: waitedNs,
+                timing: timing,
+                raiseStartedNs: raiseStartedNs,
                 endedNs: DispatchTime.now().uptimeNanoseconds,
                 raised: raised
             )
