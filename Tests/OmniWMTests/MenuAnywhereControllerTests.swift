@@ -322,7 +322,9 @@ final class MenuAnywhereControllerTests: XCTestCase {
                     XCTFail("Missing menu tracking delegate")
                     return
                 }
-                active.axRootElement = AXUIElementCreateApplication(91_650)
+                active.axSubmenuSource = MenuSubmenuSource(
+                    root: AXUIElementCreateApplication(91_650), isAppleMenu: false
+                )
                 controller.menuNeedsUpdate(active)
                 controller.cancelTracking()
                 XCTAssertEqual(menu.cancellationCount, 1)
@@ -355,7 +357,9 @@ final class MenuAnywhereControllerTests: XCTestCase {
 
     private func rootedMenu() -> NSMenu {
         let menu = NSMenu(title: "Submenu")
-        menu.axRootElement = AXUIElementCreateApplication(91_500)
+        menu.axSubmenuSource = MenuSubmenuSource(
+            root: AXUIElementCreateApplication(91_500), isAppleMenu: false
+        )
         return menu
     }
 }
