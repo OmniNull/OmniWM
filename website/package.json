@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "24.x"
+    "node": "26.x"
   },
   "scripts": {
     "reference:generate": "node scripts/omnishell-api.mjs --write",
@@ -17,17 +17,17 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/starlight": "0.41.9",
-    "astro": "7.4.7",
+    "@astrojs/starlight": "0.43.2",
+    "astro": "7.4.13",
     "sharp": "0.35.5"
   },
   "devDependencies": {
-    "@astrojs/check": "0.9.10",
+    "@astrojs/check": "0.9.12",
     "typescript": "6.0.3"
   },
   "overrides": {
     "postcss-nested": {
-      "postcss-selector-parser": "7.1.6"
+      "postcss-selector-parser": "7.2.1"
     }
   }
 }
