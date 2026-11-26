@@ -15,6 +15,7 @@ extension AXEventHandler {
         managedReplacementMetadata: ManagedReplacementMetadata? = nil,
         admissionHints: ManagedWindowAdmissionHints? = nil,
         sizeConstraints: WindowSizeConstraints? = nil,
+        minimizedAttribute: Bool? = nil,
         preparedSubscriptionRetainContribution: Int = 0,
         focusedAdmissionContinuation: FocusedAdmissionRetryContinuation? = nil
     ) -> ManagedWindowIdentityRebindResult {
@@ -25,12 +26,12 @@ extension AXEventHandler {
         else {
             return .rejected
         }
-        let oldWindow = AXManagedWindowIdentity(token: oldToken, axRef: oldAXRef)
-        let newWindow = AXManagedWindowIdentity(token: newToken, axRef: axRef)
         let rebind = ManagedWindowIdentityRebind(
-            oldWindow: oldWindow, newWindow: newWindow,
+            oldWindow: .init(token: oldToken, axRef: oldAXRef),
+            newWindow: .init(token: newToken, axRef: axRef),
             managedReplacementMetadata: managedReplacementMetadata,
-            admissionHints: admissionHints, sizeConstraints: sizeConstraints
+            admissionHints: admissionHints, sizeConstraints: sizeConstraints,
+            minimizedAttribute: minimizedAttribute
         )
         let changesRuntimeIdentity = oldToken != newToken
             || !CFEqual(oldAXRef.element, axRef.element)
@@ -44,7 +45,7 @@ extension AXEventHandler {
             )
             return scheduled ? .pending : .rejected
         }
-        guard let entry = commitManagedWindowIdentityRebind(
+        guard let rekeyedEntry = commitManagedWindowIdentityRebind(
             from: oldToken,
             to: newToken,
             axRef: axRef,
@@ -55,12 +56,13 @@ extension AXEventHandler {
         }
 
         if changesRuntimeIdentity {
-            applyManagedWindowIdentityRebindFrames(
+            applyManagedWindowIdentityRebindRuntimeState(
                 rebind: rebind,
                 acknowledgement: nil, controller: controller
             )
-            bindCurrentManagedWindows(afterRebinding: oldWindow, to: newWindow)
+            bindCurrentManagedWindows(afterRebinding: rebind.oldWindow, to: rebind.newWindow)
         }
+        let entry = controller.workspaceManager.entry(for: newToken) ?? rekeyedEntry
         finishManagedWindowIdentityRebind(
             rebind: rebind,
             entry: entry,
@@ -161,7 +163,8 @@ extension AXEventHandler {
                 newWindow: newWindow,
                 managedReplacementMetadata: managedReplacementMetadata,
                 admissionHints: admissionHints,
-                sizeConstraints: sizeConstraints
+                sizeConstraints: sizeConstraints,
+                minimizedAttribute: rebind.minimizedAttribute
             ),
             preparedSubscriptionRetainContribution: preparedSubscriptionRetainContribution
         )

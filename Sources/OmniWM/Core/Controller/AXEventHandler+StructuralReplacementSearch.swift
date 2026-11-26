@@ -60,7 +60,9 @@ private struct StructuralReplacementSearch {
     }
 
     mutating func inspectLiveEntry(_ entry: WindowState) -> Bool {
-        guard oldLiveTokenIsInvisible(entry.token) else { return true }
+        guard capturedInventory != nil || !entry.observedState.isMinimized,
+              oldLiveTokenIsInvisible(entry.token)
+        else { return true }
         let cachedMetadata = handler.cachedManagedReplacementMetadata(for: entry, fallbackBundleId: candidate.bundleId)
         if matches(cachedMetadata, oldToken: entry.token),
            !recordMatch(token: entry.token, workspaceId: cachedMetadata.workspaceId, source: .liveInvisible)

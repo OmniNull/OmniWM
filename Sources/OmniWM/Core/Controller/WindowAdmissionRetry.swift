@@ -185,7 +185,7 @@ extension AXEventHandler {
         let permitsTrackedEntry = switch trigger {
         case .ruleReevaluation:
             existingEntry?.token == expectedToken && existingEntry?.mode == .floating
-        case let .identityRebind(oldWindow, _, _, _, _):
+        case let .identityRebind(oldWindow, _, _, _, _, _):
             existingEntry?.token == oldWindow.token
         case .create,
              .candidate,
@@ -231,7 +231,7 @@ extension AXEventHandler {
         }
         let effectiveTrigger = preservesPriorTrigger ? state?.trigger ?? trigger : trigger
         let identityRebindSource: ManagedWindowIdentityRebindSource?
-        if case let .identityRebind(oldWindow, _, _, _, _) = effectiveTrigger {
+        if case let .identityRebind(oldWindow, _, _, _, _, _) = effectiveTrigger {
             identityRebindSource = state?.identityRebindSource
                 ?? controller?.workspaceManager.handle(for: oldWindow.token).map {
                     let source = ManagedWindowIdentityRebindSource(

@@ -497,7 +497,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
         await controller.axEventHandler.lifecycleQueries.task?.value
 
         let state = try XCTUnwrap(controller.axEventHandler.admissionRetryStateByWindowId[windowId])
-        guard case let .identityRebind(retryOld, retryNew, _, _, _) = state.trigger else {
+        guard case let .identityRebind(retryOld, retryNew, _, _, _, _) = state.trigger else {
             return XCTFail("Expected identity rebind retry")
         }
         XCTAssertEqual(retryOld.token, oldToken)
@@ -589,7 +589,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
         let state = try XCTUnwrap(
             controller.axEventHandler.admissionRetryStateByWindowId[UInt32(newToken.windowId)]
         )
-        guard case let .identityRebind(oldWindow, newWindow, _, _, _) = state.trigger else {
+        guard case let .identityRebind(oldWindow, newWindow, _, _, _, _) = state.trigger else {
             return XCTFail("Expected identity rebind ownership")
         }
         XCTAssertEqual(oldWindow.token, oldToken)
@@ -641,7 +641,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
         let state = try XCTUnwrap(
             controller.axEventHandler.admissionRetryStateByWindowId[UInt32(modalToken.windowId)]
         )
-        guard case let .identityRebind(oldWindow, newWindow, _, _, _) = state.trigger else {
+        guard case let .identityRebind(oldWindow, newWindow, _, _, _, _) = state.trigger else {
             return XCTFail("Expected identity rebind ownership")
         }
         XCTAssertEqual(oldWindow.token, oldToken)
@@ -1185,7 +1185,7 @@ final class ManagedWindowIdentityTests: XCTestCase {
             for: pending.oldWindow.token
         ))
         XCTAssertFalse(CFEqual(pending.oldWindow.axRef.element, pending.newWindow.axRef.element))
-        guard case let .identityRebind(_, _, _, _, capturedConstraints) = pending.state.trigger else {
+        guard case let .identityRebind(_, _, _, _, capturedConstraints, _) = pending.state.trigger else {
             return XCTFail("Expected identity rebind retry")
         }
         controller.axEventHandler.managedWindowIdentityRebindAcknowledgementProvider = { _, _ in true }

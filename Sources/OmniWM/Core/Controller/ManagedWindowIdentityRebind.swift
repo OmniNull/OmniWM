@@ -10,4 +10,5 @@ struct ManagedWindowIdentityRebind {
     let managedReplacementMetadata: ManagedReplacementMetadata?
     let admissionHints: ManagedWindowAdmissionHints?
     let sizeConstraints: WindowSizeConstraints?
+    var minimizedAttribute: Bool?
 }

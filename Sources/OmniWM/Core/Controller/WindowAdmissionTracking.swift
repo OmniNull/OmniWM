@@ -93,7 +93,7 @@ extension AXEventHandler {
         return scratchpadJoinArrival(
             candidate.token,
             in: scratchpadAdmission.index,
-            canCountAsFocused: !candidate.isMinimized && !candidate.appFullscreen,
+            canCountAsFocused: candidate.isMinimized != true && !candidate.appFullscreen,
             countsAsFocused: countsAsFocused
         )
     }
@@ -242,6 +242,7 @@ extension AXEventHandler {
     ) -> WindowState? {
         let isMinimized = controller.workspaceManager.entry(for: candidate.token)?.observedState.isMinimized
             ?? candidate.isMinimized
+            ?? false
         if isMinimized {
             controller.axManager.setWindowNativeSuppressed(true, token: candidate.token)
         }

@@ -258,7 +258,7 @@ extension AXEventHandler {
             ruleEffects: evaluation.decision.ruleEffects,
             admissionHints: evaluation.decision.admissionHints,
             appFullscreen: evaluation.appFullscreen,
-            isMinimized: AXWindowService.isMinimized(axRef) ?? false,
+            isMinimized: AXWindowService.isMinimized(axRef),
             replacementMetadata: makeManagedReplacementMetadata(
                 bundleId: resolvedBundleId,
                 workspaceId: workspaceId,

@@ -99,7 +99,7 @@ extension AXEventHandler {
               let state = admissionRetryStateByWindowId[windowId],
               !state.exhausted,
               !state.identityRebindTargetDestroyed,
-              case let .identityRebind(oldWindow, newWindow, _, _, _) = state.trigger,
+              case let .identityRebind(oldWindow, newWindow, _, _, _, _) = state.trigger,
               newWindow.token == targetToken,
               sameAXWindowIdentity(newWindow.axRef, axRef)
         else {
@@ -205,7 +205,7 @@ extension AXEventHandler {
         if let admissionWindowId = UInt32(exactly: windowId),
            let state = admissionRetryStateByWindowId[admissionWindowId],
            !state.exhausted,
-           case let .identityRebind(oldWindow, newWindow, _, _, _) = state.trigger,
+           case let .identityRebind(oldWindow, newWindow, _, _, _, _) = state.trigger,
            newWindow.token.windowId == windowId,
            !CFEqual(oldWindow.axRef.element, newWindow.axRef.element),
            CFEqual(newWindow.axRef.element, axRef.element)
@@ -241,7 +241,7 @@ extension AXEventHandler {
               !state.exhausted,
               state.generation == retryGeneration,
               state.executionPhase == .waiting || state.executionPhase == .queued,
-              case let .identityRebind(retryOld, retryNew, _, _, _) = state.trigger,
+              case let .identityRebind(retryOld, retryNew, _, _, _, _) = state.trigger,
               retryOld.token == oldWindow.token,
               retryNew.token == newWindow.token,
               CFEqual(retryOld.axRef.element, oldWindow.axRef.element),
@@ -266,7 +266,7 @@ extension AXEventHandler {
               state.generation == execution.generation,
               state.executionPhase == .running(execution.executionOwner),
               !state.identityRebindTargetDestroyed,
-              case let .identityRebind(retryOld, retryNew, _, _, _) = state.trigger,
+              case let .identityRebind(retryOld, retryNew, _, _, _, _) = state.trigger,
               retryOld.token == oldWindow.token,
               retryNew.token == newWindow.token,
               CFEqual(retryOld.axRef.element, oldWindow.axRef.element),

@@ -34,7 +34,7 @@ extension AXEventHandler {
         guard commitAcknowledgedManagedWindowIdentity(
             rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
         ) else { return }
-        applyManagedWindowIdentityRebindFrames(
+        applyManagedWindowIdentityRebindRuntimeState(
             rebind: rebind, acknowledgement: acknowledgement, controller: controller
         )
         requiresBindingRefresh = true
@@ -90,7 +90,7 @@ extension AXEventHandler {
         return true
     }
 
-    func applyManagedWindowIdentityRebindFrames(
+    func applyManagedWindowIdentityRebindRuntimeState(
         rebind: ManagedWindowIdentityRebind,
         acknowledgement: AXManagedWindowRebindAcknowledgement?, controller: WMController
     ) {
@@ -98,6 +98,9 @@ extension AXEventHandler {
         let retainedParkTarget = controller.axManager.commitFrameApplicationStateForRebind(
             from: rebind.oldWindow, to: rebind.newWindow, acknowledgement: acknowledgement
         )
+        if let minimizedAttribute = rebind.minimizedAttribute {
+            updateWindowMinimizedState(minimizedAttribute, token: rebind.newWindow.token)
+        }
         if let retainedParkTarget {
             controller.axManager.applyParkFramesParallel([retainedParkTarget])
         }
