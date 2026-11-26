@@ -214,9 +214,8 @@ extension AXEventHandler {
                 lifecycleQueries.borderSuppressions.removeValue(forKey: token)
                 continue
             }
-            guard suppression.needsFocusLossRecheck else { continue }
+            guard suppression.needsFocusLossRecheck, !hasVisibilityQuery(windowId: windowId) else { continue }
             lifecycleQueries.borderSuppressions[token]?.needsFocusLossRecheck = false
-            guard !hasVisibilityQuery(windowId: windowId) else { continue }
             enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged(cause: .recheck))
         }
     }
@@ -458,6 +457,9 @@ extension AXEventHandler {
             suspendCreatedWindowLookupExecution(execution)
         }
         if lifecycleQueries.active?.sequence == request.sequence { lifecycleQueries.active = nil }
+        if case .visibilityChanged = request.kind {
+            recheckVisibilityAfterFocusLoss()
+        }
         guard let intentId = lifecycleQueries.deferredCloseProbeExpiration,
               let open = controller?.intentLedger.openSameAppCloseProbe(), open.intent.id == intentId
         else {

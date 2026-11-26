@@ -537,6 +537,43 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         }
     }
 
+    func testFocusLossRechecksAfterInFlightVisibilityQueryFails() async throws {
+        let controller = try focusedFloatingWindowController()
+        defer { cleanup(controller) }
+        let manager = controller.workspaceManager
+        let handler = controller.axEventHandler
+        let windowId = UInt32(token.windowId)
+        let hidden = info(orderedIn: false)
+        handler.applyWindowVisibilityChanged(windowId: windowId, windowInfo: hidden)
+        XCTAssertTrue(handler.isBorderSuppressedByOrderOut(for: token))
+
+        let gate = LifecycleQueryGate()
+        defer { gate.resume() }
+        let started = expectation(description: "order-out query started")
+        var queries = 0
+        handler.lifecycleQueries.query = { _ in
+            queries += 1
+            if queries == 1 {
+                started.fulfill()
+                _ = await gate.wait()
+                throw AXEventHandler.LifecycleQueryError.unavailable
+            }
+            return hidden
+        }
+
+        handler.handleCGSEvent(.visibilityChanged(windowId: windowId, orderedIn: false))
+        let task = try XCTUnwrap(handler.lifecycleQueries.task)
+        await fulfillment(of: [started], timeout: failureBound)
+        XCTAssertTrue(manager.recordExternalFocus(pid: token.pid + 1))
+        XCTAssertEqual(manager.entry(for: token)?.observedState.isNativeWithdrawn, false)
+
+        gate.resume()
+        await task.value
+        XCTAssertEqual(queries, 2)
+        XCTAssertEqual(manager.entry(for: token)?.observedState.isNativeWithdrawn, true)
+        XCTAssertFalse(handler.isBorderSuppressedByOrderOut(for: token))
+    }
+
     func testFailedFocusLossRecheckIsNotRepeatedOnSessionChanges() async throws {
         let controller = try focusedFloatingWindowController()
         defer { cleanup(controller) }
