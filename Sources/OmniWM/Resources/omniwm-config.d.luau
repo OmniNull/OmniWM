@@ -160,6 +160,7 @@ export type OmniWMSettings = {
         systemHyperTrigger: string?,
         updateChecksEnabled: boolean?,
         workspaceAutoBackAndForth: boolean?,
+        workspaceSwitchWrapAround: boolean?,
     }?,
     gestures: {
         dwindleGroupDragAcrossDisplays: ("group" | "window")?,

@@ -76,17 +76,7 @@ extension CommandHandler {
         case .next,
              .previous,
              .backAndForth:
-            let origin = if action == .backAndForth {
-                navigation.workspaceBackAndForth()
-            } else {
-                navigation.switchWorkspaceRelative(
-                    isNext: action == .next,
-                    wrapAround: controller.settings.workspaces.switchWrapAround,
-                    interactionOrigin: .init(id: controller.activeWorkspace()?.id)
-                )
-            }
-            guard let origin else { return .noChange }
-            return controller.activeWorkspace()?.id == origin.id ? .noChange : .executed
+            return switchRelative(action, navigation: navigation, controller: controller)
         case let .moveWorkspaceToMonitor(direction):
             moveActiveWorkspace(toMonitor: direction, controller: controller)
         case let .swapWithMonitor(direction):
@@ -97,6 +87,25 @@ extension CommandHandler {
             return setWorkspaceLayout(layout)
         }
         return .executed
+    }
+
+    @inline(__always)
+    private func switchRelative(
+        _ action: WorkspaceAction,
+        navigation: WorkspaceNavigationHandler,
+        controller: WMController
+    ) -> ExternalCommandResult {
+        let origin = if action == .backAndForth {
+            navigation.workspaceBackAndForth()
+        } else {
+            navigation.switchWorkspaceRelative(
+                isNext: action == .next,
+                wrapAround: controller.settings.workspaces.switchWrapAroundUntracked,
+                interactionOrigin: .init(id: controller.activeWorkspace()?.id)
+            )
+        }
+        guard let origin else { return .noChange }
+        return controller.activeWorkspace()?.id == origin.id ? .noChange : .executed
     }
 
     private func detachesWindow(_ action: WorkspaceAction) -> Bool {

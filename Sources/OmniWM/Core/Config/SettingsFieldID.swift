@@ -109,6 +109,7 @@ enum SettingsFieldID: String, CaseIterable {
     case generalSystemHyperTrigger = "general.systemHyperTrigger"
     case generalUpdateChecksEnabled = "general.updateChecksEnabled"
     case generalWorkspaceAutoBackAndForth = "general.workspaceAutoBackAndForth"
+    case generalWorkspaceSwitchWrapAround = "general.workspaceSwitchWrapAround"
     case gesturesDwindleGroupDragAcrossDisplays = "gestures.dwindleGroupDragAcrossDisplays"
     case gesturesFingerCount = "gestures.fingerCount"
     case gesturesInvertDirection = "gestures.invertDirection"

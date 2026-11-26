@@ -32,6 +32,10 @@ final class WorkspaceSettings {
         didSet { onChange?() }
     }
 
+    var switchWrapAroundUntracked: Bool {
+        _switchWrapAround
+    }
+
     func configuredNames() -> [String] {
         configurations.map(\.name)
     }

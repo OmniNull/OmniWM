@@ -83,6 +83,7 @@ struct WorkspacesSettingsTab: View {
             Section("Workspace Switching") {
                 Toggle("Wrap Around", isOn: Bindable(settings.workspaces).switchWrapAround)
                     .id("Wrap Around")
+                    .settingsField(.generalWorkspaceSwitchWrapAround)
 
                 Toggle(
                     "Go Back When Switching to the Current Workspace",
