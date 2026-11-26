@@ -58,6 +58,7 @@ reset-window-secondary-span
 set-container-primary-span
 set-window-primary-span
 set-window-secondary-span
+set-visible-containers
 swap-workspace-with-monitor
 balance-sizes
 move-to-root

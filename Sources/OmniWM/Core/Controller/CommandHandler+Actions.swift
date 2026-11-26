@@ -246,6 +246,8 @@ extension CommandHandler {
             controller.niriLayoutHandler.setWindowSecondarySpan(change)
         case .balanceSizes:
             layoutHandler(as: LayoutSizable.self)?.balanceSizes()
+        case let .setVisibleContainers(count):
+            return controller.setVisibleContainerCount(count) ? .executed : .noChange
         case .undo:
             stepLayoutHistory(undo: true, controller: controller)
         case .redo:

@@ -153,6 +153,7 @@ The window-to-monitor actions send the focused window directly to the current wo
 | Toggle OmniWM Fullscreen | `Option + Return` | `Shared` |
 | Toggle Native Fullscreen | `Unassigned` | `Shared` |
 | Balance Sizes | `Option + Shift + B` | `Shared` |
+| Set Visible Containers to Off / 1-5 (**Unreleased**) | `Unassigned` | `Shared` |
 | Cycle Size Forward | `Option + .` | `Shared` |
 | Cycle Size Backward | `Option + ,` | `Shared` |
 | Move to Root | `Unassigned` | `Dwindle` |

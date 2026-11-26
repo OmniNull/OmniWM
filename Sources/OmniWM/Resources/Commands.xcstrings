@@ -16879,6 +16879,28 @@
         }
       }
     },
+    "command.sizing.setVisibleContainers" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Set Visible Containers to %lld"
+          }
+        }
+      }
+    },
+    "command.sizing.setVisibleContainersOff" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Set Visible Containers to Off"
+          }
+        }
+      }
+    },
     "command.sizing.setWindowPrimarySpan" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {

@@ -164,6 +164,7 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | `command set-container-primary-span` | `<size-change>` | niri | Set or adjust the focused container primary span |
 | `command set-window-primary-span` | `<size-change>` | niri | Set or adjust the focused window primary span |
 | `command set-window-secondary-span` | `<size-change>` | niri | Set or adjust the focused window secondary span |
+| `command set-visible-containers` | `<number>` | shared | **Unreleased:** available when building from `main`. Set how many Niri columns fit on screen, from 1 to 5, or `0` for Off, as the Visible Containers setting does |
 
 `<size-change>` accepts fixed pixels (`100`), proportions (`50%`), fixed deltas (`+10`), or proportional deltas (`-10%`).
 

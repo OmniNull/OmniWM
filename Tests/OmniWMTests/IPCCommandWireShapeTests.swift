@@ -40,7 +40,8 @@ final class IPCCommandWireShapeTests: XCTestCase {
         case .workspaceNumber,
              .columnIndex,
              .windowIndex,
-             .scratchpadIndex:
+             .scratchpadIndex,
+             .visibleContainerCount:
             .integer(2)
         case .layout:
             .layout(.niri)
@@ -120,6 +121,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"arguments":{"change":{"kind":"set-proportion","value":0.5}},"name":"set-container-primary-span"}"#,
         #"{"arguments":{"change":{"kind":"set-proportion","value":0.5}},"name":"set-window-primary-span"}"#,
         #"{"arguments":{"change":{"kind":"set-proportion","value":0.5}},"name":"set-window-secondary-span"}"#,
+        #"{"arguments":{"visibleContainerCount":2},"name":"set-visible-containers"}"#,
         #"{"arguments":{"direction":"left"},"name":"swap-workspace-with-monitor"}"#,
         #"{"name":"balance-sizes"}"#,
         #"{"name":"move-to-root"}"#,

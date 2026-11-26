@@ -149,6 +149,20 @@ extension ActionCatalog {
         ])
     }
 
+    static func appendVisibleContainerBindings(_ specs: inout [ActionSpec]) {
+        for count in IPCVisibleContainerCounts.range {
+            specs.append(
+                action(
+                    id: "setVisibleContainers.\(count)",
+                    command: .sizing(.setVisibleContainers(count)),
+                    category: .layout,
+                    binding: .unassigned,
+                    keywords: ["visible containers", "columns", "count"]
+                )
+            )
+        }
+    }
+
     static func appendLayoutHistoryBindings(_ specs: inout [ActionSpec]) {
         specs.append(action(
             id: "undo",

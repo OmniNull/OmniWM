@@ -699,6 +699,7 @@ export type ConfigCommands =
     & { read cmd: (command: "set-container-primary-span", size_change: string) -> ConfigAction }
     & { read cmd: (command: "set-window-primary-span", size_change: string) -> ConfigAction }
     & { read cmd: (command: "set-window-secondary-span", size_change: string) -> ConfigAction }
+    & { read cmd: (command: "set-visible-containers", visible_container_count: "0" | "1" | "2" | "3" | "4" | "5") -> ConfigAction }
     & { read cmd: (command: "swap-workspace-with-monitor", direction: "left" | "right" | "up" | "down") -> ConfigAction }
     & { read cmd: (command: "balance-sizes") -> ConfigAction }
     & { read cmd: (command: "move-to-root") -> ConfigAction }

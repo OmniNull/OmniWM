@@ -176,6 +176,8 @@ extension IPCJSONWriter {
             try argument("change", change, &first)
         case let .setWindowSecondarySpan(change):
             try argument("change", change, &first)
+        case let .setVisibleContainers(count):
+            try argument("visibleContainerCount", count, &first)
         case .cycleSizeForward,
              .cycleSizeBackward,
              .cycleWindowPrimarySpanForward,
