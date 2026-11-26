@@ -24,7 +24,6 @@ if ! grep -Eq 'Assertion failed: .*Wrote the same PCM with different contents.*I
     exit "$status"
 fi
 
-# Swift Build shares module caches and the build description in its scratch directory.
 echo "::warning::Clang aborted while scanning modules with a restored cache. Rebuilding from an empty Swift Build scratch directory."
 rm -rf -- "$scratch"
 "${build[@]}"
