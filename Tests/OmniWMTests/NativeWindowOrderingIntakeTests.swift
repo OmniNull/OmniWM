@@ -205,6 +205,27 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         XCTAssertEqual(controller.workspaceManager.entry(for: token)?.observedState.isNativeWithdrawn, false)
     }
 
+    func testFocusedOrderOutOnAnExemptNativeSpaceDoesNotSuppressBorder() throws {
+        for fullscreen in [false, true] {
+            let controller = try controller()
+            defer { cleanup(controller) }
+            let manager = controller.workspaceManager
+            var topology = SpaceTopology()
+            topology.displays = [.init(displayIdentifier: "display", spaceIds: [1, 2], currentSpaceId: 1)]
+            topology.windowSpace[token.windowId] = fullscreen ? 1 : 2
+            topology.fullscreenSpaceIds = fullscreen ? [1] : []
+            manager.commitSpaceTopology(topology)
+            let workspace = try XCTUnwrap(manager.entry(for: token)?.workspaceId)
+            XCTAssertTrue(manager.setManagedFocus(token, in: workspace))
+
+            let handler = controller.axEventHandler
+            handler.applyWindowVisibilityChanged(windowId: UInt32(token.windowId), windowInfo: info(orderedIn: false))
+
+            XCTAssertFalse(handler.isBorderSuppressedByOrderOut(for: token), "fullscreen=\(fullscreen)")
+            XCTAssertEqual(manager.entry(for: token)?.observedState.isNativeWithdrawn, false)
+        }
+    }
+
     func testCurrentFullscreenEvidencePreventsWithdrawalBeforeModelUpdate() throws {
         let controller = try controller()
         defer { cleanup(controller) }
@@ -317,13 +338,38 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         try await assertFocusedFloatingWindowBorderRecovers { _ in shown }
     }
 
-    func testFocusedFloatingWindowBorderRecoversWhenReopenVisibilityQueryFails() async throws {
+    func testFocusedFloatingWindowBorderRecoversWhenReopenVisibilityQueryThrows() async throws {
         try await assertFocusedFloatingWindowBorderRecovers { _ in
             throw AXEventHandler.LifecycleQueryError.unavailable
         }
+    }
+
+    func testFocusedFloatingWindowBorderRecoversWhenReopenVisibilityQueryReturnsNoWindow() async throws {
         try await assertFocusedFloatingWindowBorderRecovers { _ in nil }
+    }
+
+    func testFocusedFloatingWindowBorderRecoversWhenReopenOrderingIsUnknown() async throws {
         let unknown = info(orderedIn: nil)
         try await assertFocusedFloatingWindowBorderRecovers { _ in unknown }
+    }
+
+    func testVisibilityRecheckPreservesQueuedOrderInEvidence() async throws {
+        let controller = try focusedFloatingWindowController()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        let windowId = UInt32(token.windowId)
+        let world = WorldView(controller: controller, liveBoundsProvider: { _ in nil })
+        handler.applyWindowVisibilityChanged(windowId: windowId, windowInfo: info(orderedIn: false))
+        XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
+
+        handler.lifecycleQueries.query = { _ in nil }
+        handler.handleCGSEvent(.visibilityChanged(windowId: windowId, orderedIn: true))
+        handler.enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged(cause: .recheck))
+        let task = try XCTUnwrap(handler.lifecycleQueries.task)
+        await task.value
+
+        XCTAssertFalse(handler.isBorderSuppressedByOrderOut(for: token))
+        XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.token, token)
     }
 
     func testNewerOrderOutCancelsBorderRecoveryWhenReopenSampleIsUnavailable() async throws {
@@ -341,11 +387,21 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         let query = try XCTUnwrap(handler.lifecycleQueries.task)
         await query.value
 
-        XCTAssertTrue(handler.hasDeferredVisibilityRecheck(for: token))
+        XCTAssertTrue(handler.isBorderSuppressedByOrderOut(for: token))
         XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
     }
 
     func testNewerOrderOutKeepsBorderHiddenAfterStaleVisibleSample() async throws {
+        try await assertNewerOrderOutKeepsBorderHidden(
+            after: .visibilityChanged(windowId: UInt32(token.windowId), orderedIn: true)
+        )
+    }
+
+    func testNewerOrderOutKeepsBorderHiddenAfterStaleRestackSample() async throws {
+        try await assertNewerOrderOutKeepsBorderHidden(after: .orderChanged(windowId: UInt32(token.windowId)))
+    }
+
+    private func assertNewerOrderOutKeepsBorderHidden(after event: CGSWindowEvent) async throws {
         let controller = try focusedFloatingWindowController()
         defer { cleanup(controller) }
         let handler = controller.axEventHandler
@@ -354,26 +410,41 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         handler.applyWindowVisibilityChanged(windowId: windowId, windowInfo: info(orderedIn: false))
         XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
 
-        let gate = LifecycleQueryGate()
-        defer { gate.resume() }
-        let started = expectation(description: "reopen sample started")
+        let olderSample = LifecycleQueryGate()
+        let hideSample = LifecycleQueryGate()
+        defer {
+            olderSample.resume()
+            hideSample.resume()
+        }
+        let olderStarted = expectation(description: "older sample started")
+        let hideStarted = expectation(description: "order-out sample started")
         var queries = 0
         handler.lifecycleQueries.query = { _ in
             queries += 1
-            guard queries == 1 else { return nil }
-            started.fulfill()
-            return await gate.wait()
+            switch queries {
+            case 1:
+                olderStarted.fulfill()
+                return await olderSample.wait()
+            case 2:
+                hideStarted.fulfill()
+                return await hideSample.wait()
+            default:
+                return nil
+            }
         }
 
-        handler.handleCGSEvent(.visibilityChanged(windowId: windowId, orderedIn: true))
+        handler.handleCGSEvent(event)
         let task = try XCTUnwrap(handler.lifecycleQueries.task)
-        await fulfillment(of: [started], timeout: failureBound)
+        await fulfillment(of: [olderStarted], timeout: failureBound)
         handler.handleCGSEvent(.visibilityChanged(windowId: windowId, orderedIn: false))
-        gate.resume(info(orderedIn: true))
-        await task.value
+        olderSample.resume(info(orderedIn: true))
+        await fulfillment(of: [hideStarted], timeout: failureBound)
+        XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
 
+        hideSample.resume()
+        await task.value
         XCTAssertEqual(queries, 2)
-        XCTAssertTrue(handler.hasDeferredVisibilityRecheck(for: token))
+        XCTAssertTrue(handler.isBorderSuppressedByOrderOut(for: token))
         XCTAssertNil(SurfaceDerivation.deriveBorder(world: world))
     }
 
@@ -424,7 +495,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
 
         XCTAssertEqual(manager.nativeManagedFocusToken, token)
         XCTAssertEqual(manager.entry(for: token)?.observedState.isNativeWithdrawn, false)
-        XCTAssertFalse(handler.hasDeferredVisibilityRecheck(for: token))
+        XCTAssertFalse(handler.isBorderSuppressedByOrderOut(for: token))
         XCTAssertEqual(SurfaceDerivation.deriveBorder(world: world)?.token, token)
     }
 
@@ -466,6 +537,27 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
         }
     }
 
+    func testFailedFocusLossRecheckIsNotRepeatedOnSessionChanges() async throws {
+        let controller = try focusedFloatingWindowController()
+        defer { cleanup(controller) }
+        let handler = controller.axEventHandler
+        handler.applyWindowVisibilityChanged(windowId: UInt32(token.windowId), windowInfo: info(orderedIn: false))
+        var queries = 0
+        handler.lifecycleQueries.query = { _ in
+            queries += 1
+            return nil
+        }
+
+        XCTAssertTrue(controller.workspaceManager.recordExternalFocus(pid: token.pid + 1))
+        let recheck = try XCTUnwrap(handler.lifecycleQueries.task)
+        await recheck.value
+        XCTAssertTrue(handler.isBorderSuppressedByOrderOut(for: token))
+
+        controller.handleSessionStateChanged(surfaceScope: .border)
+        XCTAssertNil(handler.lifecycleQueries.task)
+        XCTAssertEqual(queries, 1)
+    }
+
     func testResolvedOrRetiredDeferredWindowIsNotRequeried() async throws {
         for retires in [false, true] {
             let controller = try controller()
@@ -481,7 +573,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
             }
             handler.handleCGSEvent(.visibilityChanged(windowId: UInt32(token.windowId), orderedIn: false))
             await handler.lifecycleQueries.task?.value
-            XCTAssertTrue(handler.hasDeferredVisibilityRecheck(for: token))
+            XCTAssertTrue(handler.isBorderSuppressedByOrderOut(for: token))
 
             if retires {
                 _ = controller.workspaceManager.removeWindow(pid: token.pid, windowId: token.windowId)
@@ -492,7 +584,7 @@ final class NativeWindowOrderingIntakeTests: XCTestCase {
 
             XCTAssertNil(handler.lifecycleQueries.task)
             XCTAssertEqual(queries, 1)
-            XCTAssertTrue(handler.lifecycleQueries.visibilityRechecksAfterFocusLoss.isEmpty)
+            XCTAssertTrue(handler.lifecycleQueries.borderSuppressions.isEmpty)
         }
     }
 

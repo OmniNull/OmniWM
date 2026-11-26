@@ -278,8 +278,8 @@ struct WorldView {
 }
 
 extension WorldView {
-    func hasDeferredVisibilityRecheck(for token: WindowToken) -> Bool {
-        controller.axEventHandler.hasDeferredVisibilityRecheck(for: token)
+    func isBorderSuppressedByOrderOut(for token: WindowToken) -> Bool {
+        controller.axEventHandler.isBorderSuppressedByOrderOut(for: token)
     }
 
     func edgePicturePresentation(for entry: borrowing WindowState) -> NiriEdgePicturePresentation? {

@@ -14,8 +14,19 @@ extension AXEventHandler {
         case spaceDestroyed
         case closed
         case orderChanged
-        case visibilityChanged(orderedInHandle: WindowHandle? = nil)
+        case visibilityChanged(cause: VisibilityQueryCause)
         case activation(ActivationFacts)
+    }
+
+    enum VisibilityQueryCause {
+        case orderedIn(WindowHandle?)
+        case orderedOut
+        case recheck
+    }
+
+    struct BorderSuppression {
+        let handle: WindowHandle
+        var needsFocusLossRecheck = true
     }
 
     struct LifecycleCreateRequest {
@@ -84,7 +95,7 @@ extension AXEventHandler {
         var nextSequence: UInt64 = 1
         var task: Task<Void, Never>?
         var deferredCloseProbeExpiration: IntentID?
-        var visibilityRechecksAfterFocusLoss: [WindowToken: WindowHandle] = [:]
+        var borderSuppressions: [WindowToken: BorderSuppression] = [:]
     }
 
     func enqueueLifecycleQuery(windowId: UInt32, kind: LifecycleQueryKind) {
@@ -148,6 +159,7 @@ extension AXEventHandler {
                 default: return false
                 }
             }) else { return false }
+            if case .visibilityChanged(cause: .recheck) = kind { return true }
             lifecycleQueries.pending[index].kind = kind
             return true
         default:
@@ -175,35 +187,37 @@ extension AXEventHandler {
         lifecycleQueries.active = nil
         lifecycleQueries.pending.removeAll()
         lifecycleQueries.deferredCloseProbeExpiration = nil
-        lifecycleQueries.visibilityRechecksAfterFocusLoss.removeAll()
+        lifecycleQueries.borderSuppressions.removeAll()
     }
 
-    func hasDeferredVisibilityRecheck(for token: WindowToken) -> Bool {
-        guard let handle = lifecycleQueries.visibilityRechecksAfterFocusLoss[token] else { return false }
-        return controller?.workspaceManager.handle(for: token) === handle
+    func isBorderSuppressedByOrderOut(for token: WindowToken) -> Bool {
+        guard let suppression = lifecycleQueries.borderSuppressions[token] else { return false }
+        return controller?.workspaceManager.handle(for: token) === suppression.handle
     }
 
-    func clearDeferredVisibilityRecheck(for token: WindowToken) {
-        guard let previousHandle = lifecycleQueries.visibilityRechecksAfterFocusLoss.removeValue(forKey: token),
+    func clearBorderSuppression(for token: WindowToken) {
+        guard let suppression = lifecycleQueries.borderSuppressions.removeValue(forKey: token),
               let controller,
               controller.workspaceManager.borderFocusToken == token,
-              controller.workspaceManager.handle(for: token) === previousHandle
+              controller.workspaceManager.handle(for: token) === suppression.handle
         else { return }
         controller.surfaceReconciler.noteBorderChanged()
     }
 
     func recheckVisibilityAfterFocusLoss() {
-        guard let controller, !lifecycleQueries.visibilityRechecksAfterFocusLoss.isEmpty else { return }
+        guard let controller, !lifecycleQueries.borderSuppressions.isEmpty else { return }
         let focusedToken = controller.workspaceManager.nativeManagedFocusToken
-        for (token, handle) in lifecycleQueries.visibilityRechecksAfterFocusLoss where token != focusedToken {
-            guard controller.workspaceManager.handle(for: token) === handle,
+        for (token, suppression) in lifecycleQueries.borderSuppressions where token != focusedToken {
+            guard controller.workspaceManager.handle(for: token) === suppression.handle,
                   let windowId = UInt32(exactly: token.windowId)
             else {
-                lifecycleQueries.visibilityRechecksAfterFocusLoss.removeValue(forKey: token)
+                lifecycleQueries.borderSuppressions.removeValue(forKey: token)
                 continue
             }
+            guard suppression.needsFocusLossRecheck else { continue }
+            lifecycleQueries.borderSuppressions[token]?.needsFocusLossRecheck = false
             guard !hasVisibilityQuery(windowId: windowId) else { continue }
-            enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged())
+            enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged(cause: .recheck))
         }
     }
 
@@ -220,7 +234,7 @@ extension AXEventHandler {
             DiagnosticsEventRecorder.shared.recordLifecycle(name: "cgs.windowQuery.failed.\(request.windowId)")
             switch request.kind {
             case .created,
-                 .visibilityChanged(orderedInHandle: .some):
+                 .visibilityChanged(cause: .orderedIn(.some)):
                 info = nil
             default:
                 return
@@ -300,7 +314,7 @@ extension AXEventHandler {
         let isCurrent = current.map {
             controller.workspaceManager.isSeqCurrent(observedAtSeq, for: $0.workspaceId, domains: .layoutCommit)
         } ?? false
-        if case let .visibilityChanged(orderedInHandle) = request.kind {
+        if case let .visibilityChanged(cause) = request.kind {
             guard let current else { return }
             let hasNewerVisibilityQuery = hasVisibilityQuery(windowId: request.windowId)
             guard isCurrent, !hasPendingLifecycleDestruction(current.token) else {
@@ -309,20 +323,10 @@ extension AXEventHandler {
                 }
                 return
             }
-            if hasNewerVisibilityQuery, windowInfo?.isOrderedIn == true,
-               hasDeferredVisibilityRecheck(for: current.token)
-            {
-                return
-            }
-            if let orderedInHandle,
-               controller.workspaceManager.handle(for: current.token) === orderedInHandle,
-               !hasNewerVisibilityQuery,
-               windowInfo?.isOrderedIn == nil,
-               windowInfo == nil
-               || WindowServerIdentityResolution(windowId: request.windowId, info: windowInfo).token == current.token
-            {
-                // A current order-in event can release border suppression when its sample is unavailable.
-                clearDeferredVisibilityRecheck(for: current.token)
+            if !hasNewerVisibilityQuery, canRestoreBorderFromOrderIn(
+                cause, windowId: request.windowId, token: current.token, windowInfo: windowInfo
+            ) {
+                clearBorderSuppression(for: current.token)
                 return
             }
             applyWindowVisibilityChanged(windowId: request.windowId, windowInfo: windowInfo)
@@ -331,6 +335,16 @@ extension AXEventHandler {
         } else {
             controller.surfaceReconciler.noteRestackOccurred()
         }
+    }
+
+    private func canRestoreBorderFromOrderIn(
+        _ cause: VisibilityQueryCause, windowId: UInt32, token: WindowToken, windowInfo: WindowServerInfo?
+    ) -> Bool {
+        guard case let .orderedIn(handle?) = cause,
+              controller?.workspaceManager.handle(for: token) === handle,
+              windowInfo?.isOrderedIn == nil
+        else { return false }
+        return windowInfo == nil || WindowServerIdentityResolution(windowId: windowId, info: windowInfo).token == token
     }
 
     private func applyLifecycleActivation(

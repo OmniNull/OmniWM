@@ -93,7 +93,7 @@ enum SurfaceDerivation {
               !world.hasPendingNativeFullscreenTransition(in: entry.workspaceId),
               !world.isWindowFullscreenInLayout(entry),
               picture != nil
-              || (world.isManagedWindowDisplayable(entry) && !world.hasDeferredVisibilityRecheck(for: token)),
+              || (world.isManagedWindowDisplayable(entry) && !world.isBorderSuppressedByOrderOut(for: token)),
               world.isWorkspaceVisible(entry.workspaceId)
         else {
             return nil
