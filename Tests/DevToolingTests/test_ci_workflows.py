@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -150,6 +151,61 @@ class CIWorkflowTests(unittest.TestCase):
         self.assertIn("    cache-mode: write\n", cache)
         self.assertIn("save-release-downloads: true", cache)
         self.assertNotIn("inputs.pr_number", cache)
+
+    def test_test_bundle_build_recovers_only_from_the_restored_pcm_assertion(self):
+        for job in ("cache-dependencies", "verify"):
+            self.assertIn(
+                "CACHED_BUILD_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}\n"
+                "        run: ./Scripts/ci-build-tests.sh",
+                self.jobs[job],
+            )
+        assertion = 'Assertion failed: ("Wrote the same PCM with different contents"), file InProcessModuleCache.cpp'
+        cases = (
+            ("cache hit succeeds", "restored-key", "", 0, 0, 0, True),
+            ("cache hit with PCM assertion", "restored-key", assertion, 1, 0, 0, False),
+            ("cache hit with compile error", "restored-key", "error: compilation failed", 42, 0, 42, True),
+            ("cache miss with PCM assertion", "", assertion, 1, 0, 1, True),
+            ("retry also fails", "restored-key", assertion, 1, 43, 43, False),
+        )
+        for name, cache_key, message, first_status, second_status, status, keep_cache in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                directory = Path(tmp)
+                scripts = directory / "Scripts"
+                scripts.mkdir()
+                script = scripts / "ci-build-tests.sh"
+                shutil.copy2(ROOT / "Scripts" / script.name, script)
+                preflight = scripts / "ghostty-preflight.sh"
+                preflight.write_text("#!/bin/bash\necho /fixture/GhosttyKit\n")
+                preflight.chmod(0o755)
+                swift = directory / "swift"
+                swift.write_text(textwrap.dedent('''\
+                    #!/bin/bash
+                    printf '%s\\n' "$* ($LIBRARY_PATH)" >> build-calls
+                    if [[ -e .build/localization/marker ]]; then
+                        echo "$FIRST_ERROR" >&2
+                        exit "$FIRST_STATUS"
+                    fi
+                    exit "$SECOND_STATUS"
+                    '''))
+                swift.chmod(0o755)
+                marker = directory / ".build/localization/marker"
+                marker.parent.mkdir(parents=True)
+                marker.touch()
+                audit = directory / ".build/script-arc-audit"
+                audit.mkdir()
+                result = subprocess.run(
+                    [script], cwd=directory, capture_output=True, text=True,
+                    env={**os.environ, "PATH": f"{tmp}:{os.environ['PATH']}", "LIBRARY_PATH": "/fixture/extra",
+                         "CACHED_BUILD_KEY": cache_key, "FIRST_ERROR": message,
+                         "FIRST_STATUS": str(first_status), "SECOND_STATUS": str(second_status)},
+                )
+                self.assertEqual(result.returncode, status, result.stdout + result.stderr)
+                invocation = ("build --build-tests --build-system swiftbuild --arch arm64 --scratch-path "
+                              ".build/localization (/fixture/GhosttyKit:/fixture/extra)")
+                self.assertEqual((directory / "build-calls").read_text().splitlines(),
+                                 [invocation] * (1 if keep_cache else 2))
+                self.assertEqual(marker.exists(), keep_cache)
+                self.assertTrue(audit.exists())
 
     def test_tests_gate_and_runtime_pipeline_remain(self):
         self.assertIn("    name: Tests\n    needs: [changes, verify, test-group]\n    if: ${{ !cancelled() }}", self.jobs["tests"])

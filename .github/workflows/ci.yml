@@ -55,7 +55,9 @@ jobs:
           swift package dump-package > "$RUNNER_TEMP/package.json"
           python3 Scripts/restore-mtimes.py "$CACHED_BUILD_KEY" "$RUNNER_TEMP/package.json"
       - name: Build the app and test bundle
-        run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64 --scratch-path .build/localization
+        env:
+          CACHED_BUILD_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
+        run: ./Scripts/ci-build-tests.sh
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build/localization
@@ -202,7 +204,9 @@ jobs:
         run: make script-arc-audit
       - name: Build the app and test bundle once
         if: needs.changes.outputs.tests == 'true'
-        run: LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" swift build --build-tests --build-system swiftbuild --arch arm64 --scratch-path .build/localization
+        env:
+          CACHED_BUILD_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
+        run: ./Scripts/ci-build-tests.sh
       - name: Verify localization and build
         run: |
           ./Scripts/ghostty-preflight.sh verify
