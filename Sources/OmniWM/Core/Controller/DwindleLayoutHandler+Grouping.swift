@@ -66,6 +66,16 @@ extension DwindleLayoutHandler {
                     engine: engine
                 )
             }
+            if moveOutcome == .atWorkspaceEdge,
+               engine.moveLeafTile(of: token, towardWorkspaceEdge: direction, in: workspaceId)
+            {
+                outcome = .movedWithinWorkspace
+                recordLayoutOperation(.windowMovedToRoot, in: workspaceId)
+                controller?.layoutRefreshController.requestLayoutCommandRelayout(
+                    affectedWorkspaceIds: [workspaceId]
+                )
+                return
+            }
             guard moveOutcome == .movedWithinWorkspace else {
                 outcome = moveOutcome
                 return

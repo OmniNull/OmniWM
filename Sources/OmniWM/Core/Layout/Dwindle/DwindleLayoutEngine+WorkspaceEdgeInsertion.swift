@@ -33,6 +33,15 @@ extension DwindleLayoutEngine {
         return (hasPeer, false)
     }
 
+    func moveLeafTile(
+        of token: WindowToken,
+        towardWorkspaceEdge direction: Direction,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        guard tileCanMoveToWorkspaceEdge(token, toward: direction, in: workspaceId) else { return false }
+        return insertLeafTile(of: token, atWorkspaceEdge: direction, in: workspaceId)
+    }
+
     @discardableResult
     func insertLeafTile(
         of token: WindowToken,
