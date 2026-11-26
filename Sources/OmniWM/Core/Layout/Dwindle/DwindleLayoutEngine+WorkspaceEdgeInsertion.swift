@@ -38,7 +38,7 @@ extension DwindleLayoutEngine {
         towardWorkspaceEdge direction: Direction,
         in workspaceId: WorkspaceDescriptor.ID
     ) -> Bool {
-        guard !tileSpansWorkspace(token, across: direction, in: workspaceId) else { return false }
+        guard tileCanMoveToWorkspaceEdge(token, toward: direction, in: workspaceId) else { return false }
         return insertLeafTile(of: token, atWorkspaceEdge: direction, in: workspaceId)
     }
 

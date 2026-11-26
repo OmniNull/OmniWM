@@ -220,6 +220,32 @@ final class DwindleGroupFocusIntegrationTests: XCTestCase {
         )
     }
 
+    func testMoveTowardWorkspaceEdgeLeavesTileThatDoesNotTouchThatEdge() throws {
+        let fixture = try makeFixture { _, _ in }
+        let lower = addSpatialNeighborBelowGroup(to: fixture)
+        _ = addSpatialNeighborAboveGroup(to: fixture)
+        let screen = fixture.controller.workspaceManager.monitor(for: fixture.workspaceId)?.visibleFrame
+            ?? CGRect(x: 0, y: 0, width: 1200, height: 800)
+        var moved = true
+        fixture.controller.workspaceManager.withEngineMutationScope {
+            XCTAssertTrue(
+                fixture.engine.moveLeafTile(of: lower, towardWorkspaceEdge: .right, in: fixture.workspaceId)
+            )
+            _ = fixture.engine.calculateLayout(for: fixture.workspaceId, screen: screen)
+            moved = fixture.engine.moveLeafTile(
+                of: fixture.activeToken,
+                towardWorkspaceEdge: .right,
+                in: fixture.workspaceId
+            )
+        }
+
+        XCTAssertFalse(moved)
+        XCTAssertEqual(
+            fixture.engine.findGeometricNeighbor(from: fixture.activeToken, direction: .right, in: fixture.workspaceId),
+            lower
+        )
+    }
+
     func testMoveExtractsProjectedVisibleMemberWhileGroupedPeerIsAppHidden() throws {
         let fixture = try makeFixture { _, _ in }
         fixture.controller.workspaceManager.setAppHidden(
