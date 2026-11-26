@@ -145,13 +145,18 @@ actor ConfigScriptLoader {
     static let cpuBudget: UInt64 = 100_000_000
 
     private let queue = DispatchSerialQueue(label: "com.barut.OmniWM.config.luau", qos: .userInitiated)
+    nonisolated let store: ConfigScriptStore
 
     nonisolated var unownedExecutor: UnownedSerialExecutor {
         queue.asUnownedSerialExecutor()
     }
 
+    init(store: ConfigScriptStore = ConfigScriptStore()) {
+        self.store = store
+    }
+
     nonisolated func makeGeneration() -> ConfigScriptGeneration {
-        ConfigScriptGeneration(queue: queue)
+        ConfigScriptGeneration(queue: queue, store: store)
     }
 
     nonisolated func evaluate(_ source: Data, hyperMask: UInt32) async throws -> ConfigScriptEvaluation {

@@ -373,6 +373,11 @@ typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t l
 #define OMNI_CONFIG_DWINDLE_DOWN 4u
 #define OMNI_CONFIG_DWINDLE_MEMBER_LIMIT 256u
 
+#define OMNI_CONFIG_STORE_STRING_LIMIT 4096u
+#define OMNI_CONFIG_STORE_LIST_LIMIT 64u
+#define OMNI_CONFIG_STORE_BYTE_LIMIT 65536u
+#define OMNI_CONFIG_STORE_WRITE_LIMIT 64u
+
 typedef struct omni_config_vm omni_config_vm;
 
 typedef struct omni_config_timer {
@@ -470,6 +475,37 @@ typedef struct omni_config_dwindle_tree {
     size_t member_count;
 } omni_config_dwindle_tree;
 
+typedef enum omni_config_store_kind {
+    OMNI_CONFIG_STORE_NONE,
+    OMNI_CONFIG_STORE_BOOLEAN,
+    OMNI_CONFIG_STORE_NUMBER,
+    OMNI_CONFIG_STORE_STRING,
+    OMNI_CONFIG_STORE_LIST
+} omni_config_store_kind;
+
+typedef struct omni_config_store_value {
+    omni_config_store_kind kind;
+    bool boolean;
+    double number;
+    const omni_config_span *items;
+    size_t count;
+} omni_config_store_value;
+
+typedef struct omni_config_store_read {
+    omni_config_store_value value;
+    char *bytes;
+    size_t capacity;
+    omni_config_span *items;
+} omni_config_store_read;
+
+typedef struct omni_config_store_callbacks {
+    bool (*get)(void *context, omni_config_span key, omni_config_store_read *read, char *error, size_t capacity);
+    bool (*set)(void *context, omni_config_span key, const omni_config_store_value *value,
+        omni_config_location location, char *error, size_t capacity);
+    bool (*clear)(void *context, const omni_config_span *key, omni_config_location location, char *error,
+        size_t capacity);
+} omni_config_store_callbacks;
+
 typedef struct omni_config_callbacks {
     bool (*resolve)(void *context, const omni_config_span *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
@@ -492,6 +528,7 @@ typedef struct omni_config_callbacks {
         size_t capacity);
     bool (*mode)(void *context, omni_config_span name, omni_config_location location, uint32_t *action_id, char *error,
         size_t capacity);
+    omni_config_store_callbacks store;
 } omni_config_callbacks;
 
 typedef struct omni_config_stats {
@@ -500,6 +537,7 @@ typedef struct omni_config_stats {
     uint32_t module_executions;
     uint32_t cancelled_timers;
     uint64_t allocations;
+    bool store_used;
 } omni_config_stats;
 
 omni_status omni_config_evaluate(const char *chunk_name, omni_config_span source,

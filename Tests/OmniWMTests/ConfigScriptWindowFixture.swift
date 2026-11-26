@@ -47,8 +47,13 @@ struct ConfigScriptWindowFixture {
         ConfigScriptWindowID.string(base.token(window), session: base.controller.scriptSession.identity)
     }
 
+    var storeURL: URL {
+        base.controller.settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("script-store.json")
+    }
+
     func load(_ source: String) async throws {
-        let evaluation = try await ConfigScriptLoader().evaluate(Data(source.utf8), hyperMask: mask)
+        let loader = ConfigScriptLoader(store: ConfigScriptStore(fileURL: storeURL))
+        let evaluation = try await loader.evaluate(Data(source.utf8), hyperMask: mask)
         XCTAssertTrue(script.apply(ConfigScriptLoad(versions: [:], result: .success(evaluation)), hyperMask: mask))
     }
 

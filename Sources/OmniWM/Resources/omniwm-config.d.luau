@@ -782,6 +782,12 @@ export type ConfigActionBuilders = {
     read notify: (text: string) -> ConfigAction,
 }
 
+export type ConfigStoreValue = boolean | number | string | { string }
+export type ConfigStore = {
+    read get: (key: string) -> ConfigStoreValue?,
+    read set: (key: string, value: ConfigStoreValue) -> (),
+} & { read clear: (key: string) -> () } & { read clear: () -> () }
+
 declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & {
     read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
     read act: ConfigActionBuilders,
@@ -791,4 +797,5 @@ declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & 
     read keymap: ConfigKeymap,
     read log: (...any) -> (),
     read rule: (rule: ConfigRule) -> (),
+    read store: ConfigStore,
 }

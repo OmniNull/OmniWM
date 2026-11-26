@@ -121,6 +121,10 @@ ROUTES.update(("replace/applied", "replace/stale", "replace/malformed"))
 NAMED_KEY_PAIRS = (("named/hit", "window/hit"), ("named/ref-hit", "window/ref-hit"),
                    ("named/tap-press", "window/tap-press"), ("named/tap-release", "window/tap-release"))
 ROUTES.update((*(route for pair in NAMED_KEY_PAIRS for route in pair), "named/miss", "named/luau", "named/luau-control"))
+STORE_ROUTES = ("store/get", "store/get-list", "store/equal-set", "store/changed-set", "store/batch-8",
+                "store/large-write", "store/cold-get")
+STORE_WRITES = {"store/changed-set": 1, "store/batch-8": 1, "store/large-write": 1}
+ROUTES.update(("store/control", *STORE_ROUTES))
 SHARED_LISTENER_FIELDS = ("R", "L", "obj", "VM")
 SCRIPT_WORKER_MALLOCS = ("Mallocs on the script worker are left out: Luau's page and string-table growth follows the "
                          "incremental collector's phase, not the listeners' reads.")
@@ -276,6 +280,27 @@ def check_named_keys(table):
           "Luau delivery adds only the matcher")
 
 
+def check_store(table, output):
+    fields = tuple(NO_OBSERVER_OWNERSHIP)
+    for phase in PHASES:
+        control, function = table["store/control", phase], table["named/luau-control", phase]
+        if any(control[field] != function[field] for field in fields):
+            sys.exit(f"store/control {phase}: a callback that skips the store must cost what any function key "
+                     f"costs: {control} against {function}")
+    for route in STORE_ROUTES:
+        for phase in PHASES:
+            if phase == "config":
+                continue
+            measured, control = table[route, phase], table["store/control", phase]
+            if any(measured[field] != control[field] for field in fields):
+                sys.exit(f"{route} {phase}: the store may only cost on the script worker: {measured} against {control}")
+        writes = re.search(rf"^store-writes {re.escape(route)} (\d+)$", output, re.M)
+        if not writes or int(writes.group(1)) != STORE_WRITES.get(route, 0):
+            sys.exit(f"{route} must replace the store file {STORE_WRITES.get(route, 0)} times per callback")
+    print("store: callbacks that skip it cost what any function key costs; its cost stays on the script worker, "
+          "with one file replacement per changed callback and none otherwise")
+
+
 def check_costs(output):
     rows = [line.split() for line in output.splitlines()]
     header = next(row for row in rows if row and row[0] == "route")
@@ -286,6 +311,7 @@ def check_costs(output):
                 sys.exit(f"Missing counter measurement: {route} {phase}")
     check_window_rows(table, output)
     check_named_keys(table)
+    check_store(table, output)
     for route in ("settings/key", "script/plain-key"):
         producer = table[route, "producer"]
         if int(producer["R"]) > NATIVE_RETAIN_CEILING or int(producer["L"]) > NATIVE_RELEASE_CEILING:

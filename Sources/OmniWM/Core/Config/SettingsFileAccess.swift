@@ -178,7 +178,7 @@ enum SettingsFileAccess {
         return try readContents(at: targetURL).data
     }
 
-    private static func writeExclusive(_ data: Data, to url: URL) throws {
+    private static func writeExclusive(_ data: Data, to url: URL, synchronize: Bool = true) throws {
         let fileDescriptor = url.withUnsafeFileSystemRepresentation { path -> CInt in
             guard let path else { return -1 }
             return Darwin.open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, S_IRUSR | S_IWUSR)
@@ -190,7 +190,7 @@ enum SettingsFileAccess {
         let handle = FileHandle(fileDescriptor: fileDescriptor, closeOnDealloc: true)
         do {
             try handle.write(contentsOf: data)
-            try handle.synchronize()
+            if synchronize { try handle.synchronize() }
             try handle.close()
         } catch {
             try? handle.close()
@@ -208,6 +208,38 @@ enum SettingsFileAccess {
 
     static func writeAtomically(_ data: Data, at targetURL: URL) throws {
         try data.write(to: targetURL, options: .atomic)
+    }
+
+    private static func restrictToOwner(_ url: URL) throws {
+        let result = url.withUnsafeFileSystemRepresentation { path -> CInt in
+            var status = stat()
+            guard let path, fstatat(AT_FDCWD, path, &status, 0) == 0 else { return -1 }
+            guard status.st_mode & (S_IRWXG | S_IRWXO) != 0 else { return 0 }
+            return Darwin.chmod(path, status.st_mode & S_IRWXU)
+        }
+        guard result == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+    }
+
+    static func replacePrivately(_ data: Data, at targetURL: URL) throws {
+        let directory = targetURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: S_IRWXU]
+        )
+        try restrictToOwner(directory)
+        let temporary = directory.appendingPathComponent(".\(targetURL.lastPathComponent).\(UUID().uuidString).tmp")
+        do {
+            try writeExclusive(data, to: temporary, synchronize: false)
+            let renamed = temporary.withUnsafeFileSystemRepresentation { source in
+                targetURL.withUnsafeFileSystemRepresentation { target in
+                    guard let source, let target else { return CInt(-1) }
+                    return Darwin.rename(source, target)
+                }
+            }
+            guard renamed == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        } catch {
+            try? FileManager.default.removeItem(at: temporary)
+            throw error
+        }
     }
 }
 

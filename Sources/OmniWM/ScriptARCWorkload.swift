@@ -37,7 +37,6 @@ final class ScriptARCFixture {
     static let decodeSamples = 101
     let controller: WMController
     let script: ConfigScriptController
-    let loader = ConfigScriptLoader()
     let token: WindowToken
     let otherWindow: WindowToken
     private var nextTitle = "ARC fixture renamed window A"
@@ -64,6 +63,7 @@ final class ScriptARCFixture {
         script = ConfigScriptController(
             fileURL: directory.appendingPathComponent("init.luau"),
             settings: settings,
+            loader: Self.storeLoader(in: directory),
             wmController: controller
         ) { _ in }
         let pid = getpid()
@@ -479,4 +479,5 @@ private func measureEventFamilies(in directory: URL) async throws {
     try await measureGather(in: directory)
     try await measureDwindleReplace(in: directory)
     try await measureNamedModes(in: directory)
+    try await measureStore(in: directory)
 }

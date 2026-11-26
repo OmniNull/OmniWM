@@ -35,6 +35,9 @@ struct ConfigVM : ModuleRuntime {
     std::vector<omni_config_timer> configuredTimers;
     uint32_t cancelledTimers = 0;
     unsigned commands = 0;
+    unsigned storeWrites = 0;
+    bool storeUsed = false;
+    std::vector<char> storeBytes;
     bool dwindleStaged = false;
     unsigned logs = 0;
     unsigned actions = 0;
@@ -754,6 +757,166 @@ int writeConfigLog(lua_State *L) {
     return 0;
 }
 
+void requireStore(lua_State *L, ConfigVM &vm, omni_config_location site) {
+    if (!vm.invoking || !vm.callbacks.store.get || !vm.callbacks.store.set || !vm.callbacks.store.clear) {
+        reject(L, vm, site, "omniwm.store is only available in a callback");
+    }
+    vm.storeUsed = true;
+}
+
+void countStoreWrite(lua_State *L, ConfigVM &vm, omni_config_location site) {
+    if (vm.storeWrites == OMNI_CONFIG_STORE_WRITE_LIMIT) {
+        std::snprintf(vm.failure, sizeof vm.failure, "a callback changes the store at most %u times",
+            OMNI_CONFIG_STORE_WRITE_LIMIT);
+        reject(L, vm, site, vm.failure);
+    }
+    vm.storeWrites++;
+}
+
+omni_config_span storeKey(lua_State *L, ConfigVM &vm, omni_config_location site) {
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        reject(L, vm, site, "store keys must be strings");
+    }
+    omni_config_span key;
+    key.data = lua_tolstring(L, 1, &key.length);
+    return key;
+}
+
+omni_config_span storeText(lua_State *L, ConfigVM &vm, int index, omni_config_location site) {
+    omni_config_span text;
+    text.data = lua_tolstring(L, index, &text.length);
+    if (text.length > OMNI_CONFIG_STORE_STRING_LIMIT) {
+        std::snprintf(vm.failure, sizeof vm.failure, "store strings are at most %u bytes",
+            OMNI_CONFIG_STORE_STRING_LIMIT);
+        reject(L, vm, site, vm.failure);
+    }
+    return text;
+}
+
+size_t storeList(lua_State *L, ConfigVM &vm, omni_config_location site, omni_config_span *items) {
+    const int length = lua_objlen(L, 2);
+    if (length > static_cast<int>(OMNI_CONFIG_STORE_LIST_LIMIT)) {
+        std::snprintf(vm.failure, sizeof vm.failure, "store lists hold at most %u strings",
+            OMNI_CONFIG_STORE_LIST_LIMIT);
+        reject(L, vm, site, vm.failure);
+    }
+    int count = 0;
+    lua_pushnil(L);
+    while (lua_next(L, 2)) {
+        const double key = lua_type(L, -2) == LUA_TNUMBER ? lua_tonumber(L, -2) : 0;
+        if (!(key >= 1 && key <= length && key == static_cast<int>(key)) || lua_type(L, -1) != LUA_TSTRING) {
+            reject(L, vm, site, "store lists must be arrays of strings without holes");
+        }
+        items[static_cast<int>(key) - 1] = storeText(L, vm, -1, site);
+        count++;
+        lua_pop(L, 1);
+    }
+    if (count != length) {
+        reject(L, vm, site, "store lists must be arrays of strings without holes");
+    }
+    return static_cast<size_t>(count);
+}
+
+int storeGet(lua_State *L) {
+    ConfigVM &vm = declarations(L);
+    const auto site = declarationSite(L, vm);
+    requireStore(L, vm, site);
+    if (lua_gettop(L) != 1) {
+        reject(L, vm, site, "omniwm.store.get expects a key");
+    }
+    const auto key = storeKey(L, vm, site);
+    if (vm.storeBytes.empty()) {
+        vm.storeBytes.resize(OMNI_CONFIG_STORE_BYTE_LIMIT);
+    }
+    std::array<omni_config_span, OMNI_CONFIG_STORE_LIST_LIMIT> items;
+    omni_config_store_read read{{}, vm.storeBytes.data(), vm.storeBytes.size(), items.data()};
+    if (!vm.callbacks.store.get(vm.context, key, &read, vm.failure, sizeof vm.failure)) {
+        reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid store read");
+    }
+    switch (read.value.kind) {
+    case OMNI_CONFIG_STORE_BOOLEAN:
+        lua_pushboolean(L, read.value.boolean);
+        break;
+    case OMNI_CONFIG_STORE_NUMBER:
+        lua_pushnumber(L, read.value.number);
+        break;
+    case OMNI_CONFIG_STORE_STRING:
+        lua_pushlstring(L, items[0].data, items[0].length);
+        break;
+    case OMNI_CONFIG_STORE_LIST:
+        lua_createtable(L, static_cast<int>(read.value.count), 0);
+        for (size_t index = 0; index < read.value.count; index++) {
+            lua_pushlstring(L, items[index].data, items[index].length);
+            lua_rawseti(L, -2, static_cast<int>(index + 1));
+        }
+        break;
+    default:
+        lua_pushnil(L);
+        break;
+    }
+    return 1;
+}
+
+int storeSet(lua_State *L) {
+    ConfigVM &vm = declarations(L);
+    const auto site = declarationSite(L, vm);
+    requireStore(L, vm, site);
+    if (lua_gettop(L) != 2) {
+        reject(L, vm, site, "omniwm.store.set expects a key and a value");
+    }
+    const auto key = storeKey(L, vm, site);
+    std::array<omni_config_span, OMNI_CONFIG_STORE_LIST_LIMIT> items;
+    omni_config_store_value value{};
+    value.items = items.data();
+    switch (lua_type(L, 2)) {
+    case LUA_TBOOLEAN:
+        value.kind = OMNI_CONFIG_STORE_BOOLEAN;
+        value.boolean = lua_toboolean(L, 2) != 0;
+        break;
+    case LUA_TNUMBER:
+        value.kind = OMNI_CONFIG_STORE_NUMBER;
+        value.number = lua_tonumber(L, 2);
+        if (!std::isfinite(value.number)) {
+            reject(L, vm, site, "store numbers must be finite");
+        }
+        break;
+    case LUA_TSTRING:
+        value.kind = OMNI_CONFIG_STORE_STRING;
+        items[0] = storeText(L, vm, 2, site);
+        value.count = 1;
+        break;
+    case LUA_TTABLE:
+        value.kind = OMNI_CONFIG_STORE_LIST;
+        value.count = storeList(L, vm, site, items.data());
+        break;
+    case LUA_TNIL:
+        reject(L, vm, site, "omniwm.store.set needs a value; omniwm.store.clear(key) removes one");
+    default:
+        reject(L, vm, site, "store values must be booleans, numbers, strings or lists of strings");
+    }
+    countStoreWrite(L, vm, site);
+    if (!vm.callbacks.store.set(vm.context, key, &value, site, vm.failure, sizeof vm.failure)) {
+        reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid store write");
+    }
+    return 0;
+}
+
+int storeClear(lua_State *L) {
+    ConfigVM &vm = declarations(L);
+    const auto site = declarationSite(L, vm);
+    requireStore(L, vm, site);
+    const int count = lua_gettop(L);
+    if (count > 1) {
+        reject(L, vm, site, "omniwm.store.clear expects one key, or nothing to clear every key");
+    }
+    const auto key = count == 1 ? storeKey(L, vm, site) : omni_config_span{};
+    countStoreWrite(L, vm, site);
+    if (!vm.callbacks.store.clear(vm.context, count == 1 ? &key : nullptr, site, vm.failure, sizeof vm.failure)) {
+        reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid store write");
+    }
+    return 0;
+}
+
 template<bool build>
 void installEffectFunctions(lua_State *L) {
     lua_pushcfunction(L, (nativeEffect<OMNI_CONFIG_OPEN_APP, build>), "open");
@@ -775,7 +938,7 @@ void installConfig(lua_State *L) {
     }
     lua_pushcfunction(L, requireConfigModule, "require");
     lua_setglobal(L, "require");
-    lua_createtable(L, 0, 12);
+    lua_createtable(L, 0, 13);
     lua_pushcfunction(L, addTimer, "timer");
     lua_setfield(L, -2, "timer");
     lua_pushcfunction(L, command, "cmd");
@@ -802,6 +965,15 @@ void installConfig(lua_State *L) {
     lua_setfield(L, -2, "mode");
     lua_setreadonly(L, -1, true);
     lua_setfield(L, -2, "keymap");
+    lua_createtable(L, 0, 3);
+    lua_pushcfunction(L, storeGet, "get");
+    lua_setfield(L, -2, "get");
+    lua_pushcfunction(L, storeSet, "set");
+    lua_setfield(L, -2, "set");
+    lua_pushcfunction(L, storeClear, "clear");
+    lua_setfield(L, -2, "clear");
+    lua_setreadonly(L, -1, true);
+    lua_setfield(L, -2, "store");
     lua_setreadonly(L, -1, true);
     lua_setglobal(L, "omniwm");
 }
@@ -1276,6 +1448,8 @@ omni_status omni_config_invoke(omni_config_vm *vm, uint32_t callback_id, omni_co
     vm->failure[0] = '\0';
     vm->rejected = false;
     vm->commands = 0;
+    vm->storeWrites = 0;
+    vm->storeUsed = false;
     vm->dwindleStaged = false;
     vm->logs = 0;
     vm->actions = 0;
@@ -1313,6 +1487,7 @@ omni_status omni_config_invoke(omni_config_vm *vm, uint32_t callback_id, omni_co
             stats->peak_bytes = vm->peak;
         }
         stats->cancelled_timers = vm->cancelledTimers & ~previouslyCancelled;
+        stats->store_used = vm->storeUsed;
     }
     return status;
 }

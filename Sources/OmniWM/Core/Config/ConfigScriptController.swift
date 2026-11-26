@@ -44,7 +44,7 @@ final class ConfigScriptController {
     private let fileURL: URL
     private let settings: SettingsStore
     let observation: SettingsFileObservation
-    private let loader = ConfigScriptLoader()
+    let loader: ConfigScriptLoader
     private let timerSleep: ConfigScriptTimerSleep
     @ObservationIgnored private(set) var timerWorker: Task<Void, Never>?
     private let didChangeBindings: @MainActor ([HotkeyBinding]) -> Void
@@ -72,6 +72,7 @@ final class ConfigScriptController {
     init(
         fileURL: URL,
         settings: SettingsStore,
+        loader: ConfigScriptLoader = ConfigScriptLoader(),
         wmController: WMController? = nil,
         timerSleep: @escaping ConfigScriptTimerSleep = { try await Task.sleep(for: $0) },
         didChangeBindings: @escaping @MainActor ([HotkeyBinding]) -> Void
@@ -79,6 +80,7 @@ final class ConfigScriptController {
         self.wmController = wmController
         self.fileURL = fileURL.standardizedFileURL
         self.settings = settings
+        self.loader = loader
         self.timerSleep = timerSleep
         self.didChangeBindings = didChangeBindings
         observation = SettingsFileObservation(

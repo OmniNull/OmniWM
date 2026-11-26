@@ -60,7 +60,9 @@ actor ConfigScriptGeneration {
         let id: String
     }
 
+    private static let retired = ConfigScriptError(line: nil, message: "This function belongs to a retired config.")
     private let queue: DispatchSerialQueue
+    private let store: ConfigScriptStore
     private var resident: OpaquePointer?
     private var lastTitleID: TitleWindowID?
     private var stage = ConfigScriptStage(hyperMask: 0, fileURL: nil)
@@ -71,8 +73,9 @@ actor ConfigScriptGeneration {
         queue.asUnownedSerialExecutor()
     }
 
-    init(queue: DispatchSerialQueue) {
+    init(queue: DispatchSerialQueue, store: ConfigScriptStore) {
         self.queue = queue
+        self.store = store
     }
 
     func load(fileURL: URL, hyperMask: UInt32) -> ConfigScriptLoad {
@@ -130,6 +133,7 @@ actor ConfigScriptGeneration {
         var timers: [ConfigScriptTimer] = []
         if let resident {
             stage = declarations.forCallbacks()
+            stage.store = ConfigScriptStoreAccess(store: store)
             functions = declarations.functions
             timers = ConfigScriptTimer.declarations(in: resident, cancelled: stats.cancelled_timers)
         }
@@ -202,18 +206,14 @@ actor ConfigScriptGeneration {
     private func invoke(
         function: Int, input: borrowing ConfigScriptInvocationInput, snapshot: ConfigScriptSnapshot? = nil
     ) throws(ConfigScriptError) -> ConfigScriptInvocation {
-        guard let reference = functions[function] else {
-            throw ConfigScriptError(line: nil, message: "This function belongs to a retired config.")
-        }
+        guard let reference = functions[function] else { throw Self.retired }
         return try invoke(reference: reference, input: input, snapshot: snapshot)
     }
 
     func invoke(
         reference: UInt32, input: borrowing ConfigScriptInvocationInput, snapshot: ConfigScriptSnapshot? = nil
     ) throws(ConfigScriptError) -> ConfigScriptInvocation {
-        guard !Task.isCancelled, let resident else {
-            throw ConfigScriptError(line: nil, message: "This function belongs to a retired config.")
-        }
+        guard !Task.isCancelled, let resident else { throw Self.retired }
         var stats = omni_config_stats()
         var diagnostic: ConfigScriptError?
         withUnsafeTemporaryAllocation(of: CChar.self, capacity: Int(OMNI_CONFIG_ERROR_CAPACITY)) { buffer in
@@ -232,16 +232,33 @@ actor ConfigScriptGeneration {
                 diagnostic = ConfigScriptError(
                     line: stats.location.line > 0 ? Int(stats.location.line) : nil,
                     message: String(cString: buffer.baseAddress!),
-                    source: stage.name(of: stats.location.source_id)
+                    source: sourceName(stats.location.source_id)
                 )
             }
         }
         if stats.cancelled_timers != 0 { timerWorkers.cancel(mask: stats.cancelled_timers) }
         defer { stage.dispatched = [] }
+        if stats.store_used { try finishStore(committing: diagnostic == nil) }
         if let diagnostic { throw diagnostic }
         return ConfigScriptInvocation(
             batch: stage.dispatched.isEmpty ? nil : stage.dispatched,
             allocations: Int(stats.allocations)
         )
+    }
+
+    private func sourceName(_ id: UInt32) -> String {
+        withUnsafeMutablePointer(to: &stage) { $0.pointee.name(of: id) }
+    }
+
+    private func finishStore(committing: Bool) throws(ConfigScriptError) {
+        guard let staged = stage.store?.staged.take(), committing, let location = staged.location else { return }
+        guard !Task.isCancelled else { throw Self.retired }
+        do throws(ConfigScriptStoreError) {
+            try store.commit(staged.snapshot)
+        } catch {
+            throw ConfigScriptError(
+                line: Int(location.line), message: error.message, source: sourceName(location.source_id)
+            )
+        }
     }
 }

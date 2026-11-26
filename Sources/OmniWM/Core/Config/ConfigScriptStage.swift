@@ -16,6 +16,7 @@ struct ConfigScriptStage {
     var events: [ConfigScriptEventListener] = []
     var namedModes: [ConfigScriptNamedMode] = []
     var sources: ConfigScriptSources
+    var store: ConfigScriptStoreAccess?
     private var ruleIDs: [UUID: Int] = [:]
     private var commandNames: [String: Int] = [:]
     private struct Action {
@@ -62,6 +63,7 @@ struct ConfigScriptStage {
         return stage
     }
 
+    @inline(__always)
     func name(of sourceID: UInt32) -> String {
         switch phase {
         case .declarations: sources.name(of: sourceID)
@@ -217,7 +219,8 @@ struct ConfigScriptStage {
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)
                 }
-            }
+            },
+            store: storeCallbacks
         )
     }
 
@@ -464,36 +467,5 @@ extension ConfigScriptStage {
         ))
         actions.append(Action(command: .namedKeyMode(id), text: text))
         return UInt32(actions.count - 1)
-    }
-
-    private mutating func bind(_ row: ConfigScriptBinding, inMode name: String) throws(ConfigScriptError) {
-        guard let mode = namedModes.first(where: { $0.name == name }) else {
-            throw ConfigScriptError(
-                line: nil, message: "Mode '\(name)' isn't declared. Declare it with omniwm.keymap.mode first."
-            )
-        }
-        guard let slot = NamedKeyModes.slot(for: row.chord) else {
-            throw ConfigScriptError(
-                line: nil,
-                message: "'\(row.rawChord)' in mode \(name) must be one key, with Shift at most, other than Escape."
-            )
-        }
-        var count = 0
-        for prior in bindings where prior.mode == mode.id {
-            guard NamedKeyModes.slot(for: prior.chord) != slot else {
-                throw ConfigScriptError(
-                    line: nil,
-                    message: "'\(row.rawChord)' in mode \(name) is already bound at \(prior.source):\(prior.line)."
-                )
-            }
-            count += 1
-        }
-        guard count < NamedKeyModes.keyLimit else {
-            throw ConfigScriptError(line: nil, message: "Mode \(name) has at most \(NamedKeyModes.keyLimit) keys.")
-        }
-        var row = row
-        row.mode = mode.id
-        row.modeName = name
-        bindings.append(row)
     }
 }

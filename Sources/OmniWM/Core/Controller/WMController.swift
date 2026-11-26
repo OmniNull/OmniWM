@@ -39,6 +39,7 @@ final class WMController {
     weak var registeredEventInput: ConfigScriptEventInput?
 
     var configScript: ConfigScriptController?
+    let configScriptLoader = ConfigScriptLoader()
     func enqueueConfigFunction(_ function: Int) -> ExternalCommandResult {
         do {
             return try ConfigScriptController.enqueue(function, from: &_configScript, controller: self)

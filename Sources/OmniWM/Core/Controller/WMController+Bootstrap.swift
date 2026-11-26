@@ -201,6 +201,7 @@ extension WMController {
         let script = ConfigScriptController(
             fileURL: fileURL,
             settings: settings,
+            loader: configScriptLoader,
             wmController: self
         ) { [weak self] rows in
             guard let self else { return }

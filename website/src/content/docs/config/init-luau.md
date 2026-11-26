@@ -43,6 +43,7 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 | `omniwm.dispatch("window", action, id, …)` | Queues an action on one window by its ID; see [window actions](#window-actions). |
 | `omniwm.open(bundleId)`, `omniwm.run(argv)`, `omniwm.notify(text)` | Queues an effect from inside a callback. |
 | `omniwm.rule { … }` | Adds a [window rule](#window-rules). |
+| `omniwm.store.get(key)`, `omniwm.store.set(key, value)`, `omniwm.store.clear(key?)` | Reads, saves or removes a [saved value](#saved-values) from a callback. |
 | `omniwm.log(…)` | Writes to the system log. |
 
 `argv` is a list such as `{ "/usr/bin/open", "-a", "TextEdit" }`. OmniWM runs the program directly, not through a shell.
@@ -192,6 +193,18 @@ When a check fails, nothing happens, so a callback that was still queued can't p
 
 A title rule is checked again when a window's title changes.
 
+## Saved values
+
+`omniwm.store` keeps small values through reloads and restarts, such as a list of apps a callback picked. It works in callbacks, not while the file loads.
+
+- **Reading:** `omniwm.store.get(key)` returns the value, or `nil`. A list comes back as a new table, so changing it changes nothing until you `set` it.
+- **Saving:** `omniwm.store.set(key, value)` takes a boolean, a finite number, a string or a list of strings. `set(key, nil)` is an error; `omniwm.store.clear(key)` removes one key and `omniwm.store.clear()` removes them all.
+- **When it's saved:** a callback sees its own changes right away. OmniWM saves them together when the callback succeeds, and a failed callback saves nothing. Setting the value a key already has writes nothing.
+- **Keys:** 1 to 64 letters, digits, `.`, `_` and `-`, and case matters. Dotted keys such as `work.apps` keep modules apart.
+- **The file:** `~/.local/state/omniwm/script-store.json` by default. If its contents aren't valid, `get`, `set` and `clear(key)` report an error and leave it alone, and `omniwm.store.clear()` starts over. If the file can't be read at all, for example because of its permissions, every store call reports that and nothing replaces it. If a save fails, the callback reports an error at its first change and its actions don't run.
+
+A window ID lasts only while OmniWM runs, so save bundle IDs or names instead.
+
 ## Limits
 
 - **Libraries:** base, table, string, math, bit32, utf8 and os. There's no io, coroutine or debug, and `print`, `getfenv` and `setfenv` are removed.
@@ -204,6 +217,7 @@ A title rule is checked again when a window's title changes.
 - **Timers:** up to 16, each at least 1 second.
 - **`run`:** up to 64 arguments of 4 KiB each, 32 KiB in all.
 - **Other text:** bundle IDs up to 255 bytes, and notice text up to 512 bytes.
+- **Saved values:** up to 128 keys, strings up to 4 KiB, lists up to 64 strings, and 64 KiB once saved. A callback can change the store up to 64 times.
 
 ## Recipes
 
@@ -589,4 +603,42 @@ wm.keymap.set("L", wm.cmd("resize", "horizontal", "grow"), { mode = "resize" })
 wm.keymap.set("H", wm.cmd("move", "left"), { mode = "move" })
 wm.keymap.set("L", wm.cmd("move", "right"), { mode = "move" })
 wm.keymap.set("Q", wm.cmd("exit-keyboard-mode"), { mode = "move" })
+```
+
+**Remember a workspace's apps.** **Remember Work Apps** in the command palette saves the apps on the workspace you're on. **Open Work Apps** opens them again, after a reload or restart too, and **Forget Work Apps** clears the list.
+
+```lua
+local wm = omniwm
+local key = "work.apps"
+
+wm.command("Remember Work Apps", function(ctx: ConfigContext)
+    local windows = ctx.workspaceWindows
+    if not windows or (ctx.truncated and ctx.truncated.workspaceWindows) then
+        return
+    end
+    local apps: { string } = {}
+    local seen: { [string]: boolean } = {}
+    for _, window in windows do
+        local app = window.bundleId
+        if app and not seen[app] then
+            seen[app] = true
+            table.insert(apps, app)
+        end
+    end
+    wm.store.set(key, apps)
+    wm.notify("Remembered " .. #apps .. " apps")
+end, { reads = { "workspaceWindows" } })
+
+wm.command("Open Work Apps", function()
+    local apps = wm.store.get(key)
+    if type(apps) == "table" then
+        for _, app in apps do
+            wm.open(app)
+        end
+    end
+end)
+
+wm.command("Forget Work Apps", function()
+    wm.store.clear(key)
+end)
 ```
