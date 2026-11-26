@@ -21,6 +21,7 @@ extension ActionCatalog {
         case let .media(command): .media(command)
         case let .keyboardMode(command): .keyboardMode(command)
         case .configFunction,
+             .namedKeyMode,
              .runProgram,
              .showNotice,
              .shellToggle,

@@ -478,4 +478,5 @@ private func measureEventFamilies(in directory: URL) async throws {
     try await measureDwindleReads(in: directory)
     try await measureGather(in: directory)
     try await measureDwindleReplace(in: directory)
+    try await measureNamedModes(in: directory)
 }

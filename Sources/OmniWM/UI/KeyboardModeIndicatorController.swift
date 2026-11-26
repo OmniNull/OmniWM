@@ -35,6 +35,7 @@ final class KeyboardModeIndicatorController {
 
     func show(
         kind: KeyboardModeKind,
+        name: String? = nil,
         guide: [KeyboardModeGuideEntry],
         monitors: [Monitor],
         interactionMonitorId: Monitor.ID?
@@ -54,6 +55,7 @@ final class KeyboardModeIndicatorController {
             let (panel, hostingView) = surfaces[monitor.id] ?? makeSurface(for: monitor.id)
             hostingView.rootView = KeyboardModeIndicatorView(
                 kind: kind,
+                name: name,
                 guide: monitor.id == guideMonitorId ? guide : [],
                 maxWidth: monitor.visibleFrame.width - 2 * Self.sideInset
             )
@@ -118,7 +120,12 @@ final class KeyboardModeIndicatorController {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
-        let hostingView = NSHostingView(rootView: KeyboardModeIndicatorView(kind: kind, guide: [], maxWidth: 0))
+        let hostingView = NSHostingView(rootView: KeyboardModeIndicatorView(
+            kind: kind,
+            name: nil,
+            guide: [],
+            maxWidth: 0
+        ))
         panel.contentView = hostingView
         ownedWindowRegistry.register(
             panel,
@@ -155,6 +162,7 @@ struct KeyboardModeIndicatorView: View {
     private static let columnSpacing: CGFloat = 16
 
     let kind: KeyboardModeKind
+    let name: String?
     let guide: [KeyboardModeGuideEntry]
     let maxWidth: CGFloat
 
@@ -189,6 +197,7 @@ struct KeyboardModeIndicatorView: View {
         case .prefix: "Prefix · Escape cancels"
         case .normal,
              .window: "Window mode · Escape exits"
+        case .named: "\(name ?? "Key mode") · Escape exits"
         }
     }
 

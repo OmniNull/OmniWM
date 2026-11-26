@@ -45,6 +45,43 @@ extension HotkeyCenter {
         }
     }
 
+    var activeNamedKeyMode: NamedKeyModes.Mode? {
+        guard case let .named(index) = keyboardModeInput.state else { return nil }
+        return namedKeyModes.modes[index]
+    }
+
+    @discardableResult
+    func enterNamedKeyMode(_ id: Int) -> NamedKeyModes.Entry {
+        guard let index = namedKeyModes.index(of: id) else { return .refused }
+        guard keyboardModeInput.state != .named(index) else { return .alreadyActive }
+        guard canArmCapture else { return .refused }
+        setKeyboardMode(.named(index))
+        return .entered
+    }
+
+    @discardableResult
+    func updateNamedKeyModes(_ modes: NamedKeyModes) -> Bool {
+        guard modes != namedKeyModes else { return false }
+        let active = activeNamedKeyMode?.id
+        let presenceChanged = namedKeyModes.isEmpty != modes.isEmpty
+        namedKeyModes = modes
+        if let active {
+            if let index = modes.index(of: active) {
+                keyboardModeInput.state = .named(index)
+            } else {
+                setKeyboardMode(.normal)
+            }
+        }
+        if isRunning, presenceChanged { refreshCommandHotkeyRegistrations() }
+        return true
+    }
+
+    func releaseSuppressedKey(_ keyCode: UInt32) -> Bool {
+        guard suppressedHotkeyKeyCodes.remove(keyCode) != nil else { return false }
+        if suppressedHotkeyKeyCodes.isEmpty { updateEventTapEnablement() }
+        return true
+    }
+
     func cancelArmedKeyboardMode() {
         guard keyboardModeInput.capturesKeys else { return }
         setKeyboardMode(.normal)
@@ -60,21 +97,28 @@ extension HotkeyCenter {
     }
 
     var canArmKeyboardMode: Bool {
+        canArmCapture && !keyboardModeTable.isEmpty
+    }
+
+    private var canArmCapture: Bool {
         isRunning
             && !commandHotkeysSuspended
             && keyboardModeInput.kind != .paused
-            && !keyboardModeTable.isEmpty
             && hyperTriggerTap != nil
             && isKeyboardModeArmingBlocked?() != true
     }
 
     func routeHotkeyInvocation(_ invocation: HotkeyInvocation) {
-        guard case let .keyboardMode(command) = invocation.command else {
+        switch invocation.command {
+        case let .keyboardMode(command):
+            guard invocation.trigger?.isRepeat != true else { return }
+            performKeyboardModeCommand(command)
+        case let .namedKeyMode(id):
+            guard invocation.trigger?.isRepeat != true else { return }
+            enterNamedKeyMode(id)
+        default:
             onCommand?(invocation)
-            return
         }
-        guard invocation.trigger?.isRepeat != true else { return }
-        performKeyboardModeCommand(command)
     }
 
     @discardableResult
@@ -88,22 +132,26 @@ extension HotkeyCenter {
 
     func handleKeyboardModeKeyDown(keyCode: UInt32, rawFlags: UInt64) -> Bool {
         let previous = keyboardModeInput.state
-        let decision = keyboardModeInput.handleKeyDown(
-            keyCode: keyCode,
-            rawFlags: rawFlags,
-            isRepeat: false,
-            now: keyboardModeNow(),
-            table: keyboardModeTable
-        )
+        let decision = if case let .named(index) = previous {
+            keyboardModeInput.handleNamedKeyDown(keyCode: keyCode, rawFlags: rawFlags, mode: index, in: namedKeyModes)
+        } else {
+            keyboardModeInput.handleKeyDown(
+                keyCode: keyCode,
+                rawFlags: rawFlags,
+                isRepeat: false,
+                now: keyboardModeNow(),
+                table: keyboardModeTable
+            )
+        }
         if decision.consumed {
             suppressedHotkeyKeyCodes.insert(keyCode)
         }
-        if let command = decision.command {
-            InputTrace.record("hotkey.mode cmd=\(command.displayName)")
-            onCommand?(HotkeyInvocation(command: command))
-        }
         if keyboardModeInput.state != previous {
             keyboardModeDidChange(from: previous)
+        }
+        if let command = decision.command {
+            InputTrace.record("hotkey.mode cmd=\(command.displayName)")
+            routeHotkeyInvocation(HotkeyInvocation(command: command))
         }
         return decision.consumed
     }
@@ -138,7 +186,7 @@ extension HotkeyCenter {
     }
 
     private var keyboardModeCaptureUnavailable: Bool {
-        !keyboardModeTable.isEmpty && hyperTriggerTap == nil
+        (!keyboardModeTable.isEmpty || !namedKeyModes.isEmpty) && hyperTriggerTap == nil
     }
 
     static func allowsRegistration(of command: HotkeyCommand, paused: Bool, captureUnavailable: Bool) -> Bool {
@@ -161,7 +209,8 @@ extension HotkeyCenter {
     }
 
     private static func needsModeCapture(_ command: HotkeyCommand) -> Bool {
-        command == .keyboardMode(.beginPrefix) || command == .keyboardMode(.toggleWindowMode)
+        if case .namedKeyMode = command { return true }
+        return command == .keyboardMode(.beginPrefix) || command == .keyboardMode(.toggleWindowMode)
     }
 
     private func keyboardModeDidChange(from previous: KeyboardModeInput.State, reconcileTap: Bool = true) {
@@ -178,7 +227,7 @@ extension HotkeyCenter {
         }
         scheduleKeyboardModeTimer()
         if reconcileTap { updateEventTapEnablement() }
-        guard kind != previousKind else { return }
+        guard kind != previousKind || kind == .named else { return }
         DiagnosticsEventRecorder.shared.recordLifecycle(name: "hotkeys.mode \(kind.rawValue)")
         onKeyboardModeChange?(kind)
     }
@@ -210,7 +259,8 @@ extension HotkeyCenter {
             .milliseconds(Int64((max(0, repeatDeadline - keyboardModeNow()) * 1000).rounded(.up)))
         case .normal,
              .prefix(repeatDeadline: nil),
-             .window:
+             .window,
+             .named:
             nil
         }
         guard let delay else { return }
@@ -240,7 +290,8 @@ extension HotkeyCenter {
             }
         case .normal,
              .prefix(repeatDeadline: nil),
-             .window:
+             .window,
+             .named:
             break
         }
     }

@@ -65,8 +65,7 @@ extension ConfigScriptCallbackQueue {
             }
             guard outcome == .executed || outcome == .noChange else {
                 throw ConfigScriptError(
-                    line: dispatch.line, message: "\(dispatch.displayName): \(outcome).",
-                    source: dispatch.source
+                    line: dispatch.line, message: dispatch.refusalMessage(outcome), source: dispatch.source
                 )
             }
         }

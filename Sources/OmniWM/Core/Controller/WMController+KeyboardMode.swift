@@ -13,8 +13,10 @@ extension WMController {
     }
 
     func keyboardModeDidChange(_ kind: KeyboardModeKind) {
-        keyboardModeKind = kind
-        surfaceReconciler.noteBordersAndBarsChanged()
+        if keyboardModeKind != kind {
+            keyboardModeKind = kind
+            surfaceReconciler.noteBordersAndBarsChanged()
+        }
         refreshStatusBar()
         refreshKeyboardModeIndicator()
         if scriptModeObserver != nil {
@@ -22,16 +24,23 @@ extension WMController {
         }
     }
 
+    var keyboardModeName: String? {
+        hotkeys.activeNamedKeyMode?.name
+    }
+
     func refreshKeyboardModeIndicator() {
         guard keyboardModeKind != .normal else {
             keyboardModeIndicator.hide()
             return
         }
-        let guide = keyboardModeKind == .paused ? [] : hotkeys.keyboardModeTable.entries.map {
+        let named = hotkeys.activeNamedKeyMode
+        let entries = keyboardModeKind == .paused ? [] : named?.entries ?? hotkeys.keyboardModeTable.entries
+        let guide = entries.map {
             KeyboardModeGuideEntry(key: $0.binding.displayString, title: $0.command.localizedDisplayName)
         }
         keyboardModeIndicator.show(
             kind: keyboardModeKind,
+            name: named?.name,
             guide: guide,
             monitors: workspaceManager.monitors,
             interactionMonitorId: monitorForInteraction()?.id

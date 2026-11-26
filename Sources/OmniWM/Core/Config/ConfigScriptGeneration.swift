@@ -32,6 +32,14 @@ struct ConfigScriptDispatch: Sendable {
         case .dwindleReplace: "dwindle replace"
         }
     }
+
+    func refusalMessage(_ outcome: ExternalCommandResult) -> String {
+        if case .native(.namedKeyMode) = operation, outcome == .ignoredDisabled {
+            return "Key mode: keys can't be captured now. A key mode needs Input Monitoring and doesn't start "
+                + "while shortcuts are paused or Secure Input is on."
+        }
+        return "\(displayName): \(outcome)."
+    }
 }
 
 struct ConfigScriptInvocation: Sendable {
@@ -110,6 +118,15 @@ actor ConfigScriptGeneration {
                 source: declarations.sources.name(of: stats.location.source_id)
             )
         }
+        if let empty = declarations.namedModes.first(where: { mode in
+            !declarations.bindings.contains { $0.mode == mode.id }
+        }) {
+            throw ConfigScriptError(
+                line: empty.line,
+                message: "Mode '\(empty.name)' has no keys.",
+                source: empty.source
+            )
+        }
         var timers: [ConfigScriptTimer] = []
         if let resident {
             stage = declarations.forCallbacks()
@@ -118,7 +135,7 @@ actor ConfigScriptGeneration {
         }
         return ConfigScriptEvaluation(
             bindings: declarations.bindings, peakBytes: stats.peak_bytes, rules: declarations.rules,
-            namedCommands: declarations.namedCommands,
+            namedCommands: declarations.namedCommands, namedModes: declarations.namedModes,
             events: declarations.events, timers: timers,
             moduleReads: declarations.sources.moduleCount, moduleExecutions: Int(stats.module_executions),
             generation: resident == nil ? nil : self

@@ -233,6 +233,7 @@ enum ActionCatalog {
              .moveColumn(.down):
             .dwindle
         case .configFunction,
+             .namedKeyMode,
              .runProgram,
              .showNotice,
              .focus,
@@ -279,6 +280,7 @@ enum ActionCatalog {
     private static func titleResource(for command: HotkeyCommand) -> LocalizedStringResource {
         switch command {
         case .configFunction,
+             .namedKeyMode,
              .runProgram,
              .showNotice: LocalizedStringResource("Script Shortcuts", bundle: .omniWM)
         case let .focus(direction): focusTitle(direction)

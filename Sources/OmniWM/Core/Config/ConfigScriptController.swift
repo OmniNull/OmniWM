@@ -39,7 +39,7 @@ final class ConfigScriptController {
         var hyperMask: UInt32
     }
 
-    @ObservationIgnored private weak var wmController: WMController?
+    @ObservationIgnored private(set) weak var wmController: WMController?
     @ObservationIgnored private(set) var eventObservers: ConfigScriptEventObservers?
     private let fileURL: URL
     private let settings: SettingsStore
@@ -55,6 +55,7 @@ final class ConfigScriptController {
     @ObservationIgnored private var requested: Input?
     @ObservationIgnored private var job: Task<Void, Never>?
     private(set) var acceptedBindings: [ConfigScriptBinding] = []
+    @ObservationIgnored private(set) var acceptedNamedModes: [ConfigScriptNamedMode] = []
     private(set) var acceptedRules: [ConfigScriptRule] = []
     private(set) var acceptedCommands: [ConfigScriptNamedCommand] = []
     private(set) var maskedBindingChords: Set<KeyBinding> = []
@@ -109,6 +110,8 @@ final class ConfigScriptController {
         job = nil
         requested = nil
         retireCallbacks()
+        acceptedNamedModes = []
+        wmController?.hotkeys.updateNamedKeyModes(NamedKeyModes())
         if !acceptedCommands.isEmpty {
             acceptedCommands.removeAll()
             onCommandsChanged?()
@@ -195,7 +198,7 @@ final class ConfigScriptController {
                 ) }
                 callbackQueue?.activate(owner: self, controller: wmController)
                 callbackError = nil
-                acceptedBindings = declarations
+                (acceptedBindings, acceptedNamedModes) = (declarations, evaluation?.namedModes ?? [])
                 acceptedRules = rules
                 acceptedRuleConflict = nil
                 let commandsChanged = commands != acceptedCommands
@@ -209,6 +212,7 @@ final class ConfigScriptController {
                     effectiveBindings = resolved.rows
                     didChangeBindings(resolved.rows)
                 }
+                publishNamedKeyModes()
                 if rulesChanged { onRulesChanged?() }
                 if commandsChanged { onCommandsChanged?() }
                 refreshLoadDiagnostic()
@@ -228,6 +232,7 @@ final class ConfigScriptController {
         let resolved = resolve(acceptedBindings, parsedWith: acceptedMask, base: base)
         effectiveBindings = resolved.rows
         maskedBindingChords = resolved.masked
+        publishNamedKeyModes(masking: resolved.maskedModeKeys)
         bindingConflict = resolved.conflict
         refreshLoadDiagnostic()
         return resolved.rows
@@ -297,7 +302,7 @@ final class ConfigScriptController {
         )
     }
 
-    private func description(source: String, line: Int?, message: String) -> String {
+    func description(source: String, line: Int?, message: String) -> String {
         let path = source.hasPrefix("/") ? source : fileURL.deletingLastPathComponent().appendingPathComponent(source)
             .path
         let location = line.map { ":\($0)" } ?? ""
@@ -313,7 +318,7 @@ final class ConfigScriptController {
 }
 
 extension ConfigScriptController {
-    private struct Claim {
+    struct Claim {
         let chord: KeyBinding
         let owner: String
         var modeCommand: HotkeyCommand?
@@ -361,6 +366,7 @@ extension ConfigScriptController {
     private struct Resolution {
         var rows: [HotkeyBinding] = []
         var masked: Set<KeyBinding> = []
+        var maskedModeKeys: Set<Int> = []
         var conflict: String?
     }
 
@@ -375,7 +381,7 @@ extension ConfigScriptController {
         var claims = Claim.configured(base)
         var resolution = Resolution()
         resolution.rows.reserveCapacity(declarations.count)
-        for row in declarations {
+        for row in declarations where row.mode == nil {
             let key = mask == hyperMask ? row.chord : KeySymbolMapper.fromHumanReadable(
                 row.rawChord,
                 hyperMask: hyperMask
@@ -415,6 +421,8 @@ extension ConfigScriptController {
                 modeKey: row.modeKey
             ))
         }
+        let modeKeys = namedKeyMask(declarations, claims: claims)
+        (resolution.maskedModeKeys, resolution.conflict) = (modeKeys.masked, resolution.conflict ?? modeKeys.conflict)
         resolution.rows.sort { $0.id < $1.id }
         return resolution
     }

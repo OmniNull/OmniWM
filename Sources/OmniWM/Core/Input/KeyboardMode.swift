@@ -10,6 +10,7 @@ enum KeyboardModeKind: String, Equatable, Sendable {
     case paused
     case prefix
     case window
+    case named
 }
 
 enum KeyboardModeKeyFailure: Equatable {
@@ -88,6 +89,7 @@ struct KeyboardModeInput: Equatable {
         case paused
         case prefix(repeatDeadline: TimeInterval?)
         case window
+        case named(Int)
     }
 
     struct Decision: Equatable {
@@ -116,18 +118,35 @@ struct KeyboardModeInput: Equatable {
         case .paused: .paused
         case .prefix: .prefix
         case .window: .window
+        case .named: .named
         }
     }
 
     static func capturesKeys(in state: State) -> Bool {
         switch state {
         case .prefix,
-             .window:
+             .window,
+             .named:
             true
         case .normal,
              .paused:
             false
         }
+    }
+
+    mutating func handleNamedKeyDown(
+        keyCode: UInt32,
+        rawFlags: UInt64,
+        mode index: Int,
+        in modes: borrowing NamedKeyModes
+    ) -> Decision {
+        if rawFlags & Self.commandModifierMask != 0 { return Decision() }
+        if keyCode == UInt32(kVK_Escape) {
+            state = .normal
+            return Decision(consumed: true)
+        }
+        guard let command = modes.command(in: index, keyCode: keyCode, rawFlags: rawFlags) else { return Decision() }
+        return Decision(consumed: true, command: command)
     }
 
     mutating func handleKeyDown(
@@ -173,7 +192,8 @@ struct KeyboardModeInput: Equatable {
         case .window:
             return Decision(consumed: true, command: command)
         case .normal,
-             .paused:
+             .paused,
+             .named:
             return Decision()
         }
     }

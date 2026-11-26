@@ -17,6 +17,7 @@ final class HotkeyCenter {
     var windowSwitcherInput = WindowSwitcherInput()
     var keyboardModeInput = KeyboardModeInput()
     var keyboardModeTable = KeyboardModeTable()
+    var namedKeyModes = NamedKeyModes()
     var keyboardModeTimer: Task<Void, Never>?
     var keyboardModeGeneration: UInt64 = 0
     var pauseTimeout: Duration?
@@ -160,7 +161,9 @@ final class HotkeyCenter {
         hyperTrigger = HyperTriggerStateMachine(trigger: .none, capsLockRemapped: false)
 
         let hyperEnabled = configuration.systemHyperTrigger.isEnabled
-        guard keyboardTapRequiredOutsideModes || !keyboardModeTable.isEmpty || !suppressedHotkeyKeyCodes.isEmpty else {
+        guard keyboardTapRequiredOutsideModes || !keyboardModeTable.isEmpty || !namedKeyModes.isEmpty
+            || !suppressedHotkeyKeyCodes.isEmpty
+        else {
             releaseKeyboardModeCapture()
             return
         }
@@ -193,7 +196,7 @@ final class HotkeyCenter {
         updateEventTapEnablement()
     }
 
-    private func refreshCommandHotkeyRegistrations() {
+    func refreshCommandHotkeyRegistrations() {
         carbonRegistrations.unregister()
         let plan = Self.registrationPlan(for: configuration.bindings)
         registrationFailures = plan.failures
@@ -369,8 +372,7 @@ extension HotkeyCenter {
             }
             return Unmanaged.passUnretained(event)
         case .keyUp:
-            if suppressedHotkeyKeyCodes.remove(keyCode) != nil {
-                if suppressedHotkeyKeyCodes.isEmpty { updateEventTapEnablement() }
+            if releaseSuppressedKey(keyCode) {
                 return nil
             }
             return applyHyperTriggerDecision(

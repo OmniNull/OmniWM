@@ -31,7 +31,8 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 
 | Call | What it does |
 | --- | --- |
-| `omniwm.keymap.set(chord, action, opts?)` | Binds a shortcut, such as `"Control+Option+K"`, to an action. `opts.modeKey` also binds a key for Prefix and Window mode. |
+| `omniwm.keymap.set(chord, action, opts?)` | Binds a shortcut, such as `"Control+Option+K"`, to an action. `opts.modeKey` also binds a key for Prefix and Window mode. With `opts.mode`, the chord is a key inside a [key mode](#key-modes) instead. |
+| `omniwm.keymap.mode(name)` | Declares a [key mode](#key-modes) and returns the action that enters it. |
 | `omniwm.keymap.set(chord, function(ctx) … end, opts?)` | Runs a function instead. `opts` can also hold `reads`. |
 | `omniwm.command(name, function(ctx) … end, opts?)` | Adds a command to the command palette. |
 | `omniwm.on(event, function(e) … end, opts?)` | Handles an [event](#events). |
@@ -45,6 +46,17 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 | `omniwm.log(…)` | Writes to the system log. |
 
 `argv` is a list such as `{ "/usr/bin/open", "-a", "TextEdit" }`. OmniWM runs the program directly, not through a shell.
+
+## Key modes
+
+A key mode gives plain keys their own meaning until you leave it, like Hyprland's submaps. `omniwm.keymap.mode(name)` declares one and returns the action that enters it. Bind that action to a shortcut, or dispatch it from a callback. `omniwm.keymap.set(key, action, { mode = name })` binds a key inside the mode, and a function works there too.
+
+- A key in a mode is one key, with Shift at most. Each mode keeps its own keys, so H can resize in one mode and move a window in another.
+- Escape leaves the mode, and so does `omniwm.cmd("exit-keyboard-mode")`. Keys the mode doesn't bind, and shortcuts with Command, Control or Option, still reach your apps, and the mode stays on.
+- One mode is on at a time. Entering another mode, Pause, Prefix or Window mode replaces it. A mode has no timeout, and reloading `init.luau` leaves it.
+- While a mode is on, the indicator shows its name and keys, and the `keybinds.submap` event reports its name.
+- A name has up to 32 lowercase letters, digits, `-` and `_`, and starts with a letter. `normal`, `paused`, `prefix` and `window` are taken. A config declares at most 16 modes, each with 1 to 64 keys. A key in a mode can't also be a shortcut without Command, Control or Option.
+- Key modes need Input Monitoring, like Prefix and Window mode.
 
 ## Callback context
 
@@ -115,7 +127,7 @@ Each list holds up to 256 rows and 128 KiB, not counting frames or column number
 | `workspace.active` | `id`, `name` | Latest |
 | `window.active` | `id`, `bundleId` | Latest |
 | `monitor.focused` | `id`, `name` | Latest |
-| `keybinds.submap` | `name`: `normal`, `paused`, `prefix` or `window` | Latest |
+| `keybinds.submap` | `name`: `normal`, `paused`, `prefix`, `window` or a [key mode's](#key-modes) name | Latest |
 | `config.reloaded` | none | Latest |
 | `window.open`, `window.close`, `window.move_to_workspace` | `id`, `bundleId`, `workspaceId`, `workspaceName`, `previousWorkspaceId`, `previousWorkspaceName`, `missed` | Each |
 | `workspace.created`, `workspace.removed`, `workspace.move_to_monitor` | `id`, `name`, `monitorId`, `monitorName`, `previousMonitorId`, `previousMonitorName`, `missed` | Each |
@@ -560,4 +572,21 @@ wm.keymap.set("Control+Option+Shift+R", function(ctx: ConfigContext)
         workspaceId = tree.workspaceId, revision = tree.revision, preselect = tree.preselect, nodes = nodes,
     })
 end, { reads = { "dwindle" } })
+```
+
+**Resize and move with the same keys.** Control + Option + Shift + Y turns on a resize mode where H and L shrink and grow the selected Dwindle window across, and Control + Option + Shift + U a move mode where they move the focused window. Q also leaves the move mode, and Escape leaves either one.
+
+```lua
+local wm = omniwm
+local resize = wm.keymap.mode("resize")
+local move = wm.keymap.mode("move")
+
+wm.keymap.set("Control+Option+Shift+Y", resize)
+wm.keymap.set("Control+Option+Shift+U", move)
+
+wm.keymap.set("H", wm.cmd("resize", "horizontal", "shrink"), { mode = "resize" })
+wm.keymap.set("L", wm.cmd("resize", "horizontal", "grow"), { mode = "resize" })
+wm.keymap.set("H", wm.cmd("move", "left"), { mode = "move" })
+wm.keymap.set("L", wm.cmd("move", "right"), { mode = "move" })
+wm.keymap.set("Q", wm.cmd("exit-keyboard-mode"), { mode = "move" })
 ```

@@ -14,6 +14,7 @@ extension StatusMenuModel {
         case .paused: String(localized: "Resume Shortcuts")
         case .prefix: String(localized: "Cancel Prefix")
         case .window: String(localized: "Leave Window Mode")
+        case .named: String(localized: "Leave \(controller?.keyboardModeName ?? "Key") Mode")
         }
     }
 

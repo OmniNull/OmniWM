@@ -770,8 +770,9 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "window", action: "gather", ids: {string}, from: ("workspace" | "monitor" | "all")?) -> () }
     & { read dispatch: (kind: "dwindle", action: "replace", tree: ConfigDwindleTree) -> () }
 export type ConfigKeymap =
-    { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read reads: nil }?) -> () }
-    & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read reads: { read [number]: ConfigRead }? }?) -> () }
+    { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read mode: string?, read reads: nil }?) -> () }
+    & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read mode: string?, read reads: { read [number]: ConfigRead }? }?) -> () }
+    & { read mode: (name: string) -> ConfigAction }
 export type ConfigTimers = { read timer: (options: ConfigTimerOptions, callback: () -> ()) -> ConfigTimer }
     & { read timer: (options: ConfigTimerOptions, callback: ConfigFunction, optionsForCallback: ConfigReadOptions) -> ConfigTimer }
 

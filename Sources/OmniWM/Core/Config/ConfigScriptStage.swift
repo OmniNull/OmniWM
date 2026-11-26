@@ -8,11 +8,13 @@ import Synchronization
 
 struct ConfigScriptStage {
     private static let nextFunction = Atomic<Int>(0)
+    private static let nextMode = Atomic<Int>(0)
     let hyperMask: UInt32
     var bindings: [ConfigScriptBinding] = []
     var rules: [ConfigScriptRule] = []
     var namedCommands: [ConfigScriptNamedCommand] = []
     var events: [ConfigScriptEventListener] = []
+    var namedModes: [ConfigScriptNamedMode] = []
     var sources: ConfigScriptSources
     private var ruleIDs: [UUID: Int] = [:]
     private var commandNames: [String: Int] = [:]
@@ -84,12 +86,12 @@ struct ConfigScriptStage {
                     return failure.write(to: error, capacity: capacity)
                 }
             },
-            bind: { context, chord, actionID, modeKey, location, error, capacity in
+            bind: { context, chord, actionID, modeKey, mode, location, error, capacity in
                 guard let context else { return false }
                 do throws(ConfigScriptError) {
                     let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
-                    let action = try stage.pointee.action(actionID)
-                    try stage.pointee.bind(chord, action: action, mode: modeKey, location: location)
+                    let action = try Self.action(actionID, in: stage)
+                    try stage.pointee.bind(chord, action: action, modeKey: modeKey, mode: mode, location: location)
                     return true
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)
@@ -111,7 +113,7 @@ struct ConfigScriptStage {
                     return failure.write(to: error, capacity: capacity)
                 }
             },
-            bind_function: { context, chord, functionID, modeKey, reads, location, error, capacity in
+            bind_function: { context, chord, functionID, modeKey, mode, reads, location, error, capacity in
                 guard let context else { return false }
                 do throws(ConfigScriptError) {
                     let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
@@ -120,7 +122,8 @@ struct ConfigScriptStage {
                     try stage.pointee.bind(
                         chord,
                         action: action,
-                        mode: modeKey,
+                        modeKey: modeKey,
+                        mode: mode,
                         reads: .init(rawValue: reads),
                         location: location
                     )
@@ -133,7 +136,7 @@ struct ConfigScriptStage {
                 guard let context else { return false }
                 do throws(ConfigScriptError) {
                     let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
-                    let command = try stage.pointee.action(actionID).command
+                    let command = try Self.action(actionID, in: stage).command
                     stage.pointee.dispatch(.native(command), at: location)
                     return true
                 } catch let failure {
@@ -204,14 +207,18 @@ struct ConfigScriptStage {
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)
                 }
+            },
+            mode: { context, name, location, actionID, error, capacity in
+                guard let context, let actionID else { return false }
+                do throws(ConfigScriptError) {
+                    let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
+                    actionID.pointee = try stage.pointee.declareMode(name, location: location)
+                    return true
+                } catch let failure {
+                    return failure.write(to: error, capacity: capacity)
+                }
             }
         )
-    }
-
-    private mutating func register(_ function: UInt32) -> Int {
-        let id = Self.nextFunction.wrappingAdd(1, ordering: .relaxed).newValue
-        functions[id] = function
-        return id
     }
 
     private mutating func dispatch(_ operation: ConfigScriptDispatch.Operation, at location: omni_config_location) {
@@ -262,16 +269,10 @@ struct ConfigScriptStage {
         actionBytes += byteCount
     }
 
-    private func action(_ id: UInt32) throws(ConfigScriptError) -> Action {
-        guard actions.indices.contains(Int(id)) else {
-            throw ConfigScriptError(line: nil, message: "Expected an action from omniwm.cmd or omniwm.act.")
-        }
-        return actions[Int(id)]
-    }
-
     private mutating func bind(
         _ span: omni_config_span,
         action: Action,
+        modeKey modeSpan: omni_config_span,
         mode: omni_config_span,
         reads: ConfigScriptReads = [],
         location: omni_config_location
@@ -280,9 +281,16 @@ struct ConfigScriptStage {
         guard let chord = KeySymbolMapper.fromHumanReadable(raw, hyperMask: hyperMask), !chord.isUnassigned else {
             throw ConfigScriptError(line: nil, message: "Invalid keyboard chord '\(raw)'.")
         }
-        var modeKey: KeyBinding?
         if mode.data != nil {
-            let name = try Self.string(mode)
+            try bind(ConfigScriptBinding(
+                rawChord: raw, chord: chord, command: action.command, commandText: action.text,
+                line: Int(location.line), source: sources.name(of: location.source_id), reads: reads
+            ), inMode: Self.string(mode))
+            return
+        }
+        var modeKey: KeyBinding?
+        if modeSpan.data != nil {
+            let name = try Self.string(modeSpan)
             guard let key = KeySymbolMapper.fromHumanReadable(name, hyperMask: hyperMask),
                   KeyboardModeTable.Entry(binding: key, command: action.command).isSupported
             else {
@@ -293,7 +301,7 @@ struct ConfigScriptStage {
             }
             modeKey = key
         }
-        if let prior = bindings.first(where: { $0.chord.conflicts(with: chord) }) {
+        if let prior = bindings.first(where: { $0.mode == nil && $0.chord.conflicts(with: chord) }) {
             throw ConfigScriptError(
                 line: nil,
                 message: "'\(raw)' for \(action.command.displayName) conflicts with \(prior.command.displayName) at \(prior.source):\(prior.line)."
@@ -307,6 +315,19 @@ struct ConfigScriptStage {
 }
 
 extension ConfigScriptStage {
+    private static func action(_ id: UInt32, in stage: UnsafeMutablePointer<Self>) throws(ConfigScriptError) -> Action {
+        guard stage.pointee.actions.indices.contains(Int(id)) else {
+            throw ConfigScriptError(line: nil, message: "Expected an action from omniwm.cmd or omniwm.act.")
+        }
+        return stage.pointee.actions[Int(id)]
+    }
+
+    private mutating func register(_ function: UInt32) -> Int {
+        let id = Self.nextFunction.wrappingAdd(1, ordering: .relaxed).newValue
+        functions[id] = function
+        return id
+    }
+
     private mutating func addNamedCommand(
         _ span: omni_config_span, function: UInt32, reads: ConfigScriptReads, location: omni_config_location
     ) throws(ConfigScriptError) {
@@ -410,5 +431,69 @@ extension ConfigScriptStage {
         default:
             throw ConfigScriptError(line: nil, message: "Unknown native action.")
         }
+    }
+}
+
+extension ConfigScriptStage {
+    private mutating func declareMode(
+        _ span: omni_config_span,
+        location: omni_config_location
+    ) throws(ConfigScriptError) -> UInt32 {
+        let name = try Self.string(span)
+        guard NamedKeyModes.isValidName(name) else {
+            throw ConfigScriptError(
+                line: nil,
+                message: "Mode name '\(name)' needs 1 to \(NamedKeyModes.nameLimit) lowercase letters, digits, '-' or '_', "
+                    + "starting with a letter, and can't be normal, paused, prefix or window."
+            )
+        }
+        if let prior = namedModes.first(where: { $0.name == name }) {
+            throw ConfigScriptError(
+                line: nil,
+                message: "Mode '\(name)' already declared at \(prior.source):\(prior.line)."
+            )
+        }
+        guard namedModes.count < NamedKeyModes.modeLimit else {
+            throw ConfigScriptError(line: nil, message: "A config declares at most \(NamedKeyModes.modeLimit) modes.")
+        }
+        let text = "mode \(name)"
+        try reserveAction(byteCount: text.utf8.count)
+        let id = Self.nextMode.wrappingAdd(1, ordering: .relaxed).newValue
+        namedModes.append(ConfigScriptNamedMode(
+            id: id, name: name, source: sources.name(of: location.source_id), line: Int(location.line)
+        ))
+        actions.append(Action(command: .namedKeyMode(id), text: text))
+        return UInt32(actions.count - 1)
+    }
+
+    private mutating func bind(_ row: ConfigScriptBinding, inMode name: String) throws(ConfigScriptError) {
+        guard let mode = namedModes.first(where: { $0.name == name }) else {
+            throw ConfigScriptError(
+                line: nil, message: "Mode '\(name)' isn't declared. Declare it with omniwm.keymap.mode first."
+            )
+        }
+        guard let slot = NamedKeyModes.slot(for: row.chord) else {
+            throw ConfigScriptError(
+                line: nil,
+                message: "'\(row.rawChord)' in mode \(name) must be one key, with Shift at most, other than Escape."
+            )
+        }
+        var count = 0
+        for prior in bindings where prior.mode == mode.id {
+            guard NamedKeyModes.slot(for: prior.chord) != slot else {
+                throw ConfigScriptError(
+                    line: nil,
+                    message: "'\(row.rawChord)' in mode \(name) is already bound at \(prior.source):\(prior.line)."
+                )
+            }
+            count += 1
+        }
+        guard count < NamedKeyModes.keyLimit else {
+            throw ConfigScriptError(line: nil, message: "Mode \(name) has at most \(NamedKeyModes.keyLimit) keys.")
+        }
+        var row = row
+        row.mode = mode.id
+        row.modeName = name
+        bindings.append(row)
     }
 }

@@ -77,6 +77,7 @@ final class KeyboardModeIndicatorPanelTests: XCTestCase {
         for maxWidth in [CGFloat(1400), 600, 360] {
             let view = NSHostingView(rootView: KeyboardModeIndicatorView(
                 kind: .window,
+                name: nil,
                 guide: guide,
                 maxWidth: maxWidth
             ))

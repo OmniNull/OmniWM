@@ -118,6 +118,9 @@ MIXED_READ_EVENTS = tuple(tuple("event/workspace.active+" + name for name in fam
 ROUTES.update(("move/floating-frame", *(route for family in MIXED_READ_EVENTS for route in family)))
 ROUTES.update(("gather/join", "gather/unchanged", "gather/refused"))
 ROUTES.update(("replace/applied", "replace/stale", "replace/malformed"))
+NAMED_KEY_PAIRS = (("named/hit", "window/hit"), ("named/ref-hit", "window/ref-hit"),
+                   ("named/tap-press", "window/tap-press"), ("named/tap-release", "window/tap-release"))
+ROUTES.update((*(route for pair in NAMED_KEY_PAIRS for route in pair), "named/miss", "named/luau", "named/luau-control"))
 SHARED_LISTENER_FIELDS = ("R", "L", "obj", "VM")
 SCRIPT_WORKER_MALLOCS = ("Mallocs on the script worker are left out: Luau's page and string-table growth follows the "
                          "incremental collector's phase, not the listeners' reads.")
@@ -251,6 +254,28 @@ def check_native_event_transactions(table):
     check_transaction_owners(table, "window.fullscreen", ("original fullscreen registration during confirmation",))
 
 
+def check_named_keys(table):
+    fields = tuple(NO_OBSERVER_OWNERSHIP)
+    miss = table["named/miss", "producer"]
+    if any(int(miss[field]) for field in fields):
+        sys.exit(f"named/miss: a key the mode doesn't bind must cost nothing: {miss}")
+    for route, control_route in NAMED_KEY_PAIRS:
+        named, control = table[route, "producer"], table[control_route, "producer"]
+        if int(named["obj"]) or int(named["heap"]) or any(int(named[field]) > int(control[field]) for field in fields):
+            sys.exit(f"{route} must allocate nothing and cost no more than {control_route}: {named} against {control}")
+    match = table["named/hit", "producer"]
+    for phase in PHASES:
+        delivered, control = table["named/luau", phase], table["named/luau-control", phase]
+        for field in fields:
+            extra = int(delivered[field]) - int(control[field])
+            allowed = int(match[field]) if phase == "producer" else 0
+            if extra > allowed:
+                sys.exit(f"named/luau {phase}: delivery through a mode key may add only the matcher's cost, "
+                         f"{field} {delivered[field]} against {control[field]} + {allowed}")
+    print("named keys: a miss costs nothing; hits, references and the tap cost no more than Window mode; "
+          "Luau delivery adds only the matcher")
+
+
 def check_costs(output):
     rows = [line.split() for line in output.splitlines()]
     header = next(row for row in rows if row and row[0] == "route")
@@ -260,6 +285,7 @@ def check_costs(output):
             if (route, phase) not in table:
                 sys.exit(f"Missing counter measurement: {route} {phase}")
     check_window_rows(table, output)
+    check_named_keys(table)
     for route in ("settings/key", "script/plain-key"):
         producer = table[route, "producer"]
         if int(producer["R"]) > NATIVE_RETAIN_CEILING or int(producer["L"]) > NATIVE_RELEASE_CEILING:

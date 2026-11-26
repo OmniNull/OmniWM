@@ -13,7 +13,16 @@ struct ConfigScriptBinding: Equatable, Sendable {
     let line: Int
     var source = "init.luau"
     var modeKey: KeyBinding?
+    var mode: Int?
+    var modeName: String?
     var reads: ConfigScriptReads = []
+}
+
+struct ConfigScriptNamedMode: Equatable, Sendable {
+    let id: Int
+    let name: String
+    let source: String
+    let line: Int
 }
 
 struct ConfigScriptRule: Equatable, Sendable {
@@ -112,6 +121,7 @@ struct ConfigScriptEvaluation: Sendable {
     let peakBytes: Int
     let rules: [ConfigScriptRule]
     let namedCommands: [ConfigScriptNamedCommand]
+    var namedModes: [ConfigScriptNamedMode] = []
     var events: [ConfigScriptEventListener] = []
     var timers: [ConfigScriptTimer] = []
     let moduleReads: Int

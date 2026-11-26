@@ -218,8 +218,8 @@ final class StatusBarController: NSObject {
             button.image?.accessibilityDescription = String(localized: "OmniWM, Secure Input is on")
             button.toolTip = String(localized: "Secure Input is on: Option shortcuts are paused")
         } else if let kind = controller?.keyboardModeKind, kind != .normal {
-            button.image = Self.keyboardModeStatusImage(kind)
-            button.toolTip = Self.keyboardModeToolTip(kind)
+            button.image = Self.keyboardModeStatusImage(kind, name: controller?.keyboardModeName)
+            button.toolTip = Self.keyboardModeToolTip(kind, name: controller?.keyboardModeName)
         } else if let layout {
             button.image = settings.statusBar.showIcon ? Self.brandedLayoutImage(layout) : Self.layoutGlyph(layout)
             button.toolTip = Self.layoutDisplayName(layout)
@@ -285,7 +285,10 @@ final class StatusBarController: NSObject {
         let summary = settings.statusBar.showWorkspaceName || settings.statusBar.showLayout
             ? controller?.activeStatusBarWorkspaceSummary()
             : nil
-        let modeTitle = Self.keyboardModeTitle(controller?.keyboardModeKind ?? .normal)
+        let modeTitle = Self.keyboardModeTitle(
+            controller?.keyboardModeKind ?? .normal,
+            name: controller?.keyboardModeName
+        )
         let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
             || modeTitle != nil
         updateButtonAppearance(button, controller: controller, summary: summary, hasStateIcon: hasStateIcon)

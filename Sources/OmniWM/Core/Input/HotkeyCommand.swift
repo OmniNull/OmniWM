@@ -82,6 +82,7 @@ enum HotkeyCommand: Equatable, Hashable {
     case dwindle(DwindleAction)
     case scratchpad(ScratchpadAction)
     case configFunction(Int)
+    case namedKeyMode(Int)
     case runProgram([String])
     case showNotice(String)
 
@@ -96,6 +97,7 @@ enum HotkeyCommand: Equatable, Hashable {
     var layoutCompatibility: LayoutCompatibility {
         switch self {
         case .configFunction,
+             .namedKeyMode,
              .runProgram,
              .showNotice: .shared
         case let .sizing(action): action.compatibility

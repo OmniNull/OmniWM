@@ -160195,6 +160195,21 @@
         }
       }
     },
+    "%@ mode: its keys run their commands until you press Escape." : {
+
+    },
+    "%@ · Escape exits" : {
+
+    },
+    "Key Mode" : {
+
+    },
+    "Leave %@ Mode" : {
+
+    },
+    "In the %@ key mode" : {
+
+    },
     "Leave Window Mode" : {
       "localizations" : {
         "ar" : {

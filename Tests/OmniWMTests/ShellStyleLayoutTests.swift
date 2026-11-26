@@ -4415,7 +4415,7 @@ final class ShellStyleLayoutTests: XCTestCase {
         let states: [(locked: Bool, backgrounds: Bool, mode: KeyboardModeKind)] = [
             (false, false, .normal), (true, false, .normal),
             (false, true, .normal), (true, true, .normal),
-            (false, false, .prefix), (true, true, .paused), (false, true, .window)
+            (false, false, .prefix), (true, true, .paused), (false, true, .window), (false, false, .named)
         ]
         for profile in try barHostingProfiles(in: shell) {
             XCTAssertTrue(try ShellProfiles.select(profile, in: shell))
@@ -4518,6 +4518,9 @@ final class ShellStyleLayoutTests: XCTestCase {
                         case .window:
                             modeLabel = "Window Mode"
                             modeHelp = "Window mode: keys run OmniWM commands until you press Escape."
+                        case .named:
+                            modeLabel = "Key Mode"
+                            modeHelp = "Key mode: its keys run their commands until you press Escape."
                         }
                         XCTAssertTrue(symbols.contains(state.mode == .paused ? "pause.fill" : "keyboard"), context)
                         XCTAssertEqual(labels.contains(ShellLocalizer.string(modeLabel, [])), !vertical, context)

@@ -76,7 +76,7 @@ final class ConfigScriptEventObservers {
 
     static func modeChanged(_ kind: KeyboardModeKind, controller: WMController) {
         publishRegistered(.keybindsSubmap, in: &controller.scriptModeObserver, controller: controller) {
-            .init(name: kind.rawValue)
+            .init(name: kind == .named ? controller.keyboardModeName ?? kind.rawValue : kind.rawValue)
         }?()
     }
 

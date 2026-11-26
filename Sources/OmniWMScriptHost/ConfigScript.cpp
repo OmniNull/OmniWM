@@ -83,6 +83,7 @@ int command(lua_State *L) {
 
 struct CallbackOptions {
     omni_config_span modeKey{};
+    omni_config_span mode{};
     uint16_t reads = 0;
 };
 
@@ -183,13 +184,18 @@ CallbackOptions callbackOptions(lua_State *L, ConfigVM &vm, omni_config_location
         std::string_view key(span.data, span.length);
         if (binding && key == "modeKey") {
             options.modeKey = token(L, vm, -1, site);
+        } else if (binding && key == "mode") {
+            options.mode = token(L, vm, -1, site);
         } else if (function && key == "reads") {
             options.reads = readMask(L, vm, site);
         } else {
-            reject(L, vm, site, binding ? "unknown keymap.set option; expected modeKey or reads on a function" :
+            reject(L, vm, site, binding ? "unknown keymap.set option; expected modeKey, mode or reads on a function" :
                 "unknown callback option; expected reads");
         }
         lua_pop(L, 1);
+    }
+    if (options.modeKey.data && options.mode.data) {
+        reject(L, vm, site, "keymap.set takes modeKey or mode, not both");
     }
     return options;
 }
@@ -303,13 +309,35 @@ int bindKey(lua_State *L) {
     const auto options = callbackOptions(L, vm, site, true, function);
     bool bound = function
         ? vm.callbacks.bind_function(vm.context, chord, registerFunction(L, vm, site, options.reads),
-            options.modeKey, options.reads, site, vm.failure, sizeof vm.failure)
-        : vm.callbacks.bind(vm.context, chord, *action, options.modeKey, site, vm.failure, sizeof vm.failure);
+            options.modeKey, options.mode, options.reads, site, vm.failure, sizeof vm.failure)
+        : vm.callbacks.bind(vm.context, chord, *action, options.modeKey, options.mode, site, vm.failure,
+            sizeof vm.failure);
     if (!bound) {
         reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid binding");
     }
     vm.bindings++;
     return 0;
+}
+
+int declareMode(lua_State *L) {
+    ConfigVM &vm = declarations(L);
+    auto site = declarationSite(L, vm);
+    if (vm.invoking) {
+        reject(L, vm, site, "keymap.mode is only available while loading the config");
+    }
+    if (!vm.callbacks.mode || lua_gettop(L) != 1 || lua_type(L, 1) != LUA_TSTRING) {
+        reject(L, vm, site, "keymap.mode expects a mode name");
+    }
+    if (vm.actions == OMNI_CONFIG_DECLARATION_LIMIT) {
+        reject(L, vm, site, "config action limit exceeded");
+    }
+    const auto name = token(L, vm, 1, site);
+    auto *action = static_cast<uint32_t *>(lua_newuserdatatagged(L, sizeof(uint32_t), actionTag));
+    if (!vm.callbacks.mode(vm.context, name, site, action, vm.failure, sizeof vm.failure)) {
+        reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid mode");
+    }
+    vm.actions++;
+    return 1;
 }
 
 struct FieldMessages {
@@ -767,9 +795,11 @@ void installConfig(lua_State *L) {
     lua_setfield(L, -2, "dispatch");
     lua_pushcfunction(L, writeConfigLog, "log");
     lua_setfield(L, -2, "log");
-    lua_createtable(L, 0, 1);
+    lua_createtable(L, 0, 2);
     lua_pushcfunction(L, bindKey, "set");
     lua_setfield(L, -2, "set");
+    lua_pushcfunction(L, declareMode, "mode");
+    lua_setfield(L, -2, "mode");
     lua_setreadonly(L, -1, true);
     lua_setfield(L, -2, "keymap");
     lua_setreadonly(L, -1, true);

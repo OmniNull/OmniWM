@@ -103,6 +103,7 @@ final class CommandHandler {
         }
         switch command {
         case let .configFunction(id): return controller.enqueueConfigFunction(id)
+        case let .namedKeyMode(id): return controller.hotkeys.enterNamedKeyMode(id).result
         case let .focus(direction): handler.focusWindow(direction: direction)
         case let .focusNavigation(action): return handler.perform(action, controller: controller)
         case let .move(direction):
