@@ -20,9 +20,8 @@ final class TabRailTrackOverlayView: NSView {
         wantsLayer = true
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
 
     override func hitTest(_: NSPoint) -> NSView? {

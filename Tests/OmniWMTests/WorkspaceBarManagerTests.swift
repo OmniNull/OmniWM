@@ -1268,9 +1268,8 @@ private final class WindowHeightEnforcingView: NSView {
         autoresizingMask = [.width, .height]
     }
 
-    @available(*, unavailable)
     required init?(coder _: NSCoder) {
-        fatalError("init(coder:) is not used")
+        nil
     }
 
     override func layout() {

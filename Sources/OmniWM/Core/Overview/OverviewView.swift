@@ -62,9 +62,8 @@ final class OverviewView: NSView {
         layer?.addSublayer(layerRenderer.root)
     }
 
-    @available(*, unavailable)
     required init?(coder _: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
 
     func updateLayout(

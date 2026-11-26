@@ -35,7 +35,6 @@ final class ShellChromeView: NSView {
         addSubview(content)
     }
 
-    @available(*, unavailable)
     required init?(coder _: NSCoder) {
         nil
     }

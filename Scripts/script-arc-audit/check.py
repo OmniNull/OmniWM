@@ -247,9 +247,7 @@ def check_native_event_transactions(table):
         "membership callback during a model update", "frame while recording the move",
         "transaction move recorder", "workspace manager during publication", "frame while publishing moves"
     ), ("weak controller lookup", "unowned world lookup for depth", "unowned world lookup for the primary token"))
-    check_transaction_owners(table, "window.minimize", (
-        "original minimization observer across commit", "workspace manager across commit"
-    ))
+    check_transaction_owners(table, "window.minimize", ("original minimization observer across commit",))
     check_transaction_owners(table, "window.update_state", (
         "mode change callback", "manager while recording prior mode", "pending settlement observer",
         "manager while publishing settled modes", "prior-mode dictionary iteration", "fullscreen dictionary iteration"

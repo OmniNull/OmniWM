@@ -28,9 +28,8 @@ final class QuakeSplitContainer: NSView {
         addSubview(initialView)
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+        nil
     }
 
     func allSurfaceViews() -> [GhosttySurfaceView] {
@@ -192,9 +191,8 @@ private final class SplitDividerView: NSView {
         layer?.addSublayer(visibleDividerLayer)
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+        nil
     }
 
     func update(with info: SplitNode.DividerInfo) {

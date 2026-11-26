@@ -27,9 +27,8 @@ final class ShellSurfaceView: NSView {
         ))
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+        nil
     }
 
     override func viewDidMoveToWindow() {

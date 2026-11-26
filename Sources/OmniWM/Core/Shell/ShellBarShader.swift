@@ -88,9 +88,8 @@ final class ShellBarShaderView: NSView {
         wantsLayer = true
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+        nil
     }
 
     func update(program: ShellShaderProgram, input: ShellShaderInput, paused: Bool) {

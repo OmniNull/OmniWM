@@ -87,9 +87,8 @@ final class ShellWidgetClipView: NSView {
         if let content { addSubview(content) }
     }
 
-    @available(*, unavailable)
     required init?(coder _: NSCoder) {
-        fatalError("init(coder:) is not supported")
+        nil
     }
 
     override var isFlipped: Bool {

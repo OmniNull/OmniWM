@@ -170,9 +170,8 @@ private final class ParkingEdgeFinView: NSView {
         addSubview(arrow)
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
 
     override func setFrameSize(_ newSize: NSSize) {

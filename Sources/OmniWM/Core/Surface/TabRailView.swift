@@ -53,9 +53,8 @@ final class TabRailView: NSView {
         addSubview(trackView)
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
 
     func update(tabs: [TabRailTabInfo], activeVisualIndex: Int, style: TabRailStyle = .compact) {
