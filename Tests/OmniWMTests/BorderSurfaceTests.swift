@@ -466,6 +466,7 @@ final class BorderSurfaceTests: XCTestCase {
     func testMouseUpRestoresFocusBorderOnlyWhenWindowServerReportsItBelowTheTarget() async throws {
         let (controller, entry) = try reconcileFixture()
         let recorder = BorderOperationsRecorder()
+        recorder.windowInfoProvider = { WindowServerInfo(id: $0, pid: entry.pid, level: 0, frame: .zero) }
         let applier = makeApplier(recorder) { _ in self.sample(WindowCornerRadii(uniform: 13)) }
         let reconciler = SurfaceReconciler(
             controller: controller,
