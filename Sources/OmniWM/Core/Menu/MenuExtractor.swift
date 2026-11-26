@@ -215,12 +215,12 @@ final class MenuExtractor {
 
         for (index, snapshot) in snapshots.enumerated() {
             autoreleasepool {
-                let isApple = MenuAXReader.isAppleMenuItem(snapshot.attributes)
+                let isApple = !isSubmenu && MenuAXReader.isAppleMenuItem(snapshot.attributes)
                 let item = buildSingleMenuItem(
                     from: snapshot,
                     target: target,
                     action: action,
-                    isAppleMenu: isApple && !isSubmenu
+                    isAppleMenu: isApple
                 )
                 if item.isSeparatorItem {
                     needsSeparator = true

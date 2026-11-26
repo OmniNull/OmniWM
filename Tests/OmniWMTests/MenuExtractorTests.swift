@@ -493,6 +493,35 @@ final class MenuExtractorTests: XCTestCase {
         }
     }
 
+    func testAppleSubmenuPreservesOrdinaryAppleItemAndAlternateAdjacency() {
+        let entries: [(title: String, key: String, modifiers: Int)] = [
+            ("First Command", "X", 1),
+            ("Apple", "Y", 0),
+            ("Second Command", "X", 2),
+            ("Second Command Alternate", "X", 3)
+        ]
+        let snapshots = entries.enumerated().map { index, entry in
+            MenuItemSnapshot(
+                element: AXUIElementCreateApplication(pid_t(91_670 + index)),
+                attributes: [
+                    "AXTitle": entry.title, "AXRole": "AXMenuItem", "AXEnabled": true,
+                    "AXMenuItemCmdChar": entry.key, "AXMenuItemCmdModifiers": entry.modifiers
+                ],
+                submenuRoot: nil
+            )
+        }
+
+        let items = MenuExtractor().buildMenuItems(
+            from: snapshots, target: nil, action: nil, isSubmenu: true, restoresAlternates: true
+        )
+
+        XCTAssertEqual(items.map(\.title), entries.map(\.title))
+        XCTAssertEqual(items.map(\.isAlternate), [false, false, false, true])
+        XCTAssertEqual(items.map(\.keyEquivalentModifierMask), [
+            [.shift, .command], [.command], [.option, .command], [.shift, .option, .command]
+        ])
+    }
+
     func testMenuAnywhereRestoresAlternatesOnlyInAppleSubmenu() throws {
         let apple = AXUIElementCreateApplication(91_660)
         let file = AXUIElementCreateApplication(91_661)
