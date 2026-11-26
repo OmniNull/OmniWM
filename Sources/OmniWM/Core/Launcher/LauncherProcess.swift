@@ -11,6 +11,26 @@ struct LauncherProcessResult: Sendable {
     let truncated: Bool
 }
 
+final class LauncherExpiry: Sendable {
+    private let state = Mutex<(fired: Bool, expire: (@Sendable () -> Void)?)>((false, nil))
+
+    func fire() {
+        let expire = state.withLock { state in
+            state.fired = true
+            return state.expire.take()
+        }
+        expire?()
+    }
+
+    fileprivate func register(_ expire: @escaping @Sendable () -> Void) {
+        let fired = state.withLock { state in
+            if !state.fired { state.expire = expire }
+            return state.fired
+        }
+        if fired { expire() }
+    }
+}
+
 enum LauncherProcess {
     @concurrent
     static func start(_ argv: [String], environment: [String: String]? = nil) async throws {
@@ -59,6 +79,7 @@ enum LauncherProcess {
         environment: [String: String],
         directory: String? = nil,
         deadline: TimeInterval? = nil,
+        expiry: LauncherExpiry? = nil,
         outputLimit: Int = 65_536,
         captureStandardError: Bool = true
     ) async throws -> LauncherProcessResult {
@@ -69,7 +90,7 @@ enum LauncherProcess {
         return try await withCheckedThrowingContinuation { continuation in
             do {
                 let operation = try Operation(request: request, outputLimit: outputLimit, continuation: continuation)
-                operation.start(deadline: deadline, captureStandardError: captureStandardError)
+                operation.start(deadline: deadline, expiry: expiry, captureStandardError: captureStandardError)
             } catch {
                 continuation.resume(throwing: error)
             }
@@ -118,7 +139,8 @@ enum LauncherProcess {
         }
 
         func start(
-            deadline: TimeInterval?, captureStandardError: Bool, started: CheckedContinuation<Void, Error>? = nil
+            deadline: TimeInterval?, expiry: LauncherExpiry? = nil, captureStandardError: Bool,
+            started: CheckedContinuation<Void, Error>? = nil
         ) {
             queue.async { [self] in
                 process.standardInput = FileHandle.nullDevice
@@ -142,6 +164,10 @@ enum LauncherProcess {
                     return
                 }
                 started?.resume()
+                expiry?.register { [weak self] in
+                    guard let self else { return }
+                    queue.async { self.expire() }
+                }
                 do {
                     try pipe.fileHandleForWriting.close()
                 } catch {
