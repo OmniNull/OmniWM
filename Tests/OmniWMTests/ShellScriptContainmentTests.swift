@@ -96,6 +96,20 @@ extension ShellScriptHostTests {
         XCTAssertTrue(script.message.contains("function expected"), script.message)
     }
 
+    func testJSONEncodePastTheCPUBudgetStopsTheCall() throws {
+        let script = try Script("""
+        function render(ctx)
+            json.encode(string.rep("x", \(OMNI_NATIVE_BUDGET_INTERVAL)))
+            return ui.text{ text = "unreachable" }
+        end
+        """)
+        omni_native_budget_expire_next_check()
+        let result = script.render(budget: ShellWidgetPackage.renderBudget)
+        XCTAssertFalse(omni_native_budget_cancel_expiry())
+        XCTAssertEqual(result.status, OMNI_ERR_TIMEOUT)
+        XCTAssertTrue(script.message.hasSuffix("script exceeded CPU budget"), script.message)
+    }
+
     func testOverrunInsideEncodeReportsTimeoutAfterTheCallReturns() throws {
         let script = try Script("""
         local items = {}

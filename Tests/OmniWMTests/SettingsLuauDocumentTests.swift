@@ -3,6 +3,7 @@
 
 import Foundation
 @testable import OmniWM
+import OmniWMScriptHost
 import XCTest
 
 @MainActor
@@ -59,6 +60,25 @@ final class SettingsLuauDocumentTests: XCTestCase {
                 XCTAssertTrue(error.localizedDescription.contains("settings.luau:3:"), error.localizedDescription)
                 XCTAssertTrue(error.localizedDescription.contains(field), error.localizedDescription)
             }
+        }
+    }
+
+    func testConversionPastTheCPUBudgetReportsTheBudget() {
+        let source = "return { value = string.rep('x', \(OMNI_NATIVE_BUDGET_INTERVAL)) }"
+        omni_native_budget_expire_next_check()
+        XCTAssertThrowsError(try SettingsLuauDocument(Data(source.utf8))) { error in
+            XCTAssertTrue(
+                error.localizedDescription.hasSuffix("settings exceeded the CPU budget"),
+                error.localizedDescription
+            )
+        }
+        XCTAssertFalse(omni_native_budget_cancel_expiry())
+    }
+
+    func testRunningOutOfMemoryStillReportsMemory() {
+        let source = "return { value = string.rep('x', \(ConfigScriptLoader.heapLimit)) }"
+        XCTAssertThrowsError(try SettingsLuauDocument(Data(source.utf8))) { error in
+            XCTAssertTrue(error.localizedDescription.hasSuffix("not enough memory"), error.localizedDescription)
         }
     }
 

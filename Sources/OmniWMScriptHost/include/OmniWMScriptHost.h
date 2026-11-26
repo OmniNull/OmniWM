@@ -436,6 +436,11 @@ omni_status omni_settings_evaluate(const char *filename, omni_config_span source
     omni_settings_comment comment, omni_settings_return_site return_site,
     omni_settings_table table, omni_read_module read_module, omni_config_location *site, char *error, size_t capacity) OMNI_NOEXCEPT;
 
+#define OMNI_NATIVE_BUDGET_INTERVAL 4096u
+
+void omni_native_budget_expire_next_check(void) OMNI_NOEXCEPT;
+bool omni_native_budget_cancel_expiry(void) OMNI_NOEXCEPT;
+
 typedef enum omni_config_value_kind {
     OMNI_CONFIG_STRING,
     OMNI_CONFIG_NUMBER,

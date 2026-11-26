@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <utility>
 
 namespace {
 
@@ -16,6 +17,7 @@ constexpr size_t jsonLimit = 4 * 1024 * 1024;
 constexpr int valueDepth = 64;
 char nullIdentity;
 char arrayIdentity;
+thread_local bool expireNextCheck = false;
 
 bool markedArray(lua_State *L, int index) {
     index = lua_absindex(L, index);
@@ -33,17 +35,25 @@ bool markedArray(lua_State *L, int index) {
 
 struct NativeBudget {
     lua_State *L;
+    omni_detail::BudgetTrip trip = omni_detail::BudgetTrip::raiseLuaError;
     size_t work = 0;
 
     void check(size_t amount = 1) {
         work += amount;
-        if (work < 4096) { return; }
+        if (work >= OMNI_NATIVE_BUDGET_INTERVAL) { checkClock(); }
+    }
+
+    [[gnu::noinline, gnu::cold]] void checkClock() {
         work = 0;
-        auto *vm = static_cast<omni_vm *>(lua_callbacks(L)->userdata);
-        if (vm != nullptr && vm->inCall && (vm->latched || omni_detail::threadCPU() - vm->callStartCPU > vm->budget)) {
-            vm->latched = true;
-            luaL_error(L, "script exceeded CPU budget");
-        }
+        void *context = nullptr;
+        lua_getallocf(L, &context);
+        auto *vm = static_cast<omni_detail::ScriptRuntime *>(context);
+        if (vm == nullptr || !vm->inCall) { return; }
+        bool expired = std::exchange(expireNextCheck, false);
+        if (!expired && !vm->latched && omni_detail::threadCPU() - vm->callStartCPU <= vm->budget) { return; }
+        vm->latched = true;
+        if (trip == omni_detail::BudgetTrip::throwNative) { throw omni_detail::NativeBudgetExceeded{}; }
+        luaL_error(L, "script exceeded CPU budget");
     }
 };
 
@@ -449,11 +459,12 @@ bool encodeValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t b
     return result;
 }
 
-bool encodeJSONValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t byteLimit, std::string &error, bool shellNumbers) {
+bool encodeJSONValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t byteLimit, std::string &error, bool shellNumbers,
+    BudgetTrip trip) {
     int top = lua_gettop(L);
     output.clear();
     error.clear();
-    Encoder encoder{L, output, byteLimit, error, false, {L}, shellNumbers};
+    Encoder encoder{L, output, byteLimit, error, false, {L, trip}, shellNumbers};
     bool result = encoder.value(index, 0);
     lua_settop(L, top);
     if (!result) { output.clear(); }
@@ -486,4 +497,12 @@ void installJSON(lua_State *L) {
     lua_setglobal(L, "json");
 }
 
+}
+
+void omni_native_budget_expire_next_check(void) noexcept {
+    expireNextCheck = true;
+}
+
+bool omni_native_budget_cancel_expiry(void) noexcept {
+    return std::exchange(expireNextCheck, false);
 }

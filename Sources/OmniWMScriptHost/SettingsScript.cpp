@@ -268,7 +268,7 @@ omni_status omni_settings_evaluate(const char *filename, omni_config_span source
             if (status == OMNI_OK) {
                 std::string reason;
                 if (lua_gettop(L) != 1 || !lua_istable(L, 1)) reason = "return exactly one settings table";
-                else encodeJSONValue(L, 1, json, OMNI_CONFIG_BYTE_LIMIT, reason, shellNumbers);
+                else encodeJSONValue(L, 1, json, OMNI_CONFIG_BYTE_LIMIT, reason, shellNumbers, BudgetTrip::throwNative);
                 if (!reason.empty()) {
                     copyMessage(reason.c_str(), error, capacity);
                     status = OMNI_ERR_RUNTIME;
@@ -278,6 +278,9 @@ omni_status omni_settings_evaluate(const char *filename, omni_config_span source
         status = enforceBudget(&vm, status, error, capacity);
         if (status == OMNI_OK) table(context, json.data(), json.size());
         return status;
+    } catch (const NativeBudgetExceeded &) {
+        copyMessage("settings exceeded the CPU budget", error, capacity);
+        return OMNI_ERR_TIMEOUT;
     } catch (...) {
         copyMessage("unable to evaluate settings within resource limits", error, capacity);
         return OMNI_ERR_MEMORY;
