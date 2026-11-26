@@ -428,6 +428,7 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         let handler = fixture.handler
         handler.windowSubscriptionProvider = { _ in true }
         handler.managedWindowIdentityRebindAcknowledgementProvider = { _, _ in true }
+        handler.rebindMinimizedAttributeProvider = { _ in nil }
         handler.managedWindowIdentityRebindFinalizationProvider = { _, target in
             XCTAssertTrue(fixture.manager.isWindowSuppressedByMacOS(target.token))
             return true
@@ -450,6 +451,71 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         XCTAssertTrue(fixture.manager.handle(for: replacement) === fixture.handle)
         XCTAssertTrue(fixture.manager.isWindowSuppressedByMacOS(replacement))
         XCTAssertTrue(fixture.controller.axManager.isWindowNativeSuppressed(replacement))
+    }
+
+    func testLiveReplacementRefreshesMinimizationWhileAwaitingAXRebind() async throws {
+        try await assertLiveReplacementRefreshesMinimizedState(
+            fixture: makeFixture(suffix: 10), initiallyMinimized: false, deliversNotification: true
+        )
+    }
+
+    func testLiveReplacementRefreshesRestoreWhileAwaitingAXRebindWithoutNotification() async throws {
+        try await assertLiveReplacementRefreshesMinimizedState(
+            fixture: makeFixture(suffix: 11), initiallyMinimized: true, deliversNotification: false
+        )
+    }
+
+    private func assertLiveReplacementRefreshesMinimizedState(
+        fixture: Fixture, initiallyMinimized: Bool, deliversNotification: Bool
+    ) async throws {
+        let acknowledgement = IdentityOrderingGate()
+        defer {
+            acknowledgement.release()
+            fixture.stop()
+        }
+        let replacement = fixture.predecessor
+        let windowId = UInt32(replacement.windowId)
+        let axRef = try XCTUnwrap(fixture.refs[replacement])
+        let handler = fixture.handler
+        let expectedMinimized = !initiallyMinimized
+        var currentMinimized = initiallyMinimized
+        handler.managedWindowIdentityRebindAcknowledgementProvider = { _, _ in
+            await acknowledgement.wait()
+            return true
+        }
+        handler.rebindMinimizedAttributeProvider = { [weak manager = fixture.manager] window in
+            XCTAssertEqual(window, axRef)
+            XCTAssertNil(manager?.entry(for: replacement))
+            return currentMinimized
+        }
+        handler.managedWindowIdentityRebindFinalizationProvider = { _, target in
+            XCTAssertEqual(fixture.manager.entry(for: target.token)?.observedState.isMinimized, expectedMinimized)
+            return true
+        }
+        let candidate = AXEventHandler.PreparedCreate(
+            windowId: windowId, token: replacement, axRef: axRef,
+            ruleEffects: .none, admissionHints: .none, appFullscreen: false, isMinimized: initiallyMinimized,
+            replacementMetadata: fixture.metadata,
+            structuralReplacementMatch: .init(
+                token: fixture.original, workspaceId: fixture.workspaceId, source: .liveInvisible
+            )
+        )
+        handler.retainPreparedWindowSubscription(windowId)
+        XCTAssertTrue(handler.completeLiveStructuralReplacementCreate(candidate))
+        XCTAssertTrue(handler.retryAdmissionAfterFrameChange(windowId: windowId))
+        await fulfillment(of: [acknowledgement.reached], timeout: failureBound)
+        XCTAssertNil(fixture.manager.entry(for: replacement))
+
+        currentMinimized = expectedMinimized
+        if deliversNotification {
+            handler.handleWindowMinimized(pid: replacement.pid, axRef: axRef, minimized: currentMinimized)
+        }
+        acknowledgement.release()
+        try await waitUntilSettled(replacement, fixture: fixture)
+
+        XCTAssertTrue(fixture.manager.handle(for: replacement) === fixture.handle)
+        XCTAssertEqual(fixture.manager.entry(for: replacement)?.observedState.isMinimized, expectedMinimized)
+        XCTAssertEqual(fixture.controller.axManager.isWindowNativeSuppressed(replacement), expectedMinimized)
     }
 
     func testMatchedCloseOfMinimizedWindowClearsSuppressionOnReplacement() async throws {

@@ -15,6 +15,12 @@ extension AXWindowService {
         return result == .success ? value as? Bool : nil
     }
 
+    static func isMinimized(_ window: AXWindowRef, messagingTimeout: Float) -> Bool? {
+        guard AXUIElementSetMessagingTimeout(window.element, messagingTimeout) == .success else { return nil }
+        defer { AXUIElementSetMessagingTimeout(window.element, 0) }
+        return isMinimized(window)
+    }
+
     static func unminimize(_ window: AXWindowRef) -> Bool {
         MainThreadAXSpanTrace.measure(.unminimize, windowId: window.windowId) {
             AXUIElementSetAttributeValue(window.element, kAXMinimizedAttribute as CFString, kCFBooleanFalse) ==

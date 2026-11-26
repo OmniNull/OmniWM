@@ -31,7 +31,7 @@ extension AXEventHandler {
             retryManagedWindowIdentityRebind(rebind: rebind, execution: execution)
             return
         }
-        guard commitAcknowledgedManagedWindowIdentity(
+        guard let rebind = commitAcknowledgedManagedWindowIdentity(
             rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
         ) else { return }
         applyManagedWindowIdentityRebindRuntimeState(
@@ -69,14 +69,20 @@ extension AXEventHandler {
     private func commitAcknowledgedManagedWindowIdentity(
         rebind: ManagedWindowIdentityRebind, execution: AdmissionRetryExecution,
         acknowledgement: AXManagedWindowRebindAcknowledgement?, controller: WMController
-    ) -> Bool {
+    ) -> ManagedWindowIdentityRebind? {
         guard isCurrentManagedWindowIdentityRebind(
             rebind: rebind, execution: execution, acknowledgement: acknowledgement
         ) else {
             rollbackAndRetireManagedIdentityRebind(
                 rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
             )
-            return false
+            return nil
+        }
+        var rebind = rebind
+        if rebind.managedReplacementMetadata != nil,
+           let minimized = rebindMinimizedAttributeProvider(rebind.newWindow.axRef)
+        {
+            rebind.minimizedAttribute = minimized
         }
         guard commitManagedWindowIdentityRebind(
             from: rebind.oldWindow.token, to: rebind.newWindow.token,
@@ -85,9 +91,9 @@ extension AXEventHandler {
             rollbackAndRetireManagedIdentityRebind(
                 rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
             )
-            return false
+            return nil
         }
-        return true
+        return rebind
     }
 
     func applyManagedWindowIdentityRebindRuntimeState(
