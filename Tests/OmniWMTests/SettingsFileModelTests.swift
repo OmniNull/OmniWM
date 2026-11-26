@@ -67,6 +67,30 @@ final class SettingsFileModelTests: XCTestCase {
         XCTAssertFalse(result.export.workspaceAutoBackAndForth)
     }
 
+    @MainActor
+    func testWorkspaceSwitchWrapAroundDefaultsOnAndRoundTripsThroughStore() throws {
+        let settings = makeSettingsStore()
+        XCTAssertTrue(settings.workspaces.switchWrapAround)
+        settings.workspaces.switchWrapAround = false
+
+        let data = try SettingsLuauDocument.initialSource(settings.toExport())
+        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("workspaceSwitchWrapAround = false"))
+
+        settings.workspaces.switchWrapAround = true
+        settings.applyExport(try SettingsLuauDocument(data).export)
+        XCTAssertFalse(settings.workspaces.switchWrapAround)
+        XCTAssertFalse(settings.toExport().workspaceSwitchWrapAround)
+
+        let omitted = try canonicalDefaultLines { lines in
+            let index = try XCTUnwrap(lines
+                .firstIndex { $0.trimmingCharacters(in: .whitespaces).hasPrefix("workspaceSwitchWrapAround = ") })
+            lines.remove(at: index)
+        }
+        let result = try SettingsLuauDocument(omitted)
+        settings.applyExport(result.export)
+        XCTAssertTrue(settings.workspaces.switchWrapAround)
+    }
+
     func testPausePalettePasteDuringSecureInputDefaultsOnAndRoundTrips() throws {
         var export = SettingsExport.defaults()
         XCTAssertTrue(export.pausePalettePasteDuringSecureInput)

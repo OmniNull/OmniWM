@@ -81,6 +81,7 @@ extension CommandHandler {
             } else {
                 navigation.switchWorkspaceRelative(
                     isNext: action == .next,
+                    wrapAround: controller.settings.workspaces.switchWrapAround,
                     interactionOrigin: .init(id: controller.activeWorkspace()?.id)
                 )
             }

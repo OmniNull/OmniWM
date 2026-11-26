@@ -66,7 +66,25 @@ final class WorkspaceSwipeEdgeBehaviorTests: XCTestCase {
         fixture.navigation.switchWorkspaceBySwipe(isNext: true, monitorId: fixture.monitorId)
         XCTAssertEqual(manager.activeWorkspace(on: fixture.monitorId)?.name, "3")
 
-        fixture.navigation.switchWorkspaceRelative(isNext: true, monitorId: fixture.monitorId)
+        fixture.controller.commandHandler.handleHotkeyInvocation(HotkeyInvocation(command: .workspace(.next)))
+        XCTAssertEqual(manager.activeWorkspace(on: fixture.monitorId)?.name, "1")
+    }
+
+    func testSwipeStillWrapsWhenHotkeyNavigationStops() throws {
+        let fixture = try makeFixture(.cycle, occupied: ["1", "2", "3"])
+        let manager = fixture.controller.workspaceManager
+        let commands = fixture.controller.commandHandler
+        fixture.controller.settings.workspaces.switchWrapAround = false
+
+        commands.handleHotkeyInvocation(HotkeyInvocation(command: .workspace(.previous)))
+        XCTAssertEqual(manager.activeWorkspace(on: fixture.monitorId)?.name, "1")
+        commands.handleHotkeyInvocation(HotkeyInvocation(command: .workspace(.next)))
+        XCTAssertEqual(manager.activeWorkspace(on: fixture.monitorId)?.name, "2")
+        commands.handleHotkeyInvocation(HotkeyInvocation(command: .workspace(.next)))
+        commands.handleHotkeyInvocation(HotkeyInvocation(command: .workspace(.next)))
+        XCTAssertEqual(manager.activeWorkspace(on: fixture.monitorId)?.name, "3")
+
+        fixture.navigation.switchWorkspaceBySwipe(isNext: true, monitorId: fixture.monitorId)
         XCTAssertEqual(manager.activeWorkspace(on: fixture.monitorId)?.name, "1")
     }
 

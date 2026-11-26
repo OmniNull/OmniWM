@@ -154,6 +154,7 @@ enum SettingsSearchIndex {
         setting("Inner Gap", section: .layouts, tab: "dwindle", anchor: "Dwindle Gaps"),
         setting("Default Layout", section: .workspaces, anchor: "Default Layout"),
         setting("Layout Algorithm", section: .workspaces, anchor: "Layout Algorithm"),
+        setting("Wrap Around", section: .workspaces, anchor: "Wrap Around"),
         setting("Delete Workspace", section: .workspaces, anchor: "Delete Workspace"),
         setting("Cancel", section: .workspaces, anchor: "Cancel"),
         setting("Display Name (optional)", section: .workspaces, anchor: "Display Name (optional)"),

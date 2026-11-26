@@ -67,6 +67,8 @@ Creating workspace 10 or higher adds its Switch, Move, and Move Column actions t
 
 Turn on **Settings > Workspaces > Go Back When Switching to the Current Workspace** ([`workspaceAutoBackAndForth`](/config/settings-reference/#general)) to make pressing the shortcut of the workspace you are on return to the previous one, as i3 and AeroSpace do.
 
+Turn off **Settings > Workspaces > Workspace Switching > Wrap Around** ([`workspaceSwitchWrapAround`](/config/settings-reference/#general)) to stop the sequential shortcuts at the first and last workspace on the current monitor.
+
 ## Focus
 
 | Action | Default Shortcut | Layout |

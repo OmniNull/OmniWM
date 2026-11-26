@@ -139,6 +139,17 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         XCTAssertEqual(controller.activeWorkspace()?.id, source.id)
     }
 
+    func testSequentialWorkspaceCommandsReportNoChangeAtBoundariesWhenWrappingIsOff() throws {
+        let fixture = try makeFixture()
+        defer { fixture.controller.layoutRefreshController.resetState() }
+        fixture.controller.settings.workspaces.switchWrapAround = false
+
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.previous)), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.next)), .executed)
+        XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace2)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.next)), .noChange)
+    }
+
     func testAutoBackAndForthAppliesToShortcutsButNotToIPC() throws {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }

@@ -31,6 +31,17 @@ final class WorkspaceSkipEmptyNavigationTests: XCTestCase {
         XCTAssertEqual(cycle(fixture, isNext: false, steps: 3), [2, 1, 0])
     }
 
+    func testRelativeSwitchStopsAtTheFirstAndLastOccupiedWorkspaces() throws {
+        let fixture = try makeFixture(occupied: [0, 2])
+        defer { fixture.controller.deadlineWheel.stop() }
+        fixture.controller.settings.workspaceBar.hideEmptyWorkspaces = true
+        fixture.controller.settings.workspaces.switchWrapAround = false
+
+        XCTAssertEqual(cycle(fixture, isNext: false, steps: 2), [0, 0])
+        XCTAssertEqual(cycle(fixture, isNext: true, steps: 3), [2, 2, 2])
+        XCTAssertEqual(cycle(fixture, isNext: false, steps: 3), [0, 0, 0])
+    }
+
     func testRelativeSwitchLeavesEmptyActiveWorkspaceForOccupiedNeighbor() throws {
         let fixture = try makeFixture(occupied: [0, 2])
         defer { fixture.controller.deadlineWheel.stop() }
@@ -61,7 +72,9 @@ final class WorkspaceSkipEmptyNavigationTests: XCTestCase {
     private func cycle(_ fixture: Fixture, isNext: Bool, steps: Int) -> [Int?] {
         let manager = fixture.controller.workspaceManager
         return (0 ..< steps).map { _ in
-            fixture.controller.workspaceNavigationHandler.switchWorkspaceRelative(isNext: isNext)
+            fixture.controller.commandHandler.handleHotkeyInvocation(
+                HotkeyInvocation(command: .workspace(isNext ? .next : .previous))
+            )
             let active = manager.activeWorkspaceOrFirst(on: fixture.monitor.id)?.id
             return active.flatMap { fixture.workspaces.firstIndex(of: $0) }
         }
