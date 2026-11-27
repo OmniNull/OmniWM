@@ -184,6 +184,8 @@ extension HotkeyCommand {
             self = .sizing(.setWindowPrimarySpan(NiriSizeChange(ipc: change)))
         case let .setWindowSecondarySpan(change):
             self = .sizing(.setWindowSecondarySpan(NiriSizeChange(ipc: change)))
+        case let .setVisibleContainers(count):
+            self = .sizing(.setVisibleContainers(count))
         }
     }
 

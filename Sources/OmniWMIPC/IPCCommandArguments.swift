@@ -9,6 +9,7 @@ enum IPCCommandIntegerField {
     case columnIndex
     case scratchpadIndex
     case windowIndex
+    case visibleContainerCount
 }
 
 enum IPCCommandArgumentSource {
@@ -136,6 +137,9 @@ enum IPCCommandArgumentSource {
                 return try container.decode(IPCColumnIndexArguments.self, forKey: .arguments).columnIndex
             case .scratchpadIndex:
                 return try container.decode(IPCScratchpadIndexArguments.self, forKey: .arguments).scratchpadIndex
+            case .visibleContainerCount:
+                return try container.decode(IPCVisibleContainerCountArguments.self, forKey: .arguments)
+                    .visibleContainerCount
             case .windowIndex:
                 return try container.decode(IPCWindowIndexArguments.self, forKey: .arguments).windowIndex
             }
@@ -226,6 +230,8 @@ struct IPCCommandArgumentWriter {
             try container.encode(IPCScratchpadIndexArguments(scratchpadIndex: value), forKey: .arguments)
         case .windowIndex:
             try container.encode(IPCWindowIndexArguments(windowIndex: value), forKey: .arguments)
+        case .visibleContainerCount:
+            try container.encode(IPCVisibleContainerCountArguments(visibleContainerCount: value), forKey: .arguments)
         }
     }
 
@@ -298,4 +304,8 @@ private struct IPCResizeOperationArguments: Codable, Equatable, Sendable {
 
 private struct IPCSizeChangeArguments: Codable, Equatable, Sendable {
     let change: IPCSizeChange
+}
+
+private struct IPCVisibleContainerCountArguments: Codable, Equatable, Sendable {
+    let visibleContainerCount: Int
 }

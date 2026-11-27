@@ -52,6 +52,7 @@ public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Se
     case columnIndex = "column-index"
     case windowIndex = "window-index"
     case scratchpadIndex = "scratchpad-index"
+    case visibleContainerCount = "visible-container-count"
     case layout
     case paletteMode = "palette-mode"
     case switcherDirection = "switcher-direction"
@@ -70,6 +71,7 @@ public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Se
         case .resizeAxis: IPCResizeAxis.allCases.map(\.rawValue)
         case .resizeOperation: IPCResizeOperation.allCases.map(\.rawValue)
         case .scratchpadIndex: IPCScratchpadSlots.range.map(String.init)
+        case .visibleContainerCount: IPCVisibleContainerCounts.range.map(String.init)
         case .appID,
              .workspaceNumber,
              .columnIndex,
@@ -87,7 +89,8 @@ public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Se
         case .workspaceNumber,
              .columnIndex,
              .windowIndex,
-             .scratchpadIndex:
+             .scratchpadIndex,
+             .visibleContainerCount:
             "<number>"
         case .layout:
             "<default|niri|dwindle>"
@@ -164,6 +167,10 @@ public struct IPCCommandArgumentDescriptor: Codable, Equatable, Sendable {
     static let scratchpadIndex = Self(
         kind: .scratchpadIndex,
         summary: "Scratchpad slot from 1 to 10."
+    )
+    static let visibleContainerCount = Self(
+        kind: .visibleContainerCount,
+        summary: "Number of columns that fit on screen, from 1 to 5, or 0 for Off."
     )
     static let layout = Self(
         kind: .layout,

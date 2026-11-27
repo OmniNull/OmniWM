@@ -32,8 +32,10 @@ extension IPCCommandArgumentValue {
              .windowIndex:
             guard let value = Int(token), value > 0 else { return nil }
             self = .integer(value)
-        case .scratchpadIndex:
-            guard let value = Int(token), IPCScratchpadSlots.range.contains(value) else { return nil }
+        case .scratchpadIndex,
+             .visibleContainerCount:
+            let range = kind == .scratchpadIndex ? IPCScratchpadSlots.range : IPCVisibleContainerCounts.range
+            guard let value = Int(token), range.contains(value) else { return nil }
             self = .integer(value)
         case .layout:
             guard let layout = IPCWorkspaceLayout(rawValue: token) else { return nil }

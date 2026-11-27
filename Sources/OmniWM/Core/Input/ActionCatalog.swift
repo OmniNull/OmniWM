@@ -189,6 +189,7 @@ enum ActionCatalog {
         appendContainerSpanBindings(&specs)
         appendSpanAdjustmentBindings(&specs)
         appendSplitStructureBindings(&specs)
+        appendVisibleContainerBindings(&specs)
         appendAxisResizeBindings(&specs)
         appendFocusedResizeBindings(&specs)
         appendDirectionalResizeBindings(&specs)

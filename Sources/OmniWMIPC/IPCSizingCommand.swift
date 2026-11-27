@@ -14,6 +14,7 @@ public enum IPCSizingCommandName: String, CaseIterable, Hashable, Sendable {
     case setContainerPrimarySpan = "set-container-primary-span"
     case setWindowPrimarySpan = "set-window-primary-span"
     case setWindowSecondarySpan = "set-window-secondary-span"
+    case setVisibleContainers = "set-visible-containers"
 }
 
 public enum IPCSizingCommand: Equatable, Sendable {
@@ -29,6 +30,7 @@ public enum IPCSizingCommand: Equatable, Sendable {
     case setContainerPrimarySpan(change: IPCSizeChange)
     case setWindowPrimarySpan(change: IPCSizeChange)
     case setWindowSecondarySpan(change: IPCSizeChange)
+    case setVisibleContainers(count: Int)
 
     public var name: IPCSizingCommandName {
         switch self {
@@ -56,6 +58,8 @@ public enum IPCSizingCommand: Equatable, Sendable {
             .setWindowPrimarySpan
         case .setWindowSecondarySpan:
             .setWindowSecondarySpan
+        case .setVisibleContainers:
+            .setVisibleContainers
         }
     }
 
@@ -85,6 +89,12 @@ public enum IPCSizingCommand: Equatable, Sendable {
             self = try .setWindowPrimarySpan(change: arguments.sizeChange())
         case .setWindowSecondarySpan:
             self = try .setWindowSecondarySpan(change: arguments.sizeChange())
+        case .setVisibleContainers:
+            let count = try arguments.integer(.visibleContainerCount)
+            guard IPCVisibleContainerCounts.range.contains(count) else {
+                throw IPCCommandRequestConstructionError.invalidArgumentType
+            }
+            self = .setVisibleContainers(count: count)
         }
     }
 
@@ -96,6 +106,8 @@ public enum IPCSizingCommand: Equatable, Sendable {
             try writer.encode(sizeChange: change)
         case let .setWindowSecondarySpan(change):
             try writer.encode(sizeChange: change)
+        case let .setVisibleContainers(count):
+            try writer.encode(integer: count, field: .visibleContainerCount)
         case .cycleSizeForward,
              .cycleSizeBackward,
              .cycleWindowPrimarySpanForward,

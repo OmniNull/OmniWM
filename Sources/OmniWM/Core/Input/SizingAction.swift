@@ -21,6 +21,7 @@ enum SizingAction: Equatable, Hashable {
     case setWindowPrimarySpan(NiriSizeChange)
     case setWindowSecondarySpan(NiriSizeChange)
     case balanceSizes
+    case setVisibleContainers(Int)
     case undo
     case redo
 }
@@ -53,6 +54,7 @@ extension SizingAction {
         case .balanceSizes: LocalizedStringResource(
                 "command.sizing.balance", defaultValue: "Balance Sizes", table: "Commands", bundle: .omniWM
             )
+        case let .setVisibleContainers(count): Self.visibleContainersTitle(count)
         case .undo: LocalizedStringResource(
                 "command.sizing.undo", defaultValue: "Undo", table: "Commands", bundle: .omniWM
             )
@@ -70,6 +72,19 @@ extension SizingAction {
              .setWindowSecondarySpan:
             spanTitle()
         }
+    }
+
+    private static func visibleContainersTitle(_ count: Int) -> LocalizedStringResource {
+        guard count > 0 else {
+            return LocalizedStringResource(
+                "command.sizing.setVisibleContainersOff", defaultValue: "Set Visible Containers to Off",
+                table: "Commands", bundle: .omniWM
+            )
+        }
+        return LocalizedStringResource(
+            "command.sizing.setVisibleContainers", defaultValue: "Set Visible Containers to \(count)",
+            table: "Commands", bundle: .omniWM
+        )
     }
 
     private func spanTitle() -> LocalizedStringResource {
@@ -112,6 +127,7 @@ extension SizingAction {
              .cycleWindowSecondarySpanForward,
              .cycleWindowSecondarySpanBackward,
              .balanceSizes,
+             .setVisibleContainers,
              .undo,
              .redo:
             actionDisplayName()
@@ -157,6 +173,7 @@ extension SizingAction {
              .setWindowPrimarySpan,
              .setWindowSecondarySpan,
              .balanceSizes,
+             .setVisibleContainers,
              .undo,
              .redo:
             spanTitle()
@@ -197,6 +214,8 @@ extension SizingAction {
             .sizing(.setWindowSecondarySpan)
         case .balanceSizes:
             .dwindle(.balanceSizes)
+        case .setVisibleContainers:
+            .sizing(.setVisibleContainers)
         }
     }
 
@@ -205,6 +224,7 @@ extension SizingAction {
         case .cycleSizeForward,
              .cycleSizeBackward,
              .balanceSizes,
+             .setVisibleContainers,
              .undo,
              .redo:
             .shared

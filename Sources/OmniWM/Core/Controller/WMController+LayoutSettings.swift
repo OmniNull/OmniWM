@@ -109,6 +109,20 @@ extension WMController {
         )
     }
 
+    func setVisibleContainerCount(_ count: Int) -> Bool {
+        let niri = settings.niri
+        if count == 0 {
+            guard niri.fitToVisibleContainerCount else { return false }
+            niri.fitToVisibleContainerCount = false
+        } else {
+            guard !niri.fitToVisibleContainerCount || niri.visibleContainerCount != count else { return false }
+            niri.visibleContainerCount = count
+            niri.fitToVisibleContainerCount = true
+        }
+        applyNiriVisibleContainerSettings()
+        return true
+    }
+
     func rebalanceNiriSizesForVisibleContainerCountChange(on monitorId: Monitor.ID? = nil) {
         niriLayoutHandler.balanceSizesAllWorkspaces(on: monitorId, onlyAutomaticSpans: true)
     }
