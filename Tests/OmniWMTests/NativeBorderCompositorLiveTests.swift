@@ -25,10 +25,15 @@ import XCTest
             let geometry = config.resolvedGeometry(for: target, scale: screen.backingScaleFactor)
             let panel = try XCTUnwrap(BorderLayerPanel(frame: geometry.surfaceFrame))
             defer { panel.close() }
+            let radii = WindowCornerRadii(topLeft: 0, topRight: 16, bottomLeft: 48, bottomRight: 32)
+            let color = NSColor.red.cgColor
             panel.updateBorder(
-                geometry: geometry.localized(),
-                cornerRadii: WindowCornerRadii(topLeft: 0, topRight: 16, bottomLeft: 48, bottomRight: 32),
-                color: NSColor.red.cgColor, scale: screen.backingScaleFactor
+                geometry: geometry.localized(), cornerRadii: radii,
+                color: color, scale: screen.backingScaleFactor
+            )
+            panel.updateEffects(
+                geometry: geometry.localized(), cornerRadii: radii,
+                config: config, baseColor: color, scale: screen.backingScaleFactor
             )
             panel.applyFrame(targetFrame: geometry.targetFrame, surfaceFrame: geometry.surfaceFrame)
             panel.orderBack(nil)
@@ -97,6 +102,9 @@ import XCTest
             let movedGeometry = config.resolvedGeometry(for: target.offsetBy(dx: 0.5, dy: 0.5), scale: 2)
             let panel = try XCTUnwrap(BorderLayerPanel(frame: geometry.surfaceFrame))
             defer { panel.close() }
+            guard BorderLayerPanel.nativeRimFollowsWindowCorners, panel.usesNativeRim else {
+                throw MissingTestPrerequisite("The gradient/glow compositor check compares against the native rim")
+            }
             panel.orderBack(nil)
 
             for radius: CGFloat in [0, 24] {

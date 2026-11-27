@@ -56,11 +56,14 @@ extension BorderEffectLayers {
     ) {
         let gradient = config.gradient.flatMap { $0.enabled ? $0 : nil }
         let surfaceBounds = CGRect(origin: .zero, size: geometry.surfaceFrame.size)
-        updateStroke(
-            gradient, geometry: geometry, cornerRadii: cornerRadii,
-            cornerContour: cornerContour, baseColor: baseColor,
-            drawsSolidStroke: drawsSolidStroke
-        )
+        if gradient != nil || cornerContour != nil || drawsSolidStroke {
+            updateStroke(
+                gradient, geometry: geometry, cornerRadii: cornerRadii,
+                cornerContour: cornerContour, baseColor: baseColor
+            )
+        } else {
+            gradientStrokeLayer.isHidden = true
+        }
         glowColorLayer.frame = surfaceBounds
         glowMaskLayer.frame = surfaceBounds
         if let glow = config.glow, glow.enabled, glow.opacity > 0, geometry.surfacePadding > 0 {
@@ -97,13 +100,8 @@ extension BorderEffectLayers {
         geometry: BorderConfig.ResolvedGeometry,
         cornerRadii: WindowCornerRadii,
         cornerContour: WindowCornerContour?,
-        baseColor: CGColor,
-        drawsSolidStroke: Bool
+        baseColor: CGColor
     ) {
-        guard gradient != nil || cornerContour != nil || drawsSolidStroke else {
-            gradientStrokeLayer.isHidden = true
-            return
-        }
         let radii = cornerRadii.normalized(to: geometry.targetFrame.size)
         let ringFrame = geometry.targetFrame.insetBy(dx: -geometry.width, dy: -geometry.width)
         let outerRadii = radii == .zero ? .zero : radii.adding(geometry.width)
