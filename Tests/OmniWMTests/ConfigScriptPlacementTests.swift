@@ -186,7 +186,7 @@ final class ConfigScriptPlacementTests: XCTestCase {
         omniwm.command("Queue a column, then move forward", function(ctx)
             local p = ctx.placement
             if p and p.column then
-                omniwm.dispatch("window", "place-in-own-column", "\(fixture.id(2))", tostring(p.columns + 1))
+                omniwm.dispatch("window", "place-in-own-column", "\(fixture.id(2))", p.columns + 1)
             end
             forward(ctx)
         end, { reads = { "placement" } })

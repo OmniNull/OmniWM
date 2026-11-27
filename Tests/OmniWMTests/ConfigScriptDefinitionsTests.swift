@@ -37,7 +37,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
                 parameters += command.arguments.map { argument in
                     let name = argument.kind.rawValue.replacingOccurrences(of: "-", with: "_")
                     let type = argument.kind.literalValues.map(union) ?? "string"
-                    return "\(name): \(type)"
+                    return "\(name): \(argument.kind.acceptsConfigInteger ? "\(type) | number" : type)"
                 }
                 return "(\(parameters.joined(separator: ", "))) -> ConfigAction"
             }
@@ -71,12 +71,13 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         var overloads = ["{ read dispatch: (action: ConfigAction) -> () }"]
         for action in IPCAutomationManifest.windowActionDescriptors {
             var parameters = ["kind: \"window\"", "action: \(action.name.rawValue.debugDescription)"]
+            let hasSelector = ConfigScriptWindowActionName.shared(action.name).integerSelector != nil
             for argument in action.arguments {
                 let parameter = switch argument {
                 case "opaque-id": "id: string"
                 case "direction": "direction: \(union(IPCDirection.allCases.map(\.rawValue)))"
                 case "cycle-direction": "direction: \(union(IPCCycleDirection.allCases.map(\.rawValue)))"
-                default: "\(argument.replacingOccurrences(of: "-", with: "_")): string"
+                default: "\(argument.replacingOccurrences(of: "-", with: "_")): \(hasSelector ? "string | number" : "string")"
                 }
                 parameters.append(parameter)
             }
@@ -94,7 +95,9 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
             }
         }
         let placement = ConfigScriptWindowActionName.placeInOwnColumn.rawValue.debugDescription
-        overloads.append("{ read dispatch: (kind: \"window\", action: \(placement), id: string, slot: string) -> () }")
+        overloads.append(
+            "{ read dispatch: (kind: \"window\", action: \(placement), id: string, slot: string | number) -> () }"
+        )
         let frame = ConfigScriptWindowActionName.setFloatingFrame.rawValue.debugDescription
         overloads.append(
             "{ read dispatch: (kind: \"window\", action: \(frame), id: string, frame: ConfigFloatingFrame) -> () }"

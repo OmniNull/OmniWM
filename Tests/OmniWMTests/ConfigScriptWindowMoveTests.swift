@@ -218,6 +218,7 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
         let id = ConfigScriptWindowID.string(WindowToken(pid: getpid(), windowId: 1), session: .random())
         let display = ("display", ConfigFieldValue.text("2"))
         let notHex = String(UUID().uuidString.map { $0 == "-" ? $0 : "x" })
+        let maxColumn = OMNI_CONFIG_MAX_SAFE_INTEGER
         let cases: [([String], [(String, ConfigFieldValue)], String)] = [
             (["move-to-workspace", id], [], "either display or neighbor"),
             (["move-to-workspace", id], [display, ("neighbor", .text("left"))], "either display or neighbor"),
@@ -230,6 +231,7 @@ final class ConfigScriptWindowMoveTests: XCTestCase {
             (["move-to-workspace", id], [("display", .number(2))], "wrong type"),
             (["move-to-workspace", id], [display, ("column", .number(0))], "at least 1"),
             (["move-to-workspace", id], [display, ("column", .number(1.5))], "at least 1"),
+            (["move-to-workspace", id], [display, ("column", .number(Double(maxColumn + 1)))], "at most \(maxColumn)"),
             (["move-to-workspace", id], [display, ("slot", .number(1))], "Unknown window destination field"),
             (["focus", id], [display], "Unknown focus field 'display'"),
             (["focus", id], [("targetOf", .number(1))], "Focus field 'targetOf' has the wrong type."),

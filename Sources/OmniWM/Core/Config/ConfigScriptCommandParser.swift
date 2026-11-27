@@ -81,28 +81,26 @@ enum ConfigScriptCommandParser {
             groupWords = inventory.map(\.word)
         }
 
-        func matches(_ word: Int, _ span: omni_config_span) -> Bool {
-            bytes[words[word]].elementsEqual(ConfigScriptCommandParser.bytes(span))
+        func matches(_ index: Int, _ word: omni_config_word) -> Bool {
+            word.selector == 0 && bytes[words[index]].elementsEqual(ConfigScriptCommandParser.bytes(word.text))
         }
     }
 
     private static let table = Table()
 
-    static func request(group: Int, _ spans: UnsafeBufferPointer<omni_config_span>) -> IPCCommandRequest? {
+    static func request(group: Int, _ words: UnsafeBufferPointer<omni_config_word>) -> IPCCommandRequest? {
         guard table.groupEntries.indices.contains(group) else { return nil }
         candidates: for index in table.groupEntries[group] {
             let entry = table.entries[index]
             let wordCount = entry.words.count
-            guard spans.count == wordCount + entry.arguments.count else { continue }
-            for offset in 0 ..< wordCount where !table.matches(entry.words.lowerBound + offset, spans[offset]) {
+            guard words.count == wordCount + entry.arguments.count else { continue }
+            for offset in 0 ..< wordCount where !table.matches(entry.words.lowerBound + offset, words[offset]) {
                 continue candidates
             }
             var values: [IPCCommandArgumentValue] = []
             if !entry.arguments.isEmpty { values.reserveCapacity(entry.arguments.count) }
             for (offset, kind) in table.kinds[entry.arguments].enumerated() {
-                guard let token = String(validating: bytes(spans[wordCount + offset]), as: UTF8.self),
-                      let value = IPCCommandArgumentValue(token: token, kind: kind)
-                else { continue candidates }
+                guard let value = argument(words[wordCount + offset], kind: kind) else { continue candidates }
                 values.append(value)
             }
             if let request = try? IPCCommandRequest(name: entry.name, argumentValues: values) {
@@ -112,23 +110,50 @@ enum ConfigScriptCommandParser {
         return nil
     }
 
+    private static func argument(_ word: omni_config_word, kind: IPCCommandArgumentKind) -> IPCCommandArgumentValue? {
+        guard word.selector != 0 else {
+            return String(validating: bytes(word.text), as: UTF8.self).flatMap {
+                IPCCommandArgumentValue(token: $0, kind: kind)
+            }
+        }
+        guard kind.acceptsConfigInteger, let index = Int(exactly: word.selector) else { return nil }
+        guard kind != .scratchpadIndex || IPCScratchpadSlots.range.contains(index) else { return nil }
+        return .integer(index)
+    }
+
     static func word(group: Int) -> String? {
         guard table.groupWords.indices.contains(group) else { return nil }
         return table.groupWords[group]
     }
 
-    static func text(group: Int, _ spans: UnsafeBufferPointer<omni_config_span>) -> String {
+    static func text(group: Int, _ words: UnsafeBufferPointer<omni_config_word>) -> String {
         let firstWord = table.groupWords[group]
-        guard !spans.isEmpty else { return firstWord }
+        guard !words.isEmpty else { return firstWord }
         var text = Array(firstWord.utf8)
-        for span in spans {
+        for word in words {
             text.append(UInt8(ascii: " "))
-            text.append(contentsOf: bytes(span))
+            if word.selector == 0 {
+                text.append(contentsOf: bytes(word.text))
+            } else {
+                text.append(contentsOf: String(word.selector).utf8)
+            }
         }
         return String(decoding: text, as: UTF8.self)
     }
 
     private static func bytes(_ span: omni_config_span) -> UnsafeRawBufferPointer {
         UnsafeRawBufferPointer(start: span.data, count: span.length)
+    }
+}
+
+extension IPCCommandArgumentKind {
+    var acceptsConfigInteger: Bool {
+        switch self {
+        case .workspaceNumber,
+             .columnIndex,
+             .windowIndex,
+             .scratchpadIndex: true
+        default: false
+        }
     }
 }

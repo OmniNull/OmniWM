@@ -51,10 +51,17 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         defer { fixture.controller.stopConfigScript() }
         let token = WindowToken(pid: getpid(), windowId: Int(getpid()))
         let id = ConfigScriptWindowID.string(token, session: fixture.controller.scriptSession.identity)
+        let pastScratchpads = IPCScratchpadSlots.range.upperBound + 1
+        let pastSafeInteger = OMNI_CONFIG_MAX_SAFE_INTEGER + 1
         for invalid in [
             "'window', 'focus', 'focused'", "'window', 'focus'", "'window', 'focus', nil",
             "'window', 'not-a-request', '\(id)'", "'window', 'move-column', '\(id)', 'sideways'",
             "'window', 'close', '\(id)', 'unexpected'", "'not-a-namespace', 'focus', '\(id)'",
+            "'window', 'move-to-workspace', 1, 2", "'window', 'move-to-workspace', '\(id)', 1 / 2",
+            "'window', 'move-column-to-index', '\(id)', 0", "'window', 'place-in-own-column', '\(id)', math.huge",
+            "'window', 'assign-to-scratchpad', '\(id)', \(pastScratchpads)",
+            "'window', 'move-to-workspace', '\(id)', \(pastSafeInteger)",
+            "'window', 'move-column', '\(id)', 1", "'window', 'set-window-primary-span', '\(id)', 1",
             "'window', 'focus', '\(IPCWindowOpaqueID.encode(token: token, sessionToken: UUID().uuidString))'"
         ] {
             let source = [
@@ -70,6 +77,33 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
             XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("init.luau:\(line):"), invalid)
             XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.origin)
         }
+    }
+
+    func testWindowSelectorsAcceptNumbersAndKeepWorkspaceNamesDistinct() async throws {
+        let token = WindowToken(pid: getpid(), windowId: Int(getpid()))
+        let id = ConfigScriptWindowID.string(token, session: ConfigScriptSession.random())
+        let index = IPCScratchpadSlots.range.upperBound
+        let cases: [(String, String, WindowAction)] = [
+            ("move-to-workspace", "\(index)", .moveToWorkspace(.rawID(String(index)))),
+            ("move-to-workspace", "'0\(index)'", .moveToWorkspace(.displayName("0\(index)"))),
+            ("move-column-to-index", "\(index)", .moveColumn(.index(index))),
+            ("place-in-own-column", "\(index)", .placeInOwnColumn(index)),
+            ("assign-to-scratchpad", "\(index)", .assignToScratchpad(try XCTUnwrap(ScratchpadIndex(index))))
+        ]
+        let calls = cases
+            .map { action, argument, _ in "  omniwm.dispatch('window', '\(action)', '\(id)', \(argument))" }
+        let prefix = ["omniwm.command('Window selectors', function()"]
+        let source = (prefix + calls + ["end)"]).joined(separator: "\n")
+        let evaluation = try await ConfigScriptLoader().evaluate(Data(source.utf8), hyperMask: 0)
+        let vm = try XCTUnwrap(evaluation.generation)
+        let command = try XCTUnwrap(evaluation.namedCommands.first)
+        let staged = try await vm.invoke(function: command.function, context: ConfigScriptContext()).commands
+        XCTAssertEqual(staged.map(\.line), calls.indices.map { prefix.count + $0 + 1 })
+        let actions = staged.map { dispatch -> WindowAction? in
+            if case let .window(window) = dispatch.operation { return window.action }
+            return nil
+        }
+        XCTAssertEqual(actions, cases.map { Optional($0.2) })
     }
 
     func testExplicitTargetSurvivesUnrelatedFocusAndClosedTargetStopsTheBatch() async throws {

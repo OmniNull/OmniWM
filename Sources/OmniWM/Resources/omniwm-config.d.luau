@@ -666,7 +666,7 @@ export type ConfigCommands = {
         & ((direction: "left" | "right" | "up" | "down") -> ConfigAction),
     read focusColumn: ((word2: "first") -> ConfigAction)
         & ((word2: "last") -> ConfigAction)
-        & ((column_index: string) -> ConfigAction),
+        & ((column_index: string | number) -> ConfigAction),
     read focusMonitor: ((word2: "last") -> ConfigAction)
         & ((word2: "next") -> ConfigAction)
         & ((word2: "prev") -> ConfigAction),
@@ -674,7 +674,7 @@ export type ConfigCommands = {
         & ((word2: "down-or-top") -> ConfigAction)
         & ((word2: "top") -> ConfigAction)
         & ((word2: "up-or-bottom") -> ConfigAction),
-    read focusWindowInColumn: (window_index: string) -> ConfigAction,
+    read focusWindowInColumn: (window_index: string | number) -> ConfigAction,
     read focusWindowOrWorkspaceDown: () -> ConfigAction,
     read focusWindowOrWorkspaceUp: () -> ConfigAction,
     read hiddenBar: (word2: "panel") -> ConfigAction,
@@ -684,18 +684,18 @@ export type ConfigCommands = {
     read move: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
     read moveColumn: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
     read moveColumnToFirst: () -> ConfigAction,
-    read moveColumnToIndex: (column_index: string) -> ConfigAction,
+    read moveColumnToIndex: (column_index: string | number) -> ConfigAction,
     read moveColumnToLast: () -> ConfigAction,
     read moveColumnToWorkspace: ((word2: "down") -> ConfigAction)
         & ((word2: "up") -> ConfigAction)
-        & ((workspace_number: string) -> ConfigAction),
+        & ((workspace_number: string | number) -> ConfigAction),
     read moveToMonitor: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
     read moveToRoot: () -> ConfigAction,
     read moveToWorkspace: ((word2: "down") -> ConfigAction)
-        & ((word2: "on-monitor", workspace_number: string, direction: "left" | "right" | "up" | "down") -> ConfigAction)
-        & ((word2: "slot", workspace_number: string) -> ConfigAction)
+        & ((word2: "on-monitor", workspace_number: string | number, direction: "left" | "right" | "up" | "down") -> ConfigAction)
+        & ((word2: "slot", workspace_number: string | number) -> ConfigAction)
         & ((word2: "up") -> ConfigAction)
-        & ((workspace_number: string) -> ConfigAction),
+        & ((workspace_number: string | number) -> ConfigAction),
     read moveWindowDown: () -> ConfigAction,
     read moveWindowDownOrToWorkspaceDown: () -> ConfigAction,
     read moveWindowUp: () -> ConfigAction,
@@ -712,8 +712,8 @@ export type ConfigCommands = {
     read resize: (resize_axis: "horizontal" | "vertical", resize_operation: "grow" | "shrink") -> ConfigAction,
     read resizeDirection: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
     read resizeFocused: (resize_operation: "grow" | "shrink") -> ConfigAction,
-    read scratchpad: ((word2: "assign", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") -> ConfigAction)
-        & ((word2: "toggle", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") -> ConfigAction),
+    read scratchpad: ((word2: "assign", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | number) -> ConfigAction)
+        & ((word2: "toggle", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | number) -> ConfigAction),
     read setContainerPrimarySpan: (size_change: string) -> ConfigAction,
     read setVisibleContainers: (visible_container_count: "0" | "1" | "2" | "3" | "4" | "5") -> ConfigAction,
     read setWindowPrimarySpan: (size_change: string) -> ConfigAction,
@@ -721,12 +721,12 @@ export type ConfigCommands = {
     read setWorkspaceLayout: (layout: "default" | "niri" | "dwindle") -> ConfigAction,
     read swapSplit: () -> ConfigAction,
     read swapWorkspaceWithMonitor: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
-    read switchWorkspace: ((word2: "anywhere", workspace_number: string) -> ConfigAction)
+    read switchWorkspace: ((word2: "anywhere", workspace_number: string | number) -> ConfigAction)
         & ((word2: "back-and-forth") -> ConfigAction)
         & ((word2: "next") -> ConfigAction)
         & ((word2: "prev") -> ConfigAction)
-        & ((word2: "slot", workspace_number: string) -> ConfigAction)
-        & ((workspace_number: string) -> ConfigAction),
+        & ((word2: "slot", workspace_number: string | number) -> ConfigAction)
+        & ((workspace_number: string | number) -> ConfigAction),
     read toggleColumnTabbed: () -> ConfigAction,
     read toggleContainerFullPrimarySpan: () -> ConfigAction,
     read toggleFloatingFocus: () -> ConfigAction,
@@ -755,11 +755,11 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "window", action: "navigate", id: string) -> () }
     & { read dispatch: (kind: "window", action: "summon-right", id: string) -> () }
     & { read dispatch: (kind: "window", action: "close", id: string) -> () }
-    & { read dispatch: (kind: "window", action: "move-to-workspace", id: string, workspace: string) -> () }
+    & { read dispatch: (kind: "window", action: "move-to-workspace", id: string, workspace: string | number) -> () }
     & { read dispatch: (kind: "window", action: "move-to-workspace", id: string, destination: ConfigWindowDestination) -> () }
     & { read dispatch: (kind: "window", action: "move-column-to-first", id: string) -> () }
     & { read dispatch: (kind: "window", action: "move-column-to-last", id: string) -> () }
-    & { read dispatch: (kind: "window", action: "move-column-to-index", id: string, number: string) -> () }
+    & { read dispatch: (kind: "window", action: "move-column-to-index", id: string, number: string | number) -> () }
     & { read dispatch: (kind: "window", action: "move-column", id: string, direction: "left" | "right" | "up" | "down") -> () }
     & { read dispatch: (kind: "window", action: "toggle-container-full-primary-span", id: string) -> () }
     & { read dispatch: (kind: "window", action: "set-container-primary-span", id: string, size_change: string) -> () }
@@ -770,8 +770,8 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "window", action: "cycle-window-secondary-span", id: string, direction: "forward" | "backward") -> () }
     & { read dispatch: (kind: "window", action: "toggle-column-tabbed", id: string) -> () }
     & { read dispatch: (kind: "window", action: "toggle-floating", id: string) -> () }
-    & { read dispatch: (kind: "window", action: "assign-to-scratchpad", id: string, number: string) -> () }
-    & { read dispatch: (kind: "window", action: "place-in-own-column", id: string, slot: string) -> () }
+    & { read dispatch: (kind: "window", action: "assign-to-scratchpad", id: string, number: string | number) -> () }
+    & { read dispatch: (kind: "window", action: "place-in-own-column", id: string, slot: string | number) -> () }
     & { read dispatch: (kind: "window", action: "set-floating-frame", id: string, frame: ConfigFloatingFrame) -> () }
     & { read dispatch: (kind: "window", action: "gather", ids: {string}, from: ("workspace" | "monitor" | "all")?) -> () }
     & { read dispatch: (kind: "dwindle", action: "replace", tree: ConfigDwindleTree) -> () }

@@ -3,6 +3,7 @@
 
 @testable import OmniWM
 import OmniWMIPC
+import OmniWMScriptHost
 import XCTest
 
 final class ConfigScriptCommandParserTests: XCTestCase {
@@ -42,11 +43,11 @@ final class ConfigScriptCommandParserTests: XCTestCase {
             assertSameRequest(words)
         }
         let group = try XCTUnwrap(Self.groupsByWord[IPCCommandName.shellAppOpen.rawValue])
-        withConfigSpans([[0xFF]]) { spans in
-            XCTAssertNil(ConfigScriptCommandParser.request(group: group, spans))
+        withWords([[0xFF]]) { words in
+            XCTAssertNil(ConfigScriptCommandParser.request(group: group, words))
         }
-        withConfigSpans([]) { spans in
-            XCTAssertNil(ConfigScriptCommandParser.request(group: Self.groupsByWord.count, spans))
+        withWords([]) { words in
+            XCTAssertNil(ConfigScriptCommandParser.request(group: Self.groupsByWord.count, words))
         }
     }
 
@@ -56,12 +57,21 @@ final class ConfigScriptCommandParserTests: XCTestCase {
         }
         let arguments = words.dropFirst().map { Array($0.utf8) }
         XCTAssertEqual(
-            withConfigSpans(arguments) { ConfigScriptCommandParser.request(group: group, $0) },
+            withWords(arguments) { ConfigScriptCommandParser.request(group: group, $0) },
             IPCCommandRequest(commandWords: words),
             words.joined(separator: " "),
             file: file,
             line: line
         )
+    }
+
+    private func withWords<Result>(
+        _ words: [[UInt8]],
+        _ body: (UnsafeBufferPointer<omni_config_word>) -> Result
+    ) -> Result {
+        withConfigSpans(words) { spans in
+            spans.map { omni_config_word(text: $0, selector: 0) }.withUnsafeBufferPointer(body)
+        }
     }
 
     private static func product(_ choices: [[String]]) -> [[String]] {

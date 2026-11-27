@@ -37,8 +37,13 @@ struct ConfigScriptWindowDestination: Equatable, Sendable {
                 fromEdge = field.bool_value
             case .column:
                 guard field.kind == OMNI_CONFIG_NUMBER else { throw Self.wrongType(name) }
-                guard let value = Int(exactly: field.number_value), value >= 1 else {
-                    throw Self.failure("column must be a whole number of at least 1.")
+                guard field.number_value <= Double(OMNI_CONFIG_MAX_SAFE_INTEGER),
+                      let value = Int(exactly: field.number_value), value >= 1
+                else {
+                    throw Self
+                        .failure(
+                            "column must be a whole number of at least 1 and at most \(OMNI_CONFIG_MAX_SAFE_INTEGER)."
+                        )
                 }
                 column = value
             case nil:

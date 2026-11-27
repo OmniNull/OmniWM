@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import OmniWMIPC
 import ScriptARCCounters
 
 @MainActor
@@ -45,5 +46,35 @@ package func runScriptARCWorkspaceKeys(directory: URL, measured: Bool = true, ca
                 }
             }
         }
+    }
+}
+
+@MainActor
+extension ScriptARCFixture {
+    func commandSelectorKeys() async throws {
+        let workspace = controller.activeWorkspace()!.name
+        let index = WorkspaceIDPolicy.workspaceNumber(from: workspace)!
+        let queue = try await acceptTitleScript("""
+        local wm = omniwm
+        wm.keymap.set("Control+Option+N", function() local action = wm.cmd.switchWorkspace(\(index)) end)
+        wm.keymap.set("Control+Option+S", function() local action = wm.cmd.switchWorkspace("\(index)") end)
+        wm.keymap.set("Control+Option+I", function() wm.cmd.switchWorkspace(0) end)
+        wm.keymap.set("Control+Option+W", function(c) wm.dispatch("window", "move-to-workspace", c.windowId, \(index)) end)
+        wm.keymap.set("Control+Option+T", function(c) wm.dispatch("window", "move-to-workspace", c.windowId, "\(index)") end)
+        """)
+        await queue.waitForAuditPark()
+        for report in [false, true] {
+            try await function(binding("Control+Option+N"), route: "cmd/integer", busy: false, report: report)
+            try await function(binding("Control+Option+S"), route: "cmd/string-index", busy: false, report: report)
+            try await function(binding("Control+Option+W"), route: "window/integer", busy: false, report: report)
+            try await function(binding("Control+Option+T"), route: "window/string-index", busy: false, report: report)
+        }
+        let invalid = try binding("Control+Option+I")
+        precondition(key(invalid, measured: true) == .executed)
+        try await measureWorker(seed: false)
+        guard script.diagnostic?.contains("positive safe integer selector") == true else {
+            throw ScriptARCError(script.diagnostic ?? "Missing selector refusal")
+        }
+        script_arc_report("cmd/invalid-selector", "settings/key", 1)
     }
 }

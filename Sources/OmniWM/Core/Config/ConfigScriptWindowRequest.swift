@@ -18,6 +18,33 @@ enum ConfigScriptWindowActionName: Equatable, Sendable {
         case .setFloatingFrame: "set-floating-frame"
         }
     }
+
+    var integerSelector: IntegerSelector? {
+        switch self {
+        case .shared(.moveToWorkspace): .workspace
+        case .shared(.moveColumnToIndex): .column
+        case .placeInOwnColumn: .ownColumn
+        case .shared(.assignToScratchpad): .scratchpad
+        default: nil
+        }
+    }
+
+    enum IntegerSelector {
+        case workspace
+        case column
+        case ownColumn
+        case scratchpad
+
+        func action(_ index: Int) -> WindowAction? {
+            guard index > 0 else { return nil }
+            return switch self {
+            case .workspace: WorkspaceTarget(workspaceNumber: index).map { .moveToWorkspace($0) }
+            case .column: .moveColumn(.index(index))
+            case .ownColumn: .placeInOwnColumn(index)
+            case .scratchpad: ScratchpadIndex(index).map { .assignToScratchpad($0) }
+            }
+        }
+    }
 }
 
 struct ConfigScriptWindowRequest: Equatable, Sendable {
@@ -43,6 +70,7 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
 
     init(
         words: UnsafeBufferPointer<omni_config_span>,
+        selector: UInt64 = 0,
         destination: UnsafeBufferPointer<omni_config_field>? = nil
     ) throws(ConfigScriptError) {
         guard (2 ... 3).contains(words.count), let name = Self.actionName(Self.bytes(words[0])) else {
@@ -50,7 +78,10 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
         }
         var check: ConfigScriptWindowCheck?
         let action: WindowAction?
-        if let destination {
+        if selector != 0 {
+            guard words.count == 2, destination == nil, let index = Int(exactly: selector) else { throw Self.invalid }
+            action = name.integerSelector?.action(index)
+        } else if let destination {
             switch (name, words.count) {
             case (.shared(.moveToWorkspace), 2):
                 let parsed = try ConfigScriptWindowDestination(fields: destination)
@@ -112,10 +143,6 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
         switch name {
         case .shared(.moveToWorkspace):
             .moveToWorkspace(WorkspaceTarget(resolvingInput: argument))
-        case .shared(.moveColumnToIndex):
-            Int(argument).flatMap { $0 > 0 ? .moveColumn(.index($0)) : nil }
-        case .placeInOwnColumn:
-            Int(argument).flatMap { $0 > 0 ? .placeInOwnColumn($0) : nil }
         case .shared(.moveColumn):
             Direction(rawValue: argument).map { .moveColumn(.direction($0)) }
         case .shared(.setContainerPrimarySpan):
@@ -128,11 +155,8 @@ struct ConfigScriptWindowRequest: Equatable, Sendable {
             IPCCycleDirection(rawValue: argument).map { .cycleWindowPrimarySpan(forward: $0 == .forward) }
         case .shared(.cycleWindowSecondarySpan):
             IPCCycleDirection(rawValue: argument).map { .cycleWindowSecondarySpan(forward: $0 == .forward) }
-        case .shared(.assignToScratchpad):
-            Int(argument).flatMap { IPCScratchpadSlots.range.contains($0) ? ScratchpadIndex($0) : nil }
-                .map { .assignToScratchpad($0) }
         default:
-            nil
+            name.integerSelector.flatMap { selector in Int(argument).flatMap { selector.action($0) } }
         }
     }
 }

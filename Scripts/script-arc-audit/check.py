@@ -53,11 +53,17 @@ WORKSPACE_KEYS = {f"{prefix}workspace-key/{action}-{outcome}" for prefix in ("",
                   for outcome in ("noop", "switch")}
 TIMER_ROUTES = ("timer/empty", "timer/reads", "timer/effect")
 CALLBACK_DISPATCH_ROUTES = ("key/dispatch-window", "key/cmd-in-callback", "key/cmd-prebuilt", "key/cmd-build-argument")
+COMMAND_SELECTORS = ("cmd/integer", "cmd/string-index", "cmd/invalid-selector", "window/integer", "window/string-index")
+ROUTES.update(COMMAND_SELECTORS)
 CALLBACK_COMMAND_BUILDS = {
     ("key/cmd-in-callback", "key/cmd-prebuilt"): ({"R": 1, "L": 2, "obj": 0, "heap": 0},
         "Resolving omniwm.cmd words in place costs only the typed command; no word strings or manifest scans."),
     ("key/cmd-build-argument", "key/idle"): ({"R": 2, "L": 4, "obj": 1, "heap": 1},
         "An argument token adds only the value array that IPCCommandRequest(name:argumentValues:) takes."),
+    ("cmd/integer", "cmd/string-index"): ({"R": 0, "L": 0, "obj": 0, "heap": 0, "bR": 0, "bL": -1},
+        "An integer selector builds the same action with no extra Swift ownership or storage."),
+    ("window/integer", "window/string-index"): ({"R": 0, "L": 0, "obj": 0, "heap": 0, "bR": 0, "bL": -1},
+        "An integer workspace selector stages the same window action with no extra Swift ownership or storage."),
 }
 ROUTES.update({prefix + kind for kind in STATE_AND_EDGE_KINDS for prefix in ("absent/", "event/")})
 ROUTES.update("native/" + kind + suffix for kind in FOCUS_KINDS for suffix in ("+script", "+listener"))
@@ -397,7 +403,7 @@ def check_costs(output):
             sys.exit(f"{kind}: only the wake and {', '.join(owners)} cross delivery: {counts}")
     check_native_event_transactions(table)
     check_catalog_transactions(table)
-    for route in CALLBACK_DISPATCH_ROUTES:
+    for route in (*CALLBACK_DISPATCH_ROUTES, *COMMAND_SELECTORS):
         if int(table[route, "config"]["VM"]) != 1:
             sys.exit(f"{route}: the shortcut callback must enter its VM once")
     by_name = table["move/by-name", "config"]
@@ -423,7 +429,7 @@ def check_costs(output):
         for field, allowed in budget.items():
             extra = int(table[route, "config"][field]) - int(table[baseline, "config"][field])
             if extra != allowed:
-                sys.exit(f"{route}: expected {field} +{allowed} over {baseline}, got +{extra}. {reason}")
+                sys.exit(f"{route}: expected {field} {allowed:+d} over {baseline}, got {extra:+d}. {reason}")
     for route in (*PLACEMENT_CAPTURES, *FOCUS_TARGET_CAPTURES):
         counts = table[route, "producer"]
         if int(counts["obj"]) or int(counts["heap"]):

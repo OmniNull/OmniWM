@@ -63,7 +63,7 @@ final class ConfigScriptHostTests: XCTestCase {
             ("wm.cmd.switchWorkspace()", "Invalid arguments"),
             ("wm.cmd.switchWorkspace('2', 'slot')", "Invalid arguments"),
             ("wm.cmd.openCommandPalette('commands', 'extra')", "Invalid arguments"),
-            ("wm.cmd.switchWorkspace(2)", "expected a string token"),
+            ("wm.cmd.switchWorkspace(true)", "expected a string token"),
             ("wm.keymap.set('Unassigned', action)", "Invalid keyboard chord"),
             ("wm.keymap.set('Control+UnknownKey', action)", "Invalid keyboard chord"),
             ("wm.cmd[string.char(255)]()", "UTF-8"),
@@ -127,6 +127,61 @@ final class ConfigScriptHostTests: XCTestCase {
         }
         let result = try await evaluate(cases.map(\.0).joined(separator: "\n"))
         XCTAssertEqual(result.bindings.map(\.command), cases.map(\.1))
+    }
+
+    func testNumericSelectorsConstructTheSameActionsAsTheCLIWords() async throws {
+        var source: [String] = []
+        var expected: [HotkeyCommand] = []
+        let scratchpads = IPCScratchpadSlots.range
+        let workspaces = [1, Int(OMNI_CONFIG_MAX_SAFE_INTEGER)]
+        let chords = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        for group in ConfigScriptCommandParser.inventory() {
+            for descriptor in group.forms {
+                let kinds = descriptor.arguments.map(\.kind)
+                guard let selector = kinds.firstIndex(where: {
+                    [.workspaceNumber, .columnIndex, .windowIndex, .scratchpadIndex].contains($0)
+                }) else { continue }
+                let indices = kinds[selector] == .scratchpadIndex
+                    ? [scratchpads.lowerBound, scratchpads.upperBound] : workspaces
+                for index in indices {
+                    var arguments = kinds.map { $0.literalValues?.first ?? "" }
+                    arguments[selector] = String(index)
+                    let words = descriptor.commandWords + arguments
+                    let request = try XCTUnwrap(IPCCommandRequest(commandWords: words), descriptor.path)
+                    expected.append(try XCTUnwrap(HotkeyCommand(direct: request), descriptor.path))
+                    let literals = descriptor.commandWords.dropFirst().map(\.debugDescription)
+                    let parameters = literals + arguments.enumerated().map { offset, word in
+                        offset == selector ? word : word.debugDescription
+                    }
+                    let chord = chords[chords.index(chords.startIndex, offsetBy: source.count)]
+                    source
+                        .append(
+                            "omniwm.keymap.set('Option+\(chord)', omniwm.cmd.\(group.member)(\(parameters.joined(separator: ", "))))"
+                        )
+                }
+            }
+        }
+        XCTAssertFalse(expected.isEmpty)
+        let result = try await evaluate(source.joined(separator: "\n"))
+        XCTAssertEqual(result.bindings.map(\.command), expected)
+    }
+
+    func testInvalidNumericSelectorsAreRejectedAtTheirCallSites() async throws {
+        let bound = OMNI_CONFIG_MAX_SAFE_INTEGER
+        let unsafeNumbers = ["0", "-1", "1 / 2", "0 / 0", "math.huge", "-math.huge", "\(bound) + 1"]
+        let badSelectors = unsafeNumbers.map { ("switchWorkspace(\($0))", "positive safe integer") }
+        let pastScratchpads = IPCScratchpadSlots.range.upperBound + 1
+        let wrongKinds = [
+            "scratchpad('toggle', \(pastScratchpads))", "switchWorkspace(1, 'slot')",
+            "setContainerPrimarySpan(1)", "appOpen(1)", "focus(1)", "setVisibleContainers(1)"
+        ].map { ($0, "Invalid arguments") }
+        let prefix = "local cmd = omniwm.cmd"
+        for (call, diagnostic) in badSelectors + wrongKinds {
+            let source = [prefix, "pcall(function() cmd.\(call) end)"]
+            let failure = try await rejection(source.joined(separator: "\n"))
+            XCTAssertEqual(failure.line, source.count, call)
+            XCTAssertTrue(failure.message.contains(diagnostic), failure.message)
+        }
     }
 
     func testOverlappingSidedChordReportsTheOriginalDeclaration() async throws {

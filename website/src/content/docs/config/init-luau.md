@@ -50,11 +50,11 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 
 ## Built-in commands
 
-Use the first word of an [`omniwmctl` command](/reference/cli/commands/) as the camelCase member of `omniwm.cmd`. Pass the remaining words as strings, including selectors and literal suffixes. For example, `switch-workspace slot 2` becomes `omniwm.cmd.switchWorkspace("slot", "2")`. The generated `omniwm-config.d.luau` definition lists the members and their accepted arguments.
+Use the first word of an [`omniwmctl` command](/reference/cli/commands/) as the camelCase member of `omniwm.cmd`. Pass workspace numbers, column and window indices, and slots as positive safe integers (at most 2⁵³ − 1) or their existing strings. Keep literal words and sizes as strings. For example, `switch-workspace slot 2` becomes `omniwm.cmd.switchWorkspace("slot", 2)`. The generated `omniwm-config.d.luau` definition lists the members and their accepted arguments.
 
 ```lua
 local wm = omniwm
-wm.keymap.set("Control+Option+2", wm.cmd.switchWorkspace("2"))
+wm.keymap.set("Control+Option+2", wm.cmd.switchWorkspace(2))
 ```
 
 ## Key modes
@@ -160,18 +160,20 @@ Handlers last until the next reload.
 | Action | Extra arguments |
 | --- | --- |
 | `focus`, `navigate`, `summon-right`, `close` | none |
-| `move-to-workspace` | workspace name, or a [destination table](#destination-tables) |
+| `move-to-workspace` | workspace number, a string workspace ID or name, or a [destination table](#destination-tables) |
 | `move-column-to-first`, `move-column-to-last` | none |
-| `move-column-to-index` | position as a string, such as `"2"` |
+| `move-column-to-index` | position as a number or string, such as `2` or `"2"` |
 | `move-column` | `"left"`, `"right"`, `"up"` or `"down"` |
-| `place-in-own-column` | position as a string, such as `"2"` |
+| `place-in-own-column` | position as a number or string, such as `2` or `"2"` |
 | `toggle-container-full-primary-span`, `reset-window-secondary-span` | none |
 | `set-container-primary-span`, `set-window-primary-span`, `set-window-secondary-span` | a size such as `"+10%"` or `"50%"` |
 | `cycle-window-primary-span`, `cycle-window-secondary-span` | `"forward"` or `"backward"` |
 | `toggle-column-tabbed`, `toggle-floating` | none |
 | `set-floating-frame` | a table with any of `x`, `y`, `width` and `height` |
-| `assign-to-scratchpad` | slot as a string, such as `"1"` |
+| `assign-to-scratchpad` | slot as a number or string, such as `1` or `"1"` |
 | `gather` | a list of 1 to 64 IDs in place of `id`, then optionally `"workspace"`, `"monitor"` or `"all"` |
+
+A numeric workspace selector addresses that workspace's numbered ID. A string can also name a workspace by its display name. Numeric positions and slots follow the same positive safe integer rule as built-in commands, and scratchpad slots must be in the supported range.
 
 `set-floating-frame` moves or resizes a floating window, in the coordinates of [frames](#reads). Fields you leave out keep their current value. The window moves as needed to stay on its display's visible frame, and keeps a size larger than that. A tiled window doesn't move, so dispatch `toggle-floating` first in the same callback. Windows attached to another window, such as sheets, are refused. A minimized or hidden window doesn't change. A window on a workspace that isn't shown gets the frame when you switch to it.
 
@@ -301,7 +303,7 @@ local function bind(chord: string, step: number)
         end
         local current = table.find(names, ctx.workspace)
         if current and names[current + step] then
-            wm.dispatch(wm.cmd.switchWorkspace("slot", tostring(current + step)))
+            wm.dispatch(wm.cmd.switchWorkspace("slot", current + step))
         end
     end, { reads = { "workspaces" } })
 end
@@ -331,7 +333,7 @@ end, { reads = { "workspaceWindows", "monitors" } })
 
 ```lua
 local wm = omniwm
-local function moveAndFollow(chord: string, workspace: string)
+local function moveAndFollow(chord: string, workspace: number)
     wm.keymap.set(chord, function(ctx: ConfigContext)
         local id = ctx.windowId
         if not id then return end
@@ -339,8 +341,8 @@ local function moveAndFollow(chord: string, workspace: string)
         wm.dispatch("window", "focus", id)
     end)
 end
-moveAndFollow("Control+Option+Shift+1", "1")
-moveAndFollow("Control+Option+Shift+2", "2")
+moveAndFollow("Control+Option+Shift+1", 1)
+moveAndFollow("Control+Option+Shift+2", 2)
 ```
 
 **Return to a floating window after closing a tile.** This tracks focus changes to remember the floating window you left for a tiled one. When you close that tiled window, it refocuses the floating window. Quick focus changes can be merged before it sees them, and you may see a second focus change.
@@ -433,7 +435,7 @@ local function alongStrip(forward: boolean): ConfigFunction
         local direction: "left" | "right" | "up" | "down" =
             if p.vertical then (if forward then "up" else "down") else (if forward then "right" else "left")
         if #p.members > 1 then
-            wm.dispatch("window", "place-in-own-column", id, tostring(if forward then p.column + 1 else p.column))
+            wm.dispatch("window", "place-in-own-column", id, if forward then p.column + 1 else p.column)
         elseif p.column == (if forward then p.columns else 1) then
             wm.dispatch("window", "move-to-workspace", id,
                 { neighbor = direction, of = p.display, fromEdge = true, column = if forward then 1 else nil })
@@ -549,7 +551,7 @@ local chat = { "com.tinyspeck.slackmacgap", "com.hnc.Discord", "ru.keepcoder.Tel
 for _, bundleId in chat do
     wm.rule { bundleId = bundleId, scratchpad = 2 }
 end
-wm.keymap.set("Control+Option+Shift+C", wm.cmd.scratchpad("toggle", "2"))
+wm.keymap.set("Control+Option+Shift+C", wm.cmd.scratchpad("toggle", 2))
 ```
 
 **Gather an app group into one column.** Control + Option + Shift + G collects Safari and Ghostty windows from every workspace into one column on the Niri workspace you're on, in the order the windows list gives them. Floating, minimized and fullscreen windows stay where they are. If a matching window is on a Dwindle workspace, the gather refuses and nothing moves. A truncated windows list does nothing rather than gather part of the group.

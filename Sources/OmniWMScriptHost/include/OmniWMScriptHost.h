@@ -306,6 +306,13 @@ typedef struct omni_config_span {
     size_t length;
 } omni_config_span;
 
+#define OMNI_CONFIG_MAX_SAFE_INTEGER 9007199254740991ULL
+
+typedef struct omni_config_word {
+    omni_config_span text;
+    uint64_t selector;
+} omni_config_word;
+
 typedef uint32_t (*omni_settings_field)(void *context, uint32_t parent, omni_config_span key,
     size_t begin, size_t end, uint32_t line, bool literal, bool record);
 typedef void (*omni_settings_formula)(void *context, uint32_t field, size_t begin, size_t end, uint32_t line);
@@ -512,7 +519,7 @@ typedef struct omni_config_store_callbacks {
 } omni_config_store_callbacks;
 
 typedef struct omni_config_callbacks {
-    bool (*resolve)(void *context, uint16_t group, const omni_config_span *words, size_t count,
+    bool (*resolve)(void *context, uint16_t group, const omni_config_word *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
     bool (*bind)(void *context, omni_config_span chord, uint32_t action_id, omni_config_span mode_key,
         omni_config_span mode, omni_config_location location, char *error, size_t capacity);
@@ -527,8 +534,9 @@ typedef struct omni_config_callbacks {
         omni_config_location location, char *error, size_t capacity);
     bool (*effect)(void *context, omni_config_effect_kind kind, const omni_config_span *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
-    bool (*window)(void *context, const omni_config_span *words, size_t count, const omni_config_field *destination,
-        size_t destination_count, omni_config_location location, char *error, size_t capacity);
+    bool (*window)(void *context, const omni_config_span *words, size_t count, uint64_t selector,
+        const omni_config_field *destination, size_t destination_count, omni_config_location location,
+        char *error, size_t capacity);
     bool (*dwindle)(void *context, const omni_config_dwindle_tree *tree, omni_config_location location, char *error,
         size_t capacity);
     bool (*mode)(void *context, omni_config_span name, omni_config_location location, uint32_t *action_id, char *error,

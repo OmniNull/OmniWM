@@ -182,7 +182,7 @@ struct ConfigScriptStage {
                     return failure.write(to: error, capacity: capacity)
                 }
             },
-            window: { context, words, count, destination, destinationCount, location, error, capacity in
+            window: { context, words, count, selector, destination, destinationCount, location, error, capacity in
                 guard let context, let words else { return false }
                 do throws(ConfigScriptError) {
                     let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
@@ -192,6 +192,7 @@ struct ConfigScriptStage {
                     } else {
                         try .window(ConfigScriptWindowRequest(
                             words: words,
+                            selector: selector,
                             destination: destination.map { UnsafeBufferPointer(start: $0, count: destinationCount) }
                         ))
                     }
@@ -235,14 +236,14 @@ struct ConfigScriptStage {
     }
 
     private mutating func resolve(
-        group: Int, _ spans: UnsafeBufferPointer<omni_config_span>
+        group: Int, _ words: UnsafeBufferPointer<omni_config_word>
     ) throws(ConfigScriptError) -> UInt32 {
-        guard spans.count <= ConfigScriptCommandParser.maximumArgumentCount else {
+        guard words.count <= ConfigScriptCommandParser.maximumArgumentCount else {
             throw ConfigScriptError(line: nil, message: "Expected one command with its individual argument words.")
         }
-        guard let request = ConfigScriptCommandParser.request(group: group, spans) else {
-            for span in spans {
-                _ = try Self.string(span)
+        guard let request = ConfigScriptCommandParser.request(group: group, words) else {
+            for word in words where word.selector == 0 {
+                _ = try Self.string(word.text)
             }
             guard let name = ConfigScriptCommandParser.word(group: group) else {
                 throw ConfigScriptError(line: nil, message: "Unknown command group.")
@@ -252,12 +253,12 @@ struct ConfigScriptStage {
         guard let command = HotkeyCommand(direct: request) else {
             throw ConfigScriptError(
                 line: nil,
-                message: "'\(ConfigScriptCommandParser.text(group: group, spans))' is not a direct hotkey action."
+                message: "'\(ConfigScriptCommandParser.text(group: group, words))' is not a direct hotkey action."
             )
         }
         let key = ActionKey.command(command)
         if case .callbacks = phase, let existing = actionIDs[key] { return existing }
-        let text = ConfigScriptCommandParser.text(group: group, spans)
+        let text = ConfigScriptCommandParser.text(group: group, words)
         let index = UInt32(actions.count)
         try reserveAction(byteCount: text.utf8.count)
         actionIDs[key] = index

@@ -72,10 +72,19 @@ struct CommandGroup {
 
 static_assert(commandGroups.size() <= UINT16_MAX + size_t{1});
 
+uint64_t integerSelector(lua_State *L, ConfigVM &vm, int index, omni_config_location site) {
+    const double number = lua_tonumber(L, index);
+    if (!(number >= 1 && number <= OMNI_CONFIG_MAX_SAFE_INTEGER) || std::trunc(number) != number) {
+        reject(L, vm, site, "expected a positive safe integer selector");
+    }
+    chargeTokenBytes(L, vm, sizeof(number), site);
+    return static_cast<uint64_t>(number);
+}
+
 int command(lua_State *L) {
     ConfigVM &vm = declarations(L);
     auto site = declarationSite(L, vm);
-    std::array<omni_config_span, LUA_MINSTACK> words;
+    std::array<omni_config_word, LUA_MINSTACK> words;
     const int count = lua_gettop(L);
     if (static_cast<size_t>(count) >= words.size()) {
         reject(L, vm, site, "invalid number of command words");
@@ -86,7 +95,10 @@ int command(lua_State *L) {
     const auto group = static_cast<uint16_t>(lua_tointeger(L, lua_upvalueindex(1)));
     chargeTokenBytes(L, vm, commandGroups[group].firstWordLength, site);
     for (int i = 0; i < count; i++) {
-        words[i] = token(L, vm, i + 1, site);
+        const int index = i + 1;
+        words[i] = lua_type(L, index) == LUA_TNUMBER
+            ? omni_config_word{{}, integerSelector(L, vm, index, site)}
+            : omni_config_word{token(L, vm, index, site), 0};
     }
     auto *action = static_cast<uint32_t *>(lua_newuserdatatagged(L, sizeof(uint32_t), actionTag));
     if (!vm.callbacks.resolve(vm.context, group, words.data(), count, site, action, vm.failure, sizeof vm.failure)) {
@@ -478,7 +490,7 @@ bool stageGather(lua_State *L, ConfigVM &vm, omni_config_location site, int top)
     if (count != length) {
         reject(L, vm, site, "gather expects an array without holes");
     }
-    return vm.callbacks.window(vm.context, words.data(), static_cast<size_t>(length + 2), nullptr, 0, site,
+    return vm.callbacks.window(vm.context, words.data(), static_cast<size_t>(length + 2), 0, nullptr, 0, site,
         vm.failure, sizeof vm.failure);
 }
 
@@ -666,7 +678,9 @@ int dispatchAction(lua_State *L) {
         if (!vm.callbacks.window || kind != "window" || count < 2 || static_cast<size_t>(count) > words.size()) {
             reject(L, vm, site, "omniwm.dispatch expects 'window', an action, a window ID and any action arguments");
         }
-        for (int i = 0; i < count; i++) {
+        const bool indexed = count == 3 && lua_type(L, 4) == LUA_TNUMBER;
+        const int textCount = count - indexed;
+        for (int i = 0; i < textCount; i++) {
             words[i] = token(L, vm, i + 2, site);
         }
         if (std::string_view(words[0].data, words[0].length) == gatherAction) {
@@ -678,8 +692,9 @@ int dispatchAction(lua_State *L) {
                 {"too many fields in a window table",
                     "window table fields must be strings, numbers or booleans"})
             : 0;
-        staged = vm.callbacks.window(vm.context, words.data(), count, tableDestination ? destination.data() : nullptr,
-            fields, site, vm.failure, sizeof vm.failure);
+        const uint64_t selector = indexed ? integerSelector(L, vm, 4, site) : 0;
+        staged = vm.callbacks.window(vm.context, words.data(), textCount, selector,
+            tableDestination ? destination.data() : nullptr, fields, site, vm.failure, sizeof vm.failure);
     } else {
         const auto *action = static_cast<const uint32_t *>(lua_touserdatatagged(L, 1, actionTag));
         if (lua_gettop(L) != 1 || !action) {
