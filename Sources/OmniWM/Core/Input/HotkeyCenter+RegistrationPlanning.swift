@@ -7,6 +7,24 @@ import Foundation
 import IOKit.hidsystem
 
 extension HotkeyCenter {
+    func hotkeyHealthFacts() -> HotkeyHealthFacts {
+        HotkeyHealthFacts(
+            isRunning: isRunning,
+            isHyperTriggerActive: hyperTrigger.isActive,
+            hyperTriggerTapInstalled: hyperTriggerTap != nil,
+            capsLockHyperRemapActive: capsLockHyperRemapActive,
+            systemHyperTriggerEnabled: configuration.systemHyperTrigger.isEnabled,
+            systemHyperTriggerName: configuration.systemHyperTrigger.humanReadableString,
+            systemHyperTriggerFailure: systemHyperTriggerFailure.map { "\($0)" },
+            suppressedHotkeyCount: suppressedHotkeyKeyCodes.count,
+            registrationFailureCount: registrationFailures.count,
+            sideSpecificCount: sideSpecificDispatch.count,
+            bindingCount: configuration.bindings.count,
+            bindings: Self.bindingFacts(for: configuration.bindings),
+            keyboardMode: keyboardModeInput.kind.rawValue
+        )
+    }
+
     nonisolated static func bindingFacts(for bindings: [HotkeyBinding]) -> [HotkeyBindingFact] {
         let failures = registrationPlan(for: bindings).failures
         return bindings.compactMap { binding in

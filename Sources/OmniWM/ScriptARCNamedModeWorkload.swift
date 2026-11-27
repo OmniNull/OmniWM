@@ -8,29 +8,64 @@ import ScriptARCCounters
 @MainActor
 func measureNamedModes(in directory: URL) async throws {
     let fixture = try ScriptARCFixture(directory: directory.appendingPathComponent("named-modes"))
-    fixture.namedModeMatchRoutes()
+    try await fixture.namedModeMatchRoutes()
     try await fixture.namedModeDeliveryRoutes()
 }
 
 @MainActor
 extension ScriptARCFixture {
-    fileprivate func namedModeMatchRoutes() {
+    func resolvePlainKeyControls() throws -> (settings: HotkeyCommand, script: HotkeyCommand) {
+        let settings = controller.settings
+        guard let native = settings.hotkeyBindings.first else {
+            throw ScriptARCError("Missing Settings shortcut")
+        }
+        let key = try Self.chord(Self.plainChord, mask: settings.hyperKeyModifiers.carbonMask)
+        let loser = HotkeyBinding(id: "audit.masked", command: .focus(.left), trigger: .chord(key))
+        settings.hotkeyBindings.append(loser)
+        controller.updateHotkeyBindings(settings.hotkeyBindings)
+        let installed = controller.hotkeys.configuration.bindings
+        let matches = installed.filter { $0.binding.chordBinding?.conflicts(with: key) == true }
+        guard let winner = matches.first, matches.count == 1, winner.id != loser.id,
+              installed.contains(native), settings.hotkeyBindings.contains(loser)
+        else { throw ScriptARCError("One Flex shortcut must mask the saved Settings chord") }
+        return (native.command, winner.command)
+    }
+
+    fileprivate func namedModeMatchRoutes() async throws {
         let hotkeys = controller.hotkeys
+        let settings = controller.settings
         let scalar = KeyBinding(keyCode: UInt32(kVK_ANSI_H), modifiers: 0)
         let reference = KeyBinding(keyCode: UInt32(kVK_ANSI_J), modifiers: 0)
         let opened = HotkeyCommand.openApp("com.apple.TextEdit")
+        let loser = HotkeyBinding(id: "audit.masked", command: .focus(.right), trigger: .chord(scalar))
+        settings.systemHyperTrigger = .none
+        settings.hotkeyBindings = [
+            HotkeyBinding(id: "audit.scalar", command: .focus(.left), trigger: .unassigned, modeKey: scalar),
+            HotkeyBinding(id: "audit.reference", command: opened, trigger: .unassigned, modeKey: reference),
+            loser
+        ]
+        let source = """
+        local wm = omniwm
+        wm.keymap.mode("audit")
+        wm.keymap.set("\(scalar.humanReadableString)", wm.cmd.focus("left"), { mode = "audit" })
+        """
+        let mask = settings.hyperKeyModifiers.carbonMask
+        let evaluation = try await loader.evaluate(Data(source.utf8), hyperMask: mask)
+        controller.configScript = script
+        precondition(script.apply(ConfigScriptLoad(versions: [:], result: .success(evaluation)), hyperMask: mask))
+        precondition(script.callbackQueue == nil && script.diagnostic == nil)
+        controller.updateHotkeyBindings(settings.hotkeyBindings)
+        guard settings.hotkeyBindings.contains(loser),
+              !hotkeys.configuration.bindings
+                  .contains(where: { $0.binding.chordBinding?.conflicts(with: scalar) == true }),
+              let mode = hotkeys.namedKeyModes.modes.first,
+              mode.entries.contains(KeyboardModeTable.Entry(binding: scalar, command: .focus(.left)))
+        else { throw ScriptARCError("The named mode must mask the saved Settings chord") }
+        hotkeys.updateNamedKeyModes(NamedKeyModes([NamedKeyModes.Mode(
+            id: mode.id, name: mode.name,
+            entries: mode.entries + [KeyboardModeTable.Entry(binding: reference, command: opened)]
+        )]))
         hotkeys.onCommand = { _ in }
-        hotkeys.updateBindings(
-            [
-                HotkeyBinding(id: "audit.scalar", command: .focus(.left), trigger: .unassigned, modeKey: scalar),
-                HotkeyBinding(id: "audit.reference", command: opened, trigger: .unassigned, modeKey: reference)
-            ],
-            systemHyperTrigger: .none
-        )
-        hotkeys.updateNamedKeyModes(NamedKeyModes([NamedKeyModes.Mode(id: 1, name: "audit", entries: [
-            KeyboardModeTable.Entry(binding: scalar, command: .focus(.left)),
-            KeyboardModeTable.Entry(binding: reference, command: opened)
-        ])]))
         press(scalar.keyCode, in: .window, route: "window/hit", control: "window/hit", consumed: true)
         press(scalar.keyCode, in: .named(0), route: "named/hit", control: "window/hit", consumed: true)
         press(reference.keyCode, in: .window, route: "window/ref-hit", control: "window/ref-hit", consumed: true)
@@ -48,6 +83,7 @@ extension ScriptARCFixture {
         wm.keymap.set("H", function() end, { mode = "audit" })
         wm.keymap.set("Control+Option+K", function() end)
         """)
+        controller.updateHotkeyBindings(controller.settings.hotkeyBindings)
         let hotkeys = controller.hotkeys
         let rows = script.acceptedBindings
         guard let named = rows.first(where: { $0.mode != nil }), let global = rows.first(where: { $0.mode == nil }),

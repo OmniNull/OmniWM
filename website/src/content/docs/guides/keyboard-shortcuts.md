@@ -13,6 +13,8 @@ Optionally pick a **System Hyper Trigger** — a single key (Caps Lock, F13–F2
 
 Settings > Keyboard Shortcuts lists all actions that can be assigned a shortcut, including advanced actions.
 
+An overlapping [`init.luau` shortcut](/config/init-luau/#rules-and-shortcuts-two-homes) takes precedence. The saved chord or mode key stays visible with a note that `init.luau` overrides it. Assignments without an overlap, including mouse buttons, keep working.
+
 ## Keyboard modes
 
 Keyboard modes help when OmniWM shortcuts clash with app shortcuts. Their actions — **Pause or Resume Shortcuts**, **Begin Prefix**, **Enter or Leave Window Mode**, and **Leave Keyboard Mode** — are unassigned by default; assign them in Settings > Keyboard Shortcuts.

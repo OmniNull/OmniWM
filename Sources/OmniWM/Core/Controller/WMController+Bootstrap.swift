@@ -210,9 +210,9 @@ extension WMController {
             settings: settings,
             loader: configScriptLoader,
             wmController: self
-        ) { [weak self] rows in
+        ) { [weak self] resolution in
             guard let self else { return }
-            updateHotkeyBindings(settings.hotkeyBindings, scriptBindings: rows)
+            updateHotkeyBindings(settings.hotkeyBindings, scriptResolution: resolution)
         }
         script.onDiagnosticChanged = { [weak self] diagnostic in self?.configScriptDiagnostic = diagnostic }
         script.onRulesChanged = { [weak self] in self?.updateAppRules() }
@@ -228,16 +228,19 @@ extension WMController {
     func updateHotkeyBindings(
         _ bindings: [HotkeyBinding],
         force: Bool = false,
-        scriptBindings: [HotkeyBinding]? = nil
+        scriptResolution: ConfigScriptShortcutResolution? = nil
     ) {
-        let scriptRows = scriptBindings ?? configScript?.bindings(for: bindings) ?? []
-        let combined = scriptRows.isEmpty ? bindings : bindings + scriptRows
-        let enabledBindings = combined.filter { settings.isCommandFeatureEnabled($0.command) }
+        let resolved = scriptResolution ?? configScript?.resolveBindings(for: bindings)
+        let enabledBindings = resolved?.bindings ?? bindings.filter { settings.isCommandFeatureEnabled($0.command) }
         hotkeys.updateBindings(
             enabledBindings,
             systemHyperTrigger: settings.systemHyperTrigger,
+            namedModes: resolved?.namedModes,
             force: force
         )
+        if scriptResolution == nil {
+            configScript?.publishDiagnostics(overrides: resolved?.overrides)
+        }
         refreshHotkeyFailureSnapshots()
         refreshDiagnosticsIssues()
         refreshKeyboardModeIndicator()

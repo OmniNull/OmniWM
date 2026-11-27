@@ -36,7 +36,7 @@ final class SettingsStore {
     var onExternalSettingsReloaded: (@MainActor () -> Void)?
     var onConfirmedSettingsEdit: (@MainActor () -> Void)?
     var onConfigNoticeChanged: (@MainActor () -> Void)?
-    var onConfigScriptCallbackErrorChanged: (@MainActor () -> Void)?
+    var onConfigScriptNoticeChanged: (@MainActor () -> Void)?
     var onTrackpadGestureAvailabilityChanged: (@MainActor (Bool) -> Void)?
     var onPointerSettingsChanged: (@MainActor () -> Void)?
     var onDynamicHotkeysChanged: (@MainActor () -> Void)?
@@ -44,9 +44,8 @@ final class SettingsStore {
     var liveShellNamesForHotkeys: (@MainActor () -> [String])?
     private(set) var configNotice: SettingsConfigNotice?
     @ObservationIgnored var configScriptCallbackError: String?
-    var configScriptLoadError: String? {
-        didSet { onConfigNoticeChanged?() }
-    }
+    var configScriptLoadError: String?
+    var configScriptShortcutConflicts: ConfigScriptShortcutConflicts?
 
     var hotkeysEnabled = SettingsStore.defaultExport.hotkeysEnabled {
         didSet { scheduleSave() }

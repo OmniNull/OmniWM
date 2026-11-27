@@ -66,7 +66,7 @@ final class ConfigScriptNativePressTests: XCTestCase {
             fileURL: directory.appendingPathComponent("init.luau"),
             settings: settings
         ) {
-            controller.updateHotkeyBindings(settings.hotkeyBindings, scriptBindings: $0)
+            controller.updateHotkeyBindings(settings.hotkeyBindings, scriptResolution: $0)
         }
         XCTAssertTrue(script.apply(ConfigScriptLoad(versions: [:], result: .success(evaluated)), hyperMask: mask))
         XCTAssertNil(script.diagnostic)

@@ -60,7 +60,7 @@ final class HotkeyCenter {
     var hyperTrigger = HyperTriggerStateMachine(trigger: .none, capsLockRemapped: false)
     private let capsLockHyperRemapper = CapsLockHyperRemapper()
     private var capsLockToggler = CapsLockToggler()
-    private var capsLockHyperRemapActive = false
+    private(set) var capsLockHyperRemapActive = false
 
     var registrationFailures: [HotkeyCommand: HotkeyRegistrationFailureReason] = [:]
     private(set) var systemHyperTriggerFailure: SystemHyperTriggerFailure?
@@ -71,24 +71,6 @@ final class HotkeyCenter {
 
     var isHyperTriggerActive: Bool {
         hyperTrigger.isActive
-    }
-
-    func hotkeyHealthFacts() -> HotkeyHealthFacts {
-        HotkeyHealthFacts(
-            isRunning: isRunning,
-            isHyperTriggerActive: hyperTrigger.isActive,
-            hyperTriggerTapInstalled: hyperTriggerTap != nil,
-            capsLockHyperRemapActive: capsLockHyperRemapActive,
-            systemHyperTriggerEnabled: configuration.systemHyperTrigger.isEnabled,
-            systemHyperTriggerName: configuration.systemHyperTrigger.humanReadableString,
-            systemHyperTriggerFailure: systemHyperTriggerFailure.map { "\($0)" },
-            suppressedHotkeyCount: suppressedHotkeyKeyCodes.count,
-            registrationFailureCount: registrationFailures.count,
-            sideSpecificCount: sideSpecificDispatch.count,
-            bindingCount: configuration.bindings.count,
-            bindings: Self.bindingFacts(for: configuration.bindings),
-            keyboardMode: keyboardModeInput.kind.rawValue
-        )
     }
 
     isolated deinit {
@@ -136,16 +118,24 @@ final class HotkeyCenter {
     func updateBindings(
         _ newBindings: [HotkeyBinding],
         systemHyperTrigger newSystemHyperTrigger: SystemHyperTrigger = .default,
+        namedModes: NamedKeyModes? = nil,
         force: Bool = false
     ) {
         let nextConfiguration = HotkeyRuntimeConfiguration(
             bindings: newBindings,
             systemHyperTrigger: newSystemHyperTrigger
         )
-        guard force || nextConfiguration != configuration else { return }
-        configuration = nextConfiguration
-        keyboardModeTable = KeyboardModeTable(bindings: newBindings)
-        if isRunning {
+        let bindingsChanged = force || nextConfiguration != configuration
+        if bindingsChanged {
+            configuration = nextConfiguration
+            keyboardModeTable = KeyboardModeTable(bindings: newBindings)
+        }
+        var modePresenceChanged = false
+        if let namedModes {
+            modePresenceChanged = namedKeyModes.isEmpty != namedModes.isEmpty
+            updateNamedKeyModes(namedModes, refreshRegistrations: false)
+        }
+        if isRunning, bindingsChanged || modePresenceChanged {
             refreshCommandHotkeyRegistrations()
         }
     }

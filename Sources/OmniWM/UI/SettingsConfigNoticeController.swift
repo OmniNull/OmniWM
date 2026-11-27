@@ -34,7 +34,8 @@ final class SettingsConfigNoticeController {
             directoryURL: settings.settingsFileURL.deletingLastPathComponent(),
             notice: settings.configNotice,
             scriptLoadError: settings.configScriptLoadError,
-            scriptCallbackError: settings.configScriptCallbackError
+            scriptCallbackError: settings.configScriptCallbackError,
+            scriptShortcutConflict: settings.configScriptShortcutConflicts?.message
         ).first
         guard nextIssue != issue else { return }
         issue = nextIssue
@@ -68,7 +69,7 @@ final class SettingsConfigNoticeController {
 
     func openIssueFile() {
         guard let issue else { return }
-        if case .configScriptFailed = issue.kind, let url = issue.configFileURL {
+        if issue.isScriptConfigIssue, let url = issue.configFileURL {
             fileStatus = openFile(url) ? nil : .error(CocoaError(.fileNoSuchFile).localizedDescription)
         } else {
             do {
@@ -163,7 +164,7 @@ private struct SettingsConfigNoticeView: View {
                     .lineLimit(2)
             }
             HStack {
-                if case .configScriptFailed = issue.kind {
+                if issue.isScriptConfigIssue {
                     Button("Edit init.luau", action: openFile)
                 } else {
                     Button("Edit Settings File", action: openFile)

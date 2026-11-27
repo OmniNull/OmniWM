@@ -7,7 +7,7 @@ import OmniWMScriptHost
 
 struct ConfigScriptBinding: Equatable, Sendable {
     let rawChord: String
-    let chord: KeyBinding
+    var chord: KeyBinding
     let command: HotkeyCommand
     let commandText: String
     let line: Int

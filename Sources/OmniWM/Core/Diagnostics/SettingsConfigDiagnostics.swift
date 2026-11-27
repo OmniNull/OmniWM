@@ -8,7 +8,8 @@ enum SettingsConfigDiagnostics {
         directoryURL: URL = SettingsFilePersistence.defaultDirectoryURL,
         notice: SettingsConfigNotice? = nil,
         scriptLoadError: String? = nil,
-        scriptCallbackError: String? = nil
+        scriptCallbackError: String? = nil,
+        scriptShortcutConflict: String? = nil
     ) -> [DiagnosticsIssue] {
         var issues: [DiagnosticsIssue] = []
         if let notice {
@@ -22,6 +23,12 @@ enum SettingsConfigDiagnostics {
         for case let message? in [scriptLoadError, scriptCallbackError] {
             let url = directoryURL.appendingPathComponent(ConfigScriptController.fileName, isDirectory: false)
             issues.append(DiagnosticsIssue(kind: .configScriptFailed(message: message), configFileURL: url))
+        }
+        if let scriptShortcutConflict {
+            let url = directoryURL.appendingPathComponent(ConfigScriptController.fileName, isDirectory: false)
+            issues.append(DiagnosticsIssue(
+                kind: .configScriptShortcutConflict(message: scriptShortcutConflict), configFileURL: url
+            ))
         }
         return issues
     }

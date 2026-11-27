@@ -36,7 +36,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
                 settings: settings, wmController: controller
             ) { [weak controller] rows in
                 guard let controller else { return }
-                controller.updateHotkeyBindings(controller.settings.hotkeyBindings, scriptBindings: rows)
+                controller.updateHotkeyBindings(controller.settings.hotkeyBindings, scriptResolution: rows)
             }
             controller.configScript = script
         }
@@ -211,10 +211,10 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let settings = fixture.controller.settings
         var published: [String?] = []
         var fullDiagnosticsPasses = 0
-        settings.onConfigScriptCallbackErrorChanged = { published.append(settings.configScriptCallbackError) }
+        settings.onConfigScriptNoticeChanged = { published.append(settings.configScriptCallbackError) }
         settings.onConfigNoticeChanged = { fullDiagnosticsPasses += 1 }
         defer {
-            settings.onConfigScriptCallbackErrorChanged = nil
+            settings.onConfigScriptNoticeChanged = nil
             settings.onConfigNoticeChanged = nil
         }
         for _ in 0 ..< ConfigScriptCallbackQueue.capacity {

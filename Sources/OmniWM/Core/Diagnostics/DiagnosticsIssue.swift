@@ -56,6 +56,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case settingsPersistenceBlocked(reason: String)
         case settingsInvalidRejected(reason: String)
         case configScriptFailed(message: String)
+        case configScriptShortcutConflict(message: String)
     }
 
     let kind: Kind
@@ -64,6 +65,14 @@ struct DiagnosticsIssue: Identifiable, Equatable {
     init(kind: Kind, configFileURL: URL? = nil) {
         self.kind = kind
         self.configFileURL = configFileURL
+    }
+
+    var isScriptConfigIssue: Bool {
+        switch kind {
+        case .configScriptFailed,
+             .configScriptShortcutConflict: true
+        default: false
+        }
     }
 
     var id: String {
@@ -77,6 +86,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case .settingsPersistenceBlocked: "settings-persistence-blocked"
         case .settingsInvalidRejected: "settings-invalid-rejected"
         case .configScriptFailed: "config-script-failed"
+        case .configScriptShortcutConflict: "config-script-shortcut-conflict"
         }
     }
 
@@ -91,7 +101,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
              .fixedDock,
              .horizontalDisplayArrangement,
              .settingsInvalidRejected,
-             .configScriptFailed:
+             .configScriptFailed,
+             .configScriptShortcutConflict:
             .warning
         }
     }
@@ -107,6 +118,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case .settingsPersistenceBlocked: "Settings writes blocked"
         case .settingsInvalidRejected: "Invalid settings left untouched"
         case .configScriptFailed: "init.luau error"
+        case .configScriptShortcutConflict: "Shortcuts overridden by init.luau"
         }
     }
 
@@ -136,7 +148,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             "OmniWM left \(configPath) untouched and blocked configuration writes: \(reason)"
         case let .settingsInvalidRejected(reason):
             "OmniWM could not decode \(configPath) and left the file untouched: \(reason) The active settings were not changed."
-        case let .configScriptFailed(message):
+        case let .configScriptFailed(message),
+             let .configScriptShortcutConflict(message):
             message
         }
     }
@@ -166,6 +179,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             "Correct the reported value in \(configPath) and save the file to apply your settings."
         case .configScriptFailed:
             "Fix the reported problem and save the file."
+        case .configScriptShortcutConflict:
+            "To restore a Settings shortcut, remove the overlapping binding from init.luau."
         }
     }
 
@@ -183,7 +198,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case .hotkeySidedHyper,
              .settingsPersistenceBlocked,
              .settingsInvalidRejected,
-             .configScriptFailed:
+             .configScriptFailed,
+             .configScriptShortcutConflict:
             nil
         }
     }
@@ -192,7 +208,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         switch kind {
         case .settingsPersistenceBlocked,
              .settingsInvalidRejected,
-             .configScriptFailed:
+             .configScriptFailed,
+             .configScriptShortcutConflict:
             true
         default:
             false
@@ -219,6 +236,7 @@ struct DiagnosticsIssue: Identifiable, Equatable {
         case .settingsPersistenceBlocked: String(localized: "Settings writes blocked")
         case .settingsInvalidRejected: String(localized: "Invalid settings left untouched")
         case .configScriptFailed: String(localized: "init.luau error")
+        case .configScriptShortcutConflict: String(localized: "Shortcuts overridden by init.luau")
         }
     }
 
@@ -270,7 +288,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             return String(
                 localized: "OmniWM could not decode \(configPath) and left the file untouched: \(reason) The active settings were not changed."
             )
-        case let .configScriptFailed(message):
+        case let .configScriptFailed(message),
+             let .configScriptShortcutConflict(message):
             return message
         }
     }
@@ -314,6 +333,8 @@ struct DiagnosticsIssue: Identifiable, Equatable {
             )
         case .configScriptFailed:
             String(localized: "Fix the reported problem and save the file.")
+        case .configScriptShortcutConflict:
+            String(localized: "To restore a Settings shortcut, remove the overlapping binding from init.luau.")
         }
     }
 

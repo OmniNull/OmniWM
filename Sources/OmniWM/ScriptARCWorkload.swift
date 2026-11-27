@@ -35,6 +35,7 @@ final class ScriptARCFixture {
     static let workspaceRows = 8
     static let totalRows = 200
     static let decodeSamples = 101
+    static let plainChord = "Control+Option+P"
     let controller: WMController
     let script: ConfigScriptController
     let token: WindowToken
@@ -185,7 +186,7 @@ final class ScriptARCFixture {
         let source = """
         local wm = omniwm
         local prebuilt = wm.cmd.focusMonitor("next")
-        wm.keymap.set("Control+Option+P", wm.cmd.focusMonitor("next"))
+        wm.keymap.set("\(Self.plainChord)", wm.cmd.focusMonitor("next"))
         wm.keymap.set("Control+Option+F", function(c) assert(c.windowId and not c.windows and not c.workspaceWindows) end)
         wm.keymap.set("Control+Option+L", function(c) assert(#c.workspaceWindows == \(Self.workspaceRows) and not c.windows) end, {reads={"workspaceWindows"}})
         wm.keymap.set("Control+Option+A", function(c) assert(#c.windows == \(Self.totalRows) and not c.workspaceWindows) end, {reads={"windows"}})
@@ -409,16 +410,13 @@ package func runScriptARCAudit(directory: URL, observeDelivery: Bool) async thro
     try await fixture.loadMissingScript(in: directory)
     for report in [false, true] { fixture.dormant(report: report) }
     try await fixture.subscribe()
-    guard let settings = fixture.controller.settings.hotkeyBindings.first?.command else {
-        throw ScriptARCError("Missing Settings shortcut")
-    }
-    let plain = try fixture.binding("Control+Option+P")
+    let plain = try fixture.resolvePlainKeyControls()
     let fixed = try fixture.binding("Control+Option+F")
     let local = try fixture.binding("Control+Option+L")
     let all = try fixture.binding("Control+Option+A")
     try await fixture.function(fixed, route: "key/cold", busy: false, report: true)
     for report in [false, true] {
-        try fixture.plainKeys(settings, plain, report: report)
+        try fixture.plainKeys(plain.settings, plain.script, report: report)
         try await fixture.function(fixed, route: "key/idle", busy: false, report: report)
         try await fixture.function(fixed, route: "key/busy", busy: true, report: report)
         try await fixture.function(local, route: "key/workspace-8", busy: false, report: report)

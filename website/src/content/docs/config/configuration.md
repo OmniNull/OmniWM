@@ -30,6 +30,7 @@ Shortcuts, palette commands, events, timers and window rules go in the optional 
 - **`settings.luau` and the Settings window** hold the window rules you edit by hand and one shortcut for each action.
 - **`init.luau`** holds rules and shortcuts that code builds, such as a rule for each app in a list, and extra key chords for the same actions.
 - **Order:** OmniWM applies the Settings rules first, then `init.luau`'s. An `init.luau` rule whose `id` repeats a Settings rule is skipped, and the Settings window marks it **Overridden by Settings**.
+- **Script shortcuts take precedence.** An enabled `init.luau` binding takes over any overlapping Settings chord or mode key. The saved assignment stays in Settings and works again when you remove the winning binding. The notice shows the affected chord, the Settings action and the winning file and line, plus the total if several assignments are overridden. Load and callback errors appear first.
 
 ## Opening the file
 

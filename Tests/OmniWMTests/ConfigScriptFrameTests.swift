@@ -427,7 +427,14 @@ final class ConfigScriptFrameTests: XCTestCase {
         ].joined(separator: "\n")
         try await fixture.load(recipes)
         XCTAssertNil(fixture.script.diagnostic)
-        try await fixture.load(recipes + "\nomniwm.keymap.set('Option+Shift+L', function() end)")
-        XCTAssertNotNil(fixture.script.diagnostic)
+        let settings = fixture.base.controller.settings
+        XCTAssertNil(settings.configScriptShortcutConflicts)
+
+        let overlapping = "Option+Shift+L"
+        let chord = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(overlapping))
+        let saved = try XCTUnwrap(settings.hotkeyBindings.first { $0.binding.chordBinding == chord })
+        try await fixture.load(recipes + "\nomniwm.keymap.set('\(overlapping)', function() end)")
+        XCTAssertNil(fixture.script.diagnostic)
+        XCTAssertEqual(settings.configScriptShortcutConflicts?.overrides.map(\.bindingID), [saved.id])
     }
 }

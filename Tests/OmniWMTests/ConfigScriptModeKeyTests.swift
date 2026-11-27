@@ -37,7 +37,7 @@ final class ConfigScriptModeKeyTests: XCTestCase {
             fileURL: settings.settingsFileURL.deletingLastPathComponent()
                 .appendingPathComponent("init.luau"),
             settings: settings
-        ) { publications.append($0) }
+        ) { publications.append($0.scriptBindings) }
         let initial = "Shift+F13"
         let replacement = "J"
         let expectedKey = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(initial))
@@ -96,7 +96,7 @@ final class ConfigScriptModeKeyTests: XCTestCase {
         }
     }
 
-    func testOnlyAnEffectiveScriptLeaderEnablesSettingsModeKeyRecorders() async throws {
+    func testScriptLeaderRemainsAssignedOverAnOverlappingSettingsShortcut() async throws {
         let settings = InputControllerTestSupport.controller(for: self).settings
         settings.hotkeyBindings = []
         let file = settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("init.luau")
@@ -105,10 +105,12 @@ final class ConfigScriptModeKeyTests: XCTestCase {
         XCTAssertTrue(HotkeySettingsView.hasAssignedModeLeader([], scriptBindings: script.effectiveBindings))
         let key = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(chord))
         let gui = HotkeyBinding(id: palette, command: .openCommandPalette, binding: key)
-        XCTAssertFalse(HotkeySettingsView.hasAssignedModeLeader([gui], scriptBindings: script.bindings(for: [gui])))
+        let resolution = script.resolveBindings(for: [gui])
+        XCTAssertTrue(HotkeySettingsView.hasAssignedModeLeader([gui], scriptBindings: resolution.scriptBindings))
+        XCTAssertEqual(resolution.overrides.map(\.bindingID), [gui.id])
     }
 
-    func testGUIAndScriptConflictsRetainLastGoodAndIdentifyBothOwners() async throws {
+    func testScriptModeKeyMasksSettingsAndScriptConflictsStillRetainLastGood() async throws {
         let settings = InputControllerTestSupport.controller(for: self).settings
         settings.hotkeyBindings = []
         let file = settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("init.luau")
@@ -120,20 +122,21 @@ final class ConfigScriptModeKeyTests: XCTestCase {
         let accepted = script.effectiveBindings
         let guiMode = HotkeyBinding(id: "gui.mode", command: .focus(.left), trigger: .unassigned, modeKey: expectedKey)
         let guiChord = HotkeyBinding(id: "gui.chord", command: .focus(.left), binding: expectedKey)
-        for owner in [guiChord, guiMode] {
-            XCTAssertTrue(script.bindings(for: [owner]).isEmpty)
-            XCTAssertTrue(try XCTUnwrap(script.diagnostic).contains(owner.id))
-            XCTAssertEqual(script.bindings(for: []), accepted)
+        for (owner, field) in [(guiChord, ConfigScriptShortcutOverride.Field.shortcut), (guiMode, .modeKey)] {
+            let resolved = script.resolveBindings(for: [owner])
+            let entry = KeyboardModeTable.Entry(binding: expectedKey, command: .openCommandPalette)
+            XCTAssertEqual(resolved.scriptBindings, accepted)
+            XCTAssertEqual(KeyboardModeTable(bindings: resolved.bindings).entries, [entry])
+            XCTAssertEqual(resolved.overrides.map(\.bindingID), [owner.id])
+            XCTAssertEqual(resolved.overrides.map(\.field), [field])
+            XCTAssertTrue(script.resolveBindings(for: []).overrides.isEmpty)
             settings.hotkeyBindings = [owner]
             try await publish(good, into: script)
-            let diagnostic = try XCTUnwrap(script.diagnostic)
-            XCTAssertTrue(diagnostic.contains("init.luau:1:"))
-            XCTAssertTrue(diagnostic.contains(owner.id))
-            XCTAssertEqual(script.effectiveBindings, accepted)
-            settings.hotkeyBindings = []
-            try await publish(good, into: script)
             XCTAssertNil(script.diagnostic)
+            XCTAssertEqual(script.effectiveBindings, accepted)
+            XCTAssertEqual(settings.hotkeyBindings, [owner])
         }
+        settings.hotkeyBindings = []
         let duplicateMode = binding("Control+Option+K", "rescueOffscreenWindows", secondKey)
         let overlappingShortcut = binding(secondKey, paletteMember)
         for other in [duplicateMode, overlappingShortcut] {

@@ -14,7 +14,7 @@ final class ConfigScriptReloadTests: XCTestCase {
         let settings: SettingsStore
         var publications: [[HotkeyBinding]] = []
         lazy var script = ConfigScriptController(fileURL: file, settings: settings) { [weak self] in
-            self?.publications.append($0)
+            self?.publications.append($0.scriptBindings)
         }
 
         init() throws {
@@ -164,45 +164,44 @@ final class ConfigScriptReloadTests: XCTestCase {
         XCTAssertEqual(fixture.publications.count, 1)
     }
 
-    func testConfiguredAndModeKeysWinWithoutPersistingScriptRows() async throws {
+    func testFlexMasksOverlappingSettingsFieldsWithoutChangingSavedBindings() async throws {
         let fixture = try Fixture()
         defer { fixture.close() }
         let left = try XCTUnwrap(KeySymbolMapper.fromHumanReadable("LeftControl+Option+J"))
-        let gui = HotkeyBinding(id: "gui.reserved", command: .sizing(.balanceSizes), binding: left)
-        fixture.settings.hotkeyBindings = [gui]
-        let source = binding(otherChord, amount: coarse) + "\n" + binding(chord, amount: fine)
-        try fixture.write(source)
-        try await processed(fixture) { fixture.script.start() }
-        let message = try XCTUnwrap(fixture.script.diagnostic)
-        XCTAssertTrue(message.contains("init.luau:2:"))
-        XCTAssertTrue(message.contains(chord))
-        XCTAssertTrue(message.contains(gui.id))
-        XCTAssertTrue(message.contains(action(fine).displayName))
-        XCTAssertTrue(fixture.publications.isEmpty)
-
-        fixture.settings.hotkeyBindings = []
-        try await processed(fixture) { try fixture.write(source, atomic: true) }
-        XCTAssertEqual(Set(fixture.script.effectiveBindings.map(\.command)), [action(coarse), action(fine)])
-        XCTAssertTrue(fixture.settings.hotkeyBindings.isEmpty)
-
-        fixture.settings.hotkeyBindings = [gui]
-        XCTAssertEqual(fixture.script.bindings(for: [gui]).map(\.command), [action(coarse)])
-        XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains(gui.id))
-        fixture.settings.hotkeyBindings = []
-        XCTAssertEqual(Set(fixture.script.bindings(for: []).map(\.command)), [action(coarse), action(fine)])
-        XCTAssertNil(fixture.script.diagnostic)
-
-        let modeKey = try XCTUnwrap(KeySymbolMapper.fromHumanReadable("J"))
-        let mode = HotkeyBinding(
-            id: "gui.mode",
+        let modeChord = "J"
+        let modeKey = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(modeChord))
+        let saved = HotkeyBinding(
+            id: "gui.reserved",
             command: .sizing(.balanceSizes),
-            trigger: .unassigned,
+            trigger: .chord(left),
             modeKey: modeKey
         )
-        fixture.settings.hotkeyBindings = [mode]
-        try await processed(fixture) { try fixture.write(binding("J", amount: fine)) }
-        XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("mode key \(mode.id)"))
-        XCTAssertEqual(Set(fixture.script.effectiveBindings.map(\.command)), [action(coarse), action(fine)])
+        fixture.settings.hotkeyBindings = [saved]
+        let lines = [binding(otherChord, amount: coarse), binding(chord, amount: fine)]
+        try fixture.write(lines.joined(separator: "\n"))
+        try await processed(fixture) { fixture.script.start() }
+        let resolved = fixture.script.resolveBindings(for: [saved])
+        XCTAssertEqual(Set(resolved.scriptBindings.map(\.command)), [action(coarse), action(fine)])
+        let maskedShortcut = try XCTUnwrap(resolved.bindings.first { $0.id == saved.id })
+        XCTAssertEqual(maskedShortcut.binding, .unassigned)
+        XCTAssertEqual(maskedShortcut.modeKey, modeKey)
+        XCTAssertEqual(resolved.overrides.map(\.bindingID), [saved.id])
+        XCTAssertEqual(resolved.overrides.map(\.field), [.shortcut])
+        XCTAssertEqual(resolved.overrides.map(\.line), [lines.count])
+        XCTAssertEqual(resolved.overrides.map(\.source), [ConfigScriptController.fileName])
+        XCTAssertEqual(fixture.settings.hotkeyBindings, [saved])
+        XCTAssertNil(fixture.script.diagnostic)
+
+        try await processed(fixture) { try fixture.write(binding(modeChord, amount: fine), atomic: true) }
+        let modeOverride = fixture.script.resolveBindings(for: [saved])
+        let maskedModeKey = try XCTUnwrap(modeOverride.bindings.first { $0.id == saved.id })
+        XCTAssertEqual(maskedModeKey.binding, saved.binding)
+        XCTAssertNil(maskedModeKey.modeKey)
+        XCTAssertEqual(modeOverride.overrides.map(\.bindingID), [saved.id])
+        XCTAssertEqual(modeOverride.overrides.map(\.field), [.modeKey])
+        XCTAssertEqual(modeOverride.scriptBindings.map(\.command), [action(fine)])
+        XCTAssertEqual(fixture.settings.hotkeyBindings, [saved])
+        XCTAssertNil(fixture.script.diagnostic)
     }
 
     func testHyperChangeReresolvesBeforePublication() async throws {

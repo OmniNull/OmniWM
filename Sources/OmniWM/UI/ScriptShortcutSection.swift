@@ -32,7 +32,7 @@ struct ScriptShortcutSection: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if binding.mode == nil, masked.contains(binding.chord) {
-                            Text("Overridden by Settings")
+                            Text("Not registered")
                                 .font(.caption)
                                 .foregroundStyle(.orange)
                         }

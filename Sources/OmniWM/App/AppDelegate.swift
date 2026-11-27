@@ -396,7 +396,7 @@ extension AppDelegate {
             controller?.refreshDiagnosticsIssues()
             self?.refreshConfigNotice()
         }
-        settings.onConfigScriptCallbackErrorChanged = { [weak self] in self?.refreshConfigNotice() }
+        settings.onConfigScriptNoticeChanged = { [weak self] in self?.refreshConfigNotice() }
     }
 
     private func refreshConfigNotice() {

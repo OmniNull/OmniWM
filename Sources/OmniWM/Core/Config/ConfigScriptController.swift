@@ -47,7 +47,7 @@ final class ConfigScriptController {
     let loader: ConfigScriptLoader
     private let timerSleep: ConfigScriptTimerSleep
     @ObservationIgnored private(set) var timerWorker: Task<Void, Never>?
-    private let didChangeBindings: @MainActor ([HotkeyBinding]) -> Void
+    private let didChangeBindings: @MainActor (ConfigScriptShortcutResolution) -> Void
     @ObservationIgnored var onDiagnosticChanged: (@MainActor (String?) -> Void)?
     @ObservationIgnored var onRulesChanged: (@MainActor () -> Void)?
     @ObservationIgnored var onCommandsChanged: (@MainActor () -> Void)?
@@ -67,7 +67,27 @@ final class ConfigScriptController {
     @ObservationIgnored private(set) var callbackQueue: ConfigScriptCallbackQueue?
     @ObservationIgnored private var callbackError: String?
     @ObservationIgnored private(set) var diagnostic: String?
-    @ObservationIgnored private(set) var effectiveBindings: [HotkeyBinding] = []
+    @ObservationIgnored private var shortcutInputs: ShortcutInputs?
+    @ObservationIgnored private var shortcutResolution = ConfigScriptShortcutResolution()
+
+    var effectiveBindings: [HotkeyBinding] {
+        shortcutResolution.scriptBindings
+    }
+
+    private struct ShortcutInputs: Equatable {
+        let base: [HotkeyBinding]
+        let hyperMask: UInt32
+        let overviewEnabled: Bool
+        let quakeEnabled: Bool
+
+        @MainActor
+        init(base: [HotkeyBinding], settings: SettingsStore) {
+            self.base = base
+            hyperMask = settings.hyperKeyModifiers.carbonMask
+            overviewEnabled = settings.overview.enabled
+            quakeEnabled = settings.quakeTerminal.enabled
+        }
+    }
 
     init(
         fileURL: URL,
@@ -75,7 +95,7 @@ final class ConfigScriptController {
         loader: ConfigScriptLoader = ConfigScriptLoader(),
         wmController: WMController? = nil,
         timerSleep: @escaping ConfigScriptTimerSleep = { try await Task.sleep(for: $0) },
-        didChangeBindings: @escaping @MainActor ([HotkeyBinding]) -> Void
+        didChangeBindings: @escaping @MainActor (ConfigScriptShortcutResolution) -> Void
     ) {
         self.wmController = wmController
         self.fileURL = fileURL.standardizedFileURL
@@ -182,42 +202,37 @@ final class ConfigScriptController {
             let declarations = evaluation?.bindings ?? []
             let rules = evaluation?.rules ?? []
             let commands = evaluation?.namedCommands ?? []
-            let resolved = resolve(declarations, parsedWith: hyperMask, base: settings.hotkeyBindings)
-            let conflict = resolved.conflict ?? (rules == acceptedRules ? acceptedRuleConflict : ruleConflict(rules))
+            let inputs = ShortcutInputs(base: settings.hotkeyBindings, settings: settings)
+            let validated = ConfigScriptValidatedShortcuts(
+                declarations,
+                parsedWith: hyperMask,
+                hyperMask: inputs.hyperMask
+            )
+            let conflict = bindingDiagnostic(validated.error)
+                ?? (rules == acceptedRules ? acceptedRuleConflict : ruleConflict(rules))
             if let conflict {
                 loadError = conflict
             } else {
-                retireCallbacks()
-                callbackQueue = evaluation?.generation.map { ConfigScriptCallbackQueue(
-                    generation: $0, bindings: declarations, commands: commands, events: evaluation?.events ?? [],
-                    fullQueueDiagnostic: { source, line in
-                        description(
-                            source: source,
-                            line: line,
-                            message: "Callback queue is full. This press was dropped."
-                        )
-                    }
-                ) }
-                callbackQueue?.activate(owner: self, controller: wmController)
+                replaceCallbackQueue(evaluation, bindings: declarations, commands: commands)
                 callbackError = nil
                 (acceptedBindings, acceptedNamedModes) = (declarations, evaluation?.namedModes ?? [])
                 acceptedRules = rules
                 acceptedRuleConflict = nil
                 let commandsChanged = commands != acceptedCommands
                 if commandsChanged { acceptedCommands = commands }
-                maskedBindingChords = []
                 acceptedMask = hyperMask
                 loadError = nil
-                bindingConflict = nil
                 let rulesChanged = settings.setScriptAppRules(rules.map(\.rule))
-                if effectiveBindings != resolved.rows {
-                    effectiveBindings = resolved.rows
-                    didChangeBindings(resolved.rows)
+                let previous = shortcutResolution
+                let resolved = resolve(validated, inputs: inputs)
+                if previous.scriptBindings != resolved.scriptBindings || previous.namedModes != resolved.namedModes
+                    || previous.overrides != resolved.overrides
+                {
+                    didChangeBindings(resolved)
                 }
-                publishNamedKeyModes()
                 if rulesChanged { onRulesChanged?() }
                 if commandsChanged { onCommandsChanged?() }
-                publishDiagnostics()
+                publishDiagnostics(overrides: resolved.overrides)
                 installEvents(evaluation?.events ?? [])
                 if let timers = evaluation?.timers, !timers.isEmpty { installTimers(timers) }
                 return true
@@ -227,17 +242,48 @@ final class ConfigScriptController {
         return false
     }
 
-    func bindings(for base: [HotkeyBinding]) -> [HotkeyBinding] {
-        if let requested, requested.hyperMask != settings.hyperKeyModifiers.carbonMask {
+    private func replaceCallbackQueue(
+        _ evaluation: ConfigScriptEvaluation?, bindings: [ConfigScriptBinding], commands: [ConfigScriptNamedCommand]
+    ) {
+        retireCallbacks()
+        callbackQueue = evaluation?.generation.map { ConfigScriptCallbackQueue(
+            generation: $0, bindings: bindings, commands: commands, events: evaluation?.events ?? [],
+            fullQueueDiagnostic: { source, line in
+                description(
+                    source: source,
+                    line: line,
+                    message: "Callback queue is full. This press was dropped."
+                )
+            }
+        ) }
+        callbackQueue?.activate(owner: self, controller: wmController)
+    }
+
+    func resolveBindings(for base: [HotkeyBinding]) -> ConfigScriptShortcutResolution {
+        let inputs = ShortcutInputs(base: base, settings: settings)
+        if let requested, requested.hyperMask != inputs.hyperMask {
             requestCurrent()
         }
-        let resolved = resolve(acceptedBindings, parsedWith: acceptedMask, base: base)
-        effectiveBindings = resolved.rows
-        maskedBindingChords = resolved.masked
-        publishNamedKeyModes(masking: resolved.maskedModeKeys)
-        bindingConflict = resolved.conflict
-        publishDiagnostics()
-        return resolved.rows
+        if inputs == shortcutInputs { return shortcutResolution }
+        let validated = ConfigScriptValidatedShortcuts(
+            acceptedBindings, parsedWith: acceptedMask, hyperMask: inputs.hyperMask
+        )
+        return resolve(validated, inputs: inputs)
+    }
+
+    private func resolve(
+        _ validated: ConfigScriptValidatedShortcuts, inputs: ShortcutInputs
+    ) -> ConfigScriptShortcutResolution {
+        let resolved = validated.resolve(base: inputs.base, modes: acceptedNamedModes, settings: settings)
+        shortcutInputs = inputs
+        shortcutResolution = resolved
+        if maskedBindingChords != validated.masked { maskedBindingChords = validated.masked }
+        bindingConflict = bindingDiagnostic(validated.error)
+        return resolved
+    }
+
+    private func bindingDiagnostic(_ error: ConfigScriptError?) -> String? {
+        error.map { description(source: $0.source, line: $0.line, message: $0.message) }
     }
 
     func refreshRuleConflicts() {
@@ -249,14 +295,14 @@ final class ConfigScriptController {
         loadError ?? bindingConflict ?? acceptedRuleConflict
     }
 
-    private func publishDiagnostics() {
+    func publishDiagnostics(overrides: [ConfigScriptShortcutOverride]? = nil) {
         let configError = loadDiagnostic
         if let configError, let callbackError {
             updateDiagnostic("\(configError)\n\(callbackError)")
         } else {
             updateDiagnostic(configError ?? callbackError)
         }
-        settings.publishConfigScriptErrors(load: configError, callback: callbackError)
+        settings.publishConfigScriptErrors(load: configError, callback: callbackError, overrides: overrides)
     }
 
     struct UnpublishedRefusal: Error {
@@ -310,117 +356,6 @@ final class ConfigScriptController {
         diagnostic = value
         if let value { Log.config.error(value) }
         onDiagnosticChanged?(value)
-    }
-}
-
-extension ConfigScriptController {
-    struct Claim {
-        let chord: KeyBinding
-        let owner: String
-        var modeCommand: HotkeyCommand?
-
-        func conflicts(with entry: KeyboardModeTable.Entry) -> Bool {
-            if let modeCommand {
-                return entry.conflicts(with: KeyboardModeTable.Entry(binding: chord, command: modeCommand))
-            }
-            return chord.conflicts(with: entry.binding)
-        }
-
-        static func configured(_ base: [HotkeyBinding]) -> [UInt32: [Self]] {
-            var claims: [UInt32: [Self]] = [:]
-            for row in base {
-                if let key = row.binding.chordBinding {
-                    claims[key.keyCode, default: []].append(Self(chord: key, owner: "Settings \(row.id)"))
-                }
-                if let key = row.modeKey {
-                    claims[key.keyCode, default: []].append(Self(
-                        chord: key, owner: "Settings mode key \(row.id)", modeCommand: row.command
-                    ))
-                }
-            }
-            return claims
-        }
-
-        static func conflict(
-            for row: ConfigScriptBinding,
-            chord: KeyBinding,
-            in claims: [UInt32: [Self]]
-        ) -> String? {
-            if let prior = claims[chord.keyCode]?.first(where: { $0.chord.conflicts(with: chord) }) {
-                return "'\(row.rawChord)' for \(row.command.displayName) conflicts with \(prior.owner)."
-            }
-            if let key = row.modeKey {
-                let mode = KeyboardModeTable.Entry(binding: key, command: row.command)
-                if let prior = claims[key.keyCode]?.first(where: { $0.conflicts(with: mode) }) {
-                    return "Mode key '\(key.humanReadableString)' for \(row.command.displayName) conflicts with \(prior.owner)."
-                }
-            }
-            return nil
-        }
-    }
-
-    private struct Resolution {
-        var rows: [HotkeyBinding] = []
-        var masked: Set<KeyBinding> = []
-        var maskedModeKeys: Set<Int> = []
-        var conflict: String?
-    }
-
-    private func resolve(
-        _ declarations: [ConfigScriptBinding],
-        parsedWith mask: UInt32,
-        base: [HotkeyBinding]
-    ) -> Resolution {
-        guard !declarations.isEmpty else { return Resolution() }
-        let hyperMask = settings.hyperKeyModifiers.carbonMask
-        let checkScriptClaims = mask != hyperMask || declarations.contains { $0.modeKey != nil }
-        var claims = Claim.configured(base)
-        var resolution = Resolution()
-        resolution.rows.reserveCapacity(declarations.count)
-        for row in declarations where row.mode == nil {
-            let key = mask == hyperMask ? row.chord : KeySymbolMapper.fromHumanReadable(
-                row.rawChord,
-                hyperMask: hyperMask
-            )
-            guard let key, !key.isUnassigned else {
-                resolution.masked.insert(row.chord)
-                resolution.conflict = resolution.conflict ?? description(
-                    source: row.source, line: row.line,
-                    message: "Invalid chord '\(row.rawChord)'."
-                )
-                continue
-            }
-            if let conflict = Claim.conflict(for: row, chord: key, in: claims) {
-                resolution.masked.insert(row.chord)
-                resolution.conflict = resolution.conflict ?? description(
-                    source: row.source, line: row.line, message: conflict
-                )
-                continue
-            }
-            if let modeKey = row.modeKey {
-                claims[modeKey.keyCode, default: []].append(Claim(
-                    chord: modeKey, owner: "\(row.source):\(row.line) mode key for \(row.command.displayName)",
-                    modeCommand: row.command
-                ))
-            }
-            if checkScriptClaims {
-                claims[key.keyCode, default: []].append(Claim(
-                    chord: key,
-                    owner: "\(row.source):\(row.line) \(row.command.displayName)"
-                ))
-            }
-            let id = "script:\(key.keyCode):\(key.modifiers):\(key.sidedModifiers.left):\(key.sidedModifiers.right)"
-            resolution.rows.append(HotkeyBinding(
-                id: id,
-                command: row.command,
-                trigger: .chord(key),
-                modeKey: row.modeKey
-            ))
-        }
-        let modeKeys = namedKeyMask(declarations, claims: claims)
-        (resolution.maskedModeKeys, resolution.conflict) = (modeKeys.masked, resolution.conflict ?? modeKeys.conflict)
-        resolution.rows.sort { $0.id < $1.id }
-        return resolution
     }
 }
 

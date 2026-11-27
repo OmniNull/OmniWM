@@ -264,6 +264,54 @@ final class SettingsConfigNoticeTests: XCTestCase {
         XCTAssertNil(fixture.notices.issue)
     }
 
+    func testShortcutConflictTracksSourceAndStaysBelowErrors() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        let keys = ["Control+Option+H", "Control+Option+J"]
+        let saved = try keys.map { key in
+            let binding = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(key))
+            return HotkeyBinding(id: key, command: .focus(.right), binding: binding)
+        }
+        fixture.settings.hotkeyBindings = saved
+        let bindings = keys.map { "omniwm.keymap.set('\($0)', omniwm.cmd.focus('left'))" }
+        let source = bindings.joined(separator: "\n")
+        try await processed(fixture) {
+            try fixture.writeScript(source)
+            fixture.script.start()
+        }
+        let original = try XCTUnwrap(fixture.notices.issue)
+        XCTAssertTrue(original.isScriptConfigIssue)
+        XCTAssertEqual(original.configFileURL, fixture.scriptURL)
+        XCTAssertTrue(original.message.contains(saved[0].binding.humanReadableString))
+        XCTAssertTrue(original.message.contains(saved[0].command.displayName))
+        XCTAssertTrue(original.message.contains("\(ConfigScriptController.fileName):\(bindings.startIndex + 1)"))
+        XCTAssertTrue(original.message.contains("\(saved.count) Settings assignments"))
+
+        let previous = fixture.script.effectiveBindings
+        fixture.notices.dismiss()
+        let shifted = [""] + bindings
+        try await processed(fixture) { try fixture.writeScript(shifted.joined(separator: "\n"), atomic: true) }
+        XCTAssertEqual(fixture.script.effectiveBindings, previous)
+        let relocated = try XCTUnwrap(fixture.notices.issue)
+        XCTAssertNotEqual(relocated, original)
+        XCTAssertTrue(relocated.message
+            .contains("\(ConfigScriptController.fileName):\(shifted.count - bindings.count + 1)"))
+        XCTAssertTrue(try fixture.panel().isVisible)
+
+        let callback = "Callback failed"
+        fixture.script.publishCallbackDiagnostic(callback)
+        XCTAssertEqual(fixture.notices.issue?.message, callback)
+        try await processed(fixture) { try fixture.writeScript(brokenScript, atomic: true) }
+        XCTAssertEqual(fixture.notices.issue?.message, fixture.settings.configScriptLoadError)
+        XCTAssertEqual(fixture.settings.configScriptCallbackError, callback)
+
+        try await processed(fixture) { try fixture.writeScript(shifted.joined(separator: "\n"), atomic: true) }
+        XCTAssertEqual(fixture.notices.issue, relocated)
+        try await processed(fixture) { try fixture.writeScript(validScript, atomic: true) }
+        XCTAssertNil(fixture.notices.issue)
+        XCTAssertEqual(fixture.settings.hotkeyBindings, saved)
+    }
+
     @MainActor
     private final class Fixture {
         let directory: URL
@@ -311,7 +359,7 @@ final class SettingsConfigNoticeTests: XCTestCase {
                 configNoticeChanges += 1
                 notices.refresh()
             }
-            settings.onConfigScriptCallbackErrorChanged = { [weak self] in
+            settings.onConfigScriptNoticeChanged = { [weak self] in
                 guard let self else { return }
                 callbackErrorChanges += 1
                 notices.refresh()

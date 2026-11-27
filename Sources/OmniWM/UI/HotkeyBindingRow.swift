@@ -17,6 +17,7 @@ struct HotkeyBindingRow: View {
     let showsModeKey: Bool
     let pausedDuringSecureInput: Bool
     var paletteShortcutNotes: [String] = []
+    var scriptOverrides: [ConfigScriptShortcutOverride.Field] = []
     let isHyperActive: () -> Bool
     let onStartChordRecording: (String) -> Void
     let onChordCaptured: (String, HotkeyTrigger) -> Void
@@ -111,6 +112,12 @@ struct HotkeyBindingRow: View {
                     }
                 }
 
+                ForEach(scriptOverrideNotes, id: \.self) { note in
+                    Label(note, systemImage: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 ForEach(paletteShortcutNotes, id: \.self) { note in
                     Label(note, systemImage: "info.circle")
                         .font(.caption)
@@ -137,8 +144,18 @@ struct HotkeyBindingRow: View {
         if let failureReason {
             parts.append(failureMessage(for: failureReason))
         }
+        parts += scriptOverrideNotes
         parts += paletteShortcutNotes
         return parts.joined(separator: ", ")
+    }
+
+    private var scriptOverrideNotes: [String] {
+        scriptOverrides.map {
+            switch $0 {
+            case .shortcut: String(localized: "Shortcut overridden by init.luau")
+            case .modeKey: String(localized: "Mode key overridden by init.luau")
+            }
+        }
     }
 
     static var secureInputTip: String {

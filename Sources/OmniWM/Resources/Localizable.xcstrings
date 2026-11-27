@@ -1,6 +1,21 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Mode key overridden by init.luau" : {
+
+    },
+    "Not registered" : {
+
+    },
+    "Shortcut overridden by init.luau" : {
+
+    },
+    "Shortcuts overridden by init.luau" : {
+
+    },
+    "To restore a Settings shortcut, remove the overlapping binding from init.luau." : {
+
+    },
     "Edit init.luau" : {
 
     },

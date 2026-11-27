@@ -34,7 +34,7 @@ struct ConfigScriptWindowFixture {
             wmController: controller
         ) { [weak controller] rows in
             guard let controller else { return }
-            controller.updateHotkeyBindings(controller.settings.hotkeyBindings, scriptBindings: rows)
+            controller.updateHotkeyBindings(controller.settings.hotkeyBindings, scriptResolution: rows)
         }
         controller.configScript = script
     }

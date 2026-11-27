@@ -14,7 +14,7 @@ Saving `init.luau`, or any file it loads with `require("./name")`, reloads it. F
 - **The last script keeps running.** OmniWM keeps the last version that loaded, with every shortcut, command, event handler, timer and rule. At startup, nothing from a broken file runs.
 - **A notice shows what went wrong.** It names the file, line and error, and offers **Edit init.luau**. The error is also listed under **Issues Detected** in the status menu. Both clear once a save loads.
 - **`settings.luau` problems show first.** If both files have one, the `settings.luau` notice appears first.
-- **Conflicts reject the whole script.** A shortcut or rule ID that Settings already uses rejects the script, and the notice names it.
+- **A rule ID already in Settings rejects the whole script.** The notice names the conflicting ID.
 
 ## When a callback fails
 
@@ -73,7 +73,8 @@ A key mode gives plain keys their own meaning until you leave it, like Hyprland'
 - Escape leaves the mode, and so does `omniwm.cmd.exitKeyboardMode()`. Keys the mode doesn't bind, and shortcuts with Command, Control or Option, still reach your apps, and the mode stays on.
 - One mode is on at a time. Entering another mode, Pause, Prefix or Window mode replaces it. A mode has no timeout, and reloading `init.luau` leaves it.
 - While a mode is on, the indicator shows its name and keys, and the `keybinds.submap` event reports its name.
-- A name has up to 32 lowercase letters, digits, `-` and `_`, and starts with a letter. `normal`, `paused`, `prefix` and `window` are taken. A config declares at most 16 modes, each with 1 to 64 keys. A key in a mode can't also be a shortcut without Command, Control or Option.
+- A name has up to 32 lowercase letters, digits, `-` and `_`, and starts with a letter. `normal`, `paused`, `prefix` and `window` are taken. A config declares at most 16 modes, each with 1 to 64 keys. An overlapping global chord in the same script rejects the load.
+- A key in a mode can take over a global shortcut from Settings. That saved shortcut is inactive even outside the mode while the script binding is loaded.
 - Key modes need Input Monitoring, like Prefix and Window mode.
 
 ## Callback context
@@ -205,7 +206,7 @@ When a check fails, nothing happens, so a callback that was still queued can't p
 
 ## Rules and shortcuts: two homes
 
-Hand-edited rules and one shortcut per action live in `settings.luau` and the Settings window. Rules that code builds and extra key chords live here. See [Configuration](/config/configuration/#rules-and-shortcuts-two-homes) for how the two combine.
+Hand-edited rules and one shortcut per action live in `settings.luau` and the Settings window. Rules that code builds and extra key chords live here. An enabled shortcut in `init.luau` takes over any overlapping Settings shortcut. The saved assignment remains visible and marked in **Settings → Keyboard Shortcuts**. See [Configuration](/config/configuration/#rules-and-shortcuts-two-homes) for how the two combine.
 
 ## Window rules
 
@@ -275,9 +276,9 @@ Use `wm.act.openApp`, `wm.act.launch` or `wm.act.notify` whenever you need an ac
 
 Inside a callback, `wm.openApp`, `wm.launch` and `wm.notify` queue effects. OmniWM performs them in order when the callback succeeds and discards them if it fails.
 
-**Vim-style keys alongside the defaults.** Option with H, J, K or L focuses, and adding Shift moves the window. Each shortcut adds to the action's existing ones.
+**Vim-style keys alongside the defaults.** Option with H, J, K or L focuses, and adding Shift moves the window.
 
-Option + Shift + L is Toggle Layout by default. A shortcut that Settings already uses rejects the script, so unassign that one in Settings first.
+Leave **Toggle Workspace Layout** assigned to its default Option + Shift + L and save this recipe. That chord now moves the focused window right. The config notice names the chord, Toggle Workspace Layout and the recipe's file and line. Remove `bind("L", "right")` and save to restore the Toggle Workspace Layout shortcut.
 
 ```lua
 local wm = omniwm

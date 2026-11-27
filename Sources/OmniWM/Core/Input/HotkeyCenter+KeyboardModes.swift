@@ -60,7 +60,7 @@ extension HotkeyCenter {
     }
 
     @discardableResult
-    func updateNamedKeyModes(_ modes: NamedKeyModes) -> Bool {
+    func updateNamedKeyModes(_ modes: NamedKeyModes, refreshRegistrations: Bool = true) -> Bool {
         guard modes != namedKeyModes else { return false }
         let active = activeNamedKeyMode?.id
         let presenceChanged = namedKeyModes.isEmpty != modes.isEmpty
@@ -72,7 +72,7 @@ extension HotkeyCenter {
                 setKeyboardMode(.normal)
             }
         }
-        if isRunning, presenceChanged { refreshCommandHotkeyRegistrations() }
+        if refreshRegistrations, isRunning, presenceChanged { refreshCommandHotkeyRegistrations() }
         return true
     }
 

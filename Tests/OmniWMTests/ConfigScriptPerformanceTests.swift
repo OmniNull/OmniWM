@@ -50,7 +50,7 @@ import XCTest
                     var registrations = 0
                     let controller = ConfigScriptController(fileURL: url, settings: settings) { rows in
                         publications += 1
-                        registrations = HotkeyCenter.registrationPlan(for: rows).registrations.count
+                        registrations = HotkeyCenter.registrationPlan(for: rows.scriptBindings).registrations.count
                     }
                     for (phase, contents) in [initial, changed, changed].enumerated() {
                         try contents.write(to: url, options: .atomic)
@@ -155,7 +155,7 @@ import XCTest
                 var publications = 0
                 let controller = ConfigScriptController(fileURL: url, settings: wm.settings) { rows in
                     publications += 1
-                    XCTAssertEqual(HotkeyCenter.registrationPlan(for: rows).registrations.count, count)
+                    XCTAssertEqual(HotkeyCenter.registrationPlan(for: rows.scriptBindings).registrations.count, count)
                 }
                 controller.onRulesChanged = { wm.updateAppRules() }
                 for (index, change) in changes.enumerated() {

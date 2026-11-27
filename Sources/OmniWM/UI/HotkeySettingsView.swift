@@ -193,6 +193,9 @@ struct HotkeySettingsView: View {
                                 shiftedCharacters: shiftedCharacters
                             ),
                             paletteShortcutNotes: paletteShortcuts.collisions(with: binding.binding).map(\.note),
+                            scriptOverrides: settings.configScriptShortcutConflicts?.overrides.compactMap {
+                                $0.bindingID == binding.id ? $0.field : nil
+                            } ?? [],
                             isHyperActive: {
                                 controller.isHyperTriggerActive
                             },

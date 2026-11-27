@@ -49,12 +49,17 @@ final class NamedKeyModeTests: XCTestCase {
     }
 
     private func script(for controller: WMController) -> ConfigScriptController {
-        ConfigScriptController(
+        let script = ConfigScriptController(
             fileURL: controller.settings.settingsFileURL.deletingLastPathComponent()
                 .appendingPathComponent("init.luau"),
             settings: controller.settings,
             wmController: controller
-        ) { _ in }
+        ) { [weak controller] resolution in
+            guard let controller else { return }
+            controller.updateHotkeyBindings(controller.settings.hotkeyBindings, scriptResolution: resolution)
+        }
+        controller.configScript = script
+        return script
     }
 
     private func publish(_ source: String, into script: ConfigScriptController) async throws {
@@ -271,26 +276,38 @@ final class NamedKeyModeTests: XCTestCase {
         XCTAssertNotEqual(resize, move)
     }
 
-    func testASidedGlobalShortcutOverlappingAModeKeyIsRefused() async throws {
+    func testANamedModeKeyMasksAnOverlappingSettingsShortcut() async throws {
         let controller = InputControllerTestSupport.controller(for: self)
-        let sided = try XCTUnwrap(KeySymbolMapper.fromHumanReadable("LeftShift+H"))
-        controller.settings.hotkeyBindings = [
-            HotkeyBinding(id: "focus.right", command: .focus(.right), trigger: .chord(sided), modeKey: nil)
+        let script = script(for: controller)
+        let name = "resize"
+        let chord = "Shift+H"
+        let lines = [
+            "omniwm.keymap.mode('\(name)')",
+            "omniwm.keymap.set('\(chord)', omniwm.cmd.focus('left'), { mode = '\(name)' })"
         ]
-        let evaluation = try await evaluate(
-            "local resize = omniwm.keymap.mode('resize')\n"
-                + "omniwm.keymap.set('Shift+H', omniwm.cmd.focus('left'), { mode = 'resize' })"
-        )
-        _ = script(for: controller).apply(
-            ConfigScriptLoad(versions: [:], result: .success(evaluation)),
-            hyperMask: HyperKeyModifiers.default.carbonMask
-        )
-        XCTAssertTrue(controller.settings.configScriptLoadError?.contains("in a mode conflicts with") == true)
-        XCTAssertTrue(controller.hotkeys.namedKeyModes.isEmpty)
+        let winner = KeyboardModeTable.Entry(binding: key(keyH, modifiers: shiftKey), command: .focus(.left))
+        for savedChord in [chord, "Left\(chord)"] {
+            let trigger = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(savedChord))
+            let saved = HotkeyBinding(id: "focus.right", command: .focus(.right), binding: trigger)
+            controller.settings.hotkeyBindings = [saved]
+            try await publish(lines.joined(separator: "\n"), into: script)
+            let mode = try XCTUnwrap(controller.hotkeys.namedKeyModes.modes.first)
+            XCTAssertEqual(mode.name, name)
+            XCTAssertEqual(mode.entries, [winner])
+            XCTAssertNil(controller.settings.configScriptLoadError)
+            XCTAssertEqual(controller.settings.hotkeyBindings, [saved])
+            XCTAssertNil(controller.hotkeys.configuration.bindings.first { $0.id == saved.id }?.binding.chordBinding)
+            let conflict = try XCTUnwrap(controller.settings.configScriptShortcutConflicts)
+            XCTAssertEqual(conflict.overrides.map(\.bindingID), [saved.id])
+            XCTAssertEqual(conflict.overrides.map(\.field), [.shortcut])
+            XCTAssertEqual(conflict.overrides.map(\.line), [lines.count])
+            XCTAssertEqual(conflict.overrides.map(\.modeName), [name])
+        }
     }
 
-    func testALaterSettingsShortcutMasksTheModeKeyAndDropsAnEmptiedMode() async throws {
+    func testALaterSettingsShortcutIsMaskedAndBothModesKeepTheirKey() async throws {
         let controller = InputControllerTestSupport.controller(for: self)
+        controller.settings.hotkeyBindings = []
         let script = script(for: controller)
         try await publish(
             resizeKeys
@@ -299,22 +316,28 @@ final class NamedKeyModeTests: XCTestCase {
                 + "omniwm.keymap.set('H', omniwm.cmd.move('left'), { mode = 'move' })",
             into: script
         )
-        XCTAssertEqual(controller.hotkeys.namedKeyModes.modes.map(\.entries.count), [2, 1])
-        let settings = [HotkeyBinding(id: "focus.up", command: .focus(.up), trigger: .chord(key(keyH)), modeKey: nil)]
-        controller.hotkeys.keyboardModeInput.state = .named(0)
-        _ = script.bindings(for: settings)
-        let modes = controller.hotkeys.namedKeyModes.modes
-        XCTAssertEqual(modes.map(\.name), ["resize"])
-        XCTAssertEqual(modes.first?.entries, [KeyboardModeTable.Entry(binding: key(keyL), command: .focus(.right))])
-        XCTAssertTrue(script.diagnostic?.contains("in a mode conflicts with") == true)
+        let modes = controller.hotkeys.namedKeyModes
+        let resize = try XCTUnwrap(modes.modes.first { $0.name == "resize" })
+        let move = try XCTUnwrap(modes.modes.first { $0.name == "move" })
+        let resizeIndex = try XCTUnwrap(modes.index(of: resize.id))
+        let moveIndex = try XCTUnwrap(modes.index(of: move.id))
+        let saved = HotkeyBinding(id: "focus.up", command: .focus(.up), binding: key(keyH))
+        controller.hotkeys.keyboardModeInput.state = .named(resizeIndex)
+        controller.settings.hotkeyBindings = [saved]
+        controller.updateHotkeyBindings(controller.settings.hotkeyBindings)
+        XCTAssertEqual(controller.hotkeys.namedKeyModes, modes)
+        XCTAssertEqual(modes.command(in: resizeIndex, keyCode: keyH, rawFlags: 0), .focus(.left))
+        XCTAssertEqual(modes.command(in: moveIndex, keyCode: keyH, rawFlags: 0), .move(.left))
+        XCTAssertEqual(controller.settings.hotkeyBindings, [saved])
+        XCTAssertNil(controller.hotkeys.configuration.bindings.first { $0.id == saved.id }?.binding.chordBinding)
+        XCTAssertEqual(controller.settings.configScriptShortcutConflicts?.overrides.map(\.bindingID), [saved.id])
+        XCTAssertNil(script.diagnostic)
         XCTAssertEqual(controller.keyboardModeName, "resize")
-        _ = script.bindings(for: [])
-        XCTAssertEqual(controller.hotkeys.namedKeyModes.modes.map(\.entries.count), [2, 1])
+        controller.settings.hotkeyBindings = []
+        controller.updateHotkeyBindings(controller.settings.hotkeyBindings)
+        XCTAssertNil(controller.settings.configScriptShortcutConflicts)
+        XCTAssertEqual(controller.hotkeys.namedKeyModes, modes)
         XCTAssertEqual(controller.keyboardModeName, "resize")
-        controller.hotkeys.keyboardModeInput.state = .named(1)
-        XCTAssertEqual(controller.keyboardModeName, "move")
-        _ = script.bindings(for: settings)
-        XCTAssertEqual(controller.hotkeys.keyboardModeKind, .normal)
     }
 
     func testAnEntryThatCannotArmStopsTheCallbackAtItsLine() async throws {
@@ -348,18 +371,19 @@ final class NamedKeyModeTests: XCTestCase {
         XCTAssertEqual(base.manager.activeWorkspace(on: display.id)?.id, base.workspace("1"))
     }
 
-    func testAModeKeyThatIsAlsoAGlobalShortcutIsRefused() async throws {
+    func testANamedModeKeyOverlappingAScriptGlobalShortcutStillRejectsTheReload() async throws {
         let controller = InputControllerTestSupport.controller(for: self)
-        controller.settings.hotkeyBindings = [
-            HotkeyBinding(id: "focus.right", command: .focus(.right), trigger: .chord(key(keyH)), modeKey: nil)
-        ]
+        controller.settings.hotkeyBindings = []
         let script = script(for: controller)
-        let evaluation = try await evaluate(resizeKeys)
-        _ = script.apply(
-            ConfigScriptLoad(versions: [:], result: .success(evaluation)),
-            hyperMask: HyperKeyModifiers.default.carbonMask
+        try await publish(resizeKeys, into: script)
+        let originalModes = controller.hotkeys.namedKeyModes
+        try await publish(
+            resizeKeys + "omniwm.keymap.set('H', omniwm.cmd.focus('right'))",
+            into: script
         )
         XCTAssertTrue(controller.settings.configScriptLoadError?.contains("in a mode conflicts with") == true)
-        XCTAssertTrue(controller.hotkeys.namedKeyModes.isEmpty)
+        XCTAssertEqual(controller.hotkeys.namedKeyModes, originalModes)
+        XCTAssertTrue(controller.hotkeys.configuration.bindings.isEmpty)
+        XCTAssertNil(controller.settings.configScriptShortcutConflicts)
     }
 }
