@@ -116,6 +116,8 @@ final class NiriWorkspaceState {
     var manualHeightColumnCount: Int?
     var shrinkToFitColumnIds: Set<NodeId> = []
     var shrinkToFitGeometry: NiriShrinkToFitGeometry?
+    var autoFitRequested = false
+    var autoFitBasis: NiriAutoFitBasis?
     var layoutHistory = NiriLayoutHistory()
 
     init(workspaceId: WorkspaceDescriptor.ID) {

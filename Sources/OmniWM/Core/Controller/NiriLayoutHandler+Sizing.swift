@@ -229,6 +229,7 @@ extension NiriLayoutHandler {
                 ),
                 state: &state
             )
+            engine.requestAutoFit(in: wsId)
             recordLayoutOperation(.sizesBalanced, in: wsId)
             requestLayoutCommandRelayout(in: wsId)
             startScrollAnimationIfNeeded(for: wsId, state: state, engine: engine)
