@@ -25,6 +25,12 @@ To enable editor completion and type checking, open the config folder in luau-ls
 
 Shortcuts, palette commands, events, timers and window rules go in the optional `init.luau` next to `settings.luau`. The [init.luau Reference](/config/init-luau/) covers its functions, limits and recipes.
 
+### Rules and shortcuts: two homes
+
+- **`settings.luau` and the Settings window** hold the window rules you edit by hand and one shortcut for each action.
+- **`init.luau`** holds rules and shortcuts that code builds, such as a rule for each app in a list, and extra key chords for the same actions.
+- **Order:** OmniWM applies the Settings rules first, then `init.luau`'s. An `init.luau` rule whose `id` repeats a Settings rule is skipped, and the Settings window marks it **Overridden by Settings**.
+
 ## Opening the file
 
 Click OmniWM's status bar icon and use:

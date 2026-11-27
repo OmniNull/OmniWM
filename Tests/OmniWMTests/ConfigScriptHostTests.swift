@@ -83,22 +83,23 @@ final class ConfigScriptHostTests: XCTestCase {
         let word = "string.rep('x', \(wordLimit))"
         let wordsAtLimit = Int(OMNI_CONFIG_ARGV_BYTE_LIMIT) / wordLimit
         let valid = [
-            "wm.act.open(string.rep('a', \(OMNI_CONFIG_BUNDLE_BYTE_LIMIT)))",
+            "wm.act.openApp(string.rep('a', \(OMNI_CONFIG_BUNDLE_BYTE_LIMIT)))",
             "wm.act.notify(string.rep('a', \(OMNI_CONFIG_NOTICE_BYTE_LIMIT)))",
-            "wm.act.run(table.create(\(OMNI_CONFIG_ARGC_LIMIT), 'x'))",
-            "wm.act.run(table.create(\(wordsAtLimit), \(word)))"
+            "wm.act.launch(table.create(\(OMNI_CONFIG_ARGC_LIMIT), 'x'))",
+            "wm.act.launch(table.create(\(wordsAtLimit), \(word)))"
         ]
         _ = try await evaluate((["local wm = omniwm"] + valid).joined(separator: "\n"))
         let invalid = [
-            "wm.act.open('')", "wm.act.open('Not an app ID')", "wm.act.notify('')",
-            "wm.act.open(string.rep('a', \(OMNI_CONFIG_BUNDLE_BYTE_LIMIT + 1)))",
+            "wm.act.openApp('')", "wm.act.openApp('Not an app ID')", "wm.act.notify('')",
+            "wm.act.openApp(string.rep('a', \(OMNI_CONFIG_BUNDLE_BYTE_LIMIT + 1)))",
             "wm.act.notify(string.rep('a', \(OMNI_CONFIG_NOTICE_BYTE_LIMIT + 1)))", "wm.act.notify(string.char(255))",
-            "wm.act.run('one string')", "wm.act.run({})", "wm.act.run({ '' })", "wm.act.run({ 'relative/program' })",
-            "wm.act.run({ [1] = 'program', [3] = 'hole' })", "wm.act.run({ 'program', named = 'extra' })",
-            "wm.act.run({ 'program', true })", "wm.act.run({ 'program', string.char(0) })",
-            "wm.act.run(table.create(\(OMNI_CONFIG_ARGC_LIMIT + 1), 'x'))",
-            "wm.act.run({ 'program', string.rep('x', \(wordLimit + 1)) })",
-            "wm.act.run(table.create(\(wordsAtLimit + 1), \(word)))"
+            "wm.act.launch('one string')", "wm.act.launch({})", "wm.act.launch({ '' })",
+            "wm.act.launch({ 'relative/program' })",
+            "wm.act.launch({ [1] = 'program', [3] = 'hole' })", "wm.act.launch({ 'program', named = 'extra' })",
+            "wm.act.launch({ 'program', true })", "wm.act.launch({ 'program', string.char(0) })",
+            "wm.act.launch(table.create(\(OMNI_CONFIG_ARGC_LIMIT + 1), 'x'))",
+            "wm.act.launch({ 'program', string.rep('x', \(wordLimit + 1)) })",
+            "wm.act.launch(table.create(\(wordsAtLimit + 1), \(word)))"
         ]
         for call in invalid {
             let script = ["local wm = omniwm", call]
@@ -196,7 +197,7 @@ final class ConfigScriptHostTests: XCTestCase {
         let result = try await evaluate("""
         assert(ui == nil and type(require) == "function" and io == nil and package == nil)
         assert(omniwm.data == nil and type(omniwm.dispatch) == "function" and type(omniwm.log) == "function")
-        assert(type(omniwm.open) == "function" and type(omniwm.run) == "function" and type(omniwm.notify) == "function")
+        assert(type(omniwm.openApp) == "function" and type(omniwm.launch) == "function" and type(omniwm.notify) == "function")
         assert(wm == nil and table.isfrozen(omniwm.cmd))
         assert(not pcall(function() omniwm.cmd = nil end))
         assert(not pcall(function() omniwm.cmd.openCommandPalette = nil end))

@@ -72,7 +72,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
         let bundle = "com.apple.TextEdit"
         let message = "Current workspace"
         let arguments = argv.map(\.debugDescription).joined(separator: ", ")
-        let effects = ["open('\(bundle)')", "run({\(arguments)})", "notify('\(message)')"]
+        let effects = ["openApp('\(bundle)')", "launch({\(arguments)})", "notify('\(message)')"]
         let chords = ["Control+Option+O", "Control+Option+R", "Control+Option+N"]
         let bindings = zip(chords, effects).map { "wm.keymap.set('\($0)', wm.act.\($1))" }
         let prefix = ["local wm = omniwm"]
@@ -82,7 +82,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
         XCTAssertEqual(loaded.bindings.map(\.command), expected)
         XCTAssertEqual(loaded.bindings.map(\.line), bindings.indices.map { $0 + prefix.count + 1 })
         let run = try XCTUnwrap(loaded.bindings.first { $0.command == .runProgram(argv) })
-        XCTAssertEqual(run.commandText, "run [\(arguments)]")
+        XCTAssertEqual(run.commandText, "launch [\(arguments)]")
 
         let function = ["local wm = omniwm", "wm.command('Apply', function(ctx)"]
         let callback = function + effects.map { "assert(wm.\($0) == nil)" } + ["end)"]
@@ -97,7 +97,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
     func testCallbackExtrasShareTheDispatchLimitAndDiscardOnFailure() async throws {
         let source = [
             "local wm = omniwm",
-            "local saved = wm.act.open('com.apple.TextEdit')",
+            "local saved = wm.act.openApp('com.apple.TextEdit')",
             "wm.command('Bounded', function(ctx)",
             "    if ctx.workspace then",
             "        for i = 1, \(OMNI_CONFIG_COMMAND_LIMIT) do wm.notify(ctx.workspace) end",

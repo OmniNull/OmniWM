@@ -711,11 +711,11 @@ int dispatchAction(lua_State *L) {
 
 size_t readArguments(lua_State *L, ConfigVM &vm, omni_config_location site, omni_config_span *words) {
     if (!lua_istable(L, 1)) {
-        reject(L, vm, site, "run expects an array of strings");
+        reject(L, vm, site, "launch expects an array of strings");
     }
     const int length = lua_objlen(L, 1);
     if (length < 1 || length > static_cast<int>(OMNI_CONFIG_ARGC_LIMIT)) {
-        reject(L, vm, site, "run needs an executable and a bounded number of arguments");
+        reject(L, vm, site, "launch needs an executable and a bounded number of arguments");
     }
     int count = 0;
     size_t bytes = 0;
@@ -723,12 +723,12 @@ size_t readArguments(lua_State *L, ConfigVM &vm, omni_config_location site, omni
     while (lua_next(L, 1)) {
         double key = lua_type(L, -2) == LUA_TNUMBER ? lua_tonumber(L, -2) : 0;
         if (!(key >= 1 && key <= length && key == static_cast<int>(key))) {
-            reject(L, vm, site, "run expects consecutive array indices starting at one");
+            reject(L, vm, site, "launch expects consecutive array indices starting at one");
         }
         auto value = token(L, vm, -1, site);
         if (value.length > OMNI_CONFIG_ARG_BYTE_LIMIT || value.length > OMNI_CONFIG_ARGV_BYTE_LIMIT - bytes ||
             std::memchr(value.data, 0, value.length)) {
-            reject(L, vm, site, "run arguments exceed the byte limit or contain a NUL");
+            reject(L, vm, site, "launch arguments exceed the byte limit or contain a NUL");
         }
         words[static_cast<int>(key) - 1] = value;
         bytes += value.length;
@@ -736,11 +736,11 @@ size_t readArguments(lua_State *L, ConfigVM &vm, omni_config_location site, omni
         lua_pop(L, 1);
     }
     if (count != length) {
-        reject(L, vm, site, "run expects an array without holes");
+        reject(L, vm, site, "launch expects an array without holes");
     }
     const std::string_view executable(words[0].data, words[0].length);
     if (executable.empty() || (executable.front() != '/' && executable.find('/') != executable.npos)) {
-        reject(L, vm, site, "run needs an absolute executable path or a bare program name");
+        reject(L, vm, site, "launch needs an absolute executable path or a bare program name");
     }
     return static_cast<size_t>(count);
 }
@@ -751,8 +751,8 @@ int nativeEffect(lua_State *L) {
     auto site = declarationSite(L, vm);
     if constexpr (!build) {
         if (!vm.invoking) {
-            constexpr const char *guide = kind == OMNI_CONFIG_OPEN_APP ? "during config load, use omniwm.act.open to build an action" :
-                kind == OMNI_CONFIG_RUN_PROGRAM ? "during config load, use omniwm.act.run to build an action" :
+            constexpr const char *guide = kind == OMNI_CONFIG_OPEN_APP ? "during config load, use omniwm.act.openApp to build an action" :
+                kind == OMNI_CONFIG_RUN_PROGRAM ? "during config load, use omniwm.act.launch to build an action" :
                 "during config load, use omniwm.act.notify to build an action";
             reject(L, vm, site, guide);
         }
@@ -951,7 +951,11 @@ int storeSet(lua_State *L) {
         value.count = storeList(L, vm, site, items.data());
         break;
     case LUA_TNIL:
-        reject(L, vm, site, "omniwm.store.set needs a value; omniwm.store.clear(key) removes one");
+        countStoreWrite(L, vm, site);
+        if (!vm.callbacks.store.clear(vm.context, &key, site, vm.failure, sizeof vm.failure)) {
+            reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid store write");
+        }
+        return 0;
     default:
         reject(L, vm, site, "store values must be booleans, numbers, strings or lists of strings");
     }
@@ -980,10 +984,10 @@ int storeClear(lua_State *L) {
 
 template<bool build>
 void installEffectFunctions(lua_State *L) {
-    lua_pushcfunction(L, (nativeEffect<OMNI_CONFIG_OPEN_APP, build>), "open");
-    lua_setfield(L, -2, "open");
-    lua_pushcfunction(L, (nativeEffect<OMNI_CONFIG_RUN_PROGRAM, build>), "run");
-    lua_setfield(L, -2, "run");
+    lua_pushcfunction(L, (nativeEffect<OMNI_CONFIG_OPEN_APP, build>), "openApp");
+    lua_setfield(L, -2, "openApp");
+    lua_pushcfunction(L, (nativeEffect<OMNI_CONFIG_RUN_PROGRAM, build>), "launch");
+    lua_setfield(L, -2, "launch");
     lua_pushcfunction(L, (nativeEffect<OMNI_CONFIG_SHOW_NOTICE, build>), "notify");
     lua_setfield(L, -2, "notify");
 }

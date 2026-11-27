@@ -246,7 +246,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let source = [
             "omniwm.command('Start program', function()",
             "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
-            "    omniwm.run({'\(missing.path)'})",
+            "    omniwm.launch({'\(missing.path)'})",
             "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.origin)'))",
             "end)"
         ]
@@ -255,7 +255,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         XCTAssertEqual(fixture.press(.configFunction(named.function)), .executed)
         await fixture.script.callbackQueue?.waitUntilParked()
         XCTAssertEqual(fixture.controller.activeWorkspace()?.name, fixture.destination)
-        let failedLine = try XCTUnwrap(source.firstIndex { $0.contains("omniwm.run") }) + 1
+        let failedLine = try XCTUnwrap(source.firstIndex { $0.contains("omniwm.launch") }) + 1
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("init.luau:\(failedLine):"))
     }
 

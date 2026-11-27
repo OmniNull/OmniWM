@@ -20,6 +20,7 @@ REJECTIONS = {
     "member-typo.luau": "Key 'focuss' not found in table 'ConfigCommands'",
     "mode-directive.luau": "ModeError: every checked file must be analyzed in strict mode",
     "namespace-typo.luau": "does not have key 'dispach'",
+    "renamed-open.luau": "Key 'open' not found in table 'ConfigActionBuilders'",
 }
 
 

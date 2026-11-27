@@ -124,23 +124,23 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
 
     private let hostDefinitions = """
     export type ConfigActionBuilders = {
-        read open: (bundleId: string) -> ConfigAction,
-        read run: (argv: { string }) -> ConfigAction,
+        read openApp: (bundleId: string) -> ConfigAction,
+        read launch: (argv: { string }) -> ConfigAction,
         read notify: (text: string) -> ConfigAction,
     }
 
     export type ConfigStoreValue = boolean | number | string | { string }
     export type ConfigStore = {
         read get: (key: string) -> ConfigStoreValue?,
-        read set: (key: string, value: ConfigStoreValue) -> (),
+        read set: (key: string, value: ConfigStoreValue?) -> (),
     } & { read clear: (key: string) -> () } & { read clear: () -> () }
 
     declare omniwm: ConfigDispatch & ConfigEvents & ConfigTimers & {
         read cmd: ConfigCommands,
         read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
         read act: ConfigActionBuilders,
-        read open: (bundleId: string) -> (),
-        read run: (argv: { string }) -> (),
+        read openApp: (bundleId: string) -> (),
+        read launch: (argv: { string }) -> (),
         read notify: (text: string) -> (),
         read keymap: ConfigKeymap,
         read log: (...any) -> (),
@@ -313,7 +313,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         let builders = definitions[start.upperBound ..< host.lowerBound]
         let effects = definitions[host.upperBound...]
         XCTAssertTrue(effects.contains("read act: ConfigActionBuilders"))
-        for signature in ["open: (bundleId: string)", "run: (argv: { string })", "notify: (text: string)"] {
+        for signature in ["openApp: (bundleId: string)", "launch: (argv: { string })", "notify: (text: string)"] {
             XCTAssertTrue(builders.contains("read \(signature) -> ConfigAction"))
             XCTAssertTrue(effects.contains("read \(signature) -> ()"))
         }

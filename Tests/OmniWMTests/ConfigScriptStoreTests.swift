@@ -131,7 +131,6 @@ final class ConfigScriptStoreTests: XCTestCase {
             ("omniwm.store.set(1, 1)", "store keys must be strings"),
             ("omniwm.store.clear(nil)", "store keys must be strings"),
             ("omniwm.store.set('k')", "omniwm.store.set expects a key and a value"),
-            ("omniwm.store.set('k', nil)", "omniwm.store.set needs a value; omniwm.store.clear(key) removes one"),
             ("omniwm.store.get()", "omniwm.store.get expects a key"),
             ("omniwm.store.clear('a', 'b')", "omniwm.store.clear expects one key, or nothing to clear every key"),
             ("omniwm.store.set('k', function() end)", valueMessage),
@@ -195,6 +194,19 @@ final class ConfigScriptStoreTests: XCTestCase {
             textError.message, "The store holds at most \(ConfigScriptStore.byteLimit / 1024) KiB of keys and text."
         )
         XCTAssertEqual(contents, "{}")
+    }
+
+    func testSettingNilRemovesOnlyThatKey() async throws {
+        let store = ConfigScriptStore(fileURL: fileURL)
+        let kept = 2
+        let read = "omniwm.notify(tostring(omniwm.store.get('a')) .. ',' .. tostring(omniwm.store.get('b')))"
+        try await expect(["omniwm.store.set('a', 1)", "omniwm.store.set('b', \(kept))"], store: store, shows: [])
+        try await expect(
+            ["omniwm.store.set('a', nil)", "omniwm.store.set('missing', nil)", read],
+            store: store,
+            shows: ["nil,\(kept)"]
+        )
+        try await expect([read], store: ConfigScriptStore(fileURL: fileURL), shows: ["nil,\(kept)"])
     }
 
     func testClearRemovesOneKeyOrEverything() async throws {

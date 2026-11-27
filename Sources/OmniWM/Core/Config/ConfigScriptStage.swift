@@ -423,7 +423,7 @@ extension ConfigScriptStage {
             guard ActionCatalog.isValidOpenAppBundleID(bundleID) else {
                 throw ConfigScriptError(line: nil, message: "Expected an app bundle ID without whitespace.")
             }
-            try stage(.openApp(bundleID), text: "open \(bundleID.debugDescription)")
+            try stage(.openApp(bundleID), text: "openApp \(bundleID.debugDescription)")
         case OMNI_CONFIG_SHOW_NOTICE:
             let message = try Self.string(words[0])
             try stage(.showNotice(message), text: "notify \(message.debugDescription)")
@@ -431,7 +431,7 @@ extension ConfigScriptStage {
             var argv: [String] = []
             argv.reserveCapacity(words.count)
             for word in words { argv.append(try Self.string(word)) }
-            try stage(.runProgram(argv), text: "run [" + argv.map(\.debugDescription).joined(separator: ", ") + "]")
+            try stage(.runProgram(argv), text: Self.launchText(argv))
         default:
             throw ConfigScriptError(line: nil, message: "Unknown native action.")
         }
@@ -439,6 +439,10 @@ extension ConfigScriptStage {
 }
 
 extension ConfigScriptStage {
+    static func launchText(_ argv: [String]) -> String {
+        "launch [" + argv.map(\.debugDescription).joined(separator: ", ") + "]"
+    }
+
     private mutating func declareMode(
         _ span: omni_config_span,
         location: omni_config_location

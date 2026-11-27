@@ -783,23 +783,23 @@ export type ConfigTimers = { read timer: (options: ConfigTimerOptions, callback:
     & { read timer: (options: ConfigTimerOptions, callback: ConfigFunction, optionsForCallback: ConfigReadOptions) -> ConfigTimer }
 
 export type ConfigActionBuilders = {
-    read open: (bundleId: string) -> ConfigAction,
-    read run: (argv: { string }) -> ConfigAction,
+    read openApp: (bundleId: string) -> ConfigAction,
+    read launch: (argv: { string }) -> ConfigAction,
     read notify: (text: string) -> ConfigAction,
 }
 
 export type ConfigStoreValue = boolean | number | string | { string }
 export type ConfigStore = {
     read get: (key: string) -> ConfigStoreValue?,
-    read set: (key: string, value: ConfigStoreValue) -> (),
+    read set: (key: string, value: ConfigStoreValue?) -> (),
 } & { read clear: (key: string) -> () } & { read clear: () -> () }
 
 declare omniwm: ConfigDispatch & ConfigEvents & ConfigTimers & {
     read cmd: ConfigCommands,
     read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
     read act: ConfigActionBuilders,
-    read open: (bundleId: string) -> (),
-    read run: (argv: { string }) -> (),
+    read openApp: (bundleId: string) -> (),
+    read launch: (argv: { string }) -> (),
     read notify: (text: string) -> (),
     read keymap: ConfigKeymap,
     read log: (...any) -> (),

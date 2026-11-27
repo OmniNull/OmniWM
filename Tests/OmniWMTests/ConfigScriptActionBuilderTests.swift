@@ -11,7 +11,7 @@ final class ConfigScriptActionBuilderTests: XCTestCase {
     }
 
     func testLoadTimeEffectsPointToTheirBuilders() async throws {
-        for (name, argument) in [("notify", "'ready'"), ("open", "'com.apple.TextEdit'"), ("run", "{'echo'}")] {
+        for (name, argument) in [("notify", "'ready'"), ("openApp", "'com.apple.TextEdit'"), ("launch", "{'echo'}")] {
             do {
                 _ = try await load("omniwm.\(name)(\(argument))")
                 XCTFail("A direct effect needs a callback")
@@ -55,10 +55,10 @@ final class ConfigScriptActionBuilderTests: XCTestCase {
         let spellings = ["caf\u{E9}", "cafe\u{301}"]
         let evaluation = try await load("""
         local wm = omniwm
-        local first = wm.act.run({"echo", "\(spellings[0])"})
+        local first = wm.act.launch({"echo", "\(spellings[0])"})
         wm.command("Send", function(ctx)
             wm.dispatch(first)
-            wm.dispatch(wm.act.run({"echo", ctx.workspace}))
+            wm.dispatch(wm.act.launch({"echo", ctx.workspace}))
         end)
         """)
         let generation = try XCTUnwrap(evaluation.generation)
@@ -78,10 +78,10 @@ final class ConfigScriptActionBuilderTests: XCTestCase {
         let countLimit = Int(OMNI_CONFIG_DECLARATION_LIMIT)
         let argumentLimit = Int(OMNI_CONFIG_ARG_BYTE_LIMIT)
         let countAction = "omniwm.act.notify(ctx.workspace)"
-        let byteAction = "omniwm.act.run({ctx.workspace .. string.rep('x', \(argumentLimit) - #ctx.workspace)})"
-        let encodedRunBytes = #"run [""]"#.utf8.count + argumentLimit
+        let byteAction = "omniwm.act.launch({ctx.workspace .. string.rep('x', \(argumentLimit) - #ctx.workspace)})"
+        let encodedLaunchBytes = ConfigScriptStage.launchText([""]).utf8.count + argumentLimit
         for (build, capacity) in [
-            (countAction, countLimit), (byteAction, ConfigScriptLoader.sourceLimit / encodedRunBytes)
+            (countAction, countLimit), (byteAction, ConfigScriptLoader.sourceLimit / encodedLaunchBytes)
         ] {
             let evaluation = try await load("""
             local saved

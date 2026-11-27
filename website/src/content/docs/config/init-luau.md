@@ -38,13 +38,15 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 | `omniwm.on(event, function(e) … end, opts?)` | Handles an [event](#events). |
 | `omniwm.timer({ afterSeconds = n }, fn)` or `omniwm.timer({ everySeconds = n }, fn)` | Runs `fn` once or repeatedly, and returns a value with `cancel()`. Pass a function and `{ reads = … }` to give it a context. |
 | `omniwm.cmd.<name>(…)` | Builds a built-in action for `keymap.set` or `dispatch`, such as `omniwm.cmd.focus("left")`. |
-| `omniwm.act.open(bundleId)`, `omniwm.act.run(argv)`, `omniwm.act.notify(text)` | Builds an action that opens an app, runs a program or shows a notice. |
+| `omniwm.act.openApp(bundleId)`, `omniwm.act.launch(argv)`, `omniwm.act.notify(text)` | Builds an action that opens an app, launches a program or shows a notice. |
 | `omniwm.dispatch(action)` | Queues an action from a callback. |
 | `omniwm.dispatch("window", action, id, …)` | Queues an action on one window by its ID; see [window actions](#window-actions). |
-| `omniwm.open(bundleId)`, `omniwm.run(argv)`, `omniwm.notify(text)` | Queues an effect from inside a callback. |
+| `omniwm.openApp(bundleId)`, `omniwm.launch(argv)`, `omniwm.notify(text)` | Queues an effect from inside a callback. |
 | `omniwm.rule { … }` | Adds a [window rule](#window-rules). |
 | `omniwm.store.get(key)`, `omniwm.store.set(key, value)`, `omniwm.store.clear(key?)` | Reads, saves or removes a [saved value](#saved-values) from a callback. |
 | `omniwm.log(…)` | Writes to the system log. |
+
+`launch` and `openApp` were `run` and `open` before, so `wm.act.run({ "/usr/bin/say", "Done" })` is now `wm.act.launch({ "/usr/bin/say", "Done" })` and `wm.open("com.apple.TextEdit")` is now `wm.openApp("com.apple.TextEdit")`. OmniShell widgets keep their own `omniwm.run` and `omniwm.open`, which mean something else there; see [widget services](/omnishell/reference/services/).
 
 `argv` is a list such as `{ "/usr/bin/open", "-a", "TextEdit" }`. OmniWM runs the program directly, not through a shell.
 
@@ -195,6 +197,10 @@ When a check fails, nothing happens, so a callback that was still queued can't p
 - `column = n` places the window as the `n`th column on a Niri workspace. A larger `n` puts it last. Without `column`, it becomes the last column. Dwindle workspaces ignore it.
 - `fromEdge = true` with `neighbor` and `of` moves the callback's own window only if it is still on the workspace it was on when the key was pressed, on display `of`, and in the outermost Niri column in that direction. Otherwise nothing moves, so a second queued press can't skip a display.
 
+## Rules and shortcuts: two homes
+
+Hand-edited rules and one shortcut per action live in `settings.luau` and the Settings window. Rules that code builds and extra key chords live here. See [Configuration](/config/configuration/#rules-and-shortcuts-two-homes) for how the two combine.
+
 ## Window rules
 
 `omniwm.rule { … }` takes the same fields as [`appRules`](/config/settings-reference/#apprules) in `settings.luau`.
@@ -209,7 +215,7 @@ A title rule is checked again when a window's title changes.
 `omniwm.store` keeps small values through reloads and restarts, such as a list of apps a callback picked. It works in callbacks, not while the file loads.
 
 - **Reading:** `omniwm.store.get(key)` returns the value, or `nil`. A list comes back as a new table, so changing it changes nothing until you `set` it.
-- **Saving:** `omniwm.store.set(key, value)` takes a boolean, a finite number, a string or a list of strings. `set(key, nil)` is an error; `omniwm.store.clear(key)` removes one key and `omniwm.store.clear()` removes them all.
+- **Saving:** `omniwm.store.set(key, value)` takes a boolean, a finite number, a string or a list of strings. `set(key, nil)` removes the key, as `omniwm.store.clear(key)` does, and `omniwm.store.clear()` removes them all.
 - **When it's saved:** a callback sees its own changes right away. OmniWM saves them together when the callback succeeds, and a failed callback saves nothing. Setting the value a key already has writes nothing.
 - **Keys:** 1 to 64 letters, digits, `.`, `_` and `-`, and case matters. Dotted keys such as `work.apps` keep modules apart.
 - **The file:** `~/.local/state/omniwm/script-store.json` by default. If its contents aren't valid, `get`, `set` and `clear(key)` report an error and leave it alone, and `omniwm.store.clear()` starts over. If the file can't be read at all, for example because of its permissions, every store call reports that and nothing replaces it. If a save fails, the callback reports an error at its first change and its actions don't run.
@@ -226,7 +232,7 @@ A window ID lasts only while OmniWM runs, so save bundle IDs or names instead.
 - **Per run:** up to 64 actions or effects, and separately up to 64 log lines. The log cap also applies while loading.
 - **Waiting presses:** up to 8 shortcut or command presses can wait. Further presses are dropped with an error.
 - **Timers:** up to 16, each at least 1 second.
-- **`run`:** up to 64 arguments of 4 KiB each, 32 KiB in all.
+- **`launch`:** up to 64 arguments of 4 KiB each, 32 KiB in all.
 - **Other text:** bundle IDs up to 255 bytes, and notice text up to 512 bytes.
 - **Saved values:** up to 128 keys, strings up to 4 KiB, lists up to 64 strings, and 64 KiB once saved. A callback can change the store up to 64 times.
 
@@ -251,7 +257,7 @@ omniwm.rule { bundleId = "com.apple.TextEdit", layout = "float" }
 
 ```lua
 local wm = omniwm
-local textEdit = wm.act.open("com.apple.TextEdit")
+local textEdit = wm.act.openApp("com.apple.TextEdit")
 wm.keymap.set("Control+Option+Shift+J", textEdit)
 wm.command("Open TextEdit", function()
     wm.dispatch(textEdit)
@@ -259,9 +265,9 @@ wm.command("Open TextEdit", function()
 end)
 ```
 
-Use `wm.act.open`, `wm.act.run` or `wm.act.notify` whenever you need an action to bind or save. A callback can build one too, then dispatch it later while the same config is loaded. Identical actions share storage.
+Use `wm.act.openApp`, `wm.act.launch` or `wm.act.notify` whenever you need an action to bind or save. A callback can build one too, then dispatch it later while the same config is loaded. Identical actions share storage.
 
-Inside a callback, `wm.open`, `wm.run` and `wm.notify` queue effects. OmniWM performs them in order when the callback succeeds and discards them if it fails.
+Inside a callback, `wm.openApp`, `wm.launch` and `wm.notify` queue effects. OmniWM performs them in order when the callback succeeds and discards them if it fails.
 
 **Vim-style keys alongside the defaults.** Option with H, J, K or L focuses, and adding Shift moves the window. Each shortcut adds to the action's existing ones.
 
@@ -644,7 +650,7 @@ wm.command("Open Work Apps", function()
     local apps = wm.store.get(key)
     if type(apps) == "table" then
         for _, app in apps do
-            wm.open(app)
+            wm.openApp(app)
         end
     end
 end)
