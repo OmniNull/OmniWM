@@ -113,6 +113,7 @@ export type OmniWMSettings = {
         maxTotalBytes: number?,
     }?,
     commandPalette: {
+        openExpanded: boolean?,
         searchedModes: { "windows" | "menu" | "clipboard" | "commands" | "applications" | "files" }?,
         unifiedSearch: boolean?,
     }?,

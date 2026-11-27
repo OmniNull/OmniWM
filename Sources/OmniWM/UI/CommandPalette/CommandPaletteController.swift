@@ -239,10 +239,10 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         panel.makeKey()
         presentation.reveal(panel)
 
+        if wmController.settings.commandPalette.openExpanded || (isLauncherMode && !isUnifiedSearch) { expandResults() }
         if isUnifiedSearch || selectedMode == .menu {
             loadMenuItemsIfNeeded()
         } else if isLauncherMode {
-            expandResults()
             startLauncherSearch()
         }
     }

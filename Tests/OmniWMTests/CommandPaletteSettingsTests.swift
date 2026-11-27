@@ -10,6 +10,7 @@ final class CommandPaletteSettingsTests: XCTestCase {
         let decoded = try SettingsLuauFixture.decode(Data(removingCommandPaletteTable().utf8))
 
         XCTAssertFalse(decoded.commandPalette.unifiedSearch)
+        XCTAssertFalse(decoded.commandPalette.openExpanded)
         XCTAssertEqual(decoded.commandPalette.searchedModes, [.windows, .applications, .commands, .files])
     }
 
@@ -17,6 +18,7 @@ final class CommandPaletteSettingsTests: XCTestCase {
         var settings = SettingsExport.defaults()
         settings.commandPalette.unifiedSearch = true
         settings.commandPalette.searchedModes = [.files, .clipboard, .windows]
+        settings.commandPalette.openExpanded = true
 
         let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(settings))
 
@@ -46,6 +48,7 @@ final class CommandPaletteSettingsTests: XCTestCase {
         var export = SettingsExport.defaults()
         export.commandPalette.unifiedSearch = true
         export.commandPalette.searchedModes = [.menu, .commands]
+        export.commandPalette.openExpanded = true
 
         settings.applyExport(export)
 

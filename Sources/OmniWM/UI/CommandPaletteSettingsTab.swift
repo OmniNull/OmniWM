@@ -9,6 +9,14 @@ struct CommandPaletteSettingsTab: View {
 
     var body: some View {
         Form {
+            Section("Opening") {
+                Toggle("Show Results on Open", isOn: Bindable(settings.commandPalette).openExpanded)
+                    .settingsField(.commandPaletteOpenExpanded)
+                SettingsCaption(
+                    localized: "The palette opens with its results showing, so you can pick one with the arrow keys without typing first."
+                )
+            }
+
             Section("Unified Search") {
                 Toggle("Enable Unified Search", isOn: Bindable(settings.commandPalette).unifiedSearch)
                     .settingsField(.commandPaletteUnifiedSearch)

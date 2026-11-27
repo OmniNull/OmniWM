@@ -10,6 +10,7 @@ extension SettingsExport {
 
         var unifiedSearch = false
         var searchedModes = CommandPalette.defaultSearchedModes
+        var openExpanded = false
     }
 }
 
@@ -22,6 +23,7 @@ extension SettingsExport.CommandPalette {
         } else {
             searchedModes = Self.defaultSearchedModes
         }
+        openExpanded = try container.decodeIfPresent(Bool.self, forKey: .openExpanded) ?? false
     }
 
     static func firstOccurrenceOfEachMode(_ modes: [CommandPaletteMode]) -> [CommandPaletteMode] {
@@ -43,13 +45,22 @@ final class CommandPaletteSettings {
         didSet { onChange?() }
     }
 
+    var openExpanded = CommandPaletteSettings.defaults.openExpanded {
+        didSet { onChange?() }
+    }
+
     func export() -> SettingsExport.CommandPalette {
-        SettingsExport.CommandPalette(unifiedSearch: unifiedSearch, searchedModes: searchedModes)
+        SettingsExport.CommandPalette(
+            unifiedSearch: unifiedSearch,
+            searchedModes: searchedModes,
+            openExpanded: openExpanded
+        )
     }
 
     func apply(_ values: SettingsExport.CommandPalette) {
         unifiedSearch = values.unifiedSearch
         searchedModes = SettingsExport.CommandPalette.firstOccurrenceOfEachMode(values.searchedModes)
+        openExpanded = values.openExpanded
     }
 
     func setMode(_ mode: CommandPaletteMode, searched: Bool) {

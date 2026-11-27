@@ -26,6 +26,7 @@ enum SettingsSearchIndex {
         setting("Execution Defaults", section: .launcher, anchor: "launcher-execution"),
         setting("Shell", section: .launcher, anchor: "launcher-execution"),
         setting("Terminal", section: .launcher, anchor: "launcher-execution"),
+        setting("Show Results on Open", section: .commandPalette),
         setting("Enable Unified Search", section: .commandPalette),
         setting("Searched Modes", section: .commandPalette),
         setting("Clear Pick History", section: .commandPalette),

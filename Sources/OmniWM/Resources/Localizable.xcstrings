@@ -452,6 +452,9 @@
     "Open Command Palette searches several palette modes at once and shows up to three top hits above the results. Each mode’s own Command Palette shortcut still opens just that mode." : {
 
     },
+    "Opening" : {
+
+    },
     "Priority" : {
 
     },
@@ -467,7 +470,13 @@
     "Search…" : {
 
     },
+    "Show Results on Open" : {
+
+    },
     "Show all in %@" : {
+
+    },
+    "The palette opens with its results showing, so you can pick one with the arrow keys without typing first." : {
 
     },
     "Top Hits" : {

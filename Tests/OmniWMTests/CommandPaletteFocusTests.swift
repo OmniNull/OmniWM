@@ -110,6 +110,42 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertEqual(fixture.palette.selectedItemID, .window(first))
     }
 
+    func testShowResultsOnOpenOpensEveryModeExpanded() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        fixture.controller.settings.commandPalette.openExpanded = true
+
+        for mode in [CommandPaletteMode.windows, .commands, .clipboard] {
+            fixture.controller.settings.commandPaletteLastMode = mode
+            _ = try fixture.show()
+            XCTAssertEqual(fixture.palette.selectedMode, mode)
+            XCTAssertTrue(fixture.palette.isExpanded, "\(mode) opened collapsed")
+            fixture.palette.toggle(wmController: fixture.controller)
+        }
+
+        fixture.controller.settings.commandPalette.unifiedSearch = true
+        _ = try fixture.show()
+        XCTAssertTrue(fixture.palette.isExpanded, "unified search opened collapsed")
+    }
+
+    func testDefaultOpenExpandsOnlyLauncherModes() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        XCTAssertFalse(fixture.controller.settings.commandPalette.openExpanded)
+
+        for mode in CommandPaletteMode.allCases where mode != .menu {
+            fixture.controller.settings.commandPaletteLastMode = mode
+            _ = try fixture.show()
+            XCTAssertEqual(fixture.palette.selectedMode, mode)
+            XCTAssertEqual(fixture.palette.isExpanded, mode == .applications || mode == .files, "\(mode)")
+            fixture.palette.toggle(wmController: fixture.controller)
+        }
+
+        fixture.controller.settings.commandPalette.unifiedSearch = true
+        _ = try fixture.show()
+        XCTAssertFalse(fixture.palette.isExpanded, "unified search opened expanded")
+    }
+
     func testTypingExpandsCompactPaletteAndKeepsSearchEditable() async throws {
         let fixture = CommandPaletteFocusFixture()
         defer { fixture.cleanup() }

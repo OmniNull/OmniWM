@@ -39,6 +39,9 @@ final class SettingsNavigationTests: XCTestCase {
             let route = SettingsRoute(section: .mouseTrackpad, tab: "mouse", anchor: title)
             XCTAssertTrue(SettingsSearchIndex.results(for: title).contains { $0.route == route })
         }
+        XCTAssertTrue(
+            SettingsSearchIndex.results(for: "Show Results on Open").contains { $0.route.section == .commandPalette }
+        )
         XCTAssertTrue(SettingsSearchIndex.results(for: "zqvnomatch").isEmpty)
         XCTAssertTrue(SettingsSearchIndex.results(for: "  ").isEmpty)
     }
