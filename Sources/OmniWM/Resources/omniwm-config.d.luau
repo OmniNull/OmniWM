@@ -707,6 +707,7 @@ export type ConfigCommands =
     & { read cmd: (command: "swap-split") -> ConfigAction }
     & { read cmd: (command: "resize", resize_axis: "horizontal" | "vertical", resize_operation: "grow" | "shrink") -> ConfigAction }
     & { read cmd: (command: "resize-focused", resize_operation: "grow" | "shrink") -> ConfigAction }
+    & { read cmd: (command: "resize-direction", direction: "left" | "right" | "up" | "down") -> ConfigAction }
     & { read cmd: (command: "preselect", direction: "left" | "right" | "up" | "down") -> ConfigAction }
     & { read cmd: (command: "preselect", word2: "clear") -> ConfigAction }
     & { read cmd: (command: "open-command-palette") -> ConfigAction }

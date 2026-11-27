@@ -46,9 +46,6 @@ extension DwindleLayoutEngine {
         return false
     }
 
-    /// Moves the selected window's right (or bottom) border toward `direction`, or its left
-    /// (or top) border when it has none. The owning split can be any ancestor, so no focus
-    /// change is needed to move a border shared with a window across a higher split.
     @discardableResult
     func resizeSelected(
         toward direction: Direction,
@@ -61,8 +58,6 @@ extension DwindleLayoutEngine {
         else { return false }
 
         let targetOrientation = direction.dwindleOrientation
-        // First children are left or bottom, so the right border belongs to a split where the
-        // selection is the first child and the bottom border to one where it is the second.
         let preferFirstChild = targetOrientation == .horizontal
         var preferred: DwindleNode?
         var fallback: DwindleNode?
@@ -91,9 +86,8 @@ extension DwindleLayoutEngine {
             innerGap: settings.innerGap,
             excludedTokens: state.excludedTokens
         )
-        // A stored ratio can sit outside the feasible range (e.g. minimums grew since it was set),
-        // in which case clamping could move the border against the requested direction.
-        guard grows ? clampedRatio > ratio : clampedRatio < ratio else { return false }
+        let movesTowardDirection = grows ? clampedRatio > ratio : clampedRatio < ratio
+        guard movesTowardDirection else { return false }
         split.kind = .split(orientation: orientation, ratio: clampedRatio)
         return true
     }

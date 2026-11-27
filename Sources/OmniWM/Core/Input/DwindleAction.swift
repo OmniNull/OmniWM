@@ -50,33 +50,45 @@ extension DwindleAction {
                 "command.dwindle.shrinkFocusedWindow", defaultValue: "Shrink Focused Window", table: "Commands",
                 bundle: .omniWM
             )
-        case .resizeInDirection(.left): LocalizedStringResource(
-                "command.dwindle.resizeLeft", defaultValue: "Resize Left", table: "Commands", bundle: .omniWM
-            )
-        case .resizeInDirection(.right): LocalizedStringResource(
-                "command.dwindle.resizeRight", defaultValue: "Resize Right", table: "Commands", bundle: .omniWM
-            )
-        case .resizeInDirection(.up): LocalizedStringResource(
-                "command.dwindle.resizeUp", defaultValue: "Resize Up", table: "Commands", bundle: .omniWM
-            )
-        case .resizeInDirection(.down): LocalizedStringResource(
-                "command.dwindle.resizeDown", defaultValue: "Resize Down", table: "Commands", bundle: .omniWM
-            )
-        case .preselect(.left): LocalizedStringResource(
-                "command.dwindle.preselectLeft", defaultValue: "Preselect Left", table: "Commands", bundle: .omniWM
-            )
-        case .preselect(.right): LocalizedStringResource(
-                "command.dwindle.preselectRight", defaultValue: "Preselect Right", table: "Commands", bundle: .omniWM
-            )
-        case .preselect(.up): LocalizedStringResource(
-                "command.dwindle.preselectUp", defaultValue: "Preselect Up", table: "Commands", bundle: .omniWM
-            )
-        case .preselect(.down): LocalizedStringResource(
-                "command.dwindle.preselectDown", defaultValue: "Preselect Down", table: "Commands", bundle: .omniWM
-            )
+        case let .resizeInDirection(direction): Self.resizeDisplayName(toward: direction)
+        case let .preselect(direction): Self.preselectDisplayName(toward: direction)
         case .preselectClear: LocalizedStringResource(
                 "command.dwindle.clearPreselection", defaultValue: "Clear Preselection", table: "Commands",
                 bundle: .omniWM
+            )
+        }
+    }
+
+    private static func resizeDisplayName(toward direction: Direction) -> LocalizedStringResource {
+        switch direction {
+        case .left: LocalizedStringResource(
+                "command.dwindle.resizeLeft", defaultValue: "Resize Left", table: "Commands", bundle: .omniWM
+            )
+        case .right: LocalizedStringResource(
+                "command.dwindle.resizeRight", defaultValue: "Resize Right", table: "Commands", bundle: .omniWM
+            )
+        case .up: LocalizedStringResource(
+                "command.dwindle.resizeUp", defaultValue: "Resize Up", table: "Commands", bundle: .omniWM
+            )
+        case .down: LocalizedStringResource(
+                "command.dwindle.resizeDown", defaultValue: "Resize Down", table: "Commands", bundle: .omniWM
+            )
+        }
+    }
+
+    private static func preselectDisplayName(toward direction: Direction) -> LocalizedStringResource {
+        switch direction {
+        case .left: LocalizedStringResource(
+                "command.dwindle.preselectLeft", defaultValue: "Preselect Left", table: "Commands", bundle: .omniWM
+            )
+        case .right: LocalizedStringResource(
+                "command.dwindle.preselectRight", defaultValue: "Preselect Right", table: "Commands", bundle: .omniWM
+            )
+        case .up: LocalizedStringResource(
+                "command.dwindle.preselectUp", defaultValue: "Preselect Up", table: "Commands", bundle: .omniWM
+            )
+        case .down: LocalizedStringResource(
+                "command.dwindle.preselectDown", defaultValue: "Preselect Down", table: "Commands", bundle: .omniWM
             )
         }
     }
