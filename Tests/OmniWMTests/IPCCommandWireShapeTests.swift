@@ -127,6 +127,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"name":"swap-split"}"#,
         #"{"arguments":{"axis":"horizontal","operation":"grow"},"name":"resize"}"#,
         #"{"arguments":{"operation":"grow"},"name":"resize-focused"}"#,
+        #"{"arguments":{"direction":"left"},"name":"resize-direction"}"#,
         #"{"arguments":{"direction":"left"},"name":"preselect"}"#,
         #"{"name":"preselect-clear"}"#,
         #"{"name":"open-command-palette"}"#,

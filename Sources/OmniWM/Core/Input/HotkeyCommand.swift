@@ -118,7 +118,8 @@ enum HotkeyCommand: Equatable, Hashable {
              .sizing(.resizeWindowPrimarySpan),
              .sizing(.resizeWindowSecondarySpan),
              .dwindle(.resizeAlongAxis),
-             .dwindle(.resizeFocusedWindow):
+             .dwindle(.resizeFocusedWindow),
+             .dwindle(.resizeInDirection):
             true
         default:
             false

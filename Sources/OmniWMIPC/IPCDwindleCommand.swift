@@ -8,6 +8,7 @@ public enum IPCDwindleCommandName: String, CaseIterable, Hashable, Sendable {
     case swapSplit = "swap-split"
     case resize = "resize"
     case resizeFocused = "resize-focused"
+    case resizeDirection = "resize-direction"
     case preselect = "preselect"
     case preselectClear = "preselect-clear"
 }
@@ -19,6 +20,7 @@ public enum IPCDwindleCommand: Equatable, Sendable {
     case swapSplit
     case resize(axis: IPCResizeAxis, operation: IPCResizeOperation)
     case resizeFocused(operation: IPCResizeOperation)
+    case resizeDirection(direction: IPCDirection)
     case preselect(direction: IPCDirection)
     case preselectClear
 
@@ -36,6 +38,8 @@ public enum IPCDwindleCommand: Equatable, Sendable {
             .resize
         case .resizeFocused:
             .resizeFocused
+        case .resizeDirection:
+            .resizeDirection
         case .preselect:
             .preselect
         case .preselectClear:
@@ -58,6 +62,8 @@ public enum IPCDwindleCommand: Equatable, Sendable {
             self = .resize(axis: values.axis, operation: values.operation)
         case .resizeFocused:
             self = try .resizeFocused(operation: arguments.resizeOperation())
+        case .resizeDirection:
+            self = try .resizeDirection(direction: arguments.direction())
         case .preselect:
             self = try .preselect(direction: arguments.direction())
         case .preselectClear:
@@ -71,7 +77,8 @@ public enum IPCDwindleCommand: Equatable, Sendable {
             try writer.encode(axis: axis, operation: operation)
         case let .resizeFocused(operation):
             try writer.encode(resizeOperation: operation)
-        case let .preselect(direction):
+        case let .resizeDirection(direction),
+             let .preselect(direction):
             try writer.encode(direction: direction)
         case .balanceSizes,
              .moveToRoot,

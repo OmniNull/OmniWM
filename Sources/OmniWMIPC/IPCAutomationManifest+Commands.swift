@@ -363,6 +363,12 @@ extension IPCAutomationManifest {
             layoutCompatibility: .dwindle
         ),
         .init(
+            name: .dwindle(.resizeDirection),
+            summary: "Move the focused Dwindle window's right or bottom border toward a direction, or its opposite border when it has none.",
+            arguments: [.direction],
+            layoutCompatibility: .dwindle
+        ),
+        .init(
             name: .dwindle(.preselect),
             summary: "Set the Dwindle preselection direction.",
             arguments: [.direction],

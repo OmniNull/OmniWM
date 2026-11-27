@@ -191,6 +191,7 @@ enum ActionCatalog {
         appendSplitStructureBindings(&specs)
         appendAxisResizeBindings(&specs)
         appendFocusedResizeBindings(&specs)
+        appendDirectionalResizeBindings(&specs)
         appendPreselectionBindings(&specs)
         specs.append(contentsOf: IPCMediaCommand.allCases.map { $0.actionSpec() })
         specs.append(contentsOf: IPCKeyboardModeCommand.allCases.map { $0.actionSpec() })

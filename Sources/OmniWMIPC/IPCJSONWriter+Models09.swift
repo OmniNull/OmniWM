@@ -215,7 +215,8 @@ extension IPCJSONWriter {
             end(125)
         case let .resizeFocused(operation):
             try argument("operation", operation, &first)
-        case let .preselect(direction):
+        case let .resizeDirection(direction),
+             let .preselect(direction):
             try argument("direction", direction, &first)
         case .balanceSizes,
              .moveToRoot,

@@ -201,6 +201,8 @@ extension HotkeyCommand {
             self = .dwindle(.resizeAlongAxis(DwindleOrientation(ipc: axis), operation == .grow))
         case let .resizeFocused(operation):
             self = .dwindle(.resizeFocusedWindow(operation == .grow))
+        case let .resizeDirection(ipcDirection):
+            self = .dwindle(.resizeInDirection(Direction(ipc: ipcDirection)))
         case let .preselect(ipcDirection):
             self = .dwindle(.preselect(Direction(ipc: ipcDirection)))
         case .preselectClear:
