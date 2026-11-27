@@ -127,6 +127,7 @@ export type OmniWMSettings = {
     focus: {
         clickFocusWithoutScrolling: boolean?,
         crossesMonitorAtEdge: boolean?,
+        edgeNavigationEnabled: boolean?,
         edgeNavigationInterval: number?,
         followsMouse: boolean?,
         followsMouseOnlyFullyVisible: boolean?,

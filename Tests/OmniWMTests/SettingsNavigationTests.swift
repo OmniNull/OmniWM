@@ -35,12 +35,10 @@ final class SettingsNavigationTests: XCTestCase {
         let spacing = try XCTUnwrap(SettingsSearchIndex.results(for: "Inner Gaps").first { $0.route.tab == "spacing" })
         XCTAssertEqual(spacing.route.section, .layouts)
         XCTAssertEqual(spacing.route.anchor, "Inner Gaps")
-        let edgeNavigation = try XCTUnwrap(SettingsSearchIndex.results(for: "Edge navigation interval")
-            .first { $0.title == String(localized: "Edge navigation interval") })
-        XCTAssertEqual(
-            edgeNavigation.route,
-            SettingsRoute(section: .mouseTrackpad, tab: "mouse", anchor: "Edge navigation interval")
-        )
+        for title in ["Niri Edge Navigation", "Edge navigation interval"] {
+            let route = SettingsRoute(section: .mouseTrackpad, tab: "mouse", anchor: title)
+            XCTAssertTrue(SettingsSearchIndex.results(for: title).contains { $0.route == route })
+        }
         XCTAssertTrue(SettingsSearchIndex.results(for: "zqvnomatch").isEmpty)
         XCTAssertTrue(SettingsSearchIndex.results(for: "  ").isEmpty)
     }

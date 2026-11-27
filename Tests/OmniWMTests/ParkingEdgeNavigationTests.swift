@@ -328,6 +328,52 @@ extension ParkingEdgeNavigationTests {
         }
     }
 
+    func testDisablingEdgeNavigationHidesTheFinAndCancelsDwell() throws {
+        try withFixture(orientation: .vertical) { fixture in
+            let controller = fixture.controller
+            controller.setFocusFollowsMouse(true)
+            let reconciler = controller.surfaceReconciler
+            reconciler.reconcileNow()
+
+            let mask = try XCTUnwrap(WorldView(controller: controller).parkingEdgeMasks().first {
+                $0.key.monitorId == fixture.monitors[0].id && $0.key.side == .top
+            })
+            let edges = ParkingEdgeMaskManager(pointerLocation: { mask.frame.center })
+            defer { edges.removeAll() }
+            reconciler.configureParkingEdgeCallbacks(edges)
+            edges.apply([mask])
+            let window = try XCTUnwrap(SurfaceCoordinator.shared.visibleSurfaceInfos().first {
+                $0.id == "parking-edge-mask-987100-top"
+            }?.window as? ParkingEdgeMaskWindow)
+            window.updateHover()
+            let fin = try XCTUnwrap(SurfaceCoordinator.shared.visibleSurfaceInfos().first {
+                $0.id == "parking-edge-fin-987100-top"
+            }?.window)
+            XCTAssertNotNil(window.dwellTask)
+
+            controller.settings.focus.edgeNavigationEnabled = false
+
+            XCTAssertEqual(reconciler.pendingReconcileScope, .fullScene)
+            XCTAssertFalse(edges.canInteract(false))
+            let disabledMask = try XCTUnwrap(WorldView(controller: controller).parkingEdgeMasks().first {
+                $0.key == mask.key
+            })
+            XCTAssertNil(disabledMask.navigation)
+            XCTAssertEqual(disabledMask.frame, mask.frame)
+            edges.apply([disabledMask])
+            XCTAssertFalse(fin.isVisible)
+            XCTAssertNil(window.dwellTask)
+
+            controller.settings.focus.edgeNavigationEnabled = true
+
+            XCTAssertTrue(edges.canInteract(false))
+            XCTAssertEqual(
+                WorldView(controller: controller).parkingEdgeMasks().first { $0.key == mask.key }?.navigation,
+                mask.navigation
+            )
+        }
+    }
+
     func testRepeatedEdgeClicksFollowFreshTargetsAndStopAtTheLastColumn() throws {
         for orientation in [Monitor.Orientation.horizontal, .vertical] {
             try withFixture(orientation: orientation) { fixture in

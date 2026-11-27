@@ -81,6 +81,7 @@ enum SettingsFieldID: String, CaseIterable {
     case dwindleUseGlobalGaps = "dwindle.useGlobalGaps"
     case focusClickFocusWithoutScrolling = "focus.clickFocusWithoutScrolling"
     case focusCrossesMonitorAtEdge = "focus.crossesMonitorAtEdge"
+    case focusEdgeNavigationEnabled = "focus.edgeNavigationEnabled"
     case focusEdgeNavigationInterval = "focus.edgeNavigationInterval"
     case focusFollowsMouse = "focus.followsMouse"
     case focusFollowsMouseOnlyFullyVisible = "focus.followsMouseOnlyFullyVisible"

@@ -232,6 +232,7 @@ enum SettingsSearchIndex {
             "Only Focus Fully Visible Niri Windows", section: .mouseTrackpad, tab: "mouse",
             anchor: "Only Focus Fully Visible Niri Windows"
         ),
+        setting("Niri Edge Navigation", section: .mouseTrackpad, tab: "mouse", anchor: "Niri Edge Navigation"),
         setting("Edge navigation interval", section: .mouseTrackpad, tab: "mouse", anchor: "Edge navigation interval"),
         setting("Quake Terminal", section: .quakeTerminal, anchor: "Quake Terminal"),
         setting("Enable Quake Terminal", section: .quakeTerminal, anchor: "Enable Quake Terminal"),
