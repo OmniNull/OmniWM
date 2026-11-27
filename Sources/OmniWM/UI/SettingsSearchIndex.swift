@@ -275,6 +275,11 @@ enum SettingsSearchIndex {
             section: .hotkeys,
             anchor: "Pause Palette Paste During Secure Input"
         ),
+        setting(
+            "Automatically Show Secure Input Explanation",
+            section: .hotkeys,
+            anchor: "Automatically Show Secure Input Explanation"
+        ),
         setting("Reset to Defaults", section: .hotkeys, anchor: "Reset to Defaults"),
         setting("Shortcuts", section: .hotkeys, anchor: "Shortcuts"),
         setting("Command, shortcut, or scope", section: .hotkeys, anchor: "Command, shortcut, or scope"),

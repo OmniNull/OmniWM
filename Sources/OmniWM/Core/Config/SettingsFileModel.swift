@@ -51,6 +51,7 @@ struct SettingsFileModel: Codable, Equatable {
         var animationSpeed: Double?
         var slideWorkspaceSwitches: Bool?
         var pausePalettePasteDuringSecureInput: Bool?
+        var showSecureInputExplanation: Bool?
         var language: String?
         var workspaceAutoBackAndForth: Bool?
         var workspaceSwitchWrapAround: Bool?
@@ -79,6 +80,7 @@ extension SettingsFileModel.General {
             animationSpeed: AnimationSpeed.normalized(export.animationSpeed),
             slideWorkspaceSwitches: export.slideWorkspaceSwitches,
             pausePalettePasteDuringSecureInput: export.pausePalettePasteDuringSecureInput,
+            showSecureInputExplanation: export.showSecureInputExplanation,
             language: export.language,
             workspaceAutoBackAndForth: export.workspaceAutoBackAndForth,
             workspaceSwitchWrapAround: export.workspaceSwitchWrapAround
@@ -228,6 +230,7 @@ extension SettingsFileModel {
             animationSpeed: AnimationSpeed.normalized(general.animationSpeed ?? 1),
             slideWorkspaceSwitches: general.slideWorkspaceSwitches ?? false,
             pausePalettePasteDuringSecureInput: general.pausePalettePasteDuringSecureInput ?? true,
+            showSecureInputExplanation: general.showSecureInputExplanation ?? true,
             language: general.language,
             launcher: launcher,
             commandPalette: commandPalette,

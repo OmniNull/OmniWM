@@ -80,6 +80,20 @@ final class SecureInputExplanationTests: XCTestCase {
         XCTAssertEqual(indicator.explanationTask, first)
     }
 
+    func testTurningOffAutomaticExplanationCancelsThePendingPanel() async throws {
+        indicator.setIndicated(true)
+        let task = try XCTUnwrap(indicator.explanationTask)
+
+        indicator.showsExplanationAutomatically = false
+        sleeper.resumeNext()
+        await task.value
+
+        XCTAssertTrue(indicator.isIndicated)
+        XCTAssertTrue(task.isCancelled)
+        XCTAssertNil(indicator.explanationTask)
+        XCTAssertFalse(indicator.isExplanationVisible)
+    }
+
     func testExplicitRequestShowsImmediatelyOnlyWhileIndicated() {
         indicator.showExplanation()
         XCTAssertFalse(indicator.isExplanationVisible)

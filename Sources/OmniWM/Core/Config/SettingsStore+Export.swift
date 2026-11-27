@@ -43,6 +43,7 @@ extension SettingsStore {
             animationSpeed: animationSpeed,
             slideWorkspaceSwitches: slideWorkspaceSwitches,
             pausePalettePasteDuringSecureInput: pausePalettePasteDuringSecureInput,
+            showSecureInputExplanation: showSecureInputExplanation,
             language: language,
             launcher: launcher,
             commandPalette: commandPalette.export(),
@@ -66,6 +67,7 @@ extension SettingsStore {
         animationSpeed = export.animationSpeed
         slideWorkspaceSwitches = export.slideWorkspaceSwitches
         pausePalettePasteDuringSecureInput = export.pausePalettePasteDuringSecureInput
+        showSecureInputExplanation = export.showSecureInputExplanation
         language = export.language
         clipboard.apply(export.clipboard)
         launcher = export.launcher
