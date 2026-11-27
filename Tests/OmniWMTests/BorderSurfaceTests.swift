@@ -100,7 +100,7 @@ final class BorderSurfaceTests: XCTestCase {
             BorderWindow.Operations(
                 createLayerPanel: { [weak self] frame in
                     _ = NSApplication.shared
-                    guard let panel = RecordingLayerPanel(frame: frame) else { return nil }
+                    guard let panel = RecordingLayerPanel(frame: frame, prefersNativeRim: true) else { return nil }
                     panel.invalidWindowNumber = self?.failsNextCreation == true
                     self?.failsNextCreation = false
                     self?.layerPanels.append(panel)
