@@ -70,15 +70,18 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
 
     private func dispatchDefinitions() -> String {
         var overloads = ["{ read dispatch: (action: ConfigAction) -> () }"]
-        for action in IPCAutomationManifest.windowActionDescriptors {
+        for action in IPCWindowActionForm.all {
             var parameters = ["kind: \"window\"", "action: \(action.name.rawValue.debugDescription)"]
             let hasSelector = ConfigScriptWindowActionName.shared(action.name).integerSelector != nil
             for argument in action.arguments {
                 let parameter = switch argument {
-                case "opaque-id": "id: string"
-                case "direction": "direction: \(union(IPCDirection.allCases.map(\.rawValue)))"
-                case "cycle-direction": "direction: \(union(IPCCycleDirection.allCases.map(\.rawValue)))"
-                default: "\(argument.replacingOccurrences(of: "-", with: "_")): \(hasSelector ? "string | number" : "string")"
+                case .windowID: "id: string"
+                case .direction: "direction: \(union(IPCDirection.allCases.map(\.rawValue)))"
+                case .cycleDirection: "direction: \(union(IPCCycleDirection.allCases.map(\.rawValue)))"
+                case .workspace,
+                     .number,
+                     .sizeChange:
+                    "\(argument.rawValue.replacingOccurrences(of: "-", with: "_")): \(hasSelector ? "string | number" : "string")"
                 }
                 parameters.append(parameter)
             }

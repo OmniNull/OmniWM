@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 
 extension IPCAutomationManifest {
     public static let workspaceActionDescriptors: [IPCWorkspaceActionDescriptor] = [
@@ -26,122 +27,58 @@ extension IPCAutomationManifest {
         )
     ]
 
-    public static let windowActionDescriptors: [IPCWindowActionDescriptor] = [
-        .init(
-            path: "window focus <opaque-id>",
-            name: .focus,
-            summary: "Focus a managed window by session-scoped opaque id.",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window navigate <opaque-id>",
-            name: .navigate,
-            summary: "Navigate to a managed window by session-scoped opaque id.",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window summon-right <opaque-id>",
-            name: .summonRight,
-            summary: "Summon a managed window to the right of the focused window.",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window close <opaque-id>",
-            name: .close,
-            summary: "Close a managed window by session-scoped opaque id through its close button.",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window move-to-workspace <opaque-id> <workspace>",
-            name: .moveToWorkspace,
-            summary: "Move a managed window to a workspace by raw id or unambiguous display name without changing focus.",
-            arguments: ["opaque-id", "workspace"]
-        ),
-        .init(
-            path: "window move-column-to-first <opaque-id>",
-            name: .moveColumnToFirst,
-            summary: "Move the column containing a managed window to the first position without changing focus (Niri only).",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window move-column-to-last <opaque-id>",
-            name: .moveColumnToLast,
-            summary: "Move the column containing a managed window to the last position without changing focus (Niri only).",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window move-column-to-index <opaque-id> <number>",
-            name: .moveColumnToIndex,
-            summary: "Move the column containing a managed window to a one-based column index without changing focus (Niri only).",
-            arguments: ["opaque-id", "number"]
-        ),
-        .init(
-            path: "window move-column <opaque-id> <left|right|up|down>",
-            name: .moveColumn,
-            summary: "Move the column containing a managed window one step in a direction without changing focus (Niri only).",
-            arguments: ["opaque-id", "direction"]
-        ),
-        .init(
-            path: "window toggle-container-full-primary-span <opaque-id>",
-            name: .toggleContainerFullPrimarySpan,
-            summary: "Toggle full primary span for the column containing a managed window without changing focus (Niri only).",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window set-container-primary-span <opaque-id> <size-change>",
-            name: .setContainerPrimarySpan,
-            summary: "Set the primary span of the column containing a managed window without changing focus (Niri only).",
-            arguments: ["opaque-id", "size-change"]
-        ),
-        .init(
-            path: "window set-window-primary-span <opaque-id> <size-change>",
-            name: .setWindowPrimarySpan,
-            summary: "Set the primary span of a managed window without changing focus (Niri only).",
-            arguments: ["opaque-id", "size-change"]
-        ),
-        .init(
-            path: "window cycle-window-primary-span <opaque-id> <forward|backward>",
-            name: .cycleWindowPrimarySpan,
-            summary: "Cycle the primary span preset of a managed window without changing focus (Niri only).",
-            arguments: ["opaque-id", "cycle-direction"]
-        ),
-        .init(
-            path: "window set-window-secondary-span <opaque-id> <size-change>",
-            name: .setWindowSecondarySpan,
-            summary: "Set the secondary span of a managed window within its column without changing focus (Niri only).",
-            arguments: ["opaque-id", "size-change"]
-        ),
-        .init(
-            path: "window reset-window-secondary-span <opaque-id>",
-            name: .resetWindowSecondarySpan,
-            summary: "Reset the secondary span of a managed window within its column without changing focus (Niri only).",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window cycle-window-secondary-span <opaque-id> <forward|backward>",
-            name: .cycleWindowSecondarySpan,
-            summary: "Cycle the secondary span preset of a managed window without changing focus (Niri only).",
-            arguments: ["opaque-id", "cycle-direction"]
-        ),
-        .init(
-            path: "window toggle-column-tabbed <opaque-id>",
-            name: .toggleColumnTabbed,
-            summary: "Toggle tabbed display for the column containing a managed window without changing focus (Niri only).",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window toggle-floating <opaque-id>",
-            name: .toggleFloating,
-            summary: "Toggle a managed window between tiled and floating without changing focus.",
-            arguments: ["opaque-id"]
-        ),
-        .init(
-            path: "window assign-to-scratchpad <opaque-id> <number>",
-            name: .assignToScratchpad,
-            summary: "Assign a managed window to a numbered scratchpad slot, or release it when already there, without changing focus.",
-            arguments: ["opaque-id", "number"]
+    public static let windowActionDescriptors = IPCWindowActionForm.all.map { form in
+        IPCWindowActionDescriptor(
+            path: (["window", form.name.rawValue] + form.arguments.map { "<\($0.usagePlaceholder)>" })
+                .joined(separator: " "),
+            name: form.name,
+            summary: windowActionSummary(for: form.name),
+            arguments: form.arguments.map(\.rawValue)
         )
-    ]
+    }
+
+    private static func windowActionSummary(for name: IPCWindowActionName) -> String {
+        switch name {
+        case .focus:
+            "Focus a managed window by session-scoped opaque id."
+        case .navigate:
+            "Navigate to a managed window by session-scoped opaque id."
+        case .summonRight:
+            "Summon a managed window to the right of the focused window."
+        case .close:
+            "Close a managed window by session-scoped opaque id through its close button."
+        case .moveToWorkspace:
+            "Move a managed window to a workspace by raw id or unambiguous display name without changing focus."
+        case .moveColumnToFirst:
+            "Move the column containing a managed window to the first position without changing focus (Niri only)."
+        case .moveColumnToLast:
+            "Move the column containing a managed window to the last position without changing focus (Niri only)."
+        case .moveColumnToIndex:
+            "Move the column containing a managed window to a one-based column index without changing focus (Niri only)."
+        case .moveColumn:
+            "Move the column containing a managed window one step in a direction without changing focus (Niri only)."
+        case .toggleContainerFullPrimarySpan:
+            "Toggle full primary span for the column containing a managed window without changing focus (Niri only)."
+        case .setContainerPrimarySpan:
+            "Set the primary span of the column containing a managed window without changing focus (Niri only)."
+        case .setWindowPrimarySpan:
+            "Set the primary span of a managed window without changing focus (Niri only)."
+        case .cycleWindowPrimarySpan:
+            "Cycle the primary span preset of a managed window without changing focus (Niri only)."
+        case .setWindowSecondarySpan:
+            "Set the secondary span of a managed window within its column without changing focus (Niri only)."
+        case .resetWindowSecondarySpan:
+            "Reset the secondary span of a managed window within its column without changing focus (Niri only)."
+        case .cycleWindowSecondarySpan:
+            "Cycle the secondary span preset of a managed window without changing focus (Niri only)."
+        case .toggleColumnTabbed:
+            "Toggle tabbed display for the column containing a managed window without changing focus (Niri only)."
+        case .toggleFloating:
+            "Toggle a managed window between tiled and floating without changing focus."
+        case .assignToScratchpad:
+            "Assign a managed window to a numbered scratchpad slot, or release it when already there, without changing focus."
+        }
+    }
 
     public static let captureActionDescriptors: [IPCCaptureActionDescriptor] = [
         .init(
@@ -296,5 +233,18 @@ extension IPCAutomationManifest {
         }
         matches.sort { $0.path < $1.path }
         return matches
+    }
+}
+
+extension IPCWindowActionArgumentKind {
+    var usagePlaceholder: String {
+        switch self {
+        case .direction: IPCDirection.allCases.map(\.rawValue).joined(separator: "|")
+        case .cycleDirection: IPCCycleDirection.allCases.map(\.rawValue).joined(separator: "|")
+        case .windowID,
+             .workspace,
+             .number,
+             .sizeChange: rawValue
+        }
     }
 }

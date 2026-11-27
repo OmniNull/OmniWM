@@ -4,33 +4,6 @@
 import Foundation
 import OmniWMAutomation
 
-public enum IPCWindowActionName: String, Codable, CaseIterable, Equatable, Sendable {
-    case focus
-    case navigate
-    case summonRight = "summon-right"
-    case moveToWorkspace = "move-to-workspace"
-    case close
-    case moveColumnToFirst = "move-column-to-first"
-    case moveColumnToLast = "move-column-to-last"
-    case moveColumnToIndex = "move-column-to-index"
-    case moveColumn = "move-column"
-    case toggleContainerFullPrimarySpan = "toggle-container-full-primary-span"
-    case setContainerPrimarySpan = "set-container-primary-span"
-    case setWindowPrimarySpan = "set-window-primary-span"
-    case cycleWindowPrimarySpan = "cycle-window-primary-span"
-    case setWindowSecondarySpan = "set-window-secondary-span"
-    case resetWindowSecondarySpan = "reset-window-secondary-span"
-    case cycleWindowSecondarySpan = "cycle-window-secondary-span"
-    case toggleColumnTabbed = "toggle-column-tabbed"
-    case toggleFloating = "toggle-floating"
-    case assignToScratchpad = "assign-to-scratchpad"
-}
-
-public enum IPCCycleDirection: String, Codable, CaseIterable, Equatable, Sendable {
-    case forward
-    case backward
-}
-
 public struct IPCWindowRequest: Codable, Equatable, Sendable {
     public let name: IPCWindowActionName
     public let windowId: String

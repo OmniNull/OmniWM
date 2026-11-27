@@ -4,6 +4,7 @@
 import AppKit
 import Combine
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 

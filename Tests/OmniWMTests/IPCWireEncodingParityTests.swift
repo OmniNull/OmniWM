@@ -85,6 +85,25 @@ final class IPCWireEncodingParityTests: XCTestCase {
         XCTAssertEqual(paths, IPCAutomationManifest.commandDescriptors.map(\.path))
     }
 
+    func testWindowActionDescriptorsMatchTheRecordedBytes() throws {
+        let resources = try XCTUnwrap(Bundle.module.resourceURL)
+        let fixture = resources.appendingPathComponent("Fixtures/IPCCommands/window-action-descriptors.json")
+        let expected = try String(contentsOf: fixture, encoding: .utf8)
+        let descriptors = IPCAutomationManifest.windowActionDescriptors
+        XCTAssertEqual(try reference(descriptors), Data(expected.utf8))
+
+        let capabilities = IPCCapabilitiesQueryResult(
+            appVersion: nil, authorizationRequired: true, windowIdScope: "session", queries: [],
+            commands: [], captureActions: [], ruleActions: [], workspaceActions: [], windowActions: descriptors,
+            windowMarkActions: [], windowGatherActions: [], dwindleActions: [], shellActions: [], subscriptions: []
+        )
+        let response = IPCResponse.success(
+            id: fixture.lastPathComponent, kind: .query, result: IPCResult(capabilities: capabilities)
+        )
+        let encoded = "\"windowActions\":" + expected.trimmingCharacters(in: .newlines)
+        XCTAssertNotNil(try IPCWire.encodeResponseLine(response).range(of: Data(encoded.utf8)))
+    }
+
     func testAllCapabilityCommandDescriptorsMatchTheRecordedBytes() throws {
         let resources = try XCTUnwrap(Bundle.module.resourceURL)
         let fixture = resources.appendingPathComponent("Fixtures/IPCCommands/capability-command-descriptors.ndjson")

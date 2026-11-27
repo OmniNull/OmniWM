@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import OmniWMAutomation
 import OmniWMIPC
 import ScriptARCCounters
 

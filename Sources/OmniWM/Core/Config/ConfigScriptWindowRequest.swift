@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import OmniWMAutomation
-import OmniWMIPC
 import OmniWMScriptHost
 
 enum ConfigScriptWindowActionName: Equatable, Sendable {

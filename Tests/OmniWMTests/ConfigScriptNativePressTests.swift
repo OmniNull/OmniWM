@@ -3,6 +3,7 @@
 
 import Carbon
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import OmniWMScriptHost
 import XCTest

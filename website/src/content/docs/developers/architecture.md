@@ -20,7 +20,7 @@ OmniWM is built with Swift Package Manager (the pinned Swift 6.5-dev snapshot, s
 ```
 OmniWMApp                          (@main entry point)
 └── OmniWM                         (main library)
-    ├── OmniWMAutomation           (typed commands and command forms)
+    ├── OmniWMAutomation           (typed commands, command and window-action forms)
     ├── OmniWMIPC                  (IPC models and wire format)
     │   └── OmniWMAutomation
     ├── OmniWMLayerCorners         (Objective-C native border-layer bridge)
@@ -53,7 +53,7 @@ OmniWMTests                        (test target)
 
 | Target | Purpose | Dependencies |
 |--------|---------|--------------|
-| `OmniWMAutomation` | Typed commands, argument values, and command forms | None |
+| `OmniWMAutomation` | Typed commands, argument values, command and window-action forms, and workspace addressing | None |
 | `OmniWMIPC` | Shared IPC data models and wire format | OmniWMAutomation |
 | `OmniWMLayerCorners` | Objective-C bridge for native CALayer corner radii and rim properties | None |
 | `OmniWMLauncherSPI` | Objective-C bridge for launcher integration | None |
@@ -121,7 +121,7 @@ Sources/
 │   └── UI/                          SwiftUI/AppKit settings, bars, palette, status, stats
 ├── OmniWMApp/                       @main entry + settings redirect
 ├── OmniWMCtl/                       CLI parser, IPC client, renderer, completion
-├── OmniWMAutomation/                Typed commands, argument values, and command forms
+├── OmniWMAutomation/                Typed commands, argument values, command and window-action forms
 ├── OmniWMIPC/                       models, wire format, socket path, automation manifest
 ├── OmniWMLayerCorners/              Objective-C native border-layer bridge (1 .m + 1 header)
 ├── OmniWMLauncherSPI/               Objective-C launcher integration bridge
@@ -1154,7 +1154,7 @@ ExternalCommandResult → IPCResponse { ok: true } → NDJSON → client
 CLIRenderer displays the result
 ```
 
-`OmniWMAutomation` owns the `switch-workspace` forms and their typed commands. The Flex parser constructs those values directly and Core lowers them to hotkey actions. `OmniWMIPC` wraps the same values in the request envelope and owns the wire keys and CLI descriptions.
+`OmniWMAutomation` owns the command forms and typed commands, the window-action names and forms, and workspace addressing. The Flex parser builds commands from it directly, Core lowers them to hotkey actions, and the `init.luau` definitions are generated from its forms. `OmniWMIPC` wraps the same values in the request envelope and owns the wire keys, the CLI descriptions and the JSON form of a workspace target.
 
 ---
 
