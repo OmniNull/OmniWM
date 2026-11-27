@@ -7,6 +7,7 @@ import OmniWMScriptHost
 struct ConfigScriptSnapshot: Sendable {
     static let rowLimit = 256
     static let byteLimit = 128 * 1024
+    static let detailByteLimit = 16 * 1024
     static let windowFrameBytes = MemoryLayout<UInt8>.size + MemoryLayout<CGRect>.size
     static let monitorFrameBytes = 2 * MemoryLayout<CGRect>.size
     static let columnBytes = MemoryLayout<UInt16>.size
@@ -37,11 +38,11 @@ struct ConfigScriptSnapshotPool {
     }
 
     private var slots: [Slot] = []
-    private var capacityHints: [UInt16: Int] = [:]
-    private var columns = ConfigScriptColumnIndex()
+    private var capacityHints: [UInt32: Int] = [:]
+    private var scratch = ConfigScriptReadScratch()
 
     fileprivate mutating func capture(
-        reads: ConfigScriptReads, write: (inout ConfigScriptSnapshotWriter, inout ConfigScriptColumnIndex) -> Void
+        reads: ConfigScriptReads, write: (inout ConfigScriptSnapshotWriter, inout ConfigScriptReadScratch) -> Void
     ) -> ConfigScriptSnapshot {
         var index = slots.startIndex
         while index < slots.endIndex, !isKnownUniquelyReferenced(&slots[index].reservation) {
@@ -49,13 +50,14 @@ struct ConfigScriptSnapshotPool {
         }
         if index == slots.endIndex { slots.append(Slot()) }
         let sections = reads.intersection(.sections).rawValue.nonzeroBitCount
-        let limit = sections * ConfigScriptSnapshot.byteLimit + reads.frameByteLimit + reads.columnByteLimit
+        let limit = sections * ConfigScriptSnapshot.byteLimit + reads.frameByteLimit + reads.columnByteLimit + reads
+            .detailByteLimit
         var output = ConfigScriptSnapshotWriter(limit: limit)
         swap(&slots[index].storage, &output.bytes)
         output.bytes.removeAll(keepingCapacity: true)
         let capacity = capacityHints[reads.rawValue] ?? 0
         output.bytes.reserveCapacity(capacity == 0 ? limit : capacity)
-        write(&output, &columns)
+        write(&output, &scratch)
         if output.bytes.count > capacity { capacityHints[reads.rawValue] = output.bytes.count }
         swap(&slots[index].storage, &output.bytes)
         return ConfigScriptSnapshot(reservation: slots[index].reservation, bytes: slots[index].storage)
@@ -77,209 +79,45 @@ private struct ScriptStrip {
     let vertical: Bool
 }
 
-struct ConfigScriptSnapshotWriter {
-    let limit: Int
-    var bytes: [UInt8] = []
-    private var header = 0
-    private var rows: UInt16 = 0
-    private var truncated = false
-    private(set) var framed = false
-    private(set) var columned = false
-    private var frameBytes = 0
-    private var columnBytes = 0
-
-    init(limit: Int) {
-        self.limit = limit
-    }
-
-    mutating func makeRoom(for payload: Int, prefix: Int = 0) -> Bool {
-        guard payload <= remaining - prefix else { return false }
-        reserve(payload + prefix)
-        return true
-    }
-
-    private mutating func reserve(_ count: Int) {
-        if count > bytes.capacity - bytes.count { bytes.reserveCapacity(limit) }
-    }
-
-    private var remaining: Int {
-        ConfigScriptSnapshot.byteLimit - (bytes.count - header - frameBytes - columnBytes)
-    }
-
-    mutating func start(_ kind: ConfigScriptReads, framed: Bool = false, columned: Bool = false) {
-        start(tag: UInt8(truncatingIfNeeded: kind.rawValue), framed: framed, columned: columned)
-    }
-
-    mutating func start(tag: UInt8, framed: Bool = false, columned: Bool = false) {
-        header = bytes.count
-        rows = 0
-        truncated = false
-        self.framed = framed
-        self.columned = columned
-        frameBytes = 0
-        columnBytes = 0
-        reserve(MemoryLayout<UInt64>.size)
-        appendLE(UInt64(tag))
-    }
-
-    mutating func finish() {
-        let length = UInt32(bytes.count - header - MemoryLayout<UInt64>.size)
-        let section = (truncated ? OMNI_CONFIG_SECTION_TRUNCATED : 0) | (framed ? OMNI_CONFIG_SECTION_FRAMES : 0)
-            | (columned ? OMNI_CONFIG_SECTION_COLUMNS : 0)
-        let flags = UInt64(bytes[header]) | (UInt64(section) << 8)
-        let value = flags | (UInt64(rows) << 16) | (UInt64(length) << 32)
-        bytes.withUnsafeMutableBytes { $0.storeBytes(of: value.littleEndian, toByteOffset: header, as: UInt64.self) }
-    }
-
-    mutating func rowUnlessAbsent(_ write: (inout Self) -> Bool?) {
-        let wasTruncated = truncated
-        var absent = false
-        _ = row { row in
-            guard let stored = write(&row) else {
-                absent = true
-                return false
-            }
-            return stored
-        }
-        if absent { truncated = wasTruncated }
-    }
-
-    mutating func row(_ write: (inout Self) -> Bool) -> Bool {
-        guard rows < ConfigScriptSnapshot.rowLimit else {
-            truncated = true
-            return false
-        }
-        let start = bytes.count
-        let frames = frameBytes
-        let columns = columnBytes
-        guard write(&self) else {
-            bytes.removeSubrange(start...)
-            frameBytes = frames
-            columnBytes = columns
-            truncated = true
-            return false
-        }
-        rows += 1
-        return true
-    }
-
-    mutating func column(_ number: UInt16) {
-        reserve(ConfigScriptSnapshot.columnBytes)
-        appendLE(number)
-        columnBytes += ConfigScriptSnapshot.columnBytes
-    }
-
-    mutating func frame(_ frame: CGRect?) {
-        reserve(ConfigScriptSnapshot.windowFrameBytes)
-        bytes.append(frame == nil ? 0 : UInt8(OMNI_CONFIG_FRAME_PRESENT))
-        frameBytes += MemoryLayout<UInt8>.size
-        if let frame { appendRect(frame) }
-    }
-
-    mutating func frames(_ frame: CGRect, visible: CGRect) {
-        reserve(ConfigScriptSnapshot.monitorFrameBytes)
-        appendRect(frame)
-        appendRect(visible)
-    }
-
-    private mutating func appendRect(_ rect: CGRect) {
-        appendLE(Double(rect.origin.x).bitPattern)
-        appendLE(Double(rect.origin.y).bitPattern)
-        appendLE(Double(rect.size.width).bitPattern)
-        appendLE(Double(rect.size.height).bitPattern)
-        frameBytes += MemoryLayout<CGRect>.size
-    }
-
-    mutating func string(_ value: borrowing String?) -> Bool {
-        if value != nil { return string(value!) }
-        guard makeRoom(for: MemoryLayout<UInt32>.size) else { return false }
-        appendLE(UInt32.max)
-        return true
-    }
-
-    mutating func string(_ value: borrowing String) -> Bool {
-        let prefix = MemoryLayout<UInt32>.size
-        if let stored = value.utf8.withContiguousStorageIfAvailable({ source in
-            guard makeRoom(for: source.count, prefix: prefix) else { return false }
-            appendLE(UInt32(source.count))
-            bytes.append(contentsOf: source)
-            return true
-        }) { return stored }
-        guard makeRoom(for: prefix) else { return false }
-        let offset = bytes.count
-        appendLE(UInt32.zero)
-        for byte in value.utf8 {
-            guard flag(byte) else { return false }
-        }
-        let length = UInt32(bytes.count - offset - prefix)
-        bytes.withUnsafeMutableBytes { $0.storeBytes(of: length.littleEndian, toByteOffset: offset, as: UInt32.self) }
-        return true
-    }
-
-    mutating func windowID(_ token: WindowToken, session: ConfigScriptSession) -> Bool {
-        ConfigScriptWindowID.withBytes(token, session: session) { id in
-            guard makeRoom(for: id.count, prefix: MemoryLayout<UInt32>.size) else { return false }
-            appendLE(UInt32(id.count))
-            bytes.append(contentsOf: id)
-            return true
-        }
-    }
-
-    mutating func flag(_ value: UInt8) -> Bool {
-        guard makeRoom(for: MemoryLayout<UInt8>.size) else { return false }
-        bytes.append(value)
-        return true
-    }
-
-    mutating func count(_ value: UInt16) -> Bool {
-        guard makeRoom(for: MemoryLayout<UInt16>.size) else { return false }
-        appendLE(value)
-        return true
-    }
-
-    mutating func appendLE(_ value: some FixedWidthInteger) {
-        withUnsafeBytes(of: value.littleEndian) { bytes.append(contentsOf: $0) }
-    }
-
-    #if OMNIWM_CONFIG_CALLBACK_TRACE
-        var rowCount: Int {
-            Int(rows)
-        }
-    #endif
-}
-
 extension WMController {
     func configScriptSnapshot(
         reads: ConfigScriptReads, target: borrowing ConfigScriptTarget, pool: inout ConfigScriptSnapshotPool
     ) -> ConfigScriptSnapshot {
         let origin = ScriptReadOrigin(workspaceId: target.workspaceId, token: target.token, session: target.sessionID)
-        return pool.capture(reads: reads) { writeSnapshot(reads: reads, origin: origin, to: &$0, columns: &$1) }
+        return pool.capture(reads: reads) { writeSnapshot(reads: reads, origin: origin, to: &$0, scratch: &$1) }
     }
 
     private func writeSnapshot(
         reads: ConfigScriptReads, origin: ScriptReadOrigin, to output: inout ConfigScriptSnapshotWriter,
-        columns: inout ConfigScriptColumnIndex
+        scratch: inout ConfigScriptReadScratch
     ) {
         let manager = workspaceManager
         let session = origin.session
         lazy var resolution = manager.monitorResolutionContext()
+        if !reads.isDisjoint(with: .windowDetailSections) {
+            manager.indexWindowFocusRanks(into: &scratch.focusRanks)
+            manager.indexWindowScratchpadSlots(into: &scratch.scratchpadSlots)
+        }
         if reads.contains(.workspaceWindows) {
             output.start(
                 .workspaceWindows, framed: reads.contains(.workspaceWindowFrames),
-                columned: reads.contains(.workspaceWindowColumns)
+                columned: reads.contains(.workspaceWindowColumns), detailed: reads.contains(.workspaceWindowDetails)
             )
             if let id = origin.workspaceId, let workspace = manager.descriptor(for: id) {
                 _ = appendScriptWindows(
-                    in: workspace, session: session, resolution: resolution, to: &output, columns: &columns
+                    in: workspace, session: session, resolution: resolution, to: &output, scratch: &scratch
                 )
             }
             finishScriptList(&output)
         }
         if reads.contains(.windows) {
-            output.start(.windows, framed: reads.contains(.windowFrames), columned: reads.contains(.windowColumns))
+            output.start(
+                .windows, framed: reads.contains(.windowFrames),
+                columned: reads.contains(.windowColumns), detailed: reads.contains(.windowDetails)
+            )
             for workspace in manager.sortedWorkspaces() {
                 guard appendScriptWindows(
-                    in: workspace, session: session, resolution: resolution, to: &output, columns: &columns
+                    in: workspace, session: session, resolution: resolution, to: &output, scratch: &scratch
                 ) else {
                     break
                 }
@@ -287,16 +125,7 @@ extension WMController {
             finishScriptList(&output)
         }
         if reads.contains(.workspaces) {
-            output.start(.workspaces)
-            for workspace in manager.sortedWorkspaces() {
-                let stored = output.row { row in
-                    let monitor = manager.resolvedWorkspaceMonitorId(for: workspace.id, context: resolution)
-                    return row.string(workspace.id.uuidString) && row.string(workspace.name)
-                        && row.string(monitor?.scriptIdentifier)
-                }
-                if !stored { break }
-            }
-            finishScriptList(&output)
+            appendScriptWorkspaces(resolution: resolution, to: &output)
         }
         if reads.contains(.monitors) {
             output.start(.monitors, framed: reads.contains(.monitorFrames))
@@ -307,6 +136,22 @@ extension WMController {
         #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
             ConfigScriptSnapshot.captures += 1
         #endif
+    }
+
+    private func appendScriptWorkspaces(
+        resolution: WorkspaceManager.MonitorResolutionContext, to output: inout ConfigScriptSnapshotWriter
+    ) {
+        let manager = workspaceManager
+        output.start(.workspaces)
+        for workspace in manager.sortedWorkspaces() {
+            let stored = output.row { row in
+                let monitor = manager.resolvedWorkspaceMonitorId(for: workspace.id, context: resolution)
+                return row.string(workspace.id.uuidString) && row.string(workspace.name)
+                    && row.string(monitor?.scriptIdentifier)
+            }
+            if !stored { break }
+        }
+        finishScriptList(&output)
     }
 
     private func appendScriptMonitors(to output: inout ConfigScriptSnapshotWriter) {
@@ -330,21 +175,24 @@ extension WMController {
     private func appendScriptWindows(
         in workspace: WorkspaceDescriptor, session: ConfigScriptSession,
         resolution: WorkspaceManager.MonitorResolutionContext,
-        to output: inout ConfigScriptSnapshotWriter, columns: inout ConfigScriptColumnIndex
+        to output: inout ConfigScriptSnapshotWriter, scratch: inout ConfigScriptReadScratch
     ) -> Bool {
         let manager = workspaceManager
         let windows = manager.windowQueries
         let tokens = windows.tokens(in: workspace.id)
         guard !tokens.isEmpty else { return true }
         let shownMonitor = manager.monitorIdShowingWorkspace(workspace.id)
-        let monitor = (shownMonitor ?? manager.effectiveMonitor(
+        let monitorId = shownMonitor ?? manager.effectiveMonitor(
             for: workspace.id, context: resolution, visibleMonitorId: shownMonitor
-        )?.id)?.scriptIdentifier
+        )?.id
+        let monitor = monitorId?.scriptIdentifier
         let layout = manager.activeLayoutKind(for: workspace.id)
         let niri = layout == .niri ? manager.niriEngine : nil
         let dwindle = layout == .dwindle ? manager.dwindleEngine?.existingState(for: workspace.id) : nil
-        let shown = output.framed && shownMonitor != nil
-        if output.columned { columns.index(niri, in: workspace.id, windows: tokens.count) }
+        if output.columned { scratch.columns.index(niri, in: workspace.id, windows: tokens.count) }
+        if output.acceptsDetails {
+            indexScriptColumnDetails(in: workspace.id, monitorId: monitorId, engine: niri, into: &scratch.columnDetails)
+        }
         for token in tokens {
             let accepted = windows.withEntry(token) { entry in
                 output.row { row in
@@ -360,8 +208,19 @@ extension WMController {
                         (native ? OMNI_CONFIG_WINDOW_NATIVE_FULLSCREEN : 0) |
                         (entry.observedState.isMinimized ? OMNI_CONFIG_WINDOW_MINIMIZED : 0)
                     guard row.flag(UInt8(flags)) else { return false }
-                    if row.columned { row.column(columns.number(of: token)) }
-                    if row.framed { row.frame(shown ? scriptFrame(of: entry) : nil) }
+                    if row.columned { row.column(scratch.columns.number(of: token)) }
+                    if row.framed { row.frame(shownMonitor != nil ? scriptFrame(of: entry) : nil) }
+                    if row.detailed {
+                        row.details {
+                            let indexes = ScriptWindowDetailIndexes(
+                                focusRank: scratch.focusRanks[token], scratchpadSlot: scratch.scratchpadSlots[token]
+                            )
+                            return writeScriptWindowDetails(
+                                entry, workspaceShown: shownMonitor != nil, indexes: indexes,
+                                column: scratch.columnDetails[token], to: &$0
+                            )
+                        }
+                    }
                     return true
                 }
             }

@@ -241,13 +241,22 @@ extension NiriLayoutEngine {
     }
 
     func projectedPrimarySpan(
-        for projectedColumn: NiriProjectedColumn,
+        for projectedColumn: borrowing NiriProjectedColumn,
         workingFrame: CGRect,
         gap: CGFloat,
         orientation: Monitor.Orientation
     ) -> CGFloat {
-        let column = projectedColumn.column
-        let windows = projectedColumn.windows
+        projectedPrimarySpan(
+            of: projectedColumn.column, windows: projectedColumn.windows.span,
+            geometry: NiriSizingGeometry(workingFrame: workingFrame, gaps: gap, orientation: orientation)
+        )
+    }
+
+    func projectedPrimarySpan(
+        of column: borrowing NiriContainer, windows: borrowing Span<NiriWindow>, geometry: NiriSizingGeometry,
+        fullMembership: Bool? = nil
+    ) -> CGFloat {
+        let orientation = geometry.orientation
         if let liveSlot = column.liveSlotSpan, liveSlot.orientation == orientation {
             return liveSlot.span
         }
@@ -257,47 +266,16 @@ extension NiriLayoutEngine {
         if usesFittedSpan {
             return orientation == .horizontal ? column.cachedWidth : column.cachedHeight
         }
-        if windows.count == column.windowNodes.count,
-           !column.isTabbed || windows.count > 1
-        {
+        let includesAllWindows = if let fullMembership {
+            fullMembership
+        } else {
+            windows.count == column.windowNodes.count
+        }
+        if includesAllWindows, !column.isTabbed || windows.count > 1 {
             return orientation == .horizontal ? column.cachedWidth : column.cachedHeight
         }
 
-        return rawProjectedPrimarySpan(
-            for: projectedColumn,
-            workingFrame: workingFrame,
-            gap: gap,
-            orientation: orientation
-        )
-    }
-
-    func projectedPrimaryBounds(
-        of windows: [NiriWindow],
-        orientation: Monitor.Orientation,
-        contentInset: CGFloat
-    ) -> (min: CGFloat, max: CGFloat?) {
-        var minimum: CGFloat = 1
-        var maximum: CGFloat?
-        for window in windows {
-            let constraints = window.constraints.normalized()
-            switch orientation {
-            case .horizontal:
-                if window.deferredMinimumOrientation != .horizontal {
-                    minimum = max(minimum, constraints.minSize.width)
-                }
-                if constraints.hasMaxWidth {
-                    maximum = min(maximum ?? constraints.maxSize.width, constraints.maxSize.width)
-                }
-            case .vertical:
-                if window.deferredMinimumOrientation != .vertical {
-                    minimum = max(minimum, constraints.minSize.height)
-                }
-                if constraints.hasMaxHeight {
-                    maximum = min(maximum ?? constraints.maxSize.height, constraints.maxSize.height)
-                }
-            }
-        }
-        return (minimum + contentInset, maximum.map { max($0, minimum) + contentInset })
+        return rawProjectedPrimarySpan(of: column, windows: windows, geometry: geometry)
     }
 
     func ensureProjectedSelectionVisible(

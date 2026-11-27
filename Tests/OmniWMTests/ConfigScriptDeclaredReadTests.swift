@@ -13,20 +13,23 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
         let statements = [
             "local wm = omniwm",
             "local function fn() end",
-            "wm.keymap.set('Control+Option+F', fn, { reads = { 'workspaceWindows', 'windows' } })",
-            "wm.command('Workspace list', fn, { reads = { 'workspaces' } })",
+            "wm.keymap.set('Control+Option+F', fn, { reads = { 'workspaceWindows', 'windows', 'details' } })",
+            "wm.command('Workspace list', fn, { reads = { 'workspaces', 'windows', 'details' } })",
             "wm.on('window.active', fn, { reads = { 'monitors' } })",
-            "wm.timer({ afterSeconds = \(OMNI_CONFIG_TIMER_MINIMUM_SECONDS) }, fn, { reads = { 'windows' } })",
+            "wm.timer({ afterSeconds = \(OMNI_CONFIG_TIMER_MINIMUM_SECONDS) }, fn, { reads = { 'windows', 'details' } })",
             "wm.command('No reads', fn, { reads = {} })",
             "wm.on('window.active', fn, { reads = { 'frames', 'workspaces', 'monitors' } })",
             "wm.on('window.active', fn, { reads = { 'windows', 'placement', 'frames', 'workspaceWindows' } })",
             "wm.on('window.active', fn, { reads = { 'columns', 'monitors', 'windows', 'focusTarget', 'frames', " +
-                "'workspaces', 'placement', 'workspaceWindows', 'dwindle' } })"
+                "'workspaces', 'placement', 'workspaceWindows', 'dwindle', 'details' } })"
         ]
         let load = try await fixture.load(statements)
         let result = try XCTUnwrap(load.result.get())
-        XCTAssertEqual(result.bindings.map(\.reads), [[.workspaceWindows, .windows]])
-        XCTAssertEqual(result.namedCommands.map(\.reads), [[.workspaces], []])
+        XCTAssertEqual(
+            result.bindings.map(\.reads),
+            [[.workspaceWindows, .windows, .workspaceWindowDetails, .windowDetails]]
+        )
+        XCTAssertEqual(result.namedCommands.map(\.reads), [[.workspaces, .windows, .windowDetails], []])
         XCTAssertEqual(result.events.map(\.reads), [
             [.monitors],
             [.workspaces, .monitors, .monitorFrames],
@@ -34,10 +37,10 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             [
                 .workspaceWindows, .windows, .workspaces, .monitors, .placement, .focusTarget,
                 .workspaceWindowFrames, .windowFrames, .monitorFrames, .workspaceWindowColumns, .windowColumns,
-                .dwindle
+                .dwindle, .workspaceWindowDetails, .windowDetails
             ]
         ])
-        XCTAssertEqual(result.timers.map(\.reads), [[.windows]])
+        XCTAssertEqual(result.timers.map(\.reads), [[.windows, .windowDetails]])
     }
 
     func testInvalidReadOptionsRejectTheDeclarationAtItsLine() async throws {
@@ -58,6 +61,9 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             "wm.command('Columns alone', fn, { reads = { 'columns' } })",
             "wm.command('Columns without a window list', fn, { reads = { 'monitors', 'frames', 'columns' } })",
             "wm.command('Columns twice', fn, { reads = { 'windows', 'columns', 'columns' } })",
+            "wm.command('Details alone', fn, { reads = { 'details' } })",
+            "wm.command('Details without a window list', fn, { reads = { 'workspaces', 'monitors', 'details' } })",
+            "wm.command('Details twice', fn, { reads = { 'windows', 'details', 'details' } })",
             "wm.command('Dwindle twice', fn, { reads = { 'dwindle', 'dwindle' } })"
         ]
         for statement in statements {

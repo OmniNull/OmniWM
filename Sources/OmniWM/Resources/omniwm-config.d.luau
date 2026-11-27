@@ -554,13 +554,18 @@ export type ConfigRule = {
     scratchpad: number?,
 }
 
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "dwindle" | "frames" | "columns"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "dwindle" | "frames" | "columns" | "details"
 export type ConfigReadOptions = { reads: { ConfigRead } }
 export type ConfigRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWindowRow = {
     read id: string, read bundleId: string?, read title: string?, read workspace: string,
     read monitor: string?, read floating: boolean, read fullscreen: ("native" | "omniwm")?, read minimized: boolean,
     read frame: ConfigRect?, read column: number?,
+    read pid: number?, read windowNumber: number?, read app: string?, read mode: ("tiling" | "floating")?,
+    read layoutReason: ("standard" | "native-fullscreen")?, read manualOverride: ("force-tile" | "force-float")?,
+    read visible: boolean?, read appHidden: boolean?, read scratchpad: boolean?, read scratchpadSlot: number?,
+    read hiddenReason: ("workspace-inactive" | "tab-inactive" | "layout-transient" | "scratchpad")?, read focusRank: number?,
+    read columnSpan: number?, read columnPosition: number?, read columnSize: number?,
 }
 export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
 export type ConfigMonitorRow = { read id: string, read name: string, read frame: ConfigRect?, read visibleFrame: ConfigRect? }
@@ -587,6 +592,7 @@ export type ConfigLookups = {
     read truncated: {
         read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
         read placement: boolean?, read focusTarget: boolean?, read dwindle: boolean?,
+        read details: { read workspaceWindows: boolean?, read windows: boolean? }?,
     }?,
 }
 export type ConfigContext = ConfigLookups & {

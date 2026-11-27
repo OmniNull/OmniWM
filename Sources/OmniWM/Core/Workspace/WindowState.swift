@@ -278,3 +278,9 @@ struct WindowState: Equatable {
         self.lifetimeAuthority = lifetimeAuthority
     }
 }
+
+extension WindowState {
+    func isModelVisible(workspaceShown: Bool, appHidden: Bool) -> Bool {
+        workspaceShown && hiddenState == nil && !appHidden && !observedState.isNativeSuppressed
+    }
+}

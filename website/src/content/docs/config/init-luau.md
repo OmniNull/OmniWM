@@ -102,11 +102,28 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `dwindle` | The callback's workspace's Dwindle tree: one record |
 | `frames` | Adds frames to the window and monitor lists declared with it |
 | `columns` | Adds Niri column numbers to the window lists declared with it |
+| `details` | Adds window details to `workspaceWindows` and `windows` when declared with either list |
 
 The row fields are:
 - **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (`"native"` for macOS fullscreen, `"omniwm"` for OmniWM's, absent otherwise) and `minimized`, with `frames`, `frame`, and with `columns`, `column`;
 - **workspace:** `id`, `name` and `monitor`;
 - **monitor:** `id` and `name`, and with `frames`, `frame` and `visibleFrame`, the part the menu bar and Dock leave free.
+
+With `details`, a window row can also contain these fields.
+
+| Field | What it reports |
+| --- | --- |
+| `pid`, `windowNumber` | The process ID and raw macOS window number. Use the row's `id` for window actions. |
+| `app` | The cached app name, or the title of an OmniShell-hosted window. This can be absent on a cache miss. |
+| `mode` | `"tiling"` or `"floating"`. |
+| `layoutReason` | `"standard"` or `"native-fullscreen"`. |
+| `manualOverride` | `"force-tile"` or `"force-float"` if the window has a manual layout override. |
+| `visible` | Whether OmniWM's model considers the window visible. It can differ from the CLI's live check if an app orders a window out before OmniWM records it. |
+| `hiddenReason` | `"workspace-inactive"`, `"tab-inactive"`, `"layout-transient"` or `"scratchpad"` when OmniWM records a hidden state. |
+| `appHidden` | Whether the app is hidden. |
+| `scratchpad`, `scratchpadSlot` | Whether the window belongs to a scratchpad, and its slot number if assigned. |
+| `focusRank` | Position in OmniWM's global focus history. `0` is the most recently focused managed window. A window without a focus record has no rank. |
+| `columnSpan`, `columnPosition`, `columnSize` | A Niri tile's settled column span as a proportion of the strip's primary axis, the window's position in that column counting from 1, and the number of windows in the column. A horizontal strip uses width and a vertical strip uses height. These fields are absent when the window has no Niri column. |
 
 A frame is `{ x, y, width, height }` in points, in the coordinates `omniwmctl query` uses: from the bottom-left corner of the main display, with `y` growing upward. A window's `frame` is where OmniWM last placed or saw it, not a fresh reading from macOS. It's absent while the window isn't on screen: on a workspace that isn't shown, minimized, hidden, on another macOS Space or in native fullscreen. Tiled windows of OmniShell apps have none.
 
@@ -136,7 +153,7 @@ A window's `column` is the position of its Niri column, counting from 1, numbere
 
 A window `id` is text such as `"9b2f6c0e4d1a7b3c5e8f0a2d4c6e8b1f.48213.912345"`. It names the same window until OmniWM quits, and actions reach that window while OmniWM manages it. A monitor `id` is the display's number as text, such as `"69734208"`.
 
-Each list holds up to 256 rows and 128 KiB, not counting frames or column numbers. `truncated.<list>` is `true` when a list was cut.
+Each list holds up to 256 rows and 128 KiB of base fields. `truncated.<list>` is `true` when a list was cut. Frames and column numbers have separate allowances. Each window list has a separate 16 KiB allowance for details. When it fills, the remaining rows still have their base fields and any requested frames and column numbers. `truncated.details.windows` or `truncated.details.workspaceWindows` is `true` when details for that declared list were cut.
 
 ## Events
 
@@ -255,6 +272,7 @@ A window ID lasts only while OmniWM runs, so save bundle IDs or names instead.
 - **Per run:** up to 64 actions or effects, and separately up to 64 log lines. The log cap also applies while loading.
 - **Window marks:** each mark dispatch uses one action slot and takes a single name string.
 - **Waiting presses:** up to 8 shortcut or command presses can wait. Further presses are dropped with an error.
+- **Reads:** list and detail limits are described under [Reads](#reads).
 - **Timers:** up to 16, each at least 1 second.
 - **`launch`:** up to 64 arguments of 4 KiB each, 32 KiB in all.
 - **Other text:** bundle IDs up to 255 bytes, and notice text up to 512 bytes.
@@ -275,6 +293,30 @@ end)
 wm.keymap.set("Control+Option+Shift+S", function()
     wm.dispatch("mark", "summon", name)
 end)
+```
+
+**Focus the most recently used Safari window.** Run **Focus Recent Safari Window** from the command palette to focus the Safari window you used most recently, including on another workspace. The command needs a focus record and a complete window list with details.
+
+```lua
+local wm = omniwm
+wm.command("Focus Recent Safari Window", function(ctx: ConfigContext)
+    local rows, truncated = ctx.windows, ctx.truncated
+    local details = truncated and truncated.details
+    if not rows or (truncated and truncated.windows) or (details and details.windows) then
+        return
+    end
+    local bestId: string? = nil
+    local bestRank = math.huge
+    for _, row in rows do
+        local rank = row.focusRank
+        if row.bundleId == "com.apple.Safari" and rank and rank < bestRank then
+            bestId, bestRank = row.id, rank
+        end
+    end
+    if bestId then
+        wm.dispatch("window", "focus", bestId)
+    end
+end, { reads = { "windows", "details" } })
 ```
 
 **Grow the focused Niri column.** Control + Option + K adds 12 percentage points to the column's share of the available space. Change `+12%` to choose the step for this key. The standard resize shortcuts use **Settings → Layouts → Niri → Resize Increment**.

@@ -211,6 +211,24 @@ func measureSnapshotRows(
 }
 
 @MainActor
+func measureWindowDetailReads(in directory: URL) async throws {
+    try await measureSnapshotRows(in: directory, routes: [("detailed", [.windows, .windowDetails])])
+    let fixture = try ScriptARCFixture(directory: directory.appendingPathComponent("mixed-details"))
+    fixture.populateSnapshotLayout(.niri)
+    try await fixture.mixedReads(
+        "details", probe: "e.windows[1].pid", rows: "#e.windows == \(ScriptARCFixture.totalRows)",
+        routes: ["shared-details", "shared-plain-details", "solo-details", "solo-plain-details"]
+    )
+    let manager = fixture.controller.workspaceManager
+    let excluded = fixture.otherWindow
+    precondition(manager.setWindowMinimized(true, token: excluded))
+    let reads: ConfigScriptReads = [.windows, .windowColumns, .windowDetails]
+    for report in [false, true] {
+        fixture.snapshot(reads, route: "capture/details-excluded", report: report)
+    }
+}
+
+@MainActor
 func measureMixedFrames(in directory: URL) async throws {
     let fixture = try ScriptARCFixture(directory: directory.appendingPathComponent("mixed-frames"))
     fixture.seedSnapshotFrames(ScriptARCFixture.workspaceRows)

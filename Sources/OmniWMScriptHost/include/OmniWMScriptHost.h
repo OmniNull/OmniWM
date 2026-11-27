@@ -354,15 +354,39 @@ typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t l
 #define OMNI_CONFIG_READ_WORKSPACE_WINDOW_COLUMNS 8192u
 #define OMNI_CONFIG_READ_WINDOW_COLUMNS 16384u
 
+#define OMNI_CONFIG_READ_DETAIL_SHIFT 16u
+#define OMNI_CONFIG_READ_WORKSPACE_WINDOW_DETAILS (1u << 16)
+#define OMNI_CONFIG_READ_WINDOW_DETAILS (1u << 17)
+#define OMNI_CONFIG_READ_WORKSPACE_DETAILS (1u << 18)
+#define OMNI_CONFIG_READ_MONITOR_DETAILS (1u << 19)
+#define OMNI_CONFIG_READ_APPS (1u << 20)
+#define OMNI_CONFIG_READ_WORKSPACE_BAR (1u << 21)
+#define OMNI_CONFIG_READ_RULES (1u << 22)
+#define OMNI_CONFIG_READ_SHELL (1u << 23)
+#define OMNI_CONFIG_READ_MARKS (1u << 24)
+
 #define OMNI_CONFIG_SECTION_TRUNCATED 1u
 #define OMNI_CONFIG_SECTION_FRAMES 2u
 #define OMNI_CONFIG_SECTION_COLUMNS 4u
+#define OMNI_CONFIG_SECTION_DETAILS 8u
+#define OMNI_CONFIG_SECTION_DETAILS_TRUNCATED 16u
 #define OMNI_CONFIG_FRAME_PRESENT 1u
 
 #define OMNI_CONFIG_WINDOW_FLOATING 1u
 #define OMNI_CONFIG_WINDOW_FULLSCREEN 2u
 #define OMNI_CONFIG_WINDOW_MINIMIZED 4u
 #define OMNI_CONFIG_WINDOW_NATIVE_FULLSCREEN 8u
+
+#define OMNI_CONFIG_DETAIL_VISIBLE 1u
+#define OMNI_CONFIG_DETAIL_APP_HIDDEN 2u
+#define OMNI_CONFIG_DETAIL_NATIVE_FULLSCREEN 4u
+#define OMNI_CONFIG_DETAIL_FORCE_TILE 8u
+#define OMNI_CONFIG_DETAIL_FORCE_FLOAT 16u
+#define OMNI_CONFIG_DETAIL_HIDDEN_SHIFT 5u
+#define OMNI_CONFIG_DETAIL_WORKSPACE_INACTIVE 1u
+#define OMNI_CONFIG_DETAIL_TAB_INACTIVE 2u
+#define OMNI_CONFIG_DETAIL_LAYOUT_TRANSIENT 3u
+#define OMNI_CONFIG_DETAIL_SCRATCHPAD 4u
 
 #define OMNI_CONFIG_PLACEMENT_COLUMN 1u
 #define OMNI_CONFIG_PLACEMENT_VERTICAL 2u
@@ -391,7 +415,7 @@ typedef struct omni_config_timer {
     uint32_t callback_id;
     bool repeats;
     double seconds;
-    uint16_t reads;
+    uint32_t reads;
 } omni_config_timer;
 
 typedef struct omni_config_rect {
@@ -527,10 +551,10 @@ typedef struct omni_config_callbacks {
     bool (*rule)(void *context, const omni_config_field *fields, size_t count,
         omni_config_location location, char *error, size_t capacity);
     bool (*bind_function)(void *context, omni_config_span chord, uint32_t callback_id, omni_config_span mode_key,
-        omni_config_span mode, uint16_t reads, omni_config_location location, char *error, size_t capacity);
+        omni_config_span mode, uint32_t reads, omni_config_location location, char *error, size_t capacity);
     bool (*dispatch)(void *context, uint32_t action_id, omni_config_location location, char *error, size_t capacity);
     void (*log)(void *context, omni_config_span message, omni_config_location location);
-    bool (*named_function)(void *context, bool is_event, omni_config_span name, uint32_t callback_id, uint16_t reads,
+    bool (*named_function)(void *context, bool is_event, omni_config_span name, uint32_t callback_id, uint32_t reads,
         omni_config_location location, char *error, size_t capacity);
     bool (*effect)(void *context, omni_config_effect_kind kind, const omni_config_span *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);

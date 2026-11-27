@@ -146,22 +146,25 @@ extension NiriLayoutEngine {
         }
     }
 
-    private func settledPrimarySpan(of column: NiriProjectedColumn, geometry: NiriSizingGeometry) -> CGFloat {
+    private func settledPrimarySpan(of column: borrowing NiriProjectedColumn, geometry: NiriSizingGeometry) -> CGFloat {
+        settledPrimarySpan(of: column.column, windows: column.windows.span, geometry: geometry)
+    }
+
+    func settledPrimarySpan(
+        of column: borrowing NiriContainer, windows: borrowing Span<NiriWindow>, geometry: NiriSizingGeometry,
+        fullMembership: Bool? = nil
+    ) -> CGFloat {
         let cachedSpan = projectedPrimarySpan(
-            for: column,
-            workingFrame: geometry.workingFrame,
-            gap: geometry.gaps,
-            orientation: geometry.orientation
+            of: column, windows: windows, geometry: geometry, fullMembership: fullMembership
         )
         let span = cachedSpan > 0 ? cachedSpan : rawProjectedPrimarySpan(
-            for: column,
-            workingFrame: geometry.workingFrame,
-            gap: geometry.gaps,
-            orientation: geometry.orientation
+            of: column,
+            windows: windows,
+            geometry: geometry
         )
         return switch geometry.orientation {
-        case .horizontal: column.column.targetWidth ?? span
-        case .vertical: column.column.targetHeight ?? span
+        case .horizontal: column.targetWidth ?? span
+        case .vertical: column.targetHeight ?? span
         }
     }
 }

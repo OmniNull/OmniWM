@@ -27,7 +27,7 @@ struct Callback {
     omni_config_location declaration;
     bool event;
     bool timer;
-    uint16_t reads;
+    uint32_t reads;
 };
 
 struct ConfigVM : ModuleRuntime {
@@ -145,7 +145,7 @@ void installCommands(lua_State *L) {
 struct CallbackOptions {
     omni_config_span modeKey{};
     omni_config_span mode{};
-    uint16_t reads = 0;
+    uint32_t reads = 0;
 };
 
 constexpr std::array readNames{"workspaceWindows", "windows", "workspaces", "monitors", "placement", "focusTarget"};
@@ -155,11 +155,17 @@ constexpr std::array<uint8_t, 6> readBits{
 };
 constexpr std::string_view framesRead = "frames";
 constexpr std::string_view columnsRead = "columns";
+constexpr std::string_view detailsRead = "details";
 constexpr std::string_view dwindleRead = "dwindle";
 constexpr std::array dwindleDirections{"left", "right", "up", "down"};
 static_assert(OMNI_CONFIG_DWINDLE_DOWN == dwindleDirections.size());
 constexpr uint16_t framedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS | OMNI_CONFIG_READ_MONITORS;
 constexpr uint16_t columnedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS;
+constexpr uint32_t detailedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS;
+constexpr uint32_t detailsMask = detailedLists << OMNI_CONFIG_READ_DETAIL_SHIFT;
+static_assert(detailsMask == (OMNI_CONFIG_READ_WORKSPACE_WINDOW_DETAILS | OMNI_CONFIG_READ_WINDOW_DETAILS));
+static_assert(((OMNI_CONFIG_READ_WORKSPACES | OMNI_CONFIG_READ_MONITORS) << OMNI_CONFIG_READ_DETAIL_SHIFT) ==
+    (OMNI_CONFIG_READ_WORKSPACE_DETAILS | OMNI_CONFIG_READ_MONITOR_DETAILS));
 static_assert((framedLists << OMNI_CONFIG_READ_FRAME_SHIFT) ==
     (OMNI_CONFIG_READ_WORKSPACE_WINDOW_FRAMES | OMNI_CONFIG_READ_WINDOW_FRAMES | OMNI_CONFIG_READ_MONITOR_FRAMES));
 static_assert((columnedLists << OMNI_CONFIG_READ_COLUMN_SHIFT) ==
@@ -169,18 +175,19 @@ static_assert(((OMNI_CONFIG_READ_LISTS << OMNI_CONFIG_READ_FRAME_SHIFT) &
 static_assert(OMNI_CONFIG_READ_LISTS == (OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS |
     OMNI_CONFIG_READ_WORKSPACES | OMNI_CONFIG_READ_MONITORS | OMNI_CONFIG_READ_PLACEMENT | OMNI_CONFIG_READ_FOCUS_TARGET));
 
-uint16_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
+uint32_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
     if (!lua_istable(L, -1)) {
         reject(L, vm, site, "reads expects an array of lookup names");
     }
     const int table = lua_gettop(L);
     const int length = lua_objlen(L, table);
-    if (length > static_cast<int>(readNames.size()) + 3) {
+    if (length > static_cast<int>(readNames.size()) + 4) {
         reject(L, vm, site, "too many lookup names in reads");
     }
-    uint16_t mask = 0;
+    uint32_t mask = 0;
     bool frames = false;
     bool columns = false;
+    bool details = false;
     int count = 0;
     lua_pushnil(L);
     while (lua_next(L, table)) {
@@ -192,20 +199,22 @@ uint16_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
         const std::string_view name(word.data, word.length);
         const bool framesName = name == framesRead;
         const bool columnsName = name == columnsRead;
+        const bool detailsName = name == detailsRead;
         const bool dwindleName = name == dwindleRead;
         auto it = std::find(readNames.begin(), readNames.end(), name);
-        if (it == readNames.end() && !framesName && !columnsName && !dwindleName) {
+        if (it == readNames.end() && !framesName && !columnsName && !detailsName && !dwindleName) {
             reject(L, vm, site,
                 "unknown read; expected workspaceWindows, windows, workspaces, monitors, placement, focusTarget, dwindle, "
-                "frames or columns");
+                "frames, columns or details");
         }
-        const bool modifier = framesName || columnsName;
-        const uint16_t bit = modifier ? 0 : dwindleName ? OMNI_CONFIG_READ_DWINDLE : readBits[it - readNames.begin()];
-        if (framesName ? frames : columnsName ? columns : (mask & bit) != 0) {
+        const bool modifier = framesName || columnsName || detailsName;
+        const uint32_t bit = modifier ? 0 : dwindleName ? OMNI_CONFIG_READ_DWINDLE : readBits[it - readNames.begin()];
+        if (framesName ? frames : columnsName ? columns : detailsName ? details : (mask & bit) != 0) {
             reject(L, vm, site, "duplicate lookup name in reads");
         }
         frames |= framesName;
         columns |= columnsName;
+        details |= detailsName;
         mask |= bit;
         ++count;
         lua_pop(L, 1);
@@ -213,7 +222,7 @@ uint16_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
     if (count != length) {
         reject(L, vm, site, "reads expects consecutive array indices");
     }
-    const uint16_t lists = mask;
+    const uint32_t lists = mask;
     if (frames) {
         const uint16_t framed = lists & framedLists;
         if (!framed) {
@@ -227,6 +236,13 @@ uint16_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
             reject(L, vm, site, "columns needs workspaceWindows or windows in the same reads");
         }
         mask |= columned << OMNI_CONFIG_READ_COLUMN_SHIFT;
+    }
+    if (details) {
+        const auto detailed = lists & detailedLists;
+        if (!detailed) {
+            reject(L, vm, site, "details needs workspaceWindows or windows in the same reads");
+        }
+        mask |= detailed << OMNI_CONFIG_READ_DETAIL_SHIFT;
     }
     return mask;
 }
@@ -261,7 +277,7 @@ CallbackOptions callbackOptions(lua_State *L, ConfigVM &vm, omni_config_location
     return options;
 }
 
-uint32_t registerFunction(lua_State *L, ConfigVM &vm, omni_config_location site, uint16_t reads, bool event = false, bool timer = false) {
+uint32_t registerFunction(lua_State *L, ConfigVM &vm, omni_config_location site, uint32_t reads, bool event = false, bool timer = false) {
     if (vm.functions.size() == OMNI_CONFIG_DECLARATION_LIMIT) {
         reject(L, vm, site, "config function limit exceeded");
     }
@@ -1133,13 +1149,73 @@ struct RowLayout {
     bool pushesFrames;
     bool columned;
     bool pushesColumns;
+    bool detailed;
+    bool pushesDetails;
 };
+
+void pushNumberField(lua_State *L, const char *name, double value) {
+    lua_pushnumber(L, value);
+    lua_rawsetfield(L, -2, name);
+}
+
+void pushDetailFlag(lua_State *L, const char *name, bool value) {
+    lua_pushboolean(L, value);
+    lua_rawsetfield(L, -2, name);
+}
+
+void pushWindowDetails(lua_State *L, std::string_view &row, uint8_t flags) {
+    const auto bits = readUnsigned<uint32_t>(row);
+    int32_t pid;
+    std::memcpy(&pid, &bits, sizeof(pid));
+    pushNumberField(L, "pid", pid);
+    pushNumberField(L, "windowNumber", readUnsigned<uint32_t>(row));
+    readStringField(L, row, "app");
+    lua_pushstring(L, flags & OMNI_CONFIG_WINDOW_FLOATING ? "floating" : "tiling");
+    lua_rawsetfield(L, -2, "mode");
+    const auto detailFlags = readUnsigned<uint8_t>(row);
+    lua_pushstring(L, detailFlags & OMNI_CONFIG_DETAIL_NATIVE_FULLSCREEN ? "native-fullscreen" : "standard");
+    lua_rawsetfield(L, -2, "layoutReason");
+    if (detailFlags & (OMNI_CONFIG_DETAIL_FORCE_TILE | OMNI_CONFIG_DETAIL_FORCE_FLOAT)) {
+        lua_pushstring(L, detailFlags & OMNI_CONFIG_DETAIL_FORCE_TILE ? "force-tile" : "force-float");
+        lua_rawsetfield(L, -2, "manualOverride");
+    }
+    const char *hidden = nullptr;
+    switch (detailFlags >> OMNI_CONFIG_DETAIL_HIDDEN_SHIFT) {
+        case 0: break;
+        case OMNI_CONFIG_DETAIL_WORKSPACE_INACTIVE: hidden = "workspace-inactive"; break;
+        case OMNI_CONFIG_DETAIL_TAB_INACTIVE: hidden = "tab-inactive"; break;
+        case OMNI_CONFIG_DETAIL_LAYOUT_TRANSIENT: hidden = "layout-transient"; break;
+        case OMNI_CONFIG_DETAIL_SCRATCHPAD: hidden = "scratchpad"; break;
+        default: throw InvalidSnapshot{};
+    }
+    if (hidden) {
+        lua_pushstring(L, hidden);
+        lua_rawsetfield(L, -2, "hiddenReason");
+    }
+    pushDetailFlag(L, "visible", detailFlags & OMNI_CONFIG_DETAIL_VISIBLE);
+    pushDetailFlag(L, "appHidden", detailFlags & OMNI_CONFIG_DETAIL_APP_HIDDEN);
+    const auto slot = readUnsigned<uint32_t>(row);
+    pushDetailFlag(L, "scratchpad", slot != UINT32_MAX);
+    if (slot != UINT32_MAX) {
+        pushNumberField(L, "scratchpadSlot", slot);
+    }
+    const auto rank = readUnsigned<uint32_t>(row);
+    if (rank != UINT32_MAX) {
+        pushNumberField(L, "focusRank", rank);
+    }
+    const auto position = readUnsigned<uint32_t>(row);
+    if (position != 0) {
+        pushNumberField(L, "columnPosition", position);
+        pushNumberField(L, "columnSize", readUnsigned<uint32_t>(row));
+        pushNumberField(L, "columnSpan", readDouble(row));
+    }
+}
 
 void pushLookupRow(lua_State *L, std::string_view &rows, uint8_t kind, RowLayout layout) {
     const bool window = kind == OMNI_CONFIG_READ_WORKSPACE_WINDOWS || kind == OMNI_CONFIG_READ_WINDOWS;
     const int fields = window ? 8 + (layout.pushesFrames && layout.pushesColumns)
         : kind == OMNI_CONFIG_READ_WORKSPACES ? 3 : 2 + 2 * layout.pushesFrames;
-    lua_createtable(L, 0, fields);
+    lua_createtable(L, 0, fields + (layout.pushesDetails ? 15 : 0));
     readStringField(L, rows, "id");
     if (window) {
         readStringField(L, rows, "bundleId");
@@ -1164,6 +1240,16 @@ void pushLookupRow(lua_State *L, std::string_view &rows, uint8_t kind, RowLayout
         }
         if (layout.framed && readUnsigned<uint8_t>(rows) == OMNI_CONFIG_FRAME_PRESENT) {
             readRectField(L, rows, "frame", layout.pushesFrames);
+        }
+        if (layout.detailed) {
+            const auto length = readUnsigned<uint16_t>(rows);
+            auto detail = takeBytes(rows, length);
+            if (layout.pushesDetails && !detail.empty()) {
+                pushWindowDetails(L, detail, flags);
+                if (!detail.empty()) {
+                    throw InvalidSnapshot{};
+                }
+            }
         }
     } else {
         readStringField(L, rows, "name");
@@ -1271,13 +1357,18 @@ void pushDwindle(lua_State *L, std::string_view &rows) {
     lua_setreadonly(L, -1, true);
 }
 
-void pushLookups(lua_State *L, omni_config_span snapshot, uint16_t reads) {
+void pushLookups(lua_State *L, omni_config_span snapshot, uint32_t reads) {
     if (!snapshot.data) {
         throw InvalidSnapshot{};
     }
     const int context = lua_gettop(L);
     const auto fieldCount = __builtin_popcount(reads & (OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE));
-    lua_createtable(L, 0, fieldCount);
+    const auto requestedDetails = reads & detailsMask;
+    lua_createtable(L, 0, fieldCount + (requestedDetails != 0));
+    if (requestedDetails) {
+        lua_createtable(L, 0, __builtin_popcount(requestedDetails));
+        lua_rawsetfield(L, -2, detailsRead.data());
+    }
     std::string_view input(snapshot.data, snapshot.length);
     while (!input.empty()) {
         const auto kind = readUnsigned<uint8_t>(input);
@@ -1317,14 +1408,22 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint16_t reads) {
             .pushesFrames = (kind & framedLists) && (reads & (kind << OMNI_CONFIG_READ_FRAME_SHIFT)),
             .columned = (flags & OMNI_CONFIG_SECTION_COLUMNS) != 0,
             .pushesColumns = (kind & columnedLists) && (reads & (kind << OMNI_CONFIG_READ_COLUMN_SHIFT)),
+            .detailed = (flags & OMNI_CONFIG_SECTION_DETAILS) != 0,
+            .pushesDetails = (kind & detailedLists) && (requestedDetails & (kind << OMNI_CONFIG_READ_DETAIL_SHIFT)),
         };
         if ((layout.pushesFrames && !layout.framed) || (layout.pushesColumns && !layout.columned) ||
-            (layout.columned && !(kind & columnedLists))) {
+            (layout.columned && !(kind & columnedLists)) || (layout.pushesDetails && !layout.detailed) ||
+            (layout.detailed && !(kind & detailedLists))) {
             throw InvalidSnapshot{};
         }
         const auto name = readNames[bit - readBits.begin()];
         lua_pushboolean(L, flags & OMNI_CONFIG_SECTION_TRUNCATED);
         lua_rawsetfield(L, -2, name);
+        if (layout.pushesDetails) {
+            lua_rawgetfield(L, -1, detailsRead.data());
+            pushDetailFlag(L, name, flags & OMNI_CONFIG_SECTION_DETAILS_TRUNCATED);
+            lua_pop(L, 1);
+        }
         if (kind == OMNI_CONFIG_READ_PLACEMENT || kind == OMNI_CONFIG_READ_FOCUS_TARGET) {
             if (count > 1) {
                 throw InvalidSnapshot{};
@@ -1353,11 +1452,16 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint16_t reads) {
     if (reads & (OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE)) {
         throw InvalidSnapshot{};
     }
+    if (requestedDetails) {
+        lua_rawgetfield(L, -1, detailsRead.data());
+        lua_setreadonly(L, -1, true);
+        lua_pop(L, 1);
+    }
     lua_setreadonly(L, -1, true);
     lua_rawsetfield(L, context, "truncated");
 }
 
-void pushContext(lua_State *L, const omni_config_trigger &trigger, bool event, uint16_t reads) {
+void pushContext(lua_State *L, const omni_config_trigger &trigger, bool event, uint32_t reads) {
     const auto *edge = trigger.edge;
     const char *flag = nullptr;
     int capacity = event ? (trigger.id.data != nullptr) + (trigger.name.data != nullptr)
