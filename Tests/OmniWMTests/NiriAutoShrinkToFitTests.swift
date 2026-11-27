@@ -14,13 +14,14 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
 
     func testAWideMinimumMakesTheOthersGiveWay() throws {
         let fixture = try makeEvenFixture(windowCount: 4, visibleContainerCount: 4)
-        setMinimumWidth(900, for: fixture.tokens[3], fixture: fixture)
+        let minimum: CGFloat = 900
+        setMinimumWidth(minimum, for: fixture.tokens[3], fixture: fixture)
         fixture.controller.settings.niri.shrinkToFit = true
         fixture.controller.updateNiriConfig(shrinkToFit: true)
 
         let frames = try settledFrames(fixture)
 
-        XCTAssertGreaterThanOrEqual(frames.map(\.width).max() ?? 0, 900)
+        XCTAssertGreaterThanOrEqual(frames.map(\.width).max() ?? 0, minimum)
         XCTAssertEqual(frames[0].minX, sidePadding, accuracy: try pixel(fixture))
         XCTAssertEqual(frames[3].maxX, monitorFrame.width - sidePadding, accuracy: try pixel(fixture))
     }
@@ -49,14 +50,15 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         fixture.controller.updateNiriConfig(shrinkToFit: true)
         _ = try settledFrames(fixture)
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        learnMinimumWidth(900, for: fixture.tokens[2], fixture: fixture)
+        let minimum: CGFloat = 900
+        learnMinimumWidth(minimum, for: fixture.tokens[2], fixture: fixture)
 
         fixture.controller.niriLayoutHandler.withNiriWorkspaceContext {
             engine, workspaceId, _, state, _, workingFrame, gaps, orientation in
             engine.updateWindowConstraints(
                 for: fixture.tokens[2],
                 constraints: WindowSizeConstraints(
-                    minSize: CGSize(width: 900, height: 1),
+                    minSize: CGSize(width: minimum, height: 1),
                     maxSize: .zero,
                     isFixed: false
                 ),
@@ -72,6 +74,7 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
                     gaps: gaps,
                     orientation: orientation
                 ),
+                projection: engine.projectedColumns(in: workspaceId).span,
                 state: &state
             )
             state.clearOffsetTransition()
@@ -80,7 +83,7 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
 
         let frames = try settledFrames(fixture)
         let pixel = try pixel(fixture)
-        XCTAssertGreaterThanOrEqual(frames.map(\.width).max() ?? 0, 900)
+        XCTAssertGreaterThanOrEqual(frames.map(\.width).max() ?? 0, minimum)
         XCTAssertEqual(frames[0].minX, sidePadding, accuracy: pixel)
         XCTAssertEqual(frames[2].maxX, monitorFrame.width - sidePadding, accuracy: pixel)
     }
@@ -103,11 +106,12 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
             originalViewOffset: nil
         )
 
-        learnMinimumWidth(900, for: fixture.tokens[2], fixture: fixture)
+        let minimum: CGFloat = 900
+        learnMinimumWidth(minimum, for: fixture.tokens[2], fixture: fixture)
 
         let frames = try settledFrames(fixture)
         let pixel = try pixel(fixture)
-        XCTAssertGreaterThanOrEqual(frames.map(\.width).max() ?? 0, 900)
+        XCTAssertGreaterThanOrEqual(frames.map(\.width).max() ?? 0, minimum)
         XCTAssertEqual(frames[0].minX, sidePadding, accuracy: pixel)
         XCTAssertEqual(frames[2].maxX, monitorFrame.width - sidePadding, accuracy: pixel)
     }
@@ -143,19 +147,12 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         let closing = try XCTUnwrap(engine.columns(in: fixture.workspaceId)[2].windowNodes.first).token
 
         _ = fixture.controller.workspaceManager.removeWindow(pid: closing.pid, windowId: closing.windowId)
-        for _ in 0 ..< 3 {
-            _ = fixture.controller.workspaceManager.withBatchedLayoutBuild {
-                fixture.controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [fixture.workspaceId])
-            }
-            _ = engine.tickAllColumnAnimations(in: fixture.workspaceId, at: .infinity)
-            _ = fixture.controller.workspaceManager.animationDriver.tick(in: fixture.workspaceId, at: .infinity)
-            fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspaceId) {
-                $0.clearOffsetTransition()
-            }
-        }
+        _ = try relayout(fixture)
+        try completeMotion(fixture)
+        _ = try relayout(fixture)
 
         let remaining = engine.columns(in: fixture.workspaceId)
-        XCTAssertEqual(remaining.count, 2)
+        XCTAssertEqual(remaining.count, fixture.tokens.count - 1)
         let frames = try remaining.map { try XCTUnwrap($0.windowNodes.first?.renderedFrame) }
         let pixel = try pixel(fixture)
         XCTAssertEqual(frames[0].minX, sidePadding, accuracy: pixel, "\(frames)")
@@ -177,16 +174,9 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
             windowId: 899,
             to: fixture.workspaceId
         )
-        for _ in 0 ..< 3 {
-            _ = fixture.controller.workspaceManager.withBatchedLayoutBuild {
-                fixture.controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [fixture.workspaceId])
-            }
-            _ = engine.tickAllColumnAnimations(in: fixture.workspaceId, at: .infinity)
-            _ = fixture.controller.workspaceManager.animationDriver.tick(in: fixture.workspaceId, at: .infinity)
-            fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspaceId) {
-                $0.clearOffsetTransition()
-            }
-        }
+        _ = try relayout(fixture)
+        try completeMotion(fixture)
+        _ = try relayout(fixture)
 
         let frames = try engine.columns(in: fixture.workspaceId).map {
             try XCTUnwrap($0.windowNodes.first?.renderedFrame)
@@ -206,7 +196,7 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         let handler = fixture.controller.niriLayoutHandler
         XCTAssertTrue(handler.consumeWindowIntoColumn(containing: fixture.handles[0]).didMutate)
         _ = try settledFrames(fixture)
-        XCTAssertEqual(engine.columns(in: fixture.workspaceId).count, 1)
+        XCTAssertEqual(engine.columns(in: fixture.workspaceId).count, fixture.tokens.count - 1)
         XCTAssertTrue(handler.setContainerPrimarySpan(.setProportion(75), target: .window(fixture.handles[0])))
         _ = try settledFrames(fixture)
 
@@ -214,12 +204,12 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
 
         _ = try settledFrames(fixture)
         let columns = engine.columns(in: fixture.workspaceId)
-        XCTAssertEqual(columns.count, 2)
+        XCTAssertEqual(columns.count, fixture.tokens.count)
         let monitor = try XCTUnwrap(fixture.controller.workspaceManager.monitor(for: fixture.workspaceId))
         let geometry = fixture.controller.niriInteractionGeometry(for: monitor)
         XCTAssertEqual(
             columns.map(\.settledWidth).reduce(0, +),
-            geometry.workingFrame.width - 3 * geometry.innerGap,
+            geometry.workingFrame.width - CGFloat(fixture.tokens.count + 1) * geometry.innerGap,
             accuracy: try pixel(fixture)
         )
     }
@@ -230,7 +220,8 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
 
         let frames = try settledFrames(fixture)
 
-        XCTAssertGreaterThan(frames[3].maxX, monitorFrame.width - sidePadding + 100)
+        let minimumOverflow: CGFloat = 100
+        XCTAssertGreaterThan(frames[3].maxX, monitorFrame.width - sidePadding + minimumOverflow)
     }
 
     func testColumnsThatCannotFitMoveOutOfView() throws {
@@ -700,16 +691,19 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         return fixture
     }
 
-    private func settledFrames(_ fixture: Fixture) throws -> [CGRect] {
+    private func completeMotion(_ fixture: Fixture) throws {
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
-        for _ in 0 ..< 2 {
-            _ = engine.tickAllColumnAnimations(in: fixture.workspaceId, at: .infinity)
-            _ = fixture.controller.workspaceManager.animationDriver.tick(in: fixture.workspaceId, at: .infinity)
-            fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspaceId) { state in
-                state.clearOffsetTransition()
-            }
-            _ = try layoutFrames(fixture)
+        _ = engine.tickAllColumnAnimations(in: fixture.workspaceId, at: .infinity)
+        _ = fixture.controller.workspaceManager.animationDriver.tick(in: fixture.workspaceId, at: .infinity)
+        fixture.controller.workspaceManager.withNiriViewportState(for: fixture.workspaceId) {
+            $0.clearOffsetTransition()
         }
+    }
+
+    private func settledFrames(_ fixture: Fixture) throws -> [CGRect] {
+        try completeMotion(fixture)
+        _ = try layoutFrames(fixture)
+        try completeMotion(fixture)
         return try layoutFrames(fixture).sorted { $0.minX < $1.minX }
     }
 
@@ -723,11 +717,15 @@ final class NiriAutoShrinkToFitTests: XCTestCase {
         fixture.controller.rebalanceNiriSizesForVisibleContainerCountChange()
     }
 
-    private func layoutFrames(_ fixture: Fixture) throws -> [CGRect] {
+    private func relayout(_ fixture: Fixture) throws -> WorkspaceLayoutPlan {
         let plans = fixture.controller.workspaceManager.withBatchedLayoutBuild {
             fixture.controller.niriLayoutHandler.layoutWithNiriEngine(activeWorkspaces: [fixture.workspaceId])
         }
-        let plan = try XCTUnwrap(plans.first { $0.workspaceId == fixture.workspaceId })
+        return try XCTUnwrap(plans.first { $0.workspaceId == fixture.workspaceId })
+    }
+
+    private func layoutFrames(_ fixture: Fixture) throws -> [CGRect] {
+        let plan = try relayout(fixture)
         let engine = try XCTUnwrap(fixture.controller.niriEngine)
         return try fixture.tokens.map { token in
             if let frame = plan.diff.frameChanges.first(where: { $0.token == token })?.frame {

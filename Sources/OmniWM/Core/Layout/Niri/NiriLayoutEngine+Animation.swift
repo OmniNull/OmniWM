@@ -274,7 +274,8 @@ extension NiriLayoutEngine {
         isSettled: Bool = false,
         excludedTokens: Set<WindowToken>? = nil,
         edgePictures: NiriEdgePictureState = .none,
-        recordsPresentationGeometry: Bool = false
+        recordsPresentationGeometry: Bool = false,
+        projection: consuming [NiriProjectedColumn]? = nil
     ) -> (frames: [WindowToken: CGRect], hiddenHandles: [WindowToken: HideSide]) {
         layoutPool.frames.removeAll(keepingCapacity: true)
         layoutPool.hiddenHandles.removeAll(keepingCapacity: true)
@@ -302,7 +303,8 @@ extension NiriLayoutEngine {
             settledVisibilityOffset: settledVisibilityOffset,
             isSettled: isSettled,
             excludedTokens: excludedTokens, edgePictures: edgePictures,
-            recordsPresentationGeometry: recordsPresentationGeometry
+            recordsPresentationGeometry: recordsPresentationGeometry,
+            projection: consume projection
         )
 
         return (layoutPool.frames, layoutPool.hiddenHandles)

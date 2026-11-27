@@ -153,10 +153,11 @@ final class NiriShrinkToFitTests: XCTestCase {
         let neighbour = fixture.columns[1]
         let spec = neighbour.width
 
-        fixture.controller.setGapSize(2 * gap, publishChange: false)
+        let changedGap = 2 * gap
+        fixture.controller.setGapSize(changedGap, publishChange: false)
         fixture.settle()
 
-        XCTAssertEqual(fixture.gap, 2 * gap)
+        XCTAssertEqual(fixture.gap, changedGap)
         XCTAssertEqual(neighbour.width, spec)
         let frames = try fixture.frames()
         let pixel = 1 / fixture.scale

@@ -9,37 +9,35 @@ extension NiriLayoutEngine {
         ensureState(for: workspaceId).autoFitRequested = true
     }
 
-    func autoFitIfRequested(context: NiriInteractionContext, state: inout ViewportState) {
+    func autoFitIfRequested(
+        context: NiriInteractionContext, projection: borrowing Span<NiriProjectedColumn>, state: inout ViewportState
+    ) {
         assertSanctionedMutation()
-        let workspace = ensureState(for: context.workspaceId)
-        let columns = projectedColumns(in: context.workspaceId)
-        let basis = autoFitBasis(columnCount: columns.count { !$0.windows.isEmpty }, context: context)
-        let basisChanged = workspace.autoFitBasis.map { $0 != basis } ?? false
-        if workspace.autoFitBasis != basis {
-            workspace.autoFitBasis = basis
-            workspace.autoFitRequested = true
-        }
-        guard workspace.autoFitRequested, !autoFitPaused(in: context.workspaceId, state: state) else { return }
-        workspace.autoFitRequested = false
+        let paused = interactiveResize?.workspaceId == context.workspaceId
+            || state.preservesGestureOffset || state.offsetTransition.kind == .deceleration
+        var columnCount = 0
+        for index in projection.indices where !projection[index].windows.isEmpty { columnCount += 1 }
+        guard let request = pendingAutoFit(context: context, columnCount: columnCount, paused: paused) else { return }
 
-        let projected = columns.filter { !$0.windows.isEmpty }
-        guard !projected.isEmpty else { return }
+        guard columnCount > 0 else { return }
+        let projected = Self.admittedFitColumns(projection, count: columnCount)
         let active = projected[projectedActiveColumnIndex(state: state, columns: projected, in: context.workspaceId)]
         guard let focusIndex = projected.firstIndex(where: { $0.column === active.column }),
               let run = autoFitRun(
                   projected,
                   focusIndex: focusIndex,
-                  visibleCount: basis.visibleCount,
+                  visibleCount: request.visibleCount,
                   context: context,
                   state: state
               ),
               !run.contains(where: { isFullSpan($0.column, context: context) })
         else { return }
 
-        let excess = autoFitExcess(run, usingFittedSpans: !basisChanged, context: context)
+        let excess = autoFitExcess(run, usingFittedSpans: !request.basisChanged, context: context)
         let tolerance = 1 / displayScale(in: context.workspaceId)
-        let fullRun = run.count == min(basis.visibleCount, projected.count)
+        let fullRun = run.count == min(request.visibleCount, projected.count)
         if excess > tolerance || (!fullRun && abs(excess) > tolerance) {
+            let workspace = ensureState(for: context.workspaceId)
             switch context.orientation {
             case .horizontal: workspace.manualWidthColumnCount = projected.count
             case .vertical: workspace.manualHeightColumnCount = projected.count
@@ -58,22 +56,83 @@ extension NiriLayoutEngine {
         }
     }
 
-    private func autoFitBasis(columnCount: Int, context: NiriInteractionContext) -> NiriAutoFitBasis {
-        NiriAutoFitBasis(
+    private static func admittedFitColumns(
+        _ projection: borrowing Span<NiriProjectedColumn>, count: Int
+    ) -> [NiriProjectedColumn] {
+        var columns: [NiriProjectedColumn] = []
+        columns.reserveCapacity(count)
+        for index in projection.indices where !projection[index].windows.isEmpty {
+            columns.append(projection[index])
+        }
+        return columns
+    }
+
+    private func pendingAutoFit(
+        context: NiriInteractionContext, columnCount: Int, paused: Bool
+    ) -> (basisChanged: Bool, visibleCount: Int)? {
+        let workspaceId = context.workspaceId
+        if states[workspaceId] == nil { _ = ensureState(for: workspaceId) }
+        let input = AutoFitInput(
+            workspaceId: workspaceId,
             geometry: NiriShrinkToFitGeometry(
-                context.workingFrame,
-                gaps: context.gaps,
-                orientation: context.orientation
+                context.workingFrame, gaps: context.gaps, orientation: context.orientation
             ),
-            visibleCount: effectiveVisibleContainerCount(in: context.workspaceId),
-            columnCount: columnCount
+            defaultVisibleCount: visibleContainerCount,
+            columnCount: columnCount,
+            paused: paused
+        )
+        return Self.takeAutoFitRequest(in: &states, monitors: &monitors, input: input)
+    }
+
+    private struct AutoFitInput {
+        let workspaceId: WorkspaceDescriptor.ID
+        let geometry: NiriShrinkToFitGeometry
+        let defaultVisibleCount: Int
+        let columnCount: Int
+        let paused: Bool
+    }
+
+    private static func takeAutoFitRequest(
+        in states: inout [WorkspaceDescriptor.ID: NiriWorkspaceState],
+        monitors: inout [Monitor.ID: NiriMonitor],
+        input: AutoFitInput
+    ) -> (basisChanged: Bool, visibleCount: Int)? {
+        guard let workspaceIndex = states.index(forKey: input.workspaceId) else { return nil }
+        return takeAutoFitRequest(
+            workspace: &states.values[workspaceIndex], monitors: &monitors, input: input
         )
     }
 
-    private func autoFitPaused(in workspaceId: WorkspaceDescriptor.ID, state: ViewportState) -> Bool {
-        interactiveResize?.workspaceId == workspaceId
-            || state.preservesGestureOffset
-            || state.offsetTransition.kind == .deceleration
+    private static func takeAutoFitRequest(
+        workspace: inout NiriWorkspaceState,
+        monitors: inout [Monitor.ID: NiriMonitor],
+        input: AutoFitInput
+    ) -> (basisChanged: Bool, visibleCount: Int)? {
+        let visibleCount = if let monitorId = workspace.attachedMonitorId,
+                              let monitorIndex = monitors.index(forKey: monitorId)
+        {
+            autoFitVisibleCount(on: &monitors.values[monitorIndex], input: input)
+        } else {
+            input.defaultVisibleCount
+        }
+        let basis = NiriAutoFitBasis(
+            geometry: input.geometry,
+            visibleCount: visibleCount,
+            columnCount: input.columnCount
+        )
+        let basisChanged = workspace.autoFitBasis.map { $0 != basis } ?? false
+        if workspace.autoFitBasis != basis {
+            workspace.autoFitBasis = basis
+            workspace.autoFitRequested = true
+        }
+        guard workspace.autoFitRequested, !input.paused else { return nil }
+        workspace.autoFitRequested = false
+        return (basisChanged, visibleCount)
+    }
+
+    private static func autoFitVisibleCount(on monitor: inout NiriMonitor, input: AutoFitInput) -> Int {
+        guard monitor.containsWorkspace(input.workspaceId) else { return input.defaultVisibleCount }
+        return monitor.resolvedSettings?.visibleContainerCount ?? input.defaultVisibleCount
     }
 
     private func autoFitRun(

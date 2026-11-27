@@ -21,7 +21,8 @@ extension NiriLayoutHandler {
         state: ViewportState,
         selection: (viewportNeedsRecalc: Bool, rememberedFocusToken: WindowToken?),
         arrival: ArrivalContext,
-        snapshot: NiriWorkspaceSnapshot
+        snapshot: NiriWorkspaceSnapshot,
+        firstProjection: consuming [NiriProjectedColumn]? = nil
     ) -> WorkspaceLayoutPlan {
         let rememberedFocusToken = arrival.rememberedFocusToken ?? selection.rememberedFocusToken
         let isSettled = !(pass.motion.animationsEnabled && snapshot.removalSeed?.oldFrames.isEmpty == false)
@@ -34,7 +35,7 @@ extension NiriLayoutHandler {
                 )
             } == true
         var (frames, hiddenHandles) = calculateRelayoutFrames(
-            pass: pass, state: state, snapshot: snapshot, isSettled: isSettled
+            pass: pass, state: state, snapshot: snapshot, isSettled: isSettled, projection: consume firstProjection
         )
 
         var directives = relayoutAnimationDirectives(
@@ -276,7 +277,8 @@ extension NiriLayoutHandler {
         state: ViewportState,
         snapshot: NiriWorkspaceSnapshot,
         isSettled: Bool,
-        animationTime: TimeInterval? = nil
+        animationTime: TimeInterval? = nil,
+        projection: consuming [NiriProjectedColumn]? = nil
     ) -> (frames: [WindowToken: CGRect], hiddenHandles: [WindowToken: HideSide]) {
         let gaps = LayoutGaps(
             horizontal: pass.gap,
@@ -308,7 +310,8 @@ extension NiriLayoutHandler {
             },
             isSettled: isSettled,
             excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures,
-            recordsPresentationGeometry: true
+            recordsPresentationGeometry: true,
+            projection: consume projection
         )
     }
 

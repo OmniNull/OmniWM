@@ -221,21 +221,29 @@ extension NiriLayoutHandler {
             snapshot: snapshot
         )
 
-        if pass.engine.shrinkToFit {
-            pass.engine.autoFitIfRequested(context: pass.interactionContext, state: &state)
-        }
+        let projection = prepareRelayoutProjection(pass: pass, state: &state)
 
         var plan = computeLayoutPlan(
             pass: pass,
             state: state,
             selection: selection,
             arrival: arrival,
-            snapshot: snapshot
+            snapshot: snapshot,
+            firstProjection: consume projection
         )
         plan.niriRestorePlacements = pass.engine.persistedPlacements(in: pass.wsId)
         plan.quietArrivalTokens = snapshot.quietArrivalTokens
 
         return plan
+    }
+
+    private func prepareRelayoutProjection(
+        pass: borrowing NiriLayoutPass, state: inout ViewportState
+    ) -> [NiriProjectedColumn]? {
+        guard pass.engine.shrinkToFit else { return nil }
+        let columns = pass.engine.projectedColumns(in: pass.wsId)
+        pass.engine.autoFitIfRequested(context: pass.interactionContext, projection: columns.span, state: &state)
+        return columns
     }
 
     private func restoreInitialNiriPlacementsIfNeeded(

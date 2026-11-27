@@ -104,12 +104,13 @@ extension NiriLayoutEngine {
         isSettled: Bool = false,
         excludedTokens: Set<WindowToken>? = nil,
         edgePictures: NiriEdgePictureState = .none,
-        recordsPresentationGeometry: Bool = false
+        recordsPresentationGeometry: Bool = false,
+        projection: consuming [NiriProjectedColumn]? = nil
     ) {
         result.edgeHiddenFrames.removeAll(keepingCapacity: true)
         if let excludedTokens { setProjectionExclusions(excludedTokens, in: workspaceId) }
         let excludedTokens = projectionExclusions(in: workspaceId)
-        let projectedColumns = projectedColumns(in: workspaceId)
+        let projectedColumns = (consume projection) ?? projectedColumns(in: workspaceId)
         guard !projectedColumns.isEmpty else {
             if recordsPresentationGeometry {
                 for column in columns(in: workspaceId) { column.edgeHiddenFrame = nil }
