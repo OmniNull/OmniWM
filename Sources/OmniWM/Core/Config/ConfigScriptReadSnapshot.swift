@@ -52,7 +52,7 @@ struct ConfigScriptSnapshotPool {
         let sections = reads.intersection(.sections).rawValue.nonzeroBitCount
         let limit = sections * ConfigScriptSnapshot.byteLimit + reads.frameByteLimit + reads.columnByteLimit + reads
             .detailByteLimit
-        var output = ConfigScriptSnapshotWriter(limit: limit)
+        var output = ConfigScriptSnapshotWriter(reserving: limit)
         swap(&slots[index].storage, &output.bytes)
         output.bytes.removeAll(keepingCapacity: true)
         let capacity = capacityHints[reads.rawValue] ?? 0
@@ -129,7 +129,7 @@ extension WMController {
         appendScriptWorkspacesAndMonitors(
             reads: reads, session: session, resolution: resolution, to: &output, scratch: &scratch
         )
-        appendScriptRecords(reads: reads, origin: origin, resolution: resolution, to: &output)
+        appendScriptRecords(reads: reads, origin: origin, resolution: resolution, to: &output, apps: &scratch.apps)
         #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
             ConfigScriptSnapshot.captures += 1
         #endif
@@ -276,7 +276,7 @@ extension WMController {
     private func appendScriptRecords(
         reads: ConfigScriptReads, origin: ScriptReadOrigin,
         resolution: @autoclosure () -> WorkspaceManager.MonitorResolutionContext,
-        to output: inout ConfigScriptSnapshotWriter
+        to output: inout ConfigScriptSnapshotWriter, apps: inout TrackedAppGroups
     ) {
         if reads.contains(.marks) {
             output.start(tag: UInt8(OMNI_CONFIG_SECTION_MARKS))
@@ -303,6 +303,16 @@ extension WMController {
                     ? OMNI_CONFIG_FOCUS_TARGET_NATIVE_FULLSCREEN : 0
                 _ = output.row { $0.windowID(target, session: origin.session) && $0.flag(UInt8(flags)) }
             }
+            finishScriptList(&output)
+        }
+        if reads.contains(.apps) {
+            output.start(tag: UInt8(OMNI_CONFIG_SECTION_APPS))
+            appendScriptApps(to: &output, scratch: &apps)
+            finishScriptList(&output)
+        }
+        if reads.contains(.rules) {
+            output.start(tag: UInt8(OMNI_CONFIG_SECTION_RULES))
+            appendScriptRules(to: &output)
             finishScriptList(&output)
         }
     }

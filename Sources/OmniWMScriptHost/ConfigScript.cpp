@@ -11,6 +11,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <string_view>
+#include <utility>
 
 namespace {
 
@@ -150,18 +151,23 @@ struct CallbackOptions {
 
 constexpr std::string_view dwindleRead = "dwindle";
 constexpr std::string_view marksRead = "marks";
+constexpr std::string_view appsRead = "apps";
+constexpr std::string_view rulesRead = "rules";
 constexpr std::array readNames{
-    "workspaceWindows", "windows", "workspaces", "monitors", "placement", "focusTarget", dwindleRead.data(), marksRead.data()
+    "workspaceWindows", "windows", "workspaces", "monitors", "placement", "focusTarget", dwindleRead.data(),
+    marksRead.data(), appsRead.data(), rulesRead.data()
 };
 constexpr std::array readBits{
     OMNI_CONFIG_READ_WORKSPACE_WINDOWS, OMNI_CONFIG_READ_WINDOWS, OMNI_CONFIG_READ_WORKSPACES, OMNI_CONFIG_READ_MONITORS,
-    OMNI_CONFIG_READ_PLACEMENT, OMNI_CONFIG_READ_FOCUS_TARGET, OMNI_CONFIG_READ_DWINDLE, OMNI_CONFIG_READ_MARKS
+    OMNI_CONFIG_READ_PLACEMENT, OMNI_CONFIG_READ_FOCUS_TARGET, OMNI_CONFIG_READ_DWINDLE, OMNI_CONFIG_READ_MARKS,
+    OMNI_CONFIG_READ_APPS, OMNI_CONFIG_READ_RULES
 };
 static_assert(readNames.size() == readBits.size());
 constexpr std::string_view framesRead = "frames";
 constexpr std::string_view columnsRead = "columns";
 constexpr std::string_view detailsRead = "details";
-constexpr uint32_t snapshotSections = OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE | OMNI_CONFIG_READ_MARKS;
+constexpr uint32_t snapshotSections = OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE |
+    OMNI_CONFIG_READ_MARKS | OMNI_CONFIG_READ_APPS | OMNI_CONFIG_READ_RULES;
 constexpr std::array dwindleDirections{"left", "right", "up", "down"};
 static_assert(OMNI_CONFIG_DWINDLE_DOWN == dwindleDirections.size());
 constexpr uint16_t framedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS | OMNI_CONFIG_READ_MONITORS;
@@ -210,7 +216,7 @@ uint32_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
         if (it == readNames.end() && !modifier) {
             reject(L, vm, site,
                 "unknown read; expected workspaceWindows, windows, workspaces, monitors, placement, focusTarget, dwindle, "
-                "marks, frames, columns or details");
+                "marks, apps, rules, frames, columns or details");
         }
         const uint32_t bit = modifier ? 0 : readBits[it - readNames.begin()];
         if (framesName ? frames : columnsName ? columns : detailsName ? details : (mask & bit) != 0) {
@@ -1494,19 +1500,97 @@ void pushDwindle(lua_State *L, std::string_view &rows) {
     lua_setreadonly(L, -1, true);
 }
 
-void pushMarks(lua_State *L, std::string_view &rows, uint16_t count) {
+void pushMarkRow(lua_State *L, std::string_view &row) {
     constexpr std::array fields{"name", "id", "workspaceId", "workspace", "appName", "bundleId", "title"};
+    lua_createtable(L, 0, fields.size());
+    for (const auto *field : fields) {
+        readStringField(L, row, field);
+    }
+}
+
+void pushAppRow(lua_State *L, std::string_view &row) {
+    lua_createtable(L, 0, 4);
+    readStringField(L, row, "bundleId");
+    readStringField(L, row, "name");
+    const auto hasSize = readUnsigned<uint8_t>(row);
+    if (hasSize > 1) {
+        throw InvalidSnapshot{};
+    }
+    if (hasSize) {
+        pushNumberField(L, "windowWidth", readDouble(row));
+        pushNumberField(L, "windowHeight", readDouble(row));
+    }
+}
+
+void pushRuleRow(lua_State *L, std::string_view &row) {
+    constexpr std::array strings{
+        "bundleId", "appNameSubstring", "titleSubstring", "titleRegex", "axRole", "axSubrole", "layout", "assignToWorkspace"
+    };
+    constexpr std::array numbers{
+        std::pair{OMNI_CONFIG_RULE_INITIAL_SPAN, "initialContainerPrimarySpan"},
+        std::pair{OMNI_CONFIG_RULE_MIN_WIDTH, "minWidth"},
+        std::pair{OMNI_CONFIG_RULE_MIN_HEIGHT, "minHeight"},
+        std::pair{OMNI_CONFIG_RULE_SCRATCHPAD, "scratchpad"}
+    };
+    constexpr auto validFlags = OMNI_CONFIG_RULE_ASSIGN_ALL_PRESENT | OMNI_CONFIG_RULE_ASSIGN_ALL |
+        OMNI_CONFIG_RULE_INITIAL_SPAN | OMNI_CONFIG_RULE_MIN_WIDTH | OMNI_CONFIG_RULE_MIN_HEIGHT |
+        OMNI_CONFIG_RULE_SCRATCHPAD | OMNI_CONFIG_RULE_VALID;
+    lua_createtable(L, 0, 19);
+    readStringField(L, row, "id");
+    pushNumberField(L, "position", readUnsigned<uint16_t>(row));
+    for (const auto *field : strings) {
+        readStringField(L, row, field);
+    }
+    const auto flags = readUnsigned<uint8_t>(row);
+    if ((flags & ~validFlags) || ((flags & OMNI_CONFIG_RULE_ASSIGN_ALL) && !(flags & OMNI_CONFIG_RULE_ASSIGN_ALL_PRESENT))) {
+        throw InvalidSnapshot{};
+    }
+    if (flags & OMNI_CONFIG_RULE_ASSIGN_ALL_PRESENT) {
+        pushDetailFlag(L, "assignToWorkspaceForAllWindows", flags & OMNI_CONFIG_RULE_ASSIGN_ALL);
+    }
+    for (const auto &[bit, name] : numbers) {
+        if (flags & bit) {
+            pushNumberField(L, name, readDouble(row));
+        }
+    }
+    pushNumberField(L, "specificity", readUnsigned<uint8_t>(row));
+    pushDetailFlag(L, "isValid", flags & OMNI_CONFIG_RULE_VALID);
+    readStringField(L, row, "invalidRegexMessage");
+    const auto count = readUnsigned<uint8_t>(row);
+    lua_createtable(L, count, 0);
+    for (int index = 1; index <= count; ++index) {
+        const auto message = takeBytes(row, readUnsigned<uint32_t>(row));
+        lua_pushlstring(L, message.data(), message.size());
+        lua_rawseti(L, -2, index);
+    }
+    lua_setreadonly(L, -1, true);
+    lua_rawsetfield(L, -2, "validationMessages");
+}
+
+template <auto PushRow>
+void pushWholeList(lua_State *L, std::string_view &rows, uint16_t count) {
     lua_createtable(L, count, 0);
     for (int row = 1; row <= count; ++row) {
-        lua_createtable(L, 0, fields.size());
-        for (const auto *field : fields) {
-            readStringField(L, rows, field);
-        }
+        PushRow(L, rows);
         lua_setreadonly(L, -1, true);
         lua_rawseti(L, -2, row);
     }
     lua_setreadonly(L, -1, true);
 }
+
+struct WholeList {
+    uint32_t bit;
+    std::string_view name;
+    void (*push)(lua_State *, std::string_view &, uint16_t);
+};
+
+constexpr std::array wholeLists{
+    WholeList{OMNI_CONFIG_READ_MARKS, marksRead, pushWholeList<pushMarkRow>},
+    WholeList{OMNI_CONFIG_READ_APPS, appsRead, pushWholeList<pushAppRow>},
+    WholeList{OMNI_CONFIG_READ_RULES, rulesRead, pushWholeList<pushRuleRow>}
+};
+static_assert(OMNI_CONFIG_SECTION_APPS == OMNI_CONFIG_SECTION_MARKS + 1 &&
+    OMNI_CONFIG_SECTION_RULES == OMNI_CONFIG_SECTION_MARKS + 2);
 
 void pushLookups(lua_State *L, omni_config_span snapshot, uint32_t reads) {
     if (!snapshot.data) {
@@ -1546,18 +1630,19 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint32_t reads) {
             }
             continue;
         }
-        if (kind == OMNI_CONFIG_SECTION_MARKS) {
-            if (!(reads & OMNI_CONFIG_READ_MARKS)) {
+        if (kind >= OMNI_CONFIG_SECTION_MARKS && kind < OMNI_CONFIG_SECTION_MARKS + wholeLists.size()) {
+            const auto &list = wholeLists[kind - OMNI_CONFIG_SECTION_MARKS];
+            if (!(reads & list.bit)) {
                 continue;
             }
-            reads &= ~OMNI_CONFIG_READ_MARKS;
+            reads &= ~list.bit;
             if (flags & ~OMNI_CONFIG_SECTION_TRUNCATED) {
                 throw InvalidSnapshot{};
             }
             lua_pushboolean(L, flags & OMNI_CONFIG_SECTION_TRUNCATED);
-            lua_rawsetfield(L, -2, marksRead.data());
-            pushMarks(L, rows, count);
-            lua_rawsetfield(L, context, marksRead.data());
+            lua_rawsetfield(L, -2, list.name.data());
+            list.push(L, rows, count);
+            lua_rawsetfield(L, context, list.name.data());
             if (!rows.empty()) {
                 throw InvalidSnapshot{};
             }

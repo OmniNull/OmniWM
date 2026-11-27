@@ -4,6 +4,17 @@
 import Foundation
 import OmniWMIPC
 
+struct SavedAppRuleReport {
+    let rule: AppRule
+    let specificity: Int
+    let invalidRegexMessage: String?
+    let validationMessages: [String]
+
+    var isValid: Bool {
+        validationMessages.isEmpty
+    }
+}
+
 extension AppRule {
     init(definition: IPCRuleDefinition, id: UUID = UUID()) {
         let normalized = definition.normalized
@@ -25,6 +36,67 @@ extension AppRule {
         )
     }
 
+    var normalizedForReporting: AppRule {
+        var rule = self
+        rule.bundleId = bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
+        rule.appNameSubstring = trimmedRuleText(appNameSubstring)
+        rule.titleSubstring = trimmedRuleText(titleSubstring)
+        rule.titleRegex = trimmedRuleText(titleRegex)
+        rule.axRole = trimmedRuleText(axRole)
+        rule.axSubrole = trimmedRuleText(axSubrole)
+        rule.assignToWorkspace = trimmedRuleText(assignToWorkspace)
+        return rule
+    }
+
+    var ipcDefinition: IPCRuleDefinition {
+        IPCRuleDefinition(
+            bundleId: bundleId,
+            appNameSubstring: appNameSubstring,
+            titleSubstring: titleSubstring,
+            titleRegex: titleRegex,
+            axRole: axRole,
+            axSubrole: axSubrole,
+            layout: ipcRuleLayout,
+            assignToWorkspace: assignToWorkspace,
+            assignToWorkspaceForAllWindows: assignToWorkspaceForAllWindows,
+            initialContainerPrimarySpan: initialContainerPrimarySpan,
+            minWidth: minWidth,
+            minHeight: minHeight,
+            scratchpad: scratchpad
+        )
+    }
+
+    var ipcRuleLayout: IPCRuleLayout {
+        switch effectiveLayoutAction {
+        case .auto: .auto
+        case .tile: .tile
+        case .float: .float
+        }
+    }
+
+    func savedReport(runtimeRegexError: String?) -> SavedAppRuleReport {
+        let rule = normalizedForReporting
+        let validation = IPCRuleValidator.validate(rule.ipcDefinition)
+        let invalidRegexMessage = runtimeRegexError ?? validation.invalidRegexMessage
+        let validationMessages = [
+            validation.bundleIdError,
+            invalidRegexMessage,
+            validation.identifierError,
+            validation.titleMatcherError,
+            validation.initialContainerPrimarySpanError,
+            validation.workspaceAssignmentError,
+            validation.scratchpadError,
+            validation.effectError,
+            validation.minSizeError
+        ].compactMap { $0 }
+        return SavedAppRuleReport(
+            rule: rule,
+            specificity: specificity,
+            invalidRegexMessage: invalidRegexMessage,
+            validationMessages: validationMessages
+        )
+    }
+
     private static func layoutAction(_ layout: IPCRuleLayout) -> WindowRuleLayoutAction? {
         switch layout {
         case .auto:
@@ -41,13 +113,13 @@ extension IPCRuleDefinition {
     var normalized: IPCRuleDefinition {
         IPCRuleDefinition(
             bundleId: bundleId.trimmingCharacters(in: .whitespacesAndNewlines),
-            appNameSubstring: Self.trimmedNonEmpty(appNameSubstring),
-            titleSubstring: Self.trimmedNonEmpty(titleSubstring),
-            titleRegex: Self.trimmedNonEmpty(titleRegex),
-            axRole: Self.trimmedNonEmpty(axRole),
-            axSubrole: Self.trimmedNonEmpty(axSubrole),
+            appNameSubstring: trimmedRuleText(appNameSubstring),
+            titleSubstring: trimmedRuleText(titleSubstring),
+            titleRegex: trimmedRuleText(titleRegex),
+            axRole: trimmedRuleText(axRole),
+            axSubrole: trimmedRuleText(axSubrole),
             layout: layout,
-            assignToWorkspace: Self.trimmedNonEmpty(assignToWorkspace),
+            assignToWorkspace: trimmedRuleText(assignToWorkspace),
             assignToWorkspaceForAllWindows: assignToWorkspaceForAllWindows,
             initialContainerPrimarySpan: initialContainerPrimarySpan,
             minWidth: minWidth,
@@ -55,9 +127,9 @@ extension IPCRuleDefinition {
             scratchpad: scratchpad
         )
     }
+}
 
-    private static func trimmedNonEmpty(_ value: String?) -> String? {
-        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
-        return trimmed.isEmpty ? nil : trimmed
-    }
+private func trimmedRuleText(_ value: String?) -> String? {
+    guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+    return trimmed.isEmpty ? nil : trimmed
 }

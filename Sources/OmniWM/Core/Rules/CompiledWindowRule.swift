@@ -105,15 +105,11 @@ struct CompiledWindowRule {
         invalidRegexMessagesByRuleId: inout [UUID: String]
     ) -> CompiledWindowRule? {
         let titleRegex: NSRegularExpression?
-        if let pattern = rule.titleRegex, !pattern.isEmpty {
-            do {
-                titleRegex = try NSRegularExpression(pattern: pattern)
-            } catch {
-                invalidRegexMessagesByRuleId[rule.id] = error.localizedDescription
-                return nil
-            }
-        } else {
-            titleRegex = nil
+        do {
+            titleRegex = try compileTitleRegex(rule.titleRegex)
+        } catch {
+            invalidRegexMessagesByRuleId[rule.id] = error.localizedDescription
+            return nil
         }
 
         return CompiledWindowRule(
@@ -122,6 +118,11 @@ struct CompiledWindowRule {
             titleRegex: titleRegex,
             order: order
         )
+    }
+
+    nonisolated static func compileTitleRegex(_ pattern: String?) throws -> NSRegularExpression? {
+        guard let pattern, !pattern.isEmpty else { return nil }
+        return try NSRegularExpression(pattern: pattern)
     }
 
     static func makeBuiltInRules() -> [CompiledWindowRule] {

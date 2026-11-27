@@ -64,6 +64,10 @@ extension WindowModel {
             model.forEachToken(body)
         }
 
+        func collectStandardWindowTokens(into tokens: inout [WindowToken]) {
+            model.collectStandardWindowTokens(into: &tokens)
+        }
+
         func windowCount(in workspace: WorkspaceDescriptor.ID) -> Int {
             model.windowCount(in: workspace)
         }
@@ -193,6 +197,23 @@ extension WindowModel {
 
         func observedSizeEvidence(for token: WindowToken) -> ObservedSizeEvidence? {
             model.observedSizeEvidence(for: token)
+        }
+    }
+}
+
+extension WindowModel {
+    static func scanStandardWindowTokens(
+        _ entries: inout [WindowToken: WindowState], into tokens: inout [WindowToken]
+    ) {
+        func isStandard(_ entry: inout WindowState) -> Bool {
+            entry.layoutReason == .standard
+        }
+        tokens.removeAll(keepingCapacity: true)
+        tokens.reserveCapacity(entries.count)
+        var index = entries.startIndex
+        while index != entries.endIndex {
+            if isStandard(&entries.values[index]) { tokens.append(entries.keys[index]) }
+            entries.formIndex(after: &index)
         }
     }
 }

@@ -327,31 +327,25 @@ final class WindowActionHandler {
 extension WindowActionHandler {
     func runningAppsWithWindows() -> [RunningAppInfo] {
         guard let controller else { return [] }
-        var appInfoMap: [String: RunningAppInfo] = [:]
-
-        for entry in controller.workspaceManager.allEntries() {
-            guard entry.layoutReason == .standard else { continue }
-
-            let cachedInfo = controller.appInfoCache.info(for: entry.pid)
-            let bundleId = cachedInfo?.bundleId
-            let key = bundleId ?? "pid:\(entry.pid)"
-
-            if appInfoMap[key] != nil { continue }
-
-            let frame = entry.axRef.flatMap(AXWindowService.framePreferFast)
-                ?? controller.shellAppWindowManager.frame(for: entry.token) ?? .zero
-
-            appInfoMap[key] = RunningAppInfo(
-                id: key,
-                pid: entry.pid,
-                bundleId: bundleId,
-                appName: cachedInfo?.name ?? "Unknown",
-                icon: cachedInfo?.icon,
+        let windows = controller.workspaceManager.windowQueries
+        var groups = TrackedAppGroups()
+        var icons: [WindowToken: NSImage] = [:]
+        groups.collect(windows: windows, cache: controller.appInfoCache) { token, icon in
+            icons[token] = icon
+        }
+        return groups.order.map { index in
+            let app = groups.apps[index]
+            let frame = windows.entry(for: app.token)?.axRef.flatMap(AXWindowService.framePreferFast)
+                ?? controller.shellAppWindowManager.frame(for: app.token) ?? .zero
+            return RunningAppInfo(
+                id: TrackedAppGroups.key(bundleId: app.bundleId, pid: app.token.pid),
+                pid: app.token.pid,
+                bundleId: app.bundleId,
+                appName: app.displayName,
+                icon: icons[app.token],
                 windowSize: frame.size
             )
         }
-
-        return appInfoMap.values.sorted { $0.appName < $1.appName }
     }
 
     private func restoreMinimizedWindowIfNeeded(_ handle: WindowHandle) -> Bool {

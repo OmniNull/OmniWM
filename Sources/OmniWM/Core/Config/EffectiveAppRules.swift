@@ -7,10 +7,17 @@ struct EffectiveAppRules {
     private var scriptRules: [AppRule] = []
     private(set) var effective: [AppRule]
     private(set) var snapshot: WindowClassificationRulesSnapshot
+    private(set) var savedScriptRows: ConfigScriptSnapshotWriter.CachedRows
 
     init(configured: [AppRule]) {
         effective = configured
         snapshot = WindowClassificationRulesSnapshot(revision: 0, rules: configured)
+        savedScriptRows = .savedRules(configured)
+    }
+
+    mutating func setConfiguredRules(_ configured: [AppRule]) {
+        savedScriptRows = .savedRules(configured)
+        refresh(configured: configured)
     }
 
     mutating func setScriptRules(_ rules: [AppRule], configured: [AppRule]) -> Bool {
@@ -20,7 +27,7 @@ struct EffectiveAppRules {
     }
 
     @discardableResult
-    mutating func refresh(configured: [AppRule]) -> Bool {
+    private mutating func refresh(configured: [AppRule]) -> Bool {
         var merged = configured
         if configured.isEmpty {
             merged = scriptRules

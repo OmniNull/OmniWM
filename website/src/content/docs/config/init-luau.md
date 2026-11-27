@@ -98,6 +98,8 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `workspaces` | Workspaces, per monitor, in Next/Previous Workspace order |
 | `monitors` | Displays, left to right, then top first |
 | `marks` | Resolved [window marks](#window-marks), ordered by the UTF-8 bytes of their names |
+| `apps` | A summary of apps with managed windows, ordered by app name |
+| `rules` | Saved window rules in Settings order, with validation results |
 | `placement` | Where the focused window sits: one record, not a list |
 | `focusTarget` | The window the callback's workspace focuses: one record |
 | `dwindle` | The callback's workspace's Dwindle tree: one record |
@@ -113,6 +115,10 @@ The row fields are:
 Each `ctx.marks` row has the mark's `name` and the marked window's `id` for [window actions](#window-actions). Its `workspaceId` matches the workspace row's `id`, and `workspace` matches that row's raw `name`. The optional `appName`, `bundleId` and `title` come from cached or OmniShell-hosted metadata.
 
 The list shares its order with `omniwmctl window mark list` and skips marks whose window or workspace cannot be resolved. It has its own row and byte limits. If `truncated.marks` is `true`, treat it as a partial list.
+
+Each `ctx.apps` row has `bundleId`, an optional cached `name`, and optional `windowWidth` and `windowHeight` from a representative window's last known frame. Apps without a known bundle ID are grouped by process and have an empty `bundleId`. The grouping and name order follow `omniwmctl query apps`. The CLI can fetch live app metadata and window bounds. A callback uses cached facts, so its sizes can be absent or older than the live values.
+
+Each `ctx.rules` row has the [window rule fields](#window-rules), its `id`, one-based `position`, and native `specificity`. `isValid`, `invalidRegexMessage` and the ordered `validationMessages` report the saved rule's validation. The rows update when Settings loads or the saved rules change in Settings or through the CLI. Rules from `init.luau` are outside this list.
 
 With `details`, a window row can also contain these fields.
 
@@ -338,6 +344,49 @@ wm.command("Show Editor Mark", function(ctx: ConfigContext)
         wm.notify("No window is marked " .. name .. ".")
     end
 end, { reads = { "marks" } })
+```
+
+**Check TextEdit's last known window size.** Run **Show TextEdit Window Size** from the command palette after opening a TextEdit document. The command uses the cached summary for `com.apple.TextEdit`.
+
+```lua
+omniwm.command("Show TextEdit Window Size", function(ctx)
+    for _, app in ctx.apps or {} do
+        if app.bundleId == "com.apple.TextEdit" then
+            local width, height = app.windowWidth, app.windowHeight
+            if width and height then
+                omniwm.notify(string.format("TextEdit: %.0f × %.0f points", width, height))
+            else
+                omniwm.notify("TextEdit's window size is unknown.")
+            end
+            return
+        end
+    end
+    if ctx.truncated and ctx.truncated.apps then
+        omniwm.notify("The app list is incomplete.")
+    else
+        omniwm.notify("No managed TextEdit window was found.")
+    end
+end, { reads = { "apps" } })
+```
+
+**Find a saved window rule problem.** Run **Check Saved Window Rules** from the command palette. It reports the first invalid saved rule and its position in Settings, or how many rules it checked.
+
+```lua
+omniwm.command("Check Saved Window Rules", function(ctx)
+    local rules = ctx.rules or {}
+    for _, rule in rules do
+        if not rule.isValid then
+            local problem = rule.validationMessages[1] or "The saved rule is invalid."
+            omniwm.notify(string.format("Window rule %d: %s", rule.position, problem))
+            return
+        end
+    end
+    if ctx.truncated and ctx.truncated.rules then
+        omniwm.notify("The rule list is incomplete.")
+    else
+        omniwm.notify(string.format("Checked %d saved window rules. No problems found.", #rules))
+    end
+end, { reads = { "rules" } })
 ```
 
 **Focus the most recently used Safari window.** Run **Focus Recent Safari Window** from the command palette to focus the Safari window you used most recently, including on another workspace. The command needs a focus record and a complete window list with details.

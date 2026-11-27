@@ -8,6 +8,7 @@ struct ConfigScriptReadScratch {
     var columns = ConfigScriptColumnIndex()
     var focusRanks: [WindowToken: Int] = [:]
     var scratchpadSlots: [WindowToken: Int] = [:]
+    var apps = TrackedAppGroups()
     var columnDetails = ConfigScriptColumnDetailsIndex()
     var viewport = NiriViewportScratch()
     var tabbedColumns: [Bool] = []

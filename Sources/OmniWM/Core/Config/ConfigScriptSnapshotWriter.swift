@@ -5,7 +5,15 @@ import Foundation
 import OmniWMScriptHost
 
 struct ConfigScriptSnapshotWriter {
-    let limit: Int
+    struct CachedRows {
+        static let empty = CachedRows(bytes: [], count: 0, truncated: false)
+
+        fileprivate let bytes: [UInt8]
+        fileprivate let count: UInt16
+        fileprivate let truncated: Bool
+    }
+
+    private let reservedCapacity: Int
     var bytes: [UInt8] = []
     private var header = 0
     private var rows: UInt16 = 0
@@ -23,8 +31,8 @@ struct ConfigScriptSnapshotWriter {
     private var frameBytes = 0
     private var columnBytes = 0
 
-    init(limit: Int) {
-        self.limit = limit
+    init(reserving capacity: Int = 0) {
+        reservedCapacity = capacity
     }
 
     mutating func makeRoom(for payload: Int, prefix: Int = 0) -> Bool {
@@ -34,7 +42,7 @@ struct ConfigScriptSnapshotWriter {
     }
 
     private mutating func reserve(_ count: Int) {
-        if count > bytes.capacity - bytes.count { bytes.reserveCapacity(limit) }
+        if count > bytes.capacity - bytes.count { bytes.reserveCapacity(reservedCapacity) }
     }
 
     private var remaining: Int {
@@ -112,6 +120,24 @@ struct ConfigScriptSnapshotWriter {
         }
         rows += 1
         return true
+    }
+
+    consuming func cachedRows() -> CachedRows {
+        CachedRows(bytes: bytes, count: rows, truncated: truncated)
+    }
+
+    mutating func appendRows(_ cached: borrowing CachedRows) {
+        truncated = cached.truncated
+        let headerSize = MemoryLayout<UInt64>.size
+        guard cached.bytes.count > headerSize else { return }
+        guard makeRoom(for: cached.bytes.count - headerSize) else {
+            truncated = true
+            return
+        }
+        cached.bytes.withUnsafeBufferPointer { source in
+            bytes.append(contentsOf: source.dropFirst(headerSize))
+        }
+        rows = cached.count
     }
 
     mutating func details(_ write: (inout Self) -> Bool) {

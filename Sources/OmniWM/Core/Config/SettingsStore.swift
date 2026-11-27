@@ -88,22 +88,11 @@ final class SettingsStore {
         didSet { scheduleSave() }
     }
 
-    @ObservationIgnored private var ruleSet = EffectiveAppRules(configured: SettingsStore.defaultExport.appRules)
-    var appRulesRevision: UInt64 {
-        ruleSet.snapshot.revision
-    }
-
-    var appRulesDiagnosticSnapshot: WindowClassificationRulesSnapshot {
-        ruleSet.snapshot
-    }
-
-    var effectiveAppRules: [AppRule] {
-        ruleSet.effective
-    }
+    @ObservationIgnored private(set) var ruleSet = EffectiveAppRules(configured: SettingsStore.defaultExport.appRules)
 
     var appRules = SettingsStore.defaultExport.appRules {
         didSet {
-            if appRules != oldValue { ruleSet.refresh(configured: appRules) }
+            if appRules != oldValue { ruleSet.setConfiguredRules(appRules) }
             scheduleSave()
         }
     }

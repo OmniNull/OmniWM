@@ -35,11 +35,12 @@ package func runScriptARCDetailsPlatform(directory: URL) async throws {
     controller.cachedMonitorLayout = nil
     controller.cachedInnerGap = nil
 
-    calibrateDetailPlatformReads()
+    controller.settings.appRules = [AppRule(bundleId: "test.omniwm.details", layout: .float)]
+    calibrateDetailPlatformReads(windowNumber: UInt32(fixture.token.windowId))
     let reads: ConfigScriptReads = [
         .workspaceWindows, .workspaceWindowFrames, .workspaceWindowColumns, .workspaceWindowDetails,
         .windows, .windowFrames, .windowColumns, .windowDetails, .workspaces, .workspaceDetails,
-        .monitors, .monitorFrames, .monitorDetails, .marks
+        .monitors, .monitorFrames, .monitorDetails, .marks, .apps, .rules
     ]
     let expectedFlags = UInt8(OMNI_CONFIG_SECTION_DETAILS | OMNI_CONFIG_SECTION_FRAMES | OMNI_CONFIG_SECTION_COLUMNS)
     for warm in [false, true] {
@@ -51,16 +52,18 @@ package func runScriptARCDetailsPlatform(directory: URL) async throws {
         let header = capture.snapshot!.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).littleEndian }
         precondition(UInt8(truncatingIfNeeded: header >> 8) == expectedFlags)
         precondition(UInt16(truncatingIfNeeded: header >> 16) == count)
-        precondition(markSectionCount(in: capture.snapshot!) == 1)
+        for tag in [OMNI_CONFIG_SECTION_MARKS, OMNI_CONFIG_SECTION_APPS, OMNI_CONFIG_SECTION_RULES] {
+            precondition(sectionCount(UInt8(tag), in: capture.snapshot!) == 1)
+        }
     }
 }
 
-private func markSectionCount(in snapshot: ConfigScriptSnapshot) -> Int? {
+private func sectionCount(_ tag: UInt8, in snapshot: ConfigScriptSnapshot) -> Int? {
     snapshot.withUnsafeBytes { bytes in
         var offset = 0
         while offset < bytes.count {
             let header = bytes.loadUnaligned(fromByteOffset: offset, as: UInt64.self).littleEndian
-            if UInt8(truncatingIfNeeded: header) == UInt8(OMNI_CONFIG_SECTION_MARKS) {
+            if UInt8(truncatingIfNeeded: header) == tag {
                 return Int(UInt16(truncatingIfNeeded: header >> 16))
             }
             offset += MemoryLayout<UInt64>.size + Int(header >> 32)
@@ -99,14 +102,16 @@ private func notchedAuditMonitor(_ monitor: Monitor) -> Monitor {
 }
 
 @MainActor
-private func calibrateDetailPlatformReads() {
+private func calibrateDetailPlatformReads(windowNumber: UInt32) {
     let application = AXUIElementCreateApplication(getpid())
     var role: CFTypeRef?
     script_arc_begin()
     _ = AXUIElementCopyAttributeValue(application, kAXRoleAttribute as CFString, &role)
-    _ = SkyLight.shared.getMainConnectionID()
+    _ = SkyLight.shared.currentWindowBounds(windowNumber)
+    _ = SkyLight.shared.getWindowBounds(windowNumber)
+    let runningApplication = NSRunningApplication(processIdentifier: getpid())
     let screens = NSScreen.screens
     let bounds = CGDisplayBounds(CGMainDisplayID())
     script_arc_end()
-    withExtendedLifetime((screens, bounds, role)) {}
+    withExtendedLifetime((runningApplication, screens, bounds, role)) {}
 }

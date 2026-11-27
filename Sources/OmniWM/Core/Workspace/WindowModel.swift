@@ -10,7 +10,6 @@ enum TrackedWindowMode: Equatable, Hashable, Sendable {
 }
 
 final class WindowModel {
-    typealias WindowKey = WindowToken
     typealias EntryIndex = Dictionary<WindowToken, WindowState>.Values.Index
 
     private struct WorkspaceModeKey: Hashable {
@@ -253,6 +252,10 @@ final class WindowModel {
         }
     }
 
+    func collectStandardWindowTokens(into tokens: inout [WindowToken]) {
+        Self.scanStandardWindowTokens(&entries, into: &tokens)
+    }
+
     func windowCount(in workspace: WorkspaceDescriptor.ID) -> Int {
         workspaceIndex.tokensByKey[workspace]?.count ?? 0
     }
@@ -454,7 +457,7 @@ extension WindowModel {
     }
 
     @discardableResult
-    func removeWindow(key: WindowKey) -> WindowState? {
+    func removeWindow(key: WindowToken) -> WindowState? {
         handleByToken.removeValue(forKey: key)
         constraintsCacheByToken.removeValue(forKey: key)
         observedSizeEvidenceByToken.removeValue(forKey: key)
