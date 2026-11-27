@@ -1120,7 +1120,6 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         try writeWallpaper([Self.forest], to: stale, type: "public.png")
         let selection = source(windows: [], store: try store(current))
         var capturedImage: CGImage?
-        var appKitURL = current
         var captureAttempts = 0
         let writer = makeWriter(
             into: root,
@@ -1138,7 +1137,7 @@ final class ShellWallpaperPaletteTests: XCTestCase {
                             captureAttempts += 1
                             return capturedImage
                         })
-                        cache.desktopImageURL = { _ in appKitURL }
+                        cache.desktopImageURL = { _ in stale }
                         return cache
                     }
                 )
@@ -1150,9 +1149,9 @@ final class ShellWallpaperPaletteTests: XCTestCase {
         writer.start()
         XCTAssertEqual(captureAttempts, 1)
         let expected = palette(of: Self.sunset)
+        XCTAssertNotEqual(expected, palette(of: Self.forest))
         XCTAssertEqual(palette(in: root), expected)
 
-        appKitURL = stale
         writer.refreshIfChanged()
         XCTAssertEqual(palette(in: root), expected)
 

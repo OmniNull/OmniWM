@@ -223,18 +223,17 @@ extension ShellWallpaperPalette {
             return ScreenImage(image)
         }
         let cache = makeCache()
-        let appKitURL = cache.desktopImageURL
-        var usedFileFallback = false
-        cache.desktopImageURL = { displayId in
-            usedFileFallback = true
-            return switch fileFallback {
-            case .automatic: canCapture ? nil : appKitURL(displayId)
-            case .appKit: appKitURL(displayId)
-            case let .file(url): url
-            }
+        let frame = frame ?? CGDisplayBounds(displayId)
+        if let image = cache.capturedImage(for: displayId, frame: frame, maxPixelSize: pixelSize) {
+            return ScreenImage(image)
         }
-        guard let image = cache.image(for: displayId, maxPixelSize: pixelSize, frame: frame) else { return nil }
-        return ScreenImage(image, onlyIfMissing: canCapture && usedFileFallback)
+        let url = switch fileFallback {
+        case .automatic: canCapture ? nil : cache.desktopImageURL(displayId)
+        case .appKit: cache.desktopImageURL(displayId)
+        case let .file(url): url
+        }
+        guard let url, let image = read(url) else { return nil }
+        return ScreenImage(image, onlyIfMissing: canCapture)
     }
 
     static func desktopChoice(

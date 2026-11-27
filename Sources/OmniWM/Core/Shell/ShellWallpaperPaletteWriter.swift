@@ -162,7 +162,7 @@ final class ShellWallpaperPaletteWriter {
             record.generation &+= 1
             let generation = record.generation
             let capture = { (aerial: Bool, fallbackFile: URL?) in
-                let fileFallback: ShellWallpaperPalette.FileFallback = if Self.exists(destination) {
+                let fileFallback: ShellWallpaperPalette.FileFallback = if aerial || Self.exists(destination) {
                     .automatic
                 } else if let fallbackFile {
                     .file(fallbackFile)
