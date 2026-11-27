@@ -6,6 +6,7 @@ let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent
 let ghosttyMacOSLibraryDirectory = "\(packageDirectory)/Frameworks/GhosttyKit.xcframework/macos-arm64"
 let scriptARCDirectory = ProcessInfo.processInfo.environment["OMNIWM_SCRIPT_ARC_DIRECTORY"]
 let liveChecks = ProcessInfo.processInfo.environment["OMNIWM_LIVE_CHECKS"] != nil
+let settingsBenchmarkOnly = ProcessInfo.processInfo.environment["OMNIWM_SETTINGS_BENCH_ONLY"] == "1"
 
 let package = Package(
     name: "OmniWM",
@@ -28,6 +29,9 @@ let package = Package(
             type: .dynamic,
             targets: ["OmniWMNowPlaying"]
         )
+    ],
+    dependencies: [
+        .package(url: "https://github.com/mattt/swift-toml.git", exact: "2.0.0")
     ],
     targets: [
         .binaryTarget(
@@ -149,7 +153,8 @@ let package = Package(
                 "OmniWMMaterialColor",
                 "OmniWMMetadata",
                 "OmniWMScriptHost",
-                "OmniWMShellCore"
+                "OmniWMShellCore",
+                .product(name: "TOML", package: "swift-toml")
             ],
             path: "Sources/OmniWM",
             exclude: scriptARCDirectory == nil ? [
@@ -211,6 +216,7 @@ let package = Package(
                 "OmniWMShellCore"
             ],
             path: "Tests/OmniWMTests",
+            sources: settingsBenchmarkOnly ? ["SettingsFormatBenchmarkTests.swift", "TOMLSettingsTests.swift"] : nil,
             resources: [
                 .copy("Fixtures")
             ],

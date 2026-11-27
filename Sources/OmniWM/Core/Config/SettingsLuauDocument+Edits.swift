@@ -3,7 +3,7 @@
 
 import Foundation
 
-struct SettingsLuauEdit {
+struct SettingsSourceEdit {
     let source: Data
     let question: String?
     let expected: SettingsLuauValue?
@@ -86,11 +86,11 @@ extension SettingsLuauDocument {
         from previous: SettingsExport,
         to desired: SettingsExport,
         origins: SettingsListOrigins = [:]
-    ) throws -> SettingsLuauEdit {
+    ) throws -> SettingsSourceEdit {
         let (old, new) = try editableFields(from: previous, to: desired)
         let patch = try table.edit(from: old, to: new, origins: origins, settings: export)
         guard let expected = patch.expected else { return patch }
-        return try SettingsLuauEdit(
+        return try SettingsSourceEdit(
             source: patch.source, question: patch.question,
             expected: .fields(of: Self.decode(expected, fields: fields)), fixedPaths: patch.fixedPaths
         )
@@ -120,7 +120,7 @@ extension LuauTableDocument {
     func edit(
         from old: SettingsLuauValue, to new: SettingsLuauValue,
         origins: SettingsListOrigins = [:], settings: SettingsExport? = nil
-    ) throws -> SettingsLuauEdit {
+    ) throws -> SettingsSourceEdit {
         let changes = SettingsValueChange.between(old, new)
         let newline = source.range(of: Data("\r\n".utf8)) == nil ? "\n" : "\r\n"
         var plan = SettingsTableEdit(document: self, settings: settings, origins: origins, newline: newline)
@@ -155,9 +155,9 @@ extension LuauTableDocument {
                 message: "Settings cannot locate a writable return value. Edit the file directly."
             )
         }
-        guard !plan.questions.isEmpty else { return SettingsLuauEdit(source: output, question: nil, expected: nil) }
+        guard !plan.questions.isEmpty else { return SettingsSourceEdit(source: output, question: nil, expected: nil) }
         plan.includeOtherChanges(changes)
-        return SettingsLuauEdit(
+        return SettingsSourceEdit(
             source: output,
             question: plan.questions.joined(separator: "\n\n"),
             expected: planned,

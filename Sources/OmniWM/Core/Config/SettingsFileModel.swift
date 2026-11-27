@@ -96,6 +96,13 @@ extension SettingsFileModel.Appearance {
 }
 
 extension SettingsFileModel {
+    static func decode(_ values: SettingsLuauValue) throws -> SettingsExport {
+        let active = HyperKeyModifiers(carbonMask: KeySymbolMapper.hyperModifiers) ?? .default
+        defer { KeySymbolMapper.setHyperKeyModifiers(active) }
+        let defaults = try SettingsLuauValue.fields(of: .defaults())
+        return try Self(from: SettingsLuauDecoder(value: values, defaults: defaults)).toSettingsExport()
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 

@@ -32,6 +32,7 @@ final class SettingsConfigNoticeController {
     func refresh() {
         let nextIssue = SettingsConfigDiagnostics.issues(
             directoryURL: settings.settingsFileURL.deletingLastPathComponent(),
+            settingsFileURL: settings.settingsFileURL,
             notice: settings.configNotice,
             scriptLoadError: settings.configScriptLoadError
         ).first

@@ -17,33 +17,19 @@ struct SettingsLuauInput: Sendable {
     let result: Result<LuauTableDocument.Evaluation, any Error>
 }
 
-struct SettingsLuauLoad {
-    let modules: SettingsFileVersions
-    let result: Result<SettingsLuauDocument, any Error>
-
-    init(_ input: SettingsLuauInput) {
-        self.init(.success(input))
-    }
-
-    init(_ read: Result<SettingsLuauInput, any Error>) {
-        modules = (try? read.get().modules) ?? [:]
-        result = read.flatMap { input in Result { try SettingsLuauDocument(input) } }
-    }
-}
-
 extension SettingsLuauError {
     static let changedHelper =
         Self(message: "A settings helper was edited externally. Read the latest file before saving.")
 }
 
-actor SettingsLuauEvaluator {
-    static let shared = SettingsLuauEvaluator()
-    private let queue = DispatchSerialQueue(label: "com.barut.OmniWM.settings.luau", qos: .userInitiated)
+actor SettingsFileEvaluator {
+    static let shared = SettingsFileEvaluator()
+    private let queue = DispatchSerialQueue(label: "com.barut.OmniWM.settings", qos: .userInitiated)
     nonisolated var unownedExecutor: UnownedSerialExecutor {
         queue.asUnownedSerialExecutor()
     }
 
-    func read(_ url: URL, fingerprint: SettingsFileAccess.Fingerprint) -> Result<SettingsLuauInput, any Error> {
+    func read(_ url: URL, fingerprint: SettingsFileAccess.Fingerprint) -> Result<SettingsFileInput, any Error> {
         Result {
             let target = try SettingsFileAccess.settingsTarget(for: url)
             let contents = try SettingsFileAccess.readContents(at: target, maximumBytes: ConfigScriptLoader.sourceLimit)
@@ -52,8 +38,8 @@ actor SettingsLuauEvaluator {
         }
     }
 
-    func evaluate(_ data: Data, at url: URL) throws -> SettingsLuauInput {
+    func evaluate(_ data: Data, at url: URL) throws -> SettingsFileInput {
         try Task.checkCancellation()
-        return SettingsLuauDocument.read(data, at: url)
+        return try SettingsFileInput.read(data, at: url)
     }
 }

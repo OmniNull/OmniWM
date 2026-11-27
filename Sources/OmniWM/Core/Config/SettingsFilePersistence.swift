@@ -31,9 +31,8 @@ final class SettingsFilePersistence {
     private var readingFiles: SettingsFileVersions?
     private var files: SettingsFileVersions = [:]
     let fieldSources = SettingsFieldSources()
-    private var document: SettingsLuauDocument? {
-        get { fieldSources.document }
-        set { fieldSources.document = newValue }
+    private var document: SettingsFileDocument? {
+        didSet { fieldSources.document = document?.luau }
     }
 
     private var appliedExport: SettingsExport?
@@ -53,15 +52,13 @@ final class SettingsFilePersistence {
         monitorProvider: @escaping () -> [Monitor] = Monitor.current
     ) {
         directoryURL = directory
-        fileURL = directory.appendingPathComponent(Self.fileName, isDirectory: false)
+        fileURL = Self.settingsURL(in: directory)
         self.deferSaves = deferSaves
         self.monitorProvider = monitorProvider
         observation = SettingsFileObservation(directoryURL: directoryURL, fileURL: fileURL)
         observation.onPossibleChange = { [weak self] url in self?.observeChange(affectedBy: url) }
 
-        if startWatching {
-            observation.start()
-        }
+        if startWatching { observation.start() }
     }
 
     var settingsWritesBlocked: Bool {
@@ -69,7 +66,7 @@ final class SettingsFilePersistence {
     }
 
     func permitsWorkspaceLayoutEdit(for id: UUID) -> Bool {
-        guard document?.hasFormulas == true, confirmation.canPresent?() != true,
+        guard document?.luau?.hasFormulas == true, confirmation.canPresent?() != true,
               !fieldSources.sites(for: [.workspaces], member: .row(id.uuidString), leaves: ["layoutType"]).isEmpty
         else { return true }
         rejectEdit(SettingsFileEdit.formulaRequiresConfirmation, restore: false)
@@ -97,10 +94,8 @@ final class SettingsFilePersistence {
         do {
             try SettingsFileAccess.ensureDirectoryExists(at: directoryURL)
             let targetURL = try SettingsFileAccess.settingsTarget(for: fileURL)
-            guard FileManager.default.fileExists(atPath: targetURL.path) else {
-                return try createDefaults(at: targetURL)
-            }
-
+            guard FileManager.default.fileExists(atPath: targetURL.path)
+            else { return try createDefaults(at: targetURL) }
             return try readDocument(at: targetURL, initial: true)
         } catch {
             let reason = error.localizedDescription
@@ -123,7 +118,7 @@ final class SettingsFilePersistence {
 
     private func createDefaults(at target: URL) throws -> SettingsFileLoadOutcome {
         let defaults = SettingsExport.defaults()
-        let candidate = try SettingsLuauDocument(SettingsLuauDocument.initialSource(defaults))
+        let candidate = try SettingsFileDocument(SettingsFileDocument.initialSource(defaults, at: fileURL), at: fileURL)
         try persist(candidate, at: target, export: defaults, creating: true)
         return SettingsFileLoadOutcome(export: candidate.export, notice: nil)
     }
@@ -143,7 +138,7 @@ extension SettingsFilePersistence {
     func saveImmediately(_ export: SettingsExport, origins: SettingsListOrigins = [:]) throws -> SettingsConfigNotice? {
         do {
             guard let edit = try prepareEdit(export, origins: origins) else { return nil }
-            try commit(edit, document: SettingsLuauDocument(edit.patch.source, at: fileURL), export: export)
+            try commit(edit, document: SettingsFileDocument(edit.patch.source, at: fileURL), export: export)
             return nil
         } catch {
             rejectEdit(error)
@@ -160,13 +155,15 @@ extension SettingsFilePersistence {
         let fingerprint = SettingsFileAccess.currentFingerprint(at: fileURL)
         if fingerprint == nil {
             guard document == nil else {
-                throw SettingsLuauError(message: "settings.luau has been removed. Restore it before changing settings.")
+                throw SettingsLuauError(
+                    message: "\(fileURL.lastPathComponent) has been removed. Restore it before changing settings."
+                )
             }
             return try SettingsFileEdit(
                 target: target,
                 previous: nil,
-                patch: SettingsLuauEdit(
-                    source: SettingsLuauDocument.initialSource(export),
+                patch: SettingsSourceEdit(
+                    source: SettingsFileDocument.initialSource(export, at: fileURL),
                     question: nil,
                     expected: nil
                 )
@@ -178,9 +175,11 @@ extension SettingsFilePersistence {
                 throw SettingsLuauError(message: "The settings files changed. Checking the new contents before saving.")
             }
             let contents = try SettingsFileAccess.readContents(at: target, maximumBytes: ConfigScriptLoader.sourceLimit)
-            let latest = try SettingsLuauDocument(contents.data, at: fileURL)
+            let latest = try SettingsFileDocument(contents.data, at: fileURL)
             try Self.validate(latest.export, monitorProvider: monitorProvider)
-            throw SettingsLuauError(message: "settings.luau changed. Read the latest file before saving.")
+            throw SettingsLuauError(
+                message: "\(fileURL.lastPathComponent) changed. Read the latest file before saving."
+            )
         }
         guard appliedExport != export || !origins.isEmpty else { return nil }
         let patch = try document.edit(from: appliedExport ?? document.export, to: export, origins: origins)
@@ -190,13 +189,16 @@ extension SettingsFilePersistence {
 
     private func commit(
         _ edit: SettingsFileEdit,
-        document candidate: SettingsLuauDocument,
+        document candidate: SettingsFileDocument,
         export: SettingsExport,
         approved: Bool = false
     ) throws {
         try Self.validate(candidate.export, monitorProvider: monitorProvider)
         try edit.verify(at: fileURL, originalSource: document?.source, approved: approved)
         guard candidate.modules.isCurrent else { throw SettingsLuauError.changedHelper }
+        if case let .toml(previous)? = document, try previous.backUpBeforeFirstEdit(at: edit.target) {
+            try edit.verify(at: fileURL, originalSource: previous.source, approved: approved)
+        }
         try persist(candidate, at: edit.target, export: export, creating: edit.previous == nil)
     }
 
@@ -235,7 +237,7 @@ extension SettingsFilePersistence {
             guard desired != appliedExport || !origins.isEmpty else { return }
             confirmation.discard()
         }
-        if document?.hasFormulas == true, confirmation.canPresent?() == true {
+        if document?.luau?.hasFormulas == true, confirmation.canPresent?() == true {
             do {
                 guard let edit = try prepareEdit(desired, origins: origins) else {
                     pendingSave = nil
@@ -277,7 +279,7 @@ extension SettingsFilePersistence {
             return
         }
         do {
-            try finish(save, edit: edit, candidate: SettingsLuauDocument(edit.patch.source, at: fileURL))
+            try finish(save, edit: edit, candidate: SettingsFileDocument(edit.patch.source, at: fileURL))
             onSaveNotice?(nil)
         } catch {
             rejectEdit(error, restore: edit.patch.question == nil)
@@ -285,8 +287,10 @@ extension SettingsFilePersistence {
         }
     }
 
-    private func finish(_ save: Save, edit: SettingsFileEdit, candidate: SettingsLuauDocument) throws {
-        guard let (question, values) = try save.prepared?.patch.preview(candidate, applying: save.export) else {
+    private func finish(_ save: Save, edit: SettingsFileEdit, candidate: SettingsFileDocument) throws {
+        guard let luau = candidate.luau,
+              let (question, values) = try save.prepared?.patch.preview(luau, applying: save.export)
+        else {
             try commit(edit, document: candidate, export: save.export)
             return
         }
@@ -316,9 +320,9 @@ extension SettingsFilePersistence {
         while let save = pendingSave, !Task.isCancelled {
             do {
                 if let edit = try save.prepared ?? prepareEdit(save.export, origins: save.origins) {
-                    let result = try await SettingsLuauEvaluator.shared.evaluate(edit.patch.source, at: fileURL)
+                    let result = try await SettingsFileEvaluator.shared.evaluate(edit.patch.source, at: fileURL)
                     guard !Task.isCancelled, save.revision == pendingSave?.revision else { continue }
-                    try finish(save, edit: edit, candidate: SettingsLuauDocument(result))
+                    try finish(save, edit: edit, candidate: SettingsFileDocument(result))
                 }
                 onSaveNotice?(nil)
             } catch {
@@ -372,17 +376,17 @@ extension SettingsFilePersistence {
     private func readDocument(at target: URL, initial: Bool) throws -> SettingsFileLoadOutcome {
         let contents = try SettingsFileAccess.readContents(at: target, maximumBytes: ConfigScriptLoader.sourceLimit)
         if contents.fingerprint != files[fileURL]?.targetFingerprint || !files.isCurrent { confirmation.discard() }
-        let load: SettingsLuauLoad
+        let load: SettingsFileLoad
         if initial, let cached = Self.takeLaunchLoad(at: fileURL, fingerprint: contents.fingerprint) {
             load = cached
         } else {
-            load = SettingsLuauLoad(SettingsLuauDocument.read(contents.data, at: fileURL))
+            load = SettingsFileLoad(contents.data, at: fileURL)
         }
         return accept(load, fingerprint: contents.fingerprint, initial: initial)
     }
 
     private func accept(
-        _ load: SettingsLuauLoad, fingerprint: SettingsFileAccess.Fingerprint, initial: Bool = false
+        _ load: SettingsFileLoad, fingerprint: SettingsFileAccess.Fingerprint, initial: Bool = false
     ) -> SettingsFileLoadOutcome {
         let result = load.result.flatMap { candidate in
             Result {
@@ -425,14 +429,14 @@ extension SettingsFilePersistence {
         readingFiles = changed
         let entry = fileURL
         observeTask = Task { @MainActor [weak self] in
-            let result = await SettingsLuauEvaluator.shared.read(entry, fingerprint: fingerprint)
+            let result = await SettingsFileEvaluator.shared.read(entry, fingerprint: fingerprint)
             guard !Task.isCancelled, let self else { return }
             readingFiles = nil
             guard changed.isCurrent else {
                 observeChange()
                 return
             }
-            publish(accept(SettingsLuauLoad(result), fingerprint: fingerprint))
+            publish(accept(SettingsFileLoad(result), fingerprint: fingerprint))
         }
     }
 
@@ -450,7 +454,7 @@ extension SettingsFilePersistence {
             readingFiles = nil
             files = current
             if document != nil || writeBlockNotice != nil {
-                let reason = "settings.luau is missing. Restore the file or create a new settings file."
+                let reason = "\(fileURL.lastPathComponent) is missing. Restore the file or create a new settings file."
                 writeBlockNotice = .persistenceWriteBlocked(reason: reason)
                 onSaveNotice?(.invalidRejected(reason: reason))
             }
@@ -474,7 +478,7 @@ extension SettingsFilePersistence {
     }
 
     private func persist(
-        _ candidate: SettingsLuauDocument,
+        _ candidate: SettingsFileDocument,
         at targetURL: URL,
         export: SettingsExport,
         creating: Bool

@@ -246,7 +246,7 @@ enum SettingsFileAccess {
 struct SettingsFileEdit {
     let target: URL
     let previous: SettingsFileAccess.Fingerprint?
-    let patch: SettingsLuauEdit
+    let patch: SettingsSourceEdit
     var modules: SettingsFileVersions = [:]
 
     static let formulaRequiresConfirmation = SettingsLuauError(
@@ -265,14 +265,16 @@ struct SettingsFileEdit {
             )
             guard current.fingerprint == revision, current.data == originalSource else {
                 throw SettingsLuauError(
-                    message: "settings.luau was edited externally. Read the latest file before saving."
+                    message: "\(fileURL.lastPathComponent) was edited externally. Read the latest file before saving."
                 )
             }
         }
         guard SettingsFileAccess.currentFingerprint(at: fileURL) == previous,
               try SettingsFileAccess.settingsTarget(for: fileURL) == target
         else {
-            throw SettingsLuauError(message: "settings.luau changed during this edit. Try again with the latest file.")
+            throw SettingsLuauError(
+                message: "\(fileURL.lastPathComponent) changed during this edit. Try again with the latest file."
+            )
         }
     }
 }
