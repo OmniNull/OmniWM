@@ -101,10 +101,12 @@ final class HiddenBarMenuSessionTests: XCTestCase {
         let command = fixture.item("Command")
         fixture.attributes[ObjectIdentifier(command)]?["AXMenuItemMarkChar"] = "✓"
         fixture.attributes[ObjectIdentifier(command)]?["AXMenuItemCmdChar"] = "k"
-        fixture.attributes[ObjectIdentifier(command)]?["AXMenuItemCmdModifiers"] = 1
+        fixture
+            .attributes[ObjectIdentifier(command)]?["AXMenuItemCmdModifiers"] = Int(AXMenuItemModifiers.shift.rawValue)
         let disabled = fixture.item("Disabled", enabled: false)
         fixture.attributes[ObjectIdentifier(disabled)]?["AXMenuItemCmdChar"] = "j"
-        fixture.attributes[ObjectIdentifier(disabled)]?["AXMenuItemCmdModifiers"] = 10
+        let modifiers: AXMenuItemModifiers = [.option, .noCommand]
+        fixture.attributes[ObjectIdentifier(disabled)]?["AXMenuItemCmdModifiers"] = Int(modifiers.rawValue)
         let separator = fixture.node(["AXRole": "AXSeparator"])
         fixture.setChildren([command, disabled, separator])
         let session = fixture.session()

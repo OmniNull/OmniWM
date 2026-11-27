@@ -11,7 +11,7 @@ enum MenuSubmenuLoadResult {
 
 @MainActor
 final class MenuAnywhereController: NSObject, NSMenuDelegate {
-    typealias SubmenuLoader = @MainActor (MenuSubmenuSource, AnyObject?, Selector?) -> MenuSubmenuLoadResult
+    typealias SubmenuLoader = @MainActor (AXUIElement, AnyObject?, Selector?, Bool) -> MenuSubmenuLoadResult
     typealias MenuLoader = @MainActor (pid_t, MenuContent, AnyObject?, Selector?) -> MenuSubmenuLoadResult
     typealias MenuPresenter = @MainActor (NSMenu, CGPoint) -> Void
     typealias NativeSubmenuOpener = @MainActor (NSRunningApplication, AXUIElement) -> Task<Void, Never>?
@@ -36,13 +36,13 @@ final class MenuAnywhereController: NSObject, NSMenuDelegate {
     convenience init(extractor: MenuExtractor) {
         self.init(
             menuLoader: Self.makeMenuLoader(using: extractor),
-            submenuLoader: { source, target, action in
+            submenuLoader: { root, target, action, isAppleMenu in
                 do {
                     let items = try extractor.buildSubmenu(
-                        from: source.root,
+                        from: root,
                         target: target,
                         action: action,
-                        isAppleMenu: source.isAppleMenu
+                        isAppleMenu: isAppleMenu
                     )
                     return .loaded(items)
                 } catch {
@@ -227,9 +227,10 @@ final class MenuAnywhereController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         if menu === activeMenu { return }
         menu.autoenablesItems = false
-        guard menu.items.isEmpty, let source = menu.axSubmenuSource else { return }
+        guard menu.items.isEmpty, let root = menu.axRootElement else { return }
 
-        populate(menu, with: submenuLoader(source, self, #selector(menuAction(_:))))
+        let isAppleMenu = menu.identifier == NSMenu.appleSubmenuIdentifier
+        populate(menu, with: submenuLoader(root, self, #selector(menuAction(_:)), isAppleMenu))
     }
 
     private func populate(_ menu: NSMenu, with result: MenuSubmenuLoadResult, showsStatus: Bool = true) {

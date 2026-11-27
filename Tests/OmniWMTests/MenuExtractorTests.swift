@@ -18,20 +18,19 @@ private final class MenuExtractorTarget: NSObject, NSMenuDelegate {
 
 @MainActor
 final class MenuExtractorTests: XCTestCase {
-    func testSubmenuSourceAssociationRetainsRootAndContent() throws {
+    func testSubmenuAssociationRetainsTheExactAXRoot() throws {
         let menu = NSMenu(title: "Submenu")
         let element = AXUIElementCreateApplication(91_579)
-        XCTAssertNil(menu.axSubmenuSource)
+        XCTAssertNil(menu.axRootElement)
 
-        menu.axSubmenuSource = MenuSubmenuSource(root: element, isAppleMenu: true)
+        menu.axRootElement = element
 
-        let source = try XCTUnwrap(menu.axSubmenuSource)
-        XCTAssertTrue(source.root === element)
-        XCTAssertTrue(source.isAppleMenu)
+        let root = try XCTUnwrap(menu.axRootElement)
+        XCTAssertTrue(root === element)
 
-        menu.axSubmenuSource = nil
+        menu.axRootElement = nil
 
-        XCTAssertNil(menu.axSubmenuSource)
+        XCTAssertNil(menu.axRootElement)
     }
 
     func testNestedMenuConstructionDisablesAutomaticEnabling() throws {
@@ -59,7 +58,7 @@ final class MenuExtractorTests: XCTestCase {
 
         XCTAssertFalse(submenu.autoenablesItems)
         XCTAssertTrue(submenu.delegate === target)
-        XCTAssertTrue(submenu.axSubmenuSource.map { CFEqual($0.root, submenuRoot) } == true)
+        XCTAssertTrue(submenu.axRootElement.map { CFEqual($0, submenuRoot) } == true)
         XCTAssertFalse(items[0].isEnabled)
         XCTAssertNotEqual(items[0].action, #selector(MenuExtractorTarget.activate(_:)))
     }
@@ -397,8 +396,8 @@ final class MenuExtractorTests: XCTestCase {
         XCTAssertNotNil(try XCTUnwrap(items[0].attributedTitle).attribute(.font, at: 0, effectiveRange: nil))
         XCTAssertTrue(try XCTUnwrap(items[0].submenu).items.isEmpty)
         XCTAssertTrue(try XCTUnwrap(items[1].submenu).items.isEmpty)
-        XCTAssertTrue(items[0].submenu?.axSubmenuSource.map { CFEqual($0.root, applicationRoot) } == true)
-        XCTAssertTrue(items[1].submenu?.axSubmenuSource.map { CFEqual($0.root, fileRoot) } == true)
+        XCTAssertTrue(items[0].submenu?.axRootElement.map { CFEqual($0, applicationRoot) } == true)
+        XCTAssertTrue(items[1].submenu?.axRootElement.map { CFEqual($0, fileRoot) } == true)
     }
 
     func testAppleRootReturnsDirectContentsAndSkipsOtherApplicationHeaders() throws {
@@ -415,7 +414,8 @@ final class MenuExtractorTests: XCTestCase {
                 (apple, menuAttributes(title: "Apple", root: appleRoot)),
                 (about, [
                     "AXTitle": "About This Mac", "AXRole": "AXMenuItem", "AXEnabled": false,
-                    "AXMenuItemMarkChar": "✓", "AXMenuItemCmdChar": "a", "AXMenuItemCmdModifiers": 8
+                    "AXMenuItemMarkChar": "✓", "AXMenuItemCmdChar": "a",
+                    "AXMenuItemCmdModifiers": Int(AXMenuItemModifiers.noCommand.rawValue)
                 ]),
                 (recent, menuAttributes(title: "Recent Items", root: recentRoot))
             ],
@@ -432,27 +432,27 @@ final class MenuExtractorTests: XCTestCase {
         XCTAssertNil(items[0].target)
         XCTAssertNil(items[0].action)
         XCTAssertTrue(try XCTUnwrap(items[1].submenu).items.isEmpty)
-        XCTAssertTrue(items[1].submenu?.axSubmenuSource.map { CFEqual($0.root, recentRoot) } == true)
+        XCTAssertTrue(items[1].submenu?.axRootElement.map { CFEqual($0, recentRoot) } == true)
     }
 
     func testAppleRootRestoresModifierAlternatesAndShortcuts() throws {
         let menuBar = AXUIElementCreateApplication(91_640)
         let apple = AXUIElementCreateApplication(91_641)
         let appleRoot = AXUIElementCreateApplication(91_642)
-        let entries: [(title: String, key: String?, modifiers: Int?)] = [
-            ("About This Mac", nil, 0),
-            ("System Information", nil, 10),
-            ("Force Quit…", "⎋", 2),
-            ("Force Quit Finder", "⎋", 3),
+        let entries: [(title: String, key: String?, modifiers: AXMenuItemModifiers?)] = [
+            ("About This Mac", nil, []),
+            ("System Information", nil, [.option, .noCommand]),
+            ("Force Quit…", "⎋", .option),
+            ("Force Quit Finder", "⎋", [.shift, .option]),
             ("Restart…", nil, nil),
-            ("Restart", nil, 10),
-            ("Shut Down…", "", 0),
-            ("Shut Down", "", 2),
-            ("Lock Screen", "Q", 4),
-            ("Log Out Example…", "Q", 1),
-            ("Log Out Example", "Q", 3),
-            ("Unrelated Command", "A", 0),
-            ("Unrelated Option Shortcut", "B", 2)
+            ("Restart", nil, [.option, .noCommand]),
+            ("Shut Down…", "", []),
+            ("Shut Down", "", .option),
+            ("Lock Screen", "Q", .control),
+            ("Log Out Example…", "Q", .shift),
+            ("Log Out Example", "Q", [.shift, .option]),
+            ("Unrelated Command", "A", []),
+            ("Unrelated Option Shortcut", "B", .option)
         ]
         let elements = entries.indices.map { AXUIElementCreateApplication(pid_t(91_643 + $0)) }
         let attributes: [(AXUIElement, [String: Any])] = zip(elements, entries).map { element, entry in
@@ -460,7 +460,7 @@ final class MenuExtractorTests: XCTestCase {
                 "AXTitle": entry.title, "AXRole": "AXMenuItem", "AXEnabled": true
             ]
             if let key = entry.key { values["AXMenuItemCmdChar"] = key }
-            if let modifiers = entry.modifiers { values["AXMenuItemCmdModifiers"] = modifiers }
+            if let modifiers = entry.modifiers { values["AXMenuItemCmdModifiers"] = Int(modifiers.rawValue) }
             return (element, values)
         }
         let extractor = contentExtractor(
@@ -494,18 +494,18 @@ final class MenuExtractorTests: XCTestCase {
     }
 
     func testAppleSubmenuPreservesOrdinaryAppleItemAndAlternateAdjacency() {
-        let entries: [(title: String, key: String, modifiers: Int)] = [
-            ("First Command", "X", 1),
-            ("Apple", "Y", 0),
-            ("Second Command", "X", 2),
-            ("Second Command Alternate", "X", 3)
+        let entries: [(title: String, key: String, modifiers: AXMenuItemModifiers)] = [
+            ("First Command", "X", .shift),
+            ("Apple", "Y", []),
+            ("Second Command", "X", .option),
+            ("Second Command Alternate", "X", [.shift, .option])
         ]
         let snapshots = entries.enumerated().map { index, entry in
             MenuItemSnapshot(
                 element: AXUIElementCreateApplication(pid_t(91_670 + index)),
                 attributes: [
                     "AXTitle": entry.title, "AXRole": "AXMenuItem", "AXEnabled": true,
-                    "AXMenuItemCmdChar": entry.key, "AXMenuItemCmdModifiers": entry.modifiers
+                    "AXMenuItemCmdChar": entry.key, "AXMenuItemCmdModifiers": Int(entry.modifiers.rawValue)
                 ],
                 submenuRoot: nil
             )
@@ -528,13 +528,14 @@ final class MenuExtractorTests: XCTestCase {
         let root = AXUIElementCreateApplication(91_662)
         let restart = AXUIElementCreateApplication(91_663)
         let alternate = AXUIElementCreateApplication(91_664)
+        let modifiers: AXMenuItemModifiers = [.option, .noCommand]
         let extractor = contentExtractor(
             children: [(root, [restart, alternate])],
             attributes: [
                 (restart, ["AXTitle": "Restart…", "AXRole": "AXMenuItem", "AXEnabled": true]),
                 (alternate, [
                     "AXTitle": "Restart", "AXRole": "AXMenuItem", "AXEnabled": true,
-                    "AXMenuItemCmdModifiers": 10
+                    "AXMenuItemCmdModifiers": Int(modifiers.rawValue)
                 ])
             ]
         )
@@ -548,6 +549,8 @@ final class MenuExtractorTests: XCTestCase {
         let fileMenu = try XCTUnwrap(items.first { $0.title == "File" }?.submenu)
 
         XCTAssertTrue(appleMenu.items.isEmpty)
+        XCTAssertEqual(appleMenu.identifier, NSMenu.appleSubmenuIdentifier)
+        XCTAssertNil(fileMenu.identifier)
         controller.menuNeedsUpdate(appleMenu)
         controller.menuNeedsUpdate(fileMenu)
 

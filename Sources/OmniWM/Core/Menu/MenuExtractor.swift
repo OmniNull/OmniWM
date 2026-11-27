@@ -11,11 +11,6 @@ enum MenuContent: Equatable, Sendable {
     case apple
 }
 
-struct MenuSubmenuSource {
-    let root: AXUIElement
-    let isAppleMenu: Bool
-}
-
 @MainActor
 final class MenuExtractor {
     private let boldFont = NSFontManager.shared.convert(
@@ -317,7 +312,10 @@ final class MenuExtractor {
             let submenu = NSMenu(title: item.title)
             submenu.autoenablesItems = false
             submenu.delegate = target as? NSMenuDelegate
-            submenu.axSubmenuSource = MenuSubmenuSource(root: root, isAppleMenu: isAppleMenu)
+            submenu.axRootElement = root
+            if isAppleMenu {
+                submenu.identifier = NSMenu.appleSubmenuIdentifier
+            }
             item.submenu = submenu
         } else if item.isEnabled {
             item.target = target
@@ -347,17 +345,22 @@ final class MenuExtractor {
     }
 }
 
-@MainActor private var kAXSubmenuSourceAssociatedKey: UInt8 = 0
+@MainActor private var kAXRootElementAssociatedKey: UInt8 = 0
 
 @MainActor
 extension NSMenu {
-    var axSubmenuSource: MenuSubmenuSource? {
+    static let appleSubmenuIdentifier = NSUserInterfaceItemIdentifier(rawValue: "com.omniwm.menu.appleSubmenu")
+
+    var axRootElement: AXUIElement? {
         get {
-            objc_getAssociatedObject(self, &kAXSubmenuSourceAssociatedKey) as? MenuSubmenuSource
+            guard let value = objc_getAssociatedObject(self, &kAXRootElementAssociatedKey) else {
+                return nil
+            }
+            return AXUIElement.from(value as CFTypeRef)
         }
         set {
             objc_setAssociatedObject(
-                self, &kAXSubmenuSourceAssociatedKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+                self, &kAXRootElementAssociatedKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC
             )
         }
     }
