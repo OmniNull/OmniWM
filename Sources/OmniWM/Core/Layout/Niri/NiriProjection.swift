@@ -95,7 +95,9 @@ extension NiriLayoutEngine {
         var projected: [NiriProjectedColumn] = []
         projected.reserveCapacity(columns.count)
         for (durableIndex, column) in columns.enumerated() {
-            let windows = column.windowNodes.filter { !excludedTokens.contains($0.token) }
+            let nodes = column.windowNodes
+            let windows = Self.containsAny(of: excludedTokens, in: nodes)
+                ? nodes.filter { !excludedTokens.contains($0.token) } : nodes
             if !windows.isEmpty || holdsLiveSpace(column, home: liveHomeColumnId) {
                 projected.append(
                     NiriProjectedColumn(column: column, windows: windows, durableIndex: durableIndex)
@@ -103,6 +105,14 @@ extension NiriLayoutEngine {
             }
         }
         return projected
+    }
+
+    private static func containsAny(of tokens: borrowing Set<WindowToken>, in nodes: borrowing [NiriWindow]) -> Bool {
+        let windows = nodes.span
+        for index in windows.indices where tokens.contains(windows[index].token) {
+            return true
+        }
+        return false
     }
 
     func hasProjectedColumns(in workspaceId: WorkspaceDescriptor.ID) -> Bool {

@@ -96,6 +96,8 @@ extension WMController {
         lazy var resolution = manager.monitorResolutionContext()
         if !reads.isDisjoint(with: .windowDetailSections) {
             manager.indexWindowFocusRanks(into: &scratch.focusRanks)
+        }
+        if !reads.isDisjoint(with: ConfigScriptReads.windowDetailSections.union(.workspaceDetails)) {
             manager.indexWindowScratchpadSlots(into: &scratch.scratchpadSlots)
         }
         if reads.contains(.workspaceWindows) {
@@ -124,44 +126,75 @@ extension WMController {
             }
             finishScriptList(&output)
         }
-        if reads.contains(.workspaces) {
-            appendScriptWorkspaces(resolution: resolution, to: &output)
-        }
-        if reads.contains(.monitors) {
-            output.start(.monitors, framed: reads.contains(.monitorFrames))
-            appendScriptMonitors(to: &output)
-            finishScriptList(&output)
-        }
+        appendScriptWorkspacesAndMonitors(
+            reads: reads, session: session, resolution: resolution, to: &output, scratch: &scratch
+        )
         appendScriptRecords(reads: reads, origin: origin, resolution: resolution, to: &output)
         #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
             ConfigScriptSnapshot.captures += 1
         #endif
     }
 
+    private func appendScriptWorkspacesAndMonitors(
+        reads: ConfigScriptReads, session: ConfigScriptSession,
+        resolution: @autoclosure () -> WorkspaceManager.MonitorResolutionContext,
+        to output: inout ConfigScriptSnapshotWriter, scratch: inout ConfigScriptReadScratch
+    ) {
+        if reads.contains(.workspaces) {
+            appendScriptWorkspaces(
+                resolution: resolution(),
+                details: reads.contains(.workspaceDetails) ? scriptWorkspaceDetailContext(session: session) : nil,
+                to: &output, scratch: &scratch
+            )
+        }
+        if reads.contains(.monitors) {
+            appendScriptMonitors(
+                framed: reads.contains(.monitorFrames),
+                details: reads.contains(.monitorDetails) ? scriptMonitorDetailContext() : nil, to: &output
+            )
+        }
+    }
+
     private func appendScriptWorkspaces(
-        resolution: WorkspaceManager.MonitorResolutionContext, to output: inout ConfigScriptSnapshotWriter
+        resolution: WorkspaceManager.MonitorResolutionContext, details: ScriptWorkspaceDetailContext?,
+        to output: inout ConfigScriptSnapshotWriter, scratch: inout ConfigScriptReadScratch
     ) {
         let manager = workspaceManager
-        output.start(.workspaces)
+        output.start(.workspaces, detailed: details != nil)
+        if details != nil { scratch.beginListDetails() }
         for workspace in manager.sortedWorkspaces() {
             let stored = output.row { row in
                 let monitor = manager.resolvedWorkspaceMonitorId(for: workspace.id, context: resolution)
-                return row.string(workspace.id.uuidString) && row.string(workspace.name)
-                    && row.string(monitor?.scriptIdentifier)
+                guard row.string(workspace.id), row.string(workspace.name),
+                      row.string(monitor?.scriptIdentifier) else { return false }
+                if let details {
+                    row.details {
+                        writeScriptWorkspaceDetails(
+                            workspace, on: monitor, context: details, scratch: &scratch, to: &$0
+                        )
+                    }
+                }
+                return true
             }
             if !stored { break }
         }
         finishScriptList(&output)
     }
 
-    private func appendScriptMonitors(to output: inout ConfigScriptSnapshotWriter) {
-        _ = workspaceManager.sortedMonitors().allSatisfy { monitor in
-            output.row { row in
+    private func appendScriptMonitors(
+        framed: Bool, details: ScriptMonitorDetailContext?, to output: inout ConfigScriptSnapshotWriter
+    ) {
+        output.start(.monitors, framed: framed, detailed: details != nil)
+        for monitor in workspaceManager.sortedMonitors() {
+            let stored = output.row { row in
                 guard row.string(monitor.id.scriptIdentifier), row.string(monitor.name) else { return false }
                 if row.framed { row.frames(monitor.frame, visible: monitor.visibleFrame) }
+                if let details { row.details { writeScriptMonitorDetails(monitor, context: details, to: &$0) } }
                 return true
             }
+            if !stored { break }
         }
+        finishScriptList(&output)
     }
 
     private func finishScriptList(_ output: inout ConfigScriptSnapshotWriter) {

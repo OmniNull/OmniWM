@@ -15,7 +15,7 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             "local function fn() end",
             "wm.keymap.set('Control+Option+F', fn, { reads = { 'workspaceWindows', 'windows', 'details' } })",
             "wm.command('Workspace list', fn, { reads = { 'workspaces', 'windows', 'details' } })",
-            "wm.on('window.active', fn, { reads = { 'monitors' } })",
+            "wm.on('window.active', fn, { reads = { 'monitors', 'details' } })",
             "wm.timer({ afterSeconds = \(OMNI_CONFIG_TIMER_MINIMUM_SECONDS) }, fn, { reads = { 'windows', 'details' } })",
             "wm.command('No reads', fn, { reads = {} })",
             "wm.on('window.active', fn, { reads = { 'frames', 'workspaces', 'monitors' } })",
@@ -29,15 +29,17 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             result.bindings.map(\.reads),
             [[.workspaceWindows, .windows, .workspaceWindowDetails, .windowDetails]]
         )
-        XCTAssertEqual(result.namedCommands.map(\.reads), [[.workspaces, .windows, .windowDetails], []])
+        XCTAssertEqual(
+            result.namedCommands.map(\.reads), [[.workspaces, .windows, .workspaceDetails, .windowDetails], []]
+        )
         XCTAssertEqual(result.events.map(\.reads), [
-            [.monitors],
+            [.monitors, .monitorDetails],
             [.workspaces, .monitors, .monitorFrames],
             [.windows, .placement, .workspaceWindows, .windowFrames, .workspaceWindowFrames],
             [
                 .workspaceWindows, .windows, .workspaces, .monitors, .placement, .focusTarget,
                 .workspaceWindowFrames, .windowFrames, .monitorFrames, .workspaceWindowColumns, .windowColumns,
-                .dwindle, .workspaceWindowDetails, .windowDetails
+                .dwindle, .workspaceWindowDetails, .windowDetails, .workspaceDetails, .monitorDetails
             ]
         ])
         XCTAssertEqual(result.timers.map(\.reads), [[.windows, .windowDetails]])
@@ -62,7 +64,7 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
             "wm.command('Columns without a window list', fn, { reads = { 'monitors', 'frames', 'columns' } })",
             "wm.command('Columns twice', fn, { reads = { 'windows', 'columns', 'columns' } })",
             "wm.command('Details alone', fn, { reads = { 'details' } })",
-            "wm.command('Details without a window list', fn, { reads = { 'workspaces', 'monitors', 'details' } })",
+            "wm.command('Details without a list', fn, { reads = { 'placement', 'focusTarget', 'dwindle', 'details' } })",
             "wm.command('Details twice', fn, { reads = { 'windows', 'details', 'details' } })",
             "wm.command('Dwindle twice', fn, { reads = { 'dwindle', 'dwindle' } })"
         ]

@@ -71,7 +71,18 @@ final class WorkspaceSettings {
     }
 
     func displayName(for workspaceName: String) -> String {
-        let configurations = self.configurations
+        Self.displayName(for: workspaceName, in: configurations)
+    }
+
+    @inline(__always)
+    func configScriptDisplayName(for workspaceName: String) -> String {
+        Self.displayName(for: workspaceName, in: _configurations)
+    }
+
+    private static func displayName(
+        for workspaceName: String,
+        in configurations: borrowing [WorkspaceConfiguration]
+    ) -> String {
         let span = configurations.span
         for index in span.indices where span[index].name == workspaceName {
             return span[index].effectiveDisplayName

@@ -9,6 +9,14 @@ struct ConfigScriptReadScratch {
     var focusRanks: [WindowToken: Int] = [:]
     var scratchpadSlots: [WindowToken: Int] = [:]
     var columnDetails = ConfigScriptColumnDetailsIndex()
+    var viewport = NiriViewportScratch()
+    var tabbedColumns: [Bool] = []
+    var geometries: [ScriptNiriGeometry] = []
+
+    mutating func beginListDetails() {
+        geometries.removeAll(keepingCapacity: true)
+        viewport.recollectPlacementMonitors()
+    }
 }
 
 struct ScriptWindowDetailIndexes {

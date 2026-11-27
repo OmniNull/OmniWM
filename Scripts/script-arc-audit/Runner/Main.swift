@@ -18,8 +18,8 @@ enum ScriptARCRunner {
                     try runScriptARCWorkspaceKeys(directory: directory, measured: false)
                 } else if CommandLine.arguments.contains("--workspace-keys") {
                     try runScriptARCWorkspaceKeys(directory: directory, calibratePlatform: true)
-                } else if CommandLine.arguments.contains("--window-details-platform") {
-                    try await runScriptARCWindowDetailsPlatform(directory: directory)
+                } else if CommandLine.arguments.contains("--details-platform") {
+                    try await runScriptARCDetailsPlatform(directory: directory)
                 } else {
                     try await runScriptARCAudit(
                         directory: directory, observeDelivery: CommandLine.arguments.contains("--observe-delivery")

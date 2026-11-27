@@ -127,9 +127,11 @@ MIXED_READ_EVENTS = tuple(tuple("event/workspace.active+" + name for name in fam
     ("shared-frames", "shared-plain", "solo-frames", "solo-plain"),
     ("shared-columns", "shared-plain-columns", "solo-columns", "solo-plain-columns"),
     ("shared-details", "shared-plain-details", "solo-details", "solo-plain-details"),
+    ("shared-list-details", "shared-plain-list-details", "solo-list-details", "solo-plain-list-details"),
     ("shared-dwindle", "shared-plain-dwindle", "solo-dwindle", "solo-plain-dwindle"),
 ))
-ROUTES.update(("move/floating-frame", "capture/details-excluded", *(route for family in MIXED_READ_EVENTS for route in family)))
+ROUTES.update(("move/floating-frame", "capture/details-excluded", "capture/list-details", "capture/list-details-excluded",
+               *(route for family in MIXED_READ_EVENTS for route in family)))
 ROUTES.update(("gather/join", "gather/unchanged", "gather/refused"))
 ROUTES.update(("replace/applied", "replace/stale", "replace/malformed"))
 NAMED_KEY_PAIRS = (("named/hit", "window/hit"), ("named/ref-hit", "window/ref-hit"),
@@ -462,6 +464,9 @@ def check_costs(output):
     excluded_details = table["capture/details-excluded", "producer"]
     if int(excluded_details["obj"]) or int(excluded_details["heap"]):
         sys.exit(f"A warm details capture reuses storage when a window is excluded: {excluded_details}")
+    list_details = table["capture/list-details", "producer"]
+    if int(list_details["obj"]) or int(list_details["heap"]):
+        sys.exit(f"A warm workspace and monitor details capture reuses storage: {list_details}")
     for capture, engine in COLUMN_EDITS:
         edit, rebuild = table[capture, "producer"], table[engine, "producer"]
         for field in ("obj", "heap"):
@@ -592,7 +597,7 @@ def check_delivery(lldb, binary, fixture):
             sys.exit(f"{label} expected {expected}, observed {counts}\n" + report)
 
 
-def check_window_detail_platform_reads(lldb, binary, fixture):
+def check_detail_platform_reads(lldb, binary, fixture):
     probes = (
         ("AX", "AXUIElementCopyAttributeValue"),
         ("SkyLight", "SLSMainConnectionID"),
@@ -613,23 +618,23 @@ def check_window_detail_platform_reads(lldb, binary, fixture):
     listing = "breakpoint list " + " ".join(map(str, numbers))
     for _ in scopes:
         commands.extend((listing, "continue", listing, "continue"))
-    output = debugger_output(lldb, binary, fixture, "--window-details-platform", commands)
+    output = debugger_output(lldb, binary, fixture, "--details-platform", commands)
     reports = re.findall(re.escape("(lldb) " + listing) + r"\n(.+?)(?=\(lldb\) continue)", output, re.S)
     if len(reports) != 2 * len(scopes):
-        sys.exit("Missing window detail platform scope boundaries\n" + output)
+        sys.exit("Missing detail platform scope boundaries\n" + output)
 
     def hits(report, number):
         matches = re.findall(rf"^\s+{number}\.\d+:.*?, resolved, hit count = (\d+)", report, re.M)
         if not matches:
-            sys.exit("Unresolved window detail platform probe\n" + report)
+            sys.exit("Unresolved detail platform probe\n" + report)
         return sum(map(int, matches))
 
     for scope, before, after in zip(scopes, reports[::2], reports[1::2]):
         counts = [hits(after, number) - hits(before, number) for number in numbers]
         report = " ".join(f"{label}={count}" for label, count in zip(labels, counts))
         if not (all(count > 0 for count in counts) if scope == "calibration" else not any(counts)):
-            sys.exit(f"window-details/platform/{scope}: {report}\n{output}")
-        print(f"window-details/platform/{scope}: {report}")
+            sys.exit(f"details/platform/{scope}: {report}\n{output}")
+        print(f"details/platform/{scope}: {report}")
 
 
 if __name__ == "__main__":
@@ -637,4 +642,4 @@ if __name__ == "__main__":
     lldb, binary, fixture = map(Path, sys.argv[1:4])
     check_delivery(lldb, binary, fixture)
     check_workspace_result_reads(lldb, binary, fixture)
-    check_window_detail_platform_reads(lldb, binary, fixture)
+    check_detail_platform_reads(lldb, binary, fixture)

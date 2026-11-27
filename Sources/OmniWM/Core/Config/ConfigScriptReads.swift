@@ -18,7 +18,10 @@ struct ConfigScriptReads: OptionSet, Sendable {
     static let windowColumns = Self(rawValue: UInt32(OMNI_CONFIG_READ_WINDOW_COLUMNS))
     static let workspaceWindowDetails = Self(rawValue: UInt32(OMNI_CONFIG_READ_WORKSPACE_WINDOW_DETAILS))
     static let windowDetails = Self(rawValue: UInt32(OMNI_CONFIG_READ_WINDOW_DETAILS))
+    static let workspaceDetails = Self(rawValue: UInt32(OMNI_CONFIG_READ_WORKSPACE_DETAILS))
+    static let monitorDetails = Self(rawValue: UInt32(OMNI_CONFIG_READ_MONITOR_DETAILS))
     static let windowDetailSections: Self = [.workspaceWindowDetails, .windowDetails]
+    static let detailSections: Self = windowDetailSections.union([.workspaceDetails, .monitorDetails])
     static let lists = Self(rawValue: UInt32(OMNI_CONFIG_READ_LISTS))
     static let dwindle = Self(rawValue: UInt32(OMNI_CONFIG_READ_DWINDLE))
     static let sections = lists.union(dwindle)
@@ -31,7 +34,7 @@ struct ConfigScriptReads: OptionSet, Sendable {
     }
 
     var detailByteLimit: Int {
-        intersection(.windowDetailSections).rawValue.nonzeroBitCount * ConfigScriptSnapshot.detailByteLimit
+        intersection(.detailSections).rawValue.nonzeroBitCount * ConfigScriptSnapshot.detailByteLimit
     }
 
     var columnByteLimit: Int {

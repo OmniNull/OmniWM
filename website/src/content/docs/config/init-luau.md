@@ -102,7 +102,7 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `dwindle` | The callback's workspace's Dwindle tree: one record |
 | `frames` | Adds frames to the window and monitor lists declared with it |
 | `columns` | Adds Niri column numbers to the window lists declared with it |
-| `details` | Adds window details to `workspaceWindows` and `windows` when declared with either list |
+| `details` | Adds details to the window, workspace and monitor lists declared with it |
 
 The row fields are:
 - **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (`"native"` for macOS fullscreen, `"omniwm"` for OmniWM's, absent otherwise) and `minimized`, with `frames`, `frame`, and with `columns`, `column`;
@@ -124,6 +124,33 @@ With `details`, a window row can also contain these fields.
 | `scratchpad`, `scratchpadSlot` | Whether the window belongs to a scratchpad, and its slot number if assigned. |
 | `focusRank` | Position in OmniWM's global focus history. `0` is the most recently focused managed window. A window without a focus record has no rank. |
 | `columnSpan`, `columnPosition`, `columnSize` | A Niri tile's settled column span as a proportion of the strip's primary axis, the window's position in that column counting from 1, and the number of windows in the column. A horizontal strip uses width and a vertical strip uses height. These fields are absent when the window has no Niri column. |
+
+With `details`, a workspace row also has these fields. Its `name` is the name `omniwmctl query` calls `raw-name`, and it preserves the exact workspace ID.
+
+| Field | What it reports |
+| --- | --- |
+| `displayName` | The name the workspace bar shows. |
+| `number` | The workspace's number, such as `3` for `"3"`. It's absent above Luau's safe integer limit, 2⁵³ − 1. |
+| `layout` | `"niri"` or `"dwindle"`, the layout the workspace uses. `omniwmctl query` reports the setting, which can be `"default"`. |
+| `focused`, `visible`, `current` | Whether the workspace holds the focused window, is shown on a display, and is the one shown on the display OmniWM acts on. |
+| `windowCounts` | `{ total, tiled, floating, scratchpad }`. |
+| `focusedWindow` | The focused window's ID, when it's on this workspace. |
+| `scrollOffset` | Niri only: how far the strip is scrolled from its active column, in points. During a scroll, it's where the scroll ends. |
+| `columns` | Niri only, on a workspace with a display: one `{ mode, viewport }` per column, in order. `mode` is `"normal"` or `"tabbed"`. `viewport` is `"before"` or `"after"` for a column outside the visible area on that side and `"intersecting"` otherwise, for where a scroll ends. |
+
+With `details`, a monitor row also has these fields.
+
+| Field | What it reports |
+| --- | --- |
+| `main`, `current` | Whether it's the main display, and the display OmniWM acts on. |
+| `uuid` | The display's stable UUID, when macOS reports one. |
+| `hasNotch`, `notch` | Whether the display has a notch, and the notch's horizontal extent `{ left, right }`. |
+| `orientation` | `"horizontal"` or `"vertical"`, the Niri strip's direction. |
+| `innerGap`, `outerGaps` | The resolved gaps: between windows, and `{ left, right, top, bottom }` at the display's edges. |
+| `fullscreenUsesOuterGaps` | Whether OmniWM's own fullscreen keeps the outer gaps. |
+| `menuBarHeight` | The space above the visible frame. |
+| `barFrames` | The frames of the workspace bar panels shown on the display, as the bar last placed them. |
+| `reservedInsets` | `{ left, right, top, bottom }`, the space the workspace bar reserves for windows. |
 
 A frame is `{ x, y, width, height }` in points, in the coordinates `omniwmctl query` uses: from the bottom-left corner of the main display, with `y` growing upward. A window's `frame` is where OmniWM last placed or saw it, not a fresh reading from macOS. It's absent while the window isn't on screen: on a workspace that isn't shown, minimized, hidden, on another macOS Space or in native fullscreen. Tiled windows of OmniShell apps have none.
 
@@ -153,7 +180,7 @@ A window's `column` is the position of its Niri column, counting from 1, numbere
 
 A window `id` is text such as `"9b2f6c0e4d1a7b3c5e8f0a2d4c6e8b1f.48213.912345"`. It names the same window until OmniWM quits, and actions reach that window while OmniWM manages it. A monitor `id` is the display's number as text, such as `"69734208"`.
 
-Each list holds up to 256 rows and 128 KiB of base fields. `truncated.<list>` is `true` when a list was cut. Frames and column numbers have separate allowances. Each window list has a separate 16 KiB allowance for details. When it fills, the remaining rows still have their base fields and any requested frames and column numbers. `truncated.details.windows` or `truncated.details.workspaceWindows` is `true` when details for that declared list were cut.
+Each list holds up to 256 rows and 128 KiB of base fields. `truncated.<list>` is `true` when a list was cut. Frames and column numbers have separate allowances. Each list declared with `details` has a separate 16 KiB allowance for them. When it fills, the remaining rows still have their base fields and any requested frames and column numbers, and `truncated.details.<list>` is `true`.
 
 ## Events
 

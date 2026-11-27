@@ -141,6 +141,19 @@ struct ConfigScriptSnapshotWriter {
         return true
     }
 
+    mutating func detailNumber(_ value: CGFloat) -> Bool {
+        detailValue(Double(value).bitPattern)
+    }
+
+    mutating func detailEdges(_ left: CGFloat, _ right: CGFloat, _ top: CGFloat, _ bottom: CGFloat) -> Bool {
+        detailNumber(left) && detailNumber(right) && detailNumber(top) && detailNumber(bottom)
+    }
+
+    mutating func detailRect(_ rect: CGRect) -> Bool {
+        detailNumber(rect.origin.x) && detailNumber(rect.origin.y) && detailNumber(rect.size.width)
+            && detailNumber(rect.size.height)
+    }
+
     mutating func column(_ number: UInt16) {
         reserve(ConfigScriptSnapshot.columnBytes)
         appendLE(number)
@@ -192,6 +205,24 @@ struct ConfigScriptSnapshotWriter {
         let length = UInt32(bytes.count - offset - prefix)
         bytes.withUnsafeMutableBytes { $0.storeBytes(of: length.littleEndian, toByteOffset: offset, as: UInt32.self) }
         return true
+    }
+
+    mutating func string(_ id: UUID) -> Bool {
+        let length = 2 * MemoryLayout<uuid_t>.size + 4
+        guard makeRoom(for: length, prefix: MemoryLayout<UInt32>.size) else { return false }
+        appendLE(UInt32(length))
+        withUnsafeBytes(of: id.uuid) { raw in
+            for index in raw.indices {
+                if index == 4 || index == 6 || index == 8 || index == 10 { bytes.append(UInt8(ascii: "-")) }
+                bytes.append(Self.hexDigit(raw[index] >> 4))
+                bytes.append(Self.hexDigit(raw[index] & 0x0F))
+            }
+        }
+        return true
+    }
+
+    private static func hexDigit(_ nibble: UInt8) -> UInt8 {
+        nibble < 10 ? UInt8(ascii: "0") + nibble : UInt8(ascii: "A") + nibble - 10
     }
 
     mutating func windowID(_ token: WindowToken, session: ConfigScriptSession) -> Bool {

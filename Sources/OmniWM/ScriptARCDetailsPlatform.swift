@@ -7,12 +7,12 @@ import OmniWMScriptHost
 import ScriptARCCounters
 
 @MainActor
-package func runScriptARCWindowDetailsPlatform(directory: URL) async throws {
+package func runScriptARCDetailsPlatform(directory: URL) async throws {
     _ = NSApplication.shared
     script_arc_install()
     let count = ScriptARCFixture.workspaceRows
     let fixture = try ScriptARCFixture(
-        directory: directory.appendingPathComponent("window-details-platform"),
+        directory: directory.appendingPathComponent("details-platform"),
         snapshotRows: count
     )
     defer { fixture.script.stop() }
@@ -33,10 +33,11 @@ package func runScriptARCWindowDetailsPlatform(directory: URL) async throws {
     controller.cachedMonitorLayout = nil
     controller.cachedInnerGap = nil
 
-    calibrateWindowDetailPlatformReads()
+    calibrateDetailPlatformReads()
     let reads: ConfigScriptReads = [
         .workspaceWindows, .workspaceWindowFrames, .workspaceWindowColumns, .workspaceWindowDetails,
-        .windows, .windowFrames, .windowColumns, .windowDetails, .monitors, .monitorFrames
+        .windows, .windowFrames, .windowColumns, .windowDetails, .workspaces, .workspaceDetails,
+        .monitors, .monitorFrames, .monitorDetails
     ]
     let expectedFlags = UInt8(OMNI_CONFIG_SECTION_DETAILS | OMNI_CONFIG_SECTION_FRAMES | OMNI_CONFIG_SECTION_COLUMNS)
     for warm in [false, true] {
@@ -81,7 +82,7 @@ private func notchedAuditMonitor(_ monitor: Monitor) -> Monitor {
 }
 
 @MainActor
-private func calibrateWindowDetailPlatformReads() {
+private func calibrateDetailPlatformReads() {
     let application = AXUIElementCreateApplication(getpid())
     var role: CFTypeRef?
     script_arc_begin()

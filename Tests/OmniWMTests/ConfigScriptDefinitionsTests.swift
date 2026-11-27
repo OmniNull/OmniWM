@@ -383,8 +383,25 @@ export type ConfigWindowRow = {
     read hiddenReason: ("workspace-inactive" | "tab-inactive" | "layout-transient" | "scratchpad")?, read focusRank: number?,
     read columnSpan: number?, read columnPosition: number?, read columnSize: number?,
 }
-export type ConfigWorkspaceRow = { read id: string, read name: string, read monitor: string? }
-export type ConfigMonitorRow = { read id: string, read name: string, read frame: ConfigRect?, read visibleFrame: ConfigRect? }
+export type ConfigEdges = { read left: number, read right: number, read top: number, read bottom: number }
+export type ConfigWorkspaceColumn = {
+    read mode: "normal" | "tabbed", read viewport: "before" | "intersecting" | "after",
+}
+export type ConfigWorkspaceRow = {
+    read id: string, read name: string, read monitor: string?,
+    read displayName: string?, read number: number?, read layout: ("niri" | "dwindle")?,
+    read focused: boolean?, read visible: boolean?, read current: boolean?,
+    read windowCounts: { read total: number, read tiled: number, read floating: number, read scratchpad: number }?,
+    read focusedWindow: string?, read scrollOffset: number?, read columns: { read [number]: ConfigWorkspaceColumn }?,
+}
+export type ConfigMonitorRow = {
+    read id: string, read name: string, read frame: ConfigRect?, read visibleFrame: ConfigRect?,
+    read main: boolean?, read current: boolean?, read uuid: string?,
+    read hasNotch: boolean?, read notch: { read left: number, read right: number }?,
+    read orientation: ("horizontal" | "vertical")?, read innerGap: number?, read outerGaps: ConfigEdges?,
+    read fullscreenUsesOuterGaps: boolean?, read menuBarHeight: number?,
+    read barFrames: { read [number]: ConfigRect }?, read reservedInsets: ConfigEdges?,
+}
 export type ConfigPlacement = { read workspace: string, read display: string?, read column: nil }
     | {
         read workspace: string, read display: string?, read column: number, read columns: number,
@@ -408,7 +425,9 @@ export type ConfigLookups = {
     read truncated: {
         read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
         read placement: boolean?, read focusTarget: boolean?, read dwindle: boolean?,
-        read details: { read workspaceWindows: boolean?, read windows: boolean? }?,
+        read details: {
+            read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
+        }?,
     }?,
 }
 export type ConfigContext = ConfigLookups & {

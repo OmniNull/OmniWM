@@ -5,6 +5,15 @@ import AppKit
 import OmniWMIPC
 import SwiftUI
 
+struct WorkspaceBarShownFrames: Equatable {
+    var primary: CGRect?
+    var secondary: CGRect?
+
+    var count: Int {
+        (primary == nil ? 0 : 1) + (secondary == nil ? 0 : 1)
+    }
+}
+
 @MainActor
 final class WorkspaceBarManager {
     var screenProvider: @MainActor (CGDirectDisplayID) -> NSScreen? = { displayId in
@@ -22,6 +31,7 @@ final class WorkspaceBarManager {
     var menuBarIsDark = false
 
     private(set) var barsByMonitor: [Monitor.ID: WorkspaceBarInstance] = [:]
+    var shownBarFrames: [Monitor.ID: WorkspaceBarShownFrames] = [:]
     weak var controller: WMController?
     private weak var settings: SettingsStore?
     let menuPresenter = WorkspaceBarMenuPresenter()
@@ -265,6 +275,7 @@ final class WorkspaceBarManager {
             instance.primary.panel.orderOut(nil)
             instance.primary.panel.close()
             barsByMonitor.removeValue(forKey: monitorId)
+            shownBarFrames.removeValue(forKey: monitorId)
             shellHost?.removeSurfaces(for: monitorId)
         }
     }

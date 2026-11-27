@@ -220,11 +220,21 @@ func measureWindowDetailReads(in directory: URL) async throws {
         routes: ["shared-details", "shared-plain-details", "solo-details", "solo-plain-details"]
     )
     let manager = fixture.controller.workspaceManager
+    try await fixture.mixedReads(
+        "details", list: "workspaces", probe: "e.workspaces[1].displayName",
+        rows: "#e.workspaces == \(manager.sortedWorkspaces().count)",
+        routes: ["shared-list-details", "shared-plain-list-details", "solo-list-details", "solo-plain-list-details"]
+    )
+    let lists: ConfigScriptReads = [.workspaces, .monitors, .workspaceDetails, .monitorDetails]
+    for report in [false, true] {
+        fixture.snapshot(lists, route: "capture/list-details", report: report)
+    }
     let excluded = fixture.otherWindow
     precondition(manager.setWindowMinimized(true, token: excluded))
     let reads: ConfigScriptReads = [.windows, .windowColumns, .windowDetails]
     for report in [false, true] {
         fixture.snapshot(reads, route: "capture/details-excluded", report: report)
+        fixture.snapshot(lists, route: "capture/list-details-excluded", report: report)
     }
 }
 
@@ -401,17 +411,19 @@ extension ScriptARCFixture {
         }
     }
 
-    func mixedReads(_ modifier: String, probe: String, rows: String, routes: [String]) async throws {
+    func mixedReads(
+        _ modifier: String, list: String = "windows", probe: String, rows: String, routes: [String]
+    ) async throws {
         let manager = controller.workspaceManager
         let workspace = manager.workspace(for: token)!
         let name = manager.descriptor(for: workspace)!.name
         let plainListener = """
         omniwm.on("workspace.active", function(e)
             assert(\(rows) and \(probe) == nil)
-        end, { reads = { "windows" } })
+        end, { reads = { "\(list)" } })
         """
         for (route, (modified, shared)) in zip(routes, [(true, true), (false, true), (true, false), (false, false)]) {
-            let reads = modified ? "\"windows\", \"\(modifier)\"" : "\"windows\""
+            let reads = modified ? "\"\(list)\", \"\(modifier)\"" : "\"\(list)\""
             let queue = try await acceptTitleScript("""
             omniwm.on("workspace.active", function(e)
                 assert(\(rows) and (\(probe) ~= nil) == \(modified))
