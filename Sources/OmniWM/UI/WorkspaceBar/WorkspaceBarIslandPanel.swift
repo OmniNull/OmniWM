@@ -39,9 +39,7 @@ final class WorkspaceBarIslandPanel {
         let level = resolved.windowLevel.nsWindowLevel
         panel.level = if fillsMenuBar {
             NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
-        } else if resolved.fullWidth,
-                  WorkspaceBarGeometry.effectivePosition(for: monitor, resolved: resolved) == .overlappingMenuBar
-        {
+        } else if WorkspaceBarGeometry.effectivePosition(for: monitor, resolved: resolved) == .overlappingMenuBar {
             NSWindow.Level(rawValue: max(level.rawValue, NSWindow.Level.statusBar.rawValue + 1))
         } else {
             level
