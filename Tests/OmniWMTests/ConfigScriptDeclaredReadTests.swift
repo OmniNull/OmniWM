@@ -44,7 +44,7 @@ final class ConfigScriptDeclaredReadTests: XCTestCase {
         let fixture = try ConfigScriptCallbackQueueTests.Fixture(test: self)
         let statements = [
             "wm.keymap.set('F', fn, { reads = 'windows' })",
-            "wm.keymap.set('F', wm.cmd('open-command-palette'), { reads = { 'windows' } })",
+            "wm.keymap.set('F', wm.cmd.openCommandPalette(), { reads = { 'windows' } })",
             "wm.command('Wrong name', fn, { reads = { 'window' } })",
             "wm.command('Sparse', fn, { reads = { [2] = 'windows' } })",
             "wm.on('window.active', fn, { reads = { windows = true } })",

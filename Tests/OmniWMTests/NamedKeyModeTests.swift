@@ -15,7 +15,7 @@ final class NamedKeyModeTests: XCTestCase {
     private let keyEscape = UInt32(kVK_Escape)
     private let shift = CGEventFlags.maskShift.rawValue
     private let resizeKeys = "local resize = omniwm.keymap.mode('resize')\n"
-        + "omniwm.keymap.set('H', omniwm.cmd('focus', 'left'), { mode = 'resize' })\n"
+        + "omniwm.keymap.set('H', omniwm.cmd.focus('left'), { mode = 'resize' })\n"
 
     private func key(_ code: UInt32, modifiers: Int = 0) -> KeyBinding {
         KeyBinding(keyCode: code, modifiers: UInt32(modifiers))
@@ -181,7 +181,7 @@ final class NamedKeyModeTests: XCTestCase {
         let evaluation = try await evaluate(resizeKeys + """
         local move = omniwm.keymap.mode('move')
         omniwm.keymap.set('Control+Option+Shift+Y', resize)
-        omniwm.keymap.set('H', omniwm.cmd('move', 'left'), { mode = 'move' })
+        omniwm.keymap.set('H', omniwm.cmd.move('left'), { mode = 'move' })
         omniwm.keymap.set('Shift+L', function() end, { mode = 'move', reads = { 'windows' } })
         """)
         XCTAssertEqual(evaluation.namedModes.map(\.name), ["resize", "move"])
@@ -197,23 +197,23 @@ final class NamedKeyModeTests: XCTestCase {
 
     func testDeclarationErrorsNameTheProblem() async {
         let cases: [(String, String)] = [
-            ("omniwm.keymap.set('H', omniwm.cmd('focus', 'left'), { mode = 'resize' })", "isn't declared"),
+            ("omniwm.keymap.set('H', omniwm.cmd.focus('left'), { mode = 'resize' })", "isn't declared"),
             ("omniwm.keymap.mode('Resize')", "lowercase"),
             ("omniwm.keymap.mode('window')", "can't be normal, paused, prefix or window"),
             ("omniwm.keymap.mode('resize') omniwm.keymap.mode('resize')", "already declared"),
-            (resizeKeys + "omniwm.keymap.set('H', omniwm.cmd('focus', 'right'), { mode = 'resize' })", "already bound"),
-            (resizeKeys + "omniwm.keymap.set('Escape', omniwm.cmd('focus', 'right'), { mode = 'resize' })", "one key"),
+            (resizeKeys + "omniwm.keymap.set('H', omniwm.cmd.focus('right'), { mode = 'resize' })", "already bound"),
+            (resizeKeys + "omniwm.keymap.set('Escape', omniwm.cmd.focus('right'), { mode = 'resize' })", "one key"),
             (
-                resizeKeys + "omniwm.keymap.set('Control+L', omniwm.cmd('focus', 'right'), { mode = 'resize' })",
+                resizeKeys + "omniwm.keymap.set('Control+L', omniwm.cmd.focus('right'), { mode = 'resize' })",
                 "one key"
             ),
             (
-                resizeKeys + "omniwm.keymap.set('L', omniwm.cmd('focus', 'right'), { mode = 'resize', modeKey = 'J' })",
+                resizeKeys + "omniwm.keymap.set('L', omniwm.cmd.focus('right'), { mode = 'resize', modeKey = 'J' })",
                 "modeKey or mode, not both"
             ),
             ("omniwm.keymap.mode('idle')", "has no keys"),
             (
-                resizeKeys + "omniwm.keymap.set('LeftShift', omniwm.cmd('focus', 'right'), { mode = 'resize' })",
+                resizeKeys + "omniwm.keymap.set('LeftShift', omniwm.cmd.focus('right'), { mode = 'resize' })",
                 "one key"
             )
         ]
@@ -225,7 +225,7 @@ final class NamedKeyModeTests: XCTestCase {
 
     func testModeAndKeyLimitsComeFromTheTable() async {
         let modes = (0 ... NamedKeyModes.modeLimit).map { index in
-            "omniwm.keymap.mode('m\(index)') omniwm.keymap.set('H', omniwm.cmd('focus', 'left'), { mode = 'm\(index)' })"
+            "omniwm.keymap.mode('m\(index)') omniwm.keymap.set('H', omniwm.cmd.focus('left'), { mode = 'm\(index)' })"
         }
         let tooMany = await refusal(modes.joined(separator: "\n"))
         XCTAssertTrue(tooMany?.contains("at most \(NamedKeyModes.modeLimit) modes") == true, tooMany ?? "accepted")
@@ -233,7 +233,7 @@ final class NamedKeyModeTests: XCTestCase {
         let names = plain + plain.map { "Shift+" + $0 }
         XCTAssertGreaterThan(names.count, NamedKeyModes.keyLimit)
         let keys = names.prefix(NamedKeyModes.keyLimit + 1).map {
-            "omniwm.keymap.set('\($0)', omniwm.cmd('focus', 'left'), { mode = 'many' })"
+            "omniwm.keymap.set('\($0)', omniwm.cmd.focus('left'), { mode = 'many' })"
         }
         let full = await refusal("omniwm.keymap.mode('many')\n" + keys.joined(separator: "\n"))
         XCTAssertTrue(full?.contains("at most \(NamedKeyModes.keyLimit) keys") == true, full ?? "accepted")
@@ -279,7 +279,7 @@ final class NamedKeyModeTests: XCTestCase {
         ]
         let evaluation = try await evaluate(
             "local resize = omniwm.keymap.mode('resize')\n"
-                + "omniwm.keymap.set('Shift+H', omniwm.cmd('focus', 'left'), { mode = 'resize' })"
+                + "omniwm.keymap.set('Shift+H', omniwm.cmd.focus('left'), { mode = 'resize' })"
         )
         _ = script(for: controller).apply(
             ConfigScriptLoad(versions: [:], result: .success(evaluation)),
@@ -294,9 +294,9 @@ final class NamedKeyModeTests: XCTestCase {
         let script = script(for: controller)
         try await publish(
             resizeKeys
-                + "omniwm.keymap.set('L', omniwm.cmd('focus', 'right'), { mode = 'resize' })\n"
+                + "omniwm.keymap.set('L', omniwm.cmd.focus('right'), { mode = 'resize' })\n"
                 + "local move = omniwm.keymap.mode('move')\n"
-                + "omniwm.keymap.set('H', omniwm.cmd('move', 'left'), { mode = 'move' })",
+                + "omniwm.keymap.set('H', omniwm.cmd.move('left'), { mode = 'move' })",
             into: script
         )
         XCTAssertEqual(controller.hotkeys.namedKeyModes.modes.map(\.entries.count), [2, 1])
@@ -329,7 +329,7 @@ final class NamedKeyModeTests: XCTestCase {
         try await fixture.load(resizeKeys + """
         omniwm.command('Enter', function()
             omniwm.dispatch(resize)
-            omniwm.dispatch(omniwm.cmd('switch-workspace', '2'))
+            omniwm.dispatch(omniwm.cmd.switchWorkspace('2'))
         end)
         """)
         XCTAssertFalse(base.controller.hotkeys.namedKeyModes.isEmpty)

@@ -94,9 +94,9 @@ final class ConfigScriptTimerTests: XCTestCase {
         let lines = [
             "omniwm.timer({afterSeconds = \(interval)}, function(...)",
             "    assert(select('#', ...) == 0)",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(missing)'))",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.origin)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(missing)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.origin)'))",
             "end)"
         ]
         let liveBeforeLoad = omni_config_live_vm_count()
@@ -169,7 +169,7 @@ final class ConfigScriptTimerTests: XCTestCase {
         let mask = fixture.controller.settings.hyperKeyModifiers.carbonMask
         let statements = [
             "omniwm.timer({everySeconds = \(interval)}, function()",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
             "end)"
         ]
         let invalid = ConfigScriptLoad(versions: [:], result: .failure(.init(line: nil, message: "rejected edit")))
@@ -210,7 +210,7 @@ final class ConfigScriptTimerTests: XCTestCase {
         let script = controller(for: fixture, sleeper: sleeper)
         let statements = [
             "local handle = omniwm.timer({everySeconds = \(interval)}, function()",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
             "    error('timer failed')", "end)",
             "omniwm.command('Cancel timer', function() handle.cancel() end)"
         ]

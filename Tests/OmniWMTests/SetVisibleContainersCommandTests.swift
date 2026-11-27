@@ -62,7 +62,7 @@ final class SetVisibleContainersCommandTests: XCTestCase {
         }
 
         let evaluation = try await ConfigScriptLoader().evaluate(
-            Data("omniwm.keymap.set('Hyper+\(count)', omniwm.cmd('set-visible-containers', '\(count)'))".utf8),
+            Data("omniwm.keymap.set('Hyper+\(count)', omniwm.cmd.setVisibleContainers('\(count)'))".utf8),
             hyperMask: HyperKeyModifiers.default.carbonMask
         )
         XCTAssertEqual(evaluation.bindings.map(\.command), [.sizing(.setVisibleContainers(count))])

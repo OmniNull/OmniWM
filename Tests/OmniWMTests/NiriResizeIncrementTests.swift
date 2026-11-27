@@ -50,7 +50,7 @@ final class NiriResizeIncrementTests: XCTestCase {
         let fileURL = directory.appendingPathComponent("init.luau")
         let increments = [("Control+Option+J", 4), ("Control+Option+K", 12)]
         let source = increments.map { chord, percent in
-            #"wm.keymap.set("\#(chord)", wm.cmd("set-container-primary-span", "+\#(percent)%"))"#
+            #"wm.keymap.set("\#(chord)", wm.cmd.setContainerPrimarySpan("+\#(percent)%"))"#
         }.joined(separator: "\n")
         try ("local wm = omniwm\n" + source).write(to: fileURL, atomically: true, encoding: .utf8)
         defer {
@@ -95,8 +95,8 @@ final class NiriResizeIncrementTests: XCTestCase {
         let otherPercent = 4
         let source = """
         local wm = omniwm
-        local textEdit = wm.cmd("set-container-primary-span", "+\(textEditPercent)%")
-        local other = wm.cmd("set-container-primary-span", "+\(otherPercent)%")
+        local textEdit = wm.cmd.setContainerPrimarySpan("+\(textEditPercent)%")
+        local other = wm.cmd.setContainerPrimarySpan("+\(otherPercent)%")
         wm.keymap.set("Control+Option+I", function(ctx)
             wm.dispatch(if ctx.bundleId == "\(textEdit)" then textEdit else other)
         end)

@@ -184,15 +184,15 @@ final class ScriptARCFixture {
         let verifyReads = withEventReads ? "assert(#e.workspaceWindows == \(Self.workspaceRows))" : ""
         let source = """
         local wm = omniwm
-        local prebuilt = wm.cmd("focus-monitor", "next")
-        wm.keymap.set("Control+Option+P", wm.cmd("focus-monitor", "next"))
+        local prebuilt = wm.cmd.focusMonitor("next")
+        wm.keymap.set("Control+Option+P", wm.cmd.focusMonitor("next"))
         wm.keymap.set("Control+Option+F", function(c) assert(c.windowId and not c.windows and not c.workspaceWindows) end)
         wm.keymap.set("Control+Option+L", function(c) assert(#c.workspaceWindows == \(Self.workspaceRows) and not c.windows) end, {reads={"workspaceWindows"}})
         wm.keymap.set("Control+Option+A", function(c) assert(#c.windows == \(Self.totalRows) and not c.workspaceWindows) end, {reads={"windows"}})
         wm.keymap.set("Control+Option+D", function(c) wm.dispatch("window", "move-to-workspace", c.windowId, c.workspace) end)
-        wm.keymap.set("Control+Option+C", function(c) wm.dispatch(wm.cmd("focus-monitor", "next")) end)
+        wm.keymap.set("Control+Option+C", function(c) wm.dispatch(wm.cmd.focusMonitor("next")) end)
         wm.keymap.set("Control+Option+B", function(c) wm.dispatch(prebuilt) end)
-        wm.keymap.set("Control+Option+G", function(c) local action = wm.cmd("focus", "left") end)
+        wm.keymap.set("Control+Option+G", function(c) local action = wm.cmd.focus("left") end)
         wm.on("window.title", function(e)
             assert(e.id == "\(expected)" and e.title == "ARC fixture renamed window B")
             \(verifyReads)

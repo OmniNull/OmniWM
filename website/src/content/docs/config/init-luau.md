@@ -37,7 +37,7 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 | `omniwm.command(name, function(ctx) … end, opts?)` | Adds a command to the command palette. |
 | `omniwm.on(event, function(e) … end, opts?)` | Handles an [event](#events). |
 | `omniwm.timer({ afterSeconds = n }, fn)` or `omniwm.timer({ everySeconds = n }, fn)` | Runs `fn` once or repeatedly, and returns a value with `cancel()`. Pass a function and `{ reads = … }` to give it a context. |
-| `omniwm.cmd(word, …)` | Builds the action for a built-in command, such as `omniwm.cmd("focus", "left")`. Most words match the [`omniwmctl` commands](/reference/cli/commands/). |
+| `omniwm.cmd.<name>(…)` | Builds a built-in action for `keymap.set` or `dispatch`, such as `omniwm.cmd.focus("left")`. |
 | `omniwm.act.open(bundleId)`, `omniwm.act.run(argv)`, `omniwm.act.notify(text)` | Builds an action that opens an app, runs a program or shows a notice. |
 | `omniwm.dispatch(action)` | Queues an action from a callback. |
 | `omniwm.dispatch("window", action, id, …)` | Queues an action on one window by its ID; see [window actions](#window-actions). |
@@ -48,12 +48,21 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 
 `argv` is a list such as `{ "/usr/bin/open", "-a", "TextEdit" }`. OmniWM runs the program directly, not through a shell.
 
+## Built-in commands
+
+Use the first word of an [`omniwmctl` command](/reference/cli/commands/) as the camelCase member of `omniwm.cmd`. Pass the remaining words as strings, including selectors and literal suffixes. For example, `switch-workspace slot 2` becomes `omniwm.cmd.switchWorkspace("slot", "2")`. The generated `omniwm-config.d.luau` definition lists the members and their accepted arguments.
+
+```lua
+local wm = omniwm
+wm.keymap.set("Control+Option+2", wm.cmd.switchWorkspace("2"))
+```
+
 ## Key modes
 
 A key mode gives plain keys their own meaning until you leave it, like Hyprland's submaps. `omniwm.keymap.mode(name)` declares one and returns the action that enters it. Bind that action to a shortcut, or dispatch it from a callback. `omniwm.keymap.set(key, action, { mode = name })` binds a key inside the mode, and a function works there too.
 
 - A key in a mode is one key, with Shift at most. Each mode keeps its own keys, so H can resize in one mode and move a window in another.
-- Escape leaves the mode, and so does `omniwm.cmd("exit-keyboard-mode")`. Keys the mode doesn't bind, and shortcuts with Command, Control or Option, still reach your apps, and the mode stays on.
+- Escape leaves the mode, and so does `omniwm.cmd.exitKeyboardMode()`. Keys the mode doesn't bind, and shortcuts with Command, Control or Option, still reach your apps, and the mode stays on.
 - One mode is on at a time. Entering another mode, Pause, Prefix or Window mode replaces it. A mode has no timeout, and reloading `init.luau` leaves it.
 - While a mode is on, the indicator shows its name and keys, and the `keybinds.submap` event reports its name.
 - A name has up to 32 lowercase letters, digits, `-` and `_`, and starts with a letter. `normal`, `paused`, `prefix` and `window` are taken. A config declares at most 16 modes, each with 1 to 64 keys. A key in a mode can't also be a shortcut without Command, Control or Option.
@@ -227,7 +236,7 @@ Put these in `init.luau`, and save the file to apply them.
 
 ```lua
 local wm = omniwm
-wm.keymap.set("Control+Option+K", wm.cmd("set-container-primary-span", "+12%"))
+wm.keymap.set("Control+Option+K", wm.cmd.setContainerPrimarySpan("+12%"))
 ```
 
 **Float an app's windows.** This rule floats new TextEdit documents. Substitute another app's bundle ID to float its windows.
@@ -259,8 +268,8 @@ Option + Shift + L is Toggle Layout by default. A shortcut that Settings already
 ```lua
 local wm = omniwm
 local function bind(letter: string, direction: "left" | "down" | "up" | "right")
-    wm.keymap.set("Option+" .. letter, wm.cmd("focus", direction))
-    wm.keymap.set("Option+Shift+" .. letter, wm.cmd("move", direction))
+    wm.keymap.set("Option+" .. letter, wm.cmd.focus(direction))
+    wm.keymap.set("Option+Shift+" .. letter, wm.cmd.move(direction))
 end
 bind("H", "left")
 bind("J", "down")
@@ -292,7 +301,7 @@ local function bind(chord: string, step: number)
         end
         local current = table.find(names, ctx.workspace)
         if current and names[current + step] then
-            wm.dispatch(wm.cmd("switch-workspace", "slot", tostring(current + step)))
+            wm.dispatch(wm.cmd.switchWorkspace("slot", tostring(current + step)))
         end
     end, { reads = { "workspaces" } })
 end
@@ -304,8 +313,8 @@ bind("Control+Option+Shift+Comma", -1)
 
 ```lua
 local wm = omniwm
-local left = wm.cmd("move-to-monitor", "left")
-local right = wm.cmd("move-to-monitor", "right")
+local left = wm.cmd.moveToMonitor("left")
+local right = wm.cmd.moveToMonitor("right")
 wm.keymap.set("Control+Option+Shift+M", function(ctx: ConfigContext)
     local monitors, windows = ctx.monitors, ctx.workspaceWindows
     if not monitors or #monitors ~= 2 or not windows then return end
@@ -540,7 +549,7 @@ local chat = { "com.tinyspeck.slackmacgap", "com.hnc.Discord", "ru.keepcoder.Tel
 for _, bundleId in chat do
     wm.rule { bundleId = bundleId, scratchpad = 2 }
 end
-wm.keymap.set("Control+Option+Shift+C", wm.cmd("scratchpad", "toggle", "2"))
+wm.keymap.set("Control+Option+Shift+C", wm.cmd.scratchpad("toggle", "2"))
 ```
 
 **Gather an app group into one column.** Control + Option + Shift + G collects Safari and Ghostty windows from every workspace into one column on the Niri workspace you're on, in the order the windows list gives them. Floating, minimized and fullscreen windows stay where they are. If a matching window is on a Dwindle workspace, the gather refuses and nothing moves. A truncated windows list does nothing rather than gather part of the group.
@@ -598,11 +607,11 @@ local move = wm.keymap.mode("move")
 wm.keymap.set("Control+Option+Shift+Y", resize)
 wm.keymap.set("Control+Option+Shift+U", move)
 
-wm.keymap.set("H", wm.cmd("resize", "horizontal", "shrink"), { mode = "resize" })
-wm.keymap.set("L", wm.cmd("resize", "horizontal", "grow"), { mode = "resize" })
-wm.keymap.set("H", wm.cmd("move", "left"), { mode = "move" })
-wm.keymap.set("L", wm.cmd("move", "right"), { mode = "move" })
-wm.keymap.set("Q", wm.cmd("exit-keyboard-mode"), { mode = "move" })
+wm.keymap.set("H", wm.cmd.resize("horizontal", "shrink"), { mode = "resize" })
+wm.keymap.set("L", wm.cmd.resize("horizontal", "grow"), { mode = "resize" })
+wm.keymap.set("H", wm.cmd.move("left"), { mode = "move" })
+wm.keymap.set("L", wm.cmd.move("right"), { mode = "move" })
+wm.keymap.set("Q", wm.cmd.exitKeyboardMode(), { mode = "move" })
 ```
 
 **Remember a workspace's apps.** **Remember Work Apps** in the command palette saves the apps on the workspace you're on. **Open Work Apps** opens them again, after a reload or restart too, and **Forget Work Apps** clears the list.

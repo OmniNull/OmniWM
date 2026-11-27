@@ -44,6 +44,7 @@ struct ModuleRuntime : ScriptRuntime {
 omni_config_location declarationSite(lua_State *L, ModuleRuntime &vm);
 void trimUTF8End(char *bytes, size_t capacity);
 [[noreturn]] void reject(lua_State *L, ModuleRuntime &vm, omni_config_location location, const char *reason);
+void chargeTokenBytes(lua_State *L, ModuleRuntime &vm, size_t length, omni_config_location location);
 omni_config_span token(lua_State *L, ModuleRuntime &vm, int index, omni_config_location location);
 omni_status loadChunk(lua_State *L, const char *name, omni_config_span source, int &line, char *error, size_t capacity);
 int requireConfigModule(lua_State *L);

@@ -110,7 +110,7 @@
             loader: ConfigScriptLoader
         ) async throws -> ConfigScriptController {
             let source = """
-            local open = omniwm.cmd("open-command-palette", "commands")
+            local open = omniwm.cmd.openCommandPalette("commands")
             omniwm.keymap.set("Left Option+I", open)
             omniwm.keymap.set("Left Option+O", function() omniwm.dispatch(open) end)
             """

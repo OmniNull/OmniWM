@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 #include "ScriptModules.h"
+#include "ScriptUTF8.h"
 
 #include <algorithm>
 #include <array>
@@ -62,26 +63,71 @@ ConfigVM &declarations(lua_State *L) {
     return vm;
 }
 
+struct CommandGroup {
+    const char *member;
+    size_t firstWordLength;
+};
+
+#include "ConfigCommandGroups.h"
+
+static_assert(commandGroups.size() <= UINT16_MAX + size_t{1});
+
 int command(lua_State *L) {
     ConfigVM &vm = declarations(L);
     auto site = declarationSite(L, vm);
     std::array<omni_config_span, LUA_MINSTACK> words;
-    int count = lua_gettop(L);
-    if (count == 0 || static_cast<size_t>(count) > words.size()) {
+    const int count = lua_gettop(L);
+    if (static_cast<size_t>(count) >= words.size()) {
         reject(L, vm, site, "invalid number of command words");
     }
     if (vm.actions == OMNI_CONFIG_DECLARATION_LIMIT) {
         reject(L, vm, site, "config action limit exceeded");
     }
+    const auto group = static_cast<uint16_t>(lua_tointeger(L, lua_upvalueindex(1)));
+    chargeTokenBytes(L, vm, commandGroups[group].firstWordLength, site);
     for (int i = 0; i < count; i++) {
         words[i] = token(L, vm, i + 1, site);
     }
     auto *action = static_cast<uint32_t *>(lua_newuserdatatagged(L, sizeof(uint32_t), actionTag));
-    if (!vm.callbacks.resolve(vm.context, words.data(), count, site, action, vm.failure, sizeof vm.failure)) {
+    if (!vm.callbacks.resolve(vm.context, group, words.data(), count, site, action, vm.failure, sizeof vm.failure)) {
         reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid command");
     }
     vm.actions++;
     return 1;
+}
+
+int unknownCommandMember(lua_State *L) {
+    ConfigVM &vm = declarations(L);
+    const auto site = declarationSite(L, vm);
+    const auto key = token(L, vm, 2, site);
+    for (size_t offset = 0; offset < key.length;) {
+        const size_t width = utf8Width(key.data + offset, key.length - offset);
+        if (width == 0) {
+            reject(L, vm, site, "expected a valid UTF-8 command member");
+        }
+        offset += width;
+    }
+    std::snprintf(vm.failure, sizeof vm.failure, "Unknown command member '%.*s'.", static_cast<int>(key.length), key.data);
+    reject(L, vm, site, vm.failure);
+}
+
+void installCommands(lua_State *L) {
+    lua_createtable(L, 0, static_cast<int>(commandGroups.size()));
+    for (size_t group = 0; group < commandGroups.size(); ++group) {
+        const char *member = commandGroups[group].member;
+        lua_pushinteger(L, static_cast<int>(group));
+        lua_pushcclosure(L, command, member, 1);
+        lua_setfield(L, -2, member);
+    }
+    lua_createtable(L, 0, 2);
+    lua_pushcfunction(L, unknownCommandMember, "cmd");
+    lua_setfield(L, -2, "__index");
+    lua_pushboolean(L, false);
+    lua_setfield(L, -2, "__metatable");
+    lua_setreadonly(L, -1, true);
+    lua_setmetatable(L, -2);
+    lua_setreadonly(L, -1, true);
+    lua_setfield(L, -2, "cmd");
 }
 
 struct CallbackOptions {
@@ -941,8 +987,7 @@ void installConfig(lua_State *L) {
     lua_createtable(L, 0, 13);
     lua_pushcfunction(L, addTimer, "timer");
     lua_setfield(L, -2, "timer");
-    lua_pushcfunction(L, command, "cmd");
-    lua_setfield(L, -2, "cmd");
+    installCommands(L);
     lua_pushcfunction(L, namedFunction<false>, "command");
     lua_setfield(L, -2, "command");
     lua_pushcfunction(L, namedFunction<true>, "on");

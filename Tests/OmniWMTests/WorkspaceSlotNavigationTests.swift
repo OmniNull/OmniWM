@@ -184,8 +184,8 @@ final class WorkspaceSlotNavigationTests: XCTestCase {
         let workspaceNumber = try XCTUnwrap(fixture.manager.descriptor(for: fixture.workspace2)?.name)
         let source = """
         local wm = omniwm
-        wm.keymap.set("Control+Option+S", wm.cmd("switch-workspace", "slot", "\(workspaceNumber)"))
-        wm.keymap.set("Control+Option+W", wm.cmd("switch-workspace", "\(workspaceNumber)"))
+        wm.keymap.set("Control+Option+S", wm.cmd.switchWorkspace("slot", "\(workspaceNumber)"))
+        wm.keymap.set("Control+Option+W", wm.cmd.switchWorkspace("\(workspaceNumber)"))
         """
         let result = try await ConfigScriptLoader().evaluate(
             Data(source.utf8), hyperMask: fixture.controller.settings.hyperKeyModifiers.carbonMask

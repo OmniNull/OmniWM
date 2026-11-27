@@ -7,7 +7,7 @@ import XCTest
 
 @MainActor
 final class SettingsConfigNoticeTests: XCTestCase {
-    private let brokenScript = "omniwm.cmd('mistyped')"
+    private let brokenScript = "omniwm.cmd.mistyped()"
     private let validScript = ""
 
     private var brokenScriptLine: Int {

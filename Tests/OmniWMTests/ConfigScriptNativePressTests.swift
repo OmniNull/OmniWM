@@ -23,29 +23,29 @@ final class ConfigScriptNativePressTests: XCTestCase {
         let missingWorkspace = WorkspaceIDPolicy.lowestUnusedRawID(in: settings.workspaces.configurations.map(\.name))
         let missingIndex = try XCTUnwrap(Int(missingWorkspace)) - 1
         let missingSlot = settings.workspaces.configurations.count + 1
-        let inputs: [(words: [String], expected: HotkeyCommand)] = [
-            (["switch-workspace", missingWorkspace], .workspace(.switchTo(missingIndex))),
-            (["switch-workspace", "anywhere", missingWorkspace], .workspace(.switchAnywhere(missingIndex))),
-            (["switch-workspace", "slot", String(missingSlot)], .workspace(.switchSlot(missingSlot))),
-            (["move-to-workspace", missingWorkspace], .workspace(.moveTo(missingIndex))),
+        let inputs: [(member: String, arguments: [String], expected: HotkeyCommand)] = [
+            ("switchWorkspace", [missingWorkspace], .workspace(.switchTo(missingIndex))),
+            ("switchWorkspace", ["anywhere", missingWorkspace], .workspace(.switchAnywhere(missingIndex))),
+            ("switchWorkspace", ["slot", String(missingSlot)], .workspace(.switchSlot(missingSlot))),
+            ("moveToWorkspace", [missingWorkspace], .workspace(.moveTo(missingIndex))),
             (
-                ["move-to-workspace", "on-monitor", missingWorkspace, "right"],
+                "moveToWorkspace", ["on-monitor", missingWorkspace, "right"],
                 .workspace(.moveToOnMonitor(missingIndex, .right))
             ),
-            (["move-to-workspace", "slot", String(missingSlot)], .workspace(.moveToSlot(missingSlot))),
-            (["focus-monitor", "next"], .monitorFocus(.next)),
-            (["swap-workspace-with-monitor", "right"], .workspace(.swapWithMonitor(.right))),
-            (["open-command-palette", "commands"], .openCommandPaletteMode(.commands)),
-            (["window-switcher", "next", "all-workspaces"], .windowSwitcher(direction: .next, scope: .allWorkspaces)),
-            (["raise-all-floating-windows"], .raiseAllFloatingWindows),
-            (["rescue-offscreen-windows"], .rescueOffscreenWindows),
-            (["set-workspace-layout", "niri"], .workspace(.setLayout(.niri)))
+            ("moveToWorkspace", ["slot", String(missingSlot)], .workspace(.moveToSlot(missingSlot))),
+            ("focusMonitor", ["next"], .monitorFocus(.next)),
+            ("swapWorkspaceWithMonitor", ["right"], .workspace(.swapWithMonitor(.right))),
+            ("openCommandPalette", ["commands"], .openCommandPaletteMode(.commands)),
+            ("windowSwitcher", ["next", "all-workspaces"], .windowSwitcher(direction: .next, scope: .allWorkspaces)),
+            ("raiseAllFloatingWindows", [], .raiseAllFloatingWindows),
+            ("rescueOffscreenWindows", [], .rescueOffscreenWindows),
+            ("setWorkspaceLayout", ["niri"], .workspace(.setLayout(.niri)))
         ]
         let keys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".prefix(inputs.count).map(String.init)
         XCTAssertEqual(keys.count, inputs.count)
         let source = zip(keys, inputs).map { key, input in
-            let args = input.words.map { "'\($0)'" }.joined(separator: ", ")
-            return "omniwm.keymap.set('Left Option+\(key)', omniwm.cmd(\(args)), { modeKey = '\(key)' })"
+            let args = input.arguments.map { "'\($0)'" }.joined(separator: ", ")
+            return "omniwm.keymap.set('Left Option+\(key)', omniwm.cmd.\(input.member)(\(args)), { modeKey = '\(key)' })"
         }.joined(separator: "\n")
         let beforeLoad = omni_config_vm_entry_count()
         let mask = settings.hyperKeyModifiers.carbonMask

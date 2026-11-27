@@ -91,7 +91,7 @@ final class SettingsListOwnerTests: XCTestCase {
         }
         let scriptBundle = "example.script"
         let source = """
-        omniwm.keymap.set('Control+Option+J', omniwm.cmd('open-command-palette'))
+        omniwm.keymap.set('Control+Option+J', omniwm.cmd.openCommandPalette())
         omniwm.rule { bundleId = '\(scriptBundle)', layout = 'float' }
         """
         let mask = settings.hyperKeyModifiers.carbonMask

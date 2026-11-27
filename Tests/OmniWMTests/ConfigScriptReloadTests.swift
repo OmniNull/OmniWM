@@ -48,7 +48,7 @@ final class ConfigScriptReloadTests: XCTestCase {
     private let coarse = 12
 
     private func binding(_ chord: String, amount: Int) -> String {
-        "omniwm.keymap.set(\"\(chord)\", omniwm.cmd(\"set-container-primary-span\", \"+\(amount)%\"))"
+        "omniwm.keymap.set(\"\(chord)\", omniwm.cmd.setContainerPrimarySpan(\"+\(amount)%\"))"
     }
 
     private func action(_ amount: Int) -> HotkeyCommand {
@@ -72,7 +72,7 @@ final class ConfigScriptReloadTests: XCTestCase {
         try await processed(fixture) { fixture.script.start() }
         XCTAssertTrue(fixture.publications.isEmpty)
 
-        try await processed(fixture) { try fixture.write("omniwm.cmd('mistyped')") }
+        try await processed(fixture) { try fixture.write("omniwm.cmd.mistyped()") }
         XCTAssertTrue(fixture.publications.isEmpty)
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("init.luau:1:"))
         XCTAssertNil(fixture.settings.configNotice)
@@ -80,7 +80,7 @@ final class ConfigScriptReloadTests: XCTestCase {
         try await processed(fixture) { try fixture.write(first, atomic: true) }
         XCTAssertNil(fixture.script.diagnostic)
         XCTAssertEqual(fixture.publications.map { $0.map(\.command) }, [[action(fine)]])
-        try await processed(fixture) { try fixture.write(second + "\nomniwm.cmd('mistyped')") }
+        try await processed(fixture) { try fixture.write(second + "\nomniwm.cmd.mistyped()") }
         XCTAssertTrue(try XCTUnwrap(fixture.script.diagnostic).contains("init.luau:2:"))
         XCTAssertEqual(fixture.script.effectiveBindings.map(\.command), [action(fine)])
 

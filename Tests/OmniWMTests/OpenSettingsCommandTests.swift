@@ -26,7 +26,7 @@ final class OpenSettingsCommandTests: XCTestCase {
             XCTAssertFalse(other.binding.conflicts(with: .chord(hyperComma)), other.id)
         }
         let evaluation = try await ConfigScriptLoader().evaluate(
-            Data("omniwm.keymap.set('Hyper+Comma', omniwm.cmd('open-settings'))".utf8),
+            Data("omniwm.keymap.set('Hyper+Comma', omniwm.cmd.openSettings())".utf8),
             hyperMask: HyperKeyModifiers.default.carbonMask
         )
         XCTAssertEqual(evaluation.bindings.map(\.command), [.openSettings])

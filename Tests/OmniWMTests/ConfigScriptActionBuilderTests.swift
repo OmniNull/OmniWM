@@ -45,7 +45,7 @@ final class ConfigScriptActionBuilderTests: XCTestCase {
         let command = "set-container-primary-span"
         let bindings = [("J", "+4%"), ("K", "+4.0%")]
         let script = bindings.map { chord, step in
-            "omniwm.keymap.set('\(chord)', omniwm.cmd('\(command)', '\(step)'))"
+            "omniwm.keymap.set('\(chord)', omniwm.cmd.setContainerPrimarySpan('\(step)'))"
         }.joined(separator: "\n")
         let evaluation = try await load(script)
         XCTAssertEqual(evaluation.bindings.map(\.commandText), bindings.map { "\(command) \($0.1)" })

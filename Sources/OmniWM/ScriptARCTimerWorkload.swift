@@ -25,7 +25,7 @@ extension ScriptARCFixture {
         let cases = [
             ("timer/empty", "function() end"),
             ("timer/reads", "function(e) assert(#e.workspaceWindows > 0) end, {reads={'workspaceWindows'}}"),
-            ("timer/effect", "function() omniwm.dispatch(omniwm.cmd('focus-monitor', 'next')) end")
+            ("timer/effect", "function() omniwm.dispatch(omniwm.cmd.focusMonitor('next')) end")
         ]
         script.stop()
         for (route, code) in cases {

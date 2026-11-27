@@ -105,7 +105,7 @@ final class DiagnosticsIssueAggregatorTests: XCTestCase {
         try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: configDirectory.deletingLastPathComponent()) }
         let scriptURL = configDirectory.appendingPathComponent(ConfigScriptController.fileName, isDirectory: false)
-        try Data("omniwm.cmd('mistyped')".utf8).write(to: scriptURL)
+        try Data("omniwm.cmd.mistyped()".utf8).write(to: scriptURL)
         defer { controller.stopConfigScript() }
 
         try await reloaded(controller) { controller.startConfigScript(at: scriptURL) }

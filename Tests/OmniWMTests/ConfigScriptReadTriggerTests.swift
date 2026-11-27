@@ -94,7 +94,7 @@ final class ConfigScriptReadTriggerTests: XCTestCase {
             "local order = 0",
             "omniwm.on('config.reloaded', function(e)",
             "    assert(e.workspaces and not e.workspaceWindows and not e.truncated.workspaceWindows)",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
             "    order += 1",
             "end, {reads = {'workspaces'}})",
             "omniwm.on('config.reloaded', function(e)",
@@ -130,7 +130,7 @@ final class ConfigScriptReadTriggerTests: XCTestCase {
             "    assert(ctx.workspace == '\(fixture.destination)' and ctx.layout == 'niri')",
             "    assert(#ctx.workspaceWindows == 1 and ctx.workspaceWindows[1].workspace == ctx.workspace)",
             "    assert(ctx.truncated.workspaceWindows == false and not ctx.windows and not ctx.monitors)",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.origin)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.origin)'))",
             "end, {reads = {'workspaceWindows'}})"
         ])
         XCTAssertTrue(script.apply(load, hyperMask: wm.settings.hyperKeyModifiers.carbonMask))

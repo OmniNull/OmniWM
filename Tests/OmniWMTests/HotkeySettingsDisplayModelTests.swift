@@ -120,8 +120,8 @@ final class HotkeySettingsDisplayModelTests: XCTestCase {
         let shrink = "Control+Option+K"
         let command = "set-container-primary-span"
         let declarations = [
-            "wm.keymap.set('\(grow)', wm.cmd('\(command)', '\(increase)'))",
-            "wm.keymap.set('\(shrink)', wm.cmd('\(command)', '\(decrease)'))"
+            "wm.keymap.set('\(grow)', wm.cmd.setContainerPrimarySpan('\(increase)'))",
+            "wm.keymap.set('\(shrink)', wm.cmd.setContainerPrimarySpan('\(decrease)'))"
         ]
         func evaluate(_ lines: [String]) async throws -> [ConfigScriptBinding] {
             try await loader.evaluate(

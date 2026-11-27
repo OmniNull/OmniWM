@@ -14,11 +14,9 @@ final class ConfigScriptCommandParserTests: XCTestCase {
         .sizeChange: ["+10%", "50%", "-5", "x", ""]
     ]
 
-    private enum Classification: Equatable {
-        case request(IPCCommandRequest)
-        case unknown
-        case invalidArguments
-    }
+    private static let groupsByWord = Dictionary(uniqueKeysWithValues:
+        ConfigScriptCommandParser.inventory().enumerated().map { index, group in (group.word, index) }
+    )
 
     func testEveryManifestCommandAndArgumentParsesLikeTheCLIParser() throws {
         var checked = 0
@@ -28,51 +26,42 @@ final class ConfigScriptCommandParserTests: XCTestCase {
                     ?? XCTUnwrap(Self.openTokens[argument.kind], argument.kind.rawValue)
             }
             for arguments in Self.product(choices) {
-                assertSameClassification(descriptor.commandWords + arguments)
+                assertSameRequest(descriptor.commandWords + arguments)
                 checked += 1
             }
         }
         XCTAssertGreaterThan(checked, IPCAutomationManifest.commandDescriptors.count)
     }
 
-    func testWrongArityUnknownNamesAndBadTextClassifyLikeTheCLIParser() {
+    func testWrongArityAndBadTextAreRejected() throws {
         for descriptor in IPCAutomationManifest.commandDescriptors {
-            assertSameClassification(descriptor.commandWords + descriptor.arguments.map { _ in "1" } + ["extra"])
-            if !descriptor.arguments.isEmpty { assertSameClassification(descriptor.commandWords) }
+            assertSameRequest(descriptor.commandWords + descriptor.arguments.map { _ in "1" } + ["extra"])
+            if !descriptor.arguments.isEmpty { assertSameRequest(descriptor.commandWords) }
         }
-        for words in [["not-a-command"], ["focus-monitor", "sideways"], ["switch-workspace"], ["focus", "left", "up"]] {
-            assertSameClassification(words)
+        for words in [["focus-monitor", "sideways"], ["switch-workspace"], ["focus", "left", "up"]] {
+            assertSameRequest(words)
         }
-        let appOpen = Array(IPCCommandName.shellAppOpen.rawValue.utf8)
-        XCTAssertEqual(classify([appOpen, [0xFF]]), .invalidArguments)
-        XCTAssertEqual(classify([[0xFF]]), .unknown)
+        let group = try XCTUnwrap(Self.groupsByWord[IPCCommandName.shellAppOpen.rawValue])
+        withConfigSpans([[0xFF]]) { spans in
+            XCTAssertNil(ConfigScriptCommandParser.request(group: group, spans))
+        }
+        withConfigSpans([]) { spans in
+            XCTAssertNil(ConfigScriptCommandParser.request(group: Self.groupsByWord.count, spans))
+        }
     }
 
-    private func assertSameClassification(_ words: [String], file: StaticString = #filePath, line: UInt = #line) {
-        let expected: Classification = if let request = IPCCommandRequest(commandWords: words) {
-            .request(request)
-        } else if IPCAutomationManifest.commandDescriptors(matching: words).isEmpty {
-            .unknown
-        } else {
-            .invalidArguments
+    private func assertSameRequest(_ words: [String], file: StaticString = #filePath, line: UInt = #line) {
+        guard let word = words.first, let group = Self.groupsByWord[word] else {
+            return XCTFail("Expected a command group for \(words)", file: file, line: line)
         }
+        let arguments = words.dropFirst().map { Array($0.utf8) }
         XCTAssertEqual(
-            classify(words.map { Array($0.utf8) }),
-            expected,
+            withConfigSpans(arguments) { ConfigScriptCommandParser.request(group: group, $0) },
+            IPCCommandRequest(commandWords: words),
             words.joined(separator: " "),
             file: file,
             line: line
         )
-    }
-
-    private func classify(_ words: [[UInt8]]) -> Classification {
-        withConfigSpans(words) { spans in
-            switch ConfigScriptCommandParser.request(spans) {
-            case let .request(request): .request(request)
-            case .unknown: .unknown
-            case .invalidArguments: .invalidArguments
-            }
-        }
     }
 
     private static func product(_ choices: [[String]]) -> [[String]] {

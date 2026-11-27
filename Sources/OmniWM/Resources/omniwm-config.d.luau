@@ -640,112 +640,113 @@ export type ConfigEvents =
     & { read on: (name: "window.fullscreen", callback: (event: ConfigWindowFullscreen) -> (), options: ConfigReadOptions?) -> () }
     & { read on: (name: "window.update_state", callback: (event: ConfigWindowState) -> (), options: ConfigReadOptions?) -> () }
 
-export type ConfigCommands =
-    { read cmd: (command: "focus", direction: "left" | "right" | "up" | "down") -> ConfigAction }
-    & { read cmd: (command: "focus", word2: "previous") -> ConfigAction }
-    & { read cmd: (command: "focus", word2: "down-or-left") -> ConfigAction }
-    & { read cmd: (command: "focus", word2: "up-or-right") -> ConfigAction }
-    & { read cmd: (command: "focus-window-in-column", window_index: string) -> ConfigAction }
-    & { read cmd: (command: "focus-window", word2: "top") -> ConfigAction }
-    & { read cmd: (command: "focus-window", word2: "bottom") -> ConfigAction }
-    & { read cmd: (command: "focus-window", word2: "down-or-top") -> ConfigAction }
-    & { read cmd: (command: "focus-window", word2: "up-or-bottom") -> ConfigAction }
-    & { read cmd: (command: "focus-window-or-workspace-down") -> ConfigAction }
-    & { read cmd: (command: "focus-window-or-workspace-up") -> ConfigAction }
-    & { read cmd: (command: "focus-column", column_index: string) -> ConfigAction }
-    & { read cmd: (command: "focus-column", word2: "first") -> ConfigAction }
-    & { read cmd: (command: "focus-column", word2: "last") -> ConfigAction }
-    & { read cmd: (command: "center-column") -> ConfigAction }
-    & { read cmd: (command: "center-visible-columns") -> ConfigAction }
-    & { read cmd: (command: "move", direction: "left" | "right" | "up" | "down") -> ConfigAction }
-    & { read cmd: (command: "move-window-down") -> ConfigAction }
-    & { read cmd: (command: "move-window-up") -> ConfigAction }
-    & { read cmd: (command: "move-window-down-or-to-workspace-down") -> ConfigAction }
-    & { read cmd: (command: "move-window-up-or-to-workspace-up") -> ConfigAction }
-    & { read cmd: (command: "consume-or-expel-window-left") -> ConfigAction }
-    & { read cmd: (command: "consume-or-expel-window-right") -> ConfigAction }
-    & { read cmd: (command: "consume-window-into-column") -> ConfigAction }
-    & { read cmd: (command: "expel-window-from-column") -> ConfigAction }
-    & { read cmd: (command: "switch-workspace", workspace_number: string) -> ConfigAction }
-    & { read cmd: (command: "switch-workspace", word2: "next") -> ConfigAction }
-    & { read cmd: (command: "switch-workspace", word2: "prev") -> ConfigAction }
-    & { read cmd: (command: "switch-workspace", word2: "back-and-forth") -> ConfigAction }
-    & { read cmd: (command: "switch-workspace", word2: "anywhere", workspace_number: string) -> ConfigAction }
-    & { read cmd: (command: "switch-workspace", word2: "slot", workspace_number: string) -> ConfigAction }
-    & { read cmd: (command: "move-to-workspace", workspace_number: string) -> ConfigAction }
-    & { read cmd: (command: "move-to-workspace", word2: "up") -> ConfigAction }
-    & { read cmd: (command: "move-to-workspace", word2: "down") -> ConfigAction }
-    & { read cmd: (command: "move-to-workspace", word2: "on-monitor", workspace_number: string, direction: "left" | "right" | "up" | "down") -> ConfigAction }
-    & { read cmd: (command: "move-to-workspace", word2: "slot", workspace_number: string) -> ConfigAction }
-    & { read cmd: (command: "move-to-monitor", direction: "left" | "right" | "up" | "down") -> ConfigAction }
-    & { read cmd: (command: "focus-monitor", word2: "prev") -> ConfigAction }
-    & { read cmd: (command: "focus-monitor", word2: "next") -> ConfigAction }
-    & { read cmd: (command: "focus-monitor", word2: "last") -> ConfigAction }
-    & { read cmd: (command: "move-column", direction: "left" | "right" | "up" | "down") -> ConfigAction }
-    & { read cmd: (command: "move-column-to-first") -> ConfigAction }
-    & { read cmd: (command: "move-column-to-last") -> ConfigAction }
-    & { read cmd: (command: "move-column-to-index", column_index: string) -> ConfigAction }
-    & { read cmd: (command: "move-column-to-workspace", workspace_number: string) -> ConfigAction }
-    & { read cmd: (command: "move-column-to-workspace", word2: "up") -> ConfigAction }
-    & { read cmd: (command: "move-column-to-workspace", word2: "down") -> ConfigAction }
-    & { read cmd: (command: "toggle-column-tabbed") -> ConfigAction }
-    & { read cmd: (command: "cycle-size", word2: "forward") -> ConfigAction }
-    & { read cmd: (command: "cycle-size", word2: "backward") -> ConfigAction }
-    & { read cmd: (command: "cycle-window-primary-span", word2: "forward") -> ConfigAction }
-    & { read cmd: (command: "cycle-window-primary-span", word2: "backward") -> ConfigAction }
-    & { read cmd: (command: "cycle-window-secondary-span", word2: "forward") -> ConfigAction }
-    & { read cmd: (command: "cycle-window-secondary-span", word2: "backward") -> ConfigAction }
-    & { read cmd: (command: "toggle-container-full-primary-span") -> ConfigAction }
-    & { read cmd: (command: "expand-container-to-available-primary-span") -> ConfigAction }
-    & { read cmd: (command: "reset-window-secondary-span") -> ConfigAction }
-    & { read cmd: (command: "set-container-primary-span", size_change: string) -> ConfigAction }
-    & { read cmd: (command: "set-window-primary-span", size_change: string) -> ConfigAction }
-    & { read cmd: (command: "set-window-secondary-span", size_change: string) -> ConfigAction }
-    & { read cmd: (command: "set-visible-containers", visible_container_count: "0" | "1" | "2" | "3" | "4" | "5") -> ConfigAction }
-    & { read cmd: (command: "swap-workspace-with-monitor", direction: "left" | "right" | "up" | "down") -> ConfigAction }
-    & { read cmd: (command: "balance-sizes") -> ConfigAction }
-    & { read cmd: (command: "move-to-root") -> ConfigAction }
-    & { read cmd: (command: "toggle-split") -> ConfigAction }
-    & { read cmd: (command: "swap-split") -> ConfigAction }
-    & { read cmd: (command: "resize", resize_axis: "horizontal" | "vertical", resize_operation: "grow" | "shrink") -> ConfigAction }
-    & { read cmd: (command: "resize-focused", resize_operation: "grow" | "shrink") -> ConfigAction }
-    & { read cmd: (command: "resize-direction", direction: "left" | "right" | "up" | "down") -> ConfigAction }
-    & { read cmd: (command: "preselect", direction: "left" | "right" | "up" | "down") -> ConfigAction }
-    & { read cmd: (command: "preselect", word2: "clear") -> ConfigAction }
-    & { read cmd: (command: "open-command-palette") -> ConfigAction }
-    & { read cmd: (command: "open-command-palette", palette_mode: "windows" | "menu" | "clipboard" | "commands" | "applications" | "files") -> ConfigAction }
-    & { read cmd: (command: "window-switcher", switcher_direction: "next" | "previous") -> ConfigAction }
-    & { read cmd: (command: "window-switcher", switcher_direction: "next" | "previous", switcher_scope: "active-workspace" | "visible-workspaces" | "all-workspaces") -> ConfigAction }
-    & { read cmd: (command: "raise-all-floating-windows") -> ConfigAction }
-    & { read cmd: (command: "toggle-floating-focus") -> ConfigAction }
-    & { read cmd: (command: "rescue-offscreen-windows") -> ConfigAction }
-    & { read cmd: (command: "toggle-focused-window-floating") -> ConfigAction }
-    & { read cmd: (command: "close-focused-window") -> ConfigAction }
-    & { read cmd: (command: "scratchpad", word2: "assign", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") -> ConfigAction }
-    & { read cmd: (command: "scratchpad", word2: "toggle", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") -> ConfigAction }
-    & { read cmd: (command: "open-menu-anywhere") -> ConfigAction }
-    & { read cmd: (command: "open-settings") -> ConfigAction }
-    & { read cmd: (command: "toggle-workspace-bar") -> ConfigAction }
-    & { read cmd: (command: "hidden-bar", word2: "panel") -> ConfigAction }
-    & { read cmd: (command: "toggle-quake-terminal") -> ConfigAction }
-    & { read cmd: (command: "toggle-workspace-layout") -> ConfigAction }
-    & { read cmd: (command: "set-workspace-layout", layout: "default" | "niri" | "dwindle") -> ConfigAction }
-    & { read cmd: (command: "toggle-fullscreen") -> ConfigAction }
-    & { read cmd: (command: "toggle-native-fullscreen") -> ConfigAction }
-    & { read cmd: (command: "toggle-overview") -> ConfigAction }
-    & { read cmd: (command: "toggle-system-stats") -> ConfigAction }
-    & { read cmd: (command: "volume-up") -> ConfigAction }
-    & { read cmd: (command: "volume-down") -> ConfigAction }
-    & { read cmd: (command: "volume-mute") -> ConfigAction }
-    & { read cmd: (command: "media-play-pause") -> ConfigAction }
-    & { read cmd: (command: "media-next") -> ConfigAction }
-    & { read cmd: (command: "media-previous") -> ConfigAction }
-    & { read cmd: (command: "toggle-shortcut-pause") -> ConfigAction }
-    & { read cmd: (command: "begin-prefix") -> ConfigAction }
-    & { read cmd: (command: "toggle-window-mode") -> ConfigAction }
-    & { read cmd: (command: "exit-keyboard-mode") -> ConfigAction }
-    & { read cmd: (command: "app-open", app_id: string) -> ConfigAction }
-    & { read cmd: (command: "app-new-window", app_id: string) -> ConfigAction }
+export type ConfigCommands = {
+    read appNewWindow: (app_id: string) -> ConfigAction,
+    read appOpen: (app_id: string) -> ConfigAction,
+    read balanceSizes: () -> ConfigAction,
+    read beginPrefix: () -> ConfigAction,
+    read centerColumn: () -> ConfigAction,
+    read centerVisibleColumns: () -> ConfigAction,
+    read closeFocusedWindow: () -> ConfigAction,
+    read consumeOrExpelWindowLeft: () -> ConfigAction,
+    read consumeOrExpelWindowRight: () -> ConfigAction,
+    read consumeWindowIntoColumn: () -> ConfigAction,
+    read cycleSize: ((word2: "backward") -> ConfigAction)
+        & ((word2: "forward") -> ConfigAction),
+    read cycleWindowPrimarySpan: ((word2: "backward") -> ConfigAction)
+        & ((word2: "forward") -> ConfigAction),
+    read cycleWindowSecondarySpan: ((word2: "backward") -> ConfigAction)
+        & ((word2: "forward") -> ConfigAction),
+    read exitKeyboardMode: () -> ConfigAction,
+    read expandContainerToAvailablePrimarySpan: () -> ConfigAction,
+    read expelWindowFromColumn: () -> ConfigAction,
+    read focus: ((word2: "down-or-left") -> ConfigAction)
+        & ((word2: "previous") -> ConfigAction)
+        & ((word2: "up-or-right") -> ConfigAction)
+        & ((direction: "left" | "right" | "up" | "down") -> ConfigAction),
+    read focusColumn: ((word2: "first") -> ConfigAction)
+        & ((word2: "last") -> ConfigAction)
+        & ((column_index: string) -> ConfigAction),
+    read focusMonitor: ((word2: "last") -> ConfigAction)
+        & ((word2: "next") -> ConfigAction)
+        & ((word2: "prev") -> ConfigAction),
+    read focusWindow: ((word2: "bottom") -> ConfigAction)
+        & ((word2: "down-or-top") -> ConfigAction)
+        & ((word2: "top") -> ConfigAction)
+        & ((word2: "up-or-bottom") -> ConfigAction),
+    read focusWindowInColumn: (window_index: string) -> ConfigAction,
+    read focusWindowOrWorkspaceDown: () -> ConfigAction,
+    read focusWindowOrWorkspaceUp: () -> ConfigAction,
+    read hiddenBar: (word2: "panel") -> ConfigAction,
+    read mediaNext: () -> ConfigAction,
+    read mediaPlayPause: () -> ConfigAction,
+    read mediaPrevious: () -> ConfigAction,
+    read move: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
+    read moveColumn: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
+    read moveColumnToFirst: () -> ConfigAction,
+    read moveColumnToIndex: (column_index: string) -> ConfigAction,
+    read moveColumnToLast: () -> ConfigAction,
+    read moveColumnToWorkspace: ((word2: "down") -> ConfigAction)
+        & ((word2: "up") -> ConfigAction)
+        & ((workspace_number: string) -> ConfigAction),
+    read moveToMonitor: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
+    read moveToRoot: () -> ConfigAction,
+    read moveToWorkspace: ((word2: "down") -> ConfigAction)
+        & ((word2: "on-monitor", workspace_number: string, direction: "left" | "right" | "up" | "down") -> ConfigAction)
+        & ((word2: "slot", workspace_number: string) -> ConfigAction)
+        & ((word2: "up") -> ConfigAction)
+        & ((workspace_number: string) -> ConfigAction),
+    read moveWindowDown: () -> ConfigAction,
+    read moveWindowDownOrToWorkspaceDown: () -> ConfigAction,
+    read moveWindowUp: () -> ConfigAction,
+    read moveWindowUpOrToWorkspaceUp: () -> ConfigAction,
+    read openCommandPalette: (() -> ConfigAction)
+        & ((palette_mode: "windows" | "menu" | "clipboard" | "commands" | "applications" | "files") -> ConfigAction),
+    read openMenuAnywhere: () -> ConfigAction,
+    read openSettings: () -> ConfigAction,
+    read preselect: ((word2: "clear") -> ConfigAction)
+        & ((direction: "left" | "right" | "up" | "down") -> ConfigAction),
+    read raiseAllFloatingWindows: () -> ConfigAction,
+    read rescueOffscreenWindows: () -> ConfigAction,
+    read resetWindowSecondarySpan: () -> ConfigAction,
+    read resize: (resize_axis: "horizontal" | "vertical", resize_operation: "grow" | "shrink") -> ConfigAction,
+    read resizeDirection: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
+    read resizeFocused: (resize_operation: "grow" | "shrink") -> ConfigAction,
+    read scratchpad: ((word2: "assign", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") -> ConfigAction)
+        & ((word2: "toggle", scratchpad_index: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") -> ConfigAction),
+    read setContainerPrimarySpan: (size_change: string) -> ConfigAction,
+    read setVisibleContainers: (visible_container_count: "0" | "1" | "2" | "3" | "4" | "5") -> ConfigAction,
+    read setWindowPrimarySpan: (size_change: string) -> ConfigAction,
+    read setWindowSecondarySpan: (size_change: string) -> ConfigAction,
+    read setWorkspaceLayout: (layout: "default" | "niri" | "dwindle") -> ConfigAction,
+    read swapSplit: () -> ConfigAction,
+    read swapWorkspaceWithMonitor: (direction: "left" | "right" | "up" | "down") -> ConfigAction,
+    read switchWorkspace: ((word2: "anywhere", workspace_number: string) -> ConfigAction)
+        & ((word2: "back-and-forth") -> ConfigAction)
+        & ((word2: "next") -> ConfigAction)
+        & ((word2: "prev") -> ConfigAction)
+        & ((word2: "slot", workspace_number: string) -> ConfigAction)
+        & ((workspace_number: string) -> ConfigAction),
+    read toggleColumnTabbed: () -> ConfigAction,
+    read toggleContainerFullPrimarySpan: () -> ConfigAction,
+    read toggleFloatingFocus: () -> ConfigAction,
+    read toggleFocusedWindowFloating: () -> ConfigAction,
+    read toggleFullscreen: () -> ConfigAction,
+    read toggleNativeFullscreen: () -> ConfigAction,
+    read toggleOverview: () -> ConfigAction,
+    read toggleQuakeTerminal: () -> ConfigAction,
+    read toggleShortcutPause: () -> ConfigAction,
+    read toggleSplit: () -> ConfigAction,
+    read toggleSystemStats: () -> ConfigAction,
+    read toggleWindowMode: () -> ConfigAction,
+    read toggleWorkspaceBar: () -> ConfigAction,
+    read toggleWorkspaceLayout: () -> ConfigAction,
+    read volumeDown: () -> ConfigAction,
+    read volumeMute: () -> ConfigAction,
+    read volumeUp: () -> ConfigAction,
+    read windowSwitcher: ((switcher_direction: "next" | "previous") -> ConfigAction)
+        & ((switcher_direction: "next" | "previous", switcher_scope: "active-workspace" | "visible-workspaces" | "all-workspaces") -> ConfigAction),
+}
 
 export type ConfigDispatch =
     { read dispatch: (action: ConfigAction) -> () }
@@ -793,7 +794,8 @@ export type ConfigStore = {
     read set: (key: string, value: ConfigStoreValue) -> (),
 } & { read clear: (key: string) -> () } & { read clear: () -> () }
 
-declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & {
+declare omniwm: ConfigDispatch & ConfigEvents & ConfigTimers & {
+    read cmd: ConfigCommands,
     read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
     read act: ConfigActionBuilders,
     read open: (bundleId: string) -> (),

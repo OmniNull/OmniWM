@@ -42,7 +42,7 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
             "    count += 1",
             "end)",
             "wm.command('\(burst)', function()"
-        ] + targets.map { "wm.dispatch(wm.cmd('switch-workspace', '\($0)'))" } + [
+        ] + targets.map { "wm.dispatch(wm.cmd.switchWorkspace('\($0)'))" } + [
             "end)",
             "wm.command('\(check)', function() assert(count == 1) end)"
         ]
@@ -65,7 +65,7 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
             "wm.on('workspace.active', function(e)",
             "    count += 1",
             "    assert(count == 1, 'workspace feedback')",
-            "    wm.dispatch(wm.cmd('switch-workspace', '\(fixture.origin)'))",
+            "    wm.dispatch(wm.cmd.switchWorkspace('\(fixture.origin)'))",
             "end)",
             "wm.on('workspace.active', function(e) table.insert(visited, e.name) end)",
             "wm.command('\(check)', function()",
@@ -172,14 +172,14 @@ final class ConfigScriptEventDeliveryTests: XCTestCase {
         let body = [
             "local wm = omniwm",
             "wm.on('keybinds.submap', function()",
-            "    wm.dispatch(wm.cmd('switch-workspace', '\(fixture.destination)'))",
+            "    wm.dispatch(wm.cmd.switchWorkspace('\(fixture.destination)'))",
             "end)",
             "wm.on('keybinds.submap', function(e)",
-            "    wm.dispatch(wm.cmd('set-container-primary-span', '+12%'))",
-            "    wm.dispatch(wm.cmd('switch-workspace', '\(fixture.origin)'))",
+            "    wm.dispatch(wm.cmd.setContainerPrimarySpan('+12%'))",
+            "    wm.dispatch(wm.cmd.switchWorkspace('\(fixture.origin)'))",
             "end)",
             "wm.on('workspace.active', function(e)",
-            "    wm.dispatch(wm.cmd('switch-workspace', '\(fixture.origin)'))",
+            "    wm.dispatch(wm.cmd.switchWorkspace('\(fixture.origin)'))",
             "    error('drop staged switch')",
             "end)"
         ]

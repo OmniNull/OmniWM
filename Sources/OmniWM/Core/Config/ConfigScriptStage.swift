@@ -78,11 +78,13 @@ struct ConfigScriptStage {
 
     static var callbacks: omni_config_callbacks {
         omni_config_callbacks(
-            resolve: { context, words, count, _, actionID, error, capacity in
+            resolve: { context, group, words, count, _, actionID, error, capacity in
                 guard let context, let words, let actionID else { return false }
                 do throws(ConfigScriptError) {
                     let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
-                    actionID.pointee = try stage.pointee.resolve(UnsafeBufferPointer(start: words, count: count))
+                    actionID.pointee = try stage.pointee.resolve(
+                        group: Int(group), UnsafeBufferPointer(start: words, count: count)
+                    )
                     return true
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)
@@ -232,32 +234,30 @@ struct ConfigScriptStage {
         ))
     }
 
-    private mutating func resolve(_ spans: UnsafeBufferPointer<omni_config_span>) throws(ConfigScriptError) -> UInt32 {
-        guard (1 ... ConfigScriptCommandParser.maximumWordCount).contains(spans.count) else {
+    private mutating func resolve(
+        group: Int, _ spans: UnsafeBufferPointer<omni_config_span>
+    ) throws(ConfigScriptError) -> UInt32 {
+        guard spans.count <= ConfigScriptCommandParser.maximumArgumentCount else {
             throw ConfigScriptError(line: nil, message: "Expected one command with its individual argument words.")
         }
-        let outcome = ConfigScriptCommandParser.request(spans)
-        guard case let .request(request) = outcome else {
+        guard let request = ConfigScriptCommandParser.request(group: group, spans) else {
             for span in spans {
                 _ = try Self.string(span)
             }
-            let name = try Self.string(spans[0])
-            let message = if case .unknown = outcome {
-                "Unknown command '\(name)'."
-            } else {
-                "Invalid arguments for '\(name)'."
+            guard let name = ConfigScriptCommandParser.word(group: group) else {
+                throw ConfigScriptError(line: nil, message: "Unknown command group.")
             }
-            throw ConfigScriptError(line: nil, message: message)
+            throw ConfigScriptError(line: nil, message: "Invalid arguments for '\(name)'.")
         }
         guard let command = HotkeyCommand(direct: request) else {
             throw ConfigScriptError(
                 line: nil,
-                message: "'\(ConfigScriptCommandParser.text(spans))' is not a direct hotkey action."
+                message: "'\(ConfigScriptCommandParser.text(group: group, spans))' is not a direct hotkey action."
             )
         }
         let key = ActionKey.command(command)
         if case .callbacks = phase, let existing = actionIDs[key] { return existing }
-        let text = ConfigScriptCommandParser.text(spans)
+        let text = ConfigScriptCommandParser.text(group: group, spans)
         let index = UInt32(actions.count)
         try reserveAction(byteCount: text.utf8.count)
         actionIDs[key] = index

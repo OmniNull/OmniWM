@@ -61,16 +61,20 @@ void trimUTF8End(char *bytes, size_t capacity) {
     luaL_error(L, "%s", vm.failure);
 }
 
+void chargeTokenBytes(lua_State *L, ModuleRuntime &vm, size_t length, omni_config_location location) {
+    if (length > OMNI_CONFIG_BYTE_LIMIT - vm.tokenBytes) {
+        reject(L, vm, location, "config declarations exceeded their byte limit");
+    }
+    vm.tokenBytes += length;
+}
+
 omni_config_span token(lua_State *L, ModuleRuntime &vm, int index, omni_config_location location) {
     if (lua_type(L, index) != LUA_TSTRING) {
         reject(L, vm, location, "expected a string token");
     }
     omni_config_span span;
     span.data = lua_tolstring(L, index, &span.length);
-    if (span.length > OMNI_CONFIG_BYTE_LIMIT - vm.tokenBytes) {
-        reject(L, vm, location, "config declarations exceeded their byte limit");
-    }
-    vm.tokenBytes += span.length;
+    chargeTokenBytes(L, vm, span.length, location);
     return span;
 }
 

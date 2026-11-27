@@ -45,7 +45,7 @@ final class ConfigScriptModuleTests: XCTestCase {
         let declarations = [
             "local wm = omniwm",
             "return function()",
-            "    wm.keymap.set('Control+Option+J', wm.cmd('open-command-palette'))",
+            "    wm.keymap.set('Control+Option+J', wm.cmd.openCommandPalette())",
             "end"
         ]
         try fixture.write("config/lib/declarations.luau", lines: declarations)
@@ -110,7 +110,7 @@ final class ConfigScriptModuleTests: XCTestCase {
             ("return require('./init')", "init.luau -> outer.luau -> inner.luau -> init.luau"),
             ("return )", "Expected"),
             ("error('module failed')", "module failed"),
-            ("omniwm.cmd('not-a-command')", "Unknown command"),
+            ("omniwm.cmd.notACommand()", "Unknown command"),
             ("return require('./absent')", "absent.luau")
         ] {
             try fixture.write("config/inner.luau", lines: prefix + [statement])

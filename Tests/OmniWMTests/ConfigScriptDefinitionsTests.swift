@@ -9,34 +9,62 @@ import XCTest
 final class ConfigScriptDefinitionsTests: XCTestCase {
     private let resourceName = "omniwm-config.d.luau"
     private let regenerationCommand =
-        "OMNIWM_REGENERATE_CONFIG_DEFS=1 ~/.swiftly/bin/swift test --arch arm64 --scratch-path .build " +
+        "OMNIWM_REGENERATE_CONFIG_DEFS=1 ~/.swiftly/bin/swift test --build-system swiftbuild --arch arm64 " +
         "--filter ConfigScriptDefinitionsTests/testGeneratedDefinitions"
 
     private func union(_ words: [String]) -> String {
         words.map(\.debugDescription).joined(separator: " | ")
     }
 
-    private func commandDefinitions() throws -> String {
-        var overloads: [String] = []
-        for command in IPCAutomationManifest.commandDescriptors {
-            let firstPositiveIndex = "1"
-            let sample = command.commandWords + command.arguments
-                .map { $0.kind.literalValues?.first ?? firstPositiveIndex }
-            let request = try XCTUnwrap(IPCCommandRequest(commandWords: sample), command.path)
-            XCTAssertEqual(request.name, command.name, command.path)
-            _ = try XCTUnwrap(HotkeyCommand(direct: request), command.path)
-            var parameters = command.commandWords.enumerated().map { index, word in
-                let name = index == 0 ? "command" : "word\(index + 1)"
-                return "\(name): \(word.debugDescription)"
-            }
-            parameters += command.arguments.map { argument in
-                let name = argument.kind.rawValue.replacingOccurrences(of: "-", with: "_")
-                let type = argument.kind.literalValues.map(union) ?? "string"
-                return "\(name): \(type)"
-            }
-            overloads.append("{ read cmd: (\(parameters.joined(separator: ", "))) -> ConfigAction }")
+    private struct DuplicateCommandMember: LocalizedError {
+        let member: String
+
+        var errorDescription: String? {
+            "Duplicate command member '\(member)'."
         }
-        return overloads.joined(separator: "\n    & ")
+    }
+
+    private func commandDefinitions(_ inventory: [ConfigScriptCommandParser.Group]) throws -> String {
+        var members = Set<String>()
+        return try inventory.map { group in
+            guard members.insert(group.member).inserted else {
+                throw DuplicateCommandMember(member: group.member)
+            }
+            let signatures = group.forms.map { command in
+                var parameters = command.commandWords.dropFirst().enumerated().map { index, word in
+                    "word\(index + 2): \(word.debugDescription)"
+                }
+                parameters += command.arguments.map { argument in
+                    let name = argument.kind.rawValue.replacingOccurrences(of: "-", with: "_")
+                    let type = argument.kind.literalValues.map(union) ?? "string"
+                    return "\(name): \(type)"
+                }
+                return "(\(parameters.joined(separator: ", "))) -> ConfigAction"
+            }
+            let type = if signatures.count == 1 {
+                signatures[0]
+            } else {
+                signatures.map { "(\($0))" }.joined(separator: "\n        & ")
+            }
+            return "    read \(group.member): \(type),"
+        }.joined(separator: "\n")
+    }
+
+    private func renderedCommandGroups(_ inventory: [ConfigScriptCommandParser.Group]) -> String {
+        let entries = inventory.map { group in
+            "    CommandGroup{\(group.member.debugDescription), \(group.word.utf8.count)},"
+        }
+        return """
+        // SPDX-License-Identifier: GPL-2.0-only
+        // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+        #pragma once
+
+        constexpr std::array commandGroups{
+        \(entries.joined(separator: "\n"))
+        };
+
+        """
     }
 
     private func dispatchDefinitions() -> String {
@@ -104,7 +132,8 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         read set: (key: string, value: ConfigStoreValue) -> (),
     } & { read clear: (key: string) -> () } & { read clear: () -> () }
 
-    declare omniwm: ConfigCommands & ConfigDispatch & ConfigEvents & ConfigTimers & {
+    declare omniwm: ConfigDispatch & ConfigEvents & ConfigTimers & {
+        read cmd: ConfigCommands,
         read command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> (),
         read act: ConfigActionBuilders,
         read open: (bundleId: string) -> (),
@@ -117,7 +146,9 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
     }
     """
 
-    private func renderedDefinitions() throws -> String {
+    private func renderedDefinitions(
+        _ inventory: [ConfigScriptCommandParser.Group] = ConfigScriptCommandParser.inventory()
+    ) throws -> String {
         let fields = ConfigScriptRuleField.allCases.map { field in
             let type = switch field.kind {
             case .string,
@@ -148,8 +179,9 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
 
         \(eventDefinitions())
 
-        export type ConfigCommands =
-            \(commandDefinitions())
+        export type ConfigCommands = {
+        \(commandDefinitions(inventory))
+        }
 
         export type ConfigDispatch =
             \(dispatchDefinitions())
@@ -212,23 +244,35 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
     }
 
     func testGeneratedDefinitions() throws {
-        let expected = try Data(renderedDefinitions().utf8)
+        let inventory = ConfigScriptCommandParser.inventory()
+        let expected = try Data(renderedDefinitions(inventory).utf8)
+        let memberTable = Data(renderedCommandGroups(inventory).utf8)
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
         let source = root.appendingPathComponent("Sources/OmniWM/Resources").appendingPathComponent(resourceName)
+        let membersURL = root.appendingPathComponent("Sources/OmniWMScriptHost/ConfigCommandGroups.h")
         let idsURL = root.appendingPathComponent("Sources/OmniWM/Core/Config/SettingsFieldID.swift")
         let ids = try Data(SettingsSchemaRecorder.inventory().fieldIDSource.utf8)
         if ProcessInfo.processInfo.environment["OMNIWM_REGENERATE_CONFIG_DEFS"] == "1" {
             try ids.write(to: idsURL, options: .atomic)
             try expected.write(to: source, options: .atomic)
+            try memberTable.write(to: membersURL, options: .atomic)
             return
         }
         XCTAssertEqual(try Data(contentsOf: idsURL), ids, regenerationCommand)
         XCTAssertEqual(try Data(contentsOf: source), expected, regenerationCommand)
+        XCTAssertEqual(try Data(contentsOf: membersURL), memberTable, regenerationCommand)
         let products = Bundle(for: Self.self).bundleURL.deletingLastPathComponent()
         let bundle = try XCTUnwrap(Bundle(url: products.appendingPathComponent("OmniWM_OmniWM.bundle")))
         let resource = try XCTUnwrap(bundle.url(forResource: resourceName, withExtension: nil))
         XCTAssertEqual(try Data(contentsOf: resource), expected, regenerationCommand)
+    }
+
+    func testCommandGenerationRejectsDuplicateMemberKeys() throws {
+        let group = try XCTUnwrap(ConfigScriptCommandParser.inventory().first)
+        XCTAssertThrowsError(try renderedDefinitions([group, group])) { error in
+            XCTAssertEqual((error as? DuplicateCommandMember)?.member, group.member)
+        }
     }
 
     func testSettingsInventoryRecordsDefaultedFieldsAndCustomWireForms() throws {
@@ -273,14 +317,21 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
     }
 
     func testSupportedOverloadsAndNativeRuleFields() throws {
-        let definitions = try renderedDefinitions()
-        XCTAssertTrue(definitions.contains(#"{ read cmd: (command: "focus", word2: "previous") -> ConfigAction }"#))
+        let inventory = ConfigScriptCommandParser.inventory()
+        let definitions = try renderedDefinitions(inventory)
+        let members = try commandDefinitions(inventory).components(separatedBy: "\n    read ")
+        func member(_ name: String) throws -> String {
+            try XCTUnwrap(members.first { $0.hasPrefix("\(name): ") }, name)
+        }
+        XCTAssertTrue(definitions.contains("read cmd: ConfigCommands"))
+        let focus = try member("focus")
+        XCTAssertTrue(focus.contains(#"(word2: "previous") -> ConfigAction"#))
         let directions = union(IPCDirection.allCases.map(\.rawValue))
-        XCTAssertTrue(definitions
-            .contains("{ read cmd: (command: \"focus\", direction: \(directions)) -> ConfigAction }"))
-        XCTAssertTrue(definitions.contains(#"{ read cmd: (command: "open-command-palette") -> ConfigAction }"#))
-        XCTAssertTrue(definitions.contains(#"command: "open-command-palette", palette_mode: "#))
-        XCTAssertTrue(definitions.contains(#"{ read cmd: (command: "rescue-offscreen-windows") -> ConfigAction }"#))
+        XCTAssertTrue(focus.contains("(direction: \(directions)) -> ConfigAction"))
+        let palette = try member("openCommandPalette")
+        XCTAssertTrue(palette.contains("(() -> ConfigAction)"))
+        XCTAssertTrue(palette.contains("& ((palette_mode: "))
+        XCTAssertEqual(try member("rescueOffscreenWindows"), "rescueOffscreenWindows: () -> ConfigAction,")
         XCTAssertTrue(definitions
             .contains("action: ConfigAction, options: { read modeKey: string?, read mode: string?, read reads: nil }?"))
         XCTAssertTrue(definitions.contains(
@@ -296,11 +347,14 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         XCTAssertTrue(definitions.contains("read log: (...any) -> ()"))
         let switcherDirections = union(IPCWindowSwitcherDirection.allCases.map(\.rawValue))
         let scopes = union(IPCWindowSwitcherScope.allCases.map(\.rawValue))
-        let switcher = "{ read cmd: (command: \"window-switcher\", switcher_direction: \(switcherDirections)"
-        XCTAssertTrue(definitions.contains("\(switcher)) -> ConfigAction }"))
-        XCTAssertTrue(definitions.contains("\(switcher), switcher_scope: \(scopes)) -> ConfigAction }"))
-        XCTAssertTrue(definitions
-            .contains(#"{ read cmd: (command: "set-container-primary-span", size_change: string) -> ConfigAction }"#))
+        let direction = "switcher_direction: \(switcherDirections)"
+        let switcher = try member("windowSwitcher")
+        XCTAssertTrue(switcher.contains("((\(direction)) -> ConfigAction)"))
+        XCTAssertTrue(switcher.contains("& ((\(direction), switcher_scope: \(scopes)) -> ConfigAction)"))
+        XCTAssertEqual(
+            try member("setContainerPrimarySpan"),
+            "setContainerPrimarySpan: (size_change: string) -> ConfigAction,"
+        )
         let nativeFields = Mirror(reflecting: AppRule(bundleId: "")).children.compactMap(\.label)
         XCTAssertEqual(Set(ConfigScriptRuleField.allCases.map(\.rawValue)), Set(nativeFields))
     }

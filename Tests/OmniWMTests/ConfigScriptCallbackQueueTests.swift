@@ -66,9 +66,9 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let missing = WorkspaceIDPolicy.lowestUnusedRawID(in: [fixture.origin, fixture.destination])
         let body = [
             "omniwm.keymap.set('Control+Option+I', function()",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(missing)'))",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.origin)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(missing)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.origin)'))",
             "end)"
         ]
         fixture.apply(try await fixture.load(body))
@@ -86,7 +86,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let fixture = try Fixture(test: self)
         let name = "Switch workspace"
         let body = [
-            "local destination = omniwm.cmd('switch-workspace', '\(fixture.destination)')",
+            "local destination = omniwm.cmd.switchWorkspace('\(fixture.destination)')",
             "omniwm.command('\(name)', function() omniwm.dispatch(destination) end)"
         ]
         var published: [[String]] = []
@@ -119,7 +119,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let fixture = try Fixture(test: self)
         let body = [
             "omniwm.keymap.set('Control+Option+I', function()",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
             "    error('broken callback')",
             "end)"
         ]
@@ -245,9 +245,9 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let source = [
             "omniwm.command('Start program', function()",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
             "    omniwm.run({'\(missing.path)'})",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.origin)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.origin)'))",
             "end)"
         ]
         fixture.apply(try await fixture.load(source))
@@ -262,7 +262,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
     func testSlowCallbackDropsItsCommandsAndLaterPressStillRuns() async throws {
         let fixture = try Fixture(test: self)
         let lines = [
-            "local destination = omniwm.cmd('switch-workspace', '\(fixture.destination)')",
+            "local destination = omniwm.cmd.switchWorkspace('\(fixture.destination)')",
             "omniwm.keymap.set('Control+Option+I', function()",
             "    omniwm.dispatch(destination)",
             "    while true do end",
@@ -287,7 +287,7 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         let fixture = try Fixture(test: self)
         let callback = try await fixture.load([
             "omniwm.keymap.set('Control+Option+I', function()",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
             "end)"
         ])
         let missing = ConfigScriptLoad(versions: [:], result: .success(nil))

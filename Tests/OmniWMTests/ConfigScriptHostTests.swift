@@ -29,10 +29,10 @@ final class ConfigScriptHostTests: XCTestCase {
         let wide = 12
         let source = [
             "local wm = omniwm",
-            "local fine = wm.cmd('set-container-primary-span', '+\(fine)%')",
+            "local fine = wm.cmd.setContainerPrimarySpan('+\(fine)%')",
             "wm.keymap.set('Control+Option+J', fine)",
-            "wm.keymap.set('Control+Option+K', wm.cmd('set-container-primary-span', '+\(wide)%'))",
-            "wm.keymap.set('Hyper+F', wm.cmd('focus', 'previous'))"
+            "wm.keymap.set('Control+Option+K', wm.cmd.setContainerPrimarySpan('+\(wide)%'))",
+            "wm.keymap.set('Hyper+F', wm.cmd.focus('previous'))"
         ]
         let mask = UInt32(cmdKey | optionKey)
         let result = try await evaluate(source.joined(separator: "\n"), hyperMask: mask)
@@ -55,15 +55,19 @@ final class ConfigScriptHostTests: XCTestCase {
     }
 
     func testNativeParserAndBindingValidationReportTheFailingLineEvenWhenCaught() async throws {
-        let prefix = ["local wm = omniwm", "local action = wm.cmd('open-command-palette')"]
+        let prefix = ["local wm = omniwm", "local action = wm.cmd.openCommandPalette()"]
         let cases = [
-            ("wm.cmd('set-container-primary-spam', '+4%')", "Unknown command 'set-container-primary-spam'."),
-            ("wm.cmd('set-container-primary-span', 'wide')", "Invalid arguments"),
-            ("wm.cmd('switch-workspace', 'slot', '0')", "Invalid arguments"),
+            ("wm.cmd.setContainerPrimarySpam('+4%')", "Unknown command member 'setContainerPrimarySpam'."),
+            ("wm.cmd.setContainerPrimarySpan('wide')", "Invalid arguments"),
+            ("wm.cmd.switchWorkspace('slot', '0')", "Invalid arguments"),
+            ("wm.cmd.switchWorkspace()", "Invalid arguments"),
+            ("wm.cmd.switchWorkspace('2', 'slot')", "Invalid arguments"),
+            ("wm.cmd.openCommandPalette('commands', 'extra')", "Invalid arguments"),
+            ("wm.cmd.switchWorkspace(2)", "expected a string token"),
             ("wm.keymap.set('Unassigned', action)", "Invalid keyboard chord"),
             ("wm.keymap.set('Control+UnknownKey', action)", "Invalid keyboard chord"),
-            ("wm.cmd(string.char(255))", "UTF-8"),
-            ("wm.cmd('app-open', string.char(255))", "UTF-8")
+            ("wm.cmd[string.char(255)]()", "UTF-8"),
+            ("wm.cmd.appOpen(string.char(255))", "UTF-8")
         ]
         for (statement, expected) in cases {
             let failure = try await rejection((prefix + ["pcall(function() \(statement) end)"]).joined(separator: "\n"))
@@ -105,18 +109,29 @@ final class ConfigScriptHostTests: XCTestCase {
     }
 
     func testEveryManifestCommandCanBeConstructedInLuau() async throws {
-        let source = IPCAutomationManifest.commandDescriptors.map { descriptor in
+        let inventory = ConfigScriptCommandParser.inventory()
+        let forms = inventory.flatMap { group in group.forms.map { (group.member, $0) } }
+        let prefixes = ["Control", "Option", "Command", "Control+Option", "Control+Command"]
+        let chords = prefixes.flatMap { prefix in "ABCDEFGHIJKLMNOPQRSTUVWXYZ".map { "\(prefix)+\($0)" } }
+        XCTAssertGreaterThanOrEqual(chords.count, forms.count)
+        let cases = try zip(chords, forms).map { chord, form in
+            let (member, descriptor) = form
             let firstPositiveIndex = "1"
             let arguments = descriptor.arguments.map { $0.kind.literalValues?.first ?? firstPositiveIndex }
-            let words = (descriptor.commandWords + arguments).map(\.debugDescription).joined(separator: ", ")
-            return "assert(omniwm.cmd(\(words)))"
+            let words = descriptor.commandWords + arguments
+            let request = try XCTUnwrap(IPCCommandRequest(commandWords: words), descriptor.path)
+            XCTAssertEqual(request.name, descriptor.name, descriptor.path)
+            let command = try XCTUnwrap(HotkeyCommand(direct: request), descriptor.path)
+            let parameters = words.dropFirst().map(\.debugDescription).joined(separator: ", ")
+            return ("omniwm.keymap.set('\(chord)', omniwm.cmd.\(member)(\(parameters)))", command)
         }
-        _ = try await evaluate(source.joined(separator: "\n"))
+        let result = try await evaluate(cases.map(\.0).joined(separator: "\n"))
+        XCTAssertEqual(result.bindings.map(\.command), cases.map(\.1))
     }
 
     func testOverlappingSidedChordReportsTheOriginalDeclaration() async throws {
-        let original = ["local wm = omniwm", "wm.keymap.set('Option+J', wm.cmd('open-command-palette'))"]
-        let overlapping = "wm.keymap.set('Left Option+J', wm.cmd('focus', 'previous'))"
+        let original = ["local wm = omniwm", "wm.keymap.set('Option+J', wm.cmd.openCommandPalette())"]
+        let overlapping = "wm.keymap.set('Left Option+J', wm.cmd.focus('previous'))"
         let failure = try await rejection((original + [overlapping]).joined(separator: "\n"))
         XCTAssertEqual(failure.line, original.count + 1)
         XCTAssertTrue(failure.message.contains("init.luau:\(original.count)"), failure.message)
@@ -127,10 +142,12 @@ final class ConfigScriptHostTests: XCTestCase {
         assert(ui == nil and type(require) == "function" and io == nil and package == nil)
         assert(omniwm.data == nil and type(omniwm.dispatch) == "function" and type(omniwm.log) == "function")
         assert(type(omniwm.open) == "function" and type(omniwm.run) == "function" and type(omniwm.notify) == "function")
+        assert(wm == nil and table.isfrozen(omniwm.cmd))
         assert(not pcall(function() omniwm.cmd = nil end))
+        assert(not pcall(function() omniwm.cmd.openCommandPalette = nil end))
         assert(not pcall(function() omniwm.keymap.set = nil end))
         assert(table.isfrozen(omniwm.act) and not pcall(function() omniwm.act.notify = nil end))
-        local action = omniwm.cmd("open-command-palette")
+        local action = omniwm.cmd.openCommandPalette()
         omniwm.keymap.set(string.upper("j"), action)
         """)
         XCTAssertEqual(result.bindings.map(\.command), [.openCommandPalette])
@@ -150,7 +167,7 @@ final class ConfigScriptHostTests: XCTestCase {
         let heap = try await rejection("return string.rep('a', \(ConfigScriptLoader.heapLimit))")
         XCTAssertTrue(heap.message.localizedCaseInsensitiveContains("memory"), heap.message)
         let bytes = try await rejection("""
-        local action = omniwm.cmd("open-command-palette")
+        local action = omniwm.cmd.openCommandPalette()
         omniwm.keymap.set(string.rep("a", \(ConfigScriptLoader.sourceLimit)), action)
         """)
         XCTAssertTrue(bytes.message.localizedCaseInsensitiveContains("byte limit"), bytes.message)
@@ -206,7 +223,7 @@ final class ConfigScriptHostTests: XCTestCase {
 
     func testTruncatedMessagesEndOnScalars() async throws {
         let unexpected = String(repeating: "🧪", count: Int(OMNI_CONFIG_ERROR_CAPACITY))
-        for code in ["omniwm.cmd('\(unexpected)')", "error('\(unexpected)')"] {
+        for code in ["omniwm.cmd['\(unexpected)']()", "error('\(unexpected)')"] {
             let error = try await rejection(code)
             XCTAssertTrue(error.message.contains("🧪"))
             XCTAssertFalse(error.message.contains("�"))
@@ -216,16 +233,16 @@ final class ConfigScriptHostTests: XCTestCase {
     func testHostCapsBoundActionAndBindingCountsBeforeNativeStaging() {
         let limit = Int(OMNI_CONFIG_DECLARATION_LIMIT)
         let loops = [
-            "omniwm.cmd('open-command-palette')",
+            "omniwm.cmd.openCommandPalette()",
             "omniwm.keymap.set('Option+J', action)",
             "omniwm.on('workspace.active', function() end)"
         ]
         for statement in loops {
             for count in [limit, limit + 1] {
-                let firstAction = statement.contains("keymap") ? "local action = omniwm.cmd('open-command-palette')" : ""
+                let firstAction = statement.contains("keymap") ? "local action = omniwm.cmd.openCommandPalette()" : ""
                 let script = "\(firstAction)\nfor i = 1, \(count) do \(statement) end"
                 var callbacks = omni_config_callbacks(
-                    resolve: { _, _, _, _, actionID, _, _ in
+                    resolve: { _, _, _, _, _, actionID, _, _ in
                         actionID?.pointee = 0
                         return omni_config_live_vm_count() > 0
                     },

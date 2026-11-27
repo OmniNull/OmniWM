@@ -103,7 +103,7 @@ final class ConfigScriptEdgeDeliveryTests: XCTestCase {
             "wm.on('window.move_to_workspace', function(e)",
             "    assert(e.id == '\(firstId)' and e.bundleId == '\(appId)', 'unexpected echo')",
             "    assert(e.workspaceName == '\(fixture.destination)' and e.previousWorkspaceName == '\(fixture.origin)')",
-            "    wm.dispatch(wm.cmd('move-to-workspace', '\(fixture.destination)'))",
+            "    wm.dispatch(wm.cmd.moveToWorkspace('\(fixture.destination)'))",
             "end)",
             "wm.on('window.move_to_workspace', function(e) table.insert(visited, e.id) end)",
             "wm.command('Check moves', function() assert(table.concat(visited, ',') == '\(firstId),\(secondId)') end)"

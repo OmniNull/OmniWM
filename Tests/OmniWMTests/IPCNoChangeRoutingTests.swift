@@ -202,8 +202,8 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         let target = try XCTUnwrap(manager.descriptor(for: fixture.workspace2)?.name)
         let source = """
         local wm = omniwm
-        wm.keymap.set("Control+Option+W", wm.cmd("switch-workspace", "\(target)"))
-        wm.keymap.set("Control+Option+N", wm.cmd("switch-workspace", "anywhere", "\(target)"))
+        wm.keymap.set("Control+Option+W", wm.cmd.switchWorkspace("\(target)"))
+        wm.keymap.set("Control+Option+N", wm.cmd.switchWorkspace("anywhere", "\(target)"))
         """
         let loaded = try await ConfigScriptLoader().evaluate(
             Data(source.utf8), hyperMask: controller.settings.hyperKeyModifiers.carbonMask

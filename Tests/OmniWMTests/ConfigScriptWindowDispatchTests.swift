@@ -59,7 +59,7 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         ] {
             let source = [
                 "omniwm.keymap.set('I', function()",
-                "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
+                "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
                 "    pcall(function() omniwm.dispatch(\(invalid)) end)",
                 "end)"
             ]
@@ -104,7 +104,7 @@ final class ConfigScriptWindowDispatchTests: XCTestCase {
         let focus = [
             "omniwm.keymap.set('I', function()",
             "    omniwm.dispatch('window', 'focus', '\(id)')",
-            "    omniwm.dispatch(omniwm.cmd('switch-workspace', '\(fixture.destination)'))",
+            "    omniwm.dispatch(omniwm.cmd.switchWorkspace('\(fixture.destination)'))",
             "end)"
         ]
         fixture.apply(try await fixture.load(focus))

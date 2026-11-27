@@ -21,7 +21,7 @@ extension ScriptARCFixture {
         wm.command("Begin", function() assert(not started); started = true end)
         wm.command("End", function() assert(started); started = false; pairs += 1 end)
         wm.command("Report", function() error("Completed pairs " .. pairs) end)
-        wm.command("Move", function() wm.dispatch(wm.cmd("switch-workspace", "2")) end)
+        wm.command("Move", function() wm.dispatch(wm.cmd.switchWorkspace("2")) end)
         """
         let mask = controller.settings.hyperKeyModifiers.carbonMask
         let evaluation = try await loader.evaluate(Data(source.utf8), hyperMask: mask)
@@ -158,7 +158,7 @@ extension ScriptARCFixture {
         let replaced = try await workerLoad()
         let old = try await acceptTitleScript("""
         omniwm.on("window.title", function() error("replace this generation") end)
-        omniwm.on("window.title", function() omniwm.dispatch(omniwm.cmd("switch-workspace", "1")) end)
+        omniwm.on("window.title", function() omniwm.dispatch(omniwm.cmd.switchWorkspace("1")) end)
         """)
         await old.waitForAuditPark()
         let worker = old.worker!

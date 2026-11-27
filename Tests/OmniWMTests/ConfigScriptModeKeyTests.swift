@@ -10,10 +10,11 @@ import XCTest
 final class ConfigScriptModeKeyTests: XCTestCase {
     private let chord = "Control+Option+J"
     private let palette = "open-command-palette"
+    private let paletteMember = "openCommandPalette"
 
-    private func binding(_ chord: String, _ action: String, _ modeKey: String? = nil) -> String {
+    private func binding(_ chord: String, _ member: String, _ modeKey: String? = nil) -> String {
         let options = modeKey.map { ", { modeKey = '\($0)' }" } ?? ""
-        return "omniwm.keymap.set('\(chord)', omniwm.cmd('\(action)')\(options))"
+        return "omniwm.keymap.set('\(chord)', omniwm.cmd.\(member)()\(options))"
     }
 
     private func evaluate(_ source: String) async throws -> ConfigScriptEvaluation {
@@ -47,7 +48,7 @@ final class ConfigScriptModeKeyTests: XCTestCase {
             trigger: .chord(expectedChord),
             modeKey: expectedKey
         )
-        let source = binding(chord, palette, initial)
+        let source = binding(chord, paletteMember, initial)
         try await publish(source, into: script)
         let scriptTable = KeyboardModeTable(bindings: script.effectiveBindings)
         XCTAssertEqual(scriptTable, KeyboardModeTable(bindings: [gui]))
@@ -66,15 +67,15 @@ final class ConfigScriptModeKeyTests: XCTestCase {
         )
         try await publish("\n" + source, into: script)
         XCTAssertEqual(publications.count, 1)
-        try await publish(binding(chord, palette, replacement), into: script)
-        try await publish(binding(chord, palette), into: script)
+        try await publish(binding(chord, paletteMember, replacement), into: script)
+        try await publish(binding(chord, paletteMember), into: script)
         let expected: [KeyBinding?] = [expectedKey, try XCTUnwrap(KeySymbolMapper.fromHumanReadable(replacement)), nil]
         XCTAssertEqual(publications.map { $0.first?.modeKey }, expected)
         XCTAssertTrue(settings.hotkeyBindings.isEmpty)
     }
 
     func testInvalidOptionsAndIneligibleActionsReportTheirDeclaration() async throws {
-        let action = "omniwm.cmd('\(palette)')"
+        let action = "omniwm.cmd.\(paletteMember)()"
         let options = [
             "42",
             "{ mode = 'H' }",
@@ -83,7 +84,7 @@ final class ConfigScriptModeKeyTests: XCTestCase {
             "{ modeKey = 'Option+H' }"
         ]
         var invalid = options.map { "omniwm.keymap.set('\(chord)', \(action), \($0))" }
-        invalid += [binding(chord, "begin-prefix", "H"), binding("J", palette, "J")]
+        invalid += [binding(chord, "beginPrefix", "H"), binding("J", paletteMember, "J")]
         for line in invalid {
             do {
                 _ = try await evaluate(line)
@@ -100,7 +101,7 @@ final class ConfigScriptModeKeyTests: XCTestCase {
         settings.hotkeyBindings = []
         let file = settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("init.luau")
         let script = ConfigScriptController(fileURL: file, settings: settings) { _ in }
-        try await publish(binding(chord, "begin-prefix"), into: script)
+        try await publish(binding(chord, "beginPrefix"), into: script)
         XCTAssertTrue(HotkeySettingsView.hasAssignedModeLeader([], scriptBindings: script.effectiveBindings))
         let key = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(chord))
         let gui = HotkeyBinding(id: palette, command: .openCommandPalette, binding: key)
@@ -114,7 +115,7 @@ final class ConfigScriptModeKeyTests: XCTestCase {
         let script = ConfigScriptController(fileURL: file, settings: settings) { _ in }
         let secondKey = "H"
         let expectedKey = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(secondKey))
-        let good = binding(chord, palette, secondKey)
+        let good = binding(chord, paletteMember, secondKey)
         try await publish(good, into: script)
         let accepted = script.effectiveBindings
         let guiMode = HotkeyBinding(id: "gui.mode", command: .focus(.left), trigger: .unassigned, modeKey: expectedKey)
@@ -133,8 +134,8 @@ final class ConfigScriptModeKeyTests: XCTestCase {
             try await publish(good, into: script)
             XCTAssertNil(script.diagnostic)
         }
-        let duplicateMode = binding("Control+Option+K", "rescue-offscreen-windows", secondKey)
-        let overlappingShortcut = binding(secondKey, palette)
+        let duplicateMode = binding("Control+Option+K", "rescueOffscreenWindows", secondKey)
+        let overlappingShortcut = binding(secondKey, paletteMember)
         for other in [duplicateMode, overlappingShortcut] {
             for source in [[good, other], [other, good]] {
                 try await publish(source.joined(separator: "\n"), into: script)

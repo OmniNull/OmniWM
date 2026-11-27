@@ -104,7 +104,7 @@ import XCTest
             XCTAssertEqual(chosen.count, count)
             let bindings = chosen.enumerated().map { index, chord in
                 let percent = index == 0 ? firstAmount : 4
-                return #"wm.keymap.set("\#(chord)", wm.cmd("set-container-primary-span", "+\#(percent)%"))"#
+                return #"wm.keymap.set("\#(chord)", wm.cmd.setContainerPrimarySpan("+\#(percent)%"))"#
             }
             return Data((["local wm = omniwm"] + bindings).joined(separator: "\n").utf8)
         }

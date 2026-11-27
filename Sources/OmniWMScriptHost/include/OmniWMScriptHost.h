@@ -512,7 +512,7 @@ typedef struct omni_config_store_callbacks {
 } omni_config_store_callbacks;
 
 typedef struct omni_config_callbacks {
-    bool (*resolve)(void *context, const omni_config_span *words, size_t count,
+    bool (*resolve)(void *context, uint16_t group, const omni_config_span *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
     bool (*bind)(void *context, omni_config_span chord, uint32_t action_id, omni_config_span mode_key,
         omni_config_span mode, omni_config_location location, char *error, size_t capacity);

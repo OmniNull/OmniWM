@@ -126,7 +126,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
             "local wm = omniwm",
             "wm.command('\(name)', function(ctx)",
             "    assert(ctx.bundleId == 'com.apple.TextEdit')",
-            "    wm.dispatch(wm.cmd('set-container-primary-span', '+\(amount)%'))",
+            "    wm.dispatch(wm.cmd.setContainerPrimarySpan('+\(amount)%'))",
             "end)"
         ]
         let evaluation = try await load(source)
@@ -166,7 +166,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
     func testContextCommandsAndGenerationIdentity() async throws {
         let source = [
             "local wm = omniwm",
-            "local grow = wm.cmd('set-container-primary-span', '+12%')",
+            "local grow = wm.cmd.setContainerPrimarySpan('+12%')",
             "local saved = nil",
             "wm.keymap.set('Control+Option+I', function(ctx)",
             "    if ctx.windowId == nil then wm.dispatch(saved) return end",
@@ -174,7 +174,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
             "    assert(ctx.workspace == 'work' and ctx.layout == 'niri')",
             "    wm.log('window', ctx.windowId, true, nil)",
             "    wm.dispatch(grow)",
-            "    saved = wm.cmd('focus', 'previous')",
+            "    saved = wm.cmd.focus('previous')",
             "    wm.dispatch(saved)",
             "end, { modeKey = 'I' })"
         ]
@@ -210,7 +210,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
             XCTAssertTrue(error.message.contains("retired"))
         }
         XCTAssertEqual(omni_config_vm_entry_count(), beforeStale)
-        let plain = try await load(["omniwm.keymap.set('Control+Option+I', omniwm.cmd('focus', 'previous'))"])
+        let plain = try await load(["omniwm.keymap.set('Control+Option+I', omniwm.cmd.focus('previous'))"])
         XCTAssertNil(plain.generation)
     }
 
@@ -218,7 +218,7 @@ final class ConfigScriptCallbackHostTests: XCTestCase {
         let overflowing = Int(OMNI_CONFIG_COMMAND_LIMIT) + 1
         let base = [
             "local wm = omniwm",
-            "local act = wm.cmd('focus', 'previous')",
+            "local act = wm.cmd.focus('previous')",
             "wm.keymap.set('I', function(ctx)",
             "    wm.dispatch(act)",
             "    if ctx.layout == 'overflow' then for i = 2, \(overflowing) do wm.dispatch(act) end end",
