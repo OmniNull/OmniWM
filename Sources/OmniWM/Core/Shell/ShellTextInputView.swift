@@ -13,7 +13,13 @@ final class ShellInputField: NSTextField {
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
-        if accepted { owner?.beganEditing() }
+        if accepted {
+            if let editor = currentEditor() as? NSTextView {
+                editor.insertionPointColor = owner?.isPinned == true
+                    ? textColor ?? .labelColor : .textInsertionPointColor
+            }
+            owner?.beganEditing()
+        }
         return accepted
     }
 
