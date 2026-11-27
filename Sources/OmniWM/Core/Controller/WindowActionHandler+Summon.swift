@@ -98,13 +98,15 @@ extension WindowActionHandler {
             return true
         }
 
-        guard let focusedPosition = engine.projectedColumns(in: targetWorkspaceId)
-            .firstIndex(where: { $0.column === focusedColumn }),
-            controller.workspaceNavigationHandler.moveWindow(
-                handle: handle,
-                toWorkspaceId: targetWorkspaceId,
-                placement: .position(focusedPosition + 1)
-            ).didMutate
+        guard let focusedSlot = engine.projectedSlot(
+                  of: focusedColumn, in: targetWorkspaceId,
+                  membership: engine.projectionMembership(in: targetWorkspaceId)
+              ),
+              controller.workspaceNavigationHandler.moveWindow(
+                  handle: handle,
+                  toWorkspaceId: targetWorkspaceId,
+                  placement: .position(focusedSlot.index + 1)
+              ).didMutate
         else {
             return false
         }
