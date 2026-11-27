@@ -45,6 +45,29 @@
         pkgs: name: version: url: sha256:
         unzipped pkgs name version url sha256 "install -Dm755 ${name} $out/bin/${name}";
 
+      vendoredLuau = lib.splitString " " (lib.removeSuffix "\n" (builtins.readFile ./Sources/OmniWMLuau/VERSION));
+
+      luauCheck =
+        pkgs:
+        pkgs.stdenv.mkDerivation {
+          pname = "luau-check";
+          version = builtins.elemAt vendoredLuau 0;
+          src = ./Scripts/luau-check;
+          nativeBuildInputs = [ pkgs.cmake ];
+          buildInputs = lib.optionals pkgs.stdenv.cc.isClang [ pkgs.llvmPackages.libunwind ];
+          cmakeFlags = [
+            "-DLUAU_SOURCE_DIR=${
+              pkgs.fetchFromGitHub {
+                owner = "luau-lang";
+                repo = "luau";
+                rev = builtins.elemAt vendoredLuau 1;
+                hash = pins.OMNIWM_LUAU_SOURCE_HASH;
+              }
+            }"
+          ];
+          meta.mainProgram = "luau-check";
+        };
+
       ghosttykit =
         pkgs:
         unzipped pkgs "GhosttyKit.xcframework" pins.OMNIWM_GHOSTTY_SOURCE_COMMIT pins.OMNIWM_GHOSTTY_DOWNLOAD_URL
@@ -57,6 +80,7 @@
           pkgs.fish
           pkgs.nushell
           pkgs.gnumake
+          (luauCheck pkgs)
         ]
         ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
           (releaseTool pkgs "swiftformat" pins.SWIFTFORMAT_VERSION

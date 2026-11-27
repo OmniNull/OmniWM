@@ -161,6 +161,8 @@ jobs:
         run: make lint
       - name: Verify generated IPC wire files
         run: python3 Scripts/generate_ipc_wire.py --check
+      - name: Check init.luau recipes against the generated definitions
+        run: make luau-check
       - name: Test development tooling
         run: make test-dev-tools
   verify:
