@@ -117,7 +117,7 @@ extension AXEventHandler {
         if case .pending = result,
            destroy.candidate.evidence == .windowClosed,
            let state = admissionRetryStateByWindowId[create.candidate.windowId],
-           case let .identityRebind(oldWindow, newWindow, _, _, _) = state.trigger,
+           case let .identityRebind(oldWindow, newWindow, _, _, _, _) = state.trigger,
            oldWindow.token == destroy.candidate.token,
            newWindow.token == create.candidate.token
         {
@@ -208,6 +208,7 @@ extension AXEventHandler {
             axRef: create.axRef,
             managedReplacementMetadata: create.replacementMetadata,
             admissionHints: create.admissionHints,
+            minimizedAttribute: create.isMinimized,
             preparedSubscriptionRetainContribution: 1,
             focusedAdmissionContinuation: focusedAdmissionContinuation
         )

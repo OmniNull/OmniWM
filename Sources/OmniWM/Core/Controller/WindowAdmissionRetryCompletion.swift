@@ -261,7 +261,7 @@ extension AXEventHandler {
         for trigger: AdmissionRetryTrigger,
         reason: String
     ) {
-        guard case let .identityRebind(oldWindow, _, _, _, _) = trigger else { return }
+        guard case let .identityRebind(oldWindow, _, _, _, _, _) = trigger else { return }
         cancelSameAppCloseProbe(
             matchingFocusedToken: oldWindow.token,
             reason: reason

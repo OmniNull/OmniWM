@@ -17,7 +17,7 @@ extension AXEventHandler {
         guard let controller else { return }
         let completesPendingManagedReplacement = admissionRetryStateByWindowId[windowId].map { state in
             guard !state.exhausted,
-                  case let .identityRebind(retryOld, retryNew, metadata, _, _) = state.trigger
+                  case let .identityRebind(retryOld, retryNew, metadata, _, _, _) = state.trigger
             else {
                 return false
             }

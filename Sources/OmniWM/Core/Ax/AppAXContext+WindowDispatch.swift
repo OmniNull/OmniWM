@@ -6,7 +6,25 @@ import ApplicationServices
 import Dispatch
 import Foundation
 
+struct WindowMinimizationObservation: Sendable {
+    let isMinimized: Bool
+    let sequence: UInt64
+}
+
 extension AppAXContext {
+    func windowMinimizationAsync(
+        _ window: AXWindowRef,
+        read: @escaping @Sendable (AXWindowRef) -> Bool? = {
+            AXWindowService.isMinimized($0, messagingTimeout: 0.05)
+        }
+    ) async -> WindowMinimizationObservation? {
+        guard let thread = axThread else { return nil }
+        return try? await thread.runInLoop(timeout: .milliseconds(50)) { _ -> WindowMinimizationObservation? in
+            guard let isMinimized = read(window) else { return nil }
+            return WindowMinimizationObservation(isMinimized: isMinimized, sequence: EventIntake.currentSeq())
+        }
+    }
+
     func windowRefAsync(windowId: UInt32) async throws -> AXWindowRef? {
         try Task.checkCancellation()
         guard let thread = axThread else { throw AXWindowEnumerationError.contextUnavailable }

@@ -31,7 +31,8 @@ extension AXEventHandler {
             else { return true }
             guard let entry = controller?.workspaceManager.entry(for: source.handle),
                   let entryAXRef = entry.axRef,
-                  case let .identityRebind(_, newWindow, metadata, hints, constraints) = state.trigger
+                  case let .identityRebind(_, newWindow, metadata, hints, constraints, minimizedAttribute) = state
+                      .trigger
             else {
                 cancelCreatedWindowRetry(windowId: windowId)
                 rejectDeferredReplacement(windowId: windowId)
@@ -43,7 +44,8 @@ extension AXEventHandler {
                 newWindow: newWindow,
                 managedReplacementMetadata: metadata,
                 admissionHints: hints,
-                sizeConstraints: constraints
+                sizeConstraints: constraints,
+                minimizedAttribute: minimizedAttribute
             )
         }
         state.task?.cancel()
@@ -53,6 +55,7 @@ extension AXEventHandler {
             activeIdentityRebindsByHandle[source.handle] = executionOwner
         }
         state.executionPhase = .running(executionOwner)
+        state.rebindMinimization = nil
         state.task = nil
         admissionRetryStateByWindowId[windowId] = state
         resumeAdmissionRetry(windowId: windowId, state: state, executionOwner: executionOwner)
@@ -166,7 +169,8 @@ extension AXEventHandler {
             newWindow,
             managedReplacementMetadata,
             admissionHints,
-            sizeConstraints
+            sizeConstraints,
+            minimizedAttribute
         ) = state.trigger else { return }
         guard let windowId = UInt32(exactly: newWindow.token.windowId) else { return }
         let task = Task { @MainActor [weak self] in
@@ -182,7 +186,8 @@ extension AXEventHandler {
                     newWindow: newWindow,
                     managedReplacementMetadata: managedReplacementMetadata,
                     admissionHints: admissionHints,
-                    sizeConstraints: sizeConstraints
+                    sizeConstraints: sizeConstraints,
+                    minimizedAttribute: minimizedAttribute
                 ),
                 execution: .init(windowId: windowId, generation: state.generation, executionOwner: executionOwner)
             )
