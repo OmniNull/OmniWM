@@ -8,6 +8,45 @@ import XCTest
 
 @MainActor
 final class CommandPaletteShellModesTests: XCTestCase {
+    func testShowResultsOnOpenExpandsMenuModeAtItsLoadingRow() async throws {
+        _ = NSApplication.shared
+        let app = NSRunningApplication.current
+        let items = [
+            MenuItemModel(
+                title: "Build",
+                fullPath: "Product > Build",
+                keyboardShortcut: "⌘B",
+                axElement: AXUIElementCreateApplication(app.processIdentifier),
+                parentTitles: ["Product"]
+            )
+        ]
+        let fixture = CommandPaletteFocusFixture(initialMode: .menu) { environment in
+            environment.frontmostApplication = { app }
+            environment.runningApplication = { $0 == app.processIdentifier ? app : nil }
+            environment.ownBundleIdentifier = { "org.example.palette-open-expanded-menu-test" }
+            environment.fetchMenuItems = { _ in items }
+        }
+        defer { fixture.cleanup() }
+        fixture.controller.settings.commandPalette.openExpanded = true
+
+        _ = try fixture.show(mode: .menu)
+
+        XCTAssertTrue(fixture.palette.isExpanded)
+        XCTAssertEqual(snapshot(fixture).state, "loading")
+        let shell = try XCTUnwrap(fixture.palette.presentation.shell)
+        let loaded = expectation(description: "The expanded palette draws the fetched Menu rows")
+        let previous = shell.onTree
+        defer { shell.onTree = previous }
+        shell.onTree = {
+            previous?()
+            guard shell.published?.rows.map(\.title) == items.map(\.title), shell.drawsPublishedList() else { return }
+            shell.onTree = previous
+            loaded.fulfill()
+        }
+        await fulfillment(of: [loaded], timeout: failureBound)
+        XCTAssertTrue(fixture.palette.isExpanded)
+    }
+
     func testMenuLoadingRowsPreserveParentPathsShortcutsAndFiltering() async throws {
         _ = NSApplication.shared
         let app = NSRunningApplication.current

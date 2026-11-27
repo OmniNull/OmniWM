@@ -491,7 +491,7 @@ return {
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `unifiedSearch` | boolean | `false` | Open Command Palette shows unified search instead of the last-used mode. Each mode's own Command Palette shortcut still opens just that mode. |
-| `openExpanded` | boolean | `false` | The palette opens with its results showing in every mode and in unified search, instead of only the search field. Launcher and Files already open with their results showing. Settings > Command Palette > Show Results on Open. |
+| `openExpanded` | boolean | `false` | The palette opens with its results showing in every mode and in unified search, instead of only the search field. Unified search without Windows among its searched modes still opens collapsed until you type. Launcher and Files already open with their results showing. Settings > Command Palette > Show Results on Open. |
 | `searchedModes` | string array | `{ "windows", "applications", "commands", "files" }` | Palette modes unified search covers, in the order their groups appear: `windows`, `menu`, `clipboard`, `commands`, `applications` (Launcher), `files`. Unknown and repeated names are ignored. |
 
 What unified search learns from your picks is stored in the state directory, not in the config file.

@@ -128,6 +128,21 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertTrue(fixture.palette.isExpanded, "unified search opened collapsed")
     }
 
+    func testShowResultsOnOpenKeepsAnEmptyUnifiedSearchCompact() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let settings = fixture.controller.settings.commandPalette
+        settings.openExpanded = true
+        settings.unifiedSearch = true
+        XCTAssertTrue(settings.searchedModes.contains(.windows))
+        settings.searchedModes.removeAll { $0 == .windows }
+
+        _ = try fixture.show()
+
+        XCTAssertTrue(fixture.palette.isUnifiedSearch)
+        XCTAssertFalse(fixture.palette.isExpanded, "an empty unified search without windows opened blank")
+    }
+
     func testDefaultOpenExpandsOnlyLauncherModes() throws {
         let fixture = CommandPaletteFocusFixture()
         defer { fixture.cleanup() }
