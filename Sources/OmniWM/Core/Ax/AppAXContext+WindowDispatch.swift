@@ -12,17 +12,21 @@ struct WindowMinimizationObservation: Sendable {
 }
 
 extension AppAXContext {
+    nonisolated static let minimizationReadDeadline: Duration = .milliseconds(50)
+    nonisolated static let minimizationMessagingTimeout = Float(minimizationReadDeadline / .seconds(1))
+
     func windowMinimizationAsync(
         _ window: AXWindowRef,
         read: @escaping @Sendable (AXWindowRef) -> Bool? = {
-            AXWindowService.isMinimized($0, messagingTimeout: 0.05)
+            AXWindowService.isMinimized($0, messagingTimeout: AppAXContext.minimizationMessagingTimeout)
         }
     ) async -> WindowMinimizationObservation? {
         guard let thread = axThread else { return nil }
-        return try? await thread.runInLoop(timeout: .milliseconds(50)) { _ -> WindowMinimizationObservation? in
-            guard let isMinimized = read(window) else { return nil }
-            return WindowMinimizationObservation(isMinimized: isMinimized, sequence: EventIntake.currentSeq())
-        }
+        return try? await thread
+            .runInLoop(timeout: Self.minimizationReadDeadline) { _ -> WindowMinimizationObservation? in
+                guard let isMinimized = read(window) else { return nil }
+                return WindowMinimizationObservation(isMinimized: isMinimized, sequence: EventIntake.currentSeq())
+            }
     }
 
     func windowRefAsync(windowId: UInt32) async throws -> AXWindowRef? {

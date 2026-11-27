@@ -80,7 +80,6 @@ extension AXEventHandler {
             } else {
                 await acknowledgement?.destinationContext.windowMinimizationAsync(window)
             }
-            // The worker can sample before a notification reaches the main actor.
             if let notification = admissionRetryStateByWindowId[execution.windowId]?.rebindMinimization,
                observation.map({ notification.sequence > $0.sequence }) ?? true
             {
