@@ -8,25 +8,31 @@ import XCTest
 
 @MainActor
 final class SetVisibleContainersCommandTests: XCTestCase {
-    func testTheCLIAcceptsZeroToFiveAndNothingElse() {
-        for count in 0 ... 5 {
+    private let counts = IPCVisibleContainerCounts.range
+
+    func testTheCLIAcceptsEveryCountInRangeAndNothingElse() {
+        for count in counts {
             XCTAssertEqual(
                 IPCCommandRequest(commandWords: ["set-visible-containers", "\(count)"]),
                 .sizing(.setVisibleContainers(count: count))
             )
         }
-        for words in [["6"], ["-1"], ["two"], ["off"], [], ["2", "3"]] {
+        let outside = [["\(counts.upperBound + 1)"], ["\(counts.lowerBound - 1)"]]
+        let malformed = [["two"], ["off"], [], ["\(counts.lowerBound)", "\(counts.upperBound)"]]
+        for words in outside + malformed {
             XCTAssertNil(IPCCommandRequest(commandWords: ["set-visible-containers"] + words), "\(words)")
         }
     }
 
-    func testAJSONRequestOutsideZeroToFiveIsRejected() throws {
-        let valid = Data(#"{"arguments":{"visibleContainerCount":5},"name":"set-visible-containers"}"#.utf8)
+    func testAJSONRequestOutsideTheCountRangeIsRejected() throws {
+        let valid = Data(
+            #"{"arguments":{"visibleContainerCount":\#(counts.upperBound)},"name":"set-visible-containers"}"#.utf8
+        )
         XCTAssertEqual(
             try JSONDecoder().decode(IPCCommandRequest.self, from: valid),
-            .sizing(.setVisibleContainers(count: 5))
+            .sizing(.setVisibleContainers(count: counts.upperBound))
         )
-        for count in [-1, 6] {
+        for count in [counts.lowerBound - 1, counts.upperBound + 1] {
             let invalid = Data(
                 #"{"arguments":{"visibleContainerCount":\#(count)},"name":"set-visible-containers"}"#.utf8
             )
@@ -35,18 +41,19 @@ final class SetVisibleContainersCommandTests: XCTestCase {
     }
 
     func testOneCommandReachesShortcutsThePaletteTheCLIAndLuau() async throws {
-        let request = IPCCommandRequest.sizing(.setVisibleContainers(count: 3))
-        XCTAssertEqual(HotkeyCommand(direct: request), .sizing(.setVisibleContainers(3)))
+        let count = counts.upperBound
+        let request = IPCCommandRequest.sizing(.setVisibleContainers(count: count))
+        XCTAssertEqual(HotkeyCommand(direct: request), .sizing(.setVisibleContainers(count)))
         let descriptor = try XCTUnwrap(IPCAutomationManifest.commandDescriptor(for: .sizing(.setVisibleContainers)))
         XCTAssertEqual(descriptor.arguments.map(\.kind), [.visibleContainerCount])
         XCTAssertEqual(descriptor.layoutCompatibility, .shared)
-        XCTAssertEqual(IPCCommandArgumentKind.visibleContainerCount.literalValues, ["0", "1", "2", "3", "4", "5"])
+        XCTAssertEqual(IPCCommandArgumentKind.visibleContainerCount.literalValues, counts.map(String.init))
 
         let specs = ActionCatalog.allSpecs().filter { $0.id.hasPrefix("setVisibleContainers.") }
-        XCTAssertEqual(specs.map(\.id), (0 ... 5).map { "setVisibleContainers.\($0)" })
-        XCTAssertEqual(specs.map(\.command), (0 ... 5).map { .sizing(.setVisibleContainers($0)) })
+        XCTAssertEqual(specs.map(\.id), counts.map { "setVisibleContainers.\($0)" })
+        XCTAssertEqual(specs.map(\.command), counts.map { .sizing(.setVisibleContainers($0)) })
         XCTAssertEqual(specs.first?.localizedTitle, "Set Visible Containers to Off")
-        XCTAssertEqual(specs.last?.localizedTitle, "Set Visible Containers to 5")
+        XCTAssertEqual(specs.last?.localizedTitle, "Set Visible Containers to \(counts.upperBound)")
         for spec in specs {
             XCTAssertEqual(spec.defaultBinding, .unassigned, spec.id)
             XCTAssertEqual(spec.layoutCompatibility, .shared, spec.id)
@@ -55,9 +62,9 @@ final class SetVisibleContainersCommandTests: XCTestCase {
         }
 
         let evaluation = try await ConfigScriptLoader().evaluate(
-            Data("omniwm.keymap.set('Hyper+3', omniwm.cmd('set-visible-containers', '3'))".utf8),
+            Data("omniwm.keymap.set('Hyper+\(count)', omniwm.cmd('set-visible-containers', '\(count)'))".utf8),
             hyperMask: HyperKeyModifiers.default.carbonMask
         )
-        XCTAssertEqual(evaluation.bindings.map(\.command), [.sizing(.setVisibleContainers(3))])
+        XCTAssertEqual(evaluation.bindings.map(\.command), [.sizing(.setVisibleContainers(count))])
     }
 }
