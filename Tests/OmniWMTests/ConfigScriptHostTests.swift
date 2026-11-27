@@ -122,12 +122,8 @@ final class ConfigScriptHostTests: XCTestCase {
             let arguments = descriptor.arguments.map { $0.literalValues?.first ?? firstPositiveIndex }
             let words = descriptor.commandWords + arguments
             let request = try XCTUnwrap(IPCCommandRequest(commandWords: words), descriptor.sortKey)
-            let name: IPCCommandName = switch descriptor.name {
-            case let .workspaceSwitch(name): .workspace(name)
-            case let .ipc(name): name
-            }
-            XCTAssertEqual(request.name, name, descriptor.sortKey)
-            let command = try XCTUnwrap(HotkeyCommand(direct: request), descriptor.sortKey)
+            XCTAssertEqual(request.name, descriptor.name, descriptor.sortKey)
+            let command = try XCTUnwrap(HotkeyCommand(direct: request.command), descriptor.sortKey)
             let parameters = words.dropFirst().map(\.debugDescription).joined(separator: ", ")
             return ("omniwm.keymap.set('\(chord)', omniwm.cmd.\(member)(\(parameters)))", command)
         }
@@ -154,7 +150,7 @@ final class ConfigScriptHostTests: XCTestCase {
                     arguments[selector] = String(index)
                     let words = descriptor.commandWords + arguments
                     let request = try XCTUnwrap(IPCCommandRequest(commandWords: words), descriptor.sortKey)
-                    expected.append(try XCTUnwrap(HotkeyCommand(direct: request), descriptor.sortKey))
+                    expected.append(try XCTUnwrap(HotkeyCommand(direct: request.command), descriptor.sortKey))
                     let literals = descriptor.commandWords.dropFirst().map(\.debugDescription)
                     let parameters = literals + arguments.enumerated().map { offset, word in
                         offset == selector ? word : word.debugDescription

@@ -15,7 +15,7 @@ final class SetVisibleContainersCommandTests: XCTestCase {
         for count in counts {
             XCTAssertEqual(
                 IPCCommandRequest(commandWords: ["set-visible-containers", "\(count)"]),
-                .sizing(.setVisibleContainers(count: count))
+                .init(.sizing(.setVisibleContainers(count: count)))
             )
         }
         let outside = [["\(counts.upperBound + 1)"], ["\(counts.lowerBound - 1)"]]
@@ -31,7 +31,7 @@ final class SetVisibleContainersCommandTests: XCTestCase {
         )
         XCTAssertEqual(
             try JSONDecoder().decode(IPCCommandRequest.self, from: valid),
-            .sizing(.setVisibleContainers(count: counts.upperBound))
+            .init(.sizing(.setVisibleContainers(count: counts.upperBound)))
         )
         for count in [counts.lowerBound - 1, counts.upperBound + 1] {
             let invalid = Data(
@@ -43,8 +43,8 @@ final class SetVisibleContainersCommandTests: XCTestCase {
 
     func testOneCommandReachesShortcutsThePaletteTheCLIAndLuau() async throws {
         let count = counts.upperBound
-        let request = IPCCommandRequest.sizing(.setVisibleContainers(count: count))
-        XCTAssertEqual(HotkeyCommand(direct: request), .sizing(.setVisibleContainers(count)))
+        let request = IPCCommandRequest(.sizing(.setVisibleContainers(count: count)))
+        XCTAssertEqual(HotkeyCommand(direct: request.command), .sizing(.setVisibleContainers(count)))
         let descriptor = try XCTUnwrap(IPCAutomationManifest.commandDescriptor(for: .sizing(.setVisibleContainers)))
         XCTAssertEqual(descriptor.arguments.map(\.kind), [.visibleContainerCount])
         XCTAssertEqual(descriptor.layoutCompatibility, .shared)

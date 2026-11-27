@@ -211,7 +211,7 @@ final class ShellComponentLoadingTests: XCTestCase {
         )])
         outbox.reload(name: "lake", generation: 7)
         await fulfillment(of: [delivered], timeout: failureBound)
-        XCTAssertEqual(commands, [.command(.workspace(.switchTo(workspaceNumber: 2)))])
+        XCTAssertEqual(commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 2))))])
     }
 
     private func host(

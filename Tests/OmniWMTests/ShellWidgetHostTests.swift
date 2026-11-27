@@ -1480,7 +1480,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let surface = try harness.barSurface()
         XCTAssertFalse(surface.hasAction(at: CGPoint(x: 45, y: 5)))
         click(surface, at: CGPoint(x: 5, y: 5))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 2)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 2))))])
 
         click(surface, at: CGPoint(x: 25, y: 5))
         try await layoutChanges.change()
@@ -1507,7 +1507,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
         surface.press(at: string, button: .right)
         surface.release(at: string, event: ShellEvent(button: .right))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 3)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 3))))])
 
         surface.press(at: string, button: .middle)
         surface.release(at: string, event: ShellEvent(button: .middle))
@@ -1639,7 +1639,7 @@ final class ShellWidgetClickTests: XCTestCase {
             content: CGPoint(x: 0, y: 30)
         ))
         click(surface, at: CGPoint(x: 5, y: 5))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 2)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 2))))])
     }
 
     func testClosingPopoutAndDrawerCancelsActiveSliderOnce() async throws {
@@ -2809,7 +2809,7 @@ final class ShellWidgetClickTests: XCTestCase {
         surface.press(at: CGPoint(x: 2, y: 5))
         XCTAssertFalse(surface.endDrag(at: .zero))
         surface.release(at: CGPoint(x: 2, y: 5))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 2)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 2))))])
 
         let targets = harness.host.dropTargets(on: Harness.monitor)
         XCTAssertEqual(Set(targets.map(\.target)), ["window ow_a", "workspace 1"])
@@ -3234,7 +3234,7 @@ final class ShellWidgetClickTests: XCTestCase {
         click(5, .shift)
         XCTAssertEqual(harness.sink.commands, [.moveFocusedWindow(target: "workspace 2")])
         click(5, [])
-        XCTAssertEqual(harness.sink.commands.last, .command(.workspace(.switchTo(workspaceNumber: 2))))
+        XCTAssertEqual(harness.sink.commands.last, .command(.init(.workspace(.switchTo(workspaceNumber: 2)))))
 
         click(15, .option)
         XCTAssertNil(harness.host.popout)
@@ -3442,7 +3442,7 @@ final class ShellWidgetClickTests: XCTestCase {
         while harness.slot?.failure == nil {
             try await layoutChanges.change()
         }
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 3)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 3))))])
         XCTAssertEqual(harness.sink.origins.first?.widget, "test")
         XCTAssertEqual(harness.sink.origins.first?.command, "switch-workspace 3")
         XCTAssertEqual(
@@ -3689,7 +3689,7 @@ final class ShellWidgetClickTests: XCTestCase {
     }
 
     func testRequestsParseCommandsAndWindowActions() {
-        XCTAssertEqual(ShellRequest("switch-workspace 2"), .command(.workspace(.switchTo(workspaceNumber: 2))))
+        XCTAssertEqual(ShellRequest("switch-workspace 2"), .command(.init(.workspace(.switchTo(workspaceNumber: 2)))))
         XCTAssertEqual(ShellRequest("window focus ow_abc"), .window(IPCWindowRequest(name: .focus, windowId: "ow_abc")))
         XCTAssertNil(ShellRequest("window focus"))
         XCTAssertNil(ShellRequest("window explode ow_abc"))
@@ -3700,7 +3700,10 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(ShellAction("volume down"), .volume(.change(percent: -6.25)))
         XCTAssertEqual(ShellAction("volume mute"), .volume(.toggleMute))
         XCTAssertEqual(ShellAction("volume set 40"), .volume(.set(percent: 40)))
-        XCTAssertEqual(ShellAction("switch-workspace 2"), .wm(.command(.workspace(.switchTo(workspaceNumber: 2)))))
+        XCTAssertEqual(
+            ShellAction("switch-workspace 2"),
+            .wm(.command(.init(.workspace(.switchTo(workspaceNumber: 2)))))
+        )
         XCTAssertNil(ShellAction("volume"))
         XCTAssertNil(ShellAction("volume set loud"))
         XCTAssertNil(ShellAction("volume set nan"))
@@ -4633,7 +4636,7 @@ final class ShellWidgetClickTests: XCTestCase {
             keyCode: UInt16(kVK_Return)
         ))
         popout.surface.view.keyDown(with: enter)
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 3)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 3))))])
         XCTAssertNil(harness.host.popout)
     }
 
@@ -4846,7 +4849,7 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertTrue(popout.panel.isVisible)
 
         click(popout.surface, at: CGPoint(x: 25, y: 15))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 3)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 3))))])
         XCTAssertNil(harness.host.popout)
         XCTAssertFalse(popout.panel.isVisible)
 

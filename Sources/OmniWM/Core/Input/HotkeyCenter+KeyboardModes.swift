@@ -3,6 +3,7 @@
 
 @preconcurrency import AppKit
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 
 extension HotkeyCenter {

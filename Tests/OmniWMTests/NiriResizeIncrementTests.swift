@@ -3,6 +3,7 @@
 
 import CoreGraphics
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import OmniWMScriptHost
 import XCTest
@@ -147,7 +148,7 @@ final class NiriResizeIncrementTests: XCTestCase {
             defer { fixture.controller.layoutRefreshController.resetState() }
             fixture.controller.settings.niri.resizeStepPercent = 7
             let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "resize-test")
-            XCTAssertEqual(router.handle(.sizing(request)), .executed)
+            XCTAssertEqual(router.handle(.init(.sizing(request))), .executed)
             assertSpan(fixture, primary: primary, expected: primary ? 0.6 : 300 + fixture.secondarySpan * 0.1)
         }
     }
@@ -177,7 +178,7 @@ final class NiriResizeIncrementTests: XCTestCase {
             for request in requests {
                 let command = HotkeyCommand(ipc: request)
                 XCTAssertEqual(command.layoutCompatibility, .niri)
-                XCTAssertEqual(router.handle(.sizing(request)), .ignoredLayoutMismatch)
+                XCTAssertEqual(router.handle(.init(.sizing(request))), .ignoredLayoutMismatch)
             }
         }
     }

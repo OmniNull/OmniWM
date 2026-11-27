@@ -56,10 +56,10 @@ CALLBACK_DISPATCH_ROUTES = ("key/dispatch-window", "key/cmd-in-callback", "key/c
 COMMAND_SELECTORS = ("cmd/integer", "cmd/string-index", "cmd/invalid-selector", "window/integer", "window/string-index")
 ROUTES.update(COMMAND_SELECTORS)
 CALLBACK_COMMAND_BUILDS = {
-    ("key/cmd-in-callback", "key/cmd-prebuilt"): ({"R": 1, "L": 2, "obj": 0, "heap": 0},
-        "Resolving omniwm.cmd words in place costs only the typed command; no word strings or manifest scans."),
-    ("key/cmd-build-argument", "key/idle"): ({"R": 2, "L": 4, "obj": 1, "heap": 1},
-        "An argument token adds only the value array that IPCCommandRequest(name:argumentValues:) takes."),
+    ("key/cmd-in-callback", "key/cmd-prebuilt"): ({"R": 0, "L": 1, "obj": 0, "heap": 0},
+        "Resolving an argument-free omniwm.cmd uses no new owner or storage."),
+    ("key/cmd-build-argument", "key/idle"): ({"R": 0, "L": 2, "obj": 1, "heap": 1},
+        "The neutral constructor consumes the existing argument array without retaining it."),
     ("cmd/integer", "cmd/string-index"): ({"R": 0, "L": 0, "obj": 0, "heap": 0, "bR": 0, "bL": -1},
         "An integer selector builds the same action with no extra Swift ownership or storage."),
     ("window/integer", "window/string-index"): ({"R": 0, "L": 0, "obj": 0, "heap": 0, "bR": 0, "bL": -1},

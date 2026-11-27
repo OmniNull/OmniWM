@@ -15,7 +15,7 @@ final class IPCCommandRouter {
     }
 
     func handle(_ request: IPCCommandRequest) -> ExternalCommandResult {
-        guard let command = HotkeyCommand(direct: request) else { return .invalidArguments }
+        guard let command = HotkeyCommand(direct: request.command) else { return .invalidArguments }
         return controller.commandHandler.performCommand(command, source: .ipc)
     }
 

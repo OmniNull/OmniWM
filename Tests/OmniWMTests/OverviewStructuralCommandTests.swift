@@ -172,10 +172,10 @@ final class OverviewStructuralCommandTests: XCTestCase {
         XCTAssertFalse(fixture.controller.isOverviewOpen())
 
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
-        XCTAssertEqual(router.handle(IPCCommandRequest.presentation(.overview)), .executed)
+        XCTAssertEqual(router.handle(IPCCommandRequest(.presentation(.overview))), .executed)
         XCTAssertTrue(fixture.controller.isOverviewOpen())
-        XCTAssertEqual(router.handle(IPCCommandRequest.column(.moveToFirst)), .ignoredOverview)
-        XCTAssertEqual(router.handle(IPCCommandRequest.presentation(.overview)), .executed)
+        XCTAssertEqual(router.handle(IPCCommandRequest(.column(.moveToFirst))), .ignoredOverview)
+        XCTAssertEqual(router.handle(IPCCommandRequest(.presentation(.overview))), .executed)
         XCTAssertFalse(fixture.controller.isOverviewOpen())
     }
 

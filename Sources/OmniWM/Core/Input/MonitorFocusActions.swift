@@ -3,6 +3,7 @@
 
 import Carbon
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 
 extension IPCMonitorFocusCommand {

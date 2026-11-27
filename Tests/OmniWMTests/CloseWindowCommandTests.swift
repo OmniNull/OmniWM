@@ -23,14 +23,14 @@ final class CloseWindowCommandTests: XCTestCase {
     }
 
     func testCloseFocusedWindowJSONRoundTripAndManifestResolves() throws {
-        XCTAssertEqual(IPCCommandRequest.windowState(.close).name, .windowState(.close))
-        let data = try JSONEncoder().encode(IPCCommandRequest.windowState(.close))
-        XCTAssertEqual(try JSONDecoder().decode(IPCCommandRequest.self, from: data), .windowState(.close))
+        XCTAssertEqual(IPCCommandRequest(.windowState(.close)).name, .windowState(.close))
+        let data = try JSONEncoder().encode(IPCCommandRequest(.windowState(.close)))
+        XCTAssertEqual(try JSONDecoder().decode(IPCCommandRequest.self, from: data), .init(.windowState(.close)))
 
         let descriptors = IPCAutomationManifest.commandDescriptors(matching: ["close-focused-window"])
         let descriptor = try XCTUnwrap(descriptors.first { $0.name == .windowState(.close) })
         XCTAssertEqual(descriptor.commandWords, ["close-focused-window"])
-        XCTAssertEqual(try IPCCommandRequest(name: descriptor.name, argumentValues: []), .windowState(.close))
+        XCTAssertEqual(try IPCCommandRequest(name: descriptor.name, argumentValues: []), .init(.windowState(.close)))
     }
 
     func testParserBuildsWindowCloseRequest() throws {

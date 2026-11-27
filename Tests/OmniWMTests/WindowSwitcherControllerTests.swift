@@ -339,7 +339,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         await fixture.enableFocusNavigation()
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.windowSwitcher(direction: .previous, scope: nil)), .executed)
+        XCTAssertEqual(router.handle(.init(.windowSwitcher(direction: .previous, scope: nil))), .executed)
 
         XCTAssertFalse(fixture.switcher.isVisible)
         XCTAssertTrue(fixture.registry.visibleWindows().isEmpty)
@@ -361,7 +361,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
         let input = { fixture.controller.hotkeys.windowSwitcherInput }
 
-        XCTAssertEqual(router.handle(.windowSwitcher(direction: .previous, scope: .allWorkspaces)), .executed)
+        XCTAssertEqual(router.handle(.init(.windowSwitcher(direction: .previous, scope: .allWorkspaces))), .executed)
         let generation = input().generation
         XCTAssertTrue(fixture.switcher.isVisible)
         let cards = try fixture.cardTokens()
@@ -369,7 +369,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         XCTAssertEqual(cards.first, fixture.tokens[0])
         XCTAssertEqual(try fixture.selectedTokens(), [cards[cards.count - 1]])
 
-        XCTAssertEqual(router.handle(.windowSwitcher(direction: .previous, scope: .activeWorkspace)), .executed)
+        XCTAssertEqual(router.handle(.init(.windowSwitcher(direction: .previous, scope: .activeWorkspace))), .executed)
         let target = cards[cards.count - 2]
         XCTAssertEqual(input().generation, generation)
         XCTAssertEqual(try fixture.cardTokens(), cards)
@@ -395,7 +395,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         fixture.controller.settings.windowSwitcher.enabled = false
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: nil)), .ignoredDisabled)
+        XCTAssertEqual(router.handle(.init(.windowSwitcher(direction: .next, scope: nil))), .ignoredDisabled)
 
         XCTAssertFalse(fixture.switcher.isVisible)
         XCTAssertEqual(fixture.focusTarget, fixture.tokens[0])
@@ -411,7 +411,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
             await fixture.enableFocusNavigation()
             let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
 
-            XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: nil)), .executed)
+            XCTAssertEqual(router.handle(.init(.windowSwitcher(direction: .next, scope: nil))), .executed)
 
             let label = tapAvailable ? "released before the tap was armed" : "no tap"
             XCTAssertFalse(fixture.switcher.isVisible, label)
@@ -435,7 +435,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         defer { controller.eventIntake.close() }
         fixture.modifiers.flags = .maskControl
         let router = IPCCommandRouter(controller: controller, sessionToken: "test")
-        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: .activeWorkspace)), .executed)
+        XCTAssertEqual(router.handle(.init(.windowSwitcher(direction: .next, scope: .activeWorkspace))), .executed)
         let committed = try XCTUnwrap(fixture.selectedTokens().first)
         let generation = controller.hotkeys.windowSwitcherInput.generation
 
@@ -455,7 +455,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
             XCTAssertFalse(controller.windowSwitcherController.isVisible)
             fixture.modifiers.flags = .maskAlternate
             return IPCCommandRouter(controller: controller, sessionToken: "test")
-                .handle(.windowSwitcher(direction: .next, scope: .allWorkspaces))
+                .handle(.init(.windowSwitcher(direction: .next, scope: .allWorkspaces)))
         }, completion: { XCTAssertEqual($0, .executed) })
         XCTAssertTrue(controller.eventIntake.enqueue(.ipcCommand(next)))
         controller.eventIntake.drainNow()
@@ -478,7 +478,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
             controller: controller, sessionToken: "test", authorizationToken: "test"
         )
         let response = await bridge.response(for: IPCRequest(
-            id: "test", command: .windowSwitcher(direction: .next, scope: .activeWorkspace),
+            id: "test", command: .init(.windowSwitcher(direction: .next, scope: .activeWorkspace)),
             authorizationToken: "test"
         ))
 
@@ -495,7 +495,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         defer { fixture.close() }
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: .activeWorkspace)), .noChange)
+        XCTAssertEqual(router.handle(.init(.windowSwitcher(direction: .next, scope: .activeWorkspace))), .noChange)
         XCTAssertFalse(fixture.switcher.isVisible)
         XCTAssertEqual(fixture.focusTarget, fixture.tokens[0])
     }
@@ -507,7 +507,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         fixture.modifiers.flags = .maskControl
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: nil)), .ignoredDisabled)
+        XCTAssertEqual(router.handle(.init(.windowSwitcher(direction: .next, scope: nil))), .ignoredDisabled)
         XCTAssertFalse(fixture.controller.hotkeys.windowSwitcherInput.isActive)
         XCTAssertFalse(fixture.switcher.isVisible)
         XCTAssertEqual(fixture.focusTarget, fixture.tokens[0])
@@ -526,7 +526,7 @@ final class WindowSwitcherControllerTests: XCTestCase {
         fixture.modifiers.flags = .maskAlternate
         let router = IPCCommandRouter(controller: controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.windowSwitcher(direction: .next, scope: nil)), .noChange)
+        XCTAssertEqual(router.handle(.init(.windowSwitcher(direction: .next, scope: nil))), .noChange)
         XCTAssertFalse(controller.hotkeys.windowSwitcherInput.isActive)
         XCTAssertFalse(fixture.switcher.isVisible)
         XCTAssertEqual(fixture.focusTarget, fixture.tokens[0])

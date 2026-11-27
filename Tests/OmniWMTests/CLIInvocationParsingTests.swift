@@ -90,11 +90,14 @@ final class CLIInvocationParsingTests: XCTestCase {
 
     func testWindowSwitcherParsesDirectionAndOptionalScope() throws {
         let accepted: [([String], IPCCommandRequest)] = [
-            (["next"], .windowSwitcher(direction: .next, scope: nil)),
-            (["previous"], .windowSwitcher(direction: .previous, scope: nil)),
-            (["next", "active-workspace"], .windowSwitcher(direction: .next, scope: .activeWorkspace)),
-            (["previous", "visible-workspaces"], .windowSwitcher(direction: .previous, scope: .visibleWorkspaces)),
-            (["next", "all-workspaces"], .windowSwitcher(direction: .next, scope: .allWorkspaces))
+            (["next"], .init(.windowSwitcher(direction: .next, scope: nil))),
+            (["previous"], .init(.windowSwitcher(direction: .previous, scope: nil))),
+            (["next", "active-workspace"], .init(.windowSwitcher(direction: .next, scope: .activeWorkspace))),
+            (
+                ["previous", "visible-workspaces"],
+                .init(.windowSwitcher(direction: .previous, scope: .visibleWorkspaces))
+            ),
+            (["next", "all-workspaces"], .init(.windowSwitcher(direction: .next, scope: .allWorkspaces)))
         ]
         for (words, expected) in accepted {
             let parsed = try CLIParser.parse(arguments: ["omniwmctl", "command", "window-switcher"] + words)

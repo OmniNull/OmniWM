@@ -3,6 +3,7 @@
 
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -69,15 +70,15 @@ final class NiriSizingCommandContractTests: XCTestCase {
 
     func testSizingRequestsRoundTripWithNewWireNames() throws {
         let requests: [(IPCCommandRequest, String)] = [
-            (.sizing(.cycleSizeForward), "cycle-size-forward"),
-            (.sizing(.cycleWindowPrimarySpanBackward), "cycle-window-primary-span-backward"),
-            (.sizing(.cycleWindowSecondarySpanForward), "cycle-window-secondary-span-forward"),
-            (.sizing(.toggleContainerFullPrimarySpan), "toggle-container-full-primary-span"),
-            (.sizing(.expandContainerToAvailablePrimarySpan), "expand-container-to-available-primary-span"),
-            (.sizing(.resetWindowSecondarySpan), "reset-window-secondary-span"),
-            (.sizing(.setContainerPrimarySpan(change: .setProportion(50))), "set-container-primary-span"),
-            (.sizing(.setWindowPrimarySpan(change: .adjustFixed(10))), "set-window-primary-span"),
-            (.sizing(.setWindowSecondarySpan(change: .adjustProportion(-10))), "set-window-secondary-span")
+            (.init(.sizing(.cycleSizeForward)), "cycle-size-forward"),
+            (.init(.sizing(.cycleWindowPrimarySpanBackward)), "cycle-window-primary-span-backward"),
+            (.init(.sizing(.cycleWindowSecondarySpanForward)), "cycle-window-secondary-span-forward"),
+            (.init(.sizing(.toggleContainerFullPrimarySpan)), "toggle-container-full-primary-span"),
+            (.init(.sizing(.expandContainerToAvailablePrimarySpan)), "expand-container-to-available-primary-span"),
+            (.init(.sizing(.resetWindowSecondarySpan)), "reset-window-secondary-span"),
+            (.init(.sizing(.setContainerPrimarySpan(change: .setProportion(50)))), "set-container-primary-span"),
+            (.init(.sizing(.setWindowPrimarySpan(change: .adjustFixed(10)))), "set-window-primary-span"),
+            (.init(.sizing(.setWindowSecondarySpan(change: .adjustProportion(-10)))), "set-window-secondary-span")
         ]
 
         for (request, expectedName) in requests {

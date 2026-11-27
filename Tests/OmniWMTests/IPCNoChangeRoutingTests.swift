@@ -26,7 +26,9 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         fixture.controller.eventInterpreter.handleIntakeEvent(StampedIntakeEvent(
             seq: 1,
             event: .ipcCommand(IPCCommandIntake(
-                perform: { IPCCommandRouter(controller: $0, sessionToken: "test").handle(.raiseAllFloatingWindows) },
+                perform: {
+                    IPCCommandRouter(controller: $0, sessionToken: "test").handle(.init(.raiseAllFloatingWindows))
+                },
                 completion: { _ in }
             ))
         ))
@@ -63,7 +65,7 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }
 
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchTo(workspaceNumber: 1))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchTo(workspaceNumber: 1)))), .noChange)
         XCTAssertEqual(fixture.router.handle(IPCWorkspaceRequest.focusName(target: .rawID("1"))), .noChange)
         XCTAssertEqual(fixture.router.handle(IPCWorkspaceRequest.focusName(target: .rawID("99"))), .notFound)
         XCTAssertEqual(
@@ -74,17 +76,17 @@ final class IPCNoChangeRoutingTests: XCTestCase {
             fixture.router.handle(IPCWorkspaceRequest.rename(target: .rawID("99"), displayName: "x")),
             .notFound
         )
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchTo(workspaceNumber: 7))), .notFound)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchTo(workspaceNumber: 7)))), .notFound)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace1)
 
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchTo(workspaceNumber: 2))), .executed)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchTo(workspaceNumber: 2)))), .executed)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace2)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchTo(workspaceNumber: 2))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchTo(workspaceNumber: 2)))), .noChange)
         XCTAssertEqual(
-            fixture.router.handle(IPCCommandRequest.workspace(.switchAnywhere(workspaceNumber: 2))),
+            fixture.router.handle(IPCCommandRequest(.workspace(.switchAnywhere(workspaceNumber: 2)))),
             .noChange
         )
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.backAndForth)), .executed)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.backAndForth))), .executed)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace1)
     }
 
@@ -144,10 +146,10 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         defer { fixture.controller.layoutRefreshController.resetState() }
         fixture.controller.settings.workspaces.switchWrapAround = false
 
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.previous)), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.next)), .executed)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.previous))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.next))), .executed)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace2)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.next)), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.next))), .noChange)
     }
 
     func testAutoBackAndForthAppliesToShortcutsButNotToIPC() throws {
@@ -155,13 +157,13 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         defer { fixture.controller.layoutRefreshController.resetState() }
         let commands = fixture.controller.commandHandler
 
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchTo(workspaceNumber: 2))), .executed)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchTo(workspaceNumber: 2)))), .executed)
         XCTAssertEqual(commands.performCommand(.workspace(.switchTo(1))), .noChange)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace2)
 
         fixture.controller.settings.workspaces.autoBackAndForth = true
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchTo(workspaceNumber: 2))), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchSlot(slotNumber: 2))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchTo(workspaceNumber: 2)))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchSlot(slotNumber: 2)))), .noChange)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace2)
 
         XCTAssertEqual(commands.performCommand(.workspace(.switchTo(1))), .executed)
@@ -176,8 +178,11 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }
 
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveTo(workspaceNumber: 1))), .notFound)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveToMonitor(direction: .right))), .notFound)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.moveTo(workspaceNumber: 1)))), .notFound)
+        XCTAssertEqual(
+            fixture.router.handle(IPCCommandRequest(.workspace(.moveToMonitor(direction: .right)))),
+            .notFound
+        )
 
         let token = fixture.controller.workspaceManager.addWindow(
             AXWindowRef(element: AXUIElementCreateApplication(471_001), windowId: 11),
@@ -188,9 +193,12 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         XCTAssertTrue(fixture.controller.workspaceManager.setManagedFocus(token, in: fixture.workspace1))
         XCTAssertEqual(fixture.controller.workspaceManager.selectedManagedToken, token)
 
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveTo(workspaceNumber: 1))), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveTo(workspaceNumber: 7))), .notFound)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveToMonitor(direction: .right))), .notFound)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.moveTo(workspaceNumber: 1)))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.moveTo(workspaceNumber: 7)))), .notFound)
+        XCTAssertEqual(
+            fixture.router.handle(IPCCommandRequest(.workspace(.moveToMonitor(direction: .right)))),
+            .notFound
+        )
         XCTAssertEqual(fixture.controller.workspaceManager.workspace(for: token), fixture.workspace1)
     }
 
@@ -210,7 +218,8 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         )
         let number = try XCTUnwrap(Int(target))
         let requests: [IPCCommandRequest] = [
-            .workspace(.switchTo(workspaceNumber: number)), .workspace(.switchAnywhere(workspaceNumber: number))
+            .init(.workspace(.switchTo(workspaceNumber: number))),
+            .init(.workspace(.switchAnywhere(workspaceNumber: number)))
         ]
         XCTAssertEqual(loaded.bindings.count, requests.count)
         controller.settings.workspaces.configurations.removeAll { $0.name == target }
@@ -229,12 +238,12 @@ final class IPCNoChangeRoutingTests: XCTestCase {
         let fixture = try makeFixture()
         defer { fixture.controller.layoutRefreshController.resetState() }
 
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.rescueOffscreenWindows), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.raiseAllFloatingWindows), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.toggleFloatingFocus), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspaceLayout(.set(layout: .niri))), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.monitorFocus(.next)), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.swapWorkspaceWithMonitor(direction: .left)), .notFound)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.rescueOffscreenWindows)), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.raiseAllFloatingWindows)), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.toggleFloatingFocus)), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspaceLayout(.set(layout: .niri)))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.monitorFocus(.next))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.swapWorkspaceWithMonitor(direction: .left))), .notFound)
     }
 
     private func makeFixture() throws -> Fixture {

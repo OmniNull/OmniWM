@@ -57,14 +57,7 @@ final class ConfigScriptCommandParserTests: XCTestCase {
             return XCTFail("Expected a command group for \(words)", file: file, line: line)
         }
         let arguments = words.dropFirst().map { Array($0.utf8) }
-        let expected = IPCCommandRequest(commandWords: words).map { request -> ConfigScriptCommandParser.Request in
-            if case let .workspace(command) = request,
-               IPCWorkspaceSwitchForm.all.contains(where: { $0.name == command.name })
-            {
-                return .workspaceSwitch(command)
-            }
-            return .ipc(request)
-        }
+        let expected = IPCCommandRequest(commandWords: words)?.command
         XCTAssertEqual(
             withWords(arguments) { ConfigScriptCommandParser.request(group: group, $0) },
             expected,

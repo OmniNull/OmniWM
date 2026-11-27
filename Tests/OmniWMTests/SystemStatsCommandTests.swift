@@ -12,7 +12,10 @@ final class SystemStatsCommandTests: XCTestCase {
         let descriptor = try XCTUnwrap(descriptors.first { $0.name == .presentation(.systemStats) })
 
         XCTAssertEqual(descriptor.commandWords, ["toggle-system-stats"])
-        XCTAssertEqual(try IPCCommandRequest(name: descriptor.name, argumentValues: []), .presentation(.systemStats))
+        XCTAssertEqual(
+            try IPCCommandRequest(name: descriptor.name, argumentValues: []),
+            .init(.presentation(.systemStats))
+        )
     }
 
     @MainActor
@@ -29,7 +32,7 @@ final class SystemStatsCommandTests: XCTestCase {
         }
         let router = IPCCommandRouter(controller: controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.presentation(.systemStats)), .executed)
+        XCTAssertEqual(router.handle(.init(.presentation(.systemStats))), .executed)
     }
 
     func testSystemStatsButtonSettingRoundTrips() throws {

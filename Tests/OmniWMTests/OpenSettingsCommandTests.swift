@@ -11,9 +11,9 @@ import XCTest
 final class OpenSettingsCommandTests: XCTestCase {
     func testOneCatalogCommandReachesShortcutsThePaletteTheCLIAndLuau() async throws {
         let request = try XCTUnwrap(IPCCommandRequest(commandWords: ["open-settings"]))
-        XCTAssertEqual(request, .openSettings)
+        XCTAssertEqual(request, .init(.openSettings))
         XCTAssertNil(IPCCommandRequest(commandWords: ["open-settings", "hotkeys"]))
-        XCTAssertEqual(HotkeyCommand(direct: request), .openSettings)
+        XCTAssertEqual(HotkeyCommand(direct: request.command), .openSettings)
         XCTAssertTrue(IPCAutomationManifest.commandDescriptors.contains {
             $0.name == .openSettings && $0.arguments.isEmpty
         })

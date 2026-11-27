@@ -45,7 +45,7 @@ extension IPCJSONWriter {
     mutating func value(_ value: borrowing IPCCommandRequest) throws {
         begin(123)
         var first = true
-        switch value {
+        switch value.command {
         case let .shellAppOpen(appID),
              let .shellAppNewWindow(appID):
             try argument("appId", appID, &first)

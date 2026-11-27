@@ -2,10 +2,9 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import OmniWMAutomation
-import OmniWMIPC
 
 extension HotkeyCommand {
-    init?(direct request: IPCCommandRequest) {
+    init?(direct request: IPCCommand) {
         switch request {
         case let .focus(command): self.init(ipc: command)
         case let .windowMovement(command): self.init(ipc: command)

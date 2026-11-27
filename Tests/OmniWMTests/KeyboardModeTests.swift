@@ -5,6 +5,7 @@ import Carbon
 import CoreGraphics
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 

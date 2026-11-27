@@ -15,10 +15,15 @@ extension WorkspaceBarManager {
                 return nil
             }
             return .focusWindow(WindowToken(pid: pid, windowId: windowId))
-        case let .command(.workspace(.switchTo(workspaceNumber))):
-            return .focusWorkspace(rawName: String(workspaceNumber))
-        case let .command(.scratchpad(.toggle(index))):
-            return ScratchpadIndex(index).map { .toggleScratchpad($0) }
+        case let .command(request):
+            switch request.command {
+            case let .workspace(.switchTo(workspaceNumber)):
+                return .focusWorkspace(rawName: String(workspaceNumber))
+            case let .scratchpad(.toggle(index)):
+                return ScratchpadIndex(index).map { .toggleScratchpad($0) }
+            default:
+                return nil
+            }
         default:
             return nil
         }

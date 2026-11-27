@@ -3,6 +3,7 @@
 
 import Carbon
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 
 enum HotkeyVisibility: String {

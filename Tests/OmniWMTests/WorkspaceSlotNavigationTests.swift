@@ -63,9 +63,9 @@ final class WorkspaceSlotNavigationTests: XCTestCase {
     func testWorkspaceCommandRoutesTransferFocusAfterMouseWarp() throws {
         let routes: [(String, (Fixture) -> ExternalCommandResult)] = [
             ("shortcut", { $0.controller.commandHandler.performCommand(.workspace(.switchTo(1))) }),
-            ("numeric IPC", { $0.router.handle(IPCCommandRequest.workspace(.switchTo(workspaceNumber: 2))) }),
-            ("anywhere IPC", { $0.router.handle(IPCCommandRequest.workspace(.switchAnywhere(workspaceNumber: 2))) }),
-            ("slot IPC", { $0.router.handle(IPCCommandRequest.workspace(.switchSlot(slotNumber: 1))) }),
+            ("numeric IPC", { $0.router.handle(IPCCommandRequest(.workspace(.switchTo(workspaceNumber: 2)))) }),
+            ("anywhere IPC", { $0.router.handle(IPCCommandRequest(.workspace(.switchAnywhere(workspaceNumber: 2)))) }),
+            ("slot IPC", { $0.router.handle(IPCCommandRequest(.workspace(.switchSlot(slotNumber: 1)))) }),
             ("raw name IPC", { $0.router.handle(IPCWorkspaceRequest.focusName(target: .rawID("2"))) }),
             (
                 "display name IPC",
@@ -207,24 +207,24 @@ final class WorkspaceSlotNavigationTests: XCTestCase {
         defer { fixture.controller.layoutRefreshController.resetState() }
 
         XCTAssertEqual(
-            fixture.router.handle(IPCCommandRequest.workspace(.switchSlot(slotNumber: 0))),
+            fixture.router.handle(IPCCommandRequest(.workspace(.switchSlot(slotNumber: 0)))),
             .invalidArguments
         )
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchSlot(slotNumber: 9))), .notFound)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchSlot(slotNumber: 1))), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchSlot(slotNumber: 2))), .executed)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchSlot(slotNumber: 9)))), .notFound)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchSlot(slotNumber: 1)))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchSlot(slotNumber: 2)))), .executed)
         XCTAssertEqual(fixture.controller.activeWorkspace()?.id, fixture.workspace3)
 
         XCTAssertEqual(
-            fixture.router.handle(IPCCommandRequest.workspace(.moveToSlot(slotNumber: 0))),
+            fixture.router.handle(IPCCommandRequest(.workspace(.moveToSlot(slotNumber: 0)))),
             .invalidArguments
         )
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveToSlot(slotNumber: 1))), .notFound)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.moveToSlot(slotNumber: 1)))), .notFound)
 
         let token = addFocusedWindow(to: fixture.workspace3, in: fixture)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveToSlot(slotNumber: 2))), .noChange)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveToSlot(slotNumber: 9))), .notFound)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.moveToSlot(slotNumber: 1))), .executed)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.moveToSlot(slotNumber: 2)))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.moveToSlot(slotNumber: 9)))), .notFound)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.moveToSlot(slotNumber: 1)))), .executed)
         XCTAssertEqual(fixture.manager.workspace(for: token), fixture.workspace1)
     }
 
@@ -319,12 +319,12 @@ final class WorkspaceSlotNavigationTests: XCTestCase {
         assertNoSwitchQueued(in: fixture)
         XCTAssertFalse(fixture.navigation.switchWorkspaceSlot(1))
         assertNoSwitchQueued(in: fixture)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchTo(workspaceNumber: 1))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchTo(workspaceNumber: 1)))), .noChange)
         assertNoSwitchQueued(in: fixture)
-        XCTAssertEqual(fixture.router.handle(IPCCommandRequest.workspace(.switchSlot(slotNumber: 1))), .noChange)
+        XCTAssertEqual(fixture.router.handle(IPCCommandRequest(.workspace(.switchSlot(slotNumber: 1)))), .noChange)
         assertNoSwitchQueued(in: fixture)
         XCTAssertEqual(
-            fixture.router.handle(IPCCommandRequest.workspace(.switchAnywhere(workspaceNumber: 1))),
+            fixture.router.handle(IPCCommandRequest(.workspace(.switchAnywhere(workspaceNumber: 1)))),
             .noChange
         )
         assertNoSwitchQueued(in: fixture)

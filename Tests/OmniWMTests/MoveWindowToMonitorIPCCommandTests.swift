@@ -13,7 +13,7 @@ final class MoveWindowToMonitorIPCCommandTests: XCTestCase {
 
     func testDirectionalRequestsExposeCanonicalWireContract() throws {
         for direction in directions {
-            let request = IPCCommandRequest.workspace(.moveToMonitor(direction: direction))
+            let request = IPCCommandRequest(.workspace(.moveToMonitor(direction: direction)))
 
             XCTAssertEqual(request.name, .workspace(.moveToMonitor))
             XCTAssertEqual(
@@ -75,7 +75,7 @@ final class MoveWindowToMonitorIPCCommandTests: XCTestCase {
                 return XCTFail("Expected command request")
             }
 
-            XCTAssertEqual(request, .workspace(.moveToMonitor(direction: direction)))
+            XCTAssertEqual(request, .init(.workspace(.moveToMonitor(direction: direction))))
         }
     }
 
@@ -122,6 +122,6 @@ final class MoveWindowToMonitorIPCCommandTests: XCTestCase {
         let controller = WMController(settings: settings)
         let router = IPCCommandRouter(controller: controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.workspace(.moveToMonitor(direction: .right))), .notFound)
+        XCTAssertEqual(router.handle(.init(.workspace(.moveToMonitor(direction: .right)))), .notFound)
     }
 }

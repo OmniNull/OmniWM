@@ -2054,7 +2054,8 @@ final class LiveTitleBarDragTests: NiriInteractionTestCase {
                     seq: 1,
                     event: .ipcCommand(IPCCommandIntake(
                         perform: {
-                            IPCCommandRouter(controller: $0, sessionToken: "test").handle(.raiseAllFloatingWindows)
+                            IPCCommandRouter(controller: $0, sessionToken: "test")
+                                .handle(.init(.raiseAllFloatingWindows))
                         },
                         completion: { _ in }
                     ))

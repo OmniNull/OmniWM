@@ -2,49 +2,17 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import OmniWMAutomation
-import OmniWMIPC
 import OmniWMScriptHost
 
 enum ConfigScriptCommandParser {
-    enum Request: Equatable {
-        case workspaceSwitch(IPCWorkspaceCommand)
-        case ipc(IPCCommandRequest)
-    }
-
-    enum FormName {
-        case workspaceSwitch(IPCWorkspaceCommandName)
-        case ipc(IPCCommandName)
-    }
-
-    struct Form {
-        let name: FormName
-        let commandWords: [String]
-        let arguments: [IPCCommandArgumentKind]
-        let sortKey: String
-    }
-
     struct Group {
         let word: String
         let member: String
-        let forms: [Form]
+        let forms: [IPCCommandForm]
     }
 
     static func inventory() -> [Group] {
-        let switchWord = IPCWorkspaceCommandName.switchTo.rawValue
-        let switches = IPCWorkspaceSwitchForm.all.map { form in
-            Form(
-                name: .workspaceSwitch(form.name), commandWords: form.commandWords,
-                arguments: form.argumentKind.map { [$0] } ?? [],
-                sortKey: form.commandWords.joined(separator: " ")
-            )
-        }
-        var grouped = [switchWord: switches]
-        for descriptor in IPCAutomationManifest.commandDescriptors where descriptor.commandWords[0] != switchWord {
-            grouped[descriptor.commandWords[0], default: []].append(Form(
-                name: .ipc(descriptor.name), commandWords: descriptor.commandWords,
-                arguments: descriptor.arguments.map(\.kind), sortKey: descriptor.path
-            ))
-        }
+        let grouped = Dictionary(grouping: IPCCommandForm.all) { $0.commandWords[0] }
         return grouped.keys.sorted().map { word in
             let parts = word.split(separator: "-")
             let member = String(parts.first ?? "") + parts.dropFirst().map {
@@ -65,7 +33,7 @@ enum ConfigScriptCommandParser {
     }
 
     private struct Entry {
-        let name: FormName
+        let name: IPCCommandName
         let words: Range<Int>
         let arguments: Range<Int>
     }
@@ -126,7 +94,7 @@ enum ConfigScriptCommandParser {
 
     private static let table = Table()
 
-    static func request(group: Int, _ words: UnsafeBufferPointer<omni_config_word>) -> Request? {
+    static func request(group: Int, _ words: UnsafeBufferPointer<omni_config_word>) -> IPCCommand? {
         guard table.groupEntries.indices.contains(group) else { return nil }
         candidates: for index in table.groupEntries[group] {
             let entry = table.entries[index]
@@ -141,15 +109,8 @@ enum ConfigScriptCommandParser {
                 guard let value = argument(words[wordCount + offset], kind: kind) else { continue candidates }
                 values.append(value)
             }
-            switch entry.name {
-            case let .workspaceSwitch(name):
-                if let command = try? IPCWorkspaceCommand(switchName: name, argumentValues: values) {
-                    return .workspaceSwitch(command)
-                }
-            case let .ipc(name):
-                if let request = try? IPCCommandRequest(name: name, argumentValues: values) {
-                    return .ipc(request)
-                }
+            if let command = try? IPCCommand(name: entry.name, argumentValues: consume values) {
+                return command
             }
         }
         return nil
@@ -188,6 +149,12 @@ enum ConfigScriptCommandParser {
 
     private static func bytes(_ span: omni_config_span) -> UnsafeRawBufferPointer {
         UnsafeRawBufferPointer(start: span.data, count: span.length)
+    }
+}
+
+extension IPCCommandForm {
+    var sortKey: String {
+        (commandWords + arguments.map(\.rawValue)).joined(separator: " ")
     }
 }
 

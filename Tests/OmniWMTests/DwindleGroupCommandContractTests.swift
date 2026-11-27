@@ -4,6 +4,7 @@
 import Carbon
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -186,11 +187,11 @@ final class DwindleGroupCommandContractTests: XCTestCase {
 
     func testReusedIPCRequestsRetainCanonicalWireShapes() throws {
         let requests: [IPCCommandRequest] = [
-            .focus(.spatial(direction: .down)),
-            .focus(.windowDownOrTop),
-            .windowMovement(.spatial(direction: .left)),
-            .windowMovement(.up),
-            .column(.move(direction: .down))
+            .init(.focus(.spatial(direction: .down))),
+            .init(.focus(.windowDownOrTop)),
+            .init(.windowMovement(.spatial(direction: .left))),
+            .init(.windowMovement(.up)),
+            .init(.column(.move(direction: .down)))
         ]
 
         for request in requests {
@@ -201,10 +202,10 @@ final class DwindleGroupCommandContractTests: XCTestCase {
 
         XCTAssertEqual(
             try IPCCommandRequest(name: .column(.move), argumentValues: [.direction(.up)]),
-            .column(.move(direction: .up))
+            .init(.column(.move(direction: .up)))
         )
 
-        let data = try JSONEncoder().encode(IPCCommandRequest.column(.move(direction: .down)))
+        let data = try JSONEncoder().encode(IPCCommandRequest(.column(.move(direction: .down))))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let arguments = try XCTUnwrap(object["arguments"] as? [String: Any])
 

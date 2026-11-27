@@ -13,6 +13,11 @@ final class IPCWireEncodingParityTests: XCTestCase {
         let data: Data
     }
 
+    private struct CommandWireRecord: Decodable {
+        let words: [String]
+        let wire: Data
+    }
+
     private struct RandomBits {
         var state: UInt64 = 13013
 
@@ -48,35 +53,61 @@ final class IPCWireEncodingParityTests: XCTestCase {
         }
     }
 
-    func testWorkspaceSwitchRequestsMatchTheRecordedBytes() throws {
-        let names = Set(IPCWorkspaceSwitchForm.all.map(\.name))
-        var covered: Set<IPCWorkspaceCommandName> = []
+    func testAllCommandRequestsMatchTheRecordedBytes() throws {
         for fixture in try fixtures() where fixture.kind == "request" {
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: fixture.data) as? [String: Any])
+            guard object["kind"] as? String == IPCRequestKind.command.rawValue else { continue }
             let request = try IPCWire.decodeRequest(from: fixture.data)
-            guard case let .command(command) = request.payload,
-                  case let .workspace(workspace) = command, names.contains(workspace.name)
-            else { continue }
-            let object = try JSONSerialization.jsonObject(with: fixture.data)
             var expected = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
             expected.append(0x0A)
             XCTAssertEqual(try IPCWire.encodeRequestLine(request), expected, fixture.name)
-            covered.insert(workspace.name)
         }
-        XCTAssertEqual(covered, names)
     }
 
-    func testWorkspaceSwitchCapabilityDescriptorsMatchTheRecordedBytes() throws {
+    func testAllParentCommandFormsMatchTheRecordedWireBytes() throws {
         let resources = try XCTUnwrap(Bundle.module.resourceURL)
-        let fixture = resources.appendingPathComponent("Fixtures/IPCCommands/workspace-switch-descriptors.json")
-        let group = IPCWorkspaceCommandName.switchTo.rawValue
-        let descriptors = IPCAutomationManifest.commandDescriptors.filter { $0.commandWords.first == group }
-        XCTAssertEqual(try reference(descriptors), try Data(contentsOf: fixture))
+        let fixture = resources.appendingPathComponent("Fixtures/IPCCommands/command-wire.ndjson")
+        let records = try String(contentsOf: fixture, encoding: .utf8)
+        let decoder = JSONDecoder()
+        var covered = Set<IPCCommandName>()
+        var paths: [String] = []
+        for line in records.split(separator: "\n") {
+            let record = try decoder.decode(CommandWireRecord.self, from: Data(line.utf8))
+            let decoded = try IPCWire.decodeRequest(from: record.wire)
+            let command = try XCTUnwrap(IPCCommandRequest(commandWords: record.words))
+            let request = IPCRequest(id: decoded.id, command: command, authorizationToken: decoded.authorizationToken)
+            XCTAssertEqual(try IPCWire.encodeRequestLine(request), record.wire, decoded.id)
+            XCTAssertEqual(request, decoded, decoded.id)
+            covered.insert(command.name)
+            paths.append(decoded.id)
+        }
+        XCTAssertEqual(covered, Set(IPCCommandName.allCases))
+        XCTAssertEqual(paths, IPCAutomationManifest.commandDescriptors.map(\.path))
+    }
+
+    func testAllCapabilityCommandDescriptorsMatchTheRecordedBytes() throws {
+        let resources = try XCTUnwrap(Bundle.module.resourceURL)
+        let fixture = resources.appendingPathComponent("Fixtures/IPCCommands/capability-command-descriptors.ndjson")
+        let records = try String(contentsOf: fixture, encoding: .utf8)
+        let expected = "[" + records.split(separator: "\n").joined(separator: ",") + "]"
+        let descriptors = IPCAutomationManifest.commandDescriptors
+        XCTAssertEqual(try reference(descriptors), Data((expected + "\n").utf8))
+
+        let capabilities = IPCCapabilitiesQueryResult(
+            appVersion: nil, authorizationRequired: true, windowIdScope: "session", queries: [],
+            commands: descriptors, captureActions: [], ruleActions: [], workspaceActions: [], windowActions: [],
+            windowMarkActions: [], windowGatherActions: [], dwindleActions: [], shellActions: [], subscriptions: []
+        )
+        let response = IPCResponse.success(
+            id: fixture.lastPathComponent, kind: .query, result: IPCResult(capabilities: capabilities)
+        )
+        XCTAssertNotNil(try IPCWire.encodeResponseLine(response).range(of: Data(("\"commands\":" + expected).utf8)))
     }
 
     func testHostedAppRequestsEncodeAppIDAndRoundTrip() throws {
         let fixtures: [(name: String, command: IPCCommandRequest)] = [
-            ("app-open", .shellAppOpen(appID: "example")),
-            ("app-new-window", .shellAppNewWindow(appID: "example"))
+            ("app-open", .init(.shellAppOpen(appID: "example"))),
+            ("app-new-window", .init(.shellAppNewWindow(appID: "example")))
         ]
         for fixture in fixtures {
             let request = IPCRequest(id: fixture.name, command: fixture.command)
@@ -94,9 +125,9 @@ final class IPCWireEncodingParityTests: XCTestCase {
 
     func testWindowSwitcherRequestsEncodeDirectionAndOptionalScope() throws {
         let fixtures: [(command: IPCCommandRequest, arguments: [String: String])] = [
-            (.windowSwitcher(direction: .next, scope: nil), ["direction": "next"]),
+            (.init(.windowSwitcher(direction: .next, scope: nil)), ["direction": "next"]),
             (
-                .windowSwitcher(direction: .previous, scope: .visibleWorkspaces),
+                .init(.windowSwitcher(direction: .previous, scope: .visibleWorkspaces)),
                 ["direction": "previous", "scope": "visible-workspaces"]
             )
         ]

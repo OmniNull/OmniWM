@@ -20,7 +20,7 @@ OmniWM is built with Swift Package Manager (the pinned Swift 6.5-dev snapshot, s
 ```
 OmniWMApp                          (@main entry point)
 └── OmniWM                         (main library)
-    ├── OmniWMAutomation           (typed command values and workspace-switch forms)
+    ├── OmniWMAutomation           (typed commands and command forms)
     ├── OmniWMIPC                  (IPC models and wire format)
     │   └── OmniWMAutomation
     ├── OmniWMLayerCorners         (Objective-C native border-layer bridge)
@@ -53,7 +53,7 @@ OmniWMTests                        (test target)
 
 | Target | Purpose | Dependencies |
 |--------|---------|--------------|
-| `OmniWMAutomation` | Typed command argument values and workspace-switch forms | None |
+| `OmniWMAutomation` | Typed commands, argument values, and command forms | None |
 | `OmniWMIPC` | Shared IPC data models and wire format | OmniWMAutomation |
 | `OmniWMLayerCorners` | Objective-C bridge for native CALayer corner radii and rim properties | None |
 | `OmniWMLauncherSPI` | Objective-C bridge for launcher integration | None |
@@ -121,7 +121,7 @@ Sources/
 │   └── UI/                          SwiftUI/AppKit settings, bars, palette, status, stats
 ├── OmniWMApp/                       @main entry + settings redirect
 ├── OmniWMCtl/                       CLI parser, IPC client, renderer, completion
-├── OmniWMAutomation/                Typed command values and workspace-switch forms
+├── OmniWMAutomation/                Typed commands, argument values, and command forms
 ├── OmniWMIPC/                       models, wire format, socket path, automation manifest
 ├── OmniWMLayerCorners/              Objective-C native border-layer bridge (1 .m + 1 header)
 ├── OmniWMLauncherSPI/               Objective-C launcher integration bridge

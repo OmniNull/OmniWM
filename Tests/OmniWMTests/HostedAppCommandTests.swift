@@ -4,6 +4,7 @@
 import AppKit
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 @testable import OmniWMCtl
 import OmniWMIPC
 import XCTest
@@ -23,7 +24,7 @@ final class HostedAppCommandTests: XCTestCase {
         XCTAssertEqual(spec.defaultBinding, .unassigned)
         XCTAssertEqual(spec.layoutCompatibility, .shared)
         XCTAssertTrue(ActionCatalog.allSpecs().contains(spec))
-        XCTAssertEqual(request, .shellAppOpen(appID: appID))
+        XCTAssertEqual(request, .init(.shellAppOpen(appID: appID)))
         let cli = try CLIParser.parse(arguments: ["omniwmctl", "command"] + words)
         XCTAssertEqual(cli.request.payload, .command(request))
         XCTAssertEqual(try JSONDecoder().decode(IPCCommandRequest.self, from: JSONEncoder().encode(request)), request)
@@ -55,7 +56,7 @@ final class HostedAppCommandTests: XCTestCase {
         XCTAssertEqual(spec.layoutCompatibility, .shared)
         XCTAssertTrue(ActionCatalog.allSpecs().contains(spec))
         XCTAssertEqual(descriptor.commandWords, ["app-new-window"])
-        XCTAssertEqual(request, .shellAppNewWindow(appID: appID))
+        XCTAssertEqual(request, .init(.shellAppNewWindow(appID: appID)))
         let cli = try CLIParser.parse(arguments: ["omniwmctl", "command"] + words)
         XCTAssertEqual(cli.request.payload, .command(request))
         XCTAssertEqual(try JSONDecoder().decode(IPCCommandRequest.self, from: JSONEncoder().encode(request)), request)
@@ -107,8 +108,8 @@ final class HostedAppCommandTests: XCTestCase {
 
         XCTAssertEqual(controller.commandHandler.performCommand(.shellAppOpen(appID)), .notFound)
         XCTAssertEqual(controller.commandHandler.performCommand(.shellAppNewWindow(appID)), .notFound)
-        XCTAssertEqual(router.handle(.shellAppOpen(appID: appID)), .notFound)
-        XCTAssertEqual(router.handle(.shellAppNewWindow(appID: appID)), .notFound)
+        XCTAssertEqual(router.handle(.init(.shellAppOpen(appID: appID))), .notFound)
+        XCTAssertEqual(router.handle(.init(.shellAppNewWindow(appID: appID))), .notFound)
         XCTAssertTrue(manager.windows.isEmpty)
         XCTAssertTrue(manager.runtimes.isEmpty)
         XCTAssertEqual(controller.workspaceManager.worldSeq, sequence)

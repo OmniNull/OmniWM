@@ -14,7 +14,7 @@ final class IPCResizeCommandTests: XCTestCase {
     func testRequestsExposeAxisAndOperationWireContract() throws {
         for axis in axes {
             for operation in operations {
-                let request = IPCCommandRequest.dwindle(.resize(axis: axis, operation: operation))
+                let request = IPCCommandRequest(.dwindle(.resize(axis: axis, operation: operation)))
 
                 XCTAssertEqual(request.name, .dwindle(.resize))
                 XCTAssertEqual(
@@ -89,7 +89,7 @@ final class IPCResizeCommandTests: XCTestCase {
                 }
 
                 XCTAssertEqual(parsed.request.version, OmniWMIPCProtocol.version)
-                XCTAssertEqual(request, .dwindle(.resize(axis: axis, operation: operation)))
+                XCTAssertEqual(request, .init(.dwindle(.resize(axis: axis, operation: operation))))
             }
         }
     }

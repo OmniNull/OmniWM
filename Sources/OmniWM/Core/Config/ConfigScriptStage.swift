@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
 import OmniWMScriptHost
 import Synchronization
 
@@ -250,11 +249,7 @@ struct ConfigScriptStage {
             }
             throw ConfigScriptError(line: nil, message: "Invalid arguments for '\(name)'.")
         }
-        let resolved = switch request {
-        case let .workspaceSwitch(command): HotkeyCommand(workspace: command)
-        case let .ipc(request): HotkeyCommand(direct: request)
-        }
-        guard let command = resolved else {
+        guard let command = HotkeyCommand(direct: request) else {
             throw ConfigScriptError(
                 line: nil,
                 message: "'\(ConfigScriptCommandParser.text(group: group, words))' is not a direct hotkey action."

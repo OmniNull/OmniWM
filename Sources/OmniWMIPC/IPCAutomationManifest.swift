@@ -4,12 +4,6 @@
 import Foundation
 import OmniWMAutomation
 
-public enum IPCAutomationLayoutCompatibility: String, Codable, CaseIterable, Equatable, Sendable {
-    case shared
-    case niri
-    case dwindle
-}
-
 public enum IPCQuerySelectorName: String, Codable, CaseIterable, Equatable, Hashable, Sendable {
     case window
     case workspace

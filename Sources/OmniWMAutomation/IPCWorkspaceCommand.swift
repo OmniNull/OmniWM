@@ -59,43 +59,35 @@ public enum IPCWorkspaceCommand: Equatable, Sendable {
         }
     }
 
-    @inlinable
-    package init(
-        switchName: IPCWorkspaceCommandName,
-        argumentValues: borrowing[IPCCommandArgumentValue]
-    ) throws(IPCCommandRequestConstructionError) {
-        switch switchName {
-        case .switchTo,
-             .switchAnywhere,
-             .switchSlot:
-            guard argumentValues.count == 1, case let .integer(number) = argumentValues[0] else {
-                throw .invalidArgumentType
-            }
-            try self.init(switchName: switchName, number: number)
-        case .next,
-             .previous,
-             .backAndForth:
-            guard argumentValues.isEmpty else { throw .invalidArgumentCount }
-            switch switchName {
-            case .next: self = .next
-            case .previous: self = .previous
-            default: self = .backAndForth
-            }
-        default:
-            throw .invalidArgumentType
-        }
-    }
-
-    @inlinable
-    package init(
-        switchName: IPCWorkspaceCommandName,
-        number: Int
-    ) throws(IPCCommandRequestConstructionError) {
-        switch switchName {
-        case .switchTo: self = .switchTo(workspaceNumber: number)
-        case .switchAnywhere: self = .switchAnywhere(workspaceNumber: number)
-        case .switchSlot: self = .switchSlot(slotNumber: number)
-        default: throw .invalidArgumentType
+    init(name: IPCWorkspaceCommandName, arguments: borrowing IPCCommandArgumentSource)
+        throws(IPCCommandRequestConstructionError)
+    {
+        switch name {
+        case .switchTo:
+            self = try .switchTo(workspaceNumber: arguments.integer())
+        case .next:
+            self = try arguments.requireNoArguments(.next)
+        case .previous:
+            self = try arguments.requireNoArguments(.previous)
+        case .backAndForth:
+            self = try arguments.requireNoArguments(.backAndForth)
+        case .switchAnywhere:
+            self = try .switchAnywhere(workspaceNumber: arguments.integer())
+        case .switchSlot:
+            self = try .switchSlot(slotNumber: arguments.integer())
+        case .moveTo:
+            self = try .moveTo(workspaceNumber: arguments.integer())
+        case .moveUp:
+            self = try arguments.requireNoArguments(.moveUp)
+        case .moveDown:
+            self = try arguments.requireNoArguments(.moveDown)
+        case .moveToOnMonitor:
+            let values = try arguments.workspaceAndDirection()
+            self = .moveToOnMonitor(workspaceNumber: values.workspaceNumber, direction: values.direction)
+        case .moveToSlot:
+            self = try .moveToSlot(slotNumber: arguments.integer())
+        case .moveToMonitor:
+            self = try .moveToMonitor(direction: arguments.direction())
         }
     }
 
@@ -104,26 +96,4 @@ public enum IPCWorkspaceCommand: Equatable, Sendable {
         guard oneBasedValue > 0 else { return nil }
         return oneBasedValue - 1
     }
-}
-
-package struct IPCWorkspaceSwitchForm: Sendable {
-    package let name: IPCWorkspaceCommandName
-    package let commandWords: [String]
-    package let argumentKind: IPCCommandArgumentKind?
-
-    private init(_ name: IPCWorkspaceCommandName, suffix: String? = nil, takesNumber: Bool = false) {
-        self.name = name
-        let word = IPCWorkspaceCommandName.switchTo.rawValue
-        commandWords = suffix.map { [word, $0] } ?? [word]
-        argumentKind = takesNumber ? .workspaceNumber : nil
-    }
-
-    package static let all: [Self] = [
-        Self(.switchTo, takesNumber: true),
-        Self(.next, suffix: "next"),
-        Self(.previous, suffix: "prev"),
-        Self(.backAndForth, suffix: "back-and-forth"),
-        Self(.switchAnywhere, suffix: "anywhere", takesNumber: true),
-        Self(.switchSlot, suffix: "slot", takesNumber: true)
-    ]
 }
