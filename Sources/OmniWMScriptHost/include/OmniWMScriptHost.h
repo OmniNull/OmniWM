@@ -537,6 +537,8 @@ typedef struct omni_config_callbacks {
     bool (*window)(void *context, const omni_config_span *words, size_t count, uint64_t selector,
         const omni_config_field *destination, size_t destination_count, omni_config_location location,
         char *error, size_t capacity);
+    bool (*mark)(void *context, omni_config_span action, omni_config_span name,
+        omni_config_location location, char *error, size_t capacity);
     bool (*dwindle)(void *context, const omni_config_dwindle_tree *tree, omni_config_location location, char *error,
         size_t capacity);
     bool (*mode)(void *context, omni_config_span name, omni_config_location location, uint32_t *action_id, char *error,

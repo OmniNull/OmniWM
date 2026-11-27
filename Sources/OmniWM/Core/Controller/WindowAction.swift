@@ -51,6 +51,12 @@ extension WMController {
         return nil
     }
 
+    func matchesAutomationFocus(_ token: WindowToken?, workspaceId: WorkspaceDescriptor.ID?) -> Bool {
+        let manager = workspaceManager
+        return activeWorkspace()?.id == workspaceId && manager.nativeManagedFocusToken == token
+            && (manager.pendingFocusedToken == nil || manager.pendingFocusedToken == token)
+    }
+
     func resolveWorkspace(_ target: WorkspaceTarget) -> Result<String, ExternalCommandResult> {
         switch WorkspaceTargetResolver(settings: settings, workspaceManager: workspaceManager).resolve(target) {
         case let .success(rawWorkspaceID):

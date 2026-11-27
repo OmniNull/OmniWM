@@ -663,7 +663,14 @@ int dispatchAction(lua_State *L) {
     const bool named = lua_type(L, 1) == LUA_TSTRING;
     const auto prefix = named ? token(L, vm, 1, site) : omni_config_span{};
     const std::string_view kind(prefix.data, prefix.length);
-    if (named && kind == "dwindle") {
+    if (named && kind == "mark") {
+        if (!vm.callbacks.mark || top != 3) {
+            reject(L, vm, site, "omniwm.dispatch expects 'mark', an action and a mark name");
+        }
+        const auto action = token(L, vm, 2, site);
+        const auto name = token(L, vm, 3, site);
+        staged = vm.callbacks.mark(vm.context, action, name, site, vm.failure, sizeof vm.failure);
+    } else if (named && kind == "dwindle") {
         staged = stageDwindleReplace(L, vm, site, top);
     } else if (named && top >= 3 && lua_istable(L, 3) && lua_type(L, 2) == LUA_TSTRING) {
         const auto action = token(L, vm, 2, site);

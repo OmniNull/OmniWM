@@ -74,7 +74,9 @@ struct ConfigScriptStage {
         self.hyperMask = hyperMask
         sources = ConfigScriptSources(entry: fileURL)
     }
+}
 
+extension ConfigScriptStage {
     static var callbacks: omni_config_callbacks {
         omni_config_callbacks(
             resolve: { context, group, words, count, _, actionID, error, capacity in
@@ -196,6 +198,20 @@ struct ConfigScriptStage {
                         ))
                     }
                     stage.pointee.dispatch(operation, at: location)
+                    return true
+                } catch let failure {
+                    return failure.write(to: error, capacity: capacity)
+                }
+            },
+            mark: { context, action, name, location, error, capacity in
+                guard let context else { return false }
+                do throws(ConfigScriptError) {
+                    guard let kind = try WindowMarkAction.Kind(rawValue: Self.string(action)) else {
+                        throw ConfigScriptError(line: nil, message: "Unknown mark action.")
+                    }
+                    let mark = try WindowMarkAction(kind: kind, name: Self.string(name))
+                    let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
+                    stage.pointee.dispatch(.mark(mark), at: location)
                     return true
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)

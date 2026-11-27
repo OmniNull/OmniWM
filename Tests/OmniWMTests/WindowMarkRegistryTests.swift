@@ -12,9 +12,11 @@ final class WindowMarkRegistryTests: XCTestCase {
         let first = WindowToken(pid: 10, windowId: 100)
         let second = WindowToken(pid: 20, windowId: 200)
 
-        XCTAssertEqual(registry.set(" \tWork\n", for: first), .inserted)
-        XCTAssertEqual(registry.names(for: first), ["Work"])
-        XCTAssertEqual(registry.lookup("Work "), .found(first))
+        let name = "Work"
+        XCTAssertEqual(registry.set(" \t\(name)\n", for: first), .inserted)
+        XCTAssertEqual(registry.names(for: first), [name])
+        XCTAssertEqual(registry.lookup("\(name) "), .found(first))
+        XCTAssertEqual(registry.lookup("\u{2003}\(name)\u{2028}"), .found(first))
         XCTAssertEqual(registry.set("work", for: second), .inserted)
         XCTAssertEqual(registry.set("Work", for: second), .duplicate)
         XCTAssertEqual(registry.set("Work", for: first), .unchanged)

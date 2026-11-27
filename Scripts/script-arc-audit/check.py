@@ -53,6 +53,13 @@ WORKSPACE_KEYS = {f"{prefix}workspace-key/{action}-{outcome}" for prefix in ("",
                   for outcome in ("noop", "switch")}
 TIMER_ROUTES = ("timer/empty", "timer/reads", "timer/effect")
 CALLBACK_DISPATCH_ROUTES = ("key/dispatch-window", "key/cmd-in-callback", "key/cmd-prebuilt", "key/cmd-build-argument")
+MARK_COST_FIELDS = ("R", "L", "obj", "heap", "bR", "bL")
+MARK_COSTS = {
+    "mark/set-changed": ((4, 6, 3, 5, 5, 10), (37, 43, 2, 2, 21, 24)),
+    "mark/set-unchanged": ((4, 6, 3, 5, 5, 10), (35, 42, 1, 1, 19, 24)),
+    "mark/summon-refused": ((4, 6, 3, 6, 5, 10), (121, 162, 21, 25, 56, 108)),
+}
+ROUTES.update(MARK_COSTS)
 COMMAND_SELECTORS = ("cmd/integer", "cmd/string-index", "cmd/invalid-selector", "window/integer", "window/string-index")
 ROUTES.update(COMMAND_SELECTORS)
 CALLBACK_COMMAND_BUILDS = {
@@ -305,6 +312,18 @@ def check_store(table, output):
           "with one file replacement per changed callback and none otherwise")
 
 
+def check_marks(table):
+    for route, costs in MARK_COSTS.items():
+        for phase in ("producer", "dequeue"):
+            measured, control = table[route, phase], table["key/idle", phase]
+            if any(measured[field] != control[field] for field in NO_OBSERVER_OWNERSHIP):
+                sys.exit(f"{route}/{phase}: mark work must start on the config worker: {measured} against {control}")
+        for phase, expected in zip(("config", "completion"), costs, strict=True):
+            actual = tuple(int(table[route, phase][field]) for field in MARK_COST_FIELDS)
+            if actual != expected:
+                sys.exit(f"{route}/{phase}: expected {MARK_COST_FIELDS} {expected}, measured {actual}")
+
+
 def check_costs(output):
     rows = [line.split() for line in output.splitlines()]
     header = next(row for row in rows if row and row[0] == "route")
@@ -316,6 +335,7 @@ def check_costs(output):
     check_window_rows(table, output)
     check_named_keys(table)
     check_store(table, output)
+    check_marks(table)
     for route in ("settings/key", "script/plain-key"):
         producer = table[route, "producer"]
         if int(producer["R"]) > NATIVE_RETAIN_CEILING or int(producer["L"]) > NATIVE_RELEASE_CEILING:
@@ -403,7 +423,7 @@ def check_costs(output):
             sys.exit(f"{kind}: only the wake and {', '.join(owners)} cross delivery: {counts}")
     check_native_event_transactions(table)
     check_catalog_transactions(table)
-    for route in (*CALLBACK_DISPATCH_ROUTES, *COMMAND_SELECTORS):
+    for route in (*CALLBACK_DISPATCH_ROUTES, *COMMAND_SELECTORS, *MARK_COSTS):
         if int(table[route, "config"]["VM"]) != 1:
             sys.exit(f"{route}: the shortcut callback must enter its VM once")
     by_name = table["move/by-name", "config"]

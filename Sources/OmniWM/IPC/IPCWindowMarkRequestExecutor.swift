@@ -16,75 +16,20 @@ struct IPCWindowMarkRequestExecutor {
     }
 
     func response(for request: IPCWindowMarkRequest, id: String) -> IPCResponse {
-        if request != .list {
-            controller.noteUserAction()
-        }
+        let action: WindowMarkAction
         switch request {
-        case .list:
-            return listResponse(id: id)
-        case let .set(name):
-            guard let guardCode = controllerStateFailure() else {
-                return setResponse(name, id: id)
-            }
-            return .failure(id: id, kind: .windowMark, code: guardCode)
-        case let .focus(name):
-            guard let guardCode = controllerStateFailure() else {
-                return focusResponse(name, id: id)
-            }
-            return .failure(id: id, kind: .windowMark, code: guardCode)
-        case let .summon(name):
-            guard let guardCode = controllerStateFailure() else {
-                return summonResponse(name, id: id)
-            }
-            return .failure(id: id, kind: .windowMark, code: guardCode)
-        case let .remove(name):
-            guard let guardCode = controllerStateFailure() else {
-                return removeResponse(name, id: id)
-            }
-            return .failure(id: id, kind: .windowMark, code: guardCode)
+        case .list: return listResponse(id: id)
+        case let .set(name): action = .init(kind: .set, name: name)
+        case let .focus(name): action = .init(kind: .focus, name: name)
+        case let .summon(name): action = .init(kind: .summon, name: name)
+        case let .remove(name): action = .init(kind: .remove, name: name)
         }
-    }
-
-    private func controllerStateFailure() -> IPCErrorCode? {
-        guard let result = controller.automationRefusal else { return nil }
-        switch result {
-        case .ignoredDisabled:
-            return .disabled
-        case .ignoredOverview:
-            return .overviewOpen
-        case .executed,
-             .ignoredLayoutMismatch,
-             .staleWindowId,
-             .workspaceAssignmentConflict,
-             .workspaceStateConflict,
-             .notFound,
-             .noChange,
-             .windowActionFailed,
-             .attachedWindow,
-             .invalidArguments:
-            return nil
-        }
-    }
-
-    private func setResponse(_ name: String, id: String) -> IPCResponse {
-        guard controller.windowMarkRegistry.isValidName(name) else {
-            return .failure(id: id, kind: .windowMark, code: .invalidMark)
-        }
-        guard let token = controller.workspaceManager.nativeManagedFocusToken,
-              controller.workspaceManager.entry(for: token) != nil,
-              controller.workspaceManager.handle(for: token) != nil
-        else {
-            return .failure(id: id, kind: .windowMark, code: .noFocusedWindow)
-        }
-
-        switch controller.windowMarkRegistry.set(name, for: token) {
-        case .inserted,
-             .unchanged:
+        controller.noteUserAction()
+        do {
+            _ = try controller.performWindowMark(action, focus: .actionTime)
             return .success(id: id, kind: .windowMark, status: .executed)
-        case .duplicate:
-            return .failure(id: id, kind: .windowMark, code: .duplicateMark)
-        case .invalidName:
-            return .failure(id: id, kind: .windowMark, code: .invalidMark)
+        } catch {
+            return .failure(id: id, kind: .windowMark, code: error.ipcCode)
         }
     }
 
@@ -124,78 +69,23 @@ struct IPCWindowMarkRequestExecutor {
             result: IPCResult(windowMarks: IPCWindowMarksResult(marks: entries))
         )
     }
+}
 
-    private func focusResponse(_ name: String, id: String) -> IPCResponse {
-        let token: WindowToken
-        switch controller.windowMarkRegistry.lookup(name) {
-        case let .found(foundToken):
-            token = foundToken
-        case .unknown:
-            return .failure(id: id, kind: .windowMark, code: .unknownMark)
-        case .invalidName:
-            return .failure(id: id, kind: .windowMark, code: .invalidMark)
-        }
-
-        guard controller.workspaceManager.entry(for: token) != nil,
-              let handle = controller.workspaceManager.handle(for: token)
-        else {
-            _ = controller.windowMarkRegistry.remove(name)
-            return .failure(id: id, kind: .windowMark, code: .staleMark)
-        }
-
-        guard controller.windowActionHandler.navigateToExplicitlySelectedWindow(handle: handle) else {
-            return .failure(id: id, kind: .windowMark, code: .windowActionFailed)
-        }
-        return .success(id: id, kind: .windowMark, status: .executed)
-    }
-
-    private func summonResponse(_ name: String, id: String) -> IPCResponse {
-        let token: WindowToken
-        switch controller.windowMarkRegistry.lookup(name) {
-        case let .found(foundToken):
-            token = foundToken
-        case .unknown:
-            return .failure(id: id, kind: .windowMark, code: .unknownMark)
-        case .invalidName:
-            return .failure(id: id, kind: .windowMark, code: .invalidMark)
-        }
-
-        guard let handle = controller.workspaceManager.handle(for: token) else {
-            _ = controller.windowMarkRegistry.remove(name)
-            return .failure(id: id, kind: .windowMark, code: .staleMark)
-        }
-
-        switch controller.windowActionHandler.summonWindowRightOutcome(handle: handle) {
-        case .summoned:
-            return .success(id: id, kind: .windowMark, status: .executed)
-        case .movedToWorkspace:
-            return .success(id: id, kind: .windowMark, status: .executed)
-        case .moveFailed:
-            return .failure(id: id, kind: .windowMark, code: .windowActionFailed)
-        case .noAnchor:
-            return .failure(id: id, kind: .windowMark, code: .noFocusedWindow)
-        case .selfSummon:
-            return .failure(id: id, kind: .windowMark, code: .selfSummon)
-        case .hiddenTarget:
-            return .failure(id: id, kind: .windowMark, code: .hiddenWindow)
-        case .staleTarget:
-            _ = controller.windowMarkRegistry.remove(name)
-            return .failure(id: id, kind: .windowMark, code: .staleMark)
-        case .unsupportedLayout:
-            return .failure(id: id, kind: .windowMark, code: .unsupportedLayout)
-        case .actionFailed:
-            return .failure(id: id, kind: .windowMark, code: .windowActionFailed)
-        }
-    }
-
-    private func removeResponse(_ name: String, id: String) -> IPCResponse {
-        switch controller.windowMarkRegistry.remove(name) {
-        case .removed:
-            return .success(id: id, kind: .windowMark, status: .executed)
-        case .unknown:
-            return .failure(id: id, kind: .windowMark, code: .unknownMark)
-        case .invalidName:
-            return .failure(id: id, kind: .windowMark, code: .invalidMark)
+extension WindowMarkRefusal {
+    fileprivate var ipcCode: IPCErrorCode {
+        switch self {
+        case .disabled: .disabled
+        case .overviewOpen: .overviewOpen
+        case .invalidMark: .invalidMark
+        case .duplicateMark: .duplicateMark
+        case .unknownMark: .unknownMark
+        case .staleMark: .staleMark
+        case .noFocusedWindow,
+             .focusChanged: .noFocusedWindow
+        case .selfSummon: .selfSummon
+        case .hiddenWindow: .hiddenWindow
+        case .unsupportedLayout: .unsupportedLayout
+        case .windowActionFailed: .windowActionFailed
         }
     }
 }

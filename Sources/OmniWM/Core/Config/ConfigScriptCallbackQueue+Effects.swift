@@ -53,6 +53,9 @@ extension ConfigScriptCallbackQueue {
                         line: dispatch.line, message: "dwindle replace: \(refusal.reason).", source: dispatch.source
                     )
                 }
+            } else if case let .mark(action) = dispatch.operation {
+                try applyMark(action, dispatch: dispatch, target: target, cause: cause, controller: controller)
+                continue
             } else if let cause {
                 outcome = performEventCommand(
                     dispatch.operation,
@@ -68,6 +71,21 @@ extension ConfigScriptCallbackQueue {
                     line: dispatch.line, message: dispatch.refusalMessage(outcome), source: dispatch.source
                 )
             }
+        }
+    }
+
+    private func applyMark(
+        _ action: borrowing WindowMarkAction, dispatch: borrowing ConfigScriptDispatch,
+        target: ConfigScriptTarget, cause: ConfigScriptEventCause?, controller: WMController
+    ) throws(ConfigScriptError) {
+        if let cause { feedback.begin(cause, controller: controller) }
+        defer { if cause != nil { feedback.end(controller: controller) } }
+        do {
+            _ = try controller.performConfigScriptMark(action, target: target)
+        } catch {
+            throw ConfigScriptError(
+                line: dispatch.line, message: "\(dispatch.displayName): \(error.reason).", source: dispatch.source
+            )
         }
     }
 

@@ -47,6 +47,7 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 | `omniwm.act.openApp(bundleId)`, `omniwm.act.launch(argv)`, `omniwm.act.notify(text)` | Builds an action that opens an app, launches a program or shows a notice. |
 | `omniwm.dispatch(action)` | Queues an action from a callback. |
 | `omniwm.dispatch("window", action, id, …)` | Queues an action on one window by its ID; see [window actions](#window-actions). |
+| `omniwm.dispatch("mark", action, name)` | Queues an action on a [window mark](#window-marks) by name. |
 | `omniwm.openApp(bundleId)`, `omniwm.launch(argv)`, `omniwm.notify(text)` | Queues an effect from inside a callback. |
 | `omniwm.rule { … }` | Adds a [window rule](#window-rules). |
 | `omniwm.store.get(key)`, `omniwm.store.set(key, value)`, `omniwm.store.clear(key?)` | Reads, saves or removes a [saved value](#saved-values) from a callback. |
@@ -204,6 +205,21 @@ When a check fails, nothing happens, so a callback that was still queued can't p
 - `column = n` places the window as the `n`th column on a Niri workspace. A larger `n` puts it last. Without `column`, it becomes the last column. Dwindle workspaces ignore it.
 - `fromEdge = true` with `neighbor` and `of` moves the callback's own window only if it is still on the workspace it was on when the key was pressed, on display `of`, and in the outermost Niri column in that direction. Otherwise nothing moves, so a second queued press can't skip a display.
 
+## Window marks
+
+Flex and [`omniwmctl window mark`](/reference/cli/actions/#window-marks) share one set of named windows across workspaces. A window can have several names. Marks survive a script reload and disappear when the window closes or OmniWM quits. Run `omniwmctl window mark list` to see them.
+
+`omniwm.dispatch("mark", action, name)` takes one of these actions:
+
+| Action | What it does |
+| --- | --- |
+| `set` | Marks the managed window that was focused when the callback was queued, if that window is still focused. Setting the same name on the same window succeeds without changing it. A name already used for a different window is refused. |
+| `focus` | Finds the marked window when the action runs and navigates to it, switching workspaces or unhiding its app as needed. |
+| `summon` | Brings the marked tiled window beside the window the callback saw in focus. That anchor must still be focused and selected in the layout on the same workspace. A pending focus request for another window, a hidden or floating target, or summoning the anchor itself can refuse the action. |
+| `remove` | Removes the name. An unknown name is refused. |
+
+Names are strings. OmniWM trims whitespace at the edges and compares the remaining UTF-8 bytes exactly. Empty names and names containing control characters after trimming are refused. Mark actions require enabled automation and a closed Overview. A refusal shows its reason and source line in the config notice and stops the remaining actions in that callback.
+
 ## Rules and shortcuts: two homes
 
 Hand-edited rules and one shortcut per action live in `settings.luau` and the Settings window. Rules that code builds and extra key chords live here. An enabled shortcut in `init.luau` takes over any overlapping Settings shortcut. The saved assignment remains visible and marked in **Settings → Keyboard Shortcuts**. See [Configuration](/config/configuration/#rules-and-shortcuts-two-homes) for how the two combine.
@@ -237,6 +253,7 @@ A window ID lasts only while OmniWM runs, so save bundle IDs or names instead.
 - **Source:** up to 1 MiB, in up to 64 modules.
 - **Declarations:** up to 4,096 each of shortcuts, rules and callback functions, and up to 4,096 stored actions sharing 1 MiB of text.
 - **Per run:** up to 64 actions or effects, and separately up to 64 log lines. The log cap also applies while loading.
+- **Window marks:** each mark dispatch uses one action slot and takes a single name string.
 - **Waiting presses:** up to 8 shortcut or command presses can wait. Further presses are dropped with an error.
 - **Timers:** up to 16, each at least 1 second.
 - **`launch`:** up to 64 arguments of 4 KiB each, 32 KiB in all.
@@ -246,6 +263,19 @@ A window ID lasts only while OmniWM runs, so save bundle IDs or names instead.
 ## Recipes
 
 Put these in `init.luau`, and save the file to apply them.
+
+**Mark and summon an editor.** Focus a tiled editor and press Control + Option + Shift + E to mark it. Run `omniwmctl window mark list` to see `editor`. On another workspace, focus a tiled window and press Control + Option + Shift + S to bring the editor beside it. The summon shortcut also works with a mark you set from the CLI.
+
+```lua
+local wm = omniwm
+local name = "editor"
+wm.keymap.set("Control+Option+Shift+E", function()
+    wm.dispatch("mark", "set", name)
+end)
+wm.keymap.set("Control+Option+Shift+S", function()
+    wm.dispatch("mark", "summon", name)
+end)
+```
 
 **Grow the focused Niri column.** Control + Option + K adds 12 percentage points to the column's share of the available space. Change `+12%` to choose the step for this key. The standard resize shortcuts use **Settings → Layouts → Niri → Resize Increment**.
 

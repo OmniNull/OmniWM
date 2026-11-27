@@ -108,6 +108,8 @@ extension WMController {
         switch operation {
         case let .native(command):
             return performConfigScriptCommand(command, target: target)
+        case let .mark(action):
+            return (try? performConfigScriptMark(action, target: target)) ?? .invalidArguments
         case let .gather(gather):
             return performConfigScriptGather(gather, target: target)
         case let .dwindleReplace(replace):
@@ -144,10 +146,21 @@ extension WMController {
         }
     }
 
+    func performConfigScriptMark(
+        _ action: borrowing WindowMarkAction, target: ConfigScriptTarget
+    ) throws(ConfigScriptDispatchRefusal) -> ExternalCommandResult {
+        guard target.sessionID == scriptSession.identity else {
+            throw ConfigScriptDispatchRefusal(reason: "the callback belongs to an earlier session")
+        }
+        do {
+            return try performWindowMark(action, focus: .captured(target.token, workspace: target.workspaceId))
+        } catch {
+            throw ConfigScriptDispatchRefusal(reason: error.rawValue)
+        }
+    }
+
     private func matchesConfigScriptFocus(_ target: ConfigScriptTarget) -> Bool {
-        let manager = workspaceManager
-        return activeWorkspace()?.id == target.workspaceId && manager.nativeManagedFocusToken == target.token
-            && (manager.pendingFocusedToken == nil || manager.pendingFocusedToken == target.token)
+        matchesAutomationFocus(target.token, workspaceId: target.workspaceId)
     }
 }
 

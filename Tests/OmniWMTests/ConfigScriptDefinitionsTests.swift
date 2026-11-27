@@ -111,6 +111,8 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         overloads
             .append("{ read dispatch: (kind: \"window\", action: \(gather), ids: {string}, from: (\(reach))?) -> () }")
         overloads.append("{ read dispatch: (kind: \"dwindle\", action: \"replace\", tree: ConfigDwindleTree) -> () }")
+        let marks = union(WindowMarkAction.Kind.allCases.map(\.rawValue))
+        overloads.append("{ read dispatch: (kind: \"mark\", action: \(marks), name: string) -> () }")
         return overloads.joined(separator: "\n    & ")
     }
 

@@ -775,6 +775,7 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "window", action: "set-floating-frame", id: string, frame: ConfigFloatingFrame) -> () }
     & { read dispatch: (kind: "window", action: "gather", ids: {string}, from: ("workspace" | "monitor" | "all")?) -> () }
     & { read dispatch: (kind: "dwindle", action: "replace", tree: ConfigDwindleTree) -> () }
+    & { read dispatch: (kind: "mark", action: "set" | "focus" | "summon" | "remove", name: string) -> () }
 export type ConfigKeymap =
     { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read mode: string?, read reads: nil }?) -> () }
     & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read mode: string?, read reads: { read [number]: ConfigRead }? }?) -> () }

@@ -12,11 +12,16 @@ struct ConfigScriptContext: Equatable, Sendable {
     var layout: String?
 }
 
+struct ConfigScriptDispatchRefusal: Error {
+    let reason: String
+}
+
 struct ConfigScriptDispatch: Sendable {
     enum Operation: Equatable, Sendable {
         case native(HotkeyCommand)
         case window(ConfigScriptWindowRequest)
         case gather(ConfigScriptGatherRequest)
+        case mark(WindowMarkAction)
         indirect case dwindleReplace(ConfigScriptDwindleReplace)
     }
 
@@ -29,6 +34,7 @@ struct ConfigScriptDispatch: Sendable {
         case let .native(command): command.displayName
         case let .window(window): "window " + window.name.rawValue
         case .gather: "window gather"
+        case let .mark(action): "mark " + action.kind.rawValue
         case .dwindleReplace: "dwindle replace"
         }
     }

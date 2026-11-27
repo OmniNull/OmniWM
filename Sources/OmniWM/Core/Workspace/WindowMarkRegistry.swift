@@ -37,22 +37,31 @@ final class WindowMarkRegistry {
     }
 
     private struct NameKey: Hashable {
-        let utf8: [UInt8]
+        let name: String
 
         init(_ name: String) {
-            utf8 = Array(name.utf8)
+            self.name = name
+        }
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.name.utf8.elementsEqual(rhs.name.utf8)
+        }
+
+        func hash(into hasher: inout Hasher) {
+            if name.utf8.withContiguousStorageIfAvailable({
+                hasher.combine(bytes: UnsafeRawBufferPointer($0))
+            }) == nil {
+                var text = name
+                text.withUTF8 { hasher.combine(bytes: UnsafeRawBufferPointer($0)) }
+            }
         }
     }
 
     private var tokenByName: [NameKey: WindowToken] = [:]
-    private var nameByKey: [NameKey: String] = [:]
     private var namesByToken: [WindowToken: Set<NameKey>] = [:]
 
     var marks: [WindowMark] {
-        nameByKey
-            .compactMap { key, name in
-                tokenByName[key].map { WindowMark(name: name, token: $0) }
-            }
+        tokenByName.map { key, token in WindowMark(name: key.name, token: token) }
             .sorted { $0.name.utf8.lexicographicallyPrecedes($1.name.utf8) }
     }
 
@@ -68,7 +77,6 @@ final class WindowMarkRegistry {
         }
 
         tokenByName[key] = token
-        nameByKey[key] = name
         namesByToken[token, default: []].insert(key)
         return .inserted
     }
@@ -83,14 +91,13 @@ final class WindowMarkRegistry {
         guard let name = Self.normalizedName(rawName) else { return .invalidName }
         let key = NameKey(name)
         guard let token = tokenByName.removeValue(forKey: key) else { return .unknown }
-        nameByKey.removeValue(forKey: key)
         remove(key, from: token)
         return .removed
     }
 
     func names(for token: WindowToken) -> [String] {
         (namesByToken[token] ?? [])
-            .compactMap { nameByKey[$0] }
+            .map(\.name)
             .sorted { $0.utf8.lexicographicallyPrecedes($1.utf8) }
     }
 
@@ -111,7 +118,6 @@ final class WindowMarkRegistry {
         guard let names = namesByToken.removeValue(forKey: token) else { return }
         for name in names {
             tokenByName.removeValue(forKey: name)
-            nameByKey.removeValue(forKey: name)
         }
     }
 
@@ -123,7 +129,11 @@ final class WindowMarkRegistry {
     }
 
     private static func normalizedName(_ rawName: String) -> String? {
-        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let scalars = rawName.unicodeScalars
+        guard let first = scalars.first, let last = scalars.last else { return nil }
+        let spaces = CharacterSet.whitespacesAndNewlines
+        let name = spaces.contains(first) || spaces.contains(last)
+            ? rawName.trimmingCharacters(in: spaces) : rawName
         guard !name.isEmpty,
               !name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
         else {
