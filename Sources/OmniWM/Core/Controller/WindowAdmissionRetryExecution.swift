@@ -55,6 +55,7 @@ extension AXEventHandler {
             activeIdentityRebindsByHandle[source.handle] = executionOwner
         }
         state.executionPhase = .running(executionOwner)
+        state.rebindMinimization = nil
         state.task = nil
         admissionRetryStateByWindowId[windowId] = state
         resumeAdmissionRetry(windowId: windowId, state: state, executionOwner: executionOwner)

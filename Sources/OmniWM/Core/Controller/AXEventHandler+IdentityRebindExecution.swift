@@ -31,7 +31,7 @@ extension AXEventHandler {
             retryManagedWindowIdentityRebind(rebind: rebind, execution: execution)
             return
         }
-        guard let rebind = commitAcknowledgedManagedWindowIdentity(
+        guard let rebind = await commitAcknowledgedManagedWindowIdentity(
             rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
         ) else { return }
         applyManagedWindowIdentityRebindRuntimeState(
@@ -69,25 +69,33 @@ extension AXEventHandler {
     private func commitAcknowledgedManagedWindowIdentity(
         rebind: ManagedWindowIdentityRebind, execution: AdmissionRetryExecution,
         acknowledgement: AXManagedWindowRebindAcknowledgement?, controller: WMController
-    ) -> ManagedWindowIdentityRebind? {
-        guard isCurrentManagedWindowIdentityRebind(
-            rebind: rebind, execution: execution, acknowledgement: acknowledgement
-        ) else {
-            rollbackAndRetireManagedIdentityRebind(
-                rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
-            )
-            return nil
-        }
+    ) async -> ManagedWindowIdentityRebind? {
         var rebind = rebind
         if rebind.managedReplacementMetadata != nil,
-           let minimized = rebindMinimizedAttributeProvider(rebind.newWindow.axRef)
+           isCurrentManagedWindowIdentityRebind(rebind: rebind, execution: execution, acknowledgement: acknowledgement)
         {
-            rebind.minimizedAttribute = minimized
+            let window = rebind.newWindow.axRef
+            var observation = if let provider = rebindMinimizationProvider {
+                await provider(window)
+            } else {
+                await acknowledgement?.destinationContext.windowMinimizationAsync(window)
+            }
+            // The worker can sample before a notification reaches the main actor.
+            if let notification = admissionRetryStateByWindowId[execution.windowId]?.rebindMinimization,
+               observation.map({ notification.sequence > $0.sequence }) ?? true
+            {
+                observation = notification
+            }
+            rebind.minimizedAttribute = observation?.isMinimized ?? rebind.minimizedAttribute
         }
-        guard commitManagedWindowIdentityRebind(
-            from: rebind.oldWindow.token, to: rebind.newWindow.token,
-            axRef: rebind.newWindow.axRef, managedReplacementMetadata: rebind.managedReplacementMetadata
-        ) != nil else {
+        guard isCurrentManagedWindowIdentityRebind(
+                  rebind: rebind, execution: execution, acknowledgement: acknowledgement
+              ),
+              commitManagedWindowIdentityRebind(
+                  from: rebind.oldWindow.token, to: rebind.newWindow.token,
+                  axRef: rebind.newWindow.axRef, managedReplacementMetadata: rebind.managedReplacementMetadata
+              ) != nil
+        else {
             rollbackAndRetireManagedIdentityRebind(
                 rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
             )

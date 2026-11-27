@@ -55,7 +55,7 @@ final class AXEventHandler {
     var lastWindowSubscriptionFailureRevision: UInt64?
     var managedWindowIdentityRebindAcknowledgementProvider:
         ((AXManagedWindowIdentity, AXManagedWindowIdentity) async -> Bool)?
-    var rebindMinimizedAttributeProvider = { AXWindowService.isMinimized($0, messagingTimeout: 0.05) }
+    var rebindMinimizationProvider: ((AXWindowRef) async -> WindowMinimizationObservation?)?
     var managedWindowIdentityRebindFinalizationProvider:
         ((AXManagedWindowIdentity, AXManagedWindowIdentity) async -> Bool)?
     var managedWindowIdentityRebindTargetIsAliveProvider: ((pid_t) -> Bool)?

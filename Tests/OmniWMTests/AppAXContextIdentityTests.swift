@@ -4,7 +4,6 @@
 import AppKit
 import ApplicationServices
 @testable import OmniWM
-import Synchronization
 import XCTest
 
 private final class InvalidPIDApplication: NSRunningApplication, @unchecked Sendable {
@@ -47,25 +46,23 @@ final class AppAXContextIdentityTests: XCTestCase {
 
         let reused = try await AppAXContextRegistry.getOrCreate(app, pid: pid)
         XCTAssertTrue(reused === context)
-        let thread = try XCTUnwrap(context.axThread)
         let enumeration = context.makeWindowEnumerationOperation(
             inspectionContext: .unidentified,
             includedWindowIds: nil,
             deadline: ProcessInfo.processInfo.systemUptime
         )
-        let workerPID = Mutex<pid_t?>(nil)
-        let workerObserved = expectation(description: "Worker identity observed")
-        thread.runInLoopAsync { _ in
-            workerPID.withLock { $0 = appThreadToken?.pid }
+        let window = AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: 999_701)
+        let minimization = await context.windowMinimizationAsync(window) { observedWindow in
+            XCTAssertEqual(observedWindow, window)
+            XCTAssertFalse(Thread.isMainThread)
+            XCTAssertEqual(appThreadToken?.pid, pid)
             var applicationPID: pid_t = 0
             XCTAssertEqual(AXUIElementGetPid(enumeration.axApp.value, &applicationPID), .success)
             XCTAssertEqual(applicationPID, pid)
-            workerObserved.fulfill()
+            return true
         }
-        await fulfillment(of: [workerObserved], timeout: failureBound)
-        XCTAssertEqual(workerPID.withLock { $0 }, pid)
+        XCTAssertEqual(minimization?.isMinimized, true)
 
-        let window = AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: 999_701)
         let completed = expectation(description: "Frame reaches the window owner")
         manager.onFrameApplyTerminated = { result in
             XCTAssertEqual(result.pid, pid)

@@ -231,6 +231,7 @@ struct AdmissionRetryState {
     var exhausted: Bool
     var executionPhase: AdmissionRetryExecutionPhase = .waiting
     var identityRebindTargetDestroyed = false
+    var rebindMinimization: WindowMinimizationObservation?
     var preparedSubscriptionRetainCount = 0
     var focusedAdmissionReplayExecutionOwner: UInt64?
     var task: Task<Void, Never>?
