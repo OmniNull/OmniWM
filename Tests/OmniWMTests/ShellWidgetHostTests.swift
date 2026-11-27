@@ -2503,6 +2503,11 @@ final class ShellWidgetClickTests: XCTestCase {
     }
 
     func testProfileColorsReachNativeAndNamedPalettesAndReset() throws {
+        let green = SettingsColor(red: 0, green: 1, blue: 0, alpha: 1)
+        let device = NSColor(deviceRed: green.red, green: green.green, blue: green.blue, alpha: green.alpha).cgColor
+        let sRGB = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let components = try XCTUnwrap(device.converted(to: sRGB, intent: .defaultIntent, options: nil)?.components)
+        let expected = SIMD4(Float(components[0]), Float(components[1]), Float(components[2]), Float(components[3]))
         for theme in ["native", "look"] {
             let harness = try harness("function render(ctx) return ui.box{ w = 10, h = 10 } end", files: [
                 "shell.luau": "return { profiles = { default = { trailing = { \"test\" }, theme = \"\(theme)\" } } }\n",
@@ -2513,13 +2518,9 @@ final class ShellWidgetClickTests: XCTestCase {
             let accent = ShellRole.accent.rawValue
             let original = harness.resources.palette.shaderColors[accent]
             let accentColorKey = ["profiles", "default", "workspaceBar", "accentColor"]
-            XCTAssertTrue(try ShellProfiles.setValue(
-                SettingsColor(red: 0, green: 1, blue: 0, alpha: 1),
-                at: accentColorKey, in: directory
-            ))
+            XCTAssertTrue(try ShellProfiles.setValue(green, at: accentColorKey, in: directory))
             harness.host.reloadConfig()
-            XCTAssertGreaterThan(harness.resources.palette.shaderColors[accent].y, 0.9)
-            XCTAssertLessThan(harness.resources.palette.shaderColors[accent].x, 0.2)
+            XCTAssertEqual(harness.resources.palette.shaderColors[accent], expected)
             XCTAssertTrue(try ShellProfiles.setNodes([(accentColorKey, nil)], in: directory))
             harness.host.reloadConfig()
             XCTAssertEqual(harness.resources.palette.shaderColors[accent], original)
