@@ -223,7 +223,7 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v6),
                 .treatAllWarnings(as: .error)
-            ] + (liveChecks ? [.define("OMNIWM_LIVE_CHECKS")] : [])
+            ] + (liveChecks || settingsBenchmarkOnly ? [.define("OMNIWM_LIVE_CHECKS")] : [])
         )
     ],
     cxxLanguageStandard: .cxx17
