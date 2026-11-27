@@ -41,6 +41,10 @@ final class FocusSettings {
         }
     }
 
+    var edgeNavigationEnabledUntracked: Bool {
+        _edgeNavigationEnabled
+    }
+
     var edgeNavigationInterval = FocusSettings.defaults.edgeNavigationInterval {
         didSet {
             let normalized = FocusSettings.normalizedEdgeNavigationInterval(edgeNavigationInterval)

@@ -41,7 +41,7 @@ extension SurfaceReconciler {
     }
 
     private func canInteractWithParkingEdge(isHover: Bool) -> Bool {
-        guard let controller, controller.settings.focus.edgeNavigationEnabled,
+        guard let controller, controller.settings.focus.edgeNavigationEnabledUntracked,
               controller.isEnabled, !controller.isOverviewOpen(),
               !controller.mouseEventHandler.isInputSuppressed,
               !controller.mouseEventHandler.isInteractiveGestureActive,

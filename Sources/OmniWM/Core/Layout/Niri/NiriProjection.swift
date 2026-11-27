@@ -105,6 +105,15 @@ extension NiriLayoutEngine {
         return projected
     }
 
+    func hasProjectedColumns(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        let excluded = layoutExclusions(in: workspaceId)
+        guard !excluded.isEmpty else { return !columns(in: workspaceId).isEmpty }
+        let home = liveHomeColumnId
+        return columns(in: workspaceId).contains { column in
+            holdsLiveSpace(column, home: home) || column.windowNodes.contains { !excluded.contains($0.token) }
+        }
+    }
+
     var liveHomeColumnId: NodeId? {
         liveColumnMove?.homeColumnId ?? liveStackDrop?.homeColumnId
     }

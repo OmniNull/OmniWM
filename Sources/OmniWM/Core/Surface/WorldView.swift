@@ -147,13 +147,21 @@ struct WorldView {
               let engine = controller.niriEngine
         else { return masks }
 
-        let navigationEnabled = controller.settings.focus.edgeNavigationEnabled
+        let navigationEnabled = controller.settings.focus.edgeNavigationEnabledUntracked
         for monitor in monitors {
             guard masks.contains(where: { $0.key.monitorId == monitor.id }),
                   let workspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitor.id),
                   controller.workspaceManager.activeLayoutKind(for: workspace.id) == .niri,
                   !hasPendingNativeFullscreenTransition(in: workspace.id)
             else { continue }
+            if !navigationEnabled {
+                guard engine.hasProjectedColumns(in: workspace.id),
+                      controller.settings.monitors.effectiveOrientation(for: monitor) == .vertical
+                else { continue }
+                Self.setParkingEdgeMask(.bottom, on: monitor, navigation: nil, masks: &masks)
+                Self.setParkingEdgeMask(.top, on: monitor, navigation: nil, masks: &masks)
+                continue
+            }
             let columns = engine.projectedColumns(in: workspace.id)
             guard !columns.isEmpty else { continue }
             let state = controller.workspaceManager.niriViewportState(for: workspace.id)
@@ -161,9 +169,8 @@ struct WorldView {
             let orientation = controller.settings.monitors.effectiveOrientation(for: monitor)
             let sides: [ParkingEdgeMaskKey.Side] = orientation == .horizontal ? [.left, .right] : [.bottom, .top]
             for side in sides {
-                let key = ParkingEdgeMaskKey(monitorId: monitor.id, side: side)
                 let targetIndex = activeIndex + side.step
-                let navigation: ParkingEdgeNavigation? = if navigationEnabled, columns.indices.contains(targetIndex),
+                let navigation: ParkingEdgeNavigation? = if columns.indices.contains(targetIndex),
                                                             let window = engine
                                                                 .projectedActiveWindow(in: columns[targetIndex])
                 {
@@ -175,15 +182,25 @@ struct WorldView {
                 } else {
                     nil
                 }
-                if let index = masks.firstIndex(where: { $0.key == key }) {
-                    masks[index].navigation = navigation
-                } else {
-                    let frame = side.frame(in: monitor.visibleFrame)
-                    masks.append(DesiredParkingEdgeMask(key: key, frame: frame, navigation: navigation))
-                }
+                Self.setParkingEdgeMask(side, on: monitor, navigation: navigation, masks: &masks)
             }
         }
         return masks
+    }
+
+    private static func setParkingEdgeMask(
+        _ side: ParkingEdgeMaskKey.Side,
+        on monitor: borrowing Monitor,
+        navigation: ParkingEdgeNavigation?,
+        masks: inout [DesiredParkingEdgeMask]
+    ) {
+        let key = ParkingEdgeMaskKey(monitorId: monitor.id, side: side)
+        if let index = masks.firstIndex(where: { $0.key == key }) {
+            masks[index].navigation = navigation
+        } else {
+            let frame = side.frame(in: monitor.visibleFrame)
+            masks.append(DesiredParkingEdgeMask(key: key, frame: frame, navigation: navigation))
+        }
     }
 
     func nativeFullscreenPlaceholders() -> [NativeFullscreenPlaceholderUpdate] {
