@@ -7,7 +7,7 @@ import Foundation
 @testable import OmniWM
 import XCTest
 
-#if OMNIWM_LIVE_CHECKS
+#if OMNIWM_LIVE_CHECKS && OMNIWM_SETTINGS_BENCH_ONLY
 
     @MainActor
     final class SettingsFormatBenchmarkTests: XCTestCase {
