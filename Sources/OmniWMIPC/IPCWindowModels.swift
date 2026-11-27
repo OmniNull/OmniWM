@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 
 public enum IPCWindowActionName: String, Codable, CaseIterable, Equatable, Sendable {
     case focus

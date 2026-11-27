@@ -37,7 +37,7 @@ if [ -s "$snapshot/swift-paths" ]; then
   fi
 fi
 
-ipc_paths=(Sources/OmniWMIPC/ Scripts/generate_ipc_wire.py Scripts/ipc_wire_models.py)
+ipc_paths=(Sources/OmniWMIPC/ Sources/OmniWMAutomation/ Scripts/generate_ipc_wire.py Scripts/ipc_wire_models.py)
 if ! git diff --cached --quiet -- .swiftformat "${ipc_paths[@]}" ||
    ! git diff --cached --quiet -G '^SWIFTFORMAT_VERSION=' -- Scripts/dev-tools.env; then
   if [ -x "$tools/swiftformat" ] && command -v "$python" >/dev/null; then

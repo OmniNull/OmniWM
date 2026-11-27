@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 
 public enum IPCAutomationLayoutCompatibility: String, Codable, CaseIterable, Equatable, Sendable {
     case shared
@@ -45,41 +46,7 @@ public enum IPCQuerySelectorName: String, Codable, CaseIterable, Equatable, Hash
     }
 }
 
-public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Sendable {
-    case appID = "app-id"
-    case direction
-    case workspaceNumber = "workspace-number"
-    case columnIndex = "column-index"
-    case windowIndex = "window-index"
-    case scratchpadIndex = "scratchpad-index"
-    case visibleContainerCount = "visible-container-count"
-    case layout
-    case paletteMode = "palette-mode"
-    case switcherDirection = "switcher-direction"
-    case switcherScope = "switcher-scope"
-    case resizeAxis = "resize-axis"
-    case resizeOperation = "resize-operation"
-    case sizeChange = "size-change"
-
-    public var literalValues: [String]? {
-        switch self {
-        case .direction: IPCDirection.allCases.map(\.rawValue)
-        case .layout: IPCWorkspaceLayout.allCases.map(\.rawValue)
-        case .paletteMode: IPCCommandPaletteMode.allCases.map(\.rawValue)
-        case .switcherDirection: IPCWindowSwitcherDirection.allCases.map(\.rawValue)
-        case .switcherScope: IPCWindowSwitcherScope.allCases.map(\.rawValue)
-        case .resizeAxis: IPCResizeAxis.allCases.map(\.rawValue)
-        case .resizeOperation: IPCResizeOperation.allCases.map(\.rawValue)
-        case .scratchpadIndex: IPCScratchpadSlots.range.map(String.init)
-        case .visibleContainerCount: IPCVisibleContainerCounts.range.map(String.init)
-        case .appID,
-             .workspaceNumber,
-             .columnIndex,
-             .windowIndex,
-             .sizeChange: nil
-        }
-    }
-
+extension IPCCommandArgumentKind {
     public var usagePlaceholder: String {
         switch self {
         case .appID:

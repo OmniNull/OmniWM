@@ -168,7 +168,7 @@ CI takes Fish and Nushell from the flake to run the native CLI completion tests.
 
 For changes to setup, packaging, development installation, or related tooling, also run `make test-dev-tools`. This runs the Python development-tooling tests and is included in CI's **Tooling** job.
 
-CI also checks that the generated IPC wire encoders match their models. After changing IPC models or the generator, run `python3 Scripts/generate_ipc_wire.py --check`. If it reports stale files, run `python3 Scripts/generate_ipc_wire.py`, review the generated diff, and rerun the check.
+CI also checks that the generated IPC wire encoders match their models. After changing IPC models, shared wire values in `OmniWMAutomation`, or the generator, run `python3 Scripts/generate_ipc_wire.py --check`. If it reports stale files, run `python3 Scripts/generate_ipc_wire.py`, review the generated diff, and rerun the check.
 
 ### Trying a Style
 

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
+
 public enum IPCColumnCommandName: String, CaseIterable, Hashable, Sendable {
     case move = "move-column"
     case moveToFirst = "move-column-to-first"

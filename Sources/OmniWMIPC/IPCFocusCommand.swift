@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
+
 public enum IPCFocusCommandName: String, CaseIterable, Hashable, Sendable {
     case spatial = "focus"
     case previous = "focus-previous"

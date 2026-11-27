@@ -64,7 +64,8 @@ class PreCommitHookTests(unittest.TestCase):
         repo, git = self.make_repo()
         for script in ("generate_ipc_wire.py", "ipc_wire_models.py", "dev-tools.env"):
             shutil.copy2(ROOT / "Scripts" / script, repo / "Scripts")
-        shutil.copytree(ROOT / "Sources/OmniWMIPC", repo / "Sources/OmniWMIPC")
+        for module in ("OmniWMIPC", "OmniWMAutomation"):
+            shutil.copytree(ROOT / "Sources" / module, repo / "Sources" / module)
         git("add", "Scripts", "Sources")
         baseline = self.commit(git, "-c", "core.hooksPath=/dev/null")
         self.assertEqual(baseline.returncode, 0, baseline.stderr)
@@ -169,6 +170,25 @@ class PreCommitHookTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Generated IPC wire files are stale:", result.stderr)
 
+    def test_ipc_check_runs_when_only_a_staged_automation_model_changes(self):
+        repo, git = self.make_ipc_repo()
+        model = next(
+            path for path in (repo / "Sources/OmniWMAutomation").glob("*.swift")
+            if "public struct IPCSizeChange:" in path.read_text()
+        )
+        original = model.read_text()
+        altered = original.replace("public let value: Double", "let value: Double", 1)
+        self.assertNotEqual(altered, original)
+        model.write_text(altered)
+        staged = git("add", str(model))
+        self.assertEqual(staged.returncode, 0, staged.stderr)
+        model.write_text(original)
+
+        result = self.commit(git)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Generated IPC wire files are stale:", result.stderr)
+
     def test_ipc_check_ignores_intent_to_add_encoders(self):
         repo, git = self.make_ipc_repo()
         extra = "Sources/OmniWMIPC/IPCJSONWriter+Models99.swift"
@@ -192,6 +212,7 @@ class PreCommitHookTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((repo / "Sources/OmniWMIPC").exists())
+        self.assertFalse((repo / "Sources/OmniWMAutomation").exists())
 
     def test_ipc_check_rejects_a_formatter_that_differs_from_the_staged_pin(self):
         for stage_generator in (False, True):

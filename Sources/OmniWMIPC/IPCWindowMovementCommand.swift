@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
+
 public enum IPCWindowMovementCommandName: String, CaseIterable, Hashable, Sendable {
     case spatial = "move"
     case down = "move-window-down"

@@ -4,6 +4,7 @@
 import CoreGraphics
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 @testable import OmniWMCtl
 import OmniWMIPC
 import XCTest

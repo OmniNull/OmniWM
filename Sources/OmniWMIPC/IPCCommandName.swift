@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
+
 public enum IPCCommandName: RawRepresentable, Codable, CaseIterable, Hashable, Sendable {
     case focus(IPCFocusCommandName)
     case windowMovement(IPCWindowMovementCommandName)

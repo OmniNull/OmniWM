@@ -117,47 +117,9 @@ public enum IPCErrorCode: String, Codable, Equatable, Sendable, Error {
     case internalError = "internal_error"
 }
 
-public enum IPCDirection: String, Codable, CaseIterable, Equatable, Sendable {
-    case left
-    case right
-    case up
-    case down
-}
-
-public enum IPCResizeAxis: String, Codable, CaseIterable, Equatable, Sendable {
-    case horizontal
-    case vertical
-}
-
 public enum IPCWindowMode: String, Codable, Equatable, Sendable {
     case tiling
     case floating
-}
-
-public enum IPCWorkspaceLayout: String, Codable, CaseIterable, Equatable, Sendable {
-    case defaultLayout = "default"
-    case niri
-    case dwindle
-}
-
-public enum IPCWindowSwitcherDirection: String, Codable, CaseIterable, Equatable, Sendable {
-    case next
-    case previous
-}
-
-public enum IPCWindowSwitcherScope: String, Codable, CaseIterable, Equatable, Sendable {
-    case activeWorkspace = "active-workspace"
-    case visibleWorkspaces = "visible-workspaces"
-    case allWorkspaces = "all-workspaces"
-}
-
-public enum IPCCommandPaletteMode: String, Codable, CaseIterable, Equatable, Sendable {
-    case windows
-    case menu
-    case clipboard
-    case commands
-    case applications
-    case files
 }
 
 public enum IPCHiddenReason: String, Codable, Equatable, Sendable {
@@ -197,11 +159,6 @@ public enum IPCRuleLayout: String, Codable, CaseIterable, Equatable, Sendable {
     case auto
     case tile
     case float
-}
-
-public enum IPCResizeOperation: String, Codable, CaseIterable, Equatable, Sendable {
-    case grow
-    case shrink
 }
 
 public struct IPCWorkspaceRef: Codable, Equatable, Sendable {

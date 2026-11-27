@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
+
 extension IPCCommandRequest {
     public init(name: IPCCommandName, argumentValues: [IPCCommandArgumentValue] = []) throws {
         try self.init(name: name, arguments: .values(argumentValues))

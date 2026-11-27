@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
 import OmniWMIPC
 
 extension HotkeyCommand {
@@ -24,7 +25,7 @@ extension HotkeyCommand {
         case .openSettings: self = .openSettings
         case let .shellAppOpen(appID): self = .shellAppOpen(appID)
         case let .shellAppNewWindow(appID): self = .shellAppNewWindow(appID)
-        case let .workspace(action): self.init(ipc: action)
+        case let .workspace(action): self.init(workspace: action)
         case let .monitorFocus(action): self = .monitorFocus(action)
         case let .swapWorkspaceWithMonitor(direction): self = .workspace(.swapWithMonitor(Direction(ipc: direction)))
         case let .openCommandPaletteMode(mode): self = .openCommandPaletteMode(mode)
@@ -36,22 +37,22 @@ extension HotkeyCommand {
         }
     }
 
-    private init?(ipc command: IPCWorkspaceCommand) {
+    init?(workspace command: IPCWorkspaceCommand) {
         switch command {
         case let .switchTo(number):
-            guard let index = Self.zeroBasedIndex(from: number) else { return nil }
+            guard let index = IPCWorkspaceCommand.zeroBasedIndex(from: number) else { return nil }
             self = .workspace(.switchTo(index))
         case let .switchAnywhere(number):
-            guard let index = Self.zeroBasedIndex(from: number) else { return nil }
+            guard let index = IPCWorkspaceCommand.zeroBasedIndex(from: number) else { return nil }
             self = .workspace(.switchAnywhere(index))
         case let .switchSlot(slot):
             guard slot > 0 else { return nil }
             self = .workspace(.switchSlot(slot))
         case let .moveTo(number):
-            guard let index = Self.zeroBasedIndex(from: number) else { return nil }
+            guard let index = IPCWorkspaceCommand.zeroBasedIndex(from: number) else { return nil }
             self = .workspace(.moveTo(index))
         case let .moveToOnMonitor(number, direction):
-            guard let index = Self.zeroBasedIndex(from: number) else { return nil }
+            guard let index = IPCWorkspaceCommand.zeroBasedIndex(from: number) else { return nil }
             self = .workspace(.moveToOnMonitor(index, Direction(ipc: direction)))
         case let .moveToSlot(slot):
             guard slot > 0 else { return nil }
@@ -93,7 +94,7 @@ extension HotkeyCommand {
         case .windowOrWorkspaceUp:
             self = .focusNavigation(.windowOrWorkspaceUp)
         case let .column(columnIndex):
-            guard let zeroBasedIndex = Self.zeroBasedIndex(from: columnIndex) else {
+            guard let zeroBasedIndex = IPCWorkspaceCommand.zeroBasedIndex(from: columnIndex) else {
                 return nil
             }
             self = .focusNavigation(.column(zeroBasedIndex))
@@ -145,7 +146,7 @@ extension HotkeyCommand {
             }
             self = .column(.moveToIndex(columnIndex))
         case let .moveToWorkspace(workspaceNumber):
-            guard let workspaceIndex = Self.zeroBasedIndex(from: workspaceNumber) else {
+            guard let workspaceIndex = IPCWorkspaceCommand.zeroBasedIndex(from: workspaceNumber) else {
                 return nil
             }
             self = .column(.moveToWorkspace(workspaceIndex))
@@ -219,11 +220,6 @@ extension HotkeyCommand {
         case let .toggle(index):
             self = .scratchpad(.toggle(index))
         }
-    }
-
-    private static func zeroBasedIndex(from oneBasedValue: Int) -> Int? {
-        guard oneBasedValue > 0 else { return nil }
-        return oneBasedValue - 1
     }
 }
 

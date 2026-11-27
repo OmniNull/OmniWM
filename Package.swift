@@ -35,7 +35,15 @@ let package = Package(
             path: "Frameworks/GhosttyKit.xcframework"
         ),
         .target(
+            name: "OmniWMAutomation",
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+                .treatAllWarnings(as: .error)
+            ]
+        ),
+        .target(
             name: "OmniWMIPC",
+            dependencies: ["OmniWMAutomation"],
             path: "Sources/OmniWMIPC",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
@@ -141,6 +149,7 @@ let package = Package(
             name: "OmniWM",
             dependencies: [
                 "GhosttyKit",
+                "OmniWMAutomation",
                 "OmniWMIPC",
                 "OmniWMAudioTap",
                 "OmniWMLayerCorners",
@@ -196,7 +205,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "OmniWMCtl",
-            dependencies: ["OmniWMIPC"],
+            dependencies: ["OmniWMAutomation", "OmniWMIPC"],
             path: "Sources/OmniWMCtl",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
@@ -206,7 +215,8 @@ let package = Package(
         .testTarget(
             name: "OmniWMTests",
             dependencies: [
-                "OmniWM", "OmniWMAudioTap", "OmniWMCtl", "OmniWMLayerCorners", "OmniWMMaterialColor",
+                "OmniWM", "OmniWMAudioTap", "OmniWMAutomation", "OmniWMCtl", "OmniWMLayerCorners",
+                "OmniWMMaterialColor",
                 "OmniWMScriptHost",
                 "OmniWMShellCore"
             ],

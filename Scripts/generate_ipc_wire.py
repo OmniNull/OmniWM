@@ -8,8 +8,8 @@ import re
 import subprocess
 root = pathlib.Path(__file__).resolve().parents[1]
 models = root / 'Sources/OmniWMIPC'
-schemas = read_models(models)
-header = '// SPDX-License-Identifier: GPL-2.0-only\n// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM\n\nimport Foundation\n\n'
+schemas, automation_types = read_models(models, root / 'Sources/OmniWMAutomation')
+header = '// SPDX-License-Identifier: GPL-2.0-only\n// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM\n\nimport Foundation\n'
 seen = set()
 output = []
 primitive = {'String', 'Int', 'Int32', 'Int64', 'UInt', 'UInt32', 'UInt64', 'Bool', 'Double'}
@@ -226,7 +226,9 @@ def save_generated():
         for (index, functions) in enumerate(groups, 1):
             name = f'IPCJSONWriter+Models{index:02}.swift'
             path = directory / name
-            path.write_text(header + 'extension IPCJSONWriter {\n' + '\n\n'.join(functions) + '\n}\n')
+            body = '\n\n'.join(functions)
+            imports = 'import OmniWMAutomation\n' if automation_types.intersection(re.findall(r'\w+', body)) else ''
+            path.write_text(header + imports + '\nextension IPCJSONWriter {\n' + body + '\n}\n')
         tools = pathlib.Path(os.environ.get('OMNIWM_DEV_TOOLS') or root / '.cache/flake-tools')
         subprocess.run([str(tools / 'bin/swiftformat'), str(directory), '--config', str(root / '.swiftformat')], cwd=root, check=True, capture_output=True)
         expected = {path.name: path.read_text() for path in sorted(directory.glob('*.swift'))}

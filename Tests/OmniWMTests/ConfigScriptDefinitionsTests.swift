@@ -3,6 +3,7 @@
 
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -35,9 +36,9 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
                     "word\(index + 2): \(word.debugDescription)"
                 }
                 parameters += command.arguments.map { argument in
-                    let name = argument.kind.rawValue.replacingOccurrences(of: "-", with: "_")
-                    let type = argument.kind.literalValues.map(union) ?? "string"
-                    return "\(name): \(argument.kind.acceptsConfigInteger ? "\(type) | number" : type)"
+                    let name = argument.rawValue.replacingOccurrences(of: "-", with: "_")
+                    let type = argument.literalValues.map(union) ?? "string"
+                    return "\(name): \(argument.acceptsConfigInteger ? "\(type) | number" : type)"
                 }
                 return "(\(parameters.joined(separator: ", "))) -> ConfigAction"
             }

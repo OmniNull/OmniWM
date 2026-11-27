@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 
 public enum IPCQueryName: String, Codable, CaseIterable, Equatable, Sendable {
     case workspaceBar = "workspace-bar"

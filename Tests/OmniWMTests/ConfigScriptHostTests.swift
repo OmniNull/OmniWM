@@ -3,6 +3,7 @@
 
 import Carbon
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import OmniWMScriptHost
 import XCTest
@@ -118,11 +119,15 @@ final class ConfigScriptHostTests: XCTestCase {
         let cases = try zip(chords, forms).map { chord, form in
             let (member, descriptor) = form
             let firstPositiveIndex = "1"
-            let arguments = descriptor.arguments.map { $0.kind.literalValues?.first ?? firstPositiveIndex }
+            let arguments = descriptor.arguments.map { $0.literalValues?.first ?? firstPositiveIndex }
             let words = descriptor.commandWords + arguments
-            let request = try XCTUnwrap(IPCCommandRequest(commandWords: words), descriptor.path)
-            XCTAssertEqual(request.name, descriptor.name, descriptor.path)
-            let command = try XCTUnwrap(HotkeyCommand(direct: request), descriptor.path)
+            let request = try XCTUnwrap(IPCCommandRequest(commandWords: words), descriptor.sortKey)
+            let name: IPCCommandName = switch descriptor.name {
+            case let .workspaceSwitch(name): .workspace(name)
+            case let .ipc(name): name
+            }
+            XCTAssertEqual(request.name, name, descriptor.sortKey)
+            let command = try XCTUnwrap(HotkeyCommand(direct: request), descriptor.sortKey)
             let parameters = words.dropFirst().map(\.debugDescription).joined(separator: ", ")
             return ("omniwm.keymap.set('\(chord)', omniwm.cmd.\(member)(\(parameters)))", command)
         }
@@ -138,7 +143,7 @@ final class ConfigScriptHostTests: XCTestCase {
         let chords = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         for group in ConfigScriptCommandParser.inventory() {
             for descriptor in group.forms {
-                let kinds = descriptor.arguments.map(\.kind)
+                let kinds = descriptor.arguments
                 guard let selector = kinds.firstIndex(where: {
                     [.workspaceNumber, .columnIndex, .windowIndex, .scratchpadIndex].contains($0)
                 }) else { continue }
@@ -148,8 +153,8 @@ final class ConfigScriptHostTests: XCTestCase {
                     var arguments = kinds.map { $0.literalValues?.first ?? "" }
                     arguments[selector] = String(index)
                     let words = descriptor.commandWords + arguments
-                    let request = try XCTUnwrap(IPCCommandRequest(commandWords: words), descriptor.path)
-                    expected.append(try XCTUnwrap(HotkeyCommand(direct: request), descriptor.path))
+                    let request = try XCTUnwrap(IPCCommandRequest(commandWords: words), descriptor.sortKey)
+                    expected.append(try XCTUnwrap(HotkeyCommand(direct: request), descriptor.sortKey))
                     let literals = descriptor.commandWords.dropFirst().map(\.debugDescription)
                     let parameters = literals + arguments.enumerated().map { offset, word in
                         offset == selector ? word : word.debugDescription

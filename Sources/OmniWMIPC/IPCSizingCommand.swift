@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
+
 public enum IPCSizingCommandName: String, CaseIterable, Hashable, Sendable {
     case cycleSizeForward = "cycle-size-forward"
     case cycleSizeBackward = "cycle-size-backward"

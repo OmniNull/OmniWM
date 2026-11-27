@@ -15,12 +15,14 @@ This guide is for contributors who want to understand OmniWM's internals. It is 
 
 ### SwiftPM Targets
 
-OmniWM is built with Swift Package Manager (the pinned Swift 6.5-dev snapshot, strict concurrency, language mode v6). There are twelve production targets, one test target, and one binary target, with a clear dependency graph:
+OmniWM is built with Swift Package Manager (the pinned Swift 6.5-dev snapshot, strict concurrency, language mode v6). The production, test and binary targets have these dependencies.
 
 ```
 OmniWMApp                          (@main entry point)
 └── OmniWM                         (main library)
-    ├── OmniWMIPC                  (shared IPC models — zero dependencies)
+    ├── OmniWMAutomation           (typed command values and workspace-switch forms)
+    ├── OmniWMIPC                  (IPC models and wire format)
+    │   └── OmniWMAutomation
     ├── OmniWMLayerCorners         (Objective-C native border-layer bridge)
     ├── OmniWMLauncherSPI          (Objective-C launcher integration bridge)
     ├── OmniWMWiFiSPI              (Objective-C saved Wi-Fi network join bridge)
@@ -35,11 +37,13 @@ OmniWMApp                          (@main entry point)
 OmniWMNowPlaying                   (dynamic library loaded by the Now Playing adapter)
 
 OmniWMCtl                          (omniwmctl CLI)
+├── OmniWMAutomation
 └── OmniWMIPC
 
 OmniWMTests                        (test target)
 ├── OmniWM
 ├── OmniWMAudioTap
+├── OmniWMAutomation
 ├── OmniWMCtl
 ├── OmniWMLayerCorners
 ├── OmniWMMaterialColor
@@ -49,7 +53,8 @@ OmniWMTests                        (test target)
 
 | Target | Purpose | Dependencies |
 |--------|---------|--------------|
-| `OmniWMIPC` | Shared IPC data models and wire format | None |
+| `OmniWMAutomation` | Typed command argument values and workspace-switch forms | None |
+| `OmniWMIPC` | Shared IPC data models and wire format | OmniWMAutomation |
 | `OmniWMLayerCorners` | Objective-C bridge for native CALayer corner radii and rim properties | None |
 | `OmniWMLauncherSPI` | Objective-C bridge for launcher integration | None |
 | `OmniWMWiFiSPI` | Objective-C bridge that joins a saved personal Wi-Fi network without reading its password | None |
@@ -60,10 +65,10 @@ OmniWMTests                        (test target)
 | `OmniWMMetadata` | Reads literal Luau manifests, form schemas and translations | OmniWMScriptHost |
 | `OmniWMMaterialColor` | C++ Material Color Utilities bridge for wallpaper palettes | None |
 | `OmniWMShellCore` | Noncopyable layout and diff core for shell widget trees | None |
-| `OmniWMCtl` | CLI tool (`omniwmctl`) | OmniWMIPC |
-| `OmniWM` | Core window manager library | OmniWMIPC, OmniWMLayerCorners, OmniWMLauncherSPI, OmniWMWiFiSPI, OmniWMAudioTap, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore, GhosttyKit, OmniWMMetadata, system frameworks |
+| `OmniWMCtl` | CLI tool (`omniwmctl`) | OmniWMAutomation, OmniWMIPC |
+| `OmniWM` | Core window manager library | OmniWMAutomation, OmniWMIPC, OmniWMLayerCorners, OmniWMLauncherSPI, OmniWMWiFiSPI, OmniWMAudioTap, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore, GhosttyKit, OmniWMMetadata, system frameworks |
 | `OmniWMApp` | Executable wrapper with SwiftUI scene | OmniWM |
-| `OmniWMTests` | Test target (fixtures copied as a resource bundle) | OmniWM, OmniWMAudioTap, OmniWMCtl, OmniWMLayerCorners, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore |
+| `OmniWMTests` | Test target (fixtures copied as a resource bundle) | OmniWM, OmniWMAudioTap, OmniWMAutomation, OmniWMCtl, OmniWMLayerCorners, OmniWMMaterialColor, OmniWMScriptHost, OmniWMShellCore |
 
 ### Source Directory Map
 
@@ -116,6 +121,7 @@ Sources/
 │   └── UI/                          SwiftUI/AppKit settings, bars, palette, status, stats
 ├── OmniWMApp/                       @main entry + settings redirect
 ├── OmniWMCtl/                       CLI parser, IPC client, renderer, completion
+├── OmniWMAutomation/                Typed command values and workspace-switch forms
 ├── OmniWMIPC/                       models, wire format, socket path, automation manifest
 ├── OmniWMLayerCorners/              Objective-C native border-layer bridge (1 .m + 1 header)
 ├── OmniWMLauncherSPI/               Objective-C launcher integration bridge
@@ -1147,6 +1153,8 @@ ExternalCommandResult → IPCResponse { ok: true } → NDJSON → client
     v
 CLIRenderer displays the result
 ```
+
+`OmniWMAutomation` owns the `switch-workspace` forms and their typed commands. The Flex parser constructs those values directly and Core lowers them to hotkey actions. `OmniWMIPC` wraps the same values in the request envelope and owns the wire keys and CLI descriptions.
 
 ---
 

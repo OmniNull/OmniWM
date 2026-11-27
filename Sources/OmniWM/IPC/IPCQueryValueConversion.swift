@@ -3,6 +3,7 @@
 
 import AppKit
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 
 extension IPCRect {

@@ -2,8 +2,34 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 
 extension IPCAutomationManifest {
+    private static let workspaceSwitchDescriptors = IPCWorkspaceSwitchForm.all.map { form in
+        let summary = switch form.name {
+        case .switchTo: "Switch to a workspace by workspace ID on its assigned monitor."
+        case .next: "Switch to the next workspace on the current monitor."
+        case .previous: "Switch to the previous workspace on the current monitor."
+        case .backAndForth: "Switch to the previously active workspace on the current monitor."
+        case .switchAnywhere: "Focus a workspace by workspace ID across all monitors."
+        case .switchSlot: "Switch to the workspace at a one-based position in the interaction monitor's workspace list."
+        default: preconditionFailure("Expected a workspace switch command")
+        }
+        let arguments = form.argumentKind.map { kind in
+            [IPCCommandArgumentDescriptor(
+                kind: kind,
+                summary: form.name == .switchSlot ? IPCCommandArgumentDescriptor.slotNumber.summary
+                    : IPCCommandArgumentDescriptor.workspaceNumber.summary
+            )]
+        } ?? []
+        return IPCCommandDescriptor(
+            commandWords: form.commandWords,
+            name: .workspace(form.name),
+            summary: summary,
+            arguments: arguments
+        )
+    }
+
     public static let commandDescriptors: [IPCCommandDescriptor] = [
         .init(
             name: .focus(.spatial),
@@ -135,39 +161,8 @@ extension IPCAutomationManifest {
             name: .windowMovement(.expelFromColumn),
             summary: "Expel the bottom window from the focused Niri column into a new following column.",
             layoutCompatibility: .niri
-        ),
-        .init(
-            name: .workspace(.switchTo),
-            summary: "Switch to a workspace by workspace ID on its assigned monitor.",
-            arguments: [.workspaceNumber]
-        ),
-        .init(
-            commandWords: ["switch-workspace", "next"],
-            name: .workspace(.next),
-            summary: "Switch to the next workspace on the current monitor."
-        ),
-        .init(
-            commandWords: ["switch-workspace", "prev"],
-            name: .workspace(.previous),
-            summary: "Switch to the previous workspace on the current monitor."
-        ),
-        .init(
-            commandWords: ["switch-workspace", "back-and-forth"],
-            name: .workspace(.backAndForth),
-            summary: "Switch to the previously active workspace on the current monitor."
-        ),
-        .init(
-            commandWords: ["switch-workspace", "anywhere"],
-            name: .workspace(.switchAnywhere),
-            summary: "Focus a workspace by workspace ID across all monitors.",
-            arguments: [.workspaceNumber]
-        ),
-        .init(
-            commandWords: ["switch-workspace", "slot"],
-            name: .workspace(.switchSlot),
-            summary: "Switch to the workspace at a one-based position in the interaction monitor's workspace list.",
-            arguments: [.slotNumber]
-        ),
+        )
+    ] + workspaceSwitchDescriptors + [
         .init(
             name: .workspace(.moveTo),
             summary: "Move the focused window to a workspace by workspace ID.",

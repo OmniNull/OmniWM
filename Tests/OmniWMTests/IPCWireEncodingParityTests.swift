@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -45,6 +46,31 @@ final class IPCWireEncodingParityTests: XCTestCase {
             let request = try IPCWire.decodeRequest(from: fixture.data)
             XCTAssertEqual(try IPCWire.encodeRequestLine(request), try reference(request), fixture.name)
         }
+    }
+
+    func testWorkspaceSwitchRequestsMatchTheRecordedBytes() throws {
+        let names = Set(IPCWorkspaceSwitchForm.all.map(\.name))
+        var covered: Set<IPCWorkspaceCommandName> = []
+        for fixture in try fixtures() where fixture.kind == "request" {
+            let request = try IPCWire.decodeRequest(from: fixture.data)
+            guard case let .command(command) = request.payload,
+                  case let .workspace(workspace) = command, names.contains(workspace.name)
+            else { continue }
+            let object = try JSONSerialization.jsonObject(with: fixture.data)
+            var expected = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+            expected.append(0x0A)
+            XCTAssertEqual(try IPCWire.encodeRequestLine(request), expected, fixture.name)
+            covered.insert(workspace.name)
+        }
+        XCTAssertEqual(covered, names)
+    }
+
+    func testWorkspaceSwitchCapabilityDescriptorsMatchTheRecordedBytes() throws {
+        let resources = try XCTUnwrap(Bundle.module.resourceURL)
+        let fixture = resources.appendingPathComponent("Fixtures/IPCCommands/workspace-switch-descriptors.json")
+        let group = IPCWorkspaceCommandName.switchTo.rawValue
+        let descriptors = IPCAutomationManifest.commandDescriptors.filter { $0.commandWords.first == group }
+        XCTAssertEqual(try reference(descriptors), try Data(contentsOf: fixture))
     }
 
     func testHostedAppRequestsEncodeAppIDAndRoundTrip() throws {

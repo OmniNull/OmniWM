@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 
 extension IPCJSONWriter {
     mutating func fields2(_ value: borrowing IPCWindowQuerySnapshot, _ first: inout Bool) throws {
