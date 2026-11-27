@@ -53,7 +53,7 @@ final class ShellConfigSymlinkTests: XCTestCase {
         )
         XCTAssertEqual(try node(["profile"], at: fixture.target), .string("look"))
         XCTAssertEqual(try node(key, at: fixture.target), .string("dusk"))
-        XCTAssertTrue(try ShellProfiles.reset(key, in: fixture.directory))
+        XCTAssertTrue(try ShellProfiles.setNodes([(key, nil)], in: fixture.directory))
         XCTAssertNil(try node(key, at: fixture.target))
         XCTAssertEqual(try node(["trailing"], at: fixture.target), .list([.string("clock")]))
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.root.appendingPathComponent("active.luau").path))

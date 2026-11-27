@@ -20,18 +20,6 @@ extension AXWindowInspectionContext {
         )
     }
 
-    static func shouldEnumerateForFullRescan(
-        activationPolicy: NSApplication.ActivationPolicy,
-        hasDiscoveryEvidence: Bool
-    ) -> Bool {
-        fullRescanEnumerationRoute(
-            activationPolicy: activationPolicy,
-            hasDiscoveryEvidence: hasDiscoveryEvidence,
-            hasContext: false,
-            hasPreservedState: false
-        ) != nil
-    }
-
     static func fullRescanEnumerationRoute(
         activationPolicy: NSApplication.ActivationPolicy,
         hasDiscoveryEvidence: Bool,

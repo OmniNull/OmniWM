@@ -183,11 +183,6 @@ extension WorkspaceBarManager {
         controller.map { ShellWidgetHost.shellDirectory(in: $0.settings.settingsFileURL.deletingLastPathComponent()) }
     }
 
-    func ejectShellWidget(_ widget: String, in shellDirectory: URL) throws -> URL? {
-        let config = ShellConfig.resolve(shellDirectory: shellDirectory)
-        return try ShellProfiles.eject(widget, config: config, shellDirectory: shellDirectory)
-    }
-
     func applyShellFileRequest(_ request: IPCShellRequest) async -> ExternalCommandResult {
         guard request.isValid, shellDirectory != nil else { return .invalidArguments }
         do {

@@ -231,17 +231,6 @@ extension AXEventHandler {
         WindowServerIdentityResolution(windowId: windowId, info: resolveWindowInfo(windowId))
     }
 
-    func resolveWindowToken(_ windowId: UInt32) -> WindowToken? {
-        resolveWindowServerIdentity(windowId).token
-    }
-
-    func resolveTrackedToken(_ windowId: UInt32) -> WindowToken? {
-        guard let controller,
-              let token = resolveWindowToken(windowId)
-        else { return nil }
-        return controller.workspaceManager.entry(for: token)?.token
-    }
-
     func resolveTrackedTokenForDestruction(
         _ windowId: UInt32,
         pidHint: pid_t?,
