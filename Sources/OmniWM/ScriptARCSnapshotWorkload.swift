@@ -20,6 +20,10 @@ extension ScriptARCFixture {
         ("framed", [.workspaceWindows, .windows, .monitors, .workspaceWindowFrames, .windowFrames, .monitorFrames])
     ]
 
+    var snapshotCachedTitleToken: WindowToken {
+        WindowToken(pid: token.pid, windowId: token.windowId + TextSource.cache.rawValue)
+    }
+
     static func admitSnapshotRows(
         _ count: Int, base: WindowToken, workspace: WorkspaceDescriptor.ID, controller: WMController
     ) throws {

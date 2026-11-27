@@ -148,15 +148,20 @@ struct CallbackOptions {
     uint32_t reads = 0;
 };
 
-constexpr std::array readNames{"workspaceWindows", "windows", "workspaces", "monitors", "placement", "focusTarget"};
-constexpr std::array<uint8_t, 6> readBits{
-    OMNI_CONFIG_READ_WORKSPACE_WINDOWS, OMNI_CONFIG_READ_WINDOWS, OMNI_CONFIG_READ_WORKSPACES, OMNI_CONFIG_READ_MONITORS,
-    OMNI_CONFIG_READ_PLACEMENT, OMNI_CONFIG_READ_FOCUS_TARGET
+constexpr std::string_view dwindleRead = "dwindle";
+constexpr std::string_view marksRead = "marks";
+constexpr std::array readNames{
+    "workspaceWindows", "windows", "workspaces", "monitors", "placement", "focusTarget", dwindleRead.data(), marksRead.data()
 };
+constexpr std::array readBits{
+    OMNI_CONFIG_READ_WORKSPACE_WINDOWS, OMNI_CONFIG_READ_WINDOWS, OMNI_CONFIG_READ_WORKSPACES, OMNI_CONFIG_READ_MONITORS,
+    OMNI_CONFIG_READ_PLACEMENT, OMNI_CONFIG_READ_FOCUS_TARGET, OMNI_CONFIG_READ_DWINDLE, OMNI_CONFIG_READ_MARKS
+};
+static_assert(readNames.size() == readBits.size());
 constexpr std::string_view framesRead = "frames";
 constexpr std::string_view columnsRead = "columns";
 constexpr std::string_view detailsRead = "details";
-constexpr std::string_view dwindleRead = "dwindle";
+constexpr uint32_t snapshotSections = OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE | OMNI_CONFIG_READ_MARKS;
 constexpr std::array dwindleDirections{"left", "right", "up", "down"};
 static_assert(OMNI_CONFIG_DWINDLE_DOWN == dwindleDirections.size());
 constexpr uint16_t framedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS | OMNI_CONFIG_READ_MONITORS;
@@ -181,7 +186,7 @@ uint32_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
     }
     const int table = lua_gettop(L);
     const int length = lua_objlen(L, table);
-    if (length > static_cast<int>(readNames.size()) + 4) {
+    if (length > static_cast<int>(readNames.size()) + 3) {
         reject(L, vm, site, "too many lookup names in reads");
     }
     uint32_t mask = 0;
@@ -200,15 +205,14 @@ uint32_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
         const bool framesName = name == framesRead;
         const bool columnsName = name == columnsRead;
         const bool detailsName = name == detailsRead;
-        const bool dwindleName = name == dwindleRead;
         auto it = std::find(readNames.begin(), readNames.end(), name);
-        if (it == readNames.end() && !framesName && !columnsName && !detailsName && !dwindleName) {
+        const bool modifier = framesName || columnsName || detailsName;
+        if (it == readNames.end() && !modifier) {
             reject(L, vm, site,
                 "unknown read; expected workspaceWindows, windows, workspaces, monitors, placement, focusTarget, dwindle, "
-                "frames, columns or details");
+                "marks, frames, columns or details");
         }
-        const bool modifier = framesName || columnsName || detailsName;
-        const uint32_t bit = modifier ? 0 : dwindleName ? OMNI_CONFIG_READ_DWINDLE : readBits[it - readNames.begin()];
+        const uint32_t bit = modifier ? 0 : readBits[it - readNames.begin()];
         if (framesName ? frames : columnsName ? columns : detailsName ? details : (mask & bit) != 0) {
             reject(L, vm, site, "duplicate lookup name in reads");
         }
@@ -1490,12 +1494,26 @@ void pushDwindle(lua_State *L, std::string_view &rows) {
     lua_setreadonly(L, -1, true);
 }
 
+void pushMarks(lua_State *L, std::string_view &rows, uint16_t count) {
+    constexpr std::array fields{"name", "id", "workspaceId", "workspace", "appName", "bundleId", "title"};
+    lua_createtable(L, count, 0);
+    for (int row = 1; row <= count; ++row) {
+        lua_createtable(L, 0, fields.size());
+        for (const auto *field : fields) {
+            readStringField(L, rows, field);
+        }
+        lua_setreadonly(L, -1, true);
+        lua_rawseti(L, -2, row);
+    }
+    lua_setreadonly(L, -1, true);
+}
+
 void pushLookups(lua_State *L, omni_config_span snapshot, uint32_t reads) {
     if (!snapshot.data) {
         throw InvalidSnapshot{};
     }
     const int context = lua_gettop(L);
-    const auto fieldCount = __builtin_popcount(reads & (OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE));
+    const auto fieldCount = __builtin_popcount(reads & snapshotSections);
     const auto requestedDetails = reads & detailsMask;
     lua_createtable(L, 0, fieldCount + (requestedDetails != 0));
     if (requestedDetails) {
@@ -1523,6 +1541,23 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint32_t reads) {
                 pushDwindle(L, rows);
                 lua_rawsetfield(L, context, dwindleRead.data());
             }
+            if (!rows.empty()) {
+                throw InvalidSnapshot{};
+            }
+            continue;
+        }
+        if (kind == OMNI_CONFIG_SECTION_MARKS) {
+            if (!(reads & OMNI_CONFIG_READ_MARKS)) {
+                continue;
+            }
+            reads &= ~OMNI_CONFIG_READ_MARKS;
+            if (flags & ~OMNI_CONFIG_SECTION_TRUNCATED) {
+                throw InvalidSnapshot{};
+            }
+            lua_pushboolean(L, flags & OMNI_CONFIG_SECTION_TRUNCATED);
+            lua_rawsetfield(L, -2, marksRead.data());
+            pushMarks(L, rows, count);
+            lua_rawsetfield(L, context, marksRead.data());
             if (!rows.empty()) {
                 throw InvalidSnapshot{};
             }
@@ -1582,7 +1617,7 @@ void pushLookups(lua_State *L, omni_config_span snapshot, uint32_t reads) {
             throw InvalidSnapshot{};
         }
     }
-    if (reads & (OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE)) {
+    if (reads & snapshotSections) {
         throw InvalidSnapshot{};
     }
     if (requestedDetails) {
@@ -1611,8 +1646,7 @@ void pushContext(lua_State *L, const omni_config_trigger &trigger, bool event, u
             + edge->frame.present + edge->previous_frame.present + edge->visible_frame.present
             + edge->previous_visible_frame.present + (flag != nullptr);
     }
-    lua_createtable(
-        L, 0, capacity + (reads ? 1 + __builtin_popcount(reads & (OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE)) : 0));
+    lua_createtable(L, 0, capacity + (reads ? 1 + __builtin_popcount(reads & snapshotSections) : 0));
     auto field = [L](const char *name, omni_config_span value) {
         if (value.data) {
             lua_pushlstring(L, value.data, value.length);

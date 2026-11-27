@@ -164,7 +164,7 @@ extension WMController {
             | (appHidden ? OMNI_CONFIG_DETAIL_APP_HIDDEN : 0))
     }
 
-    private func writeScriptAppName(_ entry: borrowing WindowState, to row: inout ConfigScriptSnapshotWriter) -> Bool {
+    func writeScriptAppName(_ entry: borrowing WindowState, to row: inout ConfigScriptSnapshotWriter) -> Bool {
         if case let .hosted(hosted) = entry.target { return row.string(hosted.title) }
         return appInfoCache.withCachedName(for: entry.pid) { row.string($0) }
     }

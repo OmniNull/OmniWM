@@ -370,7 +370,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
 }
 
 private let lookupDefinitions = """
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "dwindle" | "frames" | "columns" | "details"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "dwindle" | "marks" | "frames" | "columns" | "details"
 export type ConfigReadOptions = { reads: { ConfigRead } }
 export type ConfigRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWindowRow = {
@@ -414,6 +414,10 @@ export type ConfigDwindleTree = {
     read workspaceId: string, read revision: string, read preselect: ("left" | "right" | "up" | "down")?,
     read nodes: { read [number]: ConfigDwindleNode },
 }
+export type ConfigMarkRow = {
+    read name: string, read id: string, read workspaceId: string, read workspace: string,
+    read appName: string?, read bundleId: string?, read title: string?,
+}
 export type ConfigLookups = {
     read workspaceWindows: { read [number]: ConfigWindowRow }?,
     read windows: { read [number]: ConfigWindowRow }?,
@@ -422,9 +426,10 @@ export type ConfigLookups = {
     read placement: ConfigPlacement?,
     read focusTarget: ConfigFocusTarget?,
     read dwindle: ConfigDwindleTree?,
+    read marks: { read [number]: ConfigMarkRow }?,
     read truncated: {
         read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
-        read placement: boolean?, read focusTarget: boolean?, read dwindle: boolean?,
+        read placement: boolean?, read focusTarget: boolean?, read dwindle: boolean?, read marks: boolean?,
         read details: {
             read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
         }?,

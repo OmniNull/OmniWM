@@ -132,6 +132,8 @@ MIXED_READ_EVENTS = tuple(tuple("event/workspace.active+" + name for name in fam
 ))
 ROUTES.update(("move/floating-frame", "capture/details-excluded", "capture/list-details", "capture/list-details-excluded",
                *(route for family in MIXED_READ_EVENTS for route in family)))
+MARK_CAPTURES = tuple(f"capture/marks-{size}-cap" for size in ("under", "at", "over"))
+ROUTES.update(("capture/no-marks", "capture/marks-ordering", *MARK_CAPTURES))
 ROUTES.update(("gather/join", "gather/unchanged", "gather/refused"))
 ROUTES.update(("replace/applied", "replace/stale", "replace/malformed"))
 NAMED_KEY_PAIRS = (("named/hit", "window/hit"), ("named/ref-hit", "window/ref-hit"),
@@ -467,6 +469,10 @@ def check_costs(output):
     list_details = table["capture/list-details", "producer"]
     if int(list_details["obj"]) or int(list_details["heap"]):
         sys.exit(f"A warm workspace and monitor details capture reuses storage: {list_details}")
+    for route in MARK_CAPTURES:
+        mark_capture = table[route, "producer"]
+        if int(mark_capture["obj"]) or int(mark_capture["heap"]):
+            sys.exit(f"{route}: a warm marks capture reuses storage: {mark_capture}")
     for capture, engine in COLUMN_EDITS:
         edit, rebuild = table[capture, "producer"], table[engine, "producer"]
         for field in ("obj", "heap"):
@@ -491,10 +497,11 @@ def check_costs(output):
         return {k: v for k, v in table[route, "producer"].items() if k not in ("route", "native-control", "phase")}
     if counts("capture/placement-mutated") != counts("capture/placement"):
         sys.exit("capture/placement-mutated: a structural change must not add placement read cost")
-    for route in ("capture/no-placement", "capture/no-focus-target"):
+    for route in ("capture/no-placement", "capture/no-focus-target", "capture/no-marks"):
         if counts(route) != counts("capture/fixed"):
             sys.exit(f"{route}: an undeclared read must cost nothing")
-    for route in ("capture/workspace-8", "capture/windows-200", *PLACEMENT_CAPTURES, *FOCUS_TARGET_CAPTURES):
+    for route in ("capture/workspace-8", "capture/windows-200", *PLACEMENT_CAPTURES, *FOCUS_TARGET_CAPTURES,
+                  "capture/marks-ordering", *MARK_CAPTURES):
         if not re.search(rf"^snapshot-bytes {re.escape(route)} [1-9][0-9]*$", output, re.M):
             sys.exit(f"Missing snapshot byte count for {route}")
     for route in TIMER_ROUTES:

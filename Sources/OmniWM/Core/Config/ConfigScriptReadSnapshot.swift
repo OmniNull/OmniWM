@@ -278,6 +278,11 @@ extension WMController {
         resolution: @autoclosure () -> WorkspaceManager.MonitorResolutionContext,
         to output: inout ConfigScriptSnapshotWriter
     ) {
+        if reads.contains(.marks) {
+            output.start(tag: UInt8(OMNI_CONFIG_SECTION_MARKS))
+            appendScriptMarks(windowMarkRegistry.marks, session: origin.session, to: &output)
+            finishScriptList(&output)
+        }
         if reads.contains(.dwindle) {
             output.start(tag: UInt8(OMNI_CONFIG_SECTION_DWINDLE))
             if let workspaceId = origin.workspaceId {
@@ -349,6 +354,27 @@ extension WMController {
             node: column, membership: membership, column: index, columns: count, members: memberCount,
             vertical: orientation == .vertical
         )
+    }
+
+    private func appendScriptMarks(
+        _ marks: borrowing [WindowMark], session: ConfigScriptSession, to output: inout ConfigScriptSnapshotWriter
+    ) {
+        let manager = workspaceManager
+        let windows = manager.windowQueries
+        let catalog = manager.workspaceCatalog
+        let marks = marks.span
+        for index in marks.indices {
+            let token = marks[index].token
+            let stored = windows.withEntry(token) { entry in
+                guard let workspace = catalog.descriptor(for: entry.workspaceId) else { return true }
+                return output.row { row in
+                    row.string(marks[index].name) && row.windowID(token, session: session) && row.string(workspace.id)
+                        && row.string(workspace.name) && writeScriptAppName(entry, to: &row)
+                        && writeWindowText(entry, to: &row)
+                }
+            }
+            guard stored != false else { break }
+        }
     }
 
     private func writeWindowText(_ entry: borrowing WindowState, to row: inout ConfigScriptSnapshotWriter) -> Bool {

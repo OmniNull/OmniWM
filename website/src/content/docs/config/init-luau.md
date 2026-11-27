@@ -97,6 +97,7 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `windows` | Every managed window |
 | `workspaces` | Workspaces, per monitor, in Next/Previous Workspace order |
 | `monitors` | Displays, left to right, then top first |
+| `marks` | Resolved [window marks](#window-marks), ordered by the UTF-8 bytes of their names |
 | `placement` | Where the focused window sits: one record, not a list |
 | `focusTarget` | The window the callback's workspace focuses: one record |
 | `dwindle` | The callback's workspace's Dwindle tree: one record |
@@ -108,6 +109,10 @@ The row fields are:
 - **window:** `id`, `bundleId`, `title`, `workspace`, `monitor`, `floating`, `fullscreen` (`"native"` for macOS fullscreen, `"omniwm"` for OmniWM's, absent otherwise) and `minimized`, with `frames`, `frame`, and with `columns`, `column`;
 - **workspace:** `id`, `name` and `monitor`;
 - **monitor:** `id` and `name`, and with `frames`, `frame` and `visibleFrame`, the part the menu bar and Dock leave free.
+
+Each `ctx.marks` row has the mark's `name` and the marked window's `id` for [window actions](#window-actions). Its `workspaceId` matches the workspace row's `id`, and `workspace` matches that row's raw `name`. The optional `appName`, `bundleId` and `title` come from cached or OmniShell-hosted metadata.
+
+The list shares its order with `omniwmctl window mark list` and skips marks whose window or workspace cannot be resolved. It has its own row and byte limits. If `truncated.marks` is `true`, treat it as a partial list.
 
 With `details`, a window row can also contain these fields.
 
@@ -251,7 +256,7 @@ When a check fails, nothing happens, so a callback that was still queued can't p
 
 ## Window marks
 
-Flex and [`omniwmctl window mark`](/reference/cli/actions/#window-marks) share one set of named windows across workspaces. A window can have several names. Marks survive a script reload and disappear when the window closes or OmniWM quits. Run `omniwmctl window mark list` to see them.
+Flex and [`omniwmctl window mark`](/reference/cli/actions/#window-marks) share one set of named windows across workspaces. A window can have several names. Marks survive a script reload and disappear when the window closes or OmniWM quits. Run `omniwmctl window mark list` to see them, or declare `{ reads = { "marks" } }` to read `ctx.marks` in a callback.
 
 `omniwm.dispatch("mark", action, name)` takes one of these actions:
 
@@ -297,7 +302,7 @@ A window ID lasts only while OmniWM runs, so save bundle IDs or names instead.
 - **Source:** up to 1 MiB, in up to 64 modules.
 - **Declarations:** up to 4,096 each of shortcuts, rules and callback functions, and up to 4,096 stored actions sharing 1 MiB of text.
 - **Per run:** up to 64 actions or effects, and separately up to 64 log lines. The log cap also applies while loading.
-- **Window marks:** each mark dispatch uses one action slot and takes a single name string.
+- **Window marks:** each mark dispatch uses one action slot and takes a single name string. The `marks` read holds up to 256 rows and 128 KiB.
 - **Waiting presses:** up to 8 shortcut or command presses can wait. Further presses are dropped with an error.
 - **Reads:** list and detail limits are described under [Reads](#reads).
 - **Timers:** up to 16, each at least 1 second.
@@ -309,7 +314,7 @@ A window ID lasts only while OmniWM runs, so save bundle IDs or names instead.
 
 Put these in `init.luau`, and save the file to apply them.
 
-**Mark and summon an editor.** Focus a tiled editor and press Control + Option + Shift + E to mark it. Run `omniwmctl window mark list` to see `editor`. On another workspace, focus a tiled window and press Control + Option + Shift + S to bring the editor beside it. The summon shortcut also works with a mark you set from the CLI.
+**Mark and summon an editor.** Focus a tiled editor and press Control + Option + Shift + E to mark it. Run **Show Editor Mark** from the command palette or `omniwmctl window mark list` to see its workspace. On another workspace, focus a tiled window and press Control + Option + Shift + S to bring the editor beside it. The recipe also works with a mark you set from the CLI.
 
 ```lua
 local wm = omniwm
@@ -320,6 +325,19 @@ end)
 wm.keymap.set("Control+Option+Shift+S", function()
     wm.dispatch("mark", "summon", name)
 end)
+wm.command("Show Editor Mark", function(ctx: ConfigContext)
+    for _, mark in ctx.marks or {} do
+        if mark.name == name then
+            wm.notify(name .. " is on workspace " .. mark.workspace)
+            return
+        end
+    end
+    if ctx.truncated and ctx.truncated.marks then
+        wm.notify("The mark list was cut short.")
+    else
+        wm.notify("No window is marked " .. name .. ".")
+    end
+end, { reads = { "marks" } })
 ```
 
 **Focus the most recently used Safari window.** Run **Focus Recent Safari Window** from the command palette to focus the Safari window you used most recently, including on another workspace. The command needs a focus record and a complete window list with details.

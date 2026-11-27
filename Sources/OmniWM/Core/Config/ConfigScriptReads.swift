@@ -24,7 +24,8 @@ struct ConfigScriptReads: OptionSet, Sendable {
     static let detailSections: Self = windowDetailSections.union([.workspaceDetails, .monitorDetails])
     static let lists = Self(rawValue: UInt32(OMNI_CONFIG_READ_LISTS))
     static let dwindle = Self(rawValue: UInt32(OMNI_CONFIG_READ_DWINDLE))
-    static let sections = lists.union(dwindle)
+    static let marks = Self(rawValue: UInt32(OMNI_CONFIG_READ_MARKS))
+    static let sections = lists.union([dwindle, marks])
 
     var frameByteLimit: Int {
         let windowSections = intersection([.workspaceWindowFrames, .windowFrames]).rawValue.nonzeroBitCount

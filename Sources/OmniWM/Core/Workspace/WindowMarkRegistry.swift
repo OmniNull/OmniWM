@@ -59,10 +59,24 @@ final class WindowMarkRegistry {
 
     private var tokenByName: [NameKey: WindowToken] = [:]
     private var namesByToken: [WindowToken: Set<NameKey>] = [:]
+    private var orderedMarks: [WindowMark] = []
+    private var needsOrdering = false
 
     var marks: [WindowMark] {
-        tokenByName.map { key, token in WindowMark(name: key.name, token: token) }
-            .sorted { $0.name.utf8.lexicographicallyPrecedes($1.name.utf8) }
+        _read {
+            if needsOrdering { orderMarks() }
+            yield orderedMarks
+        }
+    }
+
+    private func orderMarks() {
+        orderedMarks.removeAll(keepingCapacity: true)
+        orderedMarks.reserveCapacity(tokenByName.count)
+        for (key, token) in tokenByName {
+            orderedMarks.append(WindowMark(name: key.name, token: token))
+        }
+        orderedMarks.sort { $0.name.utf8.lexicographicallyPrecedes($1.name.utf8) }
+        needsOrdering = false
     }
 
     func isValidName(_ rawName: String) -> Bool {
@@ -78,6 +92,7 @@ final class WindowMarkRegistry {
 
         tokenByName[key] = token
         namesByToken[token, default: []].insert(key)
+        needsOrdering = true
         return .inserted
     }
 
@@ -92,6 +107,7 @@ final class WindowMarkRegistry {
         let key = NameKey(name)
         guard let token = tokenByName.removeValue(forKey: key) else { return .unknown }
         remove(key, from: token)
+        needsOrdering = true
         return .removed
     }
 
@@ -111,6 +127,7 @@ final class WindowMarkRegistry {
             tokenByName[name] = newToken
         }
         namesByToken[newToken, default: []].formUnion(names)
+        needsOrdering = true
         return .rekeyed
     }
 
@@ -119,6 +136,7 @@ final class WindowMarkRegistry {
         for name in names {
             tokenByName.removeValue(forKey: name)
         }
+        needsOrdering = true
     }
 
     private func remove(_ name: NameKey, from token: WindowToken) {

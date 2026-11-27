@@ -18,6 +18,38 @@ func measureWindowMarks(in directory: URL) async throws {
 }
 
 @MainActor
+func measureMarkReads(in directory: URL) async throws {
+    let fixture = try ScriptARCFixture(directory: directory.appendingPathComponent("mark-reads"))
+    defer { fixture.script.stop() }
+    _ = try await fixture.acceptTitleScript("omniwm.command('Inspect', function() end)")
+    let registry = fixture.controller.windowMarkRegistry
+    let rowLimit = ConfigScriptSnapshot.rowLimit
+    var populated = 0
+    for (count, route) in [
+        (ScriptARCFixture.workspaceRows, "capture/marks-under-cap"),
+        (rowLimit, "capture/marks-at-cap"),
+        (rowLimit + 1, "capture/marks-over-cap")
+    ] {
+        for index in populated ..< count {
+            let window = WindowToken(
+                pid: fixture.token.pid, windowId: fixture.token.windowId + index % ScriptARCFixture.totalRows
+            )
+            precondition(registry.set("snapshot-audit-mark-\(index)", for: window) == .inserted)
+        }
+        populated = count
+        if count == rowLimit {
+            fixture.snapshot(.marks, route: "capture/marks-ordering", report: true, expectedRows: rowLimit)
+        }
+        for report in [false, true] {
+            fixture.snapshot(.marks, route: route, report: report, expectedRows: min(count, rowLimit))
+        }
+    }
+    for report in [false, true] {
+        fixture.snapshot([], route: "capture/no-marks", report: report)
+    }
+}
+
+@MainActor
 extension ScriptARCFixture {
     private static let markName = "workspace-editor"
     private static let markChord = "Control+Option+M"

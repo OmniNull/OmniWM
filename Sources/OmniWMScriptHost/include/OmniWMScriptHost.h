@@ -413,6 +413,7 @@ typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t l
 #define OMNI_CONFIG_FOCUS_TARGET_NATIVE_FULLSCREEN 1u
 
 #define OMNI_CONFIG_SECTION_DWINDLE 64u
+#define OMNI_CONFIG_SECTION_MARKS 65u
 #define OMNI_CONFIG_DWINDLE_SPLIT 0u
 #define OMNI_CONFIG_DWINDLE_LEAF 1u
 #define OMNI_CONFIG_DWINDLE_HORIZONTAL 0u

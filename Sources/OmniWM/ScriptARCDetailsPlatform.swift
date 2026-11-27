@@ -25,6 +25,8 @@ package func runScriptARCDetailsPlatform(directory: URL) async throws {
     fixture.seedSnapshotFrames(count)
     let queue = try await fixture.acceptTitleScript("omniwm.command('Inspect', function() end)")
     await queue.waitUntilParked()
+    precondition(controller.windowMarkRegistry.set("platform-audit-title", for: fixture.snapshotCachedTitleToken)
+        == .inserted)
     controller.appInfoCache.evict(pid: fixture.token.pid)
     for offset in 0 ..< count {
         AXWindowService.invalidateCachedTitle(windowId: UInt32(fixture.token.windowId + offset))
@@ -37,7 +39,7 @@ package func runScriptARCDetailsPlatform(directory: URL) async throws {
     let reads: ConfigScriptReads = [
         .workspaceWindows, .workspaceWindowFrames, .workspaceWindowColumns, .workspaceWindowDetails,
         .windows, .windowFrames, .windowColumns, .windowDetails, .workspaces, .workspaceDetails,
-        .monitors, .monitorFrames, .monitorDetails
+        .monitors, .monitorFrames, .monitorDetails, .marks
     ]
     let expectedFlags = UInt8(OMNI_CONFIG_SECTION_DETAILS | OMNI_CONFIG_SECTION_FRAMES | OMNI_CONFIG_SECTION_COLUMNS)
     for warm in [false, true] {
@@ -49,6 +51,21 @@ package func runScriptARCDetailsPlatform(directory: URL) async throws {
         let header = capture.snapshot!.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).littleEndian }
         precondition(UInt8(truncatingIfNeeded: header >> 8) == expectedFlags)
         precondition(UInt16(truncatingIfNeeded: header >> 16) == count)
+        precondition(markSectionCount(in: capture.snapshot!) == 1)
+    }
+}
+
+private func markSectionCount(in snapshot: ConfigScriptSnapshot) -> Int? {
+    snapshot.withUnsafeBytes { bytes in
+        var offset = 0
+        while offset < bytes.count {
+            let header = bytes.loadUnaligned(fromByteOffset: offset, as: UInt64.self).littleEndian
+            if UInt8(truncatingIfNeeded: header) == UInt8(OMNI_CONFIG_SECTION_MARKS) {
+                return Int(UInt16(truncatingIfNeeded: header >> 16))
+            }
+            offset += MemoryLayout<UInt64>.size + Int(header >> 32)
+        }
+        return nil
     }
 }
 
