@@ -220,11 +220,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             controller.shellAppCatalog.requestRefresh()
         }
         controller.observeConfirmedSettingsEdits()
-        settings.onConfigNoticeChanged = { [weak self, weak controller] in
-            controller?.refreshDiagnosticsIssues()
-            guard let self, launchOverlayFinished else { return }
-            settingsConfigNoticeController?.refresh()
-        }
+        observeConfigNotices(settings, controller: controller)
     }
 
     func startIPCServer(controller: WMController) throws {
@@ -393,6 +389,19 @@ extension AppDelegate {
             launchOverlayController = nil
             launchOverlayDidFinish(runtimeState: runtimeState, controller: controller)
         }
+    }
+
+    private func observeConfigNotices(_ settings: SettingsStore, controller: WMController) {
+        settings.onConfigNoticeChanged = { [weak self, weak controller] in
+            controller?.refreshDiagnosticsIssues()
+            self?.refreshConfigNotice()
+        }
+        settings.onConfigScriptCallbackErrorChanged = { [weak self] in self?.refreshConfigNotice() }
+    }
+
+    private func refreshConfigNotice() {
+        guard launchOverlayFinished else { return }
+        settingsConfigNoticeController?.refresh()
     }
 
     func launchOverlayDidFinish(runtimeState: RuntimeStateStore, controller: WMController) {

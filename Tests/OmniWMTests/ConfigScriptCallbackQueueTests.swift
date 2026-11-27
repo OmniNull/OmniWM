@@ -203,6 +203,34 @@ final class ConfigScriptCallbackQueueTests: XCTestCase {
         await fixture.script.callbackQueue?.waitUntilParked()
     }
 
+    func testFullQueueRefusalReachesTheNoticeOnceUntilALoadClearsIt() async throws {
+        let fixture = try Fixture(test: self)
+        let lines = ["omniwm.keymap.set('Control+Option+I', function() end)"]
+        fixture.apply(try await fixture.load(lines))
+        let command = try fixture.command
+        let settings = fixture.controller.settings
+        var published: [String?] = []
+        var fullDiagnosticsPasses = 0
+        settings.onConfigScriptCallbackErrorChanged = { published.append(settings.configScriptCallbackError) }
+        settings.onConfigNoticeChanged = { fullDiagnosticsPasses += 1 }
+        defer {
+            settings.onConfigScriptCallbackErrorChanged = nil
+            settings.onConfigNoticeChanged = nil
+        }
+        for _ in 0 ..< ConfigScriptCallbackQueue.capacity {
+            XCTAssertEqual(fixture.press(command), .executed)
+        }
+
+        XCTAssertEqual(fixture.press(command), .windowActionFailed)
+        XCTAssertEqual(fixture.press(command), .windowActionFailed)
+        let refusal = try XCTUnwrap(fixture.script.diagnostic)
+        XCTAssertEqual(published, [refusal])
+        await fixture.script.callbackQueue?.waitUntilParked()
+        fixture.apply(try await fixture.load(lines))
+        XCTAssertEqual(published, [refusal, nil])
+        XCTAssertEqual(fullDiagnosticsPasses, 0)
+    }
+
     func testSettingsRuleChangesUpdateTheDiagnosticBetweenCallbackErrors() async throws {
         let fixture = try Fixture(test: self)
         let rule = AppRule(bundleId: "com.apple.TextEdit", layout: .float)

@@ -36,12 +36,14 @@ final class SettingsStore {
     var onExternalSettingsReloaded: (@MainActor () -> Void)?
     var onConfirmedSettingsEdit: (@MainActor () -> Void)?
     var onConfigNoticeChanged: (@MainActor () -> Void)?
+    var onConfigScriptCallbackErrorChanged: (@MainActor () -> Void)?
     var onTrackpadGestureAvailabilityChanged: (@MainActor (Bool) -> Void)?
     var onPointerSettingsChanged: (@MainActor () -> Void)?
     var onDynamicHotkeysChanged: (@MainActor () -> Void)?
     var liveWorkspaceNamesForHotkeys: (@MainActor () -> [String])?
     var liveShellNamesForHotkeys: (@MainActor () -> [String])?
     private(set) var configNotice: SettingsConfigNotice?
+    @ObservationIgnored var configScriptCallbackError: String?
     var configScriptLoadError: String? {
         didSet { onConfigNoticeChanged?() }
     }

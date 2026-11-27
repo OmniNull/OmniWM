@@ -33,7 +33,8 @@ final class SettingsConfigNoticeController {
         let nextIssue = SettingsConfigDiagnostics.issues(
             directoryURL: settings.settingsFileURL.deletingLastPathComponent(),
             notice: settings.configNotice,
-            scriptLoadError: settings.configScriptLoadError
+            scriptLoadError: settings.configScriptLoadError,
+            scriptCallbackError: settings.configScriptCallbackError
         ).first
         guard nextIssue != issue else { return }
         issue = nextIssue

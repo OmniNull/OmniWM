@@ -217,13 +217,13 @@ final class ConfigScriptController {
                 publishNamedKeyModes()
                 if rulesChanged { onRulesChanged?() }
                 if commandsChanged { onCommandsChanged?() }
-                refreshLoadDiagnostic()
+                publishDiagnostics()
                 installEvents(evaluation?.events ?? [])
                 if let timers = evaluation?.timers, !timers.isEmpty { installTimers(timers) }
                 return true
             }
         }
-        refreshLoadDiagnostic()
+        publishDiagnostics()
         return false
     }
 
@@ -236,34 +236,27 @@ final class ConfigScriptController {
         maskedBindingChords = resolved.masked
         publishNamedKeyModes(masking: resolved.maskedModeKeys)
         bindingConflict = resolved.conflict
-        refreshLoadDiagnostic()
+        publishDiagnostics()
         return resolved.rows
     }
 
     func refreshRuleConflicts() {
         acceptedRuleConflict = ruleConflict(acceptedRules)
-        refreshLoadDiagnostic()
+        publishDiagnostics()
     }
 
     private var loadDiagnostic: String? {
         loadError ?? bindingConflict ?? acceptedRuleConflict
     }
 
-    private func refreshLoadDiagnostic() {
-        refreshDiagnostic()
-        let current = loadDiagnostic
-        if settings.configScriptLoadError != current {
-            settings.configScriptLoadError = current
-        }
-    }
-
-    private func refreshDiagnostic() {
+    private func publishDiagnostics() {
         let configError = loadDiagnostic
         if let configError, let callbackError {
             updateDiagnostic("\(configError)\n\(callbackError)")
         } else {
             updateDiagnostic(configError ?? callbackError)
         }
+        settings.publishConfigScriptErrors(load: configError, callback: callbackError)
     }
 
     struct UnpublishedRefusal: Error {
@@ -285,8 +278,9 @@ final class ConfigScriptController {
     }
 
     func publishCallbackDiagnostic(_ message: String) {
+        guard callbackError != message else { return }
         callbackError = message
-        refreshDiagnostic()
+        publishDiagnostics()
     }
 
     func reportCallbackError(_ error: ConfigScriptError) {

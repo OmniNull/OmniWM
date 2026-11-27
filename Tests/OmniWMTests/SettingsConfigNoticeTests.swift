@@ -183,7 +183,7 @@ final class SettingsConfigNoticeTests: XCTestCase {
         XCTAssertTrue(panel.isVisible)
     }
 
-    func testScriptRecoveryClosesTheNoticeAndCallbackErrorsOpenNone() async throws {
+    func testScriptRecoveryClosesTheNotice() async throws {
         let fixture = try Fixture()
         defer { fixture.close() }
         try await processed(fixture) {
@@ -196,15 +196,72 @@ final class SettingsConfigNoticeTests: XCTestCase {
         XCTAssertNil(fixture.settings.configScriptLoadError)
         XCTAssertNil(fixture.notices.issue)
         XCTAssertFalse(fixture.registry.contains(window: panel))
+    }
 
+    func testCallbackErrorShowsOnceAndClearsWhenTheScriptLoads() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        try await processed(fixture) {
+            try fixture.writeScript(validScript)
+            fixture.script.start()
+        }
         let noticeChanges = fixture.configNoticeChanges
+        var callbackChanges = fixture.callbackErrorChanges
+        let failure = ConfigScriptError(line: brokenScriptLine, message: "callback failed")
+        fixture.script.reportCallbackError(failure)
+        callbackChanges += 1
+        guard case let .configScriptFailed(message) = fixture.notices.issue?.kind else {
+            return XCTFail("Expected the callback error in the notice")
+        }
+        XCTAssertEqual(message, "\(fixture.scriptURL.path):\(brokenScriptLine): \(failure.message)")
+        XCTAssertEqual(fixture.notices.issue?.configFileURL, fixture.scriptURL)
+        XCTAssertEqual(fixture.callbackErrorChanges, callbackChanges)
+        let panel = try fixture.panel()
+
+        fixture.notices.dismiss()
+        fixture.script.reportCallbackError(failure)
+        XCTAssertEqual(fixture.callbackErrorChanges, callbackChanges)
+        XCTAssertFalse(panel.isVisible)
+
+        let replacement = "\(fixture.scriptURL.path):\(brokenScriptLine): another failure"
+        fixture.script.publishCallbackDiagnostic(replacement)
+        callbackChanges += 1
+        XCTAssertEqual(fixture.callbackErrorChanges, callbackChanges)
+        XCTAssertEqual(fixture.notices.issue?.message, replacement)
+        XCTAssertTrue(panel.isVisible)
+
+        try await processed(fixture) { try fixture.writeScript(validScript + "\n", atomic: true) }
+        callbackChanges += 1
+        XCTAssertEqual(fixture.callbackErrorChanges, callbackChanges)
+        XCTAssertEqual(fixture.configNoticeChanges, noticeChanges)
+        XCTAssertNil(fixture.settings.configScriptCallbackError)
+        XCTAssertNil(fixture.script.diagnostic)
+        XCTAssertNil(fixture.notices.issue)
+        XCTAssertFalse(fixture.registry.contains(window: panel))
+    }
+
+    func testLoadErrorComesBeforeTheCallbackErrorAndOneLoadClearsBoth() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        try await processed(fixture) {
+            try fixture.writeScript(validScript)
+            fixture.script.start()
+        }
         let callbackMessage = "\(fixture.scriptURL.path):\(brokenScriptLine): callback failed"
         fixture.script.publishCallbackDiagnostic(callbackMessage)
-        XCTAssertEqual(fixture.script.diagnostic, callbackMessage)
-        XCTAssertNil(fixture.settings.configScriptLoadError)
-        XCTAssertEqual(fixture.configNoticeChanges, noticeChanges)
+        try await processed(fixture) { try fixture.writeScript(brokenScript, atomic: true) }
+        let loadError = try XCTUnwrap(fixture.settings.configScriptLoadError)
+        XCTAssertEqual(fixture.settings.configScriptCallbackError, callbackMessage)
+        XCTAssertEqual(fixture.notices.issue?.message, loadError)
+        XCTAssertEqual(fixture.script.diagnostic, "\(loadError)\n\(callbackMessage)")
+
+        let noticeChanges = fixture.configNoticeChanges
+        let callbackChanges = fixture.callbackErrorChanges
+        try await processed(fixture) { try fixture.writeScript(validScript, atomic: true) }
+        XCTAssertEqual(fixture.configNoticeChanges, noticeChanges + 1)
+        XCTAssertEqual(fixture.callbackErrorChanges, callbackChanges)
+        XCTAssertNil(fixture.settings.configScriptCallbackError)
         XCTAssertNil(fixture.notices.issue)
-        XCTAssertTrue(fixture.registry.visibleWindows().isEmpty)
     }
 
     @MainActor
@@ -216,6 +273,7 @@ final class SettingsConfigNoticeTests: XCTestCase {
         let script: ConfigScriptController
         let notices: SettingsConfigNoticeController
         var configNoticeChanges = 0
+        var callbackErrorChanges = 0
 
         var scriptURL: URL {
             directory.appendingPathComponent(ConfigScriptController.fileName, isDirectory: false)
@@ -251,6 +309,11 @@ final class SettingsConfigNoticeTests: XCTestCase {
             settings.onConfigNoticeChanged = { [weak self] in
                 guard let self else { return }
                 configNoticeChanges += 1
+                notices.refresh()
+            }
+            settings.onConfigScriptCallbackErrorChanged = { [weak self] in
+                guard let self else { return }
+                callbackErrorChanges += 1
                 notices.refresh()
             }
             notices.refresh()

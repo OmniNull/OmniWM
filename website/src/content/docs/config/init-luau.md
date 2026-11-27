@@ -15,7 +15,13 @@ Saving `init.luau`, or any file it loads with `require("./name")`, reloads it. F
 - **A notice shows what went wrong.** It names the file, line and error, and offers **Edit init.luau**. The error is also listed under **Issues Detected** in the status menu. Both clear once a save loads.
 - **`settings.luau` problems show first.** If both files have one, the `settings.luau` notice appears first.
 - **Conflicts reject the whole script.** A shortcut or rule ID that Settings already uses rejects the script, and the notice names it.
-- **Callback errors stay quieter.** An error inside a running callback is listed on **Settings → Keyboard Shortcuts** and in the system log, not in a notice.
+
+## When a callback fails
+
+- **The same notice shows it.** An error inside a running callback, a refused action, or a press dropped because too many are waiting shows in the notice with its file, line and error. It's also listed on **Settings → Keyboard Shortcuts** and in the system log, but not under **Issues Detected**.
+- **A load error comes first.** While a save that didn't load is reported, the notice shows that error. The callback error is still listed on **Settings → Keyboard Shortcuts**.
+- **A repeat stays quiet.** The same error from the same line changes nothing, so a notice you dismissed stays dismissed. A different error shows the notice again.
+- **A save that loads clears it,** together with any load error.
 
 `omniwm.log(...)` writes to the system log. To watch it:
 
@@ -184,7 +190,7 @@ A numeric workspace selector addresses that workspace's numbered ID. A string ca
 `place-in-own-column` gives just that window a column of its own at that position on its Niri workspace. A window that shares its column, even with a minimized or hidden window, leaves it; a window alone in its column moves with it. A larger position puts it last. Like the other column actions, it doesn't change focus.
 
 `focus` also takes a table of checks, made when the focus runs rather than when it's queued:
-- `{ targetOf = id }` focuses the window only if workspace `id` is still the focused workspace, the window is still the one it focuses, and no other window has taken or been asked to take focus since the event or shortcut that ran the callback.
+- `{ targetOf = id }` focuses the window only if workspace `id` is still the focused workspace and the window is still the one it focuses. Focus is also compared with the focus state OmniWM captured for the callback: whatever has focus now, a window, an OmniWM panel or nothing, must be the captured owner or this window, and a pending focus request must be absent, the captured request, or one for this window. Focus that moved away and came back can still pass.
 - `{ nativeFullscreen = true }` focuses it only if it still sits in its own fullscreen Space.
 
 When a check fails, nothing happens, so a callback that was still queued can't pull you back after you've moved on.
