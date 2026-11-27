@@ -84,13 +84,12 @@ extension WindowActionHandler {
             return false
         }
 
-        let insertIndex = focusedColumnIndex + 1
         let sourceLayoutType = layoutType(for: sourceWorkspaceId)
 
         if sourceWorkspaceId == targetWorkspaceId {
             guard controller.niriLayoutHandler.insertWindowInNewColumn(
                 handle: handle,
-                insertIndex: insertIndex,
+                insertIndex: focusedColumnIndex + 1,
                 in: targetWorkspaceId
             ) else {
                 return false
@@ -99,33 +98,24 @@ extension WindowActionHandler {
             return true
         }
 
-        guard controller.workspaceNavigationHandler.moveWindow(
-            handle: handle,
-            toWorkspaceId: targetWorkspaceId
-        ).didMutate else {
+        guard let focusedPosition = engine.projectedColumns(in: targetWorkspaceId)
+            .firstIndex(where: { $0.column === focusedColumn }),
+            controller.workspaceNavigationHandler.moveWindow(
+                handle: handle,
+                toWorkspaceId: targetWorkspaceId,
+                placement: .position(focusedPosition + 1)
+            ).didMutate
+        else {
             return false
         }
 
-        if sourceLayoutType == .dwindle {
-            commitSummonedWindowFocus(
-                token,
-                in: targetWorkspaceId,
-                origin: focusOrigin,
-                rememberedFocusToken: focusedToken,
-                scrollsNiri: true
-            )
-            return true
-        }
-
-        guard controller.niriLayoutHandler.insertWindowInNewColumn(
-            handle: handle,
-            insertIndex: insertIndex,
+        commitSummonedWindowFocus(
+            token,
             in: targetWorkspaceId,
-            sizingPolicy: .inheritSource
-        ) else {
-            return false
-        }
-        commitSummonedWindowFocus(token, in: targetWorkspaceId, origin: focusOrigin, scrollsNiri: true)
+            origin: focusOrigin,
+            rememberedFocusToken: sourceLayoutType == .dwindle ? focusedToken : nil,
+            scrollsNiri: true
+        )
         return true
     }
 
