@@ -71,6 +71,7 @@ enum SettingsFieldID: String, CaseIterable {
     case clipboardMaxItemBytes = "clipboard.maxItemBytes"
     case clipboardMaxItems = "clipboard.maxItems"
     case clipboardMaxTotalBytes = "clipboard.maxTotalBytes"
+    case commandPaletteOpenExpanded = "commandPalette.openExpanded"
     case commandPaletteSearchedModes = "commandPalette.searchedModes"
     case commandPaletteUnifiedSearch = "commandPalette.unifiedSearch"
     case dwindleDefaultSplitRatio = "dwindle.defaultSplitRatio"
