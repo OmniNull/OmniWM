@@ -69,4 +69,79 @@ final class HiddenWindowRevealTests: XCTestCase {
         let onScreenWidth = monitor.visibleFrame.maxX - placement.origin.x
         XCTAssertGreaterThanOrEqual(onScreenWidth, 1.0)
     }
+
+    func testWindowTallerThanItsDisplayIsNotParkedOnTheDisplayBelow() {
+        let laptop = makeMonitor(displayId: 900_101, frame: CGRect(x: 0, y: 0, width: 1710, height: 1112))
+        let below = makeMonitor(displayId: 900_102, frame: CGRect(x: -1069, y: 1112, width: 3840, height: 2160))
+        let size = CGSize(width: 1916, height: below.frame.height - 88)
+
+        let frame = parkedFrame(size: size, from: below.frame.minY + 58, on: laptop, among: [laptop, below])
+
+        XCTAssertTrue(frame.intersection(below.frame).isEmpty, "\(frame)")
+        XCTAssertEqual(frame.minX, laptop.visibleFrame.maxX - 1)
+    }
+
+    func testWindowTallerThanItsDisplayIsNotParkedOnTheDisplayAbove() {
+        let above = makeMonitor(displayId: 900_103, frame: CGRect(x: -1069, y: 0, width: 3840, height: 2160))
+        let laptop = makeMonitor(
+            displayId: 900_104,
+            frame: CGRect(x: 0, y: above.frame.maxY, width: 1710, height: 1112)
+        )
+        let size = CGSize(width: 1916, height: above.frame.height - 88)
+
+        let frame = parkedFrame(size: size, from: above.frame.minY + 58, on: laptop, among: [above, laptop])
+
+        XCTAssertTrue(frame.intersection(above.frame).isEmpty, "\(frame)")
+        XCTAssertEqual(frame.minX, laptop.visibleFrame.maxX - 1)
+    }
+
+    func testWindowFromAnotherDisplayIsParkedWithinItsOwnDisplaysBand() {
+        let laptop = makeMonitor(displayId: 900_105, frame: CGRect(x: 0, y: 0, width: 1710, height: 1112))
+        let below = makeMonitor(displayId: 900_106, frame: CGRect(x: -1069, y: 1112, width: 3840, height: 2160))
+        let size = CGSize(width: 843, height: 1000)
+
+        let frame = parkedFrame(size: size, from: below.frame.minY + 58, on: laptop, among: [laptop, below])
+
+        XCTAssertTrue(frame.intersection(below.frame).isEmpty, "\(frame)")
+        XCTAssertGreaterThanOrEqual(frame.minY, laptop.frame.minY)
+        XCTAssertLessThanOrEqual(frame.maxY, laptop.frame.maxY)
+    }
+
+    func testWindowCarryingAnotherDisplaysPositionStillTouchesItsOwnDisplay() {
+        let laptop = makeMonitor(displayId: 900_107, frame: CGRect(x: 0, y: 0, width: 1710, height: 1112))
+        let below = makeMonitor(displayId: 900_108, frame: CGRect(x: -1069, y: 1112, width: 3840, height: 2160))
+        let size = CGSize(width: 843, height: 1000)
+
+        let frame = parkedFrame(
+            size: size,
+            from: laptop.frame.minY + 66,
+            on: below,
+            among: [laptop, below],
+            edge: .minimum
+        )
+
+        XCTAssertFalse(frame.intersection(below.frame).isEmpty, "\(frame)")
+        XCTAssertTrue(frame.intersection(laptop.frame).isEmpty, "\(frame)")
+        XCTAssertEqual(frame.maxX, below.visibleFrame.minX + 1)
+    }
+
+    private func makeMonitor(displayId: UInt32, frame: CGRect) -> HiddenPlacementMonitorContext {
+        HiddenPlacementMonitorContext(id: Monitor.ID(displayId: displayId), frame: frame, visibleFrame: frame)
+    }
+
+    private func parkedFrame(
+        size: CGSize,
+        from orthogonalOrigin: CGFloat,
+        on monitor: HiddenPlacementMonitorContext,
+        among monitors: [HiddenPlacementMonitorContext],
+        edge: AxisHideEdge = .maximum
+    ) -> CGRect {
+        HiddenWindowPlacementResolver(monitor: monitor, monitors: monitors).placement(
+            for: size,
+            requestedEdge: edge,
+            orthogonalOrigin: orthogonalOrigin,
+            baseReveal: 1.0,
+            orientation: .horizontal
+        ).frame(for: size)
+    }
 }
