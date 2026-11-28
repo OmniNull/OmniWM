@@ -97,6 +97,7 @@ enum ShellAction: Equatable, Sendable {
     case microphone(ShellMicrophoneCommand)
     case brightness(ShellBrightnessCommand)
     case nightShift(ShellNightShiftCommand)
+    case betterDisplay(ShellBetterDisplayCommand)
     case awake(ShellAwakeCommand)
     case media(ShellMediaCommand)
     case calendar(ShellCalendarCommand)
@@ -115,6 +116,7 @@ enum ShellAction: Equatable, Sendable {
         "volume": { ShellVolumeCommand(words: $0).map(ShellAction.volume) },
         "microphone": { ShellMicrophoneCommand(words: $0).map(ShellAction.microphone) },
         "brightness": { ShellBrightnessCommand(words: $0).map(ShellAction.brightness) },
+        "betterdisplay": { ShellBetterDisplayCommand(words: $0).map(ShellAction.betterDisplay) },
         "night-shift": { ShellNightShiftCommand(words: $0).map(ShellAction.nightShift) },
         "media": { ShellMediaCommand(words: $0).map(ShellAction.media) },
         "calendar": { ShellCalendarCommand(words: $0).map(ShellAction.calendar) },

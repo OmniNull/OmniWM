@@ -28,6 +28,10 @@ struct ShellBrightness: Equatable, Sendable, ShellValueWritable {
         if let mainDisplayId { writer.string(mainDisplayId) }
         else { writer.null() }
         writer.key("displays")
+        Self.write(displays, into: &writer)
+    }
+
+    static func write(_ displays: [Display], into writer: inout ShellValueWriter) {
         writer.array(displays.count)
         for display in displays {
             writer.map(4)
@@ -185,7 +189,7 @@ final class ShellDisplayBrightness: ShellDeviceSource {
         return succeeded
     }
 
-    private func refresh() {
+    func refresh() {
         guard listening else { return }
         let mainId = access.display()
         let main = access.snapshot(for: mainId)

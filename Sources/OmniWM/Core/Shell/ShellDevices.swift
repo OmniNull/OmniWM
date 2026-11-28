@@ -27,6 +27,7 @@ final class ShellDevices {
     let thermal = ThermalMonitor()
     let appearance = AppearanceMonitor()
     let brightness: ShellDisplayBrightness
+    let betterDisplay: ShellBetterDisplayMonitor
     let nightShift: ShellNightShiftMonitor
     let spectrum: AudioSpectrumMonitor
 
@@ -35,6 +36,7 @@ final class ShellDevices {
         wifi: WiFiMonitor = WiFiMonitor(),
         wifiNetworks: WiFiNetworksMonitor = WiFiNetworksMonitor(),
         brightness: ShellDisplayBrightness = ShellDisplayBrightness(),
+        betterDisplay: ShellBetterDisplayMonitor = ShellBetterDisplayMonitor(),
         nightShift: ShellNightShiftMonitor = ShellNightShiftMonitor(),
         spectrum: AudioSpectrumMonitor = AudioSpectrumMonitor()
     ) {
@@ -42,8 +44,11 @@ final class ShellDevices {
         self.wifi = wifi
         self.wifiNetworks = wifiNetworks
         self.brightness = brightness
+        self.betterDisplay = betterDisplay
         self.nightShift = nightShift
         self.spectrum = spectrum
+        betterDisplay.onBrightnessSupportLoss = brightness.refresh
+        betterDisplay.onNightShiftSupportLoss = nightShift.refresh
     }
 
     func perform(_ command: ShellWiFiCommand) {
@@ -66,9 +71,21 @@ extension ShellDataFeed {
         listen(devices.user, !paused && demands(.user), into: \.user)
         listen(devices.thermal, !paused && demands(.thermal), into: \.thermal)
         listen(devices.appearance, !paused && demands(.appearance), into: \.appearance)
-        listen(devices.brightness, !paused && demands(.brightness), into: \.brightness)
-        listen(devices.nightShift, !paused && demands(.nightShift), into: \.nightShift)
+        listenToDisplays(devices)
         listen(devices.spectrum, !paused && (demands(.spectrum) || demands(.tempo)), into: \.spectrum)
+    }
+
+    private func listenToDisplays(_ devices: ShellDevices) {
+        let brightness = !paused && demands(.brightness)
+        let nightShift = !paused && demands(.nightShift)
+        // Starting BetterDisplay can refresh both natives synchronously. Bind their values together afterward.
+        devices.brightness.onChange = nil
+        devices.nightShift.onChange = nil
+        devices.brightness.setListening(brightness)
+        devices.nightShift.setListening(nightShift)
+        listen(devices.betterDisplay, !paused && demands(.betterDisplay), into: \.betterDisplay)
+        bind(devices.brightness, brightness, into: \.brightness)
+        bind(devices.nightShift, nightShift, into: \.nightShift)
     }
 
     func stopDevices(_ devices: ShellDevices) {
@@ -82,6 +99,7 @@ extension ShellDataFeed {
         listen(devices.thermal, false, into: \.thermal)
         listen(devices.appearance, false, into: \.appearance)
         listen(devices.brightness, false, into: \.brightness)
+        listen(devices.betterDisplay, false, into: \.betterDisplay)
         listen(devices.nightShift, false, into: \.nightShift)
         listen(devices.spectrum, false, into: \.spectrum)
     }
@@ -92,6 +110,14 @@ extension ShellDataFeed {
         into path: WritableKeyPath<ShellWidgetData, Source.Value?>
     ) {
         source.setListening(listening)
+        bind(source, listening, into: path)
+    }
+
+    private func bind<Source: ShellDeviceSource>(
+        _ source: Source,
+        _ listening: Bool,
+        into path: WritableKeyPath<ShellWidgetData, Source.Value?>
+    ) {
         guard listening else {
             source.onChange = nil
             data[keyPath: path] = nil

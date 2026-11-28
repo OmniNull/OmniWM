@@ -18836,6 +18836,28 @@
         }
       }
     },
+    "Open BetterDisplay Menu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open BetterDisplay Menu"
+          }
+        }
+      }
+    },
+    "Open BetterDisplay Menu. Check BetterDisplay’s notification integration if it does not open." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open BetterDisplay Menu. Check BetterDisplay’s notification integration if it does not open."
+          }
+        }
+      }
+    },
     "Main Display" : {
       "extractionState" : "manual",
       "localizations" : {

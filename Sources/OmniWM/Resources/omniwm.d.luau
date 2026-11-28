@@ -381,6 +381,13 @@ export type NightShift = {
     enabled: boolean,
 }
 
+export type BetterDisplay = {
+    running: boolean,
+    available: boolean,
+    displays: { DisplayBrightness },
+    nightShift: NightShift,
+}
+
 export type NotificationAction = {
     id: string,
     title: string,
@@ -702,6 +709,7 @@ export type Data = {
     commandPalette: CommandPalette?,
     nightShift: NightShift?,
     wifiNetworks: WiFiNetworks?,
+    betterDisplay: BetterDisplay?,
 }
 
 export type Format = {

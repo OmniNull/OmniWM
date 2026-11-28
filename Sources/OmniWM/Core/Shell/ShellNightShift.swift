@@ -57,8 +57,13 @@ final class ShellNightShiftMonitor: ShellDeviceSource {
     func setListening(_ listening: Bool) {
         guard self.listening != listening else { return }
         self.listening = listening
-        if listening { publish(access.snapshot()) }
+        if listening { refresh() }
         else { value = nil }
+    }
+
+    func refresh() {
+        guard listening else { return }
+        publish(access.snapshot())
     }
 
     @discardableResult

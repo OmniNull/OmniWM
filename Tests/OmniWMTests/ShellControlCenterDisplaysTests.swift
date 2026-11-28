@@ -14,7 +14,7 @@ final class ShellControlCenterDisplaysTests: XCTestCase {
         let tab = try XCTUnwrap(widget.renderPopout().first {
             widget.text.string($0.content.help) == ShellLocalizer.string("Displays", [])
         })
-        let demand = ShellDataKey.brightness.bit | ShellDataKey.nightShift.bit
+        let demand = ShellDataKey.brightness.bit | ShellDataKey.nightShift.bit | ShellDataKey.betterDisplay.bit
         XCTAssertEqual(renderDependencies(widget) & demand, 0)
         XCTAssertEqual(widget.invoke(tab.content.action, view: OMNI_VIEW_POPOUT), [])
 
@@ -56,6 +56,8 @@ final class ShellControlCenterDisplaysTests: XCTestCase {
         XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains("External"))
         let first = try XCTUnwrap(controls.first).content.action
         let last = try XCTUnwrap(controls.last).content.action
+        let began = ShellEvent(value: 0.31, phase: .began, kind: .slider)
+        XCTAssertEqual(widget.invoke(first, view: OMNI_VIEW_POPOUT, event: began), [])
         let changed = ShellEvent(value: 0.37, phase: .changed, kind: .slider)
         XCTAssertEqual(widget.invoke(first, view: OMNI_VIEW_POPOUT, event: changed), [])
         XCTAssertEqual(sliders(widget).map(\.content.value), [370, 0])
@@ -63,9 +65,11 @@ final class ShellControlCenterDisplaysTests: XCTestCase {
         XCTAssertEqual(widget.invoke(first, view: OMNI_VIEW_POPOUT, event: cancelled), [])
         XCTAssertEqual(sliders(widget).map(\.content.value), [600, 0])
         let ended = ShellEvent(value: 0.37, phase: .ended, kind: .slider)
+        XCTAssertEqual(widget.invoke(first, view: OMNI_VIEW_POPOUT, event: began), [])
         XCTAssertEqual(
             widget.invoke(first, view: OMNI_VIEW_POPOUT, event: ended), ["brightness display \(builtIn.id) set 37"]
         )
+        XCTAssertEqual(widget.invoke(last, view: OMNI_VIEW_POPOUT, event: began), [])
         let zero = ShellEvent(value: 0, phase: .ended, kind: .slider)
         XCTAssertEqual(
             widget.invoke(last, view: OMNI_VIEW_POPOUT, event: zero), ["brightness display \(studio.id) set 0"]
@@ -89,6 +93,8 @@ final class ShellControlCenterDisplaysTests: XCTestCase {
             XCTAssertEqual(controls.map(\.content.value), [250] + displays.map { UInt32($0.value * 10) })
             let legacy = try XCTUnwrap(controls.first).content
             XCTAssertEqual(widget.text.string(legacy.help), ShellLocalizer.string("Main Display", []))
+            let began = ShellEvent(value: 0.37, phase: .began, kind: .slider)
+            XCTAssertEqual(widget.invoke(legacy.action, view: OMNI_VIEW_POPOUT, event: began), [])
             XCTAssertEqual(widget.invoke(legacy.action, view: OMNI_VIEW_POPOUT, event: ended), ["brightness set 37"])
         }
         widget.set("brightness") {
@@ -120,6 +126,172 @@ final class ShellControlCenterDisplaysTests: XCTestCase {
         XCTAssertEqual(scroll.layout.height, 240)
         XCTAssertEqual(tree.filter { $0.kind == .slider }.count, displays.count)
         XCTAssertTrue(commands(widget).contains("brightness settings"))
+    }
+
+    func testBrightnessOnlyBetterDisplayMergesDisplaysByUUIDAndKeepsNativeNightShift() throws {
+        let widget = try makeWidget()
+        let studio = ShellBrightness.Display(id: UUID().uuidString, name: "Studio", value: 12, available: true)
+        let builtIn = ShellBrightness.Display(id: UUID().uuidString, name: "Built-in", value: 60, available: true)
+        let nativeOnly = ShellBrightness.Display(id: UUID().uuidString, name: "Native only", value: 30, available: true)
+        let managedOnly = ShellBrightness.Display(
+            id: UUID().uuidString,
+            name: "Managed only",
+            value: 40,
+            available: true
+        )
+        let projector = ShellBrightness.Display(id: UUID().uuidString, name: "Projector", value: 0, available: false)
+        let managedStudio = ShellBrightness.Display(id: studio.id, name: studio.name, value: 75, available: true)
+        let unsupportedBuiltIn = ShellBrightness.Display(id: builtIn.id, name: builtIn.name, value: 0, available: false)
+        widget.set("brightness") {
+            ShellBrightness(mainDisplayId: studio.id, displays: [studio, builtIn, nativeOnly]).write(into: &$0)
+        }
+        widget.set("nightShift") { ShellNightShift(available: true, enabled: false).write(into: &$0) }
+        widget.set("betterDisplay") {
+            ShellBetterDisplay(running: true, displays: [managedStudio, unsupportedBuiltIn, managedOnly, projector])
+                .write(into: &$0)
+        }
+
+        let labels = sliders(widget).map { widget.text.string($0.content.help) }
+        XCTAssertEqual(labels.sorted(), [studio.name, builtIn.name, nativeOnly.name, managedOnly.name].sorted())
+        XCTAssertTrue(widget.strings(OMNI_VIEW_POPOUT).contains(projector.name))
+        XCTAssertEqual(commands(widget).filter { $0.contains("night-shift ") }, ["night-shift on"])
+        let native = ShellDataKey.brightness.bit | ShellDataKey.nightShift.bit
+        XCTAssertEqual(renderDependencies(widget) & native, native)
+        let menu = try XCTUnwrap(widget.renderPopout()
+            .first { widget.text.string($0.content.action) == "betterdisplay menu" })
+        XCTAssertEqual(widget.text.string(menu.content.help), ShellLocalizer.string("Open BetterDisplay Menu", []))
+
+        for (display, command) in [
+            (managedStudio, "betterdisplay brightness \(studio.id)"),
+            (builtIn, "brightness display \(builtIn.id)"),
+            (nativeOnly, "brightness display \(nativeOnly.id)"),
+            (managedOnly, "betterdisplay brightness \(managedOnly.id)")
+        ] {
+            let control = try XCTUnwrap(sliders(widget).first { widget.text.string($0.content.help) == display.name })
+            XCTAssertEqual(control.content.value, UInt32(display.value * 10))
+            let began = ShellEvent(value: 0.29, phase: .began, kind: .slider)
+            let ended = ShellEvent(value: 0.29, phase: .ended, kind: .slider)
+            XCTAssertEqual(widget.invoke(control.content.action, view: OMNI_VIEW_POPOUT, event: began), [])
+            XCTAssertEqual(
+                widget.invoke(control.content.action, view: OMNI_VIEW_POPOUT, event: ended), ["\(command) set 29"]
+            )
+        }
+    }
+
+    func testNightShiftOnlyBetterDisplayKeepsNativeBrightness() throws {
+        let widget = try makeWidget()
+        widget.set("brightness") { ShellBrightness(value: 33, available: true).write(into: &$0) }
+        widget.set("nightShift") { ShellNightShift(available: true, enabled: false).write(into: &$0) }
+
+        for enabled in [false, true] {
+            widget.set("betterDisplay") {
+                ShellBetterDisplay(running: true, nightShift: ShellNightShift(available: true, enabled: enabled))
+                    .write(into: &$0)
+            }
+            XCTAssertEqual(sliders(widget).map(\.content.value), [330])
+            XCTAssertEqual(commands(widget).filter { $0.contains("night-shift ") }, [
+                enabled ? "betterdisplay night-shift off" : "betterdisplay night-shift on"
+            ])
+        }
+    }
+
+    func testUnavailableBetterDisplayFallsBackAndMenuFollowsRunningState() throws {
+        let widget = try makeWidget()
+        widget.set("brightness") { ShellBrightness(value: 33, available: true).write(into: &$0) }
+        widget.set("nightShift") { ShellNightShift(available: true, enabled: false).write(into: &$0) }
+
+        for running in [true, false] {
+            widget.set("betterDisplay") { ShellBetterDisplay(running: running).write(into: &$0) }
+            XCTAssertEqual(sliders(widget).map(\.content.value), [330])
+            XCTAssertTrue(commands(widget).contains("night-shift on"))
+            XCTAssertEqual(commands(widget).contains("betterdisplay menu"), running)
+        }
+    }
+
+    func testNightShiftReleaseAfterProviderOrTargetChangesSendsNoCommand() throws {
+        let widget = try makeWidget()
+        widget.set("nightShift") { ShellNightShift(available: true, enabled: false).write(into: &$0) }
+        widget.layoutPopout()
+
+        func center(of action: String) throws -> CGPoint {
+            let handle = try XCTUnwrap(widget.surface.layout.core.elements {
+                widget.text.string($0.action) == action
+            }.first)
+            let frame = CGRect(widget.surface.layout.core.absoluteFrame(of: handle))
+            return CGPoint(x: frame.midX, y: frame.midY)
+        }
+
+        for (previous, enabled, next) in [
+            ("night-shift on", false, "betterdisplay night-shift on"),
+            ("betterdisplay night-shift on", true, "betterdisplay night-shift off")
+        ] {
+            widget.surface.press(at: try center(of: previous))
+            widget.set("betterDisplay") {
+                ShellBetterDisplay(running: true, nightShift: ShellNightShift(available: true, enabled: enabled))
+                    .write(into: &$0)
+            }
+            widget.layoutPopout()
+            widget.surface.release(at: try center(of: next))
+            XCTAssertTrue(widget.clicks.isEmpty)
+        }
+        let point = try center(of: "betterdisplay night-shift off")
+        widget.surface.press(at: point)
+        widget.surface.release(at: point)
+        XCTAssertEqual(widget.clicks.last?.action, "betterdisplay night-shift off")
+    }
+
+    func testChangingProviderForAnotherDisplayPreservesBrightnessDrag() throws {
+        let widget = try makeWidget()
+        let studio = ShellBrightness.Display(id: UUID().uuidString, name: "Studio", value: 10, available: true)
+        let external = ShellBrightness.Display(id: UUID().uuidString, name: "External", value: 60, available: true)
+        widget.set("brightness") {
+            ShellBrightness(mainDisplayId: studio.id, displays: [studio, external]).write(into: &$0)
+        }
+        let slider = try XCTUnwrap(sliders(widget).first { widget.text.string($0.content.help) == studio.name })
+        let began = ShellEvent(value: 0.41, phase: .began, kind: .slider)
+        XCTAssertEqual(widget.invoke(slider.content.action, view: OMNI_VIEW_POPOUT, event: began), [])
+
+        widget.set("betterDisplay") { ShellBetterDisplay(running: true, displays: [external]).write(into: &$0) }
+        let retained = try XCTUnwrap(sliders(widget).first { widget.text.string($0.content.help) == studio.name })
+        XCTAssertEqual(retained.content.value, 410)
+        let ended = ShellEvent(value: 0.47, phase: .ended, kind: .slider)
+        XCTAssertEqual(widget.invoke(retained.content.action, view: OMNI_VIEW_POPOUT, event: ended), [
+            "brightness display \(studio.id) set 47"
+        ])
+    }
+
+    func testChangingProviderDuringBrightnessDragCannotAdjustEitherDisplay() throws {
+        let widget = try makeWidget()
+        let id = UUID().uuidString
+        let native = ShellBrightness.Display(id: id, name: "Studio", value: 10, available: true)
+        let managed = ShellBrightness.Display(id: id, name: "Studio", value: 80, available: true)
+        widget.set("brightness") { ShellBrightness(mainDisplayId: id, displays: [native]).write(into: &$0) }
+        let nightShift = ShellNightShift(available: true, enabled: true)
+        widget.set("betterDisplay") { ShellBetterDisplay(running: true, nightShift: nightShift).write(into: &$0) }
+        let began = ShellEvent(value: 0.41, phase: .began, kind: .slider)
+        let ended = ShellEvent(value: 0.47, phase: .ended, kind: .slider)
+
+        let nativeSlider = try XCTUnwrap(sliders(widget).first).content.action
+        XCTAssertEqual(widget.invoke(nativeSlider, view: OMNI_VIEW_POPOUT, event: began), [])
+        widget.set("betterDisplay") {
+            ShellBetterDisplay(running: true, displays: [managed], nightShift: nightShift).write(into: &$0)
+        }
+        // Data can change before the replacement slider renders.
+        XCTAssertEqual(widget.invoke(nativeSlider, view: OMNI_VIEW_POPOUT, event: ended), [])
+        let controls = sliders(widget)
+        XCTAssertEqual(controls.map(\.content.value), [800])
+        let managedSlider = try XCTUnwrap(controls.first).content.action
+        XCTAssertEqual(widget.invoke(managedSlider, view: OMNI_VIEW_POPOUT, event: began), [])
+        XCTAssertEqual(sliders(widget).map(\.content.value), [410])
+        widget.set("betterDisplay") { ShellBetterDisplay(running: true, nightShift: nightShift).write(into: &$0) }
+        let replacements = sliders(widget)
+        XCTAssertEqual(replacements.map(\.content.value), [100])
+        let replacement = try XCTUnwrap(replacements.first).content.action
+        XCTAssertEqual(widget.invoke(replacement, view: OMNI_VIEW_POPOUT, event: ended), [])
+        widget.set("betterDisplay") {
+            ShellBetterDisplay(running: true, displays: [managed], nightShift: nightShift).write(into: &$0)
+        }
+        XCTAssertEqual(sliders(widget).map(\.content.value), [800])
     }
 
     private func makeWidget(tab: String = "displays") throws -> ShellRenderedWidget {

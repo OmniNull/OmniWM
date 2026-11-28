@@ -34,45 +34,80 @@ local function card(props)
     return look.group(props)
 end
 
-local function brightnessSlider(ctx, display)
-    local id = display.id or "main"
+local function brightnessControls(data)
+    local controls, order = {}, {}
+    local function add(id, display, command)
+        if not controls[id] then
+            table.insert(order, id)
+        elseif not display.available then
+            return
+        end
+        controls[id] = { display = display, command = if display.available then command else nil }
+    end
+
+    local native = data.brightness
+    if native then
+        if native.available and not native.mainDisplayId then
+            add("main", { name = omniwm.l10n("Main Display"), value = native.value, available = true }, "brightness")
+        end
+        for _, display in native.displays or {} do
+            add(display.id, display, "brightness display " .. display.id)
+        end
+    end
+    local integration = data.betterDisplay
+    if integration and integration.running then
+        for _, display in integration.displays or {} do
+            add(display.id, display, "betterdisplay brightness " .. display.id)
+        end
+    end
+    return controls, order
+end
+
+local function brightnessSlider(ctx, id, control)
+    local display, command = control.display, control.command
     local drag = ctx.state.brightnessDrag
-    local level = if drag and drag.id == id then drag.level else display.value / 100
-    local command = if display.id then "brightness display " .. display.id else "brightness"
+    local level = if drag and drag.command == command then drag.level else display.value / 100
     return ui.row{ w = INNER, gap = 8,
         look.glyph{ name = "sun.max", w = 18, h = 18 },
-        ui.slider{ key = "display-brightness-" .. id, value = level, w = INNER - 76, h = 16,
-            color = "accent", help = display.name, onChange = function(owner, event)
-                local value = event.value and math.clamp(event.value, 0, 1)
-                if event.phase == "ended" or event.phase == "cancelled" then
+        ui.slider{ key = command, value = level, w = INNER - 76, h = 16, color = "accent",
+            help = display.name, onChange = function(owner, event)
+                local active = owner.state.brightnessDrag
+                local controls = brightnessControls(owner.data)
+                if active and (not controls[active.id] or controls[active.id].command ~= active.command) then
                     owner.state.brightnessDrag = nil
-                    if event.phase == "ended" and value then
-                        omniwm.run(string.format("%s set %d", command, math.round(value * 100)))
+                    active = nil
+                end
+                if not controls[id] or controls[id].command ~= command then return end
+                local value = event.value and math.clamp(event.value, 0, 1)
+                if event.phase == "began" and value then
+                    owner.state.brightnessDrag = { id = id, command = command, level = value }
+                elseif active and active.command == command then
+                    if event.phase == "ended" or event.phase == "cancelled" then
+                        owner.state.brightnessDrag = nil
+                        if event.phase == "ended" and value then
+                            omniwm.run(string.format("%s set %d", command, math.round(value * 100)))
+                        end
+                    elseif value then
+                        active.level = value
                     end
-                elseif value then
-                    owner.state.brightnessDrag = { id = id, level = value }
                 end
             end },
         look.text{ text = ctx.format.percent(level), size = 12, w = 42, reserve = ctx.format.percent(1) } }
 end
 
 local function brightnessCard(ctx, unavailable: string)
-    local brightness = ctx.data.brightness
-    local displays = brightness and brightness.displays or {}
-    if brightness and brightness.available and not brightness.mainDisplayId then
-        displays = table.clone(displays)
-        table.insert(displays, 1, { name = omniwm.l10n("Main Display"), value = brightness.value, available = true })
-    end
+    local controls, order = brightnessControls(ctx.data)
     local rows = { w = INNER, gap = 8, center = false }
-    for _, display in displays do
-        local control = if display.available then brightnessSlider(ctx, display) else
+    for _, id in order do
+        local control = controls[id]
+        local slider = if control.command then brightnessSlider(ctx, id, control) else
             look.text{ text = unavailable, size = 13, color = "secondaryForeground" }
         rows[#rows + 1] = ui.column{ w = INNER, gap = 4, center = false,
-            look.text{ text = display.name, size = 13, maxWidth = INNER }, control }
+            look.text{ text = control.display.name, size = 13, maxWidth = INNER }, slider }
     end
-    if #displays == 0 then
+    if #order == 0 then
         rows[#rows + 1] = look.text{ text = unavailable, size = 13, color = "secondaryForeground" }
-    elseif #displays > 5 then
+    elseif #order > 5 then
         rows.h = 240
         rows.scroll = true
     end
@@ -81,14 +116,19 @@ end
 
 local function displaysTab(ctx)
     local unavailable = omniwm.l10n("Unavailable")
-    local nightShift = ctx.data.nightShift
+    local integration = ctx.data.betterDisplay
+    local managed = integration and integration.running and integration.nightShift
+    local useBetterDisplay = managed and managed.available
+    local nightShift = if useBetterDisplay then managed else ctx.data.nightShift
     local available = nightShift and nightShift.available
     local enabled = available and nightShift.enabled
     local nightShiftStatus = if not available then unavailable elseif enabled then omniwm.l10n("On") else omniwm.l10n("Off")
+    local prefix = if useBetterDisplay then "betterdisplay night-shift " else "night-shift "
+    local nightShiftCommand = if available then prefix .. (if enabled then "off" else "on") else nil
     return ui.column{ w = CONTENT, gap = 8, center = false,
         brightnessCard(ctx, unavailable),
-        card{ hover = if available then look.hover else nil,
-            onClick = if not available then nil elseif enabled then "night-shift off" else "night-shift on",
+        card{ key = nightShiftCommand or "night-shift-unavailable", hover = if available then look.hover else nil,
+            onClick = nightShiftCommand,
             ui.row{ w = INNER, gap = 8,
                 look.glyph{ name = "sun.horizon", w = 22, h = 16,
                     color = if enabled then "accent" else "secondaryForeground" },
@@ -253,6 +293,14 @@ function popout(ctx: Context)
             state.state.tab = tab.id
         end, { w = tabWidth, h = 30, help = tab.label, fill = if active then "foreground/0.10" else nil })
     end
-    local props = { w = CONTENT + 28, look.heading(title), ui.row(tabs), SECTIONS[current](ctx) }
+    local heading = look.heading(title)
+    local integration = if current == "displays" then ctx.data.betterDisplay else nil
+    if integration and integration.running then
+        local help = if integration.available then omniwm.l10n("Open BetterDisplay Menu")
+            else omniwm.l10n("Open BetterDisplay Menu. Check BetterDisplay’s notification integration if it does not open.")
+        heading = ui.row{ w = CONTENT, heading, ui.box{ grow = 1 },
+            look.button("menubar.rectangle", "betterdisplay menu", { help = help }) }
+    end
+    local props = { w = CONTENT + 28, heading, ui.row(tabs), SECTIONS[current](ctx) }
     return look.controlCenterPanel and look.controlCenterPanel(ctx, props) or look.panel(ctx, props)
 end
