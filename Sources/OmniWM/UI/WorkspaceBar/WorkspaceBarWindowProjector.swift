@@ -20,12 +20,6 @@ struct WorkspaceBarWindowProjector {
         self.iconResolver = iconResolver
     }
 
-    private enum AppGroupKey: Hashable {
-        case hosted(String)
-        case bundleId(String)
-        case pid(pid_t)
-    }
-
     func isExcluded(
         _ entry: WindowState,
         options: WorkspaceBarProjectionOptions
@@ -72,32 +66,23 @@ struct WorkspaceBarWindowProjector {
         focusedToken: WindowToken?,
         hiddenAppPIDs: Set<pid_t>
     ) -> [WorkspaceBarWindowItem] {
-        var indicesByApp: [AppGroupKey: [Int]] = [:]
-        var appOrder: [AppGroupKey] = []
-        indicesByApp.reserveCapacity(order.count)
-        appOrder.reserveCapacity(order.count)
+        var grouping = WorkspaceBarPillGrouping()
+        grouping.group(
+            count: order.count,
+            deduplicating: true,
+            source: PillSource(
+                projector: self, entries: entries, order: order,
+                focusedToken: focusedToken, hiddenAppPIDs: hiddenAppPIDs
+            )
+        )
 
-        for index in order {
-            let groupKey = appGroupKey(for: entries[index])
-            if indicesByApp[groupKey] == nil {
-                indicesByApp[groupKey] = []
-                appOrder.append(groupKey)
-            }
-            indicesByApp[groupKey]?.append(index)
-        }
-
-        let indexedItems = appOrder.enumerated().compactMap { position, groupKey -> (Int, WorkspaceBarWindowItem)? in
-            guard let appIndices = indicesByApp[groupKey],
-                  let item = createDeduplicatedWindowItem(
-                      entries: entries,
-                      indices: appIndices,
-                      focusedToken: focusedToken,
-                      hiddenAppPIDs: hiddenAppPIDs
-                  )
-            else {
-                return nil
-            }
-            return (position, item)
+        let indexedItems = grouping.pills.compactMap { pill -> (Int, WorkspaceBarWindowItem)? in
+            createDeduplicatedWindowItem(
+                entries: entries,
+                indices: grouping.members(of: pill).map { order[$0] },
+                focusedToken: focusedToken,
+                hiddenAppPIDs: hiddenAppPIDs
+            ).map { (pill.position, $0) }
         }
 
         if useLayoutOrder {
@@ -105,14 +90,35 @@ struct WorkspaceBarWindowProjector {
         }
 
         return indexedItems.sorted {
-            if $0.1.isAppHidden != $1.1.isAppHidden {
-                return !$0.1.isAppHidden
-            }
-            if $0.1.appName != $1.1.appName {
-                return $0.1.appName < $1.1.appName
-            }
-            return $0.0 < $1.0
+            WorkspaceBarPill.sortsBefore(
+                .init(hidden: $0.1.isAppHidden, position: $0.0), named: $0.1.appName,
+                .init(hidden: $1.1.isAppHidden, position: $1.0), named: $1.1.appName
+            )
         }.map(\.1)
+    }
+
+    private struct PillSource: WorkspaceBarPillSource {
+        let projector: WorkspaceBarWindowProjector
+        let entries: [WindowState]
+        let order: [Int]
+        let focusedToken: WindowToken?
+        let hiddenAppPIDs: Set<pid_t>
+
+        func key(of member: Int) -> WorkspaceBarAppKey {
+            projector.appKey(for: entries[order[member]])
+        }
+
+        func isSameApp(_ member: Int, as first: Int) -> Bool {
+            projector.isSameApp(entries[order[member]], as: entries[order[first]])
+        }
+
+        func isHidden(_ member: Int) -> Bool {
+            hiddenAppPIDs.contains(entries[order[member]].pid)
+        }
+
+        func isFocused(_ member: Int) -> Bool {
+            entries[order[member]].token == focusedToken
+        }
     }
 
     private func createDeduplicatedWindowItem(
@@ -216,14 +222,20 @@ struct WorkspaceBarWindowProjector {
         return fallback
     }
 
-    private func appGroupKey(
-        for entry: WindowState
-    ) -> AppGroupKey {
-        if let hosted = entry.target.hostedMetadata { return .hosted(hosted.appId) }
-        if let bundleId = bundleId(for: entry) {
-            return .bundleId(bundleId.lowercased())
+    private func appKey(for entry: WindowState) -> WorkspaceBarAppKey {
+        if let hosted = entry.target.hostedMetadata { return .hosted(appId: hosted.appId) }
+        return bundleId(for: entry).flatMap { WorkspaceBarAppKey.bundle($0) } ?? .process(entry.pid)
+    }
+
+    private func isSameApp(_ entry: WindowState, as first: WindowState) -> Bool {
+        if let hosted = entry.target.hostedMetadata { return first.target.hostedMetadata?.appId == hosted.appId }
+        if entry.pid == first.pid, entry.managedReplacementMetadata?.bundleId == nil,
+           first.managedReplacementMetadata?.bundleId == nil
+        {
+            return true
         }
-        return .pid(entry.pid)
+        guard let entryBundle = bundleId(for: entry), let firstBundle = bundleId(for: first) else { return true }
+        return WorkspaceBarAppKey.sameBundle(entryBundle, firstBundle)
     }
 
     private func bundleId(

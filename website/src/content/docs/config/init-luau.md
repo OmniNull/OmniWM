@@ -100,6 +100,7 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `marks` | Resolved [window marks](#window-marks), ordered by the UTF-8 bytes of their names |
 | `apps` | A summary of apps with managed windows, ordered by app name |
 | `rules` | Saved window rules in Settings order, with validation results |
+| `workspaceBar` | The workspace bar's displays, workspaces, scratchpads and app pills: one record |
 | `placement` | Where the focused window sits: one record, not a list |
 | `focusTarget` | The window the callback's workspace focuses: one record |
 | `dwindle` | The callback's workspace's Dwindle tree: one record |
@@ -119,6 +120,13 @@ The list shares its order with `omniwmctl window mark list` and skips marks whos
 Each `ctx.apps` row has `bundleId`, an optional cached `name`, and optional `windowWidth` and `windowHeight` from a representative window's last known frame. Apps without a known bundle ID are grouped by process and have an empty `bundleId`. The grouping and name order follow `omniwmctl query apps`. The CLI can fetch live app metadata and window bounds. A callback uses cached facts, so its sizes can be absent or older than the live values.
 
 Each `ctx.rules` row has the [window rule fields](#window-rules), its `id`, one-based `position`, and native `specificity`. `isValid`, `invalidRegexMessage` and the ordered `validationMessages` report the saved rule's validation. The rows update when Settings loads or the saved rules change in Settings or through the CLI. Rules from `init.luau` are outside this list.
+
+`ctx.workspaceBar` matches `omniwmctl query workspace-bar` without icons or frames. Its `interactionDisplay` is the `id` of the display OmniWM acts on, and `displays` lists each display in the same order as the CLI.
+- **A display** has `id`, `name`, `enabled`, `showLabels`, `backgroundOpacity`, `barHeight`, `workspaces` and `scratchpads`. Its `visible` reports whether a bar panel is shown there now, so it can trail the CLI's `is-visible` for a moment while an auto-hide change is applied.
+- **A workspace** has `id`, `rawName`, `displayName`, an optional `number`, `focused`, and its app pills in `windows`: tiled windows first, then floating ones. **A scratchpad** has `index`, an optional `label`, `visible` and its app pills in `windows`.
+- **An app pill** has the `id` of its first window, an optional `bundleId` and `name`, `focused`, `windowCount`, and `windows`, each `{ id, title?, focused }`. Pills follow the bar's grouping and order.
+
+Names, bundle IDs and titles come from OmniWM's caches only. An app OmniWM hasn't seen yet has no `name` and is grouped by process, and a window without a cached title shows its app's cached name. If `truncated.workspaceBar` is `true`, the last pills were cut off.
 
 With `details`, a window row can also contain these fields.
 
@@ -344,6 +352,27 @@ wm.command("Show Editor Mark", function(ctx: ConfigContext)
         wm.notify("No window is marked " .. name .. ".")
     end
 end, { reads = { "marks" } })
+```
+
+**Count the apps on each workspace.** Run **Show Workspace Apps** from the command palette to see how many app pills each workspace shows on the display OmniWM acts on.
+
+```lua
+omniwm.command("Show Workspace Apps", function(ctx: ConfigContext)
+    local bar = ctx.workspaceBar
+    if not bar then
+        return
+    end
+    for _, display in bar.displays do
+        if display.id == bar.interactionDisplay then
+            local parts = {}
+            for _, workspace in display.workspaces do
+                table.insert(parts, workspace.displayName .. ": " .. #workspace.windows)
+            end
+            omniwm.notify(table.concat(parts, ", "))
+            return
+        end
+    end
+end, { reads = { "workspaceBar" } })
 ```
 
 **Check TextEdit's last known window size.** Run **Show TextEdit Window Size** from the command palette after opening a TextEdit document. The command uses the cached summary for `com.apple.TextEdit`.

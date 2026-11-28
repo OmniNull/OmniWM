@@ -136,6 +136,10 @@ MARK_CAPTURES = tuple(f"capture/marks-{size}-cap" for size in ("under", "at", "o
 ROUTES.update(("capture/no-marks", "capture/marks-ordering", *MARK_CAPTURES))
 SAVED_READ_CAPTURES = ("capture/apps-grouped", "capture/apps-over-cap", "capture/rules-over-cap")
 ROUTES.update(("capture/app-rule-control", "capture/no-apps-or-rules", "first/capture/apps-grouped", *SAVED_READ_CAPTURES))
+BAR_READ_SIZES = (("capture/workspace-bar-64", "capture/workspace-bar-256"),
+                  ("capture/workspace-bar-grouped-64", "capture/workspace-bar-grouped-256"))
+BAR_READ_CAPTURES = tuple(route for pair in BAR_READ_SIZES for route in pair)
+ROUTES.update(("capture/workspace-bar-control", "capture/no-workspace-bar", "first/capture/workspace-bar", *BAR_READ_CAPTURES))
 ROUTES.update(("gather/join", "gather/unchanged", "gather/refused"))
 ROUTES.update(("replace/applied", "replace/stale", "replace/malformed"))
 NAMED_KEY_PAIRS = (("named/hit", "window/hit"), ("named/ref-hit", "window/ref-hit"),
@@ -479,6 +483,16 @@ def check_costs(output):
         capture = table[route, "producer"]
         if int(capture["obj"]) or int(capture["heap"]):
             sys.exit(f"{route}: a warm apps or rules capture reuses storage: {capture}")
+    for route in BAR_READ_CAPTURES:
+        capture = table[route, "producer"]
+        if int(capture["obj"]) or int(capture["heap"]):
+            sys.exit(f"{route}: a warm workspace bar capture reuses storage: {capture}")
+    for small, large in BAR_READ_SIZES:
+        fewer, more = table[small, "producer"], table[large, "producer"]
+        grown = {field: (fewer[field], more[field]) for field in fewer
+                 if field not in ("route", "native-control", "phase") and int(more[field]) > int(fewer[field])}
+        if grown:
+            sys.exit(f"{large}: more bar windows must add no ARC, allocations or VM entries over {small}: {grown}")
     for capture, engine in COLUMN_EDITS:
         edit, rebuild = table[capture, "producer"], table[engine, "producer"]
         for field in ("obj", "heap"):
@@ -508,8 +522,10 @@ def check_costs(output):
             sys.exit(f"{route}: an undeclared read must cost nothing")
     if counts("capture/no-apps-or-rules") != counts("capture/app-rule-control"):
         sys.exit("capture/no-apps-or-rules: populated apps and saved rules must cost nothing when undeclared")
+    if counts("capture/no-workspace-bar") != counts("capture/workspace-bar-control"):
+        sys.exit("capture/no-workspace-bar: populated bar windows must cost nothing when undeclared")
     for route in ("capture/workspace-8", "capture/windows-200", *PLACEMENT_CAPTURES, *FOCUS_TARGET_CAPTURES,
-                  "capture/marks-ordering", *MARK_CAPTURES, *SAVED_READ_CAPTURES):
+                  "capture/marks-ordering", *MARK_CAPTURES, *SAVED_READ_CAPTURES, *BAR_READ_CAPTURES):
         if not re.search(rf"^snapshot-bytes {re.escape(route)} [1-9][0-9]*$", output, re.M):
             sys.exit(f"Missing snapshot byte count for {route}")
     for route in TIMER_ROUTES:

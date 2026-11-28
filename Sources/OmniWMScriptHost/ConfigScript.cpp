@@ -153,21 +153,22 @@ constexpr std::string_view dwindleRead = "dwindle";
 constexpr std::string_view marksRead = "marks";
 constexpr std::string_view appsRead = "apps";
 constexpr std::string_view rulesRead = "rules";
+constexpr std::string_view workspaceBarRead = "workspaceBar";
 constexpr std::array readNames{
     "workspaceWindows", "windows", "workspaces", "monitors", "placement", "focusTarget", dwindleRead.data(),
-    marksRead.data(), appsRead.data(), rulesRead.data()
+    marksRead.data(), appsRead.data(), rulesRead.data(), workspaceBarRead.data()
 };
 constexpr std::array readBits{
     OMNI_CONFIG_READ_WORKSPACE_WINDOWS, OMNI_CONFIG_READ_WINDOWS, OMNI_CONFIG_READ_WORKSPACES, OMNI_CONFIG_READ_MONITORS,
     OMNI_CONFIG_READ_PLACEMENT, OMNI_CONFIG_READ_FOCUS_TARGET, OMNI_CONFIG_READ_DWINDLE, OMNI_CONFIG_READ_MARKS,
-    OMNI_CONFIG_READ_APPS, OMNI_CONFIG_READ_RULES
+    OMNI_CONFIG_READ_APPS, OMNI_CONFIG_READ_RULES, OMNI_CONFIG_READ_WORKSPACE_BAR
 };
 static_assert(readNames.size() == readBits.size());
 constexpr std::string_view framesRead = "frames";
 constexpr std::string_view columnsRead = "columns";
 constexpr std::string_view detailsRead = "details";
 constexpr uint32_t snapshotSections = OMNI_CONFIG_READ_LISTS | OMNI_CONFIG_READ_DWINDLE |
-    OMNI_CONFIG_READ_MARKS | OMNI_CONFIG_READ_APPS | OMNI_CONFIG_READ_RULES;
+    OMNI_CONFIG_READ_MARKS | OMNI_CONFIG_READ_APPS | OMNI_CONFIG_READ_RULES | OMNI_CONFIG_READ_WORKSPACE_BAR;
 constexpr std::array dwindleDirections{"left", "right", "up", "down"};
 static_assert(OMNI_CONFIG_DWINDLE_DOWN == dwindleDirections.size());
 constexpr uint16_t framedLists = OMNI_CONFIG_READ_WORKSPACE_WINDOWS | OMNI_CONFIG_READ_WINDOWS | OMNI_CONFIG_READ_MONITORS;
@@ -1567,6 +1568,176 @@ void pushRuleRow(lua_State *L, std::string_view &row) {
     lua_rawsetfield(L, -2, "validationMessages");
 }
 
+void sealSlot(lua_State *L, int slot) {
+    if (!lua_isnil(L, slot)) {
+        lua_setreadonly(L, slot, true);
+    }
+}
+
+void pushBarFlag(
+    lua_State *L, std::string_view &row, uint32_t allowed, std::initializer_list<std::pair<uint32_t, const char *>> fields
+) {
+    const auto flags = readUnsigned<uint8_t>(row);
+    if (flags & ~allowed) {
+        throw InvalidSnapshot{};
+    }
+    for (const auto &[bit, name] : fields) {
+        pushDetailFlag(L, name, flags & bit);
+    }
+}
+
+void pushBarPill(lua_State *L, std::string_view &row) {
+    lua_createtable(L, 0, 6);
+    readStringField(L, row, "id");
+    readStringField(L, row, "bundleId");
+    readStringField(L, row, "name");
+    pushBarFlag(L, row, OMNI_CONFIG_BAR_FOCUSED, {{OMNI_CONFIG_BAR_FOCUSED, "focused"}});
+    const auto count = readUnsigned<uint16_t>(row);
+    if (count == 0) {
+        throw InvalidSnapshot{};
+    }
+    pushNumberField(L, "windowCount", count);
+    lua_createtable(L, count, 0);
+    for (int window = 1; window <= count; ++window) {
+        lua_createtable(L, 0, 3);
+        readStringField(L, row, "id");
+        readStringField(L, row, "title");
+        pushBarFlag(L, row, OMNI_CONFIG_BAR_FOCUSED, {{OMNI_CONFIG_BAR_FOCUSED, "focused"}});
+        lua_setreadonly(L, -1, true);
+        lua_rawseti(L, -2, window);
+    }
+    lua_setreadonly(L, -1, true);
+    lua_rawsetfield(L, -2, "windows");
+    lua_setreadonly(L, -1, true);
+}
+
+void pushBarDisplay(lua_State *L, std::string_view &row) {
+    lua_createtable(L, 0, 9);
+    readStringField(L, row, "id");
+    readStringField(L, row, "name");
+    constexpr uint32_t allowed = OMNI_CONFIG_BAR_ENABLED | OMNI_CONFIG_BAR_VISIBLE | OMNI_CONFIG_BAR_LABELS;
+    pushBarFlag(L, row, allowed, {
+        {OMNI_CONFIG_BAR_ENABLED, "enabled"}, {OMNI_CONFIG_BAR_VISIBLE, "visible"},
+        {OMNI_CONFIG_BAR_LABELS, "showLabels"}
+    });
+    pushNumberField(L, "backgroundOpacity", readDouble(row));
+    pushNumberField(L, "barHeight", readDouble(row));
+}
+
+void pushBarContainer(lua_State *L, std::string_view &row, uint8_t kind) {
+    lua_createtable(L, 0, 6);
+    if (kind == OMNI_CONFIG_BAR_ROW_WORKSPACE) {
+        readStringField(L, row, "id");
+        readStringField(L, row, "rawName");
+        readStringField(L, row, "displayName");
+        if (const auto number = readUnsigned<uint64_t>(row)) {
+            if (number > OMNI_CONFIG_MAX_SAFE_INTEGER) {
+                throw InvalidSnapshot{};
+            }
+            pushNumberField(L, "number", static_cast<double>(number));
+        }
+        pushBarFlag(L, row, OMNI_CONFIG_BAR_FOCUSED, {{OMNI_CONFIG_BAR_FOCUSED, "focused"}});
+    } else {
+        pushNumberField(L, "index", readUnsigned<uint16_t>(row));
+        readStringField(L, row, "label");
+        pushBarFlag(L, row, OMNI_CONFIG_BAR_VISIBLE, {{OMNI_CONFIG_BAR_VISIBLE, "visible"}});
+    }
+}
+
+void pushWorkspaceBar(lua_State *L, std::string_view &rows, uint16_t count) {
+    if (count == 0) {
+        lua_pushnil(L);
+        return;
+    }
+    if (readUnsigned<uint8_t>(rows) != OMNI_CONFIG_BAR_ROW_HEADER) {
+        throw InvalidSnapshot{};
+    }
+    lua_createtable(L, 0, 2);
+    const int result = lua_gettop(L);
+    readStringField(L, rows, "interactionDisplay");
+    lua_createtable(L, 0, 0);
+    lua_pushvalue(L, -1);
+    lua_rawsetfield(L, result, "displays");
+    const int displays = lua_gettop(L);
+    const int display = displays + 1;
+    const int workspaces = displays + 2;
+    const int scratchpads = displays + 3;
+    const int container = displays + 4;
+    const int pills = displays + 5;
+    for (int slot = display; slot <= pills; ++slot) {
+        lua_pushnil(L);
+    }
+    int displayCount = 0;
+    int workspaceCount = 0;
+    int scratchpadCount = 0;
+    int pillCount = 0;
+    const auto closeContainer = [&] {
+        sealSlot(L, pills);
+        sealSlot(L, container);
+        lua_pushnil(L);
+        lua_replace(L, pills);
+        lua_pushnil(L);
+        lua_replace(L, container);
+    };
+    const auto openArray = [&](const char *name, int slot) {
+        lua_createtable(L, 0, 0);
+        lua_pushvalue(L, -1);
+        lua_rawsetfield(L, -3, name);
+        lua_replace(L, slot);
+    };
+    for (uint16_t index = 1; index < count; ++index) {
+        const auto kind = readUnsigned<uint8_t>(rows);
+        switch (kind) {
+        case OMNI_CONFIG_BAR_ROW_DISPLAY:
+            closeContainer();
+            sealSlot(L, workspaces);
+            sealSlot(L, scratchpads);
+            sealSlot(L, display);
+            pushBarDisplay(L, rows);
+            openArray("scratchpads", scratchpads);
+            openArray("workspaces", workspaces);
+            lua_pushvalue(L, -1);
+            lua_rawseti(L, displays, ++displayCount);
+            lua_replace(L, display);
+            workspaceCount = 0;
+            scratchpadCount = 0;
+            break;
+        case OMNI_CONFIG_BAR_ROW_SCRATCHPAD:
+        case OMNI_CONFIG_BAR_ROW_WORKSPACE: {
+            if (lua_isnil(L, display)) {
+                throw InvalidSnapshot{};
+            }
+            closeContainer();
+            pushBarContainer(L, rows, kind);
+            openArray("windows", pills);
+            lua_pushvalue(L, -1);
+            const bool workspace = kind == OMNI_CONFIG_BAR_ROW_WORKSPACE;
+            lua_rawseti(L, workspace ? workspaces : scratchpads, workspace ? ++workspaceCount : ++scratchpadCount);
+            lua_replace(L, container);
+            pillCount = 0;
+            break;
+        }
+        case OMNI_CONFIG_BAR_ROW_PILL:
+            if (lua_isnil(L, pills)) {
+                throw InvalidSnapshot{};
+            }
+            pushBarPill(L, rows);
+            lua_rawseti(L, pills, ++pillCount);
+            break;
+        default:
+            throw InvalidSnapshot{};
+        }
+    }
+    closeContainer();
+    sealSlot(L, workspaces);
+    sealSlot(L, scratchpads);
+    sealSlot(L, display);
+    lua_settop(L, displays);
+    lua_setreadonly(L, displays, true);
+    lua_pop(L, 1);
+    lua_setreadonly(L, result, true);
+}
+
 template <auto PushRow>
 void pushWholeList(lua_State *L, std::string_view &rows, uint16_t count) {
     lua_createtable(L, count, 0);
@@ -1587,10 +1758,12 @@ struct WholeList {
 constexpr std::array wholeLists{
     WholeList{OMNI_CONFIG_READ_MARKS, marksRead, pushWholeList<pushMarkRow>},
     WholeList{OMNI_CONFIG_READ_APPS, appsRead, pushWholeList<pushAppRow>},
-    WholeList{OMNI_CONFIG_READ_RULES, rulesRead, pushWholeList<pushRuleRow>}
+    WholeList{OMNI_CONFIG_READ_RULES, rulesRead, pushWholeList<pushRuleRow>},
+    WholeList{OMNI_CONFIG_READ_WORKSPACE_BAR, workspaceBarRead, pushWorkspaceBar}
 };
 static_assert(OMNI_CONFIG_SECTION_APPS == OMNI_CONFIG_SECTION_MARKS + 1 &&
-    OMNI_CONFIG_SECTION_RULES == OMNI_CONFIG_SECTION_MARKS + 2);
+    OMNI_CONFIG_SECTION_RULES == OMNI_CONFIG_SECTION_MARKS + 2 &&
+    OMNI_CONFIG_SECTION_WORKSPACE_BAR == OMNI_CONFIG_SECTION_MARKS + 3);
 
 void pushLookups(lua_State *L, omni_config_span snapshot, uint32_t reads) {
     if (!snapshot.data) {

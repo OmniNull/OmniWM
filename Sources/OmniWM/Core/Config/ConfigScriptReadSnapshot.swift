@@ -129,7 +129,7 @@ extension WMController {
         appendScriptWorkspacesAndMonitors(
             reads: reads, session: session, resolution: resolution, to: &output, scratch: &scratch
         )
-        appendScriptRecords(reads: reads, origin: origin, resolution: resolution, to: &output, apps: &scratch.apps)
+        appendScriptRecords(reads: reads, origin: origin, resolution: resolution, to: &output, scratch: &scratch)
         #if DEBUG || OMNIWM_CONFIG_CALLBACK_TRACE
             ConfigScriptSnapshot.captures += 1
         #endif
@@ -276,7 +276,7 @@ extension WMController {
     private func appendScriptRecords(
         reads: ConfigScriptReads, origin: ScriptReadOrigin,
         resolution: @autoclosure () -> WorkspaceManager.MonitorResolutionContext,
-        to output: inout ConfigScriptSnapshotWriter, apps: inout TrackedAppGroups
+        to output: inout ConfigScriptSnapshotWriter, scratch: inout ConfigScriptReadScratch
     ) {
         if reads.contains(.marks) {
             output.start(tag: UInt8(OMNI_CONFIG_SECTION_MARKS))
@@ -307,12 +307,17 @@ extension WMController {
         }
         if reads.contains(.apps) {
             output.start(tag: UInt8(OMNI_CONFIG_SECTION_APPS))
-            appendScriptApps(to: &output, scratch: &apps)
+            appendScriptApps(to: &output, scratch: &scratch.apps)
             finishScriptList(&output)
         }
         if reads.contains(.rules) {
             output.start(tag: UInt8(OMNI_CONFIG_SECTION_RULES))
             appendScriptRules(to: &output)
+            finishScriptList(&output)
+        }
+        if reads.contains(.workspaceBar) {
+            output.start(tag: UInt8(OMNI_CONFIG_SECTION_WORKSPACE_BAR))
+            appendScriptWorkspaceBar(session: origin.session, to: &output, scratch: &scratch.bar)
             finishScriptList(&output)
         }
     }

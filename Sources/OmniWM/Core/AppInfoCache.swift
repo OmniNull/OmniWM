@@ -113,6 +113,6 @@ final class AppInfoCache {
     }
 
     func hasCachedInfo(for pid: pid_t) -> Bool {
-        cache[pid] != nil
+        cache.index(forKey: pid) != nil
     }
 }

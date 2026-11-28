@@ -555,7 +555,7 @@ export type ConfigRule = {
     scratchpad: number?,
 }
 
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "dwindle" | "marks" | "apps" | "rules" | "frames" | "columns" | "details"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "dwindle" | "marks" | "apps" | "rules" | "workspaceBar" | "frames" | "columns" | "details"
 export type ConfigReadOptions = { reads: { ConfigRead } }
 export type ConfigRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWindowRow = {
@@ -615,6 +615,24 @@ export type ConfigRuleRow = {
     read specificity: number, read isValid: boolean, read invalidRegexMessage: string?,
     read validationMessages: { read [number]: string },
 }
+export type ConfigBarWindow = { read id: string, read title: string?, read focused: boolean }
+export type ConfigBarApp = {
+    read id: string, read bundleId: string?, read name: string?, read focused: boolean, read windowCount: number,
+    read windows: { read [number]: ConfigBarWindow },
+}
+export type ConfigBarWorkspace = {
+    read id: string, read rawName: string, read displayName: string, read number: number?, read focused: boolean,
+    read windows: { read [number]: ConfigBarApp },
+}
+export type ConfigBarScratchpad = {
+    read index: number, read label: string?, read visible: boolean, read windows: { read [number]: ConfigBarApp },
+}
+export type ConfigBarDisplay = {
+    read id: string, read name: string, read enabled: boolean, read visible: boolean, read showLabels: boolean,
+    read backgroundOpacity: number, read barHeight: number,
+    read scratchpads: { read [number]: ConfigBarScratchpad }, read workspaces: { read [number]: ConfigBarWorkspace },
+}
+export type ConfigWorkspaceBar = { read interactionDisplay: string?, read displays: { read [number]: ConfigBarDisplay } }
 export type ConfigLookups = {
     read workspaceWindows: { read [number]: ConfigWindowRow }?,
     read windows: { read [number]: ConfigWindowRow }?,
@@ -626,10 +644,11 @@ export type ConfigLookups = {
     read marks: { read [number]: ConfigMarkRow }?,
     read apps: { read [number]: ConfigAppRow }?,
     read rules: { read [number]: ConfigRuleRow }?,
+    read workspaceBar: ConfigWorkspaceBar?,
     read truncated: {
         read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
         read placement: boolean?, read focusTarget: boolean?, read dwindle: boolean?, read marks: boolean?,
-        read apps: boolean?, read rules: boolean?,
+        read apps: boolean?, read rules: boolean?, read workspaceBar: boolean?,
         read details: {
             read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
         }?,

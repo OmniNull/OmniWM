@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMAutomation
 import OmniWMScriptHost
 
 struct ScriptWorkspaceDetailContext {
@@ -83,9 +82,9 @@ extension WMController {
         return UInt8(flags)
     }
 
-    private static func scriptWorkspaceNumber(_ name: String) -> UInt64 {
-        guard let number = WorkspaceIDPolicy.workspaceNumber(from: name).map(UInt64.init),
-              number <= OMNI_CONFIG_MAX_SAFE_INTEGER
+    static func scriptWorkspaceNumber(_ name: String) -> UInt64 {
+        guard let first = name.utf8.first, first >= UInt8(ascii: "1"), first <= UInt8(ascii: "9"),
+              let number = UInt64(name), number <= OMNI_CONFIG_MAX_SAFE_INTEGER
         else { return 0 }
         return number
     }
