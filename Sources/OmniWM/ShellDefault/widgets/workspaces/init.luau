@@ -158,19 +158,16 @@ local function windowIcon(item: BarItem, workspace: BarWorkspace, bar: Bar, m: M
         look.windowIcon(icon, glyph, item, style, m)
     end
     local focusScale = item.focused and 1.1 or 1
-    icon.key = item.id
-    icon.scale = focusScale
-    icon.hoverScale = math.max(icon.hoverScale or 1, focusScale)
+    local slot = { key = item.id, w = icon.w, h = icon.h, radius = icon.radius, animate = icon.animate,
+        hoverAnimate = icon.hoverAnimate, scale = focusScale, hoverScale = math.max(icon.hoverScale or 1, focusScale),
+        target = "window " .. item.id, menu = true, preview = true, drag = true, help = windowHelp(item, bar) }
+    icon.key = item.id .. " icon"
+    icon.hoverScale = nil
     icon.dx = m.vertical and 0 or shift
     icon.dy = m.vertical and shift or 0
-    icon.target = "window " .. item.id
-    icon.menu = true
-    icon.preview = true
-    icon.drag = true
-    icon.help = windowHelp(item, bar)
     if drag ~= nil and contains(drag.icons, item.id) then
-        icon.border = "accent"
-        icon.borderWidth = 1.5
+        slot.border = "accent"
+        slot.borderWidth = 1.5
     end
     glyph.window = item.id
     glyph.opacity = (drag ~= nil and contains(drag.sources, item.id)) and 0.35 or iconOpacity(item, style, workspace.focused)
@@ -180,15 +177,16 @@ local function windowIcon(item: BarItem, workspace: BarWorkspace, bar: Bar, m: M
     end
     icon[#icon + 1] = ui.icon(glyph)
     if item.count > 1 then
-        icon.onClick = function(ctx) ctx.state.picker = item.id end
-        icon.popout = true
+        slot.onClick = function(ctx) ctx.state.picker = item.id end
+        slot.popout = true
         icon[#icon + 1] = countBadge(tostring(item.count), m)
     else
-        icon.onClick = "window focus " .. item.id
+        slot.onClick = "window focus " .. item.id
     end
     icon[#icon + 1] = notificationBadge(item, bar.badges, m)
     icon[#icon + 1] = hiddenIndicator(item, m)
-    return ui.stack(icon)
+    slot[1] = ui.stack(icon)
+    return ui.stack(slot)
 end
 
 local function separator(m: Metrics)
