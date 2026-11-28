@@ -167,7 +167,7 @@ let package = Package(
                 "ScriptARCWindowTransactions.swift", "ScriptARCEventOwnership.swift", "ScriptARCSnapshotWorkload.swift",
                 "ScriptARCWorkspaceKeys.swift", "ScriptARCDwindleWorkload.swift", "ScriptARCGatherWorkload.swift",
                 "ScriptARCNamedModeWorkload.swift", "ScriptARCStoreWorkload.swift", "ScriptARCMarkWorkload.swift",
-                "ScriptARCDetailsPlatform.swift"
+                "ScriptARCDetailsPlatform.swift", "ScriptARCWorkspaceActionWorkload.swift"
             ] : [],
             resources: [
                 .process("Resources"),

@@ -48,6 +48,7 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 | `omniwm.dispatch(action)` | Queues an action from a callback. |
 | `omniwm.dispatch("window", action, id, …)` | Queues an action on one window by its ID; see [window actions](#window-actions). |
 | `omniwm.dispatch("mark", action, name)` | Queues an action on a [window mark](#window-marks) by name. |
+| `omniwm.dispatch("workspace", action, target, …)` | Queues an action on a workspace by name, number or ID; see [workspace actions](#workspace-actions). |
 | `omniwm.openApp(bundleId)`, `omniwm.launch(argv)`, `omniwm.notify(text)` | Queues an effect from inside a callback. |
 | `omniwm.rule { … }` | Adds a [window rule](#window-rules). |
 | `omniwm.store.get(key)`, `omniwm.store.set(key, value)`, `omniwm.store.clear(key?)` | Reads, saves or removes a [saved value](#saved-values) from a callback. |
@@ -286,6 +287,24 @@ Flex and [`omniwmctl window mark`](/reference/cli/actions/#window-marks) share o
 
 Names are strings. OmniWM trims whitespace at the edges and compares the remaining UTF-8 bytes exactly. Empty names and names containing control characters after trimming are refused. Mark actions require enabled automation and a closed Overview. A refusal shows its reason and source line in the config notice and stops the remaining actions in that callback.
 
+## Workspace actions
+
+`omniwm.dispatch("workspace", action, target, …)` runs the same workspace actions as [`omniwmctl workspace`](/reference/cli/actions/#workspace-actions). The target is one of these:
+
+- a name: a raw workspace ID such as `"2"`, or a display name set in Settings. Display names are compared without case and must match exactly one workspace;
+- a workspace number such as `2`, which means the same as `"2"`;
+- `{ id = … }`, with a workspace `id` from a read or an event.
+
+A number, or a string of digits, always means a raw workspace ID, even when another workspace shows that number as its display name. These actions never create a workspace.
+
+| Action | Arguments after the target | What it does |
+| --- | --- | --- |
+| `focus-name` | None | Switches to the workspace. Focusing the workspace you're on changes nothing. |
+| `move-to-monitor` | `"left"`, `"right"`, `"up"` or `"down"`, then an optional `{ force = true }` | Moves the workspace to the next display in that direction from the display it's on now. A workspace assigned to a display in Settings stays there unless you pass `force`. A forced move lasts until the workspace returns to its assigned display, the settings are applied again or OmniWM restarts. |
+| `rename` | A display name | Sets the name the workspace bar shows. An empty name, or the raw ID, restores the default. The workspace must be in Settings. |
+
+Workspace actions require enabled automation and a closed Overview. As with marks, a refusal shows its reason and source line in the config notice and stops the remaining actions in that callback.
+
 ## Rules and shortcuts: two homes
 
 Hand-edited rules and one shortcut per action live in `settings.luau` and the Settings window. Rules that code builds and extra key chords live here. An enabled shortcut in `init.luau` takes over any overlapping Settings shortcut. The saved assignment remains visible and marked in **Settings → Keyboard Shortcuts**. See [Configuration](/config/configuration/#rules-and-shortcuts-two-homes) for how the two combine.
@@ -355,6 +374,22 @@ wm.command("Show Editor Mark", function(ctx: ConfigContext)
         wm.notify("No window is marked " .. name .. ".")
     end
 end, { reads = { "marks" } })
+```
+
+**Move Work to the right display.** Run **Move Work Right** from the command palette to move the workspace named Work to the display on its right, even if Settings assigns it elsewhere, and rename it so the bar shows where it went.
+
+```lua
+omniwm.command("Move Work Right", function(ctx: ConfigContext)
+    for _, workspace in ctx.workspaces or {} do
+        if workspace.displayName == "Work" then
+            local target = { id = workspace.id }
+            omniwm.dispatch("workspace", "move-to-monitor", target, "right", { force = true })
+            omniwm.dispatch("workspace", "rename", target, "Work, moved")
+            return
+        end
+    end
+    omniwm.notify("No workspace is named Work.")
+end, { reads = { "workspaces", "details" } })
 ```
 
 **Count the apps on each workspace.** Run **Show Workspace Apps** from the command palette to see how many app pills each workspace shows on the display OmniWM acts on.

@@ -113,6 +113,14 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         overloads.append("{ read dispatch: (kind: \"dwindle\", action: \"replace\", tree: ConfigDwindleTree) -> () }")
         let marks = union(WindowMarkAction.Kind.allCases.map(\.rawValue))
         overloads.append("{ read dispatch: (kind: \"mark\", action: \(marks), name: string) -> () }")
+        let workspace = { (name: ConfigScriptWorkspaceRequest.Name, rest: String) in
+            "{ read dispatch: (kind: \"workspace\", action: \(name.rawValue.debugDescription), "
+                + "target: ConfigWorkspaceSelector\(rest)) -> () }"
+        }
+        let directions = union(IPCDirection.allCases.map(\.rawValue))
+        overloads.append(workspace(.focusName, ""))
+        overloads.append(workspace(.moveToMonitor, ", direction: \(directions), options: { read force: boolean? }?"))
+        overloads.append(workspace(.rename, ", displayName: string"))
         return overloads.joined(separator: "\n    & ")
     }
 
@@ -124,6 +132,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
             | { read neighbor: \(direction), read of: string?, read column: number? }
             | { read neighbor: \(direction), read of: string, read fromEdge: boolean, read column: number? }
         export type ConfigFocusCheck = { read targetOf: string?, read nativeFullscreen: boolean? }
+        export type ConfigWorkspaceSelector = string | number | { read id: string }
         export type ConfigFloatingFrame = { read x: number?, read y: number?, read width: number?, read height: number? }
         """
     }

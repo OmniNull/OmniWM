@@ -184,48 +184,39 @@ extension ConfigScriptStage {
                 }
             },
             window: { context, words, count, selector, destination, destinationCount, location, error, capacity in
-                guard let context, let words else { return false }
-                do throws(ConfigScriptError) {
-                    let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
+                guard let words else { return false }
+                return Self.dispatch(into: context, at: location, error: error, capacity: capacity) {
+                    () throws(ConfigScriptError) in
                     let words = UnsafeBufferPointer(start: words, count: count)
-                    let operation: ConfigScriptDispatch.Operation = if ConfigScriptGatherRequest.matches(words) {
-                        try .gather(ConfigScriptGatherRequest(words: words))
-                    } else {
-                        try .window(ConfigScriptWindowRequest(
-                            words: words,
-                            selector: selector,
-                            destination: destination.map { UnsafeBufferPointer(start: $0, count: destinationCount) }
-                        ))
+                    if ConfigScriptGatherRequest.matches(words) {
+                        return try .gather(ConfigScriptGatherRequest(words: words))
                     }
-                    stage.pointee.dispatch(operation, at: location)
-                    return true
-                } catch let failure {
-                    return failure.write(to: error, capacity: capacity)
+                    return try .window(ConfigScriptWindowRequest(
+                        words: words,
+                        selector: selector,
+                        destination: destination.map { UnsafeBufferPointer(start: $0, count: destinationCount) }
+                    ))
                 }
             },
             mark: { context, action, name, location, error, capacity in
-                guard let context else { return false }
-                do throws(ConfigScriptError) {
+                Self.dispatch(into: context, at: location, error: error, capacity: capacity) {
+                    () throws(ConfigScriptError) in
                     guard let kind = try WindowMarkAction.Kind(rawValue: Self.string(action)) else {
                         throw ConfigScriptError(line: nil, message: "Unknown mark action.")
                     }
-                    let mark = try WindowMarkAction(kind: kind, name: Self.string(name))
-                    let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
-                    stage.pointee.dispatch(.mark(mark), at: location)
-                    return true
-                } catch let failure {
-                    return failure.write(to: error, capacity: capacity)
+                    return try .mark(WindowMarkAction(kind: kind, name: Self.string(name)))
+                }
+            },
+            workspace: { context, request, location, error, capacity in
+                guard let request else { return false }
+                return Self.dispatch(into: context, at: location, error: error, capacity: capacity) {
+                    () throws(ConfigScriptError) in try .workspace(ConfigScriptWorkspaceRequest(request.pointee))
                 }
             },
             dwindle: { context, tree, location, error, capacity in
-                guard let context, let tree else { return false }
-                do throws(ConfigScriptError) {
-                    let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
-                    let replace = try ConfigScriptDwindleReplace(tree: tree.pointee)
-                    stage.pointee.dispatch(.dwindleReplace(replace), at: location)
-                    return true
-                } catch let failure {
-                    return failure.write(to: error, capacity: capacity)
+                guard let tree else { return false }
+                return Self.dispatch(into: context, at: location, error: error, capacity: capacity) {
+                    () throws(ConfigScriptError) in try .dwindleReplace(ConfigScriptDwindleReplace(tree: tree.pointee))
                 }
             },
             mode: { context, name, location, actionID, error, capacity in
@@ -240,6 +231,23 @@ extension ConfigScriptStage {
             },
             store: storeCallbacks
         )
+    }
+
+    private static func dispatch(
+        into context: UnsafeMutableRawPointer?,
+        at location: omni_config_location,
+        error: UnsafeMutablePointer<CChar>?,
+        capacity: Int,
+        _ operation: () throws(ConfigScriptError) -> ConfigScriptDispatch.Operation
+    ) -> Bool {
+        guard let context else { return false }
+        do throws(ConfigScriptError) {
+            let operation = try operation()
+            context.assumingMemoryBound(to: ConfigScriptStage.self).pointee.dispatch(operation, at: location)
+            return true
+        } catch let failure {
+            return failure.write(to: error, capacity: capacity)
+        }
     }
 
     private mutating func dispatch(_ operation: ConfigScriptDispatch.Operation, at location: omni_config_location) {

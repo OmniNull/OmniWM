@@ -479,22 +479,5 @@ private func measureEventFamilies(in directory: URL) async throws {
     try await measureNamedModes(in: directory)
     try await measureStore(in: directory)
     try await measureWindowMarks(in: directory)
-}
-
-@MainActor
-extension ScriptARCFixture {
-    func finishWorker(seed: Bool) async throws {
-        try await measureWorker(seed: seed)
-        if let diagnostic = script.diagnostic { throw ScriptARCError(diagnostic) }
-    }
-
-    func measureWorker(seed: Bool) async throws {
-        guard let queue = script.callbackQueue, let worker = queue.worker else {
-            throw ScriptARCError("Accepted work needs a worker")
-        }
-        script_arc_follow(unsafeBitCast(worker, to: UnsafeRawPointer.self), seed)
-        await queue.waitForAuditPark()
-        script_arc_finish()
-        precondition(script.callbackQueue?.isParked == true)
-    }
+    try await measureWorkspaceActions(in: directory)
 }

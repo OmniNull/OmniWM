@@ -22,6 +22,7 @@ struct ConfigScriptDispatch: Sendable {
         case window(ConfigScriptWindowRequest)
         case gather(ConfigScriptGatherRequest)
         case mark(WindowMarkAction)
+        case workspace(ConfigScriptWorkspaceRequest)
         indirect case dwindleReplace(ConfigScriptDwindleReplace)
     }
 
@@ -35,6 +36,7 @@ struct ConfigScriptDispatch: Sendable {
         case let .window(window): "window " + window.name.rawValue
         case .gather: "window gather"
         case let .mark(action): "mark " + action.kind.rawValue
+        case let .workspace(request): "workspace " + request.name.rawValue
         case .dwindleReplace: "dwindle replace"
         }
     }

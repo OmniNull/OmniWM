@@ -60,6 +60,20 @@ MARK_COSTS = {
     "mark/summon-refused": ((4, 6, 3, 6, 5, 10), (121, 162, 21, 25, 56, 108)),
 }
 ROUTES.update(MARK_COSTS)
+WORKSPACE_ACTION_COST_FIELDS = MARK_COST_FIELDS
+WORKSPACE_ACTION_COSTS = {
+    "workspace/focus-noop": ((3, 5, 2, 4, 5, 12), (11, 18, 0, 0, 7, 13)),
+    "workspace/rename-unchanged": ((3, 5, 2, 4, 7, 18), (9, 16, 0, 0, 9, 16)),
+    "workspace/rename-changed": ((3, 5, 2, 4, 7, 18), (43, 102, 13, 15, 57, 94)),
+    "workspace/move-refused": ((3, 5, 2, 5, 5, 13), (126, 178, 21, 26, 83, 129)),
+}
+WORKSPACE_MOVE_ROUTE = "workspace/move-accepted"
+WORKSPACE_NATIVE_ROUTES = {
+    "workspace/focus-noop": "native/workspace-focus-noop",
+    "workspace/rename-changed": "native/workspace-rename-changed",
+}
+ROUTES.update(WORKSPACE_ACTION_COSTS)
+ROUTES.update((WORKSPACE_MOVE_ROUTE, "native/workspace-move-accepted", *WORKSPACE_NATIVE_ROUTES.values()))
 COMMAND_SELECTORS = ("cmd/integer", "cmd/string-index", "cmd/invalid-selector", "window/integer", "window/string-index")
 ROUTES.update(COMMAND_SELECTORS)
 CALLBACK_COMMAND_BUILDS = {
@@ -337,6 +351,31 @@ def check_marks(table):
                 sys.exit(f"{route}/{phase}: expected {MARK_COST_FIELDS} {expected}, measured {actual}")
 
 
+def check_workspace_actions(table):
+    for route in (*WORKSPACE_ACTION_COSTS, WORKSPACE_MOVE_ROUTE):
+        for phase in ("producer", "dequeue"):
+            measured, control = table[route, phase], table["key/idle", phase]
+            if any(measured[field] != control[field] for field in NO_OBSERVER_OWNERSHIP):
+                sys.exit(f"{route}/{phase}: workspace work must start on the config worker: {measured} against {control}")
+        if int(table[route, "config"]["VM"]) != 1:
+            sys.exit(f"{route}: the shortcut callback must enter its VM once")
+    for route, costs in WORKSPACE_ACTION_COSTS.items():
+        for phase, expected in zip(("config", "completion"), costs, strict=True):
+            actual = tuple(int(table[route, phase][field]) for field in WORKSPACE_ACTION_COST_FIELDS)
+            if actual != expected:
+                sys.exit(f"{route}/{phase}: expected {WORKSPACE_ACTION_COST_FIELDS} {expected}, measured {actual}")
+    focus, move = table["workspace/focus-noop", "config"], table[WORKSPACE_MOVE_ROUTE, "config"]
+    for field in ("R", "L", "obj", "heap"):
+        if int(move[field]) != int(focus[field]):
+            sys.exit(f"{WORKSPACE_MOVE_ROUTE}: staging a move must cost what a focus does, "
+                     f"{field} {move[field]} against {focus[field]}")
+    for route, native in WORKSPACE_NATIVE_ROUTES.items():
+        flex, alone = table[route, "completion"], table[native, "producer"]
+        if int(flex["obj"]) != int(alone["obj"]):
+            sys.exit(f"{route}: applying from Flex must create only the native action's objects, "
+                     f"{flex['obj']} against {alone['obj']}")
+
+
 def check_costs(output):
     rows = [line.split() for line in output.splitlines()]
     header = next(row for row in rows if row and row[0] == "route")
@@ -349,6 +388,7 @@ def check_costs(output):
     check_named_keys(table)
     check_store(table, output)
     check_marks(table)
+    check_workspace_actions(table)
     for route in ("settings/key", "script/plain-key"):
         producer = table[route, "producer"]
         if int(producer["R"]) > NATIVE_RETAIN_CEILING or int(producer["L"]) > NATIVE_RELEASE_CEILING:

@@ -11,86 +11,21 @@ extension IPCCommandRouter {
             return guardResult
         }
 
-        switch request {
+        let (target, action): (WorkspaceTarget, WorkspaceTargetAction) = switch request {
         case let .focusName(target):
-            return focusWorkspace(target)
+            (target, .focus)
         case let .moveToMonitor(target, ipcDirection, force):
-            return moveWorkspaceToMonitor(
-                target,
-                direction: Direction(ipc: ipcDirection),
-                force: force
-            )
+            (target, .moveToMonitor(Direction(ipc: ipcDirection), force: force))
         case let .rename(target, displayName):
-            return renameWorkspace(target, displayName: displayName)
+            (target, .rename(displayName))
         }
-    }
+        guard action.hasValidArguments else { return .invalidArguments }
 
-    private func focusWorkspace(_ target: WorkspaceTarget) -> ExternalCommandResult {
-        let rawWorkspaceID: String
         switch controller.resolveWorkspace(target) {
-        case let .success(resolved):
-            rawWorkspaceID = resolved
+        case let .success(rawWorkspaceID):
+            return controller.performWorkspaceTargetAction(action, onWorkspaceNamed: rawWorkspaceID)
         case let .failure(result):
             return result
         }
-
-        if let currentWorkspace = controller.activeWorkspace(),
-           currentWorkspace.name == rawWorkspaceID,
-           controller.workspaceNavigationHandler.canSkipSwitch(toVisibleWorkspace: currentWorkspace.id)
-        {
-            return .noChange
-        }
-        return controller.windowActionHandler.focusWorkspaceFromBar(named: rawWorkspaceID) ? .executed : .notFound
-    }
-
-    private func moveWorkspaceToMonitor(
-        _ target: WorkspaceTarget,
-        direction: Direction,
-        force: Bool
-    ) -> ExternalCommandResult {
-        let rawWorkspaceID: String
-        switch controller.resolveWorkspace(target) {
-        case let .success(resolved):
-            rawWorkspaceID = resolved
-        case let .failure(result):
-            return result
-        }
-
-        guard let workspaceId = controller.workspaceManager.workspaceId(
-                  for: rawWorkspaceID,
-                  createIfMissing: false
-              ),
-              let outcome = controller.workspaceNavigationHandler.moveWorkspaceToMonitor(
-                  workspaceId,
-                  direction: direction,
-                  force: force
-              )
-        else {
-            return .notFound
-        }
-
-        switch outcome.status {
-        case .executed:
-            return .executed
-        case .conflict:
-            return .workspaceAssignmentConflict
-        case .stateConflict:
-            return .workspaceStateConflict
-        case .notFound:
-            return .notFound
-        }
-    }
-
-    private func renameWorkspace(_ target: WorkspaceTarget, displayName: String) -> ExternalCommandResult {
-        guard !displayName.contains(where: \.isNewline) else { return .invalidArguments }
-        let rawWorkspaceID: String
-        switch controller.resolveWorkspace(target) {
-        case let .success(resolved):
-            rawWorkspaceID = resolved
-        case let .failure(result):
-            return result
-        }
-
-        return controller.setWorkspaceDisplayName(displayName, forWorkspaceNamed: rawWorkspaceID)
     }
 }

@@ -530,6 +530,15 @@ typedef struct omni_config_field {
     bool bool_value;
 } omni_config_field;
 
+typedef struct omni_config_workspace_request {
+    omni_config_span action;
+    omni_config_field target;
+    omni_config_field argument;
+    bool has_argument;
+    const omni_config_field *options;
+    size_t option_count;
+} omni_config_workspace_request;
+
 typedef enum omni_config_effect_kind {
     OMNI_CONFIG_OPEN_APP,
     OMNI_CONFIG_RUN_PROGRAM,
@@ -607,6 +616,8 @@ typedef struct omni_config_callbacks {
         char *error, size_t capacity);
     bool (*mark)(void *context, omni_config_span action, omni_config_span name,
         omni_config_location location, char *error, size_t capacity);
+    bool (*workspace)(void *context, const omni_config_workspace_request *request, omni_config_location location,
+        char *error, size_t capacity);
     bool (*dwindle)(void *context, const omni_config_dwindle_tree *tree, omni_config_location location, char *error,
         size_t capacity);
     bool (*mode)(void *context, omni_config_span name, omni_config_location location, uint32_t *action_id, char *error,

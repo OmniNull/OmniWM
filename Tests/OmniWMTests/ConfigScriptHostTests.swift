@@ -306,7 +306,8 @@ final class ConfigScriptHostTests: XCTestCase {
                     bind: { _, _, _, _, _, _, _, _ in true }, read_module: nil, rule: nil,
                     bind_function: nil, dispatch: nil, log: nil,
                     named_function: { _, event, _, _, _, _, _, _ in event },
-                    effect: nil, window: nil, mark: nil, dwindle: nil, mode: nil, store: omni_config_store_callbacks()
+                    effect: nil, window: nil, mark: nil, workspace: nil, dwindle: nil, mode: nil,
+                    store: omni_config_store_callbacks()
                 )
                 var stats = omni_config_stats()
                 var message = [CChar](repeating: 0, count: 256)

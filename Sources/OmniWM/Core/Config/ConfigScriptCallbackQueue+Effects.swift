@@ -56,6 +56,9 @@ extension ConfigScriptCallbackQueue {
             } else if case let .mark(action) = dispatch.operation {
                 try applyMark(action, dispatch: dispatch, target: target, cause: cause, controller: controller)
                 continue
+            } else if case let .workspace(request) = dispatch.operation {
+                try applyWorkspace(request, dispatch: dispatch, target: target, cause: cause, controller: controller)
+                continue
             } else if let cause {
                 outcome = performEventCommand(
                     dispatch.operation,
@@ -82,6 +85,21 @@ extension ConfigScriptCallbackQueue {
         defer { if cause != nil { feedback.end(controller: controller) } }
         do {
             _ = try controller.performConfigScriptMark(action, target: target)
+        } catch {
+            throw ConfigScriptError(
+                line: dispatch.line, message: "\(dispatch.displayName): \(error.reason).", source: dispatch.source
+            )
+        }
+    }
+
+    private func applyWorkspace(
+        _ request: borrowing ConfigScriptWorkspaceRequest, dispatch: borrowing ConfigScriptDispatch,
+        target: ConfigScriptTarget, cause: ConfigScriptEventCause?, controller: WMController
+    ) throws(ConfigScriptError) {
+        if let cause { feedback.begin(cause, controller: controller) }
+        defer { if cause != nil { feedback.end(controller: controller) } }
+        do {
+            _ = try controller.performConfigScriptWorkspace(request, target: target)
         } catch {
             throw ConfigScriptError(
                 line: dispatch.line, message: "\(dispatch.displayName): \(error.reason).", source: dispatch.source

@@ -678,6 +678,7 @@ export type ConfigWindowDestination =
     | { read neighbor: "left" | "right" | "up" | "down", read of: string?, read column: number? }
     | { read neighbor: "left" | "right" | "up" | "down", read of: string, read fromEdge: boolean, read column: number? }
 export type ConfigFocusCheck = { read targetOf: string?, read nativeFullscreen: boolean? }
+export type ConfigWorkspaceSelector = string | number | { read id: string }
 export type ConfigFloatingFrame = { read x: number?, read y: number?, read width: number?, read height: number? }
 
 export type ConfigWorkspaceEvent = ConfigLookups & { read id: string?, read name: string? }
@@ -849,6 +850,9 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "window", action: "gather", ids: {string}, from: ("workspace" | "monitor" | "all")?) -> () }
     & { read dispatch: (kind: "dwindle", action: "replace", tree: ConfigDwindleTree) -> () }
     & { read dispatch: (kind: "mark", action: "set" | "focus" | "summon" | "remove", name: string) -> () }
+    & { read dispatch: (kind: "workspace", action: "focus-name", target: ConfigWorkspaceSelector) -> () }
+    & { read dispatch: (kind: "workspace", action: "move-to-monitor", target: ConfigWorkspaceSelector, direction: "left" | "right" | "up" | "down", options: { read force: boolean? }?) -> () }
+    & { read dispatch: (kind: "workspace", action: "rename", target: ConfigWorkspaceSelector, displayName: string) -> () }
 export type ConfigKeymap =
     { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read mode: string?, read reads: nil }?) -> () }
     & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read mode: string?, read reads: { read [number]: ConfigRead }? }?) -> () }

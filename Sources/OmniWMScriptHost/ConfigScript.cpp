@@ -678,6 +678,71 @@ bool stageDwindleReplace(lua_State *L, ConfigVM &vm, omni_config_location site, 
     return staged;
 }
 
+constexpr size_t maximumWorkspaceOptions = 4;
+
+omni_config_field workspaceTarget(lua_State *L, ConfigVM &vm, omni_config_location site) {
+    omni_config_field target{};
+    switch (lua_type(L, 3)) {
+    case LUA_TSTRING:
+        target.kind = OMNI_CONFIG_STRING;
+        target.string_value = token(L, vm, 3, site);
+        break;
+    case LUA_TNUMBER:
+        target.kind = OMNI_CONFIG_NUMBER;
+        target.number_value = static_cast<double>(integerSelector(L, vm, 3, site));
+        break;
+    case LUA_TTABLE: {
+        std::array<omni_config_field, 2> fields;
+        const size_t count = readFields(L, vm, 3, site, fields.data(), fields.size(),
+            {"a workspace target table takes only id", "a workspace id must be a string"});
+        if (count != 1 || std::string_view(fields[0].name.data, fields[0].name.length) != "id"
+            || fields[0].kind != OMNI_CONFIG_STRING) {
+            reject(L, vm, site, "a workspace target table takes only id, a workspace ID string");
+        }
+        target = fields[0];
+        break;
+    }
+    default:
+        reject(L, vm, site, "a workspace target is a name, a workspace number or { id = ... }");
+    }
+    return target;
+}
+
+bool stageWorkspace(lua_State *L, ConfigVM &vm, omni_config_location site, int top) {
+    if (!vm.callbacks.workspace || top < 3 || top > 5) {
+        reject(L, vm, site, "omniwm.dispatch expects 'workspace', an action, a workspace and any action arguments");
+    }
+    omni_config_workspace_request request{};
+    request.action = token(L, vm, 2, site);
+    request.target = workspaceTarget(L, vm, site);
+    if (top >= 4) {
+        switch (lua_type(L, 4)) {
+        case LUA_TSTRING:
+            request.argument.kind = OMNI_CONFIG_STRING;
+            request.argument.string_value = token(L, vm, 4, site);
+            break;
+        case LUA_TNUMBER:
+            request.argument.kind = OMNI_CONFIG_NUMBER;
+            request.argument.number_value = lua_tonumber(L, 4);
+            chargeTokenBytes(L, vm, sizeof request.argument.number_value, site);
+            break;
+        default:
+            reject(L, vm, site, "a workspace action argument is a string or a number");
+        }
+        request.has_argument = true;
+    }
+    std::array<omni_config_field, maximumWorkspaceOptions> options;
+    if (top == 5) {
+        if (!lua_istable(L, 5)) {
+            reject(L, vm, site, "workspace action options are a table");
+        }
+        request.option_count = readFields(L, vm, 5, site, options.data(), options.size(),
+            {"too many workspace action options", "workspace action options must be strings, numbers or booleans"});
+        request.options = options.data();
+    }
+    return vm.callbacks.workspace(vm.context, &request, site, vm.failure, sizeof vm.failure);
+}
+
 int dispatchAction(lua_State *L) {
     ConfigVM &vm = declarations(L);
     auto site = declarationSite(L, vm);
@@ -699,6 +764,8 @@ int dispatchAction(lua_State *L) {
         const auto action = token(L, vm, 2, site);
         const auto name = token(L, vm, 3, site);
         staged = vm.callbacks.mark(vm.context, action, name, site, vm.failure, sizeof vm.failure);
+    } else if (named && kind == "workspace") {
+        staged = stageWorkspace(L, vm, site, top);
     } else if (named && kind == "dwindle") {
         staged = stageDwindleReplace(L, vm, site, top);
     } else if (named && top >= 3 && lua_istable(L, 3) && lua_type(L, 2) == LUA_TSTRING) {
