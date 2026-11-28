@@ -18,6 +18,7 @@ extension SettingsStore {
             windowSwitcher: windowSwitcher.export(),
             keyboardModes: keyboardModes.export(),
             workspaceAutoBackAndForth: workspaces.autoBackAndForth,
+            focusNativeFullscreenOnWorkspaceSwitch: workspaces.focusNativeFullscreenOnSwitch,
             workspaceSwitchWrapAround: workspaces.switchWrapAround,
             hotkeyBindings: hotkeyBindings,
             systemHyperTrigger: systemHyperTrigger,

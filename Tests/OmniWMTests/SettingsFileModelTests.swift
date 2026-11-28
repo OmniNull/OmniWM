@@ -91,6 +91,26 @@ final class SettingsFileModelTests: XCTestCase {
         XCTAssertTrue(settings.workspaces.switchWrapAround)
     }
 
+    func testFocusNativeFullscreenOnWorkspaceSwitchDefaultsOffAndRoundTrips() throws {
+        var export = SettingsExport.defaults()
+        XCTAssertFalse(export.focusNativeFullscreenOnWorkspaceSwitch)
+        for enabled in [false, true] {
+            export.focusNativeFullscreenOnWorkspaceSwitch = enabled
+            let data = try SettingsLuauDocument.initialSource(export)
+            XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
+        }
+
+        let omitted = try canonicalDefaultLines { lines in
+            let index = try XCTUnwrap(lines
+                .firstIndex {
+                    $0.trimmingCharacters(in: .whitespaces).hasPrefix("focusNativeFullscreenOnWorkspaceSwitch = ")
+                })
+            lines.remove(at: index)
+        }
+        let result = try SettingsLuauDocument(omitted)
+        XCTAssertFalse(result.export.focusNativeFullscreenOnWorkspaceSwitch)
+    }
+
     func testPausePalettePasteDuringSecureInputDefaultsOnAndRoundTrips() throws {
         var export = SettingsExport.defaults()
         XCTAssertTrue(export.pausePalettePasteDuringSecureInput)

@@ -55,6 +55,7 @@ struct SettingsFileModel: Codable, Equatable {
         var language: String?
         var workspaceAutoBackAndForth: Bool?
         var workspaceSwitchWrapAround: Bool?
+        var focusNativeFullscreenOnWorkspaceSwitch: Bool?
     }
 
     struct Monitors: Codable, Equatable {
@@ -83,7 +84,8 @@ extension SettingsFileModel.General {
             showSecureInputExplanation: export.showSecureInputExplanation,
             language: export.language,
             workspaceAutoBackAndForth: export.workspaceAutoBackAndForth,
-            workspaceSwitchWrapAround: export.workspaceSwitchWrapAround
+            workspaceSwitchWrapAround: export.workspaceSwitchWrapAround,
+            focusNativeFullscreenOnWorkspaceSwitch: export.focusNativeFullscreenOnWorkspaceSwitch
         )
     }
 }
@@ -205,6 +207,7 @@ extension SettingsFileModel {
             windowSwitcher: windowSwitcher,
             keyboardModes: keyboardModes,
             workspaceAutoBackAndForth: general.workspaceAutoBackAndForth ?? false,
+            focusNativeFullscreenOnWorkspaceSwitch: general.focusNativeFullscreenOnWorkspaceSwitch ?? false,
             workspaceSwitchWrapAround: general.workspaceSwitchWrapAround ?? true,
             hotkeyBindings: hotkeys,
             systemHyperTrigger: general.systemHyperTrigger,

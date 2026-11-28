@@ -29,6 +29,10 @@ final class WorkspaceSettings {
         didSet { onChange?() }
     }
 
+    var focusNativeFullscreenOnSwitch = WorkspaceSettings.defaults.focusNativeFullscreenOnWorkspaceSwitch {
+        didSet { onChange?() }
+    }
+
     var switchWrapAround = WorkspaceSettings.defaults.workspaceSwitchWrapAround {
         didSet { onChange?() }
     }

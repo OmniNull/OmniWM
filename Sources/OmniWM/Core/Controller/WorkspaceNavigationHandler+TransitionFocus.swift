@@ -62,7 +62,14 @@ extension WorkspaceNavigationHandler {
         let handoffAction: LayoutRefreshController.PostLayoutAction = { [weak self, weak controller] in
             guard let controller else { return }
             if let focusToken = handoff.focusToken {
-                controller.focusWindow(focusToken)
+                if controller.settings.workspaces.focusNativeFullscreenOnSwitch,
+                   let record = controller.workspaceManager.nativeFullscreenRecord(for: focusToken),
+                   record.transition == .suspended
+                {
+                    controller.activateNativeFullscreenPlaceholder(record.originalToken)
+                } else {
+                    controller.focusWindow(focusToken)
+                }
             } else if handoff.shouldClearManagedFocus {
                 self?.clearManagedFocusAfterEmptyWorkspaceSwitch()
             }
