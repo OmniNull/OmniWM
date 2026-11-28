@@ -140,6 +140,8 @@ BAR_READ_SIZES = (("capture/workspace-bar-64", "capture/workspace-bar-256"),
                   ("capture/workspace-bar-grouped-64", "capture/workspace-bar-grouped-256"))
 BAR_READ_CAPTURES = tuple(route for pair in BAR_READ_SIZES for route in pair)
 ROUTES.update(("capture/workspace-bar-control", "capture/no-workspace-bar", "first/capture/workspace-bar", *BAR_READ_CAPTURES))
+SHELL_CAPTURES = ("capture/shell-under-cap", "capture/shell-over-cap")
+ROUTES.update(("capture/shell-control", "capture/no-shell", *SHELL_CAPTURES))
 ROUTES.update(("gather/join", "gather/unchanged", "gather/refused"))
 ROUTES.update(("replace/applied", "replace/stale", "replace/malformed"))
 NAMED_KEY_PAIRS = (("named/hit", "window/hit"), ("named/ref-hit", "window/ref-hit"),
@@ -479,10 +481,10 @@ def check_costs(output):
         mark_capture = table[route, "producer"]
         if int(mark_capture["obj"]) or int(mark_capture["heap"]):
             sys.exit(f"{route}: a warm marks capture reuses storage: {mark_capture}")
-    for route in SAVED_READ_CAPTURES:
+    for route in (*SAVED_READ_CAPTURES, *SHELL_CAPTURES):
         capture = table[route, "producer"]
         if int(capture["obj"]) or int(capture["heap"]):
-            sys.exit(f"{route}: a warm apps or rules capture reuses storage: {capture}")
+            sys.exit(f"{route}: a warm apps, rules or shell capture reuses storage: {capture}")
     for route in BAR_READ_CAPTURES:
         capture = table[route, "producer"]
         if int(capture["obj"]) or int(capture["heap"]):
@@ -524,8 +526,14 @@ def check_costs(output):
         sys.exit("capture/no-apps-or-rules: populated apps and saved rules must cost nothing when undeclared")
     if counts("capture/no-workspace-bar") != counts("capture/workspace-bar-control"):
         sys.exit("capture/no-workspace-bar: populated bar windows must cost nothing when undeclared")
+    if counts("capture/no-shell") != counts("capture/shell-control"):
+        sys.exit("capture/no-shell: a published shell report must cost nothing when undeclared")
+    small_shell, capped_shell = SHELL_CAPTURES
+    if counts(small_shell) != counts(capped_shell):
+        sys.exit(f"{capped_shell}: widget rows must add no ownership traffic over {small_shell}")
     for route in ("capture/workspace-8", "capture/windows-200", *PLACEMENT_CAPTURES, *FOCUS_TARGET_CAPTURES,
-                  "capture/marks-ordering", *MARK_CAPTURES, *SAVED_READ_CAPTURES, *BAR_READ_CAPTURES):
+                  "capture/marks-ordering", *MARK_CAPTURES, *SAVED_READ_CAPTURES, *BAR_READ_CAPTURES,
+                  *SHELL_CAPTURES):
         if not re.search(rf"^snapshot-bytes {re.escape(route)} [1-9][0-9]*$", output, re.M):
             sys.exit(f"Missing snapshot byte count for {route}")
     for route in TIMER_ROUTES:

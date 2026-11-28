@@ -370,7 +370,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
 }
 
 private let lookupDefinitions = """
-export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "dwindle" | "marks" | "apps" | "rules" | "workspaceBar" | "frames" | "columns" | "details"
+export type ConfigRead = "workspaceWindows" | "windows" | "workspaces" | "monitors" | "placement" | "focusTarget" | "dwindle" | "marks" | "apps" | "rules" | "workspaceBar" | "shell" | "frames" | "columns" | "details"
 export type ConfigReadOptions = { reads: { ConfigRead } }
 export type ConfigRect = { read x: number, read y: number, read width: number, read height: number }
 export type ConfigWindowRow = {
@@ -448,6 +448,13 @@ export type ConfigBarDisplay = {
     read scratchpads: { read [number]: ConfigBarScratchpad }, read workspaces: { read [number]: ConfigBarWorkspace },
 }
 export type ConfigWorkspaceBar = { read interactionDisplay: string?, read displays: { read [number]: ConfigBarDisplay } }
+export type ConfigShellWidget = {
+    read name: string, read state: "loading" | "loaded" | "failed" | "fallback",
+    read placements: { read [number]: string }, read source: string, read error: string?,
+}
+export type ConfigShellReport = {
+    read profile: string, read widgets: { read [number]: ConfigShellWidget }, read problems: { read [number]: string },
+}
 export type ConfigLookups = {
     read workspaceWindows: { read [number]: ConfigWindowRow }?,
     read windows: { read [number]: ConfigWindowRow }?,
@@ -460,10 +467,11 @@ export type ConfigLookups = {
     read apps: { read [number]: ConfigAppRow }?,
     read rules: { read [number]: ConfigRuleRow }?,
     read workspaceBar: ConfigWorkspaceBar?,
+    read shell: ConfigShellReport?,
     read truncated: {
         read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
         read placement: boolean?, read focusTarget: boolean?, read dwindle: boolean?, read marks: boolean?,
-        read apps: boolean?, read rules: boolean?, read workspaceBar: boolean?,
+        read apps: boolean?, read rules: boolean?, read workspaceBar: boolean?, read shell: boolean?,
         read details: {
             read workspaceWindows: boolean?, read windows: boolean?, read workspaces: boolean?, read monitors: boolean?,
         }?,

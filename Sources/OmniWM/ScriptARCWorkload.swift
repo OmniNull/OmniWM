@@ -436,9 +436,15 @@ package func runScriptARCAudit(directory: URL, observeDelivery: Bool) async thro
     try await fixture.commandSelectorKeys()
     try await measureEventFamilies(in: directory)
     try await measureWindowDetailReads(in: directory)
+    try await measureWholeReads(in: directory)
+}
+
+@MainActor
+private func measureWholeReads(in directory: URL) async throws {
     try await measureMarkReads(in: directory)
     try await measureAppAndRuleReads(in: directory)
     try await measureWorkspaceBarReads(in: directory)
+    try await measureShellReads(in: directory)
 }
 
 @MainActor

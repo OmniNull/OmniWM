@@ -101,6 +101,7 @@ A callback sees a snapshot of the lists it declares. Shortcuts and palette comma
 | `apps` | A summary of apps with managed windows, ordered by app name |
 | `rules` | Saved window rules in Settings order, with validation results |
 | `workspaceBar` | The workspace bar's displays, workspaces, scratchpads and app pills: one record |
+| `shell` | The published OmniShell report |
 | `placement` | Where the focused window sits: one record, not a list |
 | `focusTarget` | The window the callback's workspace focuses: one record |
 | `dwindle` | The callback's workspace's Dwindle tree: one record |
@@ -127,6 +128,8 @@ Each `ctx.rules` row has the [window rule fields](#window-rules), its `id`, one-
 - **An app pill** has the `id` of its first window, an optional `bundleId` and `name`, `focused`, `windowCount`, and `windows`, each `{ id, title?, focused }`. Pills follow the bar's grouping and order.
 
 Names, bundle IDs and titles come from OmniWM's caches only. An app OmniWM hasn't seen yet has no `name` and is grouped by process, and a window without a cached title shows its app's cached name. If `truncated.workspaceBar` is `true`, the last pills were cut off.
+
+The `ctx.shell` report has the active `profile`, the `widgets` sorted by name, and the list of configuration `problems`, as in `omniwmctl query shell-widgets`. Each widget has its `name`, `source` path, `placements`, `state` (`"loading"`, `"loaded"`, `"failed"` or `"fallback"`), and an optional `error`. The read uses the report OmniShell has already published. With no shell host, it reports the default profile and empty lists. If `truncated.shell` is true, the report is incomplete.
 
 With `details`, a window row can also contain these fields.
 
@@ -416,6 +419,21 @@ omniwm.command("Check Saved Window Rules", function(ctx)
         omniwm.notify(string.format("Checked %d saved window rules. No problems found.", #rules))
     end
 end, { reads = { "rules" } })
+```
+
+**Show a widget failure when Flex reloads.** Save this in `init.luau`. On a successful reload, it checks OmniShell’s current report and shows the first widget failure. A fallback widget is still running, with an error from the widget it replaced.
+
+```lua
+omniwm.on("config.reloaded", function(ctx: ConfigReloadEvent)
+    local shell = ctx.shell
+    if not shell then return end
+    for _, widget in shell.widgets do
+        if widget.state == "failed" or widget.state == "fallback" then
+            omniwm.notify(widget.name .. ": " .. (widget.error or widget.state))
+            return
+        end
+    end
+end, { reads = { "shell" } })
 ```
 
 **Focus the most recently used Safari window.** Run **Focus Recent Safari Window** from the command palette to focus the Safari window you used most recently, including on another workspace. The command needs a focus record and a complete window list with details.

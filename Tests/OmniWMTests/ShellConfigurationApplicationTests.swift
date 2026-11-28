@@ -36,16 +36,19 @@ final class ShellConfigurationApplicationTests: XCTestCase {
         host.applyConfig(prepared, problems: ["prepared warning"])
         XCTAssertEqual(publications, [prepared])
         XCTAssertEqual(layoutChanges, 1)
-        var reports = 0
-        host.onWidgetsChange = { reports += 1 }
-        host.applyConfig(prepared, problems: ["updated warning"])
-        XCTAssertEqual(host.configProblems, ["updated warning"])
-        XCTAssertEqual(reports, 1)
-        host.applyConfig(prepared, problems: ["updated warning"])
-        XCTAssertEqual(reports, 1)
+        var reports: [[String]] = []
+        host.onWidgetsChange = { [weak host] in
+            if let host { reports.append(host.widgetReport.problems) }
+        }
+        let updated = ["updated warning"]
+        host.applyConfig(prepared, problems: updated)
+        XCTAssertEqual(host.configProblems, updated)
+        XCTAssertEqual(reports, [updated])
+        host.applyConfig(prepared, problems: updated)
+        XCTAssertEqual(reports, [updated])
         host.applyConfig(prepared)
         XCTAssertTrue(host.configProblems.isEmpty)
-        XCTAssertEqual(reports, 2)
+        XCTAssertEqual(reports, [updated, []])
         XCTAssertEqual(publications, [prepared])
         XCTAssertEqual(layoutChanges, 1)
     }
@@ -96,7 +99,8 @@ final class ShellConfigurationApplicationTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let shell = directory.appendingPathComponent("shell")
         _ = try ShellStyleFixture.prepare(into: shell)
-        try Data("return { unexpected = 1 }\n".utf8).write(to: shell.appendingPathComponent("shell.luau"))
+        let configFile = shell.appendingPathComponent("shell.luau")
+        try Data("return { unexpected = 1 }\n".utf8).write(to: configFile)
         let motion = MotionPolicy(animationsEnabled: false)
         let manager = WorkspaceBarManager(configDirectory: directory, motionPolicy: motion)
         let host = ShellWidgetHost(
@@ -112,9 +116,20 @@ final class ShellConfigurationApplicationTests: XCTestCase {
         let coordinator = manager.shellConfiguration
         try await coordinator.refresh()
         XCTAssertTrue(host.configProblems.contains { $0.contains("unexpected") })
+        let initial = host.config
+        var reports: [[String]] = []
+        host.onWidgetsChange = { [weak host] in
+            if let host { reports.append(host.widgetReport.problems) }
+        }
+        let warning = "anotherUnexpectedKey"
+        try Data("return { \(warning) = 1 }\n".utf8).write(to: configFile)
+        try await coordinator.refresh()
+        XCTAssertEqual(host.config, initial)
+        XCTAssertEqual(reports, [["shell.luau has unknown key \(warning)"]])
+
         try await coordinator.set(49, key: "height")
         XCTAssertEqual(host.config, coordinator.config)
         XCTAssertEqual(host.configProblems, coordinator.configProblems)
-        XCTAssertTrue(host.widgetReport.problems.contains { $0.contains("unexpected") })
+        XCTAssertTrue(host.widgetReport.problems.contains { $0.contains(warning) })
     }
 }

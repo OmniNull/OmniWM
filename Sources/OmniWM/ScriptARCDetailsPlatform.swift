@@ -36,11 +36,12 @@ package func runScriptARCDetailsPlatform(directory: URL) async throws {
     controller.cachedInnerGap = nil
 
     controller.settings.appRules = [AppRule(bundleId: "test.omniwm.details", layout: .float)]
+    let shellRows = fixture.populateShellReport(in: directory, widgetCount: 1)
     calibrateDetailPlatformReads(windowNumber: UInt32(fixture.token.windowId))
     let reads: ConfigScriptReads = [
         .workspaceWindows, .workspaceWindowFrames, .workspaceWindowColumns, .workspaceWindowDetails,
         .windows, .windowFrames, .windowColumns, .windowDetails, .workspaces, .workspaceDetails,
-        .monitors, .monitorFrames, .monitorDetails, .marks, .apps, .rules, .workspaceBar
+        .monitors, .monitorFrames, .monitorDetails, .marks, .apps, .rules, .workspaceBar, .shell
     ]
     let expectedFlags = UInt8(OMNI_CONFIG_SECTION_DETAILS | OMNI_CONFIG_SECTION_FRAMES | OMNI_CONFIG_SECTION_COLUMNS)
     for warm in [false, true] {
@@ -56,6 +57,7 @@ package func runScriptARCDetailsPlatform(directory: URL) async throws {
             precondition(sectionCount(UInt8(tag), in: capture.snapshot!) == 1)
         }
         precondition(sectionCount(UInt8(OMNI_CONFIG_SECTION_WORKSPACE_BAR), in: capture.snapshot!) != nil)
+        precondition(sectionCount(UInt8(OMNI_CONFIG_SECTION_SHELL), in: capture.snapshot!) == shellRows)
     }
 }
 

@@ -911,7 +911,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         settled.assertForOverFulfill = false
         let loadFailureDeadline: TimeInterval = 10
         func statsState() -> String? {
-            host.widgetReport.widgets.first { $0.name == "stats" }?.state
+            host.widgetReport.widgets.first { $0.name == "stats" }?.state.rawValue
         }
         let published = host.onWidgetsChange
         host.onWidgetsChange = {
@@ -2186,6 +2186,9 @@ final class ShellWidgetClickTests: XCTestCase {
         while harness.slot?.failure?.message.hasPrefix("Stopped after repeated errors") != true {
             try await layoutChanges.change()
         }
+        let stopped = try XCTUnwrap(harness.host.widgetReport.widgets.first { $0.name == "test" })
+        XCTAssertEqual(stopped.state, .failed)
+        XCTAssertEqual(stopped.error, harness.slot?.failure?.message)
         XCTAssertEqual(harness.host.dataDemand, 0)
     }
 
@@ -2236,7 +2239,7 @@ final class ShellWidgetClickTests: XCTestCase {
         defer { harness.close() }
         var published: [String?] = []
         harness.host.onWidgetsChange = { [host = harness.host] in
-            published.append(host.widgetReport.widgets.first { $0.name == "test" }?.state)
+            published.append(host.widgetReport.widgets.first { $0.name == "test" }?.state.rawValue)
         }
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         while harness.slot?.failure == nil {
@@ -2313,7 +2316,7 @@ final class ShellWidgetClickTests: XCTestCase {
             """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
             harness.host.rescan()
             var changes = harness.layoutChanges.makeAsyncIterator()
-            while harness.host.widgetReport.widgets.first(where: { $0.name == "clock" })?.state != "fallback" {
+            while harness.host.widgetReport.widgets.first(where: { $0.name == "clock" })?.state != .fallback {
                 try await changes.change()
             }
             let state = try XCTUnwrap(harness.host.widgets["clock"], context)
@@ -4172,12 +4175,13 @@ final class ShellWidgetClickTests: XCTestCase {
         executionTimeAllowance = failureBound
         let harness = try harness("function render(ctx) return ui.box{ w = 5, h = 10 } end")
         defer { harness.close() }
+        XCTAssertEqual(harness.host.widgetReport.widgets.first { $0.name == "test" }?.state, .loading)
         var changes = 0
         harness.host.onWidgetsChange = { changes += 1 }
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         try await layoutChanges.change()
         let loaded = try XCTUnwrap(harness.host.widgetReport.widgets.first { $0.name == "test" })
-        XCTAssertEqual(loaded.state, "loaded")
+        XCTAssertEqual(loaded.state, .loaded)
         XCTAssertEqual(loaded.placements, ["trailing"])
         XCTAssertNil(loaded.error)
         XCTAssertTrue(loaded.source.hasSuffix("shell/widgets/test/init.luau"))
@@ -4187,7 +4191,7 @@ final class ShellWidgetClickTests: XCTestCase {
         try Data("function render(ctx) return ui.box{ w = = 5 } end".utf8)
             .write(to: harness.root.appendingPathComponent("shell/widgets/test/init.luau"))
         harness.host.rescan()
-        while harness.host.widgetReport.widgets.first(where: { $0.name == "test" })?.state != "failed" {
+        while harness.host.widgetReport.widgets.first(where: { $0.name == "test" })?.state != .failed {
             try await layoutChanges.change()
         }
         XCTAssertNotNil(harness.host.widgetReport.widgets.first { $0.name == "test" }?.error)

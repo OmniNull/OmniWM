@@ -40,10 +40,11 @@ extension ShellDesktopEditor {
     }
 
     func status(for widget: String) -> (state: String, error: String?)? {
-        guard scope == .active, let report = controller.workspaceBarManager.shellHost?.widgetReport,
-              report.profile == selectedStyle, let entry = report.widgets.first(where: { $0.name == widget })
+        guard scope == .active, let host = controller.workspaceBarManager.shellHost,
+              host.config.profile == selectedStyle, let entry = host.widgets[widget]
         else { return nil }
-        return (entry.state, entry.error)
+        let status = entry.runtimeStatus
+        return (status.state.rawValue, status.error)
     }
 
     func barTarget(_ key: String, table: String = "workspaceBar") -> ShellSettingsWriteQueue.Target {

@@ -41,8 +41,17 @@ final class IPCQueryRouter {
     }
 
     func shellWidgetsResult() -> IPCShellWidgetsQueryResult {
-        controller.workspaceBarManager.shellHost?.widgetReport
-            ?? IPCShellWidgetsQueryResult(profile: ShellDefaults.profile, widgets: [])
+        let report = controller.workspaceBarManager.shellHost?.widgetReport ?? .empty
+        return IPCShellWidgetsQueryResult(
+            profile: report.profile,
+            widgets: report.widgets.map {
+                IPCShellWidget(
+                    name: $0.name, source: $0.source, state: $0.state.rawValue,
+                    error: $0.error, placements: $0.placements
+                )
+            },
+            problems: report.problems
+        )
     }
 
     func workspaceBarResult() -> IPCWorkspaceBarQueryResult {

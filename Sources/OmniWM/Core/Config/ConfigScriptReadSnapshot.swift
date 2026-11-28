@@ -320,6 +320,11 @@ extension WMController {
             appendScriptWorkspaceBar(session: origin.session, to: &output, scratch: &scratch.bar)
             finishScriptList(&output)
         }
+        if reads.contains(.shell) {
+            output.start(tag: UInt8(OMNI_CONFIG_SECTION_SHELL))
+            appendScriptShell(workspaceBarManager.shellHost?.widgetReport ?? .empty, to: &output)
+            finishScriptList(&output)
+        }
     }
 
     private func appendScriptPlacement(

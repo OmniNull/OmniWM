@@ -380,7 +380,7 @@ final class ShellWidgetHost {
     var onToggleNamesChange: (@MainActor () -> Void)?
     var onWidgetsChange: (@MainActor () -> Void)?
     var publishedToggleNames: [String] = []
-    var publishedReport: IPCShellWidgetsQueryResult?
+    var publishedReport: ShellWidgetReport?
     var configProblems: [String] = []
     var reportedMissing: Set<String> = []
     var ownWidgets: Set<String> = []

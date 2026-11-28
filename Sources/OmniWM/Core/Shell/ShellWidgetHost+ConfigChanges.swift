@@ -17,9 +17,7 @@ extension ShellWidgetHost {
             failedConfigHelpers = attempted
             watchFiles()
         }
-        configProblems = problems
-        guard let next = loaded else { return }
-        applyConfig(next, problems: problems)
+        applyConfig(loaded ?? config, problems: problems)
     }
 
     func applyConfig(_ next: ShellConfig, problems: [String] = []) {
