@@ -181,6 +181,11 @@ final class OverviewWindow: NSPanel {
         overlayView.clearPreviews()
     }
 
+    func magnify(with event: NSEvent, at screenPoint: CGPoint) {
+        let point = overlayView.convert(convertPoint(fromScreen: screenPoint), from: nil)
+        overlayView.magnify(with: event, at: point)
+    }
+
     func updateLayout(
         _ layout: OverviewLayout,
         state: OverviewState,

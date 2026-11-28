@@ -33,6 +33,10 @@ final class OverviewView: NSView {
     var onDragUpdate: ((CGPoint) -> Void)?
     var onDragEnd: ((CGPoint) -> Void)?
 
+    private var camera: OverviewPinchCamera {
+        layerRenderer.camera
+    }
+
     private var trackingArea: NSTrackingArea?
     private var rightDragPoint: CGPoint?
     private var dragCandidateHandle: WindowHandle?
@@ -77,6 +81,7 @@ final class OverviewView: NSView {
         update: OverviewLayoutUpdate = .preserve
     ) {
         self.layout = layout
+        camera.updateLayout(layout, state: state, animationsEnabled: animationsEnabled)
         self.searchQuery = searchQuery
         self.selection = selection ?? selectedWindowHandle.map(OverviewSelection.window)
         if let tabPicker,
@@ -129,6 +134,7 @@ final class OverviewView: NSView {
     }
 
     func cancelAnimation() {
+        camera.reset()
         layout = layerRenderer.freezingReflow(in: layout)
         layerRenderer.cancelAnimation()
     }
@@ -193,12 +199,22 @@ final class OverviewView: NSView {
 
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        updateHoverState(at: point)
+        updateHoverState(at: camera.scenePoint(at: point))
+    }
+
+    func magnify(with event: NSEvent, at point: CGPoint) {
+        guard dragCandidateHandle == nil, rightDragPoint == nil, !isTabPickerOpen else { return }
+        if let handle = camera.magnify(with: event, at: point, hitTest: pinchTarget) {
+            onWindowSelected?(handle)
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        if !searchQuery.isEmpty, layout.searchClearFrame.contains(point) {
+        guard !camera.isTracking else { return }
+        let viewPoint = convert(event.locationInWindow, from: nil)
+        let point = camera.scenePoint(at: viewPoint)
+        camera.reset()
+        if !searchQuery.isEmpty, layout.searchClearFrame.contains(viewPoint) {
             onClearSearch?()
             return
         }
@@ -229,7 +245,7 @@ final class OverviewView: NSView {
 
         if let window = hit?.window {
             dragCandidateHandle = window.handle
-            dragStartPoint = point
+            dragStartPoint = viewPoint
             isDragging = false
             return
         }
@@ -270,6 +286,8 @@ final class OverviewView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        guard !camera.isTracking else { return }
+        camera.reset()
         rightDragPoint = convert(event.locationInWindow, from: nil)
     }
 
@@ -285,37 +303,21 @@ final class OverviewView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        guard !camera.isTracking else { return }
         if let onScrollEvent {
+            let point = camera.scenePoint(at: convert(event.locationInWindow, from: nil))
             onScrollEvent(OverviewScrollInput.Event(
                 deltaX: event.scrollingDeltaX,
                 deltaY: event.scrollingDeltaY,
                 modifiers: event.modifierFlags,
                 isPrecise: event.hasPreciseScrollingDeltas,
-                location: layerRenderer.layoutPoint(at: convert(event.locationInWindow, from: nil), layout: layout),
+                location: layerRenderer.layoutPoint(at: point, layout: layout),
                 phase: event.phase,
                 momentumPhase: event.momentumPhase
             ))
         } else {
             onScroll?(OverviewScrollInput.dominantDelta(deltaX: event.scrollingDeltaX, deltaY: event.scrollingDeltaY))
         }
-    }
-
-    private func cancelDragState() {
-        dragCandidateHandle = nil
-        isDragging = false
-    }
-
-    private func updateHoverState(at point: CGPoint) {
-        let hit = layerRenderer.windowHit(at: point, layout: layout)
-        let nextHoveredHandle = hit?.window.handle
-        let nextCloseButtonHovered = hit?.isCloseButton ?? false
-        guard nextHoveredHandle != hoveredWindowHandle
-            || nextCloseButtonHovered != closeButtonHovered
-        else { return }
-        let previous = hoveredWindowHandle
-        hoveredWindowHandle = nextHoveredHandle
-        closeButtonHovered = nextCloseButtonHovered
-        layerRenderer.updateHover(from: previous, layout: layout, state: renderState)
     }
 
     override func updateLayer() {
@@ -346,6 +348,38 @@ extension OverviewView {
     func closeTabPicker() {
         tabPicker?.cancel()
         tabPicker = nil
+    }
+
+    private func cancelDragState() {
+        dragCandidateHandle = nil
+        isDragging = false
+    }
+
+    private func updateHoverState(at point: CGPoint) {
+        let hit = layerRenderer.windowHit(at: point, layout: layout)
+        let nextHoveredHandle = hit?.window.handle
+        let nextCloseButtonHovered = hit?.isCloseButton ?? false
+        guard nextHoveredHandle != hoveredWindowHandle
+            || nextCloseButtonHovered != closeButtonHovered
+        else { return }
+        let previous = hoveredWindowHandle
+        hoveredWindowHandle = nextHoveredHandle
+        closeButtonHovered = nextCloseButtonHovered
+        layerRenderer.updateHover(from: previous, layout: layout, state: renderState)
+    }
+
+    private func pinchTarget(at point: CGPoint) -> WindowHandle? {
+        guard bounds.contains(point) else { return nil }
+        let scene = camera.scenePoint(at: point)
+        let layoutPoint = layerRenderer.layoutPoint(at: scene, layout: layout)
+        let contentPoint = CGPoint(x: layoutPoint.x, y: layoutPoint.y + layout.scrollOffset)
+        guard layout.newWorkspaceTarget?.frame.contains(contentPoint) != true,
+              !layout.searchBarFrame.contains(point),
+              layerRenderer.tabControl(at: scene, layout: layout) == nil,
+              layout.overflowPill(at: layoutPoint) == nil,
+              let hit = layerRenderer.windowHit(at: scene, layout: layout), !hit.isCloseButton
+        else { return nil }
+        return hit.window.handle
     }
 
     private func showTabPicker(_ control: OverviewTabControl) {

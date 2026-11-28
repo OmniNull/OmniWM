@@ -68,6 +68,11 @@ final class OverviewInputHandler {
         windowSession.updateWindowDisplays(state: state, update: update, on: monitorId)
     }
 
+    func handleMagnification(_ event: NSEvent) -> Bool {
+        guard let point = controller?.wmController?.currentMouseLocation() else { return false }
+        return windowSession.magnify(with: event, at: point)
+    }
+
     func handleKeyDown(_ event: NSEvent) -> Bool {
         guard let controller else { return false }
         guard controller.state.isOpen else { return false }

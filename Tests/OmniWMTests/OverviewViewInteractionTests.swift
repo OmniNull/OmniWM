@@ -165,6 +165,215 @@ final class OverviewViewInteractionTests: XCTestCase {
         XCTAssertTrue(surface.recorder.selected.isEmpty)
     }
 
+    func testMagnifyZoomsProxiesAroundPointerAndActivatesOnlyOnRelease() throws {
+        let surface = try makeSurface()
+        defer { surface.panel.close() }
+        let renderer = surface.view.layerRenderer
+        let card = try XCTUnwrap(renderer.windowLayers[surface.item.handle]?.root)
+        let point = CGPoint(x: 140, y: 125)
+        let original = card.convert(card.bounds, to: renderer.root)
+
+        surface.view.magnify(with: MagnifyEvent(.began), at: point)
+        surface.view.magnify(with: MagnifyEvent(.changed, delta: 0.6), at: point)
+        let displayed = card.convert(card.bounds, to: renderer.root)
+        XCTAssertEqual(displayed.width, original.width * 1.6, accuracy: 0.001)
+        XCTAssertEqual(displayed.minX, point.x + (original.minX - point.x) * 1.6, accuracy: 0.001)
+        XCTAssertEqual(displayed.minY, point.y + (original.minY - point.y) * 1.6, accuracy: 0.001)
+        XCTAssertTrue(surface.recorder.selected.isEmpty)
+
+        let outsideOriginalCard = CGPoint(x: original.maxX + 8, y: point.y)
+        surface.view.magnify(with: MagnifyEvent(.ended), at: outsideOriginalCard)
+        surface.view.magnify(with: MagnifyEvent(.ended), at: outsideOriginalCard)
+        XCTAssertEqual(surface.recorder.selected, [surface.item.handle])
+        XCTAssertTrue(surface.recorder.closed.isEmpty)
+        XCTAssertEqual(surface.recorder.dismissals, 0)
+    }
+
+    func testPinchReleaseOutsideThePanelDoesNotActivateAClippedCard() throws {
+        let surface = try makeSurface()
+        defer { surface.panel.close() }
+        let renderer = surface.view.layerRenderer
+        let card = try XCTUnwrap(renderer.windowLayers[surface.item.handle]?.root)
+        let anchor = CGPoint(x: 290, y: 160)
+        let outside = CGPoint(x: -20, y: anchor.y)
+        surface.view.updateLayout(
+            surface.view.layout, state: .open, searchQuery: "", selectedWindowHandle: nil, animationsEnabled: false
+        )
+
+        surface.view.magnify(with: MagnifyEvent(.began, delta: 1), at: anchor)
+        XCTAssertTrue(card.convert(card.bounds, to: renderer.root).contains(outside))
+        surface.view.magnify(with: MagnifyEvent(.ended), at: outside)
+
+        XCTAssertTrue(surface.recorder.selected.isEmpty)
+        XCTAssertFalse(renderer.camera.isTracking)
+    }
+
+    func testLocalPinchMonitorKeepsThePanelUnderTheInitialPointer() throws {
+        let surface = try makeSurface()
+        defer { surface.panel.close() }
+        let controller = WindowAdmissionTestSupport.controller(prefix: "OverviewPinchRouting")
+        controller.motionPolicy.animationsEnabled = false
+        let frames = [surface.view.frame, surface.view.frame.offsetBy(dx: surface.view.frame.width, dy: 0)]
+        controller.workspaceManager.applyMonitorConfigurationChange(frames.enumerated().map { index, frame in
+            let id = CGDirectDisplayID(93_031 + index)
+            return Monitor(
+                id: .init(displayId: id),
+                displayId: id,
+                frame: frame,
+                visibleFrame: frame,
+                hasNotch: false,
+                name: "Pinch test \(index)"
+            )
+        })
+        var pointer = CGPoint.zero
+        controller.currentMouseLocation = { pointer }
+        var monitorHandler: ((NSEvent) -> NSEvent?)?
+        var environment = OverviewEnvironment()
+        environment.frontmostApplicationPID = { nil }
+        environment.addLocalEventMonitor = { mask, handler in
+            if mask.contains(.magnify) { monitorHandler = handler }
+            return nil
+        }
+        let registry = OwnedWindowRegistry(surfaceCoordinator: SurfaceCoordinator())
+        let overview = OverviewController(
+            wmController: controller, motionPolicy: controller.motionPolicy,
+            environment: environment, ownedWindowRegistry: registry
+        )
+        XCTAssertTrue(overview.beginOpening())
+        defer { overview.dismiss(animated: false) }
+        let primary = try XCTUnwrap(overview.windowSession.primaryOverviewWindow())
+        let panels = registry.visibleWindows(kind: .overview).compactMap { $0 as? OverviewWindow }
+        let secondary = try XCTUnwrap(panels.first { $0 !== primary })
+        let receive = try XCTUnwrap(monitorHandler, "Overview does not monitor magnification events")
+        var selections: [Monitor.ID] = []
+        for panel in panels {
+            panel.updateLayout(
+                surface.view.layout,
+                state: .open,
+                searchQuery: "",
+                selectedWindowHandle: nil,
+                animationsEnabled: false
+            )
+            panel.onWindowSelected = { monitorId, _ in selections.append(monitorId) }
+        }
+        let view = try XCTUnwrap(secondary.contentView?.subviews.compactMap { $0 as? OverviewView }.first)
+        view.updateLayer()
+        let camera = view.layerRenderer.camera
+        let secondaryPoint = secondary.convertPoint(toScreen: view.convert(cardInterior, to: nil))
+        let primaryPoint = primary.convertPoint(toScreen: cardInterior)
+        XCTAssertTrue(secondary.frame.contains(secondaryPoint))
+        XCTAssertFalse(primary.frame.contains(secondaryPoint))
+
+        pointer = secondaryPoint
+        XCTAssertNil(receive(MagnifyEvent(.began, at: primary.convertPoint(fromScreen: pointer), in: primary)))
+        XCTAssertTrue(camera.isTracking)
+        pointer = primaryPoint
+        XCTAssertNil(receive(MagnifyEvent(.changed, at: cardInterior, delta: 0.8, in: primary)))
+        XCTAssertEqual(camera.layer.transform.m11, 1.8, accuracy: 0.001)
+        XCTAssertNil(receive(MagnifyEvent(.ended, at: cardInterior, in: primary)))
+        XCTAssertTrue(selections.isEmpty)
+        XCTAssertFalse(camera.isTracking)
+
+        pointer = secondaryPoint
+        let sourcePoint = primary.convertPoint(fromScreen: pointer)
+        XCTAssertNil(receive(MagnifyEvent(.began, at: sourcePoint, delta: 0.8, in: primary)))
+        XCTAssertNil(receive(MagnifyEvent(.ended, at: sourcePoint, in: primary)))
+        XCTAssertEqual(selections, [secondary.monitorId])
+    }
+
+    func testSmallCancelledAndBackdropPinchesLeaveGridInteractive() throws {
+        let surface = try makeSurface()
+        defer { surface.panel.close() }
+        surface.view.updateLayout(
+            surface.view.layout,
+            state: .open,
+            searchQuery: "",
+            selectedWindowHandle: nil,
+            animationsEnabled: false
+        )
+        let renderer = surface.view.layerRenderer
+        let card = try XCTUnwrap(renderer.windowLayers[surface.item.handle]?.root)
+        let original = card.convert(card.bounds, to: renderer.root)
+        let backdrop = CGPoint(x: 750, y: 40)
+        for (start, delta, phase): (CGPoint, CGFloat, NSEvent.Phase) in [
+            (cardInterior, 0.2, .ended), (cardInterior, 0.8, .cancelled), (backdrop, 0.8, .ended)
+        ] {
+            surface.view.magnify(with: MagnifyEvent(.began), at: start)
+            surface.view.magnify(with: MagnifyEvent(.changed, delta: delta), at: start)
+            surface.view.magnify(with: MagnifyEvent(phase), at: cardInterior)
+            XCTAssertEqual(card.convert(card.bounds, to: renderer.root), original)
+            XCTAssertTrue(surface.recorder.selected.isEmpty)
+        }
+        surface.view.mouseDown(with: try mouseEvent(.leftMouseDown, at: cardInterior, in: surface.panel))
+        surface.view.mouseUp(with: try mouseEvent(.leftMouseUp, at: cardInterior, in: surface.panel))
+        XCTAssertEqual(surface.recorder.selected, [surface.item.handle])
+    }
+
+    func testRegrabbingReturningCameraKeepsPreviewPointUnderNewAnchor() throws {
+        let surface = try makeSurface()
+        defer { surface.panel.close() }
+        let renderer = surface.view.layerRenderer
+        let card = try XCTUnwrap(renderer.windowLayers[surface.item.handle]?.root)
+        let nextAnchor = CGPoint(x: cardInterior.x + 36, y: cardInterior.y)
+        renderer.camera.layer.speed = 0
+        surface.view.magnify(with: MagnifyEvent(.began, delta: 0.4), at: cardInterior)
+        let localPoint = card.convert(nextAnchor, from: renderer.root)
+        surface.view.magnify(with: MagnifyEvent(.ended), at: cardInterior)
+        surface.view.magnify(with: MagnifyEvent(.began, delta: 0.1), at: nextAnchor)
+        let projected = card.convert(localPoint, to: renderer.root)
+        XCTAssertEqual(projected.x, nextAnchor.x, accuracy: 0.001)
+        XCTAssertEqual(projected.y, nextAnchor.y, accuracy: 0.001)
+
+        surface.view.magnify(with: MagnifyEvent(.changed, delta: -0.9), at: nextAnchor)
+        let restored = card.convert(card.bounds, to: renderer.root)
+        let rounding = CGFloat.rounding(operations: 8, at: cardFrame.maxX)
+        XCTAssertEqual(restored.minX, cardFrame.minX, accuracy: rounding)
+        XCTAssertEqual(restored.minY, cardFrame.minY, accuracy: rounding)
+        XCTAssertEqual(restored.width, cardFrame.width, accuracy: rounding)
+        XCTAssertEqual(restored.height, cardFrame.height, accuracy: rounding)
+    }
+
+    func testInterruptedPinchCannotActivateOnLateRelease() throws {
+        let surface = try makeSurface()
+        defer { surface.panel.close() }
+        let layout = surface.view.layout
+        surface.view.magnify(with: MagnifyEvent(.began, delta: 0.7), at: cardInterior)
+        surface.view.updateLayout(.init(), state: .open, searchQuery: "", selectedWindowHandle: nil)
+        surface.view.updateLayout(layout, state: .open, searchQuery: "", selectedWindowHandle: nil)
+        surface.view.magnify(with: MagnifyEvent(.ended), at: cardInterior)
+        XCTAssertTrue(surface.recorder.selected.isEmpty)
+
+        surface.view.magnify(with: MagnifyEvent(.began, delta: 0.7), at: cardInterior)
+        surface.view.updateLayout(
+            layout,
+            state: .closing(targetWindow: nil),
+            searchQuery: "",
+            selectedWindowHandle: nil
+        )
+        surface.view.magnify(with: MagnifyEvent(.began, delta: 0.7), at: cardInterior)
+        surface.view.updateLayout(layout, state: .open, searchQuery: "", selectedWindowHandle: nil)
+        surface.view.magnify(with: MagnifyEvent(.ended), at: cardInterior)
+        XCTAssertTrue(surface.recorder.selected.isEmpty)
+    }
+
+    func testMagnificationAndCardPressDoNotTakeOverEachOther() throws {
+        let surface = try makeSurface()
+        defer { surface.panel.close() }
+        surface.view.mouseDown(with: try mouseEvent(.leftMouseDown, at: cardInterior, in: surface.panel))
+        surface.view.magnify(with: MagnifyEvent(.began, delta: 0.7), at: cardInterior)
+        surface.view.magnify(with: MagnifyEvent(.ended), at: cardInterior)
+        XCTAssertTrue(surface.recorder.selected.isEmpty)
+        surface.view.mouseUp(with: try mouseEvent(.leftMouseUp, at: cardInterior, in: surface.panel))
+        XCTAssertEqual(surface.recorder.selected, [surface.item.handle])
+
+        let backdrop = CGPoint(x: 750, y: 40)
+        surface.view.magnify(with: MagnifyEvent(.began, delta: 0.7), at: cardInterior)
+        surface.view.mouseDown(with: try mouseEvent(.leftMouseDown, at: backdrop, in: surface.panel))
+        surface.view.magnify(with: MagnifyEvent(.ended), at: backdrop)
+        XCTAssertEqual(surface.recorder.selected, [surface.item.handle])
+        XCTAssertEqual(surface.recorder.dismissals, 0)
+    }
+
     private struct Surface {
         let view: OverviewView
         let panel: NSPanel
@@ -232,5 +441,45 @@ final class OverviewViewInteractionTests: XCTestCase {
             clickCount: 1,
             pressure: 1
         ))
+    }
+}
+
+private final class MagnifyEvent: NSEvent, @unchecked Sendable {
+    private let gesturePhase: Phase
+    private let point: CGPoint
+    private let delta: CGFloat
+    private let sourceWindow: NSWindow?
+
+    init(_ phase: Phase, at point: CGPoint = .zero, delta: CGFloat = 0, in sourceWindow: NSWindow? = nil) {
+        gesturePhase = phase
+        self.point = point
+        self.delta = delta
+        self.sourceWindow = sourceWindow
+        super.init()
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var type: EventType {
+        .magnify
+    }
+
+    override var phase: Phase {
+        gesturePhase
+    }
+
+    override var locationInWindow: CGPoint {
+        point
+    }
+
+    override var window: NSWindow? {
+        sourceWindow
+    }
+
+    override var magnification: CGFloat {
+        delta
     }
 }

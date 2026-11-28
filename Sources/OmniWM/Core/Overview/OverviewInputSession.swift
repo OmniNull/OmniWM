@@ -9,7 +9,7 @@ import QuartzCore
 @MainActor
 final class OverviewInputSession {
     private let environment: OverviewEnvironment
-    private var keyEventMonitor: Any?
+    private var localEventMonitor: Any?
     private var applicationDidResignObserver: NSObjectProtocol?
     private var screenParametersObserver: NSObjectProtocol?
     private var inputHandler: OverviewInputHandler?
@@ -28,13 +28,13 @@ final class OverviewInputSession {
         self.inputHandler = inputHandler
         self.onResignActive = onResignActive
         self.onDisplayChange = onDisplayChange
-        installKeyEventMonitor()
+        installLocalEventMonitor()
         installApplicationDidResignObserver()
         installScreenParametersObserver()
     }
 
     func stop() {
-        removeKeyEventMonitor()
+        removeLocalEventMonitor()
         removeApplicationDidResignObserver()
         removeScreenParametersObserver()
         inputHandler = nil
@@ -42,18 +42,23 @@ final class OverviewInputSession {
         onDisplayChange = nil
     }
 
-    private func installKeyEventMonitor() {
-        removeKeyEventMonitor()
-        keyEventMonitor = environment.addLocalEventMonitor([.keyDown]) { [weak self] event in
+    private func installLocalEventMonitor() {
+        removeLocalEventMonitor()
+        localEventMonitor = environment.addLocalEventMonitor([.keyDown, .magnify]) { [weak self] event in
             guard let self else { return event }
-            return self.inputHandler?.handleKeyDown(event) == true ? nil : event
+            let handled = if event.type == .magnify {
+                self.inputHandler?.handleMagnification(event)
+            } else {
+                self.inputHandler?.handleKeyDown(event)
+            }
+            return handled == true ? nil : event
         }
     }
 
-    private func removeKeyEventMonitor() {
-        if let keyEventMonitor {
-            environment.removeEventMonitor(keyEventMonitor)
-            self.keyEventMonitor = nil
+    private func removeLocalEventMonitor() {
+        if let localEventMonitor {
+            environment.removeEventMonitor(localEventMonitor)
+            self.localEventMonitor = nil
         }
     }
 
