@@ -295,6 +295,10 @@ struct WorldView {
 }
 
 extension WorldView {
+    func isBorderSuppressedByOrderOut(for token: WindowToken) -> Bool {
+        controller.axEventHandler.isBorderSuppressedByOrderOut(for: token)
+    }
+
     func edgePicturePresentation(for entry: borrowing WindowState) -> NiriEdgePicturePresentation? {
         guard entry.layoutReason == .standard,
               !controller.workspaceManager.isWindowSuppressedByMacOS(entry)

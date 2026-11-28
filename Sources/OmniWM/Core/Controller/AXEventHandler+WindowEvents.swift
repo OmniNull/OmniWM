@@ -50,9 +50,15 @@ extension AXEventHandler {
         case let .visibilityChanged(windowId, orderedIn):
             if orderedIn { noteHostedWindowRestack(windowId: windowId) }
             let entry = controller.workspaceManager.entry(forWindowId: Int(windowId))
-            guard !orderedIn || entry?.observedState.isNativeWithdrawn == true || hasVisibilityQuery(windowId: windowId)
+            let previouslyOrderedOut = entry.map {
+                $0.observedState.isNativeWithdrawn || isBorderSuppressedByOrderOut(for: $0.token)
+            } ?? false
+            guard !orderedIn || previouslyOrderedOut || hasVisibilityQuery(windowId: windowId)
             else { return }
-            enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged)
+            let cause: VisibilityQueryCause = orderedIn
+                ? .orderedIn(entry.flatMap { controller.workspaceManager.handle(for: $0.token) })
+                : .orderedOut
+            enqueueLifecycleQuery(windowId: windowId, kind: .visibilityChanged(cause: cause))
 
         case let .titleChanged(windowId):
             handleWindowTitleChanged(windowId: windowId)
@@ -129,13 +135,20 @@ extension AXEventHandler {
 
     func applyWindowVisibilityChanged(windowId: UInt32, windowInfo: WindowServerInfo?) {
         guard let controller,
-              case let .exact(token, _) = WindowServerIdentityResolution(windowId: windowId, info: windowInfo)
+              case let .exact(token, info) = WindowServerIdentityResolution(windowId: windowId, info: windowInfo)
         else { return }
-        guard windowInfo?.isOrderedIn != false || controller.workspaceManager.nativeManagedFocusToken != token else {
-            lifecycleQueries.visibilityRechecksAfterFocusLoss.insert(token)
+        if info.isOrderedIn == false,
+           controller.workspaceManager.nativeManagedFocusToken == token,
+           let handle = controller.workspaceManager.handle(for: token),
+           canApplyNativeOrderOut(to: token)
+        {
+            let previous = lifecycleQueries.borderSuppressions.updateValue(.init(handle: handle), forKey: token)
+            if previous?.handle !== handle {
+                controller.surfaceReconciler.noteBorderChanged()
+            }
             return
         }
-        applyObservedWindowOrdering(windowInfo, token: token)
+        applyObservedWindowOrdering(info, token: token)
     }
 
     func applyObservedWindowOrdering(
@@ -151,15 +164,18 @@ extension AXEventHandler {
               let isOrderedIn = windowInfo.isOrderedIn,
               controller.workspaceManager.workspace(for: token) != nil
         else { return }
-        lifecycleQueries.visibilityRechecksAfterFocusLoss.remove(token)
-        if !isOrderedIn {
-            let topology = controller.workspaceManager.spaceTopology
-            guard !appFullscreen,
-                  !topology.isWindowOnFullscreenSpace(token.windowId),
-                  !topology.isWindowOnKnownInactiveSpace(token.windowId)
-            else { return }
+        if isOrderedIn, isBorderSuppressedByOrderOut(for: token), hasVisibilityQuery(windowId: windowInfo.id) {
+            return
         }
+        clearBorderSuppression(for: token)
+        guard isOrderedIn || canApplyNativeOrderOut(to: token, appFullscreen: appFullscreen) else { return }
         updateWindowNativeWithdrawalState(!isOrderedIn, token: token, requestRefresh: requestRefresh)
+    }
+
+    private func canApplyNativeOrderOut(to token: WindowToken, appFullscreen: Bool = false) -> Bool {
+        guard !appFullscreen, let topology = controller?.workspaceManager.spaceTopology else { return false }
+        return !topology.isWindowOnFullscreenSpace(token.windowId)
+            && !topology.isWindowOnKnownInactiveSpace(token.windowId)
     }
 
     private func handleCGSWindowCreated(windowId: UInt32, spaceId: UInt64) {
