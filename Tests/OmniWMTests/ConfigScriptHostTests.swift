@@ -303,7 +303,7 @@ final class ConfigScriptHostTests: XCTestCase {
                         actionID?.pointee = 0
                         return omni_config_live_vm_count() > 0
                     },
-                    bind: { _, _, _, _, _, _, _, _ in true }, read_module: nil, rule: nil,
+                    bind: { _, _, _, _, _, _, _ in true }, read_module: nil, rule: nil,
                     bind_function: nil, dispatch: nil, log: nil,
                     named_function: { _, event, _, _, _, _, _, _ in event },
                     effect: nil, window: nil, mark: nil, workspace: nil, rule_apply: nil, shell_control: nil,

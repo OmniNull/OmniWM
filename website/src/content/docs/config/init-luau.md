@@ -37,7 +37,7 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 
 | Call | What it does |
 | --- | --- |
-| `omniwm.keymap.set(chord, action, opts?)` | Binds a shortcut, such as `"Control+Option+K"`, to an action. `opts.modeKey` also binds a key for Prefix and Window mode. With `opts.mode`, the chord is a key inside a [key mode](#key-modes) instead. |
+| `omniwm.keymap.set(chord, action, opts?)` | Binds a shortcut, such as `"Control+Option+K"`, to an action. `opts.modeKey` also binds a key for Prefix and Window mode. With `opts.mode`, the chord is a key inside a [key mode](#key-modes) instead. Use `opts.repeatWhileHeld = true` to [repeat](#repeat-while-held) a mode key or sided shortcut. |
 | `omniwm.keymap.mode(name)` | Declares a [key mode](#key-modes) and returns the action that enters it. |
 | `omniwm.keymap.set(chord, function(ctx) … end, opts?)` | Runs a function instead. `opts` can also hold `reads`. |
 | `omniwm.command(name, function(ctx) … end, opts?)` | Adds a command to the command palette. |
@@ -78,6 +78,20 @@ A key mode gives plain keys their own meaning until you leave it, like Hyprland'
 - A name has up to 32 lowercase letters, digits, `-` and `_`, and starts with a letter. `normal`, `paused`, `prefix` and `window` are taken. A config declares at most 16 modes, each with 1 to 64 keys. An overlapping global chord in the same script rejects the load.
 - A key in a mode can take over a global shortcut from Settings. That saved shortcut is inactive even outside the mode while the script binding is loaded.
 - Key modes need Input Monitoring, like Prefix and Window mode.
+
+## Repeat while held
+
+A key in a named mode or a sided shortcut such as `Left Option+L` fires once per press by default. Set `repeatWhileHeld = true` in the binding options to run the action or callback on each repeat from macOS. The held key keeps its binding until key-up, even if you leave the mode in the meantime. A successful reload cancels the held binding. Function repeats share the usual limit of eight waiting presses.
+
+Plain shortcuts keep their existing repeat behavior. Overview and keyboard mode commands still ignore repeats.
+
+```lua
+local wm = omniwm
+local resize = wm.keymap.mode("resize-held")
+wm.keymap.set("Control+Option+Shift+Y", resize)
+wm.keymap.set("H", wm.cmd.resize("horizontal", "shrink"), { mode = "resize-held", repeatWhileHeld = true })
+wm.keymap.set("Left Option+L", wm.cmd.resize("horizontal", "grow"), { repeatWhileHeld = true })
+```
 
 ## Callback context
 

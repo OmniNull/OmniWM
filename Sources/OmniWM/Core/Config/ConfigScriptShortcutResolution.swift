@@ -143,7 +143,10 @@ struct ConfigScriptValidatedShortcuts {
         for row in ordinary {
             let key = row.chord
             let id = "script:\(key.keyCode):\(key.modifiers):\(key.sidedModifiers.left):\(key.sidedModifiers.right)"
-            let binding = HotkeyBinding(id: id, command: row.command, trigger: .chord(key), modeKey: row.modeKey)
+            let binding = HotkeyBinding(
+                id: id, command: row.command, trigger: .chord(key), modeKey: row.modeKey,
+                repeatWhileHeld: row.repeatWhileHeld
+            )
             resolution.scriptBindings.append(binding)
             if settings.isCommandFeatureEnabled(row.command) {
                 enabledBindings.append(binding)
@@ -153,7 +156,9 @@ struct ConfigScriptValidatedShortcuts {
         var entries: [Int: [KeyboardModeTable.Entry]] = [:]
         for row in named where settings.isCommandFeatureEnabled(row.command) {
             guard let mode = row.mode else { continue }
-            entries[mode, default: []].append(KeyboardModeTable.Entry(binding: row.chord, command: row.command))
+            entries[mode, default: []].append(KeyboardModeTable.Entry(
+                binding: row.chord, command: row.command, repeatWhileHeld: row.repeatWhileHeld
+            ))
             claims[row.chord.keyCode, default: []].append(Claim(row: row, chord: row.chord, scope: .named))
         }
         resolution.namedModes = NamedKeyModes(modes.compactMap { mode in

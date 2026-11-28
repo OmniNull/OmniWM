@@ -23,6 +23,13 @@ struct KeyboardModeTable: Equatable {
     struct Entry: Equatable {
         let binding: KeyBinding
         let command: HotkeyCommand
+        let repeatWhileHeld: Bool
+
+        init(binding: KeyBinding, command: HotkeyCommand, repeatWhileHeld: Bool = false) {
+            self.binding = binding
+            self.command = command
+            self.repeatWhileHeld = repeatWhileHeld
+        }
 
         var isSupported: Bool {
             KeyboardModeTable.isEligible(command) && KeyboardModeTable.isSupported(binding)
@@ -95,6 +102,7 @@ struct KeyboardModeInput: Equatable {
     struct Decision: Equatable {
         var consumed = false
         var command: HotkeyCommand?
+        var heldBinding: KeyBinding?
     }
 
     static let repeatWindow: TimeInterval = 0.5
@@ -145,8 +153,10 @@ struct KeyboardModeInput: Equatable {
             state = .normal
             return Decision(consumed: true)
         }
-        guard let command = modes.command(in: index, keyCode: keyCode, rawFlags: rawFlags) else { return Decision() }
-        return Decision(consumed: true, command: command)
+        guard let slot = modes.entryIndex(in: index, keyCode: keyCode, rawFlags: rawFlags) else { return Decision() }
+        let held = modes.modes[index].entries[slot].repeatWhileHeld
+            ? modes.modes[index].entries[slot].binding : nil
+        return Decision(consumed: true, command: modes.modes[index].entries[slot].command, heldBinding: held)
     }
 
     mutating func handleKeyDown(

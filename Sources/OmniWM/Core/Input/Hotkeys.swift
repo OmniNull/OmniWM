@@ -49,9 +49,12 @@ final class HotkeyCenter {
     private(set) var commandHotkeysSuspended = false
 
     private(set) var configuration = HotkeyRuntimeConfiguration()
-    var sideSpecificDispatch: [CommandHotkeyTapMatcher.Entry] = []
+    var sideSpecificDispatch: [CommandHotkeyTapMatcher.Entry] = [] {
+        didSet { retireRemovedSidedHolds() }
+    }
+
+    var heldTapKeys = HeldTapKeys()
     var mouseButtonDispatch: [MouseButtonBinding: HotkeyCommand] = [:]
-    var suppressedHotkeyKeyCodes: Set<UInt32> = []
     var paletteShortcutChords: [KeyBinding] = []
     var hyperTriggerTap: CFMachPort?
     var hyperTriggerRunLoopSource: CFRunLoopSource?
@@ -109,7 +112,7 @@ final class HotkeyCenter {
     func setCommandHotkeysSuspended(_ suspended: Bool) {
         guard commandHotkeysSuspended != suspended else { return }
         commandHotkeysSuspended = suspended
-        resetTransientInputState()
+        resetTransientInputState(keepHeldKeySuppression: true)
         if isRunning {
             refreshCommandHotkeyRegistrations()
         }
@@ -152,7 +155,7 @@ final class HotkeyCenter {
 
         let hyperEnabled = configuration.systemHyperTrigger.isEnabled
         guard keyboardTapRequiredOutsideModes || !keyboardModeTable.isEmpty || !namedKeyModes.isEmpty
-            || !suppressedHotkeyKeyCodes.isEmpty
+            || heldTapKeys.hasSuppressedKeys
         else {
             releaseKeyboardModeCapture()
             return
@@ -181,6 +184,7 @@ final class HotkeyCenter {
             FallbackFiringRecorder.shared.note(.input, "hyperTapSetupFailed")
             restoreCapsLockHyperRemap()
             hyperTrigger = HyperTriggerStateMachine(trigger: .none, capsLockRemapped: false)
+            heldTapKeys.clear()
             releaseKeyboardModeCapture()
         }
         updateEventTapEnablement()
@@ -201,9 +205,7 @@ final class HotkeyCenter {
 
         carbonRegistrations.register(plan.registrations, failures: &registrationFailures)
 
-        sideSpecificDispatch = plan.sideSpecificRegistrations.map {
-            CommandHotkeyTapMatcher.Entry(binding: $0.binding, command: $0.command)
-        }
+        sideSpecificDispatch = plan.sideSpecificRegistrations.map(\.tapEntry)
         mouseButtonDispatch = plan.mouseButtonRegistrations
         reconcileEventTap()
         if !sideSpecificDispatch.isEmpty, hyperTriggerTap == nil {
@@ -277,8 +279,13 @@ final class HotkeyCenter {
         return true
     }
 
-    func resetTransientInputState(reconcileTap: Bool = true) {
+    func resetTransientInputState(reconcileTap: Bool = true, keepHeldKeySuppression: Bool = false) {
         resetTapBoundInputState()
+        if keepHeldKeySuppression {
+            retireHeldBindings()
+        } else {
+            heldTapKeys.clear()
+        }
         releaseKeyboardModeCapture(reconcileTap: reconcileTap)
     }
 
@@ -301,6 +308,11 @@ final class HotkeyCenter {
 
 extension HotkeyCenter {
     func handleHyperTriggerEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .keyDown || type == .keyUp, isRunning, !heldTapKeys.isEmpty,
+           heldTapKeys.contains(UInt32(event.getIntegerValueField(.keyboardEventKeycode)))
+        {
+            return handleHyperTriggerKeyEvent(type: type, event: event)
+        }
         if handleWindowSwitcherEvent(type: type, event: event, source: .shortcut) { return nil }
         if type == .keyUp,
            windowSwitcherInput.ownsKeyUp(Int(event.getIntegerValueField(.keyboardEventKeycode)), source: .external)
@@ -352,12 +364,10 @@ extension HotkeyCenter {
             case .passThrough:
                 break
             }
-            if suppressedHotkeyKeyCodes.contains(keyCode) {
-                return nil
-            }
-            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
-               dispatchCommandKeyDown(keyCode: keyCode, rawFlags: event.flags.rawValue)
-            {
+            if dispatchCommandKeyDown(
+                keyCode: keyCode, rawFlags: event.flags.rawValue,
+                isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+            ) {
                 return nil
             }
             return Unmanaged.passUnretained(event)
@@ -441,49 +451,5 @@ extension HotkeyCenter {
         InputTrace.record("hotkey.mouse cmd=\(command.displayName)")
         routeHotkeyInvocation(HotkeyInvocation(command: command))
         return true
-    }
-
-    func dispatchCommandKeyDown(keyCode: UInt32, rawFlags: UInt64) -> Bool {
-        if keyboardModeInput.capturesKeys, handleKeyboardModeKeyDown(keyCode: keyCode, rawFlags: rawFlags) {
-            return true
-        }
-        if let entry = CommandHotkeyTapMatcher.firstMatch(
-            keyCode: keyCode,
-            rawFlags: rawFlags,
-            entries: sideSpecificDispatch
-        ) {
-            suppressedHotkeyKeyCodes.insert(keyCode)
-            InputTrace.record("hotkey.sided cmd=\(entry.command.displayName)")
-            routeHotkeyInvocation(
-                HotkeyInvocation(
-                    command: entry.command,
-                    trigger: PhysicalHotkeyTrigger(
-                        keyCode: entry.binding.keyCode,
-                        modifiers: entry.binding.modifiers,
-                        isRepeat: false
-                    )
-                )
-            )
-            return true
-        }
-        recordSidedMiss(keyCode: keyCode, rawFlags: rawFlags)
-        return false
-    }
-
-    private func recordSidedMiss(keyCode: UInt32, rawFlags: UInt64) {
-        guard InputTrace.shared.isActive, !sideSpecificDispatch.isEmpty else { return }
-        let down = KeySymbolMapper.sidedModifierLabel(rawFlags)
-        guard !down.isEmpty else { return }
-        let nearMiss = CommandHotkeyTapMatcher.nearMiss(
-            keyCode: keyCode,
-            rawFlags: rawFlags,
-            entries: sideSpecificDispatch
-        )
-        InputTrace.record(
-            "hotkey.sided.miss key=\(KeySymbolMapper.keySymbol(keyCode)) down=\(down) "
-                + "closest=\(nearMiss?.entry.command.displayName ?? "none") "
-                + "needs=\(nearMiss?.entry.binding.displayString ?? "-") "
-                + "reason=\(nearMiss?.reason ?? "-")"
-        )
     }
 }

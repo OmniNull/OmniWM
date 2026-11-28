@@ -133,7 +133,10 @@ final class ConfigScriptController {
         requested = nil
         retireCallbacks()
         acceptedNamedModes = []
-        wmController?.hotkeys.updateNamedKeyModes(NamedKeyModes())
+        if let hotkeys = wmController?.hotkeys {
+            hotkeys.retireHeldBindings()
+            hotkeys.updateNamedKeyModes(NamedKeyModes())
+        }
         if !acceptedCommands.isEmpty {
             acceptedCommands.removeAll()
             onCommandsChanged?()
@@ -242,23 +245,6 @@ final class ConfigScriptController {
         return false
     }
 
-    private func replaceCallbackQueue(
-        _ evaluation: ConfigScriptEvaluation?, bindings: [ConfigScriptBinding], commands: [ConfigScriptNamedCommand]
-    ) {
-        retireCallbacks()
-        callbackQueue = evaluation?.generation.map { ConfigScriptCallbackQueue(
-            generation: $0, bindings: bindings, commands: commands, events: evaluation?.events ?? [],
-            fullQueueDiagnostic: { source, line in
-                description(
-                    source: source,
-                    line: line,
-                    message: "Callback queue is full. This press was dropped."
-                )
-            }
-        ) }
-        callbackQueue?.activate(owner: self, controller: wmController)
-    }
-
     func resolveBindings(for base: [HotkeyBinding]) -> ConfigScriptShortcutResolution {
         let inputs = ShortcutInputs(base: base, settings: settings)
         if let requested, requested.hyperMask != inputs.hyperMask {
@@ -360,6 +346,25 @@ final class ConfigScriptController {
 }
 
 extension ConfigScriptController {
+    private func replaceCallbackQueue(
+        _ evaluation: ConfigScriptEvaluation?, bindings: [ConfigScriptBinding], commands: [ConfigScriptNamedCommand]
+    ) {
+        let controller = wmController
+        controller?.hotkeys.retireHeldBindings()
+        retireCallbacks()
+        callbackQueue = evaluation?.generation.map { ConfigScriptCallbackQueue(
+            generation: $0, bindings: bindings, commands: commands, events: evaluation?.events ?? [],
+            fullQueueDiagnostic: { source, line in
+                description(
+                    source: source,
+                    line: line,
+                    message: "Callback queue is full. This press was dropped."
+                )
+            }
+        ) }
+        callbackQueue?.activate(owner: self, controller: controller)
+    }
+
     private func retireCallbacks() {
         timerWorker?.cancel()
         timerWorker = nil

@@ -12,6 +12,7 @@ final class CarbonHotkeyRegistration {
     private var handler: EventHandlerRef?
     private var idToRegistration: [UInt32: HotkeyPlannedRegistration] = [:]
     private var pressedHotKeyIds: Set<UInt32> = []
+    private var retiredHotKeyIds: Set<UInt32> = []
     private var nextId: UInt32 = 1
 
     var count: Int {
@@ -88,12 +89,19 @@ final class CarbonHotkeyRegistration {
         }
     }
 
+    func retireRepeatBindings() {
+        for id in pressedHotKeyIds where idToRegistration[id]?.repeatWhileHeld == true {
+            retiredHotKeyIds.insert(id)
+        }
+    }
+
     func unregister(keeping isKept: (HotkeyPlannedRegistration) -> Bool = { _ in false }) {
         for (id, ref) in refsById where !(idToRegistration[id].map(isKept) ?? false) {
             UnregisterEventHotKey(ref)
             refsById[id] = nil
             idToRegistration[id] = nil
             pressedHotKeyIds.remove(id)
+            if !retiredHotKeyIds.isEmpty { retiredHotKeyIds.remove(id) }
         }
     }
 
@@ -106,6 +114,13 @@ final class CarbonHotkeyRegistration {
 
     private func dispatch(id: UInt32, isRepeat: Bool, onCommand: ((HotkeyInvocation) -> Void)?) {
         guard let registration = idToRegistration[id] else { return }
+        if registration.repeatWhileHeld, !retiredHotKeyIds.isEmpty {
+            if isRepeat {
+                guard !retiredHotKeyIds.contains(id) else { return }
+            } else {
+                retiredHotKeyIds.remove(id)
+            }
+        }
         InputTrace.record("hotkey.carbon cmd=\(registration.command.displayName)")
         onCommand?(
             HotkeyInvocation(

@@ -213,6 +213,18 @@ ROUTES.update(("replace/applied", "replace/stale", "replace/malformed"))
 NAMED_KEY_PAIRS = (("named/hit", "window/hit"), ("named/ref-hit", "window/ref-hit"),
                    ("named/tap-press", "window/tap-press"), ("named/tap-release", "window/tap-release"))
 ROUTES.update((*(route for pair in NAMED_KEY_PAIRS for route in pair), "named/miss", "named/luau", "named/luau-control"))
+HELD_KEY_COSTS = {
+    "held/window-press": (7, 8, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 8, 0),
+    "held/window-repeat": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "held/settings-sided-press": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "held/settings-sided-repeat": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "held/named-press": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "held/named-repeat": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "held/sided-press": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "held/sided-repeat": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "held/unbound-repeat": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+}
+ROUTES.update(HELD_KEY_COSTS)
 STORE_ROUTES = ("store/get", "store/get-list", "store/equal-set", "store/changed-set", "store/batch-8",
                 "store/large-write", "store/cold-get")
 STORE_WRITES = {"store/changed-set": 1, "store/batch-8": 1, "store/large-write": 1}
@@ -370,6 +382,19 @@ def check_named_keys(table):
           "Luau delivery adds only the matcher")
 
 
+def check_held_keys(table):
+    fields = tuple(NO_OBSERVER_OWNERSHIP)
+    idle = tuple(NO_OBSERVER_OWNERSHIP.values())
+    for route, expected in HELD_KEY_COSTS.items():
+        for phase in PHASES:
+            baseline = expected if phase == "producer" else idle
+            actual = tuple(int(table[route, phase][field]) for field in fields)
+            if actual != baseline:
+                sys.exit(f"{route}/{phase}: expected {fields} {baseline}, measured {actual}")
+        if int(table[route, "producer"]["VM"]):
+            sys.exit(f"{route}: a built-in shortcut must not enter the config VM")
+
+
 def check_store(table, output):
     fields = tuple(NO_OBSERVER_OWNERSHIP)
     for phase in PHASES:
@@ -521,6 +546,7 @@ def check_costs(output):
                 sys.exit(f"Missing counter measurement: {route} {phase}")
     check_window_rows(table, output)
     check_named_keys(table)
+    check_held_keys(table)
     check_store(table, output)
     check_marks(table)
     check_workspace_actions(table)

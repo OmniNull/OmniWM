@@ -313,6 +313,7 @@ struct HotkeyBinding: Codable, Equatable, Identifiable {
     let command: HotkeyCommand
     var binding: HotkeyTrigger
     var modeKey: KeyBinding?
+    let repeatWhileHeld: Bool
 
     var category: HotkeyCategory {
         ActionCatalog.category(for: id) ?? .focus
@@ -322,11 +323,15 @@ struct HotkeyBinding: Codable, Equatable, Identifiable {
         self.init(id: id, command: command, trigger: binding.isUnassigned ? .unassigned : .chord(binding))
     }
 
-    init(id: String, command: HotkeyCommand, trigger: HotkeyTrigger, modeKey: KeyBinding? = nil) {
+    init(
+        id: String, command: HotkeyCommand, trigger: HotkeyTrigger,
+        modeKey: KeyBinding? = nil, repeatWhileHeld: Bool = false
+    ) {
         self.id = id
         self.command = command
         binding = HotkeyBindingRegistry.canonicalizeTrigger(trigger)
         self.modeKey = HotkeyBindingRegistry.canonicalizeModeKey(modeKey)
+        self.repeatWhileHeld = repeatWhileHeld
     }
 }
 

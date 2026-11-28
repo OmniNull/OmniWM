@@ -64,10 +64,15 @@ struct NamedKeyModes: Equatable {
     }
 
     func command(in index: Int, keyCode: UInt32, rawFlags: UInt64) -> HotkeyCommand? {
+        guard let slot = entryIndex(in: index, keyCode: keyCode, rawFlags: rawFlags) else { return nil }
+        return modes[index].entries[slot].command
+    }
+
+    func entryIndex(in index: Int, keyCode: UInt32, rawFlags: UInt64) -> Int? {
         guard keyCode < UInt32(Self.keyCodeLimit) else { return nil }
         let shifted = rawFlags & CGEventFlags.maskShift.rawValue != 0 ? 1 : 0
         let slot = Int(modes[index].slots[Int(keyCode) << 1 | shifted])
-        return slot == 0 ? nil : modes[index].entries[slot - 1].command
+        return slot == 0 ? nil : slot - 1
     }
 
     static func slot(for key: KeyBinding) -> Int? {

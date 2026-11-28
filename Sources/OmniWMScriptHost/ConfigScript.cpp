@@ -143,12 +143,6 @@ void installCommands(lua_State *L) {
     lua_setfield(L, -2, "cmd");
 }
 
-struct CallbackOptions {
-    omni_config_span modeKey{};
-    omni_config_span mode{};
-    uint32_t reads = 0;
-};
-
 constexpr std::string_view dwindleRead = "dwindle";
 constexpr std::string_view marksRead = "marks";
 constexpr std::string_view appsRead = "apps";
@@ -260,8 +254,9 @@ uint32_t readMask(lua_State *L, ConfigVM &vm, omni_config_location site) {
     return mask;
 }
 
-CallbackOptions callbackOptions(lua_State *L, ConfigVM &vm, omni_config_location site, bool binding, bool function) {
-    CallbackOptions options;
+omni_config_binding_options callbackOptions(lua_State *L, ConfigVM &vm, omni_config_location site,
+    bool binding, bool function) {
+    omni_config_binding_options options{};
     if (lua_isnoneornil(L, 3)) {
         return options;
     }
@@ -273,18 +268,24 @@ CallbackOptions callbackOptions(lua_State *L, ConfigVM &vm, omni_config_location
         auto span = token(L, vm, -2, site);
         std::string_view key(span.data, span.length);
         if (binding && key == "modeKey") {
-            options.modeKey = token(L, vm, -1, site);
+            options.mode_key = token(L, vm, -1, site);
         } else if (binding && key == "mode") {
             options.mode = token(L, vm, -1, site);
+        } else if (binding && key == "repeatWhileHeld") {
+            if (lua_type(L, -1) != LUA_TBOOLEAN) {
+                reject(L, vm, site, "repeatWhileHeld expects a boolean");
+            }
+            options.repeat_while_held = lua_toboolean(L, -1) != 0;
         } else if (function && key == "reads") {
             options.reads = readMask(L, vm, site);
         } else {
-            reject(L, vm, site, binding ? "unknown keymap.set option; expected modeKey, mode or reads on a function" :
+            reject(L, vm, site, binding ?
+                "unknown keymap.set option; expected modeKey, mode, repeatWhileHeld or reads on a function" :
                 "unknown callback option; expected reads");
         }
         lua_pop(L, 1);
     }
-    if (options.modeKey.data && options.mode.data) {
+    if (options.mode_key.data && options.mode.data) {
         reject(L, vm, site, "keymap.set takes modeKey or mode, not both");
     }
     return options;
@@ -399,9 +400,8 @@ int bindKey(lua_State *L) {
     const auto options = callbackOptions(L, vm, site, true, function);
     bool bound = function
         ? vm.callbacks.bind_function(vm.context, chord, registerFunction(L, vm, site, options.reads),
-            options.modeKey, options.mode, options.reads, site, vm.failure, sizeof vm.failure)
-        : vm.callbacks.bind(vm.context, chord, *action, options.modeKey, options.mode, site, vm.failure,
-            sizeof vm.failure);
+            options, site, vm.failure, sizeof vm.failure)
+        : vm.callbacks.bind(vm.context, chord, *action, options, site, vm.failure, sizeof vm.failure);
     if (!bound) {
         reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid binding");
     }

@@ -66,6 +66,7 @@ extension HotkeyCenter {
         let active = activeNamedKeyMode?.id
         let presenceChanged = namedKeyModes.isEmpty != modes.isEmpty
         namedKeyModes = modes
+        retireRemovedNamedHolds()
         if let active {
             if let index = modes.index(of: active) {
                 keyboardModeInput.state = .named(index)
@@ -78,8 +79,8 @@ extension HotkeyCenter {
     }
 
     func releaseSuppressedKey(_ keyCode: UInt32) -> Bool {
-        guard suppressedHotkeyKeyCodes.remove(keyCode) != nil else { return false }
-        if suppressedHotkeyKeyCodes.isEmpty { updateEventTapEnablement() }
+        guard heldTapKeys.release(keyCode) else { return false }
+        if !heldTapKeys.hasSuppressedKeys { updateEventTapEnablement() }
         return true
     }
 
@@ -89,7 +90,7 @@ extension HotkeyCenter {
     }
 
     func releaseKeyboardModeCapture(reconcileTap: Bool = true) {
-        suppressedHotkeyKeyCodes.removeAll()
+        heldTapKeys.suppressed.removeAll()
         if keyboardModeInput.capturesKeys {
             setKeyboardMode(.normal, reconcileTap: reconcileTap)
         } else if reconcileTap {
@@ -145,7 +146,11 @@ extension HotkeyCenter {
             )
         }
         if decision.consumed {
-            suppressedHotkeyKeyCodes.insert(keyCode)
+            if let binding = decision.heldBinding, let command = decision.command, case let .named(index) = previous {
+                heldTapKeys.record(binding, command: command, source: .named(namedKeyModes.modes[index].id))
+            } else {
+                heldTapKeys.suppressed.insert(keyCode)
+            }
         }
         if keyboardModeInput.state != previous {
             keyboardModeDidChange(from: previous)
@@ -175,7 +180,7 @@ extension HotkeyCenter {
         guard let tap = hyperTriggerTap else { return }
         let enabled = keyboardTapRequiredOutsideModes
             || keyboardModeInput.capturesKeys
-            || !suppressedHotkeyKeyCodes.isEmpty
+            || heldTapKeys.hasSuppressedKeys
             || windowSwitcherInput.holdsKeyboard(for: .shortcut)
         if CGEvent.tapIsEnabled(tap: tap) != enabled {
             CGEvent.tapEnable(tap: tap, enable: enabled)
@@ -220,6 +225,7 @@ extension HotkeyCenter {
         if previousKind == .paused, kind != .paused {
             restoreRegistrationsAfterPause()
         } else if kind == .paused, previousKind != .paused {
+            retireHeldBindings()
             applyRegistrationFilters()
         }
         if kind != .normal, previousKind == .normal, windowSwitcherInput.isActive {
@@ -245,7 +251,7 @@ extension HotkeyCenter {
         )
         sideSpecificDispatch = hyperTriggerTap == nil ? [] : plan.sideSpecificRegistrations
             .filter { isRegistrationAllowed($0.command) && !yieldsToPalette($0.binding) }
-            .map { CommandHotkeyTapMatcher.Entry(binding: $0.binding, command: $0.command) }
+            .map(\.tapEntry)
         mouseButtonDispatch = plan.mouseButtonRegistrations.filter { isRegistrationAllowed($0.value) }
     }
 

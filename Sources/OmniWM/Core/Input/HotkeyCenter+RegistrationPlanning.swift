@@ -16,7 +16,7 @@ extension HotkeyCenter {
             systemHyperTriggerEnabled: configuration.systemHyperTrigger.isEnabled,
             systemHyperTriggerName: configuration.systemHyperTrigger.humanReadableString,
             systemHyperTriggerFailure: systemHyperTriggerFailure.map { "\($0)" },
-            suppressedHotkeyCount: suppressedHotkeyKeyCodes.count,
+            suppressedHotkeyCount: heldTapKeys.suppressedCount,
             registrationFailureCount: registrationFailures.count,
             sideSpecificCount: sideSpecificDispatch.count,
             bindingCount: configuration.bindings.count,
@@ -77,7 +77,9 @@ extension HotkeyCenter {
         for candidate in candidates where failures[candidate.command] == nil {
             switch candidate.binding {
             case let .chord(binding):
-                let registration = HotkeyPlannedRegistration(binding: binding, command: candidate.command)
+                let registration = HotkeyPlannedRegistration(
+                    binding: binding, command: candidate.command, repeatWhileHeld: candidate.repeatWhileHeld
+                )
                 if binding.sidedModifiers.isEmpty {
                     registrations.append(registration)
                 } else {

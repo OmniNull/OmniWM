@@ -102,6 +102,7 @@ final class ConfigScriptNativePressTests: XCTestCase {
                 XCTAssertEqual(try XCTUnwrap(delivered).command, input.expected)
                 XCTAssertEqual(controller.userActionCount - userActions, controller.isEnabled ? 1 : 0)
                 XCTAssertEqual(omni_config_vm_entry_count() - beforePress, 0)
+                XCTAssertTrue(center.releaseSuppressedKey(keyCode))
                 matches += 1
             }
         }

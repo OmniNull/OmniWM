@@ -74,6 +74,42 @@ final class ConfigScriptModeKeyTests: XCTestCase {
         XCTAssertTrue(settings.hotkeyBindings.isEmpty)
     }
 
+    func testRepeatWhileHeldStagesNamedActionsAndSidedCallbacks() async throws {
+        let mode = "move"
+        let action = "omniwm.cmd.\(paletteMember)()"
+        let bindings: [(declaration: String, repeats: Bool)] = [
+            ("omniwm.keymap.set('H', \(action), { mode = '\(mode)', repeatWhileHeld = true })", true),
+            (
+                "omniwm.keymap.set('Left Option+J', function() end, { repeatWhileHeld = true, reads = { 'windows' } })",
+                true
+            ),
+            ("omniwm.keymap.set('Left Option+I', \(action), { repeatWhileHeld = false })", false),
+            ("omniwm.keymap.set('Left Option+K', \(action))", false)
+        ]
+        let source = ["omniwm.keymap.mode('\(mode)')"] + bindings.map(\.declaration)
+        let evaluation = try await evaluate(source.joined(separator: "\n"))
+        XCTAssertEqual(evaluation.bindings.map(\.repeatWhileHeld), bindings.map(\.repeats))
+        XCTAssertEqual(evaluation.bindings.first?.modeName, mode)
+        let sided = try XCTUnwrap(evaluation.bindings.first { $0.rawChord == "Left Option+J" })
+        XCTAssertEqual(sided.reads, [.windows])
+    }
+
+    func testRepeatWhileHeldRequiresBooleanAtBindingSite() async throws {
+        for value in ["0", "'true'", "{}"] {
+            let source = [
+                "local action = omniwm.cmd.\(paletteMember)()",
+                "omniwm.keymap.set('\(chord)', action, { repeatWhileHeld = \(value) })"
+            ]
+            do {
+                _ = try await evaluate(source.joined(separator: "\n"))
+                XCTFail("Unexpectedly accepted repeatWhileHeld = \(value)")
+            } catch let error as ConfigScriptError {
+                XCTAssertEqual(error.line, source.count)
+                XCTAssertEqual(error.message, "repeatWhileHeld expects a boolean")
+            }
+        }
+    }
+
     func testInvalidOptionsAndIneligibleActionsReportTheirDeclaration() async throws {
         let action = "omniwm.cmd.\(paletteMember)()"
         let options = [

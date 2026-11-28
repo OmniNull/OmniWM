@@ -58,6 +58,13 @@ enum CommandHotkeyTapMatcher {
     struct Entry: Equatable {
         let binding: KeyBinding
         let command: HotkeyCommand
+        let repeatWhileHeld: Bool
+
+        init(binding: KeyBinding, command: HotkeyCommand, repeatWhileHeld: Bool = false) {
+            self.binding = binding
+            self.command = command
+            self.repeatWhileHeld = repeatWhileHeld
+        }
     }
 
     static func match(keyCode: UInt32, rawFlags: UInt64, entries: [Entry]) -> HotkeyCommand? {

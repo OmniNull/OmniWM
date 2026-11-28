@@ -601,16 +601,23 @@ typedef bool (*omni_config_rule_apply_callback)(void *context, const omni_config
 typedef bool (*omni_config_shell_control_callback)(void *context, const omni_config_span *words, size_t count,
     omni_config_location location, char *error, size_t capacity);
 
+typedef struct omni_config_binding_options {
+    omni_config_span mode_key;
+    omni_config_span mode;
+    uint32_t reads;
+    bool repeat_while_held;
+} omni_config_binding_options;
+
 typedef struct omni_config_callbacks {
     bool (*resolve)(void *context, uint16_t group, const omni_config_word *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
-    bool (*bind)(void *context, omni_config_span chord, uint32_t action_id, omni_config_span mode_key,
-        omni_config_span mode, omni_config_location location, char *error, size_t capacity);
+    bool (*bind)(void *context, omni_config_span chord, uint32_t action_id, omni_config_binding_options options,
+        omni_config_location location, char *error, size_t capacity);
     omni_read_module read_module;
     bool (*rule)(void *context, const omni_config_field *fields, size_t count,
         omni_config_location location, char *error, size_t capacity);
-    bool (*bind_function)(void *context, omni_config_span chord, uint32_t callback_id, omni_config_span mode_key,
-        omni_config_span mode, uint32_t reads, omni_config_location location, char *error, size_t capacity);
+    bool (*bind_function)(void *context, omni_config_span chord, uint32_t callback_id, omni_config_binding_options options,
+        omni_config_location location, char *error, size_t capacity);
     bool (*dispatch)(void *context, uint32_t action_id, omni_config_location location, char *error, size_t capacity);
     void (*log)(void *context, omni_config_span message, omni_config_location location);
     bool (*named_function)(void *context, bool is_event, omni_config_span name, uint32_t callback_id, uint32_t reads,

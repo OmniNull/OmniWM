@@ -8,6 +8,10 @@ extension HotkeyCenter {
         guard paletteShortcutChords != chords else { return }
         let previous = paletteShortcutChords
         paletteShortcutChords = chords
+        heldTapKeys.retire { binding, _, source in
+            guard case .sided = source else { return false }
+            return yieldsToPalette(binding)
+        }
         guard isRunning, !commandHotkeysSuspended else { return }
         restorePaletteYieldedRegistrations(previouslyYielding: previous)
         applyPaletteShortcutYield()
@@ -35,8 +39,6 @@ extension HotkeyCenter {
         }
         carbonRegistrations.register(plan.registrations.filter(restorable), failures: &registrationFailures)
         guard hyperTriggerTap != nil else { return }
-        sideSpecificDispatch += plan.sideSpecificRegistrations.filter(restorable).map {
-            CommandHotkeyTapMatcher.Entry(binding: $0.binding, command: $0.command)
-        }
+        sideSpecificDispatch += plan.sideSpecificRegistrations.filter(restorable).map(\.tapEntry)
     }
 }

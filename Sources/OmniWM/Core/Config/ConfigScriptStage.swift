@@ -91,12 +91,12 @@ extension ConfigScriptStage {
                     return failure.write(to: error, capacity: capacity)
                 }
             },
-            bind: { context, chord, actionID, modeKey, mode, location, error, capacity in
+            bind: { context, chord, actionID, options, location, error, capacity in
                 guard let context else { return false }
                 do throws(ConfigScriptError) {
                     let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
                     let action = try Self.action(actionID, in: stage)
-                    try stage.pointee.bind(chord, action: action, modeKey: modeKey, mode: mode, location: location)
+                    try stage.pointee.bind(chord, action: action, options: options, location: location)
                     return true
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)
@@ -118,20 +118,13 @@ extension ConfigScriptStage {
                     return failure.write(to: error, capacity: capacity)
                 }
             },
-            bind_function: { context, chord, functionID, modeKey, mode, reads, location, error, capacity in
+            bind_function: { context, chord, functionID, options, location, error, capacity in
                 guard let context else { return false }
                 do throws(ConfigScriptError) {
                     let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
                     let id = stage.pointee.register(functionID)
                     let action = Action(command: .configFunction(id), text: "function")
-                    try stage.pointee.bind(
-                        chord,
-                        action: action,
-                        modeKey: modeKey,
-                        mode: mode,
-                        reads: .init(rawValue: reads),
-                        location: location
-                    )
+                    try stage.pointee.bind(chord, action: action, options: options, location: location)
                     return true
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)
@@ -300,25 +293,25 @@ extension ConfigScriptStage {
     private mutating func bind(
         _ span: omni_config_span,
         action: Action,
-        modeKey modeSpan: omni_config_span,
-        mode: omni_config_span,
-        reads: ConfigScriptReads = [],
+        options: omni_config_binding_options,
         location: omni_config_location
     ) throws(ConfigScriptError) {
         let raw = try Self.string(span)
         guard let chord = KeySymbolMapper.fromHumanReadable(raw, hyperMask: hyperMask), !chord.isUnassigned else {
             throw ConfigScriptError(line: nil, message: "Invalid keyboard chord '\(raw)'.")
         }
-        if mode.data != nil {
+        let reads = ConfigScriptReads(rawValue: options.reads)
+        if options.mode.data != nil {
             try bind(ConfigScriptBinding(
                 rawChord: raw, chord: chord, command: action.command, commandText: action.text,
-                line: Int(location.line), source: sources.name(of: location.source_id), reads: reads
-            ), inMode: Self.string(mode))
+                line: Int(location.line), source: sources.name(of: location.source_id), reads: reads,
+                repeatWhileHeld: options.repeat_while_held
+            ), inMode: Self.string(options.mode))
             return
         }
         var modeKey: KeyBinding?
-        if modeSpan.data != nil {
-            let name = try Self.string(modeSpan)
+        if options.mode_key.data != nil {
+            let name = try Self.string(options.mode_key)
             guard let key = KeySymbolMapper.fromHumanReadable(name, hyperMask: hyperMask),
                   KeyboardModeTable.Entry(binding: key, command: action.command).isSupported
             else {
@@ -337,7 +330,8 @@ extension ConfigScriptStage {
         }
         bindings.append(ConfigScriptBinding(
             rawChord: raw, chord: chord, command: action.command, commandText: action.text, line: Int(location.line),
-            source: sources.name(of: location.source_id), modeKey: modeKey, reads: reads
+            source: sources.name(of: location.source_id), modeKey: modeKey, reads: reads,
+            repeatWhileHeld: options.repeat_while_held
         ))
     }
 }

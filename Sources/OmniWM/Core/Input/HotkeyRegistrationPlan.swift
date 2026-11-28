@@ -9,6 +9,17 @@ import IOKit.hidsystem
 struct HotkeyPlannedRegistration: Equatable {
     let binding: KeyBinding
     let command: HotkeyCommand
+    let repeatWhileHeld: Bool
+
+    init(binding: KeyBinding, command: HotkeyCommand, repeatWhileHeld: Bool = false) {
+        self.binding = binding
+        self.command = command
+        self.repeatWhileHeld = repeatWhileHeld
+    }
+
+    var tapEntry: CommandHotkeyTapMatcher.Entry {
+        .init(binding: binding, command: command, repeatWhileHeld: repeatWhileHeld)
+    }
 }
 
 enum HotkeyRegistrationFailureReason: Equatable {
