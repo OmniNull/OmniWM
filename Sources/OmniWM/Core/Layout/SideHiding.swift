@@ -92,6 +92,38 @@ struct HiddenWindowPlacementResolver {
         orientation: Monitor.Orientation
     ) -> HiddenWindowPlacement {
         let reveal = Self.effectiveReveal(baseReveal: baseReveal)
+        var best = edgePlacement(
+            for: size, requestedEdge: requestedEdge, orthogonalOrigin: orthogonalOrigin,
+            reveal: reveal, orientation: orientation
+        )
+        guard best.cost > 0 else { return best.placement }
+
+        let span = orientation == .horizontal
+            ? (lower: monitor.frame.minY, upper: monitor.frame.maxY, length: size.height)
+            : (lower: monitor.frame.minX, upper: monitor.frame.maxX, length: size.width)
+        let fits = span.length <= span.upper - span.lower
+        let first = fits ? min(max(orthogonalOrigin, span.lower), span.upper - span.length) : span.lower
+        let firstPlacement = edgePlacement(
+            for: size, requestedEdge: requestedEdge, orthogonalOrigin: first,
+            reveal: reveal, orientation: orientation
+        )
+        if firstPlacement.cost < best.cost { best = firstPlacement }
+        guard !fits, best.cost > 0 else { return best.placement }
+
+        let second = edgePlacement(
+            for: size, requestedEdge: requestedEdge, orthogonalOrigin: span.upper - span.length,
+            reveal: reveal, orientation: orientation
+        )
+        return second.cost < best.cost ? second.placement : best.placement
+    }
+
+    private func edgePlacement(
+        for size: CGSize,
+        requestedEdge: AxisHideEdge,
+        orthogonalOrigin: CGFloat,
+        reveal: CGFloat,
+        orientation: Monitor.Orientation
+    ) -> (placement: HiddenWindowPlacement, cost: CGFloat) {
         let primaryOrigin = origin(
             for: requestedEdge,
             size: size,
@@ -99,14 +131,13 @@ struct HiddenWindowPlacementResolver {
             reveal: reveal,
             orientation: orientation
         )
-        let primaryOverlap = overlapArea(for: CGRect(origin: primaryOrigin, size: size))
-        if primaryOverlap == 0 {
-            return HiddenWindowPlacement(
-                requestedEdge: requestedEdge,
-                resolvedEdge: requestedEdge,
-                origin: primaryOrigin
-            )
-        }
+        let primary = HiddenWindowPlacement(
+            requestedEdge: requestedEdge,
+            resolvedEdge: requestedEdge,
+            origin: primaryOrigin
+        )
+        let primaryCost = placementCost(for: CGRect(origin: primaryOrigin, size: size))
+        if primaryCost == 0 { return (primary, 0) }
 
         let alternateEdge = requestedEdge.opposite
         let alternateOrigin = origin(
@@ -116,20 +147,16 @@ struct HiddenWindowPlacementResolver {
             reveal: reveal,
             orientation: orientation
         )
-        let alternateOverlap = overlapArea(for: CGRect(origin: alternateOrigin, size: size))
-        if alternateOverlap < primaryOverlap {
-            return HiddenWindowPlacement(
+        let alternateCost = placementCost(for: CGRect(origin: alternateOrigin, size: size))
+        if alternateCost < primaryCost {
+            let alternate = HiddenWindowPlacement(
                 requestedEdge: requestedEdge,
                 resolvedEdge: alternateEdge,
                 origin: alternateOrigin
             )
+            return (alternate, alternateCost)
         }
-
-        return HiddenWindowPlacement(
-            requestedEdge: requestedEdge,
-            resolvedEdge: requestedEdge,
-            origin: primaryOrigin
-        )
+        return (primary, primaryCost)
     }
 
     private func origin(
@@ -167,6 +194,11 @@ struct HiddenWindowPlacementResolver {
                 )
             }
         }
+    }
+
+    private func placementCost(for rect: CGRect) -> CGFloat {
+        let onOwnDisplay = rect.intersection(monitor.frame)
+        return onOwnDisplay.isEmpty ? .infinity : overlapArea(for: rect)
     }
 
     private func overlapArea(for rect: CGRect) -> CGFloat {
