@@ -56,6 +56,7 @@ final class WMController {
     var keyboardModeKind = KeyboardModeKind.normal
     @ObservationIgnored var scriptFocusObservers = ConfigScriptFocusObservers()
     @ObservationIgnored var scriptModeObserver: ConfigScriptEventObservers?
+    @ObservationIgnored var scriptLayoutObserver: ConfigScriptEventObservers?
     @ObservationIgnored
     var userActionCount: UInt64 = 0
     let secureInputMonitor = SecureInputMonitor()

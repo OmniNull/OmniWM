@@ -701,6 +701,7 @@ export type ConfigEvents =
     & { read on: (name: "monitor.focused", callback: (event: ConfigMonitorEvent) -> (), options: ConfigReadOptions?) -> () }
     & { read on: (name: "keybinds.submap", callback: (event: ConfigSubmapEvent) -> (), options: ConfigReadOptions?) -> () }
     & { read on: (name: "config.reloaded", callback: (event: ConfigReloadEvent) -> (), options: ConfigReadOptions?) -> () }
+    & { read on: (name: "layout.changed", callback: (event: ConfigLookups) -> (), options: ConfigReadOptions?) -> () }
     & { read on: (name: "window.open", callback: (event: ConfigWindowEdge) -> (), options: ConfigReadOptions?) -> () }
     & { read on: (name: "window.close", callback: (event: ConfigWindowEdge) -> (), options: ConfigReadOptions?) -> () }
     & { read on: (name: "window.move_to_workspace", callback: (event: ConfigWindowEdge) -> (), options: ConfigReadOptions?) -> () }

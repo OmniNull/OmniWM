@@ -243,12 +243,13 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         var overloads: [String] = []
         let named = "{ read id: string?, read name: string? }"
         for kind in ConfigScriptEventKind.allCases {
-            let (name, fields) = switch kind {
+            let (name, fields): (String, String?) = switch kind {
             case .workspaceActive: ("ConfigWorkspaceEvent", named)
             case .windowActive: ("ConfigWindowEvent", "{ read id: string?, read bundleId: string? }")
             case .monitorFocused: ("ConfigMonitorEvent", named)
             case .keybindsSubmap: ("ConfigSubmapEvent", "{ read name: string }")
             case .configReloaded: ("ConfigReloadEvent", "{}")
+            case .layoutChanged: ("ConfigLookups", nil)
             case .windowOpen,
                  .windowClose,
                  .windowMoveToWorkspace: ("ConfigWindowEdge", windowEdge)
@@ -263,8 +264,10 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
             case .windowFullscreen: ("ConfigWindowFullscreen", windowStateFields("fullscreen: boolean"))
             case .windowUpdateState: ("ConfigWindowState", windowStateFields("floating: boolean"))
             }
-            let declaration = "export type \(name) = ConfigLookups & \(fields)"
-            if payloads.last != declaration { payloads.append(declaration) }
+            if let fields {
+                let declaration = "export type \(name) = ConfigLookups & \(fields)"
+                if payloads.last != declaration { payloads.append(declaration) }
+            }
             overloads
                 .append(
                     "{ read on: (name: \(kind.rawValue.debugDescription), callback: (event: \(name)) -> (), options: ConfigReadOptions?) -> () }"

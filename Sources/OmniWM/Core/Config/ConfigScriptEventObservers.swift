@@ -24,6 +24,7 @@ final class ConfigScriptEventObservers {
     let focusReceiver: ConfigScriptFocusReceiver?
     var windowStates = ConfigScriptObservedWindowStates()
     var catalogMonitorContext: WorkspaceManager.MonitorResolutionContext?
+    var layoutBaseline = ConfigScriptLayoutBaseline.waitingForServices
     private var queue: ConfigScriptCallbackQueue?
     private let deliver: (@MainActor (ConfigScriptEventKind, ConfigScriptEventPayload) -> Void)?
 
@@ -60,6 +61,9 @@ final class ConfigScriptEventObservers {
         installWindowEdges(on: controller, kinds: kinds)
         installWindowStates(on: controller, kinds: kinds)
         installTopologyEdges(on: controller, kinds: kinds)
+        if kinds.contains(.layoutChanged) {
+            installLayoutObserver(on: controller)
+        }
     }
 
     func stop() {
@@ -71,6 +75,7 @@ final class ConfigScriptEventObservers {
         if let focusReceiver { NotificationCenter.default.removeObserver(focusReceiver) }
         controller.scriptFocusObservers.remove(self)
         if controller.scriptModeObserver === self { controller.scriptModeObserver = nil }
+        if controller.scriptLayoutObserver === self { controller.scriptLayoutObserver = nil }
         self.controller = nil
     }
 

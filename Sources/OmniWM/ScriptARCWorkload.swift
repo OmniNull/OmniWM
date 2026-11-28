@@ -438,6 +438,7 @@ package func runScriptARCAudit(directory: URL, observeDelivery: Bool) async thro
     try await measureWindowDetailReads(in: directory)
     try await measureWholeReads(in: directory)
     try await measureShellControls(in: directory)
+    try await measureLayoutChanged(in: directory)
 }
 
 @MainActor

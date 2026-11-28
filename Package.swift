@@ -169,7 +169,8 @@ let package = Package(
                 "ScriptARCNamedModeWorkload.swift", "ScriptARCStoreWorkload.swift", "ScriptARCMarkWorkload.swift",
                 "ScriptARCDetailsPlatform.swift", "ScriptARCWorkspaceActionWorkload.swift",
                 "ScriptARCWorkspaceScrollWorkload.swift", "ScriptARCOrdinaryNiriReconcile.swift",
-                "ScriptARCRuleApplyWorkload.swift", "ScriptARCShellControlWorkload.swift"
+                "ScriptARCRuleApplyWorkload.swift", "ScriptARCShellControlWorkload.swift",
+                "ScriptARCLayoutChangedWorkload.swift"
             ] : [],
             resources: [
                 .process("Resources"),

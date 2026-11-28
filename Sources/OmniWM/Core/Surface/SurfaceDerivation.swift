@@ -13,6 +13,8 @@ enum SurfaceDerivation {
     @MainActor
     static func derive(world: WorldView) -> DesiredSurfaceScene {
         guard world.hasStartedServices else { return .empty }
+        let niriColumnsForIPC = world.publishesNiriColumnsToIPC
+        let niriColumnsAreFlexOnly = !niriColumnsForIPC && world.observesScriptLayout
         return DesiredSurfaceScene(
             border: deriveBorder(world: world),
             tabRails: world.tabRailInfos(),
@@ -21,7 +23,9 @@ enum SurfaceDerivation {
             bars: world.barSurfaces(),
             islands: world.islandSurfaces(),
             parkingEdgeMasks: world.parkingEdgeMasks(),
-            niriColumns: world.niriColumnSummaries()
+            niriColumns: niriColumnsForIPC || niriColumnsAreFlexOnly
+                ? world.niriColumnSummaries(usesLiveBackingScale: niriColumnsForIPC) : [:],
+            niriColumnsAreFlexOnly: niriColumnsAreFlexOnly
         )
     }
 

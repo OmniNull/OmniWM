@@ -97,6 +97,7 @@ struct DesiredSurfaceScene: Equatable {
     var islands: [DesiredIslandSurface] = []
     var parkingEdgeMasks: [DesiredParkingEdgeMask] = []
     var niriColumns: [WorkspaceDescriptor.ID: NiriColumnSummary] = [:]
+    var niriColumnsAreFlexOnly = false
 
     static let empty = DesiredSurfaceScene()
 }

@@ -216,6 +216,7 @@ Each list holds up to 256 rows and 128 KiB of base fields. `truncated.<list>` is
 | `monitor.focused` | `id`, `name` | Latest |
 | `keybinds.submap` | `name`: `normal`, `paused`, `prefix`, `window` or a [key mode's](#key-modes) name | Latest |
 | `config.reloaded` | none | Latest |
+| `layout.changed` | none | Latest |
 | `window.open`, `window.close`, `window.move_to_workspace` | `id`, `bundleId`, `workspaceId`, `workspaceName`, `previousWorkspaceId`, `previousWorkspaceName`, `missed` | Each |
 | `workspace.created`, `workspace.removed`, `workspace.move_to_monitor` | `id`, `name`, `monitorId`, `monitorName`, `previousMonitorId`, `previousMonitorName`, `missed` | Each |
 | `monitor.added`, `monitor.removed`, `monitor.layout_changed` | `id`, `name`, `frame`, `previousFrame`, `visibleFrame`, `previousVisibleFrame`, `missed` | Each |
@@ -229,6 +230,10 @@ Each list holds up to 256 rows and 128 KiB of base fields. `truncated.<list>` is
 - **`missed`:** counts events dropped because 64 were already waiting.
 
 Handlers last until the next reload.
+
+`layout.changed` is one global notification. It fires when windows change Niri columns, columns are renumbered, a column's relation to the viewport or its mode changes, or a workspace switches between Niri and Dwindle, including an empty workspace. Pixel-only scroll ticks, bar appearance changes and Dwindle split ratio edits leave this listener idle. Registration and reload start with a silent baseline.
+
+Declare `"workspaces"` and `"details"` to read current layout and column data. Several changes can coalesce into one callback, and its reads describe the captured state. A layout action dispatched from the listener can cause a later notification, so check the current state before dispatching.
 
 ## Window actions
 
@@ -520,6 +525,29 @@ omniwm.on("config.reloaded", function(ctx: ConfigReloadEvent)
         end
     end
 end, { reads = { "shell" } })
+```
+
+**Notice a layout change.** Save this in `init.luau`, then move a Niri column to a different position.
+
+```lua
+omniwm.on("layout.changed", function()
+    omniwm.notify("Layout changed")
+end)
+```
+
+To inspect the current workspace's columns instead, declare the workspace details and log each column's position, mode and relation to the visible area.
+
+```lua
+omniwm.on("layout.changed", function(e: ConfigLookups)
+    for _, workspace in e.workspaces or {} do
+        local columns = workspace.columns
+        if workspace.current and columns then
+            for position, column in columns do
+                omniwm.log(position, column.mode, column.viewport)
+            end
+        end
+    end
+end, { reads = { "workspaces", "details" } })
 ```
 
 **Focus the most recently used Safari window.** Run **Focus Recent Safari Window** from the command palette to focus the Safari window you used most recently, including on another workspace. The command needs a focus record and a complete window list with details.

@@ -45,6 +45,7 @@ enum ConfigScriptEventKind: String, CaseIterable, Sendable {
     case monitorFocused = "monitor.focused"
     case keybindsSubmap = "keybinds.submap"
     case configReloaded = "config.reloaded"
+    case layoutChanged = "layout.changed"
     case windowOpen = "window.open"
     case windowClose = "window.close"
     case windowMoveToWorkspace = "window.move_to_workspace"
@@ -69,7 +70,8 @@ enum ConfigScriptEventKind: String, CaseIterable, Sendable {
              .windowActive,
              .monitorFocused,
              .keybindsSubmap,
-             .configReloaded: .latest
+             .configReloaded,
+             .layoutChanged: .latest
         case .windowTitle,
              .windowMinimize,
              .windowFullscreen,

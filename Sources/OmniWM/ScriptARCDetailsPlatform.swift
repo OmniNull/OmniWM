@@ -43,21 +43,39 @@ package func runScriptARCDetailsPlatform(directory: URL) async throws {
         .windows, .windowFrames, .windowColumns, .windowDetails, .workspaces, .workspaceDetails,
         .monitors, .monitorFrames, .monitorDetails, .marks, .apps, .rules, .workspaceBar, .shell
     ]
-    let expectedFlags = UInt8(OMNI_CONFIG_SECTION_DETAILS | OMNI_CONFIG_SECTION_FRAMES | OMNI_CONFIG_SECTION_COLUMNS)
     for warm in [false, true] {
         if warm { warmWindowDetailTextCaches(fixture, count: count) }
         script_arc_begin()
         let capture = queue.capture(reads: reads, controller: controller)
         script_arc_end()
         precondition(capture.target.token == fixture.token)
-        let header = capture.snapshot!.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).littleEndian }
-        precondition(UInt8(truncatingIfNeeded: header >> 8) == expectedFlags)
-        precondition(UInt16(truncatingIfNeeded: header >> 16) == count)
-        for tag in [OMNI_CONFIG_SECTION_MARKS, OMNI_CONFIG_SECTION_APPS, OMNI_CONFIG_SECTION_RULES] {
-            precondition(sectionCount(UInt8(tag), in: capture.snapshot!) == 1)
-        }
-        precondition(sectionCount(UInt8(OMNI_CONFIG_SECTION_WORKSPACE_BAR), in: capture.snapshot!) != nil)
-        precondition(sectionCount(UInt8(OMNI_CONFIG_SECTION_SHELL), in: capture.snapshot!) == shellRows)
+        checkDetailPlatformSnapshot(capture.snapshot!, windowCount: count, shellRows: shellRows)
+    }
+    measureLayoutProjectionPlatformReads(controller, workspace: manager.workspace(for: fixture.token)!)
+}
+
+private func checkDetailPlatformSnapshot(_ snapshot: ConfigScriptSnapshot, windowCount: Int, shellRows: Int) {
+    let expectedFlags = UInt8(OMNI_CONFIG_SECTION_DETAILS | OMNI_CONFIG_SECTION_FRAMES | OMNI_CONFIG_SECTION_COLUMNS)
+    let header = snapshot.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).littleEndian }
+    precondition(UInt8(truncatingIfNeeded: header >> 8) == expectedFlags)
+    precondition(UInt16(truncatingIfNeeded: header >> 16) == windowCount)
+    for tag in [OMNI_CONFIG_SECTION_MARKS, OMNI_CONFIG_SECTION_APPS, OMNI_CONFIG_SECTION_RULES] {
+        precondition(sectionCount(UInt8(tag), in: snapshot) == 1)
+    }
+    precondition(sectionCount(UInt8(OMNI_CONFIG_SECTION_WORKSPACE_BAR), in: snapshot) != nil)
+    precondition(sectionCount(UInt8(OMNI_CONFIG_SECTION_SHELL), in: snapshot) == shellRows)
+}
+
+@MainActor
+private func measureLayoutProjectionPlatformReads(_ controller: WMController, workspace: WorkspaceDescriptor.ID) {
+    controller.cachedMonitorLayout = nil
+    controller.cachedInnerGap = nil
+    let world = WorldView(controller: controller)
+    for _ in [false, true] {
+        script_arc_begin()
+        let columns = world.niriColumnSummaries()
+        script_arc_end()
+        precondition(columns[workspace]?.columnIndexByToken.isEmpty == false)
     }
 }
 

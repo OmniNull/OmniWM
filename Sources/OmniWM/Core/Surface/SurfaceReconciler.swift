@@ -76,10 +76,6 @@ final class SurfaceReconciler {
         configureParkingEdgeCallbacks(parkingEdgeMaskManager)
     }
 
-    func noteWorldChanged() {
-        scheduleReconcile(.fullScene)
-    }
-
     func noteBorderChanged() {
         scheduleReconcile(.borderOnly)
     }
@@ -214,6 +210,7 @@ final class SurfaceReconciler {
         parkingEdgeMaskManager.removeAll()
         nativeFullscreenState.cleanup()
         appliedScene = .empty
+        controller?.scriptLayoutObserver?.layoutBaseline = .waitingForServices
     }
 
     private func flushScheduledReconcile() {
@@ -302,6 +299,11 @@ final class SurfaceReconciler {
     ) -> BorderSurfaceApplyResult {
         controller.workspaceBarManager.apply(desired.bars)
         controller.workspaceBarManager.applyIslands(desired.islands)
+        if controller.scriptLayoutObserver != nil {
+            ConfigScriptEventObservers.publishLayoutChange(
+                from: appliedScene.niriColumns, to: desired.niriColumns, controller: controller
+            )
+        }
         controller.publishWorkspaceDataChanges(from: appliedScene, to: desired)
         let borderOutcome = borderApplier.apply(
             desired.border,
@@ -333,6 +335,10 @@ extension SurfaceReconciler.ReconcileScope: Comparable {
 }
 
 extension SurfaceReconciler {
+    func noteWorldChanged() {
+        scheduleReconcile(.fullScene)
+    }
+
     func noteBordersAndBarsChanged() {
         scheduleReconcile(.bordersAndBars)
     }
@@ -401,7 +407,7 @@ extension SurfaceReconciler {
             noteBorderChanged()
         case .layoutEdge:
             let needsFullScene = !appliedScene.tabRails.isEmpty
-                || controller?.hasWindowOrLayoutEventSubscribers == true
+                || controller?.hasNiriColumnSummaryConsumers == true
             scheduleReconcile(needsFullScene ? .fullScene : .borderOnly)
         }
     }

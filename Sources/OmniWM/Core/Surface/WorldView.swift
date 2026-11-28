@@ -131,11 +131,22 @@ struct WorldView {
         return bars
     }
 
-    func niriColumnSummaries() -> [WorkspaceDescriptor.ID: NiriColumnSummary] {
-        guard controller.hasWindowOrLayoutEventSubscribers else { return [:] }
+    var publishesNiriColumnsToIPC: Bool {
+        controller.hasWindowOrLayoutEventSubscribers
+    }
+
+    var observesScriptLayout: Bool {
+        controller.scriptLayoutObserver != nil
+    }
+
+    func niriColumnSummaries(
+        usesLiveBackingScale: Bool = false
+    ) -> [WorkspaceDescriptor.ID: NiriColumnSummary] {
         var summaries: [WorkspaceDescriptor.ID: NiriColumnSummary] = [:]
         for workspace in controller.workspaceManager.workspaces {
-            summaries[workspace.id] = controller.niriLayoutHandler.columnSummary(for: workspace.id)
+            summaries[workspace.id] = controller.niriLayoutHandler.columnSummary(
+                for: workspace.id, usesLiveBackingScale: usesLiveBackingScale
+            )
         }
         return summaries
     }

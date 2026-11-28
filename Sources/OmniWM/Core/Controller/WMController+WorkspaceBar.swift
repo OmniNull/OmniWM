@@ -99,6 +99,10 @@ extension WMController {
             || ipcApplicationBridge?.hasSubscribers(for: .layoutChanged) == true
     }
 
+    var hasNiriColumnSummaryConsumers: Bool {
+        hasWindowOrLayoutEventSubscribers || scriptLayoutObserver != nil
+    }
+
     var hasWorkspaceBarDataConsumers: Bool {
         workspaceBarRefreshIsEnabled
             || statusBarRefreshIsEnabled
@@ -274,13 +278,29 @@ extension WMController {
         if desired.bars != previous.bars {
             return [.workspaceBar, .windowsChanged, .layoutChanged]
         }
-        guard desired.niriColumns != previous.niriColumns else { return [] }
+        let hasPreviousColumns = !previous.niriColumnsAreFlexOnly && !previous.niriColumns.isEmpty
+        let hasDesiredColumns = !desired.niriColumnsAreFlexOnly && !desired.niriColumns.isEmpty
+        guard hasPreviousColumns || hasDesiredColumns else { return [] }
+        if previous.niriColumnsAreFlexOnly {
+            return niriColumnDataChannels(from: [:], to: desired.niriColumns)
+        }
+        if desired.niriColumnsAreFlexOnly {
+            return niriColumnDataChannels(from: previous.niriColumns, to: [:])
+        }
+        return niriColumnDataChannels(from: previous.niriColumns, to: desired.niriColumns)
+    }
+
+    private static func niriColumnDataChannels(
+        from previousColumns: borrowing [WorkspaceDescriptor.ID: NiriColumnSummary],
+        to desiredColumns: borrowing [WorkspaceDescriptor.ID: NiriColumnSummary]
+    ) -> [IPCSubscriptionChannel] {
+        guard desiredColumns != previousColumns else { return [] }
         var channels: [IPCSubscriptionChannel] = []
-        if desired.niriColumns.mapValues(\.columnIndexByToken) != previous.niriColumns.mapValues(\.columnIndexByToken) {
+        if desiredColumns.mapValues(\.columnIndexByToken) != previousColumns.mapValues(\.columnIndexByToken) {
             channels.append(.windowsChanged)
         }
-        if desired.niriColumns.mapValues(\.viewport) != previous.niriColumns.mapValues(\.viewport)
-            || desired.niriColumns.mapValues(\.displayModes) != previous.niriColumns.mapValues(\.displayModes)
+        if desiredColumns.mapValues(\.viewport) != previousColumns.mapValues(\.viewport)
+            || desiredColumns.mapValues(\.displayModes) != previousColumns.mapValues(\.displayModes)
         {
             channels.append(.layoutChanged)
         }

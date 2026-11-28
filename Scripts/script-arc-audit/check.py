@@ -114,6 +114,18 @@ SHELL_CONTROL_COSTS = {
 ROUTES.add(SHELL_CONTROL)
 ROUTES.update(f"shell/{action}" for action in SHELL_CONTROL_COSTS)
 ROUTES.update(f"native/shell-{action}" for action in SHELL_CONTROL_COSTS)
+LAYOUT_CHANGES = ("layout/renumber", "layout/viewport", "layout/layout-only")
+LAYOUT_DORMANT_COSTS = {
+    "layout/dormant-full": (69, 95, 5, 7, 12, 1, 0, 2, 3, 1, 0, 0, 0, 0, 0, 32, 51, 0),
+    "layout/interactive-dormant": (4, 5, 0, 2, 4, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0),
+    "layout/interactive-tabbed-dormant": (103, 143, 9, 11, 12, 1, 0, 10, 11, 1, 0, 0, 0, 0, 0, 67, 91, 0),
+    "layout/dormant-tick": (3, 4, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+}
+ROUTES.update((
+    *LAYOUT_DORMANT_COSTS,
+    "layout/subscribed-tick", "layout/unchanged", "layout/interactive-subscribed", "layout/interactive-tabbed-subscribed",
+    "layout/summary", "layout/summary-tabbed", "layout/enqueue", *LAYOUT_CHANGES,
+))
 COMMAND_SELECTORS = ("cmd/integer", "cmd/string-index", "cmd/invalid-selector", "window/integer", "window/string-index")
 ROUTES.update(COMMAND_SELECTORS)
 CALLBACK_COMMAND_BUILDS = {
@@ -465,6 +477,40 @@ def check_shell_controls(table):
                 sys.exit(f"{key}: expected {fields} {expected}, measured {measured}")
 
 
+def check_layout_events(table):
+    fields = tuple(NO_OBSERVER_OWNERSHIP)
+    idle = tuple(NO_OBSERVER_OWNERSHIP.values())
+    for route, expected in LAYOUT_DORMANT_COSTS.items():
+        for phase in PHASES:
+            baseline = expected if phase == "producer" else idle
+            actual = tuple(int(table[route, phase][field]) for field in fields)
+            if actual != baseline:
+                sys.exit(f"{route}/{phase}: expected {fields} {baseline}, measured {actual}")
+    for phase in PHASES:
+        dormant = table["layout/dormant-tick", phase]
+        subscribed = table["layout/subscribed-tick", phase]
+        if any(dormant[field] != subscribed[field] for field in NO_OBSERVER_OWNERSHIP):
+            sys.exit(f"layout/subscribed-tick/{phase}: sampling borders must cost the same with or without a listener")
+    for route, control, summary in (
+        ("layout/unchanged", "layout/dormant-full", "layout/summary"),
+        ("layout/interactive-subscribed", "layout/dormant-full", "layout/summary"),
+        ("layout/interactive-tabbed-subscribed", "layout/interactive-tabbed-dormant", "layout/summary-tabbed"),
+    ):
+        for field in ("obj", "heap"):
+            baseline = int(table[control, "producer"][field])
+            inherited = int(table[summary, "producer"][field])
+            if int(table[route, "producer"][field]) > baseline + inherited:
+                sys.exit(f"{route}: an unchanged scene must allocate only its native baseline and one summary")
+    enqueue = table["layout/enqueue", "producer"]
+    if any(int(enqueue[field]) for field in RESIDENT_EVENT_MAIN_STORAGE):
+        sys.exit("layout/enqueue: queueing the event must reuse resident storage without a read snapshot")
+    for route in LAYOUT_CHANGES:
+        for phase in ("dequeue", "config", "completion"):
+            actual, direct = table[route, phase], table["layout/enqueue", phase]
+            if any(actual[field] != direct[field] for field in NO_OBSERVER_OWNERSHIP):
+                sys.exit(f"{route}/{phase}: scene publication must deliver one ordinary layout event")
+
+
 def check_costs(output):
     rows = [line.split() for line in output.splitlines()]
     header = next(row for row in rows if row and row[0] == "route")
@@ -480,6 +526,7 @@ def check_costs(output):
     check_workspace_actions(table)
     check_rule_apply(table)
     check_shell_controls(table)
+    check_layout_events(table)
     for route in ("settings/key", "script/plain-key"):
         producer = table[route, "producer"]
         if int(producer["R"]) > NATIVE_RETAIN_CEILING or int(producer["L"]) > NATIVE_RELEASE_CEILING:
@@ -775,7 +822,7 @@ def check_detail_platform_reads(lldb, binary, fixture):
         ("WindowQuery", "SLSWindowQueryWindows"),
         ("CGDisplayBounds", "CGDisplayBounds"),
     )
-    scopes = ("calibration", "cold", "warm")
+    scopes = ("calibration", "cold", "warm", "layout-cold", "layout-warm")
     commands = [f'breakpoint set -n "{symbol}" -G true' for _, symbol in probes]
     commands += [
         "breakpoint set -s libScriptARC.dylib -n script_arc_begin",
