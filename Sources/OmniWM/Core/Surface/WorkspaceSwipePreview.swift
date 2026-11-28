@@ -350,7 +350,7 @@ extension WorkspaceSwipePreview {
         source: [Item], destination: [Item], monitor: Monitor, frame: CGRect, image: CGImage
     ) -> (CALayer, CALayer) {
         let scale = Self.scale(for: monitor)
-        let ranks = source.count > 1 || destination.count > 1 ? SkyLight.shared.onScreenWindowRanksFrontToBack() : [:]
+        let ranks = source.count > 1 || destination.count > 1 ? SkyLight.windowRanksFrontToBack() : [:]
 
         func makeLayer(for items: [Item]) -> CALayer {
             let layer = CALayer()
